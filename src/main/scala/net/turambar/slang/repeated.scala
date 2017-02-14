@@ -4,7 +4,8 @@ import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
 
-/**
+/** A group of functions and injected methods for `fold`-like operations and generating
+  * streams/collections of values from a starting point and a function.
   * @author Marcin Mościcki
   */
 object repeated {
@@ -26,7 +27,7 @@ object repeated {
 	}
 	
 	/** Represents a range `[0, this)` which defines number of iterations. */
-	implicit class repeatTimes(val times :Int) extends AnyVal {
+	implicit class repeatTimes(private val times :Int) extends AnyVal {
 		/** Execute `f` (code block passed by name) `this` number of times. */
 		@inline def times[T](f : =>T) :Unit = for (i <- 0 until times) f
 		
@@ -46,28 +47,11 @@ object repeated {
 		  */
 		@inline def /:[T](start :T)(f :T=>T) :T = times(f)(start)
 		
-		//		/** Compose `f` with itself `this` number of times. If `this<=0` `identity[T]` is returned. */
-		//		@inline def compose[T](f :T=>T) :T=>T =
-		//			if (times<=0) identity[T] _
-		//			else compose(f, times-1, f)
-		//
-		//		@tailrec private def compose[T](f :T=>T, n :Int, res :T=>T) :T=>T =
-		//			if (n<=0) res
-		//			else compose(f, n, res compose f)
-		
-		
-		//		@tailrec final def recurse[T](start :T)(f :T=>T) :T =
-		//			if (times<=0) start
-		//			else (times-1).recurse(f(start))(f)
-		
-		//		@tailrec private def recurse[T](n :Int, start :T, f :T=>T) :T =
-		//			if (n<=0) start
-		//			else recurse(n-1, f(start), f)
-		
+
 		
 	}
 
-	/** Given an acumulator value of type `A`, generate a sequence of values by recursively applying
+	/** Given an accumulator value of type `A`, generate a sequence of values by recursively applying
 	  * function `next`, and combine the generated value with last accumulator value.
 	  * This function is equivalent to generating a virtual input stream of type `T` from a recursive partial function
 	  * and folding that stream at the same time, with generator and map functions combined into a single step.
@@ -158,15 +142,18 @@ object repeated {
 	  * @tparam C return collection type
 	  * @return a collection containing the sequence starting with `start` and resulting from recursively applying `next` to itself.
 	  */
-	def iterateSome[X, C](start :X)(next :X=>Option[X])(implicit cbf :CanBuildFrom[_, X, C]) :C = {
-		val builder = cbf()
-		builder += start
-		@tailrec def rec(x :X=start) :C = next(x) match {
-			case Some(y) => builder +=y; rec(y)
-			case None => builder.result()
+	def iterateSome[X, C](start :X)(next :X=>Option[X])(implicit cbf :CanBuildFrom[_, X, C]) :C =
+		if (cbf==Stream.ReusableCBF)
+			(start #:: (next(start).map(iterateSome(_)(next) :Stream[X]) getOrElse Stream.Empty)).asInstanceOf[C]
+		else {
+			val builder = cbf()
+			builder += start
+			@tailrec def rec(x :X=start) :C = next(x) match {
+				case Some(y) => builder +=y; rec(y)
+				case None => builder.result()
+			}
+			rec()
 		}
-		rec()
-	}
 
 	/** Recursively applies function `next` to its result, starting with argument `start` and returning
 	  * an eager sequence containing `start` followed by the values returned by `next`.
@@ -182,7 +169,7 @@ object repeated {
 
 
 	/** Apply the given partial function recursively to the returned successor value, starting with the given value,
-	  * and return a sequence of all intermediate results. Recursion stops once the function can no loger be applied to the
+	  * and return a sequence of all intermediate results. Recursion stops once the function can no longer be applied to the
 	  * argument it returned, and all first elements of previously returned pairs are returned in a sequence.
 	  * In essence, this is a function combining generation of a stream from a recursive partial function and mapping
 	  * over that stream to a single step.

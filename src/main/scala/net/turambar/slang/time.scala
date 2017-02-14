@@ -12,6 +12,7 @@ import scala.util.Try
 /**
   * @author Marcin Mościcki
   */
+/*
 object time {
 
 	/** A period of time, serving as a light wrapper over `java.time.Duration` providing nicer syntax. */
@@ -180,3 +181,4 @@ object time {
 	}
 
 }
+*/

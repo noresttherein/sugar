@@ -40,21 +40,7 @@ package object typist {
 		//		@inline implicit final def identityUpperBound[X, Y](implicit ev :X=:=Y) :UpperBound[X, Y, X] = leftUpperBound[X, X].asInstanceOf[UpperBound[X, Y, X]]
 	}
 
-	//	trait A {
-	//		def iAmA = ???
-	//	}
-	//	class B extends A
-	//	class C extends A
-	//
-	//	def ubind[A, B, C](l :A, r :B)(implicit u :UpperBound[A, B, C]) :C = u.left(l)
-	//	def lbind[A, B, C](l :A, r :B)(implicit u :LowerBound[A, B, C]) :C = ???
-	//
-	//	val u = ubind(new B, new C)
-	//	u.iAmA
-	//
-	//	val lub = UpperBound[B, C]()
-	//	val a :lub.T = ???
-	//	a.iAmA
+
 
 	final class LowerBound[X, Y, L] private[typist] (val _1 :L<:<X, val _2 :L<:<Y) {
 		type T = L

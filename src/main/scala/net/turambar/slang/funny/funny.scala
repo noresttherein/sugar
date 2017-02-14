@@ -3,7 +3,7 @@ package net.turambar.slang
 package object funny {
 	def lift[X, Y](f :PartialFunction[X, Y]) :X=>Option[Y] = f.lift
 
-	def lower[X, Y](f :X=>Option[Y]) :PartialFunction[X, Y] = f.lower
+	def lower[X, Y](f :X=>Option[Y]) :PartialFunction[X, Y] = new PartialFunctionOptionAdapter(f)
 
 	implicit class lowerToPartialFunction[A, B](private val f :A=>Option[B]) extends AnyVal {
 		def lower :PartialFunction[A, B] = new PartialFunctionOptionAdapter(f)

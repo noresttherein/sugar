@@ -5,8 +5,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-import net.turambar.slang.Yarn.LazyStreamYarn
 
+/*
 
 sealed trait Yarn[+T] extends Any {
 	def head :T = toStream.head
@@ -286,3 +286,4 @@ object Yarn {
 	
 	
 }
+*/

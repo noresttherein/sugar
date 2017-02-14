@@ -1,6 +1,7 @@
 package net.turambar.slang.typist
 
 
+/*
 object unions {
 	import UnionType._
 
@@ -62,43 +63,5 @@ object unions {
 	}
 
 
-
-	object Test {
-/*		def unboxed[T :(Int || String || Double)#any](value :T) = value match {
-			case i :Int => s"Int: $i"
-			case s :String => s"String: $s"
-			case d :Double => s"Double: $d"
-		}*/
-
-		def boxed(value :(Int || String || Double)) = value match {
-			case Case(i :Int) => s"Int: $i"
-			case Case(s :String) => s"String: $s"
-			case Case(d :Double) => s"Double: $d"
-			case u => s"unknown :$u ($value)"
-		}
-
-		/*def sugared(value :(Int || String || Double)) = value {
-			case i :Int => s"Int :$i"
-			case s :String => s"String: $s"
-			case d :Double => s"Double: $d"
-		}*/
-
-//		def as(value :Int \/ String \/ Double) =
-//			value.as[Int]("Int :" + _) orElse value.as[String] { "String : " + _ } orElse value.as[Double] { "Double : "+ _ }
-
-		def poly(value :Int \/ String \/ Double) =
-			value({ i :Int => s"Int : $i" }) orElse value{ s :String => s"String : $s"} orElse value { d :Double => s"Double: $d" }
-
-/*
-		def unapplied[T :(Int || String || Double)#any](value :T) = value match {
-			case Un(i) => implicitly[Int in (Int \/ String \/ Double)]
-		}
-
-		object Un {
-			def unapply[U, M](union :U)(implicit member :M in U) :Option[M] = None
-
-
-		}
-*/
-	}
 }
+*/
