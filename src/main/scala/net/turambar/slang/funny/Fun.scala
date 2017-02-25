@@ -89,7 +89,8 @@ object Fun {
 		override def andThen[A](g: (Y) => A): (X) => A = new ComposedFun(this, g)
 	}
 
-	abstract class =>##[@specialized(Fun1Args) -X, @specialized(Fun1Results) +Y](override val toString :String) extends ComposableFun[X, Y]
+
+	abstract class #=>:[@specialized(Fun1Args) -X, @specialized(Fun1Results) +Y](override val toString :String) extends ComposableFun[X, Y]
 
 	final class NamedFun1[@specialized(Fun1Args) -X, @specialized(Fun1Results) +Y](name :String, f :X=>Y) extends ComposableFun[X, Y] {
 		override def apply(v1: X): Y = f(v1)
