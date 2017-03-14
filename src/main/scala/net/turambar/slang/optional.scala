@@ -12,7 +12,7 @@ import scala.util.Try
   */
 object optional {
 
-	class Nullable[+T >: Null](val orNull :T) extends AnyVal {
+	final class Nullable[+T >: Null](val orNull :T) extends AnyVal {
 		@inline final def isEmpty: Boolean = orNull==null
 		@inline final def nonEmpty: Boolean = orNull!=null
 		@inline final def isDefined: Boolean = orNull!=null
