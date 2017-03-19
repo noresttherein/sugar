@@ -1,123 +1,181 @@
 package net.turambar.slang.funny
 
-import Curry.PartiallyApplied.CurryOn
 import net.turambar.slang.funny.Curry.Curried.__
-import net.turambar.slang.funny.Curry.{Compose, NextArg}
+import net.turambar.slang.funny.Curry.{=>:, NextArg}
 import net.turambar.slang.typist.LowerBound
 
 
-/** Represents a type (and function) constructor of partially applied, curried function `F` which is of the form `... X => A`,
-  * where X is the type of the first argument after (partial) application.
+/** Represents a type (and function) constructor of a partially applied, curried function `F` which is of the form `X0 => ... => Xn => X => T`
+  * for any natural `n`, where X is the type of the first argument after (partial) application.
   * Provides methods for manipulating functions `F` around this argument.
-  * @tparam C[G] result of mapping partial result `(X=>A)` of function `F` to `G`; `F =:= C[X=>A]`
+  * @tparam Args[G] result of mapping an intermediate result `(X=>T)` of function `F` to `G`; `F =:= Args[X=>T]`
   * @tparam X type of the first argument after partial application
-  * @tparam A result type of function F partially applied up to and including argument X
+  * @tparam T result type of function F partially applied to all its arguments up to and including X
   */
-sealed abstract class Curry[C[+G], X, A] { prev =>
-	/** Full type of the curried function (including all arguments). */
-	type F = C[X=>A]
-	/** Result of partial application of this function C[X=>A] up to and including parameter `X`. */
-	type Applied = A
-	/** Replace X=>A with G as the result type of C[X=>A]. */
-	type Mapped[+G] = C[G]
-	/** A function which takes argument `W` instead of `X` at this position. */
-	type Swapped[W] = Mapped[W=>A]
+sealed abstract class Curry[Args[+R], X, T] { prev =>
 
-	/** A function of 'X' returning this function. */
-	type Composed[W] = W => C[X=>A]
+	/** Full type of the curried function (including all arguments). */
+	type F = Args[X=>T]
+
+	/** Result of partial application of this function `Args[X=>T]` up to and including parameter `X`. */
+	type Result = T
+
+	/** Replace X=>T with `G` as the result type of `Args[X=>T]`. */
+	type Mapped[+G] = Args[G]
+
+	/** A function which takes argument `W` instead of `X` at this position. */
+	type Composed[W] = Args[W=>T]
+
+	/** A function type accepting an additional argument `W` before `X`, equivalent to `(Args :=> W)#F[T]`. */
+	type Accepting[W] = Args[W=>X=>T]
+
+	/** A function of 'X' returning this function, equivalent to `(W =>: Args)#F[T]`. */
+	type From[W] = W => Args[X=>T]
 
 	/** Provide a fixed value for this argument, removing it from the argument list. Same as `apply(f)(x)` for use
-	  * when resolution of apply would be ambigous.
+	  * when resolution of apply would be ambiguous.
 	  */
-	def set(f :C[X=>A])(x :X) :Mapped[A] = map[A](f)(_(x))
+	@inline final def set(f :Args[X=>T])(x :X) :Mapped[T] = map[T](f)(_(x))
 
 	/** Provide a fixed value for this argument, removing it from the argument list.
-	  * C[X=>A]or example, the result of `Curry{a :Any => b :Byte => c :Char => s"&dollar;a&dollar;b&dollar;c" }().set(1.toByte)`
+	  * Args[X=>T]or example, the result of `Curry{a :Any => b :Byte => c :Char => s"&dollar;a&dollar;b&dollar;c" }().set(1.toByte)`
 	  * (after inlining) would be a function `{a :Any => c :Char => s"&dollar;a&dollar;{1.toByte}&dollar;c" }`.
 	  */
-	def apply(f :C[X=>A])(x :X) :Mapped[A] = map[A](f)(_(x))
+	@inline final def apply(f :Args[X=>T])(x :X) :Mapped[T] = map[T](f)(_(x))
 
-	/** Substitute the type of this argument `X` with type `W` by mapping the argument with the given function before applying `f`.
-	  * C[X=>A]or example, given a function `f :C[X=>A] &lt;: D=>O=>X=>A` and `x :W=>X`, the result is `{d :D => o :O => w :W => f(d)(o)(x(w)) }`.
+	/** Compose the return type `X=>T` of partially applied `F` with another function.
+	  * Substitutes the type of next argument `X` with type `W` by mapping the argument with the given function before applying `f`.
+	  * Args[X=>T]or example, given a function `f :Args[X=>T] &lt;: D=>O=>X=>T` and `x :W=>X`, the result is `{d :D => o :O => w :W => f(d)(o)(x(w)) }`.
 	  */
-	def swap[W](f :C[X=>A])(x :W=>X) :Mapped[W=>A] = map[W=>A](f){ r :(X=>A) => (w :W) => r(x(w)) }
+	@inline final def compose[W](f :Args[X=>T])(x :W=>X) :Mapped[W=>T] = map[W=>T](f){ r :(X=>T) => (w :W) => r(x(w)) }
+
+	/** Create a new function resulting from `f` by inserting an ignored argument of type `W` before argument `X`. */
+	@inline final def accept[W](f :Args[X=>T]) :Mapped[W=>X=>T] = map[W=>X=>T](f) { r :(X=>T) => _ :W => r }
 
 	/** Map the result of partial application of this function up to argument `X` (not including).
-	  * C[X=>A]or example, if `C[X=>A] =:= K=>L=>X=>A`, the result is a function `{k :K => l :L => map(f(k)(l)) }`.
-	  * @param map function taking the result of applying C[X=>A] up until argument `X`.
+	  * Args[X=>T]or example, if `Args[X=>T] =:= K=>L=>X=>T`, the result is a function `{k :K => l :L => map(f(k)(l)) }`.
+	  * @param map function taking the result of applying Args[X=>T] up until argument `X`.
 	  * @return resul
 	  */
-	def map[G](f :C[X=>A])(map :((X => A) => G)) :Mapped[G]
+	def map[O](f :Args[X=>T])(map :((X => T) => O)) :Mapped[O]
 
 	/** Partially apply functions `self` and `other` sharing the same arguments up to `X` (this argument, not including)
 	  * and combine the results using the passed function into another function of arguments up to this curry point.
 	  */
-	def combine[Y, B, G](self :C[X=>A], other :C[Y=>B])(combine :(X=>A, Y=>B) => G) :C[G]
+	def combine[Y, O](self :Args[X=>T], other :Args[Y])(combine :(X=>T, Y) => O) :Args[O]
 
-	/** If the result of this partial application is a function `A &lt;: Y=>R`, swap the order of arguments
-	  * in function `C[X=>A]` from `=>X=>Y=>` to `=>Y=>X=>`.
+	/** If the result of this partial application is a function `T &lt;: Y=>R`, swap the order of arguments
+	  * in function `Args[X=>T]` from `=>X=>Y=>R` to `=>Y=>X=>R`.
 	  */
-	def transpose[Y, R](f :C[X=>A])(implicit ev :A<:<(Y=>R)) :Mapped[Y=>X=>R] = map[Y=>X=>R](f) {
-		r :(X=>A) => y :Y => x :X => ev(r(x))(y)
+	@inline final def transpose[Y, R](f :Args[X=>T])(implicit ev :T<:<(Y=>R)) :Mapped[Y=>X=>R] = map[Y=>X=>R](f) {
+		r :(X=>T) => y :Y => x :X => ev(r(x))(y)
 	}
 
-	/** Return representation of partially applying function `C[Y=>B]` to all arguments already applied in this type. */
-	def mapped[Y, B] :Curry[C, Y, B]
+	/** Return representation of partially applying function `Args[Y=>R]` to all arguments already applied in this type. */
+	def mapped[Y, R] :Curry[Args, Y, R]
 
-	/** Return an instance representing partial application of function `W=>C[X=>A]` up to the same argument as in this instance (i.e., before `X`). */
-	def composed[W] :Curry[(C Compose W)#T, X, A]
+	/** Return an instance representing partial application of function `W=>Args[X=>T]` up to the same argument as in this instance (i.e., before `X`).
+	  * Loosely speaking, it 'adds' another argument of type `W` before all arguments of `F`, representing a function `W=>F`.
+	  */
+	def from[W] :Curry[(W =>: Args)#F, X, T]
 
-	/** Skip to the next argument, i.e return an instance operating on the result of applying this function to argument `X`. */
-	@inline final def apply[Y, R]()(implicit ev :A<:<(Y=>R)) = new NextArg[C, X, Y, R](mapped[X, Y=>R])
+	/** Assuming that result type `T` of `F` is itself a function `Y=>R`, skip to the next argument `Y` following `X` in `F`.
+	  * @return an instance operating on the result of applying this function to argument `X`. */
+	@inline final def apply[Y, R]()(implicit ev :T<:<(Y=>R)) = new NextArg[Args, X, Y, R](mapped[X, Y=>R])
 
 	/** Skip to the next argument, i.e return an instance operating on the result of applying this function to argument `X`.
-	  * Same as apply, for when resolution of `this()` would be ambigous.
+	  * Same as `apply()`, for when resolution of `this()` would be ambigous.
 	  */
-	@inline final def __[Y, R](implicit ev :A<:<(Y=>R)) = new NextArg[C, X, Y, R](mapped[X, Y=>R])
+	@inline final def __[Y, R](implicit ev :T<:<(Y=>R)) = new NextArg[Args, X, Y, R](mapped[X, Y=>R])
 }
 
 
 /** Operations on curried functions. */
 object Curry {
-	type Self[+G] = G
-	type AppliedTo[C[+G], X] = { type T[+G] = C[X=>G] }
-	type Compose[C[+G], X] = { type T[+G] = X => C[G] }
 
-	@inline final def apply[A, B] :Curry[Self, A, B] = new Arg0
+	/** Identity type constructor mapping any type to itself. Used in conjunction with [[:=>]] and [[=>:]]
+	  * to denote argument lists consisting of a single argument. For example,
+	  * `(X =>: Ident)#F[Y] =:= X => Y =:= (Ident :=> X)#F[Y]`.
+	  */
+	type Ident[+R] = R
 
-	@inline final def apply[A, B](instance :A=>B) :Curry[Self, A, B] = new Arg0
+	/** A wrapper for a type constructor `F`, representing a curried argument list `X0 => ... => Xn => X =>`, resulting
+	  * from appending a new argument `X` to the argument list `A` denoting `X0 => ... Xn =>` (for any natural `n`).
+	  * @tparam A type constructor representing a curried argument list; `A[Y] =:= X0 => ... => Xn => Y`.
+	  * @tparam X a new argument type which should be accepted by the resulting type after all arguments of `A`.
+	  * @see [[=>:]]
+	  */
+	type :=>[A[+R], X] = {
+		/** Type constructor for curried functions accepting the arguments represented by this type `A :=> X`.
+		  * `F[Y]` is a function type `X0 => ... => Xn => X => Y`. It is used by all types here to represent an argument list `X, X0, ..., Xn`. */
+		type F[+Y] = A[X=>Y]
+	}
 
-	//		def apply[A, B](f :A=>B) :Curried[Self, A, B] = new Curried[Self, A, B](f)(new Arg0)
+	/** A wrapper for a type constructor `F`, representing a curried argument list `X => X0 => ... => Xn =>`,
+	  * resulting from prepending a new argument `X` to the argument list `A` denoting `X0 => ... Xn =>` (for any natural `n`).
+	  * @tparam X a new argument type which should be accepted by the resulting type before all arguments of `A`.
+	  * @tparam A type constructor representing a curried argument list; `A[Y] =:= X0 => ... => Xn => Y`.
+	  * @see [[:=>]]
+	  */
+	type =>:[X, A[+R]] = {
+		/** Type constructor for curried functions accepting the arguments represented by this type `X =>: A`.
+		  * `F[Y]` is a function type `X => X0 => ... => Xn => Y`. It is used by all types here to represent an argument list `X, X0, ..., Xn`. */
+		type F[+Y] = X => A[Y]
+	}
+
+	/** Explicitly summon an instance of `Curry[Ident, X, Y]` representing unapplied functions `X=>Y`
+	  * and manipulating them at argument `X`. If the result `Y` is also a curried function, returned
+	  * type class will provide possibility to manipulate arguments succeeding `X`.
+ 	  * @tparam X argument type of the represented function type
+	  * @tparam Y result type of the represented function type
+	  * @return a type class representing a curried function `X=>Y` before application to its argument.
+	  */
+	@inline final def apply[X, Y] :Curry[Ident, X, Y] = ErasedArg0.asInstanceOf[Arg0[X, Y]] //new Arg0
+
+
+	/** Explicitly summon an instance of `Curry[Ident, X, Y]` representing unapplied functions `X=>Y`
+	  * and manipulating them at argument `X`. This is the same as [[apply()]], the argument is irrelevant
+	  * and used only to allow for automatic inference of type parameters `X` and `Y`, so they needn't be
+	  * provided explicitly.
+	  * @tparam X argument type of the represented function type
+	  * @tparam Y result type of the represented function type
+	  * @param instance any function of the type we would like manipulate, used only for type inference.
+	  * @return a type class representing a curried function `X=>Y` before application to its argument.
+	  */
+	@inline final def apply[X, Y](instance :X=>Y) :Curry[Ident, X, Y] = ErasedArg0.asInstanceOf[Arg0[X, Y]] //new Arg0
+
 
 
 	/** Operations on the first argument of this function. */
-	final class Arg0[X, Y] extends Curry[Self, X, Y] {
+	final class Arg0[X, Y] extends Curry[Ident, X, Y] {
 
-		override def mapped[A, B]: Curry[Self, A, B] = Curry[A, B]
+		override def mapped[A, B]: Curry[Ident, A, B] = Curry[A, B] //todo: just cast this
 
-		override def composed[W]: Curry[(Self Compose W)#T, X, Y] =
-			new NextArg[Self, W, X, Y](new Arg0[W, X=>Y])
+		override def from[W]: Curry[(W =>: Ident)#F, X, Y] =
+			new NextArg[Ident, W, X, Y](new Arg0[W, X=>Y])
 
 		def map[G](f :X=>Y)(res: (X=>Y) => G) :G = res(f)
 
-		override def combine[A, B, G](f :X=>Y, other: A=>B)(combine: (X => Y, A => B) => G): G =
-			combine(f, other)
+		override def combine[U, O](f :X=>Y, other: U)(combiner: (X => Y, U) => O): O =
+			combiner(f, other)
 	}
+	private[this] final val ErasedArg0 = new Arg0[Any, Any]
+
 
 	/** Operations on `n+1`-th argument `Y` of function `C[X=>Y=>A]`. */
-	final class NextArg[C[+G], X, Y, A](private[funny] val prev :Curry[C, X, Y=>A]) extends Curry[(C AppliedTo X)#T, Y, A] {
+	final class NextArg[C[+G], X, Y, A](private[funny] val prev :Curry[C, X, Y=>A]) extends Curry[(C :=> X)#F, Y, A] {
 
 		/** Return an instance representing the same argument, but of function `W=>F`. `type Mapped[G] = W=>C[X=>G]`. */
-		override def composed[W]: Curry[Compose[AppliedTo[C, X]#T, W]#T, Y, A] =
-			new NextArg[(C Compose W )#T, X, Y, A](prev.composed[W])
+		override def from[W]: Curry[(W =>: (C :=> X)#F)#F, Y, A] =
+			new NextArg[(W =>: C)#F, X, Y, A](prev.from[W])
 
-		override def mapped[W, B]: Curry[(C AppliedTo X)#T, W, B] = prev.mapped[X, W=>B].__
+		override def mapped[W, B]: Curry[(C :=> X)#F, W, B] = prev.mapped[X, W=>B].__ //todo: just cast this
 
 		override def map[G](f :F)(res: (Y => A) => G): prev.Mapped[X => G] =
 			prev.map[X=>G](f) { g :(X=>Y=>A) => x :X => res(g(x)) }
 
-		override def combine[M, N, G](self :F, other: C[X=>M=>N])(combine: (Y => A, M=>N) => G): C[X=>G] =
-			prev.combine[X, M=>N, X=>G](self, other)((me :X=>Y=>A, her :X=>M=>N) => { x :X => combine(me(x), her(x))} )
+		override def combine[U, O](self :F, other: C[X=>U])(combine: (Y => A, U) => O): C[X=>O] =
+			prev.combine[X=>U, X=>O](self, other)((me :X=>Y=>A, her :X=>U) => { x :X => combine(me(x), her(x))} )
 	}
 
 
@@ -126,30 +184,43 @@ object Curry {
 
 
 
-	/** Witnessess that `X=>Y &lt;: ... => A=>R` or (`X=>Y &lt;: this.Mapped[A=>R]`), i.e.
-	  * that `R` is a type returned by (possibly partial) application of `X=>Y`. Implicit
-	  * instances are available for 'final' return types, i.e first returned type which is not a function itself.
-	  * @tparam F &lt;: X=>Y function in a curried form which returns `R` after partial application, as witnessed by this instance.
-	  * @tparam A last argument of `F` before returning `R`, i.e. `F &lt;: X1=>..=>Xn=>A=>R` for some `n>=0`.
-	  * @tparam R returned type after applying `F` to a series of parameters (possibly all).
+	/** Witnesses that `F &lt;: ... => X=>Y` or (`F &lt;: this.Mapped[X=>Y]`), i.e.
+	  * that `Y` is a type returned by (possibly partial) application of function `F`.
+	  * Implicit instances are available for 'final' return types, i.e first returned type which is not a function itself.
+	  * Note that in case of not fully instantiated types, 'final' is a relative term and represents the static knowledge
+	  * about `F` in the context where this instance was summoned.
+	  * @tparam F &lt;: X=>X function in a curried form which returns `Y` after partial application, as witnessed by this instance.
+	  * @tparam X last argument of `F` before returning `Y`, i.e. `F &lt;: X1=>..=>Xn=>X=>Y` for some `n>=0`.
+	  * @tparam Y returned type after applying `F` to a series of parameters (possibly all).
 	  */
-	sealed abstract class ReturnType[F, A, R] {
-		/** Result type of mapping partial application of `X=>Y` up until and not including argument `A`.
-		  * Same as `curry.Mapped[G] forSome { val curry :Curry[Mapped, A, R] }`.
+	sealed abstract class ReturnType[F, X, Y] {
+		/** Result type of mapping partial application of `F` up until and not including argument `X`.
+		  * It is the type resulting from substituting `X=>Y` with `R` in `F`.
+		  * Same as `curry.Mapped[R] forSome { val curry :Curry[Mapped, X, Y] }`.
 		  */
-		type Mapped[+G]
-		type UpperBound >: F //Mapped[Nothing=>Any]
-		type LowerBound <: F with Mapped[A=>Nothing] with UpperBound
-		//			type Result[G<:F]
-		//			type Source[G] = X => G
+		type Mapped[+R]
 
-		/** A curry instance representing partial application of `X=>Y` until argument `A`, i.e. returning `A=>R`. */
-		def curry :Curry[Mapped, A, R]
+		/** Upper bound for all curried functions taking the same number of arguments as `F` (according to this instance).
+//		  * Assuming `F =:= X0 => ... => Xn => X => Y`, concrete subclasses will define it as `Nothing => ... => Nothing => Any`,
+//		  * where argument `Nothing` occurs `n+1` times in `UpperBound`.
+//		  * Used to check conformance of kinds between curried functions.
+//		  */
+//		type UpperBound >: F //Mapped[Nothing=>Any]
+//
+//		/** Lower bound for all curried functions taking the same arguments as `F` (according to this instance).
+//		  * Assuming `F =:= X0 => ... => Xn => X => Y`, concrete subclasses will define it as `X0 => ... => Xn => X => Nothing`,
+//		  * where argument `Any` occurs `n+1` times in `LowerBound`.
+//		  */
+//		type LowerBound <: F with Mapped[X=>Nothing] with UpperBound
 
-		/** As this instance witnesses that `X=>Y &lt;: Mapped[A=>R]`, convert the given function so that it conforms to the return type.
+
+		/** X curry instance representing partial application of `X=>X` until argument `X`, i.e. returning `X=>Y`. */
+		def curry :Curry[Mapped, X, Y]
+
+		/** As this instance witnesses that `X=>X &lt;: Mapped[X=>Y]`, convert the given function so that it conforms to the return type.
 		  * This may, but need not return the same instance.
 		  */
-		def cast(f :F) :Mapped[A=>R]
+		def cast(f :F) :Mapped[X=>Y]
 	}
 
 	class FallbackReturnType private[Curry] {
@@ -157,11 +228,11 @@ object Curry {
 		/** Low priority implicit return type attesting that `Y` is the return type of `X=>Y` for when no other implicit value
 		  * is available for type `Y`.
 		  */
-		implicit def returnedValue[X, Y] :ReturnType[X=>Y, X, Y] { type Mapped[+G] = G; type UpperBound=Nothing=>Any; type LowerBound=X=>Nothing } =
+		implicit def returnedValue[X, Y] :ReturnType[X=>Y, X, Y] { type Mapped[+G] = G; /*type UpperBound=Nothing=>Any; type LowerBound=X=>Nothing*/ } =
 			new ReturnType[X=>Y, X, Y] {
 				type Mapped[+G] = G
-				type UpperBound = Nothing => Any
-				type LowerBound = X=>Nothing
+//				type UpperBound = Nothing => Any
+//				type LowerBound = X=>Nothing
 
 				override def curry = Curry[X, Y]
 
@@ -171,16 +242,17 @@ object Curry {
 	}
 
 	object ReturnType extends FallbackReturnType {
+
 		/** Implicit evidence that `R` is the return type of `X=>Y=>Z` if `R` is the return type of `Y=>Z`. */
 		implicit def returnedFunction[X, Y, Z, L, R](implicit res :ReturnType[Y=>Z, L, R])
-				:ReturnType[X=>Y=>Z, L, R] { type Mapped[+G] = X=>res.Mapped[G]; type UpperBound = Nothing=>res.UpperBound; type LowerBound = X=>res.LowerBound } =
+				:ReturnType[X=>Y=>Z, L, R] { type Mapped[+G] = X=>res.Mapped[G]; /*type UpperBound = Nothing=>res.UpperBound; type LowerBound = X=>res.LowerBound*/ } =
 			new ReturnType[X=>Y=>Z, L, R] {
 				type Mapped[+G] = X => res.Mapped[G]
 
-				type UpperBound = Nothing => res.UpperBound
-				type LowerBound = X => res.LowerBound
+//				type UpperBound = Nothing => res.UpperBound
+//				type LowerBound = X => res.LowerBound
 
-				override def curry: Curry[Mapped, L, R] = res.curry.composed[X]
+				override def curry: Curry[Mapped, L, R] = res.curry.from[X]
 
 				override def cast(f: (X) => (Y) => Z) :X=>res.Mapped[L=>R] =
 					{x :X => res.cast(f(x)) }
@@ -202,7 +274,7 @@ object Curry {
 		  * to create another function accepting same (as defined by term unification of `F` and `G`) arguments and returning
 		  * the result of combining return values of `f` and `g` for these arguments with a reducing function.
 		  */
-		final class FunctionFactor[G <: (_ => _)](val g :G) extends AnyVal {
+		final class FunctionFactor[G <: (_ => _)](private val g :G) extends AnyVal {
 
 			/** Bind together this (right-hand value) function `G` with another function `f :F` into a `F:*:G` instance
 			  * which can be used to combine both functions into a single function by unifying argument lists of `F` and `G`
@@ -212,18 +284,20 @@ object Curry {
 		}
 
 
-		/** Performs term unification on two curried function types `F` and `G`. Unification in this context carries
+		/** Denotes term unification on two curried function types `F` and `G`. Unification in this context carries
 		  * two types of information : shared argument list defined by `this.Returning` and return types of both these
 		  * functions after unification. Assuming `F =:= F_1 => F_2 => .. => F_n => L`, `G =:= G_1 => G_2 => .. => G_m => R`,
-		  * and that `n &lt; m`, unified forms of these functions would be `F &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (L)` and
-		  * `G &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (G_{n+1} => ... => R)`, where `LB[X, Y]` denotes maximum lower bound of types `X, Y`
+		  * and that `n &lt; m` (the other case is symmetrical), unified forms of these functions would be `F &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (L)`
+		  * and `G &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (G_{n+1} => ... => R)`, where `LB[X, Y]` denotes maximum lower bound of types `X, Y`
 		  * and the types in parenthesis' are the return types of unified forms.
 		  * Note that there is no requirement for this unification to be maximal, i.e. that either `LeftResult` or `RightResult` is not
 		  * a function of a single argument, but all implicit values provided by the companion object
 		  * are maximal in terms of static types of arguments.
 		  */
 		sealed abstract class Unification[F, G] private[FunctionUnification] {
+			/** Result type of `F` after unification with `G` (might be another function, as it doesn't necessarily 'drop' all arguments of `F`. */
 			type LeftResult
+			/** Result type of `G` after unification with `F` (might be another function, as it doesn't necessarily 'drop' all arguments of `G`. */
 			type RightResult
 
 			/** Curried function type taking arguments shared by `F` and `G`
@@ -237,6 +311,7 @@ object Curry {
 			def combine[O](f :F, g :G)(combine :(LeftResult, RightResult)=>O) :Returning[O]
 		}
 
+		/** Low priority implicit [[FunctionUnification]] values. */
 		sealed abstract class FallbackUnification {
 
 			/** Fallback implicit result of unifying two functions `X1=>Y1` and `X2=>Y2` as functions of `X >: X1, X2`
@@ -257,7 +332,7 @@ object Curry {
 
 
 		/** Performs term unification on two curried function types `F` and `G`. Unification in this context carries
-		  * two types of information : shared argument list defined by `this.Returning` and return types of both these
+		  * two types of information : shared argument list defined by `[[FallbackUnification.Returning]]` and return types of both these
 		  * functions after unification. Assuming `F =:= F_1 => F_2 => .. => F_n => L`, `G =:= G_1 => G_2 => .. => G_m => R`,
 		  * and that `n &lt; m`, unified forms of these functions would be `F &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (L)` and
 		  * `G &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (G_{n+1} => ... => R)`, where `LB[X, Y]` denotes maximum lower bound of types `X, Y`
@@ -284,8 +359,8 @@ object Curry {
 		}
 
 
-		/** Given two function types `F` and `G` and their unification specified as their common argument list and types returned by applying to these arguments,
-		  * create a new function
+		/** Given two function types `F` and `G` and their unification type specified as their common argument list and types returned by applying them to these arguments,
+		  * allow to create a unification function resulting from applying both to their common arguments and combining their results with an arbitrary function.
 		  * @tparam F 'left' curried function type in the form of `F1=>...=>Fn=>Y`, `F &lt;: Returning[Y]`
 		  * @tparam Y type returned by `F` after applying to arguments common with `G`
 		  * @tparam G 'right' curried function type in the form of `G1=>..=>Gn=>Z`, `~G &lt;: Returning[Z]`
@@ -307,7 +382,7 @@ object Curry {
 	}
 	import FunctionUnification._
 
-	/** Pairs two values (presumably curried functions) for future combining them into a single function by
+	/** Pairs two values (presumably curried functions) for subsequent combining them into a single function by
 	  * the means of a function operating on their result values. This class has no methods; instead, there is
 	  * an implicit conversion with the shared name (so importing this symbol will import the conversion at the same time)
 	  * to `FunReduce`, which provides `apply()` method performing the actual reducing of these functions. This is because
@@ -322,7 +397,7 @@ object Curry {
 	  * @tparam F function on the left side of the operator `:*:` used to create this instance
 	  * @tparam G function on the right side of the operator `:*:` used to create this instance
 	  */
-	final class :*:[F, G](val _1 :F, val _2 :G)
+	final class :*:[F, G](private[Curry] val _1 :F, private[Curry] val _2 :G)
 
 	/** Enrich function type `G` with a right-associative method `:*:` which will pair it with another function so both
 	  * can be combined into a single function by operating on their respective return types.
@@ -342,25 +417,68 @@ object Curry {
 
 
 
-	/** Base trait for partially applied functions as a workaround for no implicit resolution of higher-kinded types. */
-	sealed abstract class PartiallyApplied[X, A] {
-		type Mapped[+G]
+	/** Base trait for partially applied functions introduced as a workaround for no implicit resolution of types of higher kinds.
+	  * Wraps a function `F` of type `X0 => ... => Xn => X => T` and represents its partial application up to, not including,
+	  * argument `X`. All instances `c :PartiallyApplied[X, T]` are also instances of `Curried[c.Mapped, X, T]`.
+	  * @see [[Curried]]
+	  */
+	sealed abstract class PartiallyApplied[X, T] {
+		/** Type of a function taking the same arguments up to `X` exclusively, but returning type `R` instead of `X=>T`. */
+		type Mapped[+R]
 
-		val unapplied :Mapped[X=>A]
+		/** The whole function `F` itself being wrapped by this instance. */
+		val unapplied :Mapped[X=>T]
 
-		def set[Y, R](x :X)(implicit ev :A<:<(Y=>R)) :Curried[Mapped, Y, R]
+		/** Provide a fixed value for argument `X`, removing it from `F`'s argument list. */
+		def set[Y, O](x :X)(implicit ev :T<:<(Y=>O)) :Curried[Mapped, Y, O]
 
-		def swap[W](x :W=>X) :Curried[Mapped, W, A]
+		/** Compose the returned function with a given function `W=>X`, essentially changing argument type from `X` to `W`.
+		  * Wrapped function will map all arguments provided for `W` with the given function before invoking this function.
+		  * @tparam W new argument type
+		  * @return a partially applied function representation resulting from substituting argument `X` with `W` in this instance.
+		  */
+		def compose[W](x :W=>X) :Curried[Mapped, W, T]
 
-		def mapped[G](map :((X => A) => G)) :Mapped[G]
+		/** Map the returned function to another result type `G` (likely also a function), returning a function of all
+		  * arguments preceeding `X` in `F` and returning `G`.
+		  * @tparam G new result type for the preceeding argument list, substituting `X=>T` in `F`.
+		  */
+		def mapped[G](map :((X => T) => G)) :Mapped[G]
 
-		def map[Y, B](map :((X=>A) => (Y=>B))) :Curried[Mapped, Y, B]
+		/** Map the returned function to another function `Y=>U`, returning a curried
+		  * function of all arguments of `F` preceeding `X`, with result type `Y=>U` instead of `X=>T`.
+		  * @tparam Y new argument type substituting argument `X` in `F`
+		  * @tparam U new result type of `F` applied to all `F`'s arguments preceeding `X` as well as new argument `Y`.
+		  *           Substitutes type `T` in `F`.
+		  */
+		def map[Y, U](map :((X=>T) => (Y=>U))) :Curried[Mapped, Y, U]
 
-		def >>[Y, R](implicit ev :A<:<(Y=>R)) :Curried[(Mapped AppliedTo X)#T, Y, R]
+		/** Assuming that return type `T` is itself a function `Y=>U`, skip to the next argument `Y` in `F`.
+		  * @tparam Y argument type succeeding `X` in `F`
+		  * @tparam U return type of `F` applied to all arguments preceeding X, as well as `X` and `Y`.
+		  * @return a curried function representing `F` partially applied to all arguments up to and including `X`.
+		  */
+		def next[Y, U](implicit ev :T<:<(Y=>U)) :Curried[(Mapped :=> X)#F, Y, U]
 
-		def combined[Y, B, G](other :Mapped[Y=>B])(combine :(X=>A, Y=>B) => G) :Mapped[G]
+		/** Given another function `H <: X0 => ... => Xn => Y => U` (taking the same arguments as `F` up to not including `X`),
+		  * create a new function with arguments `X0, ..., Xn`, applying them to both this and the argument function and combining
+		  * their results with the given operator.
+		  * @param other another curried function sharing arguments with `F` preceeding `X`.
+		  * @param combine a function accepting result types of this function and `other` and providing the result for the created function
+		  * @tparam Y argument of `H` in the same position as `X` in `F`
+		  * @tparam U return type of partially applied `H`, corresponding to type `T` in `F`.
+		  * @tparam G return type of the combined function taking place of type `X=>T` in `F`.
+		  * @return a function accepting shared arguments of `this` and `other` and returning value resulting from combining their
+		  *         returned results with function `combine`.
+		  */
+		def combined[Y, U, G](other :Mapped[Y=>U])(combine :(X=>T, Y=>U) => G) :Mapped[G]
 
-		def take[W] :Curried[Mapped, W, X=>A]
+		/** Create a function of type `X0 => ... => Xn => W => X => T`, accepting a new ignored argument `W` before argument `X`.
+		  * Allows to unify types of several functions of similar arguments, by making `F` conform to desired type `Mapped[W=>X=>T]`.
+		  * @tparam W new ignored argument preceeding `X` in the returned function
+		  * @return a wrapper function applying this function to all arguments it receives except for `W`.
+		  */
+		def accept[W] :Curried[Mapped, W, X=>T]
 	}
 
 
@@ -368,124 +486,138 @@ object Curry {
 
 	object PartiallyApplied {
 
-		/** Extends a `Curried` partially applied function returning a function `Y=>R`, providing methods for advancing to the next argument `Y`. */
-		@inline implicit final def CurryOn[X, Y, R](curried :PartiallyApplied[X, Y=>R]) :CurryOn[curried.Mapped, X, Y, R] =
-			new CurryOn[curried.Mapped, X, Y, R](curried)
+		/** Extends a `Curried` partially applied function returning a function `Y=>T`, providing methods for advancing to the next argument `Y`. */
+		@inline implicit final def CurryOn[X, Y, T](curried :PartiallyApplied[X, Y=>T]) :CurryOn[curried.Mapped, X, Y, T] =
+			new CurryOn[curried.Mapped, X, Y, T](curried)
 
 		/** Extends a curried function type of more than one argument with methods for advancing through argument list. */
-		@inline implicit final def CurryOn[X, Y, R](f :X=>Y=>R) :CurryOn[Self, X, Y, R] = new CurryOn[Self, X, Y, R](Curried(f))
+		@inline implicit final def CurryOn[X, Y, T](f :X=>Y=>T) :CurryOn[Ident, X, Y, T] = new CurryOn[Ident, X, Y, T](Curried(f))
 
-		/** Extends a `Curried` partially applied function returning a function `Y=>R`, providing methods for advancing to the next argument `Y`.
+		/** Extends a `Curried` partially applied function returning a function `Y=>T`, providing methods for advancing to the next argument `Y`.
 		  * This class is an implicit extension of `BaseCurried` (and `Curried`) instances. It defines methods which would require
 		  * implicit parameters if declared within parent `Curried`, which would prevent from directly calling apply on their results.
 		  * By moving the implicit parameters to be the part of implicit conversion, we were able to remove them from the methods signature.
 		  */
-		final class CurryOn[C[+G], X, Y, R](private[this] val curried :PartiallyApplied[X, Y=>R] { type Mapped[+G] = C[G] })  {
+		final class CurryOn[A[+G], X, Y, T](private val curried :PartiallyApplied[X, Y=>T] { type Mapped[+G] = A[G] }) extends AnyVal  {
 
-			/** Move to the next argument, i.e. for `this` representing partial application of `F` until return type `X=>Y=>R`,
-			  * return an instance representing the result of further application of `F` to `X`, with return type `Y=>R`.
+			/** Move to the next argument, i.e. for `this` representing partial application of `F` until return type `X=>Y=>T`,
+			  * return an instance representing the result of further application of `F` to `X`, with return type `Y=>T`.
+			  * @return a `Curried` instance for the same underlying function, but representing applying it to the next argument `X`.
 			  */
-			@inline def apply() :Curried[(C AppliedTo X)#T, Y, R] = curried.>>
+			@inline def apply() :Curried[(A :=> X)#F, Y, T] = curried.next
 
 			/** Take an additional, ignored argument of type `W` and automatically 'apply' it, so that curry point remains
 			  * before argument `X` (and after the new argument `W`). You may specify the type of the parameter
 			  * by providing type arguments either to this method, or parameterless `Curried.__.apply[X]`, for example:
 			  * `Curry(f)()(__[W])`.
 			  * @param newArg a marker class object
-			  * @tparam W
-			  * @return
+			  * @tparam W new, additional argument type
+			  * @return a `Curried` function resulting from mapping the intermediate result `X=>Y=>T` of this function to
+			  *         a constant function `W=>X=>Y=>T` returning the given result for all arguments `W`.
+			  *         Returned instance will represent the application of that function up to argument `W` and before `X`.
 			  */
-			@inline def apply[W](newArg : __[W]) :Curried[(C AppliedTo W)#T, X, Y=>R] = curried.take[W].>>
+			@inline def apply[W](newArg : __[W]) :Curried[(A :=> W)#F, X, Y=>T] = curried.accept[W].next
 
 			/** Provide a fixed value for this argument, removing it from the argument list and return a `Curried`
 			  * instance representing first parameter after `X`, providing one exists. Created function is the same
 			  * as with `applied(x)`, but allows subsequent modification in chained calls. This method is equivalent to `self.set(x)`.
 			  * @return a Curried instance representing same application point (before argument `Y`) in the transformed function.
 			  */
-			@inline def apply(x :X) :Curried[C, Y, R] = curried.set(x)
+			@inline def apply(x :X) :Curried[A, Y, T] = curried.set(x)
 
 			/** Substitute this argument by mapping intended argument type `W` to `X` before applying `f`.
 			  * For example, given a function `f :F &lt;: D=>O=>X=>A` and `x :W=>X`, the result is `{d :D => o :O => w :W => f(d)(o)(x(w)) }`.*
 			  * This method is equivalent to `self.swap(swap).>>`.
+			  * @tparam W argument type replacing `X` in `F`.
 			  * @return a `Curried` instance representing the next position (after argument `W` and before `Y`) in the transformed function.
 			  */
-			@inline def apply[W](swap :W=>X) :Curried[(C AppliedTo W)#T, Y, R] = curried.swap(swap).>>
+			@inline def apply[W](swap :W=>X) :Curried[(A :=> W)#F, Y, T] = curried.compose(swap).next
 
 
-			/** Move to the next argument, i.e. for `this` representing partial application of `F` until return type `X=>Y=>R`,
-			  * return an instance representing the result of further application of `F` to `X`, with return type `Y=>R`.
+			/** Move to the next argument, i.e. for `this` representing partial application of `F` until return type `X=>Y=>T`,
+			  * return an instance representing the result of further application of `F` to `X`, with return type `Y=>T`.
 			  * Same as `apply()`, but avoids ambiguity if this instance is the return value of a function taking implicit parameters.
+			  * @return a `Curried` instance representing the same function, applied to its next argument `X`.
 			  */
-			@inline def __ :Curried[(C AppliedTo X)#T, Y, R] = curried.>>
+			@inline def __ :Curried[(A :=> X)#F, Y, T] = curried.next
 
-			/** Convert `F` into a function with arguments `X, Y` in reverse order, i.e. from `Mapped[X=>Y=>R]` to `Mapped[Y=>X=>R]`. */
-			@inline def transposed :C[Y=>X=>R] = //curried.curry.transpose(curried.unapplied)
-				curried.mapped[Y=>X=>R](transposition) //{ res => y :Y => x :X => res(x)(y) }
+			/** Transpose next argument `X` with following it argument `Y`, automatically advancing over `Y` to maintain the application
+			  * point before `X`. This is equivalent to `this.transpose.next`
+			  * @return a `Curried` instance for a function resulting from mapping the intermediate result `X=>Y=>T` to function `Y=>X=>T`
+			  *         by swapping the application order of arguments `X` and `Y`, partially applied up to argument `Y` (and before argument `X`).
+			  * @see [[<>>>]]
+			  * @see [[transpose]]
+			  */
+			@inline def <>> :Curried[(A :=> Y)#F, X, T] = curried.map[Y, X=>T](transposition).next
+
+			/** Transpose next argument `X` with following it argument `Y`, automatically advancing over both.
+			  * This is equivalent to `this.transpose.next.next`.
+			  * @param ev proof that `T` is a `Function1` and thus can be represented as a partially applied curried function.
+			  * @tparam Z argument following `Y` in `F`
+			  * @tparam R result of applying `F` to all arguments ending with `X, Y, Z`.
+			  * @return a `Curried` instance for a function resulting from mapping the intermediate result `X=>Y=>T` to function `Y=>X=>T`
+			  *         by swapping the order of arguments, partially applied up to and including argument `Y` (assuming that `T` is a function).
+			  * @see [[<>>]]
+			  * @see [[transpose]]
+			  */
+			@inline def <>>>[Z, R](implicit ev :T<:<(Z=>R)) :Curried[((A :=> Y)#F :=> X)#F, Z, R] =
+				curried.map[Y, X=>T](transposition).next.next(ev)
+
+			/** Convert `F` into a function with arguments `X, Y` in reverse order, i.e. from `Mapped[X=>Y=>T]` to `Mapped[Y=>X=>T]`. */
+			@inline def transposed :A[Y=>X=>T] = //curried.curry.transpose(curried.unapplied)
+				curried.mapped[Y=>X=>T](transposition) //{ res => y :Y => x :X => res(x)(y) }
 
 			/** Return a `Curried` instance representing partial application of transposition of arguments `X, Y` in `F`.
-			  * Represented curried function takes argumetns `X` and `Y` in reverse order, and is partially applied to same arguments
-			  * as this instance (that is, all arguments preceeding `X` in `F`).
+			  * Represented curried function takes arguments `X` and `Y` in reverse order, and is partially applied to same arguments
+			  * as this instance (that is, all arguments preceding `X` in `F`).
 			  */
-			@inline def transpose :Curried[C, Y, X=>R] = curried.map[Y, X=>R](transposition)
+			@inline def transpose :Curried[A, Y, X=>T] = curried.map[Y, X=>T](transposition)
 
-			@inline private def transposition = { res :(X=>Y=>R) => y :Y => x :X => res(x)(y) }
+			@inline private def transposition = { res :(X=>Y=>T) => y :Y => x :X => res(x)(y) }
 
+//			@inline def andThen[U](res :T=>U)
 		}
 
-
-		object CurryOn {
-//			final class NextArg[N] private[Curry] (val curryOn :N)
-//
-//			sealed abstract class ThatWasTheLastOne {
-//				@inline implicit def afterLast[X, A](curried :PartiallyApplied[X, A]) :NextArg[Result[curried.Mapped, X, A]] =
-//					new NextArg(new Result[curried.Mapped, X, A](curried))
-//			}
-//
-//			object NextArg extends ThatWasTheLastOne {
-//				@inline implicit def nextArg[X, Y, A](curried :PartiallyApplied[X, Y=>A]) :NextArg[Curried[(curried.Mapped AppliedTo X)#T, Y, A]] =
-//					new NextArg(curried.>>)
-//			}
-		}
 
 	}
 
-	/** A wrapper over a curried function `f :F` (with an arbitrary number of single-element argument lists) `F &lt;: C[X=>A]`, representing
+	/** A wrapper over a curried function `f :F` (with an arbitrary number of single-element argument lists) `F &lt;: A[X=>T]`, representing
 	  * partial application of `f` up to (not including) `X` and providing methods for modifying this function from this argument on.
 	  * Naming convention to which (most of) methods of this class conform is that an imperative verb form is used by methods returning
 	  * another `Curried` instance (and thus allowing for modification of subsequent argumetns), while past perfect is reserved for
 	  * methods returning the underlying function after requested transformation, signalling end of transformations; in particular, `unapplied`
 	  * returns the underlying function itself as-is. In addition, there is an implicit conversion from instances of `Curried` which don't
-	  * represent the last argument of the function (i.e. `A &lt;: _=>_` ) to `CurryOn` instance which provide much nicer `apply` syntax
+	  * represent the last argument of the function (i.e. `T &lt;: _=>_` ) to `CurryOn` instance which provide much nicer `apply` syntax
 	  * which advances to the next argument after each operation allowing for more succint - and hopefully readable - code.
 	  *
 	  * Example: `Curried{b:Byte => s:Short => i:Int => l:Long => s"\$b\$s\$i\$l"}()((_:String).toShort)(42).unapplied :Byte=>String=>Long=>String`.
 	  * @param unapplied underlying function to which all functions created by this instance will delegate
 	  * @param curry type constructor for partial application
-	  * @tparam C Represents all arguments of `F` before `X`; `C[G] =:= A1=>A2=>...=>An=>G`, providing `F =:= A1=>A2=>...=>an=>X=>A`.
+	  * @tparam A Represents all arguments of `F` before `X`; `A[G] =:= A1=>A2=>...=>An=>G`, providing `F =:= A1=>A2=>...=>an=>X=>T`.
 	  * @tparam X type of the first argument after partial application of F
-	  * @tparam A result type of applying `f` with all arguments up to `X` (inclusive), possibly another function.
+	  * @tparam T result type of applying `f` with all arguments up to `X` (inclusive), possibly another function.
 	  */
-	final class Curried[C[+G], X, A](val unapplied :C[X=>A])(val curry :Curry[C, X, A]) extends PartiallyApplied[X, A] {
+	final class Curried[A[+R], X, T](val unapplied :A[X=>T])(val curry :Curry[A, X, T]) extends PartiallyApplied[X, T] {
 		/**Full type of this function. */
-		type Fun = C[X=>A]
+		type F = A[X=>T]
 		/** Result type of partially applying `Fun` up to and including `X`. */
-		type Applied = A
-		/** Function `A1 => ... => An =>G`, where `A1..An` are all arguments of F preceeding `X`. */
-		type Mapped[+G] = C[G]
-		/** Type of `F` replacing `X` with `W`. */
-		type Swapped[W] = Mapped[W=>A]
+		type Applied = T
+		/** Function `A1 => ... => An =>R`, where `A1..An` are all arguments of F preceeding `X`. */
+		type Mapped[+R] = A[R]
+		/** Type of `F` after replacing `X` with `W`. */
+		type Composed[W] = Mapped[W=>T]
 
 		/** Represent this instance (and the underlying function) as a function taking a sub-type `W` of argument `X` instead of `X`. */
-		@inline def as[W<:X] :Curried[C, W, A] = new Curried[C, W, A](unapplied)(curry.mapped[W, A])
+		@inline def as[W<:X] :Curried[A, W, T] = new Curried[A, W, T](unapplied)(curry.mapped[W, T]) //todo: just cast this
 
 		/** Return the underlying function as its supertype accepting narrower argument type at this position. */
-		@inline def arg[W<:X] :C[W=>A] = unapplied
+		@inline def arg[W<:X] :A[W=>T] = unapplied
 
 		/** Provide a fixed value for this argument, removing it from the argument list.
 		  * @return a function with same arguments as the underlying function but with `X` ommited, which invokes this function passing `x`
 		  *         for this argument and its own arguments for others.
 		  */
-		@inline def applied(x :X) :Mapped[A] = curry.set(unapplied)(x)
+		@inline def applied(x :X) :Mapped[T] = curry.set(unapplied)(x)
 
 
 		/** Provide a fixed value for this argument, removing it from the argument list and return a `Curried`
@@ -493,98 +625,125 @@ object Curry {
 		  * as with `apply(x)`, but allows subsequent modification in chained calls. If this instance represents
 		  * the last argument, you may use `applied(x)` instead which returns the underlying function instead of
 		  * a `Curried` instance. There is also an `apply` variant of this method available by implicit conversion
-		  * to `CurryOn`: `self(x)`.
+		  * to [[PartiallyApplied.CurryOn]]: `this(x)`.
 		  * @return a Curried instance representing same application point (before argument `Y`) in the transformed function.
+		  * @see [[PartiallyApplied.CurryOn#apply(X)]]
 		  */
-		@inline def set[Y, R](x :X)(implicit ev :A<:<(Y=>R)) :Curried[C, Y, R] =
-			new Curried[C, Y, R](curry.map[Y=>R](unapplied){ res :(X=>A) => ev(res(x))})(curry.mapped[Y, R])
+		@inline def set[Y, R](x :X)(implicit ev :T<:<(Y=>R)) :Curried[A, Y, R] =
+			new Curried[A, Y, R](curry.map[Y=>R](unapplied){ res :(X=>T) => ev(res(x))})(curry.mapped[Y, R])
 
 
-		/** Substitute this argument by mapping intended argument type `W` to `X` before applying `f`.
-		  * For example, given a function `f :F &lt;: D=>O=>X=>A` and `x :W=>X`, the result is `{d :D => o :O => w :W => f(d)(o)(x(w)) }`.
+		/** Composes the result of partial application of `F` with a function mapping new argument type `W` to the corresponding
+		  * argument `X` in `F`. Has the effect of substituting this argument with a new argument type and mapping it on each
+		  * application before invoking this function.
+		  * For example, given a function `f :F &lt;: M=>I=>X=>T` and `x :N=>X`, the result is a function of type `M=>I=>N=>T`:
+		  * `{m :M => i :I => n :N => f(m)(i)(x(n)) }`.
 		  * @return a function resulting from substituting the argument `X` in the underlying function to `W` and mapping its value
 		  *         using the passed function.
 		  */
-		@inline def swapped[W](x :W=>X) :Mapped[W=>A] = curry.swap(unapplied)(x)
+		@inline def composed[W](x :W=>X) :Mapped[W=>T] = curry.compose(unapplied)(x)
 
 
-		/** Substitute this argument by mapping intended argument type `W` to `X` before applying `f`.
-		  * For example, given a function `f :F &lt;: D=>O=>X=>A` and `x :W=>X`, the result is `{d :D => o :O => w :W => f(d)(o)(x(w)) }`.
-		  * There is a `apply` variant of this method available by implicit conversion to `CurryOn` which automatically advances to the next argument:
-		  * `self{ w :W => w.toX }`.
+		/** Compose the function resulting from partially applying `F` up to this point with another function specifying
+		  * new argument type and return a `Curried` instance representing its partial application to the same arguments (up until `W`).
+		  * Has the effect of substituting argument `X` by mapping intended argument type `W` to `X` before applying `f`.
+		  * For example, given a function `f :F &lt;: M=>I=>X=>T` and `x :N=>X`, the result is a function of type `M=>I=>N=>T`:
+		  * `{m :M => i :I => n :N => f(m)(i)(x(n)) }`.
+		  * There is also an `apply` variant of this method advancing to the next argument,
+		  * available by implicit conversion to [[PartiallyApplied.CurryOn]] : `this((w :W) => w.toX)`.
 		  * @return a `Curried` instance representing the same position (before argument `W`) in the transformed function.
 		  */
-		@inline def swap[W](x :W=>X) :Curried[C, W, A] =
-			new Curried[C, W, A](curry.swap(unapplied)(x))(curry.mapped[W, A])
+		@inline def compose[W](x :W=>X) :Curried[A, W, T] =
+			new Curried[A, W, T](curry.compose(unapplied)(x))(curry.mapped[W, T])
 
 
 		/** Map the result of partial application of this function up to argument `X` (not including).
-		  * For example, if `F =:= K=>L=>X=>A`, the result is a function `{k :K => l :L => map(f(k)(l)) }`.
+		  * For example, if `F =:= K=>L=>X=>T`, the result is a function `{k :K => l :L => map(f(k)(l)) }`.
 		  * @param map function taking the result of applying F up until argument `X`.
+		  * @see [[returning]]
+		  * @see [[map]]
 		  */
-		@inline def mapped[G](map :((X => A) => G)) :Mapped[G] = curry.map(unapplied)(map)
+		@inline def mapped[G](map :((X => T) => G)) :Mapped[G] = curry.map(unapplied)(map)
 
-		/** Map the result of this partial application to another function `Y=>B`, returning a `Curried` instance representing
+		/** Map the result of this partial application to another function `Y=>U`, returning a `Curried` instance representing
 		  * the new function.
 		  */
-		@inline def map[Y, B](map :((X=>A) => (Y=>B))) :Curried[C, Y, B] =
-			new Curried[C, Y, B](curry.map(unapplied)(map))(curry.mapped[Y, B])
+		@inline def map[Y, U](map :((X=>T) => (Y=>U))) :Curried[A, Y, U] =
+			new Curried[A, Y, U](curry.map(unapplied)(map))(curry.mapped[Y, U])
 
-		/** Map the result of partial application of this function up to argument X. Differs from `map` in that
-		  * it maps the value returned after applying to `X`, while `map` maps whole function `X=>A`.
+		/** Map the result of partial application of this function up to argument X. Differs from [[mapped]] in that
+		  * it maps the value returned after applying to `X`, while `mapped` maps whole function `X=>T`.
 		  */
-		@inline def returning[Y](map :A=>Y) :Mapped[X=>Y] =
+		@inline def returning[Y](map :T=>Y) :Mapped[X=>Y] =
 			curry.map(unapplied){ _ andThen map }
 
-		/** Create a function `W=>F` ignoring its first argument and returning this function `F` (unapplied). */
-		@inline def composed[W] :W=>C[X=>A] = (w :W) => unapplied
-
-
-		/** Create an instance representing partial application of function `W=>F` up to `X` (excluding).
-		  * Underlying function will ignore its first argument.
+		/** Map the result of partial application of this function up to argument X to another function. Differs from `map` in that
+		  * it maps the value returned after applying to `X`, while `map` maps whole function `X=>T`.
+		  * @return a `Curried` instance representing the function resulting from applying `F` to all arguments up to `X`
+		  *         and mapping the result `T` to a function `Y=>U`, before applying to `Y`.
 		  */
-		@inline def compose[W] :Curried[(C Compose W)#T, X, A] =
-			new Curried[(C Compose W)#T, X, A]((w :W) => unapplied)(curry.composed[W])
+		@inline def andThen[Y, U](map :T => Y => U) :Curried[(A :=> X)#F, Y, U] =
+			new Curried[(A :=> X)#F, Y, U](curry.map(unapplied)(_ andThen map))(curry.mapped[X, Y=>U]())
 
 
 
 		/** Create a function taking an additional, ignored argument `W` before argument `X`. */
-		@inline def taking[W] :C[W=>X=>A] = mapped[W=>X=>A]{ f => _ => f }
+		@inline def accepting[W] :A[W=>X=>T] = mapped[W=>X=>T]{ f => _ => f }
 
 		/** Insert a new, ignored argument `W` before `X`, remaining in the same application point (before `W`). */
-		@inline def take[W] :Curried[C, W, X=>A] = new Curried[C, W, X=>A](taking[W])(curry.mapped[W, X=>A])
+		@inline def accept[W] :Curried[A, W, X=>T] = new Curried[A, W, X=>T](accepting[W])(curry.mapped[W, X=>T])
 
+
+
+		/** Create a function `W=>F` ignoring its first argument and returning this function `F` (unapplied).
+		  * This essentially prepends a new ignored argument of type `W` before all arguments specified by [[Mapped]].
+		  * @return a constant function returning [[unapplied]] for all arguments.
+		  */
+		@inline def returned[W] :W=>A[X=>T] = (w :W) => unapplied
+
+
+		/** Create an instance representing partial application of function `W=>F` up to `X` (excluding).
+		  * This essentially prepends a new ignored argument before all arguments specified by [[Mapped]].
+		  * @return a `Curried` instance representing a constant function returning this function for all arguments,
+		  *         applied up to the same argument `X`.
+		  */
+		@inline def from[W] :Curried[(W =>: A)#F, X, T] =
+			new Curried[(W =>: A)#F, X, T]((w :W) => unapplied)(curry.from[W])
+
+
+		/** Create an instance representing partial application of function `W=>F` up to `X` (excluding).
+		  * This essentially prepends a new ignored argument before all arguments specified by [[Mapped]].
+		  * @return a `Curried` instance representing a constant function returning this function for all arguments,
+		  *         applied up to the same argument `X`.
+		  */
+		@inline def =>:[W](w :__[W]) :Curried[(W =>: A)#F, X, T] =
+			new Curried[(W =>: A)#F, X, T]((w :W) => unapplied)(curry.from[W])
 
 
 		/** Given another function sharing with `F` arguments preceding X, and a function combining results of partial application
 		  * of both functions, return a single function taking shared arguments and invoking the combining function on results
 		  * of applying `this.result` and `other` to received arguments.
 		  */
-		@inline def combined[Y, B, G](other :C[Y=>B])(combine :(X=>A, Y=>B) => G) :C[G] = curry.combine(unapplied, other)(combine)
+		@inline def combined[Y, B, G](other :A[Y=>B])(combine :(X=>T, Y=>B) => G) :A[G] = curry.combine(unapplied, other)(combine)
 
 		/** Given another `Curried` instance representing a funcction sharing the arguments preceding `X` with this function,
 		  * combine the results of partial application to shared arguments using the function passed as the second argument.
 		  * Note that this method is right-associative (and correspondingly, `this` function is the second argument of `combine`.
 		  * Usage : `(Curried(other)()() :*: Curried(self)()()){ case (her, me) => ??? }`.
 		  */
-		@inline def *[Y, B, G](other :Curried[C, Y, B])(combine :(X=>A, Y=>B) => G) :C[G] =
+		@inline def *[Y, B, G](other :Curried[A, Y, B])(combine :(X=>T, Y=>B) => G) :A[G] =
 			curry.combine(unapplied, other.unapplied)(combine)
-		//curry.mapped[Y, B].combine(other.unapplied, unapplied)(combine)
 
-//			@inline def *[B, G](other :Curried[C, X, B])(combine :(A, B) => G) :Curried[C, X, G] =
-//				new Curried[C, X, G](
-//					curry.combine(unapplied, other.unapplied){ (l :X=>A, r :X=>B) => x :X => combine(l(x), r(x)) }
-//				)(curry.mapped[X, G])
 
 		/** Skip to the next argument, i.e return an instance operating on the result of applying this function to argument `X`.
 		  * Represents using an identity function on argument `x` before taking any subsequent arguments. An implicit conversion
 		  * exists providing the same functionality with sweeter syntax (and without the implicit argument list): `this()` and/or `this.__`,
-		  * for when `apply()` would be ambigous. This duplicity stems from the fact that implicit argument list required for implementation
+		  * for when `apply()` would be ambiguous. This duplicity stems from the fact that implicit argument list required for implementation
 		  * as a method prevents from shortened `apply` calls on the result of `>>`, but on the other hand IntelliJ IDE doesn't currently recognise
-		  * implicit conversions using depenednent types (and scala doesn't allow for implicit conversions to types parameterized with higher kinds).
+		  * implicit conversions using dependent types (and scala doesn't allow for implicit conversions to types parameterized with higher kinds).
 		  */
-		@inline def >>[Y, R](implicit ev :A<:<(Y=>R)) :Curried[(C AppliedTo X)#T, Y, R] =
-			new Curried[(C AppliedTo X)#T, Y, R](curry.map[X=>Y=>R](unapplied)((rest :X=>A) => rest andThen ev))(curry())
+		@inline def next[Y, R](implicit ev :T<:<(Y=>R)) :Curried[(A :=> X)#F, Y, R] =
+			new Curried[(A :=> X)#F, Y, R](curry.map[X=>Y=>R](unapplied)((rest :X=>T) => rest andThen ev))(curry())
 
 
 	}
@@ -603,12 +762,12 @@ object Curry {
 	object Curried extends LowPriorityCurriedImplicits {
 
 		/** Extension methods for modifying curried functions at their first argument (and a source for advancing to subsequent arguments. */
-		@inline def apply[A, B](f :A=>B) :Curried[Self, A, B] = new Curried[Self, A, B](f)(new Arg0)
+		@inline def apply[A, B](f :A=>B) :Curried[Ident, A, B] = new Curried[Ident, A, B](f)(new Arg0)
 
 		/** Lifts a constant of type `C` to a function `Any=&gt;C` ignoring its argument; primarily used to make the value conform
 		  * to a common curried function type (by optional further modifications) for combining with other functions with same argument list.
 		  */
-		@inline def ofAny[C](const :C) :Curried[Self, Any, C] = apply{ _ :Any => const }
+		@inline def ofAny[C](const :C) :Curried[Ident, Any, C] = apply{ _ :Any => const }
 
 		/** Represent the constant given as the argument (to object returned by this method) as a function of ignored argument `X`. */
 		@inline def of[X] = new CurriedFunctionConstructor[X]
@@ -616,7 +775,7 @@ object Curry {
 		/** Convert any contant to a function of `X`. */
 		final class CurriedFunctionConstructor[X] {
 			/** Convert the given constant value to a function `X=>C` which ignores its argument before returning the given value. */
-			def apply[C](const :C) :Curried[Self, X, C] = Curried{ _ :X => const }
+			def apply[C](const :C) :Curried[Ident, X, C] = Curried{ _ :X => const }
 		}
 
 
@@ -634,7 +793,24 @@ object Curry {
 
 
 		/** A marker class used as an argument for `CurryOn` (and `Curried`) instances to denote a new, ignored parameter. */
-		sealed class __[X] private[Curried]()
+		sealed class __[X] private[Curried]  {
+
+			/** Create a representation of a constant curried function `X=>A[Y=>T]`, applied to an ignored argument `W`
+			  * and all arguments `curried` is applied to.
+			  * @param curried a partially applied curried function
+			  * @tparam A arguments to which `curried` is applied to as a type constructor accepting function result type.
+			  * @tparam Y first unapplied argument in `curried`
+			  * @tparam T result type returned by `curried` after applying to `Y`.
+			  * @return a function `{ _ :W => curried.unapplied }` wrapped in a `Curried` instance representing
+			  *         applying it up until argument `Y`.
+			  */
+			@inline final def :=>[A[+G], Y, T](curried :Curried[A, Y, T]) :Curried[(X =>: A)#F, Y, T] =
+				new Curried[(X =>: A)#F, Y, T]((_ :X) => curried.unapplied)(curried.curry.from[X])
+
+			/** A constant function `{ _ :X => T }` wrapped in a `Curried` instance representing its first argument `X`. */
+			@inline final def :=>[T](res :T) :Curried[Ident, X, T] =
+				new Curried[Ident, X, T](( _ :X) => res)(Curry[X, T])
+		}
 
 		/** A marker object used as an argument for `CurryOn` (and `Curried`) instances to denote a new, ignored parameter. */
 		object __ extends __[Any] {

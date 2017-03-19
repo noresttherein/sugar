@@ -75,31 +75,31 @@ object CurrySpec extends Properties("Curry") {
 		forAll { args :Args => Curried(f)()()().applied(-1L)(args._1)(args._2)(args._3) ?= f(args._1)(args._2)(args._3)(-1) } :| "f()(x)()()"
 
 
-	property("Curried.swap") =
-		forAll { args :Args => import args._; Curried(f).swap((_:String).toByte).unapplied(_1.toString)(_2)(_3)(_4) ?= f(args) } :| "swap(x)()()()" &&
-		forAll { args :Args => import args._; Curried(f)().swapped((_:String).toShort)(_1)(_2.toString)(_3)(_4) ?= f(args) } :| "swap()(x)()()" &&
-		forAll { args :Args => import args._; Curried(f)()()((_:String).toInt).unapplied(_1)(_2)(_3.toString)(_4) ?= f(args) } :| "swap()()(x)()" &&
-		forAll { args :Args => import args._; Curried(f)()()().swap((_:String).toLong).unapplied(_1)(_2)(_3)(_4.toString) ?= f(args) } :| "swap()()()(x)"
-		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().swapped((_:Int).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toInt) ?= f(args) } :| "swap()()()(x)"
+	property("Curried.compose") =
+		forAll { args :Args => import args._; Curried(f).compose((_:String).toByte).unapplied(_1.toString)(_2)(_3)(_4) ?= f(args) } :| "compose(x)()()()" &&
+		forAll { args :Args => import args._; Curried(f)().composed((_:String).toShort)(_1)(_2.toString)(_3)(_4) ?= f(args) } :| "compose()(x)()()" &&
+		forAll { args :Args => import args._; Curried(f)()()((_:String).toInt).unapplied(_1)(_2)(_3.toString)(_4) ?= f(args) } :| "compose()()(x)()" &&
+		forAll { args :Args => import args._; Curried(f)()()().compose((_:String).toLong).unapplied(_1)(_2)(_3)(_4.toString) ?= f(args) } :| "compose()()()(x)"
+		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().composed((_:Int).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toInt) ?= f(args) } :| "compose()()()(x)"
 
-	property("Curried.map") =
-		forAll { args :Args => import args._; Curried(f).mapped(g => (a :Args) => g(a._1)(a._2)(a._3)(a._4))(args) ?= f(args) } :| "map{}" &&
-		forAll { args :Args => import args._; Curried(f)().mapped(g => (s :Short, i :Int, l :Long) => g(s)(i)(l))(_1)(_2, _3, _4) ?= f(args) } :| "().map{}" &&
-		forAll { args :Args => import args._; Curried(f)()().mapped(g => (i :Int, l :Long) => g(i)(l))(_1)(_2)(_3, _4) ?= f(args) } :| "()().map{}" &&
-		forAll { args :Args => import args._; Curried(f)()()().mapped(g => (l :Long) => g(l) + g(l))(_1)(_2)(_3)(_4) ?= (f(args) + f(args))} :| "()()().map{}"
+	property("Curried.mapped") =
+		forAll { args :Args => import args._; Curried(f).mapped(g => (a :Args) => g(a._1)(a._2)(a._3)(a._4))(args) ?= f(args) } :| "mapped{}" &&
+		forAll { args :Args => import args._; Curried(f)().mapped(g => (s :Short, i :Int, l :Long) => g(s)(i)(l))(_1)(_2, _3, _4) ?= f(args) } :| "().mapped{}" &&
+		forAll { args :Args => import args._; Curried(f)()().mapped(g => (i :Int, l :Long) => g(i)(l))(_1)(_2)(_3, _4) ?= f(args) } :| "()().mapped{}" &&
+		forAll { args :Args => import args._; Curried(f)()()().mapped(g => (l :Long) => g(l) + g(l))(_1)(_2)(_3)(_4) ?= (f(args) + f(args))} :| "()()().mapped{}"
 
-	property("Curried.take") =
+	property("Curried.accept") =
 		forAll { args :Args => import args._; Curried(f)(__[String]).unapplied("spy")(_1)(_2)(_3)(_4) ?= f(args)} :| "(__)" &&
 		forAll { args :Args => import args._; Curried(f)()(__[String]).unapplied(_1)("spy")(_2)(_3)(_4) ?= f(args)} :| "()(__)" &&
-		forAll { args :Args => import args._; Curried(f)()().take[String]((_:Unit)=>"spy").unapplied(_1)(_2)(())(_3)(_4) ?= f(args)} :| "()().take" &&
-		forAll { args :Args => import args._; Curried(f)()()().taking[String](_1)(_2)(_3)("spy")(_4) ?= f(args)} :| "()()().taking"
+		forAll { args :Args => import args._; Curried(f)()().accept[String]((_:Unit)=>"spy").unapplied(_1)(_2)(())(_3)(_4) ?= f(args)} :| "()().take" &&
+		forAll { args :Args => import args._; Curried(f)()()().accepting[String](_1)(_2)(_3)("spy")(_4) ?= f(args)} :| "()()().accepting"
 
-	property("Curried.combine") =
+	property("Curried.combined") =
 		forAll { args :Args => import args._
 			Curried(f).combined[Byte, Short=>Int=>Long=>String, Args=>String](g){ (l, r) => (a :Args) => l(a._1)(a._2)(a._3)(a._4) + r(a._1)(a._2)(a._3)(a._4) }(args) ?= (f(args) + g(args))
 		} :| "combine{}" &&
 		forAll { args :Args => import args._
-			Curried(f).>>.combined[Short, Int=>Long=>String, Args=>String](g){ (l, r) => (a :Args) => l(a._2)(a._3)(a._4) + r(a._2)(a._3)(a._4) }(_1)(args) ?= (f(args) + g(args))
+			Curried(f).next.combined[Short, Int=>Long=>String, Args=>String](g){ (l, r) => (a :Args) => l(a._2)(a._3)(a._4) + r(a._2)(a._3)(a._4) }(_1)(args) ?= (f(args) + g(args))
 		} :| "combine{}" &&
 		forAll { args :Args => import args._
 			Curried(f)()().combined[Int, Long=>String, Args=>String](g){ (l, r) => (a :Args) => l(a._3)(a._4) + r(a._3)(a._4) }(_1)(_2)(args) ?= (f(args) + g(args))
@@ -125,7 +125,7 @@ object CurrySpec extends Properties("Curry") {
 			(Curried(f).__.__ * Curried(g).__.__){ (l, r) => (a :Args) => import a._; l(_3)(_4) + r(_3)(_4) }(_1)(_2)(args) ?= (f(args) + g(args))
 		} :| "()():*:" &&
 		forAll { args :Args => import args._
-			(Curried(f).>>.>>.>> * Curried(g).>>.>>.>>){ (l, r) => (a :Long) => l(a)+r(a) }(_1)(_2)(_3)(_4) ?= (f(args) + g(args))
+			(Curried(f).next.next.next * Curried(g).next.next.next){ (l, r) => (a :Long) => l(a)+r(a) }(_1)(_2)(_3)(_4) ?= (f(args) + g(args))
 		} :| "()()():*:"
 
 
