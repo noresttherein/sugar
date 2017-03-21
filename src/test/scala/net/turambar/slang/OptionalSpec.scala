@@ -9,6 +9,7 @@ import org.scalatest.exceptions.TestFailedException
 object OptionalSpec extends Properties("optional") {
 	import optional._
 
+
 	property("Conditional.?=") =
 		Prop(((1==1) ?= 2 /= { throw new Exception("'false' value evaluated for a true condition") }) == 2) :| "returns first value on true" &&
 		Prop(((1!=1) ?= { throw new Exception("'true' value evaluated for a false condition") } /= 4) == 4) :| "returns second value on false"
