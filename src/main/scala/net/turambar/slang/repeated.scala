@@ -9,16 +9,50 @@ import scala.collection.mutable
   * @author Marcin Mościcki
   */
 object repeated {
-	
+
+	/** A synthactic wrapper for collections injecting methods implementing
+	  * 'breakable' `foldLeft`, that is folding only some prefix of the collection
+	  * based on some predicate or other termination condition.
+	  *
+	  * @param items any collection to fold
+	  * @tparam T element type of this collection.
+	  */
 	implicit class foldWhile[T](private val items :Iterable[T]) extends AnyVal {
+
+		/** Applies the given folding function `op` to the elements of this collection starting with the given
+		  * initial value `start` while the predicate `until` is false for the most recently computed value.
+		  * @param start initial value
+		  * @param until predicate which needs to be satisfied
+		  * @param op function generating subsequent values based on the previously computed value
+		  *           and the next element of the collection.
+		  * @tparam A type of generated and tested values
+		  * @return first generated value which satisfies predicate `until` or result of folding the whole collection
+		  *         if no such element was computed.
+		  */
 		def foldUntil[A](start :A)(until :A=>Boolean)(op :(A, T)=>A) :A =
 			items.toStream.scanLeft(start)(op).takeWhile(!until(_)).last
 
+		/** Applies the given folding function `op` to the elements of this collection starting with the given initial value `start`
+		  * for as long as `op` is defined for the previously computed value.
+		  * @param start accumulator given as the first argument to first invocation of `op`
+		  * @param op a partial function combining the accumulator with the elements of the collection working
+		  *           as the breaking condition when non-defined.
+		  * @tparam A type of generated values
+		  * @return result of `this.foldLeft(a)(op)` or first value `a :A` such that `op` is not defined
+		  *         for `(a, e)` where `e` is the first non-folded element of this collection.
+		  */
 		def foldWhile[A](start :A)(op :PartialFunction[(A, T), A]) :A = {
 			val lift = op.lift
 			foldSome(start) { (acc, elem) => lift(acc->elem) }
 		}
 
+		/** Applies the given folding function to the elements of this collection and current accumulator value
+		  * for as long as it returns non-empty results.
+		  * @param start initial accumulator value passed to the first call of `op` together with the first element of this collection.
+		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element of this collection,
+		  *           yielding `None` to signal the break condition for folding
+		  * @tparam A type of generated values
+		  */
 		def foldSome[A](start :A)(op :(A, T) => Option[A]) :A =
 			items.toStream.scanLeft(Option(start)) {
 				(acc, elem) => acc.flatMap(op(_, elem))
@@ -33,8 +67,8 @@ object repeated {
 		
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
 		@tailrec final def times[T](f :T=>T)(start :T) :T =
-		if (times<=0) start
-		else (times-1).times(f)(f(start))
+			if (times<=0) start
+			else (times-1).times(f)(f(start))
 		
 		/** Apply `f` to its own result `this` number of times, starting with value `start`.
 		  * Equivalent to `this.times(f)(start)` but helps with type inference.

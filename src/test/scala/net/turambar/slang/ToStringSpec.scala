@@ -23,7 +23,7 @@ object ToStringSpec extends Properties("ToString") {
 		override def toString = this.fieldsString
 	}
 
-	property("CaseClass") = subject.toString ?= "Subject(boolean=true, int=42, string=boggle)"
+	property("CaseClass") = subject.toString ?= "Subject(boolean=yes, int=42, string=boggle)"
 
 	property("DefToString") = (new Test).toString ?= "Test(test=44)"
 

@@ -12,68 +12,129 @@ import scala.util.Try
   */
 object optional {
 
-	final class Nullable[+T >: Null](val orNull :T) extends AnyVal {
-		@inline final def isEmpty: Boolean = orNull==null
-		@inline final def nonEmpty: Boolean = orNull!=null
-		@inline final def isDefined: Boolean = orNull!=null
 
-		@inline final def get :T =
-			if (orNull==null) throw new NoSuchElementException("Opt.Empty.get")
+	/** A value class treating nullable reference types as option-like monads erased in runtime. */
+	final class Nullable[+T >: Null](/** A wrapped reference value which may be null. */val orNull :T) extends AnyVal {
+		/** Tests if this value is null representing 'no value'. */
+		@inline def isEmpty: Boolean = orNull==null
+
+		/** Tests if this value is not null. */
+		@inline def nonEmpty: Boolean = orNull!=null
+
+		/** Tests if this value is not null. */
+		@inline def isDefined: Boolean = orNull!=null
+
+		/** Tests if this instance is `null`, Same as `isEmpty`. */
+		@inline def isNull: Boolean = orNull==null
+		
+		/** Forces extraction of the value.
+		  * @return contained value, if it not null
+		  * @throws NoSuchElementException if this value is `null`.
+		  */
+		@inline def get :T =
+			if (orNull==null) throw new NoSuchElementException("Nullable.Empty.get")
 			else orNull
 
-		@inline final def getOrElse[O>:T](alt : =>O) :O =
+		/** Returns this value if it is not null or the lazily computed alternative passed as the argument in the opposite case. */
+		@inline def getOrElse[O>:T](alt : =>O) :O =
 			if (orNull==null) alt else orNull
 
-		@inline final def orElse[O>:T](alt : =>Nullable[O]) :Nullable[O] =
+		/** Returns this `Nullable` if it is not null or the lazily computed alternative for null values. */
+		@inline def orElse[O>:T](alt : =>Nullable[O]) :Nullable[O] =
 			if (orNull==null) alt else this
 
-		@inline final def toOption = Option(orNull)
+		/** Similarly to [[getOrElse]], returns the value if non-null and `alt` otherwise. The difference is that the
+		  * alternative value is not lazily computed and avoids creating of a closure at the cost of possibly discarding
+		  * it without use.
+		  * @param alt the value to return if this instance is `null`.
+		  */
+		@inline def ifNull[O >: T](alt: O) :O =
+			if (orNull==null) alt else orNull
 
-		@inline final def foreach[O](f :T=>O) :Unit = if (orNull!=null) f(orNull)
-		@inline final def exists(p :T=>Boolean): Boolean = orNull!=null && p(orNull)
-		@inline final def forall(p :T=>Boolean): Boolean = orNull==null || p(orNull)
-		@inline final def contains[O>:T](o :O): Boolean = orNull!=null && orNull == o
 
-		@inline final def filter(p :T=>Boolean) :Nullable[T] =
+
+		/** Wraps the value in an option.
+		  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise.
+		  */
+		@inline def toOption = Option(orNull)
+
+		/** Executes the given block for this value if it is not null. */
+		@inline def foreach[O](f :T=>O) :Unit = if (orNull!=null) f(orNull)
+
+		/** Tests if this value is not null and satisfies the given predicate. */
+		@inline def exists(p :T=>Boolean): Boolean = orNull!=null && p(orNull)
+
+		/** Tests if this value is null or satisfies the given predicate. */
+		@inline def forall(p :T=>Boolean): Boolean = orNull==null || p(orNull)
+
+		/** Tests if this value is not null and equal to the given argument. */
+		@inline def contains[O>:T](o :O): Boolean = orNull!=null && orNull == o
+
+		/** Returns a new `Nullable` containing this value if it is not null and satisfies the given predicate,
+		  * or a null value otherwise.
+		  */
+		@inline def filter(p :T=>Boolean) :Nullable[T] =
 			if (orNull!=null && p(orNull)) this else new Nullable(null)
 
-		@inline final def withFilter(p :T=>Boolean) :Nullable[T] =
+		/** Equivalent to `this.`[[Nullable#filter]]`(p)` - a variant for use in for-comprehensions. */
+		@inline def withFilter(p :T=>Boolean) :Nullable[T] =
 			if (orNull!=null && p(orNull)) this else new Nullable(null)
 
-		@inline final def map[O >: Null](p :T=>O) :Nullable[O] =
+		/** Returns a new `Nullable` which is empty if this value is null or contains the result of applying
+		  * the given function to it otherwise.
+		  */
+		@inline def map[O >: Null](p :T=>O) :Nullable[O] =
 			if (orNull==null) new Nullable(null)
 			else new Nullable(p(orNull))
 
-		@inline final def flatMap[O>:Null](p :T=>Nullable[O]) :Nullable[O] =
+		/** Returns the result of applying the given function to this value if it is not null or
+		  * `this` if `this.isEmpty`
+		  */
+		@inline def flatMap[O>:Null](p :T=>Nullable[O]) :Nullable[O] =
 			if (orNull==null) new Nullable(null)
 			else p(orNull)
 
-		@inline final def flatten[O>:Null](implicit isOpt :T<:<Nullable[O]) :Nullable[O] =
+		/** Flattens `Nullable[Nullable[O]]` to a single `Nullable[O]`. */
+		@inline def flatten[O>:Null](implicit isOpt :T<:<Nullable[O]) :Nullable[O] =
 			if (orNull==null) new Nullable(null)
 			else orNull
 
-		@inline final def collect[O>:Null](f :PartialFunction[T, O]) :Nullable[O] =
+		/** Returns an empty `Nullable` if this value is null or `f` is not defined for it, otherwise
+		  * applying the given partial function and wrapping it in a new `Nullable`.
+		  */
+		@inline def collect[O>:Null](f :PartialFunction[T, O]) :Nullable[O] =
 			if (orNull!=null) new Nullable(f.applyOrElse(orNull, null))
 			else new Nullable(null)
 
-		@inline final def iterator :Iterator[T] =
+		/** An iterator returning this value as the only element if `this.nonEmpty`. */
+		@inline def iterator :Iterator[T] =
 			if (orNull==null) Iterator.single(orNull) else Iterator.empty
 
-		@inline final def toList :List[T] = if (orNull==null) Nil else orNull::Nil
+		/** Returns `Nil` if this value is null or or `this.get::Nil` otherwise. */
+		@inline def toList :List[T] = if (orNull==null) Nil else orNull::Nil
 	}
 
+
+	/** Companion object providing factory methods and extractors working with [[Nullable]]s. */
 	object Nullable {
 		@inline final implicit def nullableToOption[T>:Null](opt :Nullable[T]) :Option[T] = Option(opt.orNull)
 		@inline final implicit def optionToNullable[T>:Null](opt :Option[T]) :Nullable[T] = new Nullable(opt.orNull)
-		@inline final implicit def nullableToList[T>:Null](opt :Nullable[T]) :List[T] =
-			if (opt.orNull==null) Nil else opt.orNull::Nil
 
+		object ExtraImplicits {
+			@inline final implicit def nullableToList[T >: Null](opt :Nullable[T]) :List[T] =
+				if (opt.orNull == null) Nil else opt.orNull :: Nil
+		}
+
+		/** Wraps the given reference in a purely syntactic option-like object erased in the runtime. */
 		@inline final def apply[T>:Null](value :T) :Nullable[T] = new Nullable(value)
 
+
+		/** Extractor for non-null values of [[Nullable]] to be used in pattern matching. */
 		object NotNull {
 			@inline final def unapply[T>:Null](opt :Nullable[T]) :Option[T] = Option(opt.orNull)
 		}
 
+		/** A `null` value representing an empty [[Nullable]] for any true reference type. */
 		final val Empty :Nullable[Null] = new Nullable(null)
 	}
 
@@ -108,14 +169,16 @@ object optional {
 	  * possible and are left-associative, making parentheses generally unnecessary.
 	  * @param condition boolean value switching between two alternative values returned by the whole expression.
 	  */
+	@deprecated("just use if-else", "1.0")
 	implicit class Conditional(private val condition :Boolean) extends AnyVal {
+
 		/** If `this` boolean expression is true, return the given value. If it evaluates to `false`,
 		  * return the value given to the returned object.
 		  * @param ifTrue alternative value to return if this condition is true
 		  * @tparam T type of this expression
 		  * @return a control object providing `/=` method accepting the alternative to be returned if this condition is false.
 		  */
-		@inline def ?=[T](ifTrue : =>T) :OrElse[T] =
+		@inline def ?=[T](ifTrue : => T) :OrElse[T] =
 			if (condition) new OrElse(ifTrue)
 			else new OrElse(null.asInstanceOf[T])
 
@@ -123,11 +186,16 @@ object optional {
 			if (condition) new OrElse(ifTrue)
 			else new OrElse(null.asInstanceOf[T])
 
-		@inline def ifTrue[T](thenThis : =>T) :OrElse[T] =
+		@inline def ifTrue[T](thenThis : => T) :OrElse[T] =
 			if (condition) new OrElse(thenThis)
 			else new OrElse(null.asInstanceOf[T])
+
 	}
+
+
+
 	object Conditional {
+
 		/** Light wrapper accepting the 'if false' value of the conditional expression created by [[Conditional]]'s `?=` operator. */
 		class OrElse[T] private[Conditional] (private val ifTrue :T) extends AnyVal {
 
@@ -143,6 +211,7 @@ object optional {
 
 
 	/** An optional value returned as `Some` only if it passes the given condition.
+	  * Same as `Some(value).filter(condition)`, but in a single step.
 	  * @param value possible return value
 	  * @param condition predicate applied to `value`.
 	  * @return `Some(value).filter(condition)`
@@ -157,14 +226,12 @@ object optional {
 	implicit class Satisfying[T](private val self :T) extends AnyVal {
 
 		/** Return `Some(this)` if `condition` is true, `None`  otherwise. */
-		@inline
-		def satisfying(condition :Boolean) :Option[T] =
+		@inline def satisfying(condition :Boolean) :Option[T] =
 			if (condition) Some(self) else None
 
 
 		/** Return `Some(this)` if `condition(this)` is true, `None` otherwise. */
-		@inline
-		def satisfying(condition :T=>Boolean) :Option[T] =
+		@inline def satisfying(condition :T=>Boolean) :Option[T] =
 			if (condition(self)) Some(self) else None
 
 
@@ -181,25 +248,21 @@ object optional {
 
 
 		/** Return `Some(this)` if `condition` is false, `None` otherwise. */
-		@inline
-		def dissatisfying(condition :Boolean) :Option[T] =
+		@inline def dissatisfying(condition :Boolean) :Option[T] =
 			if (condition) None else Some(self)
 
 
 		/** Return `Some(this)` if `condition(this)` is false, `None` otherwise. */
-		@inline
-		def dissatisfying(condition :T=>Boolean) :Option[T] =
+		@inline def dissatisfying(condition :T=>Boolean) :Option[T] =
 			if (condition(self)) None else Some(self)
 
 
 		/** Return `this` if `condition` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline
-		def dissatisfyingOrElse(condition :Boolean)(alternative : =>T) :T =
+		@inline def dissatisfyingOrElse(condition :Boolean)(alternative : =>T) :T =
 			if (condition) alternative else self
 
 		/** Return `this` if `condition(this)` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline
-		def dissatisfyingOrElse(condition :T=>Boolean)(alternative : =>T) :T =
+		@inline def dissatisfyingOrElse(condition :T=>Boolean)(alternative : =>T) :T =
 			if (condition(self)) alternative else self
 
 
@@ -229,8 +292,7 @@ object optional {
 	implicit class Providing[T](self : =>T)  {
 
 		/** Return `Some(this)` if `condition` is true, or `None` without evaluating this expression otherwise. */
-		@inline
-		def providing(condition :Boolean) :Option[T] =
+		@inline def providing(condition :Boolean) :Option[T] =
 			if (condition) Some(self) else None
 
 
@@ -268,7 +330,7 @@ object optional {
 			if (condition) self else raise[E](msg)
 
 
-
-
 	}
+
+
 }
