@@ -34,7 +34,7 @@ object imports {
 	type customEnsuring[T] = optional.CustomEnsuring[T]
 	@inline implicit final def customEnsuring[T](subject :T) :customEnsuring[T] = new customEnsuring(subject)
 
-	type Var[@specialized(slang.Var.SpecializedTypes) T] = Var[T]
+	type Var[@specialized(slang.Var.SpecializedTypes) T] = slang.Var[T]
 	final val Var = slang.Var
 
 
