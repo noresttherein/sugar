@@ -8,9 +8,9 @@ import scala.collection.mutable
   * streams/collections of values from a starting point and a function.
   * @author Marcin Mościcki
   */
-object repeated {
+object repeaters {
 
-	/** A synthactic wrapper for collections injecting methods implementing
+	/** A syntactic wrapper for collections, injecting methods implementing
 	  * 'breakable' `foldLeft`, that is folding only some prefix of the collection
 	  * based on some predicate or other termination condition.
 	  *
@@ -32,6 +32,7 @@ object repeated {
 		def foldUntil[A](start :A)(until :A=>Boolean)(op :(A, T)=>A) :A =
 			items.toStream.scanLeft(start)(op).takeWhile(!until(_)).last
 
+
 		/** Applies the given folding function `op` to the elements of this collection starting with the given initial value `start`
 		  * for as long as `op` is defined for the previously computed value.
 		  * @param start accumulator given as the first argument to first invocation of `op`
@@ -46,6 +47,7 @@ object repeated {
 			foldSome(start) { (acc, elem) => lift(acc->elem) }
 		}
 
+
 		/** Applies the given folding function to the elements of this collection and current accumulator value
 		  * for as long as it returns non-empty results.
 		  * @param start initial accumulator value passed to the first call of `op` together with the first element of this collection.
@@ -59,9 +61,11 @@ object repeated {
 			}.takeWhile(_.isDefined).last.get
 		
 	}
-	
-	/** Represents a range `[0, this)` which defines number of iterations. */
+
+
+	/** Represents a range `[0, this)` which defines a fixed number of iterations. */
 	implicit class repeatTimes(private val times :Int) extends AnyVal {
+
 		/** Execute `f` (code block passed by name) `this` number of times. */
 		@inline def times[T](f : =>T) :Unit = for (i <- 0 until times) f
 		
@@ -69,9 +73,16 @@ object repeated {
 		@tailrec final def times[T](f :T=>T)(start :T) :T =
 			if (times<=0) start
 			else (times-1).times(f)(f(start))
-		
+
+		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
+		@tailrec final def timesFrom[T](start :T)(f :T=>T) :T =
+			if (times<=0) start
+			else (times-1).timesFrom(f(start))(f)
+
+
+
 		/** Apply `f` to its own result `this` number of times, starting with value `start`.
-		  * Equivalent to `this.times(f)(start)` but helps with type inference.
+		  * Equivalent to `this.timesFrom(start)(f)` but helps with type inference.
 		  * The name is in analogy to equivalent fold left over a range:
 		  * `def pow(x :Int, n:Int) = (1 /: (0 until n)){ (acc, _) => acc * x }` (in pseude code)
 		  * @param start start value for the recursion
@@ -81,9 +92,9 @@ object repeated {
 		  */
 		@inline def /:[T](start :T)(f :T=>T) :T = times(f)(start)
 		
-
-		
 	}
+
+
 
 	/** Given an accumulator value of type `A`, generate a sequence of values by recursively applying
 	  * function `next`, and combine the generated value with last accumulator value.
@@ -103,10 +114,9 @@ object repeated {
 	  */
 	def accumulate[A, T](acc :A)(start :T)(next :PartialFunction[(A, T), (A, T)]) :A =
 		reapplySome((acc, start))(next.lift)._1
-//		(next andThen { case (a, t) => accumulate(a)(t)(next) })(acc, start)
 
 
-	/** Given an acumulator value of type `A`, generate a sequence of values by recursively applying
+	/** Given an accumulator value of type `A`, generate a sequence of values by recursively applying
 	  * function `next`, and combine the generated value with last accumulator value.
 	  * This function is equivalent to generating a virtual input stream of type `T` from a recursive partial function
 	  * and folding that stream at the same time, with generator and map functions combined into a single step.
@@ -163,6 +173,7 @@ object repeated {
 	  */
 	def iterate[X, C](start :X)(next :PartialFunction[X, X])(implicit cbf :CanBuildFrom[_, X, C]) :C =
 		iterateSome(start)(next.lift)
+
 
 	/** A complement of `C.iterate` provided by collection companion objects, which creates
 	  * a collection `Ć` by recursively applying `next` and collecting all returned values

@@ -1,6 +1,4 @@
-package net.turambar.slang.variables
-
-import scala.annotation.meta.field
+package net.turambar.slang
 
 
 /** A box/reference for a mutable value. Allows for in/out parameters to functions. */

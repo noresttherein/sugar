@@ -8,7 +8,7 @@ import net.turambar.slang.typist.LowerBound
 /** Represents a type (and function) constructor of a partially applied, curried function `F` which is of the form `X0 => ... => Xn => X => T`
   * for any natural `n`, where X is the type of the first argument after (partial) application.
   * Provides methods for manipulating functions `F` around this argument.
-  * @tparam Args[G] result of mapping an intermediate result `(X=>T)` of function `F` to `G`; `F =:= Args[X=>T]`
+  * @tparam Args[R] result of mapping an intermediate result `(X=>T)` of function `F` to `R`; `F =:= Args[X=>T]`
   * @tparam X type of the first argument after partial application
   * @tparam T result type of function F partially applied to all its arguments up to and including X
   */
@@ -135,7 +135,7 @@ object Curry {
 
 	/** Explicitly summon an instance of `Curry[Ident, X, Y]` representing unapplied functions `X=>Y`
 	  * and manipulating them at argument `X`. This is the same as [[apply()]], the argument is irrelevant
-	  * and used only to allow for automatic inference of type parameters `X` and `Y`, so they needn't be
+	  * and used only to enable automatic inference of type parameters `X` and `Y`, so they needn't be
 	  * provided explicitly.
 	  * @tparam X argument type of the represented function type
 	  * @tparam Y result type of the represented function type

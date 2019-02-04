@@ -1,6 +1,5 @@
 package net.turambar.slang
 
-import net.turambar.slang.variables.Var
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
@@ -15,7 +14,7 @@ object VarSpec extends Properties("Var") {
 		val v = Var(a); v &= b;  v.get ?= (a && b) 
 	}
 	property("Var[Boolean].&&=") = forAll { (a :Boolean, b :Boolean) =>
-		var v = Var(a); var eager = false;
+		var v = Var(a); var eager = false
 		v &&= {eager = true; b}
 		(v.get ?= (a && b)) && (eager ?= a) //second argument computed only if first is true
 	}
@@ -82,7 +81,7 @@ object VarSpec extends Properties("Var") {
 	}
 	
 	property("Var[Int].flip()") = forAll { a :Int =>
-		var v = Var(a); v.flip(); v.get ?= ~a
+		val v = Var(a); v.flip(); v.get ?= ~a
 	}
 
 	
@@ -133,7 +132,7 @@ object VarSpec extends Properties("Var") {
 	}
 
 	property("Var[Long].flip()") = forAll { a :Long =>
-		var v = Var(a); v.flip(); v.get ?= ~a
+		val v = Var(a); v.flip(); v.get ?= ~a
 	}
 
 
@@ -169,6 +168,7 @@ object VarSpec extends Properties("Var") {
 		if (b != 0) { val v = Var(a); v /= b; v.get ?= (a / b) }
 		else Prop(throws(classOf[ArithmeticException]) { var v = Var(a); v /= b})
 	}
-	
+
+
 
 }

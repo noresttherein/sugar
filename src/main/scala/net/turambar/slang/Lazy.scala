@@ -12,10 +12,6 @@ trait Lazy[@specialized(Primitives) +T] extends (()=>T) {
 
 	def isInitialized :Boolean
 	def isUndefined = false
-//	override def canEqual(that :Any) =
-
-//	def filter(p :T => Boolean) :Lazy[T]
-//	def withFilter(p :T=>Boolean) :Lazy[T] = filter(p)
 
 	def map[@specialized(Primitives) O](f :T=>O) :Lazy[O]
 	def flatMap[@specialized(Primitives) O](f :T=>Lazy[O]) :Lazy[O]
@@ -25,7 +21,7 @@ trait Lazy[@specialized(Primitives) +T] extends (()=>T) {
 		case _ => false
 	}
 
-	override def hashCode = value.hashCode
+	override def hashCode :Int = value.hashCode
 }
 
 
@@ -48,12 +44,11 @@ object Lazy {
 
 	@inline final def eager[@specialized(Primitives) T](value :T) :Lazy[T] = new EagerLazy(value)
 
-	@inline final def isEager[T](lzy :()=>T) = lzy.isInstanceOf[EagerLazy[_]]
+	@inline final def isEager[T](lzy :()=>T) :Boolean = lzy.isInstanceOf[EagerLazy[_]]
 
 
 	implicit def delazify[@specialized(Primitives) T](l :Lazy[T]) :T = l.value
 
-//	implicit def lazify[@specialized(Primitives) T](value : =>T) :VolatileLazy[T] = new VolatileLazy[T](() => value)
 
 	private final object Undefined extends Lazy[Nothing] {
 		@inline final def value = throw new NoSuchElementException("Lazy.Undefined.value")
@@ -63,23 +58,20 @@ object Lazy {
 //		@inline override def filter(p: (Nothing) => Boolean): this.type = this
 //		@inline override def withFilter(p: (Nothing) => Boolean): this.type = this
 
-		@inline override def map[@specialized(Primitives) O](f: (Nothing) => O): this.type = this
+		@inline override def map[@specialized(Primitives) O](f: Nothing => O): this.type = this
 
-		@inline override def flatMap[@specialized(Primitives) O](f: (Nothing) => Lazy[O]): this.type = this
+		@inline override def flatMap[@specialized(Primitives) O](f: Nothing => Lazy[O]): this.type = this
 	}
 
 	/** An already computed (initialized value) */
 	private final class EagerLazy[@specialized(Primitives) T](eager :T) extends Lazy[T] {
-		@inline def value = eager
+		@inline def value :T = eager
 		@inline override def isInitialized = true
-		@inline override def toString = value.toString
+		@inline override def toString :String = value.toString
 
-//		@inline override def filter(p: (T) => Boolean): Lazy[T] = if (p(eager)) this else Undefined
-//		@inline override def withFilter(p: (T) => Boolean): Lazy[T] = if (p(eager)) this else Undefined
+		@inline override def map[@specialized(Primitives) O](f: T => O): EagerLazy[O] = new EagerLazy(f(eager))
 
-		@inline override def map[@specialized(Primitives) O](f: (T) => O): EagerLazy[O] = new EagerLazy(f(eager))
-
-		@inline override def flatMap[@specialized(Primitives) O](f: (T) => Lazy[O]): Lazy[O] = f(eager)
+		@inline override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = f(eager)
 	}
 
 
@@ -101,30 +93,25 @@ object Lazy {
 		@inline override def isUndefined = false
 
 
-//		@inline override def filter(p: (T) => Boolean): Lazy[T] =
-//			if (idempotent == null)
-//				if (p(evaluated)) new EagerLazy(evaluated) else Undefined
-//			else ??? //new VolatileLazy(() => p)
-//
-//		@inline override def withFilter(p :T=>Boolean) :Lazy[T] = filter(p)
-
-		@inline override def map[@specialized(Primitives) O](f: (T) => O): VolatileLazy[O] = {
+		@inline override def map[@specialized(Primitives) O](f: T => O): VolatileLazy[O] = {
 			val init = this.init
 			if (init == null) new VolatileLazy(f(evaluated))
 			else new VolatileLazy(() => f(init()))
 		}
 
-		@inline override def flatMap[@specialized(Primitives) O](f: (T) => Lazy[O]): Lazy[O] = {
+		@inline override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = {
 			val init = this.init
 			if (init == null) f(evaluated)
 			else new VolatileLazy(() => f(init()).value)
 		}
 
-		override def toString =
+		override def toString :String =
 			if (init==null) evaluated.toString
 			else "volatile(?)"
 
 	}
+
+
 
 	final class SyncLazy[@specialized(Primitives) T](private[this] var init : () =>T) extends Lazy[T] {
 
@@ -140,28 +127,21 @@ object Lazy {
 			evaluated
 		}
 
-		@inline def isInitialized = synchronized { init == null }
+		@inline def isInitialized :Boolean = synchronized { init == null }
 		@inline override def isUndefined = false
 
-//		@inline override def filter(p: (T) => Boolean): Lazy[T] = synchronized {
-//			if (init==null)
-//				if (p(evaluated)) new EagerLazy(evaluated) else Undefined
-//			else ???
-//		}
-//
-//		@inline override def withFilter(p :T=>Boolean) :Lazy[T] = filter(p)
 
-		@inline override def map[@specialized(Primitives) O](f: (T) => O): SyncLazy[O] = synchronized {
+		@inline override def map[@specialized(Primitives) O](f: T => O): SyncLazy[O] = synchronized {
 			if (init==null) new SyncLazy(f(evaluated))
 			else new SyncLazy(() => f(init()))
 		}
 
-		@inline override def flatMap[@specialized(Primitives) O](f: (T) => Lazy[O]): Lazy[O] = synchronized {
+		@inline override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = synchronized {
 			if (init==null) f(evaluated)
 			else new SyncLazy(() => f(init()).value)
 		}
 
-		override def toString = synchronized {
+		override def toString :String = synchronized {
 			if (init==null) evaluated.toString
 			else "lazy(?)"
 		}
