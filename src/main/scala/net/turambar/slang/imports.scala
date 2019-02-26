@@ -38,10 +38,10 @@ object imports {
 	final val Var = slang.Var
 
 
-	type foldWhile[T] = repeaters.foldWhile[T]
+	type foldWhile[T] = repeatedly.foldWhile[T]
 	@inline implicit final def foldWhile[T](col :Iterable[T]) :foldWhile[T] = new foldWhile(col)
 
-	type repeatTimes = repeaters.repeatTimes
+	type repeatTimes = repeatedly.repeatTimes
 	@inline implicit final def repeatTimes(iterations :Int) :repeatTimes = new repeatTimes(iterations)
 
 
