@@ -214,7 +214,7 @@ object Nullable {
 	  * @param isNotNothing an ignored argument serving solely as a proof that `T` cannot be `Nothing` and thus
 	  *                     must be a supertype of `Null`.
 	  */
-	@inline final def empty[T <: AnyRef](isNotNothing :T) :Nullable[T] = new Nullable(null.asInstanceOf[T])
+	@inline final def empty[T <: AnyRef](implicit isNotNothing :T) :Nullable[T] = new Nullable(null.asInstanceOf[T])
 
 
 	/** Extractor for non-null values of [[Nullable]] to be used in pattern matching.

@@ -7,13 +7,20 @@ import scala.reflect.{ClassTag, classTag}
 
 
 object Fun {
-	
+
+	/** Declaration of type groups usable as arguments to scala `@specialized` annotation. */
 	object specializations {
+		/** Types for which `Function1`'s result type is specialized. */
 		final val Fun1Results = new Specializable.Group(Unit, Boolean, Int, Float, Long, Double)
+		/** Types for which `Function1`'s argument type is specialized. */
 		final val Fun1Args = new Specializable.Group(Int, Long, Float, Double)
+		/** Types for which `Function2`'s argument types are specialized. */
 		final val Fun2Args = new Specializable.Group(scala.Int, scala.Long, scala.Double)
+		/** Type specialization of the first argument of `Function2`. */
 		final val Fun2Arg1 = Fun2Args
+		/** Type specialization of the second argument of `Function2`. */
 		final val Fun2Arg2 = Fun2Args
+		/** Types for which `Function2`'s result type is specialized. */
 		final val Fun2Results = new Specializable.Group(scala.Unit, scala.Boolean, scala.Int, scala.Float, scala.Long, scala.Double)
 	}
 
@@ -22,14 +29,35 @@ object Fun {
 		case s => s
 	}
 
+	/** Creates a new named function. The string given as the argument to the first application is used in `toString`
+	  * of the given function, replacing the rather unhelpful '&lt;function1&gt;'. Note that this results in wrapping
+	  * the function given as the second argument and thus introduces overhead of an additional virtual method call.
+	  * For this reason this method is most useful during development, as it can be very helpful with debugging.
+	  * @param name name to use as the textual repesentation of the given function
+	  * @return a factory of function wrappers, with overloaded `apply` method accepting single- and two-argument functions.
+	  */
 	@inline def apply(name :String) :FunctionNamer = new FunctionNamer(name)
 
+
+	/** Creates a new named function. The string given as the argument to the first application is used in `toString`
+	  * of the given function, replacing the rather unhelpful '&lt;function1&gt;'. Note that this results in wrapping
+	  * the function given as the second argument and thus introduces overhead of an additional virtual method call.
+	  * For this reason this method is most useful during development, as it can be very helpful with debugging.
+	  * @param name name to use as the textual repesentation of the given function
+	  * @return a factory of function wrappers, with overloaded `apply` method accepting single- and two-argument functions.
+	  */
 	@inline def fun(name :String) :FunctionNamer = new FunctionNamer(name)
 
-//	@inline def fun[@specialized(Fun1Args) X, @specialized(Fun1Results) Y](f :X=>Y) :X=>Y = (v1: X) => f(v1)
 
-
-
+	/** Creates a composition of two functions. If any of the functions is a [[ComposableFun]] instance, its
+	  * `andThen` or `compose` method is used as appropriate. In the other case, a manually created instance
+	  * with a more helpful `toString` method is returned. Additionally, [[ComposableFun]]s can coalesce the result
+	  * in some special cases such as identity functions, constant functions or functions throwing exceptions. This can
+	  * yield performance benefits in situations where such functions are commonly used in longer composition chains.
+	  * @param outer function to apply to the result of `inner`
+	  * @param inner first function to apply
+	  * @return a [[ComposableFun]] instance.
+	  */
 	@inline def compose[@specialized(Fun1Args)A, @specialized(Fun1Results) B, @specialized(Fun1Results) C]
 	                   (outer: B => C, inner: A => B): A => C =
 		(outer, inner) match {
@@ -38,43 +66,69 @@ object Fun {
 			case _ => new ComposedFun(inner, outer)
 		}
 
+	/** Creates a composition of two functions using the given string as its textual representation.
+	  * If any of the functions is a [[ComposableFun]] instance, its `andThen` or `compose` method is used as appropriate.
+	  * In the other case, a manually created instance with a more helpful `toString` method is returned.
+	  * Additionally, [[ComposableFun]]s can coalesce the result in some special cases such as identity functions,
+	  * constant functions or functions throwing exceptions. This can yield performance benefits in situations
+	  * where such functions are commonly used in longer composition chains.
+	  * @param name text to use in `toString` implementation.
+	  * @param outer function to apply to the result of `inner`
+	  * @param inner first function to apply
+	  * @return a [[ComposableFun]] instance.
+	  */
 	@inline def compose[@specialized(Fun1Args)A, @specialized(Fun1Results) B, @specialized(Fun1Results) C]
 	                   (name :String)(outer: B => C, inner: A => B): A => C =
 		new ComposedFun[A, B, C](inner, outer) {
 			override val toString = name
 		}
 
+
+	/** Creates a composition of two functions using the given names in its textual representation.
+	  * If any of the functions is a [[ComposableFun]] instance, its `andThen` or `compose` method is used as appropriate.
+	  * In the other case, a manually created instance with a more helpful `toString` method is returned.
+	  * Additionally, [[ComposableFun]]s can coalesce the result in some special cases such as identity functions,
+	  * constant functions or functions throwing exceptions. This can yield performance benefits in situations
+	  * where such functions are commonly used in longer composition chains.
+	  * @param outerName name of the outer function to use in `toString` implementation.
+	  * @param innerName name of the inner function to use in `toString` implementation.
+	  * @param outer function to apply to the result of `inner`
+	  * @param inner first function to apply
+	  * @return a [[ComposableFun]] instance.
+	  */
 	@inline def compose[@specialized(Fun1Args) A, @specialized(Fun1Results) B, @specialized(Fun1Results) C]
 	                   (outerName :String, innerName :String)(outer :B=>C, inner :A=>B) :A=>C =
 		compose(ComposedFun.name(outerName, innerName))(outer, inner)
 
 
-	/** Equivalent to `scala.identity[X]`, but overrides `compose` (and `andThen`) for reduced overhead of function composition. */
+	/** Equivalent to `scala.identity[X]`, but is specialized and overrides `compose` (and `andThen`)
+	  * for reduced overhead of function composition. Additionally, it provides a more informative `toString` output.
+	  */
 	@inline def idfun[@specialized(Fun1Args) X]: X => X = new IdFun[X]
 
-
+	/** A function doing nothing and returning no value. */
 	final val noop = constfun[Any, Unit](())
 
 	/** A constant function equivalent to `(_:X) => value`, but with a more helpful `toString` and performing reduction on composition.
-	  * For any `g :Y=>O`, `f compose g` eagerly evaluates to `constfun[X, O](g(value))`,
-	  * while for any `h :A=>X`, `f andThen h` evaluates eagerly to `constfun[A, Y](value)`.
+	  * For any `g :Y=>O`, `f endThen g` eagerly evaluates to `constfun[X, O](g(value))`,
+	  * while for any `h :A=>X`, `f compose h` evaluates simply to `constfun[A, Y](value)`. Note that if in the latter case
+	  * inner function `h` would in any circumstances throw an exception, it would be silently suppressed with the
+	  * constant result defined here taking precedence, unless the function `h` itself was defined by any of the `thenThrow`
+	  * methods declared here or is the result of composing such a function.
 	  */
 	@inline final def constfun[@specialized(Fun1Args) X, @specialized(Fun1Results) Y](value :Y) :X => Y = new ConstFun(value)
 
 
+	/** A function throwing the exception returned for its argument by the passed constructor function.
+	  * Provides an informative textual representation and performs reduction during composition, ignoring any
+	  * function passed to its `andThen`, returning itself instead.
+	  */
+	@inline final def thenThrow[X, E <: Exception :ClassTag](exception :X => E) :X=>Nothing = new ThrowFun(exception)
 
-	@inline final def errorfun[X, E <: Exception :ClassTag](exception :X => E) :X=>Nothing = new ComposableFun[X, Nothing] {
-
-		override def apply(v1: X): Nothing = throw exception(v1)
-
-		override def compose[A](g: A => X): A => Nothing = errorfun(exception compose g)
-
-		override def andThen[A](g: Nothing => A): X => A = this
-
-		override def toString = "throw "+classTag[E].runtimeClass.getName
-	}
-
-	@inline final def error(exception :Exception) :Any=>Nothing = errorfun(constfun[Any, Exception](exception))(ClassTag(exception.getClass))
+	/** A function which always throws the given exception. Provides informative `toString` implementation and absorbs
+	  * any function applied to its result during composition by its `andThen` method.
+	  */
+	@inline final def thenThrow(exception :Exception) :Any=>Nothing = thenThrow(constfun[Any, Exception](exception))(ClassTag(exception.getClass))
 
 	object errors {
 //		@inline final def unsupported[X, E<:Exception]
@@ -83,9 +137,17 @@ object Fun {
 
 
 	trait ComposableFun[@specialized(Fun1Args) -X, @specialized(Fun1Results) +Y] extends (X=>Y) {
-		override def compose[A](g: A => X): A => Y = new ComposedFun(g, this)
+		override def compose[A](g: A => X): A => Y = g match {
+			case _ :GenericIdentity[_] | _ :UpCast[_, _] | _ :ConstFun[_, _] | _ :ThrowFun[_, _] =>
+				g andThen this
+			case _ => new ComposedFun(g, this)
+		}
 
-		override def andThen[A](g: Y => A): X => A = new ComposedFun(this, g)
+		override def andThen[A](g: Y => A): X => A = g match {
+			case _ :GenericIdentity[_] | _ :UpCast[_, _] | _ :ConstFun[_, _] | _ :ThrowFun[_, _] =>
+				g compose this
+			case _ => new ComposedFun(this, g)
+		}
 	}
 
 
@@ -124,8 +186,6 @@ object Fun {
 
 		@inline def unapply[X, Y](f :X=>Y) :Boolean = f.isInstanceOf[GenericIdentity[_]]
 
-
-
 	}
 
 
@@ -137,13 +197,23 @@ object Fun {
 	}
 
 
-	final class ConstFun[@specialized(Fun1Args) -X, @specialized(Fun1Results) +Y](val value :Y) extends (X => Y) {
+	private final class ConstFun[@specialized(Fun1Args) -X, @specialized(Fun1Results) +Y](val value :Y) extends (X => Y) {
 		override def apply(v1: X): Y = value
 
 		@scala.annotation.unspecialized
-		override def compose[A](g: A => X): A => Y = new ConstFun(value)
+		override def compose[A](g: A => X): A => Y = g match {
+			case _ :ThrowFun[_, _] => g andThen this
+			case _ => new ConstFun(value) //new instance to drop specialization on the argument
+		}
 
-		override def andThen[A](g: Y => A): X => A = new ConstFun(g(value))
+		override def andThen[A](g: Y => A): X => A = g match {
+			case _ :ThrowFun[_, _] => g compose this
+			case _ => try {
+				new ConstFun(g(value))
+			} catch {
+				case e :Exception => thenThrow(e)
+			}
+		}
 
 		override def equals(that :Any) :Boolean = that match {
 			case const :ConstFun[_, _] => (this eq const) || value==const.value
@@ -157,7 +227,23 @@ object Fun {
 
 
 
-	class ComposedFun[@specialized(Fun1Args) -X, @specialized(Fun1Args) Y, @specialized(Fun1Results) +Z](val inner :X=>Y, val outer :Y=>Z)
+	private final class ThrowFun[@specialized(Fun1Args) -X, E <: Exception :ClassTag](exception :X => E) extends ComposableFun[X, Nothing] {
+
+		override def apply(v1: X): Nothing = throw exception(v1)
+
+		override def compose[A](g: A => X): A => Nothing = g match {
+			case _ :GenericIdentity[_] | _ :UpCast[_, _]  => g andThen this
+			case _ :ComposableFun[_, _] => thenThrow(g andThen exception)
+			case _ => thenThrow(exception compose g)
+		}
+
+		override def andThen[A](g: Nothing => A): X => A = this
+
+		override def toString :String = "throw "+classTag[E].runtimeClass.getName
+	}
+
+
+	private class ComposedFun[@specialized(Fun1Args) -X, @specialized(Fun1Args) Y, @specialized(Fun1Results) +Z](val inner :X=>Y, val outer :Y=>Z)
 		extends ComposableFun[X, Z]
 	{
 		override def apply(x: X): Z = outer(inner(x))
@@ -230,10 +316,8 @@ object Fun {
 	sealed trait CastFun[-X, +Y] extends (X=>Y) {
 		/** Identity function, an instance of [[net.turambar.slang.funny.Fun.IdFun]]. */
 		def ident :X=>Y
-		//			def cast[T[A], Z<:X](t :T[Z]) :T[Y]
 
 		implicit val <:< : X<:<Y
-		//			def =:= : X=:=Y
 
 		implicit def cocast[T[+A]] :CastFun[T[X], T[Y]]
 		implicit def contracast[T[-A]] :CastFun[T[Y], T[X]]
