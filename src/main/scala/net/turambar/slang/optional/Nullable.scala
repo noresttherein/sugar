@@ -209,6 +209,8 @@ object Nullable {
 	  */
 	@inline final val Empty :Nullable[Null] = new Nullable(null)
 
+	/** An empty [[Nullable]] wrapping a `null` value. Same as [[Nullable.Empty]]. */
+	@inline final val Null :Nullable[Null] = new Nullable(null)
 
 	/** Returns a `null` value as a `Nullable[T]`.
 	  * @param isNotNothing an ignored argument serving solely as a proof that `T` cannot be `Nothing` and thus
