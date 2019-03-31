@@ -4,6 +4,9 @@ import net.turambar.slang.tuples.Nat.{++, _0, _1, _10, _11, _12, _13, _14, _15, 
 import net.turambar.slang.typist.UpperBound
 
 
+//todo: projections and mapping, update
+
+
 /** Generic base trait for tuples of varying number of elements. It is functionally very similar to ''shapless' '' `HList`s.
   * The main difference is that they are backed by arrays instead of linked lists, offering constant time element retrieval
   * at the expense of copying the whole structure at modification.
