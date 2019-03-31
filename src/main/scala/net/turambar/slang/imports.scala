@@ -18,8 +18,8 @@ object imports {
 
 
 
-	type Nullable[+T <: AnyRef] = optional.Nullable[T]
-	final val Nullable = optional.Nullable
+	type RefOpt[+T <: AnyRef] = optional.RefOpt[T]
+	final val RefOpt = optional.RefOpt
 
 
 	type ifTrue = optional.IfTrue
