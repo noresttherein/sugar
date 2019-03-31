@@ -280,7 +280,7 @@ object Curry {
 			  * which can be used to combine both functions into a single function by unifying argument lists of `F` and `G`
 			  * and combining values returned by both for the given arguments with a function operating on their return types.
 			  */
-			@inline def :*:[F<: (_ => _ )](f :F) : F:*:G = new :*:(f, g)
+			@inline def :*:[F <: (_ => _ )](f :F) : F:*:G = new :*:(f, g)
 		}
 
 
@@ -326,7 +326,7 @@ object Curry {
 					type Returning[O] = X=>O
 
 					override def combine[O](f: X1 => Y1, g: X2 => Y2)(combine: (Y1, Y2) => O): X=>O =
-					{ x :X => combine(f(argType.left(x)), g(argType.right(x))) }
+						{ x :X => combine(f(argType.left(x)), g(argType.right(x))) }
 				}
 		}
 
