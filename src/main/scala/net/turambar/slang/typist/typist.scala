@@ -80,8 +80,8 @@ package object typist {
 
 	object LowerBound extends SelfLowerBound {
 		/** Calculates explicitly the greatest lower bound of its type parameters via its `apply()` method. */
-		final class Binder[X, Y] private[UpperBound] {
-			@inline def apply[L]()(implicit l :LowerBound[X, Y, L]) :UpperBound[X, Y, L] = l
+		final class Binder[X, Y] private[LowerBound] {
+			@inline def apply[L]()(implicit l :LowerBound[X, Y, L]) :LowerBound[X, Y, L] = l
 		}
 
 		/** Explicitly summon a [[LowerBound]] instance for `X` and `Y` to calculate their greatest lower bound.

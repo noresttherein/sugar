@@ -261,14 +261,14 @@ object Tuple {
 
 
 	/** An empty tuple (a product of zero arity). Useful particularly as terminator type for variable tuples
-	  * in a manner simmilar to list's `Nil` (and `HList`'s `HNil`).
+	  * in a manner similar to list's `Nil` (and `HList`'s `HNil`).
 	  */
 	final class <*> private[Tuple]() extends Tuple {
 		override def length :Int = 0
 
 		override def productElement(n :Int) :Any = throw new IndexOutOfBoundsException(n.toString)
 
-		/** Create a single element type consisting of element `head`. */
+		/** Create a single element tuple consisting of element `head`. */
 		def *:[X](head :X): X *: <*> = {
 			val elems = new Array[Any](4)
 			elems(0) = head

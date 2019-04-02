@@ -4,12 +4,13 @@ package net.turambar.slang
 import scala.reflect.{classTag, ClassTag}
 import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe.{typeTag, MethodSymbol, Mirror, TermSymbol, TypeTag}
+import scala.util.Try
 
 
 package object prettyprint {
 	//implicits
 	import  YesNo.shorthandBoolean
-	import ToString.typePrinter
+
 
 	/** Unqualified class name of the given object, that is its class name with all outer packages stripped.
 	  * Note that this won't contain information about type arguments for type constructors.
@@ -109,141 +110,21 @@ package object prettyprint {
 	/** Implicit conversion patching any object with methods providing prittified/shortened class names. */
 	implicit class ClassNameOf(private val self :Any) extends AnyVal {
 		/** Class name of this object trimmed of all containing packages and non-anonymous surrounding classes but one. */
-		def localClassName: String = localNameOf(self.getClass)
+		@inline def localClassName: String = localNameOf(self.getClass)
 
 		/** Fully qualified class name of this object with all containing package names replaced with their first letter. */
-		def shortClassName :String = shortNameOf(self.getClass)
-	}
-	
-	
-	
-	
-	
-	
-	
-	/** Extension of any type T which generates string representation of its fields
-	  * (defined as getter methods for underlying fields or case class fields depending on method chosen).
-	  * @author Marcin Mościcki
-	  */
-	class ToString[T](val subject :T) extends AnyVal {
-		//todo: include inherited fields.
+		@inline def shortClassName :String = shortNameOf(self.getClass)
 
-		def typeName(implicit typeTag :TypeTag[T]) :String = typeTag.tpe.typeSymbol.name.toString
-		
-		def caseFields(implicit typeTag :TypeTag[T]) :Iterable[universe.MethodSymbol] =
-			typeTag.tpe.decls.collect { case m if m.isMethod && m.asMethod.isCaseAccessor => m.asMethod }
-		
-		def fields(implicit typeTag :TypeTag[T]) :Iterable[universe.MethodSymbol] =
-			typeTag.tpe.decls.collect { case m if m.isMethod && m.asMethod.isGetter => m.asMethod }
-		
-		def fieldStrings(fields :Iterable[MethodSymbol])(implicit classTag :ClassTag[T]) :Iterable[String] = {
-			val mirror = universe.runtimeMirror(getClass.getClassLoader)
-			val reflection = mirror.reflect(subject)
-			fields.view.map { field =>
-				reflection.reflectMethod(field)() match {
-					case b :Boolean => field.name + "="+ b.yesno
-					case value => field.name + "=" + value
-				}
-			}
-		}
-		
-		def fieldsString(prefix :String)(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
-			fieldStrings(fields).mkString(prefix+"(", ", ", ")")
-		
-		def fieldsString(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
-			fieldStrings(fields).mkString(typeName+"(", ", ", ")")
-		
-		def caseFieldsString(prefix :String)(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
-			fieldStrings(caseFields).mkString(prefix+"(", ", ", ")")
-		
-		def caseFieldsString(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
-			fieldStrings(caseFields).mkString(typeName+"(", ", ", ")")
-		
-		
-	}
-	
-	
-
-
-	object ToString {
-		
-		implicit def typePrinter[T :ClassTag :TypeTag](obj :T) :ToString[T] = new ToString(obj)
-
-		/** Base class providing a `toString` implementation listing the values of all fields
-		  * of extending class `Self` with their names.
-		  */
-		class DefToString[Self <: DefToString[Self] : TypeTag : ClassTag] { this: Self =>
-			override def toString :String = (this: Self).fieldsString
-		}
-
-		/** Base class providing a `toString` implementation as a `lazy val` listing the values of all fields
-		  * of extending class `Self` with their names.
-		  */
-		class LazyToString[Self <: LazyToString[Self] : TypeTag : ClassTag] {
-			this: Self =>
-			@transient
-			override lazy val toString :String = (this: Self).fieldsString
-		}
-
-		/** Base class providing a `toString` as eagerly computed `val` implementation listing the values of all fields
-		  * of extending class `Self` with their names.
-		  */
-		class EagerToString[Self <: EagerToString[Self] : TypeTag : ClassTag] {
-			this: Self =>
-			@transient
-			override val toString :String = (this: Self).fieldsString
-		}
-
+		/** Fully qualified class name of this object, shorthand for `this.getClass.getName`. */
+		@inline def className :String = self.getClass.getName
 	}
 
 
-	
-	/** Base class providing a `toString` implementation listing the values of all case class fields
-	  * of extending case class `Self` with their names.
-	  */
-	class CaseClass[Self <:CaseClass[Self] :TypeTag :ClassTag] extends Serializable { this :Self =>
-		override def toString :String = (this :Self).caseFieldsString
-	}
-
-	object CaseClass {
-
-		/** Base class providing a `toString` implementation as a `lazy val` listing the values of all case class fields
-		  * of extending case class `Self` with their names.
-		  */
-		class LazyCaseClass[Self <: LazyCaseClass[Self] : TypeTag : ClassTag] extends Serializable { this: Self =>
-			@transient override lazy val toString :String = (this: Self).caseFieldsString
-		}
-
-		/** Base class providing a `toString` implementation as eagerly computed `val` listing the values of all case class fields
-		  * of extending case class `Self` with their names.
-		  */
-		class EagerCaseClass[Self <: EagerCaseClass[Self] : TypeTag : ClassTag] extends Serializable { this: Self =>
-			//todo: transient and recomputing it on deserialization
-			override val toString :String = (this: Self).caseFieldsString
-		}
-
-	}
 
 
-	/** Provides alternative string representations of `Boolean` values in the form of ''yes/no'' or ''y/n'' (default).
-	  * Makes for shorter `toString` results in classes containing several `Boolean` fields.
-	  */
-	class YesNo(val toBoolean :Boolean) extends AnyVal {
-		def bit :Int = if (toBoolean) 1 else 0
-		def yesno :String = if (toBoolean) "yes" else "no"
-		def yn :String = if (toBoolean) "y" else "n"
-		override def toString :String = yn
-	}
 
 
-	/** Patches `Boolean` values to print aa ''yes'' or ''no''. */
-	object YesNo {
-		def apply(is :Boolean) = new YesNo(is)
 
-		@inline final val Yes = new YesNo(true)
-		@inline final val No = new YesNo(false)
 
-		implicit def shorthandBoolean(boolean :Boolean) :YesNo = new YesNo(boolean)
-		implicit def isYes(yn :YesNo) :Boolean = yn.toBoolean
-	}
+
 }
