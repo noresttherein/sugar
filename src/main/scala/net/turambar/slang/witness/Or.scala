@@ -6,7 +6,7 @@ import scala.annotation.implicitNotFound
 /** An implicit evidence class witnessing that there is an implicit value available for `E1`, `E2` or both.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@implicitNotFound("Can't witness ${E1} Or ${E2}: no implicit value available for either type parameter.")
+@implicitNotFound("Can't witness (${E1} Or ${E2}): no implicit value available for either type parameter.")
 final class Or[E1, E2] private[witness](
 	/** Implicit value available for `E1`, if present in the referencing context. */ val first :Option[E1],
 	/** Implicit value available for `E2`, if present in the referencing context. */ val second :Option[E2]
