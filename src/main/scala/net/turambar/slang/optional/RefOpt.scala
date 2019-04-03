@@ -199,7 +199,7 @@ object RefOpt {
 
 	/** A `null` value representing an empty [[RefOpt]] for any true reference type.
 	  * Note that we need to enforce the lower bound of `Null` to prevent the implication of `null :Nothing`,
-	  * which makes it impossible to use directly as `[[[RefOpt[T]]]]` in contexts where the compiler can't prove
+	  * which makes it impossible to use directly as [[RefOpt[T]]] in contexts where the compiler can't prove
 	  * that `T &gt;: Null`. As a workaround, [[net.turambar.slang.optional.RefOpt$.empty]] can be used instead.
 	  * In addition, instances of `RefOpt` provide [[net.turambar.slang.optional.RefOpt#empty]] method
 	  * returning a value representing `null` of the same type, serving as a guarantee of the required condition,
@@ -209,7 +209,9 @@ object RefOpt {
 	  */
 	@inline final val Empty :RefOpt[Null] = new RefOpt(null)
 
-	/** An empty [[RefOpt]] wrapping a `null` value. Same as [[RefOpt.Empty]]. */
+	/** An empty [[RefOpt]] wrapping a `null` value. Same as [[RefOpt.Empty]].
+	  * @see [[#empty]]
+	  */
 	@inline final val Null :RefOpt[Null] = new RefOpt(null)
 
 	/** Returns a `null` value as a `RefOpt[T]`.

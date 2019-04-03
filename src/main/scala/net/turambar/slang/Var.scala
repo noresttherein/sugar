@@ -1,10 +1,9 @@
 package net.turambar.slang
 
 
-/** An interface for mutable values. Allows for in/out parameters to functions.
-  * Implemented by several boxing classes which may provide additional features such as synchronization.
+/** An simple `@specialized` boxed `var`. Allows for in/out parameters to functions.
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
-  * you can write `param += 1` for `param :InOut[Int]`.
+  * you can write `param += 1` for `param :Var[Int]`.
   * @tparam T type of this variable
   * @see [[Var]]
   */
