@@ -7,9 +7,11 @@ import net.noresttherein.slang.typist.UpperBound
 //todo: projections and mapping, update
 
 
-/** Generic base trait for tuples of varying number of elements. It is functionally very similar to ''shapless' '' `HList`s.
-  * The main difference is that they are backed by arrays instead of linked lists, offering constant time element retrieval
-  * at the expense of copying the whole structure at modification.
+/** Generic base trait for tuples of varying number of elements. It is functionally very similar to ''shapeless' '' `HList`s.
+  * The main difference is that they are backed by arrays instead of linked lists, offering constant time element retrieval,
+  * assuming the compiler optimizer of HotSpot-like VM will do away with unused implicit arguments existing solely as
+  * witnessess of type safety. The added expense is the need for copying the whole structure at modification (with exclusion of
+  * first prepend operation).
   *
   * @see [[Tuple.*:]]
   * @author Marcin Mościcki marcin@moscicki.net
@@ -282,14 +284,24 @@ object Tuple {
 		override def toString = "<*>"
 	}
 
-	/** An emppty tuple (a product of zero arity). By prepending elements with its [[Tuple.<*>.*:]] operator new tuples can be created. */
+	/** An empty tuple (a product of zero arity). Prepending elements with its [[Tuple.<*>.*:]] operator results in creation of new tuples. */
 	final val <*> : <*> = new <*>
 
 
 
 
-	/** An alias for `H *: T *: <*>` ommiting the terminator type `<*>` from the type signature, shortening the notation a bit. */
+	/** An alias for `H *: T *: <*>` omitting the terminator type `<*>` from the type signature, shortening the notation a bit.
+	  * New instances can be created by the companion object to this type [[Tuple*::]]: `**:(x, y)`.
+	  */
 	type **:[+H, +T] = H *: T *: <*>
+
+	/** Implicit conversion from values of any type `X` adding a right-associative [[PairConstructor.**: **:]] method
+	  * for creating pairs (two-argument tuples).
+	  * @param second the second element of the created tuple.
+	  * @tparam Y the type of the second element in the created tuple.
+	  * @return a light wrapper over the `second` object, adding a pair factory method `**:`.
+	  */
+	@inline implicit def **:[Y](second :Y): PairConstructor[Y] = new PairConstructor(second)
 
 	/** Constructor and extractor for two-element tuples `H**:T` (equivalent to `H *: T *: <*>`) for use in pattern matching. */
 	object **: {
@@ -301,13 +313,21 @@ object Tuple {
 		}
 
 		def unapply[A, B](tuple :A **: B) :Option[(A, B)] = Some((tuple._0, tuple._1))
+
+	}
+
+	/** Patches any object implicitly adding the [[PairConstructor#**:]] method for creating pair objects. */
+	class PairConstructor[Y](private val second :Y) extends AnyVal {
+		@inline def **:[X](first :X) = apply(first, second)
 	}
 
 
 
 
-
 	/** Cartesian product of type `H` and types listed in `T`, being a type constructor for tuples with variable lengths.
+	  * New instances can be created either by the [[Tuple]]'s object overloaded `apply` methods for fixed arities,
+	  * or by recursively prepending elements with [[Tuple!.*:]] to existing tuples. A natural start would be
+	  * either the empty product [[Tuple.<*>]] or a pair: [[Tuple.**:]].
 	  * @tparam H type of the first element in the tuple
 	  * @tparam T a tuple type consisting of the 'tail'of this tuple, that is all element types after the first.
 	  * @see [[**:]]
@@ -338,10 +358,10 @@ object Tuple {
 
 		/** A tuple consisting of all elements from this tuple except the first. */
 		def tail :T = {
-			val count = length
-			if (count == 1) <*>
-			else new *:(elements, -count + 1)
-		}.asInstanceOf[T]
+				val count = length
+				if (count == 1) <*>
+				else new *:(elements, -count + 1)
+			}.asInstanceOf[T]
 
 
 		/** The first element of this tuple. */
@@ -410,19 +430,18 @@ object Tuple {
 		/** The twenty-second element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
 		def _21[E](implicit tpe :TypeAt[H *: T, _21, E]) :E = elements(length-22).asInstanceOf[E]
 
-		/** The twhenty-third element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
+		/** The twenty-third element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
 		def _22[E](implicit tpe :TypeAt[H *: T, _22, E]) :E = elements(length-23).asInstanceOf[E]
 
 
 
-		/** Retrieves the `n`-th element of this tuple as a value of LUB type of all member types (that is the least generic type `U`
-		  * such that all elements of this tuple conform to `U`. This is the only way to access the elements based
-		  * on dynamic index values. If the index is statically known, consider instead [[Tuple.*:.apply[N](n:N)(implicit tpe:TypeAt[H*:T,N,X]]]
+		/** Retrieves the `n`-th element of this tuple as a value of `LUB` type of all member types (that is the least
+		  * generic type `U` such that all elements of this tuple conform to `U`. This is the only way to access the
+		  * elements based on dynamic index values. If the index is statically known, consider instead
+		  * [[Tuple.*:.apply[N](n:N)(implicit tpe:TypeAt[H*:T,N,X]]]
 		  * @param n zero based index of the element to retrieve.
 		  * @param lub implicit witness providing the least upper bound for member types of this tuple
-		  * @tparam E
-		  * @tparam U
-		  * @return
+		  * @tparam E the least upper bound for types of all elements in this tuple
 		  */
 		def apply[E](n :Int)(implicit lub :TupleLUB[H *: T, E]) :E = elements(length - 1 - n).asInstanceOf[E]
 
@@ -432,7 +451,6 @@ object Tuple {
 		  * @param tpe implicit witness providing the type of the `n`-th element in this tuple.
 		  * @tparam N Recursively constructed type encoding the index of the retrieved element.
 		  * @tparam X exact type of the retrieved element provided by an implicit parameter.
-		  * @return
 		  */
 		def apply[N <: Nat, X](n :N)(implicit tpe :TypeAt[H *: T, N, X]) :X =
 			elements(length - 1 - n.number).asInstanceOf[X]
@@ -584,7 +602,7 @@ sealed abstract class NatImplicitInduction {
 
 
 /** Implicit values and type aliases for encoding of the first 23 natural numbers as types. */
-object Nat {
+object Nat extends NatImplicitInduction {
 	/** Type encoding of natural number `0`. */
 	final class _0 private[Nat]() extends Nat(0)
 
