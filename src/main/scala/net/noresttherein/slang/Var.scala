@@ -2,35 +2,31 @@ package net.noresttherein.slang
 
 /** An simple `@specialized` boxed `var`. Allows for in/out parameters to functions.
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
-  * you can write `param += 1` for `param :Var[Int]`.
+  * you can write `param += 1` for `param :Var[Int]`. The use of this class directly over through the `In/Out`
+  * interface may be preferable to reduce the number of virtual calls and possibly facilitate hotspot inlining.
   * @tparam T type of this variable
-  * @see [[Var]]
+  * @see [[net.noresttherein.slang.Var$]]
   */
-final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) extends Serializable {
+final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
+
 	/** Current value of this variable. */
 	@inline def get :T = x
 
 	/** Current value of this variable. */
-	@inline def value :T = x
+	@inline override def value :T = x
+
 
 	/** Assigns a new value to this variable. */
-	@inline def value_=(newValue :T) :Unit = x = newValue
+	@inline override def value_=(newValue :T) :Unit = x = newValue
 
 	/** Assigns a new value to this variable. */
-	@inline def :=(newValue :T) :Unit = x = newValue
+	@inline override def :=(newValue :T) :Unit = x = newValue
+
 
 	/** Assigns a new value returning the previous value at the same time. */
-	@inline def ?=(newValue :T) :T = { val res = x; x = newValue; res }
+	@inline override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
 
 
-	override def equals(that :Any) :Boolean = that match {
-		case v :Var[_] => (v eq this) || v.get == value
-		case _ => false
-	}
-
-	override def hashCode :Int = value.hashCode
-
-	override def toString :String = value.toString
 }
 
 
@@ -100,7 +96,9 @@ object Var {
 		@inline def ||=(other: =>Boolean) :Unit = x := x.get || other
 		@inline def ^=(other :Boolean) :Unit = x := x.get ^ other
 
+		/** Negates this boolean variable, assigning it the opposite of the current value. */
 		@inline def neg() :Unit = x := !x.get
+
 	}
 
 
@@ -123,6 +121,7 @@ object Var {
 		@inline def >>>=(n :Int) :Unit = x := x.get >>> n
 		@inline def <<=(n :Int) :Unit = x := x.get << n
 
+		/** Assigns this variable its bitwise negation: `this := !this.value`. */
 		@inline def flip() :Unit = x := ~x.get
 	}
 
@@ -146,6 +145,7 @@ object Var {
 		@inline def >>>=(n :Int) :Unit = x := x.get >>> n
 		@inline def <<=(n :Int) :Unit = x := x.get << n
 
+		/** Assigns this variable its bitwise negation: `this := !this.value`. */
 		@inline def flip() :Unit = x := ~x.get
 	}
 
