@@ -38,4 +38,5 @@ object ObjectFormatterSpec extends Properties("ObjectFormatter") {
 
 	property("fieldsString") = new Private("first", 42).toString ?= "Private(field1=first, _field2=42)"
 
+
 }
