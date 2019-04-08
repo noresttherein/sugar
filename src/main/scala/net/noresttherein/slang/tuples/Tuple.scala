@@ -1,5 +1,6 @@
 package net.noresttherein.slang.tuples
 
+import net.noresttherein.slang.testing.debug
 import net.noresttherein.slang.tuples.Nat.{++, _0, _1, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _2, _20, _21, _22, _3, _4, _5, _6, _7, _8, _9}
 import net.noresttherein.slang.typist.UpperBound
 
@@ -10,7 +11,7 @@ import net.noresttherein.slang.typist.UpperBound
 /** Generic base trait for tuples of varying number of elements. It is functionally very similar to ''shapeless' '' `HList`s.
   * The main difference is that they are backed by arrays instead of linked lists, offering constant time element retrieval,
   * assuming the compiler optimizer of HotSpot-like VM will do away with unused implicit arguments existing solely as
-  * witnessess of type safety. The added expense is the need for copying the whole structure at modification (with exclusion of
+  * witnesses of type safety. The added expense is the need for copying the whole structure at modification (with exclusion of
   * first prepend operation).
   *
   * @see [[Tuple.*:]]
@@ -32,11 +33,27 @@ sealed trait Tuple extends Product {
 /** Factory object for variable-length tuples. */
 object Tuple {
 
+	/** Retrieves all elements from this tuple as a list with the type of their common upper bound. To match
+	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.Tuple.*:]] (infix notation possible).
+	  * @param tuple the tuple to explode
+	  * @tparam T concrete product type of this tuple containing information about all elements.
+	  * @tparam U calculated least upper bound type for elements of this tuple.
+	  * @return an list with all elements of this tuple, with the leftmost (index 0) being its head.
+	  */
 	def unapplySeq[T <: Tuple, U](tuple :T)(implicit lub :TupleLUB[T, U]) :Seq[U] = tuple match {
 		case _ : <*> => Nil
 		case xs : *:[h, t] => xs.toSeq[U](lub.asInstanceOf[TupleLUB[h *: t, U]])
 	}
 
+	/** Create an empty tuple. */
+	def apply(): <*> = <*>
+
+	/** Create a single element tuple. */
+	def apply[A](a :A) :A *: <*> = {
+		val elems = new Array[Any](1)
+		elems(0) = a
+		new *:[A, <*>](elems, 1)
+	}
 
 	/** Create a two-element tuple. */
 	def apply[A, B](a :A, b :B) :A **: B = {
@@ -303,6 +320,7 @@ object Tuple {
 	  */
 	@inline implicit def **:[Y](second :Y): PairConstructor[Y] = new PairConstructor(second)
 
+
 	/** Constructor and extractor for two-element tuples `H**:T` (equivalent to `H *: T *: <*>`) for use in pattern matching. */
 	object **: {
 		/** Create a two-element tuple. */
@@ -316,9 +334,11 @@ object Tuple {
 
 	}
 
+
 	/** Patches any object implicitly adding the [[PairConstructor#**:]] method for creating pair objects. */
 	class PairConstructor[Y](private val second :Y) extends AnyVal {
-		@inline def **:[X](first :X) = apply(first, second)
+		@inline def **:[X](first :X): X **: Y = apply(first, second)
+		@inline def *:[X](first :X) : X **: Y = apply(first, second)
 	}
 
 
@@ -353,22 +373,12 @@ object Tuple {
 		def length :Int = { val count = len; if (count > 0) count else -count }
 
 
-		/** The first (leftmost) element of this tuple. */
-		def head :H = elements(length-1).asInstanceOf[H]
-
-		/** A tuple consisting of all elements from this tuple except the first. */
-		def tail :T = {
-				val count = length
-				if (count == 1) <*>
-				else new *:(elements, -count + 1)
-			}.asInstanceOf[T]
-
 
 		/** The first element of this tuple. */
 		def _0 :H = elements(length-1).asInstanceOf[H]
 
 		/** The second element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
-		def _1[E](implicit tpe :TypeAt[H *: T, _1, E]) :E = elements(length-2).asInstanceOf[E]
+		def _1[E](implicit tpe :TypeAt[H *: T, _1, E]) :E = elements(length - 2).asInstanceOf[E]
 
 		/** The third element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
 		def _2[E](implicit tpe :TypeAt[H *: T, _2, E]) :E = elements(length-3).asInstanceOf[E]
@@ -443,7 +453,12 @@ object Tuple {
 		  * @param lub implicit witness providing the least upper bound for member types of this tuple
 		  * @tparam E the least upper bound for types of all elements in this tuple
 		  */
-		def apply[E](n :Int)(implicit lub :TupleLUB[H *: T, E]) :E = elements(length - 1 - n).asInstanceOf[E]
+		def apply[E](n :Int)(implicit lub :TupleLUB[H *: T, E]) :E = {
+			val len = length
+			if (n < 0 || n >= length)
+				throw new IndexOutOfBoundsException(s"$this($n)")
+			elements(len - 1 - n).asInstanceOf[E]
+		}
 
 		/** Retrieves the `n`-th element of this tuple. The value of `n` must be statically known and encoded as a natural
 		  * number type `Nat`. See [[Nat]] for constants such as [[Nat._0]], [[Nat._1]], ''etc.''.
@@ -454,6 +469,58 @@ object Tuple {
 		  */
 		def apply[N <: Nat, X](n :N)(implicit tpe :TypeAt[H *: T, N, X]) :X =
 			elements(length - 1 - n.number).asInstanceOf[X]
+
+
+		/** First (leftmost) element of this tuple - same as `this._0`. */
+		def head :H = elements(length-1).asInstanceOf[H]
+
+		/** A tuple consisting of all elements from this tuple except the first. */
+		def tail :T = {
+			val count = length
+			if (count == 1) <*>
+			else new *:(elements, -count + 1)
+		}.asInstanceOf[T]
+
+
+
+		def drop[N <: Nat, R <: Tuple](n :N)(implicit restType :TupleDrop[N, H *: T, R]) :R = {
+			val count = length
+			if (n.number >= count) <*>.asInstanceOf[R]
+			else new *:[Any, Tuple](elements, n.number - count).asInstanceOf[R]
+		}
+
+
+		def take[N <: Nat, R <: Tuple](n :N)(implicit initType :TupleTake[N, H *: T, R]) :R =
+			if (n.number <= 0) <*>.asInstanceOf[R]
+			else {
+				val count = length
+				if (n.number >= count) this.asInstanceOf[R]
+				else new *:[Any, <*>](elements.slice(count-n.number, count), n.number).asInstanceOf[R]
+			}
+
+
+		def dropRight[N <: Nat, R <: Tuple](n :N)(implicit resType :TupleDropRight[N, H *: T, R]) :R = {
+			val count = length; val num = n.number
+			if (num >= count) <*>.asInstanceOf[R]
+			else new *:[Any, Tuple](elements.slice(num, count), count - num).asInstanceOf[R]
+		}
+
+
+		def takeRight[N <: Nat, R <: Tuple](n :N)(implicit resType :TupleTakeRight[N, H *: T, R]) :R =
+			if (n.number <= 0) <*>.asInstanceOf[R]
+			else {
+				val count = length; val num = n.number
+				if (num >= count) this.asInstanceOf[R]
+				else new *:[Any, Tuple](elements, num).asInstanceOf[R]
+			}
+
+		def slice[F <: Nat, U <: Nat, R0 <: Tuple, R <:Tuple](from :F, until :U)(implicit takeType :TupleTake[U, H *: T, R0], dropType :TupleDrop[F, R0, R]) :R = {
+			val count = length; val f = from.number; val u = until.number
+			if (u <= 0 || f >= count) <*>.asInstanceOf[R]
+			else if (f <= 0 && u >= count) this.asInstanceOf[R]
+			else new *:[Any, Tuple](elements.slice(count - u, count - f), u - f).asInstanceOf[R]
+		}
+
 
 
 		/** Returns a sequence containing all elements of this tuple from left to right. The element type is calculated
@@ -493,9 +560,19 @@ object Tuple {
 
 
 
-		override def productElement(n :Int) :Any = elements(length - 1 - n)
+		override def productElement(n :Int) :Any = elements(length - n)
 
 		override def canEqual(that :Any) :Boolean = that.isInstanceOf[*:[_, _]]
+
+		override def equals(that :Any) :Boolean = that match {
+			case t : *:[_, _] =>
+				(t eq this) || (t canEqual this) && t.length == length && {
+					var i = length; val others = t.array
+					do { i -=1 } while (i >= 0 && elements(i) == others(i))
+					i < 0
+				}
+			case _ => false
+		}
 
 		override def toString :String = {
 			val res = new StringBuilder
@@ -515,6 +592,9 @@ object Tuple {
 	}
 
 
+
+
+/*
 	/** Implicit conversion from any type into a singleton tuple which can be extended by prepending new elements
 	  * with the [[*:.*:]] method
 	  */
@@ -523,9 +603,18 @@ object Tuple {
 		array(0) = last
 		new *:[X, <*>](array, 1)
 	}
+*/
+	/** Implicit conversion extending any type with a `*:` method to create two element tuples.
+	  * `x *: y` is equivalent to `x *: y *: <*>`, both creating a pair of type `X *: Y *: <*>`.
+	  * If you wish to have an empty element tupe as the last element of another tuple, use `x **: <*>` or one of
+	  * direct `apply` factory methods of this object.
+	  */
+	implicit def *:[X](last :X) :PairConstructor[X] = new PairConstructor(last)
 
 
-	/** Extractor separating the first element of the tuple from the rest in pattern matching. */
+	/** Extractor separating the first element of the tuple from the rest in pattern matching. Can be used in the recursive
+	  * infix notation.
+	  */
 	object *: {
 		def unapply[H, T <: Tuple](tuple :H *: T) :Option[(H, T)] = Some(tuple.head, tuple.tail)
 	}
@@ -551,7 +640,7 @@ object Tuple {
 
 
 	/** Implicit witness providing the upper type bound `U` (if unrestricted, the ''least upper bound'' for all elements
-	  * of tuple `T`
+	  * of tuple `T`).
 	  * @tparam T a tuple type
 	  * @tparam U a type such that tuple(''_i'') :U for all `0 &lt;= i &lt; tuple.length`.
 	  */
@@ -563,6 +652,74 @@ object Tuple {
 
 		implicit def lub[H, T <: Tuple, X, U](implicit ev :TupleLUB[T, X], lub :UpperBound[H, X, U]) :TupleLUB[H *: T, U] =
 			nothing.asInstanceOf[TupleLUB[H *: T, U]]
+	}
+
+
+	/** Implicit evidence atdebug that `N` is the type-encoded length of tuple type `T`. */
+	final class TupleLength[N <: Nat, -T <: Tuple] private ()
+
+	object TupleLength {
+		implicit val zeroLength :TupleLength[_0, <*>] = new TupleLength[_0, <*>]
+
+		@inline implicit def longer[N <: Nat, T <: Tuple](implicit tailLength :TupleLength[N, T]) :TupleLength[++[N], Any *: T] =
+			zeroLength.asInstanceOf[TupleLength[++[N], Any *: T]]
+	}
+
+
+	/** Implicit evidence atdebug that `R` is the type resulting from dropping `N` first elements from tuple type `T`. */
+	final class TupleDrop[N <: Nat, -T <: Tuple, R <: Tuple] private ()
+
+	object TupleDrop {
+		private[this] val instance = new TupleDrop[_0, Tuple, Tuple]
+
+		@inline implicit def drop0[T <: Tuple] :TupleDrop[_0, T, T] = instance.asInstanceOf[TupleDrop[_0, T, T]]
+
+		@inline implicit def dropMore[N <: Nat, T <: Tuple, R <: Tuple](implicit init :TupleDrop[N, T, R]) :TupleDrop[++[N], Any *: T, R] =
+			instance.asInstanceOf[TupleDrop[++[N], Any *: T, R]]
+	}
+
+
+
+	/** Implicit witness atdebug that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
+	final class TupleTake[N <: Nat, -T <: Tuple, R <: Tuple] private ()
+
+	object TupleTake {
+		private[this] val instance = new TupleTake[_0, <*>, <*>]
+
+		@inline implicit def take0[T <: Tuple] :TupleTake[_0, T, <*>] = instance.asInstanceOf[TupleTake[_0, T, <*>]]
+
+		@inline implicit def takeMore[N <: Nat, H, T <: Tuple, R <:Tuple](implicit tail :TupleTake[N, T, R]) :TupleTake[++[N], H *: T, H *: R] =
+			instance.asInstanceOf[TupleTake[++[N], H *: T, H *: R]]
+	}
+
+
+
+	/** Implicit evidence atdebug that `R` is the type resulting from dropping `N` last (right) elements from tuple type `T`. */
+	final class TupleDropRight[N <: Nat, -T <: Tuple, R <: Tuple] private ()
+
+	object TupleDropRight {
+		private[this] val instance = new TupleDropRight[_0, Tuple, Tuple]
+
+		@inline implicit def dropAll[N <: Nat, T <:Tuple](implicit length :TupleLength[N, T]) :TupleDropRight[N, T, <*>] =
+			instance.asInstanceOf[TupleDropRight[N, T, <*>]]
+
+		@inline implicit def dropNoMore[N <: Nat, H, T <: Tuple, R <: Tuple](implicit init :TupleDropRight[N, T, R]) :TupleDropRight[N, H *: T, H *: R] =
+			instance.asInstanceOf[TupleDropRight[N, H *: T, H *: R]]
+	}
+
+
+
+	/** Implicit witness atdebug that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
+	final class TupleTakeRight[N <: Nat, -T <: Tuple, R <: Tuple] private ()
+
+	object TupleTakeRight {
+		private[this] val instance = new TupleTakeRight[_0, <*>, <*>]
+
+		@inline implicit def takeAll[N <: Nat, T <: Tuple](implicit length :TupleLength[N, T]) :TupleTakeRight[N, T, T] =
+			instance.asInstanceOf[TupleTakeRight[N, T, T]]
+
+		@inline implicit def takeNoMore[N <: Nat, T <: Tuple, R <:Tuple](implicit tail :TupleTakeRight[N, T, R]) :TupleTakeRight[N, Any *: T, R] =
+			instance.asInstanceOf[TupleTakeRight[N, Any *: T, R]]
 	}
 
 
