@@ -1,6 +1,5 @@
 package net.noresttherein.slang.tuples
 
-import net.noresttherein.slang.testing.debug
 import net.noresttherein.slang.tuples.Nat.{++, _0, _1, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _2, _20, _21, _22, _3, _4, _5, _6, _7, _8, _9}
 import net.noresttherein.slang.typist.UpperBound
 

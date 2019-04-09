@@ -1,6 +1,5 @@
 package net.noresttherein.slang
 
-import net.noresttherein.slang.testing.debug
 import net.noresttherein.slang.tuples.{Nat, Tuple}
 import org.scalacheck.Prop._
 import org.scalacheck.{Prop, Properties}
@@ -257,9 +256,9 @@ object TupleSpec extends Properties("Tuple") {
 	property("*:.head") = {
 		val i = new Count(-1)
 		t1.head =? i.++ && t2.head =? i.++ && t3.head =? i.++ && t4.head =? i.++ && t5.head =? i.++ && t6.head =? i.++ && t7.head =? i.++ &&
-			t8.head =? i.++ && t9.head =? i.++ && t10.head =? i.++ && t11.head =? i.++ && t12.head =? i.++ && t13.head =? i.++ && t14.head =? i.++ &&
-			t15.head =? i.++ && t16.head =? i.++ && t17.head =? i.++ && t18.head =? i.++ && t19.head =? i.++ && t20.head =? i.++ && t21.head =? i.++ &&
-			t22.head =? i.++ && t23.head =? i.++ && t24.head =? i.++ && t25.head =? i.++ && tuptup.head =? 1
+		t8.head =? i.++ && t9.head =? i.++ && t10.head =? i.++ && t11.head =? i.++ && t12.head =? i.++ && t13.head =? i.++ && t14.head =? i.++ &&
+		t15.head =? i.++ && t16.head =? i.++ && t17.head =? i.++ && t18.head =? i.++ && t19.head =? i.++ && t20.head =? i.++ && t21.head =? i.++ &&
+		t22.head =? i.++ && t23.head =? i.++ && t24.head =? i.++ && t25.head =? i.++ && tuptup.head =? 1
 	}
 
 	property("*:.tail") = tuptup.tail =? "2" *: 3L *: '4' *: <*> &&

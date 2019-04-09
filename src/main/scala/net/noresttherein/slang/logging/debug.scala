@@ -1,18 +1,17 @@
-package net.noresttherein.slang.testing
+package net.noresttherein.slang.logging
 
-import java.util.logging.Logger
+import java.util.logging.{Logger => Log}
 
 
-/** Traditional ad-hoc methods which log a value for debuggin purposes and immedietly return it.
+/** Traditional ad-hoc methods which log a value for debugging purposes and immediately return it.
   * Rather than importing enclosed identifiers, consider importing this object and invoking the methods explicitly -
-  * this way one can use the infix call notation ''without'' parenthesis's, making it potentially easier to quickly
+  * this way one can use the infix call notation potentially without parenthesis's, making it easier to quickly
   * add and remove the debug messages:
   * {{{
   *     debug outln x
   *     debug("x^2=") outln x * x
   *     debug(log) fine x * x
   * }}}
-  * @author Marcin Mościcki marcin@moscicki.net
   */
 object debug {
 	/** Log the given value to `System.out` before returning it. */
@@ -44,9 +43,9 @@ object debug {
 
 	
 	
-	def apply(log :Logger) :LoggerPrinter = new LoggerPrinter(log)
+	def apply(log :Log) :LogPrinter = new LogPrinter(log)
 
-	class LoggerPrinter(private val log :Logger) extends AnyVal {
+	class LogPrinter private[debug] (private val log :Log) extends AnyVal {
 		def severe[X](x :X) :X = { log.severe(x.toString); x }
 		def warning[X](x :X) :X = { log.warning(x.toString); x }
 		def info[X](x :X) :X = { log.info(x.toString); x }
@@ -58,9 +57,9 @@ object debug {
 
 
 
-	def apply(prefix :String, log :Logger) :PrefixedLogger = new PrefixedLogger(prefix, log)
+	def apply(log :Log, prefix :String) :PrefixedLog = new PrefixedLog(prefix, log)
 	
-	class PrefixedLogger(prefix :String, log :Logger) {
+	class PrefixedLog private[debug] (prefix :String, log :Log) {
 		def severe[X](x :X) :X = { log.severe(prefix + x); x }
 		def warning[X](x :X) :X = { log.warning(prefix + x); x }
 		def info[X](x :X) :X = { log.info(prefix + x); x }
