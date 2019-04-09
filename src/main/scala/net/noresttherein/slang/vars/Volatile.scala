@@ -1,6 +1,7 @@
-package net.noresttherein.slang
+package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.Var.SpecializedTypes
+
+import net.noresttherein.slang.vars.Var.SpecializedTypes
 
 
 /** A boxed `@volatile` variable of type `T`. Volatile declaration allows it to be used concurrently, guaranteeing
@@ -21,7 +22,7 @@ sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T
 
 	@inline final override def value_=(value :T) :Unit = x = value
 
-	@inline final override def :=(newValue :T) :Unit = x = value
+	@inline final override def :=(newValue :T) :Unit = x = newValue
 
 	/** Assigns a new value to this variable, returning a value it held at some point in the past.
 	  * Note that this is '''not''' atomic: other assignments might have happened between reading
@@ -32,6 +33,8 @@ sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T
 
 
 
+
+/** Factory of boxed `@volatile` variables. */
 object Volatile {
 
 	/** Create a new volatile reference variable which can be shared by multiple units of code. */

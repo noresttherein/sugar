@@ -10,7 +10,7 @@ trait Lazy[@specialized(Primitives) +T] extends (()=>T) {
 	@inline final def apply() :T = value
 	def value :T
 
-	def isInitialized :Boolean
+	def isEvaluated :Boolean
 	def isUndefined = false
 
 	def map[@specialized(Primitives) O](f :T=>O) :Lazy[O]
@@ -52,7 +52,7 @@ object Lazy {
 
 	private final object Undefined extends Lazy[Nothing] {
 		@inline final def value = throw new NoSuchElementException("Lazy.Undefined.value")
-		@inline override def isInitialized = false
+		@inline override def isEvaluated = false
 		@inline override def isUndefined = true
 
 //		@inline override def filter(p: (Nothing) => Boolean): this.type = this
@@ -66,7 +66,7 @@ object Lazy {
 	/** An already computed (initialized value) */
 	private final class EagerLazy[@specialized(Primitives) T](eager :T) extends Lazy[T] {
 		@inline def value :T = eager
-		@inline override def isInitialized = true
+		@inline override def isEvaluated = true
 		@inline override def toString :String = value.toString
 
 		@inline override def map[@specialized(Primitives) O](f: T => O): EagerLazy[O] = new EagerLazy(f(eager))
@@ -84,12 +84,15 @@ object Lazy {
 		@inline override def value: T = {
 			if (init != null) {
 				evaluated = init()
-				init = null
+				init = null //clear the specialized field
+				clear()     //clear the erased field
 			}
 			evaluated
 		}
 
-		@inline override def isInitialized: Boolean = init == null
+		@inline private def clear() :Unit = init = null
+
+		@inline override def isEvaluated: Boolean = init == null
 		@inline override def isUndefined = false
 
 
@@ -113,21 +116,31 @@ object Lazy {
 
 
 
-	final class SyncLazy[@specialized(Primitives) T](private[this] var init : () =>T) extends Lazy[T] {
+	final class SyncLazy[@specialized(Primitives) T](evaluate : () =>T) extends Lazy[T] {
 
 		def this(value :T) = { this(null); evaluated = value }
 
+		private[this] var init = evaluate
 		private[this] var evaluated :T = _
 
 		@inline def value :T = synchronized {
 			if (init!=null) {
 				evaluated = init()
-				init = null
+				init = null //clears the specialized field
+				clear()     //clears the erased field
+				isEvaluated
 			}
 			evaluated
 		}
 
-		@inline def isInitialized :Boolean = synchronized { init == null }
+		/** A specialized class has two `init` fields (one in the generic base class and one specialized).
+		  * Snippet `init = null` in specialized `value` method clears only the specialized field, while
+		  * the `isEvaluated` method checks only the generic (base) field. Hence a non-specialized method
+		  * to explicitly clear the reference field `init`.
+		  */
+		@inline private[this] def clear() :Unit = init = null
+
+		@inline def isEvaluated :Boolean = synchronized { init == null }
 		@inline override def isUndefined = false
 
 

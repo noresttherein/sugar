@@ -1,4 +1,4 @@
-organization := "net.turambar"
+organization := "net.noresttherein"
 
 name := "slang"
 
