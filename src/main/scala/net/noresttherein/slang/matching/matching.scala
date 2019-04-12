@@ -17,8 +17,10 @@ package object matching {
 	}
 
 
-	/** A multi-purpose extractor for values of `Out` from parameter `In`.
-	  * Can be used in pattern matching or as a partial function.
+	/** A multi-purpose extractor for values of `Out` from parameter `In`. Can be used in pattern matching or
+	  * as a partial function. It is a single abstract method type (''SAM'') and thus the compiler will convert a lambda
+	  * function `In => Out` where the type `Extractor[In, Out]` is expected, eliminating the overhead of wrapping
+	  * a function while preserving the convenience of the shortened definition.
 	  * @tparam In argument type
 	  * @tparam Out type of extracted value
 	  */
@@ -55,7 +57,9 @@ package object matching {
 
 
 	/** An skeleton for extractor objects which can be used both in pattern matching and to directly attempt to narrow
-	  * down or extract `Out` out of a `In` type value.
+	  * down or extract `Out` out of a `In` type value. It is a single abstract method type (''SAM'') and thus
+	  * the compiler will convert a lambda function `In => Out` where the type `Unapply[In, Out]` is expected,
+	  * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
 	  * @tparam In type of matched (argument) values
 	  * @tparam Out type of extracted (result) values.
 	  */
