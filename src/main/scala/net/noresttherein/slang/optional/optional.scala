@@ -11,8 +11,11 @@ import scala.reflect.ClassTag
 package object optional {
 
 
-	/** Finds first defined optional value in the given list.
-	  * Equivalent to `alternatives.find(_.isDefined).flatten`.
+	/** Finds first defined optional value in the given list. Equivalent to `alternatives.find(_.isDefined)`.
+	  * It is particularly useful with the guarded expressions producing options, defined here:
+	  * {{{
+	  *     firstOf(<expression1> providing <guard1>, ... <expressionN> providing <guardN>)
+	  * }}}
 	  * @return first element for which `o.isDefined` or `None` if no such exists.
 	  */
 	def firstOf[V](alternatives :Option[V]*) :Option[V] = alternatives match {
@@ -29,6 +32,19 @@ package object optional {
 	}
 
 
+	/** Collects all non-empty values in a `Seq`. While this is equivalent to simply `results.flatten`, it is
+	  * useful, due to its variable arguments, in conjunction with `providing` or `satisfying` expression to
+	  * find all values passing required condition:
+	  * {{{
+	  *     allOf(
+	  *         <expression1> providing <guard1>,
+	  *         ...
+	  *         <expressionN> providing <guardN>
+	  *     )
+	  * }}}
+	  * It also better conveys the intent than using simply `Seq(...).flatten`.
+	  */
+	def allOf[V](results :Option[V]*) :Seq[V] = results.flatten
 
 
 	/** An implicit extension of `Boolean` values providing `ifTrue` method lifting its argument to an `Option` based
@@ -40,7 +56,7 @@ package object optional {
 	  * {{{
 	  *     Option("hurrah").filter(_ => s == "yes")
 	  * }}}
-	  * but arguably reads better, especially if a `match`/`case` order feels more natural in the given place in code.
+	  * but arguably reads better, especially if the pattern matching order feels more natural in the given place in code.
 	  * @param condition boolean value serving as a guard of a conditional expression.
 	  */
 	implicit class IfTrue(private val condition :Boolean) extends AnyVal {
@@ -91,7 +107,7 @@ package object optional {
 
 	/** An optional value returned as `Some` only if it passes the given condition.
 	  * Same as `Some(value).filter(condition)`, but in a single step.
-	  * @param value possible return value
+	  * @param value possible return value.
 	  * @param condition predicate applied to `value`.
 	  * @return `Some(value).filter(condition)`
 	  */
@@ -101,6 +117,7 @@ package object optional {
 
 	/** Extension methods of an arbitrary value treating it as a default value to be lifted to an `Option`
 	  * depending on whether a guard predicate is satisfied. This class eagerly computes `this` expression.
+	  * @see [[net.noresttherein.slang.optional.Providing]]
 	  */
 	implicit class Satisfying[T](private val self :T) extends AnyVal {
 
@@ -156,7 +173,9 @@ package object optional {
 
 
 
-	/** Extension methods evaluating and returning the value passed as `this` argument only if a given predicate is satisfied. */
+	/** Extension methods evaluating and returning the value passed as `this` argument only if a given predicate is satisfied.
+	  * @see [[net.noresttherein.slang.optional.Providing]]
+	  */
 	implicit class Providing[T](self : =>T)  {
 
 		/** Return `Some(this)` if `condition` is true, or `None` without evaluating this expression otherwise. */
@@ -175,7 +194,7 @@ package object optional {
 	/** Extension methods overloading `scala.ensuring`, allowing for passing an arbitrary exception to be thrown. */
 	implicit class CustomEnsuring[T](private val self :T) extends AnyVal {
 
-		/** Return `this` if `condition` is true, or throw the givne exception otherwise. */
+		/** Return `this` if `condition` is true, or throw the give exception otherwise. */
 		@inline
 		def ensuring(condition :Boolean, ex :Exception) :T =
 			if (condition) self else throw ex
