@@ -278,7 +278,7 @@ object Tuple {
 
 
 
-	/** An empty tuple (a product of zero arity). Useful particularly as terminator type for variable tuples
+	/** An empty tuple (a product of zero arity). Useful particularly as the terminator type for variable tuples
 	  * in a manner similar to list's `Nil` (and `HList`'s `HNil`).
 	  */
 	final class <*> private[Tuple]() extends Tuple {
@@ -469,6 +469,26 @@ object Tuple {
 		def apply[N <: Nat, X](n :N)(implicit tpe :TypeAt[H *: T, N, X]) :X =
 			elements(length - 1 - n.number).asInstanceOf[X]
 
+		/** Create a new tuple of the same arity resulting from replacing the `N`-th element of this tuple with
+		  * the given value.
+ 		  * @param n a type-encoded natural number indicating the index of the replaced element.
+		  * @param value a new value for the `n`-th position.
+		  * @param tpe implicit witness defining the result type after replacement.
+		  * @tparam N Recursively constructed type encoding the index of the retrieved element.
+		  * @tparam X the type of the new element.
+		  * @tparam R result type provided by an implicit parameter.
+		  */
+		def updated[N <: Nat, X, R <: Tuple](n :N, value :X)(implicit tpe :UpdatedType[H *: T, N, X, R]) :R = {
+			var count = length
+			val copy = new Array[Any](count)
+			do {
+				count -=1; copy(count) = array(count)
+			} while (count > 0)
+			copy(length - 1 - n.toInt) = value
+			new *:[Any, Tuple](copy).asInstanceOf[R]
+		}
+
+
 
 		/** First (leftmost) element of this tuple - same as `this._0`. */
 		def head :H = elements(length-1).asInstanceOf[H]
@@ -638,6 +658,20 @@ object Tuple {
 	}
 
 
+	/** An implicit witness providing the type `R` of tuple `T` after its `N`-th element has been set to `X`. */
+	final class UpdatedType[-T <: Tuple, N <: Nat, X, R <: Tuple] private()
+
+	object UpdatedType {
+		private[this] val instance = new UpdatedType[Tuple, Nat, Any, Tuple]
+
+		implicit def updateFirst[T <: Tuple, X] :UpdatedType[Any *: T, _0, X, X *: T] =
+			instance.asInstanceOf[UpdatedType[Any *: T, _0, X, X *: T]]
+
+		implicit def updateNext[H, T <: Tuple, N <: Nat, X, R <: Tuple](implicit tail :UpdatedType[T, N, X, R]) :UpdatedType[H *: T, ++[N], X, H *: R] =
+			instance.asInstanceOf[UpdatedType[H *: T, ++[N], X, H *: R]]
+	}
+
+
 	/** Implicit witness providing the upper type bound `U` (if unrestricted, the ''least upper bound'' for all elements
 	  * of tuple `T`).
 	  * @tparam T a tuple type
@@ -734,7 +768,9 @@ object Tuple {
   * to the zero type. For example, `++[++[_0]]` is the representation of the natural number `2`.
   * @param number numerical value of this number
   */
-sealed abstract class Nat protected (val number :Int) {
+sealed abstract class Nat protected (final val number :Int) {
+	@inline def toInt :Int = number
+
 	override def toString :String = number.toString
 
 	override def hashCode :Int = number
@@ -767,7 +803,7 @@ object Nat extends NatImplicitInduction {
 
 	/** Type constructor implementing successor operation for natural numbers. Given a type-level encoding of number `N`,
 	  * creates a type representing `N+1`.
-	  * @param pred preceeding number
+	  * @param pred preceding number
 	  * @tparam N a natural number.
 	  */
 	final class ++[N <: Nat] private[tuples](pred :N) extends Nat(pred.number+1)

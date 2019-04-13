@@ -88,7 +88,12 @@ object TupleSpec extends Properties("Tuple") {
 		tuptup(_0) =? 1 && tuptup(_1)  =? "2" && tuptup(_2) =? 3L && tuptup(_3) =? '4'
 	}
 
+	property("*:.updated") = {
+		import Nat._
+		(tuptup.updated(_0, _10) ?= _10 *: "2" *: 3L *: '4') && (tuptup.updated(_1, _10) ?= 1 *: _10 *: 3L *: '4') &&
+			(tuptup.updated(_2, _10) ?= 1 *: "2" *: _10 *: '4') && (tuptup.updated(_3, _10) ?= 1 *: "2" *: 3L *: _10)
 
+	}
 
 
 	property("*:._0") = {
