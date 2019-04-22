@@ -41,9 +41,9 @@ class ObjectFormatter[T](private val subject :T) extends AnyVal {
 		typeTag.tpe.members.sorted.collect { case m if m.isTerm && (m.asTerm.isVal || m.asTerm.isVar)  => typeTag.tpe.member(m.name.decodedName).asTerm }
 
 	/** Given a list of parameterless methods of this object, generate a string in the format of ''name=value(, name=value)*''. */
-	def getterStrings(fields :Iterable[MethodSymbol])(implicit classTag :ClassTag[T]) :Iterable[String] = {
+	def getterStrings(fields :Iterable[MethodSymbol])(implicit typeTag :TypeTag[T]) :Iterable[String] = {
 		val mirror = universe.runtimeMirror(getClass.getClassLoader)
-		val reflection = mirror.reflect(subject)
+		val reflection = mirror.reflect(subject)(ClassTag(mirror.runtimeClass(typeTag.tpe)).asInstanceOf[ClassTag[T]])
 		fields.view.map { field =>
 			reflection.reflectMethod(field)() match {
 				case b :Boolean => field.name + "="+ b.yesno
@@ -53,9 +53,9 @@ class ObjectFormatter[T](private val subject :T) extends AnyVal {
 	}
 
 	/** Given a list of fields of this object, generate a string in the format of ''name=value(, name=value)*''. */
-	def fieldStrings(fields :Iterable[TermSymbol])(implicit classTag :ClassTag[T]) :Iterable[String] = {
+	def fieldStrings(fields :Iterable[TermSymbol])(implicit typeTag :TypeTag[T]) :Iterable[String] = {
 		val mirror = universe.runtimeMirror(getClass.getClassLoader)
-		val reflection = mirror.reflect(subject)
+		val reflection = mirror.reflect(subject)(ClassTag(mirror.runtimeClass(typeTag.tpe)).asInstanceOf[ClassTag[T]])
 		fields.view.flatMap { field =>
 			Try( //exclude constructor parameters which don't translate to member fields, as there is no good other way
 				   reflection.reflectField(field).get match {
@@ -68,27 +68,27 @@ class ObjectFormatter[T](private val subject :T) extends AnyVal {
 
 
 	/** Lists all declared and inherited getter methods of this object with their values, prefixed with the given string. */
-	def gettersString(prefix :String)(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
+	def gettersString(prefix :String)(implicit typeTag :TypeTag[T]) :String =
 		getterStrings(getters).mkString(prefix+"(", ", ", ")")
 
 	/** Formats this object by following its type name with the list of all member getter methods paired with their values. */
-	def gettersString(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
+	def gettersString(implicit typeTag :TypeTag[T]) :String =
 		getterStrings(getters).mkString(typeName+"(", ", ", ")")
 
 	/** Lists all declared and inherited field members of this object with their values, prefixed with the given string. */
-	def fieldsString(prefix :String)(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
+	def fieldsString(prefix :String)(implicit typeTag :TypeTag[T]) :String =
 		fieldStrings(fields).mkString(prefix + "(", ", ", ")")
 
 	/** Formats this object by following its type name with the list of all member fields paired with their values. */
-	def fieldsString(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
+	def fieldsString(implicit typeTag :TypeTag[T]) :String =
 		fieldStrings(fields).mkString(typeName+"(", ", ", ")")
 
 	/** Lists all case fields of this object with their values, prefixed with the given string. */
-	def caseFieldsString(prefix :String)(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
+	def caseFieldsString(prefix :String)(implicit typeTag :TypeTag[T]) :String =
 		getterStrings(caseFields).mkString(prefix+"(", ", ", ")")
 
 	/** Formats this object by following its type name with the list of all case fields paired with their values. */
-	def caseFieldsString(implicit typeTag :TypeTag[T], classTag :ClassTag[T]) :String =
+	def caseFieldsString(implicit typeTag :TypeTag[T]) :String =
 		getterStrings(caseFields).mkString(typeName+"(", ", ", ")")
 
 
@@ -106,13 +106,13 @@ object ObjectFormatter {
 	/** Implicit extension of any object of statically known type `T` (or for which type tag and class tag are available),
 	  * providing methods for formatting it as a string
 	  */
-	@inline implicit def objectFormatter[T :ClassTag :TypeTag](obj :T) :ObjectFormatter[T] = new ObjectFormatter[T](obj)
+	@inline implicit def objectFormatter[T :TypeTag](obj :T) :ObjectFormatter[T] = new ObjectFormatter[T](obj)
 
 
 	/** Base class providing a `toString` implementation listing the values of all fields
 	  * of extending class `Self` with their names.
 	  */
-	class DefToString[Self <: DefToString[Self] : TypeTag : ClassTag] { this: Self =>
+	class DefToString[Self <: DefToString[Self] : TypeTag] { this: Self =>
 		override def toString :String = (this: Self).gettersString
 	}
 
@@ -122,7 +122,7 @@ object ObjectFormatter {
 	/** Base class providing a `toString` implementation listing the values of all case class fields
 	  * of extending case class `Self` with their names.
 	  */
-	class CaseClass[Self <:CaseClass[Self] :TypeTag :ClassTag] extends Serializable { this :Self =>
+	class CaseClass[Self <:CaseClass[Self] :TypeTag] extends Serializable { this :Self =>
 		override def toString :String = (this :Self).caseFieldsString
 	}
 
