@@ -1,5 +1,6 @@
 package net.noresttherein.slang.witness
 
+import scala.annotation.implicitNotFound
 
 
 /** A value class wrapper over any value with an additional associated label type distinguishing it from other instances.
@@ -18,6 +19,7 @@ package net.noresttherein.slang.witness
   * @see [[net.noresttherein.slang.witness.Labelled.Label]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@implicitNotFound("No implicit ${T} labelled ${Label}")
 class Labelled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal {
 //	/** An alias for the label type given as the type parameter. */
 //	type ## = Label
