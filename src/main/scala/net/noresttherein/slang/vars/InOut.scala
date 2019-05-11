@@ -68,14 +68,16 @@ trait InOut[@specialized(SpecializedTypes) T] {
 	def apply(f :T => T) :T = { val res = f(get); value = res; res }
 
 
-	/** Combines the value of this variable with an accumulator performing a sort of in place ''foldLeft'' operation.
+	/** Combines the value of this variable with another value of the same type, assigning the result of application
+	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
+	  * new values in a way similar to an in place ''foldLeft'' operation on a singleton collection.
 	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
-	  * and is equivalent to `val res = foldLeft(acc, value); value = res; res` - scala specific fold notation is
-	  * chosen to remind that the accumulator becomes the first (left) parameter of the folding function, with this
-	  * variable being the second. This method comes to use with concurrent `InOut` implementations such as 
-	  * [[SyncVar]] or [[Atomic]].
-	  * @param acc accumulator value to pass as the first argument to the `foldLeft` function, together with  the current 
-	  *            value of this variable
+	  * and is equivalent to `val res = foldLeft(acc, value); value = res; res`. Scala specific fold notation is
+	  * chosen here to remind through associativity that this variable becomes the second (right) parameter of the folding
+	  * function, with the argument on the left side of the operator being the first. This method comes to use with
+	  * concurrent `InOut` implementations such as [[SyncVar]] or [[Atomic]].
+	  * @param acc accumulator value to pass as the first argument to the `foldLeft` function, together with the current
+	  *            value of this variable.
 	  * @param foldLeft a function applied to the accumulator and this variable which result should be set to this variable.
 	  * @return result of applying `foldLeft` to the accumulator and this variable.
 	  */
@@ -83,14 +85,16 @@ trait InOut[@specialized(SpecializedTypes) T] {
 
 
 
-	/** Combines the value of this variable with an accumulator performing a sort of in place ''foldRight'' operation.
+	/** Combines the value of this variable with another value of the same type, assigning the result of application
+	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
+	  * new values in a way similar to an in place ''foldRight'' operation on a singleton collection.
 	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
-	  * and is equivalent to `val res = foldRight(value, acc); value = res; res` - scala specific fold notation is
-	  * chosen to remind that the accumulator becomes the second (right) parameter of the folding function, with this
-	  * variable being the first. This method comes to use with concurrent `InOut` implementations such as 
-	  * [[SyncVar]] or [[Atomic]].
-	  * @param acc accumulator value to pass as the second argument to the `foldLeft` function, together with  the current 
-	  *            value of this variable
+	  * and is equivalent to `val res = foldRight(value, acc); value = res; res`. Scala specific fold notation is
+	  * chosen here to remind through associativity that this variable becomes the first (left) parameter of the folding
+	  * function, with the argument on the right side of the operator being the second. This method comes to use with
+	  * concurrent `InOut` implementations such as [[SyncVar]] or [[Atomic]].
+	  * @param acc accumulator value to pass as the second argument to the `foldRight` function, together with the current
+	  *            value of this variable.
 	  * @param foldRight a function applied to the accumulator and this variable which result should be set to this variable.
 	  * @return result of applying `foldLeft` to the accumulator and this variable.
 	  */	
@@ -708,7 +712,7 @@ object InOut extends InOutNumericImplicits {
 		  */
 		@inline def dec() :Int = x.int_+=(-1) //x.int_-- //{ val res = x.get - 1; x := res; res }
 
-		/** Assigns this variable its opposite value (this := -this`), returning the updated value.
+		/** Assigns this variable its opposite value (`this := -this`), returning the updated value.
 		  * As the static type of this variable is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.

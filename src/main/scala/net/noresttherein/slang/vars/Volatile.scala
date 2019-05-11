@@ -10,7 +10,7 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * This includes flags such as 'terminate thread' or lazily assigned values, where all assignments
   * are assumed to change it to the same value. Volatile variables incur lower overhead than full
   * java monitor synchronization, particularly with multiple concurrent reads.
-  * If atomicity is required however, use [[SyncVar]] instead.
+  * If atomicity of more complex operations is required however, use [[SyncVar]] or [[Atomic]] instead.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T] with Serializable {

@@ -11,10 +11,11 @@ import net.noresttherein.slang.vars.InOut.{TypeEquiv, TypeIdent}
 
 
 
-/**
+/** Atomic variables providing several 'test-and-set' operations.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 trait Atomic[T] extends InOut[T] with Serializable {
+
 	override def apply(f :T => T) :T = {
 		var current = get; var assign = f(current)
 		while (!testAndSet(current, assign)) {
@@ -44,9 +45,13 @@ trait Atomic[T] extends InOut[T] with Serializable {
 
 
 object Atomic {
-//	/** Types for which [[Atomic]] is specialized. */
-//	final val AtomicTypes = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
 
+	/** Create a new atomic variable initialized with the given value. Returned implementation depends on the type
+	  * of the argument
+	  * @param init
+	  * @tparam T
+	  * @return
+	  */
 	def apply[@specialized(SpecializedTypes) T](init :T) :Atomic[T] =
 		(new TypeIdent[T] match {
 			case InOut.IntEq => new AtomicInt(init.asInstanceOf[Int])
@@ -60,9 +65,6 @@ object Atomic {
 			case _ => new AtomicRef[T](init)
 		}).asInstanceOf[Atomic[T]]
 
-//	def apply(x :Boolean) :AtomicBoolean
-//
-//	def apply(x :Int) :AtomicInt = new AtomicInt(new AtomicInteger(x))
 
 
 
