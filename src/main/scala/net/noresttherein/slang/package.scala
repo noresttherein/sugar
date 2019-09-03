@@ -7,9 +7,14 @@ import scala.util.Try
   * @author Marcin Mościcki
   */
 package object slang {
-//	object ValidatedBlockExpression {
-//		@inline final def apply[T](block: =>T) :T = block
-//	}
+
+	def !?? :Nothing = throw new ImplementationError
+
+	class ImplementationError(msg :String, reason :Throwable) extends Error(msg, reason) {
+		def this(msg :String) = this(msg, null)
+
+		def this() = this("Implementation error", null)
+	}
 
 	private[slang] final def raise[E<:Throwable :ClassTag](msg :String) :Nothing =
 		throw (Try {
@@ -25,18 +30,5 @@ package object slang {
 			case ex :Exception => new IllegalArgumentException(s"Can't throw ${classTag[E].runtimeClass} as a result of guard failure", ex)
 		}).get
 
-
-//	def required(condition :Boolean, msg : =>Any)
-/*
-	@inline final def validate[E<:Throwable :ClassTag](condition :Boolean, msg: =>String) :ValidatedBlockExpression.type =
-		if (condition) {
-			ValidatedBlockExpression
-		} else raise[E](msg)
-
-	@inline final def validate[E<:Throwable :ClassTag](condition :Boolean) :ValidatedBlockExpression.type =
-		if (condition)
-			ValidatedBlockExpression
-		else raise[E]
-*/
 
 }

@@ -3,28 +3,37 @@ package net.noresttherein.slang
 import prettyprint.ClassNameOf
 
 import scala.reflect.ClassTag
+import scala.util.matching.Regex
 
 
 
 package object matching {
-	
-	
+
+
+
 	/** Combines two extractor patterns into a logical conjunction which matches only if both of the patterns
 	  * match (and binds values to both patterns). Usage: `{ case P1(x) && P2(y) => ??? }`.
 	  */
 	object && {
-		def unapply[T](x :T) = Some(x, x)
+		def unapply[T](x :T) :Some[(T, T)] = Some(x, x)
 	}
+
+
+
+	implicit class ValuePatternMatching[T](val value :T) extends AnyVal {
+		def matches[X](expr :PartialFunction[T, X]) :Boolean = expr.isDefinedAt(value)
+	}
+
 
 
 	/** A multi-purpose extractor for values of `Out` from parameter `In`. Can be used in pattern matching or
 	  * as a partial function. It is a single abstract method type (''SAM'') and thus the compiler will convert a lambda
-	  * function `In => Out` where the type `Extractor[In, Out]` is expected, eliminating the overhead of wrapping
+	  * function `In => Out` where the type `MatchFunction[In, Out]` is expected, eliminating the overhead of wrapping
 	  * a function while preserving the convenience of the shortened definition.
 	  * @tparam In argument type
 	  * @tparam Out type of extracted value
 	  */
-	abstract class Extractor[-In, +Out] extends PartialFunction[In, Out] {
+	abstract class MatchFunction[-In, +Out] extends PartialFunction[In, Out] {
 		def unapply(in :In) :Option[Out]
 
 		override def isDefinedAt(x: In): Boolean = unapply(x).isDefined
@@ -38,7 +47,7 @@ package object matching {
 
 
 	/** Companion object for extractors. */
-	object Extractor {
+	object MatchFunction {
 
 		/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
 		  * that can be used in pattern matching or as a partial function.
@@ -47,10 +56,10 @@ package object matching {
 		  * @tparam Out extracted result type
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def apply[In, Out](f :In=>Option[Out]) :Extractor[In, Out] = new ExtractorOption(f, s"Extractor(${f.localClassName})")
+		def apply[In, Out](f :In=>Option[Out]) :MatchFunction[In, Out] = new OptionFunction(f, s"MatchFunction(${f.localClassName})")
 
 
-		private class ExtractorOption[-In, +Out](f :In=>Option[Out], override val toString :String) extends Extractor[In, Out] {
+		private class OptionFunction[-In, +Out](f :In=>Option[Out], override val toString :String) extends MatchFunction[In, Out] {
 			override def unapply(in: In): Option[Out] = f(in)
 		}
 	}
