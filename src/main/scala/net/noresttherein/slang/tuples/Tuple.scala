@@ -688,7 +688,7 @@ object Tuple {
 	}
 
 
-	/** Implicit evidence atdebug that `N` is the type-encoded length of tuple type `T`. */
+	/** Implicit evidence attesting that `N` is the type-encoded length of tuple type `T`. */
 	final class TupleLength[N <: Nat, -T <: Tuple] private ()
 
 	object TupleLength {
@@ -699,7 +699,7 @@ object Tuple {
 	}
 
 
-	/** Implicit evidence atdebug that `R` is the type resulting from dropping `N` first elements from tuple type `T`. */
+	/** Implicit evidence attesting that `R` is the type resulting from dropping `N` first elements from tuple type `T`. */
 	final class TupleDrop[N <: Nat, -T <: Tuple, R <: Tuple] private ()
 
 	object TupleDrop {
@@ -713,7 +713,7 @@ object Tuple {
 
 
 
-	/** Implicit witness atdebug that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
+	/** Implicit witness attesting that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
 	final class TupleTake[N <: Nat, -T <: Tuple, R <: Tuple] private ()
 
 	object TupleTake {
@@ -727,7 +727,7 @@ object Tuple {
 
 
 
-	/** Implicit evidence atdebug that `R` is the type resulting from dropping `N` last (right) elements from tuple type `T`. */
+	/** Implicit evidence attesting that `R` is the type resulting from dropping `N` last (right) elements from tuple type `T`. */
 	final class TupleDropRight[N <: Nat, -T <: Tuple, R <: Tuple] private ()
 
 	object TupleDropRight {
@@ -742,7 +742,7 @@ object Tuple {
 
 
 
-	/** Implicit witness atdebug that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
+	/** Implicit witness attesting that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
 	final class TupleTakeRight[N <: Nat, -T <: Tuple, R <: Tuple] private ()
 
 	object TupleTakeRight {
@@ -787,7 +787,7 @@ sealed abstract class Nat protected (final val number :Int) {
 
 /** Low priority implicit [[Nat]] values for every natural number by recursively applying it to itself. */
 sealed abstract class NatImplicitInduction {
-	/** Given an implicit encoding of natural number `n` provide implicit value representing `n+1`. */
+	/** Given an implicit encoding of the natural number `n` provide implicit value representing `n+1`. */
 	implicit def ++[N <: Nat](implicit n :N) : ++[N] = new ++(n)
 }
 
@@ -795,7 +795,7 @@ sealed abstract class NatImplicitInduction {
 
 /** Implicit values and type aliases for encoding of the first 23 natural numbers as types. */
 object Nat extends NatImplicitInduction {
-	/** Type encoding of natural number `0`. */
+	/** Type encoding of the natural number `0`. */
 	final class _0 private[Nat]() extends Nat(0)
 
 	/** Implicitly available constant representing the natural number `0` at type level. */
@@ -813,154 +813,154 @@ object Nat extends NatImplicitInduction {
 		def ++ : ++[N] = new ++[N](n)
 	}
 
-	/** Type encoding of natural number `1`. */
+	/** Type encoding of the natural number `1`. */
 	type _1 = ++[_0]
 
 	/** Implicitly available constant representing the natural number `1` at type level. */
 	implicit val _1 : _1 = new ++(_0)
 
 
-	/** Type encoding of natural number `2`. */
+	/** Type encoding of the natural number `2`. */
 	type _2 = ++[_1]
 
 	/** Implicitly available constant representing the natural number `2` at type level. */
 	implicit val _2 : _2 = new ++(_1)
 
 
-	/** Type encoding of natural number `3`. */
+	/** Type encoding of the natural number `3`. */
 	type _3 = ++[_2]
 
 	/** Implicitly available constant representing the natural number `3` at type level. */
 	implicit val _3 : _3 = new ++(_2)
 
 
-	/** Type encoding of natural number `4`. */
+	/** Type encoding of the natural number `4`. */
 	type _4 = ++[_3]
 
 	/** Implicitly available constant representing the natural number `4` at type level. */
 	implicit val _4 : _4 = new ++(_3)
 
 
-	/** Type encoding of natural number `5`. */
+	/** Type encoding of the natural number `5`. */
 	type _5 = ++[_4]
 
 	/** Implicitly available constant representing the natural number `5` at type level. */
 	implicit val _5 : _5 = new ++(_4)
 
 
-	/** Type encoding of natural number `6`. */
+	/** Type encoding of the natural number `6`. */
 	type _6 = ++[_5]
 
 	/** Implicitly available constant representing the natural number `6` at type level. */
 	implicit val _6 : _6 = new ++(_5)
 
 
-	/** Type encoding of natural number `7`. */
+	/** Type encoding of the natural number `7`. */
 	type _7 = ++[_6]
 
 	/** Implicitly available constant representing the natural number `7` at type level. */
 	implicit val _7 : _7 = new ++(_6)
 
 
-	/** Type encoding of natural number `8`. */
+	/** Type encoding of the natural number `8`. */
 	type _8 = ++[_7]
 
 	/** Implicitly available constant representing the natural number `8` at type level. */
 	implicit val _8 : _8 = new ++(_7)
 
 
-	/** Type encoding of natural number `9`. */
+	/** Type encoding of the natural number `9`. */
 	type _9 = ++[_8]
 
 	/** Implicitly available constant representing the natural number `9` at type level. */
 	implicit val _9 : _9 = new ++(_8)
 
 
-	/** Type encoding of natural number `10`. */
+	/** Type encoding of the natural number `10`. */
 	type _10 = ++[_9]
 
 	/** Implicitly available constant representing the natural number `10` at type level. */
 	implicit val _10 : _10 = new ++(_9)
 
 
-	/** Type encoding of natural number `11`. */
+	/** Type encoding of the natural number `11`. */
 	type _11 = ++[_10]
 
 	/** Implicitly available constant representing the natural number `11` at type level. */
 	implicit val _11 : _11 = new ++(_10)
 
 
-	/** Type encoding of natural number `12`. */
+	/** Type encoding of the natural number `12`. */
 	type _12 = ++[_11]
 
 	/** Implicitly available constant representing the natural number `12` at type level. */
 	implicit val _12 : _12 = new ++(_11)
 
 
-	/** Type encoding of natural number `13`. */
+	/** Type encoding of the natural number `13`. */
 	type _13 = ++[_12]
 
 	/** Implicitly available constant representing the natural number `13` at type level. */
 	implicit val _13 : _13 = new ++(_12)
 
 
-	/** Type encoding of natural number `14`. */
+	/** Type encoding of the natural number `14`. */
 	type _14 = ++[_13]
 
 	/** Implicitly available constant representing the natural number `14` at type level. */
 	implicit val _14 : _14 = new ++(_13)
 
 
-	/** Type encoding of natural number `15`. */
+	/** Type encoding of the natural number `15`. */
 	type _15 = ++[_14]
 
 	/** Implicitly available constant representing the natural number `15` at type level. */
 	implicit val _15 : _15 = new ++(_14)
 
 
-	/** Type encoding of natural number `16`. */
+	/** Type encoding of the natural number `16`. */
 	type _16 = ++[_15]
 
 	/** Implicitly available constant representing the natural number `16` at type level. */
 	implicit val _16 : _16 = new ++(_15)
 
 
-	/** Type encoding of natural number `17`. */
+	/** Type encoding of the natural number `17`. */
 	type _17 = ++[_16]
 
 	/** Implicitly available constant representing the natural number `17` at type level. */
 	implicit val _17 : _17 = new ++(_16)
 
 
-	/** Type encoding of natural number `18`. */
+	/** Type encoding of the natural number `18`. */
 	type _18 = ++[_17]
 
 	/** Implicitly available constant representing the natural number `18` at type level. */
 	implicit val _18 : _18 = new ++(_17)
 
 
-	/** Type encoding of natural number `19`. */
+	/** Type encoding of the natural number `19`. */
 	type _19 = ++[_18]
 
 	/** Implicitly available constant representing the natural number `19` at type level. */
 	implicit val _19 : _19 = new ++(_18)
 
 
-	/** Type encoding of natural number `20`. */
+	/** Type encoding of the natural number `20`. */
 	type _20 = ++[_19]
 
 	/** Implicitly available constant representing the natural number `20` at type level. */
 	implicit val _20 : _20 = new ++(_19)
 
 
-	/** Type encoding of natural number `21`. */
+	/** Type encoding of the natural number `21`. */
 	type _21 = ++[_20]
 
 	/** Implicitly available constant representing the natural number `21` at type level. */
 	implicit val _21 : _21 = new ++(_20)
 
 
-	/** Type encoding of natural number `22`. */
+	/** Type encoding of the natural number `22`. */
 	type _22 = ++[_21]
 
 	/** Implicitly available constant representing the natural number `22` at type level. */
