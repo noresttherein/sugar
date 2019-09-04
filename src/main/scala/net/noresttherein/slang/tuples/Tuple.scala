@@ -385,7 +385,7 @@ object Tuple {
 		/** The fourth element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
 		def _3[E](implicit tpe :TypeAt[H *: T, _3, E]) :E = elements(length-4).asInstanceOf[E]
 
-		/** The fith element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
+		/** The fifth element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */
 		def _4[E](implicit tpe :TypeAt[H *: T, _4, E]) :E = elements(length-5).asInstanceOf[E]
 
 		/** The sixth element of this tuple. If the tuple has fewer elements, no implicit argument will be available making the call impossible. */

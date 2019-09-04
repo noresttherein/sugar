@@ -1,11 +1,11 @@
 package net.noresttherein.slang.logging
 
-import java.util.logging.{Level, LogRecord, Logger => Log}
+import java.util.logging.{Level, LogRecord, Logger => JLogger}
 
 /** Simple syntactic wrapper over `java.util.logging.Logger` available by the [[Logger.jlogger]] property.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-class Logger(val jlogger :Log) extends AnyVal {
+class Logger(val jlogger :JLogger) extends AnyVal {
 	@inline def name :String = jlogger.getName
 
 	def level :Level = jlogger.getLevel match {
@@ -87,9 +87,9 @@ class Logger(val jlogger :Log) extends AnyVal {
 
 object Logger {
 
-	@inline def apply(logger :Log) :Logger = new Logger(logger)
+	@inline def apply(logger :JLogger) :Logger = new Logger(logger)
 
-	@inline def apply(name :String) :Logger = new Logger(Log.getLogger(name))
+	@inline def apply(name :String) :Logger = new Logger(JLogger.getLogger(name))
 
 }
 

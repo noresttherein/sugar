@@ -1,6 +1,6 @@
 package net.noresttherein.slang.logging
 
-import java.util.logging.{Logger => Log}
+import java.util.logging.{Logger => JLogger}
 
 
 /** Traditional ad-hoc methods which log a value for debugging purposes and immediately return it.
@@ -43,9 +43,9 @@ object debug {
 
 	
 	
-	def apply(log :Log) :LogPrinter = new LogPrinter(log)
+	def apply(log :JLogger) :LogPrinter = new LogPrinter(log)
 
-	class LogPrinter private[debug] (private val log :Log) extends AnyVal {
+	class LogPrinter private[debug] (private val log :JLogger) extends AnyVal {
 		def severe[X](x :X) :X = { log.severe(x.toString); x }
 		def warning[X](x :X) :X = { log.warning(x.toString); x }
 		def info[X](x :X) :X = { log.info(x.toString); x }
@@ -57,9 +57,9 @@ object debug {
 
 
 
-	def apply(log :Log, prefix :String) :PrefixedLog = new PrefixedLog(prefix, log)
-	
-	class PrefixedLog private[debug] (prefix :String, log :Log) {
+	def apply(log :JLogger, prefix :String) :PrefixedLog = new PrefixedLog(prefix, log)
+
+	class PrefixedLog private[debug] (prefix :String, log :JLogger) {
 		def severe[X](x :X) :X = { log.severe(prefix + x); x }
 		def warning[X](x :X) :X = { log.warning(prefix + x); x }
 		def info[X](x :X) :X = { log.info(prefix + x); x }

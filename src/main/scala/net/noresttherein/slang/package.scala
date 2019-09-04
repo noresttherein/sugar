@@ -20,14 +20,14 @@ package object slang {
 		throw (Try {
 			classTag[E].runtimeClass.getConstructor(classOf[String]).newInstance(msg).asInstanceOf[Throwable]
 		} recover {
-			case ex :Exception => new IllegalArgumentException(s"Can't throw ${classTag[E].runtimeClass} as a result of guard failure", ex)
+			case ex :Exception => new IllegalArgumentException(s"Can't throw ${classTag[E].runtimeClass} as a result of guard failure: no constructor (String).", ex)
 		}).get
 
 	private[slang] def raise[E<:Throwable :ClassTag] :Nothing =
 		throw (Try {
 			classTag[E].runtimeClass.getDeclaredConstructor().newInstance().asInstanceOf[Throwable]
 		} recover {
-			case ex :Exception => new IllegalArgumentException(s"Can't throw ${classTag[E].runtimeClass} as a result of guard failure", ex)
+			case ex :Exception => new IllegalArgumentException(s"Can't throw ${classTag[E].runtimeClass} as a result of guard failure: no constructor ().", ex)
 		}).get
 
 
