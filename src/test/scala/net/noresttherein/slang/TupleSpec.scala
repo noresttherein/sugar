@@ -3,7 +3,7 @@ package net.noresttherein.slang
 import net.noresttherein.slang.tuples.{Nat, Tuple}
 import org.scalacheck.Prop._
 import org.scalacheck.{Prop, Properties}
-import net.noresttherein.slang.tuples.Tuple.{*:, <*>}
+import net.noresttherein.slang.tuples.Tuple.{*:, :*:, <*>}
 
 /** The purpose of this test is mostly to verify that implicits work correctly, rather than testing simple accessors.
   * @author Marcin Mościcki marcin@moscicki.net

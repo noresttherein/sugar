@@ -1,5 +1,9 @@
 package net.noresttherein.slang.funny
 
+import java.lang.reflect.{ParameterizedType, Type, TypeVariable}
+
+import net.noresttherein.slang.prettyprint
+
 import scala.annotation.unspecialized
 import scala.reflect.ClassTag
 
@@ -11,26 +15,41 @@ object fun {
 	import specializations._
 
 
+	/** Enforces the type of the passed function expression to be a [[net.noresttherein.slang.funny.fun.ComposableFun ComposableFun]].
+	  * As `ComposableFun` is a ''Single Abstract Method'' type lacking only the implementation of `apply`, a
+	  * function expression will be converted by the compiler where needed:
+	  * {{{
+	  *     fun { x :Int => X + X }
+	  * }}}
+	  * . This method serves no other purpose and promptly returns the argument as `X=>Y` to help with type inference.
+	  * @return `f`
+	  */
+	def apply[X, Y](f :ComposableFun[X, Y]) :X => Y = f
+
+
 	/** Creates a named function. The string given as the first argument is used in `toString`
 	  * of the given function, replacing the rather unhelpful '&lt;function1&gt;'. The second argument is the returned
 	  * function itself; however, being a ''SAM'' type, a function expression is automatically converted to the target
 	  * function type. Hence, the syntax would be:
 	  * {{{
-	  *     fun("square") { x :Int => x * x }
+	  *     fun.named("square") { x :Int => x * x }
 	  * }}}
 	  * This method simply sets the name on the second argument to the given string and returns it as the standard
-	  * function type `X => Y` for better type inference.
+	  * function type `X => Y` for better type inference. Note that as `NamedFun` is a class, in a generic context
+	  * `f` will not be specialized as subclasses of specialized classes have to extend their erased variant.
+	  * In those circumstances wrapping the function with the sister method [[net.noresttherein.slang.funny.fun.name name]]
+	  * might be preferable.
 	  * @param name name to use as the textual representation of the given function
 	  * @param f renamed function
 	  * @return `f`
 	  */
-	def apply[X, Y](name :String)(f :NamedFun[X, Y]) :X => Y = {
+	def named[X, Y](name :String)(f :NamedFun[X, Y]) :X => Y = {
 		f.rename(name); f
 	}
 
 
 	/** Wraps the given function in a decorator returning the given name from its `toString` method.
-	  * @see [[net.noresttherein.slang.funny.fun.apply]]
+	  * @see [[net.noresttherein.slang.funny.fun.named]]
 	  */
 	def name[@specialized(ArgTypes) X, @specialized(ReturnTypes) Y](name :String)(f :X => Y) :X => Y =
 		new ComposableFun[X, Y] {
@@ -125,7 +144,11 @@ object fun {
 	trait PureFun[-X, +Y] extends (X => Y)
 
 
-
+	/** A base interface for 'nice' functions defined here. Overrides `compose` and `andThen` to attain two goals:
+	  *  - a `@specialized` instance for the composed function;
+	  *  - eliding one of the members if an identity, constant or exception throwing function is encountered.
+	  *  @see [[net.noresttherein.slang.funny.fun]]
+	  */
 	trait ComposableFun[@specialized(ArgTypes) -X, @specialized(ReturnVals) +Y] extends (X=>Y) {
 
 		override def compose[A](g: A => X): A => Y = g match {
@@ -150,11 +173,67 @@ object fun {
 
 		def canEqual(other :Any) :Boolean = false
 
+
+		/** Uses java reflection to determine the type of the `i`-th argument given to this trait by the concrete
+		  * class of this object.
+		  */
+		private[this] def typeArgument(i :Int, spec  :SpecializedType[_]) = {
+			def search(tpe :Type) :Type = tpe match {
+				case null => null
+
+				case p :ParameterizedType =>
+					if (p.getRawType == classOf[ComposableFun[X, Y]]) {
+						p.getActualTypeArguments()(i)
+					} else p.getRawType match { //recurse down the generic definition
+						case cls :Class[_] => search(cls) match {
+							case res :Class[_] => res //parameterized with a concrete type
+							case param => //try to match formal type parameters with actual arguments
+								val i = cls.getTypeParameters.indexOf(param)
+								if (i >= 0)
+									p.getActualTypeArguments()(i)
+								else
+									param //possible if param is declared by an enclosing class
+						}
+						case _ => search(p.getRawType) //never happens IRL
+					}
+
+				case cls :Class[_] =>
+					var res = search(cls.getGenericSuperclass)
+					val it = cls.getGenericInterfaces.iterator
+					while (it.hasNext) { //look for the most narrow definition
+						val next = search(it.next)
+						if (next != null)
+							if (res == null || !res.isInstanceOf[Class[_]])
+								res = next
+							else if (i == 0) next match {
+								case c :Class[_] if c.isAssignableFrom(res.asInstanceOf[Class[_]]) =>
+									res = c
+								case _ =>
+							} else next match {
+								case c :Class[_] if res.asInstanceOf[Class[_]].isAssignableFrom(c) =>
+									res = c
+								case _ =>
+							}
+					}
+					res
+				case _ => null
+			}
+			val name = spec.toString
+			if (name.length > 1)
+				name
+			else search(getClass) match {
+				case null => name
+				case cls if cls == classOf[AnyRef] => name
+				case cls :Class[_] => prettyprint.shortNameOf(cls)
+				case tpe => name
+			}
+		}
 		private[this] def domain :SpecializedType[X] = new SpecializedType[X]
 		private[this] def range :SpecializedType[Y] = new SpecializedType[Y]
 
-		def domainString :String = domain.toString
-		def rangeString :String = range.toString
+		def domainString :String = typeArgument(0, domain)
+
+		def rangeString :String = typeArgument(1, range)
 
 		def typeString :String = domainString + "=>" + rangeString
 
@@ -232,6 +311,9 @@ object fun {
 	}
 
 
+	/** An identity function implementation with overriden `compose` and `andThen` methods so it is elided
+	  * on composition. Additionally, provides an indicative `toString` implementation.
+	  */
 	trait Identity[@specialized(ArgTypes) X] extends ComposableFun[X, X] with PureFun[X, X] {
 		final override def apply(x :X) :X = x
 

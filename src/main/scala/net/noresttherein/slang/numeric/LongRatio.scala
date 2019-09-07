@@ -12,7 +12,7 @@ import scala.annotation.tailrec
   * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
   * For the public constructor, see [[net.noresttherein.slang.numeric.LongRatio.apply]].
   */
-final class LongRatio private(n :Long, d :Long) extends Number {
+final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
 	/** The numerator of this fraction (the dividend). */
 	@inline def numerator :Long = n
@@ -291,6 +291,9 @@ object LongRatio {
 	  */
 	@inline implicit def longToLongRatio(int :Long) :LongRatio = new LongRatio(int, 1)
 
+
+	/** Promotes an `Int`-based rational number implementation to use `Long` values. */
+	@inline implicit def ratioToLongRatio(ratio :Ratio) :LongRatio = ratio.toLongRatio
 
 	/** The `Fractional` type class for `LongRatio` values. */
 	implicit object LongRatioIsFractional extends Fractional[LongRatio] {

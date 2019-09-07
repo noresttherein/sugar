@@ -157,6 +157,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 	@inline def toLong :Long = (n / d).toLong
 
+	@inline def toLongRatio :LongRatio = new LongRatio(n, d)
 
 
 	@inline override def intValue :Int = n / d

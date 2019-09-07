@@ -90,7 +90,7 @@ package object prettyprint {
 		val sb = new StringBuilder(len)
 		var i = 0
 		var lastDot = -1
-		while (i > 0) qname(i) match {
+		while (i < len) qname(i) match {
 			case '.' =>
 				sb.delete(lastDot+2, sb.length)
 				lastDot = sb.length
