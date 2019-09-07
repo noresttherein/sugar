@@ -9,7 +9,7 @@ import scala.annotation.implicitNotFound
   * @param _2 evidence that `Y <: U`
   */
 @implicitNotFound("Cannot calculate upper bound for types ${X} and ${Y} (or prove it to be ${U}).")
-final class UpperBound[X, Y, U] private[typist] (val _1 :X<:<U, val _2 :Y<:<U) {
+final class UpperBound[X, Y, U] private[typist] (val _1 :X<=:U, val _2 :Y<=:U) {
 	type T = U
 	/** Identity conversion from `X` to its super type `U`. */
 	@inline def left(x :X) :U = x.asInstanceOf[U]
@@ -22,7 +22,7 @@ final class UpperBound[X, Y, U] private[typist] (val _1 :X<:<U, val _2 :Y<:<U) {
 sealed abstract class ProperUpperBoundImplicits private[typist] {
 	@inline implicit final def properUpperBound[X<:U, Y<:U, U] :UpperBound[X, Y, U] = instance.asInstanceOf[UpperBound[X, Y, U]]
 
-	final protected[this] val instance = new UpperBound[Any, Any, Any](implicitly[Any<:<Any], implicitly[Any<:<Any])
+	final protected[this] val instance = new UpperBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
 }
 
 sealed abstract class SelfUpperBoundImplicits private[typist] extends ProperUpperBoundImplicits {
@@ -46,7 +46,7 @@ object UpperBound extends SelfUpperBoundImplicits {
 	private[this] val binder = new Binder[Any, Any]
 
 
-	@inline implicit final def identityUpperBound[X] :UpperBound[X, X, X] = leftUpperBound[X, X].asInstanceOf[UpperBound[X, X, X]]
+	@inline implicit final def identityUpperBound[X] :UpperBound[X, X, X] = leftUpperBound[X, X]
 
 }
 

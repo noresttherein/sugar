@@ -9,7 +9,7 @@ import scala.annotation.implicitNotFound
   * @param _2 evidence that `L <: Y`
   */
 @implicitNotFound("Cannot calculate lower bound for types ${X} and ${Y} (or prove it to be ${L}).")
-final class LowerBound[X, Y, L] private[typist] (val _1 :L<:<X, val _2 :L<:<Y) {
+final class LowerBound[X, Y, L] private[typist] (val _1 :L<=:X, val _2 :L<=:Y) {
 	type T = L
 	@inline def left(l :L) :X = l.asInstanceOf[X]
 	@inline def right(l :L) :Y = l.asInstanceOf[Y]
@@ -19,14 +19,12 @@ final class LowerBound[X, Y, L] private[typist] (val _1 :L<:<X, val _2 :L<:<Y) {
 sealed abstract class ProperLowerBoundImplicits private[typist] {
 	@inline implicit def properLowerBound[X>:L, Y>:L, L] :LowerBound[X, Y, L] = instance.asInstanceOf[LowerBound[X, Y, L]]
 
-	final protected[this] val instance = new LowerBound[Any, Any, Any](implicitly[Any<:<Any], implicitly[Any<:<Any])
+	final protected[this] val instance = new LowerBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
 }
 
 sealed abstract class SelfLowerBoundImplicits private[typist] extends ProperLowerBoundImplicits {
-	@inline implicit final def leftLowerBound[X, Y](implicit ev :X<:<Y) :LowerBound[X, Y, X] = instance.asInstanceOf[LowerBound[X, Y, X]]
-	@inline implicit final def rightLowerBound[X, Y](implicit ev :Y<:<X) :LowerBound[X, Y, Y] = instance.asInstanceOf[LowerBound[X, Y, Y]]
-
-
+	@inline implicit final def leftLowerBound[X<:Y, Y] :LowerBound[X, Y, X] = instance.asInstanceOf[LowerBound[X, Y, X]]
+	@inline implicit final def rightLowerBound[X, Y<:X] :LowerBound[X, Y, Y] = instance.asInstanceOf[LowerBound[X, Y, Y]]
 }
 
 object LowerBound extends SelfLowerBoundImplicits {
@@ -44,5 +42,5 @@ object LowerBound extends SelfLowerBoundImplicits {
 	private[this] val binder = new Binder[Any, Any]
 
 
-	@inline implicit final def identityLowerBound[X, Y](implicit ev :Y=:=X) :LowerBound[X, Y, X] = instance.asInstanceOf[LowerBound[X, Y, X]]
+	@inline implicit final def identityLowerBound[X] :LowerBound[X, X, X] = instance.asInstanceOf[LowerBound[X, X, X]]
 }
