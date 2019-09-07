@@ -3,7 +3,7 @@ package net.noresttherein.slang
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
 import net.noresttherein.slang.prettyprint.ObjectFormatter.objectFormatter
-import net.noresttherein.slang.prettyprint.ObjectFormatter.{CaseClass, DefToString}
+import net.noresttherein.slang.prettyprint.{CaseClass, DefToString}
 
 /**
   * @author Marcin Mościcki

@@ -27,21 +27,22 @@ trait Lazy[@specialized(Primitives) +T] extends (()=>T) {
 
 object Lazy {
 
-	@inline final def apply[@specialized(Primitives) T](init : =>T) :SyncLazy[T] = new SyncLazy(() => init)
+	@inline final def apply[@specialized(Primitives) T](init : =>T) :Lazy[T] = new SyncLazy(() => init)
 
-	type lazyval[@specialized(Primitives) +T] = VolatileLazy[T]
+//	type lazyval[@specialized(Primitives) +T] = VolatileLazy[T]
 
 	/** Unlike default `Lazy(_)` and inbuilt `lazy val`s, this instance doesn't synchronize,
 	  * yielding possibly minor performance benefit while still remaining thread safe. It happens
-	  * at the cost of possibly evaluating the initialization callback more than once, and in the case
-	  * of concurrent access of uninitialized value the result isn't specified. It is therefore strongly encouraged
-	  * to use only relatively lightweight and '''idempotent''' functions which won't return null as initializers.
-	  * All testing functions become even less helpful, but at least it is guaranteed that if `init` never returns
+	  * at the cost of possibly evaluating the initialization callback more than once, and concurrent access
+	  * of a uninitialized value may return results from different calls. For this reason the initializer should
+	  * be a relatively lightweight and '''idempotent''' function which never returns a null value.
+	  * All testing functions become even less helpful, but at least it is guaranteed that if `idempotent` never returns
 	  * `null` values, once `isInitialized` returns `true`, it will always be so
-	  * (in the sense of java memory 'happens before' relation).
+	  * (in the sense of the java memory 'happens before' relation).
 	  */
-	@inline final implicit def lazyval[@specialized(Primitives) T](idempotent : =>T) :VolatileLazy[T] = new VolatileLazy(() => idempotent)
+	@inline final implicit def lazyval[@specialized(Primitives) T](idempotent : =>T) :Lazy[T] = new VolatileLazy(() => idempotent)
 
+	/** A wrapper over a computed value adapting it to the `Lazy` type. */
 	@inline final def eager[@specialized(Primitives) T](value :T) :Lazy[T] = new EagerLazy(value)
 
 	@inline final def isEager[T](lzy :()=>T) :Boolean = lzy.isInstanceOf[EagerLazy[_]]
@@ -51,37 +52,34 @@ object Lazy {
 
 
 	private final object Undefined extends Lazy[Nothing] {
-		@inline final def value = throw new NoSuchElementException("Lazy.Undefined.value")
-		@inline override def isEvaluated = false
-		@inline override def isUndefined = true
+		def value = throw new NoSuchElementException("Lazy.Undefined.value")
+		override def isEvaluated = false
+		override def isUndefined = true
 
-//		@inline override def filter(p: (Nothing) => Boolean): this.type = this
-//		@inline override def withFilter(p: (Nothing) => Boolean): this.type = this
+		override def map[@specialized(Primitives) O](f: Nothing => O): this.type = this
 
-		@inline override def map[@specialized(Primitives) O](f: Nothing => O): this.type = this
-
-		@inline override def flatMap[@specialized(Primitives) O](f: Nothing => Lazy[O]): this.type = this
+		override def flatMap[@specialized(Primitives) O](f: Nothing => Lazy[O]): this.type = this
 	}
 
 	/** An already computed (initialized value) */
 	private final class EagerLazy[@specialized(Primitives) T](eager :T) extends Lazy[T] {
-		@inline def value :T = eager
-		@inline override def isEvaluated = true
-		@inline override def toString :String = value.toString
+		def value :T = eager
+		override def isEvaluated = true
+		override def toString :String = value.toString
 
-		@inline override def map[@specialized(Primitives) O](f: T => O): EagerLazy[O] = new EagerLazy(f(eager))
+		override def map[@specialized(Primitives) O](f: T => O): EagerLazy[O] = new EagerLazy(f(eager))
 
-		@inline override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = f(eager)
+		override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = f(eager)
 	}
 
 
-	final class VolatileLazy[@specialized(Primitives) +T](idempotent : ()=>T) extends Lazy[T] {
+	private final class VolatileLazy[@specialized(Primitives) +T](idempotent : ()=>T) extends Lazy[T] {
 		def this(value :T) = { this(null); evaluated = value; }
 
 		@volatile private[this] var init = idempotent
 		@volatile private[this] var evaluated :T = _
 
-		@inline override def value: T = {
+		override def value: T = {
 			if (init != null) {
 				evaluated = init()
 				init = null //clear the specialized field
@@ -90,19 +88,19 @@ object Lazy {
 			evaluated
 		}
 
-		@inline private def clear() :Unit = init = null
+		private def clear() :Unit = init = null
 
-		@inline override def isEvaluated: Boolean = init == null
-		@inline override def isUndefined = false
+		override def isEvaluated: Boolean = init == null
+		override def isUndefined = false
 
 
-		@inline override def map[@specialized(Primitives) O](f: T => O): VolatileLazy[O] = {
+		override def map[@specialized(Primitives) O](f: T => O): VolatileLazy[O] = {
 			val init = this.init
 			if (init == null) new VolatileLazy(f(evaluated))
 			else new VolatileLazy(() => f(init()))
 		}
 
-		@inline override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = {
+		override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = {
 			val init = this.init
 			if (init == null) f(evaluated)
 			else new VolatileLazy(() => f(init()).value)
@@ -116,14 +114,14 @@ object Lazy {
 
 
 
-	final class SyncLazy[@specialized(Primitives) T](evaluate : () =>T) extends Lazy[T] {
+	private final class SyncLazy[@specialized(Primitives) T](evaluate : () =>T) extends Lazy[T] {
 
 		def this(value :T) = { this(null); evaluated = value }
 
 		private[this] var init = evaluate
 		private[this] var evaluated :T = _
 
-		@inline def value :T = synchronized {
+		def value :T = synchronized {
 			if (init!=null) {
 				evaluated = init()
 				init = null //clears the specialized field
@@ -138,18 +136,18 @@ object Lazy {
 		  * the `isEvaluated` method checks only the generic (base) field. Hence a non-specialized method
 		  * to explicitly clear the reference field `init`.
 		  */
-		@inline private[this] def clear() :Unit = init = null
+		private[this] def clear() :Unit = init = null
 
-		@inline def isEvaluated :Boolean = synchronized { init == null }
-		@inline override def isUndefined = false
+		def isEvaluated :Boolean = synchronized { init == null }
+		override def isUndefined = false
 
 
-		@inline override def map[@specialized(Primitives) O](f: T => O): SyncLazy[O] = synchronized {
+		override def map[@specialized(Primitives) O](f: T => O): SyncLazy[O] = synchronized {
 			if (init==null) new SyncLazy(f(evaluated))
 			else new SyncLazy(() => f(init()))
 		}
 
-		@inline override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = synchronized {
+		override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = synchronized {
 			if (init==null) f(evaluated)
 			else new SyncLazy(() => f(init()).value)
 		}

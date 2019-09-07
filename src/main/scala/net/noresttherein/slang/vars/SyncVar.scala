@@ -55,32 +55,32 @@ final class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) ex
 
 
 	private[vars] override def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this) //.asInstanceOf[InOut[Boolean]]
+		val self = ev(this)
 		self.value = self.value & other
 	}
 
 	private[vars] override def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this)//.asInstanceOf[InOut[Boolean]]
+		val self = ev(this)
 		self.value = self.value | other
 	}
 
 	private[vars] override def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this) //.asInstanceOf[InOut[Boolean]]
+		val self = ev(this)
 		self.value = self.value && other
 	}
 
 	private[vars] override def bool_||=(other: =>Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this) //.asInstanceOf[InOut[Boolean]]
+		val self = ev(this)
 		self.value = self.value || other
 	}
 
 	private[vars] override def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this) //.asInstanceOf[InOut[Boolean]]
+		val self = ev(this)
 		self.value = self.value ^ other
 	}
 
 	private[vars] override def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = synchronized {
-		val self = ev(this) //.asInstanceOf[InOut[Boolean]]
+		val self = ev(this)
 		val res = !self.value; self.value = res; res
 	}
 

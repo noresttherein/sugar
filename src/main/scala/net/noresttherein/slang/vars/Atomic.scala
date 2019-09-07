@@ -245,7 +245,7 @@ object Atomic {
 		override def get :Int = x.get
 		override def value :Int = x.get
 		override def value_=(value :Int) :Unit = x.set(value)
-		override def :=(value :Int) :Unit = x.lazySet(value) //x.set(value)
+		override def :=(value :Int) :Unit = x.lazySet(value)
 		override def ?=(newValue :Int) :Int = x.getAndSet(newValue)
 
 
@@ -395,7 +395,7 @@ object Atomic {
 		override def get :Long = x.get
 		override def value :Long = x.get
 		override def value_=(value :Long) :Unit = x.set(value)
-		override def :=(value :Long) :Unit = x.lazySet(value) //x.set(value)
+		override def :=(value :Long) :Unit = x.lazySet(value)
 		override def ?=(newValue :Long) :Long = x.getAndSet(newValue)
 
 
