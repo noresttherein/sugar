@@ -1,6 +1,7 @@
 package net.noresttherein.slang.prettyprint
 
 import net.noresttherein.slang.prettyprint.YesNo.shorthandBoolean
+import net.noresttherein.slang.prettyprint.ObjectFieldsFormats.objectFormatter
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe
@@ -21,7 +22,7 @@ import scala.util.Try
   *
   * @author Marcin Mościcki
   */
-class ObjectFormatter[T](private val subject :T) extends AnyVal {
+class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 
 	/** Local type name of this object. */
 	def typeName(implicit typeTag :TypeTag[T]) :String = typeTag.tpe.typeSymbol.name.toString
@@ -95,37 +96,33 @@ class ObjectFormatter[T](private val subject :T) extends AnyVal {
 }
 
 
-//	/** Implicit extension of any object of statically known type `T` (or for which type tag and class tag are available),
-//	  * providing methods for formatting it as a string
-//	  */
-//	@inline implicit def ObjectFormatter[T :ClassTag :TypeTag](obj :T) :ObjectFormatter[T] = new ObjectFormatter[T](obj)
 
 
-object ObjectFormatter {
+object ObjectFieldsFormats {
 
 	/** Implicit extension of any object of statically known type `T` (or for which type tag and class tag are available),
 	  * providing methods for formatting it as a string
 	  */
-	@inline implicit def objectFormatter[T :TypeTag](obj :T) :ObjectFormatter[T] = new ObjectFormatter[T](obj)
+	@inline implicit def objectFormatter[T :TypeTag](obj :T) :ObjectFieldsFormats[T] = new ObjectFieldsFormats[T](obj)
 
-
-	/** Base class providing a `toString` implementation listing the values of all fields
-	  * of extending class `Self` with their names.
-	  */
-	class DefToString[Self <: DefToString[Self] : TypeTag] { this: Self =>
-		override def toString :String = (this: Self).gettersString
-	}
+}
 
 
 
 
-	/** Base class providing a `toString` implementation listing the values of all case class fields
-	  * of extending case class `Self` with their names.
-	  */
-	class CaseClass[Self <:CaseClass[Self] :TypeTag] extends Serializable { this :Self =>
-		override def toString :String = (this :Self).caseFieldsString
-	}
+/** Base class providing a `toString` implementation listing the values of all fields
+  * of extending class `Self` with their names.
+  */
+class DefToString[Self <: DefToString[Self] : TypeTag] { this: Self =>
+	override def toString :String = (this: Self).gettersString
+}
 
+
+/** Base class providing a `toString` implementation listing the values of all case class fields
+  * of extending case class `Self` with their names.
+  */
+class CaseClass[Self <:CaseClass[Self] :TypeTag] extends Serializable { this :Self =>
+	override def toString :String = (this :Self).caseFieldsString
 }
 
 

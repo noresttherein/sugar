@@ -5,8 +5,9 @@ import net.noresttherein.slang.typist.UpperBound
 
 
 //todo: projections and mapping, update
-
-
+//todo: rename to :* (left associative, lower precedence than arithmetic ops)
+//todo: use a macro to elide the implicit witnesses
+ 
 /** Generic base trait for tuples of varying number of elements. It is functionally very similar to ''shapeless' '' `HList`s.
   * The main difference is that they are backed by arrays instead of linked lists, offering constant time element retrieval,
   * assuming the compiler optimizer of HotSpot-like VM will do away with unused implicit arguments existing solely as
@@ -33,7 +34,7 @@ sealed trait Tuple extends Product {
 object Tuple {
 
 	/** Retrieves all elements from this tuple as a list with the type of their common upper bound. To match
-	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.Tuple.*:]] (infix notation possible).
+	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.tuples.Tuple.*: *:]] (infix notation possible).
 	  * @param tuple the tuple to explode
 	  * @tparam T concrete product type of this tuple containing information about all elements.
 	  * @tparam U calculated least upper bound type for elements of this tuple.
@@ -55,42 +56,42 @@ object Tuple {
 	}
 
 	/** Create a two-element tuple. */
-	def apply[A, B](a :A, b :B) :A **: B = {
+	def apply[A, B](a :A, b :B) :A :*: B = {
 		val elems = new Array[Any](2)
 		elems(0) = b; elems(1) = a
 		new *:(elems, 2)
 	}
 
 	/** Create a three-element tuple. */
-	def apply[A, B, C](a :A, b :B, c :C) :A *: B **: C = {
+	def apply[A, B, C](a :A, b :B, c :C) :A *: B :*: C = {
 		val elems = new Array[Any](3)
 		elems(0) = c; elems(1) = b; elems(2) = a
 		new *:(elems, 3)
 	}
 
 	/** Create a four-element tuple. */
-	def apply[A, B, C, D](a :A, b :B, c :C, d :D) :A *: B *: C **: D = {
+	def apply[A, B, C, D](a :A, b :B, c :C, d :D) :A *: B *: C :*: D = {
 		val elems = new Array[Any](4)
 		elems(0) = d; elems(1) = c; elems(2) = b; elems(3) = a
 		new *:(elems, 4)
 	}
 
 	/** Create a five-element tuple. */
-	def apply[A, B, C, D, E](a :A, b :B, c :C, d :D, e :E) :A *: B *: C *: D **: E = {
+	def apply[A, B, C, D, E](a :A, b :B, c :C, d :D, e :E) :A *: B *: C *: D :*: E = {
 		val elems = new Array[Any](5)
 		elems(0) = e; elems(1) = d; elems(2) = c; elems(3) = b; elems(4) = a
 		new *:(elems, 5)
 	}
 
 	/** Create a six-element tuple. */
-	def apply[A, B, C, D, E, F](a :A, b :B, c :C, d :D, e :E, f :F) :A *: B *: C *: D *: E **: F = {
+	def apply[A, B, C, D, E, F](a :A, b :B, c :C, d :D, e :E, f :F) :A *: B *: C *: D *: E :*: F = {
 		val elems = new Array[Any](6)
 		elems(0) = f; elems(1) = e; elems(2) = d; elems(3) = c; elems(4) = b; elems(5) = a
 		new *:(elems)
 	}
 
 	/** Create a seven-element tuple. */
-	def apply[A, B, C, D, E, F, G](a :A, b :B, c :C, d :D, e :E, f :F, g :G) :A *: B *: C *: D *: E *: F **: G = {
+	def apply[A, B, C, D, E, F, G](a :A, b :B, c :C, d :D, e :E, f :F, g :G) :A *: B *: C *: D *: E *: F :*: G = {
 		val elems = new Array[Any](7)
 		elems(0) = g; elems(1) = f; elems(2) = e; elems(3) = d; elems(4) = c; elems(5) = b
 		elems(6) = a
@@ -98,7 +99,7 @@ object Tuple {
 	}
 
 	/** Create an eight-element tuple. */
-	def apply[A, B, C, D, E, F, G, H](a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H) :A *: B *: C *: D *: E *: F *: G **: H = {
+	def apply[A, B, C, D, E, F, G, H](a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H) :A *: B *: C *: D *: E *: F *: G :*: H = {
 		val elems = new Array[Any](8)
 		elems(0) = h; elems(1) = g; elems(2) = f; elems(3) = e; elems(4) = d; elems(5) = c
 		elems(6) = b; elems(7) = a
@@ -107,7 +108,7 @@ object Tuple {
 
 	/** Create a nine-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I](a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I)
-			:A *: B *: C *: D *: E *: F *: G *: H **: I =
+			:A *: B *: C *: D *: E *: F *: G *: H :*: I =
 	{
 		val elems = new Array[Any](9)
 		elems(0) = i; elems(1) = h; elems(2) = g; elems(3) = f; elems(4) = e; elems(5) = d
@@ -117,7 +118,7 @@ object Tuple {
 
 	/** Create a ten-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J](a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I **: J =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I :*: J =
 	{
 		val elems = new Array[Any](10)
 		elems(0) = j; elems(1) = i; elems(2) = h; elems(3) = g; elems(4) = f; elems(5) = e
@@ -127,7 +128,7 @@ object Tuple {
 
 	/** Create an eleven-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K](a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J **: K =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J :*: K =
 	{
 		val elems = new Array[Any](11)
 		elems(0) = k; elems(1) = j; elems(2) = i; elems(3) = h; elems(4) = g; elems(5) = f
@@ -137,7 +138,7 @@ object Tuple {
 
 	/** Create a twelve-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L](a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K **: L =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K :*: L =
 	{
 		val elems = new Array[Any](12)
 		elems(0) = l; elems(1) = k; elems(2) = j; elems(3) = i; elems(4) = h; elems(5) = g
@@ -148,7 +149,7 @@ object Tuple {
 	/** Create a thirteen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L **: M =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L :*: M =
 	{
 		val elems = new Array[Any](13)
 		elems(0) = m; elems(1) = l; elems(2) = k; elems(3) = j; elems(4) = i; elems(5) = h
@@ -160,7 +161,7 @@ object Tuple {
 	/** Create a fourteen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M **: N =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M :*: N =
 	{
 		val elems = new Array[Any](14)
 		elems(0) = n; elems(1) = m; elems(2) = l; elems(3) = k; elems(4) = j; elems(5) = i
@@ -172,7 +173,7 @@ object Tuple {
 	/** Create a fifteen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N **: O =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N :*: O =
 	{
 		val elems = new Array[Any](15)
 		elems(0) = o; elems(1) = n; elems(2) = m; elems(3) = l; elems(4) = k; elems(5) = j
@@ -184,7 +185,7 @@ object Tuple {
 	/** Create a sixteen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O **: P =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O :*: P =
 	{
 		val elems = new Array[Any](16)
 		elems(0) = p; elems(1) = o; elems(2) = n; elems(3) = m; elems(4) = l; elems(5) = k
@@ -196,7 +197,7 @@ object Tuple {
 	/** Create a seventeen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P, q :Q)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P **: Q =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P :*: Q =
 	{
 		val elems = new Array[Any](17)
 		elems(0) = q; elems(1) = p; elems(2) = o; elems(3) = n; elems(4) = m; elems(5) = l
@@ -208,7 +209,7 @@ object Tuple {
 	/** Create an eighteen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P, q :Q, r :R)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q **: R =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q :*: R =
 	{
 		val elems = new Array[Any](18)
 		elems(0) = r; elems(1) = q; elems(2) = p; elems(3) = o; elems(4) = n; elems(5) = m
@@ -220,7 +221,7 @@ object Tuple {
 	/** Create a nineteen-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P, q :Q, r :R, s :S)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R **: S =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R :*: S =
 	{
 		val elems = new Array[Any](19)
 		elems(0) = s; elems(1) = r; elems(2) = q; elems(3) = p; elems(4) = o; elems(5) = n
@@ -233,7 +234,7 @@ object Tuple {
 	/** Create a twenty-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P, q :Q, r :R, s :S, t :T)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R *: S **: T =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R *: S :*: T =
 	{
 		val elems = new Array[Any](20)
 		elems(0) = t; elems(1) = s; elems(2) = r; elems(3) = q; elems(4) = p; elems(5) = o
@@ -246,7 +247,7 @@ object Tuple {
 	/** Create a twenty one-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P, q :Q, r :R, s :S, t :T, u :U)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R *: S *: T **: U =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R *: S *: T :*: U =
 	{
 		val elems = new Array[Any](21)
 		elems(0) = u; elems(1) = t; elems(2) = s; elems(3) = r; elems(4) = q; elems(5) = p
@@ -259,7 +260,7 @@ object Tuple {
 	/** Create a twenty two-element tuple. */
 	def apply[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V]
 	         (a :A, b :B, c :C, d :D, e :E, f :F, g :G, h :H, i :I, j :J, k :K, l :L, m :M, n :N, o :O, p :P, q :Q, r :R, s :S, t :T, u :U, v :V)
-			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R *: S *: T *: U **: V =
+			:A *: B *: C *: D *: E *: F *: G *: H *: I *: J *: K *: L *: M *: N *: O *: P *: Q *: R *: S *: T *: U :*: V =
 	{
 		val elems = new Array[Any](22)
 		elems(0) = v; elems(1) = u; elems(2) = t; elems(3) = s; elems(4) = r; elems(5) = q
@@ -305,39 +306,40 @@ object Tuple {
 
 
 
-
-	/** An alias for `H *: T *: <*>` omitting the terminator type `<*>` from the type signature, shortening the notation a bit.
-	  * New instances can be created by the companion object to this type [[Tuple*::]]: `**:(x, y)`.
+	/** An alias for a two element tuple `X *: Y *: <*>` omitting the terminator type `<*>` from the type signature,
+	  * shortening the notation to `X :*: Y`. New instances can be created by the companion object to this type
+	  * [[Tuple.:*:]]: `:*:(x, y)`, `Tuple(x, y)`, or an implicitly added extension method `:*:`: `x :*: y`
+	  * (made available with importing this type).
 	  */
-	type **:[+H, +T] = H *: T *: <*>
+	type :*:[+X, +Y] = X *: Y *: <*>
 
-	/** Implicit conversion from values of any type `X` adding a right-associative [[PairConstructor.**: **:]] method
+	/** Implicit conversion from values of any type `X` adding a right-associative [[PairConstructor.:*: :*:]] method
 	  * for creating pairs (two-argument tuples).
 	  * @param second the second element of the created tuple.
 	  * @tparam Y the type of the second element in the created tuple.
-	  * @return a light wrapper over the `second` object, adding a pair factory method `**:`.
+	  * @return a light wrapper over the `second` object, adding a pair factory method `:*:`.
 	  */
-	@inline implicit def **:[Y](second :Y): PairConstructor[Y] = new PairConstructor(second)
+	@inline implicit def :*:[Y](second :Y): PairConstructor[Y] = new PairConstructor(second)
 
 
-	/** Constructor and extractor for two-element tuples `H**:T` (equivalent to `H *: T *: <*>`) for use in pattern matching. */
-	object **: {
+	/** Constructor and extractor for two-element tuples `H:*:T` (equivalent to `H *: T *: <*>`) for use in pattern matching. */
+	object :*: {
 		/** Create a two-element tuple. */
-		def apply[A, B](first :A, second :B) :A **: B = {
+		def apply[A, B](first :A, second :B) :A :*: B = {
 			val elems = new Array[Any](2)
 			elems(0) = second; elems(1) = first
-			new **:(elems, 2)
+			new :*:(elems, 2)
 		}
 
-		def unapply[A, B](tuple :A **: B) :Option[(A, B)] = Some((tuple._0, tuple._1))
+		def unapply[A, B](tuple :A :*: B) :Option[(A, B)] = Some((tuple._0, tuple._1))
 
 	}
 
 
-	/** Patches any object implicitly adding the [[PairConstructor#**:]] method for creating pair objects. */
+	/** Patches any object implicitly adding the [[PairConstructor#:*:]] method for creating pair objects. */
 	class PairConstructor[Y](private val second :Y) extends AnyVal {
-		@inline def **:[X](first :X): X **: Y = apply(first, second)
-		@inline def *:[X](first :X) : X **: Y = apply(first, second)
+		@inline def :*:[X](first :X): X :*: Y = apply(first, second)
+		@inline def *:[X](first :X): X :*: Y = apply(first, second)
 	}
 
 
@@ -346,10 +348,12 @@ object Tuple {
 	/** Cartesian product of type `H` and types listed in `T`, being a type constructor for tuples with variable lengths.
 	  * New instances can be created either by the [[Tuple]]'s object overloaded `apply` methods for fixed arities,
 	  * or by recursively prepending elements with [[Tuple!.*:]] to existing tuples. A natural start would be
-	  * either the empty product [[Tuple.<*>]] or a pair: [[Tuple.**:]].
+	  * either the empty product [[Tuple.<*>]] or a pair: [[Tuple.:*:]].
+	  * Please note that, in order to retain consistency with arbitrary indexing `apply(idx)`, the elements of this
+	  * tuple are numbered starting with zero, unlike scala tuples.
 	  * @tparam H type of the first element in the tuple
 	  * @tparam T a tuple type consisting of the 'tail'of this tuple, that is all element types after the first.
-	  * @see [[**:]]
+	  * @see [[:*:]]
 	  */
 	final class *:[+H, +T <: Tuple] private[Tuple](elements :Array[Any], size :Int) extends Tuple {
 
@@ -613,26 +617,16 @@ object Tuple {
 
 
 
-/*
-	/** Implicit conversion from any type into a singleton tuple which can be extended by prepending new elements
-	  * with the [[*:.*:]] method
-	  */
-	implicit def *:[X](last :X): X *: <*> = {
-		val array = new Array[Any](4)
-		array(0) = last
-		new *:[X, <*>](array, 1)
-	}
-*/
-	/** Implicit conversion extending any type with a `*:` method to create two element tuples.
-	  * `x *: y` is equivalent to `x *: y *: <*>`, both creating a pair of type `X *: Y *: <*>`.
-	  * If you wish to have an empty element tupe as the last element of another tuple, use `x **: <*>` or one of
-	  * direct `apply` factory methods of this object.
-	  */
-	implicit def *:[X](last :X) :PairConstructor[X] = new PairConstructor(last)
 
 
 	/** Extractor separating the first element of the tuple from the rest in pattern matching. Can be used in the recursive
-	  * infix notation.
+	  * infix notation:
+	  * {{{
+	  * tuple match {
+	  *     case 1 *: 2 *: 3 :*: 4 => ...
+	  * }
+	  * }}}.
+	  * @see [[net.noresttherein.slang.tuples.Tuple.:*:$ :*:]]
 	  */
 	object *: {
 		def unapply[H, T <: Tuple](tuple :H *: T) :Option[(H, T)] = Some(tuple.head, tuple.tail)

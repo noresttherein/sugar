@@ -328,8 +328,6 @@ object Ratio {
 					throw new ArithmeticException(s"Ratio overflow: $n/$d ($numerator/$denominator)")
 				new Ratio(-n.toInt, -d.toInt)
 			}
-//			val divisor = naturalGCD(if (numerator > 0) numerator else -numerator, -denominator)
-//			new Ratio((-numerator / divisor).toInt, (-denominator / divisor).toInt)
 		} else
 			  throw new ArithmeticException("Ratio: division by zero")
 
@@ -379,13 +377,13 @@ object Ratio {
 	  * @param numerator this integer, serving as thee numerator of the future rational
 	  * @return a builder object accepting the denominator for the rational result.
 	  */
-	@inline implicit def /%(numerator :Int) :DivisionRationalConstructor = new DivisionRationalConstructor(numerator)
+	@inline implicit def /%(numerator :Int) :DivisionRatioConstructor = new DivisionRatioConstructor(numerator)
 
 	/** A builder of [[Ratio]] objects, accepting an `Int` denominator and constructing the rational number
 	  * representing the division of the wrapped numerator values by the argument.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
-	class DivisionRationalConstructor(private val numerator :Int) extends AnyVal {
+	class DivisionRatioConstructor(private val numerator :Int) extends AnyVal {
 		/** Divides this `Int` by the argument, creating a [[Ratio]] number representing the result.
 		  * @param denominator the denominator of the created rational (before reduction)
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.

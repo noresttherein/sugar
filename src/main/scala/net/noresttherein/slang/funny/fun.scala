@@ -177,7 +177,7 @@ object fun {
 		/** Uses java reflection to determine the type of the `i`-th argument given to this trait by the concrete
 		  * class of this object.
 		  */
-		private[this] def typeArgument(i :Int, spec  :SpecializedType[_]) = {
+		private[this] def typeArgument(i :Int, spec  :SpecializedType[_]) :String = {
 			def search(tpe :Type) :Type = tpe match {
 				case null => null
 
@@ -191,8 +191,8 @@ object fun {
 								val i = cls.getTypeParameters.indexOf(param)
 								if (i >= 0)
 									p.getActualTypeArguments()(i)
-								else
-									param //possible if param is declared by an enclosing class
+								else //possible if param is declared by an enclosing class, but we won't check the outer scopes
+									param
 						}
 						case _ => search(p.getRawType) //never happens IRL
 					}
@@ -231,12 +231,34 @@ object fun {
 		private[this] def domain :SpecializedType[X] = new SpecializedType[X]
 		private[this] def range :SpecializedType[Y] = new SpecializedType[Y]
 
+		/** String representation of the argument type.
+		  * If this function extends `ComposableFun` specialized for a value type, the scala name of the type is returned.
+		  * Otherwise it tries to determine the provided type parameter by reflection and return a shortened name
+		  * of the class (with package names replaced with their first letter). If the type cannot be determined,
+		  * or is `Any`/`java.lang.Object`, `"_"` is returned. This will be the case for non-specialized functions
+		  * (including those with only one specializable type parameter) or generic functions which actual type arguments
+		  * are declared as type parameters of some enclosing class. Subclasses are free to override this method
+		  * with a more efficient or detailed version.
+		  */
 		def domainString :String = typeArgument(0, domain)
 
+		/** String representation of the result type.
+		  * If this function extends `ComposableFun` specialized for a value type, the scala name of the type is returned.
+		  * Otherwise it tries to determine the provided type parameter by reflection and return a shortened name
+		  * of the class (with package names replaced with their first letter). If the type cannot be determined,
+		  * or is `Any`/`java.lang.Object`, `"_"` is returned. This will be the case for non-specialized functions
+		  * (including those with only one specializable type parameter) or generic functions which actual type arguments
+		  * are declared as type parameters of some enclosing class. Subclasses are free to override this method
+		  * * with a more efficient or detailed version.
+		  */
 		def rangeString :String = typeArgument(1, range)
 
+		/** The default `toString` implementation, returning `"${domainString}=>${rangeString}"`. */
 		def typeString :String = domainString + "=>" + rangeString
 
+		/** By default returns `"${domainString}=>${rangeString}"`. Some concrete classes override it with information
+		  * about the actual nature of the function.
+		  */
 		override def toString :String = typeString
 	}
 
@@ -292,6 +314,10 @@ object fun {
 
 
 
+	/** A base class for functions with a predefined `toString` implementation. It exists solely for the purpose
+	  * of simplified syntax of [[net.noresttherein.slang.funny.fun.named fun.named]]. Non-anonymous function
+	  * implementations which desire to override `toString` should instead extend the `ComposableFun` supertype directly.
+	  */
 	abstract class NamedFun[@specialized(ArgTypes) -X, @specialized(ReturnTypes) +Y] extends ComposableFun[X, Y] {
 		def this(name :String) = { this(); this.name = name }
 

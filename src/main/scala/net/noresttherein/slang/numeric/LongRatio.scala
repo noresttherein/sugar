@@ -333,13 +333,13 @@ object LongRatio {
 	  * @param numerator this integer, serving as thee numerator of the future rational
 	  * @return a builder object accepting the denominator for the rational result.
 	  */
-	@inline implicit def /%(numerator :Long) :DivisionLongRatioBuilder = new DivisionLongRatioBuilder(numerator)
+	@inline implicit def /%(numerator :Long) :DivisionLongRatioConstructor = new DivisionLongRatioConstructor(numerator)
 
 	/** A builder of [[LongRatio]] objects, accepting an `Long` denominator and constructing the rational number
 	  * representing the division of the wrapped numerator values by the argument.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
-	class DivisionLongRatioBuilder(private val numerator :Long) extends AnyVal {
+	class DivisionLongRatioConstructor(private val numerator :Long) extends AnyVal {
 		/** Divides this `Long` by the argument, creating a [[LongRatio]] number representing the result.
 		  * @param denominator the denominator of the created rational (before reduction)
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.

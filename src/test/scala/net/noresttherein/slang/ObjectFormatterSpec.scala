@@ -2,13 +2,13 @@ package net.noresttherein.slang
 
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
-import net.noresttherein.slang.prettyprint.ObjectFormatter.objectFormatter
+import net.noresttherein.slang.prettyprint.ObjectFieldsFormats.objectFormatter
 import net.noresttherein.slang.prettyprint.{CaseClass, DefToString}
 
 /**
   * @author Marcin Mościcki
   */
-object ObjectFormatterSpec extends Properties("ObjectFormatter") {
+object ObjectFormatterSpec extends Properties("ObjectFieldsFormats") {
 
 	case class Subject(boolean :Boolean, int :Int, string :String) extends CaseClass[Subject]
 
@@ -34,7 +34,7 @@ object ObjectFormatterSpec extends Properties("ObjectFormatter") {
 
 	property("DefToString") = (new Test).toString ?= "Test(test=44)"
 
-	property("ObjectFormatter") = new CustomClass("7.62", 600).toString ?= "CustomClass(caliber=7.62, rateOfFire=600)"
+	property("ObjectFieldsFormats") = new CustomClass("7.62", 600).toString ?= "CustomClass(caliber=7.62, rateOfFire=600)"
 
 	property("fieldsString") = new Private("first", 42).toString ?= "Private(field1=first, _field2=42)"
 

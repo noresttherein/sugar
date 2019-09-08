@@ -2,6 +2,8 @@ package net.noresttherein.slang.logging
 
 import java.util.logging.{Level, LogRecord, Logger => JLogger}
 
+//todo use jav:a.lang.StackWalker to provide caller information
+
 /** Simple syntactic wrapper over `java.util.logging.Logger` available by the [[Logger.jlogger]] property.
   * @author Marcin Mościcki marcin@moscicki.net
   */

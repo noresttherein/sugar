@@ -103,7 +103,7 @@ package object prettyprint {
 
 
 	/** Implicit conversion patching any object with methods providing prittified/shortened class names. */
-	implicit class ClassNameOf(private val self :Any) extends AnyVal {
+	implicit class classNameMethods(private val self :Any) extends AnyVal {
 		/** Class name of this object trimmed of all containing packages and non-anonymous surrounding classes but one. */
 		@inline def localClassName: String = localNameOf(self.getClass)
 

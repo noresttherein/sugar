@@ -4,7 +4,7 @@ import net.noresttherein.slang.matching.Unapply
 import net.noresttherein.slang.numeric.Ratio
 import net.noresttherein.slang.numeric.Ratio.{/%, One, Zero}
 import net.noresttherein.slang.optional.allOf
-import net.noresttherein.slang.optional.Providing
+import net.noresttherein.slang.optional.providingMethods
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 

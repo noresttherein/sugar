@@ -1,6 +1,6 @@
 package net.noresttherein.slang
 
-import prettyprint.ClassNameOf
+import prettyprint.classNameMethods
 
 import scala.reflect.ClassTag
 import scala.util.matching.Regex
@@ -20,7 +20,7 @@ package object matching {
 
 
 
-	implicit class ValuePatternMatching[T](val value :T) extends AnyVal {
+	implicit class matchesMethod[T](val value :T) extends AnyVal {
 		def matches[X](expr :PartialFunction[T, X]) :Boolean = expr.isDefinedAt(value)
 	}
 
@@ -69,6 +69,8 @@ package object matching {
 	  * down or extract `Out` out of a `In` type value. It is a single abstract method type (''SAM'') and thus
 	  * the compiler will convert a lambda function `In => Out` where the type `Unapply[In, Out]` is expected,
 	  * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
+	  * It is similar to [[net.noresttherein.slang.matching.MatchFunction MatchFunction]], but its `apply` method
+	  * is equivalent to `unapply`, returning an `Option`.
 	  * @tparam In type of matched (argument) values
 	  * @tparam Out type of extracted (result) values.
 	  */

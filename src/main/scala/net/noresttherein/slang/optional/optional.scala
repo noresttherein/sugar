@@ -11,25 +11,23 @@ import scala.reflect.ClassTag
 package object optional {
 
 
-	/** Finds first defined optional value in the given list. Equivalent to `alternatives.find(_.isDefined)`.
+	/** Finds the first defined optional value in the given list. Equivalent to `alternatives.find(_.isDefined)`.
 	  * It is particularly useful with the guarded expressions producing options, defined here:
 	  * {{{
 	  *     firstOf(<expression1> providing <guard1>, ... <expressionN> providing <guardN>)
 	  * }}}
 	  * @return first element for which `o.isDefined` or `None` if no such exists.
 	  */
-	def firstOf[V](alternatives :Option[V]*) :Option[V] = alternatives match {
-		case list :List[Option[V]] =>
-			@tailrec def get(l :List[Option[V]]) :Option[V] =
-				if (l.isEmpty) None
-				else {
-					val h = l.head
-					if (h.isDefined) h else get(l.tail)
-				}
-			get(list)
-		case _ =>
-			alternatives.find(_.isDefined).flatten
-	}
+	def firstOf[V](alternatives :Option[V]*) :Option[V] =
+		alternatives.find(_.isDefined).flatten
+
+
+	/** Finds the first defined optional value satisfying the given condition.
+	  * Equivalent to `alternatives.find(_.exists(condition)).flatten` but declares the intent upfront.
+	  * @return first option among `alternatives` which element satisfies `condition` or `None` if no such exists.
+	  */
+	def firstWhere[V](alternatives :Option[V]*)(condition :V=>Boolean) :Option[V] =
+		alternatives.find(_.exists(condition)).flatten
 
 
 	/** Collects all non-empty values in a `Seq`. While this is equivalent to simply `results.flatten`, it is
@@ -47,6 +45,30 @@ package object optional {
 	def allOf[V](results :Option[V]*) :Seq[V] = results.flatten
 
 
+
+
+
+
+
+
+	/** Creates an `Option[T]` based on the given value and a condition guard.
+	  * @param condition condition which must hold for the value to be returned
+	  * @param ifTrueThen default value to return if `condition` holds.
+	  * @return `if (condition) Some(ifTrueThen) else None`
+	  */
+	@inline final def ifTrue[T](condition :Boolean)(ifTrueThen : =>T) :Option[T] =
+		if (condition) Some(ifTrueThen) else None
+
+
+	/** Creates an `Option[T]` based on the given value and a condition guard.
+	  * @param condition condition which must hold for the value to be returned
+	  * @param ifFalseThen default value to return if `condition` doesn't hold.
+	  * @return `if (condition) None else Some(ifFalseThen)`
+	  */
+	@inline final def ifFalse[T](condition :Boolean)(ifFalseThen : =>T) :Option[T] =
+		if (condition) None else Some(ifFalseThen)
+
+
 	/** An implicit extension of `Boolean` values providing `ifTrue` method lifting its argument to an `Option` based
 	  * on the value of this expression.
 	  * {{{
@@ -59,7 +81,7 @@ package object optional {
 	  * but arguably reads better, especially if the pattern matching order feels more natural in the given place in code.
 	  * @param condition boolean value serving as a guard of a conditional expression.
 	  */
-	implicit class IfTrue(private val condition :Boolean) extends AnyVal {
+	implicit class ifTrueMethods(private val condition :Boolean) extends AnyVal {
 
 		/** If `this` boolean expression is true, return the given value in an `Option`. If it evaluates to `false`,
 		  * return `None`.
@@ -85,22 +107,6 @@ package object optional {
 	}
 
 
-	/** Creates an `Option[T]` based on the given value and a condition guard.
-	  * @param condition condition which must hold for the value to be returned
-	  * @param ifTrueThen default value to return if `condition` holds.
-	  * @return `if (condition) Some(ifTrueThen) else None`
-	  */
-	@inline final def ifTrue[T](condition :Boolean)(ifTrueThen : =>T) :Option[T] =
-		if (condition) Some(ifTrueThen) else None
-
-
-	/** Creates an `Option[T]` based on the given value and a condition guard.
-	  * @param condition condition which must hold for the value to be returned
-	  * @param ifFalseThen default value to return if `condition` doesn't hold.
-	  * @return `if (condition) None else Some(ifFalseThen)`
-	  */
-	@inline final def ifFalse[T](condition :Boolean)(ifFalseThen : =>T) :Option[T] =
-		if (condition) None else Some(ifFalseThen)
 
 
 
@@ -117,9 +123,9 @@ package object optional {
 
 	/** Extension methods of an arbitrary value treating it as a default value to be lifted to an `Option`
 	  * depending on whether a guard predicate is satisfied. This class eagerly computes `this` expression.
-	  * @see [[net.noresttherein.slang.optional.Providing]]
+	  * @see [[net.noresttherein.slang.optional.providingMethods]]
 	  */
-	implicit class Satisfying[T](private val self :T) extends AnyVal {
+	implicit class satisfyingMethods[T](private val self :T) extends AnyVal {
 
 		/** Return `Some(this)` if `condition` is true, `None`  otherwise. Note that `this` is eagerly evaluated. */
 		@inline def satisfying(condition :Boolean) :Option[T] =
@@ -174,9 +180,9 @@ package object optional {
 
 
 	/** Extension methods evaluating and returning the value passed as `this` argument only if a given predicate is satisfied.
-	  * @see [[net.noresttherein.slang.optional.Providing]]
+	  * @see [[net.noresttherein.slang.optional.satisfyingMethods]]
 	  */
-	implicit class Providing[T](self : =>T)  {
+	implicit class providingMethods[T](self : =>T)  {
 
 		/** Return `Some(this)` if `condition` is true, or `None` without evaluating this expression otherwise. */
 		@inline def providing(condition :Boolean) :Option[T] =
@@ -191,8 +197,28 @@ package object optional {
 
 
 
+
+
+
+	/** A class extending `scala.Some` with a `some` method as an alias to `get`.
+	  * The purpose is to use it instead of the latter, as code refactoring can easily change the type of a value
+	  * from `Some` to `Option` making `get` unsafe in places where it wasn't before.
+	  */
+	implicit class someMethod[T](private val opt :Some[T]) extends AnyVal {
+		/** Returns the value of this option as returned by `get`.
+		  * Using a separate method emphasises that this call is safe. *
+		  */
+		@inline final def some :T = opt.get
+	}
+
+
+
+
+
+
+	//todo: new method name and a macro to include the actual expression used as a string.
 	/** Extension methods overloading `scala.ensuring`, allowing for passing an arbitrary exception to be thrown. */
-	implicit class CustomEnsuring[T](private val self :T) extends AnyVal {
+	implicit class ensuringMethods[T](private val self :T) extends AnyVal {
 
 		/** Return `this` if `condition` is true, or throw the give exception otherwise. */
 		@inline
