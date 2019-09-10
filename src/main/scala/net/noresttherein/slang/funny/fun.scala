@@ -1,6 +1,6 @@
 package net.noresttherein.slang.funny
 
-import java.lang.reflect.{ParameterizedType, Type, TypeVariable}
+import java.lang.reflect.{ParameterizedType, Type}
 
 import net.noresttherein.slang.prettyprint
 
@@ -21,10 +21,24 @@ object fun {
 	  * {{{
 	  *     fun { x :Int => X + X }
 	  * }}}
-	  * . This method serves no other purpose and promptly returns the argument as `X=>Y` to help with type inference.
+	  * . Created function provides a more informative `toString` method and elides some special functions
+	  * defined here during composition.
+	  * This method serves no other purpose and promptly returns the argument as `X=>Y` to help with type inference.
 	  * @return `f`
 	  */
 	def apply[X, Y](f :ComposableFun[X, Y]) :X => Y = f
+
+
+
+	/** Enforces the type of the passed function expression to be a [[net.noresttherein.slang.funny.fun.PureFun PureFun]].
+	  * This is essentially the same as [[net.noresttherein.slang.funny.fun.apply fun(f)]] except it declares that the
+	  * created function throws no exceptions, has no side effects and does not depend on mutable state.
+	  * This allows it to be elided when composed with constant functions and those throwing exceptions.
+	  * As there is no way to verify these claims, you are on a honor system here.
+	  * @return `f`
+	  */
+	def pure[X, Y](f :PureFun[X, Y]) :X => Y = f
+
 
 
 	/** Creates a named function. The string given as the first argument is used in `toString`
@@ -58,18 +72,25 @@ object fun {
 		}
 
 
+
 	/** Equivalent to `scala.identity[X]`, but is specialized and overrides `compose` (and `andThen`)
 	  * for reduced overhead of function composition. Additionally, it provides a more informative `toString` output.
 	  */
 	def ident[@specialized(ArgTypes) X] :X=>X = new Identity[X]{}
 
 
+
 	/** A constant function equivalent to `(_:X) => value`, but with a more helpful `toString` and performing reduction on composition.
 	  * For any `g :Y=>O`, `f endThen g` eagerly evaluates to `fun[X, O](g(value))`. Additionally, for any `h :A=>X`
 	  * implementing [[net.noresttherein.slang.funny.fun.PureFun PureFun]], `f compose h` evaluates simply
 	  * to `fun[A, Y](value)`.
+	  * This method returns only a factory object which `apply` method accepts the constant. This is to separate the
+	  * declarations of argument and return type parameters - the latter can be inferred by the compiler,
+	  * while the former can't. While not providing the argument type here will result in a function `Any=>Y` which
+	  * will serve for any type `X`, it will not be specialized.
 	  */
-	def const[@specialized(ArgTypes) X, @specialized(ReturnVals) Y](result :Y) :X => Y = new ConstFun(result)
+	def const[@specialized(ArgTypes) X] :ConstFunFactory[X] = new ConstFunFactory[X]
+
 
 
 	/** A function throwing the exception returned for its argument by the passed constructor function.
@@ -96,6 +117,20 @@ object fun {
 	  */
 	def throwing[T <: Throwable :ClassTag] :Any => Nothing =
 		new Throw(implicitly[ClassTag[T]].runtimeClass.getDeclaredConstructor().newInstance().asInstanceOf[Throwable])
+
+
+
+
+
+
+	/**  A simple factory object which `apply` method creates functions which always return the same value.
+	  *  Returned by [[net.noresttherein.slang.funny.fun.const fun.const]], it separates the argument
+	  *  and value type parameters, so the latter can be inferred from the provided value.
+	  */
+	class ConstFunFactory[@specialized(ArgTypes) X] {
+		/** Creates a function which always returns `const`. */
+		def apply[@specialized(ReturnVals) Y](const :Y) :X => Y = new ConstFun[X, Y](const)
+	}
 
 
 
@@ -140,16 +175,14 @@ object fun {
 	}
 
 
-	/** Marker trait for functions which are not expected to throw any exceptions. */
-	trait PureFun[-X, +Y] extends (X => Y)
-
 
 	/** A base interface for 'nice' functions defined here. Overrides `compose` and `andThen` to attain two goals:
 	  *  - a `@specialized` instance for the composed function;
 	  *  - eliding one of the members if an identity, constant or exception throwing function is encountered.
+	  *  Provides a more helpful `toString` implementation.
 	  *  @see [[net.noresttherein.slang.funny.fun]]
 	  */
-	trait ComposableFun[@specialized(ArgTypes) -X, @specialized(ReturnVals) +Y] extends (X=>Y) {
+	trait ComposableFun[@specialized(ArgTypes) -X, @specialized(ReturnTypes) +Y] extends (X=>Y) {
 
 		override def compose[A](g: A => X): A => Y = g match {
 			case f :ComposableFun[A, X] => f chainBefore this
@@ -264,53 +297,10 @@ object fun {
 
 
 
-	private class ComposedFun[@specialized(ArgTypes) -X, @specialized(ArgTypes) Y, @specialized(ReturnTypes) +Z](val inner :X=>Y, val outer :Y=>Z)
-		extends ComposableFun[X, Z]
-	{
-		override def apply(x: X): Z = outer(inner(x))
-
-		@unspecialized
-		override def compose[A](g :A => X) :A => Z = outer compose (inner compose g)
-
-		@unspecialized
-		override def andThen[A](g :Z => A) :X => A = inner andThen (outer andThen g)
-
-
-		override def equals(that :Any) :Boolean = that match {
-			case c :ComposedFun[_, _, _] => (c eq this) || c.inner==inner && c.outer==outer
-			case _ => false
-		}
-
-		override def hashCode :Int = inner.hashCode * 31 + outer.hashCode
-
-		override def toString :String =
-			(outer, inner) match {
-				case (f :ComposableFun[_, _], g :ComposableFun[_, _]) =>
-					val innerS = g.toString
-					val outerS = f.toString
-					val outerTypePrefix = f.domainString + "=>"
-					if (innerS.endsWith("=>" + g.rangeString) && outerS.startsWith(outerTypePrefix))
-						innerS + outerS.substring(outerTypePrefix.length)
-					else
-						innerS + "*>" + outerS
-
-				case (f :ComposableFun[_, _], _) if inner.toString == "<function1>" =>
-					val outerS = f.toString
-					if (outerS.startsWith(f.domainString + "=>"))
-						"?=>" + outerS
-					else
-						"?=>?*>" + outerS
-				case (_, g :ComposableFun[_, _]) if outer.toString == "<function1>" =>
-					val innerS = g.toString
-					if (innerS.endsWith("=>" + g.rangeString))
-						innerS + "=>?"
-					else
-						innerS + "*>?=>?"
-				case _ =>
-					inner + "*>" + outer
-			}
-
-	}
+	/** Marker trait for functions which are not expected to throw any exceptions, do not have side effects
+	  * and do not depend on mutable state. They can be elided when composed with constant or throwing functions./
+	  */
+	trait PureFun[@specialized(ArgTypes) -X, @specialized(ReturnVals) +Y] extends ComposableFun[X, Y]
 
 
 
@@ -369,6 +359,59 @@ object fun {
 		override def hashCode :Int = domainString.hashCode
 
 		override def toString :String = "Identity[" + domainString + "]"
+	}
+
+
+
+
+
+
+	private class ComposedFun[@specialized(ArgTypes) -X, @specialized(ArgTypes) Y, @specialized(ReturnTypes) +Z](val inner :X=>Y, val outer :Y=>Z)
+		extends ComposableFun[X, Z]
+	{
+		override def apply(x: X): Z = outer(inner(x))
+
+		@unspecialized
+		override def compose[A](g :A => X) :A => Z = outer compose (inner compose g)
+
+		@unspecialized
+		override def andThen[A](g :Z => A) :X => A = inner andThen (outer andThen g)
+
+
+		override def equals(that :Any) :Boolean = that match {
+			case c :ComposedFun[_, _, _] => (c eq this) || c.inner==inner && c.outer==outer
+			case _ => false
+		}
+
+		override def hashCode :Int = inner.hashCode * 31 + outer.hashCode
+
+		override def toString :String =
+			(outer, inner) match {
+				case (f :ComposableFun[_, _], g :ComposableFun[_, _]) =>
+					val innerS = g.toString
+					val outerS = f.toString
+					val outerTypePrefix = f.domainString + "=>"
+					if (innerS.endsWith("=>" + g.rangeString) && outerS.startsWith(outerTypePrefix))
+						innerS + outerS.substring(outerTypePrefix.length)
+					else
+						innerS + "*>" + outerS
+
+				case (f :ComposableFun[_, _], _) if inner.toString == "<function1>" =>
+					val outerS = f.toString
+					if (outerS.startsWith(f.domainString + "=>"))
+						"?=>" + outerS
+					else
+						"?=>?*>" + outerS
+				case (_, g :ComposableFun[_, _]) if outer.toString == "<function1>" =>
+					val innerS = g.toString
+					if (innerS.endsWith("=>" + g.rangeString))
+						innerS + "=>?"
+					else
+						innerS + "*>?=>?"
+				case _ =>
+					inner + "*>" + outer
+			}
+
 	}
 
 
