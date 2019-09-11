@@ -88,10 +88,10 @@ object TupleSpec extends Properties("Tuple") {
 		tuptup(_1) =? 1 && tuptup(_2)  =? "2" && tuptup(_3) =? 3L && tuptup(_4) =? '4'
 	}
 
-	property("><.updated") = {
+	property("><.set") = {
 		import Nat._
-		(tuptup.updated(_1, _10) ?= _10 >:< "2" >< 3L >< '4') && (tuptup.updated(_2, _10) ?= 1 >:< _10 >< 3L >< '4') &&
-			(tuptup.updated(_3, _10) ?= 1 >:< "2" >< _10 >< '4') && (tuptup.updated(_4, _10) ?= 1 >:< "2" >< 3L >< _10)
+		(tuptup.set(_1, _10) ?= _10 >:< "2" >< 3L >< '4') && (tuptup.set(_2, _10) ?= 1 >:< _10 >< 3L >< '4') &&
+			(tuptup.set(_3, _10) ?= 1 >:< "2" >< _10 >< '4') && (tuptup.set(_4, _10) ?= 1 >:< "2" >< 3L >< _10)
 
 	}
 

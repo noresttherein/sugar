@@ -1,20 +1,21 @@
 package net.noresttherein.slang.tuples
 
 import net.noresttherein.slang.tuples.Nat.{++, _0, _1, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _2, _20, _21, _22, _3, _4, _5, _6, _7, _8, _9}
-import net.noresttherein.slang.tuples.Tuple.evidence.{TupleAt, TupleDrop, TupleDropRight, TupleLUB, TupleTake, TupleTakeRight, UpdatedTuple}
+import net.noresttherein.slang.tuples.Tuple.evidence.{TupleAt, TupleDrop, TupleDropRight, TupleLUB, TupleProjection, TupleTake, TupleTakeRight, UpdatedTuple}
 import net.noresttherein.slang.typist.UpperBound
 
+import scala.annotation.implicitNotFound
 import scala.compat.Platform
 
 
-//todo: projections and mapping, update
-//todo: rename to :* (left associative, lower precedence than arithmetic ops)
 //todo: use a macro to elide the implicit witnesses
- 
+//todo: zipper; maybe lenses
+
 /** Generic base trait for tuples of varying number of elements. It is functionally very similar to ''shapeless' '' `HList`,
   * but is conceptually closer to tuples than lists. The main differences are:
   *  - they are left associative, making left-to-right writing more natural;
   *  - they are indexed starting with `1`, like scala tuples, but unlike lists and other collections;
+  *  - indexing only works if the type is fully known;
   *  - they are backed by arrays instead of lists, with `O(1)` element retrieval, while retaining amortized `O(1)` append;
   *    this comes at the cost of making all updates `O(n)`.
   *  - the 'Nil' type ([[net.noresttherein.slang.tuples.Tuple.<> <>]]) can be omitted from tuples of length &gt;=2 by 
@@ -28,7 +29,10 @@ sealed trait Tuple extends Product {
 
 	/** Number of elements in this tuple. Same as [[Tuple#productArity]]. */
 	def length :Int
-	
+
+	/** True if this tuple has at least one element. */
+	def isEmpty :Boolean = length == 0
+
 	def productArity :Int = length
 
 	def canEqual(that :Any) :Boolean = that.isInstanceOf[Tuple]
@@ -285,18 +289,254 @@ object Tuple {
 		elems(18) = s; elems(19) = t; elems(20) = u; elems(21) = v
 		new ><(elems)
 	}
-	
-	
-	
-	
-	
-	
+
+
+
+
+
+
+	@inline
+	implicit def fromTuple[A](t :Tuple1[A]) : <*>[A] = apply(t._1)
+
+	@inline
+	implicit def fromTuple[A, B](t :(A, B)) :A >:< B = apply(t._1, t._2)
+
+	@inline
+	implicit def fromTuple[A, B, C](t :(A, B, C)) :A >:< B >< C = apply(t._1, t._2, t._3)
+
+	@inline
+	implicit def fromTuple[A, B, C, D](t :(A, B, C, D)) :A >:< B >< C >< D = apply(t._1, t._2, t._3, t._4)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E](t :(A, B, C, D, E)) :A >:< B >< C >< D >< E =
+		apply(t._1, t._2, t._3, t._4, t._5)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F](t :(A, B, C, D, E, F)) :A >:< B >< C >< D >< E >< F =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G](t :(A, B, C, D, E, F, G)) :A >:< B >< C >< D >< E >< F >< G =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H](t :(A, B, C, D, E, F, G, H)) :A >:< B >< C >< D >< E >< F >< G >< H =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I](t :(A, B, C, D, E, F, G, H, I))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J](t :(A, B, C, D, E, F, G, H, I, J))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K](t :(A, B, C, D, E, F, G, H, I, J, K))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L](t :(A, B, C, D, E, F, G, H, I, J, K, L))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P >< Q =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P >< Q >< R =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18
+		)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P >< Q >< R >< S =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19
+		)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P >< Q >< R >< S >< T =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19, t._20
+		)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P >< Q >< R >< S >< T >< U =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19, t._20, t._21
+		)
+
+	@inline
+	implicit def fromTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V]
+	                      (t :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V))
+	                      :A >:< B >< C >< D >< E >< F >< G >< H >< I >< J >< K >< L >< M >< N >< O >< P >< Q >< R >< S >< T >< U >< V =
+		apply(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+		      t._14, t._15, t._16, t._17, t._18, t._19, t._20, t._21, t._22
+		)
+
+
+
+
+
+
+	@inline
+	implicit def toTuple[A](t: <*>[A]) :Tuple1[A] =  Tuple1(t._1)
+
+	@inline
+	implicit def toTuple[A, B](t: A>:<B) :(A, B) =  (t._1, t._2)
+
+	@inline
+	implicit def toTuple[A, B, C](t: A>:<B><C) :(A, B, C) =  (t._1, t._2, t._3)
+
+	@inline
+	implicit def toTuple[A, B, C, D](t: A>:<B><C><D) :(A, B, C, D) =  (t._1, t._2, t._3, t._4)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E](t: A>:<B><C><D><E) :(A, B, C, D, E) =  (t._1, t._2, t._3, t._4, t._5)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F](t: A>:<B><C><D><E><F) :(A, B, C, D, E, F) =  (t._1, t._2, t._3, t._4, t._5, t._6)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G](t: A>:<B><C><D><E><F><G) :(A, B, C, D, E, F, G) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H](t: A>:<B><C><D><E><F><G><H) :(A, B, C, D, E, F, G, H) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I](t: A>:<B><C><D><E><F><G><H><I) :(A, B, C, D, E, F, G, H, I) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J](t: A>:<B><C><D><E><F><G><H><I><J) :(A, B, C, D, E, F, G, H, I, J) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K](t: A>:<B><C><D><E><F><G><H><I><J><K)
+	                    :(A, B, C, D, E, F, G, H, I, J, K) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L](t: A>:<B><C><D><E><F><G><H><I><J><K><L)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M](t: A>:<B><C><D><E><F><G><H><I><J><K><L><M)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N](t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P><Q)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P><Q><R)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P><Q><R><S)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P><Q><R><S><T)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19, t._20)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P><Q><R><S><T><U)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19, t._20, t._21)
+
+	@inline
+	implicit def toTuple[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V]
+	                    (t: A>:<B><C><D><E><F><G><H><I><J><K><L><M><N><O><P><Q><R><S><T><U><V)
+	                    :(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V) =
+		(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13,
+			t._14, t._15, t._16, t._17, t._18, t._19, t._20, t._21, t._22)
+
+
+
+
+
+
 	/** An empty tuple (a product of zero arity). Useful particularly as the terminator type for variable tuples
 	  * in a manner similar to list's `Nil` (and `HList`'s `HNil`).
 	  */
 	final class <> private[Tuple]() extends Tuple {
 
 		override def length :Int = 0
+
+		override def isEmpty :Boolean = true
 
 		override def productElement(n :Int) :Any = throw new IndexOutOfBoundsException(n.toString)
 
@@ -428,6 +668,7 @@ object Tuple {
 		/** The number of elements in this tuple. */
 		def length :Int = { val count = len; if (count > 0) count else -count }
 
+		override def isEmpty :Boolean = false
 
 
 		/** The first element of this tuple. */
@@ -532,7 +773,7 @@ object Tuple {
 		  * @tparam X the type of the new element.
 		  * @tparam R result type provided by an implicit parameter.
 		  */
-		def updated[N <: Nat, X, R <: Tuple](n :N, value :X)(implicit tpe :UpdatedTuple[P >< L, N, X, R]) :R = {
+		def set[N <: Nat, X, R <: Tuple](n :N, value :X)(implicit tpe :UpdatedTuple[P >< L, N, X, R]) :R = {
 			var count = length
 			val copy = new Array[Any](count)
 			do {
@@ -542,6 +783,37 @@ object Tuple {
 			new ><[Tuple, Any](copy).asInstanceOf[R]
 		}
 
+		/** This tuple with the last element replaced with `x`. */
+		def setLast[X](x :X) :P >< X = {
+			var count = length - 1
+			val copy = new Array[Any](length)
+			copy(count) = x
+			while(count > 0) {
+				count -= 1
+				copy(count) = elements(count)
+			}
+			new ><[P, X](copy)
+		}
+
+		/** Maps the `n`-th element of this tuple.
+		  * @param n the index of the element to update, starting with `1` and encoded on type level.
+		  * @param f the mapping function to apply to the `n`-th element.
+		  * @tparam N the index to map encoded on type level.
+		  * @tparam X the type of `n`-th element in this tuple, provided by implicit parameter `at`.
+		  * @tparam Y the mapped type for the `n`-th element.
+		  * @tparam R the tuple type resulting from replacing `X` (at n-th position) with `Y`,
+		  *           as provided by the implicit parameter `res`.
+		  * @return a tuple with the mapped element at `n`-th position and equal to this one on all other indices.
+		  */
+		def mapAt[N <: Nat, X, Y, R <: Tuple](n :N)(f :X => Y)
+                 (implicit at :TupleAt[P >< L, N, X], res :UpdatedTuple[P >< L, N, Y, R]) :R = {
+			val x = elements(n.number).asInstanceOf[X]
+			val y = f(x)
+			set(n, y)
+		}
+
+		/** Maps the last element of this tuple. */
+		def mapLast[Y](f :L => Y) :P >< Y = setLast(f(elements(length).asInstanceOf[L]))
 
 
 		/** First (leftmost) element of this tuple - same as `this._1`. */
@@ -641,6 +913,24 @@ object Tuple {
 		}.asInstanceOf[(A, B)]
 
 
+		/** Makes a projection of this tuple, selecting the elements at the given indices.
+		  * @param indices a tuple with [[net.noresttherein.slang.tuples.Nat Nat]] values,
+		  *                where `n`-th element specifies the index in this tuple of the `n`-th element in the result.
+		  *                An index can be present more than once on the list.
+		  * @param proj implicit provider of the result type.
+		  * @tparam I a tuple with the indices of selected elements; must be fully known.
+		  * @tparam R the type resulting from projecting this tuple to the given indices.
+		  */
+		def select[I <: Tuple, R <: Tuple](indices :I)(implicit proj :TupleProjection[P >< L, I, R]) :R =
+			if (indices.isEmpty)
+				<>.asInstanceOf[R]
+			else {
+				val a = new Array[Any](indices.length)
+				var i = 0
+				indices.toSeq foreach { n => a(i) = n.asInstanceOf[Nat].toInt; i += 1 }
+				new ><[Tuple, Any](a, i).asInstanceOf[R]
+			}
+
 		/** Returns a sequence containing all elements of this tuple from left to right. The element type is calculated
 		  * as the least upper bound of all member types in this tuple.
 		  * @param elemType implicit witness providing the most specific type to which all elements of this tuple conform.
@@ -672,8 +962,12 @@ object Tuple {
 					return new ><(elements, count+1)
 				}
 			}
-			if (count < 0) count = -count
-			val copy = new Array[Any](elements.length + 1)
+			var newlen = elements.length * 2
+			if (count < 0) {
+				count = -count
+				newlen = count + 1
+			}
+			val copy = new Array[Any](newlen)
 			Platform.arraycopy(elements, 0, copy, 0, count)
 			copy(count) = last
 			new ><(copy, count + 1)
@@ -752,9 +1046,14 @@ object Tuple {
 		  * @tparam T a tuple type
 		  * @tparam U a type such that tuple(''_i'') :U for all `0 &lt;= i &lt; tuple.length`.
 		  */
+		@implicitNotFound("Cannot determine the upper bound type for elements of tuple ${T} (or it is not a subtype of ${U}).")
 		final class TupleLUB[-T <: Tuple, +U] private()
 
-		object TupleLUB {
+		sealed abstract class AbsoluteUpperBound {
+			implicit def any[T <: Tuple] :TupleLUB[T, Any] = TupleLUB.nothing.asInstanceOf[TupleLUB[T, Any]]
+		}
+
+		object TupleLUB extends AbsoluteUpperBound {
 			implicit val nothing :TupleLUB[<>, Nothing] = new TupleLUB[<>, Nothing]
 
 //			implicit def lub[T <: Tuple, L <: U, U](implicit init :TupleLUB[T, U]) :TupleLUB[T >< L, U] =
@@ -766,6 +1065,7 @@ object Tuple {
 
 
 		/** Implicit evidence attesting that `N` is the type-encoded length of tuple type `T`. */
+		@implicitNotFound("Cannot determine the length of tuple ${T} or it is not ${N}. Both types need to be fully instantiated for this to work.")
 		final class TupleLength[-T <: Tuple, N <: Nat] private()
 
 		object TupleLength {
@@ -784,6 +1084,7 @@ object Tuple {
 		  * @tparam X type of `n`-th element in `T` starting from the left.
 		  * @see [[Nat]]
 		  */
+		@implicitNotFound("The ${N]-th element of tuple ${T} does not conform to ${X} or the tuple does not have that many elements. Indexing requires both the tuple and index types to be fully instantiated.")
 		final class TupleAt[-T, N <: Nat, +X] private[Tuple]()
 
 		object TupleAt {
@@ -799,6 +1100,7 @@ object Tuple {
 
 
 		/** An implicit witness providing the type `R` of tuple `T` after its `N`-th element has been set to `X`. */
+		@implicitNotFound("Can't replace the ${N}-th element of tuple ${T} with ${X}: the tuple is too short, or the result does not conform to ${R}. Indexing requires both the tuple and index types to be fully instantiated.")
 		final class UpdatedTuple[-T <: Tuple, N <: Nat, X, R <: Tuple] private()
 
 		object UpdatedTuple {
@@ -816,6 +1118,7 @@ object Tuple {
 
 
 		/** Implicit evidence attesting that `R` is the type resulting from dropping `N` first elements from tuple type `T`. */
+		@implicitNotFound("Can't drop ${N} first elements from tuple ${T}: the tuple is too short or the result does not conform to ${R}. In order to compute the result type both the input tuple and index types must be fully instantiated.")
 		final class TupleDrop[-T <: Tuple, N <: Nat, R <: Tuple] private()
 
 		object TupleDrop {
@@ -832,6 +1135,7 @@ object Tuple {
 
 
 		/** Implicit witness attesting that `R` is the type resulting from taking `N` first elements from tuple type `T`. */
+		@implicitNotFound("Can't take ${N} first elements of tuple ${T}: the tuple is too short or the result does not conform to ${R}. In order to take, both the input tuple and index types must be fully instantiated")
 		final class TupleTake[-T <: Tuple, N <: Nat, R <: Tuple] private()
 
 		object TupleTake {
@@ -848,6 +1152,7 @@ object Tuple {
 
 
 		/** Implicit evidence attesting that `R` is the type resulting from dropping `N` last (right) elements from tuple type `T`. */
+		@implicitNotFound("Can't drop ${N} last elements from tuple ${T}: the tuple is too short, too few element types are known, index type is not fully instantiated or the result does not conform to ${R}.")
 		final class TupleDropRight[-T <: Tuple, N <: Nat, R <: Tuple] private()
 
 		object TupleDropRight {
@@ -864,6 +1169,7 @@ object Tuple {
 
 
 		/** Implicit witness attesting that `R` is the type resulting from taking `N` last elements from tuple type `T`. */
+		@implicitNotFound("Can't take ${N} last elements of tuple ${T}: the tuple is too short, too few element types are known, index type is not fully instantiated or the result does not conform to ${R}")
 		final class TupleTakeRight[-T <: Tuple, N <: Nat, R <: Tuple] private()
 
 		object TupleTakeRight {
@@ -877,6 +1183,18 @@ object Tuple {
 				instance.asInstanceOf[TupleTakeRight[T >< L, ++[N], R >< L]]
 		}
 
+
+		/** Implicit evidence witnessing that `R` is the projection of tuple `T` on the indices of `I` (encoded as `Nat` types). */
+		@implicitNotFound("Can't calculate the projection of ${T} to ${I} or it does not conform to ${R}. Both the input and indices tuple types must be fully instantiated for this to work.")
+		final class TupleProjection[-T <: Tuple, I <: Tuple, R <: Tuple] private ()
+
+		object TupleProjection {
+			implicit val empty :TupleProjection[Tuple, <>, <>] = new TupleProjection[Tuple, <>, <>]
+
+			implicit def projectNext[T <: Tuple, N <: Nat, X, I <: Tuple, R <:Tuple](implicit init :TupleProjection[T, I, R], nth :TupleAt[T, N, X])
+			                        :TupleProjection[T, I >< N, R >< X] =
+				empty.asInstanceOf[TupleProjection[T, I >< N, R >< X]]
+		}
 	}
 
 }
@@ -936,6 +1254,7 @@ object Nat extends NatImplicitInduction {
 
 
 	/** Implicit evidence that `X` is the sum of `N` and `M`. */
+	@implicitNotFound("Can't calculate the sum of integers ${N} and ${M}: both types need to be fully instantiated (or the result is not ${X})")
 	final class Sum[N <: Nat, M <: Nat, X <: Nat] private()
 
 	object Sum {
@@ -947,7 +1266,7 @@ object Nat extends NatImplicitInduction {
 			instance.asInstanceOf[Sum[N, ++[M], ++[S]]]
 	}
 
-
+	type <=[N <: Nat, M <: Nat] = Sum[N, _ <:Nat, M]
 
 
 	/** Type encoding of the natural number `0`. */
