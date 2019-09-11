@@ -51,6 +51,12 @@ object Tuple {
 			case <> => Nil
 			case t : ><[p, l] => t.toList[U](lub.asInstanceOf[TupleLUB[p >< l, U]])
 		}
+
+		def :+[X](x :X) :T >< X =
+			(self match {
+				case <> => <> >< x
+				case t: ><[p, l] => t >< x
+			}).asInstanceOf[T >< X]
 	}
 
 	/** Retrieves all elements from this tuple as a list with the type of their common upper bound. To match
