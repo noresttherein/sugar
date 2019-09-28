@@ -102,10 +102,10 @@ Also, a `RefOpt[T <: AnyRef]` value class using the null value to simulate `None
 A variable length tuple, similar to shapless `HList` but modelled more after tuples
 than lists and with constant time access:
 
-    val slice = "this is the best bit" <*> 17 <> 17+3 :String<*>Int<>Int
+    val slice = "this is the best bit" >:< 17 >< 17+3 :String<*>Int<>Int
     slice._1.substring(slice._2, slice._3 - slice._2)
     slice match {
-        case string <*> start <> end => string.substring(start, end-start)
+        case string >:< start >< end => string.substring(start, end-start)
     }
     
     
