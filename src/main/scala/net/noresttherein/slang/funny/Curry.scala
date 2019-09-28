@@ -5,7 +5,7 @@ import net.noresttherein.slang.funny.Curry.Curried.__
 import net.noresttherein.slang.typist.LowerBound
 
 
-/** Represents a type (and function) constructor of a partially applied, curried function `F` which is of the form
+/** Represents a type (and function) constructor of a partially applied, curried function `F` of the form
   * `X0 => ... => Xn => X => Y` for any natural `n`, where X is the type of the first argument after (partial) application.
   * Provides methods for manipulating functions `F` around this argument.
   * @tparam Args[R] the result of mapping an intermediate result `(X=>Y)` of function `F` to `R`; `F =:= Args[X=>Y]`.
@@ -26,10 +26,10 @@ sealed abstract class Curry[Args[+R], X, Y] { prev =>
 	/** A function which takes argument `W` instead of `X` at this position. */
 	type Composed[W] = Args[W=>Y]
 
-	/** A function type accepting an additional argument `W` before `X`, equivalent to `(Args :=> W)#F[T]`. */
+	/** A function type accepting an additional argument `W` before `X`, equivalent to `(Args :=> W)#F[X=>Y]`. */
 	type Accepting[W] = Args[W=>X=>Y]
 
-	/** A function of 'W' returning this function, equivalent to `(W =>: Args)#F[T]`. */
+	/** A function of 'W' returning this function, equivalent to `(W =>: Args)#F[X=>Y]`. */
 	type From[W] = W => Args[X=>Y]
 
 	/** Apply the given function to the given fixed argument `X`, removing it from the argument list.
@@ -635,8 +635,7 @@ object Curry {
 				curried.map[Y, X=>T](transposition).next.next(ev)
 
 			/** Convert `F` into a function with arguments `X, Y` in reverse order, i.e. from `Mapped[X=>Y=>T]` to `Mapped[Y=>X=>T]`. */
-			@inline def transposed :A[Y=>X=>T] = //curried.curry.transpose(curried.unapplied)
-				curried.mapped[Y=>X=>T](transposition) //{ res => y :Y => x :X => res(x)(y) }
+			@inline def transposed :A[Y=>X=>T] = curried.mapped[Y=>X=>T](transposition)
 
 			/** Return a `Curried` instance representing partial application after transposition of arguments `X, Y` in `F`.
 			  * Represented curried function takes arguments `X` and `Y` in reverse order, and is partially applied to

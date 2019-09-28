@@ -4,7 +4,6 @@ import java.util.logging.{LogRecord, Level => JLevel, Logger => JLogger}
 import java.util.logging.Level._
 import net.noresttherein.slang.logging.Logger.Level
 
-//todo use java.lang.StackWalker to provide caller information
 
 /** Simple syntactic wrapper over `java.util.logging.Logger` available by the
   *  [[net.noresttherein.slang.logging.Logger.toJava]] property.
@@ -38,7 +37,7 @@ class Logger(val toJava :JLogger) extends AnyVal {
 
 
 	/** Logs the message at the given level. */
-	def log(level :Level, msg: =>Any) :Unit =
+	@inline def log(level :Level, msg: =>Any) :Unit =
 		if (toJava.isLoggable(level)) {
 			val record = new LogRecord(level, msg.toString)
 			FindCaller.fill(record)
@@ -124,5 +123,6 @@ object Logger {
 
 	/** Default format for use with `java.util.logging.SimpleFormatter`. */
 	final val SimpleFormat = "[%1$Tm.%1$Td %1$TH:%1$TM:%1$TS.%1$TL] %4$-6s %2$s: %5$s%n%6$s"
+
 }
 

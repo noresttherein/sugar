@@ -298,7 +298,7 @@ object fun {
 
 
 	/** Marker trait for functions which are not expected to throw any exceptions, do not have side effects
-	  * and do not depend on mutable state. They can be elided when composed with constant or throwing functions./
+	  * and do not depend on mutable state. They can be elided when composed with constant or throwing functions.
 	  */
 	trait PureFun[@specialized(ArgTypes) -X, @specialized(ReturnVals) +Y] extends ComposableFun[X, Y]
 
@@ -440,10 +440,10 @@ object fun {
 
 		override def toString :String = {
 			val x = domainString
-			if (domainString == "_")
+			if (x == "_")
 				"_=>" + result
 			else
-				"_:"+domainString + "=>" + result
+				"_:" + x + "=>" + result
 		}
 
 	}

@@ -39,7 +39,9 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 
 	/** Lists all inherited and declared member fields (`val`s and `var`s). */
 	def fields(implicit typeTag :TypeTag[T]):Iterable[universe.TermSymbol] =
-		typeTag.tpe.members.sorted.collect { case m if m.isTerm && (m.asTerm.isVal || m.asTerm.isVar)  => typeTag.tpe.member(m.name.decodedName).asTerm }
+		typeTag.tpe.members.sorted.collect {
+			case m if m.isTerm && (m.asTerm.isVal || m.asTerm.isVar)  => typeTag.tpe.member(m.name.decodedName).asTerm
+		}
 
 	/** Given a list of parameterless methods of this object, generate a string in the format of ''name=value(, name=value)*''. */
 	def getterStrings(fields :Iterable[MethodSymbol])(implicit typeTag :TypeTag[T]) :Iterable[String] = {

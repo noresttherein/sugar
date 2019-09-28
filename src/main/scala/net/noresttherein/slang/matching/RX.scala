@@ -505,6 +505,10 @@ object RX {
 		  * anywhere in the string, those not immediately following a '(' character should be valid constant patterns,
 		  * that is, identifiers for stable values (scala `val`'s) starting with an upper case letter. Embedding a binding
 		  * pattern anywhere else will cause the match to always fail due to invalid number of groups.
+		  * This method does not perform standard Java string special character substitution other than unicode literals;
+		  * instead the escape sequences (characters preceded by '\') are treated as per the Java regular expression
+		  * specification. This means however that any regexp escape sequence requires only a single '\' character
+		  * instead of two as when used in Java: write simply "\b" instead of "\\b".
 		  */
 		def r = new Regex(toString)
 
