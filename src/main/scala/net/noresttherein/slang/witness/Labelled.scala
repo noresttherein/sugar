@@ -73,7 +73,6 @@ object Labelled {
 	  *
 	  *     implicitly[VeryImportantModule Labelled label1.##]
 	  * }}}
-	  * @see
 	  */
 	trait Label extends Any {
 		/** A unique label type differing between all `Label` instances. */

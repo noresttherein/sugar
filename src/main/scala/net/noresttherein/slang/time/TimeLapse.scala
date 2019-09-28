@@ -85,6 +85,9 @@ trait FiniteTimeLapse extends Any with TimeLapse {
 
 	override def normalized :FiniteTimeLapse
 
+	def from(time :DateTimePoint) :DateTimePoint = time + this
+	def before(time :DateTimePoint) :DateTimePoint = time - this
+
 	def +(other :FiniteTimeLapse) :FiniteTimeLapse
 	def -(other :FiniteTimeLapse) :FiniteTimeLapse
 
@@ -207,7 +210,7 @@ sealed trait TimeSpan extends Any with TimeLapse with Ordered[TimeSpan] {
 	def add(seconds :Long, nanos :Int) :TimeSpan
 	def subtractFrom(seconds :Long, nanos :Int) :TimeSpan
 
-	def after(instant :Timestamp) :TimePoint = instant + this
+	def from(instant :Timestamp) :TimePoint = instant + this
 	def before(instant :Timestamp) :TimePoint = instant - this
 
 
@@ -390,7 +393,7 @@ trait FiniteTimeSpan extends Any with TimeSpan with FiniteTimeLapse {
 	override def subtractFrom(seconds :Long, nanos :Int) :FiniteTimeSpan
 
 
-	override def after(instant :Timestamp) :Timestamp = instant + this
+	override def from(instant :Timestamp) :Timestamp = instant + this
 	override def before(instant :Timestamp) :Timestamp = instant - this
 
 	@inline final def min(that :FiniteTimeSpan) :FiniteTimeSpan = if (compare(that) <= 0) this else that
@@ -472,6 +475,7 @@ sealed trait DateSpan extends Any with TimeLapse {
 	def -(other :DateSpan) :DateSpan
 	def *(scalar :Int) :DateSpan
 
+
 }
 
 
@@ -536,6 +540,7 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 	def -(other :FiniteDateSpan) :FiniteDateSpan
 
 	override def *(scalar :Int) :FiniteDateSpan
+
 
 	override def ===(other :TimeLapse) :Boolean = other match {
 		case period :FiniteDateSpan => days == period.days && months == period.months && years == period.years

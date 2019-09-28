@@ -5,7 +5,6 @@ import java.lang.Character.{MAX_CODE_POINT, MIN_CODE_POINT}
 
 import net.noresttherein.slang.matching.RX.{Alternative, AtLeast, Concatenation, Flag, FlaggedGroup, NamedGroup, QuantifiedRX, RepeatedRX, RXGroup}
 
-import scala.annotation.tailrec
 import scala.collection.immutable.NumericRange
 import scala.util.matching.Regex
 
@@ -476,76 +475,6 @@ sealed abstract class RX extends Serializable {
 object RX {
 
 
-
-	/** This implicit extension produces group-capturing extractor for use in pattern matching using string interpolation.
-	  * It can be used in the following way:
-	  * {{{
-	  *     email match {
-	  *         case r"($user[^@]+)@($domain.+)" => println s"$user at $domain"
-	  *         case _ => println "not an email!"
-	  *     }
-	  * }}}
-	  * This will work also with arbitrary match patterns accepting `String` values as the argument to their
-	  * `unapply`/`unapplySeq` method: `r"email: (${Email(user, domain)}[^@]+@.+)"`. You can escape the '$' character
-	  * by doubling it.
-	  * @see http://hootenannylas.blogspot.com.au/2013/02/pattern-matching-with-string.html
-	  *      for an explanation of string interpolation in pattern matching
-	  */
-	implicit class RegexpGroupMatcher(val sc :StringContext) extends AnyVal {
-
-		/** Turns the following string with a regular expression into a pattern for use with scala pattern matching.
-		  * Any capturing group inside the regular expression can start with an interpolated scala expression which forms
-		  * a valid match pattern - a simple identifier bound to the value of the matched fragment, a type-bound expression
-		  * or even arbitrary extractors (objects with a `unapply` or `unapplySeq` method). The capturing groups,
-		  * aside from the interpolated scala expression, must additionally contain the regular expression which should
-		  * be matched/bound to the scala expression. So, having `r"email: (${Email(email)})"` is not enough; the pattern
-		  * should be `r"email: (${Email(email)}$EmailRX)"` (where EmailRX is a string constant with the appropriate
-		  * regular expression). Any groups ('('-')' pairs) in the string which do not start with an interpolated
-		  * scala expression are turned into non-capturing groups. Note that while interpolated expressions are allowed
-		  * anywhere in the string, those not immediately following a '(' character should be valid constant patterns,
-		  * that is, identifiers for stable values (scala `val`'s) starting with an upper case letter. Embedding a binding
-		  * pattern anywhere else will cause the match to always fail due to invalid number of groups.
-		  * This method does not perform standard Java string special character substitution other than unicode literals;
-		  * instead the escape sequences (characters preceded by '\') are treated as per the Java regular expression
-		  * specification. This means however that any regexp escape sequence requires only a single '\' character
-		  * instead of two as when used in Java: write simply "\b" instead of "\\b".
-		  */
-		def r = new Regex(toString)
-
-		override def toString :String = {
-			var parts = sc.parts
-			val res = new StringBuilder((0 /: parts)(_ + _.length))
-			var groupStart = false //last character was an unescaped '('
-			var escaped = false //the next character is escaped with a '\' to prevent interpreting by the regexp
-			while (parts.nonEmpty) {
-				val fragment = parts.head
-				val len = fragment.length
-				parts = parts.tail
-				var i = 0
-				while (i < len) {
-					val char = fragment charAt i
-					if (groupStart && char != '?') //change the just opened group into a non-capturing group
-						res append '?'
-					res append char
-					i += 1
-					char match {
-						case '\\' =>
-							escaped = !escaped
-							groupStart = false
-						case '(' if !escaped =>
-							groupStart = true
-						case _ =>
-							escaped = false
-							groupStart = false
-					}
-				}
-			}
-			res.toString
-		}
-
-	}
-
-
 	/** Implicit conversion from an interpolated `String` (`StringContext`) providing factory methods for creating
 	  * `RX` instances. methods from this class can be used using the string interpolation syntax: `p"Digit"`.
 	  * Note that the interpreted string is treated as raw: standard java escape sequences such as `\n` are not
@@ -785,7 +714,7 @@ object RX {
 
 
 	/** A regular expression matching any ASCII punctuation character. */
-	final val Punct = """]\[{}\\!"#$%&'()*+,./:;<=>?@^_`|~-""" :CharacterClass
+	final val Punct = adapt("""]\[{}\\!"#$%&'()*+,./:;<=>?@^_`|~-""")
 
 	/** A regular expression matching any Unicode punctuation character (using the Unicode character class). */
 	final val uPunct = prop"Punctuation"
@@ -794,7 +723,7 @@ object RX {
 	final val Graph = AlNum | Punct
 
 	/** A regular expression matching any visible Unicode character. */
-	final val uGraph = !"""\p{IsWhite_Space}\p{gc=Cc}\p{gc=Cs}\p{gc=Cn}"""
+	final val uGraph = !adapt("""\p{IsWhite_Space}\p{gc=Cc}\p{gc=Cs}\p{gc=Cn}""")
 
 	/** A regular expression matching any printable ASCII character. */
 	final val Prnt = Graph | x"20"
@@ -806,7 +735,7 @@ object RX {
 	final val W = AlNum | '_'
 
 	/** A regular expression matching any Unicode word character. */
-	final val uW = """\p{Alpha}\p{gc=Mn}\p{gc=Me}\p{gc=Mc}\p{Digit}\p{gc=Pc}\p{IsJoin_Control}""" :CharacterClass
+	final val uW = adapt("""\p{Alpha}\p{gc=Mn}\p{gc=Me}\p{gc=Mc}\p{Digit}\p{gc=Pc}\p{IsJoin_Control}""")
 
 
 
@@ -1081,6 +1010,17 @@ object RX {
 
 
 
+	/** An implicit `RX` implementation matching the given string literal. Any characters otherwise interpreted
+	  * by the regular expression engine are escaped.
+	  */
+	implicit class StringLiteral(literal :String) extends RX {
+		private[this] val escaped = Pattern.quote(literal)
+
+		override private[matching] def appendTo(res :StringBuilder) :Unit = res append escaped
+	}
+
+
+
 	private class EmptyRX extends RX {
 
 		override def ::(other :RX) :RX = other
@@ -1158,7 +1098,7 @@ object RX {
 	}
 
 
-	private[RX] class NamedGroup(name :String, body :RX) extends RXGroup("<" + name +'>') {
+	private[RX] class NamedGroup(name :String, body :RX) extends RXGroup(adapt("<" + name +'>')) {
 		override def groups :Seq[String] = name +: body.groups
 	}
 
@@ -1269,8 +1209,9 @@ object RX {
 	}
 
 
+	private def adapt(classBody :String) :CharacterClass = new AdapterCharacterClass(classBody)
 
-	private implicit class AdapterCharacterClass(override val classBody :String) extends CharacterClass
+	private class AdapterCharacterClass(override val classBody :String) extends CharacterClass
 
 
 	/** A regular expression for a character class which is valid both inside the '[...]' brackets and as a standalone
