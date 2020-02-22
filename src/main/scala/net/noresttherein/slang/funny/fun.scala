@@ -26,7 +26,7 @@ object fun {
 	  * This method serves no other purpose and promptly returns the argument as `X=>Y` to help with type inference.
 	  * @return `f`
 	  */
-	def apply[X, Y](f :ComposableFun[X, Y]) :X => Y = f
+	@inline def apply[X, Y](f :ComposableFun[X, Y]) :X => Y = f
 
 
 
@@ -37,7 +37,7 @@ object fun {
 	  * As there is no way to verify these claims, you are on a honor system here.
 	  * @return `f`
 	  */
-	def pure[X, Y](f :PureFun[X, Y]) :X => Y = f
+	@inline def pure[X, Y](f :PureFun[X, Y]) :X => Y = f
 
 
 
@@ -57,7 +57,7 @@ object fun {
 	  * @param f renamed function
 	  * @return `f`
 	  */
-	def named[X, Y](name :String)(f :NamedFun[X, Y]) :X => Y = {
+	@inline  def named[X, Y](name :String)(f :NamedFun[X, Y]) :X => Y = {
 		f.rename(name); f
 	}
 
@@ -65,7 +65,7 @@ object fun {
 	/** Wraps the given function in a decorator returning the given name from its `toString` method.
 	  * @see [[net.noresttherein.slang.funny.fun.named]]
 	  */
-	def name[@specialized(ArgTypes) X, @specialized(ReturnTypes) Y](name :String)(f :X => Y) :X => Y =
+	@inline def name[@specialized(ArgTypes) X, @specialized(ReturnTypes) Y](name :String)(f :X => Y) :X => Y =
 		new ComposableFun[X, Y] {
 			override def apply(x :X) :Y = f(x)
 			override def toString = name
@@ -76,7 +76,7 @@ object fun {
 	/** Equivalent to `scala.identity[X]`, but is specialized and overrides `compose` (and `andThen`)
 	  * for reduced overhead of function composition. Additionally, it provides a more informative `toString` output.
 	  */
-	def ident[@specialized(ArgTypes) X] :X=>X = new Identity[X]{}
+	@inline def ident[@specialized(ArgTypes) X] :X=>X = new Identity[X]{}
 
 
 
@@ -89,7 +89,7 @@ object fun {
 	  * while the former can't. While not providing the argument type here will result in a function `Any=>Y` which
 	  * will serve for any type `X`, it will not be specialized.
 	  */
-	def const[@specialized(ArgTypes) X] :ConstFunFactory[X] = new ConstFunFactory[X]
+	@inline def const[@specialized(ArgTypes) X] :ConstFunFactory[X] = new ConstFunFactory[X] {}
 
 
 
@@ -97,7 +97,7 @@ object fun {
 	  * Provides an informative textual representation and performs reduction during composition, ignoring any
 	  * function passed to its `andThen`, returning itself instead.
 	  */
-	def throwing[X](exception :X => Throwable) :X => Nothing = new ThrowingFunction(exception)
+	@inline def throwing[X](exception :X => Throwable) :X => Nothing = new ThrowingFunction(exception)
 
 
 	/** A function which always throws the given exception. Provides informative `toString` implementation and absorbs
@@ -105,7 +105,7 @@ object fun {
 	  * passed to its `compose` method, which implements [[net.noresttherein.slang.funny.fun.PureFun PureFun]],
 	  * will likewise be reduced during composition to a directly throwing function.
 	  */
-	def throwing(exception :Throwable) :Any => Nothing = new Throw(exception)
+	@inline def throwing(exception :Throwable) :Any => Nothing = new Throw(exception)
 
 
 	/** A function which always throws the exception provided as the type parameter. The `T` must be a concrete class
@@ -115,7 +115,7 @@ object fun {
 	  * passed to its `compose` method, which implements [[net.noresttherein.slang.funny.fun.PureFun PureFun]],
 	  * will likewise be reduced during composition to a directly throwing function.
 	  */
-	def throwing[T <: Throwable :ClassTag] :Any => Nothing =
+	@inline def throwing[T <: Throwable :ClassTag] :Any => Nothing =
 		new Throw(implicitly[ClassTag[T]].runtimeClass.getDeclaredConstructor().newInstance().asInstanceOf[Throwable])
 
 
@@ -127,9 +127,9 @@ object fun {
 	  *  Returned by [[net.noresttherein.slang.funny.fun.const fun.const]], it separates the argument
 	  *  and value type parameters, so the latter can be inferred from the provided value.
 	  */
-	class ConstFunFactory[@specialized(ArgTypes) X] {
+	trait ConstFunFactory[@specialized(ArgTypes) X] extends Any {
 		/** Creates a function which always returns `const`. */
-		def apply[@specialized(ReturnVals) Y](const :Y) :X => Y = new ConstFun[X, Y](const)
+		@inline final def apply[@specialized(ReturnVals) Y](const :Y) :X => Y = new ConstFun[X, Y](const)
 	}
 
 
@@ -139,6 +139,7 @@ object fun {
 
 	/** Declaration of type groups usable as arguments to scala `@specialized` annotation. */
 	object specializations {
+		/** Types for which `Function1`'s result type is specialized, minus `Unit`. */
 		final val ReturnVals = new Specializable.Group(Boolean, Int, Float, Long, Double)
 
 		/** Types for which `Function1`'s result type is specialized. */
@@ -258,7 +259,7 @@ object fun {
 				case null => name
 				case cls if cls == classOf[AnyRef] => name
 				case cls :Class[_] => prettyprint.shortNameOf(cls)
-				case tpe => name
+				case _ => name
 			}
 		}
 		private[this] def domain :SpecializedType[X] = new SpecializedType[X]

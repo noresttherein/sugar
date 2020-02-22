@@ -25,7 +25,7 @@ object CurrySpec extends Properties("Curry") {
 	def g(args :Args) :String = g(args._1)(args._2)(args._3)(args._4)
 	def e(args :Args) :String = e(args._1)(args._2)(args._3)(args._4)
 
-	import net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn
+//	import net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn
 	import Curry.:*:
 
 	property(":*:") = {
@@ -79,8 +79,18 @@ object CurrySpec extends Properties("Curry") {
 		forAll { args :Args => import args._; Curried(f).compose((_:String).toByte).unapplied(_1.toString)(_2)(_3)(_4) ?= f(args) } :| "compose(x)()()()" &&
 		forAll { args :Args => import args._; Curried(f)().composed((_:String).toShort)(_1)(_2.toString)(_3)(_4) ?= f(args) } :| "compose()(x)()()" &&
 		forAll { args :Args => import args._; Curried(f)()()((_:String).toInt).unapplied(_1)(_2)(_3.toString)(_4) ?= f(args) } :| "compose()()(x)()" &&
-		forAll { args :Args => import args._; Curried(f)()()().compose((_:String).toLong).unapplied(_1)(_2)(_3)(_4.toString) ?= f(args) } :| "compose()()()(x)"
-		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().composed((_:Int).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toInt) ?= f(args) } :| "compose()()()(x)"
+		forAll { args :Args => import args._; Curried(f)()()().compose((_:String).toLong).unapplied(_1)(_2)(_3)(_4.toString) ?= f(args) } :| "compose()()()(x)" &&
+		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().composed((_:String).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toString) ?= f(args) } :| "compose(x)(x)(x)(x)"
+
+	import Curry.PartiallyApplied.InjectedFunction.inlineInjection
+	implicitly[Curry.ReturnType[Double=>Short, Short]]
+	property("Curried.inject") =
+		forAll { args :Args => import args._; Curried(f).inject((_:String).toByte).unapplied(_1.toString)(_2)(_3)(_4) ?= f(args) } :| "inject(x)()()()" &&
+		forAll { args :Args => import args._; (Curried(f)().injected({ x :Float => y :Double => (x * y).toShort })).apply(_1)(1.0F)(_2.toDouble)(_3)(_4) ?= f(args) } :| "inject()(x)()()" &&
+		forAll { args :Args => import args._; Curried(f)()().inject({ x :Float => y :Double => (x * y).toInt })().unapplied(_1)(_2)(1.0F)(_3.toDouble)(_4) ?= f(args) } :| "inject()()(x)()" &&
+		forAll { args :Args => import args._; Curried(f)()()().inject({ x :Float => y :String => x.toLong * y.toLong }).unapplied(_1)(_2)(_3)(1.0F)(_4.toString) ?= f(args) } :| "inject()()()(x)"
+//		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().composed((_:Int).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toInt) ?= f(args) } :| "compose()()()(x)"
+
 
 	property("Curried.mapped") =
 		forAll { args :Args => import args._; Curried(f).mapped(g => (a :Args) => g(a._1)(a._2)(a._3)(a._4))(args) ?= f(args) } :| "mapped{}" &&

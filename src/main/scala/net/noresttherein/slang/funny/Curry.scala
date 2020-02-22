@@ -1,8 +1,11 @@
 package net.noresttherein.slang.funny
 
-import net.noresttherein.slang.funny.Curry.{=>:, NextArg}
+import net.noresttherein.slang.funny.Curry.{=>:, LastArg, NextArg, ReturnType}
 import net.noresttherein.slang.funny.Curry.Curried.__
+import net.noresttherein.slang.funny.Curry.PartiallyApplied.{CurryOn, FunctionInjection}
 import net.noresttherein.slang.typist.LowerBound
+
+import scala.annotation.implicitNotFound
 
 
 /** Represents a type (and function) constructor of a partially applied, curried function `F` of the form
@@ -47,12 +50,25 @@ sealed abstract class Curry[Args[+R], X, Y] { prev =>
 	  */
 	@inline final def apply(f :Args[X=>Y])(x :X) :Mapped[Y] = map[Y](f)(_(x))
 
-	/** Compose the return type `X=>Y` of partially applied `F` with another function. Substitutes the type of
+	/** Compose the return type `X=>Y` of a partially applied `F` with another function. Substitutes the type of
 	  * the next argument `X` with type `W` by mapping the argument with the given function before applying `f`.
 	  * For example, given functions `f :F &lt;: P=>O=>X=>Y` and `x :N=>X`, the result would be  `{p :P => o :O => n :N => f(p)(o)(x(w)) }`.
 	  * @return a function `X0 => ... => Xn => W => Y` which applies `f` to its arguments 0 through n, followed by x(_).
 	  */
 	@inline final def compose[W](f :Args[X=>Y])(x :W=>X) :Mapped[W=>Y] = map[W=>Y](f){ r :(X=>Y) => (w :W) => r(x(w)) }
+
+	/** Compose the return type `X=>Y` of a partially applied `F` with another curried function `G`.
+	  * Substitutes the argument `X` in `F` with an inlined argument list of function `x :G`.
+	  * @param f the function which next argument `X` is provided by the function `x`.
+	  * @param x a curried function of type `A1 => ... => An => W => X` (for any `n >= 0`) which provides the value
+	  *          for the argument `X` of `f`.
+	  * @return a function `X0 => ... => Xn => A1 => ... => An => W => Y` which applies `f` to the arguments `X0...Xn`
+	  *         and then to the result of applying `x` to arguments `A1...An` and `W`.
+	  */
+	@inline final def inject[W, Z](f :Args[X=>Y])(x :W=>Z)(implicit result :ReturnType[Z, X]) :Mapped[W=>result.Result[Y]] =
+		map[W=>result.Result[Y]](f) {
+			r :(X=>Y) => (w :W) => result.map[Y](x(w))(r)
+		}
 
 	/** Create a new function derived from `f` by inserting an ignored argument of type `W` before argument `X`. */
 	@inline final def accept[W](f :Args[X=>Y]) :Mapped[W=>X=>Y] = map[W=>X=>Y](f) { r :(X=>Y) => _ :W => r }
@@ -212,6 +228,23 @@ object Curry {
 
 
 
+	/** Witnesses that `F &lt;: X1 => ... => Xn => Y` for some `n`.
+	  * An implicit unbound value `ReturnType[F, _]` exists for every type F, specifying `Y` as the final return type
+	  * (i.e. first type in `F`'s type signature that is not a function itself. If `F` is not a function, than `F =:= Y`.
+	  * Implicit bound values `ReturnType[F, Y]` exist for every pair such that `Y` is the return type of function `F`,
+	  * potentially partially applied.
+	  */
+	@implicitNotFound("${Y} is not a return type of ${F}")
+	sealed abstract class ReturnType[F, Y] {
+		/** A function type resulting from substituting the result type `Y` of `F` with `R`. */
+		type Result[+R]
+
+		/** Performs the deep composition of functions `f` and `z`, mapping the result type `Y` of `f` with `z`. */
+		def map[Z](f :F)(z :Y => Z) :Result[Z]
+	}
+
+
+
 
 
 	/** Witnesses that `F &lt;: ... => X=>Y` or (`F &lt;: this.Mapped[X=>Y]`), i.e.
@@ -223,7 +256,10 @@ object Curry {
 	  * @tparam X last argument of `F` before returning `Y`, i.e. `F &lt;: X1=>..=>Xn=>X=>Y` for some `n>=0`.
 	  * @tparam Y returned type after applying `F` to a series of parameters (possibly all).
 	  */
-	sealed abstract class ReturnType[F, X, Y] {
+	sealed abstract class LastArg[F, X, Y] extends ReturnType[F, Y] {
+		/** A function type resulting from substituting the result type `Y` of `F` with `R`. */
+		type Result[+R] = Mapped[X=>R]
+
 		/** Result type of mapping partial application of `F` up until and not including argument `X`.
 		  * It is the type resulting from substituting `X=>Y` with `R` in `F`.
 		  * Same as `curry.Mapped[R] forSome { val curry :Curry[Mapped, X, Y] }`.
@@ -242,34 +278,59 @@ object Curry {
 
 
 
-	sealed class FallbackReturnType private[Curry] {
+	sealed abstract class FallbackReturnType {
+		/** Lowest priority implicit value for `ReturnType` witnessing `Y` itself as its return type.
+		  * Used when no other implicit values can be found (either `Y` is not a function or `Y` is bound).
+		  */
+		implicit def selfType[Y] :ReturnType[Y, Y] { type Result[+R] = R } =
+			new ReturnType[Y, Y] {
+				type Result[+R] = R
 
-		/** Low priority implicit `ReturnType`, attesting that `Y` is the return type of `X=>Y` for when no other
+				override def map[Z](f :Y)(z :Y => Z) :Z = z(f)
+			}
+
+		def recurse[X, Y, Z](implicit result :ReturnType[Y, Z]) :ReturnType[X=>Y, Z] { type Result[+R] = X => result.Result[R] } =
+			new ReturnType[X=>Y, Z] {
+				type Result[+R] = X => result.Result[R]
+
+				override def map[O](f :X => Y)(z :Z => O) :Result[O] = { x :X => result.map(f(x))(z) }
+			}
+	}
+
+
+
+	sealed abstract class FallbackLastArg extends FallbackReturnType {
+
+		/** Low priority implicit `LastArg`, attesting that `Y` is the return type of `X=>Y` for when no other
 		  * implicit value is available for type `Y`.
 		  */
-		implicit def returnedValue[X, Y] :ReturnType[X=>Y, X, Y] { type Mapped[+G] = G; /*type UpperBound=Nothing=>Any; type LowerBound=X=>Nothing*/ } =
-			new ReturnType[X=>Y, X, Y] {
+		implicit def returnedValue[X, Y] :LastArg[X=>Y, X, Y] { type Mapped[+G] = G } =
+			new LastArg[X=>Y, X, Y] {
 				type Mapped[+G] = G
 
 				override def curry = Curry[X, Y]
 
 				override def cast(f: X => Y) :X=>Y = f
 
+				override def map[Z](f :X => Y)(z :Y => Z) :X => Z = f andThen z
 			}
 	}
 
-	object ReturnType extends FallbackReturnType {
+
+
+	object ReturnType extends FallbackLastArg {
 
 		/** Implicit proof that `R` is the return type of `X=>Y=>Z` if `R` is the return type of `Y=>Z`. */
-		implicit def returnedFunction[X, Y, Z, L, R](implicit res :ReturnType[Y=>Z, L, R])
-				:ReturnType[X=>Y=>Z, L, R] { type Mapped[+G] = X=>res.Mapped[G]; } =
-			new ReturnType[X=>Y=>Z, L, R] {
+		implicit def returnedFunction[X, Y, Z, L, R](implicit res :LastArg[Y=>Z, L, R])
+				:LastArg[X=>Y=>Z, L, R] { type Mapped[+G] = X => res.Mapped[G] } =
+			new LastArg[X=>Y=>Z, L, R] {
 				type Mapped[+G] = X => res.Mapped[G]
 
 				override def curry: Curry[Mapped, L, R] = res.curry.from[X]
 
-				override def cast(f: (X) => (Y) => Z) :X=>res.Mapped[L=>R] =
-					{x :X => res.cast(f(x)) }
+				override def cast(f: X => Y => Z) :X=>res.Mapped[L=>R] = { x :X => res.cast(f(x)) }
+
+				override def map[O](f :X => Y => Z)(z :R => O) :Result[O] = { x :X => res.map(f(x))(z) }
 			}
 	}
 
@@ -476,6 +537,8 @@ object Curry {
 		/** The whole function `F` itself being wrapped by this instance. */
 		val unapplied :Mapped[X=>Y]
 
+		def curry :Curry[Mapped, X, Y]
+
 		/** Provide a fixed value for argument `X`, removing it from `F`'s argument list. This method can be invoked
 		  * only when `Y` itself is a function `Z => O`, as witnessed by the implicit parameter.
 		  * @return a `Curried` instance wrapping a curried function accepting the same initial parameters `X0, ..., XN`
@@ -535,6 +598,8 @@ object Curry {
 	}
 
 
+
+
 	/** Implicit conversions enriching `PartiallyApplied` instances (and thus `Curried` instances) by adding
 	  * methods advancing over the next argument. Additionally, contains helper classes which are part of the public API
 	  * but unlikely to be actually referenced by the client code due to their temporary nature: intermediate results
@@ -552,6 +617,8 @@ object Curry {
 
 		/** Extends a curried function type of more than one argument with methods for advancing through argument list. */
 		@inline implicit final def CurryOn[X, Y, T](f :X=>Y=>T) :CurryOn[Ident, X, Y, T] = new CurryOn[Ident, X, Y, T](Curried(f))
+
+
 
 		/** Extends a `Curried` partially applied function returning a function `Y=>T`, providing methods for advancing
 		  * to the next argument `Y`. This class is an implicit extension of `PartiallyApplied` (and `Curried`) instances.
@@ -648,6 +715,50 @@ object Curry {
 		}
 
 
+
+/*
+		sealed abstract class InjectedFunction[W, Z, X, Y] {
+			type Mapped[+R]
+
+			def inlined(implicit result :ReturnType[Z, X]) :Mapped[W=>result.Result[Y]]
+		}
+
+		object InjectedFunction {
+
+			@inline implicit def inlineInjection[W, Z, X, Y](injection :InjectedFunction[W, Z, X, Y])
+			                                                (implicit result :ReturnType[Z, X]) :injection.Mapped[W=>result.Result[Y]] =
+				injection.inlined(result)
+		}
+*/
+
+
+		/** An intermediate object representing substitution of argument `X` of curried function `Mapped[X=>Y]` with
+		  * inlined arguments of function `W=>Z &lt;: W => Z0 => .. => Zn => X`. There are implicit conversions
+		  * to both [[net.noresttherein.slang.funny.Curry.Curried Curried]] and
+		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]] which require the witness
+		  * `ReturnType[Z, X]`.
+		  */
+		sealed abstract class FunctionInjection[W, Z, X, Y] {
+			type Mapped[+R]
+
+			def inline(implicit result :ReturnType[Z, X]) :Curried[Mapped, W, result.Result[Y]]
+		}
+
+		object FunctionInjection {
+
+			@inline implicit def inlineInjection[W, Z, X, Y](injection :FunctionInjection[W, Z, X, Y])
+			                                                (implicit result :ReturnType[Z, X]) :Curried[injection.Mapped, W, result.Result[Y]] =
+				injection.inline(result)
+
+			@inline implicit final def CurryOn[V, W, Z, X, Y](injection :FunctionInjection[V, W=>Z, X, Y])(implicit result :ReturnType[Z, X])
+					:CurryOn[injection.Mapped, V, W, result.Result[Y]] =
+				new CurryOn[injection.Mapped, V, W, result.Result[Y]](injection.inline(ReturnType.recurse(result)))
+
+			@inline implicit def CurryOver[W, X, Y, T](injection :FunctionInjection[W, X, X, Y=>T]) :CurryOn[injection.Mapped, W, Y, T] =
+				new CurryOn[injection.Mapped, W, Y, T](injection.inline)
+
+		}
+
 	}
 
 
@@ -739,11 +850,55 @@ object Curry {
 		  * There is also an `apply` variant of this method advancing to the next argument, available by implicit conversion
 		  * to [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn]] : `this((w :W) => w.toX)`.
 		  * @return a `Curried` instance representing the same position (before argument `W`) in the transformed function.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.composed]]
-		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(x:W=>X)]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried.composed composed]]
+		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(x:W=>X) apply(x :W=>X)]]
 		  */
 		@inline def compose[W](x :W=>X) :Curried[A, W, Y] =
 			new Curried[A, W, Y](curry.compose(unapplied)(x))(curry.mapped[W, Y])
+
+		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
+		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.composed composed]], but the substitute
+		  * function can take any number of arguments.
+		  * @param x a function providing the value for the next parameter of this function, which arguments should be
+		  *          inlined in the argument list of this function in place of `X`.
+		  * @return a function taking the same arguments preceding `X` as this function, followed by all arguments of `x`
+		  *         preceding the return type `X`, and returns the result of applying this function up to `X` and then
+		  *         to the result of applying `x` to the following arguments.
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried.inject inject]]
+		  */
+		def injected[W, Z](x :W=>Z)(implicit result :ReturnType[Z, X]) :A[W=>result.Result[Y]] =
+			curry.inject(unapplied)(x)(result)
+/*
+		def injected[W, Z](x :W=>Z) :InjectedFunction[W, Z, X, Y] { type Mapped[+R] = A[R] } =
+			new InjectedFunction[W, Z, X, Y] {
+				type Mapped[+R] = A[R]
+
+				def inlined(implicit result :ReturnType[Z, X]) :A[W=>result.Result[Y]] =
+					curry.inject(unapplied)(x)(result)
+			}
+*/
+
+
+		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
+		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.compose compose]], but the substitute
+		  * function can take any number of parameters. Returned object is an intermediate value from which,
+		  * providing that `W=>Z &lt;: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`.
+		  * This intermediate step is introduced in order to move the implicit parameter `ReturnType[Z, X]` from the
+		  * method signature, where it prevents sugared calls to `apply` as declared by
+		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]], to the implicit conversion.
+		  * @param x a function providing the value for the next parameter of this function, which arguments should be
+		  *          inlined in the argument list of this function in place of `X`.
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried.injected injected]]
+		  */
+		def inject[W, Z](x :W=>Z) :FunctionInjection[W, Z, X, Y] { type Mapped[+R] = A[R] } =
+			new FunctionInjection[W, Z, X, Y] {
+				type Mapped[+R] = A[R]
+
+				def inline(implicit result :ReturnType[Z, X]) :Curried[A, W, result.Result[Y]] = {
+					val inlined = curry.inject(unapplied)(x)(result)
+					new Curried[Mapped, W, result.Result[Y]](inlined)(curry.mapped[W, result.Result[Y]])
+				}
+			}
 
 
 		/** Map the result of partial application of this function up to argument `X` (not including).
@@ -835,8 +990,7 @@ object Curry {
 
 		/** Given another `Curried` instance representing a function sharing the arguments preceding `X` with this function,
 		  * combine the results of partial application to shared arguments using the function passed as the second argument.
-		  * Note that this method is right-associative (and correspondingly, `this` function is the second argument of `combine`.
-		  * Usage : `(Curried(other)()() * Curried(self)()()){ case (her, me) => ??? }`.
+		  * Usage : `(Curried(self)()() * Curried(other)()()){ case (me, her) => ??? }`.
 		  */
 		@inline def *[S, T, O](other :Curried[A, S, T])(combine :(X=>Y, S=>T) => O) :A[O] =
 			curry.combine(unapplied, other.unapplied)(combine)
@@ -895,7 +1049,7 @@ object Curry {
 
 
 		/** Return an object representing partial application of `f` up until its last argument `X`. */
-		@inline def last[A, B, X, Y](f :A=>B)(implicit res :ReturnType[A=>B, X, Y]) :Curried[res.Mapped, X, Y] =
+		@inline def last[A, B, X, Y](f :A=>B)(implicit res :LastArg[A=>B, X, Y]) :Curried[res.Mapped, X, Y] =
 			new Curried[res.Mapped, X, Y](res.cast(f))(res.curry)
 
 
@@ -938,9 +1092,9 @@ object Curry {
 
 
 
-	/** Wrapper for a function `f :F &lt;: C[X=>Y]` representing result of partially applying it up to argument `X` (not including).
+	/** Wrapper for a function `f :F &lt;: A[X=>Y]` representing result of partially applying it up to argument `X` (not including).
 	  * Provides methods for transforming function `f` by mapping result type `Y`. For all arguments except the last,
-	  * the result is the same as with a Curry[C, X, Y]() (i.e, next argument), but provides a convenient way
+	  * the result is the same as with a `Curry[A, X, Y]()` (i.e, next argument), but provides a convenient way
 	  * of operating on the final result type of `F` (first return type in composition chain which is not a function).
 	  * @tparam A type constructor for curried functions sharing all arguments to the left of application point of f.
 	  * @tparam X type of the last parameter of `F` before returning `Y` (not necessarily actually its last parameter).
@@ -965,10 +1119,10 @@ object Curry {
 
 
 	object Result {
-		def apply[X, Y, L, R](f :X=>Y)(implicit res :ReturnType[X=>Y, L, R]) :Result[res.Mapped, L, R] =
+		def apply[X, Y, L, R](f :X=>Y)(implicit res :LastArg[X=>Y, L, R]) :Result[res.Mapped, L, R] =
 			new Result[res.Mapped, L, R](new Curried[res.Mapped, L, R](res.cast(f))(res.curry))
 
-		implicit def implicitCurryResult[X, Y, L, R](f :X=>Y)(implicit res :ReturnType[X=>Y, L, R]) :Result[res.Mapped, L, R] =
+		implicit def implicitCurryResult[X, Y, L, R](f :X=>Y)(implicit res :LastArg[X=>Y, L, R]) :Result[res.Mapped, L, R] =
 			new Result[res.Mapped, L, R](new Curried[res.Mapped, L, R](res.cast(f))(res.curry))
 
 	}

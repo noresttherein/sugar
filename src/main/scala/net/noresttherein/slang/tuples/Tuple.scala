@@ -60,7 +60,7 @@ object Tuple {
 	}
 
 	/** Retrieves all elements from this tuple as a list with the type of their common upper bound. To match
-	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.tuples.Tuple.>< *:]] (infix notation possible).
+	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.tuples.Tuple.>< ><]] (infix notation possible).
 	  * @param tuple the tuple to explode
 	  * @tparam T concrete product type of this tuple containing information about all elements.
 	  * @tparam U calculated least upper bound type for elements of this tuple.
