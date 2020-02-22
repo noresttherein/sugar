@@ -42,6 +42,14 @@ object Labelled {
 	/** Labels the given value with its singleton type to distinguish it from other values of type `T`. */
 	@inline def apply[T <: AnyRef](value :T) :T Labelled value.type = new Labelled(value)
 
+	/** Resolves an implicit value associated with the given label in two steps. The first is here and serves
+	  * only to separate the label type parameter. The second is the `apply[T]()` method of the returned object,
+	  * which resolves an implicit value of `T Labelled Label`. This separation is dictated by the fact that the type
+	  * parameter `T` can in most cases be inferred from either present implicit values or the expected type.
+	  * @usecase `val component :Component = Labelled.get[Label]()` will search for an implicit value of
+	  *         `Component Labelled Label`.
+	  */
+	@inline def get[Label] :ResolveImplicit[Label] = new ResolveImplicit[Label] {}
 
 
 
@@ -56,6 +64,14 @@ object Labelled {
 		@inline def apply[T](value :T) :T Labelled Label = new Labelled(value)
 	}
 
+
+	/** An intermediate functional object with a method returning the implicit value for `T Labelled Label`. */
+	trait ResolveImplicit[Label] extends Any {
+		/** Resolve the implicit value for `T Labelled Label`. As the type parameter `T` is separated from the
+		  * label type, it can be inferred based on the expected type or present `Labelled` implicits.
+		  */
+		@inline def apply[T]()(implicit value :T Labelled Label) :T = value.get
+	}
 
 
 
