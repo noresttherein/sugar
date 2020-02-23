@@ -82,14 +82,16 @@ object CurrySpec extends Properties("Curry") {
 		forAll { args :Args => import args._; Curried(f)()()().compose((_:String).toLong).unapplied(_1)(_2)(_3)(_4.toString) ?= f(args) } :| "compose()()()(x)" &&
 		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().composed((_:String).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toString) ?= f(args) } :| "compose(x)(x)(x)(x)"
 
-	import Curry.PartiallyApplied.InjectedFunction.inlineInjection
 	implicitly[Curry.ReturnType[Double=>Short, Short]]
 	property("Curried.inject") =
-		forAll { args :Args => import args._; Curried(f).inject((_:String).toByte).unapplied(_1.toString)(_2)(_3)(_4) ?= f(args) } :| "inject(x)()()()" &&
-		forAll { args :Args => import args._; (Curried(f)().injected({ x :Float => y :Double => (x * y).toShort })).apply(_1)(1.0F)(_2.toDouble)(_3)(_4) ?= f(args) } :| "inject()(x)()()" &&
-		forAll { args :Args => import args._; Curried(f)()().inject({ x :Float => y :Double => (x * y).toInt })().unapplied(_1)(_2)(1.0F)(_3.toDouble)(_4) ?= f(args) } :| "inject()()(x)()" &&
-		forAll { args :Args => import args._; Curried(f)()()().inject({ x :Float => y :String => x.toLong * y.toLong }).unapplied(_1)(_2)(_3)(1.0F)(_4.toString) ?= f(args) } :| "inject()()()(x)"
-//		forAll { args :Args => import args._; Curried(f)((_:Int).toByte)((_:Int).toShort)().composed((_:Int).toLong)(_1.toInt)(_2.toInt)(_3)(_4.toInt) ?= f(args) } :| "compose()()()(x)"
+		forAll { args :Args => import args._; Curried(f).inline((_:String).toByte).unapplied(_1.toString)(_2)(_3)(_4) ?= f(args) } :| "inline(x)()()()" &&
+		forAll { args :Args => import args._; (Curried(f)().inlined({ x :Float => y :Double => (x * y).toShort })).apply(_1)(1.0F)(_2.toDouble)(_3)(_4) ?= f(args) } :| "inline()(x)()()" &&
+		forAll { args :Args => import args._; Curried(f)()().inline({ x :Float => y :Double => (x * y).toInt })()().unapplied(_1)(_2)(1.0F)(_3.toDouble)(_4) ?= f(args) } :| "inline()()(x)()" &&
+		forAll { args :Args => import args._; Curried(f)()()().inline({ x :Float => y :String => x.toLong * y.toLong }).unapplied(_1)(_2)(_3)(1.0F)(_4.toString) ?= f(args) } :| "inline()()()(x)" &&
+		forAll { args :Args => import args._;
+			val g = Curried(f).inject((_:Int).toByte)((_:Int).toShort).inject({ x :Float => y :Double =>(x * y).toInt }).inlined((_:String).toLong)
+			g(_1.toInt)(_2.toInt)(1.0f)(_3.toDouble)(_4.toString) ?= f(args)
+		} :| "inject(x)(x)(x)(x)"
 
 
 	property("Curried.mapped") =

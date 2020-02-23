@@ -1,10 +1,14 @@
 package net.noresttherein.slang
 
 package object funny {
+	/** Transform the given partial function into an equivalent function returning its result as an option. */
 	def lift[X, Y](f :PartialFunction[X, Y]) :X=>Option[Y] = f.lift
 
+	/** Transform the given function returning an option into an equivalent partial function defined for arguments
+	  * for which the argument function returns `Some`. */
 	def lower[X, Y](f :X=>Option[Y]) :PartialFunction[X, Y] = new PartialFunctionOptionAdapter(f)
 
+	/** Extends functions in the form `A=>Option[B]` with a method `lower`, which transforms it into a partial function. */
 	implicit class lowerToPartialFunction[A, B](private val f :A=>Option[B]) extends AnyVal {
 		def lower :PartialFunction[A, B] = new PartialFunctionOptionAdapter(f)
 	}
