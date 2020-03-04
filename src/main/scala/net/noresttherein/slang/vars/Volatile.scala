@@ -1,6 +1,7 @@
 package net.noresttherein.slang.vars
 
 
+import net.noresttherein.slang.vars.InOut.DefaultValue
 import net.noresttherein.slang.vars.Var.SpecializedTypes
 
 
@@ -34,11 +35,19 @@ sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T
 
 
 
+
+
 /** Factory of boxed `@volatile` variables. */
 object Volatile {
 
 	/** Create a new volatile reference variable which can be shared by multiple units of code. */
 	@inline def apply[@specialized(SpecializedTypes) T](value :T) :Volatile[T] = new Volatile(value)
+
+	/** Create a new volatile reference variable which can be shared by multiple units of code. */
+	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :Volatile[T] =
+		new Volatile(default.value)
+
+
 
 	@inline implicit def unboxVar[@specialized(SpecializedTypes) T](vol :Volatile[T]) :T = vol.get
 

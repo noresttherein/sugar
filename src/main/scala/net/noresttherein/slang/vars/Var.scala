@@ -1,5 +1,8 @@
 package net.noresttherein.slang.vars
 
+import net.noresttherein.slang.vars.InOut.DefaultValue
+
+
 /** An simple `@specialized` boxed `var`. Allows for in/out parameters to functions.
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
   * you can write `param += 1` for `param :Var[Int]`. The use of this class directly over through the `In/Out`
@@ -41,6 +44,9 @@ final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) ex
 
 
 
+
+
+
 object Var {
 	/** Types for which [[Var]] is specialized. */
 	final val SpecializedTypes = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
@@ -50,8 +56,15 @@ object Var {
 	@inline final implicit def unboxVar[@specialized(SpecializedTypes) T](variable :Var[T]) :T = variable.get
 
 
+
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
 	@inline def apply[@specialized(SpecializedTypes) T](value :T) :Var[T] = new Var[T](value)
+
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
+	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :Var[T] =
+		new Var[T](default.value)
+
+
 
 
 

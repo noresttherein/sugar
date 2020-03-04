@@ -25,11 +25,11 @@ trait Lazy[@specialized(Primitives) +T] extends (()=>T) {
 }
 
 
+
 object Lazy {
 
 	@inline final def apply[@specialized(Primitives) T](init : =>T) :Lazy[T] = new SyncLazy(() => init)
 
-//	type lazyval[@specialized(Primitives) +T] = VolatileLazy[T]
 
 	/** Unlike default `Lazy(_)` and inbuilt `lazy val`s, this instance doesn't synchronize,
 	  * yielding possibly minor performance benefit while still remaining thread safe. It happens
@@ -74,37 +74,53 @@ object Lazy {
 
 
 	private final class VolatileLazy[@specialized(Primitives) +T](idempotent : ()=>T) extends Lazy[T] {
-		def this(value :T) = { this(null); evaluated = value; }
+		def this(value :T) = { this(null); evaluated = value; fast = value }
 
 		@volatile private[this] var init = idempotent
 		@volatile private[this] var evaluated :T = _
+		private[this] var fast :T = _
+		private[this] var fastInit = false
 
 		override def value: T = {
-			if (init != null) {
-				evaluated = init()
+			if (fastInit)
+				fast
+			else if (init != null) {
+				fast = init()
+				fastInit = true
+				evaluated = fast
 				init = null //clear the specialized field
 				clear()     //clear the erased field
+				fast
+			}else {
+				fast = evaluated
+				fastInit = true
+				fast
 			}
-			evaluated
 		}
 
 		private def clear() :Unit = init = null
 
-		override def isEvaluated: Boolean = init == null
+		override def isEvaluated: Boolean = fastInit || init == null
 		override def isUndefined = false
 
 
-		override def map[@specialized(Primitives) O](f: T => O): VolatileLazy[O] = {
-			val init = this.init
-			if (init == null) new VolatileLazy(f(evaluated))
-			else new VolatileLazy(() => f(init()))
-		}
+		override def map[@specialized(Primitives) O](f: T => O): VolatileLazy[O] =
+			if (fastInit)
+				new VolatileLazy(f(fast))
+			else {
+				val init = this.init
+				if (init == null) new VolatileLazy(f(evaluated))
+				else new VolatileLazy(() => f(init()))
+			}
 
-		override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] = {
-			val init = this.init
-			if (init == null) f(evaluated)
-			else new VolatileLazy(() => f(init()).value)
-		}
+		override def flatMap[@specialized(Primitives) O](f: T => Lazy[O]): Lazy[O] =
+			if (fastInit)
+				f(fast)
+			else {
+				val init = this.init
+				if (init == null) f(evaluated)
+				else new VolatileLazy(() => f(init()).value)
+			}
 
 		override def toString :String =
 			if (init==null) evaluated.toString

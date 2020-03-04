@@ -20,4 +20,6 @@ class ErasedAtomicPropsGroup extends AtomicPropsGroup("Atomic<erased>") {
 object AtomicSpec extends Properties("vars.Atomic") {
 	(new AtomicPropsGroup).includeIn(this)
 	(new ErasedAtomicPropsGroup).includeIn(this)
+
+	val default = Atomic[Int]
 }

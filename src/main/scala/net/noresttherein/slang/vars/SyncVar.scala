@@ -1,6 +1,6 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.vars.InOut.TypeEquiv
+import net.noresttherein.slang.vars.InOut.{DefaultValue, TypeEquiv}
 import net.noresttherein.slang.vars.Var.SpecializedTypes
 
 /** A boxed variable with synchronized access which can be used as in/out parameter to functions.
@@ -10,17 +10,17 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * @tparam T type of this variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
-final class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
+class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
 
 	@inline override def get :T = synchronized { x }
 
-	@inline override def value :T = synchronized { x }
+	@inline final override def value :T = get
 
-	@inline override def value_=(value :T) :Unit = synchronized { x = value }
+	@inline final override def value_=(value :T) :Unit = this := value
 
 	@inline override def :=(value :T) :Unit = synchronized { x = value }
 
-	@inline override def ?=(value :T) :T = synchronized { val res = x; x = value; res }
+	@inline final override def ?=(value :T) :T = synchronized { val res = x; x = value; res }
 
 	
 	
@@ -29,8 +29,8 @@ final class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) ex
 	  * @param assign new value for this variable
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
 	  */
-	@inline override def testAndSet(expect :T, assign :T) :Boolean = synchronized {
-		(x == expect) && { x = assign; true }
+	@inline final override def testAndSet(expect :T, assign :T) :Boolean = synchronized {
+		(get == expect) && { this := assign; true }
 	}
 
 
@@ -41,11 +41,13 @@ final class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) ex
 	  * @param f function to apply to the value of this variable. 
 	  * @return result of applying `f` to the current value.
 	  */
-	override def apply(f :T => T) :T = synchronized { x = f(x); x }
+	@inline final override def apply(f :T => T) :T = synchronized { val res = f(get); this := res; res }
 
-	@inline override def /:(acc :T)(foldLeft :(T, T) => T) :T = synchronized { x = foldLeft(acc, x); x }
+	@inline final override def /:(acc :T)(foldLeft :(T, T) => T) :T =
+		synchronized { val res = foldLeft(acc, get); this := res; res }
 
-	@inline override def :\(acc :T)(foldRight :(T, T) => T) :T = synchronized { x = foldRight(x, acc); x }
+	@inline final override def :\(acc :T)(foldRight :(T, T) => T) :T =
+		synchronized { val res = foldRight(get, acc); this := res; res }
 
 
 
@@ -271,9 +273,10 @@ final class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) ex
 	}
 
 
-
-
 }
+
+
+
 
 
 
@@ -283,6 +286,9 @@ object SyncVar {
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	@inline def apply[@specialized(SpecializedTypes) T](value :T) :SyncVar[T] = new SyncVar[T](value)
 
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
+	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :SyncVar[T] =
+		new SyncVar[T](default.value)
 
 	
 

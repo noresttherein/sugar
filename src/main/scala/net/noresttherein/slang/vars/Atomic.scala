@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.function.{IntBinaryOperator, IntUnaryOperator, LongBinaryOperator, LongUnaryOperator}
 
 import net.noresttherein.slang.vars.Var.SpecializedTypes
-import net.noresttherein.slang.vars.InOut.{TypeEquiv, TypeIdent}
+import net.noresttherein.slang.vars.InOut.{DefaultValue, TypeEquiv, TypeIdent}
 
 
 
@@ -44,13 +44,15 @@ trait Atomic[T] extends InOut[T] with Serializable {
 
 
 
+
+
+
 object Atomic {
 
 	/** Create a new atomic variable initialized with the given value. Returned implementation depends on the type
-	  * of the argument
-	  * @param init
-	  * @tparam T
-	  * @return
+	  * of the argument.
+	  * @param init initial value of the variable.
+	  * @tparam T the type of the variable.
 	  */
 	def apply[@specialized(SpecializedTypes) T](init :T) :Atomic[T] =
 		(new TypeIdent[T] match {
@@ -66,6 +68,12 @@ object Atomic {
 		}).asInstanceOf[Atomic[T]]
 
 
+
+	/** Create a new atomic variable initialized with the given value. Returned implementation depends on the type
+	  * of the argument.
+	  */
+	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :Atomic[T] =
+		apply(default.value)
 
 
 

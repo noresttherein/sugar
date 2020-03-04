@@ -342,6 +342,9 @@ trait InOut[@specialized(SpecializedTypes) T] {
 
 
 
+
+
+
 sealed class InOutOrderingImplicits private[vars]() {
 	@inline implicit def InOutOrdering[T](implicit ordering :Ordering[T]) :Ordering[InOut[T]] =
 		new InOutOrdering(ordering)
@@ -361,8 +364,16 @@ object InOut extends InOutNumericImplicits {
 	/** Unbox the value hold by an `InOut` wrapper. */
 	@inline final implicit def unboxInOut[@specialized(SpecializedTypes) T](variable :InOut[T]) :T = variable.get
 
+
+
+
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	@inline def apply[@specialized(SpecializedTypes) T](value :T) :InOut[T] = new Var[T](value)
+
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter.*/
+	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :InOut[T] =
+		new Var[T](default.value)
+
 
 
 	final val SpecializedTypes = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
@@ -419,14 +430,35 @@ object InOut extends InOutNumericImplicits {
 
 	}
 
-	
-	
+
 
 	/** An intermediate value of a ''test-and-set'' operation initiated by [[InOut#:?]]. */
 	final class TestAndSet[@specialized(SpecializedTypes) T] private[vars] (x :InOut[T], expect :T) {
 		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
 		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)
 	}
+
+
+
+
+
+	/** A type class with implicit default value to which an `InOut[T]` is initialized in no-arg constructors. */
+	final class DefaultValue[@specialized(SpecializedTypes) T](val value :T)
+
+	object DefaultValue {
+		implicit final val DefaultByte = new DefaultValue(0.toByte)
+		implicit final val DefaultShort = new DefaultValue(0.toShort)
+		implicit final val DefaultInt = new DefaultValue(0)
+		implicit final val DefaultLong = new DefaultValue(0L)
+		implicit final val DefaultDouble = new DefaultValue(0.0)
+		implicit final val DefaultFloat = new DefaultValue(0.0f)
+		implicit final val DefaultChar = new DefaultValue(0.toChar)
+		implicit final val DefaultBoolean = new DefaultValue(false)
+		implicit final val DefaultUnit = new DefaultValue(())
+
+		implicit final val DefaultString = new DefaultValue("")
+	}
+
 
 
 	/** Similarly to `=:=`, attests that `X` and `Y` can be safely cast from one to another, i.e. that they are
