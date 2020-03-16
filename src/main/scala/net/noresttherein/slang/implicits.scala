@@ -20,6 +20,19 @@ object implicits {
 	import repeatedly._
 	import prettyprint._
 
+	/** Adds a `useIn` method to any value which applies a given function to `this`. */
+	implicit class useInMethod[X](private val x :X) extends AnyVal {
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr useIn f`
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write,
+		  * especially when modifying existing code for `f`, as there is no need for a a closing `}` in a possibly
+		  * distant edit location.
+		  */
+		def useIn[T](f :X => T) :T = f(x)
+	}
+
+
+
+
 	/** Adds `ifTrue` and `ifFalse` methods to any `Boolean` value which lift any argument expression to an `Option`. */
 	@inline implicit final def ifTrueMethods(condition :Boolean) :ifTrueMethods = new ifTrueMethods(condition)
 

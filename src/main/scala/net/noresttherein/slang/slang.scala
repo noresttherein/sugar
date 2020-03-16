@@ -16,6 +16,8 @@ package object slang {
 		def this() = this("Implementation error", null)
 	}
 
+
+
 	private[slang] final def raise[E<:Throwable :ClassTag](msg :String) :Nothing =
 		throw (Try {
 			classTag[E].runtimeClass.getConstructor(classOf[String]).newInstance(msg).asInstanceOf[Throwable]
