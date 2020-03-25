@@ -4,7 +4,7 @@ import java.{time => j}
 import java.time.temporal.ChronoField
 
 
-/**
+/** 'Wall clock time' with nanosecond precision. Wraps a `java.time.LocalTime` instance.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Ordered[TimeOfDay] with Serializable {
@@ -63,6 +63,7 @@ class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Orde
 
 
 object TimeOfDay {
+
 	@inline def apply(hour :Int) :TimeOfDay =
 		new TimeOfDay(j.LocalTime.of(hour, 0))
 
@@ -72,31 +73,25 @@ object TimeOfDay {
 	@inline def apply(hour :Int, minute :Int, second :Int) :TimeOfDay =
 		new TimeOfDay(j.LocalTime.of(hour, minute, second))
 
+	@inline def apply(time :j.LocalTime) :TimeOfDay = new TimeOfDay(time)
+
+
+
+	@inline def apply()(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
+
+	@inline def current(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
+
+	@inline def utc :TimeOfDay = new TimeOfDay(j.LocalTime.now(Time.UTC))
+
+
+
+	@inline def unapply(time :TimeOfDay)  :Some[(Int, Int, Int, Int)] =
+		Some((time.hour, time.minute, time.second, time.nano))
+
+
 
 	@inline implicit def fromJavaLocalTime(time :j.LocalTime) :TimeOfDay = new TimeOfDay(time)
 	@inline implicit def toJavaLocalTime(time :TimeOfDay) :j.LocalTime = time.toJava
-
-
-	@inline def now(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
-
-
-
-	class HourWithMinute private[time] (private val timeOfDay :j.LocalTime) extends AnyVal {
-		def :-(second :Int) :HourWithMinuteAndSecond = 
-			new HourWithMinuteAndSecond(timeOfDay.plusSeconds(second))
-	}
-
-	object HourWithMinute {
-		@inline implicit def toTimeOfDay(hourMinute :HourWithMinute) :TimeOfDay = new TimeOfDay(hourMinute.timeOfDay)
-	}
-
-	class HourWithMinuteAndSecond(private val timeOfDay :j.LocalTime) extends AnyVal {
-		def :-(nanosecond :Int) :TimeOfDay = new TimeOfDay(timeOfDay.`with`(ChronoField.NANO_OF_SECOND, nanosecond))
-	}
-
-	object HourWithMinuteAndSecond {
-		@inline implicit def toTimeOfDay(hms :HourWithMinuteAndSecond) :TimeOfDay = new TimeOfDay(hms.timeOfDay)
-	}
 
 }
 
@@ -105,6 +100,7 @@ object TimeOfDay {
 
 
 
+/** Time of day with an offset from `UTC`, reflecting a unique instant. Wraps a `java.time.OffsetTime`. */
 class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Ordered[OffsetTime] with Serializable {
 	@inline def hour :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
@@ -177,14 +173,18 @@ object OffsetTime {
 		new OffsetTime(j.OffsetTime.of(j.LocalTime.of(hour, minute, second, nano), offset.toJava))
 
 
-	@inline def fromJavaOffsetTime(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)
-	@inline def toJavaOffsetTime(time :OffsetTime) :j.OffsetTime = time.toJava
 
+	@inline def current(implicit time :Time = Time.Local) :OffsetTime =
+		new OffsetTime(j.OffsetTime.now(time.clock))
 
 	@inline def at(offset :TimeOffset)(implicit time :Time = Time.Local) :OffsetTime =
 		new OffsetTime(j.OffsetTime.now(time.clock) withOffsetSameInstant offset.toJava)
 
-	@inline def now(implicit time :Time = Time.Local) :OffsetTime =
-		new OffsetTime(j.OffsetTime.now(time.clock))
+	@inline def utc :OffsetTime = new OffsetTime(j.OffsetTime.now(Time.UTC))
+
+
+
+	@inline def fromJavaOffsetTime(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)
+	@inline def toJavaOffsetTime(time :OffsetTime) :j.OffsetTime = time.toJava
 
 }

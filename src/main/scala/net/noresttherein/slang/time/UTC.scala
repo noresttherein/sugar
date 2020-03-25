@@ -2,7 +2,9 @@ package net.noresttherein.slang.time
 
 import java.{time => j}
 
-/**
+
+
+/** Constants related to the special UTC time zone and factory methods for `TimeOffset` instances.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 object UTC {

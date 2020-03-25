@@ -3,7 +3,17 @@ package net.noresttherein.slang.time
 import java.{time => j}
 import java.time.Clock
 
-/**
+import net.noresttherein.slang.time.conversions._
+
+
+
+/** The main class of the package, abstracting over the general concept of a time line and wrapping a `java.time.Clock`.
+  * Serves as a factory for time points describing the 'current' moment or moments after/before certain time span.
+  * Most factory methods of classes (and objects) in this package which refer to the current moment or local
+  * time zone/offset accept an implicit `Time` instance to serve as the provider, with the default value of
+  * `Time.Local` in case of no implicit is available. This allows easy abstraction over the time zone and testing by
+  * providing your own implicit instance. Alternatively, importing `Time.implicits.ImplicitUTCTime` will set
+  * the time to current `UTC` time.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class Time(val clock :Clock) extends AnyVal with Serializable {
@@ -21,13 +31,14 @@ class Time(val clock :Clock) extends AnyVal with Serializable {
 	@inline def apply() :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(clock))
 	@inline def now :Timestamp = new Timestamp(clock.instant)
 	@inline def unix :UnixTime = new UnixTime(clock.millis)
+	@inline def epoch :UnixTime = new UnixTime(clock.millis)
 	@inline def utc :UTCDateTime = UTCDateTime.now(clock)
+	@inline def current :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(clock))
 
 	@inline def date :Date = new Date(j.LocalDate.now(clock))
 	@inline def time :TimeOfDay = new TimeOfDay(j.LocalTime.now(clock))
-	@inline def local :OffsetTime = new OffsetTime(j.OffsetTime.now(clock))
-	@inline def today :DateTime = new DateTime(j.LocalDateTime.now(clock))
-	@inline def exact :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(clock))
+	@inline def here :OffsetTime = new OffsetTime(j.OffsetTime.now(clock))
+	@inline def local :DateTime = new DateTime(j.LocalDateTime.now(clock))
 
 	@inline def after(time :TimeSpan) :TimePoint = new Timestamp(clock.instant) + time
 	@inline def after(time :FiniteTimeSpan) :DefiniteTime = new Timestamp(clock.instant) + time
@@ -53,6 +64,9 @@ class Time(val clock :Clock) extends AnyVal with Serializable {
 	@inline def since(point :DateTime) :TimeSpan =
 		now - point.toJava.toInstant(clock.getZone.getRules.getOffset(point.toJava)).toTimestamp
 }
+
+
+
 
 
 

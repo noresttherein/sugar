@@ -11,7 +11,8 @@ import scala.concurrent.{duration => s}
 
 
 
-class Duration(override val toJava: j.Duration) extends AnyVal with FiniteTimeSpan with Serializable {
+/** Implementation of a finite duration backed by a `java.time.Duration`. All methods return a `Duration` if possible. */
+class Duration private[time] (override val toJava: j.Duration) extends AnyVal with FiniteTimeSpan with Serializable {
 	override def inNanos :Long = toJava.toNanos
 
 	@inline override def inMicros :Long = {
@@ -275,6 +276,8 @@ object Duration {
 
 	@inline def until(moment :DefiniteTime)(implicit time :Time = Time.Local) :Duration =
 		new Duration(j.Duration.between(time.clock.instant, moment.toInstant))
+
+
 
 	final val Zero = new Duration(j.Duration.ZERO)
 	final val Max = new Duration(j.Duration.ofSeconds(Long.MaxValue, Int.MaxValue))

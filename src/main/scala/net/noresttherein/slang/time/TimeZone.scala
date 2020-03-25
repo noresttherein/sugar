@@ -2,7 +2,10 @@ package net.noresttherein.slang.time
 
 import java.{time=>j}
 
-/**
+
+
+/** Representation of a standard time zone, such as 'Paris', which associates time points with corresponding dates
+  * at the location. This is a simple value type wrapping a `java.time.ZoneId`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializable {
@@ -26,6 +29,8 @@ class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializ
 	override def toString :String = toJava.toString
 }
 
+
+
 object TimeZone {
 	final val UTC :TimeZone = j.ZoneOffset.UTC
 
@@ -42,8 +47,15 @@ object TimeZone {
 
 
 
+
+/** Representation of time offset from `UTC`, that is the difference (in seconds) between time 'at this offset'
+  * and UTC. Each `TimeOffset` is associated with a synthetic `TimeZone` which applies this offset for all time points.
+  * This is a simple value type backed by a `java.time.ZoneOffset`.
+  */
 class TimeOffset private[time] (val toJava :j.ZoneOffset) extends AnyVal with Ordered[TimeOffset] with Serializable {
 	def offset :Milliseconds = new Milliseconds(toJava.getTotalSeconds)
+
+	def zone :TimeZone = new TimeZone(toJava)
 
 	@inline def normalized :TimeOffset =
 		new TimeOffset(j.ZoneOffset.ofTotalSeconds(toJava.getTotalSeconds % IntSecondsInHalfDay))

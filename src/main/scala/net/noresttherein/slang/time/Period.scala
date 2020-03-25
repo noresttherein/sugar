@@ -2,7 +2,11 @@ package net.noresttherein.slang.time
 
 import java.{time=>j}
 
-/**
+
+
+/** Elapsed time measured in calendar units of years, months and days. Instances do not form a complete order
+  * and have variable length, depending on leap years and daylight saving time. This is a simple value type wrapping
+  * a `java.time.Period`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class Period private[time] (val toJava :j.Period) extends AnyVal with FiniteDateSpan with Serializable {
@@ -83,11 +87,18 @@ class Period private[time] (val toJava :j.Period) extends AnyVal with FiniteDate
 
 
 
+
+
+
 object Period {
 	final val Zero = new Period(j.Period.ZERO)
 
-	@inline def apply(years :Int = 0, months :Int = 0, days :Int = 0) :Period = new Period(j.Period.of(years, months, days))
+	@inline def apply(years :Int = 0, months :Int = 0, days :Int = 0) :Period =
+		new Period(j.Period.of(years, months, days))
+
 	@inline def apply(number :Int, unit :DateUnit) :Period = unit * number
+
+	@inline def apply(period :j.Period) :Period = new Period(period)
 
 	@inline def between(start :Date, end :Date) :Period = new Period(j.Period.between(start.toJava, end.toJava))
 
@@ -95,9 +106,19 @@ object Period {
 	@inline def months(number :Int) :Period = new Period(j.Period.ofMonths(number))
 	@inline def years(number :Int) :Period = new Period(j.Period.ofYears(number))
 
-	@inline implicit def fromJavaPeriod(period :j.Period) :Period = new Period(period)
-	@inline implicit def toJavaPeriod(period :Period) :j.Period = period.toJava
-
 	@inline def until(date :Date)(implicit time :Time = Time.Local) :Period = between(time.date, date)
 	@inline def since(date :Date)(implicit time :Time = Time.Local) :Period = between(date, time.date)
+
+
+
+	@inline def unapply(time :TimeLapse) :Option[(Int, Int, Int)] = time match {
+		case period :Period => Some(period.years, period.months, period.days)
+		case _ => None
+	}
+
+
+
+	@inline implicit def toJavaPeriod(period :Period) :j.Period = period.toJava
+	@inline implicit def fromJavaPeriod(period :j.Period) :Period = new Period(period)
+
 }

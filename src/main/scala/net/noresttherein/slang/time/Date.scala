@@ -5,15 +5,18 @@ import java.time.chrono.IsoEra
 
 
 
-/**
+/** An ISO date without any time offset, such as description of a birthday. Serves as a light wrapper over
+  * `java.time.LocalDate`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class Date private[time] (val toJava :j.LocalDate) extends AnyVal with Ordered[Date] with Serializable {
 	@inline def day :Int = toJava.getDayOfMonth
-	@inline def dayOfWeek :DayOfWeek = toJava.getDayOfWeek
+	@inline def dayOfWeek :Day = toJava.getDayOfWeek
 	@inline def dayOfYear :Int = toJava.getDayOfYear
 	@inline def month :Month = toJava.getMonth
+	@inline def monthOfYear :Int = toJava.getMonthValue
 	@inline def year :Year = new Year(toJava.getYear)
+	@inline def yearOfEra :Int = year.inEra
 	@inline def era :Era = new Era(toJava.getEra)
 
 	@inline def daysInMonth :Int = toJava.lengthOfMonth
@@ -58,8 +61,11 @@ object Date {
 
 	@inline def apply()(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))
 
-	@inline def now(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))
-	@inline def today(implicit time :Time = Time.Local) :Date =	new Date(j.LocalDate.now(time.clock))
+	@inline def current(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))
+
+
+
+	@inline def unapply(date :Date) :Some[(Year, Month, Int)] = Some((date.year, date.month, date.day))
 
 	@inline implicit def fromJava(date :j.LocalDate) :Date = new Date(date)
 	@inline implicit def toJava(date :Date) :j.LocalDate = date.toJava
@@ -71,6 +77,7 @@ object Date {
 
 
 
+/** A yearly reoccurring date such as an anniversary described by a month and day of month. */
 class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYear] with Serializable {
 
 	@inline def day :Int = dayAndMonth & 0x1f
@@ -131,38 +138,20 @@ object DateOfYear {
 		new DateOfYear(monthDay.getMonthValue << 5 | monthDay.getDayOfMonth)
 
 
+	@inline def apply()(implicit time :Time = Time.Local) :DateOfYear = current
+
+	@inline def current(implicit time :Time = Time.Local) :DateOfYear = {
+		val date = j.MonthDay.now(time.clock)
+		new DateOfYear(date.getMonthValue << 5 | date.getDayOfMonth)
+	}
+
+
+
 	@inline implicit def fromJavaMonthDay(monthDay :j.MonthDay) :DateOfYear =
 		new DateOfYear(monthDay.getMonthValue << 5 | monthDay.getDayOfMonth)
 
 	@inline implicit def toJavaMonthDay(date :DateOfYear) :j.MonthDay =
 		j.MonthDay.of(date.month.no, date.day)
-
-
-	@inline def apply()(implicit time :Time = Time.Local) :DateOfYear = {
-		val date = j.MonthDay.now(time.clock)
-		new DateOfYear(date.getMonthValue << 5 | date.getDayOfMonth)
-	}
-
-	@inline def now(implicit time :Time = Time.Local) :DateOfYear = {
-		val date = j.MonthDay.now(time.clock)
-		new DateOfYear(date.getMonthValue << 5 | date.getDayOfMonth)
-	}
-
-	@inline def today(implicit time :Time = Time.Local) :DateOfYear = {
-		val date = j.MonthDay.now(time.clock)
-		new DateOfYear(date.getMonthValue << 5 | date.getDayOfMonth)
-	}
-
-
-
-
-	class DateDayWithMonth(private val dateOfYear :DateOfYear) extends AnyVal {
-		def :/(year :Int) :Date = new Date(j.LocalDate.of(year, dateOfYear.month, dateOfYear.day))
-	}
-
-	object DateDayWithMonth {
-		@inline implicit def toDateOfYear(dayMonth :DateDayWithMonth) :DateOfYear = dayMonth.dateOfYear
-	}
 
 }
 
@@ -171,7 +160,8 @@ object DateOfYear {
 
 
 
-class MonthOfYear private(private val yearAndMonth :Long) extends AnyVal with Ordered[MonthOfYear] with Serializable {
+/** A combination of year and month, such as ''1981 Jan''. */
+class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with Ordered[MonthInYear] with Serializable {
 
 	@inline def year :Year = new Year((yearAndMonth >> 32).toInt)
 	@inline def month :Month = Month(yearAndMonth.toInt)
@@ -191,35 +181,35 @@ class MonthOfYear private(private val yearAndMonth :Long) extends AnyVal with Or
 	@inline def on(day :Int) = new Date(j.LocalDate.of((yearAndMonth >> 32).toInt, yearAndMonth.toInt, day))
 
 
-	@inline def copy(year :Year = this.year, month :Month = this.month) :MonthOfYear =
-		new MonthOfYear(year.no.toLong << 32 | month.no)
+	@inline def copy(year :Year = this.year, month :Month = this.month) :MonthInYear =
+		new MonthInYear(year.no.toLong << 32 | month.no)
 
 
-	@inline def +(period :Period) :MonthOfYear =
-		MonthOfYear(yearAndMonth >> 32 + period.toJava.getYears, yearAndMonth & 0xf + period.toJava.getMonths)
+	@inline def +(period :Period) :MonthInYear =
+		MonthInYear(yearAndMonth >> 32 + period.toJava.getYears, yearAndMonth & 0xf + period.toJava.getMonths)
 
-	@inline def +(period :FiniteDateSpan) :MonthOfYear =
-		MonthOfYear(yearAndMonth >> 32 + period.years, yearAndMonth & 0xf + period.months)
+	@inline def +(period :FiniteDateSpan) :MonthInYear =
+		MonthInYear(yearAndMonth >> 32 + period.years, yearAndMonth & 0xf + period.months)
 
-	@inline def -(period :Period) :MonthOfYear =
-		MonthOfYear(yearAndMonth >> 32 - period.toJava.getYears, yearAndMonth & 0xf - period.toJava.getMonths)
+	@inline def -(period :Period) :MonthInYear =
+		MonthInYear(yearAndMonth >> 32 - period.toJava.getYears, yearAndMonth & 0xf - period.toJava.getMonths)
 
-	@inline def -(period :FiniteDateSpan) :MonthOfYear =
-		MonthOfYear(yearAndMonth >> 32 - period.years, yearAndMonth & 0xf - period.months)
+	@inline def -(period :FiniteDateSpan) :MonthInYear =
+		MonthInYear(yearAndMonth >> 32 - period.years, yearAndMonth & 0xf - period.months)
 
 
-	override def compare(that :MonthOfYear) :Int =
+	override def compare(that :MonthInYear) :Int =
 		if (yearAndMonth < that.yearAndMonth) -1
 		else if (yearAndMonth > that.yearAndMonth) 1
 		else 0
 
-	@inline override def <=(that :MonthOfYear) :Boolean = yearAndMonth <= that.yearAndMonth
-	@inline override def < (that :MonthOfYear) :Boolean = yearAndMonth < that.yearAndMonth
-	@inline override def >=(that :MonthOfYear) :Boolean = yearAndMonth >= that.yearAndMonth
-	@inline override def > (that :MonthOfYear) :Boolean = yearAndMonth > that.yearAndMonth
+	@inline override def <=(that :MonthInYear) :Boolean = yearAndMonth <= that.yearAndMonth
+	@inline override def < (that :MonthInYear) :Boolean = yearAndMonth < that.yearAndMonth
+	@inline override def >=(that :MonthInYear) :Boolean = yearAndMonth >= that.yearAndMonth
+	@inline override def > (that :MonthInYear) :Boolean = yearAndMonth > that.yearAndMonth
 
-	@inline def min(that :MonthOfYear) :MonthOfYear = if (yearAndMonth <= that.yearAndMonth) this else that
-	@inline def max(that :MonthOfYear) :MonthOfYear = if (yearAndMonth >= that.yearAndMonth) this else that
+	@inline def min(that :MonthInYear) :MonthInYear = if (yearAndMonth <= that.yearAndMonth) this else that
+	@inline def max(that :MonthInYear) :MonthInYear = if (yearAndMonth >= that.yearAndMonth) this else that
 
 
 	override def toString :String = month + " " + year
@@ -228,12 +218,12 @@ class MonthOfYear private(private val yearAndMonth :Long) extends AnyVal with Or
 
 
 
-object MonthOfYear {
-	@inline def apply(year :Year, month :Month) :MonthOfYear = new MonthOfYear(year.no.toLong << 32 | month.no)
+object MonthInYear {
+	@inline def apply(year :Year, month :Month) :MonthInYear = new MonthInYear(year.no.toLong << 32 | month.no)
 
-	@inline def apply(date :j.YearMonth) :MonthOfYear = new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
+	@inline def apply(date :j.YearMonth) :MonthInYear = new MonthInYear(date.getYear.toLong << 32 | date.getMonthValue)
 
-	private[slang] def apply(year :Long, month :Long) :MonthOfYear = { //private[slang] is public in the byte code, can be inlined
+	private[slang] def apply(year :Long, month :Long) :MonthInYear = { //private[slang] is public in the byte code, can be inlined
 		var m = month - 1 //swtich to zero-based months
 		var y = year + m / 12
 		m %= 12
@@ -242,30 +232,28 @@ object MonthOfYear {
 		}
 		m += 1
 		if (y < Int.MinValue | y > Int.MaxValue)
-			throw new ArithmeticException(s"Int overflow: MonthOfYear($year, $month)")
-		new MonthOfYear(y << 32 | m)
+			throw new ArithmeticException(s"Int overflow: MonthInYear($year, $month)")
+		new MonthInYear(y << 32 | m)
 	}
 
-	@inline implicit def fromJavaYearMonth(ym :j.YearMonth) :MonthOfYear =
-		new MonthOfYear(ym.getYear.toLong << 32 | ym.getMonth.getValue.toLong)
 
-	@inline implicit def toJavaYearMonth(ym :MonthOfYear) :j.YearMonth =
+
+	@inline def apply()(implicit time :Time = Time.Local) :MonthInYear = current
+
+	@inline def current(implicit time :Time = Time.Local) :MonthInYear = {
+		val date = j.YearMonth.now(time.clock)
+		new MonthInYear(date.getYear.toLong << 32 | date.getMonthValue)
+	}
+
+
+
+	@inline implicit def fromJavaYearMonth(ym :j.YearMonth) :MonthInYear =
+		new MonthInYear(ym.getYear.toLong << 32 | ym.getMonth.getValue.toLong)
+
+	@inline implicit def toJavaYearMonth(ym :MonthInYear) :j.YearMonth =
 		j.YearMonth.of((ym.yearAndMonth >> 32).toInt, ym.yearAndMonth.toInt)
 
-	@inline implicit def toMonth(ym :MonthOfYear) :Month = ym.month
-
-
-	@inline def apply()(implicit time :Time = Time.Local) :MonthOfYear = {
-		val date = j.YearMonth.now(time.clock)
-		new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
-	}
-
-	@inline def now(implicit time :Time = Time.Local) :MonthOfYear = {
-		val date = j.YearMonth.now(time.clock)
-		new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
-	}
-
-	@inline def today(implicit time :Time = Time.Local) :MonthOfYear = now
+	@inline implicit def toMonth(ym :MonthInYear) :Month = ym.month
 
 }
 
@@ -273,6 +261,9 @@ object MonthOfYear {
 
 
 
+/** Proleptic year wrapping an `Int`. Proleptic year values are equal to standard date years for all
+  * `CE` years, with zero denoting the first year `BCE` and negative numbers consecutive preceding years.
+  */
 class Year private[time] (val no :Int) extends AnyVal with Ordered[Year] with Serializable {
 	@inline def toInt :Int = no
 
@@ -314,6 +305,12 @@ object Year {
 	final val BCE1 = new Year(0)
 
 	@inline def apply(year :Int) :Year = new Year(year)
+	@inline def apply(year :j.Year) :Year = new Year(year.getValue)
+
+	@inline def apply()(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
+	@inline def current(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
+
+
 
 	@inline implicit def yearToInt(year :Year) :Int = year.no
 	@inline implicit def fromJavaYear(year :j.Year) :Year = new Year(year.getValue)
@@ -324,9 +321,6 @@ object Year {
 	}
 
 
-	@inline def apply()(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
-	@inline def now(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
-	@inline def today(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
 
 }
 
@@ -335,6 +329,9 @@ object Year {
 
 
 
+/** An ISO-8601 era, being one of `Era.CE` for the current era and `Era.BCE` for the preceding years.
+  * Wraps a `java.time.IsoEra` instance.
+  */
 class Era private[time] (val toJava :IsoEra) extends AnyVal with Serializable
 
 

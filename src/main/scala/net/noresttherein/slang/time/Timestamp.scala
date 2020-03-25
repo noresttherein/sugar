@@ -4,7 +4,9 @@ import java.{time => j}
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 
-/**
+/** A unique point in time specified with nanosecond precision, consisting of a 64-bit signed second part and a 32-bit
+  * non-negative nanosecond part of the second. This is a lightweight value type wrapping a `java.time.Instant`,
+  * carrying no date/time zone information.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal with DefiniteTime with Serializable {
@@ -129,21 +131,27 @@ class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal wi
 
 object Timestamp {
 
-	def apply()(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
-
 	@inline def apply(time :j.Instant) :Timestamp = new Timestamp(time)
 
 	@inline def ofEpochMilli(millis :Long) :Timestamp = new Timestamp(j.Instant.ofEpochMilli(millis))
+
 	@inline def ofEpochSecond(seconds :Long) :Timestamp = new Timestamp(j.Instant.ofEpochSecond(seconds))
 	@inline def ofEpochSecond(seconds :Long, nano :Long) :Timestamp = new Timestamp(j.Instant.ofEpochSecond(seconds, nano))
 
-	@inline def now(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
+
 
 	@inline def after(duration :Duration)(implicit time :Time = Time.Local) :Timestamp =
 		new Timestamp(j.Instant.now(time.clock) plus duration.toJava)
 
 	@inline def before(duration :Duration)(implicit time :Time = Time.Local) :Timestamp =
 		new Timestamp(j.Instant.now(time.clock) minus duration.toJava)
+
+
+
+	@inline def apply()(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
+
+	@inline def now(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
+
 
 	@inline implicit def toJavaInstant(time :Timestamp) :j.Instant = time.toJava
 	@inline implicit def fromJavaInstant(time :j.Instant) :Timestamp = new Timestamp(time)

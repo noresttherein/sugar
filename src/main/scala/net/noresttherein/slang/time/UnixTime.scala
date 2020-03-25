@@ -4,7 +4,10 @@ import java.{time => j}
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 
-/**
+/** A time point defined in terms of the ''epoch milli'', that is the number of milliseconds elapsed since
+  * 1970-01-01 UTC. This is the most lightweight `TimePoint` implementation, being a simple value class
+  * wrapping a `Long` value. All arithmetic operations will return another `UnixTime` or `Milliseconds` instance
+  * if possible.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Serializable {
@@ -179,6 +182,8 @@ class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Seria
 object UnixTime {
 	@inline def apply(epochMillis :Milliseconds) :UnixTime = new UnixTime(epochMillis.inMillis)
 
+
+
 	@inline def apply()(implicit time :Time = Time.Local) :UnixTime = new UnixTime(time.clock.millis)
 
 	@inline def now(implicit time :Time = Time.Local) :UnixTime = new UnixTime(time.clock.millis)
@@ -188,6 +193,15 @@ object UnixTime {
 
 	@inline def before(lapse :Milliseconds)(implicit time :Time = Time.Local) :UnixTime =
 		new UnixTime(time.clock.millis - lapse.inMillis)
+
+
+
+	def unapply(time :TimePoint) :Option[Long] = time match {
+		case t :UnixTime => Some(t.epochMilli)
+		case _ => None
+	}
+
+
 
 	@inline implicit def toJavaInstant(time :UnixTime) :j.Instant = time.toInstant
 	@inline implicit def fromJavaInstant(time :j.Instant) :UnixTime = new UnixTime(time.toEpochMilli)

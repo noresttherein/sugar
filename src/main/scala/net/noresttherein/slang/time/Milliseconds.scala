@@ -5,7 +5,11 @@ import scala.concurrent.{duration => s}
 
 
 
-/**
+/** A lightweight value class wrapping a `Long` value of milliseconds elapsed since 1970-01-01 UTC.
+  * All arithmetic operations return `Milliseconds` if possible; this means some methods might throw
+  * an `ArithmeticException` where `this.toDuration` would not due to the larger range.
+  * You can import `net.noresttherein.slang.time.dsl._` to add factory methods to `Int` and `Long`
+  * allowing to write `42.millis`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSpan with Serializable {
@@ -17,7 +21,12 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 			overflow(toString, "inNanos")
 		else inMillis * NanosInMilli
 
-	@inline override def inMicros :Long = inMillis * MicrosInMilli
+	@inline override def inMicros :Long =
+		if (if (inMillis >= 0) inMillis <= Long.MaxValue / MicrosInMilli else inMillis >= Long.MinValue / MicrosInMilli)
+			inMillis * MicrosInMilli
+		else
+			overflow(toString, "inMicros")
+
 	@inline override def inSeconds :Long = inMillis / MillisInSecond
 	@inline override def inMinutes :Long = inMillis / MillisInMinute
 	@inline override def inHours :Long = inMillis / MillisInHour
@@ -57,6 +66,8 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 	@inline override def seconds :Int = ((inMillis / MillisInSecond) % 60).toInt
 	@inline override def minutes :Int = ((inMillis / MillisInMinute) % 60).toInt
 	@inline override def hours :Long = inMillis / MillisInHour
+
+
 
 	override def unit :TimeUnit =
 		if (inMillis % NanosInMinute == inMillis)

@@ -2,15 +2,21 @@ package net.noresttherein.slang.time
 
 import java.{time=>j}
 
-/**
+
+
+/** Contains information about date and time of day abstracting over time zone/offset. Can be combined with
+  * a `TimeZone`
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with Ordered[DateTime] with Serializable {
 	@inline def date :Date = new Date(toJava.toLocalDate)
 	@inline def time :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
 
-	@inline def year :Int = toJava.getYear
+	@inline def era :Era = Era(toJava.toLocalDate.getEra)
+	@inline def year :Year = Year(toJava.getYear)
+	@inline def yearOfEra :Int = year.inEra
 	@inline def month :Month = toJava.getMonth
+	@inline def monthOfYear :Int = toJava.getMonthValue
 	@inline def day :Int = toJava.getDayOfMonth
 	@inline def hour :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
@@ -18,7 +24,21 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 	@inline def nano :Int = toJava.getNano
 
 
+
+	@inline def copy(year :Year = this.year, month :Month = this.month, day :Int = this.day,
+	                 hour :Int = this.hour, minute :Int = this.minute, second :Int = this.second, nano :Int = this.nano)
+			:DateTime =
+		new DateTime(j.LocalDateTime.of(year.no, month.toJava, day, hour, minute, second, nano))
+
+	@inline def copy(date :Date) :DateTime = new DateTime(j.LocalDateTime.of(date.toJava, toJava.toLocalTime))
+
+	@inline def copy(time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(toJava.toLocalDate, time.toJava))
+
+
+
 	@inline def in(zone :TimeZone) :ZoneDateTime = new ZoneDateTime(toJava.atZone(zone.toJava))
+	@inline def at(offset :TimeOffset) :ZoneDateTime = ZoneDateTime(toJava.atOffset(offset.toJava))
+
 
 
 	def +(time :FiniteTimeLapse) :DateTime = time match {
@@ -63,9 +83,16 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 	@inline def min(that :DateTime) :DateTime = if (that.toJava isBefore toJava) that else this
 	@inline def max(that :DateTime) :DateTime = if (that.toJava isAfter toJava) that else this
 
+
+	/** Tests if `this` and `that` describe the same instant, abstracting over the time zone.
+	  * Consistent with the ordering on `DateTime`.
+	  */
 	@inline def ===(that :DateTime) :Boolean = compareTo(that) == 0
 
 }
+
+
+
 
 
 
@@ -75,7 +102,10 @@ object DateTime {
 
 	def apply(date :Date, time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(date, time))
 
-	def local(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
+	def apply()(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
+	def current(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
+
+	def utc :DateTime = current(Time.UTC)
 
 	@inline implicit def toJava(time :DateTime) :j.LocalDateTime = time.toJava
 	@inline implicit def fromJava(time :j.LocalDateTime) :DateTime = new DateTime(time)

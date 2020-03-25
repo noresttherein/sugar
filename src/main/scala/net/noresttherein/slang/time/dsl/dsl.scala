@@ -2,13 +2,17 @@ package net.noresttherein.slang.time
 
 import java.{time => j}
 import java.time.DateTimeException
+import java.time.temporal.ChronoField
 
-import net.noresttherein.slang.time.DateOfYear.DateDayWithMonth
-import net.noresttherein.slang.time.TimeOfDay.HourWithMinute
+import net.noresttherein.slang.time.Cycle.HourOfDay
+import net.noresttherein.slang.time.dsl.PartialTimeDesignators.{DateDayWithMonth, HourWithMinute}
 
 
 
-/**
+/** Constants for temporal fields such as month and day names as well as implicit conversions adding to `Int` and `Long`
+  * factory methods for creating the classes from `net.noresttherein.slang.time` in a naturally looking way such as
+  * `11 Jan 1981`, `11 :- 59 :- 59` or `1000_0000.nanos`.
+  * @see [[net.noresttherein.slang.time.dsl.ISOSymbolMethods]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
 package object dsl {
@@ -29,13 +33,13 @@ package object dsl {
 	@inline final val Nov = Month.November
 	@inline final val Dec = Month.December
 
-	@inline final val Mon = DayOfWeek.Monday
-	@inline final val Tue = DayOfWeek.Tuesday
-	@inline final val Wed = DayOfWeek.Wednesday
-	@inline final val Thu = DayOfWeek.Thursday
-	@inline final val Fri = DayOfWeek.Friday
-	@inline final val Sat = DayOfWeek.Saturday
-	@inline final val Sun = DayOfWeek.Sunday
+	@inline final val Mon = Day.Monday
+	@inline final val Tue = Day.Tuesday
+	@inline final val Wed = Day.Wednesday
+	@inline final val Thu = Day.Thursday
+	@inline final val Fri = Day.Friday
+	@inline final val Sat = Day.Saturday
+	@inline final val Sun = Day.Sunday
 
 
 
@@ -79,10 +83,42 @@ package object dsl {
 			else new Year(1 - day)
 	}
 
+
+
 	implicit class TimeOfDayFactoryMethod(private val hour :Int) extends AnyVal {
 		def :-(minute :Int) :HourWithMinute = new HourWithMinute(j.LocalTime.of(hour, minute))
 	}
 
+
+
+	object PartialTimeDesignators {
+
+		class DateDayWithMonth(private val dateOfYear :DateOfYear) extends AnyVal {
+			def :/(year :Int) :Date = new Date(j.LocalDate.of(year, dateOfYear.month, dateOfYear.day))
+		}
+
+		object DateDayWithMonth {
+			@inline implicit def toDateOfYear(dayMonth :DateDayWithMonth) :DateOfYear = dayMonth.dateOfYear
+		}
+
+		class HourWithMinute private[time] (private val timeOfDay :j.LocalTime) extends AnyVal {
+			def :-(second :Int) :HourWithMinuteAndSecond =
+				new HourWithMinuteAndSecond(timeOfDay.plusSeconds(second))
+		}
+
+		object HourWithMinute {
+			@inline implicit def toTimeOfDay(hourMinute :HourWithMinute) :TimeOfDay = new TimeOfDay(hourMinute.timeOfDay)
+		}
+
+		class HourWithMinuteAndSecond(private val timeOfDay :j.LocalTime) extends AnyVal {
+			def :-(nanosecond :Int) :TimeOfDay = new TimeOfDay(timeOfDay.`with`(ChronoField.NANO_OF_SECOND, nanosecond))
+		}
+
+		object HourWithMinuteAndSecond {
+			@inline implicit def toTimeOfDay(hms :HourWithMinuteAndSecond) :TimeOfDay = new TimeOfDay(hms.timeOfDay)
+		}
+
+	}
 
 
 
@@ -106,6 +142,8 @@ package object dsl {
 		@inline def days :Period = j.Period.ofDays(number)
 		@inline def months :Period = j.Period.ofMonths(number)
 		@inline def years :Period = j.Period.ofYears(number)
+
+		@inline def oClock :HourOfDay.Phase = HourOfDay(number)
 	}
 
 

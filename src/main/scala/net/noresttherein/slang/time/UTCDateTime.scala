@@ -6,7 +6,8 @@ import java.time.chrono.{Chronology, IsoChronology}
 import scala.concurrent.duration.Deadline
 
 
-/**
+/** A time point set in the special UTC time zone, to which all date fields are related. It is a simple value type
+  * wrapping a `java.time.LocalDateTime` and interpreting it with the fixed `ZoneOffset.UTC`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with DateTimePoint with Serializable {
@@ -19,7 +20,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 	@inline override def second :Int = toJava.getSecond
 	@inline override def nano :Int = toJava.getNano
 
-	@inline override def dayOfWeek :DayOfWeek = DayOfWeek(toJava.getDayOfWeek)
+	@inline override def dayOfWeek :Day = Day(toJava.getDayOfWeek)
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
 
@@ -199,8 +200,14 @@ object UTCDateTime {
 		new UTCDateTime(j.LocalDateTime.of(date.toJava, time.toJava))
 	}
 
+
+	@inline def apply()(implicit time :Time = Time.UTC) :UTCDateTime =
+		new UTCDateTime(j.LocalDateTime.now(time.clock.withZone(j.ZoneOffset.UTC)))
+
 	@inline def now(implicit time :Time = Time.UTC) :UTCDateTime =
 		new UTCDateTime(j.LocalDateTime.now(time.clock.withZone(j.ZoneOffset.UTC)))
+
+
 
 	def after(lapse :FiniteTimeLapse)(implicit time :Time = Time.UTC) :UTCDateTime = {
 		val now = j.LocalDateTime.now(time.clock.withZone(j.ZoneOffset.UTC))
@@ -215,13 +222,20 @@ object UTCDateTime {
 	}
 
 
-	@inline def before(lapse :FiniteTimeLapse)(implicit time :Time = Time.UTC) :UTCDateTime = {
+	def before(lapse :FiniteTimeLapse)(implicit time :Time = Time.UTC) :UTCDateTime = {
 		val now = j.LocalDateTime.now(time.clock.withZone(j.ZoneOffset.UTC))
 		lapse match {
 			case t :FiniteTimeSpan => new UTCDateTime(now minus t.toDuration.toJava)
 			case p :FiniteDateSpan => new UTCDateTime(now minus p.toPeriod.toJava)
 			case _ => new UTCDateTime(now minus lapse.period.toJava minus lapse.duration.toJava)
 		}
+	}
+
+
+
+	def unapply(time :TimePoint) :Option[(Date, TimeOfDay)] = time match {
+		case utc :UTCDateTime => Some((utc.date, utc.time))
+		case _ => None
 	}
 
 

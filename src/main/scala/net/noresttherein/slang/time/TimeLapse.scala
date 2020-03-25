@@ -8,10 +8,24 @@ import scala.concurrent.{duration => s}
 
 
 
-/**
+/** An umbrella term for specifying length of elapsed time which encompasses both infinite time
+  * ([[net.noresttherein.slang.time.Eternity]] and [[net.noresttherein.slang.time.MinusEternity]] and finite
+  * ISO ''durations'' (definite time spans with a fixed length) represented as [[net.noresttherein.slang.time.TimeSpan]],
+  * ''periods'' (variable spans specified in term of months and years) represented by
+  * [[net.noresttherein.slang.time.DateSpan]], as well as combinations of thereof. Two instances of `TimeLapse`
+  * are considered equal only if they are of the same class. This means that `Duration(0)` does ''not'' equal
+  * `Milliseconds(0)` does ''not'' equal `Immediate`, as they have different precisions. If you want to compare
+  * instances of different classes in terms of their comparative length, use `===` instead. Two instances
+  * are considered equal in terms of `===` if they are both the same infinity or both their fixed portion expressed in
+  * seconds and nanosecond adjustment are equal and their variable portion expressed in years, months and days are equal
+  * on all coordinates. This is also consistent with ordering defined on `FiniteTimeSpan`.
+  * @see [[net.noresttherein.slang.time.InfiniteTimeLapse]]
+  * @see [[net.noresttherein.slang.time.FiniteTimeLapse]]
+  * @see [[net.noresttherein.slang.time.DateSpan]]
+  * @see [[net.noresttherein.slang.time.TimeSpan]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
-sealed trait TimeLapse extends Any {
+sealed trait TimeLapse extends Any with Serializable {
 	def variable :DateSpan
 	def fixed :TimeSpan
 
@@ -27,7 +41,6 @@ sealed trait TimeLapse extends Any {
 
 	def ===(other :TimeLapse) :Boolean
 
-	//todo: equality
 }
 
 
@@ -72,6 +85,12 @@ object TimeLapse {
 
 
 
+/** Base trait for measured elapsed time in both fixed length time units and variable length calendar units.
+  * Instances include [[net.noresttherein.slang.time.FiniteTimeSpan]] for time-based spans,
+  * [[net.noresttherein.slang.time.FiniteDateSpan]] for date-based spans,
+  * special zero-length [[net.noresttherein.slang.time.Immediate]] and an implementation containing both non-zero
+  * fixed and variable span parts.
+  */
 trait FiniteTimeLapse extends Any with TimeLapse {
 	override def variable :FiniteDateSpan = period
 	override def fixed :FiniteTimeSpan = duration
@@ -104,6 +123,7 @@ trait FiniteTimeLapse extends Any with TimeLapse {
 		case Eternity => MinusEternity
 		case MinusEternity => Eternity
 	}
+
 
 }
 
@@ -140,6 +160,8 @@ object FiniteTimeLapse {
 		case _ => None
 	}
 
+
+
 	final val Zero :FiniteTimeLapse = Immediate
 }
 
@@ -148,6 +170,13 @@ object FiniteTimeLapse {
 
 
 
+/** Elapsed time of fixed length. This includes infinite both `Eternity`/`MinusEternity`
+  * and finite `FiniteTimeSpan` subclasses. Instances of all subclasses, including infinite implementations,
+  * form a combined linear order. Any two `TimeSpan` values can be tested with `===` which is consistent
+  * with the ordering and compares their lengths. Standard equality is class-based, with `Milliseconds(0)`,
+  * `Duration(0)` and `Immediate` all being unequal.
+  * @see [[net.noresttherein.slang.time.FiniteTimeSpan]]
+  */
 sealed trait TimeSpan extends Any with TimeLapse with Ordered[TimeSpan] {
 	def inNanos :Long
 	def inMicros :Long
@@ -294,6 +323,9 @@ object TimeSpan {
 			else new Duration(j.Duration.ofSeconds(nanos / NanosInSecond, rem))
 		}
 
+
+
+
 	final val Inf :TimeSpan = Eternity
 	final val MinusInf :TimeSpan = MinusEternity
 	final val Zero :TimeSpan = Immediate
@@ -306,6 +338,7 @@ object TimeSpan {
 
 
 
+/** Elapsed time measured in time-based units representing the ISO-8601 concept of ''duration''. */
 trait FiniteTimeSpan extends Any with TimeSpan with FiniteTimeLapse {
 
 	override def period :Period = Period.Zero
@@ -398,8 +431,9 @@ trait FiniteTimeSpan extends Any with TimeSpan with FiniteTimeLapse {
 
 	@inline final def min(that :FiniteTimeSpan) :FiniteTimeSpan = if (compare(that) <= 0) this else that
 	@inline final def max(that :FiniteTimeSpan) :FiniteTimeSpan = if (compare(that) >= 0) this else that
-}
 
+
+}
 
 
 
@@ -443,9 +477,10 @@ object FiniteTimeSpan {
 		case _ => new Duration(j.Duration.between(time.clock.instant, moment.toJava))
 	}
 
+
+
 	final val Zero :FiniteTimeSpan = Immediate
-	final val Max :FiniteTimeSpan = Duration.Max
-	final val Min :FiniteTimeSpan = Duration.Min
+
 }
 
 
@@ -453,6 +488,9 @@ object FiniteTimeSpan {
 
 
 
+/** Elapsed time measured in calendar units with the addition of special `Eternity` and `MinusEternity` singletons.
+  * @see [[net.noresttherein.slang.time.FiniteDateSpan]]
+  */
 sealed trait DateSpan extends Any with TimeLapse {
 	def days :Int
 	def months :Int
@@ -483,6 +521,10 @@ sealed trait DateSpan extends Any with TimeLapse {
 
 
 
+/** Proper, finite time spans measured in date-based units and thus having variable length, depending on
+  * both leap years and daylight saving time. It represents the ISO-8601 concept of a ''period'' and its
+  * default concrete implementation is [[net.noresttherein.slang.time.Period]].
+  */
 trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 	override def variable :FiniteDateSpan = this
 	override def period :Period = toPeriod
@@ -555,8 +597,15 @@ object FiniteDateSpan {
 
 	def between(start :Date, end :Date) :FiniteDateSpan = Period.between(start, end)
 
+	@inline def unapply(time :TimeLapse) :Option[(Int, Int, Int)] = time match {
+		case span :FiniteDateSpan => Some((span.years, span.months, span.days))
+		case _ => None
+	}
+
 	@inline implicit def fromJavaPeriod(period :j.Period) :Period = new Period(period)
 	@inline implicit def toJavaPeriod(period :FiniteDateSpan) :j.Period = period.toPeriod.toJava
+
+	final val Zero :FiniteDateSpan = Period.Zero
 }
 
 
@@ -564,6 +613,7 @@ object FiniteDateSpan {
 
 
 
+/** Base trait for the two infinite `TimeLapse` implementations: `Eternity` and `MinusEternity`. */
 sealed abstract class InfiniteTimeLapse extends TimeSpan with DateSpan with Serializable {
 
 	final override def nanos :Nothing = throw new UnsupportedOperationException(s"$this.nanos")
@@ -691,6 +741,12 @@ sealed abstract class InfiniteTimeLapse extends TimeSpan with DateSpan with Seri
 
 
 
+/** Representation of positive infinite amount of time. Adding it to any finite `TimeLapse` returns itself,
+  * subtracting it from a finite `TimeLapse` returns `MinusEternity`, and the same operations on any time point
+  * will yield `EndOfTime` and `DawnOfTime`, respectively. Indefinite operations such as subtracting it from itself or
+  * multiplying by zero all throw a `DateTimeException`, with the exception of dividing by zero, which throws
+  * an `ArithmeticException` as expected.
+  */
 object Eternity extends InfiniteTimeLapse {
 	override protected[this] def infinity :Double = Double.PositiveInfinity
 
@@ -700,10 +756,17 @@ object Eternity extends InfiniteTimeLapse {
 
 	override def signum :Int = 1
 
+	override def toString = "Eternity"
 }
 
 
 
+/** Representation of negative infinite amount of time. Adding it to any finite `TimeLapse` returns itself,
+  * subtracting it from a finite `TimeLapse` returns `Eternity`, and the same operations on any time point
+  * will yield `DawnOfTime` and `EndOfTime`, respectively. Indefinite operations such as subtracting it from itself or
+  * multiplying by zero all throw a `DateTimeException`, with the exception of dividing by zero, which throws
+  * an `ArithmeticException` as expected.
+  */
 object MinusEternity extends InfiniteTimeLapse {
 	override protected[this] def infinity :Double = Double.NegativeInfinity
 
@@ -712,6 +775,8 @@ object MinusEternity extends InfiniteTimeLapse {
 	override def toScala :s.Duration.Infinite = s.Duration.MinusInf
 
 	override def signum :Int = -1
+
+	override def toString = "-Eternity"
 }
 
 
@@ -719,6 +784,7 @@ object MinusEternity extends InfiniteTimeLapse {
 
 
 
+/** a `TimeSpan` of zero length. */
 object Immediate extends FiniteTimeSpan with FiniteDateSpan with Serializable {
 
 	override def nanos :Int = 0
@@ -828,6 +894,9 @@ object Immediate extends FiniteTimeSpan with FiniteDateSpan with Serializable {
 	override def ===(that :TimeSpan) :Boolean = that.isZero
 	override def ===(that :TimeLapse) :Boolean = that.isZero
 
+	def unapply(that :TimeLapse) :Boolean = that.isZero
+
+
 	override def toString :String = "0ns"
 
 }
@@ -903,12 +972,6 @@ private[time] final class CombinedTimeLapse(val period :Period, val duration :Du
 
 	override def ===(other :TimeLapse) :Boolean = this == other
 
-	override def equals(that :Any) :Boolean = that match {
-		case other :CombinedTimeLapse => (this eq other) || period == other.period && duration == other.duration
-		case _ => false
-	}
-
-	override def hashCode :Int = period.hashCode * 31 + duration.hashCode
 
 	override def toString :String = period + " " + duration
 }

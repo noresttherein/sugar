@@ -4,10 +4,10 @@ import java.{time => j}
 import scala.concurrent.duration.Deadline
 
 
-/**
+/** A time point carrying time zone information and thus reflecting a unique date. It is a lightweight value type
+  * wrapping a `java.time.ZonedDateTime`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-
 //todo: OffsetDateTime?
 class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	extends AnyVal with DateTimePoint with Serializable
@@ -28,7 +28,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	@inline override def second :Int = toJava.getSecond
 	@inline override def nano :Int = toJava.getNano
 
-	@inline override def dayOfWeek :DayOfWeek = toJava.getDayOfWeek
+	@inline override def dayOfWeek :Day = toJava.getDayOfWeek
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
 
@@ -192,14 +192,16 @@ object ZoneDateTime {
 	@inline def apply()(implicit time :Time = Time.Local) :ZoneDateTime =
 		new ZoneDateTime(j.ZonedDateTime.now(time.clock))
 
+	@inline def now(implicit time :Time = Time.Local) :ZoneDateTime =
+		new ZoneDateTime(j.ZonedDateTime.now(time.clock))
+
 	@inline def in(zone :TimeZone)(implicit time :Time = Time.Local) :ZoneDateTime =
 		new ZoneDateTime(j.ZonedDateTime.now(time.clock.withZone(zone.toJava)))
 
 	@inline def at(offset :TimeOffset)(implicit time :Time = Time.Local) :ZoneDateTime =
 		new ZoneDateTime(j.ZonedDateTime.now(time.clock.withZone(offset.toJava)))
 
-	@inline def now(implicit time :Time = Time.Local) :ZoneDateTime =
-		new ZoneDateTime(j.ZonedDateTime.now(time.clock))
+	@inline def utc :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(Time.UTC))
 
 
 
@@ -216,6 +218,13 @@ object ZoneDateTime {
 			case p :FiniteDateSpan => j.ZonedDateTime.now(time.clock) minus p.toPeriod.toJava
 			case _ => j.ZonedDateTime.now(time.clock) minus lapse.period.toJava minus lapse.duration.toJava
 		})
+
+
+
+	def unapply(time :TimePoint) :Option[(Date, TimeOfDay, TimeZone)] = time match {
+		case t :ZoneDateTime => Some((t.date, t.time, t.zone))
+		case _ => None
+	}
 
 
 	@inline implicit def toJavaZonedDateTime(time :ZoneDateTime) :j.ZonedDateTime = time.toJava

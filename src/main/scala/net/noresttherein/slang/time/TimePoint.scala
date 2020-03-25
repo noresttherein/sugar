@@ -9,10 +9,15 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 
 
-/**
+/** A precise moment in time. This class encompasses both finite time points
+  * ([[net.noresttherein.slang.time.DefiniteTime DefiniteTime]] and the two infinite limits:
+  * [[net.noresttherein.slang.time.DawnOfTime DawnOfTime]] and [[net.noresttherein.slang.time.EndOfTime EndOfTime]].
+  * All time points, regardless of implementation, form a complete order with the two infinities as the bounds.
+  * Equals however is class specific, meaning a `Timestamp()` and `ZoneDateTime()` will always be unequal, as expected.
+  * In order to compare for equality in the ordering sense, use `===` instead.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-sealed trait TimePoint extends Any with Ordered[TimePoint] {
+sealed trait TimePoint extends Any with Serializable with Ordered[TimePoint] {
 
 	def apply(cycle :Cycle) :cycle.Phase
 
@@ -175,7 +180,11 @@ trait DefiniteTime extends Any with TimePoint {
 
 object DefiniteTime {
 
+	@inline def apply()(implicit time :Time = Time.Local) :DefiniteTime = Timestamp.now
+
 	@inline def now(implicit time :Time = Time.Local) :DefiniteTime = Timestamp.now
+
+
 
 	def after(lapse :FiniteTimeLapse)(implicit time :Time = Time.Local) :DefiniteTime = lapse match {
 		case duration :Duration => Timestamp after duration
@@ -202,6 +211,8 @@ object DefiniteTime {
 
 
 
+/** Base trait for finite time points carrying information about the zone/offset and thus also full date and clock time.
+  */
 trait DateTimePoint extends Any with DefiniteTime {
 	def zone :TimeZone
 	def offset :TimeOffset
@@ -217,7 +228,7 @@ trait DateTimePoint extends Any with DefiniteTime {
 	def second :Int = time.second
 	override def nano :Int = time.nano
 
-	def dayOfWeek :DayOfWeek
+	def dayOfWeek :Day
 
 	def toZoneDateTime :ZoneDateTime
 
@@ -260,8 +271,11 @@ object DateTimePoint {
 
 
 
+/** A singularity of the time line, a point which follows in ordering all other `TimePoint` instances.
+  * It may be returned as a result of an arithmetic operation involving infinite time lapses `Eternity`
+  * or `MinusEternity`.
+  */
 case object EndOfTime extends TimeLimes {
-
 
 	override def forcedDefinite :Timestamp = Timestamp.Max
 
@@ -288,6 +302,10 @@ case object EndOfTime extends TimeLimes {
 
 
 
+/** A singularity of the time line, a point which precedes in ordering all other `TimePoint` instances.
+  * It may be returned as a result of an arithmetic operation involving infinite time lapses `Eternity`
+  * or `MinusEternity`.
+  */
 case object DawnOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Min
