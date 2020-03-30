@@ -52,6 +52,7 @@ sealed abstract class InferTypeParams[-T, +L, +M, +R] extends (T => L) {
 }
 
 
+
 object InferTypeParams {
 	/** Evidence that `T &lt;: L with R` used to unify a complete type `L` such as `Seq[Int]` with its base type `R`
 	  * capturing the type parameter of `L` such as `Iterable[Int]` in this example. An implicit instance
