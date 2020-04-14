@@ -52,7 +52,15 @@ package object optional {
 
 
 	/** Enriches an `Option[T]` with methods throwing exceptions if the option is empty. */
-	implicit class optionExtension[T](private val self :Option[T]) extends AnyVal {
+	implicit class optionMethods[T](private val self :Option[T]) extends AnyVal {
+		/** Applies the given function to the content of this option and returns the result or the provided alternative
+		  * if this option is empty. Equivalent to `this map f getOrElse alternative`, but in one step.
+		  */
+		@inline def mapOrElse[X](f :T => X, alternative: => X) :X = self match {
+			case Some(t) => f(t)
+			case _ => alternative
+		}
+
 		/** Gets the element in the option or throws a `NoSuchElementException` with the given message. */
 		@inline def getOrThrow(msg: =>String) :T = self getOrElse {
 			throw new NoSuchElementException(msg)
@@ -68,6 +76,7 @@ package object optional {
 		  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
 		  */
 		@inline def getOrThrow[E <: Exception :ClassTag](msg: =>String) :T = self getOrElse raise[E](msg)
+
 	}
 
 
