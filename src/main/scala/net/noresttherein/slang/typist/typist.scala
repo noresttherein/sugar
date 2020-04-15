@@ -7,7 +7,7 @@ import scala.annotation.unspecialized
 package object typist {
 
 	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
-	  * and creates aa type with a member type constructor `F` accepting the desired argument type. Designed to be used
+	  * and creates a type with a member type constructor `F` accepting the desired argument type. Designed to be used
 	  * as a type class (context bound of generic classes and methods):
 	  * {{{
 	  *     def add[T: <%<[Int]#F](x :T, y :T) :Int = x + y
