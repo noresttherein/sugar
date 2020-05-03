@@ -23,7 +23,8 @@ object InferTypeParamsSpec {
 				(infer._1(x), infer._2(x))
 
 			val sub = Invariant(infer2(new Sub[Item]))
-			sub :Invariant[(Sub[Item], Super[Item])] //check if Nothing was not inferred
+			//check if Nothing was not inferred
+			sub :Invariant[(Sub[Item], Super[Item])]
 
 			val concrete = Invariant(infer2(new Concrete))
 			concrete :Invariant[(Concrete, Super[Item])]

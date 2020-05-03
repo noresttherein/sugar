@@ -13,16 +13,17 @@ final class Or[E1, E2] private[witness](
 )
 
 
+
 sealed abstract class IndividualOrEvidence {
-	implicit def witnessFirst[E1, E2](implicit e1 :E1): E1 Or E2 = new Or(Some(e1), None)
-	implicit def witnessSecond[E1, E2](implicit e2 :E2): E1 Or E2 = new Or(None, Some(e2))
+	@inline implicit def witnessFirst[E1, E2](implicit e1 :E1): E1 Or E2 = new Or(Some(e1), None)
+	@inline implicit def witnessSecond[E1, E2](implicit e2 :E2): E1 Or E2 = new Or(None, Some(e2))
 }
 
 
 
 object Or extends IndividualOrEvidence {
 
-	implicit def witnessBoth[E1, E2](implicit e1 :E1, e2 :E2): E1 Or E2 = new Or(Some(e1), Some(e2))
+	@inline implicit def witnessBoth[E1, E2](implicit e1 :E1, e2 :E2): E1 Or E2 = new Or(Some(e1), Some(e2))
 
 
 	object First {
@@ -44,3 +45,4 @@ object Or extends IndividualOrEvidence {
 		}
 	}
 }
+

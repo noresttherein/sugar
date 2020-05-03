@@ -42,6 +42,9 @@ trait Lazy[+T] extends (()=>T) {
 	}
 
 	override def hashCode :Int = get.hashCode
+
+
+	override def toString :String = if (isEvaluated) get.toString else "Lazy(?)"
 }
 
 
@@ -107,6 +110,7 @@ object Lazy {
 
 
 	private final class VolatileLazy[+T](idempotent : ()=>T) extends Lazy[T] {
+
 		def this(value :T) = {
 			this(null); evaluated = value; cached = value
 		}
@@ -130,7 +134,6 @@ object Lazy {
 		}
 
 		override def isEvaluated: Boolean = cached != null || initializer == null
-		override def isUndefined = false
 
 
 		override def map[O](f: T => O): VolatileLazy[O] =
@@ -197,7 +200,6 @@ object Lazy {
 
 
 		def isEvaluated :Boolean = initializer == null
-		override def isUndefined = false
 
 
 		override def map[O](f: T => O): SyncLazy[O] =

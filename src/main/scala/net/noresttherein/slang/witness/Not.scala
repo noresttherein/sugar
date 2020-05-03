@@ -8,8 +8,10 @@ import scala.annotation.implicitNotFound
   * in that scope.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@implicitNotFound("Cannot prove that Not[${P}] as evidence for ${P} exists")
+@implicitNotFound("Cannot prove that Not[${P}] as evidence for ${P} exists.")
 final class Not[P] private ()
+
+
 
 object Not {
 	private[this] val not = new Not[Any]
@@ -19,3 +21,4 @@ object Not {
 	@inline implicit def evidenceFound[P](implicit ev :P) :Not[P] = default[P]
 
 }
+

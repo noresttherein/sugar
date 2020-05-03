@@ -1,11 +1,10 @@
 package net.noresttherein.slang
 
-import scala.annotation.tailrec
 import scala.reflect.ClassTag
 
 
-/** Extension methods providing new, hopefully more readable syntax for creating 'Option' values and conditionally
-  * guarded values in general.
+/** Extension methods providing new, more succinct and hopefully more readable syntax for creating 'Option' values
+  * and conditionally guarded values in general.
   * @author Marcin Mościcki
   */
 package object optional {
@@ -26,7 +25,7 @@ package object optional {
 	  * Equivalent to `alternatives.find(_.exists(condition)).flatten` but declares the intent upfront.
 	  * @return first option among `alternatives` which element satisfies `condition` or `None` if no such exists.
 	  */
-	def firstWhere[V](alternatives :Option[V]*)(condition :V=>Boolean) :Option[V] =
+	def firstWhere[V](alternatives :Option[V]*)(condition :V => Boolean) :Option[V] =
 		alternatives.find(_.exists(condition)).flatten
 
 
@@ -42,7 +41,7 @@ package object optional {
 	  * }}}
 	  * It also better conveys the intent than using simply `Seq(...).flatten`.
 	  */
-	def allOf[V](results :Option[V]*) :Seq[V] = results.flatten
+	@inline def allOf[V](results :Option[V]*) :Seq[V] = results.flatten
 
 
 
@@ -51,8 +50,9 @@ package object optional {
 
 
 
-	/** Enriches an `Option[T]` with methods throwing exceptions if the option is empty. */
+	/** Enriches an `Option[T]` with additional methods providing alternatives. */
 	implicit class optionMethods[T](private val self :Option[T]) extends AnyVal {
+
 		/** Applies the given function to the content of this option and returns the result or the provided alternative
 		  * if this option is empty. Equivalent to `this map f getOrElse alternative`, but in one step.
 		  */
@@ -61,13 +61,14 @@ package object optional {
 			case _ => alternative
 		}
 
+
 		/** Gets the element in the option or throws a `NoSuchElementException` with the given message. */
-		@inline def getOrThrow(msg: =>String) :T = self getOrElse {
+		@inline def getOrThrow(msg: => String) :T = self getOrElse {
 			throw new NoSuchElementException(msg)
 		}
 
 		/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
-		@inline def getOrReject(msg: =>String) :T = self getOrElse {
+		@inline def getOrReject(msg: => String) :T = self getOrElse {
 			throw new IllegalArgumentException(msg)
 		}
 
@@ -75,8 +76,20 @@ package object optional {
 		  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 		  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
 		  */
-		@inline def getOrThrow[E <: Exception :ClassTag](msg: =>String) :T = self getOrElse raise[E](msg)
+		@inline def getOrThrow[E <: Exception :ClassTag](msg: => String) :T = self getOrElse raise[E](msg)
 
+
+		/** Returns this option if the condition is false and `None` if it is true. This is equivalent
+		  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
+		  */
+		@inline def orNoneIf(condition :Boolean) :Option[T] =
+			if (condition) None else self
+
+		/** Returns this option if the condition is true and `None` if it is false. This is equivalent
+		  * to `this.filter(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
+		  */
+		@inline def orNoneUnless(condition :Boolean) :Option[T] =
+			if (condition) self else None
 	}
 
 
@@ -89,7 +102,7 @@ package object optional {
 	  * @param ifTrueThen default value to return if `condition` holds.
 	  * @return `if (condition) Some(ifTrueThen) else None`
 	  */
-	@inline final def ifTrue[T](condition :Boolean)(ifTrueThen : =>T) :Option[T] =
+	@inline final def ifTrue[T](condition :Boolean)(ifTrueThen: => T) :Option[T] =
 		if (condition) Some(ifTrueThen) else None
 
 
@@ -98,8 +111,9 @@ package object optional {
 	  * @param ifFalseThen default value to return if `condition` doesn't hold.
 	  * @return `if (condition) None else Some(ifFalseThen)`
 	  */
-	@inline final def ifFalse[T](condition :Boolean)(ifFalseThen : =>T) :Option[T] =
+	@inline final def ifFalse[T](condition :Boolean)(ifFalseThen: => T) :Option[T] =
 		if (condition) None else Some(ifFalseThen)
+
 
 
 	/** An implicit extension of `Boolean` values providing `ifTrue` method lifting its argument to an `Option` based
@@ -118,25 +132,43 @@ package object optional {
 
 		/** If `this` boolean expression is true, return the given value in an `Option`. If it evaluates to `false`,
 		  * return `None`.
-		  * @param thenThis alternative value to return wrapped in `Option` if this condition is true.
+		  * @param thenThis value of the expression to return wrapped in `Option` if this condition is true.
 		  * @tparam T value type of this expression
 		  * @return `Some(thenThis)` if this condition is true and `thenThis` is not null or `None` otherwise.
 		  */
-		@inline def ifTrue[T](thenThis : => T) :Option[T] =
+		@inline def ifTrue[T](thenThis: => T) :Option[T] =
 			if (condition) Option(thenThis)
 			else None
 
 
 		/** If `this` boolean expression is false, return the given value in an `Option`. If it evaluates to `true`,
 		  * return `None`.
-		  * @param thenThis alternative value to return wrapped in `Option` if this condition is false.
+		  * @param thenThis value of the expression to return wrapped in `Option` if this condition is false.
 		  * @tparam T value type of this expression
 		  * @return `Some(thenThis)` if this condition is true and `thenThis` is not null or `None` otherwise.
 		  */
-		@inline def ifFalse[T](thenThis : => T) :Option[T] =
+		@inline def ifFalse[T](thenThis: => T) :Option[T] =
 			if (condition) None else Option(thenThis)
 
 
+		/** If `this` boolean expression is true, return the value of the by-name parameter. If it evaluates to `false`,
+		  * return `None`.
+		  * @param thenThis the value to return wrapped if this condition is true.
+		  * @tparam T value type of this expression
+		  * @return `thenThis` if this condition is true or `None` otherwise.
+		  */
+		@inline def thenMaybe[T](thenThis: => Option[T]) :Option[T] =
+			if (condition) thenThis else None
+
+
+		/** If `this` boolean expression is false, return the given value in an `Option`. If it evaluates to `true`,
+		  * return `None`.
+		  * @param thenThis value of the expression to return wrapped in `Option` if this condition is false.
+		  * @tparam T value type of this expression
+		  * @return `Some(thenThis)` if this condition is true and `thenThis` is not null or `None` otherwise.
+		  */
+		@inline def otherwiseMaybe[T](thenThis: => Option[T]) :Option[T] =
+			if (condition) None else thenThis
 	}
 
 
@@ -154,6 +186,7 @@ package object optional {
 		if (condition(value)) Some(value) else None
 
 
+
 	/** Extension methods of an arbitrary value treating it as a default value to be lifted to an `Option`
 	  * depending on whether a guard predicate is satisfied. This class eagerly computes `this` expression.
 	  * @see [[net.noresttherein.slang.optional.providingMethods]]
@@ -166,7 +199,7 @@ package object optional {
 
 
 		/** Return `Some(this)` if `condition(this)` is true, `None` otherwise. Note that `this` is eagerly evaluated.  */
-		@inline def satisfying(condition :T=>Boolean) :Option[T] =
+		@inline def satisfying(condition :T => Boolean) :Option[T] =
 			if (condition(self)) Some(self) else None
 
 
@@ -180,7 +213,7 @@ package object optional {
 		/** Return `this` if `condition(this)` is true, or the alternative value otherwise. Don't evaluate the alternative
 		  * if `condition` is true.  Note that `this` is eagerly evaluated.
 		  */
-		@inline def satisfyingOrElse(condition :T=>Boolean)(alternative : =>T) :T =
+		@inline def satisfyingOrElse(condition :T => Boolean)(alternative : =>T) :T =
 			if (condition(self)) self else alternative
 
 
@@ -192,7 +225,7 @@ package object optional {
 
 
 		/** Return `Some(this)` if `condition(this)` is false, `None` otherwise.  Note that `this` is eagerly evaluated. */
-		@inline def dissatisfying(condition :T=>Boolean) :Option[T] =
+		@inline def dissatisfying(condition :T => Boolean) :Option[T] =
 			if (condition(self)) None else Some(self)
 
 
@@ -201,7 +234,7 @@ package object optional {
 			if (condition) alternative else self
 
 		/** Return `this` if `condition(this)` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline def dissatisfyingOrElse(condition :T=>Boolean)(alternative : =>T) :T =
+		@inline def dissatisfyingOrElse(condition :T => Boolean)(alternative : =>T) :T =
 			if (condition(self)) alternative else self
 
 
@@ -272,7 +305,7 @@ package object optional {
 
 		/** Return `this` if `condition` is true, or raise the exception specified as the type parameter, passing the given string to its constructor. */
 		@inline
-		def ensuring[E <: Exception :ClassTag](condition :Boolean, msg : =>String) :T =
+		def ensuring[E <: Exception :ClassTag](condition :Boolean, msg: => String) :T =
 			if (condition) self else raise[E](msg)
 
 

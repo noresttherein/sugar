@@ -233,7 +233,7 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 	@inline override def span :FiniteDateSpan = length
 	@inline override def estimate :Duration = toJava.getDuration
 
-	@inline def length :Period = toJava match {
+	@inline def length :Period = (toJava: @unchecked) match {
 		case DAYS => OneDay
 		case WEEKS => OneWeek
 		case MONTHS => OneMonth
@@ -259,7 +259,7 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 		case _ => DateUnit.Years
 	}
 
-	def baseAmount :Int = toJava match {
+	def baseAmount :Int = (toJava: @unchecked) match {
 		case DAYS | MONTHS | YEARS => 1
 		case WEEKS => 7
 		case DECADES => 10
@@ -279,7 +279,7 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 	}
 
 
-	override def toString :String = toJava match {
+	override def toString :String = (toJava: @unchecked) match {
 		case DAYS => "days"
 		case MONTHS => "months"
 		case YEARS => "years"
