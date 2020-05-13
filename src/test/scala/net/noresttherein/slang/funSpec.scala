@@ -14,7 +14,7 @@ object funSpec extends Properties("fun") {
 
 
 	property("named(name) { ... }") = {
-		val f = fun.named("square") { x :Int => x * x }
+		val f = fun.named[Int]("square") { x => x * x }
 		(f.toString ?= "square") && (f(2) ?= 4)
 	}
 
@@ -27,10 +27,10 @@ object funSpec extends Properties("fun") {
 
 	property("apply { ... }") =
 		{
-			val odd = fun { x :Int => x % 2 == 0 }
+			val odd = fun[Int] { x => x % 2 == 0 }
 			(odd.toString ?= "Int=>Boolean") && odd(2) label "Int=>Boolean"
 		} && {
-			val string = fun { x :Int => x.toString }
+			val string = fun[Int] { x :Int => x.toString }
 			(string.toString ?= "_=>j.l.String") && (string(42) ?= "42") label "Int=>String"
 		} && {
 			trait F extends ComposableFun[Int, Long]

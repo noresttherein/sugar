@@ -81,7 +81,7 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 
 	@inline override def isZero :Boolean = inMillis == 0L
 
-	@inline override def signum :Int = inMillis.signum
+	@inline override def signum :Int = inMillis.sign.toInt
 
 	@inline override def abs :Milliseconds =
 		if (inMillis >= 0)
@@ -218,13 +218,13 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 
 
 	@inline override def /(n :Long) :Milliseconds =
-		if (n == 0L) throw new ArithmeticException(this + " / 0")
+		if (n == 0L) throw new ArithmeticException(toString + " / 0")
 		else if (inMillis == 0L) this
 		else new Milliseconds(inMillis / n)
 
 
 	@inline override def /(n :Double) :TimeSpan =
-		if (n == 0) throw new ArithmeticException(this + " / 0")
+		if (n == 0) throw new ArithmeticException(toString + " / 0")
 		else if (inMillis == 0) this
 		else spanOfMillis(inMillis / n)
 
@@ -283,7 +283,7 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 
 	override def toString :String = {
 		val u = unit
-		inMillis / (unit.inNanos / 1000) + u.symbol
+		(inMillis / (unit.inNanos / 1000)).toString + u.symbol
 	}
 
 }

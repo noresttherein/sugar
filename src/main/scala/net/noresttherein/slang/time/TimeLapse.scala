@@ -973,7 +973,7 @@ private[time] final class CombinedTimeLapse(val period :Period, val duration :Du
 	override def ===(other :TimeLapse) :Boolean = this == other
 
 
-	override def toString :String = period + " " + duration
+	override def toString :String = period.toString + " " + duration
 }
 
 

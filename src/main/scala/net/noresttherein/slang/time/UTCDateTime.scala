@@ -175,7 +175,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 	}
 	@inline def ===(that :UTCDateTime) :Boolean = toJava == that.toJava
 
-	override def toString :String = toJava + "Z"
+	override def toString :String = toJava.toString + "Z"
 
 }
 

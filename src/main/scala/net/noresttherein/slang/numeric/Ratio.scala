@@ -22,7 +22,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 	/** The sign of this rational number as a `Int`.
 	  * @return `1` if this rational is positive, `-1` if it is negative, and `0` if it is zero.
 	  */
-	@inline def signum :Int = java.lang.Integer.signum(n)
+	@inline def sign :Int = java.lang.Integer.signum(n)
 
 	/** The opposite rational number: `-numerator /% denominator`. */
 	@inline def unary_- :Ratio = new Ratio(-n, d)
@@ -33,7 +33,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 	/** The fraction resulting from swapping the places of numerator and denominator. For all rational numbers 
 	  * `r &lt;: Ratio` `r * r.reciprocal == Ratio(1)` (reciprocal is the opposite element with regard to multiplication).
-	  * @return `denominator * this.signum /% numerator * this.signum`
+	  * @return `denominator * this.sign /% numerator * this.sign`
 	  */
 	@inline def reciprocal :Ratio =
 		if (n == 0)
@@ -179,7 +179,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 	override def hashCode :Int = d * 31 + n
 
-	override def toString :String = n + "/" + d
+	override def toString :String = n.toString + "/" + d
 }
 
 
@@ -367,6 +367,7 @@ object Ratio {
 			if (x < y) -1 else if (y < x) 1 else 0
 
 
+		override def parseString(str :String) :Option[Ratio] = str.toIntOption.map(Ratio.apply)
 	}
 
 

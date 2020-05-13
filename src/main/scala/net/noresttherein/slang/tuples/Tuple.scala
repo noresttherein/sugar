@@ -831,7 +831,7 @@ object Tuple {
 			if (count == 0) <>
 			else {
 				val copy = new Array[Any](count)
-				Platform.arraycopy(elements, 1, copy, 0, count)
+				System.arraycopy(elements, 1, copy, 0, count)
 				new ><(copy, count)
 			}
 		}.asInstanceOf[T]
@@ -854,7 +854,7 @@ object Tuple {
 			else {
 				val size = count - n.number
 				val copy = new Array[Any](size)
-				Platform.arraycopy(elements, n.number, copy, 0, size)
+				System.arraycopy(elements, n.number, copy, 0, size)
 				new ><[Tuple, Any](copy, size).asInstanceOf[R]
 			}
 		}
@@ -886,7 +886,7 @@ object Tuple {
 				if (num >= count) this.asInstanceOf[R]
 				else {
 					val copy = new Array[Any](num)
-					Platform.arraycopy(elements, count - num, copy, 0, num)
+					System.arraycopy(elements, count - num, copy, 0, num)
 					new ><[Tuple, Any](copy, num).asInstanceOf[R]
 				}
 			}
@@ -974,7 +974,7 @@ object Tuple {
 				newlen = count + 1
 			}
 			val copy = new Array[Any](newlen)
-			Platform.arraycopy(elements, 0, copy, 0, count)
+			System.arraycopy(elements, 0, copy, 0, count)
 			copy(count) = last
 			new ><(copy, count + 1)
 		}
@@ -988,7 +988,7 @@ object Tuple {
 		def ><:[X, U >: P >< L <: Tuple, R <: Tuple](first :X)(implicit tpe :TupleTakeRight[R, _1, U]) :R = {
 			val count = length
 			val copy = new Array[Any](count + 1)
-			Platform.arraycopy(elements, 0, copy, 1, count)
+			System.arraycopy(elements, 0, copy, 1, count)
 			copy(0) = first
 			new ><[Tuple, Any](copy, count + 1).asInstanceOf[R]
 		}

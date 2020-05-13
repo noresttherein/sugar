@@ -60,9 +60,9 @@ object InferTypeParams {
 
 	/** An isomorphic alias with a shorter name for `InferTypeParams[T, L, R]`.
 	  * Guides the compiler to infer the type arguments of type `R` given by its subtype `T`.
-	  * Given type parameters `[X &lt;: F[P], P]` and types `C &lt;: F[A] forSome { type C; type A }`,
+	  * Having type parameters `[X &lt;: F[P], P]` and types `C &lt;: F[A] forSome { type C; type A }`,
 	  * accepting an implicit argument of `Conforms[T, X, F[P]]` together with an argument of type `T`
-	  * will make the inferer will correctly instantiate `X =:= C` and `P =:= A` from an argument `x :C`.
+	  * will make the inferer correctly instantiate `X =:= C` and `P =:= A` from an argument `x :C`.
 	  * @see [[net.noresttherein.slang.typist.InferTypeParams InferTypeParams]]
 	  */
 	type Conforms[-T, L <: R, +R] = InferTypeParams[T, L, R]

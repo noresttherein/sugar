@@ -20,7 +20,7 @@ object LongRatioSpec extends Properties("LongRatio") {
 		else {
 			val r = f(n, d)
 			(r.toDouble ?= n.toDouble / d) &&
-				(r.signum ?= n.signum * d.signum) :| s"($r).signum=${r.signum}; should be ${n.signum * d.signum} for $n / $d" &&
+				(r.sign ?= n.sign * d.sign) :| s"($r).sign=${r.sign}; should be ${n.sign * d.sign} for $n / $d" &&
 				forAll { i :Int => Prop(i != 0) ==>
 					(Prop(r.numerator % i == 0 && r.denominator % i == 0) ==> (i == 1  || i == -1) label
 						s"$i divides ${r.numerator}, ${r.denominator}")
@@ -69,7 +69,7 @@ object LongRatioSpec extends Properties("LongRatio") {
 	property("abs") = forAll { (a :Long, b :Long) =>
 		if (b == 0 || a == Long.MinValue || b==Long.MinValue)
 			Zero.abs =? Zero.abs && One.abs =? One && One =? (-One).abs
-		else if (a.signum * b.signum >= 0)
+		else if (a.sign * b.sign >= 0)
 			(a /% b).abs ?= (a /% b)
 		else
 			(a /% b).abs ?= -(a /% b)

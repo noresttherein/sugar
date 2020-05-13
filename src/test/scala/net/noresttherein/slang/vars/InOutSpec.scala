@@ -13,7 +13,9 @@ abstract class BaseInOutPropsGroup  {
 
 
 	/** Test of the generic `InOut[T]` interface */
-	abstract class BasicInOutProps[T <% Pretty :Arbitrary :Shrink](varName :String) extends Properties(varName) {
+	abstract class BasicInOutProps[T :Arbitrary :Shrink](varName :String)(implicit pretty :T => Pretty)
+		extends Properties(varName)
+	{
 
 		protected def unaryFunctions :Map[String, T => T]
 

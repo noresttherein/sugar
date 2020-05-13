@@ -1,11 +1,15 @@
 package net.noresttherein.slang.funny
 
-import java.lang.reflect.{ParameterizedType, Type}
+import java.lang.reflect.{ParameterizedType, Type, TypeVariable}
+
+
+import scala.annotation.unspecialized
+import scala.collection.immutable.ArraySeq
+import scala.reflect.ClassTag
+import scala.Specializable.{Arg, Return}
 
 import net.noresttherein.slang.prettyprint
 
-import scala.annotation.unspecialized
-import scala.reflect.ClassTag
 
 
 /** Factory methods for functions with benefits.
@@ -13,7 +17,7 @@ import scala.reflect.ClassTag
   */
 object fun {
 	import specializations._
-
+	//todo: macros
 
 	/** Enforces the type of the passed function expression to be a [[net.noresttherein.slang.funny.fun.ComposableFun ComposableFun]].
 	  * As `ComposableFun` is a ''Single Abstract Method'' type lacking only the implementation of `apply`, a
@@ -26,7 +30,11 @@ object fun {
 	  * This method serves no other purpose and promptly returns the argument as `X=>Y` to help with type inference.
 	  * @return `f`
 	  */
-	@inline def apply[X, Y](f :ComposableFun[X, Y]) :X => Y = f
+	@inline def apply[X] :ComposableFunSAM[X] = new ComposableFunSAM[X] {}
+
+	trait ComposableFunSAM[X] extends Any {
+		@inline def apply[Y](f :ComposableFun[X, Y]) :X => Y = f
+	}
 
 
 
@@ -54,29 +62,34 @@ object fun {
 	  * In those circumstances wrapping the function with the sister method [[net.noresttherein.slang.funny.fun.name name]]
 	  * might be preferable.
 	  * @param name name to use as the textual representation of the given function
-	  * @param f renamed function
 	  * @return `f`
 	  */
-	@inline  def named[X, Y](name :String)(f :NamedFun[X, Y]) :X => Y = {
-		f.rename(name); f
+	@inline def named[X](name :String) = new NamedFunSAM[X](name)
+
+	class NamedFunSAM[X](private val name :String) extends AnyVal {
+		def apply[Y](f :NamedFun[X, Y]) :X => Y = { f.rename(name); f }
 	}
 
 
 	/** Wraps the given function in a decorator returning the given name from its `toString` method.
 	  * @see [[net.noresttherein.slang.funny.fun.named]]
 	  */
-	@inline def name[@specialized(ArgTypes) X, @specialized(ReturnTypes) Y](name :String)(f :X => Y) :X => Y =
-		new ComposableFun[X, Y] {
-			override def apply(x :X) :Y = f(x)
-			override def toString = name
-		}
+	@inline def name(name :String) = new NamedFunWrapper(name)
+
+	class NamedFunWrapper(private val name :String) extends AnyVal {
+		@inline def apply[@specialized(Arg) X, @specialized(Return) Y](f :X => Y) :X => Y =
+			new ComposableFun[X, Y] {
+				override def apply(x :X) :Y = f(x)
+				override def toString = name
+			}
+	}
 
 
 
 	/** Equivalent to `scala.identity[X]`, but is specialized and overrides `compose` (and `andThen`)
 	  * for reduced overhead of function composition. Additionally, it provides a more informative `toString` output.
 	  */
-	@inline def ident[@specialized(ArgTypes) X] :X=>X = new Identity[X]{}
+	@inline def ident[@specialized(Arg) X] :X=>X = new Identity[X]{}
 
 
 
@@ -89,7 +102,7 @@ object fun {
 	  * while the former can't. While not providing the argument type here will result in a function `Any=>Y` which
 	  * will serve for any type `X`, it will not be specialized.
 	  */
-	@inline def const[@specialized(ArgTypes) X] :ConstFunFactory[X] = new ConstFunFactory[X] {}
+	@inline def const[@specialized(Arg) X] :ConstFunFactory[X] = new ConstFunFactory[X] {}
 
 
 
@@ -127,9 +140,9 @@ object fun {
 	  *  Returned by [[net.noresttherein.slang.funny.fun.const fun.const]], it separates the argument
 	  *  and value type parameters, so the latter can be inferred from the provided value.
 	  */
-	trait ConstFunFactory[@specialized(ArgTypes) X] extends Any {
+	trait ConstFunFactory[@specialized(Arg) X] extends Any {
 		/** Creates a function which always returns `const`. */
-		@inline final def apply[@specialized(ReturnVals) Y](const :Y) :X => Y = new ConstFun[X, Y](const)
+		@inline final def apply[@specialized(ReturnVal) Y](const :Y) :X => Y = new ConstFun[X, Y](const)
 	}
 
 
@@ -140,16 +153,11 @@ object fun {
 	/** Declaration of type groups usable as arguments to scala `@specialized` annotation. */
 	object specializations {
 		/** Types for which `Function1`'s result type is specialized, minus `Unit`. */
-		final val ReturnVals = new Specializable.Group(Boolean, Int, Float, Long, Double)
-
-		/** Types for which `Function1`'s result type is specialized. */
-		final val ReturnTypes = new Specializable.Group(Unit, Boolean, Int, Float, Long, Double)
-		/** Types for which `Function1`'s argument type is specialized. */
-		final val ArgTypes = new Specializable.Group(Int, Long, Float, Double)
+		final val ReturnVal = new Specializable.Group(Boolean, Int, Float, Long, Double)
 
 
 
-		private[fun] class SpecializedType[@specialized(ReturnTypes) T] {
+		private[fun] class SpecializedType[@specialized(Return) T] {
 
 			@inline final override def equals(that :Any) :Boolean = getClass == that.getClass
 
@@ -183,7 +191,7 @@ object fun {
 	  *  Provides a more helpful `toString` implementation.
 	  *  @see [[net.noresttherein.slang.funny.fun]]
 	  */
-	trait ComposableFun[@specialized(ArgTypes) -X, @specialized(ReturnTypes) +Y] extends (X=>Y) {
+	trait ComposableFun[@specialized(Arg) -X, @specialized(Return) +Y] extends (X=>Y) {
 
 		override def compose[A](g: A => X): A => Y = g match {
 			case f :ComposableFun[A, X] => f chainBefore this
@@ -195,14 +203,14 @@ object fun {
 			case _ => new ComposedFun(this, g)
 		}
 
-		protected[fun] def chainBefore[@specialized(ReturnVals) Z](g  :Y => Z) :X => Z =
+		protected[fun] def chainBefore[@specialized(ReturnVal) Z](g  :Y => Z) :X => Z =
 			new ComposedFun(this, g)
 
-		protected[fun] def chainAfter[@specialized(ArgTypes) W](g :W => X) :W => Y =
+		protected[fun] def chainAfter[@specialized(Arg) W](g :W => X) :W => Y =
 			new ComposedFun(g, this)
 
 		/** Double dispatch target of `andThen` to ensure proper specialization. */
-		private[fun] def chainAfter[@specialized(ArgTypes) W](const :X) :W => Y = new ConstFun[W, Y](apply(const))
+		private[fun] def chainAfter[@specialized(Arg) W](const :X) :W => Y = new ConstFun[W, Y](apply(const))
 
 
 		def canEqual(other :Any) :Boolean = false
@@ -221,8 +229,9 @@ object fun {
 					} else p.getRawType match { //recurse down the generic definition
 						case cls :Class[_] => search(cls) match {
 							case res :Class[_] => res //parameterized with a concrete type
-							case param => //try to match formal type parameters with actual arguments
-								val i = cls.getTypeParameters.indexOf(param)
+							case param =>
+								//try to match formal type parameters with actual arguments
+								val i = ArraySeq.unsafeWrapArray(cls.getTypeParameters).indexOf(param)
 								if (i >= 0)
 									p.getActualTypeArguments()(i)
 								else //possible if param is declared by an enclosing class, but we won't check the outer scopes
@@ -301,7 +310,7 @@ object fun {
 	/** Marker trait for functions which are not expected to throw any exceptions, do not have side effects
 	  * and do not depend on mutable state. They can be elided when composed with constant or throwing functions.
 	  */
-	trait PureFun[@specialized(ArgTypes) -X, @specialized(ReturnVals) +Y] extends ComposableFun[X, Y]
+	trait PureFun[@specialized(Arg) -X, @specialized(ReturnVal) +Y] extends ComposableFun[X, Y]
 
 
 
@@ -309,12 +318,15 @@ object fun {
 	  * of simplified syntax of [[net.noresttherein.slang.funny.fun.named fun.named]]. Non-anonymous function
 	  * implementations which desire to override `toString` should instead extend the `ComposableFun` supertype directly.
 	  */
-	abstract class NamedFun[@specialized(ArgTypes) -X, @specialized(ReturnTypes) +Y] extends ComposableFun[X, Y] {
+	abstract class NamedFun[@specialized(Arg) -X, @specialized(Return) +Y] extends ComposableFun[X, Y] {
 		def this(name :String) = { this(); this.name = name }
 
 		@volatile private[this] var name :String = _
 
-		private[fun] def rename(name :String) :Unit = { this.name = name }
+		private[fun] def rename(name :String) :Unit = {
+			this.name = name
+			java.lang.invoke.VarHandle.releaseFence()
+		}
 
 		override def toString :String = {
 			var res = name
@@ -331,7 +343,7 @@ object fun {
 	/** An identity function implementation with overriden `compose` and `andThen` methods so it is elided
 	  * on composition. Additionally, provides an indicative `toString` implementation.
 	  */
-	trait Identity[@specialized(ArgTypes) X] extends ComposableFun[X, X] with PureFun[X, X] {
+	trait Identity[@specialized(Arg) X] extends ComposableFun[X, X] with PureFun[X, X] {
 		final override def apply(x :X) :X = x
 
 		@unspecialized
@@ -341,10 +353,10 @@ object fun {
 		override def andThen[A](g :X => A) :X => A = g
 
 		@unspecialized
-		override protected[fun] def chainBefore[@specialized(ReturnVals) Z](g :X => Z) :X => Z = g
+		override protected[fun] def chainBefore[@specialized(ReturnVal) Z](g :X => Z) :X => Z = g
 
 		@unspecialized
-		override protected[fun] def chainAfter[@specialized(ArgTypes) W](g :W => X) :W => X = g
+		override protected[fun] def chainAfter[@specialized(Arg) W](g :W => X) :W => X = g
 
 
 		override def canEqual(that :Any) :Boolean = that.isInstanceOf[Identity[_]]
@@ -367,7 +379,7 @@ object fun {
 
 
 
-	private class ComposedFun[@specialized(ArgTypes) -X, @specialized(ArgTypes) Y, @specialized(ReturnTypes) +Z](val inner :X=>Y, val outer :Y=>Z)
+	private class ComposedFun[@specialized(Arg) -X, @specialized(Arg) Y, @specialized(Return) +Z](val inner :X=>Y, val outer :Y=>Z)
 		extends ComposableFun[X, Z]
 	{
 		override def apply(x: X): Z = outer(inner(x))
@@ -410,14 +422,14 @@ object fun {
 					else
 						innerS + "*>?=>?"
 				case _ =>
-					inner + "*>" + outer
+					inner.toString + "*>" + outer
 			}
 
 	}
 
 
 
-	private class ConstFun[@specialized(ArgTypes) -X, @specialized(ReturnTypes) +Y](result :Y)
+	private class ConstFun[@specialized(Arg) -X, @specialized(Return) +Y](result :Y)
 		extends ComposableFun[X, Y] with PureFun[X, Y]
 	{
 		final override def apply(x :X) :Y = result
@@ -426,14 +438,14 @@ object fun {
 
 		override def andThen[A](g :Y => A) :X => A = chainBefore(g)
 
-		override protected[fun] def chainBefore[@specialized(ReturnVals) Z](g :Y => Z) :X => Z =
+		override protected[fun] def chainBefore[@specialized(ReturnVal) Z](g :Y => Z) :X => Z =
 			try {
 				new ConstFun(g(result))
 			} catch {
 				case _ :Throwable => super.chainBefore(g)
 			}
 
-		override protected[fun] def chainAfter[@specialized(ArgTypes) W](g :W => X) :W => Y = g match {
+		override protected[fun] def chainAfter[@specialized(Arg) W](g :W => X) :W => Y = g match {
 			case _ :ConstFun[_, _] => new ConstFun(result)
 			case _ => new ComposedFun(g, this)
 		}
@@ -458,9 +470,9 @@ object fun {
 
 		override def andThen[A](g :Nothing => A) :X => A = this
 
-		override protected[fun] def chainBefore[@specialized(ReturnTypes) Z](g :Nothing => Z) :X => Z = this
+		override protected[fun] def chainBefore[@specialized(Return) Z](g :Nothing => Z) :X => Z = this
 
-		override protected[fun] def chainAfter[@specialized(ArgTypes) W](g :W => X) :W => Nothing =
+		override protected[fun] def chainAfter[@specialized(Arg) W](g :W => X) :W => Nothing =
 			new ThrowingFunction(g andThen exception)
 
 
@@ -476,9 +488,9 @@ object fun {
 
 		override def andThen[A](g :Nothing => A) :X => A = this
 
-		override protected[fun] def chainBefore[@specialized(ReturnTypes) Z](g :Nothing => Z) :X => Z = this
+		override protected[fun] def chainBefore[@specialized(Return) Z](g :Nothing => Z) :X => Z = this
 
-		override protected[fun] def chainAfter[@specialized(ArgTypes) W](g :W => X) :W => Nothing =
+		override protected[fun] def chainAfter[@specialized(Arg) W](g :W => X) :W => Nothing =
 			if (g.isInstanceOf[PureFun[_, _]]) new Throw[W](exception)
 			else new ComposedFun(g, this)
 

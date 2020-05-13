@@ -272,7 +272,7 @@ package object optional {
 	  */
 	implicit class someMethod[T](private val opt :Some[T]) extends AnyVal {
 		/** Returns the value of this option as returned by `get`.
-		  * Using a separate method emphasises that this call is safe. *
+		  * Using a separate method emphasises that this call is safe.
 		  */
 		@inline final def some :T = opt.get
 	}

@@ -29,7 +29,7 @@ package object prettyprint {
 	  */
 	def unqualifiedNameOf(clss :Class[_]) :String = clss.getComponentType match {
 		case elem if elem != null => //clss is an array
-			'[' + unqualifiedClassName(elem) + ']'
+			"[" + unqualifiedClassName(elem) + ']'
 		case _ =>
 			val name = clss.getName
 			name.substring(name.lastIndexOf('.')+1)
@@ -63,7 +63,7 @@ package object prettyprint {
 	  */
 	def localNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case elem if elem != null =>
-			'[' + localNameOf(clazz) + ']'
+			"[" + localNameOf(clazz) + ']'
 		case _ =>
 			val name = clazz.getName
 			val uq = name.substring(name.lastIndexOf('.')+1)

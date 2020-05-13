@@ -528,6 +528,8 @@ object InOut extends InOutNumericImplicits {
 		override def toFloat(x :InOut[T]) :Float = vals.toFloat(x.get)
 
 		override def toDouble(x :InOut[T]) :Double = vals.toDouble(x.get)
+
+		override def parseString(str :String) :Option[InOut[T]] = nums.parseString(str).map(InOut(_))
 	}
 
 

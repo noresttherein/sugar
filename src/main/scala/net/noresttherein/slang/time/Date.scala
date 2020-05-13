@@ -212,7 +212,7 @@ class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with O
 	@inline def max(that :MonthInYear) :MonthInYear = if (yearAndMonth >= that.yearAndMonth) this else that
 
 
-	override def toString :String = month + " " + year
+	override def toString :String = month.toString + " " + year
 
 }
 
@@ -295,7 +295,7 @@ class Year private[time] (val no :Int) extends AnyVal with Ordered[Year] with Se
 
 	@inline def compare(that :Year) :Int = (no.toLong - that.no.toLong).toInt
 
-	override def toString :String = if (no > 0) no.toString else 1 - no + "BCE"
+	override def toString :String = if (no > 0) no.toString else (1 - no).toString + "BCE"
 }
 
 

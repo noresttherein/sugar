@@ -23,7 +23,7 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 	/** The sign of this rational number as a `Long`.
 	  * @return `1` if this rational is positive, `-1` if it is negative, and `0` if it is zero.
 	  */
-	@inline def signum :Long = java.lang.Long.signum(n)
+	@inline def sign :Long = java.lang.Long.signum(n)
 
 	/** The opposite rational number: `-numerator /% denominator`. */
 	@inline def unary_- :LongRatio = new LongRatio(-n, d)
@@ -196,7 +196,7 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
 	override def hashCode :Int = java.lang.Long.hashCode(d) * 31 + java.lang.Long.hashCode(n)
 
-	override def toString :String = n + "/" + d
+	override def toString :String = n.toString + "/" + d
 }
 
 
@@ -322,7 +322,7 @@ object LongRatio {
 		override def compare(x :LongRatio, y :LongRatio) :Int =
 			if (x < y) -1 else if (y < x) 1 else 0
 
-
+		override def parseString(str :String) :Option[LongRatio] = str.toLongOption.map(LongRatio.apply)
 	}
 
 

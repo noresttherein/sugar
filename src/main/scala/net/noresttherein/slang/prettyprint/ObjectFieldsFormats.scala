@@ -49,8 +49,8 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 		val reflection = mirror.reflect(subject)(ClassTag(mirror.runtimeClass(typeTag.tpe)).asInstanceOf[ClassTag[T]])
 		fields.view.map { field =>
 			reflection.reflectMethod(field)() match {
-				case b :Boolean => field.name + "="+ b.yesno
-				case value => field.name + "=" + value
+				case b :Boolean => field.name.toString + "=" + b.yesno
+				case value => field.name.toString + "=" + value
 			}
 		}
 	}
