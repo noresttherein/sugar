@@ -3,17 +3,18 @@ package net.noresttherein.slang.typist
 import scala.annotation.implicitNotFound
 
 
-/** A simple value class combining the evidence that `T &lt; L with M with R`, designed to alleviate the limitation
+
+/** A simple class combining the evidence that `X &lt; T with M with U`, designed to alleviate the limitation
   * of scala type inference of type arguments for generic classes. An implicit instance `InferTypeParams[X, X, X]`
-  * is available for any type `X`, which can be additionally simplified by the type alias
-  * `Conforms[X, L, R] = InferTypeParams[X, L, R]` declared in the companion object.
-  * Given some type constructor `F[T]`, we would often like to declare a generic method with regard to both
-  * the specific type of `x :F[T]` and the provided type argument at the same time:
+  * is available for any type `X`, which can be additionally shortened with the type alias
+  * `Conforms[X, T, U] = InferTypeParams[X, T, U]` declared in the companion object.
+  * Given some type constructor `F[X]`, we would often like to declare a generic method with regard to both
+  * the specific type of `x :F[X]` and the provided type argument at the same time:
   * {{{
-  *     class F[T] { def get :T = ??? }
+  *     class F[X] { def get :X = ??? }
   *     class X extends F[String]
   *
-  *     def m[X <: F[T], T](x :X) :(X, T) = ???
+  *     def m[X <: F[X], X](x :X) :(X, X) = ???
   *
   *     m(new X) //does not compile
   * }}}
@@ -23,7 +24,7 @@ import scala.annotation.implicitNotFound
   * `String` given to `F`, just not both at the same time:
   * {{{
   *     def m1[X <: F[_]](x :X) = ???
-  *     def m2[T](x :F[T]) = ???
+  *     def m2[X](x :F[X]) = ???
   *
   *     m1(new X) //compiles
   *     m2(new X) //compiles
@@ -31,27 +32,47 @@ import scala.annotation.implicitNotFound
   * By duplicating the occurrence of type `X` in this type signature and having the last type parameter covariant,
   * we can now write:
   * {{{
-  *     def m[A, X <: F[T], T](x :A)(implicit help :Conforms[A, X, F[T]]) :(X, T) = help(x) -> help(x).get
+  *     def m[A, X <: F[X], X](x :A)(implicit help :Conforms[A, X, F[X]]) :(X, X) = help(x) -> help(x).get
   * }}}
   *
   * By convention, the second type parameter should be the complete inferred type, while the third one its upper bound
-  * used to capture its type parameters. For convenience, this trait implements `T => L`, so simply declaring an
+  * used to capture its type parameters. For convenience, this trait implements `X => T`, so simply declaring an
   * implicit parameter of this type introduces an implicit conversion from the generic, unbound type to the desired one.
-  * @tparam T the type of the formal parameter of the generic method with only concrete bounds.
-  * @tparam L the desired, inferred type of the argument, with bounds dependent on other type parameters.
-  *           This will always be `L =:= T`.
-  * @tparam R the parameterized upper bound for types `T`, `L` with free type parameters only on the first level and
-  *           with concrete (or instantiated by the inferer) bounds.
+  *
+  * This inference is guaranteed to work only if the actual parameterized type `T` is a free type variable,
+  * that is does not occur in the method signature outside this implicit parameter. The exact algorithm that scala
+  * uses for instantiating type parameters is not documented and changes over time, but accepting `InferTypeParameters`
+  * as the first implicit parameter generally allows the following implicit parameters to use all the types
+  * present in its definition. An occurrence of `T` in the return type of the method accepting this implicit
+  * value can often unfortunately likewise result in a failure to infer the type parameters as in the standard scenario.
+  * If possible, try to use the type `X` instead, which is always equivalent to `T` for the caller, and use
+  * the `_1 : X=:=T` property to cast back the result.
+  * @tparam X the type of the formal parameter of the generic method with only concrete bounds, for example
+  *           `X &lt: Generic[_]`
+  * @tparam T the desired, inferred type of the argument, with bounds dependent on other type parameters,
+  *           for example `T &lt;: Generic[X]`. It will always be `T =:= X`.
+  * @tparam U the parameterized upper bound for types `X`, `T` with free type parameters only on the first level and
+  *           with concrete (or instantiated by the inferer) bounds, for example `Generic[X]`.
   * @see [[net.noresttherein.slang.typist.InferTypeParams.Conforms Conforms]]
   * @author Marcin Mościcki
   */
-@implicitNotFound("Cannot infer type arguments: type ${T} is not a subtype of ${L} with ${R}.")
-sealed abstract class InferTypeParams[-T, L <: R, +R] extends (T => L) {
-	def _1 :T <:< L
-	def _2 :T <:< R
-	def conjunction :T <:< L with R
+@implicitNotFound("Cannot infer type arguments: type ${X} is not a subtype of ${T} with ${U}.\n" +
+                  "This may be caused by type ${T} occurring outside of the InferTypeParams[${X}, ${T}, ${U}] " +
+                  "(alias Conforms) in the method signature, including its result type.")
+sealed abstract class InferTypeParams[X, T <: U, +U] extends (X => T) {
+	/** Witness of equivalency between the argument type `X` and the type `T` with inferred type arguments
+	  * for their supertype `U`, used in the implementation of the method.
+	  */
+	def _1 :X =:= T
+	/** Witness of the argument's type conformity to a generic upper bound type `U` with inferred type arguments. */
+	def _2 :X <:< U
+	/** Witness of the argument's type conformity to its inferred parameterized form and their generic upper bound `U` */
+	def conjunction :X <:< T with U
 
-	def l2r :L <:< R
+	/** Witness of the inferred type's `T` conformity to the generic upper bound `U` provided with type arguments by
+	  * `T` (by directly or indirectly extending type `U`).
+	  */
+	def ub :T <:< U
 }
 
 
@@ -65,7 +86,7 @@ object InferTypeParams {
 	  * will make the inferer correctly instantiate `X =:= C` and `P =:= A` from an argument `x :C`.
 	  * @see [[net.noresttherein.slang.typist.InferTypeParams InferTypeParams]]
 	  */
-	type Conforms[-T, L <: R, +R] = InferTypeParams[T, L, R]
+	type Conforms[T, L <: R, +R] = InferTypeParams[T, L, R]
 
 	@inline def Conforms[T] :Conforms[T, T, T] = unify[T]
 
@@ -76,9 +97,9 @@ object InferTypeParams {
 		conforms.asInstanceOf[Conforms[T, T, T]]
 
 	private[this] final val conforms = new Conforms[Any, Any, Any] {
-		override def _1 = implicitly[Any <:< Any] //implicitly[Any =:= Any]
+		override def _1 = implicitly[Any =:= Any]
 		override def _2 = implicitly[Any <:< Any]
-		override def l2r = implicitly[Any <:< Any]
+		override def ub = implicitly[Any <:< Any]
 		override def conjunction = implicitly[Any <:< Any]
 
 		override def apply(x :Any) = x
@@ -89,3 +110,4 @@ object InferTypeParams {
 
 
 }
+

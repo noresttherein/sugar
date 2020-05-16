@@ -25,9 +25,8 @@ libraryDependencies ++= Seq(
 
 scalacOptions ++= Seq(
 //	"-Ylog-classpath",
-//	"-Xlog-implicits",
-	"-feature",
-	"-deprecation",
+	"-Xlog-implicits",
+	"-feature",	"-deprecation",
 	"-language:postfixOps",
 	"-language:implicitConversions",
 	"-language:higherKinds",

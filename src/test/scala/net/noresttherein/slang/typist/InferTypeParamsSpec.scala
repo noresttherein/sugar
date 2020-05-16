@@ -1,5 +1,6 @@
 package net.noresttherein.slang.typist
 
+import scala.annotation.nowarn
 
 
 /** Verifies that appropriate implicit evidence exists. */
@@ -24,10 +25,10 @@ object InferTypeParamsSpec {
 
 			val sub = Invariant(infer2(new Sub[Item]))
 			//check if Nothing was not inferred
-			sub :Invariant[(Sub[Item], Super[Item])]
+			((sub :Invariant[(Sub[Item], Super[Item])]) : @nowarn)
 
 			val concrete = Invariant(infer2(new Concrete))
-			concrete :Invariant[(Concrete, Super[Item])]
+			((concrete :Invariant[(Concrete, Super[Item])]) : @nowarn)
 
 		}
 
@@ -41,10 +42,10 @@ object InferTypeParamsSpec {
 				(infer._1(x), infer._2(x))
 
 			val res = Invariant(infer2(new Sub[Item]))
-			res :Invariant[(Sub[Item], Super[Item])]
+			((res :Invariant[(Sub[Item], Super[Item])]) : @nowarn)
 
 			val res2 = Invariant(infer2(new Concrete))
-			res2 :Invariant[(Concrete, Super[Item])]
+			((res2 :Invariant[(Concrete, Super[Item])]) : @nowarn)
 		}
 
 		{ //contravariant
@@ -57,7 +58,7 @@ object InferTypeParamsSpec {
 				(infer._1(x), infer._2(x))
 
 			val res = Invariant(infer2(new Sub[Item]))
-			res :Invariant[(Sub[Item], Super[Item])]
+			((res :Invariant[(Sub[Item], Super[Item])]) : @nowarn)
 
 			val res2 = Invariant(infer2(new Concrete))
 			res2 :Invariant[(Concrete, Super[Item])]
