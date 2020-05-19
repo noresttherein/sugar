@@ -983,7 +983,7 @@ object Tuple {
 		
 		/** A copy of this tuple with the `first` element prepended as the first element.
 		  * This method, unlike append `><`, will always result in copying the whole contents, requiring `O(n)` time.
-		  * @see [[net.noresttherein.slang.tuples.Tuple.><.>< :*]]
+		  * @see [[net.noresttherein.slang.tuples.Tuple.><.>< ><]]
 		  */
 		def ><:[X, U >: P >< L <: Tuple, R <: Tuple](first :X)(implicit tpe :TupleTakeRight[R, _1, U]) :R = {
 			val count = length
