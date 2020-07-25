@@ -10,6 +10,9 @@ import scala.reflect.ClassTag
 package object optional {
 
 
+	type ?[+X] = Opt[X]
+
+
 	/** Finds the first defined optional value in the given list. Equivalent to `alternatives.find(_.isDefined)`.
 	  * It is particularly useful with the guarded expressions producing options, defined here:
 	  * {{{
@@ -203,7 +206,6 @@ package object optional {
 			if (condition(self)) Some(self) else None
 
 
-
 		/** Return `this` if `condition` is true, or the alternative value otherwise. Don't evaluate the alternative
 		  * if `condition` is true.  Note that `this` is eagerly evaluated.
 		  */
@@ -217,27 +219,22 @@ package object optional {
 			if (condition(self)) self else alternative
 
 
-
-
 		/** Return `Some(this)` if `condition` is false, `None` otherwise.  Note that `this` is eagerly evaluated. */
-		@inline def dissatisfying(condition :Boolean) :Option[T] =
+		@inline def violating(condition :Boolean) :Option[T] =
 			if (condition) None else Some(self)
 
-
 		/** Return `Some(this)` if `condition(this)` is false, `None` otherwise.  Note that `this` is eagerly evaluated. */
-		@inline def dissatisfying(condition :T => Boolean) :Option[T] =
+		@inline def violating(condition :T => Boolean) :Option[T] =
 			if (condition(self)) None else Some(self)
 
 
 		/** Return `this` if `condition` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline def dissatisfyingOrElse(condition :Boolean)(alternative : =>T) :T =
+		@inline def violatingOrElse(condition :Boolean)(alternative : =>T) :T =
 			if (condition) alternative else self
 
 		/** Return `this` if `condition(this)` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline def dissatisfyingOrElse(condition :T => Boolean)(alternative : =>T) :T =
+		@inline def violatingOrElse(condition :T => Boolean)(alternative : =>T) :T =
 			if (condition(self)) alternative else self
-
-
 	}
 
 
@@ -248,17 +245,15 @@ package object optional {
 	/** Extension methods evaluating and returning the value passed as `this` argument only if a given predicate is satisfied.
 	  * @see [[net.noresttherein.slang.optional.satisfyingMethods]]
 	  */
-	implicit class providingMethods[T](self : =>T)  {
+	implicit class providingMethods[T](self : => T)  {
 
 		/** Return `Some(this)` if `condition` is true, or `None` without evaluating this expression otherwise. */
 		@inline def providing(condition :Boolean) :Option[T] =
 			if (condition) Some(self) else None
 
-
 		/** Return `Some(this)` if `condition` is false, or `None` without evaluating this expression otherwise. */
 		@inline def unless(condition :Boolean) :Option[T] =
 			if (condition) None else Some(self)
-
 	}
 
 

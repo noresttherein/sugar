@@ -1,5 +1,8 @@
 package net.noresttherein.slang.optional
 
+
+
+
 /**  A value class treating nullable reference types as option-like monads erased in runtime. It behaves
   *  exactly like `scala.Option[T]`, but does not require boxing and thus yields performance benefits in tight
   *  recursion/loops.
@@ -22,10 +25,10 @@ final class RefOpt[+T <: AnyRef] private(/** A wrapped reference value which may
 	@inline def isEmpty: Boolean = orNull==null
 
 	/** Tests if this value is not null. */
-	@inline def nonEmpty: Boolean = orNull!=null
+	@inline def nonEmpty: Boolean = orNull != null
 
 	/** Tests if this value is not null. */
-	@inline def isDefined: Boolean = orNull!=null
+	@inline def isDefined: Boolean = orNull != null
 
 	/** Tests if this instance is `null`, Same as `isEmpty`. */
 	@inline def isNull: Boolean = orNull==null
@@ -93,26 +96,26 @@ final class RefOpt[+T <: AnyRef] private(/** A wrapped reference value which may
 
 
 	/** Executes the given block for this value if it is not null. */
-	@inline def foreach[O](f :T=>O) :Unit = if (orNull!=null) f(orNull)
+	@inline def foreach[O](f :T=>O) :Unit = if (orNull != null) f(orNull)
 
 	/** Tests if this value is not null and satisfies the given predicate. */
-	@inline def exists(p :T=>Boolean): Boolean = orNull!=null && p(orNull)
+	@inline def exists(p :T=>Boolean): Boolean = orNull != null && p(orNull)
 
 	/** Tests if this value is null or satisfies the given predicate. */
 	@inline def forall(p :T=>Boolean): Boolean = orNull==null || p(orNull)
 
 	/** Tests if this value is not null and equal to the given argument. */
-	@inline def contains[O >: T <: AnyRef](o :O): Boolean = orNull!=null && orNull == o
+	@inline def contains[O >: T <: AnyRef](o :O): Boolean = orNull != null && orNull == o
 
 	/** Returns a new `RefOpt` containing this value if it is not null and satisfies the given predicate,
 	  * or a null value otherwise.
 	  */
 	@inline def filter(p :T=>Boolean) :RefOpt[T] =
-		if (orNull!=null && p(orNull)) this else new RefOpt(null.asInstanceOf[T])
+		if (orNull != null && p(orNull)) this else new RefOpt(null.asInstanceOf[T])
 
 	/** Equivalent to `this.`[[RefOpt#filter]]`(p)` - a variant for use in for-comprehensions. */
 	@inline def withFilter(p :T=>Boolean) :RefOpt[T] =
-		if (orNull!=null && p(orNull)) this else new RefOpt(null.asInstanceOf[T])
+		if (orNull != null && p(orNull)) this else new RefOpt(null.asInstanceOf[T])
 
 
 	/** Returns a new `RefOpt` which is empty if this value is null or contains the result of applying
@@ -154,14 +157,14 @@ final class RefOpt[+T <: AnyRef] private(/** A wrapped reference value which may
 	  * `RefOpt[Nothing]`, which in turn would imply `null :Nothing` * by the `orNull` method.
 	  */
 	@inline def collect[O >: Null <: AnyRef](f :PartialFunction[T, O]) :RefOpt[O] =
-		if (orNull!=null) new RefOpt(f.applyOrElse(orNull, null))
+		if (orNull != null) new RefOpt(f.applyOrElse(orNull, (_:T) => null))
 		else new RefOpt(null)
 
 
 
 	/** An iterator returning this value as the only element if `this.nonEmpty`. */
 	@inline def iterator :Iterator[T] =
-		if (orNull==null) Iterator.single(orNull) else Iterator.empty
+		if (orNull != null) Iterator.single(orNull) else Iterator.empty
 
 
 	/** Returns `Nil` if this value is null or or `this.get::Nil` otherwise. */
@@ -225,7 +228,7 @@ object RefOpt {
 	  * so common sense in application is required.
 	  */
 	object NotNull {
-		@inline final def unapply[T <: AnyRef](opt :RefOpt[T]) :Option[T] = Option(opt.orNull)
+		@inline final def unapply[T <: AnyRef](opt :RefOpt[T]) :RefOpt[T] = opt
 	}
 
 }

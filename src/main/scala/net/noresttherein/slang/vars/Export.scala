@@ -27,17 +27,16 @@ sealed class Export[T](init :T) extends SyncVar[T](init) with Serializable {
 	if (init == null)
 		throw new NullPointerException("Export(null)")
 
-//	private[this] var mutable = init
 	@volatile private[this] var immutable :T = _
-	private[this] var fast :T = _
+	private[this] var cached :T = _
 
 
 	final override def get :T =
-		if (fast != null)
-			fast
+		if (cached != null)
+			cached
 		else if (immutable != null) {
-			fast = immutable
-			fast
+			cached = immutable
+			cached
 		} else super.get
 
 
@@ -49,10 +48,10 @@ sealed class Export[T](init :T) extends SyncVar[T](init) with Serializable {
 	final override def :=(newValue :T) :Unit = synchronized {
 		if (get == null)
 			throw new IllegalStateException(s"Export($immutable) is exported.")
-		else if (value == null)
+		else if (newValue == null)
 			throw new NullPointerException(s"Export($get) := null")
 		else
-			super.:=(value)
+			super.:=(newValue)
 	}
 
 
@@ -62,19 +61,19 @@ sealed class Export[T](init :T) extends SyncVar[T](init) with Serializable {
 	  * will be the result of the last assignment, with no assignments being lost.
 	  */
 	@inline final def export() :Unit =
-		if (fast == null && immutable == null) synchronized {
-			if (fast == null && immutable == null) {
-				fast = super.get
+		if (cached == null && immutable == null) synchronized {
+			if (cached == null && immutable == null) {
+				cached = super.get
 				super.:=(immutable) //set null
-				immutable = fast
+				immutable = cached
 			}
 		}
 
 	/** Checks if this variable is now immutable. */
-	@inline final def isExported :Boolean = fast != null || immutable != null
+	@inline final def isExported :Boolean = cached != null || immutable != null
 
 	/** Checks if this variable is still mutable. */
-	@inline final def isMutable :Boolean = fast == null && immutable == null
+	@inline final def isMutable :Boolean = cached == null && immutable == null
 
 }
 

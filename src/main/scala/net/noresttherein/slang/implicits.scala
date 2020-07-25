@@ -20,23 +20,31 @@ object implicits {
 	import repeatedly._
 	import prettyprint._
 
-	/** Adds a `useIn` method to any value which applies a given function to `this`. */
-	implicit class useInMethod[X](private val x :X) extends AnyVal {
-		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr useIn f`
+	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
+	implicit class feedToMethod[X](private val x :X) extends AnyVal {
+		//todo: maybe some special character name?
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
 		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write,
 		  * especially when modifying existing code for `f`, as there is no need for a a closing `}` in a possibly
 		  * distant edit location.
 		  */
-		def useIn[T](f :X => T) :T = f(x)
+		def feedTo[T](f :X => T) :T = f(x)
 	}
 
+	/** Adds a `neq` method to any reference type, defined as the opposite of the build int 'method' `eq`. */
+	implicit class neqMethod[X <: AnyRef](private val self :X) extends AnyVal {
+		/** Checks if the two references point to different objects.
+		  * @return `!(this eq that)`.
+		  */
+		@inline def neq(that :AnyRef) :Boolean = !(self eq that)
+	}
 
 
 
 	/** Adds `ifTrue` and `ifFalse` methods to any `Boolean` value which lift any argument expression to an `Option`. */
 	@inline implicit final def ifTrueMethods(condition :Boolean) :ifTrueMethods = new ifTrueMethods(condition)
 
-	/** Adds `satisfying` and `dissatisfying` methods to any object for lifting it to an `Option[T]` based on a predicate value. */
+	/** Adds `satisfying` and `violating` methods to any object for lifting it to an `Option[T]` based on a predicate value. */
 	@inline implicit final def satisfyingMethods[T](subject :T) :satisfyingMethods[T] = new satisfyingMethods(subject)
 
 	/** Adds `providing` and `unless` methods to any lazy expression, returning it as an option after testing a boolean condition. */
