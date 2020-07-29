@@ -5,6 +5,7 @@ import net.noresttherein.slang.tuples.Tuple.evidence.{TupleAt, TupleDrop, TupleD
 import net.noresttherein.slang.typist.UpperBound
 
 import scala.annotation.implicitNotFound
+import scala.collection.immutable.ArraySeq
 import scala.compat.Platform
 
 
@@ -565,9 +566,9 @@ object Tuple {
 	  */
 	final val <> : <> = new <>
 	
-	/** An alias for the empty tuple `&lt;&gt;`. No special characters allow omitting spaces in composite types: `T0&gt;&lt;X&gt;&lt;Y`. */
+	/** An alias for the empty tuple `&lt;&gt;`. No special characters which allows omitting spaces in composite types: `T0&gt;&lt;X&gt;&lt;Y`. */
 	type T0 = <>
-	/** An empty tuple, same as `&lt;&gt;`, but without special characters allow omitting spaces on append: `T0&gt;&lt;"first"`. */
+	/** An empty tuple, same as `&lt;&gt;`, but without special characters which allows omitting spaces on append: `T0&gt;&lt;"first"`. */
 	final val T0 = <>
 	
 
@@ -601,10 +602,10 @@ object Tuple {
 	
 	/** An alias for a two element tuple `<> >< X >< Y` omitting the terminator type `<>` from the type signature,
 	  * shortening the notation to `X >:< Y`. New instances can be created by the companion object to this type
-	  * [[net.noresttherein.slang.tuples.Tuple.>:<$ >:<]]: `>:<(x, y)`, `Tuple(x, y)`, or an implicitly added extension 
+	  * [[net.noresttherein.slang.tuples.Tuple.>:<$ >:<]]: `>:<(x, y)`, `Tuple(x, y)`, or an implicitly added extension
 	  * method `>:<`: `x >:< y` (made available after importing this type).
 	  */
-	type >:<[+X, +Y] = <> >< X >< Y 
+	type >:<[+X, +Y] = <> >< X >< Y
 	
 	/** Constructor and extractor for two-element tuples `H&gt;:&lt;T` (equivalent to `&lt;&gt; &gt; H &gt;&lt; T`) 
 	  * for the use in pattern matching. 
@@ -612,7 +613,7 @@ object Tuple {
 	object >:< {
 		/** Create a two-element tuple. */
 		def apply[A, B](first :A, second :B) :A >:< B = {
-			val elems = new Array[Any](2)
+			val elems = new Array[Any](4)
 			elems(0) = second; elems(1) = first
 			new ><(elems, 2)
 		}
@@ -653,26 +654,16 @@ object Tuple {
 	  * @tparam L the type of the last element in this tuple.
 	  * @see [[net.noresttherein.slang.tuples.Tuple.><$ companion object]]
 	  */
-	final class ><[+P <: Tuple, +L] private[Tuple](elements :Array[Any], size :Int) extends Tuple {
+	final class ><[+P <: Tuple, +L] private[Tuple](elements :Array[Any], size :Int, owner :Boolean = true) extends Tuple {
 
 		private[Tuple] def this(elements :Array[Any]) = this(elements, elements.length)
 
 		@inline private[Tuple] def array :Array[Any] = elements
 
-		/** Absolute value is equal to the arity of this tuple, i.e. the number of its elements. Signum is used to
-		  * mark ownership of the `elements` array - if `len &gt; 0` then this instance is the only one which
-		  * can write to the array. Negative value signifies that prepending elements to the tuple requires copying
-		  * of the array. Singleton tuples always start with a positive value, while each time an element is prepended
-		  * to a tuple, the value of this field for the new tuple is copied from the original, while the latter's field
-		  * is negated by setting it to `len = -math.abs(len)`. What follows is that the first prepend operation
-		  * passes the ownership of the array to the newly created tuple without creating a new array. As the result,
-		  * creating a tuple by prepending individual elements has `O(n)` complexity rather than `O(n*n)` in a naive
-		  * implementation.
-		  */
-		@volatile private[this] var len = size
+		@volatile private[this] var canAppend = owner
 
 		/** The number of elements in this tuple. */
-		def length :Int = { val count = len; if (count > 0) count else -count }
+		def length :Int = size
 
 		override def isEmpty :Boolean = false
 
@@ -754,7 +745,7 @@ object Tuple {
 		  * @tparam U the least upper bound for types of all elements in this tuple.
 		  */
 		def apply[U](n :Int)(implicit lub :TupleLUB[P >< L, U]) :U = {
-			if (n <= 0 || n > length)
+			if (n <= 0 || n > size)
 				throw new IndexOutOfBoundsException(s"$this($n)")
 			elements(n - 1).asInstanceOf[U]
 		}
@@ -780,10 +771,10 @@ object Tuple {
 		  * @tparam R result type provided by an implicit parameter.
 		  */
 		def set[N <: Nat, X, R <: Tuple](n :N, value :X)(implicit tpe :UpdatedTuple[P >< L, N, X, R]) :R = {
-			var count = length
+			var count = size
 			val copy = new Array[Any](count)
 			do {
-				count -=1; copy(count) = elements(count)
+				count -= 1; copy(count) = elements(count)
 			} while (count > 0)
 			copy(n.number - 1) = value
 			new ><[Tuple, Any](copy).asInstanceOf[R]
@@ -791,8 +782,8 @@ object Tuple {
 
 		/** This tuple with the last element replaced with `x`. */
 		def setLast[X](x :X) :P >< X = {
-			var count = length - 1
-			val copy = new Array[Any](length)
+			var count = size - 1
+			val copy = new Array[Any](size)
 			copy(count) = x
 			while(count > 0) {
 				count -= 1
@@ -827,7 +818,7 @@ object Tuple {
 
 		/** A tuple consisting of all elements from this tuple except the first. */
 		def tail[T <: Tuple](implicit tpe :TupleDrop[P >< L, _1, T]) :T = {
-			val count = length - 1
+			val count = size - 1
 			if (count == 0) <>
 			else {
 				val copy = new Array[Any](count)
@@ -838,24 +829,22 @@ object Tuple {
 
 		/** A tuple with the first `length-1` elements of this tuple. */
 		def init: P = {
-			val count = length
-			if (count == 1) <>
-			else new ><(elements, -count + 1)
+			if (size == 1) <>
+			else new ><(elements, size - 1, false)
 		}.asInstanceOf[P]
 
 		/** The last (rightmost) element of this tuple. */
-		def last: L = elements(length-1).asInstanceOf[L]
+		def last: L = elements(size - 1).asInstanceOf[L]
 
 
 		/** A copy of this tuple without the first `N` elements, where `N` is a type-level encoding of a natural number. */
 		def drop[N <: Nat, R <: Tuple](n :N)(implicit restType :TupleDrop[P >< L, N, R]) :R = {
-			val count = length
-			if (n.number >= count) <>.asInstanceOf[R]
+			if (n.number >= size) <>.asInstanceOf[R]
 			else {
-				val size = count - n.number
-				val copy = new Array[Any](size)
-				System.arraycopy(elements, n.number, copy, 0, size)
-				new ><[Tuple, Any](copy, size).asInstanceOf[R]
+				val newsize = size - n.number
+				val copy = new Array[Any](newsize)
+				System.arraycopy(elements, n.number, copy, 0, newsize)
+				new ><[Tuple, Any](copy, newsize).asInstanceOf[R]
 			}
 		}
 
@@ -864,17 +853,16 @@ object Tuple {
 		def take[N <: Nat, R <: Tuple](n :N)(implicit initType :TupleTake[P >< L, N, R]) :R =
 			if (n.number <= 0) <>.asInstanceOf[R]
 			else {
-				val count = length
-				if (n.number >= count) this.asInstanceOf[R]
-				else new ><[Tuple, Any](elements, -n.number).asInstanceOf[R]
+				if (n.number >= size) this.asInstanceOf[R]
+				else new ><[Tuple, Any](elements, n.number, false).asInstanceOf[R]
 			}
 
 
 		/** A copy of this tuple without the last `N` elements, where `N` is a type-level encoding of a natural number. */
 		def dropRight[N <: Nat, R <: Tuple](n :N)(implicit resType :TupleDropRight[P >< L, N, R]) :R = {
-			val count = length; val num = n.number
-			if (num >= count) <>.asInstanceOf[R]
-			else new ><[Tuple, Any](elements, num - count).asInstanceOf[R]
+			val num = n.number
+			if (num >= size) <>.asInstanceOf[R]
+			else new ><[Tuple, Any](elements, size - n, false).asInstanceOf[R]
 		}
 
 
@@ -882,11 +870,11 @@ object Tuple {
 		def takeRight[N <: Nat, R <: Tuple](n :N)(implicit resType :TupleTakeRight[P >< L, N, R]) :R =
 			if (n.number <= 0) <>.asInstanceOf[R]
 			else {
-				val count = length; val num = n.number
-				if (num >= count) this.asInstanceOf[R]
+				val num = n.number
+				if (num >= size) this.asInstanceOf[R]
 				else {
 					val copy = new Array[Any](num)
-					System.arraycopy(elements, count - num, copy, 0, num)
+					System.arraycopy(elements, size - num, copy, 0, num)
 					new ><[Tuple, Any](copy, num).asInstanceOf[R]
 				}
 			}
@@ -899,9 +887,11 @@ object Tuple {
 		  */
 		def slice[F <: Nat, U <: Nat, R0 <: Tuple, R <:Tuple](from: ++[F], until: ++[U])
                  (implicit takeType :TupleTake[P >< L, U, R0], dropType :TupleDrop[R0, F, R]) :R = {
-			val count = length; val f = from.number - 1; val u = until.number - 1
-			if (u <= 0 || f >= count) <>.asInstanceOf[R]
-			else if (f <= 0 && u >= count) this.asInstanceOf[R]
+			val f = from.number - 1; val u = until.number - 1
+			if (u <= 0 || f >= size || f >= u) <>.asInstanceOf[R]
+			else if (f <= 0)
+                if (u >= size) this.asInstanceOf[R]
+                else new ><[Tuple, Any](elements, u, false).asInstanceOf[R]
 			else new ><[Tuple, Any](elements.slice(f, u), u - f).asInstanceOf[R]
 		}
 
@@ -912,10 +902,10 @@ object Tuple {
 		  * @param right implicit provider of the type of the second returned tuple.
 		  */
 		def splitAt[N <: Nat, A <: Tuple, B <: Tuple](n :N)(implicit left :TupleTake[P >< L, N, A], right :TupleDrop[P >< L, N, B]) :(A, B) = {
-			val count = length; val i = n.number - 1
+			val i = n.number - 1
 			if (i <= 0) (<>, this)
-			else if (i >= count) (this, <>)
-			else (new ><[Tuple, Any](elements.take(i), i), new ><[Tuple, Any](elements.slice(i, count), count - i))
+			else if (i >= size) (this, <>)
+			else (new ><[Tuple, Any](elements, i, false), new ><[Tuple, Any](elements.slice(i, size), size - i))
 		}.asInstanceOf[(A, B)]
 
 
@@ -937,19 +927,27 @@ object Tuple {
 				new ><[Tuple, Any](a, i).asInstanceOf[R]
 			}
 
-		/** Returns a sequence containing all elements of this tuple from left to right. The element type is calculated
+		/** Returns a list containing all elements of this tuple from left to right. The element type is calculated
 		  * as the least upper bound of all member types in this tuple.
 		  * @param elemType implicit witness providing the most specific type to which all elements of this tuple conform.
 		  * @tparam U a type to which all elements of this tuple conform.
 		  */
-		def toList[U](implicit elemType :TupleLUB[P >< L, U]) :Seq[U] = {
-			var res :List[U] = Nil; var i = length
+		def toList[U](implicit elemType :TupleLUB[P >< L, U]) :List[U] = {
+			var res :List[U] = Nil; var i = size
 			while (i > 0) {
 				i -= 1
 				res = elements(i).asInstanceOf[U]::res
 			}
 			res
 		}
+
+		/** Returns a sequence containing all elements of this tuple from left to right. The element type is calculated
+		  * as the least upper bound of all member types in this tuple.
+		  * @param elemType implicit witness providing the most specific type to which all elements of this tuple conform.
+		  * @tparam U a type to which all elements of this tuple conform.
+		  */
+		def toSeq[U](implicit elemType :TupleLUB[P >< L, U]) :Seq[U] =
+			ArraySeq.unsafeWrapArray(elements).take(size).asInstanceOf[Seq[U]]
 
 
 
@@ -959,24 +957,20 @@ object Tuple {
 		  * inserted to the shared array. Subsequent append operations on any instance always copy the whole contents.
 		  */
 		def ><[X](last :X): P >< L >< X = {
-			var count = len //store in a variable as signum of len might change concurrently
-			if (elements.length < count) synchronized { //count > 0 and there is space for a new element in the array
-				count = len
-				if (count > 0) {
-					len = -count
-					elements(count) = last
-					return new ><(elements, count+1)
+			if (elements.length < size && canAppend) synchronized {
+				if (canAppend) {
+					canAppend = false
+					elements(size) = last
+					return new ><(elements, size + 1)
 				}
 			}
 			var newlen = elements.length * 2
-			if (count < 0) {
-				count = -count
-				newlen = count + 1
-			}
+			if (elements.length == size)
+				newlen = size + 1
 			val copy = new Array[Any](newlen)
-			System.arraycopy(elements, 0, copy, 0, count)
-			copy(count) = last
-			new ><(copy, count + 1)
+			System.arraycopy(elements, 0, copy, 0, size)
+			copy(size) = last
+			new ><(copy, size + 1)
 		}
 
 		
@@ -986,11 +980,10 @@ object Tuple {
 		  * @see [[net.noresttherein.slang.tuples.Tuple.><.>< ><]]
 		  */
 		def ><:[X, U >: P >< L <: Tuple, R <: Tuple](first :X)(implicit tpe :TupleTakeRight[R, _1, U]) :R = {
-			val count = length
-			val copy = new Array[Any](count + 1)
-			System.arraycopy(elements, 0, copy, 1, count)
+			val copy = new Array[Any](size + 1)
+			System.arraycopy(elements, 0, copy, 1, size)
 			copy(0) = first
-			new ><[Tuple, Any](copy, count + 1).asInstanceOf[R]
+			new ><[Tuple, Any](copy, size + 1).asInstanceOf[R]
 		}
 
 
@@ -1001,9 +994,9 @@ object Tuple {
 
 		override def equals(that :Any) :Boolean = that match {
 			case t : ><[_, _] =>
-				(t eq this) || (t canEqual this) && t.length == length && {
-					var i = length; val others = t.array
-					do { i -=1 } while (i >= 0 && elements(i) == others(i))
+				(t eq this) || (t canEqual this) && t.length == size && {
+					var i = size; val others = t.array
+					do { i -= 1 } while (i >= 0 && elements(i) == others(i))
 					i < 0
 				}
 			case _ => false
@@ -1012,8 +1005,8 @@ object Tuple {
 		override def toString :String = {
 			val res = new StringBuilder
 			res append '(' append elements(0)
-			var i = 1; val count = length
-			while (i < count) {
+			var i = 1
+			while (i < size) {
 				res append " >< "
 				res append elements(i)
 				i += 1

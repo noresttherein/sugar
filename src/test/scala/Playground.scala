@@ -5,6 +5,93 @@ import net.noresttherein.slang.typist.InferTypeParams.Conforms
   * @author Marcin Mościcki marcin@moscicki.net
   */
 object Playground extends App {
+
+	trait Subject {
+		type E
+	}
+
+	abstract class Projection[S <: Subject] {
+		type Project[X] <: Subject { type E = X }
+	}
+
+	implicit class ProjectSubject[S <: Subject](private val self :S) extends AnyVal {
+		def project[X](implicit p :Projection[S]) :p.Project[X] = p.asInstanceOf[p.Project[X]]
+	}
+//	implicit class ProjectSubject[S <: Subject](private val self :S) extends AnyVal {
+//		def project[X](implicit p :Projection[_ >: S <: Subject]) :p.Project[X] = ???
+//	}
+//	abstract class ProjectionAvailable[-S <: T, T <: Subject] //extends (S => T)
+//	implicit def ProjectionAvailable[S <: Subject](implicit p :Projection[S]) :ProjectionAvailable[S, S] = ??? //(s :S) => s
+//
+//	implicit def ProjectionSubject[S <: T, T <: Subject](s :S)(implicit witness :ProjectionAvailable[S, T]) =
+//		new ProjectionSubject[T](s)
+//
+//	class ProjectionSubject[S <: Subject](private val self :S) extends AnyVal {
+//		def project[X](implicit p :Projection[S]) :p.Project[X] = p.asInstanceOf[p.Project[X]]
+//	}
+
+	class Box[X] extends Subject { type E = X }
+
+	object Box {
+		implicit def projection[A] :Projection[Box[A]] { type Project[X] = Box[X] } = ???
+	}
+
+	class Adapter[S <: Subject] extends Subject { type E = S#E }
+
+	object Adapter {
+		implicit def adapterProjection[S <: Subject](implicit p :Projection[S])
+			:Projection[Adapter[S]] { type Project[X] = Adapter[p.Project[X]] } = ???
+	}
+
+	val res = new Adapter[Box["E"]].project["F"]
+
+//	class Specific extends Adapter[Box["E"]]
+//	val spec = (new Specific).project["F"]
+//	spec :Nothing
+
+
+//	implicit def format(s :String, i :Int) :String = s + i
+
+//	implicitly[(String, Int) => String]
+
+//	trait F[X]
+	trait Base {
+		type X
+	}
+
+	type F[Y] = Base { type X = Y }
+
+	trait FF[X, Y] //extends F[X]
+
+//	type F[X] = FF[X, _]
+
+	trait FFF[A, B] extends Base { type X = A }//FF[X, X]
+
+	class High[A[B] <: F[B]]
+
+	trait Sig {
+		def test :High[A] forSome { type A[B] <: F[B] }
+	}
+
+	class Struct[T[A] <: FFF[A, B], B] extends Sig {
+		override def test :High[T] = ???
+	}
+
+
+	trait Clause {
+		type T
+
+		def set(t :T)
+		def get :T
+	}
+
+	type SubclauseOf[-C <: Clause] = Clause { type T >: C <: Clause }
+
+	def test[C <: Clause, S <: SubclauseOf[C]](s :S) = {
+		s.set(s.get)
+	}
+
+
 	trait FromClause
 
 	class Left extends FromClause
@@ -53,6 +140,7 @@ object Playground extends App {
 //	val join = inferSubject(new Left, source)
 //	join :Int
 
+
 	sealed abstract class JoinedRelationSubject[J[+F <: FromClause, M[O] <: MappingFrom[O]] <: F Join M,
 		R[O] <: MappingFrom[O], T[O] <: U[O], +U[O] <: GenericMapping[_, O]]
 	{
@@ -91,11 +179,11 @@ object Playground extends App {
 //	class AndImpl[U, X](val left :Bound[U], val next :X) extends And[Bound[U]#Self, X]
 
 
-	trait Base[S] {
-		type Subject = S
-	}
-
-	trait Extended {
-		class Subject
-	}
+//	trait Base[S] {
+//		type Subject = S
+//	}
+//
+//	trait Extended {
+//		class Subject
+//	}
 }

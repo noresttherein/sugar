@@ -357,9 +357,18 @@ object TupleSpec extends Properties("Tuple") {
             t11.toList, t12.toList, t13.toList, t14.toList, t15.toList, t16.toList, t17.toList, t18.toList, t19.toList, t20.toList,
             t21.toList, t22.toList, t23.toList, t24.toList, t25.toList
         )
-		all(tuples.zip(lengths) map { case (t, len) => t =? lengths.take(len) } :_*)
+		all(tuples.zip(lengths) map { case (t, len) => t =? lengths.take(len).toList } :_*)
 	}
 
+	property("><.toSeq") = {
+		val lengths = 0 to 25
+		val tuples = Seq(
+			t0.toSeq, t1.toSeq, t2.toSeq, t3.toSeq, t4.toSeq, t5.toSeq, t6.toSeq, t7.toSeq, t8.toSeq, t9.toSeq, t10.toSeq,
+			t11.toSeq, t12.toSeq, t13.toSeq, t14.toSeq, t15.toSeq, t16.toSeq, t17.toSeq, t18.toSeq, t19.toSeq, t20.toSeq,
+			t21.toSeq, t22.toSeq, t23.toSeq, t24.toSeq, t25.toSeq
+		)
+		all(tuples.zip(lengths) map { case (t, len) => t =? lengths.take(len) } :_*)
+	}
 
 
 }
