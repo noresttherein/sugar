@@ -39,8 +39,11 @@ import scala.annotation.implicitNotFound
   * used to capture its type parameters. For convenience, this trait implements `X => T`, so simply declaring an
   * implicit parameter of this type introduces an implicit conversion from the generic, unbound type to the desired one.
   *
-  * This inference is guaranteed to work only if the actual parameterized type `T` is a free type variable,
-  * that is does not occur in the method signature outside this implicit parameter. The exact algorithm that scala
+  * This inference ''should'' work as long as the type `T` does not occur in the method's signature before this argument.
+  * It is guaranteed however only if the actual parameterized type `T` is a free type variable, that is does not occur
+  * in the method signature outside this implicit parameter. One common failure case is when `T` occurs as part
+  * of the a method's return type, and the caller specifies the expected result type explicitly (in terms of `T`),
+  * for example by returning the method's result directly. The exact algorithm that scala
   * uses for instantiating type parameters is not documented and changes over time, but accepting `InferTypeParameters`
   * as the first implicit parameter generally allows the following implicit parameters to use all the types
   * present in its definition. An occurrence of `T` in the return type of the method accepting this implicit
@@ -56,9 +59,9 @@ import scala.annotation.implicitNotFound
   * @see [[net.noresttherein.slang.typist.InferTypeParams.Conforms Conforms]]
   * @author Marcin Mościcki
   */
-@implicitNotFound("Cannot infer type arguments: type ${X} is not a subtype of ${T} with ${U}.\n" +
-                  "This may be caused by type ${T} occurring outside of the InferTypeParams[${X}, ${T}, ${U}] " +
-                  "(alias Conforms) in the method signature, including its result type.")
+@implicitNotFound("Cannot infer type arguments: cannot prove ${X} =:= ${T} and ${X} <: ${U}.\n" +
+                  "This may be caused by the second type parameter occurring before " +
+                  "the InferTypeParams[${X}, ${T}, ${U}] argument in the method signature or its return type.")
 sealed abstract class InferTypeParams[X, T <: U, +U] extends (X => T) {
 	/** Witness of equivalency between the argument type `X` and the type `T` with inferred type arguments
 	  * for their supertype `U`, used in the implementation of the method.

@@ -244,7 +244,7 @@ object fun {
 					var res = search(cls.getGenericSuperclass)
 					val it = cls.getGenericInterfaces.iterator
 					while (it.hasNext) { //look for the most narrow definition
-						val next = search(it.next)
+						val next = search(it.next())
 						if (next != null)
 							if (res == null || !res.isInstanceOf[Class[_]])
 								res = next

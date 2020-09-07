@@ -34,7 +34,7 @@ impromptu debug logs which print argument values to various outputs before retur
    
 ### 2. slang.time ###   
 Almost one-to-one wrappers for classes representing time the from `java.time` package.
-They are value classes (meaning no wrapper objects are actually created unless you
+They are mostly value classes (meaning no wrapper objects are actually created unless you
 take advantage of their polymorphic interfaces) which provide what you'd expect: 
 temporal arithmetic using standard operators `+`,`-`,`*`, comparable with `<=` 
 and friends and generally more scala-like method names (so, `date.month` instead of 
@@ -62,10 +62,15 @@ the more advanced features, or who value additional whitespace and commenting ab
 
     val latinOrGreek = (Az | script"Greek") * //requires postfix calls enabled
     val id = Az::(AlNum|'_').*
-    val line = `^`::!(`\\n`|`\\r`|`\\f`).*::`$`
+    val line = `^` :: (!(`\\n`|`\\r`|`\\f`)).* :: `$`
+
+The types, values and factory methods generally follow the Java flavour of regular expressions 
+ (so you'll find quite a few uses of quoted identifiers such as `^` and `$` above), 
+ which should make you feel at home with the character classes you know, and provide 
+ discovery and documentation viewing potential of a statically typed language in your IDE.
     
 #### 3.2 RegexpGroupMatcher ####
-Provides string interpolation syntax for regular exressions used in pattern matching:
+Provides string interpolation syntax for regular expressions used in pattern matching:
 
     string match {
         case r"($user[^@]+)@($domain.+)" => println s"$user at $domain"
@@ -91,23 +96,24 @@ Reflection-based utilities for implementing `toString` methods.
 Syntax for creating options:
 
     x / y unless y == 0 //if (y!=0) Some(x / y) else None
-    x * y providing y < Int.MaxValue - y
+    x + y providing y < Int.MaxValue - x
     className.indexOf('.') satisfying _ >= 0
     
-Also, a `RefOpt[T <: AnyRef]` value class using the null value to simulate `None`. 
+Also, a non-boxing `Opt[+T]` monkeying the scala `Option` type. 
 
 
 
 ### 6. slang.tuples ###        
-A variable length tuple, similar to shapless `HList` but modelled more after tuples
+A variable length tuple, similar to shapeless `HList` but modelled more after tuples
 than lists and with constant time access:
 
-    val slice = "this is the best bit" >:< 17 >< 17+3 :String<*>Int<>Int
+    val slice = "this is the best bit" >:< 17 >< 17+3 :String>:<Int><Int
     slice._1.substring(slice._2, slice._3 - slice._2)
     slice match {
         case string >:< start >< end => string.substring(start, end-start)
     }
-    
+The tuple link `><` has arguably a more practical (lower) precedence than `::` 
+and doesn't conflict with `scala.::`.    
     
     
 ### 7. slang.vars ###

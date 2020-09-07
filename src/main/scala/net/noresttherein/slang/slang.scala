@@ -16,6 +16,7 @@ package object slang {
 
 
 
+	/** The 'da fuck!??' method throwing an [[net.noresttherein.slang.ImplementationError ImplementationError]] */
 	def !?? :Nothing = throw new ImplementationError
 
 	class ImplementationError(msg :String, reason :Throwable) extends Error(msg, reason) {

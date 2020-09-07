@@ -4,7 +4,7 @@ import net.noresttherein.slang.vars.InOut.DefaultValue
 
 
 /** A very light adapter of `java.lang.ThreadLocal` to `InOut[T]`, which by implicit conversions provides
-  * arithmetic assignment operations. Instances of these class.
+  * arithmetic assignment operations.
   * @author Marcin Mościcki
   */
 class ThreadLocal[T](init :T) extends InOut[T] {

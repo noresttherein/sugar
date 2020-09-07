@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
 
 scalacOptions ++= Seq(
 //	"-Ylog-classpath",
-	"-Xlog-implicits",
+//	"-Xlog-implicits",
 	"-Wconf:cat=deprecation&msg=foldLeft instead|foldRight instead:silent,cat=deprecation:w,cat=feature:w",
 //	"-language:postfixOps",
 	"-language:implicitConversions",
