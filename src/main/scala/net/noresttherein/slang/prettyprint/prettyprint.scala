@@ -40,26 +40,28 @@ package object prettyprint {
 	/** Returns the class name of the given object aa seen from the most inner containing scope (class or object).
 	  * Anonymous classes will instead retain the name of the first non-synthetic (programmer named) scope.
 	  * @return `localNameOf(o.getClass)`
-	  * @see [[localNameOf]]
+	  * @see [[net.noresttherein.slang.prettyprint#localNameOf]]
 	  */
 	@inline def localClassName(o :Any) :String = localNameOf(o.getClass)
 
 	/** Attempts to strip the name of the class given as type parameter of all outer packages and containing classes or objects.
-	  * First, it strips package names separated by dots as [[unqualifiedClassName()]] does, and then outer classes
-	  * assuming the class name uses '$' as nesting separator as by compiler default. If the most inner identifier
-	  * thus obtained is recognized as anonymous (in particular for lambdas), returned string will start with the
-	  * most inner class/object identifier recognized as non-synthetic (that is, existing as in code with an optional '$').
-	  * Note that this function is largely a heuristic and may not always return desired results.
+	  * First, it strips package names separated by dots as [[net.noresttherein.slang.prettyprint#unqualifiedClassName()]]
+	  * does, and then outer classes assuming the class name uses '$' as nesting separator as by compiler default.
+	  * If the most inner identifier thus obtained is recognized as anonymous (in particular for lambdas),
+	  * the returned string will start with the most inner class/object identifier recognized as non-synthetic
+	  * (that is, existing as in code with an optional '$'). Note that this function is largely a heuristic
+	  * and may not always return desired results.
 	  */
 	def localNameOf[C :ClassTag] :String = localNameOf(classTag[C].runtimeClass)
 
 
 	/** Attempts to strip the name of the given class of all outer packages and containing classes or objects.
-	  * First, it strips package names separated by dots as [[unqualifiedClassName()]] does, and then outer classes
-	  * assuming the class name uses '$' as nesting separator as by compiler default. If the most inner identifier
-	  * thus obtained is recognized as anonymous (in particular for lambdas), returned string will start with the
-	  * most inner class/object identifier recognized as non-synthetic (that is, existing as in code with an optional '$').
-	  * Note that this function is largely a heuristic and may not always return desired results.
+	  * First, it strips package names separated by dots as [[net.noresttherein.slang.prettyprint#unqualifiedClassName()]]
+	  * does, and then outer classes assuming the class name uses '$' as nesting separator as by compiler default.
+	  * If the most inner identifier thus obtained is recognized as anonymous (in particular for lambdas),
+	  * the returned string will start with the most inner class/object identifier recognized as non-synthetic
+	  * (that is, existing as in code with an optional '$'). Note that this function is largely a heuristic
+	  * and may not always return desired results.
 	  */
 	def localNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case elem if elem != null =>

@@ -33,8 +33,9 @@ object LowerBound extends SelfLowerBoundImplicits {
 		@inline def apply[L]()(implicit l :LowerBound[X, Y, L]) :LowerBound[X, Y, L] = l
 	}
 
-	/** Explicitly summon a [[LowerBound]] instance for `X` and `Y` to calculate their greatest lower bound.
-	  * This is an indirect operation returning a [[Binder]] which will return the desired evidence via its
+	/** Explicitly summon a [[net.noresttherein.slang.typist.LowerBound LowerBound]] instance for `X` and `Y`
+	  * to calculate their greatest lower bound. This is an indirect operation returning
+	  * a [[net.noresttherein.slang.typist.LowerBound.Binder Binder]] which will return the desired evidence via its
 	  * parameterless `apply()` method: `LowerBound[Int, String]()`.
 	  */
 	@inline def apply[X, Y] :Binder[X, Y] = binder.asInstanceOf[Binder[X, Y]]

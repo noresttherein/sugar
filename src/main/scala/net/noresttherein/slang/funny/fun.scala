@@ -19,11 +19,12 @@ object fun {
 	import specializations._
 	//todo: macros
 
-	/** Enforces the type of the passed function expression to be a [[net.noresttherein.slang.funny.fun.ComposableFun ComposableFun]].
+	/** Enforces the type of the passed function expression
+	  * to be a [[net.noresttherein.slang.funny.fun.ComposableFun ComposableFun]].
 	  * As `ComposableFun` is a ''Single Abstract Method'' type lacking only the implementation of `apply`, a
 	  * function expression will be converted by the compiler where needed:
 	  * {{{
-	  *     fun { x :Int => X + X }
+	  *     fun[Int] { x => x + x }
 	  * }}}
 	  * . Created function provides a more informative `toString` method and elides some special functions
 	  * defined here during composition.
@@ -39,7 +40,7 @@ object fun {
 
 
 	/** Enforces the type of the passed function expression to be a [[net.noresttherein.slang.funny.fun.PureFun PureFun]].
-	  * This is essentially the same as [[net.noresttherein.slang.funny.fun.apply fun(f)]] except it declares that the
+	  * This is essentially the same as [[net.noresttherein.slang.funny.fun#apply fun(f)]] except it declares that the
 	  * created function throws no exceptions, has no side effects and does not depend on mutable state.
 	  * This allows it to be elided when composed with constant functions and those throwing exceptions.
 	  * As there is no way to verify these claims, you are on a honor system here.
@@ -54,12 +55,12 @@ object fun {
 	  * function itself; however, being a ''SAM'' type, a function expression is automatically converted to the target
 	  * function type. Hence, the syntax would be:
 	  * {{{
-	  *     fun.named("square") { x :Int => x * x }
+	  *     fun.named[Int]("square") { x => x * x }
 	  * }}}
 	  * This method simply sets the name on the second argument to the given string and returns it as the standard
 	  * function type `X => Y` for better type inference. Note that as `NamedFun` is a class, in a generic context
 	  * `f` will not be specialized as subclasses of specialized classes have to extend their erased variant.
-	  * In those circumstances wrapping the function with the sister method [[net.noresttherein.slang.funny.fun.name name]]
+	  * In those circumstances wrapping the function with the sister method [[net.noresttherein.slang.funny.fun#name name]]
 	  * might be preferable.
 	  * @param name name to use as the textual representation of the given function
 	  * @return `f`
@@ -72,7 +73,7 @@ object fun {
 
 
 	/** Wraps the given function in a decorator returning the given name from its `toString` method.
-	  * @see [[net.noresttherein.slang.funny.fun.named]]
+	  * @see [[net.noresttherein.slang.funny.fun#named]]
 	  */
 	@inline def name(name :String) = new NamedFunWrapper(name)
 
@@ -137,7 +138,7 @@ object fun {
 
 
 	/**  A simple factory object which `apply` method creates functions which always return the same value.
-	  *  Returned by [[net.noresttherein.slang.funny.fun.const fun.const]], it separates the argument
+	  *  Returned by [[net.noresttherein.slang.funny.fun#const fun.const]], it separates the argument
 	  *  and value type parameters, so the latter can be inferred from the provided value.
 	  */
 	trait ConstFunFactory[@specialized(Arg) X] extends Any {
@@ -191,7 +192,7 @@ object fun {
 	  *  Provides a more helpful `toString` implementation.
 	  *  @see [[net.noresttherein.slang.funny.fun]]
 	  */
-	trait ComposableFun[@specialized(Arg) -X, @specialized(Return) +Y] extends (X=>Y) {
+	trait ComposableFun[@specialized(Arg) -X, @specialized(Return) +Y] extends (X => Y) {
 
 		override def compose[A](g: A => X): A => Y = g match {
 			case f :ComposableFun[A, X] => f chainBefore this
@@ -315,7 +316,7 @@ object fun {
 
 
 	/** A base class for functions with a predefined `toString` implementation. It exists solely for the purpose
-	  * of simplified syntax of [[net.noresttherein.slang.funny.fun.named fun.named]]. Non-anonymous function
+	  * of simplified syntax of [[net.noresttherein.slang.funny.fun#named fun.named]]. Non-anonymous function
 	  * implementations which desire to override `toString` should instead extend the `ComposableFun` supertype directly.
 	  */
 	abstract class NamedFun[@specialized(Arg) -X, @specialized(Return) +Y] extends ComposableFun[X, Y] {

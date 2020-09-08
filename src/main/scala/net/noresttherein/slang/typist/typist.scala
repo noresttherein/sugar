@@ -1,10 +1,18 @@
 package net.noresttherein.slang
 
 import net.noresttherein.slang.funny.fun.{ComposableFun, Identity}
+import net.noresttherein.slang.typist.|
+import net.noresttherein.slang.typist.|.{TypeUnionImplicits, UnionMatcher}
 
 import scala.annotation.unspecialized
+import scala.reflect.ClassTag
 
-package object typist {
+
+
+
+
+
+package object typist extends TypeUnionImplicits {
 
 	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
 	  * and creates a type with a member type constructor `F` accepting the desired argument type. Designed to be used
@@ -15,6 +23,13 @@ package object typist {
 	  * The name was chosen to bring to mind the old conversion type bound `X <% Y`.
 	  */
 	type <%<[Y] = { type F[-X] = X => Y }
+
+
+
+	type |[+L, +R]
+
+
+
 
 
 

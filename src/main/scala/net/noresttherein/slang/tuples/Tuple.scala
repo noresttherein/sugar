@@ -23,7 +23,7 @@ import scala.compat.Platform
   *    using an alias: `Int&gt;:&lt;Int`;
   *  - they do not natively offer generic (polymorphic) mapping over all elements of a tuple;   
   *
-  * @see [[Tuple.><]]
+  * @see [[net.noresttherein.slang.tuples.Tuple.><]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
 sealed trait Tuple extends Product {
@@ -561,8 +561,8 @@ object Tuple {
 		override def toString = "<>"
 	}
 
-	/** An empty tuple (a product of zero arity). Prepending elements with its [[net.noresttherein.slang.tuples.Tuple.<>.>< ><]] 
-	  * operator results in creation of new tuples. 
+	/** An empty tuple (a product of zero arity). Prepending elements with its
+	  * [[net.noresttherein.slang.tuples.Tuple.<>.>< ><]] operator results in creation of new tuples.
 	  */
 	final val <> : <> = new <>
 	
@@ -574,7 +574,7 @@ object Tuple {
 
 	
 	/** An alias for a single element tuple `&lt;&gt; &gt;&lt; X`. New instances can be created either by the 
-	  * companion object to this type, by the single-argument [[net.noresttherein.slang.tuples.Tuple.apply[A](a:A) Tuple(x)]],
+	  * companion object to this type, by the single-argument [[net.noresttherein.slang.tuples.Tuple#apply[A](a:A) Tuple(x)]],
 	  * or by a factory method added implicitly after importing this type: `x.&lt;&gt;`.
 	  */
 	type <*>[+X] = <> >< X
@@ -629,7 +629,8 @@ object Tuple {
 	  */
 	@inline implicit def >:<[X](first :X): Tuple2Constructor[X] = new Tuple2Constructor(first)
 
-	/** Patches any object implicitly adding the [[Tuple2Constructor#:*]] method for creating pair objects. */
+	/** Patches any object implicitly adding the [[net.noresttherein.slang.tuples.Tuple.Tuple2Constructor#:*]] method
+	  * for creating pair objects. */
 	class Tuple2Constructor[X](private val first :X) extends AnyVal {
 		/** Creates a two-argument tuple `X &gt;:&lt; Y` with this (left) value as the first element and the argument as the second. */
 		@inline def >:<[Y](second :Y): X >:< Y = apply(first, second)
@@ -644,7 +645,7 @@ object Tuple {
 
 
 	/** Cartesian product of types in the tuple `P` and type `L`, being a type constructor for tuples with variable lengths.
-	  * New instances can be created either by the [[net.noresttherein.slang.tuples.Tuple Tuple]]'s object overloaded
+	  * New instances can be created either by the [[net.noresttherein.slang.tuples.Tuple$ Tuple]]'s object overloaded
 	  * `apply` methods for fixed arities, or by recursively appending elements with [[net.noresttherein.slang.tuples.Tuple!.>< ><]] 
 	  * to existing tuples. A natural start would be either the empty product [[net.noresttherein.slang.tuples.Tuple.<>$ &lt;&gt;]] 
 	  * or a pair: [[net.noresttherein.slang.tuples.Tuple.>:< >:<]].
@@ -751,7 +752,8 @@ object Tuple {
 		}
 
 		/** Retrieves the `n`-th element of this tuple. The value of `n` must be statically known and encoded as a natural
-		  * number type `Nat`. See [[Nat]] for constants such as [[Nat._1]], [[Nat._2]], ''etc.''.
+		  * number type `Nat`. See [[net.noresttherein.slang.tuples.Nat$ Nat]] for constants such as
+		  * [[net.noresttherein.slang.tuples.Nat$#_1 _1]], [[net.noresttherein.tuples.Nat$#_2]], ''etc.''.
 		  * @param n the index of the element to retrieve (starting with `_1`(1) for the first element),
 		  *          statically encoded as a recursively nested type.
 		  * @param tpe an implicit witness providing the type of the `n`-th element in this tuple.
@@ -1081,7 +1083,7 @@ object Tuple {
 		  * @tparam T a tuple type.
 		  * @tparam N a zero-based index of an element in the tuple encoded as a type.
 		  * @tparam X type of `n`-th element in `T` starting from the left.
-		  * @see [[Nat]]
+		  * @see [[net.noresttherein.slang.tuples.Nat]]
 		  */
 		@implicitNotFound("The ${N]-th element of tuple ${T} does not conform to ${X} or the tuple does not have that many elements. Indexing requires both the tuple and index types to be fully instantiated.")
 		final class TupleAt[-T, N <: Nat, +X] private[Tuple]()

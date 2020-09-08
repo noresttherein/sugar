@@ -9,16 +9,16 @@ import scala.concurrent.{duration => s}
 
 
 /** An umbrella term for specifying length of elapsed time which encompasses both infinite time
-  * ([[net.noresttherein.slang.time.Eternity]] and [[net.noresttherein.slang.time.MinusEternity]] and finite
-  * ISO ''durations'' (definite time spans with a fixed length) represented as [[net.noresttherein.slang.time.TimeSpan]],
-  * ''periods'' (variable spans specified in term of months and years) represented by
-  * [[net.noresttherein.slang.time.DateSpan]], as well as combinations of thereof. Two instances of `TimeLapse`
-  * are considered equal only if they are of the same class. This means that `Duration(0)` does ''not'' equal
-  * `Milliseconds(0)` does ''not'' equal `Immediate`, as they have different precisions. If you want to compare
-  * instances of different classes in terms of their comparative length, use `===` instead. Two instances
-  * are considered equal in terms of `===` if they are both the same infinity or both their fixed portion expressed in
-  * seconds and nanosecond adjustment are equal and their variable portion expressed in years, months and days are equal
-  * on all coordinates. This is also consistent with ordering defined on `FiniteTimeSpan`.
+  * ([[net.noresttherein.slang.time.Eternity Eternity]] and [[net.noresttherein.slang.time.MinusEternity MinusEternity]]
+  * and finite ISO ''durations'' (definite time spans with a fixed length) represented as
+  * [[net.noresttherein.slang.time.TimeSpan TimeSpan]], ''periods'' (variable spans specified in term of months and years)
+  * represented by [[net.noresttherein.slang.time.DateSpan DateSpan]], as well as combinations of thereof.
+  * Two instances of `TimeLapse` are considered equal only if they are of the same class. This means that `Duration(0)`
+  * does ''not'' equal `Milliseconds(0)` does ''not'' equal `Immediate`, as they have different precisions.
+  * If you want to compare instances of different classes in terms of their comparative length, use `===` instead.
+  * Two instances are considered equal in terms of `===` if they are both the same infinity or both their fixed portion
+  * expressed in seconds and nanosecond adjustment are equal and their variable portion expressed in years,
+  * months and days are equal on all coordinates. This is also consistent with ordering defined on `FiniteTimeSpan`.
   * @see [[net.noresttherein.slang.time.InfiniteTimeLapse]]
   * @see [[net.noresttherein.slang.time.FiniteTimeLapse]]
   * @see [[net.noresttherein.slang.time.DateSpan]]
@@ -86,10 +86,10 @@ object TimeLapse {
 
 
 /** Base trait for measured elapsed time in both fixed length time units and variable length calendar units.
-  * Instances include [[net.noresttherein.slang.time.FiniteTimeSpan]] for time-based spans,
-  * [[net.noresttherein.slang.time.FiniteDateSpan]] for date-based spans,
-  * special zero-length [[net.noresttherein.slang.time.Immediate]] and an implementation containing both non-zero
-  * fixed and variable span parts.
+  * Instances include [[net.noresttherein.slang.time.FiniteTimeSpan FiniteTimeSpan]] for time-based spans,
+  * [[net.noresttherein.slang.time.FiniteDateSpan FiniteDateSpan]] for date-based spans,
+  * special zero-length [[net.noresttherein.slang.time.Immediate Immediate]] and an implementation containing
+  * both non-zero fixed and variable span parts.
   */
 trait FiniteTimeLapse extends Any with TimeLapse {
 	override def variable :FiniteDateSpan = period
@@ -523,7 +523,7 @@ sealed trait DateSpan extends Any with TimeLapse {
 
 /** Proper, finite time spans measured in date-based units and thus having variable length, depending on
   * both leap years and daylight saving time. It represents the ISO-8601 concept of a ''period'' and its
-  * default concrete implementation is [[net.noresttherein.slang.time.Period]].
+  * default concrete implementation is [[net.noresttherein.slang.time.Period Period]].
   */
 trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 	override def variable :FiniteDateSpan = this

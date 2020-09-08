@@ -37,8 +37,9 @@ object UpperBound extends SelfUpperBoundImplicits {
 		@inline def apply[U]()(implicit u :UpperBound[X, Y, U]) :UpperBound[X, Y, U] = u
 	}
 
-	/** Explicitly summon an [[UpperBound]] instance for `X` and `Y` to calculate their least upper bound.
-	  * This is an indirect operation returning a [[Binder]] which will return the desired evidence via its
+	/** Explicitly summon an [[net.noresttherein.slang.typist.UpperBound UpperBound]] instance for `X` and `Y`
+	  * to calculate their least upper bound. This is an indirect operation returning
+	  * a [[net.noresttherein.slang.typist.UpperBound.Binder Binder]] which will return the desired evidence via its
 	  * parameterless `apply()` method: `UpperBound[Int, String]()`.
 	  */
 	@inline def apply[X, Y] :Binder[X, Y] = binder.asInstanceOf[Binder[X, Y]]

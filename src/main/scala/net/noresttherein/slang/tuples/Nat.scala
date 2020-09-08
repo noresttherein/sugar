@@ -30,7 +30,8 @@ sealed abstract class Nat protected (final val number :Int) {
 
 
 
-/** Low priority implicit [[Nat]] values for every natural number by recursively applying it to itself. */
+/** Low priority implicit [[net.noresttherein.slang.tuples.Nat Nat]] values for every natural number
+  * by recursively applying it to itself. */
 sealed abstract class NatImplicitInduction {
 	/** Given an implicit encoding of the natural number `n` provide implicit value representing `n+1`. */
 	implicit def ++[N <: Nat](implicit n :N) : ++[N] = new ++(n)

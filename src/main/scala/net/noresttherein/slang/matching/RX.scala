@@ -16,7 +16,8 @@ import scala.util.matching.Regex
   * of constructing large regular expression than the standard string representation, partly due to whitespace separators
   * typical to code and partly due to more friendly names for some character classes. It should prevent many typo-like
   * errors, but the strict correctness was sacrificed for flexibility of embedding fragments given as string patterns
-  * (through the [[net.noresttherein.slang.matching.RX$.apply RX(pattern)]] method) wherever this would improve readability.
+  * (through the [[net.noresttherein.slang.matching.RX$#apply(pattern:String,groups:String*) RX(pattern)]] method) 
+  * wherever this would improve readability.
   *
   * @see [[net.noresttherein.slang.matching.RX$ RX object]]
   * @author Marcin Mościcki marcin@moscicki.net
@@ -234,7 +235,7 @@ sealed abstract class RX extends Serializable {
 
 
 	/** A named, capturing group matching this expression: `(?&lt;name&gt;this)`. Matched fragment can be referenced with
-	  * [[net.noresttherein.slang.matching.RX.group RX.group(name)]].
+	  * [[net.noresttherein.slang.matching.RX$#group RX.group(name)]].
 	  */
 	def group(name :String) :RX = new NamedGroup(name, this)
 
@@ -547,7 +548,7 @@ object RX {
 
 
 	/** A back-reference for a group captured by a preceding fragment of a regular expression as created by the
-	  * [[net.noresttherein.slang.matching.RX#group(name:String) RX.group]] method.
+	  * [[net.noresttherein.slang.matching.RX#group RX.group]] method.
 	  * @param name the name of the referenced group.
 	  * @return a regular expression matching exactly the fragment matched by the specified group.
 	  */
@@ -741,61 +742,62 @@ object RX {
 
 
 
-	/** A regular expression turning on the `UNIX_LINES` ('d') flag for the reminder of the expression.
-	  * This will treat only the new line character ([[net.noresttherein.slang.matching.RX$.NL NL]] = '\n')
+	/** A regular expression turning on the `UNIX_LINES` ('d') flag for the remainder of the expression.
+	  * This will treat only the new line character ([[net.noresttherein.slang.matching.RX$#NL NL]] = '\n')
 	  * as a valid line terminators, turning off the default behavior of accepting line terminator sequences from any
-	  * operating system. Can be turned off by `!UnixEOL` or applied only to a particular expression fragment: `regexp(UnixEOL)`.
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * operating system. Can be turned off by `!UnixEOL` or applied only to a particular expression fragment: 
+	  * `regexp(UnixEOL)`.
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final val UnixEOL = new Flag("d")
 
-	/** A regular expression turning on the `DOTALL` ('s') flag for the reminder of the expression.
-	  * It will make the special '.' character ([[net.noresttherein.slang.matching.RX$.`.` `.`]]) match also the
+	/** A regular expression turning on the `DOTALL` ('s') flag for the remainder of the expression.
+	  * It will make the special '.' character ([[net.noresttherein.slang.matching.RX$#`.` `.`]]) match also the
 	  * line terminator characters.
 	  * Can be turned off by `!DotEOL` or applied only to a particular expression fragment: `regexp(DotEOL)`.
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final val DotEOL = new Flag("s")
 
-	/** A regular expression turning on the `MULTILINE` ('m') flag for the reminder of the expression.
+	/** A regular expression turning on the `MULTILINE` ('m') flag for the remainder of the expression.
 	  * This will make the special characters `'^'` ([[net.noresttherein.slang.matching.RX.`^` `^`]]) and `'$'`
 	  * ([[net.noresttherein.slang.matching.RX$.`$` `$`]]) match a beginning and end of any line of input, respectively.
 	  * By default they match only the beginning and end of whole input.
 	  * Can be turned off by `!MultiLine` or applied only to a particular expression fragment: `regexp(MultiLine)`.
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final val MultiLine = new Flag("m")
 
-	/** A regular expression turning on the `CASE_INSENSITIVE` ('i') flag for the reminder of the expression.
+	/** A regular expression turning on the `CASE_INSENSITIVE` ('i') flag for the remainder of the expression.
 	  * This will make the matching case insensitive for only the ASCII characters.
 	  * Can be turned off by `!NoCase` or applied only to a particular expression fragment: `regexp(NoCase)`.
 	  * @see [[net.noresttherein.slang.matching.RX$.uCase uCase]]
 	  * @see [[net.noresttherein.slang.matching.RX$.uNoCase uNoCase]]
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final val NoCase = new Flag("i")
 
-	/** A regular expression turning on the `CASE_INSENSITIVE` and `UNICODE_CASE` ('iu') flags for the reminder of
+	/** A regular expression turning on the `CASE_INSENSITIVE` and `UNICODE_CASE` ('iu') flags for the remainder of
 	  * the expression. This will make the matching case insensitive, following the Unicode specification.
 	  * Can be turned off by `!uNoCase` or applied only to a particular expression fragment: `regexp(uNoCase)`.
 	  * @see [[net.noresttherein.slang.matching.RX$.NoCase NoCase]]
 	  * @see [[net.noresttherein.slang.matching.RX$.uCase uCase]]
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final val uNoCase = new Flag("iu")
 
-	/** A regular expression turning on the `UNICODE_CASE` ('u') flag for the reminder of the expression.
+	/** A regular expression turning on the `UNICODE_CASE` ('u') flag for the remainder of the expression.
 	  * When used in conjunction with the [[net.noresttherein.slang.matching.RX$.NoCase NoCase]] ('i') flag,
 	  * case recognition will be in accordance with the Unicode specification. It does not make the matching
 	  * case insensitive on its own.
 	  * Can be turned off by `!uCase` or applied only to a particular expression fragment: `regexp(NoCase, uCase)`.
 	  * @see [[net.noresttherein.slang.matching.RX$.uNoCase uNoCase]]
 	  * @see [[net.noresttherein.slang.matching.RX$.NoCase NoCase]]
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final val uCase = new Flag("u")
 
-	/** A regular expression turning on the `UNICODE_CHARACTER_CLASS` ('U') flag for the reminder of the expression.
+	/** A regular expression turning on the `UNICODE_CHARACTER_CLASS` ('U') flag for the remainder of the expression.
 	  * This makes the standard POSIX character classes (`\p{Digit}`, `\p{Lower}`, etc.) behave according to the
 	  * Unicode specification rather than ASCII only; it also implies the 'u'/`UNICODE_CASE` flag
 	  * ([[net.noresttherein.slang.matching.RX$.uCase uCase]]). POSIX character classes are not used by the `RX`
@@ -807,14 +809,14 @@ object RX {
 	  */
 	final val Unicode = new Flag("U")
 
-	/** A regular expression turning on the `COMMENTS` ('x') flag for the reminder of the expression.
+	/** A regular expression turning on the `COMMENTS` ('x') flag for the remainder of the expression.
 	  * This will ignore any whitespace characters in the pattern as well as any sequence starting with the '#' character
 	  * until the end of line. It is useful only when embedding literal strings as regular expressions and does not
 	  * affect any `RX` value provided here (which use character classes and escapes to match whitespace).
 	  * Can be turned off by `!Comments` or applied only to a particular expression fragment: `regexp(Comments)`.
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:RX.Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  * @see [[net.noresttherein.slang.matching.RX.## RX.##]]
-	  * @see [[net.noresttherein.slang.matching.RX.comment comment]]
+	  * @see [[net.noresttherein.slang.matching.RX#comment comment]]
 	  */
 	final val Comments = new Flag("x")
 
@@ -947,7 +949,7 @@ object RX {
 
 	/** A regular expression matching a given Unicode character specified by its code in the hexadecimal format.
 	  * @param hexadecimal a non-empty string consisting only of valid hexadecimal digit representing an integer
-	  *                    from the [[0-MAX_CODE_POINT]] range.
+	  *                    from the `[0-MAX_CODE_POINT]` range.
 	  * @return a regular expression using the `\x..` or `\\u....` notation to match the specified character.
 	  */
 	def Hex(hexadecimal :String) :CharacterClass = {
@@ -974,7 +976,7 @@ object RX {
 	}
 
 	/** A regular expression matching a given Unicode character specified by its code.
-	  * @param codePoint an integer from the [[0-MAX_CODE_POINT]] range.
+	  * @param codePoint an integer from the `[0-MAX_CODE_POINT]` range.
 	  * @return a regular expression using the `\x..` or `\\u...` notation to match the specified character.
 	  */
 	def Hex(codePoint :Int) :CharacterClass = Hex(codePoint.toHexString)
@@ -999,7 +1001,7 @@ object RX {
 	  *
 	  * @param code the letter (or letters) used to represent the flag inside a regular expression
 	  * @param isOn whether the flag is being turned on or off.
-	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:Flag*) RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
 	  */
 	final class Flag private[RX](val code :String, val isOn :Boolean = true)
 		extends RXGroup(if (isOn) "-" + code else code, EmptyRX)
@@ -1321,8 +1323,8 @@ object RX {
 
 	/** A type wrapping an `Int` signifying that a regular expression should be matched at least that number of times.
 	  * New instances can be obtained either through the factory method `AtLeast(n)` or through the implicit extension
-	  * [[net.noresttherein.slang.matching.RX.RepeatAtLeast]]: `1.-*`.
-	  * @see [[net.noresttherein.slang.matching.RX.*(min:AtLeast)]]
+	  * [[net.noresttherein.slang.matching.RX.RepeatAtLeast RepeatAtLeast]]: `1.-*`.
+	  * @see [[net.noresttherein.slang.matching.RX#* *]]
 	  */
 	final class AtLeast(val n :Int) 
 

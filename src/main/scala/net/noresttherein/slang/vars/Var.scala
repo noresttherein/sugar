@@ -8,7 +8,7 @@ import net.noresttherein.slang.vars.InOut.DefaultValue
   * you can write `param += 1` for `param :Var[Int]`. The use of this class directly over through the `In/Out`
   * interface may be preferable to reduce the number of virtual calls and possibly facilitate hotspot inlining.
   * @tparam T type of this variable
-  * @see [[net.noresttherein.slang.Var$]]
+  * @see [[net.noresttherein.slang.vars.Var$]]
   */
 final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
 
@@ -48,7 +48,7 @@ final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) ex
 
 
 object Var {
-	/** Types for which [[Var]] is specialized. */
+	/** Types for which [[net.noresttherein.slang.vars.Var Var]] is specialized. */
 	final val SpecializedTypes = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
 
 

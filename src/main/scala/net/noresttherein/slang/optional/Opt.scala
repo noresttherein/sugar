@@ -17,10 +17,10 @@ import net.noresttherein.slang.optional.Opt.EmptyToken
   * which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions'' 
   * composing several `Opt`s' can result in closures being created (as manual nesting of `flatMap` calls also can).
   * For this reason its best to either directly use `isEmpty` and `get` in a conditional expression, or use the
-  * [[net.noresttherein.slang.optional.Opt.Got Got]] matching pattern, which should by modern compilers be translated
+  * [[net.noresttherein.slang.optional.Opt.Got$ Got]] matching pattern, which should by modern compilers be translated
   * to non-boxing byte code.
-  * @see [[net.noresttherein.slang.optional.Opt.Got]]
-  * @see [[net.noresttherein.slang.optional.Opt.Miss]]    
+  * @see [[net.noresttherein.slang.optional.Opt.Got$]]
+  * @see [[net.noresttherein.slang.optional.Opt.Miss]]
   */
 final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with Serializable {
 
@@ -153,7 +153,7 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 
 /** Companion object providing factory methods and extractors working with [[net.noresttherein.slang.optional.Opt Opt]]s.
   * @see [[net.noresttherein.slang.optional.Opt.Miss]]
-  * @see [[net.noresttherein.slang.optional.Opt.Got]]    
+  * @see [[net.noresttherein.slang.optional.Opt.Got$]]
   */
 object Opt {
 	@inline final implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.toOption
@@ -169,7 +169,7 @@ object Opt {
 	  * Note that the wrapped type is upper bound here by `AnyRef` rather than lower bound by `Null`,
 	  * as providing an argument of type `T` excludes the single `AnyRef` subtype which is not the supertype
 	  * of `Null`, that is `Nothing`.
-	  * @see [[net.noresttherein.slang.optional.Opt!]]
+	  * @see [[net.noresttherein.slang.optional.Opt]]
 	  */
 	@inline final def apply[T](value :T) :Opt[T] = 
 		if (value == null) Miss else new Opt(value.asInstanceOf[AnyRef])

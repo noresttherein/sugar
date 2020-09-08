@@ -6,7 +6,7 @@ import net.noresttherein.slang.logging.Logger.Level
 
 
 /** Simple syntactic wrapper over `java.util.logging.Logger` available by the
-  *  [[net.noresttherein.slang.logging.Logger.toJava]] property.
+  *  [[net.noresttherein.slang.logging.Logger#toJava toJava]] property.
   *  All logging methods investigate the frame stack to find the first class from outside the
   *  `net.noresttherein.slang.logging` package and fill the log record with the file name and line number
   *  in addition to (available by default) class and method name. Note that, depending on the java `LogManager`

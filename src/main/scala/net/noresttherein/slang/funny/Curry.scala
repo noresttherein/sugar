@@ -134,7 +134,8 @@ sealed abstract class Curry[Args[+R], X, Y] { prev =>
 /** Operations on curried functions. */
 object Curry {
 
-	/** Identity type constructor mapping any type to itself. Used in conjunction with [[:=>]] and [[=>:]]
+	/** Identity type constructor mapping any type to itself. Used in conjunction with
+	  * [[net.noresttherein.slang.funny.Curry.:=>]] and [[net.noresttherein.slang.funny.Curry.=>:]]
 	  * to denote argument lists consisting of a single argument. For example,
 	  * `(X =>: Ident)#F[Y] =:= (X => Y) =:= (Ident :=> X)#F[Y]`.
 	  */
@@ -195,7 +196,7 @@ object Curry {
 
 
 	/** Explicitly summon an instance of `Curry[Ident, X, Y]` representing not applied functions `X => Y`
-	  * and manipulating them at argument `X`. This is the same as [[net.noresttherein.slang.funny.Curry$.apply()]],
+	  * and manipulating them at argument `X`. This is the same as [[net.noresttherein.slang.funny.Curry$#apply() apply]],
 	  * the argument is ignored and present only to enable automatic inference of type parameters `X` and `Y`, so they
 	  * need not be provided explicitly.
 	  * @tparam X the argument type of the represented function type
@@ -203,7 +204,7 @@ object Curry {
 	  * @param instance any function of the type we would like manipulate, used only for type inference.
 	  * @return a type class representing a curried functions of the same type as the argument, before any application.
 	  */
-	@inline final def apply[X, Y](instance :X => Y) :Curry[Ident, X, Y] = ErasedArg0.asInstanceOf[Arg0[X, Y]] //new Arg0
+	@inline final def apply[X, Y](instance :X => Y) :Curry[Ident, X, Y] = ErasedArg0.asInstanceOf[Arg0[X, Y]]
 
 
 
@@ -430,7 +431,8 @@ object Curry {
 			def combine[O](f :F, g :G)(combine :(LeftResult, RightResult) => O) :Returning[O]
 		}
 
-		/** Low priority implicit [[FunctionUnification]] values. */
+		/** Low priority implicit [[net.noresttherein.slang.funny.Curry.FunctionUnification.Unification Unification]]
+		  * values. */
 		sealed abstract class FallbackUnification {
 
 			/** Fallback implicit result of unifying two functions `X1=>Y1` and `X2=>Y2` as functions of `X >: X1, X2`
@@ -452,10 +454,10 @@ object Curry {
 
 
 		/** Performs term unification on two curried function types `F` and `G` by providing implicit values of
-		  * [[net.noresttherein.slang.funny.Curry.FunctionUnification.Unification!]], carrying information about
-		  * their shared argument list (after type unification by argument type generalizaation) and corresponding
+		  * [[net.noresttherein.slang.funny.Curry.FunctionUnification.Unification Unification]], carrying information
+		  * about their shared argument list (after type unification by argument type generalization) and corresponding
 		  * return types.
-		  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.Unification!]]
+		  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.Unification]]
 		  */
 		object Unification extends FallbackUnification {
 			/** Given unification of two types `Y1` and `Y2` (assumed to be functions), perform unification of any two functions
@@ -522,7 +524,8 @@ object Curry {
 	/** Pairs two values (presumably curried functions) for subsequent combining them into a single function by
 	  * the means of a function operating on their result values. This class has no methods; instead, there is
 	  * an implicit conversion with the shared name (so importing this symbol will import the conversion at the same time)
-	  * to `reduce_:*:`, which provides [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_:*:.apply]] method
+	  * to `reduce_:*:`, which provides
+	  * the [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_:*:.apply reduce_:*:.apply]] method
 	  * performing the actual reducing of these functions. This roundabout way is forced because the alternative
 	  * of declaring that method here with implicit unification parameters accepted by the conversion would first,
 	  * prevent applying the result to its proper arguments (as the following '(...)' parameter group would be interpreted
@@ -574,14 +577,14 @@ object Curry {
 
 
 
-	/** Base trait for partially applied functions implemented as [[net.noresttherein.slang.funny.Curry.Curried!]].
+	/** Base trait for partially applied functions implemented as [[net.noresttherein.slang.funny.Curry.Curried Curried]].
 	  * Introduced as a workaround for lack of implicit resolution of types of higher kinds (the `Mapped` type defined here
 	  * and accepted by `Curried` as a higher kind type parameter). All instances `f :PartiallyApplied[X, Y]` are also
 	  * instances of `Curried[f.Mapped, X, Y]`.
 	  *
 	  * Wraps a function `F` of type `X0 => ... => Xn => X => Y` and represents its partial application up to, not including,
 	  * argument `X`.
-	  * @see [[net.noresttherein.slang.funny.Curry.Curried!]]
+	  * @see [[net.noresttherein.slang.funny.Curry.Curried]]
 	  */
 	sealed abstract class PartiallyApplied[X, Y] { self =>
 		/** Type of functions taking the same arguments up to `X` exclusively, but returning type `R` instead of `X => Y`. */
@@ -624,7 +627,7 @@ object Curry {
 		def map[Z, O](map :(X => Y) => (Z => O)) :Curried[Mapped, Z, O]
 
 		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
-		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.compose compose]], but the substitute
+		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried#compose compose]], but the substitute
 		  * function can take any number of parameters. Returned object is an intermediate value from which,
 		  * providing that `W=>Z &lt;: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`,
 		  * representing the inlined function applied to the same arguments as this instance.
@@ -633,7 +636,7 @@ object Curry {
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]], to the implicit conversion.
 		  * @param x a function providing the value for the next parameter of this function, which arguments should be
 		  *          inlined in the argument list of this function in place of `X`.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.inlined inlined]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#inlined inlined]]
 		  */
 		def inline[W, Z](x :W=>Z) :InlinedFunction[W, Z, X, Y] { type Mapped[+R] = self.Mapped[R] }
 
@@ -672,7 +675,7 @@ object Curry {
 	  * but unlikely to be actually referenced by the client code due to their temporary nature: intermediate results
 	  * and implicit evidence.
 	  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn]]
-	  * @see [[net.noresttherein.slang.funny.Curry.Curried!]]
+	  * @see [[net.noresttherein.slang.funny.Curry.Curried]]
 	  */
 	object PartiallyApplied {
 
@@ -700,7 +703,7 @@ object Curry {
 		  * treated as the implicit parameter group rather than `apply`'s parameters). By moving the implicit parameters
 		  * to be the part of the implicit conversion, we were able to remove them from the methods signature, 'squeezing'
 		  * them in before the invocation of the desired  methods.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried!]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried]]
 		  */
 		final class CurryOn[A[+G], X, Y, T](private val curried :PartiallyApplied[X, Y => T] { type Mapped[+G] = A[G] })
 			extends AnyVal
@@ -745,7 +748,7 @@ object Curry {
 			@inline def apply[W](x :W => X) :Curried[(A :=> W)#F, Y, T] = curried.compose(x).next
 
 			/** Replace the argument `X` with the arguments of the given function, using its returned value as the parameter
-			  * for `X`. This results in the same function as [[net.noresttherein.slang.funny.Curry.Curried.inline inline]],
+			  * for `X`. This results in the same function as [[net.noresttherein.slang.funny.Curry.Curried#inline inline]],
 			  * but in case of this method the application point is advanced past all the inlined arguments of `x`.
 			  * This method returns an intermediate object for which implicit conversions exist to both `Curry` and
 			  * `CurryOn` (providing type `T` is a function itself) as long as `x =:= W => A1 => ... => An => X` for some
@@ -774,8 +777,8 @@ object Curry {
 			  * @return a `Curried` instance for a function resulting from mapping the intermediate result `X => Y=>T` to
 			  *         function `Y=>X=>T` by swapping the application order of arguments `X` and `Y`, partially applied
 			  *         up to argument `Y` (and before argument `X`).
-			  * @see [[<>>>]]
-			  * @see [[transpose]]
+			  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#<>>> <>>>]]
+			  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#transpose transpose]]
 			  */
 			@inline def <>> :Curried[(A :=> Y)#F, X, T] = curried.map[Y, X=>T](transposition).next
 
@@ -787,8 +790,8 @@ object Curry {
 			  * @return a `Curried` instance for a function resulting from mapping the intermediate result `X => Y=>T` to
 			  *         function `Y=>X=>T` by swapping the order of arguments, partially applied up to and including
 			  *         argument `Y` (assuming that `T` is a function).
-			  * @see [[<>>]]
-			  * @see [[transpose]]
+			  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#<>> <>>]]
+			  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#transpose transpose]]
 			  */
 			@inline def <>>>[Z, O](implicit ev :T <:< (Z => O)) :Curried[((A :=> Y)#F :=> X)#F, Z, O] =
 				curried.map[Y, X=>T](transposition).next.next(ev)
@@ -818,7 +821,7 @@ object Curry {
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]] which require the witness
 		  * `ReturnType[Z, X]`. After the conversion, the application point of the new function remains unmoved,
 		  * i.e. before parameter `W`.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.inline Curried.inline]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#inline Curried.inline]]
 		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.InjectedFunction InjectedFunction]]
 		  */
 		sealed abstract class InlinedFunction[W, Z, X, Y] {
@@ -860,7 +863,7 @@ object Curry {
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]], providing an implicit witness
 		  * `ReturnType[Z, X]` exists. After the conversion, the application point is advanced over all inlined arguments
 		  * before the argument `Y` of the original function.
-		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.inject CurryOn.inject]]
+		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#inject CurryOn.inject]]
 		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.InlinedFunction InlinedFunction]]
 		  */
 		sealed abstract class InjectedFunction[W, Z, X, Y, R] { self =>
@@ -936,9 +939,9 @@ object Curry {
 		/** Provide a fixed value for this argument, removing it from the argument list.
 		  * @return a function with same arguments as the underlying function but with `X` omitted, which invokes this
 		  *         function passing `x` for this argument and its own arguments for the others.
-		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(x:X)]]
-		  * @see [[net.noresttherein.slang.funny.Curry.set]]
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.set]]
+		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#apply(x:X)]]
+		  * @see [[net.noresttherein.slang.funny.Curry#set]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#set]]
 		  */
 		@inline def applied(x :X) :Mapped[Y] = curry.set(unapplied)(x)
 
@@ -947,7 +950,7 @@ object Curry {
 		  * as with `apply(x)`, but allows subsequent modification in chained calls. If this instance represents
 		  * the last argument, you may use `applied(x)` instead which returns the underlying function instead of
 		  * a `Curried` instance. There is also an `apply` variant of this method available by implicit conversion
-		  * to [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn]]: `this(x)`.
+		  * to [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]]: `this(x)`.
 		  * @return a Curried instance representing same application point (before argument `Y`) in the transformed function.
 		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(x:X)]]
 		  */
@@ -962,7 +965,7 @@ object Curry {
 		  * `{m :M => i :I => n :N => f(m)(i)(x(n)) }`.
 		  * @return a function resulting from substituting the argument `X` in the underlying function to `W` and mapping
 		  *         its value using the passed function.
-		  * @see [[net.noresttherein.slang.funny.Curry.compose]]
+		  * @see [[net.noresttherein.slang.funny.Curry#compose]]
 		  */
 		@inline def composed[W](x :W => X) :Mapped[W => Y] = curry.compose(unapplied)(x)
 
@@ -972,9 +975,9 @@ object Curry {
 		  * applying `f`. For example, given a function `f :F &lt;: M=>I=>X=>T` and `x :N=>X`, the result is a function
 		  * of type `M=>I=>N=>T`: `{m :M => i :I => n :N => f(m)(i)(x(n)) }`.
 		  * There is also an `apply` variant of this method advancing to the next argument, available by implicit conversion
-		  * to [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn]] : `this((w :W) => w.toX)`.
+		  * to [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]] : `this((w :W) => w.toX)`.
 		  * @return a `Curried` instance representing the same position (before argument `W`) in the transformed function.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.composed composed]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#composed composed]]
 		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(x:W=>X) apply(x :W=>X)]]
 		  */
 		@inline def compose[W](x :W => X) :Curried[A, W, Y] =
@@ -982,20 +985,20 @@ object Curry {
 
 
 		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
-		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.composed composed]], but the substitute
+		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried#composed composed]], but the substitute
 		  * function can take any number of arguments.
 		  * @param x a function providing the value for the next parameter of this function, which arguments should be
 		  *          inlined in the argument list of this function in place of `X`.
 		  * @return a function taking the same arguments preceding `X` as this function, followed by all arguments of `x`
 		  *         preceding the return type `X`, and returns the result of applying this function up to `X` and then
 		  *         to the result of applying `x` to the following arguments.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.inline inline]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#inline inline]]
 		  */
 		def inlined[W, Z](x :W => Z)(implicit result :ReturnType[Z, X]) :A[W => result.Result[Y]] =
 			curry.inline(unapplied)(x)(result)
 
 		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
-		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.compose compose]], but the substitute
+		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried#compose compose]], but the substitute
 		  * function can take any number of parameters. Returned object is an intermediate value from which,
 		  * providing that `W=>Z &lt;: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`.
 		  * This intermediate step is introduced in order to move the implicit parameter `ReturnType[Z, X]` from the
@@ -1003,7 +1006,7 @@ object Curry {
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]], to the implicit conversion.
 		  * @param x a function providing the value for the next parameter of this function, which arguments should be
 		  *          inlined in the argument list of this function in place of `X`.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.inlined inlined]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#inlined inlined]]
 		  */
 		def inline[W, Z](x :W => Z) :InlinedFunction[W, Z, X, Y] { type Mapped[+R] = A[R] } =
 			new InlinedFunction[W, Z, X, Y] {
@@ -1022,23 +1025,24 @@ object Curry {
 		/** Map the result of partial application of this function up to argument `X` (not including).
 		  * For example, if `F =:= P=>O=>X => Y`, the result is the function `{p :P => o :O => map(f(p)(o)) }`.
 		  * @param map function taking the result of applying F up until argument `X`.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.returning]]
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.map]]
-		  * @see [[net.noresttherein.slang.funny.Curry.combine]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#returning]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#map]]
+		  * @see [[net.noresttherein.slang.funny.Curry#combine]]
 		  */
 		@inline def mapped[G](map :(X => Y) => G) :Mapped[G] = curry.map(unapplied)(map)
 
 		/** Map the result of this partial application to another function `Z=>O`, returning a `Curried` instance representing
 		  * the new function.
-		  * @see [[net.noresttherein.slang.funny.Curry.map]]
+		  * @see [[net.noresttherein.slang.funny.Curry#map]]
 		  */
 		@inline def map[Z, O](map :(X => Y) => (Z => O)) :Curried[A, Z, O] =
 			new Curried[A, Z, O](curry.map(unapplied)(map))(curry.mapped[Z, O])
 
 
-		/** Map the result of partial application of this function up to argument X. Differs from [[mapped]] in that
+		/** Map the result of partial application of this function up to argument X. Differs from
+		  * [[net.noresttherein.slang.funny.Curry.Curried#mapped mapped]] in that
 		  * it maps the value returned after applying to `X`, while `mapped` maps the whole function `X => Y`.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.andThen]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#andThen]]
 		  */
 		@inline def returning[O](map :Y => O) :A[X => O] =
 			curry.map(unapplied){ _ andThen map }
@@ -1047,7 +1051,7 @@ object Curry {
 		  * in that it maps the value returned after applying to `X`, while `map` maps whole function `X => Y`.
 		  * @return a `Curried` instance representing the function resulting from applying `F` to all arguments up to `X`
 		  *         and mapping the result `Y` to a function `Z=>O`, before applying to `Z`.
-		  * @see [[net.noresttherein.slang.funny.Curry.Curried.returning]]
+		  * @see [[net.noresttherein.slang.funny.Curry.Curried#returning]]
 		  */
 		@inline def andThen[Z, O](map :Y => Z => O) :Curried[(A :=> X)#F, Z, O] =
 			new Curried[(A :=> X)#F, Z, O](curry.map(unapplied)(_ andThen map))(curry.mapped[X, Z => O]())
@@ -1055,35 +1059,39 @@ object Curry {
 
 		/** Create a function taking an additional, ignored argument `W` before the argument `X`.
 		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(newArg:__[W])]]
-		  * @see [[net.noresttherein.slang.funny.Curry.accept]]
+		  * @see [[net.noresttherein.slang.funny.Curry#accept]]
 		  */
 		@inline def accepting[W] :A[W => X => Y] = mapped[W => X => Y]{ f => _ => f }
 
 		/** Insert a new, ignored argument `W` before `X`, remaining in the same application point (before `W`).
 		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply(newArg:__[W])]]
-		  * @see [[net.noresttherein.slang.funny.Curry.accept]]
+		  * @see [[net.noresttherein.slang.funny.Curry#accept]]
 		  */
 		@inline def accept[W] :Curried[A, W, X => Y] = new Curried[A, W, X => Y](accepting[W])(curry.mapped[W, X => Y])
 
 
 		/** Create a function `W=>F` ignoring its first argument and returning this function `F` (unapplied).
-		  * This essentially prepends a new ignored argument of type `W` before all arguments specified by [[Mapped]].
-		  * @return a constant function returning [[unapplied]] for all arguments.
+		  * This essentially prepends a new ignored argument of type `W` before all arguments specified by
+		  * [[net.noresttherein.slang.funny.Curry.Curried#Mapped Mapped]].
+		  * @return a constant function returning [[net.noresttherein.slang.funny.Curry.Curried#unapplied unapplied]]
+		  *         for all arguments.
 		  */
 		@inline def returned[W] :W => A[X => Y] = (_ :W) => unapplied
 
 		/** Create an instance representing partial application of function `W=>F` up to `X` (excluding).
-		  * This essentially prepends a new ignored argument before all arguments specified by [[Mapped]].
+		  * This essentially prepends a new ignored argument before all arguments specified by
+		  * [[net.noresttherein.slang.funny.Curry.Curried.Mapped Mapped]].
 		  * @return a `Curried` instance representing a constant function returning this function for all arguments,
 		  *         applied up to the same argument `X`.
-		  * @see [[net.noresttherein.slang.funny.Curry.from]]
+		  * @see [[net.noresttherein.slang.funny.Curry#from]]
 		  */
 		@inline def from[W] :Curried[(W =>: A)#F, X, Y] =
 			new Curried[(W =>: A)#F, X, Y]((_ :W) => unapplied)(curry.from[W])
 
 		/** Create an instance representing partial application of function `W=>F` up to `X` (excluding).
-		  * This essentially prepends a new ignored argument before all arguments specified by [[Mapped]].
-		  * The [[net.noresttherein.slang.funny.Curry.Curried.__.:=>[A,Y,T]]] is a left-associative version of this method
+		  * This essentially prepends a new ignored argument before all arguments specified by
+		  * [[net.noresttherein.slang.funny.Curry.Curried.Mapped]].
+		  * The [[net.noresttherein.slang.funny.Curry.Curried.__.:=>[A,Y,T] ]] is a left-associative version of this method
 		  * with identical semantics, but can have worse type inference from the compiler.
 		  * @param w a marker object used solely to specify the type of the desired argument. Valid values can be obtained
 		  *          from [[net.noresttherein.slang.funny.Curry.Curried.__.apply]] generic method invoked by simply
@@ -1099,7 +1107,7 @@ object Curry {
 		/** Given another function sharing with `F` arguments preceding `X` and a function combining results of partial
 		  * application of both functions, return a single function taking shared arguments and invoking the combining
 		  * function on results of applying `this.result` and `other` to received arguments.
-		  * @see [[net.noresttherein.slang.funny.Curry.combine]]
+		  * @see [[net.noresttherein.slang.funny.Curry#combine]]
 		  */
 		@inline def combined[S, T, O](other :A[S=>T])(combine :(X => Y, S => T) => O) :A[O] =
 			curry.combine(unapplied, other)(combine)
@@ -1119,8 +1127,8 @@ object Curry {
 		  * implicit argument list required for implementation as a method prevents from shortened `apply` calls on
 		  * the result of `>>`, but on the other hand IntelliJ IDE doesn't currently recognise implicit conversions
 		  * using dependent types (and scala doesn't allow for implicit conversions to types parameterized with higher kinds).
-		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.apply()]]
-		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn.__]]
+		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#apply()]]
+		  * @see [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn#__]]
 		  */
 		@inline def next[Z, R](implicit ev :Y <:< (Z => R)) :Curried[(A :=> X)#F, Z, R] =
 			new Curried[(A :=> X)#F, Z, R](curry.map[X => Z => R](unapplied)((rest :X => Y) => rest andThen ev))(curry())

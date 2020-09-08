@@ -8,7 +8,7 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * frozen value. Its life cycle consists of two phases: during the initialization phase, the variable can
   * be mutated and read just as an unsynchronized [[net.noresttherein.slang.vars.Var Var]] instance, with writes
   * using no synchronization, and reads requiring access to a `@volatile` variable. This phase is not thread-safe.
-  * Once the [[net.noresttherein.slang.vars.Freezer#.freeze freeze()]] method is called by any thread,
+  * Once the [[net.noresttherein.slang.vars.Freezer#freeze freeze()]] method is called by any thread,
   * the value of the mutable variable is copied to an 'immutable' `@volatile` field, which is initialized only once
   * and the read-only phase begins. Any future updates to the variable will throw a `IllegalStateException` and
   * the variable will become from this point effectively immutable and thread safe.

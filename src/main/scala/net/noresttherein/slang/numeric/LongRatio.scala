@@ -7,10 +7,10 @@ import scala.annotation.tailrec
 
 /** Simple implementation of rational numbers using `Long` values for the numerator and the denominator. 
   * The fraction is always in its canonical form: the greatest common divisor of the numerator and the denominator 
-  * is `1` and the denominator is always a positive number. Unlike [[net.noresttherein.slang.numeric.Ratio]],
+  * is `1` and the denominator is always a positive number. Unlike [[net.noresttherein.slang.numeric.Ratio Ratio]],
   * this class does not check for arithmetic overflow/underflow. Operators are implemented in a way eliminating the
   * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
-  * For the public constructor, see [[net.noresttherein.slang.numeric.LongRatio.apply]].
+  * For the public constructor, see [[net.noresttherein.slang.numeric.LongRatio$#apply LongRatio()]].
   */
 final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
@@ -70,16 +70,16 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
 	def +(other :LongRatio) :LongRatio = plus(other.numerator, other.denominator)
 
-	/** The right-associative variant of [[LongRatio.+]]. Equivalent to `other + this`, but can implicitly promote `Long`
-	  * values on the left hand side of the operator to the required rational.
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio#+ +]]. Equivalent to `other + this`,
+	  * but can implicitly promote `Long` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def +:(other :LongRatio) :LongRatio = other.plus(n, d)
 
 
 	@inline def -(other :LongRatio) :LongRatio = plus(-other.numerator, other.denominator)
 
-	/** The right-associative variant of [[LongRatio.-]]. Equivalent to `other - this`, but can implicitly promote `Long`
-	  * values on the left hand side of the operator to the required rational.
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio#- -]]. Equivalent to `other - this`,
+	  * but can implicitly promote `Long` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def -:(other :LongRatio) :LongRatio = other.plus(-n, d)
 
@@ -109,8 +109,9 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 			new LongRatio(num, den)
 	}
 
-	/** Multiplies this rational by another rational. This method shared implementation with [[LongRatio!*]],
-	  * but is right associative and can promote `Long` values on the left side of the operator via an implicit conversion.
+	/** Multiplies this rational by another rational. This method shared implementation
+	  * with [[net.noresttherein.slang.numeric.LongRatio#* *]], but is right associative and can promote `Long` values
+	  * on the left side of the operator via an implicit conversion.
 	  */
 	@inline def *:(other :LongRatio) :LongRatio = other * this
 
@@ -327,20 +328,21 @@ object LongRatio {
 
 
 	/** Implicit conversion extending `Long` values with a `/%` method accepting other another `Long` and
-	  * constructing a [[LongRatio]] instance as an alternative to LongRatio object's factory method.
-	  * If you wish to perform other arithmetic operations with `Long` values as the left-hand argument use
-	  * the appropriate right-associative method of the `LongRatio` class.
+	  * constructing a [[net.noresttherein.slang.numeric.LongRatio LongRatio]] instance as an alternative to `LongRatio`
+	  * object's factory method. If you wish to perform other arithmetic operations with `Long` values
+	  * as the left-hand argument use the appropriate right-associative method of the `LongRatio` class.
 	  * @param numerator this integer, serving as thee numerator of the future rational
 	  * @return a builder object accepting the denominator for the rational result.
 	  */
 	@inline implicit def /%(numerator :Long) :DivisionLongRatioConstructor = new DivisionLongRatioConstructor(numerator)
 
-	/** A builder of [[LongRatio]] objects, accepting an `Long` denominator and constructing the rational number
-	  * representing the division of the wrapped numerator values by the argument.
+	/** A builder of [[net.noresttherein.slang.numeric.LongRatio LongRatio]] objects, accepting an `Long` denominator
+	  * and constructing the rational number representing the division of the wrapped numerator values by the argument.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
 	class DivisionLongRatioConstructor(private val numerator :Long) extends AnyVal {
-		/** Divides this `Long` by the argument, creating a [[LongRatio]] number representing the result.
+		/** Divides this `Long` by the argument, creating a [[net.noresttherein.slang.numeric.LongRatio LongRatio]]
+		  * number representing the result.
 		  * @param denominator the denominator of the created rational (before reduction)
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 		  */

@@ -12,9 +12,9 @@ import DateUnit._
 
 
 /** A unit used to measure elapsed time. Has three distinct subclasses:
-  * [[net.noresttherein.slang.time.TimeUnit]] for units describing time span of fixed length (such as seconds or hours),
-  * [[net.noresttherein.slang.time.DateUnit]] for calendar-based units such as months and
-  * [[net.noresttherein.slang.time.PseudoUnit]] for adapters of not unit instances of `java.time.ChronoUnit`
+  * [[net.noresttherein.slang.time.TimeUnit TimeUnit]] for units describing time span of fixed length (such as seconds
+  * or hours), [[net.noresttherein.slang.time.DateUnit DateUnit]] for calendar-based units such as months and
+  * [[net.noresttherein.slang.time.PseudoUnit PseudoUnit]] for adapters of not unit instances of `java.time.ChronoUnit`
   * such as `FOREVER` and `ERAS`.
   * @author Marcin Mościcki marcin@moscicki.net
   */

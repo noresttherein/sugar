@@ -10,9 +10,9 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
   * you can write `param += 1` for `param :InOut[Int]`.
   * @tparam T type of this variable
-  * @see [[Var]]
-  * @see [[Volatile]]
-  * @see [[SyncVar]]
+  * @see [[net.noresttherein.slang.vars.Var]]
+  * @see [[net.noresttherein.slang.vars.Volatile]]
+  * @see [[net.noresttherein.slang.vars.SyncVar]]
   */
 trait InOut[@specialized(SpecializedTypes) T] {
 
@@ -37,8 +37,9 @@ trait InOut[@specialized(SpecializedTypes) T] {
 
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
 	  * The default implementation does it the direct way without any guarantees about multi-threaded semantics.
-	  * This method is of real practical use only in concurrent `InOut` implementations such as [[SyncVar]] and [[Atomic]]
-	  * (and to a very limited extent in [[Volatile]]).
+	  * This method is of real practical use only in concurrent `InOut` implementations such as
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]] and [[net.noresttherein.slang.vars.Atomic Atomic]]
+	  * (and to a very limited extent in [[net.noresttherein.slang.vars.Volatile Volatile]]).
 	  * @param expect value to compare with current value
 	  * @param assign new value for this variable
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
@@ -51,16 +52,18 @@ trait InOut[@specialized(SpecializedTypes) T] {
 	  * `x :? expect := value` is equivalent to `x.testAndSet(expect, value)`.
 	  * @param expect value to compare with current value of this variable
 	  * @return an intermediate object which will perform the comparison and assign the value given to its
-	  *         [[InOut.TestAndSet#:=]] method.
-	  * @see [[InOut.testAndSet testAndSet()]]
+	  *         [[net.noresttherein.slang.vars.InOut.TestAndSet#:=]] method.
+	  * @see [[net.noresttherein.slang.vars.InOut#testAndSet testAndSet()]]
 	  */
 	@inline final def :?(expect :T) :TestAndSet[T] = new TestAndSet(this, expect)
 
 
 	/** Updates the value of this variable with the given function. Default implementation is equivalent to
 	  * `val res = f(this.get); this.value = res; res` and has no benefit over direct application in client code.
-	  * This method comes to use with concurrent `InOut` implementations such as [[SyncVar]] and [[Atomic]] -
-	  * the semantics of simple default [[Var]] offers no guarantees in multi-threaded environments.
+	  * This method comes to use with concurrent `InOut` implementations such as
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]] and [[net.noresttherein.slang.vars.Atomic Atomic]] -
+	  * the semantics of simple default [[net.noresttherein.slang.vars.Var Var]] offers no guarantees in multi-threaded
+	  * environments.
 	  * @param f function to apply to the value of this variable. Should have no side effects as it may be invoked
 	  *          several times.
 	  * @return result of applying `f` to the current value.
@@ -75,7 +78,8 @@ trait InOut[@specialized(SpecializedTypes) T] {
 	  * and is equivalent to `val res = foldLeft(acc, value); value = res; res`. Scala specific fold notation is
 	  * chosen here to remind through associativity that this variable becomes the second (right) parameter of the folding
 	  * function, with the argument on the left side of the operator being the first. This method comes to use with
-	  * concurrent `InOut` implementations such as [[SyncVar]] or [[Atomic]].
+	  * concurrent `InOut` implementations such as [[net.noresttherein.slang.vars.SyncVar SyncVar]]
+	  * or [[net.noresttherein.slang.vars.Atomic Atomic]].
 	  * @param acc accumulator value to pass as the first argument to the `foldLeft` function, together with the current
 	  *            value of this variable.
 	  * @param foldLeft a function applied to the accumulator and this variable which result should be set to this variable.
@@ -92,7 +96,8 @@ trait InOut[@specialized(SpecializedTypes) T] {
 	  * and is equivalent to `val res = foldRight(value, acc); value = res; res`. Scala specific fold notation is
 	  * chosen here to remind through associativity that this variable becomes the first (left) parameter of the folding
 	  * function, with the argument on the right side of the operator being the second. This method comes to use with
-	  * concurrent `InOut` implementations such as [[SyncVar]] or [[Atomic]].
+	  * concurrent `InOut` implementations such as [[net.noresttherein.slang.vars.SyncVar SyncVar]]
+	  * or [[net.noresttherein.slang.vars.Atomic Atomic]].
 	  * @param acc accumulator value to pass as the second argument to the `foldRight` function, together with the current
 	  *            value of this variable.
 	  * @param foldRight a function applied to the accumulator and this variable which result should be set to this variable.
@@ -432,7 +437,7 @@ object InOut extends InOutNumericImplicits {
 
 
 
-	/** An intermediate value of a ''test-and-set'' operation initiated by [[InOut#:?]]. */
+	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut#:? :?]]. */
 	final class TestAndSet[@specialized(SpecializedTypes) T] private[vars] (x :InOut[T], expect :T) {
 		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
 		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)
@@ -572,8 +577,8 @@ object InOut extends InOutNumericImplicits {
 	  * All these methods are polymorphic (''virtual''), so if the underlying dynamic type of the patched
 	  * variable is, for example, synchronized, they will take advantage of that.
 	  * If you wish to avoid them and to invoke the appropriate methods statically with possible inlining,
-	  * use the appropriate type of the variable ([[Var]] or
-	  * [[SyncVar]].
+	  * use the appropriate type of the variable ([[net.noresttherein.slang.vars.Var Var]] or
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutBooleanOps(private val x :InOut[Boolean]) extends AnyVal {
 		
@@ -641,8 +646,8 @@ object InOut extends InOutNumericImplicits {
 	  * All these methods are polymorphic (''virtual''), so if the underlying dynamic type of the patched
 	  * variable is, for example, synchronized, they will take advantage of that.
 	  * If you wish to avoid them and to invoke the appropriate methods statically with possible inlining,
-	  * use the appropriate type of the variable ([[Var]] or
-	  * [[SyncVar]].
+	  * use the appropriate type of the variable ([[net.noresttherein.slang.vars.Var Var]] or
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutIntArithmetic(private val x :InOut[Int]) extends AnyVal {
 
@@ -814,8 +819,8 @@ object InOut extends InOutNumericImplicits {
 	  * All these methods are polymorphic (''virtual''), so if the underlying dynamic type of the patched
 	  * variable is, for example, synchronized, they will take advantage of that.
 	  * If you wish to avoid them and to invoke the appropriate methods statically with possible inlining,
-	  * use the appropriate type of the variable ([[Var]] or
-	  * [[SyncVar]].
+	  * use the appropriate type of the variable ([[net.noresttherein.slang.vars.Var Var]] or
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutLongArithmetic(private val x :InOut[Long]) extends AnyVal {
 
@@ -985,8 +990,8 @@ object InOut extends InOutNumericImplicits {
 	  * All these methods are polymorphic (''virtual''), so if the underlying dynamic type of the patched
 	  * variable is, for example, synchronized, they will take advantage of that.
 	  * If you wish to avoid them and to invoke the appropriate methods statically with possible inlining,
-	  * use the appropriate type of the variable ([[Var]] or
-	  * [[SyncVar]].
+	  * use the appropriate type of the variable ([[net.noresttherein.slang.vars.Var Var]] or
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutFloatArithmetic(private val x :InOut[Float]) extends AnyVal {
 
@@ -1068,8 +1073,8 @@ object InOut extends InOutNumericImplicits {
 	  * All these methods are polymorphic (''virtual''), so if the underlying dynamic type of the patched
 	  * variable is, for example, synchronized, they will take advantage of that.
 	  * If you wish to avoid them and to invoke the appropriate methods statically with possible inlining,
-	  * use the appropriate type of the variable ([[Var]] or
-	  * [[SyncVar]].
+	  * use the appropriate type of the variable ([[net.noresttherein.slang.vars.Var Var]] or
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutDoubleArithmetic(private val x :InOut[Double]) extends AnyVal {
 

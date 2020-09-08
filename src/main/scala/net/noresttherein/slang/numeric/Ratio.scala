@@ -8,7 +8,7 @@ import net.noresttherein.slang.numeric.Ratio.naturalGCD
   * the greatest common divisor of the numerator and the denominator is `1` and the denominator is always a positive integer.
   * All arithmetic operators check for overflow, throwing `ArithmeticException` if the result would not fit in a `Ratio`
   * value.
-  * For the public constructor, see [[net.noresttherein.slang.numeric.Ratio.apply]].
+  * For the public constructor, see [[net.noresttherein.slang.numeric.Ratio$#apply Ratio()]].
   * @author Marcin Mościcki marcin@moscicki.net
   */
 final class Ratio private(n :Int, d :Int) extends Number {
@@ -71,16 +71,16 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 	@inline def +(other :Ratio) :Ratio = plus(other.numerator, other.denominator)
 
-	/** The right-associative variant of [[Ratio.+]]. Equivalent to `other + this`, but can implicitly promote `Int`
-	  * values on the left hand side of the operator to the required rational.
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio#+ +]]. Equivalent to `other + this`,
+	  * but can implicitly promote `Int` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def +:(other :Ratio) :Ratio = other.plus(n, d)
 
 
 	@inline def -(other :Ratio) :Ratio = plus(-other.numerator, other.denominator)
 
-	/** The right-associative variant of [[Ratio.-]]. Equivalent to `other - this`, but can implicitly promote `Int`
-	  * values on the left hand side of the operator to the required rational.
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio#- -]]. Equivalent to `other - this`,
+	  * but can implicitly promote `Int` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def -:(other :Ratio) :Ratio = other.plus(-n, d)
 
@@ -101,8 +101,9 @@ final class Ratio private(n :Int, d :Int) extends Number {
 		new Ratio((num / gcd).toInt, (den / gcd).toInt)
 	}
 
-	/** Multiplies this rational by another rational. This is the same algorithm as [[Ratio!*]], but it is right
-	  * associative and can promote `Int` values on the left side of the operator via an implicit conversion.
+	/** Multiplies this rational by another rational. This is the same algorithm as
+	  * [[net.noresttherein.slang.numeric.Ratio#* *]], but it is right associative and can promote `Int` values
+	  * on the left side of the operator via an implicit conversion.
 	  */
 	@inline def *:(other :Ratio) :Ratio = other * this
 
@@ -282,7 +283,7 @@ object Ratio {
 
 
 
-	/** Creates a rational number in the canonical form. Returned [[net.noresttherein.slang.numeric.Ratio!]] object
+	/** Creates a rational number in the canonical form. Returned [[net.noresttherein.slang.numeric.Ratio Ratio]] object
 	  * still uses `Int`s as the numerator and denominator types, but accepting `Long` arguments here gives a chance
 	  * of avoiding overflow in arithmetic operations if the values after division by their ''GCD'' fit into `Int`s.
 	  * @param numerator the dividend (the numerator of the fraction)
@@ -372,21 +373,21 @@ object Ratio {
 
 
 	/** Implicit conversion extending `Int` values with a `/%` method accepting other another integer and
-	  * constructing a [[Ratio]] instance as an alternative to Ratio object's factory method.
-	  * If you wish to perform other arithmetic operations with `Int` values as the left-hand argument use
-	  * the appropriate right-associative method of the `Ratio` class.
+	  * constructing a [[net.noresttherein.slang.numeric.Ratio Ratio]] instance as an alternative
+	  * to the `Ratio` object's factory method. If you wish to perform other arithmetic operations with `Int` values
+	  * as the left-hand argument use the appropriate right-associative method of the `Ratio` class.
 	  * @param numerator this integer, serving as thee numerator of the future rational
 	  * @return a builder object accepting the denominator for the rational result.
 	  */
 	@inline implicit def /%(numerator :Int) :DivisionRatioConstructor = new DivisionRatioConstructor(numerator)
 
-	/** A builder of [[Ratio]] objects, accepting an `Int` denominator and constructing the rational number
-	  * representing the division of the wrapped numerator values by the argument.
+	/** A builder of [[net.noresttherein.slang.numeric.Ratio Ratio]] objects, accepting an `Int` denominator
+	  * and constructing the rational number representing the division of the wrapped numerator values by the argument.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
 	class DivisionRatioConstructor(private val numerator :Int) extends AnyVal {
-		/** Divides this `Int` by the argument, creating a [[Ratio]] number representing the result.
-		  * @param denominator the denominator of the created rational (before reduction)
+		/** Divides this `Int` by the argument, creating a [[net.noresttherein.slang.numeric.Ratio Ratio]] number
+		  * representing the result. @param denominator the denominator of the created rational (before reduction)
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 		  */
 		@inline def /%(denominator :Int) :Ratio = Ratio(numerator, denominator)
