@@ -46,7 +46,7 @@ package object typist extends TypeUnionImplicits {
 	@inline private[this] def genericEquiv[X] = ErasedEquiv.asInstanceOf[TypeEquiv[X]]
 
 
-	/** A specialized equivalent of standard scala `&lt;:&lt;`, attesting that type `X` is a subtype of type `Y`.
+	/** A specialized equivalent of standard scala `<:<`, attesting that type `X` is a subtype of type `Y`.
 	  * Introduced for specialization (including forcing specialization on methods declaring it as a parameter)
 	  * and to provide transitive by covariance and contravariance instances for higher types constructed using `X` and `Y`.
 	  * An implicit instance exists everywhere where the compiler would accept a value of `X` for type `Y`.

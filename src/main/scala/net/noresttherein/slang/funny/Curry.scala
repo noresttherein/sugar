@@ -52,7 +52,7 @@ sealed abstract class Curry[Args[+R], X, Y] { prev =>
 
 	/** Compose the return type `X => Y` of a partially applied `F` with another function. Substitutes the type of
 	  * the next argument `X` with type `W` by mapping the argument with the given function before applying `f`.
-	  * For example, given functions `f :F &lt;: P=>O=>X => Y` and `x :N=>X`, the result would be  `{p :P => o :O => n :N => f(p)(o)(x(w)) }`.
+	  * For example, given functions `f :F <: P=>O=>X => Y` and `x :N=>X`, the result would be  `{p :P => o :O => n :N => f(p)(o)(x(w)) }`.
 	  * @return a function `X0 => ... => Xn => W => Y` which applies `f` to its arguments 0 through n, followed by x(_).
 	  */
 	@inline final def compose[W](f :Args[X => Y])(x :W=>X) :Mapped[W => Y] = 
@@ -87,7 +87,7 @@ sealed abstract class Curry[Args[+R], X, Y] { prev =>
 	  */
 	def combine[O, T](self :Args[X => Y], other :Args[O])(combine :(X => Y, O) => T) :Args[T]
 
-	/** If the result of this partial application is a function `Y &lt;: Z=>T`, swap the order of arguments
+	/** If the result of this partial application is a function `Y <: Z=>T`, swap the order of arguments
 	  * in function `F` from `=>X=>Z=>T` to `=>Z=>X=>T`.
 	  */
 	@inline final def transpose[Z, T](f :Args[X => Y])(implicit ev :Y <:< (Z => T)) :Mapped[Z => X => T] =
@@ -245,7 +245,7 @@ object Curry {
 
 
 
-	/** Witnesses that `F &lt;: X1 => ... => Xn => Y` for some `n`.
+	/** Witnesses that `F <: X1 => ... => Xn => Y` for some `n`.
 	  * An implicit unbound value `ReturnType[F, _]` exists for every type F, specifying `Y` as the final return type
 	  * (i.e. first type in `F`'s type signature that is not a function itself. If `F` is not a function, than `F =:= Y`.
 	  * Implicit bound values `ReturnType[F, Y]` exist for every pair such that `Y` is the return type of function `F`,
@@ -259,7 +259,7 @@ object Curry {
 		/** Performs the deep composition of functions `f` and `z`, mapping the result type `Y` of `f` with `z`. */
 		def map[Z](f :F)(z :Y => Z) :Result[Z]
 
-		/** As this instance witnesses that `F &lt;: Result[Y]`, convert the given function so that it conforms to the return type.
+		/** As this instance witnesses that `F <: Result[Y]`, convert the given function so that it conforms to the return type.
 		  * This may, but need not, return the same instance.
 		  */
 		def cast(f :F) :Result[Y]
@@ -272,13 +272,13 @@ object Curry {
 
 
 
-	/** Witnesses that `F &lt;: ... => X => Y` or (`F &lt;: this.Mapped[X => Y]`), i.e.
+	/** Witnesses that `F <: ... => X => Y` or (`F <: this.Mapped[X => Y]`), i.e.
 	  * that `Y` is a type returned by (possibly partial) application of function `F` and `X` its last argument type
 	  * before returning `Y`. Implicit instances are available for 'final' return types, i.e first returned type which
 	  * is not a function itself. Note that in case of not fully instantiated types, 'final' is a relative term
 	  * and represents the static knowledge about `F` in the context where this instance was summoned.
 	  * @tparam F a function type in a curried form `X0 => ... => Xn => X => Y` for some `n &gt; 0`.
-	  * @tparam X last argument of `F` before returning `Y`, i.e. `F &lt;: X1=>..=>Xn=>X => Y` for some `n>=0`.
+	  * @tparam X last argument of `F` before returning `Y`, i.e. `F <: X1=>..=>Xn=>X => Y` for some `n>=0`.
 	  * @tparam Y returned type after applying `F` to a series of parameters (possibly all).
 	  */
 	sealed abstract class LastArg[F, X, Y] extends ReturnType[F, Y] {
@@ -403,7 +403,7 @@ object Curry {
 		  * two types of information: the shared argument list defined by `this.Returning` and return types of both these
 		  * functions after unification. Assuming `F =:= F_1 => F_2 => .. => F_n => L`, `G =:= G_1 => G_2 => .. => G_m => R`,
 		  * and that `n &lt; m` (the other case is symmetrical), the unified forms of these functions would be
-		  * `F &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (L)` and `G &lt;: LB[F_1, G_1] => ... => LB[F_n, G_n] => (G_{n+1} => ... => R)`,
+		  * `F <: LB[F_1, G_1] => ... => LB[F_n, G_n] => (L)` and `G <: LB[F_1, G_1] => ... => LB[F_n, G_n] => (G_{n+1} => ... => R)`,
 		  * where `LB[X, Y]` denotes maximum lower bound of types `X, Y` and the types in parenthesis' are the return types
 		  * of the unified forms. Note that there is no requirement for this unification to be maximal, i.e. that either
 		  * `LeftResult` or `RightResult` is not a function of a single argument, but all implicit values provided by the
@@ -491,12 +491,12 @@ object Curry {
 		  * performs unification of function pairs of type [[net.noresttherein.slang.funny.Curry.:*:[F, G]! F:*:G]],
 		  * converting them to instances of `reduce_:*:`. This conversion can be enforced by simply invoking
 		  * this class's `apply` method, as it is not declared in the `:*:` class itself.
-		  * @tparam F 'left' curried function type in the form of `F1=>...=>Fn=>Y`, `F &lt;: Returning[Y]`.
+		  * @tparam F 'left' curried function type in the form of `F1=>...=>Fn=>Y`, `F <: Returning[Y]`.
 		  * @tparam Y type returned by `F` after applying to arguments common with `G`.
-		  * @tparam G 'right' curried function type in the form of `G1=>..=>Gn=>Z`, `G &lt;: Returning[Z]`.
+		  * @tparam G 'right' curried function type in the form of `G1=>..=>Gn=>Z`, `G <: Returning[Z]`.
 		  * @tparam Z type returned by `G` after applying to arguments common with `F`.
 		  * @tparam R curried function type with return type `O` (type parameter of `R`) and which arguments are
-		  *           lower bounds of respective arguments of `F` and `G`; `F &lt;: R[Y]` and `G &lt;: R[Z]`.
+		  *           lower bounds of respective arguments of `F` and `G`; `F <: R[Y]` and `G <: R[Z]`.
 		  * @see [[net.noresttherein.slang.funny.Curry.:*:[F, G]!]]
 		  */
 		class reduce_:*:[F, Y, G, Z, R[O]](f :F, g :G)
@@ -629,7 +629,7 @@ object Curry {
 		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
 		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.compose compose]], but the substitute
 		  * function can take any number of parameters. Returned object is an intermediate value from which,
-		  * providing that `W=>Z &lt;: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`,
+		  * providing that `W=>Z <: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`,
 		  * representing the inlined function applied to the same arguments as this instance.
 		  * This intermediate step is introduced in order to move the implicit parameter `ReturnType[Z, X]` from the
 		  * method signature, where it prevents sugared calls to `apply` as declared by
@@ -647,7 +647,7 @@ object Curry {
 		  */
 		def next[Z, O](implicit ev :Y <:< (Z => O)) :Curried[(Mapped :=> X)#F, Z, O]
 
-		/** Given another function `H &lt;: X0 => ... => Xn => Y => U` (taking the same arguments as `F` up to, not including, `X`),
+		/** Given another function `H <: X0 => ... => Xn => Y => U` (taking the same arguments as `F` up to, not including, `X`),
 		  * create a new function with arguments `X0, ..., Xn`, applying them to both this and the argument function and combining
 		  * their results with the given operator.
 		  * @param other another curried function sharing arguments with `F` preceding `X`.
@@ -739,7 +739,7 @@ object Curry {
 			@inline def apply(x :X) :Curried[A, Y, T] = curried.set(x)
 
 			/** Replace this argument by mapping the intended argument type `W` to `X` before applying `f` and advance
-			  * to the argument `Y` following `X`. For example, given a function `f :F &lt;: P=>O=>X=Y` and `x :N=>X`,
+			  * to the argument `Y` following `X`. For example, given a function `f :F <: P=>O=>X=Y` and `x :N=>X`,
 			  * the result is `{ p :P => o :O => n :N => f(p)(o)(x(n}) }`. This method is equivalent to `self.swap(x).>>`.
 			  * @tparam W argument type replacing `X` in `F`.
 			  * @return a `Curried` instance representing the next position (after argument `W` and before `Y`) in the
@@ -816,7 +816,7 @@ object Curry {
 
 
 		/** An intermediate object representing substitution of argument `X` of a curried function `Mapped[X => Y]` with
-		  * inlined arguments of function `W=>Z &lt;: W => Z0 => .. => Zn => X`. There are implicit conversions
+		  * inlined arguments of function `W=>Z <: W => Z0 => .. => Zn => X`. There are implicit conversions
 		  * to both [[net.noresttherein.slang.funny.Curry.Curried Curried]] and
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]] which require the witness
 		  * `ReturnType[Z, X]`. After the conversion, the application point of the new function remains unmoved,
@@ -858,7 +858,7 @@ object Curry {
 
 
 		/** An intermediate object representing substitution of argument `X` of a curried function `Mapped[X => Y=>R]` with
-		  * inlined arguments of function `W=>Z &lt;: W => Z0 => .. => Zn => X`. There are implicit conversions
+		  * inlined arguments of function `W=>Z <: W => Z0 => .. => Zn => X`. There are implicit conversions
 		  * to both [[net.noresttherein.slang.funny.Curry.Curried Curried]] and
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]], providing an implicit witness
 		  * `ReturnType[Z, X]` exists. After the conversion, the application point is advanced over all inlined arguments
@@ -891,7 +891,7 @@ object Curry {
 
 
 
-	/** A wrapper over a curried function `f :F` (with an arbitrary number of single-element argument lists), `F &lt;: A[X=>T]`,
+	/** A wrapper over a curried function `f :F` (with an arbitrary number of single-element argument lists), `F <: A[X=>T]`,
 	  * representing partial application of `f` up to (not including) `X` and providing methods for modifying this function
 	  * from this argument on. Naming convention to which (most of) methods of this class conform is that an imperative
 	  * verb form is used for methods returning another `Curried` instance (and thus allowing for modification of subsequent
@@ -902,7 +902,7 @@ object Curry {
 	  * a new `Curry` instance for that function.
 	  *
 	  * In addition, there is an implicit conversion from instances of `Curried` which don't represent the last argument
-	  * of the function (i.e. `Y &lt;: _ => _` ) to `CurryOn` instances which provide much nicer `apply` syntax
+	  * of the function (i.e. `Y <: _ => _` ) to `CurryOn` instances which provide much nicer `apply` syntax
 	  * for advancing to the next argument after each operation allowing for more succinct - and hopefully readable - code.
 	  * Thus for some methods declared here transforming `f`, there are implicitly added by `CurryOn` corresponding `apply`
 	  * methods performing the same transformation, but additionally advancing to the next argument. This offers
@@ -961,7 +961,7 @@ object Curry {
 		/** Composes the result of partial application of `F` with a function mapping new argument type `W` to the corresponding
 		  * argument `X` in `F`. Has the effect of substituting this argument with a new argument type and mapping it on each
 		  * application before invoking this function.
-		  * For example, given a function `f :F &lt;: M=>I=>X=>T` and `x :N=>X`, the result is a function of type `M=>I=>N=>T`:
+		  * For example, given a function `f :F <: M=>I=>X=>T` and `x :N=>X`, the result is a function of type `M=>I=>N=>T`:
 		  * `{m :M => i :I => n :N => f(m)(i)(x(n)) }`.
 		  * @return a function resulting from substituting the argument `X` in the underlying function to `W` and mapping
 		  *         its value using the passed function.
@@ -972,7 +972,7 @@ object Curry {
 		/** Compose the function resulting from partially applying `F` up to this point with another function specifying
 		  * a new argument type and return a `Curried` instance representing its partial application to the same arguments
 		  * (up until `W`). Has the effect of substituting argument `X` by mapping intended argument type `W` to `X` before
-		  * applying `f`. For example, given a function `f :F &lt;: M=>I=>X=>T` and `x :N=>X`, the result is a function
+		  * applying `f`. For example, given a function `f :F <: M=>I=>X=>T` and `x :N=>X`, the result is a function
 		  * of type `M=>I=>N=>T`: `{m :M => i :I => n :N => f(m)(i)(x(n)) }`.
 		  * There is also an `apply` variant of this method advancing to the next argument, available by implicit conversion
 		  * to [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]] : `this((w :W) => w.toX)`.
@@ -1000,7 +1000,7 @@ object Curry {
 		/** Substitutes the argument `X` with the arguments of a given curried function `x` returning `X`.
 		  * This is similar to [[net.noresttherein.slang.funny.Curry.Curried.compose compose]], but the substitute
 		  * function can take any number of parameters. Returned object is an intermediate value from which,
-		  * providing that `W=>Z &lt;: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`.
+		  * providing that `W=>Z <: W=>Z1=>...=>Zn=>X`, an implicit conversion exists to `Curried[A, W, Z1=>...=>Zn=>Y]`.
 		  * This intermediate step is introduced in order to move the implicit parameter `ReturnType[Z, X]` from the
 		  * method signature, where it prevents sugared calls to `apply` as declared by
 		  * [[net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn CurryOn]], to the implicit conversion.
@@ -1216,7 +1216,7 @@ object Curry {
 
 
 
-	/** Wrapper for a function `f :F &lt;: A[X => Y]` representing result of partially applying it up to argument `X` (not including).
+	/** Wrapper for a function `f :F <: A[X => Y]` representing result of partially applying it up to argument `X` (not including).
 	  * Provides methods for transforming function `f` by mapping result type `Y`. For all arguments except the last,
 	  * the result is the same as with a `Curry[A, X, Y]()` (i.e, next argument), but provides a convenient way
 	  * of operating on the final result type of `F` (first return type in composition chain which is not a function).

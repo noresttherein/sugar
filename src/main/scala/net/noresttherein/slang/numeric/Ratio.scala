@@ -32,7 +32,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 		if (n >= 0) this else new Ratio(-n, d)
 
 	/** The fraction resulting from swapping the places of numerator and denominator. For all rational numbers 
-	  * `r &lt;: Ratio` `r * r.reciprocal == Ratio(1)` (reciprocal is the opposite element with regard to multiplication).
+	  * `r <: Ratio` `r * r.reciprocal == Ratio(1)` (reciprocal is the opposite element with regard to multiplication).
 	  * @return `denominator * this.sign /% numerator * this.sign`
 	  */
 	@inline def reciprocal :Ratio =

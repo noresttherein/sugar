@@ -33,7 +33,7 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 		if (n >= 0) this else new LongRatio(-n, d)
 
 	/** The fraction resulting from swapping the places of numerator and denominator. For all rational numbers
-	  * `r &lt;: LongRatio` `r * r.reciprocal == LongRatio(1)` (reciprocal is the opposite element with regard to multiplication).
+	  * `r <: LongRatio` `r * r.reciprocal == LongRatio(1)` (reciprocal is the opposite element with regard to multiplication).
 	  * @return `denominator * this.signum /% numerator * this.signum`
 	  */
 	def reciprocal :LongRatio =
