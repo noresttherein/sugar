@@ -1,7 +1,7 @@
 package net.noresttherein.slang.witness
 
 /** A type for which an implicit value is always present, however, if an implicit value for `T` can be found,
-  * it is exposed as `Some[T]` through this instances [[net.noresttherein.slang.witness.Maybe#opt opt]] method.
+  * it is exposed as `Some[T]` through this instances [[net.noresttherein.slang.witness.Maybe.opt opt]] method.
   */
 class Maybe[+T] private[witness] (val opt :Option[T])
 

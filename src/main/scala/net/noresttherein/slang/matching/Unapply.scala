@@ -27,7 +27,7 @@ abstract class Unapply[-In, +Out] {
 		throw new NoSuchElementException(s"$this.get($arg)")
 	}
 
-	/** Same as [[net.noresttherein.slang.matching.Unapply#unapply unapply]]. Directly dispatches this call
+	/** Same as [[net.noresttherein.slang.matching.Unapply.unapply unapply]]. Directly dispatches this call
 	  * to the latter. */
 	@inline final def apply(arg :In) :Option[Out] = unapply(arg)
 

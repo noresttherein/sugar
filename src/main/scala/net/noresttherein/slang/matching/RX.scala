@@ -16,7 +16,7 @@ import scala.util.matching.Regex
   * of constructing large regular expression than the standard string representation, partly due to whitespace separators
   * typical to code and partly due to more friendly names for some character classes. It should prevent many typo-like
   * errors, but the strict correctness was sacrificed for flexibility of embedding fragments given as string patterns
-  * (through the [[net.noresttherein.slang.matching.RX$#apply(pattern:String,groups:String*) RX(pattern)]] method) 
+  * (through the [[net.noresttherein.slang.matching.RX$#apply(pattern:String,groups:String*)* RX(pattern)]] method)
   * wherever this would improve readability.
   *
   * @see [[net.noresttherein.slang.matching.RX$ RX object]]
@@ -48,24 +48,24 @@ sealed abstract class RX extends Serializable {
 	/** A regular expression greedily matching this expression at most once: `(this)?`.
 	  * Will match the longest fragment of input possible before backtracking; this may lead to omitting some matches
 	  * which could be found using reluctant matching.
-	  * @see [[net.noresttherein.slang.matching.RX#?? ??]]
-	  * @see [[net.noresttherein.slang.matching.RX#?+ ?+]]
+	  * @see [[net.noresttherein.slang.matching.RX.?? ??]]
+	  * @see [[net.noresttherein.slang.matching.RX.?+ ?+]]
 	  */
 	def ? :RX = new RepeatedRX(ncgroup, "?")
 
 	/** A regular expression greedily matching this expression zero or more times: `(this)*`.
 	  * Will match the longest fragment of input possible before backtracking; this may lead to omitting some matches
 	  * which could be found using reluctant matching.
-	  * @see [[net.noresttherein.slang.matching.RX#*? *?]]
-	  * @see [[net.noresttherein.slang.matching.RX#*+ *+]]
+	  * @see [[net.noresttherein.slang.matching.RX.*? *?]]
+	  * @see [[net.noresttherein.slang.matching.RX.*+ *+]]
 	  */
 	def * :RX = new RepeatedRX(ncgroup, "*")
 
 	/** A regular expression greedily matching this expression one or more times: `(this)+`.
 	  * Will match the longest fragment of input possible before backtracking; this may lead to omitting some matches
 	  * which could be found using reluctant matching.
-	  * @see [[net.noresttherein.slang.matching.RX#+? +?]]
-	  * @see [[net.noresttherein.slang.matching.RX#++ ++]]
+	  * @see [[net.noresttherein.slang.matching.RX.+? +?]]
+	  * @see [[net.noresttherein.slang.matching.RX.++ ++]]
 	  */
 	def + :RX = new RepeatedRX(ncgroup, "+")
 
@@ -95,24 +95,24 @@ sealed abstract class RX extends Serializable {
 	/** A regular expression reluctantly matching this expression at most once: `(this)??`.
 	  * Will attempt to match the shortest fragment of input possible; this may lead to finding more matches than
 	  * with greedy matching.
-	  * @see [[net.noresttherein.slang.matching.RX#? ?]]
-	  * @see [[net.noresttherein.slang.matching.RX#?+ ?+]]
+	  * @see [[net.noresttherein.slang.matching.RX.? ?]]
+	  * @see [[net.noresttherein.slang.matching.RX.?+ ?+]]
 	  */
 	def ?? :RX = new RepeatedRX(ncgroup, "??")
 
 	/** A regular expression reluctantly matching this expression at zero or more times: `(this)*?`.
 	  * Will attempt to match the shortest fragment of input possible; this may lead to finding more matches than
 	  * with greedy matching.
-	  * @see [[net.noresttherein.slang.matching.RX#* *]]
-	  * @see [[net.noresttherein.slang.matching.RX#*+ *+]]
+	  * @see [[net.noresttherein.slang.matching.RX.* *]]
+	  * @see [[net.noresttherein.slang.matching.RX.*+ *+]]
 	  */
 	def *? :RX = new RepeatedRX(ncgroup, "*?")
 
 	/** A regular expression reluctantly matching this expression one or more times: `(this)+?`.
 	  * Will attempt to match the shortest fragment of input possible; this may lead to finding more matches than
 	  * with greedy matching.
-	  * @see [[net.noresttherein.slang.matching.RX#+ +]]
-	  * @see [[net.noresttherein.slang.matching.RX#++ ++]]
+	  * @see [[net.noresttherein.slang.matching.RX.+ +]]
+	  * @see [[net.noresttherein.slang.matching.RX.++ ++]]
 	  */
 	def +? :RX = new RepeatedRX(ncgroup, "+?")
 
@@ -143,8 +143,8 @@ sealed abstract class RX extends Serializable {
 	  * Will attempt to match the longest fragment of input possible and, once successful, will not backtrack
 	  * even if the following fragment can't be matched. May not find a match where other methods would, but can
 	  * be significantly faster.
-	  * @see [[net.noresttherein.slang.matching.RX#? ?]]
-	  * @see [[net.noresttherein.slang.matching.RX#?? ??]]
+	  * @see [[net.noresttherein.slang.matching.RX.? ?]]
+	  * @see [[net.noresttherein.slang.matching.RX.?? ??]]
 	  */
 	def ?+ :RX = new RepeatedRX(ncgroup, "?+")
 
@@ -152,8 +152,8 @@ sealed abstract class RX extends Serializable {
 	  * Will attempt to match the longest fragment of input possible and, once successful, will not backtrack
 	  * even if the following fragment can't be matched. May not find a match where other methods would, but can
 	  * be significantly faster.
-	  * @see [[net.noresttherein.slang.matching.RX#* *]]
-	  * @see [[net.noresttherein.slang.matching.RX#*? *?]]
+	  * @see [[net.noresttherein.slang.matching.RX.* *]]
+	  * @see [[net.noresttherein.slang.matching.RX.*? *?]]
 	  */
 	def *+ :RX = new RepeatedRX(ncgroup, "*+")
 
@@ -161,8 +161,8 @@ sealed abstract class RX extends Serializable {
 	  * Will attempt to match the longest fragment of input possible and, once successful, will not backtrack
 	  * even if the following fragment can't be matched. May not find a match where other methods would, but can
 	  * be significantly faster.
-	  * @see [[net.noresttherein.slang.matching.RX#+ +]]
-	  * @see [[net.noresttherein.slang.matching.RX+? +?]]
+	  * @see [[net.noresttherein.slang.matching.RX.+ +]]
+	  * @see [[net.noresttherein.slang.matching.RX.+? +?]]
 	  */
 	def ++ :RX = new RepeatedRX(ncgroup, "++")
 
@@ -235,7 +235,7 @@ sealed abstract class RX extends Serializable {
 
 
 	/** A named, capturing group matching this expression: `(?&lt;name&gt;this)`. Matched fragment can be referenced with
-	  * [[net.noresttherein.slang.matching.RX$#group RX.group(name)]].
+	  * [[net.noresttherein.slang.matching.RX$.group RX.group(name)]].
 	  */
 	def group(name :String) :RX = new NamedGroup(name, this)
 
@@ -743,28 +743,28 @@ object RX {
 
 
 	/** A regular expression turning on the `UNIX_LINES` ('d') flag for the remainder of the expression.
-	  * This will treat only the new line character ([[net.noresttherein.slang.matching.RX$#NL NL]] = '\n')
+	  * This will treat only the new line character ([[net.noresttherein.slang.matching.RX$.NL NL]] = '\n')
 	  * as a valid line terminators, turning off the default behavior of accepting line terminator sequences from any
 	  * operating system. Can be turned off by `!UnixEOL` or applied only to a particular expression fragment: 
 	  * `regexp(UnixEOL)`.
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final val UnixEOL = new Flag("d")
 
 	/** A regular expression turning on the `DOTALL` ('s') flag for the remainder of the expression.
-	  * It will make the special '.' character ([[net.noresttherein.slang.matching.RX$#`.` `.`]]) match also the
+	  * It will make the special '.' character ([[net.noresttherein.slang.matching.RX$.`.` `.`]]) match also the
 	  * line terminator characters.
 	  * Can be turned off by `!DotEOL` or applied only to a particular expression fragment: `regexp(DotEOL)`.
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final val DotEOL = new Flag("s")
 
 	/** A regular expression turning on the `MULTILINE` ('m') flag for the remainder of the expression.
-	  * This will make the special characters `'^'` ([[net.noresttherein.slang.matching.RX.`^` `^`]]) and `'$'`
+	  * This will make the special characters `'^'` ([[net.noresttherein.slang.matching.RX.`^` `\^`]]) and `'$'`
 	  * ([[net.noresttherein.slang.matching.RX$.`$` `$`]]) match a beginning and end of any line of input, respectively.
 	  * By default they match only the beginning and end of whole input.
 	  * Can be turned off by `!MultiLine` or applied only to a particular expression fragment: `regexp(MultiLine)`.
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final val MultiLine = new Flag("m")
 
@@ -773,7 +773,7 @@ object RX {
 	  * Can be turned off by `!NoCase` or applied only to a particular expression fragment: `regexp(NoCase)`.
 	  * @see [[net.noresttherein.slang.matching.RX$.uCase uCase]]
 	  * @see [[net.noresttherein.slang.matching.RX$.uNoCase uNoCase]]
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final val NoCase = new Flag("i")
 
@@ -782,7 +782,7 @@ object RX {
 	  * Can be turned off by `!uNoCase` or applied only to a particular expression fragment: `regexp(uNoCase)`.
 	  * @see [[net.noresttherein.slang.matching.RX$.NoCase NoCase]]
 	  * @see [[net.noresttherein.slang.matching.RX$.uCase uCase]]
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final val uNoCase = new Flag("iu")
 
@@ -793,7 +793,7 @@ object RX {
 	  * Can be turned off by `!uCase` or applied only to a particular expression fragment: `regexp(NoCase, uCase)`.
 	  * @see [[net.noresttherein.slang.matching.RX$.uNoCase uNoCase]]
 	  * @see [[net.noresttherein.slang.matching.RX$.NoCase NoCase]]
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final val uCase = new Flag("u")
 
@@ -814,9 +814,9 @@ object RX {
 	  * until the end of line. It is useful only when embedding literal strings as regular expressions and does not
 	  * affect any `RX` value provided here (which use character classes and escapes to match whitespace).
 	  * Can be turned off by `!Comments` or applied only to a particular expression fragment: `regexp(Comments)`.
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
-	  * @see [[net.noresttherein.slang.matching.RX.## RX.##]]
-	  * @see [[net.noresttherein.slang.matching.RX#comment comment]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.\#\# RX.##]]
+	  * @see [[net.noresttherein.slang.matching.RX.comment comment]]
 	  */
 	final val Comments = new Flag("x")
 
@@ -1001,7 +1001,7 @@ object RX {
 	  *
 	  * @param code the letter (or letters) used to represent the flag inside a regular expression
 	  * @param isOn whether the flag is being turned on or off.
-	  * @see [[net.noresttherein.slang.matching.RX#apply RX.apply]]
+	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
 	final class Flag private[RX](val code :String, val isOn :Boolean = true)
 		extends RXGroup(if (isOn) "-" + code else code, EmptyRX)
@@ -1324,7 +1324,7 @@ object RX {
 	/** A type wrapping an `Int` signifying that a regular expression should be matched at least that number of times.
 	  * New instances can be obtained either through the factory method `AtLeast(n)` or through the implicit extension
 	  * [[net.noresttherein.slang.matching.RX.RepeatAtLeast RepeatAtLeast]]: `1.-*`.
-	  * @see [[net.noresttherein.slang.matching.RX#* *]]
+	  * @see [[net.noresttherein.slang.matching.RX.\* *]]
 	  */
 	final class AtLeast(val n :Int) 
 

@@ -19,7 +19,7 @@ import scala.compat.Platform
   *  - indexing only works if the type is fully known;
   *  - they are backed by arrays instead of lists, with `O(1)` element retrieval, while retaining amortized `O(1)` append;
   *    this comes at the cost of making all updates `O(n)`.
-  *  - the 'Nil' type ([[net.noresttherein.slang.tuples.Tuple.<> <>]]) can be omitted from tuples of length &gt;=2 by 
+  *  - the 'Nil' type ([[net.noresttherein.slang.tuples.Tuple.<>! <>]]) can be omitted from tuples of length &gt;=2 by
   *    using an alias: `Int&gt;:&lt;Int`;
   *  - they do not natively offer generic (polymorphic) mapping over all elements of a tuple;   
   *
@@ -28,7 +28,7 @@ import scala.compat.Platform
   */
 sealed trait Tuple extends Product {
 
-	/** Number of elements in this tuple. Same as [[Tuple#productArity]]. */
+	/** Number of elements in this tuple. Same as [[net.noresttherein.slang.tuples.Tuple.productArity productArity]]. */
 	def length :Int
 
 	/** True if this tuple has at least one element. */
@@ -61,7 +61,8 @@ object Tuple {
 	}
 
 	/** Retrieves all elements from this tuple as a list with the type of their common upper bound. To match
-	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.tuples.Tuple.>< ><]] (infix notation possible).
+	  * individual elements similarly to `List`s `::`, use [[net.noresttherein.slang.tuples.Tuple.><$ ><]]
+	  * (infix notation possible).
 	  * @param tuple the tuple to explode
 	  * @tparam T concrete product type of this tuple containing information about all elements.
 	  * @tparam U calculated least upper bound type for elements of this tuple.
@@ -574,7 +575,7 @@ object Tuple {
 
 	
 	/** An alias for a single element tuple `&lt;&gt; &gt;&lt; X`. New instances can be created either by the 
-	  * companion object to this type, by the single-argument [[net.noresttherein.slang.tuples.Tuple#apply[A](a:A) Tuple(x)]],
+	  * companion object to this type, by the single-argument [[net.noresttherein.slang.tuples.Tuple.apply[A](a:A)* Tuple(x)]],
 	  * or by a factory method added implicitly after importing this type: `x.&lt;&gt;`.
 	  */
 	type <*>[+X] = <> >< X
@@ -629,7 +630,7 @@ object Tuple {
 	  */
 	@inline implicit def >:<[X](first :X): Tuple2Constructor[X] = new Tuple2Constructor(first)
 
-	/** Patches any object implicitly adding the [[net.noresttherein.slang.tuples.Tuple.Tuple2Constructor#:*]] method
+	/** Patches any object implicitly adding the [[net.noresttherein.slang.tuples.Tuple.Tuple2Constructor.\:\*]] method
 	  * for creating pair objects. */
 	class Tuple2Constructor[X](private val first :X) extends AnyVal {
 		/** Creates a two-argument tuple `X &gt;:&lt; Y` with this (left) value as the first element and the argument as the second. */
@@ -646,7 +647,7 @@ object Tuple {
 
 	/** Cartesian product of types in the tuple `P` and type `L`, being a type constructor for tuples with variable lengths.
 	  * New instances can be created either by the [[net.noresttherein.slang.tuples.Tuple$ Tuple]]'s object overloaded
-	  * `apply` methods for fixed arities, or by recursively appending elements with [[net.noresttherein.slang.tuples.Tuple!.>< ><]] 
+//	  * `apply` methods for fixed arities, or by recursively appending elements with [[net.noresttherein.slang.tuples.Tuple!.>< &gt;&lt;]]
 	  * to existing tuples. A natural start would be either the empty product [[net.noresttherein.slang.tuples.Tuple.<>$ &lt;&gt;]] 
 	  * or a pair: [[net.noresttherein.slang.tuples.Tuple.>:< >:<]].
 	  * Please note that, in order to retain consistency with arbitrary scala tuples, elements are indexed starting 
@@ -740,7 +741,7 @@ object Tuple {
 		/** Retrieves the `n`-th element of this tuple as a value of `LUB` type of all member types (that is the most
 		  * specific type `U` such that all elements of this tuple conform to `U`. This is the only way to access the
 		  * elements based on dynamic index values. If the index is statically known, consider instead
-		  * [[net.noresttherein.slang.tuples.Tuple.><.apply[N](n:N)(implicit tpe:TupleAt[P><L,N,X]]]
+		  * [[net.noresttherein.slang.tuples.Tuple.><.apply[N](n:N)(implicit\ tpe:TupleAt[P><L,N,X]* Tuple.><(n)]]
 		  * @param n the index of the element to retrieve (starting with `1` as the first element).
 		  * @param lub an implicit witness providing the least upper bound for member types of this tuple.
 		  * @tparam U the least upper bound for types of all elements in this tuple.
@@ -753,7 +754,7 @@ object Tuple {
 
 		/** Retrieves the `n`-th element of this tuple. The value of `n` must be statically known and encoded as a natural
 		  * number type `Nat`. See [[net.noresttherein.slang.tuples.Nat$ Nat]] for constants such as
-		  * [[net.noresttherein.slang.tuples.Nat$#_1 _1]], [[net.noresttherein.tuples.Nat$#_2]], ''etc.''.
+		  * [[net.noresttherein.slang.tuples.Nat$._1 _1]], [[net.noresttherein.tuples.Nat$._2]], ''etc.''.
 		  * @param n the index of the element to retrieve (starting with `_1`(1) for the first element),
 		  *          statically encoded as a recursively nested type.
 		  * @param tpe an implicit witness providing the type of the `n`-th element in this tuple.

@@ -10,7 +10,7 @@ import scala.annotation.tailrec
   * is `1` and the denominator is always a positive number. Unlike [[net.noresttherein.slang.numeric.Ratio Ratio]],
   * this class does not check for arithmetic overflow/underflow. Operators are implemented in a way eliminating the
   * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
-  * For the public constructor, see [[net.noresttherein.slang.numeric.LongRatio$#apply LongRatio()]].
+  * For the public constructor, see [[net.noresttherein.slang.numeric.LongRatio$.apply LongRatio()]].
   */
 final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
@@ -70,7 +70,7 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
 	def +(other :LongRatio) :LongRatio = plus(other.numerator, other.denominator)
 
-	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio#+ +]]. Equivalent to `other + this`,
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio.+ +]]. Equivalent to `other + this`,
 	  * but can implicitly promote `Long` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def +:(other :LongRatio) :LongRatio = other.plus(n, d)
@@ -78,7 +78,7 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
 	@inline def -(other :LongRatio) :LongRatio = plus(-other.numerator, other.denominator)
 
-	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio#- -]]. Equivalent to `other - this`,
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio.- -]]. Equivalent to `other - this`,
 	  * but can implicitly promote `Long` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def -:(other :LongRatio) :LongRatio = other.plus(-n, d)
@@ -110,7 +110,7 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 	}
 
 	/** Multiplies this rational by another rational. This method shared implementation
-	  * with [[net.noresttherein.slang.numeric.LongRatio#* *]], but is right associative and can promote `Long` values
+	  * with [[net.noresttherein.slang.numeric.LongRatio.\* *]], but is right associative and can promote `Long` values
 	  * on the left side of the operator via an implicit conversion.
 	  */
 	@inline def *:(other :LongRatio) :LongRatio = other * this

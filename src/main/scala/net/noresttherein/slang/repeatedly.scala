@@ -195,7 +195,7 @@ object repeatedly {
 	/** Recursively applies function `next` to its result, starting with argument `start` and returning
 	  * an eager sequence containing `start` followed by the values returned by `next`.
 	  * Recursion stops when the generator function is no longer applicable to the previously computed value.
-	  * This is the same as [[net.noresttherein.slang.repeatedly#iterate iterate]]`(Seq)(start)(next)`
+	  * This is the same as [[net.noresttherein.slang.repeatedly.iterate iterate]]`(Seq)(start)(next)`
 	  * @param start first element of returned list
 	  * @param next generator function returning subsequent elements for the collection based on the previous one,
 	  *             serving as the termination condition by indicating that it can no longer be applied
@@ -209,7 +209,7 @@ object repeatedly {
 	/** Recursively applies function `next` to its result, starting with argument `start` and returning
 	  * an eager sequence containing `start` followed by the values returned by `next`.
 	  * Recursion stops once the generator function returns `None`.
-	  * This is the same as [[net.noresttherein.slang.repeatedly#iterateSome iterateSome]]`(Seq)(start)(next)`.
+	  * This is the same as [[net.noresttherein.slang.repeatedly.iterateSome iterateSome]]`(Seq)(start)(next)`.
 	  * @param start first element of returned list
 	  * @param next generator function returning subsequent elements for the collection based on the previous one,
 	  *             or `None` to indicate the end of recursion

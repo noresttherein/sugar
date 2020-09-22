@@ -52,8 +52,8 @@ trait InOut[@specialized(SpecializedTypes) T] {
 	  * `x :? expect := value` is equivalent to `x.testAndSet(expect, value)`.
 	  * @param expect value to compare with current value of this variable
 	  * @return an intermediate object which will perform the comparison and assign the value given to its
-	  *         [[net.noresttherein.slang.vars.InOut.TestAndSet#:=]] method.
-	  * @see [[net.noresttherein.slang.vars.InOut#testAndSet testAndSet()]]
+	  *         [[net.noresttherein.slang.vars.InOut.TestAndSet.:=]] method.
+	  * @see [[net.noresttherein.slang.vars.InOut.testAndSet testAndSet()]]
 	  */
 	@inline final def :?(expect :T) :TestAndSet[T] = new TestAndSet(this, expect)
 
@@ -437,7 +437,7 @@ object InOut extends InOutNumericImplicits {
 
 
 
-	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut#:? :?]]. */
+	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut.\:? :?]]. */
 	final class TestAndSet[@specialized(SpecializedTypes) T] private[vars] (x :InOut[T], expect :T) {
 		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
 		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)

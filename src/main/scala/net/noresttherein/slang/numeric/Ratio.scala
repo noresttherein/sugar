@@ -8,7 +8,7 @@ import net.noresttherein.slang.numeric.Ratio.naturalGCD
   * the greatest common divisor of the numerator and the denominator is `1` and the denominator is always a positive integer.
   * All arithmetic operators check for overflow, throwing `ArithmeticException` if the result would not fit in a `Ratio`
   * value.
-  * For the public constructor, see [[net.noresttherein.slang.numeric.Ratio$#apply Ratio()]].
+  * For the public constructor, see [[net.noresttherein.slang.numeric.Ratio.apply(numerator:Int, denominator:Int)* Ratio()]].
   * @author Marcin Mościcki marcin@moscicki.net
   */
 final class Ratio private(n :Int, d :Int) extends Number {
@@ -71,7 +71,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 	@inline def +(other :Ratio) :Ratio = plus(other.numerator, other.denominator)
 
-	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio#+ +]]. Equivalent to `other + this`,
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio.+ +]]. Equivalent to `other + this`,
 	  * but can implicitly promote `Int` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def +:(other :Ratio) :Ratio = other.plus(n, d)
@@ -79,7 +79,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 	@inline def -(other :Ratio) :Ratio = plus(-other.numerator, other.denominator)
 
-	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio#- -]]. Equivalent to `other - this`,
+	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio.- -]]. Equivalent to `other - this`,
 	  * but can implicitly promote `Int` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def -:(other :Ratio) :Ratio = other.plus(-n, d)
@@ -102,7 +102,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 	}
 
 	/** Multiplies this rational by another rational. This is the same algorithm as
-	  * [[net.noresttherein.slang.numeric.Ratio#* *]], but it is right associative and can promote `Int` values
+	  * [[net.noresttherein.slang.numeric.Ratio.\* *]], but it is right associative and can promote `Int` values
 	  * on the left side of the operator via an implicit conversion.
 	  */
 	@inline def *:(other :Ratio) :Ratio = other * this
