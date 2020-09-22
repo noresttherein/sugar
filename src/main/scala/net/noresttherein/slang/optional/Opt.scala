@@ -1,6 +1,9 @@
 package net.noresttherein.slang.optional
 
-import net.noresttherein.slang.optional.Opt.EmptyToken
+import scala.reflect.ClassTag
+
+import net.noresttherein.slang.optional.Opt.{EmptyToken, Miss}
+import net.noresttherein.slang.raise
 
 
 
@@ -47,11 +50,6 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 	@inline def getOrElse[O >: T](alt: => O) :O =
 		if (ref eq EmptyToken) alt else ref.asInstanceOf[T]
 
-	/** Returns this `Opt` if it is not empty, or the lazily computed alternative otherwise. */
-	@inline def orElse[O >: T](alt: => Opt[O]) :Opt[O] =
-		if (ref eq EmptyToken) alt else this
-
-
 	/** Similarly to [[net.noresttherein.slang.optional.Opt.getOrElse getOrElse]], returns the value if non-empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees 
 	  * no closure will be created, at the cost of possibly discarding it without use.
@@ -60,6 +58,32 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 	@inline def defaults[O >: T](alt: O) :O =
 		if (ref eq EmptyToken) alt else ref.asInstanceOf[T]
 
+	/** Assuming that `T` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
+	@inline def orNull[O >: T](implicit ev :Null <:< O) :O =
+		if (ref eq EmptyToken) null.asInstanceOf[O] else ref.asInstanceOf[O]
+
+
+
+	/** Gets the element in this `Opt` or throws a `NoSuchElementException` with the given message. */
+	@inline def getOrThrow(msg: => String) :T =
+		if (ref eq EmptyToken) throw new NoSuchElementException(msg) else ref.asInstanceOf[T]
+
+	/** Gets the element in the `Opt` or throws the exception given as the type parameter with the given message.
+	  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
+	  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
+	  */
+	@inline def getOrThrow[E <: Exception :ClassTag](msg: => String) :T =
+		if (ref eq EmptyToken) raise[E](msg) else ref.asInstanceOf[T]
+
+	/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
+	@inline def illegalIfEmpty(msg: => String) :T =
+		if (ref eq EmptyToken) throw new IllegalArgumentException(msg) else ref.asInstanceOf[T]
+
+
+
+	/** Returns the value this `Opt` if it is not empty, or the lazily computed alternative otherwise. */
+	@inline def orElse[O >: T](alt: => Opt[O]) :Opt[O] =
+		if (ref eq EmptyToken) alt else this
 
 	/** Similarly to [[net.noresttherein.slang.optional.Opt.orElse orElse]], returns this `Opt` if it is not empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees 
@@ -69,16 +93,25 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 	@inline def ifEmpty[O >: T](alt: Opt[O]) :Opt[O] =
 		if (ref eq EmptyToken) alt else this
 
+	/** Returns this `Opt` if the condition is false and `Miss` if it is true. This is equivalent
+	  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
+	  */
+	@inline def orEmptyIf(condition :Boolean) :Opt[T] =
+		if (condition) Miss else this
 
-	/** Assuming that `T` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
-	@inline def orNull[O >: T](implicit ev :Null <:< O) :O =
-		if (ref eq EmptyToken) null.asInstanceOf[O] else ref.asInstanceOf[O]
+	/** Returns this `Opt` if the condition is true and `Miss` if it is false. This is equivalent
+	  * to `this.filter(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
+	  */
+	@inline def orEmptyUnless(condition :Boolean) :Option[T] =
+		if (condition) this else Miss
 
 
-	/** Wraps the value in an option.
+
+	/** Conversion to standard Scala [[scala.Option]].
 	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise.
 	  */
 	@inline def toOption :Option[T] = if (ref eq EmptyToken) None else Some(ref.asInstanceOf[T])
+
 
 
 	/** Executes the given block for this `Opt`s value if it is not empty. */
@@ -132,6 +165,15 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 			new Opt(EmptyToken)
 		else
 			new Opt(f.asInstanceOf[PartialFunction[T, AnyRef]].applyOrElse(ref.asInstanceOf[T], EmptyToken))
+
+
+	/** Applies the given function to the content of this option and returns the result or the provided alternative
+	  * if this option is empty. Equivalent to `this map f getOrElse alternative`, but in one step.
+	  */
+	@inline def mapOrElse[X](f :T => X, alternative: => X) :X =
+		if (ref eq EmptyToken) alternative else f(ref.asInstanceOf[T])
+
+
 
 
 

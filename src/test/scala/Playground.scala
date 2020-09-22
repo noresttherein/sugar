@@ -14,25 +14,6 @@ object Playground extends App {
 //		def extension[T <: Bound] :T ExtendedBy Extension[T] = new ExtendedBy(length)
 //	}
 
-	class Bool(val value :Boolean)
-
 
 
 }
-
-	object StandardObject
-
-	object SerializableObject extends Serializable
-
-	case object CaseObject
-
-    class Base(val field :Int) {
-	    def canEqual(that :Any) :Boolean = that.isInstanceOf[Base]
-	    override def equals(that :Any) :Boolean = that match {
-		    case base :Base => base.field == field
-		    case _ => false
-	    }
-	    override def hashCode :Int = field
-    }
-
-    case object BaseObject extends Base(42)

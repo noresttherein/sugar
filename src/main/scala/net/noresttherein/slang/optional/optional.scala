@@ -71,7 +71,7 @@ package object optional {
 		}
 
 		/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
-		@inline def getOrReject(msg: => String) :T = self getOrElse {
+		@inline def illegalIfEmpty(msg: => String) :T = self getOrElse {
 			throw new IllegalArgumentException(msg)
 		}
 
@@ -269,7 +269,7 @@ package object optional {
 		/** Returns the value of this option as returned by `get`.
 		  * Using a separate method emphasises that this call is safe.
 		  */
-		@inline final def some :T = opt.get
+		@inline def some :T = opt.get
 	}
 
 
@@ -282,27 +282,24 @@ package object optional {
 	implicit class ensuringMethods[T](private val self :T) extends AnyVal {
 
 		/** Return `this` if `condition` is true, or throw the give exception otherwise. */
-		@inline
-		def ensuring(condition :Boolean, ex :Exception) :T =
+		@inline def ensuring(condition :Boolean, ex :Exception) :T =
 			if (condition) self else throw ex
 
 
 		/** Return `this` if `condition` is false, or throw the given exception otherwise. */
-		@inline
-		def ensuring(condition :T => Boolean, ex :Exception) :T =
+		@inline def ensuring(condition :T => Boolean, ex :Exception) :T =
 			if (condition(self)) self else throw ex
 
 
-		/** Return `this` if `condition` is true, or raise the exception given as type parameter (must provide a default constructor). */
-		@inline
-		def ensuring[E <: Exception :ClassTag](condition :Boolean) :T =
+		/** Return `this` if `condition` is true, or raise the exception given as type parameter (must provide
+		  * a default constructor). */
+		@inline def ensuring[E <: Exception :ClassTag](condition :Boolean) :T =
 			if (condition) self else raise[E]
 
-		/** Return `this` if `condition` is true, or raise the exception specified as the type parameter, passing the given string to its constructor. */
-		@inline
-		def ensuring[E <: Exception :ClassTag](condition :Boolean, msg: => String) :T =
+		/** Return `this` if `condition` is true, or raise the exception specified as the type parameter,
+		  * passing the given string to its constructor. */
+		@inline def ensuring[E <: Exception :ClassTag](condition :Boolean, msg: => String) :T =
 			if (condition) self else raise[E](msg)
-
 
 	}
 

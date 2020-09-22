@@ -4,7 +4,7 @@ import scala.reflect.{classTag, ClassTag}
 
 
 package object prettyprint {
-	//implicits
+	//todo: replace the escaped special character escape sequences with the escaped characters
 
 
 	/** Unqualified class name of the given object, that is its class name with all outer packages stripped.
@@ -37,7 +37,7 @@ package object prettyprint {
 
 
 
-	/** Returns the class name of the given object aa seen from the most inner containing scope (class or object).
+	/** Returns the class name of the given object as seen from the most inner containing scope (class or object).
 	  * Anonymous classes will instead retain the name of the first non-synthetic (programmer named) scope.
 	  * @return `localNameOf(o.getClass)`
 	  * @see [[net.noresttherein.slang.prettyprint.localNameOf]]
@@ -90,24 +90,31 @@ package object prettyprint {
 	  * first letters. For nested classes, the names of all container classes or objects are preserved.
 	  */
 	def shortNameOf(clazz :Class[_]) :String = {
+		val pname = clazz.getPackage.getName; val plen = pname.length
 		val qname = clazz.getName; val len = qname.length
 		val sb = new StringBuilder(len)
 		var i = 0
-		var lastDot = -1
-		while (i < len) qname(i) match {
-			case '.' =>
-				sb.delete(lastDot+2, sb.length)
-				lastDot = sb.length
-				sb += '.';  i += 1
-			case char =>
-				sb += char; i += 1
+		while (i < plen) pname(i) match {
+			case '.' => sb.append(pname(i + 1)); i += 2
+			case _ => i += 1
+		}
+		if (i > 0)
+			i += 1 //skip the '.' separating the package and class name
+		while (i < len) {
+			sb += qname(i); i += 1
 		}
 		sb.toString
 	}
 
 
-	/** Implicit conversion patching any object with methods providing prittified/shortened class names. */
+	/** Implicit conversion patching any object with methods providing prettified/shortened class names. */
 	implicit class classNameMethods(private val self :Any) extends AnyVal {
+		/** Unqualified class name of the enriched object, that is its class name with all outer packages stripped.
+		  * Note that this won't contain information about type arguments for type constructors.
+		  * @return suffix of `clss.getName` starting after last '.' (or whole class name for top-level classes)
+		  */
+		@inline def unqualifiedClassName :String = unqualifiedNameOf(self.getClass)
+
 		/** Class name of this object trimmed of all containing packages and non-anonymous surrounding classes but one. */
 		@inline def localClassName: String = localNameOf(self.getClass)
 

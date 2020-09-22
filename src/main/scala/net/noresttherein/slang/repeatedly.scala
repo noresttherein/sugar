@@ -89,18 +89,18 @@ object repeatedly {
 
 
 	/** Represents a range `[0, this)` which defines a fixed number of iterations. */
-	implicit class timesMethods(private val times :Int) extends AnyVal {
+	implicit final class timesMethods(private val times :Int) extends AnyVal {
 
 		/** Execute `f` (code block passed by name) `this` number of times. */
 		@inline def times[T](f : =>T) :Unit = for (_ <- 0 until times) f
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@tailrec final def times[T](f :T=>T)(start :T) :T =
+		@tailrec def times[T](f :T=>T)(start :T) :T =
 			if (times<=0) start
 			else (times-1).times(f)(f(start))
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@tailrec final def timesFrom[T](start :T)(f :T=>T) :T =
+		@tailrec def timesFrom[T](start :T)(f :T=>T) :T =
 			if (times<=0) start
 			else (times-1).timesFrom(f(start))(f)
 
@@ -204,7 +204,7 @@ object repeatedly {
 	  * @return a list containing the sequence starting with `start` and resulting from recursively applying `next`
 	  *         to itself.
 	  */
-	@inline def listResults[X](start :X)(next :PartialFunction[X, X]) :Seq[X] = iterate(List)(start)(next)
+	@inline final def listResults[X](start :X)(next :PartialFunction[X, X]) :Seq[X] = iterate(List)(start)(next)
 
 	/** Recursively applies function `next` to its result, starting with argument `start` and returning
 	  * an eager sequence containing `start` followed by the values returned by `next`.
@@ -217,7 +217,7 @@ object repeatedly {
 	  * @return a list containing the sequence starting with `start` and resulting from recursively applying `next`
 	  *         to itself.
 	  */
-	@inline def listSome[X](start :X)(next :X => Option[X]) :Seq[X] = iterateSome(List)(start)(next)
+	@inline final def listSome[X](start :X)(next :X => Option[X]) :Seq[X] = iterateSome(List)(start)(next)
 
 
 
