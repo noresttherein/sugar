@@ -31,7 +31,7 @@ abstract class Unapply[-In, +Out] {
 	  * to the latter. */
 	@inline final def apply(arg :In) :Option[Out] = unapply(arg)
 
-	override def toString: String = this.shortClassName
+	override def toString: String = this.abbrevClassName
 }
 
 
@@ -42,7 +42,7 @@ object Unapply {
 	def apply[In, Out](f :In => Option[Out]) :Unapply[In, Out] = new Unapply[In, Out] {
 		override def unapply(in :In) = f(in)
 
-		override def toString = s"Unapply(${f.localClassName})"
+		override def toString = s"Unapply(${f.innerClassName})"
 	}
 
 	/** An object attempting to cast values of `X` to `Y` and returning values of type `X with Y` if successful.
@@ -90,7 +90,7 @@ abstract class MatchFunction[-In, +Out] extends PartialFunction[In, Out] {
 		throw new NoSuchElementException(s"$this($x)")
 	}
 
-	override def toString :String = this.shortClassName
+	override def toString :String = this.abbrevClassName
 }
 
 
@@ -105,7 +105,7 @@ object MatchFunction {
 	  * @tparam Out extracted result type
 	  * @return a partial function extractor wrapping the given function `f`.
 	  */
-	def apply[In, Out](f :In=>Option[Out]) :MatchFunction[In, Out] = new OptionFunction(f, s"MatchFunction(${f.localClassName})")
+	def apply[In, Out](f :In=>Option[Out]) :MatchFunction[In, Out] = new OptionFunction(f, s"MatchFunction(${f.innerClassName})")
 
 
 	private class OptionFunction[-In, +Out](f :In=>Option[Out], override val toString :String) extends MatchFunction[In, Out] {

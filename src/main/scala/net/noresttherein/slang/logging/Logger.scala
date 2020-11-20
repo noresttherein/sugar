@@ -2,16 +2,19 @@ package net.noresttherein.slang.logging
 
 import java.util.logging.{LogRecord, Level => JLevel, Logger => JLogger}
 import java.util.logging.Level._
+
 import net.noresttherein.slang.logging.Logger.Level
+import net.noresttherein.slang.logging.Logger.NamingScheme.DemangledClassName
+import net.noresttherein.slang.prettyprint.{abbrevClassNameOf, classNameOf, fullNameOf}
 
 
 /** Simple syntactic wrapper over `java.util.logging.Logger` available by the
-  *  [[net.noresttherein.slang.logging.Logger.toJava toJava]] property.
-  *  All logging methods investigate the frame stack to find the first class from outside the
-  *  `net.noresttherein.slang.logging` package and fill the log record with the file name and line number
-  *  in addition to (available by default) class and method name. Note that, depending on the java `LogManager`
-  *  configuration, this information may be approximate, as some classes and packages can be excluded
-  *  from the frame stack, including any system and reflected calls.
+  * [[net.noresttherein.slang.logging.Logger.toJava toJava]] property.
+  * All logging methods investigate the frame stack to find the first class from outside the
+  * `net.noresttherein.slang.logging` package and fill the log record with the file name and line number
+  * in addition to (available by default) class and method name. Note that, depending on the java `LogManager`
+  * configuration, this information may be approximate, as some classes and packages can be excluded
+  * from the frame stack, including any system and reflected calls.
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class Logger(val toJava :JLogger) extends AnyVal {
@@ -26,18 +29,18 @@ class Logger(val toJava :JLogger) extends AnyVal {
 	}
 
 	/** Parent logger or `None` for the root logger. */
-	@inline def parent :Option[Logger] = toJava.getParent match {
+	def parent :Option[Logger] = toJava.getParent match {
 		case null => None
 		case log => Some(new Logger(log))
 	}
 
 
 	/** Checks if this logger logs at the given level. */
-	@inline def logsAt(Level :Level) :Boolean = toJava.isLoggable(level)
+	@inline def logsAt(level :Level) :Boolean = toJava.isLoggable(level)
 
 
 	/** Logs the message at the given level. */
-	@inline def log(level :Level, msg: =>Any) :Unit =
+	def log(level :Level, msg: =>Any) :Unit =
 		if (toJava.isLoggable(level)) {
 			val record = new LogRecord(level, msg.toString)
 			FindCaller.fill(record)
@@ -45,7 +48,7 @@ class Logger(val toJava :JLogger) extends AnyVal {
 		}
 
 	/** Logs the given message with an attached exception at the specified level. */
-	@inline def log(level :Level, msg: =>Any, e :Throwable) :Unit =
+	def log(level :Level, msg: =>Any, e :Throwable) :Unit =
 		if (toJava.isLoggable(level)) {
 			val record = new LogRecord(level, msg.toString)
 			record.setThrown(e)
@@ -89,7 +92,29 @@ class Logger(val toJava :JLogger) extends AnyVal {
 
 object Logger {
 
-	/** Simple wrapper over `java.util.logging.Level` providing logging functionality with use of an implicit logger.  */
+
+	@inline def apply(logger :JLogger) :Logger = new Logger(logger)
+
+	@inline def apply(name :String) :Logger = new Logger(JLogger.getLogger(name))
+
+	@inline def apply(cls :Class[_]) :Logger = new Logger(JLogger.getLogger(fullNameOf(cls)))
+
+	@inline def apply(owner :Any)(implicit naming :NamingScheme = DemangledClassName) :Logger =
+		new Logger(JLogger.getLogger(naming(owner)))
+
+
+
+	/** Simple wrapper over `java.util.logging.Level` providing logging functionality by the use of an implicit logger.
+	  * Constants for standard Java logging levels are available in the companion object. Note that using level objects
+	  * for logging offers a very simple way of performing arbitrary mappings of these levels to a more tranditional set
+	  * by simple value definitions such as
+	  * {{{
+	  *     final val debug = Level.Finer
+	  *     final val info = Level.Info
+	  *     final val warning = Level.Warn
+	  *     final val error = Level.Severe
+	  * }}}
+	  */
 	class Level private[Logger](val toJava :JLevel) extends AnyVal {
 		@inline def isOn(implicit logger :Logger) :Boolean = logger.logsAt(this)
 
@@ -101,6 +126,7 @@ object Logger {
 	}
 
 	object Level {
+		final val All :Level = JLevel.ALL
 		final val Severe :Level = JLevel.SEVERE
 		final val Warn :Level = JLevel.WARNING
 		final val Info :Level = JLevel.INFO
@@ -108,17 +134,30 @@ object Logger {
 		final val Fine :Level = JLevel.FINE
 		final val Finer :Level = JLevel.FINER
 		final val Finest :Level = JLevel.FINEST
+		final val Off :Level = JLevel.OFF
+
+		def apply(level :JLevel) :Level = new Level(level)
 
 		implicit def fromJava(level :JLevel) :Level = new Level(level)
 
 		implicit def toJava(level :Level) :JLevel = level.toJava
 	}
 
-	@inline def apply(logger :JLogger) :Logger = new Logger(logger)
 
-	@inline def apply(name :String) :Logger = new Logger(JLogger.getLogger(name))
 
-	@inline def apply(cls :Class[_]) :Logger = new Logger(JLogger.getLogger(cls.getName))
+	/** A SAM type producing the name of the logger, given its owning object.
+	  * @see [[net.noresttherein.slang.prettyprint]]
+	  */
+	trait NamingScheme {
+		def apply(owner :Any) :String
+	}
+
+	object NamingScheme {
+		final val ClassName :NamingScheme = _.getClass.getName
+		final val DemangledClassName :NamingScheme = classNameOf
+		final val AbbrevClassName :NamingScheme = abbrevClassNameOf
+	}
+
 
 
 	/** Default format for use with `java.util.logging.SimpleFormatter`. */

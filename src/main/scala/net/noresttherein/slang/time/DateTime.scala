@@ -4,8 +4,8 @@ import java.{time=>j}
 
 
 
-/** Contains information about date and time of day abstracting over time zone/offset. Can be combined with
-  * a `TimeZone`
+/** Contains information about date and time of day abstracting over time zone/offset. Can be combined
+  * with a `TimeZone`
   * @author Marcin Mościcki marcin@moscicki.net
   */
 class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with Ordered[DateTime] with Serializable {

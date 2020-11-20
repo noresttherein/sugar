@@ -14,7 +14,6 @@ import net.noresttherein.slang.tuples.{RichTuple10, RichTuple11, RichTuple12, Ri
   * Finally, the lazy and the brave can import (almost) all new syntax with a single wildcard statement.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-
 object implicits extends implicits {
 
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
@@ -88,7 +87,7 @@ trait implicits {
 
 
 
-	/** Adds `localClassName` and `shortClassName` methods to any object providing a shorter alternative to `getClass.getName`. */
+	/** Adds `innerClassName` and `abbrevClassName` methods to any object providing a shorter alternative to `getClass.getName`. */
 	@inline implicit final def classNameMethods(any :Any) :classNameMethods = new classNameMethods(any)
 
 	/** Adds methods converting the fields of this object to a `String` via reflection for the use in `toString` methods. */

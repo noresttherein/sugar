@@ -268,7 +268,7 @@ object fun {
 			else search(getClass) match {
 				case null => name
 				case cls if cls == classOf[AnyRef] => name
-				case cls :Class[_] => prettyprint.shortNameOf(cls)
+				case cls :Class[_] => prettyprint.abbrevNameOf(cls)
 				case _ => name
 			}
 		}

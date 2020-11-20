@@ -3,6 +3,7 @@ package net.noresttherein.slang
 import net.noresttherein.slang.funny.fun
 import net.noresttherein.slang.funny.fun.ComposableFun
 import net.noresttherein.slang.numeric.{LongRatio, Ratio}
+import net.noresttherein.slang.prettyprint.abbrevNameOf
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
@@ -44,11 +45,11 @@ object funSpec extends Properties("fun") {
 			}
 			((new Narrowed).toString ?= "_=>j.l.String") label "narrowed"
 		} && {
-			import prettyprint.shortNameOf
+			import prettyprint.abbrevNameOf
 			abstract class Rename[P1, P2] extends ComposableFun[P1, P2]
 			abstract class Swap[R, A] extends Rename[A, R]
 			val erased :Swap[LongRatio, Ratio] = { x :Ratio => x }
-			(erased.toString ?= s"${shortNameOf[Ratio]}=>${shortNameOf[LongRatio]}") label "transitive"
+			(erased.toString ?= s"${abbrevNameOf[Ratio]}=>${abbrevNameOf[LongRatio]}") label "transitive"
 		}
 
 

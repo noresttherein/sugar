@@ -14,7 +14,7 @@ javaOptions in Compile ++= Seq("-Xmx2G")
 testOptions in Test ++= Seq(Tests.Filter(s => !s.endsWith("Props")))
 
 
-libraryDependencies ++= Seq(
+libraryDependencies ++= Seq( //todo: make shapeless optional
 	"com.chuusai" %% "shapeless" % "2.3.3",
 	"org.scala-lang" % "scala-library" % "2.13.3",
 	"org.scala-lang" % "scala-reflect" % "2.13.3",
@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
 
 scalacOptions ++= Seq(
 //	"-Ylog-classpath",
-//	"-Xlog-implicits",
+	"-Xlog-implicits",
 	"-Wconf:cat=deprecation&msg=foldLeft instead|foldRight instead:silent,cat=deprecation:w,cat=feature:w",
 //	"-language:postfixOps",
 	"-language:implicitConversions",

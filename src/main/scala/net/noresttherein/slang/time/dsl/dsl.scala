@@ -10,8 +10,8 @@ import net.noresttherein.slang.time.dsl.PartialTimeDesignators.{DateDayWithMonth
 
 
 /** Constants for temporal fields such as month and day names as well as implicit conversions adding to `Int` and `Long`
-  * factory methods for creating the classes from `net.noresttherein.slang.time` in a naturally looking way such as
-  * `11 Jan 1981`, `11 :- 59 :- 59` or `1000_0000.nanos`.
+  * types factory methods for creating the classes from `net.noresttherein.slang.time` in a naturally looking way
+  * such as `11 Jan 1981`, `11 :- 59 :- 59` or `1000_0000.nanos`.
   * @see [[net.noresttherein.slang.time.dsl.ISOSymbolMethods$]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
