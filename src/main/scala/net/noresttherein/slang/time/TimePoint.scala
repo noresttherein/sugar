@@ -17,7 +17,7 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
   * In order to compare for equality in the ordering sense, use `===` instead.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-sealed trait TimePoint extends Any with Serializable with Ordered[TimePoint] {
+sealed trait TimePoint extends Any with Ordered[TimePoint] with Serializable {
 
 	def apply(cycle :Cycle) :cycle.Phase
 
@@ -275,6 +275,7 @@ object DateTimePoint {
   * It may be returned as a result of an arithmetic operation involving infinite time lapses `Eternity`
   * or `MinusEternity`.
   */
+@SerialVersionUID(1L)
 case object EndOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Max
@@ -306,6 +307,7 @@ case object EndOfTime extends TimeLimes {
   * It may be returned as a result of an arithmetic operation involving infinite time lapses `Eternity`
   * or `MinusEternity`.
   */
+@SerialVersionUID(1L)
 case object DawnOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Min

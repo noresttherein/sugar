@@ -8,20 +8,21 @@ import java.{time=>j}
   * at the location. This is a simple value type wrapping a `java.time.ZoneId`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializable {
 	@inline def id :String = toJava.getId
 
-	def offset(time :DateTime) :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
+	@inline def offset(time :DateTime) :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
 
-	def offset(time :Timestamp) :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
+	@inline def offset(time :Timestamp) :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
 
-	def currentOffset(implicit time :Time = Time.Local) :TimeOffset =
+	@inline def currentOffset(implicit time :Time = Time.Local) :TimeOffset =
 		new TimeOffset(toJava.getRules.getOffset(time.clock.instant))
 
-	def standardOffset(implicit time :Time = Time.Local) :TimeOffset =
+	@inline def standardOffset(implicit time :Time = Time.Local) :TimeOffset =
 		new TimeOffset(toJava.getRules.getStandardOffset(time.now.toInstant))
 
-	def standardOffset(time :Timestamp) :TimeOffset =
+	@inline def standardOffset(time :Timestamp) :TimeOffset =
 		new TimeOffset(toJava.getRules.getStandardOffset(time.toInstant))
 
 	//todo: DST and transitions
@@ -52,10 +53,11 @@ object TimeZone {
   * and UTC. Each `TimeOffset` is associated with a synthetic `TimeZone` which applies this offset for all time points.
   * This is a simple value type backed by a `java.time.ZoneOffset`.
   */
+@SerialVersionUID(1L)
 class TimeOffset private[time] (val toJava :j.ZoneOffset) extends AnyVal with Ordered[TimeOffset] with Serializable {
-	def offset :Milliseconds = new Milliseconds(toJava.getTotalSeconds)
+	@inline def offset :Milliseconds = new Milliseconds(toJava.getTotalSeconds)
 
-	def zone :TimeZone = new TimeZone(toJava)
+	@inline def zone :TimeZone = new TimeZone(toJava)
 
 	@inline def normalized :TimeOffset =
 		new TimeOffset(j.ZoneOffset.ofTotalSeconds(toJava.getTotalSeconds % IntSecondsInHalfDay))
@@ -97,3 +99,4 @@ object TimeOffset {
 	@inline implicit def fromJavaZoneOffset(offset :j.ZoneOffset) :TimeOffset = new TimeOffset(offset)
 	@inline implicit def toJavaZoneOffset(offset :TimeOffset) :j.ZoneOffset = offset.toJava
 }
+

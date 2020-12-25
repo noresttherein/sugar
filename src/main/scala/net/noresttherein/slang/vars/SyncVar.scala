@@ -10,6 +10,7 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * @tparam T type of this variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
 
 	@inline override def get :T = synchronized { x }

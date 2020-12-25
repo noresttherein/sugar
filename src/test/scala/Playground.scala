@@ -1,4 +1,5 @@
 import scala.annotation.tailrec
+import scala.collection.Factory
 import scala.reflect.ClassTag
 
 
@@ -6,23 +7,18 @@ import scala.reflect.ClassTag
   * @author Marcin Mościcki marcin@moscicki.net
   */
 object Playground extends App {
-	trait TypeClass[T]
-	class Hehe[T :TypeClass](private val cls :Class[T], val tpe :Int)
-	{
-		def this(tpe :Int) = //(implicit tag :ClassTag[T]) =
-			this(null, tpe)
-	}
+//	println(scala.reflect.runtime.universe.reify {
+//	}.tree)
 
-	class C[@specialized T, @specialized S]
-	println(new C[Byte, Int].getClass.getName)
-	println(new C[Short, Int].getClass.getName)
-	println(new C[Int, Int].getClass.getName)
-	println(new C[Long, Int].getClass.getName)
-	println(new C[Char, Int].getClass.getName)
-	println(new C[Float, Int].getClass.getName)
-	println(new C[Double, Int].getClass.getName)
-	println(new C[Boolean, Int].getClass.getName)
-	println(new C[Unit, Int].getClass.getName)
+	//	val map = Map[Int, Int]()
+//	map.getOrElse(1, 1)
+//	     else if (mark == Pinkie) "Yayayaayoo"
+//	          else "?"
+
+//	println(scala.reflect.runtime.universe.reify {
+//		def t[T] = fff__[T]
+//	}.tree)
+//
 //	trait WorseCovariants
 //	trait WorseInvariants extends WorseCovariants
 //	trait Covariants extends WorseInvariants
@@ -50,7 +46,7 @@ object Playground extends App {
 //	}
 //
 //	object Covariants {
-//		implicit def covariant[T :Covariant] :Covariant[Option[T]] = new Covariant
+//		implicit def covariant[T :Covariant] :Covariant[Option[T = new Covariant
 //	}
 //
 //	object Invariants {

@@ -80,6 +80,7 @@ object Atomic {
 
 
 
+	@SerialVersionUID(1L)
 	class AtomicRef[T](x :AtomicReference[T]) extends Atomic[T] {
 
 		def this(init :T) = this(new AtomicReference[T](init))
@@ -155,6 +156,7 @@ object Atomic {
 
 
 
+	@SerialVersionUID(1L)
 	class AtomicBoolean(x :atomic.AtomicBoolean) extends Atomic[Boolean] {
 
 		def this(init :Boolean) = this(new atomic.AtomicBoolean(init))
@@ -244,6 +246,7 @@ object Atomic {
 
 
 
+	@SerialVersionUID(1L)
 	class AtomicInt(x :AtomicInteger) extends Atomic[Int] {
 
 		def this(init :Int) = this(new AtomicInteger(init))
@@ -396,6 +399,7 @@ object Atomic {
 
 
 
+	@SerialVersionUID(1L)
 	class AtomicLong(x :atomic.AtomicLong) extends Atomic[Long] {
 
 		def this(init :Long) = this(new atomic.AtomicLong(init))
@@ -534,6 +538,7 @@ object Atomic {
 
 
 
+	@SerialVersionUID(1L)
 	abstract class AtomicAsInt[@specialized(Byte, Char, Short, Float) T](init :T) extends Atomic[T] {
 		private[this] val x = new AtomicInteger(pack(init))
 
@@ -554,16 +559,19 @@ object Atomic {
 
 
 
+	@SerialVersionUID(1L)
 	final class AtomicByte(init :Byte) extends AtomicAsInt[Byte](init) {
 		override protected def pack(t :Byte) :Int = t.toInt
 		override protected def unpack(current :Int) :Byte = current.toByte
 	}
 
+	@SerialVersionUID(1L)
 	final class AtomicChar(init :Char) extends AtomicAsInt[Char](init) {
 		override protected def pack(value :Char) :Int = value.toInt
 		override protected def unpack(current :Int) :Char = current.toChar
 	}
 
+	@SerialVersionUID(1L)
 	final class AtomicShort(init :Short) extends AtomicAsInt[Short](init) {
 		override protected def pack(value :Short) :Int = value.toInt
 		override protected def unpack(current :Int) :Short = current.toShort
@@ -656,6 +664,7 @@ object Atomic {
 	private[this] final val minusDouble :LongUnaryOperator = x => doubleToLong(-longToDouble(x))
 
 
+	@SerialVersionUID(1L)
 	final class AtomicDouble(init :Double) extends Atomic[Double] {
 		private[this] val x = new atomic.AtomicLong(doubleToLong(init))
 

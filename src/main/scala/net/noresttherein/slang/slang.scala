@@ -17,7 +17,7 @@ package object slang extends slangImports {
 		def this() = this("Implementation error", null)
 	}
 
-
+	def ??! = throw new ImplementationError
 
 
 	private[slang] def publishMutable() :Unit = java.lang.invoke.VarHandle.releaseFence()

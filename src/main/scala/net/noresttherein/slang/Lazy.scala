@@ -2,7 +2,6 @@ package net.noresttherein.slang
 
 
 
-
 /** A monadic lazy value. Unlike scala's `lazy val`s, this implementation doesn't incur any synchronization penalty
   * once the value is initialized. Additionally, it provides callbacks allowing to check it's initialization state and,
   * once the value is initialized, the initializer expression is freed for garbage collection.
@@ -11,8 +10,11 @@ package net.noresttherein.slang
   * times in case of concurrent initial access.
   * @author Marcin Mościcki
   */
-trait Lazy[+T] extends (()=>T) {
+trait Lazy[+T] extends (()=>T) with Serializable {
+	/** The evaluated value of this instance. */
 	@inline final def apply() :T = get
+
+	/** The evaluated value of this instance. */
 	def get :T
 
 	def isEvaluated :Boolean
@@ -35,6 +37,9 @@ trait Lazy[+T] extends (()=>T) {
 	  * and the returned instance is accessed, use `Lazy(f(this.get).get)`.
 	  */
 	def flatMap[O](f :T => Lazy[O]) :Lazy[O]
+
+
+	private def writeReplace = Lazy.eager(get)
 
 	override def equals(that :Any) :Boolean = that match {
 		case lzy :Lazy[_] => (lzy eq this) || lzy.get == get
@@ -84,6 +89,7 @@ object Lazy {
 
 
 
+	@SerialVersionUID(1L)
 	private final object Undefined extends Lazy[Nothing] {
 		def get = throw new NoSuchElementException("Lazy.Undefined.get")
 		override def isEvaluated = false
@@ -97,6 +103,7 @@ object Lazy {
 
 
 	/** An already computed (initialized value) */
+	@SerialVersionUID(1L)
 	private final class EagerLazy[T](eager :T) extends Lazy[T] {
 		def get :T = eager
 		override def isEvaluated = true
@@ -109,13 +116,14 @@ object Lazy {
 
 
 
+	@SerialVersionUID(1L)
 	private final class VolatileLazy[+T](idempotent : ()=>T) extends Lazy[T] {
 
 		def this(value :T) = {
 			this(null); evaluated = value; cached = value
 		}
 
-		@volatile private[this] var initializer = idempotent
+		@volatile @transient private[this] var initializer = idempotent
 		@volatile private[this] var evaluated :T = _
 		private[this] var cached :T = _
 
@@ -169,13 +177,14 @@ object Lazy {
 
 
 
+	@SerialVersionUID(1L)
 	private final class SyncLazy[+T](evaluate : () =>T) extends Lazy[T] {
 
 		def this(value :T) = {
 			this(null); evaluated = value; cached = value
 		}
 
-		@volatile private[this] var initializer = evaluate
+		@volatile @transient private[this] var initializer = evaluate
 		@volatile private[this] var evaluated :T = _
 		private[this] var cached :T = _
 
@@ -248,3 +257,4 @@ object Lazy {
 
 
 }
+

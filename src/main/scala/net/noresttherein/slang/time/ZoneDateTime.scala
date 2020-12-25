@@ -7,12 +7,11 @@ import scala.concurrent.duration.Deadline
 /** A time point carrying time zone information and thus reflecting a unique date. It is a lightweight value type
   * wrapping a `java.time.ZonedDateTime`.
   * @author Marcin Mościcki marcin@moscicki.net
-  */
-//todo: OffsetDateTime?
+  */ //todo: OffsetDateTime?
+@SerialVersionUID(1L)
 class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	extends AnyVal with DateTimePoint with Serializable
 {
-
 	@inline override def date :Date = new Date(toJava.toLocalDate)
 	@inline override def local :DateTime = new DateTime(toJava.toLocalDateTime)
 	@inline override def time :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
@@ -35,7 +34,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 
 	@inline override def epochSecond :Long = toJava.toEpochSecond
 
-	@inline override def epochMilli :Long = {
+	override def epochMilli :Long = {
 		val s = toJava.toEpochSecond; val n = toJava.getNano
 		val max = (Long.MaxValue - n / NanosInMilli) / MillisInSecond
 		if (s > max || s < -max)
@@ -134,7 +133,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	  * offsets or use different chronologies (unlike `toJava compareTo that.toJava`). This means that equivalency
 	  * relation defined by this method is a proper superset of equivalency as defined by `equals`.
 	  */
-	@inline override def compare(that :TimePoint) :Int = that match {
+	override def compare(that :TimePoint) :Int = that match {
 		case finite :DefiniteTime =>
 			val s1 = toJava.toEpochSecond; val s2 = finite.epochSecond
 			if (s1 < s2) -1
@@ -149,7 +148,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	  * offsets or use different chronologies (unlike `toJava compareTo that.toJava`). This means that equivalency
 	  * relation defined by this method is a proper superset of equivalency as defined by `equals`.
 	  */
-	@inline def compare(that :ZoneDateTime) :Int = {
+	def compare(that :ZoneDateTime) :Int = {
 		val s1 = toJava.toEpochSecond; val s2 = that.toJava.toEpochSecond
 		if (s1 < s2) -1
 		else if (s1 > s2) 1
@@ -163,7 +162,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	@inline def min(that :ZoneDateTime) :ZoneDateTime = if (that.toJava isBefore toJava) that else this
 	@inline def max(that :ZoneDateTime) :ZoneDateTime = if (that.toJava isAfter toJava) that else this
 
-	@inline override def ===(that :TimePoint) :Boolean = that match {
+	override def ===(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime => toJava.toEpochSecond == finite.epochSecond && toJava.getNano == finite.nano
 		case _ => false
 	}
@@ -231,3 +230,4 @@ object ZoneDateTime {
 	@inline implicit def fromJavaZonedDateTime(time :j.ZonedDateTime) :ZoneDateTime = new ZoneDateTime(time)
 
 }
+

@@ -136,9 +136,9 @@ Also, tagging implicit values:
 
     val Planck = Labelled.Label
     val TidyPlanck = Labelled.Label
-    implicit val h = Label[Planck.##](6.62607004d * math.pow(10, -34))
-    implicit val tidy_h = Label[TidyPlanck.##](7d * math.pow(10, -25))
-    implicitly[Double Labelled Planck.##]
+    implicit val h = Label[Planck.@#](6.62607004d * math.pow(10, -34))
+    implicit val tidy_h = Label[TidyPlanck.@#](7d * math.pow(10, -34))
+    implicitly[Double Labelled Planck.@#]
     
     
     

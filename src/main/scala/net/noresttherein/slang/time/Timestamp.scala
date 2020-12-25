@@ -9,6 +9,7 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
   * carrying no date/time zone information.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal with DefiniteTime with Serializable {
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
@@ -21,7 +22,7 @@ class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal wi
 	@inline override def toUTC :UTCDateTime = new UTCDateTime(j.LocalDateTime.ofInstant(toJava, j.ZoneOffset.UTC))
 	@inline override def toInstant :j.Instant = toJava
 
-	@inline override def toDeadline :Deadline = {
+	override def toDeadline :Deadline = {
 		val s = toJava.getEpochSecond; val n = toJava.getNano
 		if (if (n > 0) s > (Long.MaxValue - n) / NanosInSecond else s < (Long.MinValue - n) / NanosInSecond)
 			overflow(toString, "toDeadline")
@@ -101,13 +102,13 @@ class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal wi
 
 	@inline def compare(that :Timestamp) :Int = toJava compareTo that.toJava
 
-	@inline def <=(that :Timestamp) :Boolean = {
+	def <=(that :Timestamp) :Boolean = {
 		val s1 = toJava.getEpochSecond; val s2 = that.toJava.getEpochSecond
 		s1 < s2 || s1 == s2 && toJava.getNano <= that.toJava.getNano
 	}
 	@inline def < (that :Timestamp) :Boolean = !(this >= that)
 
-	@inline def >=(that :Timestamp) :Boolean = {
+	def >=(that :Timestamp) :Boolean = {
 		val s1 = toJava.getEpochSecond; val s2 = that.toJava.getEpochSecond
 		s1 > s2 || s1 == s2 && toJava.getNano >= that.toJava.getNano
 	}
@@ -136,8 +137,9 @@ object Timestamp {
 	@inline def ofEpochMilli(millis :Long) :Timestamp = new Timestamp(j.Instant.ofEpochMilli(millis))
 
 	@inline def ofEpochSecond(seconds :Long) :Timestamp = new Timestamp(j.Instant.ofEpochSecond(seconds))
-	@inline def ofEpochSecond(seconds :Long, nano :Long) :Timestamp = new Timestamp(j.Instant.ofEpochSecond(seconds, nano))
 
+	@inline def ofEpochSecond(seconds :Long, nano :Long) :Timestamp =
+		new Timestamp(j.Instant.ofEpochSecond(seconds, nano))
 
 
 	@inline def after(duration :Duration)(implicit time :Time = Time.Local) :Timestamp =
@@ -145,7 +147,6 @@ object Timestamp {
 
 	@inline def before(duration :Duration)(implicit time :Time = Time.Local) :Timestamp =
 		new Timestamp(j.Instant.now(time.clock) minus duration.toJava)
-
 
 
 	@inline def apply()(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))

@@ -8,16 +8,16 @@ import java.{time => j}
   * @author Marcin Mościcki marcin@moscicki.net
   */
 object UTC {
-	val zone :TimeZone = TimeZone.UTC
-	val offset :TimeOffset = TimeOffset.UTC
-	val time :Time = Time.UTC
+	final val zone :TimeZone = TimeZone.UTC
+	final val offset :TimeOffset = TimeOffset.UTC
+	final val time :Time = Time.UTC
 
-	def now :UTCDateTime = new UTCDateTime(j.LocalDateTime.now(time.clock))
+	@inline def now :UTCDateTime = new UTCDateTime(j.LocalDateTime.now(time.clock))
 
-	def +(offset :FiniteTimeSpan) :TimeOffset = TimeOffset(offset)
-	def +(offset :Milliseconds) :TimeOffset = TimeOffset(offset)
-	def +(offset :Duration) :TimeOffset = TimeOffset(offset) //todo
-	def -(offset :FiniteTimeSpan) :TimeOffset = TimeOffset(-offset)
-	def -(offset :Milliseconds) :TimeOffset = TimeOffset(-offset)
-	def -(offset :Duration) :TimeOffset = TimeOffset(-offset) //todo
+	@inline def +(offset :FiniteTimeSpan) :TimeOffset = TimeOffset(offset)
+	@inline def +(offset :Milliseconds) :TimeOffset = TimeOffset(offset)
+	@inline def +(offset :Duration) :TimeOffset = TimeOffset(offset) //todo
+	@inline def -(offset :FiniteTimeSpan) :TimeOffset = TimeOffset(-offset)
+	@inline def -(offset :Milliseconds) :TimeOffset = TimeOffset(-offset)
+	@inline def -(offset :Duration) :TimeOffset = TimeOffset(-offset) //todo
 }

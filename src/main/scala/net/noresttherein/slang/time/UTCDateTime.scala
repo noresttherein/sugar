@@ -10,6 +10,7 @@ import scala.concurrent.duration.Deadline
   * wrapping a `java.time.LocalDateTime` and interpreting it with the fixed `ZoneOffset.UTC`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with DateTimePoint with Serializable {
 
 	@inline override def year :Year = new Year(toJava.getYear)
@@ -27,7 +28,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 
 	@inline override def epochSecond :Long = toJava.toEpochSecond(j.ZoneOffset.UTC)
 
-	@inline override def epochMilli :Long = {
+	override def epochMilli :Long = {
 		val time = toJava.atZone(j.ZoneOffset.UTC)
 		val s = time.toEpochSecond; val m = time.getNano / NanosInMilli
 		val max = (Long.MaxValue - m) / MillisInSecond
@@ -167,7 +168,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 	@inline def min(that :UTCDateTime) :UTCDateTime = if (that.toJava isBefore toJava) that else this
 	@inline def max(that :UTCDateTime) :UTCDateTime = if (that.toJava isAfter toJava) that else this
 
-	@inline override def ===(that :TimePoint) :Boolean = that match {
+	override def ===(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime =>
 			val time = toJava.toInstant((j.ZoneOffset.UTC))
 			time.getEpochSecond == finite.epochSecond && time.getNano == finite.nano
@@ -186,14 +187,14 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 
 object UTCDateTime {
 
-	@inline def apply(time :j.LocalDateTime) :UTCDateTime = {
+	def apply(time :j.LocalDateTime) :UTCDateTime = {
 		val chrono = time.getChronology
 		if (chrono != null && chrono != IsoChronology.INSTANCE)
 			throw new IllegalArgumentException("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
 		new UTCDateTime(time)
 	}
 
-	@inline def apply(date :Date, time :TimeOfDay) :UTCDateTime = {
+	def apply(date :Date, time :TimeOfDay) :UTCDateTime = {
 		val chrono = date.getChronology
 		if (chrono != null && chrono != IsoChronology.INSTANCE)
 			throw new IllegalArgumentException("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
@@ -253,9 +254,4 @@ object UTCDateTime {
 	final val Min = new UTCDateTime(j.LocalDateTime.MIN)
 
 }
-
-
-
-
-
 

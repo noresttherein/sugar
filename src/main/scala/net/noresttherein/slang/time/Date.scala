@@ -9,6 +9,7 @@ import java.time.chrono.IsoEra
   * `java.time.LocalDate`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class Date private[time] (val toJava :j.LocalDate) extends AnyVal with Ordered[Date] with Serializable {
 	@inline def day :Int = toJava.getDayOfMonth
 	@inline def dayOfWeek :Day = toJava.getDayOfWeek
@@ -78,6 +79,7 @@ object Date {
 
 
 /** A yearly reoccurring date such as an anniversary described by a month and day of month. */
+@SerialVersionUID(1L)
 class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYear] with Serializable {
 
 	@inline def day :Int = dayAndMonth & 0x1f
@@ -100,7 +102,7 @@ class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYe
 			ofYear(today.year + 1)
 	}
 
-	@inline def copy(month :Month = this.month, day :Int = this.day) :DateOfYear =
+	def copy(month :Month = this.month, day :Int = this.day) :DateOfYear =
 		if (day < 1 || day > month.maxLength)
 			throw new IllegalArgumentException(s"month $month does not have $day days")
 		else new DateOfYear(month.no << 5 | day)
@@ -119,8 +121,7 @@ class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYe
 
 
 
-	override def toString :String =
-		twoDigit(day) + "." + month
+	override def toString :String = twoDigit(day) + "." + month
 
 }
 
@@ -161,6 +162,7 @@ object DateOfYear {
 
 
 /** A combination of year and month, such as ''1981 Jan''. */
+@SerialVersionUID(1L)
 class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with Ordered[MonthInYear] with Serializable {
 
 	@inline def year :Year = new Year((yearAndMonth >> 32).toInt)
@@ -168,12 +170,13 @@ class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with O
 
 	@inline def toJava :j.YearMonth = j.YearMonth.of(year.no, month.no)
 
-	@inline def length :Int = yearAndMonth.toInt match {
+	def length :Int = yearAndMonth.toInt match {
 		case 2 => if (j.Year.isLeap(yearAndMonth >> 32)) 29 else 28
 		case n => 30 + (n + n / 8) % 2
 	}
 
-	@inline def onFirst :Date = new Date(j.LocalDate.of((yearAndMonth >> 32).toInt, yearAndMonth.toInt, 1))
+	@inline def onFirst :Date =
+		new Date(j.LocalDate.of((yearAndMonth >> 32).toInt, yearAndMonth.toInt, 1))
 
 	@inline def onLast :Date =
 		new Date(j.LocalDate.of((yearAndMonth >> 32).toInt, yearAndMonth.toInt, length))
@@ -264,6 +267,7 @@ object MonthInYear {
 /** Proleptic year wrapping an `Int`. Proleptic year values are equal to standard date years for all
   * `CE` years, with zero denoting the first year `BCE` and negative numbers consecutive preceding years.
   */
+@SerialVersionUID(1L)
 class Year private[time] (val no :Int) extends AnyVal with Ordered[Year] with Serializable {
 	@inline def toInt :Int = no
 
@@ -280,13 +284,13 @@ class Year private[time] (val no :Int) extends AnyVal with Ordered[Year] with Se
 	@inline def at(dateOfYear :DateOfYear) :Date = dateOfYear of this
 
 
-	@inline def +(years :Int) :Year = {
+	def +(years :Int) :Year = {
 		if (if (no > 0) years > Int.MaxValue - no else years < Int.MinValue - no)
 			throw new ArithmeticException("Int overflow: " + this + " + " + years)
 		new Year(no + years)
 	}
 
-	@inline def -(years :Int) :Year = {
+	def -(years :Int) :Year = {
 		if (if (no > 0) years < no - Int.MaxValue else years > no - Int.MinValue)
 			throw new ArithmeticException("Int overflow: " + this + " - "+ years)
 		new Year(no - years)
@@ -332,12 +336,13 @@ object Year {
 /** An ISO-8601 era, being one of `Era.CE` for the current era and `Era.BCE` for the preceding years.
   * Wraps a `java.time.IsoEra` instance.
   */
+@SerialVersionUID(1L)
 class Era private[time] (val toJava :IsoEra) extends AnyVal with Serializable
 
 
 
 object Era {
-	def apply(era :IsoEra) :Era = new Era(era)
+	@inline def apply(era :IsoEra) :Era = new Era(era)
 
 	@inline implicit def fromJavaEra(era :IsoEra) :Era = new Era(era)
 	@inline implicit def toJavaEra(era :Era) :IsoEra = era.toJava
@@ -345,6 +350,5 @@ object Era {
 	final val CE = new Era(IsoEra.CE)
 	final val BCE = new Era(IsoEra.BCE)
 }
-
 
 

@@ -23,6 +23,7 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * @see [[net.noresttherein.slang.vars.Freezer Freezer]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 sealed class Export[T](init :T) extends SyncVar[T](init) with Serializable {
 	if (init == null)
 		throw new NullPointerException("Export(null)")
@@ -34,10 +35,13 @@ sealed class Export[T](init :T) extends SyncVar[T](init) with Serializable {
 	final override def get :T =
 		if (cached != null)
 			cached
-		else if (immutable != null) {
-			cached = immutable
-			cached
-		} else super.get
+		else {
+			val volatile = immutable
+			if (volatile != null) {
+				cached = volatile
+				volatile
+			} else super.get
+		}
 
 
 
@@ -60,7 +64,7 @@ sealed class Export[T](init :T) extends SyncVar[T](init) with Serializable {
 	  * one of the more complex method, will throw an  `IllegalStateException`. The value returned by `get` and `value`
 	  * will be the result of the last assignment, with no assignments being lost.
 	  */
-	@inline final def export() :Unit =
+	final def export() :Unit =
 		if (cached == null && immutable == null) synchronized {
 			if (cached == null && immutable == null) {
 				cached = super.get
@@ -104,10 +108,5 @@ object Export {
 	@inline implicit def unboxVar[@specialized(SpecializedTypes) T](vol :Export[T]) :T = vol.get
 
 }
-
-
-
-
-
 
 

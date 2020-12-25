@@ -8,6 +8,7 @@ import java.{time=>j}
   * with a `TimeZone`
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with Ordered[DateTime] with Serializable {
 	@inline def date :Date = new Date(toJava.toLocalDate)
 	@inline def time :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
@@ -24,21 +25,17 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 	@inline def nano :Int = toJava.getNano
 
 
-
 	@inline def copy(year :Year = this.year, month :Month = this.month, day :Int = this.day,
 	                 hour :Int = this.hour, minute :Int = this.minute, second :Int = this.second, nano :Int = this.nano)
 			:DateTime =
 		new DateTime(j.LocalDateTime.of(year.no, month.toJava, day, hour, minute, second, nano))
 
 	@inline def copy(date :Date) :DateTime = new DateTime(j.LocalDateTime.of(date.toJava, toJava.toLocalTime))
-
 	@inline def copy(time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(toJava.toLocalDate, time.toJava))
-
 
 
 	@inline def in(zone :TimeZone) :ZoneDateTime = new ZoneDateTime(toJava.atZone(zone.toJava))
 	@inline def at(offset :TimeOffset) :ZoneDateTime = ZoneDateTime(toJava.atOffset(offset.toJava))
-
 
 
 	def +(time :FiniteTimeLapse) :DateTime = time match {
@@ -65,13 +62,12 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 	@inline def +(time :Duration) :DateTime = new DateTime(toJava plus time.toJava)
 	@inline def -(time :Duration) :DateTime = new DateTime(toJava minus time.toJava)
 
-
 	@inline def -(other :DateTime) :TimeSpan = new Duration(j.Duration.between(other.toJava, toJava))
 
 
 
 //	override def toString :String = date + " " + time
-	@inline override def compare(that :DateTime) :Int =
+	override def compare(that :DateTime) :Int =
 		if (toJava isBefore that.toJava) -1
 		else if (toJava isAfter that.toJava) 1
 		else 0
@@ -98,15 +94,16 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 
 object DateTime {
 
-	def apply(time :j.LocalDateTime) :DateTime = new DateTime(time)
+	@inline def apply(time :j.LocalDateTime) :DateTime = new DateTime(time)
 
-	def apply(date :Date, time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(date, time))
+	@inline def apply(date :Date, time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(date, time))
 
-	def apply()(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
-	def current(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
+	@inline def apply()(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
+	@inline def current(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
 
-	def utc :DateTime = current(Time.UTC)
+	@inline def utc :DateTime = current(Time.UTC)
 
 	@inline implicit def toJava(time :DateTime) :j.LocalDateTime = time.toJava
 	@inline implicit def fromJava(time :j.LocalDateTime) :DateTime = new DateTime(time)
 }
+

@@ -9,6 +9,7 @@ import java.{time=>j}
   * a `java.time.Period`.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class Period private[time] (val toJava :j.Period) extends AnyVal with FiniteDateSpan with Serializable {
 	@inline override def days :Int = toJava.getDays
 	@inline override def months :Int = toJava.getMonths

@@ -92,7 +92,7 @@ object Labelled {
 	  */
 	trait Label extends Any {
 		/** A unique label type differing between all `Label` instances. */
-		type ##
+		type @#
 	}
 
 	/** A convenience type alias narrowing the `Label` type providing the upper bound for its `##` type member serving

@@ -16,7 +16,8 @@ import net.noresttherein.slang.prettyprint.classNameMethods
   * @tparam In type of matched (argument) values
   * @tparam Out type of extracted (result) values.
   */
-abstract class Unapply[-In, +Out] {
+@SerialVersionUID(1L)
+abstract class Unapply[-In, +Out] extends Serializable {
 	def unapply(arg :In) :Option[Out]
 
 	/** Equivalent to `unapply(arg).get` - forces a result value out of the argument failing with an exception instead
@@ -105,10 +106,13 @@ object MatchFunction {
 	  * @tparam Out extracted result type
 	  * @return a partial function extractor wrapping the given function `f`.
 	  */
-	def apply[In, Out](f :In=>Option[Out]) :MatchFunction[In, Out] = new OptionFunction(f, s"MatchFunction(${f.innerClassName})")
+	def apply[In, Out](f :In => Option[Out]) :MatchFunction[In, Out] =
+		new OptionFunction(f, s"MatchFunction(${f.innerClassName})")
 
 
-	private class OptionFunction[-In, +Out](f :In=>Option[Out], override val toString :String) extends MatchFunction[In, Out] {
+	private class OptionFunction[-In, +Out](f :In => Option[Out], override val toString :String)
+		extends MatchFunction[In, Out]
+	{
 		override def unapply(in: In): Option[Out] = f(in)
 	}
 

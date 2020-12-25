@@ -15,22 +15,23 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * or [[net.noresttherein.slang.vars.Atomic Atomic]] instead.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T] with Serializable {
 	@volatile private[this] var x = init
 
-	@inline final override def get :T = x
+	final override def get :T = x
 
-	@inline final override def value :T = x
+	final override def value :T = x
 
-	@inline final override def value_=(value :T) :Unit = x = value
+	final override def value_=(value :T) :Unit = x = value
 
-	@inline final override def :=(newValue :T) :Unit = x = newValue
+	final override def :=(newValue :T) :Unit = x = newValue
 
 	/** Assigns a new value to this variable, returning a value it held at some point in the past.
 	  * Note that this is '''not''' atomic: other assignments might have happened between reading
 	  * the previous value and assigning the provided value.
 	  */
-	@inline final override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
+	final override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
 }
 
 

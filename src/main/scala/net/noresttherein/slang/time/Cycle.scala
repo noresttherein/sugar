@@ -44,7 +44,7 @@ trait Cycle extends Serializable {
 
 
 object Cycle {
-	trait Phase extends Any
+	trait Phase extends Any with Serializable
 
 
 	def apply(field :TemporalField) :LongValueCycle = new TemporalFieldCycle(field)
@@ -111,6 +111,7 @@ object Cycle {
 		def apply(phase :Long) :Phase
 	}
 
+	@SerialVersionUID(1L)
 	private[time] class TemporalFieldCycle(val toJava :TemporalField) extends LongValueCycle {
 		type Phase = LongValuePhase[this.type]
 
@@ -145,8 +146,6 @@ object Cycle {
 		override def toString :String = toJava.toString
 	}
 
-
-
 }
 
 
@@ -155,17 +154,18 @@ object Cycle {
 
 
 /** Month of the year, from January (as numeric `1`), to December (as numeric `12`). */
+@SerialVersionUID(1L)
 class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered[Month] with Serializable {
 	@inline def no :Int = toJava.getValue
 	@inline def toInt :Int = toJava.getValue
 //	@inline def toJava :j.Month = j.Month.of(no)
 
-	@inline def maxLength :Int = no match {
+	def maxLength :Int = no match {
 		case 2 => 29
 		case n => 30 + (n + n / 8) % 2
 	}
 
-	@inline def minLength :Int = no match {
+	def minLength :Int = no match {
 		case 2 => 28
 		case n => 30 + (n + n / 8) % 2
 	}
@@ -177,9 +177,9 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 		case n => 30 + (n + n / 8) % 2
 	}
 
-	def of(year :Year) :MonthInYear = MonthInYear(year, this)
-	def on(day :Int) :DateOfYear = DateOfYear(this, day)
-	def onFirst :DateOfYear = DateOfYear(this, 1)
+	@inline def of(year :Year) :MonthInYear = MonthInYear(year, this)
+	@inline def on(day :Int) :DateOfYear = DateOfYear(this, day)
+	@inline def onFirst :DateOfYear = DateOfYear(this, 1)
 
 	@inline def +(months :Int) :Month = new Month(toJava plus months)
 	@inline def -(months :Int) :Month = new Month(toJava minus months)
@@ -274,20 +274,17 @@ object Month extends Cycle with Serializable {
 
 	@inline def apply(number :Int) :Month = new Month(j.Month.of(number))
 
-	def apply(month :j.Month) :Month = new Month(month)
+	@inline def apply(month :j.Month) :Month = new Month(month)
 
 
 
-	override def of(time :UTCDateTime) :Month = time.month
-	override def of(time :ZoneDateTime) :Month = time.month
-	override def ofLocal(time :DateTime) :Month = time.month
-	def ofLocal(date :Date) :Month = date.month
+	@inline override def of(time :UTCDateTime) :Month = time.month
+	@inline override def of(time :ZoneDateTime) :Month = time.month
+	@inline override def ofLocal(time :DateTime) :Month = time.month
+	@inline def ofLocal(date :Date) :Month = date.month
 
-	def unapply(date :Date) :Some[Month] = Some(date.month)
-
-	def unapply(time :DateTime) :Some[Month] = Some(time.month)
-
-//	override def unapply(time :ZoneDateTime) :Some[Int] = Some(time.month.no)
+	@inline def unapply(date :Date) :Some[Month] = Some(date.month)
+	@inline def unapply(time :DateTime) :Some[Month] = Some(time.month)
 
 	@inline def now(implicit time :Time = Time.Local) :Month = new Month(j.LocalDate.now(time.clock).getMonth)
 
@@ -308,6 +305,7 @@ object Month extends Cycle with Serializable {
 
 
 /** Day of week represented by a numeral from the `1..7` range, starting with Monday as `1`. */
+@SerialVersionUID(1L)
 class Day private(val no :Int) extends AnyVal with Phase with Ordered[Day] with Serializable {
 	@inline def toInt :Int = no
 
@@ -369,8 +367,8 @@ object Day extends Cycle {
 
 	@inline def apply(day :j.DayOfWeek) :Day = new Day(day.getValue)
 
-	override def of(time :UTCDateTime) :Day = time.dayOfWeek
-	override def of(time :ZoneDateTime) :Day = time.dayOfWeek
+	@inline override def of(time :UTCDateTime) :Day = time.dayOfWeek
+	@inline override def of(time :ZoneDateTime) :Day = time.dayOfWeek
 
 	@inline implicit def fromJavaDayOfWeek(day :j.DayOfWeek) :Day = new Day(day.getValue)
 	@inline implicit def toJavaDayOfWeek(day :j.DayOfWeek) :j.DayOfWeek = day.toJava

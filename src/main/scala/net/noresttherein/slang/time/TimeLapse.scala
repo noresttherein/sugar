@@ -69,7 +69,7 @@ object TimeLapse {
 	@inline implicit def fromJavaDuration(time :j.Duration) :Duration = new Duration(time)
 	@inline implicit def fromJavaPeriod(time :j.Period) :Period = new Period(time)
 
-	@inline implicit def fromScalaDuration(time :s.Duration) :TimeLapse = time match {
+	implicit def fromScalaDuration(time :s.Duration) :TimeLapse = time match {
 		case s.Duration.Inf => Eternity
 		case s.Duration.MinusInf => MinusEternity
 		case _ =>
@@ -131,31 +131,32 @@ trait FiniteTimeLapse extends Any with TimeLapse {
 
 object FiniteTimeLapse {
 
-	@inline def apply(period :FiniteDateSpan, time :FiniteTimeSpan) :FiniteTimeLapse =
+	def apply(period :FiniteDateSpan, time :FiniteTimeSpan) :FiniteTimeLapse =
 		if (period.isZero) time
 		else if (time.isZero) period
 		else new CombinedTimeLapse(period.toPeriod, time.toDuration)
 
-	@inline def apply(period :Period, time :Duration) :FiniteTimeLapse =
+	def apply(period :Period, time :Duration) :FiniteTimeLapse =
 		if (period.isZero) time
 		else if (time.isZero) period
 		else new CombinedTimeLapse(period, time)
 
-	def between(start :TimeOfDay, end :TimeOfDay) :FiniteTimeLapse =
+	@inline def between(start :TimeOfDay, end :TimeOfDay) :FiniteTimeLapse =
 		new Duration(j.Duration.between(start.toJava, end.toJava))
 
-	def between(start :Date, end :Date) :FiniteTimeLapse = new Period(j.Period.between(start.toJava, end.toJava))
+	@inline def between(start :Date, end :Date) :FiniteTimeLapse =
+		new Period(j.Period.between(start.toJava, end.toJava))
 
 	def between(start :DateTime, end :DateTime) :FiniteTimeLapse = apply(
 		new Period(j.Period.between(start.toJava.toLocalDate, end.toJava.toLocalDate)),
 		new Duration(j.Duration.between(start.toJava.toLocalTime, end.toJava.toLocalTime))
 	)
 
-	def between(start :DefiniteTime, end :DefiniteTime) :FiniteTimeLapse = end - start
+	@inline def between(start :DefiniteTime, end :DefiniteTime) :FiniteTimeLapse = end - start
 
 
 
-	def unapply(time :TimeLapse) :Option[(Period, Duration)] = time match {
+	@inline def unapply(time :TimeLapse) :Option[(Period, Duration)] = time match {
 		case finite :FiniteTimeLapse => Some((finite.period, finite.duration))
 		case _ => None
 	}
@@ -273,11 +274,8 @@ sealed trait TimeSpan extends Any with TimeLapse with Ordered[TimeSpan] {
 object TimeSpan {
 
 	@inline def between(start :TimeOfDay, end :TimeOfDay) :TimeSpan = new Duration(j.Duration.between(start, end))
-
 	@inline def between(start :DateTime, end :DateTime) :TimeSpan = new Duration(j.Duration.between(start, end))
-
 	@inline def between(from :TimePoint, until :TimePoint) :TimeSpan = until - from
-
 
 
 	def since(moment :TimePoint)(implicit time :Time = Time.Local) :TimeSpan = moment match {
@@ -309,7 +307,6 @@ object TimeSpan {
 
 
 	@inline implicit def fromJavaDuration(time :j.Duration) :Duration = new Duration(time)
-
 	@inline implicit def toScalaDuration(time :TimeSpan) :s.Duration = time.toScala
 
 	implicit def fromScalaDuration(time :s.Duration) :TimeSpan =
@@ -322,7 +319,6 @@ object TimeSpan {
 			if (rem == 0) new Milliseconds(nanos / NanosInSecond)
 			else new Duration(j.Duration.ofSeconds(nanos / NanosInSecond, rem))
 		}
-
 
 
 
@@ -350,8 +346,7 @@ trait FiniteTimeSpan extends Any with TimeSpan with FiniteTimeLapse {
 	override def unit :TimeUnit
 
 	override def abs :FiniteTimeSpan =
-		if (signum >= 0) this
-		else -this
+		if (signum >= 0) this else -this
 
 	override def unary_- :FiniteTimeSpan
 
@@ -513,7 +508,6 @@ sealed trait DateSpan extends Any with TimeLapse {
 	def -(other :DateSpan) :DateSpan
 	def *(scalar :Int) :DateSpan
 
-
 }
 
 
@@ -595,7 +589,7 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 
 object FiniteDateSpan {
 
-	def between(start :Date, end :Date) :FiniteDateSpan = Period.between(start, end)
+	@inline def between(start :Date, end :Date) :FiniteDateSpan = Period.between(start, end)
 
 	@inline def unapply(time :TimeLapse) :Option[(Int, Int, Int)] = time match {
 		case span :FiniteDateSpan => Some((span.years, span.months, span.days))
@@ -674,12 +668,12 @@ sealed abstract class InfiniteTimeLapse extends TimeSpan with DateSpan with Seri
 
 
 
-	@inline final override def +(time :TimeLapse) :InfiniteTimeLapse =
+	final override def +(time :TimeLapse) :InfiniteTimeLapse =
 		if (time.isInfinite && time != this)
 			throw new DateTimeException(s"$this + $time")
 		else this
 
-	@inline final override def -(time :TimeLapse) :InfiniteTimeLapse =
+	final override def -(time :TimeLapse) :InfiniteTimeLapse =
 		if (time == this) throw new DateTimeException(s"$this - $this")
 		else this
 
@@ -747,16 +741,17 @@ sealed abstract class InfiniteTimeLapse extends TimeSpan with DateSpan with Seri
   * multiplying by zero all throw a `DateTimeException`, with the exception of dividing by zero, which throws
   * an `ArithmeticException` as expected.
   */
+@SerialVersionUID(1L)
 object Eternity extends InfiniteTimeLapse {
 	override protected[this] def infinity :Double = Double.PositiveInfinity
 
-	override def unary_- :InfiniteTimeLapse = MinusEternity
+	@inline override def unary_- :InfiniteTimeLapse = MinusEternity
 
-	override def toScala :s.Duration.Infinite = s.Duration.Inf
+	@inline override def toScala :s.Duration.Infinite = s.Duration.Inf
 
-	override def signum :Int = 1
+	@inline override def signum :Int = 1
 
-	override def toString = "Eternity"
+	@inline override def toString = "Eternity"
 }
 
 
@@ -767,16 +762,17 @@ object Eternity extends InfiniteTimeLapse {
   * multiplying by zero all throw a `DateTimeException`, with the exception of dividing by zero, which throws
   * an `ArithmeticException` as expected.
   */
+@SerialVersionUID(1L)
 object MinusEternity extends InfiniteTimeLapse {
 	override protected[this] def infinity :Double = Double.NegativeInfinity
 
-	override def unary_- :InfiniteTimeLapse = Eternity
+	@inline override def unary_- :InfiniteTimeLapse = Eternity
 
-	override def toScala :s.Duration.Infinite = s.Duration.MinusInf
+	@inline override def toScala :s.Duration.Infinite = s.Duration.MinusInf
 
-	override def signum :Int = -1
+	@inline override def signum :Int = -1
 
-	override def toString = "-Eternity"
+	@inline override def toString = "-Eternity"
 }
 
 
@@ -785,6 +781,7 @@ object MinusEternity extends InfiniteTimeLapse {
 
 
 /** a `TimeSpan` of zero length. */
+@SerialVersionUID(1L)
 object Immediate extends FiniteTimeSpan with FiniteDateSpan with Serializable {
 
 	override def nanos :Int = 0
@@ -906,6 +903,7 @@ object Immediate extends FiniteTimeSpan with FiniteDateSpan with Serializable {
 
 
 
+@SerialVersionUID(1L)
 private[time] final class CombinedTimeLapse(val period :Period, val duration :Duration)
 	extends FiniteTimeLapse with Serializable
 {
@@ -982,7 +980,7 @@ private[time] final class CombinedTimeLapse(val period :Period, val duration :Du
 
 
 private[time] object CombinedTimeLapse {
-	@inline private[time] def periodMinusTime(period :Period, time :FiniteTimeSpan) :CombinedTimeLapse = {
+	private[time] def periodMinusTime(period :Period, time :FiniteTimeSpan) :CombinedTimeLapse = {
 		val seconds = time.inSeconds
 		if (seconds == Long.MinValue)
 			overflow(period, " - ", time)

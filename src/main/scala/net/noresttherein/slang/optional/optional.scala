@@ -1,6 +1,6 @@
 package net.noresttherein.slang
 
-import scala.reflect.ClassTag
+import scala.reflect.{classTag, ClassTag}
 
 
 /** Extension methods providing new, more succinct and hopefully more readable syntax for creating 'Option' values
@@ -45,8 +45,6 @@ package object optional {
 	  * It also better conveys the intent than using simply `Seq(...).flatten`.
 	  */
 	@inline def allOf[V](results :Option[V]*) :Seq[V] = results.flatten
-
-
 
 
 
@@ -98,8 +96,6 @@ package object optional {
 
 
 
-
-
 	/** Creates an `Option[T]` based on the given value and a condition guard.
 	  * @param condition condition which must hold for the value to be returned
 	  * @param ifTrueThen default value to return if `condition` holds.
@@ -116,7 +112,6 @@ package object optional {
 	  */
 	@inline final def ifFalse[T](condition :Boolean)(ifFalseThen: => T) :Option[T] =
 		if (condition) None else Some(ifFalseThen)
-
 
 
 	/** An implicit extension of `Boolean` values providing `ifTrue` method lifting its argument to an `Option` based
@@ -177,17 +172,14 @@ package object optional {
 
 
 
-
-
 	/** An optional value returned as `Some` only if it passes the given condition.
 	  * Same as `Some(value).filter(condition)`, but in a single step.
 	  * @param value possible return value.
 	  * @param condition predicate applied to `value`.
 	  * @return `Some(value).filter(condition)`
 	  */
-	@inline final def satisfying[T](value :T)(condition :T=>Boolean) :Option[T] =
+	@inline final def satisfying[T](value :T)(condition :T => Boolean) :Option[T] =
 		if (condition(value)) Some(value) else None
-
 
 
 	/** Extension methods of an arbitrary value treating it as a default value to be lifted to an `Option`
@@ -209,13 +201,13 @@ package object optional {
 		/** Return `this` if `condition` is true, or the alternative value otherwise. Don't evaluate the alternative
 		  * if `condition` is true.  Note that `this` is eagerly evaluated.
 		  */
-		@inline def satisfyingOrElse(condition :Boolean)(alternative : =>T) :T =
+		@inline def satisfyingOrElse(condition :Boolean)(alternative: => T) :T =
 			if (condition) self else alternative
 
 		/** Return `this` if `condition(this)` is true, or the alternative value otherwise. Don't evaluate the alternative
 		  * if `condition` is true.  Note that `this` is eagerly evaluated.
 		  */
-		@inline def satisfyingOrElse(condition :T => Boolean)(alternative : =>T) :T =
+		@inline def satisfyingOrElse(condition :T => Boolean)(alternative: => T) :T =
 			if (condition(self)) self else alternative
 
 
@@ -229,15 +221,13 @@ package object optional {
 
 
 		/** Return `this` if `condition` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline def violatingOrElse(condition :Boolean)(alternative : =>T) :T =
+		@inline def violatingOrElse(condition :Boolean)(alternative: => T) :T =
 			if (condition) alternative else self
 
 		/** Return `this` if `condition(this)` is false or the alternative value otherwise. Don't evaluate the alternative if `condition` is false. */
-		@inline def violatingOrElse(condition :T => Boolean)(alternative : =>T) :T =
+		@inline def violatingOrElse(condition :T => Boolean)(alternative: => T) :T =
 			if (condition(self)) alternative else self
 	}
-
-
 
 
 
@@ -259,6 +249,31 @@ package object optional {
 
 
 
+	//todo: use macros
+	/** Extension method for any type performing a cast to a different type, guarded by the target type `ClassTag`. */
+	implicit class ifInstanceOfMethods[T](private val self :T) extends AnyVal {
+		/** Returns `Some(this.asInstanceOf[X])` if `this.isInstanceOf[X]`. Note that this check is based on class tag
+		  * only, which will ignore any type parameters that `X` might have.
+		  * @return `classTag[X].unapply(this)`
+		  */
+		@inline def ifInstanceOf[X :ClassTag] :Option[X] = classTag[X].unapply(self)
+
+		@inline def ifInstanceOf[X :ClassTag, Y](f :X => Y) :Option[Y] = classTag[X].unapply(self).map(f)
+
+		/** Returns `Some(this.asInstanceOf[X])` if `this.isInstanceOf[X]`. Note that this check is based on class tag
+		  * only, which will ignore any type parameters that `X` might have. This is essentially the same as
+		  * `this.ifInstanceOf[X]`, but requires `X` to be verified as the subtype of the cast expression.
+		  * This additional bound guards against casting to an unrelated type accidentally or as a result of a refactor.
+		  * While of course `x :Any` and `X <: Any` are always true, this method isn't any more strict, but the type
+		  * of this expression is typically inferred as the most specific non-singleton type, and the compiler will
+		  * not implicitly convert `t :T` to `Any` in order to conform to the bound on this method's type parameter.
+		  * @return `classTag[X].unapply(this)`
+		  */
+		@inline def ifSubclass[X <: T :ClassTag] :Option[X] = classTag[X].unapply(self)
+
+		@inline def ifSubclass[X <: T :ClassTag, Y](f :X => Y) :Option[Y] = classTag[X].unapply(self).map(f)
+	}
+
 
 
 	/** A class extending `scala.Some` with a `some` method as an alias to `get`.
@@ -271,8 +286,6 @@ package object optional {
 		  */
 		@inline def some :T = opt.get
 	}
-
-
 
 
 

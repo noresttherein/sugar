@@ -16,6 +16,7 @@ import net.noresttherein.slang.time.conversions._
   * the time to current `UTC` time.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class Time(val clock :Clock) extends AnyVal with Serializable {
 	@inline def toJava :Clock = clock
 
@@ -78,7 +79,7 @@ object Time {
 
 	@inline def apply(clock :Clock) :Time = new Time(clock)
 
-	def now :Timestamp = new Timestamp(j.Instant.now())
+	@inline def now :Timestamp = new Timestamp(j.Instant.now())
 
 
 	@inline implicit def fromClock(clock :Clock) :Time = new Time(clock)

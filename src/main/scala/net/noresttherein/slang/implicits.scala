@@ -99,16 +99,16 @@ trait implicits {
 
 
 	/** Implicit conversion extending `Long` values with a `/%` method accepting other another `Long` and
-	  * constructing a [[net.noresttherein.slang.numeric.LongRatio]] instance as an alternative to LongRatio object's
-	  * factory method. If you wish to perform other arithmetic operations with `Long` values as the left-hand argument
-	  * use the appropriate right-associative method of the `LongRatio` class.
+	  * constructing a [[net.noresttherein.slang.numeric.LongRatio LongRatio]] instance as an alternative to `LongRatio`
+	  * object's factory method. If you wish to perform other arithmetic operations with `Long` values as the left-hand
+	  * argument use the appropriate right-associative method of the `LongRatio` class.
 	  * @param numerator this integer, serving as thee numerator of the future rational
 	  * @return a builder object accepting the denominator for the rational result.
 	  */
 	@inline implicit final def /%(numerator :Long) :DivisionLongRatioConstructor = new DivisionLongRatioConstructor(numerator)
 
 	/** Implicit conversion extending `Int` values with a `/%` method accepting other another `Int` and
-	  * constructing a [[net.noresttherein.slang.numeric.Ratio]] instance as an alternative to LongRatio object's
+	  * constructing a [[net.noresttherein.slang.numeric.Ratio Ratio]] instance as an alternative to LongRatio object's
 	  * factory method. If you wish to perform other arithmetic operations with `Long` values as the left-hand argument
 	  * use the appropriate right-associative method of the `Ratio` class.
 	  * @param numerator this integer, serving as thee numerator of the future rational

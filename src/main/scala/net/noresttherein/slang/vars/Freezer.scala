@@ -22,6 +22,7 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * @see [[net.noresttherein.slang.vars.Export Export]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 sealed class Freezer[@specialized(SpecializedTypes) T](init :T) extends InOut[T] with Serializable {
 	private[this] var mutable = init
 	@volatile private[this] var immutable = init
@@ -43,7 +44,7 @@ sealed class Freezer[@specialized(SpecializedTypes) T](init :T) extends InOut[T]
 
 	@inline final override def value :T = get
 
-	@inline final override def value_=(value :T) :Unit =
+	final override def value_=(value :T) :Unit =
 		if (frozen)
 			throw new IllegalStateException(s"Freezer($immutable) is frozen.")
 		else
@@ -55,7 +56,7 @@ sealed class Freezer[@specialized(SpecializedTypes) T](init :T) extends InOut[T]
 	  * While this call can be made concurrently to the modifications, some updates may be lost: happen after
 	  * transferring the value to the inner immutable variable, but not result in an exception.
 	  */
-	@inline final def freeze() :Unit =
+	final def freeze() :Unit =
 		if (!copied && !frozen) {
 			fast = mutable
 			copied = true

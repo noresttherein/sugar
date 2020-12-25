@@ -44,34 +44,34 @@ package object dsl {
 
 
 	implicit class DateFactoryMethods(private val day :Int) extends AnyVal {
-		def Jan(year :Int) :Date = Date(year, 1, day)
-		def Feb(year :Int) :Date = Date(year, 2, day)
-		def Mar(year :Int) :Date = Date(year, 3, day)
-		def Apr(year :Int) :Date = Date(year, 4, day)
-		def May(year :Int) :Date = Date(year, 5, day)
-		def Jun(year :Int) :Date = Date(year, 6, day)
-		def Jul(year :Int) :Date = Date(year, 7, day)
-		def Aug(year :Int) :Date = Date(year, 8, day)
-		def Sep(year :Int) :Date = Date(year, 9, day)
-		def Oct(year :Int) :Date = Date(year, 10, day)
-		def Nov(year :Int) :Date = Date(year, 11, day)
-		def Dec(year :Int) :Date = Date(year, 12, day)
+		@inline def Jan(year :Int) :Date = Date(year, 1, day)
+		@inline def Feb(year :Int) :Date = Date(year, 2, day)
+		@inline def Mar(year :Int) :Date = Date(year, 3, day)
+		@inline def Apr(year :Int) :Date = Date(year, 4, day)
+		@inline def May(year :Int) :Date = Date(year, 5, day)
+		@inline def Jun(year :Int) :Date = Date(year, 6, day)
+		@inline def Jul(year :Int) :Date = Date(year, 7, day)
+		@inline def Aug(year :Int) :Date = Date(year, 8, day)
+		@inline def Sep(year :Int) :Date = Date(year, 9, day)
+		@inline def Oct(year :Int) :Date = Date(year, 10, day)
+		@inline def Nov(year :Int) :Date = Date(year, 11, day)
+		@inline def Dec(year :Int) :Date = Date(year, 12, day)
 
-		def Jan :DateOfYear = DateOfYear(dsl.Jan, day)
-		def Feb :DateOfYear = DateOfYear(dsl.Feb, day)
-		def Mar :DateOfYear = DateOfYear(dsl.Mar, day)
-		def Apr :DateOfYear = DateOfYear(dsl.Apr, day)
-		def May :DateOfYear = DateOfYear(dsl.May, day)
-		def Jun :DateOfYear = DateOfYear(dsl.Jun, day)
-		def Jul :DateOfYear = DateOfYear(dsl.Jul, day)
-		def Aug :DateOfYear = DateOfYear(dsl.Aug, day)
-		def Sep :DateOfYear = DateOfYear(dsl.Sep, day)
-		def Oct :DateOfYear = DateOfYear(dsl.Oct, day)
-		def Nov :DateOfYear = DateOfYear(dsl.Nov, day)
-		def Dec :DateOfYear = DateOfYear(dsl.Dec, day)
+		@inline def Jan :DateOfYear = DateOfYear(dsl.Jan, day)
+		@inline def Feb :DateOfYear = DateOfYear(dsl.Feb, day)
+		@inline def Mar :DateOfYear = DateOfYear(dsl.Mar, day)
+		@inline def Apr :DateOfYear = DateOfYear(dsl.Apr, day)
+		@inline def May :DateOfYear = DateOfYear(dsl.May, day)
+		@inline def Jun :DateOfYear = DateOfYear(dsl.Jun, day)
+		@inline def Jul :DateOfYear = DateOfYear(dsl.Jul, day)
+		@inline def Aug :DateOfYear = DateOfYear(dsl.Aug, day)
+		@inline def Sep :DateOfYear = DateOfYear(dsl.Sep, day)
+		@inline def Oct :DateOfYear = DateOfYear(dsl.Oct, day)
+		@inline def Nov :DateOfYear = DateOfYear(dsl.Nov, day)
+		@inline def Dec :DateOfYear = DateOfYear(dsl.Dec, day)
 
-		def :/(month :Int) :DateDayWithMonth = new DateDayWithMonth(DateOfYear(Month(month), day))
-		def :/(month :Month) :DateDayWithMonth = new DateDayWithMonth(DateOfYear(month, day))
+		@inline def :/(month :Int) :DateDayWithMonth = new DateDayWithMonth(DateOfYear(Month(month), day))
+		@inline def :/(month :Month) :DateDayWithMonth = new DateDayWithMonth(DateOfYear(month, day))
 
 
 		@inline def CE :Year =
@@ -86,7 +86,7 @@ package object dsl {
 
 
 	implicit class TimeOfDayFactoryMethod(private val hour :Int) extends AnyVal {
-		def :-(minute :Int) :HourWithMinute = new HourWithMinute(j.LocalTime.of(hour, minute))
+		@inline def :-(minute :Int) :HourWithMinute = new HourWithMinute(j.LocalTime.of(hour, minute))
 	}
 
 
@@ -94,7 +94,7 @@ package object dsl {
 	object PartialTimeDesignators {
 
 		class DateDayWithMonth(private val dateOfYear :DateOfYear) extends AnyVal {
-			def :/(year :Int) :Date = new Date(j.LocalDate.of(year, dateOfYear.month, dateOfYear.day))
+			@inline def :/(year :Int) :Date = new Date(j.LocalDate.of(year, dateOfYear.month, dateOfYear.day))
 		}
 
 		object DateDayWithMonth {
@@ -102,16 +102,18 @@ package object dsl {
 		}
 
 		class HourWithMinute private[time] (private val timeOfDay :j.LocalTime) extends AnyVal {
-			def :-(second :Int) :HourWithMinuteAndSecond =
+			@inline def :-(second :Int) :HourWithMinuteAndSecond =
 				new HourWithMinuteAndSecond(timeOfDay.plusSeconds(second))
 		}
 
 		object HourWithMinute {
-			@inline implicit def toTimeOfDay(hourMinute :HourWithMinute) :TimeOfDay = new TimeOfDay(hourMinute.timeOfDay)
+			@inline implicit def toTimeOfDay(hourMinute :HourWithMinute) :TimeOfDay =
+				new TimeOfDay(hourMinute.timeOfDay)
 		}
 
 		class HourWithMinuteAndSecond(private val timeOfDay :j.LocalTime) extends AnyVal {
-			def :-(nanosecond :Int) :TimeOfDay = new TimeOfDay(timeOfDay.`with`(ChronoField.NANO_OF_SECOND, nanosecond))
+			@inline def :-(nanosecond :Int) :TimeOfDay =
+				new TimeOfDay(timeOfDay.`with`(ChronoField.NANO_OF_SECOND, nanosecond))
 		}
 
 		object HourWithMinuteAndSecond {

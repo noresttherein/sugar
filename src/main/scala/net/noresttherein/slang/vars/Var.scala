@@ -10,24 +10,25 @@ import net.noresttherein.slang.vars.InOut.DefaultValue
   * @tparam T type of this variable
   * @see [[net.noresttherein.slang.vars.Var$]]
   */
-final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
+@SerialVersionUID(1L)
+sealed class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
 
 	/** Current value of this variable. */
-	@inline def get :T = x
+	def get :T = x
 
 	/** Current value of this variable. */
-	@inline override def value :T = x
+	override def value :T = x
 
 
 	/** Assigns a new value to this variable. */
-	@inline override def value_=(newValue :T) :Unit = x = newValue
+	override def value_=(newValue :T) :Unit = x = newValue
 
 	/** Assigns a new value to this variable. */
-	@inline override def :=(newValue :T) :Unit = x = newValue
+	override def :=(newValue :T) :Unit = x = newValue
 
 
 	/** Assigns a new value returning the previous value at the same time. */
-	@inline override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
+	override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
 
 	/** Compares the current value of this variable with the first argument and, if they are equal, sets this variable
 	  * to the second argument
@@ -35,9 +36,8 @@ final class Var[@specialized(Var.SpecializedTypes) T](private[this] var x :T) ex
 	  * @param assign new value for this variable
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
 	  */
-	@inline override def testAndSet(expect :T, assign :T) :Boolean =
+	override def testAndSet(expect :T, assign :T) :Boolean =
 		(x == expect) && {x = assign; true}
-
 
 
 }
@@ -377,7 +377,6 @@ object Var {
 
 
 	}
-	
 	
 
 }

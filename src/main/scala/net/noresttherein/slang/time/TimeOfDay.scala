@@ -7,6 +7,7 @@ import java.time.temporal.ChronoField
 /** 'Wall clock time' with nanosecond precision. Wraps a `java.time.LocalTime` instance.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Ordered[TimeOfDay] with Serializable {
 	@inline def hour :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
@@ -22,13 +23,13 @@ class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Orde
 		new TimeOfDay(j.LocalTime.of(hour, minute, second, nano))
 
 
-	@inline def +(time :FiniteTimeSpan) :TimeOfDay = time match {
+	def +(time :FiniteTimeSpan) :TimeOfDay = time match {
 		case millis :Milliseconds => this + millis
 		case duration :Duration => this + duration
 		case _ => this + time.toDuration
 	}
 
-	@inline def -(time :FiniteTimeSpan) :TimeOfDay = time match {
+	def -(time :FiniteTimeSpan) :TimeOfDay = time match {
 		case millis :Milliseconds => this - millis
 		case duration :Duration => this - duration
 		case _ => this - time.toDuration
@@ -76,13 +77,11 @@ object TimeOfDay {
 	@inline def apply(time :j.LocalTime) :TimeOfDay = new TimeOfDay(time)
 
 
-
 	@inline def apply()(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
 
 	@inline def current(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
 
 	@inline def utc :TimeOfDay = new TimeOfDay(j.LocalTime.now(Time.UTC))
-
 
 
 	@inline def unapply(time :TimeOfDay)  :Some[(Int, Int, Int, Int)] =
@@ -101,6 +100,7 @@ object TimeOfDay {
 
 
 /** Time of day with an offset from `UTC`, reflecting a unique instant. Wraps a `java.time.OffsetTime`. */
+@SerialVersionUID(1L)
 class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Ordered[OffsetTime] with Serializable {
 	@inline def hour :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
@@ -118,13 +118,13 @@ class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Or
 	                 offset :TimeOffset=this.offset) :OffsetTime =
 		new OffsetTime(j.OffsetTime.of(j.LocalTime.of(hour, minute, second, nano), offset.toJava))
 
-	@inline def +(time :FiniteTimeSpan) :OffsetTime = time match {
+	def +(time :FiniteTimeSpan) :OffsetTime = time match {
 		case millis :Milliseconds => this + millis
 		case duration :Duration => this + duration
 		case _ => this + time.toDuration
 	}
 
-	@inline def -(time :FiniteTimeSpan) :OffsetTime = time match {
+	def -(time :FiniteTimeSpan) :OffsetTime = time match {
 		case millis :Milliseconds => this - millis
 		case duration :Duration => this - duration
 		case _ => this - time.toDuration
@@ -173,7 +173,6 @@ object OffsetTime {
 		new OffsetTime(j.OffsetTime.of(j.LocalTime.of(hour, minute, second, nano), offset.toJava))
 
 
-
 	@inline def current(implicit time :Time = Time.Local) :OffsetTime =
 		new OffsetTime(j.OffsetTime.now(time.clock))
 
@@ -181,7 +180,6 @@ object OffsetTime {
 		new OffsetTime(j.OffsetTime.now(time.clock) withOffsetSameInstant offset.toJava)
 
 	@inline def utc :OffsetTime = new OffsetTime(j.OffsetTime.now(Time.UTC))
-
 
 
 	@inline def fromJavaOffsetTime(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)

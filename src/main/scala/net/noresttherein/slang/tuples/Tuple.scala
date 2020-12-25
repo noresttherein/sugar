@@ -540,6 +540,7 @@ object Tuple {
 	/** An empty tuple (a product of zero arity). Useful particularly as the terminator type for variable tuples
 	  * in a manner similar to list's `Nil` (and `HList`'s `HNil`).
 	  */
+	@SerialVersionUID(1L)
 	final class <> private[Tuple]() extends Tuple {
 
 		override def length :Int = 0
@@ -591,7 +592,7 @@ object Tuple {
 	/** Wraps the given value in a value class providing a zero-argument `&lt;&gt;` method for converting it into
 	  * a single-element tuple.
 	  */
-	implicit def <*>[X](value :X) :Tuple1Constructor[X] = new Tuple1Constructor(value)
+	@inline implicit def <*>[X](value :X) :Tuple1Constructor[X] = new Tuple1Constructor(value)
 	
 	/** Value class providing an extension method converting the wrapped value into a single-element tuple. */
 	class Tuple1Constructor[X](private val value :X) extends AnyVal {
@@ -656,6 +657,7 @@ object Tuple {
 	  * @tparam L the type of the last element in this tuple.
 	  * @see [[net.noresttherein.slang.tuples.Tuple.><$ companion object]]
 	  */
+	@SerialVersionUID(1L)
 	final class ><[+P <: Tuple, +L] private[Tuple](elements :Array[Any], size :Int, owner :Boolean = true) extends Tuple {
 
 		private[Tuple] def this(elements :Array[Any]) = this(elements, elements.length)

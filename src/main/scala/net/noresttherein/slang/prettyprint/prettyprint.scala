@@ -277,7 +277,6 @@ package object prettyprint {
 	  */	
 	@inline def abbrevNameOf[C :ClassTag] :String = abbrevNameOf(classTag[C].runtimeClass)
 
-
 	/** An abbreviated qualified name of the given class, demangled to an approximation of how it would 
 	  * appear in code. All package names are replaced with their first letters, while the class name is demangled
 	  * as follows: first, all trailing '$' are dropped and escape sequences 
@@ -396,15 +395,12 @@ package object prettyprint {
 
 
 
-
-
 	private def trimTrailingDollars(input :String) :Int = {
 		var i = input.length - 1
 		while (i >= 0 && input.charAt(i) == '$')
 			i -= 1
 		i + 1
 	}
-
 
 
 	private def demangleClassName(input :String, offset :Int, end :Int, result :JStringBuilder) :Unit = {
@@ -424,7 +420,6 @@ package object prettyprint {
 	}
 
 
-
 	private def unescape(input :String, offset :Int, result :JStringBuilder) :Int = {
 		var s = escapes.length - 1
 		var symbol = ""
@@ -434,7 +429,6 @@ package object prettyprint {
 		result append name
 		offset + symbol.length
 	}
-
 
 
 	private def demangleSpecialization(input :String, offset :Int, end :Int, result :JStringBuilder) :Int = {

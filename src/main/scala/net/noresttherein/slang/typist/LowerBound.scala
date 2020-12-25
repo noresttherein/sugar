@@ -19,7 +19,7 @@ final class LowerBound[X, Y, L] private[typist] (val _1 :L<=:X, val _2 :L<=:Y) {
 sealed abstract class ProperLowerBoundImplicits private[typist] {
 	@inline implicit def properLowerBound[X>:L, Y>:L, L] :LowerBound[X, Y, L] = instance.asInstanceOf[LowerBound[X, Y, L]]
 
-	final protected[this] val instance = new LowerBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
+	final protected[typist] val instance = new LowerBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
 }
 
 sealed abstract class SelfLowerBoundImplicits private[typist] extends ProperLowerBoundImplicits {

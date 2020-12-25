@@ -10,6 +10,7 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
   * if possible.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Serializable {
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
@@ -87,14 +88,14 @@ class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Seria
 	}
 
 
-	@inline def +(millis :Milliseconds) :UnixTime =
+	def +(millis :Milliseconds) :UnixTime =
 		if (if (epochMilli > 0) millis.inMillis > Long.MaxValue - epochMilli
 		    else millis.inMillis < Long.MinValue - epochMilli
 		)
 			overflow(toString, " + ", millis.toString)
 		else new UnixTime(epochMilli + millis.inMillis)
 
-	@inline def -(millis :Milliseconds) :UnixTime =
+	def -(millis :Milliseconds) :UnixTime =
 		if (if (epochMilli > 0) millis.inMillis < epochMilli - Long.MaxValue
 		    else millis.inMillis > epochMilli - Long.MinValue
 		)
@@ -112,21 +113,21 @@ class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Seria
 		case EndOfTime => MinusEternity
 	}
 
-	@inline override def -(time :DefiniteTime) :Duration = {
+	override def -(time :DefiniteTime) :Duration = {
 		val s1 = epochMilli / 1000L; val s2 = time.epochSecond
 		if (if (s1 > 0) s2 < s1 - Long.MaxValue else s2 > s1 - Long.MinValue)
 			overflow(toString, " - ", time)
 		j.Duration.ofSeconds(s1 - s2, epochMilli % 1000L * NanosInMilli - time.nano)
 	}
 
-	@inline override def -(time :Timestamp) :Duration = {
+	override def -(time :Timestamp) :Duration = {
 		val s1 = epochMilli / 1000L; val s2 = time.toJava.getEpochSecond
 		if (if (s1 > 0) s2 < s1 - Long.MaxValue else s2 > s1 - Long.MinValue)
 			overflow(toString, " - ", time)
 		j.Duration.ofSeconds(s1 - s2, epochMilli % 1000L * NanosInMilli - time.toJava.getNano)
 	}
 
-	@inline def minus(other :UnixTime) :Milliseconds =
+	def minus(other :UnixTime) :Milliseconds =
 		if (if (epochMilli > 0) other.epochMilli < epochMilli - Long.MaxValue
 		    else other.epochMilli > epochMilli - Long.MinValue
 		)
@@ -162,7 +163,7 @@ class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Seria
 	@inline def min(that :UnixTime) :UnixTime = if (epochMilli <= that.epochMilli) this else that
 	@inline def max(that :UnixTime) :UnixTime = if (epochMilli >= that.epochMilli) this else that
 
-	@inline override def ===(that :TimePoint) :Boolean = that match {
+	override def ===(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime =>
 			epochMilli / 1000 == finite.epochSecond && epochMilli % 1000 * NanosInMilli == finite.nano
 		case _ => false
@@ -183,7 +184,6 @@ object UnixTime {
 	@inline def apply(epochMillis :Milliseconds) :UnixTime = new UnixTime(epochMillis.inMillis)
 
 
-
 	@inline def apply()(implicit time :Time = Time.Local) :UnixTime = new UnixTime(time.clock.millis)
 
 	@inline def now(implicit time :Time = Time.Local) :UnixTime = new UnixTime(time.clock.millis)
@@ -193,7 +193,6 @@ object UnixTime {
 
 	@inline def before(lapse :Milliseconds)(implicit time :Time = Time.Local) :UnixTime =
 		new UnixTime(time.clock.millis - lapse.inMillis)
-
 
 
 	def unapply(time :TimePoint) :Option[Long] = time match {

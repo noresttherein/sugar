@@ -17,7 +17,8 @@ import net.noresttherein.slang.prettyprint.{abbrevClassNameOf, classNameOf, full
   * from the frame stack, including any system and reflected calls.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-class Logger(val toJava :JLogger) extends AnyVal {
+@SerialVersionUID(1L)
+class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 	/** The name given to this logger and used for configuration. */
 	@inline def name :String = toJava.getName

@@ -132,14 +132,11 @@ object DateTimeUnit {
 	@inline def unapply(unit :DateTimeUnit) :Some[ChronoUnit] = Some(unit.toJava)
 
 
-
 	@inline implicit def fromJava(unit :ChronoUnit) :DateTimeUnit = apply(unit)
 	@inline implicit def toJava(unit :DateTimeUnit) :TemporalUnit = unit.toJava
 
 	@inline implicit def fromConcurrentUnit(unit :JTimeUnit) :DateTimeUnit = apply(unit.toChronoUnit)
 	@inline implicit def toConcurrentUnit(unit :DateTimeUnit) :JTimeUnit = JTimeUnit.of(unit.toJava)
-
-
 
 
 	private final val SomeNanos = Some(Nanos)
@@ -159,13 +156,13 @@ object DateTimeUnit {
 
 
 /** A time unit of fixed length, i.e. a standard time unit and half-days. */
+@SerialVersionUID(1L)
 class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
 	@inline override def time :FiniteTimeSpan = toJava.getDuration
 	@inline override def span :FiniteTimeSpan = toJava.getDuration
 	@inline override def estimate :Duration = toJava.getDuration
 	@inline def length :Duration = toJava.getDuration
 	@inline def inNanos :Long = toJava.getDuration.toNanos
-
 
 
 	override def compare(that :DateTimeUnit) :Int = that match {
@@ -176,8 +173,7 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 	}
 
 
-
-	def *(number :Long) :Duration = new Duration(j.Duration.of(number, toJava))
+	@inline def *(number :Long) :Duration = new Duration(j.Duration.of(number, toJava))
 
 	def unapply(time :TimeSpan) :Option[(Long, TimeSpan)] = time match {
 		case finite :FiniteTimeSpan => Some((finite /% toJava.getDuration, time % this))
@@ -206,7 +202,6 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 		case _ => toJava.toString
 	}
 
-
 }
 
 
@@ -228,12 +223,13 @@ object TimeUnit {
 
 
 /** A time unit of variable length, varying from days to millenia. */
+@SerialVersionUID(1L)
 class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
 	@inline override def time :FiniteDateSpan = length
 	@inline override def span :FiniteDateSpan = length
 	@inline override def estimate :Duration = toJava.getDuration
 
-	@inline def length :Period = (toJava: @unchecked) match {
+	def length :Period = (toJava: @unchecked) match {
 		case DAYS => OneDay
 		case WEEKS => OneWeek
 		case MONTHS => OneMonth
@@ -318,13 +314,14 @@ object DateUnit {
 
 
 /** Non-cyclic time 'units' of infinite length adapting `ChronoUnit.FOREVER` and `ChronoUnit.ERAS`. */
+@SerialVersionUID(1L)
 class PseudoUnit private[time](override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
-	override def time :InfiniteTimeLapse = Eternity
+	@inline override def time :InfiniteTimeLapse = Eternity
 
 	override def span :FiniteTimeLapse =
 		throw new UnsupportedOperationException(toString + ".span")
 
-	override def estimate :Duration = toJava.getDuration
+	@inline override def estimate :Duration = toJava.getDuration
 
 
 	override def compare(that :DateTimeUnit) :Int = that match {

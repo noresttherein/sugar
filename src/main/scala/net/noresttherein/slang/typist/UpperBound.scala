@@ -22,7 +22,7 @@ final class UpperBound[X, Y, U] private[typist] (val _1 :X<=:U, val _2 :Y<=:U) {
 sealed abstract class ProperUpperBoundImplicits private[typist] {
 	@inline implicit final def properUpperBound[X<:U, Y<:U, U] :UpperBound[X, Y, U] = instance.asInstanceOf[UpperBound[X, Y, U]]
 
-	final protected[this] val instance = new UpperBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
+	final protected[typist] val instance = new UpperBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
 }
 
 sealed abstract class SelfUpperBoundImplicits private[typist] extends ProperUpperBoundImplicits {

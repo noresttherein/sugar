@@ -12,6 +12,7 @@ import scala.annotation.tailrec
   * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
   * For the public constructor, see [[net.noresttherein.slang.numeric.LongRatio$.apply LongRatio()]].
   */
+@SerialVersionUID(1L)
 final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 
 	/** The numerator of this fraction (the dividend). */
@@ -75,14 +76,12 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 	  */
 	@inline def +:(other :LongRatio) :LongRatio = other.plus(n, d)
 
-
 	@inline def -(other :LongRatio) :LongRatio = plus(-other.numerator, other.denominator)
 
 	/** The right-associative variant of [[net.noresttherein.slang.numeric.LongRatio.- -]]. Equivalent to `other - this`,
 	  * but can implicitly promote `Long` values on the left hand side of the operator to the required rational.
 	  */
 	@inline def -:(other :LongRatio) :LongRatio = other.plus(-n, d)
-
 
 	private def multiply(num :Long, den :Long) :LongRatio = {
 		val gcd_\ = GCD(n, den); val gcd_/ = GCD(d, num)
@@ -115,7 +114,6 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 	  */
 	@inline def *:(other :LongRatio) :LongRatio = other * this
 
-
 	/** Divides this rational number by another rational. This implementation performs cross reduction before actual
 	  * multiplication, but may still result in quiet overflow.
 	  */
@@ -138,7 +136,6 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 	  */
 	@inline def /:(other :LongRatio) :LongRatio = other / this
 
-
 	def <(other :LongRatio) :Boolean = {
 		val n2 = other.numerator; val d2 = other.denominator
 		if (n < 0)
@@ -156,36 +153,24 @@ final class LongRatio private[numeric] (n :Long, d :Long) extends Number {
 	}
 
 	@inline def >(other :LongRatio) :Boolean = !(this <= other)
-
 	@inline def >=(other :LongRatio) :Boolean = !(this < other)
 
 
-
 	@inline def min(other :LongRatio) :LongRatio = if (this <= other) this else other
-
 	@inline def max(other :LongRatio) :LongRatio = if (this < other) other else this
 
 
 	@inline def toLong :Long = n / d
-
 	@inline def toFloat :Float = n.toFloat / d.toFloat
-
 	@inline def toDouble :Double = n.toDouble / d.toDouble
-
 	@inline def toShort :Short = (n / d).toShort
-
 	@inline def toInt :Int = (n / d).toInt
 
 
-
 	@inline override def intValue :Int = (n / d).toInt
-
 	@inline override def floatValue :Float = n.toFloat / d.toFloat
-
 	@inline override def doubleValue :Double = n.toDouble / d.toDouble
-
 	@inline override def shortValue :Short = (n / d).toShort
-
 	@inline override def longValue :Long = n / d
 
 
@@ -299,26 +284,15 @@ object LongRatio {
 	/** The `Fractional` type class for `LongRatio` values. */
 	implicit object LongRatioIsFractional extends Fractional[LongRatio] {
 		override def div(x :LongRatio, y :LongRatio) :LongRatio = x / y
-
 		override def plus(x :LongRatio, y :LongRatio) :LongRatio = x + y
-
 		override def minus(x :LongRatio, y :LongRatio) :LongRatio = x - y
-
 		override def times(x :LongRatio, y :LongRatio) :LongRatio = x * y
-
 		override def negate(x :LongRatio) :LongRatio = -x
-
 		override def fromInt(x :Int) :LongRatio = new LongRatio(x, 1)
-
 		override def toInt(x :LongRatio) :Int = x.toInt
-
 		override def toLong(x :LongRatio) :Long = x.toLong
-
 		override def toFloat(x :LongRatio) :Float = x.toFloat
-
 		override def toDouble(x :LongRatio) :Double = x.toDouble
-
-
 
 		override def compare(x :LongRatio, y :LongRatio) :Int =
 			if (x < y) -1 else if (y < x) 1 else 0

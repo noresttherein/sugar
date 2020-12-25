@@ -9,9 +9,13 @@ package net.noresttherein.slang.witness
 class Maybe[+T] private[witness] (val opt :Option[T]) extends AnyVal
 
 
+
 sealed abstract class MaybeNoImplicit {
-	implicit final val maybeNo :Maybe[Nothing] = new Maybe(None)
+	private val no = new Maybe[Nothing](None)
+	implicit final def maybeNo[T] :Maybe[T] = no
 }
+
+
 
 /** Provides optional implicit values if they are available wrapped as `Maybe[T]`. */
 object Maybe extends MaybeNoImplicit {
