@@ -90,7 +90,7 @@ object fun {
 	/** Equivalent to `scala.identity[X]`, but is specialized and overrides `compose` (and `andThen`)
 	  * for reduced overhead of function composition. Additionally, it provides a more informative `toString` output.
 	  */
-	@inline def ident[@specialized(Arg) X] :X=>X = new Identity[X]{}
+	@inline def ident[@specialized(Arg) X] :X => X = new Identity[X]{}
 
 
 
@@ -135,8 +135,6 @@ object fun {
 
 
 
-
-
 	/**  A simple factory object which `apply` method creates functions which always return the same value.
 	  *  Returned by [[net.noresttherein.slang.funny.fun.const fun.const]], it separates the argument
 	  *  and value type parameters, so the latter can be inferred from the provided value.
@@ -149,14 +147,10 @@ object fun {
 
 
 
-
-
 	/** Declaration of type groups usable as arguments to scala `@specialized` annotation. */
 	object specializations {
 		/** Types for which `Function1`'s result type is specialized, minus `Unit`. */
 		final val ReturnVal = new Specializable.Group(Boolean, Int, Float, Long, Double)
-
-
 
 		private[fun] class SpecializedType[@specialized(Return) T] {
 
@@ -186,13 +180,16 @@ object fun {
 
 
 
+	type =@>[-X, +Y] = ComposableFun[X, Y]
+
+
 	/** A base interface for 'nice' functions defined here. Overrides `compose` and `andThen` to attain two goals:
 	  *  - a `@specialized` instance for the composed function;
 	  *  - eliding one of the members if an identity, constant or exception throwing function is encountered.
 	  *  Provides a more helpful `toString` implementation.
 	  *  @see [[net.noresttherein.slang.funny.fun]]
 	  */
-	trait ComposableFun[@specialized(Arg) -X, @specialized(Return) +Y] extends (X => Y) {
+	trait ComposableFun[@specialized(Arg) -X, @specialized(Return) +Y] extends (X => Y) with Serializable {
 
 		override def compose[A](g: A => X): A => Y = g match {
 			case f :ComposableFun[A, X] => f chainBefore this

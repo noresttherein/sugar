@@ -1,7 +1,11 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.vars.InOut.{DefaultValue, TypeEquiv}
-import net.noresttherein.slang.vars.Var.SpecializedTypes
+import scala.Specializable.Args
+
+import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv}
+
+
+
 
 /** A boxed variable with synchronized access which can be used as in/out parameter to functions.
   * All synchronization uses the monitor associated with this instance, which client code can take advantage of
@@ -11,29 +15,23 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
-class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends InOut[T] with Serializable {
+class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) extends InOut[T] with Serializable {
 
-	@inline override def get :T = synchronized { x }
+	@inline override def value :T = synchronized { x }
 
-	@inline final override def value :T = get
-
-	@inline final override def value_=(value :T) :Unit = this := value
-
-	@inline override def :=(value :T) :Unit = synchronized { x = value }
+	@inline final override def value_=(value :T) :Unit = synchronized { x = value }
 
 	@inline final override def ?=(value :T) :T = synchronized { val res = x; x = value; res }
 
-	
 	
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
 	  * @param expect value to compare with current value
 	  * @param assign new value for this variable
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
 	  */
-	@inline final override def testAndSet(expect :T, assign :T) :Boolean = synchronized {
-		(get == expect) && { this := assign; true }
+	final override def testAndSet(expect :T, assign :T) :Boolean = synchronized {
+		(x == expect) && { x = assign; true }
 	}
-
 
 
 	/** Atomically updates the value of this variable with the given function. This is equivalent to 
@@ -42,31 +40,20 @@ class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends 
 	  * @param f function to apply to the value of this variable. 
 	  * @return result of applying `f` to the current value.
 	  */
-	@inline final override def apply(f :T => T) :T = synchronized { val res = f(get); this := res; res }
-
-	@inline final override def /:(acc :T)(foldLeft :(T, T) => T) :T =
-		synchronized { val res = foldLeft(acc, get); this := res; res }
-
-	@inline final override def :\(acc :T)(foldRight :(T, T) => T) :T =
-		synchronized { val res = foldRight(get, acc); this := res; res }
-
-
-
-
-
-	/************************************** Boolean methods ***********************************************************/
-
-
-	private[vars] override def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this)
-		self.value = self.value & other
+	final override def apply(f :T => T) :T = synchronized {
+		val res = f(x); x = res; res
 	}
 
-	private[vars] override def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this)
-		self.value = self.value | other
+	final override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = synchronized {
+		val res = f(z, x); x = res; res
 	}
 
+	final override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = synchronized {
+		val res = f(x, z); x = res; res
+	}
+
+
+	//overriden to avoid creating a functional object closure
 	private[vars] override def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
 		val self = ev(this)
 		self.value = self.value && other
@@ -76,203 +63,6 @@ class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends 
 		val self = ev(this)
 		self.value = self.value || other
 	}
-
-	private[vars] override def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this)
-		self.value = self.value ^ other
-	}
-
-	private[vars] override def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = synchronized {
-		val self = ev(this)
-		val res = !self.value; self.value = res; res
-	}
-
-
-
-
-	/************************************** Int methods ***************************************************************/
-
-
-	private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value + other; self.value = res; res
-	}
-
-	private[vars] override def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value * other; self.value = res; res
-	}
-
-	private[vars] override def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value / other; self.value = res; res
-	}
-
-	private[vars] override def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value % other; self.value = res; res
-	}
-
-	private[vars] override def int_-(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = -self.value; self.value = res; res
-	}
-	
-	private[vars] override def int_~(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = ~self.value; self.value = res; res
-	}
-
-	private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value | other; self.value = res; res
-	}
-
-	private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value & other; self.value = res; res
-	}
-
-	private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value ^ other; self.value = res; res
-	}
-
-	private[vars] override def int_>>=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value >> other; self.value = res; res
-	}
-
-	private[vars] override def int_>>>=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value >>> other; self.value = res; res
-	}
-
-	private[vars] override def int_<<=(other :Int)(implicit ev :T TypeEquiv Int) :Int = synchronized {
-		val self = ev(this)
-		val res = self.value << other; self.value = res; res
-	}
-
-
-
-
-
-	/************************************** Long methods **************************************************************/
-
-
-	private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value + other; self.value = res; res
-	}
-
-	private[vars] override def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value * other; self.value = res; res
-	}
-
-	private[vars] override def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value / other; self.value = res; res
-	}
-
-	private[vars] override def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value % other; self.value = res; res
-	}
-
-	private[vars] override def long_-(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = -self.value; self.value = res; res
-	}
-
-
-	private[vars] override def long_~(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = ~self.value; self.value = res; res
-	}
-
-	private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value | other; self.value = res; res
-	}
-
-	private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value & other; self.value = res; res
-	}
-
-	private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value ^ other; self.value = res; res
-	}
-
-	private[vars] override def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value >> n; self.value = res; res
-	}
-
-	private[vars] override def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value >>> n; self.value = res; res
-	}
-
-	private[vars] override def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = synchronized {
-		val self = ev(this)
-		val res = self.value << n; self.value = res; res
-	}
-
-
-
-
-
-	/************************************** Float methods *************************************************************/
-
-
-	private[vars] override def float_+=(other :Float)(implicit ev :T TypeEquiv Float) :Float = synchronized {
-		val self = ev(this)
-		val res = self.value + other; self.value = res; res
-	}
-
-	private[vars] override def float_*=(other :Float)(implicit ev :T TypeEquiv Float) :Float = synchronized {
-		val self = ev(this)
-		val res = self.value * other; self.value = res; res
-	}
-
-	private[vars] override def float_/=(other :Float)(implicit ev :T TypeEquiv Float) :Float = synchronized {
-		val self = ev(this)
-		val res = self.value / other; self.value = res; res
-	}
-
-	private[vars] override def float_-(implicit ev :T TypeEquiv Float) :Float = synchronized {
-		val self = ev(this)
-		val res = -self.value; self.value = res; res
-	}
-
-
-
-	/************************************** Double methods ************************************************************/
-
-
-	private[vars] override def double_+=(other :Double)(implicit ev :T TypeEquiv Double) :Double = synchronized {
-		val self = ev(this)
-		val res = self.value + other; self.value = res; res
-	}
-
-	private[vars] override def double_*=(other :Double)(implicit ev :T TypeEquiv Double) :Double = synchronized {
-		val self = ev(this)
-		val res = self.value * other; self.value = res; res
-	}
-
-	private[vars] override def double_/=(other :Double)(implicit ev :T TypeEquiv Double) :Double = synchronized {
-		val self = ev(this)
-		val res = self.value / other; self.value = res; res
-	}
-
-	private[vars] override def double_-(implicit ev :T TypeEquiv Double) :Double = synchronized {
-		val self = ev(this)
-		val res = -self.value; self.value = res; res
-	}
-
 
 }
 
@@ -285,10 +75,10 @@ class SyncVar[@specialized(SpecializedTypes) T](private[this] var x :T) extends 
 object SyncVar {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
-	@inline def apply[@specialized(SpecializedTypes) T](value :T) :SyncVar[T] = new SyncVar[T](value)
+	@inline def apply[@specialized(SpecializedVars) T](value :T) :SyncVar[T] = new SyncVar[T](value)
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
-	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :SyncVar[T] =
+	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :SyncVar[T] =
 		new SyncVar[T](default.value)
 
 	

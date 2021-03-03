@@ -1,6 +1,6 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.Lazy
+import net.noresttherein.slang.vars.InOut.SpecializedVars
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
@@ -8,7 +8,7 @@ import org.scalacheck.Prop._
 
 class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOutPropsGroup {
 
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :Var[T] = Var(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :Var[T] = Var(x)
 
 
 	/*************************** Test of `Var[Boolean]` and its implicit extensions ***************************************/
@@ -25,7 +25,7 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 		property("&&=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = Var(x1); val arg = Lazy(x2)
 			v &&= arg
-			(v.get ?= x1 && x2) :| "correctness" && (arg.isEvaluated ?= x1) :| "laziness"
+			(v.get ?= x1 && x2) :| "correctness" && (arg.isInitialized ?= x1) :| "laziness"
 		}
 
 		property("|=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = Var(x1); v |= x2; v.get ?= x1 | x2 }
@@ -33,7 +33,7 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 		property("||=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = Var(x1); val arg = Lazy(x2)
 			v ||= arg
-			(v.get ?= x1 || x2) :| "correctness" || (arg.isUndefined ?= x1) :| "laziness"
+			(v.get ?= x1 || x2) :| "correctness" || (arg.isInitialized ?= x1) :| "laziness"
 		}
 
 		property("^=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = Var(x1); v ^= x2; v.get ?= x1 ^ x2 }
@@ -335,7 +335,7 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 
 
 class ErasedVarPropsGroup extends VarPropsGroup("Var<erased>") {
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :Var[T] = erasedVar(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :Var[T] = erasedVar(x)
 
 	def erasedVar[T](x :T) :Var[T] = Var(x)
 }

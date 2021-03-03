@@ -1,12 +1,12 @@
 package net.noresttherein.slang.vars
 
 import java.{lang => j}
-import java.util.concurrent.atomic
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean => AtomicJBoolean, AtomicInteger, AtomicLong => AtomicJLong, AtomicReference}
 import java.util.function.{IntBinaryOperator, IntUnaryOperator, LongBinaryOperator, LongUnaryOperator}
 
-import net.noresttherein.slang.vars.Var.SpecializedTypes
-import net.noresttherein.slang.vars.InOut.{DefaultValue, TypeEquiv, TypeIdent}
+import scala.Specializable.Args
+
+import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv, TypeIdent}
 
 
 
@@ -14,28 +14,29 @@ import net.noresttherein.slang.vars.InOut.{DefaultValue, TypeEquiv, TypeIdent}
 /** Atomic variables providing several 'test-and-set' operations.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(1L)
 trait Atomic[T] extends InOut[T] with Serializable {
 
 	override def apply(f :T => T) :T = {
-		var current = get; var assign = f(current)
+		var current = value; var assign = f(current)
 		while (!testAndSet(current, assign)) {
-			current = get; assign = f(current)
+			current = value; assign = f(current)
 		}
 		assign
 	}
 
-	override def /:(acc :T)(foldLeft :(T, T) => T) :T = {
-		var current = get; var assign = foldLeft(acc, current)
+	override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
+		var current = value; var assign = f(z, current)
 		while (!testAndSet(current, assign)) {
-			current = get; assign = foldLeft(acc, assign)
+			current = value; assign = f(z, assign)
 		}
 		assign
 	}
 
-	override def :\(acc :T)(foldRight :(T, T) => T) :T = {
-		var current = get; var assign = foldRight(current, acc)
+	override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
+		var current = value; var assign = f(current, z)
 		while (!testAndSet(current, assign)) {
-			current = get; assign = foldRight(assign, acc)
+			current = value; assign = f(assign, z)
 		}
 		assign
 	}
@@ -54,7 +55,7 @@ object Atomic {
 	  * @param init initial value of the variable.
 	  * @tparam T the type of the variable.
 	  */
-	def apply[@specialized(SpecializedTypes) T](init :T) :Atomic[T] =
+	def apply[@specialized(SpecializedVars) T](init :T) :Atomic[T] =
 		(new TypeIdent[T] match {
 			case InOut.IntEq => new AtomicInt(init.asInstanceOf[Int])
 			case InOut.LongEq => new AtomicLong(init.asInstanceOf[Long])
@@ -72,7 +73,7 @@ object Atomic {
 	/** Create a new atomic variable initialized with the given value. Returned implementation depends on the type
 	  * of the argument.
 	  */
-	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :Atomic[T] =
+	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Atomic[T] =
 		apply(default.value)
 
 
@@ -85,7 +86,6 @@ object Atomic {
 
 		def this(init :T) = this(new AtomicReference[T](init))
 
-		override def get :T = x.get
 		override def value :T = x.get
 		override def value_=(newValue :T) :Unit = x.set(newValue)
 		override def :=(newValue :T) :Unit = x.lazySet(newValue)
@@ -118,9 +118,9 @@ object Atomic {
 		private[vars] override def int_|=(other :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ | other)
 		private[vars] override def int_&=(other :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ & other)
 		private[vars] override def int_^=(other :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ ^ other)
-		private[vars] override def int_>>=(other :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ >> other)
-		private[vars] override def int_>>>=(other :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ >>> other)
-		private[vars] override def int_<<=(other :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ << other)
+		private[vars] override def int_>>=(n :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ >> n)
+		private[vars] override def int_>>>=(n :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ >>> n)
+		private[vars] override def int_<<=(n :Int)(implicit ev :TypeEquiv[T, Int]) :Int = ev(this)(_ << n)
 
 		/*************************************** Long methods *********************************************************/
 		private[vars] override def long_+=(other :Long)(implicit ev :TypeEquiv[T, Long]) :Long = ev(this)(_ + other)
@@ -155,14 +155,12 @@ object Atomic {
 
 
 
-
 	@SerialVersionUID(1L)
-	class AtomicBoolean(x :atomic.AtomicBoolean) extends Atomic[Boolean] {
+	class AtomicBoolean(x :AtomicJBoolean) extends Atomic[Boolean] {
 
-		def this(init :Boolean) = this(new atomic.AtomicBoolean(init))
+		def this(init :Boolean) = this(new AtomicJBoolean(init))
 
 
-		override def get :Boolean = x.get
 		override def value :Boolean = x.get
 		override def value_=(value :Boolean) :Unit = x.set(value)
 		override def :=(value :Boolean) :Unit = x.lazySet(value)
@@ -189,18 +187,18 @@ object Atomic {
 			ifFalse
 		}
 
-		override def /:(acc :Boolean)(foldLeft :(Boolean, Boolean) => Boolean) :Boolean = {
-			val ifFalse = foldLeft(acc, false)
+		override def applyLeft[@specialized(Args) A](z :A)(f :(A, Boolean) => Boolean) :Boolean = {
+			val ifFalse = f(z, false)
 			if (!x.compareAndSet(false, ifFalse)) {
-				stubbornTestAndSet(ifFalse, foldLeft(acc, true))
+				stubbornTestAndSet(ifFalse, f(z, true))
 			}
 			ifFalse
 		}
 
-		override def :\(acc :Boolean)(foldRight :(Boolean, Boolean) => Boolean) :Boolean = {
-			val ifFalse = foldRight(false, acc)
+		override def applyRight[@specialized(Args) A](z :A)(f :(Boolean, A) => Boolean) :Boolean = {
+			val ifFalse = f(false, z)
 			if (!x.compareAndSet(false, ifFalse)) {
-				stubbornTestAndSet(ifFalse, foldRight(true, acc))
+				stubbornTestAndSet(ifFalse, f(true, z))
 			}
 			ifFalse
 		}
@@ -215,7 +213,6 @@ object Atomic {
 		private[vars] override def bool_&&=(other: => Boolean)(implicit ev :Boolean TypeEquiv Boolean) :Unit =
 			if (x.get && !other) x.set(false)
 
-
 		private[vars] override def bool_||=(other: =>Boolean)(implicit ev :Boolean TypeEquiv Boolean) :Unit =
 			if (!x.get && other) x.set(true)
 
@@ -224,7 +221,6 @@ object Atomic {
 
 		private[vars] override def bool_!=(implicit ev :Boolean TypeEquiv Boolean) :Boolean =
 			stubbornTestAndSet(true, false)
-
 	}
 
 
@@ -253,23 +249,16 @@ object Atomic {
 
 		private[Atomic] def atom :AtomicInteger = x
 
-		override def get :Int = x.get
 		override def value :Int = x.get
 		override def value_=(value :Int) :Unit = x.set(value)
 		override def :=(value :Int) :Unit = x.lazySet(value)
 		override def ?=(newValue :Int) :Int = x.getAndSet(newValue)
 
-
 		override def testAndSet(expect :Int, assign :Int) :Boolean = x.compareAndSet(expect, assign)
 
-
 		override def apply(f :Int => Int) :Int = { x.updateAndGet(f(_)) }
-
-		override def /:(acc :Int)(foldLeft :(Int, Int) => Int) :Int = { x.updateAndGet(foldLeft(acc, _)) }
-
-		override def :\(acc :Int)(foldRight :(Int, Int) => Int) :Int = { x.updateAndGet(foldRight(_, acc)) }
-
-
+		override def applyLeft[@specialized(Args) T](z :T)(f :(T, Int) => Int) :Int = x.updateAndGet(f(z, _))
+		override def applyRight[@specialized(Args) T](z :T)(f :(Int, T) => Int) :Int = x.updateAndGet(f(_, z))
 
 
 		private[vars] override def int_+=(other :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
@@ -299,14 +288,14 @@ object Atomic {
 		private[vars] override def int_^=(other :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
 			x.accumulateAndGet(other, xorInt)
 
-		private[vars] override def int_>>=(other :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
-			x.accumulateAndGet(other, rightShiftInt)
+		private[vars] override def int_>>=(n :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
+			x.accumulateAndGet(n, rightShiftInt)
 
-		private[vars] override def int_>>>=(other :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
-			x.accumulateAndGet(other, rightLogicShiftInt)
+		private[vars] override def int_>>>=(n :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
+			x.accumulateAndGet(n, rightLogicShiftInt)
 
-		private[vars] override def int_<<=(other :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
-			x.accumulateAndGet(other, leftShiftInt)
+		private[vars] override def int_<<=(n :Int)(implicit ev :TypeEquiv[Int, Int]) :Int =
+			x.accumulateAndGet(n, leftShiftInt)
 
 
 
@@ -330,7 +319,6 @@ object Atomic {
 
 		/** Decrements this variable by `1`, C-style. */
 		@inline def -- :Unit = x.decrementAndGet()
-
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. */
@@ -400,27 +388,20 @@ object Atomic {
 
 
 	@SerialVersionUID(1L)
-	class AtomicLong(x :atomic.AtomicLong) extends Atomic[Long] {
+	class AtomicLong(x :AtomicJLong) extends Atomic[Long] {
 
-		def this(init :Long) = this(new atomic.AtomicLong(init))
+		def this(init :Long) = this(new AtomicJLong(init))
 
-		override def get :Long = x.get
 		override def value :Long = x.get
 		override def value_=(value :Long) :Unit = x.set(value)
 		override def :=(value :Long) :Unit = x.lazySet(value)
 		override def ?=(newValue :Long) :Long = x.getAndSet(newValue)
 
-
 		override def testAndSet(expect :Long, assign :Long) :Boolean = x.compareAndSet(expect, assign)
 
-
 		override def apply(f :Long => Long) :Long = { x.updateAndGet(f(_)) }
-
-		override def /:(acc :Long)(foldLeft :(Long, Long) => Long) :Long = { x.updateAndGet(foldLeft(acc, _)) }
-
-		override def :\(acc :Long)(foldRight :(Long, Long) => Long) :Long = { x.updateAndGet(foldRight(_, acc)) }
-
-
+		override def applyLeft[@specialized(Args) T](z :T)(f :(T, Long) => Long) :Long = x.updateAndGet(f(z, _))
+		override def applyRight[@specialized(Args) T](z :T)(f :(Long, T) => Long) :Long = x.updateAndGet(f(_, z))
 
 
 		private[vars] override def long_+=(other :Long)(implicit ev :TypeEquiv[Long, Long]) :Long =
@@ -458,7 +439,6 @@ object Atomic {
 
 		private[vars] override def long_<<=(other :Int)(implicit ev :TypeEquiv[Long, Long]) :Long =
 			x.accumulateAndGet(other, leftShiftLong)
-
 
 
 		/** Increases the value of this variable by the specified number. */
@@ -537,7 +517,6 @@ object Atomic {
 
 
 
-
 	@SerialVersionUID(1L)
 	abstract class AtomicAsInt[@specialized(Byte, Char, Short, Float) T](init :T) extends Atomic[T] {
 		private[this] val x = new AtomicInteger(pack(init))
@@ -547,7 +526,6 @@ object Atomic {
 		protected[this] def pack(t :T) :Int
 		protected[this] def unpack(current :Int) :T
 
-		override def  get :T = unpack(x.get)
 		override def value :T = unpack(x.get)
 		override def value_=(newValue :T) :Unit= x.set(pack(newValue))
 		override def :=(newValue :T) :Unit = x.lazySet(pack(newValue))
@@ -556,7 +534,6 @@ object Atomic {
 		override def testAndSet(expect :T, assign :T) :Boolean = x.compareAndSet(pack(expect), pack(assign))
 
 	}
-
 
 
 	@SerialVersionUID(1L)
@@ -578,7 +555,6 @@ object Atomic {
 	}
 
 
-
 	import j.Float.{intBitsToFloat => intToFloat}
 
 	@inline private[this] final def floatToInt(value :Float) :Int =
@@ -593,6 +569,7 @@ object Atomic {
 	private[this] final val divideFloat :IntBinaryOperator = (x, y) => floatToInt(intToFloat(x) / intToFloat(y))
 	private[this] final val minusFloat :IntUnaryOperator = x => floatToInt(-intToFloat(x))
 
+	@SerialVersionUID(1L)
 	final class AtomicFloat(init :Float) extends AtomicAsInt[Float](init) {
 		override protected def pack(value :Float) :Int = floatToInt(value)
 
@@ -608,8 +585,6 @@ object Atomic {
 			intToFloat(atom.accumulateAndGet(floatToInt(other), divideFloat))
 
 
-
-
 		/** Increases the value of this variable by the specified number. */
 		@inline def +=(n :Float) :Unit = atom.accumulateAndGet(floatToInt(n), addFloat)
 
@@ -621,8 +596,6 @@ object Atomic {
 
 		/** Divides the value of this variable by the specified number. */
 		@inline def /=(n :Float) :Unit = atom.accumulateAndGet(floatToInt(n), divideFloat)
-
-
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. */
@@ -639,7 +612,6 @@ object Atomic {
 
 		/** Sets this variable to minus its value, returning the updated (opposite) value. */
 		@inline def neg() :Float = intToFloat(atom.updateAndGet(minusFloat))
-
 	}
 
 
@@ -647,10 +619,8 @@ object Atomic {
 
 
 
-
-
-
 	import j.Double.{longBitsToDouble => longToDouble}
+
 	@inline private[this] final def doubleToLong(value :Double) :Long =
 		if (value == 0F) ZeroDouble //collate -0 and 0
 		else if (value != value) NaNDouble //collate NaN
@@ -666,9 +636,8 @@ object Atomic {
 
 	@SerialVersionUID(1L)
 	final class AtomicDouble(init :Double) extends Atomic[Double] {
-		private[this] val x = new atomic.AtomicLong(doubleToLong(init))
+		private[this] val x = new AtomicJLong(doubleToLong(init))
 
-		override def get :Double = longToDouble(x.get)
 		override def value :Double = longToDouble(x.get)
 		override def value_=(newValue :Double) :Unit= x.set(doubleToLong(newValue))
 		override def :=(newValue :Double) :Unit = x.lazySet(doubleToLong(newValue))
@@ -687,18 +656,18 @@ object Atomic {
 			mod
 		}
 
-		override def /:(acc :Double)(foldLeft :(Double, Double) => Double) :Double = {
-			var current = x.get; var mod = foldLeft(acc, longToDouble(current))
+		override def applyLeft[@specialized(Args) T](z :T)(foldLeft :(T, Double) => Double) :Double = {
+			var current = x.get; var mod = foldLeft(z, longToDouble(current))
 			while(!x.compareAndSet(current, doubleToLong(mod))) {
-				current = x.get; mod = foldLeft(acc, longToDouble(current))
+				current = x.get; mod = foldLeft(z, longToDouble(current))
 			}
 			mod
 		}
 
-		override def :\(acc :Double)(foldRight :(Double, Double) => Double) :Double = {
-			var current = x.get; var mod = foldRight(longToDouble(current), acc)
+		override def applyRight[@specialized(Args) T](z :T)(foldRight :(Double, T) => Double) :Double = {
+			var current = x.get; var mod = foldRight(longToDouble(current), z)
 			while (!x.compareAndSet(current, doubleToLong(mod))) {
-				current = x.get; mod = foldRight(longToDouble(current), acc)
+				current = x.get; mod = foldRight(longToDouble(current), z)
 			}
 			mod
 		}
@@ -708,8 +677,7 @@ object Atomic {
 		private[vars] override def double_*=(other :Double)(implicit ev :TypeEquiv[Double, Double]) :Double = this mult other
 		private[vars] override def double_/=(other :Double)(implicit ev :TypeEquiv[Double, Double]) :Double = this div other
 
-		
-		
+
 		/** Increases the value of this variable by the specified number. */
 		@inline def +=(n :Double) :Unit = x.accumulateAndGet(doubleToLong(n), addDouble)
 
@@ -721,7 +689,6 @@ object Atomic {
 
 		/** Divides the value of this variable by the specified number. */
 		@inline def /=(n :Double) :Unit = x.accumulateAndGet(doubleToLong(n), divideDouble)
-
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. */

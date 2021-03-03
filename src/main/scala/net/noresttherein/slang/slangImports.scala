@@ -14,9 +14,9 @@ import scala.util.Try
   * @author Marcin Mościcki
   */
 trait slangImports {
-
+	//todo: i.++  ++.i macros
 	/** The 'da fuck!??' method throwing an [[net.noresttherein.slang.ImplementationError ImplementationError]] */
-	def !?? :Nothing = throw new ImplementationError
+	def ??! :Nothing = throw new ImplementationError
 
 
 

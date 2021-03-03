@@ -1,8 +1,9 @@
 package net.noresttherein.slang.vars
 
 
-import net.noresttherein.slang.vars.InOut.DefaultValue
-import net.noresttherein.slang.vars.Var.SpecializedTypes
+import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars}
+
+
 
 
 /** A boxed `@volatile` variable of type `T`. Volatile declaration allows it to be used concurrently, guaranteeing
@@ -16,22 +17,19 @@ import net.noresttherein.slang.vars.Var.SpecializedTypes
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
-sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T] with Serializable {
-	@volatile private[this] var x = init
-
-	final override def get :T = x
+sealed class Volatile[@specialized(SpecializedVars) T](init :T) extends InOut[T] with Serializable {
+	@scala.volatile private[this] var x = init
 
 	final override def value :T = x
 
 	final override def value_=(value :T) :Unit = x = value
-
-	final override def :=(newValue :T) :Unit = x = newValue
 
 	/** Assigns a new value to this variable, returning a value it held at some point in the past.
 	  * Note that this is '''not''' atomic: other assignments might have happened between reading
 	  * the previous value and assigning the provided value.
 	  */
 	final override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
+
 }
 
 
@@ -43,14 +41,13 @@ sealed class Volatile[@specialized(SpecializedTypes) T](init :T) extends InOut[T
 object Volatile {
 
 	/** Create a new volatile reference variable which can be shared by multiple units of code. */
-	@inline def apply[@specialized(SpecializedTypes) T](value :T) :Volatile[T] = new Volatile(value)
+	@inline def apply[@specialized(SpecializedVars) T](value :T) :Volatile[T] = new Volatile(value)
 
 	/** Create a new volatile reference variable which can be shared by multiple units of code. */
-	@inline def apply[@specialized(SpecializedTypes) T](implicit default :DefaultValue[T]) :Volatile[T] =
+	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Volatile[T] =
 		new Volatile(default.value)
 
 
-
-	@inline implicit def unboxVar[@specialized(SpecializedTypes) T](vol :Volatile[T]) :T = vol.get
+	@inline implicit def unboxVar[@specialized(SpecializedVars) T](vol :Volatile[T]) :T = vol.get
 
 }

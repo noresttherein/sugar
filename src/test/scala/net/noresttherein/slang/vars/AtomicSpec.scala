@@ -1,15 +1,16 @@
 package net.noresttherein.slang.vars
 
+import net.noresttherein.slang.vars.InOut.SpecializedVars
 import org.scalacheck.Properties
 
 
 
 class AtomicPropsGroup(varName :String = "Atomic") extends InOutPropsGroup(varName) {
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :Atomic[T] = Atomic(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :Atomic[T] = Atomic(x)
 }
 
 class ErasedAtomicPropsGroup extends AtomicPropsGroup("Atomic<erased>") {
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :Atomic[T] = erasedVar(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :Atomic[T] = erasedVar(x)
 
 	def erasedVar[T](x :T) :Atomic[T] = Atomic(x)
 }

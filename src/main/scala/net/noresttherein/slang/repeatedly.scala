@@ -40,7 +40,6 @@ object repeatedly {
 			acc
 		}
 
-
 		/** Applies the given folding function `op` to the elements of this collection starting with the given
 		  * initial value `start` while the predicate `pred` is true for the most recently computed value.
 		  * Note that this is not equivalent to `foldUntil(start)(!pred(_))(op)`, as the latter would apply `op`
@@ -56,7 +55,6 @@ object repeatedly {
 		def foldWhile[A](start :A)(pred :A =>Boolean)(op :(A, T) => A) :A =
 			items.to(LazyList).scanLeft(start)(op).takeWhile(pred).last
 
-
 		/** Applies the given folding function `op` to the elements of this collection starting with the given initial
 		  * value `start` for as long as `op` is defined for the previously computed value.
 		  * @param start accumulator given as the first argument to first invocation of `op`.
@@ -70,7 +68,6 @@ object repeatedly {
 			val lift = op.lift
 			foldSome(start) { (acc, elem) => lift(acc->elem) }
 		}
-
 
 		/** Applies the given folding function to the elements of this collection and current accumulator value
 		  * for as long as it returns non-empty results.
@@ -105,7 +102,6 @@ object repeatedly {
 			else (times-1).timesFrom(f(start))(f)
 
 
-
 		/** Apply `f` to its own result `this` number of times, starting with value `start`.
 		  * Equivalent to `this.timesFrom(start)(f)` but helps with type inference.
 		  * The name is in analogy to equivalent fold left over a range:
@@ -118,8 +114,6 @@ object repeatedly {
 		@inline def /:[T](start :T)(f :T=>T) :T = times(f)(start)
 
 	}
-
-
 
 
 
@@ -143,11 +137,6 @@ object repeatedly {
 		case None => start
 	}
 
-
-
-
-
-
 	/** A complement of `C.iterate` and `C.unfold` provided by collection companion objects, which creates
 	  * a collection `C` by recursively applying a partial function while defined to its own results and collecting
 	  * all returned values. Instead of listing a fixed number of elements, this method uses
@@ -162,8 +151,8 @@ object repeatedly {
 	  * @return a collection containing the sequence starting with `start` and resulting from recursively applying
 	  *         `next` to itself..
 	  */
-	@inline final def iterate[X, C[_]](collection :IterableFactory[C])(start :X)(next :PartialFunction[X, X]) :C[X] =
-		iterateSome(collection)(start)(next.lift)
+	@inline final def reapply[X, C[_]](collection :IterableFactory[C])(start :X)(next :PartialFunction[X, X]) :C[X] =
+		reapplySome(collection)(start)(next.lift)
 
 	/** Builds the collection `C[X]` by recursively reapplying the given partial function to the initial element.
 	  * Instead of listing a fixed number of elements, this method uses the generator function `next` as the termination
@@ -176,10 +165,10 @@ object repeatedly {
 	  * @return a collection containing the sequence starting with `start` and resulting from recursively applying `next`
 	  *         to itself.
 	  */
-	@inline final def iterateSome[X, C[_]](collection :IterableFactory[C])(start :X)(next :X => Option[X]) :C[X] =
+	@inline final def reapplySome[X, C[_]](collection :IterableFactory[C])(start :X)(next :X => Option[X]) :C[X] =
 		collection match {
 			case LazyList =>
-				(start #:: (next(start).map(iterateSome(LazyList)(_)(next)) getOrElse LazyList.empty)).asInstanceOf[C[X]]
+				(start #:: (next(start).map(reapplySome(LazyList)(_)(next)) getOrElse LazyList.empty)).asInstanceOf[C[X]]
 			case _ =>
 				val builder = collection.newBuilder[X]
 				builder += start
@@ -191,11 +180,10 @@ object repeatedly {
 		}
 
 
-
 	/** Recursively applies function `next` to its result, starting with argument `start` and returning
 	  * an eager sequence containing `start` followed by the values returned by `next`.
 	  * Recursion stops when the generator function is no longer applicable to the previously computed value.
-	  * This is the same as [[net.noresttherein.slang.repeatedly.iterate iterate]]`(Seq)(start)(next)`
+	  * This is the same as [[net.noresttherein.slang.repeatedly.reapply reapply]]`(Seq)(start)(next)`
 	  * @param start first element of returned list
 	  * @param next generator function returning subsequent elements for the collection based on the previous one,
 	  *             serving as the termination condition by indicating that it can no longer be applied
@@ -204,12 +192,12 @@ object repeatedly {
 	  * @return a list containing the sequence starting with `start` and resulting from recursively applying `next`
 	  *         to itself.
 	  */
-	@inline final def listResults[X](start :X)(next :PartialFunction[X, X]) :Seq[X] = iterate(List)(start)(next)
+	@inline final def listAll[X](start :X)(next :PartialFunction[X, X]) :Seq[X] = reapply(List)(start)(next)
 
 	/** Recursively applies function `next` to its result, starting with argument `start` and returning
 	  * an eager sequence containing `start` followed by the values returned by `next`.
 	  * Recursion stops once the generator function returns `None`.
-	  * This is the same as [[net.noresttherein.slang.repeatedly.iterateSome iterateSome]]`(Seq)(start)(next)`.
+	  * This is the same as [[net.noresttherein.slang.repeatedly.reapply iterateSome]]`(Seq)(start)(next)`.
 	  * @param start first element of returned list
 	  * @param next generator function returning subsequent elements for the collection based on the previous one,
 	  *             or `None` to indicate the end of recursion
@@ -217,8 +205,6 @@ object repeatedly {
 	  * @return a list containing the sequence starting with `start` and resulting from recursively applying `next`
 	  *         to itself.
 	  */
-	@inline final def listSome[X](start :X)(next :X => Option[X]) :Seq[X] = iterateSome(List)(start)(next)
-
-
+	@inline final def listSome[X](start :X)(next :X => Option[X]) :Seq[X] = reapplySome(List)(start)(next)
 
 }

@@ -1,13 +1,13 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.Lazy
+import net.noresttherein.slang.vars.InOut.SpecializedVars
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
 
 class SyncVarPropsGroup(override val varClassName :String = "SyncVar") extends BaseInOutPropsGroup {
 
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :SyncVar[T] = SyncVar(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :SyncVar[T] = SyncVar(x)
 
 
 
@@ -25,7 +25,7 @@ class SyncVarPropsGroup(override val varClassName :String = "SyncVar") extends B
 		property("&&=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = SyncVar(x1); val arg = Lazy(x2)
 			v &&= arg
-			(v.get ?= x1 && x2) :| "correctness" && (arg.isEvaluated ?= x1) :| "laziness"
+			(v.get ?= x1 && x2) :| "correctness" && (arg.isInitialized ?= x1) :| "laziness"
 		}
 
 		property("|=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = SyncVar(x1); v |= x2; v.get ?= x1 | x2 }
@@ -33,7 +33,7 @@ class SyncVarPropsGroup(override val varClassName :String = "SyncVar") extends B
 		property("||=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = SyncVar(x1); val arg = Lazy(x2)
 			v ||= arg
-			(v.get ?= x1 || x2) :| "correctness" || (arg.isUndefined ?= x1) :| "laziness"
+			(v.get ?= x1 || x2) :| "correctness" || (arg.isInitialized ?= x1) :| "laziness"
 		}
 
 		property("^=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = SyncVar(x1); v ^= x2; v.get ?= x1 ^ x2 }
@@ -340,7 +340,7 @@ class SyncVarPropsGroup(override val varClassName :String = "SyncVar") extends B
 
 
 class ErasedSyncVarPropsGroup extends SyncVarPropsGroup("SyncVar<erased>") {
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :SyncVar[T] = erasedVar(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :SyncVar[T] = erasedVar(x)
 
 	def erasedVar[T](x :T) :SyncVar[T] = SyncVar[T](x)
 }

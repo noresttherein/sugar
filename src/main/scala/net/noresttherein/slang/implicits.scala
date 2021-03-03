@@ -1,5 +1,8 @@
 package net.noresttherein.slang
 
+import scala.collection.IterableOps
+
+import net.noresttherein.slang.collection.IterableExtension
 import net.noresttherein.slang.implicits.{feedToMethod, neqMethod}
 import net.noresttherein.slang.numeric.LongRatio.DivisionLongRatioConstructor
 import net.noresttherein.slang.numeric.Ratio.DivisionRatioConstructor
@@ -58,6 +61,12 @@ trait implicits {
 	/** Adds a `neq` method to any reference type, defined as the opposite of the build int 'method' `eq`. */
 	@inline implicit final def neqMethod[X <: AnyRef](x :X) = new neqMethod(x)
 
+	/** Adds method `mapWith` and `flatMapWith` which map/flat map collections while passing along additional state
+	  * to any collection of the standard library framework.
+	  */
+	@inline implicit final def mapWithMethod[C[X] <: Iterable[X], E]
+	                                        (collection :IterableOps[E, C, C[E]]) :IterableExtension[C, E] =
+		new IterableExtension[C, E](collection)
 
 
 	/** Adds `ifTrue` and `ifFalse` methods to any `Boolean` value which lift any argument expression to an `Option`. */

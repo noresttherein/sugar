@@ -1,13 +1,13 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.Lazy
+import net.noresttherein.slang.vars.InOut.SpecializedVars
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink}
 import org.scalacheck.Prop._
 import org.scalacheck.util.Pretty
 
 abstract class BaseInOutPropsGroup  {
 
-	def newVar[@specialized(Var.SpecializedTypes) T](x :T) :InOut[T] //= InOut(x)
+	def newVar[@specialized(SpecializedVars) T](x :T) :InOut[T] //= InOut(x)
 
 	def varClassName :String
 
@@ -58,13 +58,13 @@ abstract class BaseInOutPropsGroup  {
 
 		property("/:") = forAll { (x1 :T, x2 :T) => all(
 			binaryFunctions.map { case (name, f) =>
-				{ val v = newVar(x2); ((x1 /: v)(f) ?= f(x1, x2)) :| "return" && ((v.get ?= f(x1, x2)) :| "assign") } :| ("function: (x1, x2) => " + name)
+				{ val v = newVar(x2); ((x1 /=: v)(f) ?= f(x1, x2)) :| "return" && ((v.get ?= f(x1, x2)) :| "assign") } :| ("function: (x1, x2) => " + name)
 			}.toSeq :_*
 		)}
 
 		property("/:") = forAll { (x1 :T, x2 :T) => all(
 			binaryFunctions.map { case (name, f) =>
-			   { val v = newVar(x1); ((v :\ x2)(f) ?= f(x1, x2)) :| "return" && ((v.get ?= f(x1, x2)) :| "assign") } :| ("function: (x1, x2) =>  " + name)
+			   { val v = newVar(x1); ((v :\= x2)(f) ?= f(x1, x2)) :| "return" && ((v.get ?= f(x1, x2)) :| "assign") } :| ("function: (x1, x2) =>  " + name)
 			}.toSeq :_*
 		)}
 
@@ -93,7 +93,7 @@ abstract class BaseInOutPropsGroup  {
 		property("&&=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = newVar(x1); val arg = Lazy(x2)
 			v &&= arg
-			(v.get ?= x1 && x2) :| "correctness" && (arg.isEvaluated ?= x1) :| "laziness"
+			(v.get ?= x1 && x2) :| "correctness" && (arg.isInitialized ?= x1) :| "laziness"
 		}
 
 		property("|=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = newVar(x1); v |= x2; v.get ?= x1 | x2 }
@@ -101,7 +101,7 @@ abstract class BaseInOutPropsGroup  {
 		property("||=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = newVar(x1); val arg = Lazy(x2)
 			v ||= arg
-			(v.get ?= x1 || x2) :| "correctness" || (arg.isUndefined ?= x1) :| "laziness"
+			(v.get ?= x1 || x2) :| "correctness" || (arg.isInitialized ?= x1) :| "laziness"
 		}
 
 		property("^=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = newVar(x1); v ^= x2; v.get ?= x1 ^ x2 }
@@ -529,7 +529,7 @@ abstract class BaseInOutPropsGroup  {
 
 class InOutPropsGroup(override val varClassName :String = "InOut") extends BaseInOutPropsGroup {
 
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :InOut[T] = InOut(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :InOut[T] = InOut(x)
 
 	def includeIn(container :Properties) = {
 		import container.include
@@ -549,7 +549,7 @@ class InOutPropsGroup(override val varClassName :String = "InOut") extends BaseI
 
 
 class ErasedInOutPropsGroup extends InOutPropsGroup("InOut<erased>") {
-	override def newVar[@specialized(Var.SpecializedTypes) T](x :T) :InOut[T] = erasedVar(x)
+	override def newVar[@specialized(SpecializedVars) T](x :T) :InOut[T] = erasedVar(x)
 
 	def erasedVar[T](x :T) :InOut[T] = InOut(x)
 }
