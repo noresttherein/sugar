@@ -93,13 +93,13 @@ object repeatedly {
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
 		@tailrec def times[T](f :T=>T)(start :T) :T =
-			if (times<=0) start
-			else (times-1).times(f)(f(start))
+			if (times <= 0) start
+			else (times - 1).times(f)(f(start))
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@tailrec def timesFrom[T](start :T)(f :T=>T) :T =
-			if (times<=0) start
-			else (times-1).timesFrom(f(start))(f)
+		@tailrec def timesFrom[T](start :T)(f :T => T) :T =
+			if (times <= 0) start
+			else (times - 1).timesFrom(f(start))(f)
 
 
 		/** Apply `f` to its own result `this` number of times, starting with value `start`.
@@ -112,7 +112,6 @@ object repeatedly {
 		  * @usecase `(new StringBuilder /: n)(_ += ":)"`
 		  */
 		@inline def /:[T](start :T)(f :T=>T) :T = times(f)(start)
-
 	}
 
 

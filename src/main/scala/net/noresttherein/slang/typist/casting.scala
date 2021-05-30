@@ -1,13 +1,23 @@
 package net.noresttherein.slang.typist
 
+import net.noresttherein.slang.funny.ReturnTypeOf
+
+
 /**
   * @author Marcin Mościcki
   */
 object casting {
 
-	implicit class asSubtype[S](private val self :S) extends AnyVal {
+	implicit class saferCasting[S](private val self :S) extends AnyVal {
 		@inline def downcastTo[T <: S] :T = self.asInstanceOf[T]
 		@inline def castTo[F >: S, T] :T = self.asInstanceOf[T]
+		@inline def castFrom[F >: S] :SaferCasting[F] = new SaferCasting(self)
+		@inline def castWith[F <: S => Any](implicit function :ReturnTypeOf[F]) :function.Return =
+			self.asInstanceOf[function.Return]
+	}
+	class SaferCasting[S](private val self :S) extends AnyVal {
+		@inline def to[T] :T = self.asInstanceOf[T]
+		@inline def downTo[T <: S] :T = self.asInstanceOf[T]
 	}
 
 	implicit class downcastParam[T[A <: X], X](private val self :T[X]) extends AnyVal {
