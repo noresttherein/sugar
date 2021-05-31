@@ -28,5 +28,26 @@ package object collection {
 			self.view.scanLeft((z, Nil :IterableOnce[O])) {
 				(acc, e) => f(acc._1, e)
 			}.flatMap(_._2).to(self.iterableFactory)
+
+		/** Maps this collection in order consistent with `foreach`, passing as the first argument the index
+		  * of the mapped element.
+		  */
+		def mapWithIndex[O](f :(Int, E) => O) :C[O] = {
+			var i = 0
+			val b = self.iterableFactory.newBuilder[O]
+			self foreach { e => b += f(i, e); i += 1 }
+			b.result()
+		}
+
+		/** Flat maps this collection in order consistent with `foreach`, passing as the first argument the index
+		  * of the mapped element.
+		  */
+		def flatMapWithIndex[O](f :(Int, E) => IterableOnce[O]) :C[O] = {
+			var i = 0
+			val b = self.iterableFactory.newBuilder[O]
+			self foreach { e => b ++= f(i, e); i += 1 }
+			b.result()
+		}
+
 	}
 }
