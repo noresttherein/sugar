@@ -86,21 +86,29 @@ object repeatedly {
 
 
 	/** Represents a range `[0, this)` which defines a fixed number of iterations. */
-	implicit final class timesMethods(private val times :Int) extends AnyVal {
+	implicit final class timesMethods(private val count :Int) extends AnyVal {
 
 		/** Execute `f` (code block passed by name) `this` number of times. */
-		@inline def times[T](f : =>T) :Unit = for (_ <- 0 until times) f
+		@inline def times[T](f : =>T) :Unit = for (_ <- 0 until count) f
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@tailrec def times[T](f :T=>T)(start :T) :T =
-			if (times <= 0) start
-			else (times - 1).times(f)(f(start))
+		@tailrec def times[T](f :T => T)(start :T) :T =
+			if (count <= 0) start
+			else (count - 1).times(f)(f(start))
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@tailrec def timesFrom[T](start :T)(f :T => T) :T =
-			if (times <= 0) start
-			else (times - 1).timesFrom(f(start))(f)
+		@inline def timesFrom[T](start :T)(f :T => T) :T = count.times(f)(start)
 
+		/** Executes `f` `this` number of times, passing the ordinal number of the `execution` in the sequence
+		  * as the argument.
+		  * @return a sequence of length `this`, containing the results of each execution of `f`.
+		  */
+		def enumerate[T](f :Int => T) :Seq[T] = {
+			@tailrec def rec(i :Int, acc :List[T]) :List[T] =
+				if (i < 0) acc
+				else rec(i, f(i) :: acc)
+			rec(count - 1, Nil)
+		}
 
 		/** Apply `f` to its own result `this` number of times, starting with value `start`.
 		  * Equivalent to `this.timesFrom(start)(f)` but helps with type inference.
@@ -111,7 +119,7 @@ object repeatedly {
 		  * @return `start` if `this<=0` or `f(f(...f(start)))` (composed `this` number of times).
 		  * @usecase `(new StringBuilder /: n)(_ += ":)"`
 		  */
-		@inline def /:[T](start :T)(f :T=>T) :T = times(f)(start)
+		@inline def /:[T](start :T)(f :T => T) :T = times(f)(start)
 	}
 
 

@@ -3,6 +3,8 @@ package net.noresttherein.slang
 import scala.annotation.unspecialized
 
 import net.noresttherein.slang.funny.fun.{ComposableFun, Identity}
+import net.noresttherein.slang.optional.Opt
+import net.noresttherein.slang.optional.Opt.{Got, Lack}
 
 
 
@@ -11,6 +13,13 @@ import net.noresttherein.slang.funny.fun.{ComposableFun, Identity}
 
 package object typist {
 
+	/** Tests if `left eq right`, executing the given block with the evidence to the identity as its argument,
+	  * returning its result in an [[net.noresttherein.slang.optional.Opt Opt]].
+	  */
+	def ifeq[T](left :AnyRef, right :AnyRef)(block :(left.type =:= right.type) => T) :Opt[T] =
+		if (left eq right)
+			Got(block(implicitly[left.type =:= left.type].asInstanceOf[left.type =:= right.type]))
+		else Lack
 
 	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
 	  * and creates a type with a member type constructor `F` accepting the desired argument type. Designed to be used

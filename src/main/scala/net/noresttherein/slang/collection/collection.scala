@@ -1,6 +1,7 @@
 package net.noresttherein.slang
 
-import scala.collection.{IterableOnce, IterableOps}
+import scala.annotation.tailrec
+import scala.collection.{IterableOnce, IterableOps, LinearSeq}
 
 
 /**
@@ -35,6 +36,7 @@ package object collection {
 		def mapWithIndex[O](f :(Int, E) => O) :C[O] = {
 			var i = 0
 			val b = self.iterableFactory.newBuilder[O]
+			b sizeHint self
 			self foreach { e => b += f(i, e); i += 1 }
 			b.result()
 		}
@@ -49,5 +51,50 @@ package object collection {
 			b.result()
 		}
 
+		/** Maps the elements of the collection in the reverse order. The operation is faster than
+		  * `this.map(f).reverse`. */
+		def reverseMap[O](f :E => O) :C[O] = self match {
+			case list :List[E] =>
+				@tailrec def mapList(unmapped :List[E], mapped :List[O]) :List[O] = unmapped match {
+					case h::t => mapList(t, f(h)::mapped)
+					case _ => mapped
+				}
+				mapList(list, Nil).asInstanceOf[C[O]]
+			case list :LinearSeq[E] =>
+				@tailrec def mapLinear(unmapped :LinearSeq[E], mapped :LinearSeq[O]) :LinearSeq[O] =
+					if (unmapped.isEmpty) mapped
+					else mapLinear(unmapped.tail, f(unmapped.head) +: mapped)
+				mapLinear(list, list.iterableFactory.empty).asInstanceOf[C[O]]
+			case seq :scala.collection.IndexedSeq[E] =>
+				def mapIndexed() = {
+					val b = self.iterableFactory.newBuilder[O]
+					var i = seq.length
+					while (i > 0) {
+						i -= 1
+						b += f(seq(i))
+					}
+					b.result()
+				}
+				mapIndexed()
+			case seq :scala.collection.Seq[E] =>
+				def mapSeq() = {
+					val i = seq.reverseIterator
+					val b = self.iterableFactory.newBuilder[O]
+					b sizeHint self
+					while (i.hasNext)
+						b += f(i.next())
+					b.result()
+				}
+				mapSeq()
+			case _ =>
+				def mapIterable() = {
+					val mapped = (List.empty[O] /: self){ (acc, e) => f(e)::acc }
+					val b = self.iterableFactory.newBuilder[O]
+					b sizeHint self
+					b ++= mapped
+					b.result()
+				}
+				mapIterable()
+		}
 	}
 }
