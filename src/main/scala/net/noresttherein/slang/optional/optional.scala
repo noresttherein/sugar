@@ -10,9 +10,6 @@ import scala.reflect.{classTag, ClassTag}
 package object optional {
 
 
-	type ?[+X] = Opt[X]
-
-
 	/** Finds the first defined optional value in the given list. Equivalent to `alternatives.find(_.isDefined)`.
 	  * It is particularly useful with the guarded expressions producing options, defined here:
 	  * {{{
@@ -52,7 +49,7 @@ package object optional {
 
 
 	/** Enriches an `Option[T]` with additional methods providing alternatives. */
-	implicit class optionMethods[T](private val self :Option[T]) extends AnyVal {
+	implicit class OptionExtension[T](private val self :Option[T]) extends AnyVal {
 
 		/** Applies the given function to the content of this option and returns the result or the provided alternative
 		  * if this option is empty. Equivalent to `this map f getOrElse alternative`, but in one step.
@@ -62,14 +59,13 @@ package object optional {
 			case _ => alternative
 		}
 
-
 		/** Gets the element in the option or throws a `NoSuchElementException` with the given message. */
 		@inline def getOrThrow(msg: => String) :T = self getOrElse {
 			throw new NoSuchElementException(msg)
 		}
 
 		/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
-		@inline def illegalIfEmpty(msg: => String) :T = self getOrElse {
+		@inline def getOrIllegal(msg: => String) :T = self getOrElse {
 			throw new IllegalArgumentException(msg)
 		}
 

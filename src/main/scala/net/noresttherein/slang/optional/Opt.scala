@@ -27,6 +27,14 @@ import net.noresttherein.slang.raise
   */
 final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with Serializable {
 
+	/** A flag member type specifying if the option is full or empty on type level through refinement.
+	  * For example, `opt :Opt[T] { type isEmpty = false }` guarantees that `opt.get` will return a value.
+	  * Naturally, this being erased type, this guarantee is weaker than `opt :Some[T]`, because any instance
+	  * can be successfully cast to a type with any value for this type.
+	  * @see [[net.noresttherein.slang.optional.Opt.Got!]]
+	  */
+	type isEmpty <: Boolean with Singleton
+
 	/** Tests if this `Opt` does not contain a value (is equal to [[net.noresttherein.slang.optional.Opt.Lack Lack]]). */
 	@inline def isEmpty: Boolean = ref eq NoContent
 
@@ -55,7 +63,7 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 	  * no closure will be created, at the cost of possibly discarding it without use.
 	  * @param alt the value to return if this instance is empty.
 	  */
-	@inline def defaults[O >: T](alt: O) :O =
+	@inline def defaultTo[O >: T](alt: O) :O =
 		if (ref eq NoContent) alt else ref.asInstanceOf[T]
 
 	/** Assuming that `T` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
@@ -63,6 +71,13 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 		if (ref eq NoContent) null.asInstanceOf[O] else ref.asInstanceOf[O]
 
 
+	/** Gets the element in the `Opt` or throws the exception given as the type parameter with the given message.
+	  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
+	  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
+	  * @see [[net.noresttherein.slang.optional.Opt.orFail orFail]]
+	  */
+	@inline def orThrow[E <: Throwable :ClassTag](msg: => String) :T =
+		if (ref eq NoContent) raise[E](msg) else ref.asInstanceOf[T]
 
 	/** Gets the element in this `Opt` or throws a `NoSuchElementException` with the given message.
 	  * @see [[net.noresttherein.slang.optional.Opt.orThrow orThrow]]
@@ -70,17 +85,17 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 	@inline def orFail(msg: => String) :T =
 		if (ref eq NoContent) throw new NoSuchElementException(msg) else ref.asInstanceOf[T]
 
-	/** Gets the element in the `Opt` or throws the exception given as the type parameter with the given message.
-	  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
-	  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
-	  * @see [[net.noresttherein.slang.optional.Opt.orFail orFail]]
+	/** Gets the element in the option or throws an `IllegalArgumentException` with the given message.
+	  * @see [[net.noresttherein.slang.optional.Opt.orThrow orThrow]]
 	  */
-	@inline def orThrow[E <: Exception :ClassTag](msg: => String) :T =
-		if (ref eq NoContent) raise[E](msg) else ref.asInstanceOf[T]
-
-	/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
-	@inline def illegalIfEmpty(msg: => String) :T =
+	@inline def orReject(msg: => String) :T =
 		if (ref eq NoContent) throw new IllegalArgumentException(msg) else ref.asInstanceOf[T]
+
+	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
+	@inline def orError(msg: => String) :T = {
+		assert(!(ref eq NoContent), msg)
+		ref.asInstanceOf[T]
+	}
 
 
 
@@ -177,9 +192,6 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 		if (ref eq NoContent) alternative else f(ref.asInstanceOf[T])
 
 
-
-
-
 	/** An iterator returning this value as the only element if `this.nonEmpty`. */
 	@inline def iterator :Iterator[T] =
 		if (ref eq NoContent) Iterator.empty else Iterator.single(ref.asInstanceOf[T])
@@ -207,10 +219,6 @@ object Opt {
 		new Opt(if (option.isDefined) option.get.asInstanceOf[AnyRef] else NoContent)
 
 
-	@inline final implicit def optToList[T](opt :Opt[T]) :List[T] = //so Opt can be used in flatMap
-		if (opt.isDefined) opt.get::Nil else Nil
-
-
 
 	/** Wraps the given reference in a purely syntactic option-like object erased in the runtime.
 	  * Note that the wrapped type is upper bound here by `AnyRef` rather than lower bound by `Null`,
@@ -229,11 +237,28 @@ object Opt {
 	@inline final def empty[T] :Opt[T] = Lack
 
 
+	/** A refinement of [[net.noresttherein.slang.optional.Opt Opt]] marking it through a member flag type
+	  * as non-empty. [[net.noresttherein.slang.optional.Opt$ Opt]] factory object creates instances
+	  * narrowed down to this type.
+	  */
+	type Got[+T] = Opt[T] { type isEmpty = false }
+
 	/** Factory and a matching pattern for non empty values of [[net.noresttherein.slang.optional.Opt Opt]]. */
 	object Got {
-		@inline def apply[T](x :T) :Opt[T] = new Opt(x.asInstanceOf[AnyRef])
-		@inline final def unapply[T](opt :Opt[T]) :Opt[T] = opt
+		/** Creates a non-empty [[net.noresttherein.slang.optional.Opt Opt]] wrapping the given value. */
+		@inline def apply[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
+
+		/** Matches non-empty [[net.noresttherein.slang.optional.Opt Opt]] instances. */
+		@inline def unapply[T](opt :Opt[T]) :Opt[T] = opt
+
+		/** Implicitly lifts any value `T` to [[net.noresttherein.slang.optional.Opt Opt]]`[T]`. */
+		@inline def implicitWrapping[T](x :T) :Opt[T] = new Opt(x.asInstanceOf[AnyRef])
 	}
+
+	/** A refinement of [[net.noresttherein.slang.optional.Opt Opt]] marking it through a member flag type
+	  * as empty. [[net.noresttherein.slang.optional.Opt.Lack Opt.Lack]] is an instance of this type.
+	  */
+	type Lack = Opt[Nothing] { type isEmpty = true }
 
 	/** A special, empty instance of [[net.noresttherein.slang.optional.Opt Opt]] which conforms to any `Opt[T]` type.
 	  * It is represented by wrapping a special, private singleton object and all `isEmpty` tests check for
@@ -242,9 +267,10 @@ object Opt {
 	  * applications.
 	  * @see [[net.noresttherein.slang.optional.Opt.empty]]
 	  */
-	@inline final val Lack = new Opt[Nothing](NoContent)
+	@inline final val Lack :Lack = new Opt(NoContent).asInstanceOf[Lack]
 
 	//extends Any => AnyRef out of laziness, allowing it to pass as the argument to applyOrElse
+	//is private[Opt] so that methods of Opt can be inlined
 	private[Opt] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this
 	}
