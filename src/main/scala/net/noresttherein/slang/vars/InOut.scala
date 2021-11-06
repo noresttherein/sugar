@@ -1,6 +1,7 @@
 package net.noresttherein.slang.vars
 
 import scala.Specializable.Args
+import scala.annotation.nowarn
 
 import net.noresttherein.slang.funny.fun
 import net.noresttherein.slang.vars.InOut.{InOutNumeric, InOutOrdering, SpecializedVars, TestAndSet, TypeEquiv}
@@ -556,14 +557,14 @@ object InOut extends InOutNumericImplicits {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def ++ :Unit = x.int_+=(1)
+		@nowarn @inline def ++ :Unit = x.int_+=(1)
 
 		/** Decrements this variable by `1`, C-style.
 		  * As the static type of this variable is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def -- :Unit = x.int_+=(-1)
+		@nowarn @inline def -- :Unit = x.int_+=(-1)
 
 
 
@@ -729,14 +730,14 @@ object InOut extends InOutNumericImplicits {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def ++ :Unit = x.long_+=(1)
+		@nowarn @inline def ++ :Unit = x.long_+=(1)
 
 		/** Decrements this variable by `1`, C-style.
 		  * As the static type of this variable is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def -- :Unit = x.long_+=(-1)
+		@nowarn @inline def -- :Unit = x.long_+=(-1)
 
 		/** Increases the value of this variable by the specified number, returning the updated value. 
 		  * As the static type of this variable is the generic `InOut[Long]`, this results in a polymorphic method

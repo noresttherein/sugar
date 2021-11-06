@@ -1,6 +1,7 @@
 package net.noresttherein.slang.vars
 
 import scala.Specializable.Args
+import scala.annotation.nowarn
 
 import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv}
 
@@ -15,7 +16,7 @@ import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEq
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
-class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) extends InOut[T] with Serializable {
+sealed class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) extends InOut[T] with Serializable {
 
 	@inline override def value :T = synchronized { x }
 
@@ -161,13 +162,13 @@ object SyncVar {
 		@inline def rem(n :Int) :Int = x.synchronized { val res = x.get % n; x := res; res }
 
 		/** Atomically increments this variable by `1`, C-style. */
-		@inline def ++ :Unit = x.synchronized { x := x.get + 1 }
+		@nowarn @inline def ++ :Unit = x.synchronized { x := x.get + 1 }
 
 		/** Atomically increments this variable by `1`, returning the updated value. */
 		@inline def inc() :Int = x.synchronized { val res = x.get + 1; x := res; res }
 
 		/** Atomically decrements this variable by `1`, C-style. */
-		@inline def -- :Unit = x.synchronized { x := x.get - 1 }
+		@nowarn @inline def -- :Unit = x.synchronized { x := x.get - 1 }
 
 		/** Atomically decrements this variable by `1`, returning the updated value. */
 		@inline def dec() :Int = x.synchronized { val res = x.get - 1; x := res; res }
@@ -245,13 +246,13 @@ object SyncVar {
 		@inline def rem(n :Long) :Long = x.synchronized { val res = x.get % n; x := res; res }
 
 		/** Atomically increments this variable by `1`, C-style. */
-		@inline def ++ :Unit = x := x.synchronized { x.get + 1 }
+		@nowarn @inline def ++ :Unit = x := x.synchronized { x.get + 1 }
 
 		/** Atomically increases this variable by `1`, returning its updated value. */
 		@inline def inc() :Long = x.synchronized { val res = x.get + 1; x := res; res }
 
 		/** Atomically decrements this variable by `1`, C-style. */
-		@inline def -- :Unit = x := x.synchronized { x.get - 1 }
+		@nowarn @inline def -- :Unit = x := x.synchronized { x.get - 1 }
 
 		/** Atomically decreases this variable by `1`, returning its updated value. */
 		@inline def dec() :Long = x.synchronized { val res = x.get - 1; x := res; res }

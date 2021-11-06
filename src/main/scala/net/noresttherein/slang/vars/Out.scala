@@ -16,7 +16,7 @@ import net.noresttherein.slang.vars.InOut.SpecializedVars
   * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
-class Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] {
+sealed class Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] {
 	@scala.volatile private[this] var x :T = _       //todo: make sure that writes to the two cannot be reordered.
 	@scala.volatile private[this] var isSet = false
 

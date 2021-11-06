@@ -2,7 +2,7 @@ package net.noresttherein.slang
 
 import scala.collection.IterableOps
 
-import net.noresttherein.slang.collection.IterableExtension
+import net.noresttherein.slang.collection.{foldingMethods, mappingMethods}
 import net.noresttherein.slang.implicits.{feedToMethod, neqMethod}
 import net.noresttherein.slang.numeric.LongRatio.DivisionLongRatioConstructor
 import net.noresttherein.slang.numeric.Ratio.DivisionRatioConstructor
@@ -64,9 +64,9 @@ trait implicits {
 	/** Adds method `mapWith` and `flatMapWith` which map/flat map collections while passing along additional state
 	  * to any collection of the standard library framework.
 	  */
-	@inline implicit final def mapWithMethod[C[X] <: Iterable[X], E]
-	                                        (collection :IterableOps[E, C, C[E]]) :IterableExtension[C, E] =
-		new IterableExtension[C, E](collection)
+	@inline implicit final def mappingMethods[C[X] <: Iterable[X], E]
+	                                         (collection :IterableOps[E, C, C[E]]) :mappingMethods[C, E] =
+		new mappingMethods[C, E](collection)
 
 
 	/** Adds `ifTrue` and `ifFalse` methods to any `Boolean` value which lift any argument expression to an `Option`. */
@@ -89,7 +89,8 @@ trait implicits {
 
 
 	/** Adds a `foldWhile` method to any `Iterable` which implement a variant of `fold` operation with a break condition. */
-	@inline implicit final def foldWhileMethods[T](col :Iterable[T]) :foldWhileMethods[T] = new foldWhileMethods(col)
+	@inline implicit final def foldingMethods[T](col :Iterable[T]) :foldingMethods[T] =
+		new foldingMethods(col)
 
 	/** Adds a `times` method to any `Int` for executing a block the given number of times. */
 	@inline implicit final def timesMethods(iterations :Int) :timesMethods = new timesMethods(iterations)
@@ -103,7 +104,7 @@ trait implicits {
 	@inline implicit final def fieldsStringMethods[T](obj :T) = new ObjectFieldsFormats(obj)
 
 	/** Adds a `yesno` and `yn` methods to `Boolean` values for shorter `String` representations. */
-	@inline implicit final def yesnoMethod(boolean :Boolean) = new YesNo(boolean)
+	@inline implicit final def yesNoMethod(boolean :Boolean) = new YesNo(boolean)
 
 
 

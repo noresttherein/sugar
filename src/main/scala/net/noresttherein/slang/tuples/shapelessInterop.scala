@@ -25,8 +25,9 @@ object shapelessInterop {
 		                       :HListTupleConversions[P><X, T, L] =
 			new HListTupleConversions[P><X, T, L] {
 				override def apply(tuple :P><X, list :T) :L = Init(tuple.init, tuple.last::HList.hlistOps(list))
-				override def unapply(list :L) :Some[(P >< X, T)] = list match {
+				override def unapply(list :L) :Option[(P >< X, T)] = list match {
 					case Init(p, x::t) => Some((p :+ x, t))
+					case _ => None
 				}
 			}
 	}

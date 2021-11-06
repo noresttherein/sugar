@@ -4,15 +4,23 @@ package net.noresttherein.slang.prettyprint
   * Makes for shorter `toString` results in classes containing several `Boolean` fields.
   */
 class YesNo(val toBoolean :Boolean) extends AnyVal {
-
 	/** Converts this boolean to `0` or `1`. */
-	def bit :Int = if (toBoolean) 1 else 0
+	def toBit :Int = if (toBoolean) 1 else 0
 
 	/** Returns either `"yes"` or `"no"`, depending on whether this `Boolean` is true. */
-	def yesno :String = if (toBoolean) "yes" else "no"
+	def yesNo :String = if (toBoolean) "yes" else "no"
 
 	/** Returns either `"y"` or `"n"`, depending on whether this `Boolean` is true. */
 	def yn :String = if (toBoolean) "y" else "n"
+
+	/** Returns either `"Y"` or `"N"`, depending on whether this `Boolean` is true. */
+	def YN :String = if (toBoolean) "Y" else "N"
+
+	/** Returns `"t"` if true and `"f"` otherwise */
+	def tf :String = if (toBoolean) "t" else "f"
+
+	/** Returns `"T"` if true and `"F"` otherwise. */
+	def TF :String = if (toBoolean) "T" else "F"
 
 	/** Returns `"y"` if this `Boolean` is true or `"n"` otherwise. */
 	override def toString :String = yn

@@ -2,7 +2,7 @@ package net.noresttherein.slang.optional
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.slang.optional.Opt.{NoContent, Lack}
+import net.noresttherein.slang.optional.Opt.{Got, Lack, NoContent}
 import net.noresttherein.slang.raise
 
 
@@ -45,6 +45,15 @@ final class Opt[+T] private[Opt] (private val ref :AnyRef) extends AnyVal with S
 	@inline def isDefined: Boolean = !(ref eq NoContent)
 
 
+
+	/** The wrapped value. It is the same as [[net.noresttherein.slang.optional.Opt.get get]], but this method
+	  * is only possible to call on instances for which it is statically known that the value exists based on
+	  * [[net.noresttherein.slang.optional.Opt.isEmpty! isEmpty]] member type.
+	  * @return the contained value.
+	  */
+	@inline def value(implicit got :this.type <:< Got[_]) :T =
+		if (ref eq NoContent) throw new NoSuchElementException("Opt.empty.get")
+		else ref.asInstanceOf[T]
 
 	/** Forces extraction of the value.
 	  * @return contained value, if one exists.

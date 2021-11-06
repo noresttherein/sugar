@@ -16,7 +16,7 @@ import net.noresttherein.slang.funny.Initializer
   * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
-class Transient[+T] private (init :Initializer[T]) extends Lazy[T] with Serializable {
+final class Transient[+T] private (init :Initializer[T]) extends Lazy[T] with Serializable {
 	@transient @scala.volatile private[this] var evaluated :T = _
 	@transient private[this] var cached :T = _
 

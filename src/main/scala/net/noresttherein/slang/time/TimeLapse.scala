@@ -538,6 +538,8 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 		case _ if other.isZero => this
 		case _ if isZero || other.isInfinite => other
 		case time :TimeSpan => new CombinedTimeLapse(this.toPeriod, time.toDuration)
+		case timelapse :FiniteTimeLapse =>
+			new CombinedTimeLapse(this.toPeriod + timelapse.period, timelapse.duration)
 	}
 
 	override def -(other :TimeLapse) :TimeLapse = other match {
@@ -545,6 +547,9 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 		case _ if other.isZero => this
 		case _ if isZero || other.isInfinite => -other
 		case time :FiniteTimeSpan => CombinedTimeLapse.periodMinusTime(toPeriod, time)
+		case timelapse :FiniteTimeLapse =>
+			new CombinedTimeLapse(this.toPeriod - timelapse.period, timelapse.duration)
+		case infinite => infinite
 	}
 
 	override def +(other :FiniteTimeLapse) :FiniteTimeLapse = other match {
@@ -552,6 +557,8 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 		case _ if other.isZero => this
 		case _ if isZero => other
 		case time :FiniteTimeSpan => new CombinedTimeLapse(toPeriod, time.toDuration)
+		case timelapse =>
+			new CombinedTimeLapse(this.toPeriod + timelapse.period, timelapse.duration)
 	}
 
 	override def -(other :FiniteTimeLapse) :FiniteTimeLapse = other match {
@@ -559,6 +566,8 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 		case _ if other.isZero => this
 		case _ if isZero => -other
 		case time :FiniteTimeSpan => CombinedTimeLapse.periodMinusTime(toPeriod, time)
+		case timelapse :FiniteTimeLapse =>
+			new CombinedTimeLapse(this.toPeriod - timelapse.period, timelapse.duration)
 	}
 
 	override def +(other :DateSpan) :DateSpan = other match {

@@ -22,7 +22,7 @@ import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars}
   * @see [[net.noresttherein.slang.vars.Export Export]]
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(1L) //fixme: not thread safe!
 sealed class Freezer[@specialized(SpecializedVars) T](init :T) extends InOut[T] with Serializable {
 	private[this] var x = init
 	private[this] var exported = false

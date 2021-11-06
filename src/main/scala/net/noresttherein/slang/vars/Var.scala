@@ -1,5 +1,7 @@
 package net.noresttherein.slang.vars
 
+import scala.annotation.nowarn
+
 import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv}
 
 
@@ -361,10 +363,10 @@ object Var {
 		@inline def %=(n :Int) :Unit = x.value = x.value % n
 
 		/** Increments this variable by `1`, C-style. */
-		@inline def ++ :Unit = x.value = x.value + 1
+		@nowarn @inline def ++ :Unit = x.value = x.value + 1
 
 		/** Decrements this variable by `1`, C-style. */
-		@inline def -- :Unit = x.value = x.value - 1
+		@nowarn @inline def -- :Unit = x.value = x.value - 1
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. */
@@ -436,10 +438,10 @@ object Var {
 		@inline def %=(n :Long) :Unit = x.value = x.value % n
 
 		/** Increments this variable by `1`, C-style. */
-		@inline def ++ :Unit = x.value = x.value + 1
+		@nowarn @inline def ++ :Unit = x.value = x.value + 1
 
 		/** Decrements this variable by `1`, C-style. */
-		@inline def -- :Unit = x.value = x.value - 1
+		@nowarn @inline def -- :Unit = x.value = x.value - 1
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. */

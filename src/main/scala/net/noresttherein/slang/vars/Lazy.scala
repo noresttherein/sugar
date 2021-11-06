@@ -1,5 +1,6 @@
 package net.noresttherein.slang.vars
 
+import net.noresttherein.slang
 import net.noresttherein.slang.funny.Initializer
 import net.noresttherein.slang.optional.Opt
 import net.noresttherein.slang.optional.Opt.Got
@@ -16,8 +17,8 @@ import net.noresttherein.slang.optional.Opt.Got
   * value during serialization.
   * @author Marcin Mościcki
   */ //not specialized to avoid boxing during generic access; boxing at initialization will be overshadowed by reads.
-@SerialVersionUID(1L)
-trait Lazy[+T] extends (()=>T) with Val[T] with Serializable {
+@SerialVersionUID(1L) //fixme: doesn't work as advertised
+trait Lazy[+T] extends (() => T) with Val[T] with Serializable {
 
 	/** The evaluated value of this instance. */
 	@inline final def apply() :T = value
@@ -164,6 +165,7 @@ object Lazy {
 					cached = init()
 					evaluated = cached
 					initializer = null
+					slang.publishMutable()
 				}
 			}
 			cached

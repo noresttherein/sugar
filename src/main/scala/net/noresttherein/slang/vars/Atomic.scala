@@ -1,10 +1,11 @@
 package net.noresttherein.slang.vars
 
 import java.{lang => j}
-import java.util.concurrent.atomic.{AtomicBoolean => AtomicJBoolean, AtomicInteger, AtomicLong => AtomicJLong, AtomicReference}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference, AtomicBoolean => AtomicJBoolean, AtomicLong => AtomicJLong}
 import java.util.function.{IntBinaryOperator, IntUnaryOperator, LongBinaryOperator, LongUnaryOperator}
 
 import scala.Specializable.Args
+import scala.annotation.nowarn
 
 import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv, TypeIdent}
 
@@ -82,7 +83,7 @@ object Atomic {
 
 
 	@SerialVersionUID(1L)
-	class AtomicRef[T](x :AtomicReference[T]) extends Atomic[T] {
+	final class AtomicRef[T](x :AtomicReference[T]) extends Atomic[T] {
 
 		def this(init :T) = this(new AtomicReference[T](init))
 
@@ -156,7 +157,7 @@ object Atomic {
 
 
 	@SerialVersionUID(1L)
-	class AtomicBoolean(x :AtomicJBoolean) extends Atomic[Boolean] {
+	final class AtomicBoolean(x :AtomicJBoolean) extends Atomic[Boolean] {
 
 		def this(init :Boolean) = this(new AtomicJBoolean(init))
 
@@ -243,7 +244,7 @@ object Atomic {
 
 
 	@SerialVersionUID(1L)
-	class AtomicInt(x :AtomicInteger) extends Atomic[Int] {
+	final class AtomicInt(x :AtomicInteger) extends Atomic[Int] {
 
 		def this(init :Int) = this(new AtomicInteger(init))
 
@@ -315,10 +316,10 @@ object Atomic {
 		@inline def %=(n :Int) :Unit = x.accumulateAndGet(n, remainderInt)
 
 		/** Increments this variable by `1`, C-style. */
-		@inline def ++ :Unit = x.incrementAndGet()
+		@nowarn @inline def ++ :Unit = x.incrementAndGet()
 
 		/** Decrements this variable by `1`, C-style. */
-		@inline def -- :Unit = x.decrementAndGet()
+		@nowarn @inline def -- :Unit = x.decrementAndGet()
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. */
@@ -388,7 +389,7 @@ object Atomic {
 
 
 	@SerialVersionUID(1L)
-	class AtomicLong(x :AtomicJLong) extends Atomic[Long] {
+	final class AtomicLong(x :AtomicJLong) extends Atomic[Long] {
 
 		def this(init :Long) = this(new AtomicJLong(init))
 
@@ -457,10 +458,10 @@ object Atomic {
 		@inline def %=(n :Long) :Unit = x.accumulateAndGet(n, remainderLong)
 
 		/** Increments this variable by `1`, C-style. */
-		@inline def ++ :Unit = x.incrementAndGet()
+		@nowarn @inline def ++ :Unit = x.incrementAndGet()
 
 		/** Decrements this variable by `1`, C-style. */
-		@inline def -- :Unit = x.decrementAndGet()
+		@nowarn @inline def -- :Unit = x.decrementAndGet()
 
 
 
@@ -518,7 +519,7 @@ object Atomic {
 
 
 	@SerialVersionUID(1L)
-	abstract class AtomicAsInt[@specialized(Byte, Char, Short, Float) T](init :T) extends Atomic[T] {
+	sealed abstract class AtomicAsInt[@specialized(Byte, Char, Short, Float) T](init :T) extends Atomic[T] {
 		private[this] val x = new AtomicInteger(pack(init))
 
 		@inline private[Atomic] final def atom :AtomicInteger = x

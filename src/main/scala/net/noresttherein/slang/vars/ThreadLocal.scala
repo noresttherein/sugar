@@ -8,7 +8,7 @@ import net.noresttherein.slang.vars.InOut.DefaultValue
   * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
-class ThreadLocal[T](init :T) extends InOut[T] {
+sealed class ThreadLocal[T](init :T) extends InOut[T] {
 	private[this] val local = java.lang.ThreadLocal.withInitial[T](() => init)
 
 	override def value :T = local.get

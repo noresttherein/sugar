@@ -49,7 +49,7 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 		val reflection = mirror.reflect(subject)(ClassTag(mirror.runtimeClass(typeTag.tpe)).asInstanceOf[ClassTag[T]])
 		fields.view.map { field =>
 			reflection.reflectMethod(field)() match {
-				case b :Boolean => field.name.toString + "=" + b.yesno
+				case b :Boolean => field.name.toString + "=" + b.yesNo
 				case value => field.name.toString + "=" + value
 			}
 		}
@@ -62,7 +62,7 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 		fields.view.flatMap { field =>
 			Try( //exclude constructor parameters which don't translate to member fields, as there is no good other way
 				   reflection.reflectField(field).get match {
-					   case b :Boolean => field.name.decodedName.toString.trim + "=" + b.yesno
+					   case b :Boolean => field.name.decodedName.toString.trim + "=" + b.yesNo
 					   case value => field.name.decodedName.toString.trim + "=" + value
 				   }
 			   ).toOption
@@ -72,11 +72,11 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 
 	/** Lists all declared and inherited getter methods of this object with their values, prefixed with the given string. */
 	def gettersString(prefix :String)(implicit typeTag :TypeTag[T]) :String =
-		getterStrings(getters).mkString(prefix+"(", ", ", ")")
+		getterStrings(getters).mkString(prefix + "(", ", ", ")")
 
 	/** Formats this object by following its type name with the list of all member getter methods paired with their values. */
 	def gettersString(implicit typeTag :TypeTag[T]) :String =
-		getterStrings(getters).mkString(typeName+"(", ", ", ")")
+		getterStrings(getters).mkString(typeName + "(", ", ", ")")
 
 	/** Lists all declared and inherited field members of this object with their values, prefixed with the given string. */
 	def fieldsString(prefix :String)(implicit typeTag :TypeTag[T]) :String =
@@ -84,15 +84,15 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 
 	/** Formats this object by following its type name with the list of all member fields paired with their values. */
 	def fieldsString(implicit typeTag :TypeTag[T]) :String =
-		fieldStrings(fields).mkString(typeName+"(", ", ", ")")
+		fieldStrings(fields).mkString(typeName + "(", ", ", ")")
 
 	/** Lists all case fields of this object with their values, prefixed with the given string. */
 	def caseFieldsString(prefix :String)(implicit typeTag :TypeTag[T]) :String =
-		getterStrings(caseFields).mkString(prefix+"(", ", ", ")")
+		getterStrings(caseFields).mkString(prefix + "(", ", ", ")")
 
 	/** Formats this object by following its type name with the list of all case fields paired with their values. */
 	def caseFieldsString(implicit typeTag :TypeTag[T]) :String =
-		getterStrings(caseFields).mkString(typeName+"(", ", ", ")")
+		getterStrings(caseFields).mkString(typeName + "(", ", ", ")")
 
 
 }
@@ -123,7 +123,7 @@ class DefToString[Self <: DefToString[Self] : TypeTag] { this: Self =>
 /** Base class providing a `toString` implementation listing the values of all case class fields
   * of extending case class `Self` with their names.
   */
-class CaseClass[Self <:CaseClass[Self] :TypeTag] extends Serializable { this :Self =>
+class CaseClass[Self <: CaseClass[Self] :TypeTag] extends Serializable { this :Self =>
 	override def toString :String = (this :Self).caseFieldsString
 }
 
