@@ -5,7 +5,7 @@ import org.scalacheck.{Arbitrary, Prop, Properties, Shrink}
 import org.scalacheck.Prop._
 import org.scalacheck.util.Pretty
 
-abstract class BaseInOutPropsGroup  {
+abstract class BaseInOutPropsGroup {
 
 	def newVar[@specialized(SpecializedVars) T](x :T) :InOut[T] //= InOut(x)
 
@@ -543,7 +543,6 @@ class InOutPropsGroup(override val varClassName :String = "InOut") extends BaseI
 		include(new InOutByteProps)
 		include(new InOutBigIntProps)
 	}
-
 }
 
 

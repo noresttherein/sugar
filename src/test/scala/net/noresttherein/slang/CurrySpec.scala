@@ -1,7 +1,6 @@
 package net.noresttherein.slang
 
 import org.scalacheck.Properties
-import org.scalacheck.Prop
 import org.scalacheck.Prop._
 import net.noresttherein.slang.funny.Curry
 import net.noresttherein.slang.funny.Curry.Curried

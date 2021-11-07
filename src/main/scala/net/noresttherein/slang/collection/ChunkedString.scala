@@ -19,7 +19,7 @@ import net.noresttherein.slang.collection.ChunkedString.{AppendedString, Chunk, 
   * It is used when larger strings are built recursively from many parts in a complex pattern, and when the efficiency
   * of 'writing' is much more important than 'reading' - ''chunked'' strings are not expected to be accessed often
   * before their final conversion to a `String`.
-  */
+  */ //todo: tests!!!
 sealed trait ChunkedString extends CharSequence with Seq[Char] with SeqOps[Char, Seq, ChunkedString] with Serializable {
 	override def knownSize :Int = length
 	override def charAt(index :Int) :Char = apply(index)
@@ -39,7 +39,7 @@ sealed trait ChunkedString extends CharSequence with Seq[Char] with SeqOps[Char,
 
 	def ++(string :String) :ChunkedString =
 		if (string.length == 0) this
-		else if (isEmpty) ChunkedString(string)
+		else if (isEmpty) new Chunk(string)
 		else new AppendedString(this, string)
 
 	def ++(string :ChunkedString) :ChunkedString =
@@ -50,8 +50,8 @@ sealed trait ChunkedString extends CharSequence with Seq[Char] with SeqOps[Char,
 	def +:(char :Char) :ChunkedString = String.valueOf(char) ++: this
 
 	def ++:(string :String) :ChunkedString =
-		if (string.isEmpty) this
-		else if (isEmpty) ChunkedString(string)
+		if (string.length == 0) this
+		else if (isEmpty) new Chunk(string)
 		else new PrependedString(string, this)
 
 	def ++:(string :ChunkedString) :ChunkedString =
@@ -66,13 +66,15 @@ sealed trait ChunkedString extends CharSequence with Seq[Char] with SeqOps[Char,
 			var mask = Integer.highestOneBit(n)
 			var res = ChunkedString.empty
 			while (mask != 0) {
+				res ++= res
 				if ((n & mask) != 0)
 					res ++= this
-				res ++= res
 				mask >>= 1
 			}
 			res
 		}
+
+	private def writeReplace :ChunkedString = new Chunk(toString)
 
 	override def className :String = "ChunkedString"
 
@@ -112,6 +114,11 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 
 	private val emptyChunk = new Chunk("")
 
+	def apply(strings :String*) :ChunkedString =
+		if (strings.isEmpty) empty
+		else if (strings.sizeIs == 1) ChunkedString(strings.head)
+		else (chunkedBuilder ++= strings).result()
+
 	def apply(string :String) :ChunkedString =
 		if (string.length == 0) empty else new Chunk(string)
 
@@ -119,16 +126,19 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 		case chunks :ChunkedString => chunks
 		case it :Iterable[Char] if it.isEmpty => Empty
 		case it :WrappedString => new Chunk(it.unwrap)
-		case it :Iterable[Char] =>
-			val res =
-				if (it.knownSize > 0) new java.lang.StringBuilder(it.knownSize)
-				else new lang.StringBuilder
-			it foreach res.append
-			res.toString
+//		case it :Iterable[Char] => //don't box!
+//			val res =
+//				if (it.knownSize > 0) new java.lang.StringBuilder(it.knownSize)
+//				else new lang.StringBuilder
+//			it foreach res.append
+//			res.toString
 		case it =>
 			val i = it.iterator
 			if (i.hasNext) {
-				val res = new java.lang.StringBuilder
+				val res =
+					if (it.knownSize > 0) new java.lang.StringBuilder(it.knownSize)
+					else new lang.StringBuilder
+//				val res = new java.lang.StringBuilder
 				i foreach res.append
 				res.toString
 			} else
@@ -140,25 +150,29 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 
 	def newBuilder :Builder[Char, ChunkedString] = new ChunkStringBuilder
 
-	def factory :Factory[Char, ChunkedString] =
+	def chunkedBuilder :Builder[String, ChunkedString] =  new Builder[String, ChunkedString] {
+		private [this] var chunks :ChunkedString = ChunkedString.empty
+
+		override def addOne(elem :String) = { chunks ++= elem; this }
+
+		override def result() = { val res = chunks; chunks = ChunkedString.empty; res }
+
+		override def clear() :Unit = chunks = ChunkedString.empty
+	}
+
+	def factory :Factory[Char, ChunkedString] = factoryInstance
+	def chunkedFactory :Factory[String, ChunkedString] = chunkedFactoryInstance
+
+	private[this] val factoryInstance =
 		new Factory[Char, ChunkedString] {
 			override def fromSpecific(it :IterableOnce[Char]) = ChunkedString.from(it)
 			override def newBuilder = ChunkedString.newBuilder
 		}
 
-	def chunkedFactory :Factory[String, ChunkedString] =
+	private[this] val chunkedFactoryInstance :Factory[String, ChunkedString] =
 		new Factory[String, ChunkedString] {
 			override def fromSpecific(it :IterableOnce[String]) = (newBuilder ++= it).result()
-
-			override def newBuilder = new Builder[String, ChunkedString] {
-				var chunks :ChunkedString = ChunkedString.empty
-
-				override def addOne(elem :String) = { chunks ++= elem; this }
-
-				override def result() = { val res = chunks; chunks = ChunkedString.empty; res }
-
-				override def clear() :Unit = chunks = ChunkedString.empty
-			}
+			override def newBuilder = chunkedBuilder
 		}
 
 
@@ -186,6 +200,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 		override def isEmpty = s.length == 0
 
 		override def empty = emptyChunk
+		override def iterator = new StringOps(s).iterator
 
 		override def newSpecificBuilder :Builder[Char, Chunk] =
 			(new StringBuilder).mapResult(new Chunk(_))
@@ -229,8 +244,9 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 		override def iterator = new StringOps(prefix).iterator ++ suffix.iterator
 
 		override protected def appendTo(builder :java.lang.StringBuilder) =
-			prefix appendTo (builder append prefix)
+			suffix appendTo (builder append prefix)
 
+		override def equals(that :Any) :Boolean = super.equals(that)
 		override lazy val toString :String = super.toString
 	}
 
@@ -277,7 +293,8 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 		}
 
 		override def addAll(xs :IterableOnce[Char]) :this.type = xs match {
-			case it :Iterable[Char] if it.isEmpty => this
+			case it :Iterable[Char] if it.isEmpty =>
+				this
 			case chunk :ChunkedString =>
 				hinted = false
 				if (chunkBuilder != null && chunkBuilder.length > 0) {
@@ -301,10 +318,9 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 					chunks ++= str.unwrap
 				this
 			case str :WrappedString =>
-				chunkBuilder append str.unwrap
-				this
-			case it :Iterable[Char] => addAll(it); this //higher chance of JIT kicking in when extracted
-			case it                 => addAll(it.iterator); this
+				chunkBuilder append str.unwrap; this
+			case it :Iterable[Char] => addAll(it); this
+			case it                 => addAll(it.iterator); this //higher chance of JIT kicking in when extracted
 		}
 
 		private[this] def addAll(it :Iterable[Char]) :Unit = {
@@ -315,13 +331,21 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 					else new java.lang.StringBuilder
 			else if (size_? > 0)
 				chunkBuilder ensureCapacity size_?
-			it foreach chunkBuilder.append
+//			it foreach chunkBuilder.append //would result in boxing in every call
+			val i = it.iterator
+			while (i.hasNext)
+				chunkBuilder append i.next()
 		}
 
 		private[this] def addAll(it :Iterator[Char]) :Unit =
 			if (it.hasNext) {
+				val size_? = it.knownSize
 				if (chunkBuilder == null)
-					chunkBuilder = new java.lang.StringBuilder
+					chunkBuilder =
+						if (size_? > 0) new java.lang.StringBuilder(size_?)
+						else new java.lang.StringBuilder
+				else if (size_? > 0)
+					chunkBuilder ensureCapacity size_?
 				val i = it.iterator
 				while (i.hasNext)
 					chunkBuilder append i.next()
