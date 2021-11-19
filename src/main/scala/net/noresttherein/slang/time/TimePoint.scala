@@ -45,7 +45,7 @@ sealed trait TimePoint extends Any with Ordered[TimePoint] with Serializable {
 	def -(time :TimePoint) :TimeSpan
 
 
-	def ===(other :TimePoint) :Boolean = compare(other) == 0
+	def ==(other :TimePoint) :Boolean = compare(other) == 0
 
 	def min(that :TimePoint) :TimePoint = if (compare(that) <= 0) this else that
 	def max(that :TimePoint) :TimePoint = if (compare(that) >= 0) this else that
@@ -168,7 +168,7 @@ trait DefiniteTime extends Any with TimePoint {
 	@inline final def min(that :DefiniteTime) :DefiniteTime = if (compare(that) <= 0) this else that
 	@inline final def max(that :DefiniteTime) :DefiniteTime = if (compare(that) >= 0) this else that
 
-	override def ===(that :TimePoint) :Boolean = that match {
+	override def ==(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime => epochSecond == finite.epochSecond && nano == finite.nano
 		case _ => false
 	}

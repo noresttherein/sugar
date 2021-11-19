@@ -26,20 +26,61 @@ import scala.concurrent.{duration => s}
   * @author Marcin Mościcki marcin@moscicki.net
   */
 sealed trait TimeLapse extends Any with Serializable {
+	/** The part of this time lapse which is of variable length, that is counted in days and longer units.
+	  * For finite time lapses this will be a [[net.noresttherein.slang.time.Period Period]], with the excption
+	  * of the zero instance [[net.noresttherein.slang.time.Immediate Immediate]], which returns itself.
+	  * Infinite spans return themselves.
+	  */
 	def variable :DateSpan
+
+	/** The part of this time lapse which is of fixed length, that is counted in standard hours and shorter units,
+	  * rather than days and other calendar units. Infinite spans and [[net.noresttherein.slang.time.Immediate Immediate]]
+	  * return themselves, finite instances will return a [[net.noresttherein.slang.time.Duration Duration]],
+	  * with the exception of [[net.noresttherein.slang.time.Milliseconds Milliseconds]], which returns itself.
+	  */
 	def fixed :TimeSpan
 
+	/** This time lapse with the variable part normalized as per
+	  * `java.time.`[[java.time.Period Period]]`.`[[java.time.Period.normalized normalized]]:
+	  *
+	  * Returns a copy of this period with the years and months normalized. This normalizes the years and months units,
+	  * leaving the days unit unchanged. The months unit is adjusted to have an absolute value less than 12,
+	  * with the years unit being adjusted to compensate. For example, a period of "1 Year and 15 months"
+	  * will be normalized to "2 years and 3 months". The sign of the years and months units will be the same after
+	  * normalization. For example, a period of "1 year and -25 months" will be normalized to "-1 year and -1 month".
+	  *
+	  * [[net.noresttherein.slang.time.TimeSpan Fixed]] and infinite time spans return themselves.
+	  */
 	def normalized :TimeLapse
 
+	/** True for [[net.noresttherein.slang.time.Eternity Eternity]]
+	  * and [[net.noresttherein.slang.time.MinusEternity MinusEternity]], false for all other instances.
+	  */
 	def isInfinite :Boolean
+
+	/** True for all instances other than [[net.noresttherein.slang.time.Eternity Eternity]]
+	  * and [[net.noresttherein.slang.time.MinusEternity MinusEternity]].
+	  * @return `!isInfinite`.
+	  */
 	def isFinite :Boolean = !isInfinite
+
+	/** True for time spans of zero length, regardless of their type. */
 	def isZero :Boolean
 
+	/** Negates the length of this time lapse. The [[net.noresttherein.slang.time.TimeLapse.fixed fixed]] part
+	  * of this instance simply changes signs, while the [[net.noresttherein.slang.time.TimeLapse.variable variable]]
+	  * part changes the sign on all calendar units. Infinite time spans return the opposite infinity.
+	  */
 	def unary_- :TimeLapse
+
 	def +(other :TimeLapse) :TimeLapse
 	def -(other :TimeLapse) :TimeLapse
 
-	def ===(other :TimeLapse) :Boolean
+	/** Compares the length of the two time lapses. This is different from `equals` in that it abstracts
+	  * over the exact type of each side, as long as their lengths are equal, unlike the former, which compares equal
+	  * only for instances of the same type.
+	  */
+	def ==(other :TimeLapse) :Boolean
 
 }
 
@@ -171,7 +212,7 @@ object FiniteTimeLapse {
 
 
 
-/** Elapsed time of fixed length. This includes infinite both `Eternity`/`MinusEternity`
+/** Elapsed time of fixed length. This includes both infinite `Eternity`/`MinusEternity`
   * and finite `FiniteTimeSpan` subclasses. Instances of all subclasses, including infinite implementations,
   * form a combined linear order. Any two `TimeSpan` values can be tested with `===` which is consistent
   * with the ordering and compares their lengths. Standard equality is class-based, with `Milliseconds(0)`,
@@ -179,29 +220,123 @@ object FiniteTimeLapse {
   * @see [[net.noresttherein.slang.time.FiniteTimeSpan]]
   */
 sealed trait TimeSpan extends Any with TimeLapse with Ordered[TimeSpan] {
+	/** The length of this time span in nanoseconds.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  * @throws ArithmeticException if the length of this time span in nanoseconds cannot fit within `Long` precision.
+	  */
 	def inNanos :Long
+
+	/** The floor of the length of this time span in microseconds.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  * @throws ArithmeticException if the length of this time span in microseconds cannot fit within `Long` precision.
+	  */
 	def inMicros :Long
+
+	/** The length of this time span in microseconds.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def toMicros :Double
+
+	/** The floor of the length of this time span in milliseconds.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  * @throws ArithmeticException if the length of this time span in milliseconds cannot fit within `Long` precision.
+	  */
 	def inMillis :Long
+
+	/** The length of this time span in milliseconds.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def toMillis :Double
+
+	/** The floor of the length of this time span in milliseconds as a `Milliseconds` time span.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  * @throws ArithmeticException if the length of this time span in milliseconds cannot fit within `Long` precision.
+	  */
 	def asMillis :Milliseconds = new Milliseconds(inMillis)
+
+	/** The floor of the length of this time span in seconds. The nanosecond remainder is available
+	  * as the [[net.noresttherein.slang.time.TimeSpan.nanos nanos]] property.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def inSeconds :Long
+
+	/** The length of this time span in seconds.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def toSeconds :Double
+
+	/** The floor of the length of this time span in minutes.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def inMinutes :Long
+
+	/** The length of this time span in minutes.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def toMinutes :Double
+
+	/** The floor of the length of this time span in hours.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def inHours :Long
+
+	/** The length of this time span in hours.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def toHours :Double
+
+	/** The floor of the length of this time span in standard days, counted as 24 hours.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def inDays :Long
+
+	/** The length of this time span in standard days, counted as 24 hours.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def toDays :Double
 
+	/** The floor of the length of this time span counted in the given units.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  * @throws ArithmeticException if the length of this span counted in the specified units
+	  *                             does not fit into `Long` precision.
+	  */
 	def in(unit :TimeUnit) :Long
+
+	/** The length of this time span in the given units.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def to(unit :TimeUnit) :Double
 
+	/** The nanosecond remainder of the length of this time span in seconds.
+	  * It is always a value in the [0..1000 000 000) range.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def nanos :Int
+
+	/** The remaining seconds in this time span that do not fit into full minutes.
+	  * The result is a floor from the division of [[net.noresttherein.slang.time.TimeSpan.inSeconds inSeconds]] by `60`.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def seconds :Int
+
+	/** The remaining minutes in this time span that do not fit into full hours.
+	  * The result is a floor from the division of [[net.noresttherein.slang.time.TimeSpan.inSeconds inSeconds]] by `3600`.
+	  * @throws UnsupportedOperationException if this span is infinite.
+	  */
 	def minutes :Int
+
+	/** The remaining hours in this time span after dividing its length in seconds by the number of seconds
+	  * in a standard 24 hour day.
+	  */
 	def hours :Long
 
+	/** The largest time unit (from
+	  * [[net.noresttherein.slang.time.DateTimeUnit$ DateTimeUnit]]`.`[[net.noresttherein.slang.time.DateTimeUnit.Nanos Nanos]]
+	  * to `DateTimeUnit.`[[net.noresttherein.slang.time.DateTimeUnit.Hours Hours]] such that
+	  * `Duration(this.`[[net.noresttherein.slang.time.TimeSpan.in in]]`(unit), unit) == this`.
+	  * Infinite [[net.noresttherein.slang.time.InfiniteTimeLapse time spans]] return
+	  * `DateTimeUnit.`[[net.noresttherein.slang.time.DateTimeUnit.Forever Forever]] instead.
+	  */
 	def unit :DateTimeUnit
 
 	override def fixed :TimeSpan = this
@@ -253,9 +388,9 @@ sealed trait TimeSpan extends Any with TimeLapse with Ordered[TimeSpan] {
 		}
 	}
 
-	def ===(that :TimeSpan) :Boolean = compare(that) == 0
+	def ==(that :TimeSpan) :Boolean = compare(that) == 0
 
-	def ===(that :TimeLapse) :Boolean = that match {
+	def ==(that :TimeLapse) :Boolean = that match {
 		case time :TimeSpan => compare(time) == 0
 		case period :DateSpan if period.isZero => isZero
 		case _ => false
@@ -587,7 +722,7 @@ trait FiniteDateSpan extends Any with DateSpan with FiniteTimeLapse {
 	override def *(scalar :Int) :FiniteDateSpan
 
 
-	override def ===(other :TimeLapse) :Boolean = other match {
+	override def ==(other :TimeLapse) :Boolean = other match {
 		case period :FiniteDateSpan => days == period.days && months == period.months && years == period.years
 		case _ => isZero && other.isZero
 	}
@@ -737,8 +872,8 @@ sealed abstract class InfiniteTimeLapse extends TimeSpan with DateSpan with Seri
 		case _ => signum
 	}
 
-	final override def ===(that :TimeSpan) :Boolean = this == that
-	final override def ===(that :TimeLapse) :Boolean = this == that
+	final override def ==(that :TimeSpan) :Boolean = this == that
+	final override def ==(that :TimeLapse) :Boolean = this == that
 
 }
 
@@ -828,7 +963,7 @@ object Immediate extends FiniteTimeSpan with FiniteDateSpan with Serializable {
 	override def toScala :s.Duration = s.Duration.Zero
 
 
-	override def unit :TimeUnit = new TimeUnit(ChronoUnit.NANOS)
+	override def unit :TimeUnit = new TimeUnit(ChronoUnit.HOURS) //to conform with the contract of Duration
 
 	override def isInfinite :Boolean = false
 	override def isZero :Boolean = true
@@ -897,8 +1032,8 @@ object Immediate extends FiniteTimeSpan with FiniteDateSpan with Serializable {
 
 	override def compare(that :TimeSpan) :Int = that.signum
 
-	override def ===(that :TimeSpan) :Boolean = that.isZero
-	override def ===(that :TimeLapse) :Boolean = that.isZero
+	override def ==(that :TimeSpan) :Boolean = that.isZero
+	override def ==(that :TimeLapse) :Boolean = that.isZero
 
 	def unapply(that :TimeLapse) :Boolean = that.isZero
 
@@ -976,8 +1111,7 @@ private[time] final class CombinedTimeLapse(val period :Period, val duration :Du
 	}
 
 
-
-	override def ===(other :TimeLapse) :Boolean = this == other
+	override def ==(other :TimeLapse) :Boolean = this == other
 
 
 	override def toString :String = period.toString + " " + duration

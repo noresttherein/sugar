@@ -102,27 +102,74 @@ class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal wi
 
 	@inline def compare(that :Timestamp) :Int = toJava compareTo that.toJava
 
-	def <=(that :Timestamp) :Boolean = {
-		val s1 = toJava.getEpochSecond; val s2 = that.toJava.getEpochSecond
-		s1 < s2 || s1 == s2 && toJava.getNano <= that.toJava.getNano
-	}
-	@inline def < (that :Timestamp) :Boolean = !(this >= that)
+	def <=(that :Timestamp) :Boolean = 
+		lte(toJava.getEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+	
+	def < (that :Timestamp) :Boolean =
+		lt(toJava.getEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
 
-	def >=(that :Timestamp) :Boolean = {
-		val s1 = toJava.getEpochSecond; val s2 = that.toJava.getEpochSecond
-		s1 > s2 || s1 == s2 && toJava.getNano >= that.toJava.getNano
-	}
-	@inline def > (that :Timestamp) :Boolean = !(this <= that)
+	def >=(that :Timestamp) :Boolean = 
+		gte(toJava.getEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+	
+	def > (that :Timestamp) :Boolean =
+		gt(toJava.getEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def <=(that :ZoneDateTime) :Boolean = 
+		lte(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+	
+	def < (that :ZoneDateTime) :Boolean =
+		lt(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def >=(that :ZoneDateTime) :Boolean = 
+		gte(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+	
+	def > (that :ZoneDateTime) :Boolean =
+		gt(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def <=(that :UTCDateTime) :Boolean = 
+		lte(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+	
+	def < (that :UTCDateTime) :Boolean =
+		lt(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def >=(that :UTCDateTime) :Boolean = 
+		gte(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+	
+	def > (that :UTCDateTime) :Boolean =
+		gt(toJava.getEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def <=(that :UnixTime) :Boolean = 
+		lte(toJava.getEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+	
+	def < (that :UnixTime) :Boolean =
+		lt(toJava.getEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+
+	def >=(that :UnixTime) :Boolean = 
+		gte(toJava.getEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+	
+	def > (that :UnixTime) :Boolean =
+		gt(toJava.getEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+
 
 	@inline def min(that :Timestamp) :Timestamp = if (this <= that) this else that
 	@inline def max(that :Timestamp) :Timestamp = if (this >= that) this else that
 
-	override def ===(that :TimePoint) :Boolean = that match {
+	override def ==(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime => toJava.getEpochSecond == finite.epochSecond && toJava.getNano == finite.nano
 		case _ => false
 	}
-	def ===(that :Timestamp) :Boolean = toJava == that.toJava
+	@inline def ==(that :Timestamp) :Boolean = toJava == that.toJava
 
+	@inline def ==(that :ZoneDateTime) :Boolean =
+		toJava.getEpochSecond == that.toJava.toEpochSecond && toJava.getNano == that.toJava.getNano
+
+	@inline def ==(that :UTCDateTime) :Boolean =
+		toJava.getEpochSecond == that.toJava.toEpochSecond(Time.UTC.offset) && toJava.getNano == that.toJava.getNano
+
+	@inline def ==(that :UnixTime) :Boolean =
+		toJava.toEpochMilli == that.epochMilli && toJava.getNano % NanosInMilli == 0L
+
+	override def toString :String = toJava.toString
 }
 
 
@@ -159,4 +206,5 @@ object Timestamp {
 
 	final val Max = new Timestamp(j.Instant.MAX)
 	final val Min = new Timestamp(j.Instant.MIN)
+
 }

@@ -78,12 +78,13 @@ class Period private[time] (val toJava :j.Period) extends AnyVal with FiniteDate
 
 
 
-	override def ===(other :TimeLapse) :Boolean = other match {
+	override def ==(other :TimeLapse) :Boolean = other match {
 		case period :Period => toJava == period.toJava
 		case period :FiniteDateSpan => days == period.days && months == period.months && years == period.years
 		case _ => false
 	}
 
+	override def toString :String = toJava.toString
 }
 
 

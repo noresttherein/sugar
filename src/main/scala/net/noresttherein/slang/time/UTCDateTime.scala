@@ -165,19 +165,64 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 	@inline def < (that :UTCDateTime) :Boolean = toJava isBefore that.toJava
 	@inline def >=(that :UTCDateTime) :Boolean = !(toJava isBefore that.toJava)
 	@inline def > (that :UTCDateTime) :Boolean = toJava isAfter that.toJava
+
+	def <=(that :Timestamp) :Boolean =
+		lte(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def < (that :Timestamp) :Boolean =
+		lt(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def >=(that :Timestamp) :Boolean =
+		gte(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def > (that :Timestamp) :Boolean =
+		gt(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def <=(that :ZoneDateTime) :Boolean =
+		lte(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def < (that :ZoneDateTime) :Boolean =
+		lt(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def >=(that :ZoneDateTime) :Boolean =
+		gte(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def > (that :ZoneDateTime) :Boolean =
+		gt(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def <=(that :UnixTime) :Boolean =
+		lte(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.epochSecond, that.nano)
+
+	def < (that :UnixTime) :Boolean =
+		lt(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.epochSecond, that.nano)
+
+	def >=(that :UnixTime) :Boolean =
+		gte(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.epochSecond, that.nano)
+
+	def > (that :UnixTime) :Boolean =
+		gt(toJava.toEpochSecond(Time.UTC.offset), toJava.getNano, that.epochSecond, that.nano)
+	
 	@inline def min(that :UTCDateTime) :UTCDateTime = if (that.toJava isBefore toJava) that else this
 	@inline def max(that :UTCDateTime) :UTCDateTime = if (that.toJava isAfter toJava) that else this
 
-	override def ===(that :TimePoint) :Boolean = that match {
+	override def ==(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime =>
 			val time = toJava.toInstant((j.ZoneOffset.UTC))
 			time.getEpochSecond == finite.epochSecond && time.getNano == finite.nano
 		case _ => false
 	}
-	@inline def ===(that :UTCDateTime) :Boolean = toJava == that.toJava
+	@inline def ==(that :UTCDateTime) :Boolean = toJava == that.toJava
+
+	@inline def ==(that :Timestamp) :Boolean =
+		toJava.toEpochSecond(Time.UTC.offset) == that.toJava.getEpochSecond && toJava.getNano == that.toJava.getNano
+
+	@inline def ==(that :ZoneDateTime) :Boolean =
+		toJava.toEpochSecond(Time.UTC.offset) == that.toJava.toEpochSecond && toJava.getNano == that.toJava.getNano
+
+	@inline def ==(that :UnixTime) :Boolean =
+		epochMilli == that.epochMilli && toJava.getNano % NanosInMilli == 0L
 
 	override def toString :String = toJava.toString + "Z"
-
 }
 
 
@@ -200,6 +245,8 @@ object UTCDateTime {
 			throw new IllegalArgumentException("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
 		new UTCDateTime(j.LocalDateTime.of(date.toJava, time.toJava))
 	}
+
+	@inline def apply(time :Timestamp) :UTCDateTime = new UTCDateTime(j.LocalDateTime.ofInstant(time, Time.UTC.zone))
 
 
 	@inline def apply()(implicit time :Time = Time.UTC) :UTCDateTime =
@@ -240,7 +287,8 @@ object UTCDateTime {
 	}
 
 
-
+	@inline implicit def toTimestamp(time :UTCDateTime) :Timestamp = time.toTimestamp
+	@inline implicit def fromTimestamp(time :Timestamp) :UTCDateTime = UTCDateTime(time)
 	@inline implicit def toJavaInstant(time :UTCDateTime) :j.Instant = time.toInstant
 
 	@inline implicit def fromJavaInstant(time :j.Instant) :UTCDateTime =

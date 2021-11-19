@@ -119,7 +119,7 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 			if (millis.inMillis > 0) Long.MaxValue / millis.inMillis
 			else -Long.MaxValue / millis.inMillis
 		if (inMillis > max || inMillis < -max)
-			overflow(toString" / ", millis.toString)
+			overflow(toString, " / ", millis.toString)
 		inMillis.toDouble / millis.inMillis
 	}
 
@@ -261,11 +261,26 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 	@inline def < (that :Milliseconds) :Boolean = inMillis < that.inMillis
 	@inline def >=(that :Milliseconds) :Boolean = inMillis >= that.inMillis
 	@inline def > (that :Milliseconds) :Boolean = inMillis > that.inMillis
+
+	@inline def <=(that :Duration) :Boolean =
+		lte(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+
+	@inline def < (that :Duration) :Boolean =
+		lt(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+
+	@inline def >=(that :Duration) :Boolean =
+		gte(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+
+	@inline def > (that :Duration) :Boolean =
+		gt(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+
 	@inline def min(that :Milliseconds) :Milliseconds = if (inMillis <= that.inMillis) this else that
 	@inline def max(that :Milliseconds) :Milliseconds = if (inMillis >= that.inMillis) this else that
 
-	@inline def ===(that :Milliseconds) :Boolean = inMillis == that.inMillis
+	@inline def ==(that :Milliseconds) :Boolean = inMillis == that.inMillis
 
+	@inline def ==(that :Duration) :Boolean =
+		inMillis / MillisInSecond == that.toJava.getSeconds && (inMillis % NanosInMilli).toInt == that.toJava.getNano
 
 	override def toString :String = {
 		val u = unit

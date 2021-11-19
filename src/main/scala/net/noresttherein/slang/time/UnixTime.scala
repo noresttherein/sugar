@@ -9,9 +9,9 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
   * wrapping a `Long` value. All arithmetic operations will return another `UnixTime` or `Milliseconds` instance
   * if possible.
   * @author Marcin Mościcki marcin@moscicki.net
-  */
+  */ //consider: renaming to EpochMilli
 @SerialVersionUID(1L)
-class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Serializable {
+class UnixTime(override val epochMilli :Long) extends AnyVal with DefiniteTime with Serializable {
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
 
@@ -160,15 +160,61 @@ class UnixTime(val epochMilli :Long) extends AnyVal with DefiniteTime with Seria
 	@inline def < (that :UnixTime) :Boolean = epochMilli < that.epochMilli
 	@inline def >=(that :UnixTime) :Boolean = epochMilli >= that.epochMilli
 	@inline def > (that :UnixTime) :Boolean = epochMilli > that.epochMilli
+
+	def <=(that :Timestamp) :Boolean =
+		lte(epochSecond, nano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def < (that :Timestamp) :Boolean =
+		lt(epochSecond, nano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def >=(that :Timestamp) :Boolean =
+		gte(epochSecond, nano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def > (that :Timestamp) :Boolean =
+		gt(epochSecond, nano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def <=(that :ZoneDateTime) :Boolean =
+		lte(epochSecond, nano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def < (that :ZoneDateTime) :Boolean =
+		lt(epochSecond, nano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def >=(that :ZoneDateTime) :Boolean =
+		gte(epochSecond, nano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def > (that :ZoneDateTime) :Boolean =
+		gt(epochSecond, nano, that.toJava.toEpochSecond, that.toJava.getNano)
+
+	def <=(that :UTCDateTime) :Boolean =
+		lte(epochSecond, nano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def < (that :UTCDateTime) :Boolean =
+		lt(epochSecond, nano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def >=(that :UTCDateTime) :Boolean =
+		gte(epochSecond, nano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def > (that :UTCDateTime) :Boolean =
+		gt(epochSecond, nano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
 	@inline def min(that :UnixTime) :UnixTime = if (epochMilli <= that.epochMilli) this else that
 	@inline def max(that :UnixTime) :UnixTime = if (epochMilli >= that.epochMilli) this else that
 
-	override def ===(that :TimePoint) :Boolean = that match {
+	override def ==(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime =>
 			epochMilli / 1000 == finite.epochSecond && epochMilli % 1000 * NanosInMilli == finite.nano
 		case _ => false
 	}
-	@inline def ===(that :UnixTime) :Boolean = epochMilli == that.epochMilli
+	@inline def ==(that :UnixTime) :Boolean = epochMilli == that.epochMilli
+
+	@inline def ==(that :Timestamp) :Boolean =
+		epochMilli == that.toJava.toEpochMilli && that.toJava.getNano % NanosInMilli == 0
+
+	@inline def ==(that :ZoneDateTime) :Boolean =
+		epochMilli == that.epochMilli && that.toJava.getNano % NanosInMilli == 0
+
+	@inline def ==(that :UTCDateTime) :Boolean =
+		epochMilli == that.epochMilli && that.toJava.getNano % NanosInMilli == 0
 
 
 	override def toString :String = toUTC.toString
@@ -204,6 +250,8 @@ object UnixTime {
 
 	@inline implicit def toJavaInstant(time :UnixTime) :j.Instant = time.toInstant
 	@inline implicit def fromJavaInstant(time :j.Instant) :UnixTime = new UnixTime(time.toEpochMilli)
+	@inline implicit def toTimestamp(time :UnixTime) :Timestamp = time.toTimestamp
+//	@inline implicit def fromTimestamp(time :Timestamp) :UnixTime = new UnixTime(time.toEpochMilli)
 
 	final val Max = new UnixTime(Long.MaxValue)
 	final val Min = new UnixTime(Long.MinValue)

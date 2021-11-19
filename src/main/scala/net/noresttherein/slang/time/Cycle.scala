@@ -8,7 +8,7 @@ import net.noresttherein.slang.time.Cycle.Phase
 
 
 
-/** A periodically repeating sequence of time periods, such as month of the year or day of the week.
+/** A periodically repeating sequence of time periods, such as a month of the year or a day of the week.
   * Instances of this class represent the whole cycle, while each individual period within it, such as January
   * or Tuesday is represented by the member type `Cycle#Phase`. The convention here is that a class, such
   * as [[net.noresttherein.slang.time.Month Month]] implements `Phase`, while its companion object (for example,

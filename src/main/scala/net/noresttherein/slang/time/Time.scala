@@ -8,10 +8,10 @@ import net.noresttherein.slang.time.conversions._
 
 
 /** The main class of the package, abstracting over the general concept of a time line and wrapping a `java.time.Clock`.
-  * Serves as a factory for time points describing the 'current' moment or moments after/before certain time span.
+  * Serves as a factory for time points describing the 'current' moment or moments after/before a certain time span.
   * Most factory methods of classes (and objects) in this package which refer to the current moment or local
   * time zone/offset accept an implicit `Time` instance to serve as the provider, with the default value of
-  * `Time.Local` in case of no implicit is available. This allows easy abstraction over the time zone and testing by
+  * `Time.Local` in case no implicit is available. This allows easy abstraction over the time zone and testing by
   * providing your own implicit instance. Alternatively, importing `Time.implicits.ImplicitUTCTime` will set
   * the time to current `UTC` time.
   * @author Marcin Mościcki marcin@moscicki.net

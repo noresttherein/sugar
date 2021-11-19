@@ -76,6 +76,8 @@ object TimeOfDay {
 
 	@inline def apply(time :j.LocalTime) :TimeOfDay = new TimeOfDay(time)
 
+//	@inline def apply(timestamp :Timestamp)(implicit time :Time = Time.Local) :TimeOfDay =
+//		new TimeOfDay(j.LocalTime.ofInstant(timestamp, time.zone))
 
 	@inline def apply()(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
 
@@ -157,7 +159,7 @@ class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Or
 	@inline def min(that :OffsetTime) :OffsetTime = if (that.toJava isBefore toJava) that else this
 	@inline def max(that :OffsetTime) :OffsetTime = if (that.toJava isAfter toJava) that else this
 
-	@inline def ===(that :OffsetTime) :Boolean = compare(that) == 0
+	@inline def ==(that :OffsetTime) :Boolean = compare(that) == 0
 
 }
 

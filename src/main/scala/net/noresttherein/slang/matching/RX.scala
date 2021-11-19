@@ -444,7 +444,7 @@ sealed abstract class RX extends Serializable {
 
 	def compile :Regex = regex
 
-	private[this] lazy val regex = toString.r(groups : _*)
+	private[this] lazy val regex = toString.r//(groups : _*)
 
 
 

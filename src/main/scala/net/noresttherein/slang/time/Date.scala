@@ -60,6 +60,9 @@ object Date {
 
 	@inline def apply(date :j.LocalDate) :Date = new Date(date)
 
+//	@inline def apply(timestamp :Timestamp)(implicit time :Time = Time.Local) :Date =
+//		new Date(j.LocalDate.ofInstant(timestamp, time.zone))
+//
 	@inline def apply()(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))
 
 	@inline def current(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))

@@ -83,7 +83,7 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 	/** Tests if `this` and `that` describe the same instant, abstracting over the time zone.
 	  * Consistent with the ordering on `DateTime`.
 	  */
-	@inline def ===(that :DateTime) :Boolean = compareTo(that) == 0
+	@inline def ==(that :DateTime) :Boolean = compareTo(that) == 0
 
 }
 
@@ -93,11 +93,13 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 
 
 object DateTime {
-
 	@inline def apply(time :j.LocalDateTime) :DateTime = new DateTime(time)
 
 	@inline def apply(date :Date, time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(date, time))
 
+//	@inline def apply(timestamp :Timestamp)(implicit time :Time = Time.Local) :DateTime =
+//		new DateTime(j.LocalDateTime.ofInstant(timestamp, time.zone))
+//
 	@inline def apply()(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
 	@inline def current(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
 

@@ -217,23 +217,38 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 
 	@inline def compare(that :Duration) :Int = toJava compareTo that.toJava
 
-	def <=(that :Duration) :Boolean = {
-		val s1 = toJava.getSeconds; val s2 = that.toJava.getSeconds
-		s1 < s2 || s1 == s2 && toJava.getNano <= that.toJava.getNano
-	}
-	@inline def < (that :Duration) :Boolean = !(this >= that)
+	@inline def <=(that :Duration) :Boolean =
+		lte(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
 
-	def >=(that :Duration) :Boolean = {
-		val s1 = toJava.getSeconds; val s2 = that.toJava.getSeconds
-		s1 > s2 || s1 == s2 && toJava.getNano >= that.toJava.getNano
-	}
-	@inline def > (that :Duration) :Boolean = !(this >= that)
+	@inline def < (that :Duration) :Boolean =
+		lt(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
+
+	@inline def >=(that :Duration) :Boolean =
+		gte(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
+
+	@inline def > (that :Duration) :Boolean =
+		gt(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
+
+	@inline def <=(that :Milliseconds) :Boolean =
+		lte(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+
+	@inline def < (that :Milliseconds) :Boolean =
+		lt(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+
+	@inline def >=(that :Milliseconds) :Boolean =
+		gte(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+
+	@inline def > (that :Milliseconds) :Boolean =
+		gt(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+
+
 
 	@inline def min(that :Duration) :Duration = if (this <= that) this else that
 	@inline def max(that :Duration) :Duration = if (this >= that) this else that
 
-	@inline def ===(that :Duration) :Boolean = toJava == that.toJava
+	@inline def ==(that :Duration) :Boolean = toJava == that.toJava
 
+	override def toString :String = toJava.toString
 }
 
 
@@ -281,7 +296,7 @@ object Duration {
 
 
 	final val Zero = new Duration(j.Duration.ZERO)
-	final val Max = new Duration(j.Duration.ofSeconds(Long.MaxValue, Int.MaxValue))
+	final val Max = new Duration(j.Duration.ofSeconds(Long.MaxValue, 0))
 	final val Min = new Duration(j.Duration.ofSeconds(Long.MinValue, 0))
 }
 

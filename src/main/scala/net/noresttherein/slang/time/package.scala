@@ -60,4 +60,19 @@ package object time {
 	@inline private[slang] def twoDigit(ord :Int) :String =
 		if (ord < 10) "0" + ord else ord.toString
 
+
+
+
+
+	@inline private[time] def lte(sec1 :Long, nano1 :Int, sec2 :Long, nano2 :Int) :Boolean =
+		sec1 < sec2 || sec1 == sec2 && nano1 <= nano2
+
+	@inline private[time] def lt(sec1 :Long, nano1 :Int, sec2 :Long, nano2 :Int) :Boolean =
+		sec1 < sec2 || sec1 == sec2 && nano1 < nano2
+
+	@inline private[time] def gte(sec1 :Long, nano1 :Int, sec2 :Long, nano2 :Int) :Boolean =
+		sec1 > sec2 || sec1 == sec2 && nano1 >= nano2
+
+	@inline private[time] def gt(sec1 :Long, nano1 :Int, sec2 :Long, nano2 :Int) :Boolean =
+		sec1 > sec2 || sec1 == sec2 && nano1 > nano2
 }

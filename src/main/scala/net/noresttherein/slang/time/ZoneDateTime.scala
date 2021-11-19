@@ -159,17 +159,62 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	@inline def < (that :ZoneDateTime) :Boolean = toJava isBefore that.toJava
 	@inline def >=(that :ZoneDateTime) :Boolean = !(toJava isBefore that.toJava)
 	@inline def > (that :ZoneDateTime) :Boolean = toJava isAfter that.toJava
+	
+	def <=(that :Timestamp) :Boolean =
+		lte(toJava.toEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def < (that :Timestamp) :Boolean =
+		lt(toJava.toEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def >=(that :Timestamp) :Boolean =
+		gte(toJava.toEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def > (that :Timestamp) :Boolean =
+		gt(toJava.toEpochSecond, toJava.getNano, that.toJava.getEpochSecond, that.toJava.getNano)
+
+	def <=(that :UTCDateTime) :Boolean =
+		lte(toJava.toEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def < (that :UTCDateTime) :Boolean =
+		lt(toJava.toEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def >=(that :UTCDateTime) :Boolean =
+		gte(toJava.toEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def > (that :UTCDateTime) :Boolean =
+		gt(toJava.toEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
+
+	def <=(that :UnixTime) :Boolean =
+		lte(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+
+	def < (that :UnixTime) :Boolean =
+		lt(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+
+	def >=(that :UnixTime) :Boolean =
+		gte(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+
+	def > (that :UnixTime) :Boolean =
+		gt(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
+
 	@inline def min(that :ZoneDateTime) :ZoneDateTime = if (that.toJava isBefore toJava) that else this
 	@inline def max(that :ZoneDateTime) :ZoneDateTime = if (that.toJava isAfter toJava) that else this
 
-	override def ===(that :TimePoint) :Boolean = that match {
+	override def ==(that :TimePoint) :Boolean = that match {
 		case finite :DefiniteTime => toJava.toEpochSecond == finite.epochSecond && toJava.getNano == finite.nano
 		case _ => false
 	}
-	@inline def ===(that :ZoneDateTime) :Boolean =
-		toJava.toEpochSecond == that.toJava.toEpochSecond && toJava.getNano == that.toJava.getNano
+	@inline def ==(that :ZoneDateTime) :Boolean = toJava == that.toJava
 
+	@inline def ==(that :Timestamp) :Boolean =
+		toJava.toEpochSecond == toJava.toEpochSecond && toJava.getNano == that.toJava.getNano
 
+	@inline def ==(that :UTCDateTime) :Boolean =
+		toJava.toEpochSecond == that.toJava.toEpochSecond(Time.UTC.offset) && toJava.getNano == that.toJava.getNano
+
+	@inline def ==(that :UnixTime) :Boolean =
+		epochMilli == that.epochMilli && toJava.getNano % NanosInMilli == 0L
+
+	override def toString :String = toJava.toString
 }
 
 
@@ -187,6 +232,8 @@ object ZoneDateTime {
 	@inline def apply(date :Date, time :TimeOfDay, offset :TimeOffset) :ZoneDateTime =
 		new ZoneDateTime(j.ZonedDateTime.of(date.toJava, time.toJava, offset.toJava))
 
+//	@inline def apply(timestamp: Timestamp)(implicit time :Time = Time.Local) :ZoneDateTime =
+//		new ZoneDateTime(j.ZonedDateTime.ofInstant(timestamp, time.zone))
 
 	@inline def apply()(implicit time :Time = Time.Local) :ZoneDateTime =
 		new ZoneDateTime(j.ZonedDateTime.now(time.clock))
@@ -201,7 +248,6 @@ object ZoneDateTime {
 		new ZoneDateTime(j.ZonedDateTime.now(time.clock.withZone(offset.toJava)))
 
 	@inline def utc :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(Time.UTC))
-
 
 
 	def after(lapse :FiniteTimeLapse)(implicit time :Time = Time.Local) :ZoneDateTime =
@@ -228,6 +274,6 @@ object ZoneDateTime {
 
 	@inline implicit def toJavaZonedDateTime(time :ZoneDateTime) :j.ZonedDateTime = time.toJava
 	@inline implicit def fromJavaZonedDateTime(time :j.ZonedDateTime) :ZoneDateTime = new ZoneDateTime(time)
-
+	@inline implicit def toTimestamp(time :ZoneDateTime) :Timestamp = time.toTimestamp
 }
 
