@@ -1,7 +1,7 @@
 package net.noresttherein.slang
 
 import scala.annotation.tailrec
-import scala.collection.{IterableOnce, IterableOps, LinearSeq}
+import scala.collection.{IterableFactory, IterableOnce, IterableOps, LinearSeq}
 
 
 /**
@@ -20,37 +20,49 @@ package object collection {
 		/** Applies the given folding function `op` to the elements of this collection starting with the given
 		  * initial value `start` while the predicate `until` is false for the most recently computed value.
 		  * Note that this is not equivalent to `foldWhile(start)(!until(_))(op)` as the recursion goes
-		  * one step further, returning the first element which doesn't satisfy the predicate, rather than
-		  * the last satisfying it as in the latter case.
-		  * @param start initial value.
-		  * @param until predicate which needs to be satisfied for the folding to stop.
-		  * @param op function generating subsequent values based on the previously computed value
-		  *           and the next element of the collection.
-		  * @tparam A type of generated and tested values.
-		  * @return first generated value which satisfies predicate `until` or result of folding the whole collection
-		  *         if no such element was computed.
+		  * one step further, returning the first element which satisfies the given condition,
+		  * where a negated `foldWhile` would return the result of the last iteration which did not.
+		  * Another difference is that `until` is applied starting with `op(start, this.head)`
+		  * (assuming this collection is not empty), rather than `op(start)` as `foldWhile` would.
+		  * @param start an initial value.
+		  * @param until a predicate which needs to be satisfied for the folding to stop.
+		  * @param op    a function generating subsequent values based on the previously computed value
+		  *              and the next element of the collection.
+		  * @tparam A the type of generated and tested values.
+		  * @return `start` if `this.isEmpty`, the first generated value which satisfies predicate `until`,
+		  *         or the result of folding the whole collection if no such element was computed.
 		  */
-		def foldUntil[A](start :A)(until :A => Boolean)(op :(A, T) => A) :A = {
-			var acc = start; val it = items.iterator
-			while (it.hasNext && !until(acc))
-				acc = op(acc, it.next())
-			acc
+		def foldUntil[A](start :A)(op :(A, T) => A)(until :A => Boolean) :A = {
+			var last = start; val i = items.iterator
+			while (i.hasNext && { last = op(last, i.next()); !until(last) })
+				{}
+			last
 		}
+
 
 		/** Applies the given folding function `op` to the elements of this collection starting with the given
 		  * initial value `start` while the predicate `pred` is true for the most recently computed value.
+		  * The predicate is applied for the first time to `op(start, head)` (assuming this collection is not empty),
+		  * not to `start` itself. If this collection is empty, then `start` is returned immediately,
+		  * regardless of whether it satisfies the condition. If all generated values satisfy `pred`,
+		  * then this method is equivalent to `foldLeft(start)(op)`.
 		  * Note that this is not equivalent to `foldUntil(start)(!pred(_))(op)`, as the latter would apply `op`
 		  * one more time unless the end of collection is reached without falsifying the predicate.
-		  * @param start initial value.
-		  * @param pred predicate which needs to be satisfied for folding to continue.
-		  * @param op function generating subsequent values based on the previously computed value
-		  *           and the next element of the collection.
-		  * @tparam A type of generated and tested values.
-		  * @return last generated value which satisfies predicate `pred` or result of folding the whole collection
-		  *         if all computed elements satisfy the predicate.
+		  * @param start an initial value.
+		  * @param pred  a predicate which needs to be satisfied for folding to continue.
+		  * @param op    a function generating subsequent values based on the previously computed value
+		  *              and the next element of the collection.
+		  * @tparam A    the type of generated and tested values.
+		  * @return      `start` if this collection is empty or `op(start, this.head)` is false,
+		  *              or the result of the last application of `op` which still satisfied `pred`.
 		  */
-		def foldWhile[A](start :A)(pred :A =>Boolean)(op :(A, T) => A) :A =
-			items.to(LazyList).scanLeft(start)(op).takeWhile(pred).last
+		def foldWhile[A](start :A)(pred :A => Boolean)(op :(A, T) => A) :A = {
+			var last = start; var next = start
+			val i = items.iterator
+			while (i.hasNext && pred({ next = op(last, i.next()); next }))
+				last = next
+			last
+		}
 
 		/** Applies the given folding function `op` to the elements of this collection starting with the given initial
 		  * value `start` for as long as `op` is defined for the previously computed value.
@@ -61,9 +73,9 @@ package object collection {
 		  * @return result of `this.foldLeft(a)(op)` or first value `a :A` such that `op` is not defined
 		  *         for `(a, e)` where `e` is the first non-folded element of this collection.
 		  */
-		def foldFront[A](start :A)(op :PartialFunction[(A, T), A]) :A = {
+		def partialFold[A](start :A)(op :PartialFunction[(A, T), A]) :A = {
 			val lift = op.lift
-			foldSome(start) { (acc, elem) => lift(acc->elem) }
+			foldSome(start) { (acc, elem) => lift((acc, elem)) }
 		}
 
 		/** Applies the given folding function to the elements of this collection and current accumulator value
@@ -73,16 +85,28 @@ package object collection {
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
 		  *           of this collection, yielding `None` to signal the break condition for folding.
 		  * @tparam A type of generated values.
+		  * @return the result of the last execution of `op` which returned `Some`,
+		  *         or `start` if this collection is empty or `op(start, this.head) == None`.
 		  */
 		def foldSome[A](start :A)(op :(A, T) => Option[A]) :A =
-			items.to(LazyList).scanLeft(Option(start)) {
-				(acc, elem) => acc.flatMap(op(_, elem))
-			}.takeWhile(_.isDefined).last.get
-
+			if (items.isEmpty)
+				start
+			else {
+				val it = items.iterator
+				var last = start
+				while (op(last, it.next()) match {
+					case Some(next) => last = next; true
+					case _ => false
+				}) {}
+				last
+			}
 	}
 
 
-	/** Additional extension methods for collections of the standard library framework. */
+
+	/** Additional extension methods for collections of the standard library framework.
+	  * The common theme is performing mapping with help of a passed state/accumulator value.
+	  */
 	implicit class mappingMethods[C[X] <: Iterable[X], E](private val self :IterableOps[E, C, C[E]])
 		extends AnyVal
 	{
@@ -92,7 +116,7 @@ package object collection {
 		  * as this collection.
 		  */
 		def mapWith[A, O](z :A)(f :(A, E) => (A, O)) :C[O] =
-			self.view.scanLeft((z, null.asInstanceOf[O])) {
+			self.view.scanLeft((z, null.asInstanceOf[O])) { //safe because null is never passed to f and we are in an erased context
 				(acc, e) => f(acc._1, e)
 			}.tail.map(_._2).to(self.iterableFactory)
 
@@ -177,5 +201,58 @@ package object collection {
 				}
 				mapIterable()
 		}
+	}
+
+
+
+	/** Extension methods for [[scala.collection.IterableFactory IterableFactory]], the most common type of
+	  * companion objects for collection types conforming to the Scala collection framework.
+	  * Provides additional generator methods which construct the collection of the proper type.
+	  */
+	implicit class IterableFactoryExtension[C[_]](private val companion :IterableFactory[C]) extends AnyVal {
+
+		/** A complement of `C.iterate` and `C.unfold` provided by collection companion objects, which creates
+		  * a collection `C` by recursively applying a partial function while defined to its own results and collecting
+		  * all returned values. It is very similar to the standard [[scala.collection.IterableFactory.iterate iterate]],
+		  * but instead of a fixed number of iterations, the generator function `next` is called for its return values
+		  * until it is no longer applicable, which marks the end of the collection.
+		  * @param start first element added to the collection.
+		  * @param next generator function returning subsequent elements for the collection based on the previous one,
+		  *             serving as the termination condition by indicating that it can no longer be applied
+		  *             to the given argument.
+		  * @tparam X element type of the generated collection.
+		  * @return a collection containing the sequence starting with `start` and resulting from recursively applying
+		  *         `next` to itself.
+		  */
+		@inline final def generate[X](start :X)(next :PartialFunction[X, X]) :C[X] =
+			expand(start)(next.lift)
+
+		/** Builds the collection `C[X]` by recursively reapplying the given partial function to the initial element.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next` as the termination
+		  * condition and returns once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param start first element added to the collection.
+		  * @param next generator function returning subsequent elements for the collection based on the previous one,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam X element type of the generated collection
+		  * @return a collection containing the sequence starting with `start` and resulting from recursively applying `next`
+		  *         to itself.
+		  */
+		@inline final def expand[X](start :X)(next :X => Option[X]) :C[X] =
+			companion match {
+				case LazyList =>
+					(start #:: (next(start).map(LazyList.expand(_)(next)) getOrElse LazyList.empty)).asInstanceOf[C[X]]
+				case _ =>
+					val builder = companion.newBuilder[X]
+					builder += start
+					@tailrec def rec(x :X = start) :C[X] = next(x) match {
+						case Some(y) => builder += y; rec(y)
+						case None => builder.result()
+					}
+					rec()
+			}
+
 	}
 }

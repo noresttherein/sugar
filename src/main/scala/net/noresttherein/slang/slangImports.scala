@@ -15,8 +15,15 @@ import scala.util.Try
   */
 trait slangImports {
 	//todo: i.++  ++.i macros
-	/** The 'WTF' method throwing an [[net.noresttherein.slang.ImplementationError ImplementationError]] */
-	def ??! :Nothing = throw new ImplementationError
+
+	/** The 'WTF' method throwing
+	  * a [[net.noresttherein.slang.ThisShouldBeImpossibleException ThisShouldBeImpossibleException]].
+	  * Intended for code which should, to the best of the programmer's - but not compiler's - knowledge, unreachable.
+	  * Placed after infinite loops, as the body of methods which are never called (but, for example, remain
+	  * for binary compatibility), or methods of sealed classes which are overriden by subclasses and similar
+	  * circumstances.
+	  */
+	def ??! :Nothing = throw new ThisShouldBeImpossibleException
 
 
 
@@ -28,6 +35,11 @@ trait slangImports {
 
 	@inline final def noneSuch_!(msg :String) :Nothing =
 		throw new NoSuchElementException(msg)
+
+	@inline final def illegal_!(msg :String) :Nothing =
+		throw new IllegalArgumentException(msg)
+
+//	@inline final def override_! :Nothing =
 
 
 
@@ -52,7 +64,7 @@ trait slangImports {
 			classTag[E].runtimeClass.getConstructor(classOf[String], classOf[Throwable]).newInstance("", null).asInstanceOf[Throwable]
 		} recover {
 			case ex :Exception => new IllegalArgumentException(
-				s"Can't throw ${classTag[E].runtimeClass} as a result of guard failure: no constructor (), (String) or (String, Throwable).",
+				s"Can't throw ${classTag[E].runtimeClass} as a result of q guard failure: no constructor (), (String) or (String, Throwable).",
 				ex
 			)
 		}).get

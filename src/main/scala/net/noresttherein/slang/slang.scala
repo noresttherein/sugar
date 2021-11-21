@@ -11,7 +11,7 @@ package net.noresttherein
   */
 package object slang extends slangImports {
 
-	class ImplementationError(msg :String, reason :Throwable) extends Error(msg, reason) {
+	class ThisShouldBeImpossibleException(msg :String, reason :Throwable) extends Error(msg, reason) {
 		def this(msg :String) = this(msg, null)
 
 		def this() = this("Implementation error", null)
