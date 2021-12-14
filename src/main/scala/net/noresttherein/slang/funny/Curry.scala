@@ -382,20 +382,21 @@ object Curry {
 	  */
 	object FunctionUnification {
 
-		/** Extends any function type `G` with a right-associative method `:*:` for pairing it with another function `F`.
-		  * Returned `F:*:G` instance has an implicit conversion via overloaded `Curry.:*:` to `reduce_:*:` which can be used
-		  * to create another function accepting same (as defined by term unification of `F` and `G`) arguments and returning
-		  * the result of combining return values of `f` and `g` for these arguments with a reducing function.
-		  * @see [[net.noresttherein.slang.funny.Curry.:*:]]
-		  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_:*:]]
+		/** Extends any function type `F` with a method `<=>` for pairing it with another function `G`.
+		  * Returned `F<=>G` instance has an implicit conversion via overloaded `Curry.<=>` to `reduce_<=>` 
+		  * which can be used to create another function accepting the same (as defined by term unification
+		  * of `F` and `G`) arguments and returning the result of combining return values of `f` and `g`
+		  * for these arguments with a reducing function.
+		  * @see [[net.noresttherein.slang.funny.Curry.<=>]]
+		  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_<=>]]
 		  */
-		final class build_:*:[G <: (_ => _)](private val g :G) extends AnyVal {
+		final class build_<=>[F <: (_ => _)](private val f :F) extends AnyVal {
 
-			/** Bind together this (right-hand value) function `G` with another function `f :F` into a `F:*:G` instance
+			/** Bind together this (right-hand value) function `G` with another function `f :F` into a `F<=>G` instance
 			  * which can be used to combine both functions into a single function by unifying argument lists of `F` and `G`
 			  * and combining values returned by both for the given arguments with a function operating on their return types.
 			  */
-			@inline def :*:[F <: (_ => _ )](f :F) : F:*:G = new :*:(f, g)
+			@inline def <=>[G <: (_ => _ )](g :G) : F <=> G = new <=>(f, g)
 		}
 
 
@@ -487,19 +488,19 @@ object Curry {
 		/** Given two function types `F` and `G` and their unification type specified as their common argument list
 		  * and types returned by applying them to these arguments, allow to create a unification function resulting
 		  * from applying both to the same arguments and combining their results with an arbitrary function.
-		  * An implicit conversion [[net.noresttherein.slang.funny.Curry.:*:[F,Y,G,R]* Curry.:*:]]
-		  * performs unification of function pairs of type [[net.noresttherein.slang.funny.Curry.:*:[F, G]! F:*:G]],
-		  * converting them to instances of `reduce_:*:`. This conversion can be enforced by simply invoking
-		  * this class's `apply` method, as it is not declared in the `:*:` class itself.
+		  * An implicit conversion [[net.noresttherein.slang.funny.Curry.<=>[F,Y,G,R]* Curry.<=>]]
+		  * performs unification of function pairs of type [[net.noresttherein.slang.funny.Curry.<=>[F, G]! F<=>G]],
+		  * converting them to instances of `reduce_<=>`. This conversion can be enforced by simply invoking
+		  * this class's `apply` method, as it is not declared in the `<=>` class itself.
 		  * @tparam F 'left' curried function type in the form of `F1=>...=>Fn=>Y`, `F <: Returning[Y]`.
 		  * @tparam Y type returned by `F` after applying to arguments common with `G`.
 		  * @tparam G 'right' curried function type in the form of `G1=>..=>Gn=>Z`, `G <: Returning[Z]`.
 		  * @tparam Z type returned by `G` after applying to arguments common with `F`.
 		  * @tparam R curried function type with return type `O` (type parameter of `R`) and which arguments are
 		  *           lower bounds of respective arguments of `F` and `G`; `F <: R[Y]` and `G <: R[Z]`.
-		  * @see [[net.noresttherein.slang.funny.Curry.:*:[F, G]!]]
+		  * @see [[net.noresttherein.slang.funny.Curry.<=>[F, G]!]]
 		  */
-		class reduce_:*:[F, Y, G, Z, R[O]](f :F, g :G)
+		class reduce_<=>[F, Y, G, Z, R[O]](f :F, g :G)
 		                                  (implicit val unification :Unification[F, G] {
 			                                  type LeftResult = Y
 			                                  type RightResult = Z
@@ -524,8 +525,8 @@ object Curry {
 	/** Pairs two values (presumably curried functions) for subsequent combining them into a single function by
 	  * the means of a function operating on their result values. This class has no methods; instead, there is
 	  * an implicit conversion with the shared name (so importing this symbol will import the conversion at the same time)
-	  * to `reduce_:*:`, which provides
-	  * the [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_:*:.apply reduce_:*:.apply]] method
+	  * to `reduce_<=>`, which provides
+	  * the [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_<=>.apply reduce_<=>.apply]] method
 	  * performing the actual reducing of these functions. This roundabout way is forced because the alternative
 	  * of declaring that method here with implicit unification parameters accepted by the conversion would first,
 	  * prevent applying the result to its proper arguments (as the following '(...)' parameter group would be interpreted
@@ -533,42 +534,42 @@ object Curry {
 	  * `apply`'s argument function, because all required types have been already determined by the conversion (instead
 	  * of being instantiated with implicit resolution ''following'' the actual argument).
 	  *
-	  * Instances of this class can be created by invoking overloaded `:*:` method on the right-hand argument,
-	  * which is made available again by an overloaded implicit conversion method `Curry.:*:`, so that importing the
-	  * `:*:` symbol imports the associated class and all implicit conversions required for its functioning:
+	  * Instances of this class can be created by invoking overloaded `<=>` method on the right-hand argument,
+	  * which is made available again by an overloaded implicit conversion method `Curry.<=>`, so that importing the
+	  * `<=>` symbol imports the associated class and all implicit conversions required for its functioning:
 	  * {{{
 	  *     val f :X1=>X2=>X3=>Y
 	  *     val g :X1=>X2=>X3=>Z
 	  *     val c :(Y, Z) => R
-	  *     import Curry.:*:
-	  *     val r = (f :*: g)(c)(x1)(x2)(x3)
+	  *     import Curry.<=>
+	  *     val r = (f <=> g)(c)(x1)(x2)(x3)
 	  * }}}
-	  * @param _1 function on the left side of the operator `:*:` used to create this instance.
-	  * @param _2 function on the right side of the operator `:*:` used to create this instance.
-	  * @tparam F type of the function on the left side of the operator `:*:` used to create this instance.
-	  * @tparam G type of the function on the right side of the operator `:*:` used to create this instance.
-	  * @see [[net.noresttherein.slang.funny.Curry.:*:[G](g:G)]]
-	  * @see [[net.noresttherein.slang.funny.Curry.:*:[F,Y,G,R](funs:F:*:G)]]
-	  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_:*:[F,Y,G,Z,R]]]
+	  * @param _1 function on the left side of the operator `<=>` used to create this instance.
+	  * @param _2 function on the right side of the operator `<=>` used to create this instance.
+	  * @tparam F type of the function on the left side of the operator `<=>` used to create this instance.
+	  * @tparam G type of the function on the right side of the operator `<=>` used to create this instance.
+	  * @see [[net.noresttherein.slang.funny.Curry.<=>[G](g:G)]]
+	  * @see [[net.noresttherein.slang.funny.Curry.<=>[F,Y,G,R](funs:F<=>G)]]
+	  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_<=>[F,Y,G,Z,R]]]
 	  */
-	final class :*:[F, G](private[Curry] val _1 :F, private[Curry] val _2 :G)
+	final class <=>[F, G](private[Curry] val _1 :F, private[Curry] val _2 :G)
 
-	/** Enrich function type `G` with a right-associative method `:*:` which will pair it with another function so both
+	/** Enrich function type `G` with a right-associative method `<=>` which will pair it with another function so both
 	  * can be combined into a single function by operating on their respective return types.
-	  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.build_:*:]]
-	  * @see [[net.noresttherein.slang.funny.Curry.:*:[F, G]!]]
+	  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.build_<=>]]
+	  * @see [[net.noresttherein.slang.funny.Curry.<=>[F, G]!]]
 	  */
-	@inline implicit def :*:[G <: (_ => _)](g :G) : build_:*:[G] = new build_:*:[G](g)
+	@inline implicit def <=>[G <: (_ => _)](g :G) : build_<=>[G] = new build_<=>[G](g)
 
 	/** Find the maximum unification of functions `F` and `G` (understood as list of arguments which can be given to both
 	  * of them and return types of these applications). Returned object provides an `apply` method accepting a function
 	  * operating on the return types of unified forms of `F` and `G` and returning a new function which will use it
 	  * to produce the result.
-	  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_:*:]]
+	  * @see [[net.noresttherein.slang.funny.Curry.FunctionUnification.reduce_<=>]]
 	  */
-	@inline implicit def :*:[F, Y, G, R](funs :F:*:G)(implicit unification :Unification[F, G])
-			: reduce_:*:[F, unification.LeftResult, G, unification.RightResult, unification.Returning] =
-		new reduce_:*:[F, unification.LeftResult, G, unification.RightResult, unification.Returning](
+	@inline implicit def <=>[F, Y, G, R](funs :F<=>G)(implicit unification :Unification[F, G])
+			: reduce_<=>[F, unification.LeftResult, G, unification.RightResult, unification.Returning] =
+		new reduce_<=>[F, unification.LeftResult, G, unification.RightResult, unification.Returning](
 			funs._1, funs._2)(unification
 		)
 

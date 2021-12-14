@@ -1,17 +1,16 @@
-package net.noresttherein.slang
+package net.noresttherein.slang.fun
 
 import net.noresttherein.slang.funny.fun
 import net.noresttherein.slang.funny.fun.ComposableFun
 import net.noresttherein.slang.numeric.{LongRatio, Ratio}
-import net.noresttherein.slang.prettyprint.abbrevNameOf
-import org.scalacheck.{Prop, Properties}
+import net.noresttherein.slang.prettyprint
 import org.scalacheck.Prop._
+import org.scalacheck.Properties
 
 /**
   * @author Marcin Mościcki
   */
 object funSpec extends Properties("fun") {
-	import net.noresttherein.slang.optional._
 
 
 	property("named(name) { ... }") = {

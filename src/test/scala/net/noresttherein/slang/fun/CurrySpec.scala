@@ -1,10 +1,10 @@
-package net.noresttherein.slang
+package net.noresttherein.slang.fun
 
-import org.scalacheck.Properties
-import org.scalacheck.Prop._
 import net.noresttherein.slang.funny.Curry
 import net.noresttherein.slang.funny.Curry.Curried
 import net.noresttherein.slang.funny.Curry.Curried.__
+import org.scalacheck.Prop._
+import org.scalacheck.Properties
 
 
 
@@ -28,43 +28,43 @@ object CurrySpec extends Properties("Curry") {
 	def e(args :Args) :String = e(args._1)(args._2)(args._3)(args._4)
 
 //	import net.noresttherein.slang.funny.Curry.PartiallyApplied.CurryOn
-	import Curry.:*:
+	import Curry.<=>
 
-	property(":*:") = {
+	property("<=>") = {
 		def apply(f :F)(implicit args :Args) :String = { import args._; f(_1)(_2)(_3)(_4) }
 
-		def res(implicit args :Args) = { import args._;  apply(a)(args) + apply(b)(args) }
+		def res(implicit args :Args) = { apply(a)(args) + apply(b)(args) }
 
 		forAll { implicit args: Args => import args._
-			(a :*: b) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Any=>Any=>String :*: Any=>Any=>Any=>Any=>String" &&
+			(a <=> b) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Any=>Any=>String <=> Any=>Any=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			((a: (Byte => Any => Any => Any => String)) :*: b) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Byte=>Any=>Any=>Any=>String :*: Any=>Any=>Any=>Any=>String" &&
+			((a: (Byte => Any => Any => Any => String)) <=> b) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Byte=>Any=>Any=>Any=>String <=> Any=>Any=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			((a :Any=>Short=>Any=>Any=>String) :*: b) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Short=>Any=>Any=>String :*: Any=>Any=>Any=>Any=>String" &&
+			((a :Any=>Short=>Any=>Any=>String) <=> b) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Short=>Any=>Any=>String <=> Any=>Any=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			((a :Any=>Any=>Int=>Any=>String) :*: b) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Int=>Any=>String :*: Any=>Any=>Any=>Any=>String" &&
+			((a :Any=>Any=>Int=>Any=>String) <=> b) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Int=>Any=>String <=> Any=>Any=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			((a :Any=>Any=>Any=>Long=>String) :*: b) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Any=>Long=>String :*: Any=>Any=>Any=>Any=>String" &&
+			((a :Any=>Any=>Any=>Long=>String) <=> b) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Any=>Long=>String <=> Any=>Any=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			(a :*: (b :Byte=>Any=>Any=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Any=>Any=>String :*: Byte=>Any=>Any=>Any=>String" &&
+			(a <=> (b :Byte=>Any=>Any=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Any=>Any=>String <=> Byte=>Any=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			(a :*: (b :Any=>Short=>Any=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Any=>Any=>String :*: Any=>Short=>Any=>Any=>String" &&
+			(a <=> (b :Any=>Short=>Any=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Any=>Any=>String <=> Any=>Short=>Any=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			(a :*: (b :Any=>Any=>Int=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Any=>Any=>String :*: Any=>Any=>Int=>Any=>String" &&
+			(a <=> (b :Any=>Any=>Int=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Any=>Any=>String <=> Any=>Any=>Int=>Any=>String" &&
 		forAll { implicit args: Args => import args._
-			(a :*: (b :Any=>Any=>Any=>Long=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Any=>Any=>Any=>Any=>String :*: Any=>Any=>Any=>Long=>String" &&
+			(a <=> (b :Any=>Any=>Any=>Long=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Any=>Any=>Any=>Any=>String <=> Any=>Any=>Any=>Long=>String" &&
 		forAll { implicit args: Args => import args._
-			((a :Byte=>Any=>Int=>Long=>String) :*: (b :Byte=>Short=>Int=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
-		} :| "Byte=>Any=>Int=>Long=>String :*: Byte=>Short=>Int=>Any=>String"
+			((a :Byte=>Any=>Int=>Long=>String) <=> (b :Byte=>Short=>Int=>Any=>String)) (_ + _)(_1)(_2)(_3)(_4) ?= res
+		} :| "Byte=>Any=>Int=>Long=>String <=> Byte=>Short=>Int=>Any=>String"
 
 	}
 
@@ -97,7 +97,7 @@ object CurrySpec extends Properties("Curry") {
 
 
 	property("Curried.mapped") =
-		forAll { args :Args => import args._; Curried(f).mapped(g => (a :Args) => g(a._1)(a._2)(a._3)(a._4))(args) ?= f(args) } :| "mapped{}" &&
+		forAll { args :Args => ; Curried(f).mapped(g => (a :Args) => g(a._1)(a._2)(a._3)(a._4))(args) ?= f(args) } :| "mapped{}" &&
 		forAll { args :Args => import args._; Curried(f)().mapped(g => (s :Short, i :Int, l :Long) => g(s)(i)(l))(_1)(_2, _3, _4) ?= f(args) } :| "().mapped{}" &&
 		forAll { args :Args => import args._; Curried(f)()().mapped(g => (i :Int, l :Long) => g(i)(l))(_1)(_2)(_3, _4) ?= f(args) } :| "()().mapped{}" &&
 		forAll { args :Args => import args._; Curried(f)()()().mapped(g => (l :Long) => g(l) + g(l))(_1)(_2)(_3)(_4) ?= (f(args) + f(args))} :| "()()().mapped{}"
@@ -109,7 +109,7 @@ object CurrySpec extends Properties("Curry") {
 		forAll { args :Args => import args._; Curried(f)()()().accepting[String](_1)(_2)(_3)("spy")(_4) ?= f(args)} :| "()()().accepting"
 
 	property("Curried.combined") =
-		forAll { args :Args => import args._
+		forAll { args :Args =>
 			Curried(f).combined[Byte, Short=>Int=>Long=>String, Args=>String](g){ (l, r) => (a :Args) => l(a._1)(a._2)(a._3)(a._4) + r(a._1)(a._2)(a._3)(a._4) }(args) ?= (f(args) + g(args))
 		} :| "combine{}" &&
 		forAll { args :Args => import args._
@@ -131,16 +131,16 @@ object CurrySpec extends Properties("Curry") {
 	property("Curried.*") =
 		forAll { args :Args =>
 			(Curried(f) * Curried(g)){ (l, r) => (a :Args) => import a._; l(_1)(_2)(_3)(_4) + r(_1)(_2)(_3)(_4) }(args) ?= (f(args) + g(args))
-		} :| ":*:" &&
+		} :| "<=>" &&
 		forAll { args :Args => import args._
 			(Curried(f)() * Curried(g)()){ (l, r) => (a :Args) => import a._; l(_2)(_3)(_4) + r(_2)(_3)(_4) }(_1)(args) ?= (f(args) + g(args))
-		} :| "():*:" &&
+		} :| "()<=>" &&
 		forAll { args :Args => import args._
 			(Curried(f).__.__ * Curried(g).__.__){ (l, r) => (a :Args) => import a._; l(_3)(_4) + r(_3)(_4) }(_1)(_2)(args) ?= (f(args) + g(args))
-		} :| "()():*:" &&
+		} :| "()()<=>" &&
 		forAll { args :Args => import args._
 			(Curried(f).next.next.next * Curried(g).next.next.next){ (l, r) => (a :Long) => l(a)+r(a) }(_1)(_2)(_3)(_4) ?= (f(args) + g(args))
-		} :| "()()():*:"
+		} :| "()()()<=>"
 
 
 
