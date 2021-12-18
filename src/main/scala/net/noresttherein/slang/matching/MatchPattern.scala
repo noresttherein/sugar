@@ -17,7 +17,7 @@ import net.noresttherein.slang.prettyprint.classNameMethods
   * @tparam Out type of extracted (result) values.
   */
 @SerialVersionUID(1L)
-abstract class Unapply[-In, +Out] extends Serializable {
+abstract class MatchPattern[-In, +Out] extends Serializable {
 	def unapply(arg :In) :Option[Out]
 
 	/** Equivalent to `unapply(arg).get` - forces a result value out of the argument failing with an exception instead
@@ -28,7 +28,7 @@ abstract class Unapply[-In, +Out] extends Serializable {
 		throw new NoSuchElementException(s"$this.get($arg)")
 	}
 
-	/** Same as [[net.noresttherein.slang.matching.Unapply.unapply unapply]]. Directly dispatches this call
+	/** Same as [[net.noresttherein.slang.matching.MatchPattern.unapply unapply]]. Directly dispatches this call
 	  * to the latter. */
 	@inline final def apply(arg :In) :Option[Out] = unapply(arg)
 
@@ -37,10 +37,10 @@ abstract class Unapply[-In, +Out] extends Serializable {
 
 
 
-/** Factory object for [[net.noresttherein.slang.matching.Unapply Unapply]] extractor objects. */
-object Unapply {
+/** Factory object for [[net.noresttherein.slang.matching.MatchPattern Unapply]] extractor objects. */
+object MatchPattern {
 	/** Adapt a given option returning function to an extractor object usable in pattern matching. */
-	def apply[In, Out](f :In => Option[Out]) :Unapply[In, Out] = new Unapply[In, Out] {
+	def apply[In, Out](f :In => Option[Out]) :MatchPattern[In, Out] = new MatchPattern[In, Out] {
 		override def unapply(in :In) = f(in)
 
 		override def toString = s"Unapply(${f.innerClassName})"
@@ -58,16 +58,27 @@ object Unapply {
 	  * generate compiler warnings unlike direct casts (but just as using the associated `ClassTag.unapply` method).
 	  * @tparam X type of cast values.
 	  * @tparam Y type of argument values after narrowing.
-	  * @return an [[net.noresttherein.slang.matching.Unapply Unapply]] instance implementing a filtering of `X` values to those conforming to `X with Y`.
+	  * @return an [[net.noresttherein.slang.matching.MatchPattern Unapply]] instance implementing a filtering of `X` values to those conforming to `X with Y`.
 	  */
-	def narrow[X, Y :ClassTag] :Unapply[X, Y] = new Unapply[X, Y with X] {
+	def narrow[X, Y :ClassTag] :MatchPattern[X, Y] = new MatchPattern[X, Y with X] {
 		private[this] val Result :ClassTag[Y] = implicitly[ClassTag[Y]]
 
 		override def unapply(arg :X) :Option[X with Y] = Result.unapply(arg).asInstanceOf[Option[X with Y]]
 
 		override def toString :String = "narrow[_=>" + Result.runtimeClass.getName + "]"
 	}
+}
 
+
+
+/** Forces a function literal given as the argument
+  * to be SAM-converted to [[net.noresttherein.slang.matching.MatchPattern MatchPattern]].
+  */
+object Unapply {
+	/** Forces a function literal given as the argument
+	  * to be SAM-converted to [[net.noresttherein.slang.matching.MatchPattern MatchPattern]].
+	  */
+	@inline def apply[In, Out](pattern :MatchPattern[In, Out]) :MatchPattern[In, Out] = pattern
 }
 
 
@@ -87,7 +98,7 @@ abstract class MatchFunction[-In, +Out] extends PartialFunction[In, Out] {
 
 	override def isDefinedAt(x: In): Boolean = unapply(x).isDefined
 
-	@inline final override def apply(x: In): Out = unapply(x) getOrElse {
+	override def apply(x: In): Out = unapply(x) getOrElse {
 		throw new NoSuchElementException(s"$this($x)")
 	}
 
@@ -98,7 +109,6 @@ abstract class MatchFunction[-In, +Out] extends PartialFunction[In, Out] {
 
 /** Companion object for extractors. */
 object MatchFunction {
-
 	/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
 	  * that can be used in pattern matching or as a partial function.
 	  * @param f function extracting `Out` values from `In` arguments.
@@ -109,11 +119,34 @@ object MatchFunction {
 	def apply[In, Out](f :In => Option[Out]) :MatchFunction[In, Out] =
 		new OptionFunction(f, s"MatchFunction(${f.innerClassName})")
 
-
 	private class OptionFunction[-In, +Out](f :In => Option[Out], override val toString :String)
 		extends MatchFunction[In, Out]
 	{
 		override def unapply(in: In): Option[Out] = f(in)
 	}
+}
 
+
+
+/** Adapts a partial function `X => Y` to a [[net.noresttherein.slang.matching.MatchFunction MatchFunction]]. */
+object Match {
+	/** Adapts a partial function `X => Y` to a [[net.noresttherein.slang.matching.MatchFunction MatchFunction]].
+	  * The application is split into two steps in order to provide an explicit argument type parameter first,
+	  * with the return type being inferred.
+	  * @return an object with method
+	  *         [[net.noresttherein.slang.matching.Match.AdaptPartialFunction.apply apply]]`(f :PartialFunction[X, Y])`
+	  *         returning a `MatchFunction[X, Y]`.
+	  */
+	def apply[X] :AdaptPartialFunction[X] = new AdaptPartialFunction[X] {}
+
+	sealed trait AdaptPartialFunction[X] extends Any {
+		@inline def apply[Y](f :PartialFunction[X, Y]) :MatchFunction[X, Y] =
+			new MatchFunction[X, Y] {
+				override val lift = super.lift
+				override def unapply(a :X) :Option[Y] = lift(a)
+				override def apply(a :X) :Y = f(a)
+				override def applyOrElse[A1 <: X, B1 >: Y](x :A1, default :A1 => B1) :B1 = f.applyOrElse(x, default)
+				override def isDefinedAt(x :X) :Boolean = f.isDefinedAt(x)
+			}
+	}
 }

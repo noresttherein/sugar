@@ -1003,6 +1003,7 @@ object RX {
 	  * @param isOn whether the flag is being turned on or off.
 	  * @see [[net.noresttherein.slang.matching.RX.apply(flags:net\.noresttherein\.slang\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
+    @SerialVersionUID(1L)
 	final class Flag private[RX](val code :String, val isOn :Boolean = true)
 		extends RXGroup(if (isOn) "-" + code else code, EmptyRX)
 	{
@@ -1023,6 +1024,7 @@ object RX {
 
 
 
+	@SerialVersionUID(1L)
 	private class EmptyRX extends RX {
 
 		override def ::(other :RX) :RX = other
@@ -1053,6 +1055,7 @@ object RX {
 		override def toString = ""
 	}
 
+	@SerialVersionUID(1L)
 	private class AdapterRX(override val toString :String, override val groups :Seq[String]) extends RX {
 		def this(pattern :String) = this(pattern, Nil)
 
@@ -1060,7 +1063,7 @@ object RX {
 	}
 
 
-
+	@SerialVersionUID(1L)
 	private[RX] class AtomicRX(override val toString :String) extends RX {
 		override def ncgroup :RX = this
 
@@ -1068,7 +1071,7 @@ object RX {
 	}
 
 
-
+	@SerialVersionUID(1L)
 	private[RX] class RXGroup(val prefix :String, body :RX) extends RX {
 		def this(body :RX) = this(":", body)
 
@@ -1083,6 +1086,7 @@ object RX {
 		}
 	}
 
+	@SerialVersionUID(1L)
 	private[RX] class NonCapturingGroup(body :RX) extends RXGroup(":", body) {
 		override def ~> :RX = body.~>
 
@@ -1099,16 +1103,18 @@ object RX {
 		override def group(name :String) :RX =	body.group(name)
 	}
 
-
+	@SerialVersionUID(1L)
 	private[RX] class NamedGroup(name :String, body :RX) extends RXGroup(adapt("<" + name +'>')) {
 		override def groups :Seq[String] = name +: body.groups
 	}
 
+	@SerialVersionUID(1L)
 	private[RX] class FlaggedGroup(body :RX, flags :Seq[Flag])
 		extends RXGroup(flags.filter(_.isOn).mkString + flags.filterNot(_.isOn).mkString("-", "", ":"), body)
 
 
 
+	@SerialVersionUID(1L)
 	private[RX] class RepeatedRX(body :RX, symbol :String) extends RX {
 		override def groups :Seq[String] = body.groups
 
@@ -1119,7 +1125,7 @@ object RX {
 	}
 
 
-
+	@SerialVersionUID(1L)
 	private[RX] class QuantifiedRX(body :RX, min :Int, max :Int, symbol :String = "") extends RX {
 		override def groups :Seq[String] = body.groups
 
@@ -1138,6 +1144,7 @@ object RX {
 	}
 
 
+	@SerialVersionUID(1L)
 	private[RX] class Alternative(first :RX, second :RX) extends RX {
 
 		override def groups :Seq[String] = listGroups(Nil)
@@ -1152,7 +1159,7 @@ object RX {
 	}
 
 
-
+	@SerialVersionUID(1L)
 	private[RX] class Concatenation(first :RX, second :RX) extends RX {
 
 		override def groups :Seq[String] = listGroups(Nil)
@@ -1223,6 +1230,7 @@ object RX {
 	  */
 	private def atom(regexp :String) :CharacterClass = new AtomicCharClass(regexp)
 
+	@SerialVersionUID(1L)
 	private class AtomicCharClass(override val classBody :String) extends CharacterClass {
 
 		override def ncgroup :RX = this
@@ -1286,12 +1294,14 @@ object RX {
 		new CharacterRange(range._1, range._2)
 
 
+	@SerialVersionUID(1L)
 	private class CharacterRange(start :Char, end :Char) extends CharacterClass {
 		private[RX] override def classBody :String = start.toString + '-' + end
 	}
 
 
 
+	@SerialVersionUID(1L)
 	private class NegatedClass(body :CharacterClass) extends CharacterClass {
 		override def unary_! :CharacterClass = body
 
@@ -1307,12 +1317,14 @@ object RX {
 
 
 
+	@SerialVersionUID(1L)
 	private class DisjunctionCharClass(first :CharacterClass, second :CharacterClass) extends CharacterClass {
 		override def classBody :String = first.classBody + second.classBody
 	}
 
 
 
+	@SerialVersionUID(1L)
 	private class ConjunctionCharClass(first :CharacterClass, second :CharacterClass) extends CharacterClass {
 		override def unary_! :CharacterClass = !(first | second)
 
@@ -1326,7 +1338,8 @@ object RX {
 	  * [[net.noresttherein.slang.matching.RX.RepeatAtLeast RepeatAtLeast]]: `1.-*`.
 	  * @see [[net.noresttherein.slang.matching.RX.\* *]]
 	  */
-	final class AtLeast(val n :Int) 
+	@SerialVersionUID(1L)
+	final class AtLeast(val n :Int)
 
 	/** Requests that a regular expression should be matched at least the given number of times. */
 	def AtLeast(n :Int) :AtLeast = new AtLeast(n)
