@@ -3,6 +3,9 @@ package net.noresttherein.slang
 import scala.annotation.tailrec
 import scala.collection.{IterableFactory, IterableOnce, IterableOps, LinearSeq}
 
+import net.noresttherein.slang.optional.Opt
+import net.noresttherein.slang.optional.Opt.{Got, Lack}
+
 
 /**
   * @author Marcin Mościcki
@@ -16,7 +19,7 @@ package object collection {
 	  * @param items any collection to fold.
 	  * @tparam T element type of this collection.
 	  */
-	implicit class foldingMethods[T](private val items :Iterable[T]) extends AnyVal {
+	implicit class foldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 		/** Applies the given folding function `op` to the elements of this collection starting with the given
 		  * initial value `start` while the predicate `until` is false for the most recently computed value.
 		  * Note that this is not equivalent to `foldWhile(start)(!until(_))(op)` as the recursion goes
@@ -88,10 +91,10 @@ package object collection {
 		  * @return the result of the last execution of `op` which returned `Some`,
 		  *         or `start` if this collection is empty or `op(start, this.head) == None`.
 		  */
-		def foldSome[A](start :A)(op :(A, T) => Option[A]) :A =
-			if (items.isEmpty)
-				start
-			else {
+		def foldSome[A](start :A)(op :(A, T) => Option[A]) :A = items match {
+			case it :Iterable[_] if it.isEmpty => start
+			case it :Iterator[_] if it.isEmpty => start
+			case _ =>
 				val it = items.iterator
 				var last = start
 				while (op(last, it.next()) match {
@@ -99,7 +102,7 @@ package object collection {
 					case _ => false
 				}) {}
 				last
-			}
+		}
 	}
 
 
@@ -200,6 +203,112 @@ package object collection {
 					b.result()
 				}
 				mapIterable()
+		}
+	}
+
+
+
+	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Seq]],
+	  * which do not return a negative index when the element is not found.
+	  */
+	implicit class indexOfMethods[X](private val self :scala.collection.Seq[X]) extends AnyVal {
+		@inline def length :Int = self.length
+
+		/** Finds the location of the given element in this sequence, returning its index as an option.
+		  * @param x    the element, whose index is to be determined.
+		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
+		  */
+		@inline def getIndexOf(x :X, from :Int = 0) :Opt[Int] = self.indexOf(x, from) match {
+			case n if n >= 0 => Got(n)
+			case _ => Lack
+		}
+		/** Finds the last location of the given element in this sequence, returning its index as an option.
+		  * @param x   the element, whose index is to be determined.
+		  * @param end the upper, inclusive bound on the returned index.
+		  */
+		@inline def getLastIndexOf(x :X, end :Int = length - 1) :Opt[Int] = self.lastIndexOf(x, end) match {
+			case n if n >= 0 => Got(n)
+			case _ => Lack
+		}
+		/** Finds an element of this sequence which satisfies the predicate, returning its index as an option.
+		  * @param p    a function applied consecutively to all elements with indices greater or equal `from`.
+		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
+		  */
+		@inline def getIndexWhere(p :X => Boolean, from :Int = 0) :Opt[Int] = self.indexOf(p, from) match {
+			case n if n >= 0 => Got(n)
+			case _ => Lack
+		}
+		/** Finds the last element of this sequence which satisfies the predicate, returning its index as an option.
+		  * @param p   a function applied consecutively to all elements with indices lesser or equal `end`,
+		  *            in a decreasing order.
+		  * @param end the upper, inclusive bound on the returned index; elements after this position will not be checked.
+		  */
+		@inline def getLastIndexWhere(p :X => Boolean, end :Int = length - 1) :Opt[Int] =
+			self.lastIndexWhere(p, end) match {
+				case n if n >= 0 => Got(n)
+				case _ => Lack
+			}
+		/** Finds the location of the given element in this sequence, throwing a [[NoSuchElementException]]
+		  * if it does not exist.
+		  * @param x    the element, whose index is to be determined.
+		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
+		  */
+		@inline def sureIndexOf(x :X, from :Int = 0) :Int = self.indexOf(x, from) match {
+			case n if n >= 0 => n
+			case _ => throw new NoSuchElementException(
+				"No " + x + " in " + self + (if (from == 0) "." else " after index " + (from-1) + "-th element.")
+			)
+		}
+		/** Finds the last location of the given element in this sequence, throwing a [[NoSuchElementException]]
+		  * if it does not exist.
+		  * @param x   the element, whose index is to be determined.
+		  * @param end the upper, inclusive bound on the returned index.
+		  */
+		@inline def sureLastIndexOf(x :X, end :Int = length - 1) :Int = self.lastIndexOf(x, end) match {
+			case n if n >= 0 => n
+			case _ => throw new NoSuchElementException(
+				"No " + x + " in " + self + (if (end == self.length - 1) "." else " before index " + (end + 1) + ".")
+			)
+		}
+		/** Finds an element of this sequence which satisfies the predicate, throwing a [[NoSuchElementException]]
+		  * if it does not exist.
+		  * @param p    a function applied consecutively to all elements starting with the first one.
+		  */
+		@inline def sureIndexWhere(p :X => Boolean) :Int = self.indexWhere(p) match {
+			case n if n >= 0 => n
+			case _ => throw new NoSuchElementException("No element satisfying the predicate in " + self + ".")
+		}
+		/** Finds an element of this sequence which satisfies the predicate, throwing a [[NoSuchElementException]]
+		  * if it does not exist.
+		  * @param p    a function applied consecutively to all elements with indices greater or equal `from`,
+		  *             until satisfied.
+		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
+		  */
+		@inline def sureIndexWhere(p :X => Boolean, from :Int) :Int = self.indexWhere(p, from) match {
+			case n if n >= 0 => n
+			case _ => throw new NoSuchElementException(
+				"No element satisfying the predicate in " + self + " after index " + (from - 1) + "."
+			)
+		}
+		/** Finds the last element of this sequence which satisfies the predicate, throwing a [[NoSuchElementException]]
+		  * if it does not exist.
+		  * @param p   a function applied consecutively to all elements, starting with the last one, until satisfied.
+		  */
+		@inline def sureLastIndexWhere(p :X => Boolean) :Int = self.lastIndexWhere(p) match {
+			case n if n >= 0 => n
+			case _ => throw new NoSuchElementException("No element satisfying the predicate in " + self + ".")
+		}
+		/** Finds the last element of this sequence which satisfies the predicate, throwing a [[NoSuchElementException]]
+		  * if it does not exist.
+		  * @param p   a function applied consecutively to all elements, starting with the one at position `end`,
+		  *            until satisfied.
+		  * @param end the upper, inclusive bound on the returned index; elements after this index are not checked.
+		  */
+		@inline def sureLastIndexWhere(p :X => Boolean, end :Int) :Int = self.lastIndexWhere(p, end) match {
+			case n if n >= 0 => n
+			case _ => throw new NoSuchElementException(
+				"No element satisfying the predicate in " + self + " before index " + (end + 1) + "."
+			)
 		}
 	}
 
