@@ -60,21 +60,47 @@ package object optional {
 		}
 
 		/** Gets the element in the option or throws a `NoSuchElementException` with the given message. */
-		@inline def getOrThrow(msg: => String) :T = self getOrElse {
-			throw new NoSuchElementException(msg)
-		}
-
-		/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
-		@inline def getOrIllegal(msg: => String) :T = self getOrElse {
-			throw new IllegalArgumentException(msg)
+		@inline def orThrow(msg: => String) :T = self match {
+			case Some(t) => t
+			case _ => throw new NoSuchElementException(msg)
 		}
 
 		/** Gets the element in the option or throws the exception given as the type parameter with the given message.
 		  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 		  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
 		  */
-		@inline def getOrThrow[E <: Exception :ClassTag](msg: => String) :T = self getOrElse raise[E](msg)
+		@inline def orThrow[E <: Exception :ClassTag](msg: => String) :T = self getOrElse raise[E](msg)
 
+		/** Gets the element in this `Option` or throws a `NoSuchElementException` with the given message.
+		  * @see [[net.noresttherein.slang.optional.OptionExtension.orThrow orThrow]]
+		  */
+		@inline def orNoSuch(msg: => String) :T = self match {
+			case Some(t) => t
+			case _ => throw new NoSuchElementException(msg)
+		}
+
+		/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
+		@inline def orIllegal(msg: => String) :T = self match {
+			case Some(t) => t
+			case _ => throw new IllegalArgumentException(msg)
+		}
+
+		/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
+		@inline def orError(msg: => String) :T = self match {
+			case Some(t) => t
+			case _ => throw new AssertionError(msg)
+		}
+
+
+		/** Similarly to `orElse`, returns this `Option` if it is not empty
+		  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
+		  * no closure would be be created, at the cost of possibly discarding it without use.
+		  * @param alt the value to return if this instance is empty.
+		  */
+		@inline def ifEmpty[O >: T](alt: Option[O]) :Option[O] = self match {
+			case None => alt
+			case _ => self
+		}
 
 		/** Returns this option if the condition is false and `None` if it is true. This is equivalent
 		  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
