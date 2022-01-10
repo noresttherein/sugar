@@ -298,19 +298,6 @@ package object optional {
 
 
 
-	/** A class extending `scala.Some` with a `some` method as an alias to `get`.
-	  * The purpose is to use it instead of the latter, as code refactoring can easily change the type of a value
-	  * from `Some` to `Option` making `get` unsafe in places where it wasn't before.
-	  */
-	implicit class someMethod[T](private val opt :Some[T]) extends AnyVal {
-		/** Returns the value of this option as returned by `get`.
-		  * Using a separate method emphasises that this call is safe.
-		  */
-		@inline def some :T = opt.get
-	}
-
-
-
 
 	//todo: new method name and a macro to include the actual expression used as a string.
 	/** Extension methods overloading `scala.ensuring`, allowing for passing an arbitrary exception to be thrown. */

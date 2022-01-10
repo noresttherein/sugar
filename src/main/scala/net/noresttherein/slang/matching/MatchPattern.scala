@@ -9,7 +9,7 @@ import net.noresttherein.slang.prettyprint.classNameMethods
 
 /** An skeleton for extractor objects which can be used both in pattern matching and to directly attempt to narrow
   * down or extract `Out` out of a `In` type value. It is a single abstract method type (''SAM'') and thus
-  * the compiler will convert a lambda function `In => Out` where the type `Unapply[In, Out]` is expected,
+  * the compiler will convert a lambda function `In => Out` where the type `MatchPattern[In, Out]` is expected,
   * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
   * It is similar to [[net.noresttherein.slang.matching.MatchFunction MatchFunction]], but its `apply` method
   * is equivalent to `unapply`, returning an `Option`.
@@ -37,7 +37,7 @@ abstract class MatchPattern[-In, +Out] extends Serializable {
 
 
 
-/** Factory object for [[net.noresttherein.slang.matching.MatchPattern Unapply]] extractor objects. */
+/** Factory object for [[net.noresttherein.slang.matching.MatchPattern MatchPattern]] extractor objects. */
 object MatchPattern {
 	/** Adapt a given option returning function to an extractor object usable in pattern matching. */
 	def apply[In, Out](f :In => Option[Out]) :MatchPattern[In, Out] = new MatchPattern[In, Out] {

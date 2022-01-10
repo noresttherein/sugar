@@ -23,7 +23,7 @@ trait Cycle extends Serializable {
 
 	def toJava :TemporalField
 
-	def of(time :TimePoint) :Phase = time(this)
+	def of(time :TimePoint) :Phase = time(this) //todo: shouldn't these take a Time?
 	def of(time :UnixTime) :Phase = of(time in Time.Local.zone)
 	def of(time :UTCDateTime) :Phase = of(time.toZoneDateTime)
 	def of(time :ZoneDateTime) :Phase
@@ -95,6 +95,7 @@ object Cycle {
 
 
 	/** A phase of a `Cycle` described simply by its increasing ordinal number. */
+	@SerialVersionUID(1L)
 	class LongValuePhase[C](val no :Long) extends AnyVal with Phase with Ordered[LongValuePhase[C]] {
 
 		override def compare(that :LongValuePhase[C]) :Int =
@@ -105,7 +106,7 @@ object Cycle {
 
 
 
-	trait LongValueCycle extends Cycle with Serializable {
+	trait LongValueCycle extends Cycle {
 		type Phase <: LongValuePhase[this.type] with Ordered[Phase]
 
 		def apply(phase :Long) :Phase
@@ -248,7 +249,7 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 
 
 
-object Month extends Cycle with Serializable {
+object Month extends Cycle {
 	type Phase = Month
 
 	import j.Month._

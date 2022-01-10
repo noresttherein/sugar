@@ -66,23 +66,46 @@ object casting {
 			else None
 	}
 
+
+
 	/** Extension casting methods for the single type parameter of a higher type,
 	  * preserving the original type constructor.
 	  */
-	implicit class castTypeParam[T[A <: U], U, X <: U](private val self :T[X]) extends AnyVal {
+	implicit class castTypeParam[T[A], X](private val self :T[X]) extends AnyVal {
+		/** Casts the type parameter of this expression's type, preserving its type constructor. */
+		@inline def castParam[A] :T[A] = self.asInstanceOf[T[A]]
+	}
+
+	/** Extension downcasting methods for the single type parameter of a higher type,
+	  * preserving the original type constructor.
+	  */
+	implicit class downcastTypeParam[T[A <: X], X](private val self :T[X]) extends AnyVal {
 		/** Casts down the type parameter of this expression's type. */
 		@inline def downcastParam[A <: X] :T[A] = self.asInstanceOf[T[A]]
-
-		/** Casts the type parameter of this expression's type, preserving its type constructor. */
-		@inline def castParam[A <: U] :T[A] = self.asInstanceOf[T[A]]
 	}
 
 	/** Extension casting methods for the type parameters of a higher type,
 	  * preserving the original, binary type constructor.
 	  */
-	implicit class cast2TypeParams[T[_1 <: U1, _2 <: U2], U1, U2, X <: U1, Y <: U2]
-	                              (private val self :T[X, Y]) extends AnyVal
-	{
+	implicit class cast2TypeParams[T[_, _], X, Y](private val self :T[X, Y]) extends AnyVal {
+		/** Casts both type parameters of this expression's type, preserving its type constructor. */
+		@inline def castParams[A, B] :T[A, B] = self.asInstanceOf[T[A, B]]
+
+		/** Casts the first type parameter of this expression's type,
+		  * preserving its type constructor and the second parameter.
+		  */
+		@inline def castParam1[A] :T[A, Y] = self.asInstanceOf[T[A, Y]]
+
+		/** Casts the second type parameter of this expression's type,
+		  * preserving its type constructor and the first parameter.
+		  */
+		@inline def castParam2[B] :T[X, B] = self.asInstanceOf[T[X, B]]
+	}
+
+	/** Extension downcasting methods for the type parameters of a higher type,
+	  * preserving the original, binary type constructor.
+	  */
+	implicit class downcast2TypeParams[T[_1 <: X, _2 <: Y], X, Y](private val self :T[X, Y]) extends AnyVal {
 		/** Casts down both type parameters of this expression's type. */
 		@inline def downcastParams[A <: X, B <: Y] :T[A, B] = self.asInstanceOf[T[A, B]]
 
@@ -91,22 +114,35 @@ object casting {
 
 		/** Casts down the second type parameter of this expression's type. */
 		@inline def downcastParam2[B <: Y] :T[X, B] = self.asInstanceOf[T[X, B]]
-
-		/** Casts both type parameters of this expression's type, preserving its type constructor. */
-		@inline def castParams[A <: U1, B <: U2] :T[A, B] = self.asInstanceOf[T[A, B]]
-
-		/** Casts the first type parameter of this expression's type,
-		  * preserving its type constructor and the second parameter.
-		  */
-		@inline def castParam1[A <: U1] :T[A, Y] = self.asInstanceOf[T[A, Y]]
-
-		/** Casts the second type parameter of this expression's type,
-		  * preserving its type constructor and the first parameter.
-		  */
-		@inline def castParam2[B <: U2] :T[X, B] = self.asInstanceOf[T[X, B]]
 	}
 
-	implicit class downcast3TypeParams[T[_1 <: U1, _2 <: U2, _3 <: U3], U1, U2, U3, X <: U1, Y <: U2, Z <: U3]
+	/** Extension casting methods for the type parameters of a higher type,
+	  * preserving the original, ternary type constructor.
+	  */
+	implicit class cast3TypeParams[T[_, _, _], X, Y, Z](private val self :T[X, Y, Z]) extends AnyVal {
+		/** Casts the type parameters of this expression's type, preserving its type constructor. */
+		@inline def castParams[A, B, C] :T[A, B, C] = self.asInstanceOf[T[A, B, C]]
+
+		/** Casts the first type parameter of this expression's type,
+		  * preserving the type constructor and the rest of the parameters unchanged.
+		  */
+		@inline def castParam1[A] :T[A, Y, Z] = self.asInstanceOf[T[A, Y, Z]]
+
+		/** Casts the second type parameter of this expression's type,
+		  * preserving the type constructor and the rest of the parameters unchanged.
+		  */
+		@inline def castParam2[B] :T[X, B, Z] = self.asInstanceOf[T[X, B, Z]]
+
+		/** Casts the third type parameter of this expression's type,
+		  * preserving the type constructor and the rest of the parameters unchanged.
+		  */
+		@inline def castParam3[C] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
+	}
+
+	/** Extension casting methods for the type parameters of a higher type,
+	  * preserving the original, ternary type constructor.
+	  */
+	implicit class downcast3TypeParams[T[_1 <: X, _2 <: Y, _3 <: Z], X, Y, Z]
 	                                  (private val self :T[X, Y, Z]) extends AnyVal
 	{
 		/** Casts own all type parameters of this expression's type. */
@@ -126,24 +162,6 @@ object casting {
 		  * preserving the type constructor and the rest of the parameters unchanged.
 		  */
 		@inline def downcastParam3[C <: Z] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
-
-		/** Casts the type parameters of this expression's type, preserving its type constructor. */
-		@inline def castParams[A <: U1, B <: U2, C <: U3] :T[A, B, C] = self.asInstanceOf[T[A, B, C]]
-
-		/** Casts the first type parameter of this expression's type,
-		  * preserving the type constructor and the rest of the parameters unchanged.
-		  */
-		@inline def castParam1[A <: U1] :T[A, Y, Z] = self.asInstanceOf[T[A, Y, Z]]
-
-		/** Casts the second type parameter of this expression's type,
-		  * preserving the type constructor and the rest of the parameters unchanged.
-		  */
-		@inline def castParam2[B <: U2] :T[X, B, Z] = self.asInstanceOf[T[X, B, Z]]
-
-		/** Casts the third type parameter of this expression's type,
-		  * preserving the type constructor and the rest of the parameters unchanged.
-		  */
-		@inline def castParam3[C <: U3] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
 	}
 
 }

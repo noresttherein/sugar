@@ -19,7 +19,7 @@ import net.noresttherein.slang.collection.ChunkedString.{AppendedString, Chunk, 
   * It is used when larger strings are built recursively from many parts in a complex pattern, and when the efficiency
   * of 'writing' is much more important than 'reading' - ''chunked'' strings are not expected to be accessed often
   * before their final conversion to a `String`.
-  */ //todo: tests!!!
+  */
 sealed trait ChunkedString extends CharSequence with Seq[Char] with SeqOps[Char, Seq, ChunkedString] with Serializable {
 	override def knownSize :Int = length
 	override def charAt(index :Int) :Char = apply(index)
@@ -138,7 +138,6 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 				val res =
 					if (it.knownSize > 0) new java.lang.StringBuilder(it.knownSize)
 					else new lang.StringBuilder
-//				val res = new java.lang.StringBuilder
 				i foreach res.append
 				res.toString
 			} else
@@ -269,6 +268,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits {
 
 
 
+	@SerialVersionUID(ver)
 	private final class ChunkStringBuilder extends Builder[Char, ChunkedString] {
 		private[this] var chunkBuilder :java.lang.StringBuilder = _
 		private[this] var chunks :ChunkedString = _

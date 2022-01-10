@@ -4,6 +4,9 @@ import java.{time=>j}
 
 
 
+
+//consider: we can make TimeZone a supertype of TimeOffset through a type alias/refinement, but we'll lose
+// the distinction in a generic context.
 /** Representation of a standard time zone, such as 'Paris', which associates time points with corresponding dates
   * at the location. This is a simple value type wrapping a `java.time.ZoneId`.
   * @author Marcin Mościcki marcin@moscicki.net

@@ -1,3 +1,4 @@
+import net.noresttherein.slang.{implicits, numeric}
 import net.noresttherein.slang.time.{DateTime, Timestamp, ZoneDateTime}
 import net.noresttherein.slang.time.dsl.IntTimeLapseMethods
 import net.noresttherein.slang.vars.Out

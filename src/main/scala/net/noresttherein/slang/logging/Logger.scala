@@ -116,7 +116,8 @@ object Logger {
 	  *     final val error = Level.Severe
 	  * }}}
 	  */
-	class Level private[Logger](val toJava :JLevel) extends AnyVal {
+	@SerialVersionUID(1L)
+	class Level private[Logger](val toJava :JLevel) extends AnyVal with Serializable {
 		@inline def isOn(implicit logger :Logger) :Boolean = logger.logsAt(this)
 
 		@inline final def apply(msg: => Any)(implicit logger :Logger) :Unit =
@@ -149,14 +150,14 @@ object Logger {
 	/** A SAM type producing the name of the logger, given its owning object.
 	  * @see [[net.noresttherein.slang.prettyprint]]
 	  */
-	trait NamingScheme {
+	trait NamingScheme extends Serializable {
 		def apply(owner :Any) :String
 	}
 
 	object NamingScheme {
-		final val ClassName :NamingScheme = _.getClass.getName
+		final val ClassName          :NamingScheme = _.getClass.getName
 		final val DemangledClassName :NamingScheme = classNameOf
-		final val AbbrevClassName :NamingScheme = abbrevClassNameOf
+		final val AbbrevClassName    :NamingScheme = abbrevClassNameOf
 	}
 
 
