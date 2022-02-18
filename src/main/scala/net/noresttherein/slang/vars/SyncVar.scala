@@ -3,7 +3,8 @@ package net.noresttherein.slang.vars
 import scala.Specializable.Args
 import scala.annotation.nowarn
 
-import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv}
+import net.noresttherein.slang.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.slang.witness.DefaultValue
 
 
 
@@ -11,8 +12,10 @@ import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEq
 /** A boxed variable with synchronized access which can be used as in/out parameter to functions.
   * All synchronization uses the monitor associated with this instance, which client code can take advantage of
   * by creating wider critical sections with manual synchronization: `v.synchronized { ... }`.
-  * @param x initial value of this variable.
-  * @tparam T type of this variable
+  * If custom critical sections as above are not required, then [[net.noresttherein.slang.vars.Volatile Volatile]]
+  * or [[net.noresttherein.slang.vars.Atomic Atomic]] will be a better choice.
+  * @param x the initial value of this variable.
+  * @tparam T the type of this variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
@@ -20,18 +23,18 @@ sealed class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) ex
 
 	@inline override def value :T = synchronized { x }
 
-	@inline final override def value_=(value :T) :Unit = synchronized { x = value }
+	@inline final override def value_=(newValue :T) :Unit = synchronized { x = newValue }
 
-	@inline final override def ?=(value :T) :T = synchronized { val res = x; x = value; res }
+	@inline final override def ?=(newValue :T) :T = synchronized { val res = x; x = newValue; res }
 
 	
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
-	  * @param expect value to compare with current value
-	  * @param assign new value for this variable
-	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
+	  * @param expect   a value to compare with current value.
+	  * @param newValue a new value for this variable.
+	  * @return `true` if previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
-	final override def testAndSet(expect :T, assign :T) :Boolean = synchronized {
-		(x == expect) && { x = assign; true }
+	final override def testAndSet(expect :T, newValue :T) :Boolean = synchronized {
+		(x == expect) && { x = newValue; true }
 	}
 
 
@@ -60,7 +63,7 @@ sealed class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) ex
 		self.value = self.value && other
 	}
 
-	private[vars] override def bool_||=(other: =>Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
+	private[vars] override def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
 		val self = ev(this)
 		self.value = self.value || other
 	}
@@ -80,7 +83,7 @@ object SyncVar {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :SyncVar[T] =
-		new SyncVar[T](default.value)
+		new SyncVar[T](default.default)
 
 	
 
@@ -91,33 +94,33 @@ object SyncVar {
 	  */
 	implicit class BooleanSyncVarLogic(private val x :SyncVar[Boolean]) extends AnyVal {
 		/** Atomically assigns this variable its (eager) logical conjunction with the given argument: `x := x & other`. */
-		@inline def &=(other :Boolean) :Unit = x.synchronized { x := x.get & other }
+		@inline def &=(other :Boolean) :Unit = x.synchronized { x := x.value & other }
 		
 		/** Atomically assigns this variable its logical conjunction with the given argument: `x := x && other`. */
-		@inline def &&=(other: =>Boolean) :Unit = x.synchronized { x := x.get && other }
+		@inline def &&=(other: =>Boolean) :Unit = x.synchronized { x := x.value && other }
 
 		/** Atomically assigns this variable its (eager) logical disjunction with the given argument: `x := x | other`. */
-		@inline def |=(other :Boolean) :Unit = x.synchronized { x := x.get | other }
+		@inline def |=(other :Boolean) :Unit = x.synchronized { x := x.value | other }
 
 		/** Atomically assigns this variable its logical disjunction with the given argument: `x := x || other`. */
-		@inline def ||=(other: =>Boolean) :Unit = x.synchronized { x := x.get || other }
+		@inline def ||=(other: =>Boolean) :Unit = x.synchronized { x := x.value || other }
 
 		/** Atomically logically ''xor''s this variable with the given argument: `x := x ^ other`. */
-		@inline def ^=(other :Boolean) :Unit = x.synchronized { x := x.get ^ other }
+		@inline def ^=(other :Boolean) :Unit = x.synchronized { x := x.value ^ other }
 
 		/** Atomically negates this boolean variable, assigning it the opposite of the current value.
 		  * @return the updated value of this variable (after negation).
 		  */
-		@inline def neg() :Boolean = x.synchronized { x := !x.get; x.get }
+		@inline def neg() :Boolean = x.synchronized { x := !x.value; x.value }
 
 		/** Atomically negates this booleana variable, assigning it the opposite of the current value. */
-		@inline def flip() :Unit = x.synchronized { x.value = !x.get }
+		@inline def flip() :Unit = x.synchronized { x.value = !x.value }
 
 		/** Assigns `false` to this variable and returns `true` ''iff'' it was `true` at the beginning of this call. */
-		@inline def falsify() :Boolean = x.synchronized { val res = x.get; x := false; x }
+		@inline def falsify() :Boolean = x.synchronized { val res = x.value; x := false; x }
 
 		/** Assigns `true` to this variable and returns `true` ''iff'' it was `false` at the beginning of this call. */
-		@inline def flag() :Boolean = x.synchronized { val res = !x.get; x := true; res }
+		@inline def flag() :Boolean = x.synchronized { val res = !x.value; x := true; res }
 
 	}
 
@@ -132,70 +135,70 @@ object SyncVar {
 	  */
 	implicit class IntSyncVarOps(private val x :SyncVar[Int]) extends AnyVal {
 		/** Atomically increases this variable by the specified amount. */
-		@inline def +=(n :Int) :Unit = x.synchronized { x := x.get + n }
+		@inline def +=(n :Int) :Unit = x.synchronized { x := x.value + n }
 
 		/** Atomically increases this variable by the specified amount, returning its updated value. */
-		@inline def inc(n :Int) :Int = x.synchronized { val res = x.get + n; x := res; res }
+		@inline def inc(n :Int) :Int = x.synchronized { val res = x.value + n; x := res; res }
 
 		/** Atomically decreases this variable by the specified amount. */
-		@inline def -=(n :Int) :Unit = x.synchronized { x := x.get - n }
+		@inline def -=(n :Int) :Unit = x.synchronized { x := x.value - n }
 
 		/** Atomically decreases this variable by the specified amount, returning its updated value. */
-		@inline def dec(n :Int) :Int = x.synchronized { val res = x.get - n; x := res; res }
+		@inline def dec(n :Int) :Int = x.synchronized { val res = x.value - n; x := res; res }
 
 		/** Atomically multiplies this variable by the specified amount. */
-		@inline def *=(n :Int) :Unit = x.synchronized { x := x.get * n }
+		@inline def *=(n :Int) :Unit = x.synchronized { x := x.value * n }
 
 		/** Atomically multiplies this variable by the specified amount, returning its updated value. */
-		@inline def mult(n :Int) :Int = x.synchronized { val res = x.get * n; x := res; res }
+		@inline def mult(n :Int) :Int = x.synchronized { val res = x.value * n; x := res; res }
 
 		/** Atomically divides this variable by the specified amount. */
-		@inline def /=(n :Int) :Unit = x.synchronized { x := x.get / n }
+		@inline def /=(n :Int) :Unit = x.synchronized { x := x.value / n }
 
 		/** Atomically divides this variable by the specified amount, returning its updated value. */
-		@inline def div(n :Int) :Int = x.synchronized { val res = x.get / n; x := res; res }
+		@inline def div(n :Int) :Int = x.synchronized { val res = x.value / n; x := res; res }
 
 		/** Atomically assigns this variable the rest from division by the specified amount. */
-		@inline def %=(n :Int) :Unit = x.synchronized { x := x.get % n }
+		@inline def %=(n :Int) :Unit = x.synchronized { x := x.value % n }
 
 		/** Atomically assigns to this variable the reminder of dividing it by the specified amount and returns its updated value. */
-		@inline def rem(n :Int) :Int = x.synchronized { val res = x.get % n; x := res; res }
+		@inline def rem(n :Int) :Int = x.synchronized { val res = x.value % n; x := res; res }
 
 		/** Atomically increments this variable by `1`, C-style. */
-		@nowarn @inline def ++ :Unit = x.synchronized { x := x.get + 1 }
+		@nowarn @inline def ++ :Unit = x.synchronized { x := x.value + 1 }
 
 		/** Atomically increments this variable by `1`, returning the updated value. */
-		@inline def inc() :Int = x.synchronized { val res = x.get + 1; x := res; res }
+		@inline def inc() :Int = x.synchronized { val res = x.value + 1; x := res; res }
 
 		/** Atomically decrements this variable by `1`, C-style. */
-		@nowarn @inline def -- :Unit = x.synchronized { x := x.get - 1 }
+		@nowarn @inline def -- :Unit = x.synchronized { x := x.value - 1 }
 
 		/** Atomically decrements this variable by `1`, returning the updated value. */
-		@inline def dec() :Int = x.synchronized { val res = x.get - 1; x := res; res }
+		@inline def dec() :Int = x.synchronized { val res = x.value - 1; x := res; res }
 
 		/** Atomically sets this variable to its opposite value, returning the updated value (with new sign) */
-		@inline def neg() :Int = x.synchronized { val res = -x.get; x := res; res }
+		@inline def neg() :Int = x.synchronized { val res = -x.value; x := res; res }
 
 		/** Atomically assigns this variable its bitwise disjunction with the specified value. */
-		@inline def |=(n :Int) :Unit = x.synchronized { x := x.get | n }
+		@inline def |=(n :Int) :Unit = x.synchronized { x := x.value | n }
 		
 		/** Atomically assigns this variable its bitwise conjunction with the specified value. */
-		@inline def &=(n :Int) :Unit = x.synchronized { x := x.get & n }
+		@inline def &=(n :Int) :Unit = x.synchronized { x := x.value & n }
 
 		/** Atomically assigns this variable its bitwise ''xor'' with the specified value. */
-		@inline def ^=(n :Int) :Unit = x.synchronized { x := x.get ^ n }
+		@inline def ^=(n :Int) :Unit = x.synchronized { x := x.value ^ n }
 
 		/** Atomically bit-shifts this variable right by the specified number of bits. */
-		@inline def >>=(n :Int) :Unit = x.synchronized { x := x.get >> n }
+		@inline def >>=(n :Int) :Unit = x.synchronized { x := x.value >> n }
 		
 		/** Atomically bit-shifts this variable right by the specified number of bits, setting the freed higher bits to zero. */
-		@inline def >>>=(n :Int) :Unit = x.synchronized { x := x.get >>> n }
+		@inline def >>>=(n :Int) :Unit = x.synchronized { x := x.value >>> n }
 
 		/** Atomically bit-shifts this variable left by the specified number of bits. */
-		@inline def <<=(n :Int) :Unit = x.synchronized { x := x.get << n }
+		@inline def <<=(n :Int) :Unit = x.synchronized { x := x.value << n }
 
 		/** Atomically assigns this variable its bitwise negation. */
-		@inline def flip() :Unit = x.synchronized { x := ~x.get }
+		@inline def flip() :Unit = x.synchronized { x := ~x.value }
 
 		/** Atomically tests if this variable equals zero and, if so, assigns it the given value
 		  * @param ifZero new value for this variable
@@ -216,71 +219,71 @@ object SyncVar {
 	  */
 	implicit class LongSyncVarOps(private val x :SyncVar[Long]) extends AnyVal {
 		/** Atomically increases this variable by the specified amount. */
-		@inline def +=(n :Long) :Unit = x.synchronized { x := x.get + n }
+		@inline def +=(n :Long) :Unit = x.synchronized { x := x.value + n }
 
 		/** Atomically increases this variable by the specified amount, returning its updated value. */
-		@inline def inc(n :Long) :Long = x.synchronized { val res = x.get + n; x := res; res }
+		@inline def inc(n :Long) :Long = x.synchronized { val res = x.value + n; x := res; res }
 
 		/** Atomically decreases this variable by the specified amount. */
-		@inline def -=(n :Long) :Unit = x.synchronized { x := x.get - n }
+		@inline def -=(n :Long) :Unit = x.synchronized { x := x.value - n }
 
 		/** Atomically decreases this variable by the specified amount, returning its updated value. */
-		@inline def dec(n :Long) :Long = x.synchronized { val res = x.get - n; x := res; res }
+		@inline def dec(n :Long) :Long = x.synchronized { val res = x.value - n; x := res; res }
 
 		/** Atomically multiplies this variable by the specified amount. */
-		@inline def *=(n :Long) :Unit = x.synchronized { x := x.get * n }
+		@inline def *=(n :Long) :Unit = x.synchronized { x := x.value * n }
 
 		/** Atomically multiplies this variable by the specified amount, returning its updated value. */
-		@inline def mult(n :Long) :Long = x.synchronized { val res = x.get * n; x := res; res }
+		@inline def mult(n :Long) :Long = x.synchronized { val res = x.value * n; x := res; res }
 
 		/** Atomically divides this variable by the specified amount. */
-		@inline def /=(n :Long) :Unit = x.synchronized { x := x.get / n }
+		@inline def /=(n :Long) :Unit = x.synchronized { x := x.value / n }
 
 		/** Atomically divides this variable by the specified amount, returning its updated value. */
-		@inline def div(n :Long) :Long = x.synchronized { val res = x.get / n; x := res; res }
+		@inline def div(n :Long) :Long = x.synchronized { val res = x.value / n; x := res; res }
 
 		/** Atomically assigns this variable the rest from division by the specified amount. */
-		@inline def %=(n :Long) :Unit = x.synchronized { x := x.get % n }
+		@inline def %=(n :Long) :Unit = x.synchronized { x := x.value % n }
 
 		/** Atomically assigns to this variable the reminder of dividing it by the specified amount and returns its updated value. */
-		@inline def rem(n :Long) :Long = x.synchronized { val res = x.get % n; x := res; res }
+		@inline def rem(n :Long) :Long = x.synchronized { val res = x.value % n; x := res; res }
 
 		/** Atomically increments this variable by `1`, C-style. */
-		@nowarn @inline def ++ :Unit = x := x.synchronized { x.get + 1 }
+		@nowarn @inline def ++ :Unit = x := x.synchronized { x.value + 1 }
 
 		/** Atomically increases this variable by `1`, returning its updated value. */
-		@inline def inc() :Long = x.synchronized { val res = x.get + 1; x := res; res }
+		@inline def inc() :Long = x.synchronized { val res = x.value + 1; x := res; res }
 
 		/** Atomically decrements this variable by `1`, C-style. */
-		@nowarn @inline def -- :Unit = x := x.synchronized { x.get - 1 }
+		@nowarn @inline def -- :Unit = x := x.synchronized { x.value - 1 }
 
 		/** Atomically decreases this variable by `1`, returning its updated value. */
-		@inline def dec() :Long = x.synchronized { val res = x.get - 1; x := res; res }
+		@inline def dec() :Long = x.synchronized { val res = x.value - 1; x := res; res }
 
 		/** Atomically sets this variable to its opposite value, returning the updated value (with new sign) */
-		@inline def neg() :Long = x.synchronized { val res = -x.get; x := res; res }
+		@inline def neg() :Long = x.synchronized { val res = -x.value; x := res; res }
 
 
 		/** Atomically assigns this variable its bitwise disjunction with the specified value. */
-		@inline def |=(n :Long) :Unit = x.synchronized { x := x.get | n }
+		@inline def |=(n :Long) :Unit = x.synchronized { x := x.value | n }
 
 		/** Atomically assigns this variable its bitwise conjunction with the specified value. */
-		@inline def &=(n :Long) :Unit = x.synchronized { x := x.get & n }
+		@inline def &=(n :Long) :Unit = x.synchronized { x := x.value & n }
 
 		/** Atomically assigns this variable its bitwise ''xor'' with the specified value. */
-		@inline def ^=(n :Long) :Unit = x.synchronized { x := x.get ^ n }
+		@inline def ^=(n :Long) :Unit = x.synchronized { x := x.value ^ n }
 
 		/** Atomically bit-shifts this variable right by the specified number of bits. */
-		@inline def >>=(n :Long) :Unit = x.synchronized { x := x.get >> n }
+		@inline def >>=(n :Long) :Unit = x.synchronized { x := x.value >> n }
 
 		/** Atomically bit-shifts this variable right by the specified number of bits, setting the freed higher bits to zero. */
-		@inline def >>>=(n :Long) :Unit = x.synchronized { x := x.get >>> n }
+		@inline def >>>=(n :Long) :Unit = x.synchronized { x := x.value >>> n }
 
 		/** Atomically bit-shifts this variable left by the specified number of bits. */
-		@inline def <<=(n :Long) :Unit = x.synchronized { x := x.get << n }
+		@inline def <<=(n :Long) :Unit = x.synchronized { x := x.value << n }
 
 		/** Atomically assigns this variable its bitwise negation. */
-		@inline def flip() :Unit = x.synchronized { x := ~x.get }
+		@inline def flip() :Unit = x.synchronized { x := ~x.value }
 
 		/** Atomically tests if this variable equals zero and, if so, assigns it the given value
 		  * @param ifZero new value for this variable
@@ -300,31 +303,31 @@ object SyncVar {
 	  */
 	implicit class FloatSyncVarOps(private val x :SyncVar[Float]) extends AnyVal {
 		/** Atomically increases this variable by the specified amount. */
-		@inline def +=(n :Float) :Unit = x.synchronized { x := x.get + n }
+		@inline def +=(n :Float) :Unit = x.synchronized { x := x.value + n }
 
 		/** Atomically increases this variable by the specified amount, returning its updated value. */
-		@inline def inc(n :Float) :Float = x.synchronized { val res = x.get + n; x := res; res }
+		@inline def inc(n :Float) :Float = x.synchronized { val res = x.value + n; x := res; res }
 
 		/** Atomically decreases this variable by the specified amount. */
-		@inline def -=(n :Float) :Unit = x.synchronized { x := x.get - n }
+		@inline def -=(n :Float) :Unit = x.synchronized { x := x.value - n }
 
 		/** Atomically decreases this variable by the specified amount, returning its updated value. */
-		@inline def dec(n :Float) :Float = x.synchronized { val res = x.get - n; x := res; res }
+		@inline def dec(n :Float) :Float = x.synchronized { val res = x.value - n; x := res; res }
 
 		/** Atomically multiplies this variable by the specified amount. */
-		@inline def *=(n :Float) :Unit = x.synchronized { x := x.get * n }
+		@inline def *=(n :Float) :Unit = x.synchronized { x := x.value * n }
 
 		/** Atomically multiplies this variable by the specified amount, returning its updated value. */
-		@inline def multi(n :Float) :Float = x.synchronized { val res = x.get * n; x := res; res }
+		@inline def multi(n :Float) :Float = x.synchronized { val res = x.value * n; x := res; res }
 
 		/** Atomically divides this variable by the specified amount. */
-		@inline def /=(n :Float) :Unit = x.synchronized { x := x.get / n }
+		@inline def /=(n :Float) :Unit = x.synchronized { x := x.value / n }
 
 		/** Atomically divides this variable by the specified amount, returning its updated value. */
-		@inline def div(n :Float) :Float = x.synchronized { val res = x.get / n; x := res; res }
+		@inline def div(n :Float) :Float = x.synchronized { val res = x.value / n; x := res; res }
 
 		/** Atomically sets this variable to its opposite value, returning the updated value (with new sign) */
-		@inline def neg() :Float = x.synchronized { val res = -x.get; x := res; res }
+		@inline def neg() :Float = x.synchronized { val res = -x.value; x := res; res }
 
 
 		/** Atomically tests if this variable equals zero and, if so, assigns it the given value
@@ -344,31 +347,31 @@ object SyncVar {
 	  */
 	implicit class DoubleSyncVarOps(private val x :SyncVar[Double]) extends AnyVal {
 		/** Atomically increases this variable by the specified amount. */
-		@inline def +=(n :Double) :Unit = x.synchronized { x := x.get + n }
+		@inline def +=(n :Double) :Unit = x.synchronized { x := x.value + n }
 
 		/** Atomically increases this variable by the specified amount, returning its updated value. */
-		@inline def inc(n :Double) :Double = x.synchronized { val res = x.get + n; x := res; res }
+		@inline def inc(n :Double) :Double = x.synchronized { val res = x.value + n; x := res; res }
 
 		/** Atomically decreases this variable by the specified amount. */
-		@inline def -=(n :Double) :Unit = x.synchronized { x := x.get - n }
+		@inline def -=(n :Double) :Unit = x.synchronized { x := x.value - n }
 
 		/** Atomically decreases this variable by the specified amount, returning its updated value. */
-		@inline def dec(n :Double) :Double = x.synchronized { val res = x.get - n; x := res; res }
+		@inline def dec(n :Double) :Double = x.synchronized { val res = x.value - n; x := res; res }
 
 		/** Atomically multiplies this variable by the specified amount. */
-		@inline def *=(n :Double) :Unit = x.synchronized { x := x.get * n }
+		@inline def *=(n :Double) :Unit = x.synchronized { x := x.value * n }
 
 		/** Atomically multiplies this variable by the specified amount, returning its updated value. */
-		@inline def multi(n :Double) :Double = x.synchronized { val res = x.get * n; x := res; res }
+		@inline def multi(n :Double) :Double = x.synchronized { val res = x.value * n; x := res; res }
 
 		/** Atomically divides this variable by the specified amount. */
-		@inline def /=(n :Double) :Unit = x.synchronized { x := x.get / n }
+		@inline def /=(n :Double) :Unit = x.synchronized { x := x.value / n }
 
 		/** Atomically divides this variable by the specified amount, returning its updated value. */
-		@inline def div(n :Double) :Double = x.synchronized { val res = x.get / n; x := res; res }
+		@inline def div(n :Double) :Double = x.synchronized { val res = x.value / n; x := res; res }
 
 		/** Atomically sets this variable to its opposite value, returning the updated value (with new sign) */
-		@inline def neg() :Double = x.synchronized { val res = -x.get; x := res; res }
+		@inline def neg() :Double = x.synchronized { val res = -x.value; x := res; res }
 
 
 		/** Atomically tests if this variable equals zero and, if so, assigns it the given value

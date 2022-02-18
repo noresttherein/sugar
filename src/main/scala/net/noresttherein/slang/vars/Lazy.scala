@@ -1,46 +1,57 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang
+import java.lang.invoke.VarHandle.{acquireFence, releaseFence}
+
+import scala.annotation.unspecialized
+
 import net.noresttherein.slang.funny.Initializer
 import net.noresttherein.slang.optional.Opt
 import net.noresttherein.slang.optional.Opt.Got
+import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.Ref.Undefined
 
 
 
 
 /** A monadic lazy value. Unlike scala's `lazy val`s, this implementation doesn't incur any synchronization penalty
-  * once the value is initialized. Additionally, it provides callbacks allowing to check it's initialization state and,
-  * once the value is initialized, the initializer expression is freed for garbage collection.
-  * Three implementations exist: one which uses a synchronized block to ensure it is initialized at most once,
-  * and one which uses only a `@volatile` variable, at the cost of possibly executing the initializer block multiple
-  * times in case of concurrent initial access, and a variant of the latter which does not preserve the evaluated
-  * value during serialization.
+  * once the value is initialized for built in value types. Additionally, it provides callbacks allowing to check
+  * its initialization state and provides monadic operations for constructing other `Lazy` instances.
+  *
+  * Three implementations exist:
+  *   1. The default one which uses a synchronized block to ensure it is initialized at most once and has
+  *      semantics equivalent to a standard Scala `lazy val`;
+  *   1. An [[net.noresttherein.slang.vars.Idempotent idempotent]] one which uses only memory fences
+  *      for synchronization, at the cost of executing the initialization block possibly many times;
+  *   1. A [[net.noresttherein.slang.vars.Transient transient]] one with an opposite behaviour on serialization:
+  *      the cached value is `@transient` and becomes discarded when the `Lazy` instance is serialized,
+  *      but the initializing block is always retained.
+  *
   * @author Marcin Mościcki
-  */ //not specialized to avoid boxing during generic access; boxing at initialization will be overshadowed by reads.
-@SerialVersionUID(1L) //fixme: doesn't work as advertised
-trait Lazy[+T] extends (() => T) with Val[T] with Serializable {
+  */
+trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with Serializable {
 
-	/** The evaluated value of this instance. */
-	@inline final def apply() :T = value
+	/** The evaluated value of this instance - same as [[net.noresttherein.slang.vars.Lazy.apply apply]]`()`. */
+	def value :T = apply()
 
-	/** The evaluated value of this instance. */
-	def get :T
+	/** Always returns [[net.noresttherein.slang.optional.Opt.Got Got]]`(apply())`. */
+	override def opt :Opt[T] = Got(apply())
 
-	/** Always returns [[net.noresttherein.slang.optional.Opt.Got Got]]`(value)`. */
-	override def toOpt :Opt[T] = Got(value)
+	/** Always returns `Some(apply())`. */
+	override def get :Option[T] = Some(apply())
 
 	/** Checks if the value has been previously evaluated. Note that `false` values can be stale the moment
-	  * it is returned to the caller; the method is however still useful as once `true` is returned, all subsequent
-	  * calls ''on this instance'' will also return `true` and the value can be safely accessed without an overhead
+	  * they are returned to the caller; the method is however still useful as once `true` is returned, all subsequent
+	  * calls on this instance will also return `true` and the value can be safely accessed without an overhead
 	  * or risk of throwing an exception.
 	  */
-	def isInitialized :Boolean
+	def isDefined :Boolean
 
+	/** Returns `!`[[net.noresttherein.slang.vars.Lazy.isDefined isDefined]]. */
 	def isUndefined = false
 
 	/** Creates a new `Lazy[O]` instance with the same characteristics as this instance, evaluated to the application
 	  * of `f` to the value of this instance. If the value has already been evaluated, created instance will be
-	  * eagerly evaluated - use `Lazy(f(this.get))` if you wish for `f` to not be executed before
+	  * eagerly evaluated - use `Lazy(f(this.value))` if you wish for `f` to not be executed before
 	  * the method returns under any circumstances. If this instance initializes under a `synchronized` block,
 	  * it is guaranteed that it will be evaluated at most once, regardless of which of the two values are
 	  * accessed. Created `Lazy[O]` will likewise use the `synchronized` block in that case and `f` will be evaluated
@@ -48,23 +59,22 @@ trait Lazy[+T] extends (() => T) with Val[T] with Serializable {
 	  */
 	def map[O](f :T => O) :Lazy[O]
 
-	/** Creates a new `Lazy[O]` initialized with the expression `f(this.get).get`. If this instance is already
+	/** Creates a new `Lazy[O]` initialized with the expression `f(this.value)).value`. If this instance is already
 	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise a new
-	  * `Lazy[O]` with the same synchronization characteristics as this instance will be created, initialized
-	  * with the expression `f(this.get).get`. If you wish for `f` to not be executed before the method returns
-	  * and the returned instance is accessed, use `Lazy(f(this.get).get)`.
+	  * `Lazy[O]` with the same synchronization characteristics as this instance will be created, with
+	  * `f(this.value)).value` as the initializing expression. If you wish for `f` to not be executed
+	  * before the method returns and the returned instance is accessed, use `Lazy(f(this.value).value))`.
 	  */
 	def flatMap[O](f :T => Lazy[O]) :Lazy[O]
 
 
 	override def equals(that :Any) :Boolean = that match {
-		case lzy :Lazy[_] => (lzy eq this) || lzy.get == get
+		case lzy :Lazy[_] => (lzy eq this) || lzy() == apply()
 		case _ => false
 	}
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Lazy[_]]
 
-	override def hashCode :Int = get.hashCode
-
-	override def toString :String = if (isInitialized) get.toString else "Lazy(?)"
+	override def toString :String = if (isDefined) String.valueOf(apply()) else "Lazy(?)"
 }
 
 
@@ -74,26 +84,35 @@ trait Lazy[+T] extends (() => T) with Val[T] with Serializable {
 /** A factory of lazy values. */
 object Lazy {
 
-	/** Creates a wrapper over a lazily initialized value. The difference from the scala's `lazy val`s are:
-	  *   - no synchronization penalty once the value has been initialized while remaining fully thread safe;
-	  *   - monadic `map` and `flatMap` operations;
+	/** Creates a wrapper over a lazily initialized value roughly equivalent to a built in `lazy val`.
+	  * The differences are:
+	  *   - no synchronization penalty for value types, once the value has been initialized;
+	  *   - monadic [[net.noresttherein.slang.vars.Lazy.map map]]
+	  *     and [[net.noresttherein.slang.vars.Lazy.flatMap flatMap]] operations;
 	  *   - the initializer expression is freed for garbage collection;
-	  *   - `isInitialized` test method.
+	  *   - `isDefined` test method.
 	  *  The implementation returned by this method uses its synchronized lock to ensure the `init` block
 	  *  is called at most once.
-	  *  @see
 	  */
-	def apply[T](init : =>T) :Lazy[T] = new SyncLazy(() => init)
+	def apply[@specialized(SpecializedVars) T](init : => T) :Lazy[T] = {
+		val initializer = () => init
+		new SyncLazyVal(initializer) match {
+			case ref if ref.getClass == classOf[SyncLazyVal[Any]] => new SyncLazyRef(initializer)
+			case spec => spec
+		}
+	}
 
-	/** Unlike default `Lazy(_)` and inbuilt `lazy val`s, never uses a `synchronized` block,
-	  * yielding possibly minor performance benefit while still remaining thread safe. It happens
+	/** Unlike the default `Lazy(_)` and built in `lazy val`s, this lazy value does not use a `synchronized` block,
+	  * yielding a minor performance benefit while still remaining thread safe. It happens
 	  * at the cost of possibly evaluating the initialization callback more than once, and concurrent access
 	  * of an uninitialized value may return results from different calls. For this reason the initializer should
-	  * be a relatively lightweight and '''idempotent''' function.
-	  * All testing functions become even less helpful, but at least it is guaranteed that once `isInitialized`
+	  * be a relatively lightweight and '''idempotent''' function. For standard value types, access to an initialized
+	  * value incurs no synchronization overhead, although this might be partially offset by unnecessary repeated
+	  * execution of the initializer after stale reads.
+	  * All testing functions become even less helpful, but at least it is guaranteed that once `isDefined`
 	  * returns `true`, it will always be so (in the sense of the java memory 'happens before' relation).
 	  */
-	def idempotent[T](idempotent : =>T) :Lazy[T] = new VolatileLazy(() => idempotent)
+	@inline def idempotent[@specialized(SpecializedVars) T](idempotent : => T) :Lazy[T] = Idempotent(idempotent)
 
 	/** Similar to [[net.noresttherein.slang.vars.Lazy.idempotent idempotent]] lazy value, but on serialization,
 	  * instead of evaluating the value and freeing the initializer expression for garbage collection,
@@ -101,8 +120,8 @@ object Lazy {
 	  * meaning it will be evaluated again on deserialization if the value is required. This is useful
 	  * if the value is large, not serializable, or if it references singleton values (which do not implement
 	  * aliasing after deserialization to ensure that only one instance exists as Scala's singleton objects do).
-	  * @param idempotent an initializer expression of a SAM type extending `() => T`, allowing use of literal
-	  *                   expressions of the latter form as argument.
+	  * @param idempotent a serializable initializer expression of a SAM type extending `() => T`,
+	  *                   allowing the use of literal expressions of the latter form as argument.
 	  */
 	@inline def transient[T](idempotent :Initializer[T]) :Lazy[T] = Transient[T](idempotent)
 
@@ -110,33 +129,17 @@ object Lazy {
 	/** A wrapper over a computed value adapting it to the `Lazy` type. */
 	def eager[T](value :T) :Lazy[T] = new EagerLazy(value)
 
-	def isEager[T](lzy :()=>T) :Boolean = lzy.isInstanceOf[EagerLazy[_]]
 
-
-	implicit def delazify[T](l :Lazy[T]) :T = l.get
-
-
-
-	@SerialVersionUID(1L)
-	private final object Undefined extends Lazy[Nothing] {
-		override def value = throw new NoSuchElementException("Lazy.Undefined.get")
-		override def isInitialized = false
-		override def isUndefined = true
-
-		override def map[O](f: Nothing => O): this.type = this
-
-		override def flatMap[O](f: Nothing => Lazy[O]): this.type = this
-	}
+	implicit def unboxLazy[T](l :Lazy[T]) :T = l()
 
 
 
-	/** An already computed (initialized value) */
+	/** An already computed (initialized) value. */
 	@SerialVersionUID(1L)
 	private final class EagerLazy[T](eager :T) extends Lazy[T] {
-		override def value :T = eager
-		override def toOpt :Opt[T] = Got(eager)
-		override def isInitialized = true
-		override def toString :String = get.toString
+		override def apply() :T = eager
+		override def opt :Opt[T] = Got(eager)
+		override def isDefined = true
 
 		override def map[O](f: T => O): EagerLazy[O] = new EagerLazy(f(eager))
 
@@ -144,146 +147,131 @@ object Lazy {
 	}
 
 
-
+	/** `Lazy` implementation equivalent in semantics to Scala's `lazy val`.
+	  * The implementation is not really specialized to avoid boxing during generic access; boxing at initialization
+	  * will be likely overshadowed by reads.
+	  */
 	@SerialVersionUID(1L)
-	private final class VolatileLazy[+T](idempotent : ()=>T) extends Lazy[T] {
+	private final class SyncLazyVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
+		extends Lazy[T]
+	{
+		private[this] var evaluated :Any = Undefined
 
-		def this(value :T) = {
-			this(null); evaluated = value; cached = value
-		}
+		override def isDefined :Boolean = evaluated != Undefined
 
-		@scala.volatile @transient private[this] var initializer = idempotent
-		@scala.volatile private[this] var evaluated :T = _
-		private[this] var cached :T = _
-
-		override def value: T = {
-			if (cached == null) {
-				val init = initializer //check initializer and not evaluated, as initializer might have returned `null`.
-				if (init == null) { //both initializer and evaluated are volatile, so if init==null then evaluated is set.
-					cached = evaluated
-				} else {
-					cached = init()
-					evaluated = cached
-					initializer = null
-					slang.publishMutable()
+		@unspecialized override def apply() :T = {
+			var res = evaluated
+			if (res == Undefined)
+				synchronized {
+					val init = initializer
+					if (init == null)
+						res = evaluated
+					else {
+						res = init()
+						evaluated = res
+						initializer = null
+					}
 				}
-			}
-			cached
+			res.asInstanceOf[T]
 		}
 
-		override def isInitialized: Boolean = cached != null || initializer == null
-
-
-		override def map[O](f: T => O): VolatileLazy[O] =
-			if (cached != null)
-				new VolatileLazy(f(cached))
-			else {
+		@unspecialized override def map[O](f: T => O): Lazy[O] = {
+			val v = evaluated
+			if (v != Undefined)
+				eager(f(v.asInstanceOf[T]))
+			else synchronized {
 				val init = initializer
 				if (init == null) {
-					cached = evaluated
-					new VolatileLazy(f(cached))
+					val t = evaluated.asInstanceOf[T]
+					eager(f(t))
 				} else
-					new VolatileLazy(() => f(get))
+					new SyncLazyRef(() => f(apply()))
 			}
+		}
 
-		override def flatMap[O](f: T => Lazy[O]): Lazy[O] =
-			if (cached != null)
-				f(cached)
-			else {
-				val init = this.initializer
-				if (init == null) {
-					cached = evaluated
-					f(cached)
-				} else
-					new VolatileLazy(() => f(get).get)
+		@unspecialized override def flatMap[O](f: T => Lazy[O]): Lazy[O] = {
+			val v = evaluated
+			if (v != Undefined)
+				f(v.asInstanceOf[T])
+			else synchronized {
+				val init = initializer
+				if (init == null)
+					f(evaluated.asInstanceOf[T])
+				else
+					new SyncLazyRef(f(apply()))
 			}
+		}
 
-		override def toString :String =
-			if (cached != null) cached.toString
-			else if (initializer == null) evaluated.toString
-			else "lazy(?)"
+		override def toString :String = {
+			val v = evaluated
+			if (v != Undefined)
+				String.valueOf(v)
+			else synchronized {
+				if (initializer == null) String.valueOf(evaluated)
+				else "lazy(?)"
+			}
+		}
 
-
-		private def writeReplace = Lazy.eager(get)
+		private def writeReplace = Lazy.eager(apply())
 	}
 
 
 
 	@SerialVersionUID(1L)
-	private final class SyncLazy[+T](evaluate : () =>T) extends Lazy[T] {
+	private final class SyncLazyRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
+		@volatile private[this] var evaluated :Any = _
 
-		def this(value :T) = {
-			this(null); evaluated = value; cached = value
-		}
+		override def isDefined :Boolean = evaluated != Undefined
 
-		@volatile @transient private[this] var initializer = evaluate
-		@volatile private[this] var evaluated :T = _
-		private[this] var cached :T = _
-
-		override def value :T = {
-			if (cached == null) {
-				var init = initializer
-				if (init == null) {
-					cached = evaluated
-				} else synchronized {
-					init = initializer
-					if (init == null)
-						cached = evaluated
+		override def apply() :T = {
+			var res = evaluated
+			if (res == Undefined)
+				synchronized {
+					res = evaluated
+					if (res != Undefined)
+						res
 					else {
-						cached = init()
-						evaluated = cached
+						res = initializer()
+						evaluated = res
 						initializer = null
 					}
 				}
-			}
-			cached
+			res.asInstanceOf[T]
 		}
 
-		override def isInitialized :Boolean = initializer == null
 
-		override def map[O](f: T => O): SyncLazy[O] =
-			if (cached != null)
-				new SyncLazy(f(cached))
-			else {
-				var init = initializer
-				if (init == null) {
-					cached = evaluated
-					new SyncLazy(f(cached))
-				} else synchronized {
-					init = initializer
-					if (init == null) {
-						cached = evaluated
-						new SyncLazy(f(cached))
-					} else
-						new SyncLazy(() => f(get))
-				}
+		override def map[O](f: T => O): Lazy[O] = {
+			var v = evaluated
+			if (v != Undefined)
+				eager(f(v.asInstanceOf[T]))
+			else synchronized {
+				v = evaluated
+				if (v != Undefined)
+					eager(f(v.asInstanceOf[T]))
+				else
+					new SyncLazyRef(() => f(apply()))
 			}
+		}
 
-		override def flatMap[O](f: T => Lazy[O]): Lazy[O] =
-			if (cached != null)
-				new SyncLazy(f(cached))
-			else {
-				var init = initializer
-				if (init == null) {
-					cached = evaluated
-					f(cached)
-				} else synchronized {
-					init = initializer
-					if (init == null) {
-						cached = evaluated
-						f(cached)
-					} else
-						new SyncLazy(() => f(get).get)
-				}
+		override def flatMap[O](f: T => Lazy[O]): Lazy[O] = {
+			var v = evaluated
+			if (v != Undefined) {
+				f(v.asInstanceOf[T])
+			} else synchronized {
+				v = evaluated
+				if (v != Undefined)
+					f(v.asInstanceOf[T])
+				else
+					new SyncLazyRef(f(apply()))
 			}
+		}
 
 		override def toString :String = synchronized {
-			if (cached != null) cached.toString
-			else if (initializer == null) evaluated.toString
+			if (initializer == null) String.valueOf(evaluated)
 			else "lazy(?)"
 		}
 
-		private def writeReplace = Lazy.eager(get)
+		private def writeReplace = Lazy.eager(apply())
 	}
 
 

@@ -1,6 +1,8 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.vars.InOut.DefaultValue
+import net.noresttherein.slang.witness.DefaultValue
+
+
 
 
 /** A very light adapter of `java.lang.ThreadLocal` to `InOut[T]`, which by implicit conversions provides
@@ -13,7 +15,7 @@ sealed class ThreadLocal[T](init :T) extends InOut[T] {
 
 	override def value :T = local.get
 
-	override def value_=(value :T) :Unit = local.set(value)
+	override def value_=(newValue :T) :Unit = local.set(newValue)
 
 }
 
@@ -26,5 +28,5 @@ object ThreadLocal {
 	@inline def apply[T](init :T) :ThreadLocal[T] = new ThreadLocal[T](init)
 
 	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] =
-		new ThreadLocal(default.value)
+		new ThreadLocal(default.default)
 }

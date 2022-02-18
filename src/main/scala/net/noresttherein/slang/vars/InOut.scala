@@ -3,8 +3,10 @@ package net.noresttherein.slang.vars
 import scala.Specializable.Args
 import scala.annotation.nowarn
 
-import net.noresttherein.slang.funny.fun
+import net.noresttherein.slang.optional.Opt
+import net.noresttherein.slang.optional.Opt.Got
 import net.noresttherein.slang.vars.InOut.{InOutNumeric, InOutOrdering, SpecializedVars, TestAndSet, TypeEquiv}
+import net.noresttherein.slang.witness.DefaultValue
 
 
 
@@ -17,37 +19,46 @@ import net.noresttherein.slang.vars.InOut.{InOutNumeric, InOutOrdering, Speciali
   * @see [[net.noresttherein.slang.vars.Volatile]]
   * @see [[net.noresttherein.slang.vars.SyncVar]]
   */
-@SerialVersionUID(1L)
-trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
+trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
+
+	/** The wrapped value.
+	  * @return `this.`[[net.noresttherein.slang.vars.InOut.value value]].
+	  */
+	override def apply() :T = value
 
 	/** The current value of this variable. */
 	def value :T
 
 	/** Assign a new value to this variable. */
-	def value_=(value :T) :Unit
+	def value_=(newValue :T) :Unit
 
-	/** Assigns a new value to this variable. */
+	/** Assigns a new value to this variable.
+	  *  Equivalent to `this.value `[[net.noresttherein.slang.vars.InOut.value_= =]]` newValue`.
+	  */
 	def :=(newValue :T) :Unit = value = newValue
 
-	/** Assigns a new value returning the previous value. */
+	/** Assigns a new value returning the previous value.
+	  * No guarantee is made by this interface about atomicity of this operation.
+	  */
 	def ?=(newValue :T) :T = { val res = value; value = newValue; res }
 
+	override def opt :Opt[T] = Got(value)
 	
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
 	  * The default implementation does it the direct way without any guarantees about multi-threaded semantics.
 	  * This method is of real practical use only in concurrent `InOut` implementations such as
-	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]] and [[net.noresttherein.slang.vars.Atomic Atomic]]
-	  * (and to a very limited extent in [[net.noresttherein.slang.vars.Volatile Volatile]]).
-	  * @param expect value to compare with current value
-	  * @param assign new value for this variable
-	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
+	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]], [[net.noresttherein.slang.vars.Atomic Atomic]]
+	  * and [[net.noresttherein.slang.vars.Volatile Volatile]].
+	  * @param expect   a value to compare with current value.
+	  * @param newValue a new value for this variable.
+	  * @return `true` if the previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
-	def testAndSet(expect :T, assign :T) :Boolean =
-		(value == expect) && { value = assign; true }
+	def testAndSet(expect :T, newValue :T) :Boolean =
+		(value == expect) && { value = newValue; true }
 
 	/** A ''test-and-set'' operation divided syntactically into two binary operators.
 	  * `x :? expect := value` is equivalent to `x.testAndSet(expect, value)`.
-	  * @param expect value to compare with current value of this variable
+	  * @param expect a value to compare with current value of this variable.
 	  * @return an intermediate object which will perform the comparison and assign the value given to its
 	  *         [[net.noresttherein.slang.vars.InOut.TestAndSet.:=]] method.
 	  * @see [[net.noresttherein.slang.vars.InOut.testAndSet testAndSet()]]
@@ -63,9 +74,9 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 	  * environments.
 	  * @param f function to apply to the value of this variable. Should have no side effects as it may be invoked
 	  *          several times.
-	  * @return result of applying `f` to the current value.
+	  * @return the result of applying `f` to the current value.
 	  */
-	def apply(f :T => T) :T = { val res = f(get); value = res; res }
+	def apply(f :T => T) :T = { val res = f(value); value = res; res }
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
@@ -77,11 +88,11 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 	  * of the folding function, with the argument on the left side of the operator being the first. This method comes
 	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.slang.vars.SyncVar SyncVar]]
 	  * or [[net.noresttherein.slang.vars.Atomic Atomic]].
-	  * @param z        accumulator value to pass as the first argument to the `foldLeft` function, together
+	  * @param z        an accumulator value to pass as the first argument to the `foldLeft` function, together
 	  *                 with the current value of this variable.
 	  * @param foldLeft a function applied to the argument and this variable whose result should be set
 	  *                 to this variable.
-	  * @return result of applying `foldLeft` to the argument and this variable.
+	  * @return the result of applying `foldLeft` to the argument and this variable.
 	  */
 	@inline final def /=:[@specialized(Args) A](z :A)(foldLeft :(A, T) => T) :T = applyLeft(z)(foldLeft)
 
@@ -95,11 +106,11 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 	  * function, with the argument on the right side of the operator being the second. This method comes to use with
 	  * concurrent `InOut` implementations such as [[net.noresttherein.slang.vars.SyncVar SyncVar]]
 	  * or [[net.noresttherein.slang.vars.Atomic Atomic]].
-	  * @param z         accumulator value to pass as the second argument to the `foldRight` function, together
+	  * @param z         an accumulator value to pass as the second argument to the `foldRight` function, together
 	  *                  with the current value of this variable.
 	  * @param foldRight a function applied to this variable and the argument, whose result should be set
 	  *                  to this variable.
-	  * @return result of applying `foldLeft` to this variable and the argument.
+	  * @return the result of applying `foldLeft` to this variable and the argument.
 	  */
 	@inline final def :\=[@specialized(Args) A](z :A)(foldRight :(T, A) => T) :T = applyRight(z)(foldRight)
 
@@ -114,7 +125,7 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 	  * @param z accumulator value to pass as the first argument to the `f` function, together with the current
 	  *          value of this variable.
 	  * @param f a function applied to the argument and this variable, whose result should be set to this variable.
-	  * @return result of applying `f` to this variable and the argument.
+	  * @return the result of applying `f` to this variable and the argument.
 	  */
 	def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
 		val res = f(z, value); value = res; res
@@ -130,8 +141,8 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 	  * or [[net.noresttherein.slang.vars.Atomic Atomic]].
 	  * @param z accumulator value to pass as the second argument to the `f` function, together with the current
 	  *          value of this variable.
-	  * @param f   a function applied to the this variable and the argument, whose result should be set to this variable.
-	  * @return result of applying `f` to this variable and the argument.
+	  * @param f a function applied to the this variable and the argument, whose result should be set to this variable.
+	  * @return the result of applying `f` to this variable and the argument.
 	  */
 	def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
 		val res = f(value, z); value = res; res
@@ -144,7 +155,7 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ & _)
 	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ | _)
 	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this)(_ && other)
-	private[vars] def bool_||=(other: =>Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this)(_ || other)
+	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this)(_ || other)
 	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ ^ _)
 	private[vars] def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = ev(this)(!_)
 
@@ -199,15 +210,13 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 
 
 	override def equals(that :Any) :Boolean = that match {
-		case v :InOut[_] => (v eq this) || (v canEqual this) && v.get == get
+		case v :InOut[_] => (v eq this) || (v canEqual this) && v.opt == opt
 		case _ => false
 	}
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[InOut[_]]
+	override def hashCode :Int = opt.hashCode
 
-	def canEqual(that :InOut[_]) :Boolean = true
-
-	override def hashCode :Int = get.hashCode
-
-	override def toString :String = get.toString
+	override def toString :String = String.valueOf(value)
 }
 
 
@@ -215,13 +224,12 @@ trait InOut[@specialized(SpecializedVars) T] extends ValueRef[T] {
 
 
 
-sealed class InOutOrderingImplicits private[vars]() {
+sealed abstract class InOutOrderingImplicits {
 	@inline implicit def InOutOrdering[T](implicit ordering :Ordering[T]) :Ordering[InOut[T]] =
 		new InOutOrdering(ordering)
 }
 
-
-sealed class InOutNumericImplicits private[vars] () extends InOutOrderingImplicits {
+sealed abstract class InOutNumericImplicits extends InOutOrderingImplicits {
 	@inline implicit def InOutNumeric[T](implicit numeric :Numeric[T]) :Numeric[InOut[T]] =
 		new InOutNumeric(numeric)
 }
@@ -232,7 +240,7 @@ sealed class InOutNumericImplicits private[vars] () extends InOutOrderingImplici
 object InOut extends InOutNumericImplicits {
 
 	/** Unbox the value hold by an `InOut` wrapper. */
-	@inline final implicit def unboxInOut[@specialized(SpecializedVars) T](variable :InOut[T]) :T = variable.get
+	@inline final implicit def unboxInOut[@specialized(SpecializedVars) T](variable :InOut[T]) :T = variable.value
 
 
 
@@ -242,7 +250,7 @@ object InOut extends InOutNumericImplicits {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter.*/
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :InOut[T] =
-		new Var[T](default.value)
+		new Var[T](default.default)
 
 
 	final val SpecializedVars = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
@@ -286,7 +294,7 @@ object InOut extends InOutNumericImplicits {
 			@inline def =:(v1 :V, v2 :V, vs :V*) :T = {
 				v1 := value; v2 := value
 				vs match {
-					case list :List[T] =>
+					case list :List[T @unchecked] =>
 						var l :List[T] = list
 						while (l.nonEmpty) {
 							l.head := value; l = l.tail
@@ -301,31 +309,10 @@ object InOut extends InOutNumericImplicits {
 
 
 
-	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut.\:? :?]]. */
+	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut.:? :?]]. */
 	final class TestAndSet[@specialized(SpecializedVars) T] private[vars](x :InOut[T], expect :T) {
 		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
 		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)
-	}
-
-
-
-
-
-	/** A type class with implicit default value to which an `InOut[T]` is initialized in no-arg constructors. */
-	final class DefaultValue[@specialized(SpecializedVars) T](val value :T)
-
-	object DefaultValue {
-		implicit final val DefaultByte = new DefaultValue(0.toByte)
-		implicit final val DefaultShort = new DefaultValue(0.toShort)
-		implicit final val DefaultInt = new DefaultValue(0)
-		implicit final val DefaultLong = new DefaultValue(0L)
-		implicit final val DefaultDouble = new DefaultValue(0.0)
-		implicit final val DefaultFloat = new DefaultValue(0.0f)
-		implicit final val DefaultChar = new DefaultValue(0.toChar)
-		implicit final val DefaultBoolean = new DefaultValue(false)
-		implicit final val DefaultUnit = new DefaultValue(())
-
-		implicit final val DefaultString = new DefaultValue("")
 	}
 
 
@@ -335,11 +322,11 @@ object InOut extends InOutNumericImplicits {
 	  * wouldn't be the case with `=:=`.
 	  */
 	private[vars] trait TypeEquiv[@specialized(SpecializedVars) X, Y] {
-		def apply(param :InOut[X]) :InOut[Y]
+		def apply[B[_]](param :B[X]) :B[Y]
 	}
 
 	private[vars] final class TypeIdent[@specialized(SpecializedVars) X] extends TypeEquiv[X, X] {
-		override def apply(param :InOut[X]) :InOut[X] = param
+		override def apply[B[_]](param :B[X]) :B[X] = param
 
 		override def equals(other :Any) :Boolean = other match {
 			case ident :TypeIdent[_] => getClass == ident.getClass
@@ -355,6 +342,7 @@ object InOut extends InOutNumericImplicits {
 	private[vars] implicit val ShortEq = new TypeIdent[Short]
 	private[vars] implicit val ByteEq = new TypeIdent[Byte]
 	private[vars] implicit val CharEq = new TypeIdent[Char]
+	private[vars] val AnyRefEq = new TypeIdent[AnyRef]
 
 
 
@@ -368,7 +356,7 @@ object InOut extends InOutNumericImplicits {
 	class InOutOrderingLike[T, C[X] <: Ordering[X]](inner :C[T]) extends Ordering[InOut[T]] {
 		@inline final protected[this] def vals :C[T] = inner
 
-		override def compare(x :InOut[T], y :InOut[T]) :Int = vals.compare(x.get, y.get)
+		override def compare(x :InOut[T], y :InOut[T]) :Int = vals.compare(x.value, y.value)
 	}
 
 
@@ -380,23 +368,23 @@ object InOut extends InOutNumericImplicits {
 	  * the value type `T`.
 	  */
 	class InOutNumericLike[T, C[X] <: Numeric[X]](nums :C[T]) extends InOutOrderingLike[T, C](nums) with Numeric[InOut[T]] {
-		override def plus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.plus(x.get, y.get))
+		override def plus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.plus(x.value, y.value))
 
-		override def minus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.minus(x.get, y.get))
+		override def minus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.minus(x.value, y.value))
 
-		override def times(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.times(x.get, y.get))
+		override def times(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.times(x.value, y.value))
 
-		override def negate(x :InOut[T]) :InOut[T] = InOut(vals.negate(x.get))
+		override def negate(x :InOut[T]) :InOut[T] = InOut(vals.negate(x.value))
 
 		override def fromInt(x :Int) :InOut[T] = InOut(vals.fromInt(x))
 
-		override def toInt(x :InOut[T]) :Int = vals.toInt(x.get)
+		override def toInt(x :InOut[T]) :Int = vals.toInt(x.value)
 
-		override def toLong(x :InOut[T]) :Long = vals.toLong(x.get)
+		override def toLong(x :InOut[T]) :Long = vals.toLong(x.value)
 
-		override def toFloat(x :InOut[T]) :Float = vals.toFloat(x.get)
+		override def toFloat(x :InOut[T]) :Float = vals.toFloat(x.value)
 
-		override def toDouble(x :InOut[T]) :Double = vals.toDouble(x.get)
+		override def toDouble(x :InOut[T]) :Double = vals.toDouble(x.value)
 
 		override def parseString(str :String) :Option[InOut[T]] = nums.parseString(str).map(InOut(_))
 	}
@@ -412,9 +400,9 @@ object InOut extends InOutNumericImplicits {
 	  * `Numeric[T]` is available.
 	  */
 	class InOutIntegral[T](nums :Integral[T]) extends InOutNumericLike[T, Integral](nums) with Integral[InOut[T]] {
-		override def quot(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.quot(x.get, y.get))
+		override def quot(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.quot(x.value, y.value))
 
-		override def rem(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.rem(x.get, y.get))
+		override def rem(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.rem(x.value, y.value))
 	}
 
 	implicit def InOutIntegral[T](implicit integral :Integral[T]) :Integral[InOut[T]] = new InOutIntegral(integral)
@@ -424,7 +412,7 @@ object InOut extends InOutNumericImplicits {
 	  * `Numeric[T]` is available.
 	  */
 	class InOutFractional[T](nums :Fractional[T]) extends InOutNumericLike[T, Fractional](nums) with Fractional[InOut[T]] {
-		override def div(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.div(x.get, y.get))
+		override def div(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.div(x.value, y.value))
 	}
 
 	implicit def InOutFractional[T](implicit fractional :Fractional[T]) :Fractional[InOut[T]] = new InOutFractional(fractional)

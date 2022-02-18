@@ -2,7 +2,8 @@ package net.noresttherein.slang.vars
 
 import scala.annotation.nowarn
 
-import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars, TypeEquiv}
+import net.noresttherein.slang.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.slang.witness.DefaultValue
 
 
 
@@ -27,13 +28,13 @@ sealed class Var[@specialized(SpecializedVars) T](private[this] var x :T) extend
 	override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
 
 	/** Compares the current value of this variable with the first argument and, if they are equal, sets this variable
-	  * to the second argument
-	  * @param expect value to compare with current value
-	  * @param assign new value for this variable
-	  * @return `true` if previous value equaled `expect` and the variable has been set to `assign`.
+	  * to the second argument.
+	  * @param expect   a value to compare with current value.
+	  * @param newValue a new value for this variable.
+	  * @return `true` if previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
-	override def testAndSet(expect :T, assign :T) :Boolean =
-		(x == expect) && {x = assign; true}
+	override def testAndSet(expect :T, newValue :T) :Boolean =
+		(x == expect) && {x = newValue; true}
 
 
 
@@ -251,7 +252,7 @@ sealed class Var[@specialized(SpecializedVars) T](private[this] var x :T) extend
 object Var {
 
 	/** Unbox the value hold by a `Var`. */
-	@inline final implicit def unboxVar[@specialized(SpecializedVars) T](variable :Var[T]) :T = variable.get
+	@inline final implicit def unboxVar[@specialized(SpecializedVars) T](variable :Var[T]) :T = variable.value
 
 
 
@@ -260,7 +261,7 @@ object Var {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Var[T] =
-		new Var[T](default.value)
+		new Var[T](default.default)
 
 
 
@@ -297,7 +298,7 @@ object Var {
 			@inline def =:(v1 :Var[T], v2 :Var[T], vs :Var[T]*) :T = {
 				v1 := value; v2 := value
 				vs match {
-					case list :List[T] =>
+					case list :List[T @unchecked] =>
 						var l :List[T] = list
 						while (l.nonEmpty) {
 							l.head := value; l = l.tail
@@ -331,15 +332,15 @@ object Var {
 		@inline def ||=(other: =>Boolean) :Unit =  x.value = x.value || other
 
 		/** Performs logical ''xor'' on this variable with the given argument: `x := x ^ other`. */
-		@inline def ^=(other :Boolean) :Unit = x.value = x.value ^ other 
+		@inline def ^=(other :Boolean) :Unit = x.value = x.value ^ other
 
 		/** Negates this boolean variable, assigning it the opposite of the current value.
 		  * @return the updated value of this variable (after negation). 
 		  */
-		@inline def neg() :Boolean = { x := !x.value; x.value } 
+		@inline def neg() :Boolean = { x := !x.value; x.value }
 
 		/** Negates this boolean variable, assigning it the opposite of the current value. */
-		@inline def flip() :Unit = x.value = !x.value 
+		@inline def flip() :Unit = x.value = !x.value
 	}
 
 

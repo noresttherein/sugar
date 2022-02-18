@@ -1,53 +1,61 @@
 package net.noresttherein.slang.vars
 
-
-import net.noresttherein.slang.vars.InOut.{DefaultValue, SpecializedVars}
+import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 
 
 
 
 /** A boxed `@volatile` variable of type `T`. Volatile declaration allows it to be used concurrently, guaranteeing
-  * that changes will become visible to other threads, although no operations are atomic.
-  * This makes it useful primarily as assigned-once variables.
-  * This includes flags such as 'terminate thread' or lazily assigned values, where all assignments
-  * are assumed to change it to the same value. Volatile variables incur lower overhead than full
-  * java monitor synchronization, particularly with multiple concurrent reads.
-  * If atomicity of more complex operations is required however, use [[net.noresttherein.slang.vars.SyncVar SyncVar]]
-  * or [[net.noresttherein.slang.vars.Atomic Atomic]] instead.
+  * that changes will become visible to other threads. Unlike with a plain `@volatile` variable,
+  * [[net.noresttherein.slang.vars.Volatile.testAndSet testAndSet]] and similar methods are atomic,
+  * with `@volatile` access semantics regarding the ''happens-before'' relation of the memory model.
+  * This makes this class a polymorphic alternative to Java `AtomicXxx` family of classes, with semantics
+  * of all operations (including assign mutators like `+=`, etc.) equivalent to the reference implementation
+  * of the latter.
+  *
+  * Volatile variables incur lower overhead than full java monitor synchronization, particularly with multiple
+  * concurrent reads. However, if atomicity of more complex operations is required,
+  * use [[net.noresttherein.slang.vars.SyncVar SyncVar]] instead.
+  * @param init the initial value of this variable.
+  * @tparam T the type of this variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
-sealed class Volatile[@specialized(SpecializedVars) T](init :T) extends InOut[T] with Serializable {
+sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
+	extends InOut[T] with VolatileLike[T] with Serializable
+{
 	@scala.volatile private[this] var x = init
+	protected override def factory :Volatile.type = Volatile
 
 	final override def value :T = x
 
-	final override def value_=(value :T) :Unit = x = value
-
-	/** Assigns a new value to this variable, returning a value it held at some point in the past.
-	  * Note that this is '''not''' atomic: other assignments might have happened between reading
-	  * the previous value and assigning the provided value.
-	  */
-	final override def ?=(newValue :T) :T = { val res = x; x = newValue; res }
-
+	final override def value_=(newValue :T) :Unit = x = newValue
 }
 
 
 
 
+/** Factory of boxed `@volatile` variables.
+  * @define variable volatile reference variable
+  */
+object Volatile extends VolatileLikeFactory[Volatile] {
 
+	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Volatile[T] = new Volatile(init)
+	protected override def newRefInstance[T](init :T) :Volatile[T] = new VolatileRef[T](init)
+	protected override def newBoolInstance(init :Boolean) :Volatile[Boolean] = new VolatileBool(init)
 
-/** Factory of boxed `@volatile` variables. */
-object Volatile {
+	/** An unspecialized `Volatile` implementation overriding atomic mutator methods to compare the value
+	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,
+	  * which we do not want).
+	  */
+    @SerialVersionUID(1L)
+	private class VolatileRef[T](init :T) extends Volatile[T](init) with RefVolatileLike[T]
 
-	/** Create a new volatile reference variable which can be shared by multiple units of code. */
-	@inline def apply[@specialized(SpecializedVars) T](value :T) :Volatile[T] = new Volatile(value)
-
-	/** Create a new volatile reference variable which can be shared by multiple units of code. */
-	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Volatile[T] =
-		new Volatile(default.value)
-
-
-	@inline implicit def unboxVar[@specialized(SpecializedVars) T](vol :Volatile[T]) :T = vol.get
+	/** Optimised implementation of `Volatile[Bool]` which enumerates all two possible results
+	  * in accumulate/mutate methods.
+	  */
+    @SerialVersionUID(1L)
+	private class VolatileBool(init :Boolean) extends Volatile[Boolean](init) with BoolVolatileLike
 
 }

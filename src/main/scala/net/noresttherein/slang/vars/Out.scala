@@ -26,17 +26,17 @@ sealed class Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] {
 		x
 	}
 
-	final override def value_=(value :T) :Unit = {
+	final override def value_=(newValue :T) :Unit = {
 		if (!(Out.IsSet.compareAndSet(this :Out[_], false, true) :Boolean))
 			throw new IllegalStateException("Out value already initialized: " + x + ".")
-		x = value
+		x = newValue
 	}
 
-	final override def toOpt :Opt[T] = if (!isSet) Lack else Got(x)
+	final override def opt :Opt[T] = if (!isSet) Lack else Got(x)
 
-	override def isInitialized :Boolean = isSet
+	override def isDefined :Boolean = isSet
 
-	override def toString :String = if (isSet) String.valueOf(x) else "?"
+	override def toString :String = if (isSet) String.valueOf(value) else "?"
 }
 
 

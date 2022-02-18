@@ -17,37 +17,35 @@ import net.noresttherein.slang.optional.Opt.{Got, Lack}
   */
 @SerialVersionUID(1L)
 final class SignalVal[T] private extends InOut[T] with Val[T] {
-	private[this] var opt :Opt[T] = Lack
+	@volatile private[this] var x :Opt[T] = Lack
 
-	@inline override def isInitialized :Boolean = synchronized { opt.isDefined }
+	override def opt :Opt[T] = x
 
-	override def toOpt :Opt[T] = opt
-
-	override def value :T = synchronized {
-		while (opt.isEmpty) wait()
-		opt.get
+	override def value :T = x match {
+		case Got(v) => v
+		case _ => synchronized {
+			while (x.isEmpty) wait()
+			x.get
+		}
 	}
-
-	override def value_=(value :T) :Unit = synchronized {
-		if (isInitialized)
-			throw new IllegalStateException(s"Cannot set SignalVal(${opt.get}) to $value: already initialized.")
+	override def value_=(newValue :T) :Unit = synchronized {
+		if (isDefined)
+			throw new IllegalStateException(s"Cannot set SignalVal(${x.get}) to $newValue: already initialized.")
 		else {
-			opt = Got(value)
+			x = Got(newValue)
 			notifyAll()
 		}
 	}
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
-	override def ?=(value :T) :T =
+	override def ?=(newValue :T) :T =
 		throw new UnsupportedOperationException("SignalVal can't be set multiple times.")
-
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
-	override def testAndSet(expect :T, assign :T) :Boolean =
+	override def testAndSet(expect :T, newValue :T) :Boolean =
 		throw new UnsupportedOperationException("Cannot testAndSet a SignalVal")
-
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
@@ -65,9 +63,11 @@ final class SignalVal[T] private extends InOut[T] with Val[T] {
 		throw new UnsupportedOperationException("SignalVal cannot be modified.")
 
 
+	override def hashCode :Int = super[Val].hashCode
+
 	override def toString :String = synchronized {
-		if (isInitialized) String.valueOf(value)
-		else "SignalVal(?)@" + System.identityHashCode(this)
+		if (isDefined) String.valueOf(value)
+		else "SignalVal(?)@" + Integer.toHexString(System.identityHashCode(this))
 	}
 }
 

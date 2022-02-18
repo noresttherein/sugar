@@ -25,8 +25,8 @@ libraryDependencies ++= Seq( //todo: make shapeless optional
 
 scalacOptions ++= Seq(
 	"-Vimplicits", "-Vimplicits-verbose-tree",
-	"-Xlint:delayedinit-select,implicit-not-found,option-implicit,poly-implicit-overload,missing-interpolator,nullary-unit",
 	"-Wconf:cat=deprecation&msg=foldLeft instead|foldRight instead:silent,cat=deprecation:w,cat=feature:w",
+	"-Xlint:delayedinit-select,implicit-not-found,option-implicit,poly-implicit-overload,missing-interpolator,nullary-unit",
 //	"-language:postfixOps",
 	"-language:implicitConversions",
 	"-language:higherKinds",
