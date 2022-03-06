@@ -8,15 +8,17 @@ import net.noresttherein.slang.witness.DefaultValue
 
 
 
-/** A simple `@specialized` boxed `var`. Allows for in/out parameters to functions.
-  * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
+/** A simple `@specialized` boxed '''`var`'''. Facilitates in/out function parameters.
+  * Implicit conversions exist providing arithmetic suitable to the type of the boxed value. For example,
   * you can write `param += 1` for `param :Var[Int]`. The use of this class directly over through the `In/Out`
   * interface may be preferable to reduce the number of virtual calls and possibly facilitate hotspot inlining.
-  * @tparam T type of this variable
+  * @tparam T the type of this variable.
   * @see [[net.noresttherein.slang.vars.Var$]]
   */
 @SerialVersionUID(1L)
 sealed class Var[@specialized(SpecializedVars) T](private[this] var x :T) extends InOut[T] with Serializable {
+
+	override def isDefined :Boolean = true
 
 	/** Current value of this variable. */
 	override def value :T = x
@@ -242,6 +244,8 @@ sealed class Var[@specialized(SpecializedVars) T](private[this] var x :T) extend
 		val res = -self.value; self.value = res; res
 	}
 
+
+	private[vars] override def isSpecialized :Boolean = getClass != classOf[Var[Any]]
 }
 
 
@@ -251,20 +255,12 @@ sealed class Var[@specialized(SpecializedVars) T](private[this] var x :T) extend
 
 object Var {
 
-	/** Unbox the value hold by a `Var`. */
-	@inline final implicit def unboxVar[@specialized(SpecializedVars) T](variable :Var[T]) :T = variable.value
-
-
-
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :Var[T] = new Var[T](value)
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Var[T] =
 		new Var[T](default.default)
-
-
-
 
 
 
@@ -309,13 +305,12 @@ object Var {
 			}
 		}
 
-
 	}
 
 
 
 
-
+	//extension methods overriden to operate directly on the value property, without allowing for atomicity
 
 	/** Implicit conversion of a `Var[Boolean]` variable providing basic logical operations. */
 	implicit class VarBooleanOps(private val x :Var[Boolean]) extends AnyVal {

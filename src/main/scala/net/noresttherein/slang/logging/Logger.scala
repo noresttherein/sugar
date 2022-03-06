@@ -8,6 +8,8 @@ import net.noresttherein.slang.logging.Logger.NamingScheme.DemangledClassName
 import net.noresttherein.slang.prettyprint.{abbrevClassNameOf, classNameOf, fullNameOf}
 
 
+
+
 /** Simple syntactic wrapper over `java.util.logging.Logger` available by the
   * [[net.noresttherein.slang.logging.Logger.toJava toJava]] property.
   * All logging methods investigate the frame stack to find the first class from outside the
@@ -92,7 +94,6 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 
 object Logger {
-
 
 	@inline def apply(logger :JLogger) :Logger = new Logger(logger)
 

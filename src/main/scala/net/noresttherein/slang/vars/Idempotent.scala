@@ -1,10 +1,11 @@
 package net.noresttherein.slang.vars
 
-import java.lang.invoke.VarHandle.{acquireFence, fullFence, releaseFence}
+import java.lang.invoke.VarHandle.{acquireFence, releaseFence}
 
 import scala.annotation.unspecialized
 
 import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 import net.noresttherein.slang.vars.Ref.Undefined
 
 
@@ -49,13 +50,15 @@ object Idempotent {
 
 
 	/** An already computed (initialized) value. */
-	@SerialVersionUID(1L)
-	private class EagerIdempotent[@specialized(SpecializedVars) +T](x :T) extends Idempotent[T] {
+	@SerialVersionUID(1L) //Not specialized so we don't box the value type to fit in an Opt all the time
+	private class EagerIdempotent[+T](x :T) extends Idempotent[T] {
 		override def isDefined :Boolean = true
+		override def get :T = x
 
-		override def apply() :T = x
 		override def map[O](f :T => O) :Lazy[O] = new EagerIdempotent[O](f(x))
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(x)
+
+		override def isSpecialized :Boolean = getClass == classOf[EagerIdempotent[_]]
 	}
 
 
@@ -67,13 +70,16 @@ object Idempotent {
 	private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Idempotent[T]
 	{
-		def this(value :T) = { this(null); evaluated = value; fullFence() }
-
-		private[this] var evaluated :Any = _
+		private[this] var evaluated :Any = Undefined
 
 		override def isDefined: Boolean = evaluated != Undefined
 
-		@unspecialized override def apply(): T = {
+		override def opt :Opt[T] = {
+			val res = evaluated
+			if (res == Undefined) Lack else Got(res.asInstanceOf[T])
+		}
+
+		@unspecialized override def get: T = {
 			var res = evaluated
 			if (res == Undefined) {
 				val init = initializer
@@ -103,7 +109,6 @@ object Idempotent {
 					new IdempotentRef(() => f(apply()))
 			}
 		}
-
 		@unspecialized override def flatMap[O](f: T => Lazy[O]): Lazy[O] = {
 			val v = evaluated
 			if (v != Undefined)
@@ -117,6 +122,8 @@ object Idempotent {
 					new IdempotentRef(f(apply()))
 			}
 		}
+
+		override def isSpecialized = true
 
 		override def toString :String =
 			if (evaluated != Undefined) String.valueOf(evaluated)
@@ -133,13 +140,19 @@ object Idempotent {
 	  */
 	@SerialVersionUID(1L)
 	private[vars] class IdempotentRef[T](private[this] var initializer :() => T) extends Idempotent[T] {
-		def this(value :T) = { this(null); evaluated = value; fullFence() }
-
 		private[this] var evaluated :T = _
 
 		override def isDefined: Boolean = { val init = initializer; acquireFence(); init == null }
 
-		override def apply() :T = {
+		override def opt :Opt[T] =
+			if (initializer == null)
+				Lack
+			else {
+				acquireFence()
+				Got(evaluated)
+			}
+
+		override def get :T = {
 			val init = initializer
 			acquireFence()
 			if (init == null)
@@ -175,6 +188,8 @@ object Idempotent {
 			else
 				new IdempotentRef(f(apply()))
 		}
+
+		override def isSpecialized = false
 
 		override def toString :String =
 			if (initializer == null) { acquireFence(); String.valueOf(evaluated) }

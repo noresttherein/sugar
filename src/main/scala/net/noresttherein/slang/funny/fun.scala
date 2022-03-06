@@ -405,22 +405,22 @@ object fun {
 					if (innerS.endsWith("=>" + g.rangeString) && outerS.startsWith(outerTypePrefix))
 						innerS + outerS.substring(outerTypePrefix.length)
 					else
-						innerS + "*>" + outerS
+						innerS + ">>" + outerS
 
 				case (f :ComposableFun[_, _], _) if inner.toString == "<function1>" =>
 					val outerS = f.toString
 					if (outerS.startsWith(f.domainString + "=>"))
 						"?=>" + outerS
 					else
-						"?=>?*>" + outerS
+						"?=>?>>" + outerS
 				case (_, g :ComposableFun[_, _]) if outer.toString == "<function1>" =>
 					val innerS = g.toString
 					if (innerS.endsWith("=>" + g.rangeString))
 						innerS + "=>?"
 					else
-						innerS + "*>?=>?"
+						innerS + ">>?=>?"
 				case _ =>
-					inner.toString + "*>" + outer
+					inner.toString + ">>" + outer
 			}
 
 	}

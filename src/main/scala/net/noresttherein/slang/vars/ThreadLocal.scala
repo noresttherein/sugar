@@ -13,10 +13,11 @@ import net.noresttherein.slang.witness.DefaultValue
 sealed class ThreadLocal[T](init :T) extends InOut[T] {
 	private[this] val local = java.lang.ThreadLocal.withInitial[T](() => init)
 
+	override def isDefined :Boolean = true
 	override def value :T = local.get
-
 	override def value_=(newValue :T) :Unit = local.set(newValue)
 
+	private[vars] override def isSpecialized = false
 }
 
 

@@ -1,12 +1,11 @@
 package net.noresttherein.slang.vars
 
-import java.lang.invoke.VarHandle.{acquireFence, fullFence, releaseFence}
-
 import scala.annotation.unspecialized
 
 import net.noresttherein.slang.funny.Initializer
 import net.noresttherein.slang.vars.Idempotent.IdempotentRef
 import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 import net.noresttherein.slang.vars.Ref.Undefined
 
 
@@ -51,11 +50,16 @@ object Transient {
 	  */
 	@SerialVersionUID(1L)
 	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Initializer[T]) extends Transient[T] {
-		@transient private[this] var evaluated :Any = _
+		@transient private[this] var evaluated :Any = Undefined
 
 		override def isDefined: Boolean = evaluated != Undefined
 
-		@unspecialized override def apply(): T = {
+		override def opt :Opt[T] = {
+			val res = evaluated
+			if (res == null) Lack else Got(res.asInstanceOf[T])
+		}
+
+		@unspecialized override def get: T = {
 			var res = evaluated
 			if (res == Undefined) {
 				res = initializer()
@@ -81,6 +85,8 @@ object Transient {
 				new IdempotentRef(() => f(apply()))
 		}
 
+		override def isSpecialized = true
+
 		override def toString :String =
 			if (evaluated != Undefined) String.valueOf(evaluated)
 			else "lazy(?)"
@@ -97,7 +103,12 @@ object Transient {
 
 		override def isDefined: Boolean = evaluated != Undefined
 
-		override def apply() :T = {
+		override def opt :Opt[T] = {
+			val res = evaluated
+			if (res == Undefined) Lack else Got(evaluated.asInstanceOf[T])
+		}
+
+		override def get :T = {
 			var res = evaluated
 			if (res == Undefined) {
 				res = initializer()
@@ -122,6 +133,8 @@ object Transient {
 			else
 				new IdempotentRef(f(apply()))
 		}
+
+		override def isSpecialized = false
 
 		override def toString :String = {
 			val v = evaluated

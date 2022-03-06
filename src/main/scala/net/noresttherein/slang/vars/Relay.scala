@@ -2,8 +2,7 @@ package net.noresttherein.slang.vars
 
 import scala.annotation.tailrec
 
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.{Got, Lack}
+import Opt.{Got, Lack}
 import net.noresttherein.slang.vars.InOut.SpecializedVars
 import net.noresttherein.slang.vars.Relay.{Reader, Writer}
 
@@ -126,10 +125,13 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 		}
 	}
 
+
+	private[vars] override def isSpecialized :Boolean = getClass != classOf[Relay[_]]
+
 	override def toString :String = synchronized {
-		if (writers != null) "Relay@" + hashCode + writers
-		else if (readers != null) "Relay@" + hashCode + "(" + readers.length + " readers)"
-		else "Relay@" + hashCode + "()"
+		if (writers != null) "Relay@" + Integer.toHexString(hashCode) + writers
+		else if (readers != null) "Relay@" + Integer.toHexString(hashCode) + "(" + readers.length + " readers)"
+		else "Relay@" + Integer.toHexString(hashCode) + "()"
 	}
 }
 

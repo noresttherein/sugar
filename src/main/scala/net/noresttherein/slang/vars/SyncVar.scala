@@ -21,13 +21,14 @@ import net.noresttherein.slang.witness.DefaultValue
 @SerialVersionUID(1L)
 sealed class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) extends InOut[T] with Serializable {
 
-	@inline override def value :T = synchronized { x }
+	override def isDefined :Boolean = true
 
+	@inline override def value :T = synchronized { x }
 	@inline final override def value_=(newValue :T) :Unit = synchronized { x = newValue }
+
 
 	@inline final override def ?=(newValue :T) :T = synchronized { val res = x; x = newValue; res }
 
-	
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
 	  * @param expect   a value to compare with current value.
 	  * @param newValue a new value for this variable.
@@ -68,6 +69,8 @@ sealed class SyncVar[@specialized(SpecializedVars) T](private[this] var x :T) ex
 		self.value = self.value || other
 	}
 
+
+	private[vars] override def isSpecialized :Boolean = getClass != classOf[SyncVar[_]]
 }
 
 

@@ -1,7 +1,7 @@
 package net.noresttherein.slang.witness
 
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.Lack
+import net.noresttherein.slang.vars.Opt.Lack
+import net.noresttherein.slang.vars.Opt
 
 
 /** A type class providing the default value for standard types. It is the value to which `Array[T]` is initialized,

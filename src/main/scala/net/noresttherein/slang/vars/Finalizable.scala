@@ -4,10 +4,9 @@ import java.lang.invoke.MethodHandles
 
 import scala.Specializable.Args
 
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.{Got, Lack}
 import net.noresttherein.slang.vars.Finalizable.{stateField, Immutable, Locked, Mutable}
 import net.noresttherein.slang.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 import net.noresttherein.slang.witness.DefaultValue
 
 
@@ -28,10 +27,10 @@ import net.noresttherein.slang.witness.DefaultValue
   * an [[IllegalStateException]] if the variable has not been finalized, and return the same value once the variable
   * becomes finalized. Method [[net.noresttherein.slang.vars.Finalizable.isDefined isDefined]] can be used to determine
   * if the variable has been finalized (although `false` results may become outdated before being read by the caller)
-  * and [[net.noresttherein.slang.vars.Ref.get get]] and [[net.noresttherein.slang.vars.Ref.opt opt]] have also
+  * and [[net.noresttherein.slang.vars.Ref.? ?]] and [[net.noresttherein.slang.vars.Ref.opt opt]] have also
   * semantics of the immutable `Val`, returning `None`/`Lack` if the variable is not finalized.
   * @author Marcin Mościcki marcin@moscicki.net
-  */
+  */ //consider: making it a Ref, not a Val, so that equality compares current values
 @SerialVersionUID(1L)
 sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T)
 	extends InOut[T] with Val[T] with Serializable
@@ -72,14 +71,15 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	}
 
 	/** The value of this variable if it is in the immutable state (finalized).  */
-	override def opt :Opt[T] =
-		if (state == Immutable) Got(x)
-		else Lack
+	override def opt    :Opt[T]  = if (state == Immutable) Got(x) else Lack
+
+	/** The value of this variable if it is in the immutable state (finalized).  */
+	override def asShot :Shot[T] = if (state == Immutable) Hit(x) else Miss
 
 	/** The finalized value of this variable.
 	  * @throws IllegalStateException if this variable is not finalized.
 	  */
-	override def apply() :T =
+	override def get :T =
 		if (state == Immutable) x
 		else throw new IllegalStateException(toString + " is not finalized.")
 
@@ -161,6 +161,8 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 			ev(this).set(true)
 		state = Mutable
 	}
+
+	private[vars] override def isSpecialized :Boolean = getClass == classOf[Finalizable[_]]
 
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Finalizable[_]]
 	override def hashCode :Int = super[InOut].hashCode

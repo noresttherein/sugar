@@ -13,7 +13,9 @@ import net.noresttherein.slang.witness.DefaultValue
 /** Implementation trait for `InOut` implementations with `@volatile` atomic update operations. */
 private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[T] {
 	protected def factory :VolatileLikeFactory[VolatileLike]
-	
+
+	override def isDefined :Boolean = true
+
 	/** Assigns a new value to this variable, returning a value it held at some point in the past.
 	  * This method is atomic with `@volatile` access semantics.
 	  */
@@ -181,6 +183,8 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 		handle
 	}
 
+
+	private[vars] override def isSpecialized = true
 }
 
 
@@ -232,6 +236,8 @@ private[vars] object VolatileLike {
 			}
 			newValue
 		}
+
+		private[vars] override def isSpecialized = false
 	}
 
 	/** Optimised implementation of `VolatileLike[Bool]` which enumerates all two possible results

@@ -2,8 +2,7 @@ package net.noresttherein.slang.vars
 
 import java.lang.ref.{PhantomReference, Reference, ReferenceQueue, SoftReference, WeakReference}
 
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.{Got, Lack}
+import Opt.{Got, Lack}
 import net.noresttherein.slang.time.{Eternity, Milliseconds, MinusEternity, TimeSpan}
 import net.noresttherein.slang.vars.DisposableRef.WrapperReference
 import net.noresttherein.slang.vars.PhantomRef.WrappedPhantomRef
@@ -17,7 +16,7 @@ import net.noresttherein.slang.vars.WeakRef.WrappedWeakRef
 
 /** A light wrapper over Java [[java.lang.ref.ReferenceQueue ReferenceQueue]] containing only instances
   * of [[net.noresttherein.slang.vars.DisposableRef DisposableRef]], with API expressed in terms of the latter,
-  * rather than Java [[java.lang.ref.Reference Reference]] (and using [[Option]]s instead of `null`s).
+  * rather than Java [[java.lang.ref.Reference Reference]] (and using [[net.noresttherein.slang.vars.Option]]s instead of `null`s).
   */
 class RefQueue[T](name :String) {
 	def this() = this(null)
@@ -58,18 +57,24 @@ sealed class DisposableRef[+T](referent :T, queue :ReferenceQueue[T])
 	private[this] val ref = cons(referent, queue, this)
 //	private[this] var callbacks :List[() => Unit] = Nil
 
-	override def apply() :T = ref.get match {
+	override def isDefined :Boolean = ref.get != null
+
+	override def get :T = ref.get match {
 		case null => throw new NoSuchElementException("Object was garbage collected")
 		case x => x
 	}
-	override def opt :Opt[T]    = Opt(ref.get)
-	override def get :Option[T] = Option(ref.get)
+	override def opt :Opt[T] = Opt(ref.get)
+	override def asOption :Option[T] = Option(ref.get)
+	override def asShot :Shot[T] = Shot(ref.get)
 
 //	def onClean(f: => Unit) :Unit = synchronized { callbacks = (() => f) :: callbacks}
 
 	def isEnqueued :Boolean = ref.isEnqueued
 	def enqueue() :Boolean = ref.enqueue()
 	def clear() :Unit = ref.clear()
+
+
+	private[vars] override def isSpecialized = false
 
 	override def equals(that :Any) :Boolean = that match {
 		case self :AnyRef if self eq this => true

@@ -1,8 +1,11 @@
 package net.noresttherein.slang
 
+
+
+
 /**
   * @author Marcin Mościcki marcin@moscicki.net
-  */
+  */ //doesn't use the extensions pattern as the rest, but it is scheduled for removal anyway
 package object tuples {
 
 	/** Adds `++`, `:+` and `+: methods to `Tuple2`.` */

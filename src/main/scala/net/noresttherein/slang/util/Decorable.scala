@@ -3,11 +3,11 @@ package net.noresttherein.slang.util
 
 
 
-/** Mixin trait for any interface `Self` we might want to decorate. It is aware what its decorator is.
+/** A mixin trait for any interface `Self` we might want to decorate, aware what its decorator is.
   * The decorator pattern has a flaw in that an implementation of a given interface, for which decorators exist,
   * cannot pass a reference to itself as an argument, because it would lose the decorator(s) wrapping it.
   * This in particular rules out combining decorator and visitor patterns, as a decorator of a visitor traversing
-  * a recursive structure, after delegating to the decorated visitor implemeentation, would never regain control,
+  * a recursive structure, after delegating to the decorated visitor implementation, would never regain control,
   * with subsequent traversal happening solely using the (innermost) decorated instance.
   *
   * This interface addresses this problem by being aware that it might be decorated, keeping the 'effective'

@@ -3,8 +3,7 @@ package net.noresttherein.slang.vars
 import scala.Specializable.Args
 import scala.annotation.nowarn
 
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.Got
+import Opt.Got
 import net.noresttherein.slang.vars.InOut.{InOutNumeric, InOutOrdering, SpecializedVars, TestAndSet, TypeEquiv}
 import net.noresttherein.slang.witness.DefaultValue
 
@@ -14,7 +13,13 @@ import net.noresttherein.slang.witness.DefaultValue
   * Implemented by several boxing classes which may provide additional features such as synchronization.
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
   * you can write `param += 1` for `param :InOut[Int]`.
-  * @tparam T type of this variable
+  *
+  * Note that while by default, and for all typical implementations such as [[net.noresttherein.slang.vars.Var Var]]
+  * or [[net.noresttherein.slang.vars.Atomic Atomic]] method [[net.noresttherein.slang.vars.InOut.get get]]
+  * returns `this.`[[net.noresttherein.slang.vars.InOut.value value]], these two properties can have different
+  * semantics in some classes, such as [[net.noresttherein.slang.vars.Finalizable Finalizable]].
+  * Where applicable, the subclasses use `value` as the 'current' value and `get` for a more final/public version.
+  * @tparam T the type of this variable.
   * @see [[net.noresttherein.slang.vars.Var]]
   * @see [[net.noresttherein.slang.vars.Volatile]]
   * @see [[net.noresttherein.slang.vars.SyncVar]]
@@ -24,18 +29,18 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	/** The wrapped value.
 	  * @return `this.`[[net.noresttherein.slang.vars.InOut.value value]].
 	  */
-	override def apply() :T = value
+	override def get :T = value
 
 	/** The current value of this variable. */
 	def value :T
 
-	/** Assign a new value to this variable. */
+	/** Assigns a new value to this variable. */
 	def value_=(newValue :T) :Unit
 
 	/** Assigns a new value to this variable.
-	  *  Equivalent to `this.value `[[net.noresttherein.slang.vars.InOut.value_= =]]` newValue`.
+	  * Equivalent to `this.value `[[net.noresttherein.slang.vars.InOut.value_= =]]` newValue`.
 	  */
-	def :=(newValue :T) :Unit = value = newValue
+	@inline final def :=(newValue :T) :Unit = value = newValue
 
 	/** Assigns a new value returning the previous value.
 	  * No guarantee is made by this interface about atomicity of this operation.
@@ -224,12 +229,12 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
 
 
-sealed abstract class InOutOrderingImplicits {
+private[vars] sealed abstract class InOutOrderingImplicits {
 	@inline implicit def InOutOrdering[T](implicit ordering :Ordering[T]) :Ordering[InOut[T]] =
 		new InOutOrdering(ordering)
 }
-
-sealed abstract class InOutNumericImplicits extends InOutOrderingImplicits {
+//todo: get rid of these, they make little sense
+private[vars] sealed abstract class InOutNumericImplicits extends InOutOrderingImplicits {
 	@inline implicit def InOutNumeric[T](implicit numeric :Numeric[T]) :Numeric[InOut[T]] =
 		new InOutNumeric(numeric)
 }
@@ -364,10 +369,12 @@ object InOut extends InOutNumericImplicits {
 	class InOutOrdering[T](ordering :Ordering[T]) extends InOutOrderingLike[T, Ordering](ordering)
 
 
-	/** Base class for type classes on `InOut[T]` derived from `Numeric[InOut[T]]` and backed by the corresponding type class on
-	  * the value type `T`.
+	/** Base class for type classes on `InOut[T]` derived from `Numeric[InOut[T]]` and backed
+	  * by the corresponding type class on the value type `T`.
 	  */
-	class InOutNumericLike[T, C[X] <: Numeric[X]](nums :C[T]) extends InOutOrderingLike[T, C](nums) with Numeric[InOut[T]] {
+	class InOutNumericLike[T, C[X] <: Numeric[X]](nums :C[T])
+		extends InOutOrderingLike[T, C](nums) with Numeric[InOut[T]]
+	{
 		override def plus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.plus(x.value, y.value))
 
 		override def minus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.minus(x.value, y.value))
@@ -390,14 +397,14 @@ object InOut extends InOutNumericImplicits {
 	}
 
 
-	/** Implicit type class `Numeric[InOut[T]]` providing numeric operations on `InOut[T]` whenever an implicit value for
-	  * `Numeric[T]` is available.
+	/** Implicit type class `Numeric[InOut[T]]` providing numeric operations on `InOut[T]` whenever an implicit value
+	  *  for `Numeric[T]` is available.
 	  */
 	class InOutNumeric[T](nums :Numeric[T]) extends InOutNumericLike[T, Numeric](nums)
 
 
-	/** Implicit type class `Integral[InOut[T]]` providing integral operations on `InOut[T]` whenever an implicit value for
-	  * `Numeric[T]` is available.
+	/** Implicit type class `Integral[InOut[T]]` providing integral operations on `InOut[T]` whenever an implicit value
+	  * for `Numeric[T]` is available.
 	  */
 	class InOutIntegral[T](nums :Integral[T]) extends InOutNumericLike[T, Integral](nums) with Integral[InOut[T]] {
 		override def quot(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.quot(x.value, y.value))
@@ -408,8 +415,8 @@ object InOut extends InOutNumericImplicits {
 	implicit def InOutIntegral[T](implicit integral :Integral[T]) :Integral[InOut[T]] = new InOutIntegral(integral)
 
 
-	/** Implicit type class `Fractional[InOut[T]]` providing numeric operations on `InOut[T]` whenever an implicit value for
-	  * `Numeric[T]` is available.
+	/** Implicit type class `Fractional[InOut[T]]` providing numeric operations on `InOut[T]` whenever an implicit value
+	  * for `Numeric[T]` is available.
 	  */
 	class InOutFractional[T](nums :Fractional[T]) extends InOutNumericLike[T, Fractional](nums) with Fractional[InOut[T]] {
 		override def div(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.div(x.value, y.value))

@@ -109,6 +109,4 @@ final class RichTuple3[T1, T2, T3](private val t :(T1, T2, T3)) extends AnyVal {
 		(x1, x2, x3, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19)
 	}
 
-
-
 }

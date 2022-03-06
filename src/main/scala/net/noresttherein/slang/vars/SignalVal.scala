@@ -2,8 +2,7 @@ package net.noresttherein.slang.vars
 
 import scala.Specializable.Args
 
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.{Got, Lack}
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 
 
 
@@ -19,6 +18,7 @@ import net.noresttherein.slang.optional.Opt.{Got, Lack}
 final class SignalVal[T] private extends InOut[T] with Val[T] {
 	@volatile private[this] var x :Opt[T] = Lack
 
+	override def isDefined :Boolean = x.isDefined
 	override def opt :Opt[T] = x
 
 	override def value :T = x match {
@@ -62,6 +62,8 @@ final class SignalVal[T] private extends InOut[T] with Val[T] {
 	override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
 		throw new UnsupportedOperationException("SignalVal cannot be modified.")
 
+
+	private[vars] override def isSpecialized = false
 
 	override def hashCode :Int = super[Val].hashCode
 
