@@ -2,13 +2,12 @@ package net.noresttherein.slang
 
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
-import net.noresttherein.slang.prettyprint.ObjectFieldsFormats.objectFormatter
-import net.noresttherein.slang.prettyprint.{CaseClass, DefToString}
+import net.noresttherein.slang.prettyprint.{fieldsStringMethods, CaseClass, DefToString}
 
 /**
   * @author Marcin Mościcki
   */
-object ObjectFormatterSpec extends Properties("ObjectFieldsFormats") {
+object FieldsStringMethodsSpec extends Properties("FieldsStringMethods") {
 
 	case class Subject(boolean :Boolean, int :Int, string :String) extends CaseClass[Subject]
 

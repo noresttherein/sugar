@@ -3,7 +3,7 @@ package net.noresttherein.slang.collection
 
 import scala.collection.immutable.{ArraySeq, ListSet}
 
-import net.noresttherein.slang.implicits.{providingMethods, satisfyingMethods}
+import net.noresttherein.slang.implicits.satisfyingMethods
 import org.scalacheck.Prop._
 import org.scalacheck.{Prop, Properties}
 
@@ -11,7 +11,7 @@ import org.scalacheck.{Prop, Properties}
 
 
 
-object foldingMethodsSpec extends Properties("foldingMethods") {
+object FoldingMethodsSpec extends Properties("FoldingMethods") {
 	val Sum = 100
 
 	private def expectedFoldUntilResult(start :Int, numbers :Seq[Int]) = {
@@ -81,10 +81,8 @@ object foldingMethodsSpec extends Properties("foldingMethods") {
 	private def expectedFoldWhileOptResult(start :Int, numbers :Seq[Int]) =
 		numbers.scanLeft(start)(_ + _).takeWhile(_ < Sum).lastOption
 	private def expectedFoldWhileEitherResult(start :Int, numbers :Seq[Int]) =
-		numbers.scanLeft(start)(_ + _).span(_ < Sum) match {
-			case (Seq(), rest) => Left(rest.head)
-			case (prefix, _) => Right(prefix.last)
-		}
+		if (start >= Sum) Left(start)
+		else Right(expectedFoldWhileResult(start, numbers))
 
 	property("foldWhile") = forAll { (start :Int, numbers :List[Int]) =>
 		if (start > Sum)

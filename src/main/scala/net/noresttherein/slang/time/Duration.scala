@@ -5,6 +5,8 @@ import java.util.concurrent.{TimeUnit => JTimeUnit}
 
 import scala.concurrent.{duration => s}
 
+import net.noresttherein.slang.time.dsl.LongTimeLapseMethods
+
 
 
 
@@ -13,35 +15,37 @@ import scala.concurrent.{duration => s}
 
 /** Implementation of a finite duration backed by a `java.time.Duration`. All methods return a `Duration` if possible. */
 @SerialVersionUID(1L)
-class Duration private[time] (override val toJava: j.Duration) extends AnyVal with FiniteTimeSpan with Serializable {
-	@inline override def inNanos :Long = toJava.toNanos
+class Duration private[time] (override val toJava: j.Duration) extends AnyVal with TimeSpan with Serializable {
+	@inline override def toNanos :Long   = toJava.toNanos
+	@inline override def inNanos :Double =
+		toJava.toNanosPart.toDouble + toJava.toSeconds.toDouble * NanosInSecond
 
-	override def inMicros :Long = {
+	override def toMicros :Long = {
 		val seconds = toJava.getSeconds
 		val max = Long.MaxValue / 1000000L
 		if (seconds == 0L)
 			toJava.getNano / 1000L
 		else if (seconds > max || seconds < -max)
-			overflow(toString, "inMicros")
+			overflow(toString, "toMicros")
 		else
 			seconds * 1000000L + toJava.getNano / 1000L
 	}
-	@inline override def toMicros :Double = toJava.getSeconds * 1000000d + toJava.getNano / 1000d
+	@inline override def inMicros :Double = toJava.getSeconds * 1000000d + toJava.getNano / 1000d
 
-	@inline override def inMillis :Long = toJava.toMillis
-	@inline override def toMillis :Double = toJava.getSeconds * 1000d + toJava.getNano.toDouble * NanosInMilli
+	@inline override def toMillis :Long    = toJava.toMillis
+	@inline override def inMillis :Double  = toJava.getSeconds * 1000d + toJava.getNano.toDouble * NanosInMilli
 	@inline override def asMillis :Milliseconds = new Milliseconds(toJava.toMillis)
 
-	@inline override def inSeconds :Long = toJava.toSeconds
-	@inline override def toSeconds :Double = toJava.toSeconds + toJava.toNanos / NanosInSecond.toDouble
-	@inline override def inMinutes :Long = toJava.toMinutes
-	@inline override def toMinutes :Double = toJava.toSeconds / 60d + toJava.toNanos / NanosInMinute.toDouble
-	@inline override def inHours :Long = toJava.toHours
-	@inline override def toHours :Double = toJava.toSeconds / 3600d + toJava.toNanos / NanosInHour.toDouble
-	@inline override def inDays :Long  = toJava.toDays
-	@inline override def toDays :Double = toJava.toSeconds / 86400d + toJava.toNanos / NanosInDay.toDouble
+	@inline override def toSeconds :Long   = toJava.toSeconds
+	@inline override def inSeconds :Double = toJava.toSeconds + toJava.toNanos / NanosInSecond.toDouble
+	@inline override def toMinutes :Long   = toJava.toMinutes
+	@inline override def inMinutes :Double = toJava.toSeconds / 60d + toJava.toNanos / NanosInMinute.toDouble
+	@inline override def toHours   :Long   = toJava.toHours
+	@inline override def inHours   :Double = toJava.toSeconds / 3600d + toJava.toNanos / NanosInHour.toDouble
+	@inline override def toDays    :Long   = toJava.toDays
+	@inline override def inDays    :Double = toJava.toSeconds / 86400d + toJava.toNanos / NanosInDay.toDouble
 
-	override def in(unit :TimeUnit) :Long = {
+	override def to(unit :TimeUnit) :Long = {
 		val nanoLen = unit.inNanos
 		val seconds = toJava.getSeconds; val nanos = toJava.getNano
 		if (nanoLen < NanosInSecond) {
@@ -56,7 +60,7 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 			seconds / (nanoLen / NanosInSecond)
 	}
 
-	@inline override def to(unit :TimeUnit) :Double = {
+	@inline override def in(unit :TimeUnit) :Double = {
 		val nanoLen = unit.inNanos
 		if (nanoLen < NanosInSecond)
 			toJava.getSeconds.toDouble * (NanosInSecond / nanoLen) + toJava.getNano.toDouble / nanoLen
@@ -64,10 +68,10 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 			toJava.getSeconds.toDouble / (nanoLen / NanosInSecond) + toJava.getNano.toDouble / nanoLen
 	}
 
-	@inline override def nanos :Int = toJava.toNanosPart
-	@inline override def seconds :Int = toJava.toSecondsPart
-	@inline override def minutes :Int = toJava.toNanosPart
-	@inline override def hours :Long = toJava.toHours
+	@inline override def nanos   :Int  = toJava.toNanosPart
+	@inline override def seconds :Int  = toJava.toSecondsPart
+	@inline override def minutes :Int  = toJava.toNanosPart
+	@inline override def hours   :Long = toJava.toHours
 
 	override def unit :TimeUnit = (toJava.toSeconds, toJava.getNano) match {
 		case (s, 0) =>
@@ -83,10 +87,10 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 	}
 
 
+	@inline override def toMilliseconds :Milliseconds = new Milliseconds(toMillis)
+	@inline override def toDuration     :Duration     = this
 
-	@inline override def toDuration :Duration = this
-
-	@inline override def toScala :s.Duration =
+	@inline override def toScala         :s.Duration   =
 		s.Duration(toJava.getSeconds * NanosInSecond + toJava.getNano, JTimeUnit.NANOSECONDS)
 
 	@inline override def isZero :Boolean = toJava.isZero
@@ -119,17 +123,14 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 	}
 
 
-
-	override def +(time :TimeSpan) :TimeSpan = {
+	override def +(time :TimeInterval) :TimeInterval = {
 		val s = toJava.getSeconds; val n = toJava.getNano
 		if (s == 0 && n == 0) time
 		else if (time.signum == 0) this
 		else time.add(s, n)
 	}
-
-	@inline override def +(time :FiniteTimeSpan) :FiniteTimeSpan = time.add(time.inSeconds, time.nanos)
-
-	@inline def +(time :Duration) :Duration = new Duration(toJava plus time.toJava)
+	@inline override def +(time :TimeSpan) :TimeSpan = time.add(time.toSeconds, time.nanos)
+	@inline def +(time :Duration)                :Duration       = new Duration(toJava plus time.toJava)
 
 	override def add(seconds :Long, nanos :Int) :Duration = {
 		val s = toJava.getSeconds
@@ -139,14 +140,12 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 	}
 
 
-
-	override def -(time :TimeSpan) :TimeSpan =
+	@inline override def -(time :TimeInterval) :TimeInterval =
 		if (time.signum == 0) this
 		else time.subtractFrom(toJava.getSeconds, toJava.getNano)
 
-	@inline override def -(time :FiniteTimeSpan) :FiniteTimeSpan = time.subtractFrom(toJava.getSeconds, toJava.getNano)
-
-	@inline def -(time :Duration) :Duration = new Duration(toJava minus time.toJava)
+	@inline override def -(time :TimeSpan) :TimeSpan = time.subtractFrom(toJava.getSeconds, toJava.getNano)
+	@inline def -(time :Duration)                :Duration       = new Duration(toJava minus time.toJava)
 
 	override def subtractFrom(seconds :Long, nanos :Int) :Duration = {
 		val s = toJava.getSeconds
@@ -156,14 +155,14 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 	}
 
 
-
-	@inline override def /(time :TimeSpan) :Double =
+	@inline override def /(time :TimeInterval) :Double =
 		if (time.isInfinite) time.signum.toDouble
-		else divideBy(time.inSeconds, time.nanos)
+		else divideBy(time.toSeconds, time.nanos)
 
 	@inline def /(time :Duration) :Double = divideBy(time.getSeconds, time.getNano)
 
-	@inline def /%(time :Duration) :Long = toJava dividedBy time.toJava
+	@inline def /~(time :Duration)   :Long = toJava dividedBy time.toJava
+	@inline def quot(time :Duration) :Long = toJava dividedBy time.toJava
 
 	private[slang] def divideBy(seconds :Long, nano :Int) :Double = {
 		val s1 = toJava.getSeconds;	val n1 = toJava.getNano
@@ -175,11 +174,11 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 			((BigDecimal(s1) * NanosInSecond + n1) / (BigDecimal(seconds) * NanosInSecond + nano)).toDouble
 	}
 
-
 	@inline override def /(d :Long) :Duration = new Duration(toJava dividedBy d)
 
 	override def /(d :Double) :Duration =
-		if (d == 0d) throw new ArithmeticException(s"($this) / 0")
+		if (d == 0d)
+			throw new ArithmeticException(s"($this) / 0")
 		else {
 			val length = (BigDecimal(toJava.getSeconds) * NanosInSecond + toJava.getNano) / d
 			val seconds = length / NanosInSecond
@@ -187,7 +186,6 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 				throw new ArithmeticException(s"Long overflow: $this / $d")
 			new Duration(j.Duration.ofSeconds(seconds.toLong, (length % NanosInSecond).toInt))
 		}
-
 
 
 	@inline override def *(d :Long) :Duration =
@@ -215,32 +213,31 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 	}
 
 
-	@inline def compare(that :Duration) :Int = toJava compareTo that.toJava
+	def compare(that :Duration) :Int = toJava compareTo that.toJava
 
-	@inline def <=(that :Duration) :Boolean =
+	def <=(that :Duration) :Boolean =
 		lte(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def < (that :Duration) :Boolean =
+	def < (that :Duration) :Boolean =
 		lt(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def >=(that :Duration) :Boolean =
+	def >=(that :Duration) :Boolean =
 		gte(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def > (that :Duration) :Boolean =
+	def > (that :Duration) :Boolean =
 		gt(toJava.getSeconds, toJava.getNano, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def <=(that :Milliseconds) :Boolean =
-		lte(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+	def <=(that :Milliseconds) :Boolean =
+		lte(toJava.getSeconds, toJava.getNano, that.toSeconds, that.nanos)
 
-	@inline def < (that :Milliseconds) :Boolean =
-		lt(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+	def < (that :Milliseconds) :Boolean =
+		lt(toJava.getSeconds, toJava.getNano, that.toSeconds, that.nanos)
 
-	@inline def >=(that :Milliseconds) :Boolean =
-		gte(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
+	def >=(that :Milliseconds) :Boolean =
+		gte(toJava.getSeconds, toJava.getNano, that.toSeconds, that.nanos)
 
-	@inline def > (that :Milliseconds) :Boolean =
-		gt(toJava.getSeconds, toJava.getNano, that.inSeconds, that.nanos)
-
+	def > (that :Milliseconds) :Boolean =
+		gt(toJava.getSeconds, toJava.getNano, that.toSeconds, that.nanos)
 
 
 	@inline def min(that :Duration) :Duration = if (this <= that) this else that
@@ -258,16 +255,13 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 
 object Duration {
 
-	@inline def apply(duration :j.Duration) :Duration = new Duration(duration)
-
+	@inline def apply(duration :j.Duration)         :Duration = new Duration(duration)
 	@inline def apply(length :Long, unit :TimeUnit) :Duration = j.Duration.of(length, unit.toJava)
-
-	@inline def apply(seconds :Long) :Duration = new Duration(j.Duration.ofSeconds(seconds))
-
-	@inline def apply(seconds :Long, nanos :Int) :Duration = new Duration(j.Duration.ofSeconds(seconds, nanos))
+	@inline def apply(seconds :Long)                :Duration = new Duration(j.Duration.ofSeconds(seconds))
+	@inline def apply(seconds :Long, nanos :Int)    :Duration = new Duration(j.Duration.ofSeconds(seconds, nanos))
 
 
-	@inline def unapply(span :TimeSpan) :Option[(Long, Int)] = span match {
+	@inline def unapply(span :TimeInterval) :Option[(Long, Int)] = span match {
 		case d :Duration => Some(d.toJava.getSeconds, d.toJava.getNano)
 		case _ => None
 	}
@@ -286,7 +280,6 @@ object Duration {
 		new Duration(j.Duration.between(from.toJava, until.toJava))
 
 
-
 	@inline def since(moment :DefiniteTime)(implicit time :Time = Time.Local) :Duration =
 		new Duration(j.Duration.between(moment.toInstant, time.clock.instant))
 
@@ -294,10 +287,9 @@ object Duration {
 		new Duration(j.Duration.between(time.clock.instant, moment.toInstant))
 
 
-
 	final val Zero = new Duration(j.Duration.ZERO)
-	final val Max = new Duration(j.Duration.ofSeconds(Long.MaxValue, 0))
-	final val Min = new Duration(j.Duration.ofSeconds(Long.MinValue, 0))
+	final val Max  = new Duration(j.Duration.ofSeconds(Long.MaxValue, 0))
+	final val Min  = new Duration(j.Duration.ofSeconds(Long.MinValue, 0))
 }
 
 

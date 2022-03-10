@@ -580,15 +580,16 @@ object InOutSpec extends Properties("vars.InOut") {
 	}
 
 
-	private def testOrdering[T](x1 :T, x2 :T)(implicit t :Ordering[T], inout :Ordering[InOut[T]]) :Prop = {
-		import Ordering.Implicits.infixOrderingOps
-		if (x1 < x2) Prop(InOut(x1) < InOut(x2)) :| "<"
-		else Prop(InOut(x1) >= InOut(x2)) :| ">="
-	}
+//	def testOrdering[T](x1 :T, x2 :T)(implicit t :Ordering[T], inout :Ordering[InOut[T]]) :Prop = {
+//		import Ordering.Implicits.infixOrderingOps
+//		if (x1 < x2) Prop(InOut(x1) < InOut(x2)) :| "<"
+//		else Prop(InOut(x1) >= InOut(x2)) :| ">="
+//	}
+//
+//	property("InOutOrdering") = forAll { (x1 :String, x2 :String) => testOrdering(x1, x2) }
 
-	property("InOutOrdering") = forAll { (x1 :String, x2 :String) => testOrdering(x1, x2) }
 
-	
+/*
 	private def testNumeric[T](x1 :T, x2 :T)(implicit t :Numeric[T], inout :Numeric[InOut[T]]) :Prop = {
 		import Numeric.Implicits.infixNumericOps
 		testOrdering(x1, x2) && 
@@ -598,6 +599,7 @@ object InOutSpec extends Properties("vars.InOut") {
 			((-InOut(x1)).value ?= -x1) :| "unary_-"
 	}
 	
+
 	property("InOutNumeric") = forAll { (x1 :Int, x2 :Int) => testNumeric(x1, x2) }
 	
 	
@@ -623,5 +625,6 @@ object InOutSpec extends Properties("vars.InOut") {
 	}
 
 	property("InOutFractional") = forAll { (x1 :Double, x2 :Double) => testFractional(x1, x2) }
-	
+*/
+
 }

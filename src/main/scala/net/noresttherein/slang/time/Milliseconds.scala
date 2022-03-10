@@ -10,216 +10,223 @@ import scala.concurrent.{duration => s}
   * an `ArithmeticException` where `this.toDuration` would not due to the larger range.
   * You can import `net.noresttherein.slang.time.dsl._` to add factory methods to `Int` and `Long`
   * allowing to write `42.millis`.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
-class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSpan with Serializable {
+class Milliseconds(override val toMillis :Long) extends AnyVal with TimeSpan with Serializable {
+
+	@inline def toLong :Long = toMillis
 
 	@inline override def asMillis :Milliseconds = this
 
-	override def inNanos :Long =
-		if (inMillis > MaxNanoDuration || inMillis < -MaxNanoDuration)
-			overflow(toString, "inNanos")
-		else inMillis * NanosInMilli
+	override def toNanos :Long =
+		if (toMillis > MaxNanoDuration || toMillis < -MaxNanoDuration)
+			overflow(toString, "toNanos")
+		else toMillis * NanosInMilli
 
-	override def inMicros :Long =
-		if (if (inMillis >= 0) inMillis <= Long.MaxValue / MicrosInMilli else inMillis >= Long.MinValue / MicrosInMilli)
-			inMillis * MicrosInMilli
+	override def toMicros :Long =
+		if (if (toMillis >= 0) toMillis <= Long.MaxValue / MicrosInMilli else toMillis >= Long.MinValue / MicrosInMilli)
+			toMillis * MicrosInMilli
 		else
-			overflow(toString, "inMicros")
+			overflow(toString, "toMicros")
 
-	@inline override def inSeconds :Long = inMillis / MillisInSecond
-	@inline override def inMinutes :Long = inMillis / MillisInMinute
-	@inline override def inHours :Long = inMillis / MillisInHour
-	@inline override def inDays :Long = inMillis / MillisInDay
+	@inline override def toSeconds :Long = toMillis / MillisInSecond
+	@inline override def toMinutes :Long = toMillis / MillisInMinute
+	@inline override def toHours   :Long = toMillis / MillisInHour
+	@inline override def toDays    :Long = toMillis / MillisInDay
 
-	@inline override def toMicros :Double = inMillis.toDouble * MicrosInMilli
-	@inline override def toMillis :Double = inMillis.toDouble
-	@inline override def toSeconds :Double = inMillis.toDouble / MillisInSecond
-	@inline override def toMinutes :Double = inMillis.toDouble / MillisInMinute
-	@inline override def toHours :Double = inMillis.toDouble / MillisInHour
-	@inline override def toDays :Double = inMillis.toDouble / MillisInDay
+	@inline override def inNanos   :Double = toMillis.toDouble * NanosInMilli
+	@inline override def inMicros  :Double = toMillis.toDouble * MicrosInMilli
+	@inline override def inMillis  :Double = toMillis.toDouble
+	@inline override def inSeconds :Double = toMillis.toDouble / MillisInSecond
+	@inline override def inMinutes :Double = toMillis.toDouble / MillisInMinute
+	@inline override def inHours   :Double = toMillis.toDouble / MillisInHour
+	@inline override def inDays    :Double = toMillis.toDouble / MillisInDay
 
-	@inline override def toJava :j.Duration = j.Duration.ofMillis(inMillis)
+	@inline override def toMilliseconds :Milliseconds = this
+	@inline override def toDuration     :Duration     = new Duration(j.Duration.ofMillis(toMillis))
+	@inline override def toJava         :j.Duration   = j.Duration.ofMillis(toMillis)
 
 	override def toScala :s.Duration =
-		if (inMillis > MaxNanoDuration || inMillis < -MaxNanoDuration)
+		if (toMillis > MaxNanoDuration || toMillis < -MaxNanoDuration)
 			overflow(toString, "toScala")
-		else s.Duration(inMillis, DateTimeUnit.Millis)
+		else s.Duration(toMillis, DateTimeUnit.Millis)
 
 
-	override def in(unit :TimeUnit) :Long = {
+	override def to(unit :TimeUnit) :Long = {
 		val divisor = unit.inNanos
 		if (divisor < NanosInMilli) {
 			val multiplier = NanosInMilli / divisor
 			val max = Long.MaxValue / multiplier
-			if (inMillis > max || inMillis < -max)
+			if (toMillis > max || toMillis < -max)
 				overflow(toString, " in ", unit.toString)
-			else inMillis * multiplier
+			else toMillis * multiplier
 		} else
-			  inMillis / (divisor / NanosInMilli)
+			  toMillis / (divisor / NanosInMilli)
 	}
 
-	override def to(unit :TimeUnit) :Double = inMillis / (unit.inNanos.toDouble / NanosInMilli)
+	override def in(unit :TimeUnit) :Double = toMillis / (unit.inNanos.toDouble / NanosInMilli)
 
-	@inline override def nanos :Int = (inMillis % NanosInMilli).toInt
-	@inline override def seconds :Int = ((inMillis / MillisInSecond) % 60).toInt
-	@inline override def minutes :Int = ((inMillis / MillisInMinute) % 60).toInt
-	@inline override def hours :Long = inMillis / MillisInHour
+	@inline override def nanos   :Int  = (toMillis % NanosInMilli).toInt
+	@inline override def seconds :Int  = ((toMillis / MillisInSecond) % 60).toInt
+	@inline override def minutes :Int  = ((toMillis / MillisInMinute) % 60).toInt
+	@inline override def hours   :Long = toMillis / MillisInHour
 
 
 	override def unit :TimeUnit =
-		if (inMillis % NanosInMinute == inMillis)
-			if (inMillis % NanosInHour == inMillis) DateTimeUnit.Hours
+		if (toMillis % NanosInMinute == toMillis)
+			if (toMillis % NanosInHour == toMillis) DateTimeUnit.Hours
 			else DateTimeUnit.Minutes
 		else
-			if (inMillis % NanosInSecond == inMillis) DateTimeUnit.Seconds
+			if (toMillis % NanosInSecond == toMillis) DateTimeUnit.Seconds
 			else DateTimeUnit.Millis
 
 
 
-	@inline override def isZero :Boolean = inMillis == 0L
-	@inline override def signum :Int = inMillis.sign.toInt
+	@inline override def isZero :Boolean = toMillis == 0L
+	@inline override def signum :Int = toMillis.sign.toInt
 
 	override def abs :Milliseconds =
-		if (inMillis >= 0)
+		if (toMillis >= 0)
 			this
 		else
-			if (inMillis == Long.MinValue)
+			if (toMillis == Long.MinValue)
 				overflow(toString, "abs")
 			else
-				new Milliseconds(-inMillis)
+				new Milliseconds(-toMillis)
 
 	override def unary_- :Milliseconds =
-		if (inMillis == Long.MinValue)
+		if (toMillis == Long.MinValue)
 			overflow(toString, "-")
 		else
-			new Milliseconds(-inMillis)
+			new Milliseconds(-toMillis)
 
 
 
 	def +(millis :Milliseconds) :Milliseconds =
-		if (inMillis > 0 && millis.inMillis > Long.MaxValue - inMillis
-			|| inMillis < 0 && millis.inMillis < Long.MinValue - inMillis
+		if (toMillis > 0 && millis.toMillis > Long.MaxValue - toMillis
+			|| toMillis < 0 && millis.toMillis < Long.MinValue - toMillis
 		)
 			overflow(toString," + ", millis.toString)
 		else
-			new Milliseconds(inMillis + millis.inMillis)
+			new Milliseconds(toMillis + millis.toMillis)
 
 	def -(millis :Milliseconds) :Milliseconds =
-		if (inMillis > 0 && millis.inMillis < inMillis - Long.MaxValue
-			|| inMillis < 0 && millis.inMillis > inMillis - Long.MinValue
+		if (toMillis > 0 && millis.toMillis < toMillis - Long.MaxValue
+			|| toMillis < 0 && millis.toMillis > toMillis - Long.MinValue
 		)
-			overflow(toString," - ", inMillis.toString)
+			overflow(toString," - ", toMillis.toString)
 		else
-			new Milliseconds(inMillis - millis.inMillis)
+			new Milliseconds(toMillis - millis.toMillis)
 
 	def /(millis :Milliseconds) :Double = {
 		val max =
-			if (millis.inMillis > 0) Long.MaxValue / millis.inMillis
-			else -Long.MaxValue / millis.inMillis
-		if (inMillis > max || inMillis < -max)
+			if (millis.toMillis > 0) Long.MaxValue / millis.toMillis
+			else -Long.MaxValue / millis.toMillis
+		if (toMillis > max || toMillis < -max)
 			overflow(toString, " / ", millis.toString)
-		inMillis.toDouble / millis.inMillis
+		toMillis.toDouble / millis.toMillis
 	}
 
-	def /%(millis :Milliseconds) :Long = {
+	def /~(millis :Milliseconds) :Long = {
 		val max =
-			if (millis.inMillis > 0) Long.MaxValue / millis.inMillis
-			else -Long.MaxValue / millis.inMillis
-		if (inMillis > max || inMillis < -max)
-			overflow(toString," / ", millis.toString)
-		inMillis / millis.inMillis
+			if (millis.toMillis > 0) Long.MaxValue / millis.toMillis
+			else -Long.MaxValue / millis.toMillis
+		if (toMillis > max || toMillis < -max)
+			overflow(toString," /~ ", millis.toString)
+		toMillis / millis.toMillis
 	}
-
-
-	override def +(time :FiniteTimeSpan) :FiniteTimeSpan = time match {
-		case _ if inMillis == 0 => time
-		case _ if time.signum == 0 => this
-		case millis :Milliseconds =>
-			if (inMillis > 0 && millis.inMillis <= Long.MaxValue - inMillis
-				|| inMillis < 0 && millis.inMillis >= Long.MinValue - inMillis)
-				new Milliseconds(inMillis + millis.inMillis)
-			else {
-				val seconds = inMillis / 1000L + millis.inMillis / 1000L
-				val nanos = ((inMillis % 1000L + millis.inMillis % 1000L) * NanosInMilli).toInt
-				new Duration(j.Duration.ofSeconds(seconds, nanos))
-			}
-		case _ => time.add(inMillis / 1000L, (inMillis % 1000L * NanosInMilli).toInt)
-	}
-
-	override def -(time :FiniteTimeSpan) :FiniteTimeSpan = time match {
-		case _ if time.signum == 0 => this
-		case millis :Milliseconds =>
-			if (inMillis > 0 && millis.inMillis >= inMillis - Long.MaxValue
-				|| inMillis < 0 && millis.inMillis <= inMillis - Long.MinValue)
-				new Milliseconds(inMillis - time.inMillis)
-			else {
-				val seconds = inMillis / 1000L - millis.inMillis / 1000L
-				val nanos = ((inMillis % 1000L - millis.inMillis % 1000L) * NanosInMilli).toInt
-				new Duration(j.Duration.ofSeconds(seconds, nanos))
-			}
-		case _ => time.subtractFrom(inMillis / 1000L, (inMillis % 1000L * NanosInMilli).toInt)
-	}
-
+	@inline def quot(millis :Milliseconds) :Long = this /~ millis
 
 	override def +(time :TimeSpan) :TimeSpan = time match {
-		case finite :FiniteTimeSpan => this + finite
-		case _ => time.add(inMillis / 1000L, (inMillis % 1000L * NanosInMilli).toInt)
+		case _ if toMillis == 0 => time
+		case _ if time.signum == 0 => this
+		case millis :Milliseconds =>
+			if (toMillis > 0 && millis.toMillis <= Long.MaxValue - toMillis
+				|| toMillis < 0 && millis.toMillis >= Long.MinValue - toMillis)
+				new Milliseconds(toMillis + millis.toMillis)
+			else {
+				val seconds = toMillis / 1000L + millis.toMillis / 1000L
+				val nanos = ((toMillis % 1000L + millis.toMillis % 1000L) * NanosInMilli).toInt
+				new Duration(j.Duration.ofSeconds(seconds, nanos))
+			}
+		case _ => time.add(toMillis / 1000L, (toMillis % 1000L * NanosInMilli).toInt)
 	}
 
 	override def -(time :TimeSpan) :TimeSpan = time match {
-		case finite :FiniteTimeSpan => this - finite
-		case _ => time.subtractFrom(inMillis / 1000L, (inMillis % 1000L * NanosInMilli).toInt)
+		case _ if time.signum == 0 => this
+		case millis :Milliseconds =>
+			if (toMillis > 0 && millis.toMillis >= toMillis - Long.MaxValue
+				|| toMillis < 0 && millis.toMillis <= toMillis - Long.MinValue)
+				new Milliseconds(toMillis - time.toMillis)
+			else {
+				val seconds = toMillis / 1000L - millis.toMillis / 1000L
+				val nanos = ((toMillis % 1000L - millis.toMillis % 1000L) * NanosInMilli).toInt
+				new Duration(j.Duration.ofSeconds(seconds, nanos))
+			}
+		case _ => time.subtractFrom(toMillis / 1000L, (toMillis % 1000L * NanosInMilli).toInt)
+	}
+
+
+	override def +(time :TimeInterval) :TimeInterval = time match {
+		case finite :TimeSpan => this + finite
+		case _ => time.add(toMillis / 1000L, (toMillis % 1000L * NanosInMilli).toInt)
+	}
+
+	override def -(time :TimeInterval) :TimeInterval = time match {
+		case finite :TimeSpan => this - finite
+		case _ => time.subtractFrom(toMillis / 1000L, (toMillis % 1000L * NanosInMilli).toInt)
 	}
 
 
 	override def *(n :Int) :Milliseconds = {
 		val max = if (n > 0) Long.MaxValue / n else -Long.MaxValue / n
-		if (inMillis > max || inMillis < -max)
+		if (toMillis > max || toMillis < -max)
 			overflow(toString" * ", n.toString)
-		new Milliseconds(inMillis * n)
+		new Milliseconds(toMillis * n)
 	}
 
-	override def *(n :Long) :FiniteTimeSpan =
-		if (inMillis == 0) this
-		else if (n == 0) Milliseconds.ZeroRef.asInstanceOf[Milliseconds]
+	override def *(n :Long) :TimeSpan =
+		if (toMillis == 0)
+			this
+		else if (n == 0)
+			Milliseconds.ZeroRef.asInstanceOf[Milliseconds]
 		else {
 			val max = if (n > 0) Long.MaxValue / n else -Long.MaxValue / n
-			if (inMillis > 0)
-				if (max >= inMillis)
-					new Milliseconds(inMillis * n)
-				else if (max >= inMillis / 1000L)
-					     new Duration(j.Duration.ofSeconds(inMillis / 1000L * n, inMillis % 1000L * n * NanosInMilli))
+			if (toMillis > 0)
+				if (max >= toMillis)
+					new Milliseconds(toMillis * n)
+				else if (max >= toMillis / 1000L)
+					new Duration(j.Duration.ofSeconds(toMillis / 1000L * n, toMillis % 1000L * n * NanosInMilli))
 				else
 					overflow(toString" * ", n.toString)
 			else
-			if (-max <= inMillis)
-				new Milliseconds(inMillis * n)
-			else if (-max <= inMillis / 1000L)
-				     new Duration(j.Duration.ofSeconds(inMillis / 1000L * n, inMillis % 1000L * n * NanosInMilli))
-			else
-				overflow(toString" * ", n.toString)
+				if (-max <= toMillis)
+					new Milliseconds(toMillis * n)
+				else if (-max <= toMillis / 1000L)
+					new Duration(j.Duration.ofSeconds(toMillis / 1000L * n, toMillis % 1000L * n * NanosInMilli))
+				else
+					overflow(toString" * ", n.toString)
 		}
 
-	@inline override def *(n :Double) :TimeSpan =
-		if (inMillis == 0L) this
+	@inline override def *(n :Double) :TimeInterval =
+		if (toMillis == 0L) this
 		else if (n == 0d) Milliseconds.ZeroRef.asInstanceOf[Milliseconds]
-		else spanOfMillis(inMillis * n)
+		else spanOfMillis(toMillis * n)
 
 
 	@inline override def /(n :Long) :Milliseconds =
-		if (n == 0L) throw new ArithmeticException(toString + " / 0")
-		else if (inMillis == 0L) this
-		else new Milliseconds(inMillis / n)
+		if (n == 0L) divZero(toString)
+		else if (toMillis == 0L) this
+		else new Milliseconds(toMillis / n)
 
-	@inline override def /(n :Double) :TimeSpan =
-		if (n == 0) throw new ArithmeticException(toString + " / 0")
-		else if (inMillis == 0) this
-		else spanOfMillis(inMillis / n)
+	@inline override def /(n :Double) :TimeInterval =
+		if (n == 0) divZero(toString)
+		else if (toMillis == 0) this
+		else spanOfMillis(toMillis / n)
 
 
-	private[slang] def spanOfMillis(millis :Double) :TimeSpan =
+	private[slang] def spanOfMillis(millis :Double) :TimeInterval =
 		if (millis.isInfinite)
 			if (millis > 0) Eternity
 			else MinusEternity
@@ -234,57 +241,56 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 		}
 
 
-	@inline override def /(span :TimeSpan) :Double = inMillis / span.toMillis
+	@inline override def /(span :TimeInterval) :Double = toMillis / span.inMillis
 
-	@inline override def /(unit :TimeUnit) :Double = inMillis.toDouble * NanosInMilli / unit.inNanos
+	@inline override def /(unit :TimeUnit) :Double = toMillis.toDouble * NanosInMilli / unit.inNanos
 
 	@inline override def %(unit :TimeUnit) :Milliseconds = {
 		val divisor = unit.inNanos
-		if (divisor <= NanosInMilli) new Milliseconds(0)
-		else new Milliseconds(inMillis % (divisor / NanosInMilli))
+		new Milliseconds(if (divisor <= NanosInMilli) 0 else toMillis % (divisor / NanosInMilli))
 	}
 
 
-	@inline override def add(seconds :Long, nanos :Int) :FiniteTimeSpan =
-		new Duration(j.Duration.ofSeconds(seconds + inMillis / 1000L, nanos + (inMillis % 1000L).toInt))
+	@inline override def add(seconds :Long, nanos :Int) :TimeSpan =
+		new Duration(j.Duration.ofSeconds(seconds + toMillis / 1000L, nanos + (toMillis % 1000L).toInt))
 
-	@inline override def subtractFrom(seconds :Long, nanos :Int) :FiniteTimeSpan =
-		new Duration(j.Duration.ofSeconds(seconds - inMillis / 1000L, nanos - (inMillis % 1000L).toInt))
+	@inline override def subtractFrom(seconds :Long, nanos :Int) :TimeSpan =
+		new Duration(j.Duration.ofSeconds(seconds - toMillis / 1000L, nanos - (toMillis % 1000L).toInt))
 
 
 	@inline def compare(that :Milliseconds) :Int =
-		if (inMillis < that.inMillis) -1
-		else if (inMillis > that.inMillis) 1
+		if (toMillis < that.toMillis) -1
+		else if (toMillis > that.toMillis) 1
 		else 0
 
-	@inline def <=(that :Milliseconds) :Boolean = inMillis <= that.inMillis
-	@inline def < (that :Milliseconds) :Boolean = inMillis < that.inMillis
-	@inline def >=(that :Milliseconds) :Boolean = inMillis >= that.inMillis
-	@inline def > (that :Milliseconds) :Boolean = inMillis > that.inMillis
+	@inline def <=(that :Milliseconds) :Boolean = toMillis <= that.toMillis
+	@inline def < (that :Milliseconds) :Boolean = toMillis < that.toMillis
+	@inline def >=(that :Milliseconds) :Boolean = toMillis >= that.toMillis
+	@inline def > (that :Milliseconds) :Boolean = toMillis > that.toMillis
 
-	@inline def <=(that :Duration) :Boolean =
-		lte(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+	def <=(that :Duration) :Boolean =
+		lte(toMillis / MillisInSecond, (toMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def < (that :Duration) :Boolean =
-		lt(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+	def < (that :Duration) :Boolean =
+		lt(toMillis / MillisInSecond, (toMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def >=(that :Duration) :Boolean =
-		gte(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+	def >=(that :Duration) :Boolean =
+		gte(toMillis / MillisInSecond, (toMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def > (that :Duration) :Boolean =
-		gt(inMillis / MillisInSecond, (inMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
+	def > (that :Duration) :Boolean =
+		gt(toMillis / MillisInSecond, (toMillis % NanosInMilli).toInt, that.toJava.getSeconds, that.toJava.getNano)
 
-	@inline def min(that :Milliseconds) :Milliseconds = if (inMillis <= that.inMillis) this else that
-	@inline def max(that :Milliseconds) :Milliseconds = if (inMillis >= that.inMillis) this else that
+	@inline def min(that :Milliseconds) :Milliseconds = if (toMillis <= that.toMillis) this else that
+	@inline def max(that :Milliseconds) :Milliseconds = if (toMillis >= that.toMillis) this else that
 
-	@inline def ==(that :Milliseconds) :Boolean = inMillis == that.inMillis
+	@inline def ==(that :Milliseconds) :Boolean = toMillis == that.toMillis
 
 	@inline def ==(that :Duration) :Boolean =
-		inMillis / MillisInSecond == that.toJava.getSeconds && (inMillis % NanosInMilli).toInt == that.toJava.getNano
+		toMillis / MillisInSecond == that.toJava.getSeconds && (toMillis % NanosInMilli).toInt == that.toJava.getNano
 
 	override def toString :String = {
 		val u = unit
-		(inMillis / (unit.inNanos / 1000)).toString + u.symbol
+		(toMillis / (unit.inNanos / 1000)).toString + u.symbol
 	}
 
 }
@@ -297,12 +303,12 @@ class Milliseconds(override val inMillis :Long) extends AnyVal with FiniteTimeSp
 object Milliseconds {
 	@inline def apply(millis :Long) :Milliseconds = new Milliseconds(millis)
 
-	@inline def unapply(span :TimeSpan) :Option[Long] = span match {
-		case millis :Milliseconds => Some(millis.inMillis)
+	@inline def unapply(span :TimeInterval) :Option[Long] = span match {
+		case millis :Milliseconds => Some(millis.toMillis)
 		case _ => None
 	}
 
-	def between(start :UnixTime, until :UnixTime) :Milliseconds =
+	def between(start :PosixTime, until :PosixTime) :Milliseconds =
 		if (if (start.epochMilli > 0) until.epochMilli > Long.MinValue + start.epochMilli
 		    else until.epochMilli < Long.MaxValue + start.epochMilli)
 			overflow(until.toString, " - ", start.toString)
@@ -310,19 +316,18 @@ object Milliseconds {
 			new Milliseconds(until.epochMilli - start.epochMilli)
 
 
-
-	def since(moment :UnixTime)(implicit time :Time = Time.Local) :Milliseconds = {
+	def since(moment :PosixTime)(implicit time :Time = Time.Local) :Milliseconds = {
 		val now = time.clock.millis
 		if (moment.epochMilli < now - Long.MaxValue)
-			overflow(new UnixTime(now).toString, " - ", moment.toString)
+			overflow(new PosixTime(now).toString, " - ", moment.toString)
 		else
 	        new Milliseconds(now - moment.epochMilli)
 	}
 
-	def until(moment :UnixTime)(implicit time :Time = Time.Local) :Milliseconds = {
+	def until(moment :PosixTime)(implicit time :Time = Time.Local) :Milliseconds = {
 		val now = time.clock.millis
 		if (moment.epochMilli < Long.MinValue + now)
-			overflow(moment.toString, " - ", new UnixTime(now).toString)
+			overflow(moment.toString, " - ", new PosixTime(now).toString)
 		else
 			new Milliseconds(moment.epochMilli - now)
 	}
@@ -330,7 +335,7 @@ object Milliseconds {
 
 	private[time] final val ZeroRef :Any = new Milliseconds(0L)
 	final val Zero = new Milliseconds(0L)
-	final val Max = new Milliseconds(Long.MaxValue)
-	final val Min = new Milliseconds(Long.MinValue)
+	final val Max  = new Milliseconds(Long.MaxValue)
+	final val Min  = new Milliseconds(Long.MinValue)
 
 }

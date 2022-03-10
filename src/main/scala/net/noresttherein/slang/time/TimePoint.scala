@@ -15,34 +15,33 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
   * All time points, regardless of implementation, form a complete order with the two infinities as the bounds.
   * Equals however is class specific, meaning a `Timestamp()` and `ZoneDateTime()` will always be unequal, as expected.
   * In order to compare for equality in the ordering sense, use `===` instead.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 sealed trait TimePoint extends Any with Ordered[TimePoint] with Serializable {
 
 	def apply(cycle :Cycle) :cycle.Phase
 
-	def isDefinite :Boolean
+	def isDefinite     :Boolean
 	def forcedDefinite :DefiniteTime
 
-	def nano :Int
+	def nano        :Int
 	def epochSecond :Long
-	def epochMilli :Long
+	def epochMilli  :Long
 
-	def toUnix :UnixTime = new UnixTime(epochMilli)
+	def toPosix     :PosixTime = new PosixTime(epochMilli)
 	def toTimestamp :Timestamp
-	def toUTC :UTCDateTime
+	def toUTC       :UTCDateTime
 
-	def in(zone :TimeZone): ZoneDateTime
+	def in(zone :TimeZone)     :ZoneDateTime
 	def at(offset :TimeOffset) :ZoneDateTime
 
-	def toJava :Temporal
-	def toInstant :j.Instant
+	def toJava     :Temporal
+	def toInstant  :j.Instant
 	def toDeadline :Deadline = toTimestamp.toDeadline
 
-	def +(time :TimeSpan) :TimePoint
-	def -(time :TimeSpan) :TimePoint
-
-	def -(time :TimePoint) :TimeSpan
+	def +(time :TimeInterval)  :TimePoint
+	def -(time :TimeInterval)  :TimePoint
+	def -(time :TimePoint) :TimeInterval
 
 
 	def ==(other :TimePoint) :Boolean = compare(other) == 0
@@ -58,22 +57,22 @@ object TimePoint {
 
 	@inline def now(implicit time :Time = Time.Local) :TimePoint = Timestamp.now
 
-	def after(lapse :TimeLapse)(implicit time :Time = Time.Local) :TimePoint = lapse match {
-		case duration :Duration => Timestamp after duration
-		case millis :Milliseconds => UnixTime after millis
-		case span :FiniteTimeSpan => Timestamp.now + span
-		case finite :FiniteTimeLapse => ZoneDateTime.now + finite
-		case Eternity => EndOfTime
-		case MinusEternity => DawnOfTime
+	def after(extent :TimeExtent)(implicit time :Time = Time.Local) :TimePoint = extent match {
+		case duration :Duration     => Timestamp after duration
+		case millis   :Milliseconds => PosixTime after millis
+		case span     :TimeSpan     => Timestamp.now + span
+		case finite   :TimeFrame    => ZoneDateTime.now + finite
+		case Eternity               => EndOfTime
+		case MinusEternity          => DawnOfTime
 	}
 
-	def before(lapse :TimeLapse)(implicit time :Time = Time.Local) :TimePoint = lapse match {
-		case duration :Duration => Timestamp before duration
-		case millis :Milliseconds => UnixTime before millis
-		case span :FiniteTimeSpan => Timestamp.now - span
-		case finite :FiniteTimeLapse => ZoneDateTime.now - finite
-		case Eternity => DawnOfTime
-		case MinusEternity => EndOfTime
+	def before(extent :TimeExtent)(implicit time :Time = Time.Local) :TimePoint = extent match {
+		case duration :Duration     => Timestamp before duration
+		case millis   :Milliseconds => PosixTime before millis
+		case span     :TimeSpan     => Timestamp.now - span
+		case finite   :TimeFrame    => ZoneDateTime.now - finite
+		case Eternity               => DawnOfTime
+		case MinusEternity          => EndOfTime
 	}
 
 
@@ -88,23 +87,24 @@ object TimePoint {
 
 		final override def isDefinite = false
 
-		final override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
+		final override def apply(cycle :Cycle) :cycle.Phase = cycle.on(this)
 
-		final override def nano :Int = throw new UnsupportedOperationException(s"($this).nano")
-		final override def epochSecond :Long = throw new UnsupportedOperationException(s"($this).epochSecond")
-		final override def epochMilli :Long = throw new UnsupportedOperationException(s"($this).epochMilli")
-		final override def toUnix :UnixTime = throw new UnsupportedOperationException(s"($this).toUnix")
-		final override def toUTC :UTCDateTime = throw new UnsupportedOperationException(s"($this).toUTC")
-		final override def toTimestamp :Timestamp = throw new UnsupportedOperationException(s"($this).toTimestamp")
-		final override def toInstant :j.Instant = throw new UnsupportedOperationException(s"($this).toInstant")
-		final override def toJava :Temporal = throw new UnsupportedOperationException(s"($this).toJava")
+		final override def nano        :Int         = throw new UnsupportedOperationException(s"($this).nano")
+		final override def epochSecond :Long        = throw new UnsupportedOperationException(s"($this).epochSecond")
+		final override def epochMilli  :Long        = throw new UnsupportedOperationException(s"($this).epochMilli")
+		final override def toPosix     :PosixTime   = throw new UnsupportedOperationException(s"($this).toUnix")
+		final override def toUTC       :UTCDateTime = throw new UnsupportedOperationException(s"($this).toUTC")
+		final override def toTimestamp :Timestamp   = throw new UnsupportedOperationException(s"($this).toTimestamp")
+		final override def toInstant   :j.Instant   = throw new UnsupportedOperationException(s"($this).toInstant")
+		final override def toJava      :Temporal    = throw new UnsupportedOperationException(s"($this).toJava")
 
-		final override def in(zone :TimeZone) :ZoneDateTime = throw new UnsupportedOperationException(s"$this in $zone")
+		final override def in(zone :TimeZone)     :ZoneDateTime =
+			throw new UnsupportedOperationException(s"$this in $zone")
 
-		final override def at(offset :TimeOffset) :ZoneDateTime = throw new UnsupportedOperationException(s"$this at $offset")
+		final override def at(offset :TimeOffset) :ZoneDateTime =
+			throw new UnsupportedOperationException(s"$this at $offset")
 
 	}
-
 
 }
 
@@ -123,32 +123,29 @@ trait DefiniteTime extends Any with TimePoint {
 	final override def isDefinite = true
 	override def forcedDefinite :DefiniteTime = this
 
-	override def +(time :TimeSpan) :TimePoint = time match {
-		case finite :FiniteTimeSpan => this + finite
+	override def +(time :TimeInterval) :TimePoint = time match {
+		case finite :TimeSpan => this + finite
 		case Eternity => EndOfTime
 		case MinusEternity => DawnOfTime
 	}
-
-	override def -(time :TimeSpan) :TimePoint = time match {
-		case finite :FiniteTimeSpan => this + finite
+	override def -(time :TimeInterval) :TimePoint = time match {
+		case finite :TimeSpan => this + finite
 		case Eternity => DawnOfTime
 		case MinusEternity => EndOfTime
 	}
-
-	override def -(other :TimePoint) :TimeSpan = other match {
+	override def -(other :TimePoint) :TimeInterval = other match {
 		case finite :DefiniteTime => this - finite
 		case DawnOfTime => Eternity
 		case EndOfTime => MinusEternity
 	}
 
-
-	def +(time :FiniteTimeSpan) :DefiniteTime
-	def -(time :FiniteTimeSpan) :DefiniteTime
+	def +(time :TimeSpan) :DefiniteTime
+	def -(time :TimeSpan) :DefiniteTime
 
 	def +(time :Duration) :DefiniteTime
 	def -(time :Duration) :DefiniteTime
 
-	def -(other :DefiniteTime) :FiniteTimeSpan =
+	def -(other :DefiniteTime) :TimeSpan =
 		new Duration(j.Duration.between(other.toInstant, toInstant))
 
 	def -(other :Timestamp) :Duration =
@@ -185,24 +182,22 @@ object DefiniteTime {
 	@inline def now(implicit time :Time = Time.Local) :DefiniteTime = Timestamp.now
 
 
-
-	def after(lapse :FiniteTimeLapse)(implicit time :Time = Time.Local) :DefiniteTime = lapse match {
+	def after(extent :TimeFrame)(implicit time :Time = Time.Local) :DefiniteTime = extent match {
 		case duration :Duration => Timestamp after duration
-		case millis :Milliseconds => UnixTime after millis
-		case span :FiniteTimeSpan => Timestamp.now + span
-		case _ => ZoneDateTime.now + lapse
+		case millis :Milliseconds => PosixTime after millis
+		case span :TimeSpan => Timestamp.now + span
+		case _ => ZoneDateTime.now + extent
 	}
 
-	def before(lapse :FiniteTimeLapse)(implicit time :Time = Time.Local) :DefiniteTime = lapse match {
+	def before(extent :TimeFrame)(implicit time :Time = Time.Local) :DefiniteTime = extent match {
 		case duration :Duration => Timestamp before duration
-		case millis :Milliseconds => UnixTime before millis
-		case span :FiniteTimeSpan => Timestamp.now - span
-		case _ => ZoneDateTime.now - lapse
+		case millis :Milliseconds => PosixTime before millis
+		case span :TimeSpan => Timestamp.now - span
+		case _ => ZoneDateTime.now - extent
 	}
 
 
 	@inline implicit def toJavaInstant(time :DefiniteTime) :j.Instant = time.toInstant
-
 }
 
 
@@ -214,34 +209,34 @@ object DefiniteTime {
 /** Base trait for finite time points carrying information about the zone/offset and thus also full date and clock time.
   */
 trait DateTimePoint extends Any with DefiniteTime {
-	def zone :TimeZone
+	def zone   :TimeZone
 	def offset :TimeOffset
-	def date :Date
-	def local :DateTime
-	def time :TimeOfDay
+	def date   :Date
+	def local  :DateTime
+	def time   :TimeOfDay
 
-	def day :Int = date.day
-	def month :Month = date.month
-	def year :Year = date.year
-	def hour :Int = time.hour
-	def minute :Int = time.minute
-	def second :Int = time.second
+	def day    :Int   = date.day
+	def month  :Month = date.month
+	def year   :Year  = date.year
+	def hour   :Int   = time.hour
+	def minute :Int   = time.minute
+	def second :Int   = time.second
 	override def nano :Int = time.nano
 
 	def dayOfWeek :Day
 
 	def toZoneDateTime :ZoneDateTime
 
-	def +(time :TimeLapse) :TimePoint
-	def -(time :TimeLapse) :TimePoint
-	def +(time :FiniteTimeLapse) :DateTimePoint
-	def -(time :FiniteTimeLapse) :DateTimePoint
+	def +(time :TimeExtent) :TimePoint
+	def -(time :TimeExtent) :TimePoint
+	def +(time :TimeFrame) :DateTimePoint
+	def -(time :TimeFrame) :DateTimePoint
 
 	def +(period :Period) :DateTimePoint
 	def -(period :Period) :DateTimePoint
 
-	override def +(time :FiniteTimeSpan) :DateTimePoint
-	override def -(time :FiniteTimeSpan) :DateTimePoint
+	override def +(time :TimeSpan) :DateTimePoint
+	override def -(time :TimeSpan) :DateTimePoint
 
 	override def +(time :Duration) :DateTimePoint
 	override def -(time :Duration) :DateTimePoint
@@ -272,7 +267,7 @@ object DateTimePoint {
 
 
 /** A singularity of the time line, a point which follows in ordering all other `TimePoint` instances.
-  * It may be returned as a result of an arithmetic operation involving infinite time lapses `Eternity`
+  * It may be returned as a result of an arithmetic operation involving infinite time extents `Eternity`
   * or `MinusEternity`.
   */
 @SerialVersionUID(1L)
@@ -280,17 +275,15 @@ case object EndOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Max
 
-	override def +(time :TimeSpan) :TimePoint = time match {
+	override def +(time :TimeInterval) :TimePoint = time match {
 		case MinusEternity => DawnOfTime
 		case _ => this
 	}
-
-	override def -(time :TimeSpan) :TimePoint = time match {
+	override def -(time :TimeInterval) :TimePoint = time match {
 		case Eternity => DawnOfTime
 		case _ => this
 	}
-
-	override def -(time :TimePoint) :TimeSpan =
+	override def -(time :TimePoint) :TimeInterval =
 		if (time == this) Immediate
 		else Eternity
 
@@ -303,27 +296,25 @@ case object EndOfTime extends TimeLimes {
 
 
 
-/** A singularity of the time line, a point which precedes in ordering all other `TimePoint` instances.
-  * It may be returned as a result of an arithmetic operation involving infinite time lapses `Eternity`
-  * or `MinusEternity`.
+/** A singularity of the time line, a point which precedes in ordering
+  * all other [[net.noresttherein.slang.time.TimePoint TimePoint]] instances. It may be returned
+  * as a result of an arithmetic operation involving infinite time extents `Eternity` or `MinusEternity`.
   */
 @SerialVersionUID(1L)
 case object DawnOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Min
 
-	override def +(time :TimeSpan) :TimePoint = time match {
+	override def +(time :TimeInterval) :TimePoint = time match {
 		case Eternity => EndOfTime
 		case _ => this
 	}
-
-	override def -(time :TimeSpan) :TimePoint = time match {
+	override def -(time :TimeInterval) :TimePoint = time match {
 		case MinusEternity => EndOfTime
 		case _ => this
 	}
 
-
-	override def -(time :TimePoint) :TimeSpan =
+	override def -(time :TimePoint) :TimeInterval =
 		if (time == this) Immediate
 		else Eternity
 
@@ -333,6 +324,5 @@ case object DawnOfTime extends TimeLimes {
 		else -1
 
 	override def toString = "Dawn of time"
-
 }
 

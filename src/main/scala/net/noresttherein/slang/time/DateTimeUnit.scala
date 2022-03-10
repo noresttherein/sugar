@@ -12,27 +12,28 @@ import DateUnit._
 
 
 /** A unit used to measure elapsed time. Has three distinct subclasses:
-  * [[net.noresttherein.slang.time.TimeUnit TimeUnit]] for units describing time span of fixed length (such as seconds
+  * [[net.noresttherein.slang.time.TimeUnit TimeUnit]] for units describing time spans of fixed lengths (such as seconds
   * or hours), [[net.noresttherein.slang.time.DateUnit DateUnit]] for calendar-based units such as months and
   * [[net.noresttherein.slang.time.PseudoUnit PseudoUnit]] for adapters of not unit instances of `java.time.ChronoUnit`
   * such as `FOREVER` and `ERAS`.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 sealed trait DateTimeUnit extends Any with Ordered[DateTimeUnit] with Serializable {
 
 	/** The amount of time measured of this unit, which will be variable for a `DateUnit`
-	  * and infinite for a `PseudoUnit`. */
-	def time :TimeLapse //= toJava.getDuration
+	  * and infinite for a `PseudoUnit`.
+	  */
+	def time :TimeExtent //= toJava.getDuration
 
 	/** The length of this unit, which may be variable for a `DateUnit`.
 	  * @throws UnsupportedOperationException if this unit is a `PseudoUnit`
 	  */
-	def span :FiniteTimeLapse
+	def span :TimeFrame
 
 	/** Estimated/averaged fixed length of this unit as returned by the underlying java `ChronoUnit`.
 	  * Will be equal to both `time` and `span` for a `TimeUnit`, while a `DateUnit` will return an approximate value.
 	  */
-	def estimate :FiniteTimeSpan
+	def approx :TimeSpan
 
 	def toJava :ChronoUnit
 
@@ -101,25 +102,25 @@ sealed trait DateTimeUnit extends Any with Ordered[DateTimeUnit] with Serializab
 
 
 object DateTimeUnit {
-	@inline final val Nanos = new TimeUnit(NANOS)
-	@inline final val Micros = new TimeUnit(MICROS)
-	@inline final val Millis = new TimeUnit(MILLIS)
-	@inline final val Seconds = new TimeUnit(SECONDS)
-	@inline final val Minutes = new TimeUnit(MINUTES)
-	@inline final val Hours = new TimeUnit(HOURS)
-	@inline final val HalfDays = new TimeUnit(HALF_DAYS)
+	@inline final val Nanos      = new TimeUnit(NANOS)
+	@inline final val Micros     = new TimeUnit(MICROS)
+	@inline final val Millis     = new TimeUnit(MILLIS)
+	@inline final val Seconds    = new TimeUnit(SECONDS)
+	@inline final val Minutes    = new TimeUnit(MINUTES)
+	@inline final val Hours      = new TimeUnit(HOURS)
+	@inline final val HalfDays   = new TimeUnit(HALF_DAYS)
 
-	@inline final val Days = new DateUnit(DAYS)
-	@inline final val Weeks = new DateUnit(WEEKS)
-	@inline final val Months = new DateUnit(MONTHS)
-	@inline final val Years = new DateUnit(YEARS)
+	@inline final val Days       = new DateUnit(DAYS)
+	@inline final val Weeks      = new DateUnit(WEEKS)
+	@inline final val Months     = new DateUnit(MONTHS)
+	@inline final val Years      = new DateUnit(YEARS)
 
-	@inline final val Decades = new DateUnit(DECADES)
-	@inline final val Centuries = new DateUnit(CENTURIES)
-	@inline final val Millenia = new DateUnit(MILLENNIA)
+	@inline final val Decades    = new DateUnit(DECADES)
+	@inline final val Centuries  = new DateUnit(CENTURIES)
+	@inline final val Millennia  = new DateUnit(MILLENNIA)
 
-	@inline final val Eras = new PseudoUnit(ERAS)
-	@inline final val Forever = new PseudoUnit(FOREVER)
+	@inline final val Eras       = new PseudoUnit(ERAS)
+	@inline final val Forever    = new PseudoUnit(FOREVER)
 
 
 	@inline def apply(unit :ChronoUnit) :DateTimeUnit = {
@@ -139,15 +140,15 @@ object DateTimeUnit {
 	@inline implicit def toConcurrentUnit(unit :DateTimeUnit) :JTimeUnit = JTimeUnit.of(unit.toJava)
 
 
-	private final val SomeNanos = Some(Nanos)
-	private final val SomeMicros = Some(Micros)
-	private final val SomeMillis = Some(Millis)
+	private final val SomeNanos   = Some(Nanos)
+	private final val SomeMicros  = Some(Micros)
+	private final val SomeMillis  = Some(Millis)
 	private final val SomeSeconds = Some(Seconds)
 	private final val SomeMinutes = Some(Minutes)
-	private final val SomeHours = Some(Hours)
-	private final val SomeDays = Some(Days)
-	private final val SomeMonths = Some(Months)
-	private final val SomeYears = Some(Years)
+	private final val SomeHours   = Some(Hours)
+	private final val SomeDays    = Some(Days)
+	private final val SomeMonths  = Some(Months)
+	private final val SomeYears   = Some(Years)
 }
 
 
@@ -158,11 +159,12 @@ object DateTimeUnit {
 /** A time unit of fixed length, i.e. a standard time unit and half-days. */
 @SerialVersionUID(1L)
 class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
-	@inline override def time :FiniteTimeSpan = toJava.getDuration
-	@inline override def span :FiniteTimeSpan = toJava.getDuration
-	@inline override def estimate :Duration = toJava.getDuration
-	@inline def length :Duration = toJava.getDuration
-	@inline def inNanos :Long = toJava.getDuration.toNanos
+	@inline override def time :TimeSpan = toJava.getDuration
+	@inline override def span :TimeSpan = toJava.getDuration
+	@inline override def approx :Duration = toJava.getDuration
+	@inline def length  :Duration = toJava.getDuration
+	@inline def inNanos :Long     = toJava.getDuration.toNanos
+	@inline def toNanos :Long     = toJava.getDuration.toNanos
 
 
 	override def compare(that :DateTimeUnit) :Int = that match {
@@ -175,29 +177,29 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 	@inline def *(number :Long) :Duration = new Duration(j.Duration.of(number, toJava))
 
-	def unapply(time :TimeSpan) :Option[(Long, TimeSpan)] = time match {
-		case finite :FiniteTimeSpan => Some((finite /% toJava.getDuration, time % this))
+	def unapply(time :TimeInterval) :Option[(Long, TimeInterval)] = time match {
+		case finite :TimeSpan => Some((finite quot toJava.getDuration, time % this))
 		case _ => None
 	}
 
 
 	def symbol :String = toJava match {
-		case NANOS => "ns"
-		case MICROS => "µs"
-		case MILLIS => "ms"
+		case NANOS   => "ns"
+		case MICROS  => "µs"
+		case MILLIS  => "ms"
 		case SECONDS => "s"
 		case MINUTES => "min"
-		case HOURS => "h"
+		case HOURS   => "h"
 		case _ => toString
 	}
 
 	override def toString :String = toJava match {
-		case NANOS => "nanos"
-		case MICROS => "micros"
-		case MILLIS => "millis"
-		case SECONDS => "seconds"
-		case MINUTES => "minutes"
-		case HOURS => "hours"
+		case NANOS     => "nanos"
+		case MICROS    => "micros"
+		case MILLIS    => "millis"
+		case SECONDS   => "seconds"
+		case MINUTES   => "minutes"
+		case HOURS     => "hours"
 		case HALF_DAYS => "half-days"
 		case _ => toJava.toString
 	}
@@ -207,12 +209,12 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 object TimeUnit {
-	@inline final val Nanos = new TimeUnit(ChronoUnit.NANOS)
-	@inline final val Micros = new TimeUnit(ChronoUnit.MICROS)
-	@inline final val Millis = new TimeUnit(ChronoUnit.MILLIS)
-	@inline final val Seconds = new TimeUnit(ChronoUnit.SECONDS)
-	@inline final val Minutes = new TimeUnit(ChronoUnit.MINUTES)
-	@inline final val Hours = new TimeUnit(ChronoUnit.HOURS)
+	@inline final val Nanos    = new TimeUnit(ChronoUnit.NANOS)
+	@inline final val Micros   = new TimeUnit(ChronoUnit.MICROS)
+	@inline final val Millis   = new TimeUnit(ChronoUnit.MILLIS)
+	@inline final val Seconds  = new TimeUnit(ChronoUnit.SECONDS)
+	@inline final val Minutes  = new TimeUnit(ChronoUnit.MINUTES)
+	@inline final val Hours    = new TimeUnit(ChronoUnit.HOURS)
 
 	@inline final val HalfDays = new TimeUnit(ChronoUnit.HALF_DAYS)
 }
@@ -225,9 +227,9 @@ object TimeUnit {
 /** A time unit of variable length, varying from days to millenia. */
 @SerialVersionUID(1L)
 class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
-	@inline override def time :FiniteDateSpan = length
-	@inline override def span :FiniteDateSpan = length
-	@inline override def estimate :Duration = toJava.getDuration
+	@inline override def time   :DateSpan = length
+	@inline override def span   :DateSpan = length
+	@inline override def approx :Duration       = toJava.getDuration
 
 	def length :Period = (toJava: @unchecked) match {
 		case DAYS => OneDay
@@ -236,17 +238,15 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 		case YEARS => OneYear
 		case DECADES => OneDecade
 		case CENTURIES => OneCentury
-		case MILLENNIA => OneMillenium
+		case MILLENNIA => OneMillennium
 	}
-
 
 
 	override def compare(that :DateTimeUnit) :Int = that match {
 		case _ :TimeUnit => 1
-		case date :DateUnit => estimate.inSeconds compare date.estimate.inSeconds
+		case date :DateUnit => approx.toSeconds compare date.approx.toSeconds
 		case _ => -1
 	}
-
 
 
 	def base :DateUnit = toJava match {
@@ -290,21 +290,21 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 object DateUnit {
-	@inline final val Days = new DateUnit(ChronoUnit.DAYS)
-	@inline final val Weeks = new DateUnit(ChronoUnit.WEEKS)
-	@inline final val Months = new DateUnit(ChronoUnit.MONTHS)
-	@inline final val Years = new DateUnit(ChronoUnit.YEARS)
-	@inline final val Decades = new DateUnit(ChronoUnit.DECADES)
+	@inline final val Days      = new DateUnit(ChronoUnit.DAYS)
+	@inline final val Weeks     = new DateUnit(ChronoUnit.WEEKS)
+	@inline final val Months    = new DateUnit(ChronoUnit.MONTHS)
+	@inline final val Years     = new DateUnit(ChronoUnit.YEARS)
+	@inline final val Decades   = new DateUnit(ChronoUnit.DECADES)
 	@inline final val Centuries = new DateUnit(ChronoUnit.CENTURIES)
 	@inline final val Millennia = new DateUnit(ChronoUnit.MILLENNIA)
 
-	private final val OneDay = Period(days = 1)
-	private final val OneWeek = Period(days = 7)
-	private final val OneMonth = Period(months = 1)
-	private final val OneYear = Period(years = 1)
-	private final val OneDecade = Period(years = 10)
-	private final val OneCentury = Period(years = 100)
-	private final val OneMillenium = Period(years = 1000)
+	private final val OneDay        = Period(days = 1)
+	private final val OneWeek       = Period(days = 7)
+	private final val OneMonth      = Period(months = 1)
+	private final val OneYear       = Period(years = 1)
+	private final val OneDecade     = Period(years = 10)
+	private final val OneCentury    = Period(years = 100)
+	private final val OneMillennium = Period(years = 1000)
 
 }
 
@@ -316,12 +316,12 @@ object DateUnit {
 /** Non-cyclic time 'units' of infinite length adapting `ChronoUnit.FOREVER` and `ChronoUnit.ERAS`. */
 @SerialVersionUID(1L)
 class PseudoUnit private[time](override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
-	@inline override def time :InfiniteTimeLapse = Eternity
+	@inline override def time :InfiniteTimeInterval = Eternity
 
-	override def span :FiniteTimeLapse =
+	override def span :TimeFrame =
 		throw new UnsupportedOperationException(toString + ".span")
 
-	@inline override def estimate :Duration = toJava.getDuration
+	@inline override def approx :Duration = toJava.getDuration
 
 
 	override def compare(that :DateTimeUnit) :Int = that match {

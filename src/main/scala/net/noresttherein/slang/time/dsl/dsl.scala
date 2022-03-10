@@ -13,7 +13,7 @@ import net.noresttherein.slang.time.dsl.PartialTimeDesignators.{DateDayWithMonth
   * types factory methods for creating the classes from `net.noresttherein.slang.time` in a naturally looking way
   * such as `11 Jan 1981`, `11 :- 59 :- 59` or `1000_0000.nanos`.
   * @see [[net.noresttherein.slang.time.dsl.ISOSymbolMethods$]]
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 package object dsl {
 
@@ -169,8 +169,6 @@ package object dsl {
 			@inline def µs :Milliseconds = new Milliseconds(number * 1000L)
 			@inline def h :Milliseconds = new Milliseconds(number * MillisInHour)
 		}
-
-
 	}
 
 }

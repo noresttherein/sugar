@@ -358,5 +358,11 @@ object VarSpec extends Properties("vars.Var") {
 
 	}
 
+	def testOrdering[T](x1 :T, x2 :T)(implicit t :Ordering[T], inout :Ordering[Var[T]]) :Prop = {
+		import Ordering.Implicits.infixOrderingOps
+		if (x1 < x2) Prop(Var(x1) < Var(x2)) :| "<"
+		else Prop(Var(x1) >= Var(x2)) :| ">="
+	}
 
+	property("VarOrdering") = forAll { (x1 :String, x2 :String) => testOrdering(x1, x2) }
 }

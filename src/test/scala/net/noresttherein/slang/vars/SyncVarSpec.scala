@@ -353,4 +353,12 @@ object SyncVarSpec extends Properties("vars.SyncVar") {
 
 	(new SyncVarPropsGroup).includeIn(this)
 	(new ErasedSyncVarPropsGroup).includeIn(this)
+
+	def testOrdering[T](x1 :T, x2 :T)(implicit t :Ordering[T], inout :Ordering[SyncVar[T]]) :Prop = {
+		import Ordering.Implicits.infixOrderingOps
+		if (x1 < x2) Prop(SyncVar(x1) < SyncVar(x2)) :| "<"
+		else Prop(SyncVar(x1) >= SyncVar(x2)) :| ">="
+	}
+
+	property("SyncVarOrdering") = forAll { (x1 :String, x2 :String) => testOrdering(x1, x2) }
 }

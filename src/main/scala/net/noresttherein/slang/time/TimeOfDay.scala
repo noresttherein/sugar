@@ -5,17 +5,16 @@ import java.time.temporal.ChronoField
 
 
 /** 'Wall clock time' with nanosecond precision. Wraps a `java.time.LocalTime` instance.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
 class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Ordered[TimeOfDay] with Serializable {
-	@inline def hour :Int = toJava.getHour
+	@inline def hour   :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
 	@inline def second :Int = toJava.getSecond
-	@inline def nano :Int = toJava.getNano
+	@inline def nano   :Int = toJava.getNano
 
-	@inline def on(date :Date) :DateTime = DateTime(date, this)
-
+	@inline def on(date :Date)         :DateTime   = DateTime(date, this)
 	@inline def at(offset :TimeOffset) :OffsetTime = new OffsetTime(toJava atOffset offset.toJava)
 
 
@@ -23,29 +22,27 @@ class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Orde
 		new TimeOfDay(j.LocalTime.of(hour, minute, second, nano))
 
 
-	def +(time :FiniteTimeSpan) :TimeOfDay = time match {
+	def +(time :TimeSpan) :TimeOfDay = time match {
 		case millis :Milliseconds => this + millis
 		case duration :Duration => this + duration
 		case _ => this + time.toDuration
 	}
-
-	def -(time :FiniteTimeSpan) :TimeOfDay = time match {
+	def -(time :TimeSpan) :TimeOfDay = time match {
 		case millis :Milliseconds => this - millis
 		case duration :Duration => this - duration
 		case _ => this - time.toDuration
 	}
 
 	@inline def +(time :Milliseconds) :TimeOfDay =
-		new TimeOfDay(toJava plusSeconds time.inMillis / 1000L plusNanos time.inMillis % 1000L * NanosInMilli)
+		new TimeOfDay(toJava plusSeconds time.toMillis / 1000L plusNanos time.toMillis % 1000L * NanosInMilli)
 	
 	@inline def -(time :Milliseconds) :TimeOfDay =
-		new TimeOfDay(toJava minusSeconds time.inMillis / 1000L minusNanos time.inMillis % 1000L * NanosInMilli)
+		new TimeOfDay(toJava minusSeconds time.toMillis / 1000L minusNanos time.toMillis % 1000L * NanosInMilli)
 
 	@inline def +(time :Duration) :TimeOfDay = new TimeOfDay(toJava plus time.toJava)
 	@inline def -(time :Duration) :TimeOfDay = new TimeOfDay(toJava minus time.toJava)
 
-
-	@inline def -(time :TimeOfDay) :Duration = new Duration(j.Duration.between(time.toJava, toJava))
+	@inline def -(time :TimeOfDay)  :Duration = new Duration(j.Duration.between(time.toJava, toJava))
 	@inline def -(time :OffsetTime) :Duration = new Duration(j.Duration.between(time.toJava.toLocalTime, toJava))
 
 
@@ -58,7 +55,6 @@ class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Orde
 
 	@inline def min(that :TimeOfDay) :TimeOfDay = if (that.toJava isBefore this) that else this
 	@inline def max(that :TimeOfDay) :TimeOfDay = if (that.toJava isAfter this) that else this
-
 }
 
 
@@ -104,44 +100,41 @@ object TimeOfDay {
 /** Time of day with an offset from `UTC`, reflecting a unique instant. Wraps a `java.time.OffsetTime`. */
 @SerialVersionUID(1L)
 class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Ordered[OffsetTime] with Serializable {
-	@inline def hour :Int = toJava.getHour
+	@inline def hour   :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
 	@inline def second :Int = toJava.getSecond
-	@inline def nano :Int = toJava.getNano
+	@inline def nano   :Int = toJava.getNano
 	
-	@inline def time :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
+	@inline def time   :TimeOfDay  = new TimeOfDay(toJava.toLocalTime)
 	@inline def offset :TimeOffset = new TimeOffset(toJava.getOffset)
 
-	@inline def at(offset :TimeOffset) :OffsetTime = new OffsetTime(toJava withOffsetSameInstant offset.toJava)
-
-	@inline def on(date :Date) :ZoneDateTime = new ZoneDateTime((toJava atDate date.toJava).toZonedDateTime)
+	@inline def at(offset :TimeOffset) :OffsetTime   = new OffsetTime(toJava withOffsetSameInstant offset.toJava)
+	@inline def on(date :Date)         :ZoneDateTime = new ZoneDateTime((toJava atDate date.toJava).toZonedDateTime)
 
 	@inline def copy(hour :Int=this.hour, minute :Int=this.minute, second :Int=this.second, nano :Int=this.nano,
 	                 offset :TimeOffset=this.offset) :OffsetTime =
 		new OffsetTime(j.OffsetTime.of(j.LocalTime.of(hour, minute, second, nano), offset.toJava))
 
-	def +(time :FiniteTimeSpan) :OffsetTime = time match {
+	def +(time :TimeSpan) :OffsetTime = time match {
 		case millis :Milliseconds => this + millis
 		case duration :Duration => this + duration
 		case _ => this + time.toDuration
 	}
-
-	def -(time :FiniteTimeSpan) :OffsetTime = time match {
+	def -(time :TimeSpan) :OffsetTime = time match {
 		case millis :Milliseconds => this - millis
 		case duration :Duration => this - duration
 		case _ => this - time.toDuration
 	}
 
 	@inline def +(time :Milliseconds) :OffsetTime =
-		new OffsetTime(toJava plusSeconds time.inMillis / 1000L plusNanos time.inMillis % 1000L * NanosInMilli)
+		new OffsetTime(toJava plusSeconds time.toMillis / 1000L plusNanos time.toMillis % 1000L * NanosInMilli)
 
 	@inline def -(time :Milliseconds) :OffsetTime =
-		new OffsetTime(toJava minusSeconds time.inMillis / 1000L minusNanos time.inMillis % 1000L * NanosInMilli)
+		new OffsetTime(toJava minusSeconds time.toMillis / 1000L minusNanos time.toMillis % 1000L * NanosInMilli)
 
 	@inline def +(time :Duration) :OffsetTime = new OffsetTime(toJava plus time.toJava)
 	@inline def -(time :Duration) :OffsetTime = new OffsetTime(toJava minus time.toJava)
 	
-
 	@inline def -(other :TimeOfDay) :Duration = new Duration(j.Duration.between(toJava.toLocalTime, other.toJava))
 	@inline def -(other :OffsetTime) :Duration = new Duration(j.Duration.between(other.toJava, toJava))
 

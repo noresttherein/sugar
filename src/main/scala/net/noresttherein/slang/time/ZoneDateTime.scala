@@ -6,30 +6,30 @@ import scala.concurrent.duration.Deadline
 
 /** A time point carrying time zone information and thus reflecting a unique date. It is a lightweight value type
   * wrapping a `java.time.ZonedDateTime`.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */ //todo: OffsetDateTime?
 @SerialVersionUID(1L)
 class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	extends AnyVal with DateTimePoint with Serializable
 {
-	@inline override def date :Date = new Date(toJava.toLocalDate)
-	@inline override def local :DateTime = new DateTime(toJava.toLocalDateTime)
-	@inline override def time :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
+	@inline override def date  :Date      = new Date(toJava.toLocalDate)
+	@inline override def local :DateTime  = new DateTime(toJava.toLocalDateTime)
+	@inline override def time  :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
 
-	@inline override def zone :TimeZone = new TimeZone(toJava.getZone)
+	@inline override def zone   :TimeZone   = new TimeZone(toJava.getZone)
 	@inline override def offset :TimeOffset = new TimeOffset(toJava.getOffset)
 
-	@inline override def year :Year = new Year(toJava.getYear)
-	@inline override def month :Month = toJava.getMonth
-	@inline override def day :Int = toJava.getDayOfMonth
-	@inline override def hour :Int = toJava.getHour
-	@inline override def minute :Int = toJava.getMinute
-	@inline override def second :Int = toJava.getSecond
-	@inline override def nano :Int = toJava.getNano
+	@inline override def year   :Year  = new Year(toJava.getYear)
+	@inline override def month  :Month = toJava.getMonth
+	@inline override def day    :Int   = toJava.getDayOfMonth
+	@inline override def hour   :Int   = toJava.getHour
+	@inline override def minute :Int   = toJava.getMinute
+	@inline override def second :Int   = toJava.getSecond
+	@inline override def nano   :Int   = toJava.getNano
 
 	@inline override def dayOfWeek :Day = toJava.getDayOfWeek
 
-	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.of(this)
+	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.on(this)
 
 
 	@inline override def epochSecond :Long = toJava.toEpochSecond
@@ -43,88 +43,84 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	}
 
 
-	@inline override def toTimestamp :Timestamp = new Timestamp(toJava.toInstant)
-
-	@inline override def toUnix :UnixTime = new UnixTime(epochMilli)
-
-	@inline override def toUTC :UTCDateTime = new UTCDateTime(toJava.withZoneSameInstant(j.ZoneOffset.UTC).toLocalDateTime)
-
+	@inline override def toTimestamp    :Timestamp    = new Timestamp(toJava.toInstant)
+	@inline override def toPosix         :PosixTime    = new PosixTime(epochMilli)
 	@inline override def toZoneDateTime :ZoneDateTime = this
+	@inline override def toInstant      :j.Instant    = toJava.toInstant
+	@inline override def toDeadline     :Deadline     = new Timestamp(toJava.toInstant).toDeadline
+	@inline override def toUTC          :UTCDateTime  =
+		new UTCDateTime(toJava.withZoneSameInstant(j.ZoneOffset.UTC).toLocalDateTime)
 
-	@inline override def toInstant :j.Instant = toJava.toInstant
+	@inline override def in(zone :TimeZone)     :ZoneDateTime =
+		new ZoneDateTime(toJava.withZoneSameInstant(zone.toJava))
 
-	@inline override def toDeadline :Deadline = new Timestamp(toJava.toInstant).toDeadline
+	@inline override def at(offset :TimeOffset) :ZoneDateTime =
+		new ZoneDateTime(toJava.withZoneSameInstant(offset.toJava))
 
-	@inline override def in(zone :TimeZone) :ZoneDateTime = new ZoneDateTime(toJava.withZoneSameInstant(zone.toJava))
-
-	@inline override def at(offset :TimeOffset) :ZoneDateTime = new ZoneDateTime(toJava.withZoneSameInstant(offset.toJava))
-
-	override def +(time :TimeLapse) :TimePoint = time match {
-		case finite :FiniteTimeSpan => this + finite
-		case period :FiniteDateSpan => this + period.toPeriod
-		case finite :FiniteTimeLapse => this + finite.period + finite.duration
+	override def +(time :TimeExtent) :TimePoint = time match {
+		case finite :TimeSpan => this + finite
+		case period :DateSpan => this + period.toPeriod
+		case finite :TimeFrame => this + finite.period + finite.duration
 		case Eternity => EndOfTime
 		case MinusEternity => DawnOfTime
 	}
 
-	override def +(time :FiniteTimeLapse) :ZoneDateTime = time match {
-		case t :FiniteTimeSpan => this + t
-		case p :FiniteDateSpan => this + p.toPeriod
+	override def +(time :TimeFrame) :ZoneDateTime = time match {
+		case t :TimeSpan => this + t
+		case p :DateSpan => this + p.toPeriod
 		case _ => this + time.period + time.duration
 	}
 
 	@inline override def +(time :Period) :ZoneDateTime = new ZoneDateTime(toJava plus time.toJava)
 
-	override def +(time :TimeSpan) :TimePoint = time match {
-		case finite :FiniteTimeSpan => this + finite
+	override def +(time :TimeInterval) :TimePoint = time match {
+		case finite :TimeSpan => this + finite
 		case Eternity => EndOfTime
 		case MinusEternity => DawnOfTime
 	}
 
-	@inline override def +(time :FiniteTimeSpan) :ZoneDateTime =
-		new ZoneDateTime(toJava plusSeconds time.inSeconds plusNanos time.nanos)
+	@inline override def +(time :TimeSpan) :ZoneDateTime =
+		new ZoneDateTime(toJava plusSeconds time.toSeconds plusNanos time.nanos)
 
 	@inline override def +(time :Duration) :ZoneDateTime = new ZoneDateTime(toJava plus time.toJava)
 
-	override def -(time :TimeLapse) :TimePoint = time match {
-		case finite :FiniteTimeSpan => this - finite
-		case period :FiniteDateSpan => this - period
-		case finite :FiniteTimeLapse => this - finite.period - finite.duration
+	override def -(time :TimeExtent) :TimePoint = time match {
+		case finite :TimeSpan => this - finite
+		case period :DateSpan => this - period
+		case finite :TimeFrame => this - finite.period - finite.duration
 		case Eternity => DawnOfTime
 		case MinusEternity => EndOfTime
 	}
 
-	override def -(time :FiniteTimeLapse) :ZoneDateTime = time match {
-		case t :FiniteTimeSpan => this - t
-		case p :FiniteDateSpan => this - p.toPeriod
+	override def -(time :TimeFrame) :ZoneDateTime = time match {
+		case t :TimeSpan => this - t
+		case p :DateSpan => this - p.toPeriod
 		case _ => this - time.period - time.duration
 	}
 
 	@inline override def -(period :Period) :ZoneDateTime = new ZoneDateTime(toJava minus period)
 
-	override def -(time :TimeSpan) :TimePoint = time match {
-		case finite :FiniteTimeSpan => this - finite
+	override def -(time :TimeInterval) :TimePoint = time match {
+		case finite :TimeSpan => this - finite
 		case Eternity => DawnOfTime
 		case MinusEternity => EndOfTime
 	}
 
-	@inline override def -(time :FiniteTimeSpan) :ZoneDateTime =
-		new ZoneDateTime(toJava minusSeconds time.inSeconds minusNanos time.nanos)
+	@inline override def -(time :TimeSpan) :ZoneDateTime =
+		new ZoneDateTime(toJava minusSeconds time.toSeconds minusNanos time.nanos)
 
 	@inline override def -(time :Duration) :ZoneDateTime = new ZoneDateTime(toJava minus time.toJava)
 
 
-	override def -(time :TimePoint) :TimeSpan = time match {
+	override def -(time :TimePoint) :TimeInterval = time match {
 		case finite :DefiniteTime => new Duration(j.Duration.between(finite.toInstant, toJava))
 		case DawnOfTime => Eternity
 		case EndOfTime => MinusEternity
 	}
 
 	@inline override def -(time :DefiniteTime) :Duration = new Duration(j.Duration.between(time.toInstant, toJava))
-
-	@inline override def -(time :Timestamp) :Duration = new Duration(j.Duration.between(time, toJava))
-
-	@inline def -(time :ZoneDateTime) :Duration = new Duration(j.Duration.between(time.toJava, toJava))
+	@inline override def -(time :Timestamp)    :Duration = new Duration(j.Duration.between(time, toJava))
+	@inline def -(time :ZoneDateTime)          :Duration = new Duration(j.Duration.between(time.toJava, toJava))
 
 
 
@@ -184,16 +180,16 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	def > (that :UTCDateTime) :Boolean =
 		gt(toJava.toEpochSecond, toJava.getNano, that.toJava.toEpochSecond(Time.UTC.offset), that.toJava.getNano)
 
-	def <=(that :UnixTime) :Boolean =
+	def <=(that :PosixTime) :Boolean =
 		lte(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
 
-	def < (that :UnixTime) :Boolean =
+	def < (that :PosixTime) :Boolean =
 		lt(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
 
-	def >=(that :UnixTime) :Boolean =
+	def >=(that :PosixTime) :Boolean =
 		gte(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
 
-	def > (that :UnixTime) :Boolean =
+	def > (that :PosixTime) :Boolean =
 		gt(toJava.toEpochSecond, toJava.getNano, that.epochSecond, that.nano)
 
 	@inline def min(that :ZoneDateTime) :ZoneDateTime = if (that.toJava isBefore toJava) that else this
@@ -211,7 +207,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	@inline def ==(that :UTCDateTime) :Boolean =
 		toJava.toEpochSecond == that.toJava.toEpochSecond(Time.UTC.offset) && toJava.getNano == that.toJava.getNano
 
-	@inline def ==(that :UnixTime) :Boolean =
+	@inline def ==(that :PosixTime) :Boolean =
 		epochMilli == that.epochMilli && toJava.getNano % NanosInMilli == 0L
 
 	override def toString :String = toJava.toString
@@ -250,18 +246,18 @@ object ZoneDateTime {
 	@inline def utc :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(Time.UTC))
 
 
-	def after(lapse :FiniteTimeLapse)(implicit time :Time = Time.Local) :ZoneDateTime =
-		new ZoneDateTime(lapse match {
-			case t :FiniteTimeSpan => j.ZonedDateTime.now(time.clock) plus t.toDuration.toJava
-			case p :FiniteDateSpan => j.ZonedDateTime.now(time.clock) plus p.toPeriod.toJava
-			case _ =>j.ZonedDateTime.now(time.clock) plus lapse.period.toJava plus lapse.duration.toJava
+	def after(extent :TimeFrame)(implicit time :Time = Time.Local) :ZoneDateTime =
+		new ZoneDateTime(extent match {
+			case t :TimeSpan => j.ZonedDateTime.now(time.clock) plus t.toDuration.toJava
+			case p :DateSpan => j.ZonedDateTime.now(time.clock) plus p.toPeriod.toJava
+			case _ =>j.ZonedDateTime.now(time.clock) plus extent.period.toJava plus extent.duration.toJava
 		})
 
-	def before(lapse :FiniteTimeLapse)(implicit time :Time = Time.Local) :ZoneDateTime =
-		new ZoneDateTime(lapse match {
-			case t :FiniteTimeSpan => j.ZonedDateTime.now(time.clock) minus t.toDuration.toJava
-			case p :FiniteDateSpan => j.ZonedDateTime.now(time.clock) minus p.toPeriod.toJava
-			case _ => j.ZonedDateTime.now(time.clock) minus lapse.period.toJava minus lapse.duration.toJava
+	def before(extent :TimeFrame)(implicit time :Time = Time.Local) :ZoneDateTime =
+		new ZoneDateTime(extent match {
+			case t :TimeSpan => j.ZonedDateTime.now(time.clock) minus t.toDuration.toJava
+			case p :DateSpan => j.ZonedDateTime.now(time.clock) minus p.toPeriod.toJava
+			case _ => j.ZonedDateTime.now(time.clock) minus extent.period.toJava minus extent.duration.toJava
 		})
 
 

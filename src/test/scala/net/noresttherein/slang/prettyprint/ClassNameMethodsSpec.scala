@@ -13,7 +13,7 @@ import org.scalacheck.Prop._
 /**
   * @author Marcin Mościcki
   */
-object classNameMethodsSpec extends Properties("classNameMethods") {
+object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
 
 	class Nest {
 		class !@#%^&*-+=<>?/|\:

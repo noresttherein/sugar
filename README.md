@@ -51,11 +51,33 @@ Naturally, you'll also find a DSL syntax for creating the values in `slang.time.
     10.seconds from now
     2.years + 3.months + 4.days before (11 Jan 1981)
     11:/11:/2011 at 11:-11     
+   
+   
+
+### 3. slang.numeric ###
+  1. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
+  2. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
+  3. `Decimal64` - a `BigDecimal` value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
+  4. `Decimal[N]` - a fixed precision decimal number with up to `N <: Int with Singleton` fractional digits.
 
 
 
-### 3. slang.matching ###
-#### 3.1. RX ####
+### 4. slang.vars ###
+Generic polymorphic `var` wrappers for use as in/out method parameters:
+
+    def testAndSet(i :InOut[Int]) :Unit = i.testAndSet(0, 1)
+    val param = Var(0); testAndSet(param)
+    val sync = SyncVar(0); testAndSet(sync) //synchronized access  
+    val volatile = Volatile(0); testAndSet(volatile) //declared as @volatile
+    val atomic = Atomic(0); testAndSet(atomic) //backed by AtomicInt
+
+Naturally, you'll find all the arithmetic operations you'd expect such as `+=` and `++`, as well as
+a couple more.
+
+
+
+### 5. slang.matching ###
+#### 5.1. RX ####
 A wrapper over `java.util.regex.Pattern` providing statically typed methods for all 
 supported character classes and constructs - for those of us who can never remember
 the more advanced features, or who value additional whitespace and commenting ability:
@@ -69,7 +91,7 @@ The types, values and factory methods generally follow the Java flavour of regul
  which should make you feel at home with the character classes you know, and provide 
  discovery and documentation viewing potential of a statically typed language in your IDE.
     
-#### 3.2 RegexpGroupMatcher ####
+#### 5.2 RegexpGroupMatcher ####
 Provides string interpolation syntax for regular expressions used in pattern matching:
 
     string match {
@@ -77,60 +99,63 @@ Provides string interpolation syntax for regular expressions used in pattern mat
     }    
 Arbitrary patterns can take place of the unbound variables `user` and `domain` in the above example.    
 
-#### 3.3 && ####
+#### 5.3 && ####
 The smallest but one of the most useful classes allows combining several extractor 
 patterns in a logical conjunction:
     
     weapon match {
         case MeleeDmg(melee) && RangedDmg(ranged) => ...
     }
-   
-   
-    
-### 4. slang.prettyprint ###
-Reflection-based utilities for implementing `toString` methods.
 
 
 
-### 5. slang.optional ###
+### 6. slang.collection ###
+Extension methods for collections, including:
+
+#### 6.1 Partial folding ####
+    numbers.foldLeftWhile(0)(_ < Threshold)(_ + _)
+    numbers.foldRightUntil(0)(_ >= Threshold)(_ + _)
+    numbers.foldSome(0)((e, acc) => if (e + acc) < Threshold) Some(e + acc) else None)
+and others.
+
+#### 6.2 Mapping with state ####
+    values.mapWithIndex{ (val, i) => s"$i: $val" }
+    numbers.mapWith(0) { (val, sum) => s" +$val = $sum" }
+
+Also:
+1. `ArrayIterator` and `ReverseArrayIterator`
+2. `ChunkedString` - a list-like collection of composed `String` concatentations
+   for use as an alternative to `StringBuilder` (has O(1) append/prepend, at the cost of O(n) random indexing).
+
+
+
+
+
+### 7. slang.optional ###
 Syntax for creating options:
 
     x / y unless y == 0 //if (y!=0) Some(x / y) else None
     x + y providing y < Int.MaxValue - x
-    className.indexOf('.') satisfying _ >= 0
-    
+    numbers.flatMap(_ satisfying (_ > 0))
+    className.indexOf('.') satisfying _ >= 0 
+
 Also, a non-boxing `Opt[+T]` monkeying the scala `Option` type. 
 
 
 
-### 6. slang.tuples ###        
-A variable length tuple, similar to shapeless `HList` but modelled more after tuples
-than lists and with constant time access:
+### 8. slang.prettyprint ###
+Various ways for demangling and abbreviating class names for logging purposes, for example:
 
-    val slice = "this is the best bit" >:< 17 >< 17+3 :String>:<Int><Int
-    slice._1.substring(slice._2, slice._3 - slice._2)
-    slice match {
-        case string >:< start >< end => string.substring(start, end-start)
-    }
-The tuple link `><` has arguably a more practical (lower) precedence than `::` 
-and doesn't conflict with `scala.::`.    
-    
-    
-### 7. slang.vars ###
-Generic polymorphic `var` wrappers for use as in/out method parameters:
+    object.getClass.name       //my.package.Singleton.Specialized_:[Int]
+    object.getClass.abbrevName //m.p.Singleton.Specialized_:[Int]
+    object.localClassName      //Singleton.Specialized_:[Int]
+    object.innerClassName      //Specialized_:[Int]
 
-    def testAndSet(i :InOut[Int]) :Unit = i.testAndSet(0, 1)
-    val param = Var(0); testAndSet(param)
-    val sync = SyncVar(0); testAndSet(sync) //synchronized access  
-    val volatile = Volatile(0); testAndSet(volatile) //declared as @volatile
-    val atomic = Atomic(0); testAndSet(atomic) //backed by AtomicInt
-    
-Naturally, you'll find all the arithmetic operations you'd expect such as `+=` and `++`, as well as
-a couple more.
+Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-### 8. slang.witness ###
+### 9. slang.witness ###
 Implicit values implementing `Not`, `Maybe` and `Or` over availability of other implicit values.
 Also, tagging implicit values:
 
@@ -142,5 +167,17 @@ Also, tagging implicit values:
     
     
     
-### 9. others
+### 10. slang.typist ###
+Safer casting methods - less powerful, imposing constraints on the source and target type,
+including casting on type parameters for higher types.
+
+
+
+### 11. slang.Sealing ###
+A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
+and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
+
+
+
+### 12. others ###
 Whose names are not worthy to appear here.    

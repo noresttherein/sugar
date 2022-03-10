@@ -10,39 +10,69 @@ import net.noresttherein.slang.time.Cycle.Phase
 
 /** A periodically repeating sequence of time periods, such as a month of the year or a day of the week.
   * Instances of this class represent the whole cycle, while each individual period within it, such as January
-  * or Tuesday is represented by the member type `Cycle#Phase`. The convention here is that a class, such
-  * as [[net.noresttherein.slang.time.Month Month]] implements `Phase`, while its companion object (for example,
-  * [[net.noresttherein.slang.time.Month$ Month object]] implements the `Cycle` of that phase.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * or Tuesday is represented by the member type `Cycle#`[[net.noresttherein.slang.time.Cycle.Phase Phase]].
+  * The convention here is that a class, such as [[net.noresttherein.slang.time.Month Month]], implements `Phase`,
+  * while its companion object (for example, [[net.noresttherein.slang.time.Month$ Month object]]
+  * implements the `Cycle` of that phase.
+  *
+  * The rough counterpart of this type in  `java.time` package is [[java.time.temporal.TemporalField TemporalField]].
+  * @author Marcin Mościcki
   */
 trait Cycle extends Serializable {
+	/** The type representing a single, specific iteration of this cycle. */
 	type Phase <: Cycle.Phase with Ordered[Phase]
+	/** The last phase in this cycle. */
 	val Max :Phase
+	/** The first phase in this cycle. */
 	val Min :Phase
+	/** The number of phases in this cycle. */
 	val Length :Long
 
 	def toJava :TemporalField
 
-	def of(time :TimePoint) :Phase = time(this) //todo: shouldn't these take a Time?
-	def of(time :UnixTime) :Phase = of(time in Time.Local.zone)
-	def of(time :UTCDateTime) :Phase = of(time.toZoneDateTime)
-	def of(time :ZoneDateTime) :Phase
-	def of(time :Timestamp) :Phase = of(time in Time.Local.zone)
+	/** The current phase of this cycle at the particular moment in time. */
+	def on(time :TimePoint)    :Phase = time(this) //todo: shouldn't these take a Time?
+
+	/** The current phase of this cycle at the particular moment in time.
+	  * Uses `Time.`[[net.noresttherein.slang.time.Time.Local Local]] as the reference.
+	  */
+	def on(time :PosixTime)    :Phase = on(time in Time.Local.zone)
+
+	/** The current phase of this cycle at the particular moment in time. */
+	def on(time :UTCDateTime)  :Phase = on(time.toZoneDateTime)
+
+	/** The current phase of this cycle at the particular moment in time. */
+	def on(time :ZoneDateTime) :Phase
+
+	/** The current phase of this cycle at the particular moment in time.
+	  * Uses `Time.`[[net.noresttherein.slang.time.Time.Local Local]] as the reference.
+	  */
+	def on(time :Timestamp)    :Phase = on(time in Time.Local.zone)
 //	def of(time :TimeLimes) :Phase = throw new UnsupportedOperationException(s"$this at $time")
+	/** The current phase of this cycle on the particular date in the [[net.noresttherein.slang.time.Time.Local local]]
+	  * [[net.noresttherein.slang.time.TimeZone time zone]].
+	  */
+	def ofLocal(time :DateTime) :Phase = on(time in Time.Local.zone)
 
-	def ofLocal(time :DateTime) :Phase = of(time in Time.Local.zone)
-
-	@inline def unapply(time :TimePoint) :Some[Phase] = Some(of(time))
-	@inline def unapply(time :UnixTime) :Some[Phase] = Some(of(time))
-	@inline def unapply(time :UTCDateTime) :Some[Phase] = Some(of(time))
-	@inline def unapply(time :ZoneDateTime) :Some[Phase] = Some(of(time))
-	@inline def unapply(time :Timestamp) :Some[Phase] = Some(of(time))
+	/** Extracts the current phase of this cycle at the particular moment in time. Equivalent to `this.on(time)`. */
+	@inline def unapply(time :TimePoint)    :Some[Phase] = Some(on(time))
+	/** Extracts the current phase of this cycle at the particular moment in time. Equivalent to `this.on(time)`. */
+	@inline def unapply(time :PosixTime)    :Some[Phase] = Some(on(time))
+	/** Extracts the current phase of this cycle at the particular moment in time. Equivalent to `this.on(time)`. */
+	@inline def unapply(time :UTCDateTime)  :Some[Phase] = Some(on(time))
+	/** Extracts the current phase of this cycle at the particular moment in time. Equivalent to `this.on(time)`. */
+	@inline def unapply(time :ZoneDateTime) :Some[Phase] = Some(on(time))
+	/** Extracts the current phase of this cycle at the particular moment in time. Equivalent to `this.on(time)`. */
+	@inline def unapply(time :Timestamp)    :Some[Phase] = Some(on(time))
 //	@inline def unapply(time :TimeLimes) :Option[Phase] = None
 
 }
 
 
 
+/** A factory and deconstructor of temporal [[net.noresttherein.slang.time.Cycle Cycle]]s.
+  * Serves also as a name space providing the values of all (or most) cycles occurring in the Gregorian calendar.
+  */
 object Cycle {
 	trait Phase extends Any with Serializable
 
@@ -52,38 +82,36 @@ object Cycle {
 	def unapply(cycle :Cycle) :Some[TemporalField] = Some(cycle.toJava)
 
 
-
 	@inline implicit def fromJavaTemporalField(field :TemporalField) :LongValueCycle =
 		new TemporalFieldCycle(field)
 
 	@inline implicit def toJavaTemporalField(cycle :Cycle) :TemporalField = cycle.toJava
 
 
-
-	final val Epoch = Cycle(ERA)
-	final val YearOfEra = Cycle(YEAR_OF_ERA)
-	final val MonthOfYear = Cycle(MONTH_OF_YEAR)
-	final val DayOfYear = Cycle(DAY_OF_YEAR)
-	final val DayOfMonth = Cycle(DAY_OF_MONTH)
-	final val DayOfWeek = Cycle(DAY_OF_WEEK)
-	final val AMPM :AMPM = new TemporalFieldCycle(AMPM_OF_DAY) with AMPM
-	final val HourOfDay = Cycle(HOUR_OF_DAY)
-	final val ClockHour24 = Cycle(CLOCK_HOUR_OF_DAY)
-	final val Hour12 = Cycle(HOUR_OF_AMPM)
-	final val ClockHour = Cycle(CLOCK_HOUR_OF_AMPM)
-	final val MinuteOfDay = Cycle(MINUTE_OF_DAY)
-	final val MinuteOfHour = Cycle(MINUTE_OF_HOUR)
-	final val SecondOfDay = Cycle(SECOND_OF_DAY)
+	final val Epoch          = Cycle(ERA)
+	final val YearOfEra      = Cycle(YEAR_OF_ERA)
+	final val MonthOfYear    = Cycle(MONTH_OF_YEAR)
+	final val DayOfYear      = Cycle(DAY_OF_YEAR)
+	final val DayOfMonth     = Cycle(DAY_OF_MONTH)
+	final val DayOfWeek      = Cycle(DAY_OF_WEEK)
+	final val AMPM :AMPM     = new TemporalFieldCycle(AMPM_OF_DAY) with AMPM
+	final val HourOfDay      = Cycle(HOUR_OF_DAY)
+	final val ClockHour24    = Cycle(CLOCK_HOUR_OF_DAY)
+	final val Hour12         = Cycle(HOUR_OF_AMPM)
+	final val ClockHour      = Cycle(CLOCK_HOUR_OF_AMPM)
+	final val MinuteOfDay    = Cycle(MINUTE_OF_DAY)
+	final val MinuteOfHour   = Cycle(MINUTE_OF_HOUR)
+	final val SecondOfDay    = Cycle(SECOND_OF_DAY)
 	final val SecondOfMinute = Cycle(SECOND_OF_MINUTE)
-	final val MicroOfDay = Cycle(MICRO_OF_DAY)
-	final val MicroOfSecond = Cycle(MICRO_OF_SECOND)
-	final val MilliOfDay = Cycle(MILLI_OF_DAY)
-	final val MilliOfSecond = Cycle(MILLI_OF_SECOND)
-	final val NanoOfDay = Cycle(NANO_OF_DAY)
-	final val NanoOfSecond = Cycle(NANO_OF_SECOND)
+	final val MicroOfDay     = Cycle(MICRO_OF_DAY)
+	final val MicroOfSecond  = Cycle(MICRO_OF_SECOND)
+	final val MilliOfDay     = Cycle(MILLI_OF_DAY)
+	final val MilliOfSecond  = Cycle(MILLI_OF_SECOND)
+	final val NanoOfDay      = Cycle(NANO_OF_DAY)
+	final val NanoOfSecond   = Cycle(NANO_OF_SECOND)
 
-	final val EpochDay = Cycle(EPOCH_DAY)
-	final val EpochSecond = Cycle(INSTANT_SECONDS)
+	final val EpochDay       = Cycle(EPOCH_DAY)
+	final val EpochSecond    = Cycle(INSTANT_SECONDS)
 
 
 
@@ -94,7 +122,7 @@ object Cycle {
 
 
 
-	/** A phase of a `Cycle` described simply by its increasing ordinal number. */
+	/** A phase of a `Cycle` described simply by its increasing ordinal number of type `Long`. */
 	@SerialVersionUID(1L)
 	class LongValuePhase[C](val no :Long) extends AnyVal with Phase with Ordered[LongValuePhase[C]] {
 
@@ -105,26 +133,29 @@ object Cycle {
 	}
 
 
-
+	/** A cycle whose each individual [[net.noresttherein.slang.time.Cycle.Phase Phase]] can be identified
+	  * by a single `Long` value.
+	  * @see [[net.noresttherein.slang.time.Cycle.LongValuePhase]]
+	  */
 	trait LongValueCycle extends Cycle {
 		type Phase <: LongValuePhase[this.type] with Ordered[Phase]
 
+		/** The n-th phase of this cycle. */
 		def apply(phase :Long) :Phase
 	}
 
 	@SerialVersionUID(1L)
 	private[time] class TemporalFieldCycle(val toJava :TemporalField) extends LongValueCycle {
-		type Phase = LongValuePhase[this.type]
+		override type Phase = LongValuePhase[this.type]
 
-		val Max = new Phase(toJava.range().getMaximum)
-		val Min = new Phase(toJava.range().getMinimum)
+		override val Max = new Phase(toJava.range().getMaximum)
+		override val Min = new Phase(toJava.range().getMinimum)
 
-		val Length :Long =
+		override val Length :Long =
 			if (if (Min.no >= 0) Max.no >= Long.MinValue + Min.no else Max.no <= Long.MaxValue + Min.no)
 				Max.no - Min.no
 			else
 				-1
-
 
 		override def apply(phase :Long) :LongValuePhase[this.type] =
 			if (phase < Min.no | phase > Max.no)
@@ -132,7 +163,7 @@ object Cycle {
 			else
 				new LongValuePhase[this.type](phase)
 
-		override def of(time :ZoneDateTime) :Phase =
+		override def on(time :ZoneDateTime) :Phase =
 			new LongValuePhase(time.toJava.getLong(toJava))
 
 		override def equals(that :Any) :Boolean = that match {
@@ -146,7 +177,6 @@ object Cycle {
 
 		override def toString :String = toJava.toString
 	}
-
 }
 
 
@@ -157,7 +187,7 @@ object Cycle {
 /** Month of the year, from January (as numeric `1`), to December (as numeric `12`). */
 @SerialVersionUID(1L)
 class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered[Month] with Serializable {
-	@inline def no :Int = toJava.getValue
+	@inline def no    :Int = toJava.getValue
 	@inline def toInt :Int = toJava.getValue
 //	@inline def toJava :j.Month = j.Month.of(no)
 
@@ -165,12 +195,10 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 		case 2 => 29
 		case n => 30 + (n + n / 8) % 2
 	}
-
 	def minLength :Int = no match {
 		case 2 => 28
 		case n => 30 + (n + n / 8) % 2
 	}
-
 	@inline def length(year :Year) :Int = length(year.isLeap)
 
 	def length(isLeapYear :Boolean) :Int = no match {
@@ -179,18 +207,18 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 	}
 
 	@inline def of(year :Year) :MonthInYear = MonthInYear(year, this)
-	@inline def on(day :Int) :DateOfYear = DateOfYear(this, day)
-	@inline def onFirst :DateOfYear = DateOfYear(this, 1)
+	@inline def on(day :Int)   :DateOfYear  = DateOfYear(this, day)
+	@inline def onFirst        :DateOfYear  = DateOfYear(this, 1)
 
 	@inline def +(months :Int) :Month = new Month(toJava plus months)
 	@inline def -(months :Int) :Month = new Month(toJava minus months)
 
 
-	@inline override def compare(that :Month) :Int = toJava.getValue - that.toJava.getValue
-	@inline override def <=(that :Month) :Boolean = toJava.getValue <= that.toJava.getValue
-	@inline override def < (that :Month) :Boolean = toJava.getValue < that.toJava.getValue
-	@inline override def >=(that :Month) :Boolean = toJava.getValue >= that.toJava.getValue
-	@inline override def > (that :Month) :Boolean = toJava.getValue > that.toJava.getValue
+	@inline override def compare(that :Month) :Int     = toJava.getValue - that.toJava.getValue
+	@inline override def <=(that :Month)      :Boolean = toJava.getValue <= that.toJava.getValue
+	@inline override def < (that :Month)      :Boolean = toJava.getValue < that.toJava.getValue
+	@inline override def >=(that :Month)      :Boolean = toJava.getValue >= that.toJava.getValue
+	@inline override def > (that :Month)      :Boolean = toJava.getValue > that.toJava.getValue
 
 	@inline def min(that :Month) :Month = if (toJava.getValue <= that.toJava.getValue) this else that
 	@inline def max(that :Month) :Month = if (toJava.getValue >= that.toJava.getValue) this else that
@@ -244,47 +272,45 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 				case 12 => "Dec"
 			}
 	}
-
 }
 
 
 
+/** The cycle of months of a year. */
 object Month extends Cycle {
 	type Phase = Month
 
 	import j.Month._
 
-	@inline final val January = new Month(JANUARY)
-	@inline final val February = new Month(FEBRUARY)
-	@inline final val March = new Month(MARCH)
-	@inline final val April = new Month(APRIL)
-	@inline final val May = new Month(MAY)
-	@inline final val June = new Month(JUNE)
-	@inline final val July = new Month(JULY)
-	@inline final val August = new Month(AUGUST)
+	@inline final val January   = new Month(JANUARY)
+	@inline final val February  = new Month(FEBRUARY)
+	@inline final val March     = new Month(MARCH)
+	@inline final val April     = new Month(APRIL)
+	@inline final val May       = new Month(MAY)
+	@inline final val June      = new Month(JUNE)
+	@inline final val July      = new Month(JULY)
+	@inline final val August    = new Month(AUGUST)
 	@inline final val September = new Month(SEPTEMBER)
-	@inline final val October = new Month(OCTOBER)
-	@inline final val November = new Month(NOVEMBER)
-	@inline final val December = new Month(DECEMBER)
+	@inline final val October   = new Month(OCTOBER)
+	@inline final val November  = new Month(NOVEMBER)
+	@inline final val December  = new Month(DECEMBER)
 
-	@inline final val Min = January
-	@inline final val Max = December
+	@inline final val Min    = January
+	@inline final val Max    = December
 	@inline final val Length = 12L
 
 	@inline final val toJava = MONTH_OF_YEAR
 
-	@inline def apply(number :Int) :Month = new Month(j.Month.of(number))
-
+	@inline def apply(number :Int)    :Month = new Month(j.Month.of(number))
 	@inline def apply(month :j.Month) :Month = new Month(month)
 
 
-
-	@inline override def of(time :UTCDateTime) :Month = time.month
-	@inline override def of(time :ZoneDateTime) :Month = time.month
+	@inline override def on(time :UTCDateTime)   :Month = time.month
+	@inline override def on(time :ZoneDateTime)  :Month = time.month
 	@inline override def ofLocal(time :DateTime) :Month = time.month
 	@inline def ofLocal(date :Date) :Month = date.month
 
-	@inline def unapply(date :Date) :Some[Month] = Some(date.month)
+	@inline def unapply(date :Date)     :Some[Month] = Some(date.month)
 	@inline def unapply(time :DateTime) :Some[Month] = Some(time.month)
 
 	@inline def now(implicit time :Time = Time.Local) :Month = new Month(j.LocalDate.now(time.clock).getMonth)
@@ -297,7 +323,6 @@ object Month extends Cycle {
 		@inline implicit def monthToInt(month :Month) :Int = month.no
 		@inline implicit def intToMonth(month :Int) :Month = Month(month)
 	}
-
 }
 
 
@@ -343,16 +368,17 @@ class Day private(val no :Int) extends AnyVal with Phase with Ordered[Day] with 
 
 
 
+/** The cycle of days of the week. */
 object Day extends Cycle {
 	type Phase = Day
 
-	@inline final val Monday = new Day(1)
-	@inline final val Tuesday = new Day(2)
+	@inline final val Monday    = new Day(1)
+	@inline final val Tuesday   = new Day(2)
 	@inline final val Wednesday = new Day(3)
-	@inline final val Thursday = new Day(4)
-	@inline final val Friday = new Day(5)
-	@inline final val Saturday = new Day(6)
-	@inline final val Sunday = new Day(7)
+	@inline final val Thursday  = new Day(4)
+	@inline final val Friday    = new Day(5)
+	@inline final val Saturday  = new Day(6)
+	@inline final val Sunday    = new Day(7)
 
 	@inline final val Min = Monday
 	@inline final val Max = Sunday
@@ -368,8 +394,8 @@ object Day extends Cycle {
 
 	@inline def apply(day :j.DayOfWeek) :Day = new Day(day.getValue)
 
-	@inline override def of(time :UTCDateTime) :Day = time.dayOfWeek
-	@inline override def of(time :ZoneDateTime) :Day = time.dayOfWeek
+	@inline override def on(time :UTCDateTime)  :Day = time.dayOfWeek
+	@inline override def on(time :ZoneDateTime) :Day = time.dayOfWeek
 
 	@inline implicit def fromJavaDayOfWeek(day :j.DayOfWeek) :Day = new Day(day.getValue)
 	@inline implicit def toJavaDayOfWeek(day :j.DayOfWeek) :j.DayOfWeek = day.toJava
@@ -378,6 +404,5 @@ object Day extends Cycle {
 		@inline implicit def dayOfWeekToInt(day :Day) :Int = day.no
 		@inline implicit def intToDayOfWeek(day :Int) :Day = Day(day)
 	}
-
 }
 

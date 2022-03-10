@@ -9,14 +9,13 @@ import java.{time=>j}
 // the distinction in a generic context.
 /** Representation of a standard time zone, such as 'Paris', which associates time points with corresponding dates
   * at the location. This is a simple value type wrapping a `java.time.ZoneId`.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
 class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializable {
 	@inline def id :String = toJava.getId
 
-	@inline def offset(time :DateTime) :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
-
+	@inline def offset(time :DateTime)  :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
 	@inline def offset(time :Timestamp) :TimeOffset = new TimeOffset(toJava.getRules.getOffset(time.toJava))
 
 	@inline def currentOffset(implicit time :Time = Time.Local) :TimeOffset =
@@ -89,11 +88,11 @@ object TimeOffset {
 
 	@inline def apply(offset :j.ZoneOffset) :TimeOffset = new TimeOffset(offset)
 
-	@inline def apply(offset :TimeSpan) :TimeOffset =
-		new TimeOffset(j.ZoneOffset.ofTotalSeconds(offset.inSeconds.toInt)) //todo: overflow validation
+	@inline def apply(offset :TimeInterval) :TimeOffset =
+		new TimeOffset(j.ZoneOffset.ofTotalSeconds(offset.toSeconds.toInt)) //todo: overflow validation
 
 	@inline def apply(offset :Milliseconds) :TimeOffset =
-		new TimeOffset(j.ZoneOffset.ofTotalSeconds(offset.inSeconds.toInt))
+		new TimeOffset(j.ZoneOffset.ofTotalSeconds(offset.toSeconds.toInt))
 
 	@inline def apply(hours :Int, minutes :Int = 0, seconds :Int = 0) :TimeOffset =
 		new TimeOffset(j.ZoneOffset.ofHoursMinutesSeconds(hours, minutes, seconds))

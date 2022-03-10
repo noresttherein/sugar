@@ -10,7 +10,7 @@ import org.scalacheck.Properties
 
 
 
-object mappingMethodsSpec extends Properties("mappingMethods") {
+object MappingMethodsSpec extends Properties("M1appingMethods") {
 
 	property("mapWithIndex") = forAll { list :List[String] =>
 		list.mapWithIndex { (e, i) => (e, i) } ?= list.zipWithIndex

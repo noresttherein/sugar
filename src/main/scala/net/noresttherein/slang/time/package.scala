@@ -2,11 +2,13 @@ package net.noresttherein.slang
 
 import java.time.temporal.ChronoUnit
 
+import net.noresttherein.slang.typist.Rank.Rank0
+
 
 
 /** Light wrappers over classes from the `java.time` package providing a nicer scala interface, including
   * arithmetic operations and implicit passing of a `java.time.Clock`.
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 package object time {
 
@@ -40,16 +42,24 @@ package object time {
 
 
 
-	/** Throws `ArithmeticException` to indicate `Long` arithmetic overflow during operation `this op other`.
-	  * Extracted to minimize inlined footprint of calling methods. Access is `protected[slang]` to avoid
+	/** Throws an `ArithmeticException` to indicate `Long` arithmetic overflow during operation `this op other`.
+	  * Extracted to minimize inlined footprint of calling methods. Access is `private[slang]` to avoid
 	  * leaking of the API while still allowing inlining of calling methods (because it translates to `public`
 	  * in the bytecode).
 	  */
 	private[slang] def overflow(left :Any, op :String, right :Any) :Nothing =
 		throw new ArithmeticException("Long overflow: " + left + op + right)
 
-	/** Throws `ArithmeticException` to indicate `Long` arithmetic overflow during method `method`.
-	  * Extracted to minimize inlined footprint of calling methods. Access is `protected[slang]` to avoid
+	/** Throws an `ArithmeticException` to indicate that a division by zero was requested.
+	  * Extracted to minimize the footprint of inlined methods. Access is `private[slang]` to avoid
+	  * leaking of the API while still allowing inlining of calling methods (because it translates to `public`
+	  * in the bytecode).
+	  */
+	private[slang] def divZero(what :String) :Nothing =
+		throw new ArithmeticException(what + " / 0")
+
+	/** Throws an `ArithmeticException` to indicate `Long` arithmetic overflow during method `method`.
+	  * Extracted to minimize inlined footprint of calling methods. Access is `private[slang]` to avoid
 	  * leaking of the API while still allowing inlining of calling methods (because it translates to `public`
 	  * in the bytecode).
 	  */
