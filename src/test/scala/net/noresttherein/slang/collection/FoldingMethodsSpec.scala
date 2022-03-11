@@ -3,7 +3,7 @@ package net.noresttherein.slang.collection
 
 import scala.collection.immutable.{ArraySeq, ListSet}
 
-import net.noresttherein.slang.implicits.satisfyingMethods
+import net.noresttherein.slang.extensions.{foldingMethods, satisfyingMethods}
 import org.scalacheck.Prop._
 import org.scalacheck.{Prop, Properties}
 

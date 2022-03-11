@@ -1,8 +1,9 @@
 package net.noresttherein.slang.numeric
 
+import net.noresttherein.slang.extensions.providingMethods
 import net.noresttherein.slang.matching.MatchPattern
 import net.noresttherein.slang.numeric.IntRatio.{intRatio_%/, One, Zero}
-import net.noresttherein.slang.optional.{allOf, providingMethods}
+import net.noresttherein.slang.optional.allOf
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 

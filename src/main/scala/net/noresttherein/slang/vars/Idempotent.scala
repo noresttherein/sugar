@@ -125,10 +125,10 @@ object Idempotent {
 
 		override def isSpecialized = true
 
-		override def toString :String =
-			if (evaluated != Undefined) String.valueOf(evaluated)
-			else if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
-			else "lazy(?)"
+		override def toString :String = String.valueOf(evaluated)
+//			if (evaluated != Undefined) String.valueOf(evaluated)
+//			else if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
+//			else "Lazy(?)"
 
 		private def writeReplace = eager(apply())
 	}
@@ -193,7 +193,7 @@ object Idempotent {
 
 		override def toString :String =
 			if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
-			else "lazy(?)"
+			else Undefined.toString//"Lazy(?)"
 
 		private def writeReplace = eager(apply())
 	}

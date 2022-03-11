@@ -2,7 +2,7 @@ package net.noresttherein.slang.vars
 
 import scala.annotation.nowarn
 
-import net.noresttherein.slang.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.slang.vars.InOut.{InOutOrdering, SpecializedVars, TypeEquiv}
 import net.noresttherein.slang.witness.DefaultValue
 
 
@@ -16,10 +16,9 @@ import net.noresttherein.slang.witness.DefaultValue
   * @see [[net.noresttherein.slang.vars.Var$]]
   */
 @SerialVersionUID(1L)
-sealed class Var[@specialized(SpecializedVars) T](private[this] var x :T) extends InOut[T] with Serializable {
-
-	override def isDefined :Boolean = true
-
+sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
+	extends Mutable[T] with Serializable
+{
 	/** Current value of this variable. */
 	override def value :T = x
 
@@ -260,7 +259,7 @@ object Var {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Var[T] =
-		new Var[T](default.default)
+		new Var[T](default.get)
 
 
 
@@ -308,12 +307,15 @@ object Var {
 	}
 
 
+	implicit def VarOrdering[T :Ordering] :Ordering[Var[T]] = new InOutOrdering[Var, T]
+
+
 
 
 	//extension methods overriden to operate directly on the value property, without allowing for atomicity
 
 	/** Implicit conversion of a `Var[Boolean]` variable providing basic logical operations. */
-	implicit class VarBooleanOps(private val x :Var[Boolean]) extends AnyVal {
+	implicit class VarBooleanLogic(private val x :Var[Boolean]) extends AnyVal {
 		/** Assigns this variable its (eager) logical conjunction with the given argument: `x := x & other`. */
 		@inline def &=(other :Boolean) :Unit =  x.value = x.value & other
 
@@ -337,7 +339,6 @@ object Var {
 		/** Negates this boolean variable, assigning it the opposite of the current value. */
 		@inline def flip() :Unit = x.value = !x.value
 	}
-
 
 
 	
@@ -411,7 +412,6 @@ object Var {
 		/** Assigns this variable its bitwise negation: `this := !this.value`. */
 		@inline def flip() :Unit = x := ~x.value
 	}
-
 
 
 
@@ -489,7 +489,6 @@ object Var {
 
 
 
-
 	/** Implicit conversion of a `Var[Float]` variable providing basic arithmetic operations. */
 	implicit class VarFloatArithmetic(private val x :Var[Float]) extends AnyVal {
 		/** Increases the value of this variable by the specified number. */
@@ -524,7 +523,6 @@ object Var {
 
 
 
-
 	/** Implicit conversion of a `Var[Double]` variable providing basic arithmetic operations. */
 	implicit class VarDoubleArithmetic(private val x :Var[Double]) extends AnyVal {
 		/** Increases the value of this variable by the specified number. */
@@ -556,6 +554,5 @@ object Var {
 		@inline def neg() :Double = { val res = -x.value; x.value = res; res }
 	}
 	
-
 }
 

@@ -2,9 +2,9 @@ package net.noresttherein.slang.vars
 
 import java.lang.ref.{PhantomReference, Reference, ReferenceQueue, SoftReference, WeakReference}
 
-import Opt.{Got, Lack}
-import net.noresttherein.slang.time.{Eternity, Milliseconds, MinusEternity, TimeSpan}
+import net.noresttherein.slang.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
 import net.noresttherein.slang.vars.DisposableRef.WrapperReference
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 import net.noresttherein.slang.vars.PhantomRef.WrappedPhantomRef
 import net.noresttherein.slang.vars.SoftRef.WrappedSoftRef
 import net.noresttherein.slang.vars.WeakRef.WrappedWeakRef
@@ -31,9 +31,9 @@ class RefQueue[T](name :String) {
 
 	def remove() :Option[DisposableRef[T]] = unwrap(underlying.remove)
 
-	def remove(timeout :Milliseconds) :Option[DisposableRef[T]] = unwrap(underlying.remove(timeout.inMillis))
+	def remove(timeout :Milliseconds) :Option[DisposableRef[T]] = unwrap(underlying.remove(timeout.toMillis))
 
-	def remove(timeout :TimeSpan) :Option[DisposableRef[T]] = timeout match {
+	def remove(timeout :TimeInterval) :Option[DisposableRef[T]] = timeout match {
 		case Eternity => remove()
 		case MinusEternity => poll
 		case _ => remove(timeout.asMillis)
@@ -48,9 +48,9 @@ class RefQueue[T](name :String) {
 /** An adaptation of Java [[java.lang.ref.Reference Reference]] class hierarchy
   * to [[net.noresttherein.slang.vars.Ref Ref]] interface.
   * @author Marcin Mościcki
-  */
-sealed class DisposableRef[+T](referent :T, queue :ReferenceQueue[T])
-                              (cons :(T, ReferenceQueue[T], DisposableRef[T]) => Reference[T])
+  */ //not a Serializable because Reference is not a Serializable
+sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
+                                         (cons :(T, ReferenceQueue[T], DisposableRef[T]) => Reference[T])
 	extends Ref[T]
 {
 	private def underlying :Reference[_ <: T] = ref
@@ -63,9 +63,9 @@ sealed class DisposableRef[+T](referent :T, queue :ReferenceQueue[T])
 		case null => throw new NoSuchElementException("Object was garbage collected")
 		case x => x
 	}
+	override def ? :Option[T] = Option(ref.get)
 	override def opt :Opt[T] = Opt(ref.get)
-	override def asOption :Option[T] = Option(ref.get)
-	override def asShot :Shot[T] = Shot(ref.get)
+	override def unsure :Unsure[T] = Unsure(ref.get)
 
 //	def onClean(f: => Unit) :Unit = synchronized { callbacks = (() => f) :: callbacks}
 
@@ -84,7 +84,10 @@ sealed class DisposableRef[+T](referent :T, queue :ReferenceQueue[T])
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[DisposableRef[_]]
 	override def hashCode :Int = ref.hashCode
 
-	override def toString :String = String.valueOf(ref.get)
+	override def toString :String = ref.get match {
+		case null => "<clear>"
+		case v => String.valueOf(v)
+	}
 }
 
 
@@ -106,8 +109,7 @@ object DisposableRef {
 /** An adapter of Java [[java.lang.ref.WeakReference WeakReference]] to `slang` [[net.noresttherein.slang.vars.Ref Ref]]
   * interface.
   */
-@SerialVersionUID(1L)
-class WeakRef[+T](referent :T, queue :ReferenceQueue[T])
+class WeakRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	extends DisposableRef[T](referent, queue)(new WrappedWeakRef[T](_, _, _))
 {
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
@@ -117,6 +119,8 @@ class WeakRef[+T](referent :T, queue :ReferenceQueue[T])
 
 object WeakRef {
 	@inline def apply[T](referent :T) :WeakRef[T] = new WeakRef(referent)
+	@inline def apply[T](referent :T, queue :RefQueue[T]) :WeakRef[T] = new WeakRef[T](referent, queue.underlying)
+
 	@inline def unapply[T](ref :WeakRef[T]) :Opt[T] = ref.opt
 	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
 		case null => Lack
@@ -134,8 +138,7 @@ object WeakRef {
 /** An adapter of Java [[java.lang.ref.SoftReference SoftReference]] to `slang` [[net.noresttherein.slang.vars.Ref Ref]]
   * interface.
   */
-@SerialVersionUID(1L)
-class SoftRef[+T](referent :T, queue :ReferenceQueue[T])
+class SoftRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	extends DisposableRef[T](referent, queue)(new WrappedSoftRef[T](_, _, _))
 {
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
@@ -145,6 +148,8 @@ class SoftRef[+T](referent :T, queue :ReferenceQueue[T])
 
 object SoftRef {
 	@inline def apply[T](referent :T) :SoftRef[T] = new SoftRef(referent)
+	@inline def apply[T](referent :T, queue :RefQueue[T]) :SoftRef[T] = new SoftRef(referent, queue.underlying)
+
 	@inline def unapply[T](ref :SoftRef[T]) :Opt[T] = ref.opt
 	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
 		case null => Lack
@@ -162,8 +167,7 @@ object SoftRef {
 /** An adapter of Java [[java.lang.ref.PhantomReference PhantomReference]]
   * to `slang` [[net.noresttherein.slang.vars.Ref Ref]] interface.
   */
-@SerialVersionUID(1L)
-class PhantomRef[+T](referent :T, queue :ReferenceQueue[T])
+class PhantomRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	extends DisposableRef[T](referent, queue)(new WrappedPhantomRef[T](_, _, _))
 {
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
@@ -175,6 +179,7 @@ class PhantomRef[+T](referent :T, queue :ReferenceQueue[T])
 
 object PhantomRef {
 	@inline def apply[T](referent :T) :PhantomRef[T] = new PhantomRef(referent)
+	@inline def apply[T](referent :T, queue :RefQueue[T]) :PhantomRef[T] = new PhantomRef(referent, queue)
 
 	private class WrappedPhantomRef[T](referent :T, queue :ReferenceQueue[T], override val self :DisposableRef[T])
 		extends PhantomReference[T](referent, queue) with WrapperReference[T]

@@ -2,10 +2,8 @@ package net.noresttherein.slang.vars
 
 import java.lang.invoke.MethodHandles
 
-import scala.annotation.tailrec
-
-import Opt.{Got, Lack}
 import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 
 
 
@@ -41,21 +39,21 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 
 	/** Replaces the contents of this box with the content of the given optional value.
 	  * This is equivalent to
+	  * `this `[[net.noresttherein.slang.vars.InOut.:= :=]]` content.get`
+	  * if `content` is `Some`, or [[net.noresttherein.slang.vars.Box.clear clear]]`()` if `content` is `None`.
+	  */
+	def reset(content :Option[T]) :Unit = asOption = content
+
+	/** Replaces the contents of this box with the content of the given optional value.
+	  * This is equivalent to
 	  * `this `[[net.noresttherein.slang.vars.InOut.:= :=]]` content.`[[net.noresttherein.slang.vars.Opt.get get]]
 	  * if `content.`[[net.noresttherein.slang.vars.Opt.isDefined isDefined]],
 	  * or [[net.noresttherein.slang.vars.Box.clear clear]]`()` if `content` is empty.
 	  */
 	def reset(content :Opt[T]) :Unit = opt = content
 
-	/** Replaces the contents of this box with the content of the given optional value.
-	  * This is equivalent to
-	  * `this `[[net.noresttherein.slang.vars.InOut.:= :=]]` content.get`
-	  * if `content` is `Some`, or [[net.noresttherein.slang.vars.Box.clear clear]]`()` if `content` is `None`.
-	  */
-	def reset(content :Option[T]) :Unit = asOption = content
-
 	/** Replaces the contents of this box with the content of the given value wrapper
-	  * (possibly a [[net.noresttherein.slang.vars.Shot Shot]] or another [[net.noresttherein.slang.vars.Box Box]]
+	  * (possibly a [[net.noresttherein.slang.vars.Unsure Unsure]] or another [[net.noresttherein.slang.vars.Box Box]]
 	  * instance).
 	  *
 	  * If `content` is a [[net.noresttherein.slang.vars.Val Val]], it simply assigns its value
@@ -65,11 +63,11 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * If you wish to assign the current value, use `this reset content.`[[net.noresttherein.slang.vars.Ref.opt opt]]
 	  * or explicit conditional assignment instead.
 	  *
-	  * If `content` is a [[net.noresttherein.slang.vars.Hit Hit]], the result is the same as above, while
-	  * [[net.noresttherein.slang.vars.Miss Miss]] results in the contents of this variable being immediately
+	  * If `content` is a [[net.noresttherein.slang.vars.Sure Sure]], the result is the same as above, while
+	  * [[net.noresttherein.slang.vars.Blank Blank]] results in the contents of this variable being immediately
 	  * [[net.noresttherein.slang.vars.Box.clear cleared]].
 	  *
-	  * If content is neither a `Val` nor a `Shot`, it attempts to retrieve its value with either
+	  * If content is neither a `Val` nor a `Unsure`, it attempts to retrieve its value with either
 	  * [[net.noresttherein.slang.vars.Ref.opt opt]] or [[net.noresttherein.slang.vars.Ref.asOption asOption]]
 	  * and delegates to one of the overloaded `reset` variants. In this case the operation is not expected to block
 	  * for longer than necessary to atomically read the current value.
@@ -77,16 +75,8 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * [[NoSuchElementException]] being thrown or even corrupt, partially constructed objects.
 	  * Any thread safe type however guarantees the atomicity of these operations.
 	  */
-	def reset(content :Ref[T]) :Unit = asShot = content
+	def reset(content :Ref[T]) :Unit = unsure = content
 
-
-	/** Replaces the contents of this box with the content of the given optional value.
-	  * It is a setter method matching getter `this.`[[net.noresttherein.slang.vars.Ref.opt opt]] and is equivalent to
-	  * `this `[[net.noresttherein.slang.vars.InOut.:= :=]]` content.`[[net.noresttherein.slang.vars.Opt.get get]]
-	  * if `content.`[[net.noresttherein.slang.vars.Opt.isDefined isDefined]],
-	  * or [[net.noresttherein.slang.vars.Box.clear clear]]`()` if `content` is empty.
-	  */
-	def opt_=(content :Opt[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
 	/** Replaces the contents of this box with the content of the given `Option`.
 	  * It is a setter matching getter `this.`[[net.noresttherein.slang.vars.Ref.? ?]] and is equivalent to both
@@ -103,8 +93,16 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  */
 	def asOption_=(content :Option[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
+	/** Replaces the contents of this box with the content of the given optional value.
+	  * It is a setter method matching getter `this.`[[net.noresttherein.slang.vars.Ref.opt opt]] and is equivalent to
+	  * `this `[[net.noresttherein.slang.vars.InOut.:= :=]]` content.`[[net.noresttherein.slang.vars.Opt.get get]]
+	  * if `content.`[[net.noresttherein.slang.vars.Opt.isDefined isDefined]],
+	  * or [[net.noresttherein.slang.vars.Box.clear clear]]`()` if `content` is empty.
+	  */
+	def opt_=(content :Opt[T]) :Unit = if (content.isDefined) value = content.get else clear()
+
 	/** Replaces the contents of this box with the content of the given value wrapper (possibly
-	  * a [[net.noresttherein.slang.vars.Shot Shot]] or another [[net.noresttherein.slang.vars.Box Box]] instance).
+	  * a [[net.noresttherein.slang.vars.Unsure Unsure]] or another [[net.noresttherein.slang.vars.Box Box]] instance).
 	  *
 	  * If `content` is a [[net.noresttherein.slang.vars.Val Val]], it simply assigns its value
 	  * to this variable with `this.`[[net.noresttherein.slang.vars.InOut.value_= value]]` = content.get`.
@@ -113,11 +111,11 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * If you wish to assign the current value, use `this reset content.`[[net.noresttherein.slang.vars.Ref.opt opt]]
 	  * or explicit conditional assignment instead.
 	  *
-	  * If `content` is a [[net.noresttherein.slang.vars.Hit Hit]], the result is the same as above, while
-	  * [[net.noresttherein.slang.vars.Miss Miss]] results in the contents of this variable being immediately
+	  * If `content` is a [[net.noresttherein.slang.vars.Sure Sure]], the result is the same as above, while
+	  * [[net.noresttherein.slang.vars.Blank Blank]] results in the contents of this variable being immediately
 	  * [[net.noresttherein.slang.vars.Box.clear cleared]].
 	  *
-	  * If content is neither a `Val` nor a `Shot`, it attempts to retrieve its value with either
+	  * If content is neither a `Val` nor a `Unsure`, it attempts to retrieve its value with either
 	  * [[net.noresttherein.slang.vars.Ref.opt opt]] or [[net.noresttherein.slang.vars.Ref.asOption asOption]]
 	  * and delegates to one of the overloaded `reset` variants. In this case the operation is not expected to block
 	  * for longer than necessary to atomically read the current value.
@@ -125,31 +123,68 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * [[NoSuchElementException]] being thrown or even corrupt, partially constructed objects.
 	  * Any thread safe type however guarantees the atomicity of these operations.
 	  */
-	def asShot_=(content :Ref[T]) :Unit = content match {
+	def unsure_=(content :Ref[T]) :Unit = content match {
 		case _ :Val[_] => value = content.get
-		case hit :Hit[T] => value = hit.value
-		case Miss => clear()
-		case _ if content.isSpecialized => asShot = content.asShot //Shot cheaper than Opt
+		case hit :Sure[T] => value = hit.value
+		case Blank => clear()
+		case _ if content.isSpecialized => unsure = content.unsure //Shot cheaper than Opt
 		case _ => opt = content.opt //use content.opt for atomicity (at least if content is thread safe)
 	}
 
 
-	/** Implements the ''get-and-set'' operation, which sets the value of this box to `content`
+	/** Implements a ''get-and-set'' operation, which sets the value of this box to `content`
+	  * ([[net.noresttherein.slang.vars.Box.clear clearing]] it
+	  * if `content.`[[Option.isEmpty isEmpty]]) and returns the value contained by
+	  * this box before the method was called. In a synchronised context it is equivalent to
+	  * {{{
+	  *     def swap(content :Option[T]) = {
+	  *         val current = this.?
+	  *         if (content.isDefined) this.value = content.get
+	  *         else this.clear()
+	  *         current
+	  *     }
+	  * }}}
+	  * @param content the new content for this variable: if non empty, `this.value` will be set to its value;
+	  *                if empty, the variable will be cleared.
+	  * @return the previous content of this variable, replaced by `content`.
+	  */
+	def swap(content :Option[T]) :Option[T] = { val res = asOption; reset(content); res }
+
+	/** Implements a ''get-and-set'' operation, which sets the value of this box to `content`
 	  * ([[net.noresttherein.slang.vars.Box.clear clearing]] it
 	  * if `content.`[[net.noresttherein.slang.vars.Opt.isEmpty isEmpty]]) and returns the value contained by
 	  * this box before the method was called. In a synchronised context it is equivalent to
 	  * {{{
 	  *     def swap(content :Opt[T]) = {
 	  *         val current = this.opt
-	  *         if (content.isDefined)
+	  *         if (content.isDefined) this.value = content.get
+	  *         else this.clear()
+	  *         current
 	  *     }
 	  * }}}
+	  * @param content the new content for this variable: if non empty, `this.value` will be set to its value;
+	  *                if empty, the variable will be cleared.
+	  * @return the previous content of this variable, replaced by `content`.
 	  */
 	def swap(content :Opt[T]) :Opt[T] = { val res = opt; reset(content); res }
 
-	def swap(content :Option[T]) :Option[T] = { val res = asOption; reset(content); res }
-
-	def swap(content :Shot[T]) :Shot[T] = { val res = asShot; reset(content); res }
+	/** Implements a ''get-and-set'' operation, which sets the value of this box to `content`
+	  * ([[net.noresttherein.slang.vars.Box.clear clearing]] it
+	  * if `content.`[[net.noresttherein.slang.vars.Unsure.isEmpty isEmpty]]) and returns the value contained by
+	  * this box before the method was called. In a synchronised context it is equivalent to
+	  * {{{
+	  *     def swap(content :Unsure[T]) = {
+	  *         val current = this.unsure
+	  *         if (content.isDefined) this.value = content.get
+	  *         else this.clear()
+	  *         current
+	  *     }
+	  * }}}
+	  * @param content the new content for this variable: if non empty, `this.value` will be set to its value;
+	  *                if empty, the variable will be cleared.
+	  * @return the previous content of this variable, replaced by `content`.
+	  */
+	def swap(content :Unsure[T]) :Unsure[T] = { val res = unsure; reset(content); res }
 
 
 	/** Empties the box, unreferencing the currently held value, if any. */
@@ -244,7 +279,12 @@ object Box {
 	def empty[@specialized(SpecializedVars) T] :Box[T] = new FastBox
 
 
+	@inline def unapply[@specialized(SpecializedVars) T](box :Box[T]) :Box[T] = box
+
+
+
 	/** A non-synchronized `Box` implementation. */
+	@SerialVersionUID(1L)
 	private class FastBox[@specialized(SpecializedVars) T] extends Box[T] {
 		private[this] var nullVal :T = _ //the default value used to clear x so we don't keep a reference to the old value
 		private[this] var x :T = _
@@ -324,6 +364,7 @@ object VolatileBox {
 	  * for reference types, as it offers better performance and this class may no longer provide required
 	  * memory access guarantees in the future.
 	  */
+	@SerialVersionUID(1L)
 	private final class VolatileValBox[@specialized(SpecializedVars) T] private[vars] extends VolatileBox[T] {
 		private[this] var x :T = _ //access always sandwiched between two accesses to state, so it needs not to be volatile
 		@scala.volatile private[this] var state :Int = Empty //tells if the box is empty and serves as a spin lock variable
@@ -401,10 +442,10 @@ object VolatileBox {
 			res
 		}
 
-		override def swap(content :Shot[T]) :Shot[T] = {
-			val res = if (lock() == Empty) Miss else Hit(x)
+		override def swap(content :Unsure[T]) :Unsure[T] = {
+			val res = if (lock() == Empty) Blank else Sure(x)
 			content match {
-				case Hit(newValue) => x = newValue; state = Full
+				case Sure(newValue) => x = newValue; state = Full
 				case _ => state = Empty
 			}
 			res
@@ -422,16 +463,16 @@ object VolatileBox {
 				Lack
 		}
 
-		override def asShot :Shot[T] = {
+		override def unsure :Unsure[T] = {
 			val current = state
 			if (current == Empty)
-				Miss
+				Blank
 			else if (lockNonEmpty(current)) {
-				val res = Hit(x)
+				val res = Sure(x)
 				state = Full
 				res
 			} else
-				Miss
+				Blank
 		}
 
 
@@ -462,6 +503,7 @@ object VolatileBox {
 	/** A simple implementation of VolatileBox based on an `Opt` field erased to `AnyRef` in the byte code,
 	  * which reduces all operations to a single test-and-set (in the worst case)
 	  */
+	@SerialVersionUID(1L)
 	private final class VolatileRefBox[T] extends VolatileBox[T] {
 		private[this] var x :Opt[T] = Lack //name x is used by VolatileBox.RefOptField
 
@@ -487,10 +529,10 @@ object VolatileBox {
 				case empty :AnyRef if empty eq emptyContent => None
 				case old => Some(old)
 			}
-		override def swap(content :Shot[T]) :Shot[T] =
+		override def swap(content :Unsure[T]) :Unsure[T] =
 			(RefOptField.getAndSet(this, content getOrElse Opt.NoContent) :T) match {
-				case empty :AnyRef if empty eq emptyContent => Miss
-				case old => Hit(old)
+				case empty :AnyRef if empty eq emptyContent => Blank
+				case old => Sure(old)
 			}
 
 		override def ?=(newValue :T) :T = swap(Got(newValue)).get

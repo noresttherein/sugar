@@ -8,7 +8,7 @@ import net.noresttherein.slang.vars.Opt
   * that is some sort of zero for numeric values, `false`, and `null` for reference values.
   * @author Marcin Mościcki
   */
-final class DefaultValue[@specialized +T](val default :T)
+final class DefaultValue[@specialized +T](val get :T)
 
 object DefaultValue {
 	@inline def apply[@specialized T](value :T) = new DefaultValue(value)

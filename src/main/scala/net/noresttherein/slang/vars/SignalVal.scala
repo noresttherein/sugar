@@ -2,6 +2,7 @@ package net.noresttherein.slang.vars
 
 import scala.Specializable.Args
 
+import net.noresttherein.slang.time.{Eternity, Immediate, Milliseconds, TimeInterval}
 import net.noresttherein.slang.vars.Opt.{Got, Lack}
 
 
@@ -11,8 +12,8 @@ import net.noresttherein.slang.vars.Opt.{Got, Lack}
   * the monitor for this object and, if `!this.isInitialized`, will wait until `this.notifyAll()` is called
   * by `this.value = x`. The value can be set only once, with an [[IllegalStateException]] being thrown on subsequent
   * attempts. For this reason, all update methods which depend on a preexistent value will fail
-  * with a [[UnsupportedOperationException]].
-  * @author Marcin Mościcki
+  * with an [[UnsupportedOperationException]].
+  * @see [[net.noresttherein.slang.vars.SignalVar]]
   */
 @SerialVersionUID(1L)
 final class SignalVal[T] private extends InOut[T] with Val[T] {
@@ -20,6 +21,20 @@ final class SignalVal[T] private extends InOut[T] with Val[T] {
 
 	override def isDefined :Boolean = x.isDefined
 	override def opt :Opt[T] = x
+
+
+	def await(timeout :Milliseconds) :Boolean =
+		x.isDefined || synchronized {
+			x.isDefined || { wait(timeout.toMillis, 0); x.isDefined }
+		}
+
+	def await(timeout :TimeInterval) :Boolean =
+		x.isDefined || timeout <= Immediate || synchronized {
+			x.isDefined || (timeout match {
+				case Eternity => wait(); x.isDefined
+				case _ => wait(timeout.toSeconds, timeout.nanos); x.isDefined
+			})
+		}
 
 	override def value :T = x match {
 		case Got(v) => v
@@ -77,5 +92,12 @@ final class SignalVal[T] private extends InOut[T] with Val[T] {
 
 
 object SignalVal {
-	def apply[T]() :SignalVal[T] = new SignalVal[T]
+	/** Creates a new, uninitialized [[net.noresttherein.slang.vars.SignalVal SignalVal]] instance. */
+	def apply[T] :SignalVal[T] = new SignalVal[T]
+
+	/** Creates a new, uninitialized [[net.noresttherein.slang.vars.SignalVal SignalVal]] instance.
+	  * It is exactly equivalent to `SignalVal[T]`, but reads better than `SignalVal.apply` when
+	  * the type parameter is omitted for the compiler to infer.
+	  */
+	def empty[T] :SignalVal[T] = new SignalVal[T]
 }

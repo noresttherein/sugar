@@ -1,12 +1,11 @@
 package net.noresttherein.slang.prettyprint
 
-import net.noresttherein.slang.prettyprint.YesNo.shorthandBoolean
-import net.noresttherein.slang.prettyprint.ObjectFieldsFormats.objectFormatter
-
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe.{MethodSymbol, TermSymbol, TypeTag}
 import scala.util.Try
+
+
 
 
 /** Extension of any type T which generates string representation of its members. Implementor may choose
@@ -22,7 +21,7 @@ import scala.util.Try
   *
   * @author Marcin Mościcki
   */
-class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
+class FieldsStringMethods[T, +R](private val subject :T) extends AnyVal {
 
 	/** Local type name of this object. */
 	def typeName(implicit typeTag :TypeTag[T]) :String = typeTag.tpe.typeSymbol.name.toString
@@ -94,18 +93,6 @@ class ObjectFieldsFormats[T](private val subject :T) extends AnyVal {
 	def caseFieldsString(implicit typeTag :TypeTag[T]) :String =
 		getterStrings(caseFields).mkString(typeName + "(", ", ", ")")
 
-
-}
-
-
-
-
-object ObjectFieldsFormats {
-
-	/** Implicit extension of any object of statically known type `T` (or for which type tag and class tag are available),
-	  * providing methods for formatting it as a string
-	  */
-	@inline implicit def objectFormatter[T :TypeTag](obj :T) :ObjectFieldsFormats[T] = new ObjectFieldsFormats[T](obj)
 
 }
 

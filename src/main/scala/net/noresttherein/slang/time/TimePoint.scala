@@ -34,14 +34,15 @@ sealed trait TimePoint extends Any with Ordered[TimePoint] with Serializable {
 
 	def in(zone :TimeZone)     :ZoneDateTime
 	def at(offset :TimeOffset) :ZoneDateTime
+	def local(implicit time :Time = Time.Local) :ZoneDateTime = in(time.zone)
 
 	def toJava     :Temporal
 	def toInstant  :j.Instant
 	def toDeadline :Deadline = toTimestamp.toDeadline
 
-	def +(time :TimeInterval)  :TimePoint
-	def -(time :TimeInterval)  :TimePoint
-	def -(time :TimePoint) :TimeInterval
+	def +(time :TimeInterval) :TimePoint
+	def -(time :TimeInterval) :TimePoint
+	def -(time :TimePoint)    :TimeInterval
 
 
 	def ==(other :TimePoint) :Boolean = compare(other) == 0

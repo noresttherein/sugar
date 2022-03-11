@@ -1,42 +1,44 @@
 package net.noresttherein.slang.numeric
 
+import net.noresttherein.slang.numeric.Ratio.{naturalGCD, GCD}
 import scala.annotation.tailrec
-import net.noresttherein.slang.numeric.Ratio.naturalGCD
 
 
-/** Simple implementation of rational numbers (fractions of integer values). The fraction is always in its canonical form:
-  * the greatest common divisor of the numerator and the denominator is `1` and the denominator is always a positive integer.
-  * All arithmetic operators check for overflow, throwing `ArithmeticException` if the result would not fit in a `Ratio`
-  * value.
-  * For the public constructor, see [[net.noresttherein.slang.numeric.Ratio.apply(numerator:Int, denominator:Int)* Ratio()]].
-  * @author Marcin Mościcki marcin@moscicki.net
+
+
+/** Simple implementation of rational numbers using `Long` values for the numerator and the denominator.
+  * The fraction is always in its canonical form: the greatest common divisor of the numerator and the denominator
+  * is `1` and the denominator is always a positive number. Unlike [[net.noresttherein.slang.numeric.IntRatio IntRatio]],
+  * this class does not check for arithmetic overflow/underflow. Operators are implemented in a way eliminating the
+  * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
+  * For the public constructor, see [[net.noresttherein.slang.numeric.Ratio$.apply Ratio()]].
   */
 @SerialVersionUID(1L)
-final class Ratio private(n :Int, d :Int) extends Number {
+final class Ratio private[numeric](n :Long, d :Long) extends Number {
 
 	/** The numerator of this fraction (the dividend). */
-	@inline def numerator :Int = n
+	@inline def numerator :Long = n
 
 	/** The denominator of this fraction (the divisor). The denominator is always a positive number. */
-	@inline def denominator :Int = d
+	@inline def denominator :Long = d
 
-	/** The sign of this rational number as a `Int`.
+	/** The sign of this rational number as a `Long`.
 	  * @return `1` if this rational is positive, `-1` if it is negative, and `0` if it is zero.
 	  */
-	@inline def sign :Int = java.lang.Integer.signum(n)
+	@inline def sign :Long = java.lang.Long.signum(n)
 
-	/** The opposite rational number: `-numerator /% denominator`. */
-	@inline def unary_- :Ratio = new Ratio(-n, d)
-
-	/** The absolute value of this rational number: `numerator.abs /% denominator`. */
+	/** The absolute value of this rational number: `numerator.abs %/ denominator`. */
 	@inline def abs :Ratio =
 		if (n >= 0) this else new Ratio(-n, d)
 
-	/** The fraction resulting from swapping the places of numerator and denominator. For all rational numbers 
+	/** The opposite rational number: `-numerator %/ denominator`. */
+	@inline def unary_- :Ratio = new Ratio(-n, d)
+
+	/** The fraction resulting from swapping the places of numerator and denominator. For all rational numbers
 	  * `r <: Ratio` `r * r.reciprocal == Ratio(1)` (reciprocal is the opposite element with regard to multiplication).
-	  * @return `denominator * this.sign /% numerator * this.sign`
+	  * @return `denominator * this.signum %/ numerator * this.signum`
 	  */
-	@inline def reciprocal :Ratio =
+	def reciprocal :Ratio =
 		if (n == 0)
 			throw new ArithmeticException("Division by zero: (0/1).reciprocal")
 		else if (n > 0)
@@ -44,14 +46,15 @@ final class Ratio private(n :Int, d :Int) extends Number {
 		else
 			new Ratio(-d, -n)
 
+
 	/** Does this ratio represent an integral number, that is its numerator is a multiple of its denominator?. */
 	@inline def isWhole :Boolean = n % d == 0
 
 	/** Is this a proper fraction, meaning `numerator.abs < denominator`?. */
-	@inline def isProper :Boolean = (if (n<0) -n else n) < denominator
+	@inline def isProper :Boolean = (if (n < 0) -n else n) < denominator
 
 	/** The whole part of this fraction, i.e. `numerator / denominator` (integral division). */
-	@inline def whole :Int = n / d
+	@inline def whole :Long = n / d
 
 	/** The fractional part of this fraction, i.e. `Ratio(numerator % denominator, denominator)`. */
 	@inline def fraction :Ratio = new Ratio(n % d, d)
@@ -59,79 +62,74 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 
 	private def plus(num :Long, den :Long) :Ratio = {
-		val bigNum = num * d + n * den
-		val bigDen = d * den
-		val gcd = naturalGCD(if (bigNum < 0) -bigNum else bigNum, bigDen)
-		val resNum = bigNum / gcd; val resDen = bigDen / gcd
-		val intNum = resNum.toInt; val intDen = resDen.toInt
-		if (-resNum != -intNum || -resDen != -intDen)
-			throw new ArithmeticException(s"Ratio overflow: $this + $num/$den = $resNum/$resDen cannot be represented as an Int fraction")
-		new Ratio(intNum, intDen)
+		val gcd = naturalGCD(d, den)
+		val multiplier = d / gcd
+		val lcm = multiplier * den
+		val resNum = multiplier * num + den / gcd * n
+		val resGCD = naturalGCD(if (resNum < 0) -resNum else resNum, lcm)
+		new Ratio(resNum / resGCD, lcm / resGCD)
 	}
 
-	@inline def +(other :Ratio) :Ratio = plus(other.numerator, other.denominator)
-
-	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio.+ +]]. Equivalent to `other + this`,
-	  * but can implicitly promote `Int` values on the left hand side of the operator to the required rational.
-	  */
-	@inline def +:(other :Ratio) :Ratio = other.plus(n, d)
+	def +(other :Ratio) :Ratio = plus(other.numerator, other.denominator)
 
 	@inline def -(other :Ratio) :Ratio = plus(-other.numerator, other.denominator)
 
-	/** The right-associative variant of [[net.noresttherein.slang.numeric.Ratio.- -]]. Equivalent to `other - this`,
-	  * but can implicitly promote `Int` values on the left hand side of the operator to the required rational.
-	  */
-	@inline def -:(other :Ratio) :Ratio = other.plus(-n, d)
-
-	/** Multiplies this rational number by another rational. This algorithm promotes the values to the `Long` type
-	  * for the calculation process to avoid temporary arithmetic overflow resulting from `Int` multiplication. The
-	  * overflow in the result can still occur however if the numerator and denominator after reduction by their ''GCD''
-	  * doesn't fit in the `Int` type.
-	  */
-	def *(other :Ratio) :Ratio = {
-		val num = n * other.numerator.toLong
-		val den = d * other.denominator.toLong
-		val gcd = naturalGCD(if (num < 0) -num else num, den)
-		val reducedNum = num / gcd; val resNum = reducedNum.toInt
-		val reducedDen = den / gcd; val resDen = reducedDen.toInt
-		if (-reducedNum != -resNum || -reducedDen != -resDen) //checks both for overflow and Int.MinValue
-			throw new ArithmeticException(s"Ratio multiplication overflow: $reducedNum/$reducedDen")
-		new Ratio((num / gcd).toInt, (den / gcd).toInt)
+	private def multiply(num :Long, den :Long) :Ratio = {
+		val gcd_\ = GCD(n, den); val gcd_/ = GCD(d, num)
+		val resNum = (n / gcd_\) * (num / gcd_/)
+		val resDen = (d / gcd_/) * (den / gcd_\)
+		if (resDen < 0)
+			new Ratio(-resNum, -resDen)
+		else
+			new Ratio(resNum, resDen)
 	}
 
-	/** Multiplies this rational by another rational. This is the same algorithm as
-	  * [[net.noresttherein.slang.numeric.Ratio.\* *]], but it is right associative and can promote `Int` values
-	  * on the left side of the operator via an implicit conversion.
+	/** Multiplies this rational number by another rational. This implementation performs cross reduction before actual
+	  * multiplication, but may still result in quiet overflow.
 	  */
-	@inline def *:(other :Ratio) :Ratio = other * this
+	def *(other :Ratio) :Ratio = {
+		val n1 = other.numerator; val d1 = other.denominator
+		val gcd_\ = naturalGCD(if (n >= 0) n else -n, d1)
+		val gcd_/ = naturalGCD(d, if (n1 >= 0) n1 else -n1)
+		val num = (n / gcd_\) * (n1 / gcd_/)
+		val den = (d / gcd_/) * (d1 / gcd_\)
+		if (den < 0)
+			new Ratio(-num, -den)
+		else
+			new Ratio(num, den)
+	}
 
-	/** Divides this rational number by another rational. This algorithm promotes the values to the `Long` type
-	  * for the calculation process to avoid temporary arithmetic overflow resulting from `Int` multiplication. The
-	  * overflow in the result can still occur however if the numerator and denominator after reduction by their ''GCD''
-	  * doesn't fit in the `Int` type.
+	/** Divides this rational number by another rational. This implementation performs cross reduction before actual
+	  * multiplication, but may still result in quiet overflow.
 	  */
-	@inline def /(other :Ratio) :Ratio = Ratio(n * other.denominator.toLong, d * other.numerator.toLong)
-
-	/** Divides the rational given as the argument by this rational. This is exactly equivalent to `other / this`,
-	  * but, being right-associative, can promote `Int` values on the left side of the operator via an implicit conversion.
-	  */
-	@inline def /:(other :Ratio) :Ratio = Ratio(other.numerator.toLong * d, other.denominator.toLong * n)
-
+	def /(other :Ratio) :Ratio = {
+		val n1 = other.numerator; val d1 = other.denominator
+		if (n1 == 0)
+			throw new ArithmeticException(s"Rational division by zero: $this / $other")
+		val gcd_- = naturalGCD(if (n >= 0) n else -n, if (n1 >= 0) n1 else -n1)
+		val gcd__ = naturalGCD(d, d1)
+		val num = (n / gcd_-) * (d1 / gcd__)
+		val den = (d / gcd__) * (n1 / gcd_-)
+		if (den < 0)
+			new Ratio(-num, -den)
+		else
+			new Ratio(num, den)
+	}
 
 	def <(other :Ratio) :Boolean = {
 		val n2 = other.numerator; val d2 = other.denominator
 		if (n < 0)
-			n2 >= 0 || { val gcd = naturalGCD(d, d2).toLong; d2 / gcd * n < d / gcd * n2 }
+			n2 >= 0 || { val gcd = naturalGCD(d, d2); d2 / gcd * n < d / gcd * n2 }
 		else
-			n2 > 0 && { val gcd = naturalGCD(d, d2).toLong; d2 / gcd * n < d / gcd * n2 }
+			n2 > 0 && { val gcd = naturalGCD(d, d2); d2 / gcd * n < d / gcd * n2 }
 	}
 
 	def <=(other :Ratio) :Boolean = {
 		val n2 = other.numerator; val d2 = other.denominator
 		if (n <= 0)
-			n2 >= 0 || { val gcd = naturalGCD(d, d2).toLong; d2 / gcd * n <= d / gcd * n2 }
+			n2 >= 0 || { val gcd = naturalGCD(d, d2); d2 / gcd * n <= d / gcd * n2 }
 		else
-			n2 > 0 && { val gcd = naturalGCD(d, d2).toLong; d2 / gcd * n <= d / gcd * n2 }
+			n2 > 0 && { val gcd = naturalGCD(d, d2); d2 / gcd * n <= d / gcd * n2 }
 	}
 
 	@inline def >(other :Ratio) :Boolean = !(this <= other)
@@ -142,19 +140,25 @@ final class Ratio private(n :Int, d :Int) extends Number {
 	@inline def max(other :Ratio) :Ratio = if (this < other) other else this
 
 
-	@inline def toInt :Int = n / d
+	@inline def toLong :Long = n / d
 	@inline def toFloat :Float = n.toFloat / d.toFloat
 	@inline def toDouble :Double = n.toDouble / d.toDouble
 	@inline def toShort :Short = (n / d).toShort
-	@inline def toLong :Long = (n / d).toLong
-	@inline def toLongRatio :LongRatio = new LongRatio(n, d)
+	@inline def toInt :Int = (n / d).toInt
+	@inline def toIntRatio :IntRatio = IntRatio(n.toInt, d.toInt)
+	def toIntRatioExact :IntRatio =
+		if (numerator < Int.MinValue | numerator > Int.MaxValue | denominator < Int.MinValue | denominator > Int.MaxValue)
+			throw new ArithmeticException("Cannot represent " + this + " as IntRatio.")
+		else
+			IntRatio.newIntRatio(n.toInt, d.toInt)
 
 
-	@inline override def intValue :Int = n / d
+	@inline override def intValue :Int = (n / d).toInt
 	@inline override def floatValue :Float = n.toFloat / d.toFloat
 	@inline override def doubleValue :Double = n.toDouble / d.toDouble
 	@inline override def shortValue :Short = (n / d).toShort
-	@inline override def longValue :Long = (n / d).toLong
+	@inline override def longValue :Long = n / d
+
 
 
 	override def equals(that :Any) :Boolean = that match {
@@ -162,7 +166,7 @@ final class Ratio private(n :Int, d :Int) extends Number {
 		case _ => false
 	}
 
-	override def hashCode :Int = d * 31 + n
+	override def hashCode :Int = java.lang.Long.hashCode(d) * 31 + java.lang.Long.hashCode(n)
 
 	override def toString :String = n.toString + "/" + d
 }
@@ -170,168 +174,185 @@ final class Ratio private(n :Int, d :Int) extends Number {
 
 
 
+
+
 /** Companion object for the `Ratio` class representing rational numbers as fractions in their canonical form.
-  * Contains an implicit conversion promoting `Int`s to `Ratio`s when given as the parameter to `Ratio`'s methods.
-  *
+  * Contains an implicit conversion promoting `Long`s to `Ratio`s when given as the parameter to `Ratio`'s methods.
   */
 object Ratio {
 
-	/** Number zero as a `Ratio` value: `0/1`. */
+	/** Number zero represented as a ratio of `0/1`. */
 	final val Zero :Ratio = new Ratio(0, 1)
 
-	/** Number one as a `Ratio` value: `1/1`. */
+	/** Number one represented as a ration of `1/1`. */
 	final val One :Ratio = new Ratio(1, 1)
 
-	/** Maximum value held by the `Ratio` type: `Int.MaxValue / 1`. */
-	final val MaxValue = new Ratio(Int.MaxValue, 1)
+	/** Maximal value held by this type: `Long.MaxValue / 1`. */
+	final val MaxValue = new Ratio(Long.MaxValue, 1)
 
-	/** Minimum value held by the `Ratio` type: `-Int.MaxValue / 1`.
-	  * Note that this is actually larger by one than `Int.MinValue`, as the `Int.MinValue/1` is not a valid `Ratio`.
-	  * This type checks for arithmetic overflows and underflows, and it ensures that unary `-` and `abs` operations
-	  * will be properly defined and never throw any exception. In addition, it reduces the number of checks required
-	  * to ensure validity in the constructor and arithmetic operations.
-	  */
-	final val MinValue = new Ratio(Int.MinValue+1, 1)
+	/** Minimal value held by this type: `Long.MinValue / 1`. */
+	final val MinValue = new Ratio(Long.MinValue, 1)
 
-	/** The smallest positive value held by this type: `1/Int.MaxValue`. As `-Precision` is also the largest negative
-	  * `Ratio` value, it is the smallest possible non-zero difference between two values.
+	/** Minimal positive value held by this type: `1 / Long.MaxValue`. As the ratio `1/Long.MinValue` can not be held
+	  * by this type because of lack of `Long` representation of `-Long.MinValue` and the positive denominator requirement,
+	  * it is also the smallest possible precision and difference between two `Ratio` values.
 	  */
-	final val Precision = new Ratio(1, Int.MaxValue)
+	final val Precision = new Ratio(1, Long.MaxValue)
+
+	private final val CachedIntegers = 100
+	private val Integers =
+		(-CachedIntegers to -1).map(new Ratio(_, 1)) ++ (0 to CachedIntegers).map(new Ratio(_, 1)) to Array
+	private final val CachedUnits = 100
+	private val Units =
+		(CachedUnits to 1 by -1).map(new Ratio(-1, _)) ++ (1 to CachedUnits).map(new Ratio(1, _)) to Array
+	private val Percents =
+		(-100 until 0).map(reduce(_, 100)) ++ (0 to 100).map(reduce(_, 100)) to Array
+
+	private def reduce(numerator :Long, denominator :Long) :Ratio = {
+		val gcd = GCD(numerator, denominator)
+		new Ratio(numerator / gcd, denominator / gcd)
+	}
+	private def newRatio(numerator :Long, denominator :Long) :Ratio = denominator match {
+		case 1L => Ratio(numerator)
+		case 100L => percent(numerator)
+		case 0L => throw new ArithmeticException("Ratio " + numerator + "/0")
+		case _ if numerator == 1L => unit(denominator)
+		case _ => new Ratio(numerator, denominator)
+	}
 
 
 
 	/** Creates a unit fraction, that is one with `1` as the numerator and the given denominator. Note that passing
 	  * a negative value will result in a negative `Ratio` with `-1` as the numerator and `denominator.abs` as the denominator.
 	  * @param denominator requested denominator of the fraction.
-	  * @return Ratio equal to `1 / denominator`
+	  * @return a `Ratio` of `1 / denominator`
 	  * @throws ArithmeticException if denominator equals zero.
-	  * @throws IllegalArgumentException if denominator equals `Int.MinValue`.
+	  * @throws IllegalArgumentException if denominator equals `Long.MinValue`.
 	  */
-	def unit(denominator :Int) :Ratio =
+	def unit(denominator :Long) :Ratio =
 		if (denominator > 0)
-			new Ratio(1, denominator)
+			if (denominator <= CachedUnits) Units((CachedUnits + denominator - 1L).toInt)
+			else new Ratio(1, denominator)
 		else if (denominator < 0)
-			if (denominator == Int.MinValue)
-				throw new IllegalArgumentException("Can't represent 1/Int.MinValue as a Ratio")
+			if (denominator >= -CachedUnits)
+				Units((CachedUnits + denominator).toInt)
+			else if (denominator == Long.MinValue)
+				throw new IllegalArgumentException("Can't represent 1/Long.MinValue as a Ratio")
 			else
-				new Ratio(-1, -denominator)
+                new Ratio(-1, -denominator)
 		else
 			throw new ArithmeticException("Ratio 1/0")
 
+	/** A reduced fraction `n/100`. */
+	def percent(n :Long) :Ratio =
+		if (-100L <= n & n <= 100L) Percents((100 + n).toInt)
+		else reduce(n, 100)
 
-
-	/** Creates a whole rational (a fraction with `1` as the denominator and the argument as the numerator).
-	  * @return a Ratio `integer/1`.
-	  * @throws IllegalArgumentException if integer equals Int.MinValue.
-	  */
-	def apply(integer :Int) :Ratio =
-		if (integer == Int.MinValue)
-			throw new IllegalArgumentException("Can't represent Int.MinValue as a Ratio")
-		else
-	        new Ratio(integer, 1)
-
+	/** Creates a whole rational (a fraction with `1` as the denominator and the argument as the numerator). */
+	def apply(integer :Long) :Ratio =
+		if (-CachedIntegers <= integer & integer <= CachedIntegers)
+			Integers((CachedIntegers + integer).toInt)
+		else new Ratio(integer, 1)
 
 
 	/** Creates a rational number in the canonical form.
 	  * @param numerator the dividend (the numerator of the fraction)
 	  * @param denominator the divisor (the denominator of the fraction)
-	  * @throws ArithmeticException if denominator is zero or one of the arguments is `Int.MinValue` and result would overflow.
-	  * @return a `Ratio` representing the fraction `numerator / denominator` after dividing them by their greatest
-	  *         common divisor and adjusting the signums so that denominator is positive.
-	  */
-	def apply(numerator :Int, denominator :Int) :Ratio =
-		if (denominator > 0) {
-			val divisor =
-				if (numerator >= 0)
-					naturalGCD(numerator, denominator)
-				else if (numerator == Int.MinValue) {
-					val d = naturalGCD(-numerator.toLong, denominator.toLong)
-					if (d == 1)
-						throw new ArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Int.MinValue")
-					d.toInt
-				} else
-					naturalGCD(-numerator, denominator)
-			new Ratio(numerator / divisor, denominator / divisor)
-		} else if (denominator < 0) {
-			if (denominator == Int.MinValue || numerator == Int.MinValue) {
-				val divisor = naturalGCD(if (numerator >= 0) numerator.toLong else -numerator.toLong, -denominator.toLong)
-				if (divisor == 1)
-					throw new ArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Int.MinValue")
-				new Ratio((-(numerator / divisor)).toInt, (-(denominator / divisor)).toInt)
-			} else {
-				val divisor = naturalGCD(if (numerator > 0) numerator else -numerator, -denominator)
-				new Ratio(-(numerator / divisor), -(denominator / divisor))
-			}
-		} else
-			throw new ArithmeticException("Ratio: division by zero")
-
-
-
-	/** Creates a rational number in the canonical form. Returned [[net.noresttherein.slang.numeric.Ratio Ratio]] object
-	  * still uses `Int`s as the numerator and denominator types, but accepting `Long` arguments here gives a chance
-	  * of avoiding overflow in arithmetic operations if the values after division by their ''GCD'' fit into `Int`s.
-	  * @param numerator the dividend (the numerator of the fraction)
-	  * @param denominator the divisor (the denominator of the fraction)
-	  * @throws ArithmeticException if denominator is zero or arithmetic overflow/underflow occurs during reduction.
+	  * @throws ArithmeticException if denominator is zero or one of the arguments is `Long.MinValue` and result would overflow.
 	  * @return a `Ratio` representing the fraction `numerator / denominator` after dividing them by their greatest
 	  *         common divisor and adjusting the signums so that denominator is positive.
 	  */
 	def apply(numerator :Long, denominator :Long) :Ratio =
-		if (denominator > 0) {
-			if (numerator >= 0) {
-				val divisor = naturalGCD(numerator, denominator)
-				val n = numerator / divisor; val d = denominator / divisor
-				if (n > Int.MaxValue || d > Int.MaxValue)
-					throw new ArithmeticException(s"Ratio overflow: $n/$d ($numerator/$denominator)")
-				new Ratio(n.toInt, d.toInt)
-			} else if (numerator == Long.MinValue)
-				throw new IllegalArgumentException(s"Ratio overflow: $numerator/$denominator")
-			else {
-				val divisor = naturalGCD(-numerator, denominator)
-				val n = numerator / divisor
-				val d = denominator / divisor
-				if (n <= Int.MinValue || d > Int.MaxValue)
-					throw new ArithmeticException(s"Ratio overflow: $n/$d ($numerator/$denominator)")
-				new Ratio(n.toInt, d.toInt)
-			}
+		if (denominator == 100L)
+			percent(numerator)
+		else if (denominator > 0) {
+			val divisor =
+				if (numerator >= 0)
+					naturalGCD(numerator, denominator)
+				else if (numerator == Long.MinValue) {
+					val d = naturalGCD(-numerator, denominator)
+					if (d == 1L)
+						throw new ArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Long.MinValue")
+					d
+				} else
+                    naturalGCD(-numerator, denominator)
+			newRatio(numerator / divisor, denominator / divisor)
 		} else if (denominator < 0) {
-			if (denominator == Long.MinValue)
-				throw new IllegalArgumentException(s"Ratio overflow: $numerator/$denominator")
-			else if (numerator >= 0) {
-				val divisor = naturalGCD(numerator, -denominator)
-				val n = numerator / divisor; val d = denominator / divisor
-				if (n > Int.MaxValue || d <= Int.MinValue)
-					throw new ArithmeticException(s"Ratio overflow: $n/$d ($numerator/$denominator)")
-				new Ratio(-n.toInt, -d.toInt)
-			} else if (numerator == Long.MinValue)
-		       throw new IllegalArgumentException(s"Ratio overflow: $numerator/$denominator")
-			else {
-				val divisor = naturalGCD(-numerator, -denominator)
-				val n = numerator / divisor
-				val d = denominator / divisor
-				if (n <= Int.MinValue || d <= Int.MinValue)
-					throw new ArithmeticException(s"Ratio overflow: $n/$d ($numerator/$denominator)")
-				new Ratio(-n.toInt, -d.toInt)
+			if (denominator == Long.MinValue || numerator==Long.MinValue) {
+				val divisor = naturalGCD(if (numerator >= 0) numerator.toLong else -numerator.toLong, -denominator.toLong)
+				if (divisor == 1)
+					throw new ArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Long.MinValue")
+				newRatio(numerator = -(numerator / divisor), denominator = -(denominator / divisor))
+			} else {
+				val divisor = naturalGCD(if (numerator > 0) numerator else -numerator, -denominator)
+				newRatio(-(numerator / divisor), -(denominator / divisor))
 			}
 		} else
 			  throw new ArithmeticException("Ratio: division by zero")
 
 
-	/** Implicit promotion of integers to rational. Will be automatically performed without importing when an `Int`
+	/** Parses the string as a ratio of two `Long` numbers.
+	  * @param string a rational number in one of the following formats:
+	  *                 1. a base 10 `Long` number, acceptable by `string.toLong`,
+	  *                 1. a decimal fraction using '.' character as the fractional part separator,
+	  *                 1. ''numerator/denominator'', where both the numerator and denominator are valid `Long` numbers
+	  *                    and denominator is positive.
+	  * @return the number as a canonical fraction.
+	  */
+	@throws[NumberFormatException]("if the string is not a valid Ratio.")
+	def apply(string :String) :Ratio =
+		try {
+			string.indexOf('/') match {
+				case div if div >= 0 =>
+					val num = string.substring(0, div).toLong
+					val den = string.substring(div + 1).toLong
+					Ratio(num, den)
+				case _ => string.indexOf('.') match {
+					case dot if dot >= 0 =>
+						val whole = string.substring(0, dot).trim.toLong
+						val fraction = string.substring(dot + 1).trim
+						val num = fraction.toLong
+						var den = 1L
+						var i = fraction.length - 1
+						while (i >= 0) {
+							if (!fraction.charAt(i).isDigit)
+								throw new NumberFormatException(
+									"non-digit character in the fractional portion: '" + fraction.charAt(i) + "'"
+								)
+							if (den > Long.MaxValue / 10)
+								throw new ArithmeticException("denominator overflow")
+							den *= 10
+							i -= 1
+						}
+						Ratio(whole) + Ratio(num, den)
+					case _ =>
+						Ratio(string.toLong)
+				}
+			}
+		} catch {
+			case n :NullPointerException => throw n
+			case e :Exception =>
+				throw new NumberFormatException(s"'$string' is not a valid Ratio: ${e.getMessage}.").initCause(e)
+		}
+
+
+	/** Implicit promotion of `Long` values to `Ratio`. Will be automatically performed without importing when a `Long`
 	  * is passed to any method of a `Ratio` object.
 	  */
-	@inline implicit def intToRatio(int :Int) :Ratio = apply(int)
+	@inline implicit def longToRatio(int :Long) :Ratio = new Ratio(int, 1)
+
+	/** Promotes an `Int`-based rational number implementation to use `Long` values. */
+	@inline implicit def intRatioToRatio(ratio :IntRatio) :Ratio = ratio.toRatio
 
 
-
-	/** The `Fractional` type class for `Ratio` values. */
+	/** The `Fractional` type class for type `Ratio`. */
 	implicit object RatioIsFractional extends Fractional[Ratio] {
 		override def div(x :Ratio, y :Ratio) :Ratio = x / y
 		override def plus(x :Ratio, y :Ratio) :Ratio = x + y
 		override def minus(x :Ratio, y :Ratio) :Ratio = x - y
 		override def times(x :Ratio, y :Ratio) :Ratio = x * y
 		override def negate(x :Ratio) :Ratio = -x
-		override def fromInt(x :Int) :Ratio = x
+		override def fromInt(x :Int) :Ratio = new Ratio(x, 1)
 		override def toInt(x :Ratio) :Int = x.toInt
 		override def toLong(x :Ratio) :Long = x.toLong
 		override def toFloat(x :Ratio) :Float = x.toFloat
@@ -340,29 +361,49 @@ object Ratio {
 		override def compare(x :Ratio, y :Ratio) :Int =
 			if (x < y) -1 else if (y < x) 1 else 0
 
-		override def parseString(str :String) :Option[Ratio] = str.toIntOption.map(Ratio.apply)
+		override def parseString(str :String) :Option[Ratio] =
+			try { Some(Ratio(str)) }
+			catch { case _ :Exception => None }
 	}
 
-
-	/** Implicit conversion extending `Int` values with a `/%` method accepting other another integer and
-	  * constructing a [[net.noresttherein.slang.numeric.Ratio Ratio]] instance as an alternative
-	  * to the `Ratio` object's factory method. If you wish to perform other arithmetic operations with `Int` values
-	  * as the left-hand argument use the appropriate right-associative method of the `Ratio` class.
-	  * @param numerator this integer, serving as thee numerator of the future rational
-	  * @return a builder object accepting the denominator for the rational result.
+	/** Introduces method [[net.noresttherein.slang.numeric.Ratio.RatioFactory.%/ %/]] extension method to `Int`,
+	  * allowing to create a [[net.noresttherein.slang.numeric.Ratio Ratio]] through a natural looking expression
+	  * `numerator %/ denominator`.
 	  */
-	@inline implicit def /%(numerator :Int) :DivisionRatioConstructor = new DivisionRatioConstructor(numerator)
+	implicit def ratio_%/(numerator :Int) :RatioFactory = new RatioFactory(numerator)
+	/** Introduces method [[net.noresttherein.slang.numeric.Ratio.RatioFactory.%/ %/]] extension method to `Long`,
+	  * allowing to create a [[net.noresttherein.slang.numeric.Ratio Ratio]] through a natural looking expression
+	  * `numerator %/ denominator`.
+	  */
+	implicit def ratio_%/(numerator :Long) :RatioFactory = new RatioFactory(numerator)
 
-	/** A builder of [[net.noresttherein.slang.numeric.Ratio Ratio]] objects, accepting an `Int` denominator
-	  * and constructing the rational number representing the division of the wrapped numerator values by the argument.
+
+	/** A factory of [[net.noresttherein.slang.numeric.Ratio Ratio]] objects, accepting a `Long` denominator
+	  * and constructing the rational number representing the division of the wrapped numerator value by the argument.
+	  * @tparam R a [[net.noresttherein.slang.typist.Rank rank]] type parameter used to introduce precedence between
+	  *           equivalent definitions in separate locations.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
-	class DivisionRatioConstructor(private val numerator :Int) extends AnyVal {
-		/** Divides this `Int` by the argument, creating a [[net.noresttherein.slang.numeric.Ratio Ratio]] number
-		  * representing the result. @param denominator the denominator of the created rational (before reduction)
+	class RatioFactory(private val numerator :Long) extends AnyVal {
+		/** Creates the reduced form of fraction `this/100`. */
+		@inline def % :Ratio = Ratio.percent(numerator)
+
+		/** Creates the reduced form of fraction `this/100`. */
+		@inline def percent :Ratio = Ratio.percent(numerator)
+
+		/** Divides this `Long` by the argument, creating a [[net.noresttherein.slang.numeric.Ratio Ratio]]
+		  * number representing the result.
+		  * @param denominator the denominator of the created rational (before reduction)
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 		  */
-		@inline def /%(denominator :Int) :Ratio = Ratio(numerator, denominator)
+		@inline def %/(denominator :Long) :Ratio = Ratio(numerator, denominator)
+
+		/** Divides this `Long` by the argument, creating a [[net.noresttherein.slang.numeric.Ratio Ratio]]
+		  * number representing the result.
+		  * @param denominator the denominator of the created rational (before reduction)
+		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+		  */
+		@inline def %/(denominator :Int) :Ratio = Ratio(numerator, denominator)
 	}
 
 
@@ -370,17 +411,8 @@ object Ratio {
 	/** Calculates the greatest common divisor of any two integer values.
 	  * @return The greatest integer `d` such that `a / d` and `b / d` are integral numbers.
 	  */
-	@inline def GCD(a :Int, b :Int) :Int =
+	@inline def GCD(a :Long, b :Long) :Long =
 		naturalGCD(if (a < 0) -a else a, if (b < 0) -b else b)
-
-	private def naturalGCD(a :Int, b :Int) :Int = {
-		@tailrec def rec(a :Int, b :Int) :Int =
-			if (b==0) a
-			else rec(b, a % b)
-		if (a > b) rec(a, b)
-		else rec(b, a)
-	}
-
 
 	private def naturalGCD(a :Long, b :Long) :Long = {
 		@tailrec def rec(a :Long, b :Long) :Long =
@@ -390,5 +422,5 @@ object Ratio {
 		else rec(b, a)
 	}
 
-
 }
+

@@ -4,7 +4,7 @@ name := "slang"
 
 version := "moonshine"
 
-scalaVersion := "2.13.7"
+scalaVersion := "2.13.8"
 
 fork in Compile := true
 
@@ -16,8 +16,8 @@ testOptions in Test ++= Seq(Tests.Filter(s => !s.endsWith("Props")))
 
 libraryDependencies ++= Seq( //todo: make shapeless optional
 	"com.chuusai" %% "shapeless" % "2.3.7",
-	"org.scala-lang" % "scala-library" % "2.13.7",
-	"org.scala-lang" % "scala-reflect" % "2.13.7",
+	"org.scala-lang" % "scala-library" % "2.13.8",
+	"org.scala-lang" % "scala-reflect" % "2.13.8",
 	"org.scalatest" %% "scalatest" % "3.2.9" % "test",
 	"org.scalacheck" %% "scalacheck" % "1.15.4" % "test"
 )

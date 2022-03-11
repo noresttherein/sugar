@@ -1,23 +1,22 @@
 package net.noresttherein.slang
 
-import scala.collection.IterableOps
-
-import net.noresttherein.slang.collection.{foldingMethods, mappingMethods}
-import net.noresttherein.slang.implicits.{feedToMethod, neqMethod}
-import net.noresttherein.slang.numeric.LongRatio.DivisionLongRatioConstructor
-import net.noresttherein.slang.numeric.Ratio.DivisionRatioConstructor
+import net.noresttherein.slang.extensions.feedToMethod
 import net.noresttherein.slang.tuples.{RichTuple10, RichTuple11, RichTuple12, RichTuple13, RichTuple14, RichTuple15, RichTuple16, RichTuple17, RichTuple18, RichTuple19, RichTuple2, RichTuple20, RichTuple21, RichTuple22, RichTuple3, RichTuple4, RichTuple5, RichTuple6, RichTuple7, RichTuple8, RichTuple9}
+import net.noresttherein.slang.typist.casting
 
 
 
-/** Type aliases and forwarders for most useful types and implicit conversions in the library providing new syntax.
-  * Grouping them here not only saves the user searching the packages for a class before its use, but the import clause
-  * will explicitly name the members as implicit, making it also easier to find the applied conversion in existing code.
-  * As a further mnemonic, class and method members here are (re)named after the most prominent declared method.
-  * Finally, the lazy and the brave can import (almost) all new syntax with a single wildcard statement.
-  * @author Marcin Mościcki marcin@moscicki.net
+
+/** (Almost) all extension methods and implicit conversions providing new syntax in this library .
+  * Grouping them here not only allows a wildcard import, but also makes single imports stand out due to object name.
+  *
+  * As a mnemonic, class and method members here are named either
+  *   - `xxxExtension`, where `Xxx` is the name of the enriched type, if it is they are not general purpose methods,
+  *     but work on specific types such as [[Option]] or [[Iterable]], or
+  *   - `xxxMethod`/`xxxMethods`, where `xxx` is the name of the most prominent declared method.
+  * @author Marcin Mościcki
   */
-object implicits extends implicits {
+object extensions extends extensions {
 
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	class feedToMethod[X](private val x :X) extends AnyVal {
@@ -30,14 +29,16 @@ object implicits extends implicits {
 		def feedTo[T](f :X => T) :T = f(x)
 	}
 
-	/** Adds a `neq` method to any reference type, defined as the opposite of the build int 'method' `eq`. */
-	class neqMethod[X <: AnyRef](private val self :X) extends AnyVal {
-		/** Checks if the two references point to different objects.
-		  * @return `!(this eq that)`.
-		  */
-		@inline def neq(that :AnyRef) :Boolean = !(self eq that)
-	}
 
+//	object conditionalExpression {
+//		class IfFalse[+T] private[slang] (private val ifFalse: () => T) {
+//			@inline def /:[U >: T](ifTrue: => U) :ConditionalExpressionAlternatives[U] =
+//				new ConditionalExpressionAlternatives[U](ifTrue, ifFalse)
+//		}
+//		class ConditionalExpressionAlternatives[+T] private[slang] (ifTrue: => T, ifFalse: () => T) {
+//			@inline def ?:(condition :Boolean) :T = if (condition) ifTrue else ifFalse()
+//		}
+//	}
 }
 
 
@@ -50,81 +51,21 @@ object implicits extends implicits {
   * As a mnemonic, class and method members here are (re)named after the most prominent declared method.
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: having it simply extend the traits for individual packages.
-trait implicits {
-	import optional._
-	import repeatedly._
-	import prettyprint._
-
+trait extensions extends Any
+	with casting.extensions with collection.extensions with exceptions.extensions
+	with numeric.extensions with optional.extensions with prettyprint.extensions with repeat.extensions
+{
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	@inline implicit final def feedToMethod[X](x :X) = new feedToMethod(x)
-
-	/** Adds a `neq` method to any reference type, defined as the opposite of the build int 'method' `eq`. */
-	@inline implicit final def neqMethod[X <: AnyRef](x :X) = new neqMethod(x)
-
-	/** Adds method `mapWith` and `flatMapWith` which map/flat map collections while passing along additional state
-	  * to any collection of the standard library framework.
-	  */
-	@inline implicit final def mappingMethods[C[X] <: Iterable[X], E]
-	                                         (collection :IterableOps[E, C, C[E]]) :mappingMethods[C, E] =
-		new mappingMethods[C, E](collection)
-
-
-	/** Adds `ifTrue` and `ifFalse` methods to any `Boolean` value which lift any argument expression to an `Option`. */
-	@inline implicit final def ifTrueMethods(condition :Boolean) :ifTrueMethods = new ifTrueMethods(condition)
-
-	/** Adds `satisfying` and `violating` methods to any object for lifting it to an `Option[T]` based on a predicate value. */
-	@inline implicit final def satisfyingMethods[T](subject :T) :satisfyingMethods[T] = new satisfyingMethods(subject)
-
-	/** Adds `providing` and `unless` methods to any lazy expression, returning it as an option after testing a boolean condition. */
-	@inline implicit final def providingMethods[T](subject : =>T) :providingMethods[T] = new providingMethods[T](subject)
-
-	/** Adds a `some` accessor method to `Some` emphasising that the call is safe, unlike the inherited `get` available
-	  * also on `None`.
-	  */
-	@inline implicit final def someMethod[T](opt :Some[T]) :someMethod[T] = new someMethod(opt)
-
-	/** Adds additional `ensuring` methods to any object which accept exception classes to throw on failure. */
-	@inline implicit final def ensuringMethods[T](subject :T) :ensuringMethods[T] = new ensuringMethods(subject)
-
-
-
-	/** Adds a `foldWhile` method to any `Iterable` which implement a variant of `fold` operation with a break condition. */
-	@inline implicit final def foldingMethods[T](col :Iterable[T]) :foldingMethods[T] =
-		new foldingMethods(col)
-
-	/** Adds a `times` method to any `Int` for executing a block the given number of times. */
-	@inline implicit final def timesMethods(iterations :Int) :timesMethods = new timesMethods(iterations)
-
-
-
-	/** Adds `innerClassName` and `abbrevClassName` methods to any object providing a shorter alternative to `getClass.getName`. */
-	@inline implicit final def classNameMethods(any :Any) :classNameMethods = new classNameMethods(any)
-
-	/** Adds methods converting the fields of this object to a `String` via reflection for the use in `toString` methods. */
-	@inline implicit final def fieldsStringMethods[T](obj :T) = new ObjectFieldsFormats(obj)
-
-	/** Adds a `yesno` and `yn` methods to `Boolean` values for shorter `String` representations. */
-	@inline implicit final def yesNoMethod(boolean :Boolean) = new YesNo(boolean)
-
-
-
-	/** Implicit conversion extending `Long` values with a `/%` method accepting other another `Long` and
-	  * constructing a [[net.noresttherein.slang.numeric.LongRatio LongRatio]] instance as an alternative to `LongRatio`
-	  * object's factory method. If you wish to perform other arithmetic operations with `Long` values as the left-hand
-	  * argument use the appropriate right-associative method of the `LongRatio` class.
-	  * @param numerator this integer, serving as thee numerator of the future rational
-	  * @return a builder object accepting the denominator for the rational result.
-	  */
-	@inline implicit final def /%(numerator :Long) :DivisionLongRatioConstructor = new DivisionLongRatioConstructor(numerator)
-
-	/** Implicit conversion extending `Int` values with a `/%` method accepting other another `Int` and
-	  * constructing a [[net.noresttherein.slang.numeric.Ratio Ratio]] instance as an alternative to LongRatio object's
-	  * factory method. If you wish to perform other arithmetic operations with `Long` values as the left-hand argument
-	  * use the appropriate right-associative method of the `Ratio` class.
-	  * @param numerator this integer, serving as thee numerator of the future rational
-	  * @return a builder object accepting the denominator for the rational result.
-	  */
-	@inline implicit final def /%(numerator :Int) :DivisionRatioConstructor = new DivisionRatioConstructor(numerator)
+//
+//	/** Adds a right associative [[net.noresttherein.slang.implicits.conditionalExpression.IfFalse./: /:]] method
+//	  * to any expression, allowing to create a Java-style conditional expression from right to left:
+//	  * {{{
+//	  *     tasty(cheesecake) ?: eatMore(cheesecake) /: sayNo()
+//	  * }}}
+//	  */
+//	@inline implicit final def conditionalExpression[T](ifFalse: => T) :conditionalExpression.IfFalse[T] =
+//		new conditionalExpression.IfFalse(() => ifFalse)
 
 
 

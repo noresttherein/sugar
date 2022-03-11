@@ -206,7 +206,7 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 		case n => 30 + (n + n / 8) % 2
 	}
 
-	@inline def of(year :Year) :MonthInYear = MonthInYear(year, this)
+	@inline def of(year :Year) :MonthOfYear = MonthOfYear(year, this)
 	@inline def on(day :Int)   :DateOfYear  = DateOfYear(this, day)
 	@inline def onFirst        :DateOfYear  = DateOfYear(this, 1)
 

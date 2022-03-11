@@ -1,6 +1,6 @@
 package net.noresttherein.slang.vars
 
-import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.InOut.{InOutOrdering, SpecializedVars}
 import net.noresttherein.slang.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 
 
@@ -23,13 +23,12 @@ import net.noresttherein.slang.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   */
 @SerialVersionUID(1L)
 sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
-	extends InOut[T] with VolatileLike[T] with Serializable
+	extends VolatileLike[T] with Mutable[T] with Serializable
 {
 	@scala.volatile private[this] var x = init
 	protected override def factory :Volatile.type = Volatile
 
 	final override def value :T = x
-
 	final override def value_=(newValue :T) :Unit = x = newValue
 }
 
@@ -40,6 +39,9 @@ sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
   * @define variable volatile reference variable
   */
 object Volatile extends VolatileLikeFactory[Volatile] {
+
+	implicit def VolatileOrdering[T :Ordering] :Ordering[Volatile[T]] = new InOutOrdering[Volatile, T]
+
 
 	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Volatile[T] = new Volatile(init)
 	protected override def newRefInstance[T](init :T) :Volatile[T] = new VolatileRef[T](init)

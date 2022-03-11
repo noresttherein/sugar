@@ -3,6 +3,7 @@ package net.noresttherein.slang.collection
 import scala.collection.immutable.ListSet
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
+import net.noresttherein.slang.extensions.mappingMethods
 import org.scalacheck.Prop._
 import org.scalacheck.Properties
 
@@ -10,7 +11,7 @@ import org.scalacheck.Properties
 
 
 
-object MappingMethodsSpec extends Properties("M1appingMethods") {
+object MappingMethodsSpec extends Properties("MappingMethods") {
 
 	property("mapWithIndex") = forAll { list :List[String] =>
 		list.mapWithIndex { (e, i) => (e, i) } ?= list.zipWithIndex

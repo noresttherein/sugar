@@ -5,7 +5,7 @@ import scala.annotation.unspecialized
 import net.noresttherein.slang.funny.Initializer
 import net.noresttherein.slang.vars.InOut.SpecializedVars
 import net.noresttherein.slang.vars.Opt.{Got, Lack}
-import net.noresttherein.slang.vars.Ref.Undefined
+import net.noresttherein.slang.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, Undefined}
 
 
 
@@ -27,18 +27,6 @@ import net.noresttherein.slang.vars.Ref.Undefined
   */
 trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with Serializable {
 
-//	/** The evaluated value of this instance - same as [[net.noresttherein.slang.vars.Lazy.apply apply]]`()`. */
-//	def value :T = apply()
-
-//	/** Always returns `Some(apply())`. */
-//	override def asOption :Option[T] = Some(apply())
-//
-//	/** Always returns [[net.noresttherein.slang.vars.Opt.Got Got]]`(apply())`. */
-//	override def opt :Opt[T] = Got(apply())
-//
-//	/** Always returns [[net.noresttherein.slang.vars.Hit Hit]]`(apply())`. */
-//	override def asShot :Shot[T] = Hit(apply())
-
 	/** Checks if the value has been previously evaluated. Note that `false` values can be stale the moment
 	  * they are returned to the caller; the method is however still useful as once `true` is returned, all subsequent
 	  * calls on this instance will also return `true` and the value can be safely accessed without an overhead
@@ -47,7 +35,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	def isDefined :Boolean
 
 	/** Returns `!`[[net.noresttherein.slang.vars.Lazy.isDefined isDefined]]. */
-	def isUndefined = false
+	def isUndefined :Boolean = !isDefined //false
 
 	/** Creates a new `Lazy[O]` instance with the same characteristics as this instance, evaluated to the application
 	  * of `f` to the value of this instance. If the value has already been evaluated, created instance will be
@@ -68,13 +56,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	def flatMap[O](f :T => Lazy[O]) :Lazy[O]
 
 
-//	override def equals(that :Any) :Boolean = that match {
-//		case lzy :Lazy[_] => (lzy eq this) || lzy() == apply()
-//		case _ => false
-//	}
-//	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Lazy[_]]
-
-	override def toString :String = if (isDefined) "Lazy(" + String.valueOf(get) + ")" else "Lazy(?)"
+//	override def toString :String = if (isDefined) "Lazy(" + String.valueOf(get) + ")" else "Lazy(?)"
 }
 
 
@@ -130,7 +112,22 @@ object Lazy {
 	def eager[@specialized(SpecializedVars) T](value :T) :Lazy[T] = new EagerLazy(value)
 
 
-	implicit def unboxLazy[T](l :Lazy[T]) :T = l()
+	implicit def unboxLazy[T](l :Lazy[T]) :T = l.get
+
+	implicit def lazyOrdering[V[X] <: Lazy[X], T :Ordering] :Ordering[V[T]] = new RefOrdering[V, T]
+
+	implicit def lazyNumeric[T :Numeric]       :Numeric[Lazy[T]]    = new RefNumeric[Lazy, T] with LazyMonad[T]
+	implicit def lazyIntegral[T :Integral]     :Integral[Lazy[T]]   = new RefIntegral[Lazy, T] with LazyMonad[T]
+	implicit def lazyFractional[T :Fractional] :Fractional[Lazy[T]] = new RefFractional[Lazy, T] with LazyMonad[T]
+	
+	private trait LazyMonad[T] extends RefNumeric[Lazy, T] {
+		override def fromInt(x :Int) :Lazy[T] = Lazy(inner.fromInt(x))
+		protected override def fmap(x :Lazy[T], y :Lazy[T])(op :(T, T) => T) :Lazy[T] =
+			for (xv <- x; yv <- y) yield op(xv, yv)
+
+		protected override def map(x :Lazy[T])(f :T => T) :Lazy[T] = x.map(f)
+		protected override def apply(x :T) :Lazy[T] = Lazy.eager(x)
+	}
 
 
 
@@ -210,15 +207,17 @@ object Lazy {
 
 		override def isSpecialized = true
 
-		override def toString :String = {
-			val v = evaluated
-			if (v != Undefined)
-				"Lazy(" + String.valueOf(v) + ")"
-			else synchronized {
-				if (initializer == null) "Lazy(" + String.valueOf(evaluated) + ")"
-				else "lazy(?)"
-			}
-		}
+		override def toString :String = String.valueOf(evaluated) //can print Undefined.toString, but it's ok
+
+//		override def toString :String = {
+//			val v = evaluated
+//			if (v != Undefined)
+//				String.valueOf(v)
+//			else synchronized {
+//				if (initializer == null) String.valueOf(evaluated)
+//				else "lazy(?)"
+//			}
+//		}
 
 		private def writeReplace = Lazy.eager(apply())
 	}
@@ -276,10 +275,12 @@ object Lazy {
 
 		override def isSpecialized = false
 
-		override def toString :String = synchronized {
-			if (initializer == null) "Lazy(" + String.valueOf(evaluated) + ")"
-			else "Lazy(?)"
-		}
+		override def toString :String = synchronized(String.valueOf(evaluated)) //can print Undefined.toString, but it's ok
+
+//		override def toString :String = synchronized {
+//			if (initializer == null) String.valueOf(evaluated)
+//			else "Lazy(?)"
+//		}
 
 		private def writeReplace = Lazy.eager(apply())
 	}

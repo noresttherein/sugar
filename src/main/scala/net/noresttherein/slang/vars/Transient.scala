@@ -87,9 +87,9 @@ object Transient {
 
 		override def isSpecialized = true
 
-		override def toString :String =
-			if (evaluated != Undefined) String.valueOf(evaluated)
-			else "lazy(?)"
+		override def toString :String = String.valueOf(evaluated)
+//			if (evaluated != Undefined) String.valueOf(evaluated)
+//			else "lazy(?)"
 	}
 
 
@@ -136,11 +136,12 @@ object Transient {
 
 		override def isSpecialized = false
 
-		override def toString :String = {
-			val v = evaluated
-			if (v != Undefined) String.valueOf(v)
-			else "lazy(?)"
-		}
+		override def toString :String = evaluated.toString
+//		override def toString :String = {
+//			val v = evaluated
+//			if (v != Undefined) String.valueOf(v)
+//			else "lazy(?)"
+//		}
 	}
 
 }

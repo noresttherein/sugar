@@ -2,8 +2,8 @@ package net.noresttherein.slang.vars
 
 import scala.annotation.tailrec
 
-import Opt.{Got, Lack}
 import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
 import net.noresttherein.slang.vars.Relay.{Reader, Writer}
 
 
@@ -17,7 +17,7 @@ import net.noresttherein.slang.vars.Relay.{Reader, Writer}
   * if there are no readers ready to consume the value. Both readers and writers are processed
   * on a first come, first served basis.
   * @author Marcin Mościcki
-  */
+  */ //not a Serializable
 sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InOut[T] {
 	//invariant: readers == null || writers == null
 	//member fields modified only while holding the monitor for this object

@@ -1,8 +1,8 @@
 package net.noresttherein.slang
 
 import scala.annotation.tailrec
-import scala.collection.IterableFactory
 
+import net.noresttherein.slang.typist.Rank.Rank0
 
 
 /** A group of higher order functions and syntax extensions repeatedly or recursively applying other functions.
@@ -31,7 +31,7 @@ import scala.collection.IterableFactory
   * }}}
   * @author Marcin Mościcki
   */
-object repeat {
+package object repeat extends repeat.extensions {
 	/** Emulates the `repeat { ... } until ( ... )` loop, repeating the execution of the passed block
 	  * until the condition passed to the [[net.noresttherein.slang.repeat.RepeatUntil.until until]] method
 	  * of the returned object becomes true. The block is executed at least once and the whole expression
@@ -39,6 +39,19 @@ object repeat {
 	  * @param block the body of the ''repeat'' loop.
 	  */
 	@inline def apply[T](block: => T): RepeatUntil[T] = new RepeatUntil(() => block)
+
+//lets see if it doesn't cause an overload conflict in Scala 3
+//	@inline def apply[T](arg :T)(f :T => T) :RecurseUntil[T] = new RecurseUntil(arg, f)
+//
+//	class RecurseUntil[T](acc :T, expr :T => T) {
+//		@inline def until(condition :T => Boolean) :T = {
+//			var last = expr(acc)
+//			while (!condition(last))
+//				last = expr(last)
+//			last
+//		}
+//	}
+
 
 	/** Extends the preceding block with [[net.noresttherein.slang.repeat.RepeatUntil.until until]] methods
 	  * specifying the stop condition for its execution.
@@ -67,77 +80,6 @@ object repeat {
 				last = block()
 			last
 		}
-	}
-
-	//lets see if it doesn't cause an overload conflict in Scala 3
-//	@inline def apply[T](arg :T)(f :T => T) :RecurseUntil[T] = new RecurseUntil(arg, f)
-//
-//	class RecurseUntil[T](acc :T, expr :T => T) {
-//		@inline def until(condition :T => Boolean) :T = {
-//			var last = expr(acc)
-//			while (!condition(last))
-//				last = expr(last)
-//			last
-//		}
-//	}
-
-
-	/** Extends any value with method [[net.noresttherein.slang.repeat.repeatMethod.repeat repeat]], creating
-	  * a pure functional equivalent of a `repeat ... until` loops:
-	  * {{{
-	  *     val kilo = 2 repeat { _ * 2 } until (_ > 1000)
-	  * }}}
-	  */
-	implicit class repeatMethod[T](private var start :T) {
-		/*** Executes the given function repeatedly applying it to the values it returns until the condition
-		  * passed to the `until` method of the returned object becomes true.
-		  * This instance is used as the initial argument.
-		  * {{{
-		  *     val kilo = 2 repeat { _ >> 2 } until (_ > 1000)
-		  *     println(s"There are $kilo bytes in a kilobyte")
-		  * }}}
-		  */
-		@inline def repeat(expr :T => T) :RepeatUntil[T] =
-			new RepeatUntil(() => { start = expr(start); start })
-	}
-
-
-
-	/** Represents a range `[0, this)` which defines a fixed number of iterations. */
-	implicit class timesMethods(private val count :Int) extends AnyVal {
-
-		/** Execute `f` (code block passed by name) `this` number of times. */
-		@inline def times[T](f : =>T) :Unit = for (_ <- 0 until count) f
-
-		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@tailrec def times[T](f :T => T)(start :T) :T =
-			if (count <= 0) start
-			else (count - 1).times(f)(f(start))
-
-		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
-		@inline def timesFrom[T](start :T)(f :T => T) :T = count.times(f)(start)
-
-		/** Executes `f` `this` number of times, passing the ordinal number of the `execution` in the sequence
-		  * as the argument.
-		  * @return a sequence of length `this`, containing the results of each execution of `f`.
-		  */
-		def enumerate[T](f :Int => T) :Seq[T] = {
-			@tailrec def rec(i :Int, acc :List[T]) :List[T] =
-				if (i < 0) acc
-				else rec(i, f(i) :: acc)
-			rec(count - 1, Nil)
-		}
-
-		/** Apply `f` to its own result `this` number of times, starting with value `start`.
-		  * Equivalent to `this.timesFrom(start)(f)` but helps with type inference.
-		  * The name is in analogy to equivalent fold left over a range:
-		  * `def pow(x :Int, n:Int) = (1 /: (0 until n)){ (acc, _) => acc * x }` (in pseudo code)
-		  * @param start start value for the recursion.
-		  * @param f function to recursively apply to itself.
-		  * @return `start` if `this<=0` or `f(f(...f(start)))` (composed `this` number of times).
-		  * @usecase `(new StringBuilder /: n)(_ += ":)"`
-		  */
-		@inline def /:[T](start :T)(f :T => T) :T = times(f)(start)
 	}
 
 
@@ -180,5 +122,4 @@ object repeat {
 		case found if found == start => Some(start)
 		case other => fixedPoint(other, maxIterations - 1)(f)
 	}
-
 }

@@ -74,7 +74,7 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	override def opt    :Opt[T]  = if (state == Immutable) Got(x) else Lack
 
 	/** The value of this variable if it is in the immutable state (finalized).  */
-	override def asShot :Shot[T] = if (state == Immutable) Hit(x) else Miss
+	override def unsure :Unsure[T] = if (state == Immutable) Sure(x) else Blank
 
 	/** The finalized value of this variable.
 	  * @throws IllegalStateException if this variable is not finalized.
@@ -181,7 +181,7 @@ object Finalizable {
 
 	/** Create a new finalizable variable which can be shared by multiple threads. */
 	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Finalizable[T] =
-		apply(default.default)
+		apply(default.get)
 
 	@inline implicit def unboxFinalizable[@specialized(SpecializedVars) T](ref :Finalizable[T]) :T = ref.value
 

@@ -8,7 +8,7 @@ import scala.concurrent.duration.{Deadline, FiniteDuration}
   * non-negative nanosecond part of the second. This is a lightweight value type wrapping a `java.time.Instant`,
   * carrying no date/time zone information.
   * @author Marcin Mościcki
-  */
+  */ //consider: renaming to Instant
 @SerialVersionUID(1L)
 class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal with DefiniteTime with Serializable {
 

@@ -14,8 +14,11 @@ import net.noresttherein.slang.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoCo
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, a disadvantage
   * of being erased in runtime is that methods accepting `Opt`s with different type arguments will clash
   * with each other, as well as with methods accepting `T` itself (if erased) in 'double definition' errors.
-  * Note that, as this is a generic value class, boxing of built in value types to their reference form will still occur.
-  * Unlike its standard counterpart, this type is not an `Iterable`, although it contains all standard
+  * Moreover, a generic method accepting/returning an abstract type (parameter) `T` cannot be overriden/implemented
+  * by a method accepting an `Opt[O]`, where `O` is an abstract type (or type parameter).
+  *
+  * Note that, as this is a value class wrapping any type, boxing of built in value types to their reference wrappers
+  * will still occur. Unlike its standard counterpart, this type is not an `Iterable`, although it contains all standard
   * collection methods and an implicit conversion to `Iterable[T]` exists. The latter will however result in boxing
   * which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions''
   * composing several `Opt`s' can result in closures being created (as manual nesting of `flatMap` calls also can).
@@ -25,8 +28,8 @@ import net.noresttherein.slang.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoCo
   * @see [[net.noresttherein.slang.vars.Opt.Got$]]
   * @see [[net.noresttherein.slang.vars.Opt.Lack]]
   */
-@SerialVersionUID(1L)
-class Opt[+A] private[Opt](private val ref :AnyRef)
+@SerialVersionUID(1L) //todo: in Scala 3 make it an opaque type to differentiate it more from Unsure
+class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
 {
 	/** A flag member type specifying if the option is full or empty on type level through refinement.
@@ -248,14 +251,14 @@ class Opt[+A] private[Opt](private val ref :AnyRef)
 
 	/** Conversion to standard Scala [[scala.Option]].
 	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
-	@inline override def asOption :Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
+	@inline override def ? :Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
 
-	/** Conversion to an `Shot` carrying the same value as this instance, if any. Note that while the `Shot` trait
+	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
 	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Opt`.
-	  * */
-	@inline override def asShot :Shot[A] =
-		if (ref eq NoContent) Miss else new Hit(ref.asInstanceOf[A], cachedOpt = this)
+	  */
+	@inline override def unsure :Unsure[A] =
+		if (ref eq NoContent) Blank else new Sure(ref.asInstanceOf[A], cachedOpt = this)
 
 	/** Converts this `Opt` to `Either`, returning the content as `Left`, or the value of the given expression
 	  * as `Right` if empty. */
@@ -339,9 +342,35 @@ object Opt {
 	@inline final val Lack :Lack = new Opt(NoContent).asInstanceOf[Lack]
 
 
+	/** The for-comprehension facade for `Opt[A]`, which does not evaluate the filter predicate until
+	  * `map`, `flatMap` or `foreach` is called.
+	  */
+	class WithFilter[+A](self :Opt[A], p :A => Boolean) {
+		def map[B](f: A => B): Opt[B] = self filter p map f
+		def flatMap[B](f: A => Opt[B]): Opt[B] = self filter p flatMap f
+		def foreach[U](f: A => U): Unit = self filter p foreach f
+		def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
+	}
+
+
+
+//	/** Provides [[net.noresttherein.slang.vars.Opt.OptionToOptConverter.toOpt toOpt]] extension method
+//	  * for any `Option[T]`, converting it to `Opt[T]`. Note that this type is largely superfluous as
+//	  * there is an implicit conversion from `Option[T]` to `Opt[T]` (no boxing is necessary in that case).
+//	  * It can however help in cases where automatic type inference fails.
+//	  */ //consider: removing it. Duplicated by OptionExtension in optional.extensions
+//	implicit class OptionToOptConverter[T](private val self :Option[T]) extends AnyVal {
+//		/** Converts this option into an `Opt` wrapping the same type/value. */
+//		@inline def toOpt :Opt[T] = new Opt[T](self match {
+//			case Some(value) => value.asInstanceOf[AnyRef]
+//			case _ => NoContent
+//		})
+//	}
+
+
 	/** Implicit conversions between `Opt` and `Option`.
-	  * Conversions between `Opt` and [[net.noresttherein.slang.vars.Shot Shot]] are located
-	  * in `Shot.`[[net.noresttherein.slang.vars.Shot.implicits implicits]].
+	  * Conversions between `Opt` and [[net.noresttherein.slang.vars.Unsure Unsure]] are located
+	  * in `Unsure.`[[net.noresttherein.slang.vars.Unsure.implicits implicits]].
 	  */
 	object implicits {
 		@inline final implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.asOption
@@ -355,31 +384,35 @@ object Opt {
 		@inline def anyToGot[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
 	}
 
-	/** Provides [[net.noresttherein.slang.vars.Opt.OptionToOptConverter.toOpt toOpt]] extension method
-	  * for any `Option[T]`, converting it to `Opt[T]`. Note that this type is largely superfluous as
-	  * there is an implicit conversion from `Option[T]` to `Opt[T]` (no boxing is necessary in that case).
-	  * It can however help in cases where automatic type inference fails.
-	  */ //consider: removing it. Duplicated by OptionExtension in optional.extensions
-	implicit class OptionToOptConverter[T](private val self :Option[T]) extends AnyVal {
-		/** Converts this option into an `Opt` wrapping the same type/value. */
-		@inline def toOpt :Opt[T] = new Opt[T](self match {
-			case Some(value) => value.asInstanceOf[AnyRef]
-			case _ => NoContent
-		})
+	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
+	  * [[net.noresttherein.slang.vars.Opt Opt]]/[[net.noresttherein.slang.vars.Opt.Got Got]]/[[net.noresttherein.slang.vars.Opt.Lack Lack]].
+	  * This object contains the requiring type aliases overriding the standard types as well as implicit conversions
+	  * which allow seamless interoperability with standard Scala APIs.
+	  *
+	  * Other files which reference classes defined in the import's scope may also need to be modified in order
+	  * to comply with changed interfaces.
+	  */
+	object OptAsOption {
+		type Option[T] = Opt[T]
+		type Some[T]   = Got[T]
+
+		val Option = Opt
+		val Some   = Got
+		val None   = Lack
+		//same names as in implicits so if both are imported one shadows the other
+		@inline implicit def optToOption[T](opt :Opt[T]) :scala.Option[T] = opt.?
+		@inline implicit def optionToOpt[T](opt :scala.Option[T]) :Opt[T] = some_?(opt)
+		@inline implicit def someToGot[T](opt :scala.Some[T]) :Got[T] = Got(opt.get)
+		@inline implicit def gotToSome[T](opt :Sure[T]) :scala.Some[T] = opt.?.asInstanceOf[scala.Some[T]]
+
+		@inline implicit def noneToMiss(none :scala.None.type) :Lack.type = Lack
+		@inline implicit def missToNone(miss :Lack.type) :scala.None.type = scala.None
 	}
 
-	/** The for-comprehension facade for `Opt[A]`, which does not evaluate the filter predicate until
-	  * `map`, `flatMap` or `foreach` is called.
-	  */
-	class WithFilter[+A](self :Opt[A], p :A => Boolean) {
-		def map[B](f: A => B): Opt[B] = self filter p map f
-		def flatMap[B](f: A => Opt[B]): Opt[B] = self filter p flatMap f
-		def foreach[U](f: A => U): Unit = self filter p foreach f
-		def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
-	}
 
 	//extends Any => AnyRef out of laziness, allowing it to pass as the argument to applyOrElse
-	//is private[Opt] so that methods of Opt can be inlined
+	//is private[vars] so that methods of Opt can be inlined
+	// and because some Ref classes play with the erasure and need access to this marker object
 	@SerialVersionUID(1L)
 	private[vars] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this

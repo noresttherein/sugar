@@ -4,8 +4,8 @@ package net.noresttherein.slang.matching
 import scala.reflect.ClassTag
 import scala.Specializable.{Arg, Return}
 
+import net.noresttherein.slang.extensions.optionExtension
 import net.noresttherein.slang.matching.MatchPattern.SpecializedArgs
-import net.noresttherein.slang.optional.optionExtension
 import net.noresttherein.slang.prettyprint.classNameMethods
 import net.noresttherein.slang.vars.Opt
 

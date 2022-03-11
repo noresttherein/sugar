@@ -153,7 +153,7 @@ object DateOfYear {
 
 /** A combination of a year and a month, such as ''1981 Jan''. */
 @SerialVersionUID(1L)
-class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with Ordered[MonthInYear] with Serializable {
+class MonthOfYear private(private val yearAndMonth :Long) extends AnyVal with Ordered[MonthOfYear] with Serializable {
 
 	@inline def year  :Year  = new Year((yearAndMonth >> 32).toInt)
 	@inline def month :Month = Month(yearAndMonth.toInt)
@@ -174,35 +174,35 @@ class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with O
 	@inline def on(day :Int) = new Date(j.LocalDate.of((yearAndMonth >> 32).toInt, yearAndMonth.toInt, day))
 
 
-	@inline def copy(year :Year = this.year, month :Month = this.month) :MonthInYear =
-		new MonthInYear(year.no.toLong << 32 | month.no)
+	@inline def copy(year :Year = this.year, month :Month = this.month) :MonthOfYear =
+		new MonthOfYear(year.no.toLong << 32 | month.no)
 
 
-	@inline def +(period :Period) :MonthInYear =
-		MonthInYear(yearAndMonth >> 32 + period.toJava.getYears, yearAndMonth & 0xf + period.toJava.getMonths)
+	@inline def +(period :Period) :MonthOfYear =
+		MonthOfYear(yearAndMonth >> 32 + period.toJava.getYears, yearAndMonth & 0xf + period.toJava.getMonths)
 
-	@inline def +(period :DateSpan) :MonthInYear =
-		MonthInYear(yearAndMonth >> 32 + period.years, yearAndMonth & 0xf + period.months)
+	@inline def +(period :DateSpan) :MonthOfYear =
+		MonthOfYear(yearAndMonth >> 32 + period.years, yearAndMonth & 0xf + period.months)
 
-	@inline def -(period :Period) :MonthInYear =
-		MonthInYear(yearAndMonth >> 32 - period.toJava.getYears, yearAndMonth & 0xf - period.toJava.getMonths)
+	@inline def -(period :Period) :MonthOfYear =
+		MonthOfYear(yearAndMonth >> 32 - period.toJava.getYears, yearAndMonth & 0xf - period.toJava.getMonths)
 
-	@inline def -(period :DateSpan) :MonthInYear =
-		MonthInYear(yearAndMonth >> 32 - period.years, yearAndMonth & 0xf - period.months)
+	@inline def -(period :DateSpan) :MonthOfYear =
+		MonthOfYear(yearAndMonth >> 32 - period.years, yearAndMonth & 0xf - period.months)
 
 
-	override def compare(that :MonthInYear) :Int =
+	override def compare(that :MonthOfYear) :Int =
 		if (yearAndMonth < that.yearAndMonth) -1
 		else if (yearAndMonth > that.yearAndMonth) 1
 		else 0
 
-	@inline override def <=(that :MonthInYear) :Boolean = yearAndMonth <= that.yearAndMonth
-	@inline override def < (that :MonthInYear) :Boolean = yearAndMonth < that.yearAndMonth
-	@inline override def >=(that :MonthInYear) :Boolean = yearAndMonth >= that.yearAndMonth
-	@inline override def > (that :MonthInYear) :Boolean = yearAndMonth > that.yearAndMonth
+	@inline override def <=(that :MonthOfYear) :Boolean = yearAndMonth <= that.yearAndMonth
+	@inline override def < (that :MonthOfYear) :Boolean = yearAndMonth < that.yearAndMonth
+	@inline override def >=(that :MonthOfYear) :Boolean = yearAndMonth >= that.yearAndMonth
+	@inline override def > (that :MonthOfYear) :Boolean = yearAndMonth > that.yearAndMonth
 
-	@inline def min(that :MonthInYear) :MonthInYear = if (yearAndMonth <= that.yearAndMonth) this else that
-	@inline def max(that :MonthInYear) :MonthInYear = if (yearAndMonth >= that.yearAndMonth) this else that
+	@inline def min(that :MonthOfYear) :MonthOfYear = if (yearAndMonth <= that.yearAndMonth) this else that
+	@inline def max(that :MonthOfYear) :MonthOfYear = if (yearAndMonth >= that.yearAndMonth) this else that
 
 
 	override def toString :String = month.toString + " " + year
@@ -210,12 +210,12 @@ class MonthInYear private (private val yearAndMonth :Long) extends AnyVal with O
 
 
 
-object MonthInYear {
-	def apply(year :Year, month :Month) :MonthInYear = new MonthInYear(year.no.toLong << 32 | month.no)
+object MonthOfYear {
+	def apply(year :Year, month :Month) :MonthOfYear = new MonthOfYear(year.no.toLong << 32 | month.no)
 
-	def apply(date :j.YearMonth) :MonthInYear = new MonthInYear(date.getYear.toLong << 32 | date.getMonthValue)
+	def apply(date :j.YearMonth) :MonthOfYear = new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
 
-	private[slang] def apply(year :Long, month :Long) :MonthInYear = {
+	private[slang] def apply(year :Long, month :Long) :MonthOfYear = {
 		var m = month - 1 //swtich to zero-based months
 		var y = year + m / 12
 		m %= 12
@@ -224,26 +224,26 @@ object MonthInYear {
 		}
 		m += 1
 		if (y < Int.MinValue | y > Int.MaxValue)
-			throw new ArithmeticException(s"Int overflow: MonthInYear($year, $month)")
-		new MonthInYear(y << 32 | m)
+			throw new ArithmeticException(s"Int overflow: MonthOfYear($year, $month)")
+		new MonthOfYear(y << 32 | m)
 	}
 
 
-	@inline def apply()(implicit time :Time = Time.Local) :MonthInYear = current
+	@inline def apply()(implicit time :Time = Time.Local) :MonthOfYear = current
 
-	def current(implicit time :Time = Time.Local) :MonthInYear = {
+	def current(implicit time :Time = Time.Local) :MonthOfYear = {
 		val date = j.YearMonth.now(time.clock)
-		new MonthInYear(date.getYear.toLong << 32 | date.getMonthValue)
+		new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
 	}
 
 
 
-	@inline implicit def fromJavaYearMonth(ym :j.YearMonth) :MonthInYear = apply(ym)
+	@inline implicit def fromJavaYearMonth(ym :j.YearMonth) :MonthOfYear = apply(ym)
 
-	@inline implicit def toJavaYearMonth(ym :MonthInYear) :j.YearMonth =
+	@inline implicit def toJavaYearMonth(ym :MonthOfYear) :j.YearMonth =
 		j.YearMonth.of((ym.yearAndMonth >> 32).toInt, ym.yearAndMonth.toInt)
 
-	@inline implicit def toMonth(ym :MonthInYear) :Month = ym.month
+	@inline implicit def toMonth(ym :MonthOfYear) :Month = ym.month
 
 }
 

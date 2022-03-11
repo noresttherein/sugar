@@ -3,8 +3,8 @@ package net.noresttherein.slang
 import scala.annotation.unspecialized
 
 import net.noresttherein.slang.funny.fun.{ComposableFun, Identity}
-import net.noresttherein.slang.optional.Opt
-import net.noresttherein.slang.optional.Opt.{Got, Lack}
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
+import net.noresttherein.slang.vars.Opt
 
 
 
@@ -13,8 +13,57 @@ import net.noresttherein.slang.optional.Opt.{Got, Lack}
 
 package object typist {
 
+	/** A root of a phantom type hierarchy used to introduce subtyping relation to a single type `T`
+	  * (typically an implicit witness) by an addition of an artificial type parameter `R` to the latter.
+	  * This can be particularly useful when there is a need to introduce precedence between otherwise identical
+	  * implicit values. For example, Let us define a generic, ''invariant'' evidence type class:
+	  * {{{
+	  *     class Evidence[T]
+	  * }}}
+	  * Given two types, `A` and `B`, we might want for `Evidence[A]` to be preferable to `Evidence[B]` where both are
+	  * applicable (for example, if `A <: B`). Because `Evidence` is invariant, there is no precedence of
+	  * `Evidence[A]` over `Evidence[B]`. While it can be achieved by introducing subtyping between their declaration
+	  * scopes (or their companions), it is not always possible (as with definitions declared directly in a package)
+	  * or desirable (if users are expected to provide their own `Evidence` instances and cannot take advantage
+	  * of the precedence coming from subtyping of declaration scopes). A phantom type parameter of `Rank`
+	  * comes to rescue:
+	  * {{{
+	  *     class Evidence[T, +R]
+	  *     implicit def evidenceA :Evidence[A, Rank0] = ???
+	  *     implicit def evidenceB :Evidence[B, Rank1] = ??? //has precedence over evidenceA
+	  * }}}
+	  * Such declarations are also cleaner than splitting them between several base classes.
+	  * Finally note, that a covariant declaration `+R` means values
+	  * of [[net.noresttherein.slang.typist.Rank.Rank0 Rank0]] have ''lower'' precedence 
+	  * than those of [[net.noresttherein.slang.typist.Rank.Rank1 Rank1]], as it is typically more convenient
+	  * to start with the most generic case and then introduce more specific cases with a higher precedence by
+	  * increasing the rank, it is possible to invert this scheme by declaring the rank parameter as contravariant:
+	  * {{{
+	  *     class Evidence[T, -R]
+	  *     implicit def evidenceA :Evidence[A, Rank1] = ???
+	  *     implicit def evidenceB :Evidence[B, Rank0] = ??? //same as before, has precedence over evidenceA
+	  * }}}
+	  * Whatever the decision was made at introduction, it is always possible to add cases with a ''lower'' precedence
+	  * to the existing ones (or higher, if the `Rank` type parameter is contravariant)
+	  * with [[net.noresttherein.slang.typist.Rank.- -]]`[R]`:
+	  * {{{
+	  *     class Evidence[T, +R]
+	  *     implicit def evidenceA :Evidence[A, Rank0]
+	  *     implicit def evidenceO :Evidence[O, -[Rank0]] //has lesser precedence than evidenceA
+	  * }}}
+	  *
+	  * In another use case, the same implicit value/conversion can be defined in several places
+	  * (a companion object to some related class, a `syntax` package containing all implicits in the library,
+	  * or a `imports` trait to be extended by application classes/package objects) - introducing
+	  * a `Rank` type parameter forces a precedence between these definitions if otherwise several candidates
+	  * are available (for example, by an explicit import from a specific location and an IDE-introduced wildcard import).
+	  */
+	type Rank
+
+
+
 	/** Tests if `left eq right`, executing the given block with the evidence to the identity as its argument,
-	  * returning its result in an [[net.noresttherein.slang.optional.Opt Opt]].
+	  * returning its result in an [[net.noresttherein.slang.vars.Opt Opt]].
 	  */
 	def ifeq[T](left :AnyRef, right :AnyRef)(block :(left.type =:= right.type) => T) :Opt[T] =
 		if (left eq right)
@@ -109,7 +158,39 @@ package object typist {
 
 	}
 
-
-
 }
 
+
+
+
+
+package typist {
+
+	object Rank {
+		/** A higher rank than `R`. `R` is assumed to be a [[net.noresttherein.slang.typist.Rank Rank]] subtype,
+		  * but the type bound is omitted for brevity. Types parameterized with `+[R]` are subtypes of the same
+		  * type constructors applied to `R` (assuming covariance in the `Rank` parameter). Multiple predefined aliases
+		  * for composition of `+` with `Rank` are defined in the same scope:
+		  * [[net.noresttherein.slang.typist.Rank.Rank0 Rank0]], [[net.noresttherein.slang.typist.Rank.Rank1 Rank1]],
+		  * [[net.noresttherein.slang.typist.Rank.Rank0 Rank2]], [[net.noresttherein.slang.typist.Rank.Rank1 Rank3]], ...
+		  */
+		type +[R] <: R
+		/** A lower rank than `R`. This a supertype of `R` and thus grants lower precedence to the parameterized type
+		  * if it is covariant in the `Rank` parameter, or higher precedence if it is contravariant.
+		  * @see [[net.noresttherein.slang.typist.Rank.+]]
+		  */
+		type -[R <: Rank] >: R <: Rank
+		/** The 'base' rank, the supertype of all other `RankX` type aliases. */
+		type Rank0 <: Rank
+		type Rank1 >: +[Rank0] <: Rank0//= +[Rank0]
+		type Rank2 >: +[Rank1] <: Rank1//= +[+[Rank0]]//+[Rank1]
+		type Rank3 >: +[Rank2] <: Rank2//= +[+[+[Rank0]]]//+[Rank2]
+		type Rank4 >: +[Rank3] <: Rank3//= +[+[+[+[Rank0]]]]//+[Rank3]
+		type Rank5 >: +[Rank4] <: Rank4//= +[+[+[+[+[Rank0]]]]]//+[Rank4]
+		type Rank6 >: +[Rank5] <: Rank5//= +[Rank5]
+		type Rank7 >: +[Rank6] <: Rank6//= +[Rank6]
+		type Rank8 >: +[Rank7] <: Rank7//= +[Rank7]
+		type Rank9 >: +[Rank8] <: Rank8//= +[Rank8]
+	}
+
+}

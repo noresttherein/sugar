@@ -1,7 +1,8 @@
 package net.noresttherein.slang.vars
 
-import Opt.{some_?, Got, Lack}
 import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
+import net.noresttherein.slang.vars.Ref.Undefined
 
 
 
@@ -21,7 +22,8 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isDefined :Boolean// = opt.isDefined
 
 	/** The wrapped value, if available. Depending on the actual implementation,
-	  * it can throw a [[NoSuchElementException]]. This is an alias for [[net.noresttherein.slang.vars.Ref.get get]].
+	  * it can throw a [[NoSuchElementException]] or block.
+	  * This is an alias for [[net.noresttherein.slang.vars.Ref.get get]].
 	  */
 	@inline final def apply() :T = get
 
@@ -34,16 +36,16 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  */
 	def get :T
 
-	/** The value of this instance, if it is available. This is an alias for [[net.noresttherein.slang.vars.Ref.? ?]]. */
-	def asOption :Option[T] = opt.asOption //todo: switch delegation order with ?
-
 	/** The value of this instance, if it is available. Lazily initialized objects (containing their initializers)
 	  * will proceed with the initialization if necessary, but subclasses which require external setting of the value
 	  * will return [[None]].
 	  * This method can block to wait for another thread only if initialization is currently in progress/the value
 	  * is currently mutated, but not if no other thread currently accesses this variable.
 	  */
-	@inline final def ? :Option[T] = asOption
+	def ? :Option[T] = opt.asOption
+
+	/** The value of this instance, if it is available. This is an alias for [[net.noresttherein.slang.vars.Ref.? ?]]. */
+	@inline final def asOption :Option[T] = ? //not toOption, because Box defined asOption_= (better than toOption_=)
 
 	/** The value of this instance, if it is available. Lazily initialized objects (containing their initializers)
 	  * will proceed with the initialization if necessary, but subclasses which require external setting of the value
@@ -53,16 +55,16 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  */
 	def opt :Opt[T]
 
-	/** The value of this instance, if it is available, as an instance of a specialized, option-like `Shot`.
+	/** The value of this instance, if it is available, as an instance of a specialized, option-like `Unsure`.
 	  * Lazily initialized objects (containing their initializers) will proceed with the initialization if necessary,
-	  * but subclasses which require external setting of the value will return [[net.noresttherein.slang.vars.Miss Miss]].
+	  * but subclasses which require external setting of the value will return [[net.noresttherein.slang.vars.Blank Blank]].
 	  * This method can block to wait for another thread only if initialization is currently in progress/the value
 	  * is currently mutated, but not if no other thread currently accesses this variable.
 	  */
-	def asShot :Shot[T] = opt.asShot
+	def unsure :Unsure[T] = opt.unsure
 
 	/** True if the content type is known to be a value type and the class is specialized for it.
-	  * Signifies that usage of [[net.noresttherein.slang.vars.Shot Shot]] is preferable
+	  * Signifies that usage of [[net.noresttherein.slang.vars.Unsure Unsure]] is preferable
 	  * over [[net.noresttherein.slang.vars.Opt Opt]]. Should not be relied upon for anything critical
 	  * and code should work correctly if this method returns a false result, in particular
 	  * a false negative (the default return value being `false`).
@@ -70,6 +72,11 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	private[vars] def isSpecialized :Boolean = false
 
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Ref[_]]
+
+	override def toString :String = opt match {
+		case Got(v) => String.valueOf(v)
+		case _ => Undefined.toString
+	}
 }
 
 
@@ -77,11 +84,98 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 object Ref {
 	@inline def unapply[T](ref :Ref[T]) :Opt[T] = ref.opt
 
-//	class RefOrdering[T](implicit content :Ordering[T]) extends Ordering[Ref[T]] {
-//		override def compare(x :Ref[T], y :Ref[T]) :Int = content.compare(x.value, y.value)
-//	}
-//
-//	implicit def RefOrdering[T :Ordering] = new RefOrdering[T]
+
+	implicit def RefPartialOrdering[V[X] <: Ref[X], T :PartialOrdering] :PartialOrdering[V[T]] =
+		new RefPartialOrdering[V, T]
+
+	private[vars] class RefPartialOrdering[V[X] <: Ref[X], T](implicit content :PartialOrdering[T])
+		extends PartialOrdering[V[T]]
+	{
+		private[this] final val ComparableEquiv = Some(0)
+
+		override def tryCompare(x :V[T], y :V[T]) :Option[Int] =
+			if (x.asInstanceOf[AnyRef] eq y.asInstanceOf[AnyRef])
+				ComparableEquiv
+			else if (x.isSpecialized && y.isSpecialized)
+				(x.unsure, y.unsure) match {
+					case (Sure(vx), Sure(vy)) => content.tryCompare(vx, vy)
+					case _ => None
+				}
+			else
+				(x.opt, y.opt) match {
+					case (Got(vx), Got(vy)) =>  content.tryCompare(vx, vy)
+					case _ => None
+				}
+
+		override def lteq(x :V[T], y :V[T]) :Boolean =
+			if (x.asInstanceOf[AnyRef] eq y.asInstanceOf[AnyRef])
+				true
+			else if (x.isSpecialized && y.isSpecialized)
+				(x.unsure, y.unsure) match {
+					case (Sure(vx), Sure(vy)) => content.lteq(vx, vy)
+					case _ => false
+				}
+			else
+				(x.opt, y.opt) match {
+					case (Got(vx), Got(vy)) => content.lteq(vx, vy)
+					case _ => false
+				}
+	}
+
+	private[vars] class RefOrdering[V[X] <: Ref[X], T](implicit content :Ordering[T]) extends Ordering[V[T]] {
+		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.get, y.get)
+	}
+
+	private[vars] abstract class RefNumeric[V[X] <: Ref[X], T](implicit content :Numeric[T])
+		extends RefOrdering[V, T] with Numeric[V[T]]
+	{
+		protected def inner :Numeric[T] = content
+
+		private[this] val + = content.plus _
+		private[this] val - = content.minus _
+		private[this] val * = content.times _
+		private[this] val ~ = content.negate _
+		private[this] val V = apply _
+
+		override def plus(x :V[T], y :V[T]) :V[T] = fmap(x, y)(+)
+		override def minus(x :V[T], y :V[T]) :V[T] = fmap(x, y)(-)
+		override def times(x :V[T], y :V[T]) :V[T] = fmap(x, y)(*)
+
+		override def negate(x :V[T]) :V[T] = map(x)(~)
+
+		override def fromInt(x :Int) :V[T] = apply(content.fromInt(x))
+		override def parseString(str :String) :Option[V[T]] = content.parseString(str).map(V)
+		override def toInt(x :V[T]) :Int = content.toInt(x.get)
+		override def toLong(x :V[T]) :Long = content.toLong(x.get)
+		override def toFloat(x :V[T]) :Float = content.toFloat(x.get)
+		override def toDouble(x :V[T]) :Double = content.toDouble(x.get)
+
+		protected def fmap(x :V[T], y :V[T])(op :(T, T) => T) :V[T] = apply(op(x.get, y.get))
+		protected def map(x :V[T])(f :T => T) :V[T] = apply(f(x.get))
+		protected def apply(x :T) :V[T]
+	}
+
+	abstract class RefIntegral[V[X] <: Ref[X], T](implicit content :Integral[T])
+		extends RefNumeric[V, T] with Integral[V[T]]
+	{
+		protected override def inner :Integral[T] = content
+		private[this] val / = content.quot _
+		private[this] val % = content.rem _
+
+		override def quot(x :V[T], y :V[T]) :V[T] = fmap(x, y)(/)
+		override def rem(x :V[T], y :V[T]) :V[T] = fmap(x, y)(%)
+	}
+
+	abstract class RefFractional[V[X] <: Ref[X], T](implicit content :Fractional[T])
+		extends RefNumeric[V, T] with Fractional[V[T]]
+	{
+		protected override def inner :Fractional[T] = content
+		private[this] val / = content.div _
+
+		override def div(x :V[T], y :V[T]) :V[T] = fmap(x, y)(/)
+	}
+
+
 
 	/** A marker object used by some implementations to signify that a reference has no actual value. */
 	private[vars] object Undefined {
@@ -106,11 +200,11 @@ object Ref {
   * will always return a value, and always the same value for the same instance of `Val`.
   * How and when that value is computed is unspecified, and optional methods such as
   * [[net.noresttherein.slang.vars.Ref.opt opt]], [[net.noresttherein.slang.vars.Ref.? ?]]
-  * and [[net.noresttherein.slang.vars.Ref.asShot asShot]] are allowed to return empty instances
+  * and [[net.noresttherein.slang.vars.Ref.unsure asUnsure]] are allowed to return empty instances
   * if the value is not available at the moment of calling.
   *
   * @author Marcin Mościcki
-  */ //consider: caching of the T wrapper, Opt, Option, Shot
+  */ //consider: caching of the T wrapper, Opt, Option, Unsure
 trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) {
 	/** Checks if this object currently contains a value. This can happen either through lazy initialization or explicit
 	  * assignment, depending on the implementation. If `true`, then `get` will return the value

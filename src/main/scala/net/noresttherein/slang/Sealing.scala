@@ -60,7 +60,7 @@ import net.noresttherein.slang.Sealing.NotSealed
   *
   * @author Marcin Mościcki
   */
-class Sealing {
+trait Sealing {
 
 	/** An artificial class used to prevent overriding of a method by classes outside of the visibility scope
 	  * of the enclosing [[net.noresttherein.slang.Sealing Sealing]] instance. It circumvents the problem

@@ -2,7 +2,7 @@ package net.noresttherein.slang.vars
 
 import java.lang.invoke.VarHandle.{acquireFence, releaseFence}
 
-import net.noresttherein.slang.vars.InOut.SpecializedVars
+import net.noresttherein.slang.vars.InOut.{InOutOrdering, SpecializedVars}
 import net.noresttherein.slang.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 
 
@@ -27,7 +27,7 @@ import net.noresttherein.slang.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   */
 @SerialVersionUID(1L)
 sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
-	extends InOut[T] with VolatileLike[T] with Serializable
+	extends VolatileLike[T] with Mutable[T] with Serializable
 {
 	protected override def factory :Atomic.type = Atomic
 
@@ -41,6 +41,8 @@ sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this
 		releaseFence()
 		x = value
 	}
+
+//	override def toString :String =
 }
 
 
@@ -50,6 +52,9 @@ sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this
   * @define variable atomic variable
   */
 object Atomic extends VolatileLikeFactory[Atomic] {
+
+	implicit def AtomicOrdering[T :Ordering] :Ordering[Atomic[T]] = new InOutOrdering[Atomic, T]
+
 
 	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Atomic[T] = new Atomic(init)
 	protected override def newRefInstance[T](init :T) :Atomic[T] = new AtomicRef(init)

@@ -12,7 +12,8 @@ import net.noresttherein.slang.witness.DefaultValue
 
 /** Implementation trait for `InOut` implementations with `@volatile` atomic update operations. */
 private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[T] {
-	protected def factory :VolatileLikeFactory[VolatileLike]
+	//todo: change the semantics of testAndSet and the rest from eq to equals
+	protected def factory :VolatileLikeOps[VolatileLike]
 
 	override def isDefined :Boolean = true
 
@@ -120,68 +121,40 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 			ev(this).value = true
 
 	private[vars] override def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
-		val handle = boolHandle
 		val expect = ev(this).value
-		factory.repeatBoolTestAndSet(handle)(ev(this), expect, expect ^ other, !expect ^ other)
+		factory.repeatBoolTestAndSet(ev(this), expect, expect ^ other, !expect ^ other)
 	}
 
 	private[vars] override def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = {
-		val handle = boolHandle
 		val expect = ev(this).value
-		factory.repeatBoolTestAndSet(handle)(ev(this), expect, !expect, expect)
-	}
-
-	private def boolHandle = {
-		val companion = factory
-		getClass match {
-			case companion.CaseBool | companion.CaseBoolSpec => companion.boolHandle
-			case _ => companion.anyHandle
-		}
+		factory.repeatBoolTestAndSet(ev(this), expect, !expect, expect)
 	}
 
 
 	private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = 
-		intHandle.getAndAdd(this :AnyRef, other).asInstanceOf[Int] + other
+		factory.intHandle(ev(this)).getAndAdd(this :AnyRef, other).asInstanceOf[Int] + other
 	
 	private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = 
-		intHandle.getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Int] & other
+		factory.intHandle(ev(this)).getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Int] & other
 	
-	private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = 
-		intHandle.getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Int] | other
+	private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int =
+		factory.intHandle(ev(this)).getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Int] | other
 	
-	private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = 
-		intHandle.getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Int] ^ other
-
-	private def intHandle = {
-		val companion = factory
-		val handle = getClass match {
-			case companion.CaseInt => companion.intHandle
-			case _ => companion.anyHandle
-		}
-		handle
-	}
+	private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int =
+		factory.intHandle(ev(this)).getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Int] ^ other
 
 
 	private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		longHandle.getAndAdd(this :AnyRef, other).asInstanceOf[Long] + other
+		factory.longHandle(ev(this)).getAndAdd(this :AnyRef, other).asInstanceOf[Long] + other
 
 	private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		longHandle.getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Long] & other
+		factory.longHandle(ev(this)).getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Long] & other
 
 	private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		longHandle.getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Long] | other
+		factory.longHandle(ev(this)).getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Long] | other
 
 	private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		longHandle.getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Long] ^ other
-
-	private def longHandle = {
-		val companion = factory
-		val handle = getClass match {
-			case companion.CaseLong => companion.longHandle
-			case _ => companion.anyHandle
-		}
-		handle
-	}
+		factory.longHandle(ev(this)).getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Long] ^ other
 
 
 	private[vars] override def isSpecialized = true
@@ -248,28 +221,28 @@ private[vars] object VolatileLike {
 			val companion = factory
 			val expect = value
 			val ifExpected = f(expect)
-			if (companion.boolHandle.weakCompareAndSet(this, expect, ifExpected))
+			if (companion.boolHandle(this).weakCompareAndSet(this, expect, ifExpected))
 				ifExpected
 			else
-				companion.repeatBoolTestAndSet(companion.boolHandle)(this, !expect, f(!expect), ifExpected)
+				companion.repeatBoolTestAndSet(this, !expect, f(!expect), ifExpected)
 		}
 		override def applyRight[@specialized(Args) A](z :A)(f :(Boolean, A) => Boolean) :Boolean = {
 			val companion = factory
 			val expect = value
 			val ifExpected = f(expect, z)
-			if (companion.boolHandle.weakCompareAndSet(this, expect, ifExpected))
+			if (companion.boolHandle(this).weakCompareAndSet(this, expect, ifExpected))
 				ifExpected
 			else
-				companion.repeatBoolTestAndSet(companion.boolHandle)(this, !expect, f(!expect, z), ifExpected)
+				companion.repeatBoolTestAndSet(this, !expect, f(!expect, z), ifExpected)
 		}
 		override def applyLeft[@specialized(Args) A](z :A)(f :(A, Boolean) => Boolean) :Boolean = {
 			val companion = factory
 			val expect = value
 			val ifExpected = f(z, expect)
-			if (companion.boolHandle.weakCompareAndSet(this, expect, ifExpected))
+			if (companion.boolHandle(this).weakCompareAndSet(this, expect, ifExpected))
 				ifExpected
 			else
-				companion.repeatBoolTestAndSet(companion.boolHandle)(this, !expect, f(z, !expect), ifExpected)
+				companion.repeatBoolTestAndSet(this, !expect, f(z, !expect), ifExpected)
 		}
 	}
 
@@ -280,25 +253,30 @@ private[vars] object VolatileLike {
 
 
 
+private[vars] abstract class VolatileLikeOps[+V[T] <: InOut[T]] {
+	private[vars] def getAndSet[@specialized(SpecializedVars) T](v :InOut[T], newValue :T) :T
+	private[vars] def testAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean
+	private[vars] def weakTestAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean
+
+	private[vars] def repeatBoolTestAndSet
+	                  (bool :InOut[Boolean], expect :Boolean, ifExpected :Boolean, ifNotExpected :Boolean) :Boolean
+
+	private[vars] def intHandle(variable :InOut[Int]) :VarHandle
+	private[vars] def longHandle(variable :InOut[Long]) :VarHandle
+	private[vars] def boolHandle(variable :InOut[Boolean]) :VarHandle
+}
+
+
+
 /** @define variable variable */
-private[vars] abstract class VolatileLikeFactory[+V[T] <: InOut[T]] {
-	/** Create a new $variable which can be shared by multiple threads. */
-	def apply[@specialized(SpecializedVars) T](init :T) :V[T] = newInstance(init) match {
-		case any if any.getClass == CaseUnspec => newRefInstance(init)
-		case bool if bool.getClass == CaseBool => newBoolInstance(init.asInstanceOf[Boolean]).asInstanceOf[V[T]]
-		case res => res
-	}
-
-	/** Create a new $variable which can be shared by multiple threads. */
-	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :V[T] = apply(default.default)
-
+private[vars] abstract class VolatileLikeCompanion[+V[T] <: InOut[T]] extends VolatileLikeOps[V] {
 
 	protected def newInstance[@specialized(SpecializedVars) T](init :T) : V[T]
 	protected def newRefInstance[T](init :T) :V[T]
 	protected def newBoolInstance(init :Boolean) :V[Boolean]
 
 
-	private[vars] def getAndSet[@specialized(SpecializedVars) T](v :InOut[T], newValue :T) :T =
+	private[vars] override def getAndSet[@specialized(SpecializedVars) T](v :InOut[T], newValue :T) :T =
 		(v.getClass match {
 			case CaseAny                 => anyHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any])
 			case CaseInt                 => intHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Int])
@@ -312,7 +290,7 @@ private[vars] abstract class VolatileLikeFactory[+V[T] <: InOut[T]] {
 			case _                       => anyHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any]) //CaseUnspec
 		}).asInstanceOf[T]
 
-	private[vars] def testAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean =
+	private[vars] override def testAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean =
 		v.getClass match {
 			case CaseAny      =>
 				anyHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
@@ -336,7 +314,7 @@ private[vars] abstract class VolatileLikeFactory[+V[T] <: InOut[T]] {
 				anyHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any]) //CaseUnspec
 		}
 
-	private[vars] def weakTestAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean =
+	private[vars] override def weakTestAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean =
 		v.getClass match {
 			case CaseAny                 =>
 				anyHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
@@ -360,15 +338,29 @@ private[vars] abstract class VolatileLikeFactory[+V[T] <: InOut[T]] {
 				anyHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any]) //CaseUnspec
 		}
 
-	private[vars] def repeatBoolTestAndSet(handle :VarHandle)
-	                                      (bool :InOut[Boolean], expect :Boolean, ifExpected :Boolean, ifNotExpected :Boolean) =
+	private[vars] override def repeatBoolTestAndSet(bool :InOut[Boolean], expect :Boolean,
+	                                                ifExpected :Boolean, ifNotExpected :Boolean) :Boolean =
 	{
+		val handle = boolHandle(bool)
 		var v = expect
 		while (!handle.weakCompareAndSet(bool, if (v == expect) ifExpected else ifNotExpected))
 			v = !v
 		if (v == expect) ifExpected else ifNotExpected
 	}
 
+
+	private[vars] override def intHandle(variable :InOut[Int]) = variable.getClass match {
+		case CaseInt => intHandle
+		case _ => anyHandle
+	}
+	private[vars] override def longHandle(variable :InOut[Long]) = variable.getClass match {
+		case CaseLong => longHandle
+		case _ => anyHandle
+	}
+	private[vars] override def boolHandle(variable :InOut[Boolean]) = variable.getClass match {
+		case CaseBool | CaseBoolSpec => boolHandle
+		case _ => anyHandle
+	}
 
 	private[vars] val CaseByte     = newInstance(0.toByte).getClass
 	private[vars] val CaseShort    = newInstance(0.toShort).getClass
@@ -381,7 +373,7 @@ private[vars] abstract class VolatileLikeFactory[+V[T] <: InOut[T]] {
 	private[vars] val CaseBoolSpec = newBoolInstance(false).getClass
 	private[vars] val CaseAny      = newRefInstance(new AnyRef).getClass
 	private[vars] val CaseUnspec   = newInstance(new AnyRef).getClass
-	       
+
 	private[vars] val byteHandle   = newHandle(CaseByte, java.lang.Byte.TYPE)
 	private[vars] val shortHandle  = newHandle(CaseShort, java.lang.Short.TYPE)
 	private[vars] val charHandle   = newHandle(CaseChar, java.lang.Character.TYPE)
@@ -401,4 +393,19 @@ private[vars] abstract class VolatileLikeFactory[+V[T] <: InOut[T]] {
 		else "x" + cls.getName.substring(specSuffixStart)
 	}
 
+}
+
+
+
+
+private[vars] trait VolatileLikeFactory[+V[X] <: VolatileLike[X]] extends VolatileLikeCompanion[V] {
+	/** Create a new $variable which can be shared by multiple threads. */
+	def apply[@specialized(SpecializedVars) T](init :T) :V[T] = newInstance(init) match {
+		case any if any.getClass == CaseUnspec => newRefInstance(init)
+		case bool if bool.getClass == CaseBool => newBoolInstance(init.asInstanceOf[Boolean]).asInstanceOf[V[T]]
+		case res => res
+	}
+
+	/** Create a new $variable which can be shared by multiple threads. */
+	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :V[T] = apply(default.get)
 }

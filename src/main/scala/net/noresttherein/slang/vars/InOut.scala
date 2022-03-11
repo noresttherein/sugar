@@ -3,8 +3,8 @@ package net.noresttherein.slang.vars
 import scala.Specializable.Args
 import scala.annotation.nowarn
 
-import Opt.Got
-import net.noresttherein.slang.vars.InOut.{InOutNumeric, InOutOrdering, SpecializedVars, TestAndSet, TypeEquiv}
+import net.noresttherein.slang.vars.InOut.{SpecializedVars, TestAndSet, TypeEquiv}
+import net.noresttherein.slang.vars.Opt.Got
 import net.noresttherein.slang.witness.DefaultValue
 
 
@@ -77,7 +77,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]] and [[net.noresttherein.slang.vars.Atomic Atomic]] -
 	  * the semantics of simple default [[net.noresttherein.slang.vars.Var Var]] offers no guarantees in multi-threaded
 	  * environments.
-	  * @param f function to apply to the value of this variable. Should have no side effects as it may be invoked
+	  * @param f a function to apply to the value of this variable. Should have no side effects as it may be invoked
 	  *          several times.
 	  * @return the result of applying `f` to the current value.
 	  */
@@ -221,46 +221,36 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[InOut[_]]
 	override def hashCode :Int = opt.hashCode
 
-	override def toString :String = String.valueOf(value)
 }
 
 
 
-
-
-
-private[vars] sealed abstract class InOutOrderingImplicits {
-	@inline implicit def InOutOrdering[T](implicit ordering :Ordering[T]) :Ordering[InOut[T]] =
-		new InOutOrdering(ordering)
-}
-//todo: get rid of these, they make little sense
-private[vars] sealed abstract class InOutNumericImplicits extends InOutOrderingImplicits {
-	@inline implicit def InOutNumeric[T](implicit numeric :Numeric[T]) :Numeric[InOut[T]] =
-		new InOutNumeric(numeric)
-}
 
 
 
 /** Factory of boxed in/out method parameters. */
-object InOut extends InOutNumericImplicits {
-
-	/** Unbox the value hold by an `InOut` wrapper. */
-	@inline final implicit def unboxInOut[@specialized(SpecializedVars) T](variable :InOut[T]) :T = variable.value
-
-
-
+object InOut {
+	final val SpecializedVars = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :InOut[T] = new Var[T](value)
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter.*/
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :InOut[T] =
-		new Var[T](default.default)
+		new Var[T](default.get)
 
 
-	final val SpecializedVars = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
+
+	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut.:? :?]]. */
+	final class TestAndSet[@specialized(SpecializedVars) T] private[vars](x :InOut[T], expect :T) {
+		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
+		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)
+	}
 
 
+
+	/** Unbox the value hold by an `InOut` wrapper. */
+	@inline final implicit def unboxInOut[@specialized(SpecializedVars) T](variable :InOut[T]) :T = variable.value
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs or cause conflicts. */
 	object implicits {
@@ -313,117 +303,9 @@ object InOut extends InOutNumericImplicits {
 	}
 
 
-
-	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.slang.vars.InOut.:? :?]]. */
-	final class TestAndSet[@specialized(SpecializedVars) T] private[vars](x :InOut[T], expect :T) {
-		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
-		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)
+	private[vars] class InOutOrdering[V[X] <: InOut[X], T](implicit content :Ordering[T]) extends Ordering[V[T]] {
+		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.value, y.value)
 	}
-
-
-
-	/** Similarly to `=:=`, attests that `X` and `Y` can be safely cast from one to another, i.e. that they are
-	  * the same type. This trait is specialized in order to enforce specialization of accepting methods, which
-	  * wouldn't be the case with `=:=`.
-	  */
-	private[vars] trait TypeEquiv[@specialized(SpecializedVars) X, Y] {
-		def apply[B[_]](param :B[X]) :B[Y]
-	}
-
-	private[vars] final class TypeIdent[@specialized(SpecializedVars) X] extends TypeEquiv[X, X] {
-		override def apply[B[_]](param :B[X]) :B[X] = param
-
-		override def equals(other :Any) :Boolean = other match {
-			case ident :TypeIdent[_] => getClass == ident.getClass
-			case _ => false
-		}
-	}
-
-	private[vars] implicit val BoolEq = new TypeIdent[Boolean]
-	private[vars] implicit val IntEq = new TypeIdent[Int]
-	private[vars] implicit val LongEq = new TypeIdent[Long]
-	private[vars] implicit val FloatEq = new TypeIdent[Float]
-	private[vars] implicit val DoubleEq = new TypeIdent[Double]
-	private[vars] implicit val ShortEq = new TypeIdent[Short]
-	private[vars] implicit val ByteEq = new TypeIdent[Byte]
-	private[vars] implicit val CharEq = new TypeIdent[Char]
-	private[vars] val AnyRefEq = new TypeIdent[AnyRef]
-
-
-
-
-
-/******************************* Ordering and Numeric related type classes ********************************************/
-
-
-
-	/** Base class for type classes derived from `Ordering[InOut[T]]` backed by a corresponding type class for its value type. */
-	class InOutOrderingLike[T, C[X] <: Ordering[X]](inner :C[T]) extends Ordering[InOut[T]] {
-		@inline final protected[this] def vals :C[T] = inner
-
-		override def compare(x :InOut[T], y :InOut[T]) :Int = vals.compare(x.value, y.value)
-	}
-
-
-	/** Implicit `Ordering` type class for `InOut[T]` available whenever implicit value for `Ordering[T]` can be found. */
-	class InOutOrdering[T](ordering :Ordering[T]) extends InOutOrderingLike[T, Ordering](ordering)
-
-
-	/** Base class for type classes on `InOut[T]` derived from `Numeric[InOut[T]]` and backed
-	  * by the corresponding type class on the value type `T`.
-	  */
-	class InOutNumericLike[T, C[X] <: Numeric[X]](nums :C[T])
-		extends InOutOrderingLike[T, C](nums) with Numeric[InOut[T]]
-	{
-		override def plus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.plus(x.value, y.value))
-
-		override def minus(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.minus(x.value, y.value))
-
-		override def times(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.times(x.value, y.value))
-
-		override def negate(x :InOut[T]) :InOut[T] = InOut(vals.negate(x.value))
-
-		override def fromInt(x :Int) :InOut[T] = InOut(vals.fromInt(x))
-
-		override def toInt(x :InOut[T]) :Int = vals.toInt(x.value)
-
-		override def toLong(x :InOut[T]) :Long = vals.toLong(x.value)
-
-		override def toFloat(x :InOut[T]) :Float = vals.toFloat(x.value)
-
-		override def toDouble(x :InOut[T]) :Double = vals.toDouble(x.value)
-
-		override def parseString(str :String) :Option[InOut[T]] = nums.parseString(str).map(InOut(_))
-	}
-
-
-	/** Implicit type class `Numeric[InOut[T]]` providing numeric operations on `InOut[T]` whenever an implicit value
-	  *  for `Numeric[T]` is available.
-	  */
-	class InOutNumeric[T](nums :Numeric[T]) extends InOutNumericLike[T, Numeric](nums)
-
-
-	/** Implicit type class `Integral[InOut[T]]` providing integral operations on `InOut[T]` whenever an implicit value
-	  * for `Numeric[T]` is available.
-	  */
-	class InOutIntegral[T](nums :Integral[T]) extends InOutNumericLike[T, Integral](nums) with Integral[InOut[T]] {
-		override def quot(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.quot(x.value, y.value))
-
-		override def rem(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.rem(x.value, y.value))
-	}
-
-	implicit def InOutIntegral[T](implicit integral :Integral[T]) :Integral[InOut[T]] = new InOutIntegral(integral)
-
-
-	/** Implicit type class `Fractional[InOut[T]]` providing numeric operations on `InOut[T]` whenever an implicit value
-	  * for `Numeric[T]` is available.
-	  */
-	class InOutFractional[T](nums :Fractional[T]) extends InOutNumericLike[T, Fractional](nums) with Fractional[InOut[T]] {
-		override def div(x :InOut[T], y :InOut[T]) :InOut[T] = InOut(vals.div(x.value, y.value))
-	}
-
-	implicit def InOutFractional[T](implicit fractional :Fractional[T]) :Fractional[InOut[T]] = new InOutFractional(fractional)
-
 
 
 
@@ -439,8 +321,7 @@ object InOut extends InOutNumericImplicits {
 	  * use the appropriate type of the variable ([[net.noresttherein.slang.vars.Var Var]] or
 	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
-	implicit class InOutBooleanOps(private val x :InOut[Boolean]) extends AnyVal {
-
+	implicit class InOutBooleanLogic(private val x :InOut[Boolean]) extends AnyVal {
 		/** Assigns this variable its (eager) logical conjunction with the given argument: `x := x & other`.
 		  * It should be preferred to `&&` whenever the argument is readily available (such as a `val` member), as
 		  * the lazy alternative will not be inlined in most scenarios and require an actual function call.
@@ -494,12 +375,8 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def flip() :Unit = x.bool_!=
-
 	}
 
-
-
-	
 	
 	
 	/** Implicit conversion of a `InOut[Int]` variable providing basic arithmetic and bitwise operations. 
@@ -511,8 +388,7 @@ object InOut extends InOutNumericImplicits {
 	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutIntArithmetic(private val x :InOut[Int]) extends AnyVal {
-
-		/** Increases the value of this variable by the specified number. 
+		/** Increases the value of this variable by the specified number.
 		  * As the static type of this variable is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
@@ -560,7 +436,6 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@nowarn @inline def -- :Unit = x.int_+=(-1)
-
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. 
@@ -684,8 +559,7 @@ object InOut extends InOutNumericImplicits {
 	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutLongArithmetic(private val x :InOut[Long]) extends AnyVal {
-
-		/** Increases the value of this variable by the specified number. 
+		/** Increases the value of this variable by the specified number.
 		  * As the static type of this variable is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
@@ -733,6 +607,7 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@nowarn @inline def -- :Unit = x.long_+=(-1)
+
 
 		/** Increases the value of this variable by the specified number, returning the updated value. 
 		  * As the static type of this variable is the generic `InOut[Long]`, this results in a polymorphic method
@@ -839,11 +714,7 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def flip() :Unit = x := x.long_~
-
 	}
-
-
-
 
 
 
@@ -856,8 +727,7 @@ object InOut extends InOutNumericImplicits {
 	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutFloatArithmetic(private val x :InOut[Float]) extends AnyVal {
-
-		/** Increases the value of this variable by the specified number. 
+		/** Increases the value of this variable by the specified number.
 		  * As the static type of this variable is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
@@ -884,7 +754,6 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def /=(n :Float) :Unit = x.float_/=(n)
-
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. 
@@ -921,11 +790,7 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def neg() :Float = x.float_-
-		
 	}
-
-
-
 
 
 
@@ -938,8 +803,7 @@ object InOut extends InOutNumericImplicits {
 	  * [[net.noresttherein.slang.vars.SyncVar SyncVar]]).
 	  */
 	implicit class InOutDoubleArithmetic(private val x :InOut[Double]) extends AnyVal {
-
-		/** Increases the value of this variable by the specified number. 
+		/** Increases the value of this variable by the specified number.
 		  * As the static type of this variable is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
@@ -966,8 +830,6 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def /=(n :Double) :Unit = x.double_/=(n)
-
-
 
 
 		/** Increases the value of this variable by the specified number, returning the updated value. 
@@ -1004,7 +866,38 @@ object InOut extends InOutNumericImplicits {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def neg() :Double = x.double_-
-		
 	}
+
+
+
+
+
+
+	/** Similarly to `=:=`, attests that `X` and `Y` can be safely cast from one to another, i.e. that they are
+	  * the same type. This trait is specialized in order to enforce specialization of accepting methods, which
+	  * wouldn't be the case with `=:=`.
+	  */
+	private[vars] trait TypeEquiv[@specialized(SpecializedVars) X, Y] {
+		def apply[B[_]](param :B[X]) :B[Y]
+	}
+
+	private[vars] final class TypeIdent[@specialized(SpecializedVars) X] extends TypeEquiv[X, X] {
+		override def apply[B[_]](param :B[X]) :B[X] = param
+
+		override def equals(other :Any) :Boolean = other match {
+			case ident :TypeIdent[_] => getClass == ident.getClass
+			case _ => false
+		}
+	}
+
+	private[vars] implicit val BoolEq   :TypeIdent[Boolean] = new TypeIdent[Boolean]
+	private[vars] implicit val IntEq    :TypeIdent[Int]     = new TypeIdent[Int]
+	private[vars] implicit val LongEq   :TypeIdent[Long]    = new TypeIdent[Long]
+	private[vars] implicit val FloatEq  :TypeIdent[Float]   = new TypeIdent[Float]
+	private[vars] implicit val DoubleEq :TypeIdent[Double]  = new TypeIdent[Double]
+	private[vars] implicit val ShortEq  :TypeIdent[Short]   = new TypeIdent[Short]
+	private[vars] implicit val ByteEq   :TypeIdent[Byte]    = new TypeIdent[Byte]
+	private[vars] implicit val CharEq   :TypeIdent[Char]    = new TypeIdent[Char]
+	private[vars] val AnyRefEq          :TypeIdent[AnyRef]  = new TypeIdent[AnyRef]
 
 }

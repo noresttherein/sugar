@@ -152,6 +152,10 @@ trait TimeFrame extends Any with TimeExtent {
 	def period :Period
 	def duration :Duration
 
+	def durationFrom(timePoint :DefiniteTime)(implicit time :Time = Time.Local) :Duration
+	def timeSpanFrom(timePoint :DefiniteTime)(implicit time :Time = Time.Local) :TimeSpan =
+		durationFrom(timePoint)
+
 	override def isFinite = true
 	override def isInfinite = false
 
@@ -496,11 +500,14 @@ object TimeInterval {
   */
 trait TimeSpan extends Any with TimeInterval with TimeFrame {
 
-	override def period :Period = Period.Zero
+	override def period   :Period = Period.Zero
 	override def duration :Duration = toDuration
-	override def fixed :TimeSpan = this
+	override def fixed    :TimeSpan = this
 
 	override def normalized :TimeSpan = this
+
+	override def durationFrom(timePoint :DefiniteTime)(implicit time :Time = Time.Local) :Duration = toDuration
+	override def timeSpanFrom(timePoint :DefiniteTime)(implicit time :Time = Time.Local) :TimeSpan = this
 
 	override def unit :TimeUnit
 
@@ -683,13 +690,15 @@ sealed trait DateInterval extends Any with TimeExtent {
   */
 trait DateSpan extends Any with DateInterval with TimeFrame {
 	override def variable :DateSpan = this
-	override def period :Period = toPeriod
+	override def period   :Period   = toPeriod
 	override def duration :Duration = Duration.Zero
 
 	override def normalized :DateSpan
 
 	def toPeriod :Period
 
+	override def durationFrom(timePoint :DefiniteTime)(implicit time :Time = Time.Local) :Duration =
+		timePoint.local + this - timePoint
 
 	override def unary_- :DateSpan
 
@@ -1084,6 +1093,9 @@ private[time] final class DateTimeSpan(val period :Period, val duration :Duratio
 	override def fixed :TimeSpan = duration
 
 	override def normalized :TimeFrame = new DateTimeSpan(period.normalized, duration)
+
+	override def durationFrom(timePoint :DefiniteTime)(implicit time :Time) :Duration =
+		timePoint.local + period + duration - timePoint
 
 	override def isZero :Boolean = period.isZero && duration.isZero
 
