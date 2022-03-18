@@ -264,7 +264,7 @@ class RethrowableException(message :String, cause :Throwable, override val isRet
 
 
 /** A [[Throwable]] designed not to be thrown, but instead added to the list of [[Throwable.addSuppressed suppressed]]
-  * exception of another exception, providing additional information added by earlier method on the call stack
+  * exceptions of another exception, providing additional information added by earlier method on the call stack
   * of another thrown, caught and rethrown exception.
   * @see [[net.noresttherein.slang.exceptions.imports.rethrow]]
   */
@@ -272,7 +272,30 @@ class RethrowContext(message :String, cause :Throwable = null)
 	extends Throwable(message, cause, false, false) with AbstractThrowable
 
 
+/** A lightweight, 'temporary' exception with disabled suppression and stack trace.
+  * It is thrown to indicate a well defined error discovered in a deeply nested private method,
+  * with an intent of being caught by an entry method which resulted in the problematic call,
+  * and rethrown as another type of exception, in a scope where more useful information about the input
+  * which lead to the error is available. Instances can be often reused in that case, reducing the exception
+  * overhead even further.
+  */
+class InternalException(msg :String = null, cause :Throwable = null)
+	extends RuntimeException(msg, cause, false, false) with StackableThrowable
+{
+	override def addInfo(msg :String) :AbstractThrowable = new InternalException(msg, this)
+}
 
+
+
+
+
+
+/** An [[Error]] thrown to indicate a situation which clearly indicates a bug in the executed code,
+  * rather than invalid parameters or external state.
+  */
+class ProgrammingError(msg :String, reason :Throwable = null) extends Error(msg, reason) with StackableThrowable {
+	override def addInfo(msg :String) :AbstractThrowable = new ProgrammingError(msg, this)
+}
 
 
 /** An exception thrown by code which should be impossible to execute.
@@ -292,10 +315,8 @@ class RethrowContext(message :String, cause :Throwable = null)
   * @see [[net.noresttherein.slang.imports.impossible_!]]
   */
 @SerialVersionUID(1L)
-class ImpossibleError(msg :String = null, reason :Throwable = null) extends Error(msg, reason) with StackableThrowable {
-	def this(msg :String) = this(msg, null)
-
-	def this() = this("Implementation error", null)
-
+class ImpossibleError(msg :String = "Implementation error", reason :Throwable = null)
+	extends Error(msg, reason) with StackableThrowable
+{
 	override def addInfo(msg :String) :AbstractThrowable = new ImpossibleError(msg, this)
 }

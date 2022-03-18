@@ -22,11 +22,22 @@ object extensions extends extensions {
 	class feedToMethod[X](private val x :X) extends AnyVal {
 		//todo: maybe some special character name?
 		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
-		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write,
-		  * especially when modifying existing code for `f`, as there is no need for a a closing `}` in a possibly
-		  * distant edit location.
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
+		  * when applying an argument to a composed function expression:
+		  * {{{
+		  *     x feedTo (f andThen g andThen h)
+		  * }}}
 		  */
 		def feedTo[T](f :X => T) :T = f(x)
+
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
+		  * when applying an argument to a composed function expression:
+		  * {{{
+		  *     x \-> (f andThen g andThen h)
+		  * }}}
+		  */
+		def \=>[T](f :X => T) :T = f(x)
 	}
 
 

@@ -1,17 +1,27 @@
 package net.noresttherein.slang.witness
 
-
+import net.noresttherein.slang.extensions.saferCasting
+import net.noresttherein.slang.vars.Opt
+import net.noresttherein.slang.vars.Opt.{Got, Lack}
+import net.noresttherein.slang.witness.Maybe.NoContent
 
 
 /** A type for which an implicit value is always present, however, if an implicit value for `T` can be found,
-  * it is exposed as `Some[T]` through this instances [[net.noresttherein.slang.witness.Maybe.opt opt]] method.
+  * it is exposed as `Got[T]` through this instances [[net.noresttherein.slang.witness.Maybe.opt opt]] method.
   */
-class Maybe[+T] private[witness] (val opt :Option[T]) extends AnyVal
+class Maybe[+T] private[witness] (private val content :AnyRef) extends AnyVal {
+	def opt :Opt[T] = if (content == NoContent) Lack else Got(content.asInstanceOf[T])
+
+	@inline def getOrElse[O >: T](alternative: => O) :O  = content match {
+		case NoContent => alternative
+		case o :O @unchecked => o
+	}
+}
 
 
 
-sealed abstract class MaybeNoImplicit {
-	private val no = new Maybe[Nothing](None)
+private[witness] sealed abstract class MaybeNoImplicit {
+	private val no = new Maybe[Nothing](NoContent)
 	implicit final def maybeNo[T] :Maybe[T] = no
 }
 
@@ -19,20 +29,21 @@ sealed abstract class MaybeNoImplicit {
 
 /** Provides optional implicit values if they are available wrapped as `Maybe[T]`. */
 object Maybe extends MaybeNoImplicit {
-	def apply[T](implicit maybe :Maybe[T]) :Option[T] = maybe.opt
+	def apply[T](implicit maybe :Maybe[T]) :Opt[T] = maybe.opt
 
-	def unapply[T](maybe :Maybe[T]) :Option[T] = maybe.opt
-
-
-	final val none = new Maybe[Nothing](None)
-
-	def some[T](implicit evidence :T) :Maybe[T] = new Maybe(Some(evidence))
+	def unapply[T](maybe :Maybe[T]) :Opt[T] = maybe.opt
 
 
-	implicit def maybeYes[T](implicit e :T) :Maybe[T] = new Maybe(Some(e))
+	final val none = new Maybe[Nothing](NoContent)
 
-	implicit def explicit[T](value :T) :Maybe[T] = new Maybe(Some(value))
+	def some[T](implicit evidence :T) :Maybe[T] = new Maybe(evidence.asAnyRef)
 
+
+	implicit def maybeYes[T](implicit e :T) :Maybe[T] = new Maybe(e.asAnyRef)
+
+	implicit def explicit[T](value :T) :Maybe[T] = new Maybe(value.asAnyRef)
+
+	private[witness] case object NoContent
 }
 
 

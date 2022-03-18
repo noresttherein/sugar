@@ -34,6 +34,9 @@ trait extensions extends Any {
   * (which would not produce any compiler warning with `asInstanceOf`).
   */
 class SaferCasting[X](private val self :X) extends AnyVal {
+	/** Promotes `this` value to its `AnyRef` runtime representation. */
+	@inline def asAnyRef :AnyRef = self.asInstanceOf[AnyRef]
+
 	/** Casts this expression to its subtype `T`. */
 	@inline def downcastTo[T <: X] :T = self.asInstanceOf[T]
 

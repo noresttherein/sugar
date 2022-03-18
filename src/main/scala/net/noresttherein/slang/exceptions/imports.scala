@@ -97,7 +97,7 @@ trait imports {
 		new StackTraceElement(classOf[imports].getName, "rethrow", "imports.scala", 84)
 
 	private[exceptions] final val conjureThrowableStackTraceElement =
-		new StackTraceElement(classOf[imports].getName, "conjureThrowable", "imports.scala", 94)
+		new StackTraceElement(classOf[imports].getName, "conjureThrowable", "imports.scala", 97)
 
 	private[exceptions] final val fillInStackTraceStackTraceElement =
 		new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "AbstractThrowable.scala", -1)
@@ -218,6 +218,16 @@ trait imports {
 	  * and does not trigger any lint warnings.
 	  */
 	def ??! :Nothing = throw new ImpossibleError
+
+	/** Throws a programming error with the given message, to indicate a situation which should not have happened
+	  * and indicates a bug in the executed code.
+	  */
+	def oops(msg :String) :Nothing = throw new ProgrammingError(msg)
+
+	/** Throws a programming error with the given message, to indicate a situation which should not have happened
+	  * and indicates a bug in the executed code.
+	  */
+	def oops(msg :String, cause :Throwable) :Nothing = throw new ProgrammingError(msg)
 
 	/** Throws an [[UnsupportedOperationException]]. */
 	@inline final def unsupported_! :Nothing =

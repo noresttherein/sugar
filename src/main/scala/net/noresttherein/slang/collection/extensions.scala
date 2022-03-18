@@ -2,7 +2,8 @@ package net.noresttherein.slang.collection
 
 import scala.annotation.tailrec
 import scala.collection.immutable.IndexedSeqDefaults
-import scala.collection.{IterableFactory, IterableOnce, IterableOps, LinearSeq}
+import scala.collection.{mutable, IterableFactory, IterableOnce, IterableOps, LinearSeq, View}
+import scala.collection.generic.IsIterableOnce
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
@@ -17,20 +18,32 @@ import net.noresttherein.slang.vars.Opt.{Got, Lack}
 /** Extension methods for various collection types as well as collection companion objects. */
 trait extensions extends Any {
 	/** Adds a `foldWhile` method to any `Iterable` which implement a variant of `fold` operation with a break condition. */
-	@inline implicit final def foldingMethods[T](self :IterableOnce[T]) =
-		new FoldingMethods[T](self)
+	@inline implicit final def foldingMethods[C](self :C)(implicit iterable :IsIterableOnce[C]) :FoldingMethods[iterable.A] =
+		new FoldingMethods[iterable.A](iterable(self))
 
 	/** Adds method `mapWith` and `flatMapWith` which map/flat map collections while passing along additional state
 	  * to any collection of the standard library framework.
 	  */
-	@inline implicit final def mappingMethods[C[X] <: Iterable[X], E](self :IterableOps[E, C, C[E]]) =
+	@inline implicit final def mappingMethods[C[X] <: Iterable[X], E](self :IterableOps[E, C, C[E]]) :MappingMethods[C, E] =
 		new MappingMethods[C, E](self)
+
+//	/** Adds method `mapWith` and `flatMapWith` which map/flat map arrays while passing along additional state
+//	  * to any `Array`.
+//	  */ //MappingMethods uses iterableFactory.newBuilder which will produce Object[], rather than a specific array
+//	@inline implicit final def mappingMethods[E](self :Array[E]) :MappingMethods[Array, E]=
+//		new MappingMethods[Array, E](new ArrayIterableOps(self))
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Seq]],
 	  * which do not return a negative index when the element is not found.
 	  */
-	@inline implicit final def indexOfMethods[X](self :scala.collection.Seq[X]) =
+	@inline implicit final def indexOfMethods[X](self :scala.collection.Seq[X]) :IndexOfMethods[X] =
 		new IndexOfMethods[X](self)
+
+	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Array]],
+	  * which do not return a negative index when the element is not found.
+	  */
+	@inline implicit final def indexOfMethods[X](self :Array[X]) :IndexOfMethods[X] =
+		new IndexOfMethods[X](mutable.ArraySeq.make(self))
 
 	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
 	  * [[scala.collection.IterableFactory IterableFactory]]`[C]`.
@@ -845,7 +858,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 /** Additional extension methods for collections of the standard library framework.
   * The common theme is performing mapping with help of a passed state/accumulator value.
   */
-class MappingMethods[C[X] <: Iterable[X], E](private val self :IterableOps[E, C, C[E]]) extends AnyVal {
+class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends AnyVal {
 	/** Maps this collection from left to right with an accumulating state updated by the mapping function.
 	  * The state is discarded after the operation and only the mapping results (the second elements
 	  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
@@ -936,6 +949,19 @@ class MappingMethods[C[X] <: Iterable[X], E](private val self :IterableOps[E, C,
 				b.result()
 			}
 			mapIterable()
+	}
+
+	/** Zips this collection with another one and maps the result in one step.
+	  * No intermediate collection is created, and the mapping function accepts two arguments rather than a tuple,
+	  * making it more convenient to use with placeholder parameters.
+	  */
+	def zipMap[A, O](other :IterableOnce[A])(f :(E, A) => O) :C[O] = {
+		val left = self.iterator
+		val right = other.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		while (left.hasNext && right.hasNext)
+			res += f(left.next(), right.next())
+		res.result()
 	}
 }
 
@@ -1183,10 +1209,10 @@ class IterableFactoryExtension[C[_]](private val companion :IterableFactory[C]) 
 	  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
 	  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
 	  * of [[scala.collection.IterableOnceOps.fold fold]].
-	  * @param start first element added to the collection.
-	  * @param next generator function returning subsequent elements for the collection based on the previous one,
-	  *             or `None` to indicate the end of recursion.
-	  * @tparam X element type of the generated collection
+	  * @param start The first element added to the collection.
+	  * @param next  A generator function returning subsequent elements for the collection based on the previous one,
+	  *              or `None` to indicate the end of recursion.
+	  * @tparam X the element type of the generated collection
 	  * @return a collection containing the sequence starting with `start` and resulting from recursively applying `next`
 	  *         to itself.
 	  */
@@ -1203,6 +1229,16 @@ class IterableFactoryExtension[C[_]](private val companion :IterableFactory[C]) 
 				}
 				rec()
 		}
+
+	/** Similar to [[scala.collection.IterableFactory IterableFactory]]`.`[[scala.collection.IterableFactory.iterate iterate]],
+	  * but the iterating function accepts the positional index of the next element as an additional argument.
+	  * @param start The first element of the created collection.
+	  * @param len   The size of the created collection.
+	  * @param f     A function generating subsequent elements following start.
+	  *              The second element of the collection will be `f(start, 1)`, the third `f(f(start, 1), 2)`, and so on.
+	  */
+	@inline def iterateWithIndex[X](start :X, len :Int)(f :(X, Int) => X) :C[X] =
+		companion.from(View.iterate((start, 0), len) { xi => (f(xi._1, xi._2 + 1), xi._2 + 1) }.map(_._1))
 }
 
 

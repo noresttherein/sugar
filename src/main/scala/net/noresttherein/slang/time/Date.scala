@@ -5,7 +5,7 @@ import java.time.chrono.IsoEra
 
 
 
-/** An ISO date without any time offset, such as description of a birthday. Serves as a light wrapper over
+/** An ISO date without a time offset, such as description of a birthday. Serves as a light wrapper over
   * `java.time.LocalDate`.
   * @author Marcin Mościcki
   */
@@ -216,7 +216,7 @@ object MonthOfYear {
 	def apply(date :j.YearMonth) :MonthOfYear = new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
 
 	private[slang] def apply(year :Long, month :Long) :MonthOfYear = {
-		var m = month - 1 //swtich to zero-based months
+		var m = month - 1 //switch to zero-based months
 		var y = year + m / 12
 		m %= 12
 		if (m < 0) {

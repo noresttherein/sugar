@@ -4,7 +4,7 @@ package net.noresttherein.slang.matching
 import scala.reflect.ClassTag
 import scala.Specializable.{Arg, Return}
 
-import net.noresttherein.slang.extensions.optionExtension
+import net.noresttherein.slang.extensions.{optionExtension, saferCasting, downcast2TypeParams, downcastTypeParam}
 import net.noresttherein.slang.matching.MatchPattern.SpecializedArgs
 import net.noresttherein.slang.prettyprint.classNameMethods
 import net.noresttherein.slang.vars.Opt
@@ -80,7 +80,7 @@ object MatchPattern {
 	def narrow[X, Y :ClassTag] :MatchPattern[X, Y] = new MatchPattern[X, Y with X] {
 		private[this] val Result :ClassTag[Y] = implicitly[ClassTag[Y]]
 
-		override def unapply(arg :X) :Opt[X with Y] = Result.unapply(arg).asInstanceOf[Option[X with Y]].toOpt
+		override def unapply(arg :X) :Opt[X with Y] = Result.unapply(arg).downcastParam[X with Y].toOpt
 		override def lift = Result.unapply(_).asInstanceOf[Option[X  with Y]]
 
 		override def toString :String = "narrow[_=>" + Result.runtimeClass.getName + "]"
@@ -197,8 +197,8 @@ object MatchFunction {
 			getOrElse(x, default)
 
 		final override def unapply(a :In) :Option[Out] = {
-			val z = getOrElse(a, Fallback.asInstanceOf[In => Out])
-			if (z.asInstanceOf[AnyRef] eq Fallback) Some(z) else None
+			val z = getOrElse(a, Fallback.downcastParams[In, Out])
+			if (z.asAnyRef eq Fallback) Some(z) else None
 		}
 	}
 	private[this] final val Fallback :Any => Any = _ => Fallback
