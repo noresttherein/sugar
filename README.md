@@ -37,10 +37,10 @@ Almost one-to-one wrappers for classes representing time the from `java.time` pa
 They are mostly value classes (meaning no wrapper objects are actually created unless you
 take advantage of their polymorphic interfaces) which provide what you'd expect: 
 temporal arithmetic using standard operators `+`,`-`,`*`, comparable with `<=` 
-and friends and generally more scala-like method names (so, `date.month` instead of 
+and friends, and generally more scala-like method names (so, `date.month` instead of 
 `date.getMonth`, etc.). There are some additional classes, providing support for 
 infinite time spans (and infinitely remote time points) for interoperability with 
-`scala.concurrent.duration` and as a convenient solution for all 'wait indeterminately'
+`scala.concurrent.duration`, and as a convenient solution for all 'wait indeterminately'
 methods. The facade additionally provides some additional polymorphism (namely an 
 abstraction over both date-oriented periods and time-oriented durations) and stronger
 typing. Have a look at `slang.time.Time` which serves as a general factory for
@@ -58,10 +58,10 @@ Naturally, you'll also find a DSL syntax for creating the values in `slang.time.
 Extension methods 'scalafying' the API of `Throwable` (`Option` instead of `null`, Scala style properties).
 Provides also a syntax for rethrowing exceptions with context information:
 
-    rethrow { persistence.save(entity) (s"Failed to save $entity.")
+    rethrow { persistence.save(entity) } (s"Failed to save $entity.")
 
 Extending `Rethrowable` reduces exception overhead, as it initializes its stack trace
-based on the stack trace of its cause, using the suffix since most recent `rethrow` call.
+based on the stack trace of its cause, using the suffix the since most recent `rethrow` call.
 
 
 
@@ -114,7 +114,6 @@ Various styles of `repeat` loop:
   1. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
   2. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
   3. `Decimal64` - a `BigDecimal` value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
-  4. `Decimal[N]` - a fixed precision decimal number with up to `N <: Int with Singleton` fractional digits.
 
 
 
