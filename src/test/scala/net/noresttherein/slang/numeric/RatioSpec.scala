@@ -65,7 +65,7 @@ object RatioSpec extends Properties("Ratio") {
 
 	property("abs") = forAll { (a :Long, b :Long) =>
 		if (b == 0 || a == Long.MinValue || b==Long.MinValue)
-			Zero.abs =? Zero.abs && One.abs =? One && One =? (-One).abs
+			Zero.abs =? Zero && One.abs =? One && One =? (-One).abs
 		else if (a.sign * b.sign >= 0)
 			(a %/ b).abs ?= (a %/ b)
 		else

@@ -87,7 +87,7 @@ object IntRatioSpec extends Properties("IntRatio") {
 
 	property("abs") = forAll { (a :Int, b :Int) =>
 		if (b == 0 || a == Int.MinValue || b==Int.MinValue)
-			Zero.abs =? Zero.abs && One.abs =? One && One =? (-One).abs
+			Zero.abs =? Zero && One.abs =? One && One =? (-One).abs
 		else if (a.sign * b.sign >= 0)
 			(a %/ b).abs ?= (a %/ b)
 		else
@@ -122,7 +122,8 @@ object IntRatioSpec extends Properties("IntRatio") {
 					if (x * y +1 != x.toLong * y + 1)
 						prop
 					else
-						((x * y + 1) %/ y =? rational(x, 1 %/ y) label s"x=$x, y=$y: (x*y + 1) %/ y =? x $s 1 %/ y") &&
+						prop &&
+							((x * y + 1) %/ y =? rational(x, 1 %/ y) label s"x=$x, y=$y: (x*y + 1) %/ y =? x $s 1 %/ y") &&
 							((x * y + 1) %/ x =? rational(y, 1 %/ x) label s"x=$x, y=$y: (x*y + 1) %/ x =? y $s 1 %/ x") &&
 							((x + y) %/ (x * y) =? rational(1 %/ x, 1 %/ y) label s"x=$x, y=$y: (x + y) %/ x * y =? 1 %/ x $s 1 %/ y")
 

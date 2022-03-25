@@ -1,7 +1,11 @@
 package net.noresttherein.slang.numeric
 
+import java.math.{BigInteger, MathContext}
+
 import net.noresttherein.slang.numeric.Ratio.{naturalGCD, GCD}
 import scala.annotation.tailrec
+
+import net.noresttherein.slang.numeric.Decimal64.Round.ExtendedExact
 
 
 
@@ -30,6 +34,13 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 	/** The absolute value of this rational number: `numerator.abs %/ denominator`. */
 	@inline def abs :Ratio =
 		if (n >= 0) this else new Ratio(-n, d)
+
+	/** Overflow safe `-this.abs`. Method `Ratio.`[[net.noresttherein.slang.numeric.Ratio.abs abs]] can overflow
+	  * if the numerator is equal to `Long.MaxValue`, as `-Long.MaxValue` equals itself and is not a positive number.
+	  * It is thus always better to compare `minusAbs` values for any two numbers rather than `abs`, as negation
+	  * of `Long.MaxValue` does not underflow.
+	  */
+	@inline def minusAbs :Ratio = if (n <= 0) this else new Ratio(-n, d)
 
 	/** The opposite rational number: `-numerator %/ denominator`. */
 	@inline def unary_- :Ratio = new Ratio(-n, d)
@@ -140,13 +151,28 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 	@inline def max(other :Ratio) :Ratio = if (this < other) other else this
 
 
-	@inline def toLong :Long = n / d
-	@inline def toFloat :Float = n.toFloat / d.toFloat
-	@inline def toDouble :Double = n.toDouble / d.toDouble
-	@inline def toShort :Short = (n / d).toShort
-	@inline def toInt :Int = (n / d).toInt
-	@inline def toIntRatio :IntRatio = IntRatio(n.toInt, d.toInt)
-	def toIntRatioExact :IntRatio =
+	@inline def toLong           :Long       = n / d
+	@inline def toFloat          :Float      = n.toFloat / d.toFloat
+	@inline def toDouble         :Double     = n.toDouble / d.toDouble
+	@inline def toShort          :Short      = (n / d).toShort
+	@inline def toInt            :Int        = (n / d).toInt
+	@inline def toBigInt         :BigInt     = BigInt(toLong)
+	@inline def toBigInteger     :BigInteger = BigInteger.valueOf(toLong)
+	@inline def toDecimal64      :Decimal64  = Decimal64(n) / Decimal64(d)
+	@inline def toDecimal64Exact :Decimal64  = Decimal64(n).div(Decimal64(d), ExtendedExact)
+
+	@inline def toBigDecimal(implicit mc :MathContext = BigDecimal.defaultMathContext) :BigDecimal =
+		BigDecimal(n, mc) / d
+
+	@inline def toBigDecimalExact :BigDecimal = toBigDecimal(MathContext.UNLIMITED)
+
+	@inline def toJavaBigDecimal(implicit mc :MathContext = MathContext.UNLIMITED) :java.math.BigDecimal =
+		new java.math.BigDecimal(n).divide(new java.math.BigDecimal(d), mc)
+
+
+	@inline def toIntRatio :IntRatio   = IntRatio(n.toInt, d.toInt)
+
+	def toIntRatioExact    :IntRatio   =
 		if (numerator < Int.MinValue | numerator > Int.MaxValue | denominator < Int.MinValue | denominator > Int.MaxValue)
 			throw new ArithmeticException("Cannot represent " + this + " as IntRatio.")
 		else
@@ -222,12 +248,13 @@ object Ratio {
 
 
 
-	/** Creates a unit fraction, that is one with `1` as the numerator and the given denominator. Note that passing
-	  * a negative value will result in a negative `Ratio` with `-1` as the numerator and `denominator.abs` as the denominator.
+	/** Creates a unit fraction, that is one with `1` as the numerator and the given denominator.
+	  * Passing a negative value will result in a negative `Ratio` with `-1` as the numerator and `denominator.abs`
+	  * as the denominator.
 	  * @param denominator requested denominator of the fraction.
-	  * @return a `Ratio` of `1 / denominator`
-	  * @throws ArithmeticException if denominator equals zero.
-	  * @throws IllegalArgumentException if denominator equals `Long.MinValue`.
+	  * @return a `Ratio` of `1 / denominator`.
+	  * @throws ArithmeticException if `denominator` equals zero.
+	  * @throws IllegalArgumentException if `denominator` equals `Long.MinValue`.
 	  */
 	def unit(denominator :Long) :Ratio =
 		if (denominator > 0)
@@ -362,20 +389,21 @@ object Ratio {
 			if (x < y) -1 else if (y < x) 1 else 0
 
 		override def parseString(str :String) :Option[Ratio] =
-			try { Some(Ratio(str)) }
-			catch { case _ :Exception => None }
+			try { Some(Ratio(str)) } catch {
+				case _ :Exception => None
+			}
 	}
 
-	/** Introduces method [[net.noresttherein.slang.numeric.Ratio.RatioFactory.%/ %/]] extension method to `Int`,
+	/** Introduces method [[net.noresttherein.slang.numeric.Ratio.LongNumerator.%/ %/]] extension method to `Int`,
 	  * allowing to create a [[net.noresttherein.slang.numeric.Ratio Ratio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def ratio_%/(numerator :Int) :RatioFactory = new RatioFactory(numerator)
-	/** Introduces method [[net.noresttherein.slang.numeric.Ratio.RatioFactory.%/ %/]] extension method to `Long`,
+	implicit def ratio_%/(numerator :Int) :LongNumerator = new LongNumerator(numerator)
+	/** Introduces method [[net.noresttherein.slang.numeric.Ratio.LongNumerator.%/ %/]] extension method to `Long`,
 	  * allowing to create a [[net.noresttherein.slang.numeric.Ratio Ratio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def ratio_%/(numerator :Long) :RatioFactory = new RatioFactory(numerator)
+	implicit def ratio_%/(numerator :Long) :LongNumerator = new LongNumerator(numerator)
 
 
 	/** A factory of [[net.noresttherein.slang.numeric.Ratio Ratio]] objects, accepting a `Long` denominator
@@ -384,7 +412,7 @@ object Ratio {
 	  *           equivalent definitions in separate locations.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
-	class RatioFactory(private val numerator :Long) extends AnyVal {
+	class LongNumerator(private val numerator :Long) extends AnyVal {
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(numerator)
 
@@ -414,9 +442,9 @@ object Ratio {
 	@inline def GCD(a :Long, b :Long) :Long =
 		naturalGCD(if (a < 0) -a else a, if (b < 0) -b else b)
 
-	private def naturalGCD(a :Long, b :Long) :Long = {
+	private[numeric] def naturalGCD(a :Long, b :Long) :Long = {
 		@tailrec def rec(a :Long, b :Long) :Long =
-			if (b==0) a
+			if (b == 0) a
 			else rec(b, a % b)
 		if (a > b) rec(a, b)
 		else rec(b, a)

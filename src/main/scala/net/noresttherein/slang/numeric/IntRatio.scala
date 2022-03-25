@@ -1,7 +1,10 @@
 package net.noresttherein.slang.numeric
 
+import java.math.{BigInteger, MathContext}
+
 import scala.annotation.tailrec
 
+import net.noresttherein.slang.numeric.Decimal64.Round.ExtendedExact
 import net.noresttherein.slang.numeric.IntRatio.{naturalGCD, newIntRatio}
 
 
@@ -16,7 +19,7 @@ import net.noresttherein.slang.numeric.IntRatio.{naturalGCD, newIntRatio}
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
-class IntRatio private(n :Int, d :Int) extends Number {
+final class IntRatio private(n :Int, d :Int) extends Number {
 
 	/** The numerator of this fraction (the dividend). */
 	@inline def numerator :Int = n
@@ -32,6 +35,13 @@ class IntRatio private(n :Int, d :Int) extends Number {
 	/** The absolute value of this rational number: `numerator.abs %/ denominator`. */
 	@inline def abs :IntRatio =
 		if (n >= 0) this else new IntRatio(-n, d)
+
+	/** Overflow safe `-this.abs`. Method `Ratio.`[[net.noresttherein.slang.numeric.Ratio.abs abs]] can overflow
+	  * if the numerator is equal to `Long.MaxValue`, as `-Long.MaxValue` equals itself and is not a positive number.
+	  * It is thus always better to compare `minusAbs` values for any two numbers rather than `abs`, as negation
+	  * of `Long.MaxValue` does not underflow.
+	  */
+	@inline def minusAbs :Ratio = if (n <= 0) this else new Ratio(-n, d)
 
 	/** The opposite rational number: `-numerator %/ denominator`. */
 	@inline def unary_- :IntRatio = new IntRatio(-n, d)
@@ -93,7 +103,7 @@ class IntRatio private(n :Int, d :Int) extends Number {
 		val reducedDen = den / gcd; val resDen = reducedDen.toInt
 		if (-reducedNum != -resNum || -reducedDen != -resDen) //checks both for overflow and Int.MinValue
 			throw new ArithmeticException(s"IntRatio multiplication overflow: $reducedNum/$reducedDen.")
-		new IntRatio((num / gcd).toInt, (den / gcd).toInt)
+		new IntRatio(resNum, resDen)
 	}
 
 	/** Divides this rational number by another rational. This algorithm promotes the values to the `Long` type
@@ -128,12 +138,24 @@ class IntRatio private(n :Int, d :Int) extends Number {
 	@inline def max(other :IntRatio) :IntRatio = if (this < other) other else this
 
 
-	@inline def toInt :Int = n / d
-	@inline def toFloat :Float = n.toFloat / d.toFloat
-	@inline def toDouble :Double = n.toDouble / d.toDouble
-	@inline def toShort :Short = (n / d).toShort
-	@inline def toLong :Long = (n / d).toLong
-	@inline def toRatio :Ratio = new Ratio(n, d)
+	@inline def toInt            :Int        = n / d
+	@inline def toFloat          :Float      = n.toFloat / d.toFloat
+	@inline def toDouble         :Double     = n.toDouble / d.toDouble
+	@inline def toShort          :Short      = (n / d).toShort
+	@inline def toLong           :Long       = (n / d).toLong
+	@inline def toRatio          :Ratio      = new Ratio(n, d)
+	@inline def toBigInt         :BigInt     = BigInt(toLong)
+	@inline def toBigInteger     :BigInteger = BigInteger.valueOf(toLong)
+	@inline def toDecimal64      :Decimal64  = Decimal64(n) / Decimal64(d)
+	@inline def toDecimal64Exact :Decimal64  = Decimal64(n).div(Decimal64(d), ExtendedExact)
+
+	@inline def toBigDecimal(implicit mc :MathContext = BigDecimal.defaultMathContext) :BigDecimal =
+		BigDecimal(n, mc) / d
+
+	@inline def toBigDecimalExact :BigDecimal = toBigDecimal(MathContext.UNLIMITED)
+
+	@inline def toJavaBigDecimal(implicit mc :MathContext = MathContext.UNLIMITED) :java.math.BigDecimal =
+		new java.math.BigDecimal(n).divide(new java.math.BigDecimal(d), mc)
 
 
 	@inline override def intValue :Int = n / d
@@ -216,12 +238,12 @@ object IntRatio {//extends IntRatioImplicits {
 
 
 	/** Creates a unit fraction, that is one with `1` as the numerator and the given denominator.
-	  * Note that passing a negative value will result in a negative `IntRatio` with `-1` as the numerator
+	  * Passing a negative value will result in a negative `IntRatio` with `-1` as the numerator
 	  * and `denominator.abs` as the denominator.
 	  * @param denominator requested denominator of the fraction.
-	  * @return an `IntRatio`` equal to `1 / denominator`.
-	  * @throws ArithmeticException if denominator equals zero.
-	  * @throws IllegalArgumentException if denominator equals `Int.MinValue`.
+	  * @return an `IntRatio` equal to `1 / denominator`.
+	  * @throws ArithmeticException if `denominator` equals zero.
+	  * @throws IllegalArgumentException if `denominator` equals `Int.MinValue`.
 	  */
 	def unit(denominator :Int) :IntRatio =
 		if (denominator > 0)
@@ -390,22 +412,23 @@ object IntRatio {//extends IntRatioImplicits {
 			if (x < y) -1 else if (y < x) 1 else 0
 
 		override def parseString(str :String) :Option[IntRatio] =
-			try { Some(IntRatio(str)) }
-			catch { case _ :NumberFormatException => None }
+			try { Some(IntRatio(str)) } catch {
+				case _ :NumberFormatException => None
+			}
 	}
 
 
-	/** Introduces method [[net.noresttherein.slang.numeric.IntRatio.IntRatioFactory.%/ %/]] extension method to `Int`,
+	/** Introduces method [[net.noresttherein.slang.numeric.IntRatio.IntNumerator.%/ %/]] extension method to `Int`,
 	  * allowing to create a [[net.noresttherein.slang.numeric.IntRatio IntRatio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def intRatio_%/(numerator :Int) :IntRatioFactory = new IntRatioFactory(numerator)
+	implicit def intRatio_%/(numerator :Int) :IntNumerator = new IntNumerator(numerator)
 
 	/** A builder of [[net.noresttherein.slang.numeric.IntRatio IntRatio]] objects, accepting an `Int` denominator
 	  * and constructing the rational number representing the division of the wrapped numerator values by the argument.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
-	class IntRatioFactory(private val numerator :Int) extends AnyVal {
+	class IntNumerator(private val numerator :Int) extends AnyVal {
 		/** Creates a reduced `IntRatio` of `this/100`. */
 		@inline def % :IntRatio = percent(numerator)
 
