@@ -27,8 +27,11 @@ import net.noresttherein.slang.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoCo
   * to non-boxing byte code.
   * @see [[net.noresttherein.slang.vars.Opt.Got$]]
   * @see [[net.noresttherein.slang.vars.Opt.Lack]]
+  * @see [[net.noresttherein.slang.vars.Unsure]]
   */
-@SerialVersionUID(1L) //todo: in Scala 3 make it an opaque type to differentiate it more from Unsure
+@SerialVersionUID(1L)
+//todo: in Scala 3 make it an opaque type to differentiate it more from Unsure. Will need some boxing to distinguish
+// Got(Lack) from Lack.
 class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
 {
@@ -293,8 +296,20 @@ object Opt {
 	@inline final def apply[T](value :T) :Opt[T] =
 		if (value == null) Lack else new Opt(value.asInstanceOf[AnyRef])
 
+	//when we migrate to an opaque type, we might create a promoting constructor
+//	@inline def flat[T](x :Opt[T]) :Opt[Opt[T]] =
+//		if (x.ref eq NoContent) Lack else x.asInstanceOf[Opt[Opt[T]]]
+//
+//	@inline def flat[T](x :T) :Opt[T] =
+//		if ((x.asInstanceOf[AnyRef] eq null) | (x.asInstanceOf[AnyRef] eq NoContent)) Lack
+//		else x.asInstanceOf[Opt[T]]
+
 	/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
 	@inline def some_?[T](value :Option[T]) :Opt[T] =
+		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
+
+	/** Converts the given `Unsure[T]` into an `Opt[T]`, erased at runtime. */
+	@inline def sure_?[T](value :Unsure[T]) :Opt[T] =
 		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
 	/** Returns [[net.noresttherein.slang.vars.Opt.Lack Lack]] - an empty `Opt`. */
@@ -381,7 +396,7 @@ object Opt {
 
 		//consider: placing this also in optional.extensions (or optional.implicits)
 		/** Implicitly lifts any value `T` to [[net.noresttherein.slang.vars.Opt Opt]]`[T]`. */
-		@inline def anyToGot[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
+		@inline implicit def gotAny[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with

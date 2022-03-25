@@ -28,12 +28,12 @@ import net.noresttherein.slang.vars.Unsure.{collector, unzip2Fail, unzip3Fail, W
   *   - when an `Int` or other value type is placed in a Scala `Option`, two objects need to be created:
   *     an `Integer` wrapper, and `Some` itself containing the wrapper.
   *   - `Opt` is a value class, and in any context in which it doesn't require runtime promotion to a reference type
-  *     (use as a type parameter, upcasting to `Any`, putting it into an `Array` or a collection), it is erased
-  *     to a reference to the contained object. Value classes cannot be `@specialized` however,
-  *     and thus instances for value types (and other value classes) require boxing to their wrapper types.
-  *     For integer types, especially smaller values, `Unit` and `Boolean`, this is not a significant drawback
-  *     due to the runtime environment's employment of caching of commonly used values. Value classes and floating point
-  *     numbers will however require boxing. Another drawback is that its erasure clashes with the wrapped type itself,
+  *     (use as a type parameter, upcasting to `Any`, putting it into an `Array` or a collection,
+  *     returning from a function or passing as an argument to one), it is erased to a reference to the contained object.
+  *     However, instances for value types (and other value classes) require boxing to their wrapper types.
+  *     For integer types, especially smaller values, `Unit` and `Boolean`, this is partly offset by the runtime
+  *     environment's employment of caching of commonly used values. Value classes and floating point numbers
+  *     will however require boxing. Another drawback is that its erasure clashes with the wrapped type itself,
   *     preventing overloaded methods, just as compiler bridges required when a method accepting/returning an `Opt`
   *     overrides a generic method with an abstract type in place of the `Opt` value clash with the method's erasure.
   *     When an instance is repeatedly passed between contexts in which it is referred to as an abstract type
@@ -375,6 +375,9 @@ object Unsure {
 		  * @see [[net.noresttherein.slang.optional.OptionExtension]]
 		  */ //consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
 		@inline implicit def optionToUnsure[@specialized(SpecializedVars) A](opt :Option[A]) :Unsure[A] = some_?(opt)
+
+		/** Wraps any object in a [[net.noresttherein.slang.vars.Sure Sure]] monad. */
+		@inline implicit def sureAny[@specialized(SpecializedVars) A](sure :A) :Sure[A] = Sure(sure)
 
 		/** A nomen omen optional implicit conversion of an `Opt[A]` to a `Unsure[A]`.
 		  * @see [[net.noresttherein.slang.vars.Unsure.OptionToUnsureConverter]]

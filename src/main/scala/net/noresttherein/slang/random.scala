@@ -13,7 +13,7 @@ class random(generator: => Double) {
 	def Int :Int = IntInclusive(scala.Int.MinValue, scala.Int.MaxValue)
 
 	/** A random `Int` from range `[0, until)`. */
-	def Int(until :Int) = Int(0, until)
+	def Int(until :Int) :Int = Int(0, until)
 
 	/** A random `Int` from range `[start, end)`. */
 	def Int(start :Int, until :Int) :Int =

@@ -69,7 +69,8 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 
 //	def onClean(f: => Unit) :Unit = synchronized { callbacks = (() => f) :: callbacks}
 
-	def isEnqueued :Boolean = ref.isEnqueued
+
+//	def isEnqueued :Boolean = ref.isEnqueued
 	def enqueue() :Boolean = ref.enqueue()
 	def clear() :Unit = ref.clear()
 
