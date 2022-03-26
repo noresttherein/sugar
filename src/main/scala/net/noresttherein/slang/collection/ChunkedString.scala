@@ -28,6 +28,7 @@ sealed trait ChunkedString extends CharSequence with Seq[Char] with SeqOps[Char,
 	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
 
 	override def empty :ChunkedString = ChunkedString.empty
+	override def isEmpty :Boolean = length == 0
 
 	protected override def fromSpecific(coll :IterableOnce[Char]) :ChunkedString = coll match {
 		case chunks :ChunkedString => chunks

@@ -899,6 +899,116 @@ class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends
 		b.result()
 	}
 
+	/** Iterates over the collection, passing the index of the current element to the given function.
+	  * Note that in collections with an undefined order, this index applies only to this particular iteration,
+	  * rather than some absolute position.
+	  */
+	def foreachWithIndex[O, U](f :(E, Int) => U) :Unit = {
+		var i = 0
+		self foreach { e => f(e, i); i += 1 }
+	}
+
+
+	/** Equivalent to `this.zip(rights).map()`, but happens in one step and the argument function takes two arguments
+	  *  instead of a pair, which makes it possible to use with placeholder lambda parameters.
+	  */
+	def zipMap[X, O](that :IterableOnce[X])(f :(E, X) => O) :C[O] = {
+		val l = self.iterator
+		val r = that.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		res sizeHint self
+		while (l.hasNext && r.hasNext)
+			res += f(l.next(), r.next())
+		res.result()
+	}
+
+	/** Equivalent to [[net.noresttherein.slang.collection.MappingMethods.zipMap zipMap]],
+	  * but throws a [[NoSuchElementException]] if the collections are of different sizes.
+	  */
+	def zipMapAll[X, O](that :IterableOnce[X])(f :(E, X) => O) :C[O] = {
+		val l = self.iterator
+		val r = that.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		res sizeHint self
+		while (l.hasNext && r.hasNext)
+			res += f(l.next(), r.next())
+		if (l.hasNext)
+			throw new NoSuchElementException("Cannot zipMapAll: left collection has more elements than the right one.")
+		else if (r.hasNext)
+			throw new NoSuchElementException("Cannot zipMapAll: right collection has more elements than the left one.")
+		res.result()
+	}
+
+	/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step and the argument function
+	  * takes two arguments instead of a pair, which makes it possible to use with lambda placeholder parameters.
+	  */
+	def zipMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => O) :C[O] = {
+		val l = self.iterator
+		val r = that.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		val thisSize = self.knownSize
+		val thatSize = that.knownSize
+		if (thisSize >= 0)
+			if (thatSize >= 0)
+				res sizeHint (thisSize max thatSize)
+			else
+				res sizeHint thisSize
+		else if (thatSize >= 0)
+			res sizeHint thatSize
+		while (l.hasNext && r.hasNext)
+			res += f(l.next(), r.next())
+		while (l.hasNext)
+			res += f(l.next(), thatElem)
+		while (r.hasNext)
+			res += f(thisElem, r.next())
+		res.result()
+	}
+
+	/** Equivalent to `this.zip(rights).map`, but takes a two argument function instead of a function of a pair,
+	  * which makes it possible to use with placeholder lambda parameters.
+	  */
+	def zipFlatMap[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :C[O] = {
+		val l = self.iterator
+		val r = that.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		while (l.hasNext && r.hasNext)
+			res ++= f(l.next(), r.next())
+		res.result()
+	}
+
+	/** Equivalent to [[net.noresttherein.slang.collection.MappingMethods.zipFlatMap zipFlatMap]],
+	  * but throws a [[NoSuchElementException]] if the collections are of different sizes.
+	  */
+	def zipFlatMapAll[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :C[O] = {
+		val l = self.iterator
+		val r = that.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		while (l.hasNext && r.hasNext)
+			res ++= f(l.next(), r.next())
+		if (l.hasNext)
+			throw new NoSuchElementException("Cannot zipFlatMapAll: left collection has more elements than the right one.")
+		else if (r.hasNext)
+			throw new NoSuchElementException("Cannot zipFlatMapAll: right collection has more elements than the left one.")
+		res.result()
+	}
+
+	/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step and the argument function
+	  * takes two arguments instead of a pair, which makes it possible to use with lambda placeholder parameters.
+	  */
+	def zipFlatMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => IterableOnce[O]) :C[O] = {
+		val l = self.iterator
+		val r = that.iterator
+		val res = self.iterableFactory.newBuilder[O]
+		while (l.hasNext && r.hasNext)
+			res ++= f(l.next(), r.next())
+		while (l.hasNext)
+			res ++= f(l.next(), thatElem)
+		while (r.hasNext)
+			res ++= f(thisElem, r.next())
+		res.result()
+	}
+
+
 	/** Maps the elements of the collection and reverses their order. The order in which the mapping function
 	  * will be applied to the elements is undefined and depends on the runtime type of this collection.
 	  * Note that if this collection is unordered, the order of the elements in the mapped collection
