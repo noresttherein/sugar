@@ -1,6 +1,6 @@
-# slang scala #
+# Scala Sugar #
 ## 1. About ##
-Slang is a scala library focused on sugaring the syntax for commonly used code constructs.
+Sugar is a scala library focused on sugaring the syntax for commonly used code constructs.
 It consists of mostly simple classes which would find use in most scala projects - in fact 
 you likely have developed some helper classes of similar functionality in the past more 
 than once. They vary from simple facades for some standard Java libraries (namely, 
@@ -16,7 +16,7 @@ if you prefer to avoid the dependency altogether.
 
 ## 2. Contents ##
 
-### 1. slang.logging ###
+### 1. sugar.logging ###
 A very simple `Logger` class wrapping the `java.util.logging.Logger` which accepts 
 `msg: => Any` and correctly specifies its own caller as the logging class/method. 
 If you declare your class logger as an implicit value, you can additionally use the
@@ -32,7 +32,7 @@ impromptu debug logs which print argument values to various outputs before retur
 
 
    
-### 2. slang.time ###   
+### 2. sugar.time ###   
 Almost one-to-one wrappers for classes representing time the from `java.time` package.
 They are mostly value classes (meaning no wrapper objects are actually created unless you
 take advantage of their polymorphic interfaces) which provide what you'd expect: 
@@ -43,10 +43,10 @@ infinite time spans (and infinitely remote time points) for interoperability wit
 `scala.concurrent.duration`, and as a convenient solution for all 'wait indeterminately'
 methods. The facade additionally provides some additional polymorphism (namely an 
 abstraction over both date-oriented periods and time-oriented durations) and stronger
-typing. Have a look at `slang.time.Time` which serves as a general factory for
+typing. Have a look at `sugar.time.Time` which serves as a general factory for
 most classes to see what's available.
 
-Naturally, you'll also find a DSL syntax for creating the values in `slang.time.dsl`:
+Naturally, you'll also find a DSL syntax for creating the values in `sugar.time.dsl`:
 
     10.seconds from now
     2.years + 3.months + 4.days before (11 Jan 1981)
@@ -54,7 +54,7 @@ Naturally, you'll also find a DSL syntax for creating the values in `slang.time.
    
    
 
-### 3. slang.exceptions ###
+### 3. sugar.exceptions ###
 Extension methods 'scalafying' the API of `Throwable` (`Option` instead of `null`, Scala style properties).
 Provides also a syntax for rethrowing exceptions with context information:
 
@@ -65,7 +65,7 @@ based on the stack trace of its cause, using the suffix since the most recent `r
 
 
 
-### 4. slang.collection ###
+### 4. sugar.collection ###
 Extension methods for collections, including:
 
 #### 4.1 Partial folding ####
@@ -85,7 +85,7 @@ Also:
 
 
 
-### 5. slang.optional ###
+### 5. sugar.optional ###
 Syntax for creating options:
 
     x / y unless y == 0 //if (y!=0) Some(x / y) else None
@@ -95,7 +95,7 @@ Syntax for creating options:
 
 
 
-### 6. slang.repeat ###
+### 6. sugar.repeat ###
 Various styles of `repeat` loop:
 
     repeat {
@@ -110,14 +110,14 @@ Various styles of `repeat` loop:
     val kilo = 2 repeat (_ * 2) until (_ > 1000)
 
 
-### 7. slang.numeric ###
+### 7. sugar.numeric ###
   1. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
   2. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
   3. `Decimal64` - a `BigDecimal`-like value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
 
 
 
-### 8. slang.vars ###
+### 8. sugar.vars ###
 Generic polymorphic `var` and `val` wrappers for use as in/out method parameters:
 
     def testAndSet(i :InOut[Int]) :Unit = i.testAndSet(0, 1)
@@ -140,7 +140,7 @@ a couple more.
 
 
 
-### 9. slang.matching ###
+### 9. sugar.matching ###
 #### 9.1. RX ####
 A wrapper over `java.util.regex.Pattern` providing statically typed methods for all 
 supported character classes and constructs - for those of us who can never remember
@@ -173,7 +173,7 @@ patterns in a logical conjunction:
 
 
 
-### 10. slang.prettyprint ###
+### 10. sugar.prettyprint ###
 Various ways for demangling and abbreviating class names for logging purposes, for example:
 
     object.getClass.name       //my.package.Singleton.Specialized_:[Int]
@@ -185,7 +185,7 @@ Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-### 11. slang.witness ###
+### 11. sugar.witness ###
 Implicit values implementing `Not`, `Maybe` and `Or` over availability of other implicit values.
 Also, tagging implicit values:
 
@@ -197,13 +197,13 @@ Also, tagging implicit values:
     
     
     
-### 12. slang.typist ###
+### 12. sugar.typist ###
 Safer casting methods - less powerful, imposing constraints on the source and target type,
 including casting on type parameters for higher types.
 
 
 
-### 13. slang.Sealing ###
+### 13. sugar.Sealing ###
 A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
 and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
 

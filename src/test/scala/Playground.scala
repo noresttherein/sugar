@@ -4,10 +4,10 @@ import java.math.RoundingMode.{DOWN, FLOOR, HALF_DOWN, HALF_EVEN, HALF_UP, UNNEC
 
 import scala.math.BigDecimal.RoundingMode.CEILING
 
-import net.noresttherein.slang.numeric.{Decimal64, Decimal64Spec}
-import net.noresttherein.slang.numeric.Decimal64.Round.{maxPrecision, Extended, ExtendedExact, Standard}
-import net.noresttherein.slang.numeric.Decimal64.implicits.scientificDecimalNotation
-import net.noresttherein.slang.numeric.Decimal64.{Precision, Round}
+import net.noresttherein.sugar.numeric.{Decimal64, Decimal64Spec}
+import net.noresttherein.sugar.numeric.Decimal64.Round.{maxPrecision, Extended, ExtendedExact, Standard}
+import net.noresttherein.sugar.numeric.Decimal64.implicits.scientificDecimalNotation
+import net.noresttherein.sugar.numeric.Decimal64.{Precision, Round}
 
 
 

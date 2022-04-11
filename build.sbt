@@ -1,6 +1,6 @@
 organization := "net.noresttherein"
 
-name := "slang"
+name := "sugar"
 
 version := "moonshine"
 
