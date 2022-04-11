@@ -6,7 +6,7 @@ package net.noresttherein.slang.prettyprint
 trait extensions extends Any {
 
 	/** Adds `innerClassName`, `localClassName` and `abbrevClassName` methods to any object providing a shorter alternative to `getClass.getName`. */
-	@inline implicit final def classNameMethods(any :Any) = new ClassNameMethods(any)
+	@inline implicit final def classNameMethods[T](any :T) = new ClassNameMethods[T](any)
 
 	/** Adds `innerName`, `localName` and `abbrevName` methods to `Class`, providing a shorter alternative to `getName`. */
 	@inline implicit final def classExtension(clazz :Class[_]) = new ClassExtension(clazz)
@@ -25,7 +25,7 @@ trait extensions extends Any {
 
 
 /** Implicit conversion patching any object with methods providing prettified/shortened class names. */
-class ClassNameMethods(private val self :Any) extends AnyVal {
+class ClassNameMethods[T](private val self :T) extends AnyVal {
 
 	/** An approximation of the imported type symbol of the class of this object, as it would be referenced
 	  * in code. First, the whole package prefix and all trailing '$' characters are dropped.
@@ -154,7 +154,7 @@ class ClassNameMethods(private val self :Any) extends AnyVal {
 		if (self == null) "null" else className + "@" + shortHashString
 
 	/** Formats `this.hashCode` compacted to two bytes as a hexadecimal string. */
-	def shortHashString :String = {
+	@inline def shortHashString :String = {
 		val hash = self.hashCode
 		(hash ^ (hash >> 16) & 0xffff).toHexString
 	}

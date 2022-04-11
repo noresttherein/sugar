@@ -49,6 +49,69 @@ object Idempotent {
 
 
 
+	/** A full `Idempotent` lazy value implementation as a mix-in trait for application classes,
+	  * in particular various lazy proxies.
+	  */
+	trait AbstractIdempotent[@specialized(SpecializedVars) +T] extends Idempotent[T] {
+		@scala.volatile protected[this] var initializer :() => T
+		@scala.volatile private[this] var evaluated :T = _
+
+		override def isDefined: Boolean = { val init = initializer; acquireFence(); init == null }
+
+		override def opt :Opt[T] =
+			if (initializer == null)
+				Lack
+			else {
+				acquireFence()
+				Got(evaluated)
+			}
+
+		override def get :T = {
+			val init = initializer
+			acquireFence()
+			if (init == null)
+				evaluated
+			else {
+				val res = init()
+				evaluated = res
+				releaseFence()
+				initializer = null
+				res
+			}
+		}
+
+		override def map[O](f :T => O) :Lazy[O] = {
+			val init = initializer
+			acquireFence()
+			if (init == null)
+				eager(f(evaluated))
+			else {
+				val t = init()
+				evaluated = t
+				releaseFence()
+				initializer = null
+				new IdempotentRef(() => f(t))
+			}
+		}
+
+		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+			val init = initializer
+			acquireFence()
+			if (init == null)
+				f(evaluated)
+			else
+				new IdempotentRef(f(apply()))
+		}
+
+		override def isSpecialized = false
+
+		override def toString :String =
+			if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
+			else Undefined.toString//"Lazy(?)"
+	}
+
+
+
 	/** An already computed (initialized) value. */
 	@SerialVersionUID(1L) //Not specialized so we don't box the value type to fit in an Opt all the time
 	private class EagerIdempotent[+T](x :T) extends Idempotent[T] {

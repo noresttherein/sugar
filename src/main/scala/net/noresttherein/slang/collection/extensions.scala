@@ -11,6 +11,7 @@ import net.noresttherein.slang.extensions.iterableFactoryExtension
 import net.noresttherein.slang.raise
 import net.noresttherein.slang.vars.Opt
 import net.noresttherein.slang.vars.Opt.{Got, Lack}
+import net.noresttherein.slang.JavaTypes.JStringBuilder
 
 
 
@@ -59,6 +60,17 @@ trait extensions extends Any {
 	  */
 	@inline implicit final def builderExtension[E, C](self :Builder[E, C]) :BuilderExtension[E, C] =
 		new BuilderExtension(self)
+
+	/** Adds Scala [[scala.collection.mutable.Growable Growable]] and [[scala.collection.mutable.Builder Builder]]
+	  * methods as inlined delegates to the Java [[java.lang.StringBuilder StringBuilder]].
+	  * While it essentially duplicates the functionality of standard Scala
+	  * [[scala.collection.mutable.StringBuilder StringBuilder]], the wrapper is not intended to be as an object
+	  * or referred to directly by the application, but rather a provider of extension methods, and returns always
+	  * the original `StringBuilder`. As methods are inlined, this incurs neither the penalty of creating an additional
+	  * object, nor of delegating individual calls, at least with default compiler optimisations on.
+	  */
+	@inline implicit final def javaStringBuilderExtension(self :JStringBuilder) :JavaStringBuilderExtension =
+		new JavaStringBuilderExtension(self)
 }
 
 
@@ -909,8 +921,9 @@ class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends
 	}
 
 
-	/** Equivalent to `this.zip(rights).map()`, but happens in one step and the argument function takes two arguments
-	  *  instead of a pair, which makes it possible to use with placeholder lambda parameters.
+	/** Zips this collection with another one and maps the result in one step.
+	  * No intermediate collection is created, and the mapping function accepts two arguments rather than a tuple,
+	  * making it more convenient to use with placeholder parameters.
 	  */
 	def zipMap[X, O](that :IterableOnce[X])(f :(E, X) => O) :C[O] = {
 		val l = self.iterator
@@ -1061,18 +1074,6 @@ class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends
 			mapIterable()
 	}
 
-	/** Zips this collection with another one and maps the result in one step.
-	  * No intermediate collection is created, and the mapping function accepts two arguments rather than a tuple,
-	  * making it more convenient to use with placeholder parameters.
-	  */
-	def zipMap[A, O](other :IterableOnce[A])(f :(E, A) => O) :C[O] = {
-		val left = self.iterator
-		val right = other.iterator
-		val res = self.iterableFactory.newBuilder[O]
-		while (left.hasNext && right.hasNext)
-			res += f(left.next(), right.next())
-		res.result()
-	}
 }
 
 

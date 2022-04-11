@@ -82,7 +82,6 @@ trait AbstractThrowable extends Throwable with Cloneable {
 		case null => ""
 		case msg => msg
 	}
-
 }
 
 
@@ -179,28 +178,32 @@ class StackableException(message :String = null, cause :Throwable = null,
   * [[net.noresttherein.slang.exceptions.imports imports]]`.`[[net.noresttherein.slang.exceptions.imports.rethrow rethrow]].
   * It fills [[net.noresttherein.slang.exceptions.AbstractThrowable.stackTrace stackTrace]] property
   * based on the stack trace of its cause (if not null). It is initialized with the suffix
-  * of the stack trace o the first (non null) cause starting with the frame corresponding to the most recent call
+  * of the stack trace of the first (non null) cause starting with the frame corresponding to the most recent call
   * of `imports.rethrow`. If there is no frame on the call stack of the cause corresponding to that method,
   * or [[Throwable.getCause getCause]]` == null`, then the stack trace returned
-  * by the standard [[Throwable.getStackTrace getStackTrace]] is used as normal.
+  * by the standard [[Throwable.getStackTrace getStackTrace]] is used as normal. In order to fully benefit
+  * from this approach, an exception should be created with `writableStackTrace` property set to `false`.
+  * In that case, JVM will not set internal data needed to initialize the stack trace, and super implementation
+  * of `getStackTrace` will return `null`. Extending classes should therefore provide an ability to create instances
+  * in three modes:
+  *   1. An original exception, without an underlying cause;
+  *   1. An exception with a cause, constructed in the normal manner (with `writableStackTrace == true`
+  *      and [[net.noresttherein.slang.exceptions.Rethrowable.isRethrown isRethrown]]` == false`,
+  *      wrapping exceptions of other classes, not rethrown with the provided `rethrow` method;
+  *   1. An instance with a non writeable stack trace and `isRethrown` set to `true`, created by `rethrow`
+  *      to wrap a caught exception.
   *
-  * Note that this assumes that the exception was indeed created by the `rethrow` method, either using
-  * `cause.`[[net.noresttherein.slang.exceptions.StackableThrowable.addInfo addInfo]]
-  * if `cause` is a [[net.noresttherein.slang.exceptions.StackableThrowable StackableThrowable]],
-  * or by using method `rethrow` on an application object extending `exceptions.imports` and overriding
-  * [[net.noresttherein.slang.exceptions.imports.pushErrorMessage pushErrorMessage]].
-  *
-  * To see a performance benefit, the subclass should provide a constructor `(String, Throwable, Boolean)`,
-  * accepting a value for [[net.noresttherein.slang.exceptions.Rethrowable.isRethrown isRethrown]] property,
-  * which can be used by method [[net.noresttherein.slang.exceptions.Rethrowable.addInfo addInfo]] called
-  * by `rethrow`
-  * . It is also a good idea to override
-  * [[net.noresttherein.slang.exceptions.Rethrowable.addInfo addInfo]] factory method in order to create the rethrown
+  * Method [[net.noresttherein.slang.exceptions.Rethrowable.addInfo addInfo]] should create instances of the third kind.
+  * Its default implementation attempts to create a new instance using reflection, searching for a constructor
+  * `(String, Throwable, Boolean)` - with the `Boolean` parameter assumed to be the value of `isRethrown` property -
+  * or `(String, Throwable, Boolean, Boolean)`, with the `Boolean` parameters
+  * assumed to be the values of `enableSuppression` and `writableStackTrace` parameters passed to the `Throwable`
+  * constructor with the same signature. For better performance, a override `addInfo` in order to create the rethrown
   * instance directly, rather than through reflection.
   */
 trait Rethrowable extends StackableThrowable {
 	/** A flag which should be set only when this instance is thrown from method
-	  * [[net.noresttherein.slang.exceptions.imports imports]]`.`[[net.noresttherein.slang.exceptions.imports.rethrow rethrow]].
+	  * [[net.noresttherein.slang.exceptions.imports imports]]`.`[[net.noresttherein.slang.exceptions.imports.rethrow rethrow]]
 	  * in this package. If `true` and [[Throwable.getCause getCause]]` != null`, then this [[Throwable]]
 	  * will not try to fill in and use the stack trace property by default methods, but instead will use the suffix
 	  * of the stack trace of its `cause` starting with most recent invocation frame for method `imports.rethrow`.
@@ -249,10 +252,12 @@ trait Rethrowable extends StackableThrowable {
 
 /** Base class for exceptions designed to be potentially rethrown using method
   * [[net.noresttherein.slang.exceptions.imports imports]]`.`[[net.noresttherein.slang.exceptions.rethrow rethrow]].
-  * When given a non-null `cause`, this exception will be created without a writeable stack trace.
-  * Instead, its stack trace will be initialized with the suffix of `cause.getStackTrace` starting
-  * with the most recent call to `imports.rethrow`, yielding a small performance benefit.
-  * See the documentation of [[net.noresttherein.slang.exceptions.Rethrowable Rethrowable]] for more information.
+  * If initialized with property [[net.noresttherein.slang.exceptions.Rethrowable.isRethrown isRethrown]] to `true`,
+  * for example by its `(String, Throwable)` constructor with a non-null cause, this exception will be created
+  * without a writeable stack trace. Instead, its stack trace will be initialized
+  * with the suffix of `cause.getStackTrace` starting with the most recent call to `imports.rethrow`, yielding a small
+  * performance benefit. See the documentation of [[net.noresttherein.slang.exceptions.Rethrowable Rethrowable]]
+  * for more information.
   */
 @SerialVersionUID(1L)
 class RethrowableException(message :String, cause :Throwable, override val isRethrown :Boolean)
@@ -270,6 +275,20 @@ class RethrowableException(message :String, cause :Throwable, override val isRet
   */
 class RethrowContext(message :String, cause :Throwable = null)
 	extends Throwable(message, cause, false, false) with AbstractThrowable
+
+
+
+
+/** A base class for exceptions with lazily evaluated error messages. */
+@SerialVersionUID(1L)
+class LazyException(initMessage: => String, cause :Throwable = null,
+                    enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
+	extends Exception(null, cause, enableSuppression, writableStackTrace) with AbstractException
+{
+	override lazy val msg :String = initMessage
+	override def message :Option[String] = Some(msg)
+	override def getMessage :String = msg
+}
 
 
 /** A lightweight, 'temporary' exception with disabled suppression and stack trace.

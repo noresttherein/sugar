@@ -187,7 +187,7 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	/** Equivalent to `this.`[[net.noresttherein.slang.vars.Opt.filter filter]]`(p)` - a variant for use
 	  * in for-comprehensions. */
-    @inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](this, p)
+	@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](this, p)
 
 
 	/** Tests if this `Opt` is not empty and its value is equal to the given argument. */

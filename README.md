@@ -8,7 +8,7 @@ than once. They vary from simple facades for some standard Java libraries (namel
 variable length tuples), to many one-liner methods and extension methods designed to make 
 the intent behind code more apparent. It is directed more towards the implementation than 
 the interface side of things and, as such, a good candidate for a shaded dependency. 
-In fact, as various pieces are almost completely independent and more often than not 
+In fact, as various pieces are almost completely independent and, more often than not, 
 very small, it is easy to just copy&paste the bits you find useful to your own project, 
 if you prefer to avoid the dependency altogether.
 
@@ -61,7 +61,7 @@ Provides also a syntax for rethrowing exceptions with context information:
     rethrow { persistence.save(entity) } (s"Failed to save $entity.")
 
 Extending `Rethrowable` reduces exception overhead, as it initializes its stack trace
-based on the stack trace of its cause, using the suffix the since most recent `rethrow` call.
+based on the stack trace of its cause, using the suffix since the most recent `rethrow` call.
 
 
 
@@ -113,7 +113,7 @@ Various styles of `repeat` loop:
 ### 7. slang.numeric ###
   1. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
   2. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
-  3. `Decimal64` - a `BigDecimal` value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
+  3. `Decimal64` - a `BigDecimal`-like value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
 
 
 

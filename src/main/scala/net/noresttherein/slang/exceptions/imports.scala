@@ -219,15 +219,15 @@ trait imports {
 	  */
 	def ??! :Nothing = throw new ImpossibleError
 
-	/** Throws a programming error with the given message, to indicate a situation which should not have happened
-	  * and indicates a bug in the executed code.
+	/** Throws a [[net.noresttherein.slang.exceptions.ProgrammingError programming error]] with the given message,
+	  * to indicate a situation which should not have happened and is due to a bug in the executed code.
 	  */
 	def oops(msg :String) :Nothing = throw new ProgrammingError(msg)
 
-	/** Throws a programming error with the given message, to indicate a situation which should not have happened
-	  * and indicates a bug in the executed code.
+	/** Throws a [[net.noresttherein.slang.exceptions.ProgrammingError programming error]] with the given message,
+	  *  to indicate a situation which should not have happened and is due to a bug in the executed code.
 	  */
-	def oops(msg :String, cause :Throwable) :Nothing = throw new ProgrammingError(msg)
+	def oops(msg :String, cause :Throwable) :Nothing = throw new ProgrammingError(msg, cause)
 
 	/** Throws an [[UnsupportedOperationException]]. */
 	@inline final def unsupported_! :Nothing =
@@ -375,7 +375,7 @@ trait imports {
 	  * the exception.
 	  */
 	private[slang] def getRethrowable[E <: Rethrowable :ClassTag](msg :String, cause :E) :Opt[E] = {
-		val E = classTag[E].runtimeClass;
+		val E = classTag[E].runtimeClass
 		Opt(
 			try {
 				val instance = E.getDeclaredConstructor(classOf[String], classOf[Throwable], classOf[Boolean])
