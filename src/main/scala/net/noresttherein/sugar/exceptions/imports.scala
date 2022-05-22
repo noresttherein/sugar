@@ -97,10 +97,10 @@ trait imports {
 		new StackTraceElement(classOf[imports].getName, "rethrow", "imports.scala", 84)
 
 	private[exceptions] final val conjureThrowableStackTraceElement =
-		new StackTraceElement(classOf[imports].getName, "conjureThrowable", "imports.scala", 97)
+		new StackTraceElement(classOf[imports].getName, "conjureThrowable", "imports.scala", 94)
 
 	private[exceptions] final val fillInStackTraceStackTraceElement =
-		new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "AbstractThrowable.scala", -1)
+		new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", -1)
 
 	/** A partial function attempting to create a `Throwable` of the same type as the argument,
 	  * with `msg` as its message and the argument `Throwable` as its cause.
@@ -117,37 +117,6 @@ trait imports {
 	def pushErrorMessage(msg: => String) :PartialFunction[Throwable, Throwable] = {
 		case e :StackableThrowable => e.addInfo(msg)
 		case e => ThrowableCloning.getOrElse(e.getClass, cloneThrowable _)(msg, e)
-		//		case e if e.getClass == classOf[NumberFormatException]           =>
-		//			new NumberFormatException(msg).initCause(e)
-		//		case e if e.getClass == classOf[IllegalArgumentException]        =>
-		//			new IllegalArgumentException(msg, e)
-		//		case e if e.getClass == classOf[UnsupportedOperationException]   =>
-		//			new UnsupportedOperationException(msg, e)
-		//		case e if e.getClass == classOf[NoSuchElementException]          =>
-		//			new NoSuchElementException(msg).initCause(e)
-		//		case e if e.getClass == classOf[IllegalStateException]           =>
-		//			new IllegalStateException(msg, e)
-		//		case e if e.getClass == classOf[ArrayIndexOutOfBoundsException]  =>
-		//			new ArrayIndexOutOfBoundsException(msg).initCause(e)
-		//		case e if e.getClass == classOf[StringIndexOutOfBoundsException] =>
-		//			new StringIndexOutOfBoundsException(msg).initCause(e)
-		//		case e if e.getClass == classOf[IndexOutOfBoundsException]       =>
-		//			new IndexOutOfBoundsException(msg).initCause(e)
-		//		case e if e.getClass == classOf[ClassCastException]              =>
-		//			new ClassCastException(msg).initCause(e)
-		//		case e if e.getClass == classOf[NullPointerException]            =>
-		//			new NullPointerException(msg).initCause(e)
-		//		case e if e.getClass == classOf[InterruptedException]            =>
-		//			new InterruptedException(msg).initCause(e)
-		//		case e if e.getClass == classOf[AbstractMethodError]             =>
-		//			new AbstractMethodError(msg).initCause(e)
-		//		case e if e.getClass == classOf[AssertionError]                  =>
-		//			new AssertionError(msg, e)
-		//		case e => try {
-		//			newThrowable[Throwable](msg, e)(ClassTag(e.getClass))
-		//		} catch {
-		//			case e1 :Exception => e.addSuppressed(e1); e
-		//		}
 	}
 
 	/** An alternative implementation of [[net.noresttherein.sugar.imports.pushErrorMessage pushErrorMessage]]
@@ -203,7 +172,6 @@ trait imports {
 		(classOf[AssertionError],                  new AssertionError(_, _)),
 		(classOf[ExceptionInInitializerError],     new ExceptionInInitializerError(_).initCause(_)),
 
-		(classOf[SugarException],                  new SugarException(_, _)),
 		(classOf[StackableException],              new StackableException(_, _)),
 		(classOf[RethrowableException],            new RethrowableException(_, _, true))
 	)
@@ -219,15 +187,15 @@ trait imports {
 	  */
 	def ??! :Nothing = throw new ImpossibleError
 
-	/** Throws a [[net.noresttherein.sugar.exceptions.ProgrammingError programming error]] with the given message,
+	/** Throws an [[net.noresttherein.sugar.exceptions.Oops Oops]] with the given message,
 	  * to indicate a situation which should not have happened and is due to a bug in the executed code.
 	  */
-	def oops(msg :String) :Nothing = throw new ProgrammingError(msg)
+	def oops(msg :String) :Nothing = throw new Oops(msg)
 
-	/** Throws a [[net.noresttherein.sugar.exceptions.ProgrammingError programming error]] with the given message,
-	  *  to indicate a situation which should not have happened and is due to a bug in the executed code.
+	/** Throws an [[net.noresttherein.sugar.exceptions.Oops Oops]] with the given message,
+	  * to indicate a situation which should not have happened and is due to a bug in the executed code.
 	  */
-	def oops(msg :String, cause :Throwable) :Nothing = throw new ProgrammingError(msg, cause)
+	def oops(msg :String, cause :Throwable) :Nothing = throw new Oops(msg, cause)
 
 	/** Throws an [[UnsupportedOperationException]]. */
 	@inline final def unsupported_! :Nothing =

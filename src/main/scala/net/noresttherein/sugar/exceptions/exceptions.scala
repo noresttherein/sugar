@@ -27,7 +27,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 				causeQueue(cause, e::result, dejaVu)
 		}
 	private def causeCycleException(e :Throwable) =
-		new SugarException(s"Cycle detected in the exception stack: ${e.getCause} already present.")
+		new IllegalStateException(s"Cycle detected in the exception stack: ${e.getCause} already present.")
 
 	/** Descends down the cause list following the [[Throwable.getCause getCause]] methods to find the first exception
 	  * without a cause. Guards against malicious cycle attempts.
@@ -46,7 +46,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 	  */
 	@tailrec private[exceptions] def stackTraceSuffix(e :Throwable) :Array[StackTraceElement] = e.getCause match {
 		case null => e match {
-			case e :AbstractThrowable => e.stackTrace match {
+			case e :SugaredThrowable => e.stackTrace match {
 				case seq :ofRef[StackTraceElement] => seq.unsafeArray
 				case seq => seq.toArray
 			}
@@ -54,7 +54,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 		}
 		case cause =>
 			val causeTrace = cause match {
-				case e :AbstractThrowable => e.stackTrace match {
+				case e :SugaredThrowable => e.stackTrace match {
 					case seq :ofRef[StackTraceElement] => seq.unsafeArray
 					case other => other.toArray
 				}
@@ -88,7 +88,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 			val method = frame.getMethodName
 			val file = frame.getFileName
 			(method.endsWith("fillInStackTrace") || method.endsWith("fillInStackTrace$")) &&
-				(file == null || file == "AbstractThrowable.scala") || method.endsWith("<init>")
+				(file == null || file == "SugaredThrowable.scala") || method.endsWith("<init>")
 		}) i += 1
 
 		i match {
@@ -106,7 +106,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 	/** Prints stack trace using `printer` argument.
 	  * Used by [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] as this method
 	  * doesn't attempt to use the internal initialization of the stack trace, but rather uses the public
-	  * [[net.noresttherein.sugar.exceptions.AbstractThrowable AbstractThrowable]]`.`[[net.noresttherein.sugar.exceptions.AbstractThrowable.stackTrace stackTrace]]
+	  * [[net.noresttherein.sugar.exceptions.SugaredThrowable SugaredThrowable]]`.`[[net.noresttherein.sugar.exceptions.SugaredThrowable.stackTrace stackTrace]]
 	  * or `Throwable.`[[Throwable.getStackTrace getStackTrace]] to access the stack, allowing the delegating exception
 	  * to provide a different stack - in the case of `Rethrowable`, one initialized from its cause's stack trace.
 	  *

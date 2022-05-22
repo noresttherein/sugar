@@ -90,7 +90,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T] extends Ref[T] with Iterab
 	  * no closure will be created, at the cost of possibly discarding it without use.
 	  * @param alt the value to return if this instance is empty.
 	  */
-	@inline final def defaultTo[O >: T](alt: O) :O =
+	@inline final def orDefault[O >: T](alt: O) :O =
 		if (this eq Blank) alt else get
 
 	/** Assuming that `T` is a nullable type, return `null` if this `Unsure` is empty, or the wrapped value otherwise. */
@@ -475,7 +475,7 @@ object Sure {
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :Sure[T] = new Sure(value)
 
 	/** Extracts the value from the given `Unsure` if it is not empty. */
-	@inline def unapply[T](value :Unsure[T]) :Unsure[T] = value
+	@inline def unapply[T](value :Unsure[T]) :Unsure[T] = if (value == null) Blank else value
 }
 
 

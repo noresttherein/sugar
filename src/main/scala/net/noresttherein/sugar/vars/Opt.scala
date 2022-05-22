@@ -83,10 +83,10 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
 	  * no closure will be created, at the cost of possibly discarding it without use.
 	  * @param alt the value to return if this instance is empty. */
-	@inline def defaultTo[O >: A](alt: O) :O =
+	@inline def orDefault[O >: A](alt: O) :O =
 		if (ref eq NoContent) alt else ref.asInstanceOf[A]
 
-	/** Assuming that `T` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
+	/** Assuming that `A` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
 	@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
 		if (ref eq NoContent) null.asInstanceOf[O] else ref.asInstanceOf[O]
 
@@ -104,12 +104,12 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	@inline def orNoSuch(msg: => String) :A =
 		if (ref eq NoContent) throw new NoSuchElementException(msg) else ref.asInstanceOf[A]
 
-	/** Gets the element in the option or throws an [[IllegalArgumentException]] with the given message.
+	/** Gets the element in this `Opt` or throws an [[IllegalArgumentException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Opt.orThrow orThrow]] */
 	@inline def orIllegal(msg: => String) :A =
 		if (ref eq NoContent) throw new IllegalArgumentException(msg) else ref.asInstanceOf[A]
 
-	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
+	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 	@inline def orError(msg: => String) :A = {
 		assert(ref ne NoContent, msg)
 		ref.asInstanceOf[A]
@@ -339,7 +339,7 @@ object Opt {
 		@inline def apply[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
 
 		/** Matches non-empty [[net.noresttherein.sugar.vars.Opt Opt]] instances. */
-		@inline def unapply[T](opt :Opt[T]) :Opt[T] = opt
+		@inline def unapply[T](opt :Opt[T]) :Opt[T] = if (opt == null) Lack else opt
 	}
 
 	/** A refinement of [[net.noresttherein.sugar.vars.Opt Opt]] marking it through a member flag type
@@ -349,9 +349,7 @@ object Opt {
 
 	/** A special, empty instance of [[net.noresttherein.sugar.vars.Opt Opt]] which conforms to any `Opt[T]` type.
 	  * It is represented by wrapping a special, private singleton object and all `isEmpty` tests check for
-	  * referential equality of the wrapped value with this object. While normally inaccessible from scala code,
-	  * it is however still possible to obtain its reference, which makes this class unsuitable for security conscious
-	  * applications.
+	  * referential equality of the wrapped value with this object.
 	  * @see [[net.noresttherein.sugar.vars.Opt.empty]]
 	  */
 	@inline final val Lack :Lack = new Opt(NoContent).asInstanceOf[Lack]

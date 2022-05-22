@@ -3,7 +3,7 @@ package net.noresttherein.sugar.concurrent
 import java.lang.invoke.MethodHandles
 
 import net.noresttherein.sugar.concurrent.SpinLock.{ownerField, Open, SpinsBetweenChecks}
-import net.noresttherein.sugar.exceptions.{AbstractThrowable, StackableException}
+import net.noresttherein.sugar.exceptions.StackableException
 import net.noresttherein.sugar.time.{Milliseconds, PosixTime}
 
 
@@ -212,5 +212,5 @@ object SpinLock {
   */
 class BrokenLockException(msg :String, cause :Throwable = null) extends StackableException(msg, cause) {
 	def this(lock :SpinLock) = this(lock.toString + " is broken.")
-	override def addInfo(msg :String) :AbstractThrowable = new BrokenLockException(msg, this)
+	override def addInfo(msg :String) :StackableException = new BrokenLockException(msg, this)
 }

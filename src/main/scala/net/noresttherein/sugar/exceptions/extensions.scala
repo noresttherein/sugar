@@ -18,12 +18,12 @@ trait extensions extends Any {
 /** Scala-like accessors to properties of [[Throwable]]. */
 class ThrowableExtension(private val self :Throwable) extends AnyVal {
 	def stackTrace :Seq[StackTraceElement] = self match {
-		case e :AbstractThrowable => e.stackTrace
+		case e :SugaredThrowable => e.stackTrace
 		case _ => ArraySeq.unsafeWrapArray(self.getStackTrace)
 	}
 	/** Standard [[Throwable.getSuppressed getSuppressed]] array as a scala [[Seq]]. */
 	def suppressed :Seq[Throwable] = self match {
-		case e :AbstractThrowable => e.suppressed
+		case e :SugaredThrowable => e.suppressed
 		case _ => ArraySeq.unsafeWrapArray(self.getSuppressed)
 	}
 
@@ -32,13 +32,13 @@ class ThrowableExtension(private val self :Throwable) extends AnyVal {
 	  * closes the list.
 	  */
 	def causeQueue :Seq[Throwable] = self match {
-		case e :AbstractThrowable => e.causeQueue
+		case e :SugaredThrowable => e.causeQueue
 		case _ => exceptions.causeQueue(self)
 	}
 
 	/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Option]]. */
 	def cause :Option[Throwable] = self match {
-		case e :AbstractThrowable => e.cause
+		case e :SugaredThrowable => e.cause
 		case _ => Option(self.getCause)
 	}
 
@@ -47,14 +47,14 @@ class ThrowableExtension(private val self :Throwable) extends AnyVal {
 	  * if a `Throwable` cause was not given as a constructor parameter of this `Throwable`.
 	  */
 	def cause_=(cause :Throwable) :Unit = self match {
-		case e :AbstractThrowable => e.cause = cause
+		case e :SugaredThrowable => e.cause = cause
 		case _ => self.initCause(cause)
 	}
 
 
 	/** Standard[[Throwable.getMessage getMessage]] wrapped in an [[Option]]. */
 	def message :Option[String] = self match {
-		case e :AbstractThrowable => e.message
+		case e :SugaredThrowable => e.message
 		case _ => Option(self.getMessage)
 	}
 
@@ -62,7 +62,7 @@ class ThrowableExtension(private val self :Throwable) extends AnyVal {
 	  * was provided.
 	  */
 	def msg :String = self match {
-		case e :AbstractThrowable => e.msg
+		case e :SugaredThrowable => e.msg
 		case _ if self.getMessage == null => ""
 		case _ => self.getMessage
 	}
@@ -70,13 +70,13 @@ class ThrowableExtension(private val self :Throwable) extends AnyVal {
 
 	/**`Option(getLocaliazedMessage)`. */
 	def localizedMessage :Option[String] = self match {
-		case e :AbstractThrowable => e.localizedMessage
+		case e :SugaredThrowable => e.localizedMessage
 		case _ => Option(self.getLocalizedMessage)
 	}
 
 	/**`Option(getLocaliazedMessage) getOrElse ""`. */
 	def localizedMsg :String = self match {
-		case e :AbstractThrowable => e.localizedMsg
+		case e :SugaredThrowable => e.localizedMsg
 		case _ if self.getLocalizedMessage == null => ""
 		case _ => self.getLocalizedMessage
 	}
@@ -92,16 +92,16 @@ class ThrowableExtension(private val self :Throwable) extends AnyVal {
 	  * @return `Option(originalCause.getMessage)`
 	  */
 	def originalMessage :Option[String] = self match {
-		case e :AbstractThrowable => e.originalMessage
+		case e :SugaredThrowable => e.originalMessage
 		case _ => Option(originalCause.getMessage)
 	}
 
 	/** Denullified [[Throwable.getMessage getMessage]] of the original `Throwable` cause of this exception,
 	  * returning an empty string instead of `null` if no message was provided.
-	  * @return [[net.noresttherein.sugar.exceptions.AbstractThrowable.originalMessage originalMessage]]` getOrElse ""`.
+	  * @return [[net.noresttherein.sugar.exceptions.SugaredThrowable.originalMessage originalMessage]]` getOrElse ""`.
 	  */
 	def originalMsg :String = self match {
-		case e :AbstractThrowable => e.originalMsg
+		case e :SugaredThrowable => e.originalMsg
 		case _ =>
 			val msg = exceptions.originalCause(self).getMessage
 			if (msg == null) "" else msg
