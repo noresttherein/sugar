@@ -8,7 +8,7 @@ import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.exceptions.InternalException
-import net.noresttherein.sugar.numeric.Decimal64.{divideByDigits, divideLong, roundDivision, throwArithmeticException, trailingZeros, Decimal64AsIfIntegral, DoublePowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxLongValueLog, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, RoundingNecessaryException, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero}
+import net.noresttherein.sugar.numeric.Decimal64.{divideByDigits, divideLong, throwArithmeticException, trailingZeros, Decimal64AsIfIntegral, DoublePowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxLongValueLog, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{isNearestNeighbour, to16digits, to17digits, toMaxDigits, Extended, ExtendedExact, ExtendedHalfEven}
 import net.noresttherein.sugar.oops
@@ -364,7 +364,6 @@ class Decimal64 private (private val bits :Long)
 			if (s - precision >= fractional)
 				Zero
 			else  //fractional < scale < precision + fractional
-//				Decimal64.round(m, 0, rounding, precision - s + fractional)
 				Decimal64.divideToMaxPrecision(m, LongPowersOf10(s - fractional), -fractional, rounding)
 		}
 	}
@@ -573,129 +572,6 @@ class Decimal64 private (private val bits :Long)
 					Decimal64.round(sign * lo, -e, rounding, targetPrecision)
 				else
 					Decimal64.roundDoubleLong(sign * hi, sign * lo, -e, rounding, targetPrecision)
-
-				/*else {
-//					if (lo > MaxLongPowerOf10) {
-//						hi += lo / MaxLongPowerOf10
-//						lo %= MaxLongPowerOf10
-//					}
-					val hiPrecision = Decimal64.precision(hi)
-					if (targetPrecision != ExtendedPrecision & targetPrecision <= hiPrecision) {
-						val shift = hiPrecision - targetPrecision
-						e += LongPrecision + shift
-//						hi = Decimal64.divideLong(sign * hi, Powers(shift), rounding)
-//						Decimal64(hi, -e - LongPrecision - shift)
-						if (targetPrecision < hiPrecision) {
-							//we must truncate some digits, but at least we won't run out of precision
-							val power = Powers(shift)
-							var result = sign * hi / power
-							result = roundDivision(result, power, sign * hi - result * power, lo, rounding)
-							Decimal64(result, -e)
-						} else {
-							//just round hi, unless it exceeds precision, in which case lets hope the last digit is 0
-							val result = Decimal64.roundDivision(sign * hi, MaxLongPowerOf10, lo, rounding)
-							if (MinUnscaled <= result & result <= MaxUnscaled)
-								Decimal64(result, -e)
-							else
-								if (hi % 10L != 0)
-									throw PrecisionExceededException
-								else
-									Decimal64(result / 10L, -e - 1)
-						}
-					} else if (hiPrecision <= Precision) {  //possible room for some higher digits from lo
-						var loCarryOverPower = 0L           //divisor dropping lower, unneeded digits from lo
-						var result = 0L                     //the result, scaled hi plus higher digits from lo
-						var rem = 0L                        //the lower digits of lo which won't fit/are over precision
-						var resultPrecision = Precision     //the precision of `result`
-						var raise = 0                       //exponent delta (negative): resultPrecision - precision
-						while ({ //really, a do .. while loop
-							if (targetPrecision == ExtendedPrecision | targetPrecision > Precision) {
-								raise = Precision - hiPrecision
-								result = hi * Powers(raise)
-								if (result <= MaxUnscaled / 10L) {
-									result *= 10L
-									raise += 1
-									resultPrecision = MaxPrecision
-								}
-							} else {
-								resultPrecision = targetPrecision
-								raise = resultPrecision - hiPrecision
-								result = hi * Powers(raise)
-							}
-							loCarryOverPower = Powers(LongPrecision - raise)
-							result += lo / loCarryOverPower
-							rem = lo % loCarryOverPower
-							//all truncated digits which are under targetPrecision must be zero
-							if (rem != 0L & targetPrecision > resultPrecision) {
-								val digitsOverPrecision = LongPrecision - (targetPrecision - resultPrecision)
-								if (digitsOverPrecision >= 0 && rem / Powers(digitsOverPrecision) != 0L)
-									throw PrecisionExceededException
-							}
-							if (rem != 0L && rounding == UNNECESSARY)
-								throw RoundingNecessaryException
-							result = Decimal64.roundDivision(sign * result, loCarryOverPower, rem, rounding)
-
-							//we can fail this check only if targetPrecision > Precision | targetPrecision == ExtendedPrecision
-							// and only when it is the last, rounded up digit which brought us out of range.
-							result < MinUnscaled | result > MaxUnscaled
-						}) {
-							//we made sure that all already truncated digits are zero,
-							// so now check only the last digit of the result which we must also round
-							if (targetPrecision > resultPrecision && result % 10L != 0)
-								throw PrecisionExceededException
-							targetPrecision = Precision
-						}
-						Decimal64(result, -e - LongPrecision + raise)
-//						val weight = java.lang.Long.compare(lo, loCarryOverPower >> 1)
-//						hi = Decimal64.round(sign * hi, weight, sign, rounding)
-//						Decimal64(hi, -e - LongPrecision)
-//						e += LongPrecision - 1 - multiplier
-					} else if (hi < MaxUnscaled) {
-						//precision == MaxPrecision && (targetPrecision > precision || targetPrecision == ExtendedPrecision
-						if (lo != 0L) {                     //lo digits [0..targetPrecision-MaxPrecision) must be 0
-							if (rounding == UNNECESSARY)
-								throw RoundingNecessaryException
-							if (targetPrecision > MaxPrecision) {
-								val digitsOverPrecision = LongPrecision + MaxPrecision - targetPrecision
-								if (digitsOverPrecision >= 0 && lo / Powers(digitsOverPrecision) != 0L)
-									throw PrecisionExceededException
-							}
-						}
-						//won't overflow as hi < MaxUnscale
-						hi = Decimal64.roundDivision(sign * hi, MaxLongPowerOf10, lo, rounding)
-//						val weight = java.lang.Long.compare(lo, MaxLongPowerOf10 >> 1)
-//						hi = Decimal64.round(sign * hi, weight, sign, rounding)
-						Decimal64(hi, -(e + LongPrecision))
-
-					} else if (targetPrecision == ExtendedPrecision) { //hi *probably* exceeds the maximal precision
-						//we can't just delegate to Decimal64.round because lo takes part in rounding
-						val resultPrecision = Round.maxPrecision(sign * hi, rounding)
-						val lower = resultPrecision - hiPrecision
-						var pow = Powers(lower)
-						e += LongPrecision + lower
-						var result = 0L
-						while ({
-							val r = hi % pow
-							if ((r != 0L | lo != 0L) && rounding == UNNECESSARY)
-								throw RoundingNecessaryException
-							if (pow == 1L)
-								result = Decimal64.roundDivision(sign * hi, MaxLongPowerOf10, lo, rounding)
-							else
-								result = roundDivision(sign * hi, pow, r, lo, rounding)
-
-							result < MinUnscaled | result > MaxUnscaled //due to rounding only
-						}) {
-							pow *= 10L
-							e += 1
-						}
-						Decimal64(result, e)
-//						val weight = java.lang.Long.compare(r, pow >> 1)
-//						hi = Decimal64.round(sign * hi / pow, weight, sign, rounding)
-//						Decimal64(hi, -(e + LongPrecision + lower))
-					} else
-						throw PrecisionExceededException
-				}
-*/
 			}
 		}
 	} catch {
@@ -998,11 +874,9 @@ class Decimal64 private (private val bits :Long)
 				case UNNECESSARY => One.div(pow(-n, ExtendedExact), mode)
 				case _ => One.div(pow(-n, mode), mode)
 			}
-//				One.div(pow(-n, toMaxDigits(mode.getRoundingMode)), mode)
 		else
 			try {
 				var res = One
-//				val ctx = toMaxDigits(mode.getRoundingMode)
 				val ctx = mode.getRoundingMode match {
 					case _ if mode.getPrecision > Precision => ExtendedExact
 					case UNNECESSARY => ExtendedExact
@@ -1934,9 +1808,6 @@ object Decimal64 {
 	def parse(string :String)(implicit mode :Maybe[MathContext]) :Decimal64 = Decimal64(string, mode getOrElse Extended)
 
 
-//	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-//	@inline def round(significand :Long, rounding :RoundingMode) :Decimal64 = round(significand, 0, rounding)
-
 	/** Rounds the given integral number according to the rounding mode and to the precision specified
 	  * by an implicit `MathContext`. If no such implicit exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
@@ -1944,17 +1815,6 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
 	@inline def round(int :Long)(implicit mode :Maybe[MathContext]) :Decimal64 = round(int, 0)
-
-//	/** Creates `Decimal64` of value `significand*10^-scale`, rounded to 16 digits in the direction
-//	  * specified by the passed [[java.math.RoundingMode RoundingMode]].
-//	  * For arguments on which neither method throws an exception, this is equivalent to
-//	  * `Decimal64(significand, scale).round(mode)`, but this method performs rounding before the creation
-//	  * of the result and thus accepts any `Long` as a significand, providing it fits in a `Decimal64` after rounding
-//	  * to `mode.`[[java.math.MathContext.getPrecision getPrecision]].
-//	  **/
-//	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-//	def round(significand :Long, scale :Int, rounding :RoundingMode) :Decimal64 =
-//		round(significand, scale, rounding, Precision, false)
 
 	/** Creates `Decimal64` of value `significand*10^-scale`, rounded
 	  * according to the implicit [[java.math.MathContext MathContext]]. If no such instance exists,
@@ -2127,7 +1987,7 @@ object Decimal64 {
 		@inline def > (that: Long) :Boolean = (new Decimal64(bits) compare that) >  0
 		@inline def <=(that: Long) :Boolean = (new Decimal64(bits) compare that) <= 0
 		@inline def >=(that: Long) :Boolean = (new Decimal64(bits) compare that) >= 0
-		//		@inline def ==(that: Long) :Boolean = (new Decimal64(bits) compare that) == 0
+//		@inline def ==(that: Long) :Boolean = (new Decimal64(bits) compare that) == 0
 	}
 
 	class ComparingLongToDecimal64(private val self :Long) extends AnyVal {
@@ -2886,59 +2746,6 @@ object Decimal64 {
 				}
 				Decimal64(result, -e)
 			}
-/*
-			var lastQuotDigitPower = Powers(-remainingDigits) //the last (lowest) digit of q which becomes a part of result
-			val candidate = result + q / lastQuotDigitPower
-			val lastResultDigit = //0 or 1
-				if (precision == ExtendedPrecision) MaxPrecision - Round.maxPrecision(candidate)
-				else 0
-			val lastResultDigitPower =                    //power of 10 of the last digit of the result
-				if (lastResultDigit == 1) {
-					lastQuotDigitPower *= 10L
-					result += q / lastQuotDigitPower * 10L
-					remainingDigits -= 1
-					10L
-				} else {
-					result = candidate
-					1L
-				}
-			q %= lastQuotDigitPower
-			val adjust = rounding match {
-				case _ if q == 0L & r == 0L => 0L         //an exact result
-				case _ if MaxPrecision < precision => throw if (sign < 0) UnderflowException else OverflowException
-				case DOWN        => 0L                    //nothing to do
-				case UP          => lastResultDigitPower
-				case FLOOR       => if (sign < 0) lastResultDigitPower else 0L
-				case CEILING     => if (sign > 0) lastResultDigitPower else 0L
-				case UNNECESSARY => throw RoundingNecessaryException
-				case _ if remainingDigits == 0 => roundingWeight(r, div) match { //no remaining digits in q
-					case -1 => 0L  //round down
-					case  1 => lastResultDigitPower
-					case _ => rounding match {
-						case HALF_DOWN => 0L
-						case HALF_UP   => lastResultDigitPower
-						case _  if (result & (1L << lastResultDigit)) == 0L => 0L
-						case _         => lastResultDigitPower
-					}
-				}
-				case _ => roundingWeight(q, lastQuotDigitPower) match {
-					case -1            => 0L      //round down
-					case  1            => lastResultDigitPower
-					case _ if r == 0L => rounding match {
-						case HALF_DOWN => 0L
-						case HALF_UP   => lastResultDigitPower
-						case _ if (result & (1L << lastResultDigit)) == 0L => 0L
-						case _         => lastResultDigitPower
-					}
-					case _             => lastResultDigitPower
-				}
-			}
-//			result += sign * adjust
-//			if (result < MinUnscaled | result > MinUnscaled)  //well, shit, we need to round again.
-			result = roundingSum(result, sign * adjust)
-			//we need to validate the final scale, normalize for trailing zeros, and that's it.
-			Decimal64(result, -e)
-*/
 		}
 	}
 
@@ -3250,7 +3057,6 @@ object Decimal64 {
 				val result = (xSignificand * Powers(gap) - 1L) * yMagnitude + y
 				roundToMaxPrecision(sign * result, 1L, 0L, -yExponent, rounding)
 			} else {
-//				val xMultiplier = Powers(MaxPrecision - xPrecision)
 				val droppedYDigits = paddedXPrecision + yPrecision - MaxPrecision
 				val yDivisor = Powers(droppedYDigits)
 				val yScaled = y / yDivisor
@@ -3309,7 +3115,6 @@ object Decimal64 {
 			val result = (xSignificand * Powers(gap) - 1L) * Powers(MaxPrecision - paddedXPrecision) + lo
 			Decimal64(sign * result, -(yExponent + droppedYDigits))
 		} else {
-//			val takenYDigits = MaxPrecision - paddedXPrecision
 			val insignificantYDigits = paddedXPrecision + yPrecision - precision
 			val significantLo = sign * divideLong(sign * y, Powers(insignificantYDigits), rounding)
 			val truncLoDigits = precision - MaxPrecision                              //truncLoDigits <= yPrecision + gap
