@@ -15,23 +15,22 @@ object JavaTypes {
 	type JFloat            = java.lang.Float
 	type JDouble           = java.lang.Double
 
-	type JBigDecimal      = java.math.BigDecimal
-	type JBigInt          = java.math.BigInteger
+	type JBigDecimal       = java.math.BigDecimal
+	type JBigInt           = java.math.BigInteger
 
-	type JStringBuilder   = java.lang.StringBuilder
-	type JIterator[T]     = java.util.Iterator[T]
-	type JSpliterator[T]  = java.util.Spliterator[T]
-	type JList[T]         = java.util.List[T]
-	type JArrayList[T]    = java.util.ArrayList[T]
-
-//	val JVoid            = java.lang.Void.TYPE
-//	val JBoolean         = java.lang.Boolean.TYPE
-//	val JByte            = java.lang.Byte.TYPE
-//	val JShort           = java.lang.Short.TYPE
-//	val JInt             = java.lang.Integer.TYPE
-//	val JLong            = java.lang.Long.TYPE
-//	val JChar            = java.lang.Character.TYPE
-//	val JFloat           = java.lang.Float.TYPE
-//	val JDouble          = java.lang.Double.TYPE
-
+	type JStringBuilder    = java.lang.StringBuilder
+	type JIterator[T]      = java.util.Iterator[T]
+	type JSpliterator[T]   = java.util.Spliterator[T]
+	type JList[T]          = java.util.List[T]
+	type JArrayList[T]     = java.util.ArrayList[T]
+	type JSet[T]           = java.util.Set[T]
+	type JHashSet[T]       = java.util.HashSet[T]
+	type JTreeSet[T]       = java.util.TreeSet[T]
+	type JBitSet           = java.util.BitSet
+	type JMap[K, V]        = java.util.Map[K, V]
+	type JHashMap[K, V]    = java.util.HashMap[K, V]
+	type JTreeMap[K, V]    = java.util.TreeMap[K, V]
+	type JQueue[T]         = java.util.Queue[T]
+	type JDeque[T]         = java.util.Deque[T]
+	type JPriorityQueue[T] = java.util.PriorityQueue[T]
 }
