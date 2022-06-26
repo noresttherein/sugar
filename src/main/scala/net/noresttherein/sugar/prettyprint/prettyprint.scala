@@ -12,7 +12,7 @@ import scala.reflect.{classTag, ClassTag}
 package object prettyprint extends prettyprint.extensions {
 
 	/** An approximation of the imported type symbol of the class of the given object, as it would be referenced 
-	  * in code. First, the whole sugar prefix and all trailing '$' characters are dropped. Then, all escape sequences
+	  * in code. First, the whole package prefix and all trailing '$' characters are dropped. Then, all escape sequences
 	  * for special characters which are legal for use in identifiers are unescaped to their original forms.
 	  * Then, dropped is the prefix up until and including to the last '$'. If the class is specialized, its mangled
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
@@ -30,7 +30,7 @@ package object prettyprint extends prettyprint.extensions {
 	@inline def innerClassNameOf(o :Any) :String = innerNameOf(o.getClass)
 
 	/** An approximation of the imported type symbol of the given class, as it would be referenced 
-	  * in code. First, the whole sugar prefix and all trailing '$' characters are dropped. Then, all escape sequences
+	  * in code. First, the whole package prefix and all trailing '$' characters are dropped. Then, all escape sequences
 	  * for special characters which are legal for use in identifiers are unescaped to their original forms.
 	  * Then, dropped is the prefix up until and including to the last '$'. If the class is specialized, its mangled
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
@@ -48,7 +48,7 @@ package object prettyprint extends prettyprint.extensions {
 	@inline def innerNameOf[C :ClassTag] :String = innerNameOf(classTag[C].runtimeClass)
 
 	/** An approximation of the imported type symbol of the given class, as it would be referenced 
-	  * in code. First, the whole sugar prefix and all trailing '$' characters are dropped. Then, all escape sequences
+	  * in code. First, the whole package prefix and all trailing '$' characters are dropped. Then, all escape sequences
 	  * for special characters which are legal for use in identifiers are unescaped to their original forms.
 	  * Then, dropped is the prefix up until and including to the last '$'. If the class is specialized, its mangled
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
@@ -101,7 +101,7 @@ package object prettyprint extends prettyprint.extensions {
 
 
 	/** An approximation of the type name of the class of the given object, as it would appear in code.
-	  * It doesn't include the sugar prefix, but includes demangled names of all enclosing classes/objects.
+	  * It doesn't include the package prefix, but includes demangled names of all enclosing classes/objects.
 	  * The demangling proceeds as follows: first, all trailing '$' characters are dropped. Then, all escape sequences
 	  * for special characters which are legal for use in identifiers are unescaped to their original forms.
 	  * All individual '$' signs (used in name mangling of inner classes as the separators) are replaced with a '.',
@@ -118,7 +118,7 @@ package object prettyprint extends prettyprint.extensions {
 	@inline def localClassNameOf(obj :Any): String = localNameOf(obj.getClass)
 
 	/** An approximation of the type name of the given class, as it would appear in code.
-	  * It doesn't include the sugar prefix, but includes demangled names of all enclosing classes/objects.
+	  * It doesn't include the package prefix, but includes demangled names of all enclosing classes/objects.
 	  * The demangling proceeds as follows: first, all trailing '$' characters are dropped. Then, all escape sequences
 	  * for special characters which are legal for use in identifiers are unescaped to their original forms.
 	  * All individual '$' signs (used in name mangling of inner classes as the separators) are replaced with a '.',
@@ -135,7 +135,7 @@ package object prettyprint extends prettyprint.extensions {
 	@inline def localNameOf[C :ClassTag] :String = localNameOf(classTag[C].runtimeClass)
 
 	/** An approximation of the type name of the given class, as it would appear in code.
-	  * It doesn't include the sugar prefix, but includes demangled names of all enclosing classes/objects.
+	  * It doesn't include the package prefix, but includes demangled names of all enclosing classes/objects.
 	  * The demangling proceeds as follows: first, all trailing '$' characters are dropped. Then, all escape sequences
 	  * for special characters which are legal for use in identifiers are unescaped to their original forms.
 	  * All individual '$' signs (used in name mangling of inner classes as the separators) are replaced with a '.',
@@ -167,7 +167,7 @@ package object prettyprint extends prettyprint.extensions {
 
 	
 	/** An abbreviated qualified name of the class of the given object, demangled to an approximation of how it would 
-	  * appear in code. All sugar names are replaced with their first letters, while the class name is demangled
+	  * appear in code. All package names are replaced with their first letters, while the class name is demangled
 	  * as follows: first, all trailing '$' are dropped and escape sequences 
 	  * for characters which are legal for use in identifiers are unescaped. Encoding of type arguments 
 	  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.
@@ -184,7 +184,7 @@ package object prettyprint extends prettyprint.extensions {
 	@inline def abbrevClassNameOf(obj :Any) :String = abbrevNameOf(obj.getClass)
 
 	/** An abbreviated qualified name of the given class, demangled to an approximation of how it would 
-	  * appear in code. All sugar names are replaced with their first letters, while the class name is demangled
+	  * appear in code. All package names are replaced with their first letters, while the class name is demangled
 	  * as follows: first, all trailing '$' are dropped and escape sequences 
 	  * for characters which are legal for use in identifiers are unescaped. Encoding of type arguments 
 	  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.
@@ -201,7 +201,7 @@ package object prettyprint extends prettyprint.extensions {
 	@inline def abbrevNameOf[C :ClassTag] :String = abbrevNameOf(classTag[C].runtimeClass)
 
 	/** An abbreviated qualified name of the given class, demangled to an approximation of how it would 
-	  * appear in code. All sugar names are replaced with their first letters, while the class name is demangled
+	  * appear in code. All package names are replaced with their first letters, while the class name is demangled
 	  * as follows: first, all trailing '$' are dropped and escape sequences 
 	  * for characters which are legal for use in identifiers are unescaped. Encoding of type arguments 
 	  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.
@@ -237,7 +237,7 @@ package object prettyprint extends prettyprint.extensions {
 					}
 					if (i > 0) {
 						sb append '.'
-						i += 1 //skip the '.' separating the sugar and class name
+						i += 1 //skip the '.' separating the package and class name
 					}
 					i
 			}

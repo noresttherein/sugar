@@ -5,12 +5,13 @@ import java.time.DateTimeException
 import java.time.temporal.ChronoField
 
 import net.noresttherein.sugar.time.Cycle.HourOfDay
-import net.noresttherein.sugar.time.dsl.PartialTimeDesignators.{DateDayWithMonth, HourWithMinute}
+import net.noresttherein.sugar.time.constants.{MillisInHour, MillisInMinute, MillisInSecond}
+import net.noresttherein.sugar.time.dsl.partialTimeDesignators.{DateDayWithMonth, HourWithMinute, HourWithMinuteAndSecond}
 
 
 
-/** Constants for temporal fields such as month and day names as well as implicit conversions adding to `Int` and `Long`
-  * types factory methods for creating the classes from `net.noresttherein.sugar.time` in a naturally looking way
+/** Constants for temporal fields such as month and day names as well as extension methods for `Int` and `Long`
+  * creating the classes from `net.noresttherein.sugar.time` in a naturally looking way,
   * such as `11 Jan 1981`, `11 :- 59 :- 59` or `1000_0000.nanos`.
   * @see [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods$]]
   * @author Marcin Mościcki
@@ -18,7 +19,7 @@ import net.noresttherein.sugar.time.dsl.PartialTimeDesignators.{DateDayWithMonth
 package object dsl {
 
 	final val Midnight = TimeOfDay(0, 0)
-	final val Noon = TimeOfDay(12, 0)
+	final val Noon     = TimeOfDay(12, 0)
 
 	@inline final val Jan = Month.January
 	@inline final val Feb = Month.February
@@ -43,6 +44,11 @@ package object dsl {
 
 
 
+	/** Extension methods which starts a call chain building a [[net.noresttherein.sugar.time.Date Date]],
+	  * [[net.noresttherein.sugar.time.DateOfYear DateOfYear]] or
+	  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.DateDayWithMonth DateDayWithMonth]],
+	  * beginning with `this` `Int` as the day of month.
+	  */
 	implicit class DateFactoryMethods(private val day :Int) extends AnyVal {
 		@inline def Jan(year :Int) :Date = Date(year, 1, day)
 		@inline def Feb(year :Int) :Date = Date(year, 2, day)
@@ -70,14 +76,23 @@ package object dsl {
 		@inline def Nov :DateOfYear = DateOfYear(dsl.Nov, day)
 		@inline def Dec :DateOfYear = DateOfYear(dsl.Dec, day)
 
-		@inline def :/(month :Int) :DateDayWithMonth = new DateDayWithMonth(DateOfYear(Month(month), day))
-		@inline def :/(month :Month) :DateDayWithMonth = new DateDayWithMonth(DateOfYear(month, day))
+		@inline def :/(month :Int)   :DateDayWithMonth = DateDayWithMonth(DateOfYear(Month(month), day))
+		@inline def :/(month :Month) :DateDayWithMonth = DateDayWithMonth(DateOfYear(month, day))
 
-
+		/** Creates a `Year` of the [[net.noresttherein.sugar.time.Era.CE current era]] represented by this `Int`.
+		  * A negative integer results in a year of that absolute value [[net.noresttherein.sugar.time.Era.BCE BCE]]
+		  * instead. Zero is illegal.
+		  */
+		@throws[DateTimeException]("if this value is zero.")
 		@inline def CE :Year =
 			if (day == 0) throw new DateTimeException("0.CE: no year zero in ISO chronology")
 			else new Year(day)
 
+		/** Creates a [[net.noresttherein.sugar.time.Era.BCE BCE]] year represented by this `Int`.
+		  * A negative integer results in a year of that absolute value [[net.noresttherein.sugar.time.Era.CE CE]]
+		  * instead. Zero is illegal.
+		  */
+		@throws[DateTimeException]("if this value is zero.")
 		@inline def BCE :Year =
 			if (day == 0) throw new DateTimeException("0.BCE: no year zero in ISO chronology")
 			else new Year(1 - day)
@@ -85,89 +100,186 @@ package object dsl {
 
 
 
+	/** An `Int` extension method creating a [[net.noresttherein.sugar.time.TimeOfDay TimeOfDay]] using the syntax
+	  * of `hour :- minute`.
+	  */
 	implicit class TimeOfDayFactoryMethod(private val hour :Int) extends AnyVal {
 		@inline def :-(minute :Int) :HourWithMinute = new HourWithMinute(j.LocalTime.of(hour, minute))
+
+		def am :TimeOfDayFactoryMethod =
+			if (hour == 12)
+				new TimeOfDayFactoryMethod(0)
+			else if (hour >= 0 & hour <= 11)
+				new TimeOfDayFactoryMethod(hour)
+			else
+				throw new DateTimeException(hour.toString + "am")
+
+		def pm :TimeOfDayFactoryMethod =
+			if (hour == 12)
+				new TimeOfDayFactoryMethod(12)
+			else if (hour >= 0 & hour <= 11)
+				new TimeOfDayFactoryMethod(12 + hour)
+			else
+				throw new DateTimeException(hour.toString + "pm")
 	}
 
 
 
-	object PartialTimeDesignators {
+	object partialTimeDesignators {
 
-		class DateDayWithMonth(private val dateOfYear :DateOfYear) extends AnyVal {
+		/** A wrapper of [[net.noresttherein.sugar.time.DateOfYear DateOfYear]] adding a factory method
+		  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.DateDayWithMonth.:/ :/]] creating
+		  * a [[net.noresttherein.sugar.time.Date Date]].
+		  *
+		  * There is an implicit conversion from this value to the wrapped `DateOfYear`.
+		  * The whole method chain enables the syntax of `day :/ month :/ year`.
+		  */
+		class DateDayWithMonth private[time] (private val dateOfYear :DateOfYear) extends AnyVal {
+			/** Factory method creating a full date, made public by type alias
+			  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.DateDayWithMonth DateDayWithMonth]].
+			  * Enables the syntax of `day :/ month :/ year`.
+			  * Note that this can further be followed by [[net.noresttherein.sugar.time.Date.at at]] `time`,
+			  * to the total syntax of `day :/ month :/ year at hour :- minute`
+			  * (and, optionally, `:- second :- nanosecond`).
+			  */
 			@inline def :/(year :Int) :Date = new Date(j.LocalDate.of(year, dateOfYear.month, dateOfYear.day))
 		}
 
 		object DateDayWithMonth {
+			@inline private[time] def apply(dateOfYear :DateOfYear) :DateDayWithMonth = new DateDayWithMonth(dateOfYear)
 			@inline implicit def toDateOfYear(dayMonth :DateDayWithMonth) :DateOfYear = dayMonth.dateOfYear
 		}
 
+		/** A wrapper of [[net.noresttherein.sugar.time.TimeOfDay TimeOfDay]] adding a factory method
+		  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.HourWithMinute.:- :-]] creating
+		  * a [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.HourWithMinuteAndSecond HourWithMinuteAndSecond]]
+		  * - another wrapper of `TimeOfDay`, allowing further refinement of the hour by specifying nanoseconds
+		  * of the given second.
+		  *
+		  * There is an implicit conversion from this value to `TimeOfDay`. The whole method chain enables the syntax
+		  * of `hour :- minute :- second :- nanosecond`, where specifying the nanosecond and second is optional.
+		  */
 		class HourWithMinute private[time] (private val timeOfDay :j.LocalTime) extends AnyVal {
 			@inline def :-(second :Int) :HourWithMinuteAndSecond =
 				new HourWithMinuteAndSecond(timeOfDay.plusSeconds(second))
 		}
 
 		object HourWithMinute {
+			@inline private[time] def apply(timeOfDay :j.LocalTime) :HourWithMinute = new HourWithMinute(timeOfDay)
+
 			@inline implicit def toTimeOfDay(hourMinute :HourWithMinute) :TimeOfDay =
 				new TimeOfDay(hourMinute.timeOfDay)
 		}
 
-		class HourWithMinuteAndSecond(private val timeOfDay :j.LocalTime) extends AnyVal {
+		/** A wrapper of [[net.noresttherein.sugar.time.TimeOfDay TimeOfDay]] adding a factory method
+		  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.HourWithMinuteAndSecond.:- :-]] creating
+		  * a `TimeOfDay` the specified number of nanoseconds after this moment.
+		  *
+		  * There is an implicit conversion from this value to `TimeOfDay`. The whole method chain enables the syntax
+		  * of `hour :- minute :- second :- nanosecond`, where specifying the nanosecond and second is optional.
+		  */
+		class HourWithMinuteAndSecond private[time] (private val timeOfDay :j.LocalTime) extends AnyVal {
 			@inline def :-(nanosecond :Int) :TimeOfDay =
 				new TimeOfDay(timeOfDay.`with`(ChronoField.NANO_OF_SECOND, nanosecond))
 		}
 
 		object HourWithMinuteAndSecond {
+			@inline private[time] def apply(timeOfDay :j.LocalTime) = new HourWithMinuteAndSecond(timeOfDay)
 			@inline implicit def toTimeOfDay(hms :HourWithMinuteAndSecond) :TimeOfDay = new TimeOfDay(hms.timeOfDay)
 		}
-
 	}
 
 
 
 
+	/** Extension methods for `Long` adding natural language factory methods of
+	  * [[net.noresttherein.sugar.time.TimeSpan time spans]] by specifying a time unit.
+	  * They differ from `Int` [[net.noresttherein.sugar.time.dsl.IntTimeLapseMethods extension methods]]
+	  * in that the result is a [[net.noresttherein.sugar.time.Duration Duration]] in all cases
+	  * with the exception of `this.`[[net.noresttherein.sugar.time.dsl.LongTimeLapseMethods.millis millis]],
+	  * which return [[net.noresttherein.sugar.time.Milliseconds Milliseconds]], while the latter
+	  * always creates `Milliseconds`, with the exception of
+	  * [[net.noresttherein.sugar.time.dsl.IntTimeLapseMethods.nanos nanos]], which create `Duration` instead.
+	  */
 	implicit class LongTimeLapseMethods(private val number :Long) extends AnyVal {
-		@inline def nanos :Duration = new Duration(j.Duration.ofNanos(number))
-		@inline def millis :Milliseconds = new Milliseconds(number)
+		@inline def nanos   :Duration = new Duration(j.Duration.ofNanos(number))
+		@inline def millis  :Milliseconds = new Milliseconds(number)
 		@inline def seconds :Duration = new Duration(j.Duration.ofSeconds(number))
 		@inline def minutes :Duration = new Duration(j.Duration.ofMinutes(number))
-		@inline def hours :Duration = new Duration(j.Duration.ofHours(number))
-		@inline def days :Duration = new Duration(j.Duration.ofDays(number))
+		@inline def hours   :Duration = new Duration(j.Duration.ofHours(number))
+		@inline def days    :Duration = new Duration(j.Duration.ofDays(number))
 	}
 
+	/** Extension methods for `Int` adding natural language factory methods of
+	  * [[net.noresttherein.sugar.time.TimeSpan time spans]] by specifying a time unit.
+	  * This differs from `Long` [[net.noresttherein.sugar.time.dsl.LongTimeLapseMethods extension methods]]
+	  * in that the return type is [[net.noresttherein.sugar.time.Milliseconds Milliseconds]] in all cases
+	  * with the exception of `this.`[[net.noresttherein.sugar.time.dsl.IntTimeLapseMethods.nanos nanos]],
+	  * which return a [[net.noresttherein.sugar.time.Duration Duration]], while the latter
+	  * always creates a `Duration`, with the exception of
+	  * [[net.noresttherein.sugar.time.dsl.LongTimeLapseMethods.millis millis]], which create `Milliseconds` instead.
+	  * Additionally, these methods include also [[net.noresttherein.sugar.time.Period periods]] of the specified
+	  * number of days/months/years.
+	  */
 	implicit class IntTimeLapseMethods(private val number :Int) extends AnyVal {
-		@inline def nanos :Duration = new Duration(j.Duration.ofNanos(number))
-		@inline def millis :Milliseconds = new Milliseconds(number)
+		@inline def nanos   :Duration = new Duration(j.Duration.ofNanos(number))
+		@inline def millis  :Milliseconds = new Milliseconds(number)
 		@inline def seconds :Milliseconds =	new Milliseconds(number * MillisInSecond)
 		@inline def minutes :Milliseconds = new Milliseconds(number * MillisInMinute)
-		@inline def hours :Milliseconds = new Milliseconds(number * MillisInHour)
+		@inline def hours   :Milliseconds = new Milliseconds(number * MillisInHour)
 
-		@inline def days :Period = j.Period.ofDays(number)
+		@inline def days   :Period = j.Period.ofDays(number)
 		@inline def months :Period = j.Period.ofMonths(number)
-		@inline def years :Period = j.Period.ofYears(number)
+		@inline def years  :Period = j.Period.ofYears(number)
 
+		/** An hour of day, representing an integer from the range of `0..23` as an aspect/property of various
+		  * [[net.noresttherein.sugar.time.DefiniteTime DefiniteTime]] subtypes.
+		  */
 		@inline def oClock :HourOfDay.Phase = HourOfDay(number)
 	}
 
 
-
+	/** Groups extension methods of `Int` and `Long` named after ISO time unit symbols, creating
+	  * [[net.noresttherein.sugar.time.TimeSpan time spans]] of the specified length.
+	  * They need to be imported separately from `dsl._` due to a higher likelihood of name conflicts
+	  * with extension methods from other libraries.
+	  */
 	object ISOSymbolMethods {
+		/** `Long` extension methods creating a [[net.noresttherein.sugar.time.Duration Duration]]
+		  * (or [[net.noresttherein.sugar.time.Milliseconds Milliseconds]]) of this length in the specified units.
+		  * They differ from `Int` [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods.IntISOSymbols extension methods]]
+		  * in that the latter return `Milliseconds` (with the exception of
+		  * [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods.IntISOSymbols.ns nanoseconds]], returning
+		  * a [[net.noresttherein.sugar.time.Duration Duration]]), while these favor `Duration`,
+		  * with only [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods.LongISOSymbols.ms milliseconds]]
+		  * returning `Milliseconds`.
+		  */
 		implicit class LongISOSymbols(private val number :Long) extends AnyVal {
 			@inline def ns :Duration = new Duration(j.Duration.ofNanos(number))
 			@inline def ms :Milliseconds = new Milliseconds(number)
-			@inline def s :Duration = new Duration(j.Duration.ofSeconds(number))
+			@inline def s  :Duration = new Duration(j.Duration.ofSeconds(number))
 
 			@inline def µs :Duration =
 				new Duration(j.Duration.ofSeconds(number / 1000000L, number % 1000000L * 1000L))
 
-			@inline def h :Duration = new Duration(j.Duration.ofDays(number))
+			@inline def h  :Duration = new Duration(j.Duration.ofDays(number))
 		}
 
+		/** `Int` extension methods creating [[net.noresttherein.sugar.time.Milliseconds Milliseconds]]
+		  * (or a [[net.noresttherein.sugar.time.Duration Duration]]) of this length in the specified units.
+		  * They differ from `Long` [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods.LongISOSymbols extension methods]]
+		  * in that the latter return `Duration` (with the exception of
+		  * [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods.LongISOSymbols.ms milliseconds]], returning
+		  * `Milliseconds`), while these favor `Milliseconds` instead,
+		  * with only [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods.IntISOSymbols.ns nanoseconds]]
+		  * returning a `Duration`.
+		  */
 		implicit class IntISOSymbols(private val number :Int) extends AnyVal {
 			@inline def ns :Duration = new Duration(j.Duration.ofNanos(number))
 			@inline def ms :Milliseconds = new Milliseconds(number)
-			@inline def s :Milliseconds = new Milliseconds(number * MillisInSecond)
+			@inline def s  :Milliseconds = new Milliseconds(number * MillisInSecond)
 			@inline def µs :Milliseconds = new Milliseconds(number * 1000L)
-			@inline def h :Milliseconds = new Milliseconds(number * MillisInHour)
+			@inline def h  :Milliseconds = new Milliseconds(number * MillisInHour)
 		}
 	}
 

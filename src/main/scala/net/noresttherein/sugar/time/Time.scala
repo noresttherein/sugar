@@ -7,10 +7,10 @@ import net.noresttherein.sugar.time.converters._
 
 
 
-/** The main class of the sugar, abstracting over the general concept of a time line and wrapping a [[java.time.Clock]].
+/** The main class of the package, abstracting over the general concept of a time line and wrapping a [[java.time.Clock]].
   * Serves as a factory for [[net.noresttherein.sugar.time.TimePoint time points]] describing the 'current' moment
   * or moments after/before a certain [[net.noresttherein.sugar.time.TimeExtent time extent]].
-  * Most factory methods of classes (and objects) in this sugar which refer to the current moment or local
+  * Most factory methods of classes (and objects) in this package which refer to the current moment or local
   * time zone/offset accept an implicit `Time` instance to serve as the provider, with the default value of
   * `Time.`[[net.noresttherein.sugar.time.Time.Local Local]] in case no implicit is available.
   * This allows easy abstraction over the time zone and testing by providing your own implicit instance.

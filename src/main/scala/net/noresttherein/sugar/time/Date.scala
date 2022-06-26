@@ -326,6 +326,7 @@ object Era {
 	@inline implicit def fromJavaEra(era :IsoEra) :Era = new Era(era)
 	@inline implicit def toJavaEra(era :Era) :IsoEra = era.toJava
 
+	//consider: moving these constants (and other names) to package time
 	final val CE  = new Era(IsoEra.CE)
 	final val BCE = new Era(IsoEra.BCE)
 }

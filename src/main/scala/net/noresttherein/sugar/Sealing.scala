@@ -5,11 +5,11 @@ import net.noresttherein.sugar.Sealing.NotSealed
 
 
 /** Utilities which simulate the functionality of the `sealed` modifier for declarations such as `def`, `val` and `var`,
-  * as well for 'sealing' a class or trait to a sugar (that is, preventing classes from outside
-  * of the sugar from extending them).
+  * as well for 'sealing' a class or trait to a package (that is, preventing classes from outside
+  * of the package from extending them).
   *
   * Declarations with `protected[scope]` or `private[scope]` visibility, despite being unusable outside
-  * the specified scope, can be somewhat counterintuitively overriden/implemented by extending classes from any sugar
+  * the specified scope, can be somewhat counterintuitively overriden/implemented by extending classes from any package
   * with a matching public definition, leading to leaking private API. The easiest way to address is to make
   * the declarations `final`, but this is not always possible if an interface type is extended by implementation types
   * from the protected scope. A `private[scope]`/`protected[scope]` class/trait cannot be used or extended outside
@@ -17,37 +17,37 @@ import net.noresttherein.sugar.Sealing.NotSealed
   * safe from accidental overriding in client code, but this still does not cover all use cases. This class
   * expands on the aforementioned protected types by declaring an artificial implicit argument type
   * [[net.noresttherein.sugar.Sealing.Seal Seal]] and a value class [[net.noresttherein.sugar.Sealing.Sealed Sealed]]`[T]`
-  * wrapper for any type. It can be set up be creating an instance in the desired sugar/scope with visibility
+  * wrapper for any type. It can be set up be creating an instance in the desired package/scope with visibility
   * restricted to that scope:
   * {{{
-  *     sugar object scope {
+  *     package object scope {
   *         private[scope] val seals = new Sealing
   *     }
   * }}}
   * All methods which require sealing can be now declared with an additional implicit parameter, which will make
   * them impossible to override by classes/traits from outside `scope`:
   * {{{
-  *     sugar scope {
+  *     package scope {
   *         class Public { protected[scope] def notPublic(implicit seals.Sealing) :String = "no." }
   *     }
   * }}}
   * Similarly, any value of a public type `T` which should remain protected, but cannot be `final`,
   * can be lift to `seals.Sealed[T]`:
   * {{{
-  *     sugar scope {
+  *     package scope {
   *         class Public { protected[scope] val notPublic :seals.Sealed[Int] = 42 }
   *     }
   * }}}
   *
-  * This mechanism can be also used to simulate a `sealed[sugar]` modifier:
+  * This mechanism can be also used to simulate a `sealed[package]` modifier:
   * {{{
-  *     sugar scope {
+  *     package scope {
   *         trait Closed {
   *             protected[scope] def seal(s :seals.Sealed) :Unit
   *         }
   *     }
   *     //in another file:
-  *     sugar scope {
+  *     package scope {
   *         class Extension extends Closed {
   *             protected[scope] override def seal(s :seals.Sealed) :Unit = ()
   *         }
@@ -64,15 +64,15 @@ trait Sealing {
 
 	/** An artificial class used to prevent overriding of a method by classes outside of the visibility scope
 	  * of the enclosing [[net.noresttherein.sugar.Sealing Sealing]] instance. It circumvents the problem
-	  * that a ''sugar protected'' or ''sugar private'' declaration of a base class can be overriden/implemented
-	  * with a matching public definition by a subclass from any sugar, which is usually undesirable.
+	  * that a ''package protected'' or ''package private'' declaration of a base class can be overriden/implemented
+	  * with a matching public definition by a subclass from any package, which is usually undesirable.
 	  * It serves two functions:
-	  *   1. 'Sealing' of traits/classes to a sugar, rather than file scope.
+	  *   1. 'Sealing' of traits/classes to a package, rather than file scope.
 	  *      This can be accomplished by introducing an abstract method with the (transitive) visibility of this trait,
 	  *      returning an instance of this class in the 'sealed' type, and implementing it in the 'open' traits/classes
 	  *      declared within the same scope.
 	  *      {{{
-	  *          sugar seal {
+	  *          package seal {
 	  *             private[seal] val seals = new Sealing
 	  *             trait Sealed {
 	  *                 protected[seal] def seal :seals.Seal
@@ -91,7 +91,7 @@ trait Sealing {
 	  *      added to a method (optionally with a default value `Seal()` in case other implicit parameters are already
 	  *      present and might be applied explicitly) achieved the same way:
 	  *      {{{
-	  *          sugar seal {
+	  *          package seal {
 	  *             private[seal] val seals = new Sealing
 	  *             trait Sealed {
 	  *                 protected[seals] def asIfSealed(implicit seal :seals.Seal) = ???

@@ -15,7 +15,7 @@ import net.noresttherein.sugar.time.Cycle.Phase
   * while its companion object (for example, [[net.noresttherein.sugar.time.Month$ Month object]]
   * implements the `Cycle` of that phase.
   *
-  * The rough counterpart of this type in  `java.time` sugar is [[java.time.temporal.TemporalField TemporalField]].
+  * A rough counterpart of this type in `java.time` package is [[java.time.temporal.TemporalField TemporalField]].
   * @author Marcin Mościcki
   */
 trait Cycle extends Serializable {
@@ -282,6 +282,8 @@ object Month extends Cycle {
 
 	import j.Month._
 
+	//consider: moving the constants to time package, to avoid accidental imports such as `apply` and `Max`
+	//  when automatically importing the contents with _ due to using several Month constants
 	@inline final val January   = new Month(JANUARY)
 	@inline final val February  = new Month(FEBRUARY)
 	@inline final val March     = new Month(MARCH)

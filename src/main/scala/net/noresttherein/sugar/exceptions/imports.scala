@@ -1,16 +1,17 @@
 package net.noresttherein.sugar.exceptions
 
+import scala.annotation.nowarn
 import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.extensions.{classExtension, downcastTypeParam}
+import net.noresttherein.sugar.extensions.{classNameExtension, downcastTypeParam}
 
 
 
 
 /** Definitions of various methods throwing or creating exceptions. Extended by
-  * [[net.noresttherein.sugar.exceptions exceptions]] sugar object and (indirectly,
-  * through [[net.noresttherein.sugar.imports sugar.imports]] by sugar object [[net.noresttherein.sugar sugar]].
+  * [[net.noresttherein.sugar.exceptions exceptions]] package object and (indirectly,
+  * through [[net.noresttherein.sugar.imports sugar.imports]] by package object [[net.noresttherein.sugar sugar]].
   */
 trait imports {
 	/* WHENEVER YOU EDIT THIS FILE UPDATE rethrowStackTraceElement WITH A CORRECT LINE NUMBER! */
@@ -56,7 +57,7 @@ trait imports {
 	  * exceptions from external libraries without accessible one of the standard constructors and disabled suppression
 	  * will be rethrown without change. This should not be however a common occurrence.
 	  *
-	  * (all exceptions with type aliases/classes in the `scala` sugar),
+	  * (all exceptions with type aliases/classes in the `scala` package),
 	  * with the exception of [[Exception]], [[RuntimeException]], [[Error]], [[Throwable]]
 	  * and rethrowing them with an additional error message. The rethrown exception will be a new instance
 	  * of the caught class, with `errorMessage` as its `message` and the original exception as its `cause`.
@@ -91,7 +92,7 @@ trait imports {
 	  * In order to minimize confusion coming from a stack trace leading to code which throws no exception,
 	  * a final frame for this method is added to point programmers to this documentation.
 	  */ //remember to update the line number if you edit these docs!
-	private def conjureThrowable :Nothing = ??!
+	@nowarn private def conjureThrowable :Nothing = ??!
 
 	private[exceptions] final val rethrowStackTraceElement =
 		new StackTraceElement(classOf[imports].getName, "rethrow", "imports.scala", 84)
@@ -170,6 +171,7 @@ trait imports {
 		(classOf[UnsupportedOperationException],   new UnsupportedOperationException(_, _)),
 
 		(classOf[AssertionError],                  new AssertionError(_, _)),
+		(classOf[StackOverflowError],              new StackOverflowError(_).initCause(_)),
 		(classOf[ExceptionInInitializerError],     new ExceptionInInitializerError(_).initCause(_)),
 
 		(classOf[StackableException],              new StackableException(_, _)),
@@ -178,14 +180,30 @@ trait imports {
 
 
 
+//	def rethrowWith[E <: Throwable :ClassTag] = new RethrowWith[E](implicitly[ClassTag[E]])
+//
+//	class RethrowWith[E <: Throwable](private val tag :ClassTag[E]) extends AnyVal {
+//		def apply[T](block: => T) :T =
+//			try { block } catch {
+//				case e :Exception => //instrument an implementation of e.getClass with tag.runtimeClass
+//			}
+//	}
+
+
+
 	/** A 'WTF' method throwing an [[ImpossibleError ImpossibleError]].
 	  * Intended for code which should, to the best of the programmer's - but not compiler's - knowledge, be unreachable.
 	  * Placed after infinite loops, as the body of methods which are never called (but, for example, remain
 	  * for binary compatibility), or methods of sealed classes which are overriden by subclasses and similar
-	  * circumstances. Better than `???` for this purpose as it makes clear that no code is actually missing
-	  * and does not trigger any lint warnings.
+	  * circumstances.
 	  */
 	def ??! :Nothing = throw new ImpossibleError
+
+	/** Throws an [[java.lang.AssertionError AssertionError]]. */
+	def !!! :Nothing = throw new AssertionError
+
+	/** Throws an [[java.lang.AssertionError AssertionError]] with the given message. */
+	def !!!(msg :String) :Nothing = throw new AssertionError(msg)
 
 	/** Throws an [[net.noresttherein.sugar.exceptions.Oops Oops]] with the given message,
 	  * to indicate a situation which should not have happened and is due to a bug in the executed code.
@@ -213,7 +231,7 @@ trait imports {
 	@inline final def illegal_!(msg :String) :Nothing =
 		throw new IllegalArgumentException(msg)
 
-	/** Throws an [[ImpossibleError]].  */
+	/** Throws an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].  */
 	@inline final def impossible_!(msg :String) :Nothing = throw new ImpossibleError(msg)
 
 

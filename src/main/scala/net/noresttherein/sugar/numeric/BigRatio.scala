@@ -211,7 +211,7 @@ object BigRatio {//extends BigRatioImplicits {
 	/** Number one as a `BigRatio` value: `1/1`. */
 	final val One :BigRatio = new BigRatio(1, 1)
 
-	private final val MAX_INT = BigInteger.valueOf(Int.MaxValue)
+//	private final val MAX_INT = BigInteger.valueOf(Int.MaxValue)
 	private final val MINUS_ONE = ONE.negate
 	private final val HUNDRED = BigInteger.valueOf(100)
 	private final val MINUS_HUNDRED = BigInteger.valueOf(-100)
@@ -569,7 +569,7 @@ object BigRatio {//extends BigRatioImplicits {
 		else rec(b, a)
 	}
 
-	private def naturalGCD(a :BigInt, b :BigInt) :BigInt = BigInt(naturalGCD(a.bigInteger, b.bigInteger))
+//	private def naturalGCD(a :BigInt, b :BigInt) :BigInt = BigInt(naturalGCD(a.bigInteger, b.bigInteger))
 
 
 }

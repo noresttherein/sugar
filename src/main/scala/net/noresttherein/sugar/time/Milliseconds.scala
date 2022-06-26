@@ -1,7 +1,10 @@
 package net.noresttherein.sugar.time
 
 import java.{time => j}
+
 import scala.concurrent.{duration => s}
+
+import net.noresttherein.sugar.time.constants.{MaxNanoDuration, MicrosInMilli, MillisInDay, MillisInHour, MillisInMinute, MillisInSecond, NanosInHour, NanosInMilli, NanosInMinute, NanosInSecond}
 
 
 

@@ -6,6 +6,8 @@ import java.time.DateTimeException
 
 import scala.concurrent.{duration => s}
 
+import net.noresttherein.sugar.time.constants.{IntNanosInSecond, NanosInSecond}
+
 
 
 /** An umbrella term for specifying length of elapsed time which encompasses both infinite time
@@ -593,7 +595,6 @@ trait TimeSpan extends Any with TimeInterval with TimeFrame {
 
 	@inline final def min(that :TimeSpan) :TimeSpan = if (compare(that) <= 0) this else that
 	@inline final def max(that :TimeSpan) :TimeSpan = if (compare(that) >= 0) this else that
-
 
 }
 

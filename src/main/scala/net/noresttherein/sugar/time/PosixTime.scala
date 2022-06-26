@@ -1,7 +1,10 @@
 package net.noresttherein.sugar.time
 
 import java.{time => j}
+
 import scala.concurrent.duration.{Deadline, FiniteDuration}
+
+import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli, NanosInSecond}
 
 
 /** A time point defined in terms of the ''epoch milli'' (aka 'Unix time'), that is the number of milliseconds

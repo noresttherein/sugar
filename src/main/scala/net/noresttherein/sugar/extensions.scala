@@ -57,14 +57,15 @@ object extensions extends extensions {
 
 /** Type aliases and forwarders for most useful types and implicit conversions in the library providing new syntax.
   * They can be imported into user code either by an explicit import of the contents of the companion object
-  * [[net.noresttherein.sugar.implicits$ implicits]] (which extends this trait), or by having a sugar object
+  * [[net.noresttherein.sugar.implicits$ implicits]] (which extends this trait), or by having a package object
   * containing classes using these features extend this trait. This is of course true also for any other object or class.
   * As a mnemonic, class and method members here are (re)named after the most prominent declared method.
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: having it simply extend the traits for individual packages.
 trait extensions extends Any
 	with casting.extensions with collection.extensions with exceptions.extensions
-	with numeric.extensions with optional.extensions with prettyprint.extensions with repeat.extensions
+	with numeric.extensions with optional.extensions with prettyprint.extensions
+	with reflect.extensions with repeat.extensions
 {
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	@inline implicit final def feedToMethod[X](x :X) = new feedToMethod(x)

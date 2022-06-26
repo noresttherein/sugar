@@ -9,7 +9,7 @@ trait extensions extends Any {
 	@inline implicit final def classNameMethods[T](any :T) = new ClassNameMethods[T](any)
 
 	/** Adds `innerName`, `localName` and `abbrevName` methods to `Class`, providing a shorter alternative to `getName`. */
-	@inline implicit final def classExtension(clazz :Class[_]) = new ClassExtension(clazz)
+	@inline implicit final def classNameExtension(clazz :Class[_]) = new ClassNameExtension(clazz)
 
 	/** Implicit extension of any object of statically known type `T` (or for which type tag and class tag are available),
 	  * providing methods for formatting it as a string
@@ -28,7 +28,7 @@ trait extensions extends Any {
 class ClassNameMethods[T](private val self :T) extends AnyVal {
 
 	/** An approximation of the imported type symbol of the class of this object, as it would be referenced
-	  * in code. First, the whole sugar prefix and all trailing '$' characters are dropped.
+	  * in code. First, the whole package prefix and all trailing '$' characters are dropped.
 	  * Then, all escape sequences for special characters which are legal for use in identifiers are unescaped
 	  * to their original forms. Then, dropped is the prefix up until and including to the last '$'. If the class
 	  * is specialized, its mangled type parameters are resolved and composed in a type parameter list
@@ -47,7 +47,7 @@ class ClassNameMethods[T](private val self :T) extends AnyVal {
 	@inline def innerClassName: String = innerNameOf(self.getClass)
 
 	/** An approximation of the type name of the class of the given object, as it would appear in code.
-	  * It doesn't include the sugar prefix, but includes demangled names of all enclosing classes/objects.
+	  * It doesn't include the package prefix, but includes demangled names of all enclosing classes/objects.
 	  * The demangling proceeds as follows: first, all trailing '$' characters are dropped.
 	  * Then, all escape sequences for special characters which are legal for use in identifiers are unescaped
 	  * to their original forms. All individual '$' signs (used in name mangling of inner classes as the separators)
@@ -65,7 +65,7 @@ class ClassNameMethods[T](private val self :T) extends AnyVal {
 	@inline def localClassName :String = localNameOf(self.getClass)
 
 	/** An abbreviated qualified name of the class of this object, demangled to an approximation of how it would
-	  * appear in code. All sugar names are replaced with their first letters, while the class name is demangled
+	  * appear in code. All package names are replaced with their first letters, while the class name is demangled
 	  * as follows: first, all trailing '$' are dropped and escape sequences
 	  * for characters which are legal for use in identifiers are unescaped. Encoding of type arguments
 	  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.
@@ -166,9 +166,9 @@ class ClassNameMethods[T](private val self :T) extends AnyVal {
 /** Extension methods formatting the name of a class in several ways, demangling the runtime class name
   * to an approximation of the class symbol as it appears in code.
   */
-class ClassExtension(private val self :Class[_]) extends AnyVal {
+class ClassNameExtension(private val self :Class[_]) extends AnyVal {
 	/** An approximation of the imported type symbol of this class, as it would be referenced
-	  * in code. First, the whole sugar prefix and all trailing '$' characters are dropped.
+	  * in code. First, the whole package prefix and all trailing '$' characters are dropped.
 	  * Then, all escape sequences for special characters which are legal for use in identifiers are unescaped
 	  * to their original forms. Then, dropped is the prefix up until and including to the last '$'. If the class
 	  * is specialized, its mangled type parameters are resolved and composed in a type parameter list
@@ -187,7 +187,7 @@ class ClassExtension(private val self :Class[_]) extends AnyVal {
 	@inline def innerName: String = innerNameOf(self)
 
 	/** An approximation of the type name of this class, as it would appear in code.
-	  * It doesn't include the sugar prefix, but includes demangled names of all enclosing classes/objects.
+	  * It doesn't include the package prefix, but includes demangled names of all enclosing classes/objects.
 	  * The demangling proceeds as follows: first, all trailing '$' characters are dropped.
 	  * Then, all escape sequences for special characters which are legal for use in identifiers are unescaped
 	  * to their original forms. All individual '$' signs (used in name mangling of inner classes as the separators)
@@ -204,8 +204,8 @@ class ClassExtension(private val self :Class[_]) extends AnyVal {
 	  */
 	@inline def localName :String = localNameOf(self)
 
-	/** An abbreviated qualified name of this class, with abbreviated sugar prefix and demangled
-	  * to an approximation of how it would appear in code. All sugar names are replaced with their first letters,
+	/** An abbreviated qualified name of this class, with abbreviated package prefix and demangled
+	  * to an approximation of how it would appear in code. All package names are replaced with their first letters,
 	  * while the class name is demangled as follows: first, all trailing '$' are dropped and escape sequences
 	  * for characters which are legal for use in identifiers are unescaped. Encoding of type arguments
 	  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.

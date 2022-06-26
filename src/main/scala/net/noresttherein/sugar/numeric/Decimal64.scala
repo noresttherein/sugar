@@ -1525,8 +1525,8 @@ object Decimal64 {
 	private final val UnscaledPowerBounds = Array.iterate(MaxUnscaled, MaxPrecision)(_ / 10L)
 	/** `LongPowersOf10(i) == 10^i`. */
 	private final val LongPowersOf10 = Array.iterate(1L, MaxLongPrecision)(_ * 10L)
-	/** `PowersOf10Halves(i) == 5*10^i`. */
-	private final val LongPowersOf10Halves = LongPowersOf10.map(_ * 5L)
+//	/** `PowersOf10Halves(i) == 5*10^i`. */
+//	private final val LongPowersOf10Halves = LongPowersOf10.map(_ * 5L)
 	/** `PowersOf10(i) == Decimal64(1, -i)`. */
 	private final val PowersOf10 = Array.iterate(One, MaxScale)(_ * 10)
 	/** The maximum power of 10 (value, not exponent) which fits in a `Long`: `10^18`. */
@@ -1560,9 +1560,9 @@ object Decimal64 {
 	private val PrecisionExceededException     = new InternalException("Decimal64 precision exceeded")
 	private val OverflowException              = new InternalException("arithmetic overflow")
 	private val UnderflowException             = new InternalException("arithmetic underflow")
-	private val DivisionByZeroException        = new InternalException("division by zero")
+//	private val DivisionByZeroException        = new InternalException("division by zero")
 	private val RoundingNecessaryException     = new InternalException("rounding necessary")
-	private val InfiniteExpansionException     = new InternalException("infinite decimal expansion")
+//	private val InfiniteExpansionException     = new InternalException("infinite decimal expansion")
 
 
 

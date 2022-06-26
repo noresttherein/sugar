@@ -165,8 +165,8 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 		result
 	}
 
-	@inline private def outOfRange(typeName :String) :Nothing =
-		throw new ArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
+//	@inline private def outOfRange(typeName :String) :Nothing =
+//		throw new ArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
 
 	@inline private def outOfPrecision(typeName :String) :Nothing =
 		throw new ArithmeticException("Value " + toLong + " cannot be exactly represented as a " + typeName + ".")

@@ -339,7 +339,7 @@ object Opt {
 		@inline def apply[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
 
 		/** Matches non-empty [[net.noresttherein.sugar.vars.Opt Opt]] instances. */
-		@inline def unapply[T](opt :Opt[T]) :Opt[T] = if (opt == null) Lack else opt
+		@inline def unapply[T](opt :Opt[T]) :Opt[T] = opt
 	}
 
 	/** A refinement of [[net.noresttherein.sugar.vars.Opt Opt]] marking it through a member flag type

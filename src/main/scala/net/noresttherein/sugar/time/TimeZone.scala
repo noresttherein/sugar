@@ -1,6 +1,8 @@
 package net.noresttherein.sugar.time
 
-import java.{time=>j}
+import java.{time => j}
+
+import net.noresttherein.sugar.time.constants.IntSecondsInHalfDay
 
 
 

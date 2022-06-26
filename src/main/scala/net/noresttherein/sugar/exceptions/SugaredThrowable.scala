@@ -82,6 +82,41 @@ trait SugaredThrowable extends Throwable with Cloneable {
 		case null => ""
 		case msg => msg
 	}
+
+	/** The name of the class used in `toString` implementation. It defaults simply to `getClass.getName`,
+	  * but can overriden in 'interface' exception to hide an actual, private and often anonymous, implementation.
+	  * {{{
+	  *     trait MyAppException extends Exception with SugaredException {
+	  *         override def className = classOf[MyAppException].getName
+	  *     }
+	  *     object MyAppException {
+	  *         def apply(msg :String, cause :Throwable = null) :MyAppException =
+	  *             new Exception(msg, cause) with MyAppException
+	  *     }
+	  *
+	  *     try { throw MyAppException("oops") } catch {
+	  *         case e :MyAppException => println(e.toString) //prints "MyAppException: oops"
+	  *     }
+	  * }}}
+	  * Declaring an exception as a trait rather than a class not only allows multiple inheritance,
+	  * but can be mixed freely to existing exceptions. This for example can be used to implement
+	  * a transparent decorator class which catches all exceptions thrown by the adapted object
+	  * and for every exception `E` caught, throws an `E with LocalizedException`, where `LocalizedException`
+	  * is a trait using some application specific solution to override `getLocalizedMessage`.
+	  * This way any existing code relying on particular exceptions being thrown will continue to work,
+	  * with a benefit of extra functionality.
+	  *
+	  * In general, it is a good policy to return only names of public classes here - or at least those
+	  * that client code can catch. Private exception classes extending some known 'interface' exception
+	  * may return its name instead of their class name.
+	  */
+	def className :String = getClass.getName
+
+	override def toString :String = {
+		val s :String = className
+		val message :String = getLocalizedMessage
+		if (message != null) s + ": " + message else s
+	}
 }
 
 
@@ -356,7 +391,7 @@ class Oops(msg :String, reason :Throwable = null) extends RuntimeException(msg, 
   *   - Body of sealed class's methods which must have a concrete implementation (because they override
   *     an existing method), but which also must be overriden by all subclasses - for example
   *     in order to narrow down the return type;
-  *   - Never called sugar-protected obsolete methods remaining for binary compatibility;
+  *   - Never called package-protected obsolete methods remaining for binary compatibility;
   *
   * and similar.
   * @see [[net.noresttherein.sugar.imports.??!]]

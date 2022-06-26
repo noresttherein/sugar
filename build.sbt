@@ -44,7 +44,7 @@ scalacOptions ++= Seq(
 	"-Xlog-reflective-calls",
 	"-Xlint:delayedinit-select,implicit-not-found,option-implicit,poly-implicit-overload,nullary-unit",
 //	"-W",
-//	"-Wconf:cat=deprecation&msg=foldLeft:silent,cat=deprecation&msg=foldRight:silent,cat=deprecation:w,cat=feature:w",
+	"-Wconf:cat=deprecation&msg=foldLeft:silent,cat=deprecation&msg=foldRight:silent,cat=deprecation:w,cat=feature:w",
 	"-Wunused:patvars,privates,locals",
 	"-feature",
 	"-language:implicitConversions",

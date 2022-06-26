@@ -98,7 +98,7 @@ object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
 			(DoubleUnit.className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Double,Unit]")  &&
 			(CharBool.className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Char,Bool]") &&
 			((new DoubleUnit.boo).className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec.boo") &&
-			//			((new LongInt.shoo(42, 44)).className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Long,Int].shoo") &&
+//			((new LongInt.shoo(42, 44)).className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Long,Int].shoo") &&
 			(classNameOf(Array.ofDim[Int](1, 2, 3)) ?= "Array[Array[Array[Int]]]")
 	}
 }

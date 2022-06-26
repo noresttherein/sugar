@@ -5,6 +5,8 @@ import java.time.chrono.{Chronology, IsoChronology}
 
 import scala.concurrent.duration.Deadline
 
+import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
+
 
 /** A time point set in the special UTC time zone, to which all date fields are related. It is a simple value type
   * wrapping a `java.time.LocalDateTime` and interpreting it with the fixed `ZoneOffset.UTC`.

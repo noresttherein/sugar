@@ -8,7 +8,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
-/** A mutable [[net.noresttherein.sugar.vars.Option]]-like value holder. It expands on the base [[net.noresttherein.sugar.vars.InOut InOut]]
+/** A mutable `Option`-like value holder. It expands on the base [[net.noresttherein.sugar.vars.InOut InOut]]
   * interface by allowing an instance to hold no value at all. Aside from the inherited mutator methods setting
   * the value of this variable, a box can be at any time [[net.noresttherein.sugar.vars.Box.clear cleared]],
   * emptying its contents. An empty box will throw a [[NoSuchElementException]] from any method accessing
@@ -16,8 +16,10 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * and [[net.noresttherein.sugar.vars.InOut.get get]]/[[net.noresttherein.sugar.vars.Ref.apply apply]]`()` methods,
   * or indirectly by ''test-and-set'' and ''get-and-set'' operations and similar.
   *
-  * While the default implementation is not thread safe, in order to complement existing
-  * [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]] method,
+  * While the default implementation is not thread safe, [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]]
+  * method is complemented with [[net.noresttherein.sugar.vars.Box.testAndSwap testAndSwap]], which generalize
+  * the function of the former by accepting an `Option` or an [[net.noresttherein.sugar.vars.Opt Opt]].
+  * @see [[net.noresttherein.sugar.vars.Mutable]]
   * @author Marcin Mościcki
   */
 sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializable {
@@ -494,7 +496,6 @@ object VolatileBox {
 				current = state
 			current == Full
 		}
-		private def fail() = throw new NoSuchElementException("Box()")
 
 		private[vars] override def isSpecialized = true
 	}

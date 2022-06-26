@@ -13,8 +13,8 @@ import net.noresttherein.sugar.typist.Rank.Rank0
 
 
 
-/** Implicit converters adding methods to `java.time` classes for converting them to their counterparts from this sugar.
-  * Additional implicit factory methods can be found in the `net.noresttherein.sugar.time.dsl` sugar.
+/** Implicit converters adding methods to `java.time` classes for converting them to their counterparts from this package.
+  * Additional implicit factory methods can be found in the `net.noresttherein.sugar.time.dsl` package.
   */
 trait converters[+R <: Rank] {
 	@inline implicit def javaInstantConverter(self :j.Instant)               = new JavaInstantConverter[R](self)

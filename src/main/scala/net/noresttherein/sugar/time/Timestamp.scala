@@ -1,7 +1,10 @@
 package net.noresttherein.sugar.time
 
 import java.{time => j}
+
 import scala.concurrent.duration.{Deadline, FiniteDuration}
+
+import net.noresttherein.sugar.time.constants.{NanosInMilli, NanosInSecond}
 
 
 /** A unique point in time specified with nanosecond precision, consisting of a 64-bit signed second part and a 32-bit

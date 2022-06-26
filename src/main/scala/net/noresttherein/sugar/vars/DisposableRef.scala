@@ -16,7 +16,7 @@ import net.noresttherein.sugar.vars.WeakRef.WrappedWeakRef
 
 /** A light wrapper over Java [[java.lang.ref.ReferenceQueue ReferenceQueue]] containing only instances
   * of [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]], with API expressed in terms of the latter,
-  * rather than Java [[java.lang.ref.Reference Reference]] (and using [[net.noresttherein.sugar.vars.Option]]s instead of `null`s).
+  * rather than Java [[java.lang.ref.Reference Reference]] (and using `Option`s instead of `null`s).
   */
 class RefQueue[T](name :String) {
 	def this() = this(null)

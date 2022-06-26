@@ -3,6 +3,9 @@ package net.noresttherein.sugar.time
 import java.{time => j}
 import java.time.temporal.ChronoField
 
+import net.noresttherein.sugar.time.constants.NanosInMilli
+import net.noresttherein.sugar.time.dsl.partialTimeDesignators.HourWithMinuteAndSecond
+
 
 /** 'Wall clock time' with nanosecond precision. Wraps a `java.time.LocalTime` instance.
   * @author Marcin Mościcki
@@ -55,6 +58,7 @@ class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Orde
 
 	@inline def min(that :TimeOfDay) :TimeOfDay = if (that.toJava isBefore this) that else this
 	@inline def max(that :TimeOfDay) :TimeOfDay = if (that.toJava isAfter this) that else this
+
 }
 
 

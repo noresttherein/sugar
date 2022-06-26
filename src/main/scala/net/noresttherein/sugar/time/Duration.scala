@@ -5,6 +5,7 @@ import java.util.concurrent.{TimeUnit => JTimeUnit}
 
 import scala.concurrent.{duration => s}
 
+import net.noresttherein.sugar.time.constants.{NanosInDay, NanosInHour, NanosInMicro, NanosInMilli, NanosInMinute, NanosInSecond}
 import net.noresttherein.sugar.time.dsl.LongTimeLapseMethods
 
 

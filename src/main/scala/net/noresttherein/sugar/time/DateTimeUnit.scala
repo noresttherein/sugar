@@ -7,6 +7,7 @@ import java.util.concurrent.{TimeUnit => JTimeUnit}
 
 import DateTimeUnit._
 import DateUnit._
+import net.noresttherein.sugar.time.constants.{NanosInMicro, NanosInMilli, SecondsInDay, SecondsInEra, SecondsInHour, SecondsInMinute, SecondsInMonth, SecondsInYear}
 
 
 

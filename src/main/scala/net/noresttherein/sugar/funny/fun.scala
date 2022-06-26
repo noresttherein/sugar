@@ -275,7 +275,7 @@ object fun {
 		/** String representation of the argument type.
 		  * If this function extends `ComposableFun` specialized for a value type, the scala name of the type is returned.
 		  * Otherwise it tries to determine the provided type parameter by reflection and return a shortened name
-		  * of the class (with sugar names replaced with their first letter). If the type cannot be determined,
+		  * of the class (with package names replaced with their first letter). If the type cannot be determined,
 		  * or is `Any`/`java.lang.Object`, `"_"` is returned. This will be the case for non-specialized functions
 		  * (including those with only one specializable type parameter) or generic functions which actual type arguments
 		  * are declared as type parameters of some enclosing class. Subclasses are free to override this method
@@ -286,7 +286,7 @@ object fun {
 		/** String representation of the result type.
 		  * If this function extends `ComposableFun` specialized for a value type, the scala name of the type is returned.
 		  * Otherwise it tries to determine the provided type parameter by reflection and return a shortened name
-		  * of the class (with sugar names replaced with their first letter). If the type cannot be determined,
+		  * of the class (with package names replaced with their first letter). If the type cannot be determined,
 		  * or is `Any`/`java.lang.Object`, `"_"` is returned. This will be the case for non-specialized functions
 		  * (including those with only one specializable type parameter) or generic functions which actual type arguments
 		  * are declared as type parameters of some enclosing class. Subclasses are free to override this method

@@ -16,6 +16,26 @@ import net.noresttherein.sugar.numeric.Decimal64.{Precision, Round}
   * @author Marcin Mościcki marcin@moscicki.net
   */
 object Playground extends App {
+
+	trait Template[T] {
+		def m[X <: T] :Any
+	}
+	class Base[T] extends Template[T] {
+		override def m[X <: T] :Base[X] = ???
+	}
+	class Sub[T] extends Base[T] {
+		override def m[X <: T] :Sub[X] = ??? //new Sub
+	}
+
+	def copy[T, B[_]](b :Template[T] { def m[X <: T] :B[X] }) :B[T] = b.m
+
+	val base = copy(new Base[Int])
+	val sub = copy(new Sub[Long])
+	base :Base[Int]
+	sub :Sub[Long]
+//	method(short)
+//	method(cloned)
+
 //	implicit val ctx :MathContext = Round.toMaxDigits(UNNECESSARY) //Decimal64.Round.Extended
 //	implicit val ctx :MathContext = Round.toMaxDigits(UP) //Decimal64.Round.Extended
 //	implicit val ctx :MathContext = Round.Extended

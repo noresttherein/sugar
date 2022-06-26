@@ -66,7 +66,7 @@ class SaferCasting[X](private val self :X) extends AnyVal {
 	  */
 	@inline def castAsWith[Y](like : => X => Y) :Y = self.asInstanceOf[Y]
 
-	/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an [[net.noresttherein.sugar.vars.Option]].
+	/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.
 	  * {{{
 	  *     animal.ifInstanceOf[Cat](_.meow)
 	  * }}}
@@ -79,7 +79,7 @@ class SaferCasting[X](private val self :X) extends AnyVal {
 	/** Returns `this` as a [[Some]]`(this)` if `this.isInstanceOf[T]`, or [[None]] otherwise. */
 	@inline def asInstanceOpt[T](implicit tag :ClassTag[T]) :Option[T] = tag.unapply(self)
 
-	/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an [[net.noresttherein.sugar.vars.Option]].
+	/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.
 	  * {{{
 	  *     animal.ifInstanceOf[Cat](_.meow)
 	  * }}}.

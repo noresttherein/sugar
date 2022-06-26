@@ -1,7 +1,10 @@
 package net.noresttherein.sugar.time
 
 import java.{time => j}
+
 import scala.concurrent.duration.Deadline
+
+import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
 
 
 /** A time point carrying time zone information and thus reflecting a unique date. It is a lightweight value type

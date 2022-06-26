@@ -219,8 +219,6 @@ object IntRatio {//extends IntRatioImplicits {
 	private val Percents =
 		(-100 until 0).map(reduce(_, 100)) ++ (0 to 100).map(reduce(_, 100)) to Array
 
-	@inline private def exact(numerator :Int, denominator :Int) :IntRatio = new IntRatio(numerator, denominator)
-//		new IntRatio(numerator.toLong << 32 | denominator & 0xFFFFFFFFL)
 
 	@inline private def reduce(numerator :Int, denominator :Int) :IntRatio = {
 		val gcd = GCD(numerator, denominator)
