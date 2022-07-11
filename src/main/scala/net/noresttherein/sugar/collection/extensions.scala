@@ -94,7 +94,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  * without ever calling `op`.
 	  *
 	  * This method is not equivalent
-	  * to `this.`[[net.noresttherein.sugar.collection.foldingMethods.foldWhile foldWhile]]`(start)(!pred(_))(op)`,
+	  * to `this.`[[net.noresttherein.sugar.collection.FoldingMethods.foldWhile foldWhile]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -104,7 +104,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *              in this collection, or the result is undefined.
 	  * @param op    a folding function.
 	  * @return This implementation delegates
-	  *         to [[net.noresttherein.sugar.collection.foldingMethods.foldLeftUntil]]`(start)(pred)(op)`.
+	  *         to [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftUntil]]`(start)(pred)(op)`.
 	  */
 	def foldUntil[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :A =
 		foldLeftUntil(start)(pred)(op)
@@ -119,7 +119,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
 	  *
 	  * It is not equivalent
-	  * to `this.`[[net.noresttherein.sugar.collection.foldingMethods.foldWhileOpt foldWhileOpt]]`(start)(!pred(_))(op)`,
+	  * to `this.`[[net.noresttherein.sugar.collection.FoldingMethods.foldWhileOpt foldWhileOpt]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -129,7 +129,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *              in this collection, or the result is undefined.
 	  * @param op    a folding function.
 	  * @return This implementation delegates
-	  *         to [[net.noresttherein.sugar.collection.foldingMethods.foldLeftUntilOpt]]`(start)(pred)(op)`
+	  *         to [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftUntilOpt]]`(start)(pred)(op)`
 	  */
 	def foldUntilOpt[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
 		foldLeftUntilOpt(start)(pred)(op)
@@ -148,7 +148,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *       where `a` is the last value computed by `op`.
 	  *
 	  * It is not equivalent
-	  * to `this.`[[net.noresttherein.sugar.collection.foldingMethods.foldWhileEither foldWhileEither]]`(start)(!pred(_))(op)`,
+	  * to `this.`[[net.noresttherein.sugar.collection.FoldingMethods.foldWhileEither foldWhileEither]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -158,7 +158,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *              in this collection, or the result is undefined.
 	  * @param op    a folding function.
 	  * @return This implementation delegates
-	  *         to [[net.noresttherein.sugar.collection.foldingMethods.foldLeftUntilEither]]`(start)(pred)(op)`
+	  *         to [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftUntilEither]]`(start)(pred)(op)`
 	  */
 	def foldUntilEither[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Either[A, A] =
 		foldLeftUntilEither(start)(pred)(op)
@@ -193,7 +193,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     }
 	  * }}}
 	  * It is not equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldLeftWhile foldLeftWhile]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftWhile foldLeftWhile]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -217,7 +217,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     toLazyList.scanLeft(start)(op).dropWhile(!pred(_)).headOption
 	  * }}}
 	  * It is not equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldLeftWhileOpt foldLeftWhileOpt]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftWhileOpt foldLeftWhileOpt]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -249,7 +249,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     }
 	  * }}}
 	  * It is not equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldLeftWhileEither foldLeftWhileEither]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftWhileEither foldLeftWhileEither]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -322,7 +322,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     }
 	  * }}}
 	  * It is not equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldRightWhile foldRightWhile]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldRightWhile foldRightWhile]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -346,7 +346,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     toLazyList.reverse.scanLeft(start)((a, t) => op(t,a)).dropWhile(!pred(_)).headOption
 	  * }}}
 	  * It is not equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldRightWhileOpt foldRightWhileOpt]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldRightWhileOpt foldRightWhileOpt]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -377,7 +377,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     }
 	  * }}}
 	  * It is not equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldRightWhileEither foldRightWhileEither]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldRightWhileEither foldRightWhileEither]]`(start)(!pred(_))(op)`,
 	  * as the latter will return the last element for which `pred` was not satisfied, while this method
 	  * applies `op` once more.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -430,7 +430,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     scanLeft(start)(op).takeWhile(pred).last
 	  * }}}
 	  * Note that this method is ''not'' equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldLeftUntil foldLeftUntil]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftUntil foldLeftUntil]]`(start)(!pred(_))(op)`,
 	  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 	  * while this method returns the last element for which it is still true.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -457,7 +457,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     scanLeft(Some(start) :Option[A])(op).takeWhile(_.exists(pred)).lastOption
 	  * }}}
 	  * Note that this method is ''not'' equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldLeftUntilOpt foldLeftUntilOpt]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftUntilOpt foldLeftUntilOpt]]`(start)(!pred(_))(op)`,
 	  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 	  * while this method returns the last element for which it is still true.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -482,7 +482,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *         Left(start)
 	  * }}}
 	  * Note that this method is ''not'' equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldLeftUntilEither foldLeftUntilEither]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftUntilEither foldLeftUntilEither]]`(start)(!pred(_))(op)`,
 	  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 	  * while this method returns the last element for which it is still true.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -542,7 +542,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *     toLazyList.reverse.scanLeft(start)((a, t) => op(t, a)).takeWhile(pred).last
 	  * }}}
 	  * Note that this method is ''not'' equivalent to
-	  * [[net.noresttherein.sugar.collection.foldingMethods.foldRightUntil foldRightUntil]]`(start)(!pred(_))(op)`,
+	  * [[net.noresttherein.sugar.collection.FoldingMethods.foldRightUntil foldRightUntil]]`(start)(!pred(_))(op)`,
 	  * as the latter returns the first value falsifying the predicate,
 	  * while this method returns the last value for which it is still true.
 	  * @param start the initial value, used as the result if the collection is empty.
@@ -580,7 +580,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  * @tparam A type of generated values.
 	  * @return result of `this.fold(a)(op)` or first encountered value `a :A` such that `op` is not defined
 	  *         for `(e, a)` where `e` is the first non-folded element of this collection.
-	  * @return [[net.noresttherein.sugar.collection.foldingMethods.partialFoldLeft partialFoldLeft]]`(start)(op)`.
+	  * @return [[net.noresttherein.sugar.collection.FoldingMethods.partialFoldLeft partialFoldLeft]]`(start)(op)`.
 	  */
 	def partialFold[A >: T](start :A)(op :PartialFunction[(A, A), A]) :A = partialFoldLeft(start)(op)
 
@@ -640,7 +640,7 @@ class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
 	  *              of this collection.
 	  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
 	  *           of this collection, yielding `None` to signal the termination of folding.
-	  * @return [[net.noresttherein.sugar.collection.foldingMethods.foldLeftSome foldLeftSome]]`(start)(op)`.
+	  * @return [[net.noresttherein.sugar.collection.FoldingMethods.foldLeftSome foldLeftSome]]`(start)(op)`.
 	  */
 	def foldSome[A >: T](start :A)(op :(A, A) => Option[A]) :A = foldLeftSome(start)(op)
 
@@ -1019,6 +1019,20 @@ class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends
 		while (r.hasNext)
 			res ++= f(thisElem, r.next())
 		res.result()
+	}
+
+	/** Equivalent to `this.zip(that).forall { case (a, b) => p(a, b) }`, but does not build an intermediate
+	  * collection of tuples and accepts a two argument function rather than a function of tuple, which makes
+	  * it more convenient to use with the lambda parameter placeholder syntax. Additionally, it requires
+	  * that both collections are of the same size, returning `false` if it is not true.
+	  */
+	def zipForAll[X](that :IterableOnce[X])(p :(E, X) => Boolean) :Boolean = {
+		val l = self.iterator
+		val r = that.iterator
+		var wasTrue = true
+		while (l.hasNext && r.hasNext && { wasTrue = p(l.next(), r.next()); wasTrue })
+		{}
+		wasTrue && !l.hasNext && !r.hasNext
 	}
 
 

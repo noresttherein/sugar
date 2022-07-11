@@ -5,33 +5,8 @@ import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.extensions.builderExtension
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.{EqRef, Opt}
 import net.noresttherein.sugar.vars.Opt.Got
-
-
-
-
-/** A simple wrapper over any value with equality (and hash code) defined as the ''referential'' equality
-  * of the wrapped values. Used when there is a need to bypass possibly overriden `equals` (and `hashCode`)
-  * by the wrapped type.
-  * @see [[net.noresttherein.sugar.collection.EqSet]]
-  * @see [[net.noresttherein.sugar.collection.EqMap]]
-  * @see [[net.noresttherein.sugar.collection.MutableEqSet]]
-  * @see [[net.noresttherein.sugar.collection.MutableEqMap]]
-  */
-private[collection] final class IdentityKey[T](val value :T) extends Serializable {
-	override def equals(that :Any) :Boolean = that match {
-		case other :IdentityKey[_] => value.asInstanceOf[AnyRef] eq other.value.asInstanceOf[AnyRef]
-		case _ => false
-	}
-	override def hashCode :Int = System.identityHashCode(value)
-	override def toString :String = value.toString
-}
-
-private[collection] object IdentityKey {
-	@inline def apply[T](value :T) = new IdentityKey(value)
-	@inline def unapply[T](key :IdentityKey[T]) :Opt[T] = Got(key.value)
-}
 
 
 
@@ -39,20 +14,20 @@ private[collection] object IdentityKey {
 /** An immutable [[Set]] implementation using referential equality and hash code (as defined by `AnyRef`)
   * rather than possibly overriden `equals` and `hashCode` methods of the element type.
   */
-final class EqSet[A] private (underlying :Set[IdentityKey[A]])
+final class EqSet[A] private (underlying :Set[EqRef[A]])
 	extends AbstractSet[A] with SetOps[A, EqSet, EqSet[A]] with IterableFactoryDefaults[A, EqSet]
 	   with Serializable
 {
-	override def contains(elem :A) :Boolean = underlying.contains(new IdentityKey(elem))
-	override def iterator :Iterator[A] = underlying.iterator.map(_.value)
+	override def contains(elem :A) :Boolean = underlying.contains(EqRef(elem))
+	override def iterator :Iterator[A] = underlying.iterator.map(_.get)
 
 	override def incl(elem :A) :EqSet[A] =
-		underlying.incl(new IdentityKey(elem)) match {
+		underlying.incl(EqRef(elem)) match {
 			case same if same eq underlying => this
 			case other => new EqSet(other)
 		}
 	override def excl(elem :A) :EqSet[A] =
-		underlying.excl(new IdentityKey(elem)) match {
+		underlying.excl(EqRef(elem)) match {
 			case same if same eq underlying => this
 			case other => new EqSet(other)
 		}
@@ -68,11 +43,11 @@ object EqSet extends IterableFactory[EqSet] {
 		case _ => (newBuilder[A] ++= source).result()
 	}
 
-	override def empty[A] :EqSet[A] = new EqSet(Set.empty[IdentityKey[A]])
-	def wrap[A](set :Set[IdentityKey[A]]) :EqSet[A] = new EqSet(set)
+	override def empty[A] :EqSet[A] = new EqSet(Set.empty[EqRef[A]])
+	def wrap[A](set :Set[EqRef[A]]) :EqSet[A] = new EqSet(set)
 
 	override def newBuilder[A] :Builder[A, EqSet[A]] =
-		Set.newBuilder[IdentityKey[A]].mapInput(new IdentityKey[A](_)).mapResult(new EqSet(_))
+		Set.newBuilder[EqRef[A]].mapInput(EqRef[A](_)).mapResult(new EqSet(_))
 }
 
 
@@ -81,31 +56,31 @@ object EqSet extends IterableFactory[EqSet] {
 /** An immutable [[Map]] implementation using referential equality and hash code (as defined by `AnyRef`)
   * rather than possibly overriden `equals` and `hashCode` methods of the key type.
   */
-final class EqMap[K, +V] private (underlying :Map[IdentityKey[K], V])
+final class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 	extends AbstractMap[K, V] with MapOps[K, V, EqMap, EqMap[K, V]]
 	   with MapFactoryDefaults[K, V, EqMap, immutable.Iterable] with Serializable
 {
-	override def apply(key :K) :V = underlying(new IdentityKey(key))
-	override def get(key :K) :Option[V] = underlying.get(new IdentityKey(key))
+	override def apply(key :K) :V = underlying(EqRef(key))
+	override def get(key :K) :Option[V] = underlying.get(EqRef(key))
 	override def getOrElse[V1 >: V](key :K, default : => V1) :V1 =
-		underlying.getOrElse(new IdentityKey(key), default)
+		underlying.getOrElse(EqRef(key), default)
 
-	override def iterator :Iterator[(K, V)] = underlying.iterator.map { case (k, v) => (k.value, v) }
+	override def iterator :Iterator[(K, V)] = underlying.iterator.map { case (k, v) => (k.get, v) }
 
 	override def updated[V1 >: V](key :K, value :V1) :EqMap[K, V1] =
-		underlying.updated(new IdentityKey(key), value) match {
+		underlying.updated(EqRef(key), value) match {
 			case same if same eq underlying => this
 			case other => new EqMap(other)
 		}
 	override def removed(key :K) :EqMap[K, V] =
-		underlying.removed(new IdentityKey(key)) match {
+		underlying.removed(EqRef(key)) match {
 			case same if same eq underlying => this
 			case other => new EqMap(other)
 		}
 	override def withDefault[V1 >: V](d :K => V1) :Map[K, V1] =
-		new EqMap(underlying.withDefault { key => d(key.value) })
+		new EqMap(underlying.withDefault { key => d(key.get) })
 
-	override def default(key :K) :V = underlying.default(new IdentityKey(key))
+	override def default(key :K) :V = underlying.default(EqRef(key))
 
 
 	override def mapFactory :MapFactory[EqMap] = EqMap
@@ -119,17 +94,17 @@ object EqMap extends MapFactory[EqMap] {
 		case other => (newBuilder ++= other).result()
 	}
 
-	override def empty[K, V] :EqMap[K, V] = new EqMap(Map.empty[IdentityKey[K], V])
-	def wrap[K, V](map :Map[IdentityKey[K], V]) :EqMap[K, V] = new EqMap(map)
+	override def empty[K, V] :EqMap[K, V] = new EqMap(Map.empty[EqRef[K], V])
+	def wrap[K, V](map :Map[EqRef[K], V]) :EqMap[K, V] = new EqMap(map)
 
 	override def newBuilder[K, V] :Builder[(K, V), EqMap[K, V]] =
 		new ReusableBuilder[(K, V), EqMap[K, V]] {
-			private[this] var map = Map.empty[IdentityKey[K], V]
+			private[this] var map = Map.empty[EqRef[K], V]
 
 			override def knownSize = map.size
 
 			override def addOne(elem :(K, V)) :this.type = {
-				map = map.updated(new IdentityKey(elem._1), elem._2); this
+				map = map.updated(EqRef(elem._1), elem._2); this
 			}
 			override def addAll(xs :IterableOnce[(K, V)]) :this.type = {
 				sizeHint(xs, map.size)
@@ -147,15 +122,15 @@ object EqMap extends MapFactory[EqMap] {
 /** A mutable [[scala.collection.mutable.Set Set]] implementation using reference equality (`eq`) to determine
   * if a value belongs to it. Used to bypass overriden `equals` of the elements.
   */
-final class MutableEqSet[A] private(underlying :mutable.Set[IdentityKey[A]])
+final class MutableEqSet[A] private(underlying :mutable.Set[EqRef[A]])
 	extends mutable.AbstractSet[A] with mutable.SetOps[A, MutableEqSet, MutableEqSet[A]]
 	   with IterableFactoryDefaults[A, MutableEqSet] with Serializable
 {
-	override def contains(elem :A) :Boolean = underlying.contains(new IdentityKey(elem))
-	override def iterator :Iterator[A] = underlying.iterator.map(_.value)
+	override def contains(elem :A) :Boolean = underlying.contains(EqRef(elem))
+	override def iterator :Iterator[A] = underlying.iterator.map(_.get)
 
-	override def addOne(elem :A) :this.type = { underlying.addOne(new IdentityKey(elem)); this }
-	override def subtractOne(elem :A) :this.type = { underlying.subtractOne(new IdentityKey(elem)); this }
+	override def addOne(elem :A) :this.type = { underlying.addOne(EqRef(elem)); this }
+	override def subtractOne(elem :A) :this.type = { underlying.subtractOne(EqRef(elem)); this }
 
 	override def clear() :Unit = underlying.clear()
 
@@ -168,7 +143,7 @@ object MutableEqSet extends IterableFactory[MutableEqSet] {
 	override def from[A](source :IterableOnce[A]) :MutableEqSet[A] = empty[A] ++= source
 
 	override def empty[A] :MutableEqSet[A] = new MutableEqSet[A](mutable.HashSet.empty)
-	def wrap[A](set :mutable.Set[IdentityKey[A]]) :MutableEqSet[A] = new MutableEqSet[A](set)
+	def wrap[A](set :mutable.Set[EqRef[A]]) :MutableEqSet[A] = new MutableEqSet[A](set)
 
 	override def newBuilder[A] :Builder[A, MutableEqSet[A]] = empty[A]
 }
@@ -179,24 +154,24 @@ object MutableEqSet extends IterableFactory[MutableEqSet] {
 /** A mutable [[scala.collection.mutable.Map Map]] implementation using reference equality (`eq`) to determine
   * if a key belongs to it. Used to bypass overriden `equals` of the key type.
   */
-final class MutableEqMap[K, V] private(underlying :mutable.Map[IdentityKey[K], V])
+final class MutableEqMap[K, V] private(underlying :mutable.Map[EqRef[K], V])
 	extends mutable.AbstractMap[K, V] with mutable.MapOps[K, V, MutableEqMap, MutableEqMap[K, V]]
 	   with MapFactoryDefaults[K, V, MutableEqMap, mutable.Iterable] with Serializable
 {
-	override def contains(key :K) :Boolean = underlying.contains(new IdentityKey(key))
-	override def get(key :K) :Option[V] = underlying.get(new IdentityKey(key))
-	override def getOrElse[V1 >: V](key :K, default : => V1) :V1 = underlying.getOrElse(new IdentityKey(key), default)
-	override def getOrElseUpdate(key :K, op : => V) :V = underlying.getOrElseUpdate(new IdentityKey(key), op)
-	override def apply(key :K) :V = underlying(new IdentityKey(key))
-	override def default(key :K) :V = underlying.default(new IdentityKey(key))
+	override def contains(key :K) :Boolean = underlying.contains(EqRef(key))
+	override def get(key :K) :Option[V] = underlying.get(EqRef(key))
+	override def getOrElse[V1 >: V](key :K, default : => V1) :V1 = underlying.getOrElse(EqRef(key), default)
+	override def getOrElseUpdate(key :K, op : => V) :V = underlying.getOrElseUpdate(EqRef(key), op)
+	override def apply(key :K) :V = underlying(EqRef(key))
+	override def default(key :K) :V = underlying.default(EqRef(key))
 
-	override def iterator :Iterator[(K, V)] = underlying.iterator.map { entry => (entry._1.value, entry._2) }
+	override def iterator :Iterator[(K, V)] = underlying.iterator.map { entry => (entry._1.get, entry._2) }
 
 	override def addOne(elem :(K, V)) :this.type = {
-		underlying.addOne((new IdentityKey(elem._1), elem._2)); this
+		underlying.addOne((EqRef(elem._1), elem._2)); this
 	}
 	override def subtractOne(elem :K) :this.type = {
-		underlying.subtractOne(new IdentityKey(elem)); this
+		underlying.subtractOne(EqRef(elem)); this
 	}
 
 	override def mapFactory :MapFactory[MutableEqMap] = MutableEqMap
@@ -208,7 +183,7 @@ object MutableEqMap extends MapFactory[MutableEqMap] {
 	override def from[K, V](it :IterableOnce[(K, V)]) :MutableEqMap[K, V] = empty[K, V] ++= it
 
 	override def empty[K, V] :MutableEqMap[K, V] = new MutableEqMap(mutable.Map.empty)
-	def wrap[K, V](map :mutable.Map[IdentityKey[K], V]) :MutableEqMap[K, V] = new MutableEqMap(map)
+	def wrap[K, V](map :mutable.Map[EqRef[K], V]) :MutableEqMap[K, V] = new MutableEqMap(map)
 
 	override def newBuilder[K, V] :Builder[(K, V), MutableEqMap[K, V]] = empty[K, V]
 }
