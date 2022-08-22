@@ -1,47 +1,44 @@
 package net.noresttherein.sugar
 
-import scala.annotation.tailrec
+import java.lang.reflect.Constructor
+
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.ArraySeq.ofRef
 import scala.collection.mutable
 
 import net.noresttherein.sugar.collection.MutableEqSet
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
 package object exceptions extends exceptions.imports with exceptions.extensions {
-	private[exceptions] def dejaVuSet :mutable.Set[Throwable] = MutableEqSet.empty
+	/* WHENEVER YOU EDIT THIS FILE UPDATE rethrowStackTraceElement WITH A CORRECT LINE NUMBER! */
 
-	/** Reverses the order of the exception cause list defined by [[Throwable.getCause getCause]] method,
-	  * placing the first (and last) exception without a cause as the first element of the returned list.
-	  */
-	@tailrec private[exceptions] def causeQueue(e :Throwable, result :List[Throwable] = Nil,
-	                                            dejaVu :mutable.Set[Throwable] = dejaVuSet)
-			:Seq[Throwable] =
-		e.getCause match {
-			case null => e::result
-			case cause if dejaVu(cause) =>
-				causeCycleException(e)::e::result
-			case cause =>
-				dejaVu += e
-				causeQueue(cause, e::result, dejaVu)
-		}
-	private def causeCycleException(e :Throwable) =
-		new IllegalStateException(s"Cycle detected in the exception stack: ${e.getCause} already present.")
+	private[exceptions] def eval[T](action: => T) :T = action
 
-	/** Descends down the cause list following the [[Throwable.getCause getCause]] methods to find the first exception
-	  * without a cause. Guards against malicious cycle attempts.
-	  */
-	@tailrec private[exceptions] def originalCause(e :Throwable, dejaVu :mutable.Set[Throwable] = dejaVuSet) :Throwable =
-		 e.getCause match {
-			case null => e
-			case cause if dejaVu(cause) => causeCycleException(e)
-			case cause =>
-				dejaVu += cause
-				originalCause(cause, dejaVu)
-		}
+	/** This method is never called. It is used as an artificial top stack trace element
+	  * of cheaper [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] exceptions created and thrown
+	  * by method [[net.noresttherein.sugar.imports.rethrow rethrow]], solely to provide this information
+	  * here. These exceptions do not have their stack trace filled by the virtual machine, but initialize it instead
+	  * with frames of the [[Throwable]] caught by `rethrow`, leading up to the call of `rethrow` itself.
+	  * In order to minimize confusion coming from a stack trace leading to code which throws no exception,
+	  * a final frame for this method is added to point programmers to this documentation.
+	  */ //remember to update the line number if you edit these docs!
+	@nowarn private def conjureThrowable :Nothing = ??!
 
-	/** Suffix (earlier frames) of the stack trace of the first cause with non empty stack trace, starting with
+	private[exceptions] final val evalStackTraceElement =
+		new StackTraceElement(classOf[imports].getName, "eval", "exceptions.scala", 15)
+
+	private[exceptions] final val conjureThrowableStackTraceElement =
+		new StackTraceElement(classOf[imports].getName, "conjureThrowable", "exceptions.scala", 25)
+
+	private[exceptions] final val fillInStackTraceStackTraceElement =
+		new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", -1)
+
+
+	/** Suffix (earlier frames) of the stack trace of the first cause with a non empty stack trace, starting with
 	  * the first (most recent) frame for `imports.rethrow`.
 	  */
 	@tailrec private[exceptions] def stackTraceSuffix(e :Throwable) :Array[StackTraceElement] = e.getCause match {
@@ -67,7 +64,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 				@tailrec def prefix(i :Int) :Array[StackTraceElement] =
 					if (i >= causeTraceLength)
 						EmptyStackTraceArray
-					else if (matches(causeTrace(i), rethrowStackTraceElement)) {
+					else if (matches(causeTrace(i), evalStackTraceElement)) {
 //						causeTrace.drop(i)
 						val sharedFrames = causeTrace.length - i
 						val res = new Array[StackTraceElement](sharedFrames + 1)
@@ -148,12 +145,67 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 		}
 
 
-
 	private[this] final val SuppressedCaption = "Suppressed: "
 	private[this] final val CauseCaption      = "Caused by: "
 	private[this] final val EmptyStackTraceArray = new Array[StackTraceElement](0)
 	private[exceptions] final val EmptyStackTrace = ArraySeq.unsafeWrapArray(EmptyStackTraceArray)
 
+	private[exceptions] final val NoArgs = Array[Class[_]]()
+	private[exceptions] final val StringArg = Array[Class[_]](classOf[String])
+	private[exceptions] final val ThrowableArg = Array[Class[_]](classOf[Throwable])
+	private[exceptions] final val StringThrowableArgs = Array[Class[_]](classOf[String], classOf[Throwable])
+	private[exceptions] final val StringThrowableBoolArgs =
+		Array[Class[_]](classOf[String], classOf[Throwable], classOf[Boolean])
+	private[exceptions] final val StringThrowableBoolBoolArgs =
+		Array[Class[_]](classOf[String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
+
+	private[exceptions] final def findConstructor(clazz :Class[_], paramTypes :Array[Class[_]]) :Opt[Constructor[_]] = {
+		val constructors = clazz.getDeclaredConstructors
+		var i = constructors.length - 1
+		while (i >= 0 && !arraysEqual(constructors(i).getParameterTypes, paramTypes))
+			i -= 1
+		if (i >= 0) Got(constructors(i))
+		else Lack
+	}
+	private[exceptions] final def arraysEqual(a :Array[_], b :Array[_]) :Boolean =
+		a.length == b.length && {
+			var i = a.length - 1
+			while (i >= 0 && a(i) == b(i))
+				i -= 1
+			i < 0
+		}
+
+
+	private[exceptions] def dejaVuSet :mutable.Set[Throwable] = MutableEqSet.empty
+
+	/** Reverses the order of the exception cause list defined by [[Throwable.getCause getCause]] method,
+	  * placing the first (and last) exception without a cause as the first element of the returned list.
+	  */
+	@tailrec private[exceptions] def causeQueue(e :Throwable, result :List[Throwable] = Nil,
+	                                            dejaVu :mutable.Set[Throwable] = dejaVuSet)
+			:Seq[Throwable] =
+		e.getCause match {
+			case null => e::result
+			case cause if dejaVu(cause) =>
+				causeCycleException(e)::e::result
+			case cause =>
+				dejaVu += e
+				causeQueue(cause, e::result, dejaVu)
+		}
+	private def causeCycleException(e :Throwable) =
+		new IllegalStateException(s"Cycle detected in the exception stack: ${e.getCause} already present.")
+
+	/** Descends down the cause list following the [[Throwable.getCause getCause]] methods to find the first exception
+	  * without a cause. Guards against malicious cycle attempts.
+	  */
+	@tailrec private[exceptions] def originalCause(e :Throwable, dejaVu :mutable.Set[Throwable] = dejaVuSet) :Throwable =
+		 e.getCause match {
+			case null => e
+			case cause if dejaVu(cause) => causeCycleException(e)
+			case cause =>
+				dejaVu += cause
+				originalCause(cause, dejaVu)
+		}
 }
 
 

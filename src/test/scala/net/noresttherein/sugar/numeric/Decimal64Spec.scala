@@ -27,8 +27,8 @@ object Decimal64Spec extends Properties("Decimal64") {
 	private val MaxUnscaled =  BigInteger.valueOf(Decimal64.MaxUnscaled)
 	private val MinUnscaled = BigInteger.valueOf(Decimal64.MinUnscaled)
 
-	private val MaxLong = BigInteger.valueOf(Long.MaxValue)
-	private val MinLong = BigInteger.valueOf(Long.MinValue)
+//	private val MaxLong = BigInteger.valueOf(Long.MaxValue)
+//	private val MinLong = BigInteger.valueOf(Long.MinValue)
 
 	def maxPrecision(value :JavaBigDecimal, rounding :RoundingMode) :MathContext = {
 		val max = new MathContext(MaxPrecision, rounding)

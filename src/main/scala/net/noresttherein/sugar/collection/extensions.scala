@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collection
 
 import scala.annotation.tailrec
-import scala.collection.immutable.IndexedSeqDefaults
+import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults}
 import scala.collection.{mutable, IterableFactory, IterableOnce, IterableOps, LinearSeq, View}
 import scala.collection.generic.IsIterableOnce
 import scala.collection.mutable.Builder
@@ -37,14 +37,14 @@ trait extensions extends Any {
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Seq]],
 	  * which do not return a negative index when the element is not found.
 	  */
-	@inline implicit final def indexOfMethods[X](self :scala.collection.Seq[X]) :IndexOfMethods[X] =
-		new IndexOfMethods[X](self)
+	@inline implicit final def seqExtension[X](self :scala.collection.Seq[X]) :SeqExtension[X] =
+		new SeqExtension[X](self)
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Array]],
 	  * which do not return a negative index when the element is not found.
 	  */
-	@inline implicit final def indexOfMethods[X](self :Array[X]) :IndexOfMethods[X] =
-		new IndexOfMethods[X](mutable.ArraySeq.make(self))
+	@inline implicit final def arrayExtension[X](self :Array[X]) :SeqExtension[X] =
+		new SeqExtension[X](mutable.ArraySeq.make(self))
 
 	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
 	  * [[scala.collection.IterableFactory IterableFactory]]`[C]`.
@@ -1093,10 +1093,13 @@ class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends
 
 
 
-/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Seq]],
-  * which do not return a negative index when the element is not found.
+/** Extension methods of mutable and immutable sequences (and arrays through a wrapper):
+  *   1. alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]],
+  *      which do not return a negative index when the element is not found;
+  *   1. methods related to subsequences: sequences containing selected elements from another sequence,
+  *      in the same order.
   */
-class IndexOfMethods[X](private val self :scala.collection.Seq[X]) extends AnyVal {
+class SeqExtension[X](private val self :scala.collection.Seq[X]) extends AnyVal {
 	@inline def length :Int = self.length
 
 	/** Finds the location of the given element in this sequence, returning its index as an option.
@@ -1301,6 +1304,48 @@ class IndexOfMethods[X](private val self :scala.collection.Seq[X]) extends AnyVa
 	private[collection] def lastIndexWhereErrorMessage(end :Int) :String =
 		"No element satisfying the predicate in " + self +
 			(if (end == length - 1) "." else " at or before index " + end + ".")
+
+
+	/** Checks if this sequence is a subsequence of `other`, that is there is a function `f :Int => Boolean` such that
+	  * `this == other.zipWithIndex.collect { case (e, i) if f(i) => e }`.
+	  */
+	def subseqOf(other :scala.collection.Seq[X]) :Boolean = {
+		val thisLength = self.knownSize
+		val thatLength = other.knownSize
+		@tailrec def sublistOf(left :scala.collection.Seq[X], right :scala.collection.Seq[X]) :Boolean =
+			left.isEmpty || right.nonEmpty && (
+				if (left.head == right.head) sublistOf(left.tail, right.tail)
+				else sublistOf(left, right.tail)
+			)
+		@tailrec def indexedSubseqOf(left :scala.collection.Seq[X], leftIdx :Int,
+		                             right :scala.collection.Seq[X], rightIdx :Int) :Boolean =
+			leftIdx < 0 || rightIdx >= 0 && (
+				if (left(leftIdx) == right(rightIdx)) indexedSubseqOf(left, leftIdx - 1, right, rightIdx - 1)
+				else indexedSubseqOf(left, leftIdx, right, rightIdx - 1)
+			)
+		(thatLength < 0 || thisLength <= thatLength && thisLength >= 0) &&
+			((self, other) match {
+				case (_ :scala.collection.IndexedSeq[_], _ :scala.collection.IndexedSeq[_]) =>
+					indexedSubseqOf(self, thisLength - 1, other, thatLength - 1)
+				case (_:LinearSeq[_] | _:Vector[_], _:LinearSeq[_] | _:Vector[_]) =>
+					sublistOf(self, other)
+				case (_ :LinearSeq[_], _) =>
+					sublistOf(self, other.toList)
+				case (_, _ :LinearSeq[_]) =>
+					sublistOf(self.toList, other)
+				case (_, _) =>
+					indexedSubseqOf(
+						self to scala.collection.IndexedSeq, thisLength - 1,
+						other to scala.collection.IndexedSeq, thatLength - 1
+					)
+		})
+	}
+
+	/** Checks if this sequence is a subsequence of `other`, that is there is a function `f :Int => Boolean` such that
+	  * `this == other.zipWithIndex.collect { case (e, i) if f(i) => e }`.
+	  */
+	def subseqOf[U >: X](other :Array[U]) :Boolean =
+		new SeqExtension[U](self).subseqOf(ArraySeq.unsafeWrapArray(other))
 }
 
 

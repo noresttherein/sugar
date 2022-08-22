@@ -1,5 +1,13 @@
 package net.noresttherein.sugar.typist
 
+import net.noresttherein.sugar.extensions._
+
+
+
+private class checkUnlift[A <: U, B <: U, U](implicit ev :A <:< B) {
+	import net.noresttherein.sugar.extensions._
+}
+
 
 
 private class compileCheck_<:<[L <: U, A >: L <: U, B >: L <: U, U](implicit ev :A <:< B) {
@@ -25,11 +33,11 @@ private class compileCheck_<:<[L <: U, A >: L <: U, B >: L <: U, U](implicit ev 
 	ev.ub[U].substituteContra(??? :ContraUp[B]) :ContraUp[A]
 	ev.ub[U].substituteBoth(??? :BiUp[B, A])    :BiUp[A, B]
 
-//	ev.lb[L].ub[U].liftCo[Co]                       :Co[A] <:< Co[B]
-//	ev.lb[L].ub[U].liftContra[Contra]               :Contra[B] <:< Contra[A]
-//	ev.lb[L].ub[U].substituteCo(??? :Co[A])         :Co[B]
-//	ev.lb[L].ub[U].substituteContra(??? :Contra[B]) :Contra[A]
-//	ev.lb[L].ub[U].substituteBoth(??? :Bi[B, A])    :Bi[A, B]
+	ev.lb[L].ub[U].liftCo[Co]                       :Co[A] <:< Co[B]
+	ev.lb[L].ub[U].liftContra[Contra]               :Contra[B] <:< Contra[A]
+	ev.lb[L].ub[U].substituteCo(??? :Co[A])         :Co[B]
+	ev.lb[L].ub[U].substituteContra(??? :Contra[B]) :Contra[A]
+	ev.lb[L].ub[U].substituteBoth(??? :Bi[B, A])    :Bi[A, B]
 
 	ev.ub[U].lb[L].liftCo[Co]                       :Co[A] <:< Co[B]
 	ev.ub[U].lb[L].liftContra[Contra]               :Contra[B] <:< Contra[A]
@@ -60,11 +68,11 @@ private class compileCheck_=:=[L <: U, A >: L <: U, B >: L <: U, U](implicit ev 
 	ev.ub[U].substituteContra(??? :UnUp[B])     :UnUp[A]
 	ev.ub[U].substituteBoth(??? :BiUp[B, A])    :BiUp[A, B]
 
-//		ev.lb[L].ub[U].liftCo[Co]                       :Co[A] <:< Co[B]
-//		ev.lb[L].ub[U].liftContra[Contra]               :Contra[B] <:< Contra[A]
-//		ev.lb[L].ub[U].substituteCo(??? :Co[A])         :Co[B]
-//		ev.lb[L].ub[U].substituteContra(??? :Contra[B]) :Contra[A]
-//		ev.lb[L].ub[U].substituteBoth(??? :Bi[B, A])    :Bi[A, B]
+	ev.lb[L].ub[U].liftCo[Un]                       :Un[A] <:< Un[B]
+	ev.lb[L].ub[U].liftContra[Un]                   :Un[B] <:< Un[A]
+	ev.lb[L].ub[U].substituteCo(??? :Un[A])         :Un[B]
+	ev.lb[L].ub[U].substituteContra(??? :Un[B])     :Un[A]
+	ev.lb[L].ub[U].substituteBoth(??? :Bi[B, A])    :Bi[A, B]
 
 	ev.ub[U].lb[L].liftCo[Un]                       :Un[A] =:= Un[B]
 	ev.ub[U].lb[L].liftContra[Un]                   :Un[B] =:= Un[A]

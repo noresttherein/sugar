@@ -65,7 +65,7 @@ object extensions extends extensions {
 trait extensions extends Any
 	with casting.extensions with collection.extensions with exceptions.extensions
 	with numeric.extensions with optional.extensions with prettyprint.extensions
-	with reflect.extensions with repeat.extensions
+	with reflect.extensions with repeat.extensions with typist.extensions
 {
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	@inline implicit final def feedToMethod[X](x :X) = new feedToMethod(x)
