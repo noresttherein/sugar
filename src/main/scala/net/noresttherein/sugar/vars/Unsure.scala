@@ -305,7 +305,7 @@ object Unsure {
 	/** An `Unsure` factory which creates [[net.noresttherein.sugar.vars.Sure Sure]]`(value)`
 	  * if the argument is not null, and [[net.noresttherein.sugar.vars.Blank Blank]] if it is null.
 	  *  @param value the value.
-	  *  @return `if (value == null) Fail else Success(value)`.
+	  *  @return `if (value == null) Blank else Success(value)`.
 	  */
 	def apply[@specialized(SpecializedVars) T](value :T) :Unsure[T] =
 		if (value == null) Blank else new Sure(value)

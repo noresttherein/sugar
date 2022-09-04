@@ -112,7 +112,7 @@ object Idempotent {
 
 
 
-	/** An already computed (initialized) value. */
+	/** An already computed (initialized) value. */ //todo: make it specialized
 	@SerialVersionUID(1L) //Not specialized so we don't box the value type to fit in an Opt all the time
 	private class EagerIdempotent[+T](x :T) extends Idempotent[T] {
 		override def isDefined :Boolean = true
@@ -121,7 +121,7 @@ object Idempotent {
 		override def map[O](f :T => O) :Lazy[O] = new EagerIdempotent[O](f(x))
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(x)
 
-		override def isSpecialized :Boolean = getClass == classOf[EagerIdempotent[_]]
+		override def isSpecialized :Boolean = false //getClass == classOf[EagerIdempotent[_]]
 	}
 
 
@@ -129,7 +129,7 @@ object Idempotent {
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
 	  * which allows more lax synchronisation.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(1L) //todo: make it specialized
 	private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Idempotent[T]
 	{

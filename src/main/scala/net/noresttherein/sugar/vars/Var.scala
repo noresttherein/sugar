@@ -8,7 +8,8 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 
-/** A simple `@specialized` boxed '''`var`'''. Facilitates in/out function parameters.
+/** A simple `@specialized` boxed '''`var`''' with a primary use as in/out function parameters.
+  * It is the standard implementation of `InOut` (i.e., providing no additional features).
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value. For example,
   * you can write `param += 1` for `param :Var[Int]`. The use of this class directly over through the `In/Out`
   * interface may be preferable to reduce the number of virtual calls and possibly facilitate hotspot inlining.

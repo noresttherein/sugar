@@ -20,9 +20,12 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * and [[net.noresttherein.sugar.vars.Ref.unsure asUnsure]] are allowed to return empty instances
   * if the value is not available at the moment of calling.
   *
+  * Equality and `hashCode` is universally defined as equality of final values, and may thus block.
+  * All `Val` implementations will also equal any other instance of an equal value, independently of its class.
+  *
   * @author Marcin Mościcki
   */ //consider: caching of the T wrapper, Opt, Option, Unsure
-trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) {
+trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //consider: toRef for equality semantic change
 	/** Checks if this object currently contains a value. This can happen either through lazy initialization or explicit
 	  * assignment, depending on the implementation. If `true`, then `get` will return the value
 	  * without blocking or throwing a [[NoSuchElementException]]. Note however that `false` values can become stale
@@ -52,7 +55,6 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) {
 	override def equals(that :Any) :Boolean = that match {
 		case self :AnyRef if this eq self => true
 		case other :Val[_] if other canEqual this => get == other.get
-//		case other :Hit[_] => get == other.get
 		case _ => false
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Val[_]]

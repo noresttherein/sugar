@@ -36,7 +36,7 @@ sealed class Out[@specialized(SpecializedVars) T] private[vars] extends InOut[T]
 		x = newValue
 	}
 
-	private[vars] override def isSpecialized :Boolean = getClass == classOf[Out[Any]]
+	private[vars] override def isSpecialized :Boolean = getClass != classOf[Out[Any]]
 
 	override def toString :String = if (isSet) String.valueOf(value) else Undefined.toString
 }

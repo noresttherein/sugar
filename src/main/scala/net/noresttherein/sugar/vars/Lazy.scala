@@ -132,7 +132,7 @@ object Lazy {
 
 
 	/** An already computed (initialized) value. */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(1L) //todo: make it specialized
 	//Not specialized to avoid boxing of T to ref-wrapper-of-T, especially that we likely already have the wrapper
 	private final class EagerLazy[+T](eager :T) extends Lazy[T] {
 		override def isDefined = true
@@ -141,7 +141,7 @@ object Lazy {
 		override def map[O](f: T => O): EagerLazy[O] = new EagerLazy(f(eager))
 		override def flatMap[O](f: T => Lazy[O]): Lazy[O] = f(eager)
 
-		override def isSpecialized :Boolean = getClass == classOf[EagerLazy[_]]
+		override def isSpecialized :Boolean = false //getClass == classOf[EagerLazy[_]]
 	}
 
 
@@ -150,7 +150,7 @@ object Lazy {
 	  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
 	  * and its runtime reference wrapper is an immutable class
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(1L) //todo: make it specialized
 	private final class SyncLazyVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Lazy[T]
 	{

@@ -12,7 +12,9 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @see [[net.noresttherein.sugar.collection.MutableEqSet]]
   * @see [[net.noresttherein.sugar.collection.MutableEqMap]]
   */
-final class EqRef[+T] private (override val get :T) extends Val[T] with Serializable {
+@SerialVersionUID(1L)
+final class EqRef[+T] private (override val get :T) extends Ref[T] with Serializable {
+	override def opt :Opt[T] = Got(get)
 	override def isDefined :Boolean = true
 
 	override def equals(that :Any) :Boolean = that match {

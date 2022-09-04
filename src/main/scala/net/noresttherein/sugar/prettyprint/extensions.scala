@@ -158,6 +158,9 @@ class ClassNameMethods[T](private val self :T) extends AnyVal {
 		val hash = self.hashCode
 		(hash ^ (hash >> 16) & 0xffff).toHexString
 	}
+
+	/** Formats `this.hashCode` as a hexadecimal string. */
+	@inline def hashCodeString :String = self.hashCode.toHexString
 }
 
 

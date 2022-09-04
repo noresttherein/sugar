@@ -8,14 +8,14 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
-/** An externally set, synchronized value where every read blocks until it is initialized. All calls to `value` acquire
-  * the monitor for this object and, if `!this.isInitialized`, will wait until `this.notifyAll()` is called
+/** An externally set, synchronized value where every read blocks until it is initialized. All calls to `value`
+  * will, if `!this.isInitialized`, acquire the monitor for this object and  wait until `this.notifyAll()` is called
   * by `this.value = x`. The value can be set only once, with an [[IllegalStateException]] being thrown on subsequent
   * attempts. For this reason, all update methods which depend on a preexistent value will fail
   * with an [[UnsupportedOperationException]].
   * @see [[net.noresttherein.sugar.vars.SignalVar]]
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(1L) //consider: SignalRef (different equality semantics)
 final class SignalVal[T] private extends InOut[T] with Val[T] {
 	@volatile private[this] var x :Opt[T] = Lack
 
@@ -80,7 +80,13 @@ final class SignalVal[T] private extends InOut[T] with Val[T] {
 
 	private[vars] override def isSpecialized = false
 
-	override def hashCode :Int = super[Val].hashCode
+//	override def equals(that :Any) :Boolean = that match {
+//		case self :AnyRef if this eq self => true
+//		case _ if !isDefined => false
+//		case other :Val[_] if other canEqual this => get == other.get
+//		case _ => false
+//	}
+//	override def canEqual(that :Any) :Boolean = super[Val].canEqual(that) && isDefined
 
 	override def toString :String = synchronized {
 		if (isDefined) String.valueOf(value)

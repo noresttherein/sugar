@@ -157,7 +157,7 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 		factory.longHandle(ev(this)).getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Long] ^ other
 
 
-	private[vars] override def isSpecialized = true
+//	private[vars] override def isSpecialized = true
 }
 
 
@@ -244,6 +244,8 @@ private[vars] object VolatileLike {
 			else
 				companion.repeatBoolTestAndSet(this, !expect, f(z, !expect), ifExpected)
 		}
+
+		private[vars] override def isSpecialized :Boolean = true
 	}
 
 }

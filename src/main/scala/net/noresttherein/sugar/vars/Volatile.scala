@@ -10,7 +10,7 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   * that changes will become visible to other threads. Unlike with a plain `@volatile` variable,
   * [[net.noresttherein.sugar.vars.Volatile.testAndSet testAndSet]] and similar methods are atomic,
   * with `@volatile` access semantics regarding the ''happens-before'' relation of the memory model.
-  * This makes this class a polymorphic alternative to Java `AtomicXxx` family of classes, with semantics
+  * This makes this class a generic alternative to Java `AtomicXxx` family of classes, with semantics
   * of all operations (including assign mutators like `+=`, etc.) equivalent to the reference implementation
   * of the latter.
   *

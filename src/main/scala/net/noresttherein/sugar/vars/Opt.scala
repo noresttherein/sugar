@@ -12,13 +12,17 @@ import net.noresttherein.sugar.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoCo
   * recursion/loops. As a value class, it has no distinct subclasses for empty and non-empty instances, which results
   * in certain differences from `Option`. Aside from the obvious lack of creation of an additional object,
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, a disadvantage
-  * of being erased in runtime is that methods accepting `Opt`s with different type arguments will clash
-  * with each other, as well as with methods accepting `T` itself (if erased) in 'double definition' errors.
+  * of being erased in runtime is that a method accepting an `Opt[T]` will clash with overloaded method accepting `T`.
   * Moreover, a generic method accepting/returning an abstract type (parameter) `T` cannot be overriden/implemented
-  * by a method accepting an `Opt[O]`, where `O` is an abstract type (or type parameter).
+  * by a method accepting an `Opt[O]`, where `O` is a type parameter or an abstract type (this is a limitation
+  * of the current Scala compiler).
   *
   * Note that, as this is a value class wrapping any type, boxing of built in value types to their reference wrappers
-  * will still occur. Unlike its standard counterpart, this type is not an `Iterable`, although it contains all standard
+  * will still occur. In particular, nesting `Opt`s within each other works exactly as with `Option`s
+  * (that is, `Lack` is distinguishable from `Got(Lack)`), but the inner `Opt`s will always be reified
+  * to instances of `Opt` class, rather than erased to their contents.
+  *
+  * Unlike its standard counterpart, this type is not an `Iterable`, although it contains all standard
   * collection methods and an implicit conversion to `Iterable[T]` exists. The latter will however result in boxing
   * which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions''
   * composing several `Opt`s' can result in closures being created (as manual nesting of `flatMap` calls also can).
@@ -30,8 +34,9 @@ import net.noresttherein.sugar.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoCo
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   */
 @SerialVersionUID(1L)
-//todo: in Scala 3 make it an opaque type to differentiate it more from Unsure. Will need some boxing to distinguish
-// Got(Lack) from Lack.
+//todo: we could make it a fully erased type (opaque type or an abstract type alias) in order to further differentiate
+//  it from Unsure, but we'd lose `Ref`/`IterableOnce` interoperability and we'd need some extra boxing class
+//  to distinguish Lack from Got(Lack).
 class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
 {
@@ -142,13 +147,13 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	/** Returns a new `Opt` which is empty ''iff'' this value is empty, or one containing the result of applying
 	  * the given function to its value otherwise. */
-	@inline def map[O](p :A => O) :Opt[O] =
+	@inline def map[O](f :A => O) :Opt[O] =
 		if (ref eq NoContent) new Opt(NoContent)
-		else new Opt(p(ref.asInstanceOf[A]).asInstanceOf[AnyRef])
+		else new Opt(f(ref.asInstanceOf[A]).asInstanceOf[AnyRef])
 
 	/** Applies the given function to the content of this `Opt` and returns the result or the provided alternative
 	  * if this instance is empty. Equivalent to `this map f getOrElse alternative`, but in one step. */
-	@inline def mapOrElse[X](f :A => X, alternative: => X) :X =
+	@inline def mapOrElse[O](f :A => O, alternative: => O) :O =
 		if (ref eq NoContent) alternative else f(ref.asInstanceOf[A])
 
 	/** Returns the result of applying `f` to the value of this `Opt` if it is non empty,
@@ -162,10 +167,10 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 		if (ref eq NoContent) ifEmpty else f(ref.asInstanceOf[A])
 
 	/** Returns the result of applying the given function to the value of this `Opt` if it is not empty,
-	  * or `this` if `this.isEmpty` */
-	@inline def flatMap[O](p :A => Opt[O]) :Opt[O] =
+	  * or `this` if `this.isEmpty`. */
+	@inline def flatMap[O](f :A => Opt[O]) :Opt[O] =
 		if (ref eq NoContent) new Opt(NoContent)
-		else p(ref.asInstanceOf[A])
+		else f(ref.asInstanceOf[A])
 
 	/** Flattens `Opt[Opt[O]]` to a single `Opt[O]`. */
 	def flatten[O](implicit isOpt :A <:< Opt[O]) :Opt[O] =
@@ -434,11 +439,4 @@ object Opt {
 	private val unzip2Lack = (Lack, Lack)
 	private val unzip3Lack = (Lack, Lack, Lack)
 }
-
-
-
-
-
-
-
 

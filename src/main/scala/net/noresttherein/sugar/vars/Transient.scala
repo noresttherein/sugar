@@ -48,7 +48,7 @@ object Transient {
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
 	  * which allows more lax synchronisation.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(1L) //todo: make it really specialized
 	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Initializer[T]) extends Transient[T] {
 		@transient private[this] var evaluated :Any = Undefined
 

@@ -162,10 +162,16 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 		state = Mutable
 	}
 
-	private[vars] override def isSpecialized :Boolean = getClass == classOf[Finalizable[_]]
+	private[vars] override def isSpecialized :Boolean = getClass != classOf[Finalizable[_]]
 
-	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Finalizable[_]]
-	override def hashCode :Int = super[InOut].hashCode
+//	override def equals(that :Any) :Boolean = that match {
+//		case self :AnyRef if this eq self => true
+//		case _ if state == Mutable => false
+//		case other :Val[_] if other canEqual this => get == other.get
+//		case _ => false
+//	}
+//	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Val[_]] && state == Immutable
+//	override def hashCode :Int = super[InOut].hashCode
 }
 
 
