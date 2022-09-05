@@ -1327,7 +1327,7 @@ class SeqExtension[X](private val self :scala.collection.Seq[X]) extends AnyVal 
 			((self, other) match {
 				case (_ :scala.collection.IndexedSeq[_], _ :scala.collection.IndexedSeq[_]) =>
 					indexedSubseqOf(self, thisLength - 1, other, thatLength - 1)
-				case (_:LinearSeq[_] | _:Vector[_], _:LinearSeq[_] | _:Vector[_]) =>
+				case (_:LinearSeq[_] | _:Vector[_] | _:PassedArray[_], _:LinearSeq[_] | _:Vector[_] | _:PassedArray[_]) =>
 					sublistOf(self, other)
 				case (_ :LinearSeq[_], _) =>
 					sublistOf(self, other.toList)
