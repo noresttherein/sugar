@@ -4,6 +4,7 @@ import java.math.{BigInteger, MathContext, RoundingMode, BigDecimal => JavaBigDe
 import java.math.MathContext.{DECIMAL128, DECIMAL32, DECIMAL64, UNLIMITED}
 import java.math.RoundingMode.{DOWN, HALF_EVEN, UNNECESSARY}
 
+import scala.collection.immutable.ArraySeq
 import scala.util.Try
 
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, Standard}
@@ -27,6 +28,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 	private val MaxUnscaled =  BigInteger.valueOf(Decimal64.MaxUnscaled)
 	private val MinUnscaled = BigInteger.valueOf(Decimal64.MinUnscaled)
 
+	private val RoundingModes = ArraySeq.unsafeWrapArray(RoundingMode.values)
 //	private val MaxLong = BigInteger.valueOf(Long.MaxValue)
 //	private val MinLong = BigInteger.valueOf(Long.MinValue)
 
@@ -139,7 +141,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 	/* * * * * * * * * * * * * * * Round methods * * * * * * * * * * * * * * * * * * * */
 
 	property("Round.maxPrecision(Long, RoundingMode)") = forAll { significand :Long =>
-		all(RoundingMode.values().map { rounding =>
+		all(RoundingModes.map { rounding =>
 			(if (rounding == UNNECESSARY)
 				if (throws(classOf[ArithmeticException])(maxPrecision(significand, rounding)))
 					if (throws(classOf[ArithmeticException])(Round.maxPrecision(significand, rounding)))
@@ -156,7 +158,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 	}
 
 	property("Round.maxPrecision(JavaBigDecimal, RoundingMode)") = forAll { value :BigDecimal =>
-		all(RoundingMode.values().map{ rounding =>
+		all(RoundingModes.map{ rounding =>
 			val big = value.bigDecimal
 			(if (rounding == UNNECESSARY)
 				if (throws(classOf[ArithmeticException])(maxPrecision(big, rounding)))
@@ -206,7 +208,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 		}
 	}
 	property("Decimal64.apply(Long, Int, RoundingMode)") = forAll { (significand :Long, scale :Short) =>
-		all(RoundingMode.values().map { rounding =>
+		all(RoundingModes.map { rounding =>
 			def ctx = maxPrecision(significand, rounding)
 			equivalent(JavaBigDecimal.valueOf(significand, scale).round(ctx)) {
 				Decimal64(significand, scale, rounding)
@@ -230,14 +232,14 @@ object Decimal64Spec extends Properties("Decimal64") {
 		equivalent(decimal.bigDecimal)(Decimal64(decimal))
 	}
 	property("Decimal64.apply(JavaBigDecimal, RoundingMode)") = forAll { decimal :BigDecimal =>
-		all(RoundingMode.values().map { rounding =>
+		all(RoundingModes.map { rounding =>
 			def ctx = maxPrecision(decimal.bigDecimal, rounding)
 			roundingProperty(decimal.bigDecimal.round(ctx))(Decimal64(decimal.bigDecimal, rounding)) :|
 				"Rounding mode: " + rounding
 		} :_*)
 	}
 	property("Decimal64.apply(BigDecimal, RoundingMode)") = forAll { decimal :BigDecimal =>
-		all(RoundingMode.values().map { rounding =>
+		all(RoundingModes.map { rounding =>
 			def ctx = maxPrecision(decimal.bigDecimal, rounding)
 			roundingProperty(decimal.round(ctx).bigDecimal)(Decimal64(decimal, rounding))
 		} :_*)
@@ -363,7 +365,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 		:_*)
 	}
 	property("**") = forAll { (x :Decimal64, n :Short) =>
-		all(RoundingMode.values().map { rounding =>
+		all(RoundingModes.map { rounding =>
 			{
 				implicit val ctx = Round.to16digits(rounding)
 				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ** n) :| s"$x ** $n ($ctx)"
@@ -408,7 +410,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 
 	private def forAllRoundingModes(expect :(JavaBigDecimal, JavaBigDecimal, MathContext) => JavaBigDecimal)
 	                               (subject :(Decimal64, Decimal64, MathContext) => Decimal64)(x :Decimal64, y :Decimal64) =
-		all(RoundingMode.values().map { rounding =>
+		all(RoundingModes.map { rounding =>
 			{
 				implicit val ctx = Round.to16digits(rounding)
 				binaryProp(expect(_, _, ctx))(subject(_, _, ctx))(x, y) :| "Rounding: " + ctx

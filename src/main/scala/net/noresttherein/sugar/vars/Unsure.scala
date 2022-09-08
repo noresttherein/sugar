@@ -89,16 +89,16 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	override def get :T
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
-	@inline final def getOrElse[O >: T](alt: => O) :O =
-		if (this eq Missing) alt else get
+	@inline final def getOrElse[O >: T](or: => O) :O =
+		if (this eq Missing) or else get
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Unsure.getOrElse getOrElse]], returns the value if non-empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
 	  * no closure will be created, at the cost of possibly discarding it without use.
-	  * @param alt the value to return if this instance is empty.
+	  * @param or the value to return if this instance is empty.
 	  */
-	@inline final def orDefault[O >: T](alt: O) :O =
-		if (this eq Missing) alt else get
+	@inline final def orDefault[O >: T](or: O) :O =
+		if (this eq Missing) or else get
 
 	/** Assuming that `T` is a nullable type, return `null` if this `Unsure` is empty, or the wrapped value otherwise. */
 	@inline final def orNull[O >: T](implicit isNullable :Null <:< O) :O =
@@ -106,6 +106,8 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 
 	/** Gets the value of this instance or throws the exception given as the type parameter with the given message.
+	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
+	  * as `this getOrElse { throw new E(msg) }`.
 	  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 	  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orNoSuch orNoSuch]]
@@ -114,17 +116,41 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final def orThrow[E <: Throwable :ClassTag](msg: => String) :T =
 		if (this eq Missing) raise[E](msg) else get
 
-	/** Gets the value of this instance or throws a [[NoSuchElementException]] with the given message.
+	/** Gets the value of this instance or throws the exception given as the type parameter.
+	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
+	  * as `this getOrElse { throw new E }`.
+	  * @tparam E an exception class which must provide either a public default constructor,
+	  *           a constructor accepting a single `String` argument,
+	  *           or a two-argument constructor accepting a `String` and a `Throwable`.
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orNoSuch orNoSuch]]
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]]
+	  */
+	@inline final def orThrow[E <: Throwable :ClassTag] :T =
+		if (this eq Blank) raise[E] else get
+
+	/** Gets the value of this instance or throws a [[NoSuchElementException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orNoSuch(msg: => String) :T =
 		if (this eq Missing) throw new NoSuchElementException(msg) else get
 
-	/** Gets the value of this instance or throws an [[IllegalArgumentException]] with the given message.
+	/** Gets the value of this instance or throws a [[NoSuchElementException]].
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
+	  */
+	@inline final def orNoSuch :T =
+		if (this eq Blank) throw new NoSuchElementException("Blank") else get
+
+	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orIllegal(msg: => String) :T =
 		if (this eq Missing) throw new IllegalArgumentException(msg) else get
+
+	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
+	  */
+	@inline final def orIllegal :T =
+		if (this eq Blank) throw new IllegalArgumentException("Blank") else get
 
 	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
 	@inline final def orError(msg: => String) :T = {
@@ -132,19 +158,25 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 		get
 	}
 
+	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
+	@inline final def orError :T = {
+		assert(this ne Blank)
+		get
+	}
+
 
 
 	/** Returns the value this `Unsure` if it is not empty, or the lazily computed alternative otherwise. */
-	@inline final def orElse[O >: T](alt: => Unsure[O]) :Unsure[O] =
-		if (this eq Missing) alt else this
+	@inline final def orElse[O >: T](or: => Unsure[O]) :Unsure[O] =
+		if (this eq Missing) or else this
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Unsure.orElse orElse]], returns this `Unsure` if it is not empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
 	  * no closure would be be created, at the cost of possibly discarding it without use.
-	  * @param alt the value to return if this instance is empty.
+	  * @param or the value to return if this instance is empty.
 	  */
-	@inline final def ifEmpty[O >: T](alt: Unsure[O]) :Unsure[O] =
-		if (this eq Missing) alt else this
+	@inline final def ifEmpty[O >: T](or: Unsure[O]) :Unsure[O] =
+		if (this eq Missing) or else this
 
 	/** Returns this `Unsure` if the condition is false and `Blank` if it is true. This is equivalent
 	  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
@@ -168,10 +200,10 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 		if (this eq Missing) Missing else new Sure(p(get))
 
 	/** Applies the given function to the content of this `Unsure` and returns the result or the provided alternative
-	  * if this instance is empty. Equivalent to `this map f getOrElse alternative`, but in one step.
+	  * if this instance is empty. Equivalent to `this map f getOrElse or`, but in one step.
 	  */
-	@inline final def mapOrElse[X](f :T => X, alternative: => X) :X =
-		if (this eq Missing) alternative else f(get)
+	@inline final def mapOrElse[X](f :T => X, or: => X) :X =
+		if (this eq Missing) or else f(get)
 
 	/** Returns the result of applying `f` to the value of this `Unsure` if it is non empty,
 	  * or the result of evaluating expression `ifEmpty` otherwise.
@@ -193,6 +225,20 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	/** Flattens `Attempt[Attempt[O]]` to a single `Attempt[O]`. */
 	@inline final def flatten[O](implicit isAttempt :T <:< Unsure[O]) :Unsure[O] =
 		if (this eq Missing) Missing else get
+
+	/** Returns `Blank` if `this.contains(o)`, or `this` otherwise. */
+	@inline def removed[O >: T](o :O) :Unsure[T] =
+		if ((this eq Blank) || get == o) Blank else this
+
+	/** Returns `Blank` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
+	def removedAll[O >: T](that :IterableOnce[O]) :Unsure[T] = that match {
+		case _ if this eq Blank => this
+		case it :Iterable[O] =>
+			if (it.isEmpty || !it.toSet(get)) this
+			else Blank
+		case _ if that.iterator.toSet(get) => Blank
+		case _ => this
+	}
 
 	/** Returns a new `Unsure` containing this value if it is not empty and its value satisfies the given predicate,
 	  * or [[net.noresttherein.sugar.vars.Missing Blank]] otherwise.

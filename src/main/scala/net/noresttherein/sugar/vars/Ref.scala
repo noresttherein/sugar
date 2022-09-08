@@ -311,6 +311,11 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 		*/
 	def unsure :Unsure[T] = opt.unsure
 
+	/** The value of this instance, if it is available. This is equivalent to [[net.noresttherein.sugar.vars.Ref.opt opt]],
+	  * except the return type is more aggressively erased than [[net.noresttherein.sugar.vars.Opt Opt]].
+	  */
+	def toPotential :Potential[T] = opt.toPotential
+
 	/** The value of this $Ref, if it is available or can be computed, as an option-like, specialized `Unsure`.
 		* Lazily initialized objects (containing their initializers) will proceed with the initialization if necessary,
 		* but subclasses which require external setting of the value

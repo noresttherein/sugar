@@ -4,6 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoContent, WithFilter}
+import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
 
 
 
@@ -114,15 +115,15 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 		else ref.asInstanceOf[A]
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
-	@inline def getOrElse[O >: A](alt: => O) :O =
-		if (ref eq NoContent) alt else ref.asInstanceOf[A]
+	@inline def getOrElse[O >: A](or: => O) :O =
+		if (ref eq NoContent) or else ref.asInstanceOf[A]
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Opt.getOrElse getOrElse]], returns the value if non-empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
 	  * no closure will be created, at the cost of possibly discarding it without use.
-	  * @param alt the value to return if this instance is empty. */
-	@inline def orDefault[O >: A](alt: O) :O =
-		if (ref eq NoContent) alt else ref.asInstanceOf[A]
+	  * @param or the value to return if this instance is empty. */
+	@inline def orDefault[O >: A](or: O) :O =
+		if (ref eq NoContent) or else ref.asInstanceOf[A]
 
 	/** Assuming that `A` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
 	@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
@@ -130,6 +131,8 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 
 	/** Gets the element in the `Opt` or throws the exception given as the type parameter with the given message.
+	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
+	  * as `this getOrElse { throw new E(msg) }`.
 	  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 	  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
 	  * @see [[net.noresttherein.sugar.vars.Opt.orNoSuch orNoSuch]]
@@ -137,15 +140,36 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	@inline def orThrow[E <: Throwable :ClassTag](msg: => String) :A =
 		if (ref eq NoContent) raise[E](msg) else ref.asInstanceOf[A]
 
+	/** Gets the element in the `Opt` or throws the exception given as the type parameter.
+	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
+	  * as `this getOrElse { throw new E }`.
+	  * @tparam E an exception class which must provide either a public default constructor,
+	  *           a constructor accepting a single `String` argument,
+	  *           or a two-argument constructor accepting a `String` and a `Throwable`.
+	  * @see [[net.noresttherein.sugar.vars.Opt.orNoSuch orNoSuch]]
+	  * @see [[net.noresttherein.sugar.vars.Opt.orIllegal orIllegal]] */
+	@inline def orThrow[E <: Throwable :ClassTag] :A =
+		if (ref eq NoContent) raise[E] else ref.asInstanceOf[A]
+
 	/** Gets the element in this `Opt` or throws a [[NoSuchElementException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Opt.orThrow orThrow]] */
 	@inline def orNoSuch(msg: => String) :A =
 		if (ref eq NoContent) throw new NoSuchElementException(msg) else ref.asInstanceOf[A]
 
+	/** Gets the element in this `Opt` or throws a [[NoSuchElementException]].
+	  * @see [[net.noresttherein.sugar.vars.Opt.orThrow orThrow]] */
+	@inline def orNoSuch :A =
+		if (ref eq NoContent) throw new NoSuchElementException else ref.asInstanceOf[A]
+
 	/** Gets the element in this `Opt` or throws an [[IllegalArgumentException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Opt.orThrow orThrow]] */
 	@inline def orIllegal(msg: => String) :A =
 		if (ref eq NoContent) throw new IllegalArgumentException(msg) else ref.asInstanceOf[A]
+
+	/** Gets the element in this `Opt` or throws an [[IllegalArgumentException]].
+	  * @see [[net.noresttherein.sugar.vars.Opt.orThrow orThrow]] */
+	@inline def orIllegal :A =
+		if (ref eq NoContent) throw new IllegalArgumentException else ref.asInstanceOf[A]
 
 	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 	@inline def orError(msg: => String) :A = {
@@ -153,18 +177,24 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 		ref.asInstanceOf[A]
 	}
 
+	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
+	@inline def orError :A = {
+		assert(ref ne NoContent)
+		ref.asInstanceOf[A]
+	}
+
 
 
 	/** Returns the value this `Opt` if it is not empty, or the lazily computed alternative otherwise. */
-	@inline def orElse[O >: A](alt: => Opt[O]) :Opt[O] =
-		if (ref eq NoContent) alt else this
+	@inline def orElse[O >: A](or: => Opt[O]) :Opt[O] =
+		if (ref eq NoContent) or else this
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Opt.orElse orElse]], returns this `Opt` if it is not empty
-	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
+	  * and `or` otherwise. The difference is that the alternative value is not lazily computed and guarantees
 	  * no closure would be be created, at the cost of possibly discarding it without use.
-	  * @param alt the value to return if this instance is empty. */
-	@inline def ifEmpty[O >: A](alt: Opt[O]) :Opt[O] =
-		if (ref eq NoContent) alt else this
+	  * @param or the value to return if this instance is empty. */
+	@inline def ifEmpty[O >: A](or: Opt[O]) :Opt[O] =
+		if (ref eq NoContent) or else this
 
 	/** Returns this `Opt` if the condition is false and `Lack` if it is true. This is equivalent
 	  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better. */
@@ -185,9 +215,9 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 		else new Opt(f(ref.asInstanceOf[A]).asInstanceOf[AnyRef])
 
 	/** Applies the given function to the content of this `Opt` and returns the result or the provided alternative
-	  * if this instance is empty. Equivalent to `this map f getOrElse alternative`, but in one step. */
-	@inline def mapOrElse[O](f :A => O, alternative: => O) :O =
-		if (ref eq NoContent) alternative else f(ref.asInstanceOf[A])
+	  * if this instance is empty. Equivalent to `this map f getOrElse or`, but in one step. */
+	@inline def mapOrElse[O](f :A => O, or: => O) :O =
+		if (ref eq NoContent) or else f(ref.asInstanceOf[A])
 
 	/** Returns the result of applying `f` to the value of this `Opt` if it is non empty,
 	  * or the result of evaluating expression `ifEmpty` otherwise.
@@ -212,6 +242,20 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 			case opt :Opt[O @unchecked] => opt
 			case _ => new Opt(ref)
 		}
+
+	/** Returns an empty `Opt` if `this.contains(o)`, or `this` otherwise. */
+	@inline def removed[O >: A](o :O) :Opt[A] =
+		if (ref == o) new Opt(NoContent) else this
+
+	/** Returns an empty `Opt` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
+	def removedAll[O >: A](that :IterableOnce[O]) :Opt[A] = that match {
+		case _ if ref eq NoContent => this
+		case it :Iterable[O] =>
+			if (it.isEmpty || !it.toSet(ref.asInstanceOf[A])) this
+			else new Opt(NoContent)
+		case _ if that.iterator.toSet(ref.asInstanceOf[A]) => new Opt(NoContent)
+		case _ => this
+	}
 
 	/** Returns a new `Opt` containing this value if it is not empty and its value satisfies the given predicate,
 	  * or [[net.noresttherein.sugar.vars.Opt.Lack Lack]] otherwise. */
@@ -240,7 +284,7 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	/** Executes the given block for this `Opt`s value if it is not empty. */
 	@inline def foreach[O](f :A => O) :Unit = if (ref ne NoContent) f(ref.asInstanceOf[A])
 
-	/** Returns an empty `Opt` if this `Opt` is empty the partial function `f` is not defined for its value,
+	/** Returns an empty `Opt` if this `Opt` is empty or the partial function `f` is not defined for its value,
 	  * otherwise applies it and wraps the result it in a new `Opt`. */
 	@inline def collect[O](f :PartialFunction[A, O]) :Opt[O] =
 		if (ref eq NoContent)
@@ -296,6 +340,9 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	@inline override def toOption: Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
 
+	@inline override def toPotential :Potential[A] =
+		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
+
 	/** Conversion to standard Scala [[scala.Option]].
 		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	@inline override def constOption: Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
@@ -350,11 +397,16 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 
 
+private[vars] sealed abstract class Rank1OptImplicits {
+	@inline implicit def potentialToOpt[A](value :Potential[A]) :Opt[A] = Existent.unapply(value)
+
+}
+
 /** Companion object providing factory methods and extractors working with [[net.noresttherein.sugar.vars.Opt Opt]]s.
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Opt.Got$]]
   */
-object Opt {
+object Opt extends Rank1OptImplicits {
 	/** Wraps the given reference in a purely syntactic option-like object erased in the runtime.
 	  * Note that the wrapped type is upper bound here by `AnyRef` rather than lower bound by `Null`,
 	  * as providing an argument of type `T` excludes the single `AnyRef` subtype which is not the supertype
@@ -364,13 +416,6 @@ object Opt {
 	@inline final def apply[T](value :T) :Opt[T] =
 		if (value == null) Lack else new Opt(value.asInstanceOf[AnyRef])
 
-	//when we migrate to an opaque type, we might create a promoting constructor
-//	@inline def flat[T](x :Opt[T]) :Opt[Opt[T]] =
-//		if (x.ref eq NoContent) Lack else x.asInstanceOf[Opt[Opt[T]]]
-//
-//	@inline def flat[T](x :T) :Opt[T] =
-//		if ((x.asInstanceOf[AnyRef] eq null) | (x.asInstanceOf[AnyRef] eq NoContent)) Lack
-//		else x.asInstanceOf[Opt[T]]
 
 	/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
 	@inline def some_?[T](value :Option[T]) :Opt[T] =
@@ -380,6 +425,9 @@ object Opt {
 	@inline def sure_?[T](value :Unsure[T]) :Opt[T] =
 		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
+	/** Converts the given `Potential[T]` into an `Opt[T]` for interoperability. */
+	@inline def existent_?[T](value :Potential[T]) :Opt[T] = Existent.unapply(value)
+
 	/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
 	@inline def fromOption[T](value: Option[T]): Opt[T] =
 		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
@@ -387,6 +435,9 @@ object Opt {
 	/** Converts the given `Unsure[T]` into an `Opt[T]`, erased at runtime. */
 	@inline def fromUnsure[T](value: Unsure[T]): Opt[T] =
 		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
+
+	/** Converts the given `Potential[T]` into an `Opt[T]` for interoperability. */
+	@inline def fromPotential[T](value :Potential[T]) :Opt[T] = Existent.unapply(value)
 
 	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] - an empty `Opt`. */
 	@inline final def empty[T] :Opt[T] = Lack
@@ -443,19 +494,7 @@ object Opt {
 
 
 
-//	/** Provides [[net.noresttherein.sugar.vars.Opt.OptionToOptConverter.toOpt toOpt]] extension method
-//	  * for any `Option[T]`, converting it to `Opt[T]`. Note that this type is largely superfluous as
-//	  * there is an implicit conversion from `Option[T]` to `Opt[T]` (no boxing is necessary in that case).
-//	  * It can however help in cases where automatic type inference fails.
-//	  */ //consider: removing it. Duplicated by OptionExtension in optional.extensions
-//	implicit class OptionToOptConverter[T](private val self :Option[T]) extends AnyVal {
-//		/** Converts this option into an `Opt` wrapping the same type/value. */
-//		@inline def toOpt :Opt[T] = new Opt[T](self match {
-//			case Some(value) => value.asInstanceOf[AnyRef]
-//			case _ => NoContent
-//		})
-//	}
-
+	@inline implicit def optToPotential[A](opt :Opt[A]) :Potential[A] = opt.toPotential
 
 	/** Implicit conversions between `Opt` and `Option`.
 	  * Conversions between `Opt` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
