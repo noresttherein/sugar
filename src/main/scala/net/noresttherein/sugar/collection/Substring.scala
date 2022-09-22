@@ -18,6 +18,8 @@ import net.noresttherein.sugar.collection.Substring.SerializedSubstring
 final class Substring private (string :String, offset :Int, override val length :Int)
 	extends AbstractSeq[Char] with IndexedSeq[Char] with CharSequence
 {
+	override def isEmpty :Boolean = length == 0
+
 	override def apply(i :Int) :Char =
 		if (i < 0 || i >= length)
 			throw new IndexOutOfBoundsException(i.toString + " out of " + length)

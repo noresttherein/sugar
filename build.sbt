@@ -7,13 +7,12 @@ version := "moonshine"
 scalaVersion := "2.13.8"
 
 
-fork in Compile := true
+Compile / fork := true
+
+Compile / javaOptions ++= Seq("-Xmx2G")
 
 
-javaOptions in Compile ++= Seq("-Xmx2G")
-
-
-testOptions in Test ++= Seq(Tests.Filter(s => !s.endsWith("Props")))
+Test / testOptions ++= Seq(Tests.Filter(s => !s.endsWith("Props")))
 
 
 libraryDependencies ++= Seq( //todo: make shapeless optional

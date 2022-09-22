@@ -316,7 +316,7 @@ sealed abstract class RX extends Serializable {
 	/** Matches this expression followed by any whitespace character (Unicode character class). */
 	def WS :RX = this :: RX.WS
 
-	/** Matches this expression followed by the 'space' or 'tab' character. */
+	/** Matches this expression followed by a 'space' or 'tab' character. */
 	def Blank :RX = this :: RX.Blank
 
 	/** Matches this expression followed by any horizontal whitespace character: `this\h`. */
@@ -639,7 +639,7 @@ object RX {
 	/** A regular expression matching any whitespace character (Unicode character class). */
 	final val uWS = prop"White_Space"
 
-	/** A regular expression matching the 'space' and 'tab' characters. */
+	/** A regular expression matching 'space' and 'tab' characters. */
 	final val Blank = TAB | space
 
 	/** A regular expression matching any horizontal whitespace character. */
