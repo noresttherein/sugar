@@ -2,14 +2,13 @@ package net.noresttherein.sugar.vars
 
 import java.lang.ref.{PhantomReference, Reference, ReferenceQueue, SoftReference, WeakReference}
 
+import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
 import net.noresttherein.sugar.vars.DisposableRef.WrapperReference
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.PhantomRef.WrappedPhantomRef
 import net.noresttherein.sugar.vars.SoftRef.WrappedSoftRef
 import net.noresttherein.sugar.vars.WeakRef.WrappedWeakRef
-
-
 
 
 
@@ -47,43 +46,86 @@ class RefQueue[T](name :String) {
 
 /** An adaptation of Java [[java.lang.ref.Reference Reference]] class hierarchy
   * to [[net.noresttherein.sugar.vars.Ref Ref]] interface.
+	* @define Ref `DisposableRef`
   * @author Marcin Mościcki
   */ //not a Serializable because Reference is not a Serializable
 sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
                                          (cons :(T, ReferenceQueue[T], DisposableRef[T]) => Reference[T])
 	extends Ref[T]
 {
-	private def underlying :Reference[_ <: T] = ref
 	private[this] val ref = cons(referent, queue, this)
-//	private[this] var callbacks :List[() => Unit] = Nil
 
-	override def isDefined :Boolean = ref.get != null
+	/** Returns [[net.noresttherein.sugar.vars.DisposableRef.isEmpty isEmpty]]. */
+	override def isFinal :Boolean = ref.get == null
+
+	/** Returns `false`, as the reference is not immutable. */
+	override def isFinalizable :Boolean = false
+
+	/** Returns `false`. */
+	override def isConst    :Boolean = false
+
+	/** Checks if the reference has been cleared and the referenced object garbage collected. */
+	override def isEmpty    :Boolean = ref.get == null
+
+	/** The reference still holds its value. */
+	override def isDefined  :Boolean = ref.get != null
+
+	/** The reference still holds its value. */
+	override def isDefinite :Boolean = ref.get != null
+
+	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.get get]]. */
+	@inline final override def value :T = get
+
+	/** Throws [[UnsupportedOperationException]]. */
+	@inline final override def const :T = throw new UnsupportedOperationException(this.localClassName + ".const")
+
+	@inline final override def apply() :T = get
 
 	override def get :T = ref.get match {
 		case null => throw new NoSuchElementException("Object was garbage collected")
 		case x => x
 	}
-	override def ? :Option[T] = Option(ref.get)
+
+	/** The referenced object, unless garbage collected. */
+	override def option :Option[T] = Option(ref.get)
+
+	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.option option]]. */
+	@inline final override def toOption :Option[T] = option
+
+	/** Returns `None`. */
+	@inline final override def constOption :Option[T] = None
+
+	/** The referenced object, unless garbage collected. */
 	override def opt :Opt[T] = Opt(ref.get)
+
+	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.opt opt]]. */
+	@inline final override def toOpt :Opt[T] = opt
+
+	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. */
+	@inline final override def constOpt :Opt[T] = Lack
+
+	/** The referenced object, unless garbage collected. */
 	override def unsure :Unsure[T] = Unsure(ref.get)
 
-//	def onClean(f: => Unit) :Unit = synchronized { callbacks = (() => f) :: callbacks}
+	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.unsure unsure]]. */
+	@inline final override def toUnsure :Unsure[T] = unsure
+
+	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
+	@inline final override def constUnsure :Unsure[T] = Missing
 
 
-//	def isEnqueued :Boolean = ref.isEnqueued
+	/** Adds the underlying reference to its [[java.lang.ref.ReferenceQueue ReferenceQueue]]. */
 	def enqueue() :Boolean = ref.enqueue()
+
+	/** Clears the reference, allowing the referenced object to be garbage collected. */
 	def clear() :Unit = ref.clear()
 
 
 	private[vars] override def isSpecialized = false
 
-	override def equals(that :Any) :Boolean = that match {
-		case self :AnyRef if self eq this => true
-		case other :DisposableRef[_] if other canEqual this => underlying == other.underlying
-		case _ => false
-	}
+	override def equals(that :Any) :Boolean = this eq that.asInstanceOf[AnyRef]
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[DisposableRef[_]]
-	override def hashCode :Int = ref.hashCode
+	override def hashCode :Int = System.identityHashCode(this)
 
 	override def toString :String = ref.get match {
 		case null => "<clear>"
@@ -185,6 +227,3 @@ object PhantomRef {
 	private class WrappedPhantomRef[T](referent :T, queue :ReferenceQueue[T], override val self :DisposableRef[T])
 		extends PhantomReference[T](referent, queue) with WrapperReference[T]
 }
-
-
-

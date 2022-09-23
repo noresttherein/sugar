@@ -161,6 +161,9 @@ class ClassNameMethods[T](private val self :T) extends AnyVal {
 
 	/** Formats `this.hashCode` as a hexadecimal string. */
 	@inline def hashCodeString :String = self.hashCode.toHexString
+
+	/** Formats the default [[java.lang.Object]] implementation of `hashCode` as a hexadecimal `String`. */
+	@inline def identityHashCodeString :String = System.identityHashCode(self).toHexString
 }
 
 

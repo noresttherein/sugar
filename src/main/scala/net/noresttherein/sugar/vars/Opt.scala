@@ -32,6 +32,7 @@ import net.noresttherein.sugar.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoCo
   * @see [[net.noresttherein.sugar.vars.Opt.Got$]]
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
+	* @define Ref `Opt`
   */
 @SerialVersionUID(1L)
 //todo: we could make it a fully erased type (opaque type or an abstract type alias) in order to further differentiate
@@ -47,14 +48,25 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	  * @see [[net.noresttherein.sugar.vars.Opt.Got!]] */
 	type isEmpty <: Boolean with Singleton
 
+	@inline override def isFinal = true
+
 	/** Tests if this `Opt` does not contain a value (is equal to [[net.noresttherein.sugar.vars.Opt.Lack Lack]]). */
-	@inline def isEmpty: Boolean = ref eq NoContent
+	@inline override def isEmpty :Boolean = ref eq NoContent
 
 	/** Tests if this `Opt` contains a value. If true, `get` will not throw an exception. */
-	@inline def nonEmpty: Boolean = ref ne NoContent
+	@inline override def nonEmpty: Boolean = ref ne NoContent
 
 	/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
-	@inline override def isDefined: Boolean = ref ne NoContent
+	@inline override def isConst :Boolean = ref ne NoContent
+
+	/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
+	@inline override def isDefined :Boolean = ref ne NoContent
+
+	/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
+	@inline override def isDefinite :Boolean = ref ne NoContent
+
+	/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
+	@inline override def isFinalizable :Boolean = ref ne NoContent
 
 	@inline override def knownSize :Int = if (ref eq NoContent) 0 else 1
 
@@ -69,15 +81,36 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	  * is only possible to call on instances for which it is statically known that the value exists based on
 	  * [[net.noresttherein.sugar.vars.Opt.isEmpty! isEmpty]] member type.
 	  * @return the contained value. */
-	@inline def value(implicit got :this.type <:< Got[_]) :A =
-		if (ref eq NoContent) throw new NoSuchElementException("Opt.empty.get")
+	@inline def sure(implicit got :this.type <:< Got[_]) :A =
+		if (ref eq NoContent) throw new NoSuchElementException("Lack.sure")
 		else ref.asInstanceOf[A]
 
 	/** Forces extraction of the value.
 	  * @return contained value, if one exists.
 	  * @throws NoSuchElementException if this `Opt` is empty. */
 	@inline override def get :A =
-		if (ref eq NoContent) throw new NoSuchElementException("Opt.empty.get")
+		if (ref eq NoContent) throw new NoSuchElementException("Lack.get")
+		else ref.asInstanceOf[A]
+
+	/** Forces extraction of the value.
+		* @return contained value, if one exists.
+		* @throws NoSuchElementException if this `Opt` is empty. */
+	@inline override def value: A =
+		if (ref eq NoContent) throw new NoSuchElementException("Lack.value")
+		else ref.asInstanceOf[A]
+
+	/** Forces extraction of the value.
+		* @return contained value, if one exists.
+		* @throws UnsupportedOperationException if this `Opt` is empty. */
+	@inline override def const: A =
+		if (ref eq NoContent) throw new UnsupportedOperationException("Lack.const")
+		else ref.asInstanceOf[A]
+
+	/** Forces extraction of the value.
+		* @return contained value, if one exists.
+		* @throws UnsupportedOperationException if this `Opt` is empty. */
+	@inline override def apply(): A =
+		if (ref eq NoContent) throw new UnsupportedOperationException("Lack.const")
 		else ref.asInstanceOf[A]
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -255,18 +288,40 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	/** Returns an empty collection if this `Opt` is empty or a singleton with its value otherwise. */
 	@inline def toIterable :Iterable[A] = if (ref eq NoContent) Iterable.empty else Iterable.single(ref.asInstanceOf[A])
 
-	@inline override def opt :Opt[A] = this
+	/** Conversion to standard Scala [[scala.Option]]. Same as [[net.noresttherein.sugar.vars.Opt.toOption toOption]].
+		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
+	@inline override def option :Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
 
 	/** Conversion to standard Scala [[scala.Option]].
-	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
-	@inline override def ? :Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
+		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
+	@inline override def toOption: Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
+
+	/** Conversion to standard Scala [[scala.Option]].
+		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
+	@inline override def constOption: Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
+
+	@inline override def opt    :Opt[A] = this
+	@inline override def toOpt :Opt[A] = this
+	@inline override def constOpt  :Opt[A] = this
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
 	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Opt`.
-	  */
+		* Same as [[net.noresttherein.sugar.vars.Opt.toUnsure toUnsure]]. */
 	@inline override def unsure :Unsure[A] =
-		if (ref eq NoContent) Blank else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+
+	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
+		* is specialized for value types, this class is not, and the result will not be specialized. Neither will it
+		* require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Opt`. */
+	@inline override def toUnsure: Unsure[A] =
+		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+
+	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
+		* is specialized for value types, this class is not, and the result will not be specialized. Neither will it
+		* require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Opt`. */
+	@inline override def constUnsure: Unsure[A] =
+		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
 
 	/** Converts this `Opt` to `Either`, returning the content as `Left`, or the value of the given expression
 	  * as `Right` if empty. */
@@ -278,6 +333,14 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	@inline def toRight[O](left: => O) :Either[O, A] =
 		if (ref eq NoContent) Left(left) else Right(ref.asInstanceOf[A])
 
+	/** Formats this `Opt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
+	@inline override def mkString(prefix :String) :String =
+		if (ref eq NoContent) prefix + "()" else prefix + "(" + ref + ")"
+
+	/** Formats this `Opt` as `s"Opt($get)"` or `"Opt()"`. */
+	@inline override def mkString :String = if (ref eq NoContent) "Opt()" else "Opt(" + ref + ")"
+
+	@inline override def toString :String = if (ref eq NoContent) "Lack" else "Got(" + ref + ")"
 
 	private[vars] override def isSpecialized = false
 
@@ -315,6 +378,14 @@ object Opt {
 
 	/** Converts the given `Unsure[T]` into an `Opt[T]`, erased at runtime. */
 	@inline def sure_?[T](value :Unsure[T]) :Opt[T] =
+		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
+
+	/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
+	@inline def fromOption[T](value: Option[T]): Opt[T] =
+		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
+
+	/** Converts the given `Unsure[T]` into an `Opt[T]`, erased at runtime. */
+	@inline def fromUnsure[T](value: Unsure[T]): Opt[T] =
 		new Opt(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
 	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] - an empty `Opt`. */
@@ -391,7 +462,7 @@ object Opt {
 	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]].
 	  */
 	object implicits {
-		@inline final implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.asOption
+		@inline final implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.option
 		@inline final implicit def optToIterable[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
 
 		@inline final implicit def optionToOpt[T](option :Option[T]) :Opt[T] =
@@ -418,10 +489,10 @@ object Opt {
 		val Some   = Got
 		val None   = Lack
 		//same names as in implicits so if both are imported one shadows the other
-		@inline implicit def optToOption[T](opt :Opt[T]) :scala.Option[T] = opt.?
+		@inline implicit def optToOption[T](opt :Opt[T]) :scala.Option[T] = opt.option
 		@inline implicit def optionToOpt[T](opt :scala.Option[T]) :Opt[T] = some_?(opt)
 		@inline implicit def someToGot[T](opt :scala.Some[T]) :Got[T] = Got(opt.get)
-		@inline implicit def gotToSome[T](opt :Sure[T]) :scala.Some[T] = opt.?.asInstanceOf[scala.Some[T]]
+		@inline implicit def gotToSome[T](opt :Sure[T]) :scala.Some[T] = opt.option.asInstanceOf[scala.Some[T]]
 
 		@inline implicit def noneToMiss(none :scala.None.type) :Lack.type = Lack
 		@inline implicit def missToNone(miss :Lack.type) :scala.None.type = scala.None
@@ -434,6 +505,7 @@ object Opt {
 	@SerialVersionUID(1L)
 	private[vars] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this
+		override def toString = "<undefined>"
 	}
 
 	private val unzip2Lack = (Lack, Lack)

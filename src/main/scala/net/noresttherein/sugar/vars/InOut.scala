@@ -9,8 +9,9 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 
-/** An interface for mutable values being reference wrappers over `var` fields. Designed for in/out parameters to functions.
-  * Implemented by several boxing classes which may provide additional features such as synchronization.
+
+/** An interface for mutable values being reference wrappers over `var` fields. Designed for in/out parameters
+	* of functions. Implemented by several boxing classes which may provide additional features such as synchronization.
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
   * you can write `param += 1` for `param :InOut[Int]`.
   *
@@ -19,36 +20,37 @@ import net.noresttherein.sugar.witness.DefaultValue
   * returns `this.`[[net.noresttherein.sugar.vars.InOut.value value]], these two properties can have different
   * semantics in some classes, such as [[net.noresttherein.sugar.vars.Finalizable Finalizable]].
   * Where applicable, the subclasses use `value` as the 'current' value and `get` for a more final/public version.
+	* Furthermore, instances of some implementations can have no current value
+	* (i.e., `value` throws a [[NoSuchElementException]] and [[net.noresttherein.sugar.vars.Ref.option option]]
+	* returns `None`).
   * @tparam T the type of this variable.
   * @see [[net.noresttherein.sugar.vars.Var]]
   * @see [[net.noresttherein.sugar.vars.Volatile]]
   * @see [[net.noresttherein.sugar.vars.SyncVar]]
+	* @define Ref `InOut`
   */
 trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
-	/** The wrapped value.
-	  * @return `this.`[[net.noresttherein.sugar.vars.InOut.value value]].
-	  */
-	override def get :T = value
-
-	/** The current value of this variable. */
-	def value :T
+	override def apply() :T = get
 
 	/** Assigns a new value to this variable. */
+	@throws[IllegalStateException]("if the Ref is final.")
 	def value_=(newValue :T) :Unit
 
 	/** Assigns a new value to this variable.
 	  * Equivalent to `this.value `[[net.noresttherein.sugar.vars.InOut.value_= =]]` newValue`.
 	  */
+	@throws[IllegalStateException]("if the Ref is final.")
 	@inline final def :=(newValue :T) :Unit = value = newValue
 
 	/** Assigns a new value returning the previous value.
 	  * No guarantee is made by this interface about atomicity of this operation.
 	  */
+	@throws[IllegalStateException]("if the Ref doesn't allow subsequent modifications.")
+	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	def ?=(newValue :T) :T = { val res = value; value = newValue; res }
 
-	override def opt :Opt[T] = Got(value)
-	
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
 	  * The default implementation does it the direct way without any guarantees about multi-threaded semantics.
 	  * This method is of real practical use only in concurrent `InOut` implementations such as
@@ -58,6 +60,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * @param newValue a new value for this variable.
 	  * @return `true` if the previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	def testAndSet(expect :T, newValue :T) :Boolean =
 		(value == expect) && { value = newValue; true }
 
@@ -81,6 +84,8 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  *          several times.
 	  * @return the result of applying `f` to the current value.
 	  */
+	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	def apply(f :T => T) :T = { val res = f(value); value = res; res }
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
@@ -99,6 +104,8 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  *                 to this variable.
 	  * @return the result of applying `foldLeft` to the argument and this variable.
 	  */
+	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	@inline final def /=:[@specialized(Args) A](z :A)(foldLeft :(A, T) => T) :T = applyLeft(z)(foldLeft)
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
@@ -117,6 +124,8 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  *                  to this variable.
 	  * @return the result of applying `foldLeft` to this variable and the argument.
 	  */
+	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	@inline final def :\=[@specialized(Args) A](z :A)(foldRight :(T, A) => T) :T = applyRight(z)(foldRight)
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
@@ -132,6 +141,8 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * @param f a function applied to the argument and this variable, whose result should be set to this variable.
 	  * @return the result of applying `f` to this variable and the argument.
 	  */
+	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
 		val res = f(z, value); value = res; res
 	}
@@ -149,11 +160,11 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * @param f a function applied to the this variable and the argument, whose result should be set to this variable.
 	  * @return the result of applying `f` to this variable and the argument.
 	  */
+	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
 		val res = f(value, z); value = res; res
 	}
-
-
 
 	/************************************** Boolean methods ***********************************************************/
 
@@ -163,7 +174,6 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this)(_ || other)
 	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ ^ _)
 	private[vars] def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = ev(this)(!_)
-
 
 	/************************************** Int methods ***************************************************************/
 
@@ -180,7 +190,6 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	private[vars] def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >>> _)
 	private[vars] def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ << _)
 
-
 	/************************************** Long methods **************************************************************/
 
 	private[vars] def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ + _)
@@ -196,14 +205,12 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	private[vars] def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >>> _)
 	private[vars] def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ << _)
 
-
 	/************************************** Float methods *************************************************************/
 
 	private[vars] def float_+=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).applyRight(other)(_ + _)
 	private[vars] def float_*=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).applyRight(other)(_ * _)
 	private[vars] def float_/=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).applyRight(other)(_ / _)
 	private[vars] def float_-(implicit ev :T TypeEquiv Float) :Float = ev(this)(-_)
-
 
 	/************************************** Double methods ************************************************************/
 
@@ -212,10 +219,13 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	private[vars] def double_/=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ / _)
 	private[vars] def double_-(implicit ev :T TypeEquiv Double) :Double = ev(this)(-_)
 
-
-
+	//todo: specialization
 	override def equals(that :Any) :Boolean = that match {
-		case v :InOut[_] => (v eq this) || (v canEqual this) && v.opt == opt
+		case self :AnyRef if this eq self => true
+		case v :InOut[_] if v canEqual this => (opt, v.opt) match {
+			case (Got(v1), Got(v2)) => v1 == v2
+			case _ => false
+		}
 		case _ => false
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[InOut[_]]
@@ -304,7 +314,7 @@ object InOut {
 
 
 	private[vars] class InOutOrdering[V[X] <: InOut[X], T](implicit content :Ordering[T]) extends Ordering[V[T]] {
-		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.value, y.value)
+		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.get, y.get)
 	}
 
 

@@ -2,11 +2,9 @@ package net.noresttherein.sugar.vars
 
 import scala.annotation.unspecialized
 
-import net.noresttherein.sugar.funny.Initializer
 import net.noresttherein.sugar.vars.Idempotent.IdempotentRef
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Ref.Undefined
 
 
 
@@ -17,10 +15,12 @@ import net.noresttherein.sugar.vars.Ref.Undefined
   * meaning it will be evaluated again on deserialization if the value is required. This is useful
   * if the value is large, not serializable, or if it references singleton values (which do not implement
   * aliasing after deserialization to ensure that only one instance exists, as Scala's singleton objects do).
+	* @define Ref `Transient`
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
-sealed trait Transient[@specialized(SpecializedVars) +T] extends Idempotent[T]
+sealed trait Transient[@specialized(SpecializedVars) +T] extends Idempotent[T] {
+	override def mkString :String = mkString("Transient")
+}
 
 
 
@@ -36,7 +36,7 @@ object Transient {
 	  * @param idempotent an initializer expression of a serializable SAM type extending `() => T`,
 	  *                   allowing use of literal expressions of the latter form as argument.
 	  */
-	def apply[@specialized(SpecializedVars) T](idempotent :Initializer[T]) :Transient[T] = {
+	def apply[@specialized(SpecializedVars) T](idempotent :Eval[T]) :Transient[T] = {
 		new TransientVal(idempotent) match {
 			case ref if ref.getClass == classOf[TransientVal[Any]] => new TransientRef(idempotent)
 			case spec => spec
@@ -49,37 +49,50 @@ object Transient {
 	  * which allows more lax synchronisation.
 	  */
 	@SerialVersionUID(1L) //todo: make it really specialized
-	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Initializer[T]) extends Transient[T] {
-		@transient private[this] var evaluated :Any = Undefined
+	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Eval[T]) extends Transient[T] {
+		@transient private[this] var evaluated :Any = undefined
 
-		override def isDefined: Boolean = evaluated != Undefined
+		override def isEmpty :Boolean = evaluated == undefined
 
+		override def option :Option[T] = {
+			val res = evaluated
+			if (res == undefined) None else Some(res.asInstanceOf[T])
+		}
 		override def opt :Opt[T] = {
 			val res = evaluated
-			if (res == null) Lack else Got(res.asInstanceOf[T])
+			if (res == undefined) Lack else Got(res.asInstanceOf[T])
+		}
+		@unspecialized override def unsure :Unsure[T] = {
+			val res = evaluated
+			if (res == undefined) Missing else Sure(res.asInstanceOf[T])
 		}
 
-		@unspecialized override def get: T = {
+		@unspecialized override def value :T = {
+			val res = evaluated
+			if (res == undefined) res.asInstanceOf[T]
+			else throw new NoSuchElementException("Uninitialized Transient")
+		}
+		@unspecialized override def const :T = {
 			var res = evaluated
-			if (res == Undefined) {
+			if (res == undefined) {
 				res = initializer()
 				evaluated = res
 			}
 			res.asInstanceOf[T]
 		}
 
-		@unspecialized override def map[O](f: T => O): Lazy[O] = {
+		@unspecialized override def map[O](f :T => O) :Lazy[O] = {
 			val v = evaluated
-			if (v != Undefined) {
+			if (v != undefined) {
 				val res = f(v.asInstanceOf[T])
 				new TransientRef(() => res)
 			} else
 				new IdempotentRef(() => f(apply()))
 		}
 
-		@unspecialized override def flatMap[O](f: T => Lazy[O]): Lazy[O] = {
+		@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
 			val v = evaluated
-			if (v != Undefined)
+			if (v != undefined)
 				f(v.asInstanceOf[T])
 			else
 				new IdempotentRef(() => f(apply()))
@@ -88,8 +101,6 @@ object Transient {
 		override def isSpecialized = true
 
 		override def toString :String = String.valueOf(evaluated)
-//			if (evaluated != Undefined) String.valueOf(evaluated)
-//			else "lazy(?)"
 	}
 
 
@@ -98,19 +109,32 @@ object Transient {
 	  * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
 	  */
 	@SerialVersionUID(1L)
-	private class TransientRef[T](initializer :Initializer[T]) extends Transient[T] {
+	private class TransientRef[T](initializer :Eval[T]) extends Transient[T] {
 		@transient @volatile private[this] var evaluated :Any = _
 
-		override def isDefined: Boolean = evaluated != Undefined
+		override def isEmpty :Boolean = evaluated == undefined
 
+		override def option :Option[T] = {
+			val res = evaluated
+			if (res == undefined) None else Some(evaluated.asInstanceOf[T])
+		}
 		override def opt :Opt[T] = {
 			val res = evaluated
-			if (res == Undefined) Lack else Got(evaluated.asInstanceOf[T])
+			if (res == undefined) Lack else Got(evaluated.asInstanceOf[T])
+		}
+		override def unsure :Unsure[T] = {
+			val res = evaluated
+			if (res == undefined) Missing else Unsure(evaluated.asInstanceOf[T])
 		}
 
-		override def get :T = {
+		override def value :T = {
+			val res = evaluated
+			if (res != undefined) res.asInstanceOf[T]
+			else throw new NoSuchElementException("Uninitialized Transient")
+		}
+		override def const :T = {
 			var res = evaluated
-			if (res == Undefined) {
+			if (res == undefined) {
 				res = initializer()
 				evaluated = res
 			}
@@ -119,7 +143,7 @@ object Transient {
 
 		override def map[O](f :T => O) :Lazy[O] = {
 			val v = evaluated
-			if (v != Undefined) {
+			if (v != undefined) {
 				val res = f(v.asInstanceOf[T])
 				new TransientRef(() => res)
 			} else
@@ -128,7 +152,7 @@ object Transient {
 
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
 			val v = evaluated
-			if (v != Undefined)
+			if (v != undefined)
 				f(v.asInstanceOf[T])
 			else
 				new IdempotentRef(f(apply()))
@@ -136,12 +160,7 @@ object Transient {
 
 		override def isSpecialized = false
 
-		override def toString :String = evaluated.toString
-//		override def toString :String = {
-//			val v = evaluated
-//			if (v != Undefined) String.valueOf(v)
-//			else "lazy(?)"
-//		}
+		override def toString :String = String.valueOf(evaluated)
 	}
 
 }

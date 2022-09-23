@@ -9,6 +9,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 /** `Clearable` is the opposite of [[net.noresttherein.sugar.vars.Out Out]]: a value box initialized on construction,
   * but with its contents being subject to being cleared - unreferenced and freed for a garbage collector.
+	* The value itself cannot be changed in other way than removing it.
   * It is not a [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]] as it uses a hard reference
   * and must be cleared manually, rather than by the garbage collector. It is typically used for temporary data,
   * such as initializer blocks, which become no longer needed once the final content is created.
@@ -42,7 +43,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *         protected val init :Clearable[() => B]
   *         @volatile private var cached :B = _
   *         def get :B =
-  *             init.asOption match {
+  *             init.option match {
   *                 case Some(cons) =>
   *                     cached = cons(); init.clear()
   *                 case _ => cached
@@ -55,20 +56,63 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *
   * For additional utility, this trait implements also Java [[AutoCloseable]]
   * and [[java.lang.ref.Cleaner.Cleanable Cleanable]].
+	*
+	* @define Ref `Clearable`
   * @author Marcin Mościcki
-  */
+  */ //consider: making it an InOut
 trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serializable {
 
-	/** Checks if this variable currently holds a value. Not that,
-	  * unlike with [[net.noresttherein.sugar.vars.Lazy Lazy]], this property is `true` when the object is created
-	  * and, at some point, may become `false` and remains so for the remainder of this object's life.
-	  * It makes this method of very dubious utility, as any positive value can be outdated before even
-	  * it is returned to the caller. It can however still be used as a flag signaling that some other variable
-	  * is initialized, if the initialization of the latter is synchronized with clearing of this object.
-	  * In order to access the value, use [[net.noresttherein.sugar.vars.Ref.opt opt]],
-	  * [[net.noresttherein.sugar.vars.Ref.asOption asOption]] or [[net.noresttherein.sugar.vars.Ref.unsure unsure]].
-	  */
-	@inline final override def isDefined :Boolean = opt.isDefined
+	/** Returns `true` ''iff'' this `Clearable` is empty. */
+	@inline final override def isFinal :Boolean = opt.isEmpty
+
+	/** Checks if this variable currently holds a value. Note that,
+		* unlike with [[net.noresttherein.sugar.vars.Lazy Lazy]], this property is `true` when the object is created
+		* and, at some point, may become `false` and remains so for the remainder of this object's life.
+		* It makes this method of very dubious utility, as any positive value can be outdated before even
+		* it is returned to the caller. It can however still be used as a flag signaling that some other variable
+		* is initialized, if the initialization of the latter is synchronized with clearing of this object.
+		* In order to access the value, use [[net.noresttherein.sugar.vars.Ref.opt opt]],
+		* [[net.noresttherein.sugar.vars.Ref.option option]] or [[net.noresttherein.sugar.vars.Ref.unsure unsure]].
+		*/
+	override def isEmpty :Boolean = opt.isEmpty
+
+	/** Returns `false` because a `Clearable` is not (effectively) immutable. */
+	@inline final override def isFinalizable: Boolean = false
+
+	/** Returns `false`. */
+	final override def isConst: Boolean = false
+
+	/** Returns `!`[[net.noresttherein.sugar.vars.Clearable.isEmpty isEmpty]]. */
+	@inline final override def isDefined :Boolean = !isEmpty
+
+	/** Returns `true` ''iff'' this `Clearable` is not empty. */
+	@inline final override def isDefinite :Boolean = !isEmpty
+
+	/** Same as [[net.noresttherein.sugar.vars.Clearable.get get]]. */
+	@inline final override def value :T = get
+
+	/** Throws an [[UnsupportedOperationException]]. */
+	@inline final override def const :Nothing = throw new UnsupportedOperationException("Clearable.const")
+
+	@inline final override def apply() :T = get
+
+	/** Same as [[net.noresttherein.sugar.vars.Clearable.option option]]. */
+	@inline final override def toOption :Option[T] = option
+
+	/** Returns [[None]]. */
+	@inline final override def constOption :Option[T] = None
+
+	/** Same as [[net.noresttherein.sugar.vars.Clearable.opt opt]]. */
+	@inline final override def toOpt :Opt[T] = opt
+
+	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. */
+	@inline final override def constOpt :Opt[T] = Lack
+
+	/** Same as [[net.noresttherein.sugar.vars.Clearable.unsure unsure]]. */
+	@inline final override def toUnsure :Unsure[T] = unsure
+
+	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
+	@inline final override def constUnsure :Unsure[T] = Missing
 
 	/** Resets this variable to an undefined state, unreferencing its contents. */
 	def clear() :Unit
@@ -84,34 +128,39 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	  * This is a [[java.lang.ref.Cleaner.Cleanable Cleanable]] method.
 	  */
 	override def clean() :Unit = clear()
+
+	override def mkString :String = mkString("Clearable")
 }
 
 
 
 
 object Clearable {
-	/** An unsynchronized, non thread safe `Clearable` variable initialized with the given value. */
+	/** A non synchronized, non thread safe `Clearable` variable initialized with the given value. */
 	def apply[T](value :T) :Clearable[T] = new PlainClearable[T](Got(value))
 
 	/** A `Clearable` variable initialized with the given value, synchronizing all access on its monitor. */
-	def sync[T](value :T) :Clearable[T] = new SynchronizedClearable(Got(value))
+	def sync[T](value :T) :Clearable[T] = new SyncClearable(Got(value))
 
 	/** A `Clearable` instance backed by a `@volatile` variable. */
 	def volatile[T](value :T) :Clearable[T] = new VolatileClearable(value)
 
 
+	@SerialVersionUID(1L)
 	private class PlainClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = x.get
 		override def opt :Opt[T] = x
 		override def clear() :Unit = x = Lack
 	}
 
-	private final class SynchronizedClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
+	@SerialVersionUID(1L)
+	private final class SyncClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = synchronized(x.get)
-		override def opt :Opt[T] = x
-		override def clear() :Unit = x = Lack
+		override def opt :Opt[T] = synchronized(x)
+		override def clear() :Unit = synchronized { x = Lack }
 	}
 
+	@SerialVersionUID(1L)
 	private final class VolatileClearable[+T](init :T) extends Clearable[T] {
 		@volatile private[this] var x :Opt[T] =  Got(init)
 

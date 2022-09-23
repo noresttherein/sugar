@@ -255,6 +255,7 @@ private[vars] object VolatileLike {
 
 
 
+/** @define variable variable */
 private[vars] abstract class VolatileLikeOps[+V[T] <: InOut[T]] {
 	private[vars] def getAndSet[@specialized(SpecializedVars) T](v :InOut[T], newValue :T) :T
 	private[vars] def testAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean
@@ -270,7 +271,6 @@ private[vars] abstract class VolatileLikeOps[+V[T] <: InOut[T]] {
 
 
 
-/** @define variable variable */
 private[vars] abstract class VolatileLikeCompanion[+V[T] <: InOut[T]] extends VolatileLikeOps[V] {
 
 	protected def newInstance[@specialized(SpecializedVars) T](init :T) : V[T]

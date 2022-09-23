@@ -11,11 +11,17 @@ import net.noresttherein.sugar.vars.Relay.{Reader, Writer}
 
 /** A synchronized channel for passing values of type `T` between producers and consumers.
   * Every call to [[net.noresttherein.sugar.vars.Relay.value_= value_=]] 'setting' the value of this channel
-  * is paired with another thread's call to [[net.noresttherein.sugar.vars.Relay.value value]] and the value
+  * is paired with another thread's call to [[net.noresttherein.sugar.vars.Relay.get get]] and the value
   * provided by the writer in the setter is handed over to the reader in the getter. Read access will block
   * if no producers are currently waiting on this channel and, similarly, setter calls will also block
-  * if there are no readers ready to consume the value. Both readers and writers are processed
-  * on a first come, first served basis.
+  * if there are no readers ready to consume the value. In that sense, this `Ref` is always empty, as it stores
+	* no value until read. Both readers and writers are processed on a first come, first served basis.
+	*
+	* Synchronization happens under the monitor of this instance; it is therefore possible for client code
+	* to perform more complex operations atomically by locking it manually.
+	*
+	* `Relay` redefines equality as referential equality: no instance will equal any other `Ref` instance.
+	* @define Ref `Relay`
   * @author Marcin Mościcki
   */ //not a Serializable
 sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InOut[T] {
@@ -26,20 +32,30 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 	private[this] var readers    :Reader[T] = _ //the readers queue
 	private[this] var lastReader :Reader[T] = _ //the last element in the readers queue
 
-	/** Checks if there are any writing threads waiting on this relay port. The following code won't block:
-	  * {{{
-	  *     val maybeGet = relay.synchronized {
-	  *         if (relay.isDefined) Some(relay.value)
-	  *         else None
-	  *     }
-	  * }}}
-	  */
-	override def isDefined :Boolean = synchronized { writers != null }
+	/** Returns `false`. */
+	override def isFinal :Boolean = false
 
-	/** Consumes a value if any producers are waiting on this instance. */
-	override def opt :Opt[T] = synchronized {
-		if (writers != null) Got(value) else Lack
-	}
+	/** Returns `!`[[net.noresttherein.sugar.vars.Relay.isDefined isDefined]]. */
+	override def isEmpty   :Boolean = !isDefined
+
+	/** Returns `false`. */
+	override def isFinalizable :Boolean = false
+
+	/** Returns `false`. */
+	override def isConst :Boolean = false
+
+	/** Returns `true`. */
+	override def isDefined :Boolean = true
+
+	/** Checks if there are any writing threads waiting on this relay port. The following code won't block:
+		* {{{
+		*     val maybeGet = relay.synchronized {
+		*         if (relay.isDefinite) Some(relay.get)
+		*         else None
+		*     }
+		* }}}
+		*/
+	override def isDefinite :Boolean = synchronized { writers != null }
 
 	/** Synchronously returns a value some other thread 'assigns' to this variable, with every call
 	  * returning a different value (that is, a value set by a separate assignment operations).
@@ -48,7 +64,7 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 	  * this thread in line after any other readers waiting on this variable, awaiting the `n`-th writer to come,
 	  * where `n` is the size of the reader queue (including the calling thread).
 	  */
-	override def value :T = {
+	override def get :T = {
 		val actor = synchronized {
 			if (writers != null) {  //writers are waiting - dequeue one
 				val writer = writers
@@ -82,6 +98,28 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 					reader.wait()
 				reader.value
 			}
+		}
+	}
+
+	/** Returns the value set by the first writer in the queue for this `Relay`. This method does not block:
+		* if no writers are present, it throws a [[NoSuchElementException]].
+		* @see [[net.noresttherein.sugar.vars.Relay.get]]
+		*/
+	override def value :T = {
+		val actor = synchronized {
+			if (writers == null)
+				throw new NoSuchElementException("No writers queued on " + this + ".")
+			//writers are waiting - dequeue one
+			val writer = writers
+			writers = writers.next
+			if (writers == null)
+				lastWriter = null
+			writer
+		}
+		actor.synchronized {
+			actor.cleared = true
+			actor.notify()
+			actor.value
 		}
 	}
 
@@ -125,9 +163,27 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 		}
 	}
 
+	/** Throws an [[UnsupportedOperationException]]. */
+	override def const :T = throw new UnsupportedOperationException("Relay.const")
+
+
+	/** Consumes a value if any producers are waiting on this instance. */
+	override def opt :Opt[T] = synchronized {
+		if (writers != null) Got(value) else Lack
+	}
+	override def toOpt :Opt[T] = opt
+	override def constOpt :Opt[T] = Lack
 
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[Relay[_]]
 
+	override def equals(that :Any) :Boolean = this eq that.asInstanceOf[AnyRef]
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Relay[_]]
+	override def hashCode :Int = System.identityHashCode(this)
+
+	override def mkString(prefix :String) :String = synchronized {
+		if (writers == null) prefix + "()"
+		else prefix + "(" + writers.value + ")"
+	}
 	override def toString :String = synchronized {
 		if (writers != null) "Relay@" + Integer.toHexString(hashCode) + writers
 		else if (readers != null) "Relay@" + Integer.toHexString(hashCode) + "(" + readers.length + " readers)"

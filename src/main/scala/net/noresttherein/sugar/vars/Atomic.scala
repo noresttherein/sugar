@@ -22,7 +22,7 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   *
   * This makes this class slightly more efficient in highly contentious environment at the cost of lesser applicability.
   * It is best used as a flag controlling access to some other resource.
-  *
+  * @define Ref `Atomic`
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
@@ -42,7 +42,7 @@ sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this
 		x = value
 	}
 
-//	override def toString :String =
+	override def mkString :String = mkString("Atomic")
 }
 
 

@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.vars
 
+import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Immediate, Milliseconds, PosixTime, TimeInterval}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.witness.DefaultValue
@@ -42,6 +43,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @see [[net.noresttherein.sugar.vars.SignalVal]]
   * @see [[net.noresttherein.sugar.vars.Watched]]
   * @see [[net.noresttherein.sugar.vars.Relay]]
+	* @define Ref `SignalVar`
   */
 sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
 	extends SyncVar[T]
@@ -51,7 +53,7 @@ sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[t
 	/** The number of threads currently waiting in one of the `await` or `testAndAwait` methods to see the result of
 	  * the `(mutations + 1)`-th assignment (if `mutations >= 0`), or `-mutations`-th one (if `mutations < 0`).
 	  * See [[net.noresttherein.sugar.vars.SignalVar.mutations mutations]] for a detailed description
-	  * of how the control passes between upating and watching threads.
+	  * of how the control passes between updating and watching threads.
 	  */
 	private[this] var waiters = 0   //number of threads waiting for the increase in mutations in one of await methods
 
@@ -335,6 +337,7 @@ sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[t
 		else await(timeout)
 	}
 
+	override def toString :String = "SignalVar(" + value + ")@" + this.identityHashCodeString
 }
 
 

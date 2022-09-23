@@ -1,14 +1,16 @@
 package net.noresttherein.sugar.vars
 
-import java.util.concurrent.{ConcurrentSkipListSet, Executor}
 
+import java.util.concurrent.{ConcurrentSkipListSet, Executor}
 import scala.annotation.unspecialized
 import scala.jdk.CollectionConverters.SetHasAsScala
-
+import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 import net.noresttherein.sugar.vars.Watched.SerializedExecutor
 import net.noresttherein.sugar.witness.{DefaultValue, Maybe}
+
+import scala.collection.mutable
 
 
 
@@ -38,6 +40,7 @@ import net.noresttherein.sugar.witness.{DefaultValue, Maybe}
   * until a change to it is made and react themselves. The communication is asynchronous in both cases.
   *
   * @see [[net.noresttherein.sugar.vars.Watched.value_=]]
+	* @define Ref `Watched`
   * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
@@ -45,8 +48,6 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
 	@scala.volatile private[this] var x = init
-//	@scala.volatile private[this] var watchers :Set[T => Unit] = Set.empty //set by
-//	@scala.volatile private[this] var synchronousWatchers :Set[T => Unit] = Set.empty // Watcher.watchersField
 	private[this] val watchers = new ConcurrentSkipListSet[T => Unit].asScala
 	private[this] val synchronousWatchers = new ConcurrentSkipListSet[T => Unit].asScala
 
@@ -70,27 +71,35 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 	  * with each other will happen in the reverse order.
 	  */
 	final override def value_=(newValue :T) :Unit = {
-//		val sync = synchronousWatchers //we need these memory loads before any subsequent
 		x = newValue
-		var exception :Exception = null //the first exception caught in this method, following are added as suppressed
+		trigger(newValue)
+	}
+
+	private def trigger(currentValue :T) :Unit = {
+		var exception: Exception = null //the first exception caught in this method, following are added as suppressed
 		if (executor eq SerializedExecutor) { //ignore the executor and manually inline the callbacks
-			def schedule(callback :T => Unit) :Unit =
-				try { callback(newValue) } catch {
-					case e :Exception if exception == null => exception = e
-					case e :Exception => exception.addSuppressed(e)
+			def schedule(callback: T => Unit): Unit =
+				try {
+					callback(currentValue)
+				} catch {
+					case e: Exception if exception == null => exception = e
+					case e: Exception => exception.addSuppressed(e)
 				}
+
 			watchers.foreach(schedule)
 			synchronousWatchers.foreach(schedule)
 		} else {
 			watchers.foreach { callback =>
-				try { executor.execute { () => callback(newValue) } } catch {
-					case e :Exception if exception == null => exception = e
-					case e :Exception => exception.addSuppressed(e)
+				try {
+					executor.execute { () => callback(currentValue) }
+				} catch {
+					case e: Exception if exception == null => exception = e
+					case e: Exception => exception.addSuppressed(e)
 				}
 			}
 
-			if (synchronousWatchers.nonEmpty) {            //there may be a race condition with the set becoming empty,
-				val triggerThread = Thread.currentThread   //but it does not affect correctness
+			if (synchronousWatchers.nonEmpty) { //there may be a race condition with the set becoming empty,
+				val triggerThread = Thread.currentThread //but it does not affect correctness
 				@volatile var goAhead = true //start flag for all threads
 				@volatile var awaiting = 0 //number of not completed tasks
 				try { //register all callbacks in the executor and wait until they all complete.
@@ -101,11 +110,11 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 								if (Thread.currentThread == triggerThread) {
 									try { //the executor is some in-the-calling thread implementation
 										if (goAhead)
-											callback(newValue)
+											callback(currentValue)
 									} catch {
-										case e :Exception if exception == null => exception = e
-										case e :Exception => exception.addSuppressed(e)
-										case e :Throwable if exception != null =>
+										case e: Exception if exception == null => exception = e
+										case e: Exception => exception.addSuppressed(e)
+										case e: Throwable if exception != null =>
 											e.addSuppressed(exception)
 											throw e
 									} finally {
@@ -113,7 +122,7 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 									}
 								} else try { //asynchronous executions
 									if (goAhead)
-										callback(newValue)
+										callback(currentValue)
 								} finally { //guarantee that either awaiting == 0 or there will be a notifyAll() call
 									synchronized {
 										awaiting -= 1;
@@ -123,18 +132,18 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 								}
 							}
 						} catch { //executor.execute error
-							case e :Exception if exception == null => exception = e
-							case e :Exception => exception.addSuppressed(e)
+							case e: Exception if exception == null => exception = e
+							case e: Exception => exception.addSuppressed(e)
 						}
 					}
-				} catch {  //unexpected errors in foreach itself as well as errors (not exceptions) in executor.execute
-					case e :Throwable => //stop scheduling and throw the error
+				} catch { //unexpected errors in foreach itself as well as errors (not exceptions) in executor.execute
+					case e: Throwable => //stop scheduling and throw the error
 						if (exception != null)
 							e.addSuppressed(exception)
 						goAhead = false
 						throw e
 				}
-//				goAhead := true
+				//				goAhead := true
 				if (awaiting > 0) //all increases of awaiting *happen-before* this check
 					synchronized {
 						while (awaiting > 0) wait()
@@ -172,7 +181,9 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 		this
 	}
 
-	//todo: blocking callbacks, requiring value_= to wait until they are completed.
+	override def mkString :String = mkString("Watched")
+
+	override def toString :String = "Watched(" + value + ")@" + this.identityHashCodeString
 }
 
 
@@ -209,6 +220,7 @@ object Watched extends VolatileLikeCompanion[Watched] {
 
 
 	/** The simplest executor which executes the given [[Runnable]] immediately in the body of its `execute` method. */
+	@SerialVersionUID(1L)
 	final object SerializedExecutor extends Executor with Serializable { //todo: exception handling and logging.
 		override def execute(command :Runnable) :Unit = command.run()
 	}
@@ -217,6 +229,25 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Watched[T] = new Watched(init)
 	protected override def newRefInstance[T](init :T) :Watched[T] = new WatchedRef[T](init)
 	protected override def newBoolInstance(init :Boolean) :Watched[Boolean] = new WatchedBool(init)
+
+	private[vars] override def getAndSet[@specialized(SpecializedVars) T](v: InOut[T], newValue: T) :T = {
+		val res = super.getAndSet(v, newValue)
+		v.asInstanceOf[Watched[T]].trigger(newValue)
+		res
+	}
+	private[vars] override def testAndSet[@specialized(SpecializedVars) T](v: InOut[T], expect: T, newValue: T) :Boolean =
+		super.testAndSet(v, expect, newValue) && { v.asInstanceOf[Watched[T]].trigger(newValue); true }
+
+	private[vars] override def weakTestAndSet[@specialized(SpecializedVars) T](v: InOut[T], expect: T, newValue: T) :Boolean =
+		super.weakTestAndSet(v, expect, newValue) && { v.asInstanceOf[Watched[T]].trigger(newValue); true }
+
+	private[vars] override def repeatBoolTestAndSet(bool: InOut[Boolean], expect: Boolean, ifExpected: Boolean, ifNotExpected: Boolean) = {
+		val res = super.repeatBoolTestAndSet(bool, expect, ifExpected, ifNotExpected)
+		val old = res == ifNotExpected ^ expect
+		bool.asInstanceOf[Watched[Boolean]].trigger(old)
+		res
+	}
+
 
 	/** An unspecialized `Watched` implementation overriding atomic mutator methods to compare the value
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,

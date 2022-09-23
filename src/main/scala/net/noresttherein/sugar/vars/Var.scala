@@ -15,6 +15,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * interface may be preferable to reduce the number of virtual calls and possibly facilitate hotspot inlining.
   * @tparam T the type of this variable.
   * @see [[net.noresttherein.sugar.vars.Var$]]
+	* @define Ref `Var`
   */
 @SerialVersionUID(1L)
 sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)

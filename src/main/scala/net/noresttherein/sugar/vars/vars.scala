@@ -180,7 +180,7 @@ package object vars {
 		  * as $Passed already contains boxed values.
 		  */
 		@inline def unsure :Unsure[A] = exam match {
-			case _ :Failed => Blank
+			case _ :Failed => Missing
 			case _ => Sure(get)
 		}
 
@@ -192,15 +192,6 @@ package object vars {
 			case _ => Right(get)
 		}
 
-//		@inline def toOpt :Opt[A] = exam match {
-//			case fail :Failed => Lack
-//			case _ => Got(exam.asInstanceOf[A])
-//		}
-//
-//		@inline def toOption :Option[A] = exam match {
-//			case fail :Failed => None
-//			case _ => Some(exam.asInstanceOf[A])
-//		}
 	}
 }
 

@@ -40,7 +40,7 @@ trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable
 	@inline final def apply(arg :In) :Opt[Out] = unapply(arg)
 
 	/** Converts this pattern to an `Option` returning function. */
-	def lift :In => Option[Out] = unapply(_).asOption
+	def lift :In => Option[Out] = unapply(_).option
 
 	/** Converts this pattern to an equivalent [[net.noresttherein.sugar.matching.MatchFunction MatchFunction]]. */
 	def partial :MatchFunction[In, Out] = MatchFunction.unlift(lift)

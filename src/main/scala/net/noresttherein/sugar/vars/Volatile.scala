@@ -19,6 +19,7 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   * use [[net.noresttherein.sugar.vars.SyncVar SyncVar]] instead.
   * @param init the initial value of this variable.
   * @tparam T the type of this variable
+	* @define Ref `Volatile`
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(1L)
@@ -30,6 +31,8 @@ sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
 
 	final override def value :T = x
 	final override def value_=(newValue :T) :Unit = x = newValue
+
+	override def mkString :String = mkString("Volatile")
 }
 
 
@@ -51,13 +54,13 @@ object Volatile extends VolatileLikeFactory[Volatile] {
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,
 	  * which we do not want).
 	  */
-    @SerialVersionUID(1L)
+	@SerialVersionUID(1L)
 	private class VolatileRef[T](init :T) extends Volatile[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Volatile[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
-    @SerialVersionUID(1L)
+	@SerialVersionUID(1L)
 	private class VolatileBool(init :Boolean) extends Volatile[Boolean](init) with BoolVolatileLike
 
 }

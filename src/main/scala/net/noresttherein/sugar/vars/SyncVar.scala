@@ -16,9 +16,9 @@ import net.noresttherein.sugar.witness.DefaultValue
   * or [[net.noresttherein.sugar.vars.Atomic Atomic]] will be a better choice.
   * 
   * @tparam T the type of this variable
+	* @define Ref `SyncVar`
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@SerialVersionUID(1L)
 trait SyncVar[@specialized(SpecializedVars) T]
 //sealed class SyncVar[@specialized(SpecializedVars) T] private[vars] (private[this] var self :T)
 	extends Mutable[T] with Serializable
@@ -377,6 +377,10 @@ object SyncVar {
 
 
 
+	@SerialVersionUID(1L)
 	private class BasicSyncVar[@specialized(SpecializedVars) T](override var unsync :T)
 		extends SyncVar[T] with Serializable
+	{
+		override def mkString = mkString("SyncVar")
+	}
 }

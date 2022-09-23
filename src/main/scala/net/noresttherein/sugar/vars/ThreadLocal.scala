@@ -6,8 +6,9 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 
-/** A very light adapter of `java.lang.ThreadLocal` to `InOut[T]`, which by implicit conversions provides
-  * arithmetic assignment operations.
+/** A very light adapter of [[java.lang.ThreadLocal]] to [[net.noresttherein.sugar.vars.InOut InOut]]`[T]`,
+	* which by implicit conversions provides arithmetic assignment operations.
+	* @define Ref `ThreadLocal`
   * @author Marcin Mościcki
   */
 @SerialVersionUID(1L)
