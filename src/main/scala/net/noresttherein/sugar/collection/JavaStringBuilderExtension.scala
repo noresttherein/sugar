@@ -42,7 +42,7 @@ class JavaStringBuilderExtension(private val self :JStringBuilder) extends AnyVa
 	}
 
 
-	override def iterator :Iterator[Char] = new AbstractIndexedSeqIterator[Char] {
+	override def iterator :Iterator[Char] = new AbstractIndexedIterator[Char] {
 		override def underlyingSize = self.length
 
 		override var index :Int = 0

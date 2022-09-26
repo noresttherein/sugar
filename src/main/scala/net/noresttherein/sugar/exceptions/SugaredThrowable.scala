@@ -6,6 +6,7 @@ import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions
+import net.noresttherein.sugar.prettyprint.classNameOf
 
 
 
@@ -110,7 +111,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  * that client code can catch. Private exception classes extending some known 'interface' exception
 	  * may return its name instead of their class name.
 	  */
-	def className :String = getClass.getName
+	def className :String = classNameOf(this)
 
 	override def toString :String = {
 		val s :String = className
@@ -248,11 +249,12 @@ class StackableException(message :String = null, cause :Throwable = null,
   * of `getStackTrace` will return `null`. Extending classes should therefore provide an ability to create instances
   * in three modes:
   *   1. An original exception, without an underlying cause;
-  *   1. An exception with a cause, constructed in the normal manner (with `writableStackTrace == true`
+  *   1. An exception with or without a cause, constructed in the normal manner (with `writableStackTrace == true`
   *      and [[net.noresttherein.sugar.exceptions.Rethrowable.isRethrown isRethrown]]` == false`,
-  *      wrapping exceptions of other classes, not rethrown with the provided `rethrow` method;
-  *   1. An instance with a non writeable stack trace and `isRethrown` set to `true`, created by `rethrow`
-  *      to wrap a caught exception.
+  *      potentially wrapping exceptions of other classes, not rethrown with the provided `rethrow` method;
+  *   1. An exception with a non writeable stack trace and `isRethrown` set to `true`, wrapping another exception
+  *      and initializing the stack trace based on the stack trace of the wrapped exception - for use by `rethrow`
+  *      method.
   *
   * Method [[net.noresttherein.sugar.exceptions.Rethrowable.addInfo addInfo]] should create instances of the third kind.
   * Its default implementation attempts to create a new instance using reflection, searching for a constructor
@@ -265,9 +267,9 @@ class StackableException(message :String = null, cause :Throwable = null,
 trait Rethrowable extends StackableThrowable {
 	/** A flag which should be set only when this instance is thrown from method
 	  * [[net.noresttherein.sugar.exceptions.imports imports]]`.`[[net.noresttherein.sugar.exceptions.imports.rethrow rethrow]]
-	  * in this sugar. If `true` and [[Throwable.getCause getCause]]` != null`, then this [[Throwable]]
+	  * in this package. If `true` and [[Throwable.getCause getCause]]` != null`, then this [[Throwable]]
 	  * will not try to fill in and use the stack trace property by default methods, but instead will use the suffix
-	  * of the stack trace of its `cause` starting with most recent invocation frame for method `imports.rethrow`.
+	  * of the stack trace of its `cause` starting with the most recent invocation frame for method `imports.rethrow`.
 	  *
 	  * As this flag will typically also imply that the stack trace is not writeable, JVM creating this instance will
 	  * not initialize the internal intermediate `backtrace` with low-level stack information,

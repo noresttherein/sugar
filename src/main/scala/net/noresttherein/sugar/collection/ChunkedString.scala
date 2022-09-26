@@ -7,7 +7,7 @@ import scala.collection.mutable.Builder
 import scala.collection.{Factory, IterableOps, SpecificIterableFactory}
 import scala.collection.immutable.ArraySeq.ofChar
 
-import net.noresttherein.sugar.collection.ChunkedString.{AppendedString, Chunk, ConcatChunks, PrependedString}
+import net.noresttherein.sugar.collection.ChunkedString.{AppendedString, Chunk, ConcatChunks, Empty, PrependedString}
 import net.noresttherein.sugar.collection.Substring.SerializedSubstring
 
 
@@ -49,6 +49,18 @@ sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] 
 	override def isEmpty :Boolean = length == 0
 
 	protected override def specificFactory :SpecificIterableFactory[Char, ChunkedString] = ChunkedString
+
+	override def take(n :Int) :ChunkedString = slice(0, n)
+	override def drop(n :Int) :ChunkedString = slice(n, length)
+	override def takeRight(n :Int) :ChunkedString = if (n <= 0) Empty else slice(length - n, length)
+	override def dropRight(n :Int) :ChunkedString = if (n <= 0) this else slice(0, length - n)
+	override def slice(from :Int, until :Int) :ChunkedString =
+		if (until < from | until <= 0 || from >= length) Empty
+		else if (from <= 0 && until >= length) this
+		else if (from <= 0) trustedSlice(0, until)
+		else trustedSlice(from, length)
+
+	protected[collection] def trustedSlice(from :Int, until :Int) :ChunkedString
 
 	def +(char :Char) :ChunkedString = this ++ String.valueOf(char)
 
@@ -203,6 +215,8 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		override def length = 0
 		override def iterator :Iterator[Char] = Iterator.empty[Char]
 
+		override def trustedSlice(from :Int, until :Int) :ChunkedString = this
+
 		protected override def appendTo(builder :java.lang.StringBuilder) :java.lang.StringBuilder = builder
 		override def toString = ""
 	}
@@ -219,6 +233,8 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		override def length = s.length
 		override def isEmpty = s.length == 0
+
+		override def trustedSlice(from :Int, until :Int) :ChunkedString = s.substring(from, until)
 
 		override def empty = emptyChunk
 		override def iterator = new StringOps(s).iterator
@@ -240,11 +256,18 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 	@SerialVersionUID(ver)
 	private class AppendedString(prefix :ChunkedString, suffix :String) extends ChunkedString {
+		override val length = prefix.length + suffix.length
 		override def head = if (prefix.isEmpty) suffix.charAt(0) else prefix.head
 		override def last = suffix.charAt(suffix.length - 1)
 		override def apply(i :Int) :Char = if (i < prefix.length) prefix(i) else suffix.charAt(i - prefix.length)
 
-		override val length = prefix.length + suffix.length
+		override def trustedSlice(from :Int, until :Int) :ChunkedString = {
+			val prefixLength = prefix.length
+			if (until <= prefixLength) prefix.trustedSlice(from, until)
+			else if (from >= prefixLength) new Chunk(suffix.substring(from - prefixLength, until - prefixLength))
+			else prefix.trustedSlice(from, prefixLength) ++ suffix.substring(0, until - prefixLength)
+		}
+
 		override def iterator = prefix.iterator ++ new StringOps(suffix).iterator
 
 		override protected def appendTo(builder :java.lang.StringBuilder) =
@@ -257,11 +280,18 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 	@SerialVersionUID(ver)
 	private class PrependedString(prefix :String, suffix :ChunkedString) extends ChunkedString {
+		override val length = prefix.length + suffix.length
 		override def head = prefix.charAt(0)
 		override def last = if (suffix.isEmpty) prefix.charAt(prefix.length - 1) else suffix.last
 		override def apply(idx :Int) :Char = if (idx < prefix.length) prefix.charAt(idx) else suffix(idx - prefix.length)
 
-		override val length = prefix.length + suffix.length
+		override def trustedSlice(from :Int, until :Int) :ChunkedString = {
+			val prefixLength = prefix.length
+			if (until <= prefixLength) new Chunk(prefix.substring(from, until))
+			else if (from >= prefixLength) suffix.trustedSlice(from - prefixLength, until - prefixLength)
+			else prefix.substring(from, prefixLength) ++: suffix.trustedSlice(0, until - prefixLength)
+		}
+
 		override def iterator = new StringOps(prefix).iterator ++ suffix.iterator
 
 		override protected def appendTo(builder :java.lang.StringBuilder) =
@@ -275,11 +305,18 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 	@SerialVersionUID(ver)
 	private class ConcatChunks(prefix :ChunkedString, suffix :ChunkedString) extends ChunkedString {
+		override val length = prefix.length + suffix.length
 		override def head = if (prefix.isEmpty) suffix.head else prefix.head
 		override def last = if (suffix.isEmpty) prefix.last else suffix.last
 		override def apply(idx :Int) = if (idx < prefix.length) prefix(idx) else suffix(idx - prefix.length)
 
-		override val length = prefix.length + suffix.length
+		override def trustedSlice(from :Int, until :Int) :ChunkedString = {
+			val prefixLength = prefix.length
+			if (until <= prefixLength) prefix.trustedSlice(from, until)
+			else if (from >= prefixLength) suffix.trustedSlice(from - prefixLength, until - prefixLength)
+			else prefix.trustedSlice(from, prefixLength) ++ suffix.trustedSlice(0, until - prefixLength)
+		}
+
 		override def iterator = prefix.iterator ++ suffix
 
 		override def appendTo(builder :java.lang.StringBuilder) =
@@ -477,6 +514,9 @@ final class Substring private (string :String, offset :Int, override val length 
 		else if (until >= length) new Substring(string, offset + from, length - from)
 		else new Substring(string, offset + from, until - from)
 
+	protected[collection] override def trustedSlice(from :Int, until :Int) :ChunkedString =
+		new Substring(string, offset + from, until - from)
+
 	override def subSequence(start :Int, end :Int) :Substring = slice(start, end)
 
 	def substring(start :Int, end :Int = length) :Substring = slice(start, end)
@@ -554,135 +594,3 @@ object Substring extends SpecificIterableFactory[Char, Substring] {
 	}
 	private val emptySerialized = new SerializedSubstring("")
 }
-
-
-
-
-
-
-/** An iterator over an arbitrary section of a `String`,
-  * similar to [[net.noresttherein.sugar.collection.ArrayIterator ArrayIterator]].
-  * Has O(1) `take`/`drop`/`slice` methods.
-  */
-final class StringIterator private[collection] (string :String, from :Int, until :Int)
-	extends scala.collection.BufferedIterator[Char]
-{
-	private[this] var index = from
-	private[this] var stop = until
-
-	override def hasNext :Boolean = index < stop
-
-	override def head :Char = string.charAt(index)
-
-	override def next() :Char = { val i = index; index += 1; string.charAt(i) }
-
-	override def knownSize :Int = stop - index
-	@inline override def size :Int = stop - index
-
-	override def take(n :Int) :StringIterator =
-		if (n >= size) this
-		else if (n <= 0) { stop = index; this }
-		else { stop = index + n; this }
-
-	override def drop(n :Int) :StringIterator =
-		if (n <= 0) this
-		else if (n >= size) { index = stop; this } //this check is for Int overflow mostly
-		else { index += n; this }
-
-	override def slice(from :Int, until :Int) :StringIterator = take(until).drop(from)
-
-	override def splitAt(n :Int) :(StringIterator, StringIterator) =
-		if (n <= 0) (new StringIterator(string, index, index), this)
-		else if (n >= length) (this, new StringIterator(string, stop, stop))
-		else (new StringIterator(string, index, index + n), new StringIterator(string, index + n, stop))
-
-}
-
-
-
-object StringIterator {
-	def apply(string :String) :StringIterator = new StringIterator(string, 0, string.length)
-
-	def apply(string :String, offset :Int) :StringIterator =
-		if (offset >= string.length) empty
-		else if (offset <= 0) new StringIterator(string, 0, string.length)
-		else new StringIterator(string, offset, string.length)
-
-	def apply(string :String, from :Int, until :Int) :StringIterator = {
-		val len = string.length
-		if (from >= len || until <= 0 || from >= until) empty
-		else if (from <= 0 && until >= len) new StringIterator(string, 0, len)
-		else if (from <= 0) new StringIterator(string, 0, until)
-		else if (until >= len) new StringIterator(string, from, len)
-		else new StringIterator(string, from, until)
-	}
-
-	def empty = new StringIterator("", 0, 0)
-}
-
-
-
-
-
-
-/** An iterator over an arbitrary section of a `String`, running in reverse
-  * similar to [[net.noresttherein.sugar.collection.ReverseArrayIterator ReverseArrayIterator]].
-  * Has O(1) `take`/`drop`/`slice` methods.
-  */
-final class ReverseStringIterator private[collection] (string :String, from :Int, until :Int)
-	extends scala.collection.BufferedIterator[Char]
-{
-	/* Requires 0 <= from <= until <= string.length and maintains invariant 0 <= stop <= index <= string.length.
-	 * The invariant can be broken only by advancing an empty iterator.
-	 * `string(until)` is the character immediately following (in string) the first character in this iterator,
-	 * while `string(from)` is the last character in this iterator, unless it is empty.
-	 * This scheme results in code being a mirror image of StringIterator, with + replaced with -.
-	 */
-	private[this] var index = until
-	private[this] var stop = from
-
-	override def hasNext :Boolean = index > stop
-
-	override def head :Char = string.charAt(index - 1)
-
-	override def next() :Char = { index -= 1; string.charAt(index) }
-
-	override def knownSize :Int = index - stop
-	@inline override def size :Int = index - stop
-
-	override def take(n :Int) :ReverseStringIterator =
-		if (n >= size) this
-		else if (n <= 0) { stop = index; this }
-		else { stop = index - n; this }
-
-	override def drop(n :Int) :ReverseStringIterator =
-		if (n <= 0) this
-		else if (n >= size) { index = stop; this } //this check is for Int overflow mostly
-		else { index -= n; this }
-
-	override def slice(from :Int, until :Int) :ReverseStringIterator = take(until).drop(from)
-
-	override def splitAt(n :Int) :(ReverseStringIterator, ReverseStringIterator) =
-		if (n <= 0) (new ReverseStringIterator(string, index, index), this)
-		else if (n >= length) (this, new ReverseStringIterator(string, stop, stop))
-		else (new ReverseStringIterator(string, index, index - n), new ReverseStringIterator(string, index - n, stop))
-
-}
-
-
-
-object ReverseStringIterator {
-	def apply(string :String) :ReverseStringIterator = new ReverseStringIterator(string, 0, string.length)
-
-	def apply(string :String, from :Int, downto :Int) :ReverseStringIterator = {
-		val len = string.length
-		if (downto >= len || from <= 0 || downto >= from) empty
-		else if (downto <= 0 && from >= len) new ReverseStringIterator(string, 0, len)
-		else if (downto <= 0) new ReverseStringIterator(string, 0, from)
-		else if (from >= len) new ReverseStringIterator(string, downto, len)
-		else new ReverseStringIterator(string, downto, from)
-	}
-
-	def empty = new ReverseStringIterator("", 0, 0)
-}
-
