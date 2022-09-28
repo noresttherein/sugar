@@ -3,6 +3,8 @@ package net.noresttherein.sugar.witness
 import scala.annotation.implicitNotFound
 
 
+
+
 /** A value class wrapper over any value with an additional associated label type distinguishing it from other instances.
   * It allows having multiple implicit values of the same type `T`, but distinguished by different labels.
   * By wrapping the intended values in `Labelled` instances the actual types of the implicit values differ, allowing
@@ -18,6 +20,7 @@ import scala.annotation.implicitNotFound
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @implicitNotFound("No implicit ${T} labelled ${Label}")
+@SerialVersionUID(1L)
 class Labelled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal
 
 
@@ -35,7 +38,7 @@ object Labelled {
 	@inline def apply[T](value :T, label :AnyRef) :T Labelled label.type = new Labelled(value)
 
 	/** Labels the given value with its singleton type to distinguish it from other values of type `T`. */
-	@inline def apply[T <: AnyRef](value :T) :T Labelled value.type = new Labelled(value)
+	@inline def singleton[T <: AnyRef](value :T) :T Labelled value.type = new Labelled(value)
 
 	/** Resolves an implicit value associated with the given label in two steps. The first is here and serves
 	  * only to separate the label type parameter. The second is the `apply[T]()` method of the returned object,
@@ -44,7 +47,7 @@ object Labelled {
 	  * @usecase `val component :Component = Labelled.get[Label]()` will search for an implicit value of
 	  *         `Component Labelled Label`.
 	  */
-	@inline def get[Label] :ResolveImplicit[Label] = new ResolveImplicit[Label] {}
+	@inline def summon[Label] :ResolveImplicit[Label] = new ResolveImplicit[Label] {}
 
 
 
