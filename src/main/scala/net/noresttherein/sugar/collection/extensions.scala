@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collection
 
 import scala.annotation.tailrec
-import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults}
+import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, MapOps}
 import scala.collection.{mutable, IterableFactory, IterableOnce, IterableOps, LinearSeq, View}
 import scala.collection.generic.IsIterableOnce
 import scala.collection.mutable.Builder
@@ -1348,6 +1348,18 @@ class SeqExtension[X](private val self :scala.collection.Seq[X]) extends AnyVal 
 		new SeqExtension[U](self).subseqOf(ArraySeq.unsafeWrapArray(other))
 }
 
+
+
+
+/** Adds an [[net.noresttherein.sugar.collection.MapExtension.updatedIfAbsent updatedIfAbsent]] extension method
+  * to [[scala.collection.immutable.Map immutable.Map]].
+  */
+class MapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]](private val self :M[K, V]) extends AnyVal {
+	@inline def updatedIfAbsent[U >: V](key :K, value :U) :M[K, U] =
+		if (self.contains(key)) self else self.updated(key, value)
+
+	@inline def ?=[U >: V](entry :(K, U)) :M[K, U] = updatedIfAbsent(entry._1, entry._2)
+}
 
 
 

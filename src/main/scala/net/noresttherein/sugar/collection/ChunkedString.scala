@@ -9,6 +9,7 @@ import scala.collection.immutable.ArraySeq.ofChar
 
 import net.noresttherein.sugar.collection.ChunkedString.{AppendedString, Chunk, ConcatChunks, Empty, PrependedString}
 import net.noresttherein.sugar.collection.Substring.SerializedSubstring
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
 
 
 
@@ -22,10 +23,17 @@ trait SpecificIterableOps[E, +CC[_], +C <: CC[E]] extends IterableOps[E, CC, C] 
 trait StringLikeOps[+S <: Seq[Char]]
 	extends CharSequence with SeqOps[Char, Seq, S] with SpecificIterableOps[Char, Seq, S]
 {
-	override def isEmpty :Boolean = length == 0
+	override def isEmpty   :Boolean = length == 0
+	override def knownSize :Int = length
+
+	override def charAt(index :Int) :Char = apply(index)
 }
 
-trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializable
+trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializable {
+	def +(char :Char) :StringLike
+	def +(string :String) :StringLike
+	def +(string :StringLike) :StringLike = this + string.toString
+}
 
 
 
@@ -41,15 +49,11 @@ trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializa
   * Despite the lack of fast random access, `length`/`size` are still `O(1)` operations.
   */
 sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] {
-	override def knownSize :Int = length
-	override def charAt(index :Int) :Char = apply(index)
-	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
-
 	override def empty :ChunkedString = ChunkedString.empty
-	override def isEmpty :Boolean = length == 0
 
 	protected override def specificFactory :SpecificIterableFactory[Char, ChunkedString] = ChunkedString
 
+	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
 	override def take(n :Int) :ChunkedString = slice(0, n)
 	override def drop(n :Int) :ChunkedString = slice(n, length)
 	override def takeRight(n :Int) :ChunkedString = if (n <= 0) Empty else slice(length - n, length)
@@ -62,7 +66,14 @@ sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] 
 
 	protected[collection] def trustedSlice(from :Int, until :Int) :ChunkedString
 
-	def +(char :Char) :ChunkedString = this ++ String.valueOf(char)
+	override def +(char :Char) :ChunkedString = this ++ String.valueOf(char)
+	override def +(string :String) :ChunkedString = this ++ string
+	override def +(string :StringLike) :ChunkedString = string match {
+		case chunk :ChunkedString => this ++ chunk
+		case _ if string.length == 0 => this
+		case _ if length == 0 => specificFactory.fromSpecific(string)
+		case _ => (newSpecificBuilder ++= this ++= string).result()
+	}
 
 	def ++(string :String) :ChunkedString =
 		if (string.length == 0) this
@@ -105,9 +116,9 @@ sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] 
 
 	override def className :String = "ChunkedString"
 
-	protected def appendTo(builder :java.lang.StringBuilder) :java.lang.StringBuilder
+	protected def appendTo(builder :JStringBuilder) :JStringBuilder
 
-	override def toString :String = appendTo(new java.lang.StringBuilder).toString
+	override def toString :String = appendTo(new JStringBuilder).toString
 }
 
 
@@ -188,7 +199,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 	implicit def fromString(s :String) :ChunkedString = new Chunk(s)
 
-	override def newBuilder :Builder[Char, ChunkedString] = new ChunkStringBuilder
+	override def newBuilder :Builder[Char, ChunkedString] = new ChunkedStringBuilder
 
 	def chunkedBuilder :Builder[String, ChunkedString] =  new Builder[String, ChunkedString] {
 		private [this] var chunks :ChunkedString = ChunkedString.empty
@@ -215,6 +226,8 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		override def length = 0
 		override def iterator :Iterator[Char] = Iterator.empty[Char]
 
+		override def foreach[U](f :Char => U) :Unit = {}
+
 		override def trustedSlice(from :Int, until :Int) :ChunkedString = this
 
 		protected override def appendTo(builder :java.lang.StringBuilder) :java.lang.StringBuilder = builder
@@ -238,6 +251,14 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		override def empty = emptyChunk
 		override def iterator = new StringOps(s).iterator
+
+		override def foreach[U](f :Char => U) :Unit = {
+			var i = 0; val len = s.length
+			while (i < len) {
+				f(s.charAt(i))
+				i += 1
+			}
+		}
 
 		override def newSpecificBuilder :Builder[Char, Chunk] =
 			(new StringBuilder).mapResult(new Chunk(_))
@@ -270,6 +291,11 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		override def iterator = prefix.iterator ++ new StringOps(suffix).iterator
 
+		override def foreach[U](f :Char => U) :Unit = {
+			prefix.foreach(f)
+			new StringOps(suffix).foreach(f)
+		}
+
 		override protected def appendTo(builder :java.lang.StringBuilder) =
 			prefix appendTo builder append suffix
 
@@ -293,6 +319,10 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		}
 
 		override def iterator = new StringOps(prefix).iterator ++ suffix.iterator
+		override def foreach[U](f :Char => U) :Unit = {
+			new StringOps(prefix).foreach(f)
+			suffix.foreach(f)
+		}
 
 		override protected def appendTo(builder :java.lang.StringBuilder) =
 			suffix appendTo (builder append prefix)
@@ -318,6 +348,10 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		}
 
 		override def iterator = prefix.iterator ++ suffix
+		override def foreach[U](f :Char => U) :Unit = {
+			prefix foreach f
+			suffix foreach f
+		}
 
 		override def appendTo(builder :java.lang.StringBuilder) =
 			suffix.appendTo(prefix.appendTo(builder))
@@ -328,7 +362,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 
 	@SerialVersionUID(ver)
-	private final class ChunkStringBuilder extends Builder[Char, ChunkedString] {
+	private final class ChunkedStringBuilder extends Builder[Char, ChunkedString] {
 		private[this] var chunkBuilder :java.lang.StringBuilder = _
 		private[this] var chunks :ChunkedString = _
 		private[this] var hinted :Boolean = false //if hinted then chunkBuilder != null && chunkBuilder.capacity == hint
@@ -541,6 +575,14 @@ final class Substring private (string :String, offset :Int, override val length 
 	override def iterator :StringIterator = new StringIterator(string, offset, offset + length)
 
 	override def reverseIterator :ReverseStringIterator = new ReverseStringIterator(string, offset, offset + length)
+
+	override def foreach[U](f :Char => U) :Unit = {
+		var i = offset; val end = i + length
+		while (i < end) {
+			f(string.charAt(i))
+			i += 1
+		}
+	}
 
 	override protected def appendTo(builder :lang.StringBuilder) :lang.StringBuilder = {
 		var i = offset; val end = offset + length
