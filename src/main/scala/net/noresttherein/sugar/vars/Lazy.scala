@@ -4,7 +4,7 @@ import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering}
+import net.noresttherein.sugar.vars.Ref.{undefined, RefFractional, RefIntegral, RefNumeric, RefOrdering}
 
 
 
@@ -22,55 +22,55 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   *      the cached value is `@transient` and becomes discarded when the `Lazy` instance is serialized,
   *      but the initializing block is always retained.
   *
-	* @define Ref `Lazy`
+  * @define Ref `Lazy`
   * @author Marcin Mościcki
   */
 trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with Serializable {
 	/** Returns `!`[[net.noresttherein.sugar.vars.Val.isEmpty isEmpty]].
-		* Same as [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
-		*/
+	  * Same as [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
+	  */
 	@inline final override def isFinal :Boolean = !isEmpty
 
 	/** Checks if the value has been previously evaluated. Note that `false` values can be stale the moment
-		* they are returned to the caller; the method is however still useful as once `true` is returned, all subsequent
-		* calls on this instance will also return `true` and the value can be safely accessed without an overhead
-		* or risk of throwing an exception. Code
-		* {{{
-		*     if (v.nonEmpty) v.value else someDefaultValue
-		* }}}
-		* is thread safe for all implementations.
-		*/
+	  * they are returned to the caller; the method is however still useful as once `true` is returned, all subsequent
+	  * calls on this instance will also return `true` and the value can be safely accessed without an overhead
+	  * or risk of throwing an exception. Code
+	  * {{{
+	  *     if (v.nonEmpty) v.value else someDefaultValue
+	  * }}}
+	  * is thread safe for all implementations.
+	  */
 	override def isEmpty :Boolean = opt.isEmpty //overriden for docs only
 
 	/** Returns `true`: all `Lazy` values can have only a single value and, once initialized,
-		* [[net.noresttherein.sugar.vars.Ref.value value]] always returns it.
-		*/
+	  * [[net.noresttherein.sugar.vars.Ref.value value]] always returns it.
+	  */
 	final override def isFinalizable :Boolean = true
 
 	/** Returns `!`[[net.noresttherein.sugar.vars.Val.isEmpty isEmpty]].
-		* Same as [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
-		*/
+	  * Same as [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
+	  */
 	@inline final override def isConst :Boolean = !isEmpty
 
 	/** Always returns `true`.
-		* @see [[net.noresttherein.sugar.vars.Lazy.isDefinite]]
-		*/
+	  * @see [[net.noresttherein.sugar.vars.Lazy.isDefinite]]
+	  */
 	@inline final override def isDefined :Boolean = true
 
 	/** Returns ![[net.noresttherein.sugar.vars.Lazy.isEmpty isEmpty]]. */
 	@inline final override def isDefinite :Boolean = !isEmpty
 
 	/** The value of this `Lazy`. This method always returns the same value and throws no exception,
-		* but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.Val.const const]].
-		*/
+	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.Val.const const]].
+	  */
 	@inline final override def get :T = const
 
 	/** Returns `Some(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
 	override def toOption :Option[T] = Some(get)
 
 	/** Returns `Some(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
-		* same as [[net.noresttherein.sugar.vars.Lazy.toOption toOption]].
-		*/
+	  * same as [[net.noresttherein.sugar.vars.Lazy.toOption toOption]].
+	  */
 	@inline final override def constOption :Option[T] = toOption
 
 	override def opt :Opt[T] = if (!isEmpty) Got(value) else Lack
@@ -79,8 +79,8 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	@inline final override def toOpt :Opt[T] = opt
 
 	/** Returns [[net.noresttherein.sugar.vars.Opt.Got Got]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
-		* same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
-		*/
+	  * same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
+	  */
 	@inline final override def constOpt :Opt[T] = toOpt
 
 	/** Returns [[net.noresttherein.sugar.vars.Sure Sure]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
@@ -117,6 +117,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 
 
 /** A factory of lazy values. */
+@SerialVersionUID(ver)
 object Lazy {
 
 	/** Creates a wrapper over a lazily initialized value roughly equivalent to a built in `lazy val`.
@@ -185,7 +186,7 @@ object Lazy {
 
 
 	/** An already computed (initialized) value. */
-	@SerialVersionUID(1L) //todo: make it specialized
+	@SerialVersionUID(ver) //todo: make it specialized
 	//Not specialized to avoid boxing of T to ref-wrapper-of-T, especially that we likely already have the wrapper
 	private final class EagerLazy[+T](eager :T) extends Lazy[T] {
 		override def isEmpty = false
@@ -204,7 +205,7 @@ object Lazy {
 	  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
 	  * and its runtime reference wrapper is an immutable class
 	  */
-	@SerialVersionUID(1L) //todo: make it specialized
+	@SerialVersionUID(ver) //todo: make it specialized
 	private final class SyncLazyVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Lazy[T]
 	{
@@ -288,7 +289,7 @@ object Lazy {
 
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private final class SyncLazyRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
 		@volatile private[this] var evaluated :Any = undefined
 

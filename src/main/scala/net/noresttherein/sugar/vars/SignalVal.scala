@@ -10,14 +10,14 @@ import net.noresttherein.sugar.vars.SignalVal.MappedSignalVal
 
 /** An externally set, synchronized value every read of which blocks until it is initialized. All calls to `value`
   * will, if `this.`[[net.noresttherein.sugar.vars.SignalVal.isEmpty isEmpty]], block until another thread calls
-	* `this.value = x`. The value can be set only once, and an [[IllegalStateException]] is thrown on subsequent attempts.
-	* For this reason, all update methods which depend on a preexistent value
-	* will fail with an [[UnsupportedOperationException]].
-	* @see [[net.noresttherein.sugar.vars.Out]]
+  * `this.value = x`. The value can be set only once, and an [[IllegalStateException]] is thrown on subsequent attempts.
+  * For this reason, all update methods which depend on a preexistent value
+  * will fail with an [[UnsupportedOperationException]].
+  * @see [[net.noresttherein.sugar.vars.Out]]
   * @see [[net.noresttherein.sugar.vars.SignalVar]]
-	* @define Ref `SignalVal`
+  * @define Ref `SignalVal`
   */
-@SerialVersionUID(1L) //consider: SignalRef (different equality semantics)
+@SerialVersionUID(ver) //consider: SignalRef (different equality semantics)
 sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend Out
 	@volatile private[this] var x :Opt[T] = Lack
 
@@ -47,12 +47,12 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend 
 		case _ => throw new NoSuchElementException(toString + ".value")
 	}
 	/** Sets the value of this `SignalVal` and notifies all threads waiting for it using one of
-		* [[net.noresttherein.sugar.vars.SignalVal.await await]] methods. After the value is set,
-		* all calls to [[net.noresttherein.sugar.vars.SignalVal.value value]],
-		* [[net.noresttherein.sugar.vars.SignalVal.get get]] and [[net.noresttherein.sugar.vars.SignalVal.const const]]
-		* will return it without blocking. This method can be called only once:
-		* all subsequent attempts will throw an [[IllegalStateException]].
-		*/
+	  * [[net.noresttherein.sugar.vars.SignalVal.await await]] methods. After the value is set,
+	  * all calls to [[net.noresttherein.sugar.vars.SignalVal.value value]],
+	  * [[net.noresttherein.sugar.vars.SignalVal.get get]] and [[net.noresttherein.sugar.vars.SignalVal.const const]]
+	  * will return it without blocking. This method can be called only once:
+	  * all subsequent attempts will throw an [[IllegalStateException]].
+	  */
 	override def value_=(newValue :T) :Unit = synchronized {
 		if (isDefined)
 			throw new IllegalStateException(s"Cannot set SignalVal(${x.get}) to $newValue: already initialized.")
@@ -101,13 +101,13 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend 
 
 
 	/** A new `SignalVal` with a value derived from this one.
-		* If `this.`[[net.noresttherein.sugar.vars.SignalVal isDefined]], then the new instance is initialized
-		* to `f(this.value)` before being returned. Otherwise all [[net.noresttherein.sugar.vars.SignalVal.await await]]
-		* methods of the result wait on this instance's monitor rather than the new `SignalVal`'s,
-		* and all getters such as [[net.noresttherein.sugar.vars.SignalVal.value value]],
-		* [[net.noresttherein.sugar.vars.SignalVal.get get]], [[net.noresttherein.sugar.vars.SignalVal.const const]]
-		* and their optional variants defer to this instance.
-		*/
+	  * If `this.`[[net.noresttherein.sugar.vars.SignalVal isDefined]], then the new instance is initialized
+	  * to `f(this.value)` before being returned. Otherwise all [[net.noresttherein.sugar.vars.SignalVal.await await]]
+	  * methods of the result wait on this instance's monitor rather than the new `SignalVal`'s,
+	  * and all getters such as [[net.noresttherein.sugar.vars.SignalVal.value value]],
+	  * [[net.noresttherein.sugar.vars.SignalVal.get get]], [[net.noresttherein.sugar.vars.SignalVal.const const]]
+	  * and their optional variants defer to this instance.
+	  */
 	override def map[O](f :T => O) :SignalVal[O] = x match {
 		case Got(defined) =>
 			val res = new SignalVal[O]
@@ -128,6 +128,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend 
 
 
 
+@SerialVersionUID(ver)
 object SignalVal {
 	/** Creates a new, uninitialized [[net.noresttherein.sugar.vars.SignalVal SignalVal]] instance. */
 	def apply[T] :SignalVal[T] = new SignalVal[T]
@@ -141,7 +142,7 @@ object SignalVal {
 	implicit def signalValOrdering[T :Ordering] :Ordering[SignalVal[T]] = Val.valOrdering
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class MappedSignalVal[T, O](source :SignalVal[T], f :T => O) extends SignalVal[O] {
 		override def await(timeout :Milliseconds): Boolean = source.await(timeout)
 		override def await(timeout :TimeInterval): Boolean = source.await(timeout)

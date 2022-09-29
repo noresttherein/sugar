@@ -3,10 +3,12 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Ref.FinalRef
-import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, unzip3Fail}
+import net.noresttherein.sugar.vars.Unsure.{collector, unzip2Fail, unzip3Fail, WithFilter}
 
 
 
@@ -23,9 +25,9 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * Like `Option`, it implements [[IterableOnce]]`[T]` and completely parrots full `Option` API, making it a suitable
   * drop in replacement.
   *
-  * This type has a rival in this library in the form of [[net.noresttherein.sugar.vars.Opt Opt]],
-  * which is another `Option` replacement candidate, also aiming to reduce boxing. The difference lies in exactly
-  * what boxing is avoided:
+  * This type has rivals in this library in the form of value class [[net.noresttherein.sugar.vars.Opt Opt]],
+  * and type [[net.noresttherein.sugar.vars.Potential Potential]], which are other `Option` replacement candidates,
+  * also aiming to reduce boxing. The difference lies in exactly what boxing is avoided:
   *   - when an `Int` or other value type is placed in a Scala `Option`, two objects need to be created:
   *     an `Integer` wrapper, and `Some` itself containing the wrapper.
   *   - `Opt` is a value class, and in any context in which it doesn't require runtime promotion to a reference type
@@ -40,6 +42,10 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   *     When an instance is repeatedly passed between contexts in which it is referred to as an abstract type
   *     and where it is erased, this can paradoxically result in significantly more boxing than a once created
   *     and used as-is `Option` would require.
+  *   - `Potential` is a type alias erased to `AnyRef`, so all notes about value types needing boxing within `Opt`
+  *     also apply here. Where it has an advantage over the former is that it introduces no boxing class at all
+  *     (except for the case of `Existent(Inexistent)`), making it more efficient as array elements
+  *     or function parameters and return types. It is however in several regards a rather leaky abstraction.
   *   - `Unsure` does not involve boxing of value types used as type parameters, but is itself a reference type,
   *     so an object will always be created, while `Opt` can, in some circumstances, avoid boxing altogether.
   *     This boxing however means that it can 'safely' be used in generic contexts, as once created object.
@@ -55,7 +61,7 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * of a single class, as in most cases the benefits are outweighed by the drawbacks of potential compatibility
   * issues due to using a non-standard solution.
   *
-	* @define Ref `Unsure`
+  * @define Ref `Unsure`
   * @author Marcin Mościcki
   */
 sealed trait Unsure[@specialized(SpecializedVars) +T]
@@ -65,13 +71,13 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final override def isEmpty :Boolean = this eq Missing
 
 	/** Tests if this `Unsure` contains a value. If true, `get` will not throw an exception.
-		* Equivalent to [[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]].
-		*/
+	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]].
+	  */
 	@inline final override def nonEmpty :Boolean = this ne Missing
 
 	/** Tests if this `Unsure` contains a value (is a [[net.noresttherein.sugar.vars.Sure Sure]]).
-		* Equivalent to [[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]].
-		*/
+	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]].
+	  */
 	@inline final override def isDefined :Boolean = this ne Missing
 
 	@inline final override def knownSize :Int = if (this eq Missing) 0 else 1
@@ -126,7 +132,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]]
 	  */
 	@inline final def orThrow[E <: Throwable :ClassTag] :T =
-		if (this eq Blank) raise[E] else get
+		if (this eq Missing) raise[E] else get
 
 	/** Gets the value of this instance or throws a [[NoSuchElementException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
@@ -138,7 +144,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orNoSuch :T =
-		if (this eq Blank) throw new NoSuchElementException("Blank") else get
+		if (this eq Missing) throw new NoSuchElementException("Blank") else get
 
 	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
@@ -150,7 +156,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orIllegal :T =
-		if (this eq Blank) throw new IllegalArgumentException("Blank") else get
+		if (this eq Missing) throw new IllegalArgumentException("Blank") else get
 
 	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
 	@inline final def orError(msg: => String) :T = {
@@ -160,7 +166,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
 	@inline final def orError :T = {
-		assert(this ne Blank)
+		assert(this ne Missing)
 		get
 	}
 
@@ -228,16 +234,20 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Returns `Blank` if `this.contains(o)`, or `this` otherwise. */
 	@inline def removed[O >: T](o :O) :Unsure[T] =
-		if ((this eq Blank) || get == o) Blank else this
+		if ((this eq Missing) || get == o) Missing else this
 
 	/** Returns `Blank` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
 	def removedAll[O >: T](that :IterableOnce[O]) :Unsure[T] = that match {
-		case _ if this eq Blank => this
-		case it :Iterable[O] =>
-			if (it.isEmpty || !it.toSet(get)) this
-			else Blank
-		case _ if that.iterator.toSet(get) => Blank
-		case _ => this
+		case _ if this eq Missing => this //todo: add Ranking support
+		case it :Set[O] => if (it(get)) Missing else this
+		case it :Iterable[O] if it.isEmpty => this
+		case _ =>
+			val i = that.iterator
+			val x = get
+			while (i.hasNext)
+				if (i.next() == x)
+					return Missing
+			this
 	}
 
 	/** Returns a new `Unsure` containing this value if it is not empty and its value satisfies the given predicate,
@@ -330,10 +340,10 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	override def option :Option[T] = None //overriden by Sure
 
 	/** Converts this `Unsure` to an `Opt`. Same as [[net.noresttherein.sugar.vars.Unsure.toOpt toOpt]].
-		* @return [[net.noresttherein.sugar.vars.Opt.Got Got]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
-		*         if `this.`[[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]
-		*         or [[net.noresttherein.sugar.vars.Opt.Lack Lack]] otherwise.
-		*/
+	  * @return [[net.noresttherein.sugar.vars.Opt.Got Got]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
+	  *         if `this.`[[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]
+	  *         or [[net.noresttherein.sugar.vars.Opt.Lack Lack]] otherwise.
+	  */
 	override def opt :Opt[T] = Lack
 
 	final override def unsure :Unsure[T] = this
@@ -349,6 +359,23 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  */
 	@inline final def toRight[O](left: => O) :Either[O, T] =
 		if (this eq Missing) Left(left) else Right(get)
+
+	/** Converts this `Unsure` to an `Pill`, returning the content as `Red`, or the value of the given expression
+	  * as `Blue` if empty.
+	  */
+	@inline final def toRed[O](blue: => O) :Pill[T, O] =
+		if (this eq Missing) Blue(blue) else Red(get)
+
+	/** Converts this `Unsure` to an `Pill`, returning the content as `Blue`, or the value of the given expression
+	  * as `Red` if empty.
+	  */
+	@inline final def toBlue[O](red: => O) :Pill[O, T] =
+		if (this eq Missing) Red(red) else Blue(get)
+
+	/** Converts this `Unsure` to `Fallible`, returning the content as `Passed`,
+	  * or the given `String` as `Failed` error message if empty. */
+	@inline final def toPassed(err : => String) :Fallible[T] =
+		if (this eq Missing) Failed(err) else Passed(get)
 
 	/** Formats this `Unsure` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline final override def mkString(prefix :String) :String =
@@ -509,7 +536,7 @@ object Unsure {
   * Unlike `Some`, it is specialized and does not involve boxing of built in value types used as contents.
   * @tparam T the content type.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don't these vars have to be @volatile?
                 (x :T, private[this] var cachedOption :Option[T] = None, private[this] var cachedOpt :Opt[T] = Lack)
 	extends Unsure[T]
@@ -547,8 +574,9 @@ final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don
 
 
 /** A factory and deconstructor of full (''sure'') [[net.noresttherein.sugar.vars.Unsure Unsure]] instances,
-  *  fulfilling the same function as [[scala.Some]].
+  * fulfilling the same function as [[scala.Some]].
   */
+@SerialVersionUID(ver)
 object Sure {
 	/** Constructs a successful `Unsure` containing the given value. */
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :Sure[T] = new Sure(value)
@@ -563,7 +591,7 @@ object Sure {
 
 
 /** An empty (''missing'') [[net.noresttherein.sugar.vars.Unsure Unsure]] instance, a counterpart of [[scala.None]]. */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 case object Missing extends Unsure[Nothing] {
 	override def get :Nothing = throw new NoSuchElementException("Missing.get")
 	override def opt :Opt[Nothing] = Lack

@@ -3,7 +3,9 @@ package net.noresttherein.sugar.optional
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.raise
-import net.noresttherein.sugar.vars.{Opt, Unsure}
+import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
+import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
+import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 
 
 
@@ -111,6 +113,25 @@ class OptionExtension[T](private val self :Option[T]) extends AnyVal {
 
 	/** Converts this option into an [[net.noresttherein.sugar.vars.Unsure Unsure]] wrapping the same type/value. */
 	@inline def toUnsure :Unsure[T] = Unsure.some_?(self) //not specialized
+
+	/** Converts this option into an [[net.noresttherein.sugar.vars.Potential Potential]] wrapping the same type/value. */
+	@inline def toPotential :Potential[T] = Potential.some_?(self) //not specialized
+
+
+	/** Converts this `Option` to `Pill`, returning the content as `Red`, or the value of the given expression
+	  * as `Blue` if empty. */
+	@inline def toRed[O](blue : => O) :Pill[T, O] =
+		if (self.isDefined) Blue(blue) else Red(self.get)
+
+	/** Converts this `Option` to `Pill`, returning the content as `Blue`, or the value of the given expression
+	  * as `Red` if empty. */
+	@inline def toBlue[O](red : => O) :Pill[O, T] =
+		if (self.isDefined) Red(red) else Blue(self.get)
+
+	/** Converts this `Option` to `Fallible`, returning the content as `Passed`,
+	  * or the value of the given `String` as `Failed` error message if empty. */
+	@inline final def toPassed(err : => String) :Fallible[T] =
+		if (self.isDefined) Failed(err) else Passed(self.get)
 }
 
 

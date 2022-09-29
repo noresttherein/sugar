@@ -7,11 +7,11 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 /** A very light adapter of [[java.lang.ThreadLocal]] to [[net.noresttherein.sugar.vars.InOut InOut]]`[T]`,
-	* which by implicit conversions provides arithmetic assignment operations.
-	* @define Ref `ThreadLocal`
+  * which by implicit conversions provides arithmetic assignment operations.
+  * @define Ref `ThreadLocal`
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 sealed class ThreadLocal[T] private (init :T) extends Mutable[T] {
 	private[this] val local = java.lang.ThreadLocal.withInitial[T](() => init)
 
@@ -26,6 +26,7 @@ sealed class ThreadLocal[T] private (init :T) extends Mutable[T] {
 
 
 /** A factory of `InOut[T]` variables backed by thread local storage. */
+@SerialVersionUID(ver)
 object ThreadLocal {
 	@inline def apply[T](init :T) :ThreadLocal[T] = new ThreadLocal[T](init)
 	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.get)

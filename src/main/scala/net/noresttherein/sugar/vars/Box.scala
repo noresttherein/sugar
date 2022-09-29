@@ -23,7 +23,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * method is complemented with [[net.noresttherein.sugar.vars.Box.testAndSwap testAndSwap]], which generalize
   * the function of the former by accepting an `Option` or an [[net.noresttherein.sugar.vars.Opt Opt]].
   * @see [[net.noresttherein.sugar.vars.Mutable]]
-	* @define Ref `Box`
+  * @define Ref `Box`
   * @author Marcin Mościcki
   */
 sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializable {
@@ -31,10 +31,10 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	final override def isFinal = false
 
 	/** Returns `true` if the box currently holds a value. In case of atomic access,
-		* methods [[net.noresttherein.sugar.vars.InOut.value value]], [[net.noresttherein.sugar.vars.InOut.get get]]
-		* and [[net.noresttherein.sugar.vars.Ref.apply apply]]`()`
-		* will not throw an exception.
-		*/
+	  * methods [[net.noresttherein.sugar.vars.InOut.value value]], [[net.noresttherein.sugar.vars.InOut.get get]]
+	  * and [[net.noresttherein.sugar.vars.Ref.apply apply]]`()`
+	  * will not throw an exception.
+	  */
 	@inline final override def nonEmpty :Boolean = !isEmpty
 
 	/** Returns `false`. */
@@ -63,41 +63,41 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	override def constUnsure :Unsure[T] = Missing
 
 	/** Replaces the contents of this box with the content of the given `Option`.
-		* It is a setter matching getter `this.`[[net.noresttherein.sugar.vars.Ref.option option]]
-		* and is equivalent to `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.get` if `content` is `Some`,
-		* or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is `None`.
-		*/
+	  * It is a setter matching getter `this.`[[net.noresttherein.sugar.vars.Ref.option option]]
+	  * and is equivalent to `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.get` if `content` is `Some`,
+	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is `None`.
+	  */
 	def option_=(content :Option[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
 	/** Replaces the contents of this box with the content of the given optional value.
-		* It is a setter method matching getter `this.`[[net.noresttherein.sugar.vars.Ref.opt opt]] and is equivalent to
-		* `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Opt.get get]]
-		* if `content.`[[net.noresttherein.sugar.vars.Opt.isDefined isDefined]],
-		* or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
-		*/
+	  * It is a setter method matching getter `this.`[[net.noresttherein.sugar.vars.Ref.opt opt]] and is equivalent to
+	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Opt.get get]]
+	  * if `content.`[[net.noresttherein.sugar.vars.Opt.isDefined isDefined]],
+	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
+	  */
 	def opt_=(content :Opt[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
 	/** Replaces the contents of this box with the content of the given unsure value.
-		* It is a setter method matching getter `this.`[[net.noresttherein.sugar.vars.Ref.unsure unsure]] and is equivalent
-		* to `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Unsure.get get]]
-		* if `content.`[[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]],
-		* or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
-		*/
+	  * It is a setter method matching getter `this.`[[net.noresttherein.sugar.vars.Ref.unsure unsure]] and is equivalent
+	  * to `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Unsure.get get]]
+	  * if `content.`[[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]],
+	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
+	  */
 	def unsure_=(content :Unsure[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
 	/** Replaces the contents of this box with the content of the given value wrapper (possibly
-		* a [[net.noresttherein.sugar.vars.Unsure Unsure]] or another [[net.noresttherein.sugar.vars.Box Box]] instance).
-		* It is equivalent to
-		* `this.`[[net.noresttherein.sugar.vars.Box.unsure_= unsure]]` = content.`[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]].
-		* The semantics of `toUnsure` differ depending on the runtime class of `content`;
-		* [[net.noresttherein.sugar.vars.Val Val]] subclasses will generally return
-		* the [[net.noresttherein.sugar.vars.Val.const final]] value of the `Val`, if it is already computed,
-		* with the exceptions of [[net.noresttherein.sugar.vars.Lazy Lazy]], which always return their value,
-		* initializing themselves if needed. Mutable [[net.noresttherein.sugar.vars.InOut InOut]] will, as a rule,
-		* return the current value, if available.
-		* Note that if `content` is not thread safe, the above calls can return corrupt, partially constructed objects.
-		* Any thread safe type however guarantees the atomicity of these operations.
-		*/
+	  * a [[net.noresttherein.sugar.vars.Unsure Unsure]] or another [[net.noresttherein.sugar.vars.Box Box]] instance).
+	  * It is equivalent to
+	  * `this.`[[net.noresttherein.sugar.vars.Box.unsure_= unsure]]` = content.`[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]].
+	  * The semantics of `toUnsure` differ depending on the runtime class of `content`;
+	  * [[net.noresttherein.sugar.vars.Val Val]] subclasses will generally return
+	  * the [[net.noresttherein.sugar.vars.Val.const final]] value of the `Val`, if it is already computed,
+	  * with the exceptions of [[net.noresttherein.sugar.vars.Lazy Lazy]], which always return their value,
+	  * initializing themselves if needed. Mutable [[net.noresttherein.sugar.vars.InOut InOut]] will, as a rule,
+	  * return the current value, if available.
+	  * Note that if `content` is not thread safe, the above calls can return corrupt, partially constructed objects.
+	  * Any thread safe type however guarantees the atomicity of these operations.
+	  */
 	def :?=(content :Ref[T]) :Unit =
 		if (content.isSpecialized) unsure = content.toUnsure //Unsure cheaper than Opt
 		else opt = content.opt //use content.opt for atomicity (at least if content is thread safe)
@@ -118,27 +118,27 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	@inline final def reset(content :Opt[T]) :Unit = opt = content
 
 	/** Replaces the contents of this box with the content of the given unsure value.
-		* It is equivalent to
-		* `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Unsure.get get]]
-		* if `content.`[[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]],
-		* or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
-		*/
+	  * It is equivalent to
+	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Unsure.get get]]
+	  * if `content.`[[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]],
+	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
+	  */
 	@inline final def reset(content: Unsure[T]) :Unit = unsure = content
 
 	/** Replaces the contents of this box with the content of the given value wrapper (possibly
-		* a [[net.noresttherein.sugar.vars.Unsure Unsure]] or another [[net.noresttherein.sugar.vars.Box Box]] instance).
-		*
-		* It is equivalent to
-		* `this.`[[net.noresttherein.sugar.vars.Box.unsure_= unsure]]` = content.`[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]].
-		* The semantics of `toUnsure` differ depending on the runtime class of `content`;
-		* [[net.noresttherein.sugar.vars.Val Val]] subclasses will return
-		* the [[net.noresttherein.sugar.vars.Val.const final]] value of the `Val`, if it is already computed,
-		* with the exceptions of [[net.noresttherein.sugar.vars.Lazy Lazy]], which always return their value,
-		* initializing themselves if needed. Mutable [[net.noresttherein.sugar.vars.InOut InOut]] will, as a rule,
-		* return the current value, if available.
-		* Note that if `content` is not thread safe, the above calls can return corrupt, partially constructed objects.
-		* Any thread safe type however guarantees the atomicity of these operations.
-		*/
+	  * a [[net.noresttherein.sugar.vars.Unsure Unsure]] or another [[net.noresttherein.sugar.vars.Box Box]] instance).
+	  *
+	  * It is equivalent to
+	  * `this.`[[net.noresttherein.sugar.vars.Box.unsure_= unsure]]` = content.`[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]].
+	  * The semantics of `toUnsure` differ depending on the runtime class of `content`;
+	  * [[net.noresttherein.sugar.vars.Val Val]] subclasses will return
+	  * the [[net.noresttherein.sugar.vars.Val.const final]] value of the `Val`, if it is already computed,
+	  * with the exceptions of [[net.noresttherein.sugar.vars.Lazy Lazy]], which always return their value,
+	  * initializing themselves if needed. Mutable [[net.noresttherein.sugar.vars.InOut InOut]] will, as a rule,
+	  * return the current value, if available.
+	  * Note that if `content` is not thread safe, the above calls can return corrupt, partially constructed objects.
+	  * Any thread safe type however guarantees the atomicity of these operations.
+	  */
 	def reset(content :Ref[T]) :Unit = this :?= content
 
 
@@ -146,23 +146,23 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	def clear() :Unit
 
 	/** Empties the box, providing it currently contains the specified value.
-		* Any references to the currently held value are freed.
-		* This method is useful primarily on a thread safe [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]],
-		* where it happens atomically.
-		*
-		* @param expect a test value which must equal the current value of the box.
-		* @return true ''iff'' the box was cleared by this method.
-		*/
+	  * Any references to the currently held value are freed.
+	  * This method is useful primarily on a thread safe [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]],
+	  * where it happens atomically.
+	  *
+	  * @param expect a test value which must equal the current value of the box.
+	  * @return true ''iff'' the box was cleared by this method.
+	  */
 	def clear(expect :T) :Boolean =
 		isDefined && value == expect && {
 			clear(); true
 		}
 
 	/** Sets the content of this box, providing it is currently empty.
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
-		*
-		* @return true ''iff'' the box was empty and now contains the new value.
-		*/
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  *
+	  * @return true ''iff'' the box was empty and now contains the new value.
+	  */
 	def put(newValue :T) :Boolean = isEmpty && {
 		value = newValue; true
 	}
@@ -180,7 +180,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  *         current
 	  *     }
 	  * }}}
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
 	  * @param content the new content for this variable: if non empty, `this.value` will be set to its value;
 	  *                if empty, the variable will be cleared.
 	  * @return the previous content of this variable, replaced by `content`.
@@ -199,7 +199,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  *         current
 	  *     }
 	  * }}}
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
 	  * @param content the new content for this variable: if non empty, `this.value` will be set to its value;
 	  *                if empty, the variable will be cleared.
 	  * @return the previous content of this variable, replaced by `content`.
@@ -218,7 +218,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  *         current
 	  *     }
 	  * }}}
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
 	  * @param content the new content for this variable: if non empty, `this.value` will be set to its value;
 	  *                if empty, the variable will be cleared.
 	  * @return the previous content of this variable, replaced by `content`.
@@ -226,15 +226,15 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	def swap(content :Unsure[T]) :Unsure[T] = { val res = unsure; unsure = content; res }
 
 	/** Replaces the contents of this box, if they are equal to `expect`, with the contents of `newValue`.
-		* For the purpose of this method, 'contents' are defined as
-		* `this.`[[net.noresttherein.sugar.vars.Box.asOption asOption]].
-		* Depending on whether each of the parameters is defined, this method is equivalent
-		* to one of [[net.noresttherein.sugar.vars.Box.clear(expect* clear]]`(expect.get)`,
-		* [[net.noresttherein.sugar.vars.Box.put put]]`(newValue.get)`,
-		* [[net.noresttherein.sugar.vars.Box.testAndSet testAndSet]]`(expect.get, newValue.get)`, or simply
-		* [[net.noresttherein.sugar.vars.Box.isEmpty]] if both arguments are empty.
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
-		*/
+	  * For the purpose of this method, 'contents' are defined as
+	  * `this.`[[net.noresttherein.sugar.vars.Box.option option]].
+	  * Depending on whether each of the parameters is defined, this method is equivalent
+	  * to one of [[net.noresttherein.sugar.vars.Box.clear(expect* clear]]`(expect.get)`,
+	  * [[net.noresttherein.sugar.vars.Box.put put]]`(newValue.get)`,
+	  * [[net.noresttherein.sugar.vars.Box.testAndSet testAndSet]]`(expect.get, newValue.get)`, or simply
+	  * [[net.noresttherein.sugar.vars.Box.isEmpty]] if both arguments are empty.
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  */
 	def testAndSwap(expect :Option[T], newValue :Option[T]) :Boolean = expect match {
 		case Some(current) => newValue match {
 			case Some(value) => testAndSet(current, value)
@@ -251,7 +251,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * [[net.noresttherein.sugar.vars.Box.put put]]`(newValue.get)`,
 	  * [[net.noresttherein.sugar.vars.Box.testAndSet testAndSet]]`(expect.get, newValue.get)`, or simply
 	  * [[net.noresttherein.sugar.vars.Box.isEmpty]] if both arguments are empty.
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
 	  */
 	def testAndSwap(expect :Opt[T], newValue :Opt[T]) :Boolean = expect match {
 		case Got(current) => newValue match {
@@ -263,14 +263,14 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	}
 
 	/** Replaces the contents of this box, if they are equal to `expect`, with the contents of `newValue`.
-		* For the purpose of this method, 'contents' are defined as `this.`[[net.noresttherein.sugar.vars.Box.unsure unsure]].
-		* Depending on whether each of the parameters is defined, this method is equivalent
-		* to one of [[net.noresttherein.sugar.vars.Box.clear(expect* clear]]`(expect.get)`,
-		* [[net.noresttherein.sugar.vars.Box.put put]]`(newValue.get)`,
-		* [[net.noresttherein.sugar.vars.Box.testAndSet testAndSet]]`(expect.get, newValue.get)`, or simply
-		* [[net.noresttherein.sugar.vars.Box.isEmpty]] if both arguments are empty.
-		* On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
-		*/
+	  * For the purpose of this method, 'contents' are defined as `this.`[[net.noresttherein.sugar.vars.Box.unsure unsure]].
+	  * Depending on whether each of the parameters is defined, this method is equivalent
+	  * to one of [[net.noresttherein.sugar.vars.Box.clear(expect* clear]]`(expect.get)`,
+	  * [[net.noresttherein.sugar.vars.Box.put put]]`(newValue.get)`,
+	  * [[net.noresttherein.sugar.vars.Box.testAndSet testAndSet]]`(expect.get, newValue.get)`, or simply
+	  * [[net.noresttherein.sugar.vars.Box.isEmpty]] if both arguments are empty.
+	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
+	  */
 	def testAndSwap(expect :Unsure[T], newValue :Unsure[T]) :Boolean = expect match {
 		case Sure(current) => newValue match {
 			case Sure(value) => testAndSet(current, value)
@@ -308,8 +308,9 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 
 
 /** A factory of mutable value holders which can be empty.
-	* @see [[net.noresttherein.sugar.vars.Box!]]
-	*/
+  * @see [[net.noresttherein.sugar.vars.Box!]]
+  */
+@SerialVersionUID(ver)
 object Box {
 	/** Creates a new, empty box. The returned instance is not thread safe. */
 	def apply[@specialized(SpecializedVars) T] :Box[T] = new NonSyncBox
@@ -332,7 +333,7 @@ object Box {
 
 
 	/** A non-synchronized `Box` implementation. */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class NonSyncBox[@specialized(SpecializedVars) T] extends Box[T] {
 		private[this] var nullVal :T = _ //the default value used to clear x so we don't keep a reference to the old value
 		private[this] var x :T = _
@@ -369,12 +370,13 @@ object Box {
   * and atomic test-and-set operations like in [[net.noresttherein.sugar.vars.Volatile Volatile]]. All synchronisation
   * is non-suspending (spin locks) and features a lower overhead than monitor synchronization, but is not optimized
   * for high-contention usage scenarios.
-	* @define Ref `VolatileBox`
+  * @define Ref `VolatileBox`
   */
 sealed trait VolatileBox[@specialized(SpecializedVars) T] extends Box[T]
 
 
 
+@SerialVersionUID(ver)
 object VolatileBox {
 	/** Creates a new, empty box. The instance is thread safe with the same memory access semantics
 	  * as a [[net.noresttherein.sugar.vars.Volatile Volatile]] variable. All operations are atomic.
@@ -387,8 +389,8 @@ object VolatileBox {
 	}
 
 	/** Creates a new, atomic, box, initialized with the given value. The instance is thread safe
-	  *  with the same memory access semantics as a [[net.noresttherein.sugar.vars.Volatile Volatile]] variable.
-	  *  All operations are atomic.
+	  * with the same memory access semantics as a [[net.noresttherein.sugar.vars.Volatile Volatile]] variable.
+	  * All operations are atomic.
 	  */
 	def apply[@specialized(SpecializedVars) T](value :T) :VolatileBox[T] = {
 		val res = VolatileBox[T]
@@ -418,7 +420,7 @@ object VolatileBox {
 	  * for reference types, as it offers better performance and this class may no longer provide required
 	  * memory access guarantees in the future.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private final class VolatileValBox[@specialized(SpecializedVars) T] private[vars] extends VolatileBox[T] {
 		private[this] var x :T = _ //access always sandwiched between two accesses to state, so it needs not to be volatile
 		@scala.volatile private[this] var state :Int = Empty //tells if the box is empty and serves as a spin lock variable
@@ -559,8 +561,8 @@ object VolatileBox {
 			current
 		}
 		/** Atomically waits until the state is not Locked and sets it to Locked if it is Empty.
-			* @returns `true` if `currentState` was not Empty and has not concurrently been set to Empty during this call.
-			*/
+		  * @return `true` if `currentState` was not Empty and has not concurrently been set to Empty during this call.
+		  */
 		private[this] def lockNonEmpty(currentState :Int = state) :Boolean = {
 			var current = currentState
 			while (current != Empty || ValStateField.weakCompareAndSet(this, Full, Locked))
@@ -576,7 +578,7 @@ object VolatileBox {
 	/** A simple implementation of VolatileBox based on an `Opt` field erased to `AnyRef` in the byte code,
 	  * which reduces all operations to a single test-and-set (in the worst case)
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private final class VolatileRefBox[T] extends VolatileBox[T] {
 		private[this] var x :Opt[T] = Lack //name x is used by VolatileBox.RefOptField
 
@@ -609,7 +611,7 @@ object VolatileBox {
 		override def testAndSwap(expect :Opt[T], newValue :Opt[T]) :Boolean =
 			testAndSet(contentsOf(expect), contentsOf(newValue))
 
-		@tailrec final override def ?=(newValue :T) :T = x match {
+		@tailrec override def ?=(newValue :T) :T = x match {
 			case Got(expect) =>
 				if (testAndSet(expect, newValue))
 					expect
@@ -618,24 +620,24 @@ object VolatileBox {
 			case _ => throwNoSuch()
 		}
 
-		@inline final override def testAndSet(expect :T, newValue :T) :Boolean =
+		@inline override def testAndSet(expect :T, newValue :T) :Boolean =
 			RefOptField.compareAndSet(this, expect, newValue)
 
-		@tailrec final override def apply(f: T => T): T = x match {
+		@tailrec override def apply(f: T => T): T = x match {
 			case Got(expect) =>
 				val res = f(expect)
 				if (testAndSet(expect, res)) res
 				else apply(f)
 			case _ => throwNoSuch()
 		}
-		@tailrec final override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = x match {
+		@tailrec override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = x match {
 			case Got(expect) =>
 				val res = f(z, expect)
 				if (testAndSet(expect, res)) res
 				else applyLeft(z)(f)
 			case _ => throwNoSuch()
 		}
-		@tailrec final override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = x match {
+		@tailrec override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = x match {
 			case Got(expect) =>
 				val res = f(expect, z)
 				if (testAndSet(expect, res)) res

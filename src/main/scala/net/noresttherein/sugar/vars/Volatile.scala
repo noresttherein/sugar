@@ -22,7 +22,7 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
 	* @define Ref `Volatile`
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
@@ -41,6 +41,7 @@ sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
 /** Factory of boxed `@volatile` variables.
   * @define variable volatile reference variable
   */
+@SerialVersionUID(ver)
 object Volatile extends VolatileLikeFactory[Volatile] {
 
 	implicit def VolatileOrdering[T :Ordering] :Ordering[Volatile[T]] = new InOutOrdering[Volatile, T]
@@ -54,13 +55,13 @@ object Volatile extends VolatileLikeFactory[Volatile] {
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,
 	  * which we do not want).
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class VolatileRef[T](init :T) extends Volatile[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Volatile[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class VolatileBool(init :Boolean) extends Volatile[Boolean](init) with BoolVolatileLike
 
 }

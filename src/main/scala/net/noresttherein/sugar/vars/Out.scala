@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandles
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Ref.undefined
 
 
 
@@ -12,10 +13,10 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * which will throw an [[IllegalStateException]] if accessed before the value is set with one of the methods
   * `this.value = x` or `this := x`, as well as when a second attempt to set its value is made which would
   * override the previously set value. This class is thread safe with ''volatile'' semantics.
-	* @define Ref `Out`
+  * @define Ref `Out`
   * @author Marcin Mościcki
   */ //todo: not thread safe LocalOut version
-@SerialVersionUID(1L) //consider: does it make sense for it to be Serializable?
+@SerialVersionUID(ver) //consider: does it make sense for it to be Serializable?
 sealed class Out[@specialized(SpecializedVars) T] private[vars] extends InOut[T] with Val[T] with Serializable {
 	@scala.volatile private[this] var x :T = _
 	@scala.volatile private[this] var isSet = false //set through InOut.isSetField VarHandle
@@ -64,6 +65,7 @@ sealed class Out[@specialized(SpecializedVars) T] private[vars] extends InOut[T]
   * instances. This [[net.noresttherein.sugar.vars.InOut InOut]] extension allows the value of the variable to be set
   * at most once.
   */
+@SerialVersionUID(ver)
 object Out {
 	/** Create an uninitialized [[net.noresttherein.sugar.vars.InOut InOut]] which cannot be accessed before
 	  * its value is explicitly initialized, and which value can be set at most once.

@@ -3,7 +3,7 @@ package net.noresttherein.sugar.optional
 
 
 
-/** Extension methods providing new, more succinct and hopefully more readable syntax for creating 'Option' values
+/** Factory methods providing new, more succinct and hopefully more readable syntax for creating 'Option' values
   * and conditionally guarded values in general.
   * @author Marcin Mościcki
   */

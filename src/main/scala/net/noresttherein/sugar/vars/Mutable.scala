@@ -11,10 +11,10 @@ import net.noresttherein.sugar.witness.DefaultValue
 /** A marker interface of `InOut` variables which contain a value at all times.
   * No method of this object, including those inherited and those defined only in subclasses,
   * will throw a [[NoSuchElementException]]. `Mutable` instances do not have
-	* [[net.noresttherein.sugar.vars.Mutable.const const]] values,
-	* and their default [[net.noresttherein.sugar.vars.Mutable.get get]] method
-	* returns their current [[net.noresttherein.sugar.vars.Mutable.value value]].
-	* @define Ref `Mutable`
+  * [[net.noresttherein.sugar.vars.Mutable.const const]] values,
+  * and their default [[net.noresttherein.sugar.vars.Mutable.get get]] method
+  * returns their current [[net.noresttherein.sugar.vars.Mutable.value value]].
+  * @define Ref `Mutable`
   * @author Marcin Mościcki
   */
 trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
@@ -79,13 +79,14 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 
 
 
+@SerialVersionUID(ver)
 object Mutable {
 	/** Creates a [[net.noresttherein.sugar.vars.Var Var]] holding the given value. */
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :Mutable[T] = Var(value)
 
 	/** Creates a [[net.noresttherein.sugar.vars.Var Var]] initialized with the default value of `T`, as specified
-		* by [[net.noresttherein.sugar.witness.DefaultValue DefaultValue]] type class.
-		*/
+	  * by [[net.noresttherein.sugar.witness.DefaultValue DefaultValue]] type class.
+	  */
 	@inline def apply[@specialized(SpecializedVars) T :DefaultValue] :Mutable[T] = Var[T]
 
 	implicit def MutableOrdering[V[X] <: Mutable[X], T :Ordering] :Ordering[V[T]] = new InOutOrdering[V, T]

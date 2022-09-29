@@ -163,6 +163,7 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 
 
 
+@SerialVersionUID(ver)
 private[vars] object VolatileLike {
 
 	/** An unspecialized `VolatileLike` implementation overriding atomic mutator methods to compare the value

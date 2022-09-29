@@ -56,8 +56,8 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *
   * For additional utility, this trait implements also Java [[AutoCloseable]]
   * and [[java.lang.ref.Cleaner.Cleanable Cleanable]].
-	*
-	* @define Ref `Clearable`
+  *
+  * @define Ref `Clearable`
   * @author Marcin Mościcki
   */ //consider: making it an InOut
 trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serializable {
@@ -66,14 +66,14 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final override def isFinal :Boolean = opt.isEmpty
 
 	/** Checks if this variable currently holds a value. Note that,
-		* unlike with [[net.noresttherein.sugar.vars.Lazy Lazy]], this property is `true` when the object is created
-		* and, at some point, may become `false` and remains so for the remainder of this object's life.
-		* It makes this method of very dubious utility, as any positive value can be outdated before even
-		* it is returned to the caller. It can however still be used as a flag signaling that some other variable
-		* is initialized, if the initialization of the latter is synchronized with clearing of this object.
-		* In order to access the value, use [[net.noresttherein.sugar.vars.Ref.opt opt]],
-		* [[net.noresttherein.sugar.vars.Ref.option option]] or [[net.noresttherein.sugar.vars.Ref.unsure unsure]].
-		*/
+	  * unlike with [[net.noresttherein.sugar.vars.Lazy Lazy]], this property is `true` when the object is created
+	  * and, at some point, may become `false` and remains so for the remainder of this object's life.
+	  * It makes this method of very dubious utility, as any positive value can be outdated before even
+	  * it is returned to the caller. It can however still be used as a flag signaling that some other variable
+	  * is initialized, if the initialization of the latter is synchronized with clearing of this object.
+	  * In order to access the value, use [[net.noresttherein.sugar.vars.Ref.opt opt]],
+	  * [[net.noresttherein.sugar.vars.Ref.option option]] or [[net.noresttherein.sugar.vars.Ref.unsure unsure]].
+	  */
 	override def isEmpty :Boolean = opt.isEmpty
 
 	/** Returns `false` because a `Clearable` is not (effectively) immutable. */
@@ -135,6 +135,7 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 
 
 
+@SerialVersionUID(ver)
 object Clearable {
 	/** A non synchronized, non thread safe `Clearable` variable initialized with the given value. */
 	def apply[T](value :T) :Clearable[T] = new PlainClearable[T](Got(value))
@@ -146,21 +147,21 @@ object Clearable {
 	def volatile[T](value :T) :Clearable[T] = new VolatileClearable(value)
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class PlainClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = x.get
 		override def opt :Opt[T] = x
 		override def clear() :Unit = x = Lack
 	}
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private final class SyncClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = synchronized(x.get)
 		override def opt :Opt[T] = synchronized(x)
 		override def clear() :Unit = synchronized { x = Lack }
 	}
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private final class VolatileClearable[+T](init :T) extends Clearable[T] {
 		@volatile private[this] var x :Opt[T] =  Got(init)
 

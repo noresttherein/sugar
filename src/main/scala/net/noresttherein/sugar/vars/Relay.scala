@@ -15,13 +15,13 @@ import net.noresttherein.sugar.vars.Relay.{Reader, Writer}
   * provided by the writer in the setter is handed over to the reader in the getter. Read access will block
   * if no producers are currently waiting on this channel and, similarly, setter calls will also block
   * if there are no readers ready to consume the value. In that sense, this `Ref` is always empty, as it stores
-	* no value until read. Both readers and writers are processed on a first come, first served basis.
-	*
-	* Synchronization happens under the monitor of this instance; it is therefore possible for client code
-	* to perform more complex operations atomically by locking it manually.
-	*
-	* `Relay` redefines equality as referential equality: no instance will equal any other `Ref` instance.
-	* @define Ref `Relay`
+  * no value until read. Both readers and writers are processed on a first come, first served basis.
+  *
+  * Synchronization happens under the monitor of this instance; it is therefore possible for client code
+  * to perform more complex operations atomically by locking it manually.
+  *
+  * `Relay` redefines equality as referential equality: no instance will equal any other `Ref` instance.
+  * @define Ref `Relay`
   * @author Marcin Mościcki
   */ //not a Serializable
 sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InOut[T] {
@@ -48,13 +48,13 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 	override def isDefined :Boolean = true
 
 	/** Checks if there are any writing threads waiting on this relay port. The following code won't block:
-		* {{{
-		*     val maybeGet = relay.synchronized {
-		*         if (relay.isDefinite) Some(relay.get)
-		*         else None
-		*     }
-		* }}}
-		*/
+	  * {{{
+	  *     val maybeGet = relay.synchronized {
+	  *         if (relay.isDefinite) Some(relay.get)
+	  *         else None
+	  *     }
+	  * }}}
+	  */
 	override def isDefinite :Boolean = synchronized { writers != null }
 
 	/** Synchronously returns a value some other thread 'assigns' to this variable, with every call
@@ -102,9 +102,9 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 	}
 
 	/** Returns the value set by the first writer in the queue for this `Relay`. This method does not block:
-		* if no writers are present, it throws a [[NoSuchElementException]].
-		* @see [[net.noresttherein.sugar.vars.Relay.get]]
-		*/
+	  * if no writers are present, it throws a [[NoSuchElementException]].
+	  * @see [[net.noresttherein.sugar.vars.Relay.get]]
+	  */
 	override def value :T = {
 		val actor = synchronized {
 			if (writers == null)
@@ -194,6 +194,7 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 
 
 
+@SerialVersionUID(ver)
 object Relay {
 	/** Creates a new synchronization channel for passing values of type `T` between threads. */
 	def apply[@specialized(SpecializedVars) T] :Relay[T] = new Relay[T]

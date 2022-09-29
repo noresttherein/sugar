@@ -122,7 +122,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 
 
 /** Base trait for exceptions, providing Scala-style accessors to properties of `Throwable` */
-trait SugaredException extends Exception with SugaredThrowable
+trait SugaredException extends Exception with SugaredThrowable //todo: classes supporting lazy messages
 
 
 /** A base exception class extending `SugaredException` and accepting all constructor parameters of `Throwable`.

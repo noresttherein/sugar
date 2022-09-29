@@ -1,10 +1,12 @@
 package net.noresttherein.sugar.vars
 
 import java.lang.invoke.VarHandle.{acquireFence, releaseFence}
+
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Ref.undefined
 
 
 
@@ -12,7 +14,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 /** A lazy value initialized with an idempotent expression which may be evaluated more than once.
   * The advantage here is reduced synchronization overhead comparing to a Scala's standard `lazy val`,
   * even reduced to zero for value types once the value is initialized.
-	* @define Ref `Idempotent`
+  * @define Ref `Idempotent`
   * @author Marcin Mościcki
   */
 trait Idempotent[@specialized(SpecializedVars) +T] extends Lazy[T] {
@@ -22,6 +24,7 @@ trait Idempotent[@specialized(SpecializedVars) +T] extends Lazy[T] {
 
 
 
+@SerialVersionUID(ver)
 object Idempotent {
 
 	/** Creates a lazy value initialized - possibly multiple times - by an idempotent expression.
@@ -53,7 +56,7 @@ object Idempotent {
 	/** A full `Idempotent` lazy value implementation as a mix-in trait for application classes,
 	  * in particular various lazy proxies.
 	  */
-	trait AbstractIdempotent[@specialized(SpecializedVars) +T] extends Idempotent[T] {
+	private trait AbstractIdempotent[@specialized(SpecializedVars) +T] extends Idempotent[T] {
 		@scala.volatile protected[this] var initializer :() => T
 		@scala.volatile private[this] var evaluated :T = _
 
@@ -132,7 +135,7 @@ object Idempotent {
 
 
 	/** An already computed (initialized) value. */ //todo: make it specialized
-	@SerialVersionUID(1L) //Not specialized so we don't box the value type to fit in an Opt all the time
+	@SerialVersionUID(ver) //Not specialized so we don't box the value type to fit in an Opt all the time
 	private class EagerIdempotent[+T](x :T) extends Idempotent[T] {
 		override def isEmpty  :Boolean = false
 		override def value    :T = x
@@ -149,7 +152,7 @@ object Idempotent {
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
 	  * which allows more lax synchronisation.
 	  */
-	@SerialVersionUID(1L) //todo: make it specialized
+	@SerialVersionUID(ver) //todo: make it specialized
 	private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Idempotent[T]
 	{	//no need for fences because T is a value type
@@ -235,7 +238,7 @@ object Idempotent {
 	/** `Idempotent` implementation for arbitrary types. All reads are behind an `acquireFence`, while initialization
 	  * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[vars] class IdempotentRef[T](private[this] var initializer :() => T) extends Idempotent[T] {
 		private[this] var evaluated :T = _
 

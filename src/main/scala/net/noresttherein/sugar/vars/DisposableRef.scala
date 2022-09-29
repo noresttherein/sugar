@@ -17,7 +17,7 @@ import net.noresttherein.sugar.vars.WeakRef.WrappedWeakRef
   * of [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]], with API expressed in terms of the latter,
   * rather than Java [[java.lang.ref.Reference Reference]] (and using `Option`s instead of `null`s).
   */
-class RefQueue[T](name :String) {
+class RefQueue[T](name :String) { //not serializable!
 	def this() = this(null)
 
 	private[vars] val underlying :ReferenceQueue[T] = new ReferenceQueue[T]
@@ -46,7 +46,7 @@ class RefQueue[T](name :String) {
 
 /** An adaptation of Java [[java.lang.ref.Reference Reference]] class hierarchy
   * to [[net.noresttherein.sugar.vars.Ref Ref]] interface.
-	* @define Ref `DisposableRef`
+  * @define Ref `DisposableRef`
   * @author Marcin Mościcki
   */ //not a Serializable because Reference is not a Serializable
 sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])

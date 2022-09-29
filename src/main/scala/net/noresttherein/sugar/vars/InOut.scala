@@ -11,7 +11,7 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 /** An interface for mutable values being reference wrappers over `var` fields. Designed for in/out parameters
-	* of functions. Implemented by several boxing classes which may provide additional features such as synchronization.
+  * of functions. Implemented by several boxing classes which may provide additional features such as synchronization.
   * Implicit conversions exist providing arithmetic suitable to the type of the boxed value, so for example
   * you can write `param += 1` for `param :InOut[Int]`.
   *
@@ -20,14 +20,14 @@ import net.noresttherein.sugar.witness.DefaultValue
   * returns `this.`[[net.noresttherein.sugar.vars.InOut.value value]], these two properties can have different
   * semantics in some classes, such as [[net.noresttherein.sugar.vars.Finalizable Finalizable]].
   * Where applicable, the subclasses use `value` as the 'current' value and `get` for a more final/public version.
-	* Furthermore, instances of some implementations can have no current value
-	* (i.e., `value` throws a [[NoSuchElementException]] and [[net.noresttherein.sugar.vars.Ref.option option]]
-	* returns `None`).
+  * Furthermore, instances of some implementations can have no current value
+  * (i.e., `value` throws a [[NoSuchElementException]] and [[net.noresttherein.sugar.vars.Ref.option option]]
+  * returns `None`).
   * @tparam T the type of this variable.
   * @see [[net.noresttherein.sugar.vars.Var]]
   * @see [[net.noresttherein.sugar.vars.Volatile]]
   * @see [[net.noresttherein.sugar.vars.SyncVar]]
-	* @define Ref `InOut`
+  * @define Ref `InOut`
   */
 trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
@@ -44,7 +44,8 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	@inline final def :=(newValue :T) :Unit = value = newValue
 
 	/** Assigns a new value returning the previous value.
-	  * No guarantee is made by this interface about atomicity of this operation.
+	  * No guarantee is made by this interface about atomicity of this operation,
+	  * although some subclasses do implement it.
 	  */
 	@throws[IllegalStateException]("if the Ref doesn't allow subsequent modifications.")
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
@@ -239,6 +240,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
 
 /** Factory of boxed in/out method parameters. */
+@SerialVersionUID(ver)
 object InOut {
 	final val SpecializedVars = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
 
@@ -251,10 +253,13 @@ object InOut {
 
 
 
-	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.sugar.vars.InOut.:? :?]]. */
+	/** An intermediate value of a ''test-and-set'' operation initiated by [[net.noresttherein.sugar.vars.InOut.:? :?]].
+	  * Offers the actual setter method [[net.noresttherein.sugar.vars.InOut.TestAndSet.:= :=]].
+	  */
 	final class TestAndSet[@specialized(SpecializedVars) T] private[vars](x :InOut[T], expect :T) {
 		/** If the current value of tested variable equals the preceding value, assign to it the new value. */
-		@inline  def :=(value :T) :Boolean = x.testAndSet(expect, value)
+		@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
+		@inline def :=(value :T) :Boolean = x.testAndSet(expect, value)
 	}
 
 
@@ -263,6 +268,7 @@ object InOut {
 	@inline final implicit def unboxInOut[@specialized(SpecializedVars) T](variable :InOut[T]) :T = variable.value
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs or cause conflicts. */
+	@SerialVersionUID(ver)
 	object implicits {
 		/** Implicitly creates a `InOut` instance with a given value. This implicit is optional as the main use of `InOut[T]`
 		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `InOut[T]`
@@ -313,6 +319,7 @@ object InOut {
 	}
 
 
+	@SerialVersionUID(ver)
 	private[vars] class InOutOrdering[V[X] <: InOut[X], T](implicit content :Ordering[T]) extends Ordering[V[T]] {
 		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.get, y.get)
 	}
@@ -887,10 +894,11 @@ object InOut {
 	  * the same type. This trait is specialized in order to enforce specialization of accepting methods, which
 	  * wouldn't be the case with `=:=`.
 	  */
-	private[vars] trait TypeEquiv[@specialized(SpecializedVars) X, Y] {
+	private[vars] trait TypeEquiv[@specialized(SpecializedVars) X, Y] extends Serializable {
 		def apply[B[_]](param :B[X]) :B[Y]
 	}
 
+	@SerialVersionUID(ver)
 	private[vars] final class TypeIdent[@specialized(SpecializedVars) X] extends TypeEquiv[X, X] {
 		override def apply[B[_]](param :B[X]) :B[X] = param
 

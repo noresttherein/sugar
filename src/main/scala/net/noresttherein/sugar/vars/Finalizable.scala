@@ -29,10 +29,10 @@ import net.noresttherein.sugar.witness.DefaultValue
   * if the variable has been finalized (although `false` results may become outdated before being read by the caller)
   * and [[net.noresttherein.sugar.vars.Ref.option option]] and [[net.noresttherein.sugar.vars.Ref.opt opt]] have also
   * semantics of the immutable `Val`, returning `None`/`Lack` if the variable is not finalized.
-	* @define Ref `Finalizable`
+  * @define Ref `Finalizable`
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: making it a Ref, not a Val, so that equality compares current values
-@SerialVersionUID(1L) //todo: SignalFinalizable
+@SerialVersionUID(ver) //todo: SignalFinalizable
 sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T)
 	extends InOut[T] with Val[T] with Serializable //consider: does it make sense for it to be Serializable
 {
@@ -68,9 +68,9 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	final override def value :T = x
 
 	/** Sets the value of this variable to `newValue`.
-		* @throws IllegalStateException if this variable is finalized.
-		* @see [[net.noresttherein.sugar.vars.Finalizable.const_=]]
-		*/
+	  * @throws IllegalStateException if this variable is finalized.
+	  * @see [[net.noresttherein.sugar.vars.Finalizable.const_=]]
+	  */
 	override def value_=(newValue :T) :Unit = {
 		lock()
 		x = newValue
@@ -79,32 +79,32 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	private[vars] final def set(newValue :T) :Unit = x = newValue
 
 	/** The finalized value of this variable.
-		* @throws NoSuchElementException if this variable is not finalized.
-		*/
+	  * @throws NoSuchElementException if this variable is not finalized.
+	  */
 	final override def get :T =
 		if (state == Immutable) x else throw new NoSuchElementException(toString + " is not finalized.")
 
 	/** The finalized value of this variable.
-		* @throws IllegalStateException if this variable is not finalized.
-		*/
+	  * @throws IllegalStateException if this variable is not finalized.
+	  */
 	override def const :T =
 		if (state == Immutable) x else throw new UnsupportedOperationException(toString + " is not finalized.")
 
 	/** Sets the final, [[net.noresttherein.sugar.vars.Finalizable.const constant]] value of this `Val`.
-		* Same as `this.`[[net.noresttherein.sugar.vars.Finalizable.const_= const]]` = value`.
-		*/
+	  * Same as `this.`[[net.noresttherein.sugar.vars.Finalizable.const_= const]]` = value`.
+	  */
 	@inline final def finalized_=(value :T) :Unit = const = value
 
 	/** Transitions this variable to an immutable `Val` state with the given value. It is equivalent to an atomic
-		* version of
-		* {{{
-		*   this.value = finalValue; this.makeFinal()
-		* }}}
-		* From this time on, all future assignments
-		* will throw an [[IllegalStateException]], [[net.noresttherein.sugar.vars.Finalizable.isDefined isDefined]]
-		* will always return `true`, and [[net.noresttherein.sugar.vars.Finalizable.apply() apply]]`()` will
-		* return `finalValue`.
-		*/
+	  * version of
+	  * {{{
+	  *   this.value = finalValue; this.makeFinal()
+	  * }}}
+	  * From this time on, all future assignments
+	  * will throw an [[IllegalStateException]], [[net.noresttherein.sugar.vars.Finalizable.isDefined isDefined]]
+	  * will always return `true`, and [[net.noresttherein.sugar.vars.Finalizable.apply() apply]]`()` will
+	  * return `finalValue`.
+	  */
 	@throws[IllegalStateException]("if this variable is already final.")
 	def const_=(finalValue :T): Unit = {
 		lock()
@@ -213,6 +213,7 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 
 /** Factory of boxed [[net.noresttherein.sugar.vars.Finalizable Finalizable]] variables.
   */
+@SerialVersionUID(ver)
 object Finalizable {
 	/** Create a new finalizable variable which can be shared by multiple threads. */
 	def apply[@specialized(SpecializedVars) T](init :T) :Finalizable[T] = new Finalizable(init)

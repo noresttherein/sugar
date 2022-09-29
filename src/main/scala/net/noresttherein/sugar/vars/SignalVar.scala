@@ -43,7 +43,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @see [[net.noresttherein.sugar.vars.SignalVal]]
   * @see [[net.noresttherein.sugar.vars.Watched]]
   * @see [[net.noresttherein.sugar.vars.Relay]]
-	* @define Ref `SignalVar`
+  * @define Ref `SignalVar`
   */
 sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
 	extends SyncVar[T]
@@ -344,6 +344,7 @@ sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[t
 
 
 /** A factory of synchronized variables whose updates signal any threads currently waiting for their change. */
+@SerialVersionUID(ver)
 object SignalVar {
 	/** Creates a new wrapper over a synchronized `var`, allowing threads to wait for future changes.
 	  * @param init the initial value of the variable.

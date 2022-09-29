@@ -25,7 +25,7 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   * @define Ref `Atomic`
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
@@ -51,6 +51,7 @@ sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this
 /** Factory of [[net.noresttherein.sugar.vars.Atomic atomic]] variables.
   * @define variable atomic variable
   */
+@SerialVersionUID(ver)
 object Atomic extends VolatileLikeFactory[Atomic] {
 
 	implicit def AtomicOrdering[T :Ordering] :Ordering[Atomic[T]] = new InOutOrdering[Atomic, T]
@@ -65,13 +66,13 @@ object Atomic extends VolatileLikeFactory[Atomic] {
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Atomic` (which would call `equals` on reference types,
 	  * which we do not want).
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class AtomicRef[T](init :T) extends Atomic[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Atomic[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class AtomicBool(init :Boolean) extends Atomic[Boolean](init) with BoolVolatileLike
 
 }

@@ -15,9 +15,9 @@ import net.noresttherein.sugar.witness.DefaultValue
   * interface may be preferable to reduce the number of virtual calls and possibly facilitate hotspot inlining.
   * @tparam T the type of this variable.
   * @see [[net.noresttherein.sugar.vars.Var$]]
-	* @define Ref `Var`
+  * @define Ref `Var`
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
 	extends Mutable[T] with Serializable
 {
@@ -254,6 +254,7 @@ sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] v
 
 
 
+@SerialVersionUID(ver)
 object Var {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
@@ -266,6 +267,7 @@ object Var {
 
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs. */
+	@SerialVersionUID(ver)
 	object implicits {
 		/** Implicitly creates a `Var` with a given value. This implicit is optional as the main use of `Var[T]`
 		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `Var[T]`

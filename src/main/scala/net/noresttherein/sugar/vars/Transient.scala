@@ -5,6 +5,7 @@ import scala.annotation.unspecialized
 import net.noresttherein.sugar.vars.Idempotent.IdempotentRef
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Ref.undefined
 
 
 
@@ -15,7 +16,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * meaning it will be evaluated again on deserialization if the value is required. This is useful
   * if the value is large, not serializable, or if it references singleton values (which do not implement
   * aliasing after deserialization to ensure that only one instance exists, as Scala's singleton objects do).
-	* @define Ref `Transient`
+  * @define Ref `Transient`
   * @author Marcin Mościcki
   */
 sealed trait Transient[@specialized(SpecializedVars) +T] extends Idempotent[T] {
@@ -28,6 +29,7 @@ sealed trait Transient[@specialized(SpecializedVars) +T] extends Idempotent[T] {
 /** A factory of simple wrappers of lazily initialized `@transient` values which are re-initialized after
   * serialization and deserialization.
   */
+@SerialVersionUID(ver)
 object Transient {
 	//todo: a macro accepting idempotent: => T
 
@@ -48,7 +50,7 @@ object Transient {
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
 	  * which allows more lax synchronisation.
 	  */
-	@SerialVersionUID(1L) //todo: make it really specialized
+	@SerialVersionUID(ver) //todo: make it really specialized
 	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Eval[T]) extends Transient[T] {
 		@transient private[this] var evaluated :Any = undefined
 
@@ -108,7 +110,7 @@ object Transient {
 	/** `Transient` implementation for arbitrary types. All reads are behind an `acquireFence`, while initialization
 	  * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class TransientRef[T](initializer :Eval[T]) extends Transient[T] {
 		@transient @volatile private[this] var evaluated :Any = _
 

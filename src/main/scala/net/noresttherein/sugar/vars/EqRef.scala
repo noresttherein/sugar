@@ -13,7 +13,7 @@ import net.noresttherein.sugar.vars.Ref.FinalRef
   * @see [[net.noresttherein.sugar.collection.MutableEqSet]]
   * @see [[net.noresttherein.sugar.collection.MutableEqMap]]
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 final class EqRef[+T] private (x :T) extends Ref[T] with FinalRef[T] with Serializable {
 	override def isEmpty   :Boolean = false
 	override def get       :T = x
@@ -37,6 +37,7 @@ final class EqRef[+T] private (x :T) extends Ref[T] with FinalRef[T] with Serial
 
 
 /** A factory of light wrappers defining equality as referential equality (`eq`) of their underlying values. */
+@SerialVersionUID(ver)
 object EqRef {
 	/** Creates an immutable wrapper over `value` defining equality as `value eq _`. */
 	def apply[T](value :T) :EqRef[T] = new EqRef(value)

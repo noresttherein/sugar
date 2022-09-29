@@ -8,9 +8,9 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
 
 
 /** A supertype of variables which can reach an immutable, final state and have well defined
-	* [[net.noresttherein.sugar.vars.Ref.const constant]] values. The current
-	* [[net.noresttherein.sugar.vars.Ref.value value]] of a `Val` can be mutable,
-	* but [[net.noresttherein.sugar.vars.Ref.get get]] will not change once set,
+  * [[net.noresttherein.sugar.vars.Ref.const constant]] values. The current
+  * [[net.noresttherein.sugar.vars.Ref.value value]] of a `Val` can be mutable,
+  * but [[net.noresttherein.sugar.vars.Ref.get get]] will not change once set,
   * and all ''successful'' reads return the same value. The chief implementation class is
   * [[net.noresttherein.sugar.vars.Lazy Lazy]], but the value can be also set explicitly at a later time as in
   * [[net.noresttherein.sugar.vars.Out Out]].
@@ -21,15 +21,15 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   * will always return a value, and always the same value for the same instance of `Val`.
   * How and when that value is computed is unspecified, and optional methods
   * [[net.noresttherein.sugar.vars.Ref.opt opt]]/[[net.noresttherein.sugar.vars.Ref.option option]]/[[net.noresttherein.sugar.vars.Ref.unsure unsure]]
-	* and [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
-	* are allowed to return empty instances if the value is not available at the moment of calling.
+  * and [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
+  * are allowed to return empty instances if the value is not available at the moment of calling.
   *
   * Equality and `hashCode` is universally defined as equality of `const` values, and thus may block.
-	* If the constant value is unknown and cannot be computed at this point, a `Val` will equal no other instance
-	* other than itself. Also, a `Val` can equal only other `Val`s, irrespective of their concrete implementation.
+  * If the constant value is unknown and cannot be computed at this point, a `Val` will equal no other instance
+  * other than itself. Also, a `Val` can equal only other `Val`s, irrespective of their concrete implementation.
   * This trait and all its subclasses is thread safe.
-	*
-	* @define Ref `Val`
+  *
+  * @define Ref `Val`
   * @author Marcin Mościcki
   */ //consider: caching of the T wrapper, Opt, Option, Unsure
 trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //consider: toRef for equality semantic change
@@ -37,53 +37,55 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //co
 	override def isFinal :Boolean = isDefinite //or nonEmpty,
 
 	/** The instance holds a, possibly temporary, [[net.noresttherein.sugar.vars.Val.value value]].
-		* Without information about the concrete class of this $Ref the method is of little use.
-		* Use [[net.noresttherein.sugar.vars.Val.isDefined isDefined]] in order to verify if the actual
-		* [[net.noresttherein.sugar.vars.Val.const constant]] value can be computed
-		* or [[net.noresttherein.sugar.vars.Val.isConst isConst]] to check if it is already available.
-		* @return `!`[[net.noresttherein.sugar.vars.Val.isEmpty isEmpty]].
-		*/
+	  * Without information about the concrete class of this $Ref the method is of little use.
+	  * Use [[net.noresttherein.sugar.vars.Val.isDefined isDefined]] in order to verify if the actual
+	  * [[net.noresttherein.sugar.vars.Val.const constant]] value can be computed
+	  * or [[net.noresttherein.sugar.vars.Val.isConst isConst]] to check if it is already available.
+	  * @return `!`[[net.noresttherein.sugar.vars.Val.isEmpty isEmpty]].
+	  */
 	@inline final override def nonEmpty :Boolean = !isEmpty
 
 	/** The current wrapped value, if available. Depending on the actual implementation,
 	  * it can throw a [[NoSuchElementException]]. It may not be the [[net.noresttherein.sugar.vars.Val.const constant]]
-		* value of this `Val`: some implementations extend also [[net.noresttherein.sugar.vars.InOut InOut]],
-		* splitting their life cycle into two phases: mutable initialization and immutable final phase. In that case
-		* `this.`[[net.noresttherein.sugar.vars.InOut.value value]] may return different values for different calls.
-		* In most cases, there should be no need to call this method on a `Val`: prefer using
-		* [[net.noresttherein.sugar.vars.Val.get get]] and `const`, which will always return the same value
-		* from successful calls.
+	  * value of this `Val`: some implementations extend also [[net.noresttherein.sugar.vars.InOut InOut]],
+	  * splitting their life cycle into two phases: mutable initialization and immutable final phase. In that case
+	  * `this.`[[net.noresttherein.sugar.vars.InOut.value value]] may return different values for different calls.
+	  * In most cases, there should be no need to call this method on a `Val`: prefer using
+	  * [[net.noresttherein.sugar.vars.Val.get get]] and `const`, which will always return the same value
+	  * from successful calls.
 	  */ //redeclaration from Ref solely for a documentation change.
 	override def value :T
 
 	/** The wrapped value, if available. Depending on the actual implementation,
-		* it can throw a [[NoSuchElementException]]. If any call completes without throwing an exception,
-		* all subsequent calls will return the same value.
-		*///redeclaration from Ref solely for a documentation change.
+	  * it can throw a [[NoSuchElementException]]. If any call completes without throwing an exception,
+	  * all subsequent calls will return the same value.
+	  *///redeclaration from Ref solely for a documentation change.
 	override def get :T
 
 	/** The evaluated value of this `Val`.
-		* @return `this.`[[net.noresttherein.sugar.vars.Val.const const]].
-		*/
-	@inline final override def apply(): T = const
+	  * @return `this.`[[net.noresttherein.sugar.vars.Val.const const]].
+	  */
+	@inline final override def apply() :T = const
+
+	@inline final override def ?? :Potential[T] = toPotential
 
 	/** Creates a new `Val` the value of which is derived from the value of this instance.
-		* If `this.`[[net.noresttherein.sugar.vars.Val.isConst isConst]], then the new value is initialized immediately
-		* with `f(get)`. Otherwise, a proxy object is returned, which implements
-		* [[net.noresttherein.sugar.vars.Val.isDefined isDefined]],
-		* [[net.noresttherein.sugar.vars.Val.get get]], [[net.noresttherein.sugar.vars.Val.const const]]
-		* and their optional variants by delegating to this instance.
-		* The semantics of [[net.noresttherein.sugar.vars.Val.value value]] and other methods querying the temporary state
-		* are undefined.
-		*/
+	  * If `this.`[[net.noresttherein.sugar.vars.Val.isConst isConst]], then the new value is initialized immediately
+	  * with `f(get)`. Otherwise, a proxy object is returned, which implements
+	  * [[net.noresttherein.sugar.vars.Val.isDefined isDefined]],
+	  * [[net.noresttherein.sugar.vars.Val.get get]], [[net.noresttherein.sugar.vars.Val.const const]]
+	  * and their optional variants by delegating to this instance.
+	  * The semantics of [[net.noresttherein.sugar.vars.Val.value value]] and other methods querying the temporary state
+	  * are undefined.
+	  */
 	def map[O](f :T => O) :Val[O] = opt match {
 		case Got(v) => Lazy.eager(f(v))
 		case _ => new MappedVal(this, f)
 	}
 
 	/** Compares the evaluated [[net.noresttherein.sugar.vars.Val.const const]] values for equality,
-		* blocking if either of the instances is not yet initialized.
-		*/
+	  * blocking if either of the instances is not yet initialized.
+	  */
 	override def equals(that :Any) :Boolean = that match {
 		case self :AnyRef if this eq self => true
 		case other :Val[_] if other canEqual this => const == other.const
@@ -97,6 +99,7 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //co
 
 
 
+@SerialVersionUID(ver)
 object Val {
 	/** A wrapper over truly immutable, eagerly initialized value. Usually not very useful in the application code,
 	  * but methods which work on lazy values can in some cases return such an instance if the argument
@@ -126,7 +129,7 @@ object Val {
 
 
 /** A proxy `Val` mapping the value of another `Val`. */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 private class MappedVal[T, +O](source: Val[T], f: T => O) extends Val[O] {
 	@volatile private[this] var x: Opt[O] = Lack
 

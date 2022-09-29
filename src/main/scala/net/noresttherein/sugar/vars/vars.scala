@@ -3,26 +3,36 @@ package net.noresttherein.sugar
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
-import net.noresttherein.sugar.vars.Checked.Failed
+import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent, NonExistent, WithFilter}
+import net.noresttherein.sugar.exceptions.{StackableException, StackableThrowable, SugaredException}
 
 
 
 
-/**
+/** A home to a wide class hierarchy of value wrappers: [[net.noresttherein.sugar.vars.InOut in/out]]
+  * method parameters, [[net.noresttherein.sugar.vars.Atomic atomic]]
+  * and [[net.noresttherein.sugar.vars.ThreadLocal thread local]] variables,
+  * several [[net.noresttherein.sugar.vars.Lazy lazy]] `val` implementations,
+  * [[net.noresttherein.sugar.vars.Opt various]] `Option` [[net.noresttherein.sugar.vars.Unsure alternatives]],
+  * [[net.noresttherein.sugar.vars.Relay synchronization]] tools
+  * and [[net.noresttherein.sugar.vars.SignalVar conditional variables]],
+  * [[net.noresttherein.sugar.vars.Watched observed]] variables,
+  * disposable [[java.lang.ref.Reference]] [[net.noresttherein.sugar.vars.DisposableRef adapters]] and others.
+  *
   * @define Potential [[net.noresttherein.sugar.vars.Potential! Potential]]
   * @define Existent [[net.noresttherein.sugar.vars.Existent$ Existent]]
   * @define Inexistent [[net.noresttherein.sugar.vars.Inexistent$ Inexistent]]
-  * @define Checked [[net.noresttherein.sugar.vars.Checked! Checked]]
-  * @define Passed [[net.noresttherein.sugar.vars.Checked.Passed Passed]]
-  * @define Failed [[net.noresttherein.sugar.vars.Checked.Failed Failed]]
+  * @define Fallible [[net.noresttherein.sugar.vars.Fallible! Fallible]]
+  * @define Passed [[net.noresttherein.sugar.vars.Fallible.Passed Passed]]
+  * @define Failed [[net.noresttherein.sugar.vars.Fallible.Failed Failed]]
   * @define Pill [[net.noresttherein.sugar.vars.Pill! Pill]]
   * @define Blue [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]]
   * @define Red  [[net.noresttherein.sugar.vars.Pill.Red$ Red]]
   */
-package object vars {
+package object vars extends vars.Rank1PotentialImplicits {
 
 //	type Wish[+A]
 //	type Granted[+A] <: Wish[A]
@@ -36,6 +46,8 @@ package object vars {
 //	type Filled[+A] <: Space[A]
 //	val Blank :Space[Nothing]
 
+	final val ver = 1L
+
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]].
 	  * A `Potential[A]` can be have three forms:
@@ -43,8 +55,7 @@ package object vars {
 	  *      to [[scala.None]];
 	  *   1. $Existent[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
 	  *   1. $Existent[A], defensively wrapped - used to differentiate `Existent(Inexistent)` from `Inexistent`.
-	  * Outside of nesting `Potential` instances within each other or explicitly calling
-	  * [[net.noresttherein.sugar.vars.PotentialExtension.reify reify]], no boxing takes place for reference types
+	  * Outside of nesting `Potential` instances within each other, no boxing takes place for reference types
 	  * under any circumstances, in particular when creating an `Array[Potential[A]]` or `Seq[Potential[A]]`,
 	  * using it as an argument or return value of a function, or, in general, substituting it for an abstract type
 	  * (including type parameters). The type is not `@specialized`, so boxing of value types, as well as lifting
@@ -65,6 +76,16 @@ package object vars {
 	  */
 	type Potential[+A]// >: Existent[A]
 
+	/** An alias for $Potential`[A]`, a fully erased variant of [[scala.Option]] with an API defined
+	  * by [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]] as extension methods.
+	  * @see [[net.noresttherein.sugar.vars.Potential.Existent$]]
+	  * @see [[net.noresttherein.sugar.vars.Potential.Inexistent]]
+	  * @see [[net.noresttherein.sugar.vars.Opt]]
+	  * @see [[net.noresttherein.sugar.vars.Unsure]]
+	  */
+	type ??[+A] = Potential[A]
+	
+	
 	/** The API of $Potential in the form of extension methods. */
 	implicit class PotentialExtension[A](private val self :Potential[A]) extends AnyVal {
 
@@ -76,19 +97,13 @@ package object vars {
 		@inline def nonEmpty: Boolean = self.asInstanceOf[AnyRef] ne NonExistent
 
 		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
+		@inline def isConst: Boolean = self.asInstanceOf[AnyRef] ne NonExistent
+
+		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
 		@inline def isDefined: Boolean = self.asInstanceOf[AnyRef] ne NonExistent
 
-//		/** Lifts an erased, [[net.noresttherein.sugar.vars.Potential.Existent existent]] value to
-//		  * its wrapped representation which will fail type matches in the form of `_ :A`.
-//		  * This boxing may be useful when there is a need to match this object against types unrelated
-//		  * to `Potential`, or as a defensive measure when passing it as an argument or returning as `Any`/`AnyRef`.
-//		  * This essentially duplicates the behaviour of value classes, which are lifted to their `AnyRef`
-//		  * representation whenever used in a place of an abstract type (such as an element of a collection).
-//		  */
-//		@inline def reify :Potential[A] = (self :Any) match {
-//			case NonExistent | _ :Existent[_] => self
-//			case value => new Existent(value).asInstanceOf[Potential[A]]
-//		}
+		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
+		@inline def isDefinite :Boolean = self.asInstanceOf[AnyRef] ne NonExistent
 
 		/** Forces extraction of the value.
 		  * @return contained value, if one exists.
@@ -202,11 +217,15 @@ package object vars {
 		/** Returns `Inexistent` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
 		def removedAll[O >: A](that :IterableOnce[O]) :Potential[A] = that match {
 			case _ if self.asInstanceOf[AnyRef] eq NonExistent => self
-			case it :Iterable[O] =>
-				if (it.isEmpty || !it.toSet(get)) self
-				else Inexistent
-			case _ if that.iterator.toSet(get) => Inexistent
-			case _ => self
+			case it :Set[O] => if (it(get)) Inexistent else self
+			case it :Iterable[O] if it.isEmpty => self
+			case _ =>
+				val i = that.iterator
+				val x = get
+				while (i.hasNext)
+					if (i.next() == x)
+						return Inexistent
+				self
 		}
 
 		/** Returns a new `Potential` containing this value if it is not empty and its value satisfies
@@ -233,7 +252,7 @@ package object vars {
 		/** Tests if this `Potential` contains no value or its value satisfies the given predicate. */
 		@inline def forall(p :A => Boolean): Boolean = (self.asInstanceOf[AnyRef] eq NonExistent) || p(get)
 
-		/** Executes the given block for this `PotentiaL`s value if it is not empty. */
+		/** Executes the given block for this `Potential`'s value if it is not empty. */
 		@inline def foreach[O](f :A => O) :Unit = if (self.asInstanceOf[AnyRef] ne NonExistent) f(get)
 
 		/** Returns `Inexistent` if this `Potential` is empty or the partial function `f` is not defined for its value,
@@ -248,7 +267,7 @@ package object vars {
 				}
 
 
-		/** Returns a `PotentiaL` formed from the contents of `this` and `that` by combining the corresponding elements
+		/** Returns a `Potential` formed from the contents of `this` and `that` by combining the corresponding elements
 		  *  in a pair. If either of the two options is empty, `Inexistent` is returned. */
 		@inline def zip[O](that :Potential[O]) :Potential[(A, O)] =
 			if ((self.asInstanceOf[AnyRef] eq NonExistent) | (that.asInstanceOf[AnyRef] eq NonExistent))
@@ -279,24 +298,63 @@ package object vars {
 		@inline def toIterable :Iterable[A] =
 			if (self.asInstanceOf[AnyRef] eq NonExistent) Iterable.empty else Iterable.single(get)
 
-		//conflict with (this :Opt[A]).opt, which does the same thing
+		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOption toOption]]. */
+		@inline def option :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+
+		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOpt toOpt]]. */
 		@inline def opt :Opt[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Lack else Got(get)
+
+		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toUnsure toUnsure]]. */
+		@inline def unsure :Unsure[A] =
+			if (self.asInstanceOf[AnyRef] eq NonExistent)
+				Missing else {
+				val a = get
+				new Sure(a, cachedOpt = Got(a))
+			}
 
 		/** Conversion to standard Scala [[scala.Option]].
 		  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
-		@inline def ? :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+		@inline def toOption :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+
+		/** Conversion to a value class `Opt`. The difference is that `Opt` will be reified to a runtime object
+		  * wrapping its value when used as a value of its supertype or an abstract type (for example, a type parameter).
+		  * The benefit is that, unlike `Potential`, it loses no information and can be pattern matched,
+		  * but at the cost of boxing. There is an implicit conversion to the same effect.
+		  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
+		@inline def toOpt :Opt[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Lack else Got(get)
 
 		/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 		  * is specialized for value types, this type is not, and the result will not be specialized. Neither will it
 		  * require boxing though, as any value type was promoted to a reference wrapper when creating this `Potential`.
 		  */
-		@inline def unsure :Unsure[A] =
+		@inline def toUnsure :Unsure[A] =
 			if (self.asInstanceOf[AnyRef] eq NonExistent)
-				Blank
+				Missing
 			else {
 				val a = get
 				new Sure(a, cachedOpt = Got(a))
 			}
+
+		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOption toOption]]
+		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
+		  */
+		@inline def constOption :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+
+		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOpt toOpt]]
+		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
+		  */
+		@inline def constOpt :Opt[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Lack else Got(get)
+
+		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toUnsure toUnsure]]
+		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
+		  */
+		@inline def constUnsure :Unsure[A] =
+			if (self.asInstanceOf[AnyRef] eq NonExistent)
+				Missing else {
+				val a = get
+				new Sure(a, cachedOpt = Got(a))
+			}
+
 
 		/** Converts this `Potential` to `Either`, returning the content as `Left`,
 		  *  or the value of the given expression as `Right` if empty. */
@@ -317,6 +375,11 @@ package object vars {
 		  *  or the value of the given expression as $Red if empty. */
 		@inline def toBlue[O](red: => O) :Pill[O, A] =
 			if (self.asInstanceOf[AnyRef] eq NonExistent) Red(red) else Blue(get)
+
+		/** Converts this `Potential` to $Fallible, returning the content as $Passed,
+		  *  or the given `String` as $Failed error message if empty. */
+		@inline def toPassed(err: => String) :Fallible[A] =
+			if (self.asInstanceOf[AnyRef] eq NonExistent) Failed(err) else Passed(get)
 	}
 
 
@@ -328,7 +391,7 @@ package object vars {
 	  * is much more common than the other (i.e., '`Left`'), such as in popular monadic usage of `Right`
 	  * ($Blue in this case) for a result of a computation, while reserving `Left` ($Red) for error information
 	  * passed unchanged when [[net.noresttherein.sugar.vars.PillExtension.map mapping]]
-	  * or [[net.noresttherein.sugar.vars.PillExtension flat mapping]] a `Pill`.
+	  * or [[net.noresttherein.sugar.vars.PillExtension.flatMap flat mapping]] a `Pill`.
 	  *
 	  * In most situations, the `Blue[B]` case is represented as an erased value of `B`, meaning that
 	  * monadic usage of `Pill` doesn't involve create a new object with each `map`/`flatMap` operation.
@@ -337,13 +400,14 @@ package object vars {
 	  * [[net.noresttherein.sugar.vars.Pill.Red! Red]], but in the intended usage pattern, are passed unchanged
 	  * by monadic operations, also avoiding creation of a new instance.
 	  *
-	  * Due to this design, the `Blue[_]` case cannot be matched by type, but only by the
-	  * [[net.noresttherein.sugar.vars.Pill.Blue.unapply Blue.unapply]] match pattern. This is also the recommended
-	  * practice for `Red[_]`.
+	  * Due to this design, the `Blue[_]` and `Red[_]` cases cannot be matched by type, but only by the
+	  * [[net.noresttherein.sugar.vars.Pill.Blue.unapply Blue.unapply]] and
+	  * [[net.noresttherein.sugar.vars.Pill.Red.unapply Red.unapply]] match patterns.
 	  *
 	  * The interface of this type is provided as extension methods by
 	  * [[net.noresttherein.sugar.vars.PillExtension PillExtension]].
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Fallible Fallible]]
+	  */ //the fact that R stands both for Red and Right, but Red is used as Left is a bit confusing
 	type Pill[+Red, +Blue] >: Pill.Red[Red]
 
 	/** Extension methods providing the interface of $Pill.
@@ -355,17 +419,6 @@ package object vars {
 		@inline def isBlue :Boolean = !self.isInstanceOf[Red[_]]
 		/** Checks if this $Pill is the $Red (unsuccessful) case containing some information `R` about the failure. */
 		@inline def isRed :Boolean = self.isInstanceOf[Red[_]]
-
-//		/** If this instance is represented as an erased $Blue case, lift it to its non-erased wrapper, otherwise
-//		  * leave it as it is. This may be useful if this instance is going expected to be pattern matched
-//		  * with something else than `Blue(_)` or ${Red}`(_)`, in order to avoid matching patterns for its contents.
-//		  * This can be used as a defensive measure if this value were to be passed as an `Any`/`AnyRef` argument
-//		  * (or returned as such) to not controlled code.
-//		  */
-//		@inline def reify :Pill[R, B] = self match {
-//			case _ :Red[_] | _ :Blue[_] => self
-//			case _ => new Blue(self).asInstanceOf[Pill[R, B]]
-//		}
 
 		/** Swaps the meaning of $Red and $Blue: a `Red(r)` becomes `Blue(r)`, while `Blue(b)` becomes `Red(b)`. */
 		@inline def swap :Pill[B, R] = self match {
@@ -402,7 +455,7 @@ package object vars {
 		}
 
 		/** Returns the result if it is $Blue, or throws an exception given as the type parameter with
-		  * `(this :$Red[R]).value.toString` as the error message.
+		  * `(this :`$Red`[R]).value.toString` as the error message.
 		  * Note that this method uses reflection to find and call the exception constructor
 		  * and will not be as efficient as
 		  * {{{
@@ -413,22 +466,22 @@ package object vars {
 		  * }}}
 		  * @tparam E an exception class which must provide either a publicly available constructor accepting
 		  *           a single `String` argument, or a two-argument constructor accepting a `String` and a `Throwable`.
-		  * @see [[net.noresttherein.sugar.vars.CheckedExtension.orNoSuch orNoSuch]]
-		  * @see [[net.noresttherein.sugar.vars.Opt.orIllegal orIllegal]] */
+		  * @see [[net.noresttherein.sugar.vars.PillExtension.orNoSuch orNoSuch]]
+		  * @see [[net.noresttherein.sugar.vars.PillExtension.orIllegal orIllegal]] */
 		@inline def orThrow[E <: Throwable :ClassTag] :B = self match {
 			case red :Red[_] => raise[E](red.value.toString)
 			case _ => get
 		}
 		/** Gets the element in this $Pill if it is $Blue, or throws a [[NoSuchElementException]]
 		  * with [[net.noresttherein.sugar.vars.Pill.Red.value value]]`.toString` as the error message if $Red.
-		  * @see [[net.noresttherein.sugar.vars.CheckedExtension.orThrow orThrow]] */
+		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orNoSuch :B = self match {
 			case red :Red[_] => throw new NoSuchElementException(red.value.toString)
 			case _ => get
 		}
 		/** Gets the element in this $Pill if it is $Blue, or throws an [[IllegalArgumentException]]
 		  * with [[net.noresttherein.sugar.vars.Pill.Red.value value]]`.toString` as the error message if $Red.
-		  * @see [[net.noresttherein.sugar.vars.CheckedExtension.orThrow orThrow]] */
+		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orIllegal :B = self match {
 			case red :Red[_] => throw new IllegalArgumentException(red.value.toString)
 			case _ => get
@@ -458,7 +511,7 @@ package object vars {
 
 
 		/** Returns $Blue with the result of applying the given function to the result of this $Pill,
-		  * or this instance ''iff'' it is $Failed. */
+		  * or this instance ''iff'' it is $Red. */
 		@inline def map[O](f :B => O) :Pill[R, O] = self match {
 			case red :Red[R @unchecked] => red
 			case _ => Blue(f(get))
@@ -540,13 +593,13 @@ package object vars {
 		/** Converts this value to an `Opt` if it is $Blue, losing the information by replacing
 		  * $Red with [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
 		  */
-		@inline def opt :Opt[B] = self match {
+		@inline def toOpt :Opt[B] = self match {
 			case _ :Red[_] => Lack
 			case _ => Got(get)
 		}
 		/** Standard conversion to [[scala.Option]].
 		  * @return `Some(this.get)` if `this.isBlue` or `None` otherwise. */
-		@inline def ? :Option[B] = self match {
+		@inline def toOption :Option[B] = self match {
 			case _ :Red[_] => None
 			case _ => Some(get)
 		}
@@ -561,7 +614,7 @@ package object vars {
 		  * Note that the result will not be `specialized` for value types, but neither will it require boxing,
 		  * as $Blue already contains boxed values.
 		  */
-		@inline def unsure :Unsure[B] = self match {
+		@inline def toUnsure :Unsure[B] = self match {
 			case _ :Red[_] => Missing
 			case _ => Sure(get)
 		}
@@ -570,12 +623,6 @@ package object vars {
 		@inline def toEither :Either[R, B] = self match {
 			case red :Red[R @unchecked] => Left(red.value)
 			case _ => Right(get)
-		}
-		/** Standard conversion to [[scala.Option]].
-		  * @return `Some(this.get)` if `this.isBlue` or `None` otherwise. */
-		@inline def toOption :Option[B] = self match {
-			case _ :Red[_] => None
-			case _ => Some(get)
 		}
 		/** Returns a [[Seq]] containing `this.get` (if $Blue), or an empty `Seq` otherwise. */
 		@inline def toSeq :Seq[B] = self match {
@@ -595,106 +642,223 @@ package object vars {
 	  * each time in a monadic composition of chained operations on an `Either`, a `Passed` is encoded
 	  * as its erased (and boxed) contents, i.e. the value itself. A `Failed` corresponds to `Left[String]`.
 	  * This solution brings two limitations:
-	  *   1. Nesting `Checked` without another `Checked` must resort to boxing in order to differentiate between
+	  *   1. Nesting `Fallible` without another `Fallible` must resort to boxing in order to differentiate between
 	  *      `Passed(Failed)` and `Failed`. This is however transparent to the application.
 	  *      2. No `Passed` (i.e. `Right`) type exist, because it is erased,
 	  *      and construction and checking must happen using `apply` and `unapply` methods of singleton
 	  *      object $Passed.
-	  *      [[net.noresttherein.sugar.vars.CheckedExtension Extension]] methods are provided, mirroring the relevant
+	  *      [[net.noresttherein.sugar.vars.FallibleExtension Extension]] methods are provided, mirroring the relevant
 	  *      part of functionality of `Either` and `Option`.
 	  */
-	type Checked[+A] = Pill[String, A]
+	type Fallible[+A] >: Failed
 
-	/** Extension methods providing the full interface of $Checked. */
-	implicit class CheckedExtension[A](private val self :Checked[A]) extends AnyVal {
-		/** Checks if this $Checked is $Passed (successful) result containing a value. */
+	/** Extension methods providing the full interface of $Fallible. */
+	implicit class FallibleExtension[A](private val self :Fallible[A]) extends AnyVal {
+		/** Checks if this $Fallible is $Passed (successful) result containing a value. */
 		@inline def isPassed :Boolean = !self.isInstanceOf[Failed @unchecked]
-		/** Checks if this $Checked is $Failed containing an error message. */
+		/** Checks if this $Fallible is $Failed containing an error message. */
 		@inline def isFailed :Boolean = self.isInstanceOf[Failed @unchecked]
 
-//		/** Forces extraction of the result.
-//		  * @return contained value, if `this` is $Passed.
-//		  * @throws NoSuchElementException if this $Checked is $Failed. */
-//		def get :A = (self :Any) match {
-//			case fail :Failed => throw new NoSuchElementException(fail.toString)
-//			case pass :Passed[A @unchecked] => pass.value
-//			case _ => self.asInstanceOf[A]
-//		}
-//		/** Returns the result if it is $Passed, or the lazily computed alternative passed as an argument otherwise. */
-//		@inline def getOrElse[O >: A](or: => O) :O = self match {
-//			case _ :Failed => or
-//			case _ => get
-//		}
-//		/** Similarly to [[net.noresttherein.sugar.vars.CheckedExtension.getOrElse getOrElse]], returns the result
-//		  * of this $Checked if it is $Passed, or `alt` if it is $Failed. The difference is that the alternative value
-//		  * is not lazily computed and guarantees no closure will be created,
-//		  * at the cost of possibly discarding it without use.
-//		  * @param or the value to return if this instance is a failure. */
-//		@inline def orDefault[O >: A](or :O) :O = self match {
-//			case _ :Failed => or
-//			case _ => get
-//		}
-//		/** Assuming that `A` is a nullable type, return `null` if this $Checked is $Failed,
-//		  * or a wrapped result of $Passed otherwise. */
-//		@inline def orNull[O >: A](implicit isNullable :O <:< Null) :O = self match {
-//			case _ :Failed => null.asInstanceOf[O]
-//			case _ => get
-//		}
-//
-//
-//		/** Returns the exam result if it is $Passed, or throws an exception given as the type parameter with
-//		  * the error message contained in $Failed.
-//		  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
-//		  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
-//		  * @see [[net.noresttherein.sugar.vars.CheckedExtension.orNoSuch orNoSuch]]
-//		  * @see [[net.noresttherein.sugar.vars.Opt.orIllegal orIllegal]] */
-//		@inline def orThrow[E <: Throwable :ClassTag] :A = self match {
-//			case fail :Failed => raise[E](fail.error)
-//			case _ => get
-//		}
-//		/** Gets the element in this $Checked if it is $Passed, or throws a [[NoSuchElementException]]
-//		  * with the error message contained in $Failed.
-//		  * @see [[net.noresttherein.sugar.vars.CheckedExtension.orThrow orThrow]] */
-//		@inline def orNoSuch :A = self match {
-//			case fail :Failed => throw new NoSuchElementException(fail.error)
-//			case _ => get
-//		}
-//		/** Gets the element in this $Checked if it is $Passed, or throws an [[IllegalArgumentException]]
-//		  * with the error message contained in $Failed.
-//		  * @see [[net.noresttherein.sugar.vars.CheckedExtension.orThrow orThrow]] */
-//		@inline def orIllegal :A = self match {
-//			case fail :Failed => throw new IllegalArgumentException(fail.error)
-//			case _ => get
-//		}
-//		/** Asserts that this instance is $Passed and returns its contents, throwing an [[AssertionError]]
-//		  * with the error message contained in $Failed otherwise. */
-//		@inline def orError :A = {
-//			assert(!self.isInstanceOf[Failed], self.asInstanceOf[Failed].error)
-//			get
-//		}
-//
-//		/** Returns this $Checked if it is $Passed, or the lazily computed alternative otherwise. */
-//		@inline def orElse[O >: A](or: => Checked[O]) :Checked[O] = self match {
-//			case _ :Failed => or
-//			case _ => self
-//		}
+		/** Forces extraction of the result.
+		  * @return contained value, if `this` is $Passed.
+		  * @throws NoSuchElementException if this $Fallible is $Failed. */
+		def get :A = (self :Any) match {
+			case fail :Failed => throw new NoSuchElementException(fail.toString)
+			case pass :Passed[A @unchecked] => pass.value
+			case _ => self.asInstanceOf[A]
+		}
 
-		/** Similarly to [[net.noresttherein.sugar.vars.CheckedExtension.orElse orElse]], returns this $Checked
+		/** Returns the result if it is $Passed, or the lazily computed alternative passed as an argument otherwise. */
+		@inline def getOrElse[O >: A](or : => O) :O = self match {
+			case _ :Failed => or
+			case _ => get
+		}
+
+		/** Similarly to [[net.noresttherein.sugar.vars.FallibleExtension.getOrElse getOrElse]], returns the result
+		  * of this $Pill if it is $Passed, or `alt` if it is $Failed. The difference is that the alternative value
+		  * is not lazily computed and guarantees no closure will be created,
+		  * at the cost of possibly discarding it without use.
+		  * @param or the value to return if this instance is a failure. */
+		@inline def orDefault[O >: A](or :O) :O = self match {
+			case _ :Failed => or
+			case _ => get
+		}
+
+		/** Assuming that `A` is a nullable type, return `null` if this $Fallible is $Failed,
+		  * or a wrapped result of $Passed otherwise. */
+		@inline def orNull[O >: A](implicit isNullable :O <:< Null) :O = self match {
+			case _ :Failed => null.asInstanceOf[O]
+			case _ => get
+		}
+
+		/** Returns the result if it is $Passed, or throws an exception given as the type parameter with
+		  * `(this :`$Failed`).`[[net.noresttherein.sugar.vars.Fallible.Failed.error error]] as the error message.
+		  * Note that this method uses reflection to find and call the exception constructor
+		  * and will not be as efficient as
+		  * {{{
+		  *     this match {
+		  *         case Blue(blue) => blue
+		  *         case Red(red) => throw new E(red.toString)
+		  *     }
+		  * }}}
+		  * @tparam E an exception class which must provide either a publicly available constructor accepting
+		  *           a single `String` argument, or a two-argument constructor accepting a `String` and a `Throwable`.
+		  * @see [[net.noresttherein.sugar.vars.FallibleExtension.orNoSuch orNoSuch]]
+		  * @see [[net.noresttherein.sugar.vars.FallibleExtension.orIllegal orIllegal]] */
+		@inline def orThrow[E <: Throwable :ClassTag] :A = self match {
+			case fail :Failed => raise[E](fail.error)
+			case _ => get
+		}
+
+		/** Gets the element in this $Fallible if it is $Passed, or throws a [[NoSuchElementException]]
+		  * with [[net.noresttherein.sugar.vars.Fallible.Failed.error error]] as the error message if $Failed.
+		  * @see [[net.noresttherein.sugar.vars.FallibleExtension.orThrow orThrow]] */
+		@inline def orNoSuch :A = self match {
+			case red :Failed => throw new NoSuchElementException(red.error)
+			case _ => get
+		}
+
+		/** Gets the element in this $Fallible if it is $Passed, or throws an [[IllegalArgumentException]]
+		  * with [[net.noresttherein.sugar.vars.Fallible.Failed.error error]] as the error message if $Failed.
+		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
+		@inline def orIllegal :A = self match {
+			case red :Failed => throw new IllegalArgumentException(red.error)
+			case _ => get
+		}
+
+		/** Asserts that this instance is $Passed and returns its contents, throwing an [[AssertionError]]
+		  * with `this.toString` as the error message if $Failed. */
+		@inline def orError :A = {
+			assert(!self.isInstanceOf[Failed], self.toString)
+			get
+		}
+
+		/** Returns this $Fallible if it is $Passed, or the lazily computed alternative otherwise. */
+		@inline def orElse[O >: A](or : => Fallible[O]) :Fallible[O] = self match {
+			case _ :Failed => or
+			case _ => self
+		}
+
+		/** Similarly to [[net.noresttherein.sugar.vars.FallibleExtension.orElse orElse]], returns this $Fallible
 		  * if it is $Passed, or `alt` otherwise. The difference is that the alternative value is not lazily computed
 		  * and guarantees no closure would be be created, at the cost of possibly discarding it without use.
 		  * @param or the value to return if this instance is empty. */
-		@inline def ifFailed[O >: A](or: Checked[O]) :Checked[O] = self match {
-			case _ :Failed @unchecked => or
+		@inline def ifFailed[O >: A](or :Fallible[O]) :Fallible[O] = self match {
+			case _ :Failed => or
 			case _ => self
 		}
 
 
+		/** Returns $Passed with the result of applying the given function to the result of this $Fallible,
+		  * or this instance ''iff'' it is $Failed. */
+		@inline def map[O](f :A => O) :Fallible[O] = self match {
+			case fail :Failed => fail
+			case _ => Passed(f(get))
+		}
 
-	}
+		/** Applies the given function to the value of this $Fallible if it is $Passed, or returns `alt`
+		  * if it is $Failed. Equivalent to `this map f getOrElse alternative`, but in one step. */
+		@inline def mapOrElse[O](f :A => O, or : => O) :O = self match {
+			case _ :Failed => or
+			case _ => f(get)
+		}
 
-	implicit class FailedExtension(private val self :Failed) extends AnyVal {
-		/** The error message of this $Failed. */
-		@inline def error :String = self.value
+		/** Applies the first function argument to this `Fallible`'s value if it is $Failed,
+		  * or the second function if it is $Passed. */
+		@inline def fold[O](ifFailed :String => O, ifPassed :A => O) :O = self match {
+			case fail :Failed => ifFailed(fail.error)
+			case _ => ifPassed(get)
+		}
+
+		/** Returns the result of applying the given function to the value of this $Fallible if it is $Passed,
+		  * or `this` if it is $Failed. */
+		@inline def flatMap[O](f :A => Fallible[O]) :Fallible[O] = self match {
+			case fail :Failed => fail
+			case _ => f(get)
+		}
+
+		/** Flattens `Fallible[Fallible[O]]` to a single `Fallible[O]`. */
+		@inline def flatten[O](implicit isAlt :A <:< Fallible[O]) :Fallible[O] = self match {
+			case fail :Failed => fail
+			case _ => get
+		}
+
+		/** Returns `this` if it is $Passed and `p(get)` holds, or ${Failed}(error) otherwise. */
+		def filterOrElse(p :A => Boolean, error : => String) :Fallible[A] =
+			if (self.isInstanceOf[Failed] || !p(get)) Failed(() => error) else self
+
+		/** Tests if this $Fallible $Passed with a result equal to the given argument. */
+		@inline def contains[O >: A](o :O) :Boolean = o match {
+			case _ :Failed => false
+			case _ => get == o
+		}
+
+		/** Tests if this $Fallible $Passed with a result satisfying the given predicate. */
+		@inline def exists(p :A => Boolean) :Boolean = self match {
+			case _ :Failed => false
+			case _ => p(get)
+		}
+
+		/** Tests if this $Fallible $Failed or $Passed with a value not satisfying the given predicate. */
+		@inline def forall(p :A => Boolean) :Boolean = self match {
+			case _ :Failed => true
+			case _ => p(get)
+		}
+
+		/** Executes the given block for this $Pill's value if it is $Blue. */
+		@inline def foreach[O](f :A => O) :Unit =
+			if (!self.isInstanceOf[Failed])
+				f(get)
+
+		/** Converts this value to an `Opt` if it is $Passed, losing the information by replacing
+		  * $Failed with [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+		  */
+		@inline def toOpt :Opt[A] = self match {
+			case _ :Failed => Lack
+			case _ => Got(get)
+		}
+
+		/** Standard conversion to [[scala.Option]].
+		  * @return `Some(this.get)` if `this.isPassed` or `None` otherwise. */
+		@inline def toOption :Option[A] = self match {
+			case _ :Failed => None
+			case _ => Some(get)
+		}
+
+		/** Converts this value to a `Potential` if it is $Passed, losing the information by replacing
+		  * $Failed with [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+		  */
+		@inline def toPotential :Potential[A] = self match {
+			case _ :Failed => Inexistent
+			case _ => Existent(get)
+		}
+
+		/** Conversion to an `Unsure` carrying the value of this instance if it is $Passed.
+		  * Note that the result will not be `specialized` for value types, but neither will it require additional boxing,
+		  * as $Passed already contains boxed values.
+		  */
+		@inline def toUnsure :Unsure[A] = self match {
+			case _ :Failed => Missing
+			case _ => Sure(get)
+		}
+
+		/** Conversion to [[scala.Either]], with $Failed returned as [[scala.Right Right]] and $Passed as [[scala.Left Left]]. */
+		@inline def toEither :Either[String, A] = self match {
+			case fail :Failed => Left(fail.error)
+			case _ => Right(get)
+		}
+
+		/** Returns a [[Seq]] containing `this.get` (if $Passed), or an empty `Seq` otherwise. */
+		@inline def toSeq :Seq[A] = self match {
+			case _ :Failed => Nil
+			case _ => get :: Nil
+		}
+
+		@inline def toTry :Try[A] = self match {
+			case fail :Failed => Failure(fail.toException)
+			case _ => Success(get)
+		}
+
 	}
 }
 
@@ -705,6 +869,14 @@ package object vars {
 
 package vars {
 
+	private[sugar] sealed abstract class Rank1PotentialImplicits {
+		@inline implicit def potentialToOpt[T](opt :Potential[T]) :Opt[T] = Existent.unapply(opt)
+		@inline implicit def optToPotential[T](opt :Opt[T]) :Potential[T] = Potential.got_?(opt)
+	}
+
+
+
+	@SerialVersionUID(ver)
 	object Potential {
 		def apply[A](value :A) :Potential[A] = value match {
 			case null => Inexistent
@@ -744,10 +916,7 @@ package vars {
 		@inline def unless[A](cond: Boolean)(a: => A): Potential[A] =
 			if (!cond) Existent(a) else Inexistent
 
-		//shadowing of the implicit to enforce local usage of PotentialExtensions conversion.
-		@inline implicit private def PotentialExtension[A](potential :Potential[A]) :PotentialExtension[A] =
-			new PotentialExtension(potential)
-
+		@SerialVersionUID(ver)
 		object Existent {
 			def apply[A](value :A) :Potential[A] = value match {
 				case Inexistent | _ :Existent[_] => new Existent(value).asInstanceOf[Potential[A]]
@@ -761,7 +930,8 @@ package vars {
 			}
 		}
 
-//		type Existent[+A] // >: Exists[A]
+
+		@SerialVersionUID(ver)
 		private[vars] class Existent[+A](val value :A) extends Serializable {
 			//fixme: erased instance does not equal a wrapped instance; if we add a case value == that here,
 			//  equals will become asymmetrical. Lets look what we can do about in Scala 3, but if nothing,
@@ -776,7 +946,8 @@ package vars {
 
 		final val Inexistent :Potential[Nothing] = NonExistent.asInstanceOf[Potential[Nothing]]
 
-		private[vars] object NonExistent  extends (Any => AnyRef) with Serializable {
+		@SerialVersionUID(ver)
+		private[vars] object NonExistent extends (Any => AnyRef) with Serializable {
 			override def apply(v1 :Any) = this
 			override def toString = "Inexistent"
 		}
@@ -784,7 +955,7 @@ package vars {
 		/** The for-comprehension facade for `Potential[A]`, which does not evaluate the filter predicate until
 		  * `map`, `flatMap` or `foreach` is called.
 		  */
-		class WithFilter[+A](self :Potential[A], p :A => Boolean) {
+		final class WithFilter[+A](self :Potential[A], p :A => Boolean) {
 			@inline def map[B](f: A => B): Potential[B] = self filter p map f
 			@inline def flatMap[B](f: A => Potential[B]): Potential[B] = self filter p flatMap f
 			@inline def foreach[U](f: A => U): Unit = self filter p foreach f
@@ -814,15 +985,44 @@ package vars {
 
 
 
+	@SerialVersionUID(ver)
+	object Defined {
+		@inline def apply[T](value :T) :Potential[T] = if (value == null) Inexistent else Existent(value)
+
+		@inline def unapply[T](ref :Ref[T]) :Opt[T] = ref.toOpt
+		@inline def unapply[T](ref :Potential[T]) :Opt[T] = Existent.unapply(ref)
+	}
+
+	@SerialVersionUID(ver)
+	object Undefined {
+		@inline def apply() :Potential[Nothing] = Inexistent
+
+		@inline def unapply(ref :Ref[_]) :Boolean = !ref.isDefined
+		@inline def unapply(ref :Potential[_]) :Boolean = ref == Inexistent
+	}
+
+
+
+	@SerialVersionUID(ver)
 	object Pill {
 		def apply[R, B](either :Either[R, B]) :Pill[R, B] = either match {
 			case Left(red) => Red(red)
 			case Right(blue) => Blue(blue)
 		}
-
+		def apply[O](either :Fallible[O]) :Pill[String, O] = (either :Any) match {
+			case fail :Failed               => new Red(fail.error)
+			case pass :Passed[O @unchecked] => pass.value.asInstanceOf[Pill[String, O]]
+			//remember to reify Passed[_, Fallible[_, _]] to Blue
+			case _    :Red[_] | _ :Blue[_] => new Blue(either).asInstanceOf[Pill[String, O]]
+			case _                         => either.asInstanceOf[Pill[String, O]] //erased Blue
+		}
+		@inline implicit def fromFallible[O](fallible :Fallible[O]) :Pill[String, O] = Pill(fallible)
+		
+		
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
 		  * representing a successful result of a computation.
 		  */
+		@SerialVersionUID(ver)
 		object Blue {
 			def apply[B](value :B) :Pill[Nothing, B] = value match {
 				case _ :Red[_] | _ :Blue[_] => new Blue(value).asInstanceOf[Pill[Nothing, B]]
@@ -838,7 +1038,7 @@ package vars {
 
 		//fixme: Incorrect equality; erased `Blue` will not equal this class.
 		//  If it's not possible to fix with Scala 3 equality, we might have to prohibit nesting Pills
-		@SerialVersionUID(1L) //not a case class to avoid unwanted apply method
+		@SerialVersionUID(ver) //not a case class to avoid unwanted apply method
 		private[vars] class Blue[+B](val value :B) extends Serializable {
 			override def equals(that :Any) :Boolean = that match {
 				case blue :Blue[_] => value == blue.value
@@ -851,6 +1051,7 @@ package vars {
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
 		  * representing a failed result (containing error information).
 		  */
+		@SerialVersionUID(ver)
 		object Red {
 			def apply[R](value :R) :Pill[R, Nothing] = new Red(value)
 
@@ -863,30 +1064,41 @@ package vars {
 		/** The unsuccessful result of an $Pill, carrying error information. It conforms to `Pill[R, Nothing]`,
 		  * so it can be carried over while mapping or flat mapping the $Blue case.
 		  */
-		@SerialVersionUID(1L)
-		final case class Red[+R](value :R)
+		@SerialVersionUID(ver)
+		private[vars] final case class Red[+R](value :R)
 	}
 
 
 
-	object Checked {
-		def apply[O](either :Either[String, O]) :Checked[O] = either match {
+	@SerialVersionUID(ver)
+	object Fallible {
+		def apply[O](either :Pill[String, O]) :Fallible[O] = (either :Any) match {
+			case red  :Red[String @unchecked]           => new EagerFailed(red.value)
+			case blue :Blue[O @unchecked]    => blue.value.asInstanceOf[Fallible[O]]
+			//remember to reify Pill[String, Fallible[_,_]] if needed
+			case _    :Failed | _ :Passed[_] => new Passed(either).asInstanceOf[Fallible[O]]
+			case _                           => either.asInstanceOf[Fallible[O]] //erased Passed
+		}
+		def apply[O](either :Either[String, O]) :Fallible[O] = either match {
 			case Left(error) => Failed(error)
 			case Right(value) => Passed(value)
 		}
+		@inline implicit def fromPill[O](pill :Pill[String, O]) :Fallible[O] = Fallible(pill)
 
-		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Checked! Checked]] instances
+
+		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a passed result (containing a value).
 		  */
+		@SerialVersionUID(ver)
 		object Passed {
-			def apply[T](value :T) :Checked[T] = value match {
-				case _ :Failed @unchecked | _ :Passed[_] => new Passed(value).asInstanceOf[Checked[T]]
-				case _ => value.asInstanceOf[Checked[T]]
+			def apply[T](value :T) :Fallible[T] = value match {
+				case _ :Failed | _ :Blue[_] => new Blue(value).asInstanceOf[Fallible[T]]
+				case _ => value.asInstanceOf[Fallible[T]]
 			}
 
-			def unapply[T](exam :Checked[T]) :Opt[T] = (exam :Any) match {
+			def unapply[T](exam :Fallible[T]) :Opt[T] = (exam :Any) match {
 				case _ :Failed @unchecked => Lack
-				case pass :Passed[T @unchecked] => Got(pass.value)
+				case pass :Blue[T @unchecked] => Got(pass.value)
 				case _ => Got(exam.asInstanceOf[T])
 			}
 		}
@@ -894,7 +1106,7 @@ package vars {
 		/** A reified `Passed` case used when `value` is a `Failed` or `Passed` instance.
 		  * Used to differentiate between `Passed(Failed)` and `Failed`.
 		  */
-		@SerialVersionUID(1L)
+		@SerialVersionUID(ver)
 		private[vars] class Passed[+T](val value :T) extends Serializable {
 			override def equals(that :Any) :Boolean = that match {
 				case other :Passed[_] => value == other.value
@@ -904,30 +1116,57 @@ package vars {
 			override def toString :String = "Passed(" + value + ")"
 		}
 
-		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Checked! Checked]] instances
+		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a failed result (containing an error message).
 		  */
+		@SerialVersionUID(ver)
 		object Failed {
-			def apply(error :String) :Checked[Nothing] = new Failed(error).asInstanceOf[Checked[Nothing]]
+			def apply(error :String) :Failed = new EagerFailed(error)
+			def apply(error :Failed) :Failed = error
 
-			def unapply(exam :Checked[Any]) :Opt[String] = exam match {
+			def unapply(exam :Fallible[Any]) :Opt[String] = exam match {
 				case fail :Failed @unchecked => Got(fail.error)
 				case _ => Lack
 			}
 		}
 
-		/** The unsuccessful result of $Checked, carrying an error message. It conforms to `Checked[Nothing]`,
+		/** The unsuccessful result of $Fallible, carrying an error message. It conforms to `Fallible[Nothing]`,
 		  * so it can be carried over while mapping or flat mapping the $Passed case.
+		  * This is a SAM type, so `() => String` function literals are automatically promoted to a `Failed`
+		  * implementation wherever a `Failed` type is expected, for example in
+		  * [[net.noresttherein.sugar.vars.Fallible.Failed.apply Failed.apply]].
+		  * This ensures that error message itself is lazily built, avoiding a potentially large creation cost
+		  * unless really needed, that the created closure is serializable, and that only one object is created
+		  * (rather than a closure for `=> String` and `Failed` itself).
 		  */
-		type Failed = Red[String]
-//		@SerialVersionUID(1L)
-//		final class Failed(val error :String) extends Serializable {
-//			override def equals(that :Any) :Boolean = that match {
-//				case fail :Failed => error == fail.error
-//				case _ => false
-//			}
-//			override def hashCode :Int = error.hashCode
-//			override def toString :String = "Failed(" + error + ")"
-//		}
+		trait Failed extends Serializable {
+			/** Evaluates the error message. Each call may result in reevaluation - prefer using
+			  * [[net.noresttherein.sugar.vars.Fallible.Failed.error error]]. The method is named `apply()`
+			  * so that `() => "error"` literals are automatically SAM-convertible to a `Fallible` if `Failed` type
+			  * is expected.
+			  */
+			protected def apply() :String
+			/** The error message detailing the cause why the $Fallible computation failed. */
+			lazy val error :String = apply()
+
+			override def equals(that :Any) :Boolean = that match {
+				case other :Failed => (this eq other) || error == other.error
+				case _ => false
+			}
+			override def hashCode :Int = error.hashCode
+			override def toString :String = "Failed(" + error + ")"
+
+			def toException :SugaredException = new EagerFailed(error)
+		}
+
+		@SerialVersionUID(ver)
+		private class EagerFailed(override val msg :String, cause :Throwable = null)
+			extends StackableException(msg, cause, true, false) with Failed
+		{
+			override def apply() :String = msg
+			override def addInfo(msg :String) :StackableThrowable = new EagerFailed(msg, this)
+			override def toException = this
+			override def className = "Failed"
+		}
 	}
 }

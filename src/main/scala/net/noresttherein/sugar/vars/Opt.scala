@@ -3,8 +3,11 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoContent, WithFilter}
+import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
+
 
 
 
@@ -13,8 +16,8 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * recursion/loops. As a value class, it has no distinct subclasses for empty and non-empty instances, which results
   * in certain differences from `Option`. Aside from the obvious lack of creation of an additional object,
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, a disadvantage
-  * of being erased in runtime is that a method accepting an `Opt[T]` will clash with overloaded method accepting `T`.
-  * Moreover, a generic method accepting/returning an abstract type (parameter) `T` cannot be overriden/implemented
+  * of being erased in runtime is that a method accepting an `Opt[T]` will clash with an overloaded method accepting `T`.
+  * Moreover, a generic method accepting/returning an abstract type (parameter) `T` cannot be overridden/implemented
   * by a method accepting an `Opt[O]`, where `O` is a type parameter or an abstract type (this is a limitation
   * of the current Scala compiler).
   *
@@ -23,22 +26,44 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * (that is, `Lack` is distinguishable from `Got(Lack)`), but the inner `Opt`s will always be reified
   * to instances of `Opt` class, rather than erased to their contents.
   *
-  * Unlike its standard counterpart, this type is not an `Iterable`, although it contains all standard
-  * collection methods and an implicit conversion to `Iterable[T]` exists. The latter will however result in boxing
+  * Using an `Opt` through a super trait, such as [[net.noresttherein.sugar.vars.Ref Ref]]
+  * or [[scala.collection.IterableOnce IterableOnce]] or passing it as a type parameter (in particular, using
+  * it as a function parameter or returned value) will however result in boxing
   * which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions''
   * composing several `Opt`s' can result in closures being created (as manual nesting of `flatMap` calls also can).
   * For this reason its best to either directly use `isEmpty` and `get` in a conditional expression, or use the
   * [[net.noresttherein.sugar.vars.Opt.Got$ Got]] matching pattern, which should by modern compilers be translated
   * to non-boxing byte code.
+  *
+  * This library provides a total of three `Option` alternatives:
+  *   1. A fully erased type alias [[net.noresttherein.sugar.vars.Potential Potential]]`[A]`
+  *      (aliased as [[net.noresttherein.sugar.vars.?? ??]]`[A]`), which takes the concept of this class
+  *      one step further, erasing the type information in all contexts: any reference to `Potential[T]` will
+  *      translate to `AnyRef` in the byte code, regardless if `T` is abstract or not. It has an advantage over `Opt`
+  *      primarily in that returning it from a function or a accepting it as a type parameter does not require
+  *      the creation of an `Opt` instance through reference reification. As a bonus, it doesn't cause
+  *      'auto generated bridge method conflicts with the method itself' compile error when overriding
+  *      a method taking a parameter `T` with a `Potential[S]` (by passing `Potential[S] as T` to the super class).
+  *      The disadvantages are the loss of dynamic type information (a `??[T]` will match all match patterns
+  *      which would match `T`), higher potential for erasure conflicts, and inability to use
+  *      as a return type of an `unapply` method (because it provides only extension methods, rather than class methods
+  *      as `Opt` does. This makes it best suited as very short living objects where the `Potential` type
+  *      is never upcasted or used as a type argument.
+  *   1. This `Opt` is a relatively safer alternative in that it can be used both in erased and non erased contexts,
+  *      has fewer restrictions and lower bug potential then the former. This however also makes it no better than
+  *      `Option` as a function argument/return type or an element type of an array.
+  *   1. A `@specialized` [[net.noresttherein.sugar.vars.Unsure Unsure]] is the most niche of the three,
+  *      as it is never erased and always results in a creation of a new object. Unlike `Option` (and the other two
+  *      alternatives), it will not result in boxing of built in value types and opaque types mapped to value types.
+  *      In these contexts it offers largely the same benefits as `Potential` and `Opt`, because in all three cases
+  *      a single boxing will need to happen. It has however an advantage over other two in that this benefit is 'free':
+  *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
   * @see [[net.noresttherein.sugar.vars.Opt.Got$]]
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
-	* @define Ref `Opt`
+  * @define Ref `Opt`
   */
-@SerialVersionUID(1L)
-//todo: we could make it a fully erased type (opaque type or an abstract type alias) in order to further differentiate
-//  it from Unsure, but we'd lose `Ref`/`IterableOnce` interoperability and we'd need some extra boxing class
-//  to distinguish Lack from Got(Lack).
+@SerialVersionUID(ver)
 class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
 {
@@ -249,12 +274,16 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	/** Returns an empty `Opt` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
 	def removedAll[O >: A](that :IterableOnce[O]) :Opt[A] = that match {
-		case _ if ref eq NoContent => this
-		case it :Iterable[O] =>
-			if (it.isEmpty || !it.toSet(ref.asInstanceOf[A])) this
-			else new Opt(NoContent)
-		case _ if that.iterator.toSet(ref.asInstanceOf[A]) => new Opt(NoContent)
-		case _ => this
+		case _ if ref eq NoContent => this //todo: add Ranking support
+		case it :Set[O] => if (it(get)) new Opt(NoContent) else this
+		case it :Iterable[O] if it.isEmpty => this
+		case _ =>
+			val i = that.iterator
+			val x = get
+			while (i.hasNext)
+				if (i.next() == x)
+					return new Opt(NoContent)
+			this
 	}
 
 	/** Returns a new `Opt` containing this value if it is not empty and its value satisfies the given predicate,
@@ -340,9 +369,6 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	@inline override def toOption: Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
 
-	@inline override def toPotential :Potential[A] =
-		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
-
 	/** Conversion to standard Scala [[scala.Option]].
 		* @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	@inline override def constOption: Option[A] = if (ref eq NoContent) None else Some(ref.asInstanceOf[A])
@@ -366,9 +392,30 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 		* is specialized for value types, this class is not, and the result will not be specialized. Neither will it
-		* require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Opt`. */
+		* require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Opt`.
+	    * Same as [[net.noresttherein.sugar.vars.Opt.toUnsure toUnsure]]. */
 	@inline override def constUnsure: Unsure[A] =
 		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+
+	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
+	  * This conversion does not require boxing. Same as [[net.noresttherein.sugar.vars.Opt.toPotential toPotential]]. */
+	@inline override def potential :Potential[A] = if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
+
+	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
+	  * This conversion does not require boxing. */
+	@inline override def toPotential :Potential[A] =
+		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
+
+	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
+	  * This conversion does not require boxing. Same as [[net.noresttherein.sugar.vars.Opt.toPotential toPotential]]. */
+	@inline override def constPotential :Potential[A] =
+		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
+
+	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
+	  * This conversion does not require boxing. */
+	@inline override def ?? :Potential[A] =
+		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
+
 
 	/** Converts this `Opt` to `Either`, returning the content as `Left`, or the value of the given expression
 	  * as `Right` if empty. */
@@ -379,6 +426,22 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	  * as `Left` if empty. */
 	@inline def toRight[O](left: => O) :Either[O, A] =
 		if (ref eq NoContent) Left(left) else Right(ref.asInstanceOf[A])
+
+
+	/** Converts this `Opt` to `Pill`, returning the content as `Red`, or the value of the given expression
+	  * as `Blue` if empty. */
+	@inline def toRed[O](blue: => O) :Pill[A, O] =
+		if (ref eq NoContent) Blue(blue) else Red(ref.asInstanceOf[A])
+
+	/** Converts this `Opt` to `Pill`, returning the content as `Blue`, or the value of the given expression
+	  * as `Red` if empty. */
+	@inline def toBlue[O](red: => O) :Pill[O, A] =
+		if (ref eq NoContent) Red(red) else Blue(ref.asInstanceOf[A])
+
+	/** Converts this `Opt` to `Fallible`, returning the content as `Passed`,
+	  * or the value of the given `String` as `Failed` error message if empty. */
+	@inline final def toPassed(err : => String) :Fallible[A] =
+		if (ref eq NoContent) Failed(err) else Passed(get)
 
 	/** Formats this `Opt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String =
@@ -397,22 +460,17 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 
 
-private[vars] sealed abstract class Rank1OptImplicits {
-	@inline implicit def potentialToOpt[A](value :Potential[A]) :Opt[A] = Existent.unapply(value)
-
-}
-
 /** Companion object providing factory methods and extractors working with [[net.noresttherein.sugar.vars.Opt Opt]]s.
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Opt.Got$]]
   */
-object Opt extends Rank1OptImplicits {
+@SerialVersionUID(ver)
+object Opt {
 	/** Wraps the given reference in a purely syntactic option-like object erased in the runtime.
 	  * Note that the wrapped type is upper bound here by `AnyRef` rather than lower bound by `Null`,
 	  * as providing an argument of type `T` excludes the single `AnyRef` subtype which is not the supertype
 	  * of `Null`, that is `Nothing`.
-	  * @see [[net.noresttherein.sugar.vars.Opt]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Opt]] */
 	@inline final def apply[T](value :T) :Opt[T] =
 		if (value == null) Lack else new Opt(value.asInstanceOf[AnyRef])
 
@@ -443,8 +501,7 @@ object Opt extends Rank1OptImplicits {
 	@inline final def empty[T] :Opt[T] = Lack
 
 	/** When a given condition is true, evaluates the `a` argument and returns `Got(a).`
-	  * When the condition is false, `a` is not evaluated and `Lack` is returned.
-	  */
+	  * When the condition is false, `a` is not evaluated and `Lack` is returned. */
 	@inline def when[A](cond: Boolean)(a: => A): Opt[A] =
 		if (cond) Got(a) else Lack
 
@@ -456,11 +513,11 @@ object Opt extends Rank1OptImplicits {
 
 	/** A refinement of [[net.noresttherein.sugar.vars.Opt Opt]] marking it through a member flag type
 	  * as non-empty. [[net.noresttherein.sugar.vars.Opt$ Opt]] factory object creates instances
-	  * narrowed down to this type.
-	  */
+	  * narrowed down to this type. */
 	type Got[+T] = Opt[T] { type isEmpty = false }
 
 	/** Factory and a matching pattern for non empty values of [[net.noresttherein.sugar.vars.Opt Opt]]. */
+	@SerialVersionUID(ver)
 	object Got {
 		/** Creates a non-empty [[net.noresttherein.sugar.vars.Opt Opt]] wrapping the given value. */
 		@inline def apply[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
@@ -470,22 +527,19 @@ object Opt extends Rank1OptImplicits {
 	}
 
 	/** A refinement of [[net.noresttherein.sugar.vars.Opt Opt]] marking it through a member flag type
-	  * as empty. [[net.noresttherein.sugar.vars.Opt.Lack Opt.Lack]] is an instance of this type.
-	  */
+	  * as empty. [[net.noresttherein.sugar.vars.Opt.Lack Opt.Lack]] is an instance of this type. */
 	type Lack = Opt[Nothing] { type isEmpty = true }
 
 	/** A special, empty instance of [[net.noresttherein.sugar.vars.Opt Opt]] which conforms to any `Opt[T]` type.
 	  * It is represented by wrapping a special, private singleton object and all `isEmpty` tests check for
 	  * referential equality of the wrapped value with this object.
-	  * @see [[net.noresttherein.sugar.vars.Opt.empty]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Opt.empty]] */
 	@inline final val Lack :Lack = new Opt(NoContent).asInstanceOf[Lack]
 
 
 	/** The for-comprehension facade for `Opt[A]`, which does not evaluate the filter predicate until
-	  * `map`, `flatMap` or `foreach` is called.
-	  */
-	class WithFilter[+A](self :Opt[A], p :A => Boolean) {
+	  * `map`, `flatMap` or `foreach` is called. */
+	final class WithFilter[+A](self :Opt[A], p :A => Boolean) {
 		def map[B](f: A => B): Opt[B] = self filter p map f
 		def flatMap[B](f: A => Opt[B]): Opt[B] = self filter p flatMap f
 		def foreach[U](f: A => U): Unit = self filter p foreach f
@@ -494,17 +548,17 @@ object Opt extends Rank1OptImplicits {
 
 
 
-	@inline implicit def optToPotential[A](opt :Opt[A]) :Potential[A] = opt.toPotential
-
+//	@inline implicit def optToPotential[A](opt :Opt[A]) :Potential[A] = opt.toPotential
+//
 	/** Implicit conversions between `Opt` and `Option`.
 	  * Conversions between `Opt` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
-	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]].
-	  */
+	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]]. */
+	@SerialVersionUID(ver)
 	object implicits {
-		@inline final implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.option
-		@inline final implicit def optToIterable[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
+		@inline implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.option
+		@inline implicit def optToIterable[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
 
-		@inline final implicit def optionToOpt[T](option :Option[T]) :Opt[T] =
+		@inline implicit def optionToOpt[T](option :Option[T]) :Opt[T] =
 			new Opt(if (option.isDefined) option.get.asInstanceOf[AnyRef] else NoContent)
 
 		//consider: placing this also in optional.extensions (or optional.implicits)
@@ -518,8 +572,8 @@ object Opt extends Rank1OptImplicits {
 	  * which allow seamless interoperability with standard Scala APIs.
 	  *
 	  * Other files which reference classes defined in the import's scope may also need to be modified in order
-	  * to comply with changed interfaces.
-	  */
+	  * to comply with changed interfaces. */
+	@SerialVersionUID(ver)
 	object OptAsOption {
 		type Option[T] = Opt[T]
 		type Some[T]   = Got[T]
@@ -533,15 +587,15 @@ object Opt extends Rank1OptImplicits {
 		@inline implicit def someToGot[T](opt :scala.Some[T]) :Got[T] = Got(opt.get)
 		@inline implicit def gotToSome[T](opt :Sure[T]) :scala.Some[T] = opt.option.asInstanceOf[scala.Some[T]]
 
-		@inline implicit def noneToMiss(none :scala.None.type) :Lack.type = Lack
-		@inline implicit def missToNone(miss :Lack.type) :scala.None.type = scala.None
+		@inline implicit def noneToLack(none :scala.None.type) :Lack.type = Lack
+		@inline implicit def lackToNone(miss :Lack.type) :scala.None.type = scala.None
 	}
 
 
 	//extends Any => AnyRef out of laziness, allowing it to pass as the argument to applyOrElse
 	//is private[vars] so that methods of Opt can be inlined
 	// and because some Ref classes play with the erasure and need access to this marker object
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[vars] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this
 		override def toString = "<undefined>"
