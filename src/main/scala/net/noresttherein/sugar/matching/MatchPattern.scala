@@ -189,9 +189,8 @@ object MatchFunction {
 	  * `MatchFunction.`[[net.noresttherein.sugar.matching.MatchFunction.partial partial]] to create instances
 	  * of `MatchFunction` which do not resort to intermediate boxing to `Option` in that method.
 	  */
-	trait ApplyOrElse[@specialized(Arg) -In, +Out]
-		extends MatchFunction[In, Out]
-	{
+	trait ApplyOrElse[@specialized(Arg) -In, +Out] extends MatchFunction[In, Out] {
+
 		protected def getOrElse[A1 <: In, B1 >: Out](x :A1, default :A1 => B1) :B1
 		final override def applyOrElse[A1 <: In, B1 >: Out](x :A1, default :A1 => B1) :B1 =
 			getOrElse(x, default)

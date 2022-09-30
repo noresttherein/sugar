@@ -413,12 +413,20 @@ object Unsure {
 	def got_?[@specialized(SpecializedVars) T](value :Opt[T]) :Unsure[T] =
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
+	/** Converts the given `Potential[T]` into a ''specialized'' `Unsure[T]` instance. */
+	def existent_?[@specialized(SpecializedVars) T](value :Potential[T]) :Unsure[T] =
+		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
+
 	/** Converts the given `Option[T]` into a specialized `Unsure[T]`. */
 	def fromOption[@specialized(SpecializedVars) T](value: Option[T]): Unsure[T] =
 		if (value.isDefined) new Sure(value.get, value) else Missing
 
 	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
 	def fromOpt[@specialized(SpecializedVars) T](value: Opt[T]): Unsure[T] =
+		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
+
+	/** Converts the given `Potential[T]` into a ''specialized'' `Unsure[T]` instance. */
+	def fromPotential[@specialized(SpecializedVars) T](value: Potential[T]): Unsure[T] =
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
 
@@ -465,30 +473,36 @@ object Unsure {
 	/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
 	  * They involve boxing and are placed here for explicit importing.
 	  */
+	@SerialVersionUID(ver)
 	object implicits {
 		/** An implicit conversion that converts an option to an iterable value. */
-		@inline implicit def unsureToIterable[A](opt :Unsure[A]): Iterable[A] = opt.toIterable
+		@inline implicit def iterableFromUnsure[A](opt :Unsure[A]): Iterable[A] = opt.toIterable
 
 		/** An implicit conversion from an `Unsure[A]` to an `Option[A]`.
 		  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 		  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 		  */
-		@inline implicit def unsureToOption[T](value :Unsure[T]) :Option[T] = value.option
+		@inline implicit def optionFromUnsure[T](value :Unsure[T]) :Option[T] = value.option
 
 		/** A nomen omen optional implicit conversion of an `Option[A]` to an `Unsure[A]`.
-		  * @see [[net.noresttherein.sugar.optional.OptionExtension]]
+		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 		  */ //consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-		@inline implicit def optionToUnsure[@specialized(SpecializedVars) A](opt :Option[A]) :Unsure[A] = some_?(opt)
+		@inline implicit def unsureFromOption[@specialized(SpecializedVars) A](opt :Option[A]) :Unsure[A] = some_?(opt)
 
 		/** Wraps any object in a [[net.noresttherein.sugar.vars.Sure Sure]] monad. */
 		@inline implicit def sureAny[@specialized(SpecializedVars) A](sure :A) :Sure[A] = Sure(sure)
 
 		/** A nomen omen optional implicit conversion of an `Opt[A]` to a `Unsure[A]`.
-		  * @see [[net.noresttherein.sugar.optional.OptionExtension.toUnsure OptionExtension.toUnsure]]
+		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]]
 		  */ //consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-		@inline implicit def optToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] = got_?(opt)
+		@inline implicit def unsureFromOpt[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] = got_?(opt)
 
-		@inline implicit def unsureToOpt[A](opt :Unsure[A]) :Opt[A] = opt.opt
+		@inline implicit def optFromUnsure[A](opt :Unsure[A]) :Opt[A] = opt.opt
+
+		@inline implicit def unsureFromPotential[@specialized(SpecializedVars) A](opt :Potential[A]) :Unsure[A] =
+			fromPotential(opt)
+
+		@inline implicit def potentialFromUnsure[A](opt :Unsure[A]) :Potential[A] = Potential.fromUnsure(opt)
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
@@ -498,6 +512,7 @@ object Unsure {
 	  *
 	  * Other files which reference classes defined in the import's scope may also
 	  */
+	@SerialVersionUID(ver)
 	object UnsureAsOption {
 		type Option[T] = Unsure[T]
 		type Some[T]   = Sure[T]

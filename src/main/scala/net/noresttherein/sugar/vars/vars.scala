@@ -869,9 +869,11 @@ package object vars extends vars.Rank1PotentialImplicits {
 
 package vars {
 
+	import net.noresttherein.sugar.vars.InOut.SpecializedVars
+
 	private[sugar] sealed abstract class Rank1PotentialImplicits {
-		@inline implicit def potentialToOpt[T](opt :Potential[T]) :Opt[T] = Existent.unapply(opt)
-		@inline implicit def optToPotential[T](opt :Opt[T]) :Potential[T] = Potential.got_?(opt)
+		@inline implicit def optFromPotential[T](opt :Potential[T]) :Opt[T] = Existent.unapply(opt)
+		@inline implicit def potentialFromOpt[T](opt :Opt[T]) :Potential[T] = Potential.got_?(opt)
 	}
 
 
@@ -902,6 +904,24 @@ package vars {
 			case _ => Inexistent
 		}
 
+		/** Converts the given `Option[T]` into a lighter `Potential[T]` which is erased at runtime. */
+		@inline def fromOption[A](value :Option[A]) :Potential[A] = value match {
+			case Some(a) => Existent(a)
+			case _ => Inexistent
+		}
+
+		/** Converts the given `Opt[T]` into a `Potential[T]`. */
+		@inline def fromOpt[A](value :Opt[A]) :Potential[A] = value match {
+			case Got(a) => Existent(a)
+			case _ => Inexistent
+		}
+
+		/** Converts the given `Unsure[T]` into a `Potential[T]`, erased at runtime. */
+		@inline def fromUnsure[A](value :Unsure[A]) :Potential[A] = value match {
+			case Sure(a) => Existent(a)
+			case _ => Inexistent
+		}
+
 		/** Returns [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] - an empty `Potential`. */
 		@inline final def empty[T] :Potential[T] = Inexistent
 
@@ -915,6 +935,7 @@ package vars {
 		  * Otherwise, `a` is not evaluated and `Inexistent` is returned. */
 		@inline def unless[A](cond: Boolean)(a: => A): Potential[A] =
 			if (!cond) Existent(a) else Inexistent
+
 
 		@SerialVersionUID(ver)
 		object Existent {
@@ -944,6 +965,7 @@ package vars {
 			override def toString :String = "Existent(" + value + ")"
 		}
 
+
 		final val Inexistent :Potential[Nothing] = NonExistent.asInstanceOf[Potential[Nothing]]
 
 		@SerialVersionUID(ver)
@@ -961,6 +983,59 @@ package vars {
 			@inline def foreach[U](f: A => U): Unit = self filter p foreach f
 			@inline def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
 		}
+
+
+
+		/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
+		  * They involve boxing and are placed here for explicit importing.
+		  */
+		@SerialVersionUID(ver)
+		object implicits {
+			/** An implicit conversion that converts a $Potential to an iterable value. */
+			@inline implicit def iterableFromPotential[A](opt :Potential[A]) :Iterable[A] = opt match {
+				case Existent(v) => v::Nil
+				case _ => Nil
+			}
+
+			/** An implicit conversion from an `Potential[A]` to an `Option[A]`.
+			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
+			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
+			  */
+			@inline implicit def optionFromPotential[T](value :Potential[T]) :Option[T] = Potential.fromOption(value)
+
+			/** A nomen omen optional implicit conversion of an `Option[A]` to an `Unsure[A]`.
+			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
+			  */
+			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
+			@inline implicit def potentialFromOption[A](opt :Option[A]) :Potential[A] = some_?(opt)
+
+			/** Wraps any object in a [[net.noresttherein.sugar.vars.Potential Potential]] monad. */
+			@inline implicit def existentAny[A](existent :A) :Potential[A] = Existent(existent)
+		}
+
+
+		/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
+		  * [[net.noresttherein.sugar.vars.Potential Potential]]/[[net.noresttherein.sugar.vars.Potential.Existent Existent]]/[[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+		  * This object contains the requiring type aliases overriding the standard types as well as implicit conversions
+		  * which allow seamless interoperability with standard Scala APIs.
+		  *
+		  * Other files which reference classes defined in the import's scope may also need to be modified in order
+		  * to comply with changed interfaces. */
+		@SerialVersionUID(ver)
+		object PotentialAsOption {
+			type Option[T] = Potential[T]
+
+			val Option = Potential
+			val Some   = Existent
+			val None   = Inexistent
+			//same names as in implicits so if both are imported one shadows the other
+			@inline implicit def potentialToOption[T](opt :Potential[T]) :scala.Option[T] = opt.option
+			@inline implicit def optionToPotential[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
+
+			@inline implicit def noneToInexistent(none :scala.None.type) :Inexistent.type = Inexistent
+			@inline implicit def inexistentToNone(miss :Inexistent.type) :scala.None.type = scala.None
+		}
+
 
 
 		private[vars] def unzip[A, B](pair :Potential[(A, B)]) :(Potential[A], Potential[B]) =
@@ -985,6 +1060,7 @@ package vars {
 
 
 
+
 	@SerialVersionUID(ver)
 	object Defined {
 		@inline def apply[T](value :T) :Potential[T] = if (value == null) Inexistent else Existent(value)
@@ -1003,20 +1079,21 @@ package vars {
 
 
 
+
 	@SerialVersionUID(ver)
 	object Pill {
-		def apply[R, B](either :Either[R, B]) :Pill[R, B] = either match {
+		def fromEither[R, B](either :Either[R, B]) :Pill[R, B] = either match {
 			case Left(red) => Red(red)
 			case Right(blue) => Blue(blue)
 		}
-		def apply[O](either :Fallible[O]) :Pill[String, O] = (either :Any) match {
+		def fromFallible[O](either :Fallible[O]) :Pill[String, O] = (either :Any) match {
 			case fail :Failed               => new Red(fail.error)
 			case pass :Passed[O @unchecked] => pass.value.asInstanceOf[Pill[String, O]]
 			//remember to reify Passed[_, Fallible[_, _]] to Blue
 			case _    :Red[_] | _ :Blue[_] => new Blue(either).asInstanceOf[Pill[String, O]]
 			case _                         => either.asInstanceOf[Pill[String, O]] //erased Blue
 		}
-		@inline implicit def fromFallible[O](fallible :Fallible[O]) :Pill[String, O] = Pill(fallible)
+		@inline implicit def pillFromFallible[O](fallible :Fallible[O]) :Pill[String, O] = fromFallible(fallible)
 		
 		
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
@@ -1066,24 +1143,32 @@ package vars {
 		  */
 		@SerialVersionUID(ver)
 		private[vars] final case class Red[+R](value :R)
+
+
+
+		@SerialVersionUID(ver)
+		object implicits {
+			@inline implicit def pillFromEither[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
+			@inline implicit def eitherFromPill[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
+		}
 	}
+
 
 
 
 	@SerialVersionUID(ver)
 	object Fallible {
-		def apply[O](either :Pill[String, O]) :Fallible[O] = (either :Any) match {
-			case red  :Red[String @unchecked]           => new EagerFailed(red.value)
-			case blue :Blue[O @unchecked]    => blue.value.asInstanceOf[Fallible[O]]
-			//remember to reify Pill[String, Fallible[_,_]] if needed
-			case _    :Failed | _ :Passed[_] => new Passed(either).asInstanceOf[Fallible[O]]
-			case _                           => either.asInstanceOf[Fallible[O]] //erased Passed
-		}
-		def apply[O](either :Either[String, O]) :Fallible[O] = either match {
+		def fromEither[O](either :Either[String, O]) :Fallible[O] = either match {
 			case Left(error) => Failed(error)
 			case Right(value) => Passed(value)
 		}
-		@inline implicit def fromPill[O](pill :Pill[String, O]) :Fallible[O] = Fallible(pill)
+		def fromPill[O](pill :Pill[String, O]) :Fallible[O] = (pill :Any) match {
+			case red  :Red[String @unchecked]           => new EagerFailed(red.value)
+			case blue :Blue[O @unchecked]    => blue.value.asInstanceOf[Fallible[O]]
+			//remember to reify Pill[String, Fallible[_,_]] if needed
+			case _    :Failed | _ :Passed[_] => new Passed(pill).asInstanceOf[Fallible[O]]
+			case _                           => pill.asInstanceOf[Fallible[O]] //erased Passed
+		}
 
 
 		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
@@ -1115,6 +1200,7 @@ package vars {
 			override def hashCode :Int = value.hashCode
 			override def toString :String = "Passed(" + value + ")"
 		}
+
 
 		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a failed result (containing an error message).
@@ -1167,6 +1253,17 @@ package vars {
 			override def addInfo(msg :String) :StackableThrowable = new EagerFailed(msg, this)
 			override def toException = this
 			override def className = "Failed"
+		}
+
+
+
+		@SerialVersionUID(ver)
+		object implicits {
+			@inline implicit def fallibleFromEither[O](either :Either[String, O]) :Fallible[O] = fromEither(either)
+			@inline implicit def eitherFromFallible[O](fallible :Fallible[O]) :Either[String, O] = fallible.toEither
+			@inline implicit def fallibleFromPill[O](pill :Pill[String, O]) :Fallible[O] = fromPill(pill)
+			@inline implicit def pillFromFallible[O](fallible :Fallible[O]) :Pill[String, O] =
+				Pill.fromFallible(fallible)
 		}
 	}
 }

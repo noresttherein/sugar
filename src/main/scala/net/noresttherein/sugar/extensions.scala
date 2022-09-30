@@ -7,54 +7,6 @@ import net.noresttherein.sugar.typist.casting
 
 
 
-/** (Almost) all extension methods and implicit conversions providing new syntax in this library .
-  * Grouping them here not only allows a wildcard import, but also makes single imports stand out due to object name.
-  *
-  * As a mnemonic, class and method members here are named either
-  *   - `xxxExtension`, where `Xxx` is the name of the enriched type, if it is they are not general purpose methods,
-  *     but work on specific types such as [[Option]] or [[Iterable]], or
-  *   - `xxxMethod`/`xxxMethods`, where `xxx` is the name of the most prominent declared method.
-  * @author Marcin Mościcki
-  */
-object extensions extends extensions {
-
-	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
-	class feedToMethod[X](private val x :X) extends AnyVal {
-		//todo: maybe some special character name?
-		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
-		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
-		  * when applying an argument to a composed function expression:
-		  * {{{
-		  *     x feedTo (f andThen g andThen h)
-		  * }}}
-		  */
-		def feedTo[T](f :X => T) :T = f(x)
-
-		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
-		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
-		  * when applying an argument to a composed function expression:
-		  * {{{
-		  *     x \-> (f andThen g andThen h)
-		  * }}}
-		  */
-		def \=>[T](f :X => T) :T = f(x)
-	}
-
-
-//	object conditionalExpression {
-//		class IfFalse[+T] private[sugar] (private val ifFalse: () => T) {
-//			@inline def /:[U >: T](ifTrue: => U) :ConditionalExpressionAlternatives[U] =
-//				new ConditionalExpressionAlternatives[U](ifTrue, ifFalse)
-//		}
-//		class ConditionalExpressionAlternatives[+T] private[sugar] (ifTrue: => T, ifFalse: () => T) {
-//			@inline def ?:(condition :Boolean) :T = if (condition) ifTrue else ifFalse()
-//		}
-//	}
-}
-
-
-
-
 /** Type aliases and forwarders for most useful types and implicit conversions in the library providing new syntax.
   * They can be imported into user code either by an explicit import of the contents of the companion object
   * [[net.noresttherein.sugar.implicits$ implicits]] (which extends this trait), or by having a package object
@@ -64,8 +16,8 @@ object extensions extends extensions {
   */ //consider: having it simply extend the traits for individual packages.
 trait extensions extends Any
 	with casting.extensions with collection.extensions with exceptions.extensions
-	with numeric.extensions with optional.extensions with prettyprint.extensions
-	with reflect.extensions with repeat.extensions with typist.extensions
+	with matching.extensions with numeric.extensions with optional.extensions
+	with prettyprint.extensions with reflect.extensions with repeat.extensions with typist.extensions
 {
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	@inline implicit final def feedToMethod[X](x :X) = new feedToMethod(x)
@@ -144,4 +96,52 @@ trait extensions extends Any
 	/** Adds `++`, `:+` and `+: methods to `Tuple22`.` */
 	@inline implicit final def tupleConcat[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22](t :(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22)) :RichTuple22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22] = new RichTuple22(t)
 
+}
+
+
+
+
+/** (Almost) all extension methods and implicit conversions providing new syntax in this library .
+  * Grouping them here not only allows a wildcard import, but also makes single imports stand out due to object name.
+  *
+  * As a mnemonic, class and method members here are named either
+  *   - `xxxExtension`, where `Xxx` is the name of the enriched type, if it is they are not general purpose methods,
+  *     but work on specific types such as [[Option]] or [[Iterable]], or
+  *   - `xxxMethod`/`xxxMethods`, where `xxx` is the name of the most prominent declared method.
+  * @author Marcin Mościcki
+  */
+object extensions extends extensions {
+
+	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
+	class feedToMethod[X](private val x :X) extends AnyVal {
+		//todo: maybe some special character name?
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
+		  * when applying an argument to a composed function expression:
+		  * {{{
+		  *     x feedTo (f andThen g andThen h)
+		  * }}}
+		  */
+		def feedTo[T](f :X => T) :T = f(x)
+
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
+		  * when applying an argument to a composed function expression:
+		  * {{{
+		  *     x \=> (f andThen g andThen h)
+		  * }}}
+		  */
+		def \=>[T](f :X => T) :T = f(x)
+	}
+
+
+//	object conditionalExpression {
+//		class IfFalse[+T] private[sugar] (private val ifFalse: () => T) {
+//			@inline def /:[U >: T](ifTrue: => U) :ConditionalExpressionAlternatives[U] =
+//				new ConditionalExpressionAlternatives[U](ifTrue, ifFalse)
+//		}
+//		class ConditionalExpressionAlternatives[+T] private[sugar] (ifTrue: => T, ifFalse: () => T) {
+//			@inline def ?:(condition :Boolean) :T = if (condition) ifTrue else ifFalse()
+//		}
+//	}
 }
