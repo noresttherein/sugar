@@ -56,39 +56,35 @@ object Idempotent {
 	/** A full `Idempotent` lazy value implementation as a mix-in trait for application classes,
 	  * in particular various lazy proxies.
 	  */
-	private trait AbstractIdempotent[@specialized(SpecializedVars) +T] extends Idempotent[T] {
-		@scala.volatile protected[this] var initializer :() => T
-		@scala.volatile private[this] var evaluated :T = _
+	private[sugar] trait AbstractIdempotent[@specialized(SpecializedVars) +T] {
+		protected[this] var initializer :() => T
+		private[this] var evaluated :T = _
 
-		override def isEmpty: Boolean = { val init = initializer; acquireFence(); init != null }
+		@inline final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
-		override def option :Option[T] =
-			if (initializer == null)
-				None
-			else {
-				acquireFence()
-				Some(evaluated)
-			}
-		override def opt :Opt[T] =
-			if (initializer == null)
+		def ? :Opt[T] =
+			if (initializer != null)
 				Lack
 			else {
 				acquireFence()
 				Got(evaluated)
 			}
-		override def unsure :Unsure[T] =
-			if (initializer == null)
+		def unsure :Unsure[T] =
+			if (initializer != null)
 				Missing
 			else {
 				acquireFence()
 				Sure(evaluated)
 			}
 
-		override def value :T =
-			if (initializer == null) evaluated
-			else throw new NoSuchElementException("Uninitialized Idempotent")
+		def indefinite :T =
+			if (initializer == null) {
+				acquireFence()
+				evaluated
+			} else
+				throw new NoSuchElementException("Uninitialized Idempotent")
 
-		override def const :T = {
+		def definite :T = {
 			val init = initializer
 			acquireFence()
 			if (init == null)
@@ -101,35 +97,6 @@ object Idempotent {
 				res
 			}
 		}
-
-		override def map[O](f :T => O) :Lazy[O] = {
-			val init = initializer
-			acquireFence()
-			if (init == null)
-				eager(f(evaluated))
-			else {
-				val t = init()
-				evaluated = t
-				releaseFence()
-				initializer = null
-				new IdempotentRef(() => f(t))
-			}
-		}
-
-		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
-			val init = initializer
-			acquireFence()
-			if (init == null)
-				f(evaluated)
-			else
-				new IdempotentRef(f(apply()))
-		}
-
-		override def isSpecialized = false
-
-		override def toString :String =
-			if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
-			else undefined.toString//"Lazy(?)"
 	}
 
 
@@ -137,7 +104,7 @@ object Idempotent {
 	/** An already computed (initialized) value. */ //todo: make it specialized
 	@SerialVersionUID(ver) //Not specialized so we don't box the value type to fit in an Opt all the time
 	private class EagerIdempotent[+T](x :T) extends Idempotent[T] {
-		override def isEmpty  :Boolean = false
+		override def isDefinite  :Boolean = true
 		override def value    :T = x
 		override def const :T = x
 
@@ -158,7 +125,7 @@ object Idempotent {
 	{	//no need for fences because T is a value type
 		private[this] var evaluated :Any = undefined
 
-		override def isEmpty :Boolean = evaluated == undefined
+		override def isDefinite :Boolean = evaluated != undefined
 
 		@unspecialized override def value :T = {
 			val res = evaluated
@@ -242,7 +209,7 @@ object Idempotent {
 	private[vars] class IdempotentRef[T](private[this] var initializer :() => T) extends Idempotent[T] {
 		private[this] var evaluated :T = _
 
-		override def isEmpty: Boolean = { val init = initializer; acquireFence(); init != null }
+		override def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
 		override def option :Option[T] =
 			if (initializer == null)

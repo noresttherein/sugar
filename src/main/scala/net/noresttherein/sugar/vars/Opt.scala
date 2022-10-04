@@ -555,18 +555,18 @@ object Opt {
 	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]]. */
 	@SerialVersionUID(ver)
 	object implicits {
-		@inline implicit def optionFromOpt[T](opt :Opt[T]) :Option[T] = opt.option
-		@inline implicit def iterableFromOpt[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
+		@inline implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.option
+		@inline implicit def optToIterable[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
 
-		@inline implicit def optFromOption[T](option :Option[T]) :Opt[T] =
+		@inline implicit def optionToOpt[T](option :Option[T]) :Opt[T] =
 			new Opt(if (option.isDefined) option.get.asInstanceOf[AnyRef] else NoContent)
 
 		//consider: placing this also in optional.extensions (or optional.implicits)
 		/** Implicitly lifts any value `T` to [[net.noresttherein.sugar.vars.Opt Opt]]`[T]`. */
 		@inline implicit def gotAny[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
 
-		@inline implicit def potentialFromOpt[T](opt :Opt[T]) :Potential[T] = opt.potential
-		@inline implicit def optFromPotential[T](opt :Potential[T]) :Opt[T] = Opt.fromPotential(opt)
+		@inline implicit def optToPotential[T](opt :Opt[T]) :Potential[T] = opt.potential
+		@inline implicit def potentialToOpt[T](opt :Potential[T]) :Opt[T] = Opt.fromPotential(opt)
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with

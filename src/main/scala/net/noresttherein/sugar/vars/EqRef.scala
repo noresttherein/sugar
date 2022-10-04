@@ -8,10 +8,10 @@ import net.noresttherein.sugar.vars.Ref.FinalRef
 
 /** A light wrapper over a value of any type defining equality as referential equality of underlying values
   * (`this.get eq that.get`). Typically used as `Map` keys.
-  * @see [[net.noresttherein.sugar.collection.EqSet]]
-  * @see [[net.noresttherein.sugar.collection.EqMap]]
-  * @see [[net.noresttherein.sugar.collection.MutableEqSet]]
-  * @see [[net.noresttherein.sugar.collection.MutableEqMap]]
+  * @see [[net.noresttherein.sugar.collections.EqSet]]
+  * @see [[net.noresttherein.sugar.collections.EqMap]]
+  * @see [[net.noresttherein.sugar.collections.MutableEqSet]]
+  * @see [[net.noresttherein.sugar.collections.MutableEqMap]]
   */
 @SerialVersionUID(ver)
 final class EqRef[+T] private (x :T) extends Ref[T] with FinalRef[T] with Serializable {

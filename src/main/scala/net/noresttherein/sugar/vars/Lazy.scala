@@ -26,39 +26,35 @@ import net.noresttherein.sugar.vars.Ref.{undefined, RefFractional, RefIntegral, 
   * @author Marcin Mościcki
   */
 trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with Serializable {
-	/** Returns `!`[[net.noresttherein.sugar.vars.Val.isEmpty isEmpty]].
-	  * Same as [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
-	  */
-	@inline final override def isFinal :Boolean = !isEmpty
+	/** Returns [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]]. */
+	@inline final override def isFinal :Boolean = isDefinite
 
-	/** Checks if the value has been previously evaluated. Note that `false` values can be stale the moment
-	  * they are returned to the caller; the method is however still useful as once `true` is returned, all subsequent
-	  * calls on this instance will also return `true` and the value can be safely accessed without an overhead
-	  * or risk of throwing an exception. Code
-	  * {{{
-	  *     if (v.nonEmpty) v.value else someDefaultValue
-	  * }}}
-	  * is thread safe for all implementations.
-	  */
-	override def isEmpty :Boolean = opt.isEmpty //overriden for docs only
+	/** Returns `!`[[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]]. */
+	override def isEmpty :Boolean = !isDefinite //overridden for docs only
 
 	/** Returns `true`: all `Lazy` values can have only a single value and, once initialized,
 	  * [[net.noresttherein.sugar.vars.Ref.value value]] always returns it.
 	  */
 	final override def isFinalizable :Boolean = true
 
-	/** Returns `!`[[net.noresttherein.sugar.vars.Val.isEmpty isEmpty]].
-	  * Same as [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
-	  */
-	@inline final override def isConst :Boolean = !isEmpty
+	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite]]. */
+	@inline final override def isConst :Boolean = isDefinite
 
 	/** Always returns `true`.
 	  * @see [[net.noresttherein.sugar.vars.Lazy.isDefinite]]
 	  */
 	@inline final override def isDefined :Boolean = true
 
-	/** Returns ![[net.noresttherein.sugar.vars.Lazy.isEmpty isEmpty]]. */
-	@inline final override def isDefinite :Boolean = !isEmpty
+	/** Checks if the value has been previously evaluated. Note that `false` values can be stale the moment
+	  * they are returned to the caller; the method is however still useful as once `true` is returned, all subsequent
+	  * calls on this instance will also return `true` and the value can be safely accessed without an overhead
+	  * or risk of throwing an exception. Code
+	  * {{{
+	  *     if (v.isDefinite) v.value else someDefaultValue
+	  * }}}
+	  * is thread safe for all implementations.
+	  */
+	override def isDefinite :Boolean = opt.nonEmpty
 
 	/** The value of this `Lazy`. This method always returns the same value and throws no exception,
 	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.Val.const const]].
@@ -189,7 +185,7 @@ object Lazy {
 	@SerialVersionUID(ver) //todo: make it specialized
 	//Not specialized to avoid boxing of T to ref-wrapper-of-T, especially that we likely already have the wrapper
 	private final class EagerLazy[+T](eager :T) extends Lazy[T] {
-		override def isEmpty = false
+		override def isDefinite = true
 		override def value :T = eager
 		override def const :T = eager
 
@@ -211,7 +207,7 @@ object Lazy {
 	{
 		private[this] var evaluated :Any = undefined
 
-		override def isEmpty :Boolean = evaluated == undefined
+		override def isDefinite :Boolean = evaluated != undefined
 
 		@unspecialized override def value :T = {
 			val res = evaluated
@@ -293,7 +289,7 @@ object Lazy {
 	private final class SyncLazyRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
 		@volatile private[this] var evaluated :Any = undefined
 
-		override def isEmpty :Boolean = evaluated == undefined
+		override def isDefinite :Boolean = evaluated != undefined
 
 		override def value :T = evaluated match {
 			case `undefined` => throw new NoSuchElementException("Uninitialized Lazy")

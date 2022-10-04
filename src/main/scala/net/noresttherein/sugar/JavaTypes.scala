@@ -20,7 +20,9 @@ object JavaTypes {
 
 	type JStringBuilder    = java.lang.StringBuilder
 	type JIterator[T]      = java.util.Iterator[T]
-	type JSpliterator[T]   = java.util.Spliterator[T]
+	type JIntIterator      = java.util.PrimitiveIterator.OfInt
+	type JLongIterator     = java.util.PrimitiveIterator.OfLong
+	type JDoubleIterator   = java.util.PrimitiveIterator.OfDouble
 	type JList[T]          = java.util.List[T]
 	type JArrayList[T]     = java.util.ArrayList[T]
 	type JSet[T]           = java.util.Set[T]

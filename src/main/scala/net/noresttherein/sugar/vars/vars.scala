@@ -992,7 +992,7 @@ package vars {
 		@SerialVersionUID(ver)
 		object implicits {
 			/** An implicit conversion that converts a $Potential to an iterable value. */
-			@inline implicit def iterableFromPotential[A](opt :Potential[A]) :Iterable[A] = opt match {
+			@inline implicit def potentialToIterable[A](opt :Potential[A]) :Iterable[A] = opt match {
 				case Existent(v) => v::Nil
 				case _ => Nil
 			}
@@ -1001,13 +1001,13 @@ package vars {
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
-			@inline implicit def optionFromPotential[T](value :Potential[T]) :Option[T] = Potential.fromOption(value)
+			@inline implicit def potentialToOption[T](value :Potential[T]) :Option[T] = Potential.fromOption(value)
 
 			/** A nomen omen optional implicit conversion of an `Option[A]` to an `Unsure[A]`.
 			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 			  */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-			@inline implicit def potentialFromOption[A](opt :Option[A]) :Potential[A] = some_?(opt)
+			@inline implicit def optionToPotential[A](opt :Option[A]) :Potential[A] = some_?(opt)
 
 			/** Wraps any object in a [[net.noresttherein.sugar.vars.Potential Potential]] monad. */
 			@inline implicit def existentAny[A](existent :A) :Potential[A] = Existent(existent)
@@ -1029,8 +1029,8 @@ package vars {
 			val Some   = Existent
 			val None   = Inexistent
 			//same names as in implicits so if both are imported one shadows the other
-			@inline implicit def potentialToOption[T](opt :Potential[T]) :scala.Option[T] = opt.option
-			@inline implicit def optionToPotential[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
+			@inline implicit def potentialFromOption[T](opt :Potential[T]) :scala.Option[T] = opt.option
+			@inline implicit def optionToOpt[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
 
 			@inline implicit def noneToInexistent(none :scala.None.type) :Inexistent.type = Inexistent
 			@inline implicit def inexistentToNone(miss :Inexistent.type) :scala.None.type = scala.None
@@ -1148,8 +1148,8 @@ package vars {
 
 		@SerialVersionUID(ver)
 		object implicits {
-			@inline implicit def pillFromEither[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
-			@inline implicit def eitherFromPill[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
+			@inline implicit def eitherToPill[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
+			@inline implicit def pillToEither[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
 		}
 	}
 
@@ -1259,10 +1259,10 @@ package vars {
 
 		@SerialVersionUID(ver)
 		object implicits {
-			@inline implicit def fallibleFromEither[O](either :Either[String, O]) :Fallible[O] = fromEither(either)
-			@inline implicit def eitherFromFallible[O](fallible :Fallible[O]) :Either[String, O] = fallible.toEither
-			@inline implicit def fallibleFromPill[O](pill :Pill[String, O]) :Fallible[O] = fromPill(pill)
-			@inline implicit def pillFromFallible[O](fallible :Fallible[O]) :Pill[String, O] =
+			@inline implicit def eitherToFallible[O](either :Either[String, O]) :Fallible[O] = fromEither(either)
+			@inline implicit def fallibleToEither[O](fallible :Fallible[O]) :Either[String, O] = fallible.toEither
+			@inline implicit def pillToFallible[O](pill :Pill[String, O]) :Fallible[O] = fromPill(pill)
+			@inline implicit def fallibleToPill[O](fallible :Fallible[O]) :Pill[String, O] =
 				Pill.fromFallible(fallible)
 		}
 	}

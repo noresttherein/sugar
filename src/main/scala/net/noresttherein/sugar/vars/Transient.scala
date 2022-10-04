@@ -54,7 +54,7 @@ object Transient {
 	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Eval[T]) extends Transient[T] {
 		@transient private[this] var evaluated :Any = undefined
 
-		override def isEmpty :Boolean = evaluated == undefined
+		override def isDefinite :Boolean = evaluated != undefined
 
 		override def option :Option[T] = {
 			val res = evaluated
@@ -114,7 +114,7 @@ object Transient {
 	private class TransientRef[T](initializer :Eval[T]) extends Transient[T] {
 		@transient @volatile private[this] var evaluated :Any = _
 
-		override def isEmpty :Boolean = evaluated == undefined
+		override def isDefinite :Boolean = evaluated != undefined
 
 		override def option :Option[T] = {
 			val res = evaluated
