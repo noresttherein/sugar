@@ -2,6 +2,7 @@ package net.noresttherein.sugar
 
 
 
+package object matching extends matching.extensions
 
 package matching {
 	/** Combines two extractor patterns into a logical conjunction which matches only if both of the patterns

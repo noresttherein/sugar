@@ -3,7 +3,7 @@ package net.noresttherein.sugar.time
 import java.{time => j}
 import java.time.Clock
 
-import net.noresttherein.sugar.time.converters._
+import net.noresttherein.sugar.time.extensions._
 
 
 

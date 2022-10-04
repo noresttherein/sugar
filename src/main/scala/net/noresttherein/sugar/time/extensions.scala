@@ -6,7 +6,7 @@ import java.time.temporal.{ChronoUnit, TemporalField}
 
 import scala.concurrent.{duration => s}
 
-import net.noresttherein.sugar.time.converters.{JavaChronoUnitConverter, JavaClockConverter, JavaDayOfWeekConverter, JavaDurationConverter, JavaInstantConverter, JavaIsoEraConverter, JavaLocalDateConverter, JavaLocalDateTimeConverter, JavaLocalTimeConverter, JavaMonthConverter, JavaMonthDayConverter, JavaOffsetDateTimeConverter, JavaOffsetTimeConverter, JavaPeriodConverter, JavaTemporalFieldConverter, JavaYearConverter, JavaYearMonthConverter, JavaZonedDateTimeConverter, JavaZoneIdConverter, JavaZoneOffsetConverter, ScalaDurationConverter}
+import net.noresttherein.sugar.time.extensions.{JavaChronoUnitConverter, JavaClockConverter, JavaDayOfWeekConverter, JavaDurationConverter, JavaInstantConverter, JavaIsoEraConverter, JavaLocalDateConverter, JavaLocalDateTimeConverter, JavaLocalTimeConverter, JavaMonthConverter, JavaMonthDayConverter, JavaOffsetDateTimeConverter, JavaOffsetTimeConverter, JavaPeriodConverter, JavaTemporalFieldConverter, JavaYearConverter, JavaYearMonthConverter, JavaZonedDateTimeConverter, JavaZoneIdConverter, JavaZoneOffsetConverter, ScalaDurationConverter}
 import net.noresttherein.sugar.typist.Rank
 import net.noresttherein.sugar.typist.Rank.Rank0
 
@@ -16,7 +16,7 @@ import net.noresttherein.sugar.typist.Rank.Rank0
 /** Implicit converters adding methods to `java.time` classes for converting them to their counterparts from this package.
   * Additional implicit factory methods can be found in the `net.noresttherein.sugar.time.dsl` package.
   */
-trait converters[+R <: Rank] {
+trait extensions[+R <: Rank] extends Any {
 	@inline implicit def javaInstantConverter(self :j.Instant)               = new JavaInstantConverter[R](self)
 	@inline implicit def javaZonedDateTimeConverter(self :j.ZonedDateTime)   = new JavaZonedDateTimeConverter[R](self)
 	@inline implicit def javaOffsetDateTimeConverter(self :j.OffsetDateTime) = new JavaOffsetDateTimeConverter[R](self)
@@ -46,7 +46,7 @@ trait converters[+R <: Rank] {
 
 
 
-object converters extends converters[Rank0] {
+object extensions extends extensions[Rank0] {
 	class JavaInstantConverter[+R](private val instant :j.Instant) extends AnyVal {
 		@inline def toTimestamp :Timestamp = new Timestamp(instant)
 		@inline def toUTC :UTCDateTime = new UTCDateTime(instant.atOffset(j.ZoneOffset.UTC).toLocalDateTime)

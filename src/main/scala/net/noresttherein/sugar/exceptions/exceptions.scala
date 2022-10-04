@@ -7,7 +7,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.ArraySeq.ofRef
 import scala.collection.mutable
 
-import net.noresttherein.sugar.collection.MutableEqSet
+import net.noresttherein.sugar.collections.MutableEqSet
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 

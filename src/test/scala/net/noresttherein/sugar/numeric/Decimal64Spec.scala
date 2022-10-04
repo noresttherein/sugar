@@ -13,8 +13,6 @@ import org.scalacheck.Prop.{all, forAll, propBoolean, throws, AnyOperators}
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import org.scalacheck.util.ConsoleReporter
 
-//implicits
-import net.noresttherein.sugar.extensions.{bigDecimalIsFractional, bigIntegerIsIntegral}
 
 
 
