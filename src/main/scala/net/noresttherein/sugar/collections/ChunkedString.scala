@@ -1,30 +1,30 @@
-package net.noresttherein.sugar.collection
+package net.noresttherein.sugar.collections
 
 import java.lang
 
+import scala.collection.{Factory, SpecificIterableFactory, Stepper, StepperShape}
+import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, StringOps, WrappedString}
-import scala.collection.mutable.Builder
-import scala.collection.{Factory, IterableOps, SpecificIterableFactory}
 import scala.collection.immutable.ArraySeq.ofChar
+import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.collection.ChunkedString.{AppendedString, Chunk, ConcatChunks, Empty, PrependedString}
-import net.noresttherein.sugar.collection.Substring.SerializedSubstring
-import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilder}
+import net.noresttherein.sugar.collections.ChunkedString.{AppendedString, Chunk, ConcatChunks, Empty, PrependedString}
+import net.noresttherein.sugar.collections.Substring.SerializedSubstring
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
-trait SpecificIterableOps[E, +CC[_], +C <: CC[E]] extends IterableOps[E, CC, C] {
-	protected override def fromSpecific(coll :IterableOnce[E]) :C = specificFactory.fromSpecific(coll)
-	protected override def newSpecificBuilder :Builder[E, C] = specificFactory.newBuilder
-	override def empty :C = specificFactory.empty
-	protected def specificFactory :SpecificIterableFactory[E, C]
-}
 
 trait StringLikeOps[+S <: Seq[Char]]
 	extends CharSequence with SeqOps[Char, Seq, S] with SpecificIterableOps[Char, Seq, S]
 {
 	override def isEmpty   :Boolean = length == 0
 	override def knownSize :Int = length
+	def intIterator :JIntIterator
+	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+		intIterator.asInstanceOf[I]
 
 	override def charAt(index :Int) :Char = apply(index)
 }
@@ -45,10 +45,12 @@ trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializa
   * (ignoring the underlying structure, i.e. what chunks it concatenates), in order to remain reflective.
   * It is used when larger strings are built recursively from many parts in a complex pattern, and when the efficiency
   * of 'writing' is much more important than 'reading' - ''chunked'' strings are not expected to be accessed often
-  * before their final conversion to a `String`.
-  * Despite the lack of fast random access, `length`/`size` are still `O(1)` operations.
+  * before their final conversion to a `String`. Note that most traversing methods are implemented recursively
+  * and may thus cause a [[StackOverflowError]] for very long strings; this class is intended for use cases such
+  * implementing `toString` methods. Despite the lack of fast random access, `length`/`size` are still `O(1)` operations.
   */
 sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] {
+//	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap
 	override def empty :ChunkedString = ChunkedString.empty
 
 	protected override def specificFactory :SpecificIterableFactory[Char, ChunkedString] = ChunkedString
@@ -64,7 +66,10 @@ sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] 
 		else if (from <= 0) trustedSlice(0, until)
 		else trustedSlice(from, length)
 
-	protected[collection] def trustedSlice(from :Int, until :Int) :ChunkedString
+	protected[collections] def trustedSlice(from :Int, until :Int) :ChunkedString
+
+
+
 
 	override def +(char :Char) :ChunkedString = this ++ String.valueOf(char)
 	override def +(string :String) :ChunkedString = this ++ string
@@ -225,6 +230,9 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		override def apply(idx :Int) = throw new IndexOutOfBoundsException("Empty ChunkedString access.")
 		override def length = 0
 		override def iterator :Iterator[Char] = Iterator.empty[Char]
+		override def intIterator = JavaIterator.ofInt()
+		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I = JavaIterator()
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) :S = Stepper0()
 
 		override def foreach[U](f :Char => U) :Unit = {}
 
@@ -249,8 +257,15 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		override def trustedSlice(from :Int, until :Int) :ChunkedString = s.substring(from, until)
 
-		override def empty = emptyChunk
+		override def empty    = emptyChunk
 		override def iterator = new StringOps(s).iterator
+		override def intIterator = JavaIterator.ofChar(s)
+
+		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+			JavaIterator.ofChar(s).asInstanceOf[I]
+
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) =
+			new StringOps(s).stepper.asInstanceOf[S with EfficientSplit]
 
 		override def foreach[U](f :Char => U) :Unit = {
 			var i = 0; val len = s.length
@@ -290,6 +305,13 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		}
 
 		override def iterator = prefix.iterator ++ new StringOps(suffix).iterator
+		override def intIterator = prefix.intIterator ++ JavaIterator.ofChar(suffix)
+
+		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+			prefix.jiterator ++ JavaIterator.ofChar(suffix).asInstanceOf[I]
+
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) :S =
+			prefix.stepper ++ new StringOps(suffix).stepper.asInstanceOf[S]
 
 		override def foreach[U](f :Char => U) :Unit = {
 			prefix.foreach(f)
@@ -319,6 +341,14 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		}
 
 		override def iterator = new StringOps(prefix).iterator ++ suffix.iterator
+		override def intIterator = JavaIterator.ofChar(prefix) ++ suffix.intIterator
+
+		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+			JavaIterator.ofChar(prefix).asInstanceOf[I] ++ suffix.jiterator
+
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) :S =
+			new StringOps(prefix).stepper.asInstanceOf[S] ++ suffix.stepper
+
 		override def foreach[U](f :Char => U) :Unit = {
 			new StringOps(prefix).foreach(f)
 			suffix.foreach(f)
@@ -348,6 +378,14 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		}
 
 		override def iterator = prefix.iterator ++ suffix
+		override def intIterator = prefix.intIterator ++ suffix.intIterator
+
+		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+			prefix.jiterator ++ suffix.jiterator
+
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) :S =
+			prefix.stepper ++ suffix.stepper
+
 		override def foreach[U](f :Char => U) :Unit = {
 			prefix foreach f
 			suffix foreach f
@@ -497,6 +535,9 @@ final class Substring private (string :String, offset :Int, override val length 
 {
 	protected override def specificFactory :SpecificIterableFactory[Char, Substring] = Substring
 
+	private def data = string
+	private def start = offset
+
 	override def apply(i :Int) :Char =
 		if (i < 0 || i >= length)
 			throw new IndexOutOfBoundsException(i.toString + " out of " + length)
@@ -548,7 +589,7 @@ final class Substring private (string :String, offset :Int, override val length 
 		else if (until >= length) new Substring(string, offset + from, length - from)
 		else new Substring(string, offset + from, until - from)
 
-	protected[collection] override def trustedSlice(from :Int, until :Int) :ChunkedString =
+	protected[collections] override def trustedSlice(from :Int, until :Int) :ChunkedString =
 		new Substring(string, offset + from, until - from)
 
 	override def subSequence(start :Int, end :Int) :Substring = slice(start, end)
@@ -573,8 +614,10 @@ final class Substring private (string :String, offset :Int, override val length 
 	override def empty :Substring = Substring.empty
 
 	override def iterator :StringIterator = new StringIterator(string, offset, offset + length)
-
 	override def reverseIterator :ReverseStringIterator = new ReverseStringIterator(string, offset, offset + length)
+	override def intIterator :JIntIterator = JavaIterator.ofChar(string, offset, offset + length)
+	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+		intIterator.asInstanceOf[I]
 
 	override def foreach[U](f :Char => U) :Unit = {
 		var i = offset; val end = i + length
@@ -619,6 +662,26 @@ object Substring extends SpecificIterableFactory[Char, Substring] {
 		else if (until >= len) new Substring(string, from, len - from)
 		else new Substring(string, from, until - from)
 	}
+
+	/** If `chars` is a [[net.noresttherein.sugar.collections.Substring! Substring]], extracts its underlying string
+	  * as well as the indices of the first character and the character following the last character.
+	  */
+	def unapply(chars :Seq[Char]) :Opt[(String, Int, Int)] = chars match {
+		case string :Substring => Got((string.data, string.start, string.start + string.length))
+		case _ => Lack
+	}
+	/** If `chars` is a [[net.noresttherein.sugar.collections.Substring! Substring]], extracts its underlying string
+	  * as well as the indices of the first character and the character following the last character.
+	  */
+	def unapply(chars :CharSequence) :Opt[(String, Int, Int)] = chars match {
+		case string :Substring => Got((string.data, string.start, string.start + string.length))
+		case _ => Lack
+	}
+	/** If `chars` is a [[net.noresttherein.sugar.collections.Substring! Substring]], extracts its underlying string
+	  * as well as the indices of the first character and the character following the last character.
+	  */
+	@inline def unapply(chars :StringLike) :Opt[(String, Int, Int)] = unapply(chars :CharSequence)
+
 
 	override def newBuilder :Builder[Char, Substring] = new StringBuilder().mapResult(apply(_))
 

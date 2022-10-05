@@ -1,4 +1,4 @@
-package net.noresttherein.sugar.collection
+package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
 

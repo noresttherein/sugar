@@ -31,4 +31,6 @@ package object funny {
 			instance.asInstanceOf[ReturnTypeOf[X => Y] { type Return = Y }]
 		private[this] val instance = new ReturnTypeOf[Nothing]
 	}
+
+	final val ver = 1L
 }

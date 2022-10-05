@@ -1,4 +1,4 @@
-package net.noresttherein.sugar.collection
+package net.noresttherein.sugar.collections
 
 import scala.collection.{immutable, mutable, IterableFactory, IterableFactoryDefaults, MapFactory, MapFactoryDefaults}
 import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SetOps}
@@ -14,6 +14,7 @@ import net.noresttherein.sugar.vars.Opt.Got
 /** An immutable [[Set]] implementation using referential equality and hash code (as defined by `AnyRef`)
   * rather than possibly overriden `equals` and `hashCode` methods of the element type.
   */
+@SerialVersionUID(ver)
 final class EqSet[A] private (underlying :Set[EqRef[A]])
 	extends AbstractSet[A] with SetOps[A, EqSet, EqSet[A]] with IterableFactoryDefaults[A, EqSet]
 	   with Serializable
@@ -37,6 +38,7 @@ final class EqSet[A] private (underlying :Set[EqRef[A]])
 }
 
 
+@SerialVersionUID(ver)
 object EqSet extends IterableFactory[EqSet] {
 	override def from[A](source :IterableOnce[A]) :EqSet[A] = source match {
 		case set :EqSet[A] => set
@@ -56,6 +58,7 @@ object EqSet extends IterableFactory[EqSet] {
 /** An immutable [[Map]] implementation using referential equality and hash code (as defined by `AnyRef`)
   * rather than possibly overriden `equals` and `hashCode` methods of the key type.
   */
+@SerialVersionUID(ver)
 final class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 	extends AbstractMap[K, V] with MapOps[K, V, EqMap, EqMap[K, V]]
 	   with MapFactoryDefaults[K, V, EqMap, immutable.Iterable] with Serializable
@@ -88,6 +91,7 @@ final class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 }
 
 
+@SerialVersionUID(ver)
 object EqMap extends MapFactory[EqMap] {
 	override def from[K, V](it :IterableOnce[(K, V)]) :EqMap[K, V] = it match {
 		case map :EqMap[K, V] => map //fixme: wrong type casting
@@ -122,6 +126,7 @@ object EqMap extends MapFactory[EqMap] {
 /** A mutable [[scala.collection.mutable.Set Set]] implementation using reference equality (`eq`) to determine
   * if a value belongs to it. Used to bypass overriden `equals` of the elements.
   */
+@SerialVersionUID(ver)
 final class MutableEqSet[A] private(underlying :mutable.Set[EqRef[A]])
 	extends mutable.AbstractSet[A] with mutable.SetOps[A, MutableEqSet, MutableEqSet[A]]
 	   with IterableFactoryDefaults[A, MutableEqSet] with Serializable
@@ -139,6 +144,7 @@ final class MutableEqSet[A] private(underlying :mutable.Set[EqRef[A]])
 }
 
 
+@SerialVersionUID(ver)
 object MutableEqSet extends IterableFactory[MutableEqSet] {
 	override def from[A](source :IterableOnce[A]) :MutableEqSet[A] = empty[A] ++= source
 
@@ -154,6 +160,7 @@ object MutableEqSet extends IterableFactory[MutableEqSet] {
 /** A mutable [[scala.collection.mutable.Map Map]] implementation using reference equality (`eq`) to determine
   * if a key belongs to it. Used to bypass overriden `equals` of the key type.
   */
+@SerialVersionUID(ver)
 final class MutableEqMap[K, V] private(underlying :mutable.Map[EqRef[K], V])
 	extends mutable.AbstractMap[K, V] with mutable.MapOps[K, V, MutableEqMap, MutableEqMap[K, V]]
 	   with MapFactoryDefaults[K, V, MutableEqMap, mutable.Iterable] with Serializable
@@ -179,6 +186,7 @@ final class MutableEqMap[K, V] private(underlying :mutable.Map[EqRef[K], V])
 }
 
 
+@SerialVersionUID(ver)
 object MutableEqMap extends MapFactory[MutableEqMap] {
 	override def from[K, V](it :IterableOnce[(K, V)]) :MutableEqMap[K, V] = empty[K, V] ++= it
 

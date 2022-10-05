@@ -1,17 +1,20 @@
-package net.noresttherein.sugar.collection
+package net.noresttherein.sugar.collections
 
 import java.lang.invoke.MethodHandles
 
-import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.{IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory}
+import scala.collection.Stepper.EfficientSplit
+import scala.collection.StepperShape.{CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps}
-import scala.collection.{IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory}
 import scala.collection.mutable.{Builder, ReusableBuilder}
+import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.{classTag, ClassTag}
 
-import net.noresttherein.sugar.collection.PassedArray.{InitSize, OwnerField}
-import net.noresttherein.sugar.reflect.classExtension
+import net.noresttherein.sugar.collections.PassedArray.{InitSize, OwnerField, SliceReallocationFactor}
+import net.noresttherein.sugar.JavaTypes.JIterator
 
 //implicits
+import net.noresttherein.sugar.reflect.classExtension
 import net.noresttherein.sugar.extensions.castTypeParam
 
 
@@ -31,7 +34,7 @@ import net.noresttherein.sugar.extensions.castTypeParam
   *
   * In the result, it is actually faster to create a `PassedArray` by appending to an empty instance, or starting
   * with the companion object:
-  * [[net.noresttherein.sugar.collection.PassedArray$ PassedArray]]` `[[net.noresttherein.sugar.collection.PassedArray$.:+ :+]]` e1 `[[net.noresttherein.oldsql.collection.PassedArray!.:+ :+]]` e2`.
+  * [[net.noresttherein.sugar.collections.PassedArray$ PassedArray]]` `[[net.noresttherein.sugar.collections.PassedArray$.:+ :+]]` e1 `[[net.noresttherein.oldsql.collection.PassedArray!.:+ :+]]` e2`.
   *
   * Updates and other operations typically require `O(n)` time.
   *
@@ -41,25 +44,39 @@ import net.noresttherein.sugar.extensions.castTypeParam
   *
   * Small sequences may have dedicated implementations, without a backing array.
   * @author Marcin Mościcki
-  */
-sealed trait PassedArray[@specialized(Specializable.Arg) +E]
+  */ //todo: BooleanPassedArray implementation
+sealed trait PassedArray[@specialized(ElemTypes) +E]
 	extends IndexedSeq[E] with IndexedSeqOps[E, PassedArray, PassedArray[E]] with IterableFactoryDefaults[E, PassedArray]
+	   with SugaredIterable[E] with SugaredIterableOps[E, PassedArray, PassedArray[E]] with Serializable
 {
+
 	override def iterableFactory :SeqFactory[PassedArray] = PassedArray
 	override def className = "PassedArray"
-	private[collection] def elementType :Class[_]
+	private[collections] def elementType :Class[_]
 
 	/** A `PassedArray` being a view on this instance. Equivalent to `slice`, but no new array is allocated
 	  * even if the view is a minor fragment of the underlying array (`(until - from)/length` is large).
 	  * Additionally, all `slice` operations on the result are also views on this array, without any reallocation.
-	  * Adding elements to the view will create a normal, non view instance.
+	  * Adding elements to the view will create a normal, non view instance. This makes `tail` and other
+	  * slicing operations very fast, and the implementation particularly suited towards list-like processing.
+	  * Due to the possibility of inducing a memory leak, this implementation should be used only by code which
+	  * is certain not to expose any of the slices back to the application.
+	  *
 	  * In case a conversion to a non view implementation is needed,
-	  * [[net.noresttherein.sugar.collection.PassedArray.strict strict]] creates a copy with normal shrinking behaviour.
+	  * [[net.noresttherein.sugar.collections.PassedArray.safe safe]] creates a copy with normal shrinking behaviour.
 	  * The result may be a dedicated class if new size is very small.
 	  */
 	def section(from :Int, until :Int) :PassedArray[E]
 
-	def strict :PassedArray[E] = this
+	/** A version of this sequence guarded against memory leaks caused by slicing.
+	  * The default implementation is already safe (returns `this`); this method is used in conjunction
+	  * with [[net.noresttherein.sugar.collections.PassedArray.section section]], which creates
+	  * a view over the underlying array which never copies elements while slicing, regardless of the ratio
+	  * between the slice length and the underlying array length.
+	  */
+	def safe :PassedArray[E] = this
+
+	def trim :PassedArray[E] = this
 
 	//specialized
 	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, PassedArray[E]] =
@@ -69,12 +86,20 @@ sealed trait PassedArray[@specialized(Specializable.Arg) +E]
 
 
 
-@SerialVersionUID(1L)
-private[collection] final class PassedArray1[@specialized(Specializable.Arg) +E] private[collection]
-                                            (override val head :E)
-	extends PassedArray[E]
+/** A [[net.noresttherein.sugar.collections.PassedArray PassedArray]] with a single element. */
+@SerialVersionUID(ver)
+private final class PassedArray1[@specialized(ElemTypes) +E] private[collections](override val head :E)
+	extends AbstractSeq[E] with PassedArray[E]
 {
 	override def elementType = head.getClass
+	override def iterator :Iterator[E] = Iterator.single(head)
+
+	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
+		JavaIterator(head)
+
+	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
+		Stepper1(head)
+
 	override def length = 1
 	override def apply(i :Int) :E =
 		if (i == 0) head else throw new IndexOutOfBoundsException("PassedArray[1](" + i + ")" )
@@ -259,11 +284,20 @@ private[collection] final class PassedArray1[@specialized(Specializable.Arg) +E]
 
 
 
-@SerialVersionUID(1L)
-private[collection] final class PassedArray2[@specialized(Specializable.Arg) +E] private[collection]
-                                            (override val head :E, override val last :E, override val elementType :Class[_])
+/** A [[net.noresttherein.sugar.collections.PassedArray PassedArray of two elements. */
+@SerialVersionUID(ver)
+private final class PassedArray2[@specialized(Specializable.Arg) +E] private[collections]
+	                            (override val head :E, override val last :E, override val elementType :Class[_])
 	extends AbstractSeq[E] with PassedArray[E]
 {
+	override def iterator = Iterator.double(head, last)
+
+	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
+		JavaIterator(head, last)
+
+	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
+		Stepper2(head, last)
+
 	override def length = 2
 	override def apply(i :Int) :E = i match {
 		case 0 => head
@@ -472,10 +506,42 @@ private[collection] final class PassedArray2[@specialized(Specializable.Arg) +E]
 
 
 
-private[collection] sealed trait AbstractPassedArray[@specialized(Specializable.Arg) +E] extends PassedArray[E] {
+/** Most of the implementation of an actual array backed [[net.noresttherein.sugar.collections.PassedArray PassedArray]].
+  * Base trait for [[net.noresttherein.sugar.collections.PassedArrayPlus PassedArrayPlus]]
+  * and [[net.noresttherein.sugar.collections.PassedArrayView PassedArrayView]].
+  */
+private[collections] sealed trait AbstractPassedArray[@specialized(ElemTypes) +E] extends PassedArray[E] {
 	override def elementType :Class[_] = elems.getClass.getComponentType
-	private[collection] def elems[U >: E] :Array[U]
-	private[collection] def startIndex :Int
+	private[collections] def elems[U >: E] :Array[U]
+	private[collections] def startIndex :Int
+
+	override def iterator :Iterator[E] = new ArrayIterator[E](elems, startIndex, startIndex + length)
+
+	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
+		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
+
+	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit = {
+		val tpe = elementType
+		shape.shape match {
+			case IntShape if tpe == classOf[Int] =>
+				elems.asInstanceOf[Array[Int]].stepper.asInstanceOf[S with EfficientSplit]
+			case LongShape if tpe == classOf[Long] =>
+				elems.asInstanceOf[Array[Long]].stepper.asInstanceOf[S with EfficientSplit]
+			case DoubleShape if tpe == classOf[Double] =>
+				elems.asInstanceOf[Array[Double]].stepper.asInstanceOf[S with EfficientSplit]
+			case IntShape if tpe == classOf[Byte] =>
+				elems.asInstanceOf[Array[Byte]].stepper.asInstanceOf[S with EfficientSplit]
+			case CharShape if tpe == classOf[Char] =>
+				elems.asInstanceOf[Array[Char]].stepper.asInstanceOf[S with EfficientSplit]
+			case ShortShape if tpe == classOf[Short] =>
+				elems.asInstanceOf[Array[Short]].stepper.asInstanceOf[S with EfficientSplit]
+			case FloatShape if tpe == classOf[Float] =>
+				elems.asInstanceOf[Array[Float]].stepper.asInstanceOf[S with EfficientSplit]
+			case ReferenceShape if classOf[AnyRef] isAssignableFrom tpe =>
+				elems.asInstanceOf[Array[AnyRef]].stepper.asInstanceOf[S with EfficientSplit]
+			case _ => super.stepper
+		}
+	}
 
 	override def section(from :Int, until :Int) :PassedArray[E] = {
 		val offset = startIndex; val len = length
@@ -523,15 +589,34 @@ private[collection] sealed trait AbstractPassedArray[@specialized(Specializable.
 
 
 
-@SerialVersionUID(1L)
-private[collection] final class PassedArrayPlus[@specialized(Specializable.Arg) +E] private[collection]
-                                               (array :Array[E], offset :Int, len :Int, owner :Boolean = false)
+/** The main, truly array backed, implementation of [[net.noresttherein.sugar.collections.PassedArray PassedArray]].
+  * Primarily, it is a sequence of elements stored in a chosen section of an array.
+  * Carries an ownership flag `owner`, with an invariant that only one object on the whole heap
+  * among those sharing the same array has this flag set. On first append/prepend, if the new elements
+  * will fit in the array after/before the elements of this collection, they conform to the array element type
+  * and this collection is the owner of the array, no new array is allocated and the elements are written
+  * in the underlying one at appropriate positions. The `owner` flag is atomically passed to the freshly created
+  * collection. In case reallocation is needed, the new array will have `max(this.length/2, newElements.size)`
+  * free cells following/preceding the elements copied from this array. If the unused (by this instance) array section
+  * on the opposite size exceeds `this.length/2`, it is reduced to that number.
+  * All slicing operations return instances backed by the same array, unless their length
+  * is less than 1/4 of the underlying length (not this sequence's length).
+  *
+  * The class is `@specialized` and in most, but not necessarily all cases the array element type
+  * equals the specialization type. All reference types are normally (although not strictly enforced)
+  * stored in an `Array[AnyRef]`, so as to maximize the likelihood that append/prepend
+  * will be able to use the free space.
+  * @see [[net.noresttherein.sugar.collections.PassedArrayView PassedArrayView]]
+  */
+@SerialVersionUID(ver)
+private final class PassedArrayPlus[@specialized(ElemTypes) +E] private[collections]
+	                               (array :Array[E], offset :Int, len :Int, owner :Boolean = false)
 	extends AbstractSeq[E] with AbstractPassedArray[E]
 {
-	private[collection] def this(array :Array[E]) = this(array, 0, array.length)
+	private[collections] def this(array :Array[E]) = this(array, 0, array.length)
 
-	private[collection] override def elems[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
-	private[collection] override def startIndex :Int = offset
+	private[collections] override def elems[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
+	private[collections] override def startIndex :Int = offset
 	@volatile private[this] var isOwner = owner
 
 	private def canPassOn :Boolean = {
@@ -558,16 +643,18 @@ private[collection] final class PassedArrayPlus[@specialized(Specializable.Arg) 
 		else {
 			val start   = offset + Math.max(from, 0)
 			val newSize = Math.min(len, until) - start
-			if (newSize == 1)
-				new PassedArray1(array(offset + start))
-			else if (newSize == 2)
-				new PassedArray2(array(offset + start), array(offset + start + 1), elementType)
-			else if (newSize < elems.length / 4) {
-				val copy = java.lang.reflect.Array.newInstance(elementType, newSize).asInstanceOf[Array[E]]
-				Array.copy(array, offset, copy, 0, newSize)
-				new PassedArrayPlus(copy)
-			} else
-				new PassedArrayPlus(array, start, newSize)
+			newSize match {
+				case 1 =>
+					new PassedArray1(array(offset + start))
+				case 2 =>
+					new PassedArray2(array(offset + start), array(offset + start + 1), elementType)
+				case _ if newSize < array.length / SliceReallocationFactor =>
+					val copy = java.lang.reflect.Array.newInstance(elementType, newSize).asInstanceOf[Array[E]]
+					Array.copy(array, offset, copy, 0, newSize)
+					new PassedArrayPlus(copy)
+				case _ =>
+					new PassedArrayPlus(array, start, newSize)
+			}
 		}
 
 
@@ -808,18 +895,30 @@ private[collection] final class PassedArrayPlus[@specialized(Specializable.Arg) 
 			case _ => super.prependedAll(prefix)
 		}
 
+
+	override def trim :PassedArray[E] =
+		if (array.length == len) this
+		else {
+			val copy = array.slice(offset, offset + len)
+			new PassedArrayPlus(copy)
+		}
 }
 
 
 
 
-@SerialVersionUID(1L)
-private[collection] final class PassedArrayView[@specialized(Specializable.Arg) +E] private[collection]
-                                               (array :Array[E], offset :Int, len :Int)
+/** An array backed implementation of [[net.noresttherein.sugar.collections.PassedArray PassedArray]]
+  * which is not the owner of the underlying array (hence all appends and prepends will allocate a new array).
+  * Additionally, slicing operations ''always'' return a view over the same array instance, never reallocating
+  * the elements (unlike in [[net.noresttherein.sugar.collections.PassedArrayPlus PassedArrayPlus]].
+  */
+@SerialVersionUID(ver)
+private final class PassedArrayView[@specialized(ElemTypes) +E] private[collections]
+	                               (array :Array[E], offset :Int, len :Int)
 	extends AbstractSeq[E] with AbstractPassedArray[E]
 {
-	private[collection] override def elems[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
-	private[collection] override def startIndex :Int = offset
+	private[collections] override def elems[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
+	private[collections] override def startIndex :Int = offset
 	override def length :Int = len
 
 	override def apply(i :Int) :E =
@@ -828,7 +927,7 @@ private[collection] final class PassedArrayView[@specialized(Specializable.Arg) 
 		else
 			array(offset + i)
 
-	override def strict :PassedArray[E] = {
+	override def safe :PassedArray[E] = {
 		val copy = java.lang.reflect.Array.newInstance(elementType, len).asInstanceOf[Array[E]]
 		Array.copy(array, offset, copy, 0, len)
 		new PassedArrayPlus(array, 0, len)
@@ -937,6 +1036,7 @@ private[collection] final class PassedArrayView[@specialized(Specializable.Arg) 
   * @define Coll `PassedArray`
   * @define coll passed array
   */
+@SerialVersionUID(ver)
 object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 	override def from[A](it :IterableOnce[A]) :PassedArray[A] = it match {
 		case elems :PassedArray[A] => elems
@@ -1039,10 +1139,14 @@ object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 		}
 
 
+	@SerialVersionUID(ver)
 	private object Empty extends AbstractSeq[Nothing] with PassedArray[Nothing] {
 		override def elementType = classOf[AnyRef]
 		override def length = 0
 		override def apply(i :Int) :Nothing = throw new IndexOutOfBoundsException(i)
+		override def iterator = Iterator.empty
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Nothing, S]) :S with EfficientSplit =
+			Stepper0()
 
 		override def section(from :Int, until :Int) :PassedArray[Nothing] = this
 		override def slice(from :Int, until :Int) :PassedArray[Nothing] = this
@@ -1059,8 +1163,9 @@ object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 		override def copyToArray[B >: Nothing](xs :Array[B], start :Int, len :Int) :Int = 0
 	}
 
-	private[collection] final val InitSize = 8
-	private[collection] val OwnerField =
+	private[collections] final val InitSize = 8
+	private[collections] final val SliceReallocationFactor = 4 //slices smaller than 1/4 reallocate the backing array.
+	private[collections] val OwnerField =
 		MethodHandles.lookup().findVarHandle(classOf[PassedArrayPlus[Any]], "isOwner", classOf[Boolean])
 
 }

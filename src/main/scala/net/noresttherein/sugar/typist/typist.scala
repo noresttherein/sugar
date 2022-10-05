@@ -11,7 +11,7 @@ import net.noresttherein.sugar.vars.Opt
 
 
 
-package object typist {
+package object typist extends typist.extensions {
 
 	/** Tests if `left eq right`, executing the given block with the evidence to the identity as its argument,
 	  * returning its result in an [[net.noresttherein.sugar.vars.Opt Opt]].
@@ -158,6 +158,21 @@ package object typist {
 	  */
 	type Rank
 
+	/** An undefined type. It has a niche use case as an upper bound of abstract type declarations in extendable
+	  * interfaces.
+	  * {{{
+	  *     trait Interface {
+	  *         type Result <: ProtectedType
+	  *     }
+	  * }}}
+	  * In the above example, while applications can create instances of `Interface` overriding any methods,
+	  * they cannot define type `Result` to anything other than `Nothing` or `ProtectedType` and,
+	  * as a result, cannot create instances of `Result` directly. This allows the protected skeleton implementations
+	  * of methods in `Interface` to operate on `Result` and cast it to the actual protected type.
+	  * It is very similar to Scala opaque types, but offers no type safety, allowing to safely cast any unrelated
+	  * objects to `Result`.
+	  */
+	type ProtectedType
 }
 
 
@@ -192,5 +207,4 @@ package typist {
 		type Rank8 >: +[Rank7] <: Rank7//= +[Rank7]
 		type Rank9 >: +[Rank8] <: Rank8//= +[Rank8]
 	}
-
 }

@@ -1,24 +1,25 @@
-package net.noresttherein.sugar.collection
+package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
+import scala.collection.{mutable, AnyStepper, BufferedIterator, DoubleStepper, IntStepper, IterableFactory, IterableOnce, IterableOps, LinearSeq, LongStepper, Stepper, StepperShape, View}
+import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, MapOps}
-import scala.collection.{mutable, IterableFactory, IterableOnce, IterableOps, LinearSeq, View}
 import scala.collection.generic.IsIterableOnce
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.extensions.iterableFactoryExtension
+import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
+import net.noresttherein.sugar.collections.extensions.{BuilderExtension, FoldingMethods, IterableFactoryExtension, IteratorFactoryExtension, JavaIteratorExtension, JavaStringBuilderExtension, MapExtension, MappingMethods, SeqExtension, StepperExtension}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.collection.extensions.{BuilderExtension, FoldingMethods, IterableFactoryExtension, MapExtension, MappingMethods, SeqExtension}
 
 
 
 
 /** Extension methods for various collection types as well as collection companion objects. */
 trait extensions extends Any {
+	//todo: IsIterableOnce creates multiple objects for things like Seq; It's better to have manual specializations.
 	/** Adds a `foldWhile` method to any `Iterable` which implement a variant of `fold` operation with a break condition. */
 	@inline implicit final def foldingMethods[C](self :C)(implicit iterable :IsIterableOnce[C]) :FoldingMethods[iterable.A] =
 		new FoldingMethods[iterable.A](iterable(self))
@@ -47,23 +48,40 @@ trait extensions extends Any {
 	@inline implicit final def arrayExtension[X](self :Array[X]) :SeqExtension[X] =
 		new SeqExtension[X](mutable.ArraySeq.make(self))
 
-	/** An [[net.noresttherein.sugar.collection.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] method
+	/** An [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] method
 	  * for any `Map`.
 	  */
 	@inline implicit final def mapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]]
 	                                       (self :M[K, V]) :MapExtension[K, V, M] =
 		new MapExtension(self)
 
+	/** Adds a `++` method to any `Stepper` type. */
+	@inline implicit final def stepperExtension[S <: Stepper[_]](self :S) =
+		new StepperExtension[S](self)
+
+//	@inline implicit final def efficientSplitStepperExtension[S <: Stepper[_]](self :S with EfficientSplit) =
+//		new StepperExtension[S with EfficientSplit](self)
+
+	/** Adds a `++` method to any standard `java.util.Iterator` subclass. */
+	@inline implicit final def javaIteratorExtension[I <: JIterator[_]](self :I) =
+		new JavaIteratorExtension[I](self)
+
 	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
 	  * [[scala.collection.IterableFactory IterableFactory]]`[C]`.
-	  * Adds methods [[net.noresttherein.sugar.collection.extensions.IterableFactoryExtension.expand expand]]
-	  * and [[net.noresttherein.sugar.collection.extensions.IterableFactoryExtension.generate generate]]
+	  * Adds methods [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.expand expand]]
+	  * and [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.generate generate]]
 	  * to any [[scala.collection.IterableFactory IterableFactory]].
 	  */
 	@inline implicit final def iterableFactoryExtension[C[_]](self :IterableFactory[C]) =
 		new IterableFactoryExtension[C](self)
 
-	/** An extension method [[net.noresttherein.sugar.collection.extensions.BuilderExtension.mapInput mapElements]]
+	/** Adds a [[net.noresttherein.sugar.collections.extensions.IteratorFactoryExtension.double double]] factory method
+	  * for two element iterators to object `Iterator`.
+	  */
+	@inline implicit final def iteratorFactoryExtension(self :Iterator.type) =
+		new IteratorFactoryExtension {}
+
+	/** An extension method [[net.noresttherein.sugar.collections.extensions.BuilderExtension.mapInput mapElements]]
 	  * which adapts the builder to a new element type.
 	  */
 	@inline implicit final def builderExtension[E, C](self :Builder[E, C]) :BuilderExtension[E, C] =
@@ -84,6 +102,7 @@ trait extensions extends Any {
 
 
 
+@SerialVersionUID(ver)
 object extensions {
 	/** A syntactic wrapper for collections, injecting methods implementing
 	  * 'breakable' folding and reducing, that is folding only some prefix/suffix of the collection
@@ -92,7 +111,21 @@ object extensions {
 	  * @param items any collection to fold.
 	  * @tparam T element type of this collection.
 	  */
-	class FoldingMethods[T](private val items :IterableOnce[T]) extends AnyVal {
+	class FoldingMethods[T] private[extensions] (private val items :IterableOnce[T]) extends AnyVal {
+		/** Creates a Java [[java.util.Iterator Iterator]] of a proper specialization for type `T`
+		  * (`Int`, `Long`, `Double`). If the underlying collection provides a specialized (non boxing)
+		  * [[scala.collection.Stepper Stepper]], then the returned iterator will not box value types.
+		  */
+		def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[T, I]) :I = items match {
+			case sugared :SugaredIterable[T]         => sugared.jiterator
+			case empty :Iterable[_] if empty.isEmpty => JavaIterator()
+			case _ :ArraySeq[T] | _ :mutable.ArraySeq[T] | _ :ArrayBuffer[T] =>
+				items.stepper.javaIterator.asInstanceOf[I]
+			case seq :collection.IndexedSeq[T]       => JavaIterator.over(seq)
+			case it :Iterator[_] if !it.hasNext      => JavaIterator()
+			case _                                   => items.stepper.javaIterator.asInstanceOf[I]
+		}
+
 		/** Folds this collection until the folded value satisfies the condition `pred`.
 		  * Function `op` is applied recursively to the elements of this collection and its previous results,
 		  * in an undetermined order, until it returns a value for which `pred` is `true`.
@@ -103,7 +136,7 @@ object extensions {
 		  * without ever calling `op`.
 		  *
 		  * This method is not equivalent
-		  * to `this.`[[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldWhile foldWhile]]`(start)(!pred(_))(op)`,
+		  * to `this.`[[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldWhile foldWhile]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -113,7 +146,7 @@ object extensions {
 		  *              in this collection, or the result is undefined.
 		  * @param op    a folding function.
 		  * @return This implementation delegates
-		  *         to [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftUntil]]`(start)(pred)(op)`.
+		  *         to [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntil]]`(start)(pred)(op)`.
 		  */
 		def foldUntil[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :A =
 			foldLeftUntil(start)(pred)(op)
@@ -128,7 +161,7 @@ object extensions {
 		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
 		  *
 		  * It is not equivalent
-		  * to `this.`[[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldWhileOpt foldWhileOpt]]`(start)(!pred(_))(op)`,
+		  * to `this.`[[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldWhileOpt foldWhileOpt]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -138,7 +171,7 @@ object extensions {
 		  *              in this collection, or the result is undefined.
 		  * @param op    a folding function.
 		  * @return This implementation delegates
-		  *         to [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftUntilOpt]]`(start)(pred)(op)`
+		  *         to [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilOpt]]`(start)(pred)(op)`
 		  */
 		def foldUntilOpt[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
 			foldLeftUntilOpt(start)(pred)(op)
@@ -157,7 +190,7 @@ object extensions {
 		  *       where `a` is the last value computed by `op`.
 		  *
 		  * It is not equivalent
-		  * to `this.`[[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldWhileEither foldWhileEither]]`(start)(!pred(_))(op)`,
+		  * to `this.`[[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldWhileEither foldWhileEither]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -167,7 +200,7 @@ object extensions {
 		  *              in this collection, or the result is undefined.
 		  * @param op    a folding function.
 		  * @return This implementation delegates
-		  *         to [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftUntilEither]]`(start)(pred)(op)`
+		  *         to [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilEither]]`(start)(pred)(op)`
 		  */
 		def foldUntilEither[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Either[A, A] =
 			foldLeftUntilEither(start)(pred)(op)
@@ -202,7 +235,7 @@ object extensions {
 		  *     }
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftWhile foldLeftWhile]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftWhile foldLeftWhile]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -226,7 +259,7 @@ object extensions {
 		  *     toLazyList.scanLeft(start)(op).dropWhile(!pred(_)).headOption
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftWhileOpt foldLeftWhileOpt]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftWhileOpt foldLeftWhileOpt]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -258,7 +291,7 @@ object extensions {
 		  *     }
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftWhileEither foldLeftWhileEither]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftWhileEither foldLeftWhileEither]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -301,16 +334,16 @@ object extensions {
 					val (skipped, rest) = it.scanRight(start)(op).to(LazyList).reverse.span(!pred(_))
 					if (rest.nonEmpty) ifFound(rest.head)
 					else ifNotFound(skipped.last)
-	//			case _ =>
-	//				val inverse = (List.empty[T] /: items)((reversal, item) => item::reversal)
-	//				@tailrec def rec(item :A, rest :List[T]) :X = rest match {
-	//					case h::t =>
-	//						val next = op(h, item)
-	//						if (pred(next)) ifFound(next)
-	//						else rec(next, t)
-	//					case _ => ifNotFound(item)
-	//				}
-	//				rec(start, inverse)
+//			case _ =>
+//				val inverse = (List.empty[T] /: items)((reversal, item) => item::reversal)
+//				@tailrec def rec(item :A, rest :List[T]) :X = rest match {
+//					case h::t =>
+//						val next = op(h, item)
+//						if (pred(next)) ifFound(next)
+//						else rec(next, t)
+//					case _ => ifNotFound(item)
+//				}
+//				rec(start, inverse)
 			}
 
 
@@ -331,7 +364,7 @@ object extensions {
 		  *     }
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldRightWhile foldRightWhile]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldRightWhile foldRightWhile]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -355,7 +388,7 @@ object extensions {
 		  *     toLazyList.reverse.scanLeft(start)((a, t) => op(t,a)).dropWhile(!pred(_)).headOption
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldRightWhileOpt foldRightWhileOpt]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldRightWhileOpt foldRightWhileOpt]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -386,7 +419,7 @@ object extensions {
 		  *     }
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldRightWhileEither foldRightWhileEither]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldRightWhileEither foldRightWhileEither]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -439,7 +472,7 @@ object extensions {
 		  *     scanLeft(start)(op).takeWhile(pred).last
 		  * }}}
 		  * Note that this method is ''not'' equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftUntil foldLeftUntil]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntil foldLeftUntil]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -466,7 +499,7 @@ object extensions {
 		  *     scanLeft(Some(start) :Option[A])(op).takeWhile(_.exists(pred)).lastOption
 		  * }}}
 		  * Note that this method is ''not'' equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftUntilOpt foldLeftUntilOpt]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilOpt foldLeftUntilOpt]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -491,7 +524,7 @@ object extensions {
 		  *         Left(start)
 		  * }}}
 		  * Note that this method is ''not'' equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftUntilEither foldLeftUntilEither]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilEither foldLeftUntilEither]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -551,7 +584,7 @@ object extensions {
 		  *     toLazyList.reverse.scanLeft(start)((a, t) => op(t, a)).takeWhile(pred).last
 		  * }}}
 		  * Note that this method is ''not'' equivalent to
-		  * [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldRightUntil foldRightUntil]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldRightUntil foldRightUntil]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first value falsifying the predicate,
 		  * while this method returns the last value for which it is still true.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -589,7 +622,7 @@ object extensions {
 		  * @tparam A type of generated values.
 		  * @return result of `this.fold(a)(op)` or first encountered value `a :A` such that `op` is not defined
 		  *         for `(e, a)` where `e` is the first non-folded element of this collection.
-		  * @return [[net.noresttherein.sugar.collection.extensions.FoldingMethods.partialFoldLeft partialFoldLeft]]`(start)(op)`.
+		  * @return [[net.noresttherein.sugar.collections.extensions.FoldingMethods.partialFoldLeft partialFoldLeft]]`(start)(op)`.
 		  */
 		def partialFold[A >: T](start :A)(op :PartialFunction[(A, A), A]) :A = partialFoldLeft(start)(op)
 
@@ -649,7 +682,7 @@ object extensions {
 		  *              of this collection.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
 		  *           of this collection, yielding `None` to signal the termination of folding.
-		  * @return [[net.noresttherein.sugar.collection.extensions.FoldingMethods.foldLeftSome foldLeftSome]]`(start)(op)`.
+		  * @return [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftSome foldLeftSome]]`(start)(op)`.
 		  */
 		def foldSome[A >: T](start :A)(op :(A, A) => Option[A]) :A = foldLeftSome(start)(op)
 
@@ -879,7 +912,7 @@ object extensions {
 	/** Additional extension methods for collections of the standard library framework.
 	  * The common theme is performing mapping with help of a passed state/accumulator value.
 	  */
-	class MappingMethods[C[X], E](private val self :IterableOps[E, C, C[E]]) extends AnyVal {
+	class MappingMethods[C[X], E] private[extensions] (private val self :IterableOps[E, C, C[E]]) extends AnyVal {
 		/** Maps this collection from left to right with an accumulating state updated by the mapping function.
 		  * The state is discarded after the operation and only the mapping results (the second elements
 		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
@@ -944,7 +977,7 @@ object extensions {
 			res.result()
 		}
 
-		/** Equivalent to [[net.noresttherein.sugar.collection.extensions.MappingMethods.zipMap zipMap]],
+		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.MappingMethods.zipMap zipMap]],
 		  * but throws a [[NoSuchElementException]] if the collections are of different sizes.
 		  */
 		def zipMapAll[X, O](that :IterableOnce[X])(f :(E, X) => O) :C[O] = {
@@ -998,7 +1031,7 @@ object extensions {
 			res.result()
 		}
 
-		/** Equivalent to [[net.noresttherein.sugar.collection.extensions.MappingMethods.zipFlatMap zipFlatMap]],
+		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.MappingMethods.zipFlatMap zipFlatMap]],
 		  * but throws a [[NoSuchElementException]] if the collections are of different sizes.
 		  */
 		def zipFlatMapAll[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :C[O] = {
@@ -1108,7 +1141,7 @@ object extensions {
 	  *   1. methods related to subsequences: sequences containing selected elements from another sequence,
 	  *      in the same order.
 	  */
-	class SeqExtension[X](private val self :scala.collection.Seq[X]) extends AnyVal {
+	class SeqExtension[X] private[extensions] (private val self :scala.collection.Seq[X]) extends AnyVal {
 		@inline def length :Int = self.length
 
 		/** Finds the location of the given element in this sequence, returning its index as an option.
@@ -1295,22 +1328,22 @@ object extensions {
 		@inline def assertLastIndexWhere(p :X => Boolean, end :Int, msg: => String) :Int =
 			assertPresent(self.lastIndexWhere(p, end), msg)
 
-		@inline private[collection] def assertPresent(i :Int, msg: => String) :Int = {
+		@inline private[collections] def assertPresent(i :Int, msg: => String) :Int = {
 			assert(i >= 0, msg)
 			i
 		}
 
-		private[collection] def indexOfErrorMessage(x :X, from :Int) :String =
+		private[collections] def indexOfErrorMessage(x :X, from :Int) :String =
 			"No " + x + " in " + self + (if (from == 0) "." else " at or after index " + from + ".")
 
-		private[collection] def lastIndexOfErrorMessage(x :X, end :Int) :String =
+		private[collections] def lastIndexOfErrorMessage(x :X, end :Int) :String =
 			"No " + x + " in " + self + (if (end == length - 1) "." else " at or before index " + end + ".")
 
-		private[collection] def indexWhereErrorMessage(from :Int) :String =
+		private[collections] def indexWhereErrorMessage(from :Int) :String =
 			"No element satisfying the predicate in " + self +
 				(if (from == 0) "." else " at or after index " + from + ".")
 
-		private[collection] def lastIndexWhereErrorMessage(end :Int) :String =
+		private[collections] def lastIndexWhereErrorMessage(end :Int) :String =
 			"No element satisfying the predicate in " + self +
 				(if (end == length - 1) "." else " at or before index " + end + ".")
 
@@ -1360,10 +1393,12 @@ object extensions {
 
 
 
-	/** Adds an [[net.noresttherein.sugar.collection.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] extension method
+	/** Adds an [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] extension method
 	  * to [[scala.collection.immutable.Map immutable.Map]].
 	  */
-	class MapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]](private val self :M[K, V]) extends AnyVal {
+	class MapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[extensions] (private val self :M[K, V])
+		extends AnyVal 
+	{
 		@inline def updatedIfAbsent[U >: V](key :K, value :U) :M[K, U] =
 			if (self.contains(key)) self else self.updated(key, value)
 
@@ -1371,12 +1406,48 @@ object extensions {
 	}
 
 
+	class PreferredStepperShape[A, S <: Stepper[_]] private[extensions] (val stepperShape :StepperShape[A, S])
+		extends AnyVal
+	{
+		def shape :StepperShape.Shape = stepperShape.shape
+	}
+
+	private[extensions] sealed abstract class Rank1PreferredStepperShapes {
+		implicit def lessPreferredStepperShape[A, S <: Stepper[_]](implicit shape :StepperShape[A, S]) =
+			new PreferredStepperShape[A, S](shape)
+	}
+	object PreferredStepperShape extends Rank1PreferredStepperShapes {
+		implicit val IntStepperShape    = new PreferredStepperShape[Int, IntStepper](StepperShape.intStepperShape)
+		implicit val LongStepperShape   = new PreferredStepperShape[Long, LongStepper](StepperShape.longStepperShape)
+		implicit val DoubleStepperShape = new PreferredStepperShape[Double, DoubleStepper](StepperShape.doubleStepperShape)
+	}
+
+	/** Adds a `++` extension method to any `Stepper[_]`. */
+	class StepperExtension[S <: Stepper[_]] private[extensions] (private val self :S) extends AnyVal {
+		/** Combines this stepper with the argument, returning a stepper of the same specialization as both.
+		  * This will work only for the built in Scala steppers.
+		  */
+		def ++[A](next :S)(implicit shape :PreferredStepperShape[A, S]) :S =
+			ConcatStepper(self, next)(shape.stepperShape)
+	}
+
+	/** Adds a `++` extension method to any Java `Iterator[_]`. */
+	class JavaIteratorExtension[I <: JIterator[_]] private[extensions] (private val self :I) extends AnyVal {
+		/** Combines this iterator with the argument, returning an iterator of the same specialization as both.
+		  * Aside from the basic `Iterator[_]`, this will work only for the standard three Java `PrimitiveIterator`s.
+		  */
+		def ++[A](next :I)(implicit shape :JavaIteratorShape[A, I]) :I =
+			JavaConcatIterator(self, next)
+	}
+
+
+
 
 	/** Extension methods for [[scala.collection.IterableFactory IterableFactory]], the most common type of
 	  * companion objects for collection types conforming to the Scala collection framework.
 	  * Provides additional generator methods which construct the collection of the proper type.
 	  */
-	class IterableFactoryExtension[C[_]](private val companion :IterableFactory[C]) extends AnyVal {
+	class IterableFactoryExtension[C[_]] private[extensions] (private val companion :IterableFactory[C]) extends AnyVal {
 
 		/** A complement of `C.iterate` and `C.unfold` provided by collection companion objects, which creates
 		  * a collection `C` by recursively applying a partial function while defined to its own results and collecting
@@ -1434,13 +1505,128 @@ object extensions {
 
 
 
+	/** Adds a [[net.noresttherein.sugar.collections.extensions.IteratorFactoryExtension.double double]] factory method
+	  * for two element iterators to object `Iterator` to complement [[scala.collection.Iterator.single single]].
+	  */
+	sealed trait IteratorFactoryExtension extends Any {
+		final def double[A](first :A, second :A) :BufferedIterator[A] = new BufferedIterator[A] {
+			private[this] var idx = 0
+			override def hasNext = idx < 2
+			override def head = idx match {
+				case 0 => first
+				case 1 => second
+				case _ => throw new NoSuchElementException("Iterator.empty")
+			}
+			override def next() = idx match {
+				case 0 => idx = 1; first
+				case 1 => idx = 2; second
+				case _ => throw new NoSuchElementException("Iterator.empty")
+			}
+		}
+	}
+
+	/** Adds factory methods to the [[scala.collection.Stepper$ Stepper]] singleton object, creating steppers
+	  * of zero, one or two elements.
+	  */
+	sealed trait StepperFactoryExtension extends Any {
+		/** Creates an empty `Stepper`. This method variant requires either explicit specification of type parameters,
+		  * or for the element type to be abstract, with a single implicit `StepperShape[T, S]` in scope.
+		  * @see [[net.noresttherein.sugar.collections.extensions.StepperFactoryExtension.apply[T] apply]]`()`.
+		  */
+		@inline final def empty[T, S <: Stepper[_]](implicit shape :StepperShape[T, S]) :S with EfficientSplit =
+			Stepper0()
+		
+		/** Creates an empty stepper with the specified element type. 
+		  * The returned object has an `apply()` method accepting an implicit 
+		  * [[scala.collection.StepperShape StepperShape]]`[T, S]`; this allows to split type parameter groups
+		  * and provide here only the element type: `Stepper[T]()`.
+		  * @see [[net.noresttherein.sugar.collections.extensions.StepperFactoryExtension.empty empty]]
+		  */
+		@inline final def apply[T] = new EmptyStepperFactoryExtension[T] {} 
+		
+		/** Creates a stepper of a single element, with a shape proper for that element.
+		  * While the created `Stepper` will not box value types, this method itself is generic and hence boxes them.
+		  * You can invoke manually specialized methods instead - `ofInt`, `ofLong`, `ofDouble`, `ofAny` -
+		  * to avoid boxing.
+		  */
+		@inline final def apply[T, S <: Stepper[_]](elem :T)(implicit shape :StepperShape[T, S]) :S with EfficientSplit =
+			Stepper1(elem)
+
+		/** Creates a stepper of a two elements, with a shape proper for that elements.
+		  * While the created `Stepper` will not box value types, this method itself is generic and hence boxes them.
+		  * You can invoke manually specialized methods instead - `ofInt`, `ofLong`, `ofDouble`, `ofAny` -
+		  * to avoid boxing.
+		  */
+		@inline final def apply[T, S <: Stepper[_]](first :T, second :T)(implicit shape :StepperShape[T, S]) 
+				:S with EfficientSplit =
+			Stepper2(first, second)
+		
+		/** Creates an empty stepper for reference types (`AnyStepper`). */
+		@inline def ofAny[T] :AnyStepper[T] with EfficientSplit = Stepper0.ofAny
+		
+		/** Creates a single element stepper specific to reference types. 
+		  * When used for a value type, the value will be boxed by this call.
+		  */
+		@inline def ofAny[T](elem :T) :AnyStepper[T] with EfficientSplit = Stepper1.ofAny(elem)
+		
+		/** Creates a stepper of two elements specific to reference types.
+		  * When used for a value type, the values will be boxed by this call.
+		  */
+		@inline def ofAny[T](first :T, second :T) :AnyStepper[T] with EfficientSplit = Stepper2.ofAny(first, second)
+		
+		/** Creates an empty stepper for `Int`. */
+		@inline def ofInt :IntStepper with EfficientSplit = Stepper0.ofInt
+		
+		/** Creates a stepper for a single `Int`. 
+		  * This method can be also used for `Byte`, `Short` and `Char`, as they all use `IntStepper`.
+		  */
+		@inline def ofInt(elem :Int) :IntStepper with EfficientSplit = Stepper1.ofInt(elem)
+		
+		/** Creates a stepper for two `Int`s.
+		  * This method can be also used for `Byte`, `Short` and `Char`, as they all use `IntStepper`.
+		  */
+		@inline def ofInt(first :Int, second :Int) :IntStepper with EfficientSplit = Stepper2.ofInt(first, second)
+		
+		/** Creates an empty stepper for `Long`. */
+		@inline def ofLong :LongStepper with EfficientSplit = Stepper0.ofLong
+		
+		/** Creates a stepper for a single `Long`. */
+		@inline def ofLong(elem :Long) :LongStepper with EfficientSplit = Stepper1.ofLong(elem)
+		
+		/** Creates a stepper for two `Long`s. */
+		@inline def ofLong(first :Long, second :Long) :LongStepper with EfficientSplit = Stepper2.ofLong(first, second)
+		
+		/** Creates an empty stepper for `Double`.
+		  * This method can be also used for `Float`, as it too uses `DoubleStepper`.
+		  */
+		@inline def ofDouble :DoubleStepper with EfficientSplit = Stepper0.ofDouble
+		
+		/** Creates a stepper for a single `Double`.
+		  * This method can be also used for `Float`, as it too uses `DoubleStepper`.
+		  */
+		@inline def ofDouble(elem :Double) :DoubleStepper with EfficientSplit = Stepper1.ofDouble(elem)
+		
+		/** Creates a stepper for two `Double`s.
+		  * This method can be also used for `Float`, as it too uses `DoubleStepper`.
+		  */
+		@inline def ofDouble(first :Double, second :Double) :DoubleStepper with EfficientSplit = Stepper2.ofDouble(first, second)
+	}
+	/** An `apply()` method acceptin an implicit `StepperShape[T, S]`, inferring the stepper type. It is a continuation
+	  *  of [[net.noresttherein.sugar.collections.extensions.StepperFactoryExtension.apply Stepper]]`[T]` call.
+	  */
+	sealed trait EmptyStepperFactoryExtension[T] extends Any {
+		/** Creates an empty `Stepper` of shape defined by an implicit `StepperShape` for element type `T`. */
+		@inline final def apply[S <: Stepper[_]]()(implicit shape :StepperShape[T, S]) :S with EfficientSplit =
+			Stepper0()	
+	}
 
 
 
-	/** An extension method [[net.noresttherein.sugar.collection.extensions.BuilderExtension.mapInput mapInput]]
+
+	/** An extension method [[net.noresttherein.sugar.collections.extensions.BuilderExtension.mapInput mapInput]]
 	  * which adapts the builder to a new element type.
 	  */
-	class BuilderExtension[E, C](private val self :Builder[E, C]) extends AnyVal {
+	class BuilderExtension[E, C] private[extensions] (private val self :Builder[E, C]) extends AnyVal {
 		/** Similarly to [[scala.collection.mutable.Builder.mapResult mapResult]], this method creates
 		  * a new builder which maps all given elements of new type `A` to the element type
 		  * of this builder, before delegating to it. The built collection type is unchanged.
@@ -1451,6 +1637,61 @@ object extensions {
 		}
 	}
 
+
+	/** Adds Scala [[scala.collection.mutable.Growable Growable]] and [[scala.collection.mutable.Builder Builder]]
+	  * methods as inlined delegates to the Java [[java.lang.StringBuilder StringBuilder]].
+	  * While it essentially duplicates the functionality of standard Scala
+	  * [[scala.collection.mutable.StringBuilder StringBuilder]], the wrapper is not intended to be as an object
+	  * or referred to directly by the application, but rather a provider of extension methods, and returns always
+	  * the original `StringBuilder`. As methods are inlined, this incurs neither the penalty of creating an additional
+	  * object, nor of delegating individual calls, at least with default compiler optimisations on.
+	  */
+	class JavaStringBuilderExtension private[extensions] (private val self :JStringBuilder)
+		extends AnyVal with IterableOnce[Char]
+	{
+		@inline def apply(index :Int) :Char = self.charAt(index)
+		@inline def last :Char = self.charAt(self.length - 1)
+
+		@inline def length_=(newLength :Int) :Unit = self.setLength(newLength)
+		@inline def clear() :JStringBuilder = { self.setLength(0); self }
+
+		@inline def +=(char :Char) :JStringBuilder = self append char
+		@inline def addOne(char :Char) :JStringBuilder = self append char
+
+		@inline def ++=(chars :String)             :JStringBuilder = self append chars
+		@inline def ++=(chars :Array[Char])        :JStringBuilder = self append chars
+		@inline def ++=(chars :CharSequence)       :JStringBuilder = self append chars
+		@inline def ++=(chars :IterableOnce[Char]) :JStringBuilder = addAll(chars)
+
+		@inline def addAll(chars :String)             :JStringBuilder = self append chars
+		@inline def addAll(chars :Array[Char])        :JStringBuilder = self append chars
+		@inline def addAll(chars :CharSequence)       :JStringBuilder = self append chars
+		@inline def addAll(chars :IterableOnce[Char]) :JStringBuilder = chars match {
+			case it :Iterable[_] if it.isEmpty => self
+			case it :Iterable[Char]            => it foreach self.append; self
+			case _                             =>
+				val i = chars.iterator
+				while (i.hasNext)
+					self append i.next()
+				self
+		}
+
+
+		override def iterator :Iterator[Char] = new AbstractIndexedIterator[Char] {
+			override def underlyingSize = self.length
+
+			override var index :Int = 0
+			override var limit :Int = self.length
+
+			override def head = self.charAt(index)
+
+			override def next() = { val res = self.charAt(index); index += 1; res }
+		}
+
+		@inline def result() :String = self.toString
+		@inline override def toString :String = self.toString
+	}
+
 }
 
 
@@ -1458,7 +1699,7 @@ object extensions {
 
 
 
-private[collection] class ComposedBuilder[-X, Y, C, +R](underlying :Builder[Y, C], mapArgs :X => Y, mapRes :C => R)
+private[collections] class ComposedBuilder[-X, Y, C, +R](underlying :Builder[Y, C], mapArgs :X => Y, mapRes :C => R)
 	extends Builder[X, R]
 {
 	override def knownSize :Int = underlying.knownSize

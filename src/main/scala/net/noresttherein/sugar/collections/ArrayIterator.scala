@@ -1,4 +1,4 @@
-package net.noresttherein.sugar.collection
+package net.noresttherein.sugar.collections
 
 import scala.collection.BufferedIterator
 
@@ -9,7 +9,8 @@ import scala.collection.BufferedIterator
   * The iterator advances over a window on the collection; it is assumed to use random indexing
   * to return the elements, but they are never handled by this class itself.
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
-  * @see [[net.noresttherein.sugar.collection.AbstractIndexedReverseIterator]]
+  * @see [[net.noresttherein.sugar.collections.AbstractIndexedReverseIterator]]
+  * @author Marcin Mościcki
   */
 trait AbstractIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 	protected def underlyingSize :Int
@@ -64,7 +65,8 @@ trait AbstractIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
   * of some sequential collections. The iterator advances over a window on the collection; it is assumed to use
   * random indexing to return the elements, but they are never handled by this class itself.
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
-  * @see [[net.noresttherein.sugar.collection.AbstractIndexedReverseIterator]]
+  * @see [[net.noresttherein.sugar.collections.AbstractIndexedIterator]]
+  * @author Marcin Mościcki
   */
 trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
 	protected def underlyingSize :Int
@@ -121,10 +123,9 @@ trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Clonea
   * @param first    the index in the array of the first/next element to return.
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
-  * @author Marcin Mościcki
   */
 class ArrayIterator[@specialized(Int, Long, Double) +T]
-                   (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
+	               (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIndexedIterator[T]
 {
 	def this(array :Array[T], idx :Int) = this(array, idx, array.length)
@@ -144,8 +145,10 @@ class ArrayIterator[@specialized(Int, Long, Double) +T]
 }
 
 
+@SerialVersionUID(ver)
 object ArrayIterator {
-	def apply(string :String) :StringIterator = new StringIterator(string, 0, string.length)
+	def apply[@specialized(Int, Long, Double) T](array :Array[T]) :ArrayIterator[T] =
+		new ArrayIterator(array, 0, array.length)
 
 	def apply[@specialized(Int, Long, Double) T](array :Array[T], offset :Int) :ArrayIterator[T] =
 		if (offset >= array.length) new ArrayIterator(array, array.length, array.length)
@@ -172,10 +175,9 @@ object ArrayIterator {
   *                  (the first index of the slice).
   * @param `first++` the index in the array pointing directly after the first/next element to return
   *                  (the end index of the slice).
-  * @author Marcin Mościcki
   */
 class ReverseArrayIterator[@specialized(Int, Long, Double) +T]
-                          (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
+	                      (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
 	extends AbstractIndexedReverseIterator[T]
 {
 	def this(array :Array[T], idx :Int) = this(array, 0, idx)
@@ -195,6 +197,7 @@ class ReverseArrayIterator[@specialized(Int, Long, Double) +T]
 }
 
 
+@SerialVersionUID(ver)
 object ReverseArrayIterator {
 	def apply[@specialized(Int, Long, Double) T](array :Array[T]) :ReverseArrayIterator[T] =
 		new ReverseArrayIterator(array, 0, array.length)
@@ -216,12 +219,116 @@ object ReverseArrayIterator {
 
 
 
+/** An iterator advancing over a slice of an `IndexedSeq`.
+  * @param first    the index in the sequence of the first/next element to return.
+  * @param `last++` the index in the sequence delimiting the iterator, that is pointing after the last element
+  *                 the iterator should return.
+  */
+class IndexedSeqIterator[@specialized(Int, Long, Double) +T]
+	                    (seq :collection.IndexedSeq[T], private[this] var first :Int, private[this] var `last++` :Int)
+	extends AbstractIndexedIterator[T]
+{
+	def this(seq :IndexedSeq[T], idx :Int) = this(seq, idx, seq.length)
+	def this(seq :IndexedSeq[T]) = this(seq, 0, seq.length)
+
+	protected final override def underlyingSize :Int = seq.length
+	protected final override def index :Int = first
+	protected final override def index_=(i :Int) :Unit = first = i
+	protected final override def limit :Int = `last++`
+	protected final override def limit_=(i :Int) :Unit = `last++` = i
+
+	override def hasNext :Boolean = first < `last++`
+	override def head :T = seq(first)
+	override def next() :T = { val res = seq(first); first += 1; res }
+
+	override def clone = new IndexedSeqIterator(seq, first, `last++`)
+}
+
+
+@SerialVersionUID(ver)
+object IndexedSeqIterator {
+	def apply[@specialized(Int, Long, Double) T](seq :collection.IndexedSeq[T]) :IndexedSeqIterator[T] =
+		new IndexedSeqIterator(seq, 0, seq.length)
+
+	def apply[@specialized(Int, Long, Double) T](seq :collection.IndexedSeq[T], offset :Int) :IndexedSeqIterator[T] =
+		if (offset >= seq.length) new IndexedSeqIterator(seq, seq.length, seq.length)
+		else if (offset <= 0) new IndexedSeqIterator(seq, 0, seq.length)
+		else new IndexedSeqIterator(seq, offset, seq.length)
+
+	def apply[@specialized(Int, Long, Double) T]
+	         (seq :collection.IndexedSeq[T], from :Int, until :Int) :IndexedSeqIterator[T] =
+	{
+		val len = seq.length
+		if (from >= len) new IndexedSeqIterator(seq, len, len)
+		else if (until <= 0) new IndexedSeqIterator(seq, 0, 0)
+		else if (until <= from) new IndexedSeqIterator(seq, from, from)
+		else if (from <= 0 && until >= len) new IndexedSeqIterator(seq, 0, len)
+		else if (from <= 0) new IndexedSeqIterator(seq, 0, until)
+		else if (until >= len) new IndexedSeqIterator(seq, from, len)
+		else new IndexedSeqIterator(seq, from, until)
+	}
+}
+
+
+
+
+/** An iterator advancing over a slice of an `IndexedSeq` in the reverse direction.
+  * @param last      the index in the sequence `last <= `first++`` of the last element to return
+  *                  (the first index of the slice).
+  * @param `first++` the index in the sequence pointing directly after the first/next element to return
+  *                  (the end index of the slice).
+  */
+class ReverseIndexedSeqIterator[@specialized(Int, Long, Double) +T]
+	  (seq :collection.IndexedSeq[T], private[this] var last :Int, private[this] var `first++` :Int)
+	extends AbstractIndexedReverseIterator[T]
+{
+	def this(seq :IndexedSeq[T], idx :Int) = this(seq, 0, idx)
+	def this(seq :IndexedSeq[T]) = this(seq, 0, seq.length)
+
+	protected final override def underlyingSize :Int = seq.length
+	protected final override def index :Int = `first++`
+	protected final override def index_=(i :Int) :Unit = `first++` = i
+	protected final override def limit :Int = last
+	protected final override def limit_=(i :Int) :Unit = last = i
+
+	override def hasNext :Boolean = `first++` > last
+	override def head :T = seq(`first++` - 1)
+	override def next() :T = { `first++` -= 1; seq(`first++`) }
+
+	override def clone = new ReverseIndexedSeqIterator(seq, last, `first++`)
+}
+
+
+@SerialVersionUID(ver)
+object ReverseIndexedSeqIterator {
+	def apply[@specialized(Int, Long, Double) T](seq :collection.IndexedSeq[T]) :ReverseIndexedSeqIterator[T] =
+		new ReverseIndexedSeqIterator(seq, 0, seq.length)
+
+	def apply[@specialized(Int, Long, Double) T]
+	         (seq :collection.IndexedSeq[T], from :Int, downto :Int) :ReverseIndexedSeqIterator[T] =
+	{
+		val len = seq.length
+		if (from <= 0) new ReverseIndexedSeqIterator(seq, 0, 0)
+		else if (downto >= len) new ReverseIndexedSeqIterator(seq, len, len)
+		else if (downto >= from) new ReverseIndexedSeqIterator(seq, from, from)
+		else if (downto <= 0 && from >= len) new ReverseIndexedSeqIterator(seq, 0, len)
+		else if (downto <= 0) new ReverseIndexedSeqIterator(seq, 0, from)
+		else if (from >= len) new ReverseIndexedSeqIterator(seq, downto, len)
+		else new ReverseIndexedSeqIterator(seq, downto, from)
+	}
+}
+
+
+
+
+
+
 /** An iterator over an arbitrary section of a `String`,
-  * similar to [[net.noresttherein.sugar.collection.ArrayIterator ArrayIterator]].
+  * similar to [[net.noresttherein.sugar.collections.ArrayIterator ArrayIterator]].
   * Has O(1) `take`/`drop`/`slice` methods.
   */
-final class StringIterator private[collection]
-            (string :String, private[this] var first :Int, private[this] var `last++` :Int)
+final class StringIterator private[collections]
+	        (string :String, private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIndexedIterator[Char]
 {
 	protected override def underlyingSize :Int = string.length
@@ -241,6 +348,7 @@ final class StringIterator private[collection]
 }
 
 
+@SerialVersionUID(ver)
 object StringIterator {
 	def apply(string :String) :StringIterator = new StringIterator(string, 0, string.length)
 
@@ -265,11 +373,11 @@ object StringIterator {
 
 
 /** An iterator over an arbitrary section of a `String`, running in reverse
-  * similar to [[net.noresttherein.sugar.collection.ReverseArrayIterator ReverseArrayIterator]].
+  * similar to [[net.noresttherein.sugar.collections.ReverseArrayIterator ReverseArrayIterator]].
   * Has O(1) `take`/`drop`/`slice` methods.
   */
-final class ReverseStringIterator private[collection]
-            (string :String, private[this] var last :Int, private[this] var `first++` :Int)
+final class ReverseStringIterator private[collections]
+	        (string :String, private[this] var last :Int, private[this] var `first++` :Int)
 	extends AbstractIndexedReverseIterator[Char]
 {
 	/* Requires 0 <= from <= until <= string.length and maintains invariant 0 <= stop <= index <= string.length.
@@ -295,6 +403,7 @@ final class ReverseStringIterator private[collection]
 }
 
 
+@SerialVersionUID(ver)
 object ReverseStringIterator {
 	def apply(string :String) :ReverseStringIterator = new ReverseStringIterator(string, 0, string.length)
 

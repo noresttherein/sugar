@@ -8,7 +8,7 @@ import net.noresttherein.sugar.funny.ReturnTypeOf
 
 
 /** Extension methods casting an expression to related types, less powerful (and dangerous) than `asInstanceOf`. */
-trait extensions extends Any {
+trait extensions extends Any { //consider extending by the package object
 	@inline implicit final def saferCasting[X](self :X) = new SaferCasting[X](self)
 
 	@inline implicit final def castTypeParam[T[A], X](self :T[X]) = new CastTypeParam[T, X](self)
