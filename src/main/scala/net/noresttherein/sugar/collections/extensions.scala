@@ -1,15 +1,18 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.tailrec
+import java.util.Arrays
+
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.{mutable, AnyStepper, BufferedIterator, DoubleStepper, IntStepper, IterableFactory, IterableOnce, IterableOps, LinearSeq, LongStepper, Stepper, StepperShape, View}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, MapOps}
 import scala.collection.generic.IsIterableOnce
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
+import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.collections.extensions.{BuilderExtension, FoldingMethods, IterableFactoryExtension, IteratorFactoryExtension, JavaIteratorExtension, JavaStringBuilderExtension, MapExtension, MappingMethods, SeqExtension, StepperExtension}
+import net.noresttherein.sugar.collections.extensions.{ArrayFactoryExtension, BuilderExtension, FoldingMethods, IterableFactoryExtension, IteratorFactoryExtension, JavaIteratorExtension, JavaStringBuilderExtension, MapExtension, MappingMethods, SeqExtension, StepperExtension}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -78,8 +81,11 @@ trait extensions extends Any {
 	/** Adds a [[net.noresttherein.sugar.collections.extensions.IteratorFactoryExtension.double double]] factory method
 	  * for two element iterators to object `Iterator`.
 	  */
-	@inline implicit final def iteratorFactoryExtension(self :Iterator.type) =
-		new IteratorFactoryExtension {}
+	@inline implicit final def iteratorFactoryExtension(self :Iterator.type) = new IteratorFactoryExtension {}
+
+	/** Adds extra extension methods to the `Array` object. */
+	@inline implicit final def arrayFactoryExtension(self :Array.type) = new ArrayFactoryExtension {}
+
 
 	/** An extension method [[net.noresttherein.sugar.collections.extensions.BuilderExtension.mapInput mapElements]]
 	  * which adapts the builder to a new element type.
@@ -1465,7 +1471,7 @@ object extensions {
 		@inline final def generate[X](start :X)(next :PartialFunction[X, X]) :C[X] =
 			expand(start)(next.lift)
 
-		/** Builds the collection `C[X]` by recursively reapplying the given partial function to the initial element.
+		/** Builds a collection `C[X]` by recursively reapplying the given partial function to the initial element.
 		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
 		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
 		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
@@ -1474,12 +1480,15 @@ object extensions {
 		  * @param start The first element added to the collection.
 		  * @param next  A generator function returning subsequent elements for the collection based on the previous one,
 		  *              or `None` to indicate the end of recursion.
-		  * @tparam X the element type of the generated collection
+		  * @tparam X the element type of the generated collection.
 		  * @return a collection containing the sequence starting with `start` and resulting from recursively applying `next`
 		  *         to itself.
 		  */
-		@inline final def expand[X](start :X)(next :X => Option[X]) :C[X] =
+		@nowarn("cat=deprecation")
+		final def expand[X](start :X)(next :X => Option[X]) :C[X] =
 			companion match {
+				case Stream =>
+					(start #:: (next(start).map(Stream.expand(_)(next)) getOrElse Stream.empty)).asInstanceOf[C[X]]
 				case LazyList =>
 					(start #:: (next(start).map(LazyList.expand(_)(next)) getOrElse LazyList.empty)).asInstanceOf[C[X]]
 				case _ =>
@@ -1499,11 +1508,101 @@ object extensions {
 		  * @param f     A function generating subsequent elements following start.
 		  *              The second element of the collection will be `f(start, 1)`, the third `f(f(start, 1), 2)`, and so on.
 		  */
-		@inline def iterateWithIndex[X](start :X, len :Int)(f :(X, Int) => X) :C[X] =
+		def iterateWithIndex[X](start :X, len :Int)(f :(X, Int) => X) :C[X] =
 			companion.from(View.iterate((start, 0), len) { xi => (f(xi._1, xi._2 + 1), xi._2 + 1) }.map(_._1))
 	}
 
 
+	/** Extensions methods for object [[Array]] (the array factory). Adds the same methods as
+	  * [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension IterableFactoryExtension]]
+	  * as well as missing methods from [[scala.collection.SeqFactory SeqFactory]]
+	  * and some adapters of methods in [[java.util.Arrays]].
+	  */
+	sealed trait ArrayFactoryExtension extends Any {
+		/** Same as [[java.util.Arrays Arrays]]`.`[[java.util.Arrays.copyOfRange copyOfRange]], except it works
+		  * for all element types.
+		  */
+		def copyOfRange[T](original :Array[T], from :Int, to :Int) :Array[T] = ((original: @unchecked) match {
+			case _        :Array[BoxedUnit] => //need to check before `AnyRef`
+				if (from < 0 | to < 0)
+					throw new IndexOutOfBoundsException(
+						"copyOfRange[Unit](Array[" + original.length + "], " + from + ", " + to + ")"
+					)
+				val result = new Array[Unit](to - from)
+				java.util.Arrays.fill(result.asInstanceOf[Array[AnyRef]], ())
+				result
+			case refs     :Array[AnyRef]    => Arrays.copyOfRange(refs, from, to)
+			case ints     :Array[Int]       => Arrays.copyOfRange(ints, from, to)
+			case longs    :Array[Long]      => Arrays.copyOfRange(longs, from, to)
+			case doubles  :Array[Double]    => Arrays.copyOfRange(doubles, from, to)
+			case chars    :Array[Char]      => Arrays.copyOfRange(chars, from, to)
+			case bytes    :Array[Byte]      => Arrays.copyOfRange(bytes, from, to)
+			case floats   :Array[Float]     => Arrays.copyOfRange(floats, from, to)
+			case booleans :Array[Boolean]   => Arrays.copyOfRange(booleans, from, to)
+			case shorts   :Array[Short]     => Arrays.copyOfRange(shorts, from, to)
+		}).asInstanceOf[Array[T]]
+
+		/** A complement of `Array.iterate` and `Array.unfold` provided by `Array` object, which creates
+		  * an `Array[X]` by recursively applying a partial function while defined to its own results and collecting
+		  * all returned values. It is very similar to the standard [[Array.iterate iterate]],
+		  * but instead of a fixed number of iterations, the generator function `next` is called for its return values
+		  * until it is no longer applicable, which marks the end of the collection.
+		  * @param start first element added to the array.
+		  * @param next  generator function returning subsequent elements for the array based on the previous one,
+		  *              serving as the termination condition by indicating that it can no longer be applied
+		  *              to the given argument.
+		  * @tparam X element type of the generated array.
+		  * @return an array containing the sequence starting with `start` and resulting from recursively applying
+		  *         `next` to itself.
+		  */
+		@inline final def generate[X](start :X)(next :PartialFunction[X, X])(implicit elements :ClassTag[X]) :Array[X] =
+			expand(start)(next.lift)
+
+		/** Builds an `Array[X]` by recursively reapplying the given partial function to the initial element.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param start The first element added to the array.
+		  * @param next  A generator function returning subsequent elements for the array based on the previous one,
+		  *              or `None` to indicate the end of recursion.
+		  * @tparam X the element type of the generated array.
+		  * @return an array containing the sequence starting with `start`
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		final def expand[X](start :X)(next :X => Option[X])(implicit elements :ClassTag[X]) :Array[X] = {
+			val builder = Array.newBuilder[X]
+			builder += start
+			@tailrec def rec(x :X = start) :Array[X] = next(x) match {
+				case Some(y) => builder += y; rec(y)
+				case None => builder.result()
+			}
+			rec()
+		}
+
+		/** Similar to [[Array.iterate Array.iterate]],
+		  * but the iterating function accepts the positional index of the next element as an additional argument.
+		  * @param start The first element of the created collection.
+		  * @param len   The size of the created collection.
+		  * @param f     A function generating subsequent elements following start.
+		  *              The second element of the collection will be `f(start, 1)`, the third `f(f(start, 1), 2)`, and so on.
+		  */
+		def iterateWithIndex[X](start :X, len :Int)(f :(X, Int) => X)(implicit elements :ClassTag[X]) :Array[X] =
+			Array.from(View.iterate((start, 0), len) { xi => (f(xi._1, xi._2 + 1), xi._2 + 1) }.map(_._1))
+
+		/** Produces an array that uses a function `f` to produce elements of type `A`
+		  * and update an internal state of type `S`.
+		  * @param init State initial value
+		  * @param f    Computes the next element (or returns `None` to signal
+		  *             the end of the collection)
+		  * @tparam A Type of the elements
+		  * @tparam S Type of the internal state
+		  * @return an array that produces elements using `f` until `f` returns `None`
+		  */
+		def unfold[A, S](init :S)(f :S => Option[(A, S)])(implicit elements :ClassTag[A]) :Array[A] =
+			Array.from(new View.Unfold(init)(f))
+	}
 
 	/** Adds a [[net.noresttherein.sugar.collections.extensions.IteratorFactoryExtension.double double]] factory method
 	  * for two element iterators to object `Iterator` to complement [[scala.collection.Iterator.single single]].
@@ -1611,6 +1710,7 @@ object extensions {
 		  */
 		@inline def ofDouble(first :Double, second :Double) :DoubleStepper with EfficientSplit = Stepper2.ofDouble(first, second)
 	}
+
 	/** An `apply()` method acceptin an implicit `StepperShape[T, S]`, inferring the stepper type. It is a continuation
 	  *  of [[net.noresttherein.sugar.collections.extensions.StepperFactoryExtension.apply Stepper]]`[T]` call.
 	  */

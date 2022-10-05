@@ -10,7 +10,6 @@ import net.noresttherein.sugar.collections.Ranking.{RankingSeqAdapter, RankingSe
 import net.noresttherein.sugar.vars.Opt.Got
 
 //implicits
-import net.noresttherein.sugar.extensions.mappingMethods
 import net.noresttherein.sugar.extensions.castTypeParam
 
 
@@ -36,8 +35,8 @@ import net.noresttherein.sugar.extensions.castTypeParam
 trait Ranking[+T] //todo: revise .view usage for includes/excludes - probably not worth creating a view for it
 	extends Iterable[T] with IterableOps[T, Ranking, Ranking[T]] with IterableFactoryDefaults[T, Ranking]
 	   with Serializable
-{ unique =>
-
+{ ranking =>
+	@inline final def length :Int = size
 	override def knownSize :Int = size
 	override def iterableFactory :IterableFactory[Ranking] = Ranking
 
@@ -57,9 +56,16 @@ trait Ranking[+T] //todo: revise .view usage for includes/excludes - probably no
 	def reverseIterator :Iterator[T]
 
 	/** The `n`-th element in this collection.
-	  * @param n the index in the `[0..size-1]` range.
+	  * @param n an index in the `[0..size-1]` range.
 	  */
 	def apply(n :Int) :T
+
+	/** Creates a ranking with the same contents and order as this instance, but with `value` at index `n`.
+	  * @param n an index in the `[0..size-1]` range.
+	  * @param value the added element.
+	  */
+	@throws[IndexOutOfBoundsException]("if n < 0 || n >= size")
+	def updated[U >: T](n :Int, value :U) :Ranking[U]
 
 	/** The index of the given element in this collection, or `-1` if it does not contain `elem`. */
 	def indexOf[U >: T](elem :U) :Int
@@ -137,11 +143,11 @@ trait Ranking[+T] //todo: revise .view usage for includes/excludes - probably no
 		size == other.size && other.forall(contains)
 
 
-	override def className = "Unique"
+	override def className = "Ranking"
 }
 
 
-/** Companion object serving as a factory for Unique - sequence-like collections with fast indexOf operations.
+/**
   * $factoryInfo
   * @define Coll `Ranking`
   * @define coll ranking
@@ -150,9 +156,9 @@ trait Ranking[+T] //todo: revise .view usage for includes/excludes - probably no
 object Ranking extends IterableFactory[Ranking] {
 
 	override def from[T](elems :IterableOnce[T]) :Ranking[T] = elems match {
-		case unique :Ranking[T] => unique
-		case seq :RankingSeqAdapter[T] => seq.toUnique
-		case set :RankingSetAdapter[T] => set.toUnique
+		case ranking :Ranking[T] => ranking
+		case seq :RankingSeqAdapter[T] => seq.toRanking
+		case set :RankingSetAdapter[T] => set.toRanking
 		case iter :Iterable[_] if iter.isEmpty => empty[T]
 		case iter :Iterator[_] if iter.isEmpty => empty[T]
 		case iter :Iterable[T] if iter.sizeIs == 1 =>
@@ -176,13 +182,13 @@ object Ranking extends IterableFactory[Ranking] {
 	/** A specialized light `Ranking` implementation for collections containing only one element. */
 	def single[T](singleton :T) :Ranking[T] = new SingletonRanking(singleton)
 
-	/** A `Unique[T]` with lazily evaluated contents. The initializer will be called only when any of the methods
+	/** A `Ranking[T]` with lazily evaluated contents. The initializer will be called only when any of the methods
 	  * on the proxy is called. It will be executed at most once, withing a `synchronized` block for the proxy.
 	  * Once computed, it remains thread safe but will incur no additional synchronization penalty.
 	  */
 	@inline def Lazy[T](init: => IterableOnce[T]) :Ranking[T] = delayed(from(init))
 
-	/** A proxy to a lazily computed `Unique[T]`. The initializer will be called when any of the methods on the proxy
+	/** A proxy to a lazily computed `Ranking[T]`. The initializer will be called when any of the methods on the proxy
 	  * is called. It will be executed at most once, withing a `synchronized` block for the proxy.
 	  * Once computed, it remains thread safe but will incur no additional synchronization penalty.
 	  */
@@ -192,12 +198,12 @@ object Ranking extends IterableFactory[Ranking] {
 	def unapplySeq[T](elems :Ranking[T]) :Got[Seq[T]] = Got(elems.toSeq)
 
 
-	/** An implicit extension of a ''by-name'' expression evaluating to a `Unique[T]` instance, adding a `delayed`
+	/** An implicit extension of a ''by-name'' expression evaluating to a `Ranking[T]` instance, adding a `delayed`
 	  * method which creates a proxy using it to initialize its target. */
-	implicit class DelayedUnique[T](initializer: => Ranking[T]) {
+	implicit class DelayedRanking[T](initializer: => Ranking[T]) {
 		/** Treats the `this` argument as a ''by-name'' expression to be evaluated only when the created `Ranking`
 		  * proxy's contents are accessed.
-		  * @return `Unique.delayed(initializer)`.
+		  * @return `Ranking.delayed(initializer)`.
 		  * @see [[net.noresttherein.sugar.collections.Ranking.delayed delayed]]
 		  */
 		@inline def delayed :Ranking[T] = Ranking.delayed(initializer)
@@ -205,8 +211,8 @@ object Ranking extends IterableFactory[Ranking] {
 
 	@SerialVersionUID(ver)
 	object Implicits {
-		implicit def uniqueToSeq[T](unique :Ranking[T]) :Seq[T] = unique.toSeq
-		implicit def uniqueToSet[T](unique :Ranking[T]) :Set[T] = unique.toSet
+		implicit def rankingToSeq[T](ranking :Ranking[T]) :Seq[T] = ranking.toSeq
+		implicit def rankingToSet[T](ranking :Ranking[T]) :Set[T] = ranking.toSet
 	}
 
 
@@ -216,16 +222,16 @@ object Ranking extends IterableFactory[Ranking] {
 	  * and constructor parameters as well as the number of elements added.
 	  * In case the parameter list contains
 	  *   - no arguments,
-	  *   - `SmallUnique`,
+	  *   - `SmallRanking`,
 	  *   - `smallSize >= 0 && smallSize <= SmallRankingCap` (if non zero, then arrays `small` and `hashes`
 	  *     should be not null and contain that many elements and their computed hash codes in their prefixes),
-	  * then it tries first to build a `SmallUnique`, appending elements to to the `small` array.
+	  * then it tries first to build a `SmallRanking`, appending elements to to the `small` array.
 	  * However, if
 	  *   - the number of elements added exceeds `SmallRankingCap`.
 	  *   - `smallSize < 0` is given as a constructor argument,
 	  *   - an `IndexedSeq` builder and an index `Map` are given as arguments,
 	  *   - or `sizeHint` is called for a number greater than `SmallRankingCap`,
-	  * it switches to the `IndexedUnique` building mode (by setting `smallSize = -1`, where elements are appended
+	  * it switches to the `IndexedRanking` building mode (by setting `smallSize = -1`, where elements are appended
 	  * to the builder `large` and inserted in the map `index` associated with the next free index.
 	  */
 	private final class RankingBuilder[T] private(private[this] var large     :Builder[T, IndexedSeq[T]],
@@ -238,11 +244,11 @@ object Ranking extends IterableFactory[Ranking] {
 		def this(items :Builder[T, IndexedSeq[T]], index :Map[T, Int]) =
 			this(items, index, null, null, -1)
 
-		def this(unique :SmallRanking[T]) =
+		def this(ranking :SmallRanking[T]) =
 			this(null, null,
-				Array.copyOf(unique.contents, SmallRankingCap),
-				Array.copyOf(unique.hashCodes, SmallRankingCap),
-				unique.size)
+				Array.copyOf(ranking.contents, SmallRankingCap),
+				Array.copyOf(ranking.hashCodes, SmallRankingCap),
+				ranking.size)
 
 		def this() =
 			this(null, null, null, null, 0)
@@ -288,9 +294,9 @@ object Ranking extends IterableFactory[Ranking] {
 
 		override def addAll(xs :IterableOnce[T]) :this.type =
 			if (smallSize >= 0) xs match {
-				case unique :SmallRanking[T] =>
-					var i = 0; val count = unique.size
-					val elems = unique.contents; val hashes = unique.hashCodes
+				case ranking :SmallRanking[T] =>
+					var i = 0; val count = ranking.size
+					val elems = ranking.contents; val hashes = ranking.hashCodes
 					while (i < count & smallSize >= 0) {
 						smallAddOne(elems(i), hashes(i))
 						i += 1
@@ -300,11 +306,11 @@ object Ranking extends IterableFactory[Ranking] {
 						i += 1
 					}
 					this
-				case unique :SingletonRanking[T] => addOne(unique.head)
+				case ranking :SingletonRanking[T] => addOne(ranking.head)
 				case _ => super.addAll(xs)
 			} else xs match {
-				case unique :IndexedRanking[T] =>
-					val elems = unique.toSeq
+				case ranking :IndexedRanking[T] =>
+					val elems = ranking.toSeq
 					val size = index.size
 					large ++= elems
 					index ++= Iterator.tabulate(elems.length)(i => (elems(i), i + size))
@@ -376,6 +382,7 @@ object Ranking extends IterableFactory[Ranking] {
 		}
 
 		override def apply(idx :Int) :T = items(idx)
+		override def updated[U >: T](idx :Int, value :U) :Ranking[U] = items.updated(idx, value)
 		override def indexOf[U >: T](elem :U) :Int = items.indexOf(elem)
 
 		override def +:[U >: T](elem :U) :Ranking[U] = elem +: items
@@ -422,12 +429,23 @@ object Ranking extends IterableFactory[Ranking] {
 		override def foreach[U](f :T => U) :Unit = items foreach f
 
 		override def apply(idx :Int) :T = items(idx)
+		override def updated[U >: T](idx :Int, value :U) = {
+			val old = items(idx)
+			if (old == value) this
+			else {
+				val seq = items.updated(idx, value)
+				val index = map.asInstanceOf[Map[U, Int]].updated(value, idx) - old
+				new IndexedRanking[U](seq, index)
+			}
+		}
 
 		override def indexOf[U >: T](elem :U) :Int = index(elem.asInstanceOf[T])
 
 		override def +[U >: T](elem :U) :Ranking[U] =
-			if (contains(elem)) this
-			else new IndexedRanking(elem +: items, index.asInstanceOf[Map[U, Int]].updated(elem, size))
+			if (contains(elem))
+				this
+			else
+				new IndexedRanking(elem +: items, index.asInstanceOf[Map[U, Int]].updated(elem, size))
 
 		override def :+[U >: T](elem :U) :Ranking[U] = indexOf(elem) match {
 			case -1 =>
@@ -528,7 +546,7 @@ object Ranking extends IterableFactory[Ranking] {
 		override def toSeq :Seq[T] = items
 		private[Ranking] def indices :Map[_ <: T, Int] = map
 
-		private[this] def writeReplace = new UniqueSerializer(this)
+		private[this] def writeReplace = new RankingSerializer(this)
 	}
 
 
@@ -578,6 +596,21 @@ object Ranking extends IterableFactory[Ranking] {
 		}
 
 		override def apply(n :Int) = elements(n)
+		override def updated[U >: T](n :Int, value :U) = {
+			val hash = value.hashCode
+			if (hashes(n) == hash && elements(n) == value)
+				this
+			else {
+				val len = elements.length
+				val copy = new Array[Any](len).asInstanceOf[Array[U]]
+				System.arraycopy(elements, 0, copy, 0, len)
+				copy(n) = value
+				val newHashes = new Array[Int](len)
+				System.arraycopy(hashes, 0, newHashes, 0, len)
+				newHashes(n) = hash
+				new SmallRanking(copy, newHashes)
+			}
+		}
 
 		override def indexOf[U >: T](elem :U) :Int = indexOf(elem, elem.hashCode)
 		def indexOf[U >: T](elem :U, hash :Int) :Int = hashes.indexOf(hash) match {
@@ -784,7 +817,7 @@ object Ranking extends IterableFactory[Ranking] {
 
 		override def toSeq :Seq[T] = ArraySeq.unsafeWrapArray(elements)
 
-		private def writeReplace = new UniqueSerializer(elements)
+		private def writeReplace = new RankingSerializer(elements)
 	}
 
 
@@ -807,7 +840,11 @@ object Ranking extends IterableFactory[Ranking] {
 
 		override def apply(n :Int) =
 			if (n == 0) head
-			else throw new IndexOutOfBoundsException(s"$n/1")
+			else throw new IndexOutOfBoundsException(n.toString + " out of 1")
+
+		override def updated[U >: T](n :Int, value :U) :Ranking[U] =
+			if (n == 0) new SingletonRanking(value)
+			else throw new IndexOutOfBoundsException("updated(" + n + ", " + value + ") out of 1")
 
 		override def indexOf[U >: T](elem :U) = if (head == elem) 0 else -1
 
@@ -827,7 +864,7 @@ object Ranking extends IterableFactory[Ranking] {
 
 		override def :++[U >: T](elems :IterableOnce[U]) = elems match {
 			case empty :Iterable[_] if empty.isEmpty => this
-			case unique :Ranking[U] => head +: unique
+			case ranking :Ranking[U] => head +: ranking
 			case _ =>
 				Ranking.from(new Iterator[U] {
 					private[this] val it = elems.iterator
@@ -838,7 +875,7 @@ object Ranking extends IterableFactory[Ranking] {
 		}
 
 		override def concat[B >: T](suffix :IterableOnce[B]) :Ranking[B] = suffix match {
-			case unique :Ranking[B] => unique + head
+			case ranking :Ranking[B] => ranking + head
 			case _ => this :++ suffix
 		}
 
@@ -847,7 +884,7 @@ object Ranking extends IterableFactory[Ranking] {
 
 		override def --[U >: T](elems :IterableOnce[U]) :Ranking[T] = elems match {
 			case empty :Iterable[_] if empty.isEmpty => this
-			case unique :Ranking[U] => if (unique.contains(head)) empty else this
+			case ranking :Ranking[U] => if (ranking.contains(head)) empty else this
 			case set :HashSet[U @unchecked] => if (set(head)) empty else this
 			case set :mutable.HashSet[U @unchecked] => if (set(head)) empty else this
 			case set :mutable.LinkedHashSet[U @unchecked] => if (set(head)) empty else this
@@ -861,9 +898,9 @@ object Ranking extends IterableFactory[Ranking] {
 
 		override def toSeq :Seq[T] = head::Nil
 
-		override def toString = "Unique(" + head + ")"
+		override def toString = "Ranking(" + head + ")"
 
-		private def writeReplace = new UniqueSerializer[Any](Array[Any](head))
+		private def writeReplace = new RankingSerializer[Any](Array[Any](head))
 	}
 
 
@@ -871,18 +908,20 @@ object Ranking extends IterableFactory[Ranking] {
 
 	@SerialVersionUID(ver)
 	private class EmptyRanking extends Ranking[Nothing] {
-		override def apply(n :Int) :Nothing = throw new IndexOutOfBoundsException("Unique()(" + n + ")")
+		override def apply(n :Int) :Nothing =
+			throw new IndexOutOfBoundsException("Ranking()(" + n + ")")
+		override def updated[U](n :Int, value :U) =
+			throw new IndexOutOfBoundsException("Ranking().updated(" + n + ", " + value + ")")
+		override def indexOf[U](elem :U) :Int = -1
 
-		override def indexOf[U >: Nothing](elem :U) :Int = -1
-
-		override def +:[U >: Nothing](elem :U) :Ranking[U] = new SingletonRanking(elem)
-		override def :+[U >: Nothing](elem :U) :Ranking[U] = new SingletonRanking(elem)
-		override def +[U >: Nothing](elem :U) :Ranking[U] = new SingletonRanking(elem)
-		override def concat[U >: Nothing](elems :IterableOnce[U]) :Ranking[U] = from(elems)
-		override def :++[U >: Nothing](elems :IterableOnce[U]) :Ranking[U] = from(elems)
-		override def ++:[U >: Nothing](elems :Iterable[U]) :Ranking[U] = from(elems)
-		override def -[U >: Nothing](elem :U) :Ranking[Nothing] = this
-		override def --[U >: Nothing](elems :IterableOnce[U]) :Ranking[Nothing] = this
+		override def +:[U](elem :U) :Ranking[U] = new SingletonRanking(elem)
+		override def :+[U](elem :U) :Ranking[U] = new SingletonRanking(elem)
+		override def +[U](elem :U) :Ranking[U] = new SingletonRanking(elem)
+		override def concat[U](elems :IterableOnce[U]) :Ranking[U] = from(elems)
+		override def :++[U](elems :IterableOnce[U]) :Ranking[U] = from(elems)
+		override def ++:[U](elems :Iterable[U]) :Ranking[U] = from(elems)
+		override def -[U](elem :U) :Ranking[Nothing] = this
+		override def --[U](elems :IterableOnce[U]) :Ranking[Nothing] = this
 
 		override def iterator :Iterator[Nothing] = Iterator.empty
 		override def reverse :Ranking[Nothing] = this
@@ -900,63 +939,63 @@ object Ranking extends IterableFactory[Ranking] {
 
 
 	@SerialVersionUID(ver)
-	private class RankingSeqAdapter[+T](unique :Ranking[T]) extends AbstractSeq[T] with IndexedSeq[T] {
-		override def length :Int = unique.size
+	private class RankingSeqAdapter[+T](ranking :Ranking[T]) extends AbstractSeq[T] with IndexedSeq[T] {
+		override def length :Int = ranking.size
 
-		override def apply(idx :Int) :T = unique(idx)
+		override def apply(idx :Int) :T = ranking(idx)
 
 		override def indexOf[U >: T](elem :U, start :Int) :Int = {
-			val i = unique.indexOf(elem)
+			val i = ranking.indexOf(elem)
 			if (i < start) -1 else i
 		}
 
 		override def lastIndexOf[U >: T](elem :U, end :Int) :Int = {
-			val i = unique.indexOf(elem)
+			val i = ranking.indexOf(elem)
 			if (i > end) -1 else i
 		}
 
-		override def contains[U >: T](elem :U) :Boolean = unique.contains(elem)
+		override def contains[U >: T](elem :U) :Boolean = ranking.contains(elem)
 
-		override def iterator :Iterator[T] = unique.iterator
+		override def iterator :Iterator[T] = ranking.iterator
 
-		override def foreach[U](f :T => U) :Unit = unique foreach f
+		override def foreach[U](f :T => U) :Unit = ranking foreach f
 
-		override def toSet[U >: T] :Set[U] = unique.toSet
+		override def toSet[U >: T] :Set[U] = ranking.toSet
 
-		def toUnique :Ranking[T] = unique
+		def toRanking :Ranking[T] = ranking
 
-		private def writeReplace = (unique :Ranking[Any]) to ArraySeq
+		private def writeReplace = (ranking :Ranking[Any]) to ArraySeq
 	}
 
 
 
 	@SerialVersionUID(ver)
-	private class RankingSetAdapter[T](unique :Ranking[T]) extends AbstractSet[T] with Set[T] {
-		override def size :Int = unique.size
+	private class RankingSetAdapter[T](ranking :Ranking[T]) extends AbstractSet[T] with Set[T] {
+		override def size :Int = ranking.size
 
-		override def contains(elem :T) :Boolean = unique.contains(elem)
+		override def contains(elem :T) :Boolean = ranking.contains(elem)
 
 		override def incl(elem :T) :Set[T] = if (contains(elem)) this else Set(toSeq:_*)
 
 		override def excl(elem :T) :Set[T] = if (contains(elem)) Set(toSeq:_*) - elem else this
 
-		override def iterator :Iterator[T] = unique.iterator
+		override def iterator :Iterator[T] = ranking.iterator
 
-		override def foreach[U](f :T => U) :Unit = unique foreach f
+		override def foreach[U](f :T => U) :Unit = ranking foreach f
 
-		override def toIndexedSeq :IndexedSeq[T] = unique.toIndexedSeq
+		override def toIndexedSeq :IndexedSeq[T] = ranking.toIndexedSeq
 
-		override def toSeq :Seq[T] = unique.toSeq
+		override def toSeq :Seq[T] = ranking.toSeq
 
-		def toUnique :Ranking[T] = unique
+		def toRanking :Ranking[T] = ranking
 
-		private def writeReplace = unique to HashSet
+		private def writeReplace = ranking to HashSet
 	}
 
 
 
 	@SerialVersionUID(ver)
-	private class UniqueSerializer[+E](elems :Array[E]) extends Serializable {
+	private class RankingSerializer[+E](elems :Array[E]) extends Serializable {
 		def this(elems :Ranking[E]) = this((elems :Ranking[Any]).to(Array).castParam[E])
 
 		private def readResolve =
