@@ -15,7 +15,7 @@ import net.noresttherein.sugar.JavaTypes.JIterator
   */
 @SerialVersionUID(ver)
 class SeqSlice[+A] protected (whole :IndexedSeq[A], offset :Int, override val length :Int)
-	extends AbstractSeq[A] with IndexedSeq[A] with SugaredIterable[A]// with SugaredIterableOps[A, IndexedSeq, IndexedSeq[A]]
+	extends AbstractSeq[A] with IndexedSeq[A] with SugaredIterable[A] with Serializable
 {
 	def this(whole :IndexedSeq[A]) = this (whole, 0, whole.length)
 
@@ -44,6 +44,11 @@ class SeqSlice[+A] protected (whole :IndexedSeq[A], offset :Int, override val le
 		else if (from <= 0 && until >= length) this
 		else if (from <= 0) new SeqSlice(whole, offset, until)
 		else new SeqSlice(whole, offset + from, length - from)
+
+	private def writeReplace = new Serializable {
+		private[this] val data = whole.slice(offset, offset + length)
+		private def readResolve = new SeqSlice(data)
+	}
 }
 
 

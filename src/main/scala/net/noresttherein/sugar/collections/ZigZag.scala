@@ -1,8 +1,7 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{IterableFactoryDefaults, SeqFactory, Stepper, StepperShape}
-import scala.collection.immutable.{AbstractSeq, SeqOps}
+import scala.collection.{SeqFactory, Stepper, StepperShape}
+import scala.collection.immutable.AbstractSeq
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.JavaTypes.JIterator
@@ -19,8 +18,8 @@ import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
   * this sequence with the new elements. This makes it suited only as an intermediate buffer structure,
   * where collections are concatenated recursively, which would lead to O(n*n) time in standard implementations.
   * After the contents are complete, it is advised to convert this sequence into some all purpose `Seq` implementation;
-  * this will happen automatically by [[scala.collection.IterableOps.map mapping]] it.
-  * Note that `ZigZag` type is not 'sticky': operations other than slices return more conventional `Seq` implementations.
+  * this will happen automatically by [[scala.collection.IterableOps.map mapping]] it. Note that `ZigZag` type
+  * is not 'sticky': operations other than slicing return more conventional `Seq` implementations.
   */
 sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable {
 //	private[ZigZag] def depth :Int
@@ -109,9 +108,10 @@ object ZigZag extends SeqFactory[ZigZag] {
 		override def trustedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
 
 		override def foreach[U](f :Nothing => U) :Unit = {}
+		private def writeReplace :Seq[Nothing] = ZigZag.empty
 	}
 
-	final val Empty :ZigZag[Nothing] = new EmptyZigZag
+	private[this] final val Empty :ZigZag[Nothing] = new EmptyZigZag
 
 
 	@SerialVersionUID(ver)
@@ -161,6 +161,7 @@ object ZigZag extends SeqFactory[ZigZag] {
 				i += 1
 			}
 		}
+		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
@@ -201,6 +202,7 @@ object ZigZag extends SeqFactory[ZigZag] {
 			prefix foreach f
 			suffix foreach f
 		}
+		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
@@ -237,6 +239,7 @@ object ZigZag extends SeqFactory[ZigZag] {
 			prefix foreach f
 			f(last)
 		}
+		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
@@ -272,7 +275,6 @@ object ZigZag extends SeqFactory[ZigZag] {
 			f(first)
 			suffix foreach f
 		}
+		private def writeReplace = new Straight(toIndexedSeq)
 	}
-
-
 }

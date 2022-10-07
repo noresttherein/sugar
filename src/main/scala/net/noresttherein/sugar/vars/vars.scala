@@ -6,7 +6,7 @@ import scala.util.{Failure, Success, Try}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
-import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent, NonExistent, WithFilter}
+import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent, NonExistent}
 import net.noresttherein.sugar.exceptions.{StackableException, StackableThrowable, SugaredException}
 
 
@@ -239,9 +239,11 @@ package object vars extends vars.Rank1PotentialImplicits {
 			if ((self.asInstanceOf[AnyRef] eq NonExistent) || !p(get)) self else Inexistent
 
 		/** Equivalent to `this.`[[net.noresttherein.sugar.vars.PotentialExtension.filter filter]]`(p)` -
-		  *  a variant for use in for-comprehensions. */
-		@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](self, p)
-
+		  * a variant for use in for-comprehensions. Note that as this implementation is performance oriented,
+		  * it evaluates the predicate immediately, unlikely standard methods of [[scala.collection.Iterable Iterable]]. */
+//		@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](self, p)
+		@inline def withFilter(p :A => Boolean) :Potential[A] =
+			if ((self.asInstanceOf[AnyRef] eq NonExistent) || p(get)) self else Inexistent
 
 		/** Tests if this `Potential` is not empty and its value is equal to the given argument. */
 		@inline def contains[O >: A](o :O): Boolean = (self.asInstanceOf[AnyRef] ne NonExistent) && get == o
@@ -629,6 +631,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case _ :Red[_] => Nil
 			case _ => get::Nil
 		}
+		/** Turns a $Red into a [[Failure]] and a $Blue into a [[Success]]. */
 		@inline def toTry(implicit ev :R <:< Throwable) :Try[B] = self match {
 			case red :Red[R @unchecked] => Failure(red.value)
 			case _ => Success(get)
@@ -650,6 +653,8 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  *      [[net.noresttherein.sugar.vars.FallibleExtension Extension]] methods are provided, mirroring the relevant
 	  *      part of functionality of `Either` and `Option`.
 	  */
+	//consider: Renaming to Guard. Passed is even a better match, but is there a better alternative to Failed? Rejected?
+	// The advantage lies in large part in method names, which can have a 'guard' suffix.
 	type Fallible[+A] >: Failed
 
 	/** Extension methods providing the full interface of $Fallible. */
@@ -854,6 +859,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case _ => get :: Nil
 		}
 
+		/** Turns a $Failed to a [[Failure]] and a $Passed to a [[Success]]. */
 		@inline def toTry :Try[A] = self match {
 			case fail :Failed => Failure(fail.toException)
 			case _ => Success(get)
@@ -878,8 +884,15 @@ package vars {
 
 
 
+	/** A companion and factory of $Potential, a very lightweight alternative to [[Option]].
+	  * @see [[net.noresttherein.sugar.vars.Potential.Existent]]
+	  * @see [[net.noresttherein.sugar.vars.Potential.Inexistent]]
+	  */
 	@SerialVersionUID(ver)
 	object Potential {
+		/** Creates an $Existent instance wrapping the value unless it is null, in which case it returns $Inexistent.
+		  * This call will not box the value unless it is already an instance of `Potential`.
+		  */
 		def apply[A](value :A) :Potential[A] = value match {
 			case null => Inexistent
 			case Inexistent | _ :Existent[_] => new Existent(value).asInstanceOf[Potential[A]]
@@ -937,6 +950,7 @@ package vars {
 			if (!cond) Existent(a) else Inexistent
 
 
+		/** A factory of 'full' (`Some`) instances of `Potential`.  */
 		@SerialVersionUID(ver)
 		object Existent {
 			def apply[A](value :A) :Potential[A] = value match {
@@ -966,6 +980,7 @@ package vars {
 		}
 
 
+		/** The only 'empty' value of `Potential`. */
 		final val Inexistent :Potential[Nothing] = NonExistent.asInstanceOf[Potential[Nothing]]
 
 		@SerialVersionUID(ver)
@@ -973,16 +988,16 @@ package vars {
 			override def apply(v1 :Any) = this
 			override def toString = "Inexistent"
 		}
-
-		/** The for-comprehension facade for `Potential[A]`, which does not evaluate the filter predicate until
-		  * `map`, `flatMap` or `foreach` is called.
-		  */
-		final class WithFilter[+A](self :Potential[A], p :A => Boolean) {
-			@inline def map[B](f: A => B): Potential[B] = self filter p map f
-			@inline def flatMap[B](f: A => Potential[B]): Potential[B] = self filter p flatMap f
-			@inline def foreach[U](f: A => U): Unit = self filter p foreach f
-			@inline def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
-		}
+//
+//		/** The for-comprehension facade for `Potential[A]`, which does not evaluate the filter predicate until
+//		  * `map`, `flatMap` or `foreach` is called.
+//		  */
+//		final class WithFilter[+A](self :Potential[A], p :A => Boolean) {
+//			@inline def map[B](f: A => B): Potential[B] = self filter p map f
+//			@inline def flatMap[B](f: A => Potential[B]): Potential[B] = self filter p flatMap f
+//			@inline def foreach[U](f: A => U): Unit = self filter p foreach f
+//			@inline def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
+//		}
 
 
 
@@ -1113,10 +1128,11 @@ package vars {
 			}
 		}
 
-		//fixme: Incorrect equality; erased `Blue` will not equal this class.
-		//  If it's not possible to fix with Scala 3 equality, we might have to prohibit nesting Pills
 		@SerialVersionUID(ver) //not a case class to avoid unwanted apply method
 		private[vars] class Blue[+B](val value :B) extends Serializable {
+			//it might look like equals doesn't handle the equality between reified and erased Blue,
+			//but we are always careful to create reified `Blue` if and only if the wrapped value is Blue or Red,
+			//so it impossible for two values which nominally should be equal to not compare equal here.
 			override def equals(that :Any) :Boolean = that match {
 				case blue :Blue[_] => value == blue.value
 				case _ => false
@@ -1145,7 +1161,7 @@ package vars {
 		private[vars] final case class Red[+R](value :R)
 
 
-
+		/** Extra implicit conversions to and from [[scala.Either Either]], off by default. */
 		@SerialVersionUID(ver)
 		object implicits {
 			@inline implicit def eitherToPill[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
@@ -1155,19 +1171,26 @@ package vars {
 
 
 
-
+	/** A factory of $Fallible, a very lightweight and specialized variant of [[scala.Either Either]]
+	  * designed to only carry an error message in a $Failed.
+	  * @see [[net.noresttherein.sugar.vars.Fallible.Passed]]
+	  * @see [[net.noresttherein.sugar.vars.Fallible.Failed]]
+	  */
 	@SerialVersionUID(ver)
 	object Fallible {
+		/** Checks the value for nullity, returning it in a $Passed if it is not null, or $Failed otherwise. */
+		def apply[O](value :O) :Fallible[O] = if (value == null) Failed("null") else Passed(value)
+
 		def fromEither[O](either :Either[String, O]) :Fallible[O] = either match {
 			case Left(error) => Failed(error)
 			case Right(value) => Passed(value)
 		}
 		def fromPill[O](pill :Pill[String, O]) :Fallible[O] = (pill :Any) match {
-			case red  :Red[String @unchecked]           => new EagerFailed(red.value)
-			case blue :Blue[O @unchecked]    => blue.value.asInstanceOf[Fallible[O]]
+			case red  :Red[String @unchecked] => new EagerFailed(red.value)
+			case blue :Blue[O @unchecked]     => blue.value.asInstanceOf[Fallible[O]]
 			//remember to reify Pill[String, Fallible[_,_]] if needed
-			case _    :Failed | _ :Passed[_] => new Passed(pill).asInstanceOf[Fallible[O]]
-			case _                           => pill.asInstanceOf[Fallible[O]] //erased Passed
+			case _    :Failed | _ :Passed[_]  => new Passed(pill).asInstanceOf[Fallible[O]]
+			case _                            => pill.asInstanceOf[Fallible[O]] //erased Passed
 		}
 
 
@@ -1176,14 +1199,18 @@ package vars {
 		  */
 		@SerialVersionUID(ver)
 		object Passed {
+			/** Creates an instance of $Passed wrapping the value.
+			  * This call does not perform any actual boxing unless `value` is already a `Fallible`
+			  * (in order to distinguish `Passed(Failed())` from `Failed()`.
+			  */
 			def apply[T](value :T) :Fallible[T] = value match {
-				case _ :Failed | _ :Blue[_] => new Blue(value).asInstanceOf[Fallible[T]]
+				case _ :Failed | _ :Passed[_] => new Passed(value).asInstanceOf[Fallible[T]]
 				case _ => value.asInstanceOf[Fallible[T]]
 			}
-
+			/** If `exam` is $Passed, extracts its value. */
 			def unapply[T](exam :Fallible[T]) :Opt[T] = (exam :Any) match {
 				case _ :Failed @unchecked => Lack
-				case pass :Blue[T @unchecked] => Got(pass.value)
+				case pass :Passed[T @unchecked] => Got(pass.value)
 				case _ => Got(exam.asInstanceOf[T])
 			}
 		}
@@ -1193,6 +1220,9 @@ package vars {
 		  */
 		@SerialVersionUID(ver)
 		private[vars] class Passed[+T](val value :T) extends Serializable {
+			//it might look like equals doesn't handle the equality between reified and erased Passed,
+			//but we are always careful to create reified `Passed` if and only if the wrapped value is Passed or Failed,
+			//so it impossible for two values which nominally should be equal to not compare equal here.
 			override def equals(that :Any) :Boolean = that match {
 				case other :Passed[_] => value == other.value
 				case _ => false
@@ -1207,13 +1237,27 @@ package vars {
 		  */
 		@SerialVersionUID(ver)
 		object Failed {
+			/** A `Failed` instance with an empty message. */
+			def apply() :Failed = failed
+
 			def apply(error :String) :Failed = new EagerFailed(error)
+			/** A `Failed` with a lazily evaluated message. The method is designed for function literal arguments:
+			  * as `Failed` is a SAM type, function literals will be promoted to a `Failed` instance,
+			  * which is then promptly returned. Example:
+			  * {{{
+			  *     Failed(() => "Oh-oh.")
+			  * }}}
+			  */
 			def apply(error :Failed) :Failed = error
 
+			/** Extracts the message from the argument `Fallible` if it is `Failed`.
+			  * Note that this will evaluate a lazy message.
+			  */
 			def unapply(exam :Fallible[Any]) :Opt[String] = exam match {
 				case fail :Failed @unchecked => Got(fail.error)
 				case _ => Lack
 			}
+			private[this] val failed = new EagerFailed("")
 		}
 
 		/** The unsuccessful result of $Fallible, carrying an error message. It conforms to `Fallible[Nothing]`,
@@ -1257,6 +1301,9 @@ package vars {
 
 
 
+		/** Extra implicit conversions to $Pill and [[scala.Either Either]], which are not in the scope by default
+		  * in order to avoid unintended boxing, but might be useful in code which deals with a lot of both types.
+		  */
 		@SerialVersionUID(ver)
 		object implicits {
 			@inline implicit def eitherToFallible[O](either :Either[String, O]) :Fallible[O] = fromEither(either)

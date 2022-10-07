@@ -1,13 +1,11 @@
 package net.noresttherein.sugar.collections
 
-import java.util.PrimitiveIterator
 
 import scala.collection.{Stepper, StepperShape}
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, Shape, ShortShape}
 
 import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JDoubleIterator, JFloat, JInt, JIntIterator, JIterator, JLong, JLongIterator, JShort}
 import net.noresttherein.sugar.collections.JavaIteratorShape.IteratorShape
-import net.noresttherein.sugar.extensions.cast2TypeParams
 
 
 

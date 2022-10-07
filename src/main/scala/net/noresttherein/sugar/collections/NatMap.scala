@@ -165,6 +165,7 @@ object ImplicitNatMapFactory {
 
 
 
+/** A factory of maps where key and values are both types parameterized with the same type. */
 @SerialVersionUID(ver)
 object NatMap extends ImplicitNatMapFactory {
 
@@ -419,10 +420,11 @@ object NatMap extends ImplicitNatMapFactory {
 	/** A singleton `NatMap` and a map entry in one. */
 	@SerialVersionUID(ver)
 	private class Singleton[K[_], +V[_], T](override val _1 :K[T], override val _2 :V[T], override val keyHashCode :Int)
-	                                       (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	                                       (implicit override val defaults :WhenNoKey[K, V])
 		extends Assoc[K, V, T] with BaseNatMap[K, V]
 	{
-		def this(_1 :K[T], _2 :V[T]) = this(_1, _2, _1.hashCode)
+		def this(_1 :K[T], _2 :V[T])(implicit defaults :WhenNoKey[K, V] = throwANoSuchElementException[K]) =
+			this(_1, _2, _1.hashCode)
 
 		override def head :Assoc[K, V, T] = this
 		override def tail :NatMap[K, V] = NatMap.empty
@@ -485,6 +487,13 @@ object NatMap extends ImplicitNatMapFactory {
 		override def hashCode = MurmurHash3.mapHash(Map(_1 -> _2))
 
 		override def toString = "(" + _1 + ", " + _2 + ")"
+
+		private def writeReplace :Serializable = new Serializable {
+			private[this] val key = Singleton.this._1
+			private[this] val value = Singleton.this._2
+			private[this] val defaults = Singleton.this.defaults
+			private def readResolve = new Singleton(key, value)(defaults)
+		}
 	}
 
 
@@ -729,6 +738,8 @@ object NatMap extends ImplicitNatMapFactory {
 		override def values :Iterable[V[_]] = definite.values
 
 		override def defaults = definite.defaults
+
+		private def writeReplace = definite
 	}
 
 
@@ -788,7 +799,6 @@ object NatMap extends ImplicitNatMapFactory {
 				}
 				this
 		}
-
 
 		override def result() :NatMap[K, V] = {
 			val res =

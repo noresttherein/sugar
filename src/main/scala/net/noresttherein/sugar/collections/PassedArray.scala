@@ -584,6 +584,14 @@ private[collections] sealed trait AbstractPassedArray[@specialized(ElemTypes) +E
 			Array.copy(elems, startIndex, xs, start, copied)
 			copied
 		}
+
+
+	override def trim :PassedArray[E] =
+		if (elems.length == length) this
+		else {
+			val copy = elems.slice(startIndex, startIndex + length)
+			new PassedArrayPlus(copy)
+		}
 }
 
 
@@ -895,13 +903,10 @@ private final class PassedArrayPlus[@specialized(ElemTypes) +E] private[collecti
 			case _ => super.prependedAll(prefix)
 		}
 
-
-	override def trim :PassedArray[E] =
-		if (array.length == len) this
-		else {
-			val copy = array.slice(offset, offset + len)
-			new PassedArrayPlus(copy)
-		}
+	private def writeReplace = new Serializable {
+		private[this] val data = Array.copyOfRange(array, offset, length)
+		private def readResolve = new PassedArrayPlus(data)
+	}
 }
 
 
@@ -1025,6 +1030,12 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 				}
 			case _ => super.prependedAll(prefix)
 		}
+
+
+	private def writeReplace = new Serializable {
+		private[this] val data = Array.copyOfRange(array, offset, length)
+		private def readResolve = new PassedArrayPlus(data)
+	}
 }
 
 

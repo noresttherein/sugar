@@ -4,15 +4,13 @@ import scala.collection.{immutable, mutable, IterableFactory, IterableFactoryDef
 import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.extensions.builderExtension
-import net.noresttherein.sugar.vars.{EqRef, Opt}
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.EqRef
 
 
 
 
 /** An immutable [[Set]] implementation using referential equality and hash code (as defined by `AnyRef`)
-  * rather than possibly overriden `equals` and `hashCode` methods of the element type.
+  * rather than possibly overridden `equals` and `hashCode` methods of the element type.
   */
 @SerialVersionUID(ver)
 final class EqSet[A] private (underlying :Set[EqRef[A]])

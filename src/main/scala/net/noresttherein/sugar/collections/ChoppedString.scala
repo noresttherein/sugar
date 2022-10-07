@@ -1,22 +1,27 @@
 package net.noresttherein.sugar.collections
 
+import java.io.{IOException, Reader, StringReader}
 import java.lang
 
 import scala.collection.{Factory, SpecificIterableFactory, Stepper, StepperShape}
 import scala.collection.Stepper.EfficientSplit
+import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, StringOps, WrappedString}
 import scala.collection.immutable.ArraySeq.ofChar
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilder}
-import net.noresttherein.sugar.collections.ChunkedString.{AppendedString, Chunk, ConcatChunks, Empty, PrependedString}
-import net.noresttherein.sugar.collections.Substring.SerializedSubstring
+import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chunk, ConcatChunks, Empty, PrependedString}
+import net.noresttherein.sugar.collections.Substring.SubstringReader
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
 
+/** A universal interface for concatenable `String`-like collections.
+  * @see [[net.noresttherein.sugar.collections.StringLike]]
+  */
 trait StringLikeOps[+S <: Seq[Char]]
 	extends CharSequence with SeqOps[Char, Seq, S] with SpecificIterableOps[Char, Seq, S]
 {
@@ -27,12 +32,30 @@ trait StringLikeOps[+S <: Seq[Char]]
 		intIterator.asInstanceOf[I]
 
 	override def charAt(index :Int) :Char = apply(index)
+
+	override def take(n :Int) :S = slice(0, n)
+	override def drop(n :Int) :S = slice(n, length)
+	override def takeRight(n :Int) :S = if (n <= 0) empty else slice(length - n, length)
+	override def dropRight(n :Int) :S = if (n <= 0) coll else slice(0, length - n)
+	override def slice(from :Int, until :Int) :S =
+		if (until < from | until <= 0 || from >= length) empty
+		else if (from <= 0 && until >= length) coll
+		else if (from <= 0) trustedSlice(0, until)
+		else trustedSlice(from, length)
+
+	protected[collections] def trustedSlice(from :Int, until :Int) :S
 }
 
+
+/** An interface for concatenable `String` like collections, used either as an intermediate buffer
+  * when building a `String` or providing additional features over `String`. Note that it will not equal a `String`.
+  */
 trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializable {
 	def +(char :Char) :StringLike
 	def +(string :String) :StringLike
 	def +(string :StringLike) :StringLike = this + string.toString
+
+	def toReader :Reader
 }
 
 
@@ -44,70 +67,55 @@ trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializa
   * other `Seq[Char]`, but not a `String`, even though equality is defined by its combined string representation
   * (ignoring the underlying structure, i.e. what chunks it concatenates), in order to remain reflective.
   * It is used when larger strings are built recursively from many parts in a complex pattern, and when the efficiency
-  * of 'writing' is much more important than 'reading' - ''chunked'' strings are not expected to be accessed often
+  * of writing is much more important than reading - ''chopped'' strings are not expected to be accessed often
   * before their final conversion to a `String`. Note that most traversing methods are implemented recursively
   * and may thus cause a [[StackOverflowError]] for very long strings; this class is intended for use cases such
-  * implementing `toString` methods. Despite the lack of fast random access, `length`/`size` are still `O(1)` operations.
+  * implementing `toString` methods. Despite the lack of fast random access, `length`/`size` are still `O(1)` operations
+  * as long as appended/prepended sequences' `length` is O(n), because their length is computed on concatentation.
   */
-sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] {
+sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] {
 //	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap
-	override def empty :ChunkedString = ChunkedString.empty
+	override def empty :ChoppedString = ChoppedString.empty
 
-	protected override def specificFactory :SpecificIterableFactory[Char, ChunkedString] = ChunkedString
+	protected override def specificFactory :SpecificIterableFactory[Char, ChoppedString] = ChoppedString
 
-	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
-	override def take(n :Int) :ChunkedString = slice(0, n)
-	override def drop(n :Int) :ChunkedString = slice(n, length)
-	override def takeRight(n :Int) :ChunkedString = if (n <= 0) Empty else slice(length - n, length)
-	override def dropRight(n :Int) :ChunkedString = if (n <= 0) this else slice(0, length - n)
-	override def slice(from :Int, until :Int) :ChunkedString =
-		if (until < from | until <= 0 || from >= length) Empty
-		else if (from <= 0 && until >= length) this
-		else if (from <= 0) trustedSlice(0, until)
-		else trustedSlice(from, length)
-
-	protected[collections] def trustedSlice(from :Int, until :Int) :ChunkedString
-
-
-
-
-	override def +(char :Char) :ChunkedString = this ++ String.valueOf(char)
-	override def +(string :String) :ChunkedString = this ++ string
-	override def +(string :StringLike) :ChunkedString = string match {
-		case chunk :ChunkedString => this ++ chunk
+	override def +(char :Char) :ChoppedString = this ++ String.valueOf(char)
+	override def +(string :String) :ChoppedString = this ++ string
+	override def +(string :StringLike) :ChoppedString = string match {
+		case chunk :ChoppedString => this ++ chunk
 		case _ if string.length == 0 => this
 		case _ if length == 0 => specificFactory.fromSpecific(string)
 		case _ => (newSpecificBuilder ++= this ++= string).result()
 	}
 
-	def ++(string :String) :ChunkedString =
+	def ++(string :String) :ChoppedString =
 		if (string.length == 0) this
 		else if (isEmpty) new Chunk(string)
 		else new AppendedString(this, string)
 
-	def ++(string :ChunkedString) :ChunkedString =
+	def ++(string :ChoppedString) :ChoppedString =
 		if (string.isEmpty) this
 		else if (isEmpty) string
 		else new ConcatChunks(this, string)
 
-	def +:(char :Char) :ChunkedString = String.valueOf(char) ++: this
+	def +:(char :Char) :ChoppedString = String.valueOf(char) ++: this
 
-	def ++:(string :String) :ChunkedString =
+	def ++:(string :String) :ChoppedString =
 		if (string.length == 0) this
 		else if (isEmpty) new Chunk(string)
 		else new PrependedString(string, this)
 
-	def ++:(string :ChunkedString) :ChunkedString =
+	def ++:(string :ChoppedString) :ChoppedString =
 		if (string.isEmpty) this
 		else if (isEmpty) string
 		else new ConcatChunks(string, this)
 
-	def *(n :Int) :ChunkedString =
+	def *(n :Int) :ChoppedString =
 		if (n < 0)
 			throw new IllegalArgumentException("Negative repeat count " + n + " for " + this + ".")
 		else {
 			var mask = Integer.highestOneBit(n)
-			var res = ChunkedString.empty
+			var res = ChoppedString.empty
 			while (mask != 0) {
 				res ++= res
 				if ((n & mask) != 0)
@@ -117,22 +125,25 @@ sealed trait ChunkedString extends StringLike with StringLikeOps[ChunkedString] 
 			res
 		}
 
-	private def writeReplace :ChunkedString = new Chunk(toString)
+	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
 
-	override def className :String = "ChunkedString"
+	override def className :String = "ChoppedString"
 
 	protected def appendTo(builder :JStringBuilder) :JStringBuilder
+
+	override def toReader :Reader = new ChoppedStringReader(this)
 
 	override def toString :String = appendTo(new JStringBuilder).toString
 }
 
 
-
-
-
-
-object LowPriorityChunkedStringImplicits {
-	implicit def chunkedStringChunkedFactory(companion :ChunkedString.type) :Factory[String, ChunkedString] =
+/** Definition of a second choice implicit conversion
+  * of the [[net.noresttherein.sugar.collections.ChoppedString$ ChoppedString]] object
+  * to a Scala [[scala.collection.Factory Factory]] appending whole `String`s (rather than individual `Char`s).
+  * Included in the implicit search because object `ChoppedString` extends its companion trait.
+  */
+object LowPriorityChoppedStringImplicits {
+	implicit def choppedStringChunkFactory(companion :ChoppedString.type) :Factory[String, ChoppedString] =
 		companion.factory
 }
 
@@ -145,33 +156,38 @@ object LowPriorityChunkedStringImplicits {
   *     val str = seq to ChunkedString
   * }}}
   */
-sealed abstract class LowPriorityChunkedStringImplicits
+sealed abstract class LowPriorityChoppedStringImplicits
 
 
-object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIterableFactory[Char, ChunkedString] {
+/**
+  * $factoryInfo
+  * @define Coll `ChoppedString`
+  * @define coll chopped string
+  */
+object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIterableFactory[Char, ChoppedString] {
 	private final val ver = 1L
-	override val empty :ChunkedString = Empty
+	override val empty :ChoppedString = Empty
 
 	private val emptyChunk = new Chunk("")
 
 
-	def apply() :ChunkedString = empty
+	def apply() :ChoppedString = empty
 
-	def apply(string :String, strings :String*) :ChunkedString =
-		string ++: ChunkedString(strings)
+	def apply(first :String, second :String, strings :String*) :ChoppedString =
+		first ++: second ++: ChoppedString(strings)
 
-	def apply(string :String) :ChunkedString =
+	def apply(string :String) :ChoppedString =
 		if (string.length == 0) empty else new Chunk(string)
 
-	def apply(strings :Seq[String]) :ChunkedString =
+	def apply(strings :Seq[String]) :ChoppedString =
 		if (strings.isEmpty) empty
-		else if (strings.sizeIs == 1) ChunkedString(strings.head)
+		else if (strings.sizeIs == 1) ChoppedString(strings.head)
 		else (chunkedBuilder ++= strings).result()
 
-	@inline def from(chars :IterableOnce[Char]) :ChunkedString = fromSpecific(chars)
+	@inline def from(chars :IterableOnce[Char]) :ChoppedString = fromSpecific(chars)
 
-	override def fromSpecific(it :IterableOnce[Char]) :ChunkedString = it match {
-		case chunks :ChunkedString => chunks
+	override def fromSpecific(it :IterableOnce[Char]) :ChoppedString = it match {
+		case chunks :ChoppedString => chunks
 		case it :Iterable[Char] if it.isEmpty => Empty
 		case it :WrappedString => new Chunk(it.unwrap)
 //		case it :Iterable[Char] => //don't box!
@@ -188,7 +204,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 				res append a(i)
 				i += 1
 			}
-			ChunkedString(res.toString)
+			ChoppedString(res.toString)
 		case it =>
 			val i = it.iterator
 			if (i.hasNext) {
@@ -202,31 +218,31 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 	}
 
 
-	implicit def fromString(s :String) :ChunkedString = new Chunk(s)
+	implicit def choppedStringFromString(s :String) :ChoppedString = new Chunk(s)
 
-	override def newBuilder :Builder[Char, ChunkedString] = new ChunkedStringBuilder
+	override def newBuilder :Builder[Char, ChoppedString] = new ChoppedStringBuilder
 
-	def chunkedBuilder :Builder[String, ChunkedString] =  new Builder[String, ChunkedString] {
-		private [this] var chunks :ChunkedString = ChunkedString.empty
+	def chunkedBuilder :Builder[String, ChoppedString] =  new Builder[String, ChoppedString] {
+		private [this] var chunks :ChoppedString = ChoppedString.empty
 
 		override def addOne(elem :String) = { chunks ++= elem; this }
 
-		override def result() = { val res = chunks; chunks = ChunkedString.empty; res }
+		override def result() = { val res = chunks; chunks = ChoppedString.empty; res }
 
-		override def clear() :Unit = chunks = ChunkedString.empty
+		override def clear() :Unit = chunks = ChoppedString.empty
 	}
 
-	def factory :Factory[String, ChunkedString] = chunkedFactoryInstance
+	def factory :Factory[String, ChoppedString] = chunkedFactoryInstance
 
-	private[this] val chunkedFactoryInstance :Factory[String, ChunkedString] =
-		new Factory[String, ChunkedString] {
+	private[this] val chunkedFactoryInstance :Factory[String, ChoppedString] =
+		new Factory[String, ChoppedString] {
 			override def fromSpecific(it :IterableOnce[String]) = (newBuilder ++= it).result()
 			override def newBuilder = chunkedBuilder
 		}
 
 
 	@SerialVersionUID(ver)
-	private object Empty extends ChunkedString {
+	private object Empty extends ChoppedString {
 		override def apply(idx :Int) = throw new IndexOutOfBoundsException("Empty ChunkedString access.")
 		override def length = 0
 		override def iterator :Iterator[Char] = Iterator.empty[Char]
@@ -236,9 +252,9 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		override def foreach[U](f :Char => U) :Unit = {}
 
-		override def trustedSlice(from :Int, until :Int) :ChunkedString = this
-
+		override def trustedSlice(from :Int, until :Int) :ChoppedString = this
 		protected override def appendTo(builder :java.lang.StringBuilder) :java.lang.StringBuilder = builder
+		override def toReader = Reader.nullReader()
 		override def toString = ""
 	}
 
@@ -246,7 +262,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 	@SerialVersionUID(ver)
 	private class Chunk(s :String)
-		extends ChunkedString with IndexedSeq[Char] with IndexedSeqOps[Char, IndexedSeq, Chunk]
+		extends ChoppedString with IndexedSeq[Char] with IndexedSeqOps[Char, IndexedSeq, Chunk]
 	{
 		override def head :Char = s.charAt(0)
 		override def last :Char = s.charAt(s.length - 1)
@@ -255,7 +271,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		override def length = s.length
 		override def isEmpty = s.length == 0
 
-		override def trustedSlice(from :Int, until :Int) :ChunkedString = s.substring(from, until)
+		override def trustedSlice(from :Int, until :Int) :ChoppedString = s.substring(from, until)
 
 		override def empty    = emptyChunk
 		override def iterator = new StringOps(s).iterator
@@ -285,19 +301,20 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		protected override def appendTo(builder :java.lang.StringBuilder) = builder.append(s)
 
+		override def toReader :Reader = new StringReader(s)
 		override def toString = s
 	}
 
 
 
 	@SerialVersionUID(ver)
-	private class AppendedString(prefix :ChunkedString, suffix :String) extends ChunkedString {
+	private class AppendedString(prefix :ChoppedString, suffix :String) extends ChoppedString {
 		override val length = prefix.length + suffix.length
 		override def head = if (prefix.isEmpty) suffix.charAt(0) else prefix.head
 		override def last = suffix.charAt(suffix.length - 1)
 		override def apply(i :Int) :Char = if (i < prefix.length) prefix(i) else suffix.charAt(i - prefix.length)
 
-		override def trustedSlice(from :Int, until :Int) :ChunkedString = {
+		override def trustedSlice(from :Int, until :Int) :ChoppedString = {
 			val prefixLength = prefix.length
 			if (until <= prefixLength) prefix.trustedSlice(from, until)
 			else if (from >= prefixLength) new Chunk(suffix.substring(from - prefixLength, until - prefixLength))
@@ -322,18 +339,19 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 			prefix appendTo builder append suffix
 
 		override lazy val toString :String = super.toString
+		private def writeReplace :ChoppedString = new Chunk(toString)
 	}
 
 
 
 	@SerialVersionUID(ver)
-	private class PrependedString(prefix :String, suffix :ChunkedString) extends ChunkedString {
+	private class PrependedString(prefix :String, suffix :ChoppedString) extends ChoppedString {
 		override val length = prefix.length + suffix.length
 		override def head = prefix.charAt(0)
 		override def last = if (suffix.isEmpty) prefix.charAt(prefix.length - 1) else suffix.last
 		override def apply(idx :Int) :Char = if (idx < prefix.length) prefix.charAt(idx) else suffix(idx - prefix.length)
 
-		override def trustedSlice(from :Int, until :Int) :ChunkedString = {
+		override def trustedSlice(from :Int, until :Int) :ChoppedString = {
 			val prefixLength = prefix.length
 			if (until <= prefixLength) new Chunk(prefix.substring(from, until))
 			else if (from >= prefixLength) suffix.trustedSlice(from - prefixLength, until - prefixLength)
@@ -359,18 +377,19 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 
 		override def equals(that :Any) :Boolean = super.equals(that)
 		override lazy val toString :String = super.toString
+		private def writeReplace :ChoppedString = new Chunk(toString)
 	}
 
 
 
 	@SerialVersionUID(ver)
-	private class ConcatChunks(prefix :ChunkedString, suffix :ChunkedString) extends ChunkedString {
+	private class ConcatChunks(prefix :ChoppedString, suffix :ChoppedString) extends ChoppedString {
 		override val length = prefix.length + suffix.length
 		override def head = if (prefix.isEmpty) suffix.head else prefix.head
 		override def last = if (suffix.isEmpty) prefix.last else suffix.last
 		override def apply(idx :Int) = if (idx < prefix.length) prefix(idx) else suffix(idx - prefix.length)
 
-		override def trustedSlice(from :Int, until :Int) :ChunkedString = {
+		override def trustedSlice(from :Int, until :Int) :ChoppedString = {
 			val prefixLength = prefix.length
 			if (until <= prefixLength) prefix.trustedSlice(from, until)
 			else if (from >= prefixLength) suffix.trustedSlice(from - prefixLength, until - prefixLength)
@@ -395,14 +414,14 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 			suffix.appendTo(prefix.appendTo(builder))
 
 		override lazy val toString :String = super.toString
+		private def writeReplace :ChoppedString = new Chunk(toString)
 	}
 
 
 
-	@SerialVersionUID(ver)
-	private final class ChunkedStringBuilder extends Builder[Char, ChunkedString] {
+	private final class ChoppedStringBuilder extends Builder[Char, ChoppedString] {
 		private[this] var chunkBuilder :java.lang.StringBuilder = _
-		private[this] var chunks :ChunkedString = _
+		private[this] var chunks :ChoppedString = _
 		private[this] var hinted :Boolean = false //if hinted then chunkBuilder != null && chunkBuilder.capacity == hint
 
 		override def knownSize :Int =
@@ -424,7 +443,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		override def addAll(xs :IterableOnce[Char]) :this.type = xs match {
 			case it :Iterable[Char] if it.isEmpty =>
 				this
-			case chunk :ChunkedString =>
+			case chunk :ChoppedString =>
 				flush()
 				if (chunks == null) chunks = chunk
 				else chunks ++= chunk
@@ -485,7 +504,7 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 					chunkBuilder append it.next()
 			}
 
-		override def result() :ChunkedString = {
+		override def result() :ChoppedString = {
 			if (chunks == null)
 				if (chunkBuilder != null && chunkBuilder.length > 0)
 					chunks = new Chunk(chunkBuilder.toString)
@@ -510,11 +529,23 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
 		override def clear() :Unit = { chunkBuilder = null; chunks = null; hinted = false }
 	}
 
+
+	private class ChoppedStringReader(private[this] var tail :ChoppedString) extends Reader {
+		override def read :Int = {
+			if (tail.isEmpty)
+				throw new IOException("empty string")
+			val (h, t) = tail.splitAt(1)
+			tail = t
+			h.head
+		}
+		override def read(cbuf :Array[Char], off :Int, len :Int) = {
+			val res = tail.copyToArray(cbuf, off, len)
+			tail = tail.drop(res)
+			res
+		}
+		override def close() :Unit = ()
+	}
 }
-
-
-
-
 
 
 
@@ -530,8 +561,8 @@ object ChunkedString extends LowPriorityChunkedStringImplicits with SpecificIter
   */
 @SerialVersionUID(1L)
 final class Substring private (string :String, offset :Int, override val length :Int)
-	extends AbstractSeq[Char] with IndexedSeq[Char] with ChunkedString
-	   with StringLikeOps[Substring] with SeqOps[Char, IndexedSeq, Substring]
+	extends AbstractSeq[Char] with IndexedSeq[Char] with ChoppedString
+	   with StringLikeOps[Substring] with SeqOps[Char, IndexedSeq, Substring] with DefaultSerializable
 {
 	protected override def specificFactory :SpecificIterableFactory[Char, Substring] = Substring
 
@@ -562,37 +593,8 @@ final class Substring private (string :String, offset :Int, override val length 
 		if (length == 0) throw new UnsupportedOperationException("init of an empty Substring")
 		else new Substring(string, offset, length - 1)
 
-	override def take(n :Int) :Substring =
-		if (n <= 0) empty
-		else if (n >= length) this
-		else new Substring(string, offset, n)
-
-	override def drop(n :Int) :Substring =
-		if (n <= 0) this
-		else if (n >= length) empty
-		else new Substring(string, offset + n, length - n)
-
-	override def takeRight(n :Int) :Substring =
-		if (n <= 0) empty
-		else if (n >= length) this
-		else new Substring(string, offset + length - n, n)
-
-	override def dropRight(n :Int) :Substring =
-		if (n <= 0) this
-		else if (n >= length) empty
-		else new Substring(string, offset, length - n)
-
-	override def slice(from :Int, until :Int) :Substring =
-		if (until <= 0 || from >= length || until <= from) empty
-		else if (from <= 0 && until >= length) this
-		else if (from <= 0) new Substring(string, offset, until)
-		else if (until >= length) new Substring(string, offset + from, length - from)
-		else new Substring(string, offset + from, until - from)
-
-	protected[collections] override def trustedSlice(from :Int, until :Int) :ChunkedString =
+	protected[collections] override def trustedSlice(from :Int, until :Int) :Substring =
 		new Substring(string, offset + from, until - from)
-
-	override def subSequence(start :Int, end :Int) :Substring = slice(start, end)
 
 	def substring(start :Int, end :Int = length) :Substring = slice(start, end)
 
@@ -636,16 +638,21 @@ final class Substring private (string :String, offset :Int, override val length 
 		builder
 	}
 
-	override def toString :String = string.substring(offset, offset + length)
+	override def toReader :Reader =
+		if (length == string.length) new StringReader(string)
+		else new SubstringReader(this)
 
-	private def writeReplace :SerializedSubstring =
-		if (length == 0) Substring.emptySerialized
-		else new SerializedSubstring(string.substring(offset, offset + length))
+	override def toString :String = string.substring(offset, offset + length)
 }
 
 
 
-/** A factory of views on substrings of a `String`. */
+/** A factory of views on substrings of a `String`.
+  * $factoryInfo
+  * $Coll `Substring`
+  * $coll substring
+  */
+@SerialVersionUID(ver)
 object Substring extends SpecificIterableFactory[Char, Substring] {
 	def apply(string :String) :Substring = new Substring(string, 0, string.length)
 
@@ -691,11 +698,35 @@ object Substring extends SpecificIterableFactory[Char, Substring] {
 		case _ => (newBuilder ++= it).result()
 	}
 
-	val empty :Substring = new Substring("", 0, 0)
+	override val empty :Substring = new Substring("", 0, 0) //we could do read resolve to have a single instance
 
-	@SerialVersionUID(1L)
-	private class SerializedSubstring(string :String) extends Serializable {
-		private def readResolve = new Substring(string, 0, string.length)
+
+	private class SubstringReader(tail :Substring) extends Reader {
+		private[this] val reader = new java.io.StringReader(tail.toString)
+		reader.skip(tail.start)
+		private[this] var length = tail.length
+
+		override def read(cbuf :Array[Char], off :Int, len :Int) =
+			if (length == 0)
+				-1
+			else {
+				val count = reader.read(cbuf, off, Math.min(len, length))
+				length -= count
+				count
+			}
+		override def read() =
+			if (length == 0)
+				-1
+			else {
+				length -= 1
+				reader.read()
+			}
+		override def skip(n :Long) = reader.skip(Math.min(length, n))
+		override def markSupported() = reader.markSupported()
+		override def mark(readAheadLimit :Int) :Unit = reader.mark(readAheadLimit)
+		override def reset() :Unit = reader.reset()
+		override def ready() = reader.ready()
+
+		override def close() :Unit = reader.close()
 	}
-	private val emptySerialized = new SerializedSubstring("")
 }

@@ -10,8 +10,9 @@ import scala.collection.AbstractSeq
 
 
 /** A simple wrapper over a single object exposing it as a predefined number of repetitions within a [[Seq]]. */
+@SerialVersionUID(ver)
 class ConstSeq[T] private (elem :T, override val knownSize :Int)
-	extends AbstractSeq[T] with IndexedSeq[T]
+	extends AbstractSeq[T] with IndexedSeq[T] with Serializable
 {
 	override def head :T =
 		if (knownSize >= 1) elem
@@ -51,6 +52,7 @@ class ConstSeq[T] private (elem :T, override val knownSize :Int)
 
 
 
+@SerialVersionUID(ver)
 object ConstSeq {
 	def apply[T](elem :T, size :Int) :ConstSeq[T] =
 		if (size < 0) new ConstSeq(elem, -1)
