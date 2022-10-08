@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.util
 
-
+import net.noresttherein.sugar
 
 
 /** A mixin trait for any interface `Self` we might want to decorate, aware what its decorator is.
@@ -38,6 +38,7 @@ trait Decorable[Self] { this :Self =>
 
 
 
+@SerialVersionUID(sugar.ver)
 object Decorable {
 	/** Full implementation of `Decorable`, requiring only mixing in an implementation of `Self`.
 	  * @param wrap        constructor function for `self`: it accepts the bottom implementation (`this`) as an argument,

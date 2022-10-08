@@ -1,3 +1,5 @@
 package net.noresttherein.sugar
 
-package object reflect extends reflect.extensions
+package object reflect {
+	final val ver = 1L
+}

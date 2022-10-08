@@ -2,7 +2,14 @@ package net.noresttherein.sugar
 
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
-import net.noresttherein.sugar.prettyprint.{fieldsStringMethods, CaseClass, DefToString}
+
+import net.noresttherein.sugar.prettyprint.{CaseClass, DefToString}
+
+//implicits
+import net.noresttherein.sugar.extensions.fieldsStringMethods
+
+
+
 
 /**
   * @author Marcin Mościcki

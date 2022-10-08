@@ -4,6 +4,7 @@ import java.math.{BigInteger, MathContext, RoundingMode, BigDecimal => JavaBigDe
 import java.math.MathContext.{DECIMAL128, DECIMAL32, DECIMAL64, UNLIMITED}
 import java.math.RoundingMode.{DOWN, HALF_EVEN, UNNECESSARY}
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 import scala.util.Try
 
@@ -48,6 +49,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 	implicit val ArbitraryDecimal64 = Arbitrary(Arbitrary.arbitrary[Long].map { long =>
 		Decimal64(long >> 8, (long & 0xffL).toByte)
 	})
+	@nowarn("cat=deprecation")
 	implicit val ShrinkDecimal64 :Shrink[Decimal64] = Shrink { n :Decimal64 =>
 		try { Shrink.shrinkFractional[Decimal64].shrink(n) } catch {
 			case _ :ArithmeticException => Stream.empty

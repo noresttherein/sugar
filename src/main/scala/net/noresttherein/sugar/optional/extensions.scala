@@ -43,7 +43,8 @@ trait extensions extends Any {
 
 
 
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
 
 	/** Enriches an `Option[T]` with additional methods providing alternatives. */
 	class OptionExtension[T](private val self :Option[T]) extends AnyVal {

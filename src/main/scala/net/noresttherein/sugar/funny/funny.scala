@@ -1,5 +1,8 @@
 package net.noresttherein.sugar
 
+
+
+
 package object funny {
 	/** Transform the given partial function into an equivalent function returning its result as an option. */
 	def lift[X, Y](f :PartialFunction[X, Y]) :X => Option[Y] = f.lift
@@ -13,6 +16,7 @@ package object funny {
 		def lower :PartialFunction[A, B] = new PartialFunctionOptionAdapter(f)
 	}
 
+	@SerialVersionUID(ver)
 	class PartialFunctionOptionAdapter[A, B](override final val lift :A => Option[B]) extends PartialFunction[A, B] {
 		override def apply(v1: A): B = lift(v1).get
 
@@ -26,6 +30,7 @@ package object funny {
 
 	final class ReturnTypeOf[F <: Nothing => Any] private { type Return }
 
+	@SerialVersionUID(ver)
 	object ReturnTypeOf {
 		implicit def returnTypeOf[X, Y] :ReturnTypeOf[X => Y] { type Return = Y } =
 			instance.asInstanceOf[ReturnTypeOf[X => Y] { type Return = Y }]

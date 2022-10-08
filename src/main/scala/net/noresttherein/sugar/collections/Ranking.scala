@@ -11,7 +11,7 @@ import net.noresttherein.sugar.vars.Idempotent.AbstractIdempotent
 import net.noresttherein.sugar.vars.Opt.Got
 
 //implicits
-import net.noresttherein.sugar.extensions.castTypeParam
+import net.noresttherein.sugar.extensions.{castTypeParam, mappingMethods}
 
 
 

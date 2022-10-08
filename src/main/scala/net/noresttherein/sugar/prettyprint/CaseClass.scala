@@ -2,6 +2,9 @@ package net.noresttherein.sugar.prettyprint
 
 import scala.reflect.runtime.universe.TypeTag
 
+//implicits
+import net.noresttherein.sugar.prettyprint.extensions.fieldsStringMethods
+
 
 
 

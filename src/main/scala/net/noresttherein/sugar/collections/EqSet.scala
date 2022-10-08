@@ -6,6 +6,9 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.vars.EqRef
 
+//implicits
+import net.noresttherein.sugar.extensions.builderExtension
+
 
 
 

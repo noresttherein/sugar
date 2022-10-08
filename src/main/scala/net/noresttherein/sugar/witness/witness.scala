@@ -2,7 +2,6 @@ package net.noresttherein.sugar
 
 
 
-
-package object tuples {
+package object witness {
 	final val ver = 1L
 }

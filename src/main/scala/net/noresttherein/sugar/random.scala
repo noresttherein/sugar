@@ -50,4 +50,5 @@ class random(generator: => Double) {
 
 
 /** Generates random numbers from arbitrary ranges. */
+@SerialVersionUID(ver) //consider: maybe it should be in numeric?
 object random extends random(scala.math.random())

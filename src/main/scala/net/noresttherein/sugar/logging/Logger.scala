@@ -19,7 +19,6 @@ import net.noresttherein.sugar.prettyprint.{abbrevClassNameOf, classNameOf, full
   * from the frame stack, including any system and reflected calls.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@SerialVersionUID(1L)
 class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 	/** The name given to this logger and used for configuration. */
@@ -93,6 +92,7 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 
 
+@SerialVersionUID(ver)
 object Logger {
 
 	@inline def apply(logger :JLogger) :Logger = new Logger(logger)
@@ -117,7 +117,7 @@ object Logger {
 	  *     final val error = Level.Severe
 	  * }}}
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	class Level private[Logger](val toJava :JLevel) extends AnyVal with Serializable {
 		@inline def isOn(implicit logger :Logger) :Boolean = logger.logsAt(this)
 
@@ -128,6 +128,7 @@ object Logger {
 			logger.log(this, msg, e)
 	}
 
+	@SerialVersionUID(ver)
 	object Level {
 		final val All :Level = JLevel.ALL
 		final val Severe :Level = JLevel.SEVERE
@@ -155,6 +156,7 @@ object Logger {
 		def apply(owner :Any) :String
 	}
 
+	@SerialVersionUID(ver)
 	object NamingScheme {
 		final val ClassName          :NamingScheme = _.getClass.getName
 		final val DemangledClassName :NamingScheme = classNameOf

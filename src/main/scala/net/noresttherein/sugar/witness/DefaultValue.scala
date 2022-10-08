@@ -8,8 +8,11 @@ import net.noresttherein.sugar.vars.Opt
   * that is some sort of zero for numeric values, `false`, and `null` for reference values.
   * @author Marcin Mościcki
   */
-final class DefaultValue[@specialized +T](val get :T)
+@SerialVersionUID(ver)
+final class DefaultValue[@specialized +T](val get :T) extends Serializable
 
+
+@SerialVersionUID(ver)
 object DefaultValue {
 	@inline def apply[@specialized T](value :T) = new DefaultValue(value)
 

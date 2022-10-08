@@ -17,7 +17,7 @@ import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
   * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
   * For the public constructor, see [[net.noresttherein.sugar.numeric.Ratio$.apply Ratio()]].
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 final class Ratio private[numeric](n :Long, d :Long) extends Number {
 
 	/** The numerator of this fraction (the dividend). */
@@ -205,6 +205,7 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 /** Companion object for the `Ratio` class representing rational numbers as fractions in their canonical form.
   * Contains an implicit conversion promoting `Long`s to `Ratio`s when given as the parameter to `Ratio`'s methods.
   */
+@SerialVersionUID(ver)
 object Ratio {
 
 	/** Number zero represented as a ratio of `0/1`. */
@@ -373,6 +374,7 @@ object Ratio {
 
 
 	/** The `Fractional` type class for type `Ratio`. */
+	@SerialVersionUID(ver)
 	implicit object RatioIsFractional extends Fractional[Ratio] {
 		override def div(x :Ratio, y :Ratio) :Ratio = x / y
 		override def plus(x :Ratio, y :Ratio) :Ratio = x + y

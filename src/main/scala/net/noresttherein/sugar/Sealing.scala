@@ -4,6 +4,7 @@ import net.noresttherein.sugar.Sealing.NotSealed
 
 
 
+
 /** Utilities which simulate the functionality of the `sealed` modifier for declarations such as `def`, `val` and `var`,
   * as well for 'sealing' a class or trait to a package (that is, preventing classes from outside
   * of the package from extending them).
@@ -105,8 +106,10 @@ trait Sealing {
 	  * upon in the context of security, as all such declarations are public in the bytecode and can thus
 	  * be easily accessed from `Java`.
 	  */
-	final class Seal
+	@SerialVersionUID(ver)
+	final class Seal extends Serializable
 
+	@SerialVersionUID(ver)
 	object Seal {
 		@inline def apply() :Seal = instance
 		implicit final val instance = new Seal
@@ -129,6 +132,7 @@ trait Sealing {
 	  */
 	type Sealed[+T] <: NotSealed[T]
 
+	@SerialVersionUID(ver)
 	object Sealed {
 		@inline def apply[T](value :T) :Sealed[T] = new NotSealed[T](value).asInstanceOf[Sealed[T]]
 
@@ -139,6 +143,8 @@ trait Sealing {
 
 
 
+@SerialVersionUID(ver)
 object Sealing {
-	class NotSealed[+T](val value :T) extends AnyVal
+	@SerialVersionUID(ver)
+	class NotSealed[+T](val value :T) extends AnyVal with Serializable
 }

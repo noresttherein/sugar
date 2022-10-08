@@ -3,7 +3,8 @@ package net.noresttherein.sugar.prettyprint
 /** Provides alternative string representations of `Boolean` values in the form of ''yes/no'' or ''y/n'' (default).
   * Makes for shorter `toString` results in classes containing several `Boolean` fields.
   */
-class YesNo(val toBoolean :Boolean) extends AnyVal {
+@SerialVersionUID(ver)
+class YesNo(val toBoolean :Boolean) extends AnyVal with Serializable {
 	/** Converts this boolean to `0` or `1`. */
 	def toBit :Int = if (toBoolean) 1 else 0
 
@@ -28,6 +29,7 @@ class YesNo(val toBoolean :Boolean) extends AnyVal {
 
 
 /** Patches `Boolean` values to print ''yes'' or ''no''. */
+@SerialVersionUID(ver)
 object YesNo {
 	def apply(is :Boolean) = new YesNo(is)
 

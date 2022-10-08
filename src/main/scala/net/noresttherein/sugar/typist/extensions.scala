@@ -1,17 +1,15 @@
 package net.noresttherein.sugar.typist
 
-import net.noresttherein.sugar.typist.extensions.extensions_=:=
 
-/**
-  * @author Marcin Mościcki
-  */
+
+
 private[typist] sealed trait extensionsImplicits extends Any {
 	implicit def extensions_<:<[A, B](ev :A <:< B) = new extensions.extensions_<:<[A, B](ev)
 }
 
 
 trait extensions extends Any with extensionsImplicits {
-	implicit def extensions_=:=[A, B](ev :A =:= B) = new extensions_=:=(ev)
+	implicit def extensions_=:=[A, B](ev :A =:= B) = new extensions.extensions_=:=(ev)
 
 	implicit def unlift[F[_ >: L <: U], L <: U, U, A >: L <: U, B >: L <: U]
 			:extensions.unlift[F, L, U, F[A], F[B]] { type _1 = A; type _2 = B } =
@@ -22,13 +20,14 @@ trait extensions extends Any with extensionsImplicits {
 }
 
 
+
+
 /** Declarations of classes with extension methods for `<:<` and `=:=`
-  * (but not the implicit conversions to these classes). You most likely are looking for the latter, importing which
-  * introduces those extension methods - they are defined in trait
-  * `typist.`[[net.noresttherein.sugar.typist.extensions extensions]] and can be imported together with all other
+  * and the implicit conversions to these classes. They can also be imported together with all other
   * extension methods in this library from object `sugar.`[[net.noresttherein.sugar.extensions extensions]].
   */
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
 
 	class extensions_<:<[A, B](private val ev :A <:< B) extends AnyVal {
 		/** Provides counterparts of lift/substitute methods of `A <:< B` working with functors

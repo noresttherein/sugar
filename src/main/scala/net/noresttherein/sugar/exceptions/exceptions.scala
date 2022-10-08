@@ -8,34 +8,46 @@ import scala.collection.immutable.ArraySeq.ofRef
 import scala.collection.mutable
 
 import net.noresttherein.sugar.collections.MutableEqSet
+import net.noresttherein.sugar.extensions.throwableExtension
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
-package object exceptions extends exceptions.imports with exceptions.extensions {
-	/* WHENEVER YOU EDIT THIS FILE UPDATE rethrowStackTraceElement WITH A CORRECT LINE NUMBER! */
 
-	private[exceptions] def eval[T](action: => T) :T = action
+package exceptions {
+	private[exceptions] trait markerStackTraceElements {
+		/* WHENEVER YOU EDIT THIS FILE UPDATE rethrowStackTraceElement WITH A CORRECT LINE NUMBER! */
 
-	/** This method is never called. It is used as an artificial top stack trace element
-	  * of cheaper [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] exceptions created and thrown
-	  * by method [[net.noresttherein.sugar.imports.rethrow rethrow]], solely to provide this information
-	  * here. These exceptions do not have their stack trace filled by the virtual machine, but initialize it instead
-	  * with frames of the [[Throwable]] caught by `rethrow`, leading up to the call of `rethrow` itself.
-	  * In order to minimize confusion coming from a stack trace leading to code which throws no exception,
-	  * a final frame for this method is added to point programmers to this documentation.
-	  */ //remember to update the line number if you edit these docs!
-	@nowarn private def conjureThrowable :Nothing = ??!
+		private[exceptions] def eval[T](action: => T) :T = action
 
-	private[exceptions] final val evalStackTraceElement =
-		new StackTraceElement(classOf[imports].getName, "eval", "exceptions.scala", 15)
+		/** This method is never called. It is used as an artificial top stack trace element
+		  * of cheaper [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] exceptions created and thrown
+		  * by method [[net.noresttherein.sugar.imports.rethrow rethrow]], solely to provide this information
+		  * here. These exceptions do not have their stack trace filled by the virtual machine, but initialize it instead
+		  * with frames of the [[Throwable]] caught by `rethrow`, leading up to the call of `rethrow` itself.
+		  * In order to minimize confusion coming from a stack trace leading to code which throws no exception,
+		  * a final frame for this method is added to point programmers to this documentation.
+		  */ //remember to update the line number if you edit these docs!
+		@nowarn private def conjureThrowable :Nothing = ??!
 
-	private[exceptions] final val conjureThrowableStackTraceElement =
-		new StackTraceElement(classOf[imports].getName, "conjureThrowable", "exceptions.scala", 25)
+		private[exceptions] final val evalStackTraceElement =
+			new StackTraceElement(classOf[markerStackTraceElements].getName, "eval", "exceptions.scala", 22)
 
-	private[exceptions] final val fillInStackTraceStackTraceElement =
-		new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", -1)
+		private[exceptions] final val conjureThrowableStackTraceElement =
+			new StackTraceElement(classOf[markerStackTraceElements].getName, "conjureThrowable", "exceptions.scala", 32)
+
+		private[exceptions] final val fillInStackTraceStackTraceElement =
+			new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", -1)
+
+	}
+}
+
+
+
+
+package object exceptions extends exceptions.imports with exceptions.markerStackTraceElements {
+	final val ver = 1L
 
 
 	/** Suffix (earlier frames) of the stack trace of the first cause with a non empty stack trace, starting with
@@ -115,7 +127,7 @@ package object exceptions extends exceptions.imports with exceptions.extensions 
 	                                        dejaVu :mutable.Set[Throwable] = dejaVuSet,
 	                                        prefix :String = "", caption :String = "") :Unit =
 		if (dejaVu(e)) {
-			printer("\t[CIRCULAR REFERENCE:" + e + "]");
+			printer("\t[CIRCULAR REFERENCE:" + e + "]")
 		} else {
 			dejaVu += e
 			// Compute number of frames in common between this and enclosing trace

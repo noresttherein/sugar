@@ -10,6 +10,8 @@ import net.noresttherein.sugar.numeric.extensions.BigDecimalIsFractional
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 
 
+
+
 trait extensions extends Any {
 	@inline implicit final def method_%/(self :Int) = new LongNumerator(self)
 	@inline implicit final def method_%/(self :Long) = new LongNumerator(self)
@@ -31,7 +33,9 @@ trait extensions extends Any {
 
 
 
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
+	@SerialVersionUID(ver)
 	sealed class BigIntegerIsNumeric extends Numeric[BigInteger] {
 		override def plus(x :BigInteger, y :BigInteger) :BigInteger = x add y
 		override def minus(x :BigInteger, y :BigInteger) :BigInteger = x subtract y
@@ -50,18 +54,18 @@ object extensions {
 
 		override def compare(x :BigInteger, y :BigInteger) :Int = x compareTo y
 	}
-	
+	@SerialVersionUID(ver)
 	object BigIntegerIsIntegral extends BigIntegerIsNumeric with Integral[BigInteger] {
 		override def quot(x :BigInteger, y :BigInteger) :BigInteger = x divide y
 		override def rem(x :BigInteger, y :BigInteger) :BigInteger = x remainder y
 	}
-	
+	@SerialVersionUID(ver)
 	object BigIntegerAsIfFractional extends BigIntegerIsNumeric with Fractional[BigInteger] {
 		override def div(x :BigInteger, y :BigInteger) :BigInteger = x divide y
 	}
 	
 	
-	
+	@SerialVersionUID(ver)
 	class BigDecimalIsFractional(implicit ctx :MathContext) extends Fractional[JavaBigDecimal] {
 		override def div(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.divide(y, ctx)
 		override def plus(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.add(y, ctx)

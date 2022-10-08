@@ -121,8 +121,10 @@ trait SugaredThrowable extends Throwable with Cloneable {
 }
 
 
+
 /** Base trait for exceptions, providing Scala-style accessors to properties of `Throwable` */
 trait SugaredException extends Exception with SugaredThrowable //todo: classes supporting lazy messages
+
 
 
 /** A base exception class extending `SugaredException` and accepting all constructor parameters of `Throwable`.
@@ -145,13 +147,13 @@ trait SugaredException extends Exception with SugaredThrowable //todo: classes s
   *                           Defaults to `true`, as in `Exception`. The only real reason to change this value
   *                           is sharing exception instances to reduce the cost of their creation.
   */
-@SerialVersionUID(1L)
 abstract class AbstractException(message :String = null, cause :Throwable = null,
                                  enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends Exception(message, cause, enableSuppression, writableStackTrace) with SugaredException
 {
 	def this(cause :Throwable) = this(null, cause)
 }
+
 
 
 /** A base error class extending `SugaredThrowable` and accepting all constructor parameters of `Throwable`.
@@ -182,6 +184,10 @@ class AbstractError(message :String = null, cause :Throwable = null,
 }
 
 
+
+
+
+
 /** A [[Throwable]] aware of its type, providing a 'copy constructor' creating a new instance of the same class,
   * with a new message and this instance as its cause. This allows rethrowing of an exception with additional context
   * information pushed higher on the call stack, without wrapping the original exception in some other class,
@@ -206,6 +212,7 @@ trait StackableThrowable extends SugaredThrowable {
 }
 
 
+
 /** A [[Throwable]] aware of its type, providing a 'copy constructor' creating a new instance of the same class,
   * with a new message and this instance as its cause. This allows rethrowing of an exception with additional context
   * information pushed higher on the call stack, without wrapping the original exception in some other class,
@@ -217,7 +224,7 @@ trait StackableThrowable extends SugaredThrowable {
   * a new instance directly.
   * @see [[net.noresttherein.sugar.exceptions.RethrowableException]]
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class StackableException(message :String = null, cause :Throwable = null,
                          enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends AbstractException(message, cause, enableSuppression, writableStackTrace) with StackableThrowable
@@ -234,6 +241,7 @@ class StackableException(message :String = null, cause :Throwable = null,
 				this
 		}
 }
+
 
 
 /** A mixin trait for exceptions designed to be rethrown with method
@@ -313,6 +321,7 @@ trait Rethrowable extends StackableThrowable {
 }
 
 
+
 /** Base class for exceptions designed to be potentially rethrown using method
   * [[net.noresttherein.sugar.exceptions.imports imports]]`.`[[net.noresttherein.sugar.exceptions.rethrow rethrow]].
   * If initialized with property [[net.noresttherein.sugar.exceptions.Rethrowable.isRethrown isRethrown]] to `true`,
@@ -322,7 +331,7 @@ trait Rethrowable extends StackableThrowable {
   * performance benefit. See the documentation of [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]]
   * for more information.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class RethrowableException(message :String, cause :Throwable, override val isRethrown :Boolean)
 	extends StackableException(message, cause, true, !isRethrown) with Rethrowable
 {
@@ -336,7 +345,7 @@ class RethrowableException(message :String, cause :Throwable, override val isRet
   * of another thrown, caught and rethrown exception.
   * @see [[net.noresttherein.sugar.exceptions.imports.rethrow]]
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class RethrowContext(message :String, cause :Throwable = null)
 	extends Throwable(message, cause, false, false) with SugaredThrowable
 
@@ -344,7 +353,7 @@ class RethrowContext(message :String, cause :Throwable = null)
 
 
 /** A base class for exceptions with lazily evaluated error messages. */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class LazyException(initMessage: => String, cause :Throwable = null,
                     enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends Exception(null, cause, enableSuppression, writableStackTrace) with SugaredException
@@ -355,6 +364,10 @@ class LazyException(initMessage: => String, cause :Throwable = null,
 }
 
 
+
+
+
+
 /** A lightweight, 'temporary' exception with disabled suppression and stack trace.
   * It is thrown to indicate a well defined error discovered in a deeply nested private method,
   * with an intent of being caught by an entry method which resulted in the problematic call,
@@ -362,7 +375,7 @@ class LazyException(initMessage: => String, cause :Throwable = null,
   * which lead to the error is available. Instances can be often reused in that case, reducing the exception
   * overhead even further.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class InternalException(msg :String = null, cause :Throwable = null)
 	extends RuntimeException(msg, cause, false, false) with StackableThrowable
 {
@@ -370,14 +383,10 @@ class InternalException(msg :String = null, cause :Throwable = null)
 }
 
 
-
-
-
-
 /** An [[Exception]] thrown to indicate a situation which clearly indicates a bug in the executed code,
   * rather than invalid parameters or external state.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class Oops(msg :String, reason :Throwable = null) extends RuntimeException(msg, reason) with StackableThrowable {
 	override def addInfo(msg :String) :StackableThrowable = new Oops(msg, this)
 }
@@ -399,7 +408,7 @@ class Oops(msg :String, reason :Throwable = null) extends RuntimeException(msg, 
   * @see [[net.noresttherein.sugar.imports.??!]]
   * @see [[net.noresttherein.sugar.imports.impossible_!]]
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class ImpossibleError(msg :String = "Implementation error", reason :Throwable = null)
 	extends Error(msg, reason) with StackableThrowable
 {

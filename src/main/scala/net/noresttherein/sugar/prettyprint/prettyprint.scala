@@ -9,7 +9,8 @@ import scala.reflect.{classTag, ClassTag}
 
 
 
-package object prettyprint extends prettyprint.extensions {
+package object prettyprint {
+	final val ver = 1L
 
 	/** An approximation of the imported type symbol of the class of the given object, as it would be referenced 
 	  * in code. First, the whole package prefix and all trailing '$' characters are dropped. Then, all escape sequences

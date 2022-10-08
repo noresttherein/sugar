@@ -23,7 +23,8 @@ trait extensions extends Any {
 
 
 
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
 	/** Extends any value with method [[net.noresttherein.sugar.repeat.extensions.RepeatMethod.repeat repeat]],
 	  * creating a pure functional equivalent of a `repeat ... until` loops:
 	  * {{{

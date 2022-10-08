@@ -6,8 +6,11 @@ import scala.Specializable.{Arg, Return}
 
 import net.noresttherein.sugar.extensions.{optionExtension, saferCasting, downcast2TypeParams, downcastTypeParam}
 import net.noresttherein.sugar.matching.MatchPattern.SpecializedArgs
-import net.noresttherein.sugar.prettyprint.classNameMethods
 import net.noresttherein.sugar.vars.Opt
+
+//implicits
+import net.noresttherein.sugar.extensions.classNameMethods
+
 
 
 
@@ -22,7 +25,7 @@ import net.noresttherein.sugar.vars.Opt
   * @see [[net.noresttherein.sugar.matching.Unapply]]
   * @see [[net.noresttherein.sugar.matching.MatchFunction]]
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable {
 	/** The single abstract method of this class, possibly extracting a value of `Out` from an `In` as an `Opt`. */
 	def unapply(arg :In) :Opt[Out]
@@ -53,6 +56,7 @@ trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable
 /** Factory object for [[net.noresttherein.sugar.matching.MatchPattern MatchPattern]] extractor objects.
   * @see [[net.noresttherein.sugar.matching.Unapply]]
   */
+@SerialVersionUID(ver)
 object MatchPattern {
 	/** Adapt a given option returning function to an extractor object usable in pattern matching. */
 	def apply[@specialized(SpecializedArgs) In, Out](f :In => Option[Out]) :MatchPattern[In, Out] =
@@ -94,6 +98,7 @@ object MatchPattern {
 /** Forces a function literal given as the argument
   * to be SAM-converted to a [[net.noresttherein.sugar.matching.MatchPattern MatchPattern]].
   */
+@SerialVersionUID(ver)
 object Unapply {
 	/** Forces a function literal given as the argument
 	  * to be SAM-converted to a [[net.noresttherein.sugar.matching.MatchPattern MatchPattern]].
@@ -139,6 +144,7 @@ trait MatchFunction[@specialized(Specializable.Arg) -In, @specialized(Specializa
   * providing several factory methods.
   * @see [[net.noresttherein.sugar.matching.Match]]
   */
+@SerialVersionUID(ver)
 object MatchFunction {
 	/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
 	  * that can be used in pattern matching or as a partial function.
@@ -202,6 +208,7 @@ object MatchFunction {
 	}
 	private[this] final val Fallback :Any => Any = _ => Fallback
 
+	@SerialVersionUID(ver)
 	private class OptionFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
 	                            (f :In => Option[Out], override val toString :String)
 		extends MatchFunction[In, Out]
@@ -217,6 +224,7 @@ object MatchFunction {
 /** Adapts a partial function `X => Y` to a [[net.noresttherein.sugar.matching.MatchFunction MatchFunction]].
   * @see [[net.noresttherein.sugar.matching.Match.apply]]
   */
+@SerialVersionUID(ver)
 object Match {
 	/** Adapts a partial function `X => Y` to a [[net.noresttherein.sugar.matching.MatchFunction MatchFunction]].
 	  * The application is split into two steps in order to provide an explicit argument type parameter first,

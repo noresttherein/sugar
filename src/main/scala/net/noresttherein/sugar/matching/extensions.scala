@@ -17,7 +17,8 @@ trait extensions extends Any {
 
 
 
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
 
 	class matchesMethod[T](val value :T) extends AnyVal {
 		def matches[X](expr :PartialFunction[T, X]) :Boolean = expr.isDefinedAt(value)

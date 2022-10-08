@@ -21,11 +21,12 @@ import scala.annotation.implicitNotFound
   */
 @implicitNotFound("No implicit ${T} labelled ${Label}")
 @SerialVersionUID(1L)
-class Labelled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal
+class Labelled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal with Serializable
 
 
 
 /** Factory of labelled (implicit by design) values as well as labels which can be used with them. */
+@SerialVersionUID(ver)
 object Labelled {
 
 	/** Attach the label given as the type parameter to the argument value, creating a labelled value `T Labelled Label`.

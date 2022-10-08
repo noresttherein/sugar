@@ -13,7 +13,8 @@ trait extensions extends Any {
 
 
 
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
 	class ClassExtension private[reflect] (private val self :Class[_]) extends AnyVal {
 		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.). */
 		def isBox :Boolean = extensions.Unwrapped.contains(self)

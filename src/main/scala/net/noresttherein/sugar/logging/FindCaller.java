@@ -3,6 +3,9 @@ package net.noresttherein.sugar.logging;
 import java.util.logging.LogRecord;
 import java.lang.StackWalker.StackFrame;
 
+
+
+
 class FindCaller {
 
     public static StackFrame apply() {

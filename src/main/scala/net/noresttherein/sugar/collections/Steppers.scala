@@ -10,6 +10,9 @@ import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatSh
 
 import net.noresttherein.sugar.JavaTypes.{JDouble, JInt, JIterator, JLong}
 
+//implicits
+import net.noresttherein.sugar.extensions.iteratorFactoryExtension
+
 
 
 

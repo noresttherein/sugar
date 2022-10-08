@@ -78,6 +78,7 @@ sealed abstract class InferTypeParams[X, T <: U, +U] extends (X => T) {
 
 
 
+@SerialVersionUID(ver)
 object InferTypeParams {
 
 	@inline def conforms[T] :InferTypeParams[T, T, T] = unify[T]

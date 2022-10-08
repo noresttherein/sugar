@@ -37,6 +37,7 @@ trait extensions extends Any
   *   - `xxxMethod`/`xxxMethods`, where `xxx` is the name of the most prominent declared method.
   * @author Marcin Mościcki
   */
+@SerialVersionUID(ver)
 object extensions extends extensions {
 
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */

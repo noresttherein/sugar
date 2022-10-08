@@ -5,6 +5,8 @@ import scala.collection.AbstractSeq
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
 
+import net.noresttherein.sugar.extensions.classNameMethods
+
 
 
 

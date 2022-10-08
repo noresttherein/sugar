@@ -109,7 +109,7 @@ trait extensions extends Any {
 
 
 @SerialVersionUID(ver)
-object extensions {
+object extensions extends extensions {
 	/** A syntactic wrapper for collections, injecting methods implementing
 	  * 'breakable' folding and reducing, that is folding only some prefix/suffix of the collection
 	  * based on some predicate or other termination condition.

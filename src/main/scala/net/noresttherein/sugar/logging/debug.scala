@@ -3,6 +3,8 @@ package net.noresttherein.sugar.logging
 import java.util.logging.{Logger => JLogger}
 
 
+
+
 /** Traditional ad-hoc methods which log a value for debugging purposes and immediately return it.
   * Rather than importing enclosed identifiers, consider importing this object and invoking the methods explicitly -
   * this way one can use the infix call notation potentially without parenthesis's, making it easier to quickly
@@ -13,6 +15,7 @@ import java.util.logging.{Logger => JLogger}
   *     debug(log) fine x * x
   * }}}
   */
+@SerialVersionUID(ver)
 object debug {
 	/** Log the given value to `System.out` before returning it. */
 	def out[X](x :X) :X = { System.out.print(x); x }

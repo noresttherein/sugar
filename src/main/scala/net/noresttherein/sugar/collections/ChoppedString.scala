@@ -16,6 +16,9 @@ import net.noresttherein.sugar.collections.Substring.SubstringReader
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
+//implicits
+import net.noresttherein.sugar.extensions.{javaIteratorExtension, stepperExtension}
+
 
 
 

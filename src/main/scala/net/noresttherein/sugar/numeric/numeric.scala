@@ -1,3 +1,8 @@
 package net.noresttherein.sugar
 
-package object numeric extends numeric.extensions
+
+
+
+package object numeric {
+	final val ver = 1L
+}

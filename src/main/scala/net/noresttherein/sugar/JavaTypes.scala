@@ -4,6 +4,7 @@ package net.noresttherein.sugar
 
 
 /** Type aliases for ubiquitous Java types which have Scala counterparts sharing their name. */
+@SerialVersionUID(ver)
 object JavaTypes {
 	type JVoid             = java.lang.Void
 	type JBoolean          = java.lang.Boolean

@@ -2,7 +2,6 @@ package net.noresttherein.sugar
 
 
 
-
-package object tuples {
+package object logging {
 	final val ver = 1L
 }

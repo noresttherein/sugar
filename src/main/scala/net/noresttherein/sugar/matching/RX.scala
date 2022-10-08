@@ -473,8 +473,8 @@ sealed abstract class RX extends Serializable {
 
 
 
+@SerialVersionUID(ver)
 object RX {
-
 
 	/** Implicit conversion from an interpolated `String` (`StringContext`) providing factory methods for creating
 	  * `RX` instances. methods from this class can be used using the string interpolation syntax: `p"Digit"`.
@@ -867,6 +867,7 @@ object RX {
 	  * and `\S` - anything but whitespace) the difference may not be apparent at first glance.
 	  * Prefer negating the base character class instead : `!``\\s``` or `!WS`.
 	  */
+	@SerialVersionUID(ver)
 	object complements {
 		/** Any character but horizontal whitespace. */
 		final val `\\H` = \('H')
@@ -885,9 +886,7 @@ object RX {
 
 		/** Zero-length expression matching regions not being word boundaries. */
 		final val `\\B` = \('B')
-
 	}
-
 
 
 
@@ -1003,7 +1002,7 @@ object RX {
 	  * @param isOn whether the flag is being turned on or off.
 	  * @see [[net.noresttherein.sugar.matching.RX.apply(flags:net\.noresttherein\.sugar\.matching\.RX\.Flag\*)* RX.apply]]
 	  */
-    @SerialVersionUID(1L)
+    @SerialVersionUID(ver)
 	final class Flag private[RX](val code :String, val isOn :Boolean = true)
 		extends RXGroup(if (isOn) "-" + code else code, EmptyRX)
 	{
@@ -1016,6 +1015,7 @@ object RX {
 	/** An implicit `RX` implementation matching the given string literal. Any characters otherwise interpreted
 	  * by the regular expression engine are escaped.
 	  */
+	@SerialVersionUID(ver)
 	implicit class StringLiteral(literal :String) extends RX {
 		private[this] val escaped = Pattern.quote(literal)
 
@@ -1024,7 +1024,7 @@ object RX {
 
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class EmptyRX extends RX {
 
 		override def ::(other :RX) :RX = other
@@ -1055,7 +1055,7 @@ object RX {
 		override def toString = ""
 	}
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class AdapterRX(override val toString :String, override val groups :Seq[String]) extends RX {
 		def this(pattern :String) = this(pattern, Nil)
 
@@ -1063,7 +1063,7 @@ object RX {
 	}
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class AtomicRX(override val toString :String) extends RX {
 		override def ncgroup :RX = this
 
@@ -1071,7 +1071,7 @@ object RX {
 	}
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class RXGroup(val prefix :String, body :RX) extends RX {
 		def this(body :RX) = this(":", body)
 
@@ -1086,7 +1086,7 @@ object RX {
 		}
 	}
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class NonCapturingGroup(body :RX) extends RXGroup(":", body) {
 		override def ~> :RX = body.~>
 
@@ -1103,18 +1103,18 @@ object RX {
 		override def group(name :String) :RX =	body.group(name)
 	}
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class NamedGroup(name :String, body :RX) extends RXGroup(adapt("<" + name +'>')) {
 		override def groups :Seq[String] = name +: body.groups
 	}
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class FlaggedGroup(body :RX, flags :Seq[Flag])
 		extends RXGroup(flags.filter(_.isOn).mkString + flags.filterNot(_.isOn).mkString("-", "", ":"), body)
 
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class RepeatedRX(body :RX, symbol :String) extends RX {
 		override def groups :Seq[String] = body.groups
 
@@ -1125,7 +1125,7 @@ object RX {
 	}
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class QuantifiedRX(body :RX, min :Int, max :Int, symbol :String = "") extends RX {
 		override def groups :Seq[String] = body.groups
 
@@ -1144,7 +1144,7 @@ object RX {
 	}
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class Alternative(first :RX, second :RX) extends RX {
 
 		override def groups :Seq[String] = listGroups(Nil)
@@ -1159,7 +1159,7 @@ object RX {
 	}
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private[RX] class Concatenation(first :RX, second :RX) extends RX {
 
 		override def groups :Seq[String] = listGroups(Nil)
@@ -1230,7 +1230,7 @@ object RX {
 	  */
 	private def atom(regexp :String) :CharacterClass = new AtomicCharClass(regexp)
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class AtomicCharClass(override val classBody :String) extends CharacterClass {
 
 		override def ncgroup :RX = this
@@ -1254,6 +1254,7 @@ object RX {
 	  * conversion from `Char` values.
 	  * @param char the literal character to match.
 	  */
+	@SerialVersionUID(ver)
 	implicit class CharLiteral(private val char :Char) extends CharacterClass {
 
 		def -(to :Char) :CharacterClass = new CharacterRange(char, to)
@@ -1294,14 +1295,14 @@ object RX {
 		new CharacterRange(range._1, range._2)
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class CharacterRange(start :Char, end :Char) extends CharacterClass {
 		private[RX] override def classBody :String = start.toString + '-' + end
 	}
 
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class NegatedClass(body :CharacterClass) extends CharacterClass {
 		override def unary_! :CharacterClass = body
 
@@ -1317,14 +1318,14 @@ object RX {
 
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class DisjunctionCharClass(first :CharacterClass, second :CharacterClass) extends CharacterClass {
 		override def classBody :String = first.classBody + second.classBody
 	}
 
 
 
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	private class ConjunctionCharClass(first :CharacterClass, second :CharacterClass) extends CharacterClass {
 		override def unary_! :CharacterClass = !(first | second)
 
@@ -1338,7 +1339,7 @@ object RX {
 	  * [[net.noresttherein.sugar.matching.RX.RepeatAtLeast RepeatAtLeast]]: `1.-*`.
 	  * @see [[net.noresttherein.sugar.matching.RX.\* *]]
 	  */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(ver)
 	final class AtLeast(val n :Int)
 
 	/** Requests that a regular expression should be matched at least the given number of times. */

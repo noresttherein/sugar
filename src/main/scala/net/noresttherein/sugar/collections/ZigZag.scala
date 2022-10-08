@@ -7,6 +7,9 @@ import scala.collection.mutable.Builder
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
 
+//implicits
+import net.noresttherein.sugar.extensions.{javaIteratorExtension, stepperExtension}
+
 
 
 

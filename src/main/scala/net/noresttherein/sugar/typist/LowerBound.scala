@@ -27,6 +27,8 @@ sealed abstract class SelfLowerBoundImplicits private[typist] extends ProperLowe
 	@inline implicit final def rightLowerBound[X, Y<:X] :LowerBound[X, Y, Y] = instance.asInstanceOf[LowerBound[X, Y, Y]]
 }
 
+
+@SerialVersionUID(ver)
 object LowerBound extends SelfLowerBoundImplicits {
 	/** Calculates explicitly the greatest lower bound of its type parameters via its `apply()` method. */
 	final class Binder[X, Y] private[LowerBound] {

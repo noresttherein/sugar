@@ -15,6 +15,7 @@ import net.noresttherein.sugar.prettyprint
 /** Factory methods for functions with benefits.
   * @author Marcin Mościcki marcin@moscicki.net
   */
+@SerialVersionUID(ver)
 object fun {
 	import specializations._
 	//todo: macros
@@ -33,7 +34,7 @@ object fun {
 	  */
 	@inline def apply[X] :ComposableFunSAM[X] = new ComposableFunSAM[X] {}
 
-	trait ComposableFunSAM[X] extends Any {
+	trait ComposableFunSAM[X] extends Any with Serializable {
 		@inline def apply[Y](f :ComposableFun[X, Y]) :X => Y = f
 	}
 
@@ -148,10 +149,12 @@ object fun {
 
 
 	/** Declaration of type groups usable as arguments to scala `@specialized` annotation. */
+	@SerialVersionUID(ver)
 	object specializations {
 		/** Types for which `Function1`'s result type is specialized, minus `Unit`. */
 		final val ReturnVal = new Specializable.Group(Boolean, Int, Float, Long, Double)
 
+		@SerialVersionUID(ver)
 		private[fun] class SpecializedType[@specialized(Return) T] {
 
 			@inline final override def equals(that :Any) :Boolean = getClass == that.getClass
@@ -376,7 +379,7 @@ object fun {
 
 
 
-
+	@SerialVersionUID(ver)
 	private class ComposedFun[@specialized(Arg) -X, @specialized(Arg) Y, @specialized(Return) +Z](val inner :X=>Y, val outer :Y=>Z)
 		extends ComposableFun[X, Z]
 	{
@@ -427,6 +430,7 @@ object fun {
 
 
 
+	@SerialVersionUID(ver)
 	private class ConstFun[@specialized(Arg) -X, @specialized(Return) +Y](result :Y)
 		extends ComposableFun[X, Y] with PureFun[X, Y]
 	{
@@ -461,6 +465,7 @@ object fun {
 
 
 
+	@SerialVersionUID(ver)
 	private class ThrowingFunction[X](exception :X => Throwable) extends ComposableFun[X, Nothing] {
 		override def apply(x :X) :Nothing = throw exception(x)
 
@@ -479,6 +484,7 @@ object fun {
 
 
 
+	@SerialVersionUID(ver)
 	private class Throw[X](exception :Throwable) extends ComposableFun[X, Nothing] {
 		override def apply(x :X) :Nothing = throw exception
 
@@ -496,8 +502,6 @@ object fun {
 
 		override def toString :String = "throw "+exception
 	}
-
-
 
 
 }

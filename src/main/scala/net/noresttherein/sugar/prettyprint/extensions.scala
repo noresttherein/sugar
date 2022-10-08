@@ -31,7 +31,8 @@ trait extensions extends Any {
 
 
 
-object extensions {
+@SerialVersionUID(ver)
+object extensions extends extensions {
 
 	/** Implicit conversion patching any object with methods providing prettified/shortened class names. */
 	class ClassNameMethods[T](private val self :T) extends AnyVal {

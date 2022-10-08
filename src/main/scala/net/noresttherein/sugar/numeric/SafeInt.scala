@@ -5,14 +5,12 @@ import java.{lang => jl}
 
 
 
-
-
 /** An `Int` value checking for overflows, underflows and loss of precision in all operations.
   * Unless stated otherwise, all methods returning another number type, with the exception of bitwise operations,
   * can throw an [[ArithmeticException]] .
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(ver)
 class SafeInt(val toInt :Int) extends AnyVal with Serializable {
 
 	def toByte  : Byte   = { testRange(Byte.MinValue, Byte.MaxValue, "Byte"); toLong.toByte }
@@ -183,12 +181,13 @@ class SafeInt(val toInt :Int) extends AnyVal with Serializable {
 
 
 
+@SerialVersionUID(ver)
 object SafeInt {
 	@inline def apply(value :Int) :SafeInt = new SafeInt(value)
 
-	@inline implicit def fromInt(value :Int) :SafeInt = new SafeInt(value)
-	@inline implicit def toInt(value :SafeInt) :Int = value.toInt
-	@inline implicit def toLong(value :SafeInt) :Long = value.toInt.toLong
+	@inline implicit def safeIntFromInt(value :Int) :SafeInt = new SafeInt(value)
+	@inline implicit def safeIntToInt(value :SafeInt) :Int = value.toInt
+	@inline implicit def safeIntToLong(value :SafeInt) :Long = value.toInt.toLong
 
 	sealed abstract class SafeIntIsNumeric extends Numeric[SafeInt] {
 		override def plus(x :SafeInt, y :SafeInt) :SafeInt = x + y
@@ -205,10 +204,12 @@ object SafeInt {
 		override def toDouble(x :SafeInt) :Double = x.toDouble
 		override def compare(x :SafeInt, y :SafeInt) :Int = x compare y
 	}
+	@SerialVersionUID(ver)
 	implicit object SafeIntIsIntegral extends SafeIntIsNumeric with Integral[SafeInt] {
 		override def quot(x :SafeInt, y :SafeInt) :SafeInt = x / y
 		override def rem(x :SafeInt, y :SafeInt) :SafeInt = x % y
 	}
+	@SerialVersionUID(ver)
 	object SafeIntAsIfFractional extends SafeIntIsNumeric with Fractional[SafeInt] {
 		override def div(x :SafeInt, y :SafeInt) :SafeInt = x / y
 	}

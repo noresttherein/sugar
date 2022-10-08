@@ -2,20 +2,19 @@ package net.noresttherein.sugar.collections
 
 import java.lang.invoke.MethodHandles
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.StepperShape.{CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
-import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.collections.PassedArray.{InitSize, OwnerField, SliceReallocationFactor}
 import net.noresttherein.sugar.JavaTypes.JIterator
 
 //implicits
-import net.noresttherein.sugar.reflect.classExtension
-import net.noresttherein.sugar.extensions.castTypeParam
+import net.noresttherein.sugar.extensions.{arrayFactoryExtension, castTypeParam, classExtension, iteratorFactoryExtension}
 
 
 

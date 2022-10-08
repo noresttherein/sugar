@@ -29,6 +29,7 @@ private[witness] sealed abstract class MaybeNoImplicit {
 
 
 /** Provides optional implicit values if they are available wrapped as `Maybe[T]`. */
+@SerialVersionUID(ver)
 object Maybe extends MaybeNoImplicit {
 	/** A wrapper type for a type constructor `F` allowing to use a `Maybe` for a generic type as a type class
 	  * (a ''view bound'') using syntax

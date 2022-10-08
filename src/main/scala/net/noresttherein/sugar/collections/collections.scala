@@ -11,10 +11,13 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 //implicits
 import net.noresttherein.sugar.extensions.optionExtension
 
+
+
+
 /**
  * @author Marcin Mościcki
  */
-package object collections extends collections.extensions {
+package object collections {
 	final val ver = 1L
 
 	final val ElemTypes = Specializable.AllNumeric
