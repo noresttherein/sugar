@@ -425,8 +425,7 @@ object PropertyPath {
 
 
 
-	sealed abstract class ReflectedProperty[-X, +Y] private[PropertyPath]
-			(argType :Type, fun :X => Y)
+	sealed abstract class ReflectedProperty[-X, +Y] private[PropertyPath] (argType :Type, fun :X => Y)
 		extends PropertyPath[X, Y](argType, fun)
 	{
 		override def drop[XX <: X, Z](property: PropertyPath[XX, Z]): Option[ReflectedProperty[Z, Y]]

@@ -254,6 +254,17 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	@inline def fold[B](ifEmpty: => B)(f: A => B): B =
 		if (ref eq NoContent) ifEmpty else f(ref.asInstanceOf[A])
 
+	/** The same as [[net.noresttherein.sugar.vars.Opt.map map]], but exceptions thrown by the function
+	  * are caught and [[net.noresttherein.sugar.vars.Opt.Lack Lack]] is returned instead. */
+	@inline def failMap[O](f :A => O) :Opt[O] =
+		if (ref eq NoContent)
+			new Opt(NoContent)
+		else try {
+			new Opt(f(ref.asInstanceOf[A]).asInstanceOf[AnyRef])
+		} catch {
+			case _ :Exception => new Opt(NoContent)
+		}
+
 	/** Returns the result of applying the given function to the value of this `Opt` if it is not empty,
 	  * or `this` if `this.isEmpty`. */
 	@inline def flatMap[O](f :A => Opt[O]) :Opt[O] =
@@ -410,11 +421,11 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	  * This conversion does not require boxing. Same as [[net.noresttherein.sugar.vars.Opt.toPotential toPotential]]. */
 	@inline override def constPotential :Potential[A] =
 		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
-
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
-	  * This conversion does not require boxing. */
-	@inline override def ?? :Potential[A] =
-		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
+//
+//	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
+//	  * This conversion does not require boxing. */
+//	@inline override def ?? :Potential[A] =
+//		if (ref eq NoContent) Inexistent else Existent(ref.asInstanceOf[A])
 
 
 	/** Converts this `Opt` to `Either`, returning the content as `Left`, or the value of the given expression
@@ -441,7 +452,7 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	/** Converts this `Opt` to `Fallible`, returning the content as `Passed`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
 	@inline final def toPassed(err : => String) :Fallible[A] =
-		if (ref eq NoContent) Failed(err) else Passed(get)
+		if (ref eq NoContent) Failed(() => err) else Passed(get)
 
 	/** Formats this `Opt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String =
@@ -509,6 +520,20 @@ object Opt {
 	  * Otherwise, `a` is not evaluated and `Lack` is returned. */
 	@inline def unless[A](cond: Boolean)(a: => A): Opt[A] =
 		if (!cond) Got(a) else Lack
+
+	/** Executes the given lazy expression in a `try-catch` block, returning `Lack` in case
+	  * any exception is caught. Otherwise the value is returned as a `Got` instance as normal. */
+	@inline def guard[A](a : => A) :Opt[A] =
+		try { Got(a) } catch {
+			case _ :Exception => Lack
+		}
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning `Lack` in case
+	  * any exception is caught. Otherwise the result is returned as a `Got` instance as normal. */
+	@inline def guard[A, B](f :A => B)(a :A) :Opt[B] =
+		try { Got(f(a)) } catch {
+			case _ :Exception => Lack
+		}
 
 
 	/** A refinement of [[net.noresttherein.sugar.vars.Opt Opt]] marking it through a member flag type

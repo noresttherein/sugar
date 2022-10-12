@@ -222,6 +222,18 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final def fold[B](ifEmpty: => B)(f: T => B): B =
 		if (this eq Missing) ifEmpty else f(get)
 
+	/** The same as [[net.noresttherein.sugar.vars.Unsure.map map]], but exception thrown by the function
+	  * are caught and [[net.noresttherein.sugar.vars.Missing Missing]] is returned instead.
+	  */
+	@inline final def failMap[B](f :T => B) :Unsure[B] =
+		if (this eq Missing)
+			Missing
+		else try {
+			new Sure(f(get))
+		} catch {
+			case _ :Exception => Missing
+		}
+
 	/** Returns the result of applying the given function to the value of this `Unsure` if it is not empty,
 	  * or `this` if `this.isEmpty`
 	  */
@@ -375,7 +387,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	/** Converts this `Unsure` to `Fallible`, returning the content as `Passed`,
 	  * or the given `String` as `Failed` error message if empty. */
 	@inline final def toPassed(err : => String) :Fallible[T] =
-		if (this eq Missing) Failed(err) else Passed(get)
+		if (this eq Missing) Failed(() => err) else Passed(get)
 
 	/** Formats this `Unsure` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline final override def mkString(prefix :String) :String =
@@ -446,6 +458,20 @@ object Unsure {
 	  */
 	@inline def unless[@specialized(SpecializedVars) T](cond: Boolean)(a: => T): Unsure[T] =
 		when(!cond)(a)
+
+	/** Executes the given lazy expression in a `try-catch` block, returning `Missing` in case
+	  * any exception is caught. Otherwise the value is returned in an `Sure` instance as normal. */
+	@inline def guard[A](a : => A) :Unsure[A] =
+		try { new Sure(a) } catch {
+			case _ :Exception => Missing
+		}
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning `Missing` in case
+	  * any exception is caught. Otherwise the result is returned in an `Sure` instance as normal. */
+	@inline def guard[A, B](f : A => B)(a :A) :Unsure[B] =
+		try { new Sure(f(a)) } catch {
+			case _ :Exception => Missing
+		}
 
 
 	/** The for-comprehension facade for [[net.noresttherein.sugar.vars.Unsure Unsure]]`[A]`

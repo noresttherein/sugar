@@ -57,6 +57,19 @@ object extensions extends extensions {
 			case _ => alternative
 		}
 
+		/** Similar to `map`, but the function is executed in a try-catch block and `None` is returned
+		  * in case any exceptions are thrown.
+		  */
+		@inline def failMap[X](f :T => X) :Option[X] = self match {
+			case Some(t) => try {
+				Some(f(t))
+			} catch {
+				case _ :Exception => None
+			}
+			case _ => None
+		}
+
+
 		/** Gets the element in the option or throws a `NoSuchElementException` with the given message. */
 		@inline def orThrow(msg: => String) :T = self match {
 			case Some(t) => t
@@ -135,7 +148,7 @@ object extensions extends extensions {
 		/** Converts this `Option` to `Fallible`, returning the content as `Passed`,
 		  * or the value of the given `String` as `Failed` error message if empty. */
 		@inline final def toPassed(err : => String) :Fallible[T] =
-			if (self.isDefined) Failed(err) else Passed(self.get)
+			if (self.isDefined) Failed(() => err) else Passed(self.get)
 	}
 
 

@@ -13,7 +13,7 @@ import net.noresttherein.sugar.extensions.classNameMethods
   * of the underlying [[scala.collection.IterableFactory IterableFactory]] (or its equivalent).
   * It is also `Serializable`, which additionally enhances its declarative use apart from the operative application.
   */
-trait ComparableFactory[-E, +C] extends Factory[E, C] with Serializable {
+private trait ComparableFactory[-E, +C] extends Factory[E, C] with Serializable {
 	def factory :Any
 
 	def canEqual(that :Any) :Boolean = that.isInstanceOf[ComparableFactory[_, _]]
@@ -29,7 +29,8 @@ trait ComparableFactory[-E, +C] extends Factory[E, C] with Serializable {
 
 
 
-object ComparableFactory {
+@SerialVersionUID(ver)
+private object ComparableFactory {
 	def apply[E, C[_]](factory :IterableFactory[C]) :ComparableFactory[E, C[E]] = {
 		val f = factory
 		new ComparableFactory[E, C[E]] {
@@ -105,7 +106,3 @@ object ComparableFactory {
 		override def hashCode :Int = factory.hashCode() * 31 + evidence.hashCode
 	}
 }
-
-
-
-

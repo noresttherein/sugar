@@ -387,13 +387,13 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]]
 	  */
 	def constPotential :Potential[T] = constOpt.potential
-
-	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
-	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
-	  * external setting of the value will return [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
-	  * This is equivalent to [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]].
-	  */
-	def ?? :Potential[T] = toPotential
+//
+//	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
+//	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
+//	  * external setting of the value will return [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+//	  * This is equivalent to [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]].
+//	  */
+//	def ?? :Potential[T] = toPotential
 
 
 	/** True if the content type is known to be a value type and the class is specialized for it.

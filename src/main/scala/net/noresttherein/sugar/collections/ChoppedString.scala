@@ -130,6 +130,16 @@ sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] 
 
 	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
 
+	override def apply(i :Int) :Char //overriden for specialization
+
+	def isWhitespace :Boolean =  {
+		val i = jiterator
+		var isWhite = true
+		while (i.hasNext && { isWhite = Character.isWhitespace(i.next().toChar); isWhite })
+			{}
+		isWhite
+	}
+
 	override def className :String = "ChoppedString"
 
 	protected def appendTo(builder :JStringBuilder) :JStringBuilder
@@ -631,6 +641,30 @@ final class Substring private (string :String, offset :Int, override val length 
 			i += 1
 		}
 	}
+
+	override def isWhitespace :Boolean = {
+		var i = offset; val until = offset + length
+		while (i < until && Character.isWhitespace(string.charAt(i)))
+			i += 1
+		i == until
+	}
+
+	override def ++(string :ChoppedString) :ChoppedString =
+		if (isEmpty) string
+		else if (string.isEmpty) this
+		else string match {
+			case Substring(data, from, until) if (this.string eq data) && from == offset + length =>
+				new Substring(this.string, offset, length + until - from)
+			case _ => super.++(string)
+		}
+	override def ++:(string :ChoppedString) :ChoppedString =
+		if (isEmpty) string
+		else if (string.isEmpty) this
+		else string match {
+			case Substring(data, from, until) if (this.string eq data) && until == offset =>
+				new Substring(this.string, from, until - from + length)
+			case _ => super.++(string)
+		}
 
 	override protected def appendTo(builder :lang.StringBuilder) :lang.StringBuilder = {
 		var i = offset; val end = offset + length

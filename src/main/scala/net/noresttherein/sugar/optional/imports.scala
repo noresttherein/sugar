@@ -67,4 +67,16 @@ trait imports {
 	@inline final def satisfying[T](value :T)(condition :T => Boolean) :Option[T] =
 		if (condition(value)) Some(value) else None
 
+	/** Executes the given lazy expression in a `try` block, returning the value in `Some` if successful.
+	  * All exceptions are caught and result in returning `None`.
+	  */
+	@inline final def guard[T](e: => T) :Option[T] =
+		try { Some(e) } catch { case _ :Exception => None }
+
+	/** Applies the given function to the second argument in a `try` block, returning the value in `Some` if successful.
+	  * All exceptions are caught and result in returning `None`.
+	  */
+	@inline final def guard[X, Y](f: X => Y)(x :X) :Option[Y] =
+		try { Some(f(x)) } catch { case _ :Exception => None }
+
 }

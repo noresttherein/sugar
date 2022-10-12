@@ -67,7 +67,7 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //co
 	  */
 	@inline final override def apply() :T = const
 
-	@inline final override def ?? :Potential[T] = toPotential
+//	@inline final override def ?? :Potential[T] = toPotential
 
 	/** Creates a new `Val` the value of which is derived from the value of this instance.
 	  * If `this.`[[net.noresttherein.sugar.vars.Val.isConst isConst]], then the new value is initialized immediately

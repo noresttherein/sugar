@@ -58,8 +58,10 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  * Outside of nesting `Potential` instances within each other, no boxing takes place for reference types
 	  * under any circumstances, in particular when creating an `Array[Potential[A]]` or `Seq[Potential[A]]`,
 	  * using it as an argument or return value of a function, or, in general, substituting it for an abstract type
-	  * (including type parameters). The type is not `@specialized`, so boxing of value types, as well as lifting
-	  * of value classes to their reference representations, will still occur: all values and arguments
+	  * (including type parameters). It is for this reason well suited to monadic composition of computations
+	  * through `flatMap`, avoiding boxing of the result of each step. The type is not `@specialized`,
+	  * so boxing of value types to their Java wrappers, as well as lifting of value classes
+	  * to their reference representations, will still occur: all values and arguments
 	  * of type `Potential[A]` are erased to `AnyRef` by the compiler. Code
 	  * {{{
 	  *     val qoluae = Potential(42)
@@ -198,8 +200,20 @@ package object vars extends vars.Rank1PotentialImplicits {
 		  * [[net.noresttherein.sugar.vars.PotentialExtension.mapOrElse mapOrElse]] instead.
 		  *  @param  ifEmpty the expression to evaluate if empty.
 		  *  @param  f       the function to apply if nonempty. */
-		@inline def fold[B](ifEmpty: => B)(f: A => B): B =
+		@inline def fold[O](ifEmpty: => O)(f: A => O): O =
 			if (self.asInstanceOf[AnyRef] eq NonExistent) ifEmpty else f(get)
+
+		/** The same as [[net.noresttherein.sugar.vars.PotentialExtension.map map]], but exceptions thrown
+		  * by the function are caught and $Inexistent is returned instead.
+		  */
+		@inline def failMap[O](f :A => O) :Potential[O] =
+			if (self.asInstanceOf[AnyRef] eq NonExistent)
+				Inexistent
+			else try {
+				Existent(f(get))
+			} catch {
+				case _ :Exception => Inexistent
+			}
 
 		/** Returns the result of applying the given function to the value of this `Potential` if it is not empty,
 		  * or `this` if `this.isEmpty`. */
@@ -381,7 +395,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 		/** Converts this `Potential` to $Fallible, returning the content as $Passed,
 		  *  or the given `String` as $Failed error message if empty. */
 		@inline def toPassed(err: => String) :Fallible[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Failed(err) else Passed(get)
+			if (self.asInstanceOf[AnyRef] eq NonExistent) Failed(() => err) else Passed(get)
 	}
 
 
@@ -396,7 +410,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  * or [[net.noresttherein.sugar.vars.PillExtension.flatMap flat mapping]] a `Pill`.
 	  *
 	  * In most situations, the `Blue[B]` case is represented as an erased value of `B`, meaning that
-	  * monadic usage of `Pill` doesn't involve create a new object with each `map`/`flatMap` operation.
+	  * monadic usage of `Pill` doesn't involve creating a new object with each `map`/`flatMap` operation.
 	  * This is changed only if `Pill` is nested, i.e. a `Blue(Blue(_))` or `Blue(Red(_))` instance is
 	  * created. Values of `Red` are represented normally, by wrapping them in an instance of
 	  * [[net.noresttherein.sugar.vars.Pill.Red! Red]], but in the intended usage pattern, are passed unchanged
@@ -641,17 +655,16 @@ package object vars extends vars.Rank1PotentialImplicits {
 
 
 	/** A variant of a non boxing `Either`, with instances of two categories: $Passed`[A]` containing a value of `A`,
-	  * or $Failed with an error message. In order to avoid the creation of `Right` (successful) instance
+	  * and $Failed with an error message. In order to avoid the creation of `Right` (successful) instance
 	  * each time in a monadic composition of chained operations on an `Either`, a `Passed` is encoded
 	  * as its erased (and boxed) contents, i.e. the value itself. A `Failed` corresponds to `Left[String]`.
 	  * This solution brings two limitations:
 	  *   1. Nesting `Fallible` without another `Fallible` must resort to boxing in order to differentiate between
 	  *      `Passed(Failed)` and `Failed`. This is however transparent to the application.
-	  *      2. No `Passed` (i.e. `Right`) type exist, because it is erased,
+	  *   1. No `Passed` (i.e. `Right`) type exist, because it is erased,
 	  *      and construction and checking must happen using `apply` and `unapply` methods of singleton
-	  *      object $Passed.
-	  *      [[net.noresttherein.sugar.vars.FallibleExtension Extension]] methods are provided, mirroring the relevant
-	  *      part of functionality of `Either` and `Option`.
+	  *      object $Passed. [[net.noresttherein.sugar.vars.FallibleExtension Extension]] methods are provided,
+	  *      mirroring the relevant part of functionality of `Either` and `Option`.
 	  */
 	//consider: Renaming to Guard. Passed is even a better match, but is there a better alternative to Failed? Rejected?
 	// The advantage lies in large part in method names, which can have a 'guard' suffix.
@@ -773,6 +786,18 @@ package object vars extends vars.Rank1PotentialImplicits {
 		@inline def fold[O](ifFailed :String => O, ifPassed :A => O) :O = self match {
 			case fail :Failed => ifFailed(fail.error)
 			case _ => ifPassed(get)
+		}
+
+		/** The same as [[net.noresttherein.sugar.vars.FallibleExtension.map map]], but exceptions thrown
+		  * by the function are caught and $Failed with the exception's error message is returned.
+		  */
+		@inline def failMap[O](f :A => O) :Fallible[O] = self match {
+			case fail :Failed => fail
+			case _ => try {
+				Passed(f(get))
+			} catch {
+				case e :Exception => Failed(e)
+			}
 		}
 
 		/** Returns the result of applying the given function to the value of this $Fallible if it is $Passed,
@@ -949,6 +974,20 @@ package vars {
 		@inline def unless[A](cond: Boolean)(a: => A): Potential[A] =
 			if (!cond) Existent(a) else Inexistent
 
+		/** Executes the given lazy expression in a `try-catch` block, returning `Inexistent` in case
+		  * any exception is caught. Otherwise the value is returned in an `Existent` instance as normal. */
+		@inline def guard[A](a: => A) :Potential[A] =
+			try { Existent(a) } catch {
+				case _ :Exception => Inexistent
+			}
+
+		/** Applies the given function to the second argument in a `try-catch` block, returning `Inexistent` in case
+		  * any exception is caught. Otherwise the value is returned in an `Existent` instance as normal. */
+		@inline def guard[A, B](f: A => B)(a :A) :Potential[B] =
+			try { Existent(f(a)) } catch {
+				case _ :Exception => Inexistent
+			}
+
 
 		/** A factory of 'full' (`Some`) instances of `Potential`.  */
 		@SerialVersionUID(ver)
@@ -1095,12 +1134,17 @@ package vars {
 
 
 
+	/** Companion object to $Pill, containing conversion methods as well as factories for both cases:
+	  * [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]] and [[net.noresttherein.sugar.vars.Pill.Red$ Red]].
+	  */
 	@SerialVersionUID(ver)
 	object Pill {
+		/** Converts `Left` to $Red and `Right` to $Blue. */
 		def fromEither[R, B](either :Either[R, B]) :Pill[R, B] = either match {
 			case Left(red) => Red(red)
 			case Right(blue) => Blue(blue)
 		}
+		/** Converts $Failed to $Red and $Passed to $Blue */
 		def fromFallible[O](either :Fallible[O]) :Pill[String, O] = (either :Any) match {
 			case fail :Failed               => new Red(fail.error)
 			case pass :Passed[O @unchecked] => pass.value.asInstanceOf[Pill[String, O]]
@@ -1181,10 +1225,26 @@ package vars {
 		/** Checks the value for nullity, returning it in a $Passed if it is not null, or $Failed otherwise. */
 		def apply[O](value :O) :Fallible[O] = if (value == null) Failed("null") else Passed(value)
 
+		/** Executes the given lazy expression in a `try-catch` block, returning `Failed` in case
+		  * any exception is caught. Otherwise the value is returned as a `Passed` instance as normal. */
+		@inline def guard[A](a : => A) :Fallible[A] =
+			try { Passed(a) } catch {
+				case e :Exception => Failed(e)
+			}
+
+		/** Applies the given function to the second argument in a `try-catch` block, returning `Failed` in case
+		  * any exception is caught. Otherwise the result is returned as a `Passed` instance as normal. */
+		@inline def guard[A, B](f :A => B)(a :A) :Fallible[B] =
+			try { Passed(f(a)) } catch {
+				case e :Exception => Failed(e)
+			}
+
+		/** Converts `Left` to $Failed and `Right` to $Passed. */
 		def fromEither[O](either :Either[String, O]) :Fallible[O] = either match {
 			case Left(error) => Failed(error)
 			case Right(value) => Passed(value)
 		}
+		/** Converts $Red to $Failed and $Blue to $Passed. */
 		def fromPill[O](pill :Pill[String, O]) :Fallible[O] = (pill :Any) match {
 			case red  :Red[String @unchecked] => new EagerFailed(red.value)
 			case blue :Blue[O @unchecked]     => blue.value.asInstanceOf[Fallible[O]]
@@ -1240,7 +1300,9 @@ package vars {
 			/** A `Failed` instance with an empty message. */
 			def apply() :Failed = failed
 
+			/** A failed instance with the given error message. */
 			def apply(error :String) :Failed = new EagerFailed(error)
+
 			/** A `Failed` with a lazily evaluated message. The method is designed for function literal arguments:
 			  * as `Failed` is a SAM type, function literals will be promoted to a `Failed` instance,
 			  * which is then promptly returned. Example:
@@ -1248,7 +1310,11 @@ package vars {
 			  *     Failed(() => "Oh-oh.")
 			  * }}}
 			  */
-			def apply(error :Failed) :Failed = error
+			@inline def apply(error :Failed) :Failed = error
+
+			/** A `Failed` with a lazily evaluated `e.toString` as its error message. */
+			def apply(e :Exception) :Failed = () => e.toString
+
 
 			/** Extracts the message from the argument `Fallible` if it is `Failed`.
 			  * Note that this will evaluate a lazy message.

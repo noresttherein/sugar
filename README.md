@@ -66,7 +66,7 @@ based on the stack trace of its cause, using the suffix since the most recent `r
 
 
 ### 4. sugar.collection ###
-Extension methods for collections, including:
+Many extension methods for collections, including:
 
 #### 4.1 Partial folding ####
     numbers.foldLeftWhile(0)(_ < Threshold)(_ + _)
@@ -76,13 +76,18 @@ and others.
 
 #### 4.2 Mapping with state ####
     values.mapWithIndex{ (val, i) => s"$i: $val" }
-    numbers.mapWith(0) { (val, sum) => s" +$val = $sum" }
+    numbers.mapWith(0) { (val, sum) => (s" +$val = $sum", val + sum) }
 
 Also:
-1. `ArrayIterator` and `ReverseArrayIterator`
-2. `ChunkedString` - a list-like collection of composed `String` concatentations
+1. `ArrayIterator`, `ReverseArrayIterator`, `StringIterator`, `ReverseStringIterator`.
+2. Many `Stepper` implementations, including the above.
+2. `ChoppedString` - a list-like collection of composed `String` concatenations
    for use as an alternative to `StringBuilder` (has O(1) append/prepend, at the cost of O(n) random indexing).
+3. `Ranking` - a collection with unique (like `Set`) and ordered (like `Seq`) elements.
+4. `PassedArray` - an immutable version of the growing array buffer with O(1) *first* append/prepend.
+5. `NatMap` and `MutableNatMap`: maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
+And some more conventional others.
 
 
 ### 5. sugar.optional ###
@@ -110,14 +115,35 @@ Various styles of `repeat` loop:
     val kilo = 2 repeat (_ * 2) until (_ > 1000)
 
 
-### 7. sugar.numeric ###
+
+### 7. sugar.format ###
+A framework for concise and non error prone defining of parser-formatters abstracting over the actual data formats:
+
+    case class Dragon(name :String, color :String, level :Int)
+    object Dragon {
+        implicit val dragonFormat = for {
+            dragon <- Format[Dragon]
+            name   <- dragon("name")(_.name)
+            color  <- dragon("color")(_.color)
+            level  <- dragon("level")(_.level)
+        } yield Dragon(name, color, level)
+    }
+    
+    val xml = "<Dragon><name>Firkraag</name><color>Red</color><level>23</level></Dragon>"
+    
+    val dragon = xml as XML[Dragon]
+    val json = dragon as JSON //"""{ 'name': "Firkraag", 'color': "Red", 'level': 23 }"""
+
+
+
+### 8. sugar.numeric ###
   1. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
   2. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
   3. `Decimal64` - a `BigDecimal`-like value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
 
 
 
-### 8. sugar.vars ###
+### 9. sugar.vars ###
 Generic polymorphic `var` and `val` wrappers for use as in/out method parameters:
 
     def testAndSet(i :InOut[Int]) :Unit = i.testAndSet(0, 1)
@@ -134,14 +160,21 @@ Generic polymorphic `var` and `val` wrappers for use as in/out method parameters
     val u :Unsure[Int] = Sure(0)    //a @specialized Option substitute
     val o = Opt(null)             //a value class `Option` substitute    
 
-Plus quite a few more, like hand-shake multi-threaded channel `Relay[T]`.
+Plus quite a few more, like handshake multi-threaded channel `Relay[T]`.
 Naturally, you'll find all the arithmetic operations you'd expect such as `+=` and `++`, as well as
-a couple more.
+a couple more. Additionally, there are several erased variants of standard classes:
+  1. `Potential[A]` is an alternative to `Option` and never results in boxing of reference types, 
+     unless the value is nested in another `Potential`.
+  1. `Pill[R, B]` is a half-erased alternative to `Either`: `Red[R]` works the same way as `Left`,
+     but `Blue[B]` boxes only if `B` is already a `Pill`. `Pill` is right ('blue') -based as `Either`,
+     so the successful computation path does away with all the boxing caused by `Either.flatMap`.
+  1. `Fallible[A]` is a more dedicated `Either` alternative, carrying always an error message `String`
+     in its `Left` (`Failed`) subtype. It also allows the message to be lazily evaluated. 
 
 
 
-### 9. sugar.matching ###
-#### 9.1. RX ####
+### 10. sugar.matching ###
+#### 10.1. RX ####
 A wrapper over `java.util.regex.Pattern` providing statically typed methods for all 
 supported character classes and constructs - for those of us who can never remember
 the more advanced features, or who value additional whitespace and commenting ability:
@@ -155,7 +188,7 @@ The types, values and factory methods generally follow the Java flavour of regul
  which should make you feel at home with the character classes you know, and provide 
  discovery and documentation viewing potential of a statically typed language in your IDE.
     
-#### 9.2 RegexpGroupMatcher ####
+#### 10.2 RegexpGroupMatcher ####
 Provides string interpolation syntax for regular expressions used in pattern matching:
 
     string match {
@@ -163,7 +196,7 @@ Provides string interpolation syntax for regular expressions used in pattern mat
     }    
 Arbitrary patterns can take place of the unbound variables `user` and `domain` in the above example.    
 
-#### 9.3 && ####
+#### 10.3 && ####
 The smallest but one of the most useful classes allows combining several extractor 
 patterns in a logical conjunction:
     
@@ -173,7 +206,7 @@ patterns in a logical conjunction:
 
 
 
-### 10. sugar.prettyprint ###
+### 11. sugar.prettyprint ###
 Various ways for demangling and abbreviating class names for logging purposes, for example:
 
     object.getClass.name       //my.package.Singleton.Specialized_:[Int]
@@ -185,7 +218,7 @@ Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-### 11. sugar.witness ###
+### 12. sugar.witness ###
 Implicit values implementing `Not`, `Maybe` and `Or` over availability of other implicit values.
 Also, tagging implicit values:
 
@@ -197,17 +230,26 @@ Also, tagging implicit values:
     
     
     
-### 12. sugar.typist ###
+### 13. sugar.typist ###
 Safer casting methods - less powerful, imposing constraints on the source and target type,
 including casting on type parameters for higher types.
 
 
 
-### 13. sugar.Sealing ###
+### 14. sugar.reflect ###
+  1. `Class` extensions, in particular with methods such as `isBoxOf` dealing with the duality of boxed and unboxed 
+     primitive values.
+  2. `PropertyPath`: reflecting a (possibly composite) properties given as getter functions:
+      
+    assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
+
+
+
+### 15. sugar.Sealing ###
 A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
 and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
 
 
 
-### 14. others ###
+### 16. others ###
 Whose names are not worthy to appear here.    
