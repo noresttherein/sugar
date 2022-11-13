@@ -3,12 +3,12 @@ package net.noresttherein.sugar.typist
 
 
 
-private[typist] sealed trait extensionsImplicits extends Any {
+private[typist] sealed trait extensionsLowPriority extends Any {
 	implicit def extensions_<:<[A, B](ev :A <:< B) = new extensions.extensions_<:<[A, B](ev)
 }
 
 
-trait extensions extends Any with extensionsImplicits {
+trait extensions extends Any with extensionsLowPriority {
 	implicit def extensions_=:=[A, B](ev :A =:= B) = new extensions.extensions_=:=(ev)
 
 	implicit def unlift[F[_ >: L <: U], L <: U, U, A >: L <: U, B >: L <: U]

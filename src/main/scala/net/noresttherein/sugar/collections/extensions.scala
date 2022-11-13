@@ -5,7 +5,8 @@ import java.util.Arrays
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{mutable, AnyStepper, BufferedIterator, DoubleStepper, IntStepper, IterableFactory, IterableOnce, IterableOps, LinearSeq, LongStepper, Stepper, StepperShape, View}
 import scala.collection.Stepper.EfficientSplit
-import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, MapOps}
+import scala.collection.immutable.{ArraySeq, MapOps}
+import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
 import scala.collection.generic.IsIterableOnce
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
@@ -20,18 +21,43 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
-/** Extension methods for various collection types as well as collection companion objects. */
-trait extensions extends Any {
-	//todo: IsIterableOnce creates multiple objects for things like Seq; It's better to have manual specializations.
+private[collections] sealed trait extensionsLowPriority extends Any {
 	/** Adds a `foldWhile` method to any `Iterable` which implement a variant of `fold` operation with a break condition. */
 	@inline implicit final def foldingMethods[C](self :C)(implicit iterable :IsIterableOnce[C]) :FoldingMethods[iterable.A] =
 		new FoldingMethods[iterable.A](iterable(self))
+}
 
-	/** Adds method `mapWith` and `flatMapWith` which map/flat map collections while passing along additional state
-	  * to any collection of the standard library framework.
+
+/** Extension methods for various collection types as well as collection companion objects. */
+trait extensions extends Any with extensionsLowPriority {
+
+	/** Adds various additional folding methods with a break condition to any `Iterable`. */
+	@inline implicit final def iterableFoldingMethods[X](self :IterableOnce[X]) :FoldingMethods[X] =
+		new FoldingMethods[X](self)
+
+	/** Adds various additional folding methods with a break condition to any `Array`. */
+	@inline implicit final def arrayFoldingMethods[X](self :Array[X]) :FoldingMethods[X] =
+		new FoldingMethods[X](ArraySeq.unsafeWrapArray(self))
+
+	/** Adds various additional folding methods with a break condition to any `String`. */
+	@inline implicit final def stringFoldingMethods(self :String) :FoldingMethods[Char] =
+		new FoldingMethods[Char](self)
+
+	/** Adds various methods for mapping/flatMapping collections to any collection of the standard library framework.
+	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
+	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def mappingMethods[C[X] <: Iterable[X], E](self :IterableOps[E, C, C[E]]) :MappingMethods[C, E] =
+	@inline implicit final def iterableMappingMethods[C[X] <: Iterable[X], E]
+	                                                 (self :IterableOps[E, C, C[E]]) :MappingMethods[C, E] =
 		new MappingMethods[C, E](self)
+
+	/** Adds various methods for mapping/flatMapping collections to any `Array`.
+	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
+	  * with `toLazyList.scan`, but cleaner and more efficient.
+	  */
+	@inline implicit final def arrayMappingMethods[E](self :Array[E]) :MappingMethods[Array, E] =
+		new MappingMethods[Array, E](new ArrayLikeSeq(self))
+
 
 //	/** Adds method `mapWith` and `flatMapWith` which map/flat map arrays while passing along additional state
 //	  * to any `Array`.
@@ -110,14 +136,15 @@ trait extensions extends Any {
 
 @SerialVersionUID(ver)
 object extensions extends extensions {
+
 	/** A syntactic wrapper for collections, injecting methods implementing
 	  * 'breakable' folding and reducing, that is folding only some prefix/suffix of the collection
 	  * based on some predicate or other termination condition.
 	  *
 	  * @param items any collection to fold.
 	  * @tparam T element type of this collection.
-	  */
-	class FoldingMethods[T] private[extensions] (private val items :IterableOnce[T]) extends AnyVal {
+	  */ //todo: use Pill and Potential
+	class FoldingMethods[T] private[collections] (private val items :IterableOnce[T]) extends AnyVal {
 		/** Creates a Java [[java.util.Iterator Iterator]] of a proper specialization for type `T`
 		  * (`Int`, `Long`, `Double`). If the underlying collection provides a specialized (non boxing)
 		  * [[scala.collection.Stepper Stepper]], then the returned iterator will not box value types.
@@ -130,6 +157,37 @@ object extensions extends extensions {
 			case seq :collection.IndexedSeq[T]       => JavaIterator.over(seq)
 			case it :Iterator[_] if !it.hasNext      => JavaIterator()
 			case _                                   => items.stepper.javaIterator.asInstanceOf[I]
+		}
+
+		def foldWithIndex[A >: T](start :A)(op :(A, A, Int) => A) :A = foldLeftWithIndex(start)(op)
+
+		def foldLeftWithIndex[A](start :A)(op :(A, T, Int) => A) :A = items match {
+			case empty :Iterable[T] if empty.isEmpty => start
+			case seq   :IndexedSeq[T] if seq.length <= defaultApplyPreferredMaxLength =>
+				var i = 0; val end = seq.length
+				var acc = start
+				while (i < end) {
+					acc = op(start, seq(i), i)
+					i += 1
+				}
+				acc
+			case rank  :Ranking[T] if rank.size <= defaultApplyPreferredMaxLength =>
+				var i = 0;
+				val end = rank.length
+				var acc = start
+				while (i < end) {
+					acc = op(start, rank(i), i)
+					i += 1
+				}
+				acc
+			case _ =>
+				val it = items.iterator; var i = 0
+				var acc = start
+				while (it.hasNext) {
+					acc = op(acc, it.next(), i)
+					i += 1
+				}
+				acc
 		}
 
 		/** Folds this collection until the folded value satisfies the condition `pred`.
@@ -164,7 +222,7 @@ object extensions extends extensions {
 		  *    1. If `pred(start)`, then return `Some(start)` immediately;
 		  *    1. If this collection is empty, return `None`;
 		  *    1. Otherwise, if `op` ever returns a value for which `pred` is true, return it in `Some`;
-		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
+		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`.
 		  *
 		  * It is not equivalent
 		  * to `this.`[[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldWhileOpt foldWhileOpt]]`(start)(!pred(_))(op)`,
@@ -176,11 +234,11 @@ object extensions extends extensions {
 		  *              then `pred(op(a, ai))` and `pred(op(ai, a))` should also be true for any `ai`
 		  *              in this collection, or the result is undefined.
 		  * @param op    a folding function.
-		  * @return This implementation delegates
-		  *         to [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilOpt]]`(start)(pred)(op)`
+		  * @return This implementation delegates to
+		  *         [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilOption foldLeftUntilOption]]`(start)(pred)(op)`
 		  */
-		def foldUntilOpt[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
-			foldLeftUntilOpt(start)(pred)(op)
+		def foldUntilOption[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
+			foldLeftUntilOption(start)(pred)(op)
 
 		/** Folds this collection until the folded value satisfies the condition `pred`.
 		  * The method applies `op` recursively to the elements of this collection and its previous results,
@@ -265,7 +323,7 @@ object extensions extends extensions {
 		  *     toLazyList.scanLeft(start)(op).dropWhile(!pred(_)).headOption
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftWhileOpt foldLeftWhileOpt]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftWhileOption foldLeftWhileOption]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -279,7 +337,7 @@ object extensions extends extensions {
 		  *       where `toSeq == Seq(e0,...,en)`, such that `pred(ai)`;
 		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
 		  */
-		def foldLeftUntilOpt[A](start :A)(pred :A => Boolean)(op :(A, T) => A) :Option[A] =
+		def foldLeftUntilOption[A](start :A)(pred :A => Boolean)(op :(A, T) => A) :Option[A] =
 			foldLeftUntilAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
 
@@ -322,14 +380,26 @@ object extensions extends extensions {
 				case it :Iterable[_] if it.isEmpty => ifNotFound(start)
 				case seq :scala.collection.IndexedSeq[T] =>
 					var i = seq.length; var last = start
-					if (i <= IndexedSeqDefaults.defaultApplyPreferredMaxLength) {
+					if (i <= defaultApplyPreferredMaxLength) {
 						while ({ i -= 1; i >= 0 } && { last = op(seq(i), last); !pred(last) })
-						{}
+							{}
 						if (i < 0) ifNotFound(last) else ifFound(last)
 					} else {
 						val it = seq.reverseIterator; var found = false
 						while (it.hasNext && { last = op(it.next(), last); found = pred(last); !found })
-						{}
+							{}
+						if (found) ifFound(last) else ifNotFound(last)
+					}
+				case ranking :Ranking[T] =>
+					var i = ranking.size; var last = start
+					if (i <= defaultApplyPreferredMaxLength) {
+						while ({ i -= 1; i >= 0 } && { last = op(ranking(i), last); !pred(last) })
+							{}
+						if (i < 0) ifNotFound(last) else ifFound(last)
+					} else {
+						val it = ranking.reverseIterator; var found = false
+						while (it.hasNext && { last = op(it.next(), last); found = pred(last); !found })
+							{}
 						if (found) ifFound(last) else ifNotFound(last)
 					}
 				case _ =>
@@ -394,7 +464,7 @@ object extensions extends extensions {
 		  *     toLazyList.reverse.scanLeft(start)((a, t) => op(t,a)).dropWhile(!pred(_)).headOption
 		  * }}}
 		  * It is not equivalent to
-		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldRightWhileOpt foldRightWhileOpt]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldRightWhileOption foldRightWhileOption]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -408,7 +478,7 @@ object extensions extends extensions {
 		  *       where `toSeq == Seq(e1,...,en)`, such that `pred(ai)`;
 		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
 		  */
-		def foldRightUntilOpt[A](start :A)(pred :A => Boolean)(op :(T, A) => A) :Option[A] =
+		def foldRightUntilOption[A](start :A)(pred :A => Boolean)(op :(T, A) => A) :Option[A] =
 			foldRightUntilAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
 		/** Folds this collection from left to right by applying `op` to its elements and the previously returned value,
@@ -448,7 +518,7 @@ object extensions extends extensions {
 			foldLeftWhile(start)(pred)(op)
 
 		def foldWhileOpt[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
-			foldLeftWhileOpt(start)(pred)(op)
+			foldLeftWhileOption(start)(pred)(op)
 
 		def foldWhileEither[A >: T](start :A)(pred :A => Boolean)(op :(A, A) => A) :Either[A, A] =
 			foldLeftWhileEither(start)(pred)(op)
@@ -490,7 +560,7 @@ object extensions extends extensions {
 		@throws[IllegalArgumentException]("if !pred(start).")
 		def foldLeftWhile[A](start :A)(pred :A => Boolean)(op :(A, T) => A) :A =
 			foldLeftWhileAndReturn(start)(pred)(op)(
-				_ => throw new IllegalArgumentException(
+				start => throw new IllegalArgumentException(
 					"foldLeftWhile: starting value " + start + " does not satisfy the predicate."
 				),
 				identity)
@@ -505,7 +575,7 @@ object extensions extends extensions {
 		  *     scanLeft(Some(start) :Option[A])(op).takeWhile(_.exists(pred)).lastOption
 		  * }}}
 		  * Note that this method is ''not'' equivalent to
-		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilOpt foldLeftUntilOpt]]`(start)(!pred(_))(op)`,
+		  * [[net.noresttherein.sugar.collections.extensions.FoldingMethods.foldLeftUntilOption foldLeftUntilOption]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `numbers.scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
 		  * @param start the initial value, used as the result if the collection is empty.
@@ -513,7 +583,7 @@ object extensions extends extensions {
 		  * @param op    a folding function.
 		  * @return the last folding result for which `pred` is true in a `Some`, or `None` if it is false for `start`.
 		  */
-		def foldLeftWhileOpt[A](start :A)(pred :A => Boolean)(op :(A, T) => A) :Option[A] =
+		def foldLeftWhileOption[A](start :A)(pred :A => Boolean)(op :(A, T) => A) :Option[A] =
 			foldLeftWhileAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
 		/** Folds this collection from left to right by applying `op` to its elements and the previously returned value
@@ -551,11 +621,23 @@ object extensions extends extensions {
 				case seq :scala.collection.IndexedSeq[T] =>
 					var last = start; var next = start
 					var i = seq.length
-					if (i <= IndexedSeqDefaults.defaultApplyPreferredMaxLength) {
+					if (i <= defaultApplyPreferredMaxLength) {
 						while (i > 0 && { i -= 1; next = op(seq(i), last); pred(next) })
 							last = next
 					} else {
 						val it = seq.reverseIterator
+						while (it.hasNext && { next = op(it.next(), last); pred(next) })
+							last = next
+					}
+					ifFound(last)
+				case ranking :Ranking[T] =>
+					var last = start; var next = start
+					var i = ranking.size
+					if (i <= defaultApplyPreferredMaxLength) {
+						while (i > 0 && { i -= 1; next = op(ranking(i), last); pred(next) })
+							last = next
+					} else {
+						val it = ranking.reverseIterator
 						while (it.hasNext && { next = op(it.next(), last); pred(next) })
 							last = next
 					}
@@ -601,13 +683,13 @@ object extensions extends extensions {
 		  */
 		def foldRightWhile[A](start :A)(pred :A => Boolean)(op :(T, A) => A) :A =
 			foldRightWhileAndReturn(start)(pred)(op)(
-				_ => throw new IllegalArgumentException(
+				start => throw new IllegalArgumentException(
 					"foldLeftWhile: starting value " + start + " does not satisfy the predicate."
 				),
 				identity
 			)
 
-		def foldRightWhileOpt[A](start :A)(pred :A => Boolean)(op :(T, A) => A) :Option[A] =
+		def foldRightWhileOption[A](start :A)(pred :A => Boolean)(op :(T, A) => A) :Option[A] =
 			foldRightWhileAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
 		def foldRightWhileEither[A](start :A)(pred :A => Boolean)(op :(T, A) => A) :Either[A, A] =
@@ -649,9 +731,17 @@ object extensions extends extensions {
 		  * @return result of `this.foldLeft(a)(op)` or first value `a :A` such that `op` is not defined
 		  *         for `(a, e)` where `e` is the first non-folded element of this collection.
 		  */
-		def partialFoldLeft[A](start :A)(op :PartialFunction[(A, T), A]) :A = {
-			val lift = op.lift
-			foldLeftSome(start) { (acc, elem) => lift((acc, elem)) }
+		def partialFoldLeft[A](start :A)(op :PartialFunction[(A, T), A]) :A = items match {
+			case it :Iterable[_] if it.isEmpty => start
+			case it :Iterator[_] if it.isEmpty => start
+			case _ =>
+				val it = items.iterator
+				var last = start
+				var continue = true
+				val fallback = { input :(A, T) => continue = false; input._1 }
+				while (it.hasNext && { last = op.applyOrElse((last, it.next()), fallback); continue })
+					{}
+				last
 		}
 
 		/** Applies the given folding function `op` to the elements of this collection from right to  left,
@@ -671,9 +761,37 @@ object extensions extends extensions {
 		  * @return result of `this.foldRight(a)(op)` or first encountered value `a :A` such that `op` is not defined
 		  *         for `(e, a)` where `e` is the first non-folded element of this collection.
 		  */
-		def partialFoldRight[A](start :A)(op :PartialFunction[(T, A), A]) :A = {
-			val lift = op.lift
-			foldRightSome(start) { (elem, acc) => lift((elem, acc)) }
+		@tailrec final def partialFoldRight[A](start :A)(op :PartialFunction[(T, A), A]) :A = {
+			var last = start
+			var continue = true
+			items match {
+				case it :Iterable[_] if it.isEmpty => start
+				case it :Iterator[_] if it.isEmpty => start
+				case seq :scala.collection.IndexedSeq[T] if seq.length <= defaultApplyPreferredMaxLength =>
+					var i = seq.length - 1
+					val fallback = { input :(T, A) => continue = false; input._2 }
+					while (i >= 0 && { last = op.applyOrElse((seq(i), last), fallback); continue })
+						i -= 1
+					last
+				case ranking :Ranking[T] if ranking.length <= defaultApplyPreferredMaxLength =>
+					var i = ranking.length - 1
+					val fallback = { input :(T, A) => continue = false; input._2 }
+					while (i >= 0 && { last = op.applyOrElse((ranking(i), last), fallback); continue })
+						i -= 1
+					last
+//				case seq :scala.collection.Seq[T] =>
+//					val it = seq.reverseIterator
+//					val fallback = { input :(T, A) => continue = false; input._1 }
+//					while (it.hasNext && { last = op.applyOrElse((it.next(), last), fallback); continue })
+//						{}
+//					last
+				case _ =>
+					val it = items match {
+						case it :Iterable[T] => it to PassedArray
+						case _ => items.iterator to PassedArray
+					}
+					it.partialFoldRight(start)(op)
+			}
 		}
 
 
@@ -718,8 +836,7 @@ object extensions extends extensions {
 				while (it.hasNext && (op(last, it.next()) match {
 					case Some(next) => last = next; true
 					case _ => false
-				}))
-				{}
+				})) {}
 				last
 		}
 
@@ -740,39 +857,43 @@ object extensions extends extensions {
 		  * @return the result of the last execution of `op` which returned `Some`,
 		  *         or `start` if either this collection is empty or `op(this.last, start) == None`.
 		  */
-		def foldRightSome[A](start :A)(op :(T, A) => Option[A]) :A = items match {
+		@tailrec final def foldRightSome[A](start :A)(op :(T, A) => Option[A]) :A = items match {
 			case it :Iterable[_] if it.isEmpty => start
 			case it :Iterator[_] if it.isEmpty => start
-			case seq :scala.collection.IndexedSeq[T]
-				if seq.length <= IndexedSeqDefaults.defaultApplyPreferredMaxLength =>
+			case seq :scala.collection.IndexedSeq[T] if seq.length <= defaultApplyPreferredMaxLength =>
 				var i = seq.length - 1; var last = start
 				while (i >= 0 && (op(seq(i), last) match {
 					case Some(next) => last = next; true
 					case _ => false
-				}))
-					i -= 1
+				})) i -= 1
+				last
+			case ranking :Ranking[T] if ranking.length <= defaultApplyPreferredMaxLength =>
+				var i = ranking.length - 1; var last = start
+				while (i >= 0 && (op(ranking(i), last) match {
+					case Some(next) => last = next; true
+					case _ => false
+				})) i -= 1
 				last
 			case seq :scala.collection.Seq[T] =>
-				var last = start; var next = Option(start)
-				val it = seq.reverseIterator.scanLeft(next)((opt, elem) => op(elem, opt.get))
-				while (it.hasNext && { next = it.next(); next.isDefined })
+				var last = start
+				var next :Option[A] = Some(start)
+				val it = seq.reverseIterator
+				while (it.hasNext && { next = op(it.next(), last); next.isDefined })
 					last = next.get
 				last
 			case _ =>
 				val it = items match {
-					case it :Iterable[T] => it to LazyList
-					case _ => items.iterator to LazyList
+					case it :Iterable[T] => it to PassedArray
+					case _ => items.iterator to PassedArray
 				}
-				val stream = it.reverse.scanLeft(Option(start))((opt, elem) => op(elem, opt.get))
-					.takeWhile(_.isDefined)
-				stream.last.get
+				it.foldRightSome(start)(op)
 		}
 
 
 
 		def reduceUntil[A >: T](pred :A => Boolean)(op :(A, A) => A) :A = reduceLeftUntil(pred)(op)
 
-		def reduceUntilOpt[A >: T](pred :A => Boolean)(op :(A, A) => A) :Option[A] = reduceLeftUntilOpt(pred)(op)
+		def reduceUntilOption[A >: T](pred :A => Boolean)(op :(A, A) => A) :Option[A] = reduceLeftUntilOption(pred)(op)
 
 
 		private def reduceLeftUntilAndReturn[A >: T, X](pred :A => Boolean)(op :(A, T) => A)
@@ -800,7 +921,7 @@ object extensions extends extensions {
 				identity
 			)
 
-		def reduceLeftUntilOpt[A >: T](pred :A => Boolean)(op :(A, T) => A) :Option[A] =
+		def reduceLeftUntilOption[A >: T](pred :A => Boolean)(op :(A, T) => A) :Option[A] =
 			reduceLeftUntilAndReturn(pred)(op)(None, _ => None, Some.apply)
 
 
@@ -809,7 +930,7 @@ object extensions extends extensions {
 			items match {
 				case it :Iterable[_] if it.isEmpty => ifEmpty
 				case it :Iterator[_] if it.isEmpty => ifEmpty
-				case seq :scala.collection.IndexedSeq[T] if seq.length <= IndexedSeqDefaults.defaultApplyPreferredMaxLength =>
+				case seq :scala.collection.IndexedSeq[T] if seq.length <= defaultApplyPreferredMaxLength =>
 					var i = seq.length - 1
 					var last :A = seq(i); var found = pred(last)
 					while (!found && i > 0) {
@@ -843,7 +964,7 @@ object extensions extends extensions {
 				identity
 			)
 
-		def reduceRightUntilOpt[A >: T](pred :A => Boolean)(op :(T, A) => A) :Option[A] =
+		def reduceRightUntilOption[A >: T](pred :A => Boolean)(op :(T, A) => A) :Option[A] =
 			reduceRightUntilAndReturn(pred)(op)(None, _ => None, Some.apply)
 
 
@@ -872,22 +993,20 @@ object extensions extends extensions {
 			while (it.hasNext && { val next = f(last, it.next()); next match {
 				case Some(a) => last = a; true
 				case _ => false
-			}})
-			{}
+			}}) {}
 			last
 		}
 
 		def reduceRightSome[A >: T](f :(T, A) => Option[A]) :A = items match {
 			case it :Iterable[_] if it.isEmpty =>
 				throw new UnsupportedOperationException("empty.reduceRightSome")
-			case seq :scala.collection.IndexedSeq[T] if seq.length <= IndexedSeqDefaults.defaultApplyPreferredMaxLength =>
+			case seq :scala.collection.IndexedSeq[T] if seq.length <= defaultApplyPreferredMaxLength =>
 				var last :A = seq.last
 				var i = seq.length - 2
 				while (i >= 0 && (f(seq(i), last) match {
 					case Some(next) => last = next; i -= 1; true
 					case _ => false
-				}))
-				{}
+				})) {}
 				last
 			case seq :scala.collection.Seq[T] =>
 				val it = seq.reverseIterator
@@ -895,8 +1014,7 @@ object extensions extends extensions {
 				while (it.hasNext && (f(it.next(), last) match {
 					case Some(next) => last = next; true
 					case _ => false
-				}))
-				{}
+				})) {}
 				last
 			case _ =>
 				var inverse = (List.empty[T] /: items.iterator)((list, item) => item::list)
@@ -906,8 +1024,7 @@ object extensions extends extensions {
 				while (inverse.nonEmpty && (f(inverse.head, last) match {
 					case Some(next) => last = next; inverse = inverse.tail; true
 					case _ => false
-				}))
-				{}
+				})) {}
 				last
 		}
 	}
@@ -924,7 +1041,7 @@ object extensions extends extensions {
 		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
 		  * as this collection.
 		  */
-		def mapWith[A, O](z :A)(f :(E, A) => (O, A)) :C[O] =
+		def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :C[O] =
 			self.view.scanLeft((null.asInstanceOf[O], z)) { //safe because null is never passed to f and we are in an erased context
 				(acc, e) => f(e, acc._2)
 			}.tail.map(_._1).to(self.iterableFactory)
@@ -958,6 +1075,27 @@ object extensions extends extensions {
 			self foreach { e => b ++= f(e, i); i += 1 }
 			b.result()
 		}
+
+		/** Maps this collection from left to right with an accumulating state updated by the mapping function
+		  * for as long as the state passes a given predicate.
+		  * The state is discarded after the operation and only the mapping results (the second elements
+		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
+		  * as this collection.
+		  */
+		def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(E, A) => (O, A)) :C[O] =
+			self.view.scanLeft((null.asInstanceOf[O], z)) { //safe because null is never passed to f and we are in an erased context
+				(acc, e) => f(e, acc._2)
+			}.tail.takeWhile(state => pred(state._2)).map(_._1).to(self.iterableFactory)
+
+		/** Flat maps this collection from left to right with an accumulating state updated by the mapping function
+		  * for as long as the state passes a given predicate.
+		  * The state is discarded after the operation and only the mapping results (the collections returned by
+		  * by the given function) are returned in a collection of the same dynamic type as this collection.
+		  */
+		def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(E, A) => (IterableOnce[O], A)) :C[O] =
+			self.view.scanLeft((Nil :IterableOnce[O], z)) {
+				(acc, e) => f(e, acc._2)
+			}.tail.takeWhile(state => pred(state._2)).flatMap(_._1).to(self.iterableFactory)
 
 		/** Iterates over the collection, passing the index of the current element to the given function.
 		  * Note that in collections with an undefined order, this index applies only to this particular iteration,
@@ -1135,7 +1273,6 @@ object extensions extends extensions {
 				}
 				mapIterable()
 		}
-
 	}
 
 

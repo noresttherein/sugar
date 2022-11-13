@@ -33,8 +33,8 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 	property("foldUntil") = forAll { (start :Int, numbers :List[Int]) =>
 		numbers.foldUntil(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilResult(start, numbers)
 	}
-	property("foldUntilOpt") = forAll { (start :Int, numbers :List[Int]) =>
-		numbers.foldUntilOpt(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers)
+	property("foldUntilOption") = forAll { (start :Int, numbers :List[Int]) =>
+		numbers.foldUntilOption(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers)
 	}
 	property("foldUntilEither") = forAll { (start :Int, numbers :List[Int]) =>
 		numbers.foldUntilEither(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilEitherResult(start, numbers)
@@ -43,8 +43,8 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 	property("foldLeftUntil") = forAll { (start :Int, numbers :List[Int]) =>
 		numbers.foldLeftUntil(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilResult(start, numbers)
 	}
-	property("foldLeftUntilOpt") = forAll { (start :Int, numbers :List[Int]) =>
-		numbers.foldLeftUntilOpt(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers)
+	property("foldLeftUntilOption") = forAll { (start :Int, numbers :List[Int]) =>
+		numbers.foldLeftUntilOption(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers)
 	}
 	property("foldLeftUntilEither") = forAll { (start :Int, numbers :List[Int]) =>
 		numbers.foldLeftUntilEither(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilEitherResult(start, numbers)
@@ -57,12 +57,12 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 		} && forAll { (start :Int, numbers :ListSet[Int]) =>
 			numbers.foldRightUntil(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilResult(start, numbers.toSeq.reverse)
 	}
-	property("foldRightUntilOpt") = forAll { (start :Int, numbers :List[Int]) =>
-			numbers.foldRightUntilOpt(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers.reverse)
+	property("foldRightUntilOption") = forAll { (start :Int, numbers :List[Int]) =>
+			numbers.foldRightUntilOption(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers.reverse)
 		} && forAll { (start :Int, numbers :ArraySeq[Int]) =>
-			numbers.foldRightUntilOpt(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers.reverse)
+			numbers.foldRightUntilOption(start)(_ >= Sum)(_ + _) ?= expectedFoldUntilOptResult(start, numbers.reverse)
 		} && forAll { (start :Int, numbers :ListSet[Int]) =>
-			numbers.foldRightUntilOpt(start)(_ >= Sum)(_ + _) ?=
+			numbers.foldRightUntilOption(start)(_ >= Sum)(_ + _) ?=
 				expectedFoldUntilOptResult(start, numbers.toList.reverse)
 	}
 	property("foldRightUntilEither") = forAll { (start :Int, numbers :List[Int]) =>
@@ -103,8 +103,8 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 		else
 			numbers.foldLeftWhile(start)(_ < Sum)(_ + _) ?= expectedFoldWhileResult(start, numbers)
 	}
-	property("foldLeftWhileOpt") = forAll { (start :Int, numbers :List[Int]) =>
-		numbers.foldLeftWhileOpt(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers)
+	property("foldLeftWhileOption") = forAll { (start :Int, numbers :List[Int]) =>
+		numbers.foldLeftWhileOption(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers)
 	}
 	property("foldLeftWhileEither") = forAll { (start :Int, numbers :List[Int]) =>
 		numbers.foldLeftWhileEither(start)(_ < Sum)(_ + _) ?= expectedFoldWhileEitherResult(start, numbers)
@@ -124,12 +124,12 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 		foldRightWhileProperty(start, numbers)
 		}
 
-	property("foldRightWhileOpt") = forAll { (start :Int, numbers :List[Int]) =>
-			numbers.foldRightWhileOpt(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers.reverse)
+	property("foldRightWhileOption") = forAll { (start :Int, numbers :List[Int]) =>
+			numbers.foldRightWhileOption(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers.reverse)
 		} && forAll { (start :Int, numbers :ArraySeq[Int]) =>
-			numbers.foldRightWhileOpt(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers.reverse)
+			numbers.foldRightWhileOption(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers.reverse)
 		} && forAll { (start :Int, numbers :ListSet[Int]) =>
-			numbers.foldRightWhileOpt(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers.toList.reverse)
+			numbers.foldRightWhileOption(start)(_ < Sum)(_ + _) ?= expectedFoldWhileOptResult(start, numbers.toList.reverse)
 		}
 	property("foldRightWhileEither") = forAll { (start :Int, numbers :List[Int]) =>
 			numbers.foldRightWhileEither(start)(_ < Sum)(_ + _) ?= expectedFoldWhileEitherResult(start, numbers.reverse)
@@ -195,15 +195,15 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 	property("reduceUntil") = forAll { (numbers :List[Int]) =>
 		reduceUntilProperty(numbers)(numbers.map(_.toLong).reduceUntil(_ >= Sum)(_ + _))
 	}
-	property("reduceUntilOpt") = forAll { (numbers :List[Int]) =>
-		numbers.reduceUntilOpt(_ >= Sum)(_ + _) ?= numbers.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
+	property("reduceUntilOption") = forAll { (numbers :List[Int]) =>
+		numbers.reduceUntilOption(_ >= Sum)(_ + _) ?= numbers.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
 	}
 
 	property("reduceLeftUntil") = forAll { (numbers :List[Int]) =>
 		reduceUntilProperty(numbers)(numbers.map(_.toLong).reduceLeftUntil(_ >= Sum)(_ + _))
 	}
-	property("reduceLeftUntilOpt") = forAll { (numbers :List[Int]) =>
-		numbers.reduceLeftUntilOpt(_ >= Sum)(_ + _) ?= numbers.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
+	property("reduceLeftUntilOption") = forAll { (numbers :List[Int]) =>
+		numbers.reduceLeftUntilOption(_ >= Sum)(_ + _) ?= numbers.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
 	}
 
 	property("reduceRightUntil") = forAll { (numbers :List[Int]) =>
@@ -213,14 +213,14 @@ object FoldingMethodsSpec extends Properties("FoldingMethods") {
 		} && forAll { (numbers :ListSet[Int]) =>
 			reduceUntilProperty(numbers.toList.reverse)(numbers.map(_.toLong).reduceRightUntil(_ >= Sum)(_ + _))
 		}
-	property("reduceRightUntilOpt") = forAll { (numbers :List[Int]) =>
-			numbers.reduceRightUntilOpt(_ >= Sum)(_ + _) ?=
+	property("reduceRightUntilOption") = forAll { (numbers :List[Int]) =>
+			numbers.reduceRightUntilOption(_ >= Sum)(_ + _) ?=
 				numbers.reverse.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
 		} && forAll { (numbers :ArraySeq[Int]) =>
-			numbers.reduceRightUntilOpt(_ >= Sum)(_ + _) ?=
+			numbers.reduceRightUntilOption(_ >= Sum)(_ + _) ?=
 				numbers.reverse.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
 		} && forAll { (numbers :ListSet[Int]) =>
-			numbers.reduceRightUntilOpt(_ >= Sum)(_ + _) ?=
+			numbers.reduceRightUntilOption(_ >= Sum)(_ + _) ?=
 				numbers.toList.reverse.scanLeft(0)(_ + _).dropWhile(_ < Sum).headOption
 		}
 

@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.immutable.ListSet
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-import net.noresttherein.sugar.extensions.mappingMethods
+import net.noresttherein.sugar.extensions.iterableMappingMethods
 import org.scalacheck.Prop._
 import org.scalacheck.Properties
 

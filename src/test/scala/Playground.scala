@@ -10,111 +10,38 @@ import net.noresttherein.sugar.numeric.Decimal64.implicits.scientificDecimalNota
 import net.noresttherein.sugar.numeric.Decimal64.{Precision, Round}
 
 
-
-
-/**
-  * @author Marcin Mościcki marcin@moscicki.net
-  */
-object Playground extends App {
-
-	trait Template[T] {
-		def m[X <: T] :Any
+object Playground {
+	class Test {
+		type Co[+E] = E
 	}
-	class Base[T] extends Template[T] {
-		override def m[X <: T] :Base[X] = ???
+	class Dupa { type T }
+	trait E[-F] {
+		def r(dupa :Dupa { type T <: F })
 	}
-	class Sub[T] extends Base[T] {
-		override def m[X <: T] :Sub[X] = ??? //new Sub
+	class X
+	class Y
+	class Z
+	class Lift[X, Y]
+	sealed class LiftImplicits {
+		implicit def identity[X] = new Lift[X, X]
 	}
 
-	def copy[T, B[_]](b :Template[T] { def m[X <: T] :B[X] }) :B[T] = b.m
+	object Lift extends LiftImplicits {
+		implicit val x2z = new Lift[X, Z]
+		implicit val y2z = new Lift[Y, Z]
+	}
 
-	val base = copy(new Base[Int])
-	val sub = copy(new Sub[Long])
-	base :Base[Int]
-	sub :Sub[Long]
-//	method(short)
-//	method(cloned)
+	trait =~=[L, R] { type Unified }
+	object =~= {
+		implicit def lift[X, Y, Z](implicit left :Lift[X, Z], right :Lift[Y, Z])
+		:(X =~= Y) { type Unified = Z } =
+			???
+	}
 
-//	implicit val ctx :MathContext = Round.toMaxDigits(UNNECESSARY) //Decimal64.Round.Extended
-//	implicit val ctx :MathContext = Round.toMaxDigits(UP) //Decimal64.Round.Extended
-//	implicit val ctx :MathContext = Round.Extended
-//	implicit val ctx :MathContext = Round.Standard
-//	implicit val ctx :MathContext = Round.to16digits(CEILING)
-//	implicit val ctx :MathContext = Round.to16digits(HALF_DOWN)
-//	implicit val ctx :MathContext = Round.ExtendedUp
-//	implicit val ctx :MathContext = DECIMAL32
-//	implicit val ctx :MathContext = DECIMAL128
-	implicit val ctx :MathContext = new MathContext(7, HALF_DOWN)
+	def equalize[L, R, U](l :L, r :R)(implicit left :Lift[L, U], right :Lift[R, U]) :Unit = ???
+	equalize(new X, new Y)
 
-//	val bigDividend = new java.math.BigDecimal("3.6028797018963967e17")
-//	val bigDivisor  = new java.math.BigDecimal("1.0431160155578814")
-	val bigDividend = new java.math.BigDecimal("2.8319985000541197e143")
-	val bigDivisor  = new java.math.BigDecimal("1")
-	val exponent = 1
-//	val bigSum      = bigDividend.add(bigDivisor, DECIMAL128)
-//	val bigMinus    = bigDividend.subtract(bigDivisor, DECIMAL128)
-//	val bigDividend = new java.math.BigDecimal("-36028797018963968")
-//	val bigDivisor  = new java.math.BigDecimal("-0.625")
-//	val bigMultiply = bigDividend.multiply(bigDivisor, DECIMAL128)
-//	val bigDivision = bigDividend.divide(bigDivisor, MathContext.DECIMAL128)
-//	val bigQuot     = bigDividend.divideToIntegralValue(bigDivisor, MathContext.UNLIMITED)
-	val bigPower    = bigDividend.pow(exponent, DECIMAL128)
-//	val sumCtx =
-//		if (ctx.getPrecision == 0)
-//			Round(maxPrecision(bigSum, ctx.getRoundingMode), ctx.getRoundingMode)
-//		else ctx
-//	val minusCtx =
-//		if (ctx.getPrecision == 0)
-//			Round(maxPrecision(bigMinus, ctx.getRoundingMode), ctx.getRoundingMode)
-//		else ctx
-//	val multCtx =
-//		if (ctx.getPrecision == 0)
-//			Round(maxPrecision(bigMultiply, ctx.getRoundingMode), ctx.getRoundingMode)
-//		else ctx
-//	val divCtx =
-//		if (ctx.getPrecision == 0)
-//			Round(maxPrecision(bigDivision, ctx.getRoundingMode), ctx.getRoundingMode)
-//		else ctx
-//	val quotCtx =
-//		if (ctx.getPrecision == 0)
-//			Round(maxPrecision(bigQuot, DOWN), DOWN)
-//		else
-//			Round(ctx.getPrecision, DOWN)
-	val powCtx =
-		if (ctx.getPrecision == 0)
-			Round(maxPrecision(bigPower, ctx.getRoundingMode), ctx.getRoundingMode)
-		else ctx
-//	println("max precision: " + maxPrecision(bigDivision, ctx.getRoundingMode) + "; round " + ctx.getRoundingMode)
-//	println("max precision: " + maxPrecision(bigQuot, DOWN))
-//	println("max precision: " + maxPrecision(bigMultiply, multCtx.getRoundingMode))
-//	println("context: " + multCtx)
-//	val sum           = bigDividend.add(bigDivisor, sumCtx)
-//	val minus         = bigDividend.subtract(bigDivisor, minusCtx)
-//	val mult          = bigDividend.multiply(bigDivisor, multCtx)
-//	val division      = bigDividend.divide(bigDivisor, divCtx)
-//	val quot          = bigDividend.divideToIntegralValue(bigDivisor, quotCtx)
-//	val quot          = bigQuot.round(quotCtx)
-	val pow           = bigDividend.pow(exponent, powCtx)
-
-	val dividend = Decimal64(bigDividend.unscaledValue.longValueExact, bigDividend.scale)
-	val divisor  = Decimal64(bigDivisor.unscaledValue.longValueExact, bigDivisor.scale)
-
-	println("using context " + ctx)
-//	println(s"should be: $bigDividend + $bigDivisor = $sum ($bigSum)")
-//	println(s"           $dividend + $divisor = ${dividend + divisor}")
-//	println(s"should be: $bigDividend - $bigDivisor = $minus ($bigMinus)")
-//	println(s"           $dividend - $divisor = ${dividend - divisor}")
-//	println(s"should be: $bigDividend * $bigDivisor = $mult ($bigMultiply)")
-//	println(s"           $dividend * $divisor = ${dividend * divisor}")
-//	println(s"should be: $bigDividend /  $bigDivisor = $division ($bigDivision)")
-//	println(s"           $dividend /  $divisor = ${dividend / divisor}")
-//	println(s"should be: $bigDividend /~ $bigDivisor = $quot ($bigQuot)")
-//	println(s"           $dividend /~ $divisor = ${dividend /~ divisor}")
-	println(s"should be: $bigDividend ** $exponent = $pow ($bigPower)")
-	println(s"           $dividend ** $exponent = ${dividend ** exponent}")
-
+	implicitly[Lift[X, Z]]
+	implicitly[Lift[Y, Z]]
+	implicitly[X =~= Y]
 }
-
-
-
