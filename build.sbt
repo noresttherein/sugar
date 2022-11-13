@@ -4,7 +4,7 @@ name := "sugar"
 
 version := "moonshine"
 
-scalaVersion := "2.13.8"
+scalaVersion := "2.13.10"
 
 
 Compile / fork := true
@@ -17,10 +17,10 @@ Test / testOptions ++= Seq(Tests.Filter(s => !s.endsWith("Props")))
 
 libraryDependencies ++= Seq( //todo: make shapeless optional
 	"com.chuusai" %% "shapeless" % "2.3.10",
-	"net.bytebuddy" % "byte-buddy" % "1.12.16",
-	"org.scala-lang" % "scala-library" % "2.13.8",
-	"org.scala-lang" % "scala-reflect" % "2.13.8",
-	"org.scalatest" %% "scalatest" % "3.2.12" % "test",
+	"net.bytebuddy" % "byte-buddy" % "1.12.18",
+	"org.scala-lang" % "scala-library" % "2.13.10",
+	"org.scala-lang" % "scala-reflect" % "2.13.10",
+	"org.scalatest" %% "scalatest" % "3.2.14" % "test",
 	"org.scalacheck" %% "scalacheck" % "1.17.0" % "test"
 )
 

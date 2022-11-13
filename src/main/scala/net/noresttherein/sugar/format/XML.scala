@@ -43,7 +43,7 @@ class XML extends FormatAsString {
 	implicit override val stringMold :Mold[String] = StringMold
 
 	protected def propertyMold[S](propertyName :String)(implicit valueMold :Mold[S]) :Mold[S] =
-		wrap(propertyName)(valueMold)
+		wrap(propertyName)(valueMold) //this probably should override .option, .opt etc. to insert an empty tag.
 
 	protected override def isEmpty(liquid :ChoppedString) :Boolean = liquid.isWhitespace
 

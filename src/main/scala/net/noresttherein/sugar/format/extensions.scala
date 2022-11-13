@@ -5,7 +5,7 @@ import net.noresttherein.sugar.format.extensions.{ParsingFormattingExtensions, L
 
 
 
-private[format] trait Rank1Extensions extends Any {
+private[format] trait extensionsLowPriority extends Any {
 	/** Extension method for [[net.noresttherein.sugar.format.Format.Liquid Liquid]] data
 	  * in the implicit [[net.noresttherein.sugar.format.Format Format]].
 	  */ //lower priority in case Liquid and Raw are the same type.
@@ -15,7 +15,7 @@ private[format] trait Rank1Extensions extends Any {
 }
 
 
-trait extensions extends Any with Rank1Extensions {
+trait extensions extends Any with extensionsLowPriority {
 	/** Extension methods allowing to either parse this value as a specified format
 	  * if it is its [[net.noresttherein.sugar.format.Format.Raw Raw]] type or, conversely,
 	  * format it in the specified format if an implicit [[net.noresttherein.sugar.format.Format.Mold Mold]]

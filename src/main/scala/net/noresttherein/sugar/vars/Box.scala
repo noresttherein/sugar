@@ -2,7 +2,7 @@ package net.noresttherein.sugar.vars
 
 import java.lang.invoke.MethodHandles
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.Specializable.Args
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
@@ -335,7 +335,7 @@ object Box {
 	/** A non-synchronized `Box` implementation. */
 	@SerialVersionUID(ver)
 	private class NonSyncBox[@specialized(SpecializedVars) T] extends Box[T] {
-		private[this] var nullVal :T = _ //the default value used to clear x so we don't keep a reference to the old value
+		@nowarn private[this] var nullVal :T = _//the default value used to clear x so we don't keep a reference to the old value
 		private[this] var x :T = _
 		private[this] var full :Boolean = false
 

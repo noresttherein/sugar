@@ -2,6 +2,8 @@ package net.noresttherein.sugar.vars
 
 import java.lang.invoke.MethodHandles
 
+import scala.annotation.nowarn
+
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Ref.undefined
@@ -19,7 +21,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
 @SerialVersionUID(ver) //consider: does it make sense for it to be Serializable?
 sealed class Out[@specialized(SpecializedVars) T] private[vars] extends InOut[T] with Val[T] with Serializable {
 	@scala.volatile private[this] var x :T = _
-	@scala.volatile private[this] var isSet = false //set through InOut.isSetField VarHandle
+	@scala.volatile @nowarn private[this] var isSet = false //set through InOut.isSetField VarHandle
 
 	override def isEmpty       :Boolean = !isSet
 	override def isFinalizable :Boolean = isSet
