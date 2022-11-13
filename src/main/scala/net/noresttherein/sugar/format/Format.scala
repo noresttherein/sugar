@@ -170,7 +170,7 @@ private[format] sealed trait FormatLiquidMoldImplicit extends FormatRawMoldImpli
   *      [[net.noresttherein.sugar.format.Format$ Format]] object itself.
   *      {{{
   *          implicit val DragonFormat = for {
-  *              dragon <- JSON[Dragon]
+  *              dragon <- Format[Dragon]
   *              name   <- dragon("name")(_.name)
   *              color  <- dragon("color")(_.color)
   *              level  <- dragon("level")(_.level)
