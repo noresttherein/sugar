@@ -46,7 +46,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @tparam P a path type - either a `Label`, or one or more `/` instances appending new labels to the first one.
   * @see [[net.noresttherein.sugar.util.LabelPath.Label]]
   * @see [[net.noresttherein.sugar.util.LabelPath./]]
-  */ //consider :renaming to KeyPath (and Label to Key) or even just Path
+  */ //consider :renaming to KeyPath (and Label to Key), LiteralPath or even just Path
 sealed trait LabelPath[P] extends Any with LabelPathPrefix {
 
 	/** The last label in this path. */
@@ -67,10 +67,10 @@ sealed trait LabelPath[P] extends Any with LabelPathPrefix {
 	/** Creates a new path being an inlined concatenation of this path and the given suffix path `next`. */
 	@inline final def /[A, B <: Label](next :A / B)(implicit concat :ConcatLabelPath[P, A / B]) :concat.Path =
 		concat.result
-
-	/** Creates a new path being an inlined concatenation of this path and the suffix path `S`
-	  * provided as an implicit parameter. */
-	@inline final def /[S](implicit suffix :LabelPath[S], concat :ConcatLabelPath[P, S]) :concat.Path = concat.result
+//
+//	/** Creates a new path being an inlined concatenation of this path and the suffix path `S`
+//	  * provided as an implicit parameter. */
+//	@inline final def /[S](implicit suffix :LabelPath[S], concat :ConcatLabelPath[P, S]) :concat.Path = concat.result
 
 	@inline final def split(implicit split :SplitLabelPath[P]) :(split.First, split.Suffix) =
 		(split.first, split.suffix.path)
@@ -95,7 +95,8 @@ sealed trait LabelPath[P] extends Any with LabelPathPrefix {
 object LabelPath {
 
 	/** A type of string literals used to label mappings on the type level for ease of access.
-	  * Importing a Label
+	  * Importing symbol `Label` at the  same time imports an implicit conversion
+	  * `N <: Label => `[[net.noresttherein.sugar.util.LabelPath.~/ ~/]]`[N]`.
 	  */
 	type Label = String with Singleton
 
@@ -125,7 +126,7 @@ object LabelPath {
 
 	/** Provides the type class instance for a presumed ''label path'' type `P`.
 	  * @return `path` itself if it is an instance of `LabelPath`, a `~/` if it is an instance of `String`,
-	  *         or `None` otherwise.
+	  *         or an empty `Opt` otherwise.
 	  */
 	def fromPath[P](path :P) :Opt[LabelPath[P]] = path match {
 		case path :LabelPath[P @unchecked] => Got(path)
@@ -244,6 +245,8 @@ object LabelPath {
 		override def toSeq  :Seq[Nothing]  = toList
 		override def toList :List[Nothing] = Nil
 		override def reverseList :List[Nothing] = Nil
+
+		override def toString = "~/"
 	}
 
 
@@ -253,16 +256,19 @@ object LabelPath {
 	  * @tparam P the prefix path type of this path (one for which an implicit type class `LabelPath[P]` exists).
 	  * @tparam L the label being the last element of this path.
 	  */
-	sealed trait /[P, L <: Label] extends LabelPath[P / L] {
+	sealed class /[P, L <: Label] private[LabelPath] (val init :LabelPath[P], override val last :L)
+		extends LabelPath[P / L]
+	{
+		if (last.length == 0)
+			throw new IllegalArgumentException("Empty path element: " + init + "/" + "''.")
+
 		def path :P / L = this
-		def init :LabelPath[P]
-		def last :L
 		def prefix :P = init.path
 		def label :L = last
 		override def first :Label = init.first
 		override def length :Int = init.length + 1
 
-		@inline final override def /[N <: Label](next :N) : P / L / N = LabelPath./(this, next)
+		@inline override def /[N <: Label](next :N) : P / L / N = new /(this, next)
 
 		override def reverseList :List[String] = last::init.reverseList
 
@@ -288,18 +294,14 @@ object LabelPath {
 		override def toString :String = format("/")
 	}
 
-	private class Composite[P, L <: Label](override val init :LabelPath[P], override val last :L) extends /[P, L] {
-		if (last.length == 0)
-			throw new IllegalArgumentException("Empty path element: " + init + "/" + "''.")
-	}
 
 
-
+	/** Factory and matching pattern of composite [[net.noresttherein.sugar.util.LabelPath paths]],
+	  * appending a single [[net.noresttherein.sugar.util.LabelPath.Label label]] to a prefix path.
+	  */
 	object / {
-//		def apply[L <: Label](label :L): ~/[L] = ~/(label)
-
 		def apply[P, L <: Label](first :LabelPath[P], last :L) :P / L =
-			new Composite[P, L](first, last)
+			new /[P, L](first, last)
 
 		def unapply[P, L <: Label](path :P / L) :Opt[(LabelPath[P], L)] = path.prefix match {
 			case label :String => Got((~/[label.type](label).asInstanceOf[LabelPath[P]], path.label))
@@ -346,14 +348,14 @@ object LabelPath {
 	}
 
 	@inline implicit def concatWithLabel[A :LabelPath, B <: Label :ValueOf] :ConcatLabelPath[A, B] { type Path = A / B } =
-		new Composite[A, B](LabelPath[A], valueOf[B]) with ConcatLabelPath[A, B] {
+		new /[A, B](LabelPath[A], valueOf[B]) with ConcatLabelPath[A, B] {
 			override type Path = A / B
 			@inline override def typeClass :A / B = this
 		}
 
 	@inline implicit def concatWithPath[A, B, C <: Label :ValueOf](implicit concat :ConcatLabelPath[A, B])
 			:ConcatLabelPath[A, B / C] { type Path = concat.Path / C } =
-		new Composite[concat.Path, C](concat.typeClass, valueOf[C]) with ConcatLabelPath[A, B / C] {
+		new /[concat.Path, C](concat.typeClass, valueOf[C]) with ConcatLabelPath[A, B / C] {
 			override type Path = concat.Path / C
 			@inline override def typeClass :concat.Path / C = this
 		}
@@ -368,6 +370,7 @@ object LabelPath {
 
 		def first :First
 		def suffix :LabelPath[Suffix]
+		def join(first :First, suffix :Suffix) :LabelPath[P]
 	}
 
 
@@ -378,6 +381,7 @@ object LabelPath {
 			override type Suffix = B
 			val first = a.value
 			val suffix = ~/(b.value)
+			override def join(first :First, suffix :Suffix) = (first :A) / suffix
 		}
 
 	@inline implicit def splitIntoLabelAndPath[P, L <: Label](implicit split :SplitLabelPath[P], last :ValueOf[L])
@@ -386,7 +390,8 @@ object LabelPath {
 			override type First = split.First
 			override type Suffix = split.Suffix / L
 			val first = split.first
-			val suffix = new Composite(split.suffix, last.value)
+			val suffix = new /(split.suffix, last.value)
+			override def join(first :First, suffix :Suffix) = split.join(first, suffix.prefix) / last.value
 		}
 
 }
