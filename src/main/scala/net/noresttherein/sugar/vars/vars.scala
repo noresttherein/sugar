@@ -1057,7 +1057,7 @@ package vars {
 			  */
 			@inline implicit def potentialToOption[T](value :Potential[T]) :Option[T] = Potential.fromOption(value)
 
-			/** A nomen omen optional implicit conversion of an `Option[A]` to an `Unsure[A]`.
+			/** A nomen omen optional implicit conversion of an `Option[A]` to a `Potential[A]`.
 			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 			  */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)

@@ -1,7 +1,9 @@
 package net.noresttherein.sugar
 
-import net.noresttherein.sugar.extensions.feedToMethod
-import net.noresttherein.sugar.tuples.{RichTuple10, RichTuple11, RichTuple12, RichTuple13, RichTuple14, RichTuple15, RichTuple16, RichTuple17, RichTuple18, RichTuple19, RichTuple2, RichTuple20, RichTuple21, RichTuple22, RichTuple3, RichTuple4, RichTuple5, RichTuple6, RichTuple7, RichTuple8, RichTuple9}
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
+
+import net.noresttherein.sugar.extensions.{feedToMethod, notNullMethod}
 import net.noresttherein.sugar.typist.casting
 import net.noresttherein.sugar.typist.Rank.Rank1
 
@@ -23,6 +25,9 @@ trait extensions extends Any
 {
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	@inline implicit final def feedToMethod[X](x :X) = new feedToMethod(x)
+
+	/** Adds a [[net.noresttherein.sugar.extensions.notNullMethod.notNull notNull]]`(msg: String)` method to any value. */
+	@inline implicit final def notNullMethod[X](x :X) = new notNullMethod(x)
 }
 
 
@@ -41,7 +46,7 @@ trait extensions extends Any
 object extensions extends extensions {
 
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
-	class feedToMethod[X](private val x :X) extends AnyVal {
+	class feedToMethod[X] private[sugar] (private val x :X) extends AnyVal {
 		//todo: maybe some special character name?
 		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
 		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
@@ -63,6 +68,15 @@ object extensions extends extensions {
 	}
 
 
+	/** An extension method for any object throwing an [[AssertionError]] if it is `null`. */
+	class notNullMethod[X] private[sugar] (private val x :X) extends AnyVal {
+		/** An extension method for any object throwing an [[AssertionError]] if it is `null`. */
+		@elidable(ASSERTION) @inline def notNull(msg: => String) :X = {
+			if (x == null)
+				throw new AssertionError(msg)
+			x
+		}
+	}
 //	object conditionalExpression {
 //		class IfFalse[+T] private[sugar] (private val ifFalse: () => T) {
 //			@inline def /:[U >: T](ifTrue: => U) :ConditionalExpressionAlternatives[U] =
