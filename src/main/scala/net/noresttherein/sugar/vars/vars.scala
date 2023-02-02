@@ -1073,6 +1073,9 @@ package vars {
 		  * This object contains the requiring type aliases overriding the standard types as well as implicit conversions
 		  * which allow seamless interoperability with standard Scala APIs.
 		  *
+		  * While the idea of using it in production code should be carefully reconsidered,
+		  * it is useful for quickly checking during profiling what impact using `Option` vs `Potential` has.
+		  *
 		  * Other files which reference classes defined in the import's scope may also need to be modified in order
 		  * to comply with changed interfaces. */
 		@SerialVersionUID(ver)
