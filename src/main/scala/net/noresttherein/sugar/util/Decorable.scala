@@ -29,6 +29,8 @@ import net.noresttherein.sugar
   * @define self this general type
   */
 trait Decorable[Self] { this :Self =>
+	@inline private def thisDecorable :Self = this
+
 	/** The 'external' instance, that is this object wrapped in any chain of decorators.  */
 	def self :Self = this
 
@@ -67,11 +69,14 @@ trait Decorable[Self] { this :Self =>
 	/** [[net.noresttherein.sugar.util.Decorable.redecorate Redecorates]] the underlying instance
 	  * with a copy of this decorator (and all `Self`s underneath it), with `decorator` applied on
 	  * top. For undecorated implementations, it is the same as `redecorate(decorator)`.
-	  * The difference from `redecorate` is that decorators do not simply delegate the call to
-	  * the [[net.noresttherein.sugar.util.Decorable.Decorator.decorated decorated]] instance, but compose it
-	  * with this decorator's constructor.
+	  * The difference from [[net.noresttherein.sugar.util.Decorable.redecorate redecorate]] is that decorators
+	  * do not simply delegate the call to the [[net.noresttherein.sugar.util.Decorable.Decorator.decorated decorated]]
+	  * instance, but compose it with this decorator's constructor. In other words, where `redecorate`'s argument
+	  * is applied directly to the bottom instance, `undecorated`'s argument is applied to a copy of this instance.
+	  *
 	  * This method is normally called indirectly by parameterless `undecorate` called for some decorator
-	  * higher on the stack.
+	  * higher on the stack. Another use case allows a decorator to be swapped for another, conflicting one
+	  * (for example, of the same class, but with different parameters).
 	  * @return `redecorate(copy(_) andThen decorator)`, where `copy` is a copy constructor of this class
 	  *         which was used to create this instance in the first place.
 	  */
@@ -81,8 +86,55 @@ trait Decorable[Self] { this :Self =>
 	  * of the originally decorated instance on the bottom of the stack,
 	  * with its [[net.noresttherein.sugar.util.Decorable.self self]] property equal to itself.
 	  * @return [[net.noresttherein.sugar.util.Decorable.redecorate redecorate]]`(identity)`.
-	  */
+	  */ //consider: renaming to bottom
 	def undecorated :Self = redecorate(identity)
+
+
+	/** The function applied to the bottommost instance in order to produce the final $Self
+	  * [[net.noresttherein.sugar.util.Decorable.self self]]: `this.self eq this.decorator(this.undecorated)`
+	  */
+	def decorator :Self => Self
+
+	/** Equality on $Self is defined as equality of their [[net.noresttherein.sugar.util.Decorable.self self]]
+	  * versions. The default implementation delegates to
+	  * [[net.noresttherein.sugar.util.Decorable.undecoratedEquals undecoratedEquals]], which compares
+	  * recursively the whole decorator stack down to the underlying $self.
+	  */
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if self eq this => true
+		case other :Decorable[Self @unchecked] if canEqual(other) && other.canEqual(this) =>
+			undecoratedEquals(other.thisDecorable)
+		case _ => false
+	}
+
+	/** Delegates to [[net.noresttherein.sugar.util.Decorable.undecoratedCanEqual undecoratedCanEqual]].
+	  * Subclasses, in most cases, should override the latter, rather than this method.
+	  */
+	def canEqual(that :Any) :Boolean = that match {
+		case other :Decorable[Self @unchecked] => this undecoratedCanEqual other.thisDecorable
+		case _ => false
+	}
+
+	/** Compares for equality `this` with `that`, ignoring decorators on top.
+	  * It is used to compare reforms not on the top of the decorator stack, in particular the underlying
+	  * $Self. This process ignores [[net.noresttherein.sugar.util.Decorable.self self]] property:
+	  * two instances may compare equal according to this method as long as their of the same type and have
+	  * all other properties equal. Should never call `equals` as this will result in infinite recursion.
+	  *
+	  * The default behaviour is to compare referential equality as `AnyRef.equals`.
+	  */
+	def undecoratedEquals(that :Self) :Boolean = this eq that.asInstanceOf[AnyRef]
+
+	/** Similar to [[net.noresttherein.sugar.util.Decorable.undecoratedCanEqual undecoratedCanEqual]],
+	  * subclasses should override this method instead of the actual
+	  * [[net.noresttherein.sugar.util.Decorable.canEqual canEqual]], as the latter will delegate to this method.
+	  */
+	def undecoratedCanEqual(that :Self) :Boolean = getClass == that.getClass
+
+	/** Hash code compatible with [[net.noresttherein.sugar.util.Decorable.undecoratedEquals undecoratedEquals]],
+	  * that is ignoring [[net.noresttherein.sugar.util.Decorable.self self]] property.
+	  */
+	def undecoratedHashCode :Int = System.identityHashCode(this)
 }
 
 
@@ -93,16 +145,16 @@ object Decorable {
 
 	/** Base class for decorable, bottom $Self implementations. It leaves
 	  * [[net.noresttherein.sugar.util.Decorable.AbstractDecorable.redecorate redecorate]] method for subclasses
-	  * to implement as their copy constructor.
+	  * to implement as their copy constructor. Does not implement any sort of specific equality.
 	  * @param decorators  a constructor function for [[net.noresttherein.sugar.util.Decorable.self self]]:
 	  *                    it accepts the bottom implementation (`this`) as an argument, and wraps it in a sequence
 	  *                    of zero or more decorators.
 	  * @see [[net.noresttherein.sugar.util.Decorable.BaseDecorable]]
 	  */
-	abstract class AbstractDecorable[Self <: Decorable[Self]](decorators :Self => Self)
+	abstract class AbstractDecorable[Self <: Decorable[Self]](override val decorator :Self => Self)
 		extends Decorable[Self]
 	{ this :Self =>
-		override val self :Self = decorators(this)
+		override val self :Self = decorator(this)
 
 		/** Composes the given decorator constructor with whatever the existing decorating function is
 		  * (`this.decorators`), and creates a copy of this instance with that function as the `decorators` argument.
@@ -110,7 +162,7 @@ object Decorable {
 		  * property of the former, which is the fully decorated instance.
 		  * @return [[net.noresttherein.sugar.util.Decorable.BaseDecorable.redecorate redecorate]]`(this.decorators andThen decorator)`.
 		  */
-		override def decorate(decorator :Self => Self) :Self = redecorate(decorators andThen decorator)
+		override def decorate(decorator :Self => Self) :Self = redecorate(decorator andThen decorator)
 
 		/** A copy constructor of this class: creates a new instance of the same type, and with the same parameters
 		  * as this object, but with its [[net.noresttherein.sugar.util.Decorable.BaseDecorable.self self]] property
@@ -142,6 +194,12 @@ object Decorable {
 		  * This completely discards the current decorator stack.
 		  */
 		override def redecorate(decorator :Self => Self) :Self = constructor(decorator).self
+
+		override def undecoratedEquals(that :Self) :Boolean = that match {
+			case decorator :Decorator[Self @unchecked] => decorator undecoratedEquals this
+			case _ => undecoratedCanEqual(that) && that.undecoratedCanEqual(this)
+		}
+		override def undecoratedHashCode :Int = getClass.hashCode
 	}
 
 
@@ -159,6 +217,9 @@ object Decorable {
 	  *     }
 	  *     def ImpatientBell(decorated :Bell) :Bell = decorated.decorate(new ImpatientBell(_))
 	  * }}}
+	  *
+	  * Most methods defined here simply delegate
+	  * to the [[net.noresttherein.sugar.util.Decorable.Decorator.decorated decorated]] instance, unless noted.
 	  */
 	trait Decorator[Self <: Decorable[Self]] extends Decorable[Self] { this :Self =>
 		/** The (directly) wrapped object, which might be the inner-most `Self` implementation, or another decorator. */
@@ -181,16 +242,34 @@ object Decorable {
 		/** Delegates to [[net.noresttherein.sugar.util.Decorable.Decorator.decorated decorated]]`.`[[net.noresttherein.sugar.util.Decorable.redecorate redecorate]].  */
 		override def redecorate(decorator :Self => Self) :Self = decorated.redecorate(decorator)
 
+		/** Invokes `decorated.`[[net.noresttherein.sugar.util.Decorable.undecorate undecorate]]`(this.`[[net.noresttherein.sugar.util.Decorable.Decorator.decorate decorate]]` andThen decorator)`. */
 		override def undecorate(decorator :Self => Self) :Self =
 			decorated.undecorate((decorate :Self => Self) andThen decorator)
 
-//		override def undecorate :Self = decorated.undecorate(decorate)
+		/** Invokes `decorated.`[[net.noresttherein.sugar.util.Decorable.undecorate undecorate]]`(this.`[[net.noresttherein.sugar.util.Decorable.Decorator.decorate decorate]]`)`. */
+		override def undecorate :Self = decorated.undecorate(decorate)
+
+		override def decorator :Self => Self = decorated.decorator
 	}
 
-	abstract class BaseDecorator[Self <: Decorable[Self]](constructor :Self => Self)
-		extends Decorator[Self]
-	{ this :Self =>
+	/** A base class for [[net.noresttherein.sugar.util.Decorable.Decorator Decorator]] implementations
+	  * which wrap another instance of $Self. Aside from implementing
+	  * [[net.noresttherein.sugar.util.Decorable.Decorator.decorate decorate]] with the function passed
+	  * as the constructor argument, it also provides a skeleton implementation of equality based on class equality.
+	  */
+	abstract class BaseDecorator[Self <: Decorable[Self]](constructor :Self => Self) extends Decorator[Self] {
+		this :Self =>
+		@inline private def thisDecorable :Self = this
 		protected override def decorate(decorated :Self) :Self = constructor(decorated)
+
+		override def undecoratedEquals(that :Self) :Boolean = that match {
+			case _ if that eq this => true
+			case other :BaseDecorator[Self @unchecked] =>
+				undecoratedCanEqual(other.thisDecorable) && other.undecoratedCanEqual(this) &&
+					(decorated undecoratedEquals other.decorated)
+			case _ => false
+		}
+		override def undecoratedCanEqual(that :Self) :Boolean = getClass == that.getClass
+		override def undecoratedHashCode :Int = getClass.hashCode * 31 + decorated.undecoratedHashCode
 	}
 }
-
