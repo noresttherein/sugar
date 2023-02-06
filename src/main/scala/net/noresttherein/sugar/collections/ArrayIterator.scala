@@ -2,6 +2,8 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.BufferedIterator
 
+import net.noresttherein.sugar.JavaTypes.JIntIterator
+
 
 
 
@@ -123,7 +125,7 @@ trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Clonea
   * @param first    the index in the array of the first/next element to return.
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
-  */
+  */ //no SerialVersionUID because we are not Serializable :)
 class ArrayIterator[@specialized(Int, Long, Double) +T]
 	               (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIndexedIterator[T]
@@ -348,25 +350,33 @@ final class StringIterator private[collections]
 }
 
 
-@SerialVersionUID(ver)
-object StringIterator {
-	def apply(string :String) :StringIterator = new StringIterator(string, 0, string.length)
+private abstract class GenericStringIteratorFactory[E, I <: Iterator[E]] {
+	def apply(string :String) :I = newInstance(string, 0, string.length)
 
-	def apply(string :String, offset :Int) :StringIterator =
-		if (offset >= string.length) empty
-		else if (offset <= 0) new StringIterator(string, 0, string.length)
-		else new StringIterator(string, offset, string.length)
+	def apply(string :String, offset :Int) :I =
+		if (offset >= string.length) newInstance("", 0, 0)
+		else if (offset <= 0) newInstance(string, 0, string.length)
+		else newInstance(string, offset, string.length)
 
-	def apply(string :String, from :Int, until :Int) :StringIterator = {
+	def apply(string :String, from :Int, until :Int) :I = {
 		val len = string.length
-		if (from >= len || until <= 0 || from >= until) empty
-		else if (from <= 0 && until >= len) new StringIterator(string, 0, len)
-		else if (from <= 0) new StringIterator(string, 0, until)
-		else if (until >= len) new StringIterator(string, from, len)
-		else new StringIterator(string, from, until)
+		if (from >= len || until <= 0 || from >= until) newInstance("", 0, 0)
+		else if (from <= 0 && until >= len) newInstance(string, 0, len)
+		else if (from <= 0) newInstance(string, 0, until)
+		else if (until >= len) newInstance(string, from, len)
+		else newInstance(string, from, until)
 	}
 
-	def empty = new StringIterator("", 0, 0)
+	def empty :I = newInstance("", 0, 0)
+
+	protected def newInstance(string :String, from :Int, until :Int) :I
+}
+
+
+@SerialVersionUID(ver)
+object StringIterator extends GenericStringIteratorFactory[Char, StringIterator] {
+	protected override def newInstance(string :String, from :Int, until :Int) :StringIterator =
+		new StringIterator(string, from, until)
 }
 
 
@@ -403,19 +413,105 @@ final class ReverseStringIterator private[collections]
 }
 
 
-@SerialVersionUID(ver)
-object ReverseStringIterator {
-	def apply(string :String) :ReverseStringIterator = new ReverseStringIterator(string, 0, string.length)
+private abstract class GenericReverseStringIteratorFactory[C, I <: Iterator[C]] {
+	def apply(string :String) :I = newInstance(string, 0, string.length)
 
-	def apply(string :String, from :Int, downto :Int) :ReverseStringIterator = {
+	def apply(string :String, from :Int, downto :Int) :I = {
 		val len = string.length
-		if (downto >= len || from <= 0 || downto >= from) empty
-		else if (downto <= 0 && from >= len) new ReverseStringIterator(string, 0, len)
-		else if (downto <= 0) new ReverseStringIterator(string, 0, from)
-		else if (from >= len) new ReverseStringIterator(string, downto, len)
-		else new ReverseStringIterator(string, downto, from)
+		if (downto >= len || from <= 0 || downto >= from) newInstance(string, 0, 0)
+		else if (downto <= 0 && from >= len) newInstance(string, 0, len)
+		else if (downto <= 0) newInstance(string, 0, from)
+		else if (from >= len) newInstance(string, downto, len)
+		else newInstance(string, downto, from)
 	}
 
-	def empty = new ReverseStringIterator("", 0, 0)
+	def empty :I = newInstance("", 0, 0)
+
+	protected def newInstance(string :String, downto :Int, from :Int) :I
+}
+
+
+@SerialVersionUID(ver)
+object ReverseStringIterator extends GenericReverseStringIteratorFactory[Char, ReverseStringIterator] {
+	protected override def newInstance(string :String, downto :Int, from :Int) :ReverseStringIterator =
+		new ReverseStringIterator(string, downto, from)
+}
+
+
+
+
+
+
+/** An iterator over an arbitrary section of a `String`, but returning the characters as `Int`s.
+  * It is very similar to [[net.noresttherein.sugar.collections.StringIterator StringIterator]],
+  * but is also a specialized Java `PrimitiveIterator.OfInt`.
+  * Has O(1) `take`/`drop`/`slice` methods.
+  */
+final class StringIntIterator private[collections]
+	        (string :String, private[this] var first :Int, private[this] var `last++` :Int)
+	extends AbstractIndexedIterator[Int] with JIntIterator
+{
+	protected override def underlyingSize :Int = string.length
+	protected override def index :Int = first
+	protected override def index_=(i :Int) :Unit = first = i
+	protected override def limit :Int = `last++`
+	protected override def limit_=(i :Int) :Unit = `last++` = i
+
+	override def hasNext :Boolean = first < `last++`
+	override def head :Int = string.charAt(first).toInt
+
+	override def nextInt() :Int = {
+		val res = string.charAt(first); first += 1; res.toInt
+	}
+
+	override def clone = new StringIntIterator(string, first, `last++`)
+}
+
+
+@SerialVersionUID(ver)
+object StringIntIterator extends GenericStringIteratorFactory[Int, StringIntIterator] {
+	protected override def newInstance(string :String, from :Int, until :Int) :StringIntIterator =
+		new StringIntIterator(string, from, until)
+}
+
+
+
+
+/** An iterator over an arbitrary section of a `String`, running in reverse, but returning the characters as `Int`s.
+  * It is very similar to [[net.noresttherein.sugar.collections.ReverseStringIterator ReverseStringIterator]],
+  * but is also a specialized Java `PrimitiveIterator.OfInt`.
+  * Has O(1) `take`/`drop`/`slice` methods.
+  */
+final class ReverseStringIntIterator private[collections]
+	        (string :String, private[this] var last :Int, private[this] var `first++` :Int)
+	extends AbstractIndexedReverseIterator[Int] with JIntIterator
+{
+	/* Requires 0 <= from <= until <= string.length and maintains invariant 0 <= stop <= index <= string.length.
+	* The invariant can be broken only by advancing an empty iterator.
+	* `string(until)` is the character immediately following (in string) the first character in this iterator,
+	* while `string(from)` is the last character in this iterator, unless it is empty.
+	* This scheme results in code being a mirror image of StringIterator, with + replaced with -.
+	*/
+	protected override def underlyingSize :Int = string.length
+	protected override def index :Int = `first++`
+	protected override def index_=(i :Int) :Unit = `first++` = i
+	protected override def limit :Int = last
+	protected override def limit_=(i :Int) :Unit = last = i
+
+	override def hasNext :Boolean = `first++` > last
+	override def head :Int = string.charAt(`first++` - 1)
+
+	override def nextInt() :Int = {
+		`first++` -= 1; string.charAt(`first++`)
+	}
+
+	override def clone = new ReverseStringIntIterator(string, last, `first++`)
+}
+
+
+@SerialVersionUID(ver)
+object ReverseStringIntIterator extends GenericReverseStringIteratorFactory[Int, ReverseStringIntIterator] {
+	override def newInstance(string :String, downto :Int, from :Int) :ReverseStringIntIterator =
+		new ReverseStringIntIterator(string, downto, from)
 }
 
