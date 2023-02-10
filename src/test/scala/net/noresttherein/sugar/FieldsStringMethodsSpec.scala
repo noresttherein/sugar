@@ -1,8 +1,9 @@
 package net.noresttherein.sugar
 
+import scala.annotation.nowarn
+
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
-
 import net.noresttherein.sugar.prettyprint.{CaseClass, DefToString}
 
 //implicits
@@ -29,7 +30,7 @@ object FieldsStringMethodsSpec extends Properties("FieldsStringMethods") {
 	}
 
 	class Private(private val field1 :String, param :Int) {
-		private[this] var _field2 = param
+		@nowarn private[this] var _field2 = param
 
 		def field :Int = _field2
 

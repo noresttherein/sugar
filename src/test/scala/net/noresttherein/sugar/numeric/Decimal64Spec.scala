@@ -46,7 +46,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 
 	def bigDecimal(decimal :Decimal64) :JavaBigDecimal = JavaBigDecimal.valueOf(decimal.unscaled, decimal.scale)
 
-	implicit val ArbitraryDecimal64 = Arbitrary(Arbitrary.arbitrary[Long].map { long =>
+	implicit val ArbitraryDecimal64 :Arbitrary[Decimal64] = Arbitrary(Arbitrary.arbitrary[Long].map { long =>
 		Decimal64(long >> 8, (long & 0xffL).toByte)
 	})
 	@nowarn("cat=deprecation")

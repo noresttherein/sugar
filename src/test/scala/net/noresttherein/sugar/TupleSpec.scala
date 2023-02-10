@@ -153,7 +153,6 @@ object TupleSpec extends Properties("Tuple") {
 	}
 
 	property("><._9") = {
-		val i = new Count(-1)
 		t9._9 =? 8 && t10._9 =? 8 && t11._9 =? 8 && t12._9 =? 8 && t13._9 =? 8 && t14._9 =? 8 &&
 		t15._9 =? 8 && t16._9 =? 8 && t17._9 =? 8 && t18._9 =? 8 && t19._9 =? 8 && t20._9 =? 8 && t21._9 =? 8 &&
 		t22._9 =? 8 && t23._9 =? 8 && t24._9 =? 8 && t25._9 =? 8
@@ -323,7 +322,6 @@ object TupleSpec extends Properties("Tuple") {
 
 	property("><.take") = {
 		import Nat._
-		val t = t21; val T = Tuple
 		t20.take(_20) =? t20 && t20.take(_19) =? t19 && t20.take(_18) =? t18 && t20.take(_17) =? t17 &&
 		t20.take(_16) =? t16 && t20.take(_15) =? t15 && t20.take(_14) =? t14 && t20.take(_13) =? t13 &&
 		t20.take(_12) =? t12 && t20.take(_11) =? t11 && t20.take(_10) =? t10 && t20.take(_9) =? t9 &&

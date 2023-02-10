@@ -12,7 +12,7 @@ object InferTypeParamsSpec {
 		class UpperBound
 		class Item extends UpperBound
 		//Lower bounds don't work :(
-		class LowerBound extends Item
+//		class LowerBound extends Item
 
 		{ //invariant
 			class Super[X <: UpperBound] extends UpperBound

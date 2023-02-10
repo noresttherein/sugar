@@ -171,14 +171,14 @@ object RatioSpec extends Properties("Ratio") {
 					)
 					props(x, y, z) && props(x, z, y) && props(z, x, y) && props(z, y, x) && props(y, z, x) && props(y, x, z)
 				case _ =>
-					def props4(w :Int, x :Int, y :Int, z :Int) :Prop =
-						if (w * x == w.toLong * x && y * z == y.toLong * z)
-							((w * x) %/ (y * z) =? rational(w %/ y, x %/ z)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? w %/ y $s x %/ z" &&
-								((w * x) %/ (y * z) =? rational(w %/ z, x %/ y)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? w %/ z $s x %/ y" &&
-								((w * x) %/ (y * z) =? rational(x %/ y, w %/ z)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? x %/ y $s w %/ z" &&
-								((w * x) %/ (y * z) =? rational(x %/ z, w %/ y)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? x %/ z $s w %/ y"
-						else
-							Prop.passed
+//					def props4(w :Int, x :Int, y :Int, z :Int) :Prop =
+//						if (w * x == w.toLong * x && y * z == y.toLong * z)
+//							((w * x) %/ (y * z) =? rational(w %/ y, x %/ z)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? w %/ y $s x %/ z" &&
+//								((w * x) %/ (y * z) =? rational(w %/ z, x %/ y)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? w %/ z $s x %/ y" &&
+//								((w * x) %/ (y * z) =? rational(x %/ y, w %/ z)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? x %/ y $s w %/ z" &&
+//								((w * x) %/ (y * z) =? rational(x %/ z, w %/ y)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? x %/ z $s w %/ y"
+//						else
+//							Prop.passed
 					nums.permutations.map { case Seq(w, x, y, z) =>
 						((w * x) %/ (y * z) =? rational(w %/ y, x %/ z)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? w %/ y $s x %/ z" &&
 							((w * x) %/ (y * z) =? rational(w %/ z, x %/ y)) :| s"w=$w, x=$x, y=$y, z=$z: (w * x) %/ (y * z) =? w %/ z $s x %/ y" &&
