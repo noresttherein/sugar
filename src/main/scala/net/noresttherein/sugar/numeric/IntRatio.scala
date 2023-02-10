@@ -10,13 +10,13 @@ import net.noresttherein.sugar.numeric.IntRatio.{naturalGCD, newIntRatio}
 
 
 
-/** Simple implementation of rational numbers (fractions of integer values). The fraction is always
+/** A simple implementation of rational numbers (fractions of integer values). The fraction is always
   * in its canonical form: the greatest common divisor of the numerator and the denominator is `1` and the denominator
   * is always a positive integer. All arithmetic operators check for overflow, throwing an [[ArithmeticException]]
   * if the result would not fit in a `IntRatio` value.
   * For the public constructor,
   * see [[net.noresttherein.sugar.numeric.IntRatio.apply(numerator:Int, denominator:Int)* IntRatio()]].
-  * @author Marcin Mościcki marcin@moscicki.net
+  * @author Marcin Mościcki
   */
 @SerialVersionUID(ver)
 final class IntRatio private(n :Int, d :Int) extends Number {
@@ -409,7 +409,7 @@ object IntRatio {//extends IntRatioImplicits {
 		override def toDouble(x :IntRatio) :Double = x.toDouble
 
 		override def compare(x :IntRatio, y :IntRatio) :Int =
-			if (x < y) -1 else if (y < x) 1 else 0
+			if (x == y) 0 else if (x < y) -1 else 1 //checking for equality avoids checking both for < and >
 
 		override def parseString(str :String) :Option[IntRatio] =
 			try { Some(IntRatio(str)) } catch {

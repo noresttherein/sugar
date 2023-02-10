@@ -70,6 +70,8 @@ import net.noresttherein.sugar.witness.Maybe
   *   1. All operations for which this class does not throw an exception, with the provision for the mentioned
   *      slight differences in signatures and `MathContext` handling, will return values equal (nominally,
   *      not in terms of the `equals` method) as both `BigDecimal`s would.
+  *      The only exception is [[net.noresttherein.sugar.numeric.Decimal64.pow pow]], which doesn't use `UNLIMITED`
+  *      precision as both `BigDecimal`s, but 'best possible', as described above.
   *
   * The advantage over those standard implementations is that it is erased at runtime to a `Long` value, requiring
   * no heap allocation, unless used as an abstract type (provided as a type parameter to a generic method),
@@ -89,7 +91,7 @@ class Decimal64 private (private val bits :Long)
 	extends AnyVal with ScalaNumericAnyConversions with Serializable
 {
 	/** The raw binary representation of this value. */
-	def toLongBits :Long = bits
+	@inline def toLongBits :Long = bits
 
 	/** The value of this `Decimal64` with the decimal fraction point shift right
 	  * by [[net.noresttherein.sugar.numeric.Decimal64.scale scale]].
@@ -1220,7 +1222,7 @@ object Decimal64 {
 
 	//does not take into account possible zeros in unscaled, hence private
 	private final val MaxExponent = -MinScale
-	private final val MinExponent = -MaxScale
+//	private final val MinExponent = -MaxScale
 
 	/** The exponent of the maximum Decimal64 representable exactly as a `Long`. */
 	private final val MaxLongValueLog = 3
@@ -2099,14 +2101,14 @@ object Decimal64 {
 		throw new ArithmeticException(
 			s"Unable to precisely represent ${significand}e${-scale} as a Decimal64: scale out of range."
 		)
-	private def throwArithmeticException(x :Decimal64, method :String, e :Exception) :Nothing =
-		e match {
-			case _ :InternalException =>
-				throw new ArithmeticException(x.toString + "." + method + ": " + e.getMessage + ".")
-			case _ :ArithmeticException =>
-				throw new ArithmeticException("Error when executing " + x + "." + method +". " + e.getMessage)
-					.initCause(e)
-		}
+//	private def throwArithmeticException(x :Decimal64, method :String, e :Exception) :Nothing =
+//		e match {
+//			case _ :InternalException =>
+//				throw new ArithmeticException(x.toString + "." + method + ": " + e.getMessage + ".")
+//			case _ =>
+//				throw new ArithmeticException("Error when executing " + x + "." + method +". " + e.getMessage)
+//					.initCause(e)
+//		}
 	private def throwArithmeticException(x :Decimal64, op :String, y :Decimal64, mc :MathContext, e :Exception) :Nothing =
 		e match {
 			case _ :InternalException =>
@@ -2195,11 +2197,11 @@ object Decimal64 {
 	/** Overflow safe -value.abs. */
 	@inline private def minusAbs(value :Long) :Long = (value >> 63) & value | (~value >> 63) & -value
 
-	/** If division of a dividend with precision `dividendPrecision` precision by a divisor
-	  * with `divisorPrecision` precision has a finite expansion, it is no longer than this value.
-	  **/
-	private def maxDivisionExpansion(dividendPrecision :Int, divisorPrecision :Int) :Int =
-		dividendPrecision + (math.ceil(10.0 * divisorPrecision) / 3.0).toInt
+//	/** If division of a dividend with precision `dividendPrecision` precision by a divisor
+//	  * with `divisorPrecision` precision has a finite expansion, it is no longer than this value.
+//	  **/
+//	private def maxDivisionExpansion(dividendPrecision :Int, divisorPrecision :Int) :Int =
+//		dividendPrecision + (math.ceil(10.0 * divisorPrecision) / 3.0).toInt
 
 
 	/** The lowest power of 10 strictly greater than `significand`.

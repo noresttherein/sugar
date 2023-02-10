@@ -7,7 +7,7 @@ import java.{lang => jl}
 
 /** An `Int` value checking for overflows, underflows and loss of precision in all operations.
   * Unless stated otherwise, all methods returning another number type, with the exception of bitwise operations,
-  * can throw an [[ArithmeticException]] .
+  * can throw an [[ArithmeticException]].
   * @author Marcin Mościcki
   */
 @SerialVersionUID(ver)

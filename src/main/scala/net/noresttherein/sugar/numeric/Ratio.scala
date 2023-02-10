@@ -10,12 +10,13 @@ import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
 
 
 
-/** Simple implementation of rational numbers using `Long` values for the numerator and the denominator.
+/** A simple implementation of rational numbers using `Long` values for the numerator and the denominator.
   * The fraction is always in its canonical form: the greatest common divisor of the numerator and the denominator
   * is `1` and the denominator is always a positive number. Unlike [[net.noresttherein.sugar.numeric.IntRatio IntRatio]],
   * this class does not check for arithmetic overflow/underflow. Operators are implemented in a way eliminating the
   * possibility of ''temporary'' overflows, but no exception is thrown if the result value overflows.
   * For the public constructor, see [[net.noresttherein.sugar.numeric.Ratio$.apply Ratio()]].
+  * @author Marcin Mościcki
   */
 @SerialVersionUID(ver)
 final class Ratio private[numeric](n :Long, d :Long) extends Number {
@@ -86,6 +87,8 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 	@inline def -(other :Ratio) :Ratio = plus(-other.numerator, other.denominator)
 
 	private def multiply(num :Long, den :Long) :Ratio = {
+		if (den == 0)
+			throw new ArithmeticException("Division by zero: " + this + " * " + num + "/" + den)
 		val gcd_\ = GCD(n, den); val gcd_/ = GCD(d, num)
 		val resNum = (n / gcd_\) * (num / gcd_/)
 		val resDen = (d / gcd_/) * (den / gcd_\)
@@ -96,36 +99,14 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 	}
 
 	/** Multiplies this rational number by another rational. This implementation performs cross reduction before actual
-	  * multiplication, but may still result in quiet overflow.
+	  * multiplication, but may still result in a quiet overflow.
 	  */
-	def *(other :Ratio) :Ratio = {
-		val n1 = other.numerator; val d1 = other.denominator
-		val gcd_\ = naturalGCD(if (n >= 0) n else -n, d1)
-		val gcd_/ = naturalGCD(d, if (n1 >= 0) n1 else -n1)
-		val num = (n / gcd_\) * (n1 / gcd_/)
-		val den = (d / gcd_/) * (d1 / gcd_\)
-		if (den < 0)
-			new Ratio(-num, -den)
-		else
-			new Ratio(num, den)
-	}
+	def *(other :Ratio) :Ratio = multiply(other.numerator, other.denominator)
 
 	/** Divides this rational number by another rational. This implementation performs cross reduction before actual
-	  * multiplication, but may still result in quiet overflow.
+	  * multiplication, but may still result in a quiet overflow.
 	  */
-	def /(other :Ratio) :Ratio = {
-		val n1 = other.numerator; val d1 = other.denominator
-		if (n1 == 0)
-			throw new ArithmeticException(s"Rational division by zero: $this / $other")
-		val gcd_- = naturalGCD(if (n >= 0) n else -n, if (n1 >= 0) n1 else -n1)
-		val gcd__ = naturalGCD(d, d1)
-		val num = (n / gcd_-) * (d1 / gcd__)
-		val den = (d / gcd__) * (n1 / gcd_-)
-		if (den < 0)
-			new Ratio(-num, -den)
-		else
-			new Ratio(num, den)
-	}
+	def /(other :Ratio) :Ratio = multiply(other.denominator, other.numerator)
 
 	def <(other :Ratio) :Boolean = {
 		val n2 = other.numerator; val d2 = other.denominator
@@ -143,7 +124,7 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 			n2 > 0 && { val gcd = naturalGCD(d, d2); d2 / gcd * n <= d / gcd * n2 }
 	}
 
-	@inline def >(other :Ratio) :Boolean = !(this <= other)
+	@inline def > (other :Ratio) :Boolean = !(this <= other)
 	@inline def >=(other :Ratio) :Boolean = !(this < other)
 
 
@@ -388,7 +369,7 @@ object Ratio {
 		override def toDouble(x :Ratio) :Double = x.toDouble
 
 		override def compare(x :Ratio, y :Ratio) :Int =
-			if (x < y) -1 else if (y < x) 1 else 0
+			if (x == y) 0 else if (x < y) -1 else 1 //checking for equality avoids checking both for < and >
 
 		override def parseString(str :String) :Option[Ratio] =
 			try { Some(Ratio(str)) } catch {
