@@ -6,7 +6,7 @@ import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDe
 import net.noresttherein.sugar.numeric.Ratio.LongNumerator
 import net.noresttherein.sugar.numeric.SafeInt.SafeIntConversion
 import net.noresttherein.sugar.numeric.SafeLong.SafeLongConversion
-import net.noresttherein.sugar.numeric.extensions.BigDecimalIsFractional
+import net.noresttherein.sugar.numeric.extensions.{BigDecimalIsFractional, ByteExtension, DoubleExtension, FloatExtension, IntExtension, LongExtension, OrderedExtension, ShortExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 
 
@@ -28,6 +28,14 @@ trait extensions extends Any {
 			:Fractional[JavaBigDecimal] =
 		if (math == MathContext.DECIMAL128) extensions.BigDecimal128IsFractional
 		else new BigDecimalIsFractional
+
+	@inline implicit final def ByteExtension(self :Byte) = new ByteExtension(self)
+	@inline implicit final def ShortExtension(self :Short) = new ShortExtension(self)
+	@inline implicit final def IntExtension(self :Int) = new IntExtension(self)
+	@inline implicit final def LongExtension(self :Long) = new LongExtension(self)
+	@inline implicit final def FloatExtension(self :Float) = new FloatExtension(self)
+	@inline implicit final def DoubleExtension(self :Double) = new DoubleExtension(self)
+	@inline implicit final def OrderedExtension[T](self :T) = new OrderedExtension(self)
 }
 
 
@@ -35,6 +43,64 @@ trait extensions extends Any {
 
 @SerialVersionUID(ver)
 object extensions extends extensions {
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class ByteExtension(private val self :Byte) extends AnyVal {
+		@inline def atLeast(other :Byte) :Int = math.max(self, other)
+		@inline def atMost(other :Byte) :Int = math.min(self, other)
+	}
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class ShortExtension(private val self :Short) extends AnyVal {
+		@inline def atLeast(other :Short) :Int = math.max(self, other)
+		@inline def atMost(other :Short) :Int = math.min(self, other)
+	}
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class IntExtension(private val self :Int) extends AnyVal {
+		@inline def atLeast(other :Int) :Int = math.max(self, other)
+		@inline def atMost(other :Int) :Int = math.min(self, other)
+	}
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class LongExtension(private val self :Long) extends AnyVal {
+		@inline def atLeast(other :Long) :Long = math.max(self, other)
+		@inline def atMost(other :Long) :Long = math.min(self, other)
+	}
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class FloatExtension(private val self :Float) extends AnyVal {
+		@inline def atLeast(other :Float) :Float = math.max(self, other)
+		@inline def atMost(other :Float) :Float = math.min(self, other)
+	}
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class DoubleExtension(private val self :Double) extends AnyVal {
+		@inline def atLeast(other :Double) :Double = math.max(self, other)
+		@inline def atMost(other :Double) :Double = math.min(self, other)
+	}
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class OrderedExtension[T](private val self :T) extends AnyVal {
+		@inline def atLeast(other :T)(implicit ordering :Ordering[T]) :T = ordering.max(self, other)
+		@inline def atMost(other :T)(implicit ordering :Ordering[T]) :T = ordering.min(self, other)
+	}
+
+
 	@SerialVersionUID(ver)
 	sealed class BigIntegerIsNumeric extends Numeric[BigInteger] {
 		override def plus(x :BigInteger, y :BigInteger) :BigInteger = x add y
