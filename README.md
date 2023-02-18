@@ -234,6 +234,8 @@ Also, tagging implicit values:
 Safer casting methods - less powerful, imposing constraints on the source and target type,
 including casting on type parameters for higher types.
 
+    method(param).castFrom[ExpectedType, NewType] //this must be an ExpectedType to compile
+
 
 
 ### 14. sugar.reflect ###

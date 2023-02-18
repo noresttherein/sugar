@@ -5,6 +5,8 @@ import java.lang.{StringBuilder => JStringBuilder}
 import scala.annotation.tailrec
 import scala.reflect.{classTag, ClassTag}
 
+import net.noresttherein.sugar.extensions.classExtension
+
 
 
 
@@ -19,14 +21,16 @@ package object prettyprint {
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
 	  * If the class is anonymous, a simple '.anon' replaces its whole anonymous name section, and prepended to it
 	  * is the directly preceding/enclosing class name, that is the inner-most class name from the non-anonymous prefix. 
-	  * Primitive types are capitalized to their Scala names and arrays are formatted recursively 
-	  * as 'Array['`innerClassNameOf(element)`']'. This algorithm is a heuristic and can only be used for informational, 
-	  * debugging purposes, and not for identifiers or in any sort of reflection operations, as it can fail to produce 
-	  * the correct and unique type representation for a number of reasons. Most notably, any kind of generic, 
-	  * non-specialized classes will not have any type arguments listed, and only `@specialized` type parameters 
-	  * of specialized classes will be shown. Use of '$' in a demangled name will throw it off, as will identifiers 
-	  * quoted in backticks. Finally, for the obvious reason, the name of the anonymous class is synthetic and the same
-	  * for all anonymous inner classes of the same enclosing class/object.
+	  * Primitive types are capitalized to their Scala names, while their Java boxes receive "J" as a prefix.
+	  * Arrays are formatted recursively as 'Array['`innerClassNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes,
+	  * and not for identifiers or in any sort of reflection operations, as it can fail to produce the correct
+	  * and unique type representation for a number of reasons. Most notably, any kind of generic, non-specialized
+	  * classes will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
+	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
+	  * Finally, for the obvious reason, names of anonymous classes are synthetic and the same for all anonymous
+	  * inner classes of the same enclosing class/object.
 	  */
 	@inline def innerClassNameOf(o :Any) :String = innerNameOf(o.getClass)
 
@@ -37,14 +41,16 @@ package object prettyprint {
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
 	  * If the class is anonymous, a simple '.anon' replaces its whole anonymous name section, and prepended to it
 	  * is the directly preceding/enclosing class name, that is the inner-most class name from the non-anonymous prefix. 
-	  * Primitive types are capitalized to their Scala names and arrays are formatted recursively 
-	  * as 'Array['`innerClassNameOf(element)`']'. This algorithm is a heuristic and can only be used for informational, 
-	  * debugging purposes, and not for identifiers or in any sort of reflection operations, as it can fail to produce 
-	  * the correct and unique type representation for a number of reasons. Most notably, any kind of generic, 
-	  * non-specialized classes will not have any type arguments listed, and only `@specialized` type parameters 
-	  * of specialized classes will be shown. Use of '$' in a demangled name will throw it off, as will identifiers 
-	  * quoted in backticks. Finally, for the obvious reason, the name of the anonymous class is synthetic and the same
-	  * for all anonymous inner classes of the same enclosing class/object.
+	  * Primitive types are capitalized to their Scala names, while their Java boxes receive "J" as a prefix.
+	  * Arrays are formatted recursively as 'Array['`innerClassNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes,
+	  * and not for identifiers or in any sort of reflection operations, as it can fail to produce the correct
+	  * and unique type representation for a number of reasons. Most notably, any kind of generic, non-specialized
+	  * classes will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
+	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
+	  * Finally, for the obvious reason, names of anonymous classes are synthetic and the same for all anonymous
+	  * inner classes of the same enclosing class/object.
 	  */
 	@inline def innerNameOf[C :ClassTag] :String = innerNameOf(classTag[C].runtimeClass)
 
@@ -55,18 +61,22 @@ package object prettyprint {
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
 	  * If the class is anonymous, a simple '.anon' replaces its whole anonymous name section, and prepended to it
 	  * is the directly preceding/enclosing class name, that is the inner-most class name from the non-anonymous prefix. 
-	  * Primitive types are capitalized to their Scala names and arrays are formatted recursively 
-	  * as 'Array['`innerClassNameOf(element)`']'. This algorithm is a heuristic and can only be used for informational, 
-	  * debugging purposes, and not for identifiers or in any sort of reflection operations, as it can fail to produce 
-	  * the correct and unique type representation for a number of reasons. Most notably, any kind of generic, 
-	  * non-specialized classes will not have any type arguments listed, and only `@specialized` type parameters 
-	  * of specialized classes will be shown. Use of '$' in a demangled name will throw it off, as will identifiers 
-	  * quoted in backticks. Finally, for the obvious reason, the name of the anonymous class is synthetic and the same
-	  * for all anonymous inner classes of the same enclosing class/object.
+	  * Primitive types are capitalized to their Scala names, while their Java boxes receive "J" as a prefix.
+	  * Arrays are formatted recursively as 'Array['`innerClassNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes,
+	  * and not for identifiers or in any sort of reflection operations, as it can fail to produce the correct
+	  * and unique type representation for a number of reasons. Most notably, any kind of generic, non-specialized
+	  * classes will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
+	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
+	  * Finally, for obvious reasons, names of anonymous classes are synthetic and the same for all anonymous
+	  * inner classes of the same enclosing class/object.
 	  */
 	def innerNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
 
+		case null if clazz.isPrimitive => clazz.getName.capitalize
+		case null if clazz.isBox => "J" + clazz.unboxed.getName.capitalize
 		case null =>
 			val qualified = clazz.getName
 			val len = qualified.length
@@ -95,7 +105,6 @@ package object prettyprint {
 				res append ".anon"
 			res.toString
 
-		case elem if elem.isPrimitive => "Array[" + elem.getName.capitalize + "]"
 		case elem => "Array[" + innerNameOf(elem) + "]"
 	}
 
@@ -108,8 +117,10 @@ package object prettyprint {
 	  * All individual '$' signs (used in name mangling of inner classes as the separators) are replaced with a '.',
 	  * and so is the double '$$' in '$$anon' sequence for anonymous classes. If the class is specialized, its mangled
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
-	  * Primitive types are capitalized to their Scala names and arrays are formatted recursively 
-	  * as 'Array['`localClassNameOf(element)`']'. This algorithm is a heuristic and can only be used for informational, 
+	  * Primitive types are capitalized to their Scala names, while their Java box classes receive "J" as a prefix.
+	  * Arrays are formatted recursively as 'Array['`localClassNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational,
 	  * debugging purposes, and not for identifiers or in any sort of reflection operations, as it can fail to produce 
 	  * the correct and unique type representation for a number of reasons. Most notably, any kind of generic, 
 	  * non-specialized classes will not have any type arguments listed, and only `@specialized` type parameters 
@@ -125,13 +136,15 @@ package object prettyprint {
 	  * All individual '$' signs (used in name mangling of inner classes as the separators) are replaced with a '.',
 	  * and so is the double '$$' in '$$anon' sequence for anonymous classes. If the class is specialized, its mangled
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
-	  * Primitive types are capitalized to their Scala names and arrays are formatted recursively
-	  * as 'Array['`localClassNameOf(element)`']'. This algorithm is a heuristic and can only be used for informational,
-	  * debugging purposes, and not for identifiers or in any sort of reflection operations, as it can fail to produce
-	  * the correct and unique type representation for a number of reasons. Most notably, any kind of generic,
-	  * non-specialized classes will not have any type arguments listed, and only `@specialized` type parameters
-	  * of specialized classes will be shown. Use of '$' in a demangled name will throw it off, as will identifiers
-	  * quoted in backticks. Finally, for the obvious reason, the name of the anonymous class is synthetic.
+	  * Primitive types are capitalized to their Scala names, while their Java box classes include "J" as a prefix.
+	  * Arrays are formatted recursively as 'Array['`localClassNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes,
+	  * and not for identifiers or in any sort of reflection operations, as it can fail to produce the correct
+	  * and unique type representation for a number of reasons. Most notably, any kind of generic, non-specialized
+	  * classes will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
+	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
+	  * Finally, for the obvious reason, the name of anonymous classes are synthetic.
 	  */
 	@inline def localNameOf[C :ClassTag] :String = localNameOf(classTag[C].runtimeClass)
 
@@ -142,17 +155,21 @@ package object prettyprint {
 	  * All individual '$' signs (used in name mangling of inner classes as the separators) are replaced with a '.',
 	  * and so is the double '$$' in '$$anon' sequence for anonymous classes. If the class is specialized, its mangled
 	  * type parameters are resolved and composed in a type parameter list in Scala's syntax.
-	  * Primitive types are capitalized to their Scala names and arrays are formatted recursively
-	  * as 'Array['`localClassNameOf(element)`']'. This algorithm is a heuristic and can only be used for informational,
+	  * Primitive types are capitalized to their Scala names, while their Java box classes include "J" as a prefix.
+	  * Arrays are formatted recursively as 'Array['`localClassNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational,
 	  * debugging purposes, and not for identifiers or in any sort of reflection operations, as it can fail to produce
 	  * the correct and unique type representation for a number of reasons. Most notably, any kind of generic,
 	  * non-specialized classes will not have any type arguments listed, and only `@specialized` type parameters
 	  * of specialized classes will be shown. Use of '$' in a demangled name will throw it off, as will identifiers
-	  * quoted in backticks. Finally, for the obvious reason, the name of the anonymous class is synthetic.
+	  * quoted in backticks. Finally, for the obvious reason, the name of anonymous classes are synthetic.
 	  */
 	def localNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
 
+		case null if clazz.isPrimitive => clazz.getName.capitalize
+		case null if clazz.isBox => "J" + clazz.unboxed.getName.capitalize
 		case null =>
 			val qualified = clazz.getName
 			val end = trimTrailingDollars(qualified)
@@ -161,7 +178,6 @@ package object prettyprint {
 			demangleClassName(qualified, start, end, res)
 			res.toString
 
-		case elem if elem.isPrimitive => "Array[" + elem.getName.capitalize + "]"
 		case elem => "Array[" + localNameOf(elem) + "]"
 	}
 
@@ -175,7 +191,8 @@ package object prettyprint {
 	  * Finally, all individual '$' (used in particular for separating names of nested classes) are replaced 
 	  * with '.', as is the double '$$' of '$$anon' marking an anonymous class. Primitive types are capitalized 
 	  * to their Scala names and arrays are formatted recursively as 'Array['`abbrevNameOf(element)`']'. 
-	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not 
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not
 	  * for identifiers or in any sort of reflection operations, as it can fail to produce the correct and unique type 
 	  * representation for a number of reasons. Most notably, any kind of generic, non-specialized classes 
 	  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes 
@@ -192,7 +209,8 @@ package object prettyprint {
 	  * Finally, all individual '$' (used in particular for separating names of nested classes) are replaced 
 	  * with '.', as is the double '$$' of '$$anon' marking an anonymous class. Primitive types are capitalized 
 	  * to their Scala names and arrays are formatted recursively as 'Array['`abbrevNameOf(element)`']'. 
-	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not 
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not
 	  * for identifiers or in any sort of reflection operations, as it can fail to produce the correct and unique type 
 	  * representation for a number of reasons. Most notably, any kind of generic, non-specialized classes 
 	  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes 
@@ -209,7 +227,8 @@ package object prettyprint {
 	  * Finally, all individual '$' (used in particular for separating names of nested classes) are replaced 
 	  * with '.', as is the double '$$' of '$$anon' marking an anonymous class. Primitive types are capitalized 
 	  * to their Scala names and arrays are formatted recursively as 'Array['`abbrevNameOf(element)`']'. 
-	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not 
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not
 	  * for identifiers or in any sort of reflection operations, as it can fail to produce the correct and unique type 
 	  * representation for a number of reasons. Most notably, any kind of generic, non-specialized classes 
 	  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes 
@@ -219,6 +238,7 @@ package object prettyprint {
 	def abbrevNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
 
+		case null if clazz.isPrimitive => clazz.getName.capitalize
 		case null =>
 			val qname = clazz.getName
 			val end = trimTrailingDollars(qname)
@@ -245,7 +265,6 @@ package object prettyprint {
 			demangleClassName(qname, start, end, sb)
 			sb.toString
 
-		case c if c.isPrimitive => "Array[" + abbrevNameOf(c).capitalize + "]"
 		case c => "Array[" + abbrevNameOf(c) + "]"
 	}
 
@@ -257,13 +276,14 @@ package object prettyprint {
 	  * is resolved and replaced with a parameter list, as it would occur in the code. Finally, all individual '$'
 	  * (used in particular for separating names of nested classes) are replaced with '.', as is the double '$$' 
 	  * of '$$anon' marking an anonymous class. Primitive types are capitalized to their Scala names and arrays
-	  * are formatted recursively as 'Array['`fullNameOf(element)`']'. This algorithm is a heuristic and can
-	  * only be used for informational, debugging purposes, and not for identifiers or in any sort of reflection 
-	  * operations, as it can fail to produce the correct and unique type representation for a number of reasons.
-	  * Most notably, any kind of generic, non-specialized classes will not have any type arguments listed,
-	  * and only `@specialized` type parameters of specialized classes will be shown. Use of '$' in a demangled name
-	  * will throw it off, as will identifiers quoted in backticks. Finally, anonymous classes receive synthetic names
-	  * for the obvious reason.
+	  * are formatted recursively as 'Array['`fullNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes,
+	  * and not for identifiers or in any sort of reflection operations, as it can fail to produce the correct
+	  * and unique type representation for a number of reasons. Most notably, any kind of generic, non-specialized
+	  * classes will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
+	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
+	  * Finally, anonymous classes receive synthetic names for the obvious reason.
 	  */
 	@inline def classNameOf(obj :Any) :String = fullNameOf(obj.getClass)
 
@@ -274,7 +294,8 @@ package object prettyprint {
 	  * Finally, all individual '$' (used in particular for separating names of nested classes) are replaced 
 	  * with '.', as is the double '$$' of '$$anon' marking an anonymous class. Primitive types are capitalized 
 	  * to their Scala names and arrays are formatted recursively as 'Array['`fullNameOf(element)`']'. 
-	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not 
+	  *
+	  *  This algorithm is a heuristic and can only be used for informational, debugging purposes, and not
 	  * for identifiers or in any sort of reflection operations, as it can fail to produce the correct and unique type 
 	  * representation for a number of reasons. Most notably, any kind of generic, non-specialized classes 
 	  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes 
@@ -289,8 +310,9 @@ package object prettyprint {
 	  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.
 	  * Finally, all individual '$' (used in particular for separating names of nested classes) are replaced 
 	  * with '.', as is the double '$$' of '$$anon' marking an anonymous class. Primitive types are capitalized 
-	  * to their Scala names and arrays are formatted recursively as 'Array['`fullNameOf(element)`']'. 
-	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not 
+	  * to their Scala names and arrays are formatted recursively as 'Array['`fullNameOf(element)`']'.
+	  *
+	  * This algorithm is a heuristic and can only be used for informational, debugging purposes, and not
 	  * for identifiers or in any sort of reflection operations, as it can fail to produce the correct and unique type 
 	  * representation for a number of reasons. Most notably, any kind of generic, non-specialized classes 
 	  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes 
@@ -300,6 +322,7 @@ package object prettyprint {
 	def fullNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
 
+		case null if clazz.isPrimitive => clazz.getName.capitalize
 		case null =>
 			val qname = clazz.getName
 			val start = qname.lastIndexOf('.') + 1
