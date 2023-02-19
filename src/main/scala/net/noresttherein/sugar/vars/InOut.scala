@@ -18,7 +18,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * Note that while by default, and for all typical implementations such as [[net.noresttherein.sugar.vars.Var Var]]
   * or [[net.noresttherein.sugar.vars.Atomic Atomic]] method [[net.noresttherein.sugar.vars.InOut.get get]]
   * returns `this.`[[net.noresttherein.sugar.vars.InOut.value value]], these two properties can have different
-  * semantics in some classes, such as [[net.noresttherein.sugar.vars.Finalizable Finalizable]].
+  * semantics in some classes, such as [[net.noresttherein.sugar.vars.Freezer Freezer]].
   * Where applicable, the subclasses use `value` as the 'current' value and `get` for a more final/public version.
   * Furthermore, instances of some implementations can have no current value
   * (i.e., `value` throws a [[NoSuchElementException]] and [[net.noresttherein.sugar.vars.Ref.option option]]

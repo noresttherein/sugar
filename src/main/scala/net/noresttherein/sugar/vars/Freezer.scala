@@ -4,7 +4,7 @@ import java.lang.invoke.MethodHandles
 
 import scala.Specializable.Args
 
-import net.noresttherein.sugar.vars.Finalizable.stateField
+import net.noresttherein.sugar.vars.Freezer.stateField
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness.DefaultValue
@@ -12,31 +12,31 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 
-/** A boxed, thread-safe variable whose value can become finalized at some point, causing all future reads to return
+/** A boxed, thread-safe variable whose value can become frozen at some point, causing all future reads to return
   * the same, frozen value. Its life cycle consists of two phases: during the initialization phase, the variable can
   * be mutated and read just like a [[net.noresttherein.sugar.vars.Volatile Volatile]] instance.
-  * Once [[net.noresttherein.sugar.vars.Finalizable.makeFinal makeFinal]] method is called by any thread, the value
+  * Once [[net.noresttherein.sugar.vars.Freezer.freeze freeze]] method is called by any thread, the value
   * can no longer be updated, and the read-only phase begins. This phase transition
   * is also thread-safe: no writes will be lost. Any future updates to the variable
   * will throw an [[IllegalStateException]] and the variable will become from this point effectively immutable.
   *
   * Aside of the variable [[net.noresttherein.sugar.vars.InOut InOut]] interface, this class
   * implements also immutable API [[net.noresttherein.sugar.vars.Val Val]].
-  * While [[net.noresttherein.sugar.vars.Finalizable.value value]] property can be accessed at any time returning
-  * the current value of the variable, [[net.noresttherein.sugar.vars.Finalizable.apply apply()]] will throw
-  * an [[IllegalStateException]] if the variable has not been finalized, and return the same value once the variable
-  * becomes finalized. Method [[net.noresttherein.sugar.vars.Finalizable.isDefined isDefined]] can be used to determine
-  * if the variable has been finalized (although `false` results may become outdated before being read by the caller)
+  * While [[net.noresttherein.sugar.vars.Freezer.value value]] property can be accessed at any time returning
+  * the current value of the variable, [[net.noresttherein.sugar.vars.Freezer.apply apply()]] will throw
+  * an [[IllegalStateException]] if the variable has not been frozen, and return the same value once the variable
+  * becomes frozen. Method [[net.noresttherein.sugar.vars.Freezer.isDefined isDefined]] can be used to determine
+  * if the variable has been frozen (although `false` results may become outdated before being read by the caller)
   * and [[net.noresttherein.sugar.vars.Ref.option option]] and [[net.noresttherein.sugar.vars.Ref.opt opt]] have also
-  * semantics of the immutable `Val`, returning `None`/`Lack` if the variable is not finalized.
-  * @define Ref `Finalizable`
+  * semantics of the immutable `Val`, returning `None`/`Lack` if the variable is not frozen.
+  * @define Ref `Freezer`
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: making it a Ref, not a Val, so that equality compares current values
-@SerialVersionUID(ver) //todo: SignalFinalizable
-sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T)
+@SerialVersionUID(ver) //todo: SignalFrozen
+sealed class Freezer[@specialized(SpecializedVars) T] private[vars](init :T)
 	extends InOut[T] with Val[T] with Serializable //consider: does it make sense for it to be Serializable
 {
-	import Finalizable.{Immutable, Locked, Mutable}
+	import Freezer.{Immutable, Locked, Mutable}
 	@volatile private[this] var x     :T = init
 	@volatile private[this] var state :Int = Mutable
 
@@ -46,30 +46,30 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	/** Returns `true`. */
 	override def isFinalizable :Boolean = true
 
-	/** True if this variable is finalized. */
+	/** True if this variable is frozen. */
 	override def isConst       :Boolean = state == Immutable
 
-	/** True if this variable is finalized. */
+	/** True if this variable is frozen. */
 	override def isDefined     :Boolean = state == Immutable
 
-	/** True if this variable is finalized. */
+	/** True if this variable is frozen. */
 	override def isDefinite    :Boolean = state == Immutable
 
 	/** Transitions this variable to an immutable state. From this time on, all future assignments
-	  * will throw an [[IllegalStateException]], [[net.noresttherein.sugar.vars.Finalizable.isDefined isDefined]]
-	  * will always return `true`, and [[net.noresttherein.sugar.vars.Finalizable.apply() apply]]`()` will
+	  * will throw an [[IllegalStateException]], [[net.noresttherein.sugar.vars.Freezer.isDefined isDefined]]
+	  * will always return `true`, and [[net.noresttherein.sugar.vars.Freezer.apply() apply]]`()` will
 	  * return the current value.
 	  */
-	def makeFinal() :Unit =
+	def freeze() :Unit =
 		while (state != Immutable && !stateField.weakCompareAndSet(this :AnyRef, Mutable, Immutable))
 			{}
 
-	/** The current value of this `Finalizable`. This method never throws an exception. */
+	/** The current value of this `Freezer`. This method never throws an exception. */
 	final override def value :T = x
 
 	/** Sets the value of this variable to `newValue`.
-	  * @throws IllegalStateException if this variable is finalized.
-	  * @see [[net.noresttherein.sugar.vars.Finalizable.const_=]]
+	  * @throws IllegalStateException if this variable is frozen.
+	  * @see [[net.noresttherein.sugar.vars.Freezer.const_=]]
 	  */
 	override def value_=(newValue :T) :Unit = {
 		lock()
@@ -78,31 +78,31 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	}
 	private[vars] final def set(newValue :T) :Unit = x = newValue
 
-	/** The finalized value of this variable.
-	  * @throws NoSuchElementException if this variable is not finalized.
+	/** The frozen value of this variable.
+	  * @throws NoSuchElementException if this variable is not frozen.
 	  */
 	final override def get :T =
-		if (state == Immutable) x else throw new NoSuchElementException(toString + " is not finalized.")
+		if (state == Immutable) x else throw new NoSuchElementException(toString + " is not frozen.")
 
-	/** The finalized value of this variable.
-	  * @throws IllegalStateException if this variable is not finalized.
+	/** The frozen value of this variable.
+	  * @throws IllegalStateException if this variable is not frozen.
 	  */
 	override def const :T =
-		if (state == Immutable) x else throw new UnsupportedOperationException(toString + " is not finalized.")
+		if (state == Immutable) x else throw new UnsupportedOperationException(toString + " is not frozen.")
 
-	/** Sets the final, [[net.noresttherein.sugar.vars.Finalizable.const constant]] value of this `Val`.
-	  * Same as `this.`[[net.noresttherein.sugar.vars.Finalizable.const_= const]]` = value`.
+	/** Sets the final, [[net.noresttherein.sugar.vars.Freezer.const constant]] value of this `Val`.
+	  * Same as `this.`[[net.noresttherein.sugar.vars.Freezer.const_= const]]` = value`.
 	  */
-	@inline final def finalized_=(value :T) :Unit = const = value
+	@inline final def frozen_=(value :T) :Unit = const = value
 
 	/** Transitions this variable to an immutable `Val` state with the given value. It is equivalent to an atomic
 	  * version of
 	  * {{{
-	  *   this.value = finalValue; this.makeFinal()
+	  *   this.value = finalValue; this.freeze()
 	  * }}}
 	  * From this time on, all future assignments
-	  * will throw an [[IllegalStateException]], [[net.noresttherein.sugar.vars.Finalizable.isDefined isDefined]]
-	  * will always return `true`, and [[net.noresttherein.sugar.vars.Finalizable.apply() apply]]`()` will
+	  * will throw an [[IllegalStateException]], [[net.noresttherein.sugar.vars.Freezer.isDefined isDefined]]
+	  * will always return `true`, and [[net.noresttherein.sugar.vars.Freezer.apply() apply]]`()` will
 	  * return `finalValue`.
 	  */
 	@throws[IllegalStateException]("if this variable is already final.")
@@ -113,31 +113,31 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	}
 
 
-	/** The current value of this variable: `Some(`[[net.noresttherein.sugar.vars.Finalizable.value value]]`)`. */
+	/** The current value of this variable: `Some(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
 	override def option :Option[T] = Some(x)
 
-	/** The current value of this variable: `Got(`[[net.noresttherein.sugar.vars.Finalizable.value value]]`)`. */
+	/** The current value of this variable: `Got(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
 	override def opt    :Opt[T] = Got(x)
 
-	/** The current value of this variable: `Sure(`[[net.noresttherein.sugar.vars.Finalizable.value value]]`)`. */
+	/** The current value of this variable: `Sure(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
 	override def unsure :Unsure[T] = Sure(x)
 
-	/** The value of this variable if it is in the immutable state (finalized). */
+	/** The value of this variable if it is in the immutable state (frozen). */
 	@inline final override def toOption :Option[T] = constOption
 
-	/** The value of this variable if it is in the immutable state (finalized).  */
+	/** The value of this variable if it is in the immutable state (frozen).  */
 	@inline final override def toOpt    :Opt[T]  = constOpt
 
-	/** The value of this variable if it is in the immutable state (finalized). */
+	/** The value of this variable if it is in the immutable state (frozen). */
 	@inline final override def toUnsure :Unsure[T] = constUnsure
 
-	/** The value of this variable if it is in the immutable state (finalized). */
+	/** The value of this variable if it is in the immutable state (frozen). */
 	override def constOption :Option[T] = if (state == Immutable) Some(x) else None
 
-	/** The value of this variable if it is in the immutable state (finalized). */
+	/** The value of this variable if it is in the immutable state (frozen). */
 	override def constOpt    :Opt[T] = if (state == Immutable) Got(x) else Lack
 
-	/** The value of this variable if it is in the immutable state (finalized). */
+	/** The value of this variable if it is in the immutable state (frozen). */
 	override def constUnsure :Unsure[T] = if (state == Immutable) Sure(x) else Missing
 
 	override def ?=(newValue :T) :T = {
@@ -187,7 +187,7 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 	private def lock() :Unit =
 		while (!stateField.weakCompareAndSet(this :AnyRef, Mutable, Locked))
 			if (state == Immutable)
-				throw new IllegalStateException(toString + " is finalized.")
+				throw new IllegalStateException(toString + " is frozen.")
 
 	//overridden to avoid the creation of a closure object capturing other
 	private[vars] override def bool_&&=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
@@ -204,30 +204,30 @@ sealed class Finalizable[@specialized(SpecializedVars) T] private[vars] (init :T
 		state = Mutable
 	}
 
-	private[vars] override def isSpecialized :Boolean = getClass != classOf[Finalizable[_]]
+	private[vars] override def isSpecialized :Boolean = getClass != classOf[Freezer[_]]
 
 }
 
 
 
 
-/** Factory of boxed [[net.noresttherein.sugar.vars.Finalizable Finalizable]] variables.
+/** Factory of boxed [[net.noresttherein.sugar.vars.Freezer Freezer]] variables.
   */
 @SerialVersionUID(ver)
-object Finalizable {
+object Freezer {
 	/** Create a new finalizable variable which can be shared by multiple threads. */
-	def apply[@specialized(SpecializedVars) T](init :T) :Finalizable[T] = new Finalizable(init)
+	def apply[@specialized(SpecializedVars) T](init :T) :Freezer[T] = new Freezer(init)
 
 	/** Create a new finalizable variable which can be shared by multiple threads. */
-	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Finalizable[T] =
+	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Freezer[T] =
 		apply(default.get)
 
-	@inline implicit def unboxFinalizable[@specialized(SpecializedVars) T](ref :Finalizable[T]) :T = ref.value
+	@inline implicit def unboxFinalizable[@specialized(SpecializedVars) T](ref :Freezer[T]) :T = ref.value
 
-	implicit def finalizableOrdering[T :Ordering] :Ordering[Finalizable[T]] = Val.valOrdering
+	implicit def finalizableOrdering[T :Ordering] :Ordering[Freezer[T]] = Val.valOrdering
 
 	private final val stateField = MethodHandles.lookup().findVarHandle(
-		classOf[Finalizable[Any]], "state", Integer.TYPE
+		classOf[Freezer[Any]], "state", Integer.TYPE
 	)
 	private final val Mutable   = 0
 	private final val Locked    = 1

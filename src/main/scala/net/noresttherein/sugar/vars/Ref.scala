@@ -88,7 +88,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * the requirement is for `const` not to throw an exception under normal conditions
 	  * (although it may wait indefinitely). Being `constant` automatically implies being finalizable,
 	  * otherwise it is a property of some implementing classes (subclasses of [[net.noresttherein.sugar.vars.Val Val]],
-	  * not only [[net.noresttherein.sugar.vars.Finalizable Finalizable]] itself).
+	  * not only [[net.noresttherein.sugar.vars.Freezer Freezer]] itself).
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  */
 	def isFinalizable: Boolean
@@ -203,7 +203,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def const :T
 
 	/** An alias for [[net.noresttherein.sugar.vars.Ref.const const]]. */
-	@inline final def finalized :T = const //exists so that `Finalizable.finalized_=` parses properly
+	@inline final def frozen :T = const //exists so that `Freezer.frozen_=` parses properly
 
 	/** The value of this $Ref, if available or can be computed. The exact semantics depend on the actual implementation,
 	  * in particular on its mutability/immutability.
@@ -251,7 +251,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * As a rule, it is equivalent to `Try(const).toOption`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
 	  * always return [[net.noresttherein.sugar.vars.Opt.Lack Lack]], unless they can be 'finalized'
-	  * (see [[net.noresttherein.sugar.vars.Finalizable Finalizable]]). Immutable instances return `Some(const)`
+	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return `Some(const)`
 	  * (possibly initializing the value).
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOption toOption]]
@@ -294,7 +294,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * As a rule, it is equivalent to `Opt.fromOption(Try(const).toOption)`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
 	  * always return [[net.noresttherein.sugar.vars.Opt.Lack Lack]], unless they can be 'finalized'
-	  * (see [[net.noresttherein.sugar.vars.Finalizable Finalizable]]). Immutable instances return
+	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return
 	  * [[net.noresttherein.sugar.vars.Opt.Got Got]]`(const)` (possibly initializing the value).
 	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
@@ -338,7 +338,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * As a rule, it is equivalent to `Unsure.fromOption(Try(const).toOption)`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
 	  * always return [[net.noresttherein.sugar.vars.Missing Missing]], unless they can be 'frozen'
-	  * (see [[net.noresttherein.sugar.vars.Finalizable Finalizable]]). Immutable instances return
+	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return
 	  * [[net.noresttherein.sugar.vars.Sure Sure]]`(const)` (possibly initializing the value).
 	  * @see [[net.noresttherein.sugar.vars.Ref.unsure unsure]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
@@ -381,7 +381,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * As a rule, it is equivalent to `Opt.fromOption(Try(const).toOption)`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
 	  * always return [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]], unless they can be 'finalized'
-	  * (see [[net.noresttherein.sugar.vars.Finalizable Finalizable]]). Immutable instances return
+	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return
 	  * [[net.noresttherein.sugar.vars.Opt.Got Got]]`(const)` (possibly initializing the value).
 	  * @see [[net.noresttherein.sugar.vars.Ref.potential potential]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]]
