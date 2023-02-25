@@ -2,6 +2,7 @@ package net.noresttherein.sugar.matching
 
 import scala.util.matching.Regex
 
+import net.noresttherein.sugar.extensions.{downcast2TypeParams, saferCasting}
 import net.noresttherein.sugar.matching.extensions.{matchesMethod, RegexpGroupMatchPattern}
 
 
@@ -12,6 +13,10 @@ trait extensions extends Any {
 
 	@inline implicit final def regexpGroupMatchPattern(self :StringContext) :RegexpGroupMatchPattern =
 		new RegexpGroupMatchPattern(self)
+//
+//	@inline implicit final def partialFunctionFactoryExtension(self :PartialFunction.type)
+//			:PartialFunctionFactoryExtension =
+//		new PartialFunctionFactoryExtension {}
 }
 
 
@@ -92,5 +97,26 @@ object extensions extends extensions {
 		}
 
 	}
+
+
+//	/** Additional extension factory methods for the `PartialFunction` singleton object creating partial functions. */
+//	sealed trait PartialFunctionFactoryExtension extends Any {
+//		/** Creates a [[PartialFunction]] based on its [[PartialFunction.applyOrElse applyOrElse]] implementation. */
+//		final def applyOrElse[X, Y](f :(X, X => Y) => Y) :PartialFunction[X, Y] =
+//			new PartialFunction[X, Y] {
+//				override def isDefinedAt(x :X) :Boolean =
+//					f(x, Fallback.downcastParams[X, Y]).asAnyRef ne Fallback
+//
+//				override def apply(x :X) :Y = {
+//					val res = f(x, Fallback.downcastParams[X, Y])
+//					if (res.asAnyRef eq Fallback)
+//						throw new MatchError(x)
+//					res
+//				}
+//				override def applyOrElse[A <: X, B >: Y](x :X, default :A => B) :B =
+//					f(x, default.castParams[X, Y])
+//			}
+//	}
+//	private val Fallback :Any => Any = _ => Fallback
 
 }

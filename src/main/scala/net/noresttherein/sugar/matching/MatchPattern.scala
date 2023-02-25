@@ -175,8 +175,7 @@ object MatchFunction {
 	  *         [[net.noresttherein.sugar.matching.Match.AdaptPartialFunction.apply apply]]`(f :PartialFunction[X, Y])`
 	  *         returning a `MatchFunction[X, Y]`.
 	  */
-	@inline def partial[@specialized(Arg) In] :Match.AdaptPartialFunction[In] = Match[In]
-
+	@inline def apply[@specialized(Arg) In] :Match.AdaptPartialFunction[In] = Match[In]
 
 	/** Forces a function literal of type `(In, In => Out) => Out` to become an instance
 	  * of [[net.noresttherein.sugar.matching.MatchFunction MatchFunction]] using it
@@ -184,7 +183,7 @@ object MatchFunction {
 	  * delegate. Note that, due to a limitation of implementation, the result type `Out` is still boxed, so the benefit
 	  * could be seen only in reference types and simple functions.
 	  */
-	@inline final def applyOrElse[@specialized(Arg) In, Out](applyOrElse :ApplyOrElse[In, Out]) :MatchFunction[In, Out] =
+	@inline final def applyOrElse[In, Out](applyOrElse :ApplyOrElse[In, Out]) :MatchFunction[In, Out] =
 		applyOrElse
 
 	/** A ''single abstract method'' subtype of [[net.noresttherein.sugar.matching.MatchFunction MatchFunction]]
@@ -195,15 +194,14 @@ object MatchFunction {
 	  * `MatchFunction.`[[net.noresttherein.sugar.matching.MatchFunction.partial partial]] to create instances
 	  * of `MatchFunction` which do not resort to intermediate boxing to `Option` in that method.
 	  */
-	trait ApplyOrElse[@specialized(Arg) -In, +Out] extends MatchFunction[In, Out] {
-
-		protected def getOrElse[A1 <: In, B1 >: Out](x :A1, default :A1 => B1) :B1
+	trait ApplyOrElse[In, Out] extends MatchFunction[In, Out] {
+		def getOrElse(x :In, default :In => Out) :Out
 		final override def applyOrElse[A1 <: In, B1 >: Out](x :A1, default :A1 => B1) :B1 =
-			getOrElse(x, default)
+			getOrElse(x, default.asInstanceOf[In => Out])
 
 		final override def unapply(a :In) :Option[Out] = {
 			val z = getOrElse(a, Fallback.downcastParams[In, Out])
-			if (z.asAnyRef eq Fallback) Some(z) else None
+			if (z.asAnyRef eq Fallback) None else Some(z)
 		}
 	}
 	private[this] final val Fallback :Any => Any = _ => Fallback
@@ -236,7 +234,7 @@ object Match {
 	def apply[@specialized(Specializable.Arg) X] :AdaptPartialFunction[X] = new AdaptPartialFunction[X] {}
 
 	sealed trait AdaptPartialFunction[@specialized(Specializable.Arg) X] extends Any {
-		@inline def apply[@specialized(Specializable.Return) Y](f :PartialFunction[X, Y]) :MatchFunction[X, Y] =
+		final def apply[@specialized(Specializable.Return) Y](f :PartialFunction[X, Y]) :MatchFunction[X, Y] =
 			new MatchFunction[X, Y] {
 				override val lift = f.lift
 				override def unapply(a :X) :Option[Y] = lift(a)
@@ -245,5 +243,28 @@ object Match {
 				override def isDefinedAt(x :X) :Boolean = f.isDefinedAt(x)
 				override def pattern = MatchPattern(lift)
 			}
+		//commented out until we have generic functions
+/*
+		final def apply[Y](f :(X, X => Y) => Y) :MatchFunction[X, Y] =
+			new MatchFunction[X, Y] {
+				override val lift = super.lift
+				override def unapply(x :X) :Option[Y] = {
+					val y = f(x, Fallback.downcastParams[X, Y])
+					if (y.asAnyRef ne Fallback) Some(y) else None
+				}
+				override def apply(x :X) :Y = {
+					val y = f(x, Fallback.downcastParams[X, Y])
+					if (y.asAnyRef eq Fallback)
+						throw new MatchError(x)
+					y
+				}
+				override def applyOrElse[A1 <: X, B1 >: Y](x :A1, default :A1 => B1) :B1 = f(x, default)
+
+				override def isDefinedAt(x :X) :Boolean =
+					f(x, Fallback.downcastParams[X, Y]).asAnyRef ne Fallback
+				override def pattern = MatchPattern(lift)
+			}
+*/
 	}
+	private[this] final val Fallback :Any => Any = _ => Fallback
 }
