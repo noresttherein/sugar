@@ -23,7 +23,7 @@ object extensions extends extensions {
 
 		/** True if the argument is a class for a built in value type represented by a Java primitive,
 		  * and this class is the Java class used to box it when lifting the argument to a reference type. */
-		def isBoxOf(valueClass :Class[_]) :Boolean = extensions.Wrappers.get(self).contains(valueClass)
+		def isBoxOf(valueClass :Class[_]) :Boolean = extensions.Unwrapped.getOrElse(self, null) == valueClass
 
 		/** If this class represents a built in value type (a Java primitive type), return the Java class to which
 		  * it is auto boxed when a reference type is needed. */
@@ -45,6 +45,11 @@ object extensions extends extensions {
 		  */
 		@throws[UnsupportedOperationException]("if this class is neither a primitive type nor a box of a primitive type.")
 		def valueClass :Class[_] = if (self.isPrimitive) self else extensions.Unwrapped(self)
+
+		/** Same as [[Class.isAssignableFrom isAssignableFrom]], but perhaps less confusing about the direction
+		  * of subtyping.
+		  */
+		@inline def isSuperclassOf(other :Class[_]) :Boolean = self.isAssignableFrom(other)
 	}
 
 
