@@ -6,7 +6,7 @@ import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions
-import net.noresttherein.sugar.prettyprint.classNameOf
+import net.noresttherein.sugar.prettyprint.{classNameOf, fullNameOf}
 
 
 
@@ -54,10 +54,10 @@ trait SugaredThrowable extends Throwable with Cloneable {
 		case string => string
 	}
 
-	/**`Option(getLocaliazedMessage)`. */
+	/**`Option(getLocalizedMessage)`. */
 	def localizedMessage :Option[String] = Option(getLocalizedMessage)
 
-	/**`Option(getLocaliazedMessage) getOrElse ""`. */
+	/**`Option(getLocalizedMessage) getOrElse ""`. */
 	def localizedMsg :String = getLocalizedMessage match {
 		case null => ""
 		case msg => msg
@@ -175,7 +175,8 @@ abstract class AbstractException(message :String = null, cause :Throwable = null
   *                           `stackTraceProperty` with any array of [[StackTraceElement]]s.
   *                           Defaults to `true`, as in `Exception`. The only real reason to change this value
   *                           is sharing exception instances to reduce the cost of their creation.
-  */@SerialVersionUID(1L)
+  */
+@SerialVersionUID(Ver)
 class AbstractError(message :String = null, cause :Throwable = null,
                     enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends Error(message, cause, enableSuppression, writableStackTrace) with SugaredThrowable
@@ -224,7 +225,7 @@ trait StackableThrowable extends SugaredThrowable {
   * a new instance directly.
   * @see [[net.noresttherein.sugar.exceptions.RethrowableException]]
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class StackableException(message :String = null, cause :Throwable = null,
                          enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends AbstractException(message, cause, enableSuppression, writableStackTrace) with StackableThrowable
@@ -331,7 +332,7 @@ trait Rethrowable extends StackableThrowable {
   * performance benefit. See the documentation of [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]]
   * for more information.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class RethrowableException(message :String, cause :Throwable, override val isRethrown :Boolean)
 	extends StackableException(message, cause, true, !isRethrown) with Rethrowable
 {
@@ -345,7 +346,7 @@ class RethrowableException(message :String, cause :Throwable, override val isRet
   * of another thrown, caught and rethrown exception.
   * @see [[net.noresttherein.sugar.exceptions.imports.rethrow]]
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class RethrowContext(message :String, cause :Throwable = null)
 	extends Throwable(message, cause, false, false) with SugaredThrowable
 
@@ -353,7 +354,7 @@ class RethrowContext(message :String, cause :Throwable = null)
 
 
 /** A base class for exceptions with lazily evaluated error messages. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class LazyException(initMessage: => String, cause :Throwable = null,
                     enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends Exception(null, cause, enableSuppression, writableStackTrace) with SugaredException
@@ -362,6 +363,46 @@ class LazyException(initMessage: => String, cause :Throwable = null,
 	override def message :Option[String] = Some(msg)
 	override def getMessage :String = msg
 }
+//
+//
+///** An exception which is a SAM type. Its single abstract method,
+//  * [[net.noresttherein.sugar.exceptions.AbstractLazyException.initMessage initMessage]] should return the `String`
+//  * to be returned by [[net.noresttherein.sugar.exceptions.SugaredThrowable.msg msg]]
+//  * and  [[Throwable.getMessage getMessage]]. A subclass `E <: AbstractLazyException`, in conjunction with
+//  * an accompanying value of [[net.noresttherein.sugar.exceptions.LazyExceptionFactory LazyExceptionFactory]]`[E]`,
+//  * allows to create exceptions of type `E` - which must be known statically - whose message is initialized lazily based
+//  * on a `Function0` literal expression:
+//  * {{{
+//  *     abstract class WhatTheDuckException extends AbstractLazyException
+//  *     val WhatTheDuckException = new LazyExceptionFactory[WhatTheDuckException]]
+//  *     throw WhatTheDuckException(() => "What the duck?")
+//  * }}}
+//  * While the same
+//  */
+//abstract class AbstractLazyException(defaultMessage :String)
+//	extends Exception(defaultMessage) with SugaredException
+//{
+//	def this() = this(null)
+//
+//	def apply() :String
+//	override lazy val msg :String = apply()
+//	override def getMessage :String = msg
+//
+//	override def className :String = {
+//		var myClass :Class[_] = getClass
+//		while (myClass.isAnonymousClass || myClass.isSynthetic)
+//			myClass = myClass.getSuperclass
+//		fullNameOf(myClass)
+//	}
+//}
+//
+//
+///** A factory class used to force conversion of a `Function0[String]` literal to an exception `E`, if it is a SAM type.
+//  * @see [[net.noresttherein.sugar.exceptions.AbstractLazyException]]
+//  */
+//class LazyExceptionFactory[E <: Exception] {
+//	@inline final def apply(e :E) :E = e
+//}
 
 
 
@@ -375,7 +416,7 @@ class LazyException(initMessage: => String, cause :Throwable = null,
   * which lead to the error is available. Instances can be often reused in that case, reducing the exception
   * overhead even further.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class InternalException(msg :String = null, cause :Throwable = null)
 	extends RuntimeException(msg, cause, false, false) with StackableThrowable
 {
@@ -383,11 +424,11 @@ class InternalException(msg :String = null, cause :Throwable = null)
 }
 
 
-/** An [[Exception]] thrown to indicate a situation which clearly indicates a bug in the executed code,
+/** An [[Error]] thrown to indicate a situation which clearly indicates a bug in the executed code,
   * rather than invalid parameters or external state.
   */
-@SerialVersionUID(ver)
-class Oops(msg :String, reason :Throwable = null) extends RuntimeException(msg, reason) with StackableThrowable {
+@SerialVersionUID(Ver)
+class Oops(msg :String, reason :Throwable = null) extends Error(msg, reason) with StackableThrowable {
 	override def addInfo(msg :String) :StackableThrowable = new Oops(msg, this)
 }
 
@@ -400,7 +441,7 @@ class Oops(msg :String, reason :Throwable = null) extends RuntimeException(msg, 
   *   - Code following infinite loops;
   *   - Guard match patterns following a pattern list which is presumed to already cover all matched values;
   *   - Body of sealed class's methods which must have a concrete implementation (because they override
-  *     an existing method), but which also must be overriden by all subclasses - for example
+  *     an existing method), but which also must be overridden by all subclasses - for example
   *     in order to narrow down the return type;
   *   - Never called package-protected obsolete methods remaining for binary compatibility;
   *
@@ -408,7 +449,7 @@ class Oops(msg :String, reason :Throwable = null) extends RuntimeException(msg, 
   * @see [[net.noresttherein.sugar.imports.??!]]
   * @see [[net.noresttherein.sugar.imports.impossible_!]]
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class ImpossibleError(msg :String = "Implementation error", reason :Throwable = null)
 	extends Error(msg, reason) with StackableThrowable
 {

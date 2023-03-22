@@ -26,7 +26,7 @@ trait extensions extends Any with extensionsLowPriority {
   * and the implicit conversions to these classes. They can also be imported together with all other
   * extension methods in this library from object `sugar.`[[net.noresttherein.sugar.extensions extensions]].
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 
 	class extensions_<:<[A, B](private val ev :A <:< B) extends AnyVal {

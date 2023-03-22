@@ -4,5 +4,5 @@ package net.noresttherein.sugar
 
 
 package object numeric {
-	final val ver = 1L
+	final val Ver = 1L
 }

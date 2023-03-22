@@ -63,7 +63,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @define Ref `Opt`
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
 {
@@ -475,7 +475,7 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Opt.Got$]]
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Opt {
 	/** Wraps the given reference in a purely syntactic option-like object erased in the runtime.
 	  * Note that the wrapped type is upper bound here by `AnyRef` rather than lower bound by `Null`,
@@ -542,7 +542,7 @@ object Opt {
 	type Got[+T] = Opt[T] { type isEmpty = false }
 
 	/** Factory and a matching pattern for non empty values of [[net.noresttherein.sugar.vars.Opt Opt]]. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Got {
 		/** Creates a non-empty [[net.noresttherein.sugar.vars.Opt Opt]] wrapping the given value. */
 		@inline def apply[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
@@ -578,7 +578,7 @@ object Opt {
 	/** Implicit conversions between `Opt` and `Option`.
 	  * Conversions between `Opt` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
 	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]]. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object implicits {
 		@inline implicit def optToOption[T](opt :Opt[T]) :Option[T] = opt.option
 		@inline implicit def optToIterable[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
@@ -604,7 +604,7 @@ object Opt {
 	  *
 	  * Other files which reference classes defined in the import's scope may also need to be modified in order
 	  * to comply with changed interfaces. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object OptAsOption {
 		type Option[T] = Opt[T]
 		type Some[T]   = Got[T]
@@ -626,7 +626,7 @@ object Opt {
 	//extends Any => AnyRef out of laziness, allowing it to pass as the argument to applyOrElse
 	//is private[vars] so that methods of Opt can be inlined
 	// and because some Ref classes play with the erasure and need access to this marker object
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this
 		override def toString = "<undefined>"

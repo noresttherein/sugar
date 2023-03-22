@@ -18,7 +18,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * @define Ref `Out`
   * @author Marcin Mościcki
   */ //todo: not thread safe LocalOut version
-@SerialVersionUID(ver) //consider: does it make sense for it to be Serializable?
+@SerialVersionUID(Ver) //consider: does it make sense for it to be Serializable?
 sealed class Out[@specialized(SpecializedVars) T] private[vars] extends InOut[T] with Val[T] with Serializable {
 	@scala.volatile private[this] var x :T = _
 	@scala.volatile @nowarn private[this] var isSet = false //set through InOut.isSetField VarHandle
@@ -67,7 +67,7 @@ sealed class Out[@specialized(SpecializedVars) T] private[vars] extends InOut[T]
   * instances. This [[net.noresttherein.sugar.vars.InOut InOut]] extension allows the value of the variable to be set
   * at most once.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Out {
 	/** Create an uninitialized [[net.noresttherein.sugar.vars.InOut InOut]] which cannot be accessed before
 	  * its value is explicitly initialized, and which value can be set at most once.

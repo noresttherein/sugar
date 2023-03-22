@@ -21,7 +21,7 @@ class And[X, Y] private[witness] (val first :X, val second :Y) {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object And {
 
 	@inline implicit def both[X, Y](implicit x :X, y :Y) :X And Y = new And(x, y)

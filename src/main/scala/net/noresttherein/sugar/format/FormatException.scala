@@ -6,7 +6,7 @@ import net.noresttherein.sugar.prettyprint.{classNameOf, fullNameOf}
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class FormatException(val format :Format, msg :String, cause :Exception = null,
                       enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends AbstractException(msg, cause, enableSuppression, writableStackTrace)
@@ -15,7 +15,7 @@ class FormatException(val format :Format, msg :String, cause :Exception = null,
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class FormattingException(override val format :Format, val model :Any, msg :String, cause :Exception = null,
                           enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends FormatException(format, msg, cause, enableSuppression, writableStackTrace)
@@ -33,7 +33,7 @@ class FormattingException(override val format :Format, val model :Any, msg :Stri
 	}
 }
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object FormattingException {
 	def apply(format :Format)(model :Any, cause :Exception = null) :FormattingException =
 		if (cause == null) new FormattingException(format, model)
@@ -41,7 +41,7 @@ object FormattingException {
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 abstract class ParsingException(override val format :Format, msg :String, cause :Exception = null,
                                 enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
 	extends FormatException(format, msg, cause, enableSuppression, writableStackTrace)
@@ -50,7 +50,7 @@ abstract class ParsingException(override val format :Format, msg :String, cause 
 	def liquid :format.Liquid
 }
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object ParsingException {
 	def expected(format :Format, name :String)(liquid :format.Liquid, cause :Exception = null) :ParsingException = {
 		val msg = "Failed to parse '" + liquid + "' as " + name + "."

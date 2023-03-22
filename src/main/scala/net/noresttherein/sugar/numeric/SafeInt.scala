@@ -10,7 +10,7 @@ import java.{lang => jl}
   * can throw an [[ArithmeticException]].
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class SafeInt(val toInt :Int) extends AnyVal with Serializable {
 
 	def toByte  : Byte   = { testRange(Byte.MinValue, Byte.MaxValue, "Byte"); toLong.toByte }
@@ -181,7 +181,7 @@ class SafeInt(val toInt :Int) extends AnyVal with Serializable {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object SafeInt {
 	@inline def apply(value :Int) :SafeInt = new SafeInt(value)
 
@@ -204,12 +204,12 @@ object SafeInt {
 		override def toDouble(x :SafeInt) :Double = x.toDouble
 		override def compare(x :SafeInt, y :SafeInt) :Int = x compare y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	implicit object SafeIntIsIntegral extends SafeIntIsNumeric with Integral[SafeInt] {
 		override def quot(x :SafeInt, y :SafeInt) :SafeInt = x / y
 		override def rem(x :SafeInt, y :SafeInt) :SafeInt = x % y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object SafeIntAsIfFractional extends SafeIntIsNumeric with Fractional[SafeInt] {
 		override def div(x :SafeInt, y :SafeInt) :SafeInt = x / y
 	}

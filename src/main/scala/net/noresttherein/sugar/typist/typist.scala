@@ -13,7 +13,7 @@ import net.noresttherein.sugar.vars.Opt
 
 package object typist extends typist.extensions {
 
-	final val ver = 1L
+	final val Ver = 1L
 
 	/** Tests if `left eq right`, executing the given block with the evidence to the identity as its argument,
 	  * returning its result in an [[net.noresttherein.sugar.vars.Opt Opt]].

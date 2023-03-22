@@ -11,7 +11,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @define Ref `ThreadLocal`
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 sealed class ThreadLocal[T] private (init :T) extends Mutable[T] {
 	private[this] val local = java.lang.ThreadLocal.withInitial[T](() => init)
 
@@ -26,7 +26,7 @@ sealed class ThreadLocal[T] private (init :T) extends Mutable[T] {
 
 
 /** A factory of `InOut[T]` variables backed by thread local storage. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object ThreadLocal {
 	@inline def apply[T](init :T) :ThreadLocal[T] = new ThreadLocal[T](init)
 	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.get)

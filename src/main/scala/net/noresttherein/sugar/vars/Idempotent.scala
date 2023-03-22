@@ -24,7 +24,7 @@ trait Idempotent[@specialized(SpecializedVars) +T] extends Lazy[T] {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Idempotent {
 
 	/** Creates a lazy value initialized - possibly multiple times - by an idempotent expression.
@@ -102,7 +102,7 @@ object Idempotent {
 
 
 	/** An already computed (initialized) value. */ //todo: make it specialized
-	@SerialVersionUID(ver) //Not specialized so we don't box the value type to fit in an Opt all the time
+	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in an Opt all the time
 	private class EagerIdempotent[+T](x :T) extends Idempotent[T] {
 		override def isDefinite  :Boolean = true
 		override def value    :T = x
@@ -119,7 +119,7 @@ object Idempotent {
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
 	  * which allows more lax synchronisation.
 	  */
-	@SerialVersionUID(ver) //todo: make it specialized
+	@SerialVersionUID(Ver) //todo: make it specialized
 	private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Idempotent[T]
 	{	//no need for fences because T is a value type
@@ -205,7 +205,7 @@ object Idempotent {
 	/** `Idempotent` implementation for arbitrary types. All reads are behind an `acquireFence`, while initialization
 	  * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] class IdempotentRef[T](private[this] var initializer :() => T) extends Idempotent[T] {
 		private[this] var evaluated :T = _
 

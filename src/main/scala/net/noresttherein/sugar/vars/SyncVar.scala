@@ -81,7 +81,7 @@ trait SyncVar[@specialized(SpecializedVars) T]
 /** Factory of synchronized variables. Provides implicit extensions of greater precedence reducing syn 
   * to provide inlining o synchronized operations.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object SyncVar {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
@@ -378,7 +378,7 @@ object SyncVar {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class BasicSyncVar[@specialized(SpecializedVars) T](override var unsync :T)
 		extends SyncVar[T] with Serializable
 	{

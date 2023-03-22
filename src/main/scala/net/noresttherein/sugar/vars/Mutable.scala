@@ -79,7 +79,7 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Mutable {
 	/** Creates a [[net.noresttherein.sugar.vars.Var Var]] holding the given value. */
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :Mutable[T] = Var(value)

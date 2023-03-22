@@ -92,7 +92,7 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Logger {
 
 	@inline def apply(logger :JLogger) :Logger = new Logger(logger)
@@ -117,7 +117,7 @@ object Logger {
 	  *     final val error = Level.Severe
 	  * }}}
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	class Level private[Logger](val toJava :JLevel) extends AnyVal with Serializable {
 		@inline def isOn(implicit logger :Logger) :Boolean = logger.logsAt(this)
 
@@ -128,7 +128,7 @@ object Logger {
 			logger.log(this, msg, e)
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Level {
 		final val All :Level = JLevel.ALL
 		final val Severe :Level = JLevel.SEVERE
@@ -156,7 +156,7 @@ object Logger {
 		def apply(owner :Any) :String
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object NamingScheme {
 		final val ClassName          :NamingScheme = _.getClass.getName
 		final val DemangledClassName :NamingScheme = classNameOf

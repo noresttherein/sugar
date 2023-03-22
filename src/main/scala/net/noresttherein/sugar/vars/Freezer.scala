@@ -32,7 +32,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @define Ref `Freezer`
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: making it a Ref, not a Val, so that equality compares current values
-@SerialVersionUID(ver) //todo: SignalFrozen
+@SerialVersionUID(Ver) //todo: SignalFrozen
 sealed class Freezer[@specialized(SpecializedVars) T] private[vars](init :T)
 	extends InOut[T] with Val[T] with Serializable //consider: does it make sense for it to be Serializable
 {
@@ -213,7 +213,7 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars](init :T)
 
 /** Factory of boxed [[net.noresttherein.sugar.vars.Freezer Freezer]] variables.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Freezer {
 	/** Create a new finalizable variable which can be shared by multiple threads. */
 	def apply[@specialized(SpecializedVars) T](init :T) :Freezer[T] = new Freezer(init)

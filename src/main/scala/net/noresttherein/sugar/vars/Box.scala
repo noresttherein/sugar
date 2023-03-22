@@ -310,7 +310,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 /** A factory of mutable value holders which can be empty.
   * @see [[net.noresttherein.sugar.vars.Box!]]
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Box {
 	/** Creates a new, empty box. The returned instance is not thread safe. */
 	def apply[@specialized(SpecializedVars) T] :Box[T] = new NonSyncBox
@@ -333,7 +333,7 @@ object Box {
 
 
 	/** A non-synchronized `Box` implementation. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class NonSyncBox[@specialized(SpecializedVars) T] extends Box[T] {
 		@nowarn private[this] var nullVal :T = _//the default value used to clear x so we don't keep a reference to the old value
 		private[this] var x :T = _
@@ -376,7 +376,7 @@ sealed trait VolatileBox[@specialized(SpecializedVars) T] extends Box[T]
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object VolatileBox {
 	/** Creates a new, empty box. The instance is thread safe with the same memory access semantics
 	  * as a [[net.noresttherein.sugar.vars.Volatile Volatile]] variable. All operations are atomic.
@@ -420,7 +420,7 @@ object VolatileBox {
 	  * for reference types, as it offers better performance and this class may no longer provide required
 	  * memory access guarantees in the future.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private final class VolatileValBox[@specialized(SpecializedVars) T] private[vars] extends VolatileBox[T] {
 		private[this] var x :T = _ //access always sandwiched between two accesses to state, so it needs not to be volatile
 		@scala.volatile private[this] var state :Int = Empty //tells if the box is empty and serves as a spin lock variable
@@ -578,7 +578,7 @@ object VolatileBox {
 	/** A simple implementation of VolatileBox based on an `Opt` field erased to `AnyRef` in the byte code,
 	  * which reduces all operations to a single test-and-set (in the worst case)
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private final class VolatileRefBox[T] extends VolatileBox[T] {
 		private[this] var x :Opt[T] = Lack //name x is used by VolatileBox.RefOptField
 

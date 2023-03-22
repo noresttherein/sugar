@@ -31,7 +31,7 @@ sealed abstract class SelfUpperBoundImplicits private[typist] extends ProperUppe
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object UpperBound extends SelfUpperBoundImplicits {
 	/** Calculates explicitly the least upper bound of its type parameters via its `apply()` method. */
 	final class Binder[X, Y] private[UpperBound] {

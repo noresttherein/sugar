@@ -21,7 +21,7 @@ import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
   * for `BigInt` values, accepting another `BigInt` to use as a denominator.
   * @author Marcin Mościcki marcin@moscicki.net
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 final class BigRatio private (n :BigInteger, d :BigInteger,
                               private[this] var num :BigInt, private[this] var den :BigInt) extends Number
 {
@@ -203,7 +203,7 @@ final class BigRatio private (n :BigInteger, d :BigInteger,
   * as fractions in their canonical form. Contains implicit conversions promoting `Int`s, `Long`s, `BigInt`s
   * and `BigInteger`s to `BigRatio`s when given as the parameter to `BigRatio`'s methods.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object BigRatio {//extends BigRatioImplicits {
 
 	/** Number zero as a `BigRatio` value: `0/1`. */
@@ -482,7 +482,7 @@ object BigRatio {//extends BigRatioImplicits {
 
 
 	/** The `Fractional` type class for `BigRatio` values. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	implicit object BigRatioIsFractional extends Fractional[BigRatio] {
 		override def div(x :BigRatio, y :BigRatio) :BigRatio = x / y
 		override def plus(x :BigRatio, y :BigRatio) :BigRatio = x + y

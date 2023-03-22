@@ -29,7 +29,7 @@ sealed trait Transient[@specialized(SpecializedVars) +T] extends Idempotent[T] {
 /** A factory of simple wrappers of lazily initialized `@transient` values which are re-initialized after
   * serialization and deserialization.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Transient {
 	//todo: a macro accepting idempotent: => T
 
@@ -50,7 +50,7 @@ object Transient {
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
 	  * which allows more lax synchronisation.
 	  */
-	@SerialVersionUID(ver) //todo: make it really specialized
+	@SerialVersionUID(Ver) //todo: make it really specialized
 	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Eval[T]) extends Transient[T] {
 		@transient private[this] var evaluated :Any = undefined
 
@@ -110,7 +110,7 @@ object Transient {
 	/** `Transient` implementation for arbitrary types. All reads are behind an `acquireFence`, while initialization
 	  * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class TransientRef[T](initializer :Eval[T]) extends Transient[T] {
 		@transient @volatile private[this] var evaluated :Any = _
 

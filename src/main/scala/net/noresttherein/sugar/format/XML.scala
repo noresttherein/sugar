@@ -13,7 +13,7 @@ import net.noresttherein.sugar.vars.Opt
 /** A very simplistic implementation of XML marshalling and unmarshalling.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class XML extends FormatAsString {
 
 	/** Writes an opening tag of the given name and expects such a tag, possibly following whitespace.
@@ -47,7 +47,7 @@ class XML extends FormatAsString {
 
 	protected override def isEmpty(liquid :ChoppedString) :Boolean = liquid.isWhitespace
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object Open extends SpecialOptBasedMold[String] {
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString)
 				:Opt[(ChoppedString, String, ChoppedString)] =
@@ -73,10 +73,10 @@ class XML extends FormatAsString {
 		override def meltOpt(name :String) = Got(melt(name))
 		override def append(prefix :ChoppedString, name :String) = prefix ++ ("<" + name + '>')
 		override def appendOpt(prefix :ChoppedString, name :String) = Got(append(prefix, name))
-		override def toString :String = "XML[<name>]"
+		override def toString :String = "XML.open"
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object Close extends SpecialOptBasedMold[String] {
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString)
 				:Opt[(ChoppedString, String, ChoppedString)] =
@@ -102,12 +102,12 @@ class XML extends FormatAsString {
 		override def meltOpt(name :String) = Got(melt(name))
 		override def append(prefix :ChoppedString, name :String) = prefix ++ ("</" + name + '>')
 		override def appendOpt(prefix :ChoppedString, name :String) = Got(append(prefix, name))
-		override def toString :String = "XML[</name>]"
+		override def toString :String = "XML.close"
 	}
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object StringMold extends NamedMold[String] with SimpleThrowingMold[String] {
 		import XMLStreamConstants._
 		private[this] val factory = XMLInputFactory.newInstance()
@@ -162,7 +162,7 @@ class XML extends FormatAsString {
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class TagMold[M](tagName :String)(implicit bodyMold :Mold[M])
 		extends NamedMold[Tag[M]] with SpecialThrowingMold[Tag[M]]
 	{
@@ -198,10 +198,10 @@ class XML extends FormatAsString {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object XML extends XML {
 	//todo: make it an opaque type in Scala 3
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	class Tag[M](val body :M) extends AnyVal
 
 	object Tag {

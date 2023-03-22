@@ -194,7 +194,7 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Relay {
 	/** Creates a new synchronization channel for passing values of type `T` between threads. */
 	def apply[@specialized(SpecializedVars) T] :Relay[T] = new Relay[T]

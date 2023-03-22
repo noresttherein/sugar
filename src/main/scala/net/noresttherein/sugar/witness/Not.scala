@@ -13,7 +13,7 @@ final class Not[P] private ()
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Not {
 	private[this] val not = new Not[Any]
 

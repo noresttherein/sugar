@@ -240,7 +240,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
 
 /** Factory of boxed in/out method parameters. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object InOut {
 	final val SpecializedVars = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
 
@@ -268,7 +268,7 @@ object InOut {
 	@inline final implicit def unboxInOut[@specialized(SpecializedVars) T](variable :InOut[T]) :T = variable.value
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs or cause conflicts. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object implicits {
 		/** Implicitly creates a `InOut` instance with a given value. This implicit is optional as the main use of `InOut[T]`
 		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `InOut[T]`
@@ -319,7 +319,7 @@ object InOut {
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] class InOutOrdering[V[X] <: InOut[X], T](implicit content :Ordering[T]) extends Ordering[V[T]] {
 		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.get, y.get)
 	}
@@ -898,7 +898,7 @@ object InOut {
 		def apply[B[_]](param :B[X]) :B[Y]
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] final class TypeIdent[@specialized(SpecializedVars) X] extends TypeEquiv[X, X] {
 		override def apply[B[_]](param :B[X]) :B[X] = param
 

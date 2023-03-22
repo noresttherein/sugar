@@ -344,7 +344,7 @@ sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[t
 
 
 /** A factory of synchronized variables whose updates signal any threads currently waiting for their change. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object SignalVar {
 	/** Creates a new wrapper over a synchronized `var`, allowing threads to wait for future changes.
 	  * @param init the initial value of the variable.

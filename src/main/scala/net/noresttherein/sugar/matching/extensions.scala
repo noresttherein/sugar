@@ -22,7 +22,7 @@ trait extensions extends Any {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 
 	class matchesMethod[T](val value :T) extends AnyVal {

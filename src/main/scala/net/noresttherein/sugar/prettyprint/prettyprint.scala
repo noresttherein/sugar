@@ -12,7 +12,7 @@ import net.noresttherein.sugar.extensions.classExtension
 
 
 package object prettyprint {
-	final val ver = 1L
+	final val Ver = 1L
 
 	/** An approximation of the imported type symbol of the class of the given object, as it would be referenced 
 	  * in code. First, the whole package prefix and all trailing '$' characters are dropped. Then, all escape sequences

@@ -499,7 +499,7 @@ object Unsure {
 	/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
 	  * They involve boxing and are placed here for explicit importing.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object implicits {
 		/** An implicit conversion that converts an option to an iterable value. */
 		@inline implicit def unsureToIterable[A](opt :Unsure[A]): Iterable[A] = opt.toIterable
@@ -541,7 +541,7 @@ object Unsure {
 	  *
 	  * Other files which reference classes defined in the import's scope may also
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object UnsureAsOption {
 		type Option[T] = Unsure[T]
 		type Some[T]   = Sure[T]
@@ -580,7 +580,7 @@ object Unsure {
   * Unlike `Some`, it is specialized and does not involve boxing of built in value types used as contents.
   * @tparam T the content type.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don't these vars have to be @volatile?
                 (x :T, private[this] var cachedOption :Option[T] = None, private[this] var cachedOpt :Opt[T] = Lack)
 	extends Unsure[T]
@@ -620,7 +620,7 @@ final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don
 /** A factory and deconstructor of full (''sure'') [[net.noresttherein.sugar.vars.Unsure Unsure]] instances,
   * fulfilling the same function as [[scala.Some]].
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Sure {
 	/** Constructs a successful `Unsure` containing the given value. */
 	@inline def apply[@specialized(SpecializedVars) T](value :T) :Sure[T] = new Sure(value)
@@ -635,7 +635,7 @@ object Sure {
 
 
 /** An empty (''missing'') [[net.noresttherein.sugar.vars.Unsure Unsure]] instance, a counterpart of [[scala.None]]. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 case object Missing extends Unsure[Nothing] {
 	override def get :Nothing = throw new NoSuchElementException("Missing.get")
 	override def opt :Opt[Nothing] = Lack

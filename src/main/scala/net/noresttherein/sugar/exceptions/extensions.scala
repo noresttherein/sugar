@@ -17,7 +17,7 @@ trait extensions extends Any {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 
 	/** Scala-like accessors to properties of [[Throwable]]. */

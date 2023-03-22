@@ -17,7 +17,7 @@ import net.noresttherein.sugar.reflect.PropertyPath.UpdatableProperty
 
 
 /** A wrapper for all exceptions thrown during the reflection */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class PropertyReflectionException(msg :String, cause :Throwable, override val isRethrown :Boolean)
 	extends RethrowableException(msg, cause, isRethrown)
 {
@@ -194,7 +194,7 @@ sealed abstract class PropertyPath[-X, +Y] private[PropertyPath](final val defin
   * While these conditions severely limit its application, it shouldn't be a problem for a typical business domain
   * model for which it is intended as a replacement of traditional `String` literals.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object PropertyPath {
 
 	/** Shortcut for optional infix notation for PropertyPath: val property :X===>Y. */
@@ -377,7 +377,7 @@ object PropertyPath {
 	  * Be warned that drop function will always return `None`, as without reflection we have no means of
 	  * decomposing the associated function into the dropped prefix and suffix functions.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	class HackedProperty[-X, +Y] private[PropertyPath](val name :String, getter :X => Y, argType :Type)
 		extends PropertyPath[X, Y](argType, getter)
 	{
@@ -439,7 +439,7 @@ object PropertyPath {
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	sealed class IdentityProperty[X] private[PropertyPath] (tpe :Type)
 		extends ReflectedProperty[X, X](tpe, Predef.identity[X])
 	{
@@ -491,7 +491,7 @@ object PropertyPath {
 
 
 	/** PropertyPath consisting of a single property call. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	sealed class SimpleProperty[-X, +Y] private[PropertyPath](tpe :Type, _method :PropertyCall, _property :X => Y)
 		extends Property[X, Y](tpe, _method, _property)
 	{
@@ -548,7 +548,7 @@ object PropertyPath {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class ChainedProperty[-X, +Y]
 			      (tpe :Type, _method :PropertyCall, _property :X=>Y, private final val tail :Property[_, Y])
 		extends Property[X, Y](tpe, _method, _property)
@@ -620,7 +620,7 @@ object PropertyPath {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final private[PropertyPath] class PropertyCall(private[PropertyPath] val method :Method) extends Serializable {
 		def name :String = method.getName
 

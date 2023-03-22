@@ -17,7 +17,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @see [[net.noresttherein.sugar.vars.Var$]]
   * @define Ref `Var`
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
 	extends Mutable[T] with Serializable
 {
@@ -254,7 +254,7 @@ sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] v
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Var {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
@@ -267,7 +267,7 @@ object Var {
 
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object implicits {
 		/** Implicitly creates a `Var` with a given value. This implicit is optional as the main use of `Var[T]`
 		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `Var[T]`

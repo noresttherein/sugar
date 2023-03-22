@@ -135,7 +135,7 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Clearable {
 	/** A non synchronized, non thread safe `Clearable` variable initialized with the given value. */
 	def apply[T](value :T) :Clearable[T] = new PlainClearable[T](Got(value))
@@ -147,21 +147,21 @@ object Clearable {
 	def volatile[T](value :T) :Clearable[T] = new VolatileClearable(value)
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class PlainClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = x.get
 		override def opt :Opt[T] = x
 		override def clear() :Unit = x = Lack
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private final class SyncClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = synchronized(x.get)
 		override def opt :Opt[T] = synchronized(x)
 		override def clear() :Unit = synchronized { x = Lack }
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private final class VolatileClearable[+T](init :T) extends Clearable[T] {
 		@volatile private[this] var x :Opt[T] =  Got(init)
 

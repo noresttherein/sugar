@@ -43,7 +43,7 @@ import scala.collection.mutable
 	* @define Ref `Watched`
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor :Executor = SerializedExecutor)
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
@@ -192,7 +192,7 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 /** A factory of boxed `@volatile` variables which evaluate passed callbacks every time a value is changed.
   * @define variable watched variable
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Watched extends VolatileLikeCompanion[Watched] {
 
 	/** Create a new $variable which can be shared and watched by multiple threads. The implicit
@@ -221,7 +221,7 @@ object Watched extends VolatileLikeCompanion[Watched] {
 
 
 	/** The simplest executor which executes the given [[Runnable]] immediately in the body of its `execute` method. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final object SerializedExecutor extends Executor with Serializable { //todo: exception handling and logging.
 		override def execute(command :Runnable) :Unit = command.run()
 	}
@@ -254,14 +254,14 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,
 	  * which we do not want).
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class WatchedRef[T](init :T)(implicit executor :Executor = SerializedExecutor)
 		extends Watched[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Watched[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class WatchedBool(init :Boolean)(implicit executor :Executor = SerializedExecutor)
 		extends Watched[Boolean](init) with BoolVolatileLike
 

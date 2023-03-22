@@ -4,6 +4,6 @@ package net.noresttherein.sugar
 
 
 package object format {
-	final val ver = 1L
+	final val Ver = 1L
 
 }

@@ -52,7 +52,7 @@ trait Eval[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) with 
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Eval {
 	@inline def apply[@specialized(SpecializedVars) T](eval :Eval[T]) :Eval[T] = eval
 
@@ -89,7 +89,7 @@ trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) wi
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object EvalOpt {
 	@inline def apply[@specialized(SpecializedVars) T](eval :EvalOpt[T]) :EvalOpt[T] = eval
 

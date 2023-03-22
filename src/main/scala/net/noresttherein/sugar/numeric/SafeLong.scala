@@ -10,7 +10,7 @@ import java.{lang => jl}
   * can throw an [[ArithmeticException]] with the exception of bitwise operations.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 
 	def toByte  : Byte   = { testRange(Byte.MinValue, Byte.MaxValue, "Byte"); toLong.toByte }
@@ -182,7 +182,7 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object SafeLong {
 	@inline def apply(value :Long) :SafeLong = new SafeLong(value)
 
@@ -205,12 +205,12 @@ object SafeLong {
 		override def toDouble(x :SafeLong) :Double = x.toDouble
 		override def compare(x :SafeLong, y :SafeLong) :Int = x compare y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	implicit object SafeLongIsIntegral extends SafeLongIsNumeric with Integral[SafeLong] {
 		override def quot(x :SafeLong, y :SafeLong) :SafeLong = x / y
 		override def rem(x :SafeLong, y :SafeLong) :SafeLong = x % y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object SafeLongAsFractional extends SafeLongIsNumeric with Fractional[SafeLong] {
 		override def div(x :SafeLong, y :SafeLong) :SafeLong = x / y
 	}

@@ -15,7 +15,7 @@ import net.noresttherein.sugar.vars.Opt
   * Two factories with the same name are considered equal, and will match each other's exceptions.
   * Example of usage:
   * {{{
-  *     object TotalPartyKillException extends ExceptionFactory //will use the inner class name as the exception name
+  *     object TotalPartyKillException extends ExceptionFactory //will use `TotalPartyKillException` as the exception name
   *
   *     try { fight(dragon) } catch {
   *         case TotalPartyKillException(e) => println(e) //"TotalPartyKillException: heroically slain by Kaladrax!"
@@ -28,14 +28,12 @@ import net.noresttherein.sugar.vars.Opt
   *             opponent.loot
   * }}}
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class ExceptionFactory private (maybeName :Option[String]) extends Serializable {
 	/** Creates a factory using the given name as a simulated class name for exceptions created/thrown by this instance. */
 	def this(name :String) = this(Some(name))
 
-	/** Creates an `ExceptionFactory` initialized with the inner name of this class
-	  * (after stripping all packages and outer classes).
-	  */
+	/** Creates an `ExceptionFactory` initialized with the inner name of this class. */
 	def this() = this(None)
 
 	/** The name of this factory. It is returned by
@@ -88,7 +86,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	}
 
 	/** A match pattern for exceptions from this factory, extracting their error messages and causes. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Extract {
 		/** Matches an exception created by this factory, extracting - and evaluating - its message and,
 		  * optionally, cause.
@@ -117,7 +115,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	  *     }
 	  * }}}
 	  */
-	@SerialVersionUID(ver) //todo: this makes most sense if it is at least Rethrowable
+	@SerialVersionUID(Ver) //todo: this makes most sense if it is at least Rethrowable
 	abstract class Base extends StackableException(null, null, true, false) {
 		private[ExceptionFactory] def factory = ExceptionFactory.this
 

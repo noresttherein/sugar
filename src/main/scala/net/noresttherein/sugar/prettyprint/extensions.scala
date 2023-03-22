@@ -31,7 +31,7 @@ trait extensions extends Any {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 
 	/** Implicit conversion patching any object with methods providing prettified/shortened class names. */

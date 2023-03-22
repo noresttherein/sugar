@@ -113,7 +113,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 
 
 /** A factory of lazy values. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Lazy {
 
 	/** Creates a wrapper over a lazily initialized value roughly equivalent to a built in `lazy val`.
@@ -182,7 +182,7 @@ object Lazy {
 
 
 	/** An already computed (initialized) value. */
-	@SerialVersionUID(ver) //todo: make it specialized
+	@SerialVersionUID(Ver) //todo: make it specialized
 	//Not specialized to avoid boxing of T to ref-wrapper-of-T, especially that we likely already have the wrapper
 	private final class EagerLazy[+T](eager :T) extends Lazy[T] {
 		override def isDefinite = true
@@ -201,7 +201,7 @@ object Lazy {
 	  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
 	  * and its runtime reference wrapper is an immutable class
 	  */
-	@SerialVersionUID(ver) //todo: make it specialized
+	@SerialVersionUID(Ver) //todo: make it specialized
 	private final class SyncLazyVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Lazy[T]
 	{
@@ -285,7 +285,7 @@ object Lazy {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private final class SyncLazyRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
 		@volatile private[this] var evaluated :Any = undefined
 

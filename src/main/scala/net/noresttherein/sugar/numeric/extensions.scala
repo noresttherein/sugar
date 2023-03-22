@@ -41,7 +41,7 @@ trait extensions extends Any {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
@@ -101,7 +101,7 @@ object extensions extends extensions {
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	sealed class BigIntegerIsNumeric extends Numeric[BigInteger] {
 		override def plus(x :BigInteger, y :BigInteger) :BigInteger = x add y
 		override def minus(x :BigInteger, y :BigInteger) :BigInteger = x subtract y
@@ -120,18 +120,18 @@ object extensions extends extensions {
 
 		override def compare(x :BigInteger, y :BigInteger) :Int = x compareTo y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object BigIntegerIsIntegral extends BigIntegerIsNumeric with Integral[BigInteger] {
 		override def quot(x :BigInteger, y :BigInteger) :BigInteger = x divide y
 		override def rem(x :BigInteger, y :BigInteger) :BigInteger = x remainder y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object BigIntegerAsIfFractional extends BigIntegerIsNumeric with Fractional[BigInteger] {
 		override def div(x :BigInteger, y :BigInteger) :BigInteger = x divide y
 	}
 	
 	
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	class BigDecimalIsFractional(implicit ctx :MathContext) extends Fractional[JavaBigDecimal] {
 		override def div(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.divide(y, ctx)
 		override def plus(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.add(y, ctx)

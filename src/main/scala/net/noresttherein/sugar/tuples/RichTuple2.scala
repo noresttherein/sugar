@@ -10,6 +10,10 @@ final class RichTuple2[T1, T2](private val t :(T1, T2)) extends AnyVal {
 
 	@inline def map2[O](f :T2 => O) :(T1, O) = (x1, f(x2))
 
+	@inline def mapAll[O1, O2](f1 :T1 => O1, f2 :T2 => O2) = (f1(x1), f2(x2))
+
+	@inline def mapBoth[O1, O2](f1 :T1 => O1, f2 :T2 => O2) = (f1(x1), f2(x2))
+
 
 	@inline def :+[TN](xn :TN) :(T1, T2, TN) = (x1, x2, xn)
 	

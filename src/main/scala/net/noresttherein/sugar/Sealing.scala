@@ -106,10 +106,10 @@ trait Sealing {
 	  * upon in the context of security, as all such declarations are public in the bytecode and can thus
 	  * be easily accessed from `Java`.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final class Seal extends Serializable
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Seal {
 		@inline def apply() :Seal = instance
 		implicit final val instance = new Seal
@@ -132,7 +132,7 @@ trait Sealing {
 	  */
 	type Sealed[+T] <: NotSealed[T]
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Sealed {
 		@inline def apply[T](value :T) :Sealed[T] = new NotSealed[T](value).asInstanceOf[Sealed[T]]
 
@@ -143,8 +143,8 @@ trait Sealing {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Sealing {
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	class NotSealed[+T](val value :T) extends AnyVal with Serializable
 }

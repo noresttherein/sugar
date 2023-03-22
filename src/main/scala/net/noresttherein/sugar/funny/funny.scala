@@ -16,7 +16,7 @@ package object funny {
 		def lower :PartialFunction[A, B] = new PartialFunctionOptionAdapter(f)
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	class PartialFunctionOptionAdapter[A, B](override final val lift :A => Option[B]) extends PartialFunction[A, B] {
 		override def apply(v1: A): B = lift(v1).get
 
@@ -30,12 +30,12 @@ package object funny {
 
 	final class ReturnTypeOf[F <: Nothing => Any] private { type Return }
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object ReturnTypeOf {
 		implicit def returnTypeOf[X, Y] :ReturnTypeOf[X => Y] { type Return = Y } =
 			instance.asInstanceOf[ReturnTypeOf[X => Y] { type Return = Y }]
 		private[this] val instance = new ReturnTypeOf[Nothing]
 	}
 
-	final val ver = 1L
+	final val Ver = 1L
 }

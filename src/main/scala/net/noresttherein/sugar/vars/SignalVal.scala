@@ -17,7 +17,7 @@ import net.noresttherein.sugar.vars.SignalVal.MappedSignalVal
   * @see [[net.noresttherein.sugar.vars.SignalVar]]
   * @define Ref `SignalVal`
   */
-@SerialVersionUID(ver) //consider: SignalRef (different equality semantics)
+@SerialVersionUID(Ver) //consider: SignalRef (different equality semantics)
 sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend Out
 	@volatile private[this] var x :Opt[T] = Lack
 
@@ -128,7 +128,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend 
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object SignalVal {
 	/** Creates a new, uninitialized [[net.noresttherein.sugar.vars.SignalVal SignalVal]] instance. */
 	def apply[T] :SignalVal[T] = new SignalVal[T]
@@ -142,7 +142,7 @@ object SignalVal {
 	implicit def signalValOrdering[T :Ordering] :Ordering[SignalVal[T]] = Val.valOrdering
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class MappedSignalVal[T, O](source :SignalVal[T], f :T => O) extends SignalVal[O] {
 		override def await(timeout :Milliseconds): Boolean = source.await(timeout)
 		override def await(timeout :TimeInterval): Boolean = source.await(timeout)

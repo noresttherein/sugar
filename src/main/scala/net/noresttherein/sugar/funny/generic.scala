@@ -3,7 +3,7 @@ package net.noresttherein.sugar.funny
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object generic {
 //	type Subtype[U] = { type T[X <: U] = X }
 	type Self[+X] = X

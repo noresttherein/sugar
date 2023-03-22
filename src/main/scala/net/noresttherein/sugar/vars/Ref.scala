@@ -457,7 +457,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 /** A match pattern and extractor of values of [[net.noresttherein.sugar.vars.Ref Ref]] instances,
   * as well as a scope for related type classes.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Ref {
 	/** Extracts the value returned by [[net.noresttherein.sugar.vars.Ref.get get]], if it is available. */
 	@inline def unapply[T](ref :Ref[T]) :Opt[T] = ref.toOpt
@@ -474,7 +474,7 @@ object Ref {
 	implicit def RefPartialOrdering[V[X] <: Ref[X], T :PartialOrdering] :PartialOrdering[V[T]] =
 		new RefPartialOrdering[V, T]
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] class RefPartialOrdering[V[X] <: Ref[X], T](implicit content :PartialOrdering[T])
 		extends PartialOrdering[V[T]]
 	{
@@ -509,7 +509,7 @@ object Ref {
 				}
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] class RefOrdering[V[X] <: Ref[X], T](implicit content :Ordering[T]) extends Ordering[V[T]] {
 		override def compare(x :V[T], y :V[T]) :Int = content.compare(x.get, y.get)
 	}
@@ -606,7 +606,7 @@ object Ref {
 
 
 	/** A marker object used by some implementations to signify that a reference has no actual value. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[vars] object undefined extends Serializable {
 		override def toString = "<undefined>"
 

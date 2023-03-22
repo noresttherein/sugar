@@ -28,7 +28,7 @@ sealed abstract class SelfLowerBoundImplicits private[typist] extends ProperLowe
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object LowerBound extends SelfLowerBoundImplicits {
 	/** Calculates explicitly the greatest lower bound of its type parameters via its `apply()` method. */
 	final class Binder[X, Y] private[LowerBound] {

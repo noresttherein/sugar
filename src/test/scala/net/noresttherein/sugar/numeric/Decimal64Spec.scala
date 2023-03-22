@@ -364,19 +364,19 @@ object Decimal64Spec extends Properties("Decimal64") {
 			}
 		:_*)
 	}
-	property("**") = forAll { (x :Decimal64, n :Short) =>
+	property("^") = forAll { (x :Decimal64, n :Short) =>
 		all(RoundingModes.map { rounding =>
 			{
 				implicit val ctx = Round.to16digits(rounding)
-				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ** n) :| s"$x ** $n ($ctx)"
+				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ^ n) :| s"$x ^ $n ($ctx)"
 			} && {
 				implicit val ctx = Round.toMaxDigits(rounding)
 				def result = bigDecimal(x).pow(n, DECIMAL128)
-				almostEquivalent(10)(bigDecimal(x).pow(n, maxPrecision(result, rounding)))(x ** n) :|
+				almostEquivalent(10)(bigDecimal(x).pow(n, maxPrecision(result, rounding)))(x ^ n) :|
 					s"$x ** $n ($ctx)"
 			} && {
 				implicit val ctx = Round(7, rounding)
-				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ** n) :| s"$x ** $n ($ctx)"
+				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ^ n) :| s"$x ^ $n ($ctx)"
 			}
 		} :_*)
 	}

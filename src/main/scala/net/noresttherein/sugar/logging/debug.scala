@@ -15,7 +15,7 @@ import java.util.logging.{Logger => JLogger}
   *     debug(log) fine x * x
   * }}}
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object debug {
 	/** Log the given value to `System.out` before returning it. */
 	def out[X](x :X) :X = { System.out.print(x); x }

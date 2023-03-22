@@ -26,7 +26,7 @@ class Labelled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal w
 
 
 /** Factory of labelled (implicit by design) values as well as labels which can be used with them. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Labelled {
 
 	/** Attach the label given as the type parameter to the argument value, creating a labelled value `T Labelled Label`.

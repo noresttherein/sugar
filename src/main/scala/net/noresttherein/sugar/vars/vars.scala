@@ -46,7 +46,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 //	type Filled[+A] <: Space[A]
 //	val Blank :Space[Nothing]
 
-	final val ver = 1L
+	final val Ver = 1L
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]].
@@ -86,8 +86,8 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  * @see [[net.noresttherein.sugar.vars.Unsure]]
 	  */
 	type ??[+A] = Potential[A]
-	
-	
+
+
 	/** The API of $Potential in the form of extension methods. */
 	implicit class PotentialExtension[A](private val self :Potential[A]) extends AnyVal {
 
@@ -913,7 +913,7 @@ package vars {
 	  * @see [[net.noresttherein.sugar.vars.Potential.Existent]]
 	  * @see [[net.noresttherein.sugar.vars.Potential.Inexistent]]
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Potential {
 		/** Creates an $Existent instance wrapping the value unless it is null, in which case it returns $Inexistent.
 		  * This call will not box the value unless it is already an instance of `Potential`.
@@ -990,7 +990,7 @@ package vars {
 
 
 		/** A factory of 'full' (`Some`) instances of `Potential`.  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object Existent {
 			def apply[A](value :A) :Potential[A] = value match {
 				case Inexistent | _ :Existent[_] => new Existent(value).asInstanceOf[Potential[A]]
@@ -1005,7 +1005,7 @@ package vars {
 		}
 
 
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		private[vars] class Existent[+A](val value :A) extends Serializable {
 			//fixme: erased instance does not equal a wrapped instance; if we add a case value == that here,
 			//  equals will become asymmetrical. Lets look what we can do about in Scala 3, but if nothing,
@@ -1022,7 +1022,7 @@ package vars {
 		/** The only 'empty' value of `Potential`. */
 		final val Inexistent :Potential[Nothing] = NonExistent.asInstanceOf[Potential[Nothing]]
 
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		private[vars] object NonExistent extends (Any => AnyRef) with Serializable {
 			override def apply(v1 :Any) = this
 			override def toString = "Inexistent"
@@ -1043,7 +1043,7 @@ package vars {
 		/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
 		  * They involve boxing and are placed here for explicit importing.
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object implicits {
 			/** An implicit conversion that converts a $Potential to an iterable value. */
 			@inline implicit def potentialToIterable[A](opt :Potential[A]) :Iterable[A] = opt match {
@@ -1078,7 +1078,7 @@ package vars {
 		  *
 		  * Other files which reference classes defined in the import's scope may also need to be modified in order
 		  * to comply with changed interfaces. */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object PotentialAsOption {
 			type Option[T] = Potential[T]
 
@@ -1118,7 +1118,7 @@ package vars {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Defined {
 		@inline def apply[T](value :T) :Potential[T] = if (value == null) Inexistent else Existent(value)
 
@@ -1126,7 +1126,7 @@ package vars {
 		@inline def unapply[T](ref :Potential[T]) :Opt[T] = Existent.unapply(ref)
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Undefined {
 		@inline def apply() :Potential[Nothing] = Inexistent
 
@@ -1140,7 +1140,7 @@ package vars {
 	/** Companion object to $Pill, containing conversion methods as well as factories for both cases:
 	  * [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]] and [[net.noresttherein.sugar.vars.Pill.Red$ Red]].
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Pill {
 		/** Converts `Left` to $Red and `Right` to $Blue. */
 		def fromEither[R, B](either :Either[R, B]) :Pill[R, B] = either match {
@@ -1156,12 +1156,12 @@ package vars {
 			case _                         => either.asInstanceOf[Pill[String, O]] //erased Blue
 		}
 		@inline implicit def pillFromFallible[O](fallible :Fallible[O]) :Pill[String, O] = fromFallible(fallible)
-		
-		
+
+
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
 		  * representing a successful result of a computation.
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object Blue {
 			def apply[B](value :B) :Pill[Nothing, B] = value match {
 				case _ :Red[_] | _ :Blue[_] => new Blue(value).asInstanceOf[Pill[Nothing, B]]
@@ -1175,7 +1175,7 @@ package vars {
 			}
 		}
 
-		@SerialVersionUID(ver) //not a case class to avoid unwanted apply method
+		@SerialVersionUID(Ver) //not a case class to avoid unwanted apply method
 		private[vars] class Blue[+B](val value :B) extends Serializable {
 			//it might look like equals doesn't handle the equality between reified and erased Blue,
 			//but we are always careful to create reified `Blue` if and only if the wrapped value is Blue or Red,
@@ -1191,7 +1191,7 @@ package vars {
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
 		  * representing a failed result (containing error information).
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object Red {
 			def apply[R](value :R) :Pill[R, Nothing] = new Red(value)
 
@@ -1204,12 +1204,12 @@ package vars {
 		/** The unsuccessful result of an $Pill, carrying error information. It conforms to `Pill[R, Nothing]`,
 		  * so it can be carried over while mapping or flat mapping the $Blue case.
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		private[vars] final case class Red[+R](value :R)
 
 
 		/** Extra implicit conversions to and from [[scala.Either Either]], off by default. */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object implicits {
 			@inline implicit def eitherToPill[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
 			@inline implicit def pillToEither[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
@@ -1223,7 +1223,7 @@ package vars {
 	  * @see [[net.noresttherein.sugar.vars.Fallible.Passed]]
 	  * @see [[net.noresttherein.sugar.vars.Fallible.Failed]]
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Fallible {
 		/** Checks the value for nullity, returning it in a $Passed if it is not null, or $Failed otherwise. */
 		def apply[O](value :O) :Fallible[O] = if (value == null) Failed("null") else Passed(value)
@@ -1260,7 +1260,7 @@ package vars {
 		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a passed result (containing a value).
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object Passed {
 			/** Creates an instance of $Passed wrapping the value.
 			  * This call does not perform any actual boxing unless `value` is already a `Fallible`
@@ -1281,7 +1281,7 @@ package vars {
 		/** A reified `Passed` case used when `value` is a `Failed` or `Passed` instance.
 		  * Used to differentiate between `Passed(Failed)` and `Failed`.
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		private[vars] class Passed[+T](val value :T) extends Serializable {
 			//it might look like equals doesn't handle the equality between reified and erased Passed,
 			//but we are always careful to create reified `Passed` if and only if the wrapped value is Passed or Failed,
@@ -1298,7 +1298,7 @@ package vars {
 		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a failed result (containing an error message).
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object Failed {
 			/** A `Failed` instance with an empty message. */
 			def apply() :Failed = failed
@@ -1358,7 +1358,7 @@ package vars {
 			def toException :SugaredException = new EagerFailed(error)
 		}
 
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		private class EagerFailed(override val msg :String, cause :Throwable = null)
 			extends StackableException(msg, cause, true, false) with Failed
 		{
@@ -1373,7 +1373,7 @@ package vars {
 		/** Extra implicit conversions to $Pill and [[scala.Either Either]], which are not in the scope by default
 		  * in order to avoid unintended boxing, but might be useful in code which deals with a lot of both types.
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object implicits {
 			@inline implicit def eitherToFallible[O](either :Either[String, O]) :Fallible[O] = fromEither(either)
 			@inline implicit def fallibleToEither[O](fallible :Fallible[O]) :Either[String, O] = fallible.toEither

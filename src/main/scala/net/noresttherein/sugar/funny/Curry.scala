@@ -127,7 +127,7 @@ sealed abstract class Curry[Args[+R], X, Y] extends Serializable { prev =>
 
 
 /** Operations on curried functions. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Curry {
 
 	/** Identity type constructor mapping any type to itself. Used in conjunction with
@@ -205,7 +205,7 @@ object Curry {
 
 
 	/** Operations on the first argument of this function. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final class Arg0[X, Y] extends Curry[Ident, X, Y] {
 
 		override def mapped[A, B]: Curry[Ident, A, B] = Curry[A, B] //todo: just cast this
@@ -222,7 +222,7 @@ object Curry {
 
 
 	/** Operations on `n+1`-th argument `Y` of function `A[X => Y=>Z]`. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final class NextArg[A[+G], X, Y, Z](private[funny] val prev :Curry[A, X, Y=>Z]) extends Curry[(A :=> X)#F, Y, Z] {
 
 		override def from[W]: Curry[(W =>: (A :=> X)#F)#F, Y, Z] =
@@ -350,7 +350,7 @@ object Curry {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object ReturnType extends FallbackLastArg {
 
 		/** Implicit proof that `R` is the return type of `X => Y=>Z` if `R` is the return type of `Y=>Z`. */
@@ -379,7 +379,7 @@ object Curry {
 	  * These are mostly accepted implicit parameter types or intermediate result types which rarely will be needed to
 	  * be specified explicitly by the client code.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object FunctionUnification {
 
 		/** Extends any function type `F` with a method `<=>` for pairing it with another function `G`.
@@ -460,7 +460,7 @@ object Curry {
 		  * return types.
 		  * @see [[net.noresttherein.sugar.funny.Curry.FunctionUnification.Unification]]
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object Unification extends FallbackUnification {
 			/** Given unification of two types `Y1` and `Y2` (assumed to be functions), perform unification of any two functions
 			  * `X1=>Y1` and `X2=>Y2` by listing the lower bound of `X1` and `X2` as unified argument type, and passing on
@@ -515,7 +515,7 @@ object Curry {
 			  * Returned function is in the curried form and takes 'n' arguments as specified by the associated unification instance
 			  * (in case of implicit `Unification` values the minimum of `f` and `g` argument numbers), where each argument is a subtype
 			  * of the respective arguments of `f` and `g`.
-			  */
+			  */ //consider: renaming to reduce
 			def apply[O](reduce :(Y, Z) => O) :R[O] = unification.combine[O](f, g)(reduce)
 		}
 
@@ -535,7 +535,7 @@ object Curry {
 	  * `apply`'s argument function, because all required types have been already determined by the conversion (instead
 	  * of being instantiated with implicit resolution ''following'' the actual argument).
 	  *
-	  * Instances of this class can be created by invoking overloaded `<=>` method on the right-hand argument,
+	  * Instances of this class can be created by invoking overloaded `<=>` method on the left-hand argument,
 	  * which is made available again by an overloaded implicit conversion method `Curry.<=>`, so that importing the
 	  * `<=>` symbol imports the associated class and all implicit conversions required for its functioning:
 	  * {{{
@@ -679,7 +679,7 @@ object Curry {
 	  * @see [[net.noresttherein.sugar.funny.Curry.PartiallyApplied.CurryOn]]
 	  * @see [[net.noresttherein.sugar.funny.Curry.Curried]]
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object PartiallyApplied {
 
 		/** Implicit conversion of a `Curried[C, A, B]` to the underlying function type `C[A => B]`. */
@@ -708,7 +708,7 @@ object Curry {
 		  * them in before the invocation of the desired  methods.
 		  * @see [[net.noresttherein.sugar.funny.Curry.Curried]]
 		  */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		final class CurryOn[A[+G], X, Y, T](private val curried :PartiallyApplied[X, Y => T] { type Mapped[+G] = A[G] })
 			extends AnyVal
 		{
@@ -836,7 +836,7 @@ object Curry {
 			private[Curry] def inlined(implicit result :ReturnType[Z, X]) :Mapped[W => result.Result[Y]]
 		}
 
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object InlinedFunction {
 
 			@inline implicit def inlined[W, Z, X, Y](injection :InlinedFunction[W, Z, X, Y])
@@ -876,7 +876,7 @@ object Curry {
 			private[Curry] val inline :InlinedFunction[W, Z, X, Y => R] { type Mapped[+G] = self.Mapped[G] }
 		}
 
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object InjectedFunction {
 
 			@inline implicit def Curried[W, Z, X, N, Y](injection :InjectedFunction[W, Z, X, N, Y])
@@ -925,7 +925,7 @@ object Curry {
 	  * @tparam X type of the first argument after partial application of F.
 	  * @tparam Y result type of applying `f` with all arguments up to `X` (inclusive), possibly another function.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final class Curried[A[+R], X, Y](val unapplied :A[X => Y])(val curry :Curry[A, X, Y]) extends PartiallyApplied[X, Y] {
 		/**Full type of this function. */
 		type F = A[X => Y]
@@ -1154,7 +1154,7 @@ object Curry {
 	/** Wraps a function in a curried form (with single-argument lists) into a `Curried` class representing partial application
 	  * of that function and providing convenient methods for mapping the underlying function without applying it to actual arguments.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Curried {
 
 		/** Extension methods for modifying curried functions at their first argument (and a source for advancing to
@@ -1174,7 +1174,7 @@ object Curry {
 		@inline def of[X] = new CurriedFunctionConstructor[X]
 
 		/** Convert any constant to a function of `X`. */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		final class CurriedFunctionConstructor[X] extends Serializable {
 			/** Convert the given constant value to a function `X=>C` which ignores its argument before returning the given value. */
 			def apply[C](const :C) :Curried[Ident, X, C] = Curried { _ :X => const }
@@ -1211,7 +1211,7 @@ object Curry {
 		}
 
 		/** A marker object used as an argument for `CurryOn` (and `Curried`) instances to denote a new, ignored parameter. */
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		object __ extends __[Any] {
 			/** A marker class used as an argument for `CurryOn` (and `Curried`) instances to denote a new, ignored parameter.
 			  * For example, `Curried(f)()(__[X])` will create a function with same signature as `f` except it will take an additional
@@ -1234,7 +1234,7 @@ object Curry {
 	  * @tparam X type of the last parameter of `F` before returning `Y` (not necessarily actually its last parameter).
 	  * @tparam Y result type (possibly intermediate) of `F` being mapped by this instances `map` method.
 	  */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	final class Result[A[+G], X, Y] private[Curry](private[this] val curried :Curried[A, X, Y]) extends Serializable {
 		result =>
 		/** A function with the same parameters as `F`, including `X`, returning `G` instead of `Y`. */
@@ -1254,7 +1254,7 @@ object Curry {
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Result {
 		def apply[X, Y, L, R](f :X => Y)(implicit res :LastArg[X => Y, L, R]) :Result[res.Mapped, L, R] =
 			new Result[res.Mapped, L, R](new Curried[res.Mapped, L, R](res.cast(f))(res.curry))

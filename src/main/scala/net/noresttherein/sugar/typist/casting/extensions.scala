@@ -30,7 +30,7 @@ trait extensions extends Any { //consider extending by the package object
 
 
 
-@SerialVersionUID(typist.ver)
+@SerialVersionUID(typist.Ver)
 object extensions extends extensions {
 
 	//todo: use macros
@@ -53,15 +53,15 @@ object extensions extends extensions {
 		  * @tparam Y the target type of the expression after casting.
 		  */
 		@inline def castFrom[U >: X, Y] :Y = self.asInstanceOf[Y]
-
-		/** A safer casting expression which, in addition to the target type, accepts also the type of the cast
-		  * expression itself (`this`). Both types are given as a single argument function `X => Y`,
-		  * with `X` being the type to which `this` must conform, and `Y` the desired target type.
-		  * Providing both is a defence against inadvertent casting from a wrongly presumed source type and,
-		  * more importantly, against an expression changing type silently due to a refactor.
-		  */
-		@inline def castWith[F <: X => Any](implicit function :ReturnTypeOf[F]) :function.Return =
-			self.asInstanceOf[function.Return]
+//
+//		/** A safer casting expression which, in addition to the target type, accepts also the type of the cast
+//		  * expression itself (`this`). Both types are given as a single argument function `X => Y`,
+//		  * with `X` being the type to which `this` must conform, and `Y` the desired target type.
+//		  * Providing both is a defence against inadvertent casting from a wrongly presumed source type and,
+//		  * more importantly, against an expression changing type silently due to a refactor.
+//		  */
+//		@inline def castWith[F <: X => Any](implicit function :ReturnTypeOf[F]) :function.Return =
+//			self.asInstanceOf[function.Return]
 
 		/** A safer casting expression intended for cases where the cast is an optimisation meant to
 		  * eliminate the re-creation of a composite object solely to change its type signature
@@ -69,7 +69,7 @@ object extensions extends extensions {
 		  * It accepts an (unused) function re-creating the object `Y` in a type safe manner, which both
 		  * serves as an illustration and documentation of why the cast is safe, and specifies the target type.
 		  */
-		@inline def castAsWith[Y](like : => X => Y) :Y = self.asInstanceOf[Y]
+		@inline def castAsIfBy[Y](like : => X => Y) :Y = self.asInstanceOf[Y]
 
 		/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.
 		  * {{{

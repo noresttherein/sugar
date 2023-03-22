@@ -99,7 +99,7 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //co
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Val {
 	/** A wrapper over truly immutable, eagerly initialized value. Usually not very useful in the application code,
 	  * but methods which work on lazy values can in some cases return such an instance if the argument
@@ -129,7 +129,7 @@ object Val {
 
 
 /** A proxy `Val` mapping the value of another `Val`. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 private class MappedVal[T, +O](source: Val[T], f: T => O) extends Val[O] {
 	@volatile private[this] var x: Opt[O] = Lack
 

@@ -11,7 +11,7 @@ final class Xor[E1, E2] private[witness](val which :Either[E1, E2]) extends AnyV
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Xor {
 
 	@inline implicit def witnessFirst[E1, E2](implicit e1 :E1): E1 Xor E2 = new Xor(Left(e1))

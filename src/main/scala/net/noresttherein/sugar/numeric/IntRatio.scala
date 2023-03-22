@@ -18,7 +18,7 @@ import net.noresttherein.sugar.numeric.IntRatio.{naturalGCD, newIntRatio}
   * see [[net.noresttherein.sugar.numeric.IntRatio.apply(numerator:Int, denominator:Int)* IntRatio()]].
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 final class IntRatio private(n :Int, d :Int) extends Number {
 
 	/** The numerator of this fraction (the dividend). */
@@ -184,7 +184,7 @@ final class IntRatio private(n :Int, d :Int) extends Number {
   * as fractions in their canonical form. Contains an implicit conversion promoting `Int`s to `IntRatio`s
   * when given as the parameter to `IntRatio`'s methods.
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object IntRatio {//extends IntRatioImplicits {
 
 	/** Number zero as a `IntRatio` value: `0/1`. */
@@ -395,7 +395,7 @@ object IntRatio {//extends IntRatioImplicits {
 
 
 	/** The `Fractional` type class for `IntRatio` values. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	implicit object IntRatioIsFractional extends Fractional[IntRatio] {
 		override def div(x :IntRatio, y :IntRatio) :IntRatio = x / y
 		override def plus(x :IntRatio, y :IntRatio) :IntRatio = x + y

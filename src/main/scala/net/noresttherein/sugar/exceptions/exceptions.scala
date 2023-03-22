@@ -47,7 +47,7 @@ package exceptions {
 
 
 package object exceptions extends exceptions.imports with exceptions.markerStackTraceElements {
-	final val ver = 1L
+	final val Ver = 1L
 
 
 	/** Suffix (earlier frames) of the stack trace of the first cause with a non empty stack trace, starting with

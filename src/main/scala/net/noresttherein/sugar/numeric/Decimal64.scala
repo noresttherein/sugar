@@ -45,7 +45,7 @@ import net.noresttherein.sugar.witness.Maybe
   *      [[net.noresttherein.sugar.numeric.Decimal64.fractionalDigits fractionalDigits]] and
   *      [[net.noresttherein.sugar.numeric.Decimal64.wholeDigits wholeDigits]].
   *   1. Like `java.math.BigDecimal`, but unlike `scala.math.BigDecimal`, it has no inherent associated
-  *      [[java.math.MathContext MathContext]], which instead can be provided to its methods an argument.
+  *      [[java.math.MathContext MathContext]], which instead can be provided to its methods as an argument.
   *   1. Unlike in Java, methods not taking a `MathContext`, instead compute to maximum possible precision
   *      and round [[java.math.RoundingMode.HALF_EVEN HALF_EVEN]].
   *   1. `MathContext` is interpreted slightly differently, with `precision == 0` meaning 'maximum possible precision
@@ -64,7 +64,7 @@ import net.noresttherein.sugar.witness.Maybe
   *      (equal to [[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedHalfEven ExtendedHalfEven]])
   *      being the default mode used if no `MathContext` is provided, explicitly or implicitly.
   *   1. Some secondary methods, most notably round, have different signatures and slightly different semantics
-  *      than their official counterparts, mostly due to the difference from the above point.
+  *      than their official counterparts, mostly due to the difference in the above point.
   *   1. Among additional methods not available on its alternatives, there are dedicated ''operationExact'' methods
   *      which behave as Scala/Java `BigDecimal` with an [[java.math.MathContext.UNLIMITED UNLIMITED]] context.
   *   1. All operations for which this class does not throw an exception, with the provision for the mentioned
@@ -86,7 +86,7 @@ import net.noresttherein.sugar.witness.Maybe
   * unless stated differently.
   * @author Marcin Mościcki
   **/
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class Decimal64 private (private val bits :Long)
 	extends AnyVal with ScalaNumericAnyConversions with Serializable
 {
@@ -428,7 +428,7 @@ class Decimal64 private (private val bits :Long)
 	@inline def / (that :Decimal64)(implicit mode :MathContext = Extended) :Decimal64 = div(that, mode)
 	@inline def % (that :Decimal64)(implicit mode :MathContext = Extended) :Decimal64 = rem(that, mode)
 	@inline def /~(that :Decimal64)(implicit mode :MathContext = Extended) :Decimal64 = quot(that, mode)
-	@inline def **(that :Int)(implicit mode :MathContext = Extended)       :Decimal64 = pow(that, mode)
+	@inline def ^ (that :Int)(implicit mode :MathContext = Extended)       :Decimal64 = pow(that, mode)
 	@inline def >>(n :Int) :Decimal64 = movePointLeft(n)
 	@inline def <<(n :Int) :Decimal64 = movePointRight(n)
 	@inline def /%(that :Decimal64)(implicit mode :MathContext = Extended) :(Decimal64, Decimal64) = divAndRem(that)
@@ -1150,7 +1150,7 @@ class Decimal64 private (private val bits :Long)
   * [[net.noresttherein.sugar.numeric.Decimal64.Round Mode]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Best]]
   * will be used, which rounds to the highest representable precision for the given significand.
   **/
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Decimal64 {
 
 	/** The maximal number such that all values of that many integral digits fit in the
@@ -1270,7 +1270,7 @@ object Decimal64 {
 	  * Additionally, methods returning one of the above constants based on the rounding mode passed as an argument
 	  * are provided for convenience.
 	  **/
-    @SerialVersionUID(ver)
+    @SerialVersionUID(Ver)
 	object Round {
 		private[this] val modes = Array.tabulate(18, RoundingMode.values.length) {
 			(precision, rounding) => new MathContext(precision, RoundingMode.valueOf(rounding))
@@ -2023,27 +2023,27 @@ object Decimal64 {
 			catch { case _ :Exception => None }
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	sealed class Decimal64IsFractional(implicit mode :MathContext = Extended)
 		extends Decimal64IsNumeric with Fractional[Decimal64]
 	{
 		override def div(x :Decimal64, y :Decimal64) :Decimal64 = x / y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Decimal64IsFractional extends Decimal64IsFractional()(Extended)
 
 	implicit def Decimal64IsFractional(implicit mode :MathContext = Extended) :Fractional[Decimal64] =
 		if (mode == Extended) Decimal64.Decimal64IsFractional
 		else new Decimal64.Decimal64IsFractional
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	sealed class Decimal64AsIfIntegral(implicit mode :MathContext = Extended)
 		extends Decimal64IsNumeric with Integral[Decimal64]
 	{
 		override def quot(x :Decimal64, y :Decimal64) :Decimal64 = x quot y
 		override def rem(x :Decimal64, y :Decimal64) :Decimal64 = x % y
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Decimal64AsIfIntegral extends Decimal64AsIfIntegral()(Extended)
 
 	def Decimal64AsIfIntegral(implicit mode :MathContext = Extended) :Integral[Decimal64] =
@@ -2061,7 +2061,7 @@ object Decimal64 {
 	/** Extension method for `Int` and `Long`, creating a `Decimal64` using syntax resembling the scientific notation:
 	  * `significand e exponent`.
 	  **/
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object implicits extends implicits {
 		class IntScientificDecimal64Notation(private val mantissa :Int) extends AnyVal {
 			def e(exponent :Int) :Decimal64 = Decimal64(mantissa, -exponent)

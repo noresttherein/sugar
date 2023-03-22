@@ -34,7 +34,7 @@ trait extensions extends Any with extensionsLowPriority {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 
 	/** Extension parsing and formatting methods for parsable types serving as some

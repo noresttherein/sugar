@@ -43,7 +43,7 @@ trait extensions extends Any {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 
 	/** Enriches an `Option[T]` with additional methods providing alternatives. */

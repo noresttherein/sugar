@@ -15,7 +15,7 @@ trait extensions extends Any {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object extensions extends extensions {
 	class ClassExtension private[reflect] (private val self :Class[_]) extends AnyVal {
 		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.). */

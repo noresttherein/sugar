@@ -67,7 +67,7 @@ trait FormatAsString extends Format { format =>
 	implicit override val booleanMold :Mold[Boolean] = BooleanMold
 
 	
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object CharMold extends SpecialMold[Char] with NamedMold[Char] {
 		override def name = "Char"
 		override def advance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, Char, ChoppedString) = {
@@ -95,37 +95,37 @@ trait FormatAsString extends Format { format =>
 		override def appendOpt(prefix :ChoppedString, model :Char) :Opt[ChoppedString] = Got(prefix + model)
 		override def guardAppend(prefix :ChoppedString, model :Char) = Passed(prefix + model)
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object LongMold extends NumberMold[Long]("Long") {
 		override def fromString(input :String) :Long = java.lang.Long.parseLong(input)
 		override def toString(input :Long) :String = input.toString
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object IntMold extends NumberMold[Int]("Int") {
 		override def fromString(input :String) :Int = java.lang.Integer.parseInt(input)
 		override def toString(input :Int) :String = input.toString
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object ShortMold extends NumberMold[Short]("Short") {
 		override def fromString(input :String) = java.lang.Short.parseShort(input)
 		override def toString(input :Short) = input.toString
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object ByteMold extends NumberMold[Byte]("Byte") {
 		override def fromString(input :String) :Byte = java.lang.Byte.parseByte(input)
 		override def toString(input :Byte) = "0x" + input.toHexString
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object DoubleMold extends NumberMold[Double]("Double") {
 		override def fromString(input :String) :Double = java.lang.Double.parseDouble(input)
 		override def toString(input :Double) :String = input.toString
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object FloatMold extends NumberMold[Float]("Float") {
 		override def fromString(input :String) :Float = java.lang.Float.parseFloat(input)
 		override def toString(input :Float) :String = input.toString
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object BooleanMold extends NamedMold[Boolean] with SpecialGuardingMold[Boolean] {
 		override def name = "Boolean"
 		private def eos(prefix :ChoppedString) =

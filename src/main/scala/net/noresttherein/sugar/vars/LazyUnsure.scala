@@ -31,7 +31,7 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object LazyUnsure {
 
 }

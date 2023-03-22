@@ -21,7 +21,7 @@ sealed abstract class IndividualOrEvidence {
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Or extends IndividualOrEvidence {
 
 	@inline implicit def witnessBoth[E1, E2](implicit e1 :E1, e2 :E2): E1 Or E2 = new Or(Some(e1), Some(e2))

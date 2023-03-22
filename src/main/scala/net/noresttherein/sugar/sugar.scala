@@ -9,7 +9,7 @@ import scala.annotation.elidable.ASSERTION
   * @author Marcin Mościcki
   */
 package object sugar extends sugar.imports {
-	final val ver = 1L
+	final val Ver = 1L
 
 	@elidable(ASSERTION) @inline def notNull[X](x :X, msg: => String) :X =
 		if (x == null) throw new AssertionError(msg)
