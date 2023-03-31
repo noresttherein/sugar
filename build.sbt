@@ -9,10 +9,12 @@ scalaVersion := "2.13.10"
 
 Compile / fork := true
 
-Compile / javaOptions ++= Seq("-Xmx2G")
+Compile / javaOptions ++= Seq("-Xmx4G")
 
 
-Test / testOptions ++= Seq(Tests.Filter(s => !s.endsWith("Props")))
+Test / testOptions ++= Seq(Tests.Filter {
+	s => !(Class.forName(s).isInterface || java.lang.reflect.Modifier.isAbstract(Class.forName(s).getModifiers))
+})
 
 
 libraryDependencies ++= Seq( //todo: make shapeless optional
