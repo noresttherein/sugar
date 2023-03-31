@@ -168,9 +168,23 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	private[exceptions] final val StringThrowableArgs = Array[Class[_]](classOf[String], classOf[Throwable])
 	private[exceptions] final val StringThrowableBoolArgs =
 		Array[Class[_]](classOf[String], classOf[Throwable], classOf[Boolean])
+	private[exceptions] final val StringLazyStringThrowableBoolArgs =
+		Array[Class[_]](classOf[String], classOf[() => String], classOf[Throwable], classOf[Boolean])
 	private[exceptions] final val StringThrowableBoolBoolArgs =
 		Array[Class[_]](classOf[String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
+	private[exceptions] final val LazyStringArg =
+		Array[Class[_]](classOf[() => String])
+	private[exceptions] final val LazyStringThrowableArgs =
+		Array[Class[_]](classOf[() => String], classOf[Throwable])
+	private[exceptions] final val LazyStringThrowableBoolArgs =
+		Array[Class[_]](classOf[() => String], classOf[Throwable], classOf[Boolean])
+	private[exceptions] final val LazyStringThrowableBoolBoolArgs =
+		Array[Class[_]](classOf[() => String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
+	private[exceptions] final val StringLazyStringThrowableBoolBoolArgs =
+		Array[Class[_]](classOf[String], classOf[() => String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
 
+	//todo: create instead methods for each argument list, which search for any constructor which can be used -
+	// much faster.
 	private[exceptions] final def findConstructor(clazz :Class[_], paramTypes :Array[Class[_]]) :Opt[Constructor[_]] = {
 		val constructors = clazz.getDeclaredConstructors
 		var i = constructors.length - 1

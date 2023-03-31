@@ -242,8 +242,11 @@ trait imports {
 
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter by using reflection.
-	  * This method attempts to find constructors `()`, `(String)`, `(String, Throwable)`
-	  * or `(String, Throwable, Boolean, Boolean)` and provides the same arguments that `Throwable`'s constructor would.
+	  * This method attempts to find constructors `()`, `(String)`, `(String, Throwable)`,
+	  * `(String, Throwable, Boolean, Boolean)`, `(String, () => String, Throwable, Boolean, Boolean)`,
+	  * `(() => String)`, `(() => String, Throwable)`, or `(() => String, Throwable, Boolean, Boolean)`
+	  * (note that in the byte code `() => String` is equivalent to `=> String`),
+	  * and provides the same arguments that `Throwable`'s default constructor would.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag] :Opt[E] = {
 		val E = classTag[E].runtimeClass
@@ -261,13 +264,28 @@ trait imports {
 			case _ => Lack
 		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
 			case Got(cons) => Got(cons.newInstance("", null, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance("", null, null, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(() => ""))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(() => "", null))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(() => "", null, true, true))
+			case _ => Lack
 		}).downcastParam[E]
 	}
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
 	  * by using reflection. This method attempts to find constructors `(String)`, `(String, Throwable)`
-	  * or `(String, Throwable, Boolean, Boolean)` and provides as arguments `msg` and default values
-	  * as in `Throwable`'s constructors.
+	  * `(String, Throwable, Boolean, Boolean)`, `(String, () => String, Throwable, Boolean, Boolean)`,
+	  * `(() => String)`, `(() => String, Throwable)`, or `(() => String, Throwable, Boolean, Boolean)`
+	  * (note that in the byte code `() => String` is equivalent to `=> String`),
+	  * and provides as an argument `msg` and same arguments that `Throwable`'s default constructor would.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :String) :Opt[E] = {
 		val E = classTag[E].runtimeClass
@@ -280,13 +298,51 @@ trait imports {
 		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
 			case Got(cons) => Got(cons.newInstance(msg, null, true, true))
 			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, null, null, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(() => msg))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(() => msg, null))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(() => msg, null, true, true))
+			case _ => Lack
+		}).downcastParam[E]
+	}
+
+	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
+	  * by using reflection. This method attempts to find constructors `(() => String)`, `(() => String, Throwable)`
+	  * `(String, Throwable, Boolean, Boolean)`, or `(String, () => String, Throwable, Boolean, Boolean)`
+	  * (note that in the byte code `() => String` is equivalent to `=> String`),
+	  * and provides as an argument `msg` and same arguments that `Throwable`'s default constructor would.
+	  */
+	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :() => String) :Opt[E] = {
+		val E = classTag[E].runtimeClass
+		(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(msg))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, null))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, null, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(null, msg, null, true, true))
+			case _ => Lack
 		}).downcastParam[E]
 	}
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
 	  * and cause by using reflection. This method attempts to find constructors `(String)`, `(String, Throwable)`
-	  * or `(String, Throwable, Boolean, Boolean)` and provides as arguments `msg`, `cause` and, optionally, `true`
-	  * for the `Boolean` parameters presumed to be `enableSuppression` and `writeableStackTrace`.
+	  * `(String, Throwable, Boolean, Boolean)`, `(String, () => String, Throwable, Boolean, Boolean)`,
+	  * `(() => String)`, `(() => String, Throwable)`, or `(() => String, Throwable, Boolean, Boolean)`
+	  * (note that in the byte code `() => String` is equivalent to `=> String`),
+	  * and provides as arguments `msg`, `cause`, and, optionally, `true` for the `Boolean` parameters
+	  * presumed to be `enableSuppression` and `writeableStackTrace`.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :String, cause :Throwable) :Opt[E] = {
 		val E = classTag[E].runtimeClass
@@ -295,17 +351,55 @@ trait imports {
 			case _ => Lack
 		}).orElse(findConstructor(E, StringArg) match {
 			case Got(cons) => Got(cons.newInstance(msg).asInstanceOf[E].initCause(cause))
+			case _ => Lack
 		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
 			case Got(cons) => Got(cons.newInstance(msg, cause, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, null, cause, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(() => msg).asInstanceOf[E].initCause(cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(() => msg, cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(() => msg, cause, true, true))
+			case _ => Lack
+		}).downcastParam[E]
+	}
+
+	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
+	  * and cause by using reflection. This method attempts to find constructors `(() => String)`,
+	  * `(() => String, Throwable)` `(() => String, Throwable, Boolean, Boolean)`,
+	  * or `(String, () => String, Throwable, Boolean, Boolean)` (note that in the byte code `() => String`
+	  * is equivalent to `=> String`), and provides as arguments `msg`, `cause`, and, optionally,
+	  * `true` for the `Boolean` parameters presumed to be `enableSuppression` and `writeableStackTrace`.
+	  */
+	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :() => String, cause :Throwable) :Opt[E] = {
+		val E = classTag[E].runtimeClass
+		(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(msg).asInstanceOf[E].initCause(cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, cause, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(null, msg, null, cause, true, true))
 			case _ => Lack
 		}).downcastParam[E]
 	}
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given cause
 	  * by using reflection. This method attempts to find constructors `(Throwable)`, `()`, `(String, Throwable)`
-	  * or `(String, Throwable, Boolean, Boolean)` and provides as arguments an empty message (if required),
-	  * the given cause and, optionally, `true` for the `Boolean` parameters presumed to be the standard flags
-	  * `enableSuppression` and `writeableStackTrace`.
+	  * `(String, Throwable, Boolean, Boolean)`, `(String, () => String, Throwable, Boolean, Boolean)`,
+	  * `(() => String)`, `(() => String, Throwable)`, or `(() => String, Throwable, Boolean, Boolean)`
+	  * and provides as arguments an empty message (if required), the given cause and, optionally,
+	  * `true` for the `Boolean` parameters presumed to be the standard flags `enableSuppression` and `writeableStackTrace`.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](cause :Throwable) :Opt[E] = {
 		val E = classTag[E].runtimeClass
@@ -320,18 +414,34 @@ trait imports {
 		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
 			case Got(cons) => Got(cons.newInstance("", cause, true, true))
 			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance("", null, cause, true, true))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(null, cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) => Got(cons.newInstance(null, cause, true, true))
+			case _ => Lack
 		}).downcastParam[E]
 	}
 
 	/** Creates a new instance of the [[net.noresttherein.sugar.exceptions.Rethrowable]] class
 	  * specified as the type parameter with, the given message and cause,
 	  * by using reflection. This method attempts to find and use constructors with the following signatures:
-	  *   1. `(String, Throwable, Boolean)`, applied to `(msg, cause, true)` - the last parameter is assumed
+	  *   1. `(String, Throwable, Boolean)` or `(() => String, Throwable, Boolean)`, applied to `(msg, cause, true)` -
+	  *      the last parameter is assumed
 	  *      to be the [[net.noresttherein.sugar.exceptions.Rethrowable.isRethrown isRethrown]] flag.
-	  *   1. `(String, Throwable, Boolean, Boolean)`, applied to `(msg, cause, true, false)` -
-	  *      the last parameters are presumed to be flags `enableSuppression`  and `writeableStackTrace`.
-	  *   1. If none of the specialized constructors is available, the default `(String, Throwable)` is checked;
-	  *   1. Finally, the method looks for the simplest `(String)` constructor and uses
+	  *   1. `(String, Throwable, Boolean, Boolean)` or `(() => String, Throwable, Boolean, Boolean)`,
+	  *      applied to `(msg, cause, true, false)` - the last parameters are presumed to be flags
+	  *      `enableSuppression`  and `writeableStackTrace`.
+	  *   1. `(String, () => String, Throwable, Boolean)`, applied to `(msg, null, cause, true)` -
+	  *      just as for `(String, Throwable, Boolean)`.
+	  *   1. `(String, () => String, Throwable, Boolean Boolean)`, applied to `(msg, null, cause, true, true)`,
+	  *      just as for `(String, Throwable, Boolean, Boolean)`.
+	  *   1. If none of the specialized constructors is available, the default `(String, Throwable)`
+	  *      and `(() => String, Throwable)` are checked;
+	  *   1. Finally, the method looks for the simplest `(String)` (or `(() => String)`) constructor and uses
 	  *      [[Throwable.initCause initCause]] to set the cause.
 	  *
 	  * In case of the first two constructors, the resulting exception should have non-writeable stack trace;
@@ -360,6 +470,73 @@ trait imports {
 		}).orElse(findConstructor(E, StringArg) match {
 			case Got(cons) => Got(cons.newInstance(msg).asInstanceOf[E].initCause(cause))
 			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolArgs) match {
+			case Got(cons) =>
+				val e = cons.newInstance(msg, null, cause, true, true).asInstanceOf[E]
+				if (e.isRethrown) Got(e) else Lack
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolArgs) match {
+			case Got(cons) =>
+				val e = cons.newInstance(() => msg, cause, true).asInstanceOf[E]
+				if (e.isRethrown) Got(e) else Lack
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) =>
+				val e = cons.newInstance(() => msg, cause, true, true).asInstanceOf[E]
+				if (e.isRethrown) Got(e) else Lack
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(() => msg).asInstanceOf[E].initCause(cause))
+			case _ => Lack
+		}).downcastParam[E]
+	}
+
+	/** Creates a new instance of the [[net.noresttherein.sugar.exceptions.Rethrowable]] class
+	  * specified as the type parameter with, the given message and cause,
+	  * by using reflection. This method attempts to find and use constructors with the following signatures:
+	  *   1. `(() => String, Throwable, Boolean)`, applied to `(msg, cause, true)` - the last parameter is assumed
+	  *      to be the [[net.noresttherein.sugar.exceptions.Rethrowable.isRethrown isRethrown]] flag.
+	  *   1. `(() => String, Throwable, Boolean, Boolean)`, applied to `(msg, cause, true, false)` -
+	  *      the last parameters are presumed to be flags `enableSuppression`  and `writeableStackTrace`.
+	  *   1. `(String, () => String, Throwable, Boolean)`, applied to `(msg, null, cause, true)` -
+	  *      just as for `(() => String, Throwable, Boolean)`.
+	  *   1. `(String, () => String, Throwable, Boolean Boolean)`, applied to `(msg, null, cause, true, true)`,
+	  *      just as for `(() => String, Throwable, Boolean, Boolean)`.
+	  *   1. If none of the specialized constructors is available, `(() => String, Throwable)` is checked;
+	  *   1. Finally, the method looks for `(() => String)` constructor and uses
+	  *      [[Throwable.initCause initCause]] to set the cause.
+	  *
+	  * In case of the first two constructors, the resulting exception should have non-writeable stack trace;
+	  * instead, it will be initialized with the suffix of `cause`'s stack trace starting with most recent call to
+	  * [[net.noresttherein.sugar.exceptions.imports imports]]`.`[[net.noresttherein.sugar.exceptions.imports.rethrow rethrow]].
+	  *
+	  * This method differs from the `getThrowable` methods in that it specifically looks to disable automatic filling
+	  * of the stacktrace. It is used (indirectly) by `rethrow`, attempting to reduce the cost of throwing and handling
+	  * the exception.
+	  */
+	private[sugar] final def getRethrowable[E <: Rethrowable :ClassTag](msg :() => String, cause :E) :Opt[E] = {
+		val E = classTag[E].runtimeClass
+		(findConstructor(E, LazyStringThrowableBoolArgs) match {
+			case Got(cons) =>
+				val e = cons.newInstance(msg, cause, true).asInstanceOf[E]
+				if (e.isRethrown) Got(e) else Lack
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
+			case Got(cons) =>
+				val e = cons.newInstance(msg, cause, true, true).asInstanceOf[E]
+				if (e.isRethrown) Got(e) else Lack
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
+			case Got(cons) => Got(cons.newInstance(msg, cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, LazyStringArg) match {
+			case Got(cons) => Got(cons.newInstance(msg).asInstanceOf[E].initCause(cause))
+			case _ => Lack
+		}).orElse(findConstructor(E, StringLazyStringThrowableBoolArgs) match {
+			case Got(cons) =>
+				val e = cons.newInstance(null, msg, cause, true, true).asInstanceOf[E]
+				if (e.isRethrown) Got(e) else Lack
+			case _ => Lack
 		}).downcastParam[E]
 	}
 
@@ -370,7 +547,9 @@ trait imports {
 	private[sugar] final def newThrowable[E <: Throwable :ClassTag] :E =
 		getThrowable[E] orIllegal {
 			"Cannot create an instance of " + classTag[E].runtimeClass.name + ": " +
-			"no (), (String), (String, Throwable) or (String, Throwable, Boolean, Boolean) constructor."
+			"no (), (String), (String, Throwable), (String, Throwable, Boolean, Boolean), " +
+			"(() => String), (() => String, Throwable), (() => String, Throwable, Boolean, Boolean), " +
+			"or(String, () => String, Throwable, Boolean, Boolean) constructor."
 		}
 
 	/** Creates a new exception of the class specified as the type parameter through reflection,
@@ -381,7 +560,21 @@ trait imports {
 	private[sugar] final def newThrowable[E <: Throwable :ClassTag](msg :String) :E =
 		getThrowable[E](msg) orIllegal {
 			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + msg + "): " +
-			"no (String), (String, Throwable) or (String, Throwable, Boolean Boolean) constructor."
+			"no (String), (String, Throwable), (String, Throwable, Boolean Boolean), " +
+			"(() => String), (() => String, Throwable), (() => String, Throwable, Boolean, Boolean), " +
+			"or (String, () => String, Throwable, Boolean, Boolean) constructor."
+		}
+
+	/** Creates a new exception of the class specified as the type parameter through reflection,
+	  * providing `msg` as the exception message argument.
+	  */
+	@throws[IllegalArgumentException]("if the class specifies none of (String), (String, Throwable) " +
+		                              "or (String, Throwable, Boolean, Boolean) constructors.")
+	private[sugar] final def newThrowable[E <: Throwable :ClassTag](msg :() => String) :E =
+		getThrowable[E](msg) orIllegal {
+			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + msg + "): " +
+			"no (() => String), (() => String, Throwable), (() => String, Throwable, Boolean Boolean), " +
+			"or (String, () => String, Throwable, Boolean, Boolean) constructor."
 		}
 
 	/** Creates a new exception of the class specified as the type parameter through reflection,
@@ -392,7 +585,21 @@ trait imports {
 	private[sugar] final def newThrowable[E <: Throwable :ClassTag](msg :String, cause :Throwable) :E =
 		getThrowable[E](msg, cause) orIllegal {
 			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + msg + ", " + cause + "): " +
-			"no (String, Throwable), (String), or (String, Throwable, Boolean, Boolean) constructor."
+			"no (String, Throwable), (String), (String, Throwable, Boolean, Boolean), " +
+			"or (() => String, Throwable), (() => String), (() => String, Throwable, Boolean, Boolean), " +
+			"or (String, () => String, Throwable, Boolean, Boolean) constructor."
+		}
+
+	/** Creates a new exception of the class specified as the type parameter through reflection,
+	  * providing the given error message and cause as the arguments to the constructor.
+	  */
+	@throws[IllegalArgumentException]("if the class specifies none of (String), (String, Throwable) " +
+		                              "or (String, Throwable, Boolean, Boolean) constructors.")
+	private[sugar] final def newThrowable[E <: Throwable :ClassTag](msg :() => String, cause :Throwable) :E =
+		getThrowable[E](msg, cause) orIllegal {
+			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + msg + ", " + cause + "): " +
+			"no (() => String, Throwable), (() => String), (() => String, Throwable, Boolean, Boolean), " +
+			"or (String, () => String, Throwable, Boolean, Boolean) constructor."
 		}
 
 	/** Creates a new exception of the class specified as the type parameter through reflection,
@@ -403,7 +610,9 @@ trait imports {
 	private[sugar] final def newThrowable[E <: Throwable :ClassTag](cause :Throwable) :E =
 		getThrowable[E](cause) orIllegal {
 			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + cause + "): " +
-			"no (Throwable), (String, Throwable), (), (String) or (String, Throwable, Boolean Boolean) constructor."
+			"no (Throwable), (String, Throwable), (), (String), (String, Throwable, Boolean Boolean), " +
+			"or (() => String, Throwable), (() => String), (() => String, Throwable, Boolean, Boolean), " +
+			"or (String, () => String, Throwable, Boolean, Boolean) constructor."
 		}
 
 	/** Creates a new exception of the class specified as the type parameter through reflection,
@@ -417,7 +626,24 @@ trait imports {
 	private[sugar] final def newRethrowable[E <: Rethrowable :ClassTag](msg :String, cause :E) :E =
 		getRethrowable[E](msg, cause) orIllegal {
 			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + msg + ", " + cause + "): " +
-			"no (String, Throwable, Boolean), (String, Throwable, Boolean, Boolean) or (String, Throwable) constructor."
+			"no (String, Throwable, Boolean), (String, Throwable, Boolean, Boolean), (String, Throwable), " +
+			"or (() => String, Throwable, Boolean), (() => String, Throwable, Boolean, Boolean), " +
+			"(() => String, Throwable), or (String, () => String, Throwable, Boolean, Boolean) constructor."
+		}
+
+	/** Creates a new exception of the class specified as the type parameter through reflection,
+	  * providing the given message and cause as the constructor arguments. If possible,
+	  * the exception will be created without automatic filling of the stack trace and instead initialize it
+	  * by truncating the top frames of the `cause`'s stack trace, following a call to
+	  * [[net.noresttherein.sugar.exceptions.imports.rethrow rethrow]].
+	  */
+	@throws[IllegalArgumentException]("if the class specifies neither of (), (String), (String, Throwable) " +
+	                                  "or (String, Throwable, Boolean, Boolean) constructors.")
+	private[sugar] final def newRethrowable[E <: Rethrowable :ClassTag](msg :() => String, cause :E) :E =
+		getRethrowable[E](msg, cause) orIllegal {
+			"Cannot create an instance of " + classTag[E].runtimeClass.name + "(" + msg + ", " + cause + "): " +
+			"no (() => String, Throwable, Boolean), (() => String, Throwable, Boolean, Boolean), " +
+			"(() => String, Throwable), or (String, () => String, Throwable, Boolean, Boolean) constructor."
 		}
 
 
@@ -425,6 +651,9 @@ trait imports {
 		throw newThrowable[E]
 
 	private[sugar] final def raise[E <: Throwable :ClassTag](msg :String) :Nothing =
+		throw newThrowable[E](msg)
+
+	private[sugar] final def raise[E <: Throwable :ClassTag](msg :() => String) :Nothing =
 		throw newThrowable[E](msg)
 
 }

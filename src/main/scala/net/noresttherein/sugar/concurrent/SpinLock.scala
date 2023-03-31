@@ -5,7 +5,7 @@ import java.lang.invoke.MethodHandles
 import scala.annotation.nowarn
 
 import net.noresttherein.sugar.concurrent.SpinLock.{ownerField, Open, SpinsBetweenChecks}
-import net.noresttherein.sugar.exceptions.StackableException
+import net.noresttherein.sugar.exceptions.{AbstractException, SugaredException}
 import net.noresttherein.sugar.time.{Milliseconds, PosixTime}
 
 
@@ -216,7 +216,7 @@ object SpinLock {
 /** An exception thrown when a [[net.noresttherein.sugar.concurrent.SpinLock SpinLock]]
   * becomes [[net.noresttherein.sugar.concurrent.SpinLock.break broken]].
   */
-class BrokenLockException(msg :String, cause :Throwable = null) extends StackableException(msg, cause) {
+class BrokenLockException(msg :String, cause :Throwable = null) extends AbstractException(msg, cause) {
 	def this(lock :SpinLock) = this(lock.toString + " is broken.")
-	override def addInfo(msg :String) :StackableException = new BrokenLockException(msg, this)
+	override def addInfo(msg :String) :SugaredException = new BrokenLockException(msg, this)
 }
