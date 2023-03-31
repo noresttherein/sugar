@@ -115,8 +115,8 @@ object extensions extends extensions {
 
 		/** Attempts to create a `Throwable` of the same type as this instance, with `msg` as its message
 		  *  and `this` as its cause.
-		  *   1. If this is a [[StackableThrowable StackableThrowable]] instance, it delegates
-		  *      to its [[StackableThrowable.addInfo pushMessage]] method.
+		  *   1. If this is a [[net.noresttherein.sugar.exceptions.SugaredThrowable SugaredThrowable]] instance, it delegates
+		  *      to its [[net.noresttherein.sugar.exceptions.SugaredThrowable.addInfo addInfo]] method.
 		  *   1. Otherwise, if this is one of the standard, common Scala/Java exceptions, a new instance of its class
 		  *      is created explicitly.
 		  *   1. Otherwise, reflection is used to find a `(String, Throwable)` or a `(String)` constructor

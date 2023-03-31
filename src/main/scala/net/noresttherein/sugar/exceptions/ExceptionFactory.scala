@@ -1,11 +1,12 @@
 package net.noresttherein.sugar.exceptions
 
+import java.lang.reflect.Constructor
+
 import scala.reflect.{classTag, ClassTag}
 
-import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension, classNameMethods}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.prettyprint.extensions.classNameExtension
 
 
 
@@ -52,7 +53,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  */ //inlined for a nicer stack trace
-	@inline final def apply(exception :Base) :StackableException = exception
+	@inline final def apply(exception :Base) :SugaredException = exception
 
 	/** Creates a new exception with the given message and cause.
 	  * `Base` is a SAM type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
@@ -60,7 +61,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  *///inlined for a nicer stack trace
-	@inline final def apply(exception :Base, cause :Throwable) :StackableException = {
+	@inline final def apply(exception :Base, cause :Throwable) :SugaredException = {
 		exception.initCause(cause)
 		exception
 	}
@@ -80,7 +81,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  *///inlined for a nicer stack trace
-	@inline final def !(exception :Base, cause :Throwable) :Exception = throw exception.initCause(cause)
+	@inline final def !(exception :Base, cause :Throwable) :SugaredException = throw exception.initCause(cause)
 
 	/** Matches exceptions created by this factory - or an equal one. */
 	def unapply(e :Throwable) :Opt[Base] = e match {
@@ -119,7 +120,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	  * }}}
 	  */
 	@SerialVersionUID(Ver) //todo: this makes most sense if it is at least Rethrowable
-	abstract class Base extends StackableException(null, null, null, true, false) {
+	abstract class Base extends AbstractException(null, null, null, true, false) {
 		private[ExceptionFactory] def factory = ExceptionFactory.this
 
 		override def className :String = ExceptionFactory.this.name
@@ -145,7 +146,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 
 		override lazy val getMessage :String = apply()
 
-		override def addInfo(msg :String) :StackableThrowable = ExceptionFactory.this.apply(() => msg, this)
+		override def addInfo(msg :String) :SugaredThrowable = ExceptionFactory.this.apply(() => msg, this)
 	}
 
 
@@ -183,10 +184,10 @@ trait SpecificExceptionFactory extends Serializable {
 		this(null, message, cause, enableSuppression, writableStackTrace)
 
 	def apply(message :String, cause :Throwable) :Throwable = apply(message, null, cause, true, true)
-	def apply(lazyMessage: () => String, cause :Throwable) :Throwable= apply(null, lazyMessage, cause, true, true)
+	def apply(message: () => String, cause :Throwable) :Throwable = apply(null, message, cause, true, true)
 
 	def apply(message :String) :Throwable = apply(message, null, null, true, true)
-	def apply(lazyMessage: () => String) :Throwable = apply(null, lazyMessage, null, true, true)
+	def apply(message: () => String) :Throwable = apply(null, message, null, true, true)
 
 	def apply(cause :Throwable) :Throwable = apply(defaultMessage, null, cause, true, true)
 	def apply() :Throwable = apply(defaultMessage, null, null, true, true)
@@ -197,6 +198,7 @@ trait SpecificExceptionFactory extends Serializable {
 
 /** A factory of exception factories. */
 object SpecificExceptionFactory extends Serializable {
+
 	/** Creates a factory using the given function as the exception constructor. */
 	def apply(constructor :(String, () => String, Throwable, Boolean, Boolean) => Throwable) :SpecificExceptionFactory =
 		new SpecificExceptionFactory {
@@ -207,24 +209,112 @@ object SpecificExceptionFactory extends Serializable {
 			override lazy val toString :String = apply().localClassName + "Factory"
 		}
 
-	/** Creates a factory of exceptions of type `E`, which must provide
-	  * a `(String, () => String, Throwable, Boolean, Boolean)` constructor.
+	/** Creates a factory of exceptions of type `E`, which must provide one of constructors:
+	  *   1. `(String, () => String, Throwable, Boolean, Boolean)`,
+	  *   1. `(String, Throwable, Boolean, Boolean)`, or
+	  *   1. `(() => String, Throwable, Boolean, Boolean`.
 	  */
 	def apply[E <: Throwable :ClassTag] :SpecificExceptionFactory =
 		new SpecificExceptionFactory {
-			private[this] val constructor =
-				findConstructor(classTag.runtimeClass, StringLazyStringThrowableBoolBoolArgs) match {
-					case Got(cons) => cons
-					case _ => throw new IllegalArgumentException(
-						"No (String, () => String, Throwable, Boolean, Boolean) constructor in " +
-							classTag.runtimeClass.name + "."
+			private[this] val noArgConstructor =
+				defaultConstructor[E].orIllegal(
+					"No (), (String), (Throwable), (String, Throwable), (String, Throwable, Boolean, Boolean), " +
+						"(() => String), (() => String, Throwable), (() => String, Throwable, Boolean, Boolean) or " +
+						"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+			private[this] val cause = noArgConstructor()
+
+			private[this] val fullConstructor :(String, Throwable, Boolean, Boolean) => E =
+				stringThrowableBoolBoolConstructor[E].orIllegal(
+					"No (String, Throwable, Boolean, Boolean), " +
+					"(String, () => String, Throwable, Boolean, Boolean) or " +
+					"(() => String, Throwable, Boolean, Boolean) constructor in " + classTag[E].runtimeClass.name + "."
+				)
+			fullConstructor("", cause, false, false) //test if it works
+
+			private[this] val lazyFullConstructor =
+				lazyStringThrowableBoolBoolConstructor[E] orElse
+					stringThrowableBoolBoolConstructor[E].map {
+						cons => (s :() => String, e :Throwable, es :Boolean, ws :Boolean) => cons(s(), e, es, ws)
+					} orIllegal (
+						"No (() => String, Throwable, Boolean, Boolean), (String, Throwable, Boolean, Boolean), or " +
+						"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+							classTag[E].runtimeClass.name + "."
 					)
-				}
+			lazyFullConstructor(() => "", cause, false, false) //test if it works
+
+			private[this] val standardConstructor =
+				stringThrowableConstructor[E] orIllegal (
+					"No (String, Throwable), (String), (String, Throwable, Boolean, Boolean), " +
+					"(() => String, Throwable), (() => String), (() => String, Throwable, Boolean Boolean) or " +
+					"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+			standardConstructor("", cause) //test if it works
+
+			private[this] val lazyStandardConstructor =
+				lazyStringThrowableConstructor[E] orElse
+					stringThrowableConstructor[E].map {
+						cons => (s :() => String, e :Throwable) => cons(s(), e)
+					} orIllegal (
+						"No (() => String, Throwable), (() => String), (() => String, Throwable, Boolean Boolean), " +
+						"(String, Throwable), (String), (String, Throwable, Boolean, Boolean), or " +
+						"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+							classTag[E].runtimeClass.name + "."
+					)
+			lazyStandardConstructor(() => "", cause) //test if it works
+
+			private[this] val messageConstructor :String => E =
+				stringConstructor[E].orIllegal(
+					"No (String), (String, Throwable), (String, Throwable, Boolean, Boolean), " +
+					"(() => String), (() => String, Throwable), (() => String, Throwable, Boolean, Boolean) or " +
+					"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+			messageConstructor("") //test if it works
+
+			private[this] val lazyMessageConstructor =
+				lazyStringConstructor[E] orElse stringConstructor[E].map {
+					cons => (s :() => String) => cons(s())
+				} orIllegal (
+					"No (() => String), (() => String, Throwable), (() => String, Throwable, Boolean, Boolean) " +
+					"or (String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+			lazyMessageConstructor(() => "") //test if it works
+
+			private[this] val causeConstructor =
+				throwableConstructor[E].orIllegal(
+					"No (Throwable), (), (String), (String, Throwable), (String, Throwable, Boolean, Boolean), " +
+					"(() => String), (() => String, Throwable), (() => String, Throwable, Boolean, Boolean) or " +
+					"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+			causeConstructor(cause) //test if it works
+
 			override def apply(message :String, lazyMessage :() => String, cause :Throwable,
 			                   enableSuppression :Boolean, writableStackTrace :Boolean) :Throwable =
-				constructor.newInstance(
-					message, lazyMessage, cause, enableSuppression, writableStackTrace
-				).asInstanceOf[Throwable]
+				if (message == null)
+					lazyFullConstructor(lazyMessage, cause, enableSuppression, writableStackTrace)
+				else
+					fullConstructor(message, cause, enableSuppression, writableStackTrace)
+
+
+			override def apply(message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) =
+				fullConstructor(message, cause, enableSuppression, writableStackTrace)
+
+			override def apply(message :() => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) =
+				lazyFullConstructor(message, cause, enableSuppression, writableStackTrace)
+
+			override def apply(message :String, cause :Throwable) = standardConstructor(message, cause)
+			override def apply(lazyMessage :() => String, cause :Throwable) = lazyStandardConstructor(lazyMessage, cause)
+
+			override def apply(message :String) = messageConstructor(message)
+			override def apply(lazyMessage :() => String) = lazyMessageConstructor(lazyMessage)
+
+			override def apply(cause :Throwable) = causeConstructor(cause)
+			override def apply() = noArgConstructor()
 
 			override lazy val toString = classTag.runtimeClass.localName + "Factory"
 		}
@@ -255,16 +345,17 @@ trait SpecificRethrowableFactory extends Serializable {
 		this(null, message, cause, isRethrown)
 
 	def apply(message :String, cause :Throwable) :Rethrowable = apply(message, null, cause, cause ne null)
-	def apply(lazyMessage: () => String, cause :Throwable) :Rethrowable = apply(null, lazyMessage, cause, cause ne null)
+	def apply(message: () => String, cause :Throwable) :Rethrowable = apply(null, message, cause, cause ne null)
 
 	def apply(message :String) :Rethrowable = apply(message, null, null, false)
-	def apply(lazyMessage: () => String) :Rethrowable = apply(null, lazyMessage, null, false)
+	def apply(message: () => String) :Rethrowable = apply(null, message, null, false)
 
 	def apply(cause :Throwable) :Rethrowable = apply(defaultMessage, null, cause, cause ne null)
 	def apply() :Rethrowable = apply(defaultMessage, null, null, false)
 
 	protected def defaultMessage :String = null
 }
+
 
 
 /** A factory of exception factories. */
@@ -281,18 +372,64 @@ object SpecificRethrowableFactory extends Serializable {
 	/** Creates a factory of exceptions of type `E`, which must provide
 	  * a `(String, () => String, Throwable, Boolean, Boolean)` constructor.
 	  */
-	def apply[E <: Throwable :ClassTag] :SpecificRethrowableFactory =
+	def apply[E <: Rethrowable :ClassTag] :SpecificRethrowableFactory =
 		new SpecificRethrowableFactory {
-			private[this] val constructor =
-				findConstructor(classTag.runtimeClass, StringLazyStringThrowableBoolBoolArgs) match {
-					case Got(cons) => cons
-					case _ => throw new IllegalArgumentException(
-						"No (String, () => String, Throwable, Boolean) constructor in class " +
-							classTag[E].runtimeClass.name + "."
-					)
+			private[this] val noArgConstructor :() => E =
+				defaultRethrowableConstructor[E] orIllegal (
+					"No (), (Throwable), (String), (() => String), (String, Throwable), (() => String, Throwable), " +
+					"(String, Throwable, Boolean, Boolean), (() => String, Throwable, Boolean, Boolean) or " +
+					"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+
+			private[this] val newConstructor :String => E =
+				newRethrowableConstructor[E] orIllegal {
+					"No (String), (() => String), (String, Throwable, Boolean), or (() => String, Throwable, Boolean) " +
+					"constructor in " + classTag[E].runtimeClass.name + "."
 				}
+			private[this] val newLazyConstructor :(() => String) => E =
+				newLazyRethrowableConstructor[E].orElse(
+					newRethrowableConstructor[E].map(cons => (s :() => String) => cons(s()))
+				).orIllegal {
+					"No (String), (() => String), (String, Throwable, Boolean), or (() => String, Throwable, Boolean) " +
+					"constructor in " + classTag[E].runtimeClass.name + "."
+				}
+			private[this] val rethrownConstructor :(String, Throwable) => E =
+				rethrownRethrowableConstructor[E] orIllegal {
+					"No (String, () => String, Throwable, Boolean) constructor in class " +
+							classTag[E].runtimeClass.name + "."
+				}
+			private[this] val rethrownLazyConstructor :(() => String, Throwable) => E = //this is not ideal, as we won't use the preceding constructor
+				rethrownLazyRethrowableConstructor[E].orElse(
+					rethrownRethrowableConstructor[E].map(cons => (s :() => String, e :Throwable) => cons(s(), e))
+				).orIllegal (
+					"No (String, Throwable), (String), (String, Throwable, Boolean, Boolean), " +
+					"(() => String, Throwable), (() => String), (() => String, Throwable, Boolean, Boolean) or " +
+					"(String, () => String, Throwable, Boolean, Boolean) constructor in " +
+						classTag[E].runtimeClass.name + "."
+				)
+
 			override def apply(message :String, lazyMessage :() => String, cause :Throwable, isRethrown :Boolean) =
-				constructor.newInstance(message, lazyMessage, cause, isRethrown).asInstanceOf[Rethrowable]
+				if (message != null)
+					if (isRethrown) rethrownConstructor(message, cause) else newConstructor(message)
+				else
+					if (isRethrown) rethrownLazyConstructor(lazyMessage, cause) else newLazyConstructor(lazyMessage)
+
+			override def apply(message :String, cause :Throwable, isRethrown :Boolean) =
+				if (isRethrown) rethrownConstructor(message, cause) else newConstructor(message)
+
+			override def apply(message :() => String, cause :Throwable, isRethrown :Boolean) =
+				if (isRethrown) rethrownLazyConstructor(message, cause) else newLazyConstructor(message)
+
+			override def apply(message :String, cause :Throwable) = rethrownConstructor(message, cause)
+			override def apply(message :() => String, cause :Throwable) = rethrownLazyConstructor(message, cause)
+
+			override def apply(message :String) = newConstructor(message)
+			override def apply(message :() => String) = newLazyConstructor(message)
+
+			override def apply(cause :Throwable) = rethrownConstructor(null, cause)
+
+			override def apply() = noArgConstructor()
 		}
 }
 

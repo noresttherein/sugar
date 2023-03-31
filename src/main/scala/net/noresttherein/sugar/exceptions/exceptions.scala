@@ -6,9 +6,10 @@ import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.ArraySeq.ofRef
 import scala.collection.mutable
+import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.collections.MutableEqSet
-import net.noresttherein.sugar.extensions.throwableExtension
+import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting, throwableExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -17,7 +18,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 package exceptions {
 	private[exceptions] trait markerStackTraceElements {
-		/* WHENEVER YOU EDIT THIS FILE UPDATE rethrowStackTraceElement WITH A CORRECT LINE NUMBER! */
+		/* WHENEVER YOU EDIT THIS FILE UPDATE evalStackTraceElement WITH A CORRECT LINE NUMBER! */
 
 		private[exceptions] def eval[T](action: => T) :T = action
 
@@ -37,8 +38,8 @@ package exceptions {
 		private[exceptions] final val conjureThrowableStackTraceElement =
 			new StackTraceElement(classOf[markerStackTraceElements].getName, "conjureThrowable", "exceptions.scala", 32)
 
-		private[exceptions] final val fillInStackTraceStackTraceElement =
-			new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", -1)
+//		private[exceptions] final val fillInStackTraceStackTraceElement =
+//			new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", 326)
 
 	}
 }
@@ -168,10 +169,14 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	private[exceptions] final val StringThrowableArgs = Array[Class[_]](classOf[String], classOf[Throwable])
 	private[exceptions] final val StringThrowableBoolArgs =
 		Array[Class[_]](classOf[String], classOf[Throwable], classOf[Boolean])
+	private[exceptions] final val StringLazyStringThrowableArgs =
+		Array[Class[_]](classOf[String], classOf[() => String], classOf[Throwable])
 	private[exceptions] final val StringLazyStringThrowableBoolArgs =
 		Array[Class[_]](classOf[String], classOf[() => String], classOf[Throwable], classOf[Boolean])
 	private[exceptions] final val StringThrowableBoolBoolArgs =
 		Array[Class[_]](classOf[String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
+	private[exceptions] final val StringLazyStringThrowableBoolBoolArgs =
+		Array[Class[_]](classOf[String], classOf[() => String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
 	private[exceptions] final val LazyStringArg =
 		Array[Class[_]](classOf[() => String])
 	private[exceptions] final val LazyStringThrowableArgs =
@@ -180,11 +185,380 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 		Array[Class[_]](classOf[() => String], classOf[Throwable], classOf[Boolean])
 	private[exceptions] final val LazyStringThrowableBoolBoolArgs =
 		Array[Class[_]](classOf[() => String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
-	private[exceptions] final val StringLazyStringThrowableBoolBoolArgs =
-		Array[Class[_]](classOf[String], classOf[() => String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
+
+
+	private[exceptions] final def defaultConstructor[T :ClassTag] :Opt[() => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(NoArgs).map(cons => () => cons.newInstance())
+		).orElse(
+			findConstructor(StringThrowableArgs).map { cons => () => cons.newInstance(null, null) }
+		).orElse(
+			findConstructor(StringArg).map { cons => () => cons.newInstance(null) }
+		).orElse(
+			findConstructor(StringThrowableBoolBoolArgs).map { cons => () => cons.newInstance(null, null, true, true) }
+		).orElse(
+			findConstructor(ThrowableArg).map { cons => () => cons.newInstance(null) }
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map { cons => () => cons.newInstance(null, null) }
+		).orElse(
+			findConstructor(LazyStringArg).map { cons => () => cons.newInstance(null) }
+		).orElse(
+			findConstructor(LazyStringThrowableBoolBoolArgs).map {
+				cons => () => cons.newInstance(null, null, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => () => cons.newInstance(null, null, null, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map { cons => () => cons.newInstance(null, null, null) }
+		)
+	}
+
+	private[exceptions] final def throwableConstructor[T <: Throwable :ClassTag] :Opt[Throwable => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(ThrowableArg).map { cons => cons.newInstance(_ :Throwable) }
+		).orElse(
+			findConstructor(StringThrowableArgs).map { cons => cons.newInstance(null, _ :Throwable) }
+		).orElse(
+			findConstructor(StringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(null, _ :Throwable, true, true)
+			}
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map { cons => cons.newInstance(null, _ :Throwable) }
+		).orElse(
+			findConstructor(LazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(null, _ :Throwable, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(null, null, _ :Throwable)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(null, null, _ :Throwable, true, true)
+			}
+		)
+	}
+
+	private[exceptions] final def stringConstructor[T :ClassTag] :Opt[String => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(StringThrowableArgs).map { cons => cons.newInstance(_ :String, null) }
+		).orElse(
+			findConstructor(StringArg).map { cons => cons.newInstance(_ :String) }
+		).orElse(
+			findConstructor(StringThrowableBoolBoolArgs).map { cons => cons.newInstance(_ :String, null, true, true) }
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map { cons => msg :String => cons.newInstance(() => msg, null) }
+		).orElse(
+			findConstructor(LazyStringArg).map { cons => msg :String => cons.newInstance(() => msg) }
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :String, null, null, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map { cons => cons.newInstance(_ :String, null, null) }
+		)
+	}
+
+	private[exceptions] final def stringThrowableConstructor[T <: Throwable :ClassTag] :Opt[(String, Throwable) => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(StringThrowableArgs).map { cons => cons.newInstance(_ :String, _ :Throwable) }
+		).orElse(
+			findConstructor(StringArg).map { cons => cons.newInstance(_ :String).initCause(_ :Throwable).downcastTo[T] }
+		).orElse(
+			findConstructor(StringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :String, _ :Throwable, true, true)
+			}
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map {
+				cons => (s :String, e :Throwable) => cons.newInstance(() => s, e) }
+		).orElse(
+			findConstructor(LazyStringArg).map {
+				cons => (s :String, e :Throwable) => cons.newInstance(s).initCause(e).downcastTo[T]
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(_ :String, null, _ :Throwable)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :String, null, _ :Throwable, true, true)
+			}
+		)
+	}
+
+	private[exceptions] final def stringThrowableBoolBoolConstructor[T <: Throwable :ClassTag]
+			:Opt[(String, Throwable, Boolean, Boolean) => T] =
+	{
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(StringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :String, _ :Throwable, _ :Boolean, _ :Boolean)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :String, null, _ :Throwable, _ :Boolean, _ :Boolean) }
+		).orElse(
+			findConstructor(LazyStringThrowableBoolBoolArgs).map {
+				cons => (s :String, e :Throwable, es :Boolean, ws :Boolean) => cons.newInstance(() => s, e, es, ws)
+			}
+		)
+	}
+
+	private[exceptions] final def lazyStringConstructor[T :ClassTag] :Opt[(() => String) => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(LazyStringThrowableArgs).map { cons => cons.newInstance(_ :() => String, null) }
+		).orElse(
+			findConstructor(LazyStringArg).map { cons => cons.newInstance(_ :() => String) }
+		).orElse(
+			findConstructor(LazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :() => String, null, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(null, _ :() => String, null, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(null, _ :() => String, null)
+			}
+		)
+	}
+
+	private[exceptions] final def lazyStringThrowableConstructor[T <: Throwable :ClassTag]
+			:Opt[(() => String, Throwable) => T] =
+	{
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(LazyStringThrowableArgs).map { cons => cons.newInstance(_ :() => String, _ :Throwable) }
+		).orElse(
+			findConstructor(LazyStringArg).map {
+				cons => cons.newInstance(_ :() => String).initCause(_ :Throwable).downcastTo[T]
+			}
+		).orElse(
+			findConstructor(LazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :() => String, _ :Throwable, true, true)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(_ :() => String, null, _ :Throwable)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(null, _ :() => String, _ :Throwable, true, true)
+			}
+		)
+	}
+
+	private[exceptions] final def lazyStringThrowableBoolBoolConstructor[T <: Throwable :ClassTag]
+			:Opt[(() => String, Throwable, Boolean, Boolean) => T] =
+	{
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(LazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(_ :() => String, _ :Throwable, _ :Boolean, _ :Boolean)
+			}
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolBoolArgs).map {
+				cons => cons.newInstance(null, _ :() => String, _ :Throwable, _ :Boolean, _ :Boolean)
+			}
+		)
+	}
+
+	private[exceptions] final def defaultRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[() => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(NoArgs).map(cons => () => cons.newInstance()).filterNot(_().isRethrown)
+		).orElse(
+			findConstructor(StringArg).map(cons => () => cons.newInstance("")).filterNot(_().isRethrown)
+		).orElse(
+			findConstructor(StringThrowableBoolArgs).map {
+				cons => () => cons.newInstance("", null, false)
+			}.filterNot(_().isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableBoolArgs).map {
+				cons => () => cons.newInstance(() => "", null, false)
+			}.filterNot(_().isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => () => cons.newInstance("", null, null)
+			}.filterNot(_().isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolArgs).map {
+				cons => () => cons.newInstance("", null, null, false)
+			}.filterNot(_().isRethrown)
+		)
+	}
+
+	private[exceptions] final def newRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[String => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		(
+			findConstructor(StringArg).map(cons => cons.newInstance(_ :String)).filterNot(_("").isRethrown)
+		).orElse(
+			findConstructor(StringThrowableBoolArgs).map {
+				cons => cons.newInstance(_ :String, null, false)
+			}.filterNot(_("").isRethrown)
+		).orElse(
+			findConstructor(StringThrowableArgs).map {
+				cons => cons.newInstance(_ :String, null)
+			}.filterNot(_("").isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolArgs).map {
+				cons => cons.newInstance(_ :String, null, null, false)
+			}.filterNot(_("").isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(_ :String, null, null)
+			}.filterNot(_("").isRethrown)
+		).orElse(
+			findConstructor(LazyStringArg).map {
+				cons => (s :String) => cons.newInstance(() => s)
+			}.filterNot(_("").isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableBoolArgs).map {
+				cons => (s :String) => cons.newInstance(() => s, null, false)
+			}
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map {
+				cons => (s :String) => cons.newInstance(() => s, null)
+			}.filterNot(_("").isRethrown)
+		)
+	}
+
+	private[exceptions] final def newLazyRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[(() => String) => T] = {
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		val testArg = () => ""
+		(
+			findConstructor(LazyStringArg).map {
+				cons => cons.newInstance(_ :() => String)
+			}.filterNot(_(testArg).isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableBoolArgs).map {
+				cons => cons.newInstance(_ :() => String, null, false)
+			}.filterNot(_(testArg).isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map {
+				cons => cons.newInstance(_ :() => String, null)
+			}.filterNot(_(testArg).isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolArgs).map {
+				cons => cons.newInstance(null, _ :() => String, null, false)
+			}.filterNot(_(testArg).isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(null, _ :() => String, null)
+			}.filterNot(_(testArg).isRethrown)
+		)
+	}
+
+	private[exceptions] final def rethrownRethrowableConstructor[T <: Rethrowable :ClassTag]
+			:Opt[(String, Throwable) => T] =
+	{
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		val testArg = new Exception()
+		(
+			findConstructor(StringThrowableArgs).map {
+				cons => cons.newInstance(_ :String, _ :Throwable)
+			}.filter(_("", testArg).isRethrown)
+		).orElse(
+			findConstructor(StringThrowableBoolArgs).map {
+				cons => cons.newInstance(_ :String, _ :Throwable, true)
+			}.filter(_("", testArg).isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolArgs).map {
+				cons => cons.newInstance(_ :String, null, _ :Throwable, true)
+			}.filter(_("", testArg).isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(_ :String, null, _ :Throwable)
+			}.filter(_("", testArg).isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableArgs).map {
+				cons => (s :String, e :Throwable) => cons.newInstance(() => s, e)
+			}.filter(_("", testArg).isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableBoolArgs).map {
+				cons => (s :String, e :Throwable) => cons.newInstance(() => s, e, true)
+			}.filter(_("", testArg).isRethrown)
+		)
+	}
+
+	private[exceptions] final def rethrownLazyRethrowableConstructor[T <: Rethrowable :ClassTag]
+			:Opt[(() => String, Throwable) => T] =
+	{
+		implicit val constructors :Array[Constructor[T]] =
+			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
+		val testArg1 = () => ""
+		val testArg2 = new Exception()
+		(
+			findConstructor(LazyStringThrowableArgs).map {
+				cons => cons.newInstance(_ :() => String, _ :Throwable)
+			}.filter(_(testArg1, testArg2).isRethrown)
+		).orElse(
+			findConstructor(LazyStringThrowableBoolArgs).map {
+				cons => cons.newInstance(_ :() => String, _ :Throwable, true)
+			}.filter(_(testArg1, testArg2).isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableBoolArgs).map {
+				cons => cons.newInstance(null, _ :() => String, _ :Throwable, true)
+			}.filter(_(testArg1, testArg2).isRethrown)
+		).orElse(
+			findConstructor(StringLazyStringThrowableArgs).map {
+				cons => cons.newInstance(null, _ :() => String, _ :Throwable)
+			}.filter(_(testArg1, testArg2).isRethrown)
+		)
+	}
+
+
+	private[exceptions] final def findConstructor[T](paramTypes :Array[Class[_]])
+	                                                (implicit constructors :Array[Constructor[T]]) =
+	{
+		var i = 0
+		val count = constructors.length
+		while (i < count && !arraysEqual(constructors(i).getParameterTypes, paramTypes))
+			i += 1
+		if (i == count) Lack else Got(constructors(i))
+/*
+		var constructor :Constructor[T] = null
+		var found = false
+		while (i < count && !found) {
+			constructor = constructors(i)
+			val params = constructor.getParameterTypes
+			found = params.length == paramTypes.length && {
+				var i = params.length
+				while (i > 0 && { i -= 1; params(i).isAssignableFrom(paramTypes(i)) })
+					{}
+				i == 0
+			}
+		}
+		if (found) Got(constructor) else Lack
+*/
+	}
+
 
 	//todo: create instead methods for each argument list, which search for any constructor which can be used -
 	// much faster.
+	private[exceptions] final def findConstructor[T](clazz :Class[T], paramTypes :Array[Class[_]]) :Opt[Constructor[T]] =
+		findConstructor(paramTypes)(clazz.getDeclaredConstructors.castParam[Constructor[T]])
+/*
 	private[exceptions] final def findConstructor(clazz :Class[_], paramTypes :Array[Class[_]]) :Opt[Constructor[_]] = {
 		val constructors = clazz.getDeclaredConstructors
 		var i = constructors.length - 1
@@ -193,7 +567,8 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 		if (i >= 0) Got(constructors(i))
 		else Lack
 	}
-	private[exceptions] final def arraysEqual(a :Array[_], b :Array[_]) :Boolean =
+*/
+	private final def arraysEqual(a :Array[_], b :Array[_]) :Boolean =
 		a.length == b.length && {
 			var i = a.length - 1
 			while (i >= 0 && a(i) == b(i))
