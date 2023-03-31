@@ -2,6 +2,8 @@ package net.noresttherein.sugar.concurrent
 
 import java.lang.invoke.MethodHandles
 
+import scala.annotation.nowarn
+
 import net.noresttherein.sugar.concurrent.SpinLock.{ownerField, Open, SpinsBetweenChecks}
 import net.noresttherein.sugar.exceptions.StackableException
 import net.noresttherein.sugar.time.{Milliseconds, PosixTime}
@@ -33,7 +35,11 @@ import net.noresttherein.sugar.time.{Milliseconds, PosixTime}
   */
 class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 	def this() = this(true)
-	@volatile private[this] var owner = if (initiallyOpen) 0L else Thread.currentThread.threadId
+
+	//getId is deprecated only since 19, and we can't assume people will run that.
+	@nowarn("cat=deprecation") @inline private def currentThreadId :Long = Thread.currentThread.getId
+
+	@volatile private[this] var owner = if (initiallyOpen) 0L else currentThreadId
 
 //	/** An open lock can be locked by any thread without waiting. This value however can become stale the moment
 //	  * it is returned.
@@ -50,7 +56,7 @@ class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 	  * [[net.noresttherein.sugar.concurrent.SpinLock.forceOpen forceOpen]] which evicts any thread from the lock
 	  * and allows its future locking by any thread in the result.
 	  */
-	def isAcquired :Boolean = owner == Thread.currentThread.threadId
+	def isAcquired :Boolean = owner == currentThreadId
 
 	/** A broken lock is held by no thread and cannot be locked (or opened) again.
 	  * This feature allows to signal all awaiting or using threads that they should terminate
@@ -68,7 +74,7 @@ class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 	  */
 	@throws[BrokenLockException]("if this lock is, or becomes broken when this thread attempts to lock it.")
 	def lock() :Unit = {
-		val me = Thread.currentThread.threadId
+		val me = currentThreadId
 		while (!ownerField.weakCompareAndSet(this, 0L, me))
 			checkNotBroken()
 	}
@@ -81,7 +87,7 @@ class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 	  */
 	@throws[BrokenLockException]("if this lock is, or becomes broken when this thread attempts to lock it.")
 	def lock(timeout :Milliseconds) :Boolean = {
-		val me = Thread.currentThread.threadId
+		val me = currentThreadId
 		val deadline = PosixTime after timeout
 		var locked = false
 		while (PosixTime.now < deadline && owner >= 0L) {
@@ -133,7 +139,7 @@ class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 	@throws[BrokenLockException]("if this lock is broken.")
 	@throws[IllegalStateException]("if the current thread doesn't hold this lock.")
 	def unlock() :Unit = {
-		val me = Thread.currentThread.threadId
+		val me = currentThreadId
 		if (!ownerField.compareAndSet(this, me, 0L)) {
 			checkNotBroken()
 			throw new IllegalStateException("Thread #" + me + "doesn't hold " + this + ".")
@@ -147,7 +153,7 @@ class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 	  * open (not locked).
 	  */
 	override def close() :Unit = {
-		val me = Thread.currentThread.threadId
+		val me = currentThreadId
 		if (!ownerField.compareAndSet(this, me, Open) && owner != Open)
 			checkNotBroken()
 	}
