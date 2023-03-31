@@ -9,9 +9,17 @@ import net.noresttherein.sugar.vars.Ref.{undefined, RefFractional, RefIntegral, 
 
 
 
-/** A monadic lazy value. Unlike scala's `lazy val`s, this implementation doesn't incur any synchronization penalty
-  * once the value is initialized for built in value types. Additionally, it provides methods allowing to check
-  * its initialization state and provides monadic operations for constructing other `Lazy` instances.
+/** A monadic lazy value. While Scala `lazy val` is a better choice in general, and has a lesser memory footprint,
+  * this class, and especially its subclasses, has some advantages over it:
+  *   1. They don't incur any synchronization penalty once the value is initialized for built in value types.
+  *   1. They allow to check its initialization state (which in turn allows for example to discard `Lazy` and use
+  *      the value directly, or choose a different method of initializing some other value).
+  *   1. They provide monadic operations for constructing other `Lazy` instances.
+  *   1. Can be stored in collections and passed as arguments without automatically including the whole outer object
+  *      in the closure (for class fields).
+  *   1. [[net.noresttherein.sugar.vars.Idempotent idempotent]] offers better performance in case of many contentious
+  *      reads.
+  *   1. [[net.noresttherein.sugar.vars.Transient transient]] discards the computed value on serialization.
   *
   * Three implementations exist:
   *   1. The default one which uses a synchronized block to ensure it is initialized at most once and has
