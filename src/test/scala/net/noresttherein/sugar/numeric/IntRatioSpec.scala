@@ -5,6 +5,7 @@ import net.noresttherein.sugar.extensions.providingMethods
 import net.noresttherein.sugar.matching.MatchPattern
 import net.noresttherein.sugar.numeric.IntRatio.{intRatio_%/, One, Zero}
 import net.noresttherein.sugar.optional.allOf
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
@@ -26,8 +27,8 @@ object IntRatioSpec extends Properties("IntRatio") {
 
 	private def force(x :Int) :Int = if (x == Int.MinValue) -Int.MaxValue else x
 
-	val Force = MatchPattern { x :Int => Some(if (x == Int.MinValue) -Int.MaxValue else x) }
-	val InRange = MatchPattern { x :Int => if (x == Int.MinValue) None else Some(x) }
+	val Force = MatchPattern { x :Int => Got(if (x == Int.MinValue) -Int.MaxValue else x) }
+	val InRange = MatchPattern { x :Int => if (x == Int.MinValue) Lack else Got(x) }
 
 
 

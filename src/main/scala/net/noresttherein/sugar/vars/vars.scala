@@ -7,8 +7,8 @@ import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent, NonExistent}
-import net.noresttherein.sugar.exceptions.{StackableException, StackableThrowable, SugaredException}
-
+import net.noresttherein.sugar.exceptions.{AbstractException, SugaredException, SugaredThrowable}
+import net.noresttherein.sugar.vars.InOut.SpecializedVars
 
 
 
@@ -900,8 +900,6 @@ package object vars extends vars.Rank1PotentialImplicits {
 
 package vars {
 
-	import net.noresttherein.sugar.vars.InOut.SpecializedVars
-
 	private[sugar] sealed abstract class Rank1PotentialImplicits {
 		@inline implicit def optFromPotential[T](opt :Potential[T]) :Opt[T] = Existent.unapply(opt)
 		@inline implicit def potentialFromOpt[T](opt :Opt[T]) :Potential[T] = Potential.got_?(opt)
@@ -1360,10 +1358,10 @@ package vars {
 
 		@SerialVersionUID(Ver)
 		private class EagerFailed(override val msg :String, cause :Throwable = null)
-			extends StackableException(msg, cause, true, false) with Failed
+			extends AbstractException(msg, cause, true, false) with Failed
 		{
 			override def apply() :String = msg
-			override def addInfo(msg :String) :StackableThrowable = new EagerFailed(msg, this)
+			override def addInfo(msg :String) :SugaredThrowable = new EagerFailed(msg, this)
 			override def toException = this
 			override def className = "Failed"
 		}

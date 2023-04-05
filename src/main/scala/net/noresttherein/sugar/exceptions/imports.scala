@@ -6,7 +6,6 @@ import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension, downcastTypeParam, saferCasting}
-import net.noresttherein.sugar.matching.MatchFunction
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
@@ -154,7 +153,7 @@ trait imports {
 	}
 
 
-	private val CloneableException = MatchFunction.unlift { a :Any => ThrowableCloning.get(a.getClass) }
+	private val CloneableException = { a :Any => ThrowableCloning.get(a.getClass) }.unlift
 
 	protected val ThrowableCloning :Map[Class[_], (String, Throwable) => Throwable] = Map(
 		(classOf[ArrayIndexOutOfBoundsException],  new ArrayIndexOutOfBoundsException(_).initCause(_)),
