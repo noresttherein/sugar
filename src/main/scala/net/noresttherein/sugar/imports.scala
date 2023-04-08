@@ -12,4 +12,6 @@ package net.noresttherein.sugar
   */
 trait imports extends exceptions.imports with optional.imports {
 	//todo: i.++  ++.i macros
+
+	type =?>[-X, +Y] = PartialFunction[X, Y]
 }

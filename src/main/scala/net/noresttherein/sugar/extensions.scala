@@ -18,7 +18,7 @@ import net.noresttherein.sugar.typist.Rank.Rank1
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: having it simply extend the traits for individual packages.
 trait extensions extends Any
-	with casting.extensions with collections.extensions with exceptions.extensions
+	with casting.extensions with collections.extensions with exceptions.extensions with funny.extensions
 	with matching.extensions with numeric.extensions with optional.extensions
 	with prettyprint.extensions with reflect.extensions with repeat.extensions
 	with time.extensions[Rank1] with tuples.extensions with typist.extensions
