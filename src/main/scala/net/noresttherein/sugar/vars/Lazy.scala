@@ -102,9 +102,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  * at most once.
 	  */
 	override def map[O](f :T => O) :Lazy[O] = //implementation only needed because super method is not abstract
-		new MappedVal[T, O](this, f) with Lazy[O] {
-			override def flatMap[A](ff: O => Lazy[A]): Lazy[A] = Lazy.this.map(f andThen ff andThen (_.get))
-		}
+		new MappedVal[T, O](this, f) with Lazy[O]
 
 	/** Creates a new `Lazy[O]` initialized with the expression `f(this.value)).value`. If this instance is already
 	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise a new
@@ -112,7 +110,8 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  * `f(this.value)).value` as the initializing expression. If you wish for `f` to not be executed
 	  * before the method returns and the returned instance is accessed, use `Lazy(f(this.value).value))`.
 	  */
-	def flatMap[O](f :T => Lazy[O]) :Lazy[O]
+	def flatMap[O](f :T => Lazy[O]) :Lazy[O] =
+		new FlatMappedVal[T, O](this, f) with Lazy[O]
 
 	override def mkString :String = mkString("Lazy")
 }

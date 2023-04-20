@@ -73,15 +73,26 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //co
 	  * If `this.`[[net.noresttherein.sugar.vars.Val.isConst isConst]], then the new value is initialized immediately
 	  * with `f(get)`. Otherwise, a proxy object is returned, which implements
 	  * [[net.noresttherein.sugar.vars.Val.isDefined isDefined]],
-	  * [[net.noresttherein.sugar.vars.Val.get get]], [[net.noresttherein.sugar.vars.Val.const const]]
+	  * [[net.noresttherein.sugar.vars.Val.get get]], [[net.noresttherein.sugar.vars.Val.const const]],
 	  * and their optional variants by delegating to this instance.
 	  * The semantics of [[net.noresttherein.sugar.vars.Val.value value]] and other methods querying the temporary state
 	  * are undefined.
 	  */
-	def map[O](f :T => O) :Val[O] = opt match {
-		case Got(v) => Lazy.eager(f(v))
-		case _ => new MappedVal(this, f)
-	}
+	def map[O](f :T => O) :Val[O] =
+		if (isConst) Lazy.eager(f(get))
+		else new MappedVal(this, f)
+
+	/** Creates a new `Val` the value of which is derived from the value of this instance.
+	  * If `this.`[[net.noresttherein.sugar.vars.Val.isConst isConst]], then the function is evaluated immediately,
+	  * and its result is returned. Otherwise, a proxy object is created, which implements
+	  * [[net.noresttherein.sugar.vars.Val.get get]], [[net.noresttherein.sugar.vars.Val.const const]],
+	  * and their optional variants as a composition of the same methods on `this`, and `f`.
+	  * The semantics of [[net.noresttherein.sugar.vars.Val.value value]] and other methods querying the temporary state
+	  * are undefined.
+	  */
+	def flatMap[O](f :T => Val[O]) :Val[O] =
+		if (isConst) f(get)
+		else new FlatMappedVal(this, f)
 
 	/** Compares the evaluated [[net.noresttherein.sugar.vars.Val.const const]] values for equality,
 	  * blocking if either of the instances is not yet initialized.
@@ -128,9 +139,43 @@ object Val {
 
 
 
+/*
+private abstract class ProxyVal[V, +O](source :Val[V]) extends Val[O] {
+	@volatile private[this] var cache :Opt[Val[O]] = Lack
+
+	protected def eval(v :V) :Val[O]
+	@inline protected final def cached :Opt[Val[O]] =
+		cache orElse Opt.when(source.isConst)(adaptVal(source.const))
+
+	@inline private def adaptVal(v: V) :Val[O] = {
+		val res = eval
+		cache = Got(res)
+		res
+	}
+
+	override def isFinalizable :Boolean = cached.mapOrElse(_.isFinalizable, false)
+	override def isConst       :Boolean = cached.mapOrElse(_.isConst, false)
+	override def isDefined     :Boolean = cached.mapOrElse(_.isDefined, false)
+	override def isDefinite    :Boolean = cached.mapOrElse(_.isDefinite, false)
+
+	override def value :O = opt.orNoSuch("Val()")
+	override def get   :O = toOpt getOrElse adaptVal(source.get).get
+	override def const :O = constOpt.orNoSuch("Val()")
+
+	override def opt      :Opt[O] = cached.flatMap(_.opt)
+	override def toOpt    :Opt[O] = (cache orElse source.toOpt.map(adaptVal)).flatMap(_.toOpt)
+	override def constOpt :Opt[O] = (cache orElse source.constOpt.map(adaptVal)).flatMap(_.constOpt)
+
+	override def mkString = mkString("Val")
+}
+*/
+
+
+
+
 /** A proxy `Val` mapping the value of another `Val`. */
 @SerialVersionUID(Ver)
-private class MappedVal[T, +O](source: Val[T], f: T => O) extends Val[O] {
+private class MappedVal[V, +O](source: Val[V], f: V => O) extends Val[O] {
 	@volatile private[this] var x: Opt[O] = Lack
 
 	override def isFinalizable :Boolean = x.isDefined || source.isFinalizable
@@ -142,7 +187,7 @@ private class MappedVal[T, +O](source: Val[T], f: T => O) extends Val[O] {
 	override def get      :O = x getOrElse adaptVal(source.get)
 	override def const :O = x getOrElse adaptVal(source.const)
 
-	@inline private def adaptVal(v: T) :O = {
+	@inline private def adaptVal(v: V) :O = {
 		val res = f(v)
 		x = Got(res)
 		res
@@ -159,7 +204,7 @@ private class MappedVal[T, +O](source: Val[T], f: T => O) extends Val[O] {
 	override def toOpt    :Opt[O] = x orElse adaptOpt(source.toOpt)
 	override def constOpt :Opt[O] = x orElse adaptOpt(source.constOpt)
 
-	private def adaptOpt(outer: Opt[T]) = {
+	private def adaptOpt(outer: Opt[V]) = {
 		val local = x
 		if (local.isDefined)
 			local
@@ -171,6 +216,43 @@ private class MappedVal[T, +O](source: Val[T], f: T => O) extends Val[O] {
 			res
 		}
 	}
+
+	override def map[Y](f :O => Y) :Val[Y] = new MappedVal(source, this.f andThen f)
+
+	override def flatMap[Y](f :O => Val[Y]) :Val[Y] = new FlatMappedVal(source, this.f andThen f)
+
+	override def mkString = mkString("Val")
+}
+
+
+
+
+/** A proxy `Val` flat mapping the value of another `Val`. */
+@SerialVersionUID(Ver)
+private class FlatMappedVal[V, +O](source: Val[V], f: V => Val[O]) extends Val[O] {
+	@volatile private[this] var cache :Opt[Val[O]] = Lack
+
+	@inline protected final def cached :Opt[Val[O]] =
+		cache orElse Opt.when(source.isConst)(adaptVal(source.const))
+
+	@inline private def adaptVal(v: V) :Val[O] = {
+		val res = f(v)
+		cache = Got(res)
+		res
+	}
+
+	override def isFinalizable :Boolean = cached.mapOrElse(_.isFinalizable, false)
+	override def isConst       :Boolean = cached.mapOrElse(_.isConst, false)
+	override def isDefined     :Boolean = cached.mapOrElse(_.isDefined, false)
+	override def isDefinite    :Boolean = cached.mapOrElse(_.isDefinite, false)
+
+	override def value :O = opt.orNoSuch("Val()")
+	override def get   :O = toOpt getOrElse adaptVal(source.get).get
+	override def const :O = constOpt.orNoSuch("Val()")
+
+	override def opt      :Opt[O] = cached.flatMap(_.opt)
+	override def toOpt    :Opt[O] = (cache orElse source.toOpt.map(adaptVal)).flatMap(_.toOpt)
+	override def constOpt :Opt[O] = (cache orElse source.constOpt.map(adaptVal)).flatMap(_.constOpt)
 
 	override def mkString = mkString("Val")
 }

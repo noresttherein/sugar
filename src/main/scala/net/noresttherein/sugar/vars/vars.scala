@@ -396,6 +396,26 @@ package object vars extends vars.Rank1PotentialImplicits {
 		  *  or the given `String` as $Failed error message if empty. */
 		@inline def toPassed(err: => String) :Fallible[A] =
 			if (self.asInstanceOf[AnyRef] eq NonExistent) Failed(() => err) else Passed(get)
+
+
+		/** Formats this `Potential` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
+		@inline def mkString(prefix :String) :String =
+			if (self.asInstanceOf[AnyRef] eq NonExistent) prefix + "()" else prefix + "(" + self + ")"
+
+		/** Formats this `Potential` as `s"Potential($get)"` or `"Potential()"`. */
+		@inline def mkString :String =
+			if (self.asInstanceOf[AnyRef] eq NonExistent) "Potential()" else "Potential(" + self + ")"
+
+		/** Compares the contents for equality, with the result being false if any of the operands are empty. */
+		@inline def same(other :Potential[_]) :Boolean =
+			(self.asInstanceOf[AnyRef] ne NonExistent) & (other.asInstanceOf[AnyRef] ne NonExistent) && self == other
+
+		/** Returns `for (a <- this; b <- other) yield a == b`. */
+		@inline def sameOpt(other :Potential[_]) :Potential[Boolean] =
+			(if (self.asInstanceOf[AnyRef] eq NonExistent) self
+			 else if (other.asInstanceOf[AnyRef] eq NonExistent) other
+			 else (self == other)
+			).asInstanceOf[Potential[Boolean]]
 	}
 
 
@@ -650,6 +670,31 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case red :Red[R @unchecked] => Failure(red.value)
 			case _ => Success(get)
 		}
+
+		/** Returns `true` if both operands are $Blue and their values are equal. */
+		@inline def blueEquals(other :Pill[_, _]) :Boolean =
+			!self.isInstanceOf[Red[_]] & !other.isInstanceOf[Red[_]]  && self == other
+
+		/** Returns `true` if both operands are $Red and their values are equal. */
+		@inline def redEquals(other :Pill[_, _]) :Boolean = (self, other) match {
+			case (a :Red[_], b :Red[_]) => a.value == b.value
+			case _ => false
+		}
+
+		/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] if any of the operands are $Red,
+		  * and `this == other` otherwise.
+		  */
+		@inline def blueEqualsOpt(other :Pill[_, _]) :Opt[Boolean] =
+			if (self.isInstanceOf[Red[_]] | other.isInstanceOf[Red[_]]) Lack
+			else Got(self == other)
+
+		/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] if any of the operands are $Blue,
+		  * and `this == other` otherwise.
+		  */
+		@inline def redEqualsOpt(other :Pill[_, _]) :Opt[Boolean] = (self, other) match {
+			case (a :Red[_], b :Red[_]) => Got(a.value == b.value)
+			case _ => Lack
+		}
 	}
 
 
@@ -890,6 +935,14 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case _ => Success(get)
 		}
 
+		/** Compares the contents for equality, with the result being false if any of the operands are $Failed. */
+		@inline def same(other :Fallible[_]) :Boolean =
+			!self.isInstanceOf[Failed] & !other.isInstanceOf[Failed] && self == other
+
+		/** Returns `Got(this == other)` if both operands are $Passed, or `Lack` otherwise. */
+		@inline def sameOpt(other :Fallible[_]) :Opt[Boolean] =
+			if (self.isInstanceOf[Failed] | other.isInstanceOf[Failed]) Lack
+			else Got(self == other)
 	}
 }
 

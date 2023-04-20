@@ -126,7 +126,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * [[net.noresttherein.sugar.vars.Ref.get get]] and [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]],
 	  * [[net.noresttherein.sugar.vars.Ref.toOption toOption]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
 	  * will return this value without blocking. Implies [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]].
-	  * This value needs to not to be final - the above methods are allowed to return different values in the future.
+	  * This value needs not be final - the above methods are allowed to return different values in the future.
 	  * An uninitialized [[net.noresttherein.sugar.vars.Lazy lazy]] val is ''defined'', but not ''definite'',
 	  * while a [[net.noresttherein.sugar.vars.Var variable]] is always ''definite''.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]]
@@ -166,11 +166,12 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  *      without throwing an exception, then all subsequent calls will also succeed and return the same value;
 	  *   1. if `this.`[[net.noresttherein.sugar.vars.Ref.toOption toOption]]
 	  *      ([[net.noresttherein.sugar.vars.Ref.toOpt toOpt]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]])
-	  *      returns `Some` (`Got`, `Sure`), then this method would return the same value unwrapped;
+	  *      returns `Some` (`Got`, `Sure`), then this method will return the same value unwrapped;
 	  *   1. if this method returns `v` without an exception, then [[net.noresttherein.sugar.vars.Ref.value value]]
 	  *      will also return the same value (i.e., the 'current value' of a `Ref` is also always 'its value');
-	  *   1. if this method returns `v` without an exception, then all subsequent calls
-	  *      to [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
+	  *   1. if this method returns `v` without an exception, then, in a synchronized or single thread context,
+	  *      all subsequent calls to
+	  *      [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
 	  *      will return `Some(v)`/`Got(v)`/`Sure(v)`.
 	  *   1. if a call to `this.`[[net.noresttherein.sugar.vars.const const]] succeeds and returns `v`,
 	  *      then all subsequent calls to `get` will also return `v`.
@@ -387,14 +388,21 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]]
 	  */
 	def constPotential :Potential[T] = constOpt.potential
-//
-//	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
-//	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
-//	  * external setting of the value will return [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
-//	  * This is equivalent to [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]].
-//	  */
-//	def ?? :Potential[T] = toPotential
 
+	/** Returns `true` if both instances are [[net.noresttherein.sugar.vars.Ref.isDefined defined]]
+	  * and their  [[net.noresttherein.sugar.vars.Ref.value values]] are equal.
+	  */
+	def valueEquals(other :Ref[_]) :Boolean = (opt, other.opt) match {
+		case (Got(a), Got(b)) => a == b
+		case _ => false
+	}
+
+	/** Equivalent to
+	  * [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]` `[[net.noresttherein.sugar.vars.Opt.same same]]` other.toOpt`.
+	  */
+	def same(other :Ref[_]) :Boolean = toOpt same other.toOpt
+
+//	def sameOpt(other :Ref[_]) :Ref[Boolean] =
 
 	/** True if the content type is known to be a value type and the class is specialized for it.
 	  * Signifies that usage of [[net.noresttherein.sugar.vars.Unsure Unsure]] is preferable

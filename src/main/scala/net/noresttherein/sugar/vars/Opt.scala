@@ -466,6 +466,15 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	private[vars] override def isSpecialized = false
 
 	@inline override def canEqual(that :Any) :Boolean = that.isInstanceOf[Opt[_]]
+
+	/** Compares the contents for equality, with the result being false if any of the operands are empty. */
+	@inline def same(other :Opt[_]) :Boolean = (ref ne NoContent) & (other.ref ne NoContent) && ref == other.ref
+
+	/** Returns `for (a <- this; b <- other) yield a == b`. */
+	@inline def sameOpt(other :Opt[_]) :Opt[Boolean] =
+		if (ref eq NoContent) this.asInstanceOf[Opt[Boolean]]
+		else if (other.ref eq NoContent) other.asInstanceOf[Opt[Boolean]]
+		else Got(ref == other.ref)
 }
 
 
