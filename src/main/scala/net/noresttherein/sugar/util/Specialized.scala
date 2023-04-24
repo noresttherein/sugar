@@ -30,6 +30,9 @@ sealed trait SpecTag[X] {
 	  * then `classTag.runtimeClass == classOf[Any]`.
 	  */
 	def classTag :ClassTag[X]
+
+	//we can't implement nullValue as in erased version it cannot return null
+//	def nullValue :X
 }
 
 

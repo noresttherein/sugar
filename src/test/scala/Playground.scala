@@ -1,39 +1,136 @@
-import java.math.{MathContext, RoundingMode}
-import java.math.MathContext.{DECIMAL128, DECIMAL32}
-import java.math.RoundingMode.{DOWN, FLOOR, HALF_DOWN, HALF_EVEN, HALF_UP, UNNECESSARY, UP}
 
-import scala.math.BigDecimal.RoundingMode.CEILING
+import scala.collection.immutable.{ArraySeq, ListSet, SortedMap}
+import scala.collection.{IndexedSeqView, SortedSet}
 
-import net.noresttherein.sugar.numeric.{Decimal64, Decimal64Spec}
-import net.noresttherein.sugar.numeric.Decimal64.Round.{maxPrecision, Extended, ExtendedExact, Standard}
-import net.noresttherein.sugar.numeric.Decimal64.implicits.scientificDecimalNotation
-import net.noresttherein.sugar.numeric.Decimal64.{Precision, Round}
+import net.noresttherein.sugar.collections.{MultiSet, OrderedItems, PassedArray, Ranking, ZigZag}
+import net.noresttherein.sugar.extensions.{classExtension, classNameExtension, classNameMethods}
+import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.JavaTypes.JByte
+import net.noresttherein.sugar.util.LabelPath.{~/, /, Label}
+
 
 
 
 
 object Playground extends App {
 
-	trait Box {
-		type Bound[-T] >: Contra[T]
-		type Contra[-T]
-		def box :Box { type Contra[-T] <: Bound[T] }
+	trait Box[X]
+	trait SmallBox[X] extends Box[X]
+
+	class Wrapper {
+		type T[O] <: Box[O]
+	}
+	class Evidence[-Q]
+
+	class EvidenceFactory {
+		implicit def basic :Evidence[Wrapper] { type X = 1 } = new Evidence[Wrapper] { type X = 1 }
+	}
+	object Evidence extends EvidenceFactory {
+		implicit def refined[B[O] <: Box[O]] :Evidence[Wrapper { type T[O] = B[O] }] { type X = 2 } =
+			new Evidence[Wrapper { type T[O] = B[O] }] { type X = 2 }
 	}
 
-	trait High[T[_]]
+	implicit def summon[Q](q :Q)(implicit ev :Evidence[Q]) = ???
+	summon(new Wrapper)
+	summon(new Wrapper { type T[O] = Box[O] })
 
-	trait Sub[T[-_]] extends High[T]
 
-	type Split[X, Y, Z] = (X => Y, Y => Z)
-	def split[X, Z](f :X => Z) :Opt[(X => Y, Y => Z)] forSome { type Y } = ???
-
-	split((_:Int).toString) match {
-		case split :Opt[Split[Int, a, String]] if split.isDefined =>
-			val (_1, _2) = split.get
-			_1 andThen _2
-			split.get._1 andThen split.get._2
+	trait Convert[X, Y] {
+		type Res[+E <: Trait[Y]] <: Trait[Y]
+		def apply[E[v] <: Templated[v, E]](e :Templated[X, E]) :Res[E[Y]] = ???
 	}
+
+	trait Trait[V] extends Template[V, Trait]
+
+	trait Producer[+R] {
+		def apply() :R
+	}
+
+	trait Template[V, +E[v] <: Templated[v, E]] { self :E[V] with Template[V, E] =>
+		class Inner[R[+e <: Trait[U]] <: Trait[U], U]
+		           (convert :Convert[V, U] { type Res[+e <: Trait[U]] = R[e] })
+			extends Producer[R[E[U]]]
+		{
+			def apply() :R[E[U]] = convert(self)
+		}
+	}
+	type Templated[V, +E[v] <: Templated[v, E]] = Trait[V] with Template[V, E]
+
+	trait Intermediate[V] extends Trait[V] with IntermediateTemplate[V, Intermediate]
+
+	trait IntermediateTemplate[V, +E[v] <: Templated[v, E]] extends Template[V, E] {
+		self :E[V] with IntermediateTemplate[V, E] =>
+
+		class IntermediateInner[R[+e <: Trait[U]] <: Trait[U], U]
+		                       (convert :Convert[V, U] { type Res[+e <: Trait[U]] = R[e] })
+			extends Inner[R, U](convert)
+		{
+			override def apply() :R[E[U]] = convert(self)
+		}
+	}
+
+	trait Intermediate2[V]
+		extends Trait[V] with Intermediate2Template[V, Intermediate2[V]] with Template[V, Intermediate2]
+	trait Intermediate2Template[V, +Same <: Intermediate2[V]] {
+		this :Same with Intermediate2Template[V, Same] =>
+	}
+
+	trait Sub[V] extends Intermediate[V] with Intermediate2[V] with SubTemplate[V, Sub, Sub[V]]
+
+	trait SubTemplate[V, +E[v] <: Templated[v, E], +Same <: E[V] with Sub[V]]
+		extends IntermediateTemplate[V, E]
+		   with Intermediate2Template[V, Same]
+	{ self :Same with SubTemplate[V, E, Same] =>
+
+		class SubInner[R[+e <: Trait[U]] <: Trait[U], U]
+		              (convert :Convert[V, U] { type Res[+e <: Trait[U]] = R[e] })
+			extends IntermediateInner[R, U](convert)
+		{
+			override def apply() :R[E[U]] = convert(??? :Templated[V, E])
+		}
+	}
+
+//	trait ~[L, R]
+//	class Record[X] {
+//		def |~[K, V](entry :(K, V)) :Record[X ~ (K, V)] = ???
+//	}
+//	def append[X, K, V](record :Record[X], key :K, value :V) :Record[X ~ (K, V)] =
+//		record |~ ((key, value))
+//	trait Bound
+//	trait Base[-A <: Bound]
+//	trait ContraVariantTemplate[-A <: Bound, +Cons[X <: Bound] <: Base[X], +Same <: Base[A]] {
+//		def cons[B <: Bound] :Cons[B]
+//		def same :Same
+//	}
+//	trait InvariantTemplate[A <: Bound, +Cons[X <: Bound] <: Base[X]]
+//		extends ContraVariantTemplate[A, ({ type T[X <: Bound] = Cons[_ >: X <: Bound] })#T, Cons[A]]
+//	trait Invariant[A <: Bound] extends Base[A] with InvariantTemplate[_ >: A, Invariant]
+
+//	println(List(1, -1, 0).sortWith((x, y) => x*x <= y*y))
+
+//	type Cons[O]
+//	trait Bound
+//	trait Variant[C[A] <: Cons[A]]
+//	trait Invariant[C[A] <: Cons[A], O <: Bound]
+//	type InvariantUnder[-B <: Bound] = Invariant[Cons, O] forSome { type O >: B <: Bound; type Cons[A] }
+//
+//	def cons[B <: Bound](a :InvariantUnder[B]) :LazyList[InvariantUnder[B]] =
+//		a #:: LazyList.empty[InvariantUnder[B]]
+
+//	trait High[T[_]]
+//
+//	trait Sub[T[-_]] extends High[T]
+//
+//	type Split[X, Y, Z] = (X => Y, Y => Z)
+//	def split[X, Z](f :X => Z) :Opt[(X => Y, Y => Z)] forSome { type Y } = ???
+//
+//	split((_:Int).toString) match {
+//		case split :Opt[Split[Int, a, String]] if split.isDefined =>
+//			val (_1, _2) = split.get
+//			_1 andThen _2
+//			split.get._1 andThen split.get._2
+//	}
 //	_1 :Nothing
 //	_2 :Nothing
 //	_1 andThen _2

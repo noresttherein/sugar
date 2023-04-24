@@ -104,7 +104,7 @@ object extensions extends extensions {
 		  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
 		  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
 		  * Finally, anonymous classes receive synthetic names for the obvious reason.
-		  */
+		  */ //consider: renaming it to fullClassName, and localClassName to className
 		@inline def className :String = fullNameOf(self.getClass)
 
 		/** Same as the default `Object.toString`, but uses

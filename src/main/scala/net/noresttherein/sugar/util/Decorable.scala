@@ -91,9 +91,18 @@ trait Decorable[Self] { this :Self =>
 	  * of the originally decorated instance on the bottom of the stack,
 	  * with its [[net.noresttherein.sugar.util.Decorable.self self]] property equal to itself.
 	  * @return [[net.noresttherein.sugar.util.Decorable.redecorate redecorate]]`(identity)`.
-	  */ //consider: renaming to bottom/underlying
+	  */
 	def undecorated :Self = redecorate(identity)
 
+	/** The bottommost $Self, unwrapped from all decorators. This does not create a new, undecorated instance
+	  * like [[net.noresttherein.sugar.util.Decorable.undecorated undecorated]], but simply returns the one
+	  * referenced by the [[net.noresttherein.sugar.util.Decorable.Decorator decorator]] chain, so
+	  * [[net.noresttherein.sugar.util.Decorable.self self]] property of the returned $self is also the exact same
+	  * instance as `this.self`. Calling any methods directly on the returned object may have unintended consequences,
+	  * as this $Self was meant to be used in its current form. It is however equal to discover if the underlying
+	  * instance is of a particular class.
+	  */
+	def underlying  :Self
 
 	/** The function applied to the bottommost instance in order to produce the final $Self
 	  * [[net.noresttherein.sugar.util.Decorable.self self]]: `this.self eq this.decorations(this.undecorated)`
@@ -193,6 +202,8 @@ object Decorable {
 		override def undecorate :Self = undecorated
 
 		override def undecorate(decorator :Self => Self) :Self = redecorate(decorator)
+
+		override def underlying :Self = this
 	}
 
 	/** A full implementation of a 'bottom' `Decorable`, requiring only mixing in an implementation of $Self.
@@ -257,7 +268,9 @@ object Decorable {
 		private[Decorable] def `->this`        :Self = this
 
 		/** Equals [[net.noresttherein.sugar.util.Decorable.Decorator.decorated decorated]]`.`[[net.noresttherein.sugar.util.Decorable.self self]]. */
-		override val self :Self = decorated.self
+		override val self       :Self = decorated.self
+		/** Same as [[net.noresttherein.sugar.util.Decorable.Decorator.decorated decorated]]`.`[[net.noresttherein.sugar.util.Decorable.underlying underlying]]. */
+		override def underlying :Self = decorated.underlying
 
 		/** A copy constructor: creates and returns a new instance of the same class and with same parameters
 		  * as this decorator, but wrapping the given object.
@@ -373,18 +386,18 @@ object Decorable {
 	  *              which `Decorable` itself doesn't impose on its type parameter.
 	  */ //todo: try to drop identity function when it's used as decoration whenever possible.
 	@SerialVersionUID(Ver)
-	sealed class DecorationsZipper[Self <: Decorable[Self]] private[Decorable]
-	                              (/** The `Decorable[Self]` instance this zipper is pointing at. */
-	                               val point :Self,
-	                               /** A constructor for a [[net.noresttherein.sugar.util.Decorable.Decorator Decorator]]
-	                                 * applied directly on top of `point` if this zipper moves
-	                                 * [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.>> forward]].
-	                                 * If the zipper points at the outermost instance (`continuation == None)`,
-	                                 * this is an identity function. */
-	                               val decoration :Self => Self,
-	                               /** The future of this zipper, following the current `decoration`. */
-	                               //consider: using Opt
-	                               val continuation :Option[DecorationsZipper[Self]])
+	final class DecorationsZipper[Self <: Decorable[Self]] private[Decorable]
+	                             (/** The `Decorable[Self]` instance this zipper is pointing at. */
+	                              val point :Self,
+	                              /** A constructor for a [[net.noresttherein.sugar.util.Decorable.Decorator Decorator]]
+	                                * applied directly on top of `point` if this zipper moves
+	                                * [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.>> forward]].
+	                                * If the zipper points at the outermost instance (`continuation == None)`,
+	                                * this is an identity function. */
+	                              val decoration :Self => Self,
+	                              /** The future of this zipper, following the current `decoration`. */
+	                              //consider: using Opt
+	                              val continuation :Option[DecorationsZipper[Self]])
 	{
 		private def this(decorator :Decorator[Self], above :Option[DecorationsZipper[Self]]) =
 			this(decorator.`->decorated`, decorator.`->constructor`, above)

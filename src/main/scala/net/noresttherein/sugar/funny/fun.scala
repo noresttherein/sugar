@@ -27,14 +27,14 @@ object fun {
 	  * {{{
 	  *     fun[Int] { x => x + x }
 	  * }}}
-	  * . Created function provides a more informative `toString` method and elides some special functions
+	  * Created function provides a more informative `toString` method and elides some special functions
 	  * defined here during composition.
 	  * This method serves no other purpose and promptly returns the argument as `X=>Y` to help with type inference.
 	  * @return `f`
-	  */
-	@inline def apply[X] :ComposableFunSAM[X] = new ComposableFunSAM[X] {}
+	  */ //apply[X, Y](f :ComposableFun[X, Y]) :X => Y does not work in Scala 2
+	def apply[X] :ComposableFunSAMFactory[X] = new ComposableFunSAMFactory[X] {}
 
-	trait ComposableFunSAM[X] extends Any with Serializable {
+	trait ComposableFunSAMFactory[X] extends Any with Serializable {
 		@inline def apply[Y](f :ComposableFun[X, Y]) :X => Y = f
 	}
 
@@ -91,7 +91,7 @@ object fun {
 	/** Equivalent to `scala.identity[X]`, but is specialized and overrides `compose` (and `andThen`)
 	  * for reduced overhead of function composition. Additionally, it provides a more informative `toString` output.
 	  */
-	@inline def ident[@specialized(Arg) X] :X => X = new Identity[X]{}
+	@inline def ident[@specialized(Arg) X] :X => X = new Identity[X] {}
 
 
 
@@ -504,5 +504,59 @@ object fun {
 	}
 
 
+	
+	
+/*
+	object explode {
+		def apply[X, Y](f :(X, X) => Y) :X => Y = x => f(x, x)
+		def apply[X, Y](f :(X, X, X) => Y) :X => Y = x => f(x, x, x)
+		def apply[X, Y](f :(X, X, X, X) => Y) :X => Y = x => f(x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x, x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x, x, x, x, x, x)
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = x => f(x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+		
+		def apply[X, Y](f :(X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X) => Y) :X => Y = 
+			x => f(x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x)
+	}
+*/
 }
+
+
+
+
+
 

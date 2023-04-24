@@ -1,14 +1,14 @@
 # Scala Sugar #
 ## 1. About ##
 Sugar is a scala library focused on sugaring the syntax for commonly used code constructs and 
-providing Scala-style interface to standard Java classes, but includes also various utility
+providing Scala-style interfaces to standard Java classes, but includes also various utility
 types, including more lightweight implementations to those in the standard library.
-It consists of mostly simple classes which would find use in most scala projects - in fact 
+It consists of mostly simple classes which would find use in most Scala projects - in fact 
 you likely have developed some helper classes of similar functionality in the past more 
 than once. They vary from simple facades for some standard Java libraries (namely, 
 `java.time` and `java.logging`), through small utility classes and functions (like 
 variable length tuples), to many one-liner methods and extension methods designed to make 
-the intent behind code more apparent. It is directed more towards the implementation than 
+the intent behind code more apparent. It is directed more towards the implementation, than 
 the interface side of things and, as such, a good candidate for a shaded dependency. 
 In fact, as various pieces are almost completely independent and, more often than not, 
 very small, it is easy to just copy&paste the bits you find useful to your own project, 
@@ -39,7 +39,7 @@ Almost one-to-one wrappers for classes representing time the from `java.time` pa
 They are mostly value classes (meaning no wrapper objects are actually created unless you
 take advantage of their polymorphic interfaces) which provide what you'd expect: 
 temporal arithmetic using standard operators `+`,`-`,`*`, comparable with `<=` 
-and friends, and generally more scala-like method names (so, `date.month` instead of 
+and friends, and generally more Scala-like method names (so, `date.month` instead of 
 `date.getMonth`, etc.). There are some additional classes, providing support for 
 infinite time spans (and infinitely remote time points) for interoperability with 
 `scala.concurrent.duration`, and as a convenient solution for all 'wait indeterminately'
@@ -80,6 +80,7 @@ and others.
     values.mapWithIndex{ (val, i) => s"$i: $val" }
     (Range(0, 10) zipMap (Range(11, 20))(_ + _)
     numbers.mapWith(0) { (val, sum) => (s" +$val = $sum", val + sum) }
+and others
 
 #### 4.3 Extension factory methods for standard `IterableFactory` objects
     Seq.generate(2) { case x if x <= 1024 => x }
@@ -87,29 +88,38 @@ and others.
     Stepper(singleton)
     Array.unfold(2)(Some(_ * 2).filter(_ <= 1024))
 
-#### 4.4 Ranking 
+#### 4.4 `Seq` extensions
+    Seq(1, 2, 3).isSorted
+    dragons.getIndexOf(firkraag) // returns an Opt - non empty values are always >= 0
+    dragons.sureIndexWhere(_.name == "Firkraag") //throws a NoSuchElementException instead of returning -1
+and others
+
+#### 4.5 Stepper, Iterator and Array extensions
+Additional factory methods, in particular for specialized singleton implementations.
+
+#### 4.6 Ranking 
 A collection of unique elements in a particular order.
 
-#### 4.5 PassedArray
+#### 4.7 PassedArray
 An immutable version of the growing array buffer with O(1) *first* append/prepend.
 
-#### 4.6 MultiSet 
+#### 4.8 MultiSet 
 A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
 with repetitions, and as a `Map[A, Int]`.
 
-#### 4.7 ZigZag 
+#### 4.9 ZigZag 
 A `Seq` offering O(1) append and prepend for any other `Seq`, at a cost of slower iteration,
 designed for use as temporary buffers.
 
-#### 4.8 ChoppedString 
+#### 4.10 ChoppedString 
 A list-like collection of composed `String` concatenations
 for use as an alternative to `StringBuilder` (has O(1) append/prepend, at the cost of O(n) random indexing).
 Includes also a `Substring` subclass, useful in itself.
 
-#### 4.9 NatMap and MutableNatMap 
+#### 4.11 NatMap and MutNatMap 
 Maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
-#### 4.10 Other collections of marginal use ###
+#### 4.12 Other collections of marginal use ###
 `EqSet`, `SeqSlice`, `ConstSeq`, many `Stepper` and `Iterator` implementations.
 
 
@@ -211,9 +221,9 @@ the more advanced features, or who value additional whitespace and commenting ab
     val line = `^` :: (!(`\\n`|`\\r`|`\\f`)).* :: `$`
 
 The types, values and factory methods generally follow the Java flavour of regular expressions 
- (so you'll find quite a few uses of quoted identifiers such as `^` and `$` above), 
- which should make you feel at home with the character classes you know, and provide 
- discovery and documentation viewing potential of a statically typed language in your IDE.
+(so you'll find quite a few uses of quoted identifiers such as `^` and `$` above), 
+which should make you feel at home with the character classes you know, and provide 
+discovery and documentation viewing potential of a statically typed language in your IDE.
     
 #### 9.2 RegexpGroupMatcher ####
 Provides string interpolation syntax for regular expressions used in pattern matching:
@@ -246,7 +256,7 @@ patterns in a logical conjunction:
 
 
 ### 10. sugar.format ###
-A framework for concise and non error-prone defining of parser-formatters abstracting over the actual data formats:
+A framework for concise and non-error-prone defining of parser-formatters abstracting over the actual data formats:
 
     case class Dragon(name :String, color :String, level :Int)
     object Dragon {
@@ -269,7 +279,7 @@ A framework for concise and non error-prone defining of parser-formatters abstra
 
 #### 11.1. Decorable 
 A pattern/framework for writing decorator aware classes, which do not 'lose' the decorator
-when passing themselves to a callback method
+when passing themselves to a callback method.
 
 #### 11.2. LabelPath 
 A type-level way of indexing objects by `String` literal types:
@@ -284,9 +294,9 @@ Also, tagging implicit values:
 
     type Planck
     type TidyPlanck
-    implicit val h = Labelled[Planck](6.62607004d * math.pow(10, -34))
-    implicit val tidy_h = Labelled[TidyPlanck](7d * math.pow(10, -34))
-    implicitly[Double Labelled Planck]
+    implicit val h = Labeled[Planck](6.62607004d * math.pow(10, -34))
+    implicit val tidy_h = Labeled[TidyPlanck](7d * math.pow(10, -34))
+    implicitly[Double Labeled Planck]
 
 
 

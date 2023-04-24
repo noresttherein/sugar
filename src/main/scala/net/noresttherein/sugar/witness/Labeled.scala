@@ -21,13 +21,13 @@ import scala.annotation.implicitNotFound
   */
 @implicitNotFound("No implicit ${T} labelled ${Label}")
 @SerialVersionUID(1L)
-class Labelled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal with Serializable
+class Labeled[+T, +Label](/** The labelled value.*/val get :T) extends AnyVal with Serializable
 
 
 
 /** Factory of labelled (implicit by design) values as well as labels which can be used with them. */
 @SerialVersionUID(Ver)
-object Labelled {
+object Labeled {
 
 	/** Attach the label given as the type parameter to the argument value, creating a labelled value `T Labelled Label`.
 	  * @tparam Label label type to attach to an object.
@@ -36,10 +36,10 @@ object Labelled {
 	@inline def apply[Label] :LabelImplicit[Label] = new LabelImplicit[Label] {}
 
 	/** Labels the first argument with the singleton type of the second argument. */
-	@inline def apply[T](value :T, label :AnyRef) :T Labelled label.type = new Labelled(value)
+	@inline def apply[T](value :T, label :AnyRef) :T Labeled label.type = new Labeled(value)
 
 	/** Labels the given value with its singleton type to distinguish it from other values of type `T`. */
-	@inline def singleton[T <: AnyRef](value :T) :T Labelled value.type = new Labelled(value)
+	@inline def singleton[T <: AnyRef](value :T) :T Labeled value.type = new Labeled(value)
 
 	/** Resolves an implicit value associated with the given label in two steps. The first is here and serves
 	  * only to separate the label type parameter. The second is the `apply[T]()` method of the returned object,
@@ -60,7 +60,7 @@ object Labelled {
 		/** Attach the `Label` type parameter specified previously to the given value, creating an instance
 		  * of `T Labelled Label` wrapping the argument.
 		  */
-		@inline def apply[T](value :T) :T Labelled Label = new Labelled(value)
+		@inline def apply[T](value :T) :T Labeled Label = new Labeled(value)
 	}
 
 
@@ -69,7 +69,7 @@ object Labelled {
 		/** Resolve the implicit value for `T Labelled Label`. As the type parameter `T` is separated from the
 		  * label type, it can be inferred based on the expected type or present `Labelled` implicits.
 		  */
-		@inline def apply[T]()(implicit value :T Labelled Label) :T = value.get
+		@inline def apply[T]()(implicit value :T Labeled Label) :T = value.get
 	}
 
 }
