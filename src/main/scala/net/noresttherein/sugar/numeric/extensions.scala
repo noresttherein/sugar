@@ -85,16 +85,33 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class ByteExtension(private val self :Byte) extends AnyVal {
+		/** Returns `this max other`. */
 		@inline def atLeast(other :Byte) :Int = math.max(self, other)
+
+		/** Returns `this min other`. */
 		@inline def atMost(other :Byte) :Int = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative.
+		  */
+		@inline def toNatural :Natural = Natural(self)
 	}
+
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class ShortExtension(private val self :Short) extends AnyVal {
+		/** Returns `this max other`. */
 		@inline def atLeast(other :Short) :Int = math.max(self, other)
+
+		/** Returns `this min other`. */
 		@inline def atMost(other :Short) :Int = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative.
+		  */
+		@inline def toNatural :Natural = Natural(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -127,6 +144,11 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Int) :Int = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative.
+		  */
+		@inline def toNatural :Natural = Natural(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -159,7 +181,13 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Long) :Long = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
+		  */
+		@inline def toNatural = Natural(self.toInt)
 	}
+
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
@@ -167,8 +195,15 @@ object extensions extends extensions {
 	class FloatExtension(private val self :Float) extends AnyVal {
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Float) :Float = math.max(self, other)
+
 		/** Returns `this min other`. */
 		@inline def atMost(other :Float) :Float = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
+		  * @return `this.toInt.toNatural`.
+		  */
+		@inline def toNatural :Natural = Natural(self.toInt)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -178,8 +213,15 @@ object extensions extends extensions {
 	class DoubleExtension(private val self :Double) extends AnyVal {
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Double) :Double = math.max(self, other)
+
 		/** Returns `this min other`. */
 		@inline def atMost(other :Double) :Double = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
+		  * @return `this.toInt.toNatural`.
+		  */
+		@inline def toNatural :Natural = Natural(self.toInt)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -277,7 +319,7 @@ object extensions extends extensions {
 
 	sealed trait BooleanObjectExtension extends Any {
 		/** A random `Boolean` retrieved from the implicit `Random`. */
-		@inline def random(implicit gen :Random) :Boolean = gen.self.nextInt(2) == 0
+		@inline final def random(implicit gen :Random) :Boolean = gen.self.nextInt(2) == 0
 	}
 
 
