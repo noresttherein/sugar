@@ -1,20 +1,19 @@
 package net.noresttherein.sugar.numeric
 
+import org.scalacheck.{Prop, Properties}
+import org.scalacheck.Prop._
+
 import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.extensions.providingMethods
 import net.noresttherein.sugar.matching.MatchPattern
-import net.noresttherein.sugar.numeric.IntRatio.{intRatio_%/, One, Zero}
+import net.noresttherein.sugar.numeric.IntRatio.{int_%/, One, Zero}
 import net.noresttherein.sugar.optional.allOf
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import org.scalacheck.{Prop, Properties}
-import org.scalacheck.Prop._
 
 
 
 
 object IntRatioSpec extends Properties("IntRatio") {
-	//shadows numeric.method_%/ extension method
-	def method_%/ = ??!
 
 	val Tolerance = 0.000000000000001
 

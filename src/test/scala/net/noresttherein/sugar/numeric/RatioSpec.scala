@@ -1,8 +1,10 @@
 package net.noresttherein.sugar.numeric
 
-import net.noresttherein.sugar.numeric.Ratio.{ratio_%/, One, Zero}
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
+
+import net.noresttherein.sugar.numeric.Ratio.{One, Zero}
+import net.noresttherein.sugar.numeric.extensions.{intExtension, longExtension}
 
 
 

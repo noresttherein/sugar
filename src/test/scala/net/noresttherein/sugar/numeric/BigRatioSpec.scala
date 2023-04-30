@@ -1,9 +1,9 @@
 package net.noresttherein.sugar.numeric
 
-import net.noresttherein.sugar.numeric.BigRatio.{bigRatio_%/, One, Zero}
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
+import net.noresttherein.sugar.numeric.BigRatio.{int_%/, long_%/, bigInt_%/, One, Zero}
 
 
 

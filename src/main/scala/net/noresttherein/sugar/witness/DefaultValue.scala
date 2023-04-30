@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.witness
 
+import java.util.function.Supplier
+
 import net.noresttherein.sugar.vars.Opt.Lack
 import net.noresttherein.sugar.vars.Opt
 
@@ -9,7 +11,9 @@ import net.noresttherein.sugar.vars.Opt
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-final class DefaultValue[@specialized +T](val get :T) extends Serializable
+final class DefaultValue[@specialized +T](val get :T) extends Serializable {
+	private[sugar] val supplier :Supplier[_ <: T] = () => get
+}
 
 
 @SerialVersionUID(Ver)

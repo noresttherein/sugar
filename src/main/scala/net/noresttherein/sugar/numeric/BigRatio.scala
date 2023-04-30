@@ -17,7 +17,7 @@ import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
   * For the public constructor,
   * see [[net.noresttherein.sugar.numeric.BigRatio.apply(numerator:Int, denominator:Int)* BigRatio()]].
   * There is also an extension method [[net.noresttherein.sugar.numeric.BigRatio.bigRatio_%/ bigRatio_%/]]
-  * (available also as `sugar.`[[net.noresttherein.sugar.numeric.extensions.method_%/(self:BigInt) method_%/]])
+  * (available also as `sugar.`[[net.noresttherein.sugar.numeric.extensions.bigIntExtension(self:BigInt) method_%/]])
   * for `BigInt` values, accepting another `BigInt` to use as a denominator.
   * @author Marcin Mościcki marcin@moscicki.net
   */
@@ -509,10 +509,10 @@ object BigRatio {//extends BigRatioImplicits {
 	  * allowing to create a [[net.noresttherein.sugar.numeric.BigRatio BigRatio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def bigRatio_%/(numerator :Int) :BigIntNumerator = new BigIntNumerator(numerator)
-	implicit def bigRatio_%/(numerator :Long) :BigIntNumerator = new BigIntNumerator(numerator)
-	implicit def bigRatio_%/(numerator :BigInteger) :BigIntNumerator = new BigIntNumerator(numerator)
-	implicit def bigRatio_%/(numerator :BigInt) :BigIntNumerator = new BigIntNumerator(numerator)
+	implicit def int_%/(numerator :Int) :BigIntNumerator = new BigIntNumerator(numerator)
+	implicit def long_%/(numerator :Long) :BigIntNumerator = new BigIntNumerator(numerator)
+	implicit def bigInteger_%/(numerator :BigInteger) :BigIntNumerator = new BigIntNumerator(numerator)
+	implicit def bigInt_%/(numerator :BigInt) :BigIntNumerator = new BigIntNumerator(numerator)
 
 	/** A builder of [[net.noresttherein.sugar.numeric.BigRatio BigRatio]] objects, accepting an `Int` denominator
 	  * and constructing the rational number representing the division of the wrapped numerator values by the argument.

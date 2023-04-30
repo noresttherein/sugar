@@ -7,34 +7,15 @@ import net.noresttherein.sugar.extensions.{classExtension, classNameExtension, c
 import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.JavaTypes.JByte
-import net.noresttherein.sugar.util.LabelPath.{~/, /, Label}
+import net.noresttherein.sugar.numeric
+import net.noresttherein.sugar.util.LabelPath.{/, ~/, Label}
 
 
 
 
 
 object Playground extends App {
-
-	trait Box[X]
-	trait SmallBox[X] extends Box[X]
-
-	class Wrapper {
-		type T[O] <: Box[O]
-	}
-	class Evidence[-Q]
-
-	class EvidenceFactory {
-		implicit def basic :Evidence[Wrapper] { type X = 1 } = new Evidence[Wrapper] { type X = 1 }
-	}
-	object Evidence extends EvidenceFactory {
-		implicit def refined[B[O] <: Box[O]] :Evidence[Wrapper { type T[O] = B[O] }] { type X = 2 } =
-			new Evidence[Wrapper { type T[O] = B[O] }] { type X = 2 }
-	}
-
-	implicit def summon[Q](q :Q)(implicit ev :Evidence[Q]) = ???
-	summon(new Wrapper)
-	summon(new Wrapper { type T[O] = Box[O] })
-
+	numeric.globalRandom
 
 	trait Convert[X, Y] {
 		type Res[+E <: Trait[Y]] <: Trait[Y]

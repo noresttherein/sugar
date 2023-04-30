@@ -1,5 +1,4 @@
-package net.noresttherein.sugar
-
+package net.noresttherein.sugar.numeric
 
 
 

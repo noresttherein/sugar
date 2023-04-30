@@ -381,18 +381,16 @@ object Ratio {
 	  * allowing to create a [[net.noresttherein.sugar.numeric.Ratio Ratio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def ratio_%/(numerator :Int) :LongNumerator = new LongNumerator(numerator)
+	implicit def int_%/(numerator :Int) :LongNumerator = new LongNumerator(numerator)
 	/** Introduces method [[net.noresttherein.sugar.numeric.Ratio.LongNumerator.%/ %/]] extension method to `Long`,
 	  * allowing to create a [[net.noresttherein.sugar.numeric.Ratio Ratio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def ratio_%/(numerator :Long) :LongNumerator = new LongNumerator(numerator)
+	implicit def long_%/(numerator :Long) :LongNumerator = new LongNumerator(numerator)
 
 
 	/** A factory of [[net.noresttherein.sugar.numeric.Ratio Ratio]] objects, accepting a `Long` denominator
 	  * and constructing the rational number representing the division of the wrapped numerator value by the argument.
-	  * @tparam R a [[net.noresttherein.sugar.typist.Rank rank]] type parameter used to introduce precedence between
-	  *           equivalent definitions in separate locations.
 	  * @param numerator the numerator of created rational numbers (before reduction)
 	  */
 	class LongNumerator(private val numerator :Long) extends AnyVal {

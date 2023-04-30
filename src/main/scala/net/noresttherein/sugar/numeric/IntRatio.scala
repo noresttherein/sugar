@@ -422,7 +422,7 @@ object IntRatio {//extends IntRatioImplicits {
 	  * allowing to create a [[net.noresttherein.sugar.numeric.IntRatio IntRatio]] through a natural looking expression
 	  * `numerator %/ denominator`.
 	  */
-	implicit def intRatio_%/(numerator :Int) :IntNumerator = new IntNumerator(numerator)
+	implicit def int_%/(numerator :Int) :IntNumerator = new IntNumerator(numerator)
 
 	/** A builder of [[net.noresttherein.sugar.numeric.IntRatio IntRatio]] objects, accepting an `Int` denominator
 	  * and constructing the rational number representing the division of the wrapped numerator values by the argument.
