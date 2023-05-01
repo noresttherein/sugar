@@ -7,7 +7,7 @@ import scala.collection.mutable
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.NatMap.Assoc
-import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
+import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{throwANoSuchElementException, Throw}
 import net.noresttherein.sugar.extensions.optionExtension
 import net.noresttherein.sugar.funny.generic.=>:
 import net.noresttherein.sugar.vars.Opt
@@ -18,8 +18,8 @@ import net.noresttherein.sugar.vars.Opt
 /**
   * @author Marcin Mościcki
   */
-trait MutableNatMap[K[_], V[_]]
-	extends NatMap[K, V] with Builder[Assoc[K, V, _], MutableNatMap[K, V]]
+trait MutNatMap[K[_], V[_]]
+	extends NatMap[K, V] with Builder[Assoc[K, V, _], MutNatMap[K, V]]
 {
 	type Item[X] = Assoc[K, V, X]
 
@@ -38,19 +38,19 @@ trait MutableNatMap[K[_], V[_]]
 
 
 
-@SerialVersionUID(ver)
-object MutableNatMap {
+@SerialVersionUID(Ver)
+object MutNatMap {
 
-	def apply[K[_], V[_]](entries :Assoc[K, V, _]*) :MutableNatMap[K, V] =
-		new NaturalizedMutableMap[K, V] ++= entries
+	def apply[K[_], V[_]](entries :Assoc[K, V, _]*) :MutNatMap[K, V] =
+		new NaturaliazedMap[K, V] ++= entries
 
-	def empty[K[_], V[_]] :MutableNatMap[K, V] = new NaturalizedMutableMap[K, V]
+	def empty[K[_], V[_]] :MutNatMap[K, V] = new NaturaliazedMap[K, V]
 
-	def freezable[K[_], V[_]] :FreezableMap[K, V] = new NaturalizedMutableMap[K, V] with FreezableMap[K, V]
+	def freezable[K[_], V[_]] :FreezableMap[K, V] = new NaturaliazedMap[K, V] with FreezableMap[K, V]
 
 
 
-	trait FreezableMap[K[_], V[_]] extends MutableNatMap[K, V] {
+	trait FreezableMap[K[_], V[_]] extends MutNatMap[K, V] {
 		private[this] var frozen = false
 
 		def freeze() :NatMap[K, V] = {
@@ -81,9 +81,9 @@ object MutableNatMap {
 
 
 
-	@SerialVersionUID(ver)
-	private class NaturalizedMutableMap[K[_], V[_]](entries :mutable.Map[K[_], V[_]])
-		extends MutableNatMap[K, V]
+	@SerialVersionUID(Ver)
+	private class NaturaliazedMap[K[_], V[_]](entries :mutable.Map[K[_], V[_]])
+		extends MutNatMap[K, V]
 	{
 		def this() = this(mutable.Map.empty[K[_], V[_]])
 
@@ -92,8 +92,8 @@ object MutableNatMap {
 		override def knownSize :Int = entries.knownSize
 
 
-		protected[this] override def newSpecificBuilder :Builder[Assoc[K, V, _], MutableNatMap[K, V]] =
-			new NaturalizedMutableMap[K, V]
+		protected[this] override def newSpecificBuilder :Builder[Assoc[K, V, _], MutNatMap[K, V]] =
+			new NaturaliazedMap[K, V]
 
 		override def getOrElse[U[T] >: V[T], X](key :K[X], default : => U[X]) :U[X] =
 			entries.getOrElse(key, default).asInstanceOf[V[X]]
@@ -139,7 +139,7 @@ object MutableNatMap {
 
 		override def clear() :Unit = entries.clear()
 
-		override def result() :MutableNatMap[K, V] = this
+		override def result() :MutNatMap[K, V] = this
 
 		override def addOne(elem :Assoc[K, V, _]) :this.type = {
 			entries.addOne (elem._1, elem._2); this
@@ -153,7 +153,7 @@ object MutableNatMap {
 			this
 		}
 
-		implicit override def defaults = throwANoSuchElementException
+		implicit override def defaults :NatMap.WhenNoKey[K, Throw] = throwANoSuchElementException
 	}
 
 }

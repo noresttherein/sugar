@@ -4,15 +4,12 @@ import java.io.{IOException, Reader, StringReader}
 import java.lang
 
 import scala.collection.{Factory, SpecificIterableFactory, Stepper, StepperShape}
-import scala.collection.Stepper.EfficientSplit
-import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, StringOps, WrappedString}
 import scala.collection.immutable.ArraySeq.ofChar
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilder}
-import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chunk, ConcatChunks, Empty, PrependedString}
-import net.noresttherein.sugar.collections.Substring.SubstringReader
+import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, ConcatChunks, PrependedString}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -41,24 +38,39 @@ trait StringLikeOps[+S <: Seq[Char]]
 	override def takeRight(n :Int) :S = if (n <= 0) empty else slice(length - n, length)
 	override def dropRight(n :Int) :S = if (n <= 0) coll else slice(0, length - n)
 	override def slice(from :Int, until :Int) :S =
-		if (until < from | until <= 0 || from >= length) empty
-		else if (from <= 0 && until >= length) coll
+		if (until <= from | until <= 0 || from >= length) empty
+		else if (from <= 0 & until >= length) coll
 		else if (from <= 0) trustedSlice(0, until)
-		else trustedSlice(from, length)
+		else if (until >= length) trustedSlice(from, length)
+		else trustedSlice(from, until)
 
-	protected[collections] def trustedSlice(from :Int, until :Int) :S
+	override def splitAt(n :Int) :(S, S) =
+		if (n <= 0) (empty, coll)
+		else if (n >= length) (coll, empty)
+		else (trustedSlice(0, n), trustedSlice(n, length))
+
+	protected def trustedSlice(from :Int, until :Int) :S
+	private[collections] final def `->trustedSlice`(from :Int, until :Int) :S = trustedSlice(from, until)
+
+	def +(char :Char) :StringLike
+	def +(string :String) :StringLike
+	def +(string :StringLike) :StringLike = this + string.toString
+
+
+	def toReader :Reader
+
 }
 
 
 /** An interface for concatenable `String` like collections, used either as an intermediate buffer
   * when building a `String` or providing additional features over `String`. Note that it will not equal a `String`.
   */
-trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializable {
-	def +(char :Char) :StringLike
-	def +(string :String) :StringLike
-	def +(string :StringLike) :StringLike = this + string.toString
-
-	def toReader :Reader
+trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps[StringLike] with Serializable {
+	override def subSequence(start :Int, end :Int) :CharSequence =
+		if (start < 0 | end < 0 | start > end || end > length)
+			throw new IndexOutOfBoundsException("[" + start + ".." + end + ") out of " + length)
+		else
+			trustedSlice(start, end)
 }
 
 
@@ -74,11 +86,15 @@ trait StringLike extends Seq[Char] with StringLikeOps[StringLike] with Serializa
   * before their final conversion to a `String`. Note that most traversing methods are implemented recursively
   * and may thus cause a [[StackOverflowError]] for very long strings; this class is intended for use cases such
   * implementing `toString` methods. Despite the lack of fast random access, `length`/`size` are still `O(1)` operations
-  * as long as appended/prepended sequences' `length` is O(n), because their length is computed on concatentation.
+  * as long as appended/prepended sequences' `length` is O(n), because their length is computed on concatenation.
+  *
+  * This class is very similar to generic [[net.noresttherein.sugar.collections.ZigZag ZigZag]],
+  * but exposes API dedicated to concatenating `String`s and some other methods specific to `Char`,
+  * as covariance of `Seq` forces boxing of elements.
   */
 sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] {
 //	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap
-	override def empty :ChoppedString = ChoppedString.empty
+//	override def empty :ChoppedString = ChoppedString.empty
 
 	protected override def specificFactory :SpecificIterableFactory[Char, ChoppedString] = ChoppedString
 
@@ -93,7 +109,7 @@ sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] 
 
 	def ++(string :String) :ChoppedString =
 		if (string.length == 0) this
-		else if (isEmpty) new Chunk(string)
+		else if (isEmpty) Substring(string)
 		else new AppendedString(this, string)
 
 	def ++(string :ChoppedString) :ChoppedString =
@@ -105,7 +121,7 @@ sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] 
 
 	def ++:(string :String) :ChoppedString =
 		if (string.length == 0) this
-		else if (isEmpty) new Chunk(string)
+		else if (isEmpty) Substring(string)
 		else new PrependedString(string, this)
 
 	def ++:(string :ChoppedString) :ChoppedString =
@@ -128,16 +144,21 @@ sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] 
 			res
 		}
 
-	override def subSequence(start :Int, end :Int) :CharSequence = slice(start, end)
-
 	override def apply(i :Int) :Char //overriden for specialization
 
-	def isWhitespace :Boolean =  {
+	def isWhitespace :Boolean = {
 		val i = jiterator
 		var isWhite = true
 		while (i.hasNext && { isWhite = Character.isWhitespace(i.next().toChar); isWhite })
 			{}
 		isWhite
+	}
+	def isAlphanumeric :Boolean = {
+		val i = jiterator
+		var isAlphanum = true
+		while (i.hasNext && { isAlphanum = Character.isLetterOrDigit(i.next()); isAlphanum })
+			{}
+		isAlphanum
 	}
 
 	override def className :String = "ChoppedString"
@@ -161,15 +182,15 @@ object LowPriorityChoppedStringImplicits {
 }
 
 
-/** Brings into the implicit scope of the object `ChunkedString` an implicit conversion in the companion object
-  * from the `ChunkedString` singleton object itself to standard Scala `Factory[Char, ChunkedString]`
-  * or `Factory[String, ChunkedString]`. This allows use of the former as an argument for standard method `to`:
+/** Brings into the implicit scope of the object `ChoppedString` an implicit conversion in the companion object
+  * from the `ChoppedString` singleton object itself to standard Scala `Factory[Char, ChoppedString]`
+  * or `Factory[String, ChoppedString]`. This allows use of the former as an argument for standard method `to`:
   * {{{
   *     val seq = Seq("You", "Boo", "I")
-  *     val str = seq to ChunkedString
+  *     val str = seq to ChoppedString
   * }}}
   */
-sealed abstract class LowPriorityChoppedStringImplicits
+private[collections] sealed abstract class LowPriorityChoppedStringImplicits
 
 
 /**
@@ -178,10 +199,10 @@ sealed abstract class LowPriorityChoppedStringImplicits
   * @define coll chopped string
   */
 object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIterableFactory[Char, ChoppedString] {
-	private final val ver = 1L
+	private final val Ver = 1L
 	override val empty :ChoppedString = Empty
 
-	private val emptyChunk = new Chunk("")
+//	private val emptyChunk = new Chunk("")
 
 
 	def apply() :ChoppedString = empty
@@ -190,7 +211,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 		first ++: second ++: ChoppedString(strings)
 
 	def apply(string :String) :ChoppedString =
-		if (string.length == 0) empty else new Chunk(string)
+		if (string.length == 0) empty else Substring(string)
 
 	def apply(strings :Seq[String]) :ChoppedString =
 		if (strings.isEmpty) empty
@@ -202,7 +223,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 	override def fromSpecific(it :IterableOnce[Char]) :ChoppedString = it match {
 		case chunks :ChoppedString => chunks
 		case it :Iterable[Char] if it.isEmpty => Empty
-		case it :WrappedString => new Chunk(it.unwrap)
+		case it :WrappedString => Substring(it.unwrap)
 //		case it :Iterable[Char] => //don't box!
 //			val res =
 //				if (it.knownSize > 0) new java.lang.StringBuilder(it.knownSize)
@@ -225,13 +246,14 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 					if (it.knownSize > 0) new java.lang.StringBuilder(it.knownSize)
 					else new lang.StringBuilder
 				i foreach res.append
-				new Chunk(res.toString)
+				Substring(res.toString)
 			} else
 				Empty
 	}
 
 
-	implicit def choppedStringFromString(s :String) :ChoppedString = new Chunk(s)
+	implicit def choppedStringFromString(s :String) :ChoppedString =
+		if (s.length == 0) Empty else Substring(s)
 
 	override def newBuilder :Builder[Char, ChoppedString] = new ChoppedStringBuilder
 
@@ -254,9 +276,9 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 		}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private object Empty extends ChoppedString {
-		override def apply(idx :Int) = throw new IndexOutOfBoundsException("Empty ChunkedString access.")
+		override def apply(idx :Int) = throw new IndexOutOfBoundsException("Empty ChoppedString access.")
 		override def length = 0
 		override def iterator :Iterator[Char] = Iterator.empty[Char]
 		override def intIterator = JavaIterator.ofInt()
@@ -273,12 +295,17 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 
 
 
-	@SerialVersionUID(ver)
+/*
+	@SerialVersionUID(Ver)
 	private class Chunk(s :String)
 		extends ChoppedString with IndexedSeq[Char] with IndexedSeqOps[Char, IndexedSeq, Chunk]
 	{
-		override def head :Char = s.charAt(0)
-		override def last :Char = s.charAt(s.length - 1)
+		override def head :Char =
+			if (s.length == 0) throw new NoSuchElementException("ChoppedString().head")
+			else s.charAt(0)
+		override def last :Char =
+			if (s.length == 0) throw new NoSuchElementException("ChoppedString().last")
+			else s.charAt(s.length - 1)
 		override def apply(i :Int) = s.charAt(i)
 
 		override def length = s.length
@@ -288,10 +315,10 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 
 		override def empty    = emptyChunk
 		override def iterator = new StringOps(s).iterator
-		override def intIterator = JavaIterator.ofChar(s)
+		override def intIterator = JavaIterator.ofInt(s)
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
-			JavaIterator.ofChar(s).asInstanceOf[I]
+			JavaIterator.ofInt(s).asInstanceOf[I]
 
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) =
 			new StringOps(s).stepper.asInstanceOf[S with EfficientSplit]
@@ -317,11 +344,13 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 		override def toReader :Reader = new StringReader(s)
 		override def toString = s
 	}
+*/
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class AppendedString(prefix :ChoppedString, suffix :String) extends ChoppedString {
+		assert(suffix.length > 0, "Appended an empty String to " + suffix + ".")
 		override val length = prefix.length + suffix.length
 		override def head = if (prefix.isEmpty) suffix.charAt(0) else prefix.head
 		override def last = suffix.charAt(suffix.length - 1)
@@ -329,16 +358,16 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 
 		override def trustedSlice(from :Int, until :Int) :ChoppedString = {
 			val prefixLength = prefix.length
-			if (until <= prefixLength) prefix.trustedSlice(from, until)
-			else if (from >= prefixLength) new Chunk(suffix.substring(from - prefixLength, until - prefixLength))
-			else prefix.trustedSlice(from, prefixLength) ++ suffix.substring(0, until - prefixLength)
+			if (until <= prefixLength) prefix.`->trustedSlice`(from, until)
+			else if (from >= prefixLength) Substring(suffix, from - prefixLength, until - prefixLength)
+			else prefix.`->trustedSlice`(from, prefixLength) ++ Substring(suffix, 0, until - prefixLength)
 		}
 
 		override def iterator = prefix.iterator ++ new StringOps(suffix).iterator
-		override def intIterator = prefix.intIterator ++ JavaIterator.ofChar(suffix)
+		override def intIterator = prefix.intIterator ++ JavaIterator.ofInt(suffix)
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
-			prefix.jiterator ++ JavaIterator.ofChar(suffix).asInstanceOf[I]
+			prefix.jiterator ++ JavaIterator.ofInt(suffix).asInstanceOf[I]
 
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) :S =
 			prefix.stepper ++ new StringOps(suffix).stepper.asInstanceOf[S]
@@ -352,13 +381,14 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 			prefix appendTo builder append suffix
 
 		override lazy val toString :String = super.toString
-		private def writeReplace :ChoppedString = new Chunk(toString)
+		private def writeReplace :ChoppedString = Substring(toString)
 	}
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class PrependedString(prefix :String, suffix :ChoppedString) extends ChoppedString {
+		assert(prefix.length > 0, "Prepended an empty String to " + suffix + ".")
 		override val length = prefix.length + suffix.length
 		override def head = prefix.charAt(0)
 		override def last = if (suffix.isEmpty) prefix.charAt(prefix.length - 1) else suffix.last
@@ -366,16 +396,16 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 
 		override def trustedSlice(from :Int, until :Int) :ChoppedString = {
 			val prefixLength = prefix.length
-			if (until <= prefixLength) new Chunk(prefix.substring(from, until))
-			else if (from >= prefixLength) suffix.trustedSlice(from - prefixLength, until - prefixLength)
-			else prefix.substring(from, prefixLength) ++: suffix.trustedSlice(0, until - prefixLength)
+			if (until <= prefixLength) Substring(prefix, from, until)
+			else if (from >= prefixLength) suffix.`->trustedSlice`(from - prefixLength, until - prefixLength)
+			else prefix.substring(from, prefixLength) ++: suffix.`->trustedSlice`(0, until - prefixLength)
 		}
 
 		override def iterator = new StringOps(prefix).iterator ++ suffix.iterator
-		override def intIterator = JavaIterator.ofChar(prefix) ++ suffix.intIterator
+		override def intIterator = JavaIterator.ofInt(prefix) ++ suffix.intIterator
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
-			JavaIterator.ofChar(prefix).asInstanceOf[I] ++ suffix.jiterator
+			JavaIterator.ofInt(prefix).asInstanceOf[I] ++ suffix.jiterator
 
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Char, S]) :S =
 			new StringOps(prefix).stepper.asInstanceOf[S] ++ suffix.stepper
@@ -390,13 +420,16 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 
 		override def equals(that :Any) :Boolean = super.equals(that)
 		override lazy val toString :String = super.toString
-		private def writeReplace :ChoppedString = new Chunk(toString)
+		private def writeReplace :ChoppedString = Substring(toString)
 	}
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class ConcatChunks(prefix :ChoppedString, suffix :ChoppedString) extends ChoppedString {
+		assert(prefix.nonEmpty && suffix.nonEmpty,
+			"Concatenation with an empty String: " + prefix.length + " + " + suffix.length + "."
+		)
 		override val length = prefix.length + suffix.length
 		override def head = if (prefix.isEmpty) suffix.head else prefix.head
 		override def last = if (suffix.isEmpty) prefix.last else suffix.last
@@ -404,9 +437,9 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 
 		override def trustedSlice(from :Int, until :Int) :ChoppedString = {
 			val prefixLength = prefix.length
-			if (until <= prefixLength) prefix.trustedSlice(from, until)
-			else if (from >= prefixLength) suffix.trustedSlice(from - prefixLength, until - prefixLength)
-			else prefix.trustedSlice(from, prefixLength) ++ suffix.trustedSlice(0, until - prefixLength)
+			if (until <= prefixLength) prefix.`->trustedSlice`(from, until)
+			else if (from >= prefixLength) suffix.`->trustedSlice`(from - prefixLength, until - prefixLength)
+			else prefix.`->trustedSlice`(from, prefixLength) ++ suffix.`->trustedSlice`(0, until - prefixLength)
 		}
 
 		override def iterator = prefix.iterator ++ suffix
@@ -427,7 +460,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 			suffix.appendTo(prefix.appendTo(builder))
 
 		override lazy val toString :String = super.toString
-		private def writeReplace :ChoppedString = new Chunk(toString)
+		private def writeReplace :ChoppedString = Substring(toString)
 	}
 
 
@@ -464,7 +497,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 			case str :WrappedString if !hinted || str.length > chunkBuilder.capacity - chunkBuilder.length =>
 				flush()
 				if (chunks == null)
-					chunks = new Chunk(str.unwrap)
+					chunks = Substring(str.unwrap)
 				else
 					chunks ++= str.unwrap
 				this
@@ -473,7 +506,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 			case seq :ofChar if !hinted || seq.length > chunkBuilder.capacity - chunkBuilder.length =>
 				flush()
 				if (chunks == null)
-					chunks = new Chunk(String.valueOf(seq.unsafeArray))
+					chunks = Substring(String.valueOf(seq.unsafeArray))
 				else
 					chunks ++= String.valueOf(seq.unsafeArray)
 				this
@@ -520,7 +553,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 		override def result() :ChoppedString = {
 			if (chunks == null)
 				if (chunkBuilder != null && chunkBuilder.length > 0)
-					chunks = new Chunk(chunkBuilder.toString)
+					chunks = Substring(chunkBuilder.toString)
 				else
 					chunks = Empty
 			else if (chunkBuilder != null && chunkBuilder.length > 0)
@@ -533,7 +566,7 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 		private def flush() :Unit = {
 			hinted = false
 			if (chunkBuilder != null && chunkBuilder.length > 0) {
-				if (chunks == null) chunks = new Chunk(chunkBuilder.toString)
+				if (chunks == null) chunks = Substring(chunkBuilder.toString)
 				else chunks ++= chunkBuilder.toString
 				chunkBuilder = null
 			}
@@ -558,6 +591,73 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
 		}
 		override def close() :Unit = ()
 	}
+
+	override def toString = "ChoppedString"
+}
+
+
+
+
+
+
+private[collections] abstract class AbstractSubstring[C <: StringLike with IndexedSeq[Char]]
+                                                     (string :String, offset :Int, override val length :Int)
+	extends AbstractSeq[Char] with IndexedSeq[Char] with IndexedSeqOps[Char, IndexedSeq, C]
+	   with StringLike with StringLikeOps[C] with SpecificIterableOps[Char, IndexedSeq, C]
+{ this :C =>
+	private def data = string
+	private def start = offset
+
+	override def head :Char =
+		if (length == 0) throw new NoSuchElementException("Substring().head")
+		else string.charAt(offset)
+
+	override def last :Char =
+		if (length == 0) throw new NoSuchElementException("Substring().last")
+		else string.charAt(offset + length - 1)
+
+	override def apply(i :Int) :Char =
+		if (i < 0 || i >= length)
+			throw new IndexOutOfBoundsException(i.toString + " out of " + length)
+		else
+			string.charAt(offset + i)
+
+	override def iterator :StringIterator = new StringIterator(string, offset, offset + length)
+	override def reverseIterator :ReverseStringIterator = new ReverseStringIterator(string, offset, offset + length)
+	override def intIterator :JIntIterator = JavaIterator.ofInt(string, offset, offset + length)
+
+	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+		intIterator.asInstanceOf[I]
+
+	override def foreach[U](f :Char => U) :Unit = {
+		var i = offset;
+		val end = i + length
+		while (i < end) {
+			f(string.charAt(i))
+			i += 1
+		}
+	}
+
+	override def toReader :Reader =
+		if (length == string.length) new StringReader(string)
+		else new SubstringReader(string, offset, length)
+
+	override def equals(that :Any) :Boolean = that match {
+		case other :AbstractSubstring[_] if other.canEqual(this) && canEqual(other) =>
+			length == other.length && {
+				val otherString = other.data
+				var i = offset
+				var j = other.start
+				val end = i + length
+				while (i < end && string.charAt(i) == otherString.charAt(j)) {
+					i += 1; j += 1
+				}
+				i == end
+			}
+		case _ => super.equals(that)
+	}
+
+	override def toString :String = string.substring(offset, offset + length)
 }
 
 
@@ -574,47 +674,23 @@ object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIter
   */
 @SerialVersionUID(1L)
 final class Substring private (string :String, offset :Int, override val length :Int)
-	extends AbstractSeq[Char] with IndexedSeq[Char] with ChoppedString
-	   with StringLikeOps[Substring] with SeqOps[Char, IndexedSeq, Substring] with DefaultSerializable
+	extends AbstractSubstring[Substring](string, offset, length) with ChoppedString
 {
+	assert(offset >= 0 & offset <= string.length,
+		"Offset out of bounds: " + string + ".substring(" + offset + "->" + length + ")."
+	)
+	assert(length <= string.length - offset,
+		"Length out of bounds: " + string + ".substring(" + offset + "->" + length + ")."
+	)
 	protected override def specificFactory :SpecificIterableFactory[Char, Substring] = Substring
 
 	private def data = string
 	private def start = offset
 
-	override def apply(i :Int) :Char =
-		if (i < 0 || i >= length)
-			throw new IndexOutOfBoundsException(i.toString + " out of " + length)
-		else
-			string.charAt(offset + length)
-
-	override def charAt(index :Int) :Char = apply(index)
-
-	override def head :Char =
-		if (length == 0) throw new NoSuchElementException("head of an empty Substring")
-		else string.charAt(offset)
-
-	override def tail :Substring =
-		if (length == 0) throw new UnsupportedOperationException("tail of an empty Substring")
-		else new Substring(string, offset + 1, length - 1)
-
-	override def last :Char =
-		if (length == 0) throw new NoSuchElementException("last of an empty Substring")
-		else string.charAt(offset + length - 1)
-
-	override def init :Substring =
-		if (length == 0) throw new UnsupportedOperationException("init of an empty Substring")
-		else new Substring(string, offset, length - 1)
-
-	protected[collections] override def trustedSlice(from :Int, until :Int) :Substring =
+	protected override def trustedSlice(from :Int, until :Int) :Substring =
 		new Substring(string, offset + from, until - from)
 
 	def substring(start :Int, end :Int = length) :Substring = slice(start, end)
-
-	override def splitAt(n :Int) :(Substring, Substring) =
-		if (n <= 0) (empty, this)
-		else if (n >= length) (this, empty)
-		else (new Substring(string, offset, n), new Substring(string, offset + n, length - n))
 
 	override def reverse :Substring = {
 		val sb = new java.lang.StringBuilder(length)
@@ -624,22 +700,6 @@ final class Substring private (string :String, offset :Int, override val length 
 			sb append string.charAt(i)
 		}
 		new Substring(sb.toString, 0, length)
-	}
-
-	override def empty :Substring = Substring.empty
-
-	override def iterator :StringIterator = new StringIterator(string, offset, offset + length)
-	override def reverseIterator :ReverseStringIterator = new ReverseStringIterator(string, offset, offset + length)
-	override def intIterator :JIntIterator = JavaIterator.ofChar(string, offset, offset + length)
-	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
-		intIterator.asInstanceOf[I]
-
-	override def foreach[U](f :Char => U) :Unit = {
-		var i = offset; val end = i + length
-		while (i < end) {
-			f(string.charAt(i))
-			i += 1
-		}
 	}
 
 	override def isWhitespace :Boolean = {
@@ -666,7 +726,7 @@ final class Substring private (string :String, offset :Int, override val length 
 			case _ => super.++(string)
 		}
 
-	override protected def appendTo(builder :lang.StringBuilder) :lang.StringBuilder = {
+	protected override def appendTo(builder :lang.StringBuilder) :lang.StringBuilder = {
 		var i = offset; val end = offset + length
 		while (i < end) {
 			builder append string.charAt(i)
@@ -675,11 +735,7 @@ final class Substring private (string :String, offset :Int, override val length 
 		builder
 	}
 
-	override def toReader :Reader =
-		if (length == string.length) new StringReader(string)
-		else new SubstringReader(this)
-
-	override def toString :String = string.substring(offset, offset + length)
+	private def writeReplace = new Substring(string.substring(offset, offset + length), 0, length)
 }
 
 
@@ -689,7 +745,7 @@ final class Substring private (string :String, offset :Int, override val length 
   * $Coll `Substring`
   * $coll substring
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object Substring extends SpecificIterableFactory[Char, Substring] {
 	def apply(string :String) :Substring = new Substring(string, 0, string.length)
 
@@ -737,33 +793,37 @@ object Substring extends SpecificIterableFactory[Char, Substring] {
 
 	override val empty :Substring = new Substring("", 0, 0) //we could do read resolve to have a single instance
 
+	override def toString = "Substring"
+}
 
-	private class SubstringReader(tail :Substring) extends Reader {
-		private[this] val reader = new java.io.StringReader(tail.toString)
-		reader.skip(tail.start)
-		private[this] var length = tail.length
 
-		override def read(cbuf :Array[Char], off :Int, len :Int) =
-			if (length == 0)
-				-1
-			else {
-				val count = reader.read(cbuf, off, Math.min(len, length))
-				length -= count
-				count
-			}
-		override def read() =
-			if (length == 0)
-				-1
-			else {
-				length -= 1
-				reader.read()
-			}
-		override def skip(n :Long) = reader.skip(Math.min(length, n))
-		override def markSupported() = reader.markSupported()
-		override def mark(readAheadLimit :Int) :Unit = reader.mark(readAheadLimit)
-		override def reset() :Unit = reader.reset()
-		override def ready() = reader.ready()
 
-		override def close() :Unit = reader.close()
-	}
+
+private class SubstringReader(string :String, start :Int, private[this] var length :Int) extends Reader {
+	private[this] val reader = new java.io.StringReader(string)
+	reader.skip(start)
+
+	override def read(cbuf :Array[Char], off :Int, len :Int) =
+		if (length == 0)
+			-1
+		else {
+			val count = reader.read(cbuf, off, Math.min(len, length))
+			length -= count
+			count
+		}
+	override def read() =
+		if (length == 0)
+			-1
+		else {
+			length -= 1
+			reader.read()
+		}
+	override def skip(n :Long) = reader.skip(Math.min(length, n))
+	override def markSupported() = reader.markSupported()
+	override def mark(readAheadLimit :Int) :Unit = reader.mark(readAheadLimit)
+	override def reset() :Unit = reader.reset()
+	override def ready() = reader.ready()
+
+	override def close() :Unit = reader.close()
+
 }

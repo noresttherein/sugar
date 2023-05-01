@@ -1,13 +1,14 @@
 
-import scala.collection.immutable.{ArraySeq, ListSet, SortedMap}
+import scala.collection.immutable.{ArraySeq, ListSet, SortedMap, TreeSet}
 import scala.collection.{IndexedSeqView, SortedSet}
 
-import net.noresttherein.sugar.collections.{MultiSet, OrderedItems, PassedArray, Ranking, ZigZag}
+import net.noresttherein.sugar.collections.{IndexedSet, MultiSet, OrderedItems, PassedArray, Ranking, ZigZag}
 import net.noresttherein.sugar.extensions.{classExtension, classNameExtension, classNameMethods}
 import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.JavaTypes.JByte
 import net.noresttherein.sugar.numeric
+import net.noresttherein.sugar.numeric.Natural
 import net.noresttherein.sugar.util.LabelPath.{/, ~/, Label}
 
 
@@ -15,7 +16,13 @@ import net.noresttherein.sugar.util.LabelPath.{/, ~/, Label}
 
 
 object Playground extends App {
-	numeric.globalRandom
+
+//	println(Ranking(0, 127489316, -1) ++ Ranking(0, -1, 539749312))
+	println(Nil.startsWith(Nil, -1))
+	println(Nil.startsWith(Nil, 0))
+	println(Nil.startsWith(Nil, 1))
+
+	println(IndexedSet.from(TreeSet(-1118745115, 2147483647)))
 
 	trait Convert[X, Y] {
 		type Res[+E <: Trait[Y]] <: Trait[Y]

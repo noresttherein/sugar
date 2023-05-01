@@ -1,14 +1,27 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{mutable, ClassTagIterableFactory, IterableFactory, IterableOps}
+import scala.collection.{mutable, ClassTagIterableFactory, IterableFactory}
+import scala.collection.immutable.IndexedSeqOps
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.ClassTag
 
 
 
 
-private class ArrayLikeSeq[E](protected override val coll :Array[E]) extends IterableOps[E, Array, Array[E]] {
+/** A non-sticky adapter of an `Array[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, Array, Array[E]]`.
+  * All operations return the resulting `Array[E]`, not another instance of this class.
+  * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
+  * is that they are standard `Seq` implementations, creating the same `ArraySeq` type when filtering or mapping.
+  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `Array`s.
+  */
+@SerialVersionUID(Ver)
+private final class ArrayAsSeq[E](override val coll :Array[E])
+	extends IterableOnce[E] with mutable.IndexedSeqOps[E, Array, Array[E]]
+{
 	def update(idx :Int, elem :E) :Unit = coll(idx) = elem
 	def apply(i :Int) :E = coll(i)
 
@@ -17,17 +30,17 @@ private class ArrayLikeSeq[E](protected override val coll :Array[E]) extends Ite
 	override def iterator :Iterator[E] = new ArrayIterator[E](coll, 0, coll.length)
 
 	override def empty :Array[E @uncheckedVariance] =
-		ArrayLikeSeq.empty(classTag)
+		ArrayAsSeq.empty(classTag)
 
 	protected override def fromSpecific(coll :IterableOnce[E @uncheckedVariance]) :Array[E @uncheckedVariance] =
-		ArrayLikeSeq.from(coll)(classTag)
+		ArrayAsSeq.from(coll)(classTag)
 
 	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, Array[E @uncheckedVariance]] =
-		ArrayLikeSeq.newBuilder[E](classTag)
+		ArrayAsSeq.newBuilder[E](classTag)
 
 	override def toIterable :Iterable[E] = mutable.ArraySeq.make(coll)
 
-	override def iterableFactory :IterableFactory[Array] = ArrayLikeSeq.untagged
+	override def iterableFactory :IterableFactory[Array] = ArrayAsSeq.untagged
 
 	private def classTag = ClassTag(coll.getClass.getComponentType).asInstanceOf[ClassTag[E]]
 
@@ -41,12 +54,15 @@ private class ArrayLikeSeq[E](protected override val coll :Array[E]) extends Ite
 }
 
 
-object ArrayLikeSeq extends ClassTagIterableFactory[Array] {
+
+
+@SerialVersionUID(Ver)
+object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = it match {
 		case elems :Iterable[E] if elems.isEmpty => Array.empty[E]
 		case iter  :Iterator[E] if !iter.hasNext => Array.empty[E]
-		case elems :ArrayLikeSeq[E] => elems.coll
+		case elems :ArrayAsSeq[E] => elems.coll
 		case elems :Iterable[E] => it.knownSize match {
 			case unknown if unknown < 0 => (newBuilder[E] ++= it).result()
 			case size =>
@@ -73,7 +89,7 @@ object ArrayLikeSeq extends ClassTagIterableFactory[Array] {
 		private[this] val emptyAnyRef = new Array[AnyRef](0)
 		override def empty[A] :Array[A] = emptyAnyRef.asInstanceOf[Array[A]]
 		override def from[A](source :IterableOnce[A]) :Array[A] =
-			ArrayLikeSeq.from(source)(ClassTag.Any.asInstanceOf[ClassTag[A]])
+			ArrayAsSeq.from(source)(ClassTag.Any.asInstanceOf[ClassTag[A]])
 
 		override def newBuilder[A] :Builder[A, Array[A]] =
 			new ArrayBuilder[A]()(ClassTag.Any.asInstanceOf[ClassTag[A]])
@@ -159,3 +175,45 @@ object ArrayLikeSeq extends ClassTagIterableFactory[Array] {
 	}
 }
 
+
+
+
+
+
+/** A non-sticky adapter of a `String` to `IterableOnce[E]` and `IndexedSeqOps[E, IndexedSeq, String]`.
+  * All operations return the resulting `Array[E]`, not another instance of this class.
+  * What makes it different from standard extension methods in [[scala.collection.StringOps StringOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.WrappedString WrappedString]] return the same sequence type when filtering or mapping.
+  * It's useful for enabling the use of strings as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `String`s.
+  */
+@SerialVersionUID(Ver)
+private final class StringAsSeq(override val coll :String)
+	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String]
+{
+	def length :Int = coll.length
+
+	override def apply(i :Int) :Char = coll.charAt(i)
+
+	override def iterator :Iterator[Char] = new StringIterator(coll, 0, coll.length)
+
+	override def empty :String = ""
+
+
+	protected override def fromSpecific(coll :IterableOnce[Char]) :String = coll match {
+		case empty :Iterable[Char] if empty.isEmpty => ""
+		case _ => (new StringBuilder ++= coll).result()
+	}
+	protected override def newSpecificBuilder :Builder[Char, String] = new StringBuilder
+	override def iterableFactory :IterableFactory[IndexedSeq] = IndexedSeq
+
+	override def toIterable :Iterable[Char] = coll
+
+	override def equals(that :Any) :Boolean = that match {
+		case it :StringAsSeq => it.coll == coll
+		case _ => false
+	}
+	override def hashCode :Int = coll.hashCode
+	override def toString :String = "StringAsSeq(" + coll + ")"
+}

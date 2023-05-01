@@ -3,12 +3,16 @@ package net.noresttherein.sugar.collections
 import scala.collection.immutable.ArraySeq
 
 import org.scalacheck.Prop._
-import org.scalacheck.Properties
+import org.scalacheck.{Properties, Test}
+import org.scalacheck.util.ConsoleReporter
 
 
 
 
 object ArrayIteratorSpec extends Properties("ArrayIterator") {
+	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
+		p.withTestCallback(ConsoleReporter(2, 140))
+
 	private val array = (0 to Short.MaxValue) to Array
 
 	property("knownSize") = forAll { (from :Short, until :Short) =>

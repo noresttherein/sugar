@@ -10,10 +10,10 @@ import net.noresttherein.sugar.JavaTypes.JIterator
 
 
 
-/**
+/** A window over a range of indices in an `IndexedSeq`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 class SeqSlice[+A] protected (whole :IndexedSeq[A], offset :Int, override val length :Int)
 	extends AbstractSeq[A] with IndexedSeq[A] with SugaredIterable[A] with Serializable
 {
@@ -58,7 +58,7 @@ class SeqSlice[+A] protected (whole :IndexedSeq[A], offset :Int, override val le
   * @define Coll `SeqSlice`
   * @define coll sequence slice
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object SeqSlice extends SeqFactory[SeqSlice] {
 
 	def apply[A](seq :IndexedSeq[A], from :Int, until :Int) :SeqSlice[A] = {
@@ -85,4 +85,6 @@ object SeqSlice extends SeqFactory[SeqSlice] {
 	override def empty[A] :SeqSlice[A] = Empty
 
 	private[this] val Empty = new SeqSlice(PassedArray.empty[Nothing])
+
+	override def toString = "SeqSlice"
 }

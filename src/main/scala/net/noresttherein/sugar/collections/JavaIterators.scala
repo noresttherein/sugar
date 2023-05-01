@@ -2,18 +2,22 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ShortShape}
 
-import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIterator, JIterator, JLong, JLongIterator}
+import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JDoubleIterator, JFloat, JInt, JIntIterator, JIterator, JLong, JLongIterator, JShort}
 
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object JavaIterator {
 	def over[T, I <: JIterator[_]](seq :collection.IndexedSeq[T])(implicit shape :JavaIteratorShape[T, I]) :I =
 		IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	def over[T, I <: JIterator[_]](array :Array[T])(implicit shape :JavaIteratorShape[T, I]) :I =
 		ArrayStepper(array)(shape.stepperShape).javaIterator.asInstanceOf[I]
+
+	def over(string :String) :JIntIterator = new StringStepper(string, 0, string.length)
+
+	def over(string :String, start :Int, end :Int) :JIntIterator = new StringStepper(string, start, end)
 
 	def slice[T, I <: JIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
 	                               (implicit shape :JavaIteratorShape[T, I]) :I =
@@ -35,25 +39,20 @@ object JavaIterator {
 
 	def apply[T, I <: JIterator[_]](elem :T)(implicit shape :JavaIteratorShape[T, I]) :I =
 		shape.shape match {
-			case IntShape    => ofInt(elem.asInstanceOf[Int]).asInstanceOf[I]
+			case IntShape | CharShape | ByteShape | ShortShape => ofInt(elem.asInstanceOf[Int]).asInstanceOf[I]
 			case LongShape   => ofLong(elem.asInstanceOf[Long]).asInstanceOf[I]
-			case DoubleShape => ofDouble(elem.asInstanceOf[Double]).asInstanceOf[I]
-			case CharShape   => ofInt(elem.asInstanceOf[Char]).asInstanceOf[I]
-			case ByteShape   => ofInt(elem.asInstanceOf[Byte]).asInstanceOf[I]
-			case ShortShape  => ofInt(elem.asInstanceOf[Short]).asInstanceOf[I]
-			case FloatShape  => ofDouble(elem.asInstanceOf[Float]).asInstanceOf[I]
+			case DoubleShape | FloatShape => ofDouble(elem.asInstanceOf[Double]).asInstanceOf[I]
 			case _ => ofRef(elem).asInstanceOf[I]
 		}
 		
 	def apply[T, I <: JIterator[_]](first :T, second :T)(implicit shape :JavaIteratorShape[T, I]) :I =
 		shape.shape match {
-			case IntShape    => ofInt(first.asInstanceOf[Int], second.asInstanceOf[Int]).asInstanceOf[I]
-			case LongShape   => ofLong(first.asInstanceOf[Long], second.asInstanceOf[Long]).asInstanceOf[I]
-			case DoubleShape => ofDouble(first.asInstanceOf[Double], second.asInstanceOf[Double]).asInstanceOf[I]
-			case CharShape   => ofInt(first.asInstanceOf[Char], second.asInstanceOf[Char]).asInstanceOf[I]
-			case ByteShape   => ofInt(first.asInstanceOf[Byte], second.asInstanceOf[Byte]).asInstanceOf[I]
-			case ShortShape  => ofInt(first.asInstanceOf[Short], first.asInstanceOf[Short]).asInstanceOf[I]
-			case FloatShape  => ofDouble(first.asInstanceOf[Float], first.asInstanceOf[Float]).asInstanceOf[I]
+			case IntShape | CharShape | ByteShape | ShortShape =>
+				ofInt(first.asInstanceOf[Int], second.asInstanceOf[Int]).asInstanceOf[I]
+			case LongShape   =>
+				ofLong(first.asInstanceOf[Long], second.asInstanceOf[Long]).asInstanceOf[I]
+			case DoubleShape | FloatShape =>
+				ofDouble(first.asInstanceOf[Double], second.asInstanceOf[Double]).asInstanceOf[I]
 			case _ => ofRef(first, second).asInstanceOf[I]
 		}
 
@@ -68,6 +67,7 @@ object JavaIterator {
 				nonEmpty = false; elem
 			} else
 				empty[T].next()
+		override def toString = if (nonEmpty) "JIterator(" + elem + ")" else "JIterator()"
 	}
 	def ofRef[T](first :T, second :T) :JIterator[T] = new JIterator[T] {
 		private[this] var left = 2
@@ -76,6 +76,11 @@ object JavaIterator {
 			case 2 => left = 1; first
 			case 1 => left = 0; second
 			case _ => empty[T].next()
+		}
+		override def toString = left match {
+			case 2 => "JIterator(" + first + ", " + second + ")"
+			case 1 => "JIterator(" + second + ")"
+			case _ => "JIterator()"
 		}
 	}
 
@@ -89,6 +94,8 @@ object JavaIterator {
 				nonEmpty = false; elem
 			} else
 				JavaIterator.empty[JInt].next()
+		override def toString =
+			if (nonEmpty) "JIntIterator(" + elem + ")" else "JIntIterator()"
 	}
 	def ofInt(first :Int, second :Int) :JIntIterator = new JIntIterator {
 		private[this] var left = 2
@@ -98,25 +105,35 @@ object JavaIterator {
 			case 1 => left = 0; second
 			case _ => JavaIterator.empty[JInt].next()
 		}
+		override def toString :String = left match {
+			case 2 => "JIntIterator(" + first + ", " + second + ")"
+			case 1 => "JIntIterator(" + second + ")"
+			case _ => "JIntIterator()"
+		}
 	}
+	def ofInt(string :String) :JIntIterator = ofInt(string, 0, string.length)
 
-	def ofChar() :JIntIterator = ofInt()
-	def ofChar(elem :Char) :JIntIterator = ofInt(elem)
-	def ofChar(first :Char, second :Char) :JIntIterator = ofInt(first, second)
-	def ofChar(string :String) :JIntIterator = ofChar(string, 0, string.length)
-	def ofChar(string :String, from :Int, until :Int) :JIntIterator = new JIntIterator {
-		private[this] var i = from
-		override def nextInt() = { val old = i; i += 1; string.charAt(old) }
-		override def hasNext = i < until
-	}
+	@throws[IndexOutOfBoundsException]("if from < 0 or until > string.length.")
+	def ofInt(string :String, from :Int, until :Int) :JIntIterator =
+		new StringStepper(string, from, until)
 
-	def ofByte() :JIntIterator = ofInt()
-	def ofByte(elem :Byte) :JIntIterator = ofInt(elem)
-	def ofByte(first :Byte, second :Byte) :JIntIterator = ofInt(first, second)
-	
-	def ofShort() :JIntIterator = ofInt()
-	def ofShort(elem :Short) :JIntIterator = ofInt(elem)
-	def ofShort(first :Short, second :Short) :JIntIterator = ofInt(first, second)
+//	def ofChar() :JIntIterator = ofInt()
+//	def ofChar(elem :Char) :JIntIterator = ofInt(elem)
+//	def ofChar(first :Char, second :Char) :JIntIterator = ofInt(first, second)
+//	def ofChar(string :String) :JIntIterator = ofChar(string, 0, string.length)
+//	def ofChar(string :String, from :Int, until :Int) :JIntIterator = new JIntIterator {
+//		private[this] var i = from
+//		override def nextInt() = { val old = i; i += 1; string.charAt(old) }
+//		override def hasNext = i < until
+//	}
+//
+//	def ofByte() :JIntIterator = ofInt()
+//	def ofByte(elem :Byte) :JIntIterator = ofInt(elem)
+//	def ofByte(first :Byte, second :Byte) :JIntIterator = ofInt(first, second)
+//
+//	def ofShort() :JIntIterator = ofInt()
+//	def ofShort(elem :Short) :JIntIterator = ofInt(elem)
+//	def ofShort(first :Short, second :Short) :JIntIterator = ofInt(first, second)
 	
 	def ofLong() :JLongIterator = emptyLong
 
@@ -128,6 +145,8 @@ object JavaIterator {
 				nonEmpty = false; elem
 			} else
 				JavaIterator.empty[JLong].next()
+		override def toString =
+			if (nonEmpty) "JLongIterator(" + elem + ")" else "JLongIterator"
 	}
 	def ofLong(first :Long, second :Long) :JLongIterator = new JLongIterator {
 		private[this] var left = 2
@@ -137,6 +156,12 @@ object JavaIterator {
 			case 1 => left = 0; second
 			case _ => JavaIterator.empty[JLong].next()
 		}
+		override def toString = left match {
+			case 2 => "JLongIterator(" + first + ", " + second + ")"
+			case 1 => "JLongIterator(" + second + ")"
+			case _ => "JLongIterator()"
+		}
+
 	}
 
 	def ofDouble() :JDoubleIterator = emptyDouble
@@ -149,6 +174,8 @@ object JavaIterator {
 				nonEmpty = false; elem
 			} else
 				JavaIterator.empty.next()
+		override def toString =
+			if (nonEmpty) "JDoubleIterator(" + elem + ")" else "JDoubleIterator()"
 	}
 
 	def ofDouble(first :Double, second :Double) :JDoubleIterator = new JDoubleIterator {
@@ -159,36 +186,81 @@ object JavaIterator {
 			case 1 => left = 0; second
 			case _ => JavaIterator.empty.next()
 		}
+		override def toString = left match {
+			case 2 => "JDoubleIterator(" + first + ", " + second + ")"
+			case 1 => "JDoubleIterator(" + second + ")"
+			case _ => "JDoubleIterator()"
+		}
 	}
-
-	def ofFloat() :JDoubleIterator = ofDouble()
-	def ofFloat(elem :Float) :JDoubleIterator = ofDouble(elem)
-	def ofFloat(first :Float, second :Float) :JDoubleIterator = ofDouble(first, second)
+//
+//	def ofFloat() :JDoubleIterator = ofDouble()
+//	def ofFloat(elem :Float) :JDoubleIterator = ofDouble(elem)
+//	def ofFloat(first :Float, second :Float) :JDoubleIterator = ofDouble(first, second)
 
 
 	private[this] val emptyInt :JIntIterator = new JIntIterator {
 		override def nextInt() = JavaIterator.empty.next()
-
 		override def hasNext = false
+		override def toString = "JIntIterator()"
 	}
 	private[this] val emptyLong :JLongIterator = new JLongIterator {
 		override def nextLong() = JavaIterator.empty.next()
 		override def hasNext = false
+		override def toString = "JLongIterator()"
 	}
 	private[this] val emptyDouble :JDoubleIterator = new JDoubleIterator {
 		override def nextDouble() = JavaIterator.empty.next()
 		override def hasNext = false
+		override def toString = "JDoubleIterator()"
 	}
 	private[this] val emptyPrototype = new JIterator[Nothing] {
 		override def hasNext = false
 		override def next() = throw new NoSuchElementException("Empty Iterator")
+		override def toString = "JIterator()"
+	}
+
+
+	object conversions {
+		@inline implicit def intIteratorToJavaIterator(i :JIntIterator) :JavaIterator[Int] =
+			i.asInstanceOf[JavaIterator[Int]]
+
+		@inline implicit def longIteratorToJavaIterator(i :JLongIterator) :JavaIterator[Long] =
+			i.asInstanceOf[JavaIterator[Long]]
+
+		@inline implicit def doubleIteratorToJavaIterator(i :JDoubleIterator) :JavaIterator[Double] =
+			i.asInstanceOf[JavaIterator[Double]]
+
+
+		@inline implicit def boxedByteJavaIteratorToJavaIterator(i :JavaIterator[JByte]) :JavaIterator[Byte] =
+			i.asInstanceOf[JavaIterator[Byte]]
+
+		@inline implicit def boxedShortJavaIteratorToJavaIterator(i :JavaIterator[JShort]) :JavaIterator[Short] =
+			i.asInstanceOf[JavaIterator[Short]]
+
+		@inline implicit def boxedCharJavaIteratorToJavaIterator(i :JavaIterator[JChar]) :JavaIterator[Char] =
+			i.asInstanceOf[JavaIterator[Char]]
+
+		@inline implicit def boxedIntJavaIteratorToJavaIterator(i :JavaIterator[JInt]) :JavaIterator[Int] =
+			i.asInstanceOf[JavaIterator[Int]]
+
+		@inline implicit def boxedLongJavaIteratorToJavaIterator(i :JavaIterator[JLong]) :JavaIterator[Long] =
+			i.asInstanceOf[JavaIterator[Long]]
+
+		@inline implicit def boxedFloatJavaIteratorToJavaIterator(i :JavaIterator[JFloat]) :JavaIterator[Float] =
+			i.asInstanceOf[JavaIterator[Float]]
+
+		@inline implicit def boxedDoubleJavaIteratorToJavaIterator(i :JavaIterator[JDouble]) :JavaIterator[Double] =
+			i.asInstanceOf[JavaIterator[Double]]
+
+		@inline implicit def boxedBooleanJavaIteratorToJavaIterator(i :JavaIterator[JBoolean]) :JavaIterator[Boolean] =
+			i.asInstanceOf[JavaIterator[Boolean]]
 	}
 }
 
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 private class JavaConcatIterator[A, I <: JIterator[A]](iter1 :I, iter2 :I) extends JIterator[A] { this :I =>
 	private[this] var firstHasNext = false
 	private[this] var firstHasNextValid = false
@@ -212,20 +284,21 @@ private class JavaConcatIterator[A, I <: JIterator[A]](iter1 :I, iter2 :I) exten
 	}
 
 	override def next() = current.next()
+
+	override def toString :String = iter1.toString + "++" + iter2
 }
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object JavaConcatIterator {
 	def apply[A, I <: JIterator[_]](first :I, second :I)(implicit shape :JavaIteratorShape[A, I]) :I =
 		(shape.shape match {
-			case IntShape    => ofInt(first.asInstanceOf[JIntIterator], second.asInstanceOf[JIntIterator])
-			case LongShape   => ofLong(first.asInstanceOf[JLongIterator], second.asInstanceOf[JLongIterator])
-			case DoubleShape => ofDouble(first.asInstanceOf[JDoubleIterator], second.asInstanceOf[JDoubleIterator])
-			case CharShape   => ofInt(first.asInstanceOf[JIntIterator], second.asInstanceOf[JIntIterator])
-			case ByteShape   => ofInt(first.asInstanceOf[JIntIterator], second.asInstanceOf[JIntIterator])
-			case ShortShape  => ofInt(first.asInstanceOf[JIntIterator], second.asInstanceOf[JIntIterator])
-			case FloatShape  => ofDouble(first.asInstanceOf[JDoubleIterator], second.asInstanceOf[JDoubleIterator])
+			case IntShape | CharShape | ByteShape | ShortShape =>
+				ofInt(first.asInstanceOf[JIntIterator], second.asInstanceOf[JIntIterator])
+			case LongShape   =>
+				ofLong(first.asInstanceOf[JLongIterator], second.asInstanceOf[JLongIterator])
+			case DoubleShape | FloatShape =>
+				ofDouble(first.asInstanceOf[JDoubleIterator], second.asInstanceOf[JDoubleIterator])
 			case _           => ofAny(first.asInstanceOf[JIterator[A]], second.asInstanceOf[JIterator[A]])
 		}).asInstanceOf[I]
 
@@ -243,22 +316,25 @@ object JavaConcatIterator {
 	def ofRef[A](first :JIterator[A], second :JIterator[A]) :JIterator[A] =
 		new JavaConcatIterator[A, JIterator[A]](first, second)
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class OfInt(_1 :JIntIterator, _2 :JIntIterator)
 		extends JavaConcatIterator[JInt, JIntIterator](_1, _2) with JIntIterator
 	{
 		override def nextInt() = current.next()
+		override def toString = _1.toString + "++[Int]" + _2
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class OfLong(_1 :JLongIterator, _2 :JLongIterator)
 		extends JavaConcatIterator[JLong, JLongIterator](_1, _2) with JLongIterator
 	{
 		override def nextLong() = current.next()
+		override def toString = _1.toString + "++[Long]" + _2
 	}
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class OfDouble(_1 :JDoubleIterator, _2 :JDoubleIterator)
 		extends JavaConcatIterator[JDouble, JDoubleIterator](_1, _2) with JDoubleIterator
 	{
 		override def nextDouble() = current.next()
+		override def toString = _1.toString + "++[Double]" + _2
 	}
 }

@@ -17,7 +17,7 @@ import net.noresttherein.sugar.collections.JavaIteratorShape.IteratorShape
   * a `java.util.Iterator`.
   * @author Marcin Mościcki
   */
-trait JavaIteratorShape[-A, I <: JIterator[_]] extends Equals with Serializable {
+sealed trait JavaIteratorShape[-A, I <: JIterator[_]] extends Equals with Serializable {
 	def shape :StepperShape.Shape
 
 	def stepperShape :StepperShape[A, _ <: Stepper[_]] =
@@ -40,6 +40,24 @@ trait JavaIteratorShape[-A, I <: JIterator[_]] extends Equals with Serializable 
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[JavaIteratorShape[_, _]]
 	override def hashCode :Int = shape.hashCode
+
+	override def toString :String = this match {
+		case JavaIteratorShape.intJavaIteratorShape        => "JavaIteratorShape[Int, JIntIterator]"
+		case JavaIteratorShape.longJavaIteratorShape       => "JavaIteratorShape[Long, JLongIterator]"
+		case JavaIteratorShape.doubleJavaIteratorShape     => "JavaIteratorShape[Double, JDoubleIterator]"
+		case JavaIteratorShape.charJavaIteratorShape       => "JavaIteratorShape[Char, JIntIterator]"
+		case JavaIteratorShape.byteJavaIteratorShape       => "JavaIteratorShape[Byte, JIntIterator]"
+		case JavaIteratorShape.floatJavaIteratorShape      => "JavaIteratorShape[Double, JDoubleIterator]"
+		case JavaIteratorShape.shortJavaIteratorShape      => "JavaIteratorShape[Short, JIntIterator]"
+		case JavaIteratorShape.javaIntJavaIteratorShape    => "JavaIteratorShape[JInt, JIntIterator]"
+		case JavaIteratorShape.javaLongJavaIteratorShape   => "JavaIteratorShape[JLong, JLongIterator]"
+		case JavaIteratorShape.javaDoubleJavaIteratorShape => "JavaIteratorShape[JDouble, JDoubleIterator]"
+		case JavaIteratorShape.javaCharJavaIteratorShape   => "JavaIteratorShape[JChar, JIntIterator]"
+		case JavaIteratorShape.javaByteJavaIteratorShape   => "JavaIteratorShape[JByte, JIntIterator]"
+		case JavaIteratorShape.javaFloatJavaIteratorShape  => "JavaIteratorShape[JDouble, JDoubleIterator]"
+		case JavaIteratorShape.javaShortJavaIteratorShape  => "JavaIteratorShape[JShort, JIntIterator]"
+		case _                                             => "JavaIteratorShape[_, JIterator[_]]"
+	}
 }
 
 
@@ -91,9 +109,9 @@ private[collections] sealed abstract class Rank1JavaIteratorShapes extends Rank2
 		JavaIteratorShape.asInstanceOf[JavaIteratorShape[JDouble, JDoubleIterator]]
 }
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object JavaIteratorShape extends Rank1JavaIteratorShapes {
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private[collections] class IteratorShape[A, I <: JIterator[_]](override val shape :Shape, override val empty :I)
 		extends JavaIteratorShape[A, I]
 

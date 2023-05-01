@@ -3,6 +3,8 @@ package net.noresttherein.sugar.collections
 import scala.collection.{EvidenceIterableFactory, Factory, IterableFactory, MapFactory, SortedMapFactory}
 
 import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
@@ -10,18 +12,17 @@ import net.noresttherein.sugar.extensions.classNameMethods
 
 
 /** Implementations of the standard Scala collection `Factory` interface which implement `equals` in terms
-  * of the underlying [[scala.collection.IterableFactory IterableFactory]] (or its equivalent).
+  * of identity of the underlying [[scala.collection.IterableFactory IterableFactory]] (or its equivalent).
   * It is also `Serializable`, which additionally enhances its declarative use apart from the operative application.
   */
 private trait ComparableFactory[-E, +C] extends Factory[E, C] with Serializable {
 	def factory :Any
 
-	def canEqual(that :Any) :Boolean = that.isInstanceOf[ComparableFactory[_, _]]
-
 	override def equals(that :Any) :Boolean = that match {
 		case other :ComparableFactory[_, _] => (other eq this) || other.factory == factory
 		case _ => false
 	}
+	def canEqual(that :Any) :Boolean = that.isInstanceOf[ComparableFactory[_, _]]
 	override def hashCode :Int = factory.hashCode
 
 	override def toString :String = factory.innerClassName
@@ -29,7 +30,7 @@ private trait ComparableFactory[-E, +C] extends Factory[E, C] with Serializable 
 
 
 
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 private object ComparableFactory {
 	def apply[E, C[_]](factory :IterableFactory[C]) :ComparableFactory[E, C[E]] = {
 		val f = factory
@@ -56,6 +57,10 @@ private object ComparableFactory {
 	def apply[K :Ordering, V, M[_, _]](factory :SortedMapFactory[M]) :ComparableFactory[(K, V), M[K, V]] =
 		new EvidenceMapFactory[K, V, M](factory)
 
+	def unapply[X, C[A]](factory :Factory[X, C[X]]) :Opt[Any] = factory match {
+		case f :ComparableFactory[_, _] => Got(f.factory)
+		case _ => Lack
+	}
 
 	implicit def comparableIterableFactory[E, C[_]](factory :IterableFactory[C]) :ComparableFactory[E, C[E]] =
 		apply(factory)
@@ -74,7 +79,7 @@ private object ComparableFactory {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class EvidenceFactory[E, C[_], Ev[_]](override val factory :EvidenceIterableFactory[C, Ev])
 	                                             (implicit val evidence :Ev[E])
 		extends ComparableFactory[E, C[E]]
@@ -90,7 +95,7 @@ private object ComparableFactory {
 		override def hashCode :Int = factory.hashCode * 31 + evidence.hashCode
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class EvidenceMapFactory[K, V, M[_, _]](override val factory :SortedMapFactory[M])
 	                                               (implicit val evidence :Ordering[K])
 		extends ComparableFactory[(K, V), M[K, V]]

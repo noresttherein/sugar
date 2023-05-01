@@ -1,11 +1,12 @@
 package net.noresttherein.sugar.collections
 
+import scala.annotation.tailrec
 import scala.collection.{SeqFactory, Stepper, StepperShape}
 import scala.collection.immutable.AbstractSeq
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
+import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, EmptyZigZag, Prepended, Slice, Straight}
 
 //implicits
 import net.noresttherein.sugar.extensions.{javaIteratorExtension, stepperExtension}
@@ -15,17 +16,22 @@ import net.noresttherein.sugar.extensions.{javaIteratorExtension, stepperExtensi
 
 /** A recursive list-like sequence to which elements can be both prepended and appended in O(1) time;
   * `length` is also an O(1) operation.
-  * It offers O(n) traversal, but subpar to standard `Seq` implementations and relying on the thread stack
-  * (so may cause `StackOverflowError` for very long collections), and likewise subpar random access.
+  * It offers O(n) traversal, but subpar to standard `Seq` implementations and similarly subpar O(n) random access.
   * Each time an element or collection is prepended or appended, only a single object is created, combining
   * this sequence with the new elements. This makes it suited only as an intermediate buffer structure,
   * where collections are concatenated recursively, which would lead to O(n*n) time in standard implementations.
   * After the contents are complete, it is advised to convert this sequence into some all purpose `Seq` implementation;
-  * this will happen automatically by [[scala.collection.IterableOps.map mapping]] it. Note that `ZigZag` type
-  * is not 'sticky': operations other than slicing return more conventional `Seq` implementations.
-  */
+  * this will also happen automatically when [[scala.collection.IterableOps.map mapping]] it. Note that `ZigZag` type
+  * is not 'sticky': operations other than appending/prepending and slicing return more conventional
+  * `Seq` implementations.
+  *
+  * The name of the collection reflects its internal structure as an unbalanced tree created by appending and prepending
+  * individual elements. This class is essentially the same as `Chain` from the `cats` library,
+  * but implemented within the standard collection framework.
+  */ //consider: renaming to Chain
 sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable {
 //	private[ZigZag] def depth :Int
+	override def knownSize :Int = length
 
 	override def appended[B >: A](elem :B) :ZigZag[B] = new Appended(this, elem)
 	override def prepended[B >: A](elem :B) :ZigZag[B] = new Prepended(elem, this)
@@ -54,14 +60,46 @@ sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable
 	override def dropRight(n :Int) :ZigZag[A] = if (n <= 0) this else slice(0, length - n)
 
 	override def slice(from :Int, until :Int) :ZigZag[A] =
-		if (until < from | until <= 0 || from >= length) empty
+		if (until <= from | until <= 0 || from >= length) empty
 		else if (from <= 0 && until >= length) this
 		else if (from <= 0) trustedSlice(0, until)
-		else trustedSlice(from, length)
+		else if (until > length) trustedSlice(from, length)
+		else trustedSlice(from, until)
 
 	protected[collections] def trustedSlice(from :Int, until :Int) :ZigZag[A]
 
-//	override def iterableFactory :SeqFactory[ZigZag] = ZigZag
+	//narrow the return type, overridden by subclasses
+	override def updated[B >: A](index :Int, elem :B) :ZigZag[B] = ZigZag.from(super.updated(index, elem))
+
+	//narrow the return type, overridden by subclasses
+	override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
+		ZigZag.from(super.patch(from, other, replaced))
+
+	override def foreach[U](f :A => U) :Unit = try {
+		stackForEach(f)
+	} catch {
+		case _ :StackOverflowError =>
+			//shut up tailrec error
+			@inline def headForeach(seq :Seq[A], cont :() => Unit) :Unit = rec(seq, cont)
+			@tailrec def rec(seq :Seq[A], cont :() => Unit) :Unit = seq match {
+				case concat    :Concat[A]    => rec(concat._1, () => headForeach(concat._2, cont))
+				case append    :Appended[A]  => f(append.head); rec(append.tail, cont)
+				case prepended :Prepended[A] => rec(prepended.init, () => { f(prepended.last); cont() })
+				case _      => seq.foreach(f)
+			}
+	}
+
+	protected def stackForEach[U](f :A => U) :Unit
+
+	//todo: remove these once the bugs are fixed in SeqOps
+	override def startsWith[B >: A](that :IterableOnce[B], offset :Int) :Boolean =
+		offset >= 0 && offset <= length && super.startsWith(that, offset)
+
+	override def indexOfSlice[B >: A](that :collection.Seq[B], from :Int) :Int =
+		if (from > length) -1
+		else super.indexOfSlice(that, 0 max from)
+
+	//	override def iterableFactory :SeqFactory[ZigZag] = ZigZag
 	override def className = "ZigZag"
 }
 
@@ -72,7 +110,7 @@ sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable
   * @define Coll `ZigZag`
   * @define coll zigzag
   */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object ZigZag extends SeqFactory[ZigZag] {
 
 	override def from[A](source :IterableOnce[A]) :ZigZag[A] = source match {
@@ -99,25 +137,32 @@ object ZigZag extends SeqFactory[ZigZag] {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class EmptyZigZag extends AbstractSeq[Nothing] with ZigZag[Nothing] {
 //		override def depth :Int = 0
 		override def length :Int = 0
-		override def apply(i :Int) :Nothing = throw new NoSuchElementException("ZigZag()")
+		override def apply(i :Int) :Nothing = throw new IndexOutOfBoundsException("index " + i + " out of 0")
 		override def iterator :Iterator[Nothing] = Iterator.empty
 		override def reverseIterator :Iterator[Nothing] = Iterator.empty
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Nothing, I]) :I = JavaIterator()
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Nothing, S]) :S = Stepper0()
 		override def trustedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
 
+		override def updated[E >: Nothing](index :Int, elem :E) :Nothing =
+			throw new IndexOutOfBoundsException("ZigZag.updated(" + index + ", " + elem + ")")
+
+		override def patch[E >: Nothing](from :Int, other :IterableOnce[E], replaced :Int) :ZigZag[E] =
+			ZigZag.from(other)
+
 		override def foreach[U](f :Nothing => U) :Unit = {}
+		override def stackForEach[U](f :Nothing => U) :Unit = {}
 		private def writeReplace :Seq[Nothing] = ZigZag.empty
 	}
 
 	private[this] final val Empty :ZigZag[Nothing] = new EmptyZigZag
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class Straight[+A](elems :Seq[A]) extends AbstractSeq[A] with ZigZag[A] {
 		private[ZigZag] def elements = elems
 //		override def depth :Int = 0
@@ -132,11 +177,17 @@ object ZigZag extends SeqFactory[ZigZag] {
 			case indexed :IndexedSeq[A] => new Slice(indexed, from, until - from)
 			case _ => new Straight(elems.slice(from, until))
 		}
+
+		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] = new Straight(elems.updated(index, elem))
+		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
+			ZigZag.from(elems.patch(from, other, replaced))
+
 		override def foreach[U](f :A => U) :Unit = elems.foreach(f)
+		override def stackForEach[U](f :A => U) :Unit = elems.foreach(f)
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class Slice[+A](elems :IndexedSeq[A], offset :Int, override val length :Int)
 		extends AbstractSeq[A] with ZigZag[A]
 	{
@@ -157,6 +208,12 @@ object ZigZag extends SeqFactory[ZigZag] {
 
 		override def trustedSlice(from :Int, until :Int) = new Slice(elems, offset + from, until - from)
 
+		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+			ZigZag.from(elems.view.slice(offset, offset + length).updated(index, elem))
+
+		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
+			ZigZag.from(elems.view.slice(offset, offset + length).patch(from, other, replaced))
+
 		override def foreach[U](f :A => U) :Unit = {
 			var i = offset; val end = offset + length
 			while (i < end) {
@@ -164,12 +221,15 @@ object ZigZag extends SeqFactory[ZigZag] {
 				i += 1
 			}
 		}
+		override def stackForEach[U](f :A => U) :Unit = foreach(f)
 		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class Concat[+A](prefix :Seq[A], suffix :Seq[A]) extends AbstractSeq[A] with ZigZag[A] {
+		def _1 = prefix
+		def _2 = prefix
 		private[this] val prefixLen = prefix.length
 		override val length = prefixLen + suffix.length
 //		override def depth = Math.max(prefix.depth, suffix.depth)
@@ -201,7 +261,21 @@ object ZigZag extends SeqFactory[ZigZag] {
 				new Concat(first, second)
 			}
 
-		override def foreach[U](f :A => U) :Unit = {
+		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+			if (index < prefixLen) new Concat(prefix.updated(index, elem), suffix)
+			else new Concat(prefix, suffix.updated(index - prefixLen, elem))
+
+		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
+			val start = Math.min(Math.max(from, 0), length)
+			val end   = start + Math.min(Math.max(replaced, 0), length - start)
+			if (end == 0) prependedAll(other)
+			else if (start == length) appendedAll(other)
+			else if (end <= prefixLen) new Concat(prefix.patch(from, other, replaced), suffix)
+			else if (start >= prefixLen) new Concat(prefix, suffix.patch(start - prefixLen, other, replaced))
+			else ZigZag.from(prefix.view.take(start).concat(other.iterator).concat(suffix.view.drop(end - prefixLen)))
+		}
+
+		override def stackForEach[U](f :A => U) :Unit = {
 			prefix foreach f
 			suffix foreach f
 		}
@@ -209,9 +283,9 @@ object ZigZag extends SeqFactory[ZigZag] {
 	}
 
 
-	@SerialVersionUID(ver)
-	private class Appended[+A](prefix :ZigZag[A], last :A) extends AbstractSeq[A] with ZigZag[A] {
-		private[this] val prefixLen = prefix.length
+	@SerialVersionUID(Ver)
+	private class Appended[+A](override val init :ZigZag[A], override val last :A) extends AbstractSeq[A] with ZigZag[A] {
+		private[this] val prefixLen = init.length
 		override val length :Int = prefixLen + 1
 		override def apply(i :Int) :A =
 			if (i < 0)
@@ -219,65 +293,100 @@ object ZigZag extends SeqFactory[ZigZag] {
 			else if (i == prefixLen)
 				last
 			else
-				prefix(i)
+				init(i)
 
-		override def iterator :Iterator[A] = prefix.iterator ++ Iterator.single(last)
-		override def reverseIterator :Iterator[A] = Iterator.single(last) ++ prefix.reverseIterator
+		override def iterator :Iterator[A] = init.iterator ++ Iterator.single(last)
+		override def reverseIterator :Iterator[A] = Iterator.single(last) ++ init.reverseIterator
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-			prefix.jiterator ++ JavaIterator(last)
+			init.jiterator ++ JavaIterator(last)
 
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
-			prefix.stepper ++ Stepper1(last)
+			init.stepper ++ Stepper1(last)
 
 		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
 			if (from == prefixLen)
 				new Appended(Empty, last)
 			else if (until <= prefixLen)
-				prefix.trustedSlice(from, until)
+				init.trustedSlice(from, until)
 			else
-				new Appended(prefix.trustedSlice(from, prefixLen), last)
+				new Appended(init.trustedSlice(from, prefixLen), last)
 
-		override def foreach[U](f :A => U) :Unit = {
-			prefix foreach f
+		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+			if (index == prefixLen) new Appended(init, elem)
+			else new Appended(init.updated(index, elem), last)
+
+		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
+			val start = Math.min(Math.max(from, 0), length)
+			val end = start + Math.min(Math.max(replaced, 0), length - start)
+			if (end == 0) prependedAll(other)
+			else if (start == length) appendedAll(other)
+			else if (end == length) init.patch(start, other, end - start)
+			else new Appended(ZigZag.from(init.patch(start, other, replaced)), last)
+		}
+
+		override def stackForEach[U](f :A => U) :Unit = {
+			init foreach f
 			f(last)
 		}
 		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
-	@SerialVersionUID(ver)
-	private class Prepended[+A](first :A, suffix :ZigZag[A]) extends AbstractSeq[A] with ZigZag[A] {
-		override val length :Int = 1 + suffix.length
+	@SerialVersionUID(Ver)
+	private class Prepended[+A](override val head :A, override val tail :ZigZag[A])
+		extends AbstractSeq[A] with ZigZag[A]
+	{
+		override val length :Int = 1 + tail.length
 		override def apply(i :Int) :A =
 			if (i < 0)
 				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
 			else if (i == 0)
-				first
+				head
 			else
-				suffix(i - 1)
+				tail(i - 1)
 
-		override def iterator :Iterator[A] = Iterator.single(first) ++ suffix.iterator
-		override def reverseIterator :Iterator[A] = suffix.reverseIterator ++ Iterator.single(first)
+		override def iterator :Iterator[A] = Iterator.single(head) ++ tail.iterator
+		override def reverseIterator :Iterator[A] = tail.reverseIterator ++ Iterator.single(head)
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-			JavaIterator(first) ++ suffix.jiterator
+			JavaIterator(head) ++ tail.jiterator
 
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
-			(Stepper1(first) :S) ++ suffix.stepper
+			(Stepper1(head) :S) ++ tail.stepper
 
 		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
 			if (from >= 1)
-				suffix.trustedSlice(from - 1, until - 1)
+				tail.trustedSlice(from - 1, until - 1)
 			else if (until == 1)
-				new Prepended(first, Empty)
+				new Prepended(head, Empty)
 			else
-				new Prepended(first, suffix.trustedSlice(0, until - 1))
+				new Prepended(head, tail.trustedSlice(0, until - 1))
 
-		override def foreach[U](f :A => U) :Unit = {
-			f(first)
-			suffix foreach f
+		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+			if (index == 0)
+				new Prepended(elem, tail)
+			else if (index < 0)
+				throw new IndexOutOfBoundsException("ZigZag<" + length + ">.updated(" + index + ", " + elem + ")")
+			else
+				new Prepended(head, tail.updated(index - 1, elem))
+
+		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
+			val start = Math.min(Math.max(from, 0), length)
+			val end = start + Math.min(Math.max(replaced, 0), length - start)
+			if (end == 0) prependedAll(other)
+			else if (start == length) appendedAll(other)
+			else if (start > 0) new Prepended(head, tail.patch(start - 1, other, replaced))
+			else tail.patch(start - 1, other, end - 1)
+		}
+
+
+		override def stackForEach[U](f :A => U) :Unit = {
+			f(head)
+			tail foreach f
 		}
 		private def writeReplace = new Straight(toIndexedSeq)
 	}
+
+	override def toString = "ZigZag"
 }

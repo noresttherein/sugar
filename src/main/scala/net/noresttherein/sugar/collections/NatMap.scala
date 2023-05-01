@@ -166,7 +166,7 @@ object ImplicitNatMapFactory {
 
 
 /** A factory of maps where key and values are both types parameterized with the same type. */
-@SerialVersionUID(ver)
+@SerialVersionUID(Ver)
 object NatMap extends ImplicitNatMapFactory {
 
 	/** A single entry of a [[net.noresttherein.sugar.collections.NatMap NatMap]],
@@ -177,7 +177,7 @@ object NatMap extends ImplicitNatMapFactory {
 		private[NatMap] def keyHashCode :Int
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object Assoc {
 		def apply[K[_], V[_], X](key :K[X], value :V[X]) :Assoc[K, V, X] =
 			new Singleton(key, value)
@@ -278,7 +278,7 @@ object NatMap extends ImplicitNatMapFactory {
 		def apply[X](key :K[X]) :V[X]
 	}
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	object WhenNoKey {
 		def apply[K[_], V[_]](f :K =>: V) :WhenNoKey[K, V] = new Wrapper[K, V](f)
 
@@ -298,7 +298,7 @@ object NatMap extends ImplicitNatMapFactory {
 		def throwANoSuchElementException[K[_]] :WhenNoKey[K, Throw] =
 			noSuch.asInstanceOf[WhenNoKey[K, Throw]]
 
-		@SerialVersionUID(ver)
+		@SerialVersionUID(Ver)
 		private object noSuch extends WhenNoKey[({ type K[_] = Any })#K, Throw] {
 			override def apply[X](key :Any) = throw new NoSuchElementException(key.toString)
 		}
@@ -374,7 +374,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class EmptyMap[K[_], +V[_]](implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
 		extends BaseNatMap[K, V]
 	{
@@ -418,7 +418,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 
 	/** A singleton `NatMap` and a map entry in one. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class Singleton[K[_], +V[_], T](override val _1 :K[T], override val _2 :V[T], override val keyHashCode :Int)
 	                                       (implicit override val defaults :WhenNoKey[K, V])
 		extends Assoc[K, V, T] with BaseNatMap[K, V]
@@ -503,7 +503,7 @@ object NatMap extends ImplicitNatMapFactory {
 	private final val SmallNatMapCap = 16
 
 	/** A `NatMap` backed by an array, with a size limit of `SmallNatMapCap`. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class SmallNatMap[K[_], +V[_]]
 	                         (private[this] val entries :Array[Assoc[K, V, _]])
 	                         (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
@@ -615,7 +615,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 
 	/** Default `NatMap` implementation backed by a regular `Map[K[_], V[_]]`. */
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class NaturalizedMap[K[_], +V[_]]
 	                            (private val entries :Map[K[_], V[_]] = Map.empty[K[_], V[_]])
 	                            (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
@@ -687,7 +687,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 
 
-	@SerialVersionUID(ver)
+	@SerialVersionUID(Ver)
 	private class LazyNatMap[K[_], +V[_]](override protected[this] var initializer: () => NatMap[K, V])
 		extends BaseNatMap[K, V] with AbstractIdempotent[NatMap[K, V]]
 	{
@@ -817,5 +817,7 @@ object NatMap extends ImplicitNatMapFactory {
 		override def clear() :Unit = { small = null; large = null; size = 0 }
 	}
 
+
+	override def toString = "NatMap"
 }
 
