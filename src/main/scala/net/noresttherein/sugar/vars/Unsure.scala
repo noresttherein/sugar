@@ -481,6 +481,11 @@ object Unsure {
 			case _ :Exception => Missing
 		}
 
+	/** Returns the first argument as `Sure` if it satisfies the predicate `p`.
+	  * @return `Sure(value).filter(p)`.
+	  */
+	@inline def satisfying[A](value :A)(p :A => Boolean) :Unsure[A] =
+		if (p(value)) Sure(value) else Missing
 
 	/** The for-comprehension facade for [[net.noresttherein.sugar.vars.Unsure Unsure]]`[A]`
 	  * which does not evaluate the filter predicate until `map`, `flatMap` or `foreach` is called.

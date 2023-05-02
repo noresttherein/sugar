@@ -20,6 +20,8 @@ class Maybe[+T] private[witness] (private val content :AnyRef) extends AnyVal {
 	}
 
 	@inline def isDefined :Boolean = opt.isDefined
+
+	override def toString = content.toString
 }
 
 

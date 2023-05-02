@@ -544,6 +544,12 @@ object Opt {
 			case _ :Exception => Lack
 		}
 
+	/** Returns the first argument as `Got` if it satisfies the predicate `p`.
+	  * @return `Got(value).filter(p)`.
+	  */
+	@inline def satisfying[A](value :A)(p :A => Boolean) :Opt[A] =
+		if (p(value)) Got(value) else Lack
+
 
 	/** A refinement of [[net.noresttherein.sugar.vars.Opt Opt]] marking it through a member flag type
 	  * as non-empty. [[net.noresttherein.sugar.vars.Opt$ Opt]] factory object creates instances

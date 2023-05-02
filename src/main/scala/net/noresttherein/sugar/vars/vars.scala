@@ -1039,6 +1039,11 @@ package vars {
 				case _ :Exception => Inexistent
 			}
 
+		/** Returns the first argument in `Existent` if it satisfies the predicate `p`.
+		  * @return `Existent(value).filter(p)`.
+		  */
+		@inline def satisfying[A](value :A)(p :A => Boolean) :Potential[A] =
+			if (p(value)) Existent(value) else Inexistent
 
 		/** A factory of 'full' (`Some`) instances of `Potential`.  */
 		@SerialVersionUID(Ver)

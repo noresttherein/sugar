@@ -2,7 +2,7 @@ package net.noresttherein.sugar.optional
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.optional.extensions.{EnsuringMethods, IfTrueMethods, OptionExtension, ProvidingMethods, SatisfyingMethods}
+import net.noresttherein.sugar.optional.extensions.{EnsuringMethods, IfTrueMethods, OptionExtension, OptionObjectExtension, ProvidingMethods, SatisfyingMethods}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
@@ -38,6 +38,9 @@ trait extensions extends Any {
 //	  * and optional execution of a function based on the argument's runtime class.
 //	  */
 //	@inline implicit final def ifInstanceOfMethods[T](self :T) = new IfInstanceOfMethods[T, R](self)
+
+	@inline implicit final def optionObjectExtension(self :Option.type) :OptionObjectExtension =
+		new OptionObjectExtension {}
 }
 
 
@@ -340,4 +343,13 @@ object extensions extends extensions {
 	//	  */
 	//	@inline def ifSubclass[X <: T :ClassTag, Y](f :X => Y) :Option[Y] = classTag[X].unapply(self).map(f)
 	//}
+
+
+	sealed trait OptionObjectExtension extends Any {
+		/** Returns the first argument in `Some` if it satisfies the predicate given as the second argument.
+		  * @return `Some(value).filter(p)`.
+		  */
+		@inline final def satisfying[A](value :A)(p :A => Boolean) :Option[A] =
+			if (p(value)) Some(value) else None
+	}
 }
