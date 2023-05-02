@@ -1019,7 +1019,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 		}
 
 	private def writeReplace = new Serializable {
-		private[this] val data = Array.copyOfRange(array, offset, length)
+		private[this] val data = if (array.length == len) array else array.slice(offset, offset + length)
 		private def readResolve = new PassedArrayPlus(data)
 	}
 
@@ -1157,7 +1157,7 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 
 
 	private def writeReplace = new Serializable {
-		private[this] val data = Array.copyOfRange(array, offset, length)
+		private[this] val data = if (length == array.length) array else array.slice(offset, offset + length)
 		private def readResolve = new PassedArrayPlus(data)
 	}
 }
@@ -1179,7 +1179,7 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
   * @define coll passed array
   */
 @SerialVersionUID(Ver)
-object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
+case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 //	def apply[A](elems :A*)(implicit elemType :Maybe[ClassTag[A]]) :PassedArray[A] =
 //		elemType.opt match {
 //			case _ if elems.isEmpty => empty
@@ -1211,6 +1211,8 @@ object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 			if (!i.hasNext) Empty
 			else new PassedArrayPlus(i.toArray(classTag[AnyRef].asInstanceOf[ClassTag[A]]))
 	}
+
+	implicit def from[A](array :IArray[A]) :PassedArray[A] = new PassedArrayPlus(array.asInstanceOf[Array[A]])
 
 	override def empty[A] :PassedArray[A] = Empty
 

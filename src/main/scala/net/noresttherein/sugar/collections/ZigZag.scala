@@ -111,7 +111,7 @@ sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable
   * @define coll zigzag
   */
 @SerialVersionUID(Ver)
-object ZigZag extends SeqFactory[ZigZag] {
+case object ZigZag extends SeqFactory[ZigZag] {
 
 	override def from[A](source :IterableOnce[A]) :ZigZag[A] = source match {
 		case zigzag :ZigZag[A] => zigzag

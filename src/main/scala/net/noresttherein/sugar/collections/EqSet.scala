@@ -42,7 +42,7 @@ final class EqSet[A] private (underlying :Set[EqRef[A]])
 
 
 @SerialVersionUID(Ver)
-object EqSet extends IterableFactory[EqSet] {
+case object EqSet extends IterableFactory[EqSet] {
 	override def from[A](source :IterableOnce[A]) :EqSet[A] = source match {
 		case set :EqSet[A] => set
 		case _ => (newBuilder[A] ++= source).result()
@@ -55,7 +55,6 @@ object EqSet extends IterableFactory[EqSet] {
 		Set.newBuilder[EqRef[A]].mapInput(EqRef.apply[A]).mapResult(new EqSet(_))
 
 	private val Empty = new EqSet(HashSet.empty[EqRef[Any]])
-	override def toString = "EqSet"
 }
 
 
@@ -91,14 +90,13 @@ final class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 
 	override def default(key :K) :V = underlying.default(EqRef(key))
 
-
 	override def mapFactory :MapFactory[EqMap] = EqMap
 	override def className :String = "EqMap"
 }
 
 
 @SerialVersionUID(Ver)
-object EqMap extends MapFactory[EqMap] {
+case object EqMap extends MapFactory[EqMap] {
 	override def from[K, V](it :IterableOnce[(K, V)]) :EqMap[K, V] = it match {
 		case map :EqMap[K, V] => map //fixme: wrong type casting
 		case other => (newBuilder ++= other).result()
@@ -127,8 +125,6 @@ object EqMap extends MapFactory[EqMap] {
 		}
 
 	private val Empty = new EqMap(HashMap.empty[EqRef[Any], Any])
-
-	override def toString = "EqMap"
 }
 
 
@@ -156,15 +152,13 @@ final class MutableEqSet[A] private(underlying :mutable.Set[EqRef[A]])
 
 
 @SerialVersionUID(Ver)
-object MutableEqSet extends IterableFactory[MutableEqSet] {
+case object MutableEqSet extends IterableFactory[MutableEqSet] {
 	override def from[A](source :IterableOnce[A]) :MutableEqSet[A] = empty[A] ++= source
 
 	override def empty[A] :MutableEqSet[A] = new MutableEqSet[A](mutable.HashSet.empty)
 	def wrap[A](set :mutable.Set[EqRef[A]]) :MutableEqSet[A] = new MutableEqSet[A](set)
 
 	override def newBuilder[A] :Builder[A, MutableEqSet[A]] = empty[A]
-
-	override def toString = "MutableEqSet"
 }
 
 
@@ -200,13 +194,11 @@ final class MutableEqMap[K, V] private(underlying :mutable.Map[EqRef[K], V])
 
 
 @SerialVersionUID(Ver)
-object MutableEqMap extends MapFactory[MutableEqMap] {
+case object MutableEqMap extends MapFactory[MutableEqMap] {
 	override def from[K, V](it :IterableOnce[(K, V)]) :MutableEqMap[K, V] = empty[K, V] ++= it
 
 	override def empty[K, V] :MutableEqMap[K, V] = new MutableEqMap(mutable.Map.empty)
 	def wrap[K, V](map :mutable.Map[EqRef[K], V]) :MutableEqMap[K, V] = new MutableEqMap(map)
 
 	override def newBuilder[K, V] :Builder[(K, V), MutableEqMap[K, V]] = empty[K, V]
-
-	override def toString = "MutableEqMap"
 }

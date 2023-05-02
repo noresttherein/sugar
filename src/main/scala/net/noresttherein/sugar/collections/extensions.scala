@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import java.util.Arrays
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
-import scala.collection.{mutable, AnyStepper, BufferedIterator, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOps, LinearSeq, LongStepper, MapFactory, SortedMapFactory, Stepper, StepperShape, View}
+import scala.collection.{AnyStepper, BufferedIterator, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOps, LinearSeq, LongStepper, MapFactory, SortedMapFactory, Stepper, StepperShape, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, MapOps, SeqOps, SetOps}
 import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
@@ -14,6 +14,7 @@ import scala.runtime.BoxedUnit
 import scala.util.Random
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
+import net.noresttherein.sugar.collections.IArray.{BooleanIArrayExtension, ByteIArrayExtension, CharIArrayExtension, DoubleIArrayExtension, FloatIArrayExtension, GenericIArrayExtension, IArrayExtension, IntIArrayExtension, LongIArrayExtension, RefIArrayExtension, ShortIArrayExtension}
 import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayObjectExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, MapExtension, MapObjectExtension, SeqExtension, SeqFactoryExtension, SetFactoryExtension, StepperExtension, StepperObjectExtension}
 import net.noresttherein.sugar.extensions.saferCasting
 import net.noresttherein.sugar.raise
@@ -22,6 +23,44 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
+private[collections] sealed trait IArrayRank2Extensions extends Any {
+	@inline implicit def GenericIArrayExtension[E](array :IArray[E]) :GenericIArrayExtension[E] =
+		new GenericIArrayExtension[E](array.asInstanceOf[Array[E]])
+}
+
+private[collections] trait IArrayRank1Extensions extends Any with IArrayRank2Extensions {
+
+	@inline implicit def ByteIArrayExtension(array :IArray[Byte]) :ByteIArrayExtension =
+		new ByteIArrayExtension(array.asInstanceOf[Array[Byte]])
+
+	@inline implicit def ShortIArrayExtension(array :IArray[Short]) :ShortIArrayExtension =
+		new ShortIArrayExtension(array.asInstanceOf[Array[Short]])
+
+	@inline implicit def CharIArrayExtension(array :IArray[Char]) :CharIArrayExtension =
+		new CharIArrayExtension(array.asInstanceOf[Array[Char]])
+
+	@inline implicit def IntIArrayExtension(array :IArray[Int]) :IntIArrayExtension =
+		new IntIArrayExtension(array.asInstanceOf[Array[Int]])
+
+	@inline implicit def LongIArrayExtension(array :IArray[Long]) :LongIArrayExtension =
+		new LongIArrayExtension(array.asInstanceOf[Array[Long]])
+
+	@inline implicit def FloatIArrayExtension(array :IArray[Float]) :FloatIArrayExtension =
+		new FloatIArrayExtension(array.asInstanceOf[Array[Float]])
+
+	@inline implicit def DoubleIArrayExtension(array :IArray[Double]) :DoubleIArrayExtension =
+		new DoubleIArrayExtension(array.asInstanceOf[Array[Double]])
+
+	@inline implicit def BooleanIArrayExtension(array :IArray[Boolean]) :BooleanIArrayExtension =
+		new BooleanIArrayExtension(array.asInstanceOf[Array[Boolean]])
+
+	@inline implicit def RefIArrayExtension[E <: AnyRef](array :IArray[E]) :RefIArrayExtension[E] =
+		new RefIArrayExtension(array.asInstanceOf[Array[E]])
+//
+//	@inline implicit def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
+//		new IArrayExtension(array.asInstanceOf[Array[E]])
+}
+
 
 //I don't think this introduces priority as they need to be imported by name
 private[collections] sealed trait extensionsLowPriority extends Any {
@@ -29,12 +68,16 @@ private[collections] sealed trait extensionsLowPriority extends Any {
 	@inline implicit final def isIterableOnceExtension[C](self :C)(implicit iterable :IsIterableOnce[C])
 			:IterableOnceExtension[iterable.A] =
 		new IterableOnceExtension[iterable.A](iterable(self))
+//
+//	/** Binary search methods for sorted arrays. */
+//	@inline implicit final def baseArrayAsArrayExtension[X](self :BaseArray[X]) :ArrayExtension[X] =
+//		new ArrayExtension(self.asInstanceOf[Array[X]])
 
 }
 
 
 /** Extension methods for various collection types as well as collection companion objects. */
-trait extensions extends Any with extensionsLowPriority {
+trait extensions extends Any with extensionsLowPriority with IArrayRank1Extensions {
 
 	/** Adds various additional folding methods with a break condition to any `Iterable`. */
 	@inline implicit final def iterableOnceExtension[X](self :IterableOnce[X]) :IterableOnceExtension[X] =
@@ -60,9 +103,15 @@ trait extensions extends Any with extensionsLowPriority {
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def arrayAsIterableExtension[E](self :Array[E]) :IterableExtension[Array, E] =
-		new IterableExtension[Array, E](new ArrayAsSeq(self))
+	@inline implicit final def arrayAsIterableExtension[X](self :Array[X]) :IterableExtension[Array, X] =
+		new IterableExtension[Array, X](new ArrayAsSeq(self))
 
+	/** Adds various methods for mapping/flatMapping collections to any `IArray`.
+	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
+	  * with `toLazyList.scan`, but cleaner and more efficient.
+	  */
+	@inline implicit final def immutableArrayAsIterableExtension[E](self :IArray[E]) :IterableExtension[IArray, E] =
+		new IterableExtension[IArray, E](new IArrayAsSeq(self))
 
 //	/** Adds method `mapWith` and `flatMapWith` which map/flat map arrays while passing along additional state
 //	  * to any `Array`.
@@ -83,6 +132,12 @@ trait extensions extends Any with extensionsLowPriority {
 	@inline implicit final def arrayAsSeqExtension[X](self :Array[X]) :SeqExtension[X, Array, Array[X]] =
 		new SeqExtension[X, Array, Array[X]](new ArrayAsSeq(self))
 
+	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for immutable arrays,
+	  * which do not return a negative index when the element is not found.
+	  */
+   @inline implicit final def immutableArrayAsSeqExtension[X](self :IArray[X]) :SeqExtension[X, IArray, IArray[X]] =
+		new SeqExtension[X, IArray, IArray[X]](new IArrayAsSeq(self))
+
 	/** Operations on suffixes of a sequence and binary search methods on sorted sequences. */
 	@inline implicit final def indexedSeqExtension[X, CC[A], C <: CC[X]](self :collection.IndexedSeqOps[X, CC, C])
 			:IndexedSeqExtension[X, CC, C] =
@@ -92,9 +147,25 @@ trait extensions extends Any with extensionsLowPriority {
 	@inline implicit final def arrayAsIndexedSeqExtension[X](self :Array[X]) :IndexedSeqExtension[X, Array, Array[X]] =
 		new IndexedSeqExtension[X, Array, Array[X]](new ArrayAsSeq(self))
 
+	/** Operations on suffixes of a sequence and binary search methods on sorted arrays. */
+	@inline implicit final def immutableArrayAsIndexedSeqExtension[X](self :IArray[X])
+			:IndexedSeqExtension[X, IArray, IArray[X]] =
+		new IndexedSeqExtension[X, IArray, IArray[X]](new IArrayAsSeq(self))
+
 	/** Binary search methods for sorted arrays. */
 	@inline implicit final def arrayExtension[X](self :Array[X]) :ArrayExtension[X] =
 		new ArrayExtension(self)
+
+	/** Binary search methods for sorted arrays. */
+	@inline implicit final def immutableArrayAsArrayExtension[X](self :IArray[X]) :ArrayExtension[X] =
+		new ArrayExtension(self.asInstanceOf[Array[X]])
+//
+//	/** Extension methods for `IArray`. */
+//	@inline implicit final def immutableArrayExtension[X](self :IArray[X]) :IArrayExtension[X] =
+//		new IArrayExtension(self.asInstanceOf[Array[X]])
+
+	@inline implicit def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
+		new IArrayExtension(array.asInstanceOf[Array[E]])
 
 
 	/** An [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] method
@@ -1666,6 +1737,9 @@ object extensions extends extensions {
 				}
 				mapIterable()
 		}
+
+		/** An immutable array with the contents of this collection. */
+		def toIArray[A >: E :ClassTag] :IArray[E] = self.toArray[A].asInstanceOf[IArray[E]]
 	}
 
 
@@ -2138,8 +2212,8 @@ object extensions extends extensions {
 			})
 		}
 
-		/** Checks if this sequence is a subsequence of `other`, that is there is a function `f :Int => Boolean` such that
-		  * `this == other.zipWithIndex.collect { case (e, i) if f(i) => e }`.
+		/** Checks if this sequence is a subsequence of `other`, that is there is a function `f :Int => Boolean`
+		  * such that `this == other.zipWithIndex.collect { case (e, i) if f(i) => e }`.
 		  */
 		def subseqOf(other :Array[E]) :Boolean = subseqOf(ArraySeq.unsafeWrapArray(other))
 
@@ -2223,7 +2297,10 @@ object extensions extends extensions {
 	//Consider: removing it. These extensions duplicate those we get from IndexedSeqExtension
 	// by promoting an Array to ArrayAsSeq
 	/** Adds binary search extension methods to all arrays. */
-	class ArrayExtension[E] private[extensions] (private val self :Array[E]) extends AnyVal {
+	class ArrayExtension[E] private[collections] (private val self :Array[E]) extends AnyVal {
+
+		/** Wraps this array in an adapter to the standard `IndexedSeq` API. */
+		def toOps :mutable.IndexedSeqOps[E, Array, Array[E]] = new ArrayAsSeq(self)
 
 		/** Performs binary search of element `x` in this array, sorted according to implicit `Ordering[E]`.
 		  * Returns the index of the first element greater or equal `x`, or `array.length` if all elements
@@ -2260,19 +2337,48 @@ object extensions extends extensions {
 		}
 
 
+		/** Equality of corresponding elements in the two arrays. Array component type is ignored, and an array
+		  * of a primitive type will equal an array of the appropriate box class, as long as the actual values are equal.
+		  */
+		def sameElements(that :Array[_]) :Boolean =
+			(self eq that) || (self.length == that.length) && {
+				val elemType = self.getClass.getComponentType
+				def slowEquals = {
+					var i = that.length - 1
+					while (i > 0 && self(i) == that(i))
+						i -= 1
+					true
+				}
+				if (elemType == that.getClass.getComponentType)
+					if (classOf[AnyRef] isAssignableFrom elemType)
+						Arrays.equals(self.asInstanceOf[Array[AnyRef]], that.asInstanceOf[Array[AnyRef]])
+					else if (elemType == classOf[Int])
+						Arrays.equals(self.asInstanceOf[Array[Int]], that.asInstanceOf[Array[Int]])
+					else if (elemType == classOf[Long])
+						Arrays.equals(self.asInstanceOf[Array[Long]], that.asInstanceOf[Array[Long]])
+					else if (elemType == classOf[Double])
+						Arrays.equals(self.asInstanceOf[Array[Double]], that.asInstanceOf[Array[Double]])
+					else if (elemType == classOf[Byte])
+						Arrays.equals(self.asInstanceOf[Array[Byte]], that.asInstanceOf[Array[Byte]])
+					else if (elemType == classOf[Char])
+						Arrays.equals(self.asInstanceOf[Array[Char]], that.asInstanceOf[Array[Char]])
+					else if (elemType == classOf[Float])
+						Arrays.equals(self.asInstanceOf[Array[Float]], that.asInstanceOf[Array[Float]])
+					else if (elemType == classOf[Boolean])
+						Arrays.equals(self.asInstanceOf[Array[Boolean]], that.asInstanceOf[Array[Boolean]])
+					else
+						slowEquals
+				else
+					slowEquals
+			}
+
 		/** Deep equality of array elements and array component (element) types. */
-		def sameElements(that :Any) :Boolean = that match {
+		def sameAs(that :Any) :Boolean = that match {
 			case self :AnyRef if this.asAnyRef eq self => true
 			case other :Array[_]
 				if other.length == self.length && other.getClass.getComponentType == self.getClass.getComponentType
 			=>
-				var i = other.length
-				while (i > 0) {
-					i -= 1
-					if (self(i) != other(i))
-						return false
-				}
-				true
+				this sameElements other
 			case _ => false
 		}
 	}
@@ -2617,6 +2723,10 @@ object extensions extends extensions {
 	  * and some adapters of methods in [[java.util.Arrays]].
 	  */
 	sealed trait ArrayObjectExtension extends Any {
+		/** An unitialized array with the specified element type and length. */
+		def of[E](elemType :Class[E], capacity :Int) :Array[E] =
+			java.lang.reflect.Array.newInstance(elemType, capacity).asInstanceOf[Array[E]]
+
 		/** A single element `Array[E]`. */
 		final def one[E :ClassTag](elem :E) :Array[E] = {
 			val res = new Array[E](1)
@@ -2689,51 +2799,6 @@ object extensions extends extensions {
 		/** A single element `Array[Double]`. */
 		@inline final def single(elem :Double) :Array[Double] = one(elem)
 
-
-		/** Same as [[java.util.Arrays Arrays]]`.`[[java.util.Arrays.copyOfRange copyOfRange]], except it works
-		  * for all element types. It is almost equivalent
-		  * to [[scala.collection.ArrayOps ArrayOps]]`.`[[scala.collection.ArrayOps.slice slice]],
-		  * but throws an `IndexOutOfBoundsException` if either `from` or `to` is outside the `0..original.length` range,
-		  * where the latter would simply truncate the result to the available range
-		  * (and [[java.util.Arrays]]`.`[[java.util.Arrays.copyOfRange copyOfRange]] pads with `null`/`0`
-		  * if `to > original.length`).
-		  */ //this method is largely superfuous in presence of Array.slice extension method.
-		@throws[IllegalArgumentException]("if to < from")
-		@throws[IndexOutOfBoundsException]("if from < 0 or to > original.length.")
-		final def copyOfRange[T](original :Array[T], from :Int, to :Int) :Array[T] = ((original: @unchecked) match {
-			case _ if to < from  =>
-				throw new IllegalArgumentException(from.toString + ".." + to)
-			case _ if from < 0 | to > original.length=>
-				throw new IndexOutOfBoundsException(
-					"copyOfRange[Unit](Array[" + original.length + "], " + from + ", " + to + ")"
-				)
-			case _ if to == from => (original: @unchecked) match {
-				case _ :Array[AnyRef]  => java.lang.reflect.Array.newInstance(original.getClass.getComponentType, 0)
-				case _ :Array[Int]     => emptyIntArray
-				case _ :Array[Long]    => emptyLongArray
-				case _ :Array[Double]  => emptyDoubleArray
-				case _ :Array[Byte]    => emptyByteArray
-				case _ :Array[Char]    => emptyCharArray
-				case _ :Array[Float]   => emptyFloatArray
-				case _ :Array[Short]   => emptyShortArray
-				case _ :Array[Boolean] => emptyBooleanArray
-				case _ => java.lang.reflect.Array.newInstance(original.getClass.getComponentType, 0)
-			}
-			case _ :Array[BoxedUnit] => //need to check before `AnyRef`
-				val result = new Array[Unit](to - from)
-				java.util.Arrays.fill(result.asInstanceOf[Array[AnyRef]], ())
-				result
-			case refs     :Array[AnyRef]    => Arrays.copyOfRange(refs, from, to)
-			case ints     :Array[Int]       => Arrays.copyOfRange(ints, from, to)
-			case longs    :Array[Long]      => Arrays.copyOfRange(longs, from, to)
-			case doubles  :Array[Double]    => Arrays.copyOfRange(doubles, from, to)
-			case chars    :Array[Char]      => Arrays.copyOfRange(chars, from, to)
-			case bytes    :Array[Byte]      => Arrays.copyOfRange(bytes, from, to)
-			case floats   :Array[Float]     => Arrays.copyOfRange(floats, from, to)
-			case booleans :Array[Boolean]   => Arrays.copyOfRange(booleans, from, to)
-			case shorts   :Array[Short]     => Arrays.copyOfRange(shorts, from, to)
-		}).asInstanceOf[Array[T]]
-
 		/** A complement of `Array.iterate` and `Array.unfold` provided by `Array` object, which creates
 		  * an `Array[X]` by recursively applying a partial function while defined to its own results and collecting
 		  * all returned values. It is very similar to the standard [[Array.iterate iterate]],
@@ -2801,15 +2866,6 @@ object extensions extends extensions {
 		                 (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
 			ArrayStepper(array, from, until)
 	}
-
-	private val emptyByteArray = new Array[Byte](0)
-	private val emptyShortArray = new Array[Short](0)
-	private val emptyCharArray = new Array[Char](0)
-	private val emptyIntArray = new Array[Int](0)
-	private val emptyLongArray = new Array[Long](0)
-	private val emptyFloatArray = new Array[Float](0)
-	private val emptyDoubleArray = new Array[Double](0)
-	private val emptyBooleanArray = new Array[Boolean](0)
 
 
 	/** Adds factory methods for array iterators

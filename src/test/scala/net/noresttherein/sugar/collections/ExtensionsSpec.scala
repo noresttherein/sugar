@@ -30,7 +30,7 @@ object ExtensionsSpec extends Properties("extensions") {
 	include(IterableFactoryProps)
 	include(SetFactoryProps)
 	include(SeqFactoryProps)
-	include(ArrayFactoryProps)
+	include(ArrayObjectProps)
 	include(IteratorFactoryProps)
 	include(StepperFactoryProps)
 
@@ -225,28 +225,7 @@ object ExtensionsSpec extends Properties("extensions") {
 	}
 
 
-	object ArrayFactoryProps extends Properties("ArrayFactoryExtension") {
-		def copyOfRangeProperty[T](array :Array[T], from :Int, to :Int) :Prop =
-			if (to < from)
-				throws(classOf[IllegalArgumentException])(Array.copyOfRange(array, from, to))
-			else if (from < 0 || to > array.length)
-				throws(classOf[IndexOutOfBoundsException])(Array.copyOfRange(array, from, to))
-			else {
-				val res = Array.copyOfRange(array, from, to)
-				(res.getClass.castParam[Array[T]] ?= array.getClass.castParam[Array[T]]) &&
-					(res.toSeq ?= ArraySeq.unsafeWrapArray(array.slice(from, to))) :| "array: " + ArraySeq.unsafeWrapArray(array)
-			}
-
-		property("copyOfRange") =
-			forAll { (a :Array[Byte], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Short], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Char], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Int], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Long], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Float], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Double], i :Int, j :Int) => copyOfRangeProperty(a, i, j) } &&
-			forAll { (a :Array[Boolean], i :Int, j :Int) => copyOfRangeProperty(a, i, j) }
-
+	object ArrayObjectProps extends Properties("ArrayObjectExtension") {
 		property("generate") = {
 			val res = Array.generate(1) { case i if i < 1000 => i * 2 }
 			(res.getClass.castParam[Array[Int]] ?= classOf[Array[Int]]) &&

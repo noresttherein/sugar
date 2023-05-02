@@ -18,11 +18,9 @@ import net.noresttherein.sugar.util.LabelPath.{/, ~/, Label}
 object Playground extends App {
 
 //	println(Ranking(0, 127489316, -1) ++ Ranking(0, -1, 539749312))
-	println(Nil.startsWith(Nil, -1))
-	println(Nil.startsWith(Nil, 0))
-	println(Nil.startsWith(Nil, 1))
-
-	println(IndexedSet.from(TreeSet(-1118745115, 2147483647)))
+	println(Vector().startsWith(Nil, -1))
+	println(Vector().startsWith(Nil, 0))
+	println(Vector().startsWith(Nil, 1))
 
 	trait Convert[X, Y] {
 		type Res[+E <: Trait[Y]] <: Trait[Y]

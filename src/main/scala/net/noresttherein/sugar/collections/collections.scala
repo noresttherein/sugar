@@ -4,12 +4,13 @@ import java.lang.reflect.Field
 import java.util.PrimitiveIterator
 
 import scala.annotation.nowarn
-import scala.collection.{AnyStepper, BuildFrom, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOps, LongStepper, MapFactory, SortedMapFactory, Stepper}
+import scala.collection.{AnyStepper, ArrayOps, BuildFrom, DoubleStepper, EvidenceIterableFactory, Factory, IndexedSeqView, IntStepper, IterableFactory, IterableOnceOps, IterableOps, LazyZip2, LongStepper, MapFactory, SeqFactory, SortedMapFactory, Stepper, StepperShape, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, SortedMap}
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{Buffer, Builder}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -19,9 +20,7 @@ import net.noresttherein.sugar.extensions.optionExtension
 
 
 
-/**
- * @author Marcin Mościcki
- */
+//consider: extending imports
 package object collections {
 	final val Ver = 1L
 
@@ -38,6 +37,33 @@ package object collections {
 	type IntSplitStepper     = IntStepper with EfficientSplit
 	type LongSplitStepper    = LongStepper with EfficientSplit
 	type DoubleSplitStepper  = DoubleStepper with EfficientSplit
+
+	type BaseArray[+E] >: Array[_ <: E] <: AnyRef
+
+	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
+	  * Its interface is defined as extension methods in
+	  * [[net.noresttherein.sugar.collections.ArrayLikeExtension ArrayLikeExtension]]`[E, IArray[E]]` and
+	  * [[net.noresttherein.sugar.collections.IArray.IArrayExtension IArrayExtension]]`[E]`.
+	  */
+	type IArray[+E] <: BaseArray[E]
+//
+//	/** An erased array with elements `E`. It is represented always as an `Array[Any]` (i.e., `Object[])`,
+//	  * and arrays of value types store them in their standard box wrappers. The advantage is that the API
+//	  * does not depend on `ClassTag[E]` being present.
+//	  * Its interface is defined as extension methods in
+//	  * [[net.noresttherein.sugar.collections.ArrayLikeExtension ArrayLikeExtension]]`[E, RefArray[E]]` and
+//	  * [[net.noresttherein.sugar.collections.RefArray.RefArrayExtension RefArrayExtension]]`[E]`.
+//	  */
+//	type RefArray[E] <: Array[E]
+
+
+//	private[collections] val DefaultIndexedSeq :SeqFactory[IndexedSeq] =
+//		try {
+//			val PassedArray = Class.forName("net.noresttherein.sugar.collections.PassedArray")
+//
+//		} catch {
+//			case _ :Exception => IndexedSeq
+//		}
 
 	private val IterableFactoryClass = scala.collection.Iterable.iterableFactory.getClass
 	private val IterableFactoryField :Opt[Field] =
@@ -126,3 +152,6 @@ package object collections {
 		}
 
 }
+
+
+

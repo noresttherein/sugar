@@ -405,7 +405,7 @@ trait Ranking[+T]
   * @define coll ranking
   */
 @SerialVersionUID(Ver)
-object Ranking extends IterableFactory[Ranking] {
+case object Ranking extends IterableFactory[Ranking] {
 
 	override def from[T](elems :IterableOnce[T]) :Ranking[T] = elems match {
 		case ranking :Ranking[T] => ranking

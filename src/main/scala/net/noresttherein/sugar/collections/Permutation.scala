@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.{mutable, IterableFactory, IterableOps}
 import scala.collection.mutable.Builder
 import scala.util.Random
@@ -79,6 +79,37 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 				}
 			)
 
+	/** Splits this permutation into a sequence of permutations such that `split.reduce(_ ++ ) == this`.
+	  * The underlying index range is first split into minimal, non empty sub ranges `[i, j)` such that
+	  * `(i until j).forall(n => this(n) >= i && this(n) < j)`. Each range begets a `Permutation` by shifting down
+	  * the indices in its domain and image by `i` - the first index in range..
+	  */
+	def split :Seq[Permutation] =
+		if (toIndexedSeq.length == 0)
+			PassedArray.one(this)
+		else {
+			val res = PassedArray.newBuilder[Permutation]
+			var first = true
+			val len = toIndexedSeq.length
+			var limit = toIndexedSeq.head
+			var start = 0
+			while (limit < len) {
+				var i = start
+				while (i < limit) {
+					limit = Math.max(limit, toIndexedSeq(i))
+					i += 1
+				}
+				if (first)
+					res += new Permutation(toIndexedSeq.take(limit))
+				else
+					res += new Permutation(toIndexedSeq.view.slice(start, limit).map(_ - start).toIndexedSeq)
+				first = false
+				start += 1
+				limit = toIndexedSeq(start)
+			}
+			res.result()
+		}
+
 	/** An orbit of a permutation element is the sequence of positions to which that element is mapped by recursively
 	  * applying this permutation to itself:
 	  * {{{
@@ -122,6 +153,17 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 			)
 		else
 			new Permutation(first.toIndexedSeq.map(toIndexedSeq))
+
+	/** A concatenation of two permutations. The second permutation is used to map indices
+	  * `[this.length, this.length + other.length)` to the same range. */
+	@inline final def ++(other :Permutation) :Permutation = concat(other)
+
+	/** A concatenation of two permutations. The second permutation is used to map indices
+	  * `[this.length, this.length + other.length)` to the same range. */
+	def concat(other :Permutation) :Permutation = {
+		val len = toIndexedSeq.length
+		new Permutation(toIndexedSeq :++ other.toIndexedSeq.map(_ + len))
+	}
 
 	@nowarn
 	override def toIterable :Iterable[Int] = toIndexedSeq

@@ -1,10 +1,17 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{mutable, ClassTagIterableFactory, IterableFactory}
-import scala.collection.immutable.IndexedSeqOps
+import scala.Array.{emptyBooleanArray, emptyByteArray, emptyCharArray, emptyDoubleArray, emptyFloatArray, emptyIntArray, emptyLongArray, emptyObjectArray, emptyShortArray}
+import scala.annotation.nowarn
+import scala.collection.{ClassTagIterableFactory, IterableFactory, mutable}
+import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
+
+import net.noresttherein.sugar.extensions.castTypeParam
+
+//extension methods
+import extensions._
+
 
 
 
@@ -22,29 +29,32 @@ import scala.reflect.ClassTag
 private final class ArrayAsSeq[E](override val coll :Array[E])
 	extends IterableOnce[E] with mutable.IndexedSeqOps[E, Array, Array[E]]
 {
-	def update(idx :Int, elem :E) :Unit = coll(idx) = elem
-	def apply(i :Int) :E = coll(i)
+	override def update(idx :Int, elem :E) :Unit = coll(idx) = elem
+	override def apply(i :Int) :E = coll(i)
 
-	def length :Int = coll.length
+	override def length :Int = coll.length
 
 	override def iterator :Iterator[E] = new ArrayIterator[E](coll, 0, coll.length)
 
-	override def empty :Array[E @uncheckedVariance] =
-		ArrayAsSeq.empty(classTag)
+	override def empty :Array[E] =
+		ArrayAsSeq.empty(coll.getClass.getComponentType.castParam[E])
 
-	protected override def fromSpecific(coll :IterableOnce[E @uncheckedVariance]) :Array[E @uncheckedVariance] =
+	protected override def fromSpecific(coll :IterableOnce[E]) :Array[E] =
 		ArrayAsSeq.from(coll)(classTag)
 
-	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, Array[E @uncheckedVariance]] =
-		ArrayAsSeq.newBuilder[E](classTag)
+	protected override def newSpecificBuilder :Builder[E, Array[E]] =
+		ArrayAsSeq.newBuilder[E](coll.getClass.getComponentType.castParam[E])
 
+	@nowarn("cat=deprecation")
 	override def toIterable :Iterable[E] = mutable.ArraySeq.make(coll)
 
-	override def iterableFactory :IterableFactory[Array] = ArrayAsSeq.untagged
+	override def iterableFactory :IterableFactory[Array] = RefArray
 
 	private def classTag = ClassTag(coll.getClass.getComponentType).asInstanceOf[ClassTag[E]]
 
 	override def equals(that :Any) :Boolean = that match {
+		case other :ArrayAsSeq[_] => coll sameElements other.coll
+		case other :IArrayAsSeq[_] => other.coll sameElements coll
 		case it :IterableOnce[_] =>
 			mutable.ArraySeq.make(coll) == it
 		case _ => false
@@ -57,55 +67,52 @@ private final class ArrayAsSeq[E](override val coll :Array[E])
 
 
 @SerialVersionUID(Ver)
-object ArrayAsSeq extends ClassTagIterableFactory[Array] {
+private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
+
+	def wrap[E](array :Array[E]) :mutable.IndexedSeqOps[E, Array, Array[E]] =
+		new ArrayAsSeq(array)
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = it match {
 		case elems :Iterable[E] if elems.isEmpty => Array.empty[E]
 		case iter  :Iterator[E] if !iter.hasNext => Array.empty[E]
-		case elems :ArrayAsSeq[E] => elems.coll
-		case elems :Iterable[E] => it.knownSize match {
-			case unknown if unknown < 0 => (newBuilder[E] ++= it).result()
-			case size =>
-				val res = Array.ofDim[E](size)
-				elems.copyToArray(res)
-				res
-		}
-		case _ =>
-			val iter = it.iterator
-			it.knownSize match {
-				case unknown if unknown < 0 => (newBuilder[E] ++= it).result()
-				case size =>
-					val res = Array.ofDim[E](size)
-					iter.copyToArray(res)
-					res
-			}
+		case elems :ArrayAsSeq[E] if elems.coll.getClass.getComponentType == classTag[E].runtimeClass => elems.coll
+		case elems :Iterable[E] => elems.toArray[E]
+		case _ => it.iterator.toArray[E]
 	}
+
+	def empty[A](elementType :Class[A]) :Array[A] = {
+		if (classOf[AnyRef] isAssignableFrom elementType) emptyObjectArray
+		else if (elementType == classOf[Int]) emptyIntArray
+		else if (elementType == classOf[Long]) emptyLongArray
+		else if (elementType == classOf[Double]) emptyDoubleArray
+		else if (elementType == classOf[Byte]) emptyByteArray
+		else if (elementType == classOf[Char]) emptyCharArray
+		else if (elementType == classOf[Float]) emptyFloatArray
+		else if (elementType == classOf[Short]) emptyShortArray
+		else if (elementType == classOf[Boolean]) emptyBooleanArray
+		else emptyObjectArray
+	}.asInstanceOf[Array[A]]
 
 	override def empty[A :ClassTag] :Array[A] = Array.empty[A]
 
 	override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = new ArrayBuilder[A]
+	def newBuilder[A](elementType :Class[A]) :Builder[A, Array[A]] = new ArrayBuilder(elementType)
 
-	object untagged extends IterableFactory[Array] {
-		private[this] val emptyAnyRef = new Array[AnyRef](0)
-		override def empty[A] :Array[A] = emptyAnyRef.asInstanceOf[Array[A]]
-		override def from[A](source :IterableOnce[A]) :Array[A] =
-			ArrayAsSeq.from(source)(ClassTag.Any.asInstanceOf[ClassTag[A]])
-
-		override def newBuilder[A] :Builder[A, Array[A]] =
-			new ArrayBuilder[A]()(ClassTag.Any.asInstanceOf[ClassTag[A]])
-	}
+	val untagged :IterableFactory[Array] = RefArray
 
 	private val InitialBuilderSize = 16
 
+	/** Our own version of a builder for  */
+	private class ArrayBuilder[A](elemType :Class[A]) extends ReusableBuilder[A, Array[A]] {
+		def this()(implicit tag :ClassTag[A]) = this(tag.runtimeClass.castParam[A])
 
-	private class ArrayBuilder[A :ClassTag] extends ReusableBuilder[A, Array[A]] {
 		private[this] var buffer :Array[A] = _
 		private[this] var size :Int = 0
 
 		override def sizeHint(size :Int) :Unit =
 			if (size > 0) {
 				if (buffer == null)
-					buffer = Array.ofDim(size)
+					buffer = Array.of(elemType, size)
 				else if (buffer.length * 2 < size)
 					buffer = Array.copyOf(buffer, size)
 			}
@@ -117,7 +124,7 @@ object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 				case it :Iterable[A] => it.knownSize match {
 					case unknown if unknown < 0 => super.addAll(xs)
 					case extra if buffer == null =>
-						buffer = Array.ofDim(extra)
+						buffer = Array.of(elemType, extra)
 						it.copyToArray(buffer)
 						size = extra
 						this
@@ -134,7 +141,7 @@ object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 					it.knownSize match {
 						case unknown if unknown < 0 => super.addAll(xs)
 						case extra if buffer == null =>
-							buffer = Array.ofDim(extra)
+							buffer = Array.of(elemType, extra)
 							it.copyToArray(buffer)
 							size = extra
 						case extra if size + extra <= buffer.length =>
@@ -148,7 +155,7 @@ object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 
 		override def addOne(elem :A) = {
 			if (buffer == null)
-				buffer = Array.ofDim[A](InitialBuilderSize)
+				buffer = Array.of(elemType, InitialBuilderSize)
 			else if (size == buffer.length)
 				buffer = Array.copyOf(buffer, buffer.length * 2)
 			buffer(size) = elem
@@ -163,7 +170,7 @@ object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 
 		override def result() =
 			if (size == 0)
-				Array.empty[A]
+				ArrayAsSeq.empty(elemType)
 			else if (size == buffer.length)
 				buffer
 			else {
@@ -174,6 +181,78 @@ object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 			}
 	}
 }
+
+
+
+
+
+
+/** A non-sticky adapter of an `IArray[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, IArray, IArray[E]]`.
+  * All operations return the resulting `Array[E]`, not another instance of this class.
+  * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
+  * is that they are standard `Seq` implementations, creating the same `ArraySeq` type when filtering or mapping.
+  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `Array`s.
+  */
+@SerialVersionUID(Ver)
+private final class IArrayAsSeq[E](override val coll :IArray[E])
+	extends IterableOnce[E] with IndexedSeqOps[E, IArray, IArray[E]]
+{
+	override def apply(i :Int) :E = coll(i)
+
+	override def length :Int = coll.length
+
+	override def iterator :Iterator[E] = new ArrayIterator(coll.asInstanceOf[Array[E]], 0, coll.length)
+
+	override def empty :IArray[E] =
+		IArray.empty(classTag)
+
+	protected override def fromSpecific(coll :IterableOnce[E]) :IArray[E] =
+		IArray.from(coll)(classTag)
+
+	protected override def newSpecificBuilder :Builder[E, IArray[E]] =
+		IArray.newBuilder[E](classTag)
+
+	@nowarn("cat=deprecation")
+	override def toIterable :Iterable[E] = ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]])
+
+	override def iterableFactory :IterableFactory[IArray] = IArray.untagged
+
+	private def classTag = ClassTag(coll.getClass.getComponentType).asInstanceOf[ClassTag[E]]
+
+	override def equals(that :Any) :Boolean = that match {
+		case other :IArrayAsSeq[_] => coll sameElements other.coll
+		case other :ArrayAsSeq[_] => coll sameElements other.coll
+		case it :IterableOnce[_] =>
+			ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]]) == it
+		case _ => false
+	}
+	override def hashCode :Int = ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]]).hashCode
+	override def toString :String = ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]]).mkString("Array(", ", ", ")")
+}
+//
+//
+//
+//
+//@SerialVersionUID(Ver)
+//object IArrayAsSeq extends ClassTagIterableFactory[IArray] {
+//
+//	def wrap[E](array :IArray[E]) :IndexedSeqOps[E, IArray, IArray[E]] = new IArrayAsSeq(array)
+//
+//	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = IArray.from(it)
+//
+//	override def empty[E :ClassTag] :IArray[E] = IArray.empty[E]
+//
+//	def empty[E](elementType :Class[E]) :IArray[E] = IArray.empty(elementType)
+//
+//	override def newBuilder[E :ClassTag] :Builder[E, IArray[E]] = IArray.newBuilder[E]
+//
+//	def newBuilder[E](elementType :Class[E]) :Builder[E, IArray[E]] = IArray.newBuilder(elementType)
+//
+//	val untagged :IterableFactory[IArray] = IArray.untagged
+//}
 
 
 
