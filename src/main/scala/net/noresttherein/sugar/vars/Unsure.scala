@@ -82,6 +82,9 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	@inline final override def knownSize :Int = if (this eq Missing) 0 else 1
 
+	/** Returns `1` if the `Unsure` carries a value and `0` otherwise. */
+	@inline final def size :Int = if (this eq Missing) 0 else 1
+
 	@inline final override def productArity :Int = if (this eq Missing) 0 else 1
 
 	@inline final override def productElement(n :Int) :Any =

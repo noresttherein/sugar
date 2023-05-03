@@ -49,6 +49,9 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	/** Same as [[net.noresttherein.sugar.vars.Box.nonEmpty nonEmpty]]. */
 	@inline final override def isDefinite :Boolean = !isEmpty
 
+	/** Returns `1` if the `Box` contains a value or `0` otherwise. */
+	@inline def size :Int = if (isEmpty) 0 else 1
+
 	/** Same as [[net.noresttherein.sugar.vars.Ref.value value]]. */
 	@inline final override def get :T = value
 
@@ -141,6 +144,14 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  */
 	def reset(content :Ref[T]) :Unit = this :?= content
 
+
+	/** Returns the current value and removes it from this `Box`. If there is no value in this box,
+	  * a `NoSuchElementException` will be thrown.
+	  */
+	@inline final def remove() :T = { val res = value; clear(); res }
+
+	/** Empties the box, returning its current value, if any. */
+	@inline final def removeOpt() :Opt[T] = { val res = opt; clear(); res }
 
 	/** Empties the box, unreferencing the currently held value, if any. */
 	def clear() :Unit

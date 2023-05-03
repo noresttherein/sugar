@@ -107,6 +107,9 @@ package object vars extends vars.Rank1PotentialImplicits {
 		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
 		@inline def isDefinite :Boolean = self.asInstanceOf[AnyRef] ne NonExistent
 
+		/** Returns `1` if the `Potential` carries a value and `0` otherwise. */
+		@inline def size :Int = if (self.asInstanceOf[AnyRef] eq NonExistent) 0 else 1
+
 		/** Forces extraction of the value.
 		  * @return contained value, if one exists.
 		  * @throws NoSuchElementException if this `Potential` is empty. */

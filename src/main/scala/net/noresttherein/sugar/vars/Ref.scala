@@ -62,7 +62,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * will throw a [[NoSuchElementException]] and
 	  * [[net.noresttherein.sugar.vars.Ref.option option]]/[[net.noresttherein.sugar.vars.Ref.opt opt]]/[[net.noresttherein.sugar.vars.Ref.unsure unsure]]
 	  * will return `None`/[[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Missing Missing]].
-	  * Note that in a multithreaded context the result may be incorrect the moment the method returns.
+	  * Note that in a multi-threaded context the result may be incorrect the moment the method returns.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @return [[net.noresttherein.sugar.vars.Ref.opt opt]]`.isEmpty` (or equivalent).
@@ -70,7 +70,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isEmpty :Boolean = opt.isEmpty
 
 	/** The $Ref currently holds a [[net.noresttherein.sugar.vars.Ref.value value]].
-	  * Note that in a multithreaded context the result may be incorrect the moment the method returns.
+	  * Note that in a multi-threaded context the result may be incorrect the moment the method returns.
 	  * In absence of additional guarantees specified by the contract of a subclass,
 	  * prefer polling with [[net.noresttherein.sugar.vars.Ref.opt opt]].
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
@@ -94,7 +94,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isFinalizable: Boolean
 
 	/** The $Ref contains an initialized value which is guaranteed not to change. Once this method returns `true`,
-	  * it will remain `true` for the rest of this $Ref's lifetime, although in multithreaded context this is guaranteed
+	  * it will remain `true` for the rest of this $Ref's lifetime, although in multi-threaded context this is guaranteed
 	  * only for thread safe implementations. Implies `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]],
 	  * [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]
 	  * and [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]].

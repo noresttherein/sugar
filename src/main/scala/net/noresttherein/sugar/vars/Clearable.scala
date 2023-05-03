@@ -88,6 +88,9 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	/** Returns `true` ''iff'' this `Clearable` is not empty. */
 	@inline final override def isDefinite :Boolean = !isEmpty
 
+	/** Returns `0` if the variable has been [[net.noresttherein.sugar.vars.Clearable.clear cleared]], or `1` otherwise. */
+	@inline final def size :Int = opt.size
+
 	/** Same as [[net.noresttherein.sugar.vars.Clearable.get get]]. */
 	@inline final override def value :T = get
 
@@ -113,6 +116,14 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
 	@inline final override def constUnsure :Unsure[T] = Missing
+
+	/** Clears this variable, returning its current value. If this instance is already cleared,
+	  * an [[NoSuchElementException]] will be thrown.
+	  */
+	@inline final def remove() :T = { val res = get; clear(); res }
+
+	/** Clears this variable, returning its current value, if any. */
+	@inline final def removeOpt() :Opt[T] = { val res = opt; clear(); res }
 
 	/** Resets this variable to an undefined state, unreferencing its contents. */
 	def clear() :Unit

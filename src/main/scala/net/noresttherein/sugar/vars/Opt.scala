@@ -96,6 +96,9 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	@inline override def knownSize :Int = if (ref eq NoContent) 0 else 1
 
+	/** Returns `1` if the `Opt` carries a value and `0` otherwise. */
+	@inline def size :Int = if (ref eq NoContent) 0 else 1
+
 	@inline override def productArity :Int = if (ref eq NoContent) 0 else 1
 
 	@inline override def productElement(n :Int) :Any =
