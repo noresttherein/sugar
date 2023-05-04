@@ -2,7 +2,6 @@ package net.noresttherein.sugar.vars
 
 import scala.annotation.unspecialized
 
-import net.noresttherein.sugar.vars.Idempotent.IdempotentRef
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Ref.undefined
@@ -39,8 +38,8 @@ object Transient {
 	  *                   allowing use of literal expressions of the latter form as argument.
 	  */
 	def apply[@specialized(SpecializedVars) T](idempotent :Eval[T]) :Transient[T] = {
-		new TransientVal(idempotent) match {
-			case ref if ref.getClass == classOf[TransientVal[Any]] => new TransientRef(idempotent)
+		new Val(idempotent) match {
+			case ref if ref.getClass == classOf[Val[Any]] => new Ref(idempotent)
 			case spec => spec
 		}
 	}
@@ -51,7 +50,7 @@ object Transient {
 	  * which allows more lax synchronisation.
 	  */
 	@SerialVersionUID(Ver) //todo: make it really specialized
-	private class TransientVal[@specialized(SpecializedVars) +T](initializer :Eval[T]) extends Transient[T] {
+	private class Val[@specialized(SpecializedVars) +T](initializer :Eval[T]) extends Transient[T] {
 		@transient private[this] var evaluated :Any = undefined
 
 		override def isDefinite :Boolean = evaluated != undefined
@@ -87,7 +86,7 @@ object Transient {
 			val v = evaluated
 			if (v != undefined) {
 				val res = f(v.asInstanceOf[T])
-				new TransientRef(() => res)
+				new Ref(() => res)
 			} else
 				new IdempotentRef(() => f(apply()))
 		}
@@ -111,7 +110,7 @@ object Transient {
 	  * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
 	  */
 	@SerialVersionUID(Ver)
-	private class TransientRef[T](initializer :Eval[T]) extends Transient[T] {
+	private class Ref[T](initializer :Eval[T]) extends Transient[T] {
 		@transient @volatile private[this] var evaluated :Any = _
 
 		override def isDefinite :Boolean = evaluated != undefined
@@ -147,7 +146,7 @@ object Transient {
 			val v = evaluated
 			if (v != undefined) {
 				val res = f(v.asInstanceOf[T])
-				new TransientRef(() => res)
+				new Ref(() => res)
 			} else
 				new IdempotentRef(() => f(apply()))
 		}

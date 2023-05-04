@@ -58,8 +58,8 @@ object Atomic extends VolatileLikeFactory[Atomic] {
 
 
 	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Atomic[T] = new Atomic(init)
-	protected override def newRefInstance[T](init :T) :Atomic[T] = new AtomicRef(init)
-	protected override def newBoolInstance(init :Boolean) :Atomic[Boolean] = new AtomicBool(init)
+	protected override def newRefInstance[T](init :T) :Atomic[T] = new Ref(init)
+	protected override def newBoolInstance(init :Boolean) :Atomic[Boolean] = new Bool(init)
 
 
 	/** An unspecialized `Atomic` implementation overriding atomic mutator methods to compare the value
@@ -67,12 +67,12 @@ object Atomic extends VolatileLikeFactory[Atomic] {
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class AtomicRef[T](init :T) extends Atomic[T](init) with RefVolatileLike[T]
+	private class Ref[T](init :T) extends Atomic[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Atomic[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class AtomicBool(init :Boolean) extends Atomic[Boolean](init) with BoolVolatileLike
+	private class Bool(init :Boolean) extends Atomic[Boolean](init) with BoolVolatileLike
 
 }

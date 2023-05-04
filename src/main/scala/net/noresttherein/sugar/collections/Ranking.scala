@@ -10,8 +10,7 @@ import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.collections.Ranking.{IndexedRanking, RankingSeqAdapter, RankingSetAdapter, SmallRanking}
 import net.noresttherein.sugar.extensions.{classNameMethods, saferCasting, seqExtension}
-import net.noresttherein.sugar.vars.Idempotent.AbstractIdempotent
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.{AbstractIdempotent, Opt}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits

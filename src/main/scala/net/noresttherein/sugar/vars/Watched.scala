@@ -203,9 +203,9 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	def apply[@specialized(SpecializedVars) T](init :T)(implicit executor :Maybe[Executor]) :Watched[T] =
 		new Watched[T](init) match {
 			case any if any.getClass == CaseUnspec =>
-				new WatchedRef[T](init)(executor.opt getOrElse SerializedExecutor)
+				new Ref[T](init)(executor.opt getOrElse SerializedExecutor)
 			case bool if bool.getClass == CaseBool =>
-				new WatchedBool(init.asInstanceOf[Boolean])(executor.opt getOrElse SerializedExecutor).asInstanceOf[Watched[T]]
+				new Bool(init.asInstanceOf[Boolean])(executor.opt getOrElse SerializedExecutor).asInstanceOf[Watched[T]]
 			case res => res
 		}
 
@@ -228,8 +228,8 @@ object Watched extends VolatileLikeCompanion[Watched] {
 
 	//these are only used to access classes of each specialized implementation, we care not about executors
 	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Watched[T] = new Watched(init)
-	protected override def newRefInstance[T](init :T) :Watched[T] = new WatchedRef[T](init)
-	protected override def newBoolInstance(init :Boolean) :Watched[Boolean] = new WatchedBool(init)
+	protected override def newRefInstance[T](init :T) :Watched[T] = new Ref[T](init)
+	protected override def newBoolInstance(init :Boolean) :Watched[Boolean] = new Bool(init)
 
 	private[vars] override def getAndSet[@specialized(SpecializedVars) T](v: InOut[T], newValue: T) :T = {
 		val res = super.getAndSet(v, newValue)
@@ -255,14 +255,14 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class WatchedRef[T](init :T)(implicit executor :Executor = SerializedExecutor)
+	private class Ref[T](init :T)(implicit executor :Executor = SerializedExecutor)
 		extends Watched[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Watched[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class WatchedBool(init :Boolean)(implicit executor :Executor = SerializedExecutor)
+	private class Bool(init :Boolean)(implicit executor :Executor = SerializedExecutor)
 		extends Watched[Boolean](init) with BoolVolatileLike
 
 }

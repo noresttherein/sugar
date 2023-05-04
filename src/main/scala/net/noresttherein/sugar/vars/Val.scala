@@ -139,40 +139,6 @@ object Val {
 
 
 
-/*
-private abstract class ProxyVal[V, +O](source :Val[V]) extends Val[O] {
-	@volatile private[this] var cache :Opt[Val[O]] = Lack
-
-	protected def eval(v :V) :Val[O]
-	@inline protected final def cached :Opt[Val[O]] =
-		cache orElse Opt.when(source.isConst)(adaptVal(source.const))
-
-	@inline private def adaptVal(v: V) :Val[O] = {
-		val res = eval
-		cache = Got(res)
-		res
-	}
-
-	override def isFinalizable :Boolean = cached.mapOrElse(_.isFinalizable, false)
-	override def isConst       :Boolean = cached.mapOrElse(_.isConst, false)
-	override def isDefined     :Boolean = cached.mapOrElse(_.isDefined, false)
-	override def isDefinite    :Boolean = cached.mapOrElse(_.isDefinite, false)
-
-	override def value :O = opt.orNoSuch("Val()")
-	override def get   :O = toOpt getOrElse adaptVal(source.get).get
-	override def const :O = constOpt.orNoSuch("Val()")
-
-	override def opt      :Opt[O] = cached.flatMap(_.opt)
-	override def toOpt    :Opt[O] = (cache orElse source.toOpt.map(adaptVal)).flatMap(_.toOpt)
-	override def constOpt :Opt[O] = (cache orElse source.constOpt.map(adaptVal)).flatMap(_.constOpt)
-
-	override def mkString = mkString("Val")
-}
-*/
-
-
-
-
 /** A proxy `Val` mapping the value of another `Val`. */
 @SerialVersionUID(Ver)
 private class MappedVal[V, +O](source: Val[V], f: V => O) extends Val[O] {

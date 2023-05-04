@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.Specializable.Args
 import net.noresttherein.sugar.time.{Eternity, Immediate, Milliseconds, TimeInterval}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.SignalVal.MappedSignalVal
+import net.noresttherein.sugar.vars.SignalVal.Mapped
 
 
 
@@ -114,7 +114,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend 
 			res.value = f(defined)
 			res
 		case _ =>
-			new MappedSignalVal(this, f)
+			new Mapped(this, f)
 	}
 
 	private[vars] override def isSpecialized = false
@@ -143,7 +143,7 @@ object SignalVal {
 
 
 	@SerialVersionUID(Ver)
-	private class MappedSignalVal[T, O](source :SignalVal[T], f :T => O) extends SignalVal[O] {
+	private class Mapped[T, O](source :SignalVal[T], f :T => O) extends SignalVal[O] {
 		override def await(timeout :Milliseconds): Boolean = source.await(timeout)
 		override def await(timeout :TimeInterval): Boolean = source.await(timeout)
 
@@ -175,5 +175,4 @@ object SignalVal {
 			} else
 				Lack
 	}
-
 }

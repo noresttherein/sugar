@@ -48,20 +48,20 @@ object Volatile extends VolatileLikeFactory[Volatile] {
 
 
 	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Volatile[T] = new Volatile(init)
-	protected override def newRefInstance[T](init :T) :Volatile[T] = new VolatileRef[T](init)
-	protected override def newBoolInstance(init :Boolean) :Volatile[Boolean] = new VolatileBool(init)
+	protected override def newRefInstance[T](init :T) :Volatile[T] = new Ref[T](init)
+	protected override def newBoolInstance(init :Boolean) :Volatile[Boolean] = new Bool(init)
 
 	/** An unspecialized `Volatile` implementation overriding atomic mutator methods to compare the value
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class VolatileRef[T](init :T) extends Volatile[T](init) with RefVolatileLike[T]
+	private class Ref[T](init :T) extends Volatile[T](init) with RefVolatileLike[T]
 
 	/** Optimised implementation of `Volatile[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class VolatileBool(init :Boolean) extends Volatile[Boolean](init) with BoolVolatileLike
+	private class Bool(init :Boolean) extends Volatile[Boolean](init) with BoolVolatileLike
 
 }

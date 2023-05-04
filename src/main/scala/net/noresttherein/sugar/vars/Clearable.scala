@@ -149,31 +149,31 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 @SerialVersionUID(Ver)
 object Clearable {
 	/** A non synchronized, non thread safe `Clearable` variable initialized with the given value. */
-	def apply[T](value :T) :Clearable[T] = new PlainClearable[T](Got(value))
+	def apply[T](value :T) :Clearable[T] = new Plain[T](Got(value))
 
 	/** A `Clearable` variable initialized with the given value, synchronizing all access on its monitor. */
-	def sync[T](value :T) :Clearable[T] = new SyncClearable(Got(value))
+	def sync[T](value :T) :Clearable[T] = new Synced(Got(value))
 
 	/** A `Clearable` instance backed by a `@volatile` variable. */
-	def volatile[T](value :T) :Clearable[T] = new VolatileClearable(value)
+	def volatile[T](value :T) :Clearable[T] = new Volatile(value)
 
 
 	@SerialVersionUID(Ver)
-	private class PlainClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
+	private class Plain[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = x.get
 		override def opt :Opt[T] = x
 		override def clear() :Unit = x = Lack
 	}
 
 	@SerialVersionUID(Ver)
-	private final class SyncClearable[+T](private[this] var x :Opt[T]) extends Clearable[T] {
+	private final class Synced[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = synchronized(x.get)
 		override def opt :Opt[T] = synchronized(x)
 		override def clear() :Unit = synchronized { x = Lack }
 	}
 
 	@SerialVersionUID(Ver)
-	private final class VolatileClearable[+T](init :T) extends Clearable[T] {
+	private final class Volatile[+T](init :T) extends Clearable[T] {
 		@volatile private[this] var x :Opt[T] =  Got(init)
 
 		override def get :T = x.get

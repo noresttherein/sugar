@@ -29,6 +29,17 @@ object debug {
 	/** Log the given value, followed by line end, to `System.out` and return it. */
 	def errln[X](x :X) :X = { System.err.println(x); x }
 
+
+	/** Wraps the expression in a `try-catch` block and prints any caught exceptions to the console
+	  * before rethrowing them.
+	  */
+	def thrown[X](block: => X) :X =
+		try block catch {
+			case e :Exception =>
+				System.err.println(e)
+				e.printStackTrace(System.err)
+				throw e
+		}
 	
 	
 	def apply(prefix :String) :PrefixedPrinter = new PrefixedPrinter(prefix)

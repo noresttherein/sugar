@@ -324,11 +324,11 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 @SerialVersionUID(Ver)
 object Box {
 	/** Creates a new, empty box. The returned instance is not thread safe. */
-	def apply[@specialized(SpecializedVars) T] :Box[T] = new NonSyncBox
+	def apply[@specialized(SpecializedVars) T] :Box[T] = new Plain
 
 	/** Creates a new box, initialized with the given value. The returned instance is not thread safe. */
 	def apply[@specialized(SpecializedVars) T](value :T) :Box[T] = {
-		val box = new NonSyncBox[T]
+		val box = new Plain[T]
 		box := value
 		box
 	}
@@ -336,7 +336,7 @@ object Box {
 	/** Creates a new, empty box. The method is exactly equivalent to [[net.noresttherein.sugar.vars.Box.apply Box]]`[T]`,
 	  * but is more readable than `Box.apply` if the type parameter is inferred.
 	  */
-	def empty[@specialized(SpecializedVars) T] :Box[T] = new NonSyncBox
+	def empty[@specialized(SpecializedVars) T] :Box[T] = new Plain
 
 
 	@inline def unapply[@specialized(SpecializedVars) T](box :Box[T]) :Box[T] = box
@@ -345,7 +345,7 @@ object Box {
 
 	/** A non-synchronized `Box` implementation. */
 	@SerialVersionUID(Ver)
-	private class NonSyncBox[@specialized(SpecializedVars) T] extends Box[T] {
+	private class Plain[@specialized(SpecializedVars) T] extends Box[T] {
 		@nowarn private[this] var nullVal :T = _//the default value used to clear x so we don't keep a reference to the old value
 		private[this] var x :T = _
 		private[this] var full :Boolean = false
@@ -368,7 +368,7 @@ object Box {
 		override def testAndSet(expect :T, newValue :T) :Boolean =
 			(full && x == expect) && { x = newValue; true }
 
-		override def isSpecialized :Boolean = getClass != classOf[NonSyncBox[_]]
+		override def isSpecialized :Boolean = getClass != classOf[Plain[_]]
 	}
 }
 
@@ -393,9 +393,9 @@ object VolatileBox {
 	  * as a [[net.noresttherein.sugar.vars.Volatile Volatile]] variable. All operations are atomic.
 	  */
 	def apply[@specialized(SpecializedVars) T] :VolatileBox[T] = {
-		var res :VolatileBox[T] = new VolatileValBox
+		var res :VolatileBox[T] = new OfVal
 		if (res.getClass == unspecializedClass)
-			res = new VolatileRefBox[T]
+			res = new OfRef[T]
 		res
 	}
 
@@ -420,19 +420,19 @@ object VolatileBox {
 	private final val Full = 1
 	private final val Locked = 2
 
-	private val ValStateField = MethodHandles.lookup.findVarHandle(classOf[VolatileValBox[_]], "state", Integer.TYPE)
-	private val RefOptField = MethodHandles.lookup.findVarHandle(classOf[VolatileRefBox[_]], "x", classOf[Any])
-	private val unspecializedClass = classOf[VolatileValBox[Any]]
+	private val ValStateField = MethodHandles.lookup.findVarHandle(classOf[OfVal[_]], "state", Integer.TYPE)
+	private val RefOptField = MethodHandles.lookup.findVarHandle(classOf[OfRef[_]], "x", classOf[Any])
+	private val unspecializedClass = classOf[OfVal[Any]]
 
 
-	//todo: see if there is actually any performance benefit over VolatileRefBox
+	//todo: see if there is actually any performance benefit over OfRef
 	/** A non-boxing implementation of `VolatileBox`, suitable for value types.
-	  * [[net.noresttherein.sugar.vars.VolatileBox.VolatileRefBox VolatileRefBox]] should be used instead
+	  * [[net.noresttherein.sugar.vars.VolatileBox.OfRef OfRef]] should be used instead
 	  * for reference types, as it offers better performance and this class may no longer provide required
 	  * memory access guarantees in the future.
 	  */
 	@SerialVersionUID(Ver)
-	private final class VolatileValBox[@specialized(SpecializedVars) T] private[vars] extends VolatileBox[T] {
+	private final class OfVal[@specialized(SpecializedVars) T] private[vars] extends VolatileBox[T] {
 		private[this] var x :T = _ //access always sandwiched between two accesses to state, so it needs not to be volatile
 		@scala.volatile private[this] var state :Int = Empty //tells if the box is empty and serves as a spin lock variable
 
@@ -590,7 +590,7 @@ object VolatileBox {
 	  * which reduces all operations to a single test-and-set (in the worst case)
 	  */
 	@SerialVersionUID(Ver)
-	private final class VolatileRefBox[T] extends VolatileBox[T] {
+	private final class OfRef[T] extends VolatileBox[T] {
 		private[this] var x :Opt[T] = Lack //name x is used by VolatileBox.RefOptField
 
 		override def isEmpty :Boolean = x.isEmpty

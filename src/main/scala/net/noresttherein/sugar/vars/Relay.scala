@@ -2,6 +2,8 @@ package net.noresttherein.sugar.vars
 
 import scala.annotation.tailrec
 
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Relay.{Reader, Writer}
@@ -185,9 +187,9 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 		else prefix + "(" + writers.value + ")"
 	}
 	override def toString :String = synchronized {
-		if (writers != null) "Relay@" + Integer.toHexString(hashCode) + writers
-		else if (readers != null) "Relay@" + Integer.toHexString(hashCode) + "(" + readers.length + " readers)"
-		else "Relay@" + Integer.toHexString(hashCode) + "()"
+		if (writers != null) writers.writersString("Relay") + "@" + this.hashCodeString
+		else if (readers != null) "Relay"  + "(" + readers.length + " readers)@" + this.hashCodeString
+		else "Relay()@" + this.hashCodeString
 	}
 }
 
@@ -203,7 +205,7 @@ object Relay {
 	/** A waiting post for readers and writers, with two subclasses:
 	  * [[net.noresttherein.sugar.vars.Relay.Reader Reader]] and [[net.noresttherein.sugar.vars.Relay.Writer Writer]].
 	  */
-	sealed trait Actor[T]
+	private sealed trait Actor[T]
 
 	/** A queue of waiting posts on which reader threads (callers of `Relay.value`) wait until writers show up.
 	  * If the `writers` queue is empty, a reader thread enqueues a new instance of `Reader` and waits on it
@@ -222,7 +224,41 @@ object Relay {
 		/** The next reader in the queue. Modified only when holding the monitor for the owning `Relay`. */
 		var next :Reader[T] = _
 
-		def length :Int = if (next == null) 1 else next.length + 1
+		def length :Int = {
+			@tailrec def rec(reader :Reader[T], acc :Int) :Int = {
+				val next = reader.synchronized(reader.next)
+				if (next  == null) acc + 1
+				else rec(next, acc + 1)
+			}
+			rec(this, 0)
+		}
+
+		override def toString :String = synchronized {
+			if (ready) "Reader(" + value + ")@" + this.shortHashString
+			else "Reader(_)@" + this.shortHashString
+		}
+
+		def readersString(prefix :String = "Readers") :String = {
+			def format(reader :Reader[T], res :JStringBuilder) = {
+				val suffix = if (reader.next == null) ")" else ", "
+				if (reader.ready)
+					res append "(" append value append ")@" append reader.shortHashString append suffix
+				else
+					res append "(_)@" append reader.shortHashString append suffix
+			}
+
+			@tailrec def rec(reader :Reader[T], res :JStringBuilder) :String = {
+				val next = reader.synchronized {
+					format(reader, res)
+					reader.next
+				}
+				if (next != null)
+					rec(next, res)
+				else
+					res.toString
+			}
+			rec(this, new JStringBuilder(prefix) append ')')
+		}
 	}
 
 	/** A queue of value providers for `Relay`. On each link a writer (caller of `Relay.value_=`) is waiting.
@@ -239,18 +275,29 @@ object Relay {
 	{
 		def length :Int = if (next == null) 1 else next.length + 1
 
-		override def toString :String =
-			if (cleared)
-				if (next == null) "()" else next.toString
-			else {
-				@tailrec def rec(writer :Writer[T], res :StringBuilder) :String =
-					if (writer == null)
-						(res += ')').toString
-					else if (writer.cleared)
-						 rec(writer.next, res)
-					else
-						rec(writer.next, res += ',' ++= value.toString)
-				rec(next, new StringBuilder += '(' ++= value.toString)
+		override def toString :String = synchronized {
+			if (cleared) "Writer()@" + this.shortHashString else "Writer(" + value + ")@" + this.shortHashString
+		}
+
+		def writersString(prefix :String = "Writers") :String = {
+			def format(writer :Writer[T], res :JStringBuilder) = {
+				val suffix = if (writer.next == null) ")" else ", "
+				if (writer.cleared)
+					res append "()@" append writer.shortHashString append suffix
+				else
+					res append '(' append writer.value append ")@" append writer.shortHashString append suffix
 			}
+
+			@tailrec def rec(writer :Writer[T], res :JStringBuilder) :String = {
+				val next = writer.synchronized {
+					format(writer, res); writer.next
+				}
+				if (next != null)
+					rec(writer, res)
+				else
+					res.toString
+			}
+			rec(this, new JStringBuilder(prefix) append '(')
+		}
 	}
 }

@@ -135,8 +135,8 @@ object Lazy {
 	  */
 	def apply[@specialized(SpecializedVars) T](init : => T) :Lazy[T] = {
 		val initializer = () => init
-		new SyncLazyVal(initializer) match {
-			case ref if ref.getClass == classOf[SyncLazyVal[Any]] => new SyncLazyRef(initializer)
+		new SyncVal(initializer) match {
+			case ref if ref.getClass == classOf[SyncVal[Any]] => new SyncRef(initializer)
 			case spec => spec
 		}
 	}
@@ -166,7 +166,7 @@ object Lazy {
 
 
 	/** A wrapper over a computed value adapting it to the `Lazy` type. */
-	def eager[@specialized(SpecializedVars) T](value :T) :Lazy[T] = new EagerLazy(value)
+	def eager[@specialized(SpecializedVars) T](value :T) :Lazy[T] = new Eager(value)
 
 
 	implicit def unboxLazy[T](l :Lazy[T]) :T = l.const
@@ -191,15 +191,15 @@ object Lazy {
 	/** An already computed (initialized) value. */
 	@SerialVersionUID(Ver) //todo: make it specialized
 	//Not specialized to avoid boxing of T to ref-wrapper-of-T, especially that we likely already have the wrapper
-	private final class EagerLazy[+T](eager :T) extends Lazy[T] {
+	private final class Eager[+T](eager :T) extends Lazy[T] {
 		override def isDefinite = true
 		override def value :T = eager
 		override def const :T = eager
 
-		override def map[O](f :T => O) :EagerLazy[O] = new EagerLazy(f(eager))
+		override def map[O](f :T => O) :Eager[O] = new Eager(f(eager))
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(eager)
 
-		override def isSpecialized :Boolean = false //getClass == classOf[EagerLazy[_]]
+		override def isSpecialized :Boolean = false //getClass == classOf[Eager[_]]
 	}
 
 
@@ -209,7 +209,7 @@ object Lazy {
 	  * and its runtime reference wrapper is an immutable class
 	  */
 	@SerialVersionUID(Ver) //todo: make it specialized
-	private final class SyncLazyVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
+	private final class SyncVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 		extends Lazy[T]
 	{
 		private[this] var evaluated :Any = undefined
@@ -259,7 +259,7 @@ object Lazy {
 					val t = evaluated.asInstanceOf[T]
 					eager(f(t))
 				} else
-					new SyncLazyRef(() => f(apply()))
+					new SyncRef(() => f(apply()))
 			}
 		}
 		@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -271,7 +271,7 @@ object Lazy {
 				if (init == null)
 					f(evaluated.asInstanceOf[T])
 				else
-					new SyncLazyRef(f(apply()))
+					new SyncRef(f(apply()))
 			}
 		}
 
@@ -293,7 +293,7 @@ object Lazy {
 
 
 	@SerialVersionUID(Ver)
-	private final class SyncLazyRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
+	private final class SyncRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
 		@volatile private[this] var evaluated :Any = undefined
 
 		override def isDefinite :Boolean = evaluated != undefined
@@ -329,7 +329,7 @@ object Lazy {
 				if (v != undefined)
 					eager(f(v.asInstanceOf[T]))
 				else
-					new SyncLazyRef(() => f(apply()))
+					new SyncRef(() => f(apply()))
 			}
 		}
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -341,7 +341,7 @@ object Lazy {
 				if (v != undefined)
 					f(v.asInstanceOf[T])
 				else
-					new SyncLazyRef(f(apply()))
+					new SyncRef(f(apply()))
 			}
 		}
 

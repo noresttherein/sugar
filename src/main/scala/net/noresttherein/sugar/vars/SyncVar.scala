@@ -85,11 +85,11 @@ trait SyncVar[@specialized(SpecializedVars) T]
 object SyncVar {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
-	@inline def apply[@specialized(SpecializedVars) T](value :T) :SyncVar[T] = new BasicSyncVar[T](value)
+	@inline def apply[@specialized(SpecializedVars) T](value :T) :SyncVar[T] = new Plain[T](value)
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :SyncVar[T] =
-		new BasicSyncVar[T](default.get)
+		new Plain[T](default.get)
 
 	
 //	implicit def SyncVarOrdering[T :Ordering] :Ordering[SyncVar[T]] = new InOutOrdering[SyncVar, T]
@@ -379,7 +379,7 @@ object SyncVar {
 
 
 	@SerialVersionUID(Ver)
-	private class BasicSyncVar[@specialized(SpecializedVars) T](override var unsync :T)
+	private class Plain[@specialized(SpecializedVars) T](override var unsync :T)
 		extends SyncVar[T] with Serializable
 	{
 		override def mkString = mkString("SyncVar")

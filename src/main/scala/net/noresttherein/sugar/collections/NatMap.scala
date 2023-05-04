@@ -11,8 +11,7 @@ import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
 import net.noresttherein.sugar.extensions.optionExtension
 import net.noresttherein.sugar.funny.generic.=>:
-import net.noresttherein.sugar.vars.Idempotent.AbstractIdempotent
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.{AbstractIdempotent, Opt}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
