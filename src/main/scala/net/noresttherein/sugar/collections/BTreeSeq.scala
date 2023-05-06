@@ -1,0 +1,1599 @@
+package net.noresttherein.sugar.collections
+
+
+
+import java.lang.System.arraycopy
+import java.util
+
+import scala.annotation.tailrec
+import scala.collection.{BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, View, mutable}
+import scala.collection.immutable.{ArraySeq, IndexedSeqOps, SortedSet}
+import scala.collection.mutable.{Builder, ReusableBuilder}
+import scala.reflect.ClassTag
+
+import net.noresttherein.sugar.??!
+import net.noresttherein.sugar.collections.BTreeSeq.{Empty, Node}
+import net.noresttherein.sugar.extensions.{IArrayExtension, booleanExtension, castTypeParam}
+import net.noresttherein.sugar.vars.Box
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+//implicits
+import extensions._
+
+
+
+
+/**
+  * @author Marcin Mościcki
+  */
+sealed trait BTreeSeq[+E]
+	extends IndexedSeq[E] with IndexedSeqOps[E, BTreeSeq, BTreeSeq[E]] with IterableFactoryDefaults[E, BTreeSeq]
+{
+	//todo: patch, iterator, reverseIterator
+	def rank :Int
+	def depth :Int
+//	def length :Int
+//	def head :E = apply(0)
+//	def apply(i :Int) :E
+//	def updated[U >: E](index :Int, elem :U) :BTreeSeq[U]
+
+	def inserted[U >: E](index :Int, elem :U) :BTreeSeq[U]
+
+	//implementation for Empty and Singleton
+	def inserted[U >: E](index :Int, elem :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = inserted(index, elem)
+
+	/** Removes the element at the given position from this sequence.
+	  * @return `this.take(index) ++ this.drop(index + 1)`, but in a more efficient manner.
+	  */
+	def removed(index :Int) :BTreeSeq[E]
+
+	/** Combines a result of some tree operation `first` with its optional sibling created during splitting.
+	  * Clears `second` before returning.
+	  * @return `second.opt.mapOrElse(new Node(first, _), first)`.
+	  */
+	protected def grown[U >: E](first :BTreeSeq[U], second :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+		second.removeOpt() match {
+			case Got(node) => new Node(first, node)
+			case _         => first
+		}
+
+	/** Drops the first `n` children/keys from this node. The result isn't rebalanced.
+	  * @param n the number of dropped leading nodes, `0 <= n < rank`.
+	  */
+	def dropChildren(n :Int) :BTreeSeq[E] = ??!
+
+	/** Takes the first `n` children/keys from this node. The result isn't rebalanced.
+	  * @param n the number of dropped leading nodes, `1 < n < rank`.
+	  */
+	def takeChildren(n :Int) :BTreeSeq[E] = ??!
+
+	/** Appends to this node the first `siblingCount` children of a following sibling, which must be of the same class
+	  * as this instance. For inner nodes, the new `Node`s `children` will equal
+	  * `this.children ++ successor.children.take(siblingCount)`.
+	  * For leaves, the new `Leaf`'s `keys` will equal `this.keys ++ successor.keys.take(siblingCount)`.
+	  */
+	def appendedSome[U >: E](successor :BTreeSeq[U], siblingCount :Int) :BTreeSeq[U] =
+		throw new UnsupportedOperationException(toString + ".appended(" + successor + ", " + siblingCount + ")")
+
+	/** Prepends to this node the last `siblingCount` children of a preceding sibling, which must be of the same class
+	  * as this instance. For inner nodes, the new `Node`s `children` will equal
+	  * `predecessor.children.takeRight(siblingCount) ++ this.children`.
+	  * For leaves, the new `Leaf`'s `keys` will equal `predecessor.keys.takeRight(siblingCount) ++ this.keys`.
+	  */
+    def prependedSome[U >: E](predecessor :BTreeSeq[U], siblingCount :Int) :BTreeSeq[U] =
+		throw new UnsupportedOperationException(toString + ".prepended(" + predecessor + ", " + siblingCount + ")")
+
+
+	/** Inserts the tree argument into this tree at the appropriate depth, by appending it to children
+	  * of either this node or one of its descendants. The method requires this node to be balanced.
+	  * The result is of the same depth as this node and balanced. If appending would result in an overflow,
+	  * the node is split: a new node with the first half of the children is returned,
+	  * while the second half (and the extra child) is assigned to `surplus`.
+	  * @param tree    An internally balanced tree with elements to append, of depth `this.depth - depth`.
+	  *                May have fewer children than `Rank`.
+	  * @param depth   the difference in depth between this tree and the argument, specifying at what relative depth
+	  *                it should be placed in this tree.
+	  * @param surplus An out parameter, set to a new, following sibling of the returned node if appending overflows.
+	  */ //implementation good only for Empty and Singleton!
+	def appendedAll[U >: E](tree :BTreeSeq[U], depth :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = appendedAll(tree)
+
+	/** Inserts the tree argument into this tree at the appropriate depth, by prepending it to children
+	  * of either this node or one of its descendants.  The method requires this node to be balanced.
+	  * The result is of the same depth as this node and balanced. If prepending would result in an overflow,
+	  * the node is split: a new node with the first half of the children and the extra child is returned,
+	  * while the second half is assigned to `surplus`.
+	  * @param tree    An internally balanced  tree with elements to prepend, of depth `this.depth - depth`.
+	  *                May have fewer children than `Rank`.
+	  * @param depth   The difference in depth between this tree and the argument, specifying at what relative depth
+	  *                it should be placed in this tree.
+	  * @param surplus An out parameter, set to a new, following sibling of the returned node if prepending overflows.
+	  */ //implementation good only for Empty and Singleton!
+	def prependedAll[U >: E](tree :BTreeSeq[U], depth :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = prependedAll(tree)
+
+	override def appendedAll[U >: E](elems :IterableOnce[U]) :BTreeSeq[U] = elems match {
+		case empty if empty.knownSize == 0 => this
+		case other :BTreeSeq[U]            =>
+			if (other.length > length)
+				this ++: other
+			else {
+				val growth = Box[BTreeSeq[U]]
+				grown(appendedAll(other, depth - other.depth, growth), growth)
+			}
+		case _                             =>
+			val growth = Box[BTreeSeq[U]]
+			((this :BTreeSeq[U]) /: elems.iterator) {
+				(tree, elem) => grown(tree.appended(elem, growth), growth)
+			}
+	}
+
+	override def prependedAll[U >: E](elems :IterableOnce[U]) :BTreeSeq[U] = elems match {
+		case empty if empty.knownSize == 0 => this
+		case other :BTreeSeq[U]            =>
+			if (other.length > length)
+				other :++ this
+			else {
+				val growth = Box[BTreeSeq[U]]
+				grown(prependedAll(other, depth - other.depth, growth), growth)
+			}
+		//todo: handle ArraySeq
+		case seq :collection.IndexedSeq[U] =>
+			val growth = Box[BTreeSeq[U]]
+			(seq :\ (this :BTreeSeq[U])) {
+				(elem, tree) => grown(tree.prepended(elem, growth), growth)
+			}
+		case _                             =>
+			val growth = Box[BTreeSeq[U]]
+			val it = elems.iterator
+			var i = 0
+			var tree :BTreeSeq[U] = this
+			while (it.hasNext) {
+				tree = tree.inserted(i, it.next(), growth)
+				i += 1
+			}
+			tree
+//			((this :BTreeSeq[U]) /: elems.iterator) {
+//				(tree, elem) => grown(tree.inserted(length - tree.length, elem, growth), growth)
+//			}
+	}
+
+	/** Appends the new element to this tree as a sequence, balancing the tree on its way up.
+	  * If balancing results in splitting of this node into two nodes, the first one is returned,
+	  * while `surplus` is set to the second one.
+	  * @param elem    The new last element of this sequence.
+	  * @param surplus An 'out' parameter, used to return a new sibling of this node. It is always empty when the
+	  *                method is called, and filled or cleared, as the need arises, when the method returns.
+	  */
+	def appended[U >: E](elem :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = ??!
+
+	/** Appends the new element to this tree as a sequence, balancing the tree on its way up.
+	  * If balancing results in splitting of this node into two nodes, the first one is returned,
+	  * while `surplus` is set to the second one.
+	  * @param elem    The new first element of this sequence.
+	  * @param surplus An 'out' parameter, used to return a new sibling of this node. It is always empty when the
+	  *                method is called, and filled or cleared, as the need arises, when the method returns.
+	  */
+	def prepended[U >: E](elem :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = ??!
+
+	/** Implementation method for `Seq.slice` taking helper arguments. This operation does ''not'' grow the tree -
+	  * `surplus` is just provided for its reuse internally. Argument `height` should be initialized as `this.depth`,
+	  * to avoid its repeated re-calculation during the recursion.
+	  */
+	def slice[U >: E](from :Int, until :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = ??!
+//		take(until, height, surplus).drop(from, height, surplus)
+
+	/** Implementation method for `Seq.take` taking helper arguments. This operation does ''not'' grow the tree -
+	  * `surplus` is just provided for its reuse internally. Argument `height` should be initialized as `this.depth`,
+	  * to avoid its repeated re-calculation during the recursion.
+	  * @param n       the number of elements to take, `0 <= n < length`
+	  * @param height  the precomputed height (depth) of this tree.
+	  * @param surplus an out parameter holder for an optional second node created if this node is split in two.
+	  */
+	def take[U >: E](n :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = ??! //never called for Empty or Singleton
+
+	/** Implementation method for `Seq.drop` taking helper arguments. This operation does ''not'' grow the tree -
+	  * `surplus` is just provided for its reuse internally. Argument `height` should be initialized as `this.depth`,
+	  * to avoid its repeated re-calculation during the recursion.
+	  * @param n       the number of elements to drop, `0 <= n < length`
+	  * @param height  the precomputed height (depth) of this tree.
+	  * @param surplus a reusable holder used to return a second node when one is split in two.
+	  *                It is always empty when returning from this method.
+	  */
+	def drop[U >: E](n :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = ??! //never called for Empty or Singleton
+
+	override def iterableFactory :SeqFactory[BTreeSeq] = BTreeSeq
+
+	def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type
+
+	def dumpString :String = dumpString(new StringBuilder ++= "BTreeSeq").result()
+	def dumpString(sb :StringBuilder) :sb.type
+
+	protected override def className :String = "BTreeSeq"
+
+
+	//todo: remove these once the bug is fixed in SeqOps
+	override def startsWith[B >: E](that :IterableOnce[B], offset :Int) :Boolean =
+		offset >= 0 && offset <= length && super.startsWith(that, offset)
+
+	override def indexOfSlice[B >: E](that :collection.Seq[B], from :Int) :Int =
+		if (from > length) -1
+		else super.indexOfSlice(that, 0 max from)
+
+}
+
+
+
+
+object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
+
+	override def from[E](source :IterableOnce[E]) :BTreeSeq[E] = source match {
+		case tree :BTreeSeq[E] => tree
+		case seq :ArraySeq[E]  => from(seq)
+		case seq :mutable.ArraySeq[E] => from(seq.array.asInstanceOf[Array[E]])
+		case seq :AbstractPassedArray[E] if seq.elems.isInstanceOf[Array[AnyRef]] && seq.length == seq.elems.length =>
+			from(seq.elems)
+		case _ =>
+			val size = source.knownSize
+			if (size == 0)
+				Empty
+			else if (size == 1) source match {
+				case items :Iterable[E] => new Singleton(items.head)
+				case _                  => new Singleton(source.iterator.next())
+			} else if (size > 0 & size <= MaxChildren) {
+				source match {
+					case seq   :ArraySeq[E] if seq.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+						new Leaf(seq.unsafeArray.asInstanceOf[Array[E]])
+					case items :Iterable[E] =>
+						val array = ErasedArray.ofDim[E](size)
+						items.copyToArray(array, 0, size)
+						new Leaf(array)
+					case _ =>
+						val array = ErasedArray.ofDim[E](size)
+						source.iterator.copyToArray(array, 0, size)
+						new Leaf(array)
+				}
+			} else {
+				//Pack all elements in a mutable, exploded array list.
+				// The elements are added to the accumulator tree only as balanced Nodes.
+				var tree :BTreeSeq[E] = Empty         //growing tree
+				var keys :Array[E] = null             //a mutable buffer where appended keys are stored
+				var key  = 0                          //the current number of keys in array keys
+				var leaves :Array[BTreeSeq[E]] = null //a second level buffer to which complete keys arrays are written.
+				var leaf = 0                          //the current number of buffered key arrays
+				val items = source.iterator
+				while (items.hasNext) {
+					if (keys == null)
+						keys = ErasedArray.ofDim[E](MaxChildren)
+					keys(key) = items.next()
+					key += 1
+					if (key == MaxChildren) { //flush the whole element array to Leaf buffer
+						if (leaves == null)
+							leaves = new Array[BTreeSeq[E]](MaxChildren)
+						leaves(leaf) = new Leaf(keys)
+						keys = null
+						key = 0
+						leaf += 1
+						if (leaf == MaxChildren) {
+							tree = tree appendedAll new Node(leaves)
+							leaves = null
+							leaf = 0
+						}
+					}
+				}
+				if (leaf == 0) key match {
+					case 0           => tree
+					case 1           => tree appended keys(0)
+					case MaxChildren => tree appendedAll new Leaf(keys)
+					case _           => tree appendedAll new Leaf(ErasedArray.copyOf(keys, key))
+				} else {
+					if (key > 0) {
+						if (key == MaxChildren)
+							leaves(leaf) = new Leaf(keys)
+						else if (key >= Rank)
+							leaves(leaf) = new Leaf(ErasedArray.copyOf(keys, key))
+						else {
+							val sibling      = leaves(leaf - 1).asInstanceOf[Leaf[E]]
+							val siblingSize  = MaxChildren - Rank + key
+							val siblingKeys  = sibling.values.asInstanceOf[Array[E]]
+							leaves(leaf - 1) = new Leaf(ErasedArray.copyOf(siblingKeys, siblingSize))
+							leaves(leaf)     = new Leaf ({
+								val a = ErasedArray.copyOfRange(siblingKeys, siblingSize, siblingSize + Rank)
+								arraycopy(keys, 0, a, Rank - key, key)
+								a
+							})
+						}
+						leaf += 1
+					}
+					if (leaf == MaxChildren)
+						tree appendedAll new Node(leaves)
+					else if (leaf == 1)
+						tree appendedAll leaves(0)
+					else {
+						val children = new Array[BTreeSeq[E]](leaf)
+						arraycopy(leaves, 0, children, 0, leaf)
+						tree appendedAll new Node(children)
+					}
+				}
+			}
+	}
+
+	def from[E](seq :ArraySeq[E]) :BTreeSeq[E] = seq.length match {
+		case 0 => Empty
+		case 1 => new Singleton(seq.head)
+		case _ if !seq.unsafeArray.isInstanceOf[Array[AnyRef]] => from(seq.iterator)
+		case n if n <= MaxChildren =>
+			new Leaf(seq.unsafeArray.asInstanceOf[Array[E]])
+		case _ =>
+			from(seq.unsafeArray.asInstanceOf[Array[E]])
+	}
+
+	def from[E](array :Array[E]) :BTreeSeq[E] = array.length match {
+		case 0    => Empty
+		case 1    => new Singleton(array(0))
+		case _ if !array.isInstanceOf[Array[AnyRef]] => from(array.iterator)
+		case size =>
+			if (size <= MaxChildren)
+				new Leaf(array)
+			else {
+				//Build the result by creating Nodes of level 2 manually using mutable state.
+				var tree   :BTreeSeq[E] = Empty        //the built tree, returned at the end
+				var nextRank = MaxChildren             //the number of children in the currently built Node
+				var leaves :Array[BTreeSeq[E]] = null  //the children array for the next built Node
+				var prefixes :Array[Int] = null        //the prefixes array for the next built Node
+				var start = 0                          //position in the input array
+				//The inner loop copies copies only Nodes, so we must stop earlier if we need to add incomplete leaves.
+				// We guarantee this way that we won't end up with less than Rank values after the last built Node.
+				val outerWhileStop = {
+					val rem = size % MaxChildren
+					val rem2 = size % (MaxChildren * MaxChildren)
+					if (rem != 0 & rem == rem2)
+						if (rem < Rank) size - Rank else Rank
+					else size
+				}
+				//we ensured it's either >= Rank, and we can add it at the end as a Leaf,
+				// or that outerWhileStop / MaxChildren < MaxChildren, and the main loop will deal with it within a Node.
+				val rem = outerWhileStop % MaxChildren
+				//Build full, balanced Nodes of level 2 in a loop and append them to tree
+				while ({
+					val remainingKeys = outerWhileStop - start
+					val remainingLeafCount = remainingKeys / MaxChildren
+					val innerWhileStop :Int = {
+						if (remainingLeafCount < MaxChildren)
+							if (rem > 0) {
+								nextRank = remainingLeafCount + 1
+								//initialize the prefix lengths of the last node, taking core to balance it
+								prefixes = new Array[Int](nextRank - 1)
+								val fullLeaves = if (rem >= Rank) nextRank - 1 else nextRank - 2
+								var i = 0; var len = 0
+								while (i < fullLeaves) {
+									len += MaxChildren
+									prefixes(i) = len
+									i += 1
+								}
+								if (rem >= Rank) {
+									prefixes(fullLeaves) = rem
+									remainingKeys - rem - MaxChildren
+								} else {
+									prefixes(fullLeaves) = MaxChildren - Rank
+									prefixes(fullLeaves + 2) = Rank
+									remainingKeys - rem - (MaxChildren << 1)
+								}
+							} else {
+								//Because nextRank < MaxChildren, our prefixes for a complete Node are now invalid.
+								nextRank = remainingLeafCount
+								prefixes = null
+								start + MaxChildren * nextRank
+							}
+						else //nextRank == MaxChildren, prefixes is already initialized for a full node and can be reused.
+							start + MaxChildren * MaxChildren
+					}
+					if (prefixes == null) {
+						prefixes = new Array[Int](nextRank - 1)
+						var i = 0; var len = 0
+						while (i < nextRank - 1) {
+							len += MaxChildren
+							prefixes(i) = len
+							i += 1
+						}
+					}
+					var leafCount = 0
+					leaves = new Array[BTreeSeq[E]](nextRank)
+					//I heard you like while loops, so I put a while loop in your while loop condition
+					while ({
+						val leaf = ErasedArray.ofDim[E](MaxChildren)
+						arraycopy(array, 0, leaf, 0, MaxChildren)
+						leaves(leafCount) = new Leaf(leaf)
+						leafCount += 1
+						start < innerWhileStop
+					}) {}
+
+					if (leafCount == nextRank - 1) {
+						val last = ErasedArray.ofDim[E](rem)
+						arraycopy(array, 0, last, 0, rem)
+						leaves(leafCount) = new Leaf(last)
+						start = outerWhileStop
+					} else if (leafCount == nextRank - 2) {
+						val secondLast = ErasedArray.ofDim[E](MaxChildren - Rank)
+						val last = ErasedArray.ofDim[E](Rank)
+						arraycopy(array, start, secondLast, 0, MaxChildren - Rank)
+						start += MaxChildren - Rank
+						arraycopy(array, start, last, 0, Rank)
+						leaves(leafCount) = new Leaf(secondLast)
+						leaves(leafCount + 1) = new Leaf(last)
+						start = outerWhileStop
+					}
+					tree = tree appendedAll new Node(leaves, prefixes)
+					start < outerWhileStop
+				}) {}
+
+				if (outerWhileStop < size)
+					tree ++= new Leaf(ErasedArray.copyOfRange(array, outerWhileStop, size - outerWhileStop))
+				tree
+			}
+	}
+
+
+	override def empty[E] :BTreeSeq[E] = Empty
+	override def newBuilder[E] :Builder[E, BTreeSeq[E]] = new BTreeSeqBuilder[E]
+
+	private object Empty extends BTreeSeq[Nothing] {
+		override def rank = 0
+		override def depth = 0
+		override def length = 0
+		override def head :Nothing = throw new NoSuchElementException("BTreeSeq().head")
+		override def last :Nothing = throw new NoSuchElementException("BTreeSeq().last")
+		override def apply(index :Int) = throw new IndexOutOfBoundsException(index.toString + " out of 0")
+		override def updated[U >: Nothing](i :Int, elem :U) =
+			throw new IndexOutOfBoundsException(i.toString + " out of 0")
+
+		override def inserted[U >: Nothing](i :Int, elem :U) =
+			if (i == 0) new Singleton(elem)
+			else throw new IndexOutOfBoundsException(i.toString + " out of 0")
+
+		override def removed(index :Int) :BTreeSeq[Nothing] =
+			throw new IndexOutOfBoundsException(index.toString + " out of 0")
+
+		override def appendedAll[U >: Nothing](elems :IterableOnce[U]) :BTreeSeq[U] = BTreeSeq.from(elems)
+		override def prependedAll[U >: Nothing](elems :IterableOnce[U]) :BTreeSeq[U] = BTreeSeq.from(elems)
+		override def appended[U >: Nothing](elem :U) = new Singleton(elem)
+		override def prepended[U >: Nothing](elem :U) = new Singleton(elem)
+
+		override def slice(from :Int, until :Int) = this
+		override def drop(n :Int) = this
+		override def take(n :Int) = this
+
+		override def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type = b ++= start ++= end
+		override def dumpString(sb :StringBuilder) :sb.type = sb ++= "()"
+	}
+
+
+	private final class Singleton[+T](override val head :T) extends BTreeSeq[T] {
+		override def rank = 1
+		override def depth = 1
+		override def length = 1
+		override def apply(i :Int) =
+			if (i == 0) head
+			else throw new IndexOutOfBoundsException(i.toString + " out of 1")
+
+		override def updated[U >: T](index :Int, elem :U) =
+			if (index == 0) new Singleton(elem)
+			else throw new IndexOutOfBoundsException(index.toString + " out of 1")
+
+		override def inserted[U >: T](index :Int, elem :U) = index match {
+			case 0 => new Leaf(ErasedArray.two(elem, head))
+			case 1 => new Leaf(ErasedArray.two(head, elem))
+			case _ => throw new IndexOutOfBoundsException(index.toString + " out of 1")
+		}
+		override def removed(index :Int) :BTreeSeq[T] =
+			if (index == 0) Empty
+			else throw new IndexOutOfBoundsException(index.toString + " out of 1")
+
+		override def appended[U >: T](elem :U) = new Leaf(ErasedArray.two(head, elem))
+		override def prepended[U >: T](elem :U) = new Leaf(ErasedArray.two(elem, head))
+		override def appendedAll[U >: T](elems :IterableOnce[U]) :BTreeSeq[U] = elems match {
+			case elems :Iterable[U] if elems.knownSize == 0 => this
+			case tree :BTreeSeq[U] => head +: tree
+			case it :Iterator[U] if !it.hasNext => this
+			case _ =>
+				val b = newBuilder[U]
+				b.sizeHint(elems, 1)
+				(b += head ++= elems).result()
+		}
+		override def prependedAll[U >: T](elems :IterableOnce[U]) :BTreeSeq[U] = elems match {
+			case elems :Iterable[U] if elems.isEmpty => this
+			case tree :BTreeSeq[U] => tree :+ head
+			case it :Iterator[U] if !it.hasNext => this
+			case _ =>
+				val b = newBuilder[U]
+				b.sizeHint(elems, 1)
+				(b ++= elems += head).result()
+		}
+		override def slice(from :Int, until :Int) =
+			if (from <= 0 & until >= 1) this else Empty
+
+		override def take(n :Int) = if (n >= 1) this else Empty
+		override def drop(n :Int) = if (n >= 1) Empty else this
+
+		override def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type =
+			b ++= start ++= head.toString ++= end
+
+		override def dumpString(sb :StringBuilder) :sb.type = sb ++= "(" + head + ")"
+	}
+
+
+//	private trait Node[+T] extends BTreeSeq[T]
+	private def Leaf[U](elems :IterableOnce[U], size :Int) :Leaf[U] = elems match {
+		case leaf  :Leaf[U] =>
+			leaf
+		//We use System.arraycopy, so we can't just use any array, because copying from int[] to Object[] will fail.
+		case seq   :ArraySeq[_] if seq.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+			new Leaf[U](seq.unsafeArray.asInstanceOf[Array[U]])
+		case items :Iterable[U] =>
+			new Leaf(items.toArray[U](ClassTag.Any.castParam[U]))
+		case _ if size >= 0     =>
+			val values = ErasedArray.ofDim[U](size)
+			elems.iterator.copyToArray(values, 0, size)
+			new Leaf(values)
+		case _                  =>
+			new Leaf(elems.iterator.toArray[U](ClassTag.Any.castParam[U]))
+	}
+
+
+	private final class Leaf[+E](keys :Array[E]) extends BTreeSeq[E] {
+		def values :IArray[E] = keys.asInstanceOf[IArray[E]]
+
+		override def rank = keys.length
+		override def depth = 1
+		override def length :Int = keys.length
+
+		override def apply(i :Int) = keys(i)
+		override def updated[U >: E](i :Int, elem :U) = {
+			val rank = keys.length
+			val values = ErasedArray.ofDim[U](rank)
+			arraycopy(keys, 0, values, 0, rank)
+			values(i) = elem
+			new Leaf(values)
+		}
+
+		override def inserted[U >: E](index :Int, elem :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+			val rank = keys.length
+			if (rank < MaxChildren) {
+				val values = ErasedArray.ofDim[U](rank + 1)
+				arraycopy(keys, 0, values, 0, index)
+				values(index) = elem
+				arraycopy(keys, index, values, index + 1, rank - index)
+				new Leaf(values)
+			} else if (index < Rank) {
+				val init = ErasedArray.ofDim[U](Rank)
+				arraycopy(keys, 0, init, 0, index)
+				init(index) = elem
+				arraycopy(keys, index, init, index + 1, Rank - index - 1)
+				result(new Leaf(init), dropChildren(Rank - 1), surplus)
+			} else {
+				val adjusted = index - Rank
+				val tail = ErasedArray.ofDim[U](Rank)
+				arraycopy(keys, Rank, tail, 0, adjusted)
+				tail(adjusted) = elem
+				arraycopy(keys, index, tail, adjusted + 1, rank - index)
+				result(takeChildren(Rank), new Leaf(tail), surplus)
+			}
+		}
+
+		override def inserted[U >: E](index :Int, elem :U) :BTreeSeq[U] =
+			if (index < 0 | index > keys.length)
+				throw new IndexOutOfBoundsException(index.toString + " out of " + keys.length)
+			else
+				inserted(index, elem, null)
+
+		override def removed(index :Int) :BTreeSeq[E] = {
+			val rank = keys.length
+			if (rank == 2)
+				index match {
+					case 0 => new Singleton(keys(1))
+					case 1 => new Singleton(keys(0))
+					case _ => throw new IndexOutOfBoundsException(index.toString + " out of " + rank)
+				}
+			else {
+				val newKeys = ErasedArray.ofDim[E](rank - 1)
+				arraycopy(keys, 0, newKeys, 0, index)
+				arraycopy(keys, index + 1, newKeys, index, rank - index - 1)
+				new Leaf(newKeys)
+			}
+		}
+
+		override def dropChildren(n :Int) :BTreeSeq[E] = {
+			val values = ErasedArray.ofDim[E](keys.length - n)
+			arraycopy(keys, n, values, 0, keys.length - n)
+			new Leaf(values)
+		}
+		override def takeChildren(n :Int) :BTreeSeq[E] = {
+			val values = ErasedArray.ofDim[E](n)
+			arraycopy(keys, 0, values, 0, n)
+			new Leaf(values)
+		}
+
+		override def appendedSome[U >: E](successor :BTreeSeq[U], siblingCount :Int) :Leaf[U] = {
+			val rank = keys.length
+			val values = ErasedArray.ofDim[U](rank + siblingCount)
+			arraycopy(keys, 0, values, 0, rank)
+			arraycopy(successor.asInstanceOf[Leaf[U]].values, 0, values, rank, siblingCount)
+			new Leaf(values)
+		}
+		override def prependedSome[U >: E](predecessor :BTreeSeq[U], siblingCount :Int) :Leaf[U] = {
+			val rank = keys.length
+			val values = ErasedArray.ofDim[U](rank + siblingCount)
+			val predecessorValues = predecessor.asInstanceOf[Leaf[U]].values
+			arraycopy(predecessorValues, predecessorValues.length - siblingCount, values, 0, siblingCount)
+			arraycopy(keys, 0, values, siblingCount, rank)
+			new Leaf(values)
+		}
+
+		private def result[U >: E](first :BTreeSeq[U], second :BTreeSeq[U], surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			if (surplus == null)
+				new Node(first, second)
+			else {
+				surplus := second
+				first
+			}
+
+		private def copy[U >: E](elems :IterableOnce[U], xs :Array[U], start :Int, len :Int) :Unit = elems match {
+			case leaf :Leaf[U]      => arraycopy(leaf.values, 0, xs, start, len)
+			case items :Iterable[U] => items.copyToArray(xs, start, len)
+			case _                  => elems.iterator.copyToArray(xs, start, len)
+		}
+
+		private def appendedAll[U >: E](elems :IterableOnce[U], surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+//			def appendByOne(size :Int) = elems match { //good only for a total of MaxChildren * 2 because we don't use surplus
+//				case it :Iterable[U] =>
+//					((this :BTreeSeq[U]) /: it) {
+//						(tree, elem) => tree.appended(elem, null)
+//					}
+//				case _               =>
+//					((this :BTreeSeq[U]) /: elems.iterator) {
+//						(tree, elem) => tree.appended(elem, null)
+//					}
+//			}
+			val rank = keys.length
+			val otherSize = elems.knownSize
+			val total = rank + otherSize
+			if (otherSize > 0) {
+				if (total <= MaxChildren) {
+					val values = ErasedArray.ofDim[U](total)
+					arraycopy(keys, 0, values, 0, rank)
+					copy(elems, values, rank, otherSize)
+					new Leaf(values)
+				} else if (total <= (MaxChildren << 1)) {
+					val secondLeafSize = if (total <= MaxChildren + Rank) Rank else total - MaxChildren
+					if (otherSize < Rank) {
+						val shift = secondLeafSize - otherSize
+						val tail = ErasedArray.ofDim[U](secondLeafSize)
+						arraycopy(keys, rank - shift, tail, 0, shift)
+						copy(elems, tail, shift, otherSize)
+						result(takeChildren(rank - shift), new Leaf(tail), surplus)
+					} else if (rank < Rank) {
+						val shift = otherSize - secondLeafSize
+						val init = ErasedArray.ofDim[U](total - secondLeafSize)
+						val tail = ErasedArray.ofDim[U](secondLeafSize)
+						arraycopy(keys, 0, init, 0, rank)
+						val array = elems match {
+							case leaf :Leaf[U] => leaf.values.asInstanceOf[Array[U]]
+							case seq :ArraySeq[_] if seq.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+								seq.unsafeArray.asInstanceOf[Array[U]]
+							case it :Iterable[U] =>
+								it.copyToArray(init, rank, shift)
+								it.iterator.drop(shift).copyToArray(tail, 0, secondLeafSize)
+								null
+							case _ =>
+								ErasedArray.from(elems)
+						}
+						if (array != null) {
+							arraycopy(array, 0, init, rank, shift)
+							arraycopy(array, shift, tail, 0, secondLeafSize)
+						}
+						result(new Leaf(init), new Leaf(tail), surplus)
+					} else
+						result(this, Leaf[U](elems, otherSize), surplus)
+				} else
+					super.appendedAll(elems)
+//					appendByOne
+			} else if (otherSize == 0)
+				this
+			else
+				super.appendedAll(elems)
+		}
+
+		private def prependedAll[U >: E](elems :IterableOnce[U], surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+//			def prependByOne = elems match {
+//				case seq :collection.IndexedSeq[U] =>
+//					(seq :\ (this :BTreeSeq[U])) { (elem, tree) => tree.prepended(elem, null) }
+//				case _ =>
+//					val it = elems.iterator
+//					var i = 0
+//					var res :BTreeSeq[U] = this
+//					while (it.hasNext) {
+//						res = res.inserted(i, it.next(), null)
+//						i += 1
+//					}
+//					res
+//			}
+			val rank = keys.length
+			val otherSize = elems.knownSize
+			if (otherSize > 0) {
+				val total = rank + otherSize
+				if (total <= MaxChildren) {
+					val values = ErasedArray.ofDim[U](rank + otherSize)
+					copy(elems, values, 0, otherSize)
+					arraycopy(keys, 0, values, otherSize, rank)
+					new Leaf(values)
+				} else if (total <= (MaxChildren << 1)) {
+					val firstLeafSize = if (total <= MaxChildren + Rank) Rank else total - MaxChildren
+					if (otherSize < Rank) {
+						val shift = firstLeafSize - otherSize
+						val init = ErasedArray.ofDim[U](firstLeafSize)
+						copy(elems, init, 0, otherSize)
+						arraycopy(keys, 0, init, otherSize, shift)
+						result(new Leaf(init), dropChildren(shift), surplus)
+					} else if (rank < Rank) {
+						val shift = otherSize - firstLeafSize
+						val init = ErasedArray.ofDim[U](firstLeafSize)
+						val tail = ErasedArray.ofDim[U](total - firstLeafSize)
+						arraycopy(keys, 0, tail, shift, rank)
+						val array = elems match {
+							case leaf :Leaf[U] => leaf.values.asInstanceOf[Array[U]]
+							case seq :ArraySeq[_] if seq.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+								seq.unsafeArray.asInstanceOf[Array[U]]
+							case it :Iterable[U] =>
+								it.copyToArray(init, 0, firstLeafSize)
+								//sadly we cannot assume that iterator advances by the number of elements written.
+								elems.iterator.drop(firstLeafSize).copyToArray(tail, 0, shift)
+								null
+							case _ =>
+								ErasedArray.from(elems)
+						}
+						if (array != null) {
+							arraycopy(array, 0, init, 0, firstLeafSize)
+							arraycopy(array, firstLeafSize, tail, 0, shift)
+						}
+						result(new Leaf(init), new Leaf(tail), surplus)
+					} else
+						result(Leaf(elems, otherSize), this, surplus)
+				} else
+//					prependByOne
+					super.prependedAll(elems)
+			} else
+				super.prependedAll(elems)
+		}
+
+		override def appendedAll[U >: E](tree :BTreeSeq[U], depth :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+			assert(depth == 0,
+				(dumpString(
+					tree.dumpString(new StringBuilder ++= "attempted to append tree ") ++= " to ") ++=
+					" at depth " ++= depth.toString
+					).toString
+			)
+			appendedAll(tree, surplus)
+		}
+		override def prependedAll[U >: E](tree :BTreeSeq[U], depth :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+			assert(depth == 0,
+				(dumpString(
+					tree.dumpString(new StringBuilder ++= "attempted to prepend tree ") ++= " to ") ++=
+					" at depth " ++= depth.toString
+					).toString
+			)
+			prependedAll(tree, surplus)
+		}
+
+		override def appendedAll[U >: E](elems :IterableOnce[U]) :BTreeSeq[U] = elems match {
+			case other :Leaf[U]     => appendedAll(other, null)
+			case other :BTreeSeq[U] => other prependedAll this
+			case _                  => appendedAll(elems, null)
+		}
+
+		override def prependedAll[U >: E](elems :IterableOnce[U]) :BTreeSeq[U] = elems match {
+			case other :Leaf[U]     => prependedAll(other, null)
+			case other :BTreeSeq[U] => other appendedAll this
+			case _                  => prependedAll(elems, null)
+		}
+
+		override def appended[U >: E](value :U, surplus :Box[BTreeSeq[U]]) = {
+			val rank = keys.length
+			if (rank < MaxChildren) {
+				val values = ErasedArray.ofDim[U](rank + 1)
+				arraycopy(keys, 0, values, 0, rank)
+				values(rank) = value
+				new Leaf(values)
+			} else {
+				val tail = ErasedArray.ofDim[U](Rank)
+				arraycopy(keys, Rank, tail, 0, Rank - 1)
+				tail(Rank - 1) = value
+				result(takeChildren(Rank), new Leaf(tail), surplus)
+			}
+		}
+
+		override def prepended[U >: E](value :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+			val rank   = keys.length
+			if (rank < MaxChildren) {
+				val values = ErasedArray.ofDim[U](rank + 1)
+				values(0) = value
+				arraycopy(keys, 0, values, 1, rank)
+				new Leaf(values)
+			} else {
+				val init = ErasedArray.ofDim[U](Rank)
+				init(0) = value
+				arraycopy(keys, 0, init, 1, Rank - 1)
+				result(new Leaf(init), dropChildren(Rank - 1), surplus)
+			}
+		}
+
+		override def appended[U >: E](value :U) :BTreeSeq[U] = appended(value, null)
+		override def prepended[U >: E](value :U) :BTreeSeq[U] = prepended(value, null)
+
+		override def take(n :Int) :BTreeSeq[E] =
+			if (n <= 0) Empty
+			else if (n == 1) new Singleton(keys(0))
+			else if (n >= keys.length) this
+			else takeChildren(n)
+
+		override def drop(n :Int) :BTreeSeq[E] =
+			if (n <= 0) this
+			else if (n >= keys.length) Empty
+			else if (n == keys.length - 1) new Singleton(keys(keys.length - 1))
+			else dropChildren(n)
+
+		override def slice(from :Int, until :Int) = {
+			val rank = keys.length
+			if (until <= 0 | until <= from | from >= rank) Empty
+			else if (from <= 0 & until >= rank) this
+			else if (from + 1 == until) new Singleton(keys(from))
+			else if (from < 0) takeChildren(until)
+			else if (until > rank) dropChildren(from)
+			else trustedSlice(from, until)
+		}
+
+		override def take[U >: E](n :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			takeChildren(n)
+
+		override def drop[U >: E](n :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			dropChildren(n)
+
+		private def trustedSlice(from :Int, until :Int) :BTreeSeq[E] = {
+			val values = ErasedArray.ofDim[E](until - from)
+			arraycopy(keys, from, values, 0, until - from)
+			new Leaf(values)
+		}
+		override def slice[U >: E](from :Int, until :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			trustedSlice(from, until)
+
+		override def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type =
+			keys.addString(b, start, sep, end)
+
+		override def dumpString(sb :StringBuilder) :sb.type = keys.addString(sb, "(", ", ", ")")
+	}
+
+
+	//Invariant: children.length >= 2; prefixes.length = children.length - 1
+	private class Node[+E](children :Array[BTreeSeq[E]], prefixes :Array[Int], override val length :Int)
+		extends BTreeSeq[E]
+	{
+		def this(children :Array[BTreeSeq[E]], prefixes :Array[Int]) =
+			this(children, prefixes, prefixes(prefixes.length - 1) + children(children.length - 1).length)
+
+		def this(children :Array[BTreeSeq[E]]) = this(
+			children, {
+				var i = 0; val end = children.length - 1
+				val prefixes = new Array[Int](end)
+				var size = 0
+				while (i < end) {
+					size += children(i).length
+					prefixes(i) = size
+					i += 1
+				}
+				prefixes
+			}
+		)
+		def this(first :BTreeSeq[E], second :BTreeSeq[E]) = this(
+			{ val children = new Array[BTreeSeq[E]](2); children(0) = first; children(1) = second; children },
+			Array.one(first.length), first.length + second.length
+		)
+
+		/** Create a new `Node` with `newChildren` as its children, copying prefix lengths from this instance
+		  * for the children carried over from this node.
+		  * @param newChildren Children of the created node; must satisfy
+		  *                    `newChildren.take(unchanged).corresponds(this.children.take(unchanged))(_ eq _)`.
+		  * @param unchanged   The number of leading children of this node included as a prefix in `newChildren`.
+		  *                    Must be not greater than `min(this.children.length, newChildren.length)`.
+		  */
+		private def copy[U >: E](newChildren :Array[BTreeSeq[U]], unchanged :Int) :Node[U] = {
+			val rank = newChildren.length
+			if (unchanged == rank)
+				if (rank == this.rank)
+					this
+				else {
+					val newPrefixes = new Array[Int](rank - 1)
+					arraycopy(prefixes, 0, newPrefixes, 0, rank - 1)
+					new Node(newChildren, newPrefixes, prefixes(rank - 1))
+				}
+			else if (unchanged == rank - 1 && rank == this.rank)
+				//a common case of appending a single element doesn't require reallocating of prefix lengths array
+				new Node(newChildren, prefixes, prefixes(rank - 2) + newChildren(rank - 1).length)
+			else {
+				val newPrefixes = new Array[Int](rank - 1)
+				var newLength =
+					if (unchanged == 0)
+						0
+					else if (unchanged == children.length) {
+						arraycopy(prefixes, 0, newPrefixes, 0, unchanged - 1)
+						newPrefixes(unchanged - 1) = length
+						length
+					} else {
+						arraycopy(prefixes, 0, newPrefixes, 0, unchanged)
+						newPrefixes(unchanged - 1)
+					}
+				var i = unchanged
+				while (i < rank - 1) {
+					newLength += newChildren(i).length
+					newPrefixes(i) = newLength
+					i += 1
+				}
+				new Node(newChildren, newPrefixes, newLength + newChildren(rank - 1).length)
+			}
+		}
+
+		final def subNodes      :IArray[BTreeSeq[E]] = children.asInstanceOf[IArray[BTreeSeq[E]]]
+//		private final def prefixLengths :Array[Int] = prefixes
+		override def rank  :Int = children.length
+		override def depth :Int = {
+			@tailrec def descend(tree :BTreeSeq[E], acc :Int) :Int = tree match {
+				case node :Node[E] => descend(node.subNodes(0), acc + 1)
+				case _             => acc + 1
+			}
+			descend(children(0), 1)
+		}
+		/** The length of the prefix of this sequence consisting of all its children
+		  * up to and including `children(child)`. Hides the fact that `prefixes(rank - 1)` is undefined.
+		  */
+		@inline final def prefixLength(child :Int) =
+			if (child == children.length - 1) length else prefixes(child)
+
+		/** Locates the child which contains the value at `index`: the first child such that `index < prefixes(i)`
+		  * (assuming for the purpose of the definition that `prefixes(rank - 1) == length`.
+		  * If `index >= length`, then `this.rank` is returned, which isn't represented by a child in `children`.
+		  */
+		private def childNo(index :Int) :Int = {
+			val rank = children.length
+			//Check explicitly if the index falls in the last child; not only because it's a common case,
+			// but because prefixes(rank-1) does not exist and we don't want to range check every access in bin search.
+			if (length <= index)
+				rank
+			else if (prefixes(rank - 2) <= index)
+				rank - 1
+			else {
+				var lo = 0; var hi = rank - 2
+				val bump = index + 1 //we don't want to find prefixes(i) == index, but the first prefixes(i) > index
+				while (lo < hi) {
+					val m = (lo + hi) >> 1
+					if (bump <= prefixes(m)) hi = m
+					else lo = m + 1
+				}
+				lo
+			}
+		}
+
+		override def apply(i :Int) = {
+			val child = childNo(i)
+			if (child == 0) children(0)(i)
+			else children(child)(i - prefixes(child - 1))
+		}
+
+		/** Sw   aps the child `children(idx)` for `child` without any rebalancing. */
+		private def updated[U >: E](idx :Int, child :BTreeSeq[U]) :Node[U] = {
+			val newChildren = new Array[BTreeSeq[U]](children.length)
+			arraycopy(children, 0, newChildren, 0, children.length)
+			newChildren(idx) = child
+			copy(newChildren, idx)
+		}
+
+		/** Swaps the child `children(idx)` for `child` and, if `second.nonEmpty`, inserts it at `children(idx + 1)`,
+		  * pushing current children by one position farther. If the number of children exceeds `MaxChildren`,
+		  * the node is split: the first half is returned, while the second is assigned to `second`.
+		  * The returned node may have fewer children than `Rank` if `this.rank < Rank`
+		  * (i.e., this is the root of the tree), but not more than `MaxChildren`.
+		  */
+		private def updated[U >: E](idx :Int, first :BTreeSeq[U], second :Box[BTreeSeq[U]]) :Node[U] = {
+			val rank = children.length
+			if (second == null || second.isEmpty)
+				updated(idx, first)
+			else if (rank < MaxChildren) {
+				val newChildren = new Array[BTreeSeq[U]](rank + 1)
+				arraycopy(children, 0, newChildren, 0, idx)
+				newChildren(idx) = first
+				newChildren(idx + 1) = second.remove()
+				arraycopy(children, idx + 1, newChildren, idx + 2, rank - idx - 1)
+				copy(newChildren, idx)
+			} else {
+				val init = new Array[BTreeSeq[U]](Rank)
+				val tail = new Array[BTreeSeq[U]](Rank)
+				if (idx >= Rank) {
+					val i = idx - Rank
+					arraycopy(children, 0, init, 0, Rank)
+					arraycopy(children, Rank, tail, 0, i)
+					tail(i) = first
+					tail(i + 1) = second.get
+					arraycopy(children, Rank, tail, i + 2, Rank - i - 2)
+					second := new Node(tail)
+					copy(init, Rank)
+				} else {
+					arraycopy(children, 0, init, 0, idx)
+					init(idx) = first
+					if (idx == Rank - 1) {
+						tail(0) = second.get
+						arraycopy(children, idx + 1, tail, 1, idx)
+					} else {
+						init(idx + 1) = second.get
+						arraycopy(children, idx + 1, init, idx + 2, Rank - idx - 2)
+						arraycopy(children, Rank - 1, tail, 0, Rank)
+					}
+					second := new Node(tail)
+					copy(init, idx)
+				}
+			}
+		}
+
+		override def updated[U >: E](index :Int, elem :U) = {
+			val child = childNo(index)
+			val newChild =
+				if (child == 0) children(0).updated(index, elem)
+				else children(child).updated(index - prefixes(child - 1), elem)
+			val newChildren = new Array[BTreeSeq[U]](children.length)
+			arraycopy(children, 0, newChildren, 0, children.length)
+			newChildren(child) = newChild
+			new Node(newChildren, prefixes, length)
+		}
+
+		override def inserted[U >: E](index :Int, elem :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			if (index == length)
+				appended(elem, surplus)
+			else {
+				val i = childNo(index)
+				val relative = if (i == 0) index else index - prefixes(i - 1)
+				val child = children(i).inserted(relative, elem, surplus)
+				updated(i, child, surplus)
+			}
+
+		override def inserted[U >: E](index :Int, elem :U) :BTreeSeq[U] =
+			if (index < 0 | index > length)
+				throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+			else {
+				val growth = Box[BTreeSeq[U]]
+				grown(inserted(index, elem, growth), growth)
+			}
+
+		override def removed(index :Int) :BTreeSeq[E] = {
+			val rank = children.length
+			val i = childNo(index)
+			val child = children(i)
+			val newChild = child.removed(if (i == 0) index else index - prefixes(i - 1))
+			if (newChild.rank >= Rank)  //the tree is still balanced, no need to do anything other than update the child
+				updated(i, newChild)
+			else if (i == 0) { //we descended into the first child - balancing will use the following sibling
+				val sibling = children(1)
+				val siblingRank = sibling.rank
+				if (siblingRank > Rank) { //move the first child/key from sibling to newChild
+					val newChildren = new Array[BTreeSeq[E]](rank)
+					newChildren(0) = newChild.appendedSome(sibling, 1)
+					newChildren(1) = sibling.dropChildren(1)
+					arraycopy(children, 2, newChildren, 2, rank - 2)
+					new Node(newChildren)
+				} else if (rank == 2) //reduce the height of the tree; possible only if we are the root node
+					newChild.appendedSome(sibling, siblingRank)
+				else {
+					//Merge newChild with sibling. May reduce children below Rank,
+					// but either we are the root and it's ok, or we will fix this when the call returns to our parent.
+//					updated(0, newChild.appendedSome(sibling, siblingRank))
+					val newChildren = new Array[BTreeSeq[E]](rank - 1)
+					newChildren(0) = newChild.appendedSome(sibling, siblingRank)
+					arraycopy(children, 2, newChildren, 1, rank - 2)
+					new Node(newChildren)
+				}
+			} else { //balance newChild with the help of its preceding sibling
+				val sibling = children(i - 1)
+				val siblingRank = sibling.rank
+				if (siblingRank > Rank) { //move the last child/key from sibling to newChild
+					val newChildren = new Array[BTreeSeq[E]](rank)
+					arraycopy(children, 0, newChildren, 0, rank)
+					newChildren(i - 1) = sibling takeChildren siblingRank - 1
+					newChildren(i)     = newChild.prependedSome(sibling, 1)
+					copy(newChildren, i - 1)
+				} else if (rank == 2) //reduce the height of the tree; possible only if we are the root node
+					newChild.prependedSome(sibling, siblingRank)
+				else {
+					//Merge newChild with sibling. May reduce children below Rank,
+					// but either we are the root and it's ok, or we will fix this when the call returns to our parent.
+					val newChildren = new Array[BTreeSeq[E]](rank - 1)
+					arraycopy(children, 0, newChildren, 0, i - 1)
+					newChildren(i - 1) = sibling.appendedSome(newChild, newChild.rank)
+					arraycopy(children, i + 1, newChildren, i, rank - i - 1)
+					copy(newChildren, i - 1)
+				}
+			}
+		}
+
+
+		override def dropChildren(n :Int) :BTreeSeq[E] = {
+			val childCount = rank - n
+			val newChildren = new Array[BTreeSeq[E]](childCount)
+			arraycopy(children, n, newChildren, 0, childCount)
+			new Node(newChildren)
+		}
+
+		override def takeChildren(n :Int) :BTreeSeq[E] = {
+			val newChildren = new Array[BTreeSeq[E]](n)
+			arraycopy(children, 0, newChildren, 0, n)
+			copy(newChildren, n)
+		}
+
+		override def appendedSome[U >: E](successor :BTreeSeq[U], siblingCount :Int) :Node[U] = {
+			val node = successor.asInstanceOf[Node[U]]
+			val siblings = node.subNodes
+			val rank = children.length
+			val newChildren = new Array[BTreeSeq[U]](rank + siblingCount)
+			arraycopy(children, 0, newChildren, 0, rank)
+			arraycopy(siblings, 0, newChildren, rank, siblingCount)
+			copy(newChildren, rank)
+		}
+		override def prependedSome[U >: E](predecessor :BTreeSeq[U], siblingCount :Int) :Node[U] = {
+			val node = predecessor.asInstanceOf[Node[U]]
+			val siblings = node.subNodes
+			val rank = children.length
+			val newChildren = new Array[BTreeSeq[U]](rank + siblingCount)
+			arraycopy(siblings, siblings.length - siblingCount, newChildren, 0, siblingCount)
+			arraycopy(children, 0, newChildren, siblingCount, rank)
+			new Node(newChildren)
+		}
+
+		override def appendedAll[U >: E](tree :BTreeSeq[U], depth :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			if (depth == 0) {
+				val rank = children.length
+				val treeRank = tree.rank
+				val totalRank = rank + treeRank
+				if (totalRank <= MaxChildren) //append all tree.children to this.children
+					appendedSome(tree, treeRank)
+				else if (rank >= Rank & treeRank >= Rank) { //nothing to do: both this and tree are balanced
+					surplus := tree
+					this
+				} else if (rank >= Rank) { //carry over some of our children to treeRank to balance it
+					val tail = new Array[BTreeSeq[U]](Rank)
+					arraycopy(children, totalRank - Rank, tail, 0, Rank - treeRank)
+					arraycopy(tree.asInstanceOf[Node[U]].subNodes, 0, tail, Rank - treeRank, treeRank)
+					surplus := new Node(tail)
+					takeChildren(totalRank - Rank)
+				} else { //carry over some children of tree to this node to balance it
+					val init = new Array[BTreeSeq[U]](totalRank - Rank)
+					arraycopy(children, 0, init, 0, rank)
+					arraycopy(tree.asInstanceOf[Node[U]].subNodes, 0, init, rank, Rank - rank)
+					surplus := tree.dropChildren(Rank - rank)
+					copy(init, rank)
+				}
+			} else {
+				val rank = children.length
+				val child = children(rank - 1).appendedAll(tree, depth - 1, surplus)
+				updated(rank - 1, child, surplus)
+			}
+
+		override def prependedAll[U >: E](tree :BTreeSeq[U], depth :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			if (depth == 0) {
+				val rank = children.length
+				val treeRank = tree.rank
+				val totalRank = rank + treeRank
+				if (totalRank <= MaxChildren) //prepend all tree children to this.children
+					prependedSome(tree, tree.rank)
+				else if (rank >= Rank & treeRank >= Rank) { //nothing to do, because both this and tree are balanced
+					surplus := this
+					tree
+				} else if (rank >= Rank) { //carry over some of our children to treeRank to balance it
+					val node = tree.asInstanceOf[Node[U]]
+					val init = new Array[BTreeSeq[U]](Rank)
+					arraycopy(node.subNodes, 0, init, 0, treeRank)
+					arraycopy(children, 0, init, treeRank, Rank - treeRank)
+					surplus := dropChildren(Rank - treeRank)
+					node.copy(init, treeRank)
+				} else { //carry over some children of tree to this node to balance it
+					val tail = new Array[BTreeSeq[U]](totalRank - Rank)
+					arraycopy(tree.asInstanceOf[Node[U]].subNodes, Rank, tail, 0, treeRank - Rank)
+					arraycopy(children, 0, tail, treeRank - Rank, rank)
+					surplus := new Node(tail)
+					tree.takeChildren(Rank)
+				}
+			} else {
+				val child = children(0).prependedAll(tree, depth - 1, surplus)
+				updated(0, child, surplus)
+			}
+
+		override def appended[U >: E](elem :U, surplus :Box[BTreeSeq[U]]) =
+			updated(children.length - 1, children(children.length - 1).appended(elem, surplus), surplus)
+
+		override def prepended[U >: E](elem :U, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			updated(0, children(0).prepended(elem, surplus), surplus)
+
+		override def appended[U >: E](elem :U) :BTreeSeq[U] = {
+			val growth = Box[BTreeSeq[U]]
+			grown(appended(elem, growth), growth)
+		}
+
+		override def prepended[U >: E](elem :U) :BTreeSeq[U] = {
+			val growth = Box[BTreeSeq[U]]
+			grown(prepended(elem, growth), growth)
+		}
+
+//		override def slice(from :Int, until :Int) :BTreeSeq[T] = take(until).drop(from)
+
+		override def take(n :Int) :BTreeSeq[E] =
+			if (n <= 0) Empty
+			else if (n >= length) this
+			else take[E](n, depth, Box.empty)
+
+		override def drop(n :Int) :BTreeSeq[E] =
+			if (n <= 0) this
+			else if (n >= length) Empty
+			else drop[E](n, depth, Box.empty)
+
+		override def slice(from :Int, until :Int) :BTreeSeq[E] = {
+			val len = length
+			if (until <= from | until < 0 | from > len) Empty
+			else if (from <= 0 && until >= len) this
+			else if (from < 0) slice[E](0, until, depth, Box.empty)
+			else if (until > len) slice[E](from, len, depth, Box.empty)
+			else slice[E](from, until, depth, Box.empty)
+		}
+
+		override def take[U >: E](n :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] =
+			if (n >= length)
+				this
+			else {
+				val i = childNo(n) //i <= rank - 1, so prefixes(i - 1) is well defined
+				val indexInChild = if (i == 0) n else n - prefixes(i - 1)
+				if (indexInChild == 0)  //everything is dropped starting with child i; i > 0 because n > 0
+					takeChildren(i)
+				else {
+					val child = children(i).take(indexInChild, height - 1, surplus)
+					if (i == 0) //we dropped everything after the first child
+						child
+					else {
+						val sibling  = children(i - 1)
+						//consider: making depth a val; we are introducing complexity log^2(n) by repeatedly calling it here
+						val newChild = sibling.appendedAll(child, height - 1 - child.depth, surplus)
+						if (surplus.isEmpty)
+							if (i == 1)
+								newChild
+							else {
+								val newChildren = new Array[BTreeSeq[U]](i)
+								arraycopy(children, 0, newChildren, 0, i - 1)
+								newChildren(i - 1) = newChild
+								copy(newChildren, i - 1)
+							}
+						else {
+							val newChildren = new Array[BTreeSeq[U]](i + 1)
+							arraycopy(children, 0, newChildren, 0, i - 1)
+							newChildren(i - 1) = newChild
+							newChildren(i) = surplus.remove()
+							copy(newChildren, i - 1)
+						}
+					}
+				}
+			}
+
+		override def drop[U >: E](n :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+			val rank = children.length
+			val i = childNo(n)
+			val indexInChild = if (i == 0) n else n - prefixes(i - 1)
+			if (n <= 0)
+				this
+			else if (indexInChild == 0)
+				if (i == rank - 1)
+					children(rank - 1)
+				else
+					dropChildren(i)  //everything up to child i not including is dropped
+			else {
+				val child = children(i).drop(indexInChild, height - 1, surplus)
+				if (i == rank - 1)
+					child
+				else {
+					val sibling = children(i + 1)
+					//consider: making depth a val; we are introducing complexity log^2(n) by repeatedly calling it here
+					val newChild = sibling.prependedAll(child, height - 1 - child.depth, surplus)
+					if (surplus.isEmpty)
+						if (i == rank - 2)
+							newChild
+						else {
+							val newChildren = new Array[BTreeSeq[U]](rank - i - 1)
+							newChildren(0) = newChild
+							arraycopy(children, i + 2, newChildren, 1, rank - i - 2)
+							new Node(newChildren)
+						}
+					else {
+						val newChildren = new Array[BTreeSeq[U]](rank - i)
+						newChildren(0) = newChild
+						newChildren(1) = surplus.remove()
+						arraycopy(children, i + 2, newChildren, 2, rank - i - 2)
+						new Node(newChildren)
+					}
+				}
+			}
+		}
+
+		override def slice[U >: E](from :Int, until :Int, height :Int, surplus :Box[BTreeSeq[U]]) :BTreeSeq[U] = {
+			val fromIdx = childNo(from)
+			val relativeFrom = if (fromIdx == 0) from else from - prefixes(fromIdx -  1)
+			val fromChild = children(fromIdx)
+			val prefix =
+				if (relativeFrom == 0) fromChild
+				else fromChild.slice(relativeFrom, fromChild.length, height - 1, surplus)
+			val untilIdx = childNo(until)
+			val relativeUntil =
+				if (untilIdx == 0) until
+				else if (untilIdx == rank) 0
+				else until - prefixes(untilIdx - 1)
+			if (fromIdx == untilIdx) //all subsequence belongs to a single child
+				prefix.slice(0, relativeUntil - relativeFrom, height - 1, surplus)
+			else if (relativeFrom == 0) { //we will start copying from newChildren(fromIdx)
+				if (relativeUntil == 0) { //return a Node with a subsequence of this.children
+					if (fromIdx + 1 == untilIdx)
+						prefix
+					else if (fromIdx == 0 && untilIdx == rank)
+						this
+					else {
+						val newChildren = new Array[BTreeSeq[U]](untilIdx - fromIdx)
+						arraycopy(children, fromIdx, newChildren, 0, untilIdx - fromIdx)
+						if (fromIdx == 0)
+							copy(newChildren, untilIdx)
+						else
+							new Node(newChildren)
+					}
+				} else { //we need to inject the, possibly lower, suffix tree into preceding sibling of children(untilIdx)
+					val suffix      = children(untilIdx).slice(0, relativeUntil, height - 1, surplus)
+					val last        = children(untilIdx - 1).appendedAll(suffix, height - 1 - suffix.depth, surplus)
+					val copied      = untilIdx - fromIdx - 1
+					if (copied + surplus.size == 0)
+						last
+					else {
+						val newChildren = new Array[BTreeSeq[U]](copied + 1 + surplus.size)
+						arraycopy(children, fromIdx, newChildren, 0, copied)
+						newChildren(copied) = last
+						if (surplus.nonEmpty)
+							newChildren(copied + 1) = surplus.remove()
+						if (fromIdx == 0)
+							copy(newChildren, copied)
+						else
+							new Node(newChildren)
+					}
+				}
+			} else if (relativeUntil == 0) {
+				//we need to inject the, possibly lower, prefix tree into children(fromIdx + 1)
+				val first       = children(fromIdx + 1).prependedAll(prefix, height - 1 - prefix.depth, surplus)
+				val copied      = untilIdx - fromIdx - 2
+				if (copied + surplus.size == 0)
+					first
+				else {
+					val newChildren = new Array[BTreeSeq[U]](copied + 1 + surplus.size)
+					newChildren(0)  = first
+					arraycopy(children, fromIdx + 2, newChildren, 1 + surplus.size, copied)
+					if (surplus.nonEmpty)
+						newChildren(1) = surplus.remove()
+					new Node(newChildren)
+				}
+			} else if (fromIdx + 1 == untilIdx) {
+				//we need to merge prefix and suffix trees with each other, without any node in between
+				val suffix      = children(untilIdx).slice(0, relativeUntil, height - 1, surplus)
+				val prefixDepth = prefix.depth
+				val suffixDepth = suffix.depth
+				val first =
+					if (prefixDepth >= suffixDepth)
+						prefix.appendedAll(suffix, prefixDepth - suffixDepth, surplus)
+					else
+						suffix.prependedAll(prefix, suffixDepth - prefixDepth, surplus)
+				surplus.removeOpt() match {
+					case Got(second) => new Node(first, second)
+					case _           => first
+				}
+			} else if (fromIdx + 2 == untilIdx) {
+				//prefix and suffix trees must be merged to the same child at fromIdx + 1 (= untilIdx - 1)
+				val suffix = children(untilIdx).slice(0, relativeUntil, height - 1, surplus)
+				val first  = children(fromIdx + 1).prependedAll(prefix, height - 1 - prefix.depth, surplus)
+				surplus.removeOpt() match {
+					case Got(node) =>
+						val second = node.appendedAll(suffix, height - 1 - suffix.depth, surplus)
+						surplus.removeOpt() match {
+							case Got(third) =>
+								val newChildren = new Array[BTreeSeq[U]](3)
+								newChildren(0) = first
+								newChildren(1) = second
+								newChildren(2) = third
+								new Node(newChildren)
+							case _ =>
+								new Node(first, second)
+						}
+					case _ =>
+						val res = first.appendedAll(suffix, height - 1 - suffix.depth, surplus)
+						surplus.removeOpt() match {
+							case Got(next) => new Node(res, next)
+							case _ => res
+						}
+				}
+			} else { //Finally, we can inject prefix and suffix trees independently into their following/preceding nodes.
+				val first  = children(fromIdx + 1).prependedAll(prefix, prefix.depth, surplus)
+				val second = surplus.removeOpt()
+				val suffix = children(untilIdx).take(relativeUntil, height - 1, surplus)
+				val last   = children(untilIdx - 1).appendedAll(suffix, height - 1 - suffix.depth, surplus)
+				val extra  = surplus.removeOpt()
+				val copied = untilIdx - fromIdx - 3
+				val newChildren = new Array[BTreeSeq[U]](copied + 2 + second.size + extra.size)
+				newChildren(0) = first
+				if (second.isDefined)
+					newChildren(1) = second.get
+				arraycopy(children, fromIdx + 2, newChildren, 1 + second.size, copied)
+				newChildren(copied + second.size) = last
+				if (extra.isDefined)
+					newChildren(copied + second.size + 1) = extra.get
+				new Node(newChildren)
+			}
+		}
+
+
+		override def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type = {
+			b ++= start
+			var i = 0; val rank = children.length
+			while (i < rank - 1) {
+				children(i).addString(b, "", sep, "")
+				b ++= sep
+				i += 1
+			}
+			children(rank - 1).addString(b, "", sep, "")
+			b ++= end
+		}
+
+		override def dumpString(sb :StringBuilder) :sb.type = {
+			sb += '('
+			var i = 0; val last = children.length - 1
+			while (i < last) {
+				children(i).dumpString(sb) ++= ", "
+				i += 1
+			}
+			children(last).dumpString(sb) += ')'
+		}
+	}
+
+
+	private class BTreeSeqBuilder[E](private[this] var tree :BTreeSeq[E] = Empty)
+		extends ReusableBuilder[E, BTreeSeq[E]]
+	{
+		private[this] var keys :Array[E] = _
+		private[this] var keyCount :Int = 0
+
+		private def addLeaf() :Unit =
+			if (keyCount > 0) {
+				val leaf = ErasedArray.ofDim[E](keyCount)
+				arraycopy(keys, 0, leaf, 0, keyCount)
+				tree = tree appendedAll new Leaf(leaf)
+				keys = null
+				keyCount = 0
+			}
+
+		override def clear() :Unit = {
+			keys = null
+			keyCount = 0
+			tree = Empty
+		}
+
+		override def result() = {
+			addLeaf()
+			val res = tree
+			tree = Empty
+			res
+		}
+
+		override def addOne(elem :E) = {
+			if (keys == null) {
+				keys = ErasedArray.ofDim[E](MaxChildren)
+				keyCount = 1
+				keys(0) = elem
+			} else {
+				keys(keyCount) = elem
+				keyCount += 1
+				if (keyCount == MaxChildren) {
+					tree = tree appendedAll new Leaf(keys)
+					keys = null
+					keyCount = 0
+				}
+			}
+			this
+		}
+
+		override def addAll(elems :IterableOnce[E]) = {
+			val size = elems.knownSize
+			if (size == 0)
+				this
+			else if (size < MaxChildren - keyCount) //covers also knownSize < 0
+				super.addAll(elems)
+			else
+				elems match {
+					case other :BTreeSeq[E] =>
+						addLeaf()
+						if (tree.length < other.length)
+							tree = other prependedAll tree
+						else
+							tree = tree prependedAll other
+						this
+					case _ =>
+						super.addAll(elems)
+				}
+		}
+	}
+
+
+	private class BTreeIterator[+E](stack :Array[IArray[BTreeSeq[E]]], childIndex :Array[Int])
+		extends BufferedIterator[E]
+	{
+		private def this(stack :Array[IArray[BTreeSeq[E]]]) = this (stack, new Array[Int](stack.length))
+		def this(tree :Node[E]) = this(
+			{ val a = new Array[IArray[BTreeSeq[E]]](tree.depth - 1); a(a.length - 1) = tree.subNodes; a }
+		)
+
+		private[this] var keyIdx :Int = 0
+		private[this] var leaf   :IArray[E] = {
+			var i = stack.length - 1
+			var siblings = stack(i)
+			while (i > 0) {
+				siblings = siblings(0).asInstanceOf[Node[E]].subNodes
+				i -= 1
+				stack(i) = siblings
+				childIndex(i) = 0
+			}
+			siblings(0).asInstanceOf[Leaf[E]].values
+		}
+		override def hasNext = keyIdx >= 0
+		override def head :E = leaf(keyIdx)
+
+		override def next() :E = {
+			val res = leaf(keyIdx)
+			keyIdx += 1
+			if (keyIdx == leaf.length) {
+				val height = stack.length
+				var level = 0
+				var ancestors = stack(0)
+				var childIdx = childIndex(0) + 1
+				while (childIdx == ancestors.length & { level += 1; level < height }) {
+					ancestors = stack(level)
+					childIdx = childIndex(level) + 1
+				}
+				if (level == height)
+					keyIdx = -1
+				else {
+					childIndex(level) = childIdx
+					ancestors = ancestors(childIdx).asInstanceOf[Node[E]].subNodes
+					while (level > 0) {
+						childIdx = 0
+						childIndex(level) = 0
+						stack(level) = ancestors(0).asInstanceOf[Node[E]].subNodes
+						level -= 1
+					}
+					leaf = ancestors(childIdx).asInstanceOf[Leaf[E]].values
+					keyIdx = 0
+				}
+			}
+			res
+		}
+
+		override def equals(that :Any) :Boolean = that match {
+			case other :BTreeIterator[_] =>
+				leafIdx == other.leafIdx && childIndex.sameElements(other.indexes) &&
+					stack.corresponds(other.ancestors)(_ sameElements _)
+		}
+		private def leafIdx = keyIdx
+		private def indexes = childIndex
+		private def ancestors :Array[_ <: IArray[BTreeSeq[E]]] = stack
+		override def toString :String =
+			if (keyIdx >= 0) "BTreeIterator(->" + leaf(keyIdx) + ")"
+			else "BTreeIterator(-)"
+	}
+
+	private final val Rank = 8
+	private final val MaxChildren = (Rank << 1) - 1
+}

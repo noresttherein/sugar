@@ -48,7 +48,7 @@ private final class ArrayAsSeq[E](override val coll :Array[E])
 	@nowarn("cat=deprecation")
 	override def toIterable :Iterable[E] = mutable.ArraySeq.make(coll)
 
-	override def iterableFactory :IterableFactory[Array] = RefArray
+	override def iterableFactory :IterableFactory[Array] = ErasedArray
 
 	private def classTag = ClassTag(coll.getClass.getComponentType).asInstanceOf[ClassTag[E]]
 
@@ -73,7 +73,7 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 		new ArrayAsSeq(array)
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = it match {
-		case elems :Iterable[E] if elems.isEmpty => Array.empty[E]
+		case elems :Iterable[E] if elems.knownSize == 0 => Array.empty[E]
 		case iter  :Iterator[E] if !iter.hasNext => Array.empty[E]
 		case elems :ArrayAsSeq[E] if elems.coll.getClass.getComponentType == classTag[E].runtimeClass => elems.coll
 		case elems :Iterable[E] => elems.toArray[E]
@@ -98,7 +98,7 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 	override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = new ArrayBuilder[A]
 	def newBuilder[A](elementType :Class[A]) :Builder[A, Array[A]] = new ArrayBuilder(elementType)
 
-	val untagged :IterableFactory[Array] = RefArray
+	val untagged :IterableFactory[Array] = ErasedArray
 
 	private val InitialBuilderSize = 16
 

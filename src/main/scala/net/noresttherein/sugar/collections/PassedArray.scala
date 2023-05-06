@@ -3,14 +3,14 @@ package net.noresttherein.sugar.collections
 import java.lang.invoke.MethodHandles
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{mutable, Factory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory}
+import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JFloat, JInt, JIterator, JLong, JShort}
-import net.noresttherein.sugar.collections.PassedArrayInternals.{superElementType, InitSize, OwnerField, SliceReallocationFactor}
+import net.noresttherein.sugar.collections.PassedArrayInternals.{InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt.Got
 
@@ -607,7 +607,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
   * Base trait for [[net.noresttherein.sugar.collections.PassedArrayPlus PassedArrayPlus]]
   * and [[net.noresttherein.sugar.collections.PassedArrayView PassedArrayView]].
   */
-private[collections] sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends PassedArray[E] {
+private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends PassedArray[E] {
 	override def elementType :Class[_] = elems.getClass.getComponentType
 	private[collections] def elems[U >: E] :Array[U]
 	private[collections] def startIndex :Int
@@ -917,7 +917,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 						}
 						res
 					} catch {
-						case _ :ClassCastException =>
+						case _ :ClassCastException | _ :ArrayStoreException =>
 							if (wasOwner)
 								isOwner = true
 							val halfSize = (len + 1) / 2
@@ -1001,7 +1001,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 						}
 						res
 					} catch {
-						case _ :ClassCastException =>
+						case _ :ClassCastException | _ :ArrayStoreException =>
 							if (wasOwner) {
 								isOwner = true
 							}
@@ -1174,7 +1174,8 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
   * Instead, it takes an optimistic approach to specialization: if elements added to a `PassedArray`, its builder,
   * or passed as arguments to any of factory methods of this object are all of a built in value type,
   * a proper primitive array is allocated. At the same time, it guards itself against type errors which would
-  * result in a [[ClassCastException]], and reallocates the underlying array as an `Array[`[[AnyRef]]`]` if needed.
+  * result in a [[ClassCastException]]/[[ArrayStoreException]], and reallocates the underlying array as an
+  * `Array[`[[Any]]`]` if needed.
   * @define Coll `PassedArray`
   * @define coll passed array
   */
@@ -1190,20 +1191,24 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 	override def from[A](it :IterableOnce[A]) :PassedArray[A] = it match {
 		case elems :PassedArray[A] =>
 			elems
-		case elems :Iterable[A] if elems.isEmpty =>
+		case elems :Iterable[A] if elems.knownSize == 0 =>
 			Empty
 		case elems :ArraySeq[A] =>
 			new PassedArrayPlus(elems.unsafeArray.asInstanceOf[Array[A]])
 		case elems :mutable.ArraySeq[A] =>
 			new PassedArrayPlus(Array.copyOf(elems.array, elems.array.length).asInstanceOf[Array[A]])
+		case elems :View[A] =>
+			//Views delegate isEmpty to iterator.isEmpty, but are common arguments,
+			// so there is no sense in creating the iterator twice.
+			new PassedArrayPlus(elems.toArray(classTag[AnyRef].asInstanceOf[ClassTag[A]]))
 		case elems :Iterable[A] => elems.head.getClass match {
-			case BoxClass(box) => try {
-				new PassedArrayPlus(elems.toArray(ClassTag(box).castParam[A]))
+			case BoxClass(valueClass) => try {
+				new PassedArrayPlus(elems.toArray(ClassTag(valueClass).castParam[A]))
 			} catch {
-				case _ :ClassCastException =>
+				case _ :ClassCastException | _ :ArrayStoreException =>
 					new PassedArrayPlus(elems.toArray(ClassTag(classOf[AnyRef]).castParam[A]))
 			}
-			case _ =>
+			case _                    =>
 				new PassedArrayPlus(elems.toArray(ClassTag(classOf[AnyRef]).castParam[A]))
 		}
 		case _ =>
@@ -1212,6 +1217,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 			else new PassedArrayPlus(i.toArray(classTag[AnyRef].asInstanceOf[ClassTag[A]]))
 	}
 
+	//this method is referenced dynamically by name in package object collections
 	implicit def from[A](array :IArray[A]) :PassedArray[A] = new PassedArrayPlus(array.asInstanceOf[Array[A]])
 
 	override def empty[A] :PassedArray[A] = Empty
@@ -1436,7 +1442,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 		private final def addOptimistic(xs :IterableOnce[A]) :this.type = {
 			val rollbackSize = knownSize
 			try { super.addAll(xs) } catch {
-				case _ :ClassCastException =>
+				case _ :ClassCastException | _ :ArrayStoreException =>
 					optimistic = false
 					_elementType = classOf[Any].castParam[A]
 					knownSize = rollbackSize

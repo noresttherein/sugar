@@ -9,7 +9,7 @@ import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDe
 import net.noresttherein.sugar.numeric.Ratio.LongNumerator
 import net.noresttherein.sugar.numeric.SafeInt.SafeIntConversion
 import net.noresttherein.sugar.numeric.SafeLong.SafeLongConversion
-import net.noresttherein.sugar.numeric.extensions.{BigDecimalIsFractional, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharObjectExtension, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, LongExtension, LongObjectExtension, OrderedExtension, ShortExtension, ShortObjectExtension}
+import net.noresttherein.sugar.numeric.extensions.{BigDecimalIsFractional, BooleanExtension, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharExtension, CharObjectExtension, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, LongExtension, LongObjectExtension, OrderedExtension, ShortExtension, ShortObjectExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 
 
@@ -37,8 +37,10 @@ trait extensions extends Any {
 		if (math == MathContext.DECIMAL128) extensions.BigDecimal128IsFractional
 		else new BigDecimalIsFractional
 
+	@inline implicit final def booleanExtension(self :Boolean) :BooleanExtension = new BooleanExtension(self)
 	@inline implicit final def byteExtension(self :Byte) :ByteExtension = new ByteExtension(self)
 	@inline implicit final def shortExtension(self :Short) :ShortExtension = new ShortExtension(self)
+	@inline implicit final def charExtension(self :Char) :CharExtension = new CharExtension(self)
 	@inline implicit final def intExtension(self :Int) :IntExtension = new IntExtension(self)
 	@inline implicit final def longExtension(self :Long) :LongExtension = new LongExtension(self)
 	@inline implicit final def floatExtension(self :Float) :FloatExtension = new FloatExtension(self)
@@ -80,11 +82,25 @@ trait extensions extends Any {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
+	/** Conversions from a `Boolean` to a `0` or `1` in various integral value types. */
+	class BooleanExtension private[extensions] (private val self :Boolean) extends AnyVal {
+		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
+		@inline final def toByte :Int = if (self) 1.toByte else 0.toByte
+		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
+		@inline final def toShort :Short = if (self) 1.toByte else 0.toByte
+		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
+		@inline final def toInt :Int = if (self) 1 else 0
+		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
+		@inline final def toLong :Long = if (self) 1L else 0L
+		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
+		@inline final def toNatural :Natural = if (self) 1.toNatural else 0.toNatural
+	}
+
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class ByteExtension(private val self :Byte) extends AnyVal {
+	class ByteExtension private[extensions] (private val self :Byte) extends AnyVal {
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Byte) :Int = math.max(self, other)
 
@@ -101,7 +117,7 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class ShortExtension(private val self :Short) extends AnyVal {
+	class ShortExtension private[extensions] (private val self :Short) extends AnyVal {
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Short) :Int = math.max(self, other)
 
@@ -118,7 +134,24 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class IntExtension(private val self :Int) extends AnyVal {
+	class CharExtension private[extensions] (private val self :Char) extends AnyVal {
+		/** Returns `this max other`. */
+		@inline def atLeast(other :Char) :Int = math.max(self, other)
+
+		/** Returns `this min other`. */
+		@inline def atMost(other :Char) :Int = math.min(self, other)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative.
+		  */
+		@inline def toNatural :Natural = Natural(self)
+	}
+
+	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * "not more than n" and "at least n", which is the opposite of what those functions do.
+	  */
+	class IntExtension private[extensions] (private val self :Int) extends AnyVal {
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(self)
 
@@ -155,7 +188,7 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class LongExtension(private val self :Long) extends AnyVal {
+	class LongExtension private[extensions] (private val self :Long) extends AnyVal {
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(self)
 
@@ -192,7 +225,7 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class FloatExtension(private val self :Float) extends AnyVal {
+	class FloatExtension private[extensions] (private val self :Float) extends AnyVal {
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Float) :Float = math.max(self, other)
 
@@ -210,7 +243,7 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class DoubleExtension(private val self :Double) extends AnyVal {
+	class DoubleExtension private[extensions] (private val self :Double) extends AnyVal {
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Double) :Double = math.max(self, other)
 

@@ -17,6 +17,7 @@ object IndexedSetSpec
 	implicit override def longEvidence   :Ordering[Long] = Ordering.Long
 	implicit override def stringEvidence :Ordering[String] = Ordering.String
 	implicit override def intSEvidence   :Ordering[SortedSet[Int]] = Ordering.Implicits.sortedSetOrdering
+	implicit override def intCEvidence   :Ordering[IndexedSet[Int]] = Ordering.Implicits.sortedSetOrdering
 	implicit override def pairEvidence[A :Ordering, B :Ordering] :Ordering[(A, B)] = Ordering.Tuple2
 
 	override def knowsSize = true

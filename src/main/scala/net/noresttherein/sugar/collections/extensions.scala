@@ -16,7 +16,7 @@ import scala.util.Random
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
 import net.noresttherein.sugar.collections.IArray.{BooleanIArrayExtension, ByteIArrayExtension, CharIArrayExtension, DoubleIArrayExtension, FloatIArrayExtension, GenericIArrayExtension, IArrayExtension, IntIArrayExtension, LongIArrayExtension, RefIArrayExtension, ShortIArrayExtension}
 import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayObjectExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, MapExtension, MapObjectExtension, SeqExtension, SeqFactoryExtension, SetFactoryExtension, StepperExtension, StepperObjectExtension}
-import net.noresttherein.sugar.extensions.saferCasting
+import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -164,8 +164,13 @@ trait extensions extends Any with extensionsLowPriority with IArrayRank1Extensio
 //	@inline implicit final def immutableArrayExtension[X](self :IArray[X]) :IArrayExtension[X] =
 //		new IArrayExtension(self.asInstanceOf[Array[X]])
 
+	/** Main extension methods for `IArray`, which do not require (manual) specialization. */
 	@inline implicit def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
 		new IArrayExtension(array.asInstanceOf[Array[E]])
+
+	/** Adapts (casts) a `ClassTag` for an `Array[E]` to an `IArray[E]`. */
+	@inline implicit def IArrayClassTag[E](implicit tag :ClassTag[Array[E]]) :ClassTag[IArray[E]] =
+		tag.castParam[IArray[E]]
 
 
 	/** An [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] method
@@ -1362,6 +1367,7 @@ object extensions extends extensions {
 	  * The common theme is performing mapping with help of a passed state/accumulator value.
 	  */
 	class IterableExtension[C[X], E] private[extensions](private val self :IterableOps[E, C, C[E]]) extends AnyVal {
+
 		/** Maps this collection from left to right with an accumulating state updated by the mapping function.
 		  * The state is discarded after the operation and only the mapping results (the second elements
 		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
@@ -1740,6 +1746,10 @@ object extensions extends extensions {
 
 		/** An immutable array with the contents of this collection. */
 		def toIArray[A >: E :ClassTag] :IArray[E] = self.toArray[A].asInstanceOf[IArray[E]]
+
+		/** Creates an `Array[AnyRef]` with elements of this collection, and passes it as an `Array[E]`. */
+		def toRefArray[A >: E] :Array[E] = self.toArray[Any].asInstanceOf[Array[E]]
+
 	}
 
 
@@ -1833,6 +1843,24 @@ object extensions extends extensions {
 			}
 			self.iterableFactory.from(ArraySeq.unsafeWrapArray(result))
 		}
+
+		/** The reverse of [[scala.collection.IterableOnceOps.slice slice]]: cuts out a segment of this collection
+		  * with elements starting with element `from` and ending before `until`.
+		  * For indices in range, it is equivalent to `this.take(from) ++ this.drop(until)`, but possibly faster.
+		  * Specifying `until <= from` results in returning the same collection.
+		  */
+		//There is no good way of implementing it to return C, because we know nothing about it, and, for all we know,
+		// it is possible that self is not an instance of C - ArrayAsSeq, for example. We don't even know if C is a Seq.
+		def splice(from :Int, until :Int) :CC[E] =
+			if (until <= 0 | until <= from)
+				self.drop(0)
+			else {
+				val size = self.knownSize
+				if (size >= 0 && from >= size)
+					self.drop(0)
+				else
+					self.patch(from, Nil, until - Math.max(from, 0))
+			}
 
 		/** Finds the location of the given element in this sequence, returning its index as an `Opt`.
 		  * @param x    the element, whose index is to be determined.
@@ -2453,6 +2481,12 @@ object extensions extends extensions {
 			case composed :ComposedBuilder[E, _, _, C] => composed.mapInput(f)
 			case _ => new ComposedBuilder(self, f, identity[C])
 		}
+
+		/** Same as `this.sizeHint(hint); this`, for convenience. */
+		@inline def hinted(size :Int) :Builder[E, C] = { self sizeHint size; self }
+
+		/** Same as `this.sizeHint(coll, delta); this`, for convenience. */
+		@inline def hinted(coll :IterableOnce[_], delta :Int = 0) :Builder[E, C] = { self.sizeHint(coll, delta); self }
 	}
 
 
@@ -2723,9 +2757,25 @@ object extensions extends extensions {
 	  * and some adapters of methods in [[java.util.Arrays]].
 	  */
 	sealed trait ArrayObjectExtension extends Any {
-		/** An unitialized array with the specified element type and length. */
-		def of[E](elemType :Class[E], capacity :Int) :Array[E] =
+		/** An uninitialized array with the specified element type and length. */
+		final def of[E](elemType :Class[E], capacity :Int) :Array[E] =
 			java.lang.reflect.Array.newInstance(elemType, capacity).asInstanceOf[Array[E]]
+
+		/** An erased (backed by `Object[]`) single element array. */
+		final def erased[E](elem :E) :Array[E] = {
+			val res = new Array[Any](1)
+			res(0) = elem
+			res.asInstanceOf[Array[E]]
+		}
+
+		/** An erased (backed by `Object[]`) array with the given elements. */
+		final def erased[E](first :E, second :E, rest :E*) :Array[E] = {
+			val res = new Array[Any](rest.length + 2).asInstanceOf[Array[E]]
+			res(0) = first
+			res(1) = second
+			rest.copyToArray(res, 2)
+			res
+		}
 
 		/** A single element `Array[E]`. */
 		final def one[E :ClassTag](elem :E) :Array[E] = {
@@ -2798,6 +2848,88 @@ object extensions extends extensions {
 		}
 		/** A single element `Array[Double]`. */
 		@inline final def single(elem :Double) :Array[Double] = one(elem)
+
+		/** A single element `Array[Boolean]`. */
+		@inline final def single(elem :Boolean) :Array[Boolean] = one(elem)
+		
+		/** A single element `Array[Boolean]`. */
+		final def one(elem :Boolean) :Array[Boolean] = {
+			val res = new Array[Boolean](1)
+			res(0) = elem
+			res
+		}
+
+		/** A two element array of element type defined by the implicit `ClassTag`. */
+		final def two[E :ClassTag](first :E, second :E) :Array[E] = {
+			val res = new Array[E](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Byte]` of two elements. */
+		final def two(first :Byte, second :Byte) :Array[Byte] = {
+			val res = new Array[Byte](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Short]` of two elements. */
+		final def two(first :Short, second :Short) :Array[Short] = {
+			val res = new Array[Short](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Char]` of two elements. */
+		final def two(first :Char, second :Char) :Array[Char] = {
+			val res = new Array[Char](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Int]` of two elements. */
+		final def two(first :Int, second :Int) :Array[Int] = {
+			val res = new Array[Int](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Long]` of two elements. */
+		final def two(first :Long, second :Long) :Array[Long] = {
+			val res = new Array[Long](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Float]` of two elements. */
+		final def two(first :Float, second :Float) :Array[Float] = {
+			val res = new Array[Float](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Double]` of two elements. */
+		final def two(first :Double, second :Double) :Array[Double] = {
+			val res = new Array[Double](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
+
+		/** An `Array[Boolean]` of two elements. */
+		final def two(first :Boolean, second :Boolean) :Array[Boolean] = {
+			val res = new Array[Boolean](2)
+			res(0) = first
+			res(1) = second
+			res
+		}
 
 		/** A complement of `Array.iterate` and `Array.unfold` provided by `Array` object, which creates
 		  * an `Array[X]` by recursively applying a partial function while defined to its own results and collecting

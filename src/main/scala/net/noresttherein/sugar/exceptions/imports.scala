@@ -249,6 +249,13 @@ trait imports {
 	/** Throws an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].  */
 	@inline final def impossible_!(msg :String) :Nothing = throw new ImpossibleError(msg)
 
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	@inline final def outOfBounds_!(idx :Int, size :Int) :Nothing =
+		throw new IndexOutOfBoundsException(idx.toString + " out of " + size)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	@inline final def outOfBounds(msg :String) :Nothing =
+		throw new IndexOutOfBoundsException(msg)
 
 
 

@@ -54,7 +54,7 @@ object extensions extends extensions {
 
 
 	/** Matching pattern unboxing Java primitive box classes and a boxing class conversion. */
-	final class Boxer private[reflect] {
+	final class Boxer private[reflect] extends Serializable {
 		/** If `clss` is a Java primitive type, return its specific box class. Otherwise return the argument itself. */
 		def apply(clss :Class[_]) :Class[_] =
 			if (clss.isPrimitive) clss.boxed else clss

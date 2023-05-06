@@ -90,7 +90,8 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
   *
   * This class is very similar to generic [[net.noresttherein.sugar.collections.ZigZag ZigZag]],
   * but exposes API dedicated to concatenating `String`s and some other methods specific to `Char`,
-  * as covariance of `Seq` forces boxing of elements.
+  * as covariance of `Seq` forces boxing of elements. It differs from a [[scala.collection.StringView StringView]]
+  * in that all mapping operations are strict.
   */
 sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] {
 //	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap

@@ -502,9 +502,9 @@ trait MultiSetFactory[+M[A] <: MultiSetOps[A, M]] extends IterableFactory[M] {
 object MultiSet extends MultiSetFactory[MultiSet] {
 
 	override def from[A](source :IterableOnce[A]) :MultiSet[A] = source match {
-		case empty :Iterable[A] if empty.isEmpty => this.empty[A]
 		case multi :MultiSet[A @unchecked] => multi
-		case one   :Iterable[A] if one.sizeIs == 1 => single(one.head, 1)
+		case empty :Iterable[A] if empty.knownSize == 0 => this.empty[A]
+		case one   :Iterable[A] if one.knownSize == 1 => single(one.head, 1)
 		case set   :HashSet[A] => new Unique(set)
 		case _ => (newBuilder[A] ++= source).result()
 	}

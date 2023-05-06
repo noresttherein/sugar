@@ -2,18 +2,18 @@ package net.noresttherein.sugar.collections
 
 import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Test}
 import org.scalacheck.commands.Commands
-import scala.collection.{mutable, IterableFactory, Stepper}
+import scala.collection.{IterableFactory, SeqFactory, Stepper, mutable}
 import scala.collection.immutable.{ArraySeq, SeqOps}
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.util.{Success, Try}
 
-import net.noresttherein.sugar.collections.IterableProps.{filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value, Filter, FlatMap, Fold, FoldSide, Map}
+import net.noresttherein.sugar.collections.IterableProps.{Filter, FlatMap, Fold, FoldSide, Map, filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value}
 import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension, classNameMethods}
 import net.noresttherein.sugar.tuples.extensions.tuple2Extension
 import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
-import org.scalacheck.Prop.{all, forAll, AnyOperators}
+import org.scalacheck.Prop.{AnyOperators, all, forAll}
 import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 
@@ -21,7 +21,7 @@ import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 object PassedArraySpec extends SeqProps[PassedArray]("PassedArray") {
 //	override def referenceFactory = Seq
-	override def checkedFactory = PassedArray
+	override def checkedFactory :SeqFactory[PassedArray] = PassedArray
 
 	//todo: tests of appends on non-owning instances
 	//todo: tests of section, including appends

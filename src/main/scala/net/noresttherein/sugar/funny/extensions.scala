@@ -99,6 +99,20 @@ object extensions extends extensions {
 			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
 			if (y.asAnyRef eq Fallback) Lack else Got(y)
 		}
+
+		/** Equivalent to `(this andThen f).applyOrElse(x, default)`, but without constructing an intermediate function. */
+		def applyAndThenOrElse[O](x :X, f :Y => O, default :X => O) :O = {
+			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
+			if (y.asAnyRef eq Fallback) default(x)
+			else f(y)
+		}
+
+		/** Equivalent to `(this andThen f).applyOrElse(x, default)`, but without constructing an intermediate function. */
+		def applyAndThenOrElse[O](x :X, f :PartialFunction[Y, O], default :X => O) :O = {
+			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
+			if (y.asAnyRef eq Fallback) default(x)
+			else f(y)
+		}
 	}
 
 	class HomoPartialFunctionExtension[X] private[funny] (private val self :PartialFunction[X, X]) extends AnyVal {

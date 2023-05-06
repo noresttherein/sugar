@@ -23,8 +23,8 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *      `P` is a label path type and `L` is a `Label` (a `String` literal type).
   *
   * Aside from its implicit witness nature, this type class actually provides the path instance it is parameterized with.
-  * It is used in places where a (mapping) identifier is needed and must be composed of label identifiers
-  * of individual mappings. There are two subtypes of this type:
+  * It is used in places where an identifier must be composed of label identifiers of individual identifiers,
+  * typically to access subcomponents of some component indexed with labels. There are two subtypes of this type:
   *   1. [[net.noresttherein.sugar.util.LabelPath.~/ ~/]], the type class for any
   *      `String` literal type representing an atomic label;
   *   1. [[net.noresttherein.sugar.util.LabelPath./ /]], the type of compound paths composed of several labels.
@@ -34,7 +34,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *      The polymorphism provided by the type class interface is unfortunately limited to cases where the label type
   *      is specified explicitly, as the compiler will never infer a literal type in place of `String`
   *      unless a singleton type is expected, introducing the need for explicit overloads of methods accepting a `Label`
-  *      and a `LabelPath`. Importing the [[net.noresttherein.sugar.util.LabelPath./ /]] type
+  *      and a `LabelPath`. Importing type [[net.noresttherein.sugar.util.LabelPath.Label Label]] type
   *      imports also an implicit conversion from any string literal to `~/`, allowing their use directly
   *      as `LabelPath` values.
   *
@@ -48,12 +48,12 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @tparam P a path type - either a `Label`, or one or more `/` instances appending new labels to the first one.
   * @see [[net.noresttherein.sugar.util.LabelPath.Label]]
   * @see [[net.noresttherein.sugar.util.LabelPath./]]
-  */ //consider :renaming to KeyPath (and Label to Key), LiteralPath or even just Path
+  */ //consider: making it a value class wrapping a PassedArray, like in Scala 3 tuples.
 sealed trait LabelPath[P] extends Any with LabelPathPrefix {
 
 	/** The instance of the path type `P` */
 	def path :P
-
+	//todo: make these two extension methods, so they have specific types if P is known.
 	/** The last label in this path. */
 	def last :Label
 
@@ -73,16 +73,15 @@ sealed trait LabelPath[P] extends Any with LabelPathPrefix {
 	def init :LabelPathPrefix
 
 	/** Creates a new path consisting of this path followed by the given label. */
-	@inline final override def /[N <: Label](next :N) :P / N = new /(this, next)
+	@inline final def /[N <: Label](next :N) :P / N = new /(this, next)
 
-//	/** Creates a new path being an inlined concatenation of this path and the given suffix path `next`. */
-//	@inline final def /[S](next :LabelPath[S])(implicit concat :Concat[P, S]) :concat.Path =
-//		concat.path(path, next)
-
-	/** Creates a new path being an inlined concatenation of this path and the given suffix path `next`. */
+	/** Creates a new path being an inlined concatenation of this path and the given suffix path `next`.
+	  * The return type is calculated by the implicit `Concat` type class based on types `P` and `S`.
+	  * This type class is always present, even if `P` and/or `S` are abstract types, in which case
+	  * the return type is `LabelPath[_]`.
+	  */
 	@inline final def /[S](next :LabelPath[S])(implicit concat :Concat[P, S]) :concat.Path =
-//		concat.typeClass(path, next.path)
-		concat.path(path, next.path)
+		concat.safe(this, next)
 
 	/** Splits this path into its ''first'' label, and a path with the following labels. */
 	@inline final def split(implicit split :Split[P]) :(split.First, split.Suffix) =
@@ -132,7 +131,7 @@ object LabelPath {
 	  */
 	def fromPath[P](path :P) :Opt[LabelPath[P]] = path match {
 		case path :LabelPath[P @unchecked] => Got(path)
-		case label :String => Got(new ~/[label.type](label).asInstanceOf[LabelPath[P]])
+		case label :String => Got(new ~/[label.type](label).castFrom[~/[label.type], LabelPath[P]])
 		case _ => Lack
 	}
 
@@ -186,7 +185,7 @@ object LabelPath {
 	  * ([[net.noresttherein.sugar.util.LabelPath.~/ ~/]]). Otherwise each its occurrence delimits the next
 	  * label in the path.
 	  * @param path a non empty `String`.
-	  * @param separator any character to use as a separator (`/` if not specified).
+	  * @param separator any character to use as a separator.
 	  */
 	@throws[IllegalArgumentException]("if path is an empty String or contains two consecutive occurrences of the separator.")
 	def parse(path :String, separator :String) :LabelPath[_] =
@@ -197,7 +196,7 @@ object LabelPath {
 
 
 	/** A common super type of [[net.noresttherein.sugar.util.LabelPath LabelPath]]
-	  * and constructor object [[net.noresttherein.sugar.util.LabelPath.~/$ ~/]],
+	  * and factory object [[net.noresttherein.sugar.util.LabelPath.~/$ ~/]],
 	  * serving as a 'possibly empty path'.
 	  */
 	sealed trait LabelPathPrefix extends Any with Serializable {
@@ -218,11 +217,6 @@ object LabelPath {
 			case ~/ => 0
 		}
 
-		/** Creates a new path consisting of this path followed by the given label. */
-		def /[N <: Label](next :N) :LabelPath[_]
-//		def /(next :LabelPath[_]) :LabelPath[_] = unsafeConcat(this, next).typeClass
-//
-//		def /(next :LabelPathPrefix) :LabelPathPrefix = unsafeConcat(this, next).path
 
 		/** A prefix of this path consisting of
 		  * `this.`[[net.noresttherein.sugar.util.LabelPath.LabelPathPrefix.length length]]` - labels` labels.
@@ -246,7 +240,18 @@ object LabelPath {
 		/** A sequence of labels in this path/path prefix, starting with the first one (on the bottom), and ending
 		  * with the last (outer) label.
 		  */
-		final def toSeq :Seq[Label] = toList
+		final def toSeq :Seq[Label] = this match {
+			case path :LabelPath[_] =>
+				val res = new Array[Label](length)
+				@tailrec def rec(prefix :LabelPath[_], i :Int) :Unit = (prefix: @unchecked) match {
+					case init / last => res(i) = last; rec(init, i - 1)
+					case ~/(first)   => res(i) = first
+				}
+				rec(path, res.length - 1)
+				ArraySeq.unsafeWrapArray(res)
+			case _ =>
+				ArraySeq.empty
+		}
 
 		/** A sequence of labels in this path/path prefix, starting with the first one (on the bottom), and ending
 		  * with the last (outer) label.
@@ -299,10 +304,60 @@ object LabelPath {
 
 	@SerialVersionUID(Ver)
 	object LabelPathPrefix {
-//		implicit val labelPathPrefixIsLabelPathPrefix :IsLabelPathPrefix[LabelPathPrefix] =
-//			new IsLabelPathPrefix[LabelPathPrefix] {
-//				override def apply(path :LabelPathPrefix) :LabelPathPrefix = path
-//			}
+		/** Creates a `LabelPathPrefix` consisting of labels equal to the strings in the given collection,
+		  * in the same order.
+		  */
+		@throws[IllegalArgumentException]("if path contains an empty string.")
+		def fromSeq(path :Seq[String]) :LabelPathPrefix =
+			if (path.isEmpty) ~/
+			else LabelPath.fromSeq(path)
+
+		/** Creates a `LabelPrefix` for a given `String` representation.
+		  * If the string is empty, or consists only of the separator, [[net.noresttherein.sugar.util.LabelPath.~/$ ~/]]
+		  * is returned. Otherwise, if the separator character does not occur in the input `String`,
+		  * the returned path will be an atomic instance ([[net.noresttherein.sugar.util.LabelPath.~/ ~/]]).
+		  * Otherwise each its occurrence delimits the next label in the path.
+		  */
+		@throws[IllegalArgumentException]("if path contains two consecutive occurrences of the separator.")
+		def parse(path :String, separator :Char = '/') :LabelPathPrefix =
+			if (path.length == 0 || path.length == 1 && path.charAt(0) == separator)
+				~/
+			else
+				LabelPath.parse(path, separator)
+
+		/** Creates a `LabelPrefix` for a given `String` representation.
+		  * If the string is empty, or consists only of the separator, [[net.noresttherein.sugar.util.LabelPath.~/$ ~/]]
+		  * is returned. Otherwise, if the separator character does not occur in the input `String`,
+		  * the returned path will be an atomic instance ([[net.noresttherein.sugar.util.LabelPath.~/ ~/]]).
+		  * Otherwise each its occurrence delimits the next label in the path.
+		  */
+		@throws[IllegalArgumentException]("if path is an empty String or contains two consecutive occurrences of the separator.")
+		def parse(path :String, separator :String) :LabelPathPrefix =
+			if (path.length == 0 || path == separator)
+				~/
+			else
+				LabelPath.parse(path, separator)
+
+
+		//As extension methods, because due to simpler signatures, they confuse the compiler
+		// if placed in LabelPathPrefix and left operand is a LabelPath
+		/** Extension methods for [[net.noresttherein.sugar.util.LabelPath.LabelPathPrefix LabelPathPrefix]]
+		  * implementing unchecked concatenation.
+		  */
+		implicit class LabelPathPrefixExtension(private val self :LabelPathPrefix) extends AnyVal {
+			/** Creates a new path consisting of this path followed by the given label. */
+			def /(next :Label) :LabelPath[_] =
+				Concat.unsafeConcat[LabelPathPrefix, Label].path(self, next)
+
+			/** Creates a new path consisting of this path followed by the given path. */
+			def /(next :LabelPath[_]) :LabelPath[_] =
+				Concat.unsafeConcat[LabelPathPrefix, LabelPath[_]].path(self, next)
+
+			/** Creates a new path consisting of this path followed by the given path or an empty prefix. */
+			def /(next :LabelPathPrefix) :LabelPathPrefix =
+				Concat.unsafeConcat[LabelPathPrefix, LabelPathPrefix].unchecked(self, next)
+		}
+
 
 		@SerialVersionUID(Ver)
 		implicit object ordering extends math.Ordering[LabelPathPrefix] {
@@ -343,14 +398,9 @@ object LabelPath {
 	  * of `L `[[net.noresttherein.sugar.util.LabelPath./ /]]` K`, rather than `~/[L] / K`.
 	  */
 	@SerialVersionUID(Ver)
-	class ~/[L <: Label] private[LabelPath] (override val path :L)
-		extends AnyVal with LabelPath[L]// with Concat[~/.type, L]
-	{
+	class ~/[L <: Label] private[LabelPath] (override val path :L) extends AnyVal with LabelPath[L] {
 		override def init: ~/.type = ~/
 		override def last: L = path
-//		override type Path = L
-//		override def typeClass :LabelPath[L] = this
-//		override def unchecked :LabelPathPrefix = this
 	}
 
 	/** An empty `LabelPathPrefix` and a factory/pattern for single element paths.
@@ -360,13 +410,15 @@ object LabelPath {
 	  */ //consider: a different name, because it is never an actual path prefix, just a stand alone quasi path
 	@SerialVersionUID(Ver)
 	object ~/ extends LabelPathPrefix {
+		/** Creates a singleton `LabelPath` for the given `Label`. */
 		def apply[N <: Label](label :N): ~/[N] =
 			if (label.length == 0)
 				throw new IllegalArgumentException("Cannot create a LabelPath for an empty label.")
 			else
 				new ~/(label)
 
-		override def /[N <: Label](label :N) : ~/[N] = apply(label)
+		/** Creates a singleton `LabelPath` for the given `Label`. Same as `apply`. */
+		@inline def /[N <: Label](label :N) : ~/[N] = apply(label)
 
 		def unapply[P](path :LabelPath[P]) :Opt[P with Label] = path match {
 			case atom: ~/[_] => Got(atom.last.asInstanceOf[P with Label])
@@ -378,10 +430,6 @@ object LabelPath {
 			case _ => Lack
 		}
 	}
-//	/** A reference to [[net.noresttherein.sugar.util.LabelPath.~/ ~/]] for use in pattern matching
-//	  * ( `~/` is interpreted as a type variable).
-//	  */
-//	final val Empty: ~/.type = ~/
 
 
 
@@ -391,18 +439,15 @@ object LabelPath {
 	  * @tparam L the label being the last element of this path.
 	  */
 	@SerialVersionUID(Ver) @showAsInfix
-	sealed class /[P, L <: Label] private[util] (override val init :LabelPath[P], override val last :L)
-		extends LabelPath[P / L]// with Concat[P, L]
+	final class /[P, L <: Label] private[util] (override val init :LabelPath[P], override val last :L)
+		extends LabelPath[P / L]
 	{
 		if (last.length == 0)
 			throw new IllegalArgumentException("Empty path element: " + init + "/" + "''.")
 
 		def prefix :P = init.path
 
-//		override type Path = P / L
 		override def path :P / L = this
-//		override def typeClass :P / L = this
-//		override def unchecked :LabelPathPrefix = this
 
 		override def equals(that :Any) :Boolean = that match {
 			case self :AnyRef if self eq this => true
@@ -466,31 +511,6 @@ object LabelPath {
 
 
 
-//	/** A type class witnessing that `P` is a [[net.noresttherein.sugar.util.LabelPath.LabelPathPrefix LabelPathPrefix]].
-//	  * Implicit values exist for */
-//	sealed trait IsLabelPathPrefix[-P] extends Serializable {
-//		def apply(path :P) :LabelPathPrefix
-//	}
-//	sealed trait IsLabelPath[P] extends Serializable {
-//		def apply(path :P) :LabelPath[P]
-//	}
-////	implicit def singletonIsLabelPath[A <: Label] :IsLabelPathPrefix[~/[A]] = singletonIsLabelPathPrefix.castParam[~/[A]]
-//	implicit def labelIsLabelPath[A <: Label] :IsLabelPath[A] = labelIsLabelPathPrefix.castParam[A]
-//	implicit def concatIsLabelPath[A, B] :IsLabelPath[A / B] = concatIsLabelPathPrefix.castParam[A / B]
-//
-////	private[this] val pathIsLabelPath :IsLabelPath[LabelPath[_]] =
-////		new IsLabelPath[LabelPath[_]] {
-////			override def apply(path :LabelPath[_]) :LabelPath[_] = path
-////		}
-//	private[this] val labelIsLabelPathPrefix = new IsLabelPath[Label] {
-//		override def apply(path :Label) = ~/(path)
-//	}
-//	private[this] val concatIsLabelPathPrefix = new IsLabelPath[Label / Label] {
-//		override def apply(path :Label / Label) = path
-//	}
-//	private[this] val singletonIsLabelPathPrefix = new IsLabelPathPrefix[~/[Label]] {
-//		override def apply(path : ~/[Label]) :LabelPathPrefix = path
-//	}
 
 	/** Implicit value concatenating to path types `A` and `B` (types for which `LabelPath` type classes exist).
 	  * The result of the concatenation is another path type (an instance of `/`) specified by the `Path` member type.
@@ -498,12 +518,36 @@ object LabelPath {
 	  * the result of this concatenation - instances of this trait are actually also instances
 	  * of the concatenated `Path`.
 	  */
-	sealed trait Concat[A, B] extends Any with Serializable {
-		/** The result of concatenating label path types `A` and `B`. */
-		type Path //<: LabelPathPrefix
+	sealed trait Concat[A, B] extends Serializable {
+		/** The result of concatenating label path types `A` and `B`. If both `A` are either a `Label` or a `LabelPath`,
+		  * then `Result <:< LabelPath[Result]` and
+		  * `Result =:= `[[net.noresttherein.sugar.util.LabelPath.Concat.Path Path]]. However, if either is
+		  * an empty path prefix [[net.noresttherein.sugar.util.LabelPath.~/$ ~/.type]], then it might also be
+		  * a `Label`, or even `~/.type`.
+		  */
+		type Result
+		/** The type class for the concatenated path. If `A` and `B` are both either a `Label`s or a `LabelPath`,
+		  * then this type equals `Result`.
+		  */
+		type Path <: LabelPath[Result]
+
+		def apply(first :A, second :B) :Result
+
+		/** The type class for the path value returned by `apply`. When concatenating proper `LabelPath` instances
+		  * (including `Label`s), this is equivalent to `apply`, but the return type is a `LabelPath`
+		  * even in an unchecked (abstract) context.
+		  */
+		@throws[UnsupportedOperationException]("if A =:= ~/.type and B =:= ~/.type.")
 		def path(first :A, second :B) :Path
-		def typeClass(first :A, second :B) :LabelPath[Path]
+
+		/** Unchecked and safe concatenation working for any two `LabelPathPrefix` or `Label` instances. */
 		def unchecked(first :A, second :B) :LabelPathPrefix
+
+		/** Same as [[net.noresttherein.sugar.util.LabelPath.Concat.path path]]`(first.path, second.path)`,
+		  * but accepting the arguments as type classes guarantees that no exception is thrown, as this excludes
+		  * the possibility of providing an empty prefix as an argument.
+		  */
+		@inline final def safe(first :LabelPath[A], second :LabelPath[B]) :Path = path(first.path, second.path)
 	}
 
 	private[LabelPath] sealed abstract class UnsafeConcats extends Serializable {
@@ -516,10 +560,11 @@ object LabelPath {
 		  */
 		implicit def unsafeConcat[A, B] :Concat[A, B] = unsafeConcatPrototype.castFrom[Concat[Any, Any], Concat[A, B]]
 
-		private val unsafeConcatPrototype :Concat[Any, Any] = new Concat[Any, Any] {
-			override type Path = Any
+		private object unsafeConcatPrototype extends Concat[Any, Any] {
+			override type Result = Any
+			override type Path = LabelPath[Any]
 
-			override def path(first :Any, second :Any) =
+			override def apply(first :Any, second :Any) :Result =
 				(second: @unchecked) match {
 					case LabelPath.~/ => first match {
 						case path  :LabelPathPrefix => path //all implementation extend a Concat instance
@@ -533,7 +578,7 @@ object LabelPath {
 					case label:  String if first == ~/ =>
 						~/(label)
 					case p: /[_, _] => //init must be a path, so a non-empty Concat with non-throwing typeClass is returned by concat
-						typeClass(first, p.init) / p.last
+						path(first, p.init) / p.last
 					case single: ~/[_]   => cat(first, single)
 					case label:  String  => cat(first, ~/[label.type](label))
 				}
@@ -549,14 +594,14 @@ object LabelPath {
 			}
 
 			override def unchecked(first :Any, second :Any) :LabelPathPrefix =
-				(path(first, second): @unchecked) match {
+				(apply(first, second): @unchecked) match {
 					case prefix :LabelPathPrefix => prefix
 					case label :String => ~/(label)
 				}
 
-			override def typeClass(first :Any, second :Any) = path(first, second) match {
-				case path  :LabelPath[_] => path.asInstanceOf[LabelPath[Path]]
-				case label :String => ~/[label.type](label).asInstanceOf[LabelPath[Path]]
+			override def path(first :Any, second :Any) = apply(first, second) match {
+				case path  :LabelPath[_] => path.castParam[Result]
+				case label :String => ~/[label.type](label).castFrom[~/[label.type], LabelPath[Any]]
 				case _ => throw new UnsupportedOperationException(
 					"No LabelPath type class for an empty path prefix ~/"
 				)
@@ -566,110 +611,137 @@ object LabelPath {
 
 	private[LabelPath] sealed abstract class UntypedConcats extends UnsafeConcats {
 		implicit def untypedConcatLabelWithPath[A <: Label, B <: LabelPath[_]]
-				:Concat[A, B] { type Path <: /[_, _ <: Label] } =
-			untypedConcatLabelWithPathPrototype.asInstanceOf[Concat[A, B] { type Path <: /[_, _ <: Label] }]
-
-		private object untypedConcatLabelWithPathPrototype extends Concat[Label, LabelPath[_]] {
-			override type Path = Any / Label
-			override def path(first :Label, second :LabelPath[_]) :Path = ((second: @unchecked) match {
-				case ~/(single) => ~/(first) / single
-				case init / last => path(first, init) / last
-			}).asInstanceOf[Path]
-
-			override def typeClass(first :Label, second :LabelPath[_]) :LabelPath[Path] =
-				path(first, second).asInstanceOf[LabelPath[Path]]
-
-			override def unchecked(first :Label, second :LabelPath[_]) = path(first, second)
-		}
+				:Concat[A, B] { type Result = Path; type Path <: /[_, _ <: Label] } =
+			untypedConcatPrototype.asInstanceOf[Concat[A, B] { type Result = Path; type Path <: /[_, _ <: Label] }]
 
 		implicit def untypedConcatPathWithPath[A <: LabelPath[_], B <: LabelPath[_]]
-				:Concat[A, B] { type Path <: /[_, _ <: Label] } =
-			untypedPathConcatPrototype.asInstanceOf[Concat[A, B] { type Path <: /[_, _ <: Label] }]
+				:Concat[A, B] { type Result = Path; type Path <: /[_, _ <: Label] } =
+			untypedConcatPrototype.asInstanceOf[Concat[A, B] { type Result = Path; type Path <: /[_, _ <: Label] }]
 
-		private object untypedPathConcatPrototype extends Concat[LabelPath[_], LabelPath[_]] {
-			override type Path = Any / Label
-			override def path(first :LabelPath[_], second :LabelPath[_]) :Path = typeClass(first, second).path
-			override def unchecked(first :LabelPath[_], second :LabelPath[_]) :LabelPathPrefix = typeClass(first, second)
-			override def typeClass(first :LabelPath[_], second :LabelPath[_]) :LabelPath[Any / Label] =
-				((second: @unchecked) match {
-					case init / last => new /(typeClass(first, init), last)
-					case ~/(single) => new /(first, single)
-				}).castFrom[/[_, _], Any / Label]
+		@SerialVersionUID(Ver)
+		private object untypedConcatPrototype extends Concat[Any, LabelPath[_]] {
+			type Result = Any / Label
+			type Path = Any / Label
+
+			override def apply(first :Any, second :LabelPath[_]) :Path = ((second : @unchecked) match {
+				case init / last => apply(first, init) / last
+				case single: ~/[_] => single / single
+			}).asInstanceOf[Path]
+			override def path(first :Any, second :LabelPath[_]) :Any / Label = apply(first, second)
+			override def unchecked(first :Any, second :LabelPath[_]) :LabelPathPrefix = apply(first, second)
 		}
 	}
 
 	@SerialVersionUID(Ver)
 	object Concat extends UntypedConcats {
-		implicit object concatEmptyWithEmpty extends Concat[~/.type, ~/.type] {
-			override type Path = ~/.type
-			override def path(prefix: ~/.type, suffix: ~/.type) = ~/
-			override def typeClass(prefix: ~/.type, suffix: ~/.type) =
-				throw new UnsupportedOperationException("No LabelPath type class for an empty path prefix ~/.")
-			override def unchecked(prefix: ~/.type, suffix: ~/.type) = ~/
-		}
-		implicit def concatEmptyWithPath[P <: LabelPath[A], A] :Concat[~/.type, P] { type Path = A } =
-			new Concat[~/.type, P] {
-				override type Path = A
-				override def path(prefix: ~/.type, suffix :P) = suffix.path
-				override def typeClass(prefix: ~/.type, suffix :P) = suffix
-				override def unchecked(prefix: ~/.type, suffix :P) = suffix
-			}
-		implicit def concatEmptyWithLabel[A <: Label] :Concat[~/.type, A] { type Path = A } =
-			new Concat[~/.type, A] {
-				override type Path = A
-				override def path(prefix: ~/.type, suffix :A) = suffix
-				override def typeClass(prefix: ~/.type, suffix :A) = ~/(suffix)
-				override def unchecked(prefix: ~/.type, suffix :A) = ~/(suffix)
-			}
-		implicit def concatLabels[A <: Label, B <: Label] :Concat[A, B] { type Path = A / B } =
-			new Concat[A, B] {
-				override type Path = A / B
-				override def path(prefix :A, suffix :B) = ~/[A](prefix) / suffix
-				override def typeClass(prefix :A, suffix :B) = ~/[A](prefix) / suffix
-				override def unchecked(prefix :A, suffix :B) = ~/[A](prefix) / suffix
-			}
-		implicit def concatPathWithLabel[P <: LabelPath[A], A, B <: Label] :Concat[P, B] { type Path = A / B } =
-			new Concat[P, B] {
-				override type Path = A / B
-				override def path(prefix :P, suffix :B) = prefix / suffix
-				override def typeClass(prefix :P, suffix :B) = prefix / suffix
-				override def unchecked(prefix :P, suffix :B) = prefix / suffix
-			}
-		implicit def concatWithPath[A, B, C <: Label](implicit concat :Concat[A, B])
-				:Concat[A, B / C] { type Path = concat.Path / C } =
+		implicit def concatEmptyWithEmpty :Concat[~/.type, ~/.type] { type Result = ~/.type; type Path = Nothing } =
+			concatEmptyWithEmptyPrototype
+
+		implicit def concatEmptyWithSingleton[A <: Label] :Concat[~/.type, ~/[A]] { type Result = A; type Path = ~/[A] } =
+			concatEmptyWithPathPrototype.castFrom[
+				Concat[~/.type, LabelPath[_]], Concat[~/.type, ~/[A]] { type Result = A; type Path = ~/[A] }
+			]
+		implicit def concatEmptyWithComposite[A <: LabelPath[A]] :Concat[~/.type, A] { type Result = A; type Path = A } =
+			concatEmptyWithPathPrototype.castFrom[
+				Concat[~/.type, LabelPath[_]], Concat[~/.type, A] { type Result = A; type Path = Result }
+			]
+		implicit def concatEmptyWithLabel[A <: Label] :Concat[~/.type, A] { type Result = A; type Path = ~/[A] } =
+			concatEmptyWithLabelPrototype.castFrom[
+				Concat[~/.type, Label], Concat[~/.type, A] { type Result = A; type Path = ~/[A] }
+			]
+		implicit def concatLabelWithLabel[A <: Label, B <: Label]
+				:Concat[A, B] { type Result = A / B; type Path = Result } =
+			concatLabelWithLabelPrototype.castFrom[
+				Concat[Label, Label], Concat[A, B] { type Result = A / B; type Path = Result }
+			]
+		implicit def concatPathWithLabel[A <: LabelPath[A], B <: Label]
+				:Concat[A, B] { type Result = A / B; type Path = A / B } =
+			concatPathWithLabelPrototype.castFrom[
+				Concat[LabelPath[_], Label], Concat[A, B] { type Result = A / B; type Path = Result }
+			]
+		implicit def concatSingletonWithLabel[A <: Label, B <: Label]
+				:Concat[~/[A], B] { type Result = A / B; type Path = A / B } =
+			concatPathWithLabelPrototype.castFrom[
+				Concat[LabelPath[_], Label], Concat[~/[A], B] { type Result = A / B; type Path = Result }
+			]
+		//concat is refined to avoid depending on an unchecked type class which might throw an exception from path
+		implicit def concatPathWithPath[A, B, C <: Label](implicit concat :Concat[A, B] { type Result <: LabelPath[_] })
+				:Concat[A, B / C] { type Result = concat.Result / C; type Path = Result } =
 			new Concat[A, B / C] {
-				override type Path = concat.Path / C
-				override def path(prefix :A, suffix :B / C) = concat.typeClass(prefix, suffix.init.path) / suffix.last
-				override def typeClass(prefix :A, suffix :B / C) = path(prefix, suffix)
-				override def unchecked(prefix :A, suffix :B / C) = path(prefix, suffix)
+				override type Result = concat.Result / C
+				override type Path   = concat.Result / C
+				override def apply(prefix :A, suffix :B / C) = concat.path(prefix, suffix.init.path) / suffix.last
+				override def path(prefix :A, suffix :B / C) = apply(prefix, suffix)
+				override def unchecked(prefix :A, suffix :B / C) = apply(prefix, suffix)
 			}
+
+		private abstract class ConcatEmpty[B] extends Concat[~/.type, B] {
+			override type Result = B
+			override def apply(prefix: ~/.type, suffix: B) = suffix
+			override def unchecked(prefix: ~/.type, suffix: B) :LabelPathPrefix = path(prefix, suffix)
+		}
+		@SerialVersionUID(Ver)
+		private object concatEmptyWithEmptyPrototype extends ConcatEmpty[~/.type] {
+			override type Path = Nothing
+			override def unchecked(prefix: ~/.type, suffix: ~/.type) = ~/
+			override def path(prefix: ~/.type, suffix: ~/.type) =
+				throw new UnsupportedOperationException("No LabelPath type class for an empty path prefix ~/.")
+		}
+		@SerialVersionUID(Ver)
+		private object concatEmptyWithPathPrototype extends ConcatEmpty[LabelPath[_]] {
+			override type Path = LabelPath[Result]
+			override def path(prefix: ~/.type, suffix: LabelPath[_]) = suffix.castParam[Result]
+		}
+		@SerialVersionUID(Ver)
+		private object concatEmptyWithLabelPrototype extends ConcatEmpty[Label] {
+			override type Path = ~/[Label]
+			override def path(prefix: ~/.type, suffix: Label) = ~/(suffix)
+		}
+		private abstract class ConcatWithLabel[A, B <: Label] extends Concat[A, B] {
+			override type Result <: LabelPath[Result]
+			override type Path = Result
+			override def path(first :A, second :B) = apply(first, second)
+			override def unchecked(first :A, second :B)  = apply(first, second)
+		}
+		@SerialVersionUID(Ver)
+		private object concatLabelWithLabelPrototype extends ConcatWithLabel[Label, Label] {
+			override type Result = Label / Label
+			override def apply(first :Label, second :Label) = ~/[Label](first) / second
+		}
+		@SerialVersionUID(Ver)
+		private object concatPathWithLabelPrototype extends ConcatWithLabel[LabelPath[_], Label] {
+			override type Result = Any / Label
+			override def apply(first :LabelPath[_], second :Label) =
+				(first / second).castFrom[_ / Label, Any / Label]
+		}
 	}
-//		new /[concat.Path, C](concat.typeClass, valueOf[C]).asInstanceOf[Concat[A, B / C] { type Path = concat.Path / C }]
 
 
-	/** Implicit value splitting a path in the form of `L0 /.../ Ln` for some `n >= 2` into its ''first'' label `L0`
-	  * and a `LabelPath[L1 / ... / Ln]`.
+
+
+	/** Implicit type class splitting a path in the form of `L0 /.../ Ln` for some `n >= 0`
+	  * into its ''first'' label `L0` and a `LabelPath[L1 / ... / Ln]`, unless `P <: Label`, in which case
+	  * [[net.noresttherein.sugar.util.LabelPath.Split.Suffix Suffix]] `=:=` [[net.noresttherein.sugar.util.LabelPath.~/$.type ~/.type]].
 	  */
 	sealed abstract class Split[P] extends Serializable {
 		type First <: Label
 		type Suffix
 
 		def first(path :P) :First
+		@throws[UnsupportedOperationException]("if P is a Label (and Suffix is ~/.type).")
 		def suffix(path :P) :LabelPath[Suffix]
 		def apply(path :P) :(First, Suffix)
 		def join(first :First, suffix :Suffix) :LabelPath[P]
 	}
 
 
-	private[LabelPath] sealed abstract class UnsafeSplits extends Serializable {
-
-	}
-	private[LabelPath] sealed abstract class UntypedSplits extends UnsafeSplits {
+	private[LabelPath] sealed abstract class UntypedSplits {
 		//We don't care that A may be anything, because the argument is always A / B, which enforces validity
 		implicit def untypedSplitPath[A, B <: Label] :Split[A / B] =
 			untypedSplitPathPrototype.asInstanceOf[Split[A / B]]
 
-		private[this] val untypedSplitPathPrototype = new Split[Any / Label] {
+		@SerialVersionUID(Ver)
+		private object untypedSplitPathPrototype extends Split[Any / Label] {
 			override type First = Label
 			override type Suffix = LabelPath[_]
 
@@ -691,20 +763,6 @@ object LabelPath {
 				}
 			override def join(first :Label, suffix :LabelPath[_]) =
 				Concat.untypedConcatLabelWithPath[Label, LabelPath[_]].path(first, suffix).asInstanceOf[Any / Label]
-//			suffix match {
-//				case ~/(single) => ~/(first) / single
-//				case init / last => join(first, init) / last
-//			}
-//			(first: @unchecked) match {
-//				case path :LabelPath[_] => (path / suffix).asInstanceOf[Any / Label]
-//				case label :String => (~/(label) / suffix).asInstanceOf[Any / Label]
-//				case _ =>
-//					//Not as bad a whole as it looks, because Split[Any/Label] means that if first came from a _ / _,
-//					// then it must be a valid path.
-//					throw new IllegalArgumentException(
-//						first + ": " + first.className + " is neither a LabelPath nor a Label (String)."
-//					)
-//			}
 		}
 	}
 
@@ -712,14 +770,8 @@ object LabelPath {
 	object Split extends UntypedSplits {
 		implicit def splitIntoTwoLabels[A <: Label, B <: Label]
 				:Split[A / B] { type First = A; type Suffix = B } =
-			new Split[A / B] {
-				override type First = A
-				override type Suffix = B
-				override def first(path :A / B) = path.init.path
-				override def suffix(path :A / B) = ~/(path.last)
-				override def apply(path :A / B) = (path.init.path, path.last)
-				override def join(first :First, suffix :Suffix) = (first :A) / suffix
-			}
+			splitIntoTwoLabelsPrototype.castFrom[Split[Label / Label], Split[A / B] { type First = A; type Suffix = B }]
+
 		implicit def splitIntoLabelAndPath[P, L <: Label](implicit split :Split[P], last :ValueOf[L])
 				:Split[P / L] { type First = split.First; type Suffix = split.Suffix / L } =
 			new Split[P / L] {
@@ -735,7 +787,31 @@ object LabelPath {
 						(first, (~/(rest) / path.last).asInstanceOf[Suffix])
 				}
 				override def join(first :First, suffix :Suffix) = split.join(first, suffix.prefix) / last.value
+				override def toString :String = split.toString + "/" + valueOf[L]
 			}
+		implicit def splitLabel[L <: Label] :Split[L] = splitLabelPrototype.castParam[L]
+
+		@SerialVersionUID(Ver)
+		private object splitIntoTwoLabelsPrototype extends Split[Label / Label] {
+			override type First  = Label
+			override type Suffix = Label
+			override def first(path :Label / Label) = path.init.path
+			override def suffix(path :Label / Label) = ~/(path.last)
+			override def apply(path :Label / Label) = (path.init.path, path.last)
+			override def join(first :First, suffix :Suffix) = (first :Label) / suffix
+			override def toString = "Split[Label/Label]"
+		}
+		@SerialVersionUID(Ver)
+		private object splitLabelPrototype extends Split[Label] {
+			override type First = Label
+			override type Suffix = ~/.type
+			override def first(path :Label) = path
+			override def suffix(path :Label) =
+				throw new UnsupportedOperationException("A label '" + path + "' has an empty suffix")
+			override def apply(path :Label) = (path, ~/)
+			override def join(first :Label, suffix: ~/.type) = first
+			override def toString = "Split[Label]"
+		}
 	}
 
 
@@ -750,3 +826,64 @@ object LabelPath {
 	private final val EmptyPathException = new EmptyPathException
 
 }
+
+
+
+
+
+//
+//trait LabelTree
+//
+//object LabelTree {
+//
+//	case object Root {
+//
+//	}
+//	type Root = Root.type
+//
+////	val \ : \ = new \
+////
+////	class \ private[LabelTree]
+//
+//	class |-:[R, +T] private[LabelTree] (val branch :R, val tree :T) extends LabelTree {
+//		def sibling(implicit isTree :R <:< LabelTree) :R = branch
+//		def label(isLabel :R <:< Label) :R = branch
+//		def root(isRoot :R <:< Root)
+//
+//		def |-:[L <: Label](label :L) :L |-: R |-: T = new |-:(label, this)
+//		def |-:[S <: LabelTree](sibling :S) :T |-: R |-: T = new |-:(sibling, this)
+//		def |-:(root :Root)
+//	}
+//
+////	class IsLabelTree[T] extends Serializable
+//
+//	class LeafExtension[V](private val leaf :V) extends AnyVal {
+//		def |-:[L <: Label](label :L) :L |-: V = new |-:(label, leaf)
+//		def |-:[T <: LabelTree](sibling :T) = new |-:(sibling, leaf)
+//		def |-:(root :Root) :Root |-: V = new |-:(root, leaf)
+//	}
+//
+//	final class LegalLeft[L] private [LabelTree] {
+//		def apply[T](left :L, right :T) :L |-: T = new |-:(left, right)
+//	}
+//
+///*
+//
+//
+//	|- ("key" |- Int)
+//	|- ("key2"
+//	    |- ("a" |- String)
+//	    |- ("b" |- String))
+//    |- ("key3 |- Long)
+//
+//	Root
+//	|-: ("key" |-: Int)
+//	|-: ("key2"
+//	    |-: "a" |-: String
+//	    |-: "b" |-: String)
+//    |-: "key3 |-: Long
+//
+//*/
+//}
+
+

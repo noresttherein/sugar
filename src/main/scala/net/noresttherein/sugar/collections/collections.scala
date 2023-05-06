@@ -38,14 +38,15 @@ package object collections {
 	type LongSplitStepper    = LongStepper with EfficientSplit
 	type DoubleSplitStepper  = DoubleStepper with EfficientSplit
 
-	type BaseArray[+E] >: Array[_ <: E] <: AnyRef
+//	type ArrayLike[+E] <: AnyRef
 
 	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
 	  * Its interface is defined as extension methods in
-	  * [[net.noresttherein.sugar.collections.ArrayLikeExtension ArrayLikeExtension]]`[E, IArray[E]]` and
-	  * [[net.noresttherein.sugar.collections.IArray.IArrayExtension IArrayExtension]]`[E]`.
+	  * [[net.noresttherein.sugar.collections.IArray.IArrayExtension IArrayExtension]]`[E]`,
+	  * [[net.noresttherein.sugar.collections.IArray.GenericIArrayExtension GenericIArrayExtension]]`[E]`,
+	  * and specialized variants for standard value types.
 	  */
-	type IArray[+E] <: BaseArray[E]
+	type IArray[+E] <: AnyRef // <: BaseArray[E]
 //
 //	/** An erased array with elements `E`. It is represented always as an `Array[Any]` (i.e., `Object[])`,
 //	  * and arrays of value types store them in their standard box wrappers. The advantage is that the API
@@ -53,17 +54,109 @@ package object collections {
 //	  * Its interface is defined as extension methods in
 //	  * [[net.noresttherein.sugar.collections.ArrayLikeExtension ArrayLikeExtension]]`[E, RefArray[E]]` and
 //	  * [[net.noresttherein.sugar.collections.RefArray.RefArrayExtension RefArrayExtension]]`[E]`.
-//	  */
-//	type RefArray[E] <: Array[E]
+//	  */ //it cannot extend or be extended by `Array[E]`, because it would throw ClassCastException in non erased contexts.
+//	type RefArray[E]
 
+	private final val PassedArrayClassName = "net.noresttherein.sugar.collections.PassedArray"
 
-//	private[collections] val DefaultIndexedSeq :SeqFactory[IndexedSeq] =
-//		try {
-//			val PassedArray = Class.forName("net.noresttherein.sugar.collections.PassedArray")
-//
-//		} catch {
-//			case _ :Exception => IndexedSeq
-//		}
+	private[this] final val PassedArrayClass :Opt[Class[_]] =
+		try Got(Class.forName(PassedArrayClassName + '$')) catch {
+			case _ :ClassNotFoundException => Lack
+		}
+	private[this] final val PassedArrayFactory :Opt[SeqFactory[IndexedSeq]] =
+		PassedArrayClass flatMap { cls =>
+			try {
+				Got(cls.getField("MODULE$").get(null).asInstanceOf[SeqFactory[IndexedSeq]])
+			} catch {
+				case _ :Exception => Lack
+			}
+		}
+
+	final val defaultIndexedSeqProperty = "net.noresttherein.sugar.collections.IndexedSeqFactory"
+	final val defaultArraySeqProperty   = "net.noresttherein.sugar.collections.ArraySeqFactory"
+
+	private def loadSeqFactory(collectionClassName :String) :SeqFactory[IndexedSeq] = {
+		val companionClass = Class.forName(collectionClassName + '$')
+		val field = companionClass.getField("MODULE$")
+		val res = field.get(null).asInstanceOf[SeqFactory[IndexedSeq]]
+		//make sure it really makes immutable.IndexedSeq
+		res.from(1::2::Nil)
+		res
+	}
+	private def seqFactoryFromProperty(property :String) :Opt[SeqFactory[IndexedSeq]] =
+		Opt(System.getProperty(property)).map { className =>
+			try loadSeqFactory(className) catch {
+				case e :ClassCastException => throw new ClassCastException(
+					property + "=" + className +
+						" does not specify the name of a SeqFactory[IndexedSeq] singleton object: " + e.getMessage
+				).initCause(e)
+				case e :ClassNotFoundException => throw new ClassNotFoundException(
+					property + "=" + className + " not available on the class path.", e
+				)
+				case e :NoSuchFieldException => throw new NoSuchFieldException(
+					className + "$ (specified by system property " + property + ") is not a singleton object."
+				).initCause(e)
+			}
+		}
+	/** The default `IndexedSeq` implementation used by the library. */
+	private[collections] val DefaultIndexedSeq :SeqFactory[IndexedSeq] =
+		seqFactoryFromProperty(defaultIndexedSeqProperty) orElse PassedArrayFactory getOrElse IndexedSeq
+
+	/** Switches to [[net.noresttherein.sugar.collections.PassedArray PassedArray]] as the default
+	  *  Array to IndexedSeq wrapper, if available on the class path.
+	  */
+	private[collections] val DefaultArraySeq   :SeqFactory[IndexedSeq] = PassedArrayFactory getOrElse ArraySeq.untagged
+		//ArraySeq is a ClassTagBasedSeqFactory, not a SeqFactory, so our procedure won't work.
+//		seqFactoryFromProperty(defaultArraySeqProperty) orElse PassedArrayFactory getOrElse ArraySeq.untagged
+
+	private[collections] object WrappedArray {
+		def apply[A](array :Array[A]) :IndexedSeq[A] = wrapper(array).asInstanceOf[IndexedSeq[A]]
+
+		def unapply[A](elems :IterableOnce[A]) :Opt[Array[_]] = elems match {
+			case seq :ArraySeq[_] => Got(seq.unsafeArray)
+			case _ => unwrapper(elems)
+		}
+
+		private[this] val wrapper :Array[_] => IndexedSeq[Any] =
+			PassedArrayFactory match {
+				case Got(factory) => try {
+					val wrap = factory.getClass.getMethod("from", classOf[Array[_]])
+					wrap.setAccessible(true)
+					val fun  = (array :Array[_]) => wrap.invoke(factory, array).asInstanceOf[IndexedSeq[Any]]
+					//test that it works
+					fun(Array.ofDim[Int](1))
+					fun(Array.ofDim[AnyRef](1))
+					fun(Array.ofDim[Any](1))
+					fun
+				} catch  {
+					case _ :Exception => ArraySeq.unsafeWrapArray(_)
+				}
+				case _ => ArraySeq.unsafeWrapArray(_)
+			}
+		private[this] val unwrapper :IterableOnce[_] => Opt[Array[_]] =
+			try {
+				val passedArrayPlus = Class.forName("net.noresttherein.sugar.collections.AbstractPassedArray")
+				val get = passedArrayPlus.getMethod("elems")
+				get.setAccessible(true)
+				val fun = (items :IterableOnce[_]) =>
+					if (get.getClass isAssignableFrom passedArrayPlus) {
+						val array = get.invoke(items).asInstanceOf[Array[_]]
+						if (array.length == items.knownSize)
+							Got(array)
+						else
+							Lack
+					} else Lack
+				val array = new Array[Int](1)
+				array(1) = 42
+				fun(wrapper(array)) match {
+					case Got(res) if res eq array => fun
+					case _ => _ => Lack
+				}
+			} catch {
+				case _ :Exception => _ => Lack
+			}
+	}
+
 
 	private val IterableFactoryClass = scala.collection.Iterable.iterableFactory.getClass
 	private val IterableFactoryField :Opt[Field] =

@@ -21,6 +21,6 @@ import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 object ZigZagSpec extends SeqProps[ZigZag]("ZigZag") {
 //	override def referenceFactory = List
-	override def checkedFactory = ZigZag
+	override def checkedFactory :IterableFactory[ZigZag] = ZigZag
 	override def knowsSize = true
 }

@@ -513,7 +513,7 @@ class Oops(message :String, lazyMessage :() => String, cause :Throwable)
   * @see [[net.noresttherein.sugar.imports.impossible_!]]
   */
 @SerialVersionUID(Ver)
-class ImpossibleError(message :String = "Implementation error", lazyMessage :() => String, cause :Throwable)
+class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwable)
 	extends Error(message, cause) with SugaredThrowable
 {
 	def this(message :String, cause :Throwable) = this(message, null, cause)
@@ -527,7 +527,7 @@ class ImpossibleError(message :String = "Implementation error", lazyMessage :() 
 	private lazy val _msg =
 		if (super.getMessage != null) super.getMessage
 		else if (lazyMessage != null) lazyMessage()
-		else null
+		else "Implementation error"
 
 	override def getMessage :String = _msg
 

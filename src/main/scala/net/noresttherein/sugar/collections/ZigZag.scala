@@ -115,7 +115,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 
 	override def from[A](source :IterableOnce[A]) :ZigZag[A] = source match {
 		case zigzag :ZigZag[A] => zigzag
-		case empty  :Iterable[_] if empty.isEmpty => Empty
+		case empty  :Iterable[_] if empty.knownSize == 0 => Empty
 		case seq    :Seq[A] => new Straight(seq)
 		case _ => new Straight((PassedArray.newBuilder[A] ++= source).result())
 	}
@@ -167,6 +167,9 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		private[ZigZag] def elements = elems
 //		override def depth :Int = 0
 		override val length :Int = elems.length
+		override def head = elems.head
+		override def last = elems.last
+		override def tail = ZigZag.from(elems.tail)
 		override def apply(i :Int) :A = elems(i)
 		override def iterator :Iterator[A] = elems.iterator
 		override def reverseIterator :Iterator[A] = elems.reverseIterator
