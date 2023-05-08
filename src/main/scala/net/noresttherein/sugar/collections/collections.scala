@@ -8,7 +8,7 @@ import scala.collection.{AnyStepper, ArrayOps, BuildFrom, DoubleStepper, Evidenc
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, SortedMap}
 import scala.collection.mutable.{Buffer, Builder}
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting}
 import net.noresttherein.sugar.vars.Opt
@@ -46,7 +46,9 @@ package object collections {
 	  * [[net.noresttherein.sugar.collections.IArray.GenericIArrayExtension GenericIArrayExtension]]`[E]`,
 	  * and specialized variants for standard value types.
 	  */
-	type IArray[+E] <: AnyRef // <: BaseArray[E]
+	type IArray[+E] <: AnyRef // <: ArrayLike[E]
+
+//	type IRefArray[+E] <: ArrayLike[E]
 //
 //	/** An erased array with elements `E`. It is represented always as an `Array[Any]` (i.e., `Object[])`,
 //	  * and arrays of value types store them in their standard box wrappers. The advantage is that the API
@@ -109,52 +111,164 @@ package object collections {
 		//ArraySeq is a ClassTagBasedSeqFactory, not a SeqFactory, so our procedure won't work.
 //		seqFactoryFromProperty(defaultArraySeqProperty) orElse PassedArrayFactory getOrElse ArraySeq.untagged
 
-	private[collections] object WrappedArray {
-		def apply[A](array :Array[A]) :IndexedSeq[A] = wrapper(array).asInstanceOf[IndexedSeq[A]]
+	/** Checks if the argument is a [[net.noresttherein.sugar.collections.PassedArray PassedArray]] in a manner safe
+	  * even if it the class is not on the class path, and retrieves the underlying array and index.
+	  * Returning it is an `IArray`, aside from requiring a cast to remove immutability, also guarantees that
+	  * the call itself is safe, even if the underlying element type does not match the nominal collection type.
+	  * Later operations on it however may fail, and it is the caller's responsibility to make sure that either
+	  * the array is of the correct type, or it is used only in a generic context, taking advantage of the polymorphism
+	  * illusion granted by the Scala language.
+	  */
+	private[collections] object PassedArrayWrapper {
 
-		def unapply[A](elems :IterableOnce[A]) :Opt[Array[_]] = elems match {
-			case seq :ArraySeq[_] => Got(seq.unsafeArray)
-			case _ => unwrapper(elems)
-		}
+		def unapply[A](elems :IterableOnce[A]) :Opt[IArray[A]] = unwrapper(elems).asInstanceOf[Opt[(IArray[A])]]
 
-		private[this] val wrapper :Array[_] => IndexedSeq[Any] =
-			PassedArrayFactory match {
-				case Got(factory) => try {
-					val wrap = factory.getClass.getMethod("from", classOf[Array[_]])
-					wrap.setAccessible(true)
-					val fun  = (array :Array[_]) => wrap.invoke(factory, array).asInstanceOf[IndexedSeq[Any]]
-					//test that it works
-					fun(Array.ofDim[Int](1))
-					fun(Array.ofDim[AnyRef](1))
-					fun(Array.ofDim[Any](1))
-					fun
-				} catch  {
-					case _ :Exception => ArraySeq.unsafeWrapArray(_)
-				}
-				case _ => ArraySeq.unsafeWrapArray(_)
-			}
-		private[this] val unwrapper :IterableOnce[_] => Opt[Array[_]] =
+		private[this] val unwrapper :IterableOnce[_] => Opt[IArray[_]] =
 			try {
 				val passedArrayPlus = Class.forName("net.noresttherein.sugar.collections.AbstractPassedArray")
-				val get = passedArrayPlus.getMethod("elems")
-				get.setAccessible(true)
-				val fun = (items :IterableOnce[_]) =>
-					if (get.getClass isAssignableFrom passedArrayPlus) {
-						val array = get.invoke(items).asInstanceOf[Array[_]]
-						if (array.length == items.knownSize)
+				val arrayGetter     = passedArrayPlus.getMethod("elems")
+				arrayGetter.setAccessible(true)
+				(items :IterableOnce[_]) =>
+					if (passedArrayPlus isAssignableFrom items.getClass) {
+						val array = arrayGetter.invoke(items).asInstanceOf[IArray[_]]
+						if (array.asInstanceOf[Array[_]].length == items.knownSize)
 							Got(array)
 						else
 							Lack
-					} else Lack
-				val array = new Array[Int](1)
-				array(1) = 42
-				fun(wrapper(array)) match {
-					case Got(res) if res eq array => fun
-					case _ => _ => Lack
-				}
+					} else
+						Lack
 			} catch {
 				case _ :Exception => _ => Lack
 			}
+
+		/** Similarly to the enclosing object, this is a safe extractor of the underlying array from a `PassedArray`.
+		  * This one however succeeds also if the collection is a view of only a section of the underlying array.
+		  */
+		object Slice {
+			def unapply[A](elems :IterableOnce[A]) :Opt[(IArray[A], Int, Int)] =
+				unwrapper(elems).asInstanceOf[Opt[(IArray[A], Int, Int)]]
+
+			private[this] val unwrapper :IterableOnce[_] => Opt[(IArray[_], Int, Int)] =
+				try {
+					val passedArrayPlus = Class.forName("net.noresttherein.sugar.collections.AbstractPassedArray")
+					val arrayGetter     = passedArrayPlus.getMethod("elems")
+					arrayGetter.setAccessible(true)
+					val offsetGetter = passedArrayPlus.getMethod("startIndex")
+					offsetGetter.setAccessible(true)
+					(items :IterableOnce[_]) =>
+						if (passedArrayPlus isAssignableFrom items.getClass) {
+							val array  = arrayGetter.invoke(items).asInstanceOf[IArray[_]]
+							val offset = offsetGetter.invoke(items).asInstanceOf[Int]
+							val length = (items.size : @nowarn)
+							Got((array, offset, length - offset))
+						} else
+							Lack
+				} catch {
+					case _ :Exception => _ => Lack
+				}
+		}
+	}
+
+	/** Wraps and unwraps `IndexedSeq` instances backed by arrays in a safe manner. Arrays are represented as
+	  * [[net.noresttherein.sugar.collections.IArray IArray]] instances to prevent accidental modification and
+	  * ensure that the user is aware that an array will be represented as an immutable structure.
+	  * Additionally, extractor relies on a `ClassTag` to verify that an array is of a compatible element type
+	  * to avoid `ClassCastException`s on later access. However, because they are assumed to always be treated
+	  * as immutable, if the expected element type `E` is a reference type, any subclass of `Array[AnyRef]` will be
+	  * returned as `IArray[E]`. Covariance here comes from the covariance and immutability of `IArray` itself,
+	  * while contravariance is safe because the argument collection's type indicates the type of elements stored,
+	  * regardless of the actual element type.
+	  */
+	private[collections] object WrappedIArray {
+		def apply[A](array :IArray[A]) :IndexedSeq[A] = wrapper(array).asInstanceOf[IndexedSeq[A]]
+
+		//Consider: inlining a call (a :IArray[E], i :Int) => a.asInstanceOf[Array[E]](i) will fail
+		// with ClassCastException. This can be avoided by implementing each such a cast
+		// as a.asInstanceOf[Array[AnyRef]](i).asInstanceOf[E] incurs a minor performance hit.
+		def unapply[A :ClassTag](elems :IterableOnce[A]) :Opt[IArray[A]] = {
+			val array = elems match {
+				case seq :ArraySeq[_] => Got(seq.unsafeArray)
+//				case seq :ArrayAsSeq[_] => Got(seq.coll) //is mutable
+				case _ => PassedArrayWrapper.unapply(elems)
+			}
+			if (array.isDefined && (classTag[A].runtimeClass isAssignableFrom array.get.getClass.getComponentType))
+				array.asInstanceOf[Opt[IArray[A]]]
+			else
+				Lack
+		}
+
+		object Slice {
+			def unapply[A :ClassTag](elems :IterableOnce[A]) :Opt[(IArray[A], Int, Int)] = {
+				val expectedClass = classTag[A].runtimeClass
+				elems match {
+					case seq :ArraySeq[_] if expectedClass isAssignableFrom seq.unsafeArray.getClass.getComponentType =>
+						Got((seq.unsafeArray.asInstanceOf[IArray[A]], 0, seq.unsafeArray.length))
+//					case seq :ArrayAsSeq[_] => Got(seq.coll) //is mutable
+					case _ =>
+						val passedArray = PassedArrayWrapper.Slice.unapply(elems)
+						if (passedArray.isDefined &&
+							expectedClass.isAssignableFrom(passedArray.get._1.getClass.getComponentType)
+						)
+							passedArray
+						else
+							Lack
+				}
+			}
+		}
+
+		private[this] val wrapper :IArray[_] => IndexedSeq[Any] = {
+			val arraySeq = (array :IArray[_]) => ArraySeq.unsafeWrapArray(array.asInstanceOf[Array[Any]])
+			PassedArrayFactory match {
+				case Got(factory) => try {
+					val wrap = factory.getClass.getMethod("from", classOf[Any])
+					wrap.setAccessible(true)
+					val fun  = (array :IArray[_]) => wrap.invoke(factory, array).asInstanceOf[IndexedSeq[Any]]
+					//test that it works
+					fun(Array.ofDim[Int](1).asInstanceOf[IArray[Int]])
+					fun(Array.ofDim[AnyRef](1).asInstanceOf[IArray[AnyRef]])
+					fun(Array.ofDim[Any](1).asInstanceOf[IArray[Any]])
+					fun
+				} catch  {
+					case _ :Exception => arraySeq
+				}
+				case _ => arraySeq
+			}
+		}
+	}
+
+	/** An unsafe, lower level wrapper and unwrapper of known `collection.IndexedSeq` implementations backed by arrays.
+	  * This ignores both the transition between immutability and mutability, as well as the danger
+	  * of `ClassCastException`s brought by the common practice of using an `Array[AnyRef]` internally as
+	  * an `Array[Any]`, relying on automatic boxing and unboxing of the elements. The type compatibility
+	  * must be verified after the extraction by the caller themselves, and it is assumed that the unwrapped arrays
+	  * will never be modified, for example only to be wrapped in another immutable class, or to immediately copy
+	  * the data. Wrapping an array equals declaration that the caller is the sole owner of it and refrains from
+	  * modifying it any further.
+	  */
+	private[collections] object WrappedArray {
+		@inline def apply[A](array :Array[A]) :IndexedSeq[A] =
+			WrappedIArray(array.asInstanceOf[IArray[A]])
+
+		def unapply[A](elems :IterableOnce[A]) :Opt[Array[_]] = elems match {
+			case seq :ArraySeq[_]                                           => Got(seq.unsafeArray)
+			case seq :mutable.ArraySeq[_]                                   => Got(seq.array)
+			case seq :ArraySlice[_] if seq.length == seq.unsafeArray.length => Got(seq.unsafeArray)
+			case seq :ArrayAsSeq[_]                                         => Got(seq.coll)
+			case _ =>
+				PassedArrayWrapper.unapply(elems).asInstanceOf[Opt[Array[_]]]
+		}
+
+		object Slice {
+			def unapply[A](elems :IterableOnce[A]) :Opt[(Array[_], Int, Int)] = elems match {
+				case _ :collection.IndexedSeqOps[_, IndexedSeq, IndexedSeq[_]] @unchecked => elems match {
+					case seq :ArraySeq[_] => Got((seq.unsafeArray, 0, seq.unsafeArray.length))
+					case seq :mutable.ArraySeq[_] => Got((seq.array, 0, seq.array.length))
+					case seq :ArraySlice[_] => Got((seq.unsafeArray, 0, seq.unsafeArray.length))
+					case _ => PassedArrayWrapper.Slice.unapply(elems).asInstanceOf[Opt[(Array[_], Int, Int)]]
+				}
+				case _ => Lack
+			}
+		}
 	}
 
 

@@ -2,8 +2,8 @@
 import scala.collection.immutable.{ArraySeq, ListSet, SortedMap, TreeSet}
 import scala.collection.{IndexedSeqView, SortedSet}
 
-import net.noresttherein.sugar.collections.{BTreeSeq, IndexedSet, MultiSet, OrderedItems, PassedArray, Ranking, ErasedArray, ZigZag}
-import net.noresttherein.sugar.extensions.{classExtension, classNameExtension, classNameMethods}
+import net.noresttherein.sugar.collections.{BTreeSeq, ErasedArray, IArray, IndexedSet, MultiSet, OrderedItems, PassedArray, Ranking, ZigZag}
+import net.noresttherein.sugar.extensions.{classExtension, classNameExtension, classNameMethods, iterableExtension}
 import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.JavaTypes.JByte
@@ -17,10 +17,21 @@ import net.noresttherein.sugar.util.LabelPath.{/, Label, ~/}
 
 object Playground extends App {
 
-	val list = List(0, -395671208, -287896709, -2147483648, 1097777314, 0, -346934078, 1653431545, -1344161756,
-		-720810816, 2147483647, 533941483,
-		1, -2147483648, -1, 1, 375138273, 2147483647, -136545244, 1295208092, -1, -1, 2147483647)
-	println(BTreeSeq.from(List(934009991, 2147483647, -118330015)).removed(1))
+	val tree = BTreeSeq(-2147483648, -1, -1297688236, -1, 2147483647, -963078296, 1800131587, 1)
+	tree.iterator.foreach(println(_))
+//	println(PassedArray.two(0, 0).elementType)
+//	println(PassedArray.two(0, 0) :++ PassedArray[Any]("1", "2", "3"))
+//	println(PassedArray.from(IArray(0)) :++ PassedArray.from(IArray(1, 2)))
+//	println(PassedArray.one(0) :++ PassedArray.two(0, 1))
+//	println(PassedArray.one(0) :++ PassedArray.from(IArray(0, 1)))
+//	val tree = BTreeSeq.from(list)
+//	println(list == tree)
+//	println(list ++ list1 == tree ++ list1)
+//	println(list ++ list1 ++ list2 == tree ++ list1 ++ list2)
+//	println(list.zipAll3(tree, list.indices, "_", "_", "_"))
+//	println(list == tree)
+//	println(hmm == list)
+//	println(BTreeSeq.from(List(934009991, 2147483647, -118330015)).removed(1))
 //	val tree = BTreeSeq.from(list)
 //	println(list)
 //	println(tree)

@@ -1,13 +1,10 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.IterableFactory
-import scala.collection.mutable.Builder
 
-import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Test}
-import org.scalacheck.Prop.{AnyOperators, all, forAll}
-import org.scalacheck.commands.Commands
-import org.scalacheck.util.{Buildable, ConsoleReporter}
-import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
+import org.scalacheck.Prop
+import org.scalacheck.Prop.{AnyOperators, forAll}
+import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
 
 
 
@@ -15,6 +12,8 @@ import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, Pro
   * @author Marcin Mościcki
   */
 object BTreeSeqSpec extends SeqProps[BTreeSeq]("BTreeSeq") {
+	//Set BTreeSeq.Rank to 4 or 8 for testing purposes to create deeper trees!
+
 	protected override def checkedFactory :IterableFactory[BTreeSeq] = BTreeSeq
 	protected override def knowsSize = true
 

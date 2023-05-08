@@ -9,8 +9,9 @@ import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictO
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JFloat, JInt, JIterator, JLong, JShort}
-import net.noresttherein.sugar.collections.PassedArrayInternals.{InitSize, OwnerField, SliceReallocationFactor, superElementType}
+import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JIterator, JLong, JShort}
+import net.noresttherein.sugar.collections.PassedArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
+import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt.Got
 
@@ -53,7 +54,7 @@ sealed trait PassedArray[/*@specialized(ElemTypes) */+E]
 
 	override def iterableFactory :SeqFactory[PassedArray] = PassedArray
 	protected override def className = "PassedArray"
-	private[collections] def elementType :Class[_]
+	def elementType :Class[_]
 
 	/** A `PassedArray` being a view on this instance. Equivalent to `slice`, but no new array is allocated
 	  * even if the view is a minor fragment of the underlying array (`(until - from)/length` is large).
@@ -239,7 +240,8 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 			case -1 => try {
 				(newSpecificBuilder += head ++= items.asInstanceOf[Iterable[E]]).result()
 			} catch {
-				case _ :ClassCastException => (PassedArray.genericBuilder[B] += head ++= items).result()
+				case _ :ClassCastException | _ :ArrayStoreException =>
+					(PassedArray.genericBuilder[B] += head ++= items).result()
 			}
 			case  n => try {
 				val capacity = Math.max(n + 1, InitSize)
@@ -251,7 +253,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 				array(0) = head
 				large(array, 0, 1 + n)
 			} catch {
-				case _ :ClassCastException =>
+				case _ :ClassCastException | _ :ArrayStoreException =>
 					val array = new Array[AnyRef](Math.max(1 + n, InitSize)).asInstanceOf[Array[B]]
 					items match {
 						case it :Iterable[B] => it.copyToArray(array, 1)
@@ -302,7 +304,8 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 			case -1 => try {
 				(newSpecificBuilder ++= items.asInstanceOf[Iterable[E]] += head).result()
 			} catch {
-				case _ :ClassCastException => (PassedArray.genericBuilder[B] ++= items += head).result()
+				case _ :ClassCastException | _ :ArrayStoreException =>
+					(PassedArray.genericBuilder[B] ++= items += head).result()
 			}
 			case  n => try {
 				val newSize = n + 1
@@ -315,7 +318,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 				array(capacity - 1) = head
 				large(array, capacity - newSize, newSize)
 			} catch {
-				case _ :ClassCastException =>
+				case _ :ClassCastException | _ :ArrayStoreException =>
 					val newSize = n + 1
 					val capacity = Math.max(newSize, InitSize)
 					val array = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
@@ -339,7 +342,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 		else try {
 			copy(xs.asInstanceOf[Array[E]], start); 1
 		} catch {
-			case _ :ClassCastException => xs(start) = head; 1
+			case _ :ClassCastException | _ :ArrayStoreException => xs(start) = head; 1
 		}
 
 	private def copy(xs :Array[E @uncheckedVariance], start :Int) :Unit = xs(start) = head
@@ -470,12 +473,12 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			case it :Iterable[B] if it.isEmpty => this
 			case it :Iterator[B] if !it.hasNext => this
 			case it :PassedArray[B] =>
-				if (elementType isAssignableFrom it.elementType)
+				if (it.elementType isConvertibleTo elementType)
 					appendedAll(it.asInstanceOf[PassedArray[E]])
 				else {
 					val newSize = it.length + 2
 					val capacity = Math.max(newSize, InitSize)
-					val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[B]]
+					val copy = new Array[Any](capacity).asInstanceOf[Array[B]]
 					copy(0) = head
 					copy(1) = last
 					it.copyToArray(copy, 2)
@@ -490,7 +493,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 					it.copyToArray(copy.asInstanceOf[Array[B]], 2)
 					newInstance(copy, 0, n + 2)
 				} catch {
-					case _ :ClassCastException =>
+					case _ :ClassCastException | _ :ArrayStoreException =>
 						val capacity = Math.max(n + 2, InitSize)
 						val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 						copy(0) = head
@@ -503,7 +506,8 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 		}
 
 	private[this] def appendedAll(suffix :PassedArray[E]) =
-		if (suffix.isEmpty) this
+		if (suffix.isEmpty)
+			this
 		else {
 			val newSize = suffix.length + 2
 			val capacity = Math.max(newSize, InitSize)
@@ -520,12 +524,13 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			case it :Iterable[B] if it.isEmpty => this
 			case it :Iterator[B] if !it.hasNext => this
 			case it :PassedArray[B] =>
-				if (elementType isAssignableFrom it.elementType)
+				if (it.elementType isConvertibleTo elementType)
 					prependedAll(it.asInstanceOf[PassedArray[E]])
 				else {
 					val newSize = it.length + 2
 					val capacity = Math.max(newSize, InitSize)
-					val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[B]]
+//					val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[B]]
+					val copy = new Array[Any](capacity).asInstanceOf[Array[B]]
 					copy(capacity - 2) = head
 					copy(capacity - 1) = last
 					it.copyToArray(copy, capacity - newSize)
@@ -541,7 +546,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 					it.copyToArray(copy.asInstanceOf[Array[B]], newOffset, n)
 					newInstance(copy, newOffset, n + 2)
 				} catch {
-					case _ :ClassCastException =>
+					case _ :ClassCastException | _ :ArrayStoreException =>
 						val capacity = Math.max(n + 2, InitSize)
 						val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 						copy(capacity - 2) = head
@@ -554,15 +559,16 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			case _ => super.prependedAll(prefix)
 		}
 
-	private[this] def prependedAll(suffix :PassedArray[E]) =
-		if (suffix.isEmpty) this
+	private[this] def prependedAll(prefix :PassedArray[E]) =
+		if (prefix.isEmpty)
+			this
 		else {
-			val newSize = suffix.length + 2
+			val newSize = prefix.length + 2
 			val capacity = Math.max(newSize, InitSize)
 			val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
-			copy(0) = head
-			copy(1) = last
-			suffix.copyToArray(copy, 2)
+			copy(newSize - 2) = head
+			copy(newSize - 1) = last
+			prefix.copyToArray(copy, 0)
 			new PassedArrayPlus(copy, 0, newSize, true)
 		}
 
@@ -584,7 +590,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 						xs(start + 1) = last
 				}
 			} catch {
-				case _ :ClassCastException =>
+				case _ :ClassCastException | _ :ArrayStoreException =>
 					xs(start) = head
 					if (copied > 1)
 						xs(start + 1) = last
@@ -608,23 +614,27 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
   * and [[net.noresttherein.sugar.collections.PassedArrayView PassedArrayView]].
   */
 private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends PassedArray[E] {
-	override def elementType :Class[_] = elems.getClass.getComponentType
-	private[collections] def elems[U >: E] :Array[U]
+	override def elementType :Class[_] = unsafeArray.getClass.getComponentType
+	private[collections] def unsafeArray[U >: E] :Array[U]
 	private[collections] def startIndex :Int
+	private[collections] def dumpString :String =
+		mkString(s"${this.localClassName}<$startIndex-${ startIndex + length}/${ unsafeArray.length}>(", ", ", ")")
 
 	override def updated[B >: E](index :Int, elem :B) :PassedArray[B] = {
 		val len = length
 		if (index < 0 | index >= len)
 			throw new IndexOutOfBoundsException(index.toString + " out of " + len)
-		val array = elems
+		val array = unsafeArray
 		val offset = startIndex
 		val elemType = elementType
 		if ((elemType.isPrimitive || elemType.isBox) && array(offset + index) == elem)
 			this
 		else {
 			val res =
-				if (elemType isAssignableFrom elem.getClass) PassedArray.newBuilder(elemType.castParam[B])
-				else PassedArray.newBuilder[B]
+				if (elem.getClass isConvertibleTo elemType)
+					PassedArray.newBuilder(elemType.castParam[B])
+				else
+					PassedArray.newBuilder[B]
 			res sizeHint len + 1
 			if (index > 0)
 				res ++= new PassedArrayPlus(array, offset, index)
@@ -635,13 +645,13 @@ private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends
 		}
 	}
 
-	override def iterator :Iterator[E] = new ArrayIterator[E](elems, startIndex, startIndex + length)
+	override def iterator :Iterator[E] = new ArrayIterator[E](unsafeArray, startIndex, startIndex + length)
 
 	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
 		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
-		ArrayStepper(elems, startIndex, startIndex + length)
+		ArrayStepper(unsafeArray, startIndex, startIndex + length)
 
 	override def window(from :Int, until :Int) :PassedArray[E] = {
 		val offset = startIndex; val len = length
@@ -650,7 +660,7 @@ private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends
 		else if (from <= 0 && until >= len)
 			this
 		else {
-			val array   = elems
+			val array   = unsafeArray
 			val start   = Math.max(from, 0)
 			val newSize = Math.min(len, until) - start
 			if (newSize == 1)
@@ -681,25 +691,25 @@ private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends
 			throw new IndexOutOfBoundsException(start)
 		else {
 			val copied = Math.min(length, Math.min(len, xs.length - start))
-			Array.copy(elems, startIndex, xs, start, copied)
+			Array.copy(unsafeArray, startIndex, xs, start, copied)
 			copied
 		}
 
 
 	override def compact :PassedArray[E] =
-		if (elems.length == length)
+		if (unsafeArray.length == length)
 			this
 		else {
-			val copy = elems.slice(startIndex, startIndex + length)
+			val copy = unsafeArray.slice(startIndex, startIndex + length)
 			new PassedArrayPlus(copy)
 		}
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
 		case Got(PassedArray) | Got(Seq) | Got(IndexedSeq) | Got(collection.Seq) | Got(collection.IndexedSeq) =>
 			this.asInstanceOf[C1]
-		case Got(ArraySeq) if length == elems.length =>
-			ArraySeq.unsafeWrapArray(elems).asInstanceOf[C1]
-		case _ => super.to(factory)
+		case Got(ArraySeq) if length == unsafeArray.length                                                    =>
+			ArraySeq.unsafeWrapArray(unsafeArray).asInstanceOf[C1]
+		case _                                                                                                => super.to(factory)
 	}
 
 }
@@ -737,7 +747,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 	assert(len >= 0, "negative length " + len)
 	assert(len <= array.length - offset, "array[" + array.length + "].slice(" + offset + ", " + (offset + len) + ")")
 
-	private[collections] override def elems[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
+	private[collections] override def unsafeArray[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
 	private[collections] override def startIndex :Int = offset
 	@volatile private[this] var isOwner = owner
 
@@ -787,8 +797,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 
 	override def appended[B >: E](elem :B) :PassedArray[B] = {
 		val elemType = elem.getClass
-		val canStore =
-			elementType.isAssignableFrom(elemType) || elemType.isBoxOf(elementType) || elementType.isBoxOf(elemType)
+		val canStore = elemType isConvertibleTo elementType
 		var res :PassedArray[B] = null
 		if (canStore)
 			if (offset + len < array.length) {
@@ -819,8 +828,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 
 	override def prepended[B >: E](elem :B) :PassedArray[B] = {
 		val elemType = elem.getClass
-		val canStore =
-			elementType.isAssignableFrom(elemType) || elemType.isBoxOf(elementType) || elementType.isBoxOf(elemType)
+		val canStore = elemType isConvertibleTo elementType
 		var res :PassedArray[B] = null
 		if (canStore)
 			if (offset > 0) {
@@ -861,8 +869,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 				val newSize   = len + extras
 				val myType    = elementType
 				val theirType = it.elementType
-				val canStore  =
-					myType.isAssignableFrom(theirType) || myType.isBoxOf(theirType) || theirType.isBoxOf(myType)
+				val canStore  = theirType isConvertibleTo myType
 				var res :PassedArray[B] = null
 				if (canStore)
 					if (offset + newSize <= capacity) {
@@ -897,7 +904,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 					var wasOwner = false
 					try {
 						var res :PassedArray[B] = null
-						if (offset + newSize <= elems.length) {
+						if (offset + newSize <= unsafeArray.length) {
 							wasOwner = canPassOn
 							if (wasOwner) {
 								it.copyToArray(array.asInstanceOf[Array[B]], offset + len, newSize)
@@ -925,7 +932,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 							val capacity = Math.max(newOffset + len + Math.max(extras, halfSize), InitSize)
 							val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 							it.copyToArray(copy, newOffset + len, newSize)
-							Array.copy(elems, offset, copy, newOffset, len)
+							Array.copy(unsafeArray, offset, copy, newOffset, len)
 							new PassedArrayPlus(copy, newOffset, newSize, true)
 					}
 			}
@@ -943,8 +950,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 				val newSize   = len + extras
 				val myType    = elementType
 				val theirType = it.elementType
-				val canStore  =
-					myType.isAssignableFrom(theirType) || myType.isBoxOf(theirType) || theirType.isBoxOf(myType)
+				val canStore  = theirType isConvertibleTo myType
 				var res :PassedArray[B] = null
 				if (canStore)
 					if (offset >= extras) {
@@ -959,13 +965,13 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 					}
 				if (res == null) {
 					val halfSize = (len + 1) / 2
-					val padding = Math.min(elems.length - offset - len, halfSize)
+					val padding = Math.min(unsafeArray.length - offset - len, halfSize)
 					val capacity = Math.max(Math.max(extras, halfSize) + len + padding, InitSize)
 					val newOffset = capacity - padding - len - extras
 					val copy =
 						if (canStore) java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[B]]
 						else new Array[AnyRef](capacity).asInstanceOf[Array[B]]
-					Array.copy(elems, offset, copy, newOffset + extras, len)
+					Array.copy(unsafeArray, offset, copy, newOffset + extras, len)
 					it.copyToArray(copy, newOffset, extras)
 					if (canStore)
 						res = newInstance(copy.asInstanceOf[Array[E]], newOffset, newSize)
@@ -1006,7 +1012,7 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 								isOwner = true
 							}
 							val halfSize = (len + 1) / 2
-							val padding = Math.min(elems.length - offset - len, halfSize)
+							val padding = Math.min(unsafeArray.length - offset - len, halfSize)
 							val capacity = Math.max(Math.max(extras, halfSize) + len + padding, InitSize)
 							val newOffset = capacity - padding - len - extras
 							val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
@@ -1044,7 +1050,7 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 	                               (array :Array[E], offset :Int, len :Int)
 	extends AbstractSeq[E] with AbstractPassedArray[E]
 {
-	private[collections] override def elems[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
+	private[collections] override def unsafeArray[U >: E] :Array[U] = array.asInstanceOf[Array[U]]
 	private[collections] override def startIndex :Int = offset
 	override def length :Int = len
 
@@ -1071,8 +1077,7 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 
 	override def appended[B >: E](elem :B) :PassedArray[B] = {
 		val elemType = elem.getClass
-		val canStore =
-			elementType.isAssignableFrom(elemType) || elemType.isBoxOf(elementType) || elementType.isBoxOf(elemType)
+		val canStore = elemType isConvertibleTo elementType
 		if (canStore) {
 			val copy = java.lang.reflect.Array.newInstance(elementType, len + 1).asInstanceOf[Array[E]]
 			copy(len) = elem.asInstanceOf[E]
@@ -1089,8 +1094,7 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 
 	override def prepended[B >: E](elem :B) :PassedArray[B] = {
 		val elemType = elem.getClass
-		val canStore =
-			elementType.isAssignableFrom(elemType) || elemType.isBoxOf(elementType) || elementType.isBoxOf(elemType)
+		val canStore = elemType isConvertibleTo elementType
 		if (canStore) {
 			val copy = java.lang.reflect.Array.newInstance(elementType, len + 1).asInstanceOf[Array[E]]
 			Array.copy(array, offset, copy, 1, len)
@@ -1113,8 +1117,7 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 				val extras    = it.length
 				val myType    = elementType
 				val theirType = it.elementType
-				val canStore  =
-					myType.isAssignableFrom(theirType) || myType.isBoxOf(theirType) || theirType.isBoxOf(myType)
+				val canStore  = theirType isConvertibleTo myType
 				if (canStore) {
 					val copy = java.lang.reflect.Array.newInstance(myType, len + extras).asInstanceOf[Array[B]]
 					Array.copy(array, offset, copy, 0, len)
@@ -1139,16 +1142,15 @@ private final class PassedArrayView[@specialized(ElemTypes) +E] private[collecti
 				val extras    = it.length
 				val myType    = elementType
 				val theirType = it.elementType
-				val canStore  =
-					myType.isAssignableFrom(theirType) || myType.isBoxOf(theirType) || theirType.isBoxOf(myType)
+				val canStore  = theirType isConvertibleTo myType
 				if (canStore) {
 					val copy = java.lang.reflect.Array.newInstance(elementType, len + extras).asInstanceOf[Array[B]]
-					Array.copy(elems, offset, copy, extras, len)
+					Array.copy(unsafeArray, offset, copy, extras, len)
 					it.copyToArray(copy, 0, extras)
 					passedArray(copy.asInstanceOf[Array[E]], 0, len + extras)
 				} else {
 					val copy = new Array[AnyRef](len + extras).asInstanceOf[Array[B]]
-					Array.copy(elems, offset, copy, extras, len)
+					Array.copy(unsafeArray, offset, copy, extras, len)
 					it.copyToArray(copy, 0, extras)
 					new PassedArrayPlus(copy.asInstanceOf[Array[E]], 0, len + extras)
 				}
@@ -1201,6 +1203,8 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 			//Views delegate isEmpty to iterator.isEmpty, but are common arguments,
 			// so there is no sense in creating the iterator twice.
 			new PassedArrayPlus(elems.toArray(classTag[AnyRef].asInstanceOf[ClassTag[A]]))
+		case elems :Iterable[A] if elems.isEmpty => //technically, it should be also knownSize == 0, but it's not guaranteed.
+			Empty
 		case elems :Iterable[A] => elems.head.getClass match {
 			case BoxClass(valueClass) => try {
 				new PassedArrayPlus(elems.toArray(ClassTag(valueClass).castParam[A]))
@@ -1239,20 +1243,22 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 		if (firstClass != secondClass)
 			new PassedArray2(first, second)
 		else //only for as long as it is specialized
-			(if (firstClass == classOf[JInt])
+			(if (firstClass == classOf[JInt] || firstClass == classOf[Int])
 				new PassedArray2(first.asInstanceOf[Int], second.asInstanceOf[Int], classOf[Int])
-			else if (firstClass == classOf[JLong])
+			else if (firstClass == classOf[JLong] || firstClass == classOf[Long])
 				new PassedArray2(first.asInstanceOf[Long], second.asInstanceOf[Long], classOf[Long])
-			else if (firstClass == classOf[JDouble])
+			else if (firstClass == classOf[JDouble] || firstClass == classOf[Double])
 				new PassedArray2(first.asInstanceOf[Double], second.asInstanceOf[Double], classOf[Double])
-			else if (firstClass == classOf[JByte])
+			else if (firstClass == classOf[JByte] || firstClass == classOf[Byte])
 				new PassedArray2(first.asInstanceOf[Byte], second.asInstanceOf[Byte], classOf[Byte])
-			else if (firstClass == classOf[JChar])
+			else if (firstClass == classOf[JChar] || firstClass == classOf[Char])
 				new PassedArray2(first.asInstanceOf[Char], second.asInstanceOf[Char], classOf[Char])
-			else if (firstClass == classOf[JFloat])
+			else if (firstClass == classOf[JFloat] || firstClass == classOf[Float])
 				new PassedArray2(first.asInstanceOf[Float], second.asInstanceOf[Float], classOf[Float])
-			else if (firstClass == classOf[JShort])
+			else if (firstClass == classOf[JShort] || firstClass == classOf[Short])
 				new PassedArray2(first.asInstanceOf[Short], second.asInstanceOf[Short], classOf[Short])
+			else if (firstClass == classOf[JBoolean] || firstClass == classOf[Boolean])
+				new PassedArray2(first.asInstanceOf[Boolean], second.asInstanceOf[Boolean], classOf[Boolean])
 			else
 				new PassedArray2(first, second, classOf[Any])
 			).castParam[A]
@@ -1328,7 +1334,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 					else if (size > elems.length)
 						realloc(size)
 
-			private def ensure(extras :Int) :Unit = {
+			final def ensure(extras :Int) :Unit = {
 				if (elems == null)
 					elems = newArray(Math.max(extras, initSize))
 				else {
@@ -1345,7 +1351,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 			}
 
 			override def addAll(xs :IterableOnce[A]) :this.type = xs match {
-				case it :Iterable[A] if it.isEmpty => this
+				case it :Iterable[A] if it.knownSize == 0 => this
 				case it :Iterator[A] if !it.hasNext => this
 				case it :Iterable[A] => it.knownSize match {
 					case -1 => super.addAll(it)
@@ -1370,21 +1376,27 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 
 			override def clear() :Unit = elems = null
 
-			override def result() =
-				if (elems == null)
-					Empty
-				else {
-					val res = new PassedArrayPlus(elems, 0, size, true)
+			override def result() = size match {
+				case 0 => Empty
+				case 1 => new PassedArray1(elems(0))
+				case 2 => new PassedArray2(elems(0), elems(1))
+				case n if n < elems.length * AcceptableBuilderFillRatio =>
+					val res = new PassedArrayPlus(Array.copyOf(elems, n))
 					clear()
 					res
-				}
+				case _ =>
+					val res = new PassedArrayPlus(Array.copyOf(elems, size))
+					clear()
+					res
+			}
 		}
 
-	private class OptimisticBuilder[A](private[this] var _elementType :Class[A])
+
+	private final class OptimisticBuilder[A](private[this] var _elementType :Class[A])
 		extends SpecificBuilder[A](_elementType)
 	{
-		private[this] var optimistic = _elementType == null || elementType.getClass.isPrimitive
-		//overriden because we use it much more, so want to use a field and not a method call.
+		private[this] var optimistic = _elementType == null || elementType != classOf[Any]
+		//overridden because we use it much more, so want to use a field and not a method call.
 		override def elementType :Class[A] = _elementType
 		def elementType_=(tpe :Class[A]) :Unit = _elementType = tpe
 
@@ -1395,7 +1407,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 					_elementType = classOf[Any].castParam[A]
 				super.addOne(elem)
 			} else if (optimistic)
-				if (_elementType isAssignableFrom elem.getClass)
+				if (elem.getClass isConvertibleTo _elementType)
 					super.addOne(elem)
 				else {
 					optimistic = false
@@ -1414,7 +1426,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 				case items :PassedArray[A]      => addKnownType(items.elementType, items)
 				case items :ArraySeq[A]         => addKnownType(items.unsafeArray.getClass.getComponentType, items)
 				case items :mutable.ArraySeq[A] => addKnownType(items.array.getClass.getComponentType, items)
-				case items :ArrayAsSeq[A]     => addKnownType(items.coll.getClass.getComponentType, items)
+				case items :ArrayAsSeq[A]       => addKnownType(items.coll.getClass.getComponentType, items)
 				case items :Iterable[A]         => addKnownType(items.head.getClass, items)
 				case _ =>
 					val iter = xs.iterator
@@ -1422,11 +1434,11 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 						addOne(iter.next())
 					this
 			}
-		private final def addKnownType(elemType :Class[_], xs :IterableOnce[A]) :this.type =
+		private def addKnownType(elemType :Class[_], xs :IterableOnce[A]) :this.type =
 			if (_elementType == null) {
 				_elementType = (if (elemType.isPrimitive) elemType else classOf[AnyRef]).castParam[A]
 				addOptimistic(xs)
-			} else if (!_elementType.isAssignableFrom(elemType)) {
+			} else if (!elemType.isConvertibleTo(_elementType)) {
 				optimistic = false
 				val size = knownSize
 				val extras = xs.knownSize
@@ -1434,21 +1446,28 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 					if (extras >= 0) Math.max(Math.min(size + extras, size * 2), InitSize)
 					else if (size == capacity) Math.max(size * 2, InitSize)
 					else size
+				elementType = classOf[AnyRef].asInstanceOf[Class[A]]
 				realloc(newSize)
 				super.addAll(xs)
 			} else
 				addOptimistic(xs)
 
-		private final def addOptimistic(xs :IterableOnce[A]) :this.type = {
-			val rollbackSize = knownSize
-			try { super.addAll(xs) } catch {
-				case _ :ClassCastException | _ :ArrayStoreException =>
-					optimistic = false
-					_elementType = classOf[Any].castParam[A]
-					knownSize = rollbackSize
-					realloc(capacity)
-					super.addAll(xs)
-			}
+		private def addOptimistic(xs :IterableOnce[A]) :this.type = xs match {
+			case _ :Iterable[A] =>
+				val rollbackSize = knownSize
+				try { super.addAll(xs) } catch {
+					case _ :ClassCastException | _ :ArrayStoreException =>
+						optimistic = false
+						_elementType = classOf[Any].castParam[A]
+						knownSize = rollbackSize
+						realloc(capacity)
+						super.addAll(xs)
+				}
+			case _ =>
+				val i = xs.iterator
+				while (i.hasNext)
+					addOne(i.next())
+				this
 		}
 	}
 
@@ -1491,6 +1510,7 @@ private object PassedArrayInternals {
 
 	final val InitSize = 8
 	final val SliceReallocationFactor = 4 //slices smaller than 1/4 reallocate the backing array.
+	final val AcceptableBuilderFillRatio = 0.75
 	val OwnerField = PassedArrayPlus.OwnerField
 //		MethodHandles.lookup().findVarHandle(classOf[PassedArrayPlus[Any]],
 //			"isOwner", classOf[Boolean]

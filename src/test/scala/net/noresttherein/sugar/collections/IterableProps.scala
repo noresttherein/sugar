@@ -15,7 +15,7 @@ import org.scalacheck.util.{Buildable, ConsoleReporter}
 import net.noresttherein.sugar.numeric
 import net.noresttherein.sugar.collections.IterableProps.{filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value, Dummy, Filter, FlatMap, Fold, FoldSide, Map}
 import net.noresttherein.sugar.extensions.{castTypeParam, classNameMethods, factoryExtension, intObjectExtension, iterableExtension}
-import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanExtension, LazyExtension, PropExtension}
+import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
 
 
 
@@ -28,7 +28,6 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 
 	protected def typeS :String = S[Int].source.localClassName
 
-/*
 	property("knownSize")         = Prop(!knowsSize) || forAll { col :C[Int] => col.knownSize =? col.size }
 	property("size")              = test { (expect :S[Int], result :C[Int]) => expect.size =? result.size }
 	property("compareSize")       = test { (expect :S[Int], result :C[Int]) =>
@@ -112,7 +111,6 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	property("++")                = test { (expect :S[Int], result :C[Int]) =>
 	                                    forAll { list :List[Int] => validate(expect ++ list to S, result ++ list to C) }
 	                                }
-*/
 
 
 //	private val property = new PropertySpecifier
@@ -131,14 +129,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	                  (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :E[T], ev2 :E[X], tag :ClassTag[X],
 	                            filt :Filter[X], fldA :FoldSide[F, X], evf :E[F], fld :Fold[X],
 	                            mp :Map[X, M], evm :E[M], fmap :FlatMap[X, FM], evfm :E[FM]) :Prop =
-		try
-			forAll { elems :S[T] => validate(f(elems) to S, f(elems to C) to C) }
-		catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
+		forAll { elems :S[T] => validate(f(elems) to S, f(elems to C) to C) }
 
 	protected def compare[T :Arbitrary :E, X](f :S[T] => X) :Prop =
 		forAll { elems :S[T] => f(elems) =? f(elems to C[T]) }
@@ -154,14 +145,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	                                   (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
 	                                    fldA :FoldSide[F, T], evf :E[F], fld :Fold[T], mp :Map[T, M], evm :E[M],
 	                                    fmap :FlatMap[T, FM], evfm :E[FM]) :Prop =
-		try
-			label @: (compare(expect, result) && props(expect, result))
-		catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
+		label @: (compare(expect, result) && props(expect, result))
 
 	protected def validate[T, F, M, FM](expect :S[T], result :S[T])
 	                                   (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
@@ -424,7 +408,6 @@ object IterableProps {
 
 
 trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericIterableProps[C, S, E] {
-/*
 	property("head")         = test { (expect :S[Int], result :C[Int]) =>
 	                            if (expect.isEmpty) result.head.throws[NoSuchElementException]
 	                            else expect.head =? result.head
@@ -457,16 +440,14 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 	property("dropRight")    = test { (expect :S[Int], result :C[Int]) =>
 	                           	forAll { i :Int => validate(expect.dropRight(i) to S, result.dropRight(i) to C) }
 	                           }
-*/
 
-/*
+
 	property("scan")         = test((_ :S[Int]).scan(value[Int])(fold))
 	property("scanLeft")     = test((_ :S[Int]).scanLeft(foldZero[Long, Int])(foldLeft))
 	property("scanRight")    = test((_ :S[Int]).scanRight(foldZero[Long, Int])(foldRight))
 	property("zipWithIndex") = test { (expect :S[Int], result :C[Int]) =>
 	                           	compare(expect.zipWithIndex, result.zipWithIndex)
 	                           }
-*/
 
 
 
@@ -533,8 +514,10 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 	extends IterableProps[C, Seq](name) with OrderedProps[C, Seq, Dummy]
 {
-	//	include("newBuilder", new SeqBuilderStateProperties[A])
-/*
+	implicit def buildablePassedArray[T] :Buildable[T, PassedArray[T]] = new Buildable[T, PassedArray[T]] {
+		override def builder :Builder[T, PassedArray[T]] = PassedArray.newBuilder[T]
+	}
+
 	property("length") = test { (expect :Seq[Int], subject :C[Int]) => expect.length =? subject.length }
 	property("apply") = test { (expect :Seq[Int], subject :C[Int]) =>
 		all(expect.indices.map(i => expect(i) =? subject(i)) :_*)
@@ -657,35 +640,91 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 	property("(String)+:") = test { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { x :String => compare(x +: expect, x +: subject) }
 	}
-*/
 
-	var prideCounter = 0
-	property(":++(Seq[Int]))") = forAll { (prefix :C[Int], suffix :Seq[Int]) =>
-		System.err.println(f"$prideCounter%10d: $prefix ++: $suffix")
-		prideCounter += 1
+	property(":++(List[Int])") = forAll { (prefix :C[Int], suffix :List[Int]) =>
 		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
-/*
-	property(":++(Seq[String])") = forAll { (prefix :C[Int], suffix :Seq[String]) =>
+	property(":++(List[String])") = forAll { (prefix :C[Int], suffix :List[String]) =>
 		compare(List.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
 	}
+	property(":++(ArraySeq[Int])") = forAll { (prefix :C[Int], suffix :ArraySeq[Int]) =>
+		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+	}
+	property(":++(ArraySeq[String])") = forAll { (prefix :C[Int], suffix :ArraySeq[String]) =>
+		compare(List.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
+	}
+	property(":++(Vector[Int]))") = forAll { (prefix :C[Int], suffix :Vector[Int]) =>
+		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+	}
+	property(":++(PassedArray[Int]).slice") = forAll { (prefix :C[Int], suffix :PassedArray[Int]) =>
+		validate(
+			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
+			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
+		) lbl passedArrayLabel(suffix)
+	}
+	property(":++(PassedArray[String].slice)") = forAll { (prefix :C[Int], suffix :PassedArray[String]) =>
+		try {
+		compare(
+			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
+			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
+		) lbl passedArrayLabel(suffix)
+		} catch {
+			case e :Exception =>
+				System.err.println(e)
+				e.printStackTrace(System.err)
+				throw e
+		}
+	}
+
 	property(s":++(${C[Int].source.localClassName}[Int])") = forAll { (prefix :C[Int], suffix :C[Int]) =>
 		validate(List.from(prefix) ::: List.from(suffix), (prefix :++ suffix) to C)
 	}
 	property(s":++(${C[String].source.localClassName}[String])") = forAll { (prefix :C[Int], suffix :C[String]) =>
-		compare(List.from(prefix) ::: List.from(suffix) :Seq[Any], (prefix :++ suffix) to C)
-	}
-*/
+		try {
+		compare(List.from(prefix) ::: List.from(suffix), (prefix :++ suffix) to C)
+		} catch {
+			case e :Exception =>
+				System.err.println(e)
+				e.printStackTrace(System.err)
+				throw e
+		}
 
-	var shameCounter = 0
-	property("(Seq[Int]))++:") = forAll { (prefix :Seq[Int], suffix :C[Int]) =>
-		System.err.println(f"$shameCounter%10d: $prefix ++: $suffix")
-		shameCounter += 1
-		validate(prefix ++ List.from(suffix), (prefix ++: suffix) to C)
 	}
-/*
-	property("(Seq[String])++:") = forAll { (prefix :Seq[String], suffix :C[Int]) =>
-		compare(prefix ++ List.from(suffix) :Seq[Any], (prefix ++: suffix) to C)
+
+	property("(List[Int])++:") = forAll { (prefix :List[Int], suffix :C[Int]) =>
+		validate(prefix ++ suffix, (prefix ++: suffix) to C)
+	}
+	property("(List[String])++:") = forAll { (prefix :List[String], suffix :C[Int]) =>
+		compare(prefix ++ suffix, (prefix ++: suffix) to C)
+	}
+	property("(ArraySeq[Int])++:") = forAll { (prefix :ArraySeq[Int], suffix :C[Int]) =>
+		validate(prefix ++ suffix, (prefix ++: suffix) to C)
+	}
+	property("(ArraySeq[String])++:") = forAll { (prefix :ArraySeq[String], suffix :C[Int]) =>
+		compare(prefix ++ suffix, (prefix ++: suffix) to C)
+	}
+	property("(Vector[Int])++:") = forAll { (prefix :Vector[Int], suffix :C[Int]) =>
+		validate(prefix ++ suffix, (prefix ++: suffix) to C)
+	}
+	property("(PassedArray[Int].slice)++:") = forAll { (prefix :PassedArray[Int], suffix :C[Int]) =>
+		validate(
+			prefix.slice(1, prefix.length - 1) ++ suffix,
+			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
+		) lbl passedArrayLabel(prefix)
+	}
+	property("(PassedArray[String].slice)++:") = forAll { (prefix :PassedArray[String], suffix :C[Int]) =>
+		try {
+		compare(
+			prefix.slice(1, prefix.length - 1) ++ suffix,
+			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
+		) lbl passedArrayLabel(prefix)
+		} catch {
+			case e :Exception =>
+				System.err.println(e)
+				e.printStackTrace(System.err)
+				throw e
+		}
+
 	}
 	property(s"(${C[Int].source.localClassName}[Int])++:") = forAll { (prefix :C[Int], suffix :C[Int]) =>
 		validate(List.from(prefix) ::: List.from(suffix), (prefix ++: suffix) to C)
@@ -694,8 +733,12 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 		forAll { (prefix :C[Int], suffix :C[String]) =>
 			compare(List.from(prefix) ::: List.from(suffix) :Seq[Any], (prefix ++: suffix) to C)
 		}
-*/
 
+
+	private def passedArrayLabel[E](seq :PassedArray[E]) = seq match {
+		case slice :AbstractPassedArray[E] => slice.dumpString
+		case _                             => seq.mkString(seq.localClassName + "(", ", ", ")")
+	}
 
 	protected override def orderedProps[T, F, M, FM](expect :Seq[T], result :Seq[T])
 	                                                (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :Dummy[T],

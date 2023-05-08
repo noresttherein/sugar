@@ -3,16 +3,15 @@ package net.noresttherein.sugar.collections
 import scala.collection.IterableFactory
 import scala.reflect.ClassTag
 
-import org.scalacheck.{Arbitrary, Prop, Properties}
+import org.scalacheck.{Arbitrary, Prop}
 import org.scalacheck.Prop.{all, forAll, throws, AnyOperators}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
-import net.noresttherein.sugar.extensions.{classNameMethods, iterableExtension, seqExtension}
-import net.noresttherein.sugar.numeric
+import net.noresttherein.sugar.extensions.{classNameMethods, seqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.numeric.extensions.{booleanObjectExtension, intObjectExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanExtension, PropExtension}
 import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Opt.Got
 
 
 object RankingSpec
@@ -28,10 +27,10 @@ object RankingSpec
 
 	private def aligned[T](expect :List[T], result :Ranking[T], i :Int) :Boolean = expect match {
 		case h::t if i < result.size && h == result(i) => aligned(t, result, i + 1)
-		case h::t if i < result.size => aligned(t, result, i)
-		case h::t if result.contains(h) => aligned(t, result, i)
-		case h::t => false
-		case _    => true
+		case _::t if i < result.size                   => aligned(t, result, i)
+		case h::t if result.contains(h)                => aligned(t, result, i)
+		case Nil => true
+		case _   => false
 	}
 	protected override def compare[T :Dummy](expect :Iterable[T], result :Iterable[T]) :Prop =
 		aligned(expect.toList, result to Ranking, 0) lbl "Expected: " + expect + ";\n     got: " + result

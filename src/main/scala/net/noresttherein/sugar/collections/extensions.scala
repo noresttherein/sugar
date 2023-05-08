@@ -1744,6 +1744,73 @@ object extensions extends extensions {
 				mapIterable()
 		}
 
+
+		/** Similar to [[scala.collection.IterableOps.zip zip]], except it zip3 three collections at once. */
+		def zip3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :C[(E, A, B)] = {
+			val size1 = self.knownSize
+			val size2 = second.knownSize
+			val size3 = third.knownSize
+			if (size1 == 0 || size2 == 0 || size3 == 0)
+				self.iterableFactory.empty
+			else {
+				val i1 = self.iterator
+				val i2 = second.iterator
+				val i3 = third.iterator
+				val res = self.iterableFactory.newBuilder[(E, A, B)]
+				if (size1 >= 0 & size2 >= 0 & size3 >= 0)
+					res sizeHint Math.min(size1, Math.min(size2, size3))
+				while (i1.hasNext && i2.hasNext & i3.hasNext)
+					res += ((i1.next(), i2.next(), i3.next()))
+				res.result()
+			}
+		}
+
+		/** Similar to [[scala.collection.IterableOps.zipAll zipAll]], but zips three collections at once. */
+		def zipAll3[U >: E, A, B](second :IterableOnce[A], third :IterableOnce[B],
+		                          thisElem :U, secondElem :A, thirdElem :B) :C[(U, A, B)] =
+		{
+			val size1 = self.knownSize
+			val size2 = self.knownSize
+			val size3 = self.knownSize
+			if (size1 == 0 & size2 == 0 & size3 == 0)
+				self.iterableFactory.empty
+			else {
+				val i1 = self.iterator
+				val i2 = second.iterator
+				val i3 = third.iterator
+				val res = self.iterableFactory.newBuilder[(U, A, B)]
+				if (size1 >= 0 & size2 >= 0 & size3 >= 0)
+					res sizeHint Math.max(size1, Math.max(size2, size3))
+				while (i1.hasNext && i2.hasNext && i3.hasNext)
+					res += ((i1.next(), i2.next(), i3.next()))
+				var has1 = i1.hasNext
+				var has2 = i2.hasNext
+				var has3 = i3.hasNext
+				var e = thisElem
+				var a = secondElem
+				var b = thirdElem
+				while (has1 | has2 | has3) {
+					if (has1) {
+						e = i1.next()
+						has1 = i1.hasNext
+					} else
+						e = thisElem
+					if (has2) {
+						a = i2.next()
+						has2 = i2.hasNext
+					} else
+						a = secondElem
+					if (has3) {
+						b = i3.next()
+						has3 = i3.hasNext
+					} else
+						b = thirdElem
+					res += ((e, a, b))
+				}
+				res.result()
+			}
+		}
+
 		/** An immutable array with the contents of this collection. */
 		def toIArray[A >: E :ClassTag] :IArray[E] = self.toArray[A].asInstanceOf[IArray[E]]
 

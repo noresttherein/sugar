@@ -9,7 +9,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 trait extensions extends Any {
-	implicit def classExtension(self :Class[_]) = new ClassExtension(self)
+	implicit def classExtension(self :Class[_]) :ClassExtension = new ClassExtension(self)
 }
 
 
@@ -33,6 +33,12 @@ object extensions extends extensions {
 		/** If this is a Java class to which a Java primitive type is auto boxed, return the class for the primitive type. */
 		@throws[UnsupportedOperationException]("if this class is not a box for a value type.")
 		def unboxed :Class[_] = extensions.Unwrapped(self)
+
+		/** True if the Java/Scala runtime allows this type where `other` class is expected.
+		  * @return `(other isAssignableFrom this) || (this isBoxOf other) || (other isBoxOf this)`.
+		  */ //consider: renaming to isAcceptableFor
+		def isConvertibleTo(other :Class[_]) :Boolean =
+			other.isAssignableFrom(self) || isBoxOf(other) || other.isBoxOf(self)
 
 		/** Returns the appropriate box class for built in value types, or `this` if it is a reference type
 		  * (or a custom value class).

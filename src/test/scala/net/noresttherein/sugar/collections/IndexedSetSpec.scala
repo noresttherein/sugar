@@ -4,6 +4,8 @@ import scala.collection.immutable.SortedSet
 import scala.collection.Factory
 
 
+
+
 object IndexedSetSpec
 	extends GenericIterableProps[IndexedSet, SortedSet, Ordering]("IndexedSet")
 	   with OrderedProps[IndexedSet, SortedSet, Ordering]

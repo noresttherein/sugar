@@ -22,7 +22,7 @@ libraryDependencies ++= Seq( //todo: make shapeless optional
 	"org.scala-lang" % "scala-library" % "2.13.10",
 	"org.scala-lang" % "scala-reflect" % "2.13.10",
 	"com.chuusai" %% "shapeless" % "2.3.10",
-	"net.bytebuddy" % "byte-buddy" % "1.12.21",
+	"net.bytebuddy" % "byte-buddy" % "1.14.2",
 
 	"junit" % "junit" % "4.13.2" % "test",
 	"org.scalatest" %% "scalatest" % "3.2.15" % "test",

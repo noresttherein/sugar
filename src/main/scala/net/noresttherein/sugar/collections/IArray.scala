@@ -1,13 +1,15 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.mutable.{Buffer, Builder}
-import scala.collection.{ClassTagIterableFactory, Factory, IndexedSeqView, IterableFactory, LazyZip2, Stepper, StepperShape, View}
-import scala.reflect.ClassTag
+import scala.collection.{ClassTagIterableFactory, Factory, IndexedSeqView, IterableFactory, LazyZip2, Stepper, StepperShape, View, mutable}
+import scala.reflect.{ClassTag, classTag}
 import scala.Array.UnapplySeqWrapper
 import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
 
 import net.noresttherein.sugar.collections.extensions._
 import net.noresttherein.sugar.extensions.{castTypeParam, classNameMethods, saferCasting}
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness.Maybe
 
 
@@ -874,6 +876,22 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 
 
+	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = it match {
+		case elems :View[E]                      => from(elems.iterator)
+		case elems :Iterable[E] if elems.isEmpty => Array.empty[E].asInstanceOf[IArray[E]]
+		case iter  :Iterator[E] if !iter.hasNext => Array.empty[E].asInstanceOf[IArray[E]]
+
+		case elems :ArraySeq[E] if classTag[E].runtimeClass isAssignableFrom elems.unsafeArray.getClass.getComponentType =>
+			elems.unsafeArray.asInstanceOf[IArray[E]]
+		case elems :AbstractPassedArray[E]
+			if elems.length == elems.unsafeArray.length
+				&& classTag[E].runtimeClass.isAssignableFrom(elems.getClass.getComponentType) =>
+			elems.unsafeArray.asInstanceOf[IArray[E]]
+		case elems :IArrayAsSeq[E]               => elems.coll
+		case elems :Iterable[E]                  => elems.toArray[E].asInstanceOf[IArray[E]]
+		case _                                   => it.iterator.toArray[E].asInstanceOf[IArray[E]]
+	}
+
 	val emptyBooleanIArray :IArray[Boolean] = new Array[Boolean](0).asInstanceOf[IArray[Boolean]]
 	val emptyByteIArray    :IArray[Byte]    = new Array[Byte](0).asInstanceOf[IArray[Byte]]
 	val emptyCharIArray    :IArray[Char]    = new Array[Char](0).asInstanceOf[IArray[Char]]
@@ -885,16 +903,6 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 	val emptyObjectIArray  :IArray[Object]  = new Array[Object](0).asInstanceOf[IArray[Object]]
 	val emptyUnitIArray    :IArray[Unit]    = new Array[Unit](0).asInstanceOf[IArray[Unit]]
 
-
-//	def wrap[E](array :IArray[E]) :IndexedSeqOps[E, IArray, IArray[E]] = new IArrayAsSeq(array)
-
-	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = it match {
-		case elems :Iterable[E] if elems.isEmpty => Array.empty[E].asInstanceOf[IArray[E]]
-		case iter :Iterator[E] if !iter.hasNext  => Array.empty[E].asInstanceOf[IArray[E]]
-		case elems :IArrayAsSeq[E]               => elems.coll
-		case elems :Iterable[E]                  => elems.toArray[E].asInstanceOf[IArray[E]]
-		case _                                   => it.iterator.toArray[E].asInstanceOf[IArray[E]]
-	}
 
 	override def empty[E :ClassTag] :IArray[E] = ArrayAsSeq.empty[E].asInstanceOf[IArray[E]]
 
@@ -960,22 +968,32 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 
 
+
+
 /** Factory of erased arrays: `RefArray[E]` represented in runtime by an `Array[Any]`.
   * ''This will work only in generic contexts: '' `ErasedArray.ofDim[Int](1)` will throw a [[ClassCastException]].
   * @define Coll `RefArray`
   * @define coll immutable array
   */
 @SerialVersionUID(Ver)
-case object ErasedArray extends IterableFactory[Array] {
+private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 	private[this] val Empty = Array.emptyObjectArray
 	override def empty[E] :Array[E] = Empty.asInstanceOf[Array[E]]
 
+	/** Boxes the element if necessary, and places it in a singleton `Array[AnyRef]`.
+	  * Its representation as an `Array[E]` will fail with a `ClassCastException` the first time it is returned to code
+	  * expecting an array of a specific element type.
+	  */
 	def one[E](elem :E) :Array[E] = {
 		val a = new Array[Any](1)
 		a(0) = elem
 		a.asInstanceOf[Array[E]]
 	}
 
+	/** Boxes the elements, if necessary, and places them in an `Array[AnyRef]` of length 2.
+	  * Its representation as an `Array[E]` will fail with a `ClassCastException` the first time it is returned to code
+	  * expecting an array of a specific element type.
+	  */
 	def two[E](first :E, second :E) :Array[E] = {
 		val a = new Array[Any](2)
 		a(0) = first
@@ -983,8 +1001,31 @@ case object ErasedArray extends IterableFactory[Array] {
 		a.asInstanceOf[Array[E]]
 	}
 
+	/** A new `Array[AnyRef]` of the specified length, cast to `Array[E]`. This cast will work only if the array
+	  * is never going to be used outside of a generic (erased) context. The first time it is returned to code
+	  * expecting an array of a specific element type, a `ClassCastException` will be thrown.
+	  */
 	@inline def ofDim[E](length :Int) :Array[E] = new Array[Any](length).asInstanceOf[Array[E]]
 
+	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument. If the argument is a value array,
+	  * the elements will be boxed. This method will '''fail''' with a `ClassCastException1 upon return
+	  * if `E` is known to be a built in value type - it is only good for use in generic context.
+	  */
+	def copyOf[E](array :Array[E]) :Array[E] = {
+		val res = new Array[Any](array.length).asInstanceOf[Array[E]]
+		if (array.isInstanceOf[Array[AnyRef]])
+			System.arraycopy(array, 0, res, 0, array.length)
+		else
+			Array.copy(array, 0, res, 0, array.length)
+		res
+	}
+
+
+	/** Reallocates the given array as an `Array[AnyRef]` of a new size, and copies `min(newLength, array.length)`
+	  * of its first elements. If the argument is a value array, the elements will be boxed.
+	  * This method will '''fail''' with a `ClassCastException`` upon return if `E` is known to be a built in value type -
+	  * it is only good for use in generic context.
+	  */
 	def copyOf[E](array :Array[E], newLength :Int) :Array[E] = {
 		val res = new Array[Any](newLength).asInstanceOf[Array[E]]
 		if (array.isInstanceOf[Array[AnyRef]])
@@ -1006,7 +1047,7 @@ case object ErasedArray extends IterableFactory[Array] {
 	def copyOfRange[E](array :Array[E], from :Int, until :Int) :Array[E] =
 		if (from < 0 | from > array.length)
 			throw new IndexOutOfBoundsException(
-				"RefArray.copyOfRange(" + array.localClassName + "[" + array.length + "], " + from + ", " + until + ")"
+				"ErasedArray.copyOfRange(" + array.localClassName + "[" + array.length + "], " + from + ", " + until + ")"
 			)
 		else if (until <= from)
 			empty
@@ -1022,21 +1063,29 @@ case object ErasedArray extends IterableFactory[Array] {
 
 
 	/** Build an array with erased element type from the iterable collection.
-	  *  @param  it the iterable collection
+	  *  @param  source the iterable collection
 	  *  @return an array consisting of elements of the iterable collection
 	  */
-	override def from[E](it :IterableOnce[E]) :Array[E] = it match {
+	override def from[E](source :IterableOnce[E]) :Array[E] = source match {
 		case it :View[E] => from(it.iterator)
 		case it :Iterable[E] if it.isEmpty => Empty.asInstanceOf[Array[E]]
 		case it :Iterator[E] if it.isEmpty => Empty.asInstanceOf[Array[E]]
-		case it :ArrayAsSeq[E] if it.coll.getClass.getComponentType == classOf[AnyRef] => it.coll
+		case it :ArrayAsSeq[E] if it.coll.getClass == classOf[Array[AnyRef]] => it.coll
 		case it :Iterable[E] => it.toArray[Any].asInstanceOf[Array[E]]
-		case _ => it.iterator.toArray[Any].asInstanceOf[Array[E]]
+		case _ => source.iterator.toArray[Any].asInstanceOf[Array[E]]
 	}
 
 	override def newBuilder[E] :Builder[E, Array[E]] =
 		ArrayAsSeq.newBuilder[Any](classOf[Any]).asInstanceOf[Builder[E, Array[E]]]
 
+	def unapply[E](elems :IterableOnce[E]) :Opt[Array[E]] = elems match {
+		case seq :mutable.ArraySeq[E] if seq.array.getClass == classOf[Array[AnyRef]] =>
+			Got(seq.array.asInstanceOf[Array[E]])
+		case seq :ArrayAsSeq[E] if seq.coll.getClass == classOf[Array[AnyRef]] =>
+			Got(seq.coll)
+		case _ =>
+			Lack
+	}
 	def unapplySeq[E](array :Array[E]) :UnapplySeqWrapper[E] =
 		new UnapplySeqWrapper(array)
 

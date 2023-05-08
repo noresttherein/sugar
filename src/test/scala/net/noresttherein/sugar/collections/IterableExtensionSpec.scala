@@ -1,10 +1,9 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.ArrayBuffer
 
 import net.noresttherein.sugar.extensions.iterableExtension
-import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
+import org.scalacheck.{Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
 

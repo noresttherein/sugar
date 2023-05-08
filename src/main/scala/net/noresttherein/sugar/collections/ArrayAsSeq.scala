@@ -4,7 +4,7 @@ import scala.Array.{emptyBooleanArray, emptyByteArray, emptyCharArray, emptyDoub
 import scala.annotation.nowarn
 import scala.collection.{ClassTagIterableFactory, IterableFactory, mutable}
 import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
-import scala.collection.mutable.{Builder, ReusableBuilder}
+import scala.collection.mutable.{ArrayBuilder, Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.extensions.castTypeParam
@@ -95,8 +95,26 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 
 	override def empty[A :ClassTag] :Array[A] = Array.empty[A]
 
-	override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = new ArrayBuilder[A]
-	def newBuilder[A](elementType :Class[A]) :Builder[A, Array[A]] = new ArrayBuilder(elementType)
+	override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder[A] //new ArrayBuilder[A]
+
+	def newBuilder[A](elementType :Class[A]) :Builder[A, Array[A]] =
+		if (elementType == classOf[AnyRef])
+			new ArrayBuilder.ofRef[AnyRef].asInstanceOf[Builder[A, Array[A]]]
+		else if (classOf[AnyRef] isAssignableFrom elementType)
+			new ArrayAsSeq.ArrayBuilder(elementType)
+		else {
+			if (elementType == classOf[Int]) new ArrayBuilder.ofInt
+			else if (elementType == classOf[Long]) new ArrayBuilder.ofLong
+			else if (elementType == classOf[Double]) new ArrayBuilder.ofDouble
+			else if (elementType == classOf[Byte]) new ArrayBuilder.ofByte
+			else if (elementType == classOf[Char]) new ArrayBuilder.ofChar
+			else if (elementType == classOf[Float]) new ArrayBuilder.ofFloat
+			else if (elementType == classOf[Short]) new ArrayBuilder.ofShort
+			else if (elementType == classOf[Boolean]) new ArrayBuilder.ofBoolean
+			else if (elementType == classOf[Unit]) new ArrayBuilder.ofUnit
+			else ArrayBuilder.make(ClassTag(elementType))
+		}.asInstanceOf[Builder[A, Array[A]]]
+
 
 	val untagged :IterableFactory[Array] = ErasedArray
 
