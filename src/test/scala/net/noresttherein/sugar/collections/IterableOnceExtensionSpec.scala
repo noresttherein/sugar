@@ -3,11 +3,12 @@ package net.noresttherein.sugar.collections
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 
-import net.noresttherein.sugar.collections.IterableExtensionSpec.{mappingProperty, zipMapProperty}
-import net.noresttherein.sugar.extensions.{isIterableOnceExtension, satisfyingMethods}
 import org.scalacheck.{Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
+
+import net.noresttherein.sugar.collections.IterableExtensionSpec.{mappingProperty, zipMapProperty}
+import net.noresttherein.sugar.extensions.{iterableOnceExtension, satisfyingMethods}
 
 
 

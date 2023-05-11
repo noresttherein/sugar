@@ -3,18 +3,17 @@ package net.noresttherein.sugar.collections
 
 
 import scala.annotation.tailrec
-import scala.collection.{immutable, mutable, AbstractSeq, AbstractSet, Factory, IterableFactory, IterableFactoryDefaults, IterableOps, LinearSeq}
+import scala.collection.{AbstractSeq, AbstractSet, Factory, IterableFactory, IterableFactoryDefaults, IterableOps, LinearSeq, immutable, mutable}
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, IndexedSeqDefaults, Set}
-import scala.collection.mutable.{ArrayBuffer, Builder, ReusableBuilder}
-import scala.reflect.{classTag, ClassTag}
+import scala.collection.mutable.{Builder, ReusableBuilder}
+import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking.{IndexedRanking, RankingSeqAdapter, RankingSetAdapter, SmallRanking}
-import net.noresttherein.sugar.extensions.{classNameMethods, saferCasting, seqExtension}
 import net.noresttherein.sugar.vars.{AbstractIdempotent, Opt}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits
-import net.noresttherein.sugar.extensions.{castTypeParam, isIterableOnceExtension, iterableExtension}
+import net.noresttherein.sugar.extensions.{castTypeParam, iterableOnceExtension, saferCasting, seqExtension}
 
 
 

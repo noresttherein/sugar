@@ -2,8 +2,9 @@ package net.noresttherein.sugar.collections
 
 import scala.Array.{emptyBooleanArray, emptyByteArray, emptyCharArray, emptyDoubleArray, emptyFloatArray, emptyIntArray, emptyLongArray, emptyObjectArray, emptyShortArray}
 import scala.annotation.nowarn
-import scala.collection.{ClassTagIterableFactory, IterableFactory, mutable}
-import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
+import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.{ClassTagIterableFactory, IterableFactory, SeqFactory, mutable}
+import scala.collection.immutable.IndexedSeqOps
 import scala.collection.mutable.{ArrayBuilder, Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
@@ -13,6 +14,52 @@ import net.noresttherein.sugar.extensions.castTypeParam
 import extensions._
 
 
+
+
+
+private abstract class AbstractArrayAsSeq[E, Arr[_]](arr :Array[E])
+	extends IterableOnce[E] with collection.IndexedSeqOps[E, Arr, Arr[E]]
+{
+	override def length :Int = arr.length
+	override def apply(i :Int) :E = arr(i)
+	override def iterator :Iterator[E] = arr.iterator //new ArrayIterator[E](coll, 0, coll.length)
+//	override def empty = iterableFactory.empty
+
+	protected override def fromSpecific(coll :IterableOnce[E @uncheckedVariance]) :Arr[E] = iterableFactory.from(coll)
+	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, Arr[E]] = iterableFactory.newBuilder
+
+	override def toSeq :Seq[E] = toIndexedSeq
+	override def toIndexedSeq = WrappedArray(Array.copyOf(arr, arr.length))
+
+	override def equals(that :Any) :Boolean = that match {
+		case other :AbstractArrayAsSeq[_, _] => arr sameElements other.array
+		case it :IterableOnce[_]   => mutable.ArraySeq.make(arr) == it
+		case _                     => false
+	}
+	@inline final def array :Array[E] = arr
+
+	override def hashCode :Int = mutable.ArraySeq.make(arr).hashCode
+
+	protected def className :String = iterableFactory.toString
+	override def toString :String = mutable.ArraySeq.make(arr).mkString(className + "(", ", ", ")")
+}
+
+
+
+
+private class IndexedSeqArrayAdapter[A](array :Array[A])
+	extends AbstractArrayAsSeq[A, collection.IndexedSeq](array) with collection.IndexedSeq[A]
+{
+
+	protected override def fromSpecific(coll :IterableOnce[A @uncheckedVariance]) :collection.IndexedSeq[A] =
+		iterableFactory.from(coll)
+
+	protected override def newSpecificBuilder :Builder[A @uncheckedVariance, collection.IndexedSeq[A]] =
+		iterableFactory.newBuilder
+
+	override def iterableFactory :SeqFactory[collection.IndexedSeq] = DefaultIndexedSeq
+	override def className :String = "Array"
+}
 
 
 
@@ -27,14 +74,9 @@ import extensions._
   */
 @SerialVersionUID(Ver)
 private final class ArrayAsSeq[E](override val coll :Array[E])
-	extends IterableOnce[E] with mutable.IndexedSeqOps[E, Array, Array[E]]
+	extends AbstractArrayAsSeq[E, Array](coll) with mutable.IndexedSeqOps[E, Array, Array[E]]
 {
 	override def update(idx :Int, elem :E) :Unit = coll(idx) = elem
-	override def apply(i :Int) :E = coll(i)
-
-	override def length :Int = coll.length
-
-	override def iterator :Iterator[E] = new ArrayIterator[E](coll, 0, coll.length)
 
 	override def empty :Array[E] =
 		ArrayAsSeq.empty(coll.getClass.getComponentType.castParam[E])
@@ -51,16 +93,7 @@ private final class ArrayAsSeq[E](override val coll :Array[E])
 	override def iterableFactory :IterableFactory[Array] = ErasedArray
 
 	private def classTag = ClassTag(coll.getClass.getComponentType).asInstanceOf[ClassTag[E]]
-
-	override def equals(that :Any) :Boolean = that match {
-		case other :ArrayAsSeq[_] => coll sameElements other.coll
-		case other :IArrayAsSeq[_] => other.coll sameElements coll
-		case it :IterableOnce[_] =>
-			mutable.ArraySeq.make(coll) == it
-		case _ => false
-	}
-	override def hashCode :Int = mutable.ArraySeq.make(coll).hashCode
-	override def toString :String = mutable.ArraySeq.make(coll).mkString("Array(", ", ", ")")
+	override def className = "Array"
 }
 
 
@@ -216,61 +249,65 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
   */
 @SerialVersionUID(Ver)
 private final class IArrayAsSeq[E](override val coll :IArray[E])
-	extends IterableOnce[E] with IndexedSeqOps[E, IArray, IArray[E]]
+	extends AbstractArrayAsSeq[E, IArray](coll.asInstanceOf[Array[E]]) with IndexedSeqOps[E, IArray, IArray[E]]
 {
-	override def apply(i :Int) :E = coll(i)
-
-	override def length :Int = coll.length
-
-	override def iterator :Iterator[E] = new ArrayIterator(coll.asInstanceOf[Array[E]], 0, coll.length)
-
-	override def empty :IArray[E] =
-		IArray.empty(classTag)
-
-	protected override def fromSpecific(coll :IterableOnce[E]) :IArray[E] =
-		IArray.from(coll)(classTag)
-
+	protected override def fromSpecific(coll :IterableOnce[E]) :IArray[E] = IArray.from(coll)(classTag)
 	protected override def newSpecificBuilder :Builder[E, IArray[E]] =
-		IArray.newBuilder[E](classTag)
+		IArray.newBuilder(coll.getClass.getComponentType.castParam[E])
 
 	@nowarn("cat=deprecation")
-	override def toIterable :Iterable[E] = ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]])
+	override def toIterable :Iterable[E] = toIndexedSeq
+	override def toIndexedSeq :IndexedSeq[E] = WrappedArray(coll.asInstanceOf[Array[E]])
 
 	override def iterableFactory :IterableFactory[IArray] = IArray.untagged
 
 	private def classTag = ClassTag(coll.getClass.getComponentType).asInstanceOf[ClassTag[E]]
-
-	override def equals(that :Any) :Boolean = that match {
-		case other :IArrayAsSeq[_] => coll sameElements other.coll
-		case other :ArrayAsSeq[_] => coll sameElements other.coll
-		case it :IterableOnce[_] =>
-			ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]]) == it
-		case _ => false
-	}
-	override def hashCode :Int = ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]]).hashCode
-	override def toString :String = ArraySeq.unsafeWrapArray(coll.asInstanceOf[Array[E]]).mkString("Array(", ", ", ")")
+	override def className = "IArray"
 }
-//
-//
-//
-//
-//@SerialVersionUID(Ver)
-//object IArrayAsSeq extends ClassTagIterableFactory[IArray] {
-//
-//	def wrap[E](array :IArray[E]) :IndexedSeqOps[E, IArray, IArray[E]] = new IArrayAsSeq(array)
-//
-//	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = IArray.from(it)
-//
-//	override def empty[E :ClassTag] :IArray[E] = IArray.empty[E]
-//
-//	def empty[E](elementType :Class[E]) :IArray[E] = IArray.empty(elementType)
-//
-//	override def newBuilder[E :ClassTag] :Builder[E, IArray[E]] = IArray.newBuilder[E]
-//
-//	def newBuilder[E](elementType :Class[E]) :Builder[E, IArray[E]] = IArray.newBuilder(elementType)
-//
-//	val untagged :IterableFactory[IArray] = IArray.untagged
-//}
+
+
+
+
+/** A non-sticky adapter of a `RefArray[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, RefArray, RefArray[E]]`.
+  * All operations return the resulting `Array[E]`, not another instance of this class.
+  * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
+  * is that they are standard `Seq` implementations, creating the same `ArraySeq` type when filtering or mapping.
+  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `Array`s.
+  */
+@SerialVersionUID(Ver)
+private final class RefArrayAsSeq[E](override val coll :RefArray[E])
+	extends AbstractArrayAsSeq[E, RefArray](coll.asInstanceOf[Array[E]])
+{
+	@nowarn("cat=deprecation")
+	override def toIterable :Iterable[E] = mutable.ArraySeq.make(coll.asInstanceOf[Array[E]])
+
+	override def iterableFactory :IterableFactory[RefArray] = RefArray
+}
+
+
+
+
+/** A non-sticky adapter of an `IRefArray[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, IRefArray, IRefArray[E]]`.
+  * All operations return the resulting `Array[E]`, not another instance of this class.
+  * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
+  * is that they are standard `Seq` implementations, creating the same `ArraySeq` type when filtering or mapping.
+  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `Array`s.
+  */
+@SerialVersionUID(Ver)
+private final class IRefArrayAsSeq[E](override val coll :IRefArray[E])
+	extends AbstractArrayAsSeq[E, IRefArray](coll.asInstanceOf[Array[E]]) with IndexedSeqOps[E, IRefArray, IRefArray[E]]
+{
+	@nowarn("cat=deprecation")
+	override def toIterable :Iterable[E] = toIndexedSeq
+	override def toIndexedSeq :IndexedSeq[E] = WrappedArray(coll.asInstanceOf[Array[E]])
+	override def iterableFactory :IterableFactory[IRefArray] = IRefArray
+}
 
 
 

@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.nowarn
 import scala.collection.{mutable, IterableFactory, IterableOps}
 import scala.collection.mutable.Builder
 import scala.util.Random

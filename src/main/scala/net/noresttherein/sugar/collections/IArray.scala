@@ -1,12 +1,14 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.mutable.{Buffer, Builder}
-import scala.collection.{ClassTagIterableFactory, Factory, IndexedSeqView, IterableFactory, LazyZip2, Stepper, StepperShape, View, mutable}
-import scala.reflect.{ClassTag, classTag}
 import scala.Array.UnapplySeqWrapper
+import scala.annotation.nowarn
+import scala.collection.{ClassTagIterableFactory, Factory, IndexedSeqView, IterableFactory, LazyZip2, Stepper, StepperShape, View, mutable}
+import scala.collection.generic.IsSeq
 import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
+import scala.collection.mutable.{Buffer, Builder}
+import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.collections.extensions._
+import net.noresttherein.sugar.collections.ArrayLike.{ArrayLikeExtension, RefArrayLikeExtension}
 import net.noresttherein.sugar.extensions.{castTypeParam, classNameMethods, saferCasting}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -14,13 +16,10 @@ import net.noresttherein.sugar.witness.Maybe
 
 
 
-/*
 
-case object BaseArray extends EvidenceIterableFactory.Delegate[BaseArray, ClassTag](IArray) {
-	val untagged :IterableFactory[BaseArray] = IArray.untagged
-
-	class BaseArrayExtension[Arr[X] <: BaseArray[X], E] private[collections] (private[IArray] val array :Array[E])
-		extends AnyVal//with IterableOnce[E]
+object ArrayLike {
+	class ArrayLikeExtension[E, Arr[X]] private[collections] (private[ArrayLike] val array :Array[Any])
+		extends AnyVal
 	{
 		@inline def knownSize :Int = array.length
 		@inline def length :Int = array.length
@@ -32,172 +31,174 @@ case object BaseArray extends EvidenceIterableFactory.Delegate[BaseArray, ClassT
 		@inline def sizeCompare(otherSize :Int) :Int= Integer.compare(array.length, otherSize)
 		@inline def lengthCompare(len :Int) :Int = Integer.compare(array.length, len)
 
-		@inline def apply(n :Int) :E = array(n)
-		@inline def head :E = array.head
-		@inline def last :E = array.last
-		@inline def headOption :Option[E] = array.headOption
-		@inline def lastOption :Option[E] = array.lastOption
+//		@inline def head :E = array.head
+//		@inline def last :E = array.last
+		@inline def headOption :Option[E] = array.headOption.asInstanceOf[Option[E]]
+		@inline def lastOption :Option[E] = array.lastOption.asInstanceOf[Option[E]]
 
-		@inline def forall(p :E => Boolean) :Boolean = array.forall(p)
-		@inline def exists(p :E => Boolean) :Boolean = array.exists(p)
-		@inline def count(p :E => Boolean) :Int = array.count(p)
-		@inline def find(p :E => Boolean) :Option[E] = array.find(p)
-		@inline def indexWhere(p :E => Boolean) :Int = array.indexWhere(p)
-		@inline def lastIndexWhere(p :E => Boolean) :Int = array.lastIndexWhere(p)
+		@inline def forall(p :E => Boolean) :Boolean = array.forall(p.asInstanceOf[Any => Boolean])
+		@inline def exists(p :E => Boolean) :Boolean = array.exists(p.asInstanceOf[Any => Boolean])
+		@inline def count(p :E => Boolean) :Int = array.count(p.asInstanceOf[Any => Boolean])
+		@inline def find(p :E => Boolean) :Option[E] = array.find(p.asInstanceOf[Any => Boolean]).asInstanceOf[Option[E]]
+		@inline def indexWhere(p :E => Boolean, from :Int = 0) :Int =
+			array.indexWhere(p.asInstanceOf[Any => Boolean], from)
+		@inline def lastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Int =
+			array.lastIndexWhere(p.asInstanceOf[Any => Boolean], end)
 		@inline def indexOf(elem :E, from :Int = 0) :Int = array.indexOf(elem, from)
 		@inline def lastIndexOf(elem :E, end :Int = 0) :Int = array.lastIndexOf(elem, end)
 		@inline def contains(elem :E) :Boolean = array.contains(elem)
 
-		@inline def segmentLength(p :E => Boolean, from :Int = 0) :Int = array.segmentLength(p, from)
-		@inline def startsWith[A >: E](that :IterableOnce[A]) :Boolean = array.startsWith(that, 0)
-		@inline def startsWith[A >: E](that :IterableOnce[A], offset :Int) :Boolean = array.startsWith(that, offset)
-		@inline def startsWith[A >: E](that :Array[A]) :Boolean = array.startsWith(that, 0)
-		@inline def startsWith[A >: E](that :Array[A], offset :Int) :Boolean =
-			array.startsWith(that, offset)
+		@inline def segmentLength(p :E => Boolean, from :Int = 0) :Int =
+			array.segmentLength(p.asInstanceOf[Any => Boolean], from)
 
-		@inline def endsWith[A >: E](that :Iterable[A]) :Boolean = array.endsWith(that)
-		@inline def endsWith[A >: E](that :Array[A]) :Boolean = array.endsWith(that)
+		@inline def startsWith[A >: E](that :IterableOnce[A]) :Boolean =
+			array.startsWith(that.asInstanceOf[IterableOnce[Any]], 0)
+
+		@inline def startsWith[A >: E](that :IterableOnce[A], offset :Int) :Boolean =
+			array.startsWith(that.asInstanceOf[IterableOnce[Any]], offset)
+
+		@inline def startsWith[A >: E](that :ArrayLike[A], offset :Int) :Boolean =
+			array.startsWith(that.asInstanceOf[Array[Any]], offset)
+
+		@inline def startsWith[A >: E](that :ArrayLike[A]) :Boolean =
+			array.startsWith(that.asInstanceOf[Array[Any]], 0)
+
+		@inline def endsWith[A >: E](that :Iterable[A]) :Boolean = array.endsWith(that.asInstanceOf[Iterable[Any]])
+		@inline def endsWith[A >: E](that :ArrayLike[A]) :Boolean = array.endsWith(that.asInstanceOf[Array[Any]])
 
 		@inline def corresponds[A](that :IterableOnce[A])(p :(E, A) => Boolean) :Boolean =
-			array.corresponds(that)(p)
+			array.corresponds(that.asInstanceOf[IterableOnce[Any]])(p.asInstanceOf[(Any, Any) => Boolean])
 
-		@inline def corresponds[A](that :Array[A])(p :(E, A) => Boolean) :Boolean = array.corresponds(that)(p)
+		@inline def corresponds[A](that :ArrayLike[A])(p :(E, A) => Boolean) :Boolean =
+			array.corresponds(new ArrayAsSeq(that.asInstanceOf[Array[Any]]))(p.asInstanceOf[(Any, Any) => Boolean])
 
-		@inline def sum[A >: E](implicit num :Numeric[A]) :A = array.sum[A]
-		@inline def product[A >: E](implicit num :Numeric[A]) :A = array.product[A]
-		@inline def min[A >: E](implicit ord :Ordering[A]) :E = array.min[A]
-		@inline def minOption[A >: E](implicit ord :Ordering[A]) :Option[E] = array.minOption[A]
-		@inline def max[A >: E](implicit ord :Ordering[A]) :E = array.max[A]
-		@inline def maxOption[A >: E](implicit ord :Ordering[A]) :Option[E] = array.maxOption[A]
-		@inline def maxBy[A](f :E => A)(implicit cmp :Ordering[A]) :E = array.maxBy(f)
-		@inline def maxByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = array.maxByOption(f)
-		@inline def minBy[A](f :E => A)(implicit cmp :Ordering[A]) :E = array.minBy(f)
-		@inline def minByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = array.minByOption(f)
+		@inline def sum[A >: E](implicit num :Numeric[A]) :A = array.sum(num.castParam[Any]).asInstanceOf[A]
+		@inline def product[A >: E](implicit num :Numeric[A]) :A = array.product(num.castParam[Any]).asInstanceOf[A]
+		@inline def min[A >: E](implicit ord :Ordering[A]) :E = array.min(ord.castParam[Any]).asInstanceOf[E]
+		@inline def max[A >: E](implicit ord :Ordering[A]) :E = array.max(ord.castParam[Any]).asInstanceOf[E]
+		@inline def maxOption[A >: E](implicit ord :Ordering[A]) :Option[E] = array.maxOption(ord.castParam[Any]).asInstanceOf[Option[E]]
+		@inline def minOption[A >: E](implicit ord :Ordering[A]) :Option[E] = array.minOption(ord.castParam[Any]).asInstanceOf[Option[E]]
+		@inline def minBy[A](f :E => A)(implicit cmp :Ordering[A]) :E = array.minBy(f.asInstanceOf[Any => A]).asInstanceOf[E]
+		@inline def maxBy[A](f :E => A)(implicit cmp :Ordering[A]) :E = array.maxBy(f.asInstanceOf[Any => A]).asInstanceOf[E]
+		@inline def minByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = array.minByOption(f.asInstanceOf[Any => A]).asInstanceOf[Option[E]]
+		@inline def maxByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = array.maxByOption(f.asInstanceOf[Any => A]).asInstanceOf[Option[E]]
 
-		@inline def /: [A](z :A)(op :(A, E) => A) :A = array.foldLeft[A](z)(op)
-		@inline def :\ [A](z :A)(op :(E, A) => A) :A = array.foldRight[A](z)(op)
+		@inline def /: [A](z :A)(op :(A, E) => A) :A = array.foldLeft[A](z)(op.asInstanceOf[(A, Any) => A])
+		@inline def :\ [A](z :A)(op :(E, A) => A) :A = array.foldRight[A](z)(op.asInstanceOf[(Any, A) => A])
 
-		@inline def foldLeft[A](z :A)(op :(A, E) => A) :A = array.foldLeft(z)(op)
-		@inline def foldRight[A](z :A)(op :(E, A) => A) :A = array.foldRight(z)(op)
-		@inline def fold[A >: E](z :A)(op :(A, A) => A) :A = array.fold(z)(op)
-		@inline def reduce[A >: E](op :(A, A) => A) :A = array.reduce(op)
-		@inline def reduceOption[A >: E](op :(A, A) => A) :Option[A] = array.reduceOption(op)
-		@inline def reduceLeft[A >: E](op :(A, E) => A) :A = array.reduceLeft(op)
-		@inline def reduceRight[A >: E](op :(E, A) => A) :A = array.reduceRight(op)
-		@inline def reduceLeftOption[A >: E](op :(A, E) => A) :Option[A] = array.reduceLeftOption(op)
-		@inline def reduceRightOption[A >: E](op :(E, A) => A) :Option[A] = array.reduceRightOption(op)
+		@inline def foldLeft[A](z :A)(op :(A, E) => A) :A = array.foldLeft(z)(op.asInstanceOf[(A, Any) => A])
+		@inline def foldRight[A](z :A)(op :(E, A) => A) :A = array.foldRight(z)(op.asInstanceOf[(Any, A) => A])
+		@inline def fold[A >: E](z :A)(op :(A, A) => A) :A = array.fold(z)(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[A]
+		@inline def reduce[A >: E](op :(A, A) => A) :A = array.reduce(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[A]
+		@inline def reduceOption[A >: E](op :(A, A) => A) :Option[A] = array.reduceOption(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Option[A]]
+		@inline def reduceLeft[A >: E](op :(A, E) => A) :A = array.reduceLeft(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[A]
+		@inline def reduceRight[A >: E](op :(E, A) => A) :A = array.reduceRight(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[A]
+		@inline def reduceLeftOption[A >: E](op :(A, E) => A) :Option[A] = array.reduceLeftOption(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Option[A]]
+		@inline def reduceRightOption[A >: E](op :(E, A) => A) :Option[A] = array.reduceRightOption(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Option[A]]
 
-		@inline def scanLeft[A](z :A)(op :(A, E) => A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.scanLeft(z)(op)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-		@inline def scanRight[A](z :A)(op :(E, A) => A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.scanRight(z)(op)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-		@inline def scan[A >: E](z :A)(op :(A, A) => A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.scan(z)(op)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+//		@inline def scanLeft[A :ClassTag](z :A)(op :(A, E) => A) :Arr[A] =
+//			array.scanLeft(z)(op.asInstanceOf[(A, Any) => A]).asInstanceOf[Arr[A]]
+//
+//		@inline def scanRight[A :ClassTag](z :A)(op :(E, A) => A) :Arr[A] =
+//			array.scanRight(z)(op.asInstanceOf[(Any, A) => A]).asInstanceOf[Arr[A]]
+//
+//		@inline def scan[A >: E :ClassTag](z :A)(op :(A, A) => A) :Arr[A] =
+//			array.scan(z)(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Arr[E]]
 
 		@inline def take(n :Int) :Arr[E] = array.take(n).asInstanceOf[Arr[E]]
 		@inline def drop(n :Int) :Arr[E] = array.drop(n).asInstanceOf[Arr[E]]
 		@inline def takeRight(n :Int) :Arr[E] = array.takeRight(n).asInstanceOf[Arr[E]]
 		@inline def dropRight(n :Int) :Arr[E] = array.dropRight(n).asInstanceOf[Arr[E]]
-		@inline def takeWhile(p :E => Boolean) :Arr[E] = array.takeWhile(p).asInstanceOf[Arr[E]]
-		@inline def dropWhile(p :E => Boolean) :Arr[E] = array.dropWhile(p).asInstanceOf[Arr[E]]
+		@inline def takeWhile(p :E => Boolean) :Arr[E] = array.takeWhile(p.asInstanceOf[Any => Boolean]).asInstanceOf[Arr[E]]
+		@inline def dropWhile(p :E => Boolean) :Arr[E] = array.dropWhile(p.asInstanceOf[Any => Boolean]).asInstanceOf[Arr[E]]
 		@inline def slice(from :Int, until :Int) :Arr[E] = array.slice(from, until).asInstanceOf[Arr[E]]
 
 		@inline def splitAt(n :Int) :(Arr[E], Arr[E]) =
 			array.splitAt(n).asInstanceOf[(Arr[E], Arr[E])]
 
 		@inline def span(p :E => Boolean) :(Arr[E], Arr[E]) =
-			array.span(p).asInstanceOf[(Arr[E], Arr[E])]
+			array.span(p.asInstanceOf[Any => Boolean]).asInstanceOf[(Arr[E], Arr[E])]
 
 		@inline def reverse :Arr[E] = array.reverse.asInstanceOf[Arr[E]]
 
-		@inline def sortWith(lt :(E, E) => Boolean) :Arr[E] = array.sortWith(lt).asInstanceOf[Arr[E]]
+		@inline def sortWith(lt :(E, E) => Boolean) :Arr[E] = array.sortWith(lt.asInstanceOf[(Any, Any) => Boolean]).asInstanceOf[Arr[E]]
 		@inline def sortBy[A](f :E => A)(implicit ord: Ordering[A]): Arr[E] =
-			array.sortBy(f).asInstanceOf[Arr[E]]
+			array.sortBy(f.asInstanceOf[Any => A]).asInstanceOf[Arr[E]]
 
 		@inline def sorted[A >: E](implicit ordering :Ordering[A]) :Arr[E] =
-			array.sorted[A].asInstanceOf[Arr[E]]
+			array.sorted(ordering.asInstanceOf[Ordering[Any]]).asInstanceOf[Arr[E]]
 
 		@inline def distinct :Arr[E] = array.distinct.asInstanceOf[Arr[E]]
-		@inline def distinctBy[A](f :E => A) :Arr[E] = array.distinctBy(f).asInstanceOf[Arr[E]]
+		@inline def distinctBy[A](f :E => A) :Arr[E] = array.distinctBy(f.asInstanceOf[Any => A]).asInstanceOf[Arr[E]]
 
 
 		@inline def tail :Arr[E] = array.tail.asInstanceOf[Arr[E]]
 		@inline def init :Arr[E] = array.init.asInstanceOf[Arr[E]]
 
-		@inline def tails :Iterator[Arr[E]] = array.tails.castFrom[Iterator[Array[E]], Iterator[Arr[E]]]
-		@inline def inits :Iterator[Arr[E]] = array.inits.castFrom[Iterator[Array[E]], Iterator[Arr[E]]]
+		@inline def tails :Iterator[Arr[E]] = array.tails.castFrom[Iterator[Array[_]], Iterator[Arr[E]]]
+		@inline def inits :Iterator[Arr[E]] = array.inits.castFrom[Iterator[Array[_]], Iterator[Arr[E]]]
 		@inline def grouped(size :Int) :Iterator[Arr[E]] =
-			array.grouped(size).castFrom[Iterator[Array[E]], Iterator[Arr[E]]]
+			array.grouped(size).castFrom[Iterator[Array[_]], Iterator[Arr[E]]]
 
 		@inline def sliding(size :Int, step :Int = 1) :Iterator[Arr[E]] =
-			array.sliding(size, step).castFrom[Iterator[Array[E]], Iterator[Arr[E]]]
+			array.sliding(size, step).castFrom[Iterator[Array[_]], Iterator[Arr[E]]]
 
 		@inline def combinations(n :Int) :Iterator[Arr[E]] =
-			array.combinations(n).castFrom[Iterator[Array[E]], Iterator[Arr[E]]]
+			array.combinations(n).castFrom[Iterator[Array[_]], Iterator[Arr[E]]]
 
 		@inline def permutations :Iterator[Arr[E]] =
-			array.permutations.castFrom[Iterator[Array[E]], Iterator[Arr[E]]]
+			array.permutations.castFrom[Iterator[Array[_]], Iterator[Arr[E]]]
 
-		@inline def iterator :Iterator[E] = array.iterator //ArrayIterator(array)
-		@inline def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S = array.stepper
-		@inline def reverseIterator :Iterator[E] = array.reverseIterator
+		@inline def iterator :Iterator[E] = array.iterator.asInstanceOf[Iterator[E]] //ArrayIterator(array)
+		@inline def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S =
+			array.asInstanceOf[Array[Any]].stepper(shape.asInstanceOf[StepperShape[Any, S]])
 
-		@inline def withFilter(p :E => Boolean) :ArrayLikeWithFilter[Arr, E] = new ArrayLikeWithFilter(p, array)
-		@inline def filter(p :E => Boolean) :Arr[E] = array.filter(p).asInstanceOf[Arr[E]]
-		@inline def filterNot(p :E => Boolean) :Arr[E] = array.filterNot(p).asInstanceOf[Arr[E]]
+		@inline def reverseIterator :Iterator[E] = array.reverseIterator.asInstanceOf[Iterator[E]]
+
+//		@inline def withFilter(p :E => Boolean) :WithFilter[E] = new WithFilter(p, array)
+		@inline def filter(p :E => Boolean) :Arr[E] = array.filter(p.asInstanceOf[Any => Boolean]).asInstanceOf[Arr[E]]
+		@inline def filterNot(p :E => Boolean) :Arr[E] = array.filterNot(p.asInstanceOf[Any => Boolean]).asInstanceOf[Arr[E]]
 		@inline def partition(p :E => Boolean) :(Arr[E], Arr[E]) =
-			array.partition(p).asInstanceOf[(Arr[E], Arr[E])]
+			array.partition(p.asInstanceOf[Any => Boolean]).asInstanceOf[(Arr[E], Arr[E])]
 
-		@inline def collectFirst[A](pf :PartialFunction[E, A]) :Option[A] = array.collectFirst(pf)
-		@inline def collect[A](pf :PartialFunction[E, A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.collect(pf)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def collectFirst[A](pf :PartialFunction[E, A]) :Option[A] = array.collectFirst(pf.asInstanceOf[PartialFunction[Any, A]])
+/*
+		@inline def collect[A :ClassTag](pf :PartialFunction[E, A]) :Arr[A] =
+			array.collect(pf.asInstanceOf[PartialFunction[Any, A]]).asInstanceOf[Arr[A]]
 
-		@inline def partitionMap[E1, E2](f: E => Either[E1, E2])
-		                                (implicit tag1 :Maybe[ClassTag[E1]], tag2 :Maybe[ClassTag[E2]])
-				:(Arr[E1], Arr[E2]) =
-			array.partitionMap(f)(
-				tag1 getOrElse ClassTag.Any.castParam[E1], tag2 getOrElse ClassTag.Any.castParam[E2]
-			).castFrom[(Array[E1], Array[E2]), (Arr[E1], Arr[E2])]
+		@inline def partitionMap[E1: ClassTag, E2: ClassTag](f: E => Either[E1, E2]) :(Arr[E1], Arr[E2]) =
+			array.partitionMap(f).castFrom[(Array[E1], Array[E2]), (Arr[E1], Arr[E2])]
 
-		@inline def map[A](f :E => A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.map(f)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-		@inline def flatMap[A](f :E => IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.flatMap(f)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def map[A :ClassTag](f :E => A) :Arr[A] = array.map(f).asInstanceOf[Arr[A]]
+		@inline def flatMap[A :ClassTag](f :E => IterableOnce[A]) :Arr[A] =
+			array.flatMap(f).asInstanceOf[Arr[A]]
 
 		@inline def flatMap[As, A](f :E => As)(implicit asIterable :As => Iterable[A], m :ClassTag[A]) :Arr[A] =
 			array.flatMap(f).asInstanceOf[Arr[A]]
 
-		@inline def flatten[A](implicit asIterable :E => IterableOnce[A], tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.flatten(asIterable, tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def flatten[A :ClassTag](implicit asIterable :E => IterableOnce[A]) :Arr[A] =
+			array.flatten.asInstanceOf[Arr[A]]
+*/
 
 		@inline def groupBy[K](f: E => K) :Map[K, Arr[E]] =
-			array.groupBy(f).castFrom[Map[K, Array[E]], Map[K, Arr[E]]]
+			array.groupBy(f.asInstanceOf[Any => K]).castFrom[Map[K, Array[_]], Map[K, Arr[E]]]
 
-		@inline def groupMap[K, A](key :E => K)(f :E => A)(implicit tag :Maybe[ClassTag[A]]) :Map[K, Arr[A]] =
-			array.groupMap(key)(f)(tag getOrElse ClassTag.Any.castParam[A]).castFrom[Map[K, Array[A]], Map[K, Arr[A]]]
+//		@inline def groupMap[K, A :ClassTag](key :E => K)(f :E => A) :Map[K, Arr[A]] =
+//			array.groupMap(key)(f).castFrom[Map[K, Array[A]], Map[K, Arr[A]]]
 
-		@inline def tapEach[U](f :E => U) :Arr[E] = array.tapEach(f).asInstanceOf[Arr[E]]
-		@inline def foreach[U](f :E => U) :Unit = array.foreach(f)
+		@inline def tapEach[U](f :E => U) :Arr[E] = array.tapEach(f.asInstanceOf[Any => U]).asInstanceOf[Arr[E]]
+		@inline def foreach[U](f :E => U) :Unit = array.foreach(f.asInstanceOf[Any => U])
 
 		@inline def zipWithIndex :Arr[(E, Int)] = array.zipWithIndex.asInstanceOf[Arr[(E, Int)]]
 		@inline def zip[A](that :IterableOnce[A]) :Arr[(E, A)] = array.zip(that).asInstanceOf[Arr[(E, A)]]
-		@inline def zip[A](that :Array[A]) :Arr[(E, A)] = array.zip(new ArrayAsSeq(that)).asInstanceOf[Arr[(E, A)]]
 
 		@inline def lazyZip[A](that: Iterable[A]) :LazyZip2[E, A, Arr[E]] =
 			array.lazyZip(that).asInstanceOf[LazyZip2[E, A, Arr[E]]]
 
-		@inline def lazyZip[A](that: Array[A]) :LazyZip2[E, A, Arr[E]] =
-			array.lazyZip(new ArrayAsSeq(that)).asInstanceOf[LazyZip2[E, A, Arr[E]]]
-
 		@inline def zipAll[A >: E, B](that :Iterable[B], thisElem :A, thatElem :B) :Arr[(A, B)] =
-			array.zipAll(that, thisElem, thatElem).castFrom[Array[(A, B)], Arr[(A, B)]]
+			array.zipAll(that, thisElem.asInstanceOf[Any], thatElem).castFrom[Array[(Any, B)], Arr[(A, B)]]
 
-		@inline def zipAll[A >: E, B](that :Array[B], thisElem :A, thatElem :B) :Arr[(A, B)] =
-			array.zipAll(new ArrayAsSeq(that), thisElem, thatElem).castFrom[Array[(A, B)], Arr[(A, B)]]
-
+/*
 		@inline def unzip[E1, E2](implicit asPair :E => (E1, E2), ct1 :ClassTag[E1], ct2 :ClassTag[E2])
 				:(Arr[E1], Arr[E2]) =
 			array.unzip.castFrom[(Array[E1], Array[E2]), (Arr[E1], Arr[E2])]
@@ -206,156 +207,90 @@ case object BaseArray extends EvidenceIterableFactory.Delegate[BaseArray, ClassT
 		                               ct3 :ClassTag[E3]) :(Arr[E1], Arr[E2], Arr[E3]) =
 			array.unzip3.castFrom[(Array[E1], Array[E2], Array[E3]), (Arr[E1], Arr[E2], Arr[E3])]
 
+		@inline def updated[A >: E :ClassTag](index :Int, x :A) :Arr[A] =
+			array.updated(index, x).asInstanceOf[Arr[A]]
 
-		@inline def :+[A >: E](x :A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appended(x)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def :+[A >: E :ClassTag](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[E]]
+		@inline def +:[A >: E :ClassTag](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[E]]
+		@inline def appended[A >: E :ClassTag](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[E]]
+		@inline def prepended[A >: E :ClassTag](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[E]]
 
-		@inline def +:[A >: E](x :A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.prepended(x)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def ++[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def appended[A >: E](x :A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appended(x)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def ++[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
 
-		@inline def prepended[A >: E](x :A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.prepended(x)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def concat[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
+		@inline def concat[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
 
-		@inline def ++[A >: E](suffix :IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def :++[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def ++[A >: E](suffix :Array[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def :++[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
 
-		@inline def concat[A >: E](suffix :IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def :++[A >: E](suffix :Arr[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]])(
+				tag getOrElse ClassTag.Any.castParam[A]
+			).asInstanceOf[Arr[A]]
 
-		@inline def concat[A >: E](suffix :Array[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def appendedAll[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
+		@inline def appendedAll[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
 
-		@inline def :++[A >: E](suffix :IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def appendedAll[A >: E](suffix :Arr[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]])(
+				tag getOrElse ClassTag.Any.castParam[A]
+			).asInstanceOf[Arr[A]]
 
-		@inline def :++[A >: E](suffix :Array[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def ++:[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
+			array.prependedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def appendedAll[A >: E](suffix :IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def ++:[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
+			array.prependedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
 
-		@inline def appendedAll[A >: E](suffix :Array[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.appendedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
+		@inline def prependedAll[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
+			array.prependedAll(suffix).asInstanceOf[Arr[A]]
 
+		@inline def prependedAll[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
+			array.prependedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
+*/
 
-		@inline def ++:[A >: E](suffix :IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.prependedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-		@inline def ++:[A >: E](suffix :Array[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.prependedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-		@inline def prependedAll[A >: E](suffix :IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.prependedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-		@inline def prependedAll[A >: E](suffix :Array[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] =
-			array.prependedAll(suffix)(tag getOrElse ClassTag.Any.castParam[A]).asInstanceOf[Arr[A]]
-
-	//	@inline def :+[A >: E :ClassTag](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[E]]
-	//	@inline def +:[A >: E :ClassTag](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[E]]
-	//	@inline def appended[A >: E :ClassTag](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[E]]
-	//	@inline def prepended[A >: E :ClassTag](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[E]]
-	//
-	//	@inline def :+[A >: E :ClassTag](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[E]]
-	//	@inline def +:[A >: E :ClassTag](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[E]]
-	//	@inline def appended[A >: E :ClassTag](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[E]]
-	//	@inline def prepended[A >: E :ClassTag](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[E]]
-	//
-	//	@inline def ++[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
-	//		array.appendedAll(suffix).asInstanceOf[Arr[A]]
-	//
-	//	@inline def ++[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
-	//		array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
-	//
-	//	@inline def concat[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
-	//		array.appendedAll(suffix).asInstanceOf[Arr[A]]
-	//
-	//	@inline def concat[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
-	//		array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
-	//
-	//
-	//	@inline def :++[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
-	//		array.appendedAll(suffix).asInstanceOf[Arr[A]]
-	//
-	//	@inline def :++[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
-	//		array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
-	//
-	//	@inline def appendedAll[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
-	//		array.appendedAll(suffix).asInstanceOf[Arr[A]]
-	//
-	//	@inline def appendedAll[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
-	//		array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
-	//
-	//
-	//	@inline def ++:[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
-	//		array.prependedAll(suffix).asInstanceOf[Arr[A]]
-	//
-	//	@inline def ++:[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
-	//		array.prependedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
-	//
-	//	@inline def prependedAll[A >: E :ClassTag](suffix :IterableOnce[A]) :Arr[A] =
-	//		array.prependedAll(suffix).asInstanceOf[Arr[A]]
-	//
-	//	@inline def prependedAll[A >: E :ClassTag](suffix :Arr[A]) :Arr[A] =
-	//		array.prependedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
-
-	//
-	//	@inline def ++(that :Array[E]) :Arr[E] =
-	//		array.appendedAll(that)(ClassTag[E](array.getClass.getComponentType)).asInstanceOf[Arr[E]]
-	//
-	//	@inline def :++(that :Array[E]) :Arr[E] =
-	//		array.appendedAll(that)(ClassTag[E](array.getClass.getComponentType)).asInstanceOf[Arr[E]]
-	//
-	//	@inline def ++:(that :Array[E]) :Arr[E] =
-	//		array.prependedAll(that)(ClassTag[E](array.getClass.getComponentType)).asInstanceOf[Arr[E]]
-	//
-	//	@inline def concat(that :Array[E]) :Arr[E] =
-	//		array.appendedAll(that)(ClassTag[E](array.getClass.getComponentType)).asInstanceOf[Arr[E]]
-	//
-	//	@inline def appendedAll(that :Array[E]) :Arr[E] =
-	//		array.appendedAll(that)(ClassTag[E](array.getClass.getComponentType)).asInstanceOf[Arr[E]]
-	//
-	//	@inline def prependedAll(that :Array[E]) :Arr[E] =
-	//		array.prependedAll(that)(ClassTag[E](array.getClass.getComponentType)).asInstanceOf[Arr[E]]
-
-		@inline def diff[A >: E](that :collection.Seq[A]) :Arr[E] = array.diff(that).asInstanceOf[Arr[E]]
-		@inline def diff[A >: E](that :Array[A]) :Arr[E] = array.diff(mutable.ArraySeq.make(that)).asInstanceOf[Arr[E]]
+		@inline def diff[A >: E](that :collection.Seq[A]) :Arr[E] = array.diff(that.asInstanceOf[collection.Seq[Any]]).asInstanceOf[Arr[E]]
+//		@inline def diff[A >: E](that :Arr[A]) :Arr[E] =
+//			array.diff(mutable.ArraySeq.make(that.asInstanceOf[Array[A]])).asInstanceOf[Arr[E]]
 
 		@inline def intersect[A >: E](that :collection.Seq[A]) :Arr[E] =
-			array.intersect(that).asInstanceOf[Arr[E]]
-
-		@inline def intersect[A >: E](that :Array[A]) :Arr[E] =
-			array.intersect(mutable.ArraySeq.make(that)).asInstanceOf[Arr[E]]
+			array.intersect(that.asInstanceOf[collection.Seq[Any]]).asInstanceOf[Arr[E]]
+//
+//		@inline def intersect[A >: E](that :Arr[A]) :Arr[E] =
+//			array.intersect(mutable.ArraySeq.make(that.asInstanceOf[Array[A]])).asInstanceOf[Arr[E]]
 
 		@inline def transpose[A](implicit asArray :E => Arr[A]): Arr[Arr[A]] =
-			array.transpose(asArray.asInstanceOf[E => Array[A]]).castFrom[Array[Array[A]], Arr[Arr[A]]]
+			array.transpose(asArray.asInstanceOf[Any => Array[A]]).castFrom[Array[Array[A]], Arr[Arr[A]]]
 
-		@inline def view :IndexedSeqView[E] = array.view
+		@inline def view :IndexedSeqView[E] = array.view.asInstanceOf[IndexedSeqView[E]]
 		@inline def indices :Range = Range(0, array.length)
 
-		@inline def to[C1](factory :Factory[E, C1]) :C1 = array.to(factory)
-		@inline def toIterable :Iterable[E] = mutable.ArraySeq.make(array)
-		@inline def toSeq :Seq[E] = array.toSeq
-		@inline def toIndexedSeq :IndexedSeq[E] = array.toIndexedSeq
-		@inline def toList :List[E] = array.toList
-		@inline def toVector :Vector[E] = array.toVector
-		@inline def toSet[A >: E] :Set[A] = array.toSet
-		@inline def toMap[K, V](implicit ev :E <:< (K, V)) :Map[K, V] = array.toMap
-		@inline def toBuffer[A >: E]: Buffer[A] = Buffer.from(array)
-		@inline def toArray[A >: E :ClassTag] :Array[A] = array.toArray
-	//	@inline def toArray[A >: E](implicit tag :Maybe[ClassTag[A]]) :Array[A] =
-	//		array.toArray(tag getOrElse ClassTag.Any.castParam[A])
+		@inline def to[C1](factory :Factory[E, C1]) :C1 = array.to(factory.asInstanceOf[Factory[Any, C1]])
+		@inline def toSeq :Seq[E] = ArraySeq.unsafeWrapArray(array).asInstanceOf[ArraySeq[E]]
+		@inline def toIndexedSeq :IndexedSeq[E] = ArraySeq.unsafeWrapArray(array).asInstanceOf[ArraySeq[E]]
+		@inline def toList :List[E] = array.toList.asInstanceOf[List[E]]
+		@inline def toVector :Vector[E] = array.toVector.asInstanceOf[Vector[E]]
+		@inline def toSet[A >: E] :Set[A] = array.toSet[Any].asInstanceOf[Set[A]]
+		@inline def toMap[K, V](implicit ev :E <:< (K, V)) :Map[K, V] = array.toMap(ev.asInstanceOf[Any <:< (K, V)])
+		@inline def toArray[A >: E :ClassTag] :Array[A] = array.toArray(classTag[A].asInstanceOf[ClassTag[Any]]).asInstanceOf[Array[A]]
+		@inline def toBuffer[A >: E]: Buffer[A] = Buffer.from(array).asInstanceOf[Buffer[A]]
 
-		@inline def copyToArray[A >: E](xs :Array[A]) :Int = array.copyToArray(xs, 0, xs.length)
-		@inline def copyToArray[A >: E](xs :Array[A], start :Int) :Int = array.copyToArray(xs, start, xs.length)
-		@inline def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int = array.copyToArray(xs, start, len)
+		@inline def copyToArray[A >: E](xs :Array[A]) :Int = array.copyToArray(xs.asInstanceOf[Array[Any]], 0, xs.length)
+		@inline def copyToArray[A >: E](xs :Array[A], start :Int) :Int = array.copyToArray(xs.asInstanceOf[Array[Any]], start, xs.length)
+		@inline def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int = array.copyToArray(xs.asInstanceOf[Array[Any]], start, len)
 
 		@inline def mkString :String = array.mkString("", "", "")
 		@inline def mkString(separator :String) :String = array.mkString("", separator, "")
@@ -367,23 +302,111 @@ case object BaseArray extends EvidenceIterableFactory.Delegate[BaseArray, ClassT
 		@inline def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type =
 			array.addString(b, start, sep, end)
 
-		@inline def sameElements(other :Arr[_]) :Boolean = array sameElements other.asInstanceOf[Array[_]]
+//		@inline def sameElements[A](other :A)(implicit isArray :A <:< Array[_]) :Boolean = array sameElements isArray(other)
+		@inline def sameElements(other :ArrayLike[_]) :Boolean = array sameElements other.asInstanceOf[Array[_]]
 		@inline def sameElements(other :IterableOnce[_]) :Boolean = array sameElements other
 	}
 
 
-	/** A lazy filtered array. No filtering is applied until one of `foreach`, `map` or `flatMap` is called. */
-	class ArrayLikeWithFilter[Arr[_], E] private[collections] (p :E => Boolean, xs :ArrayLikeExtension[Arr, E]) {
+	class RefArrayLikeExtension[E, Arr[_]] private[collections] (private val array :Array[Any]) extends AnyVal {
+		@inline def head :E = array.head.asInstanceOf[E]
+		@inline def last :E = array.last.asInstanceOf[E]
+//		@inline def headOption :Option[E] = array.headOption
+//		@inline def lastOption :Option[E] = array.lastOption
 
+		@inline def scanLeft[A](z :A)(op :(A, E) => A) :Arr[A] =
+			array.scanLeft(z :Any)(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Arr[A]]
+
+		@inline def scanRight[A](z :A)(op :(E, A) => A) :Arr[A] =
+			array.scanRight(z :Any)(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Arr[A]]
+
+		@inline def scan[A >: E](z :A)(op :(A, A) => A) :Arr[A] =
+			array.scan[Any](z)(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Arr[A]]
+
+		@inline def collect[A](pf :PartialFunction[E, A]) :Arr[A] =
+			array.collect(pf.asInstanceOf[PartialFunction[Any, Any]]).asInstanceOf[Arr[A]]
+
+		@inline def partitionMap[E1, E2](f: E => Either[E1, E2]) :(Arr[E1], Arr[E2]) =
+			array.partitionMap(f.asInstanceOf[Any => Either[Any, Any]]).castFrom[(Array[_], Array[_]), (Arr[E1], Arr[E2])]
+
+		@inline def map[A](f :E => A) :Arr[A] = array.map(f.asInstanceOf[Any => Any]).asInstanceOf[Arr[A]]
+		@inline def flatMap[A](f :E => IterableOnce[A]) :Arr[A] =
+			array.flatMap(f.asInstanceOf[Any => IterableOnce[Any]]).asInstanceOf[Arr[A]]
+
+		@inline def flatMap[As, A](f :E => As)(implicit asIterable :As => Iterable[A]) :Arr[A] =
+			array.flatMap(f.asInstanceOf[Any => Iterable[Any]]).asInstanceOf[Arr[A]]
+
+		@inline def flatten[A](implicit asIterable :E => IterableOnce[A]) :Arr[A] =
+			array.flatten(asIterable.asInstanceOf[Any => IterableOnce[Any]], ClassTag.Any).asInstanceOf[Arr[A]]
+
+
+		@inline def unzip[E1, E2](implicit asPair :E => (E1, E2))
+				:(Arr[E1], Arr[E2]) =
+			array.unzip(asPair.asInstanceOf[Any => (Any, Any)], ClassTag.Any, ClassTag.Any).asInstanceOf[(Arr[E1], Arr[E2])]
+
+		@inline def unzip3[E1, E2, E3](implicit asTriple :E => (E1, E2, E3)) :(Arr[E1], Arr[E2], Arr[E3]) =
+			array.unzip3(asTriple.asInstanceOf[Any => (Any, Any, Any)], ClassTag.Any, ClassTag.Any, ClassTag.Any).castFrom[
+				(Array[_], Array[_], Array[_]), (Arr[E1], Arr[E2], Arr[E3])
+			]
+
+		@inline def updated[A >: E](index :Int, x :A) :Arr[A] = array.updated[Any](index, x).asInstanceOf[Arr[A]]
+
+		@inline def :+[A >: E](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[A]]
+		@inline def +:[A >: E](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[A]]
+		@inline def appended[A >: E](x :A) :Arr[A] = array.appended(x).asInstanceOf[Arr[A]]
+		@inline def prepended[A >: E](x :A) :Arr[A] = array.prepended(x).asInstanceOf[Arr[A]]
+
+		@inline def ++[A >: E](suffix :IterableOnce[A]) :Arr[A] = array.appendedAll(suffix).asInstanceOf[Arr[A]]
+
+		@inline def ++[A >: E](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
+
+		@inline def concat[A >: E](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
+
+		@inline def concat[A >: E](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
+
+		@inline def :++[A >: E](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
+
+		@inline def :++[A >: E](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
+
+		@inline def appendedAll[A >: E](suffix :IterableOnce[A]) :Arr[A] =
+			array.appendedAll(suffix).asInstanceOf[Arr[A]]
+
+		@inline def appendedAll[A >: E](suffix :Arr[A]) :Arr[A] =
+			array.appendedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
+
+		@inline def ++:[A >: E](suffix :IterableOnce[A]) :Arr[A] =
+			array.prependedAll(suffix).asInstanceOf[Arr[A]]
+
+		@inline def ++:[A >: E](suffix :Arr[A]) :Arr[A] =
+			array.prependedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
+
+		@inline def prependedAll[A >: E](suffix :IterableOnce[A]) :Arr[A] =
+			array.prependedAll(suffix).asInstanceOf[Arr[A]]
+
+		@inline def prependedAll[A >: E](suffix :Arr[A]) :Arr[A] =
+			array.prependedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
+
+	}
+
+
+	/** A lazy filtered array. No filtering is applied until one of `foreach`, `map` or `flatMap` is called. */
+	class WithFilter[Arr[_], E] private[collections] (p :E => Boolean, xs :Array[_], factory :IterableFactory[Arr]) {
 		/** Apply `f` to each element for its side effects.
 		  * Note: [U] parameter needed to help scalac's type inference.
 		  */
 		def foreach[U](f :E => U) :Unit = {
+			val pred = p.asInstanceOf[Any => Boolean]
+			val fun  = f.asInstanceOf[Any => U]
 			val len = xs.array.length
 			var i = 0
 			while (i < len) {
-				val x = xs.array(i)
-				if (p(x)) f(x)
+				val x = xs(i)
+				if (pred(x)) fun(x)
 				i += 1
 			}
 		}
@@ -394,15 +417,17 @@ case object BaseArray extends EvidenceIterableFactory.Delegate[BaseArray, ClassT
 		  * @return a new array resulting from applying the given function
 		  *         `f` to each element of this array and collecting the results.
 		  */
-		def map[A](f :E => A)(implicit tag :Maybe[ClassTag[A]]) :Arr[A] = {
-			val b = ArrayBuilder.make[A](tag getOrElse ClassTag.Any.castParam[A])
+		def map[A](f :E => A) :Arr[A] = {
+			val pred = p.asInstanceOf[Any => Boolean]
+			val fun  = f.asInstanceOf[Any => A]
+			val b = factory.newBuilder[A]
 			var i = 0
 			while (i < xs.length) {
 				val x = xs(i)
-				if (p(x)) b += f(x)
+				if (pred(x)) b += fun(x)
 				i = i + 1
 			}
-			b.result().asInstanceOf[Arr[A]]
+			b.result()
 		}
 
 		/** Builds a new array by applying a function to all elements of this array
@@ -413,27 +438,31 @@ case object BaseArray extends EvidenceIterableFactory.Delegate[BaseArray, ClassT
 		  * @return a new array resulting from applying the given collection-valued function
 		  *         `f` to each element of this array and concatenating the results.
 		  */
-		def flatMap[A](f :E => IterableOnce[A])(implicit tag :Maybe[ClassTag[A]]) :Arr[A] = {
-			val b = ArrayAsSeq.newBuilder(tag getOrElse ClassTag.Any.castParam[A])
+		def flatMap[A](f :E => IterableOnce[A]) :Arr[A] = {
+			val pred = p.asInstanceOf[Any => Boolean]
+			val fun  = f.asInstanceOf[Any => IterableOnce[A]]
+			val b = factory.newBuilder[A]
 			var i = 0
 			while (i < xs.length) {
 				val x = xs(i)
-				if (p(x)) b ++= f(xs(i))
+				if (pred(x)) b ++= fun(xs(i))
 				i += 1
 			}
-			b.result().asInstanceOf[Arr[A]]
+			b.result()
 		}
 
-		def flatMap[As, A](f :E => As)(implicit asIterable :As => Iterable[A], tag :Maybe[ClassTag[A]]) :Arr[A] =
-			flatMap[A](x => asIterable(f(x)))
+		def flatMap[As, A](f :E => As)(implicit asIterable :As => Iterable[A]) :Arr[A] =
+			flatMap(x => asIterable(f(x)))
 
 		/** Creates a new non-strict filter which combines this filter with the given predicate. */
-		def withFilter(q :E => Boolean) :ArrayLikeWithFilter[Arr, E] =
-			new ArrayLikeWithFilter[Arr, E](a => p(a) && q(a), xs)
+		def withFilter(q :E => Boolean) :WithFilter[Arr, E] =
+			new WithFilter[Arr, E](a => p(a) && q(a), xs, factory)
 	}
 
 }
-*/
+
+
+
 
 
 
@@ -540,9 +569,10 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 	}
 
 
-	class IArrayExtension[E](private[IArray] val array :Array[E])
+	class IArrayExtension[E] private[collections] (private[IArray] val array :Array[E])
 		extends AnyVal
 	{
+/*
 		@inline def knownSize :Int = array.length
 		@inline def length :Int = array.length
 		@inline def size :Int = array.length
@@ -562,8 +592,9 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline def exists(p :E => Boolean) :Boolean = array.exists(p)
 		@inline def count(p :E => Boolean) :Int = array.count(p)
 		@inline def find(p :E => Boolean) :Option[E] = array.find(p)
-		@inline def indexWhere(p :E => Boolean) :Int = array.indexWhere(p)
+		@inline def indexWhere(p :E => Boolean, from :Int = 0) :Int = array.indexWhere(p, from)
 		@inline def lastIndexWhere(p :E => Boolean) :Int = array.lastIndexWhere(p)
+		@inline def lastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Int = array.lastIndexWhere(p, end)
 		@inline def indexOf(elem :E, from :Int = 0) :Int = array.indexOf(elem, from)
 		@inline def lastIndexOf(elem :E, end :Int = 0) :Int = array.lastIndexOf(elem, end)
 		@inline def contains(elem :E) :Boolean = array.contains(elem)
@@ -607,7 +638,9 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline def reduceRight[A >: E](op :(E, A) => A) :A = array.reduceRight(op)
 		@inline def reduceLeftOption[A >: E](op :(A, E) => A) :Option[A] = array.reduceLeftOption(op)
 		@inline def reduceRightOption[A >: E](op :(E, A) => A) :Option[A] = array.reduceRightOption(op)
+*/
 
+/*
 		@inline def scanLeft[A :ClassTag](z :A)(op :(A, E) => A) :IArray[A] =
 			array.scanLeft(z)(op).asInstanceOf[IArray[A]]
 
@@ -672,6 +705,7 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 			array.partition(p).asInstanceOf[(IArray[E], IArray[E])]
 
 		@inline def collectFirst[A](pf :PartialFunction[E, A]) :Option[A] = array.collectFirst(pf)
+*/
 		@inline def collect[A :ClassTag](pf :PartialFunction[E, A]) :IArray[A] =
 			array.collect(pf).asInstanceOf[IArray[A]]
 
@@ -688,12 +722,13 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline def flatten[A :ClassTag](implicit asIterable :E => IterableOnce[A]) :IArray[A] =
 			array.flatten.asInstanceOf[IArray[A]]
 
-		@inline def groupBy[K](f: E => K) :Map[K, IArray[E]] =
-			array.groupBy(f).castFrom[Map[K, Array[E]], Map[K, IArray[E]]]
-
+//		@inline def groupBy[K](f: E => K) :Map[K, IArray[E]] =
+//			array.groupBy(f).castFrom[Map[K, Array[E]], Map[K, IArray[E]]]
+//
 		@inline def groupMap[K, A :ClassTag](key :E => K)(f :E => A) :Map[K, IArray[A]] =
 			array.groupMap(key)(f).castFrom[Map[K, Array[A]], Map[K, IArray[A]]]
 
+/*
 		@inline def tapEach[U](f :E => U) :IArray[E] = array.tapEach(f).asInstanceOf[IArray[E]]
 		@inline def foreach[U](f :E => U) :Unit = array.foreach(f)
 
@@ -705,6 +740,7 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 		@inline def zipAll[A >: E, B](that :Iterable[B], thisElem :A, thatElem :B) :IArray[(A, B)] =
 			array.zipAll(that, thisElem, thatElem).castFrom[Array[(A, B)], IArray[(A, B)]]
+*/
 
 		@inline def unzip[E1, E2](implicit asPair :E => (E1, E2), ct1 :ClassTag[E1], ct2 :ClassTag[E2])
 				:(IArray[E1], IArray[E2]) =
@@ -768,6 +804,7 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline def prependedAll[A >: E :ClassTag](suffix :IArray[A]) :IArray[A] =
 			array.prependedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[IArray[A]]
 
+/*
 		@inline def diff[A >: E](that :collection.Seq[A]) :IArray[E] = array.diff(that).asInstanceOf[IArray[E]]
 //		@inline def diff[A >: E](that :IArray[A]) :IArray[E] =
 //			array.diff(mutable.ArraySeq.make(that.asInstanceOf[Array[A]])).asInstanceOf[IArray[E]]
@@ -783,11 +820,16 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 		@inline def view :IndexedSeqView[E] = array.view
 		@inline def indices :Range = Range(0, array.length)
+*/
 
 		def toOps :IndexedSeqOps[E, IArray, IArray[E]] = new IArrayAsSeq[E](array.asInstanceOf[IArray[E]])
-		@inline def to[C1](factory :Factory[E, C1]) :C1 = array.to(factory)
-		@inline def toSeq :Seq[E] = ArraySeq.unsafeWrapArray(array)
-		@inline def toIndexedSeq :IndexedSeq[E] = ArraySeq.unsafeWrapArray(array)
+
+//		@inline def to[C1](factory :Factory[E, C1]) :C1 = array.to(factory)
+		@inline def toSeq :Seq[E] = WrappedArray(array)
+		@inline def toIndexedSeq :IndexedSeq[E] = WrappedArray(array)
+
+
+/*
 		@inline def toList :List[E] = array.toList
 		@inline def toVector :Vector[E] = array.toVector
 		@inline def toSet[A >: E] :Set[A] = array.toSet
@@ -811,6 +853,7 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 		@inline def sameElements(other :IArray[_]) :Boolean = array sameElements other.asInstanceOf[Array[_]]
 		@inline def sameElements(other :IterableOnce[_]) :Boolean = array sameElements other
+*/
 	}
 
 
@@ -875,6 +918,27 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 	}
 
 
+	implicit def iArrayIsSeq[E] :IsSeq[IArray[E]] { type A = E; type C = IArray[E] } =
+		isSeqPrototype.asInstanceOf[IsSeq[IArray[E]] { type A = E; type C = IArray[E] }]
+
+	private[this] val isSeqPrototype = new IsSeq[IArray[Any]] with Serializable {
+		type C = IArray[Any]
+		override type A = Any
+		override def apply(array :IArray[Any]) = new IndexedSeqOps[Any, Seq, IArray[Any]] {
+			override def length = array.length
+			override def apply(i :Int) = array.asInstanceOf[Array[Any]].apply(i)
+			override def fromSpecific(coll :IterableOnce[Any]) = IArray.from(coll)
+			override def newSpecificBuilder = IArray.newBuilder(coll.getClass.getComponentType)
+			override def iterator = array.iterator
+
+			override def toIterable = WrappedIArray(array)
+			override def coll = array
+			override def iterableFactory = IndexedSeq
+		}
+		private def readResolve = IArray.iArrayIsSeq
+	}
+
+
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = it match {
 		case elems :View[E]                      => from(elems.iterator)
@@ -908,6 +972,12 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 	def empty[E](elementType :Class[E]) :IArray[E] = ArrayAsSeq.empty(elementType).asInstanceOf[IArray[E]]
 
+	override def newBuilder[E :ClassTag] :Builder[E, IArray[E]] =
+		ArrayAsSeq.newBuilder[E].asInstanceOf[Builder[E, IArray[E]]]
+
+	def newBuilder[E](elementType :Class[E]) :Builder[E, IArray[E]] =
+		ArrayAsSeq.newBuilder(elementType).asInstanceOf[Builder[E, IArray[E]]]
+
 	def one[E :ClassTag](elem :E) :IArray[E] = {
 		val a = new Array[E](1)
 		a(0) = elem
@@ -921,11 +991,10 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		a.asInstanceOf[IArray[E]]
 	}
 
-	override def newBuilder[E :ClassTag] :Builder[E, IArray[E]] =
-		ArrayAsSeq.newBuilder[E].asInstanceOf[Builder[E, IArray[E]]]
-
-	def newBuilder[E](elementType :Class[E]) :Builder[E, IArray[E]] =
-		ArrayAsSeq.newBuilder(elementType).asInstanceOf[Builder[E, IArray[E]]]
+	def copyOf[E](array :Array[E]) :IArray[E] = Array.copyOf(array, array.length).asInstanceOf[IArray[E]]
+	def copyOf[E](array :Array[E], newLength :Int) :IArray[E] = Array.copyOf(array, newLength).asInstanceOf[IArray[E]]
+	def copyOfRange[E](array :Array[E], from :Int, until :Int) :IArray[E] =
+		array.slice(from, until).asInstanceOf[IArray[E]]
 
 	def unapplySeq[E](array :IArray[E]) :UnapplySeqWrapper[E] =
 		new UnapplySeqWrapper(array.castFrom[IArray[E], Array[E]])
@@ -962,7 +1031,54 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		}
 
 		override def newBuilder[E] :Builder[E, IArray[E]] = Array.newBuilder[Any].asInstanceOf[Builder[E, IArray[E]]]
+
+		override def toString = "IArray.untagged"
 	}
+
+
+	private[collections] sealed trait IArrayLowPriorityExtensions extends Any {
+		@inline implicit def GenericIArrayExtension[E](array :IArray[E]) :GenericIArrayExtension[E] =
+			new GenericIArrayExtension[E](array.asInstanceOf[Array[E]])
+	}
+
+	private[collections] trait extensions extends Any with IArrayLowPriorityExtensions {
+
+		@inline implicit def ByteIArrayExtension(array :IArray[Byte]) :ByteIArrayExtension =
+			new ByteIArrayExtension(array.asInstanceOf[Array[Byte]])
+
+		@inline implicit def ShortIArrayExtension(array :IArray[Short]) :ShortIArrayExtension =
+			new ShortIArrayExtension(array.asInstanceOf[Array[Short]])
+
+		@inline implicit def CharIArrayExtension(array :IArray[Char]) :CharIArrayExtension =
+			new CharIArrayExtension(array.asInstanceOf[Array[Char]])
+
+		@inline implicit def IntIArrayExtension(array :IArray[Int]) :IntIArrayExtension =
+			new IntIArrayExtension(array.asInstanceOf[Array[Int]])
+
+		@inline implicit def LongIArrayExtension(array :IArray[Long]) :LongIArrayExtension =
+			new LongIArrayExtension(array.asInstanceOf[Array[Long]])
+
+		@inline implicit def FloatIArrayExtension(array :IArray[Float]) :FloatIArrayExtension =
+			new FloatIArrayExtension(array.asInstanceOf[Array[Float]])
+
+		@inline implicit def DoubleIArrayExtension(array :IArray[Double]) :DoubleIArrayExtension =
+			new DoubleIArrayExtension(array.asInstanceOf[Array[Double]])
+
+		@inline implicit def BooleanIArrayExtension(array :IArray[Boolean]) :BooleanIArrayExtension =
+			new BooleanIArrayExtension(array.asInstanceOf[Array[Boolean]])
+
+		@inline implicit def RefIArrayExtension[E <: AnyRef](array :IArray[E]) :RefIArrayExtension[E] =
+			new RefIArrayExtension(array.asInstanceOf[Array[E]])
+
+		@inline implicit def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
+			new IArrayExtension(array.asInstanceOf[Array[E]])
+
+		@inline implicit def IArrayAsArrayLikeExtension[E](array :IArray[E]) :ArrayLikeExtension[E, IArray] =
+			new ArrayLikeExtension(array.asInstanceOf[Array[Any]])
+	}
+
+
+	object extensions extends extensions
 }
 
 
@@ -970,69 +1086,45 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 
 
-/** Factory of erased arrays: `RefArray[E]` represented in runtime by an `Array[Any]`.
-  * ''This will work only in generic contexts: '' `ErasedArray.ofDim[Int](1)` will throw a [[ClassCastException]].
-  * @define Coll `RefArray`
-  * @define coll immutable array
+
+/**
+  * @define Coll `RefArrayLike`
+  * @tparam coll object array
   */
-@SerialVersionUID(Ver)
-private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
-	private[this] val Empty = Array.emptyObjectArray
-	override def empty[E] :Array[E] = Empty.asInstanceOf[Array[E]]
+private[collections] sealed abstract class RefArrayLikeFactory[Arr[_]] extends IterableFactory[Arr] {
 
-	/** Boxes the element if necessary, and places it in a singleton `Array[AnyRef]`.
-	  * Its representation as an `Array[E]` will fail with a `ClassCastException` the first time it is returned to code
-	  * expecting an array of a specific element type.
-	  */
-	def one[E](elem :E) :Array[E] = {
-		val a = new Array[Any](1)
-		a(0) = elem
-		a.asInstanceOf[Array[E]]
-	}
+	/** Boxes the element if necessary, places it in a singleton `Array[AnyRef]`, and returns it as a $Coll`[E]`. */
+	def one[E](elem :E) :Arr[E] = ErasedArray.one(elem).asInstanceOf[Arr[E]]
 
-	/** Boxes the elements, if necessary, and places them in an `Array[AnyRef]` of length 2.
-	  * Its representation as an `Array[E]` will fail with a `ClassCastException` the first time it is returned to code
-	  * expecting an array of a specific element type.
-	  */
-	def two[E](first :E, second :E) :Array[E] = {
-		val a = new Array[Any](2)
-		a(0) = first
-		a(1) = second
-		a.asInstanceOf[Array[E]]
-	}
+	/** Boxes the elements, if necessary, places them in an `Array[AnyRef]` of length 2, and returns as a $Coll`[E]`. */
+	def two[E](first :E, second :E) :Arr[E] = ErasedArray.two(first, second).asInstanceOf[Arr[E]]
 
-	/** A new `Array[AnyRef]` of the specified length, cast to `Array[E]`. This cast will work only if the array
-	  * is never going to be used outside of a generic (erased) context. The first time it is returned to code
-	  * expecting an array of a specific element type, a `ClassCastException` will be thrown.
-	  */
-	@inline def ofDim[E](length :Int) :Array[E] = new Array[Any](length).asInstanceOf[Array[E]]
+	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
+	@inline def ofDim[E](length :Int) :Arr[E] = new Array[Any](length).asInstanceOf[Arr[E]]
 
-	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument. If the argument is a value array,
-	  * the elements will be boxed. This method will '''fail''' with a `ClassCastException1 upon return
-	  * if `E` is known to be a built in value type - it is only good for use in generic context.
+	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument, returning it as a $Coll`[E]`.
+	  * If the argument is a value array, the elements will be boxed.
 	  */
-	def copyOf[E](array :Array[E]) :Array[E] = {
-		val res = new Array[Any](array.length).asInstanceOf[Array[E]]
+	def copyOf[E](array :ArrayLike[E]) :Arr[E] = {
+		val length = array.asInstanceOf[Array[Any]].length
+		val res    = new Array[Any](length)
 		if (array.isInstanceOf[Array[AnyRef]])
-			System.arraycopy(array, 0, res, 0, array.length)
+			System.arraycopy(array, 0, res, 0, length).asInstanceOf[Arr[E]]
 		else
-			Array.copy(array, 0, res, 0, array.length)
-		res
+			Array.copy(array, 0, res, 0, length).asInstanceOf[Arr[E]]
+		res.asInstanceOf[Arr[E]]
 	}
 
-
-	/** Reallocates the given array as an `Array[AnyRef]` of a new size, and copies `min(newLength, array.length)`
+	/** Reallocates the given array as a $Coll`[E]` of a new size, and copies `min(newLength, array.length)`
 	  * of its first elements. If the argument is a value array, the elements will be boxed.
-	  * This method will '''fail''' with a `ClassCastException`` upon return if `E` is known to be a built in value type -
-	  * it is only good for use in generic context.
 	  */
-	def copyOf[E](array :Array[E], newLength :Int) :Array[E] = {
-		val res = new Array[Any](newLength).asInstanceOf[Array[E]]
+	def copyOf[E](array :ArrayLike[E], newLength :Int) :Arr[E] = {
+		val res = new Array[Any](newLength)
 		if (array.isInstanceOf[Array[AnyRef]])
 			System.arraycopy(array, 0, res, 0, newLength)
 		else
 			Array.copy(array, 0, res, 0, newLength)
-		res
+		res.asInstanceOf[Arr[E]]
 	}
 
 	/** Copies the elements of `array` in the index range `[from, until)` to a new array with an erased element type.
@@ -1042,23 +1134,265 @@ private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 	  * @param until The index after the last copied element in `array`. If less than `from`, an empty array is returned.
 	  *              If `until > array.length`, then the new array will contain `until - array.length` `null` elements
 	  *              in its suffix.
-	  * @return An `Array[AnyRef]` of length `until - from` with the copied slice.
+	  * @return An `Array[AnyRef]` of length `until - from` as a $Coll`[E]`, with the copied slice.
 	  */
-	def copyOfRange[E](array :Array[E], from :Int, until :Int) :Array[E] =
-		if (from < 0 | from > array.length)
+	def copyOfRange[E](array :ArrayLike[E], from :Int, until :Int) :Arr[E] =
+		if (from < 0 | from > array.asInstanceOf[Array[Any]].length)
 			throw new IndexOutOfBoundsException(
-				"ErasedArray.copyOfRange(" + array.localClassName + "[" + array.length + "], " + from + ", " + until + ")"
+				toString + ".copyOfRange(" + array.localClassName + "[" + array.asInstanceOf[Array[Any]].length +
+					"], " + from + ", " + until + ")"
 			)
 		else if (until <= from)
 			empty
 		else {
-			val res = new Array[Any](until - from).asInstanceOf[Array[E]]
-			val copied = Math.min(until - from, array.length - from)
+			val res    = new Array[Any](until - from)
+			val copied = Math.min(until - from, array.asInstanceOf[Array[Any]].length - from)
 			if (array.isInstanceOf[Array[AnyRef]])
 				System.arraycopy(array, from, res, 0, copied)
 			else
 				Array.copy(array, from, res, 0, copied)
-			res
+			res.asInstanceOf[Arr[E]]
+		}
+
+
+	override def from[A](source :IterableOnce[A]) :Arr[A] = source match {
+		case empty if empty.knownSize == 0 => Empty.asInstanceOf[Arr[A]]
+//		case ops :collection.IndexedSeqOps[A, _, _] =>
+//			var from = 0
+//			val array = ops match {
+//				case seq :ArraySeq[A]            => seq.unsafeArray
+//				case seq :mutable.ArraySeq[A]    => seq.array
+//				case seq :AbstractPassedArray[A] => from = seq.startIndex; seq.unsafeArray
+//				case seq :ArraySlice[A]          => from = seq.startIndex; seq.unsafeArray
+//				case seq :ArrayAsSeq[A]          => seq.coll
+//				case seq :IArrayAsSeq[A]         => seq.coll
+//				case _ => null
+//			}
+//			if (array == null)
+//				ops.toArray[Any].asInstanceOf[RefArray[A]]
+//			else
+//				ErasedArray.copyOfRange(array.asInstanceOf[Array[A]], from, from + ops.length)
+		case items :Iterable[A] =>
+			items.toArray[Any].asInstanceOf[Arr[A]]
+		case _                  =>
+			source.iterator.toArray[Any].asInstanceOf[Arr[A]]
+	}
+
+	override def empty[E] :Arr[E] = Empty.asInstanceOf[Arr[E]]
+
+	override def newBuilder[E] :Builder[E, Arr[E]] = Array.newBuilder(ClassTag.Any).asInstanceOf[Builder[E, Arr[E]]]
+
+	private[this] val Empty = Array.emptyObjectArray
+
+	def unapplySeq[E](array :Arr[E]) :UnapplySeqWrapper[E] =
+		new UnapplySeqWrapper(array.asInstanceOf[Array[E]])
+
+
+	protected def isSeq[E] :IsSeq[Arr[E]] { type A = E; type C = Arr[E] } =
+		refArrayIsSeqPrototype.asInstanceOf[IsSeq[Arr[E]] {type A = E; type C = Arr[E] }]
+
+	private[this] val refArrayIsSeqPrototype = new IsSeq[Arr[Any]] with Serializable {
+		override type A = Any
+		override type C = Arr[Any]
+
+		override def apply(array :Arr[Any]) =
+			new IndexedSeqOps[Any, IndexedSeq, Arr[Any]] {
+				override def apply(i :Int) :Any = array.asInstanceOf[Array[Any]].apply(i)
+				override def length :Int = array.asInstanceOf[Array[Any]].length
+
+				override def fromSpecific(coll :IterableOnce[Any]) = RefArrayLikeFactory.this.from(coll)
+				override def newSpecificBuilder = newBuilder
+
+				@nowarn("cat=deprecation")
+				override def toIterable = new IndexedSeqArrayAdapter(array.asInstanceOf[Array[Any]])
+				override def coll = array
+				override def iterableFactory = IndexedSeq
+
+				override def iterator = array.asInstanceOf[Array[Any]].iterator
+			}
+		private def readResolve = RefArrayLikeFactory.this.isSeq
+	}
+
+}
+
+
+
+
+/** A factory of `RefArray` - values with `Array` API available as extension methods, represented in runtime
+  * always as `Array[AnyRef]`, regardless of their actual type parameter.
+  * @define Coll `RefArray`
+  * @define coll reference object array
+  */
+case object RefArray extends RefArrayLikeFactory[RefArray] with IterableFactory[RefArray] {
+	class RefArrayExtension[A] private[collections] (private val array :Array[Any]) extends AnyVal {
+		def update(idx :Int, elem :A) :Unit = array(idx) = elem
+
+		@inline def toSeq :Seq[A] = WrappedArray(ErasedArray.copyOf(array)).asInstanceOf[Seq[A]]
+		@inline def toIndexedSeq :IndexedSeq[A] = WrappedArray(ErasedArray.copyOf(array)).asInstanceOf[IndexedSeq[A]]
+		@inline def toOps :collection.IndexedSeqOps[A, RefArray, RefArray[A]] =
+			new RefArrayAsSeq(array.asInstanceOf[RefArray[A]])
+	}
+
+	implicit def refArrayToSeq[A](array :RefArray[A]) :mutable.IndexedSeq[A] =
+		mutable.ArraySeq.make(array.asInstanceOf[Array[A]])
+
+	implicit def refArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } =
+		isSeq
+
+	private[collections] trait extensions extends Any {
+		@inline implicit def RefArrayExtension[A](array :RefArray[A]) :RefArrayExtension[A] =
+			new RefArrayExtension(array.asInstanceOf[Array[Any]])
+
+		@inline implicit def RefArrayAsArrayLikeExtension[A](array :RefArray[A]) :ArrayLikeExtension[A, RefArray] =
+			new ArrayLikeExtension[A, RefArray](array.asInstanceOf[Array[Any]])
+
+		@inline implicit def RefArrayAsRefArrayLikeExtension[A](array :RefArray[A]) :RefArrayLikeExtension[A, RefArray] =
+			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
+	}
+
+	object extensions extends extensions
+
+}
+
+
+
+
+/** A factory of `IRefArray` - immutable values with `Array` API available as extension methods, represented in runtime
+  * always as `Array[AnyRef]`, regardless of their actual type parameter.
+  * @define Coll `IRefArray`
+  * @define coll immutable reference object array
+  */
+case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactory[IRefArray] {
+	class IRefArrayExtension[A](private val array :Array[Any]) extends AnyVal {
+		@inline def toSeq :Seq[A] = WrappedArray(array).asInstanceOf[Seq[A]]
+		@inline def toIndexedSeq :IndexedSeq[A] = WrappedArray(array).asInstanceOf[IndexedSeq[A]]
+		@inline def toOps :IndexedSeqOps[A, IRefArray, IRefArray[A]] =
+			new IRefArrayAsSeq(array.asInstanceOf[IRefArray[A]])
+	}
+
+	implicit def iRefArrayToSeq[A](array :IRefArray[A]) :IndexedSeq[A] =
+		DefaultArraySeq(array).asInstanceOf[IndexedSeq[A]]
+
+	implicit def iRefArrayIsSeq[E] :IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] } =
+		isSeq
+
+	override def from[A](source :IterableOnce[A]) :IRefArray[A] = source match {
+		case _ if source.knownSize == 0 => empty
+		case ops :collection.IndexedSeqOps[A, _, _] =>
+			var from = 0
+			val array = ops match {
+				case seq :ArraySeq[A]            => seq.unsafeArray
+				case seq :AbstractPassedArray[A] => from = seq.startIndex; seq.unsafeArray
+//				case seq :ArraySlice[A]          => from = seq.startIndex; seq.unsafeArray
+				case seq :IArrayAsSeq[A]         => seq.coll
+				case _ => null
+			}
+			if (array == null || !array.isInstanceOf[Array[AnyRef]])
+				ops.toArray[Any].asInstanceOf[IRefArray[A]]
+			else
+				copyOfRange(array.asInstanceOf[IRefArray[A]], from, from + ops.length)
+		case items :Iterable[A] =>
+			items.toArray[Any].asInstanceOf[IRefArray[A]]
+		case _                  =>
+			source.iterator.toArray[Any].asInstanceOf[IRefArray[A]]
+	}
+
+
+	private[collections] trait extensions extends Any {
+		@inline implicit def IRefArrayExtension[A](array :RefArray[A]) :IRefArrayExtension[A] =
+			new IRefArrayExtension(array.asInstanceOf[Array[Any]])
+
+		@inline implicit def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A]) :ArrayLikeExtension[A, IRefArray] =
+			new ArrayLikeExtension(array.asInstanceOf[Array[Any]])
+
+		@inline implicit def IRefArrayAsRefArrayLikeExtension[A](array :IRefArray[A]) :RefArrayLikeExtension[A, IRefArray] =
+			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
+	}
+
+
+	object extensions extends extensions
+
+}
+
+
+
+
+/** Factory of erased arrays: `Array[E]` represented in runtime by an `Array[Any]`.
+  * ''This will work only in generic contexts: '' `ErasedArray.ofDim[Int](1)` will throw a [[ClassCastException]].
+  * @define Coll `Array`
+  * @define coll array
+  */
+@SerialVersionUID(Ver)
+private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
+
+	/** Boxes the element if necessary, places it in a singleton `Array[AnyRef]`, and returns it as a $Coll`[E]`. */
+	def one[E](elem :E) :Array[E] = {
+		val a = new Array[Any](1)
+		a(0) = elem
+		a.asInstanceOf[Array[E]]
+	}
+
+	/** Boxes the elements, if necessary, places them in an `Array[AnyRef]` of length 2, and returns as a $Coll`[E]`. */
+	def two[E](first :E, second :E) :Array[E] = {
+		val a = new Array[Any](2)
+		a(0) = first
+		a(1) = second
+		a.asInstanceOf[Array[E]]
+	}
+
+	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
+	@inline def ofDim[E](length :Int) :Array[E] = new Array[Any](length).asInstanceOf[Array[E]]
+
+	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument, returning it as a $Coll`[E]`.
+	  * If the argument is a value array, the elements will be boxed.
+	  */
+	def copyOf[E](array :Array[E]) :Array[E] = {
+		val length = array.asInstanceOf[Array[Any]].length
+		val res    = new Array[Any](length)
+		if (array.isInstanceOf[Array[AnyRef]])
+			System.arraycopy(array, 0, res, 0, length).asInstanceOf[Array[E]]
+		else
+			Array.copy(array, 0, res, 0, length).asInstanceOf[Array[E]]
+		res.asInstanceOf[Array[E]]
+	}
+
+	/** Reallocates the given array as a $Coll`[E]` of a new size, and copies `min(newLength, array.length)`
+	  * of its first elements. If the argument is a value array, the elements will be boxed.
+	  */
+	def copyOf[E](array :Array[E], newLength :Int) :Array[E] = {
+		val res = new Array[Any](newLength)
+		if (array.isInstanceOf[Array[AnyRef]])
+			System.arraycopy(array, 0, res, 0, newLength)
+		else
+			Array.copy(array, 0, res, 0, newLength)
+		res.asInstanceOf[Array[E]]
+	}
+
+	/** Copies the elements of `array` in the index range `[from, until)` to a new array with an erased element type.
+	  * @param array The sliced array.
+	  * @param from  The index of the element in `array` to be copied as the first element of the new array.
+	  *              Must be in range `[0, array.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until The index after the last copied element in `array`. If less than `from`, an empty array is returned.
+	  *              If `until > array.length`, then the new array will contain `until - array.length` `null` elements
+	  *              in its suffix.
+	  * @return An `Array[AnyRef]` of length `until - from` as a $Coll`[E]`, with the copied slice.
+	  */
+	def copyOfRange[E](array :Array[E], from :Int, until :Int) :Array[E] =
+		if (from < 0 | from > array.asInstanceOf[Array[Any]].length)
+			throw new IndexOutOfBoundsException(
+				toString + ".copyOfRange(" + array.localClassName + "[" + array.asInstanceOf[Array[Any]].length +
+					"], " + from + ", " + until + ")"
+			)
+		else if (until <= from)
+			empty
+		else {
+			val res    = new Array[Any](until - from)
+			val copied = Math.min(until - from, array.asInstanceOf[Array[Any]].length - from)
+			if (array.isInstanceOf[Array[AnyRef]])
+				System.arraycopy(array, from, res, 0, copied)
+			else
+				Array.copy(array, from, res, 0, copied)
+			res.asInstanceOf[Array[E]]
 		}
 
 
@@ -1068,15 +1402,22 @@ private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 	  */
 	override def from[E](source :IterableOnce[E]) :Array[E] = source match {
 		case it :View[E] => from(it.iterator)
-		case it :Iterable[E] if it.isEmpty => Empty.asInstanceOf[Array[E]]
-		case it :Iterator[E] if it.isEmpty => Empty.asInstanceOf[Array[E]]
-		case it :ArrayAsSeq[E] if it.coll.getClass == classOf[Array[AnyRef]] => it.coll
+		case it :Iterable[E] if it.isEmpty => empty
+		case it :Iterator[E] if it.isEmpty => empty
+		case it :ArrayAsSeq[E] if it.coll.isInstanceOf[Array[AnyRef]] => it.coll
+		case it :IArrayAsSeq[E] if it.coll.isInstanceOf[Array[AnyRef]] => it.coll.asInstanceOf[Array[E]]
+//		case it :ArrayAsSeq[E] if it.coll.getClass == classOf[Array[AnyRef]] => it.coll
+//		case it :IArrayAsSeq[E] if it.coll.getClass == classOf[Array[AnyRef]] => it.coll.asInstanceOf[Array[E]]
 		case it :Iterable[E] => it.toArray[Any].asInstanceOf[Array[E]]
 		case _ => source.iterator.toArray[Any].asInstanceOf[Array[E]]
 	}
 
-	override def newBuilder[E] :Builder[E, Array[E]] =
-		ArrayAsSeq.newBuilder[Any](classOf[Any]).asInstanceOf[Builder[E, Array[E]]]
+	override def empty[A] :Array[A] = Empty.asInstanceOf[Array[A]]
+
+	private[this] val Empty = Array.emptyObjectArray
+
+	override def newBuilder[E] :Builder[E, Array[E]] = Array.newBuilder(ClassTag.Any).asInstanceOf[Builder[E, Array[E]]]
+
 
 	def unapply[E](elems :IterableOnce[E]) :Opt[Array[E]] = elems match {
 		case seq :mutable.ArraySeq[E] if seq.array.getClass == classOf[Array[AnyRef]] =>
@@ -1086,6 +1427,7 @@ private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 		case _ =>
 			Lack
 	}
+
 	def unapplySeq[E](array :Array[E]) :UnapplySeqWrapper[E] =
 		new UnapplySeqWrapper(array)
 

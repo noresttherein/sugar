@@ -4,18 +4,16 @@ import java.lang.reflect.Field
 import java.util.PrimitiveIterator
 
 import scala.annotation.nowarn
-import scala.collection.{AnyStepper, ArrayOps, BuildFrom, DoubleStepper, EvidenceIterableFactory, Factory, IndexedSeqView, IntStepper, IterableFactory, IterableOnceOps, IterableOps, LazyZip2, LongStepper, MapFactory, SeqFactory, SortedMapFactory, Stepper, StepperShape, mutable}
+import scala.collection.{AnyStepper, BuildFrom, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, LongStepper, MapFactory, SeqFactory, SortedMapFactory, Stepper, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, SortedMap}
-import scala.collection.mutable.{Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits
-import net.noresttherein.sugar.extensions.optionExtension
+import net.noresttherein.sugar.extensions._
 
 
 
@@ -38,7 +36,24 @@ package object collections {
 	type LongSplitStepper    = LongStepper with EfficientSplit
 	type DoubleSplitStepper  = DoubleStepper with EfficientSplit
 
-//	type ArrayLike[+E] <: AnyRef
+	/** Supertype of several types represented in runtime as arrays. This includes a Scala 2 immutable
+	  * [[net.noresttherein.sugar.collections.IArray IArray]], and
+	  * [[net.noresttherein.sugar.collections.RefArray RefArray]].
+	  * Its interface is defined as extension methods in
+	  * [[net.noresttherein.sugar.collections.ArrayLike.ArrayLikeExtension ArrayLikeExtension]] and
+	  * [[net.noresttherein.sugar.collections.ArrayLike.RefArrayLikeExtension RefArrayLikeExtension]].
+	  */
+	type ArrayLike[+E] <: AnyRef
+//	type RefArrayLike[+E] <: ArrayLike[E]
+
+	/** An erased array with elements `E`. It is represented always as an `Array[Any]` (i.e., `Object[])`,
+	  * and arrays of value types store them in their standard box wrappers. The advantage is that the API
+	  * does not depend on `ClassTag[E]` being present.
+	  * Its interface is defined as extension methods in
+	  * [[net.noresttherein.sugar.collections.ArrayLike.ArrayLikeExtension ArrayLikeExtension]]`[RefArray, E]` and
+	  * [[net.noresttherein.sugar.collections.ArrayLike.RefArrayLikeExtension RefArrayLikeExtension]]`[RefArray, E]`.
+	  */ //it cannot extend or be extended by `Array[E]`, because it would throw ClassCastException in non erased contexts.
+	type RefArray[E] <: ArrayLike[E]
 
 	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
 	  * Its interface is defined as extension methods in
@@ -46,9 +61,16 @@ package object collections {
 	  * [[net.noresttherein.sugar.collections.IArray.GenericIArrayExtension GenericIArrayExtension]]`[E]`,
 	  * and specialized variants for standard value types.
 	  */
-	type IArray[+E] <: AnyRef // <: ArrayLike[E]
+	type IArray[+E] <: ArrayLike[E] // <: ArrayLike[E]
 
-//	type IRefArray[+E] <: ArrayLike[E]
+
+	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
+	  * Its interface is defined as extension methods in
+	  * [[net.noresttherein.sugar.collections.IArray.IArrayExtension IArrayExtension]]`[E]`,
+	  * [[net.noresttherein.sugar.collections.IArray.GenericIArrayExtension GenericIArrayExtension]]`[E]`,
+	  * and specialized variants for standard value types.
+	  */
+	type IRefArray[+E] <: ArrayLike[E]
 //
 //	/** An erased array with elements `E`. It is represented always as an `Array[Any]` (i.e., `Object[])`,
 //	  * and arrays of value types store them in their standard box wrappers. The advantage is that the API
@@ -187,9 +209,9 @@ package object collections {
 		// as a.asInstanceOf[Array[AnyRef]](i).asInstanceOf[E] incurs a minor performance hit.
 		def unapply[A :ClassTag](elems :IterableOnce[A]) :Opt[IArray[A]] = {
 			val array = elems match {
-				case seq :ArraySeq[_] => Got(seq.unsafeArray)
-//				case seq :ArrayAsSeq[_] => Got(seq.coll) //is mutable
-				case _ => PassedArrayWrapper.unapply(elems)
+				case seq :ArraySeq[_]               => Got(seq.unsafeArray)
+				case seq :IArrayAsSeq[A @unchecked] => Got(seq.coll)
+				case _                              => PassedArrayWrapper.unapply(elems)
 			}
 			if (array.isDefined && (classTag[A].runtimeClass isAssignableFrom array.get.getClass.getComponentType))
 				array.asInstanceOf[Opt[IArray[A]]]
@@ -203,7 +225,8 @@ package object collections {
 				elems match {
 					case seq :ArraySeq[_] if expectedClass isAssignableFrom seq.unsafeArray.getClass.getComponentType =>
 						Got((seq.unsafeArray.asInstanceOf[IArray[A]], 0, seq.unsafeArray.length))
-//					case seq :ArrayAsSeq[_] => Got(seq.coll) //is mutable
+					case seq :IArrayAsSeq[A @unchecked] =>
+						Got((seq.coll, 0, seq.coll.length))
 					case _ =>
 						val passedArray = PassedArrayWrapper.Slice.unapply(elems)
 						if (passedArray.isDefined &&
@@ -254,6 +277,7 @@ package object collections {
 			case seq :mutable.ArraySeq[_]                                   => Got(seq.array)
 			case seq :ArraySlice[_] if seq.length == seq.unsafeArray.length => Got(seq.unsafeArray)
 			case seq :ArrayAsSeq[_]                                         => Got(seq.coll)
+			case seq :IArrayAsSeq[_]                                        => Got(seq.coll.asInstanceOf[Array[_]])
 			case _ =>
 				PassedArrayWrapper.unapply(elems).asInstanceOf[Opt[Array[_]]]
 		}
@@ -261,9 +285,11 @@ package object collections {
 		object Slice {
 			def unapply[A](elems :IterableOnce[A]) :Opt[(Array[_], Int, Int)] = elems match {
 				case _ :collection.IndexedSeqOps[_, IndexedSeq, IndexedSeq[_]] @unchecked => elems match {
-					case seq :ArraySeq[_] => Got((seq.unsafeArray, 0, seq.unsafeArray.length))
+					case seq :ArraySeq[_]         => Got((seq.unsafeArray, 0, seq.unsafeArray.length))
 					case seq :mutable.ArraySeq[_] => Got((seq.array, 0, seq.array.length))
-					case seq :ArraySlice[_] => Got((seq.unsafeArray, 0, seq.unsafeArray.length))
+					case seq :ArraySlice[_]       => Got((seq.unsafeArray, 0, seq.unsafeArray.length))
+					case seq :AbstractArrayAsSeq[_, _]       => Got((seq.array, 0, seq.array.length))
+//					case seq :IArrayAsSeq[_]      => Got((seq.coll.asInstanceOf[Array[_], 0, seq.coll.length]))
 					case _ => PassedArrayWrapper.Slice.unapply(elems).asInstanceOf[Opt[(Array[_], Int, Int)]]
 				}
 				case _ => Lack
@@ -296,7 +322,7 @@ package object collections {
 			_.getType == classOf[SortedMapFactory[SortedMap]]
 		).toOpt.map { f => f.setAccessible(true); f }
 
-	private val ArrayFactoryClass = scala.Array.toFactory(Array).getClass
+	private val ArrayFactoryClass = scala.Array.toFactory[Any](Array).getClass
 
 	private val BuildFromFactoryClass = BuildFrom.buildFromString.toFactory("").getClass
 	private val BuildFromFactoryField :Opt[Field] =
