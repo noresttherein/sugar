@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.{Math => math}
+
 import scala.annotation.tailrec
 import scala.collection.immutable.{SortedSet, StrictOptimizedSortedSetOps}
 import scala.collection.{Factory, SortedIterableFactory, SortedSetFactoryDefaults}
@@ -224,8 +226,9 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 			if (len <= 0 | start > xs.length | this.start == end)
 				0
 			else {
+				import java.lang.Math.{max, min}
 				//Underflows, but only if copying will throw an exception, so it doesn't matter
-				val copied = Math.min(end - this.start, Math.min(len, xs.length - Math.max(start, 0)))
+				val copied = math.min(end - this.start, math.min(len, xs.length - math.max(start, 0)))
 				trustedCopyToArray(this.start, xs, start, copied)
 				copied
 			}
@@ -272,8 +275,9 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 			if (len <= 0 | start > xs.length | elems.length == 0 || start < 0 && len != 0 && xs.length != 0)
 				0
 			else {
+				import java.lang.Math.min
 				//this overflows, but only if Array.copy throws an exception, so it doesn't matter
-				val copied = start + Math.min(elems.length, Math.min(xs.length - start, len))
+				val copied = start + math.min(elems.length, math.min(xs.length - start, len))
 				Array.copy(elems, 0, xs, start, copied)
 				copied
 			}

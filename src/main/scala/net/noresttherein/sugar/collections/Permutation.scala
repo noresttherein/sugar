@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.{Math => math}
+
 import scala.annotation.nowarn
 import scala.collection.{mutable, IterableFactory, IterableOps}
 import scala.collection.mutable.Builder
@@ -96,7 +98,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 			while (limit < len) {
 				var i = start
 				while (i < limit) {
-					limit = Math.max(limit, toIndexedSeq(i))
+					limit = math.max(limit, toIndexedSeq(i))
 					i += 1
 				}
 				if (first)

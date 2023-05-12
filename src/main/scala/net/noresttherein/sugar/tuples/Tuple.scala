@@ -1,9 +1,10 @@
 package net.noresttherein.sugar.tuples
 
+import java.lang.System.arraycopy
+
 import net.noresttherein.sugar.tuples.Nat.{++, _0, _1, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _2, _20, _21, _22, _3, _4, _5, _6, _7, _8, _9}
 import net.noresttherein.sugar.tuples.Tuple.evidence.{TupleAt, TupleDrop, TupleDropRight, TupleLUB, TupleProjection, TupleTake, TupleTakeRight, UpdatedTuple}
 import net.noresttherein.sugar.typist.UpperBound
-
 import scala.annotation.implicitNotFound
 import scala.collection.immutable.ArraySeq
 import scala.compat.Platform
@@ -827,7 +828,7 @@ object Tuple {
 			if (count == 0) <>
 			else {
 				val copy = new Array[Any](count)
-				System.arraycopy(elements, 1, copy, 0, count)
+				arraycopy(elements, 1, copy, 0, count)
 				new ><(copy, count)
 			}
 		}.asInstanceOf[T]
@@ -848,7 +849,7 @@ object Tuple {
 			else {
 				val newsize = size - n.number
 				val copy = new Array[Any](newsize)
-				System.arraycopy(elements, n.number, copy, 0, newsize)
+				arraycopy(elements, n.number, copy, 0, newsize)
 				new ><[Tuple, Any](copy, newsize).asInstanceOf[R]
 			}
 		}
@@ -879,7 +880,7 @@ object Tuple {
 				if (num >= size) this.asInstanceOf[R]
 				else {
 					val copy = new Array[Any](num)
-					System.arraycopy(elements, size - num, copy, 0, num)
+					arraycopy(elements, size - num, copy, 0, num)
 					new ><[Tuple, Any](copy, num).asInstanceOf[R]
 				}
 			}
@@ -973,7 +974,7 @@ object Tuple {
 			if (elements.length == size)
 				newlen = size + 1
 			val copy = new Array[Any](newlen)
-			System.arraycopy(elements, 0, copy, 0, size)
+			arraycopy(elements, 0, copy, 0, size)
 			copy(size) = last
 			new ><(copy, size + 1)
 		}
@@ -986,7 +987,7 @@ object Tuple {
 		  */
 		def ><:[X, U >: P >< L <: Tuple, R <: Tuple](first :X)(implicit tpe :TupleTakeRight[R, _1, U]) :R = {
 			val copy = new Array[Any](size + 1)
-			System.arraycopy(elements, 0, copy, 1, size)
+			arraycopy(elements, 0, copy, 1, size)
 			copy(0) = first
 			new ><[Tuple, Any](copy, size + 1).asInstanceOf[R]
 		}

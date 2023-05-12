@@ -1,6 +1,8 @@
 package net.noresttherein.sugar.collections
 
 import java.util.Arrays
+import java.lang.Math.{max, min}
+import java.lang.System.arraycopy
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
 import scala.collection.{AnyStepper, BufferedIterator, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOps, LinearSeq, LongStepper, MapFactory, SortedMapFactory, Stepper, StepperShape, View, mutable}
@@ -13,7 +15,7 @@ import scala.reflect.ClassTag
 import scala.util.Random
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.collections.extensions.{immutableMapExtension, immutableMapObjectExtension, immutableSeqFactoryExtension, immutableSetFactoryExtension, ArrayExtension, ArrayObjectExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqExtension, StepperExtension, StepperObjectExtension}
+import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayObjectExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqExtension, StepperExtension, StepperObjectExtension, immutableMapExtension, immutableMapObjectExtension, immutableSeqFactoryExtension, immutableSetFactoryExtension}
 import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Opt
@@ -1628,7 +1630,7 @@ object extensions extends extensions {
 			val thatSize = that.knownSize
 			if (thisSize >= 0)
 				if (thatSize >= 0)
-					res sizeHint (thisSize max thatSize)
+					res sizeHint max(thisSize, thatSize)
 				else
 					res sizeHint thisSize
 			else if (thatSize >= 0)
@@ -1753,7 +1755,7 @@ object extensions extends extensions {
 				val i3 = third.iterator
 				val res = self.iterableFactory.newBuilder[(E, A, B)]
 				if (size1 >= 0 & size2 >= 0 & size3 >= 0)
-					res sizeHint Math.min(size1, Math.min(size2, size3))
+					res sizeHint min(size1, min(size2, size3))
 				while (i1.hasNext && i2.hasNext & i3.hasNext)
 					res += ((i1.next(), i2.next(), i3.next()))
 				res.result()
@@ -1775,7 +1777,7 @@ object extensions extends extensions {
 				val i3 = third.iterator
 				val res = self.iterableFactory.newBuilder[(U, A, B)]
 				if (size1 >= 0 & size2 >= 0 & size3 >= 0)
-					res sizeHint Math.max(size1, Math.max(size2, size3))
+					res sizeHint max(size1, max(size2, size3))
 				while (i1.hasNext && i2.hasNext && i3.hasNext)
 					res += ((i1.next(), i2.next(), i3.next()))
 				var has1 = i1.hasNext
@@ -1921,7 +1923,7 @@ object extensions extends extensions {
 				if (size >= 0 && from >= size)
 					self.iterableFactory.from(self)
 				else
-					self.patch(from, Nil, until - Math.max(from, 0))
+					self.patch(from, Nil, until - max(from, 0))
 			}
 
 		/** Finds the location of the given element in this sequence, returning its index as an `Opt`.
@@ -2826,9 +2828,26 @@ object extensions extends extensions {
 		/** Clones the given array. */
 		final def copyOf[E](elems :Array[E]) :Array[E] = {
 			val res = java.lang.reflect.Array.newInstance(elems.getClass.getComponentType, elems.length)
-			System.arraycopy(elems, 0, res, 0, elems.length)
+			arraycopy(elems, 0, res, 0, elems.length)
 			res.asInstanceOf[Array[E]]
 		}
+
+		/** Same as `elems.slice(from, until)`, except it throws an exception if `from` is out of range. */
+		final def copyOfRange[E](elems :Array[E], from :Int, until :Int) :Array[E] =
+			if (until <= from)
+				ArrayAsSeq.empty(elems.getClass.getComponentType.castParam[E])
+			else
+				(((elems :Array[_]): @unchecked) match {
+					case a :Array[AnyRef]      => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Int]         => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Long]        => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Double]      => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Byte]        => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Char]        => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Float]       => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Short]       => java.util.Arrays.copyOfRange(a, from, until)
+					case a :Array[Boolean]     => java.util.Arrays.copyOfRange(a, from, until)
+				}).asInstanceOf[Array[E]]
 
 		/** A single element `Array[E]`. */
 		final def one[E :ClassTag](elem :E) :Array[E] = {

@@ -126,7 +126,7 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 		else emptyObjectArray
 	}.asInstanceOf[Array[A]]
 
-	override def empty[A :ClassTag] :Array[A] = Array.empty[A]
+	override def empty[A :ClassTag] :Array[A] = empty(classTag[A].runtimeClass.asInstanceOf[Class[A]])
 
 	override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder[A] //new ArrayBuilder[A]
 

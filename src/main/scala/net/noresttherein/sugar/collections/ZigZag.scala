@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.{Math => math}
+
 import scala.annotation.tailrec
 import scala.collection.{SeqFactory, Stepper, StepperShape}
 import scala.collection.immutable.AbstractSeq
@@ -235,7 +237,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		def _2 = prefix
 		private[this] val prefixLen = prefix.length
 		override val length = prefixLen + suffix.length
-//		override def depth = Math.max(prefix.depth, suffix.depth)
+//		override def depth = math.max(prefix.depth, suffix.depth)
 		override def apply(i :Int) :A =
 			if (i < 0)
 				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
@@ -269,8 +271,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			else new Concat(prefix, suffix.updated(index - prefixLen, elem))
 
 		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
-			val start = Math.min(Math.max(from, 0), length)
-			val end   = start + Math.min(Math.max(replaced, 0), length - start)
+			val start = math.min(math.max(from, 0), length)
+			val end   = start + math.min(math.max(replaced, 0), length - start)
 			if (end == 0) prependedAll(other)
 			else if (start == length) appendedAll(other)
 			else if (end <= prefixLen) new Concat(prefix.patch(from, other, replaced), suffix)
@@ -320,8 +322,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			else new Appended(init.updated(index, elem), last)
 
 		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
-			val start = Math.min(Math.max(from, 0), length)
-			val end = start + Math.min(Math.max(replaced, 0), length - start)
+			val start = math.min(math.max(from, 0), length)
+			val end = start + math.min(math.max(replaced, 0), length - start)
 			if (end == 0) prependedAll(other)
 			else if (start == length) appendedAll(other)
 			else if (end == length) init.patch(start, other, end - start)
@@ -375,8 +377,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 				new Prepended(head, tail.updated(index - 1, elem))
 
 		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
-			val start = Math.min(Math.max(from, 0), length)
-			val end = start + Math.min(Math.max(replaced, 0), length - start)
+			val start = math.min(math.max(from, 0), length)
+			val end = start + math.min(math.max(replaced, 0), length - start)
 			if (end == 0) prependedAll(other)
 			else if (start == length) appendedAll(other)
 			else if (start > 0) new Prepended(head, tail.patch(start - 1, other, replaced))

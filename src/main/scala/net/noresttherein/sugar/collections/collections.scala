@@ -4,6 +4,7 @@ import java.lang.reflect.Field
 import java.util.PrimitiveIterator
 
 import scala.annotation.nowarn
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AnyStepper, BuildFrom, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, LongStepper, MapFactory, SeqFactory, SortedMapFactory, Stepper, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{ArraySeq, SortedMap}
@@ -42,9 +43,10 @@ package object collections {
 	  * Its interface is defined as extension methods in
 	  * [[net.noresttherein.sugar.collections.ArrayLike.ArrayLikeExtension ArrayLikeExtension]] and
 	  * [[net.noresttherein.sugar.collections.ArrayLike.RefArrayLikeExtension RefArrayLikeExtension]].
+	  * Note that it is also a subtype of a regular `Array[E]` for interoperability, so a method with `ArrayLike[E]`
+	  * as an argument can accept any flavour of arrays.
 	  */
-	type ArrayLike[+E] <: AnyRef
-//	type RefArrayLike[+E] <: ArrayLike[E]
+	type ArrayLike[+E] >: Array[_ <: E] <: AnyRef
 
 	/** An erased array with elements `E`. It is represented always as an `Array[Any]` (i.e., `Object[])`,
 	  * and arrays of value types store them in their standard box wrappers. The advantage is that the API

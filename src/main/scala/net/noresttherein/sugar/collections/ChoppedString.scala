@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.{Math => math}
+
 import java.io.{IOException, Reader, StringReader}
 import java.lang
 
@@ -808,7 +810,7 @@ private class SubstringReader(string :String, start :Int, private[this] var leng
 		if (length == 0)
 			-1
 		else {
-			val count = reader.read(cbuf, off, Math.min(len, length))
+			val count = reader.read(cbuf, off, math.min(len, length))
 			length -= count
 			count
 		}
@@ -819,7 +821,7 @@ private class SubstringReader(string :String, start :Int, private[this] var leng
 			length -= 1
 			reader.read()
 		}
-	override def skip(n :Long) = reader.skip(Math.min(length, n))
+	override def skip(n :Long) = reader.skip(math.min(length, n))
 	override def markSupported() = reader.markSupported()
 	override def mark(readAheadLimit :Int) :Unit = reader.mark(readAheadLimit)
 	override def reset() :Unit = reader.reset()

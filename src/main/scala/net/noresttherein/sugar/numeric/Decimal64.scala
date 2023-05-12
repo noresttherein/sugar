@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.numeric
 
+import java.lang.{Math => math}
+
 import java.io.{InputStream, IOException, OutputStream}
 import java.math.{BigInteger, MathContext, RoundingMode, BigDecimal => JavaBigDecimal}
 import java.math.RoundingMode.{CEILING, DOWN, FLOOR, HALF_DOWN, HALF_EVEN, HALF_UP, UNNECESSARY, UP}
@@ -2662,7 +2664,7 @@ object Decimal64 {
 
 		var resultPrecision =                             //precision of the result - optimistically assume MaxPrecision
 			if (precision == ExtendedPrecision) MaxPrecision
-			else Math.min(MaxPrecision, precision)
+			else math.min(MaxPrecision, precision)
 		var remainingDigits = resultPrecision
 		remainingDigits -= Decimal64.precision(sign * q)  //for the digits we have in q
 		shift = remainingDigits                           //declared here for the sake of the loop invariant only

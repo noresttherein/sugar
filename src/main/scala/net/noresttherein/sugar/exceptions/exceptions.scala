@@ -1,15 +1,16 @@
 package net.noresttherein.sugar
 
+import java.lang.System.arraycopy
 import java.lang.reflect.Constructor
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.ArraySeq.ofRef
 import scala.collection.mutable
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.collections.MutableEqSet
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods, ThrowableExtension}
+import net.noresttherein.sugar.extensions.{ThrowableExtension, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -81,7 +82,7 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 //						causeTrace.drop(i)
 						val sharedFrames = causeTrace.length - i
 						val res = new Array[StackTraceElement](sharedFrames + 1)
-						System.arraycopy(causeTrace, i, res, 1, sharedFrames)
+						arraycopy(causeTrace, i, res, 1, sharedFrames)
 						res(0) = conjureThrowableStackTraceElement
 						res
 					} else

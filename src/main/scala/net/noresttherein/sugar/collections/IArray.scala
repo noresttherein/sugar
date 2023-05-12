@@ -1,5 +1,8 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.System.arraycopy
+import java.lang.{Math => math}
+
 import scala.Array.UnapplySeqWrapper
 import scala.annotation.nowarn
 import scala.collection.{ClassTagIterableFactory, Factory, IndexedSeqView, IterableFactory, LazyZip2, Stepper, StepperShape, View, mutable}
@@ -8,8 +11,8 @@ import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
 import scala.collection.mutable.{Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.collections.ArrayLike.{ArrayLikeExtension, RefArrayLikeExtension}
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, classNameMethods, castingMethods}
+import net.noresttherein.sugar.collections.ArrayLike.RefArrayLikeExtension
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods, classNameMethods, ArrayLikeExtension, IArrayAsArrayLikeExtension, IArrayExtension, IRefArrayAsRefArrayLikeExtension, IRefArrayExtension, RefArrayAsArrayLikeExtension, RefArrayExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness.Maybe
@@ -18,6 +21,8 @@ import net.noresttherein.sugar.witness.Maybe
 
 
 object ArrayLike {
+	//Consider: there is a small issue in that the factory extension method is in extensions,
+	// so a clash between imports is possible.
 	class ArrayLikeExtension[E, Arr[X]] private[collections] (private[ArrayLike] val array :Array[_])
 		extends AnyVal
 	{
@@ -31,8 +36,8 @@ object ArrayLike {
 		@inline def sizeCompare(otherSize :Int) :Int= Integer.compare(array.length, otherSize)
 		@inline def lengthCompare(len :Int) :Int = Integer.compare(array.length, len)
 
-//		@inline def head :E = array.head
-//		@inline def last :E = array.last
+		@inline def head :E = array.head.asInstanceOf[E]
+		@inline def last :E = array.last.asInstanceOf[E]
 		@inline def headOption :Option[E] = array.headOption.asInstanceOf[Option[E]]
 		@inline def lastOption :Option[E] = array.lastOption.asInstanceOf[Option[E]]
 
@@ -292,6 +297,22 @@ object ArrayLike {
 		@inline def copyToArray[A >: E](xs :Array[A], start :Int) :Int = array.copyToArray(xs.asInstanceOf[Array[Any]], start, xs.length)
 		@inline def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int = array.copyToArray(xs.asInstanceOf[Array[Any]], start, len)
 
+		/** Equivalent to `this.slice(from, until).copyToArray(xs, to)`, but doesn't createe an intermediate array. */
+		@inline def copyRangeToArray[A](xs :Array[A], from :Int, until :Int = Int.MaxValue, to :Int = 0) :Int =
+			if (until <= from | from >= array.length)
+				0
+			else if (to < 0 | to > xs.length)
+				throw new IndexOutOfBoundsException(
+					"Array[" + array.length + "].copyRangeToArray([" + xs.length + "], " + from + ", " + until + ", " +
+						to + "."
+				)
+			else {
+				val cap   = math.min(until, array.length)
+				val count = math.min(cap - from, xs.length - to)
+				Array.copy(array, from, xs, to, count)
+				cap
+			}
+
 		@inline def mkString :String = array.mkString("", "", "")
 		@inline def mkString(separator :String) :String = array.mkString("", separator, "")
 		@inline def mkString(prefix :String, separator :String, suffix :String) :String =
@@ -309,8 +330,6 @@ object ArrayLike {
 
 
 	class RefArrayLikeExtension[E, Arr[_]] private[collections] (private val array :Array[Any]) extends AnyVal {
-		@inline def head :E = array.head.asInstanceOf[E]
-		@inline def last :E = array.last.asInstanceOf[E]
 //		@inline def headOption :Option[E] = array.headOption
 //		@inline def lastOption :Option[E] = array.lastOption
 
@@ -362,37 +381,37 @@ object ArrayLike {
 
 		@inline def ++[A >: E](suffix :IterableOnce[A]) :Arr[A] = array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def ++[A >: E](suffix :Arr[A]) :Arr[A] =
+		@inline def ++[A >: E](suffix :ArrayLike[A]) :Arr[A] =
 			array.appendedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
 
 		@inline def concat[A >: E](suffix :IterableOnce[A]) :Arr[A] =
 			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def concat[A >: E](suffix :Arr[A]) :Arr[A] =
+		@inline def concat[A >: E](suffix :ArrayLike[A]) :Arr[A] =
 			array.appendedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
 
 		@inline def :++[A >: E](suffix :IterableOnce[A]) :Arr[A] =
 			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def :++[A >: E](suffix :Arr[A]) :Arr[A] =
+		@inline def :++[A >: E](suffix :ArrayLike[A]) :Arr[A] =
 			array.appendedAll(suffix.asInstanceOf[Array[A]]).asInstanceOf[Arr[A]]
 
 		@inline def appendedAll[A >: E](suffix :IterableOnce[A]) :Arr[A] =
 			array.appendedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def appendedAll[A >: E](suffix :Arr[A]) :Arr[A] =
+		@inline def appendedAll[A >: E](suffix :ArrayLike[A]) :Arr[A] =
 			array.appendedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
 
 		@inline def ++:[A >: E](suffix :IterableOnce[A]) :Arr[A] =
 			array.prependedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def ++:[A >: E](suffix :Arr[A]) :Arr[A] =
+		@inline def ++:[A >: E](suffix :ArrayLike[A]) :Arr[A] =
 			array.prependedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
 
 		@inline def prependedAll[A >: E](suffix :IterableOnce[A]) :Arr[A] =
 			array.prependedAll(suffix).asInstanceOf[Arr[A]]
 
-		@inline def prependedAll[A >: E](suffix :Arr[A]) :Arr[A] =
+		@inline def prependedAll[A >: E](suffix :ArrayLike[A]) :Arr[A] =
 			array.prependedAll(suffix.asInstanceOf[Array[Any]]).asInstanceOf[Arr[A]]
 
 	}
@@ -463,45 +482,20 @@ object ArrayLike {
 			new WithFilter[Arr, E](a => p(a) && q(a), xs, factory)
 	}
 
+
+	implicit def arrayLikeToIterableOnce[A](array :ArrayLike[A]) :IterableOnce[A] =
+		new ArrayAsSeq(array.asInstanceOf[Array[_]]).castParam[A]
+
+
+	private[collections] trait extensions extends Any {
+		@inline implicit final def ArrayLikeExtension[A](self :ArrayLike[A]) :ArrayLikeExtension[A, ArrayLike] =
+			new ArrayLikeExtension(self.asInstanceOf[Array[_]])
+	}
 }
 
 
 
 
-
-
-private[collections] sealed abstract class IArrayRank2Implicits {
-	@inline implicit def wrap[E](array :IArray[E]) :IndexedSeq[E] = ArraySeq.unsafeWrapArray(array.asInstanceOf[Array[E]])
-}
-
-private[collections] sealed abstract class IArrayRank1Implicits extends IArrayRank2Implicits {
-	@inline implicit def wrapByte(array :IArray[Byte]) :ArraySeq.ofByte =
-		new ArraySeq.ofByte(array.asInstanceOf[Array[Byte]])
-
-	@inline implicit def wrapShort(array :IArray[Short]) :ArraySeq.ofShort =
-		new ArraySeq.ofShort(array.asInstanceOf[Array[Short]])
-
-	@inline implicit def wrapChar(array :IArray[Char]) :ArraySeq.ofChar =
-		new ArraySeq.ofChar(array.asInstanceOf[Array[Char]])
-
-	@inline implicit def wrapInt(array :IArray[Int]) :ArraySeq.ofInt =
-		new ArraySeq.ofInt(array.asInstanceOf[Array[Int]])
-
-	@inline implicit def wrapLong(array :IArray[Long]) :ArraySeq.ofLong =
-		new ArraySeq.ofLong(array.asInstanceOf[Array[Long]])
-
-	@inline implicit def wrapFloat(array :IArray[Float]) :ArraySeq.ofFloat =
-		new ArraySeq.ofFloat(array.asInstanceOf[Array[Float]])
-
-	@inline implicit def wrapDouble(array :IArray[Double]) :ArraySeq.ofDouble =
-		new ArraySeq.ofDouble(array.asInstanceOf[Array[Double]])
-
-	@inline implicit def wrapBoolean(array :IArray[Boolean]) :ArraySeq.ofBoolean =
-		new ArraySeq.ofBoolean(array.asInstanceOf[Array[Boolean]])
-
-	@inline implicit def wrapRef[E <: AnyRef](array :IArray[E]) :ArraySeq.ofRef[E] =
-		new ArraySeq.ofRef(array.asInstanceOf[Array[E]])
-}
 
 
 /** Factory of immutable arrays: `IArray` backed by an `Array`, without exposing any mutating methods.
@@ -509,7 +503,7 @@ private[collections] sealed abstract class IArrayRank1Implicits extends IArrayRa
   * @define coll immutable array
   */
 @SerialVersionUID(Ver)
-case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IArray] {
+case object IArray extends /*IArrayRank1Implicits with*/ ClassTagIterableFactory[IArray] {
 
 	@inline class ByteIArrayExtension private[collections] (private val array :Array[Byte]) extends AnyVal {
 		@inline def head :Byte = array(0)
@@ -834,7 +828,6 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline def toSeq :Seq[E] = WrappedArray(array)
 		@inline def toIndexedSeq :IndexedSeq[E] = WrappedArray(array)
 
-
 /*
 		@inline def toList :List[E] = array.toList
 		@inline def toVector :Vector[E] = array.toVector
@@ -924,27 +917,6 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 	}
 
 
-	implicit def iArrayIsSeq[E] :IsSeq[IArray[E]] { type A = E; type C = IArray[E] } =
-		isSeqPrototype.asInstanceOf[IsSeq[IArray[E]] { type A = E; type C = IArray[E] }]
-
-	private[this] val isSeqPrototype = new IsSeq[IArray[Any]] with Serializable {
-		type C = IArray[Any]
-		override type A = Any
-		override def apply(array :IArray[Any]) = new IndexedSeqOps[Any, Seq, IArray[Any]] {
-			override def length = array.length
-			override def apply(i :Int) = array.asInstanceOf[Array[Any]].apply(i)
-			override def fromSpecific(coll :IterableOnce[Any]) = IArray.from(coll)
-			override def newSpecificBuilder = IArray.newBuilder(coll.getClass.getComponentType)
-			override def iterator = array.iterator
-
-			override def toIterable = WrappedIArray(array)
-			override def coll = array
-			override def iterableFactory = IndexedSeq
-		}
-		private def readResolve = IArray.iArrayIsSeq
-	}
-
-
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = it match {
 		case elems :View[E]                      => from(elems.iterator)
@@ -976,20 +948,24 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 	override def empty[E :ClassTag] :IArray[E] = ArrayAsSeq.empty[E].asInstanceOf[IArray[E]]
 
+	/** An empty array of the specified element type. */
 	def empty[E](elementType :Class[E]) :IArray[E] = ArrayAsSeq.empty(elementType).asInstanceOf[IArray[E]]
 
 	override def newBuilder[E :ClassTag] :Builder[E, IArray[E]] =
 		ArrayAsSeq.newBuilder[E].asInstanceOf[Builder[E, IArray[E]]]
 
+	/** Builds an `IArray` of the specified element type. */
 	def newBuilder[E](elementType :Class[E]) :Builder[E, IArray[E]] =
 		ArrayAsSeq.newBuilder(elementType).asInstanceOf[Builder[E, IArray[E]]]
 
+	/** A single element array as an immutable array. */
 	def one[E :ClassTag](elem :E) :IArray[E] = {
 		val a = new Array[E](1)
 		a(0) = elem
 		a.asInstanceOf[IArray[E]]
 	}
 
+	/** A two element array as an immutable array. */
 	def two[E :ClassTag](first :E, second :E) :IArray[E] = {
 		val a = new Array[E](2)
 		a(0) = first
@@ -997,14 +973,188 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		a.asInstanceOf[IArray[E]]
 	}
 
-	def copyOf[E](array :Array[E]) :IArray[E] = Array.copyOf(array, array.length).asInstanceOf[IArray[E]]
-	def copyOf[E](array :Array[E], newLength :Int) :IArray[E] = Array.copyOf(array, newLength).asInstanceOf[IArray[E]]
-	def copyOfRange[E](array :Array[E], from :Int, until :Int) :IArray[E] =
-		array.slice(from, until).asInstanceOf[IArray[E]]
+	/** Creates a new immutable array with the same element type as the given array, and copies the contents. */
+	def copyOf[E](array :ArrayLike[E]) :IArray[E] =
+		Array.copyOf(array.asInstanceOf[Array[_]], array.length).asInstanceOf[IArray[E]]
+
+	/** Copies one array to another, truncating or padding with default values (if necessary) so the copy has
+	  * the specified length. The returned array will be of the same type as the original.
+	  * Equivalent to `Array.`[[Array.copyOf copyOf]]`(array, newLength)`, but accepts any `ArrayLike` and returns
+	  * the result as an $Coll.
+	  */
+	def copyOf[E](array :ArrayLike[E], newLength :Int) :IArray[E] =
+		Array.copyOf(array.asInstanceOf[Array[_]], newLength).asInstanceOf[IArray[E]]
+
+	/** Copies a fragment of an array to a new array. This works similarly
+	  * to `array.`[[scala.collection.ArrayOps.slice slice]]`(from, until)`, with a couple of exceptions:
+	  *   1. the argument may be any `ArrayLike[E]`, and the result is an $Coll`[E]`,
+	  *   1. `from` must be in `[0, array.length]` range, or an [[IndexOutOfBoundsException]] is thrown,
+	  *   1. specifying `until > array.length` pads the returned array with nulls/zero values
+	  *      until the length of `until - from` is reached.
+	  */
+	def copyOfRange[E](array :ArrayLike[E], from :Int, until :Int) :IArray[E] =
+		if (until <= from)
+			empty(array.getClass.getComponentType.castParam[E])
+		else
+			((array :Any) : @unchecked) match {
+				case a :Array[AnyRef]   => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Int]      => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Long]     => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Double]   => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Byte]     => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Char]     => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Float]    => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Short]    => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+				case a :Array[Boolean]  => java.util.Arrays.copyOfRange(a, from, until).asInstanceOf[IArray[E]]
+			}
+
+	/** Copies slices from two array into a new array. Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * where of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, until `array2(from2)`
+	  * is copied to `result(until1 - from1)` (assuming `until1 >= from1`).
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  *               Must be in range `[0, array1.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until - 1)` to the new array.
+	  *               Must be in range `[0, array2.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @return An `Array[AnyRef]` of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
+	  *         as a `IArray[E]`, with the copied slices.
+	  */
+	def copyOfRanges[E :ClassTag](array1 :ArrayLike[E], from1 :Int, until1 :Int,
+	                              array2 :ArrayLike[E], from2 :Int, until2 :Int) :IArray[E] =
+		if (from1 < 0 | from1 > array1.length | from2 < 0 | from2 > array2.length)
+			throw new IndexOutOfBoundsException(
+				s"IArray.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
+					s"${array2.localClassName}<${array2.length}>, $from2, $until2)."
+			)
+		else {
+			val length1 = math.min(from1, until1) - from1
+			val length2 = math.min(from2, until2) - from2
+			if (length1 + length2 == 0)
+				empty[E]
+			else {
+				val res     = new Array[E](length1 + length2)
+				Array.copy(array1, from1, res, 0, length1)
+				Array.copy(array2, from2, res, length1, length2)
+				res.asInstanceOf[IArray[E]]
+			}
+		}
+
+	/** Copies slices from three array into a new array. Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * where of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, with `array2(from2)`
+	  * copied to `result(until1 - from1)`, and `array3(from3)` to `result(until2 - from2 + until1 - from1)`
+	  * (assuming `until1 >= from1`).
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  *               Must be in range `[0, array1.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until1 - 1)` into the new array.
+	  *               Must be in range `[0, array2.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @param array3 The third sliced array.
+	  * @param from3  The index of the element in `array3` to be copied after `array2(until2 - 1)` into the new array.
+	  *               Must be in range `[0, array3.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until3 The index after the last copied element in `array1`.
+	  * @return An `Array[AnyRef]` of length `until1 - from1 + until2 - from2 + until3 - from3` (for `untilN >= fromN`),
+	  *         as a `IArray[E]`, with the copied slices.
+	  */
+	def copyOfRanges[E :ClassTag](array1 :ArrayLike[E], from1 :Int, until1 :Int,
+	                              array2 :ArrayLike[E], from2 :Int, until2 :Int,
+	                              array3 :ArrayLike[E], from3 :Int, until3 :Int) :IArray[E] =
+		if (from1 < 0 | from1 > array1.length | from2 < 0 | from2 > array2.length | from3 < 0 | from3 > array3.length)
+			throw new IndexOutOfBoundsException(
+				s"IArray.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
+					s"${array2.localClassName}<${array2.length}>, $from2, $until2, " +
+					s"${array3.localClassName}<${array3.length}>, $from3, $until3)."
+			)
+		else {
+			val length1 = math.min(from1, until1) - from1
+			val length2 = math.min(from2, until2) - from2
+			val length3 = math.min(from3, until3) - from2
+			if (length1 == 0 & length2 == 0 & length3 == 0)
+				empty[E]
+			else {
+				val res     = new Array[E](length1 + length2 + length3)
+				Array.copy(array1, from1, res, 0, length1)
+				Array.copy(array2, from2, res, length1, length2)
+				Array.copy(array3, from3, res, length1 + length2, length3)
+				res.asInstanceOf[IArray[E]]
+			}
+		}
+
+	/** Creates a new `Array[E]` of length `size`, executes the given initialization function for it,
+	  * and returns it as an `IArray[E]`. It is a pattern for initialization safer than manually creating
+	  * an `Array[E]`, writing to it, and casting it `IArray[E]`. The application should ''not'' retain a reference
+	  * to the array given as the function argument, or the immutability of the result may be voided.
+	  */
+	@inline final def init[E :ClassTag](size :Int)(f :Array[E] => Unit) :IArray[E] = {
+		val res = new Array[E](size)
+		f(res)
+		res.asInstanceOf[IArray[E]]
+	}
+
 
 	def unapplySeq[E](array :IArray[E]) :UnapplySeqWrapper[E] =
 		new UnapplySeqWrapper(array.castFrom[IArray[E], Array[E]])
 
+
+	def wrap[E](array :IArray[E]) :IndexedSeq[E] = WrappedIArray(array)
+
+	@inline def wrapByte(array :IArray[Byte]) :ArraySeq.ofByte =
+		new ArraySeq.ofByte(array.asInstanceOf[Array[Byte]])
+
+	@inline def wrapShort(array :IArray[Short]) :ArraySeq.ofShort =
+		new ArraySeq.ofShort(array.asInstanceOf[Array[Short]])
+
+	@inline def wrapChar(array :IArray[Char]) :ArraySeq.ofChar =
+		new ArraySeq.ofChar(array.asInstanceOf[Array[Char]])
+
+	@inline def wrapInt(array :IArray[Int]) :ArraySeq.ofInt =
+		new ArraySeq.ofInt(array.asInstanceOf[Array[Int]])
+
+	@inline def wrapLong(array :IArray[Long]) :ArraySeq.ofLong =
+		new ArraySeq.ofLong(array.asInstanceOf[Array[Long]])
+
+	@inline def wrapFloat(array :IArray[Float]) :ArraySeq.ofFloat =
+		new ArraySeq.ofFloat(array.asInstanceOf[Array[Float]])
+
+	@inline def wrapDouble(array :IArray[Double]) :ArraySeq.ofDouble =
+		new ArraySeq.ofDouble(array.asInstanceOf[Array[Double]])
+
+	@inline def wrapBoolean(array :IArray[Boolean]) :ArraySeq.ofBoolean =
+		new ArraySeq.ofBoolean(array.asInstanceOf[Array[Boolean]])
+
+	@inline def wrapRef[E <: AnyRef](array :IArray[E]) :ArraySeq.ofRef[E] =
+		new ArraySeq.ofRef(array.asInstanceOf[Array[E]])
+
+
+
+	implicit def iArrayIsSeq[E] :IsSeq[IArray[E]] { type A = E; type C = IArray[E] } =
+		isSeqPrototype.asInstanceOf[IsSeq[IArray[E]] { type A = E; type C = IArray[E] }]
+
+	private[this] val isSeqPrototype = new IsSeq[IArray[Any]] with Serializable {
+		type C = IArray[Any]
+		override type A = Any
+		override def apply(array :IArray[Any]) = new IndexedSeqOps[Any, Seq, IArray[Any]] {
+			override def length = array.length
+			override def apply(i :Int) = array.asInstanceOf[Array[Any]].apply(i)
+			override def fromSpecific(coll :IterableOnce[Any]) = IArray.from(coll)
+			override def newSpecificBuilder = IArray.newBuilder(coll.getClass.getComponentType)
+			override def iterator = array.iterator
+
+			override def toIterable = WrappedIArray(array)
+			override def coll = array
+			override def iterableFactory = IndexedSeq
+		}
+		private def readResolve = IArray.iArrayIsSeq
+	}
 
 	/** A factory of `IArray[E]` instances represented in runtime always as `Array[Any]` (i.e., `Object[]`).
 	  * Value types are always stored in their boxed form. The advantage is the lack of dependence on `ClassTag[E]`,
@@ -1042,7 +1192,42 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 	}
 
 
-	private[collections] sealed trait IArrayLowPriorityExtensions extends Any {
+	private[collections] sealed trait IArrayRank2Implicits extends Any {
+		@inline implicit def immutableArrayToSeq[E](array :IArray[E]) :IndexedSeq[E] = WrappedIArray(array)
+	}
+
+	private[collections] sealed trait IArrayRank1Implicits extends Any with IArrayRank2Implicits {
+		@inline implicit def byteIArrayToSeq(array :IArray[Byte]) :ArraySeq.ofByte =
+			new ArraySeq.ofByte(array.asInstanceOf[Array[Byte]])
+
+		@inline implicit def shortIArrayToSeq(array :IArray[Short]) :ArraySeq.ofShort =
+			new ArraySeq.ofShort(array.asInstanceOf[Array[Short]])
+
+		@inline implicit def charIArrayToSeq(array :IArray[Char]) :ArraySeq.ofChar =
+			new ArraySeq.ofChar(array.asInstanceOf[Array[Char]])
+
+		@inline implicit def intIArrayToSeq(array :IArray[Int]) :ArraySeq.ofInt =
+			new ArraySeq.ofInt(array.asInstanceOf[Array[Int]])
+
+		@inline implicit def longIArrayToSeq(array :IArray[Long]) :ArraySeq.ofLong =
+			new ArraySeq.ofLong(array.asInstanceOf[Array[Long]])
+
+		@inline implicit def floatIArrayToSeq(array :IArray[Float]) :ArraySeq.ofFloat =
+			new ArraySeq.ofFloat(array.asInstanceOf[Array[Float]])
+
+		@inline implicit def doubleIArrayToSeq(array :IArray[Double]) :ArraySeq.ofDouble =
+			new ArraySeq.ofDouble(array.asInstanceOf[Array[Double]])
+
+		@inline implicit def booleanIArrayToSeq(array :IArray[Boolean]) :ArraySeq.ofBoolean =
+			new ArraySeq.ofBoolean(array.asInstanceOf[Array[Boolean]])
+
+		@inline implicit def refIArrayToSeq[E <: AnyRef](array :IArray[E]) :ArraySeq.ofRef[E] =
+			new ArraySeq.ofRef(array.asInstanceOf[Array[E]])
+	}
+
+	private[collections] sealed trait IArrayLowPriorityExtensions
+		extends Any with IArrayRank1Implicits with ArrayLike.extensions
+	{
 		@inline implicit def GenericIArrayExtension[E](array :IArray[E]) :GenericIArrayExtension[E] =
 			new GenericIArrayExtension[E](array.asInstanceOf[Array[E]])
 	}
@@ -1083,8 +1268,9 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline implicit final def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
 			new IArrayExtension(array.asInstanceOf[Array[E]])
 
-		@inline implicit final def IArrayAsArrayLikeExtension[E](array :IArray[E]) :ArrayLikeExtension[E, IArray] =
-			new ArrayLikeExtension(array.asInstanceOf[Array[_]])
+		@inline implicit final def IArrayAsArrayLikeExtension[E](array :IArray[E])
+				:ArrayLike.ArrayLikeExtension[E, IArray] =
+			new ArrayLike.ArrayLikeExtension(array.asInstanceOf[Array[_]])
 	}
 
 
@@ -1109,9 +1295,6 @@ private[collections] sealed abstract class RefArrayLikeFactory[Arr[_]] extends I
 	/** Boxes the elements, if necessary, places them in an `Array[AnyRef]` of length 2, and returns as a $Coll`[E]`. */
 	def two[E](first :E, second :E) :Arr[E] = ErasedArray.two(first, second).asInstanceOf[Arr[E]]
 
-	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
-	@inline def ofDim[E](length :Int) :Arr[E] = new Array[Any](length).asInstanceOf[Arr[E]]
-
 	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument, returning it as a $Coll`[E]`.
 	  * If the argument is a value array, the elements will be boxed.
 	  */
@@ -1119,9 +1302,9 @@ private[collections] sealed abstract class RefArrayLikeFactory[Arr[_]] extends I
 		val length = array.asInstanceOf[Array[Any]].length
 		val res    = new Array[Any](length)
 		if (array.isInstanceOf[Array[AnyRef]])
-			System.arraycopy(array, 0, res, 0, length).asInstanceOf[Arr[E]]
+			arraycopy(array, 0, res, 0, length)
 		else
-			Array.copy(array, 0, res, 0, length).asInstanceOf[Arr[E]]
+			Array.copy(array, 0, res, 0, length)
 		res.asInstanceOf[Arr[E]]
 	}
 
@@ -1156,17 +1339,109 @@ private[collections] sealed abstract class RefArrayLikeFactory[Arr[_]] extends I
 			empty
 		else {
 			val res    = new Array[Any](until - from)
-			val copied = Math.min(until - from, array.asInstanceOf[Array[Any]].length - from)
+			val copied = math.min(until - from, array.asInstanceOf[Array[Any]].length - from)
 			if (array.isInstanceOf[Array[AnyRef]])
-				System.arraycopy(array, from, res, 0, copied)
+				arraycopy(array, from, res, 0, copied)
 			else
 				Array.copy(array, from, res, 0, copied)
 			res.asInstanceOf[Arr[E]]
 		}
 
+	/** Copies slices from two array into a new array. Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * where of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, until `array2(from2)`
+	  * is copied to `result(until1 - from1)` (assuming `until1 >= from1`).
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  *               Must be in range `[0, array1.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until - 1)` to the new array.
+	  *               Must be in range `[0, array2.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @return An `Array[AnyRef]` of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
+	  *         as a $Coll`[E]`, with the copied slices.
+	  */
+	def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
+	                    array2 :ArrayLike[E], from2 :Int, until2 :Int) :Arr[E] =
+		if (from1 < 0 | from1 > array1.length | from2 < 0 | from2 > array2.length)
+			throw new IndexOutOfBoundsException(
+				s"$toString.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
+					s"${array2.localClassName}<${array2.length}>, $from2, $until2)."
+			)
+		else {
+			val length1 = math.min(from1, until1) - from1
+			val length2 = math.min(from2, until2) - from2
+			if (length1 + length2 == 0)
+				empty[E]
+			else {
+				val res     = new Array[Any](length1 + length2).asInstanceOf[Array[E]]
+				Array.copy(array1, from1, res, 0, length1)
+				Array.copy(array2, from2, res, length1, length2)
+				res.asInstanceOf[Arr[E]]
+			}
+		}
 
-	override def from[A](source :IterableOnce[A]) :Arr[A] = source match {
-		case empty if empty.knownSize == 0 => Empty.asInstanceOf[Arr[A]]
+	/** Copies slices from three array into a new array. Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * where of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, with `array2(from2)`
+	  * copied to `result(until1 - from1)`, and `array3(from3)` to `result(until2 - from2 + until1 - from1)`
+	  * (assuming `until1 >= from1`).
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  *               Must be in range `[0, array1.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until1 - 1)` into the new array.
+	  *               Must be in range `[0, array2.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @param array3 The third sliced array.
+	  * @param from3  The index of the element in `array3` to be copied after `array2(until2 - 1)` into the new array.
+	  *               Must be in range `[0, array3.length]`, or an `IndexOutOfBoundsException` will be thrown.
+	  * @param until3 The index after the last copied element in `array1`.
+	  * @return An `Array[AnyRef]` of length `until1 - from1 + until2 - from2 + until3 - from3` (for `untilN >= fromN`),
+	  *         as a $Coll`[E]`, with the copied slices.
+	  */
+	def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
+	                    array2 :ArrayLike[E], from2 :Int, until2 :Int,
+	                    array3 :ArrayLike[E], from3 :Int, until3 :Int) :Arr[E] =
+		if (from1 < 0 | from1 > array1.length | from2 < 0 | from2 > array2.length | from3 < 0 | from3 > array3.length)
+			throw new IndexOutOfBoundsException(
+				s"$toString.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
+					s"${array2.localClassName}<${array2.length}>, $from2, $until2, " +
+					s"${array3.localClassName}<${array3.length}>, $from3, $until3)."
+			)
+		else {
+			val length1 = math.min(from1, until1) - from1
+			val length2 = math.min(from2, until2) - from2
+			val length3 = math.min(from3, until3) - from2
+			if (length1 + length2 + length3 == 0)
+				empty[E]
+			else {
+				val res     = new Array[Any](length1 + length2 + length3).asInstanceOf[Array[E]]
+				Array.copy(array1, from1, res, 0, length1)
+				Array.copy(array2, from2, res, length1, length2)
+				Array.copy(array3, from3, res, length1 + length2, length3)
+				res.asInstanceOf[Arr[E]]
+			}
+		}
+
+
+	/** Creates a new `Array[E]` of length `size`, executes the given initialization function for it,
+	  * and returns it as an $Coll`[E]`. It is a pattern for initialization safer than manually creating
+	  * an `Array[E]`, writing to it, and casting it $Coll`[E]`. The application should ''not'' retain a reference
+	  * to the array given as the function argument.
+	  */
+	@inline final def init[E](size :Int)(f :Array[_ >: E] => Unit) :Arr[E] = {
+		val res = new Array[Any](size).asInstanceOf[Array[E]]
+		f(res)
+		res.asInstanceOf[Arr[E]]
+	}
+
+	override def from[E](source :IterableOnce[E]) :Arr[E] = source match {
+		case empty if empty.knownSize == 0 => Empty.asInstanceOf[Arr[E]]
 //		case ops :collection.IndexedSeqOps[A, _, _] =>
 //			var from = 0
 //			val array = ops match {
@@ -1182,10 +1457,10 @@ private[collections] sealed abstract class RefArrayLikeFactory[Arr[_]] extends I
 //				ops.toArray[Any].asInstanceOf[RefArray[A]]
 //			else
 //				ErasedArray.copyOfRange(array.asInstanceOf[Array[A]], from, from + ops.length)
-		case items :Iterable[A] =>
-			items.toArray[Any].asInstanceOf[Arr[A]]
+		case items :Iterable[E] =>
+			items.toArray[Any].asInstanceOf[Arr[E]]
 		case _                  =>
-			source.iterator.toArray[Any].asInstanceOf[Arr[A]]
+			source.iterator.toArray[Any].asInstanceOf[Arr[E]]
 	}
 
 	override def empty[E] :Arr[E] = Empty.asInstanceOf[Arr[E]]
@@ -1243,21 +1518,29 @@ case object RefArray extends RefArrayLikeFactory[RefArray] with IterableFactory[
 			new RefArrayAsSeq(array.asInstanceOf[RefArray[A]])
 	}
 
+	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
+	@inline def ofDim[E](length :Int) :RefArray[E] = new Array[Any](length).asInstanceOf[RefArray[E]]
+
+	@inline def wrap[A](array :RefArray[A]) :mutable.IndexedSeq[A] =
+		mutable.ArraySeq.make(array.asInstanceOf[Array[_]]).asInstanceOf[mutable.IndexedSeq[A]]
+
 	implicit def refArrayToSeq[A](array :RefArray[A]) :mutable.IndexedSeq[A] =
-		mutable.ArraySeq.make(array.asInstanceOf[Array[A]])
+		mutable.ArraySeq.make(array.asInstanceOf[Array[_]]).asInstanceOf[mutable.IndexedSeq[A]]
 
 	implicit def refArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } =
 		isSeq
 
-	private[collections] trait extensions extends Any {
+
+	private[collections] trait extensions extends Any with ArrayLike.extensions {
 		@inline implicit final def RefArrayClassTag[E] :ClassTag[RefArray[E]] =
 			classTag[Array[AnyRef]].castParam[RefArray[E]]
 
 		@inline implicit final def RefArrayExtension[A](array :RefArray[A]) :RefArrayExtension[A] =
 			new RefArrayExtension(array.asInstanceOf[Array[Any]])
 
-		@inline implicit final def RefArrayAsArrayLikeExtension[A](array :RefArray[A]) :ArrayLikeExtension[A, RefArray] =
-			new ArrayLikeExtension[A, RefArray](array.asInstanceOf[Array[_]])
+		@inline implicit final def RefArrayAsArrayLikeExtension[A](array :RefArray[A])
+				:ArrayLike.ArrayLikeExtension[A, RefArray] =
+			new ArrayLike.ArrayLikeExtension[A, RefArray](array.asInstanceOf[Array[_]])
 
 		@inline implicit final def RefArrayAsRefArrayLikeExtension[A](array :RefArray[A])
 				:RefArrayLikeExtension[A, RefArray] =
@@ -1284,8 +1567,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 			new IRefArrayAsSeq(array.asInstanceOf[IRefArray[A]])
 	}
 
-	implicit def iRefArrayToSeq[A](array :IRefArray[A]) :IndexedSeq[A] =
-		DefaultArraySeq(array).asInstanceOf[IndexedSeq[A]]
+	def wrap[A](array :IRefArray[A]) :IndexedSeq[A] =
+		WrappedIArray(array.asInstanceOf[IArray[_]]).asInstanceOf[IndexedSeq[A]]
+
+	@inline implicit def iRefArrayToSeq[A](array :IRefArray[A]) :IndexedSeq[A] = wrap(array)
 
 	implicit def iRefArrayIsSeq[E] :IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] } =
 		isSeq
@@ -1312,15 +1597,16 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	}
 
 
-	private[collections] trait extensions extends Any {
+	private[collections] trait extensions extends Any with ArrayLike.extensions {
 		@inline implicit final def IRefArrayClassTag[E] :ClassTag[IRefArray[E]] =
 			classTag[Array[AnyRef]].castParam[IRefArray[E]]
 
 		@inline implicit final def IRefArrayExtension[A](array :RefArray[A]) :IRefArrayExtension[A] =
 			new IRefArrayExtension(array.asInstanceOf[Array[Any]])
 
-		@inline implicit final def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A]) :ArrayLikeExtension[A, IRefArray] =
-			new ArrayLikeExtension(array.asInstanceOf[Array[_]])
+		@inline implicit final def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A])
+				:ArrayLike.ArrayLikeExtension[A, IRefArray] =
+			new ArrayLike.ArrayLikeExtension(array.asInstanceOf[Array[_]])
 
 		@inline implicit final def IRefArrayAsRefArrayLikeExtension[A](array :IRefArray[A]) :RefArrayLikeExtension[A, IRefArray] =
 			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
@@ -1369,7 +1655,7 @@ private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 		val length = array.asInstanceOf[Array[Any]].length
 		val res    = new Array[Any](length)
 		if (array.isInstanceOf[Array[AnyRef]])
-			System.arraycopy(array, 0, res, 0, length).asInstanceOf[Array[E]]
+			arraycopy(array, 0, res, 0, length).asInstanceOf[Array[E]]
 		else
 			Array.copy(array, 0, res, 0, length).asInstanceOf[Array[E]]
 		res.asInstanceOf[Array[E]]
@@ -1381,7 +1667,7 @@ private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 	def copyOf[E](array :Array[E], newLength :Int) :Array[E] = {
 		val res = new Array[Any](newLength)
 		if (array.isInstanceOf[Array[AnyRef]])
-			System.arraycopy(array, 0, res, 0, newLength)
+			arraycopy(array, 0, res, 0, newLength)
 		else
 			Array.copy(array, 0, res, 0, newLength)
 		res.asInstanceOf[Array[E]]
@@ -1406,9 +1692,9 @@ private[noresttherein] case object ErasedArray extends IterableFactory[Array] {
 			empty
 		else {
 			val res    = new Array[Any](until - from)
-			val copied = Math.min(until - from, array.asInstanceOf[Array[Any]].length - from)
+			val copied = math.min(until - from, array.asInstanceOf[Array[Any]].length - from)
 			if (array.isInstanceOf[Array[AnyRef]])
-				System.arraycopy(array, from, res, 0, copied)
+				arraycopy(array, from, res, 0, copied)
 			else
 				Array.copy(array, from, res, 0, copied)
 			res.asInstanceOf[Array[E]]

@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.collections
 
-
+import java.lang.System.arraycopy
+import java.lang.{Math => math}
 
 import scala.annotation.tailrec
 import scala.collection.{AbstractSeq, AbstractSet, Factory, IterableFactory, IterableFactoryDefaults, IterableOps, LinearSeq, immutable, mutable}
@@ -74,7 +75,7 @@ trait Ranking[+T]
 			offset <= size
 		case _ =>
 			val it = that.iterator
-			var i = Math.max(offset, 0)
+			var i = math.max(offset, 0)
 			val end = size
 			var matches = true
 			while (i < end && it.hasNext && { matches = apply(i) == it.next(); matches })
@@ -644,7 +645,7 @@ case object Ranking extends IterableFactory[Ranking] {
 			if (smallSize > 0) {
 				index = Map.empty
 				large = ArraySeq.untagged.newBuilder[T]
-				large sizeHint Math.min(extraSpace, Int.MaxValue - smallSize) + smallSize
+				large sizeHint math.min(extraSpace, Int.MaxValue - smallSize) + smallSize
 				var i = 0; val end = smallSize
 				while (i < end) {
 					val item = small(i)
@@ -716,8 +717,8 @@ case object Ranking extends IterableFactory[Ranking] {
 					hashes = new Array[Int](SmallRankingCap)
 				}
 				smallSize = ranking.size
-				System.arraycopy(ranking.contents, 0, small, 0, smallSize)
-				System.arraycopy(ranking.hashCodes, 0, hashes, 0, smallSize)
+				arraycopy(ranking.contents, 0, small, 0, smallSize)
+				arraycopy(ranking.hashCodes, 0, hashes, 0, smallSize)
 				this
 			case ranking :IndexedRanking[T] =>
 				large = IndexedSeq.newBuilder; large sizeHint ranking.size
@@ -975,8 +976,8 @@ case object Ranking extends IterableFactory[Ranking] {
 				val xsSize  = xs.size
 				val newSize = j + xsSize
 				if (newSize <= SmallRankingCap) { //current elements and xs together fit in a SmallRanking
-					System.arraycopy(ranking.contents, 0, newElems, j, xsSize)
-					System.arraycopy(ranking.hashCodes, 0, newHashes, j, xsSize)
+					arraycopy(ranking.contents, 0, newElems, j, xsSize)
+					arraycopy(ranking.hashCodes, 0, newHashes, j, xsSize)
 					size = newSize
 				} else {
 					size = j
@@ -1317,10 +1318,10 @@ case object Ranking extends IterableFactory[Ranking] {
 			else {
 				val len = elements.length
 				val copy = new Array[Any](len).asInstanceOf[Array[U]]
-				System.arraycopy(elements, 0, copy, 0, len)
+				arraycopy(elements, 0, copy, 0, len)
 				copy(n) = value
 				val newHashes = new Array[Int](len)
-				System.arraycopy(hashes, 0, newHashes, 0, len)
+				arraycopy(hashes, 0, newHashes, 0, len)
 				newHashes(n) = hash
 				new SmallRanking(copy, newHashes)
 			}
@@ -1611,8 +1612,8 @@ case object Ranking extends IterableFactory[Ranking] {
 				val returnedSize = SmallRankingCap - lastPos
 				val returnedElems = new Array[Any](returnedSize).asInstanceOf[Array[U]]
 				val returnedHashes = new Array[Int](returnedSize)
-				System.arraycopy(elems, lastPos, returnedElems, 0, returnedSize)
-				System.arraycopy(hashes, lastPos, returnedHashes, 0, returnedSize)
+				arraycopy(elems, lastPos, returnedElems, 0, returnedSize)
+				arraycopy(hashes, lastPos, returnedHashes, 0, returnedSize)
 				new SmallRanking(returnedElems, returnedHashes)
 			}
 		}

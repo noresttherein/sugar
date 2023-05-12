@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.System.arraycopy
+
 import scala.annotation.nowarn
 import scala.collection.{AbstractIterable, AbstractSet, ArrayOps, Factory}
 import scala.collection.immutable.AbstractMap
@@ -587,7 +589,7 @@ object NatMap extends ImplicitNatMapFactory {
 				}
 			else if (entries.length < SmallNatMapCap) {
 				val res = new Array[Assoc[K, U, _]](entries.length + 1)
-				System.arraycopy(entries, 0, res, 0, size)
+				arraycopy(entries, 0, res, 0, size)
 				res(size) = if (entry != null) entry else new Singleton[K, U, X](key, value, hash)
 				new SmallNatMap[K, U](res)
 			} else {

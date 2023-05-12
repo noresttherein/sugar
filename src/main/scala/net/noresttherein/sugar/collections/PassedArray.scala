@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.{Math => math}
 import java.lang.invoke.MethodHandles
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -93,7 +94,7 @@ sealed trait PassedArray[/*@specialized(ElemTypes) */+E]
 
 	override def indexOfSlice[B >: E](that :collection.Seq[B], from :Int) :Int =
 		if (from > length) -1
-		else super.indexOfSlice(that, 0 max from)
+		else super.indexOfSlice(that, math.max(0, from))
 
 }
 
@@ -244,7 +245,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 					(PassedArray.genericBuilder[B] += head ++= items).result()
 			}
 			case  n => try {
-				val capacity = Math.max(n + 1, InitSize)
+				val capacity = math.max(n + 1, InitSize)
 				val array = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 				items match {
 					case it :Iterable[E @unchecked] => it.copyToArray(array, 1)
@@ -254,7 +255,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 				large(array, 0, 1 + n)
 			} catch {
 				case _ :ClassCastException | _ :ArrayStoreException =>
-					val array = new Array[AnyRef](Math.max(1 + n, InitSize)).asInstanceOf[Array[B]]
+					val array = new Array[AnyRef](math.max(1 + n, InitSize)).asInstanceOf[Array[B]]
 					items match {
 						case it :Iterable[B] => it.copyToArray(array, 1)
 						case _ => items.iterator.copyToArray(array, 1)
@@ -309,7 +310,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 			}
 			case  n => try {
 				val newSize = n + 1
-				val capacity = Math.max(newSize, InitSize)
+				val capacity = math.max(newSize, InitSize)
 				val array = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 				items match {
 					case it :Iterable[E @unchecked] => it.copyToArray(array, capacity - newSize)
@@ -320,7 +321,7 @@ private class PassedArray1[/*@specialized(ElemTypes) */+E] private[collections](
 			} catch {
 				case _ :ClassCastException | _ :ArrayStoreException =>
 					val newSize = n + 1
-					val capacity = Math.max(newSize, InitSize)
+					val capacity = math.max(newSize, InitSize)
 					val array = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 					items match {
 						case it :Iterable[B] => it.copyToArray(array, capacity - newSize)
@@ -477,7 +478,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 					appendedAll(it.asInstanceOf[PassedArray[E]])
 				else {
 					val newSize = it.length + 2
-					val capacity = Math.max(newSize, InitSize)
+					val capacity = math.max(newSize, InitSize)
 					val copy = new Array[Any](capacity).asInstanceOf[Array[B]]
 					copy(0) = head
 					copy(1) = last
@@ -487,14 +488,14 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			case it :Iterable[B] => it.knownSize match {
 				case -1 => super.appendedAll(it)
 				case  n => try {
-					val capacity = Math.max(n + 2, InitSize)
+					val capacity = math.max(n + 2, InitSize)
 					val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 					write(copy, 0, 2)
 					it.copyToArray(copy.asInstanceOf[Array[B]], 2)
 					newInstance(copy, 0, n + 2)
 				} catch {
 					case _ :ClassCastException | _ :ArrayStoreException =>
-						val capacity = Math.max(n + 2, InitSize)
+						val capacity = math.max(n + 2, InitSize)
 						val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 						copy(0) = head
 						copy(1) = last
@@ -510,7 +511,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			this
 		else {
 			val newSize = suffix.length + 2
-			val capacity = Math.max(newSize, InitSize)
+			val capacity = math.max(newSize, InitSize)
 			val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 			copy(0) = head
 			copy(1) = last
@@ -528,7 +529,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 					prependedAll(it.asInstanceOf[PassedArray[E]])
 				else {
 					val newSize = it.length + 2
-					val capacity = Math.max(newSize, InitSize)
+					val capacity = math.max(newSize, InitSize)
 //					val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[B]]
 					val copy = new Array[Any](capacity).asInstanceOf[Array[B]]
 					copy(capacity - 2) = head
@@ -539,7 +540,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			case it :Iterable[B] => it.knownSize match {
 				case -1 => super.prependedAll(it)
 				case  n => try {
-					val capacity = Math.max(n + 2, InitSize)
+					val capacity = math.max(n + 2, InitSize)
 					val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 					write(copy, capacity - 2, 2)
 					val newOffset = capacity - 2 - n
@@ -547,7 +548,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 					newInstance(copy, newOffset, n + 2)
 				} catch {
 					case _ :ClassCastException | _ :ArrayStoreException =>
-						val capacity = Math.max(n + 2, InitSize)
+						val capacity = math.max(n + 2, InitSize)
 						val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 						copy(capacity - 2) = head
 						copy(capacity - 1) = last
@@ -564,7 +565,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 			this
 		else {
 			val newSize = prefix.length + 2
-			val capacity = Math.max(newSize, InitSize)
+			val capacity = math.max(newSize, InitSize)
 			val copy = java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 			copy(newSize - 2) = head
 			copy(newSize - 1) = last
@@ -579,7 +580,7 @@ private final class PassedArray2[/*@specialized(Specializable.Arg) */+E] private
 		else if (start < 0)
 			throw new IndexOutOfBoundsException(start)
 		else {
-			val copied = Math.min(2, Math.min(xs.length - start, len))
+			val copied = math.min(2, math.min(xs.length - start, len))
 			try {
 				val xsType = xs.getClass.getComponentType
 				if (xsType.isAssignableFrom(elementType))
@@ -661,8 +662,8 @@ private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends
 			this
 		else {
 			val array   = unsafeArray
-			val start   = Math.max(from, 0)
-			val newSize = Math.min(len, until) - start
+			val start   = math.max(from, 0)
+			val newSize = math.min(len, until) - start
 			if (newSize == 1)
 				new PassedArray1(array(offset + start))
 			else if (newSize == 2)
@@ -690,7 +691,7 @@ private sealed trait AbstractPassedArray[/*@specialized(ElemTypes) */+E] extends
 		else if (start < 0)
 			throw new IndexOutOfBoundsException(start)
 		else {
-			val copied = Math.min(length, Math.min(len, xs.length - start))
+			val copied = math.min(length, math.min(len, xs.length - start))
 			Array.copy(unsafeArray, startIndex, xs, start, copied)
 			copied
 		}
@@ -772,8 +773,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 		else if (from <= 0 & until >= len)
 			this
 		else {
-			val start   = Math.max(from, 0)
-			val newSize = Math.min(len, until) - start
+			val start   = math.max(from, 0)
+			val newSize = math.min(len, until) - start
 			newSize match {
 				case 1 =>
 					new PassedArray1(array(offset + start))
@@ -811,8 +812,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 			}
 		if (res == null) {
 			val halfSize = (len + 1) / 2
-			val newOffset = Math.min(offset, halfSize)
-			val capacity = Math.max(newOffset + len + halfSize, InitSize)
+			val newOffset = math.min(offset, halfSize)
+			val capacity = math.max(newOffset + len + halfSize, InitSize)
 			val copy =
 				if (canStore) java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
 				else new Array[AnyRef](capacity).asInstanceOf[Array[E]]
@@ -843,8 +844,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 			}
 		if (res == null) {
 			val halfSize = (len + 1) / 2
-			val padding = Math.min(array.length - offset - len, halfSize)
-			val capacity = Math.max(halfSize + len + padding, InitSize)
+			val padding = math.min(array.length - offset - len, halfSize)
+			val capacity = math.max(halfSize + len + padding, InitSize)
 			val newOffset = capacity - padding - len
 			val copy =
 				if (canStore) java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[E]]
@@ -883,8 +884,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 					}
 				if (res == null) {
 					val halfSize = (len + 1) / 2
-					val newOffset = Math.min(offset, halfSize)
-					val capacity = Math.max(newOffset + len + Math.max(extras, halfSize), InitSize)
+					val newOffset = math.min(offset, halfSize)
+					val capacity = math.max(newOffset + len + math.max(extras, halfSize), InitSize)
 					val copy =
 						if (canStore) java.lang.reflect.Array.newInstance(myType, capacity).asInstanceOf[Array[B]]
 						else new Array[AnyRef](capacity).asInstanceOf[Array[B]]
@@ -913,8 +914,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 						}
 						if (res == null) {
 							val halfSize = (len + 1) / 2
-							val newOffset = Math.min(offset, halfSize)
-							val capacity = Math.max(newOffset + len + Math.max(extras, halfSize), InitSize)
+							val newOffset = math.min(offset, halfSize)
+							val capacity = math.max(newOffset + len + math.max(extras, halfSize), InitSize)
 							val copy = java.lang.reflect.Array.newInstance(
 								array.getClass.getComponentType, capacity
 							).asInstanceOf[Array[E]]
@@ -928,8 +929,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 							if (wasOwner)
 								isOwner = true
 							val halfSize = (len + 1) / 2
-							val newOffset = Math.min(offset, halfSize)
-							val capacity = Math.max(newOffset + len + Math.max(extras, halfSize), InitSize)
+							val newOffset = math.min(offset, halfSize)
+							val capacity = math.max(newOffset + len + math.max(extras, halfSize), InitSize)
 							val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 							it.copyToArray(copy, newOffset + len, newSize)
 							Array.copy(unsafeArray, offset, copy, newOffset, len)
@@ -965,8 +966,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 					}
 				if (res == null) {
 					val halfSize = (len + 1) / 2
-					val padding = Math.min(unsafeArray.length - offset - len, halfSize)
-					val capacity = Math.max(Math.max(extras, halfSize) + len + padding, InitSize)
+					val padding = math.min(unsafeArray.length - offset - len, halfSize)
+					val capacity = math.max(math.max(extras, halfSize) + len + padding, InitSize)
 					val newOffset = capacity - padding - len - extras
 					val copy =
 						if (canStore) java.lang.reflect.Array.newInstance(elementType, capacity).asInstanceOf[Array[B]]
@@ -995,8 +996,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 						}
 						if (res == null) {
 							val halfSize = (len + 1) / 2
-							val padding = Math.min(array.length - offset - len, halfSize)
-							val capacity = Math.max(Math.max(extras, halfSize) + len + padding, InitSize)
+							val padding = math.min(array.length - offset - len, halfSize)
+							val capacity = math.max(math.max(extras, halfSize) + len + padding, InitSize)
 							val newOffset = capacity - padding - len - extras
 							val copy = java.lang.reflect.Array.newInstance(
 								array.getClass.getComponentType, capacity
@@ -1012,8 +1013,8 @@ private final class PassedArrayPlus[/*@specialized(ElemTypes) */+E] private[coll
 								isOwner = true
 							}
 							val halfSize = (len + 1) / 2
-							val padding = Math.min(unsafeArray.length - offset - len, halfSize)
-							val capacity = Math.max(Math.max(extras, halfSize) + len + padding, InitSize)
+							val padding = math.min(unsafeArray.length - offset - len, halfSize)
+							val capacity = math.max(math.max(extras, halfSize) + len + padding, InitSize)
 							val newOffset = capacity - padding - len - extras
 							val copy = new Array[AnyRef](capacity).asInstanceOf[Array[B]]
 							it.copyToArray(copy, newOffset, extras)
@@ -1336,14 +1337,14 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 
 			final def ensure(extras :Int) :Unit = {
 				if (elems == null)
-					elems = newArray(Math.max(extras, initSize))
+					elems = newArray(math.max(extras, initSize))
 				else {
 					val capacity = elems.length
 					val newSize = size + extras
 					if (newSize > capacity) {
-						val newCapacity = Math.max(capacity * 2, newSize)
+						val newCapacity = math.max(capacity * 2, newSize)
 						if (initSize > newSize)
-							realloc(Math.min(newCapacity, initSize))
+							realloc(math.min(newCapacity, initSize))
 						else
 							realloc(newCapacity)
 					}
@@ -1412,7 +1413,7 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 				else {
 					optimistic = false
 					_elementType = classOf[AnyRef].castParam[A]
-					realloc(Math.max(capacity, InitSize))
+					realloc(math.max(capacity, InitSize))
 					super.addOne(elem)
 				}
 			else
@@ -1443,8 +1444,8 @@ case object PassedArray extends StrictOptimizedSeqFactory[PassedArray] {
 				val size = knownSize
 				val extras = xs.knownSize
 				val newSize =
-					if (extras >= 0) Math.max(Math.min(size + extras, size * 2), InitSize)
-					else if (size == capacity) Math.max(size * 2, InitSize)
+					if (extras >= 0) math.max(math.min(size + extras, size * 2), InitSize)
+					else if (size == capacity) math.max(size * 2, InitSize)
 					else size
 				elementType = classOf[AnyRef].asInstanceOf[Class[A]]
 				realloc(newSize)

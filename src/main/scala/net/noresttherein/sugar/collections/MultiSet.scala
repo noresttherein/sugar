@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.{Math => math}
+
 import scala.collection.{IterableFactory, IterableFactoryDefaults}
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
 import scala.collection.mutable.Builder
@@ -408,7 +410,7 @@ trait MultiSet[X] extends SugaredIterable[X] with MultiSetOps[X, MultiSet] {
 
 	override def intersect(xs :(X, Int)) :MultiSet[X] =
 		if (xs._2 <= 0) MultiSet.empty
-		else MultiSet.single(xs._1, Math.min(apply(xs._1), xs._2))
+		else MultiSet.single(xs._1, math.min(apply(xs._1), xs._2))
 
 	protected override def fromCounts[T](trustedCounts :IterableOnce[(T, Int)]) :MultiSet[T] =
 		MultiSet.trustedCounts(trustedCounts)
@@ -685,8 +687,8 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 			if (y > Int.MaxValue - x) Int.MaxValue else x + y
 
 	private def union(x :Int, y :Int) :Int =
-		if (x < 0) Math.max(y, 0)
-		else if (y < 0) Math.max(x, 0)
+		if (x < 0) math.max(y, 0)
+		else if (y < 0) math.max(x, 0)
 		else if (x > Int.MaxValue - y) Int.MaxValue
 		else x + y
 */
