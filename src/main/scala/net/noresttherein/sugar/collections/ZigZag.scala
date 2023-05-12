@@ -9,7 +9,7 @@ import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
 
 //implicits
-import net.noresttherein.sugar.extensions.{javaIteratorExtension, stepperExtension}
+import net.noresttherein.sugar.extensions.{JavaIteratorExtension, StepperExtension}
 
 
 

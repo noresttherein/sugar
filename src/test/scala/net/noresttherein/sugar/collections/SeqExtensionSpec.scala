@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import net.noresttherein.sugar.extensions.{iterableExtension, seqExtension}
+import net.noresttherein.sugar.extensions.{IterableExtension, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.Got

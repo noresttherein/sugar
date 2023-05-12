@@ -3,7 +3,7 @@ package net.noresttherein.sugar.matching
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.extensions.{downcastTypeParam, optionExtension}
+import net.noresttherein.sugar.extensions.{downcastTypeParamMethodsd, OptionExtension}
 import net.noresttherein.sugar.matching.MatchPattern.SpecializedArgs
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.Got

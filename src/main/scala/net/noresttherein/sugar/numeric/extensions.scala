@@ -4,76 +4,70 @@ import java.math.{BigInteger, MathContext, BigDecimal => JavaBigDecimal}
 
 import scala.util.Random
 
-import net.noresttherein.sugar.numeric
 import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDecimalConverter}
-import net.noresttherein.sugar.numeric.Ratio.LongNumerator
-import net.noresttherein.sugar.numeric.SafeInt.SafeIntConversion
-import net.noresttherein.sugar.numeric.SafeLong.SafeLongConversion
-import net.noresttherein.sugar.numeric.extensions.{BigDecimalIsFractional, BooleanExtension, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharExtension, CharObjectExtension, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, LongExtension, LongObjectExtension, OrderedExtension, ShortExtension, ShortObjectExtension}
+import net.noresttherein.sugar.numeric.SafeInt.SafeIntConverter
+import net.noresttherein.sugar.numeric.SafeLong.SafeLongConverter
+import net.noresttherein.sugar.numeric.extensions.{hasOrderingExtension, BigDecimalIsFractional, BooleanExtension, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharExtension, CharObjectExtension, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, LongExtension, LongObjectExtension, ShortExtension, ShortObjectExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 
 
 
 
 trait extensions extends Any {
-//	@inline implicit final def method_%/(self :Int) :LongNumerator = new LongNumerator(self)
-//	@inline implicit final def method_%/(self :Long) :LongNumerator = new LongNumerator(self)
-//	@inline implicit final def method_%/(self :BigInteger) :BigIntNumerator = new BigIntNumerator(self)
-//	@inline implicit final def method_%/(self :BigInt) :BigIntNumerator = new BigIntNumerator(self)
+	@inline implicit final def SafeIntConversion(self :Int) :SafeIntConverter = new SafeIntConverter(self)
+	@inline implicit final def SafeLongConversion(self :Long) :SafeLongConverter = new SafeLongConverter(self)
 
-	@inline implicit final def safeIntConversion(self :Int) :SafeIntConversion = new SafeIntConversion(self)
-	@inline implicit final def safeLongConversion(self :Long) :SafeLongConversion = new SafeLongConversion(self)
-
-	@inline implicit final def bigDecimalConverter(self :BigDecimal) :BigDecimalConverter =
+	@inline implicit final def BigDecimalConverter(self :BigDecimal) :BigDecimalConverter =
 		new BigDecimalConverter(self)
 
-	@inline implicit final def javaBigDecimalConverter(self :JavaBigDecimal) :JavaBigDecimalConverter =
+	@inline implicit final def JavaBigDecimalConverter(self :JavaBigDecimal) :JavaBigDecimalConverter =
 		new JavaBigDecimalConverter(self)
 
-	@inline implicit final def bigIntegerIsIntegral :Integral[BigInteger] = extensions.BigIntegerIsIntegral
+	@inline implicit def BigIntegerIsIntegral :Integral[BigInteger] = extensions.BigIntegerIsIntegral
 
-	@inline implicit final def bigDecimalIsFractional(implicit math :MathContext = MathContext.DECIMAL128)
+	@inline implicit final def JavaBigDecimalIsFractional(implicit math :MathContext = MathContext.DECIMAL128)
 			:Fractional[JavaBigDecimal] =
 		if (math == MathContext.DECIMAL128) extensions.BigDecimal128IsFractional
 		else new BigDecimalIsFractional
 
-	@inline implicit final def booleanExtension(self :Boolean) :BooleanExtension = new BooleanExtension(self)
-	@inline implicit final def byteExtension(self :Byte) :ByteExtension = new ByteExtension(self)
-	@inline implicit final def shortExtension(self :Short) :ShortExtension = new ShortExtension(self)
-	@inline implicit final def charExtension(self :Char) :CharExtension = new CharExtension(self)
-	@inline implicit final def intExtension(self :Int) :IntExtension = new IntExtension(self)
-	@inline implicit final def longExtension(self :Long) :LongExtension = new LongExtension(self)
-	@inline implicit final def floatExtension(self :Float) :FloatExtension = new FloatExtension(self)
-	@inline implicit final def doubleExtension(self :Double) :DoubleExtension = new DoubleExtension(self)
-	@inline implicit final def orderedExtension[T](self :T) :OrderedExtension[T] = new OrderedExtension(self)
-	@inline implicit final def bigIntegerExtension(self :BigInteger) :BigIntNumerator = new BigIntNumerator(self)
-	@inline implicit final def bigIntExtension(self :BigInt) :BigIntNumerator = new BigIntNumerator(self)
+	@inline implicit final def BooleanExtension(self :Boolean) :BooleanExtension = new BooleanExtension(self)
+	@inline implicit final def ByteExtension(self :Byte) :ByteExtension = new ByteExtension(self)
+	@inline implicit final def ShortExtension(self :Short) :ShortExtension = new ShortExtension(self)
+	@inline implicit final def CharExtension(self :Char) :CharExtension = new CharExtension(self)
+	@inline implicit final def IntExtension(self :Int) :IntExtension = new IntExtension(self)
+	@inline implicit final def LongExtension(self :Long) :LongExtension = new LongExtension(self)
+	@inline implicit final def FloatExtension(self :Float) :FloatExtension = new FloatExtension(self)
+	@inline implicit final def DoubleExtension(self :Double) :DoubleExtension = new DoubleExtension(self)
+	@inline implicit final def BigIntegerExtension(self :BigInteger) :BigIntNumerator = new BigIntNumerator(self)
+	@inline implicit final def BigIntExtension(self :BigInt) :BigIntNumerator = new BigIntNumerator(self)
+	@inline implicit final def hasOrderingExtension[T](self :T) :hasOrderingExtension[T] =
+		new hasOrderingExtension(self)
 
 	/** Adds `random` extension methods to `Byte` singleton object. */
-	@inline implicit final def byteObjectExtension(self :Byte.type) :ByteObjectExtension = new ByteObjectExtension {}
+	@inline implicit final def ByteObjectExtension(self :Byte.type) :ByteObjectExtension = new ByteObjectExtension {}
 
 	/** Adds `random` extension methods to `Short` singleton object. */
-	@inline implicit final def shortObjectExtension(self :Short.type) :ShortObjectExtension = new ShortObjectExtension {}
+	@inline implicit final def ShortObjectExtension(self :Short.type) :ShortObjectExtension = new ShortObjectExtension {}
 
 	/** Adds `random` extension methods to `Char` singleton object. */
-	@inline implicit final def charObjectExtension(self :Char.type) :CharObjectExtension = new CharObjectExtension {}
+	@inline implicit final def CharObjectExtension(self :Char.type) :CharObjectExtension = new CharObjectExtension {}
 
 	/** Adds `random` extension methods to `Int` singleton object. */
-	@inline implicit final def intObjectExtension(self :Int.type) :IntObjectExtension = new IntObjectExtension {}
+	@inline implicit final def IntObjectExtension(self :Int.type) :IntObjectExtension = new IntObjectExtension {}
 
 	/** Adds `random` extension methods to `Long` singleton object. */
-	@inline implicit final def longObjectExtension(self :Long.type) :LongObjectExtension = new LongObjectExtension {}
+	@inline implicit final def LongObjectExtension(self :Long.type) :LongObjectExtension = new LongObjectExtension {}
 
 	/** Adds `random` extension methods to `Float` singleton object. */
-	@inline implicit final def floatObjectExtension(self :Float.type) :FloatObjectExtension =
+	@inline implicit final def FloatObjectExtension(self :Float.type) :FloatObjectExtension =
 		new FloatObjectExtension {}
 
 	/** Adds `random` extension methods to `Double` singleton object. */
-	@inline implicit final def doubleObjectExtension(self :Double.type) :DoubleObjectExtension =
+	@inline implicit final def DoubleObjectExtension(self :Double.type) :DoubleObjectExtension =
 		new DoubleObjectExtension {}
 
 	/** Adds `random` extension methods to `Boolean` singleton object. */
-	@inline implicit final def booleanObjectExtension(self :Boolean.type) :BooleanObjectExtension =
+	@inline implicit final def BooleanObjectExtension(self :Boolean.type) :BooleanObjectExtension =
 		new BooleanObjectExtension {}
 }
 
@@ -261,7 +255,7 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class OrderedExtension[T](private val self :T) extends AnyVal {
+	class hasOrderingExtension[T](private val self :T) extends AnyVal {
 		/** Returns `ordering.max(this, other)`. */
 		@inline def atLeast(other :T)(implicit ordering :Ordering[T]) :T = ordering.max(self, other)
 		/** Returns `ordering.min(this, other)`. */
@@ -377,7 +371,7 @@ object extensions extends extensions {
 		override def compare(x :BigInteger, y :BigInteger) :Int = x compareTo y
 	}
 	@SerialVersionUID(Ver)
-	object BigIntegerIsIntegral extends BigIntegerIsNumeric with Integral[BigInteger] {
+	implicit override object BigIntegerIsIntegral extends BigIntegerIsNumeric with Integral[BigInteger] {
 		override def quot(x :BigInteger, y :BigInteger) :BigInteger = x divide y
 		override def rem(x :BigInteger, y :BigInteger) :BigInteger = x remainder y
 	}

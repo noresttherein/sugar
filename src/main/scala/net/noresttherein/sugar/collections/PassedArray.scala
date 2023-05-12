@@ -16,7 +16,7 @@ import net.noresttherein.sugar.reflect.BoxClass
 import net.noresttherein.sugar.vars.Opt.Got
 
 //implicits
-import net.noresttherein.sugar.extensions.{arrayObjectExtension, castTypeParam, classExtension, iteratorObjectExtension}
+import net.noresttherein.sugar.extensions.{ArrayObjectExtension, castTypeParamMethods, ClassExtension, IteratorObjectExtension}
 
 
 

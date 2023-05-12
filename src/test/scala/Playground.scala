@@ -1,43 +1,8 @@
 
-import scala.collection.immutable.{ArraySeq, ListSet, SortedMap, TreeSet}
-import scala.collection.{IndexedSeqView, SortedSet}
-
-import net.noresttherein.sugar.collections.{BTreeSeq, ErasedArray, IArray, IndexedSet, MultiSet, OrderedItems, PassedArray, Ranking, ZigZag}
-import net.noresttherein.sugar.extensions.{classExtension, classNameExtension, classNameMethods, iterableExtension}
-import net.noresttherein.sugar.reflect.BoxClass
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.JavaTypes.JByte
-import net.noresttherein.sugar.numeric
-import net.noresttherein.sugar.numeric.Natural
-import net.noresttherein.sugar.util.LabelPath.{/, Label, ~/}
-
-
 
 
 
 object Playground extends App {
-
-	val tree = BTreeSeq(-2147483648, -1, -1297688236, -1, 2147483647, -963078296, 1800131587, 1)
-	tree.iterator.foreach(println(_))
-//	println(PassedArray.two(0, 0).elementType)
-//	println(PassedArray.two(0, 0) :++ PassedArray[Any]("1", "2", "3"))
-//	println(PassedArray.from(IArray(0)) :++ PassedArray.from(IArray(1, 2)))
-//	println(PassedArray.one(0) :++ PassedArray.two(0, 1))
-//	println(PassedArray.one(0) :++ PassedArray.from(IArray(0, 1)))
-//	val tree = BTreeSeq.from(list)
-//	println(list == tree)
-//	println(list ++ list1 == tree ++ list1)
-//	println(list ++ list1 ++ list2 == tree ++ list1 ++ list2)
-//	println(list.zipAll3(tree, list.indices, "_", "_", "_"))
-//	println(list == tree)
-//	println(hmm == list)
-//	println(BTreeSeq.from(List(934009991, 2147483647, -118330015)).removed(1))
-//	val tree = BTreeSeq.from(list)
-//	println(list)
-//	println(tree)
-//	val tree = BTreeSeq.from(list)
-//	val expect = 0 +: list
-//	val got = 0 +: tree
 
 	trait Convert[X, Y] {
 		type Res[+E <: Trait[Y]] <: Trait[Y]

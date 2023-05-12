@@ -4,7 +4,7 @@ package net.noresttherein.sugar.collections
 import scala.annotation.tailrec
 import scala.collection.AbstractSeq
 
-import net.noresttherein.sugar.collections.extensions.iteratorObjectExtension
+import net.noresttherein.sugar.collections.extensions.IteratorObjectExtension
 
 
 

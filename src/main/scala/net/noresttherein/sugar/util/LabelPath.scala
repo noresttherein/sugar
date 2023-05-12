@@ -6,7 +6,7 @@ import scala.collection.LinearSeq
 import scala.util.matching.Regex
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.extensions.{cast2TypeParams, castTypeParam, classNameMethods, saferCasting}
+import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods, classNameMethods, castingMethods}
 import net.noresttherein.sugar.util.LabelPath.{/, ~/, Concat, Label, LabelPathPrefix, Split}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}

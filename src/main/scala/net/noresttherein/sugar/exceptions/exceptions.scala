@@ -9,7 +9,7 @@ import scala.collection.mutable
 import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.collections.MutableEqSet
-import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting, throwableExtension}
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods, ThrowableExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 

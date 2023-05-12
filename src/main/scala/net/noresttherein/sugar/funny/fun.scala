@@ -8,7 +8,7 @@ import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 import scala.Specializable.{Arg, Return}
 
-import net.noresttherein.sugar.prettyprint
+import net.noresttherein.sugar.reflect.prettyprint
 
 
 

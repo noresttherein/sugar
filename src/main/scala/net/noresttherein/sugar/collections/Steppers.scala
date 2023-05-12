@@ -12,7 +12,7 @@ import net.noresttherein.sugar.JavaTypes.{JDouble, JInt, JIterator, JLong}
 import net.noresttherein.sugar.collections.extensions.StepperType
 
 //implicits
-import net.noresttherein.sugar.extensions.iteratorObjectExtension
+import net.noresttherein.sugar.extensions.IteratorObjectExtension
 
 
 

@@ -13,7 +13,7 @@ import net.noresttherein.sugar.vars.{AbstractIdempotent, Opt}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits
-import net.noresttherein.sugar.extensions.{castTypeParam, iterableOnceExtension, saferCasting, seqExtension}
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, IterableOnceExtension, castingMethods, SeqExtension}
 
 
 

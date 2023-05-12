@@ -17,7 +17,7 @@ import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
   * For the public constructor,
   * see [[net.noresttherein.sugar.numeric.BigRatio.apply(numerator:Int, denominator:Int)* BigRatio()]].
   * There is also an extension method [[net.noresttherein.sugar.numeric.BigRatio.bigRatio_%/ bigRatio_%/]]
-  * (available also as `sugar.`[[net.noresttherein.sugar.numeric.extensions.bigIntExtension(self:BigInt) method_%/]])
+  * (available also as `sugar.`[[net.noresttherein.sugar.numeric.extensions.BigIntExtension(self:BigInt) method_%/]])
   * for `BigInt` values, accepting another `BigInt` to use as a denominator.
   * @author Marcin Mościcki marcin@moscicki.net
   */

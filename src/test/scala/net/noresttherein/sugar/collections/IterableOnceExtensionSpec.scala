@@ -8,7 +8,7 @@ import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
 
 import net.noresttherein.sugar.collections.IterableExtensionSpec.{mappingProperty, zipMapProperty}
-import net.noresttherein.sugar.extensions.{iterableOnceExtension, satisfyingMethods}
+import net.noresttherein.sugar.extensions.{IterableOnceExtension, satisfyingMethods}
 
 
 

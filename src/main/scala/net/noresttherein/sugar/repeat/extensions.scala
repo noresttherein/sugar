@@ -2,7 +2,7 @@ package net.noresttherein.sugar.repeat
 
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.repeat.extensions.{RepeatMethod, TimesMethods}
+import net.noresttherein.sugar.repeat.extensions.{repeatMethod, timesMethods}
 import net.noresttherein.sugar.typist.Rank
 
 
@@ -14,10 +14,10 @@ trait extensions extends Any {
 	/** Adds a `repeat` method to any value, applying the function given as the argument repeatedly to its own
 	  * results until the condition passed to a subsequent `until` method evaluates to true.
 	  */
-	@inline implicit final def repeatMethod[T](self :T) = new RepeatMethod[T](self)
+	@inline implicit final def repeatMethod[T](self :T) :repeatMethod[T] = new repeatMethod[T](self)
 
 	/** Adds a `times` method to any `Int` for executing a block the given number of times. */
-	@inline implicit final def timesMethods[T](self :Int) = new TimesMethods(self)
+	@inline implicit final def timesMethods[T](self :Int) :timesMethods = new timesMethods(self)
 }
 
 
@@ -25,13 +25,13 @@ trait extensions extends Any {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
-	/** Extends any value with method [[net.noresttherein.sugar.repeat.extensions.RepeatMethod.repeat repeat]],
+	/** Extends any value with method [[net.noresttherein.sugar.repeat.extensions.repeatMethod.repeat repeat]],
 	  * creating a pure functional equivalent of a `repeat ... until` loops:
 	  * {{{
 	  *     val kilo = 2 repeat { _ * 2 } until (_ > 1000)
 	  * }}}
 	  */
-	class RepeatMethod[T](private[this] var start :T) {
+	class repeatMethod[T](private[this] var start :T) {
 		/*** Executes the given function repeatedly applying it to the values it returns until the condition
 		  * passed to the `until` method of the returned object becomes true.
 		  * This instance is used as the initial argument.
@@ -47,7 +47,7 @@ object extensions extends extensions {
 
 
 	/** Represents a range `[0, this)` which defines a fixed number of iterations. */
-	class TimesMethods(private val count :Int) extends AnyVal {
+	class timesMethods(private val count :Int) extends AnyVal {
 
 		/** Execute `f` (code block passed by name) `this` number of times. */
 		@inline def times[T](f : =>T) :Unit = for (_ <- 0 until count) f

@@ -1,12 +1,12 @@
-package net.noresttherein.sugar.prettyprint
+package net.noresttherein.sugar.reflect.prettyprint
 
 import scala.collection.AbstractSeq
 
-import org.scalacheck.Properties
 import org.scalacheck.Prop._
+import org.scalacheck.Properties
 
 import net.noresttherein.sugar.extensions.classNameMethods
-
+import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 
 
 

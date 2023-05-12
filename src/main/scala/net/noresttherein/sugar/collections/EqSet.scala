@@ -4,11 +4,11 @@ import scala.collection.{immutable, mutable, IterableFactory, IterableFactoryDef
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet, MapOps, SetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.extensions.{cast2TypeParams, castTypeParam}
+import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods}
 import net.noresttherein.sugar.vars.EqRef
 
 //implicits
-import net.noresttherein.sugar.extensions.builderExtension
+import net.noresttherein.sugar.extensions.BuilderExtension
 
 
 

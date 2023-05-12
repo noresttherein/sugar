@@ -4,7 +4,7 @@ import scala.collection.{IterableFactory, IterableFactoryDefaults}
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.extensions.{castTypeParam, iteratorObjectExtension, partialFunctionFactoryExtension}
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, IteratorObjectExtension, PartialFunctionObjectExtension}
 
 
 

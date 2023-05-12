@@ -14,7 +14,7 @@ import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits
-import net.noresttherein.sugar.extensions.{javaIteratorExtension, stepperExtension}
+import net.noresttherein.sugar.extensions.{JavaIteratorExtension, StepperExtension}
 
 
 

@@ -219,9 +219,11 @@ object SafeLong {
 	/** Adds method `safe` to an `Long` value, converting it to an overflow checking
 	  *  [[net.noresttherein.sugar.numeric.SafeLong SafeLong]].
 	  */
-	class SafeLongConversion(private val self :Long) extends AnyVal {
+	class SafeLongConverter(private val self :Long) extends AnyVal {
 		/** Converts this `Long` into an overflow checking `SafeLong`. */
 		@inline def safe :SafeLong = new SafeLong(self)
+		/** Converts this `Long` into an overflow checking `SafeLong`. */
+		@inline def toSafeLong :SafeLong = new SafeLong(self)
 	}
 }
 

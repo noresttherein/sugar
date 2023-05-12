@@ -9,12 +9,12 @@ import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, MapOps, SeqOps,
 import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
 import scala.collection.generic.IsIterableOnce
 import scala.collection.mutable.{ArrayBuffer, Builder}
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 import scala.util.Random
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayObjectExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, MapExtension, MapObjectExtension, SeqExtension, SeqFactoryExtension, SetFactoryExtension, StepperExtension, StepperObjectExtension}
-import net.noresttherein.sugar.extensions.{castTypeParam, saferCasting}
+import net.noresttherein.sugar.collections.extensions.{immutableMapExtension, immutableMapObjectExtension, immutableSeqFactoryExtension, immutableSetFactoryExtension, ArrayExtension, ArrayObjectExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqExtension, StepperExtension, StepperObjectExtension}
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -25,7 +25,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 //I don't think this introduces priority as they need to be imported by name
 private[collections] sealed trait extensionsLowPriority extends Any {
 	/** Adds a `foldWhile` method to any `Iterable` which implement a variant of `fold` operation with a break condition. */
-	@inline implicit final def isIterableOnceExtension[C](self :C)(implicit iterable :IsIterableOnce[C])
+	@inline implicit final def IsIterableOnceExtension[C](self :C)(implicit iterable :IsIterableOnce[C])
 			:IterableOnceExtension[iterable.A] =
 		new IterableOnceExtension[iterable.A](iterable(self))
 
@@ -37,27 +37,27 @@ trait extensions
 	extends Any with extensionsLowPriority with IArray.extensions with RefArray.extensions with IRefArray.extensions
 {
 	/** Adds various additional folding methods with a break condition to any `Iterable`. */
-	@inline implicit final def iterableOnceExtension[E](self :IterableOnce[E]) :IterableOnceExtension[E] =
+	@inline implicit final def IterableOnceExtension[E](self :IterableOnce[E]) :IterableOnceExtension[E] =
 		new IterableOnceExtension[E](self)
 
 	/** Adds various additional folding methods with a break condition to any `Array`. */
-	@inline implicit final def arrayAsIterableOnceExtension[E](self :Array[E]) :IterableOnceExtension[E] =
+	@inline implicit final def ArrayAsIterableOnceExtension[E](self :Array[E]) :IterableOnceExtension[E] =
 		new IterableOnceExtension[E](new ArrayAsSeq(self))
 
 	/** Adds various additional folding methods with a break condition to any `IArray`. */
-	@inline implicit final def immutableArrayAsIterableOnceExtension[E](self :IArray[E]) :IterableOnceExtension[E] =
+	@inline implicit final def IArrayAsIterableOnceExtension[E](self :IArray[E]) :IterableOnceExtension[E] =
 		new IterableOnceExtension[E](new IArrayAsSeq(self))
 
 	/** Adds various additional folding methods with a break condition to any `RefArray`. */
-	@inline implicit final def refArrayAsIterableOnceExtension[E](self :RefArray[E]) :IterableOnceExtension[E] =
+	@inline implicit final def RefArrayAsIterableOnceExtension[E](self :RefArray[E]) :IterableOnceExtension[E] =
 		new IterableOnceExtension(new RefArrayAsSeq(self))
 
 	/** Adds various additional folding methods with a break condition to any `RefArray`. */
-	@inline implicit final def immutableRefArrayAsIterableOnceExtension[E](self :IRefArray[E]) :IterableOnceExtension[E] =
+	@inline implicit final def IRefArrayAsIterableOnceExtension[E](self :IRefArray[E]) :IterableOnceExtension[E] =
 		new IterableOnceExtension(new IRefArrayAsSeq(self))
 
 	/** Adds various additional folding methods with a break condition to any `String`. */
-	@inline implicit final def stringAsIterableOnceExtension(self :String) :IterableOnceExtension[Char] =
+	@inline implicit final def StringAsIterableOnceExtension(self :String) :IterableOnceExtension[Char] =
 		new IterableOnceExtension[Char](self)
 
 
@@ -65,7 +65,7 @@ trait extensions
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def iterableExtension[E, CC[X] <: Iterable[X], C]
+	@inline implicit final def IterableExtension[E, CC[X] <: Iterable[X], C]
 	                                            (self :IterableOps[E, CC, C]) :IterableExtension[E, CC, C] =
 		new IterableExtension[E, CC, C](self)
 
@@ -73,14 +73,14 @@ trait extensions
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def arrayAsIterableExtension[E](self :Array[E]) :IterableExtension[E, Array, Array[E]] =
+	@inline implicit final def ArrayAsIterableExtension[E](self :Array[E]) :IterableExtension[E, Array, Array[E]] =
 		new IterableExtension[E, Array, Array[E]](new ArrayAsSeq(self))
 
 	/** Adds various methods for mapping/flatMapping collections to any `IArray`.
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def immutableArrayAsIterableExtension[E](self :IArray[E])
+	@inline implicit final def IArrayAsIterableExtension[E](self :IArray[E])
 			:IterableExtension[E, IArray, IArray[E]] =
 		new IterableExtension[E, IArray, IArray[E]](new IArrayAsSeq(self))
 
@@ -88,7 +88,7 @@ trait extensions
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def refArrayAsIterableExtension[E](self :RefArray[E])
+	@inline implicit final def RefArrayAsIterableExtension[E](self :RefArray[E])
 			:IterableExtension[E, RefArray, RefArray[E]] =
 		new IterableExtension[E, RefArray, RefArray[E]](new RefArrayAsSeq(self))
 
@@ -96,7 +96,7 @@ trait extensions
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-	@inline implicit final def immutableRefArrayAsIterableExtension[E](self :IRefArray[E])
+	@inline implicit final def IRefArrayAsIterableExtension[E](self :IRefArray[E])
 			:IterableExtension[E, IRefArray, IRefArray[E]] =
 		new IterableExtension[E, IRefArray, IRefArray[E]](new IRefArrayAsSeq(self))
 
@@ -104,134 +104,121 @@ trait extensions
 	  * These either pass along additional state, or have a break condition. Roughly equivalent to working
 	  * with `toLazyList.scan`, but cleaner and more efficient.
 	  */
-    @inline implicit final def stringAsIterableExtension(self :String) :IterableExtension[Char, IndexedSeq, String] =
+    @inline implicit final def StringAsIterableExtension(self :String) :IterableExtension[Char, IndexedSeq, String] =
 		new IterableExtension(new StringAsSeq(self))
 
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Seq]],
 	  * which do not return a negative index when the element is not found.
 	  */
-	@inline implicit final def seqExtension[E, CC[A], C]
+	@inline implicit final def SeqExtension[E, CC[A], C]
 	                                       (self :scala.collection.SeqOps[E, CC, C]) :SeqExtension[E, CC, C] =
 		new SeqExtension[E, CC, C](self)
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for [[Array]],
 	  * which do not return a negative index when the element is not found.
 	  */
-	@inline implicit final def arrayAsSeqExtension[E](self :Array[E]) :SeqExtension[E, Array, Array[E]] =
+	@inline implicit final def ArrayAsSeqExtension[E](self :Array[E]) :SeqExtension[E, Array, Array[E]] =
 		new SeqExtension[E, Array, Array[E]](new ArrayAsSeq(self))
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for immutable arrays,
 	  * which do not return a negative index when the element is not found.
 	  */
-   @inline implicit final def immutableArrayAsSeqExtension[E](self :IArray[E]) :SeqExtension[E, IArray, IArray[E]] =
+   @inline implicit final def IArrayAsSeqExtension[E](self :IArray[E]) :SeqExtension[E, IArray, IArray[E]] =
 		new SeqExtension[E, IArray, IArray[E]](new IArrayAsSeq(self))
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for reference arrays,
 	  * which do not return a negative index when the element is not found.
 	  */
-   @inline implicit final def refArrayAsSeqExtension[E](self :RefArray[E]) :SeqExtension[E, RefArray, RefArray[E]] =
+   @inline implicit final def RefArrayAsSeqExtension[E](self :RefArray[E]) :SeqExtension[E, RefArray, RefArray[E]] =
 		new SeqExtension[E, RefArray, RefArray[E]](new RefArrayAsSeq(self))
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for immutable reference arrays,
 	  * which do not return a negative index when the element is not found.
 	  */
-   @inline implicit final def immutableRefArrayAsSeqExtension[E](self :IRefArray[E])
-            :SeqExtension[E, IRefArray, IRefArray[E]] =
+   @inline implicit final def IRefArrayAsSeqExtension[E](self :IRefArray[E]) :SeqExtension[E, IRefArray, IRefArray[E]] =
 		new SeqExtension[E, IRefArray, IRefArray[E]](new IRefArrayAsSeq(self))
 
 	/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for strings,
 	  * which do not return a negative index when the element is not found.
 	  */
-	@inline implicit final def stringAsSeqExtension(self :String) :SeqExtension[Char, IndexedSeq, String] =
+	@inline implicit final def StringAsSeqExtension(self :String) :SeqExtension[Char, IndexedSeq, String] =
 		new SeqExtension(new StringAsSeq(self))
 
 
 	/** Operations on suffixes of a sequence and binary search methods on sorted sequences. */
-	@inline implicit final def indexedSeqExtension[E, CC[A], C](self :collection.IndexedSeqOps[E, CC, C])
+	@inline implicit final def IndexedSeqExtension[E, CC[A], C](self :collection.IndexedSeqOps[E, CC, C])
 			:IndexedSeqExtension[E, CC, C] =
 		new IndexedSeqExtension[E, CC, C](self)
 
 	/** Operations on suffixes of a sequence and binary search methods on sorted arrays. */
-	@inline implicit final def arrayAsIndexedSeqExtension[E](self :Array[E]) :IndexedSeqExtension[E, Array, Array[E]] =
+	@inline implicit final def ArrayAsIndexedSeqExtension[E](self :Array[E]) :IndexedSeqExtension[E, Array, Array[E]] =
 		new IndexedSeqExtension[E, Array, Array[E]](new ArrayAsSeq(self))
 
 	/** Operations on suffixes of a sequence and binary search methods on sorted immutable arrays. */
-	@inline implicit final def immutableArrayAsIndexedSeqExtension[E](self :IArray[E])
+	@inline implicit final def IArrayAsIndexedSeqExtension[E](self :IArray[E])
 			:IndexedSeqExtension[E, IArray, IArray[E]] =
 		new IndexedSeqExtension[E, IArray, IArray[E]](new IArrayAsSeq(self))
 
 	/** Operations on suffixes of a sequence and binary search methods on sorted reference arrays. */
-	@inline implicit final def refArrayAsIndexedSeqExtension[E](self :RefArray[E])
+	@inline implicit final def RefArrayAsIndexedSeqExtension[E](self :RefArray[E])
 			:IndexedSeqExtension[E, RefArray, RefArray[E]] =
 		new IndexedSeqExtension(new RefArrayAsSeq(self))
 
 	/** Operations on suffixes of a sequence and binary search methods on sorted immutable reference arrays. */
-	@inline implicit final def immutableRefArrayAsIndexedSeqExtension[E](self :IRefArray[E])
+	@inline implicit final def IRefArrayAsIndexedSeqExtension[E](self :IRefArray[E])
 			:IndexedSeqExtension[E, IRefArray, IRefArray[E]] =
 		new IndexedSeqExtension(new IRefArrayAsSeq(self))
 
 	/** Operations on suffixes of a string. */
-	@inline implicit final def stringAsIndexedSeqExtension(self :String) :IndexedSeqExtension[Char, IndexedSeq, String] =
+	@inline implicit final def StringAsIndexedSeqExtension(self :String) :IndexedSeqExtension[Char, IndexedSeq, String] =
 		new IndexedSeqExtension(new StringAsSeq(self))
 
 
 	/** Binary search methods for sorted arrays. */
-	@inline implicit final def arrayExtension[E](self :Array[E]) :ArrayExtension[E] =
+	@inline implicit final def ArrayExtension[E](self :Array[E]) :ArrayExtension[E] =
 		new ArrayExtension(self)
 
 	/** Binary search methods for sorted immutable arrays. */
-	@inline implicit final def immutableArrayAsArrayExtension[E](self :IArray[E]) :ArrayExtension[E] =
+	@inline implicit final def IArrayAsArrayExtension[E](self :IArray[E]) :ArrayExtension[E] =
 		new ArrayExtension(self.asInstanceOf[Array[E]])
 
 	/** Binary search methods for sorted reference arrays. */
-	@inline implicit final def refArrayAsArrayExtension[E](self :RefArray[E]) :ArrayExtension[E] =
+	@inline implicit final def RefArrayAsArrayExtension[E](self :RefArray[E]) :ArrayExtension[E] =
 		new ArrayExtension(self.asInstanceOf[Array[E]])
 
 	/** Binary search methods for sorted immutable reference arrays. */
-	@inline implicit final def immutableRefArrayAsArrayExtension[E](self :IRefArray[E]) :ArrayExtension[E] =
+	@inline implicit final def IRefArrayAsArrayExtension[E](self :IRefArray[E]) :ArrayExtension[E] =
 		new ArrayExtension(self.asInstanceOf[Array[E]])
 
-//	/** Main extension methods for `IArray`, which do not require (manual) specialization. */
-//	@inline implicit def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
-//		new IArrayExtension(array.asInstanceOf[Array[E]])
 
-	/** Adapts (casts) a `ClassTag` for an `Array[E]` to an `IArray[E]`. */
-	@inline implicit def IArrayClassTag[E](implicit tag :ClassTag[Array[E]]) :ClassTag[IArray[E]] =
-		tag.castParam[IArray[E]]
-
-	@inline implicit def RefArrayClassTag[E] :ClassTag[RefArray[E]] = classTag[Array[AnyRef]].castParam[RefArray[E]]
-
-	@inline implicit def IRefArrayClassTag[E] :ClassTag[IRefArray[E]] = classTag[Array[AnyRef]].castParam[IRefArray[E]]
-
-
-	/** An [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]] method
+	/** An [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.updatedIfAbsent updatedIfAbsent]] method
 	  * for any `Map`.
 	  */
-	@inline implicit final def mapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]]
-	                                       (self :M[K, V]) :MapExtension[K, V, M] =
-		new MapExtension(self)
+	@inline implicit final def immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]]
+	                                                (self :M[K, V]) :immutableMapExtension[K, V, M] =
+		new immutableMapExtension(self)
 
 	/** Adds a `++` method to any `Stepper` type. */
-	@inline implicit final def stepperExtension[S <: Stepper[_]](self :S) :StepperExtension[S] =
+	@inline implicit final def StepperExtension[S <: Stepper[_]](self :S) :StepperExtension[S] =
 		new StepperExtension[S](self)
 
 //	@inline implicit final def efficientSplitStepperExtension[S <: Stepper[_]](self :S with EfficientSplit) =
 //		new StepperExtension[S with EfficientSplit](self)
 
 	/** Adds a `++` method to any standard `java.util.Iterator` subclass. */
-	@inline implicit final def javaIteratorExtension[I <: JIterator[_]](self :I) :JavaIteratorExtension[I] =
+	@inline implicit final def JavaIteratorExtension[I <: JIterator[_]](self :I) :JavaIteratorExtension[I] =
 		new JavaIteratorExtension[I](self)
 
 	/** Extension factory methods for single element immutable [[collection.immutable.Seq Seq]] subtypes' companions. */
-	@inline implicit final def seqFactoryExtension[C[X] <: SeqOps[X, C, C[X]]]
-	                                              (self :IterableFactory[C]) :SeqFactoryExtension[C] =
-		new SeqFactoryExtension(self)
+	@inline implicit final def immutableSeqFactoryExtension[C[X] <: SeqOps[X, C, C[X]]]
+	                                                       (self :IterableFactory[C]) :immutableSeqFactoryExtension[C] =
+		new immutableSeqFactoryExtension(self)
 
 	/** Extension factory methods for single element immutable [[collection.immutable.Set Set]] subtypes' companions. */
-	@inline implicit final def setFactoryExtension[C[X] <: SetOps[X, C, C[X]]]
-	                                              (self :IterableFactory[C]) :SetFactoryExtension[C] =
-		new SetFactoryExtension(self)
+	@inline implicit final def immutableSetFactoryExtension[C[X] <: SetOps[X, C, C[X]]]
+	                                                       (self :IterableFactory[C]) :immutableSetFactoryExtension[C] =
+		new immutableSetFactoryExtension(self)
 
 	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
 	  * [[scala.collection.IterableFactory IterableFactory]]`[C]`.
@@ -239,61 +226,34 @@ trait extensions
 	  * and [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.generate generate]]
 	  * to any [[scala.collection.IterableFactory IterableFactory]].
 	  */
-	@inline implicit final def iterableFactoryExtension[C[_]](self :IterableFactory[C]) :IterableFactoryExtension[C] =
+	@inline implicit final def IterableFactoryExtension[C[_]](self :IterableFactory[C]) :IterableFactoryExtension[C] =
 		new IterableFactoryExtension[C](self)
 
-//	/** Additional extension methods for companions of mutable and immutable `IndexedSeq` implementations,
-//	  * inclding binary search in sorted sequences.
-//	  */
-//	@inline implicit final def indexedSeqFactoryExtension[C[X] <: collection.IndexedSeqOps[X, C, C[X]]]
-//	                                              (self :IterableFactory[C]) :IndexedSeqFactoryExtension[C] =
-//		new IndexedSeqFactoryExtension[C](self)
 
 	/** Extension factory methods creating single and two element [[Map Map]]s. */
-	@inline implicit final def mapObjectExtension(self :Map.type) :MapObjectExtension = new MapObjectExtension {}
+	@inline implicit final def immutableMapObjectExtension(self :Map.type) :immutableMapObjectExtension =
+		new immutableMapObjectExtension {}
 
 	/** Adds extra extension methods to the `Array` object. */
-	@inline implicit final def arrayObjectExtension(self :Array.type) :ArrayObjectExtension =
+	@inline implicit final def ArrayObjectExtension(self :Array.type) :ArrayObjectExtension =
 		new ArrayObjectExtension {}
 
-//	@inline implicit final def arrayToEvidenceIterableFactory(self :Array.type) :ArrayIterableFactory.type =
-//		ArrayIterableFactory
 
 	/** Adds several extensions methods to `Stepper` object for creating small steppers. */
-	@inline implicit final def stepperObjectExtension(self :Stepper.type) :StepperObjectExtension =
+	@inline implicit final def StepperObjectExtension(self :Stepper.type) :StepperObjectExtension =
 		new StepperObjectExtension {}
 
 	/** Adds a [[net.noresttherein.sugar.collections.extensions.IteratorObjectExtension.double double]] factory method
 	  * for two element iterators to object `Iterator`.
 	  */
-	@inline implicit final def iteratorObjectExtension(self :Iterator.type) :IteratorObjectExtension =
+	@inline implicit final def IteratorObjectExtension(self :Iterator.type) :IteratorObjectExtension =
 		new IteratorObjectExtension {}
-
-
-//	/** Extension methods for object [[scala.collection.EvidenceIterableFactory$ EvidenceIterableFactory]]. */
-//	@inline implicit final def iterableFactoryObjectExtension(self :IterableFactory.type)
-//			:IterableFactoryObjectExtension =
-//		new IterableFactoryObjectExtension {}
-//
-//	/** Extension methods for object [[scala.collection.EvidenceIterableFactory$ EvidenceIterableFactory]]. */
-//	@inline implicit final def evidenceIterableFactoryObjectExtension(self :EvidenceIterableFactory.type)
-//			:EvidenceIterableFactoryObjectExtension =
-//		new EvidenceIterableFactoryObjectExtension {}
-//
-//	/** Extension factory methods creating single and two element [[Map Map]]s. */
-//	@inline implicit final def mapFactoryObjectExtension(self :MapFactory.type) :MapFactoryObjectExtension =
-//		new MapFactoryObjectExtension {}
-//
-//	/** Extension factory methods creating single and two element [[Map Map]]s. */
-//	@inline implicit final def sortedMapFactoryObjectExtension(self :SortedMapFactory.type)
-//			:SortedMapFactoryObjectExtension =
-//		new SortedMapFactoryObjectExtension {}
 
 
 	/** An extension method [[net.noresttherein.sugar.collections.extensions.BuilderExtension.mapInput mapElements]]
 	  * which adapts the builder to a new element type.
 	  */
-	@inline implicit final def builderExtension[E, C](self :Builder[E, C]) :BuilderExtension[E, C] =
+	@inline implicit final def BuilderExtension[E, C](self :Builder[E, C]) :BuilderExtension[E, C] =
 		new BuilderExtension(self)
 
 	/** Adds Scala [[scala.collection.mutable.Growable Growable]] and [[scala.collection.mutable.Builder Builder]]
@@ -304,13 +264,13 @@ trait extensions
 	  * the original `StringBuilder`. As methods are inlined, this incurs neither the penalty of creating an additional
 	  * object, nor of delegating individual calls, at least with default compiler optimisations on.
 	  */
-	@inline implicit final def javaStringBuilderExtension(self :JStringBuilder) :JavaStringBuilderExtension =
+	@inline implicit final def JavaStringBuilderExtension(self :JStringBuilder) :JavaStringBuilderExtension =
 		new JavaStringBuilderExtension(self)
 
 	/** Extension methods for [[scala.collection.Factory Factory]] returning the collection companion object
 	  * which created it.
 	  */
-	@inline implicit final def factoryExtension[E, C](self :Factory[E, C]) :FactoryExtension[E, C] =
+	@inline implicit final def FactoryExtension[E, C](self :Factory[E, C]) :FactoryExtension[E, C] =
 		new FactoryExtension(self)
 }
 
@@ -2514,16 +2474,16 @@ object extensions extends extensions {
 	}
 
 
-	/** Adds an [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]]
+	/** Adds an [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.updatedIfAbsent updatedIfAbsent]]
 	  *  extension method to [[scala.collection.immutable.Map immutable.Map]].
 	  */
-	class MapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[extensions] (private val self :M[K, V])
+	class immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[extensions](private val self :M[K, V])
 		extends AnyVal
 	{
 		@inline def updatedIfAbsent[U >: V](key :K, value :U) :M[K, U] =
 			if (self.contains(key)) self else self.updated(key, value)
 
-		/** Same as [[net.noresttherein.sugar.collections.extensions.MapExtension.updatedIfAbsent updatedIfAbsent]]. */
+		/** Same as [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.updatedIfAbsent updatedIfAbsent]]. */
 		@inline def ?=[U >: V](entry :(K, U)) :M[K, U] = updatedIfAbsent(entry._1, entry._2)
 	}
 
@@ -2793,7 +2753,7 @@ object extensions extends extensions {
 
 
 	/** Extension factory methods for single element immutable [[collection.immutable.Set Set]] companions. */
-	class SetFactoryExtension[C[X] <: SetOps[X, C, C[X]]] private[collections]
+	class immutableSetFactoryExtension[C[X] <: SetOps[X, C, C[X]]] private[collections]
 	                         (private val self :IterableFactory[C])
 		extends AnyVal
 	{
@@ -2803,7 +2763,7 @@ object extensions extends extensions {
 	}
 
 	/** Extension factory methods for single element [[collection.immutable.Seq Seq]] companions. */
-	class SeqFactoryExtension[C[X] <: SeqOps[X, C, C[X]]] private[collections]
+	class immutableSeqFactoryExtension[C[X] <: SeqOps[X, C, C[X]]] private[collections]
 	                         (private val self :IterableFactory[C])
 		extends AnyVal
 	{
@@ -2831,7 +2791,7 @@ object extensions extends extensions {
 //	}
 
 	/** Extension factory methods for single and two element [[Map Map]]s. */
-	sealed trait MapObjectExtension extends Any {
+	sealed trait immutableMapObjectExtension extends Any {
 		@inline final def single[K, V](key :K, value :V) :Map[K, V] = new Map.Map1(key, value)
 		@inline final def single[K, V](entry :(K, V)) :Map[K, V] = new Map.Map1(entry._1, entry._2)
 		@inline final def one[K, V](key :K, value :V) :Map[K, V] = new Map.Map1(key, value)

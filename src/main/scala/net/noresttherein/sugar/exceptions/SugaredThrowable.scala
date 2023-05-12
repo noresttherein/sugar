@@ -6,7 +6,7 @@ import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions
-import net.noresttherein.sugar.prettyprint.{classNameOf, fullNameOf}
+import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 
 
 

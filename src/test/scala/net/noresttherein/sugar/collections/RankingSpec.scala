@@ -6,9 +6,9 @@ import scala.reflect.ClassTag
 import org.scalacheck.{Arbitrary, Prop}
 import org.scalacheck.Prop.{all, forAll, throws, AnyOperators}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
-import net.noresttherein.sugar.extensions.{classNameMethods, seqExtension}
+import net.noresttherein.sugar.extensions.{classNameMethods, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
-import net.noresttherein.sugar.numeric.extensions.{booleanObjectExtension, intObjectExtension}
+import net.noresttherein.sugar.numeric.extensions.{BooleanObjectExtension, IntObjectExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanExtension, PropExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.Got

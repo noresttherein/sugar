@@ -5,7 +5,7 @@ import scala.collection.{mutable, IterableFactory, IterableOps}
 import scala.collection.mutable.Builder
 import scala.util.Random
 
-import net.noresttherein.sugar.extensions.seqExtension
+import net.noresttherein.sugar.extensions.SeqExtension
 
 
 

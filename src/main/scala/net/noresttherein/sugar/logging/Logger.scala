@@ -5,7 +5,7 @@ import java.util.logging.Level._
 
 import net.noresttherein.sugar.logging.Logger.Level
 import net.noresttherein.sugar.logging.Logger.NamingScheme.DemangledClassName
-import net.noresttherein.sugar.prettyprint.{abbrevClassNameOf, classNameOf, fullNameOf}
+import net.noresttherein.sugar.reflect.prettyprint.{abbrevClassNameOf, classNameOf, fullNameOf}
 
 
 

@@ -1,10 +1,9 @@
-package net.noresttherein.sugar
+package net.noresttherein.sugar.reflect.prettyprint
 
 import scala.annotation.nowarn
 
-import org.scalacheck.Properties
 import org.scalacheck.Prop._
-import net.noresttherein.sugar.prettyprint.{CaseClass, DefToString}
+import org.scalacheck.Properties
 
 //implicits
 import net.noresttherein.sugar.extensions.fieldsStringMethods

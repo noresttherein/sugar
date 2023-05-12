@@ -7,7 +7,7 @@ import net.noresttherein.sugar.vars.Potential
 import net.noresttherein.sugar.witness.Maybe
 
 //implicits
-import net.noresttherein.sugar.extensions.classNameExtension
+import net.noresttherein.sugar.extensions.ClassExtension
 
 
 

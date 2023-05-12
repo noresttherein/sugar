@@ -2,7 +2,7 @@ package net.noresttherein.sugar.optional
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.optional.extensions.{EnsuringMethods, IfTrueMethods, OptionExtension, OptionObjectExtension, ProvidingMethods, SatisfyingMethods}
+import net.noresttherein.sugar.optional.extensions.{ensuringMethods, ifTrueMethods, OptionExtension, OptionObjectExtension, providingMethods, satisfyingMethods}
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
@@ -16,30 +16,30 @@ import net.noresttherein.sugar.vars.Pill.{Blue, Red}
   */
 trait extensions extends Any {
 	/** Adds extension methods to any `Option[T]` providing alternatives if the option is empty. */
-	@inline implicit final def optionExtension[T](self :Option[T]) = new OptionExtension[T](self)
+	@inline implicit final def OptionExtension[T](self :Option[T]) :OptionExtension[T] = new OptionExtension[T](self)
 
 	/** Adds `ifTrue` and `ifFalse` methods to any `Boolean` value which lift any argument expression to an `Option`. */
-	@inline implicit final def ifTrueMethods(self :Boolean) = new IfTrueMethods(self)
+	@inline implicit final def ifTrueMethods(self :Boolean) :ifTrueMethods = new ifTrueMethods(self)
 
 	/** Adds `satisfying` and `violating` methods to any object for lifting it to an `Option[T]`
 	  * based on a predicate value.
 	  */
-	@inline implicit final def satisfyingMethods[T](self :T) = new SatisfyingMethods[T](self)
+	@inline implicit final def satisfyingMethods[T](self :T) :satisfyingMethods[T] = new satisfyingMethods[T](self)
 
 	/** Adds `providing` and `unless` methods to any by-name expression, returning it as an option
 	  * after testing a boolean condition.
 	  */
-	@inline implicit final def providingMethods[T](self: => T) = new ProvidingMethods[T](self)
+	@inline implicit final def providingMethods[T](self: => T) :providingMethods[T] = new providingMethods[T](self)
 
 	/** Adds additional `ensuring` methods to any object which accept exception classes to throw on failure. */
-	@inline implicit final def ensuringMethods[T](self :T) = new EnsuringMethods[T](self)
+	@inline implicit final def ensuringMethods[T](self :T) :ensuringMethods[T] = new ensuringMethods[T](self)
 //duplicated in casting
 //	/** Adds `ifInstanceOf` and `ifSubclass` methods to any value providing `Option`-returning casting
 //	  * and optional execution of a function based on the argument's runtime class.
 //	  */
 //	@inline implicit final def ifInstanceOfMethods[T](self :T) = new IfInstanceOfMethods[T, R](self)
 
-	@inline implicit final def optionObjectExtension(self :Option.type) :OptionObjectExtension =
+	@inline implicit final def OptionObjectExtension(self :Option.type) :OptionObjectExtension =
 		new OptionObjectExtension {}
 }
 
@@ -168,7 +168,7 @@ object extensions extends extensions {
 	  * but arguably reads better, especially if the pattern matching order feels more natural in the given place in code.
 	  * @param condition boolean value serving as a guard of a conditional expression.
 	  */
-	class IfTrueMethods(private val condition :Boolean) extends AnyVal {
+	class ifTrueMethods(private val condition :Boolean) extends AnyVal {
 
 		/** If `this` boolean expression is true, return the given value in an `Option`. If it evaluates to `false`,
 		  * return `None`.
@@ -215,9 +215,9 @@ object extensions extends extensions {
 
 	/** Extension methods of an arbitrary value treating it as a default value to be lifted to an `Option`
 	  * depending on whether a guard predicate is satisfied. This class eagerly computes `this` expression.
-	  * @see [[net.noresttherein.sugar.optional.extensions.ProvidingMethods]]
+	  * @see [[net.noresttherein.sugar.optional.extensions.providingMethods]]
 	  */
-	class SatisfyingMethods[T](private val self :T) extends AnyVal {
+	class satisfyingMethods[T](private val self :T) extends AnyVal {
 
 		/** Return `Some(this)` if `condition` is true, `None`  otherwise. Note that `this` is eagerly evaluated. */
 		@inline def satisfying(condition :Boolean) :Option[T] =
@@ -263,9 +263,9 @@ object extensions extends extensions {
 
 
 	/** Extension methods evaluating and returning the value passed as `this` argument only if a given predicate is satisfied.
-	  * @see [[net.noresttherein.sugar.optional.extensions.SatisfyingMethods]]
+	  * @see [[net.noresttherein.sugar.optional.extensions.satisfyingMethods]]
 	  */
-	class ProvidingMethods[T](self : => T)  {
+	class providingMethods[T](self : => T)  {
 
 		/** Return `Some(this)` if `condition` is true, or `None` without evaluating this expression otherwise. */
 		@inline def providing(condition :Boolean) :Option[T] =
@@ -280,7 +280,7 @@ object extensions extends extensions {
 
 	//todo: new method name and a macro to include the actual expression used as a string.
 	/** Extension methods overloading `scala.ensuring`, allowing for passing an arbitrary exception to be thrown. */
-	class EnsuringMethods[T](private val self :T) extends AnyVal {
+	class ensuringMethods[T](private val self :T) extends AnyVal {
 
 		/** Return `this` if `condition` is true, or throw the give exception otherwise. */
 		@inline def ensuring(condition :Boolean, ex :Exception) :T =

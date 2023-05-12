@@ -4,7 +4,7 @@ import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
 import net.noresttherein.sugar.numeric.Ratio.{One, Zero}
-import net.noresttherein.sugar.numeric.extensions.{intExtension, longExtension}
+import net.noresttherein.sugar.numeric.extensions.{IntExtension, LongExtension}
 
 
 

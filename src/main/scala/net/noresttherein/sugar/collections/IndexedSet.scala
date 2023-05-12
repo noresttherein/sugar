@@ -5,7 +5,7 @@ import scala.collection.immutable.{SortedSet, StrictOptimizedSortedSetOps}
 import scala.collection.{Factory, SortedIterableFactory, SortedSetFactoryDefaults}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.extensions.seqExtension
+import net.noresttherein.sugar.extensions.SeqExtension
 import net.noresttherein.sugar.vars.Opt.Got
 
 

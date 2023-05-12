@@ -11,7 +11,7 @@ import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JDoubleIterator
 import net.noresttherein.sugar.extensions.classNameMethods
 
 //implicits
-import net.noresttherein.sugar.extensions.castTypeParam
+import net.noresttherein.sugar.extensions.castTypeParamMethods
 
 
 

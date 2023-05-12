@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.witness
 
-import net.noresttherein.sugar.extensions.saferCasting
+import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness

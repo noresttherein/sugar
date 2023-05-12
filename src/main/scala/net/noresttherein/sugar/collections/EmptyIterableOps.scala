@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.EmptyIterableOps.otherIsEmpty
 import net.noresttherein.sugar.collections.EmptySeqOps.searchResult
-import net.noresttherein.sugar.extensions.{arrayObjectExtension, builderExtension, partialFunctionExtension}
+import net.noresttherein.sugar.extensions.{ArrayObjectExtension, BuilderExtension, PartialFunctionExtension}
 
 
 

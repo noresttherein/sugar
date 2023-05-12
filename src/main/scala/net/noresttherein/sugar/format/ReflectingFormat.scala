@@ -4,8 +4,8 @@ import scala.reflect.runtime.universe.{runtimeMirror, TypeTag}
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.reflect.PropertyPath
+import net.noresttherein.sugar.reflect.prettyprint.innerNameOf
 import net.noresttherein.sugar.vars.Potential
-import net.noresttherein.sugar.prettyprint.innerNameOf
 
 //implicits
 import net.noresttherein.sugar.extensions.classNameMethods

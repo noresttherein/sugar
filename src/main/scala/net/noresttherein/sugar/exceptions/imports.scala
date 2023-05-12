@@ -5,7 +5,7 @@ import java.lang.reflect.Constructor
 import scala.reflect.{classTag, ClassTag}
 
 import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension, downcastTypeParam, saferCasting}
+import net.noresttherein.sugar.extensions.{downcastTypeParamMethodsd, castingMethods, castTypeParamMethods, ClassExtension}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 

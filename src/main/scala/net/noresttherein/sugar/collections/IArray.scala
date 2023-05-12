@@ -9,7 +9,7 @@ import scala.collection.mutable.{Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.collections.ArrayLike.{ArrayLikeExtension, RefArrayLikeExtension}
-import net.noresttherein.sugar.extensions.{castTypeParam, classNameMethods, saferCasting}
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, classNameMethods, castingMethods}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness.Maybe
@@ -1049,37 +1049,41 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 
 	private[collections] trait extensions extends Any with IArrayLowPriorityExtensions {
 
-		@inline implicit def ByteIArrayExtension(array :IArray[Byte]) :ByteIArrayExtension =
+		/** Adapts (casts) a `ClassTag` for an `Array[E]` to an `IArray[E]`. */
+		@inline implicit final def IArrayClassTag[E](implicit tag :ClassTag[Array[E]]) :ClassTag[IArray[E]] =
+			tag.castParam[IArray[E]]
+
+		@inline implicit final def ByteIArrayExtension(array :IArray[Byte]) :ByteIArrayExtension =
 			new ByteIArrayExtension(array.asInstanceOf[Array[Byte]])
 
-		@inline implicit def ShortIArrayExtension(array :IArray[Short]) :ShortIArrayExtension =
+		@inline implicit final def ShortIArrayExtension(array :IArray[Short]) :ShortIArrayExtension =
 			new ShortIArrayExtension(array.asInstanceOf[Array[Short]])
 
-		@inline implicit def CharIArrayExtension(array :IArray[Char]) :CharIArrayExtension =
+		@inline implicit final def CharIArrayExtension(array :IArray[Char]) :CharIArrayExtension =
 			new CharIArrayExtension(array.asInstanceOf[Array[Char]])
 
-		@inline implicit def IntIArrayExtension(array :IArray[Int]) :IntIArrayExtension =
+		@inline implicit final def IntIArrayExtension(array :IArray[Int]) :IntIArrayExtension =
 			new IntIArrayExtension(array.asInstanceOf[Array[Int]])
 
-		@inline implicit def LongIArrayExtension(array :IArray[Long]) :LongIArrayExtension =
+		@inline implicit final def LongIArrayExtension(array :IArray[Long]) :LongIArrayExtension =
 			new LongIArrayExtension(array.asInstanceOf[Array[Long]])
 
-		@inline implicit def FloatIArrayExtension(array :IArray[Float]) :FloatIArrayExtension =
+		@inline implicit final def FloatIArrayExtension(array :IArray[Float]) :FloatIArrayExtension =
 			new FloatIArrayExtension(array.asInstanceOf[Array[Float]])
 
-		@inline implicit def DoubleIArrayExtension(array :IArray[Double]) :DoubleIArrayExtension =
+		@inline implicit final def DoubleIArrayExtension(array :IArray[Double]) :DoubleIArrayExtension =
 			new DoubleIArrayExtension(array.asInstanceOf[Array[Double]])
 
-		@inline implicit def BooleanIArrayExtension(array :IArray[Boolean]) :BooleanIArrayExtension =
+		@inline implicit final def BooleanIArrayExtension(array :IArray[Boolean]) :BooleanIArrayExtension =
 			new BooleanIArrayExtension(array.asInstanceOf[Array[Boolean]])
 
-		@inline implicit def RefIArrayExtension[E <: AnyRef](array :IArray[E]) :RefIArrayExtension[E] =
+		@inline implicit final def RefIArrayExtension[E <: AnyRef](array :IArray[E]) :RefIArrayExtension[E] =
 			new RefIArrayExtension(array.asInstanceOf[Array[E]])
 
-		@inline implicit def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
+		@inline implicit final def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
 			new IArrayExtension(array.asInstanceOf[Array[E]])
 
-		@inline implicit def IArrayAsArrayLikeExtension[E](array :IArray[E]) :ArrayLikeExtension[E, IArray] =
+		@inline implicit final def IArrayAsArrayLikeExtension[E](array :IArray[E]) :ArrayLikeExtension[E, IArray] =
 			new ArrayLikeExtension(array.asInstanceOf[Array[_]])
 	}
 
@@ -1246,13 +1250,17 @@ case object RefArray extends RefArrayLikeFactory[RefArray] with IterableFactory[
 		isSeq
 
 	private[collections] trait extensions extends Any {
-		@inline implicit def RefArrayExtension[A](array :RefArray[A]) :RefArrayExtension[A] =
+		@inline implicit final def RefArrayClassTag[E] :ClassTag[RefArray[E]] =
+			classTag[Array[AnyRef]].castParam[RefArray[E]]
+
+		@inline implicit final def RefArrayExtension[A](array :RefArray[A]) :RefArrayExtension[A] =
 			new RefArrayExtension(array.asInstanceOf[Array[Any]])
 
-		@inline implicit def RefArrayAsArrayLikeExtension[A](array :RefArray[A]) :ArrayLikeExtension[A, RefArray] =
+		@inline implicit final def RefArrayAsArrayLikeExtension[A](array :RefArray[A]) :ArrayLikeExtension[A, RefArray] =
 			new ArrayLikeExtension[A, RefArray](array.asInstanceOf[Array[_]])
 
-		@inline implicit def RefArrayAsRefArrayLikeExtension[A](array :RefArray[A]) :RefArrayLikeExtension[A, RefArray] =
+		@inline implicit final def RefArrayAsRefArrayLikeExtension[A](array :RefArray[A])
+				:RefArrayLikeExtension[A, RefArray] =
 			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
 	}
 
@@ -1305,13 +1313,16 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 
 
 	private[collections] trait extensions extends Any {
-		@inline implicit def IRefArrayExtension[A](array :RefArray[A]) :IRefArrayExtension[A] =
+		@inline implicit final def IRefArrayClassTag[E] :ClassTag[IRefArray[E]] =
+			classTag[Array[AnyRef]].castParam[IRefArray[E]]
+
+		@inline implicit final def IRefArrayExtension[A](array :RefArray[A]) :IRefArrayExtension[A] =
 			new IRefArrayExtension(array.asInstanceOf[Array[Any]])
 
-		@inline implicit def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A]) :ArrayLikeExtension[A, IRefArray] =
+		@inline implicit final def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A]) :ArrayLikeExtension[A, IRefArray] =
 			new ArrayLikeExtension(array.asInstanceOf[Array[_]])
 
-		@inline implicit def IRefArrayAsRefArrayLikeExtension[A](array :IRefArray[A]) :RefArrayLikeExtension[A, IRefArray] =
+		@inline implicit final def IRefArrayAsRefArrayLikeExtension[A](array :IRefArray[A]) :RefArrayLikeExtension[A, IRefArray] =
 			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
 	}
 

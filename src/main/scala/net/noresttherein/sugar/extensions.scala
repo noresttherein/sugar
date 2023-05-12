@@ -19,15 +19,14 @@ import net.noresttherein.sugar.typist.Rank.Rank1
   */ //consider: having it simply extend the traits for individual packages.
 trait extensions extends Any
 	with casting.extensions with collections.extensions with exceptions.extensions with funny.extensions
-	with matching.extensions with numeric.extensions with optional.extensions
-	with prettyprint.extensions with reflect.extensions with repeat.extensions
-	with time.extensions[Rank1] with tuples.extensions with typist.extensions
+	with matching.extensions with numeric.extensions with optional.extensions with reflect.extensions
+	with repeat.extensions with time.extensions[Rank1] with tuples.extensions with typist.extensions
 {
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
-	@inline implicit final def feedToMethod[X](x :X) = new feedToMethod(x)
+	@inline implicit final def feedToMethod[X](x :X) :feedToMethod[X] = new feedToMethod(x)
 
 	/** Adds a [[net.noresttherein.sugar.extensions.notNullMethod.notNull notNull]]`(msg: String)` method to any value. */
-	@inline implicit final def notNullMethod[X](x :X) = new notNullMethod(x)
+	@inline implicit final def notNullMethod[X](x :X) :notNullMethod[X] = new notNullMethod(x)
 }
 
 

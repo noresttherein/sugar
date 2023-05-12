@@ -8,7 +8,7 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 import org.scalacheck.{Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.extensions.{arrayExtension, arrayObjectExtension, builderExtension, castTypeParam, classNameExtension, classNameMethods, factoryExtension, indexedSeqExtension, iterableFactoryExtension, iterableOnceExtension, iteratorObjectExtension, javaIteratorExtension, mapExtension, seqFactoryExtension, setFactoryExtension, stepperExtension, stepperObjectExtension}
+import net.noresttherein.sugar.extensions.{immutableMapExtension, immutableSeqFactoryExtension, immutableSetFactoryExtension, ArrayExtension, ArrayObjectExtension, BuilderExtension, castTypeParamMethods, classNameMethods, ClassExtension, FactoryExtension, IndexedSeqExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, StepperExtension, StepperObjectExtension}
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.testing.scalacheck.extensions._

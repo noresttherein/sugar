@@ -4,9 +4,8 @@ import scala.collection.immutable.AbstractSet
 import scala.reflect.{classTag, ClassTag}
 import scala.Console.err
 
-import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension}
-import org.scalacheck.{Gen, Prop}
-import org.scalacheck.Prop.{Proof, Result}
+import net.noresttherein.sugar.extensions.ClassExtension
+import org.scalacheck.Prop
 
 
 object extensions {

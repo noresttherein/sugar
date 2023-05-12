@@ -1,10 +1,8 @@
 package net.noresttherein.sugar.exceptions
 
-import java.lang.reflect.Constructor
-
 import scala.reflect.{classTag, ClassTag}
 
-import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension, classNameMethods}
+import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Opt
 

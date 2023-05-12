@@ -11,7 +11,7 @@ import net.noresttherein.sugar.exceptions.extensions.ThrowableExtension
 /** A scope defining an implicit conversion enriching any `Throwable` with some extension methods. */
 trait extensions extends Any {
 	/** Extension methods for [[Throwable]], mainly Scala-style accessors to standard properties. */
-	@inline final implicit def throwableExtension(self :Throwable) = new ThrowableExtension(self)
+	@inline implicit final def ThrowableExtension(self :Throwable) :ThrowableExtension = new ThrowableExtension(self)
 }
 
 

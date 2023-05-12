@@ -1,9 +1,9 @@
-package net.noresttherein.sugar.prettyprint
+package net.noresttherein.sugar.reflect.prettyprint
 
 import scala.reflect.runtime.universe.TypeTag
 
 //implicits
-import net.noresttherein.sugar.prettyprint.extensions.fieldsStringMethods
+import net.noresttherein.sugar.reflect.prettyprint.extensions.fieldsStringMethods
 
 
 

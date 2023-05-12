@@ -8,7 +8,7 @@ import scala.collection.immutable.IndexedSeqOps
 import scala.collection.mutable.{ArrayBuilder, Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.extensions.castTypeParam
+import net.noresttherein.sugar.extensions.castTypeParamMethods
 
 //extension methods
 import extensions._

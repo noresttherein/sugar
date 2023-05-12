@@ -1,20 +1,14 @@
 package net.noresttherein.sugar.collections
 
-import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Test}
-import org.scalacheck.commands.Commands
-import scala.collection.{IterableFactory, SeqFactory, Stepper, mutable}
-import scala.collection.immutable.{ArraySeq, SeqOps}
-import scala.collection.mutable.{ArrayBuffer, Builder}
-import scala.jdk.CollectionConverters.IteratorHasAsScala
+import org.scalacheck.{Arbitrary, Prop, Properties}
+import scala.collection.{SeqFactory, mutable}
+import scala.collection.immutable.ArraySeq
 import scala.reflect.{ClassTag, classTag}
-import scala.util.{Success, Try}
 
-import net.noresttherein.sugar.collections.IterableProps.{Filter, FlatMap, Fold, FoldSide, Map, filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value}
-import net.noresttherein.sugar.extensions.{castTypeParam, classNameExtension, classNameMethods}
-import net.noresttherein.sugar.tuples.extensions.tuple2Extension
-import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
+import net.noresttherein.sugar.collections.IterableProps.{Filter, filter}
+import net.noresttherein.sugar.extensions.{castTypeParamMethods, ClassExtension}
+import net.noresttherein.sugar.testing.scalacheck.extensions.PropExtension
 import org.scalacheck.Prop.{AnyOperators, all, forAll}
-import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 
 

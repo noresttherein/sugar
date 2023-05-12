@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe._
 
 import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.exceptions.RethrowableException
-import net.noresttherein.sugar.extensions.{providingMethods, saferCasting}
+import net.noresttherein.sugar.extensions.{providingMethods, castingMethods}
 import net.noresttherein.sugar.reflect.InvocationReflection.Trace
 import net.noresttherein.sugar.reflect.PropertyPath.UpdatableProperty
 

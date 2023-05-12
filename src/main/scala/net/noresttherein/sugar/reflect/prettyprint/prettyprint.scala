@@ -1,11 +1,11 @@
-package net.noresttherein.sugar
+package net.noresttherein.sugar.reflect
 
 import java.lang.{StringBuilder => JStringBuilder}
 
 import scala.annotation.tailrec
 import scala.reflect.{classTag, ClassTag}
 
-import net.noresttherein.sugar.extensions.classExtension
+import net.noresttherein.sugar.extensions.ClassExtension
 
 
 

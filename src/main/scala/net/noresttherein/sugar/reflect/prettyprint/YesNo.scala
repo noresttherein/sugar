@@ -1,8 +1,11 @@
-package net.noresttherein.sugar.prettyprint
+package net.noresttherein.sugar.reflect.prettyprint
+
+
+
 
 /** Provides alternative string representations of `Boolean` values in the form of ''yes/no'' or ''y/n'' (default).
   * Makes for shorter `toString` results in classes containing several `Boolean` fields.
-  */
+  */ //consider: a better place for it
 @SerialVersionUID(Ver)
 class YesNo(val toBoolean :Boolean) extends AnyVal with Serializable {
 	/** Converts this boolean to `0` or `1`. */

@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.format
 
 import net.noresttherein.sugar.exceptions.AbstractException
-import net.noresttherein.sugar.prettyprint.{classNameOf, fullNameOf}
+import net.noresttherein.sugar.reflect.prettyprint.{classNameOf, fullNameOf}
 
 
 

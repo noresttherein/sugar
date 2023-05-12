@@ -1,11 +1,14 @@
 package net.noresttherein.sugar.fun
 
-import net.noresttherein.sugar.funny.fun
-import net.noresttherein.sugar.funny.fun.ComposableFun
-import net.noresttherein.sugar.numeric.{Ratio, IntRatio}
-import net.noresttherein.sugar.prettyprint
 import org.scalacheck.Prop._
 import org.scalacheck.Properties
+import net.noresttherein.sugar.funny.fun
+import net.noresttherein.sugar.funny.fun.ComposableFun
+import net.noresttherein.sugar.numeric.{IntRatio, Ratio}
+import net.noresttherein.sugar.reflect.prettyprint.abbrevNameOf
+
+
+
 
 /**
   * @author Marcin Mościcki
@@ -44,7 +47,6 @@ object funSpec extends Properties("fun") {
 			}
 			((new Narrowed).toString ?= "_=>j.l.String") label "narrowed"
 		} && {
-			import prettyprint.abbrevNameOf
 			abstract class Rename[P1, P2] extends ComposableFun[P1, P2]
 			abstract class Swap[R, A] extends Rename[A, R]
 			val erased :Swap[Ratio, IntRatio] = { x :IntRatio => x }

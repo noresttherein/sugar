@@ -16,8 +16,8 @@ import net.noresttherein.sugar.vars.Box
 import net.noresttherein.sugar.vars.Opt.Got
 
 //implicits
-import net.noresttherein.sugar.collections.extensions.{arrayObjectExtension, GenericIArrayExtension, IArrayAsArrayLikeExtension, IArrayClassTag}
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParam
+import net.noresttherein.sugar.collections.extensions.{ArrayObjectExtension, GenericIArrayExtension, IArrayAsArrayLikeExtension, IArrayClassTag}
+import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 
 

@@ -13,7 +13,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
 import net.noresttherein.sugar.witness.Maybe
 
 //implicits
-import net.noresttherein.sugar.extensions.{classNameExtension, classNameMethods}
+import net.noresttherein.sugar.extensions.{classNameMethods, ClassExtension}
 
 
 
@@ -2764,8 +2764,8 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * on the process and examples of usage.
 	  *
 	  * The method (and the moldmaker) serves also a second purpose, not strictly related to its function:
-	  * extension methods [[net.noresttherein.sugar.format.extensions.ParsingFormattingExtensions.as as]]
-	  * and [[net.noresttherein.sugar.format.extensions.ParsingFormattingExtensions.cast cast]], available
+	  * extension methods [[net.noresttherein.sugar.format.extensions.meltMethods.as as]]
+	  * and [[net.noresttherein.sugar.format.extensions.meltMethods.cast cast]], available
 	  * after importing from [[net.noresttherein.sugar.extensions sugar.extensions]]
 	  * or [[net.noresttherein.sugar.format.extensions format.extensions]]
 	  * on a [[net.noresttherein.sugar.format.Format.Raw Raw]] data instance of any format,

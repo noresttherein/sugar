@@ -17,30 +17,66 @@ import net.noresttherein.sugar.typist.Rank.Rank0
   * Additional implicit factory methods can be found in the `net.noresttherein.sugar.time.dsl` package.
   */
 trait extensions[+R <: Rank] extends Any {
-	@inline implicit def javaInstantConverter(self :j.Instant)               = new JavaInstantConverter[R](self)
-	@inline implicit def javaZonedDateTimeConverter(self :j.ZonedDateTime)   = new JavaZonedDateTimeConverter[R](self)
-	@inline implicit def javaOffsetDateTimeConverter(self :j.OffsetDateTime) = new JavaOffsetDateTimeConverter[R](self)
-	@inline implicit def javaLocalDateTimeConverter(self :j.LocalDateTime)   = new JavaLocalDateTimeConverter[R](self)
-	@inline implicit def javaLocalDateConverter(self :j.LocalDate)           = new JavaLocalDateConverter[R](self)
-	@inline implicit def javaYearConverter(self :j.Year)                     = new JavaYearConverter[R](self)
-	@inline implicit def javaMonthConverter(self :j.Month)                   = new JavaMonthConverter[R](self)
-	@inline implicit def javaYearMonthConverter(self :j.YearMonth)           = new JavaYearMonthConverter[R](self)
-	@inline implicit def javaMonthDayConverter(self :j.MonthDay)             = new JavaMonthDayConverter[R](self)
-	@inline implicit def javaDayOfWeekConverter(self :j.DayOfWeek)           = new JavaDayOfWeekConverter[R](self)
-	@inline implicit def javaOffsetDateTimeConverter(self :j.OffsetTime)     = new JavaOffsetTimeConverter[R](self)
-	@inline implicit def javaLocalTimeConverter(self :j.LocalTime)           = new JavaLocalTimeConverter[R](self)
-	@inline implicit def javaIsoEraConverter(self :IsoEra)                   = new JavaIsoEraConverter[R](self)
+	@inline implicit final def JavaInstantConverter(self :j.Instant) :JavaInstantConverter[R] =
+		new JavaInstantConverter[R](self)
 
-	@inline implicit def javaPeriodConverter(self :j.Period)                 = new JavaPeriodConverter[R](self)
-	@inline implicit def javaDurationConverter(self :j.Duration)             = new JavaDurationConverter[R](self)
+	@inline implicit final def JavaZonedDateTimeConverter(self :j.ZonedDateTime) :JavaZonedDateTimeConverter[R] =
+		new JavaZonedDateTimeConverter[R](self)
 
-	@inline implicit def javaZoneIdConverter(self :j.ZoneId)                 = new JavaZoneIdConverter[R](self)
-	@inline implicit def javaZoneOffsetConverter(self :j.ZoneOffset)         = new JavaZoneOffsetConverter[R](self)
-	@inline implicit def javaTemporalFieldConverter(self :TemporalField)     = new JavaTemporalFieldConverter[R](self)
-	@inline implicit def javaChronoUnitConverter(self :ChronoUnit)           = new JavaChronoUnitConverter[R](self)
-	@inline implicit def javaClockConverter(self :j.Clock)                   = new JavaClockConverter[R](self)
+	@inline implicit final def JavaOffsetDateTimeConverter(self :j.OffsetDateTime) :JavaOffsetDateTimeConverter[R] =
+		new JavaOffsetDateTimeConverter[R](self)
 
-	@inline implicit def scalaDurationConverter(self :s.Duration)            = new ScalaDurationConverter[R](self)
+	@inline implicit final def JavaLocalDateTimeConverter(self :j.LocalDateTime) :JavaLocalDateTimeConverter[R] =
+		new JavaLocalDateTimeConverter[R](self)
+
+	@inline implicit final def JavaLocalDateConverter(self :j.LocalDate) :JavaLocalDateConverter[R] =
+		new JavaLocalDateConverter[R](self)
+
+	@inline implicit final def JavaYearConverter(self :j.Year) :JavaYearConverter[R] = new JavaYearConverter[R](self)
+
+	@inline implicit final def JavaMonthConverter(self :j.Month) :JavaMonthConverter[R] = new JavaMonthConverter[R](self)
+
+	@inline implicit final def JavaYearMonthConverter(self :j.YearMonth) :JavaYearMonthConverter[R] =
+		new JavaYearMonthConverter[R](self)
+
+	@inline implicit final def JavaMonthDayConverter(self :j.MonthDay) :JavaMonthDayConverter[R] =
+		new JavaMonthDayConverter[R](self)
+
+	@inline implicit final def JavaDayOfWeekConverter(self :j.DayOfWeek) :JavaDayOfWeekConverter[R] =
+		new JavaDayOfWeekConverter[R](self)
+
+	@inline implicit final def JavaOffsetDateTimeConverter(self :j.OffsetTime) :JavaOffsetTimeConverter[R] =
+		new JavaOffsetTimeConverter[R](self)
+
+	@inline implicit final def JavaLocalTimeConverter(self :j.LocalTime) :JavaLocalTimeConverter[R] =
+		new JavaLocalTimeConverter[R](self)
+
+	@inline implicit final def JavaIsoEraConverter(self :IsoEra) :JavaIsoEraConverter[R] =
+		new JavaIsoEraConverter[R](self)
+
+	@inline implicit final def JavaPeriodConverter(self :j.Period) :JavaPeriodConverter[R] =
+		new JavaPeriodConverter[R](self)
+
+	@inline implicit final def JavaDurationConverter(self :j.Duration) :JavaDurationConverter[R] =
+		new JavaDurationConverter[R](self)
+
+	@inline implicit final def JavaZoneIdConverter(self :j.ZoneId) :JavaZoneIdConverter[R] =
+		new JavaZoneIdConverter[R](self)
+
+	@inline implicit final def JavaZoneOffsetConverter(self :j.ZoneOffset) :JavaZoneOffsetConverter[R] =
+		new JavaZoneOffsetConverter[R](self)
+
+	@inline implicit final def JavaTemporalFieldConverter(self :TemporalField) :JavaTemporalFieldConverter[R] =
+		new JavaTemporalFieldConverter[R](self)
+
+	@inline implicit final def JavaChronoUnitConverter(self :ChronoUnit) :JavaChronoUnitConverter[R] =
+		new JavaChronoUnitConverter[R](self)
+
+	@inline implicit final def JavaClockConverter(self :j.Clock) :JavaClockConverter[R] =
+		new JavaClockConverter[R](self)
+
+	@inline implicit final def ScalaDurationConverter(self :s.Duration) :ScalaDurationConverter[R] =
+		new ScalaDurationConverter[R](self)
 }
 
 

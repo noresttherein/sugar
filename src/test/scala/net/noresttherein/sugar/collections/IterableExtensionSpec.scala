@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
 
-import net.noresttherein.sugar.extensions.iterableExtension
+import net.noresttherein.sugar.extensions.IterableExtension
 import org.scalacheck.{Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter

@@ -217,9 +217,13 @@ object SafeInt {
 	/** Adds method `safe` to an `Int` value, converting it to an overflow checking
 	  *  [[net.noresttherein.sugar.numeric.SafeInt SafeInt]].
 	  */
-	class SafeIntConversion(private val self :Int) extends AnyVal {
+	class SafeIntConverter(private val self :Int) extends AnyVal {
 		/** Converts this `Int` into an overflow checking `SafeInt`. */
 		@inline def safe :SafeInt = new SafeInt(self)
+		/** Converts this `Int` into an overflow checking `SafeInt`. */
+		@inline def toSafeInt :SafeInt = new SafeInt(self)
+		/** Converts this `Int` into an overflow checking `SafeLong`. */
+		@inline def toSafeLong :SafeLong = new SafeLong(self)
 	}
 
 }
