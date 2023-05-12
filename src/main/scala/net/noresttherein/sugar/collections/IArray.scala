@@ -18,7 +18,7 @@ import net.noresttherein.sugar.witness.Maybe
 
 
 object ArrayLike {
-	class ArrayLikeExtension[E, Arr[X]] private[collections] (private[ArrayLike] val array :Array[Any])
+	class ArrayLikeExtension[E, Arr[X]] private[collections] (private[ArrayLike] val array :Array[_])
 		extends AnyVal
 	{
 		@inline def knownSize :Int = array.length
@@ -44,9 +44,9 @@ object ArrayLike {
 			array.indexWhere(p.asInstanceOf[Any => Boolean], from)
 		@inline def lastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Int =
 			array.lastIndexWhere(p.asInstanceOf[Any => Boolean], end)
-		@inline def indexOf(elem :E, from :Int = 0) :Int = array.indexOf(elem, from)
-		@inline def lastIndexOf(elem :E, end :Int = 0) :Int = array.lastIndexOf(elem, end)
-		@inline def contains(elem :E) :Boolean = array.contains(elem)
+//		@inline def indexOf(elem :E, from :Int = 0) :Int = array.indexOf(elem, from)
+//		@inline def lastIndexOf(elem :E, end :Int = 0) :Int = array.lastIndexOf(elem, end)
+//		@inline def contains(elem :E) :Boolean = array.contains(elem)
 
 		@inline def segmentLength(p :E => Boolean, from :Int = 0) :Int =
 			array.segmentLength(p.asInstanceOf[Any => Boolean], from)
@@ -313,6 +313,10 @@ object ArrayLike {
 		@inline def last :E = array.last.asInstanceOf[E]
 //		@inline def headOption :Option[E] = array.headOption
 //		@inline def lastOption :Option[E] = array.lastOption
+
+		@inline def indexOf(elem :E, from :Int = 0) :Int = array.indexOf(elem, from)
+		@inline def lastIndexOf(elem :E, end :Int = 0) :Int = array.lastIndexOf(elem, end)
+		@inline def contains(elem :E) :Boolean = array.contains(elem)
 
 		@inline def scanLeft[A](z :A)(op :(A, E) => A) :Arr[A] =
 			array.scanLeft(z :Any)(op.asInstanceOf[(Any, Any) => Any]).asInstanceOf[Arr[A]]
@@ -595,9 +599,11 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 		@inline def indexWhere(p :E => Boolean, from :Int = 0) :Int = array.indexWhere(p, from)
 		@inline def lastIndexWhere(p :E => Boolean) :Int = array.lastIndexWhere(p)
 		@inline def lastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Int = array.lastIndexWhere(p, end)
+*/
 		@inline def indexOf(elem :E, from :Int = 0) :Int = array.indexOf(elem, from)
 		@inline def lastIndexOf(elem :E, end :Int = 0) :Int = array.lastIndexOf(elem, end)
 		@inline def contains(elem :E) :Boolean = array.contains(elem)
+/*
 
 		@inline def segmentLength(p :E => Boolean, from :Int = 0) :Int = array.segmentLength(p, from)
 		@inline def startsWith[A >: E](that :IterableOnce[A]) :Boolean = array.startsWith(that, 0)
@@ -1004,7 +1010,7 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 	  * Value types are always stored in their boxed form. The advantage is the lack of dependence on `ClassTag[E]`,
 	  * and thus the ability to extend the basic `IterableFactory`.
 	  */
-	object untagged extends IterableFactory[IArray] {
+	private[collections] object untagged extends IterableFactory[IArray] {
 		private[this] val Empty :IArray[Nothing] = new Array[Any](0).asInstanceOf[IArray[Nothing]]
 
 		override def empty[E] :IArray[E] = Empty
@@ -1074,7 +1080,7 @@ case object IArray extends IArrayRank1Implicits with ClassTagIterableFactory[IAr
 			new IArrayExtension(array.asInstanceOf[Array[E]])
 
 		@inline implicit def IArrayAsArrayLikeExtension[E](array :IArray[E]) :ArrayLikeExtension[E, IArray] =
-			new ArrayLikeExtension(array.asInstanceOf[Array[Any]])
+			new ArrayLikeExtension(array.asInstanceOf[Array[_]])
 	}
 
 
@@ -1244,7 +1250,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] with IterableFactory[
 			new RefArrayExtension(array.asInstanceOf[Array[Any]])
 
 		@inline implicit def RefArrayAsArrayLikeExtension[A](array :RefArray[A]) :ArrayLikeExtension[A, RefArray] =
-			new ArrayLikeExtension[A, RefArray](array.asInstanceOf[Array[Any]])
+			new ArrayLikeExtension[A, RefArray](array.asInstanceOf[Array[_]])
 
 		@inline implicit def RefArrayAsRefArrayLikeExtension[A](array :RefArray[A]) :RefArrayLikeExtension[A, RefArray] =
 			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
@@ -1303,7 +1309,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 			new IRefArrayExtension(array.asInstanceOf[Array[Any]])
 
 		@inline implicit def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A]) :ArrayLikeExtension[A, IRefArray] =
-			new ArrayLikeExtension(array.asInstanceOf[Array[Any]])
+			new ArrayLikeExtension(array.asInstanceOf[Array[_]])
 
 		@inline implicit def IRefArrayAsRefArrayLikeExtension[A](array :IRefArray[A]) :RefArrayLikeExtension[A, IRefArray] =
 			new RefArrayLikeExtension(array.asInstanceOf[Array[Any]])
@@ -1313,6 +1319,8 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	object extensions extends extensions
 
 }
+
+
 
 
 
