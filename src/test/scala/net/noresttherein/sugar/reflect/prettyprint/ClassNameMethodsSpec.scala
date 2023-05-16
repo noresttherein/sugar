@@ -52,6 +52,7 @@ object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
 			(DoubleUnit.innerClassName ?= "Spec[Double,Unit]")  &&
 			(CharBool.innerClassName ?= "Spec[Char,Bool]") &&
 			((new DoubleUnit.boo).innerClassName ?= "boo") &&
+			((new AnyRef).innerClassName ?= "AnyRef") &&
 //			((new LongInt.shoo(42, 44)).innerClassName ?= "shoo") &&
 			(Array.ofDim[Int](1, 2, 3).innerClassName ?= "Array[Array[Array[Int]]]")
 	}
@@ -67,6 +68,7 @@ object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
 			(DoubleUnit.localClassName ?= "ClassNameMethodsSpec.Spec[Double,Unit]")  &&
 			(CharBool.localClassName ?= "ClassNameMethodsSpec.Spec[Char,Bool]") &&
 			((new DoubleUnit.boo).localClassName ?= "ClassNameMethodsSpec.Spec.boo") &&
+			((new AnyRef).localClassName ?= "AnyRef") &&
 //			((new LongInt.shoo(42, 44)).localClassName ?= "classNameMethodsSpec.Spec[Long, Int].shoo") &&
 			(Array.ofDim[Int](1, 2, 3).localClassName ?= "Array[Array[Array[Int]]]")
 
@@ -84,6 +86,7 @@ object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
 			(DoubleUnit.abbrevClassName ?= prefix + ".Spec[Double,Unit]")  &&
 			(CharBool.abbrevClassName ?= prefix + ".Spec[Char,Bool]") &&
 			((new DoubleUnit.boo).abbrevClassName ?= prefix + ".Spec.boo") &&
+			((new AnyRef).abbrevClassName ?= "AnyRef")
 //			((new LongInt.shoo(42, 44)).abbrevClassName ?= "n.n.s.p.classNameMethodsSpec.Spec[Long,Int].shoo") &&
 			(Array.ofDim[Int](1, 2, 3).abbrevClassName ?= "Array[Array[Array[Int]]]")
 	}
@@ -100,6 +103,7 @@ object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
 			(DoubleUnit.className ?= prefix + ".Spec[Double,Unit]")  &&
 			(CharBool.className ?= prefix + ".Spec[Char,Bool]") &&
 			((new DoubleUnit.boo).className ?= prefix + ".Spec.boo") &&
+			((new AnyRef).className ?= "AnyRef") &&
 //			((new LongInt.shoo(42, 44)).className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Long,Int].shoo") &&
 			(classNameOf(Array.ofDim[Int](1, 2, 3)) ?= "Array[Array[Array[Int]]]")
 	}
