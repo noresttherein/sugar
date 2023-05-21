@@ -1727,7 +1727,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * [[net.noresttherein.sugar.format.Format.Mold.append append]]
 	  * and [[net.noresttherein.sugar.format.Format.Mold.melt melt]].
 	  * Implementations of other methods are derived from the former.
-	  */ //todo: SimpleExcetionBasedMold, etc. - (advance(liquid :Liquid) + melt(model :M))
+	  */ //todo: SimpleExceptionBasedMold, etc. - (advance(liquid :Liquid) + melt(model :M))
 	trait ThrowingMold[M] extends Mold[M] {
 		override def castOpt(liquid :Liquid) :Opt[M] =
 			try { Got(cast(liquid)) } catch {

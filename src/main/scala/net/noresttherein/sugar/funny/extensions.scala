@@ -3,7 +3,7 @@ package net.noresttherein.sugar.funny
 import scala.Specializable.Arg
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, downcast2TypeParamsMethods, downcastTypeParamMethodsd, castingMethods}
+import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, downcast2TypeParamsMethods, downcastTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.funny.extensions.{FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionObjectExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}

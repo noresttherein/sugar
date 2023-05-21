@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.funny.ReturnTypeOf
 import net.noresttherein.sugar.typist
-import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcastTypeParamMethods, castingMethods}
+import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeConstructor2Methods, castTypeConstructor3Methods, castTypeConstructorMethods, castTypeParamMethods, castingMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcastTypeParamMethods}
 
 
 
@@ -16,8 +16,12 @@ trait extensions extends Any { //consider extending by the package object
 	@inline implicit final def castTypeParamMethods[T[A], X](self :T[X]) :castTypeParamMethods[T, X] =
 		new castTypeParamMethods[T, X](self)
 
-	@inline implicit final def downcastTypeParamMethodsd[T[A <: X], X](self :T[X]) :downcastTypeParamMethods[T, X] =
+	@inline implicit final def downcastTypeParamMethods[T[A <: X], X](self :T[X]) :downcastTypeParamMethods[T, X] =
 		new downcastTypeParamMethods[T, X](self)
+
+	@inline implicit final def castTypeConstructorMethods[T[_ >: X <: X], X]
+		                                                 (self :T[X]) :castTypeConstructorMethods[T, X] =
+		new castTypeConstructorMethods(self)
 
 	@inline implicit final def cast2TypeParamsMethods[T[_, _], X, Y](self :T[X, Y]) :cast2TypeParamsMethods[T, X, Y] =
 		new cast2TypeParamsMethods[T, X, Y](self)
@@ -26,6 +30,10 @@ trait extensions extends Any { //consider extending by the package object
 		                                                 (self :T[X, Y]) :downcast2TypeParamsMethods[T, X, Y] =
 		new downcast2TypeParamsMethods[T, X, Y](self)
 
+	@inline implicit final def castTypeConstructor2Methods[T[_1 >: X <: X, _2 >: Y <: Y], X, Y]
+		                                                  (self :T[X, Y]) :castTypeConstructor2Methods[T, X, Y] =
+		new castTypeConstructor2Methods(self)
+
 	@inline implicit final def cast3TypeParamsMethods[T[_, _, _], X, Y, Z]
 		                                             (self :T[X, Y, Z]) :cast3TypeParamsMethods[T, X, Y, Z] =
 		new cast3TypeParamsMethods[T, X, Y, Z](self)
@@ -33,6 +41,10 @@ trait extensions extends Any { //consider extending by the package object
 	@inline implicit final def downcast3TypeParamsMethods[T[A <: X, B <: Y, C <: Z], X, Y, Z]
 		                                                 (self :T[X, Y, Z]) :downcast3TypeParamsMethods[T, X, Y, Z] =
 		new downcast3TypeParamsMethods[T, X, Y, Z](self)
+
+	@inline implicit final def castTypeConstructor3Methods[T[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z], X, Y, Z]
+	                                                      (self :T[X, Y, Z]) :castTypeConstructor3Methods[T, X, Y, Z] =
+		new castTypeConstructor3Methods(self)
 }
 
 
@@ -144,6 +156,17 @@ object extensions extends extensions {
 		@inline def downcastParam[A <: X] :T[A] = self.asInstanceOf[T[A]]
 	}
 
+	/** Extension methods casting any value of a higher type with a single type parameter to another higher type
+	  * with the same type parameter.
+	  */
+	class castTypeConstructorMethods[T[A >: X <: X], X](private val self :T[X]) extends AnyVal {
+		/** Casts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def castCons[U[A >: X <: X]] :U[X] = self.asInstanceOf[U[X]]
+
+		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def downcastCons[U[A >: X <: X] <: T[A]] :U[X] = self.asInstanceOf[U[X]]
+	}
+
 
 
 
@@ -165,7 +188,6 @@ object extensions extends extensions {
 		@inline def castParam2[B] :T[X, B] = self.asInstanceOf[T[X, B]]
 	}
 
-
 	/** Extension downcasting methods for the type parameters of a higher type,
 	  * preserving the original, binary type constructor.
 	  */
@@ -180,6 +202,16 @@ object extensions extends extensions {
 		@inline def downcastParam2[B <: Y] :T[X, B] = self.asInstanceOf[T[X, B]]
 	}
 
+	/** Extension methods casting any value of a higher type with a two type parameters to another higher type
+	  * with the same type parameters.
+	  */
+	class castTypeConstructor2Methods[T[_1 >: X <: X, _2 >: Y <: Y], X, Y](private val self :T[X, Y]) extends AnyVal {
+		/** Casts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def castCons[U[_ >: X <: X, _ >: Y <: Y]] :U[X, Y] = self.asInstanceOf[U[X, Y]]
+
+		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def downcastCons[U[_1 >: X <: X, _2 >: Y <: Y] <: T[_1, _2]] :U[X, Y] = self.asInstanceOf[U[X, Y]]
+	}
 
 
 
@@ -206,11 +238,12 @@ object extensions extends extensions {
 		@inline def castParam3[C] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
 	}
 
-
 	/** Extension casting methods for the type parameters of a higher type,
 	  * preserving the original, ternary type constructor.
 	  */
-	class downcast3TypeParamsMethods[T[_1 <: X, _2 <: Y, _3 <: Z], X, Y, Z](private val self :T[X, Y, Z]) extends AnyVal {
+	class downcast3TypeParamsMethods[T[_1 <: X, _2 <: Y, _3 <: Z], X, Y, Z](private val self :T[X, Y, Z])
+		extends AnyVal
+	{
 		/** Casts own all type parameters of this expression's type. */
 		@inline def downcastParams[A <: X, B <: Y, C <: Z] :T[A, B, C] = self.asInstanceOf[T[A, B, C]]
 
@@ -228,6 +261,20 @@ object extensions extends extensions {
 		  * preserving the type constructor and the rest of the parameters unchanged.
 		  */
 		@inline def downcastParam3[C <: Z] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
+	}
+
+	/** Extension methods casting any value of a higher type with a two type parameters to another higher type
+	  * with the same type parameters.
+	  */
+	class castTypeConstructor3Methods[T[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z], X, Y, Z](private val self :T[X, Y, Z])
+		extends AnyVal
+	{
+		/** Casts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def castCons[U[_ >: X <: X, _ >: Y <: Y, _ >: Z <: Z]] :U[X, Y, Z] = self.asInstanceOf[U[X, Y, Z]]
+
+		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def downcastCons[U[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z] <: T[_1, _2, _3]] :U[X, Y, Z] =
+			self.asInstanceOf[U[X, Y, Z]]
 	}
 
 }
