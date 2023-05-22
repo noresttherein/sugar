@@ -167,9 +167,9 @@ package object prettyprint {
 	  */
 	def localNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
-
-		case null if clazz.isPrimitive => clazz.getName.capitalize
-		case null if clazz.isBox => "J" + clazz.unboxed.getName.capitalize
+		case _ if clazz == classOf[AnyRef]     => "AnyRef"
+		case null if clazz.isPrimitive         => clazz.getName.capitalize
+		case null if clazz.isBox               => "J" + clazz.unboxed.getName.capitalize
 		case null =>
 			val qualified = clazz.getName
 			val end = trimTrailingDollars(qualified)
@@ -237,8 +237,8 @@ package object prettyprint {
 	  */
 	def abbrevNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
-
-		case null if clazz.isPrimitive => clazz.getName.capitalize
+		case _ if clazz == classOf[AnyRef]     => "AnyRef"
+		case null if clazz.isPrimitive         => clazz.getName.capitalize
 		case null =>
 			val qname = clazz.getName
 			val end = trimTrailingDollars(qname)
@@ -321,6 +321,7 @@ package object prettyprint {
 	  */
 	def fullNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
 		case _ if clazz == java.lang.Void.TYPE => "Unit"
+		case _ if clazz == classOf[AnyRef]     => "AnyRef"
 
 		case null if clazz.isPrimitive => clazz.getName.capitalize
 		case null =>
@@ -386,10 +387,10 @@ package object prettyprint {
 		def rollback() = {
 			result.delete(rollbackPoint, result.length)
 			result append '.' //for the '$' starting '$mc'.
-			offset //no infinite loop as input doesn't starti with a '$' and "mc" will get normal char treatment
+			offset //no infinite loop as input doesn't start with a '$' and "mc" will get normal char treatment
 		}
 		@tailrec def demangle(pos :Int, params :List[String] = Nil) :Int =
-			if (pos == end)  //end of input encoutered before the closing sequence of specialized parameters encoding
+			if (pos == end)  //end of input encountered before the closing sequence of specialized parameters encoding
 				rollback()
 			else {
 				val param = input.charAt(pos)
