@@ -210,3 +210,18 @@ package typist {
 		type Rank9 >: +[Rank8] <: Rank8//= +[Rank8]
 	}
 }
+
+
+
+
+package typist {
+	/** A specialized implicit conversion `X => Y`. Using this type rather than just `X => Y`, or defining
+	  * the conversion as a method, gives priority to this conversion over others.
+	  */
+	trait PriorityConversion[-X, +Y] extends (X => Y)
+
+	object PriorityConversion {
+		def apply[X, Y](conversion :PriorityConversion[X, Y]) :PriorityConversion[X, Y] = conversion
+		def adapt[X, Y](f :X => Y) :PriorityConversion[X, Y] = f(_)
+	}
+}
