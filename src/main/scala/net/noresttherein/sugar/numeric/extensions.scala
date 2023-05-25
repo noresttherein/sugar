@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.numeric
 
+import java.{lang => jl}
+import java.lang.{Math => math}
 import java.math.{BigInteger, MathContext, BigDecimal => JavaBigDecimal}
 
 import scala.util.Random
@@ -146,6 +148,25 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class IntExtension private[extensions] (private val self :Int) extends AnyVal {
+		/** Raises this `Int` to the given power. If the argument is negative, `0` is returned. */
+		def pow(exp :Int) :Int = 
+			if (exp < 0)
+				0
+			else {
+				var res = 1
+				var i   = jl.Integer.highestOneBit(exp)
+				while (i >= 0) {
+					res = res * res
+					if ((exp >> i & 1) == 1)
+						res = res * self
+					i -= 1
+				}
+				res
+			}
+
+		/** Raises this `Int` to the given power. If the argument is negative, `0` is returned. */
+		@inline def **(exp :Int) :Int = pow(exp)
+		
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(self)
 
@@ -176,6 +197,34 @@ object extensions extends extensions {
 		  * @throws ArithmeticException if this number is negative.
 		  */
 		@inline def toNatural :Natural = Natural(self)
+
+		
+		/** Number of one bits in the binary representation of this `Int`. */
+		@inline def bitCount :Int = jl.Integer.bitCount(self)
+
+		/** The number of consecutive zero bits in the highest positions of this `Int`. */
+		@inline def leadingZeros  :Int = jl.Integer.numberOfLeadingZeros(self)
+
+		/** The number of consecutive zero bits in the lowest positions of this `Int`. */
+		@inline def trailingZeros :Int = jl.Integer.numberOfTrailingZeros(self)
+
+		/** The highest one bit (with zero being the least significant bit). */
+		@inline def highestOneBit :Int = jl.Integer.highestOneBit(self)
+
+		/** The lowest one bit (with zero being the least significant bit). */
+		@inline def lowestOneBit :Int = jl.Integer.lowestOneBit(self)
+
+		/** An `Int` whose binary representation contains bits in the reverse order. */
+		@inline def reverse :Int = jl.Integer.reverse(self)
+
+		/** Reverses the order of bytes in this `Int`. */
+		@inline def reverseBytes :Int = jl.Integer.reverseBytes(self)
+		
+		/** Shifts all bits by `n` position up, with the highest `n` bits being moved to the lowest `n` bits of the result. */
+		@inline def rotateLeft(n :Int) :Int = jl.Integer.rotateLeft(self, n)
+
+		/** Shifts all bits by `n` position down, with the lowest `n` bits being moved to the highest `n` bits of the result. */
+		@inline def rotateRight(n :Int) :Int = jl.Integer.rotateRight(self, n)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -183,6 +232,25 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class LongExtension private[extensions] (private val self :Long) extends AnyVal {
+		/** Raises this `Long` to the given power. If the argument is negative, `0` is returned. */
+		def pow(exp :Int) :Long =
+			if (exp < 0)
+				0
+			else {
+				var res = 1L
+				var i   = jl.Long.highestOneBit(exp)
+				while (i >= 0) {
+					res = res * res
+					if ((exp >> i & 1) == 1)
+						res = res * self
+					i -= 1
+				}
+				res
+			}
+
+		/** Raises this `Long` to the given power. If the argument is negative, `0` is returned. */
+		@inline def **(exp :Int) :Long = pow(exp)
+
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(self)
 
@@ -212,7 +280,36 @@ object extensions extends extensions {
 		/** This byte as a natural number.
 		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
 		  */
-		@inline def toNatural = Natural(self.toInt)
+		@inline def toNatural :Natural = Natural(self.toInt)
+
+
+		/** Number of one bits in the binary representation of this `Long`. */
+		@inline def bitCount :Long = jl.Long.bitCount(self)
+
+		/** The number of consecutive zero bits in the highest positions of this `Long`. */
+		@inline def leadingZeros :Long = jl.Long.numberOfLeadingZeros(self)
+
+		/** The number of consecutive zero bits in the lowest positions of this `Long`. */
+		@inline def trailingZeros :Long = jl.Long.numberOfTrailingZeros(self)
+
+		/** The highest one bit (with zero being the least significant bit). */
+		@inline def highestOneBit :Long = jl.Long.highestOneBit(self)
+
+		/** The lowest one bit (with zero being the least significant bit). */
+		@inline def lowestOneBit :Long = jl.Long.lowestOneBit(self)
+
+		/** An `Long` whose binary representation contains bits in the reverse order. */
+		@inline def reverse :Long = jl.Long.reverse(self)
+
+		/** Reverses the order of bytes in this `Long`. */
+		@inline def reverseBytes :Long = jl.Long.reverseBytes(self)
+
+		/** Shifts all bits by `n` position up, with the highest `n` bits being moved to the lowest `n` bits of the result. */
+		@inline def rotateLeft(n :Int) :Long = jl.Long.rotateLeft(self, n)
+
+		/** Shifts all bits by `n` position down, with the lowest `n` bits being moved to the highest `n` bits of the result. */
+		@inline def rotateRight(n :Int) :Long = jl.Long.rotateRight(self, n)
+		
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -220,6 +317,12 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class FloatExtension private[extensions] (private val self :Float) extends AnyVal {
+		/** Raises this `Float` to the given power. */
+		@inline def pow(exp :Float) :Double = math.pow(self, exp)
+
+		/** Raises this `Float` to the given power. */
+		@inline def **(exp :Float) :Double = math.pow(self, exp)
+
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Float) :Float = math.max(self, other)
 
@@ -238,6 +341,18 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class DoubleExtension private[extensions] (private val self :Double) extends AnyVal {
+		/** Square root of this `Double`. */
+		@inline def sqrt :Double = math.sqrt(self)
+
+		/** Cube root of this `Double`. */
+		@inline def cbrt :Double = math.cbrt(self)
+
+		/** Raises this `Double` to the given power. */
+		@inline def pow(exp :Double) :Double = math.pow(self, exp)
+
+		/** Raises this `Double` to the given power. */
+		@inline def **(exp :Double) :Double = math.pow(self, exp)
+
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Double) :Double = math.max(self, other)
 
