@@ -25,13 +25,13 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 	@inline def name :String = toJava.getName
 
 	/** The level at which and above this logger currently logs. */
-	def level :Level = toJava.getLevel match {
+	@inline def level :Level = toJava.getLevel match {
 		case null => parent.get.level
 		case lvl => lvl
 	}
 
 	/** Parent logger or `None` for the root logger. */
-	def parent :Option[Logger] = toJava.getParent match {
+	@inline def parent :Option[Logger] = toJava.getParent match {
 		case null => None
 		case log => Some(new Logger(log))
 	}
@@ -42,52 +42,48 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 
 	/** Logs the message at the given level. */
-	def log(level :Level, msg: =>Any) :Unit =
-		if (toJava.isLoggable(level)) {
-			val record = new LogRecord(level, msg.toString)
-			FindCaller.fill(record)
-			toJava.log(record)
-		}
+	@inline def log(level :Level, msg: => Any) :Unit =
+		if (toJava.isLoggable(level))
+			doLog(level, msg)
 
 	/** Logs the given message with an attached exception at the specified level. */
-	def log(level :Level, msg: =>Any, e :Throwable) :Unit =
-		if (toJava.isLoggable(level)) {
-			val record = new LogRecord(level, msg.toString)
-			record.setThrown(e)
-			FindCaller.fill(record)
-			toJava.log(record)
-		}
+	@inline def log(level :Level, msg: => Any, e :Throwable) :Unit =
+		if (toJava.isLoggable(level))
+			doLog(level, msg, e)
+
+	private[Logger] def doLog(level :Level, msg :Any) :Unit = {
+		val record = new LogRecord(level, if (msg == null) null else msg.toString)
+		FindCaller.fill(record)
+		toJava.log(record)
+	}
+	private[Logger] def doLog(level :Level, msg :Any, e :Throwable) :Unit = {
+		val record = new LogRecord(level, if (msg == null) null else msg.toString)
+		record.setThrown(e)
+		FindCaller.fill(record)
+		toJava.log(record)
+	}
 
 
 	@inline def severe(msg: => Any) :Unit = log(SEVERE, msg)
-
 	@inline def severe(msg: => Any, e :Throwable) :Unit = log(SEVERE, msg, e)
 
 	@inline def warning(msg: => Any) :Unit = log(WARNING, msg)
-
 	@inline def warning(msg: => Any, e :Throwable) :Unit = log(WARNING, msg, e)
 
 	@inline def info(msg: => Any) :Unit = log(INFO, msg)
-
 	@inline def info(msg: => Any, e :Throwable) :Unit = log(INFO, msg, e)
 
 	@inline def config(msg: => Any) :Unit = log(CONFIG, msg)
-
 	@inline def config(msg: => Any, e :Throwable) :Unit = log(CONFIG, msg, e)
 
 	@inline def fine(msg: => Any) :Unit = log(FINE, msg)
-
 	@inline def fine(msg: => Any, e :Throwable) :Unit = log(FINE, msg, e)
 
-	@inline def finer(msg: =>Any) :Unit = log(FINER, msg)
-
+	@inline def finer(msg: => Any) :Unit = log(FINER, msg)
 	@inline def finer(msg: => Any, e :Throwable) :Unit = log(FINER, msg, e)
 
 	@inline def finest(msg: => Any) :Unit = log(FINEST, msg)
-
 	@inline def finest(msg: => Any, e :Throwable) :Unit = log(FINEST, msg, e)
-
-
 }
 
 
@@ -105,16 +101,15 @@ object Logger {
 		new Logger(JLogger.getLogger(naming(owner)))
 
 
-
 	/** Simple wrapper over `java.util.logging.Level` providing logging functionality by the use of an implicit logger.
 	  * Constants for standard Java logging levels are available in the companion object. Note that using level objects
-	  * for logging offers a very simple way of performing arbitrary mappings of these levels to a more tranditional set
+	  * for logging offers a very simple way of performing arbitrary mappings of these levels to a more traditional set
 	  * by simple value definitions such as
 	  * {{{
-	  *     final val debug = Level.Finer
-	  *     final val info = Level.Info
+	  *     final val debug   = Level.Finer
+	  *     final val info    = Level.Info
 	  *     final val warning = Level.Warn
-	  *     final val error = Level.Severe
+	  *     final val error   = Level.Severe
 	  * }}}
 	  */
 	@SerialVersionUID(Ver)
@@ -130,15 +125,15 @@ object Logger {
 
 	@SerialVersionUID(Ver)
 	object Level {
-		final val All :Level = JLevel.ALL
+		final val All    :Level = JLevel.ALL
 		final val Severe :Level = JLevel.SEVERE
-		final val Warn :Level = JLevel.WARNING
-		final val Info :Level = JLevel.INFO
+		final val Warn   :Level = JLevel.WARNING
+		final val Info   :Level = JLevel.INFO
 		final val Config :Level = JLevel.CONFIG
-		final val Fine :Level = JLevel.FINE
-		final val Finer :Level = JLevel.FINER
+		final val Fine   :Level = JLevel.FINE
+		final val Finer  :Level = JLevel.FINER
 		final val Finest :Level = JLevel.FINEST
-		final val Off :Level = JLevel.OFF
+		final val Off    :Level = JLevel.OFF
 
 		def apply(level :JLevel) :Level = new Level(level)
 
@@ -150,7 +145,7 @@ object Logger {
 
 
 	/** A SAM type producing the name of the logger, given its owning object.
-	  * @see [[net.noresttherein.sugar.prettyprint]]
+	  * @see [[net.noresttherein.sugar.reflect.prettyprint]]
 	  */
 	trait NamingScheme extends Serializable {
 		def apply(owner :Any) :String

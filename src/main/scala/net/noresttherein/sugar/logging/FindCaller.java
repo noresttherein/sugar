@@ -7,6 +7,7 @@ import java.lang.StackWalker.StackFrame;
 
 
 class FindCaller {
+    private static final String packageName = FindCaller.class.getPackageName();
 
     public static StackFrame apply() {
         return StackWalker.getInstance().walk(frames -> {
@@ -15,7 +16,7 @@ class FindCaller {
             while (it.hasNext()) {
                 frame = it.next();
                 String className = frame.getClassName();
-                if (!className.startsWith("net.noresttherein.sugar.logging")) {
+                if (!className.startsWith(packageName)) {
                     return frame;
                 }
             }
@@ -30,7 +31,7 @@ class FindCaller {
             while (it.hasNext()) {
                 frame = it.next();
                 String className = frame.getClassName();
-                if (!className.startsWith("net.noresttherein.sugar.logging")) {
+                if (!className.startsWith(packageName)) {
                     record.setSourceClassName(className + "(" + frame.getFileName() + ":" + frame.getLineNumber() + ")");
                     record.setSourceMethodName(frame.getMethodName());
                     record.setParameters(new Object[]{ frame.getFileName(), frame.getLineNumber() });
