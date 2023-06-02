@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.reflect
 
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
-import net.noresttherein.sugar.reflect.extensions.ClassExtension
+import net.noresttherein.sugar.reflect.extensions.{AnyRefExtension, ClassExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
 import net.noresttherein.sugar.vars.Opt
 
@@ -11,6 +11,9 @@ import net.noresttherein.sugar.vars.Opt
 trait extensions extends Any with prettyprint.extensions {
 	/** Adds `innerName`, `localName` and `abbrevName` methods to `Class`, providing a shorter alternative to `getName`. */
 	@inline implicit final def ClassExtension(self :Class[_]) :ClassExtension = new ClassExtension(self)
+
+	/** Adds `identityHashCode` method to all reference types. */
+	@inline implicit final def AnyRefExtension(self :AnyRef) :AnyRefExtension = new AnyRefExtension(self)
 }
 
 
@@ -18,10 +21,31 @@ trait extensions extends Any with prettyprint.extensions {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
+	class AnyRefExtension(private val self :AnyRef) extends AnyVal {
+		/** The value of `hashCode` as it would be inherited for this object from the default implementation in `AnyRef`. */
+		@inline def identityHashCode :Int = System.identityHashCode(self)
+	}
+
+
+
 	/** Extension methods dealing with boxing and unboxing, as well as formatting the name of a class in several ways,
 	  * demangling the runtime class name to an approximation of the class symbol as it appears in code.
 	  */
 	class ClassExtension private[reflect] (private val self :Class[_]) extends AnyVal {
+		/** Returns `other isAssignableFrom this`. */
+		@inline def <:<(other :Class[_]) :Boolean = other isAssignableFrom self
+
+		/** True if either this class a subclass of `other` (including being the same class),
+		  * or one class is a built in value type and the other is its standard box class.
+		  */
+		@inline def <%<(other :Class[_]) :Boolean =
+			(other isAssignableFrom self) || isBoxOf(other) || other.isBoxOf(self)
+
+		/** Tue if either the argument is the same class as this one, or one class is a built in value type,
+		  * and the other is its standard box class.
+		  */
+		@inline def =%=(other :Class[_]) :Boolean = (self == other) || isBoxOf(other) || other.isBoxOf(self)
+
 		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.). */
 		def isBox :Boolean = extensions.Unwrapped.contains(self)
 
