@@ -68,59 +68,88 @@ based on the stack trace of its cause, using the suffix since the most recent `r
 
 
 ### 4. sugar.collections ###
-Many extension methods for collections, including:
 
-#### 4.1 Partial folding ####
+#### 4.1. Many, many extension methods
+Examples:
+
+##### 4.1.1. Partial folding ####
     numbers.foldLeftWhile(0)(_ < Threshold)(_ + _)
     numbers.foldRightUntil(0)(_ >= Threshold)(_ + _)
     numbers.foldSome(0)((e, acc) => if (e + acc) < Threshold) Some(e + acc) else None)
 and others.
 
-#### 4.2 Mapping with state ####
+##### 4.1.2. Mapping with state ####
     values.mapWithIndex{ (val, i) => s"$i: $val" }
     (Range(0, 10) zipMap (Range(11, 20))(_ + _)
     numbers.mapWith(0) { (val, sum) => (s" +$val = $sum", val + sum) }
-and others
+and others.
 
-#### 4.3 Extension factory methods for standard `IterableFactory` objects
+##### 4.1.3. Fused zipping methods
+Like lazy zip, but potentially with more efficient implementations and using multi-argument functions, 
+which is good for lambda placeholder syntax:
+     
+    l.zipMapEven(r)(_ + _ * 2) //'even' methods throw an exception when collection sizes differ
+    a.zipAll3(b, c, 'a', 'b', 'c') //like zipAll, but now does three collections for the price of two!
+
+##### 4.1.4. Extension factory methods for standard `IterableFactory` objects
     Seq.generate(2) { case x if x <= 1024 => x }
     Iterator.over(Array(1, 2, 3))
     Stepper(singleton)
     Array.unfold(2)(Some(_ * 2).filter(_ <= 1024))
 
-#### 4.4 `Seq` extensions
+##### 4.1.5. `Seq` extensions
     Seq(1, 2, 3).isSorted
-    dragons.getIndexOf(firkraag) // returns an Opt - non empty values are always >= 0
+    dragons.getIndexOf(firkraag)                 // returns an Opt - non empty values are always >= 0
     dragons.sureIndexWhere(_.name == "Firkraag") //throws a NoSuchElementException instead of returning -1
-and others
+    heroes.updatedAll(0, Seq("You", "Boo", "I")) //updated for consecutive elements
+    weekdays.remove(0, 5)                        //an 'inverse' of slice
+          
+and others.
 
-#### 4.5 Stepper, Iterator and Array extensions
-Additional factory methods, in particular for specialized singleton implementations.
+##### 4.1.6. Stepper, Iterator and Array extensions
+Additional factory methods, in particular for specialized singleton implementations, but also bringing over
+some omitted `java.util.Arrays` methods.
 
-#### 4.6 Ranking 
-A collection of unique elements in a particular order.
 
-#### 4.7 PassedArray
-An immutable version of the growing array buffer with O(1) *first* append/prepend.
+#### 4.2. 
+New array types! All, including built in `Array` 'extending' from `ArrayLike`, and represented by non-wrapped `Array`s:
 
-#### 4.8 MultiSet 
+     IArray[+A]    //an immutable array - a taste of Scala 3 in Scala 2, and with more polymorphism, to boot
+     RefArray[A]   //an Array[AnyRef], mascarading for an `Array[A]`, making the ubuiquitous practice properly type safe
+     IRefArray[+A] //an Array[AnyRef] storing only values of `A`, for immutable use.
+
+#### 4.3. PassedArray
+An immutable version of a dope vector and a growing array buffer with O(1) *first* append/prepend.
+
+#### 4.4. CubeBuffer 
+A buffer implementation using multidimensional arrays for better memory usage characteristics.
+
+#### 4.5. Jack
+A universal, immutable sequence backed by a 'true' finger tree, with all operations taking `O(log n)` time,
+except for access near the ends (`O(1)`) and methods requiring reading/updating every value in the sequence 
+(`O(n)`, naturally).
+
+#### 4.6. Ranking 
+A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
+
+#### 4.7. MultiSet 
 A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
 with repetitions, and as a `Map[A, Int]`.
 
-#### 4.9 ZigZag 
+#### 4.8. ZigZag 
 A `Seq` offering O(1) append and prepend for any other `Seq`, at a cost of slower iteration,
 designed for use as temporary buffers.
 
-#### 4.10 ChoppedString 
+#### 4.9. ChoppedString 
 A list-like collection of composed `String` concatenations
 for use as an alternative to `StringBuilder` (has O(1) append/prepend, at the cost of O(n) random indexing).
 Includes also a `Substring` subclass, useful in itself.
 
-#### 4.11 NatMap and MutNatMap 
+#### 4.10. NatMap and MutNatMap 
 Maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
-#### 4.12 Other collections of marginal use ###
-`EqSet`, `SeqSlice`, `ConstSeq`, many `Stepper` and `Iterator` implementations.
+#### 4.11. Other collections of marginal use ###
+`EqSet`, `ConstSeq`, many `Stepper` and `Iterator` implementations.
 
 
 
@@ -151,9 +180,11 @@ Various styles of `repeat` loop:
 
 
 ### 7. sugar.numeric ###
-  1. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
-  2. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
-  3. `Decimal64` - a `BigDecimal`-like value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
+  1. Extension methods for standard numeric value types, in particular bringing back static methods from 
+     `java.lang.Integer` and the rest.
+  2. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
+  3. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
+  4. `Decimal64` - a `BigDecimal`-like value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
 
 
 
@@ -175,37 +206,37 @@ lazy/external initialization, garbage collecting handling and others.
     val u :Unsure[Int] = Sure(0)    //a @specialized Option substitute
     val o = Opt(null)             //a value class `Option` substitute    
 
-#### 8.1 Var
+#### 8.1. Var
 A standard mutable value wrapper.
 
-#### 8.2 SyncVar, Volatile, Atomic
+#### 8.2. SyncVar, Volatile, Atomic
 Wrappers over mutable fields with synchronous access and varying memory semantics.
 
-#### 8.3 SignalVal, SignalVar, Watched
+#### 8.3. SignalVal, SignalVar, Watched
 Variables with API for waiting for value changes, or registering callbacks.
 
-#### 8.4 Out
+#### 8.4. Out
 A thread safe variable which can be set - externally - only once.
 
-#### 8.5 Freezer
+#### 8.5. Freezer
 A thread safe variable which can enter immutable state.
 
-#### 8.4 Lazy, Idempotent, and Transient
+#### 8.6. Lazy, Idempotent, and Transient
 Various alternatives of `lazy val`, providing information about initialization state
 and alternative strategies for initialization for optimized contentious read.
 
-#### 8.5 Relay
+#### 8.7. Relay
 A synchronous thread communication chanel for passing individual messages through 
 a value reader/writer handshake.
 
-#### 8.6 Unsure, Opt, Potential
+#### 8.8. Unsure, Opt, Potential
 Optimized `Option` alternative implementations: `@specialized`, as a value class,
 and a non boxing abstract type.
 
-#### 8.7 Others
+#### 8.9. Others
 `EqRef`, `Box`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.
 
-#### 8.8 Pill and Fallible
+#### 8.10. Pill and Fallible
 Alternatives to `Either` which do not box the 'right' (non error) values.
 
 
@@ -225,7 +256,7 @@ The types, values and factory methods generally follow the Java flavour of regul
 which should make you feel at home with the character classes you know, and provide 
 discovery and documentation viewing potential of a statically typed language in your IDE.
     
-#### 9.2 RegexpGroupMatcher ####
+#### 9.2. RegexpGroupMatcher ####
 Provides string interpolation syntax for regular expressions used in pattern matching:
 
     string match {
@@ -233,7 +264,7 @@ Provides string interpolation syntax for regular expressions used in pattern mat
     }    
 Arbitrary patterns can take place of the unbound variables `user` and `domain` in the above example.    
 
-#### 9.3 && ####
+#### 9.3. && ####
 The smallest but one of the most useful classes allows combining several extractor 
 patterns in a logical conjunction:
     
@@ -241,7 +272,7 @@ patterns in a logical conjunction:
         case MeleeDmg(melee) && RangedDmg(ranged) => ...
     }
 
-#### 9.4 Base traits and factories of match patterns and partial functions
+#### 9.4. Base traits and factories of match patterns and partial functions
 
     ints.collect(MatchFunction.collect { 
         (x :Int, default :Int => Int) => if (x % 2 == 0) x / 2 else default(x) 
@@ -297,22 +328,10 @@ Also, tagging implicit values:
     implicit val h = Labeled[Planck](6.62607004d * math.pow(10, -34))
     implicit val tidy_h = Labeled[TidyPlanck](7d * math.pow(10, -34))
     implicitly[Double Labeled Planck]
-
-
-
-### 13. sugar.prettyprint ###
-Various ways for demangling and abbreviating class names for logging purposes, for example:
-
-    object.getClass.name       //my.package.Singleton.Specialized_:[Int]
-    object.getClass.abbrevName //m.p.Singleton.Specialized_:[Int]
-    object.localClassName      //Singleton.Specialized_:[Int]
-    object.innerClassName      //Specialized_:[Int]
-
-Also, reflection-based utilities for implementing `toString` methods.
     
     
     
-### 14. sugar.typist ###
+### 13. sugar.typist ###
 Safer casting methods - less powerful, imposing constraints on the source and target type,
 including casting on type parameters for higher types.
 
@@ -321,20 +340,29 @@ including casting on type parameters for higher types.
 
 
 
-### 15. sugar.reflect ###
-  1. `Class` extensions, in particular with methods such as `isBoxOf` dealing with the duality of boxed and unboxed 
-     primitive values.
-  2. `PropertyPath`: reflecting a (possibly composite) properties given as getter functions:
+### 14. sugar.reflect ###
+  1. `PropertyPath`: reflecting a (possibly composite) properties given as getter functions:
       
-    assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
+         assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
+  2. `Class` extensions, in particular with methods such as `isBoxOf` dealing with the duality of boxed and unboxed 
+     primitive values.
+
+  3. Various ways for demangling and abbreviating class names for logging purposes, for example:
+
+         object.getClass.name       //my.package.Singleton.Specialized_:[Int]
+         object.getClass.abbrevName //m.p.Singleton.Specialized_:[Int]
+         object.localClassName      //Singleton.Specialized_:[Int]
+         object.innerClassName      //Specialized_:[Int]
+
+Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-### 16. sugar.Sealing ###
+#### 15. sugar.Sealing ###
 A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
 and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
 
 
 
-### 17. others ###
+### 16. others ###
 Whose names are not worthy to appear here.    

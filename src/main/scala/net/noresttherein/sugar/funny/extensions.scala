@@ -3,8 +3,8 @@ package net.noresttherein.sugar.funny
 import scala.Specializable.Arg
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, downcast2TypeParamsMethods, downcastTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.funny.extensions.{FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionObjectExtension}
+import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castingMethods, downcast2TypeParamsMethods, downcastTypeParamMethods}
+import net.noresttherein.sugar.funny.extensions.{FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionObjectExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -18,9 +18,6 @@ trait extensions extends Any {
 
 	@inline implicit final def HomoFunctionExtension[X](f :X => X) :HomoFunctionExtension[X] =
 		new HomoFunctionExtension(f)
-
-	@inline implicit final def OptFunctionExtension[X, Y](f :X => Opt[Y]) :OptFunctionExtension[X, Y] =
-		new OptFunctionExtension(f)
 
 	@inline implicit final def OptHomoFunctionExtension[X](f :X => Opt[X]) :OptHomoFunctionExtension[X] =
 		new OptHomoFunctionExtension(f)
@@ -48,7 +45,6 @@ trait extensions extends Any {
 @SerialVersionUID(Ver)
 object extensions extends extensions {
 
-
 	class FunctionExtension[X, Y] private[funny] (private val self :X => Y) extends AnyVal {
 		/** Adapts this function to a `PartialFunction` which always returns `true` from `isDefinedAt`. */
 		def toPartialFunction :PartialFunction[X, Y] = new FunctionAsPartialFunction(self)
@@ -61,14 +57,6 @@ object extensions extends extensions {
 		@tailrec final def applyWhile(x :X)(pred :X => Boolean) :X =
 			if (pred(x)) applyWhile(self(x))(pred)
 			else x
-	}
-
-	class OptFunctionExtension[X, Y] private[funny] (private val self :X => Opt[Y]) extends AnyVal {
-		/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
-		  * that can be used in pattern matching or as a partial function.
-		  * @return a partial function extractor wrapping this function.
-		  */
-		def unlift :PartialFunction[X, Y] = new OptFunction(self, "<unlifted function>")
 	}
 
 	class OptHomoFunctionExtension[X] private[funny] (private val self :X => Opt[X]) extends AnyVal {
@@ -290,6 +278,19 @@ object extensions extends extensions {
 	@SerialVersionUID(Ver)
 	private final class OptFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
 	                               (f :In => Opt[Out], override val toString :String)
+		extends ComposablePartialFunction[In, Out]
+	{
+		override def isDefinedAt(x :In) :Boolean = f(x).isDefined
+
+		override def apply(v1 :In) :Out = f(v1) getOrElse { throw new MatchError(v1) }
+
+		override def applyOrElse[A1 <: In, B1 >: Out](x :A1, default :A1 => B1) :B1 =
+			f(x) getOrElse default(x)
+	}
+
+	@SerialVersionUID(Ver)
+	private final class OptionFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
+	                                  (f :In => Option[Out], override val toString :String)
 		extends ComposablePartialFunction[In, Out]
 	{
 		override def isDefinedAt(x :In) :Boolean = f(x).isDefined

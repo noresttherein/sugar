@@ -6,6 +6,7 @@ package net.noresttherein.sugar.funny
 @SerialVersionUID(Ver)
 object generic {
 //	type Subtype[U] = { type T[X <: U] = X }
+	type Any[_] = scala.Any
 	type Self[+X] = X
 	type Fixed[Y] = { type T[X] = Y }
 	type FunctionOf[X] = { type F[Y] = X => Y }

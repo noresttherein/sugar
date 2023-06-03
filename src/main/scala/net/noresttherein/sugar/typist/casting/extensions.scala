@@ -139,6 +139,86 @@ object extensions extends extensions {
 
 
 
+	/** Extension methods casting any value of a higher type with a single type parameter to another higher type
+	  * with the same type parameter.
+	  */
+	class castTypeConstructorMethods[T[A >: X <: X], X](private val self :T[X]) extends AnyVal {
+		/** Casts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def castCons[O[A >: X <: X]] :O[X] = self.asInstanceOf[O[X]]
+
+		/** Casts the type constructor of this expression's type, preserving the type parameter.
+		  * For added safety, the current type constructor must be specified explicitly as the first type argument.
+		  */
+		@inline def castConsFrom[U[A >: X <: X] >: T[A] <: T[A], O[A >: X <: X]] :O[X] = self.asInstanceOf[O[X]]
+
+		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def downcastCons[O[A >: X <: X] <: T[A]] :O[X] = self.asInstanceOf[O[X]]
+
+		/** Casts the type constructor of this expression's type, preserving the type parameter.
+		  * For added safety, the current type constructor must be specified explicitly as the first type argument.
+		  */
+		@inline def downcastConsFrom[U[A >: X <: X] >: T[A], O[A >: X <: X] <: T[A]] :O[X] =
+			self.asInstanceOf[O[X]]
+	}
+
+	/** Extension methods casting any value of a higher type with a two type parameters to another higher type
+	  * with the same type parameters.
+	  */
+	class castTypeConstructor2Methods[T[_1 >: X <: X, _2 >: Y <: Y], X, Y](private val self :T[X, Y]) extends AnyVal {
+		/** Casts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def castCons[O[_ >: X <: X, _ >: Y <: Y]] :O[X, Y] = self.asInstanceOf[O[X, Y]]
+
+		/** Casts the type constructor of this expression's type, preserving the type parameter.
+		  * For added safety, the type constructor of the cast expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castConsFrom[U[A >: X <: X, B >: Y <: Y] >: T[A, B] <: T[A, B], O[_ >: X <: X, _ >: Y <: Y]] :O[X, Y] =
+			self.asInstanceOf[O[X, Y]]
+
+		/** Casts down the type constructor of this expression's type, preserving the type parameter. */
+		@inline def downcastCons[O[A >: X <: X, B >: Y <: Y] <: T[A, B]] :O[X, Y] = self.asInstanceOf[O[X, Y]]
+
+		/** Casts down the type constructor of this expression's type, preserving the type parameter.
+		  * For added safety, the type constructor of the cast expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastConsFrom[U[A >: X <: X, B >: Y <: Y] >: T[A, B], O[A >: X <: X, B >: Y <: Y] <: T[A, B]] :O[X, Y] =
+			self.asInstanceOf[O[X, Y]]
+	}
+
+	/** Extension methods casting any value of a higher type with a two type parameters to another higher type
+	  * with the same type parameters.
+	  */
+	class castTypeConstructor3Methods[T[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z], X, Y, Z](private val self :T[X, Y, Z])
+		extends AnyVal
+	{
+		/** Casts the type constructor of this expression's type, preserving the type parameter. */
+		@inline def castCons[O[_ >: X <: X, _ >: Y <: Y, _ >: Z <: Z]] :O[X, Y, Z] = self.asInstanceOf[O[X, Y, Z]]
+
+		/** Casts the type constructor of this expression's type, preserving the type parameter.
+		  * For added safety, the current type constructor of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castConsFrom[U[A >: X <: X, B >: Y <: Y, C >: Z <: Z] >: T[A, B, C] <: T[A, B, C],
+		                         O[A >: X <: X, B >: Y <: Y, C >: Z <: Z] <: T[A, B, C]]
+				:O[X, Y, Z] =
+			self.asInstanceOf[O[X, Y, Z]]
+
+		/** Casts down the type constructor of this expression's type, preserving the type parameter. */
+		@inline def downcastCons[O[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z] <: T[_1, _2, _3]] :O[X, Y, Z] =
+			self.asInstanceOf[O[X, Y, Z]]
+
+		/** Casts down the type constructor of this expression's type, preserving the type parameter.
+		  * For added safety, the current type constructor of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastConsFrom[U[A >: X <: X, B >: Y <: Y, C >: Z <: Z] >: T[A, B, C],
+		                             O[A >: X <: X, B >: Y <: Y, C >: Z <: Z] <: T[A, B, C]]
+				:O[X, Y, Z] =
+			self.asInstanceOf[O[X, Y, Z]]
+	}
+
+
 
 	/** Extension casting methods for the single type parameter of a higher type,
 	  * preserving the original type constructor.
@@ -146,28 +226,23 @@ object extensions extends extensions {
 	class castTypeParamMethods[T[A], X](private val self :T[X]) extends AnyVal {
 		/** Casts the type parameter of this expression's type, preserving its type constructor. */
 		@inline def castParam[A] :T[A] = self.asInstanceOf[T[A]]
+		/** Casts the type parameter of this expression's type, preserving its type constructor.
+		  * For added safety, the type parameter of `this` must be specified as the first type argument.
+		  */
+		@inline def castParamFrom[U >: X <: X, A] :T[A] = self.asInstanceOf[T[A]]
 	}
 
-	/** Extension downcasting methods for the single type parameter of a higher type,
+	/** Extension down casting methods for the single type parameter of a higher type,
 	  * preserving the original type constructor.
 	  */
 	class downcastTypeParamMethods[T[A <: X], X](private val self :T[X]) extends AnyVal {
 		/** Casts down the type parameter of this expression's type. */
 		@inline def downcastParam[A <: X] :T[A] = self.asInstanceOf[T[A]]
+		/** Casts down the type parameter of this expression's type, preserving its type constructor.
+		  * For added safety, the type parameter of `this` must be specified as the first type argument.
+		  */
+		@inline def downcastParamFrom[U >: X <: X, A <: X] :T[A] = self.asInstanceOf[T[A]]
 	}
-
-	/** Extension methods casting any value of a higher type with a single type parameter to another higher type
-	  * with the same type parameter.
-	  */
-	class castTypeConstructorMethods[T[A >: X <: X], X](private val self :T[X]) extends AnyVal {
-		/** Casts the type constructor of this expression's type, preserving the type parameter. */
-		@inline def castCons[U[A >: X <: X]] :U[X] = self.asInstanceOf[U[X]]
-
-		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
-		@inline def downcastCons[U[A >: X <: X] <: T[A]] :U[X] = self.asInstanceOf[U[X]]
-	}
-
-
 
 
 	/** Extension casting methods for the type parameters of a higher type,
@@ -180,15 +255,29 @@ object extensions extends extensions {
 		/** Casts the first type parameter of this expression's type,
 		  * preserving its type constructor and the second parameter.
 		  */
-		@inline def castParam1[A] :T[A, Y] = self.asInstanceOf[T[A, Y]]
+		@inline def castParam1[O] :T[O, Y] = self.asInstanceOf[T[O, Y]]
 
 		/** Casts the second type parameter of this expression's type,
 		  * preserving its type constructor and the first parameter.
 		  */
 		@inline def castParam2[B] :T[X, B] = self.asInstanceOf[T[X, B]]
+
+		/** Casts the first type parameter of this expression's type,
+		  * preserving its type constructor and the second parameter.
+		  * For added safety, the current first type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castParam1From[U >: X <: X, A] :T[A, Y] = self.asInstanceOf[T[A, Y]]
+
+		/** Casts the second type parameter of this expression's type,
+		  * preserving its type constructor and the first parameter.
+		  * For added safety, the current second type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castParam2From[U >: Y <: Y, B] :T[B, Y] = self.asInstanceOf[T[B, Y]]
 	}
 
-	/** Extension downcasting methods for the type parameters of a higher type,
+	/** Extension down casting methods for the type parameters of a higher type,
 	  * preserving the original, binary type constructor.
 	  */
 	class downcast2TypeParamsMethods[T[_1 <: X, _2 <: Y], X, Y](private val self :T[X, Y]) extends AnyVal {
@@ -200,19 +289,21 @@ object extensions extends extensions {
 
 		/** Casts down the second type parameter of this expression's type. */
 		@inline def downcastParam2[B <: Y] :T[X, B] = self.asInstanceOf[T[X, B]]
+
+		/** Casts down the first type parameter of this expression's type,
+		  * preserving its type constructor and the second parameter.
+		  * For added safety, the current first type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastParam1From[U >: X, A <: X] :T[A, Y] = self.asInstanceOf[T[A, Y]]
+
+		/** Casts down the second type parameter of this expression's type,
+		  * preserving its type constructor and the first parameter.
+		  * For added safety, the current second type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastParam2From[U >: Y, B <: Y] :T[X, B] = self.asInstanceOf[T[X, B]]
 	}
-
-	/** Extension methods casting any value of a higher type with a two type parameters to another higher type
-	  * with the same type parameters.
-	  */
-	class castTypeConstructor2Methods[T[_1 >: X <: X, _2 >: Y <: Y], X, Y](private val self :T[X, Y]) extends AnyVal {
-		/** Casts the type constructor of this expression's type, preserving the type parameter. */
-		@inline def castCons[U[_ >: X <: X, _ >: Y <: Y]] :U[X, Y] = self.asInstanceOf[U[X, Y]]
-
-		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
-		@inline def downcastCons[U[_1 >: X <: X, _2 >: Y <: Y] <: T[_1, _2]] :U[X, Y] = self.asInstanceOf[U[X, Y]]
-	}
-
 
 
 	/** Extension casting methods for the type parameters of a higher type,
@@ -236,6 +327,27 @@ object extensions extends extensions {
 		  * preserving the type constructor and the rest of the parameters unchanged.
 		  */
 		@inline def castParam3[C] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
+
+		/** Casts the first type parameter of this expression's type,
+		  * preserving its type constructor and the other parameters.
+		  * For added safety, the current first type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castParam1From[U >: X <: X, A] :T[A, Y, Z] = self.asInstanceOf[T[A, Y, Z]]
+
+		/** Casts the second type parameter of this expression's type,
+		  * preserving its type constructor and the other parameter.
+		  * For added safety, the current second type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castParam2From[U >: Y <: Y, B] :T[X, B, Z] = self.asInstanceOf[T[X, B, Z]]
+
+		/** Casts the third type parameter of this expression's type,
+		  * preserving its type constructor and the other parameter.
+		  * For added safety, the current third type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def castParam3From[U >: Z <: Z, C] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
 	}
 
 	/** Extension casting methods for the type parameters of a higher type,
@@ -261,20 +373,27 @@ object extensions extends extensions {
 		  * preserving the type constructor and the rest of the parameters unchanged.
 		  */
 		@inline def downcastParam3[C <: Z] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
-	}
 
-	/** Extension methods casting any value of a higher type with a two type parameters to another higher type
-	  * with the same type parameters.
-	  */
-	class castTypeConstructor3Methods[T[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z], X, Y, Z](private val self :T[X, Y, Z])
-		extends AnyVal
-	{
-		/** Casts the type constructor of this expression's type, preserving the type parameter. */
-		@inline def castCons[U[_ >: X <: X, _ >: Y <: Y, _ >: Z <: Z]] :U[X, Y, Z] = self.asInstanceOf[U[X, Y, Z]]
+		/** Casts down the first type parameter of this expression's type,
+		  * preserving its type constructor and the other parameters.
+		  * For added safety, the current first type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastParam1From[U >: X <: X, A <: X] :T[A, Y, Z] = self.asInstanceOf[T[A, Y, Z]]
 
-		/** Downcasts the type constructor of this expression's type, preserving the type parameter. */
-		@inline def downcastCons[U[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z] <: T[_1, _2, _3]] :U[X, Y, Z] =
-			self.asInstanceOf[U[X, Y, Z]]
+		/** Casts down the second type parameter of this expression's type,
+		  * preserving its type constructor and the other parameter.
+		  * For added safety, the current second type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastParam2From[U >: Y <: Y, B <: Y] :T[X, B, Z] = self.asInstanceOf[T[X, B, Z]]
+
+		/** Casts down the third type parameter of this expression's type,
+		  * preserving its type constructor and the other parameter.
+		  * For added safety, the current third type parameter of this expression must be specified explicitly
+		  * as the first type argument.
+		  */
+		@inline def downcastParam3From[U >: Z <: Z, C <: Z] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
 	}
 
 }

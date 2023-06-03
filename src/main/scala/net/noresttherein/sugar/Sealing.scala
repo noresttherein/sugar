@@ -10,7 +10,7 @@ import net.noresttherein.sugar.Sealing.NotSealed
   * of the package from extending them).
   *
   * Declarations with `protected[scope]` or `private[scope]` visibility, despite being unusable outside
-  * the specified scope, can be somewhat counterintuitively overriden/implemented by extending classes from any package
+  * the specified scope, can be somewhat counterintuitively overridden/implemented by extending classes from any package
   * with a matching public definition, leading to leaking private API. The easiest way to address is to make
   * the declarations `final`, but this is not always possible if an interface type is extended by implementation types
   * from the protected scope. A `private[scope]`/`protected[scope]` class/trait cannot be used or extended outside
@@ -55,12 +55,12 @@ import net.noresttherein.sugar.Sealing.NotSealed
   *     }
   * }}}
   * Note that, in the above example, `Sealed` must be a methods parameter rather than return type,
-  * as in the latter case it could still be overriden by a method returning `Nothing`.
+  * as in the latter case it could still be overridden by a method returning `Nothing`.
   *
   * Implicit boxing and unboxing helps reduce the syntax cost of using a wrapper type.
   *
   * @author Marcin Mościcki
-  */
+  */ //consider: moving to util.
 trait Sealing {
 
 	/** An artificial class used to prevent overriding of a method by classes outside of the visibility scope
@@ -112,7 +112,7 @@ trait Sealing {
 	@SerialVersionUID(Ver)
 	object Seal {
 		@inline def apply() :Seal = instance
-		implicit final val instance = new Seal
+		implicit final val instance :Seal = new Seal
 	}
 
 	/** A value wrapper with visibility restricted to the same as the enclosing

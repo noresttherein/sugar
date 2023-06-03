@@ -175,6 +175,15 @@ package object typist extends typist.extensions {
 	  * objects to `Result`.
 	  */
 	type ProtectedType
+
+	/** An abstract type, used primarily when there is a need to cast several higher types so they share a type parameter,
+	  * whose value is not actually known. Avoiding use of any concrete type is safe/future proof with regard
+	  * to compiler inlining. This is particularly useful when encountering issues with existential/wildcard types,
+	  * or to maintain a polymorphism of arrays, as casting an array to `Array[Any]`, or even `Array[E]`,
+	  * if the code becomes inlined and in the caller's context `E` is a value type.
+	  */
+	type Unknown
+
 }
 
 
@@ -215,13 +224,22 @@ package typist {
 
 
 package typist {
-	/** A specialized implicit conversion `X => Y`. Using this type rather than just `X => Y`, or defining
-	  * the conversion as a method, gives priority to this conversion over others.
+	//consider: moving it to witness
+	/** A function class used for implicit conversions in order to force precedence of one definition over another,
+	  * despite having the same argument and return types.
+	  * Defining a conversion as `PriorityConversion[X, Y]` means it will be chosen (if in the implicit search scope,
+	  * or important) over any competing implicit definition of a `X => Y`, or an implicit method
+	  * with the same signature.
 	  */
 	trait PriorityConversion[-X, +Y] extends (X => Y)
 
 	object PriorityConversion {
+		/** Forces a SAM type promotion of a function literal `X => Y` to a `SpecificConversion[X, Y]` and immediately
+		  * returns it.
+		  */
 		def apply[X, Y](conversion :PriorityConversion[X, Y]) :PriorityConversion[X, Y] = conversion
-		def adapt[X, Y](f :X => Y) :PriorityConversion[X, Y] = f(_)
+
+		/** Promotes a function to a `SpecificConversion[X, Y]`. */
+		def wrap[X, Y](f :X => Y) :PriorityConversion[X, Y] = f(_)
 	}
 }
