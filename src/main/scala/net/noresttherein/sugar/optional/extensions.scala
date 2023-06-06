@@ -301,6 +301,12 @@ object extensions extends extensions {
 		  * passing the given string to its constructor. */
 		@inline def ensuring[E <: Exception :ClassTag](condition :Boolean, msg: => String) :T =
 			if (condition) self else raise[E](msg)
+
+		//methods from Predef.Ensuring, because we are shadowing them
+	    def ensuring(cond: Boolean) :T = { assert(cond); self }
+	    def ensuring(cond: Boolean, msg: => Any) :T = { assert(cond, msg); self }
+	    def ensuring(cond: T => Boolean) :T = { assert(cond(self)); self }
+	    def ensuring(cond: T => Boolean, msg: => Any) :T = { assert(cond(self), msg); self }
 	}
 
 

@@ -6,7 +6,7 @@ import scala.collection.{IterableFactory, IterableFactoryDefaults}
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, IteratorObjectExtension, PartialFunctionObjectExtension}
+import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorObjectExtension, PartialFunctionObjectExtension, castTypeParamMethods, classNameMethods}
 
 
 
@@ -439,6 +439,8 @@ trait MultiSet[X] extends SugaredIterable[X] with MultiSetOps[X, MultiSet] {
 
 /** Interface trait for companion objects of [[net.noresttherein.sugar.collections.MultiSet MultiSet]]
   * implementations.
+  * @define Coll `MultiSet`
+  * @define coll multi set
   */
 trait MultiSetFactory[+M[A] <: MultiSetOps[A, M]] extends IterableFactory[M] {
 	override def from[A](source :IterableOnce[A]) :M[A] = (newBuilder[A] ++= source).result()
@@ -496,12 +498,9 @@ trait MultiSetFactory[+M[A] <: MultiSetOps[A, M]] extends IterableFactory[M] {
 }
 
 
-/** $factoryInfo
-  * @define Coll `MultiSet`
-  * @define coll multi set
-  */
+/** $factoryInfo */
 @SerialVersionUID(Ver)
-object MultiSet extends MultiSetFactory[MultiSet] {
+case object MultiSet extends MultiSetFactory[MultiSet] {
 
 	override def from[A](source :IterableOnce[A]) :MultiSet[A] = source match {
 		case multi :MultiSet[A @unchecked] => multi
@@ -537,16 +536,14 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 	@inline final def single[A](xs :(A, Int)) :MultiSet[A] = single(xs._1, xs._2)
 
 
-	private class Empty[X] extends MultiSet[X] {
-		override def knownSize = 0
+	@SerialVersionUID(Ver)
+	private class Empty[X] extends MultiSet[X] with EmptyIterableOps[X, MultiSet, MultiSet[X]] {
 		override def totalSize = 0L
 		override def uniqueSize = 0
 		override def apply(x :X) = 0
 		override def subsetOf(that :MultiSet[X]) = true
 		override def counts = Map.empty[X, Int]
 		override def unique = Set.empty[X]
-		override def toSet[B >: X] = Set.empty[B]
-		override def iterator = Iterator.empty
 		override def uniqueIterator = Iterator.empty
 
 		override def reset(x :X, count :Int) :MultiSet[X] = single(x, count)
@@ -568,9 +565,12 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 
 		override def toString = "MultiSet()"
 	}
-	private val Empty = new Empty[Any]
+	private val Empty :Empty[Any] = new Empty[Any] {
+		private def readResolve = MultiSet.Empty
+	}
 
 
+	@SerialVersionUID(Ver)
 	private class Singleton[X](override val head :X, override val knownSize :Int) extends MultiSet[X] {
 		assert(knownSize > 0)
 		override def totalSize = knownSize
@@ -593,11 +593,30 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 			else
 				new MapAdapter(new Map.Map2(head, knownSize, x, count))
 
+		override def copyRangeToArray[B >: X](xs :Array[B], start :Int, from :Int, until :Int) :Int =
+			if (until <= from | until <= 0 || from >= knownSize || start >= xs.length)
+				0
+			else if (start < 0)
+				throw new IndexOutOfBoundsException(
+					s"$this.copyRangeToArray(${xs.className}<${xs.length}>, $start, $from, $until)"
+				)
+			else {
+				val from0 = math.max(from, 0)
+				val until0 = math.min(until, knownSize)
+				val copied = math.min(until0 - from0, xs.length - start)
+				xs.fill(from0, from0 + copied, head)
+				copied
+			}
+
+		override def copyToArray[B >: X](xs :Array[B], start :Int, len :Int) :Int =
+			copyRangeToArray(xs, start, 0, len)
+
 		override def toString = "MultiSet(" + head + ": " + size + ")"
 	}
 
 
 	//A set pretending to be a map with all values equal 1
+	@SerialVersionUID(Ver)
 	private class SetMap[X](underlying :Set[X]) extends AbstractMap[X, Int] {
 		override def removed(key :X) :Map[X, Int] =
 			if (underlying.contains(key)) new SetMap(underlying - key) else this
@@ -617,6 +636,7 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 
 
 	//hash set because we treat it as covariant
+	@SerialVersionUID(Ver)
 	private class Unique[X](override val unique :HashSet[X]) extends MultiSet[X] { self =>
 		override def knownSize  = unique.knownSize
 		override def totalSize  = unique.size.toInt
@@ -645,6 +665,7 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 	}
 
 
+	@SerialVersionUID(Ver)
 	private class MapAdapter[X](override val counts :Map[X, Int], initSize :Long = -1L) extends MultiSet[X] {
 		@volatile private[this] var _totalSize = initSize
 
@@ -677,21 +698,4 @@ object MultiSet extends MultiSetFactory[MultiSet] {
 		override def toString = counts.iterator.map(xs => xs._1.toString + ": " + xs._2).mkString("MultiSet(", ", ", ")")
 	}
 
-
-
-/*
-	@inline private def plus(x :Int, y :Int) :Int =
-		if (x < 0)
-			if (y < Int.MinValue - x) Int.MinValue else x + y
-		else
-			if (y > Int.MaxValue - x) Int.MaxValue else x + y
-
-	private def union(x :Int, y :Int) :Int =
-		if (x < 0) math.max(y, 0)
-		else if (y < 0) math.max(x, 0)
-		else if (x > Int.MaxValue - y) Int.MaxValue
-		else x + y
-*/
-
-	override def toString = "MultiSet"
 }

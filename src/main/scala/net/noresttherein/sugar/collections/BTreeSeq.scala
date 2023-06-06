@@ -5,8 +5,9 @@ package net.noresttherein.sugar.collections
 import java.lang.System.arraycopy
 
 import scala.annotation.{nowarn, tailrec}
-import scala.collection.{BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, mutable}
-import scala.collection.immutable.{ArraySeq, IndexedSeqDefaults, IndexedSeqOps}
+import scala.collection.generic.DefaultSerializable
+import scala.collection.{AbstractIterable, BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, immutable, mutable}
+import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqDefaults, IndexedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.ClassTag
 
@@ -24,6 +25,8 @@ import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 
 /**
+  * @define Coll `BTreeSeq`
+  * @define coll BTree sequence
   * @author Marcin Mościcki
   */
 sealed trait BTreeSeq[+E]
@@ -229,7 +232,7 @@ sealed trait BTreeSeq[+E]
 	private def prependedSlice[U >: E](array :Array[U], from :Int, until :Int) :BTreeSeq[U] = (until - from) match {
 		case 0                                       => this
 		case 1                                       => prepended(array(from))
-		case _ if !array.isInstanceOf[Array[AnyRef]] => prependedAll(ArraySlice(array, from, until))
+		case _ if !array.isInstanceOf[Array[AnyRef]] => prependedAll(ArrayIterator(array, from, until))
 		case size                                    =>
 			if (size <= MaxChildren)
 				prependedAll(new Leaf(ErasedArray.copyOfRange(array, from, until)))
@@ -504,24 +507,14 @@ sealed trait BTreeSeq[+E]
 					val array = arr.unsafeArray.asInstanceOf[Array[U]]
 					if (array.length <= MaxChildren) appendedAll(new Leaf(array))
 					else appendedSlice(array, 0, array.length)
-				case arr :AbstractPassedArray[U] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
-					val array = arr.unsafeArray
-					if (array.length == size && array.length <= MaxChildren)
+				case arr :AbstractArraySlice[U] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+					val array = arr.unsafeArray.asInstanceOf[Array[U]]
+					if (array.length == size && array.length <= MaxChildren && arr.isImmutable)
 						appendedAll(new Leaf(array))
 					else
 						appendedSlice(array, arr.startIndex, arr.startIndex + size)
 				case arr :mutable.ArraySeq[U] if arr.array.isInstanceOf[Array[AnyRef]]          =>
 					appendedSlice(arr.array.asInstanceOf[Array[U]])
-				case arr :ArraySlice[U] if arr.unsafeArray.isInstanceOf[Array[AnyRef]]          =>
-					appendedSlice(arr.unsafeArray.asInstanceOf[Array[U]], arr.startIndex, arr.startIndex + size)
-				case arr :ArrayAsSeq[U] if arr.coll.isInstanceOf[Array[AnyRef]]                 =>
-					appendedSlice(arr.coll)
-				case arr :IArrayAsSeq[U] if arr.coll.isInstanceOf[Array[AnyRef]]                =>
-					val array = arr.coll.asInstanceOf[Array[U]]
-					if (array.length <= MaxChildren)
-						appendedAll(new Leaf(array))
-					else
-						appendedSlice(array, 0, array.length)
 				case _ if size <= MaxChildren                                                   =>
 					val array = ErasedArray.ofDim[U](size)
 					seq.copyToArray(array, 0, size)
@@ -565,24 +558,14 @@ sealed trait BTreeSeq[+E]
 					if (array.length <= MaxChildren) prependedAll(new Leaf(array))
 					else prependedSlice(array, 0, array.length)
 
-				case arr :AbstractPassedArray[U] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
-					val array = arr.unsafeArray
-					if (array.length == size && array.length <= MaxChildren)
+				case arr :AbstractArraySlice[U] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+					val array = arr.unsafeArray.asInstanceOf[Array[U]]
+					if (array.length == size && array.length <= MaxChildren && arr.isImmutable)
 						prependedAll(new Leaf(array))
 					else
 						prependedSlice(array, arr.startIndex, arr.startIndex + size)
 				case arr :mutable.ArraySeq[U] if arr.array.isInstanceOf[Array[AnyRef]]          =>
 					prependedSlice(arr.array.asInstanceOf[Array[U]])
-				case arr :ArraySlice[U] if arr.unsafeArray.isInstanceOf[Array[AnyRef]]          =>
-					prependedSlice(arr.unsafeArray.asInstanceOf[Array[U]], arr.startIndex, arr.startIndex + size)
-				case arr :ArrayAsSeq[U] if arr.coll.isInstanceOf[Array[AnyRef]]                 =>
-					prependedSlice(arr.coll)
-				case arr :IArrayAsSeq[U] if arr.coll.isInstanceOf[Array[AnyRef]]                =>
-					val array = arr.coll.asInstanceOf[Array[U]]
-					if (array.length <= MaxChildren)
-						prependedAll(new Leaf(array))
-					else
-						prependedSlice(array, 0, array.length)
 				case _ if size <= MaxChildren                                                   =>
 					val array = ErasedArray.ofDim[U](size)
 					seq.copyToArray(array, 0, size)
@@ -914,7 +897,8 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 
 
 
-	private object Empty extends BTreeSeq[Nothing] {
+	@SerialVersionUID(Ver)
+	private object Empty extends EmptyIterableOps.Variant[BTreeSeq, BTreeSeq[Nothing]] with BTreeSeq[Nothing] {
 		override def rank = 0
 		override def length = 0
 		override def head :Nothing = throw new NoSuchElementException("BTreeSeq().head")
@@ -946,7 +930,10 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 	}
 
 
-	private final class Singleton[+E](override val head :E) extends BTreeSeq[E] {
+	@SerialVersionUID(Ver)
+	private final class Singleton[+E](override val head :E)
+		extends SingletonIndexedSeqOps.Variant[E, BTreeSeq, BTreeSeq[E]] with BTreeSeq[E]
+	{
 		override def rank = 1
 		override def length = 1
 		override def apply(i :Int) =
@@ -1024,8 +1011,13 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 	}
 
 
-	private final class Leaf[+E](keys :Array[E]) extends BTreeSeq[E] {
+	@SerialVersionUID(Ver)
+	private final class Leaf[+E](keys :Array[E]) extends AbstractSeq[E] with BTreeSeq[E] with AbstractArraySlice[E] {
 		assert(keys.length <= MaxChildren)
+
+		private[collections] override def unsafeArray :Array[_] = keys
+		private[collections] override def startIndex  :Int = 0
+		private[collections] override def isImmutable :Boolean = true
 
 		def values :IArray[E] = keys.asInstanceOf[IArray[E]]
 
@@ -1379,8 +1371,9 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 
 
 	//Invariant: children.length >= 2; prefixes.length = children.length - 1; prefixes(i) == children.take(i).map(_.length).sum
+	@SerialVersionUID(Ver)
 	private class Node[+E](children :Array[BTreeSeq[E]], prefixes :Array[Int], override val length :Int)
-		extends BTreeSeq[E]
+		extends AbstractSeq[E] with BTreeSeq[E] with DefaultSerializable
 	{
 		def this(children :Array[BTreeSeq[E]], prefixes :Array[Int]) =
 			this(children, prefixes, prefixes(prefixes.length - 1) + children(children.length - 1).length)
@@ -2190,20 +2183,12 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 							case arr :ArraySeq[E] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
 								array = arr.unsafeArray.asInstanceOf[Array[E]]
 								immutable = true
-							case arr :AbstractPassedArray[E] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
-								array = arr.unsafeArray
-								from = arr.startIndex
-								immutable = true
-							case arr :mutable.ArraySeq[E] if arr.array.isInstanceOf[Array[AnyRef]] =>
-								array = arr.array.asInstanceOf[Array[E]]
-							case arr :ArraySlice[E] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
+							case arr :AbstractArraySlice[E] if arr.unsafeArray.isInstanceOf[Array[AnyRef]] =>
 								array = arr.unsafeArray.asInstanceOf[Array[E]]
 								from = arr.startIndex
-							case arr :ArrayAsSeq[E] if arr.coll.isInstanceOf[Array[AnyRef]] =>
-								array = arr.coll
-							case arr :IArrayAsSeq[E] if arr.coll.isInstanceOf[Array[AnyRef]] =>
-								array = arr.coll.asInstanceOf[Array[E]]
-								immutable = true
+								immutable = arr.isImmutable
+							case arr :mutable.ArraySeq[E] if arr.array.isInstanceOf[Array[AnyRef]] =>
+								array = arr.array.asInstanceOf[Array[E]]
 							case _ =>
 						}
 						if (array == null) {
@@ -2264,7 +2249,9 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 		override def head :E = leaf(keyIdx)
 
 		override def next() :E = {
-			val res = leaf(keyIdx)
+			val res = try leaf(keyIdx) catch {
+				case e :IndexOutOfBoundsException => throw new NoSuchElementException(e)
+			}
 			keyIdx += 1
 			if (keyIdx == leaf.length) {
 				val height = stack.length
@@ -2328,8 +2315,8 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 //		res
 //	}
 
-	private final val Rank = 4 //good for testing
-//	private final val Rank = 32
+//	private final val Rank = 4 //good for testing
+	private final val Rank = 32
 	private final val MaxChildren = (Rank << 1) - 1
 	private final val ConvertToBTreeOnConcatFactor = Rank //or MaxChildren?
 	private final val BuilderAddByOneThreshold = MaxChildren << 1

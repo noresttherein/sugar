@@ -1,14 +1,14 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, Builder}
 
 import org.scalacheck.{Prop, Properties, Test}
 import org.scalacheck.Prop._
-import org.scalacheck.util.ConsoleReporter
-
-import net.noresttherein.sugar.collections.IterableExtensionSpec.{mappingProperty, zipMapProperty}
+import org.scalacheck.util.{Buildable, ConsoleReporter}
+import net.noresttherein.sugar.collections.IterableExtensionSpec.iterableProperty
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, satisfyingMethods}
+import net.noresttherein.sugar.testing.scalacheck.extensions.PropExtension
 
 
 
@@ -19,12 +19,26 @@ object IterableOnceExtensionSpec extends Properties("IterableOnceExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
 
+	implicit def buildableArraySliceSeq[T] :Buildable[T, ArraySliceSeq[T]] = new Buildable[T, ArraySliceSeq[T]] {
+		override def builder :Builder[T, ArraySliceSeq[T]] =
+			new Builder[T, ArraySliceSeq[T]] {
+				val underlying = ArraySliceSeq.newBuilder[T] += null.asInstanceOf[T]
+				override def addOne(elem :T) = { underlying += elem; this }
+				override def clear() :Unit = underlying.clear()
+				override def result() = {
+					val arr = (underlying += null.asInstanceOf[T]).result()
+					arr.slice(1, arr.length - 1)
+				}
+			}
+	}
+
 	val Sum = 100
 
 	private def foldingProperty(prop :(Int, Iterable[Int]) => Prop) :Prop =
-		forAll { (start :Int, numbers :List[Int]) => prop(start, numbers) } &&
-			forAll { (start :Int, numbers :IndexedSeq[Int]) => prop(start, numbers) } &&
-			forAll { (start :Int, numbers :OrderedItems[Int]) => prop(start, numbers to OrderedItems) }
+		forAll { (start :Int, numbers :List[Int]) => prop(start, numbers) :| "List" } &&
+			forAll { (start :Int, numbers :Vector[Int]) => prop(start, numbers) :| "Vector" } &&
+			forAll { (start :Int, numbers :ArraySliceSeq[Int]) => prop(start, numbers) :| "ArraySlice" } &&
+			forAll { (start :Int, numbers :OrderedItems[Int]) => prop(start, numbers to OrderedItems) :| "Iterable" }
 
 
 	private def expectedFoldUntilResult(start :Int, numbers :Iterable[Int]) = {
@@ -235,24 +249,29 @@ object IterableOnceExtensionSpec extends Properties("IterableOnceExtension") {
 
 
 
-	property("foreachWithIndex") = mappingProperty { list :Iterable[Int] =>
+	property("foreachWithIndex") = iterableProperty { list :Iterable[Int] =>
 		val res = new ArrayBuffer[Int]
-		list.foreachWithIndex { (e, i) => if (i % 2 == 0) res += e else res += -e } ?=
-			list.toSeq.zipWithIndex.map { case (e, i) => if (i % 2 == 0) e else -e }
+		list.foreachWithIndex { (e, i) => if (i % 2 == 0) res += e else res += -e }
+		(res :collection.Seq[Int]) ?= list.toSeq.zipWithIndex.map { case (e, i) => if (i % 2 == 0) e else -e }
 	}
-	property("forallWithIndex") = mappingProperty { list :Iterable[Int] =>
+	property("forallWithIndex") = iterableProperty { list :Iterable[Int] =>
 		list.forallWithIndex { (e, i) => e % 2 == 0 || i % 2 == 0 } ?=
 			list.toSeq.zipWithIndex.forall { case (e, i) => e % 2 == 0 || i % 2 == 0 }
 	}
 
-	property("zipForeach") = zipMapProperty { (l :Iterable[Int], r :Iterable[Int]) =>
+	def zipProperty[A](f :(Iterable[Int], Iterable[Int]) => (A, A)) :Prop =
+		forAll { (a :List[Int], b :List[Int]) => val (l, r) = f(a, b); r =? l lbl "List" } &&
+			forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int]) => val (l, r) = f(a, b); r =? l lbl "IndexedSeq" } &&
+			forAll { (a :OrderedItems[Int], b :OrderedItems[Int]) => val (l, r) = f(a, b); r =? l lbl "Iterable" }
+
+	property("zipForeach") = zipProperty { (l :Iterable[Int], r :Iterable[Int]) =>
 		var sum = 0
 		l.zipForeach(r) { (a, b) => sum += a * b }
-		sum ?= l.zip(r).foldLeft(0) { (sum, pair) => sum + pair._1 * pair._2 }
+		sum -> l.zip(r).foldLeft(0) { (sum, pair) => sum + pair._1 * pair._2 }
 	}
 
-	property("zipForall") = zipMapProperty { (l :Iterable[Int], r :Iterable[Int]) =>
-		l.zipForall(r) { (a, b) => (a % 2 == 0) == (b % 2 == 0) } ?=
+	property("zipForall") = zipProperty { (l :Iterable[Int], r :Iterable[Int]) =>
+		l.zipForall(r) { (a, b) => (a % 2 == 0) == (b % 2 == 0) } ->
 			l.zip(r).forall { case (a, b) => (a % 2 == 0) == (b % 2 == 0) }
 	}
 

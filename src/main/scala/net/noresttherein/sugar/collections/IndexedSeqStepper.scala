@@ -32,7 +32,13 @@ private trait AbstractIndexedStepper[+A, B, +Self >: Null <: AbstractIndexedStep
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
-	protected def nextIdx() :Int = { val i = index; index = i + 1; i }
+	protected def nextIdx() :Int = {
+		val i = index
+		if (i >= limit)
+			throw new NoSuchElementException(toString)
+		index = i + 1
+		i
+	}
 
 	if (limit > underlyingSize)
 		limit = underlyingSize
@@ -83,7 +89,13 @@ private trait AbstractIndexedReverseStepper[+A, B, +Self >: Null <: AbstractInde
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
-	protected def nextIdx() :Int = { val i = index; index = i - 1; i }
+	protected def nextIdx() :Int = {
+		val i = index
+		if (i >= limit)
+			throw new NoSuchElementException(toString)
+		index = i - 1
+		i
+	}
 
 	if (index >= underlyingSize)
 		index = underlyingSize
@@ -111,7 +123,7 @@ private trait AbstractIndexedReverseStepper[+A, B, +Self >: Null <: AbstractInde
 
 	override def characteristics :Int = ORDERED | SIZED | SUBSIZED
 	override def clone :Self = super.clone.asInstanceOf[Self]
-	override def toString :String = "Stepper(" + index + " down to " + limit
+	override def toString :String = "Stepper(" + index + " down to " + limit + ")"
 }
 
 
@@ -138,7 +150,13 @@ private abstract class IndexedSeqStepper[+A, B, +Self >: Null <: IndexedSeqStepp
 	protected final override def index_=(i :Int) :Unit = first = i
 	protected final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
-	protected final override def nextIdx() :Int = { val res = first; first += 1; res }
+	protected final override def nextIdx() :Int = {
+		val res = first
+		if (res == `last++`)
+			throw new NoSuchElementException(toString)
+		first += 1
+		res
+	}
 	
 	override def hasStep :Boolean = first < `last++`
 
@@ -280,7 +298,13 @@ private abstract class ArrayStepper[+A, B, +Self >: Null <: ArrayStepper[A, B, S
 	protected final override def index_=(i :Int) :Unit = first = i
 	protected final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
-	protected final override def nextIdx() :Int = { val res = first; first += 1; res }
+	protected final override def nextIdx() :Int = {
+		val res = first
+		if (res >= `last++`)
+			throw new NoSuchElementException(toString)
+		first += 1
+		res
+	}
 
 	override def hasStep :Boolean = first < `last++`
 }
@@ -511,7 +535,12 @@ private abstract class ReverseArrayStepper[+A, B, +Self >: Null <: ReverseArrayS
 	protected final override def index_=(i :Int) :Unit = `first++` = i
 	protected final override def limit :Int = last
 	protected final override def limit_=(i :Int) :Unit = last = i
-	protected final override def nextIdx() :Int = { `first++` -= 1; `first++` }
+	protected final override def nextIdx() :Int = {
+		`first++` -= 1
+		if (`first++` <= last)
+			throw new NoSuchElementException(toString)
+		`first++`
+	}
 
 	override def hasStep :Boolean = `first++` > last
 }

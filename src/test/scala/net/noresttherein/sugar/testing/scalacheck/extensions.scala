@@ -1,10 +1,11 @@
 package net.noresttherein.sugar.testing.scalacheck
 
 import scala.collection.immutable.AbstractSet
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.Console.err
 
 import net.noresttherein.sugar.extensions.ClassExtension
+import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import org.scalacheck.Prop
 
 
@@ -56,9 +57,9 @@ object extensions {
 	}
 
 	implicit class LazyExtension(self : => Any) {
-		def throws[E <: Throwable :ClassTag] :Prop = //:ThrowingProp[E] = new ThrowingProp[E](self)
-			Prop(Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(self)) lbl
-				"throws " + classTag[E].runtimeClass.name
+		def throws[E <: Throwable :ClassTag] :Prop = {
+			Prop(Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(self)) lbl "throws " + fullNameOf[E]
+		}
 	}
 
 }

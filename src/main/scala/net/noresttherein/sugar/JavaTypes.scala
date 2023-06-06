@@ -24,8 +24,10 @@ object JavaTypes {
 	type JIntIterator      = java.util.PrimitiveIterator.OfInt
 	type JLongIterator     = java.util.PrimitiveIterator.OfLong
 	type JDoubleIterator   = java.util.PrimitiveIterator.OfDouble
+	type JCollection[T]    = java.util.Collection[T]
 	type JList[T]          = java.util.List[T]
 	type JArrayList[T]     = java.util.ArrayList[T]
+	type JLinkedList[T]    = java.util.LinkedList[T]
 	type JSet[T]           = java.util.Set[T]
 	type JHashSet[T]       = java.util.HashSet[T]
 	type JTreeSet[T]       = java.util.TreeSet[T]

@@ -3,12 +3,15 @@ package net.noresttherein.sugar.collections
 import java.lang.{Math => math}
 
 import scala.annotation.tailrec
-import scala.collection.{SeqFactory, Stepper, StepperShape}
+import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.generic.DefaultSerializable
+import scala.collection.{AbstractIterable, SeqFactory, Stepper, StepperShape}
 import scala.collection.immutable.AbstractSeq
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
+import net.noresttherein.sugar.extensions.IteratorExtension
 
 //implicits
 import net.noresttherein.sugar.extensions.{JavaIteratorExtension, StepperExtension}
@@ -28,10 +31,13 @@ import net.noresttherein.sugar.extensions.{JavaIteratorExtension, StepperExtensi
   * `Seq` implementations.
   *
   * The name of the collection reflects its internal structure as an unbalanced tree created by appending and prepending
-  * individual elements. This class is essentially the same as `Chain` from the `cats` library,
+  * individual elements. This class is essentially the same as `Chain` from `cats` library,
   * but implemented within the standard collection framework.
+  * @define Coll `ZigZag`
+  * @define coll zigzag
+  * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: renaming to Chain
-sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable {
+sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with DefaultSerializable {
 //	private[ZigZag] def depth :Int
 	override def knownSize :Int = length
 
@@ -101,8 +107,15 @@ sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with Serializable
 		if (from > length) -1
 		else super.indexOfSlice(that, 0 max from)
 
+
+	override def copyRangeToArray[B >: A](xs :Array[B], start :Int, from :Int, until :Int) :Int =
+		slice(from, until).copyToArray(xs, start)
+
+//	protected override def fromSpecific(coll :IterableOnce[A @uncheckedVariance]) :ZigZag[A] = ZigZag.from(coll)
+//	protected override def newSpecificBuilder :Builder[A @uncheckedVariance, ZigZag[A]] = ZigZag.newBuilder
+
 	//	override def iterableFactory :SeqFactory[ZigZag] = ZigZag
-	override def className = "ZigZag"
+	protected override def className = "ZigZag"
 }
 
 
@@ -125,6 +138,17 @@ case object ZigZag extends SeqFactory[ZigZag] {
 
 	override def newBuilder[A] :Builder[A, ZigZag[A]] = PassedArray.newBuilder[A] mapResult (new Straight(_))
 
+	/** Similar to [[collection.IndexedSeqView IndexedSeqView]], but a `ZigZag`, meaning non-slicing operations
+	  * build strict, normal (non `ZigZag`) sequences, rather than another view. Unlike other zigzags,
+	  * it will map to an `IndexedSeq`, rather than a `List`.
+	  */
+	def slice[A](seq :IndexedSeq[A], from :Int, until :Int) :ZigZag[A] =
+		if (until <= from | until <= 0 || from > seq.length)
+			Empty
+		else {
+			val from0 = math.max(from, 0)
+			new Slice(seq, from, math.min(until, seq.length) - from0)
+		}
 
 	private def jiteratorOver[A, I <: JIterator[_]](seq :Seq[A])(implicit shape :JavaIteratorShape[A, I]) :I =
 		seq match {
@@ -140,25 +164,13 @@ case object ZigZag extends SeqFactory[ZigZag] {
 
 
 	@SerialVersionUID(Ver)
-	private class EmptyZigZag extends AbstractSeq[Nothing] with ZigZag[Nothing] {
-//		override def depth :Int = 0
-		override def length :Int = 0
-		override def apply(i :Int) :Nothing = throw new IndexOutOfBoundsException("index " + i + " out of 0")
-		override def iterator :Iterator[Nothing] = Iterator.empty
-		override def reverseIterator :Iterator[Nothing] = Iterator.empty
-		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Nothing, I]) :I = JavaIterator()
-		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Nothing, S]) :S = Stepper0()
+	private class EmptyZigZag
+		extends AbstractIterable[Nothing] with EmptySeqOps.Variant[Seq, Seq[Nothing]] with ZigZag[Nothing]
+	{
 		override def trustedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
 
-		override def updated[E >: Nothing](index :Int, elem :E) :Nothing =
-			throw new IndexOutOfBoundsException("ZigZag.updated(" + index + ", " + elem + ")")
-
-		override def patch[E >: Nothing](from :Int, other :IterableOnce[E], replaced :Int) :ZigZag[E] =
-			ZigZag.from(other)
-
-		override def foreach[U](f :Nothing => U) :Unit = {}
 		override def stackForEach[U](f :Nothing => U) :Unit = {}
-		private def writeReplace :Seq[Nothing] = ZigZag.empty
+		private def readResolve :Seq[Nothing] = ZigZag.empty
 	}
 
 	private[this] final val Empty :ZigZag[Nothing] = new EmptyZigZag
@@ -168,7 +180,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 	private class Straight[+A](elems :Seq[A]) extends AbstractSeq[A] with ZigZag[A] {
 		private[ZigZag] def elements = elems
 //		override def depth :Int = 0
-		override val length :Int = elems.length
+		override lazy val length :Int = elems.length
 		override def head = elems.head
 		override def last = elems.last
 		override def tail = ZigZag.from(elems.tail)
@@ -227,7 +239,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			}
 		}
 		override def stackForEach[U](f :A => U) :Unit = foreach(f)
-		private def writeReplace = new Straight(toIndexedSeq)
+
+		override def iterableFactory :SeqFactory[Seq] = IndexedSeq
 	}
 
 
@@ -235,8 +248,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 	private class Concat[+A](prefix :Seq[A], suffix :Seq[A]) extends AbstractSeq[A] with ZigZag[A] {
 		def _1 = prefix
 		def _2 = prefix
-		private[this] val prefixLen = prefix.length
-		override val length = prefixLen + suffix.length
+		private[this] lazy val prefixLen = prefix.length
+		override lazy val length = prefixLen + suffix.length
 //		override def depth = math.max(prefix.depth, suffix.depth)
 		override def apply(i :Int) :A =
 			if (i < 0)
@@ -246,8 +259,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			else
 				suffix(i - prefixLen)
 
-		override def iterator :Iterator[A] = prefix.iterator ++ suffix.iterator
-		override def reverseIterator :Iterator[A] = suffix.reverseIterator ++ prefix.reverseIterator
+		override def iterator :Iterator[A] = prefix.iterator :++ suffix.iterator
+		override def reverseIterator :Iterator[A] = suffix.reverseIterator :++ prefix.reverseIterator
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
 			jiteratorOver(prefix) ++ jiteratorOver(suffix)
@@ -284,14 +297,15 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			prefix foreach f
 			suffix foreach f
 		}
-		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
 	@SerialVersionUID(Ver)
-	private class Appended[+A](override val init :ZigZag[A], override val last :A) extends AbstractSeq[A] with ZigZag[A] {
-		private[this] val prefixLen = init.length
-		override val length :Int = prefixLen + 1
+	private class Appended[+A](override val init :ZigZag[A], override val last :A)
+		extends AbstractSeq[A] with ZigZag[A]
+	{
+		private[this] lazy val prefixLen = init.length
+		override lazy val length :Int = prefixLen + 1
 		override def apply(i :Int) :A =
 			if (i < 0)
 				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
@@ -300,8 +314,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			else
 				init(i)
 
-		override def iterator :Iterator[A] = init.iterator ++ Iterator.single(last)
-		override def reverseIterator :Iterator[A] = Iterator.single(last) ++ init.reverseIterator
+		override def iterator :Iterator[A] = init.iterator + last
+		override def reverseIterator :Iterator[A] = last +: init.reverseIterator
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
 			init.jiterator ++ JavaIterator(last)
@@ -334,7 +348,6 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			init foreach f
 			f(last)
 		}
-		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 
@@ -342,7 +355,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 	private class Prepended[+A](override val head :A, override val tail :ZigZag[A])
 		extends AbstractSeq[A] with ZigZag[A]
 	{
-		override val length :Int = 1 + tail.length
+		override lazy val length :Int = 1 + tail.length
 		override def apply(i :Int) :A =
 			if (i < 0)
 				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
@@ -351,8 +364,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			else
 				tail(i - 1)
 
-		override def iterator :Iterator[A] = Iterator.single(head) ++ tail.iterator
-		override def reverseIterator :Iterator[A] = tail.reverseIterator ++ Iterator.single(head)
+		override def iterator :Iterator[A] = head +: tail.iterator
+		override def reverseIterator :Iterator[A] = tail.reverseIterator :+ head
 
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
 			JavaIterator(head) ++ tail.jiterator
@@ -390,7 +403,6 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			f(head)
 			tail foreach f
 		}
-		private def writeReplace = new Straight(toIndexedSeq)
 	}
 
 	override def toString = "ZigZag"

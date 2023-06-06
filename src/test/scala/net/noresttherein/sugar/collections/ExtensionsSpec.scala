@@ -75,7 +75,7 @@ object ExtensionsSpec extends Properties("extensions") {
 		property("binarySearch") = forAll { array :Array[Int] =>
 			val sorted = array.distinct.sorted
 			all(
-				(0 until sorted.length).map {
+				sorted.indices.map {
 					i => sorted.binarySearch(sorted(i)) ?= i
 				}
 					:_*) && forAll { x :Int =>

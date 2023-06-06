@@ -3,6 +3,7 @@ package net.noresttherein.sugar
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
+import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -234,7 +235,8 @@ package object vars extends vars.Rank1PotentialImplicits {
 		/** Returns `Inexistent` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
 		def removedAll[O >: A](that :IterableOnce[O]) :Potential[A] = that match {
 			case _ if self.asInstanceOf[AnyRef] eq NonExistent => self
-			case it :Set[O] => if (it(get)) Inexistent else self
+			case it :Set[O]     => if (it(get)) Inexistent else self
+			case it :Ranking[O] => if (it.contains(get)) Inexistent else self
 			case it :Iterable[O] if it.isEmpty => self
 			case _ =>
 				val i = that.iterator

@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.BufferedIterator
+import scala.collection.immutable.WrappedString
+import scala.collection.{AbstractIterator, BufferedIterator}
 
 import net.noresttherein.sugar.JavaTypes.JIntIterator
 
@@ -13,7 +14,7 @@ import net.noresttherein.sugar.JavaTypes.JIntIterator
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
   * @see [[net.noresttherein.sugar.collections.AbstractIndexedReverseIterator]]
   * @author Marcin Mościcki
-  */
+  */ //consider: throwing exceptions with constant strings as messages for performance
 trait AbstractIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 	protected def underlyingSize :Int
 	protected var index :Int
@@ -121,28 +122,63 @@ trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Clonea
 
 
 
-/** An iterator advancing over a slice of an array.
+/** An iterator advancing over a slice of an array. The advantages over built in array
+  * [[collection.ArrayOps.iterator iterator]] are fast, in-place `take`, and `copyToArray` delegating to `Array.copy`,
+  * making it considerably faster than copying by one.
   * @param first    the index in the array of the first/next element to return.
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
   */ //no SerialVersionUID because we are not Serializable :)
 class ArrayIterator[@specialized(Int, Long, Double) +T]
 	               (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIndexedIterator[T]
+	extends AbstractIterator[T] with AbstractIndexedIterator[T] with AbstractArraySlice[T]
 {
 	def this(array :Array[T], idx :Int) = this(array, idx, array.length)
 	def this(array :Array[T]) = this(array, 0, array.length)
 
+	private[collections] override def unsafeArray :Array[_] = array
+	private[collections] override def startIndex :Int = first
+	private[collections] override def isImmutable :Boolean = false
+
 	protected final override def underlyingSize :Int = array.length
-	protected final override def index :Int = first
+	final override def index :Int = first
 	protected final override def index_=(i :Int) :Unit = first = i
-	protected final override def limit :Int = `last++`
+	final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
 
-	override def hasNext :Boolean = first < `last++`
-	override def head :T = array(first)
-	override def next() :T = { val res = array(first); first += 1; res }
+	def reverse :ReverseArrayIterator[T] = new ReverseArrayIterator[T](array, first, `last++`)
 
+	override def hasNext :Boolean = first < `last++`
+	override def head :T =
+		if (first < `last++`) array(first)
+		else throw new NoSuchElementException("Index " + first + " exceeds the limit of " + `last++` + '.')
+
+	override def next() :T = {
+		if (first >= `last++`)
+			throw new NoSuchElementException("Index " + first + " exceeds the limit of " + `last++` + ".")
+		val res = array(first)
+		first += 1
+		res
+	}
+
+	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
+		if (len <= 0 || first >= `last++` || start >= xs.length)
+			0
+		else if (start < 0)
+			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xs.length + ")")
+		else {
+			val copied = math.min(len, math.min(`last++` - first, xs.length - start))
+			ArrayLike.copy(array, first, xs, start, copied)
+			copied
+		}
+	}
+
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :ArrayIterator[_] => (array eq other.unsafeArray) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	override def hashCode :Int = ErasedArray.Wrapped.Slice(array, first, `last++`).hashCode
 	override def clone = new ArrayIterator(array, first, `last++`)
 }
 
@@ -167,6 +203,12 @@ object ArrayIterator {
 		else if (until >= len) new ArrayIterator(array, from, len)
 		else new ArrayIterator(array, from, until)
 	}
+
+	/** An iterator over `[from, until)` index range of `array`, going in reverse. The first returned element
+	  * will be the one at index `until - 1`, and the last one at index `from`.
+	  */
+	def reversed[@specialized(Int, Long, Double) T](array :Array[T], from :Int, until :Int) :ReverseArrayIterator[T] =
+		ReverseArrayIterator.over(array, from, until)
 }
 
 
@@ -180,21 +222,36 @@ object ArrayIterator {
   */
 class ReverseArrayIterator[@specialized(Int, Long, Double) +T]
 	                      (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIndexedReverseIterator[T]
+	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
 {
 	def this(array :Array[T], idx :Int) = this(array, 0, idx)
 	def this(array :Array[T]) = this(array, 0, array.length)
 
+	private def unsafeArray :Array[_] = array
 	protected final override def underlyingSize :Int = array.length
-	protected final override def index :Int = `first++`
+	final override def index :Int = `first++`
 	protected final override def index_=(i :Int) :Unit = `first++` = i
-	protected final override def limit :Int = last
+	final override def limit :Int = last
 	protected final override def limit_=(i :Int) :Unit = last = i
 
 	override def hasNext :Boolean = `first++` > last
-	override def head :T = array(`first++` - 1)
-	override def next() :T = { `first++` -= 1; array(`first++`) }
+	override def head :T =
+		if (`first++` > last) array(`first++` - 1)
+		else throw new NoSuchElementException("Index " + `first++` + " reached the lower bound of " + last + ".")
+	override def next() :T = {
+		if (`first++` <= last)
+			throw new NoSuchElementException("Index " + `first++` + " reached the lower bound of " + last + ".")
+		`first++` -= 1
+		array(`first++`)
+	}
 
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :ReverseArrayIterator[_] =>
+			(array eq other.unsafeArray) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	override def hashCode :Int = ReversedSeq(IArray.Wrapped.Slice(array.asInstanceOf[IArray[T]], index, limit)).hashCode
 	override def clone = new ReverseArrayIterator(array, last, `first++`)
 }
 
@@ -204,15 +261,18 @@ object ReverseArrayIterator {
 	def apply[@specialized(Int, Long, Double) T](array :Array[T]) :ReverseArrayIterator[T] =
 		new ReverseArrayIterator(array, 0, array.length)
 
-	def apply[@specialized(Int, Long, Double) T](array :Array[T], from :Int, downto :Int) :ReverseArrayIterator[T] = {
+	def apply[@specialized(Int, Long, Double) T](array :Array[T], from :Int, downto :Int) :ReverseArrayIterator[T] =
+		over(array, downto, from)
+
+	def over[@specialized(Int, Long, Double) T](array :Array[T], from :Int, until :Int) :ReverseArrayIterator[T] = {
 		val len = array.length
-		if (from <= 0) new ReverseArrayIterator(array, 0, 0)
-		else if (downto >= len) new ReverseArrayIterator(array, len, len)
-		else if (downto >= from) new ReverseArrayIterator(array, from, from)
-		else if (downto <= 0 && from >= len) new ReverseArrayIterator(array, 0, len)
-		else if (downto <= 0) new ReverseArrayIterator(array, 0, from)
-		else if (from >= len) new ReverseArrayIterator(array, downto, len)
-		else new ReverseArrayIterator(array, downto, from)
+		if (until <= 0) new ReverseArrayIterator(array, 0, 0)
+		else if (from >= len) new ReverseArrayIterator(array, len, len)
+		else if (from >= until) new ReverseArrayIterator(array, until, until)
+		else if (from <= 0 && until >= len) new ReverseArrayIterator(array, 0, len)
+		else if (from <= 0) new ReverseArrayIterator(array, 0, until)
+		else if (until >= len) new ReverseArrayIterator(array, from, len)
+		else new ReverseArrayIterator(array, from, until)
 	}
 }
 
@@ -228,11 +288,12 @@ object ReverseArrayIterator {
   */
 class IndexedSeqIterator[@specialized(Int, Long, Double) +T]
 	                    (seq :collection.IndexedSeq[T], private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIndexedIterator[T]
+	extends AbstractIterator[T] with AbstractIndexedIterator[T]
 {
 	def this(seq :IndexedSeq[T], idx :Int) = this(seq, idx, seq.length)
 	def this(seq :IndexedSeq[T]) = this(seq, 0, seq.length)
 
+	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length
 	protected final override def index :Int = first
 	protected final override def index_=(i :Int) :Unit = first = i
@@ -241,8 +302,21 @@ class IndexedSeqIterator[@specialized(Int, Long, Double) +T]
 
 	override def hasNext :Boolean = first < `last++`
 	override def head :T = seq(first)
-	override def next() :T = { val res = seq(first); first += 1; res }
+	override def next() :T = {
+		if (first >= `last++`)
+			throw new NoSuchElementException("Index " + first + " exceeds the upper bound of " + `last++` + ".")
+		val res = seq(first)
+		first += 1
+		res
+	}
 
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :IndexedSeqIterator[_] =>
+			(seq eq other.underlying) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	override def hashCode :Int = seq.slice(index, limit).hashCode
 	override def clone = new IndexedSeqIterator(seq, first, `last++`)
 }
 
@@ -282,11 +356,12 @@ object IndexedSeqIterator {
   */
 class ReverseIndexedSeqIterator[@specialized(Int, Long, Double) +T]
 	  (seq :collection.IndexedSeq[T], private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIndexedReverseIterator[T]
+	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
 {
 	def this(seq :IndexedSeq[T], idx :Int) = this(seq, 0, idx)
 	def this(seq :IndexedSeq[T]) = this(seq, 0, seq.length)
 
+	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length
 	protected final override def index :Int = `first++`
 	protected final override def index_=(i :Int) :Unit = `first++` = i
@@ -295,8 +370,20 @@ class ReverseIndexedSeqIterator[@specialized(Int, Long, Double) +T]
 
 	override def hasNext :Boolean = `first++` > last
 	override def head :T = seq(`first++` - 1)
-	override def next() :T = { `first++` -= 1; seq(`first++`) }
+	override def next() :T = {
+		if (`first++` <= last)
+			throw new NoSuchElementException("Index " + `first++` + " has reached the lower bound of " + last + ".")
+		`first++` -= 1
+		seq(`first++`)
+	}
 
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :ReverseIndexedSeqIterator[_] =>
+			(underlying eq other.underlying) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	override def hashCode :Int = ReversedSeq(seq.slice(last, `first++`).toIndexedSeq).hashCode
 	override def clone = new ReverseIndexedSeqIterator(seq, last, `first++`)
 }
 
@@ -331,8 +418,9 @@ object ReverseIndexedSeqIterator {
   */
 final class StringIterator private[collections]
 	        (string :String, private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIndexedIterator[Char]
+	extends AbstractIterator[Char] with AbstractIndexedIterator[Char]
 {
+	private def underlying = string
 	protected override def underlyingSize :Int = string.length
 	protected override def index :Int = first
 	protected override def index_=(i :Int) :Unit = first = i
@@ -343,9 +431,20 @@ final class StringIterator private[collections]
 	override def head :Char = string.charAt(first)
 
 	override def next() :Char = {
-		val res = string.charAt(first); first += 1; res
+		if (first >= `last++`)
+			throw new NoSuchElementException("Index " + first + " has reached its upper bound of " + `last++` + ".")
+		val res = string.charAt(first)
+		first += 1
+		res
 	}
 
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :StringIterator =>
+			(string eq other.underlying) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	override def hashCode :Int = new WrappedString(string).slice(first, `last++`).hashCode
 	override def clone = new StringIterator(string, first, `last++`)
 }
 
@@ -388,7 +487,7 @@ object StringIterator extends GenericStringIteratorFactory[Char, StringIterator]
   */
 final class ReverseStringIterator private[collections]
 	        (string :String, private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIndexedReverseIterator[Char]
+	extends AbstractIterator[Char] with AbstractIndexedReverseIterator[Char]
 {
 	/* Requires 0 <= from <= until <= string.length and maintains invariant 0 <= stop <= index <= string.length.
 	* The invariant can be broken only by advancing an empty iterator.
@@ -396,6 +495,7 @@ final class ReverseStringIterator private[collections]
 	* while `string(from)` is the last character in this iterator, unless it is empty.
 	* This scheme results in code being a mirror image of StringIterator, with + replaced with -.
 	*/
+	private def underlying = string
 	protected override def underlyingSize :Int = string.length
 	protected override def index :Int = `first++`
 	protected override def index_=(i :Int) :Unit = `first++` = i
@@ -406,9 +506,19 @@ final class ReverseStringIterator private[collections]
 	override def head :Char = string.charAt(`first++` - 1)
 
 	override def next() :Char = {
-		`first++` -= 1; string.charAt(`first++`)
+		if (`first++` <= last)
+			throw new NoSuchElementException("Index " + `first++` + " has reached its lower bound of " + last + ".")
+		`first++` -= 1
+		string.charAt(`first++`)
 	}
 
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :ReverseStringIterator =>
+			(string eq other.underlying) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	override def hashCode :Int = ReversedSeq(new WrappedString(string).slice(last, `first++`)).hashCode
 	override def clone = new ReverseStringIterator(string, last, `first++`)
 }
 

@@ -1,12 +1,17 @@
 package net.noresttherein.sugar.collections
 
+import scala.collection.immutable.ArraySeq
+import scala.collection.mutable.Builder
+import scala.reflect.ClassTag
+
 import net.noresttherein.sugar.extensions.{IterableExtension, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
+import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.Got
-import org.scalacheck.{Prop, Properties, Test}
+import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
-import org.scalacheck.util.ConsoleReporter
+import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 
 
@@ -14,7 +19,11 @@ import org.scalacheck.util.ConsoleReporter
 
 object SeqExtensionSpec extends Properties("SeqExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140))
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
+
+	implicit def buildableArraySeq[T :ClassTag] :Buildable[T, ArraySeq[T]] = new Buildable[T, ArraySeq[T]] {
+		override def builder :Builder[T, ArraySeq[T]] = ArraySeq.newBuilder[T]
+	}
 
 	property("isSorted") = forAll { seq :Seq[Int] =>
 		val sorted = seq.sorted
@@ -42,6 +51,73 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 	}
 
 	property("shuffle") = forAll { seq :Seq[Int] => seq.shuffle.sorted =? seq.sorted }
+
+
+	def seqProperty[X :Arbitrary :ClassTag](prop :Seq[X] => Prop) :Prop =
+		forAll { seq :List[X] => prop(seq) :| "List" } &&
+			forAll { seq :ArraySeq[X] => prop(seq) :| "ArraySeq" }
+
+//	property("updated(first, second, rest*)") = seqProperty { seq :Seq[Int] =>
+//		seqProperty { patch :Seq[Int] =>
+//			forAll { (x :Int, y :Int, index :Int) =>
+//				if (index < 0 || index + patch.length + 2 > seq.length)
+//					seq.updated(index, x, y, patch :_*).throws[IndexOutOfBoundsException]
+//				else
+//					seq.updated(index, x, y, patch :_*) ?=
+//						seq.take(index) :+ x :+ y :++ patch :++ seq.drop(index + 2 + patch.length)
+//			}
+//		}
+//	}
+	property("updatedAll") = seqProperty { seq :Seq[Int] =>
+		seqProperty { patch :Seq[Int] =>
+			forAll { index :Int =>
+				if (index < 0 || index + patch.length > seq.length)
+					seq.updatedAll(index, patch).throws[IndexOutOfBoundsException]
+				else
+					seq.updatedAll(index, patch) ?=
+						seq.take(index) :++ patch :++ seq.drop(index + patch.length)
+			}
+		}
+	}
+
+	property("inserted") = seqProperty { seq :Seq[Int] =>
+		forAll { (i :Int, x :Int) =>
+			val index = math.min(seq.length, math.max(i, 0))
+			seq.inserted(i, x) ?= seq.take(i) :+ x :++ seq.drop(i)
+		}
+	}
+	property("inserted(first, second, rest*)") = seqProperty { seq :Seq[Int] =>
+		seqProperty { patch :Seq[Int] =>
+			forAll { (x :Int, y :Int, index :Int) =>
+				seq.inserted(index, x, y, patch :_*) ?=
+					seq.take(index) :+ x :+ y :++ patch :++ seq.drop(index + 2 + patch.length)
+			}
+		}
+	}
+	property("insertedAll") =  seqProperty { seq :Seq[Int] =>
+		seqProperty { patch :Seq[Int] =>
+			forAll { index :Int =>
+				seq.insertedAll(index, patch) ?=
+					seq.take(index) :++ patch :++ seq.drop(index + patch.length)
+			}
+		}
+	}
+
+//	property("appended(first, second, rest*)") = seqProperty { seq :Seq[Int] =>
+//		seqProperty { patch :Seq[Int] =>
+//			forAll { (x :Int, y :Int) =>
+//				seq.appended(x, y, patch :_*) ?= seq.appendedAll(x +: y +: patch)
+//			}
+//		}
+//	}
+//	property("prepended(first, second, rest*)") = seqProperty { seq :Seq[Int] =>
+//		seqProperty { patch :Seq[Int] =>
+//			forAll { (x :Int, y :Int) =>
+//				seq.prepended(x, y, patch :_*) ?= seq.prependedAll(x +: y +: patch)
+//			}
+//		}
+//	}
+
 
 	private def getIndex(i :Int) :Opt[Int] = Opt.when(i >= 0)(i)
 

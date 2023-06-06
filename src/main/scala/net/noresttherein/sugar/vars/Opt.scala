@@ -2,9 +2,10 @@ package net.noresttherein.sugar.vars
 
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
-import net.noresttherein.sugar.vars.Opt.{unzip2Lack, unzip3Lack, Got, Lack, NoContent, WithFilter}
+import net.noresttherein.sugar.vars.Opt.{Got, Lack, NoContent, WithFilter, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
 
@@ -288,8 +289,9 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	/** Returns an empty `Opt` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
 	def removedAll[O >: A](that :IterableOnce[O]) :Opt[A] = that match {
-		case _ if ref eq NoContent => this //todo: add Ranking support
+		case _ if ref eq NoContent => this
 		case it :Set[O] => if (it(get)) new Opt(NoContent) else this
+		case it :Ranking[O] => if (it.contains(get)) new Opt(NoContent) else this
 		case it :Iterable[O] if it.isEmpty => this
 		case _ =>
 			val i = that.iterator

@@ -231,31 +231,43 @@ trait imports {
 	def oops(msg :String, cause :Throwable) :Nothing = throw new Oops(msg, cause)
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	@inline final def unsupported_! :Nothing =
+	final def unsupported_! :Nothing =
 		throw new UnsupportedOperationException
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	@inline final def unsupported_!(msg :String) :Nothing =
-		throw new UnsupportedOperationException(msg)
+	final def unsupported_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new UnsupportedOperationException(msg, cause)
 
 	/** Throws a [[NoSuchElementException]]. */
-	@inline final def noSuch_!(msg :String) :Nothing =
-		throw new NoSuchElementException(msg)
+	final def noSuch_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new NoSuchElementException(msg, cause)
 
 	/** Throws an [[IllegalArgumentException]]. */
-	@inline final def illegal_!(msg :String) :Nothing =
-		throw new IllegalArgumentException(msg)
+	final def illegal_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new IllegalArgumentException(msg, cause)
 
 	/** Throws an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].  */
-	@inline final def impossible_!(msg :String) :Nothing = throw new ImpossibleError(msg)
+	final def impossible_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new ImpossibleError(msg)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
-	@inline final def outOfBounds_!(idx :Int, size :Int) :Nothing =
+	final def outOfBounds_!(idx :Int) :Nothing =
+		throw new IndexOutOfBoundsException(idx)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(idx :Int, size :Int) :Nothing =
 		throw new IndexOutOfBoundsException(idx.toString + " out of " + size)
 
+	final def outOfBounds_!(idx :Int, min :Int, max :Int) :Nothing =
+		throw new IndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + ")")
+
 	/** Throws an [[IndexOutOfBoundsException]]. */
-	@inline final def outOfBounds(msg :String) :Nothing =
-		throw new IndexOutOfBoundsException(msg)
+	final def outOfBounds_!(idx :Int, cause :Throwable) :Nothing =
+		throw new IndexOutOfBoundsException(idx).initCause(cause)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds(msg :String, cause :Throwable = null) :Nothing =
+		throw new IndexOutOfBoundsException(msg).initCause(cause)
 
 
 
