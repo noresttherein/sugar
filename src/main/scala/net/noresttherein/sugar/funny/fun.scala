@@ -341,7 +341,7 @@ object fun {
 	}
 
 
-	/** An identity function implementation with overriden `compose` and `andThen` methods so it is elided
+	/** An identity function implementation with overridden `compose` and `andThen` methods so it is elided
 	  * on composition. Additionally, provides an indicative `toString` implementation.
 	  */
 	trait Identity[@specialized(Arg) X] extends ComposableFun[X, X] with PureFun[X, X] {
@@ -380,7 +380,8 @@ object fun {
 
 
 	@SerialVersionUID(Ver)
-	private class ComposedFun[@specialized(Arg) -X, @specialized(Arg) Y, @specialized(Return) +Z](val inner :X=>Y, val outer :Y=>Z)
+	private class ComposedFun[@specialized(Arg) -X, @specialized(Arg) Y, @specialized(Return) +Z]
+	                         (val inner :X=>Y, val outer :Y=>Z)
 		extends ComposableFun[X, Z]
 	{
 		override def apply(x: X): Z = outer(inner(x))

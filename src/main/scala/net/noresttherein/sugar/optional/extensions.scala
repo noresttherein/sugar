@@ -2,8 +2,10 @@ package net.noresttherein.sugar.optional
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.optional.extensions.{ensuringMethods, ifTrueMethods, OptionExtension, OptionObjectExtension, providingMethods, satisfyingMethods}
+import net.noresttherein.sugar.extensions.castTypeParamMethods
+import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionObjectExtension, ensuringMethods, ensuringMethodsConversion, ifTrueMethods, providingMethods, satisfyingMethods}
 import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.typist.PriorityConversion
 import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -32,7 +34,10 @@ trait extensions extends Any {
 	@inline implicit final def providingMethods[T](self: => T) :providingMethods[T] = new providingMethods[T](self)
 
 	/** Adds additional `ensuring` methods to any object which accept exception classes to throw on failure. */
-	@inline implicit final def ensuringMethods[T](self :T) :ensuringMethods[T] = new ensuringMethods[T](self)
+	@inline implicit final def ensuringMethods[T] :ensuringMethodsConversion[T] =
+		extensions.ensuringMethodsConversionPrototype.castParam[T]
+
+//	@inline implicit final def ensuringMethods[T](self :T) :ensuringMethods[T] = new ensuringMethods[T](self)
 //duplicated in casting
 //	/** Adds `ifInstanceOf` and `ifSubclass` methods to any value providing `Option`-returning casting
 //	  * and optional execution of a function based on the argument's runtime class.
@@ -301,7 +306,22 @@ object extensions extends extensions {
 		  * passing the given string to its constructor. */
 		@inline def ensuring[E <: Exception :ClassTag](condition :Boolean, msg: => String) :T =
 			if (condition) self else raise[E](msg)
+
+		//methods from Predef.Ensuring, because we are shadowing them
+	    def ensuring(cond: Boolean) :T = { assert(cond); self }
+	    def ensuring(cond: Boolean, msg: => Any) :T = { assert(cond, msg); self }
+	    def ensuring(cond: T => Boolean) :T = { assert(cond(self)); self }
+	    def ensuring(cond: T => Boolean, msg: => Any) :T = { assert(cond(self), msg); self }
 	}
+
+	sealed trait ensuringMethodsConversion[T] extends (T => ensuringMethods[T]) {
+		/* See collections.extensions.ArrayExtensionConversion. */
+		@inline final def apply(v1 :T)(implicit dummy :DummyImplicit) :ensuringMethods[T] = new ensuringMethods(v1)
+	}
+	private def newEnsuringMethodsConversion[T] =
+		new PriorityConversion.Wrapped[T, ensuringMethods[T]](new ensuringMethods(_))
+			with ensuringMethodsConversion[T]
+	private val ensuringMethodsConversionPrototype :ensuringMethodsConversion[Any] = newEnsuringMethodsConversion
 
 
 

@@ -241,5 +241,9 @@ package typist {
 
 		/** Promotes a function to a `SpecificConversion[X, Y]`. */
 		def wrap[X, Y](f :X => Y) :PriorityConversion[X, Y] = f(_)
+
+		class Wrapped[-X, +Y](f :X => Y) extends PriorityConversion[X, Y] {
+			override def apply(v1 :X) :Y = f(v1)
+		}
 	}
 }
