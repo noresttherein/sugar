@@ -33,7 +33,7 @@ object debug {
 	/** Wraps the expression in a `try-catch` block and prints any caught exceptions to the console
 	  * before rethrowing them.
 	  */
-	def thrown[X](block: => X) :X =
+	def throwing[X](block: => X) :X =
 		try block catch {
 			case e :Exception =>
 				Console.err.println(e)
