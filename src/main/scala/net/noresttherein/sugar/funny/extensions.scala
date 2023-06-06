@@ -152,8 +152,8 @@ object extensions extends extensions {
 		  * @param f    a function extracting `Out` values from `In` arguments.
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def unlift[@specialized(Arg) In, Out]
-		         (name :String)(f :In => Opt[Out]) :PartialFunction[In, Out] =
+		def from[@specialized(Arg) In, Out]
+		        (name :String)(f :In => Opt[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, name)
 
 		/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
@@ -163,7 +163,7 @@ object extensions extends extensions {
 		  * @param f    a function extracting `Out` values from `In` arguments.
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def unlift[@specialized(Arg) In, Out](f :In => Opt[Out]) :PartialFunction[In, Out] =
+		def from[@specialized(Arg) In, Out](f :In => Opt[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, "<unlifted function>")
 	}
 
@@ -278,19 +278,6 @@ object extensions extends extensions {
 	@SerialVersionUID(Ver)
 	private final class OptFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
 	                               (f :In => Opt[Out], override val toString :String)
-		extends ComposablePartialFunction[In, Out]
-	{
-		override def isDefinedAt(x :In) :Boolean = f(x).isDefined
-
-		override def apply(v1 :In) :Out = f(v1) getOrElse { throw new MatchError(v1) }
-
-		override def applyOrElse[A1 <: In, B1 >: Out](x :A1, default :A1 => B1) :B1 =
-			f(x) getOrElse default(x)
-	}
-
-	@SerialVersionUID(Ver)
-	private final class OptionFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
-	                                  (f :In => Option[Out], override val toString :String)
 		extends ComposablePartialFunction[In, Out]
 	{
 		override def isDefinedAt(x :In) :Boolean = f(x).isDefined
