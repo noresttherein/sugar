@@ -231,31 +231,43 @@ trait imports {
 	def oops(msg :String, cause :Throwable) :Nothing = throw new Oops(msg, cause)
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	@inline final def unsupported_! :Nothing =
+	final def unsupported_! :Nothing =
 		throw new UnsupportedOperationException
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	@inline final def unsupported_!(msg :String) :Nothing =
-		throw new UnsupportedOperationException(msg)
+	final def unsupported_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new UnsupportedOperationException(msg, cause)
 
 	/** Throws a [[NoSuchElementException]]. */
-	@inline final def noSuch_!(msg :String) :Nothing =
-		throw new NoSuchElementException(msg)
+	final def noSuch_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new NoSuchElementException(msg, cause)
 
 	/** Throws an [[IllegalArgumentException]]. */
-	@inline final def illegal_!(msg :String) :Nothing =
-		throw new IllegalArgumentException(msg)
+	final def illegal_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new IllegalArgumentException(msg, cause)
 
 	/** Throws an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].  */
-	@inline final def impossible_!(msg :String) :Nothing = throw new ImpossibleError(msg)
+	final def impossible_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new ImpossibleError(msg)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
-	@inline final def outOfBounds_!(idx :Int, size :Int) :Nothing =
+	final def outOfBounds_!(idx :Int) :Nothing =
+		throw new IndexOutOfBoundsException(idx)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(idx :Int, size :Int) :Nothing =
 		throw new IndexOutOfBoundsException(idx.toString + " out of " + size)
 
+	final def outOfBounds_!(idx :Int, min :Int, max :Int) :Nothing =
+		throw new IndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + ")")
+
 	/** Throws an [[IndexOutOfBoundsException]]. */
-	@inline final def outOfBounds(msg :String) :Nothing =
-		throw new IndexOutOfBoundsException(msg)
+	final def outOfBounds_!(idx :Int, cause :Throwable) :Nothing =
+		throw new IndexOutOfBoundsException(idx).initCause(cause)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(msg :String, cause :Throwable = null) :Nothing =
+		throw new IndexOutOfBoundsException(msg).initCause(cause)
 
 
 
@@ -269,40 +281,6 @@ trait imports {
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag] :Opt[E] =
 		defaultConstructor[E].map(_())
 
-/*
-	private[sugar] final def getThrowable[E <: Throwable :ClassTag] :Opt[E] = {
-		val E = classTag[E].runtimeClass
-		(findConstructor(E, NoArgs) match {
-			case Got(cons) => Got(cons.newInstance())
-			case _ => Lack
-		}).orElse(findConstructor(E, StringArg) match {
-			case Got(cons) => Got(cons.newInstance(""))
-			case _ => Lack
-		}).orElse(findConstructor(E, ThrowableArg) match {
-			case Got(cons) => Got(cons.newInstance(null))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance("", null))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance("", null, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance("", null, null, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringArg) match {
-			case Got(cons) => Got(cons.newInstance(() => ""))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => "", null))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => "", null, true, true))
-			case _ => Lack
-		}).downcastParam[E]
-	}
-*/
-
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
 	  * by using reflection. This method attempts to find constructors `(String)`, `(String, Throwable)`
 	  * `(String, Throwable, Boolean, Boolean)`, `(String, () => String, Throwable, Boolean, Boolean)`,
@@ -312,33 +290,6 @@ trait imports {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :String) :Opt[E] =
 		stringConstructor[E].map(_(msg))
-/*
-	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :String) :Opt[E] = {
-		val E = classTag[E].runtimeClass
-		(findConstructor(E, StringArg) match {
-			case Got(cons) => Got(cons.newInstance(msg))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, null))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, null, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, null, null, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringArg) match {
-			case Got(cons) => Got(cons.newInstance(() => msg))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => msg, null))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => msg, null, true, true))
-			case _ => Lack
-		}).downcastParam[E]
-	}
-*/
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
 	  * by using reflection. This method attempts to find constructors `(() => String)`, `(() => String, Throwable)`
@@ -348,24 +299,6 @@ trait imports {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :() => String) :Opt[E] =
 		lazyStringConstructor[E].map(_(msg))
-/*
-	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :() => String) :Opt[E] = {
-		val E = classTag[E].runtimeClass
-		(findConstructor(E, LazyStringArg) match {
-			case Got(cons) => Got(cons.newInstance(msg))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, null))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, null, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(null, msg, null, true, true))
-			case _ => Lack
-		}).downcastParam[E]
-	}
-*/
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
 	  * and cause by using reflection. This method attempts to find constructors `(String)`, `(String, Throwable)`
@@ -377,33 +310,6 @@ trait imports {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :String, cause :Throwable) :Opt[E] =
 		stringThrowableConstructor[E].map(_(msg, cause))
-/*
-	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :String, cause :Throwable) :Opt[E] = {
-		val E = classTag[E].runtimeClass
-		(findConstructor(E, StringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringArg) match {
-			case Got(cons) => Got(cons.newInstance(msg).asInstanceOf[E].initCause(cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, cause, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, null, cause, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringArg) match {
-			case Got(cons) => Got(cons.newInstance(() => msg).asInstanceOf[E].initCause(cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => msg, cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => msg, cause, true, true))
-			case _ => Lack
-		}).downcastParam[E]
-	}
-*/
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given message
 	  * and cause by using reflection. This method attempts to find constructors `(() => String)`,
@@ -414,24 +320,6 @@ trait imports {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :() => String, cause :Throwable) :Opt[E] =
 		lazyStringThrowableConstructor[E].map(_(msg, cause))
-/*
-	private[sugar] final def getThrowable[E <: Throwable :ClassTag](msg :() => String, cause :Throwable) :Opt[E] = {
-		val E = classTag[E].runtimeClass
-		(findConstructor(E, LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringArg) match {
-			case Got(cons) => Got(cons.newInstance(msg).asInstanceOf[E].initCause(cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, cause, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(null, msg, null, cause, true, true))
-			case _ => Lack
-		}).downcastParam[E]
-	}
-*/
 
 	/** Creates a new instance of the [[Throwable]] class specified as the type parameter with the given cause
 	  * by using reflection. This method attempts to find constructors `(Throwable)`, `()`, `(String, Throwable)`
@@ -442,32 +330,6 @@ trait imports {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable :ClassTag](cause :Throwable) :Opt[E] =
 		throwableConstructor[E].map(_(cause))
-/*
-	private[sugar] final def getThrowable[E <: Throwable :ClassTag](cause :Throwable) :Opt[E] = {
-		val E = classTag[E].runtimeClass
-		(findConstructor(E, ThrowableArg) match {
-			case Got(cons) => Got(cons.newInstance(cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, NoArgs) match {
-			case Got(cons) => Got(cons.newInstance().asInstanceOf[E].initCause(cause))
-		}).orElse(findConstructor(E, StringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance("", cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance("", cause, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance("", null, cause, true, true))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(null, cause))
-			case _ => Lack
-		}).orElse(findConstructor(E, LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) => Got(cons.newInstance(null, cause, true, true))
-			case _ => Lack
-		}).downcastParam[E]
-	}
-*/
 
 	/** Creates a new instance of the [[net.noresttherein.sugar.exceptions.Rethrowable]] class
 	  * specified as the type parameter with, the given message and cause,
