@@ -344,10 +344,13 @@ including casting on type parameters for higher types.
   1. `PropertyPath`: reflecting a (possibly composite) properties given as getter functions:
       
          assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
-  2. `Class` extensions, in particular with methods such as `isBoxOf` dealing with the duality of boxed and unboxed 
+  2. `Specialized` a type class carrying information about `@specialized` types, allowing to call specialized code
+     from non-specialized, and providing separate callbacks for different value types.
+  3. `RuntimeType`: an umbrella type class covering `ClassTag`, `TypeTag` and `Specialized` 
+  4. `Class` extensions, in particular with methods such as `isBoxOf` dealing with the duality of boxed and unboxed 
      primitive values.
 
-  3. Various ways for demangling and abbreviating class names for logging purposes, for example:
+  5. Various ways for demangling and abbreviating class names for logging purposes, for example:
 
          object.getClass.name       //my.package.Singleton.Specialized_:[Int]
          object.getClass.abbrevName //m.p.Singleton.Specialized_:[Int]
