@@ -101,19 +101,28 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 			else Prop(throws(classOf[ArithmeticException]) { v rem x2})
 		}
 
-		property("neg()") = forAll { x :Int => val v = Var(x); (v.neg() ?= -x) :| "return" && (v.value ?= -x) :| "assign" }
+		property("neg()") = forAll { x :Int =>
+			val v = Var(x)
+			(v.neg() ?= -x) :| "return" && (v.value ?= -x) :| "assign"
+		}
 
 		property("++") = forAll { x :Int => val v = Var(x); v.++; v.value ?= x + 1 }
 
-		property("inc()") = forAll { x1 :Int => val v = Var(x1); (v.inc() ?= x1 + 1) :| "return" && (v.value ?= x1 + 1) :| "assign"}
+		property("inc()") = forAll { x1 :Int =>
+			val v = Var(x1)
+			(v.inc() ?= x1 + 1) :| "return" && (v.value ?= x1 + 1) :| "assign"
+		}
 
 		property("--") = forAll { x :Int => val v = Var(x); v.--; v.value ?= x - 1 }
 
-		property("dec()") = forAll { x1 :Int => val v = Var(x1); (v.dec() ?= x1 - 1) :| "return" && (v.value ?= x1 - 1) :| "assign"}
+		property("dec()") = forAll { x1 :Int =>
+			val v = Var(x1)
+			(v.dec() ?= x1 - 1) :| "return" && (v.value ?= x1 - 1) :| "assign"
+		}
 
 
 
-		property("|=") = forAll { (x1 :Int, x2 :Int) => val v = Var(x1); v |= x2; v.value ?= x1 | x2}
+		property("|=") = forAll { (x1 :Int, x2 :Int) => val v = Var(x1); v |= x2; v.value ?= x1 | x2 }
 
 		property("&=") = forAll { (x1 :Int, x2 :Int) => val v = Var(x1); v &= x2; v.value ?= x1 & x2 }
 
@@ -188,13 +197,22 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 
 		property("++") = forAll { x :Long => val v = Var(x); v.++; v.value ?= x + 1 }
 
-		property("inc()") = forAll { x1 :Long => val v = Var(x1); (v.inc() ?= x1 + 1) :| "return" && (v.value ?= x1 + 1) :| "assign"}
+		property("inc()") = forAll { x1 :Long =>
+			val v = Var(x1)
+			(v.inc() ?= x1 + 1) :| "return" && (v.value ?= x1 + 1) :| "assign"
+		}
 
 		property("--") = forAll { x :Long => val v = Var(x); v.--; v.value ?= x - 1 }
 
-		property("dec()") = forAll { x1 :Long => val v = Var(x1); (v.dec() ?= x1 - 1) :| "return" && (v.value ?= x1 - 1) :| "assign"}
+		property("dec()") = forAll { x1 :Long =>
+			val v = Var(x1)
+			(v.dec() ?= x1 - 1) :| "return" && (v.value ?= x1 - 1) :| "assign"
+		}
 
-		property("neg()") = forAll { x :Long => val v = Var(x); (v.neg() ?= -x) :| "return" && (v.value ?= -x) :| "assign" }
+		property("neg()") = forAll { x :Long =>
+			val v = Var(x)
+			(v.neg() ?= -x) :| "return" && (v.value ?= -x) :| "assign"
+		}
 
 
 		property("|=") = forAll { (x1 :Long, x2 :Long) => val v = Var(x1); v |= x2; v.value ?= x1 | x2}

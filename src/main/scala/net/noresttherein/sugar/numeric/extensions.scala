@@ -198,7 +198,10 @@ object extensions extends extensions {
 		  */
 		@inline def toNatural :Natural = Natural(self)
 
-		
+
+		/** True if this `Int` has no divisors other than `1` and `2`. */
+		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
+
 		/** Number of one bits in the binary representation of this `Int`. */
 		@inline def bitCount :Int = jl.Integer.bitCount(self)
 
@@ -241,7 +244,7 @@ object extensions extends extensions {
 				var i   = jl.Long.highestOneBit(exp)
 				while (i >= 0) {
 					res = res * res
-					if ((exp >> i & 1) == 1)
+					if ((exp >> i.toInt & 1) == 1)
 						res = res * self
 					i -= 1
 				}
@@ -282,6 +285,9 @@ object extensions extends extensions {
 		  */
 		@inline def toNatural :Natural = Natural(self.toInt)
 
+
+		/** True if this `Long` has no divisors other than `1` and `2`. */
+		@inline def isPowerOf2 :Boolean = jl.Long.bitCount(self) == 1
 
 		/** Number of one bits in the binary representation of this `Long`. */
 		@inline def bitCount :Long = jl.Long.bitCount(self)

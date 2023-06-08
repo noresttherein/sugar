@@ -916,7 +916,7 @@ object Curry {
 	  * a function which first applies `f`, in order, to the given value, first parameter, a parameter mapped from the
 	  * next parameter, third parameter, and then takes an ignored parameter of type `W`. A concrete example:
 	  * {{{
-	  *     val f = Curried{b:Byte => s:Short => i:Int => l:Long => s"\$b\$s\$i\$l"}
+	  *     val f = Curried{ b:Byte => s:Short => i:Int => l:Long => s"\$b\$s\$i\$l" }
 	  *     val res = f()((_:String).toShort)(42).unapplied :Byte=>String=>Long=>String.
 	  * }}}
 	  * @param unapplied underlying function to which all functions created by this instance will delegate

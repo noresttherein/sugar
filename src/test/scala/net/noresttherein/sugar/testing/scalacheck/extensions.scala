@@ -1,10 +1,11 @@
 package net.noresttherein.sugar.testing.scalacheck
 
 import scala.collection.immutable.AbstractSet
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.Console.err
 
 import net.noresttherein.sugar.extensions.ClassExtension
+import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import org.scalacheck.Prop
 
 
@@ -36,29 +37,21 @@ object extensions {
 		}
 	}
 
-	implicit class BooleanExtension(private val self :Boolean) extends AnyVal {
+	implicit class BooleanAsPropExtension(private val self :Boolean) extends AnyVal {
 		private def prop = Prop(self)
 
-		def lbl(l : => String) :Prop = prop.map { res =>
-			res.copy(labels = new LazySet(res.labels + l))
-		}
+		@inline def lbl(l : => String) :Prop = Prop(self) lbl l
 		@inline def lbl_:(l : => String) :Prop = lbl(l)
 		@inline def :@(l : => String) :Prop = lbl(l)
 		@inline def @:(l : => String) :Prop = lbl(l)
 
-		def orElse(p : => Prop) =  //Prop.secure(self) || Prop.secure(p)
-			prop.combine(Prop.secure(p)) { (first, second) =>
-				if (first.failure && second.status.isInstanceOf[Prop.Exception])
-					err.println(first.toString + " orElse " + second)
-				if (first.success) first
-				else second
-			}
+		@inline def orElse(p : => Prop) :Prop =  Prop(self) orElse p
 	}
 
 	implicit class LazyExtension(self : => Any) {
-		def throws[E <: Throwable :ClassTag] :Prop = //:ThrowingProp[E] = new ThrowingProp[E](self)
-			Prop(Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(self)) lbl
-				"throws " + classTag[E].runtimeClass.name
+		def throws[E <: Throwable :ClassTag] :Prop = {
+			Prop(Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(self)) lbl "throws " + fullNameOf[E]
+		}
 	}
 
 }

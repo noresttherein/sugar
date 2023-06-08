@@ -2,13 +2,14 @@ package net.noresttherein.sugar.vars
 
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Ref.FinalRef
-import net.noresttherein.sugar.vars.Unsure.{collector, unzip2Fail, unzip3Fail, WithFilter}
+import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, unzip3Fail}
 
 
 
@@ -252,8 +253,9 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Returns `Missing` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
 	def removedAll[O >: T](that :IterableOnce[O]) :Unsure[T] = that match {
-		case _ if this eq Missing => this //todo: add Ranking support
-		case it :Set[O] => if (it(get)) Missing else this
+		case _ if this eq Missing => this
+		case it :Set[O]     => if (it(get)) Missing else this
+		case it :Ranking[O] => if (it.contains(get)) Missing else this
 		case it :Iterable[O] if it.isEmpty => this
 		case _ =>
 			val i = that.iterator
