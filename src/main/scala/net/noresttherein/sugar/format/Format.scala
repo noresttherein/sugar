@@ -2294,7 +2294,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 	@SerialVersionUID(Ver)
 	private class OptMold[M](mold :Mold[M]) extends OptMoldBase[Opt[M], M] {
-		implicit final override val lift = identity[Opt[M]]
+		implicit final override val lift :Opt[M] => Opt[M] = identity
 		override def advance(prefix :Liquid, suffix :Liquid) =
 			mold.advanceOpt(prefix, suffix) match {
 				case Got((parsed, model, rem)) => (parsed, Got(model), rem)

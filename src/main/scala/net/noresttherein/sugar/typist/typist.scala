@@ -33,6 +33,7 @@ package object typist extends typist.extensions {
 	  */
 	type <%<[Y] = { type F[-X] = X => Y }
 
+	type ConvertibleTo[Y] = { type T[-X] = X => Y }
 
 
 

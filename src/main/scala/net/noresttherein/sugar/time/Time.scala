@@ -90,8 +90,8 @@ object Time {
 
 
 	object implicits {
-		final implicit val ImplicitUTCTime = new Time(Clock.systemUTC)
-		final implicit val ImplicitLocalTime = new Time(Clock.systemDefaultZone)
+		final implicit val ImplicitUTCTime   :Time = new Time(Clock.systemUTC)
+		final implicit val ImplicitLocalTime :Time = new Time(Clock.systemDefaultZone)
 	}
 }
 

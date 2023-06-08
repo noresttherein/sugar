@@ -9,7 +9,6 @@ object generic {
 	type Any[_] = scala.Any
 	type Self[+X] = X
 	type Fixed[Y] = { type T[X] = Y }
-	type FunctionOf[X] = { type F[Y] = X => Y }
 
 	type =>:[-X[A], +Y[A]] = GenericFun[X, Y]
 

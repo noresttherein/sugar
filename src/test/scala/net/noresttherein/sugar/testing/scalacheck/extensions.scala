@@ -38,8 +38,6 @@ object extensions {
 	}
 
 	implicit class BooleanAsPropExtension(private val self :Boolean) extends AnyVal {
-		private def prop = Prop(self)
-
 		@inline def lbl(l : => String) :Prop = Prop(self) lbl l
 		@inline def lbl_:(l : => String) :Prop = lbl(l)
 		@inline def :@(l : => String) :Prop = lbl(l)

@@ -2056,8 +2056,11 @@ object Decimal64 {
 
 	/** Extension method for `Int` and `Long` */
 	trait implicits {
-		implicit def scientificDecimalNotation(significand :Int)  = new IntScientificDecimal64Notation(significand)
-		implicit def scientificDecimalNotation(significand :Long) = new LongScientificDecimal64Notation(significand)
+		implicit def scientificDecimalNotation(significand :Int) :IntScientificDecimal64Notation =
+			new IntScientificDecimal64Notation(significand)
+
+		implicit def scientificDecimalNotation(significand :Long) :LongScientificDecimal64Notation =
+			new LongScientificDecimal64Notation(significand)
 	}
 
 	/** Extension method for `Int` and `Long`, creating a `Decimal64` using syntax resembling the scientific notation:

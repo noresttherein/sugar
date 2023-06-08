@@ -21,16 +21,16 @@ object DefaultValue {
 	@inline def apply[@specialized T](value :T) = new DefaultValue(value)
 
 //	implicit def nullAnyRef[T <: AnyRef] :NullValue[T] = nullRef.asInstanceOf[NullValue[T]]
-	implicit val DefaultNull    = new DefaultValue[Null](null)
-	implicit val DefaultByte    = new DefaultValue[Byte](0.toByte)
-	implicit val DefaultShort   = new DefaultValue[Short](0.toShort)
-	implicit val DefaultChar    = new DefaultValue[Char](0)
-	implicit val DefaultInt     = new DefaultValue[Int](0)
-	implicit val DefaultLong    = new DefaultValue[Long](0L)
-	implicit val DefaultFloat   = new DefaultValue[Float](0.0f)
-	implicit val DefaultDouble  = new DefaultValue[Double](0.0d)
-	implicit val DefaultBoolean = new DefaultValue[Boolean](false)
-	implicit val DefaultUnit    = new DefaultValue[Unit](())
+	implicit val DefaultNull    :DefaultValue[Null]    = new DefaultValue[Null](null)
+	implicit val DefaultByte    :DefaultValue[Byte]    = new DefaultValue[Byte](0.toByte)
+	implicit val DefaultShort   :DefaultValue[Short]   = new DefaultValue[Short](0.toShort)
+	implicit val DefaultChar    :DefaultValue[Char]    = new DefaultValue[Char](0)
+	implicit val DefaultInt     :DefaultValue[Int]     = new DefaultValue[Int](0)
+	implicit val DefaultLong    :DefaultValue[Long]    = new DefaultValue[Long](0L)
+	implicit val DefaultFloat   :DefaultValue[Float]   = new DefaultValue[Float](0.0f)
+	implicit val DefaultDouble  :DefaultValue[Double]  = new DefaultValue[Double](0.0d)
+	implicit val DefaultBoolean :DefaultValue[Boolean] = new DefaultValue[Boolean](false)
+	implicit val DefaultUnit    :DefaultValue[Unit]    = new DefaultValue[Unit](())
 
 	implicit def defaultOption[T] :DefaultValue[Option[T]] = DefaultNone.asInstanceOf[DefaultValue[Option[T]]]
 	implicit def defaultOpt[T]    :DefaultValue[Opt[T]]    = DefaultLack.asInstanceOf[DefaultValue[Opt[T]]]
