@@ -6,10 +6,13 @@ import scala.Console.err
 
 import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
-import org.scalacheck.Prop
+import org.scalacheck.{Gen, Prop}
+import org.scalacheck.util.Pretty
 
 
 object extensions {
+	type Prettify[X] = X => Pretty
+
 	private class LazySet[T](lzy : => Set[T]) extends AbstractSet[T] {
 		private lazy val evaluated = lzy
 		override def contains(elem :T) :Boolean = evaluated.contains(elem)
@@ -48,8 +51,22 @@ object extensions {
 
 	implicit class LazyExtension(self : => Any) {
 		def throws[E <: Throwable :ClassTag] :Prop = {
-			Prop(Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(self)) lbl "throws " + fullNameOf[E]
+			lazy val expr = self
+			val thrown = Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(expr)
+			if (thrown) Prop(thrown)
+			else Prop(thrown) lbl "throws " + fullNameOf[E] lbl "returned: " + expr
 		}
 	}
 
+
+	class GenDisjunction[+X](val alternatives :Seq[Gen[X]]) {
+		def size :Int = alternatives.length
+		def ||[U >: X](gen :Gen[U]) :GenDisjunction[U] = new GenDisjunction(alternatives :+ gen)
+	}
+
+	implicit def GenToGenDisjunction[X](gen :Gen[X]) :GenDisjunction[X] =
+		new GenDisjunction(Vector(gen))
+
+	implicit def GenDisjunctionToGen[X](gens :GenDisjunction[X]) :Gen[X] =
+		Gen.choose(0, gens.size - 1).flatMap(gens.alternatives)
 }
