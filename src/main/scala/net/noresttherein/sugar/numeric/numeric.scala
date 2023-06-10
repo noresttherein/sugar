@@ -7,7 +7,7 @@ import scala.util.Random
 
 //todo: UInt, ULong, UShort, UByte
 package object numeric {
-	final val Ver = 1L
+	private[numeric] final val Ver = 1L
 
 	implicit val globalRandom      :Random = new Random(new java.util.Random())
 

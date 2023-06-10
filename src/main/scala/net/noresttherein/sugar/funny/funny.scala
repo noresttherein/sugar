@@ -14,5 +14,5 @@ package object funny {
 		private[this] val instance = new ReturnTypeOf[Nothing]
 	}
 
-	final val Ver = 1L
+	private[funny] final val Ver = 1L
 }

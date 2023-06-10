@@ -4,7 +4,7 @@ package net.noresttherein.sugar
 
 
 package object matching {
-	final val Ver = 1L
+	private[matching] final val Ver = 1L
 }
 
 package matching {

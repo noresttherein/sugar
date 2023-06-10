@@ -4,14 +4,14 @@ import net.noresttherein.sugar.typist.extensions.{extensions_<:<, extensions_=:=
 
 
 private[typist] sealed trait extensionsLowPriority extends Any {
-	implicit def extensions_<:<[A, B](ev :A <:< B) :extensions_<:<[A, B] = new extensions_<:<[A, B](ev)
+	implicit final def extensions_<:<[A, B](ev :A <:< B) :extensions_<:<[A, B] = new extensions_<:<[A, B](ev)
 }
 
 
 trait extensions extends Any with extensionsLowPriority {
-	implicit def extensions_=:=[A, B](ev :A =:= B) :extensions_=:=[A, B] = new extensions_=:=(ev)
+	implicit final def extensions_=:=[A, B](ev :A =:= B) :extensions_=:=[A, B] = new extensions_=:=(ev)
 
-	implicit def unlift[F[_ >: L <: U], L <: U, U, A >: L <: U, B >: L <: U]
+	implicit final def unlift[F[_ >: L <: U], L <: U, U, A >: L <: U, B >: L <: U]
 			:extensions.unlift[F, L, U, F[A], F[B]] { type _1 = A; type _2 = B } =
 		new extensions.unlift[F, L, U, F[A], F[B]] {
 			override type _1 = A

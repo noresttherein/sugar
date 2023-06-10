@@ -47,7 +47,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 //	type Filled[+A] <: Space[A]
 //	val Blank :Space[Nothing]
 
-	final val Ver = 1L
+	private[vars] final val Ver = 1L
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]].

@@ -1,5 +1,5 @@
 package net.noresttherein.sugar
 
 package object util {
-	final val Ver = 1L
+	private[util] final val Ver = 1L
 }

@@ -32,7 +32,7 @@ import net.noresttherein.sugar.typist.Rank.Rank0
   * @author Marcin Mościcki
   */
 package object repeat {
-	final val Ver = 1L
+	private[repeat] final val Ver = 1L
 
 	/** Emulates the `repeat { ... } until ( ... )` loop, repeating the execution of the passed block
 	  * until the condition passed to the [[net.noresttherein.sugar.repeat.RepeatUntil.until until]] method
