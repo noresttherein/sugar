@@ -18,12 +18,18 @@ final class DefaultValue[@specialized +T](val get :T) extends Serializable {
 
 @SerialVersionUID(Ver)
 object DefaultValue {
+	@inline def default[T](implicit value :DefaultValue[T]) :T = value.get
+
+	//todo: in Scala3, drop the empty param list
+	@inline def apply[T]()(implicit value :DefaultValue[T]) :value.type = value
+
 	@inline def apply[@specialized T](value :T) = new DefaultValue(value)
+
 
 //	implicit def nullAnyRef[T <: AnyRef] :NullValue[T] = nullRef.asInstanceOf[NullValue[T]]
 	implicit val DefaultNull    :DefaultValue[Null]    = new DefaultValue[Null](null)
-	implicit val DefaultByte    :DefaultValue[Byte]    = new DefaultValue[Byte](0.toByte)
-	implicit val DefaultShort   :DefaultValue[Short]   = new DefaultValue[Short](0.toShort)
+	implicit val DefaultByte    :DefaultValue[Byte]    = new DefaultValue[Byte](0)
+	implicit val DefaultShort   :DefaultValue[Short]   = new DefaultValue[Short](0)
 	implicit val DefaultChar    :DefaultValue[Char]    = new DefaultValue[Char](0)
 	implicit val DefaultInt     :DefaultValue[Int]     = new DefaultValue[Int](0)
 	implicit val DefaultLong    :DefaultValue[Long]    = new DefaultValue[Long](0L)
