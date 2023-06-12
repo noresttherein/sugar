@@ -3,7 +3,8 @@ package net.noresttherein.sugar.reflect
 import java.lang.{StringBuilder => JStringBuilder}
 
 import scala.annotation.tailrec
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
+import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.extensions.ClassExtension
 
@@ -12,7 +13,7 @@ import net.noresttherein.sugar.extensions.ClassExtension
 
 
 package object prettyprint {
-	final val Ver = 1L
+	private[prettyprint] final val Ver = 1L
 
 	/** An approximation of the imported type symbol of the class of the given object, as it would be referenced 
 	  * in code. First, the whole package prefix and all trailing '$' characters are dropped. Then, all escape sequences
@@ -72,12 +73,14 @@ package object prettyprint {
 	  * Finally, for obvious reasons, names of anonymous classes are synthetic and the same for all anonymous
 	  * inner classes of the same enclosing class/object.
 	  */
-	def innerNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
-		case _ if clazz == java.lang.Void.TYPE => "Unit"
-
-		case null if clazz.isPrimitive => clazz.getName.capitalize
-		case null if clazz.isBox => "J" + clazz.unboxed.getName.capitalize
-		case null =>
+	def innerNameOf(clazz :Class[_]) :String = clazz match {
+		case Void.TYPE        => "Unit"
+		case AnyRef           => "AnyRef"
+		case BoxedUnit        => "BoxedUnit"
+		case Primitive()      => clazz.getName.capitalize
+		case Boxed(primitive) => "J" + innerNameOf(primitive)
+		case ArrayClass(elem) => "Array[" + innerNameOf(elem) + "]"
+		case _ =>
 			val qualified = clazz.getName
 			val len = qualified.length
 			val start = qualified.lastIndexOf('.') + 1
@@ -104,8 +107,6 @@ package object prettyprint {
 			if (anon >= 0)
 				res append ".anon"
 			res.toString
-
-		case elem => "Array[" + innerNameOf(elem) + "]"
 	}
 
 
@@ -165,22 +166,21 @@ package object prettyprint {
 	  * of specialized classes will be shown. Use of '$' in a demangled name will throw it off, as will identifiers
 	  * quoted in backticks. Finally, for the obvious reason, the name of anonymous classes are synthetic.
 	  */
-	def localNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
-		case _ if clazz == java.lang.Void.TYPE => "Unit"
-		case _ if clazz == classOf[AnyRef]     => "AnyRef"
-		case null if clazz.isPrimitive         => clazz.getName.capitalize
-		case null if clazz.isBox               => "J" + clazz.unboxed.getName.capitalize
-		case null =>
+	def localNameOf(clazz :Class[_]) :String = clazz match {
+		case Void.TYPE        => "Unit"
+		case AnyRef           => "AnyRef"
+		case BoxedUnit        => "BoxedUnit"
+		case Primitive()      => clazz.getName.capitalize
+		case Boxed(primitive) => "J" + localNameOf(primitive)
+		case ArrayClass(elem) => "Array[" + localNameOf(elem) + "]"
+		case _                =>
 			val qualified = clazz.getName
 			val end = trimTrailingDollars(qualified)
 			val start = qualified.lastIndexOf('.') + 1
 			val res = new JStringBuilder(end - start)
 			demangleClassName(qualified, start, end, res)
 			res.toString
-
-		case elem => "Array[" + localNameOf(elem) + "]"
 	}
-
 
 	
 	/** An abbreviated qualified name of the class of the given object, demangled to an approximation of how it would 
@@ -235,11 +235,13 @@ package object prettyprint {
 	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks. 
 	  * Finally, anonymous classes receive synthetic names for the obvious reason.
 	  */
-	def abbrevNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
-		case _ if clazz == java.lang.Void.TYPE => "Unit"
-		case _ if clazz == classOf[AnyRef]     => "AnyRef"
-		case null if clazz.isPrimitive         => clazz.getName.capitalize
-		case null =>
+	def abbrevNameOf(clazz :Class[_]) :String = clazz match {
+		case java.lang.Void.TYPE => "Unit"
+		case AnyRef              => "AnyRef"
+//		case BoxedUnit           => "s.r.BoxedUnit"
+		case Primitive()         => clazz.getName.capitalize
+		case ArrayClass(elem)    => "Array[" + abbrevNameOf(elem) + "]"
+		case _ =>
 			val qname = clazz.getName
 			val end = trimTrailingDollars(qname)
 			val sb = new JStringBuilder(end)
@@ -264,8 +266,6 @@ package object prettyprint {
 			}
 			demangleClassName(qname, start, end, sb)
 			sb.toString
-
-		case c => "Array[" + abbrevNameOf(c) + "]"
 	}
 
 
@@ -319,12 +319,13 @@ package object prettyprint {
 	  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks. 
 	  * Finally, anonymous classes receive synthetic names for the obvious reason.
 	  */
-	def fullNameOf(clazz :Class[_]) :String = clazz.getComponentType match {
-		case _ if clazz == java.lang.Void.TYPE => "Unit"
-		case _ if clazz == classOf[AnyRef]     => "AnyRef"
-
-		case null if clazz.isPrimitive => clazz.getName.capitalize
-		case null =>
+	def fullNameOf(clazz :Class[_]) :String = clazz match {
+		case Void.TYPE        => "Unit"
+		case AnyRef           => "AnyRef"
+//		case BoxedUnit        => clazz.getName
+		case Primitive()      => clazz.getName.capitalize
+		case ArrayClass(elem) => "Array[" + fullNameOf(elem) + "]"
+		case _                =>
 			val qname = clazz.getName
 			val start = qname.lastIndexOf('.') + 1
 			val end = trimTrailingDollars(qname)
@@ -335,9 +336,6 @@ package object prettyprint {
 			}
 			demangleClassName(qname, start, end, res)
 			res.toString
-
-		case elem if elem.isPrimitive => "Array[" + elem.getName.capitalize + "]"
-		case elem => "Array[" + fullNameOf(elem) + "]"
 	}
 
 
@@ -411,7 +409,8 @@ package object prettyprint {
 	}
 
 
-	
+	private[this] val AnyRef    = classOf[AnyRef]
+	private[this] val BoxedUnit = classOf[BoxedUnit]
 	private[this] val escapes = Array(//empty string at start as an old fashioned guard which maps to '.' at the same time
 		"", "tilde", "bang", "at", "hash", "percent", "up", "amp", "times", "minus", "plus", "eq", "less", "greater",
 		"qmark", "div", "bar", "bslash", "colon"
