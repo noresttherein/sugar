@@ -17,14 +17,14 @@ object JavaIterator {
 
 	def over(string :String) :JIntIterator = new StringStepper(string, 0, string.length)
 
-	def over(string :String, start :Int, end :Int) :JIntIterator = new StringStepper(string, start, end)
-
 	def slice[T, I <: JIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
 	                               (implicit shape :JavaIteratorShape[T, I]) :I =
 		IndexedSeqStepper(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	def slice[T, I <: JIterator[_]](array :Array[T], from :Int, until :Int)(implicit shape :JavaIteratorShape[T, I]) :I =
 		ArrayStepper(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+
+	def slice(string :String, start :Int, end :Int) :JIntIterator = new StringStepper(string, start, end)
 
 
 	def empty[T] :JIterator[T] = emptyPrototype.asInstanceOf[JIterator[T]]

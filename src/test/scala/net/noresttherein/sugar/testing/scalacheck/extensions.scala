@@ -53,8 +53,8 @@ object extensions {
 		def throws[E <: Throwable :ClassTag] :Prop = {
 			lazy val expr = self
 			val thrown = Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(expr)
-			if (thrown) Prop(thrown)
-			else Prop(thrown) lbl "throws " + fullNameOf[E] lbl "returned: " + expr
+			if (thrown) Prop.passed
+			else Prop.falsified lbl "throws " + fullNameOf[E] lbl "returned: " + expr
 		}
 	}
 

@@ -16,6 +16,8 @@ import net.noresttherein.sugar.vars.Opt
 
 
 /**
+  * @define Coll `MutNatMap`
+  * @define coll mutable natural map
   * @author Marcin Mościcki
   */
 trait MutNatMap[K[_], V[_]]

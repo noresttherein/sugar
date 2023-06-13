@@ -3,6 +3,7 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
 import scala.collection.AbstractSeq
+import scala.collection.immutable.{LinearSeq, SeqOps}
 
 import net.noresttherein.sugar.collections.extensions.IteratorObjectExtension
 
@@ -11,62 +12,144 @@ import net.noresttherein.sugar.collections.extensions.IteratorObjectExtension
 
 
 
-/** A simple wrapper over a single object exposing it as a predefined number of repetitions within a [[Seq]]. */
-@SerialVersionUID(Ver)
-class ConstSeq[T] private (elem :T, override val knownSize :Int)
-	extends AbstractSeq[T] with IndexedSeq[T] with Serializable
-{
-	override def head :T =
-		if (knownSize >= 1) elem
-		else throw new NoSuchElementException("Seq().head")
+private sealed trait ConstSeqOps[+E, CC[+_], +C] extends SeqOps[E, CC, C] { this :C =>
 
-	override def last :T =
-		if (knownSize >= 1) elem
-		else throw new NoSuchElementException("Seq().last")
+	final override def length :Int =
+		if (knownSize >= 0) knownSize
+		else throw new UnsupportedOperationException("Seq.infinite.length")
 
-	override def tail :ConstSeq[T] = knownSize match {
+	override def apply(i :Int) :E =
+		if (i < 0 || knownSize >= 0 && i >= knownSize)
+			throw new IndexOutOfBoundsException(i)
+		else head
+
+	protected def subseq(n :Int) :C
+
+	override def tail :C = knownSize match {
 		case 0 => throw new UnsupportedOperationException("Seq().tail")
 		case infinite if infinite < 0 => this
-		case n => new ConstSeq(elem, n)
+		case n => subseq(n - 1)
+	}
+	override def init :C = knownSize match {
+		case 0 => throw new UnsupportedOperationException("Seq().init")
+		case infinite if infinite < 0 => throw new UnsupportedOperationException("Seq.infinite.init")
+		case n => subseq(n - 1)
 	}
 
-	override def slice(from :Int, until :Int) :IndexedSeq[T] =
-		if (from < 0 & until >= knownSize) this
-		else if (until <= from | until < 0) new ConstSeq(elem, 0)
-		     else new ConstSeq(elem, until - (from max 0))
+	override def last :E =
+		if (knownSize == 0) throw new NoSuchElementException("Seq().last")
+		else if (knownSize <= 0) throw new UnsupportedOperationException("Seq.infinite.last")
+		else head
 
-	override def take(n :Int) :IndexedSeq[T] =
-		if (n < 0) new ConstSeq(elem, 0)
-		else if (n < knownSize | knownSize < 0) new ConstSeq(elem, n)
-		     else this
+	override def slice(from :Int, until :Int) :C = {
+		val knownSize = this.knownSize
+		if (until <= from | until <= 0 | knownSize >= 0 & from >= knownSize) empty
+		else if (from <= 0 && knownSize >= 0 && until >= knownSize) this
+		else if (from <= 0) subseq(until)
+		else if (knownSize >= 0 && until >= knownSize) subseq(knownSize - from)
+		else subseq(until - from)
+	}
 
-	override def drop(n :Int) :IndexedSeq[T] =
-		if (n < 0 | knownSize < 0) this
-		else if (n < knownSize) new ConstSeq(elem, knownSize - n)
-		     else new ConstSeq(elem, 0)
+	override def take(n :Int) :C =
+		if (n <= 0) empty
+		else if (n <= knownSize || knownSize < 0) subseq(n)
+		else this
 
-	override def iterator :Iterator[T] = Iterator.const(knownSize, elem)
+	override def drop(n :Int) :C =
+		if (n <= 0 || knownSize < 0) this
+		else if (n < knownSize) subseq(knownSize - n)
+		else empty
 
-	override def apply(i :Int) :T =
-		if (i < 0 | i >= knownSize)
-			throw new IndexOutOfBoundsException(i)
+	override def empty :C = subseq(0)
+
+	override def iterator :Iterator[E] = knownSize match {
+		case 0           => Iterator.empty
+		case n if n >= 0 => Iterator.const(n)(head)
+		case _           => Iterator.infinite(head)
+	}
+}
+
+
+/** A simple wrapper over a single object exposing it as a predefined number of repetitions within a [[Seq]]. */
+private abstract class AbstractConstSeq[+E] protected (elem :E, override val knownSize :Int)
+	extends AbstractSeq[E] with Serializable
+{
+	override def isEmpty = knownSize == 0
+	override def head :E =
+		if (knownSize == 0) throw new NoSuchElementException("Seq().head")
 		else elem
 
-	@tailrec final override def length :Int =
-		if (knownSize >= 0) knownSize
-		else length
-
+	protected override def className :String = "ConstSeq"
 }
+
 
 
 
 @SerialVersionUID(Ver)
-object ConstSeq {
-	def apply[T](elem :T, size :Int) :ConstSeq[T] =
-		if (size < 0) new ConstSeq(elem, -1)
-		else new ConstSeq(elem, size)
-
-	def infinite[T](elem :T) :ConstSeq[T] = new ConstSeq(elem, -1)
-
+private[collections] object ConstSeq {
+	def apply[T](elem :T, length :Int) :Seq[T] = ConstIndexedSeq(elem, length)
+	def infinite[T](elem :T) :Seq[T] = ConstIndexedSeq.infinite(elem)
 	override def toString = "ConstSeq"
 }
+
+
+
+
+@SerialVersionUID(Ver)
+private class ConstIndexedSeq[+E] private (elem :E, override val knownSize :Int)
+	extends AbstractConstSeq[E](elem, knownSize) with IndexedSeq[E] with ConstSeqOps[E, IndexedSeq, IndexedSeq[E]]
+{
+	protected override def subseq(n :Int) =
+		if (n == 0) IndexedSeq.empty else new ConstIndexedSeq(head, n)
+
+	override def head = super[AbstractConstSeq].head
+
+	override def map[B](f :E => B) :IndexedSeq[B] = new ConstIndexedSeq(f(elem), knownSize) //because we may be infinite
+
+	protected override def className = "ConstIndexedSeq"
+}
+
+@SerialVersionUID(Ver)
+private[collections] object ConstIndexedSeq {
+	def apply[E](elem :E, length :Int) :IndexedSeq[E] =
+		if (length < 0)
+			throw new IllegalArgumentException("negative size " + length)
+		else if (length == 0)
+			IndexedSeq.empty
+		else
+			new ConstIndexedSeq[E](elem, length)
+
+	def infinite[E](elem :E) :IndexedSeq[E] = new ConstIndexedSeq[E](elem, -1)
+	override def toString = "ConstIndexedSeq"
+}
+
+
+
+
+@SerialVersionUID(Ver)
+private class ConstLinearSeq[+E] private (elem :E, override val knownSize :Int)
+	extends AbstractConstSeq[E](elem, knownSize) with LinearSeq[E] with ConstSeqOps[E, LinearSeq, LinearSeq[E]]
+{
+	protected override def subseq(n :Int) =
+		if (n == 0) LinearSeq.empty else new ConstLinearSeq(head, n)
+
+	override def map[B](f :E => B) :LinearSeq[B] = new ConstLinearSeq(f(elem), knownSize) //because we may be infinite
+
+	protected override def className = "ConstLinearSeq"
+}
+
+@SerialVersionUID(Ver)
+private[collections] object ConstLinearSeq {
+	def apply[E](elem :E, length :Int) :LinearSeq[E] =
+		if (length < 0)
+			throw new IllegalArgumentException("negative size " + length)
+		else if (length == 0)
+			Nil
+		else
+			new ConstLinearSeq[E](elem, length)
+
+	def infinite[E](elem :E) :LinearSeq[E] = new ConstLinearSeq[E](elem, -1)
+	override def toString = "ConstIndexedSeq"
+}
+
+

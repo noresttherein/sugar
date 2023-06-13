@@ -3,24 +3,26 @@ package net.noresttherein.sugar.collections
 import java.lang.System.arraycopy
 import java.lang.{Math => math}
 
-import scala.annotation.tailrec
-import scala.collection.{AbstractSeq, AbstractSet, Factory, IterableFactory, IterableFactoryDefaults, IterableOps, LinearSeq, immutable, mutable}
+import scala.annotation.{nowarn, tailrec}
+import scala.collection.{AbstractIndexedSeqView, AbstractIterable, AbstractSeq, AbstractSet, Factory, IndexedSeqView, IterableFactory, IterableFactoryDefaults, IterableOps, LinearSeq, View, immutable, mutable}
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, IndexedSeqDefaults, Set}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.collections.Ranking.{IndexedRanking, RankingSeqAdapter, RankingSetAdapter, SmallRanking}
+import net.noresttherein.sugar.collections.Ranking.{EmptyRanking, IndexedRanking, RankingSeqAdapter, RankingSetAdapter, RankingView, SmallRanking}
+import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.vars.{AbstractIdempotent, Opt}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, IterableOnceExtension, castingMethods, SeqExtension}
+import net.noresttherein.sugar.extensions.{ArrayObjectExtension, castingMethods, castTypeParamMethods, IterableExtension, IterableOnceExtension, SeqExtension}
 
 
 
 
 
 
+//todo: RankingView
 //todo: MutRanking backed by skip list
 /** A collection of unique items in a specific order providing `O(1)` `indexOf(T)`, `contains(T)`, `apply(Int)`,
   * `toSet`, `toSeq`, `toIndexedSeq` and `size` implementations. It can be thought of as a mix of [[Set]] and [[Seq]]:
@@ -35,20 +37,30 @@ import net.noresttherein.sugar.extensions.{castTypeParamMethods, IterableOnceExt
   * It is recommended to use [[net.noresttherein.sugar.collections.Ranking.newBuilder newBuilder]]
   * when removing or adding multiple elements, especially through methods other than `+` and `++`.
   * @tparam T element type.
-  */
+  * @define Coll `Ranking`
+  * @define coll ranking
+  * @author Marcin Mościcki marcin@moscicki.net
+  */ //todo: review all methods in SeqOps and see what still needs copying.
+/* It is really tempting to inherit IndexedSeqOps (without IndexedSeq), but it enforces add == appended
+ * and concat = appendedAll, while we have separate semantics. Additionally, overriding indexOf(elem) is deprecated,
+ * and overriding indexOf(elem, from) is a bad fit. Unfortunate, because being IndexedSeqOps implies fast random access
+ * and would include Ranking in any code optimized for the latter (assuming it doesn't check for IndexedSeq only).
+ */
 trait Ranking[+T]
 	extends immutable.Iterable[T] with IterableOps[T, Ranking, Ranking[T]] with IterableFactoryDefaults[T, Ranking]
-	   with Serializable
+	   with SugaredIterable[T] with SugaredIterableOps[T, Ranking, Ranking[T]] with Serializable
 { ranking =>
-	@inline final def length   :Int     = knownSize
-	override def size          :Int     = knownSize
-	final override def isEmpty :Boolean = knownSize == 0
+	@inline final def length :Int = knownSize
+	@inline final override def size    :Int     = knownSize
+	@inline final override def isEmpty :Boolean = knownSize == 0
 
 	override def iterableFactory :IterableFactory[Ranking] = Ranking
 
 	override def toIndexedSeq  :IndexedSeq[T] = new RankingSeqAdapter(this)
 	override def toSeq         :Seq[T] = toIndexedSeq
 	override def toSet[U >: T] :Set[U] = new RankingSetAdapter(this)
+	override def view :IndexedSeqView[T] =
+		if (isEmpty) EmptyIndexedSeqOps.view else new RankingView(this)
 
 	override def to[C1](factory :Factory[T, C1]) :C1 = sourceCollectionFactory(factory) match {
 		case Got(Seq) | Got(IndexedSeq) => toSeq.asInstanceOf[C1]
@@ -93,34 +105,21 @@ trait Ranking[+T]
 	  * @return the length of the longest segment of this $coll that starts from the first element
 	  *         such that every element of the segment satisfies the predicate `p`.
 	  */
-	def segmentLength(p :T => Boolean, from :Int = 0) :Int = {
-		var i = from; val end = size
-		while (i < end && p(apply(i)))
-			i += 1
-		i - from
+	def segmentLength(p :T => Boolean, from :Int) :Int = {
+		val end = size
+		if (end <= IndexedSeqDefaults.defaultApplyPreferredMaxLength) {
+			var i = math.max(from, 0)
+			while (i < end && p(apply(i)))
+				i += 1
+			i - from
+		} else {
+			val i   = iterator.drop(from)
+			var res = 0
+			while (i.hasNext && p(i.next()))
+				res += 1
+			res
+		}
 	}
-
-	override def foreach[U](f :T => U) :Unit = size match {
-		case n if n <= IndexedSeqDefaults.defaultApplyPreferredMaxLength =>
-			var i = 0
-			while (i < n) {
-				f(apply(i)); i += 1
-			}
-		case _ => super.foreach(f)
-	}
-
-	/** The `n`-th element in this collection.
-	  * @param n an index in the `[0..size-1]` range.
-	  */
-	def apply(n :Int) :T
-
-	/** Creates a ranking with the same contents and order as this instance, but with `value` at index `n`.
-	  * @param n an index in the `[0..size-1]` range.
-	  * @param value the added element.
-	  */
-	@throws[IndexOutOfBoundsException]("if n < 0 || n >= size")
-	def updated[U >: T](n :Int, value :U) :Ranking[U]
-
 
 	/** The index of the given element in this $coll, or `-1` if it does not contain `elem`. */
 	def indexOf[U >: T](elem :U) :Int
@@ -239,6 +238,28 @@ trait Ranking[+T]
 	}
 
 
+	/** The `n`-th element in this collection.
+	  * @param index an index in the `[0..size-1]` range.
+	  */
+	def apply(index :Int) :T
+
+	/** Creates a ranking with the same contents and order as this instance, but with `value` at index `index`.
+	  * @param index an index in the `[0..size-1]` range.
+	  * @param value the added element.
+	  */
+	@throws[IndexOutOfBoundsException]("if n < 0 || n >= size")
+	def updated[U >: T](index :Int, value :U) :Ranking[U]
+
+	//todo: implement these
+//	def updated[U >: T](index :Int, first :U, second :U, rest :U*) :Ranking[U]
+//	def updatedAll[U >: T](index :Int, value :U) :Ranking[U]
+//	def inserted[U >: T](index :Int, value :U) :Ranking[U]
+//	def inserted[U >: T](index :Int, first :U, second :U, rest :U*) :Ranking[U]
+//	def insertedAll[U >: T](index :Int, elems :IterableOnce[U]) :Ranking[U]
+//	def removed(index :Int) :Ranking[T]
+//	def removed(from :Int, until :Int) :Ranking[T]
+
+
 	/** Adds an element to the collection, if it is not already present.
 	  * The difference from [[net.noresttherein.sugar.collections.Ranking.+: +:]] and
 	  * [[net.noresttherein.sugar.collections.Ranking.:+ :+]] is that the element can be added at the front
@@ -277,22 +298,67 @@ trait Ranking[+T]
 	  * than [[net.noresttherein.sugar.collections.Ranking.++ ++]]
 	  * and [[net.noresttherein.sugar.collections.Ranking.:++ :++]].
 	  */
-	@inline final def ++:[U >: T](elems :Iterable[U]) :Ranking[U] = this prependedAll elems
-	def prependedAll[U >: T](elems :Iterable[U]) :Ranking[U]
+	@nowarn("cat=deprecation")
+	@inline final override def ++:[U >: T](elems :IterableOnce[U]) :Ranking[U] = this prependedAll elems
+	def prependedAll[U >: T](elems :IterableOnce[U]) :Ranking[U]
 
 	/** Adds the given elements to this collection. The exact order of the elements in the returned collection
 	  * is unspecified.
-	  */
+	  */ //override for documentation only, the method is final in IterableOps
 	def ++[U >: T](elems :IterableOnce[U]) :Ranking[U]
 
 	/** Removes the given element from this collection, if present. */
-	@inline final def -[U >: T](elem :U) :Ranking[T] = this removed elem
-	def removed[U >: T](elem :U) :Ranking[T]
+	@inline final def -[U >: T](elem :U) :Ranking[T] = this removedOne elem
+	def removedOne[U >: T](elem :U) :Ranking[T]
 
 	/** Removes the given elements from this collection. */
 	@inline final def --[U >: T](elems :IterableOnce[U]) :Ranking[T] = this removedAll elems
 	def removedAll[U >: T](elems :IterableOnce[U]) :Ranking[T]
 
+	/** Returns a `Ranking` contains only elements present in both rankings, in an unspecified order. */
+	@inline final def &[U >: T](other :Ranking[U]) :Ranking[T] = intersect(other)
+
+	def intersect[U >: T](other :Ranking[U]) :Ranking[T] = {
+		val thisSize = size; val thatSize = other.size
+		if (thisSize == 0 | thatSize == 0) Ranking.empty
+		else if (thisSize == 1) if (other.contains(head)) Ranking.one(head) else Ranking.empty
+		else if (thatSize == 1) indexOf(other.head) match {
+			case -1 => Ranking.empty
+			case  n => Ranking.one(this(n))
+		} else if (thisSize <= thatSize) filter(other.toSet)
+		else other.collect(collector)
+	}
+
+	/** Returns a `Ranking` contains only elements present in both collections, in an unspecified order. */
+	@inline final def &[U >: T](other :collection.Set[U]) :Ranking[T] = intersect(other)
+
+	def intersect[U >: T](other :collection.Set[U]) :Ranking[T] = {
+		val thisSize = size; val thatSize = other.knownSize
+		if (thisSize == 0 | thatSize == 0) Ranking.empty
+		else if (thisSize == 1) if (other.contains(head)) Ranking.one(head) else Ranking.empty
+		else if (thatSize == 1) indexOf(other.head) match {
+			case -1 => Ranking.empty
+			case  n => Ranking.one(this(n))
+		} else Ranking.from(other.iterator.collect(collector))
+	}
+
+	@transient private lazy val collector :PartialFunction[Any, T] = new PartialFunction[Any, T] {
+		override def isDefinedAt(x :Any) :Boolean = Ranking.this.contains[Any](x)
+		override def apply(v1 :Any) :T = indexOf[Any](v1) match {
+			case -1 => throw new NoSuchElementException(v1.toString)
+			case  n => Ranking.this(n)
+		}
+		override def applyOrElse[A1 <: Any, B1 >: T](x :A1, default :A1 => B1) :B1 = indexOf[Any](x) match {
+			case -1 => default(x)
+			case  n => Ranking.this(n)
+		}
+	}
+
+	//todo: patch
+//	def patch[U >: T](from :Int, other :IterableOnce[U], replaced :Int) :Ranking[U]
+
+
+	override def empty :Ranking[T] = EmptyRanking //reusableEmpty
 	//consider: Set methods
 
 	/** Creates a `r :Ranking` such that `r(permutation(i)) == this(i)`. */
@@ -307,8 +373,8 @@ trait Ranking[+T]
 			this
 		else if (size <= IndexedSeqDefaults.defaultApplyPreferredMaxLength) {
 			val size = this.size
-			val seq = new Array[Any](size).castFrom[Array[Any], Array[T]]
-			var i = size
+			val seq  = ErasedArray.ofDim[T](size)
+			var i    = size
 			while (i > 0) {
 				i -= 1
 				seq(permutation(i)) = this(i)
@@ -316,15 +382,15 @@ trait Ranking[+T]
 			if (size <= Ranking.smallRankingCap)
 				new SmallRanking(seq)
 			else
-				new IndexedRanking(PassedArrayInternals.wrap(seq))
+				new IndexedRanking(PassedArrayInternals.of(seq))
 		} else {
 			val size = this.size
-			val seq = new Array[Any](size).castFrom[Array[Any], Array[T]]
+			val seq  = ErasedArray.ofDim[T](size)
 			val from = iterator
-			val to = permutation.iterator
+			val to   = permutation.iterator
 			while (to.hasNext)
 				seq(to.next()) = from.next()
-			new IndexedRanking(PassedArrayInternals.wrap(seq))
+			new IndexedRanking(PassedArrayInternals.of(seq))
 		}
 
 
@@ -398,8 +464,7 @@ trait Ranking[+T]
 
 
 
-/**
-  * $factoryInfo
+/** $factoryInfo
   * @define Coll `Ranking`
   * @define coll ranking
   */
@@ -407,6 +472,7 @@ trait Ranking[+T]
 case object Ranking extends IterableFactory[Ranking] {
 
 	override def from[T](elems :IterableOnce[T]) :Ranking[T] = elems match {
+		case view :View[T] => from(view.iterator)
 		case ranking :Ranking[T] => ranking
 		case seq :RankingSeqAdapter[T] => seq.toRanking
 		case set :RankingSetAdapter[T] => set.toRanking
@@ -422,13 +488,13 @@ case object Ranking extends IterableFactory[Ranking] {
 	}
 
 	/** A new builder adding elements with the semantics of [[net.noresttherein.sugar.collections.Ranking.+ +]],
-	  * with the addition that elements are always appended if absent.
+	  * with the additional guarantee that elements are always appended if absent.
 	  */
 	override def newBuilder[T] :Builder[T, Ranking[T]] = new RankingBuilder[T]
 
 	/** A builder adding the elements with the semantics of [[net.noresttherein.sugar.collections.Ranking.+ +]].
 	  * It only guarantees that the order of the elements in the built `Ranking` corresponds to a (non consecutive)
-	  * subsequence of the input, without specifying which of the occurrences of equal elements is kept.
+	  * subsequence of the input, without specifying which of the occurrences of equal elements are kept.
 	  */
 	def unorderedBuilder[T] :Builder[T, Ranking[T]] = new UnorderedBuilder[T]
 
@@ -481,7 +547,9 @@ case object Ranking extends IterableFactory[Ranking] {
 		implicit def rankingToSet[T](ranking :Ranking[T]) :Set[T] = ranking.toSet
 	}
 
-	private val EmptyRanking = new EmptyRanking
+	private val EmptyRanking :EmptyRanking = new EmptyRanking {
+		private def readResolve = Ranking.EmptyRanking
+	}
 
 
 	private[this] val Duplicate = new AnyRef
@@ -527,7 +595,7 @@ case object Ranking extends IterableFactory[Ranking] {
 			}
 			duplicates
 		}
-		val array = items.toArray(ClassTag[T](classOf[AnyRef]))
+		val array = items.toArray(ClassTag.Any.castParam[T])
 		val duplicates =
 			if (keepFirst) eraseFollowingDuplicates(array)
 			else erasePrecedingDuplicates(array)
@@ -541,7 +609,7 @@ case object Ranking extends IterableFactory[Ranking] {
 			}
 			new SingletonRanking(singleton)
 		} else {
-			val deduped = new Array[AnyRef](array.length - duplicates).asInstanceOf[Array[T]]
+			val deduped = ErasedArray.ofDim[T](array.length - duplicates)
 			var i = array.length
 			var j = deduped.length
 			while (i > 0) { //copy non-null elements from array to deduped
@@ -763,8 +831,8 @@ case object Ranking extends IterableFactory[Ranking] {
 					hashes = Array.copyOf(xs.hashCodes, SmallRankingCap)
 				} else {
 					smallSize = xsSize
-					Array.copy(xs.contents, 0, small, 0, smallSize)
-					Array.copy(xs.hashCodes, 0, small, 0, smallSize)
+					ArrayLike.copy(xs.contents, 0, small, 0, smallSize)
+					ArrayLike.copy(xs.hashCodes, 0, small, 0, smallSize)
 				}
 				this
 			} else if (xsSize > SmallRankingOptimismCap) {
@@ -1066,7 +1134,7 @@ case object Ranking extends IterableFactory[Ranking] {
 
 
 
-
+	//todo: use Jack as the IndexedSeq
 	private class AppendingBuilder[T] extends ReusableBuilder[T, Ranking[T]] {
 		private[this] var hint = -1
 		private[this] var buffer = List.empty[IterableOnce[T]]
@@ -1125,6 +1193,7 @@ case object Ranking extends IterableFactory[Ranking] {
 	@inline private def reverse[T](elems :Array[T]) :Array[T] = reverse(elems, elems.length, SmallRankingCap)
 
 	private def reverse[T](elems :Array[T], count :Int, newSize :Int) :Array[T] = {
+		elems.reverse
 		val res = java.lang.reflect.Array.newInstance(
 			elems.getClass.getComponentType, newSize
 		).asInstanceOf[Array[T]]
@@ -1268,28 +1337,58 @@ case object Ranking extends IterableFactory[Ranking] {
 
 
 
-	@SerialVersionUID(Ver)
-	private final class SmallRanking[+T] private[Ranking](elements :Array[T], hashes :Array[Int]) extends Ranking[T] {
+	@SerialVersionUID(Ver) //todo: migrate to IRefArray
+	private final class SmallRanking[+T] private[Ranking](elements :Array[T], hashes :Array[Int])
+		extends Ranking[T] with AbstractArraySlice[T]
+	{
 		def this(elements :Array[T]) = this(elements, elements.map(hashCodeOf))
 
+		private[collections] override def unsafeArray :Array[_] = elements
+		private[collections] override def startIndex  :Int = 0
 		private[Ranking] def contents[U >: T]  :Array[U]   = elements.asInstanceOf[Array[U]]
 		private[Ranking] def hashCodes :Array[Int] = hashes
 
 		@inline override def knownSize = elements.length
-		override def size = elements.length
 		override def last = elements(elements.length - 1)
 		override def head = elements(0)
 		override def tail = new SmallRanking(elements.tail)
 		override def init = new SmallRanking(elements.init)
 
-		override def iterator = elements.iterator
+		override def iterator = ArrayIterator(elements)
 		override def reverse = new SmallRanking(elements.reverse, hashes.reverse)
 		override def reverseIterator = toIndexedSeq.reverseIterator
-		override def toIndexedSeq = ArraySeq.unsafeWrapArray(elements)
-		override def toSeq = ArraySeq.unsafeWrapArray(elements)
+		override def toIndexedSeq = IRefArray.Wrapped(elements.asInstanceOf[IRefArray[T]])
+		override def toSeq = toIndexedSeq
+
+		override def copyRangeToArray[B >: T](xs :Array[B], start :Int, from :Int, until :Int) :Int =
+			if (until <= 0 | until <= from || from >= size || start >= xs.length)
+				0
+			else if (start < 0)
+				throw new IndexOutOfBoundsException(
+					"Ranking<" + size + ">.copyRangeToArray([" + xs.length + "], " + start + ", " + from + ", " + until + ")"
+				)
+			else {
+				val from0 = math.max(from, 0)
+				val until0 = math.min(until, size)
+				val copied = math.min(elements.length, math.min(xs.length - start, until0 - from0))
+				ArrayLike.copy(elements, from0, xs, start, copied)
+				copied
+			}
+
+		override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
+			if (len <= 0 || start >= xs.length || xs.length == 0)
+				0
+			else if (start < 0)
+				outOfBounds_!(start, xs.length)
+			else {
+				val copied = math.min(elements.length, math.min(len, xs.length - start))
+				ArrayLike.copy(elements, 0, xs, start, copied)
+				copied
+			}
+		}
 
 		override def foreach[U](f :T => U) :Unit = elements.foreach(f)
-		override def map[B](f :T => B) :Ranking[B] = new SmallRanking(elements.map(f)(ClassTag(classOf[Any])))
+		override def map[B](f :T => B) :Ranking[B] = new SmallRanking(elements.map(f)(ClassTag.Any.castParam[B]))
 		override def filterNot(pred :T => Boolean) :Ranking[T] = filterImpl(pred, false)
 		override def filter(pred :T => Boolean) :Ranking[T] = filterImpl(pred, true)
 
@@ -1310,19 +1409,19 @@ case object Ranking extends IterableFactory[Ranking] {
 			else new SmallRanking[T](Array.copyOf(filtered, j), Array.copyOf(filteredHashes, j))
 		}
 
-		override def apply(n :Int) = elements(n)
-		override def updated[U >: T](n :Int, value :U) = {
+		override def apply(index :Int) = elements(index)
+		override def updated[U >: T](index :Int, value :U) = {
 			val hash = hashCodeOf(value)
-			if (hashes(n) == hash && elements(n) == value)
+			if (hashes(index) == hash && elements(index) == value)
 				this
 			else {
 				val len = elements.length
-				val copy = new Array[Any](len).asInstanceOf[Array[U]]
+				val copy = ErasedArray.ofDim[U](len)
 				arraycopy(elements, 0, copy, 0, len)
-				copy(n) = value
+				copy(index) = value
 				val newHashes = new Array[Int](len)
 				arraycopy(hashes, 0, newHashes, 0, len)
-				newHashes(n) = hash
+				newHashes(index) = hash
 				new SmallRanking(copy, newHashes)
 			}
 		}
@@ -1330,8 +1429,8 @@ case object Ranking extends IterableFactory[Ranking] {
 		override def indexOf[U >: T](elem :U) :Int = indexOf(elem, hashCodeOf(elem))
 
 		def indexOf[U >: T](elem :U, hash :Int) :Int = {
-			var i = 0
-			while ({ i = hashes.indexOf(hash, i); i >= 0 && elements(i) != elem })
+			var i = -1
+			while ({ i = hashes.indexOf(hash, i + 1); i >= 0 && elements(i) != elem })
 				i += 1
 			i
 		}
@@ -1344,11 +1443,11 @@ case object Ranking extends IterableFactory[Ranking] {
 			if (i >= end) -1 else i
 		}
 
-		override def removed[U >: T](elem :U) = indexOf(elem) match {
+		override def removedOne[U >: T](elem :U) = indexOf(elem) match {
 			case n if n < 0 => this
 			case n =>
 				val len = elements.length
-				val res = Array.ofDim[T](len - 1)(ClassTag(elements.getClass.getComponentType))
+				val res = ErasedArray.ofDim[T](len - 1)
 				val hs  = new Array[Int](len - 1)
 				var i = 0; var j = 0
 				while (i < len) {
@@ -1384,7 +1483,7 @@ case object Ranking extends IterableFactory[Ranking] {
 							i -= 1
 						new SingletonRanking(elements(i))
 					case _ =>
-						val res = Array.ofDim[T](size)(ClassTag(elements.getClass.getComponentType))
+						val res = ErasedArray.ofDim[T](size)
 						val hs = new Array[Int](size)
 						var i = 0; var j = 0
 						while (j < size) {
@@ -1421,9 +1520,9 @@ case object Ranking extends IterableFactory[Ranking] {
 
 		private def prepend[U >: T](elem :U, hash :Int) :Ranking[U] =
 			if (elements.length >= SmallRankingCap)
-				new IndexedRanking(elem +: PassedArrayInternals.wrap(elements))
+				new IndexedRanking(elem +: PassedArrayInternals.of(elements))
 			else {
-				val res = Array.ofDim[U](elements.length + 1)(ClassTag(elements.getClass.getComponentType))
+				val res = ErasedArray.ofDim[U](elements.length + 1)
 				val hs = new Array[Int](elements.length + 1)
 				res(0) = elem
 				hs(0) = hash
@@ -1476,15 +1575,19 @@ case object Ranking extends IterableFactory[Ranking] {
 			}
 
 
-		override def prependedAll[U >: T](elems :Iterable[U]) = elems match {
-			case _ if elems.isEmpty =>
+		@tailrec override def prependedAll[U >: T](elems :IterableOnce[U]) :Ranking[U] = elems match {
+			case view    :View[U] =>
+				prependedAll(view.iterator)
+			case items   :Iterable[U] if items.isEmpty =>
 				this
-			case _ if elems.sizeIs == 1 =>
-				elems.head +: this
+			case items   :Iterable[U] if items.sizeIs == 1 =>
+				items.head +: this
 			case ranking :Ranking[U] =>
 				prependedAll(ranking.toSet)
 			case set     :collection.Set[U] =>
 				prependedAll(set)
+			case iter    :Iterator[U] if !iter.hasNext =>
+				this
 			case _ => (newBuilder[U] ++= elems ++= this).result()
 		}
 		//filter all our elements present in set and combine into a single sequence.
@@ -1494,7 +1597,7 @@ case object Ranking extends IterableFactory[Ranking] {
 				case empty if empty.isEmpty => Ranking.from(set)
 				case suffix :SmallRanking[U] if prefixSize >= 0 && suffix.length + prefixSize <= SmallRankingCap =>
 					val suffixLength = suffix.length
-					val newArray = new Array[Any](prefixSize + suffixLength).asInstanceOf[Array[U]]
+					val newArray = ErasedArray.ofDim[U](prefixSize + suffixLength)
 					val newHashes = new Array[Int](prefixSize + suffixLength)
 					set.copyToArray(newArray, 0, prefixSize)
 					var i = prefixSize
@@ -1502,8 +1605,8 @@ case object Ranking extends IterableFactory[Ranking] {
 						i -= 1
 						newHashes(i) = hashCodeOf(newArray(i))
 					}
-					Array.copy(suffix.contents, 0, newArray, prefixSize, suffixLength)
-					Array.copy(suffix.hashCodes, 0, newHashes, prefixSize, suffixLength)
+					ArrayLike.copy(suffix.contents, 0, newArray, prefixSize, suffixLength)
+					ArrayLike.copy(suffix.hashCodes, 0, newHashes, prefixSize, suffixLength)
 					new SmallRanking[U](newArray, newHashes)
 				case suffix =>
 					new IndexedRanking(set.toIndexedSeq :++ suffix)
@@ -1511,8 +1614,9 @@ case object Ranking extends IterableFactory[Ranking] {
 		}
 
 
-		override def appendedAll[U >: T](elems :IterableOnce[U]) :Ranking[U] =
+		@tailrec override def appendedAll[U >: T](elems :IterableOnce[U]) :Ranking[U] =
 			elems match {
+				case view   :View[U] => appendedAll(view.iterator)
 				case empty  :Iterable[_] if empty.isEmpty => this
 				case empty  :Iterator[_] if !empty.hasNext => this
 				case single :Iterable[U] if single.sizeIs == 1 =>
@@ -1530,12 +1634,12 @@ case object Ranking extends IterableFactory[Ranking] {
 					val reversed = elems.knownSize match {
 						case newElemCount if newElemCount >= 0 && newElemCount <= 0x10000 => //reverse in an array
 							size = newElemCount
-							val res = new Array[Any](newElemCount).asInstanceOf[Array[U]]
+							val res = ErasedArray.ofDim[U](newElemCount)
 							var i = newElemCount
 							while (i > 0) {
 								i -= 1; res(i) = it.next()
 							}
-							PassedArrayInternals.wrap(res)
+							PassedArrayInternals.of(res)
 						case _ =>                                                         //reverse in a list
 							var reversed :List[U] = Nil
 							while (it.hasNext) {
@@ -1553,10 +1657,10 @@ case object Ranking extends IterableFactory[Ranking] {
 					case empty if empty.isEmpty => Ranking.from(set)
 					case prefix :SmallRanking[U] if suffixSize >= 0 && prefix.length + suffixSize <= SmallRankingCap =>
 						val prefixSize = prefix.length
-						val newArray = new Array[Any](prefixSize + suffixSize).asInstanceOf[Array[U]]
+						val newArray = ErasedArray.ofDim[U](prefixSize + suffixSize)
 						val newHashes = new Array[Int](prefixSize + suffixSize)
-						Array.copy(prefix.contents, 0, newArray, 0, prefixSize)
-						Array.copy(prefix.hashCodes, 0, newHashes, 0, prefixSize)
+						ArrayLike.copy(prefix.contents, 0, newArray, 0, prefixSize)
+						ArrayLike.copy(prefix.hashCodes, 0, newHashes, 0, prefixSize)
 						set.copyToArray(newArray, prefixSize, suffixSize)
 						var i = prefixSize + suffixSize
 						while (i > prefixSize) {
@@ -1576,7 +1680,7 @@ case object Ranking extends IterableFactory[Ranking] {
 				appendLargeReversed(reverse)
 		}
 		private def appendSmallReversed[U >: T](reverse :Iterator[U]) :Ranking[U] = {
-			val elems = new Array[Any](SmallRankingCap).asInstanceOf[Array[U]]
+			val elems = ErasedArray.ofDim[U](SmallRankingCap)
 			val hashes = new Array[Int](SmallRankingCap)
 			var lastPos = elems.length
 			def addIfAbsent(elem :U, hash :Int, downto :Int = lastPos) = {
@@ -1610,7 +1714,7 @@ case object Ranking extends IterableFactory[Ranking] {
 				new SmallRanking(elems, hashes)
 			else {
 				val returnedSize = SmallRankingCap - lastPos
-				val returnedElems = new Array[Any](returnedSize).asInstanceOf[Array[U]]
+				val returnedElems = ErasedArray.ofDim[U](returnedSize)
 				val returnedHashes = new Array[Int](returnedSize)
 				arraycopy(elems, lastPos, returnedElems, 0, returnedSize)
 				arraycopy(hashes, lastPos, returnedHashes, 0, returnedSize)
@@ -1629,7 +1733,8 @@ case object Ranking extends IterableFactory[Ranking] {
 		}
 
 
-		override def concat[U >: T](suffix :IterableOnce[U]) :Ranking[U] = suffix match {
+		@tailrec override def concat[U >: T](suffix :IterableOnce[U]) :Ranking[U] = suffix match {
+			case view     :View[U]     => concat(view.iterator)
 			case iterable :Iterable[U] if iterable.isEmpty => this
 			case iterator :Iterator[_] if iterator.isEmpty => this
 			case ranking  :Ranking[U]  => concat(ranking)
@@ -1708,26 +1813,26 @@ case object Ranking extends IterableFactory[Ranking] {
 
 
 	@SerialVersionUID(Ver)
-	private class SingletonRanking[+T](override val head :T) extends Ranking[T] {
-		override def knownSize = 1
-		override def size = 1
-		override def last :T = head
-		override def tail = Ranking.empty[T]
-		override def init = Ranking.empty[T]
+	private final class SingletonRanking[+T](override val head :T)
+		extends SingletonIterableOps.Variant[T, Ranking, Ranking[T]] with Ranking[T]
+	{
+		protected override def one[X](elem :X) :Ranking[X] = new SingletonRanking(elem)
+		protected override def two[X](first :X, second :X) :Ranking[X] =
+			if (first == second) new SingletonRanking(first)
+			else new SmallRanking(ErasedArray.two(first, second))
 
-		override def iterator = Iterator.single(head)
+		override def foreach[U](f :T => U) :Unit = super.foreach(f)
+
 		override def reverse :Ranking[T] = this
 		override def reverseIterator = Iterator.single(head)
 
-		override def foreach[U](f :T => U) :Unit = f(head)
+		override def apply(index :Int) =
+			if (index == 0) head
+			else throw new IndexOutOfBoundsException(index.toString + " out of 1")
 
-		override def apply(n :Int) =
-			if (n == 0) head
-			else throw new IndexOutOfBoundsException(n.toString + " out of 1")
-
-		override def updated[U >: T](n :Int, value :U) :Ranking[U] =
-			if (n == 0) new SingletonRanking(value)
-			else throw new IndexOutOfBoundsException("updated(" + n + ", " + value + ") out of 1")
+		override def updated[U >: T](index :Int, value :U) :Ranking[U] =
+			if (index == 0) new SingletonRanking(value)
+			else throw new IndexOutOfBoundsException("updated(" + index + ", " + value + ") out of 1")
 
 		override def indexOf[U >: T](elem :U) = if (head == elem) 0 else -1
 		override def indexWhere(p :T => Boolean, from :Int) :Int = if (from <= 0 && p(head)) 0 else -1
@@ -1735,26 +1840,19 @@ case object Ranking extends IterableFactory[Ranking] {
 		override def prepended[U >: T](elem :U) =
 			if (elem == head)
 				this
-			else {
-				val array = new Array[Any](2).asInstanceOf[Array[U]]
-				array(0) = elem
-				array(1) = head
-				new SmallRanking(array)
-			}
+			else
+				new SmallRanking(ErasedArray.two(elem, head))
 
 		override def appended[U >: T](elem :U) =
 			if (elem == head)
 				this
-			else {
-				val array = new Array[Any](2).asInstanceOf[Array[U]]
-				array(0) = head
-				array(1) = elem
-				new SmallRanking(array)
-			}
+			else
+				new SmallRanking(ErasedArray.two(head, elem))
 
 		override def added[U >: T](elem :U) = appended(elem)
 
-		override def prependedAll[U >: T](elems :Iterable[U]) = elems match {
+		@tailrec override def prependedAll[U >: T](elems :IterableOnce[U]) = elems match {
+			case view :View[U] => prependedAll(view.iterator)
 			case empty :Iterable[_] if empty.isEmpty => this
 			case single :Iterable[U] if single.sizeIs == 1 => prepended(single.head)
 			case ranking :Ranking[U] => if (ranking.contains(head)) ranking else ranking :+ head
@@ -1765,7 +1863,8 @@ case object Ranking extends IterableFactory[Ranking] {
 			case _ => (newBuilder[U] ++= elems += head).result()
 		}
 
-		override def appendedAll[U >: T](elems :IterableOnce[U]) = elems match {
+		@tailrec override def appendedAll[U >: T](elems :IterableOnce[U]) = elems match {
+			case _ :View[U] => appendedAll(elems.iterator)
 			case empty :Iterable[_] if empty.isEmpty => this
 			case single :Iterable[U] if single.sizeIs == 1 => appended(single.head)
 			case ranking :Ranking[U] => if (ranking.contains(head)) ranking else head +: ranking
@@ -1786,10 +1885,11 @@ case object Ranking extends IterableFactory[Ranking] {
 			case _ => this :++ suffix
 		}
 
-		override def removed[U >: T](elem :U) :Ranking[T] =
+		override def removedOne[U >: T](elem :U) :Ranking[T] =
 			if (elem == head) Ranking.empty[T] else this
 
-		override def removedAll[U >: T](elems :IterableOnce[U]) :Ranking[T] = elems match {
+		@tailrec override def removedAll[U >: T](elems :IterableOnce[U]) :Ranking[T] = elems match {
+			case view :View[U] => removedAll(view.iterator)
 			case empty :Iterable[_] if empty.isEmpty => this
 			case ranking :Ranking[U] => if (ranking.contains(head)) Ranking.empty else this
 			case set :HashSet[U @unchecked] => if (set(head)) Ranking.empty else this
@@ -1853,15 +1953,16 @@ case object Ranking extends IterableFactory[Ranking] {
 
 		override def foreach[U](f :T => U) :Unit = items foreach f
 
-		override def apply(idx :Int) :T = items(idx)
-		override def updated[U >: T](idx :Int, value :U) = {
-			val old = items(idx)
+		override def apply(index :Int) :T = items(index)
+
+		override def updated[U >: T](index :Int, value :U) = {
+			val old = items(index)
 			if (old == value)
 				this
 			else {
-				val seq = items.toVector.updated(idx, value)
-				val index = map.asInstanceOf[Map[U, Int]].updated(value, idx) - old
-				new IndexedRanking[U](seq, index)
+				val seq = items.toVector.updated(index, value)
+				val map = this.map.asInstanceOf[Map[U, Int]].updated(value, index) - old
+				new IndexedRanking[U](seq, map)
 			}
 		}
 
@@ -1973,10 +2074,12 @@ case object Ranking extends IterableFactory[Ranking] {
 			(res ++= elems).result()
 		}
 
-		override def prependedAll[U >: T](elems :Iterable[U]) :Ranking[U] = elems match {
-			case empty  if empty.isEmpty => this
-			case single if single.sizeIs == 1 => prepended(single.head)
-			case ranking :Ranking[U] =>
+		override def prependedAll[U >: T](elems :IterableOnce[U]) :Ranking[U] = elems match {
+			case view    :View[U]     => prependedAll(view.iterator)
+			case empty   :Iterable[_] if empty.isEmpty => this
+			case single  :Iterable[U] if single.sizeIs == 1 => prepended(single.head)
+			case empty   :Iterator[U] if !empty.hasNext =>  this
+			case ranking :Ranking[U]  =>
 				val unique = !(if (ranking.size < size) ranking.exists(contains) else exists(ranking.contains))
 				if (unique)
 					ranking ++ this
@@ -1997,7 +2100,7 @@ case object Ranking extends IterableFactory[Ranking] {
 				(new RankingBuilder[U](IndexedSeq.newBuilder, Map.empty) ++= elems ++= this).result()
 		}
 
-		override def removed[U >: T](elem :U) :Ranking[T] =
+		override def removedOne[U >: T](elem :U) :Ranking[T] =
 			index.get(elem.asInstanceOf[T]) match {
 				case Some(i) if i == items.length - 1 =>
 					new IndexedRanking[T](items.init, HashMap.from(index) - elem.asInstanceOf[T])
@@ -2049,6 +2152,12 @@ case object Ranking extends IterableFactory[Ranking] {
 		override def toSet[U >: T] :Set[U] = HashMap.from(index).keySet.castParam[U]
 		private[Ranking] def indices :Map[_ <: T, Int] = map
 
+		override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int =
+			items.copyToArray(xs, start, len)
+
+		override def copyRangeToArray[B >: T](xs :Array[B], start :Int, from :Int, until :Int) :Int =
+			items.copyRangeToArray(xs, start, from, until)
+
 		private[this] def writeReplace = new RankingSerializer(this)
 	}
 
@@ -2060,8 +2169,8 @@ case object Ranking extends IterableFactory[Ranking] {
 		extends Ranking[T] with AbstractIdempotent[Ranking[T]]
 	{
 		override def knownSize = definite.size
-		override def apply(idx :Int) :T = definite(idx)
-		override def updated[U >: T](idx :Int, value :U) :Ranking[U] = definite.updated(idx, value)
+		override def apply(index :Int) :T = definite(index)
+		override def updated[U >: T](index :Int, value :U) :Ranking[U] = definite.updated(index, value)
 		override def indexOf[U >: T](elem :U) :Int = definite.indexOf(elem)
 		override def indexWhere(p :T => Boolean, from :Int) :Int = definite.indexWhere(p, from)
 
@@ -2072,9 +2181,9 @@ case object Ranking extends IterableFactory[Ranking] {
 		override def appendedAll[U >: T](elems :IterableOnce[U]) :Ranking[U] =
 			if (elems.iterator.isEmpty) this else definite :++ elems
 
-		override def prependedAll[U >: T](elems :Iterable[U]) :Ranking[U] = elems ++: definite
+		override def prependedAll[U >: T](elems :IterableOnce[U]) :Ranking[U] = elems ++: definite
 		override def removedAll[U >: T](elems :IterableOnce[U]) :Ranking[T] = definite -- elems
-		override def removed[U >: T](elem :U) :Ranking[T] = definite - elem
+		override def removedOne[U >: T](elem :U) :Ranking[T] = definite - elem
 
 		override def concat[B >: T](suffix :IterableOnce[B]) :Ranking[B] = definite ++ suffix
 
@@ -2149,7 +2258,6 @@ case object Ranking extends IterableFactory[Ranking] {
 	@SerialVersionUID(Ver)
 	private class ReverseRankingAdapter[T](override val reverse :Ranking[T]) extends Ranking[T] {
 		@inline private def sizeLog = java.lang.Integer.highestOneBit(reverse.size)
-		override def size            = reverse.size
 		override def knownSize       = reverse.knownSize
 		override def iterator        = reverse.reverseIterator
 		override def reverseIterator = reverse.iterator
@@ -2159,17 +2267,17 @@ case object Ranking extends IterableFactory[Ranking] {
 			else if (reverse.isEmpty) Ranking.empty
 			else new ReverseRankingAdapter(reverse)
 
-		override def apply(n :Int) =
-			if (n < 0)
-				throw new IndexOutOfBoundsException(n.toString + " out of " + reverse.size)
+		override def apply(index :Int) =
+			if (index < 0)
+				throw new IndexOutOfBoundsException(index.toString + " out of " + reverse.size)
 			else
-				reverse(reverse.size - n - 1)
+				reverse(reverse.size - index - 1)
 
-		override def updated[U >: T](n :Int, value :U) =
-			if (n < 0)
-				throw new IndexOutOfBoundsException(n.toString + " out of " + reverse.size)
+		override def updated[U >: T](index :Int, value :U) =
+			if (index < 0)
+				throw new IndexOutOfBoundsException(index.toString + " out of " + reverse.size)
 			else
-				new ReverseRankingAdapter(reverse.updated(reverse.size - n - 1, value))
+				new ReverseRankingAdapter(reverse.updated(reverse.size - index - 1, value))
 
 		override def indexOf[U >: T](elem :U) = reverse.indexOf(elem) match {
 			case -1 => -1
@@ -2208,16 +2316,18 @@ case object Ranking extends IterableFactory[Ranking] {
 			case _ =>
 				(newBuilder[U] ++= this ++= elems).result()
 		}
-		override def prependedAll[U >: T](elems :Iterable[U]) =
-			if (elems.isEmpty)
-				this
-			else if (elems.sizeIs <= sizeLog) {
+		override def prependedAll[U >: T](elems :IterableOnce[U]) = elems match {
+			case view :View[U] => prependedAll(view.iterator)
+			case empty :Iterable[_] if empty.isEmpty => this
+			case empty :Iterator[_] if !empty.hasNext => this
+			case small :Iterable[U] if small.sizeIs <= sizeLog =>
 				val appended = (elems :\ (reverse :Ranking[U])) { (elem, result) => result :+ elem }
 				new ReverseRankingAdapter[U](appended)
-			} else
+			case _ =>
 				(newBuilder[U] ++= elems ++= this).result()
+		}
 
-		override def removed[U >: T](elem :U) = (reverse - elem) match {
+		override def removedOne[U >: T](elem :U) = (reverse - elem) match {
 			case same  if same eq reverse => this
 			case other if other.isEmpty   => Ranking.empty
 			case other                    => new ReverseRankingAdapter(other)
@@ -2244,12 +2354,19 @@ case object Ranking extends IterableFactory[Ranking] {
 
 
 	@SerialVersionUID(Ver)
+	class RankingView[+E](underlying :Ranking[E]) extends AbstractIndexedSeqView[E] {
+		override def apply(i :Int) :E = underlying(i)
+		override def length :Int = underlying.length
+	}
+
+
+	@SerialVersionUID(Ver)
 	private class RankingSerializer[+E](elems :Array[E]) extends Serializable {
 		def this(elems :Ranking[E]) = this((elems :Ranking[Any]).to(Array).castParam[E])
 
 		private def readResolve =
 			if (elems.length <= SmallRankingCap) new SmallRanking(elems)
-			else new IndexedRanking(PassedArrayInternals.wrap(elems))
+			else new IndexedRanking(PassedArrayInternals.of(elems))
 	}
 
 	override def toString = "Ranking"
@@ -2262,30 +2379,30 @@ case object Ranking extends IterableFactory[Ranking] {
 
 //extracted to allow other classes to extend it.
 @SerialVersionUID(Ver)
-private[collections] class EmptyRanking extends Ranking[Nothing] {
-	override def knownSize = 0
-	override def size = 0
-	override def apply(n :Int) :Nothing =
-		throw new IndexOutOfBoundsException("Ranking()(" + n + ")")
-	override def updated[U](n :Int, value :U) =
-		throw new IndexOutOfBoundsException("Ranking().updated(" + n + ", " + value + ")")
+private[collections] class EmptyRanking
+	extends AbstractIterable[Nothing] with EmptyIterableOps.Variant[Ranking, Ranking[Nothing]]
+	   with Ranking[Nothing]
+{
+	override def one[T](elem :T) :Ranking[T] = Ranking.one(elem)
+
+	override def apply(index :Int) :Nothing =
+		throw new IndexOutOfBoundsException("Ranking()(" + index + ")")
+	override def updated[U](index :Int, value :U) =
+		throw new IndexOutOfBoundsException("Ranking().updated(" + index + ", " + value + ")")
 	override def indexOf[U](elem :U) :Int = -1
 	override def indexWhere(p :Nothing => Boolean, from :Int) :Int = -1
 
 	override def prepended[U](elem :U) :Ranking[U] = Ranking.one(elem)
 	override def appended[U](elem :U) :Ranking[U] = Ranking.one(elem)
 	override def added[U](elem :U) :Ranking[U] = Ranking.one(elem)
-	override def concat[U](elems :IterableOnce[U]) :Ranking[U] = Ranking.from(elems)
 	override def appendedAll[U](elems :IterableOnce[U]) :Ranking[U] = Ranking.from(elems)
-	override def prependedAll[U](elems :Iterable[U]) :Ranking[U] = Ranking.from(elems)
-	override def removed[U](elem :U) :Ranking[Nothing] = this
+	override def prependedAll[U](elems :IterableOnce[U]) :Ranking[U] = Ranking.from(elems)
+	override def removedOne[U](elem :U) :Ranking[Nothing] = this
 	override def removedAll[U](elems :IterableOnce[U]) :Ranking[Nothing] = this
 
-	override def iterator :Iterator[Nothing] = Iterator.empty
 	override def reverse :Ranking[Nothing] = this
 	override def reverseIterator :Iterator[Nothing] = Iterator.empty
-	override def toSet[U >: Nothing] :Set[U] = Set.empty[U]
-	override def toSeq :Seq[Nothing] = Nil
-	override def toIndexedSeq :IndexedSeq[Nothing] = IndexedSeq.empty
+
+	private def readResolve :Ranking[Nothing] = Ranking.empty
 }
 

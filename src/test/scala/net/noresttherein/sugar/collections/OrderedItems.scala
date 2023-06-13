@@ -14,7 +14,7 @@ import org.scalacheck.{Arbitrary, Shrink}
 class OrderedItems[+E](override val toSeq :Seq[E])
 	extends AbstractIterable[E] with IterableFactoryDefaults[E, OrderedItems]
 {
-	override def knownSize = toSeq.knownSize
+	override def knownSize :Int = toSeq.knownSize
 	override def iterator :Iterator[E] = toSeq.iterator
 	override def iterableFactory :IterableFactory[OrderedItems] = OrderedItems
 	override def equals(that :Any) :Boolean = that match {

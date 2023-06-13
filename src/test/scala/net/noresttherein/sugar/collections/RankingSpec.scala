@@ -9,7 +9,7 @@ import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap
 import net.noresttherein.sugar.extensions.{classNameMethods, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.numeric.extensions.{BooleanObjectExtension, IntObjectExtension}
-import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanExtension, PropExtension}
+import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, PropExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.Got
 
@@ -33,7 +33,7 @@ object RankingSpec
 		case _   => false
 	}
 	protected override def compare[T :Dummy](expect :Iterable[T], result :Iterable[T]) :Prop =
-		aligned(expect.toList, result to Ranking, 0) lbl "Expected: " + expect + ";\n     got: " + result
+		aligned(expect.toList.distinct, result to Ranking, 0) lbl "Expected: " + expect + ";\n     got: " + result
 
 	protected override def compare[T :Arbitrary :Dummy, X](f :Iterable[T] => X) :Prop =
 		forAll { elems :Seq[T] => f(elems.toSeq.distinct) =? f(elems to C) }
@@ -46,13 +46,14 @@ object RankingSpec
 	                           (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
 	                            tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
 	                            mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
-		forAll { elems :Seq[T] => validate(f(elems.toSeq.distinct), f(elems to C) to C) }
+		forAll { elems :Seq[T] => validate(f(elems.toSeq.distinct).toSeq.distinct, f(elems to C) to C) }
 
 	protected override def validate[T, F, M, FM](label: => String, expect :Iterable[T], result :Iterable[T])
 	                                            (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T],
 	                                             filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T],
 	                                             mp :Map[T, M], evm :Dummy[M], fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
-		label @: aligned(expect.toList, result to Ranking, 0) && props(result.toSeq, result)
+		Prop(aligned(expect.toList, result to Ranking, 0)) :| "aligned" &&
+			props(result.toSeq, result).reduce(_ && _) lbl label
 
 //
 //	protected override def props[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
@@ -272,6 +273,13 @@ object RankingSpec
 	}
 	property("--(Ranking)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { xs :Ranking[Int] => validate(expect.toSeq.filterNot(xs.contains), subject -- xs) }
+	}
+
+	property("&(Set)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :collection.Set[Int] => validate(expect.toSeq.filter(xs.contains), subject & xs) }
+	}
+	property("&(Ranking)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :Ranking[Int] => validate(expect.toSeq.filter(xs.contains), subject & xs) }
 	}
 
 }

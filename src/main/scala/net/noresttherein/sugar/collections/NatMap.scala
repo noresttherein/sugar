@@ -23,6 +23,8 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 /** A generic `Map`-like interface which implements a natural transformation between type functors `K` and `V`.
   * Each key is of type `K[X] forSome { type X }` and is mapped to a value of type `V[X]` for the same type argument `X`.
+  * @define Coll `NatMap`
+  * @define coll natural map
   * @author Marcin Mościcki
   */
 //consider: making it invariant. Type inference sucks for this trait and we don't really take advantage of covariance

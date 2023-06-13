@@ -145,7 +145,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	                                   (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
 	                                    fldA :FoldSide[F, T], evf :E[F], fld :Fold[T], mp :Map[T, M], evm :E[M],
 	                                    fmap :FlatMap[T, FM], evfm :E[FM]) :Prop =
-		label @: (compare(expect, result) && props(expect, result))
+		compare(expect, result) && props(expect, result).reduce(_ && _) lbl label
 
 	protected def validate[T, F, M, FM](expect :S[T], result :S[T])
 	                                   (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
@@ -157,8 +157,8 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	protected def props[T, F, M, FM](expect :S[T], result :S[T])
 	                                (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
 	                                 fldA :FoldSide[F, T], evf :E[F], fld :Fold[T], mp :Map[T, M], evm :E[M],
-	                                 fmap :FlatMap[T, FM], evfm :E[FM]) :Prop =
-		all(
+	                                 fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
+		Seq(
 			"knownSize"         lbl_: !knowsSize || expect.size =? result.knownSize,
 			"size"              lbl_: expect.size =? result.size,
 			"isEmpty"           lbl_: expect.isEmpty =? result.isEmpty,
@@ -399,7 +399,7 @@ object IterableProps {
 	@inline def map[T, A](x :T)(implicit map :Map[T, A]) :A = map.f(x)
 	@inline def flatMap[T, A](implicit map :FlatMap[T, A]) :T => IterableOnce[A] = map.f
 	@inline def flatMap[T, A](x :T)(implicit map :FlatMap[T, A]) :IterableOnce[A] = map.f(x)
-	@inline implicit def dummy[T] = new Dummy[T]
+	@inline implicit def dummy[T] :Dummy[T] = new Dummy[T]
 }
 
 
@@ -455,8 +455,8 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 	protected def orderedProps[T, F, M, FM](expect :S[T], result :S[T])
 	                                       (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :E[T],
 	                                                 filt :Filter[T], fldA :FoldSide[F, T], evf :E[F], fld :Fold[T],
-	                                                 mp :Map[T, M], evm :E[M], fmap :FlatMap[T, FM], evfm :E[FM]) :Prop =
-		all(
+	                                                 mp :Map[T, M], evm :E[M], fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
+		Seq(
 			"head"                 lbl_: (if (expect.isEmpty) result.head.throws[NoSuchElementException]
 			                             else expect.head =? result.head),
 			"last"                 lbl_: (if (expect.isEmpty) result.last.throws[NoSuchElementException]
@@ -503,8 +503,8 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 	protected override def props[T, F, M, FM](expect :S[T], result :S[T])
 	                                         (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T],
 	                                          filt :Filter[T], fldA :FoldSide[F, T], evf :E[F], fld :Fold[T],
-	                                          mp :Map[T, M], evm :E[M], fmap :FlatMap[T, FM], evfm :E[FM]) :Prop =
-		super.props(expect, result) && orderedProps(expect, result)
+	                                          mp :Map[T, M], evm :E[M], fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
+		super.props(expect, result) ++: orderedProps(expect, result)
 }
 
 
@@ -532,7 +532,7 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 			(for {
 				from <- 0 to expect.length
 				until <- from to expect.length
-			} yield Prop(subject.startsWith(expect.slice(from, until), from)))
+			} yield Prop(subject.startsWith(expect.slice(from, until), from)) lbl s"startsWith(slice($from, $until), $from)")
 		:_*) && forAll { (seq :Seq[Int], offset :Int) =>
 			if (offset < 0 || offset > expect.length) Prop(!subject.startsWith(seq, offset))
 			else expect.startsWith(seq, offset) =? subject.startsWith(seq, offset)
@@ -744,8 +744,8 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 	                                                (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :Dummy[T],
 	                                                 filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T],
 	                                                 mp :Map[T, M], evm :Dummy[M],
-	                                                 fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
-		super.orderedProps(expect, result) && all(
+	                                                 fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Seq[Prop] =
+		super.orderedProps(expect, result) ++: Seq(
 			"apply"           lbl_: all(expect.indices.map(i => (expect(i) =? result(i)) :| i.toString) :_*) &&
 		                                result(-1).throws[IndexOutOfBoundsException] :| "-1" &&
 			                            result(expect.length).throws[IndexOutOfBoundsException] :| expect.length.toString,
@@ -763,9 +763,14 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 				                            Prop(!result.startsWith(expect.slice(from, until), from))
 			                            else if (from > expect.length)
 				                            Prop(!result.startsWith(Nil, from))
-			                            else if (from <= until)
+			                            else if (from <= until) {
+				                            if (!result.startsWith(expect.slice(from, until), from)) {
+					                            println("result: " + result + ": " + result.className)
+					                            println("expect: " + expect + ": " + expect.className)
+					                            println("startsWith(" + expect.slice(from, until) + ", " + from + ")")
+				                            }
 				                            Prop(result.startsWith(expect.slice(from, until), from))
-			                            else forAll { subseq :Seq[T] =>
+			                            } else forAll { subseq :Seq[T] =>
 				                            expect.startsWith(subseq, from) =? result.startsWith(subseq, from)
 			                            }
 			                        },
@@ -788,14 +793,17 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 			                        	expect.indexWhere(filt.f, from) =? result.indexWhere(filt.f, from)
 			                        },
 			"lastIndexWhere"   lbl_: forAll { (from :Int) =>
-			                        	expect.lastIndexWhere(filt.f, from) =? result.lastIndexWhere(filt.f, from)
+			                            val clipped = math.min(from, expect.length)
+			                            expect.lastIndexWhere(filt.f, clipped) =? result.lastIndexWhere(filt.f, from)
 			                        },
 			"indexOfSlice"     lbl_: forAll { (x :Seq[T], from :Int) =>
-			                            if (from == expect.length && x.isEmpty) result.indexOfSlice(x, from) ?= from
+			                            val len = expect.length
+			                            if (from == len && x.isEmpty) result.indexOfSlice(x, from) ?= len
 			                            else expect.indexOfSlice(x, from max 0) =? result.indexOfSlice(x, from)
 			                         },
 			"lastIndexOfSlice" lbl_: forAll { (x :Seq[T], from :Int) =>
-			                            if (from == expect.length && x.isEmpty) result.indexOfSlice(x, from) ?= from
+			                            val len = expect.length
+			                            if (from >= len && x.isEmpty) result.lastIndexOfSlice(x, from) ?= len
 			                            else expect.lastIndexOfSlice(x, from) =? result.lastIndexOfSlice(x, from)
 			                         },
 		)

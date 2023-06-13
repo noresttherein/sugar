@@ -94,12 +94,14 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
   * but exposes API dedicated to concatenating `String`s and some other methods specific to `Char`,
   * as covariance of `Seq` forces boxing of elements. It differs from a [[scala.collection.StringView StringView]]
   * in that all mapping operations are strict.
+  * @define Coll `ChoppedString`
+  * @define coll chopped string
   */
 sealed trait ChoppedString extends StringLike with StringLikeOps[ChoppedString] {
 //	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap
 //	override def empty :ChoppedString = ChoppedString.empty
 
-	protected override def specificFactory :SpecificIterableFactory[Char, ChoppedString] = ChoppedString
+	override def specificFactory :SpecificIterableFactory[Char, ChoppedString] = ChoppedString
 
 	override def +(char :Char) :ChoppedString = this ++ String.valueOf(char)
 	override def +(string :String) :ChoppedString = this ++ string
@@ -202,7 +204,6 @@ private[collections] sealed abstract class LowPriorityChoppedStringImplicits
   * @define coll chopped string
   */
 object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIterableFactory[Char, ChoppedString] {
-	private final val Ver = 1L
 	override val empty :ChoppedString = Empty
 
 //	private val emptyChunk = new Chunk("")
@@ -685,7 +686,7 @@ final class Substring private (string :String, offset :Int, override val length 
 	assert(length <= string.length - offset,
 		"Length out of bounds: " + string + ".substring(" + offset + "->" + length + ")."
 	)
-	protected override def specificFactory :SpecificIterableFactory[Char, Substring] = Substring
+	override def specificFactory :SpecificIterableFactory[Char, Substring] = Substring
 
 	private def data = string
 	private def start = offset

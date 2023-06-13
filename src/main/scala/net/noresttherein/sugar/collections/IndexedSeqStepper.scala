@@ -32,7 +32,13 @@ private trait AbstractIndexedStepper[+A, B, +Self >: Null <: AbstractIndexedStep
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
-	protected def nextIdx() :Int = { val i = index; index = i + 1; i }
+	protected def nextIdx() :Int = {
+		val i = index
+		if (i >= limit)
+			throw new NoSuchElementException(toString)
+		index = i + 1
+		i
+	}
 
 	if (limit > underlyingSize)
 		limit = underlyingSize
@@ -83,7 +89,13 @@ private trait AbstractIndexedReverseStepper[+A, B, +Self >: Null <: AbstractInde
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
-	protected def nextIdx() :Int = { val i = index; index = i - 1; i }
+	protected def nextIdx() :Int = {
+		val i = index
+		if (i >= limit)
+			throw new NoSuchElementException(toString)
+		index = i - 1
+		i
+	}
 
 	if (index >= underlyingSize)
 		index = underlyingSize
@@ -111,7 +123,7 @@ private trait AbstractIndexedReverseStepper[+A, B, +Self >: Null <: AbstractInde
 
 	override def characteristics :Int = ORDERED | SIZED | SUBSIZED
 	override def clone :Self = super.clone.asInstanceOf[Self]
-	override def toString :String = "Stepper(" + index + " down to " + limit
+	override def toString :String = "Stepper(" + index + " down to " + limit + ")"
 }
 
 
@@ -138,7 +150,13 @@ private abstract class IndexedSeqStepper[+A, B, +Self >: Null <: IndexedSeqStepp
 	protected final override def index_=(i :Int) :Unit = first = i
 	protected final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
-	protected final override def nextIdx() :Int = { val res = first; first += 1; res }
+	protected final override def nextIdx() :Int = {
+		val res = first
+		if (res == `last++`)
+			throw new NoSuchElementException(toString)
+		first += 1
+		res
+	}
 	
 	override def hasStep :Boolean = first < `last++`
 
@@ -280,7 +298,13 @@ private abstract class ArrayStepper[+A, B, +Self >: Null <: ArrayStepper[A, B, S
 	protected final override def index_=(i :Int) :Unit = first = i
 	protected final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
-	protected final override def nextIdx() :Int = { val res = first; first += 1; res }
+	protected final override def nextIdx() :Int = {
+		val res = first
+		if (res >= `last++`)
+			throw new NoSuchElementException(toString)
+		first += 1
+		res
+	}
 
 	override def hasStep :Boolean = first < `last++`
 }
@@ -308,40 +332,44 @@ object ArrayStepper {
 	def apply[A, S <: Stepper[_]](array :Array[A], from :Int, until :Int)(implicit shape :StepperShape[A, S])
 			:S with EfficientSplit =
 		(shape.shape match {
-			case IntShape    => (array :Array[_]) match {
+			case ReferenceShape => (array :Array[_]) match {
+				case refs :Array[AnyRef] => new AnyRefArrayStepper(array.asInstanceOf[Array[AnyRef]], from, until)
+				case _ => new AnyArrayStepper(array, from, until)
+			}
+			case IntShape       => (array :Array[_]) match {
 				case ints :Array[Int] => new IntArrayStepper(ints, from, until)
 				case _ => new IntRefArrayStepper(array, from, until)
 			}
-			case LongShape   => (array :Array[_]) match {
+			case LongShape      => (array :Array[_]) match {
 				case longs :Array[Long] => new LongArrayStepper(longs, from, until)
 				case _ => new LongRefArrayStepper(array, from, until)
 			}
-			case DoubleShape => (array :Array[_]) match {
+			case DoubleShape    => (array :Array[_]) match {
 				case doubles :Array[Double] => new DoubleArrayStepper(doubles, from, until)
 				case _ => new DoubleRefArrayStepper(array, from, until)
 			}
-			case CharShape   => (array :Array[_]) match {
+			case CharShape      => (array :Array[_]) match {
 				case chars :Array[Char] => new CharArrayStepper(chars, from, until)
 				case _ => new CharRefArrayStepper(array, from, until)
 			}
-			case ByteShape   => (array :Array[_]) match {
+			case ByteShape      => (array :Array[_]) match {
 				case bytes :Array[Byte] => new ByteArrayStepper(bytes, from, until)
 				case _ => new ByteRefArrayStepper(array, from, until)
 			}
-			case FloatShape   => (array :Array[_]) match {
+			case FloatShape     => (array :Array[_]) match {
 				case floats :Array[Float] => new FloatArrayStepper(floats, from, until)
 				case _ => new FloatRefArrayStepper(array, from, until)
 			}
-			case ShortShape   => (array :Array[_]) match {
+			case ShortShape     => (array :Array[_]) match {
 				case shorts :Array[Short] => new ShortArrayStepper(shorts, from, until)
 				case _ => new ShortRefArrayStepper(array, from, until)
 			}
-			case _ => new AnyArrayStepper(array, from, until)
+			case _              => new AnyArrayStepper(array, from, until)
 		}).asInstanceOf[S with EfficientSplit]
 
-	
+
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an `Array[A]`. */
-	private class AnyArrayStepper[A](array :Array[A], from :Int, until :Int)
+	private final class AnyArrayStepper[A](array :Array[A], from :Int, until :Int)
 		extends ArrayStepper[A, A, AnyArrayStepper[A]](array, from, until) with AllInAnyStepper[A]
 	{
 		override def next() :A = array(nextIdx())
@@ -349,8 +377,17 @@ object ArrayStepper {
 		override def clone = new AnyArrayStepper(array, index, limit)
 	}
 
+	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an array of a reference type. */
+	private class AnyRefArrayStepper[A <: AnyRef](array :Array[A], from :Int, until :Int)
+		extends ArrayStepper[A, A, AnyRefArrayStepper[A]](array, from, until) with AllInAnyStepper[A]
+	{
+		override def next() :A = array(nextIdx())
+		override def iterator :Iterator[A] = new ArrayIterator(array, index, limit)
+		override def clone = new AnyRefArrayStepper(array, index, limit)
+	}
+
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Int]`. */
-	private class IntArrayStepper(array :Array[Int], from :Int, until :Int)
+	private final class IntArrayStepper(array :Array[Int], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, IntArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -359,7 +396,7 @@ object ArrayStepper {
 	}
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Char]`. */
-	private class CharArrayStepper(array :Array[Char], from :Int, until :Int)
+	private final class CharArrayStepper(array :Array[Char], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, CharArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -368,7 +405,7 @@ object ArrayStepper {
 	}
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Byte]`. */
-	private class ByteArrayStepper(array :Array[Byte], from :Int, until :Int)
+	private final class ByteArrayStepper(array :Array[Byte], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, ByteArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -376,7 +413,7 @@ object ArrayStepper {
 		override def clone = new ByteArrayStepper(array, index, limit)
 	}
 
-	private class ShortArrayStepper(array :Array[Short], from :Int, until :Int)
+	private final class ShortArrayStepper(array :Array[Short], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, ShortArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -385,7 +422,7 @@ object ArrayStepper {
 	}
 
 	/** A [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `Array[Long]`. */
-	private class LongArrayStepper(array :Array[Long], from :Int, until :Int)
+	private final class LongArrayStepper(array :Array[Long], from :Int, until :Int)
 		extends ArrayStepper[Long, JLong, LongArrayStepper](array, from, until) with AllInLongStepper
 		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 	{
@@ -394,7 +431,7 @@ object ArrayStepper {
 	}
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Double]`. */
-	private class DoubleArrayStepper(array :Array[Double], from :Int, until :Int)
+	private final class DoubleArrayStepper(array :Array[Double], from :Int, until :Int)
 		extends ArrayStepper[Double, JDouble, DoubleArrayStepper](array, from, until) with AllInDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
@@ -403,7 +440,7 @@ object ArrayStepper {
 	}
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Float]`. */
-	private class FloatArrayStepper(array :Array[Float], from :Int, until :Int)
+	private final class FloatArrayStepper(array :Array[Float], from :Int, until :Int)
 		extends ArrayStepper[Double, JDouble, FloatArrayStepper](array, from, until) with AllInDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
@@ -414,7 +451,7 @@ object ArrayStepper {
 
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Integer`s. */
-	private class IntRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class IntRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, IntRefArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -424,7 +461,7 @@ object ArrayStepper {
 	}
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Character`s. */
-	private class CharRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class CharRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, CharRefArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -434,7 +471,7 @@ object ArrayStepper {
 	}
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Byte`s. */
-	private class ByteRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class ByteRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, ByteRefArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -444,7 +481,7 @@ object ArrayStepper {
 	}
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Short`s. */
-	private class ShortRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class ShortRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Int, JInt, ShortRefArrayStepper](array, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -454,7 +491,7 @@ object ArrayStepper {
 	}
 
 	/** A [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `Array[Any]` containing `Long`s. */
-	private class LongRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class LongRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Long, JLong, LongRefArrayStepper](array, from, until) with AllInLongStepper
 		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 	{
@@ -464,7 +501,7 @@ object ArrayStepper {
 	}
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Any]` containing `Double`s. */
-	private class DoubleRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class DoubleRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Double, JDouble, DoubleRefArrayStepper](array, from, until) with AllInDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
@@ -474,7 +511,7 @@ object ArrayStepper {
 	}
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Any]` containing `Float`s. */
-	private class FloatRefArrayStepper(array :Array[_], from :Int, until :Int)
+	private final class FloatRefArrayStepper(array :Array[_], from :Int, until :Int)
 		extends ArrayStepper[Double, JDouble, FloatRefArrayStepper](array, from, until) with AllInDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
@@ -511,7 +548,12 @@ private abstract class ReverseArrayStepper[+A, B, +Self >: Null <: ReverseArrayS
 	protected final override def index_=(i :Int) :Unit = `first++` = i
 	protected final override def limit :Int = last
 	protected final override def limit_=(i :Int) :Unit = last = i
-	protected final override def nextIdx() :Int = { `first++` -= 1; `first++` }
+	protected final override def nextIdx() :Int = {
+		`first++` -= 1
+		if (`first++` <= last)
+			throw new NoSuchElementException(toString)
+		`first++`
+	}
 
 	override def hasStep :Boolean = `first++` > last
 }

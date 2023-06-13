@@ -3,11 +3,12 @@ package net.noresttherein.sugar.collections
 import java.lang.{Math => math}
 
 import scala.annotation.nowarn
-import scala.collection.{mutable, IterableFactory, IterableOps}
+import scala.collection.{IterableFactory, IterableOps, mutable}
 import scala.collection.mutable.Builder
 import scala.util.Random
 
-import net.noresttherein.sugar.extensions.SeqExtension
+import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
+import net.noresttherein.sugar.collections.extensions.{IArrayExtension, IRefArrayExtension, SeqExtension}
 
 
 
@@ -18,6 +19,8 @@ import net.noresttherein.sugar.extensions.SeqExtension
 // require an intermediate structure, which the current implementation does not.
 /** A permutation of values `[0, this.length)`, which can be used to reorder sequences of the same length.
   * The `n`-th element is the index in the output sequence of the `n`-th element from the input sequence.
+  * @define Coll `Permutation`
+  * @define coll permutation
   */
 class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	extends AnyVal with IterableOnce[Int] with IterableOps[Int, IndexedSeq, IndexedSeq[Int]]
@@ -43,15 +46,16 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 			)
 		else if (items.sizeIs <= 1)
 			items
-		else {
-			val res = new Array[Any](toIndexedSeq.length).asInstanceOf[Array[T]]
-			val it = items.iterator
-			var i = 0
-			while (it.hasNext) {
-				res(toIndexedSeq(i)) = it.next()
-				i += 1
-			}
-			PassedArrayInternals.wrap(res)
+		else { //todo: use a non-array buffer.
+//		else if (toIndexedSeq.length <= ReasonableArraySize) {
+			IRefArray.init[T](toIndexedSeq.length) { array =>
+				val it = items.iterator
+				var i = 0
+				while (it.hasNext) {
+					array(toIndexedSeq(i)) = it.next()
+					i += 1
+				}
+			}.toIndexedSeq
 		}
 
 	/** The inverse to this permutation, that is a `Permutation` `p` such that `(p compose this) == Permutation.id`
@@ -59,13 +63,14 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	  */
 	def inverse :Permutation = {
 		val size = toIndexedSeq.length
-		val res = new Array[Int](size)
-		var i = size
-		while (i > 0) {
-			i -= 1
-			res(toIndexedSeq(i)) = i
-		}
-		new Permutation(PassedArrayInternals.wrap(res))
+		val seq = IArray.init[Int](size) { array =>
+			var i = size
+			while (i > 0) {
+				i -= 1
+				array(toIndexedSeq(i)) = i
+			}
+		}.toIndexedSeq
+		new Permutation(seq)
 	}
 
 	/** Swaps the values at positions `n` and `m`. */
@@ -243,7 +248,7 @@ object Permutation {
 			res(i) = out.indexOf(in(i))
 			i += 1
 		}
-		new Permutation(PassedArrayInternals.wrap(res))
+		new Permutation(PassedArrayInternals.of(res))
 	}
 
 	/** A random permutation of size `size` with equal distribution. */
