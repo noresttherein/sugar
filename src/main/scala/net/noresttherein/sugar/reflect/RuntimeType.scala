@@ -1009,14 +1009,21 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		/** An argument for `scala.specialized` annotation specializing for all primitives, including `Unit/void`.
 		  * This is equivalent to parameterless `@specialized`, but may be useful as a switch value.
 		  */
-		final val All :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean, Unit)] = null
-			//new Specializable.Group((Byte, Short, Int, Long, Char, Float, Double, Boolean, Unit))
+		final val All :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean, Unit, AnyRef)] = null
+
+		/** All possible types with the exception of `Unit` */
+		final val NotUnit :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean, AnyRef)] = null
+
+		/** An argument for `scala.specialized` annotation specializing for all java primitives, including `Unit/void`. */
+		final val Primitives :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean, Unit)] = null
 
 		/** An argument for `scala.specialized` annotation specializing for all java primitives, excluding `Unit/void`. */
-		final val Primitives :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean)] = null
+		final val Vals :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean)] = null
 
-		/** An argument for the `@specialized` annotation specializing for all primitives except `Boolean` (and `Unit`). */
-		final val MultiValue :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double)] = null
+		/** An argument for the `@specialized` annotation specializing for `AnyRef` and all primitives,
+		  * except for `Boolean` and `Unit`.
+		  */
+		final val MultiValue :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, AnyRef)] = null
 
 		/** An argument for `scala.specialized` annotation specializing for all numeric value classes. */
 		final val Numbers :Specializable.Group[(Byte, Short, Int, Long, Float, Double)] = null
@@ -1024,7 +1031,7 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		/** Types for which `scala.Function0` (that is, lazy expressions) is specialized.
 		  * This includes every primitive type.
 		  */
-		final val Fun0 = All
+		final val Fun0 = Primitives
 
 		/** Types `scala.Function1`s argument is specialized for. */
 		final val Fun1 :Specializable.Group[(Int, Long, Float, Double)] = null
@@ -1034,19 +1041,19 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		//new Specializable.Group(Unit, Boolean, Int, Float, Long, Double)
 
 		/** Result types `scala.Function1` is specialized for with the exception of `Unit`. */
-		final val Fun1Vals :Specializable.Group[(Boolean, Int, Float, Long, Double)] = null
+		final val Fun1Vals :Specializable.Group[(Int, Long, Float, Double, Boolean)] = null
 
 		/** Types `scala.Function2`s arguments are specialized for. */
 		final val Fun2 :Specializable.Group[(Int, Long, Double)] = null
 
 		/** Types `scala.Function2` result type is specialized for - same as `Fun1Res`. */
-		final val Fun2Res :Specializable.Group[(Unit, Boolean, Int, Float, Long, Double)] = null
+		final val Fun2Res :Specializable.Group[(Int, Long, Float, Double, Boolean, Unit)] = null
 
 		/** Result types `scala.Function2` is specialized for, except for `Unit` - same as `Fun1Vals`. */
-		final val Fun2Vals :Specializable.Group[(Boolean, Int, Float, Long, Double)] = null
+		final val Fun2Vals :Specializable.Group[(Int, Long, Float, Double, Boolean)] = null
 
 		/** Element types `scala.Tuple2` is specialized for. */
-		final val Tuple2Elem :Specializable.Group[(Int, Long, Double, Char, Boolean)] = null
+		final val Tuple2Elem :Specializable.Group[(Int, Long, Char, Double, Boolean)] = null
 
 
 		/** Summons an implicit value for [[net.noresttherein.sugar.reflect.RuntimeType.Specialized Specialized]]`[T]`,
