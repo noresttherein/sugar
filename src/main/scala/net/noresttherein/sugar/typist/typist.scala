@@ -11,7 +11,7 @@ import net.noresttherein.sugar.vars.Opt
 
 
 
-package object typist extends typist.extensions {
+package object typist {
 
 	private[typist] final val Ver = 1L
 
