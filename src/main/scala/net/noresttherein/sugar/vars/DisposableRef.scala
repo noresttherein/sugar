@@ -137,11 +137,11 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 object DisposableRef {
 	def unapply[T](ref :Reference[T]) :Opt[DisposableRef[T]] = ref match {
 		case null => Lack
-		case wrapper :WrapperReference[T] => Got(wrapper.self)
+		case wrapper :WrapperReference[T @unchecked] => Got(wrapper.self)
 		case _ => Lack
 	}
 
-	private[vars] trait WrapperReference[T] extends Reference[T] {
+	private[vars] sealed trait WrapperReference[T] {
 		val self :DisposableRef[T]
 	}
 }
