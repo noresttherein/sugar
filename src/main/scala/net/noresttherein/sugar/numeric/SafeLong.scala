@@ -2,6 +2,9 @@ package net.noresttherein.sugar.numeric
 
 import java.{lang => jl}
 
+import scala.collection.immutable.NumericRange
+import scala.math.ScalaNumericAnyConversions
+
 
 
 
@@ -11,21 +14,65 @@ import java.{lang => jl}
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class SafeLong(val toLong :Long) extends AnyVal with Serializable {
+class SafeLong(override val toLong :Long)
+	extends AnyVal with Ordered[SafeLong] with ScalaNumericAnyConversions with Serializable
+{
+	@inline override def isWhole     : Boolean = true
+	@inline override def isValidByte : Boolean = (toLong & 0xffL) == toLong
+	@inline override def isValidShort: Boolean = (toLong & 0xffffL) == toLong
+	@inline override def isValidChar : Boolean = (toLong & 0xffffL) == toLong
+	@inline override def isValidInt  : Boolean = (toLong & 0xffffffffL) == toLong
 
-	def toByte  : Byte   = { testRange(Byte.MinValue, Byte.MaxValue, "Byte"); toLong.toByte }
-	def toShort : Short  = { testRange(Short.MinValue, Short.MaxValue, "Short"); toLong.toShort }
-	def toChar  : Char   = { testRange(Char.MinValue, Char.MaxValue, "Char"); toLong.toChar }
-	def toInt   : Int    = { testRange(Int.MinValue, Int.MaxValue, "Int"); toLong.toInt }
-	def toFloat : Float  =
-		{ val res = toLong.toFloat; if (res.toLong != toLong) outOfPrecision("Float"); res }
-	def toDouble: Double =
-		{ val res = toLong.toDouble; if (res.toLong != toLong) outOfPrecision("Double"); res }
+	/** Interprets the lowest byte of this number as a `Byte`.
+	  * This will silently truncate values outside of the `Byte` range.
+	  */
+	@inline override def byteValue  : Byte   = toLong.toByte
 
+	/** Interprets the lowest two bytes of this number as a `Short`.
+	  * This will silently truncate values outside of the `Short` range.
+	  */
+	@inline override def shortValue : Short  = toLong.toShort
+
+	@inline override def intValue   : Int    = toLong.toInt
+	@inline override def longValue  : Long   = toLong
+	@inline override def floatValue : Float  = toLong.toFloat
+	@inline override def doubleValue: Double = toLong.toDouble
+	@inline def charValue: Char = toLong.toChar
+
+	@inline override def toByte  : Byte   = { testRange(Byte.MinValue, Byte.MaxValue, "Byte"); toLong.toByte }
+	@inline override def toShort : Short  = {
+		testRange(Short.MinValue, Short.MaxValue, "Short"); toLong.toShort
+	}
+	@inline override def toChar  : Char   = {
+		testRange(Char.MinValue, Char.MaxValue, "Char"); toLong.toChar
+	}
+	@inline override def toInt   : Int    = { testRange(Int.MinValue, Int.MaxValue, "Int"); toLong.toInt }
+	@inline override def toFloat : Float  = {
+		val res = toLong.toFloat; if (res.toLong != toLong) outOfPrecision("Float"); res
+	}
+	@inline override def toDouble: Double = {
+		val res = toLong.toDouble; if (res.toLong != toLong) outOfPrecision("Double"); res
+	}
+	@inline def toBoolean        : Boolean = toLong != 0L
+	@inline def toSafeInt        : SafeInt = {
+		testRange(Int.MinValue, Int.MaxValue, "Int"); new SafeInt(toLong.toInt)
+	}
+
+	@inline def toString(radix :Int): String = jl.Long.toString(toLong, radix)
+	@inline override def toString   : String = String.valueOf(toLong)
+	@inline def toBinaryString      : String = jl.Long.toBinaryString(toLong)
+	@inline def toOctalString       : String = jl.Long.toOctalString(toLong)
+	@inline def toHexString         : String = jl.Long.toHexString(toLong)
+
+	@inline def sign    : Long = (toLong >> 63) | (-toLong >>> 63)
+	@inline def abs     : SafeLong = {
+		if (toLong == Long.MinValue) overflow("-Long.MinValue"); new SafeLong(-toLong)
+	}
 	@inline def unary_~ : SafeLong = new SafeLong(~toLong)
 	@inline def unary_+ : SafeLong = this
-	@inline def unary_- : SafeLong =
-		{ if (toLong == Long.MinValue) overflow("-Long.MinValue"); new SafeLong(-toLong) }
+	@inline def unary_- : SafeLong = {
+		if (toLong == Long.MinValue) overflow("-Long.MinValue"); new SafeLong(-toLong)
+	}
 
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "2.13.0")
 	@inline def +(x: String): String = toLong.toString + x
@@ -81,7 +128,10 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 	@inline def >=(x: Float) : Boolean = toFloat >= x
 	@inline def >=(x: Double): Boolean = toDouble >= x
 
-	@inline def compare(x :SafeLong) :Int = java.lang.Long.compare(toInt, x.toInt)
+	@inline def compare(x :SafeLong) :Int = jl.Long.compare(toLong, x.toLong)
+
+	@inline def min(other :SafeLong) :SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
+	@inline def max(other :SafeLong) :SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
 
 	@inline def |(x: Byte) : SafeLong = new SafeLong(toLong | x)
 	@inline def |(x: Short): SafeLong = new SafeLong(toLong | x)
@@ -129,6 +179,7 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 		else new SafeLong(toLong / x)
 	@inline def /(x: Float) : Float    = checkFloatResult(x, "/", toFloat / x)
 	@inline def /(x: Double): Double   = checkDoubleResult(x, "/", toDouble / x)
+	@inline def %(x :Byte)  : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Short) : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Char)  : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Int)   : SafeLong = new SafeLong(toLong % x)
@@ -136,6 +187,18 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 	@inline def %(x: Float) : Float    = checkFloatResult(x, "%", toFloat % x)
 	@inline def %(x: Double): Double   = checkDoubleResult(x, "%", toDouble % x)
 
+	type ResultWithoutStep = NumericRange[SafeLong]
+	@inline def to(end :SafeLong) :NumericRange.Inclusive[SafeLong] =
+		NumericRange.inclusive(this, end, new SafeLong(1))
+
+	@inline def to(end :SafeLong, step :SafeLong) :NumericRange.Inclusive[SafeLong] =
+		NumericRange.inclusive(this, end, step)
+
+	@inline def until(end :SafeLong) :NumericRange.Exclusive[SafeLong] = NumericRange(this, end, new SafeLong(1))
+	@inline def until(end :SafeLong, step :SafeLong) :NumericRange.Exclusive[SafeLong] =
+		NumericRange(this, end, step)
+
+	@inline def in(range: NumericRange[SafeLong]): Boolean = range.containsTyped(this)
 
 	@inline private def overflow(msg :String) :Nothing =
 		throw new ArithmeticException("Arithmetic overflow: " + msg + ".")
@@ -165,18 +228,15 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 		result
 	}
 
-//	@inline private def outOfRange(typeName :String) :Nothing =
-//		throw new ArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
-
-	@inline private def outOfPrecision(typeName :String) :Nothing =
+	private[numeric] def outOfPrecision(typeName :String) :Nothing =
 		throw new ArithmeticException("Value " + toLong + " cannot be exactly represented as a " + typeName + ".")
 
-	@inline private def testRange(min :Long, max :Long, typeName :String) :Unit =
-		if (toLong < min || toLong > max)
-			throw new ArithmeticException("value " + toLong + " does not fit in a " + typeName + ".")
+	private[numeric] def outOfRange(typeName :String) :Nothing =
+			throw new ArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
 
-
-	override def toString :String = String.valueOf(toLong)
+	@inline private[numeric] def testRange(min :Long, max :Long, typeName :String) :Unit =
+		if (toLong < min | toLong > max)
+			outOfRange(typeName)
 }
 
 
@@ -185,6 +245,15 @@ class SafeLong(val toLong :Long) extends AnyVal with Serializable {
 @SerialVersionUID(Ver)
 object SafeLong {
 	@inline def apply(value :Long) :SafeLong = new SafeLong(value)
+
+	@inline def apply(string :String, radix :Int = 10) :SafeLong =
+		new SafeLong(jl.Long.parseLong(string, radix))
+
+	@inline def decode(string :String) :SafeLong =
+		new SafeLong(jl.Long.decode(string))
+
+	@inline def parse(string :String) :Option[SafeLong] =
+		Numeric.IntIsIntegral.parseString(string).map(new SafeLong(_))
 
 	@inline implicit def safeLongFromInt(value :Int) :SafeLong = new SafeLong(value)
 	@inline implicit def safeLongFromLong(value :Long) :SafeLong = new SafeLong(value)
@@ -196,9 +265,7 @@ object SafeLong {
 		override def times(x :SafeLong, y :SafeLong) :SafeLong = x * y
 		override def negate(x :SafeLong) :SafeLong = -x
 		override def fromInt(x :Int) :SafeLong = new SafeLong(x)
-		override def parseString(str :String) :Option[SafeLong] =
-			Numeric.IntIsIntegral.parseString(str).map(new SafeLong(_))
-
+		override def parseString(str :String) :Option[SafeLong] = SafeLong.parse(str)
 		override def toInt(x :SafeLong) :Int = x.toInt
 		override def toLong(x :SafeLong) :Long = x.toLong
 		override def toFloat(x :SafeLong) :Float = x.toFloat
@@ -215,15 +282,5 @@ object SafeLong {
 		override def div(x :SafeLong, y :SafeLong) :SafeLong = x / y
 	}
 
-
-	/** Adds method `safe` to an `Long` value, converting it to an overflow checking
-	  *  [[net.noresttherein.sugar.numeric.SafeLong SafeLong]].
-	  */
-	class SafeLongConverter(private val self :Long) extends AnyVal {
-		/** Converts this `Long` into an overflow checking `SafeLong`. */
-		@inline def safe :SafeLong = new SafeLong(self)
-		/** Converts this `Long` into an overflow checking `SafeLong`. */
-		@inline def toSafeLong :SafeLong = new SafeLong(self)
-	}
 }
 

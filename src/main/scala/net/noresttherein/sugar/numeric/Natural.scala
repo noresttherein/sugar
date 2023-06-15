@@ -6,6 +6,8 @@ package net.noresttherein.sugar.numeric
 /** A natural number. Any operation returning a `Natural` number will throw an [[ArithmeticException]] if the result
   * is negative, including arithmetic underflows.
   */
+//consider: renaming to Nat
+//consider: removing it, duplicates UInt
 class Natural private (val toInt :Int) extends AnyVal {
 
 	@inline def toByte  : Byte   = toInt.toByte

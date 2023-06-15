@@ -7,17 +7,13 @@ import java.math.{BigInteger, MathContext, BigDecimal => JavaBigDecimal}
 import scala.util.Random
 
 import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDecimalConverter}
-import net.noresttherein.sugar.numeric.SafeInt.SafeIntConverter
-import net.noresttherein.sugar.numeric.SafeLong.SafeLongConverter
-import net.noresttherein.sugar.numeric.extensions.{hasOrderingExtension, BigDecimalIsFractional, BooleanExtension, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharExtension, CharObjectExtension, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, LongExtension, LongObjectExtension, ShortExtension, ShortObjectExtension}
+import net.noresttherein.sugar.numeric.extensions.{hasOrderingExtension, JBigDecimalIsFractional, BooleanExtension, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharExtension, CharObjectExtension, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, LongExtension, LongObjectExtension, ShortExtension, ShortObjectExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 
 
 
 
 trait extensions extends Any {
-	@inline implicit final def SafeIntConversion(self :Int) :SafeIntConverter = new SafeIntConverter(self)
-	@inline implicit final def SafeLongConversion(self :Long) :SafeLongConverter = new SafeLongConverter(self)
 
 	@inline implicit final def BigDecimalConverter(self :BigDecimal) :BigDecimalConverter =
 		new BigDecimalConverter(self)
@@ -29,8 +25,8 @@ trait extensions extends Any {
 
 	@inline implicit final def JavaBigDecimalIsFractional(implicit math :MathContext = MathContext.DECIMAL128)
 			:Fractional[JavaBigDecimal] =
-		if (math == MathContext.DECIMAL128) extensions.BigDecimal128IsFractional
-		else new BigDecimalIsFractional
+		if (math == MathContext.DECIMAL128) extensions.JBigDecimal128IsFractional
+		else new JBigDecimalIsFractional
 
 	@inline implicit final def BooleanExtension(self :Boolean) :BooleanExtension = new BooleanExtension(self)
 	@inline implicit final def ByteExtension(self :Byte) :ByteExtension = new ByteExtension(self)
@@ -193,12 +189,6 @@ object extensions extends extensions {
 		/** Returns `this min other`. */
 		@inline def atMost(other :Int) :Int = math.min(self, other)
 
-		/** This byte as a natural number.
-		  * @throws ArithmeticException if this number is negative.
-		  */
-		@inline def toNatural :Natural = Natural(self)
-
-
 		/** True if this `Int` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
 
@@ -222,12 +212,53 @@ object extensions extends extensions {
 
 		/** Reverses the order of bytes in this `Int`. */
 		@inline def reverseBytes :Int = jl.Integer.reverseBytes(self)
-		
+
 		/** Shifts all bits by `n` position up, with the highest `n` bits being moved to the lowest `n` bits of the result. */
 		@inline def rotateLeft(n :Int) :Int = jl.Integer.rotateLeft(self, n)
 
 		/** Shifts all bits by `n` position down, with the lowest `n` bits being moved to the highest `n` bits of the result. */
 		@inline def rotateRight(n :Int) :Int = jl.Integer.rotateRight(self, n)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative.
+		  */
+		@inline def toNatural :Natural = Natural(self)
+
+		/** Converts this `Int` to an unsigned `UInt`. */
+		@throws[ArithmeticException]("if this Int is negative")
+		@inline def toUInt :UInt = UInt.from(self)
+
+		/** Reinterprets this `Int`'s binary format as an unsigned 32 bit integer.
+		  * Negative values will be converted to values greater than `Int.MaxValue`.
+		  */
+		@inline def asUInt :UInt = new UInt(self)
+
+		/** Converts this `Int` to an unsigned `ULong`. */
+		@throws[ArithmeticException]("if this Int is negative")
+		@inline def toULong :ULong = ULong.from(self)
+
+		/** Converts  this `Int` to a 64 bit unsigned integer.
+		  * Negative values will result in underflowing to values greater than `Int.MaxValue`.
+		  */
+		@inline def asULong :ULong = new ULong(self & 0xffffffffL)
+
+		/** Converts this `Int` to an unsigned `UInt`. */
+		@throws[ArithmeticException]("if this Int is negative")
+		@inline def unsigned :UInt = UInt.from(self)
+
+		/** Reinterprets this `Int`'s binary format as an unsigned 32 bit integer.
+		  * Negative values will be converted to values greater than `Int.MaxValue`.
+		  */
+		@inline def asUnsigned :UInt = new UInt(self)
+
+		/** Converts this `Int` into an overflow checking `SafeInt`. */
+		@inline def safe :SafeLong = new SafeInt(self)
+
+		/** Converts this `Int` into an overflow checking `SafeInt`. */
+		@inline def toSafeInt :SafeInt = new SafeInt(self)
+
+		/** Converts this `Int` into an overflow checking `SafeLong`. */
+		@inline def toSafeLong :SafeLong = new SafeLong(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -280,11 +311,6 @@ object extensions extends extensions {
 		/** Returns `this min other`. */
 		@inline def atMost(other :Long) :Long = math.min(self, other)
 
-		/** This byte as a natural number.
-		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
-		  */
-		@inline def toNatural :Natural = Natural(self.toInt)
-
 
 		/** True if this `Long` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Long.bitCount(self) == 1
@@ -315,7 +341,54 @@ object extensions extends extensions {
 
 		/** Shifts all bits by `n` position down, with the lowest `n` bits being moved to the highest `n` bits of the result. */
 		@inline def rotateRight(n :Int) :Long = jl.Long.rotateRight(self, n)
-		
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
+		  */
+		@inline def toNatural :Natural = Natural(self.toInt)
+
+		/** Converts this `Long` to an unsigned `UInt`. */
+		@throws[ArithmeticException]("if this Long is negative or greater than Int.MaxValue")
+		@inline def toUInt :UInt =
+			if (self > Int.MaxValue) throw new ArithmeticException(self + " is negative")
+			else UInt.from(self.toInt)
+
+		/** Interprets lower 4 bytes in this `Long`'s binary format as an unsigned 32 bit integer.
+		  * Negative values will be converted to values greater than `Int.MaxValue`.
+		  */
+		@inline def asUInt :UInt = new UInt(self.toInt)
+
+		/** Converts this `Long` to an unsigned `ULong`. */
+		@throws[ArithmeticException]("if this Long is negative")
+		@inline def toULong :ULong =
+			if (self < 0) throw new ArithmeticException(self + " is negative")
+			else new ULong(self)
+
+		/** Reinterprets this `Long`'s binary format as an unsigned 64 bit integer.
+		  * Negative values will be converted to values greater than `Long.MaxValue`.
+		  */
+		@inline def asULong :ULong = new ULong(self)
+
+		/** Converts this `Long` to an unsigned `ULong`. */
+		@throws[ArithmeticException]("if this Long is negative")
+		@inline def unsigned :ULong =
+			if (self < 0) throw new ArithmeticException(self + " is negative")
+			else new ULong(self)
+
+		/** Reinterprets this `Long`'s binary format as an unsigned 64 bit integer.
+		  * Negative values will be converted to values greater than `Long.MaxValue`.
+		  */
+		@inline def asUnsigned :ULong = new ULong(self)
+
+		/** Converts this `Long` into an overflow checking `SafeLong`. */
+		@inline def safe :SafeLong = new SafeLong(self)
+
+		/** Converts this `Long` into an overflow checking `SafeInt`. */
+		@throws[ArithmeticException]("if this Long does not fit in the [Int.MinValue, Int.MaxValue] range.")
+		@inline def toSafeInt :SafeInt = new SafeLong(self).toSafeInt
+
+		/** Converts this `Long` into an overflow checking `SafeLong`. */
+		@inline def toSafeLong :SafeLong = new SafeLong(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -503,7 +576,7 @@ object extensions extends extensions {
 	
 	
 	@SerialVersionUID(Ver)
-	class BigDecimalIsFractional(implicit ctx :MathContext) extends Fractional[JavaBigDecimal] {
+	class JBigDecimalIsFractional(implicit ctx :MathContext) extends Fractional[JavaBigDecimal] {
 		override def div(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.divide(y, ctx)
 		override def plus(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.add(y, ctx)
 		override def minus(x :JavaBigDecimal, y :JavaBigDecimal) :JavaBigDecimal = x.subtract(y, ctx)
@@ -523,5 +596,5 @@ object extensions extends extensions {
 	}
 	
 	
-	final val BigDecimal128IsFractional = new BigDecimalIsFractional()(MathContext.DECIMAL128)
+	final val JBigDecimal128IsFractional = new JBigDecimalIsFractional()(MathContext.DECIMAL128)
 }
