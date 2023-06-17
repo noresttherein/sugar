@@ -14,7 +14,7 @@ import net.noresttherein.sugar.typist.Rank.Rank0
   *     } until (youAreMad())
   * }}}
   * The result of the whole expression is the value returned by the last invocation of the lazily evaluated expression
-  * between `repeat` and [[net.noresttherein.sugar.repeat.RepeatUntil.until until]]. You can also pass as the condition
+  * between `repeat` and [[net.noresttherein.sugar.repeat.RepeatBlock.until until]]. You can also pass as the condition
   * a function accepting as an argument the result of the preceding execution:
   * {{{
   *     var genius = "bwa"
@@ -35,12 +35,12 @@ package object repeat {
 	private[repeat] final val Ver = 1L
 
 	/** Emulates the `repeat { ... } until ( ... )` loop, repeating the execution of the passed block
-	  * until the condition passed to the [[net.noresttherein.sugar.repeat.RepeatUntil.until until]] method
+	  * until the condition passed to the [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] method
 	  * of the returned object becomes true. The block is executed at least once and the whole expression
 	  * returns the result of the last evaluation.
 	  * @param block the body of the ''repeat'' loop.
 	  */
-	@inline def apply[T](block: => T): RepeatUntil[T] = new RepeatUntil(() => block)
+	@inline def apply[T](block: => T): RepeatBlock[T] = new RepeatBlock(() => block)
 
 //lets see if it doesn't cause an overload conflict in Scala 3
 //	@inline def apply[T](arg :T)(f :T => T) :RecurseUntil[T] = new RecurseUntil(arg, f)
@@ -54,11 +54,10 @@ package object repeat {
 //		}
 //	}
 
-
-	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatUntil.until until]] methods
+	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] methods
 	  * specifying the stop condition for its execution.
 	  */
-	class RepeatUntil[T](private val block: () => T) extends AnyVal {
+	class RepeatBlock[T] private[repeat] (private val block: () => T) extends AnyVal {
 		/** Repeats `this` lazy expression until the lazy expression given as the argument evaluates to true.
 		  * @param condition the termination condition; when it evaluates to true, the loop ends.
 		  * @return the result of the last execution of `this` expression (the body of the loop).
@@ -83,8 +82,6 @@ package object repeat {
 			last
 		}
 	}
-
-
 
 
 	/** Apply the given function recursively to its own result, starting with value `start`, for as long
@@ -123,5 +120,59 @@ package object repeat {
 		case _ if maxIterations <= 0 => None
 		case found if found == start => Some(start)
 		case other => fixedPoint(other, maxIterations - 1)(f)
+	}
+
+
+
+	object iterations {
+		/** Executes the argument expression repeatedly, until the condition passed to
+		  * [[net.noresttherein.sugar.repeat.CountingBlock.until until]] method of the returned object is satisfied,
+		  * and returns the number of performed iterations.
+		  */
+		@inline def apply[T](block: => T) :CountingBlock[T] = new CountingBlock(() => block)
+	}
+
+	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] methods
+	  * specifying the stop condition for its execution.
+	  */
+	class CountingBlock[T] private[repeat] (private val block :() => T) extends AnyVal {
+		/** Repeats `this` lazy expression until the lazy expression given as the argument evaluates to true
+		  * and returns the number of executed iterations. The expression is always executed at least once.
+		  * @param condition the termination condition; when it evaluates to true, the loop ends.
+		  */
+		@inline def until(condition : => Boolean) :Int = {
+			var count = 0
+			while (!condition) {
+				block()
+				count += 1
+			}
+			count
+		}
+
+		/** Repeats `this` lazy expression until the function given as the argument evaluates to true
+		  * for the most recently computed value, returning the number of executed iterations. The expression
+		  * is always executed at least once.
+		  * @param condition the termination condition as the function off the value returned by the preceding block.
+		  *                  When it evaluates to true, the loop ends.
+		  */
+		@inline def until(condition :T => Boolean) :Int = {
+			var count = 0
+			var last  = block()
+			while (!condition(last)) {
+				last = block()
+				count += 1
+			}
+			count
+		}
+	}
+
+}
+
+
+
+
+package repeat {
+	private final class RecursionBlock[T](private[this] var arg :T, f :T => T) extends (() => T) {
+		override def apply() :T = { arg = f(arg); arg }
 	}
 }

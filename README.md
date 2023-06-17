@@ -160,22 +160,23 @@ Syntax for creating options:
     x + y providing y < Int.MaxValue - x
     numbers.flatMap(_ satisfying (_ > 0))
     className.indexOf('.') satisfying _ >= 0 
-
+     
 
 
 ### 6. sugar.repeat ###
 Various styles of `repeat` loop:
 
-    repeat {
-        sayBeep()
-    } until (youAreMad())
+     repeat {
+          sayBeep()
+     } until (youAreMad())
 
-    var genius = "bwa"
-    val bwahaha = repeat {
-        genius += "ha"; genius
-    } until (_ == "bwahaha")
+     var genius = "bwa"
+     val bwahaha = repeat {
+          genius += "ha"; genius
+     } until (_ == "bwahaha")
 
-    val kilo = 2 repeat (_ * 2) until (_ > 1000)
+     val kilo = 1 repeat (_ * 2) until (_ > 1000) //1024
+     val power = 1 count (_ * 2) until (_ > 1000) //10
 
 
 

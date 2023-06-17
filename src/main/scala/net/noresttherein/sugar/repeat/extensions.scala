@@ -31,17 +31,96 @@ object extensions extends extensions {
 	  *     val kilo = 2 repeat { _ * 2 } until (_ > 1000)
 	  * }}}
 	  */
-	class repeatMethod[T](private[this] var start :T) {
-		/*** Executes the given function repeatedly applying it to the values it returns until the condition
-		  * passed to the `until` method of the returned object becomes true.
-		  * This instance is used as the initial argument.
+	class repeatMethod[T](private val start :T) extends AnyVal {
+		/** Executes the given function repeatedly applying it to the values it returns until the condition
+		  * passed to [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] method of the returned object
+		  * becomes true. The function will be executed at least once and this instance is used as the initial argument.
 		  * {{{
-		  *     val kilo = 2 repeat { _ >> 2 } until (_ > 1000)
+		  *     val kilo = 1 repeat { _ * 2 } until (_ > 1000)
 		  *     println(s"There are $kilo bytes in a kilobyte")
 		  * }}}
 		  */
-		@inline def repeat(expr :T => T) :RepeatUntil[T] =
-			new RepeatUntil(() => { start = expr(start); start })
+		@inline def repeat(f :T => T) :RepeatBlock[T] =
+			new RepeatBlock(new RecursionBlock(start, f))
+
+		/** Executes the given function repeatedly applying it to previously returned values, returning the number
+		  * o iterations needed to satisfy the condition passed to
+		  * passed to [[net.noresttherein.sugar.repeat.CountingBlock.until until]] becomes true.
+		  * The function will be executed at least once and this instance is used as the initial argument.
+		  * {{{
+		  *     val exponent = 1 repeat { _ * 2 } until (_ > 1000)
+		  *     println(s"There are 2^$kilo bytes in a kilobyte")
+		  * }}}
+		  */
+		@inline def count(f :T => T) :CountingBlock[T] =
+			new CountingBlock(new RecursionBlock(start, f))
+
+		/** Reapplies the given function repeatedly, to `this` at the beginning,
+		  * and then to the previously returned result, until it returns a value satisfying the predicate given
+		  * as the first argument. If `pred(this)`, then `this` is returned immediately.
+		  * Note that this is different than
+		  * {{{
+		  *     this repeat f until pred
+		  * }}}
+		  * because this method will not execute the function at all if this value satisfies the predicate,
+		  * while in the example above the function will be executed at least once.
+		  */
+		@inline def repeatUntil(pred :T => Boolean)(f :T => T) :T = {
+			var res = start
+			while (!pred(res))
+				res = f(res)
+			res
+		}
+
+		/** Reapplies the given function repeatedly to its own returned values, starting with `this`, for as long
+		  * as the predicate is not satisfied. If the predicate is not satisfied for `this`, an [[IllegalStateException]]
+		  * is thrown.
+		  * @return the last returned value, for which `pred` was satisfied (the argument to the last application of `f`).
+		  */
+		def repeatWhile(pred :T => Boolean)(f :T => T) :T = {
+			if (!pred(start))
+				throw new IllegalStateException("Predicate " + pred + " not satisfied for " + start + ".")
+			var last = start
+			var next = f(last)
+			while (!pred(next)) {
+				last = next
+				next = f(last)
+			}
+			last
+		}
+
+		/** Returns the number of times that
+		  * `this.`[[net.noresttherein.sugar.repeat.repeatMethod.repeatUntil repeatUntil]]`(pred)(f)` would execute
+		  * function `f`.
+		  */
+		@inline def countUntil(pred :T => Boolean)(f :T => T) :Int = {
+			var arg = start
+			var count = 0
+			while (!pred(arg)) {
+				arg = f(arg)
+				count += 1
+			}
+			count
+		}
+
+		/** Returns the number of times that function `f` can be recursively applied to its own return values,
+		  * starting with `this`, before it returns a value not satisfying the predicate. If `!pred(this)`,
+		  * the method returns `0`. Otherwise, it is the maximal `n` such that `pred(f`^`n`^`(this))`.
+		  */
+		@inline def countWhile(pred :T => Boolean)(f :T => T) :Int = {
+			var arg = start
+			var count = 0
+			while (!pred(arg)) {
+				arg = f(arg)
+				count += 1
+			}
+			count
+		}
+
+		/** Applies recursively the argument partial function to `this` value, and then to the values returned
+		  * by the previous iterations, for as long as it is defined for the given argument.
+		  */
+		@inline def recurse(f :PartialFunction[T, T]) :T = reapply(start)(f)
 	}
 
 
@@ -50,7 +129,7 @@ object extensions extends extensions {
 	class timesMethods(private val count :Int) extends AnyVal {
 
 		/** Execute `f` (code block passed by name) `this` number of times. */
-		@inline def times[T](f : =>T) :Unit = for (_ <- 0 until count) f
+		@inline def times[T](f : => T) :Unit = for (_ <- 0 until count) f
 
 		/** Apply `f` recursively to its own result `this` number of times, starting with value `start`. */
 		@tailrec def times[T](f :T => T)(start :T) :T =
