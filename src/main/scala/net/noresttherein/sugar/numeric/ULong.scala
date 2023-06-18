@@ -6,6 +6,9 @@ import scala.Long.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+
 
 
 
@@ -231,15 +234,18 @@ class ULong private[numeric] (private val asLong :Long)
 object ULong {
 	final val MaxValue = new ULong(0xffffffffffffffffL)
 	final val MinValue = new ULong(0L)
-	
+
+	@throws[IllegalArgumentException]("if value is negative.")
 	@inline def apply(value: Long): ULong =
 		if (value < 0L) throw new IllegalArgumentException("negative value: " + value)
 		else new ULong(value)
 
+	@throws[ArithmeticException]("if value is negative.")
 	@inline def from(value: Long): ULong =
 		if (value < 0L) throw new ArithmeticException("negative value: " + value)
 		else new ULong(value)
 
+	@throws[NumberFormatException]("if the string does not contain a Long value, or it is negative.")
 	@inline def apply(string: String, radix: Int = 10): ULong = new ULong(jl.Long.parseUnsignedLong(string, radix))
 
 	@inline def decode(string: String): ULong = {
@@ -249,8 +255,11 @@ object ULong {
 		new ULong(int)
 	}
 
-	@inline def parse(string: String): Option[ULong] =
-		Numeric.LongIsIntegral.parseString(string).map(new ULong(_))
+	@inline def parse(string: String): Opt[ULong] =
+		Numeric.LongIsIntegral.parseString(string) match {
+			case Some(long) if long < 0 => Got(new ULong(long))
+			case _ => Lack
+		}
 
 	@SerialVersionUID(Ver)
 	object conversions {
@@ -271,7 +280,7 @@ object ULong {
 			if (x < 0) throw new ArithmeticException("Cannot convert " + x + " to an unsigned integer")
 			else new ULong(x)
 
-		override def parseString(str: String): Option[ULong] = ULong.parse(str)
+		override def parseString(str: String): Option[ULong] = Numeric.LongIsIntegral.parseString(str).map(ULong.apply)
 		override def toInt(x: ULong): Int = x.toInt
 		override def toLong(x: ULong): Long = x.toLong
 		override def toFloat(x: ULong): Float = x.toFloat

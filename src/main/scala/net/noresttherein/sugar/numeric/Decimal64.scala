@@ -1,21 +1,21 @@
 package net.noresttherein.sugar.numeric
 
 import java.lang.{Math => math}
-
-import java.io.{InputStream, IOException, OutputStream}
+import java.io.{IOException, InputStream, OutputStream}
 import java.math.{BigInteger, MathContext, RoundingMode, BigDecimal => JavaBigDecimal}
 import java.math.RoundingMode.{CEILING, DOWN, FLOOR, HALF_DOWN, HALF_EVEN, HALF_UP, UNNECESSARY, UP}
 
+import scala.annotation.tailrec
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.exceptions.InternalException
-import net.noresttherein.sugar.numeric.Decimal64.{divideByDigits, divideLong, throwArithmeticException, trailingZeros, Decimal64AsIfIntegral, DoublePowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxLongValueLog, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero}
+import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxLongValueLog, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
-import net.noresttherein.sugar.numeric.Decimal64.Round.{isNearestNeighbour, to16digits, to17digits, toMaxDigits, Extended, ExtendedExact, ExtendedHalfEven}
+import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
 import net.noresttherein.sugar.oops
 import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness.Maybe
 
 
@@ -26,21 +26,21 @@ import net.noresttherein.sugar.witness.Maybe
 /** A value class implementing rational numbers with a finite decimal expansion. Each value is represented as
   * [[net.noresttherein.sugar.numeric.Decimal64.unscaled unscaled]]` * 10^-`[[net.noresttherein.sugar.numeric.Decimal64.scale scale]],
   * where `unscaled` is a seven byte signed integer and `scale` is a single byte signed integer.
-  * It mostly follows the IEEE 754R Decimal64 format with a precision of 16 digits,
+  * It mostly follows the IEEE 754R ''Decimal64'' format with a precision of 16 digits,
   * and is similar to [[scala.BigDecimal BigDecimal]] with a fixed [[java.math.MathContext MathContext]]
   * of [[java.math.MathContext.DECIMAL64 DECIMAL64]] (available also as
-  * [[net.noresttherein.sugar.numeric.Decimal64$ Decimal64]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Standard Standard]]).
+  * [[net.noresttherein.sugar.numeric.Decimal64$ Decimal64]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Standard Standard]]).
   * Comparing it in more detail to standard Scala and Java implementations,
   *   1. No objects are ever allocated on the heap, even when computation requires (temporarily) a higher precision
   *      than 64 bits. The only exceptions are methods returning or accepting
-  *      a [[String]], [[java.math.BigDecimal]], or [[scala.math.BigDecimal]].
+  *      a [[String]], [[Float]], [[Double]], [[java.math.BigDecimal]], or [[scala.math.BigDecimal]].
   *   1. All instances are normalized by dropping the maximum possible number of trailing zeros from the significand.
   *      'Maximum possible' means here reformatting to a decimal of the same value
   *      and [[net.noresttherein.sugar.numeric.Decimal64.MinScale minimum scale]] (maximum exponent) fitting
   *      in `Decimal64`'s range of `[-128, 127]`. This will never however result in the rounding of the significand,
   *      regardless of the `MathContext` specified. This is necessary to preserve value class equality
   *      on the wrapped `Long`.
-  *   1. Because of above, the unscaled value and scale are not exposed to the application.
+  *   1. Because of the above, the unscaled value and scale are not exposed to the application.
   *      Instead, instances of `Decimal64` are represented on a more abstract level as
   *      [[net.noresttherein.sugar.numeric.Decimal64.significand significand]]`*10^`[[net.noresttherein.sugar.numeric.Decimal64.exponent exponent]].
   *      To compensate, it introduces properties [[net.noresttherein.sugar.numeric.Decimal64.precision precision]],
@@ -145,7 +145,7 @@ class Decimal64 private (private val bits :Long)
 	  **/
 	def exponent :Int = scale match {
 		case Decimal64.MinScale => unscaled match { //unscaled may have trailing zeros
-			case m if (m & 1L) != 0L && m % 10L != 0L => -Decimal64.MinScale
+			case m if (m & 1L) != 0L || m % 10L != 0L => -Decimal64.MinScale
 			case m => Decimal64.trailingZeros(m / 10L) + 1 - Decimal64.MinScale
 		}
 		case n => -n //no trailing zeros in unscaled
@@ -154,7 +154,7 @@ class Decimal64 private (private val bits :Long)
 	/** Number of digits in [[net.noresttherein.sugar.numeric.Decimal64.unscaled unscaled]].
 	  * This counts also any trailing zeros in excess over 127. Returns `1` if `this == 0`.
 	  **/
-	private[numeric] def unscaledDigits :Int = Decimal64.precision(java.lang.Math.abs(unscaled))
+	@inline private def unscaledDigits :Int = Decimal64.precision(java.lang.Math.abs(unscaled))
 
 	/** The number of decimal digits in [[net.noresttherein.sugar.numeric.Decimal64.significand significand]],
 	  * that is the number of digits in this decimal, not counting trailing zeros (on whole numbers).
@@ -170,14 +170,14 @@ class Decimal64 private (private val bits :Long)
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.wholeDigits]]
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.fractionalDigits]]
 	  **/
-	@inline def digits :Int = unscaledDigits - (scale max 0)
+	def digits :Int = unscaledDigits - (scale max 0)
 
 	/** The number of decimal digits before the fractional point.
 	  * Returns `1` if `-9 < this < 9` (in particular, for proper fractions).
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.digits]]
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.fractionalDigits]]
 	  **/
-	@inline def wholeDigits :Int = unscaledDigits - scale min 0
+	def wholeDigits :Int = unscaledDigits - scale min 0
 
 	/** Number of fractional digits in this value's decimal representation with no trailing zeros.
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.precision]]
@@ -323,7 +323,7 @@ class Decimal64 private (private val bits :Long)
 	/** This decimal number rounded towards greater absolute value.
 	  * For negative values, this method is equivalent to [[net.noresttherein.sugar.numeric.Decimal64.floor floor]];
 	  * for non-negative, the result equals [[net.noresttherein.sugar.numeric.Decimal64.ceiling ceiling]].
-	  * @return [[net.noresttherein.sugar.numeric.Decimal64.roundDivision(fractional:Int,rounding:RoundingMode* round]]`(0, UP)`.
+	  * @return [[net.noresttherein.sugar.numeric.Decimal64.round(fractional:Int,rounding:RoundingMode* round]]`(0, UP)`.
 	  **/
 	@throws[ArithmeticException]("if overflow occurs.")
 	def roundUp   :Decimal64 = round(0, UP)
@@ -412,7 +412,7 @@ class Decimal64 private (private val bits :Long)
 	  * The result has at most `precision` non zero leading digits. It's decimal expansion equals the decimal expansion
 	  * of this number on the first `precision-1` digits, and is within one ''unit in the last place'' of this number.
 	  *
-	  * A precision of zero is equivalent to specifying a maximum precision and thus remains this value unchanged.
+	  * A precision of zero is equivalent to specifying as maximum precision and thus remains this value unchanged.
 	  **/
 	@throws[IllegalArgumentException]("if the precision is negative.")
 	@throws[ArithmeticException]("if overflow or underflow occurs.")
@@ -420,7 +420,7 @@ class Decimal64 private (private val bits :Long)
 		if (bits == 0L || precision == ExtendedPrecision || precision >= this.precision)
 			this
 		else  //won't throw as it can be represented with the same precision and exponent as this
-			Decimal64.round(unscaled, scale, rounding, precision)
+			Decimal64(unscaled, scale, rounding, precision)
 
 
 
@@ -430,7 +430,8 @@ class Decimal64 private (private val bits :Long)
 	@inline def / (that :Decimal64)(implicit mode :MathContext = Extended) :Decimal64 = div(that, mode)
 	@inline def % (that :Decimal64)(implicit mode :MathContext = Extended) :Decimal64 = rem(that, mode)
 	@inline def /~(that :Decimal64)(implicit mode :MathContext = Extended) :Decimal64 = quot(that, mode)
-	@inline def ^ (that :Int)(implicit mode :MathContext = Extended)       :Decimal64 = pow(that, mode)
+	@inline def **(exponent :Int)(implicit mode :MathContext = Extended)   :Decimal64 = pow(exponent, mode)
+	@inline def ^ (exponent :Int)(implicit mode :MathContext = Extended)   :Decimal64 = pow(exponent, mode)
 	@inline def >>(n :Int) :Decimal64 = movePointLeft(n)
 	@inline def <<(n :Int) :Decimal64 = movePointRight(n)
 	@inline def /%(that :Decimal64)(implicit mode :MathContext = Extended) :(Decimal64, Decimal64) = divAndRem(that)
@@ -571,9 +572,9 @@ class Decimal64 private (private val bits :Long)
 					e += zeros
 				}
 				if (lo == 0L)
-					Decimal64.round(sign * hi, -e - LongPrecision, rounding, targetPrecision)
+					Decimal64(sign * hi, -e - LongPrecision, rounding, targetPrecision)
 				else if (hi == 0L)
-					Decimal64.round(sign * lo, -e, rounding, targetPrecision)
+					Decimal64(sign * lo, -e, rounding, targetPrecision)
 				else
 					Decimal64.roundDoubleLong(sign * hi, sign * lo, -e, rounding, targetPrecision)
 			}
@@ -613,7 +614,7 @@ class Decimal64 private (private val bits :Long)
 			-round(mode)
 		else if (that.unscaled == 1L)
 			//unscaled might have been denormalized with zeros
-			Decimal64.round(unscaled, scale - that.scale, mode.getRoundingMode, mode.getPrecision)
+			Decimal64(unscaled, scale - that.scale, mode.getRoundingMode, mode.getPrecision)
 		else if (that.unscaled == -1L) unscaled match {
 			case MinUnscaled =>        //-MinUnscaled out of range, we must round
 				//round this and then negate to avoid overflow: for this, we must inverse sign-aware rounding directions
@@ -632,9 +633,9 @@ class Decimal64 private (private val bits :Long)
 						)
 					case p => p
 				}
-				-Decimal64.round(unscaled, scale - that.scale, rounding, p)
+				-Decimal64(unscaled, scale - that.scale, rounding, p)
 			case n =>
-				Decimal64.round(-n, scale - that.scale, mode.getRoundingMode, mode.getPrecision)
+				Decimal64(-n, scale - that.scale, mode.getRoundingMode, mode.getPrecision)
 		} else
 			divideNonTrivial(that, mode, false)
 
@@ -744,11 +745,11 @@ class Decimal64 private (private val bits :Long)
 					if (inflation == 0) {
 						val res = Decimal64.divideLong(m1, divisor, rounding)
 						//the number of digits is correct except if precision == ExtendedPrecision when it might be +1
-						result = Decimal64.round(res, inflation - exponent, rounding, resultPrecision)
+						result = Decimal64(res, inflation - exponent, rounding, resultPrecision)
 
 					} else if (inflation <= LongPrecision && -m1minus <= LongPowerBounds(inflation)) {
 						val res = divideLong(m1 * Powers(inflation), divisor, rounding)
-						result = Decimal64.round(res, inflation - exponent, rounding, resultPrecision)
+						result = Decimal64(res, inflation - exponent, rounding, resultPrecision)
 
 					} else if ((divisor & 1L) == 0L && divisor % 10L == 0L) {
 						//decrease the level of required dividend inflation and then try again
@@ -778,7 +779,7 @@ class Decimal64 private (private val bits :Long)
 					//we don't include the case deflation == 0, but it's covered by the following one
 					if (deflation <= LongPrecision && -m2minus <= LongPowerBounds(deflation)) {
 						val res = divideLong(dividend, m2 * Powers(deflation), rounding)
-						result = Decimal64.round(res, -deflation - exponent, rounding, resultPrecision)
+						result = Decimal64(res, -deflation - exponent, rounding, resultPrecision)
 
 					} else if ((dividend & 1L) == 0L && dividend % 10L == 0L) {
 						//deflate the dividend so that the final result is lower (and perhaps we can inflate divisor
@@ -857,14 +858,18 @@ class Decimal64 private (private val bits :Long)
 	/** Raises this number to the given integral power.
 	  *   - If `n` is zero, then [[net.noresttherein.sugar.numeric.Decimal64.One One]] is returned.
 	  *   - If `n` is positive, then the algorithm performs recursive squaring, taking `O(log n)` time.
-	  *   - If `n` is negative, then the result is that of `One / this ** - n`.
+	  *   - If `n` is negative, then the result is that of `One / this ** -n`.
 	  * All above operations happen with maximum precision, with the rounding specified in the argument `MathContext`,
 	  * and only the final result is rounded to the requested precision.
 	  * Because this procedure is composite in nature, rounding errors will accumulate. This, and the fact
-	  * that [[java.math.BigDecimal BigDecimal]] uses higher precision for these calculations than what is available
+	  * that [[java.math.BigDecimal BigDecimal]] may use higher precision for these calculations than what is available
 	  * to `Decimal64`, make it impossible to duplicate the results of the former exactly,
-	  * especially that the latter also guarantees accuracy only to two units in the last place. The results
-	  * of the two implementations may thus differ on the last digit.
+	  * especially that the latter also guarantees accuracy only to two units in the last place.
+	  * The results of the two implementations may thus differ on the last digit. For the same reason,
+	  * if `mode.getRounding == UNNECESSARY`, then in some cases either of the algorithms
+	  * may throw an [[ArithmeticException]], where other does not. However, for precisions lower than `16` and small
+	  * exponents, this algorithm will be actually more precise, the more the lower the requested precision,
+	  * due to how temporary precision is calculated by `BigDecimal`.
       **/
 	@throws[IllegalArgumentException]("if n equals Int.MinValue.")
 	@throws[ArithmeticException]("if this Decimal64 is zero and n is negative, " +
@@ -874,27 +879,37 @@ class Decimal64 private (private val bits :Long)
 			if (n == Int.MinValue)
 				throw new IllegalArgumentException(toString + " ** Int.MinValue")
 			else mode.getRoundingMode match {
-				case _ if mode.getPrecision > Precision => One.div(pow(-n, ExtendedExact), mode)
+				case _ if mode.getPrecision > Precision => One.div(pow(-n, mode), mode)
 				case UNNECESSARY => One.div(pow(-n, ExtendedExact), mode)
-				case _ => One.div(pow(-n, mode), mode)
+				case rounding => One.div(pow(-n, toMaxDigits(rounding)), mode)
 			}
 		else
 			try {
-				var res = One
-				val ctx = mode.getRoundingMode match {
-					case _ if mode.getPrecision > Precision => ExtendedExact
+				val rounding  = mode.getRoundingMode
+				val precision = mode.getPrecision
+				var mode1 = rounding match {
+					case _ if precision > Precision => Round(precision, HALF_UP)
 					case UNNECESSARY => ExtendedExact
-					case _ => mode
+					case _ => toMaxDigits(HALF_UP)
 				}
-				var i = Integer.highestOneBit(n)
+				var mode2 = rounding match {
+					case _ if precision > Precision => Round(precision, HALF_DOWN)
+					case UNNECESSARY => ExtendedExact
+					case _ => toMaxDigits(HALF_DOWN)
+				}
+				var res = One
+				var i   = Integer.highestOneBit(n)
 				while (i >= 0) {
-					res = res.times(res, ctx)
-					if ((n >> i & 1) == 1)
-						res = res.times(this, ctx)
+					res = res.times(res, mode1)
+					val m = mode1; mode1 = mode2; mode2 = m
+
+					if ((n >> i & 1) == 1) {
+						res = res.times(this, mode1)
+						val m = mode1; mode1 = mode2; mode2 = m
+					}
 					i -= 1
 				}
-				if (mode == ctx) res
-				else res.round(mode)
+				res.round(mode)
 			} catch {
 				case e :ArithmeticException =>
 					throw new ArithmeticException("Cannot calculate " + this + " ** " + n + ". " + e.getMessage)
@@ -925,13 +940,135 @@ class Decimal64 private (private val bits :Long)
 	@inline def min(that :Decimal64) :Decimal64 = if (this <= that) this else that
 
 
-	//todo: own implementations (and factory methods for Float and Double)
-	def isDecimalFloat  :Boolean = toBigDecimal.isDecimalFloat
-	def isDecimalDouble :Boolean = toBigDecimal.isDecimalDouble
-	def isBinaryFloat   :Boolean = toBigDecimal.isBinaryFloat
-	def isBinaryDouble  :Boolean = toBigDecimal.isBinaryDouble
-	def isExactFloat    :Boolean = toBigDecimal.isExactFloat
-	def isExactDouble   :Boolean = toBigDecimal.isExactDouble
+	/** True if this `Decimal64` converts to a `Float` equal to its decimal representation,
+	  * within maximum precision of this class.
+	  * @return `Decimal64.`[[net.noresttherein.sugar.numeric.Decimal64.round(decimal:Float)* round]]`(this.`[[net.noresttherein.sugar.numeric.Decimal64.toFloat toFloat]]`)`
+	  **/
+	def isDecimalFloat :Boolean = scale match {
+		case 0 => true
+		case n if n < 0 & -n < ExactFloatPowersOf10 => isDecimalFloat(unscaled * FloatPowersOf10(-n))
+		case n if n > 0 & n < ExactFloatPowersOf10  => isDecimalFloat(unscaled / FloatPowersOf10(n))
+		case n =>
+			val before = decimalString(1).toString
+			val f = before.toFloat
+			java.lang.Float.isFinite(f) && f == f && //NaN check
+				(n >= 0 && { val whole = f.toLong; whole.toFloat == f && whole == toLong }) ||
+				equal(before, java.lang.Float.toString(f))
+	}
+
+	/** True if this `Decimal64` converts to a `Double` equal to its decimal representation,
+	  * within maximum precision of this class.
+	  * @return `Decimal64.`[[net.noresttherein.sugar.numeric.Decimal64.round(decimal:Double)* round]]`(this.`[[net.noresttherein.sugar.numeric.Decimal64.toDouble toDouble]]`)`
+	  **/
+	def isDecimalDouble :Boolean = scale match {
+		case 0 => true
+		case n if n < 0 & -n < ExactDoublePowersOf10 => isDecimalDouble(unscaled * DoublePowersOf10(-n))
+		case n if n > 0 & n < ExactDoublePowersOf10 => isDecimalDouble(unscaled / DoublePowersOf10(n))
+		case n =>
+			val before = decimalString(1).toString
+			val d      = before.toDouble
+			java.lang.Double.isFinite(d) && d == d && //NaN check
+				(n >= 0 && { val whole = d.toLong; whole.toDouble == d && whole == toLong }) ||
+				equal(before, java.lang.Double.toString(d))
+	}
+
+	@inline private def isDecimalFloat(f :Float) :Boolean =
+		java.lang.Float.isFinite(f) && f == f && this == Decimal64.round(java.lang.Float.toString(f))
+
+	@inline private def isDecimalDouble(d :Double) :Boolean =
+		java.lang.Double.isFinite(d) && d == d && this == Decimal64.round(java.lang.Double.toString(d))
+
+	@inline private def equal(thisString :String, otherString :String) :Boolean =
+		thisString == otherString || otherString.lastIndexOf('E') >= 0 && this == Decimal64.round(otherString)
+
+	/** True if this `Decimal64` holds, to the maximum precision of this class,
+	  * the binary representation of a `Float` value.
+	  **/
+	def isBinaryFloat :Boolean = scale match {
+		case 0 => true
+		case n if n < 0 & -n < ExactFloatPowersOf10 => isBinaryFloat(unscaled * FloatPowersOf10(-n))
+		case n if n > 0 & n < ExactFloatPowersOf10  => isBinaryFloat(unscaled / FloatPowersOf10(n))
+		case n =>
+			val f = decimalString(1).toString.toFloat
+			java.lang.Float.isFinite(f) && f == f &&
+				(n >= 0 && { val whole = f.toLong; whole.toFloat == f && whole == toLong }) ||
+				this == Decimal64.round(new JavaBigDecimal(f)) 
+	}
+
+	/** True if this `Decimal64` holds, to the maximum precision of this class,
+	  * the binary representation of a `Double` value.
+	  **/
+	def isBinaryDouble :Boolean = scale match {
+		case 0 => true
+		case n if n < 0 & -n < ExactDoublePowersOf10 => isBinaryDouble(unscaled * DoublePowersOf10(-n))
+		case n if n > 0 & n < ExactDoublePowersOf10  => isBinaryDouble(unscaled / DoublePowersOf10(n))
+		case n =>
+			val d = decimalString(1).toString.toDouble
+			java.lang.Double.isFinite(d) && d == d &&
+				(n >= 0 && { val whole = d.toLong; whole.toDouble == d && whole == toLong }) ||
+					this == Decimal64.round(new JavaBigDecimal(d)) 
+	}
+	@inline private def isBinaryFloat(f :Float) :Boolean =
+		java.lang.Float.isFinite(f) && f == f && this == Decimal64.round(new JavaBigDecimal(f))
+
+	@inline private def isBinaryDouble(d :Double) :Boolean =
+		java.lang.Double.isFinite(d) && d == d && this == Decimal64.round(new JavaBigDecimal(d))
+
+	/** True if this `Decimal64` is exactly equal to the closest `Float` value. */
+	def isExactFloat :Boolean = {
+		val res = exactFloat
+		res == res
+	}
+
+	/** True if this `Decimal64` is exactly equal to the closest `Double` value. */
+	def isExactDouble :Boolean = {
+		val res = exactDouble
+		res == res
+	}
+
+	private def exactFloat :Float =
+		try {
+			scale match {
+				case 0 => 0.0f
+				case n if n < 0 & -n < ExactFloatPowersOf10 => exactFloat(unscaled * FloatPowersOf10(-n))
+				case n if n > 0 & n < ExactFloatPowersOf10  => exactFloat(unscaled / FloatPowersOf10(n))
+				case n =>
+					val f = decimalString(1).toString.toFloat
+					val isExact =
+						java.lang.Float.isFinite(f) && f == f &&
+							(n >= 0 && { val whole = f.toLong; whole.toFloat == f && whole == toLong }) ||
+							this == Decimal64(new JavaBigDecimal(f)) //todo: we really need methods which return an Opt/Option
+					if (isExact) f else Float.NaN
+			}
+		} catch {
+			case _ :InternalException | _ :ArithmeticException => Float.NaN
+		}
+	private def exactDouble   :Double =
+		try {
+			scale match {
+				case 0 => 0.0
+				case n if n < 0 & -n < ExactDoublePowersOf10 => exactDouble(unscaled * DoublePowersOf10(-n))
+				case n if n > 0 & n < ExactDoublePowersOf10  => exactDouble(unscaled / DoublePowersOf10(n))
+				case n =>
+					val d = decimalString(1).toString.toDouble
+					val isExact =
+						java.lang.Double.isFinite(d) && d == d &&
+							(n >= 0 && { val whole = d.toLong; whole.toDouble == d && whole == toLong }) ||
+							this == Decimal64(new JavaBigDecimal(d)) //todo: we really need methods which return an Opt/Option
+					if (isExact) d else Double.NaN
+			}
+		} catch {
+			case _ :InternalException | _ :ArithmeticException => Double.NaN
+		}
+
+	@inline private def exactFloat(f :Float) :Float =
+		if (java.lang.Float.isFinite(f) && f == f && this == Decimal64(f)) f
+		else Float.NaN
+
+	@inline private def exactDouble(d :Double) :Double =
+		if (java.lang.Double.isFinite(d) && d == d && this == Decimal64(d)) d
+		else Double.NaN
+
 
 	override def isValidInt :Boolean =
 		scale <= 0 && this >= Decimal64.MinInt && this <= Decimal64.MaxInt
@@ -939,11 +1076,13 @@ class Decimal64 private (private val bits :Long)
 	def isValidLong :Boolean =
 		scale <= 0 && this >= MinLongValue && this >= MaxLongValue
 
-	@inline override def toChar  :Char  = intValue.toChar
-	@inline override def toByte  :Byte  = intValue.toByte
-	@inline override def toShort :Short = intValue.toShort
-	@inline override def toInt   :Int   = intValue
-	@inline override def toLong  :Long  = longValue
+	@inline override def toChar   :Char   = intValue.toChar
+	@inline override def toByte   :Byte   = intValue.toByte
+	@inline override def toShort  :Short  = intValue.toShort
+	@inline override def toInt    :Int    = intValue
+	@inline override def toLong   :Long   = longValue
+	@inline override def toFloat  :Float  = floatValue
+	@inline override def toDouble :Double = doubleValue
 
 	def toBigInt :BigInt = whole.toBigIntExact
 
@@ -967,6 +1106,14 @@ class Decimal64 private (private val bits :Long)
 			}
 		}
 
+	def toByteExact :Byte =
+		if (isValidByte) byteValue
+		else throw new ArithmeticException("Decimal64 " + this + " is not a Byte.")
+
+	def toShortExact :Short =
+		if (isValidShort) shortValue
+		else throw new ArithmeticException("Decimal64 " + this + " is not a Short.")
+
 	def toIntExact :Int =
 		if (isValidInt) intValue
 		else throw new ArithmeticException("Decimal64 " + this + " is not an Int.")
@@ -975,6 +1122,21 @@ class Decimal64 private (private val bits :Long)
 		if (isValidLong) longValue
 		else throw new ArithmeticException("Decimal64 " + this + " is not a Long.")
 
+	def toFloatExact :Float = {
+		val res = exactFloat
+		if (res != res)
+			throw new ArithmeticException("Decimal64 " + this + " is not a Float.")
+		res
+	}
+
+	def toDoubleExact :Double = {
+		val res = exactDouble
+		if (res != res)
+			throw new ArithmeticException("Decimal64 " + this + " is not a Double.")
+		res
+	}
+		
+	
 	def toBigIntExact :BigInt = BigInt(toBigIntegerExact)
 
 	def toBigIntegerExact :BigInteger =
@@ -1001,7 +1163,7 @@ class Decimal64 private (private val bits :Long)
 				case digits if digits - n <= 0 => 0L
 				case digits => unscaled / LongPowersOf10(digits - n) //digits <= MaxPrecision -> digits - n <= MaxPrecision
 			}
-			case n if n < - 64 => 0L
+			case n if n < -64 => 0L
 			case n if -n <= LongPrecision =>
 				unscaled * LongPowersOf10(-n) //overflows, but exactly the way we want
 			//let m = a * 2^n; let M = Long.MaxValue; let P = 5^63 mod M
@@ -1025,7 +1187,27 @@ class Decimal64 private (private val bits :Long)
 		case _ => toString.toDouble
 	}
 
-	def format(context :MathContext = Extended) :String =
+	//consider: should these be padded in the front?
+	def format(precision :Int, scale :Int) :String = format(scale, Round(precision))
+	def format(precision :Int, scale :Int, rounding :RoundingMode) :String = format(scale, Round(precision, rounding))
+	def format(precision :Int, scale :Int, rounding :BigDecimal.RoundingMode.Value) :String =
+		format(scale, Round(precision, rounding))
+
+	def format(scale :Int, context :MathContext = Extended) :String = {
+		if (scale < 0)
+			throw new IllegalArgumentException(
+				"Cannot format " + this + " to a negative number of fractional digits: " + scale + "."
+			)
+		val rounded = round(context)
+		val fraction = rounded.fractionalDigits
+		if (fraction <= scale)
+			rounded.decimalString(scale).toString
+		else {
+			val res = rounded.decimalString(0)
+			res.delete(res.length, res.length - (fraction - scale)).toString
+		}
+	}
+	def format(context :MathContext) :String =
 		Decimal64.round(unscaled, -scale)(context).toString
 
 	/** Formats this number as "''significand''e''exponent''". */
@@ -1034,45 +1216,67 @@ class Decimal64 private (private val bits :Long)
 	/** Formats this number as its full decimal expansion, with no trailing zeros
 	  * (except for a single zero if this number is zero).
 	  **/
-	def toPlainString :String = {
-		val p = precision
+	def toPlainString :String =
+		if (scale == 0) unscaled.toString
+		else decimalString(0).toString
+
+	private def decimalString(minScale :Int) :java.lang.StringBuilder = {
+		val s = this.scale
 		val m = unscaled
-		val s = scale
-		val sign = if (m < 0) 1 else 0
+		val p = precision
+		val signChars = if (m < 0) 1 else 0
+		val trailingZeros = math.max(-s, 0)
+		val scale  = math.max(minScale, s)
 		val length =
-			if (s <= 0) p - s + sign
-			else if (p > s) p + 1 + sign
-			else s + 2 + sign
-		val res = new java.lang.StringBuilder(length)
+			if (scale == 0) p + trailingZeros + signChars
+			else if (p > s) p - s + 1 + scale + signChars
+			else scale + 2 + signChars
+		val res    = new java.lang.StringBuilder(length)
 		if (s <= 0) {
 			res append m
 			var i = s
 			while (i < 0) {
-				res append '0'; i += 1
+				res append '0'
+				i += 1
+			}
+			if (minScale > 0) {
+				res append '.'
+				i = 0
+				while (i < minScale) {
+					res append '0'
+					i += 1
+				}
 			}
 		} else if (p > s) {
 			val string = String.valueOf(m)
-			res append string.substring(0, p - s + sign)
+			res append string.substring(0, p - s + signChars)
 			res append '.'
-			res append string.substring(p - s + sign)
+			res append string.substring(p - s + signChars)
+			var i = s
+			while (i < minScale) {
+				res append '0'
+				i += 1
+			}
 		} else {
 			if (m < 0) res append "-0."
 			else res append "0."
 			var i = s
 			while (i > p) {
-				res append '0'; i -= 1
+				res append '0'
+				i -= 1
 			}
 			if (m < 0) res append -m
 			else res append m
+
 		}
-		res.toString
+		res
 	}
 
 	/** Formats this number using an engineering notation of ''nEe'', where `e` is a multiple of three,
 	  * and `n` is a number in the 0-999 range, or a decimal fraction with up to two leading zeros
 	  * after the decimal point. If exponent is zero, the whole exponent part of the number is omitted.
 	  **/
-	def toEngineeringString :String = JavaBigDecimal.valueOf(unscaled, scale).toEngineeringString
+	def toEngineeringString :String = JavaBigDecimal.valueOf(significand, -exponent).toEngineeringString
 
 	override def toString :String =
 		if (bits == 0L)
@@ -1173,7 +1377,8 @@ object Decimal64 {
 	  **/
 	final val MaxPrecision = 17
 	/** Precision value which signifies rounding to the maximum possible precision within a `Decimal64`
-	  * for a particular value. */
+	  * for a particular value.
+	  **/
 	final val ExtendedPrecision = 0
 
 
@@ -1320,14 +1525,14 @@ object Decimal64 {
 		  * (16 or 17 digits, depending on the significand), demanding exact computations.
 		  * If a result would require rounding to fit the maximum precision for its value,
 		  * an [[ArithmeticException]] is thrown. */
-		final val ExtendedExact    = modes(0)(UNNECESSARY.ordinal) //new MathContext(0, HALF_EVEN)
+		final val ExtendedExact = modes(0)(UNNECESSARY.ordinal) //new MathContext(0, HALF_EVEN)
 
 		/** A `Decimal64` representation in extended precision, maximum for a given number in 56 bits
 		  * (16 or 17 digits, depending on the significand), and standard `HALF_EVEN` rounding.
 		  * It is equal to [[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedHalfEven ExtendedHalfEven]].
 		  * It is the mode used by factory methods which do not accept a `MathContext`.
 		  * @see [[net.noresttherein.sugar.numeric.Decimal64.Round.Standard]] */
-		final val Extended         = ExtendedHalfEven
+		final val Extended = ExtendedHalfEven
 
 		/** A `Decimal64` representation with a maximal possible precision of 16. Results are rounded towards zero. */
 		final val Down     = modes(Precision)(DOWN.ordinal)//new MathContext(Precision, DOWN)
@@ -1492,7 +1697,8 @@ object Decimal64 {
 
 		/** A factory method creating a `MathContext` with a precision of `n` and the given rounding mode.
 		  * If the precision is within the `[0, `[[net.noresttherein.sugar.numeric.Decimal64.MaxPrecision MaxPrecision]]`]`
-		  * range, the instance will be a cached constant. */
+		  * range, the instance will be a cached constant.
+		  **/
 		def apply(n :Int, rounding :RoundingMode = RoundingMode.HALF_EVEN) :MathContext =
 			if (n >= 0 & n <= MaxPrecision && rounding.ordinal < RoundingMode.values.length)
 				modes(n)(rounding.ordinal)
@@ -1501,7 +1707,8 @@ object Decimal64 {
 
 		/** A factory method creating a `MathContext` with a precision of `n` and the given rounding mode.
 		  * If the precision is within the `[0, `[[net.noresttherein.sugar.numeric.Decimal64.MaxPrecision MaxPrecision]]`]`
-		  * range, the instance will be a cached constant. */
+		  * range, the instance will be a cached constant.
+		  **/
 		def apply(n :Int, rounding :BigDecimal.RoundingMode.Value) :MathContext =
 			if (n >= 0 & n <= MaxPrecision && rounding.id < RoundingMode.values.length)
 				modes(n)(rounding.id)
@@ -1509,22 +1716,34 @@ object Decimal64 {
 				new MathContext(n, RoundingMode.valueOf(rounding.id))
 
 		/** Extractor deconstructing a `MathContext` into its [[java.math.MathContext.getPrecision precision]]
-		  * and [[java.math.MathContext.getRoundingMode roundingMode]] properties. */
+		  * and [[java.math.MathContext.getRoundingMode roundingMode]] properties.
+		  **/
 		@inline def unapply(mode :MathContext) :Opt[(Int, RoundingMode)] =
 			Got((mode.getPrecision, mode.getRoundingMode))
 
-		private[Decimal64] def isNearestNeighbour(rounding :RoundingMode) :Boolean =
+		@inline private[Decimal64] def isNearestNeighbour(rounding :RoundingMode) :Boolean =
 			rounding == HALF_DOWN || rounding == HALF_UP || rounding == HALF_EVEN
 	}
 
 
+	/** All `Float` values which exactly represent non negative powers of 10. */
 	private final val FloatPowersOf10 =
 		Array(1.0e0f, 1.0e1f, 1.0e2f, 1.0e3f, 1.0e4f, 1.0e5f, 1.0e6f, 1.0e7f, 1.0e8f, 1.0e9f, 1.0e10f)
 
+	/** All `Float` values which exactly represent non negative powers of 10. */
 	private final val DoublePowersOf10 = Array(
 		1.0e0, 1.0e1, 1.0e2, 1.0e3, 1.0e4, 1.0e5, 1.0e6, 1.0e7, 1.0e8, 1.0e10,
 		1.0e11, 1.0e12, 1.0e13, 1.0e14, 1.0e15, 1.0e16, 1.0e17, 1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22
 	)
+	/** The number of non negative powers of 10 which can be represented exactly as a `Float`.
+	  * Equals `FloatPowersOf10.length`.
+	  */
+	private final val ExactFloatPowersOf10  = 11
+	/** The number of non negative powers of 10 which can be represented exactly as a `Double`.
+	  * Equals `DoublePowersOf10.length`.
+	  */
+	private final val ExactDoublePowersOf10 = 23
+
 	/** Maximum absolute values which, multiplied by `10^i`, fit in a `Long`. */
 	private final val LongPowerBounds = Array.iterate(Long.MaxValue, LongPrecision + 1)(_ / 10L)
 	/** Maximum absolute values which, multiplied by `10^i`, fit in a the unscaled range of `Decimal64`
@@ -1532,6 +1751,8 @@ object Decimal64 {
 	private final val UnscaledPowerBounds = Array.iterate(MaxUnscaled, MaxPrecision)(_ / 10L)
 	/** `LongPowersOf10(i) == 10^i`. */
 	private final val LongPowersOf10 = Array.iterate(1L, MaxLongPrecision)(_ * 10L)
+	/** `10^i` for `i== 0..MaxExponent` as `BigInteger`. */
+	private final val BigIntegerPowersOf10 = Array.iterate(BigInteger.ONE, MaxExponent + 1)(_ multiply BigInteger.TEN)
 //	/** `PowersOf10Halves(i) == 5*10^i`. */
 //	private final val LongPowersOf10Halves = LongPowersOf10.map(_ * 5L)
 	/** `PowersOf10(i) == Decimal64(1, -i)`. */
@@ -1546,6 +1767,9 @@ object Decimal64 {
 	private final val BigMinUnscaled = BigInteger.valueOf(MinUnscaled)
 	private final val BigMaxLong     = BigInteger.valueOf(Long.MaxValue)
 	private final val BigMinLong     = BigInteger.valueOf(Long.MinValue)
+	private final val BigMinusTwo    = BigInteger.TWO.negate
+	private final val DecimalMaxLong = JavaBigDecimal.valueOf(Long.MaxValue)
+	private final val DecimalMinLong = JavaBigDecimal.valueOf(Long.MinValue)
 
 	private final val PositiveExponentFormat = "e" //could be, for example, "E+
 	private final val NegativeExponentFormat = "e"
@@ -1570,9 +1794,11 @@ object Decimal64 {
 //	private val DivisionByZeroException        = new InternalException("division by zero")
 	private val RoundingNecessaryException     = new InternalException("rounding necessary")
 //	private val InfiniteExpansionException     = new InternalException("infinite decimal expansion")
+	private val DecimalFormatException         = new InternalException("invalid decimal format")
 
 
 
+	//consider: make single-arg apply methods use Round.Standard, and add exact methods using ExtendedExact
 	/** Accurately represents an `Int` as a `Decimal64`. */
 	def apply(int :Int) :Decimal64 =
 		if (int % 10 != 0) make(int, 0)
@@ -1584,7 +1810,7 @@ object Decimal64 {
 	  * @return `Decimal(int, 0)`.
 	  **/
 	@throws[ArithmeticException]("if the argument is outside the [MinUnscaled, MaxUnscaled] range.")
-	def apply(int :Long) :Decimal64 = apply(int, 0)
+	@inline def apply(int :Long) :Decimal64 = apply(int, 0)
 
 	/** Creates a normalized `Decimal64` instance equal to `significand * 10E-scale`.
 	  * All trailing zeros in the significand are removed and instead its exponent is increased by that number,
@@ -1597,7 +1823,7 @@ object Decimal64 {
 	  * then an [[ArithmeticException]] is thrown.
 	  *
 	  * This is a simpler equivalent of
-	  * [[net.noresttherein.sugar.numeric.Decimal64.roundDivision(significand:Long,scale:Int)(implicit*, round]]`(significand, scale)(`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Best]]`)`
+	  * [[net.noresttherein.sugar.numeric.Decimal64.round(significand:Long,scale:Int)(implicit*, round]]`(significand, scale)(`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`)`
 	  * @param significand A value containing all leading non zero digits of the created `Decimal64`.
 	  *                    The decimal representation of the whole number consists of the decimal format of `significand`,
 	  *                    followed by `-scale` number of zeros (if `scale` is non negative), or of `significand`
@@ -1610,25 +1836,17 @@ object Decimal64 {
 	  *                    portion of the created `Decimal64` (if `scale is positive)`, or the number of trailing zeros
 	  *                    following the significand.
 	  **/
-	@throws[ArithmeticException]("if significand * 10^-scale cannot be represented precisely as a Decimal64. ")
+	@throws[ArithmeticException]("if significand * 10^-scale cannot be represented precisely as a Decimal64.")
 	def apply(significand :Long, scale :Int) :Decimal64 =
-		if (significand == 0)
-			Zero
-		else try {
-			if (scale < MinScale)  //try denormalizing by adding trailing zeros to the significand
-				denormalize(significand, scale)
-			else
-				normalize(significand, scale)
-		} catch {
+		try from(significand, scale) catch {
 			case e :InternalException =>
 				throw new ArithmeticException(
 					"Decimal64(" + significand + "L, " + scale + "): " + e.getMessage + "."
 				)
 		}
 
-
-	/** Creates `Decimal64` of value `significand*10^-scale`, rounded to 16 digits in the direction
-	  * specified by the passed [[scala.math.BigDecimal.RoundingMode RoundingMode]].
+	/** Creates `Decimal64` of value `significand*10^-scale`, rounded to the maximum possible precision
+	  * (16 or 17 digits) in the direction specified by the passed [[scala.math.BigDecimal.RoundingMode RoundingMode]].
 	  * For arguments on which neither method throws an exception, this is equivalent to
 	  * `Decimal64(significand, scale).round(mode)`, but this method performs rounding before the creation
 	  * of the result and thus accepts any `Long` as a significand, providing it fits in a `Decimal64` after rounding
@@ -1636,10 +1854,10 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
 	def apply(significand :Long, scale :Int, rounding :BigDecimal.RoundingMode.Value) :Decimal64 =
-		round(significand, scale, RoundingMode.valueOf(rounding.id), 0)
+		Decimal64(significand, scale, RoundingMode.valueOf(rounding.id), 0)
 
-	/** Creates `Decimal64` of value `significand*10^-scale`, rounded to 16 digits in the direction
-	  * specified by the passed [[java.math.RoundingMode RoundingMode]].
+	/** Creates `Decimal64` of value `significand*10^-scale`, rounded to the maximum possible precision
+	  * (16 or 17 digits) in the direction specified by the passed [[java.math.RoundingMode RoundingMode]].
 	  * For arguments on which neither method throws an exception, this is equivalent to
 	  * `Decimal64(significand, scale).round(mode)`, but this method performs rounding before the creation
 	  * of the result and thus accepts any `Long` as a significand, providing it fits in a `Decimal64` after rounding
@@ -1647,12 +1865,12 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
 	def apply(significand :Long, scale :Int, rounding :RoundingMode) :Decimal64 =
-		round(significand, scale, rounding, 0)
+		Decimal64(significand, scale, rounding, 0)
 
 	/** Creates `Decimal64` of value `significand*10^-scale`, rounded
 	  * according to the specified [[java.math.MathContext MathContext]].
 	  * This method is exactly equivalent to
-	  * [[net.noresttherein.sugar.numeric.Decimal64.roundDivision(significand:Long,scale:Int)* round]]`(significand, scale)(mode)`,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.round(significand:Long,scale:Int)* round]]`(significand, scale)(mode)`,
 	  * the only difference being that the `MathContext` argument is explicit, rather than implicit.
 	  * For arguments on which neither method throws an exception, this is equivalent to
 	  * `Decimal64(significand, scale).round(mode)`, but this method performs rounding before the creation
@@ -1661,13 +1879,160 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if the value cannot be represented as a Decimal64 to the requested precision.")
 	@inline def apply(significand :Long, scale :Int, mode :MathContext) :Decimal64 =
-		round(significand, scale, mode.getRoundingMode, mode.getPrecision)
+		Decimal64(significand, scale, mode.getRoundingMode, mode.getPrecision)
 
 
-
-	/** Creates a `Decimal64` exactly equal in value to the argument [[scala.math.BigDecimal]]. */
+	/** Creates a `Decimal64` closest in value to the argument `Float`.
+	  * This is analogous to [[scala.math.BigDecimal BigDecimal]]`.`[[scala.math.BigDecimal.decimal decimal]]`(decimal)`,
+	  * bar precision differences.
+	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-	@inline def apply(big :BigDecimal) :Decimal64 = Decimal64(big.bigDecimal)
+	@inline def apply(decimal :Float) :Decimal64 = Decimal64(decimal, ExtendedExact)
+
+	/** Creates `Decimal64` equal to the given `Float` value, rounded to the maximum possible precision
+	  * (16 or 17 digits) in the direction specified by the passed [[scala.math.BigDecimal.RoundingMode RoundingMode]].
+	  * For arguments on which neither method throws an exception, this is equivalent to
+	  * `Decimal64(significand, scale).round(mode)`, but this method performs rounding before the creation
+	  * of the result and thus accepts any `Long` as a significand, providing it fits in a `Decimal64` after rounding
+	  * to [[net.noresttherein.sugar.numeric.Decimal64.Precision Precision]].
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(decimal :Float, rounding :BigDecimal.RoundingMode.Value) :Decimal64 =
+		Decimal64(decimal, RoundingMode.valueOf(rounding.id))
+
+	/** Creates `Decimal64` equal to the given `Float` value, rounded to the maximum possible precision
+	  * (16 or 17 digits) in the direction specified by the passed [[java.math.RoundingMode RoundingMode]].
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(decimal :Float, rounding :RoundingMode) :Decimal64 =
+		Decimal64(decimal, toMaxDigits(rounding))
+
+	/** Creates a `Decimal64` equal to the `Float` value rounded
+	  * according to the specified [[java.math.MathContext MathContext]]. `Double`. This is analogous
+	  * to [[scala.math.BigDecimal BigDecimal]]`.`[[scala.math.BigDecimal.decimal decimal]]`(decimal, mode)`,
+	  * bar precision differences.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	def apply(decimal :Float, mode :MathContext) :Decimal64 =
+		try from(decimal, mode) catch {
+			case e :InternalException =>
+				throw new ArithmeticException(
+					"Cannot accurately represent Double " + decimal + " as a Decimal64 with a precision of " +
+						mode.getPrecision + ", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
+				)
+		}
+
+
+	/** Creates a `Decimal64` exactly equal in value to the argument `Double`.
+	  * This is analogous to [[scala.math.BigDecimal BigDecimal]]`.`[[scala.math.BigDecimal.decimal decimal]]`(decimal)`,
+	  * bar precision differences.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	@inline def apply(decimal :Double) :Decimal64 = Decimal64(decimal, ExtendedExact)
+
+	/** Creates `Decimal64` equal to the given `Double` value, rounded to the maximum possible precision
+	  * (16 or 17 digits) in the direction specified by the passed [[scala.math.BigDecimal.RoundingMode RoundingMode]].
+	  * For arguments on which neither method throws an exception, this is equivalent to
+	  * `Decimal64(significand, scale).round(mode)`, but this method performs rounding before the creation
+	  * of the result and thus accepts any `Long` as a significand, providing it fits in a `Decimal64` after rounding
+	  * to [[net.noresttherein.sugar.numeric.Decimal64.Precision Precision]].
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(decimal :Double, rounding :BigDecimal.RoundingMode.Value) :Decimal64 =
+		Decimal64(decimal, RoundingMode.valueOf(rounding.id))
+
+	/** Creates `Decimal64` equal to the given `Double` value, rounded to the maximum possible precision
+	  * (16 or 17 digits) in the direction specified by the passed [[scala.math.BigDecimal.RoundingMode RoundingMode]].
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(decimal :Double, rounding :RoundingMode) :Decimal64 =
+		Decimal64(decimal, toMaxDigits(rounding))
+
+	/** Creates a `Decimal64` equal to the `Double` value rounded
+	  * according to the specified [[java.math.MathContext MathContext]]. `Double`. This is analogous
+	  * to [[scala.math.BigDecimal BigDecimal]]`.`[[scala.math.BigDecimal.decimal decimal]]`(decimal, mode)`,
+	  * bar precision differences.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	def apply(decimal :Double, mode :MathContext) :Decimal64 =
+		try from(decimal, mode) catch {
+			case e :InternalException =>
+				throw new ArithmeticException(
+					"Cannot accurately represent Double " + decimal + " as a Decimal64 with a precision of " +
+						mode.getPrecision + ", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
+				)
+		}
+
+
+	/** Creates a `Decimal64` of an integral value equal to `big`, with a scale of zero. */
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	@inline def apply(big :BigInt) :Decimal64 = Decimal64(big.bigInteger, ExtendedExact)
+
+	/** Creates a `Decimal64` by rounding the given [[scala.math.BigInt]] to the maximum
+	  * available precision of `16` or `17` digits, depending on the value of the significand.
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(big :BigInt, rounding :BigDecimal.RoundingMode.Value) :Decimal64 =
+		Decimal64(big.bigInteger, rounding)
+
+	/** Creates a `Decimal64` by rounding the given [[scala.math.BigInt]] according to the given mode to the maximum
+	  * available precision of `16` or `17` digits, depending on the value of the significand.
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(big :BigInt, rounding :RoundingMode) :Decimal64 = Decimal64(big.bigInteger, rounding)
+
+	/** Rounds the given [[scala.math.BigInt]] to the precision and according to the rounding mode
+	  * specified by the given `MathContext` and returns the result as a `Decimal64`.
+	  **/
+	@throws[ArithmeticException]("if the value cannot be represented as a Decimal64 to the requested precision.")
+	@inline def apply(big :BigInt, mode :MathContext) :Decimal64 = Decimal64(big.bigInteger, mode)
+
+
+	/** Creates a `Decimal64` of an integral value equal to `big`, with a scale of zero. */
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	def apply(big :BigInteger) :Decimal64 = big match {
+		case BigInteger.ZERO => Zero
+		case BigInteger.ONE  => One
+		case BigInteger.TEN  => Ten
+		case _ => Decimal64(big, ExtendedExact)
+	}
+
+	/** Creates a `Decimal64` by rounding the given [[java.math.BigInteger]] to the maximum
+	  * available precision of `16` or `17` digits, depending on the value of the significand.
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(big :BigInteger, rounding :BigDecimal.RoundingMode.Value) :Decimal64 =
+		Decimal64(big, toMaxDigits(rounding))
+
+	/** Creates a `Decimal64` by rounding the given [[java.math.BigInteger]] according to the given mode to the maximum
+	  * available precision of `16` or `17` digits, depending on the value of the significand.
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	def apply(big :BigInteger, rounding :RoundingMode) :Decimal64 = Decimal64(big, toMaxDigits(rounding))
+
+	/** Rounds the given [[java.math.BigInteger]] to the precision and according to the rounding mode
+	  * specified by the given `MathContext` and returns the result as a `Decimal64`.
+	  **/
+	@throws[ArithmeticException]("if the value cannot be represented as a Decimal64 to the requested precision.")
+	def apply(big :BigInteger, mode :MathContext) :Decimal64 =
+		try from(big, mode) catch {
+			case e :InternalException =>
+				throw new ArithmeticException(
+					"Cannot represent BigInteger " + big + " as a Decimal64 with a precision of " +
+						mode.getPrecision + ", rounding " + mode.getRoundingMode +": " + e.getMessage + "."
+				)
+		}
+
+
+	/** Creates a `Decimal64` exactly equal in value to the argument [[scala.math.BigDecimal]], to the precision
+	  * specified by its [[java.math.MathContext MathContext]]. Note that this makes it different
+	  * from `Decimal64(big :java.math.BigDecimal)`, as the latter will attempt to create a value exactly equal
+	  * to its argument. However, this is usually of little importance, as the default `MathContext`
+	  * of `scala.math.BigDecimal` is [[java.math.MathContext.DECIMAL128 DECIMAL128]], which exceeds the precision
+	  * of `Decimal64`.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	@inline def apply(big :BigDecimal) :Decimal64 = Decimal64(big.bigDecimal, big.mc)
 
 	/** Creates a `Decimal64` by rounding the given [[scala.math.BigDecimal]] to the maximum
 	  * available precision of `16` or `17` digits, depending on the value of the significand.
@@ -1688,43 +2053,36 @@ object Decimal64 {
 	@throws[ArithmeticException]("if the value cannot be represented as a Decimal64 to the requested precision.")
 	@inline def apply(big :BigDecimal, mode :MathContext) :Decimal64 = Decimal64(big.bigDecimal, mode)
 
+
 	/** Creates a `Decimal64` exactly equal in value to the argument [[java.math.BigDecimal]]. */
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-	def apply(big :JavaBigDecimal) :Decimal64 = {
-		val normalized = big.stripTrailingZeros
-		val unscaled = normalized.unscaledValue; val scale = normalized.scale
-		if (BigMinUnscaled.compareTo(unscaled) > 0 || unscaled.compareTo(BigMaxUnscaled) > 0)
-			throw new ArithmeticException("Cannot precisely convert " + big + " to a Decimal64: unscaled value out of range.")
-		else
-			Decimal64(unscaled.longValueExact, scale)
-	}
+	@inline def apply(big :JavaBigDecimal) :Decimal64 = Decimal64(big, ExtendedExact)
+
+	/** Creates a `Decimal64` by rounding the given [[java.math.BigDecimal]] to the maximum
+	  * available precision of `16` or `17` digits, depending on the value of the significand.
+	  **/
+	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
+	@inline def apply(big :JavaBigDecimal, rounding :BigDecimal.RoundingMode.Value) :Decimal64 =
+		Decimal64(big, RoundingMode.valueOf(rounding.id))
 
 	/** Creates a `Decimal64` by rounding the given [[java.math.BigDecimal]] according to the given mode to the maximum
 	  * available precision of `16` or `17` digits, depending on the value of the significand.
 	  **/
 	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
-	def apply(big :JavaBigDecimal, rounding :RoundingMode) :Decimal64 = round(big)(toMaxDigits(rounding))
+	@inline def apply(big :JavaBigDecimal, rounding :RoundingMode) :Decimal64 = Decimal64(big, toMaxDigits(rounding))
 
 	/** Rounds the given [[java.math.BigDecimal]] to the precision and according to the rounding mode
 	  * specified by the given `MathContext` and returns the result as a `Decimal64`.
 	  **/
 	@throws[ArithmeticException]("if the value cannot be represented as a Decimal64 to the requested precision.")
-	def apply(big :JavaBigDecimal, mode :MathContext) :Decimal64 = round(big)(mode)
-
-
-	/** Creates a `Decimal64` of an integral value equal to `big`, with a scale of zero. */
-	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-	@inline def apply(big :BigInt) :Decimal64 = Decimal64(big.bigInteger)
-
-	/** Creates a `Decimal64` of an integral value equal to `big`, with a scale of zero. */
-	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-	def apply(big :BigInteger) :Decimal64 = big match {
-		case BigInteger.ZERO => Zero
-		case BigInteger.ONE  => One
-		case BigInteger.TEN  => Ten
-		case _ => Decimal64(new JavaBigDecimal(big))
-	}
-
+	def apply(big :JavaBigDecimal, mode :MathContext) :Decimal64 =
+		try from(big, mode) catch {
+			case e :InternalException =>
+				throw new ArithmeticException(
+					"Cannot accurately represent java.math.BigDecimal " + big + " as a Decimal64 with a precision of " +
+						mode.getPrecision + ", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
+				)
+		}
 
 
 	/** Parses a `String` with a number in the decimal format. Accepted formats are the same
@@ -1732,18 +2090,10 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
 	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
-	def apply(string :String) :Decimal64 = {
-		val res = new JavaBigDecimal(string).stripTrailingZeros()
-		val mantissa = res.unscaledValue()
-		if (mantissa.compareTo(BigMinUnscaled) < 0 || mantissa.compareTo(BigMaxUnscaled) > 0)
-			throw new ArithmeticException(
-				s"Unable to precisely represent $string as a Decimal64: precision exceeded."
-			)
-		Decimal64(mantissa.longValue, res.scale)
-	}
+	@inline def apply(string :String) :Decimal64 = Decimal64(string, ExtendedExact)
 
 	/** Parses a `String` with a number in the decimal format. Accepted formats are the same
-	  * as by [[java.math.BigDecimal java.math.BigDecimal]] constructor. The value will be rounded in the given code
+	  * as by [[java.math.BigDecimal java.math.BigDecimal]] constructor. The value will be rounded in the given mo,de
 	  * to the maximum precision with which it can fit in a `Decimal64`.
 	  **/
 	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
@@ -1752,7 +2102,7 @@ object Decimal64 {
 		Decimal64(string, toMaxDigits(rounding))
 
 	/** Parses a `String` with a number in the decimal format. Accepted formats are the same
-	  * as by [[java.math.BigDecimal java.math.BigDecimal]] constructor. The value will be rounded in the given code
+	  * as by [[java.math.BigDecimal java.math.BigDecimal]] constructor. The value will be rounded in the given mode
 	  * to the maximum precision with which it can fit in a `Decimal64`.
 	  **/
 	@throws[ArithmeticException]("if rounding is UNNECESSARY and the value exceeds the precision of Decimal64.")
@@ -1765,7 +2115,33 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if the value cannot be represented as a Decimal64 to the requested precision.")
 	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
-	def apply(string :String, mode :MathContext) :Decimal64 = round(string)(mode)
+	def apply(string :String, mode :MathContext) :Decimal64 =
+		try from(string, mode) catch {
+			case DecimalFormatException =>
+				throw new NumberFormatException(
+					"Cannot convert '" + string + "' to a Decimal64 with a precision of " + mode.getPrecision +
+						", rounding " + mode.getRoundingMode + ": invalid decimal format."
+				)
+			case e :InternalException =>
+				throw new ArithmeticException(
+					"Cannot convert '" + string + "' to a Decimal64 with a precision of " + mode.getPrecision +
+						", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
+				)
+		}
+
+	/** Implementation of both `Decimal64.round(significand, scale)(mode)` and class method `round(mode)`.
+	  * Passing precision `0` means that the value will be rounded to the maximum possible precision
+	  * and no [[ArithmeticException]] will be thrown unless rounding mode is `UNNECESSARY` and rounding is necessary.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	private def apply(significand :Long, scale :Int, rounding :RoundingMode, precision :Int) :Decimal64 =
+		try from(significand, scale, rounding, precision) catch {
+			case e :InternalException =>
+				throw new ArithmeticException(
+					s"Cannot round $rounding ${significand}e${-scale} to $precision precision: " +
+						e.getMessage + "."
+				)
+		}
 
 
 	/** Creates a `Decimal64` with a value equal to `significand * 10^exponent`.
@@ -1803,24 +2179,12 @@ object Decimal64 {
 		else Decimal64(significand, -exponent, mode)
 
 
-	/** Parses a `String` with a number in the decimal format and rounds it according
-	  * to the [[java.math.MathContext MathContext]] argument. Accepted formats are the same
-	  * as by [[java.math.BigDecimal java.math.BigDecimal]] constructor.
-	  * This method is exactly equivalent to
-	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(string:String,mode:MathContext)* apply]]`(string, mode)`,
-	  * the only difference being that the `MathContext` argument is implicit, rather than explicit.
-	  **/
-	@throws[ArithmeticException]("if the parsed number exceeds both the precision of Decimal64 and the one from an implicit MathContext.")
-	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
-	def parse(string :String)(implicit mode :Maybe[MathContext]) :Decimal64 = Decimal64(string, mode getOrElse Extended)
-
-
 	/** Rounds the given integral number according to the rounding mode and to the precision specified
 	  * by an implicit `MathContext`. If no such implicit exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
 	  * is used, representing a maximal possible precision.
 	  **/
-	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
 	@inline def round(int :Long)(implicit mode :Maybe[MathContext]) :Decimal64 = round(int, 0)
 
 	/** Creates `Decimal64` of value `significand*10^-scale`, rounded
@@ -1831,80 +2195,443 @@ object Decimal64 {
 	  * of the result and thus accepts any `Long` as a significand, providing it fits in a `Decimal64` after rounding
 	  * to `mode.`[[java.math.MathContext.getPrecision getPrecision]].
 	  **/
-	@throws[ArithmeticException]("if the value exceeds the maximum precision of Decimal64 and the one from implicit MathContext.")
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
 	def round(significand :Long, scale :Int)(implicit mode :Maybe[MathContext]) :Decimal64 = {
 		val ctx = mode getOrElse Extended
-		round(significand, scale, ctx.getRoundingMode, ctx.getPrecision)
+		Decimal64(significand, scale, ctx.getRoundingMode, ctx.getPrecision)
 	}
+
+	/** Creates a `Decimal64` base on the decimal expansion of the given `Float`, and rounds it
+	  * according to the rounding mode and to the precision specified by an implicit `MathContext`.
+	  * If no such instance exists,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
+	  * is used instead. This method is equivalent to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(decimal:Double,mode:MathContext)* Decimal64]]`(big, mode)`,
+	  * the only difference is that the `MathContext` argument is implicit.
+	  * @note this is a counterpart of [[scala.math.BigDecimal$ BigDecimal]]`.`[[scala.math.Bigecimal.decimal decimal]](decimal)`
+	  */
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(decimal :Float)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(decimal, mode getOrElse Extended)
+
+	/** Creates a `Decimal64` base on the decimal expansion of the given `Double`, and rounds it
+	  * according to the rounding mode and to the precision specified by an implicit `MathContext`.
+	  * If no such instance exists,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
+	  * is used instead. This method is equivalent to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(decimal:Double,mode:MathContext)* Decimal64]]`(big, mode)`,
+	  * the only difference is that the `MathContext` argument is implicit.
+	  * @note this is a counterpart of [[scala.math.BigDecimal$ BigDecimal]]`.`[[scala.math.Bigecimal.decimal decimal]](decimal)`
+	  */
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(decimal :Double)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(decimal, mode getOrElse Extended)
+
+	/** Rounds the given [[scala.math.BigInt]] according to the rounding mode and to the precision specified
+	  * by an implicit `MathContext`. If no such instance exists,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
+	  * is used instead. This method is equivalent to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(big:scala.math.BigInt,mode:MathContext)* Decimal64]]`(big, mode)`,
+	  * the only difference is that the `MathContext` argument is implicit.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(int :BigInt)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(int.bigInteger, mode getOrElse Extended)
+
+	/** Rounds the given [[java.math.BigInteger]] according to the rounding mode and to the precision specified
+	  * by an implicit `MathContext`. If no such instance exists,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
+	  * is used instead. This method is equivalent to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(big:java.math.BigInteger,mode:MathContext)* Decimal64]]`(big, mode)`,
+	  * the only difference is that the `MathContext` argument is implicit.
+	  **/
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(int :BigInteger)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(int, mode getOrElse Extended)
 
 	/** Rounds the given [[scala.math.BigDecimal]] according to the rounding mode and to the precision specified
 	  * by an implicit `MathContext`. If no such instance exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
 	  * is used instead. This method is equivalent to
-	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(big:scala.math.BigDecimal,mode:MathContext)* BigDecimal]]`(big, mode)`,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(big:scala.math.BigDecimal,mode:MathContext)* Decimal64]]`(big, mode)`,
 	  * the only difference is that the `MathContext` argument is implicit.
 	  **/
-	@throws[ArithmeticException]("if the value exceeds both the precision of Decimal64 and the one specified by implicit MathContext.")
-	@inline def round(big :BigDecimal)(implicit mode :Maybe[MathContext]) :Decimal64 = round(big.bigDecimal)
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(big :BigDecimal)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(big.bigDecimal, mode getOrElse Extended)
 
 	/** Rounds the given [[java.math.BigDecimal]] according to the rounding mode and to the precision specified
 	  * by an implicit `MathContext`. If no such instance exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
 	  * is used instead. This method is equivalent to
-	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(big:java.math.BigDecimal,mode:MathContext)* BigDecimal]]`(big, mode)`,
+	  * [[net.noresttherein.sugar.numeric.Decimal64.apply(big:java.math.BigDecimal,mode:MathContext)* Decimal64]]`(big, mode)`,
 	  * the only difference is that the `MathContext` argument is implicit.
 	  **/
-	@throws[ArithmeticException]("if the value exceeds both the precision of Decimal64 and the one specified by implicit MathContext.")
-	def round(big :JavaBigDecimal)(implicit mode :Maybe[MathContext]) :Decimal64 =
-		if (BigMinLong.compareTo(big.unscaledValue) <= 0 && big.unscaledValue.compareTo(BigMaxLong) <= 0)
-			round(big.unscaledValue.longValueExact, big.scale)
-		else {
-			val ctx = mode getOrElse Extended
-			val normalized = big.stripTrailingZeros
-			val unscaled = normalized.unscaledValue
-			if (BigMinLong.compareTo(unscaled) <= 0 && unscaled.compareTo(BigMaxLong) <= 0)
-				round(unscaled.longValueExact, normalized.scale)
-			else if (ctx.getRoundingMode == UNNECESSARY) {
-				throw new ArithmeticException(
-					"Cannot precisely represent " + big + " as a Decimal64: not enough significand precision."
-				)
-			} else if (ctx.getPrecision == ExtendedPrecision) {
-				//normalized.precision >= MaxPrecision because unscaled does not fit in a Long
-				val precision = normalized.precision //precision >= MaxPrecision because unscaledValue does not fit in a Long
-				val rounded =
-					if (precision == MaxPrecision) { //avoid the two step path of else when we know it won't 17 digits
-						normalized.round(to16digits(ctx.getRoundingMode)).stripTrailingZeros
-					} else {
-						val res = normalized.round(to17digits(ctx.getRoundingMode)).stripTrailingZeros
-						val unscaled = res.unscaledValue
-						if (BigMinUnscaled.compareTo(unscaled) <= 0
-							&& unscaled.compareTo(BigMaxUnscaled) <= 0
-						)
-							res
-						else
-							normalized.round(to16digits(ctx.getRoundingMode)).stripTrailingZeros
-					}
-				Decimal64(rounded.unscaledValue.longValueExact, rounded.scale) //validates scale and strips any trailing zeros which appeared in unscaled
-			} else if (ctx.getPrecision > MaxPrecision) {
-				throw new ArithmeticException(
-					"Cannot round " + big + " to " + ctx.getPrecision +
-						" digits: the requested precision exceeds the precision of Decimal64."
-				)
-			} else { //precision <= Precision, we can round at least the unscaled value
-				val rounded = normalized.round(ctx)
-				Decimal64(rounded.unscaledValue.longValueExact, rounded.scale)
-			}
-		}
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(big :JavaBigDecimal)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(big, mode getOrElse Extended)
 
 	/** Parses the given `String` as a decimal and rounds it according the rounding mode and to the precision
 	  * specified by an implicit `MathContext`. If no such instance exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
-	  * is used instead. This method is equivalent to [[net.noresttherein.sugar.numeric.Decimal64.parse parse]].
+	  * is used instead. This method is equivalent to [[net.noresttherein.sugar.numeric.Decimal64.parse parse]],
+	  * except the latter returns the result in an `Opt` instead of throwing an exception.
 	  **/
 	@throws[NumberFormatException]("if the string does not represent a decimal number in an accepted format.")
-	@throws[ArithmeticException]("if the value exceeds both the precision of Decimal64 and the one specified by implicit MathContext.")
-	def round(value :String)(implicit mode :Maybe[MathContext]) :Decimal64 =
-		round(new JavaBigDecimal(value, mode getOrElse Extended))
+	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
+	@inline def round(string :String)(implicit mode :Maybe[MathContext]) :Decimal64 =
+		Decimal64(string, mode getOrElse Extended)
+
+
+	/** Attempts to create a `Decimal64` equal to the given `Long` value.
+	  * @param int an integer value which satisfies
+	  *            [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]]` <= int <= `[[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]].
+	  * @return `Got(Decimal(int, 0))`, or `Lack` if the former would throw an exception.
+	  **/
+	def exact(int :Long) :Opt[Decimal64] =
+		try Got(from(int)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a normalized `Decimal64` instance equal to `significand * 10E-scale`.
+	  * All trailing zeros in the significand are removed and instead its exponent is increased by that number,
+	  * unless this would cause exponent (`scale`) to overflow, in which case the decimal point is moved left
+	  * until the `scale` limit of `-128` (corresponding to an exponent of `128`) is reached.
+	  * If the significand after normalization doesn't fall in the range of
+	  * `[`[[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]]`, `[[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]]`]`,
+	  * or if the `scale`, despite normalization, fails outside of
+	  * `[`[[net.noresttherein.sugar.numeric.Decimal64.MinScale MinScale]]`,`[[net.noresttherein.sugar.numeric.Decimal64.MaxScale MaxScale]]`]`,
+	  * then no such `Decimal64` exists, and `Lack` is returned.
+	  *
+	  * @param significand A value containing all leading non zero digits of the created `Decimal64`.
+	  *                    The decimal representation of the whole number consists of the decimal format of `significand`,
+	  *                    followed by `-scale` number of zeros (if `scale` is non negative), or of `significand`
+	  *                    with a fractional point between `-scale`-th and `-scale + 1`-th least significant digit.
+	  *                    If `scale > precision`, where `precision` is the number of digits in `significand`
+	  *                    (without any leading zeros, except for `0`, which has a precision of `1`),
+	  *                    then the number is represented by a `0.`, followed by `scale - precision` zeros,
+	  *                    followed by the significand.
+	  * @param scale       The number of least significant digits in `significand` which consist of the fractional
+	  *                    portion of the created `Decimal64` (if `scale is positive)`, or the number of trailing zeros
+	  *                    following the significand.
+	  * @return `Got(Decimal(significand, scale))`, or `Lack` if the former would throw an exception.
+	  **/
+	def exact(significand :Long, scale :Int) :Opt[Decimal64] =
+		try Got(from(significand, scale)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` equal exactly to the given `Float`, using maximum available precision.
+	  * If the argument cannot be represented exactly as a `Decimal64`, a `Lack` is returned.
+	  * There is a subtle difference between this method and
+	  * `Decimal64(decimal, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`)`:
+	  * other methods accepting a `Double` create a `Decimal64` based on its decimal representation,
+	  * while this method will attempt to create an instance ''exactly'' equal to the argument.
+	  * If you wish to obtain the default behaviour, call `Decimal64.exact(decimal.toString)` instead.
+	  **/
+	def exact(decimal :Float) :Opt[Decimal64] =
+		try Got(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` equal exactly to the given `Double`, using maximum available precision.
+	  * If the argument cannot be represented exactly as a `Decimal64`, `Lack` is returned.
+	  * There is a subtle difference between this method and
+	  * `Decimal64(decimal, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`)`:
+	  * other methods accepting a `Double` create a `Decimal64` based on its decimal representation,
+	  * while this method will attempt to create an instance ''exactly'' equal to the argument.
+	  * If you wish to obtain the default behaviour, call `Decimal64.exact(decimal.toString)` instead.
+	  **/
+	def exact(decimal :Double) :Opt[Decimal64] =
+		try Got(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` equal exactly to the given `BigInt`, using maximum available precision.
+	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `Lack` if the former would throw an [[ArithmeticException]].
+	  **/
+	def exact(big :BigInt) :Opt[Decimal64] =
+		try Got(from(big.bigInteger, Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` equal exactly to the given `BigInteger`, using maximum available precision.
+	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `Lack`, if the former would throw an [[ArithmeticException]].
+	  **/
+	def exact(big :BigInteger) :Opt[Decimal64] =
+		try Got(from(big, Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` equal exactly to the given `BigDecimal`, using maximum available precision.
+	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `Lack`, if the former would throw an exception.
+	  **/
+	def exact(big :BigDecimal) :Opt[Decimal64] =
+		try Got(from(big.bigDecimal, Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` equal exactly to the given `BigDecimal`, using maximum available precision.
+	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `Lack`, if the former would throw an exception.
+	  **/
+	def exact(big :JavaBigDecimal) :Opt[Decimal64] =
+		try Got(from(big, Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+	/** Creates a `Decimal64` whose textual representation equals exactly the given `String`.
+	  * @return `Got(Decimal64(decimal))` or `Lack`, if the former would throw an exception.
+	  **/
+	def exact(decimal :String) :Opt[Decimal64] =
+		try Got(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
+			case _ :InternalException => Lack
+		}
+
+
+	/** Parses a `String` with a number in the decimal format and rounds it according
+	  * to the [[java.math.MathContext MathContext]] argument. Accepted formats are the same
+	  * as by [[java.math.BigDecimal java.math.BigDecimal]] constructor.
+	  * This method is exactly equivalent to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.from(string:String)* round]]`(string)`,
+	  * with the exception that [[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]
+	  * context is used as a default (if no implicit context is present),
+	  * rather than [[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]],
+	  * so the method will return `Lack` if the value cannot be represented exactly.
+	  **/
+	@throws[ArithmeticException]("if the parsed number exceeds both the precision of Decimal64 or the one from an implicit MathContext.")
+	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
+	def parse(string :String)(implicit mode :Maybe[MathContext]) :Opt[Decimal64] =
+		try Got(from(string, mode getOrElse ExtendedExact)) catch {
+			case _ :ArithmeticException | _ :NumberFormatException => Lack
+		}
+
+
+	@throws[InternalException]("if the value cannot be represented as a Decimal64 with the requested precision.")
+	private def from(significand :Long, scale :Int) :Decimal64 =
+		if (significand == 0)
+			Zero
+		else if (scale < MinScale) //try denormalizing by adding trailing zeros to the significand
+			denormalize(significand, scale)
+		else
+			normalize(significand, scale)
+
+	/** Implementation of both  `Decimal64.round(significand, scale)(mode)` and class method `round(mode)`.
+	  * Passing precision `0` means that the value will be rounded to the maximum possible precision
+	  * and no [[InternalException]] will be thrown unless rounding mode is `UNNECESSARY` and rounding is necessary.
+	  **/
+	@throws[InternalException]("if the value cannot be represented as a Decimal64 with the requested precision.")
+	private def from(significand :Long, scale :Int, rounding :RoundingMode, precision :Int) :Decimal64 =
+		if (significand == 0)
+			Zero
+		else if (scale > MaxScale + MaxPrecision | scale < MinScale - MaxPrecision) //for overflow/underflow
+			throw ScaleOutOfRangeException
+		else if (precision < 0)
+			throw new IllegalArgumentException(
+				s"Cannot round $rounding ${significand}e${-scale} to a negative precision: $precision."
+			)
+		else {
+			val Powers = LongPowersOf10
+			val zeros = trailingZeros(significand)
+			val normalized = significand / Powers(zeros)
+			val normalizedScale = scale - zeros
+			if (precision == ExtendedPrecision) {
+				if (MinUnscaled <= normalized & normalized <= MaxUnscaled) //No rounding necessary
+					validate(normalized, normalizedScale)
+				else if (rounding == UNNECESSARY)
+					throw RoundingNecessaryException
+				else { //determine the number of digits to round and divide by the corresponding power of 10
+					val minus = if (normalized <= 0) normalized else -normalized
+					val digits = //digits >= MaxPrecision because significand does not fit in MinUnscaled..MaxUnscaled
+						if (normalized == Long.MinValue) MaxLongPrecision
+						else Decimal64.precision(-minus)
+					var roundedDigits = digits - Precision
+					if (roundedDigits <= 0)
+						validate(normalized, normalizedScale)
+					else {
+						var pow = Powers(roundedDigits - 1) //0,1,10 or 100
+						if  (minus < -MaxUnscaled * pow)
+							pow = Powers(roundedDigits)
+						else
+							roundedDigits -= 1
+						var result = divideLong(normalized, pow, rounding)
+						if (result < MinUnscaled | result > MaxUnscaled) {
+							roundedDigits += 1
+							pow = Powers(roundedDigits)
+							result = divideLong(normalized, pow, rounding)
+						}
+						from(result, normalizedScale - roundedDigits)
+					}
+				}
+			} else {
+				val digits =
+					if (normalized == Long.MinValue) MaxLongPrecision
+					else Decimal64.precision(Math.abs(normalized))
+				val roundedDigits = digits - precision //<= 18
+				if (roundedDigits <= 0)
+					validate(normalized, normalizedScale)
+				else {
+					val pow = Powers(roundedDigits)
+					if (rounding == UNNECESSARY && normalized % pow != 0)
+						throw RoundingNecessaryException
+					val unscaled = divideLong(normalized, pow, rounding)
+					from(unscaled, normalizedScale - roundedDigits)
+				}
+			}
+		}
+
+	@throws[InternalException]("if the value cannot be represented as a Decimal64 with the requested precision.")
+	@inline private def from(int :Long) :Decimal64 = from(int, 0)
+
+	@throws[InternalException]("if the value cannot be represented as a Decimal64 with the requested precision.")
+	@inline private def from(decimal :Float, mode :MathContext) :Decimal64 =
+		from(new JavaBigDecimal(java.lang.Float.toString(decimal), mode), mode)
+
+	@throws[InternalException]("if the value cannot be represented as a Decimal64 with the requested precision.")
+	@inline private def from(decimal :Double, mode :MathContext) :Decimal64 =
+		from(new JavaBigDecimal(java.lang.Double.toString(decimal), mode), mode)
+
+	@throws[InternalException]("if the value cannot be represented as a Decimal64 with the requested precision.")
+	private def from(int :BigInteger, mode :MathContext) :Decimal64 = {
+		val signum = int.signum
+		val isValidLong = (signum: @unchecked) match {
+			case -1 => int.compareTo(BigMinLong) >= 0
+			case  0 => true
+			case  1 => int.compareTo(BigMaxLong) <= 0
+		}
+		if (isValidLong)
+			from(int.longValueExact, 0, mode.getRoundingMode, mode.getPrecision)
+		else if (mode.getRoundingMode == UNNECESSARY) {
+			var unscaled = if (int.signum < 0) int.negate else int
+			var scale = 0
+			var qr :Array[BigInteger] = null
+			while ({
+				scale > MinScale && !unscaled.testBit(0) && {
+					qr = unscaled.divideAndRemainder(BigInteger.TEN)
+					qr(1).signum == 0
+				}
+			}) {
+				unscaled = qr(0)
+				scale -= 1
+				qr = null
+			}
+			val isUnscaledLong = (signum: @unchecked) match {
+				case -1 => unscaled.compareTo(BigMinLong) >= 0
+				case  1 => unscaled.compareTo(BigMaxLong) <= 0
+			}
+			if (isUnscaledLong)
+				from(unscaled.longValueExact, scale, mode.getRoundingMode, mode.getPrecision)
+			else
+				throw RoundingNecessaryException
+		} else if (mode.getPrecision > MaxPrecision)
+			throw PrecisionExceededException
+		else {
+			val precision = Decimal64.precision(int) //precision >= MaxPrecision because unscaledValue does not fit in a Long
+			val toPrecision = mode.getPrecision
+			var trim = precision - (if (toPrecision == ExtendedPrecision) MaxPrecision else toPrecision)
+			if (trim > MaxExponent)
+				throw ScaleOutOfRangeException
+			val divisor = BigIntegerPowersOf10(trim)
+			val qr      = int.divideAndRemainder(divisor)
+			val quot    = qr(0).longValueExact
+			val rem     = qr(1)
+			val rounded =
+				if (toPrecision != ExtendedPrecision)
+					if (trim < MaxLongPrecision)
+						roundDivision(quot, LongPowersOf10(trim), rem.longValueExact, mode.getRoundingMode)
+					else
+						roundDivision(quot, divisor, rem, mode.getRoundingMode)
+				else if (MinUnscaled <= quot & quot <= MaxUnscaled) {
+					val significand =
+						if (trim < MaxLongPrecision)
+							roundDivision(quot, LongPowersOf10(trim), rem.longValueExact, mode.getRoundingMode)
+						else
+							roundDivision(quot, divisor, rem, mode.getRoundingMode)
+					if (MinUnscaled <= significand & significand <= MaxUnscaled)
+						significand
+					else {
+						trim += 1
+						roundDivision(quot / 10L, 10L, quot % 10L, rem.signum, mode.getRoundingMode)
+					}
+				} else if (trim == MaxExponent)
+					throw ScaleOutOfRangeException
+				else {
+					trim += 1
+					roundDivision(quot / 10L, 10L, quot % 10L, rem.signum, mode.getRoundingMode)
+				}
+			from(rounded, -trim)
+		}
+	}
+
+	@throws[InternalException]("if the value exceeds both the precision of Decimal64 or the one specified by implicit MathContext.")
+	private def from(big :JavaBigDecimal, mode :MathContext) :Decimal64 = {
+		val signum = big.signum
+		val scale = big.scale
+		val isValidLong = (signum: @unchecked) match {
+			case -1 => scale <= 0 && big.compareTo(DecimalMinLong) >= 0
+			case  0 => true
+			case  1 => scale <= 0 && big.compareTo(DecimalMaxLong) <= 0
+		}
+		if (isValidLong)
+			from(big.longValueExact, 0, mode.getRoundingMode, mode.getPrecision)
+		else if (big.precision < MaxLongPrecision)
+			if (scale == 0) from(big.longValueExact, 0, mode.getRoundingMode, mode.getPrecision)
+			else from(big.scaleByPowerOfTen(scale).longValueExact, scale, mode.getRoundingMode, mode.getPrecision)
+		else {
+			val normalized = big.stripTrailingZeros
+			val isNormalizedLong =
+				(normalized ne big) && normalized.scale <= 0 && ((signum: @unchecked) match {
+					case -1 => normalized.compareTo(DecimalMinLong) >= 0
+					case  1 => normalized.compareTo(DecimalMaxLong) <= 0
+				})
+			if (isNormalizedLong)
+				from(normalized.longValueExact, normalized.scale, mode.getRoundingMode, mode.getPrecision)
+			else {
+				val unscaled = normalized.unscaledValue
+				val isUnscaledLong =
+					(normalized ne big) && ((signum: @unchecked) match {
+						case -1 => unscaled.compareTo(BigMinLong) >= 0
+						case  1 => unscaled.compareTo(BigMaxLong) <= 0
+					})
+				if (isUnscaledLong)
+					from(unscaled.longValueExact, normalized.scale, mode.getRoundingMode, mode.getPrecision)
+				else if (mode.getRoundingMode == UNNECESSARY)
+					throw RoundingNecessaryException
+				else if (mode.getPrecision == ExtendedPrecision) {
+					//normalized.precision >= MaxPrecision because unscaled does not fit in a Long
+					val precision = normalized.precision //precision > MaxPrecision because unscaledValue does not fit in a Long
+					val rounded =
+						if (precision == MaxLongPrecision) { //avoid the two step path of else when we know we won't fit in 17 digits
+							normalized.round(to16digits(mode.getRoundingMode)).stripTrailingZeros
+						} else {
+							val res = normalized.round(to17digits(mode.getRoundingMode)).stripTrailingZeros
+							val unscaled = res.unscaledValue
+							val isValidUnscaled = (signum : @unchecked) match {
+								case -1 => unscaled.compareTo(BigMinUnscaled) >= 0
+								case  1 => unscaled.compareTo(BigMaxUnscaled) <= 0
+							}
+							if (isValidUnscaled)
+								res
+							else
+								normalized.round(to16digits(mode.getRoundingMode)).stripTrailingZeros
+						}
+					from(rounded.unscaledValue.longValueExact, rounded.scale) //validates scale and strips any trailing zeros which appeared in unscaled
+				} else if (mode.getPrecision > MaxPrecision)
+					throw PrecisionExceededException
+				else { //precision <= Precision, we can round at least the unscaled value
+					val rounded = normalized.round(mode)
+					from(rounded.unscaledValue.longValueExact, rounded.scale)
+				}
+			}
+		}
+	}
+
+	@throws[InternalException]("if the value exceeds both the precision of Decimal64 or the one specified by implicit MathContext.")
+	private def from(string :String, mode :MathContext) :Decimal64 =
+		from(new JavaBigDecimal(string, mode), mode)
 
 
 	/** Reads the first 64 bits out of the given input stream and interprets them as a `Decimal64`.
@@ -2135,8 +2862,8 @@ object Decimal64 {
 	/** Trusted constructor which combines the `mantissa` and `scale` into 64 bits, without any validation
 	  * or normalization.
 	  **/
-	@inline private def make(mantissa :Long, scale :Long) :Decimal64 =
-		new Decimal64(mantissa << ScaleBits | scale & ScaleMask)
+	@inline private def make(significand :Long, scale :Long) :Decimal64 =
+		new Decimal64(significand << ScaleBits | scale & ScaleMask)
 
 	/** Creates a new `Decimal64` validating that `significand` and `scale` fall in their acceptable ranges.
 	  * If `scale < MinScale`, it will attempt to denormalize the value by multiplying `significand` by a power of `10`
@@ -2176,7 +2903,7 @@ object Decimal64 {
 			make(significand, scale)
 		val factor = LongPowersOf10(log)
 		if (significand > MaxUnscaled / factor | significand < MinUnscaled / factor)
-			throw ScaleOutOfRangeException
+			throw SignificandOutOfRangeException
 		make(significand * factor, MinScale)
 	}
 	/** Creates a `Decimal64` equal to `significand * 10^-scale`. If `significand` is out of range,
@@ -2211,22 +2938,50 @@ object Decimal64 {
 
 	/** The lowest power of 10 strictly greater than `significand`.
 	  * It is the number of digits in the formatted significand, with zero consisting of one digit.
+	  * Implementation adapted from `java.math.BigDecimal.longDigitLength`
 	  * @param  significand a non-negative number.
 	  * @return a value in the `[1, 19]` (`[1, LongPrecision+1]`) range.
 	  **/
-	private def precision(significand :Long) :Int =
-		if (significand == 0L)
+	@tailrec private def precision(significand :Long) :Int =
+		/*
+         * As described in "Bit Twiddling Hacks" by Sean Anderson,
+         * (http://graphics.stanford.edu/~seander/bithacks.html)
+         * integer log 10 of x is within 1 of (1233/4096)* (1 +
+         * integer log 2 of x). The fraction 1233/4096 approximates
+         * log10(2). So we first do a version of log2 (a variant of
+         * Long class with pre-checks and opposite directionality) and
+         * then scale and check against powers table. This is a little
+         * simpler in present context than the version in Hacker's
+         * Delight sec 11-4. Adding one to bit length allows comparing
+         * downward from the LONG_TEN_POWERS_TABLE that we need
+         * anyway.
+         */
+		if (significand < 0L)
+			precision(-significand)
+		else if (significand < 10L) // must screen for 0, might as well 10
 			1
 		else {
-			val powers = LongPowersOf10
-			var lo = 0; var hi = LongPrecision + 1 //we'll never get out of range because first we'll have lo == hi
-			while (lo < hi) {
-				val a = (hi + lo) / 2
-				if (significand >= powers(a)) lo = a + 1
-				else hi = a
-			}
-			lo
+			val log   = ((64 - java.lang.Long.numberOfLeadingZeros(significand) + 1) * 1233) >>> 12
+			// if r >= length, must have max possible digits for long// if r >= length, must have max possible digits for long
+			if (log >= MaxLongPrecision || significand < LongPowersOf10(log)) log
+			else log + 1
 		}
+
+	/** The lowest power of 10 strictly greater than `significand`.
+	  * It is the number of digits in the formatted significand, with zero consisting of one digit.
+	  * Implementation adapted from `java.math.BigDecimal.bigDigitLength`
+	  * @param significand a non-negative number.
+	  * @return a value in the `[1, 19]` (`[1, LongPrecision+1]`) range.
+	  * */
+	@tailrec private def precision(significand :BigInteger) :Int = significand.signum match {
+		case -1 => precision(significand.negate)
+		case  0 => 1
+		case _ =>
+		val log = (((significand.bitLength.toLong + 1) * 646456993) >>> 31).toInt
+		val pow10 = if (log <= MaxExponent) BigIntegerPowersOf10(log) else BigInteger.TEN.pow(log)
+		if (significand.compareTo(pow10) < 0) log
+		else log + 1
+	}
 
 	/** The maximum power of `10` by which `significand` can be multiplied within `Long` (not `Decimal64`) precision. */
 	private def maxLeftShift(significand :Long) :Int = {
@@ -2275,84 +3030,19 @@ object Decimal64 {
 			if (minusRem > minusDivisor) -1 else if (minusRem == minusDivisor) 0 else 1
 		}
 
-
-	/** Implementation of both  `Decimal64.round(significand, scale)(mode)` and class method `round(mode)`.
-	  * Passing precision `0` means that the value will be rounded to the maximum possible precision
-	  * and no [[ArithmeticException]] will be thrown unless rounding mode is `UNNECESSARY` and rounding is necessary.
+	/** Compares `2 * rem` with `divisor`, returning `-1`, `0`, or `1`, depending on their relative magnitudes.
 	  **/
-	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-	private def round(significand :Long, scale :Int, rounding :RoundingMode, precision :Int)
-			:Decimal64 =
-		if (significand == 0)
-			Zero
-		else if (scale > MaxScale + MaxPrecision | scale < MinScale - MaxPrecision) //for overflow/underflow
-			throw new ArithmeticException(
-				s"Cannot round $rounding $significand with scale $scale: scale out o range."
-			)
-		else if (precision < 0)
-			throw new IllegalArgumentException(
-				s"Cannot round $rounding ${significand}e${-scale} to a negative precision: $precision."
-			)
-		else try {
-			val Powers = LongPowersOf10
-			val zeros = trailingZeros(significand)
-			val normalized = significand / Powers(zeros)
-			val newScale = scale - zeros
-			if (precision == ExtendedPrecision) {
-				if (MinUnscaled <= normalized & normalized <= MaxUnscaled) //No rounding necessary
-					validate(normalized, newScale)
-				else if (rounding == UNNECESSARY)
-					throw RoundingNecessaryException
-				else { //determine the number of digits to round and divide by the corresponding power of 10
-					val minus = if (normalized <= 0) normalized else -normalized
-					val digits = //digits >= MaxPrecision because significand does not fit in MinUnscaled..MaxUnscaled
-						if (normalized == Long.MinValue) MaxLongPrecision
-						else Decimal64.precision(-minus)
-					var roundedDigits = digits - Precision
-					if (roundedDigits <= 0)
-						validate(normalized, newScale)
-					else {
-						var pow = Powers(roundedDigits - 1) //0,1,10 or 100
-						if  (minus < -MaxUnscaled * pow)
-							pow = Powers(roundedDigits)
-						else
-							roundedDigits -= 1
-						var result = divideLong(normalized, pow, rounding)
-						if (result < MinUnscaled | result > MaxUnscaled) {
-							roundedDigits += 1
-							pow = Powers(roundedDigits)
-							result = divideLong(normalized, pow, rounding)
-						}
-						Decimal64(result, newScale - roundedDigits)
-					}
-				}
-			} else {
-				val digits =
-					if (normalized == Long.MinValue) MaxLongPrecision
-					else Decimal64.precision(Math.abs(normalized))
-				val roundedDigits = digits - precision //<= 18
-				if (roundedDigits <= 0)
-					validate(normalized, newScale)
-				else {
-					val pow = Powers(roundedDigits)
-					if (rounding == UNNECESSARY && normalized % pow != 0)
-						throw RoundingNecessaryException
-					val unscaled = divideLong(normalized, pow, rounding)
-					Decimal64(unscaled, newScale - roundedDigits)
-				}
-			}
-		} catch {
-			case e :InternalException =>
-				throw new ArithmeticException(
-					s"Cannot round $rounding ${significand}e${-scale} to $precision precision: " +
-						e.getMessage + "."
-				)
-			case e :ArithmeticException =>
-				throw new ArithmeticException(
-					s"Cannot round $rounding ${significand}e${-scale} to $precision precision. " +
-						e.getMessage
-				).initCause(e)
+	private def roundingWeight(rem :BigInteger, divisor :BigInteger) :Int = rem.signum match {
+		case -1 => divisor.signum match {
+			case -1 => -BigInteger.TWO.multiply(rem).compareTo(divisor)
+			case  1 => BigMinusTwo.multiply(rem).compareTo(divisor)
 		}
+		case  0 => -1
+		case  1 => divisor.signum match {
+			case -1 => -BigMinusTwo.multiply(rem).compareTo(divisor)
+			case  1 => BigInteger.TWO.multiply(rem).compareTo(divisor)
+		}
+	}
 
 	/** Rounds according to the given mode a result of an integral division based on the value of its remainder.
 	  * The arguments should be initialized in a manner consistent with the following code:
@@ -2373,37 +3063,97 @@ object Decimal64 {
 	  * {{{
 	  *     val quot1  = dividend / div1
 	  *     val rem1   = dividend % div1
-	  *     val quot2  = quot1 / div2
-	  *     val rem2   = quot1 % div2
-	  *     val result = quot2 + adjustment
+	  *     val quot   = quot1 / div
+	  *     val rem    = quot1 % div
+	  *     val result = roundDivision(quot, div, rem, rem1, rounding)
 	  * }}}
-	  * An `InternalException` is thrown if rounding is `UNNECESSARY` but at least one of `rem1`, `rem2` is non zero.
+	  * The second remainder (`rem1` in the above example) does not need to be an exact remainder. Instead,
+	  * if it is not zero, and `2 * rem == div`, then `quot` is rounded up if `rounding` is any of the rounding modes
+	  * dependent on the remainder.
+	  * if rounding is `UNNECESSARY` but at least one of `rem1`, `rem2` is non zero, then an `InternalException` is thrown.
 	  **/
-	private def roundDivision(quot :Long, div1 :Long, rem1 :Long, rem2 :Long, rounding :RoundingMode) :Long = {
-		val sign = java.lang.Long.signum(quot)
-		val adjust = rounding match {
-			case _ if rem1 == 0L & rem2 == 0L => 0         //an exact result
-//			case _ if quotPrecision < precision => throw if (sign < 0) UnderflowException else OverflowException
-			case DOWN        => 0
-			case UP          => sign
-			case FLOOR       => if (sign < 0) sign else 0
-			case CEILING     => if (sign > 0) sign else 0
-			case UNNECESSARY => throw RoundingNecessaryException
-
-			case _           => roundingWeight(rem1, div1) match {
-				case -1 => 0      //round down
-				case  1 => sign
-				case _ if rem2 == 0L => rounding match {
-					case HALF_DOWN => 0
-					case HALF_UP   => sign
-					case _ if (quot & 1L) == 0L => 0
-					case _         => sign
+	private def roundDivision(quot :Long, div :Long, rem :Long, weightOnEven :Long, rounding :RoundingMode) :Long =
+		if (rem == 0L & weightOnEven == 0L)
+			quot
+		else {
+			val sign = java.lang.Long.signum(quot)
+			val adjust = rounding match {
+				case DOWN        => 0
+				case UP          => sign
+				case FLOOR       => if (sign < 0) sign else 0
+				case CEILING     => if (sign > 0) sign else 0
+				case UNNECESSARY => throw RoundingNecessaryException
+				case _           => roundingWeight(rem, div) match {
+					case -1 => 0      //round down
+					case  1 => sign
+					case  _ =>
+						if (weightOnEven != 0L)
+							sign
+						else rounding match {
+							case HALF_DOWN => 0
+							case HALF_UP   => sign
+							case _ => if ((quot & 1L) == 0L) 0 else sign
+						}
 				}
-				case _  => sign
 			}
+			quot + adjust
 		}
-		quot + adjust
-	}
+
+	/** Rounds according to the given mode a result of an integral division based on the value of its remainder.
+	  * The arguments should be initialized in a manner consistent with the following code:
+	  * {{{
+	  *     val quot = dividend / div
+	  *     val rem  = dividend % div
+	  * }}}
+	  * The method compares `2*rem` with `div` and optionally increases the absolute magnitude of `quot` by `1`,
+	  * depending on the result and the rounding mode. An `InternalException` is thrown if rounding is necessary
+	  * but `rounding` equals `UNNECESSARY`. This method does not check for overflow/underflow if `quot` equals
+	  * `Long.MinValue` or `Long.MaxValue`.
+	  **/
+	@inline private def roundDivision(quot :Long, div :BigInteger, rem :BigInteger, rounding :RoundingMode) :Long =
+		roundDivision(quot, div, rem, 0, rounding)
+
+	/** Rounds a result of two integral divisions based on their remainders, according to the given rounding mode.
+	  * It is the rounding procedure taken in cases equivalent to the following one:
+	  * {{{
+	  *     val quot1  = dividend / div1
+	  *     val rem1   = dividend % div1
+	  *     val quot   = quot1 / div
+	  *     val rem    = quot1 % div
+	  *     val result = roundDivision(quot, div, rem, rem1, rounding)
+	  * }}}
+	  * The second remainder (`rem1` in the above example) does not need to be an exact remainder. Instead,
+	  * if it is not zero, and `2 * rem == div`, then `quot` is rounded up if `rounding` is any of the rounding modes
+	  * dependent on the remainder.
+	  * if rounding is `UNNECESSARY` but at least one of `rem1`, `rem2` is non zero, then an `InternalException` is thrown.
+	  **/
+	private def roundDivision(quot :Long, div :BigInteger, rem :BigInteger, weightOnEven :Int, rounding :RoundingMode)
+			:Long =
+		if (weightOnEven == 0L && rem.signum == 0)
+			quot
+		else {
+			val sign = java.lang.Long.signum(quot)
+			val adjust = rounding match {
+				case DOWN        => 0
+				case UP          => sign
+				case FLOOR       => if (sign < 0) sign else 0
+				case CEILING     => if (sign > 0) sign else 0
+				case UNNECESSARY => throw RoundingNecessaryException
+				case _           => roundingWeight(rem, div) match {
+					case -1 => 0      //round down
+					case  1 => sign
+					case  _ =>
+						if (weightOnEven != 0L)
+							sign
+						else rounding match {
+							case HALF_DOWN => 0
+							case HALF_UP   => sign
+							case _ => if ((quot & 1L) == 0L) 0 else sign
+						}
+				}
+			}
+			quot + adjust
+		}
 
 	/** Rounds `quot` to the maximum precision allowable by a `Decimal64`. the rounding direction is determined based on
 	  * the given rounding mode and relative magnitude of `div` and `2*rem`, assumed to be the divisor of the division
@@ -2426,7 +3176,7 @@ object Decimal64 {
 	}
 
 	/** Rounds the result `quot` of a division by `div` with remainder `rem` and returns as a `Decimal64`
-	  * with an exponent o `exponent`. If `quot`, after rounding, exceeds the significand precision,
+	  * with an exponent of `exponent`. If `quot`, after rounding, exceeds the significand precision,
 	  * last digits are truncated until the result is within `[MinUnscaled, MaxUnscaled]` range;
 	  * if any of the truncated digits is not zero, an `InternalException` is thrown.
 	  * If `scale` is out of range, an `ArithmeticException` is thrown.
@@ -2435,7 +3185,7 @@ object Decimal64 {
 		roundAndScale(quot, div, rem, 0L, scale, rounding)
 
 	/** Rounds the result `quot` of a division by `div` with remainder `rem` and returns as a `Decimal64`
-	  * with an exponent o `exponent`. Rounding is based on a comparison between `rem` and `2*div`; however,
+	  * with an exponent of `exponent`. Rounding is based on a comparison between `rem` and `2*div`; however,
 	  * if `trail` is non zero, then equal results - that is cases, where the result is equidistant
 	  * from two neighbouring integers - round 'up'. If `quot`, after rounding, exceeds the significand precision,
 	  * last digits are truncated until the result is within `[MinUnscaled, MaxUnscaled]` range;
@@ -2470,9 +3220,9 @@ object Decimal64 {
 			if (hi == Long.MinValue) MaxLongPrecision
 			else Decimal64.precision(Math.abs(hi))
 		if (hi == 0L)
-			round(lo, scale, rounding, precision)
+			Decimal64(lo, scale, rounding, precision)
 		else if (lo == 0L)
-			round(hi, -exponent - LongPrecision, rounding, precision)
+			Decimal64(hi, -exponent - LongPrecision, rounding, precision)
 		else if (precision == ExtendedPrecision) {
 			if (hiPrecision >= MaxPrecision)
 				//we have all the digits we need in hi, however unlikely - determine the maximum possible precision
@@ -2505,10 +3255,8 @@ object Decimal64 {
 		} else if (hiPrecision >= MaxPrecision) {             //precision > hiPrecision; take only digits from hi
 			val droppedHiDigits = hiPrecision - MaxPrecision
 			if (precision >= hiPrecision + LongPrecision) {
-				//both hi and lo within precision, lo and lower hi digits must be zero.
-				if (lo != 0L)
-					throw PrecisionExceededException
-				divideAndScaleExact(hi, Powers(droppedHiDigits), exponent + LongPrecision + droppedHiDigits)
+				//both hi and lo within precision, but lo != 0 and already hiPrecision >= MaxPrecision
+				throw PrecisionExceededException
 			} else { //hiPrecision < precision < hiPrecision + LongPrecision
 				//We need to round on a digit somewhere within `lo`, all higher digits (and lower hi digits) must be 0.
 				//Lets round `lo` as a stand alone number, carry over potential overflow to hi, and then truncate hi.
@@ -2705,7 +3453,7 @@ object Decimal64 {
 			Decimal64(quot, -e)                           //no rounding necessary, as we have at least one zero to spare
 		} else if (remainingDigits == 0 & r == 0L) {      //exact, but we still might have to round a single digit
 			quot += q
-			Decimal64.round(quot, -e, rounding, precision)
+			Decimal64(quot, -e, rounding, precision)
 		} else {
 			/* q has a higher precision than we need; get only the highest precision(q) + remainingDigits
 			 * Determine if the last digit of the result must be rounded due to exceeded precision.
@@ -2845,7 +3593,7 @@ object Decimal64 {
 		val Powers = LongPowersOf10
 		val total = xSignificand + ySignificand
 		if (((xSignificand ^ total) & (ySignificand ^ total)) >= 0L) //no overflow, according to java.lang.Math.addExact
-			Decimal64.round(total, -exponent, rounding, precision)
+			Decimal64(total, -exponent, rounding, precision)
 		else {
 			//overflow => total < 0, total >>> 1 is unsigned div 2; underflow => total > 0 => we insert the sign bit
 			val half = (total >>> 1) | (total ^ Long.MinValue)
@@ -2911,9 +3659,9 @@ object Decimal64 {
 		var hi = xSignificand / divisor
 		var lo = ySignificand + (xSignificand - hi * divisor) * multiplier
 		if (hi == 0L)
-			round(lo, -yExponent, rounding, precision)
+			Decimal64(lo, -yExponent, rounding, precision)
 		else if (lo == 0L)
-			round(hi, -yExponent - LongPrecision, rounding, precision)
+			Decimal64(hi, -yExponent - LongPrecision, rounding, precision)
 		else {
 			val carry = lo / MaxLongPowerOf10
 			lo -= carry * MaxLongPowerOf10

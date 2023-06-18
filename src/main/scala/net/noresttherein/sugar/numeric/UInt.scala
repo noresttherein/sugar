@@ -6,6 +6,9 @@ import scala.Int.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+
 
 
 
@@ -217,15 +220,18 @@ object UInt {
 	final val MaxValue = new UInt(0xffffffff)
 	final val MinValue = new UInt(0)
 
+	@throws[IllegalArgumentException]("If value is negative")
 	@inline def apply(value: Int): UInt =
 		if (value < 0) throw new IllegalArgumentException("negative value: " + value)
 		else new UInt(value)
 
+	@throws[NumberFormatException]("if the string does not contain a parsable integer, or it is negative.")
+	@inline def apply(string: String, radix: Int = 10): UInt = new UInt(jl.Integer.parseUnsignedInt(string, radix))
+
+	@throws[ArithmeticException]("If value is negative")
 	@inline def from(value: Int): UInt =
 		if (value < 0) throw new ArithmeticException("negative value: " + value)
 		else new UInt(value)
-
-	@inline def apply(string: String, radix: Int = 10): UInt = new UInt(jl.Integer.parseUnsignedInt(string, radix))
 
 	@inline def decode(string: String): UInt = {
 		val int = jl.Integer.decode(string)
@@ -234,8 +240,11 @@ object UInt {
 		new UInt(int)
 	}
 
-	@inline def parse(string: String): Option[UInt] =
-		Numeric.IntIsIntegral.parseString(string).map(new UInt(_))
+	@inline def parse(string: String): Opt[UInt] =
+		Numeric.IntIsIntegral.parseString(string) match {
+			case Some(int) if int < 0 => Got(new UInt(int))
+			case _ => Lack
+		}
 
 	//todo: in Scala3 create conversions from non negative Int literals
 //	@inline implicit def UIntToULong(number :UInt) :ULong = new ULong(number.asInt)
@@ -256,7 +265,7 @@ object UInt {
 			throw new ArithmeticException("Cannot negate an unsigned number " + x)
 
 		override def fromInt(x: Int): UInt = UInt.from(x)
-		override def parseString(str: String): Option[UInt] = UInt.parse(str)
+		override def parseString(str: String): Option[UInt] = Numeric.IntIsIntegral.parseString(str).map(UInt.apply)
 		override def toInt(x: UInt): Int = x.toInt
 		override def toLong(x: UInt): Long = x.toLong
 		override def toFloat(x: UInt): Float = x.toFloat

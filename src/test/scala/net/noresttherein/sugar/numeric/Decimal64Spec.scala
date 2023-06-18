@@ -8,9 +8,11 @@ import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 import scala.util.Try
 
+import net.noresttherein.sugar.extensions.{ShortAsIntExtension, repeatMethod}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, Standard}
-import net.noresttherein.sugar.numeric.Decimal64.{MaxPrecision, Precision, Round}
-import org.scalacheck.Prop.{all, forAll, propBoolean, throws, AnyOperators}
+import net.noresttherein.sugar.numeric.Decimal64.{MaxPrecision, MaxScale, MinScale, Precision, Round}
+import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
+import org.scalacheck.Prop.{AnyOperators, all, forAll, propBoolean, throws}
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import org.scalacheck.util.ConsoleReporter
 
@@ -44,7 +46,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 	def maxPrecision(value :Long, rounding :RoundingMode = HALF_EVEN) :MathContext =
 		maxPrecision(JavaBigDecimal.valueOf(value), rounding)
 
-	def bigDecimal(decimal :Decimal64) :JavaBigDecimal = JavaBigDecimal.valueOf(decimal.unscaled, decimal.scale)
+	def bigDecimal(decimal :Decimal64) :JavaBigDecimal = JavaBigDecimal.valueOf(decimal.significand, -decimal.exponent)
 
 	implicit val ArbitraryDecimal64 :Arbitrary[Decimal64] = Arbitrary(Arbitrary.arbitrary[Long].map { long =>
 		Decimal64(long >> 8, (long & 0xffL).toByte)
@@ -87,31 +89,19 @@ object Decimal64Spec extends Properties("Decimal64") {
 	private def compare(expect: => JavaBigDecimal)(test: => Decimal64)(prop :(JavaBigDecimal, JavaBigDecimal) => Prop)
 			:Prop =
 		if (throws(classOf[ArithmeticException])(expect))
-			try { Prop.falsified :| "Expected throws[ArithmeticException], got " + test } catch {
-				case _ :ArithmeticException => Prop.passed
-			}
+			test.throws[ArithmeticException] :| "Expected an ArithmeticException when JavaBigDecimal throws one"
 		else {
 			val result = expect
 			val normalized = result.stripTrailingZeros
 			val unscaled = normalized.unscaledValue; val scale = normalized.scale
 			if (unscaled > MaxUnscaled || unscaled < MinUnscaled)
-				if (throws(classOf[ArithmeticException])(test))
-					Prop(true)
-				else {
-					val got = test
-					Prop(false) :| s"expected throws[ArithmeticException] when unscaled $unscaled out o range, got $got"
-				}
+				test.throws[ArithmeticException] :| s"expected an ArithmeticException when unscaled $unscaled out of range"
 			else {
 				val maxTrailingZeros = maxPrecision(unscaled.longValueExact).getPrecision - normalized.precision
 				if (unscaled != BigInteger.ZERO && (scale > Byte.MaxValue || scale < Byte.MinValue - maxTrailingZeros))
-					if (throws(classOf[ArithmeticException])(test))
-						Prop(true)
-					else {
-						val got = test
-						Prop(false) :| s"expected throws[ArithmeticException] when scale $scale out of range, got $got"
-					}
+					test.throws[ArithmeticException] :| s"expected an ArithmeticException when scale $scale out of range"
 				else try {
-					prop(result, bigDecimal(test))
+					prop(result, bigDecimal(test)) :| s"compare($result, ${bigDecimal(test)})"
 				} catch {
 					case e :Exception => Prop.exception(e) :| s"Failed to replicate $result as a Decimal64: $e"
 				}
@@ -124,8 +114,10 @@ object Decimal64Spec extends Properties("Decimal64") {
 			else Prop.falsified :| s"expected $expected but got $got"
 		}
 
-	private def almostEquivalent(ulpError :Int)(expect: => JavaBigDecimal)(test: => Decimal64) :Prop =
-		compare(expect)(test) { (expected, got) =>
+	private def almostEquivalent(ulpError :Int)
+	                            (expect: => JavaBigDecimal, precise: => JavaBigDecimal)(test: => Decimal64) :Prop =
+	{
+		def prop(expected :JavaBigDecimal, got :JavaBigDecimal) = {
 			val unscaledDiff = expected.subtract(got).abs.unscaledValue
 			if ((unscaledDiff compareTo BigInteger.valueOf(ulpError)) > 0)
 				Prop.falsified :|
@@ -133,7 +125,34 @@ object Decimal64Spec extends Properties("Decimal64") {
 			else
 				Prop.passed
 		}
+		if (throws(classOf[ArithmeticException])(expect))
+			if (throws(classOf[ArithmeticException])(test)) Prop.passed
+			else compare(precise)(test)(prop) :| "comparing with the precise calculation"
+		else if (throws(classOf[ArithmeticException])(precise))
+			if (throws(classOf[ArithmeticException])(test)) Prop.passed
+			else compare(expect)(test)(prop) :| "comparing with an equivalent calculation"
+		else
+			compare(expect)(test)(prop) :| "equivalent result: " + expect ||
+				compare(expect)(test)(prop) :| "precise result: " + expect
+	}
 
+	private def roundingProperty(expect: => JavaBigDecimal)(test: => Decimal64) =
+		if (throws(classOf[ArithmeticException])(expect))
+			test.throws[ArithmeticException] :| "Expected an ArithmeticException when JavaBigDecimal throws one"
+		else {
+			val normalized = expect.stripTrailingZeros
+			val unscaled = normalized.unscaledValue
+			val scale = normalized.scale
+			val maxTrailingZeros = maxPrecision(unscaled.longValueExact).getPrecision - normalized.precision
+			if (unscaled != BigInteger.ZERO && (scale > Byte.MaxValue || scale < Byte.MinValue - maxTrailingZeros))
+				test.throws[ArithmeticException] :| s"expected anArithmeticException when scale $scale out of range"
+			else try {
+				val result = test
+				((bigDecimal(result) compareTo expect) ?= 0) :| s"$result ?= $expect"
+			} catch {
+				case e :Exception => Prop.exception(e) :| "expected=" + expect
+			}
+		}
 
 
 	/** * * * * * * * * * * * Properties of the companion object * * * * * * * * * * * * */
@@ -144,11 +163,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 		all(RoundingModes.map { rounding =>
 			(if (rounding == UNNECESSARY)
 				if (throws(classOf[ArithmeticException])(maxPrecision(significand, rounding)))
-					if (throws(classOf[ArithmeticException])(Round.maxPrecision(significand, rounding)))
-						Prop.passed
-					else
-						Prop.falsified :|
-							"Expected a thrown ArithmeticException, but got " + Round.maxPrecision(significand, rounding)
+					Round.maxPrecision(significand, rounding).throws[ArithmeticException]
 				else
 					Round(Round.maxPrecision(significand, rounding), rounding) ?= maxPrecision(significand, rounding)
 			else
@@ -225,6 +240,84 @@ object Decimal64Spec extends Properties("Decimal64") {
 			} :_*
 		)
 	}
+
+	property("Decimal64.apply(Float)") = forAll { (float :Float) =>
+		equivalent(new JavaBigDecimal(float.toString))(Decimal64(float))
+	}
+	property("Decimal64.apply(Float, RoundingMode)") = forAll { (float :Float) =>
+		all(RoundingModes.map { rounding =>
+			val decimal = new JavaBigDecimal(float.toString)
+			val ctx = maxPrecision(decimal, rounding)
+			equivalent(decimal.round(ctx))(Decimal64(float, rounding)) :|
+				s"Decimal64($float, $rounding) ?= BigDecimal($float).round($rounding)"
+		} :_*)
+	}
+	property("Decimal64.apply(Float, MathContext)") = forAll { (float :Float) =>
+		val expect = new JavaBigDecimal(float.toString)
+		all(
+			Seq(DECIMAL32, DECIMAL64, DECIMAL128).map { ctx =>
+				equivalent(expect.round(ctx))(Decimal64(float, ctx)) :| s"Decimal64($float) ?= ${expect.round(ctx)}"
+			} :_*
+		)
+	}
+
+	property("Decimal64.apply(Double)") = forAll { (double :Double) =>
+		equivalent(JavaBigDecimal.valueOf(double))(Decimal64(double))
+	}
+	property("Decimal64.apply(Double, RoundingMode)") = forAll { (double :Double) =>
+		all(RoundingModes.map { rounding =>
+			val decimal = JavaBigDecimal.valueOf(double)
+			val ctx = maxPrecision(decimal, rounding)
+			equivalent(JavaBigDecimal.valueOf(double).round(ctx))(Decimal64(double, rounding)) :|
+				s"Decimal64($double, $rounding) ?= BigDecimal($double).round($rounding)"
+		} :_*)
+	}
+	property("Decimal64.apply(Double, MathContext)") = forAll { (double :Double) =>
+		val expect = JavaBigDecimal.valueOf(double)
+		all(
+			Seq(DECIMAL32, DECIMAL64, DECIMAL128).map { ctx =>
+				equivalent(expect.round(ctx)) {
+					Decimal64(double, ctx)
+				} :| s"Decimal64($double) ?= ${expect.round(ctx)}"
+			} :_*
+		)
+	}
+
+	property("Decimal64.apply(BigInteger)") = forAll { big :BigInt =>
+		equivalent(new JavaBigDecimal(big.bigInteger))(Decimal64(big.bigInteger))
+	}
+	property("Decimal64.apply(BigInt)") = forAll { big :BigInt =>
+		equivalent(new JavaBigDecimal(big.bigInteger))(Decimal64(big))
+	}
+	property("Decimal64.apply(BigInteger, RoundingMode)") = forAll { big :BigInt =>
+		all(RoundingModes.map { rounding =>
+			def ctx = maxPrecision(new JavaBigDecimal(big.bigInteger), rounding)
+			equivalent(new JavaBigDecimal(big.bigInteger, ctx))(Decimal64(big.bigInteger, rounding))
+		} :_*)
+	}
+	property("Decimal64.apply(BigInt, RoundingMode)") = forAll { big :BigInt =>
+		all(RoundingModes.map { rounding =>
+			def ctx = maxPrecision(new JavaBigDecimal(big.bigInteger), rounding)
+			equivalent(new JavaBigDecimal(big.bigInteger, ctx))(Decimal64(big, rounding))
+		} :_*)
+	}
+	property("Decimal64.apply(BigInteger, MathContext)") = forAll { big :BigInt =>
+		all(
+			Seq(DECIMAL32, DECIMAL64, DECIMAL128).map { ctx =>
+				equivalent(new JavaBigDecimal(big.bigInteger, ctx))(Decimal64(big.bigInteger, ctx)) :|
+					s"Decimal64($big, $ctx) ?= ${new JavaBigDecimal(big.bigInteger, ctx)}"
+			} :_*
+		)
+	}
+	property("Decimal64.apply(BigInt, MathContext)") = forAll { big :BigInt =>
+		all(
+			Seq(DECIMAL32, DECIMAL64, DECIMAL128).map { ctx =>
+				equivalent(new JavaBigDecimal(big.bigInteger, ctx))(Decimal64(big, ctx)) :|
+					s"Decimal64($big, $ctx) ?= ${new JavaBigDecimal(big.bigInteger, ctx)}"
+			} :_*
+		)
+	}
+
 	property("Decimal64.apply(JavaBigDecimal)") = forAll { decimal :BigDecimal =>
 		equivalent(decimal.bigDecimal)(Decimal64(decimal))
 	}
@@ -277,31 +370,6 @@ object Decimal64Spec extends Properties("Decimal64") {
 		}
 	}
 
-	private def roundingProperty(expect: => JavaBigDecimal)(test: => Decimal64) =
-		if (throws(classOf[ArithmeticException])(expect))
-			if (throws(classOf[ArithmeticException])(test))
-				Prop(true)
-			else
-				Prop(false) :| "Expected a thrown ArithmeticException, got: " + test
-		else {
-			val normalized = expect.stripTrailingZeros
-			val unscaled = normalized.unscaledValue
-			val scale = normalized.scale
-			val maxTrailingZeros = maxPrecision(unscaled.longValueExact).getPrecision - normalized.precision
-			if (unscaled != BigInteger.ZERO && (scale > Byte.MaxValue || scale < Byte.MinValue - maxTrailingZeros))
-				if (throws(classOf[ArithmeticException])(test))
-					Prop(true)
-				else {
-					val got = test
-					Prop(false) :| s"expected throws[ArithmeticException] when scale $scale out of range, got $got"
-				} else try {
-					val result = test
-					((bigDecimal(result) compareTo expect) ?= 0) :| s"$result ?= $expect"
-				} catch {
-					case e :Exception => Prop.exception(e) :| "expected=" + expect
-				}
-		}
-
 
 
 	/** * * * * * * * * * * * * * * * * Class properties * * * * * * * * * * * * * * * * * */
@@ -331,6 +399,18 @@ object Decimal64Spec extends Properties("Decimal64") {
 
 	/* * * * * * * * * * * * * * * * * Arithmetic operations ** * * * * * * * * * * * * * * * */
 
+	property("significand") = forAll { (bits :Long) =>
+		val m = bits >> 8
+		val	dec = Decimal64(m, (bits & 0xffL).toByte)
+		(dec.significand ?= (if (m == 0) 0 else m.repeatUntil(_ % 10 != 0)(_ / 10))) :|
+			s"significand: $m; scale :${bits.toByte}"
+	}
+	property("exponent") = forAll { (bits :Long) =>
+		val m = bits >> 8
+		val dec = Decimal64(m, bits.toByte)
+		(dec.exponent ?= (if (m == 0) 0 else -bits.toByte + m.countUntil(_ % 10 != 0)(_ / 10))) :|
+			s"significand: $m; scale :${bits.toByte}"
+	}
 
 	property("+") = forAll(forAllRoundingModes(_.add(_, _))(_.+(_)(_)) _)
 
@@ -366,17 +446,24 @@ object Decimal64Spec extends Properties("Decimal64") {
 	}
 	property("^") = forAll { (x :Decimal64, n :Short) =>
 		all(RoundingModes.map { rounding =>
-			{
+			def result = bigDecimal(x).pow(n, DECIMAL128)
+			def expectLabel =
+				try "DECIMAL128=" + result catch {
+					case e :Exception => "DECIMAL128=[threw " + e + "]"
+				}
+			val error = (33 - n.abs.leadingZeros) + n.abs
+			locally {
 				implicit val ctx = Round.to16digits(rounding)
-				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ^ n) :| s"$x ^ $n ($ctx)"
+				s"$x ^ $n ($ctx)" |: expectLabel |:
+					almostEquivalent(error)(bigDecimal(x).pow(n, ctx), result.round(ctx))(x ^ n)
 			} && {
 				implicit val ctx = Round.toMaxDigits(rounding)
-				def result = bigDecimal(x).pow(n, DECIMAL128)
-				almostEquivalent(10)(bigDecimal(x).pow(n, maxPrecision(result, rounding)))(x ^ n) :|
-					s"$x ** $n ($ctx)"
+				s"$x ** $n ($ctx)" |: expectLabel |:
+					almostEquivalent(error)(bigDecimal(x).pow(n, maxPrecision(result, rounding)), result.round(ctx))(x ^ n)
 			} && {
 				implicit val ctx = Round(7, rounding)
-				almostEquivalent(10)(bigDecimal(x).pow(n, ctx))(x ^ n) :| s"$x ^ $n ($ctx)"
+				s"$x ^ $n ($ctx)" |: expectLabel |:
+					almostEquivalent(error)(bigDecimal(x).pow(n, ctx), result.round(ctx))(x ^ n)
 			}
 		} :_*)
 	}
