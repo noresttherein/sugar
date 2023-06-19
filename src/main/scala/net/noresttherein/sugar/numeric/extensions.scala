@@ -168,7 +168,7 @@ object extensions extends extensions {
 				0
 			else {
 				var res = 1
-				var i   = jl.Integer.highestOneBit(exp)
+				var i   = 32 - jl.Integer.numberOfLeadingZeros(exp) //< 32 because exp >= 0
 				while (i >= 0) {
 					res = res * res
 					if ((exp >> i & 1) == 1)
@@ -259,30 +259,25 @@ object extensions extends extensions {
 
 		/** Converts this `Int` to an unsigned `UInt`. */
 		@throws[ArithmeticException]("if this Int is negative")
-		@inline def toUInt :UInt = UInt.from(self)
+		@inline def toUIntExact :UInt = UInt.from(self)
 
 		/** Reinterprets this `Int`'s binary format as an unsigned 32 bit integer.
 		  * Negative values will be converted to values greater than `Int.MaxValue`.
 		  */
-		@inline def asUInt :UInt = new UInt(self)
+		@inline def toUInt :UInt = new UInt(self)
 
 		/** Converts this `Int` to an unsigned `ULong`. */
 		@throws[ArithmeticException]("if this Int is negative")
-		@inline def toULong :ULong = ULong.from(self)
+		@inline def toULongExact :ULong = ULong.from(self)
 
 		/** Converts  this `Int` to a 64 bit unsigned integer.
 		  * Negative values will result in underflowing to values greater than `Int.MaxValue`.
 		  */
-		@inline def asULong :ULong = new ULong(self & 0xffffffffL)
+		@inline def toULong :ULong = new ULong(self & 0xffffffffL)
 
 		/** Converts this `Int` to an unsigned `UInt`. */
 		@throws[ArithmeticException]("if this Int is negative")
 		@inline def unsigned :UInt = UInt.from(self)
-
-		/** Reinterprets this `Int`'s binary format as an unsigned 32 bit integer.
-		  * Negative values will be converted to values greater than `Int.MaxValue`.
-		  */
-		@inline def asUnsigned :UInt = new UInt(self)
 
 		/** Converts this `Int` into an overflow checking `SafeInt`. */
 		@inline def safe :SafeLong = new SafeInt(self)
@@ -305,10 +300,10 @@ object extensions extends extensions {
 				0
 			else {
 				var res = 1L
-				var i   = jl.Long.highestOneBit(exp)
+				var i   = jl.Integer.numberOfLeadingZeros(exp) //< 32 because exp >= 0
 				while (i >= 0) {
 					res = res * res
-					if ((exp >> i.toInt & 1) == 1)
+					if ((exp >> i & 1) == 1)
 						res = res * self
 					i -= 1
 				}
@@ -395,36 +390,27 @@ object extensions extends extensions {
 
 		/** Converts this `Long` to an unsigned `UInt`. */
 		@throws[ArithmeticException]("if this Long is negative or greater than Int.MaxValue")
-		@inline def toUInt :UInt =
-			if (self > Int.MaxValue) throw new ArithmeticException(self + " is negative")
-			else UInt.from(self.toInt)
+		@inline def toUIntExact :UInt =
+			if (self > Int.MaxValue | self < 0) throw new ArithmeticException("Not an unsigned Int: " + self)
+			else new UInt(self.toInt)
 
 		/** Interprets lower 4 bytes in this `Long`'s binary format as an unsigned 32 bit integer.
 		  * Negative values will be converted to values greater than `Int.MaxValue`.
 		  */
-		@inline def asUInt :UInt = new UInt(self.toInt)
+		@inline def toUInt :UInt = new UInt(self.toInt)
 
 		/** Converts this `Long` to an unsigned `ULong`. */
 		@throws[ArithmeticException]("if this Long is negative")
-		@inline def toULong :ULong =
-			if (self < 0) throw new ArithmeticException(self + " is negative")
-			else new ULong(self)
+		@inline def toULongExact :ULong = ULong.from(self)
 
 		/** Reinterprets this `Long`'s binary format as an unsigned 64 bit integer.
 		  * Negative values will be converted to values greater than `Long.MaxValue`.
 		  */
-		@inline def asULong :ULong = new ULong(self)
+		@inline def toULong :ULong = new ULong(self)
 
 		/** Converts this `Long` to an unsigned `ULong`. */
 		@throws[ArithmeticException]("if this Long is negative")
-		@inline def unsigned :ULong =
-			if (self < 0) throw new ArithmeticException(self + " is negative")
-			else new ULong(self)
-
-		/** Reinterprets this `Long`'s binary format as an unsigned 64 bit integer.
-		  * Negative values will be converted to values greater than `Long.MaxValue`.
-		  */
-		@inline def asUnsigned :ULong = new ULong(self)
+		@inline def unsigned :ULong = ULong.from(self)
 
 		/** Converts this `Long` into an overflow checking `SafeLong`. */
 		@inline def safe :SafeLong = new SafeLong(self)

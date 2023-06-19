@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.numeric
 
+import java.math.{BigInteger, BigDecimal=>JavaBigDecimal}
 import java.{lang => jl}
 
 import scala.collection.immutable.NumericRange
@@ -14,7 +15,7 @@ import scala.math.ScalaNumericAnyConversions
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class SafeLong(override val toLong :Long)
+class SafeLong private[numeric] (override val toLong :Long)
 	extends AnyVal with Ordered[SafeLong] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
@@ -57,9 +58,19 @@ class SafeLong(override val toLong :Long)
 	@inline def toSafeInt        : SafeInt = {
 		testRange(Int.MinValue, Int.MaxValue, "Int"); new SafeInt(toLong.toInt)
 	}
+	@inline def toUInt            : UInt = {
+		testRange(0L, (1L << 32) - 1L, "UInt"); new UInt(toLong.toInt)
+	}
+	@inline def toULong           : ULong = ULong.from(toLong)
+	@inline def toDecimal64       : Decimal64 = Decimal64(toLong)
 
-	@inline def toString(radix :Int): String = jl.Long.toString(toLong, radix)
+	@inline def toBigInt        : BigInt         = BigInt(toLong)
+	@inline def toBigInteger    : BigInteger     = BigInteger.valueOf(toLong)
+	@inline def toBigDecimal    : BigDecimal     = BigDecimal(toLong)
+	@inline def toJavaBigDecimal: JavaBigDecimal = JavaBigDecimal.valueOf(toLong)
+
 	@inline override def toString   : String = String.valueOf(toLong)
+	@inline def toString(radix :Int): String = jl.Long.toString(toLong, radix)
 	@inline def toBinaryString      : String = jl.Long.toBinaryString(toLong)
 	@inline def toOctalString       : String = jl.Long.toOctalString(toLong)
 	@inline def toHexString         : String = jl.Long.toHexString(toLong)
@@ -186,6 +197,23 @@ class SafeLong(override val toLong :Long)
 	@inline def %(x: Long)  : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Float) : Float    = checkFloatResult(x, "%", toFloat % x)
 	@inline def %(x: Double): Double   = checkDoubleResult(x, "%", toDouble % x)
+	@inline def **(n :Int)  : SafeLong = pow(n)
+
+	/** Raises this `SafeLong` to the given power. If the argument is negative, `0` is returned. */
+	def pow(exp :Int): SafeLong =
+		if (exp < 0)
+			new SafeLong(0L)
+		else {
+			var res = new SafeLong(1L)
+			var i   = 32 - jl.Integer.numberOfLeadingZeros(exp)  //< 32 because exp >= 0
+			while (i >= 0) {
+				res = res * res
+				if ((exp >> i & 1) == 1)
+					res = res * this
+				i -= 1
+			}
+			res
+		}
 
 	type ResultWithoutStep = NumericRange[SafeLong]
 	@inline def to(end :SafeLong) :NumericRange.Inclusive[SafeLong] =

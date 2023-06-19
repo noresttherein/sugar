@@ -194,7 +194,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 
 	property("Decimal64.apply(Int)") = forAll { value :Int =>
 		val dec = Decimal64(value)
-		val got = BigDecimal(dec.unscaled, dec.scale)
+		val got = BigDecimal(dec.significand, -dec.exponent)
 		got ?= BigDecimal(value)
 	}
 	property("Decimal64.apply(Long)") = forAll { value :Long =>
@@ -202,7 +202,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 		if (Decimal64.MinUnscaled <= significand && significand <= Decimal64.MaxUnscaled) {
 			val expect = BigDecimal(value, Extended)
 			val dec = Decimal64(value)
-			val got = BigDecimal(dec.unscaled, dec.scale)
+			val got = BigDecimal(dec.significand, -dec.exponent)
 			(got ?= expect) :| s"Decimal64($value) == $dec == $got ?= $expect"
 		} else {
 			val unscaled = value >> Decimal64.ScaleBits
@@ -319,10 +319,10 @@ object Decimal64Spec extends Properties("Decimal64") {
 	}
 
 	property("Decimal64.apply(JavaBigDecimal)") = forAll { decimal :BigDecimal =>
-		equivalent(decimal.bigDecimal)(Decimal64(decimal))
+		equivalent(decimal.bigDecimal)(Decimal64(decimal.bigDecimal))
 	}
 	property("Decimal64.apply(BigDecimal)") = forAll { decimal :BigDecimal =>
-		equivalent(decimal.bigDecimal)(Decimal64(decimal))
+		equivalent(decimal.bigDecimal.round(decimal.mc))(Decimal64(decimal)) :| decimal.mc.toString
 	}
 	property("Decimal64.apply(JavaBigDecimal, RoundingMode)") = forAll { decimal :BigDecimal =>
 		all(RoundingModes.map { rounding =>
@@ -378,7 +378,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 
 
 	property("toBigDecimal") = forAll { (decimal :Decimal64) => {
-		val exact = BigDecimal(BigInt(decimal.unscaled), decimal.scale)
+		val exact = BigDecimal(BigInt(decimal.significand), -decimal.exponent)
 		(((decimal.toBigDecimal compareTo exact) ?= 0) :| s"$decimal.toBigDecimal(Extended)") &&
 		(((decimal.toBigDecimal(Standard) compareTo exact.round(Standard)) ?= 0) :| s"$decimal.toBigDecimal(Standard)") &&
 		(((decimal.toBigDecimal(DECIMAL32) compareTo exact.round(DECIMAL32)) ?= 0) :| s"$decimal.toBigDecimal(DECIMAL32)")
@@ -451,14 +451,14 @@ object Decimal64Spec extends Properties("Decimal64") {
 				try "DECIMAL128=" + result catch {
 					case e :Exception => "DECIMAL128=[threw " + e + "]"
 				}
-			val error = (33 - n.abs.leadingZeros) + n.abs
+			val error = 1
 			locally {
 				implicit val ctx = Round.to16digits(rounding)
 				s"$x ^ $n ($ctx)" |: expectLabel |:
 					almostEquivalent(error)(bigDecimal(x).pow(n, ctx), result.round(ctx))(x ^ n)
 			} && {
 				implicit val ctx = Round.toMaxDigits(rounding)
-				s"$x ** $n ($ctx)" |: expectLabel |:
+				s"$x ^ $n ($ctx)" |: expectLabel |:
 					almostEquivalent(error)(bigDecimal(x).pow(n, maxPrecision(result, rounding)), result.round(ctx))(x ^ n)
 			} && {
 				implicit val ctx = Round(7, rounding)

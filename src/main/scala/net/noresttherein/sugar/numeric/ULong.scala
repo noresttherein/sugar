@@ -1,11 +1,14 @@
 package net.noresttherein.sugar.numeric
 
+import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 import java.{lang => jl}
 
 import scala.Long.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.numeric.ULong.{BigDecimalMaxLongTimes2, BigIntMaxLongTimes2, BigIntegerMaxLongTimes2, Decimal64MaxLongTimes2, DoubleMaxLongTimes2, FloatMaxLongTimes2, JavaBigDecimalMaxLongTimes2}
+import net.noresttherein.sugar.numeric.extensions.LongExtension
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -41,166 +44,168 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class ULong private[numeric] (private val asLong :Long)
+class ULong private[numeric] (override val toLong :Long)
 	extends AnyVal with Ordered[ULong] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
-	@inline override def isValidByte : Boolean = (asLong & 0x7fL) == asLong
-	@inline override def isValidShort: Boolean = (asLong & 0x7fffL) == asLong
-	@inline override def isValidChar : Boolean = (asLong & 0x7fffL) == asLong
-	@inline override def isValidInt  : Boolean = (asLong & 0x7fffffffL) == asLong
+	@inline override def isValidByte : Boolean = (toLong & 0x7fL) == toLong
+	@inline override def isValidShort: Boolean = (toLong & 0x7fffL) == toLong
+	@inline override def isValidChar : Boolean = (toLong & 0x7fffL) == toLong
+	@inline override def isValidInt  : Boolean = (toLong & 0x7fffffffL) == toLong
+	@inline def isValidLong: Boolean = toLong >= 0
 
-	@inline override def byteValue  : Byte    = asLong.toByte
-	@inline override def shortValue : Short   = asLong.toShort
-	@inline override def intValue   : Int     = asLong.toInt
-	@inline override def longValue  : Long    = asLong
-	@inline override def floatValue : Float   = if (asLong >= 0) asLong.toFloat else -asLong.toFloat
-	@inline override def doubleValue: Double  = if (asLong >= 0) asLong.toDouble else -asLong.toDouble
-	@inline def charValue: Char = asLong.toChar
-//
-//	@inline def asByte   : Byte   = asLong.toByte
-//	@inline def asShort  : Short  = asLong.toShort
-//	@inline def asChar   : Char   = asLong.toChar
-//	@inline def asLong   : Long   = asLong & 0xffffffffL
-//	@inline def asFloat  : Float  = (asLong & 0xffffffffL).toFloat
-//	@inline def asDouble : Double = (asLong & 0xffffffffL).toDouble
-//	/** Returns `asLong == 0`. */
-//	@inline def asBoolean :Boolean = asLong == 0
+	@inline def charValue: Char = toLong.toChar
+	@inline override def byteValue  : Byte    = toLong.toByte
+	@inline override def shortValue : Short   = toLong.toShort
+	@inline override def intValue   : Int     = toLong.toInt
+	@inline override def longValue  : Long    = toLong
+	@inline override def floatValue : Float   = if (toLong >= 0) toLong.toFloat else FloatMaxLongTimes2 + toLong.toFloat
+	@inline override def doubleValue: Double  =
+		if (toLong >= 0) toLong.toDouble
+		else DoubleMaxLongTimes2 + toLong.toDouble
 
-	@inline override def toByte   : Byte   = { testRange(Byte.MaxValue, "Byte"); asLong.toByte }
-	@inline override def toShort  : Short  = { testRange(Short.MaxValue, "Short"); asLong.toShort }
-	@inline override def toChar   : Char   = { testRange(Char.MaxValue, "Char"); asLong.toChar }
-	@inline override def toInt    : Int    = { testRange(Int.MaxValue, "Int"); asLong.toInt }
-	@inline override def toLong   : Long   = if (asLong < 0) underflow(".toLong") else asLong
-	@inline override def toFloat  : Float  = if (asLong >= 0) asLong.toFloat else -asLong.toFloat
-	@inline override def toDouble : Double = if (asLong >= 0) asLong.toDouble else -asLong.toDouble
-	/** Returns `asLong == 0`. */
-	@inline def toBoolean: Boolean = asLong != 0L
+	@inline override def toByte  : Byte   = toLong.toByte
+	@inline override def toShort : Short  = toLong.toShort
+	@inline override def toInt   : Int    = toLong.toInt
+	@inline override def toFloat : Float  = if (toLong >= 0) toLong.toFloat else -toLong.toFloat
+	@inline override def toDouble: Double = if (toLong >= 0) toLong.toDouble else -toLong.toDouble
 
-	@inline def toString(radix: Int): String = jl.Long.toUnsignedString(asLong, radix)
-	@inline override def toString   : String = jl.Long.toUnsignedString(asLong)
-	@inline def toBinaryString      : String = jl.Long.toBinaryString(asLong)
-	@inline def toOctalString       : String = jl.Long.toOctalString(asLong)
-	@inline def toHexString         : String = jl.Long.toHexString(asLong)
+	@inline def toByteExact : Byte   = { testRange(Byte.MaxValue, "Byte"); toLong.toByte }
+	@inline def toShortExact: Short  = { testRange(Short.MaxValue, "Short"); toLong.toShort }
+	@inline def toCharExact : Char   = { testRange(Char.MaxValue, "Char"); toLong.toChar }
+	@inline def toIntExact  : Int    = { testRange(Int.MaxValue, "Int"); toLong.toInt }
+	@inline def toLongExact : Long   = if (toLong < 0) underflow(".toLong") else toLong
+
+	/** Returns `toLong == 0`. */
+	@inline def toBoolean: Boolean = toLong != 0L
+
+	@inline def toBigInt: BigInt =
+		if (toLong >= 0) BigInt(toLong)
+		else BigIntMaxLongTimes2 + BigInt(toLong)
+
+	@inline def toBigInteger: BigInteger =
+		if (toLong >= 0) BigInteger.valueOf(toLong)
+		else BigIntegerMaxLongTimes2.add(BigInteger.valueOf(toLong))
+
+	@inline def toBigDecimal: BigDecimal =
+		if (toLong >= 0) BigDecimal(toLong)
+		else BigDecimalMaxLongTimes2 + BigDecimal(toLong)
+
+	@inline def toJavaBigDecimal: JavaBigDecimal =
+		if (toLong >= 0) JavaBigDecimal.valueOf(toLong)
+		else JavaBigDecimalMaxLongTimes2.add(JavaBigDecimal.valueOf(toLong))
+
+	@inline def toULong    : ULong     = new ULong(toInt & 0xffffffffL)
+	@inline def toSafeInt  : SafeInt   = new SafeInt(toIntExact)
+	@inline def toSafeLong : SafeLong  = new SafeLong(toInt & 0xffffffffL)
+	@inline def toIntRatio : IntRatio  = IntRatio(toInt)
+	@inline def toRatio    : Ratio     = Ratio(toInt & 0xffffffffL)
+	@inline def toDecimal64: Decimal64 =
+		if (toLong >= 0) Decimal64.round(toLong)
+		else Decimal64MaxLongTimes2 + Decimal64.round(toLong)
+
+	@inline def toDecimal64Exact: Decimal64 =
+		if (toLong >= 0) Decimal64(toLong)
+		else throw new ArithmeticException(toString + " cannot be represented exactly as a Decimal64.")
+
+	@inline override def toString   : String = jl.Long.toUnsignedString(toLong)
+	@inline def toString(radix: Int): String = jl.Long.toUnsignedString(toLong, radix)
+	@inline def toBinaryString      : String = jl.Long.toBinaryString(toLong)
+	@inline def toOctalString       : String = jl.Long.toOctalString(toLong)
+	@inline def toHexString         : String = jl.Long.toHexString(toLong)
 
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
-	@inline def +(x: String): String = asLong.toString + x
+	@inline def +(x: String): String = toLong.toString + x
 
-	@inline def <<(x: Int)  : ULong = new ULong(asLong << x)
-	@inline def >>>(x: Int) : ULong = new ULong(asLong >>> x)
-	@inline def >>(x: Int)  : ULong = new ULong(asLong >> x)
+	@inline def <<(x: Int)  : ULong = new ULong(toLong << x)
+	@inline def >>>(x: Int) : ULong = new ULong(toLong >>> x)
+	@inline def >>(x: Int)  : ULong = new ULong(toLong >> x)
 
-	@inline def ==(x: Byte)  : Boolean = x >= 0 & asLong == x
-	@inline def ==(x: Short) : Boolean = x >= 0 & asLong == x
-	@inline def ==(x: Char)  : Boolean = asLong == x
-	@inline def ==(x: Int)   : Boolean = x >= 0 & asLong == x
-	@inline def ==(x: Long)  : Boolean = x >= 0 & asLong == x
+
+	//Consider: the problem with all these comparisons is that they exclude ULong, which is handled by methods
+	// inherited from Ordered. This works, because the erased signature is >(x :Object).
+	// Unfortunately, it also means that it boxes both operands.
+	// We may migrate to extension methods, but they won't work for == and !=.
+	@inline def ==(x: Byte)  : Boolean = x >= 0 & toLong == x
+	@inline def ==(x: Short) : Boolean = x >= 0 & toLong == x
+	@inline def ==(x: Char)  : Boolean = toLong == x
+	@inline def ==(x: Int)   : Boolean = x >= 0 & toLong == x
+	@inline def ==(x: Long)  : Boolean = x >= 0 & toLong == x
 	@inline def ==(x: Float) : Boolean = toFloat == x
 	@inline def ==(x: Double): Boolean = toDouble == x
-	@inline def !=(x: Byte)  : Boolean = asLong < 0 | asLong != x
-	@inline def !=(x: Short) : Boolean = asLong < 0 | asLong != x
-	@inline def !=(x: Char)  : Boolean = asLong != x
-	@inline def !=(x: Int)   : Boolean = asLong < 0 | asLong != x
-	@inline def !=(x: Long)  : Boolean = asLong < 0 | asLong != x
+	@inline def !=(x: Byte)  : Boolean = toLong < 0 | toLong != x
+	@inline def !=(x: Short) : Boolean = toLong < 0 | toLong != x
+	@inline def !=(x: Char)  : Boolean = toLong != x
+	@inline def !=(x: Int)   : Boolean = toLong < 0 | toLong != x
+	@inline def !=(x: Long)  : Boolean = toLong < 0 | toLong != x
 	@inline def !=(x: Float) : Boolean = toFloat != x
 	@inline def !=(x: Double): Boolean = toDouble != x
 
-	@inline def < (x: Byte)  : Boolean = x > 0 & asLong >= 0 & asLong < x
-	@inline def < (x: Short) : Boolean = x > 0 & asLong >= 0 & asLong < x
-	@inline def < (x: Char)  : Boolean = asLong >= 0 & asLong < x
-	@inline def < (x: Int)   : Boolean = x > 0 & asLong >= 0 & asLong < x
-	@inline def < (x: Long)  : Boolean = x > 0 & asLong >= 0 & asLong < x
+	@inline def < (x: Byte)  : Boolean = x > 0 & toLong >= 0 & toLong < x
+	@inline def < (x: Short) : Boolean = x > 0 & toLong >= 0 & toLong < x
+	@inline def < (x: Char)  : Boolean = toLong >= 0 & toLong < x
+	@inline def < (x: Int)   : Boolean = x > 0 & toLong >= 0 & toLong < x
+	@inline def < (x: Long)  : Boolean = x > 0 & toLong >= 0 & toLong < x
 	@inline def < (x: Float) : Boolean = toFloat < x
 	@inline def < (x: Double): Boolean = toDouble < x
-	@inline def <=(x: Byte)  : Boolean = x >= 0 & asLong >= 0 & asLong <= x
-	@inline def <=(x: Short) : Boolean = x >= 0 & asLong >= 0 & asLong <= x
-	@inline def <=(x: Char)  : Boolean = asLong >= 0 & asLong <= x
-	@inline def <=(x: Int)   : Boolean = x >= 0 & asLong >= 0 & asLong <= x
-	@inline def <=(x: Long)  : Boolean = x >= 0 & asLong >= 0 & asLong <= x
+	@inline def <=(x: Byte)  : Boolean = x >= 0 & toLong >= 0 & toLong <= x
+	@inline def <=(x: Short) : Boolean = x >= 0 & toLong >= 0 & toLong <= x
+	@inline def <=(x: Char)  : Boolean = toLong >= 0 & toLong <= x
+	@inline def <=(x: Int)   : Boolean = x >= 0 & toLong >= 0 & toLong <= x
+	@inline def <=(x: Long)  : Boolean = x >= 0 & toLong >= 0 & toLong <= x
 	@inline def <=(x: Float) : Boolean = toFloat <= x
 	@inline def <=(x: Double): Boolean = toDouble <= x
-	@inline def > (x: Byte)  : Boolean = x < 0 | asLong < 0 | asLong > x
-	@inline def > (x: Short) : Boolean = x < 0 | asLong < 0 | asLong > x
-	@inline def > (x: Char)  : Boolean = asLong < 0 | asLong > x
-	@inline def > (x: Int)   : Boolean = x < 0 | asLong < 0 | asLong > x
-	@inline def > (x: Long)  : Boolean = x < 0 | asLong < 0 | asLong > x
+	@inline def > (x: Byte)  : Boolean = x < 0 | toLong < 0 | toLong > x
+	@inline def > (x: Short) : Boolean = x < 0 | toLong < 0 | toLong > x
+	@inline def > (x: Char)  : Boolean = toLong < 0 | toLong > x
+	@inline def > (x: Int)   : Boolean = x < 0 | toLong < 0 | toLong > x
+	@inline def > (x: Long)  : Boolean = x < 0 | toLong < 0 | toLong > x
 	@inline def > (x: Float) : Boolean = toFloat > x
 	@inline def > (x: Double): Boolean = toDouble > x
-	@inline def >=(x: Byte)  : Boolean = x < 0 | asLong < 0 | asLong >= x
-	@inline def >=(x: Short) : Boolean = x < 0 | asLong < 0 | asLong >= x
-	@inline def >=(x: Char)  : Boolean = asLong < 0 | asLong >= x
-	@inline def >=(x: Int)   : Boolean = x < 0 | asLong < 0 | asLong >= x
-	@inline def >=(x: Long)  : Boolean = x < 0 | asLong < 0 | asLong >= x
+	@inline def >=(x: Byte)  : Boolean = x < 0 | toLong < 0 | toLong >= x
+	@inline def >=(x: Short) : Boolean = x < 0 | toLong < 0 | toLong >= x
+	@inline def >=(x: Char)  : Boolean = toLong < 0 | toLong >= x
+	@inline def >=(x: Int)   : Boolean = x < 0 | toLong < 0 | toLong >= x
+	@inline def >=(x: Long)  : Boolean = x < 0 | toLong < 0 | toLong >= x
 	@inline def >=(x: Float) : Boolean = toFloat >= x
 	@inline def >=(x: Double): Boolean = toDouble >= x
 
-	@inline def compare(other: ULong) :Int = jl.Long.compare(asLong + MinValue, other.asLong + MinValue)
+	@inline def compare(other: ULong) :Int = jl.Long.compare(toLong + MinValue, other.toLong + MinValue)
 
-	@inline def min(other: ULong): ULong = new ULong(jl.Math.min(asLong + MinValue, other.asLong + MinValue) - MinValue)
-	@inline def max(other: ULong): ULong = new ULong(jl.Math.max(asLong + MinValue, other.asLong + MinValue) - MinValue)
+	@inline def min(other: ULong): ULong = new ULong(jl.Math.min(toLong + MinValue, other.toLong + MinValue) - MinValue)
+	@inline def max(other: ULong): ULong = new ULong(jl.Math.max(toLong + MinValue, other.toLong + MinValue) - MinValue)
 
-//	@inline def |(x: Byte) : ULong = new ULong(asLong | x)
-//	@inline def |(x: Short): ULong = new ULong(asLong | x)
-//	@inline def |(x: Char) : ULong = new ULong(asLong | x)
-//	@inline def |(x: Int)  : ULong = new ULong(asLong | x)
-	@inline def |(x: Long) : ULong = new ULong(asLong | x)
-//	@inline def &(x: Byte) : ULong = new ULong(asLong & x)
-//	@inline def &(x: Short): ULong = new ULong(asLong & x)
-//	@inline def &(x: Char) : ULong = new ULong(asLong & x)
-//	@inline def &(x: Int)  : ULong = new ULong(asLong & x)
-	@inline def &(x: Long) : ULong = new ULong(asLong & x)
-//	@inline def ^(x: Byte) : ULong = new ULong(asLong ^ x)
-//	@inline def ^(x: Short): ULong = new ULong(asLong ^ x)
-//	@inline def ^(x: Char) : ULong = new ULong(asLong ^ x)
-//	@inline def ^(x: Int)  : ULong = new ULong(asLong ^ x)
-	@inline def ^(x: Long) : ULong = new ULong(asLong ^ x)
+	@inline def |(x: Long) : ULong = new ULong(toLong | x)
+	@inline def &(x: Long) : ULong = new ULong(toLong & x)
+	@inline def ^(x: Long) : ULong = new ULong(toLong ^ x)
 
-//	@inline def +(x: Byte)  : ULong  = new ULong(asLong + x)
-//	@inline def +(x: Short) : ULong  = new ULong(asLong + x)
-	@inline def +(x: Char)  : ULong  = new ULong(asLong + x)
-//	@inline def +(x: Int)   : ULong  = new ULong(asLong + x)
-//	@inline def +(x: Long)  : ULong  = new ULong(asLong + x)
-	@inline def +(x: UInt)  : ULong  = new ULong(asLong + x.toLong)
-	@inline def +(x: ULong) : ULong  = new ULong(asLong + x.asLong)
+	@inline def +(x: Char)  : ULong  = new ULong(toLong + x)
+	@inline def +(x: UInt)  : ULong  = new ULong(toLong + x.toLong)
+	@inline def +(x: ULong) : ULong  = new ULong(toLong + x.toLong)
 	@inline def +(x: Float) : Float  = toFloat + x
 	@inline def +(x: Double): Double = toDouble + x
-//	@inline def -(x: Byte)  : ULong  = new ULong(asLong - x)
-//	@inline def -(x: Short) : ULong  = new ULong(asLong - x)
-	@inline def -(x: Char)  : ULong  = new ULong(asLong - x)
-//	@inline def -(x: Int)   : ULong  = new ULong(asLong - x)
-//	@inline def -(x: Long)  : ULong  = new ULong(asLong - x)
-	@inline def -(x: UInt)  : ULong  = new ULong(asLong - x.toLong)
-	@inline def -(x: ULong) : ULong  = new ULong(asLong - x.asLong)
+	@inline def -(x: Char)  : ULong  = new ULong(toLong - x)
+	@inline def -(x: UInt)  : ULong  = new ULong(toLong - x.toLong)
+	@inline def -(x: ULong) : ULong  = new ULong(toLong - x.toLong)
 	@inline def -(x: Float) : Float  = toFloat - x
 	@inline def -(x: Double): Double = toDouble - x
-	//consider: should these check if x is non negative?
-//	@inline def *(x: Byte)  : ULong  = new ULong(asLong * x)
-//	@inline def *(x: Short) : ULong  = new ULong(asLong * x)
-	@inline def *(x: Char)  : ULong  = new ULong(asLong * x)
-//	@inline def *(x: Int)   : ULong  = new ULong(asLong * x)
-//	@inline def *(x: Long)  : ULong  = new ULong(asLong * x)
-	@inline def *(x: UInt)  : ULong  = new ULong(asLong * x.toLong)
-	@inline def *(x: ULong) : ULong  = new ULong(asLong * x.asLong)
+
+	@inline def *(x: Char)  : ULong  = new ULong(toLong * x)
+	@inline def *(x: UInt)  : ULong  = new ULong(toLong * x.toLong)
+	@inline def *(x: ULong) : ULong  = new ULong(toLong * x.toLong)
 	@inline def *(x: Float) : Float  = toFloat * x
 	@inline def *(x: Double): Double = toDouble * x
-//	@inline def /(x: Byte)  : ULong  = new ULong(asLong / x)
-//	@inline def /(x: Short) : ULong  = new ULong(asLong / x)
-	@inline def /(x: Char)  : ULong  = new ULong(asLong / x)
-//	@inline def /(x: Int)   : ULong  = new ULong(asLong / x)
-//	@inline def /(x: Long)  : ULong  = new ULong(asLong / x)
-	@inline def /(x: UInt)  : ULong  = new ULong(asLong / x.toLong)
-	@inline def /(x: ULong) : ULong  = new ULong(asLong / x.asLong)
+	@inline def /(x: Char)  : ULong  = new ULong(jl.Long.divideUnsigned(toLong, x))
+	@inline def /(x: UInt)  : ULong  = new ULong(jl.Long.divideUnsigned(toLong, x.toLong))
+	@inline def /(x: ULong) : ULong  = new ULong(jl.Long.divideUnsigned(toLong, x.toLong))
 	@inline def /(x: Float) : Float  = toFloat / x
 	@inline def /(x: Double): Double = toDouble / x
-//	@inline def %(x: Byte)  : ULong  = new ULong(asLong % x)
-//	@inline def %(x: Short) : ULong  = new ULong(asLong % x)
-	@inline def %(x: Char)  : ULong  = new ULong(asLong % x)
-//	@inline def %(x: Int)   : ULong  = new ULong(asLong % x)
-//	@inline def %(x: Long)  : ULong  = new ULong(asLong % x)
-	@inline def %(x :UInt)  : ULong  = new ULong(asLong % x.toLong)
-	@inline def %(x :ULong) : ULong  = new ULong(asLong % x.asLong)
+	@inline def %(x: Char)  : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x))
+	@inline def %(x :UInt)  : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x.toLong))
+	@inline def %(x :ULong) : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x.toLong))
 	@inline def %(x: Float) : Float  = toFloat % x
 	@inline def %(x: Double): Double = toDouble % x
+	@inline def **(n: Int)  : ULong  = new ULong(toLong.pow(n))
 
 	type ResultWithoutStep = NumericRange[ULong]
 	@inline def to(end: ULong): NumericRange.Inclusive[ULong] = //I have no idea why scalac doesn't see this implicit
@@ -223,7 +228,7 @@ class ULong private[numeric] (private val asLong :Long)
 		throw new ArithmeticException("Value " + this + " is out of" + typeName + " range.")
 
 	@inline private[numeric] def testRange(max :Int, typeName :String) :Unit =
-		if (asLong + MinValue > max + MinValue)
+		if (toLong + MinValue > max + MinValue)
 			outOfRange(typeName)
 }
 
@@ -232,17 +237,19 @@ class ULong private[numeric] (private val asLong :Long)
 
 @SerialVersionUID(Ver)
 object ULong {
+	/** `2`^64^` - 1 == 18_446_744_073_709_551_615`. */
 	final val MaxValue = new ULong(0xffffffffffffffffL)
+	/** Zero. */
 	final val MinValue = new ULong(0L)
 
 	@throws[IllegalArgumentException]("if value is negative.")
 	@inline def apply(value: Long): ULong =
-		if (value < 0L) throw new IllegalArgumentException("negative value: " + value)
+		if (value < 0L) throwIllegalArgumentException(value)
 		else new ULong(value)
 
 	@throws[ArithmeticException]("if value is negative.")
 	@inline def from(value: Long): ULong =
-		if (value < 0L) throw new ArithmeticException("negative value: " + value)
+		if (value < 0L) throwArithmeticException(value)
 		else new ULong(value)
 
 	@throws[NumberFormatException]("if the string does not contain a Long value, or it is negative.")
@@ -251,7 +258,7 @@ object ULong {
 	@inline def decode(string: String): ULong = {
 		val int = jl.Long.decode(string)
 		if (int < 0L)
-			throw new NumberFormatException(string + " is negative")
+			throwNumberFormatException(string)
 		new ULong(int)
 	}
 
@@ -261,9 +268,19 @@ object ULong {
 			case _ => Lack
 		}
 
+	private[numeric] def throwArithmeticException(value :Long) :Nothing =
+		throw new ArithmeticException("negative value: " + value)
+
+	private[numeric] def throwIllegalArgumentException(value :Long) :Nothing =
+		throw new ArithmeticException("negative value: " + value)
+
+	private[numeric] def throwNumberFormatException(value :String) :Nothing =
+		throw new ArithmeticException("negative value: " + value)
+
+
 	@SerialVersionUID(Ver)
 	object conversions {
-		@inline implicit def ULongToLong(number: ULong): Long = number.asLong
+		@inline implicit def ULongToLong(number: ULong): Long = number.toLong
 		@inline implicit def LongToULong(number: Long): ULong = new ULong(number)
 		@inline implicit def checkedULongToLong(number: ULong): Long = number.toLong
 		@inline implicit def checkedLongToULong(number: Long): ULong = ULong.from(number)
@@ -286,7 +303,7 @@ object ULong {
 		override def toFloat(x: ULong): Float = x.toFloat
 		override def toDouble(x: ULong): Double = x.toDouble
 		override def compare(x: ULong, y: ULong) :Int =
-			jl.Long.compare(x.asLong + Long.MinValue, y.asLong + Long.MinValue)
+			jl.Long.compare(x.toLong + Long.MinValue, y.toLong + Long.MinValue)
 	}
 	@SerialVersionUID(Ver)
 	implicit object ULongIsIntegral extends ULongIsNumeric with Integral[ULong] {
@@ -297,6 +314,14 @@ object ULong {
 	object ULongAsIfFractional extends ULongIsNumeric with Fractional[ULong] {
 		override def div(x: ULong, y: ULong): ULong = x / y
 	}
+
+	private final val FloatMaxLongTimes2          = Long.MaxValue.toFloat * 2.0f
+	private final val DoubleMaxLongTimes2         = Long.MaxValue.toDouble * 2.0
+	private final val BigIntMaxLongTimes2         = BigInt(Long.MaxValue) * 2
+	private final val BigIntegerMaxLongTimes2     = BigIntMaxLongTimes2.bigInteger
+	private final val BigDecimalMaxLongTimes2     = BigDecimal(BigIntMaxLongTimes2)
+	private final val JavaBigDecimalMaxLongTimes2 = BigDecimalMaxLongTimes2.bigDecimal
+	private final val Decimal64MaxLongTimes2      = Decimal64.round(Long.MaxValue) * 2
 }
 
 

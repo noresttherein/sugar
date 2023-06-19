@@ -10,7 +10,7 @@ import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.exceptions.InternalException
-import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxLongValueLog, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
+import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
 import net.noresttherein.sugar.oops
@@ -42,7 +42,7 @@ import net.noresttherein.sugar.witness.Maybe
   *      on the wrapped `Long`.
   *   1. Because of the above, the unscaled value and scale are not exposed to the application.
   *      Instead, instances of `Decimal64` are represented on a more abstract level as
-  *      [[net.noresttherein.sugar.numeric.Decimal64.significand significand]]`*10^`[[net.noresttherein.sugar.numeric.Decimal64.exponent exponent]].
+  *      [[net.noresttherein.sugar.numeric.Decimal64.significand significand]]`*10`^[[net.noresttherein.sugar.numeric.Decimal64.exponent exponent]]^.
   *      To compensate, it introduces properties [[net.noresttherein.sugar.numeric.Decimal64.precision precision]],
   *      [[net.noresttherein.sugar.numeric.Decimal64.fractionalDigits fractionalDigits]] and
   *      [[net.noresttherein.sugar.numeric.Decimal64.wholeDigits wholeDigits]].
@@ -65,9 +65,10 @@ import net.noresttherein.sugar.witness.Maybe
   *      specify this behaviour, with [[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
   *      (equal to [[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedHalfEven ExtendedHalfEven]])
   *      being the default mode used if no `MathContext` is provided, explicitly or implicitly.
-  *   1. Some secondary methods, most notably round, have different signatures and slightly different semantics
-  *      than their official counterparts, mostly due to the difference in the above point.
-  *   1. Among additional methods not available on its alternatives, there are dedicated ''operationExact'' methods
+  *   1. Some secondary methods, most notably [[net.noresttherein.sugar.numeric.Decimal64.round round]],
+  *      have different signatures and slightly different semantics than their official counterparts,
+  *      mostly due to the difference from the point above.
+  *   1. Among additional methods not available for its alternatives, there are dedicated ''operationExact'' methods
   *      which behave as Scala/Java `BigDecimal` with an [[java.math.MathContext.UNLIMITED UNLIMITED]] context.
   *   1. All operations for which this class does not throw an exception, with the provision for the mentioned
   *      slight differences in signatures and `MathContext` handling, will return values equal (nominally,
@@ -105,7 +106,7 @@ class Decimal64 private (private val bits :Long)
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.scale scale]]
 	  * @see [[net.noresttherein.sugar.numeric.Decimal64.significand coefficient]]
 	  **/
-	@inline private[numeric] def unscaled :Long = bits >> ScaleBits
+	@inline private def unscaled :Long = bits >> ScaleBits
 
 	/** The scale of this `Decimal64`, that is the number of fractional digits in the decimal representation
 	  * of this number (if this value has a fractional part), or the negated number of zeros following
@@ -118,7 +119,7 @@ class Decimal64 private (private val bits :Long)
 	  * (`[`[[net.noresttherein.sugar.numeric.Decimal64.MinScale MinScale]]..[[net.noresttherein.sugar.numeric.Decimal64.MaxScale MaxScale]]`]`).
 	  * The scale of zero is zero.
 	  **/ //the implementation typically immediately negates it to get the exponent, as it's more intuitive that way
-	@inline private[numeric] def scale :Int = (bits << SignificandBits >> SignificandBits).toInt
+	@inline private def scale :Int = (bits << SignificandBits >> SignificandBits).toInt
 
 	/** The [[net.noresttherein.sugar.numeric.Decimal64.unscaled unscaled]] value of this decimal divided
 	  * by its maximal power of ten divisor.
@@ -865,8 +866,9 @@ class Decimal64 private (private val bits :Long)
 	  * that [[java.math.BigDecimal BigDecimal]] may use higher precision for these calculations than what is available
 	  * to `Decimal64`, make it impossible to duplicate the results of the former exactly,
 	  * especially that the latter also guarantees accuracy only to two units in the last place.
-	  * The results of the two implementations may thus differ on the last digit. For the same reason,
-	  * if `mode.getRounding == UNNECESSARY`, then in some cases either of the algorithms
+	  * The results of the two implementations may thus differ on the last digit. The theoretical upper bound
+	  * on the error is `log`_2_`n` ulps (units in the last place), but tests show results within a single ulp.
+	  * For the same reason, if `mode.getRounding == UNNECESSARY`, then in some cases either of the algorithms
 	  * may throw an [[ArithmeticException]], where other does not. However, for precisions lower than `16` and small
 	  * exponents, this algorithm will be actually more precise, the more the lower the requested precision,
 	  * due to how temporary precision is calculated by `BigDecimal`.
@@ -898,7 +900,7 @@ class Decimal64 private (private val bits :Long)
 					case _ => toMaxDigits(HALF_DOWN)
 				}
 				var res = One
-				var i   = Integer.highestOneBit(n)
+				var i   = 32 - Integer.numberOfLeadingZeros(n)  //< 32 because exp >= 0
 				while (i >= 0) {
 					res = res.times(res, mode1)
 					val m = mode1; mode1 = mode2; mode2 = m
@@ -1076,6 +1078,12 @@ class Decimal64 private (private val bits :Long)
 	def isValidLong :Boolean =
 		scale <= 0 && this >= MinLongValue && this >= MaxLongValue
 
+	def isValidUInt :Boolean =
+		(bits & Long.MinValue) == 0L && scale <= 0 && this <= Decimal64.MaxUInt
+
+	def isValidULong :Boolean =
+		(bits & Long.MinValue) == 0L && scale <= 0 && this <= Decimal64.MaxULong
+
 	@inline override def toChar   :Char   = intValue.toChar
 	@inline override def toByte   :Byte   = intValue.toByte
 	@inline override def toShort  :Short  = intValue.toShort
@@ -1083,6 +1091,9 @@ class Decimal64 private (private val bits :Long)
 	@inline override def toLong   :Long   = longValue
 	@inline override def toFloat  :Float  = floatValue
 	@inline override def toDouble :Double = doubleValue
+
+	def toUInt  :UInt  = new UInt(longValue.toInt)
+	def toULong	:ULong = new ULong(longValue)
 
 	def toBigInt :BigInt = whole.toBigIntExact
 
@@ -1128,14 +1139,21 @@ class Decimal64 private (private val bits :Long)
 			throw new ArithmeticException("Decimal64 " + this + " is not a Float.")
 		res
 	}
-
 	def toDoubleExact :Double = {
 		val res = exactDouble
 		if (res != res)
 			throw new ArithmeticException("Decimal64 " + this + " is not a Double.")
 		res
 	}
-		
+
+	def toUIntExact :UInt =
+		if (isValidUInt) toUInt
+		else throw new ArithmeticException("Decimal64 " + this + " is not an UInt.")
+
+	def toULongExact :ULong =
+		if (isValidLong) toULong
+		else throw new ArithmeticException("Decimal64" + this + " is not an ULong")
+
 	
 	def toBigIntExact :BigInt = BigInt(toBigIntegerExact)
 
@@ -1144,7 +1162,7 @@ class Decimal64 private (private val bits :Long)
 		else throw new ArithmeticException("Decimal64 " + this + " is not an integer.")
 
 	def toIntRatioExact :IntRatio = IntRatio(numerator.toIntExact, denominator.toIntExact)
-	def toRatioExact :Ratio = Ratio(numerator.toLongExact, denominator.toLongExact)
+	def toRatioExact    :Ratio    = Ratio(numerator.toLongExact, denominator.toLongExact)
 
 	def toBigDecimalExact :BigDecimal = toBigDecimal(toMaxDigits(UNNECESSARY))
 
@@ -1385,7 +1403,7 @@ object Decimal64 {
 	/** The maximum value of a significand within `Decimal64`'s precision.
 	  * All `Long` values in range `[MinUnscaled, MaxUnscaled]` can be represented exactly as `Decimal64`.
 	  **/ //the first digit is 3; this is helpful when determining a rounding direction
-	final val MaxUnscaled  = 0x7fffffffffffffL
+	final val MaxUnscaled  = 0x007fffffffffffffL
 	/** The minimum (negative) value of a significand within `Decimal64`'s precision.
 	  * All `Long` values in range `[MinUnscaled, MaxUnscaled]` can be represented exactly as `Decimal64`.
 	  **/ //the first digit is 3; this is helpful when determining a rounding direction
@@ -1431,14 +1449,16 @@ object Decimal64 {
 	private final val MaxExponent = -MinScale
 //	private final val MinExponent = -MaxScale
 
-	/** The exponent of the maximum Decimal64 representable exactly as a `Long`. */
-	private final val MaxLongValueLog = 3
-
 	/** Largest precision to which any number can be represented as a `Long` (`18`).
 	  * It is the maximum power of `10` under `Long` precision. */
 	private final val LongPrecision = 18
 	/** Maximum possible number of digits a `Long` value can have (`19`). */
 	private final val MaxLongPrecision = 19
+
+	/** The exponent of the maximum Decimal64 representable exactly as a `Long`. */
+	private final val MaxLongValueLog = 3L
+	/** `10`^`MaxLongValueLog`^. */
+	private final val MaxLongValueRounding = 1000L
 
 	/** The largest `Decimal64` which can be represented exactly as a `Long`. All instances
 	  * [[net.noresttherein.sugar.numeric.Decimal64.MinLongValue MinLongValue]]` <= decimal <= MaxLongValue`
@@ -1447,7 +1467,7 @@ object Decimal64 {
 	  * all lesser values (greater or equal to [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]])
 	  * are representable exactly as `Long` values.
 	  **/
-	final val MaxLongValue = new Decimal64(Long.MaxValue / 1000L << ScaleBits | -MaxLongValueLog & ScaleMask)
+	final val MaxLongValue = new Decimal64(Long.MaxValue / MaxLongValueRounding << ScaleBits | -MaxLongValueLog & ScaleMask)
 
 	/** The smallest (negative) `Decimal64` which can be represented exactly as a `Long`. All instances
 	  * `MinLongValue <= decimal <= `[[net.noresttherein.sugar.numeric.Decimal64.MaxLongValue MaxLongValue]]
@@ -1456,7 +1476,7 @@ object Decimal64 {
 	  * all greater values (lesser or equal to [[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]])
 	  * are representable exactly as `Long` values.
 	  **/
-	final val MinLongValue = new Decimal64(Long.MinValue / 1000L << ScaleBits | -MaxLongValueLog & ScaleMask)
+	final val MinLongValue = new Decimal64(Long.MinValue / MaxLongValueRounding << ScaleBits | -MaxLongValueLog & ScaleMask)
 
 
 	/** [[java.math.MathContext MathContext]] constants with various rounding modes and precision of 16 or maximum digits.
@@ -1761,8 +1781,10 @@ object Decimal64 {
 	private final val MaxLongPowerOf10     = 1000000000000000000L
 	/** The maximum power of 10 (value, not exponent) lesser than `MaxUnscaled`, i.e. `10^16`. */
 	private final val MaxUnscaledPowerOf10 = 10000000000000000L
-	private final val MaxInt = Decimal64(Int.MaxValue)
-	private final val MinInt = Decimal64(Int.MinValue)
+	private final val MaxInt   = new Decimal64(((1L << 31) - 1L) << ScaleBits)
+	private final val MinInt   = new Decimal64(0xffffffff80000000L << ScaleBits)
+	private final val MaxUInt  = new Decimal64(0xffffffffL << ScaleBits)
+	private final val MaxULong = new Decimal64((Long.MaxValue / 10L << 1) / 100L << ScaleBits | MaxLongValueLog & ScaleMask)
 	private final val BigMaxUnscaled = BigInteger.valueOf(MaxUnscaled)
 	private final val BigMinUnscaled = BigInteger.valueOf(MinUnscaled)
 	private final val BigMaxLong     = BigInteger.valueOf(Long.MaxValue)
@@ -2032,7 +2054,9 @@ object Decimal64 {
 	  * of `Decimal64`.
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64.")
-	@inline def apply(big :BigDecimal) :Decimal64 = Decimal64(big.bigDecimal, big.mc)
+	def apply(big :BigDecimal) :Decimal64 =
+		if (big.mc.getPrecision == 0) Decimal64(big.bigDecimal, ExtendedExact)
+		else Decimal64(big.bigDecimal, big.mc)
 
 	/** Creates a `Decimal64` by rounding the given [[scala.math.BigDecimal]] to the maximum
 	  * available precision of `16` or `17` digits, depending on the value of the significand.

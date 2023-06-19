@@ -1,11 +1,13 @@
 package net.noresttherein.sugar.numeric
 
+import java.math.{BigInteger, BigDecimal=>JavaBigDecimal}
 import java.{lang => jl}
 
 import scala.Int.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -30,7 +32,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * will return `UInt.MaxValue`.
   *
   * Arithmetic with `Int` is not provided by default, as it is not clear which type should be converted
-  * to another. The same applies to implicit conversions between these types.
+  * to another, as both conversions may overflow/underflow. The same applies to implicit conversions between these types.
   * For this purpose, either use `Long` (to which `UInt` is automatically converted), explicitly convert
   * either of the values to the other type, or import one of the conversions
   *   - [[net.noresttherein.sugar.numeric.UInt.conversions.UIntToInt]], or
@@ -38,154 +40,148 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class UInt private[numeric] (private val asInt :Int)
+class UInt private[numeric] (override val toInt :Int)
 	extends AnyVal with Ordered[UInt] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
-	@inline override def isValidByte : Boolean = (asInt & 0x7f) == asInt
-	@inline override def isValidShort: Boolean = (asInt & 0x7fff) == asInt
-	@inline override def isValidChar : Boolean = (asInt & 0x7fff) == asInt
-	@inline override def isValidInt  : Boolean = true
+	@inline override def isValidByte : Boolean = (toInt & 0x7f) == toInt
+	@inline override def isValidShort: Boolean = (toInt & 0x7fff) == toInt
+	@inline override def isValidChar : Boolean = (toInt & 0x7fff) == toInt
+	@inline override def isValidInt  : Boolean = toInt >= 0
 
-	@inline override def byteValue  : Byte    = asInt.toByte
-	@inline override def shortValue : Short   = asInt.toShort
-	@inline override def intValue   : Int     = asInt
-	@inline override def longValue  : Long    = asInt & 0xffffffffL
-	@inline override def floatValue : Float   = (asInt & 0xffffffffL).toFloat
-	@inline override def doubleValue: Double  = (asInt & 0xffffffffL).toDouble
-	@inline def charValue: Char = asInt.toChar
-//
-//	@inline def asByte   : Byte   = asInt.toByte
-//	@inline def asShort  : Short  = asInt.toShort
-//	@inline def asChar   : Char   = asInt.toChar
-//	@inline def asLong   : Long   = asInt & 0xffffffffL
-//	@inline def asFloat  : Float  = (asInt & 0xffffffffL).toFloat
-//	@inline def asDouble : Double = (asInt & 0xffffffffL).toDouble
+	@inline override def byteValue  : Byte    = toInt.toByte
+	@inline override def shortValue : Short   = toInt.toShort
+	@inline override def intValue   : Int     = toInt
+	@inline override def longValue  : Long    = toInt & 0xffffffffL
+	@inline override def floatValue : Float   = (toInt & 0xffffffffL).toFloat
+	@inline override def doubleValue: Double  = (toInt & 0xffffffffL).toDouble
+	@inline def charValue: Char = toInt.toChar
 
-	@inline override def toByte   : Byte   = { testRange(Byte.MaxValue, "Byte"); asInt.toByte }
-	@inline override def toShort  : Short  = { testRange(Short.MaxValue, "Short"); asInt.toShort }
-	@inline override def toChar   : Char   = { testRange(Char.MaxValue, "Char"); asInt.toChar }
-	@inline override def toInt    : Int    = { if (asInt < 0) underflow("toInt"); asInt }
-	@inline override def toLong   : Long   = asInt.toLong
-	@inline override def toFloat  : Float  = asInt.toLong.toFloat
-	@inline override def toDouble : Double = asInt.toLong.toDouble
+	@inline override def toByte  : Byte  = toInt.toByte
+	@inline override def toShort : Short = toInt.toShort
+	@inline override def toLong  : Long   = toInt.toLong
+	@inline override def toFloat : Float  = toInt.toLong.toFloat
+	@inline override def toDouble: Double = toInt.toLong.toDouble
+
+	@inline def toByteExact : Byte   = { testRange(Byte.MaxValue, "Byte"); toInt.toByte }
+	@inline def toShortExact: Short  = { testRange(Short.MaxValue, "Short"); toInt.toShort }
+	@inline def toCharExact : Char   = { testRange(Char.MaxValue, "Char"); toInt.toChar }
+	@inline def toIntExact  : Int    = { if (toInt < 0) underflow("toInt"); toInt }
+
 	/** Returns `asInt == 0`. */
-	@inline def toBoolean: Boolean = asInt != 0
+	@inline def toBoolean       : Boolean        = toInt != 0
+	@inline def toBigInt        : BigInt         = BigInt(toInt & 0xffffffffL)
+	@inline def toBigInteger    : BigInteger     = BigInteger.valueOf(toInt & 0xffffffffL)
+	@inline def toBigDecimal    : BigDecimal     = BigDecimal(toInt & 0xffffffffL)
+	@inline def toJavaBigDecimal: JavaBigDecimal = JavaBigDecimal.valueOf(toInt & 0xffffffffL)
 
-	@inline def toString(radix: Int): String = jl.Integer.toUnsignedString(asInt, radix)
-	@inline override def toString   : String = String.valueOf(asInt & 0xffffffffL)
-	@inline def toBinaryString      : String = jl.Integer.toBinaryString(asInt)
-	@inline def toOctalString       : String = jl.Integer.toOctalString(asInt)
-	@inline def toHexString         : String = jl.Integer.toHexString(asInt)
+	@inline def toDecimal64: Decimal64 = Decimal64(toInt & 0xffffffffL)
+	@inline def toULong    : ULong     = new ULong(toInt & 0xffffffffL)
+	@inline def toSafeInt  : SafeInt   = new SafeInt(toIntExact)
+	@inline def toSafeLong : SafeLong  = new SafeLong(toInt & 0xffffffffL)
+	@inline def toIntRatio : IntRatio  = IntRatio(toInt)
+	@inline def toRatio    : Ratio     = Ratio(toInt & 0xffffffffL)
+
+	@inline override def toString   : String = String.valueOf(toInt & 0xffffffffL)
+	@inline def toString(radix: Int): String = jl.Integer.toUnsignedString(toInt, radix)
+	@inline def toBinaryString      : String = jl.Integer.toBinaryString(toInt)
+	@inline def toOctalString       : String = jl.Integer.toOctalString(toInt)
+	@inline def toHexString         : String = jl.Integer.toHexString(toInt)
 
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
-	@inline def +(x: String): String = asInt.toString + x
+	@inline def +(x: String): String = toInt.toString + x
 
-	@inline def <<(x: Int)  : UInt = new UInt(asInt << x)
-	@inline def >>>(x: Int) : UInt = new UInt(asInt >>> x)
-	@inline def >>(x: Int)  : UInt = new UInt(asInt >> x)
+	@inline def <<(x: Int)  : UInt = new UInt(toInt << x)
+	@inline def >>>(x: Int) : UInt = new UInt(toInt >>> x)
+	@inline def >>(x: Int)  : UInt = new UInt(toInt >> x)
 
-	@inline def ==(x: Byte)  : Boolean = asInt >= 0 & asInt == x
-	@inline def ==(x: Short) : Boolean = asInt >= 0 & asInt == x
-	@inline def ==(x: Char)  : Boolean = asInt == x
-	@inline def ==(x: Int)   : Boolean = asInt >= 0 & asInt == x
-	@inline def ==(x: Long)  : Boolean = (asInt & 0xffffffffL) == x
-	@inline def ==(x: Float) : Boolean = (asInt & 0xffffffffL).toFloat == x
-	@inline def ==(x: Double): Boolean = (asInt & 0xffffffffL).toDouble == x
-	@inline def !=(x: Byte)  : Boolean = asInt < 0 | asInt != x
-	@inline def !=(x: Short) : Boolean = asInt < 0 | asInt != x
-	@inline def !=(x: Char)  : Boolean = asInt < 0 | asInt != x
-	@inline def !=(x: Int)   : Boolean = asInt != x
-	@inline def !=(x: Long)  : Boolean = (asInt & 0xffffffffL) != x
-	@inline def !=(x: Float) : Boolean = (asInt & 0xffffffffL).toFloat != x
-	@inline def !=(x: Double): Boolean = (asInt & 0xffffffffL).toDouble != x
+	//Consider: the problem with all these comparisons is that they exclude UInt, which is handled by methods
+	// inherited from Ordered. This works, because the erased signature is >(x :Object).
+	// Unfortunately, it also means that it boxes both operands.
+	// We may migrate to extension methods, but they won't work for == and !=.
+	@inline def ==(x: Byte)  : Boolean = toInt >= 0 & toInt == x
+	@inline def ==(x: Short) : Boolean = toInt >= 0 & toInt == x
+	@inline def ==(x: Char)  : Boolean = toInt == x
+	@inline def ==(x: Int)   : Boolean = toInt >= 0 & toInt == x
+	@inline def ==(x: Long)  : Boolean = (toInt & 0xffffffffL) == x
+	@inline def ==(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat == x
+	@inline def ==(x: Double): Boolean = (toInt & 0xffffffffL).toDouble == x
+	@inline def !=(x: Byte)  : Boolean = toInt < 0 | toInt != x
+	@inline def !=(x: Short) : Boolean = toInt < 0 | toInt != x
+	@inline def !=(x: Char)  : Boolean = toInt < 0 | toInt != x
+	@inline def !=(x: Int)   : Boolean = toInt != x
+	@inline def !=(x: Long)  : Boolean = (toInt & 0xffffffffL) != x
+	@inline def !=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat != x
+	@inline def !=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble != x
 
-	@inline def < (x: Byte)  : Boolean = x > 0 & asInt > 0 & asInt < x
-	@inline def < (x: Short) : Boolean = x > 0 & asInt > 0 & asInt < x
-	@inline def < (x: Char)  : Boolean = x > 0 & asInt > 0 & asInt < x
-	@inline def < (x: Int)   : Boolean = x > 0 & asInt > 0 & asInt < x
-	@inline def < (x: Long)  : Boolean = (asInt & 0xffffffffL) < x
-	@inline def < (x: Float) : Boolean = (asInt & 0xffffffffL).toFloat < x
-	@inline def < (x: Double): Boolean = (asInt & 0xffffffffL).toDouble < x
-	@inline def <=(x: Byte)  : Boolean = x >= 0 & asInt >= 0 & asInt <= x
-	@inline def <=(x: Short) : Boolean = x >= 0 & asInt >= 0 & asInt <= x
-	@inline def <=(x: Char)  : Boolean = asInt >= 0 & asInt <= x
-	@inline def <=(x: Int)   : Boolean = x >= 0 & asInt >= 0 & asInt <= x
-	@inline def <=(x: Long)  : Boolean = x <= (asInt & 0xffffffffL)
-	@inline def <=(x: Float) : Boolean = x <= (asInt & 0xffffffffL).toFloat
-	@inline def <=(x: Double): Boolean = x <= (asInt & 0xffffffffL).toDouble
-	@inline def > (x: Byte)  : Boolean = x < 0 | asInt < 0 | asInt > x
-	@inline def > (x: Short) : Boolean = x < 0 | asInt < 0 | asInt > x
-	@inline def > (x: Char)  : Boolean = asInt < 0 | asInt > x
-	@inline def > (x: Int)   : Boolean = x < 0 | asInt < 0 | asInt > x
-	@inline def > (x: Long)  : Boolean = (asInt & 0xffffffffL) > x
-	@inline def > (x: Float) : Boolean = (asInt & 0xffffffffL).toFloat > x
-	@inline def > (x: Double): Boolean = (asInt & 0xffffffffL).toDouble > x
-	@inline def >=(x: Byte)  : Boolean = x < 0 | asInt < 0 | asInt >= x
-	@inline def >=(x: Short) : Boolean = x < 0 | asInt < 0 | asInt >= x
-	@inline def >=(x: Char)  : Boolean = asInt < 0 | asInt >= x
-	@inline def >=(x: Int)   : Boolean = x < 0 | asInt < 0 | asInt >= x
-	@inline def >=(x: Long)  : Boolean = (asInt & 0xffffffffL) >= x
-	@inline def >=(x: Float) : Boolean = (asInt & 0xffffffffL).toFloat >= x
-	@inline def >=(x: Double): Boolean = (asInt & 0xffffffffL).toDouble >= x
+	@inline def < (x: Byte)  : Boolean = x > 0 & toInt > 0 & toInt < x
+	@inline def < (x: Short) : Boolean = x > 0 & toInt > 0 & toInt < x
+	@inline def < (x: Char)  : Boolean = x > 0 & toInt > 0 & toInt < x
+	@inline def < (x: Int)   : Boolean = x > 0 & toInt > 0 & toInt < x
+	@inline def < (x: Long)  : Boolean = (toInt & 0xffffffffL) < x
+	@inline def < (x: Float) : Boolean = (toInt & 0xffffffffL).toFloat < x
+	@inline def < (x: Double): Boolean = (toInt & 0xffffffffL).toDouble < x
+	@inline def <=(x: Byte)  : Boolean = x >= 0 & toInt >= 0 & toInt <= x
+	@inline def <=(x: Short) : Boolean = x >= 0 & toInt >= 0 & toInt <= x
+	@inline def <=(x: Char)  : Boolean = toInt >= 0 & toInt <= x
+	@inline def <=(x: Int)   : Boolean = x >= 0 & toInt >= 0 & toInt <= x
+	@inline def <=(x: Long)  : Boolean = x <= (toInt & 0xffffffffL)
+	@inline def <=(x: Float) : Boolean = x <= (toInt & 0xffffffffL).toFloat
+	@inline def <=(x: Double): Boolean = x <= (toInt & 0xffffffffL).toDouble
+	@inline def > (x: Byte)  : Boolean = x < 0 | toInt < 0 | toInt > x
+	@inline def > (x: Short) : Boolean = x < 0 | toInt < 0 | toInt > x
+	@inline def > (x: Char)  : Boolean = toInt < 0 | toInt > x
+	@inline def > (x: Int)   : Boolean = x < 0 | toInt < 0 | toInt > x
+	@inline def > (x: Long)  : Boolean = (toInt & 0xffffffffL) > x
+	@inline def > (x: Float) : Boolean = (toInt & 0xffffffffL).toFloat > x
+	@inline def > (x: Double): Boolean = (toInt & 0xffffffffL).toDouble > x
+	@inline def >=(x: Byte)  : Boolean = x < 0 | toInt < 0 | toInt >= x
+	@inline def >=(x: Short) : Boolean = x < 0 | toInt < 0 | toInt >= x
+	@inline def >=(x: Char)  : Boolean = toInt < 0 | toInt >= x
+	@inline def >=(x: Int)   : Boolean = x < 0 | toInt < 0 | toInt >= x
+	@inline def >=(x: Long)  : Boolean = (toInt & 0xffffffffL) >= x
+	@inline def >=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat >= x
+	@inline def >=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble >= x
 
-	@inline def compare(other: UInt): Int = jl.Integer.compare(asInt + MinValue, other.asInt + MinValue)
+	@inline def compare(other: UInt): Int = jl.Integer.compare(toInt + MinValue, other.toInt + MinValue)
 
-	@inline def min(other: UInt): UInt = new UInt(jl.Math.min(asInt + MinValue, other.asInt + MinValue) - MinValue)
-	@inline def max(other: UInt): UInt = new UInt(jl.Math.max(asInt + MinValue, other.asInt + MinValue) - MinValue)
+	@inline def min(other: UInt): UInt = new UInt(jl.Math.min(toInt + MinValue, other.toInt + MinValue) - MinValue)
+	@inline def max(other: UInt): UInt = new UInt(jl.Math.max(toInt + MinValue, other.toInt + MinValue) - MinValue)
 
-//	@inline def |(x: Byte) : UInt  = new UInt(asInt | x)
-//	@inline def |(x: Short): UInt  = new UInt(asInt | x)
-//	@inline def |(x: Char) : UInt  = new UInt(asInt | x)
-	@inline def |(x: Int)  : UInt  = new UInt(asInt | x)
-	@inline def |(x: Long) : Long  = asInt & 0xffffffffL | x
-//	@inline def &(x: Byte) : UInt  = new UInt(asInt & x)
-//	@inline def &(x: Short): UInt  = new UInt(asInt & x)
-//	@inline def &(x: Char) : UInt  = new UInt(asInt & x)
-	@inline def &(x: Int)  : UInt  = new UInt(asInt & x)
-	@inline def &(x: Long) : Long  = asInt & 0xffffffffL & x
-//	@inline def ^(x: Byte) : UInt  = new UInt(asInt ^ x)
-//	@inline def ^(x: Short): UInt  = new UInt(asInt ^ x)
-//	@inline def ^(x: Char) : UInt  = new UInt(asInt ^ x)
-	@inline def ^(x: Int)  : UInt  = new UInt(asInt ^ x)
-	@inline def ^(x: Long) : Long  = asInt & 0xffffffffL ^ x
+	@inline def |(x: Int)  : UInt  = new UInt(toInt | x)
+	@inline def |(x: Long) : Long  = toInt & 0xffffffffL | x
+	@inline def &(x: Int)  : UInt  = new UInt(toInt & x)
+	@inline def &(x: Long) : Long  = toInt & 0xffffffffL & x
+	@inline def ^(x: Int)  : UInt  = new UInt(toInt ^ x)
+	@inline def ^(x: Long) : Long  = toInt & 0xffffffffL ^ x
 
-//	@inline def +(x: Byte)  : UInt   = new UInt(asInt + x)
-//	@inline def +(x: Short) : UInt   = new UInt(asInt + x)
-	@inline def +(x: Char)  : UInt   = new UInt(asInt + x)
-//	@inline def +(x: Int)   : UInt   = new UInt(asInt + x)
-	@inline def +(x: Long)  : Long   = (asInt & 0xffffffffL) + x
-	@inline def +(x: Float) : Float  = (asInt & 0xffffffffL) + x
-	@inline def +(x: Double): Double = (asInt & 0xffffffffL) + x
-//	@inline def -(x: Byte)  : UInt   = new UInt(asInt - x)
-//	@inline def -(x: Short) : UInt   = new UInt(asInt - x)
-	@inline def -(x: Char)  : UInt   = new UInt(asInt - x)
-//	@inline def -(x: Int)   : UInt   = new UInt(asInt - x)
-	@inline def -(x: Long)  : Long   = (asInt & 0xffffffffL) - x
-	@inline def -(x: Float) : Float  = (asInt & 0xffffffffL) - x
-	@inline def -(x: Double): Double = (asInt & 0xffffffffL) - x
-	//consider: should these check if x is non negative?
-//	@inline def *(x: Byte)  : UInt   = new UInt(asInt * x)
-//	@inline def *(x: Short) : UInt   = new UInt(asInt * x)
-	@inline def *(x: Char)  : UInt   = new UInt(asInt * x)
-//	@inline def *(x: Int)   : UInt   = new UInt(asInt * x)
-	@inline def *(x: Long)  : Long   = (asInt & 0xffffffffL) * x
-	@inline def *(x: Float) : Float  = (asInt & 0xffffffffL) * x
-	@inline def *(x: Double): Double = (asInt & 0xffffffffL) * x
-//	@inline def /(x: Byte)  : UInt   = new UInt(asInt / x)
-//	@inline def /(x: Short) : UInt   = new UInt(asInt / x)
-	@inline def /(x: Char)  : UInt   = new UInt(asInt / x)
-//	@inline def /(x: Int)   : UInt   = new UInt(asInt / x)
-	@inline def /(x: Long)  : Long   = (asInt & 0xffffffffL) / x
-	@inline def /(x: Float) : Float  = (asInt & 0xffffffffL) / x
-	@inline def /(x: Double): Double = (asInt & 0xffffffffL) / x
-//	@inline def %(x: Byte)  : UInt   = new UInt(asInt % x)
-//	@inline def %(x: Short) : UInt   = new UInt(asInt % x)
-	@inline def %(x: Char)  : UInt   = new UInt(asInt % x)
-//	@inline def %(x: Int)   : UInt   = new UInt(asInt % x)
-	@inline def %(x: Long)  : Long   = (asInt & 0xffffffffL) % x
-	@inline def %(x: Float) : Float  = (asInt & 0xffffffffL) % x
-	@inline def %(x: Double): Double = (asInt & 0xffffffffL) % x
+	@inline def +(x: Char)  : UInt   = new UInt(toInt + x)
+	@inline def +(x: Long)  : Long   = (toInt & 0xffffffffL) + x
+	@inline def +(x: Float) : Float  = (toInt & 0xffffffffL) + x
+	@inline def +(x: Double): Double = (toInt & 0xffffffffL) + x
+	@inline def +(x: UInt)  : UInt   = new UInt(toInt + x.toInt)
+	@inline def -(x: Char)  : UInt   = new UInt(toInt - x)
+	@inline def -(x: Long)  : Long   = (toInt & 0xffffffffL) - x
+	@inline def -(x: Float) : Float  = (toInt & 0xffffffffL) - x
+	@inline def -(x: Double): Double = (toInt & 0xffffffffL) - x
+	@inline def -(x: UInt)  : UInt   = new UInt(toInt - x.toInt)
+
+	@inline def *(x: Char)  : UInt   = new UInt(toInt * x)
+	@inline def *(x: Long)  : Long   = (toInt & 0xffffffffL) * x
+	@inline def *(x: Float) : Float  = (toInt & 0xffffffffL) * x
+	@inline def *(x: Double): Double = (toInt & 0xffffffffL) * x
+	@inline def *(x: UInt)  : UInt   = new UInt(toInt * x.toInt)
+	@inline def /(x: Char)  : UInt   = new UInt(((toInt & 0xffffffffL) / x).toInt)
+	@inline def /(x: Long)  : Long   = (toInt & 0xffffffffL) / x
+	@inline def /(x: Float) : Float  = (toInt & 0xffffffffL) / x
+	@inline def /(x: Double): Double = (toInt & 0xffffffffL) / x
+	@inline def /(x: UInt)  : UInt   = new UInt(((toInt & 0xffffffffL) / (x.toInt & 0xffffffffL)).toInt)
+	@inline def %(x: Char)  : UInt   = new UInt(((toInt & 0xffffffffL) % x).toInt)
+	@inline def %(x: Long)  : Long   = (toInt & 0xffffffffL) % x
+	@inline def %(x: Float) : Float  = (toInt & 0xffffffffL) % x
+	@inline def %(x: Double): Double = (toInt & 0xffffffffL) % x
+	@inline def %(x: UInt)  : UInt   = new UInt(((toInt & 0xffffffffL) % (x.toInt & 0xffffffffL)).toInt)
+	@inline def **(n: Int)  : UInt   = new UInt(toInt.pow(n))
 
 	type ResultWithoutStep = NumericRange[UInt]
 	@inline def to(end: UInt): NumericRange.Inclusive[UInt] =
@@ -208,7 +204,7 @@ class UInt private[numeric] (private val asInt :Int)
 		throw new ArithmeticException("Value " + this + " is out of " + typeName + " range.")
 
 	@inline private[numeric] def testRange(max :Int, typeName :String) :Unit =
-		if (asInt + MinValue > max + MinValue)
+		if (toInt + MinValue > max + MinValue)
 			outOfRange(typeName)
 }
 
@@ -217,12 +213,14 @@ class UInt private[numeric] (private val asInt :Int)
 
 @SerialVersionUID(Ver)
 object UInt {
+	/** `2`^32^` - 1 == 4294967295` */
 	final val MaxValue = new UInt(0xffffffff)
+	/** Zero. */
 	final val MinValue = new UInt(0)
 
 	@throws[IllegalArgumentException]("If value is negative")
 	@inline def apply(value: Int): UInt =
-		if (value < 0) throw new IllegalArgumentException("negative value: " + value)
+		if (value < 0) throwIllegalArgumentException(value)
 		else new UInt(value)
 
 	@throws[NumberFormatException]("if the string does not contain a parsable integer, or it is negative.")
@@ -230,13 +228,13 @@ object UInt {
 
 	@throws[ArithmeticException]("If value is negative")
 	@inline def from(value: Int): UInt =
-		if (value < 0) throw new ArithmeticException("negative value: " + value)
+		if (value < 0) throwArithmeticException(value)
 		else new UInt(value)
 
 	@inline def decode(string: String): UInt = {
 		val int = jl.Integer.decode(string)
 		if (int < 0)
-			throw new NumberFormatException(string + " is negative")
+			throwNumberFormatException(string)
 		new UInt(int)
 	}
 
@@ -246,12 +244,22 @@ object UInt {
 			case _ => Lack
 		}
 
+	private[UInt] def throwArithmeticException(value :Int) :Nothing =
+		throw new ArithmeticException("negative value: " + value)
+
+	private[UInt] def throwIllegalArgumentException(value :Int) :Nothing =
+		throw new ArithmeticException("negative value: " + value)
+
+	private[UInt] def throwNumberFormatException(value :String) :Nothing =
+		throw new ArithmeticException("negative value: " + value)
+
+
 	//todo: in Scala3 create conversions from non negative Int literals
 //	@inline implicit def UIntToULong(number :UInt) :ULong = new ULong(number.asInt)
 
 	@SerialVersionUID(Ver)
 	object conversions {
-		@inline implicit def UIntToInt(number: UInt): Int = number.asInt
+		@inline implicit def UIntToInt(number: UInt): Int = number.toInt
 		@inline implicit def IntToUInt(number: Int): UInt = new UInt(number)
 		@inline implicit def checkedUIntToInt(number: UInt): Int = number.toInt
 		@inline implicit def checkedIntToUInt(number: Int): UInt = UInt.from(number)
@@ -271,7 +279,7 @@ object UInt {
 		override def toFloat(x: UInt): Float = x.toFloat
 		override def toDouble(x: UInt): Double = x.toDouble
 		override def compare(x: UInt, y: UInt): Int =
-			jl.Integer.compare(x.asInt + Int.MinValue, y.asInt + Int.MinValue)
+			jl.Integer.compare(x.toInt + Int.MinValue, y.toInt + Int.MinValue)
 	}
 	@SerialVersionUID(Ver)
 	implicit object UIntIsIntegral extends UIntIsNumeric with Integral[UInt] {

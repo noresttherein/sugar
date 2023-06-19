@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.numeric
 
+import java.math.{BigInteger, BigDecimal=>JavaBigDecimal}
 import java.{lang => jl}
 
 import scala.collection.immutable.NumericRange
@@ -14,7 +15,7 @@ import scala.math.ScalaNumericAnyConversions
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class SafeInt(override val toInt :Int)
+class SafeInt private[numeric] (override val toInt :Int)
 	extends AnyVal with Ordered[SafeInt] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
@@ -50,11 +51,19 @@ class SafeInt(override val toInt :Int)
 	@inline override def toDouble: Double = {
 		val res = toInt.toDouble; if (res.toInt != toInt) outOfPrecision("Double"); res
 	}
-	@inline def toBoolean        : Boolean  = toInt != 0
-	@inline def toSafeLong       : SafeLong = new SafeLong(toInt)
+	@inline def toBoolean        : Boolean   = toInt != 0
+	@inline def toSafeLong       : SafeLong  = new SafeLong(toInt)
+	@inline def toUInt           : UInt      = UInt(toInt)
+	@inline def toULong          : ULong     = ULong(toInt)
+	@inline def toDecimal64      : Decimal64 = Decimal64(toInt)
 
-	@inline def toString(radix :Int): String = jl.Integer.toString(toInt, radix)
+	@inline def toBigInt        : BigInt         = BigInt(toInt)
+	@inline def toBigInteger    : BigInteger     = BigInteger.valueOf(toInt)
+	@inline def toBigDecimal    : BigDecimal     = BigDecimal(toInt)
+	@inline def toJavaBigDecimal: JavaBigDecimal = JavaBigDecimal.valueOf(toInt)
+
 	@inline override def toString   : String = String.valueOf(toInt)
+	@inline def toString(radix :Int): String = jl.Integer.toString(toInt, radix)
 	@inline def toBinaryString      : String = jl.Integer.toBinaryString(toInt)
 	@inline def toOctalString       : String = jl.Integer.toOctalString(toInt)
 	@inline def toHexString         : String = jl.Integer.toHexString(toInt)
@@ -180,6 +189,23 @@ class SafeInt(override val toInt :Int)
 	@inline def %(x: Long)  : SafeInt = new SafeInt((toInt % x).toInt)
 	@inline def %(x: Float) : Float   = checkFloatResult(x, "%", toFloat % x)
 	@inline def %(x: Double): Double  = checkDoubleResult(x, "%", toDouble % x)
+	@inline def **(n: Int)  : SafeInt = pow(n)
+
+	/** Raises this `SafeInt` to the given power. If the argument is negative, `0` is returned. */
+	def pow(exp :Int) :SafeInt =
+		if (exp < 0)
+			new SafeInt(0)
+		else {
+			var res = new SafeInt(1)
+			var i   = 32 - jl.Integer.numberOfLeadingZeros(exp) //< 32 because exp >= 0
+			while (i >= 0) {
+				res = res * res
+				if ((exp >> i & 1) == 1)
+					res = res * this
+				i -= 1
+			}
+			res
+		}
 
 	type ResultWithoutStep = NumericRange[SafeInt]
 	@inline def to(end: SafeInt): NumericRange.Inclusive[SafeInt] =
