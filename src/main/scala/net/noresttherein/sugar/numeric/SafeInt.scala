@@ -134,6 +134,19 @@ class SafeInt private[numeric] (override val toInt :Int)
 	@inline def min(other :SafeInt) :SafeInt = new SafeInt(jl.Math.min(toInt, other.toInt))
 	@inline def max(other :SafeInt) :SafeInt = new SafeInt(jl.Math.max(toInt, other.toInt))
 
+	/** Returns `this max other`. */
+	@inline def atLeast(other :UInt) :SafeInt = new SafeInt(jl.Math.max(toInt, other.toInt))
+
+	/** Returns `this min other`. */
+	@inline def atMost(other :UInt) :Long = new SafeInt(jl.Math.min(toInt, other.toInt))
+
+	/** Returns this `SafeInt`, or `0` if the condition is false. */
+	@inline def orZeroIf(condition :Boolean) :SafeInt = if (condition) new SafeInt(0) else this
+
+	/** Returns this `SafeInt`, or `0` if it does not satisfy the predicate. */
+	@inline def orZeroIf(condition :SafeInt => Boolean) :SafeInt =
+		if (condition(this)) new SafeInt(0) else this
+
 	@inline def |(x: Byte) : SafeInt  = new SafeInt(toInt | x)
 	@inline def |(x: Short): SafeInt  = new SafeInt(toInt | x)
 	@inline def |(x: Char) : SafeInt  = new SafeInt(toInt | x)
@@ -207,6 +220,20 @@ class SafeInt private[numeric] (override val toInt :Int)
 			res
 		}
 
+	/** Divides this `SafeInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+	  * number representing the result.
+	  * @param denominator the denominator of the created rational (before reduction)
+	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+	  */
+	@inline def %/(denominator :Long) :Ratio = Ratio(toInt, denominator)
+
+	/** Divides this `SafeInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+	  * number representing the result.
+	  * @param denominator the denominator of the created rational (before reduction)
+	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+	  */
+	@inline def %/(denominator :Int) :Ratio = Ratio(toInt, denominator)
+
 	type ResultWithoutStep = NumericRange[SafeInt]
 	@inline def to(end: SafeInt): NumericRange.Inclusive[SafeInt] =
 		NumericRange.inclusive(this, end, new SafeInt(1))(SafeInt.SafeIntIsIntegral)
@@ -276,6 +303,8 @@ object SafeInt {
 	@inline def parse(string :String) :Option[SafeInt] =
 		Numeric.IntIsIntegral.parseString(string).map(new SafeInt(_))
 
+	@inline implicit def safeIntFromByte(value :Byte) :SafeInt = new SafeInt(value)
+	@inline implicit def safeIntFromShort(value :Short) :SafeInt = new SafeInt(value)
 	@inline implicit def safeIntFromInt(value :Int) :SafeInt = new SafeInt(value)
 	@inline implicit def safeIntToInt(value :SafeInt) :Int = value.toInt
 	@inline implicit def safeIntToLong(value :SafeInt) :Long = value.toInt.toLong

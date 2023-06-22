@@ -175,6 +175,18 @@ class ULong private[numeric] (override val toLong :Long)
 	@inline def min(other: ULong): ULong = new ULong(jl.Math.min(toLong + MinValue, other.toLong + MinValue) - MinValue)
 	@inline def max(other: ULong): ULong = new ULong(jl.Math.max(toLong + MinValue, other.toLong + MinValue) - MinValue)
 
+	/** Returns `this max other`. */
+	@inline def atLeast(other :ULong) :ULong = if (toLong + MinValue >= other.toLong + MinValue) this else other
+
+	/** Returns `this min other`. */
+	@inline def atMost(other :ULong) :ULong = if (toLong + MinValue <= other.toLong + MinValue) this else other
+
+	/** Returns this `ULong`, or `0` if the condition is false. */
+	@inline def orZeroIf(condition :Boolean) :ULong = if (condition) new ULong(0L) else this
+
+	/** Returns this `ULong`, or `0` if it does not satisfy the predicate. */
+	@inline def orZeroIf(condition :ULong => Boolean) :ULong = if (condition(this)) new ULong(0L) else this
+
 	@inline def |(x: Long) : ULong = new ULong(toLong | x)
 	@inline def &(x: Long) : ULong = new ULong(toLong & x)
 	@inline def ^(x: Long) : ULong = new ULong(toLong ^ x)

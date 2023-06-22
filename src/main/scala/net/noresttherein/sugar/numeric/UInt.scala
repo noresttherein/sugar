@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.numeric
 
-import java.math.{BigInteger, BigDecimal=>JavaBigDecimal}
+import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 import java.{lang => jl}
 
 import scala.Int.MinValue
@@ -148,6 +148,18 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def min(other: UInt): UInt = new UInt(jl.Math.min(toInt + MinValue, other.toInt + MinValue) - MinValue)
 	@inline def max(other: UInt): UInt = new UInt(jl.Math.max(toInt + MinValue, other.toInt + MinValue) - MinValue)
 
+	/** Returns `this max other`. */
+	@inline def atLeast(other :UInt) :UInt = if (toInt + MinValue >= other.toInt + MinValue) this else other
+
+	/** Returns `this min other`. */
+	@inline def atMost(other :UInt) :UInt = if (toInt + MinValue <= other.toInt + MinValue) this else other
+
+	/** Returns this `UInt`, or `0` if the condition is false. */
+	@inline def orZeroIf(condition :Boolean) :UInt = if (condition) new UInt(0) else this
+
+	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
+	@inline def orZeroIf(condition :UInt => Boolean) :UInt = if (condition(this)) new UInt(0) else this
+
 	@inline def |(x: Int)  : UInt  = new UInt(toInt | x)
 	@inline def |(x: Long) : Long  = toInt & 0xffffffffL | x
 	@inline def &(x: Int)  : UInt  = new UInt(toInt & x)
@@ -182,6 +194,20 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def %(x: Double): Double = (toInt & 0xffffffffL) % x
 	@inline def %(x: UInt)  : UInt   = new UInt(((toInt & 0xffffffffL) % (x.toInt & 0xffffffffL)).toInt)
 	@inline def **(n: Int)  : UInt   = new UInt(toInt.pow(n))
+
+	/** Divides this `UInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+	  * number representing the result.
+	  * @param denominator the denominator of the created rational (before reduction)
+	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+	  */
+	@inline def %/(denominator :UInt) :Ratio = Ratio(toInt & 0xffffffffL, denominator.toInt & 0xffffffffL)
+
+	/** Divides this `UInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+	  * number representing the result.
+	  * @param denominator the denominator of the created rational (before reduction)
+	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+	  */
+	@inline def %/(denominator :Long) :Ratio = Ratio(toInt & 0xffffffffL, denominator)
 
 	type ResultWithoutStep = NumericRange[UInt]
 	@inline def to(end: UInt): NumericRange.Inclusive[UInt] =

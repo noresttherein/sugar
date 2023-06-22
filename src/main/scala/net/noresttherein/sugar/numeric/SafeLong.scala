@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.numeric
 
-import java.math.{BigInteger, BigDecimal=>JavaBigDecimal}
+import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 import java.{lang => jl}
 
 import scala.collection.immutable.NumericRange
@@ -144,6 +144,19 @@ class SafeLong private[numeric] (override val toLong :Long)
 	@inline def min(other :SafeLong) :SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
 	@inline def max(other :SafeLong) :SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
 
+	/** Returns `this max other`. */
+	@inline def atLeast(other :ULong) :SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
+
+	/** Returns `this min other`. */
+	@inline def atMost(other :ULong) :SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
+
+	/** Returns this `Long`, or `0` if the condition is false. */
+	@inline def orZeroIf(condition :Boolean) :SafeLong = if (condition) new SafeLong(0) else this
+
+	/** Returns this `Long`, or `0` if it does not satisfy the predicate. */
+	@inline def orZeroIf(condition :SafeLong => Boolean) :SafeLong =
+		if (condition(this)) new SafeLong(0) else this
+
 	@inline def |(x: Byte) : SafeLong = new SafeLong(toLong | x)
 	@inline def |(x: Short): SafeLong = new SafeLong(toLong | x)
 	@inline def |(x: Char) : SafeLong = new SafeLong(toLong | x)
@@ -215,6 +228,13 @@ class SafeLong private[numeric] (override val toLong :Long)
 			res
 		}
 
+	/** Divides this `SafeLong` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+	  * number representing the result.
+	  * @param denominator the denominator of the created rational (before reduction)
+	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+	  */
+	@inline def %/(denominator :Long) :Ratio = Ratio(toInt, denominator)
+
 	type ResultWithoutStep = NumericRange[SafeLong]
 	@inline def to(end :SafeLong) :NumericRange.Inclusive[SafeLong] =
 		NumericRange.inclusive(this, end, new SafeLong(1))
@@ -283,6 +303,8 @@ object SafeLong {
 	@inline def parse(string :String) :Option[SafeLong] =
 		Numeric.IntIsIntegral.parseString(string).map(new SafeLong(_))
 
+	@inline implicit def safeLongFromByte(value :Byte) :SafeLong = new SafeLong(value)
+	@inline implicit def safeLongFromShort(value :Short) :SafeLong = new SafeLong(value)
 	@inline implicit def safeLongFromInt(value :Int) :SafeLong = new SafeLong(value)
 	@inline implicit def safeLongFromLong(value :Long) :SafeLong = new SafeLong(value)
 	@inline implicit def safeLongToLong(value :SafeLong) :Long = value.toLong

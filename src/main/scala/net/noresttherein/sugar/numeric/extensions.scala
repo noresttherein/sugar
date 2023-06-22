@@ -207,6 +207,11 @@ object extensions extends extensions {
 		/** Returns `this min other`. */
 		@inline def atMost(other :Int) :Int = math.min(self, other)
 
+		/** Returns this `Int`, or `0` if the condition is false. */
+		@inline def orZeroIf(condition :Boolean) :Int = if (condition) 0 else self
+
+		/** Returns this `Int`, or `0` if it does not satisfy the predicate. */
+		@inline def orZeroIf(condition :Int => Boolean) :Int = if (condition(self)) 0 else self
 
 
 		/** True if this `Int` has no divisors other than `1` and `2`. */
@@ -338,6 +343,12 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Long) :Long = math.min(self, other)
+
+		/** Returns this `Long`, or `0` if the condition is false. */
+		@inline def orZeroIf(condition :Boolean) :Long = if (condition) 0 else self
+
+		/** Returns this `Long`, or `0` if it does not satisfy the predicate. */
+		@inline def orZeroIf(condition :Long => Boolean) :Long = if (condition(self)) 0 else self
 
 
 		/** True if this `Long` has no divisors other than `1` and `2`. */
