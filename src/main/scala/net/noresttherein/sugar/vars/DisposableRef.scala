@@ -2,43 +2,42 @@ package net.noresttherein.sugar.vars
 
 import java.lang.ref.{PhantomReference, Reference, ReferenceQueue, SoftReference, WeakReference}
 
+import scala.annotation.unchecked.uncheckedVariance
+
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
-import net.noresttherein.sugar.vars.DisposableRef.WrapperReference
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.PhantomRef.WrappedPhantomRef
-import net.noresttherein.sugar.vars.SoftRef.WrappedSoftRef
-import net.noresttherein.sugar.vars.WeakRef.WrappedWeakRef
 
 
 
 
 /** A light wrapper over Java [[java.lang.ref.ReferenceQueue ReferenceQueue]] containing only instances
   * of [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]], with API expressed in terms of the latter,
-  * rather than Java [[java.lang.ref.Reference Reference]] (and using `Option`s instead of `null`s).
+  * rather than Java [[java.lang.ref.Reference Reference]] (and using `Opt`s instead of `null`s).
   */
 class RefQueue[T](name :String) { //not serializable!
 	def this() = this(null)
 
 	private[vars] val underlying :ReferenceQueue[T] = new ReferenceQueue[T]
 
-	private def unwrap[S <: T](ref :Reference[S]) :Option[DisposableRef[T]] =
-		if (ref == null) None
-		else Some(ref.asInstanceOf[WrapperReference[S]].self)
+	private def unwrap[S <: T](ref :Reference[S]) :Opt[DisposableRef[T]] =
+		Opt(ref.asInstanceOf[DisposableRef[S]])
 
-	def poll :Option[DisposableRef[T]] = unwrap(underlying.poll)
+	def poll :Opt[DisposableRef[T]] = unwrap(underlying.poll)
 
-	def remove() :Option[DisposableRef[T]] = unwrap(underlying.remove)
+	def remove() :Opt[DisposableRef[T]] = unwrap(underlying.remove)
 
-	def remove(timeout :Milliseconds) :Option[DisposableRef[T]] = unwrap(underlying.remove(timeout.toMillis))
+	def remove(timeout :Milliseconds) :Opt[DisposableRef[T]] = unwrap(underlying.remove(timeout.toMillis))
 
-	def remove(timeout :TimeInterval) :Option[DisposableRef[T]] = timeout match {
+	def remove(timeout :TimeInterval) :Opt[DisposableRef[T]] = timeout match {
 		case Eternity => remove()
 		case MinusEternity => poll
 		case _ => remove(timeout.asMillis)
 	}
 
-	override def toString :String = if (name != null) name else "RefQueue@" + Integer.toHexString(hashCode)
+	override def toString :String =
+		if (name != null) "RefQueue(" + name + ")"
+		else "RefQueue@" + Integer.toHexString(hashCode)
 }
 
 
@@ -49,14 +48,11 @@ class RefQueue[T](name :String) { //not serializable!
   * @define Ref `DisposableRef`
   * @author Marcin Mościcki
   */ //not a Serializable because Reference is not a Serializable
-sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
-                                         (cons :(T, ReferenceQueue[T], DisposableRef[T]) => Reference[T])
-	extends Ref[T]
-{
-	private[this] val ref = cons(referent, queue, this)
+sealed trait DisposableRef[+T] extends Reference[T @uncheckedVariance] with Ref[T] {
+	protected def getOrNull :T
 
 	/** Returns [[net.noresttherein.sugar.vars.DisposableRef.isEmpty isEmpty]]. */
-	override def isFinal :Boolean = ref.get == null
+	override def isFinal :Boolean = getOrNull == null
 
 	/** Returns `false`, as the reference is not immutable. */
 	override def isFinalizable :Boolean = false
@@ -65,29 +61,31 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 	override def isConst    :Boolean = false
 
 	/** Checks if the reference has been cleared and the referenced object garbage collected. */
-	override def isEmpty    :Boolean = ref.get == null
+	override def isEmpty    :Boolean = getOrNull == null
 
 	/** The reference still holds its value. */
-	override def isDefined  :Boolean = ref.get != null
+	override def isDefined  :Boolean = getOrNull != null
 
 	/** The reference still holds its value. */
-	override def isDefinite :Boolean = ref.get != null
+	override def isDefinite :Boolean = getOrNull != null
 
 	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.get get]]. */
-	@inline final override def value :T = get
+	@inline final override def value :T = getOrNull
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@inline final override def const :T = throw new UnsupportedOperationException(this.localClassName + ".const")
 
+	/** Returns the referenced object, or throws [[NoSuchElementException]] if it has been garbage collected. */
 	@inline final override def apply() :T = get
 
-	override def get :T = ref.get match {
+	/** Returns the referenced object, or throws [[NoSuchElementException]] if it has been garbage collected. */
+	override def get :T = getOrNull match {
 		case null => throw new NoSuchElementException("Object was garbage collected")
 		case x => x
 	}
 
 	/** The referenced object, unless garbage collected. */
-	override def option :Option[T] = Option(ref.get)
+	override def option :Option[T] = Option(getOrNull)
 
 	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.option option]]. */
 	@inline final override def toOption :Option[T] = option
@@ -96,7 +94,7 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 	@inline final override def constOption :Option[T] = None
 
 	/** The referenced object, unless garbage collected. */
-	override def opt :Opt[T] = Opt(ref.get)
+	override def opt :Opt[T] = Opt(getOrNull)
 
 	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.opt opt]]. */
 	@inline final override def toOpt :Opt[T] = opt
@@ -105,7 +103,7 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 	@inline final override def constOpt :Opt[T] = Lack
 
 	/** The referenced object, unless garbage collected. */
-	override def unsure :Unsure[T] = Unsure(ref.get)
+	override def unsure :Unsure[T] = Unsure(getOrNull)
 
 	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.unsure unsure]]. */
 	@inline final override def toUnsure :Unsure[T] = unsure
@@ -114,20 +112,13 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 	@inline final override def constUnsure :Unsure[T] = Missing
 
 
-	/** Adds the underlying reference to its [[java.lang.ref.ReferenceQueue ReferenceQueue]]. */
-	def enqueue() :Boolean = ref.enqueue()
-
-	/** Clears the reference, allowing the referenced object to be garbage collected. */
-	def clear() :Unit = ref.clear()
-
-
 	private[vars] override def isSpecialized = false
 
 	override def equals(that :Any) :Boolean = this eq that.asInstanceOf[AnyRef]
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[DisposableRef[_]]
 	override def hashCode :Int = System.identityHashCode(this)
 
-	override def toString :String = ref.get match {
+	override def toString :String = getOrNull match {
 		case null => "<clear>"
 		case v => String.valueOf(v)
 	}
@@ -137,12 +128,8 @@ sealed class DisposableRef[+T] protected (referent :T, queue :ReferenceQueue[T])
 object DisposableRef {
 	def unapply[T](ref :Reference[T]) :Opt[DisposableRef[T]] = ref match {
 		case null => Lack
-		case wrapper :WrapperReference[T @unchecked] => Got(wrapper.self)
+		case ref :DisposableRef[T @unchecked] => Got(ref)
 		case _ => Lack
-	}
-
-	private[vars] sealed trait WrapperReference[T] {
-		val self :DisposableRef[T]
 	}
 }
 
@@ -153,10 +140,11 @@ object DisposableRef {
   * interface.
   */
 class WeakRef[+T] private (referent :T, queue :ReferenceQueue[T])
-	extends DisposableRef[T](referent, queue)(new WrappedWeakRef[T](_, _, _))
+	extends WeakReference[T @uncheckedVariance](referent, queue) with DisposableRef[T]
 {
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
 	def this(referent :T) = this(referent, null :ReferenceQueue[T])
+	protected override def getOrNull :T = super[WeakReference].get
 }
 
 
@@ -167,12 +155,9 @@ object WeakRef {
 	@inline def unapply[T](ref :WeakRef[T]) :Opt[T] = ref.opt
 	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
 		case null => Lack
-		case wrapper :WrappedWeakRef[T] => wrapper.self.opt
+		case ref :WeakRef[T] => ref.opt
 		case _ => Lack
 	}
-
-	private class WrappedWeakRef[T](referent :T, queue :ReferenceQueue[T], override val self :DisposableRef[T])
-		extends WeakReference[T](referent, queue) with WrapperReference[T]
 }
 
 
@@ -182,10 +167,11 @@ object WeakRef {
   * interface.
   */
 class SoftRef[+T] private (referent :T, queue :ReferenceQueue[T])
-	extends DisposableRef[T](referent, queue)(new WrappedSoftRef[T](_, _, _))
+	extends SoftReference[T @uncheckedVariance](referent, queue) with DisposableRef[T]
 {
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
 	def this(referent :T) = this(referent, null :ReferenceQueue[T])
+	protected override def getOrNull :T = super[SoftReference].get
 }
 
 
@@ -196,12 +182,9 @@ object SoftRef {
 	@inline def unapply[T](ref :SoftRef[T]) :Opt[T] = ref.opt
 	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
 		case null => Lack
-		case wrapper :WrappedSoftRef[T] => wrapper.self.opt
+		case ref :SoftRef[T] => ref.opt
 		case _ => Lack
 	}
-
-	private class WrappedSoftRef[T](referent :T, queue :ReferenceQueue[T], override val self :DisposableRef[T])
-		extends SoftReference[T](referent, queue) with WrapperReference[T]
 }
 
 
@@ -211,11 +194,12 @@ object SoftRef {
   * to `sugar` [[net.noresttherein.sugar.vars.Ref Ref]] interface.
   */
 class PhantomRef[+T] private (referent :T, queue :ReferenceQueue[T])
-	extends DisposableRef[T](referent, queue)(new WrappedPhantomRef[T](_, _, _))
+	extends PhantomReference[T @uncheckedVariance](referent, queue) with DisposableRef[T]
 {
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
 	def this(referent :T) = this(referent, null :ReferenceQueue[T])
 
+	protected override def getOrNull :T = super.get
 	override def toString :String = "PhantomRef@" + Integer.toHexString(hashCode)
 }
 
@@ -223,7 +207,4 @@ class PhantomRef[+T] private (referent :T, queue :ReferenceQueue[T])
 object PhantomRef {
 	@inline def apply[T](referent :T) :PhantomRef[T] = new PhantomRef(referent)
 	@inline def apply[T](referent :T, queue :RefQueue[T]) :PhantomRef[T] = new PhantomRef(referent, queue)
-
-	private class WrappedPhantomRef[T](referent :T, queue :ReferenceQueue[T], override val self :DisposableRef[T])
-		extends PhantomReference[T](referent, queue) with WrapperReference[T]
 }
