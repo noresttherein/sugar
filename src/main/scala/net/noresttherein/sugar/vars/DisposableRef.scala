@@ -48,7 +48,9 @@ class RefQueue[T](name :String) { //not serializable!
   * @define Ref `DisposableRef`
   * @author Marcin Mościcki
   */ //not a Serializable because Reference is not a Serializable
-sealed trait DisposableRef[+T] extends Reference[T @uncheckedVariance] with Ref[T] {
+sealed trait DisposableRef[+T] extends Ref[T] { this : Reference[T @uncheckedVariance] =>
+	def toReference :Reference[_ <: T] = this
+
 	protected def getOrNull :T
 
 	/** Returns [[net.noresttherein.sugar.vars.DisposableRef.isEmpty isEmpty]]. */

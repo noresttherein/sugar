@@ -29,13 +29,13 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializable {
 	/** Returns `false`. */
 	final override def isFinal = false
-
-	/** Returns `true` if the box currently holds a value. In case of atomic access,
-	  * methods [[net.noresttherein.sugar.vars.InOut.value value]], [[net.noresttherein.sugar.vars.InOut.get get]]
-	  * and [[net.noresttherein.sugar.vars.Ref.apply apply]]`()`
-	  * will not throw an exception.
-	  */
-	@inline final override def nonEmpty :Boolean = !isEmpty
+//
+//	/** Returns `true` if the box currently holds a value. In case of atomic access,
+//	  * methods [[net.noresttherein.sugar.vars.InOut.value value]], [[net.noresttherein.sugar.vars.InOut.get get]]
+//	  * and [[net.noresttherein.sugar.vars.Ref.apply apply]]`()`
+//	  * will not throw an exception.
+//	  */
+//	@inline final override def nonEmpty :Boolean = !isEmpty
 
 	/** Returns `false`. */
 	final override def isFinalizable: Boolean = false

@@ -22,8 +22,8 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 	override def isFinal        :Boolean = false
 	/** Returns `false`. */
 	final override def isEmpty  :Boolean = false
-	/** Returns `true`. */
-	final override def nonEmpty :Boolean = true
+//	/** Returns `true`. */
+//	final override def nonEmpty :Boolean = true
 	/** Returns `false`. */
 	override def isFinalizable  :Boolean = false
 	/** Returns `false`. */

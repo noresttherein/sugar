@@ -70,11 +70,11 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 {
 	/** Tests if this `Unsure` does not contain a value (is equal to [[net.noresttherein.sugar.vars.Missing Missing]]). */
 	@inline final override def isEmpty :Boolean = this eq Missing
-
-	/** Tests if this `Unsure` contains a value. If true, `get` will not throw an exception.
-	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]].
-	  */
-	@inline final override def nonEmpty :Boolean = this ne Missing
+//
+//	/** Tests if this `Unsure` contains a value. If true, `get` will not throw an exception.
+//	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]].
+//	  */
+//	@inline final override def nonEmpty :Boolean = this ne Missing
 
 	/** Tests if this `Unsure` contains a value (is a [[net.noresttherein.sugar.vars.Sure Sure]]).
 	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]].

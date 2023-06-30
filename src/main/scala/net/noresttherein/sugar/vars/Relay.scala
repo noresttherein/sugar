@@ -11,7 +11,7 @@ import net.noresttherein.sugar.vars.Relay.{Reader, Writer}
 
 
 
-/** A synchronized channel for passing values of type `T` between producers and consumers.
+/** A synchronized channel for passing individual values of type `T` between producers and consumers.
   * Every call to [[net.noresttherein.sugar.vars.Relay.value_= value_=]] 'setting' the value of this channel
   * is paired with another thread's call to [[net.noresttherein.sugar.vars.Relay.get get]] and the value
   * provided by the writer in the setter is handed over to the reader in the getter. Read access will block
@@ -37,8 +37,8 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 	/** Returns `false`. */
 	override def isFinal :Boolean = false
 
-	/** Returns `!`[[net.noresttherein.sugar.vars.Relay.isDefined isDefined]]. */
-	override def isEmpty   :Boolean = !isDefined
+	/** Returns `!`[[net.noresttherein.sugar.vars.Relay.isDefinite isDefinite]]. */
+	override def isEmpty   :Boolean = !isDefinite
 
 	/** Returns `false`. */
 	override def isFinalizable :Boolean = false
@@ -46,7 +46,7 @@ sealed class Relay[@specialized(SpecializedVars) T] private[vars] () extends InO
 	/** Returns `false`. */
 	override def isConst :Boolean = false
 
-	/** Returns `true`. */
+	/** Returns `true` (`get` never throws a [[NoSuchElementException]]). */
 	override def isDefined :Boolean = true
 
 	/** Checks if there are any writing threads waiting on this relay port. The following code won't block:

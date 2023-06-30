@@ -49,20 +49,20 @@ import net.noresttherein.sugar.vars.Ref.undefined
   */
 trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
-	/** The $Ref will see no further changes, regardless if empty or not. This does not imply that it was always immutable.
-	  * [[net.noresttherein.sugar.vars.Lazy Lazy]] values and similar may return `false` if uninitialized.
-	  * If this method returns `true`, then this instance is from this point on immutable.
+	/** The $Ref will see no further changes, regardless if empty or not. This does not imply
+	  * that it was always immutable. [[net.noresttherein.sugar.vars.Lazy Lazy]] values and similar may return `false`
+	  * if uninitialized. If this method returns `true`, then this instance is from this point on immutable.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  */
 	def isFinal :Boolean //certain fixed frozen stable
 
 	/** The $Ref has no current value.
-	  * In single threaded context, it implies that `this.`[[net.noresttherein.sugar.vars.Ref.value value]]
+	  * In a single threaded context, it implies that `this.`[[net.noresttherein.sugar.vars.Ref.value value]]
 	  * will throw a [[NoSuchElementException]] and
 	  * [[net.noresttherein.sugar.vars.Ref.option option]]/[[net.noresttherein.sugar.vars.Ref.opt opt]]/[[net.noresttherein.sugar.vars.Ref.unsure unsure]]
 	  * will return `None`/[[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Missing Missing]].
-	  * Note that in a multi-threaded context the result may be incorrect the moment the method returns.
+	  * Note that in a multi-threaded context the result may be stale the moment the method returns.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @return [[net.noresttherein.sugar.vars.Ref.opt opt]]`.isEmpty` (or equivalent).
@@ -94,8 +94,9 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isFinalizable: Boolean
 
 	/** The $Ref contains an initialized value which is guaranteed not to change. Once this method returns `true`,
-	  * it will remain `true` for the rest of this $Ref's lifetime, although in multi-threaded context this is guaranteed
-	  * only for thread safe implementations. Implies `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]],
+	  * it will remain `true` for the rest of this $Ref's lifetime, although in a multi-threaded context
+	  * this is guaranteed only for thread safe implementations.
+	  * Implies `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]],
 	  * [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]
 	  * and [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]].
 	  * A constant $Ref will never throw an exception from [[net.noresttherein.sugar.vars.Ref.value value]],
@@ -141,14 +142,14 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  */
 	@inline final def isVal :Boolean = this.isInstanceOf[Val[_]]
 
-	/** The current value of this $Ref, if it exists. This is the lowest level (with most variable results) of all methods
-	  * returning a value. In a concurrent context, the result may be stale the moment the method returns.
+	/** The current value of this $Ref, if it exists. This is the lowest level (with most variable results)
+	  * of all methods returning a value. In a concurrent context, the result may be stale the moment the method returns.
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.const const]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.NonEmpty.unapply NonEmpty.unapply]]
-	  */
+	  */ //consider: renaming to current, and making get an alias for value
 	@throws[NoSuchElementException]("if this instance doesn't contain an initialized value at the moment of this call.")
 	def value: T
 
@@ -168,7 +169,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  *      ([[net.noresttherein.sugar.vars.Ref.toOpt toOpt]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]])
 	  *      returns `Some` (`Got`, `Sure`), then this method will return the same value unwrapped;
 	  *   1. if this method returns `v` without an exception, then [[net.noresttherein.sugar.vars.Ref.value value]]
-	  *      will also return the same value (i.e., the 'current value' of a `Ref` is also always 'its value');
+	  *      will also return the same value (i.e., the 'value' of a `Ref` is also always 'its current value');
 	  *   1. if this method returns `v` without an exception, then, in a synchronized or single thread context,
 	  *      all subsequent calls to
 	  *      [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
@@ -578,8 +579,6 @@ object Ref {
 	  */
 	private[vars] trait FinalRef[+T] extends Ref[T] {
 		@inline final override def isFinal       :Boolean = true
-		/** Returns `!`[[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]] */
-		override def nonEmpty                    :Boolean = !isEmpty
 		/** Same as [[net.noresttherein.sugar.vars.Ref.nonEmpty nonEmpty]]. */
 		@inline final override def isFinalizable :Boolean = !isEmpty
 		/** Same as [[net.noresttherein.sugar.vars.Ref.nonEmpty nonEmpty]]. */

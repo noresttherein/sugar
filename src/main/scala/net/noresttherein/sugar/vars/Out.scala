@@ -12,7 +12,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
 
 
 /** An emulation of an 'out' parameter of a procedure. It is a wrapper over a `@specialized var` of type `T`
-  * which will throw an [[IllegalStateException]] if accessed before the value is set with one of the methods
+  * which will throw an [[NoSuchElementException]] if accessed before the value is set with one of the methods
   * `this.value = x` or `this := x`, as well as when a second attempt to set its value is made which would
   * override the previously set value. This class is thread safe with ''volatile'' semantics.
   * @define Ref `Out`

@@ -74,7 +74,7 @@ object Idempotent {
 /** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
   * which allows more lax synchronisation.
   */
-@SerialVersionUID(Ver) //todo: make it specialized
+@SerialVersionUID(Ver)
 private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
 	extends Idempotent[T]
 {	//no need for fences because T is a value type
