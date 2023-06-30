@@ -1235,7 +1235,7 @@ class Decimal64 private (private val bits :Long)
 	  * (except for a single zero if this number is zero).
 	  **/
 	def toPlainString :String =
-		if (scale == 0) unscaled.toString
+		if (scale == 0) java.lang.Long.toString(unscaled)
 		else decimalString(0).toString
 
 	private def decimalString(minScale :Int) :java.lang.StringBuilder = {
