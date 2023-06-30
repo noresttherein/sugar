@@ -1,5 +1,6 @@
 package net.noresttherein.sugar
 
+import java.lang.{Math=>math}
 import java.util.concurrent.ThreadLocalRandom
 
 import scala.util.Random
@@ -9,6 +10,31 @@ import scala.util.Random
 package object numeric {
 	private[numeric] final val Ver = 1L
 
+	@inline def max(a :Int, b :Int) :Int = math.max(a, b)
+	@inline def max(a :Long, b :Long) :Long = math.max(a, b)
+	@inline def max(a :Double, b :Double) :Double = math.max(a, b)
+	@inline def max(a :Float, b :Float) :Float = math.max(a, b)
+	@inline def max(a :Short, b :Short) :Short = math.max(a, b).toShort
+	@inline def max(a :Byte, b :Byte) :Byte = math.max(a, b).toByte
+	@inline def max[T](a :T, b :T)(implicit ordering :Ordering[T]) :T = ordering.max(a, b)
+
+	@inline def max[T](first :T, second :T, rest :T*)(implicit ordering :Ordering[T]) :T =
+		if (rest.isEmpty) ordering.max(first, second)
+		else ordering.max(first, ordering.max(second, rest.max)) 
+
+	@inline def min(a :Int, b :Int) :Int = math.min(a, b)
+	@inline def min(a :Long, b :Long) :Long = math.min(a, b)
+	@inline def min(a :Double, b :Double) :Double = math.min(a, b)
+	@inline def min(a :Float, b :Float) :Float = math.min(a, b)
+	@inline def min(a :Short, b :Short) :Short = math.min(a, b).toShort
+	@inline def min(a :Byte, b :Byte) :Byte = math.min(a, b).toByte
+	@inline def min[T](a :T, b :T)(implicit ordering :Ordering[T]) :T = ordering.min(a, b)
+
+	@inline def min[T](first :T, second :T, rest :T*)(implicit ordering :Ordering[T]) :T =
+		if (rest.isEmpty) ordering.min(first, second)
+		else ordering.min(first, ordering.min(second, rest.min)) 
+		
+	
 	implicit val globalRandom      :Random = new Random(new java.util.Random())
 
 	implicit val threadLocalRandom :Random = new Random(
