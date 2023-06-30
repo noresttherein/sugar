@@ -6,7 +6,7 @@ import scala.collection.concurrent.TrieMap
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
-import net.noresttherein.sugar.extensions.{ClassExtension, immutableMapExtension}
+import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, immutableMapExtension}
 import net.noresttherein.sugar.matching.BooleanMatchPattern
 import net.noresttherein.sugar.vars.Opt
 
@@ -41,12 +41,14 @@ package object reflect {
 	}
 
 
-	/** Provides a class */
+	/** Provides the class object for `Array[E]`, given `Class[E]`. */
 	@SerialVersionUID(Ver)
 	object ArrayClass {
-		def apply(clss :Class[_]) :Class[_] =
-			cache.getOrElseApply(clss, java.lang.reflect.Array.newInstance(_, 0).getClass)
+		/** Returns a class `c` such that `c.getComponentType == clss`. */
+		def apply[X](clss :Class[X]) :Class[Array[X]] =
+			cache.getOrElseApply(clss, java.lang.reflect.Array.newInstance(_, 0).getClass).castParam[Array[X]]
 
+		/** If the argument class is an array class, returns the class of its elements. */
 		def unapply(clss :Class[_]) :Opt[Class[_]] = Opt(clss.getComponentType)
 
 		private[this] val cache = Map[Class[_], Class[_]](
