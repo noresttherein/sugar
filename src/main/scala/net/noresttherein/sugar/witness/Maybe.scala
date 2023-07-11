@@ -5,10 +5,13 @@ import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness
 import net.noresttherein.sugar.witness.Maybe.NoImplicit
+import net.noresttherein.sugar.witness.WithDefault.Default
 
 
 /** A type for which an implicit value is always present, however, if an implicit value for `T` can be found,
   * it is exposed as `Got[T]` through this instances [[net.noresttherein.sugar.witness.Maybe.opt opt]] method.
+  * @note there is an implicit conversion from `T` to `Maybe[T]`, so values of `T` can be passed explicitly as arguments
+  *       to methods expecting a `Maybe[T]`.
   */ //consider: renaming to Optional/Wanted
 class Maybe[+T] private[witness] (private val content :AnyRef) extends AnyVal {
 	def opt :Opt[T] = if (content == NoImplicit) Lack else Got(content.asInstanceOf[T])
@@ -21,7 +24,7 @@ class Maybe[+T] private[witness] (private val content :AnyRef) extends AnyVal {
 
 	@inline def isDefined :Boolean = opt.isDefined
 
-	override def toString = content.toString
+	override def toString :String = content.toString
 }
 
 
@@ -91,10 +94,16 @@ object Maybe extends MaybeNoImplicit {
 sealed trait WithDefault[+T, +D] //todo: get :T|D
 
 
-object WithDefault {
-	implicit def provided[T](implicit evidence :T) :Provided[T] = Provided(evidence)
-	implicit def default[D](implicit evidence :D) :Default[D] = Default(evidence)
+private[witness] sealed abstract class WithDefaultEvidence {
+	implicit final def default[D](implicit evidence :D) :Default[D] = new Default(evidence)
+	@inline implicit final def withDefault[D](default :D) :Default[D] = new Default(default)
+}
 
-	final case class Provided[+T](get :T) extends WithDefault[T, Nothing]
+object WithDefault extends WithDefaultEvidence {
+	implicit def preferred[T](implicit evidence :T) :Preferred[T] = Preferred(evidence)
+
+	@inline implicit def anyPreferred[T](value :T) :Preferred[T] = new Preferred(value)
+
+	final case class Preferred[+T](get :T) extends WithDefault[T, Nothing]
 	final case class Default[+D](get :D) extends WithDefault[Nothing, D]
 }

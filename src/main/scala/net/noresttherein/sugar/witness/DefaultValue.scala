@@ -2,6 +2,8 @@ package net.noresttherein.sugar.witness
 
 import java.util.function.Supplier
 
+import scala.reflect.ClassTag
+
 import net.noresttherein.sugar.vars.Opt.Lack
 import net.noresttherein.sugar.vars.Opt
 
@@ -26,7 +28,6 @@ object DefaultValue {
 	@inline def apply[@specialized T](value :T) = new DefaultValue(value)
 
 
-//	implicit def nullAnyRef[T <: AnyRef] :NullValue[T] = nullRef.asInstanceOf[NullValue[T]]
 	implicit val DefaultNull    :DefaultValue[Null]    = new DefaultValue[Null](null)
 	implicit val DefaultByte    :DefaultValue[Byte]    = new DefaultValue[Byte](0)
 	implicit val DefaultShort   :DefaultValue[Short]   = new DefaultValue[Short](0)
