@@ -5,6 +5,7 @@ import java.lang.invoke.{MethodHandles, VarHandle}
 import scala.Specializable.Args
 
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -132,29 +133,29 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 
 
 	private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = 
-		factory.intHandle(ev(this)).getAndAdd(this :AnyRef, other).asInstanceOf[Int] + other
-	
+		factory.intHandle.getAndAdd(this :AnyRef, other).asInstanceOf[Int] + other
+
 	private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = 
-		factory.intHandle(ev(this)).getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Int] & other
+		factory.intHandle.getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Int] & other
 	
 	private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int =
-		factory.intHandle(ev(this)).getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Int] | other
+		factory.intHandle.getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Int] | other
 	
 	private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int =
-		factory.intHandle(ev(this)).getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Int] ^ other
+		factory.intHandle.getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Int] ^ other
 
 
 	private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		factory.longHandle(ev(this)).getAndAdd(this :AnyRef, other).asInstanceOf[Long] + other
+		factory.longHandle.getAndAdd(this :AnyRef, other).asInstanceOf[Long] + other
 
 	private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		factory.longHandle(ev(this)).getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Long] & other
+		factory.longHandle.getAndBitwiseAnd(this :AnyRef, other).asInstanceOf[Long] & other
 
 	private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		factory.longHandle(ev(this)).getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Long] | other
+		factory.longHandle.getAndBitwiseOr(this :AnyRef, other).asInstanceOf[Long] | other
 
 	private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long =
-		factory.longHandle(ev(this)).getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Long] ^ other
+		factory.longHandle.getAndBitwiseXor(this :AnyRef, other).asInstanceOf[Long] ^ other
 
 
 //	private[vars] override def isSpecialized = true
@@ -211,6 +212,32 @@ private[vars] object VolatileLike {
 			newValue
 		}
 
+		private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ + _)
+		private[vars] override def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ * _)
+		private[vars] override def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ / _)
+		private[vars] override def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ % _)
+		private[vars] override def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this)(-_)
+		private[vars] override def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this)(~_)
+		private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ | _)
+		private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ & _)
+		private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ ^ _)
+		private[vars] override def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >> _)
+		private[vars] override def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >>> _)
+		private[vars] override def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ << _)
+
+		private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ + _)
+		private[vars] override def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ * _)
+		private[vars] override def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ / _)
+		private[vars] override def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ % _)
+		private[vars] override def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this)(-_)
+		private[vars] override def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this)(~_)
+		private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ | _)
+		private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ & _)
+		private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ ^ _)
+		private[vars] override def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >> _)
+		private[vars] override def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >>> _)
+		private[vars] override def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ << _)
+
 		private[vars] override def isSpecialized = false
 	}
 
@@ -265,8 +292,11 @@ private[vars] abstract class VolatileLikeOps[+V[T] <: InOut[T]] {
 	private[vars] def repeatBoolTestAndSet
 	                  (bool :InOut[Boolean], expect :Boolean, ifExpected :Boolean, ifNotExpected :Boolean) :Boolean
 
-	private[vars] def intHandle(variable :InOut[Int]) :VarHandle
-	private[vars] def longHandle(variable :InOut[Long]) :VarHandle
+//	private[vars] def intHandle(variable :InOut[Int]) :Opt[VarHandle]
+//	private[vars] def longHandle(variable :InOut[Long]) :Opt[VarHandle]
+	private[vars] def intHandle :VarHandle
+	private[vars] def longHandle :VarHandle
+	private[vars] def boolHandle :VarHandle
 	private[vars] def boolHandle(variable :InOut[Boolean]) :VarHandle
 }
 
@@ -277,7 +307,6 @@ private[vars] abstract class VolatileLikeCompanion[+V[T] <: InOut[T]] extends Vo
 	protected def newInstance[@specialized(SpecializedVars) T](init :T) : V[T]
 	protected def newRefInstance[T](init :T) :V[T]
 	protected def newBoolInstance(init :Boolean) :V[Boolean]
-
 
 	private[vars] override def getAndSet[@specialized(SpecializedVars) T](v :InOut[T], newValue :T) :T =
 		(v.getClass match {
@@ -352,17 +381,17 @@ private[vars] abstract class VolatileLikeCompanion[+V[T] <: InOut[T]] extends Vo
 	}
 
 
-	private[vars] override def intHandle(variable :InOut[Int]) = variable.getClass match {
-		case CaseInt => intHandle
-		case _ => anyHandle
-	}
-	private[vars] override def longHandle(variable :InOut[Long]) = variable.getClass match {
-		case CaseLong => longHandle
-		case _ => anyHandle
-	}
+//	private[vars] override def intHandle(variable :InOut[Int]) = variable.getClass match {
+//		case CaseInt => Got(intHandle)
+//		case _       => Lack
+//	}
+//	private[vars] override def longHandle(variable :InOut[Long]) = variable.getClass match {
+//		case CaseLong => Got(longHandle)
+//		case _        => Lack
+//	}
 	private[vars] override def boolHandle(variable :InOut[Boolean]) = variable.getClass match {
 		case CaseBool | CaseBoolSpec => boolHandle
-		case _ => anyHandle
+		case _                       => anyHandle
 	}
 
 	private[vars] val CaseByte     = newInstance(0.toByte).getClass
@@ -385,13 +414,13 @@ private[vars] abstract class VolatileLikeCompanion[+V[T] <: InOut[T]] extends Vo
 	private[vars] val floatHandle  = newHandle(CaseFloat, java.lang.Float.TYPE)
 	private[vars] val doubleHandle = newHandle(CaseDouble, java.lang.Double.TYPE)
 	private[vars] val boolHandle   = newHandle(CaseBool, java.lang.Boolean.TYPE)
-	private[vars] val anyHandle    = newHandle(classOf[Volatile[Any]], classOf[Any])
+	private[vars] val anyHandle    = newHandle(newRefInstance(null).getClass, classOf[Any])
 
 	private def newHandle[T](varType :Class[_], paramType :Class[_]) =
 		MethodHandles.lookup().findVarHandle(varType, fieldName(varType), paramType)
 
 	private def fieldName(cls :Class[_]) = {
-		val specSuffixStart = cls.getName.indexOf('$')
+		val specSuffixStart = cls.getName.indexOf("$m")
 		if (specSuffixStart < 0) "x"
 		else "x" + cls.getName.substring(specSuffixStart)
 	}

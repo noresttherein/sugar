@@ -25,7 +25,7 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 		property("&&=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = Var(x1); val arg = Lazy(x2)
 			v &&= arg
-			(v.value ?= x1 && x2) :| "correctness" && (arg.isDefined ?= x1) :| "laziness"
+			(v.value ?= x1 && x2) :| "correctness" && (arg.isDefinite ?= x1) :| "laziness"
 		}
 
 		property("|=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = Var(x1); v |= x2; v.value ?= x1 | x2 }
@@ -33,7 +33,7 @@ class VarPropsGroup(override val varClassName :String = "Var") extends BaseInOut
 		property("||=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = Var(x1); val arg = Lazy(x2)
 			v ||= arg
-			(v.value ?= x1 || x2) :| "correctness" || (arg.isDefined ?= x1) :| "laziness"
+			(v.value ?= x1 || x2) :| "correctness" || (arg.isDefinite ?= x1) :| "laziness"
 		}
 
 		property("^=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = Var(x1); v ^= x2; v.value ?= x1 ^ x2 }

@@ -117,7 +117,7 @@ object SyncVar {
 		/** Atomically negates this boolean variable, assigning it the opposite of the current value.
 		  * @return the updated value of this variable (after negation).
 		  */
-		@inline def neg() :Boolean = self.synchronized { val res = !self.unsync; self.unsync = !res; res }
+		@inline def neg() :Boolean = self.synchronized { val res = !self.unsync; self.unsync = res; res }
 
 		/** Atomically negates this booleana variable, assigning it the opposite of the current value. */
 		@inline def flip() :Unit = self.synchronized { self.unsync = !self.unsync }

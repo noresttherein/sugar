@@ -101,7 +101,7 @@ abstract class BaseInOutPropsGroup {
 		property("&&=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = newVar(x1); val arg = Lazy(x2)
 			v &&= arg
-			(v.value ?= x1 && x2) :| "correctness" && (arg.isDefined ?= x1) :| "laziness"
+			(v.value ?= x1 && x2) :| "correctness" && (arg.isDefinite ?= x1) :| "laziness"
 		}
 
 		property("|=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = newVar(x1); v |= x2; v.value ?= x1 | x2 }
@@ -109,7 +109,7 @@ abstract class BaseInOutPropsGroup {
 		property("||=") = forAll { (x1 :Boolean, x2 :Boolean) =>
 			val v = newVar(x1); val arg = Lazy(x2)
 			v ||= arg
-			(v.value ?= x1 || x2) :| "correctness" || (arg.isDefined ?= x1) :| "laziness"
+			(v.value ?= x1 || x2) :| "correctness" || (arg.isDefinite ?= x1) :| "laziness"
 		}
 
 		property("^=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = newVar(x1); v ^= x2; v.value ?= x1 ^ x2 }

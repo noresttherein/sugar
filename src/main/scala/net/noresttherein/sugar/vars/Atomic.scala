@@ -39,7 +39,7 @@ sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this
 
 	override def value_=(newValue :T) :Unit = {
 		releaseFence()
-		x = value
+		x = newValue
 	}
 
 	override def mkString :String = mkString("Atomic")
