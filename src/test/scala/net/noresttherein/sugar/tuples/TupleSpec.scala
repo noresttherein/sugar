@@ -1,9 +1,8 @@
-package net.noresttherein.sugar
+package net.noresttherein.sugar.tuples
 
-import net.noresttherein.sugar.tuples.{Nat, Tuple}
+import net.noresttherein.sugar.tuples.Tuple.{<>, >:<}
 import org.scalacheck.Prop._
-import org.scalacheck.{Prop, Properties}
-import net.noresttherein.sugar.tuples.Tuple.{><, >:<, <>}
+import org.scalacheck.Properties
 
 /** The purpose of this test is mostly to verify that implicits work correctly, rather than testing simple accessors.
   * @author Marcin Mościcki marcin@moscicki.net
