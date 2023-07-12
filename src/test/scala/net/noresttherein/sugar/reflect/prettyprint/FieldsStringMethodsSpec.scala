@@ -14,7 +14,7 @@ import net.noresttherein.sugar.extensions.fieldsStringMethods
 /**
   * @author Marcin Mościcki
   */
-object FieldsStringMethodsSpec extends Properties("FieldsStringMethods") {
+object FieldsStringMethodsSpec extends Properties("fieldsStringMethods") {
 
 	case class Subject(boolean :Boolean, int :Int, string :String) extends CaseClass[Subject]
 
@@ -40,7 +40,7 @@ object FieldsStringMethodsSpec extends Properties("FieldsStringMethods") {
 
 	property("DefToString") = (new Test).toString ?= "Test(test=44)"
 
-	property("ObjectFieldsFormats") = new CustomClass("7.62", 600).toString ?= "CustomClass(caliber=7.62, rateOfFire=600)"
+	property("gettersString") = new CustomClass("7.62", 600).toString ?= "CustomClass(caliber=7.62, rateOfFire=600)"
 
 	property("fieldsString") = new Private("first", 42).toString ?= "Private(field1=first, _field2=42)"
 

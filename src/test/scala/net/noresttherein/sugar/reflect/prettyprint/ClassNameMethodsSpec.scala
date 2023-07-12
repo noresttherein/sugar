@@ -6,7 +6,6 @@ import org.scalacheck.Prop._
 import org.scalacheck.Properties
 
 import net.noresttherein.sugar.extensions.classNameMethods
-import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 
 
 
@@ -15,7 +14,7 @@ import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 /**
   * @author Marcin Mościcki
   */
-object ClassNameMethodsSpec extends Properties("C1lassNameMethods") {
+object ClassNameMethodsSpec extends Properties("classNameMethods") {
 
 	class Nest {
 		class !@#%^&*-+=<>?/|\:
