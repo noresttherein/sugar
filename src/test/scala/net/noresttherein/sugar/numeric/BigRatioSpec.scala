@@ -1,13 +1,16 @@
 package net.noresttherein.sugar.numeric
 
-import org.scalacheck.{Prop, Properties}
+import org.scalacheck.{Prop, Properties, Test}
 import org.scalacheck.Prop._
-
-import net.noresttherein.sugar.numeric.BigRatio.{int_%/, long_%/, bigInt_%/, One, Zero}
+import net.noresttherein.sugar.numeric.BigRatio.{One, Zero, bigInt_%/, int_%/, long_%/}
+import org.scalacheck.util.ConsoleReporter
 
 
 
 object BigRatioSpec extends Properties("BigRatio") {
+
+	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500)
 
 	val Tolerance = 0.000000000000001
 
@@ -18,7 +21,7 @@ object BigRatioSpec extends Properties("BigRatio") {
 		}
 	}
 
-	private def constructorProp(f :(BigInt, BigInt) => BigRatio)(n :BigInt, d :BigInt, i :BigInt) :Prop = {
+	private def constructorProp(f :(BigInt, BigInt) => BigRatio)(n :BigInt, d :BigInt) :Prop = {
 		if (d == 0)
 			Prop(throws(classOf[ArithmeticException]) { f(n, d) }) :| "throws ArithmeticException on division by zero"
 		else {
@@ -26,19 +29,21 @@ object BigRatioSpec extends Properties("BigRatio") {
 			(r.toDouble =~= n.toDouble / d.toDouble label s"$r =~= $n / $d") &&
 				(r.sign ?= n.sign.toInt * d.sign.toInt) :| s"($r).sign=${r.sign}; should be ${n.sign * d.sign} for $n / $d" &&
 				(r.denominator.sign ?= 1) :| s"non positive denominator in $n / $d = $r" &&
-				Prop(i != 0) ==>
-					(Prop(r.numerator % i == 0 && r.denominator % i == 0) ==> (i == 1  || i == -1) label
-						s"$i divides ${r.numerator}, ${r.denominator}")
+				forAll { i :BigInt =>
+					(i != 1 && i != -1 && i != 0) ==>
+						Prop(r.numerator % i != 0 || r.denominator % i != 0) label
+							s"$i divides ${r.numerator}, ${r.denominator}"
+				}
 		}
 	}
 
 	property("apply(BigInt, BigInt)") = forAll(constructorProp(BigRatio.apply) _)
 	property("%/") = forAll(constructorProp(_ %/ _) _)
-	property("apply(Int, Int)") = forAll { (n :Int, d :Int, i :Int) =>
-		constructorProp((n, d) => BigRatio(n.toInt, d.toInt))(n, d, i)
+	property("apply(Int, Int)") = forAll { (n :Int, d :Int) =>
+		constructorProp((n, d) => BigRatio(n.toInt, d.toInt))(n, d)
 	}
-	property("apply(Long, Long)") = forAll { (n :Long, d :Long, i :Long) =>
-		constructorProp((n, d) => BigRatio(n.toLong, d.toLong))(n, d, i)
+	property("apply(Long, Long)") = forAll { (n :Long, d :Long) =>
+		constructorProp((n, d) => BigRatio(n.toLong, d.toLong))(n, d)
 	}
 
 

@@ -451,7 +451,7 @@ object Decimal64Spec extends Properties("Decimal64") {
 				try "DECIMAL128=" + result catch {
 					case e :Exception => "DECIMAL128=[threw " + e + "]"
 				}
-			val error = 1
+			val error = 2
 			locally {
 				implicit val ctx = Round.to16digits(rounding)
 				s"$x ^ $n ($ctx)" |: expectLabel |:

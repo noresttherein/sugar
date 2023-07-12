@@ -20,9 +20,9 @@ object RatioSpec extends Properties("Ratio") {
 			val r = f(n, d)
 			(r.toDouble ?= n.toDouble / d) &&
 				(r.sign ?= n.sign * d.sign) :| s"($r).sign=${r.sign}; should be ${n.sign * d.sign} for $n / $d" &&
-				forAll { i :Int => Prop(i != 0) ==>
-					(Prop(r.numerator % i == 0 && r.denominator % i == 0) ==> (i == 1  || i == -1) label
-						s"$i divides ${r.numerator}, ${r.denominator}")
+				forAll { i :Int =>
+					(i != 0 && i != 1 && i!= -1) ==> (r.numerator % i != 0 || r.denominator % i != 0) label
+						s"$i divides ${r.numerator}, ${r.denominator}"
 				}
 		}
 	}
