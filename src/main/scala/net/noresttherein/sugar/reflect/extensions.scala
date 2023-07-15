@@ -33,11 +33,15 @@ object extensions extends extensions {
 		/** Returns `other isAssignableFrom this`. */
 		@inline def <:<(other :Class[_]) :Boolean = other isAssignableFrom self
 
-		/** True if either this class a subclass of `other` (including being the same class),
-		  * or one class is a built in value type and the other is its standard box class.
+		/** True if a value of a variable of this type can be assigned in source code to a variable of type `other`,
+		  * possibly involving boxing or unboxing.
+		  * @return `true` ''iff'' one of the conditions hold:
+		  *            1. `this` is a subclass of `other`, or implements `other` if `other` is a trait;
+		  *            1. `this` is a built in value type, and `other` is a superclass of its reference box type;
+		  *            1. `other` is a built in value type, and `this` is its reference box type.
 		  */
 		@inline def <%<(other :Class[_]) :Boolean =
-			(other isAssignableFrom self) || isBoxOf(other) || other.isBoxOf(self)
+			(other isAssignableFrom self) || other.isAssignableFrom(refClass) || isBoxOf(other)
 
 		/** Tue if either the argument is the same class as this one, or one class is a built in value type,
 		  * and the other is its standard box class.
