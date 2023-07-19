@@ -68,7 +68,7 @@ object extensions extends extensions {
 		/** Similar to `map`, but the function is executed in a try-catch block and `None` is returned
 		  * in case any exceptions are thrown.
 		  */
-		@inline def failMap[X](f :T => X) :Option[X] = self match {
+		@inline def guardMap[X](f :T => X) :Option[X] = self match {
 			case Some(t) => try {
 				Some(f(t))
 			} catch {

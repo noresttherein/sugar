@@ -210,7 +210,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 		/** The same as [[net.noresttherein.sugar.vars.PotentialExtension.map map]], but exceptions thrown
 		  * by the function are caught and $Inexistent is returned instead.
 		  */
-		@inline def failMap[O](f :A => O) :Potential[O] =
+		@inline def guardMap[O](f :A => O) :Potential[O] =
 			if (self.asInstanceOf[AnyRef] eq NonExistent)
 				Inexistent
 			else try {
@@ -841,7 +841,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 		/** The same as [[net.noresttherein.sugar.vars.FallibleExtension.map map]], but exceptions thrown
 		  * by the function are caught and $Failed with the exception's error message is returned.
 		  */
-		@inline def failMap[O](f :A => O) :Fallible[O] = self match {
+		@inline def guardMap[O](f :A => O) :Fallible[O] = self match {
 			case fail :Failed => fail
 			case _ => try {
 				Passed(f(get))
@@ -968,6 +968,10 @@ package vars {
 	/** A companion and factory of $Potential, a very lightweight alternative to [[Option]].
 	  * @see [[net.noresttherein.sugar.vars.Potential.Existent]]
 	  * @see [[net.noresttherein.sugar.vars.Potential.Inexistent]]
+	  *
+	  * @define Potential  [[net.noresttherein.sugar.vars.Potential! Potential]]
+	  * @define Existent   [[net.noresttherein.sugar.vars.Existent$ Existent]]
+	  * @define Inexistent [[net.noresttherein.sugar.vars.Inexistent$ Inexistent]]
 	  */
 	@SerialVersionUID(Ver)
 	object Potential {
@@ -1107,22 +1111,38 @@ package vars {
 		@SerialVersionUID(Ver)
 		object implicits {
 			/** An implicit conversion that converts a $Potential to an iterable value. */
-			@inline implicit def potentialToIterable[A](opt :Potential[A]) :Iterable[A] = opt match {
+			@inline implicit def PotentialToIterable[A](opt :Potential[A]) :Iterable[A] = opt match {
 				case Existent(v) => v::Nil
-				case _ => Nil
+				case _           => Nil
 			}
 
-			/** An implicit conversion from an `Potential[A]` to an `Option[A]`.
+			/** An implicit conversion from a `Potential[A]` to an `Option[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
-			@inline implicit def potentialToOption[T](value :Potential[T]) :Option[T] = Potential.fromOption(value)
+			@inline implicit def PotentialToOption[T](opt :Potential[T]) :Option[T] = opt match {
+				case Existent(v) => Some(v)
+				case _           => None
+			}
 
 			/** A nomen omen optional implicit conversion of an `Option[A]` to a `Potential[A]`.
 			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 			  */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-			@inline implicit def optionToPotential[A](opt :Option[A]) :Potential[A] = some_?(opt)
+			@inline implicit def OptionToPotential[A](opt :Option[A]) :Potential[A] = some_?(opt)
+
+			/** An implicit conversion from an `Potential[A]` to an `Opt[A]`.
+			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
+			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
+			  */
+			@inline implicit def PotentialToOpt[T](value :Potential[T]) :Opt[T] = value match {
+				case Existent(v) => Got(v)
+				case _           => Lack
+			}
+
+			/** A nomen omen optional implicit conversion of an `Opt[A]` to a `Potential[A]`. */
+			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
+			@inline implicit def OptToPotential[A](opt :Opt[A]) :Potential[A] = got_?(opt)
 
 			/** Wraps any object in a [[net.noresttherein.sugar.vars.Potential Potential]] monad. */
 			@inline implicit def existentAny[A](existent :A) :Potential[A] = Existent(existent)
@@ -1147,11 +1167,11 @@ package vars {
 			val Some   = Existent
 			val None   = Inexistent
 			//same names as in implicits so if both are imported one shadows the other
-			@inline implicit def potentialFromOption[T](opt :Potential[T]) :scala.Option[T] = opt.option
-			@inline implicit def optionToOpt[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
+			@inline implicit def PotentialFromOption[T](opt :Potential[T]) :scala.Option[T] = opt.option
+			@inline implicit def OptionToOpt[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
 
-			@inline implicit def noneToInexistent(none :scala.None.type) :Inexistent.type = Inexistent
-			@inline implicit def inexistentToNone(miss :Inexistent.type) :scala.None.type = scala.None
+			@inline implicit def NoneToInexistent(none :scala.None.type) :Inexistent.type = Inexistent
+			@inline implicit def InexistentToNone(miss :Inexistent.type) :scala.None.type = scala.None
 		}
 
 
@@ -1200,6 +1220,10 @@ package vars {
 
 	/** Companion object to $Pill, containing conversion methods as well as factories for both cases:
 	  * [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]] and [[net.noresttherein.sugar.vars.Pill.Red$ Red]].
+	  *
+	  * @define Pill       [[net.noresttherein.sugar.vars.Pill! Pill]]
+	  * @define Blue       [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]]
+	  * @define Red        [[net.noresttherein.sugar.vars.Pill.Red$ Red]]
 	  */
 	@SerialVersionUID(Ver)
 	object Pill {
@@ -1272,8 +1296,8 @@ package vars {
 		/** Extra implicit conversions to and from [[scala.Either Either]], off by default. */
 		@SerialVersionUID(Ver)
 		object implicits {
-			@inline implicit def eitherToPill[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
-			@inline implicit def pillToEither[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
+			@inline implicit def EitherToPill[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
+			@inline implicit def PillToEither[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
 		}
 	}
 
@@ -1283,7 +1307,10 @@ package vars {
 	  * designed to only carry an error message in a $Failed.
 	  * @see [[net.noresttherein.sugar.vars.Fallible.Passed]]
 	  * @see [[net.noresttherein.sugar.vars.Fallible.Failed]]
-	  */
+	  * @define Fallible   [[net.noresttherein.sugar.vars.Fallible! Fallible]]
+	  * @define Passed     [[net.noresttherein.sugar.vars.Fallible.Passed Passed]]
+	  * @define Failed     [[net.noresttherein.sugar.vars.Fallible.Failed Failed]]
+x	  */
 	@SerialVersionUID(Ver)
 	object Fallible {
 		/** Checks the value for nullity, returning it in a $Passed if it is not null, or $Failed otherwise. */
@@ -1436,10 +1463,10 @@ package vars {
 		  */
 		@SerialVersionUID(Ver)
 		object implicits {
-			@inline implicit def eitherToFallible[O](either :Either[String, O]) :Fallible[O] = fromEither(either)
-			@inline implicit def fallibleToEither[O](fallible :Fallible[O]) :Either[String, O] = fallible.toEither
-			@inline implicit def pillToFallible[O](pill :Pill[String, O]) :Fallible[O] = fromPill(pill)
-			@inline implicit def fallibleToPill[O](fallible :Fallible[O]) :Pill[String, O] =
+			@inline implicit def EitherToFallible[O](either :Either[String, O]) :Fallible[O] = fromEither(either)
+			@inline implicit def FallibleToEither[O](fallible :Fallible[O]) :Either[String, O] = fallible.toEither
+			@inline implicit def PillToFallible[O](pill :Pill[String, O]) :Fallible[O] = fromPill(pill)
+			@inline implicit def FallibleToPill[O](fallible :Fallible[O]) :Pill[String, O] =
 				Pill.fromFallible(fallible)
 		}
 	}

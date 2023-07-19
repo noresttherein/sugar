@@ -230,7 +230,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	/** The same as [[net.noresttherein.sugar.vars.Unsure.map map]], but exception thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Missing Missing]] is returned instead.
 	  */
-	@inline final def failMap[B](f :T => B) :Unsure[B] =
+	@inline final def guardMap[B](f :T => B) :Unsure[B] =
 		if (this eq Missing)
 			Missing
 		else try {
@@ -520,18 +520,18 @@ object Unsure {
 	@SerialVersionUID(Ver)
 	object implicits {
 		/** An implicit conversion that converts an option to an iterable value. */
-		@inline implicit def unsureToIterable[A](opt :Unsure[A]): Iterable[A] = opt.toIterable
+		@inline implicit def UnsureToIterable[A](opt :Unsure[A]): Iterable[A] = opt.toIterable
 
 		/** An implicit conversion from an `Unsure[A]` to an `Option[A]`.
 		  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 		  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 		  */
-		@inline implicit def unsureToOption[T](value :Unsure[T]) :Option[T] = value.option
+		@inline implicit def UnsureToOption[T](value :Unsure[T]) :Option[T] = value.option
 
 		/** A nomen omen optional implicit conversion of an `Option[A]` to an `Unsure[A]`.
 		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 		  */
-		@inline implicit def optionToUnsure[@specialized(SpecializedVars) A](opt :Option[A]) :Unsure[A] = some_?(opt)
+		@inline implicit def OptionToUnsure[@specialized(SpecializedVars) A](opt :Option[A]) :Unsure[A] = some_?(opt)
 
 		/** Wraps any object in a [[net.noresttherein.sugar.vars.Sure Sure]] monad. */
 		@inline implicit def sureAny[@specialized(SpecializedVars) A](sure :A) :Sure[A] = Sure(sure)
@@ -539,14 +539,14 @@ object Unsure {
 		/** A nomen omen optional implicit conversion of an `Opt[A]` to a `Unsure[A]`.
 		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]]
 		  */
-		@inline implicit def optToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] = got_?(opt)
+		@inline implicit def OptToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] = got_?(opt)
 
-		@inline implicit def unsureToOpt[A](opt :Unsure[A]) :Opt[A] = opt.opt
+		@inline implicit def UnsureToOpt[A](opt :Unsure[A]) :Opt[A] = opt.opt
 
-		@inline implicit def potentialToUnsure[@specialized(SpecializedVars) A](opt :Potential[A]) :Unsure[A] =
+		@inline implicit def PotentialToUnsure[@specialized(SpecializedVars) A](opt :Potential[A]) :Unsure[A] =
 			fromPotential(opt)
 
-		@inline implicit def potentialFromUnsure[A](opt :Unsure[A]) :Potential[A] = Potential.fromUnsure(opt)
+		@inline implicit def PotentialFromUnsure[A](opt :Unsure[A]) :Potential[A] = Potential.fromUnsure(opt)
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
@@ -568,16 +568,16 @@ object Unsure {
 		val Some   = Sure
 		val None = Missing
 		//same names as in implicits so if both are imported one shadows the other
-		@inline implicit def unsureToOption[T](opt :Unsure[T]) :scala.Option[T] = opt.option
-		@inline implicit def optionToUnsure[@specialized(SpecializedVars) T](opt :scala.Option[T]) :Unsure[T] = some_?(opt)
+		@inline implicit def UnsureToOption[T](opt :Unsure[T]) :scala.Option[T] = opt.option
+		@inline implicit def OptionToUnsure[@specialized(SpecializedVars) T](opt :scala.Option[T]) :Unsure[T] = some_?(opt)
 
-		@inline implicit def someToSure[@specialized(SpecializedVars) T](opt :scala.Some[T]) :Sure[T] =
+		@inline implicit def SomeToSure[@specialized(SpecializedVars) T](opt :scala.Some[T]) :Sure[T] =
 			new Sure(opt.get, opt)
 		@inline implicit def sureToSome[@specialized(SpecializedVars) T](opt :Sure[T]) :scala.Some[T] =
 			opt.option.asInstanceOf[scala.Some[T]]
 
-		@inline implicit def noneToMissing(none :scala.None.type): Missing.type = Missing
-		@inline implicit def missingToNone(missing: Missing.type) :scala.None.type = scala.None
+		@inline implicit def NoneToMissing(none :scala.None.type): Missing.type = Missing
+		@inline implicit def MissingToNone(missing: Missing.type) :scala.None.type = scala.None
 	}
 
 
