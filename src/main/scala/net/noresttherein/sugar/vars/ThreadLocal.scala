@@ -3,6 +3,7 @@ package net.noresttherein.sugar.vars
 import java.util.function.Supplier
 
 import net.noresttherein.sugar.vars.InOut.InOutOrdering
+import net.noresttherein.sugar.vars.ThreadLocal.CustomThreadLocal
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -13,9 +14,8 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @define Ref `ThreadLocal`
   * @author Marcin Mościcki
   */
-@SerialVersionUID(Ver)
-sealed class ThreadLocal[T] private (init :Supplier[_ <: T]) extends Mutable[T] {
-	private[this] val local = java.lang.ThreadLocal.withInitial[T](init)
+sealed class ThreadLocal[T] protected (local :java.lang.ThreadLocal[T]) extends Mutable[T] {
+	def this(init :() => T) = this(new CustomThreadLocal(init))
 
 	override def value :T = local.get
 	override def value_=(newValue :T) :Unit = local.set(newValue)
@@ -26,12 +26,38 @@ sealed class ThreadLocal[T] private (init :Supplier[_ <: T]) extends Mutable[T] 
 
 
 
-
 /** A factory of `InOut[T]` variables backed by thread local storage. */
-@SerialVersionUID(Ver)
 object ThreadLocal {
-	@inline def apply[T](init: => T) :ThreadLocal[T] = new ThreadLocal[T](() => init)
-	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.supplier)
+	def apply[T](init: => T) :ThreadLocal[T] = new ThreadLocal[T](
+		new java.lang.ThreadLocal[T] {
+			override def initialValue() = init
+		}
+	)
+	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.function0)
+
+	def inheritable[T](init: => T, inherit :T => T) :ThreadLocal[T] = new ThreadLocal[T](
+		new java.lang.InheritableThreadLocal[T] {
+			override def initialValue() = init
+			override def childValue(parentValue :T) = inherit(parentValue)
+		}
+	)
+
+	@inline def inheritable[T](init: => T) :ThreadLocal[T] = inheritable(init, identity)
+
+	def inheritable[T](inherit :T => T)(implicit default :DefaultValue[T]) :ThreadLocal[T] =
+		new ThreadLocal[T](
+			new java.lang.InheritableThreadLocal[T] {
+				override def initialValue() = default.get
+				override def childValue(parentValue :T) :T = inherit(parentValue)
+			}
+		)
+
+	@inline def inheritable[T](implicit default :DefaultValue[T]) :ThreadLocal[T] =
+		inheritable(identity[T] _)(default)
 
 	implicit def ThreadLocalOrdering[T :Ordering] :Ordering[ThreadLocal[T]] = new InOutOrdering[ThreadLocal, T]
+
+	private class CustomThreadLocal[T](init :() => T) extends java.lang.ThreadLocal[T] {
+		override def initialValue() = init()
+	}
 }

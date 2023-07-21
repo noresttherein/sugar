@@ -14,7 +14,8 @@ import net.noresttherein.sugar.vars.Opt
   */
 @SerialVersionUID(Ver)
 final class DefaultValue[@specialized +T](val get :T) extends Serializable {
-	private[sugar] val supplier :Supplier[_ <: T] = () => get
+	private[sugar] val supplier  :Supplier[_ <: T] = () => get
+	private[sugar] val function0 :() => T = () => get
 }
 
 
