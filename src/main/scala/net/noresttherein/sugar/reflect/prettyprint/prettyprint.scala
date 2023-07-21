@@ -109,6 +109,10 @@ package object prettyprint {
 			res.toString
 	}
 
+	//consider: implementing it directly.
+	/** Returns [[net.noresttherein.sugar.reflect.prettyprint.innerNameOf innerNameOf]]`(Class.forName(className))`. */
+	def innerClassName(className :String) :String = innerNameOf(Class.forName(className))
+
 
 
 	/** An approximation of the type name of the class of the given object, as it would appear in code.
@@ -182,7 +186,10 @@ package object prettyprint {
 			res.toString
 	}
 
-	
+	/** Returns [[net.noresttherein.sugar.reflect.prettyprint.localNameOf localNameOf]]`(Class.forName(className))`. */
+	def localClassName(className :String) :String = localNameOf(Class.forName(className))
+
+
 	/** An abbreviated qualified name of the class of the given object, demangled to an approximation of how it would 
 	  * appear in code. All package names are replaced with their first letters, while the class name is demangled
 	  * as follows: first, all trailing '$' are dropped and escape sequences 
@@ -268,6 +275,8 @@ package object prettyprint {
 			sb.toString
 	}
 
+	/** Returns [[net.noresttherein.sugar.reflect.prettyprint.abbrevNameOf abbrevNameOf]]`(Class.forName(className))`. */
+	def abbrevClassName(className :String) :String = abbrevNameOf(Class.forName(className))
 
 
 	/** An approximation of the full, qualified and demangled name of the class of the given object, as it would appear
@@ -338,7 +347,8 @@ package object prettyprint {
 			res.toString
 	}
 
-
+	/** Returns [[net.noresttherein.sugar.reflect.prettyprint.fullNameOf fullNameOf]]`(Class.forName(className))`. */
+	def demangledName(className :String) :String = fullNameOf(Class.forName(className))
 
 
 	private def trimTrailingDollars(input :String) :Int = {

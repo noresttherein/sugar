@@ -152,6 +152,12 @@ object extensions extends extensions {
 		@inline def abbrevName :String = abbrevNameOf(self)
 
 		/** An approximation of the full, qualified and demangled name of this, as it would
+		  * appear in code.
+		  * @return `this.`[[net.noresttherein.sugar.reflect.extensions.ClassExtension.demangledName demangledName]].
+		  */
+		@inline def name :String = fullNameOf(self)
+
+		/** An approximation of the full, qualified and demangled name of this, as it would
 		  * appear in code. Demangling proceeds as follows: first, all trailing '$' are dropped and escape sequences
 		  * for characters which are legal for use in identifiers are unescaped. Encoding of type arguments
 		  * for `@specialized` classes is resolved and replaced with a parameter list, as it would occur in the code.
@@ -165,8 +171,7 @@ object extensions extends extensions {
 		  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
 		  * Finally, anonymous classes receive synthetic names for the obvious reason.
 		  */
-		@inline def name :String = fullNameOf(self)
-
+		@inline def demangledName :String = fullNameOf(self)
 	}
 
 }
