@@ -73,7 +73,7 @@ trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable
   */
 @SerialVersionUID(Ver)
 object MatchPattern { //todo: a constructor macro adapting a partial function literal
-	/** Forces a function literal given as the argument
+	/** Forces a function literal `In => Opt[Out]` given as the argument
 	  * to be SAM-converted to a [[net.noresttherein.sugar.matching.MatchPattern MatchPattern]].
 	  */
 	@inline def apply[In, Out](pattern :MatchPattern[In, Out]) :MatchPattern[In, Out] = pattern
