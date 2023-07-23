@@ -15,15 +15,10 @@ import net.noresttherein.sugar.extensions.classNameMethods
   * @author Marcin Mościcki
   */
 object ClassNameMethodsSpec extends Properties("classNameMethods") {
-
 	class Nest {
 		class !@#%^&*-+=<>?/|\:
 
-		def anonymous :Seq[Nothing] = new AbstractSeq[Nothing] with Seq[Nothing] {
-			override def apply(i :Int) = ???
-			override def length = 0
-			override def iterator = Iterator.empty
-		}
+		val anonymous = new AnyRef {}
 
 		object singleton
 	}
@@ -40,6 +35,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 	val DoubleUnit = new Spec[Double, Unit]
 	val CharBool = new Spec[Char, Boolean]
 
+
 	property("innerClassName") = {
 		((new !@#%^&*-+=<>?/|\:).innerClassName ?= "!@#%^&*-+=<>?/|\\:") &&
 			(anonymous.innerClassName ?= "Nest.anon") &&
@@ -49,7 +45,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(LongInt.innerClassName ?= "Spec[Long,Int]") &&
 			(FloatUnit.innerClassName ?= "Spec[Float,Unit]") &&
 			(DoubleUnit.innerClassName ?= "Spec[Double,Unit]")  &&
-			(CharBool.innerClassName ?= "Spec[Char,Bool]") &&
+			(CharBool.innerClassName ?= "Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).innerClassName ?= "boo") &&
 			((new AnyRef).innerClassName ?= "AnyRef") &&
 //			((new LongInt.shoo(42, 44)).innerClassName ?= "shoo") &&
@@ -65,7 +61,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(LongInt.localClassName ?= "ClassNameMethodsSpec.Spec[Long,Int]") &&
 			(FloatUnit.localClassName ?= "ClassNameMethodsSpec.Spec[Float,Unit]") &&
 			(DoubleUnit.localClassName ?= "ClassNameMethodsSpec.Spec[Double,Unit]")  &&
-			(CharBool.localClassName ?= "ClassNameMethodsSpec.Spec[Char,Bool]") &&
+			(CharBool.localClassName ?= "ClassNameMethodsSpec.Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).localClassName ?= "ClassNameMethodsSpec.Spec.boo") &&
 			((new AnyRef).localClassName ?= "AnyRef") &&
 //			((new LongInt.shoo(42, 44)).localClassName ?= "classNameMethodsSpec.Spec[Long, Int].shoo") &&
@@ -83,7 +79,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(LongInt.abbrevClassName ?= prefix + ".Spec[Long,Int]") &&
 			(FloatUnit.abbrevClassName ?= prefix + ".Spec[Float,Unit]") &&
 			(DoubleUnit.abbrevClassName ?= prefix + ".Spec[Double,Unit]")  &&
-			(CharBool.abbrevClassName ?= prefix + ".Spec[Char,Bool]") &&
+			(CharBool.abbrevClassName ?= prefix + ".Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).abbrevClassName ?= prefix + ".Spec.boo") &&
 			((new AnyRef).abbrevClassName ?= "AnyRef")
 //			((new LongInt.shoo(42, 44)).abbrevClassName ?= "n.n.s.p.classNameMethodsSpec.Spec[Long,Int].shoo") &&
@@ -100,7 +96,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(LongInt.className ?= prefix + ".Spec[Long,Int]") &&
 			(FloatUnit.className ?= prefix + ".Spec[Float,Unit]") &&
 			(DoubleUnit.className ?= prefix + ".Spec[Double,Unit]")  &&
-			(CharBool.className ?= prefix + ".Spec[Char,Bool]") &&
+			(CharBool.className ?= prefix + ".Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).className ?= prefix + ".Spec.boo") &&
 			((new AnyRef).className ?= "AnyRef") &&
 //			((new LongInt.shoo(42, 44)).className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Long,Int].shoo") &&
