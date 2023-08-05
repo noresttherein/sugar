@@ -13,8 +13,7 @@ import net.noresttherein.sugar.vars.Opt
 
 
 
-package object reflect {
-	private[reflect] final val Ver = 1L
+package reflect {
 
 	@SerialVersionUID(Ver)
 	object Boxed {
@@ -73,6 +72,48 @@ package object reflect {
 			classOf[JBoolean] -> classOf[Array[JBoolean]],
 		)
 	}
+
+
+	/** `Class` constants for commonly used types. */
+	@SerialVersionUID(Ver)
+	object types {
+		val Byte     :Class[Byte]    = classOf[Byte]
+		val Short    :Class[Short]   = classOf[Short]
+		val Char     :Class[Char]    = classOf[Char]
+		val Int      :Class[Int]     = classOf[Int]
+		val Long     :Class[Long]    = classOf[Long]
+		val Float    :Class[Float]   = classOf[Float]
+		val Double   :Class[Double]  = classOf[Double]
+		val Boolean  :Class[Boolean] = classOf[Boolean]
+		val Void     :Class[java.lang.Void] = java.lang.Void.TYPE
+		val Unit     :Class[Unit]    = classOf[Unit]
+		val JByte    :Class[JByte]    = classOf[JByte]
+		val JShort   :Class[JShort]   = classOf[JShort]
+		val JChar    :Class[JChar]    = classOf[JChar]
+		val JInt     :Class[JInt]     = classOf[JInt]
+		val JLong    :Class[JLong]    = classOf[JLong]
+		val JFloat   :Class[JFloat]   = classOf[JFloat]
+		val JDouble  :Class[JDouble]  = classOf[JDouble]
+		val JBoolean :Class[JBoolean] = classOf[JBoolean]
+		val AnyRef   :Class[AnyRef]   = classOf[AnyRef]
+
+		val ByteArray    :Class[Array[Byte]]    = classOf[Array[Byte]]
+		val ShortArray   :Class[Array[Short]]   = classOf[Array[Short]]
+		val CharArray    :Class[Array[Char]]    = classOf[Array[Char]]
+		val IntArray     :Class[Array[Int]]     = classOf[Array[Int]]
+		val LongArray    :Class[Array[Long]]    = classOf[Array[Long]]
+		val FloatArray   :Class[Array[Float]]   = classOf[Array[Float]]
+		val DoubleArray  :Class[Array[Double]]  = classOf[Array[Double]]
+		val BooleanArray :Class[Array[Boolean]] = classOf[Array[Boolean]]
+		val AnyRefArray  :Class[Array[AnyRef]]  = classOf[Array[AnyRef]]
+	}
+}
+
+
+
+
+package object reflect {
+	private[reflect] final val Ver = 1L
 
 	/** Maps all classes representable in `JVM` to their boxed representations. */
 	final val BoxClass = Map[Class[_], Class[_]](
