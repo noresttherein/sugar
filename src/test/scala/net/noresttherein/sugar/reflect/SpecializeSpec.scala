@@ -86,7 +86,7 @@ object SpecializeSpec extends Properties("Specialize") {
 		override def toString = s"RuntimeContext[$mySpec]($arg)($passedSpec)"
 	}
 
-	object ParamCall extends Specialize.With[generic.Self, RuntimeContext] {
+	object ParamCall extends Specialize.With[generic.Ident, RuntimeContext] {
 		override def specialized[@specialized E](param: E)(implicit spec :RuntimeType[E]): RuntimeContext[E] = new RuntimeContext(param)(spec)
 	}
 
