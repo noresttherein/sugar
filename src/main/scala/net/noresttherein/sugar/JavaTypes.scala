@@ -1,5 +1,13 @@
 package net.noresttherein.sugar
 
+import scala.collection.{IterableFactory, MapFactory, SortedIterableFactory, SortedMapFactory, SpecificIterableFactory}
+import scala.collection.mutable.{Builder, ReusableBuilder}
+import scala.jdk.CollectionConverters.IterableHasAsJava
+import scala.reflect.ClassTag
+
+import net.noresttherein.sugar.collections.JavaIterator
+import net.noresttherein.sugar.extensions.{ArrayAsIterableOnceExtension, IterableOnceExtension, castTypeParamMethods}
+
 
 
 
@@ -39,6 +47,145 @@ object JavaTypes {
 	type JDeque[T]         = java.util.Deque[T]
 	type JPriorityQueue[T] = java.util.PriorityQueue[T]
 
+	@SerialVersionUID(Ver)
+	case object JIterator extends IterableFactory[JIterator] {
+		override def from[A](source :IterableOnce[A]) :JIterator[A] = source.jiterator
+		override def empty[A] :JIterator[A] = JavaIterator.empty
+		override def newBuilder[A] :Builder[A, JIterator[A]] = 
+			Array.newBuilder(ClassTag.Any.castParam[A]).mapResult(_.jiterator)
+	}
+	
+	@SerialVersionUID(Ver)
+	case object JCollection extends IterableFactory.Delegate[JCollection](JList)
+
+	@SerialVersionUID(Ver)
+	case object JList extends IterableFactory.Delegate[JList](JArrayList) {
+		override def empty[A] :JList[A] = java.util.List.of()
+	}
+
+	@SerialVersionUID(Ver)
+	case object JArrayList extends IterableFactory[JArrayList] {
+		override def from[A](source :IterableOnce[A]) :JArrayList[A] = source match {
+			case it :Iterable[A] => new JArrayList(it.asJavaCollection)
+			case _ => (new JArrayList[A] /: source.iterator) { (res, elem) => res add elem; res } 
+		}
+		override def empty[A] :JArrayList[A] = new JArrayList()
+
+		override def newBuilder[A] :Builder[A, JArrayList[A]] = new JCollectionBuilder(new JArrayList[A])
+	}
+	
+	@SerialVersionUID(Ver)
+	case object JLinkedList extends IterableFactory[JLinkedList] {
+		override def from[A](source :IterableOnce[A]) :JLinkedList[A] = source match {
+			case it :Iterable[A] => new JLinkedList(it.asJavaCollection)
+			case _ => (new JLinkedList[A] /: source.iterator) { (res, elem) => res add elem; res } 
+		}
+		override def empty[A] :JLinkedList[A] = new JLinkedList()
+
+		override def newBuilder[A] :Builder[A, JLinkedList[A]] = new JCollectionBuilder(new JLinkedList[A])
+	}
+
+	@SerialVersionUID(Ver)
+	case object JQueue extends IterableFactory.Delegate[JQueue](JLinkedList)
+
+	@SerialVersionUID(Ver)
+	case object JDeque extends IterableFactory.Delegate[JDeque](JLinkedList)
+
+	@SerialVersionUID(Ver)
+	case object JPriorityQueue extends SortedIterableFactory[JPriorityQueue] {
+		override def from[A :Ordering](source :IterableOnce[A]) :JPriorityQueue[A] =
+			(new JPriorityQueue[A](Ordering[A]) /: source) { (res, elem) => res.add(elem); res }
+
+		override def empty[A :Ordering] :JPriorityQueue[A] = new JPriorityQueue(Ordering[A])
+
+		override def newBuilder[A :Ordering] :Builder[A, JPriorityQueue[A]] =
+			new JCollectionBuilder(new JPriorityQueue(Ordering[A]))
+	}
+
+	@SerialVersionUID(Ver)
+	case object JSet extends IterableFactory.Delegate[JSet](JHashSet) {
+		override def empty[A] :JSet[A] = java.util.Set.of()
+	}
+
+	@SerialVersionUID(Ver)
+	case object JHashSet extends IterableFactory[JHashSet] {
+		override def from[A](source :IterableOnce[A]) :JHashSet[A] = source match {
+			case it :Iterable[A] => new JHashSet(it.asJavaCollection)
+			case _ => (new JHashSet[A] /: source.iterator) { (res, elem) => res add elem; res } 
+		}
+		override def empty[A] :JHashSet[A] = new JHashSet()
+
+		override def newBuilder[A] :Builder[A, JHashSet[A]] = new JCollectionBuilder(new JHashSet[A])
+	}
+
+	@SerialVersionUID(Ver)
+	case object JTreeSet extends SortedIterableFactory[JTreeSet] {
+		override def from[E :Ordering](it :IterableOnce[E]) :JTreeSet[E] = new JTreeSet(Ordering[E])
+		override def empty[A :Ordering] :JTreeSet[A] = new JTreeSet(Ordering[A])
+		override def newBuilder[A :Ordering] :Builder[A, JTreeSet[A]] = new JCollectionBuilder(new JTreeSet(Ordering[A]))
+	}
+
+	@SerialVersionUID(Ver)
+	case object JBitSet extends SpecificIterableFactory[Int, JBitSet] {
+		override def fromSpecific(it :IterableOnce[Int]) :JBitSet =
+			(new JBitSet /: it.toBasicOps) { (res, i) => res.set(i); res }
+
+		override def empty :JBitSet = new JBitSet
+
+		override def newBuilder :Builder[Int, JBitSet] = new ReusableBuilder[Int, JBitSet] {
+			private[this] var res = new JBitSet
+			override def addOne(elem :Int) = { res.set(elem); this }
+			override def clear() :Unit = if (res != null) res.clear()
+			override def result() :JBitSet = { val set = res; res = null; set }
+		}
+	}
+
+	@SerialVersionUID(Ver)
+	case object JMap extends MapFactory.Delegate[JMap](JHashMap) {
+		override def empty[K, V] :JMap[K, V] = java.util.Map.of()
+	}
+
+	@SerialVersionUID(Ver)
+	case object JHashMap extends MapFactory[JHashMap] {
+		override def from[K, V](it :IterableOnce[(K, V)]) :JHashMap[K, V] =
+			(new JHashMap[K, V] /: it.toBasicOps) { (res, kv) => res.put(kv._1, kv._2); res }
+
+		override def empty[K, V] :JHashMap[K, V] = new JHashMap()
+
+		override def newBuilder[K, V] :Builder[(K, V), JHashMap[K, V]] = new Builder[(K, V), JHashMap[K, V]] {
+			private[this] var res = new JHashMap[K, V]
+			override def addOne(elem :(K, V)) = { res.put(elem._1, elem._2); this }
+			override def clear() :Unit = if (res != null) res.clear()
+			override def result() = { val map = res; res = null; map }
+		}
+	}
+
+	@SerialVersionUID(Ver)
+	case object JTreeMap extends SortedMapFactory[JTreeMap] {
+		override def from[K :Ordering, V](it :IterableOnce[(K, V)]) :JTreeMap[K, V] =
+			(new JTreeMap[K, V](Ordering[K]) /: it.toBasicOps) { (res, kv) => res.put(kv._1, kv._2); res }
+
+		override def empty[K :Ordering, V] :JTreeMap[K, V] = new JTreeMap(Ordering[K])
+
+		override def newBuilder[K :Ordering, V] :Builder[(K, V), JTreeMap[K, V]] = new Builder[(K, V), JTreeMap[K, V]] {
+			private[this] var res = new JTreeMap[K, V](Ordering[K])
+			override def addOne(elem :(K, V)) = { res.put(elem._1, elem._2); this }
+			override def clear() :Unit = if (res != null) res.clear()
+			override def result() = { val map = res; res = null; map }
+		}
+	}
+
+
+	private class JCollectionBuilder[A, C[X] >: Null <: JCollection[X]](private[this] var res :C[A])
+		extends Builder[A, C[A]]
+	{
+		override def clear() :Unit = if (res != null) res.clear()
+		override def result() = { val c = res; res = null; c }
+		override def addOne(elem :A) = { res add elem; this }
+	}
+
+	
+	
 	/** Implicit unboxing of java wrappers of primitive types (`Integer`, `java.lang.Long`, etc.) to Scala value types. */
 	object unboxingConversions {
 		@inline implicit def unboxBoolean(x :JBoolean) :Boolean = x.booleanValue
