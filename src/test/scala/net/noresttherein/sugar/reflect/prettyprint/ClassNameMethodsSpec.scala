@@ -1,19 +1,17 @@
 package net.noresttherein.sugar.reflect.prettyprint
 
 import scala.collection.AbstractSeq
+import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
 import org.scalacheck.Prop._
 import org.scalacheck.Properties
-
 import net.noresttherein.sugar.extensions.classNameMethods
 
 
 
 
 
-/**
-  * @author Marcin Mościcki
-  */
 object ClassNameMethodsSpec extends Properties("classNameMethods") {
 	class Nest {
 		class !@#%^&*-+=<>?/|\:
@@ -28,6 +26,18 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 		class boo
 //		class shoo(t :T, s :S)
 	}
+	trait Outer {
+		val inner :Inner
+		val anon  :Inner
+	}
+	trait Inner
+
+	val Outer = new Outer {
+		class SubInner extends Inner
+		override val inner = new SubInner
+		override val anon  = new Inner {}
+	}
+
 	val ByteShort = new Spec[Byte, Short]
 	val IntInt = new Spec[Int, Int]
 	val LongInt = new Spec[Long, Int]
@@ -35,7 +45,42 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 	val DoubleUnit = new Spec[Double, Unit]
 	val CharBool = new Spec[Char, Boolean]
 
+	def primitivesProp(name :Class[_] => String) = all(
+		name(classOf[Byte]) ?= "Byte",
+		name(classOf[Short]) ?= "Short",
+		name(classOf[Int]) ?= "Int",
+		name(classOf[Long]) ?= "Long",
+		name(classOf[Float]) ?= "Float",
+		name(classOf[Double]) ?= "Double",
+		name(classOf[Char]) ?= "Char",
+		name(classOf[Boolean]) ?= "Boolean",
+	)
 
+	def arrayProp[X :ClassTag](expectedName :String)(name :Class[_] => String) =
+		name(Array.ofDim[X](1, 2, 3).getClass) ?= s"Array[Array[Array[$expectedName]]]"
+
+	def arraysProp(prefix :String, name :Class[_] => String) = all(
+		arrayProp[Byte]("Byte")(name),
+		arrayProp[Short]("Short")(name),
+		arrayProp[Int]("Int")(name),
+		arrayProp[Long]("Long")(name),
+		arrayProp[Double]("Double")(name),
+		arrayProp[Float]("Float")(name),
+		arrayProp[Char]("Char")(name),
+		arrayProp[Boolean]("Boolean")(name),
+		arrayProp[Unit]("Unit")(name),
+		arrayProp[Any]("AnyRef")(name),
+		arrayProp[JByte](prefix + "Byte")(name),
+		arrayProp[JShort](prefix + "Short")(name),
+		arrayProp[JInt](prefix + (if (prefix.length > 1) "Integer" else "Int"))(name),
+		arrayProp[JLong](prefix + "Long")(name),
+		arrayProp[JDouble](prefix + "Double")(name),
+		arrayProp[JFloat](prefix + "Float")(name),
+		arrayProp[JChar](prefix + ((if (prefix.length > 1) "Character" else "Char")))(name),
+		arrayProp[JBoolean](prefix + "Boolean")(name),
+	)
+
+	
 	property("innerClassName") = {
 		((new !@#%^&*-+=<>?/|\:).innerClassName ?= "!@#%^&*-+=<>?/|\\:") &&
 			(anonymous.innerClassName ?= "Nest.anon") &&
@@ -48,8 +93,8 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.innerClassName ?= "Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).innerClassName ?= "boo") &&
 			((new AnyRef).innerClassName ?= "AnyRef") &&
-//			((new LongInt.shoo(42, 44)).innerClassName ?= "shoo") &&
-			(Array.ofDim[Int](1, 2, 3).innerClassName ?= "Array[Array[Array[Int]]]")
+			primitivesProp(innerNameOf) &&
+			arraysProp("J", innerNameOf)
 	}
 
 	property("localClassName") = {
@@ -64,13 +109,12 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.localClassName ?= "ClassNameMethodsSpec.Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).localClassName ?= "ClassNameMethodsSpec.Spec.boo") &&
 			((new AnyRef).localClassName ?= "AnyRef") &&
-//			((new LongInt.shoo(42, 44)).localClassName ?= "classNameMethodsSpec.Spec[Long, Int].shoo") &&
-			(Array.ofDim[Int](1, 2, 3).localClassName ?= "Array[Array[Array[Int]]]")
-
+			primitivesProp(localNameOf) &&
+			arraysProp("J", localNameOf)
 	}
 
 	property("abbrevClassName") = {
-		val prefix = "n.n.s.p.ClassNameMethodsSpec"
+		val prefix = "n.n.s.r.p.ClassNameMethodsSpec"
 		((new !@#%^&*-+=<>?/|\:).abbrevClassName ?= prefix + ".Nest.!@#%^&*-+=<>?/|\\:") &&
 			(anonymous.abbrevClassName ?= prefix + ".Nest.anon.1") &&
 			(singleton.abbrevClassName ?= prefix + ".Nest.singleton") &&
@@ -81,9 +125,9 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(DoubleUnit.abbrevClassName ?= prefix + ".Spec[Double,Unit]")  &&
 			(CharBool.abbrevClassName ?= prefix + ".Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).abbrevClassName ?= prefix + ".Spec.boo") &&
-			((new AnyRef).abbrevClassName ?= "AnyRef")
-//			((new LongInt.shoo(42, 44)).abbrevClassName ?= "n.n.s.p.classNameMethodsSpec.Spec[Long,Int].shoo") &&
-			(Array.ofDim[Int](1, 2, 3).abbrevClassName ?= "Array[Array[Array[Int]]]")
+			((new AnyRef).abbrevClassName ?= "AnyRef") &&
+			primitivesProp(abbrevNameOf) &&
+			arraysProp("j.l.", abbrevNameOf)
 	}
 
 	property("className") = {
@@ -99,7 +143,29 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.className ?= prefix + ".Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).className ?= prefix + ".Spec.boo") &&
 			((new AnyRef).className ?= "AnyRef") &&
-//			((new LongInt.shoo(42, 44)).className ?= "net.noresttherein.sugar.prettyprint.classNameMethodsSpec.Spec[Long,Int].shoo") &&
-			(classNameOf(Array.ofDim[Int](1, 2, 3)) ?= "Array[Array[Array[Int]]]")
+			primitivesProp(fullNameOf) &&
+			arraysProp("java.lang.", fullNameOf)
 	}
+
+
+	Console.err.println(ByteShort.getClass.getName)
+	Console.err.println(Outer.inner.getClass.getName)
+	Console.err.println(Outer.anon.getClass.getName)
+	Console.err.println(classOf[Inner].getName)
+	Console.err.println((new ClassNameMethodsSpec).inner.getClass.getName)
+	Console.err.println((new ClassNameMethodsSpec).anon.getClass.getName)
+	Console.err.println((new !@#%^&*-+=<>?/|\:).getClass.getName)
+	Console.err.println(Array.ofDim[Any](1, 1, 1).getClass.getName)
 }
+
+
+
+
+
+private class ClassNameMethodsSpec {
+	class InnerClass
+	val inner = new InnerClass
+	val anon = new AnyRef {}
+//	var lambda :In
+}
+
