@@ -3,11 +3,9 @@ package net.noresttherein.sugar.numeric
 import java.lang.{Math => math}
 
 import scala.Specializable.Integral
-import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.??!
-import net.noresttherein.sugar.numeric.BitLogic.{AbstractArrayBitLogic, ArrayBitLogic, BitLogicOps}
+import net.noresttherein.sugar.numeric.BitLogic.BitLogicOps
 import net.noresttherein.sugar.reflect.ArrayClass
 
 
@@ -19,13 +17,16 @@ import net.noresttherein.sugar.reflect.ArrayClass
   */
 abstract class BitLogic[@specialized(Integral) X] extends Serializable {
 	def zero :X
+	def isZeros(x :X) :Boolean
 	def copy(x :X) :X
 	def or (left :X, right :X) :X
 	def and(left :X, right :X) :X
 	def xor(left :X, right :X) :X
+	def xnor(left :X, right :X) :X = not_!(xor(left, right))
 	def not(x :X) :X
 	def shiftLeft(x :X, n :Long) :X
 	def shiftRight(x :X, n :Long) :X
+	def signShiftRight(x :X, n :Long) :X
 	def clear(x :X, from :Long, until :Long) :X
 
 	/** Same as `or`, but `left` may (or may not) be mutated in the result. */
@@ -34,12 +35,16 @@ abstract class BitLogic[@specialized(Integral) X] extends Serializable {
 	def and_!(left :X, right :X) :X
 	/** Same as `xor`, but `left` may (or may not) be mutated in the result. */
 	def xor_!(left :X, right :X) :X
+	/** Same as `xnor`, but `left` may (or may not) be mutated in the result. */
+	def xnor_!(left :X, right :X) :X = not_!(xor_!(left, right))
 	/** Same as `not`, but `x` may (or may not) be mutated in the result. */
 	def not_!(x :X) :X
 	/** Same as `shiftLeft`, but `x` may (or may not) be mutated in the result. */
 	def shiftLeft_!(x :X, n :Long) :X
 	/** Same as `shiftRight`, but `x` may (or may not) be mutated in the result. */
 	def shiftRight_!(x :X, n :Long) :X
+	/** Same as `signShiftRight`, but `x` may (or may not) be mutated in the result. */
+	def signShiftRight_!(x :X, n :Long) :X
 	/** Same as `clear`, but `x` may (or may not) be mutated in the result. */
 	def clear_!(x :X, from :Long, until :Long) :X
 
@@ -66,6 +71,14 @@ abstract class BitLogic[@specialized(Integral) X] extends Serializable {
 		var i = 0
 		while (i < min) {
 			left(i) = xor_!(left(i), right(i))
+			i += 1
+		}
+	}
+	def xnorAllInPlace(left :Array[X], right :Array[X]) :Unit = {
+		val min = math.min(left.length, right.length)
+		var i = 0
+		while (i < min) {
+			left(i) = xnor_!(left(i), right(i))
 			i += 1
 		}
 	}
@@ -350,6 +363,7 @@ object BitLogic {
 		override def not_!(x :X) :X = not(x)
 		override def shiftLeft_!(x :X, n :Long) :X = shiftLeft(x, n)
 		override def shiftRight_!(x :X, n :Long) :X = shiftRight(x, n)
+		override def signShiftRight_!(x :X, n :Long) :X = signShiftRight(x, n)
 		override def clear_!(x :X, from :Long, until :Long) :X = clear(x, from, until)
 	}
 
@@ -358,15 +372,21 @@ object BitLogic {
 		extends BitLogic[Byte] with FixedBitSizeLogic[Byte] with ValueTypeBitLogic[Byte]
 	{
 		@inline override def zero = 0
+		@inline override def isZeros(x :Byte) :Boolean = x == 0
 		@inline override def copy(x :Byte) :Byte = x
 		@inline override def or(left :Byte, right :Byte) :Byte = (left | right).toByte
 		@inline override def and(left :Byte, right :Byte) :Byte = (left & right).toByte
 		@inline override def xor(left :Byte, right :Byte) :Byte = (left ^ right).toByte
+		@inline override def xnor(left :Byte, right :Byte) :Byte = (~(left ^ right)).toByte
 		@inline override def not(x :Byte) :Byte = (~x).toByte
 		@inline override def shiftLeft(x :Byte, n :Long) :Byte = ((x & 0xff) << n.toInt).toByte
 		@inline override def shiftRight(x :Byte, n :Long) :Byte = ((x & 0xff) >>> n.toInt).toByte
-		@inline override def clear(x :Byte, from :Long, until :Long) :Byte =
-			(((x & 0xff) >>> until << until) | ((x & 0xff) >>> 8 - from << 8 - from)).toByte
+		@inline override def signShiftRight(x :Byte, n :Long) :Byte = (x >> n.toInt).toByte
+		@inline override def clear(x :Byte, from :Long, until :Long) :Byte = {
+			val from0  = from.toInt
+			val until0 = until.toInt
+			(((x & 0xff) >>> until0 << until0) | ((x & 0xff) >>> 8 - from0 << 8 - from0)).toByte
+		}
 		@inline override def forArray :ByteArrayBitLogic.type = ByteArrayBitLogic
 		@inline override def bitLength = 8
 		@inline override def classTag :ClassTag[Byte] = ClassTag.Byte
@@ -377,15 +397,21 @@ object BitLogic {
 		extends BitLogic[Short] with FixedBitSizeLogic[Short] with ValueTypeBitLogic[Short]
 	{
 		@inline override def zero = 0
+		@inline override def isZeros(x :Short) :Boolean = x == 0
 		@inline override def copy(x :Short) :Short = x
 		@inline override def or(left :Short, right :Short) :Short = (left | right).toShort
 		@inline override def and(left :Short, right :Short) :Short = (left & right).toShort
 		@inline override def xor(left :Short, right :Short) :Short = (left ^ right).toShort
+		@inline override def xnor(left :Short, right :Short) :Short = (~(left ^ right)).toShort
 		@inline override def not(x :Short) :Short = (~x).toShort
 		@inline override def shiftLeft(x :Short, n :Long) :Short = ((x & 0xffff) << n.toInt).toShort
 		@inline override def shiftRight(x :Short, n :Long) :Short = ((x & 0xffff) >>> n.toInt).toShort
-		@inline override def clear(x :Short, from :Long, until :Long) :Short =
-			(((x & 0xffff) >>> until << until) | ((x & 0xffff) >>> 16 - from << 16 - from)).toShort
+		@inline override def signShiftRight(x :Short, n :Long) :Short = (x >> n.toInt).toShort
+		@inline override def clear(x :Short, from :Long, until :Long) :Short = {
+			val from0  = from.toInt
+			val until0 = until.toInt
+			(((x & 0xffff) >>> until0 << until0) | ((x & 0xffff) >>> 16 - from0 << 16 - from0)).toShort
+		}
 		@inline override def forArray :ShortArrayBitLogic.type = ShortArrayBitLogic
 		@inline override def bitLength = 16
 		@inline override def classTag :ClassTag[Short] = ClassTag.Short
@@ -396,17 +422,21 @@ object BitLogic {
 		extends BitLogic[Int] with FixedBitSizeLogic[Int] with ValueTypeBitLogic[Int]
 	{
 		@inline override def zero = 0
+		@inline override def isZeros(x :Int) :Boolean = x == 0
 		@inline override def copy(x :Int) :Int = x
 		@inline override def or(left :Int, right :Int) :Int = left | right
 		@inline override def and(left :Int, right :Int) :Int = left & right
 		@inline override def xor(left :Int, right :Int) :Int = left ^ right
+		@inline override def xnor(left :Int, right :Int) :Int = ~(left ^ right)
 		@inline override def not(x :Int) :Int = ~x
 		@inline override def shiftLeft(x :Int, n :Long) :Int = x << n.toInt & ~((n.toInt & 32) << 26 >> 31)
 		@inline override def shiftRight(x :Int, n :Long) :Int = x >>> n.toInt & ~((n.toInt & 32) << 26 >> 31)
+		@inline override def signShiftRight(x :Int, n :Long) :Int = x >> n.toInt & ~(((n.toInt & 32) << 26 & x) >> 31)
 		@inline override def clear(x :Int, from :Long, until :Long) :Int = {
-			val suffixShift = 32 - from.toInt
-			x >>> until << until & ~((until.toInt & 32) << 26 >> 31) |
-				x >>> 32 - from << 32 - from & ~((suffixShift & 32) << 26 >> 31)
+			val from0       = from.toInt
+			val until0      = until.toInt
+			x >>> until0 << until0 & ~((until0 & 32) << 26 >> 31) |
+				x >>> 32 - from0 << 32 - from0 & ~((32 - from0 & 32) << 26 >> 31)
 		}
 		@inline override def forArray :IntArrayBitLogic.type = IntArrayBitLogic
 		@inline override def classTag :ClassTag[Int] = ClassTag.Int
@@ -418,13 +448,16 @@ object BitLogic {
 		extends BitLogic[Long] with FixedBitSizeLogic[Long] with ValueTypeBitLogic[Long]
 	{
 		@inline override def zero = 0L
+		@inline override def isZeros(x :Long) :Boolean = x == 0L
 		@inline override def copy(x :Long) :Long = x
 		@inline override def or(left :Long, right :Long) :Long = left | right
 		@inline override def and(left :Long, right :Long) :Long = left & right
 		@inline override def xor(left :Long, right :Long) :Long = left ^ right
+		@inline override def xnor(left :Long, right :Long) :Long = ~(left ^ right)
 		@inline override def not(x :Long) :Long = ~x
-		@inline override def shiftLeft(x :Long, n :Long) :Long = x << n.toInt & ~((n & 64) << 57 >> 63)
-		@inline override def shiftRight(x :Long, n :Long) :Long = x >>> n.toInt & ~((n & 64) << 57 >> 63)
+		@inline override def shiftLeft(x :Long, n :Long) :Long = x << n & ~((n & 64L) << 57 >> 63)
+		@inline override def shiftRight(x :Long, n :Long) :Long = x >>> n & ~((n & 64L) << 57 >> 63)
+		@inline override def signShiftRight(x :Long, n :Long) :Long = x >> n & ~(((n & 64L) << 57 & x) >> 63)
 		@inline override def clear(x :Long, from :Long, until :Long) :Long = {
 			val suffixShift = 64 - from.toInt
 			x >>> until << until & ~((until.toInt & 64) << 57 >> 63) |
@@ -449,56 +482,66 @@ object BitLogic {
 			total
 		}
 
-		override def zero :Array[X] = Array.empty(element.classTag)
 		override def copy(x :Array[X]) :Array[X] = Array.copyOf(x, x.length)
+		override def zero :Array[X] = {
+			val z = Array.ofDim(1)(element.classTag)
+			z(0) = element.zero
+			z
+		}
+		override def isZeros(x :Array[X]) :Boolean = x.forall(element.isZeros)
 
 		override def or(left :Array[X], right :Array[X]) :Array[X] =
-			if (left.length <= right.length) {
-				val res = Array.copyOf(left, left.length)
+			if (left.length >= right.length) {
+				val res = copy(left)
 				or_!(res, right)
 				res
 			} else {
-				val res = Array.copyOf(right, right.length)
+				val res = copy(right)
 				or_!(res, left)
 				res
 			}
 		override def and(left :Array[X], right :Array[X]) :Array[X] =
-			if (left.length <= right.length) {
-				val res = Array.copyOf(left, left.length)
+			if (left.length >= right.length) {
+				val res = copy(left)
 				and_!(res, right)
 				res
 			} else {
-				val res = Array.copyOf(right, right.length)
+				val res = copy(right)
 				and_!(res, left)
 				res
 			}
 		override def xor(left :Array[X], right :Array[X]) :Array[X] =
-			if (left.length <= right.length) {
-				val res = Array.copyOf(left, left.length)
+			if (left.length >= right.length) {
+				val res = copy(left)
 				xor_!(res, right)
 				res
 			} else {
-				val res = Array.copyOf(right, right.length)
+				val res = copy(right)
 				xor_!(res, left)
 				res
 			}
 		override def not(x :Array[X]) :Array[X] = {
-			val res = Array.copyOf(x, x.length)
-			not_!(x)
+			val res = copy(x)
+			not_!(res)
 			res
 		}
 		override def shiftLeft(x :Array[X], n :Long) :Array[X] = {
-			val res = Array.copyOf(x, x.length)
+			val res = copy(x)
 			shiftLeft_!(res, n)
 			res
 		}
 		override def shiftRight(x :Array[X], n :Long) :Array[X] = {
-			val res = Array.copyOf(x, x.length)
+			val res = copy(x)
 			shiftRight_!(res, n)
 			res
 		}
+		override def signShiftRight(x :Array[X], n :Long) :Array[X] = {
+			val res = copy(x)
+			signShiftRight_!(res, n)
+			res
+		}
 		override def clear(x :Array[X], from :Long, until :Long) :Array[X] = {
-			val res = Array.copyOf(x, x.length)
+			val res = copy(x)
 			clear_!(res, from, until)
 			res
 		}
@@ -506,9 +549,8 @@ object BitLogic {
 		override def or_!(left :Array[X], right :Array[X]) :Array[X] = { element.orAllInPlace(left, right); left }
 		override def and_!(left :Array[X], right :Array[X]) :Array[X] = { element.andAllInPlace(left, right); left }
 		override def xor_!(left :Array[X], right :Array[X]) :Array[X] = { element.xorAllInPlace(left, right); left }
+		override def xnor_!(left :Array[X], right :Array[X]) :Array[X] = { element.xnorAllInPlace(left, right); left }
 		override def not_!(x :Array[X]) :Array[X] = { element.notAllInPlace(x); x }
-//		override def shiftLeft_!(x :Array[X], n :Long) :Array[X] = { element.shiftAllLeftInPlace(x, n); x }
-//		override def shiftRight_!(x :Array[X], n :Long) :Array[X] = { element.shiftAllRightInPlace(x, n); x }
 		override def shiftLeft_!(x :Array[X], n :Long) :Array[X] = {
 			val element       = this.element
 			element.shiftAllLeftInPlace(x, n)
@@ -522,7 +564,6 @@ object BitLogic {
 				if (size <= remainingBits)
 					x(i) = element.xor_!(elem, elem)
 				else
-//					x(i) = element.shiftLeft_!(element.shiftRight(elem, remainingBits), remainingBits)
 					x(i) = element.clear_!(x(i), size - remainingBits, size)
 				remainingBits -= size
 			}
@@ -531,7 +572,7 @@ object BitLogic {
 		override def shiftRight_!(x :Array[X], n :Long) :Array[X] = {
 			val element       = this.element
 			element.shiftAllRightInPlace(x, n)
-			//and now clea the lower `n` bits
+			//and now clear the lower `n` bits
 			val length        = x.length
 			var remainingBits = n
 			var i             = 0
@@ -542,12 +583,54 @@ object BitLogic {
 				if (size <= remainingBits)
 					x(i) = element.xor_!(elem, elem)
 				else
-//					x(i) = element.shiftLeft_!(element.shiftRight(elem, remainingBits), remainingBits)
 					x(i) = element.clear_!(x(i), 0, remainingBits)
 				remainingBits -= size
 			}
 			x
 		}
+		override def signShiftRight_!(x :Array[X], n :Long) :Array[X] = {
+			val length = x.length
+			if (length > 0) {
+				val size0 = element.bitSizeOf(x(0))
+				if (n <= size0) {
+					val lead = element.signShiftRight(x(0), n)
+					element.shiftAllRightInPlace(x, n)
+					x(0) = lead
+				} else {
+					val sign = element.signShiftRight(x(0), size0 - 1)
+					element.shiftAllRightInPlace(x, n)
+					x(0) = sign
+					var remainingBits = n
+					var i = 1
+					if (element.isZeros(sign))
+						while (i < length & remainingBits > 0) {
+							val elem = x(i)
+							val size = element.bitSizeOf(elem)
+							if (size <= remainingBits)
+								x(i) = element.xor_!(elem, elem)
+							else
+								x(i) = element.clear_!(elem, 0, remainingBits)
+							remainingBits -= 1
+							i += 1
+						}
+					else
+						while (i < length & remainingBits > 0) {
+							val elem = x(i)
+							val size = element.bitSizeOf(elem)
+							if (size <= remainingBits)
+								x(i) = element.xnor_!(elem, elem)
+							else {
+								val one = element.xnor(elem, elem)
+								x(i) = element.or_!(elem, element.shiftLeft_!(one, size - remainingBits))
+							}
+							remainingBits -= 1
+							i += 1
+						}
+				}
+			}
+			x
+		}
+
 		override def clear_!(x :Array[X], from :Long, until :Long) :Array[X] =
 			if (until <= 0 | until <= from)
 				x
