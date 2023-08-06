@@ -103,7 +103,9 @@ object extensions extends extensions {
 		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
 		@inline final def toLong :Long = if (self) 1L else 0L
 		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
-		@inline final def toNatural :Natural = if (self) 1.toNatural else 0.toNatural
+		@inline final def toUInt :UInt = new UInt(if (self) 1 else 0)
+		/** `1` if this `Boolean` is `ture`, or `0` otherwise. */
+		@inline final def toULong :ULong = new ULong(if (self) 1L else 0L)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -116,11 +118,6 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Byte) :Int = math.min(self, other)
-//
-//		/** This byte as a natural number.
-//		  * @throws ArithmeticException if this number is negative.
-//		  */
-//		@inline def toNatural :Natural = Natural(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -133,11 +130,6 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Short) :Int = math.min(self, other)
-//
-//		/** This byte as a natural number.
-//		  * @throws ArithmeticException if this number is negative.
-//		  */
-//		@inline def toNatural :Natural = Natural(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -154,7 +146,12 @@ object extensions extends extensions {
 		/** This byte as a natural number.
 		  * @throws ArithmeticException if this number is negative.
 		  */
-		@inline def toNatural :Natural = Natural(self)
+		@inline def toUInt :UInt = new UInt(self)
+
+		/** This byte as a natural number.
+		  * @throws ArithmeticException if this number is negative.
+		  */
+		@inline def toULong :ULong = new ULong(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -256,11 +253,6 @@ object extensions extends extensions {
 
 		/** Shifts all bits by `n` position down, with the lowest `n` bits being moved to the highest `n` bits of the result. */
 		@inline def rotateRight(n :Int) :Int = jl.Integer.rotateRight(self, n)
-
-		/** This byte as a natural number.
-		  * @throws ArithmeticException if this number is negative.
-		  */
-		@inline def toNatural :Natural = Natural(self)
 
 		/** Converts this `Int` to an unsigned `UInt`. */
 		@throws[ArithmeticException]("if this Int is negative")
@@ -394,11 +386,6 @@ object extensions extends extensions {
 		/** Shifts all bits by `n` position down, with the lowest `n` bits being moved to the highest `n` bits of the result. */
 		@inline def rotateRight(n :Int) :Long = jl.Long.rotateRight(self, n)
 
-		/** This byte as a natural number.
-		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
-		  */
-		@inline def toNatural :Natural = Natural(self.toInt)
-
 		/** Converts this `Long` to an unsigned `UInt`. */
 		@throws[ArithmeticException]("if this Long is negative or greater than Int.MaxValue")
 		@inline def toUIntExact :UInt =
@@ -454,12 +441,6 @@ object extensions extends extensions {
 		/** Returns `this min other`. */
 		@inline def atMost(other :Float) :Float = math.min(self, other)
 
-		/** This byte as a natural number.
-		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
-		  * @return `this.toInt.toNatural`.
-		  */
-		@inline def toNatural :Natural = Natural(self.toInt)
-
 		/** Converts this `Float` to a decimal number, rounding if necessary. */
 		@inline def toDecimal64 :Decimal64 = Decimal64.round(self)
 	}
@@ -486,12 +467,6 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Double) :Double = math.min(self, other)
-
-		/** This byte as a natural number.
-		  * @throws ArithmeticException if this number is negative or greater than `Int.MaxValue`.
-		  * @return `this.toInt.toNatural`.
-		  */
-		@inline def toNatural :Natural = Natural(self.toInt)
 
 		/** Converts this `Double` to a decimal number, rounding if necessary. */
 		@inline def toDecimal64 :Decimal64 = Decimal64.round(self)

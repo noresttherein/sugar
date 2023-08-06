@@ -68,7 +68,7 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def toCharExact : Char   = { testRange(Char.MaxValue, "Char"); toInt.toChar }
 	@inline def toIntExact  : Int    = { if (toInt < 0) underflow("toInt"); toInt }
 
-	/** Returns `asInt == 0`. */
+	/** Returns `toInt == 0`. */
 	@inline def toBoolean       : Boolean        = toInt != 0
 	@inline def toBigInt        : BigInt         = BigInt(toInt & 0xffffffffL)
 	@inline def toBigInteger    : BigInteger     = BigInteger.valueOf(toInt & 0xffffffffL)
