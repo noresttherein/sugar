@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.funny.ReturnTypeOf
 import net.noresttherein.sugar.typist
-import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeConstructor2Methods, castTypeConstructor3Methods, castTypeConstructorMethods, castTypeParamMethods, castingMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcastTypeParamMethods}
+import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeConstructor2Methods, castTypeConstructor3Methods, castTypeConstructorMethods, castTypeParamMethods, castingMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcastTypeParamMethods, inferredCastingMethods}
 
 
 
@@ -45,6 +45,9 @@ trait extensions extends Any { //consider extending by the package object
 	@inline implicit final def castTypeConstructor3Methods[T[_1 >: X <: X, _2 >: Y <: Y, _3 >: Z <: Z], X, Y, Z]
 	                                                      (self :T[X, Y, Z]) :castTypeConstructor3Methods[T, X, Y, Z] =
 		new castTypeConstructor3Methods(self)
+
+	@inline implicit final def inferredCastingMethods[T](self :T) :inferredCastingMethods[T] =
+		new inferredCastingMethods(self)
 }
 
 
@@ -396,4 +399,16 @@ object extensions extends extensions {
 		@inline def downcastParam3From[U >: Z <: Z, C <: Z] :T[X, Y, C] = self.asInstanceOf[T[X, Y, C]]
 	}
 
+
+
+	/** Casting methods whose target type may be inferred from the expected type. */
+	class inferredCastingMethods[T](private val self :T) extends AnyVal {
+		/** Equivalent to `this.asIndexedOf[X]`, but the type may be inferred. Use with caution! */
+		@inline def inferredCast[X] :X = self.asInstanceOf[X]
+
+		/** Equivalent to `this.asIndexedOf[X]`, but can be used only to cast to a subtype of this type,
+		  * and the type may be inferred. Use with caution!
+		  */
+		@inline def inferredDowncast[X <: T] :X = self.asInstanceOf[X]
+	}
 }
