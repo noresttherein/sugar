@@ -1,6 +1,7 @@
-package net.noresttherein.sugar
+package net.noresttherein.sugar.slang
 
-import net.noresttherein.sugar.Sealing.NotSealed
+import net.noresttherein.sugar.slang.Sealing.NotSealed
+import net.noresttherein.sugar.{Ver, slang}
 
 
 
@@ -17,7 +18,7 @@ import net.noresttherein.sugar.Sealing.NotSealed
   * the declared scope, so methods with arguments or return types referencing types of restricted visibility are
   * safe from accidental overriding in client code, but this still does not cover all use cases. This class
   * expands on the aforementioned protected types by declaring an artificial implicit argument type
-  * [[net.noresttherein.sugar.Sealing.Seal Seal]] and a value class [[net.noresttherein.sugar.Sealing.Sealed Sealed]]`[T]`
+  * [[slang.Sealing.Seal Seal]] and a value class [[slang.Sealing.Sealed Sealed]]`[T]`
   * wrapper for any type. It can be set up be creating an instance in the desired package/scope with visibility
   * restricted to that scope:
   * {{{
@@ -64,7 +65,7 @@ import net.noresttherein.sugar.Sealing.NotSealed
 trait Sealing {
 
 	/** An artificial class used to prevent overriding of a method by classes outside of the visibility scope
-	  * of the enclosing [[net.noresttherein.sugar.Sealing Sealing]] instance. It circumvents the problem
+	  * of the enclosing [[Sealing Sealing]] instance. It circumvents the problem
 	  * that a ''package protected'' or ''package private'' declaration of a base class can be overriden/implemented
 	  * with a matching public definition by a subclass from any package, which is usually undesirable.
 	  * It serves two functions:
@@ -101,7 +102,7 @@ trait Sealing {
 	  *      }}}
 	  *
 	  * While this method is usually most convenient for methods, it cannot be easily adapted to `val` and `var`
-	  * declarations. For this purpose a [[net.noresttherein.sugar.Sealing.Sealed Sealed]]`[T]` wrapper value class
+	  * declarations. For this purpose a [[slang.Sealing.Sealed Sealed]]`[T]` wrapper value class
 	  * is introduced alongside it, which works according to the same principles. Note that this should not be dependent
 	  * upon in the context of security, as all such declarations are public in the bytecode and can thus
 	  * be easily accessed from `Java`.
@@ -116,7 +117,7 @@ trait Sealing {
 	}
 
 	/** A value wrapper with visibility restricted to the same as the enclosing
-	  *  [[net.noresttherein.sugar.Sealing Sealing]] instance, essentially limiting the visibility of declarations
+	  *  [[Sealing Sealing]] instance, essentially limiting the visibility of declarations
 	  *  of its type to the same scope. While redundant from the point o view of usages of such definitions
 	  *  (which must contain a matching `protected`/`private` modifier anyway), it additionally prevents
 	  *  overriding of such non-final declarations from any classes outside of the scope, which would be possible
@@ -128,7 +129,7 @@ trait Sealing {
 	  *  achieves the same result that a modifier `sealed[scope]` would have.
 	  *
 	  *  This class is the only feasible solution for values and variables of otherwise public types,
-	  *  but for methods a sibling class [[net.noresttherein.sugar.Sealing.Seal Seal]] will typically be more convenient.
+	  *  but for methods a sibling class [[slang.Sealing.Seal Seal]] will typically be more convenient.
 	  */
 	type Sealed[+T] <: NotSealed[T]
 
