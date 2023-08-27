@@ -11,10 +11,9 @@ import scala.collection.mutable.{ArrayBuilder, Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
-import net.noresttherein.sugar.??!
-import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, castingMethods, classNameMethods}
+import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.reflect.ArrayClass
-import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 
 //extension methods
 import extensions._
@@ -22,53 +21,100 @@ import extensions._
 
 
 
-@SerialVersionUID(Ver)
-private abstract class AbstractArrayAsSeq[E, CC[_], C](arr :Array[E])
-	extends IterableOnce[E] with collection.IndexedSeqOps[E, CC, C]
-	   with AbstractArraySlice[E] with SugaredIterableOps[E, CC, C]
-{
-	override def unsafeArray :Array[_] = arr
-	override def startIndex :Int = 0
-	override def isImmutable :Boolean = false
+//todo: make these specialized, and create them only from methods whose signature will be unchanged in Scala 3
+private trait ArrayLikeAsSeqOps[E, +CC[_], +C]
+	extends collection.IndexedSeqOps[E, CC, C] with SugaredIterableOps[E, CC, C]
 
-	override def length :Int = arr.length
-	override def apply(i :Int) :E = arr(i)
+
+/** A non-sticky adapter of an `ArrayLike[E]` to `IterableOnce[E]` and `collection.IndexedSeqOps[E, Array, Array[E]]`.
+  * Non-sticky means here that all operations return some specific `ArrayLike` subtype `CC[A]` or `C`,
+  * rather than another collection.
+  *
+  * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, methods of
+  * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
+  * create another `ArraySeq` when filtering or mapping.
+  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `Array`s.
+  */
+@SerialVersionUID(Ver)
+private class ArrayLikeAsSeq[E](a :ArrayLike[E])
+	extends IterableOnce[E] with AbstractArraySlice[E] with ArrayLikeAsSeqOps[E, ArrayLike, ArrayLike[E]]
+	   with Serializable
+{
+	private[this] val array :Array[E] = a.asInstanceOf[Array[E]]
+	override def coll :ArrayLike[E] = array
+	override def unsafeArray :Array[_] = array
+	override def startIndex :Int = 0
+	private[collections] override def isImmutable :Boolean = false
+	override def isTraversableAgain = true
+
+	override def length :Int = array.length
+	override def apply(i :Int) :E = array(i)
 	override def iterator :Iterator[E] = ArrayIterator(array)
 //	override def empty = iterableFactory.empty
 
-	override def toSeq :Seq[E] = toIndexedSeq
-	override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped(arr.toIRefArray)
+	@nowarn("cat=deprecation")
+	override def toIterable   :Iterable[E]   = ArrayLike.Wrapped(coll)
+	override def toSeq        :Seq[E]        = toIndexedSeq
+	override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped(array.toIRefArray)
+
+	protected override def fromSpecific(coll :IterableOnce[E]) :ArrayLike[E] = IArray.from(coll)
+	protected override def newSpecificBuilder :Builder[E, ArrayLike[E]] =
+		IArray.newBuilder(coll.getClass.getComponentType.castParam[E])
+
+	override def iterableFactory :IterableFactory[ArrayLike] = RefArray
 
 
-	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-		copyRangeToArray(xs, start, 0, len)
+	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
+		copyRangeToArray(xs, 0, start, len)
 
-	override def copyRangeToArray[B >: E](xs :Array[B], start :Int, from :Int, until :Int) =
-		if (until <= from | until <= 0 | arr.length >= 0 & from >= arr.length || start >= xs.length)
+	override def copyRangeToArray[A >: E](xs :Array[A], from :Int, start :Int, len :Int) :Int =
+		if (len <= 0 || from >= array.length || start >= xs.length)
 			0
 		else if (start < 0)
 			throw new IndexOutOfBoundsException(
-				arr.className + "<" + arr.length + ">.copyRangeToArray(" + xs.className + "<" + xs.length + ">, " +
-					start + ", " + from + ", " + until + ")"
+				errorString(array) + ".copyRangeToArray(" + errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
 			)
 		else {
 			val from0 = math.max(from, 0)
-			val copied = math.min(xs.length - start, math.min(until, arr.length) - from0)
-			ArrayLike.copy(arr, from, xs, start, copied)
+			val copied = math.min(len, math.min(xs.length - start, array.length - from0))
+			ArrayLike.copy(array, from, xs, start, copied)
 			copied
 		}
 
 	override def equals(that :Any) :Boolean = that match {
-		case other :AbstractArrayAsSeq[_, _, _] => arr sameElements other.array
-		case it :IterableOnce[_]   => mutable.ArraySeq.make(arr) == it
+		case other :ArrayLikeAsSeq[_] => coll sameElements other.coll
+		case it :IterableOnce[_]   => mutable.ArraySeq.make(array) == it
 		case _                     => false
 	}
-	@inline final def array :Array[E] = arr
 
-	override def hashCode :Int = mutable.ArraySeq.make(arr).hashCode
+	override def hashCode :Int = mutable.ArraySeq.make(array).hashCode
 
 	protected def className :String = iterableFactory.toString
-	override def toString :String = mutable.ArraySeq.make(arr).mkString(className + "(", ", ", ")")
+	override def toString :String = ArrayLike.Wrapped(array).mkString(className + "(", ", ", ")")
+
+	protected implicit def classTag :ClassTag[E] = ClassTag[E](array.getClass.getComponentType)
+}
+
+
+
+
+@SerialVersionUID(Ver)
+private sealed class IArrayLikeAsSeq[E](override val coll :IArrayLike[E])
+	extends ArrayLikeAsSeq[E](coll) with ArrayLikeAsSeqOps[E, IArrayLike, IArrayLike[E]]
+	   with IndexedSeqOps[E, IArrayLike, IArrayLike[E]]
+{
+	private[collections] override def isImmutable :Boolean = true
+	protected override def fromSpecific(coll :IterableOnce[E]) :IArrayLike[E] = IArray.from(coll)
+	protected override  def newSpecificBuilder :Builder[E, IArrayLike[E]] =
+		IArray.newBuilder(coll.getClass.getComponentType.castParam[E])
+
+	@nowarn("cat=deprecation")
+	override def toIterable      :Iterable[E] = toIndexedSeq
+	override def iterableFactory :IterableFactory[IRefArray] = IRefArray
+	override def toIndexedSeq    :IndexedSeq[E] = IArrayLikeSlice.of(coll)
+//	override def toIterable = IArrayLike.Wrapped(coll)
 }
 
 
@@ -76,23 +122,24 @@ private abstract class AbstractArrayAsSeq[E, CC[_], C](arr :Array[E])
 
 
 
-
-/** A non-sticky adapter of an `Array[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, Array, Array[E]]`.
+/** A non-sticky adapter of an `Array[E]` to `IterableOnce[E]` and `mutable.IndexedSeqOps[E, Array, Array[E]]`.
   * All operations return the resulting `Array[E]`, not another instance of this class, with the exception
   * of those which potentially change the element type, which return an erased
   * [[net.noresttherein.sugar.collections.RefArray RefArray]].
   *
   * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
-  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * is that the latter is not an `IterableOnce`. On the other hand, methods of
   * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
-  * is that the latter's methods return `Seq`, creating the same `ArraySeq` type when filtering or mapping.
-  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
-  * so that the result(s) are also `Array`s.
+  * create another `ArraySeq` when filtering or mapping. It's useful for enabling the use of arrays as parameters
+  * to any method/class requiring an `IterableOps[E, CC, C]`, so that the result(s) are also `Array`s.
   */
 @SerialVersionUID(Ver)
 private final class ArrayAsSeq[E](override val coll :Array[E])
-	extends AbstractArrayAsSeq[E, RefArray, Array[E]](coll) with mutable.IndexedSeqOps[E, RefArray, Array[E]]
+	extends ArrayLikeAsSeq[E](coll) with ArrayLikeAsSeqOps[E, RefArray, Array[E]]
+	   with mutable.IndexedSeqOps[E, RefArray, Array[E]]
 {
+	private[collections] override def isMutable = true
+
 	override def update(idx :Int, elem :E) :Unit = coll(idx) = elem
 
 	override def removed(index :Int) :Array[E] = coll.removed(index)
@@ -101,19 +148,17 @@ private final class ArrayAsSeq[E](override val coll :Array[E])
 	override def empty :Array[E] =
 		ArrayAsSeq.empty(coll.getClass.getComponentType.castParam[E])
 
-	protected override def fromSpecific(coll :IterableOnce[E]) :Array[E] =
-		ArrayAsSeq.from(coll)
-
+	protected override def fromSpecific(coll :IterableOnce[E]) :Array[E] = ArrayAsSeq.from(coll)
 	protected override def newSpecificBuilder :Builder[E, Array[E]] =
 		ArrayAsSeq.newBuilder[E](coll.getClass.getComponentType.castParam[E])
 
 	@nowarn("cat=deprecation")
 	override def toIterable :Iterable[E] = mutable.ArraySeq.make(coll)
 
-//	override def iterableFactory :IterableFactory[Array] = ErasedArray
 	override def iterableFactory :IterableFactory[RefArray] = RefArray
 
-	private implicit def classTag :ClassTag[E] = ClassTag(coll.getClass.getComponentType)
+//	private implicit def classTag :ClassTag[E] = ClassTag(coll.getClass.getComponentType)
+
 	override def className = "Array"
 }
 
@@ -151,8 +196,35 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 			res
 		}
 */
-	private val emptyUnitArray = new Array[BoxedUnit](0)
+	private val emptyUnitArray = new Array[Unit](0)
 
+	//todo: move Array factory methods to ArrayLikeOps (if private) or ArrayLike (if public).
+	/** Same as `Array.ofDim(n)`, but also initializes `Array[Unit]` with the `Unit` value. */
+	@inline def ofDim[E :ClassTag](n :Int) :Array[E] =
+		if (n == 0)
+			empty[E]
+		else {
+			val E = classTag[E].runtimeClass
+			if (E == classOf[Unit] || E == classOf[BoxedUnit])
+				Array.copyOf(emptyUnitArray, n).castFrom[Array[Unit], Array[E]]
+			else
+				new Array[E](n)
+		}
+
+	/** Creates an array of the specified element type and length. Similar to `Array.ofDim[E](n)`,
+	  * but allows specifying the element type explicitly, and, additionally, initializes `Array[Unit]`.
+	  */
+	def ofDim[E](elementType :Class[E], n :Int) :Array[E] =
+		if (n == 0)
+			empty(elementType)
+		else if (elementType == classOf[Unit] || elementType == classOf[BoxedUnit])
+			Array.copyOf(emptyUnitArray, n).castFrom[Array[Unit], Array[E]]
+		else
+			java.lang.reflect.Array.newInstance(elementType, n).castFrom[AnyRef, Array[E]]
+
+	/** Same as `Array.copyAs`, but more always resorts to `System.arraycopy` if both the input and output element types
+	  * are reference types. It also initializes returned arrays with the `Unit` value if `E =:= Unit`.
+	  */
 	def copyAs[E](array :ArrayLike[_], newLength :Int)(implicit classTag :ClassTag[E]) :Array[E] =
 		if (newLength == 0)
 			empty[E]
@@ -161,17 +233,24 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 			if (elemClass isAssignableFrom array.getClass.getComponentType)
 				if (elemClass.isPrimitive)
 					Array.copyOf(array.castFrom[ArrayLike[_], Array[E]], newLength)
-				else
+				else if (elemClass == Void.TYPE || elemClass == classOf[BoxedUnit]) {
+					val res = new Array[Unit](newLength)
+					res.fill(())
+					res.castFrom[Array[Unit], Array[E]]
+				} else
 					Arrays.copyOf(
 						array.castFrom[ArrayLike[_], Array[AnyRef]],
 						newLength,
 						ArrayClass(elemClass).castParam[Array[AnyRef]]
 					).castFrom[Array[AnyRef], Array[E]]
-			else if (elemClass == Void.TYPE)
-				Array.copyAs[E](array.castFrom[ArrayLike[_], Array[E]], newLength)
 			else {
+				val oldLength = array.length
 				val res = new Array[E](newLength)
-				ArrayLike.copy(array, 0, res, 0, math.min(array.length, newLength))
+				ArrayLike.copy(array, 0, res, 0, math.min(oldLength, newLength))
+				(res :Array[_]) match {
+					case units :Array[Unit] if oldLength < newLength => units.fill(oldLength, newLength)(())
+					case _ =>
+				}
 				res
 			}
 		}
@@ -366,22 +445,19 @@ private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
   *
   * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
   * is that the latter is neither an `IterableOnce`, nor `IndexedSeqOps`, and thus not marked as immutable.
-  * On the other hand, explicitly created [[scala.collection.immutable.ArraySeq ArraySeq]]
-  * is that the latter's methods return `Seq`, creating the same `ArraySeq` type when filtering or mapping.
-  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
-  * so that the result(s) are also `IArray`s.
+  * On the other hand, methods of [[scala.collection.immutable.ArraySeq ArraySeq]]
+  * create another `ArraySeq` when filtering or mapping. It's useful for enabling the use of arrays as parameters
+  * to any method/class requiring an `IterableOps[E, CC, C]`, so that the result(s) are also `IArray`s.
   */
 @SerialVersionUID(Ver)
 private final class IArrayAsSeq[E](override val coll :IArray[E])
-	extends AbstractArrayAsSeq[E, IRefArray, IArray[E]](coll.asInstanceOf[Array[E]])
+	extends IArrayLikeAsSeq[E](coll) with ArrayLikeAsSeqOps[E, IRefArray, IArray[E]]
 	   with IndexedSeqOps[E, IRefArray, IArray[E]]
 {
-	override def isImmutable :Boolean = true
-
 	override def removed(index :Int) :IArray[E] = coll.removed(index)
 	override def removed(from :Int, until :Int) :IArray[E] = coll.removed(from, until)
 
-	override def empty :IArray[E] = IArray.empty[E]
+	override def empty :IArray[E] = IArray.empty(coll.getClass.getComponentType.castParam[E])
 	protected override def fromSpecific(coll :IterableOnce[E]) :IArray[E] = IArray.from(coll)
 	protected override def newSpecificBuilder :Builder[E, IArray[E]] =
 		IArray.newBuilder(coll.getClass.getComponentType.castParam[E])
@@ -390,9 +466,8 @@ private final class IArrayAsSeq[E](override val coll :IArray[E])
 	override def toIterable :Iterable[E] = toIndexedSeq
 	override def toIndexedSeq :IndexedSeq[E] = IArray.Wrapped(coll)
 
-	override def iterableFactory :IterableFactory[IRefArray] = IRefArray
+//	private implicit def classTag :ClassTag[E] = ClassTag(coll.getClass.getComponentType)
 
-	private implicit def classTag :ClassTag[E] = ClassTag(coll.getClass.getComponentType)
 	override def className = "IArray"
 }
 
@@ -402,18 +477,22 @@ private final class IArrayAsSeq[E](override val coll :IArray[E])
 
 
 /** A non-sticky adapter of a `RefArray[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, RefArray, RefArray[E]]`.
-  * All operations return the resulting `Array[E]`, not another instance of this class.
+  * All operations return the resulting `RefArray[E]`, not another instance of this class.
   * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
-  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * is that the latter is not an `IterableOnce`. On the other hand, methods of
   * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
-  * is that they are standard `Seq` implementations, creating the same `ArraySeq` type when filtering or mapping.
-  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
-  * so that the result(s) are also `Array`s.
+  * create another, independent `Seq` when filtering or mapping. It's useful for enabling the use of arrays
+  * as parameters to any method/class requiring an `IterableOps[E, CC, C]`, so that the result(s) are also `Array`s.
   */
 @SerialVersionUID(Ver)
 private final class RefArrayAsSeq[E](override val coll :RefArray[E])
-	extends AbstractArrayAsSeq[E, RefArray, RefArray[E]](coll.asInstanceOf[Array[E]])
+	extends ArrayLikeAsSeq[E](coll) with ArrayLikeAsSeqOps[E, RefArray, RefArray[E]]
+	   with mutable.IndexedSeqOps[E, RefArray, RefArray[E]]
 {
+	private[collections] override def isMutable = true
+
+	override def update(idx :Int, elem :E) :Unit = coll(idx) = elem
+
 	override def removed(index :Int) :RefArray[E] = coll.removed(index)
 	override def removed(from :Int, until :Int) :RefArray[E] = coll.removed(from, until)
 
@@ -422,7 +501,7 @@ private final class RefArrayAsSeq[E](override val coll :RefArray[E])
 	override def iterableFactory :IterableFactory[RefArray] = RefArray
 
 	@nowarn("cat=deprecation")
-	override def toIterable :Iterable[E] = mutable.ArraySeq.make(coll.asInstanceOf[Array[E]])
+	override def toIterable :Iterable[E] = RefArray.Wrapped(coll)
 }
 
 
@@ -433,17 +512,18 @@ private final class RefArrayAsSeq[E](override val coll :RefArray[E])
 /** A non-sticky adapter of an `IRefArray[E]` to `IterableOnce[E]` and `IndexedSeqOps[E, IRefArray, IRefArray[E]]`.
   * All operations return the resulting `Array[E]`, not another instance of this class.
   * What makes it different from standard extension methods in [[scala.collection.ArrayOps ArrayOps]]
-  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * is that the latter is not an `IterableOnce`. On the other hand, methods of
   * [[scala.collection.immutable.ArraySeq ArraySeq]] and [[scala.collection.mutable.ArraySeq mutable.ArraySeq]]
-  * is that they are standard `Seq` implementations, creating the same `ArraySeq` type when filtering or mapping.
-  * It's useful for enabling the use of arrays as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
-  * so that the result(s) are also `Array`s.
+  * create another `Seq` when filtering or mapping. It's useful for enabling the use of arrays as parameters
+  * to any method/class requiring an `IterableOps[E, CC, C]`, so that the result(s) are also `Array`s.
   */
 @SerialVersionUID(Ver)
 private final class IRefArrayAsSeq[E](override val coll :IRefArray[E])
-	extends AbstractArrayAsSeq[E, IRefArray, IRefArray[E]](coll.asInstanceOf[Array[E]])
+	extends IArrayLikeAsSeq[E](coll) with ArrayLikeAsSeqOps[E, IRefArray, IRefArray[E]]
 	   with IndexedSeqOps[E, IRefArray, IRefArray[E]]
 {
+	private[collections] override def isImmutable :Boolean = true
+
 	override def removed(index :Int) :IRefArray[E] = coll.removed(index)
 	override def removed(from :Int, until :Int) :IRefArray[E] = coll.removed(from, until)
 
@@ -451,7 +531,6 @@ private final class IRefArrayAsSeq[E](override val coll :IRefArray[E])
 	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, IRefArray[E]] = IRefArray.newBuilder
 	override def iterableFactory :IterableFactory[IRefArray] = IRefArray
 
-	override def isImmutable :Boolean = true
 	@nowarn("cat=deprecation")
 	override def toIterable :Iterable[E] = toIndexedSeq
 	override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped(coll)
@@ -472,7 +551,7 @@ private final class IRefArrayAsSeq[E](override val coll :IRefArray[E])
   */ //todo: add an implicit conversion somewhere
 @SerialVersionUID(Ver)
 private final class StringAsSeq(override val coll :String)
-	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String]
+	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String] with Serializable
 {
 	def length :Int = coll.length
 
@@ -496,5 +575,5 @@ private final class StringAsSeq(override val coll :String)
 		case _ => false
 	}
 	override def hashCode :Int = coll.hashCode
-	override def toString :String = "StringAsSeq(" + coll + ")"
+	override def toString :String = coll //"StringAsSeq(" + coll + ")"
 }
