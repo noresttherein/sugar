@@ -7,8 +7,9 @@ import scala.collection.{Stepper, StepperShape}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 
-import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JDoubleIterator, JInt, JIntIterator, JIterator, JLong, JLongIterator}
-import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIterator, JLong, JLongIterator}
+import net.noresttherein.sugar.extensions.{castingMethods, classNameMethods}
+import net.noresttherein.sugar.funny.generic
 
 //implicits
 import net.noresttherein.sugar.extensions.castTypeParamMethods
@@ -142,7 +143,8 @@ private trait AbstractIndexedReverseStepper[+A, B, +Self >: Null <: AbstractInde
   * @author Marcin Mościcki
   */ //no reverse version currently
 private abstract class IndexedSeqStepper[+A, B, +Self >: Null <: IndexedSeqStepper[A, B, Self]]
-	                   (seq :collection.IndexedSeq[_], private[this] var first :Int, private[this] var `last++` :Int)
+	                   (seq :collection.IndexedSeqOps[_, generic.Any, _],
+	                    private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIndexedStepper[A, B, Self]
 {
 	protected final override def underlyingSize :Int = seq.length
@@ -168,12 +170,14 @@ private abstract class IndexedSeqStepper[+A, B, +Self >: Null <: IndexedSeqStepp
 
 @SerialVersionUID(Ver)
 object IndexedSeqStepper {
+	private type Ops[A] = collection.IndexedSeqOps[A, generic.Any, _]
+
 	/** A [[scala.collection.Stepper Stepper]] iterating over the entirety of an indexed sequence.
 	  * The stepper will box the elements, but the result will be of the proper specialization for `A` -
 	  * one of `Any`, `Int`, `Long`, `Double`.
 	  * @param seq      the sequence with elements over which to iterate.
 	  */ //we could make it work for collection.IndexedSeq
-	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeq[A])
+	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any, _])
 	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
 		apply(seq, 0, seq.length)
 
@@ -183,23 +187,23 @@ object IndexedSeqStepper {
 	  * @param seq      the sequence with elements over which to iterate.
 	  * @param from     the index of the first (and later current) element in the sequence (the one returned by `next()`).
 	  * @param until    the index immediately following the index of the last element in the slice.
-	  */
-	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeq[A], from :Int, until :Int)
+	  */ //consider: this is inconsistent with IndexedSeqIterator, which accepts (offset, length) instead of (from, until)
+	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any, _], from :Int, until :Int)
 	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
 		(shape.shape match {
-			case IntShape    => new IntIndexedSeqStepper(seq.castParam[Int], from, until)
-			case LongShape   => new LongIndexedSeqStepper(seq.castParam[Long], from, until)
-			case DoubleShape => new DoubleIndexedSeqStepper(seq.castParam[Double], from, until)
-			case CharShape   => new CharIndexedSeqStepper(seq.castParam[Char], from, until)
-			case ByteShape   => new ByteIndexedSeqStepper(seq.castParam[Byte], from, until)
-			case FloatShape  => new FloatIndexedSeqStepper(seq.castParam[Float], from, until)
-			case ShortShape  => new ShortIndexedSeqStepper(seq.castParam[Short], from, until)
-			case _           => new AnyIndexedSeqStepper(seq.castParam[Short], from, until)
+			case IntShape    => new IntIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Int]], from, until)
+			case LongShape   => new LongIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Long]], from, until)
+			case DoubleShape => new DoubleIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Double]], from, until)
+			case CharShape   => new CharIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Char]], from, until)
+			case ByteShape   => new ByteIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Byte]], from, until)
+			case FloatShape  => new FloatIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Float]], from, until)
+			case ShortShape  => new ShortIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Short]], from, until)
+			case _           => new AnyIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Short]], from, until)
 		}).asInstanceOf[S with EfficientSplit]
 
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an `IndexedSeq[A]`. */
-	private class AnyIndexedSeqStepper[A](seq :collection.IndexedSeq[A], from :Int, until :Int)
+	private class AnyIndexedSeqStepper[A](seq :Ops[A], from :Int, until :Int)
 		extends IndexedSeqStepper[A, A, AnyIndexedSeqStepper[A]](seq, from, until) with AllInAnyStepper[A] 
 	{
 		override def next() :A = seq(nextIdx()) 
@@ -208,16 +212,17 @@ object IndexedSeqStepper {
 	}
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Int]`. */
-	private class IntIndexedSeqStepper(seq :collection.IndexedSeq[Int], from :Int, until :Int)
+	private class IntIndexedSeqStepper(seq :Ops[Int], from :Int, until :Int)
 		extends IndexedSeqStepper[Int, JInt, IntIndexedSeqStepper](seq, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
+		override def iterator :Iterator[Int] = new IndexedSeqIterator(seq, index, limit)
 		override def nextInt() :Int = seq(nextIdx())
 		override def clone = new IntIndexedSeqStepper(seq, index, limit)
 	}
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Char]`. */
-	private class CharIndexedSeqStepper(seq :collection.IndexedSeq[Char], from :Int, until :Int)
+	private class CharIndexedSeqStepper(seq :Ops[Char], from :Int, until :Int)
 		extends IndexedSeqStepper[Int, JInt, CharIndexedSeqStepper](seq, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -226,7 +231,7 @@ object IndexedSeqStepper {
 	}
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Byte]`. */
-	private class ByteIndexedSeqStepper(seq :collection.IndexedSeq[Byte], from :Int, until :Int)
+	private class ByteIndexedSeqStepper(seq :Ops[Byte], from :Int, until :Int)
 		extends IndexedSeqStepper[Int, JInt, ByteIndexedSeqStepper](seq, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
@@ -235,8 +240,8 @@ object IndexedSeqStepper {
 	}
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Short]`. */
-	private class ShortIndexedSeqStepper(seq :collection.IndexedSeq[Short], from :Int, until :Int)
-		extends IndexedSeqStepper[Int, JInt, ShortIndexedSeqStepper](seq, from, until) with AllInIntStepper 
+	private class ShortIndexedSeqStepper(seq :Ops[Short], from :Int, until :Int)
+		extends IndexedSeqStepper[Int, JInt, ShortIndexedSeqStepper](seq, from, until) with AllInIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextInt() :Int = seq(nextIdx())
@@ -244,25 +249,27 @@ object IndexedSeqStepper {
 	}
 
 	/** A ''boxing'' [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `IndexedSeq[Long]`. */
-	private class LongIndexedSeqStepper(seq :collection.IndexedSeq[Long], from :Int, until :Int)
+	private class LongIndexedSeqStepper(seq :Ops[Long], from :Int, until :Int)
 		extends IndexedSeqStepper[Long, JLong, LongIndexedSeqStepper](seq, from, until) with AllInLongStepper
 		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 	{
+		override def iterator :Iterator[Long] = new IndexedSeqIterator(seq, index, limit)
 		override def nextLong() :Long = seq(nextIdx())
 		override def clone = new LongIndexedSeqStepper(seq, index, limit)
 	}
 
 	/** A ''boxing'' [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `IndexedSeq[Double]`. */
-	private class DoubleIndexedSeqStepper(seq :collection.IndexedSeq[Double], from :Int, until :Int)
-		extends IndexedSeqStepper[Double, JDouble, DoubleIndexedSeqStepper](seq, from, until) with AllInDoubleStepper 
+	private class DoubleIndexedSeqStepper(seq :Ops[Double], from :Int, until :Int)
+		extends IndexedSeqStepper[Double, JDouble, DoubleIndexedSeqStepper](seq, from, until) with AllInDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
+		override def iterator :Iterator[Double] = new IndexedSeqIterator(seq, index, limit)
 		override def nextDouble() :Double = seq(nextIdx())
 		override def clone = new DoubleIndexedSeqStepper(seq, index, limit)
 	}
 
 	/** A ''boxing'' [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `IndexedSeq[Float]`. */
-	private class FloatIndexedSeqStepper(seq :collection.IndexedSeq[Float], from :Int, until :Int)
+	private class FloatIndexedSeqStepper(seq :Ops[Float], from :Int, until :Int)
 		extends IndexedSeqStepper[Double, JDouble, FloatIndexedSeqStepper](seq, from, until) with AllInDoubleStepper 
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
@@ -333,7 +340,7 @@ object ArrayStepper {
 			:S with EfficientSplit =
 		(shape.shape match {
 			case ReferenceShape => (array :Array[_]) match {
-				case refs :Array[AnyRef] => new AnyRefArrayStepper(array.asInstanceOf[Array[AnyRef]], from, until)
+				case _ :Array[AnyRef] => new AnyRefArrayStepper(array.asInstanceOf[Array[AnyRef]], from, until)
 				case _ => new AnyArrayStepper(array, from, until)
 			}
 			case IntShape       => (array :Array[_]) match {
