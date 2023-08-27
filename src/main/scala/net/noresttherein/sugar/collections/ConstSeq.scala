@@ -1,11 +1,10 @@
 package net.noresttherein.sugar.collections
 
 
-import scala.annotation.tailrec
 import scala.collection.AbstractSeq
 import scala.collection.immutable.{LinearSeq, SeqOps}
 
-import net.noresttherein.sugar.collections.extensions.IteratorObjectExtension
+import net.noresttherein.sugar.collections.extensions.{ArrayExtension, IteratorObjectExtension}
 
 
 
@@ -79,6 +78,17 @@ private abstract class AbstractConstSeq[+E] protected (elem :E, override val kno
 		if (knownSize == 0) throw new NoSuchElementException("Seq().head")
 		else elem
 
+	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+		if (len < 0 || knownSize == 0 || start > xs.length)
+			0
+		else if (start < 0)
+			throw new IndexOutOfBoundsException(start)
+		else {
+			val len0 = math.min(len, xs.length - start)
+			val copied = if (knownSize < 0) len0 else math.min(len0, knownSize)
+			xs.fill(start, start + copied)(elem)
+			copied
+		}
 	protected override def className :String = "ConstSeq"
 }
 
