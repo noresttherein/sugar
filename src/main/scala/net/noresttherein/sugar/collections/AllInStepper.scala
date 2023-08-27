@@ -44,7 +44,7 @@ private trait AllInStepper[+A, B, +Self >: Null <: AllInStepper[A, B, Self]]
 	override def tryAdvance(action :Consumer[_ >: B]) :Boolean =
 		hasStep && { action.accept(next()); true }
 
-	override def trySplit :Self = null
+	override def trySplit() :Self = null
 }
 
 
