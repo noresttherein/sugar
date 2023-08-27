@@ -7,6 +7,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.collections.AliasingArrayBuffer.MinGrowThreshold
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.ArrayObjectExtension
@@ -16,16 +17,17 @@ import net.noresttherein.sugar.extensions.{IteratorObjectExtension, castTypePara
 
 
 
+//todo: a separate @specialized version, at least using specific arrays.
 /** An `ArrayBuffer` subclass implementing `toSeq` and `toIndexedSeq` by sharing the underlying array
   * (providing at least half of it is used, i.e. `this.array.length >= this.length * 2`).
   * This sets a 'read only' flag, and any subsequent buffer modifications will reallocate the array,
-  * similarly to the strategy of [[collection.ListBuffer ListBuffer]].
+  * similarly to the strategy of [[scala.collection.mutable.ListBuffer ListBuffer]].
   * @author Marcin Mościcki
   */
-private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacity) {
+private class AliasingArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacity) {
 	def this() = this(ArrayBuffer.DefaultInitialSize)
 
-	private[this] var exported = false
+	private[this] var aliased = false
 	private[this] var hinted = false
 
 	@inline private def newTotalSize(total :Int) :Int = {
@@ -40,19 +42,13 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 		else throw new IllegalArgumentException("Cannot allocate an array of length " + (size.toLong + delta) + ".")
 	}
 
-	@inline private def dealias() :Unit =
-		if (exported) {
-			array    = Array.copyOf(array, if (hinted) array.length else size << 1)
-			exported = false
-		}
-
 	@inline final override def ensureSize(n :Int) :Unit = {
 		val oldArray = array
 		if (n > oldArray.length) {
 			val newSize = newTotalSize(n)
-			if (exported) {
+			if (aliased) {
 				array    = Array.copyOf(oldArray, newSize)
-				exported = false
+				aliased = false
 			}
 		}
 	}
@@ -73,48 +69,53 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 		val oldArray = array
 		super.trimToSize()
 		if (array ne oldArray)
-			exported = false
+			aliased = false
 	}
 
 	override def update(index :Int, elem :E) :Unit = {
-		dealias()
+		if (aliased) {
+			val len  = array.length
+			val size = this.size
+			array    = Array.copyOf(array, if (hinted || size * 100L < len * MinGrowThreshold) len else size << 1)
+			aliased  = false
+		}
 		super.update(index, elem)
 	}
 
 	override def clear() :Unit =
-		if (exported) {
+		if (aliased) {
 			val array = this.array
 			super.remove(0, length)
 			if (array eq this.array)
 				this.array = ErasedArray.empty
-			exported = false
+			aliased = false
 		} else
 			super.clear()
 
 	override def clearAndShrink(size :Int) :this.type =
-		if (exported) {
+		if (aliased) {
 			array = ErasedArray.empty
-			exported = false
+			aliased = false
 			ensureSize(size)
 			this
 		} else
 			super.clearAndShrink(size)
 
-	override def addOne(elem :E) :ExportArrayBuffer.this.type = {
-		if (exported) {
+	override def addOne(elem :E) :AliasingArrayBuffer.this.type = {
+		if (aliased) {
 			ensureAdditionalSize(1)
-			exported = false
+			aliased = false
 		}
 		super.addOne(elem)
 	}
 	override def addAll(elems :IterableOnce[E]) :this.type = {
-		if (exported) {
+		if (aliased) {
 			val size = elems.knownSize
 			if (size >= 0)
 				ensureAdditionalSize(size)
 			else
 				ensureAdditionalSize(1)
-			exported = false
+			aliased = false
 		}
 		super.addAll(elems)
 	}
@@ -137,13 +138,13 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 			array(index)  = elem.asInstanceOf[AnyRef]
 			arraycopy(this.array, index, array, index + 1, size - index - 1)
 			this.array = array
-			exported   = false
+			aliased   = false
 			super.addOne(last) //because super must increase the size field
 		}
 	}
 
 	override def insertAll(index :Int, elems :IterableOnce[E]) :Unit =
-		if (exported) {
+		if (aliased) {
 			val size = this.length
 			if (index < 0 | index > size)
 				throw new IndexOutOfBoundsException(
@@ -166,7 +167,7 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 	}
 
 	override def remove(index :Int) :E =
-		if (exported) {
+		if (aliased) {
 			val size = this.length
 			if (index < 0 | index >= size)
 				outOfBounds_!(index, this)
@@ -174,13 +175,13 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 			val res    = array(index).asInstanceOf[E]
 			this.array = Array.copyOfRanges(array, 0, index, array, index + 1, size, array.length)
 			super.remove(size - 1) //to reduce the size
-			exported   = false
+			aliased   = false
 			res
 		} else
 			super.remove(index)
 
 	override def remove(index :Int, count :Int) :Unit =
-		if (exported) {
+		if (aliased) {
 			if (count < 0)
 				throw new IllegalArgumentException(
 					"Cannot remove a negative number of elements: " + errorString(this) +
@@ -192,13 +193,16 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 			val array  = this.array
 			val newLen = math.max(size, (size - count) << 1) //super.remove will fail if array.length < size
 			this.array = Array.copyOfRanges(array, 0, index, array, index + count, size, newLen)
-			exported   = false
+			aliased   = false
 			super.remove(size - count, count) //to reduce the size
 		} else
 			super.remove(index, count)
 
 	override def sortInPlace[U >: E]()(implicit ord :Ordering[U]) :this.type = {
-		dealias()
+		if (aliased) {
+			this.array = Array.copyOf(array, array.length)
+			aliased = false
+		}
 		super.sortInPlace[U]()
 	}
 
@@ -207,57 +211,57 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 		super.remove(0, size)
 		if (array eq this.array)
 			this.array = ErasedArray.empty
-		exported = false
+		aliased = false
 		super.addAll(iter)
 	}
 
 	override def flatMapInPlace(f :E => IterableOnce[E]) :this.type =
-		if (exported)
+		if (aliased)
 			become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).flatMap(f))
 		else
 			super.flatMapInPlace(f)
 
 	override def filterInPlace(p :E => Boolean) :this.type =
-		if (exported)
+		if (aliased)
 			become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).filter(p))
 		else
 			super.filterInPlace(p)
 
 	override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
-		if (exported)
+		if (aliased)
 			become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).patch(from, patch.iterator, replaced))
 		else
 			super.patchInPlace(from, patch, replaced)
 
 	override def dropInPlace(n :Int) :this.type =
-		if (exported)
+		if (aliased)
 			if (n > 0) become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).drop(n))
 			else this
 		else
 			super.dropInPlace(n)
 
 	override def dropRightInPlace(n :Int) :this.type =
-		if (exported)
+		if (aliased)
 			if (n > 0) become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).take(length - n))
 			else this
 		else
 			super.dropRightInPlace(n)
 
 	override def takeInPlace(n :Int) :this.type =
-		if (exported)
+		if (aliased)
 			if (n < length) become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).take(n))
 			else this
 		else
 			super.takeInPlace(n)
 
 	override def takeRightInPlace(n :Int) :this.type =
-		if (exported)
+		if (aliased)
 			if (n < 0) {
 				val array = this.array
 				super.remove(0, size)
 				if (array eq this.array)
 					this.array = ErasedArray.empty
-				exported = false
+				aliased = false
 				this
 			} else if (n < length)
 				become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).drop(length - n))
@@ -267,7 +271,7 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 			super.takeRightInPlace(n)
 
 	override def sliceInPlace(start :Int, end :Int) :this.type =
-		if (exported)
+		if (aliased)
 			if (start <= 0 && end >= length) this
 			else become(new ArrayIterator(array.asInstanceOf[Array[E]], 0, size).slice(start, end))
 		else
@@ -277,7 +281,7 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 	override def takeWhileInPlace(p :E => Boolean) :this.type = takeInPlace(segmentLength(p))
 
 	override def padToInPlace(len :Int, elem :E) :this.type =
-		if (exported)
+		if (aliased)
 			if (len <= length) this
 			else become(Iterator.const(len - length)(elem))
 		else
@@ -289,7 +293,7 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 		if (size == 0)
 			IndexedSeq.empty
 		else if (size >= (array.length >> 1)) {
-			exported = true
+			aliased = true
 			IRefArraySlice.of(array.asInstanceOf[IRefArray[E]], 0, size)
 		} else
 			ArraySeq.unsafeWrapArray(toArray(ClassTag.Any.castParam[E]))
@@ -298,9 +302,16 @@ private class ExportArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacit
 		case CompanionFactory.IterableFactory(Seq) | CompanionFactory.IterableFactory(IndexedSeq) =>
 			toIndexedSeq.asInstanceOf[C1]
 		case CompanionFactory.IterableFactory(DefaultArraySeq) if size >= (array.length >> 1) =>
-			exported = true
+			aliased = true
 			DefaultArraySeq.of(array.asInstanceOf[IArray[E]], 0, size).asInstanceOf[C1]
 		case _ =>
 			super.to(factory)
 	}
+}
+
+
+
+
+private object AliasingArrayBuffer {
+	private final val MinGrowThreshold = 75L
 }
