@@ -230,13 +230,16 @@ trait ArrayLikeSliceOps[@specialized(ElemTypes) +E, +CC[_], +C]
 //	final def underlying :ArrayLike[E] = array
 	protected def array :Array[E @uncheckedVariance]
 
-	override def reverseIterator :Iterator[E] = ReverseArrayIterator(array, startIndex, startIndex + length)
+	override def reverseIterator :Iterator[E] = {
+		val start = startIndex
+		ReverseArrayIterator.over(array, start, start + length)
+	}
 
 	override def indexOf[U >: E](elem :U, from :Int) :Int =
 		ArrayLikeOps.indexOf[U](array, startIndex, length)(elem, from)
 
 	override def lastIndexOf[U >: E](elem :U, end :Int) :Int =
-		ArrayLikeOps.lastIndexOf(array, startIndex, length)(elem, end)
+		ArrayLikeOps.lastIndexOf[U](array, startIndex, length)(elem, end)
 
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int =
 		ArrayLikeOps.lastIndexWhere(array, startIndex, length)(p, end)

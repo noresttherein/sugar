@@ -39,15 +39,15 @@ private object ArrayLikeOps {
 	def indexOf[E](array :Array[_ <: E], offset :Int, length :Int)(elem :E, from :Int) :Int = {
 		def index[@specialized(Everything) X](arr :Array[X], elem :Any, from :Int) :Int = {
 			val end = offset + length
-			var i = offset + from
+			var i = offset + math.max(from, 0)
 			if (array.getClass.getComponentType isAssignableFrom Unbox(elem.getClass)) {
 				val x = elem.asInstanceOf[X]
-				while (i < end && arr(i) != elem)
+				while (i < end && arr(i) != x)
 					i += 1
 			} else
 				while (i < end && arr(i) != elem)
 					i += 1
-			if (i == end) -1 else i
+			if (i == end) -1 else i - offset
 		}
 		if (from >= length)
 			-1
@@ -66,15 +66,15 @@ private object ArrayLikeOps {
 
 	def lastIndexOf[E](array :Array[_ <: E], offset :Int, length :Int)(elem :E, end :Int) :Int = {
 		def lastIndex[@specialized(Everything) X](arr :Array[X], elem :Any, start :Int) :Int = {
-			var i = start
+			var i = offset + start
 			if (array.getClass.getComponentType isAssignableFrom Unbox(elem.getClass)) {
 				val x = elem.asInstanceOf[X]
-				while (i >= offset && arr(i) != elem)
+				while (i >= offset && arr(i) != x)
 					i -= 1
 			} else
 				while (i >= offset && arr(i) != elem)
 					i -= 1
-			if (i < offset) -1 else i
+			i - offset
 		}
 		if (end < 0)
 			-1
@@ -94,23 +94,23 @@ private object ArrayLikeOps {
 	def lastIndexWhere[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean, end :Int) :Int = {
 		def lastIdx[@specialized(Everything) X](arr :Array[X], p :X => Boolean, from :Int, until :Int) :Int = {
 			var i = until
-			while (i > from && !p(arr(i)))
+			while (i >= from && !p(arr(i)))
 				i -= 1
-			if (i < from) -1 else i
+			i - from
 		}
-		val start = math.min(end, length - 1)
+		val start = offset + math.min(end, length - 1)
 		if (end < 0)
-			0
+			-1
 		else array match {
-			case a :Array[AnyRef]  => lastIdx(a, p.asInstanceOf[AnyRef => Boolean], offset, end)
-			case a :Array[Int]     => lastIdx(a, p.asInstanceOf[Int => Boolean], offset, end)
-			case a :Array[Long]    => lastIdx(a, p.asInstanceOf[Long => Boolean], offset, end)
-			case a :Array[Double]  => lastIdx(a, p.asInstanceOf[Double => Boolean], offset, end)
-			case a :Array[Char]    => lastIdx(a, p.asInstanceOf[Char => Boolean], offset, end)
-			case a :Array[Byte]    => lastIdx(a, p.asInstanceOf[Byte => Boolean], offset, end)
-			case a :Array[Float]   => lastIdx(a, p.asInstanceOf[Float => Boolean], offset, end)
-			case a :Array[Short]   => lastIdx(a, p.asInstanceOf[Short => Boolean], offset, end)
-			case a :Array[Boolean] => lastIdx(a, p.asInstanceOf[Boolean => Boolean], offset, end)
+			case a :Array[AnyRef]  => lastIdx(a, p.asInstanceOf[AnyRef => Boolean], offset, start)
+			case a :Array[Int]     => lastIdx(a, p.asInstanceOf[Int => Boolean], offset, start)
+			case a :Array[Long]    => lastIdx(a, p.asInstanceOf[Long => Boolean], offset, start)
+			case a :Array[Double]  => lastIdx(a, p.asInstanceOf[Double => Boolean], offset, start)
+			case a :Array[Char]    => lastIdx(a, p.asInstanceOf[Char => Boolean], offset, start)
+			case a :Array[Byte]    => lastIdx(a, p.asInstanceOf[Byte => Boolean], offset, start)
+			case a :Array[Float]   => lastIdx(a, p.asInstanceOf[Float => Boolean], offset, start)
+			case a :Array[Short]   => lastIdx(a, p.asInstanceOf[Short => Boolean], offset, start)
+			case a :Array[Boolean] => lastIdx(a, p.asInstanceOf[Boolean => Boolean], offset, start)
 		}
 	}
 

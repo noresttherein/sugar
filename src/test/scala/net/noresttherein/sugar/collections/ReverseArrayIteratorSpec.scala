@@ -7,17 +7,29 @@ import scala.reflect.ClassTag
 import org.scalacheck.Prop._
 import org.scalacheck.{Arbitrary, Prop, Shrink, Test}
 import org.scalacheck.util.ConsoleReporter
-
 import net.noresttherein.sugar.collections.extensions.ArrayExtension
-import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, Prettify, PropExtension}
+import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
 
+//todo: move it to the file with ArrayIteratorSpec
 object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140))
 
+
+	property("ReverseArrayIterator.apply") = forAll { (array :Array[Int], start :Int, length :Int) =>
+		if (start < 0 || start >= array.length)
+			ReverseArrayIterator(array, start, length).throws[IndexOutOfBoundsException]
+		else {
+			val iter = ReverseArrayIterator(array, start, length)
+			val expect = array.take(math.min(start, Int.MinValue - 1) + 1).reverseIterator.take(length)
+			iter sameElements expect lbl
+				"ReverseArrayIterator(" + array.contentsString + ", " + start + ", " + length + ") ==" +
+					ReverseArrayIterator(array, start, length).mkString("Iterator(", ", ", ")")
+		}
+	}
 
 	private abstract class ReverseArrayIteratorProperty(name :String) extends ArrayProperty(name) {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =

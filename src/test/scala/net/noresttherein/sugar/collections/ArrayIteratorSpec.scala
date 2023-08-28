@@ -95,4 +95,47 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 					(second.toSeq ?= ArraySeq.unsafeWrapArray(expect2)) :| "_2"
 			}
 	}
+	new ArrayProperty("copyToArray") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val from0 = from max 0 min array.length
+				val size = array.view.slice(from, until).length
+				def iterator = ArrayIterator.over(array, from, until)
+
+				def property[Y >: X :ClassTag :Arbitrary] = forAll { (target :Array[Y], start :Int, len :Int) =>
+					val bufferSize = target.length
+					val start0     = start min bufferSize max 0
+					val shouldCopy = len min size min bufferSize - start0 max 0
+					val buffer     = target.clone()
+					if (start < 0 && shouldCopy > 0)
+						iterator.copyToArray(buffer, start, len).throws[IndexOutOfBoundsException] &&
+							(ArraySeq.unsafeWrapArray(buffer) ?= ArraySeq.unsafeWrapArray(target))
+					else {
+						val copied = iterator.copyToArray(buffer, start, len)
+						val end0   = start0 + copied
+						(copied ?= shouldCopy) &&
+							((unsafeWrapArray(array).slice(from0, from0 + copied) :Seq[Y]) =?
+								unsafeWrapArray(buffer).slice(start, start + copied) lbl "copied") &&
+							(unsafeWrapArray(target).slice(0, start) =?
+								unsafeWrapArray(buffer).slice(0, start) lbl "unmodified prefix") &&
+							(unsafeWrapArray(target).slice(end0, bufferSize) =?
+								unsafeWrapArray(buffer).slice(end0, bufferSize) lbl "unmodified suffix") lbl
+								s"$iterator.copyToArray(${target.contentsString}, $start, $len)"
+/*
+						prop.map { res =>
+							if (res.failure) {
+								Console.err.println(s"ArrayIterator.over(${array.contentsString}, $from, $until)")
+								Console.err.println(s".copyToArray(${target.contentsString}, $start, $len)")
+								Console.err.println(s"\tcopied $copied; should copy: $shouldCopy")
+								Console.err.println(s"\tresult: ${buffer.contentsString}")
+								Console.err.println(s"\twritten: ${buffer.slice(start0, start0 + copied).contentsString}")
+							}
+							res
+						}
+*/
+					}
+				}
+				property[X] && property[Any]
+			}
+	}
 }
