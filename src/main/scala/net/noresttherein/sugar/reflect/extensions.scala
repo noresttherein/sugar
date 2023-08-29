@@ -1,6 +1,9 @@
 package net.noresttherein.sugar.reflect
 
-import net.noresttherein.sugar.reflect.extensions.{AnyRefExtension, ClassExtension}
+import java.lang.reflect.Type
+
+import net.noresttherein.sugar.reflect
+import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
 
 
@@ -10,8 +13,8 @@ trait extensions extends Any with prettyprint.extensions {
 	/** Adds `innerName`, `localName` and `abbrevName` methods to `Class`, providing a shorter alternative to `getName`. */
 	@inline implicit final def ClassExtension(self :Class[_]) :ClassExtension = new ClassExtension(self)
 
-	/** Adds `identityHashCode` method to all reference types. */
-	@inline implicit final def AnyRefExtension(self :AnyRef) :AnyRefExtension = new AnyRefExtension(self)
+	/** Adds methods for reflected querying of an object for its type parameters. */
+	@inline implicit final def ReflectAnyExtension(self :Any) :ReflectAnyExtension = new ReflectAnyExtension(self)
 }
 
 
@@ -19,11 +22,23 @@ trait extensions extends Any with prettyprint.extensions {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
-	class AnyRefExtension(private val self :AnyRef) extends AnyVal {
-		/** The value of `hashCode` as it would be inherited for this object from the default implementation in `AnyRef`. */
-		@inline def identityHashCode :Int = System.identityHashCode(self)
+	class ReflectAnyExtension(private val self :Any) extends AnyVal {
+		/** Returns the Java type given as the `n`-th type parameter to a superclass of this object.
+		  * If the type is known, that is there is a chain of classes `C1, ..., CN, C`, such that;
+		  *   1. `C1 == supertype`,
+		  *   1. `this :C`,
+		  *   1. each class directly extends (or implements, for traits) the previous one,
+		  *   1. `I1,.., IN` is a sequence of integers such that `I1 = n`, and `I`_k+1_
+		  *      is the index of the type parameter of class `C`_k+1_
+		  *      given as the type argument for the `I`_k_-th type parameter of class `C`_k_,
+		  *   1. `C` gives a concrete class `T` as the `IN`-th type parameter to `CN`,
+		  * then `T` is the returned. Otherwise, the exact `n`-th type argument does not resolve to a concrete class,
+		  * and a [[java.lang.reflect.TypeVariable TypeVariable]] of this object's class,
+		  * to which the `n`-th type argument of `supertype` resolves.
+		  */
+		@inline def typeArgumentOf(n :Int, supertype :Class[_]) :Type =
+			reflect.typeArgumentOf(self.getClass, n, supertype)
 	}
-
 
 
 	/** Extension methods dealing with boxing and unboxing, as well as formatting the name of a class in several ways,
@@ -52,11 +67,14 @@ object extensions extends extensions {
 		def isBox :Boolean = PrimitiveClass.contains(self)
 
 		/** True if the argument is a class for a built in value type represented by a Java primitive,
-		  * and this class is the Java class used to box it when lifting the argument to a reference type. */
+		  * and this class is the Java class used to box it when lifting the argument to a reference type.
+		  */
 		def isBoxOf(valueClass :Class[_]) :Boolean = PrimitiveClass.getOrElse(self, null) == valueClass
 
 		/** If this class represents a built in value type (a Java primitive type), return the Java class to which
-		  * it is auto boxed when a reference type is needed. */
+		  * it is auto boxed when a reference type is needed.
+		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.refClass refClass]]
+		  */ //consider: there is an inconsistency in naming with Boxed and Unboxed, which never throw.
 		@throws[UnsupportedOperationException]("if this class is not a built in value type.")
 		def boxed   :Class[_] = BoxClass.getOrElse(self, null) match {
 			case null => throw new UnsupportedOperationException(
@@ -65,12 +83,24 @@ object extensions extends extensions {
 			case box => box
 		}
 
-		/** If this is a Java class to which a Java primitive type is auto boxed, return the class for the primitive type. */
+		/** If this is a Java class to which a Java primitive type is auto boxed, return the class for the primitive type.
+		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.unwrapped unwrapped]]
+		  */
 		@throws[UnsupportedOperationException]("if this class is not a box for a value type.")
 		def unboxed :Class[_] = PrimitiveClass.getOrElse(self, null) match {
 			case null => throw new UnsupportedOperationException(
-				"Class " + self.getName + " is not a wrapper for a Java primitive type."
+				"Class " + self.getName + " is not a wrapper for a built-in value type."
 			)
+			case primitive => primitive
+		}
+
+		/** If this is a Java class to which a Java primitive type is auto boxed,
+		  * return the class for the primitive type; otherwise, return this class.
+		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.unboxed unboxed]]
+		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.valueClass valueClass]]
+		  */
+		def unwrapped :Class[_] = PrimitiveClass.getOrElse(self, null) match {
+			case null => self
 			case primitive => primitive
 		}
 
@@ -82,6 +112,7 @@ object extensions extends extensions {
 
 		/** Returns the appropriate box class for built in value types, or `this` if it is a reference type
 		  * (or a custom value class).
+		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.boxed boxed]]
 		  */
 		def refClass :Class[_] = if (!self.isPrimitive) self else BoxClass(self)
 
@@ -172,6 +203,12 @@ object extensions extends extensions {
 		  * Finally, anonymous classes receive synthetic names for the obvious reason.
 		  */
 		@inline def demangledName :String = fullNameOf(self)
+
+		/** The actual type argument given by this class, possibly indirectly, to the specified superclass
+		  * or extended trait.
+		  * @param n the index, counting from
+		  */
+		def typeArgument(n :Int, givenTo :Class[_]) :Type = reflect.typeArgumentOf(self, n, givenTo)
 	}
 
 }

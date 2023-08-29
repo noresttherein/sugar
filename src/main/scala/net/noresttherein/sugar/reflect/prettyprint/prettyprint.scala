@@ -471,7 +471,7 @@ package object prettyprint {
 	}
 
 
-	private[this] val AnyRef    = classOf[AnyRef]
+//	private[this] val AnyRef    = classOf[AnyRef]
 //	private[this] val BoxedUnit = classOf[BoxedUnit]
 	private[this] val escapes = Array(//empty string at start as an old fashioned guard which maps to '.' at the same time
 		/* "",*/ "tilde", "bang", "at", "hash", "percent", "up", "amp", "times", "minus", "plus", "eq", "less", "greater",
