@@ -20,7 +20,8 @@ import net.noresttherein.sugar.typist.Rank.Rank1
 trait extensions extends Any
 	with casting.extensions with collections.extensions with exceptions.extensions with funny.extensions
 	with matching.extensions with numeric.extensions with optional.extensions with reflect.extensions
-	with repeat.extensions with time.extensions[Rank1] with tuples.extensions with typist.extensions
+	with repeat.extensions with slang.extensions with time.extensions[Rank1] with tuples.extensions
+	with typist.extensions
 {
 	/** Adds a `feedTo` method to any value which applies a given function to `this`. */
 	@inline implicit final def feedToMethod[X](x :X) :feedToMethod[X] = new feedToMethod(x)
