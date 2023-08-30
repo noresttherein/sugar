@@ -5,7 +5,7 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.collections.JavaIterator
+import net.noresttherein.sugar.collections.{ArrayStepper, IndexedSeqStepper, JavaIterator, JavaIteratorShape}
 import net.noresttherein.sugar.extensions.{ArrayAsIterableOnceExtension, IterableOnceExtension, castTypeParamMethods}
 
 
@@ -52,7 +52,43 @@ object JavaTypes {
 		override def from[A](source :IterableOnce[A]) :JIterator[A] = source.jiterator
 		override def empty[A] :JIterator[A] = JavaIterator.empty
 		override def newBuilder[A] :Builder[A, JIterator[A]] = 
-			Array.newBuilder(ClassTag.Any.castParam[A]).mapResult(_.jiterator)
+			Array.newBuilder(ClassTag.Any.castParam[A]).mapResult(JavaIterator.over(_))
+
+		def over[T, I <: JIterator[_]](seq :collection.IndexedSeq[T])(implicit shape :JavaIteratorShape[T, I]) :I =
+			IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]
+
+		def over[T, I <: JIterator[_]](array :Array[T])(implicit shape :JavaIteratorShape[T, I]) :I =
+			ArrayStepper(array)(shape.stepperShape).javaIterator.asInstanceOf[I]
+
+		def over[T, I <: JIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
+		                              (implicit shape :JavaIteratorShape[T, I]) :I =
+			IndexedSeqStepper(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+
+		def over[T, I <: JIterator[_]](array :Array[T], from :Int, until :Int)
+		                              (implicit shape :JavaIteratorShape[T, I]) :I =
+			ArrayStepper(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+	}
+
+	@SerialVersionUID(Ver)
+	object JIntIterator extends SpecificIterableFactory[Int, JIntIterator] {
+		override def empty :JIntIterator = JavaIterator.ofInt()
+		override def newBuilder :Builder[Int, JIntIterator] = Array.newBuilder[Int].mapResult(JavaIterator.ofInt(_))
+		override def fromSpecific(it :IterableOnce[Int]) :JIntIterator = it.jiterator
+	}
+
+	@SerialVersionUID(Ver)
+	object JLongIterator extends SpecificIterableFactory[Long, JLongIterator] {
+		override def empty :JLongIterator = JavaIterator.ofLong()
+		override def newBuilder :Builder[Long, JLongIterator] = Array.newBuilder[Long].mapResult(JavaIterator.ofLong(_))
+		override def fromSpecific(it :IterableOnce[Long]) :JLongIterator = it.jiterator
+	}
+
+	@SerialVersionUID(Ver)
+	object JDoubleIterator extends SpecificIterableFactory[Double, JDoubleIterator] {
+		override def empty :JDoubleIterator = JavaIterator.ofDouble()
+		override def newBuilder :Builder[Double, JDoubleIterator] =
+			Array.newBuilder[Double].mapResult(JavaIterator.ofDouble(_))
+		override def fromSpecific(it :IterableOnce[Double]) :JDoubleIterator = it.jiterator
 	}
 	
 	@SerialVersionUID(Ver)
