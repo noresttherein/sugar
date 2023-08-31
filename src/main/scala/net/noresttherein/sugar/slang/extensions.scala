@@ -14,7 +14,7 @@ trait extensions extends Any {
 
 
 @SerialVersionUID(Ver)
-object extensions {
+object extensions extends extensions {
 	class AnyRefExtension(private val self :AnyRef) extends AnyVal {
 		/** The value of `hashCode` as it would be inherited for this object from the default implementation in `AnyRef`. */
 		@inline def identityHashCode :Int = System.identityHashCode(self)
