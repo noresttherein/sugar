@@ -231,6 +231,26 @@ package typist {
 	  * Defining a conversion as `PriorityConversion[X, Y]` means it will be chosen (if in the implicit search scope,
 	  * or important) over any competing implicit definition of a `X => Y`, or an implicit method
 	  * with the same signature.
+	  *
+	  * Note: the conversion will box the argument and return value if either is an universal trait or a value class.
+	  * However, extending `PriorityConversion` directly and overriding `apply` will lead to a compiler error
+	  * if the wrapped value erases to `java.lang.Object`, due to bridge method for `apply` clashing
+	  * with the overriding method. This can be avoided be extending
+	  * [[net.noresttherein.sugar.typist.PriorityConversion.Wrapped PriorityConversion.Wrapped]] and defining
+	  * a non overriding `apply` method with a dummy implicit parameter:
+	  * {{{
+	  *     class Extension[T](val self :T) extends AnyVal {
+	  *         //extension methods
+	  *         def hello = "Hello, " + self
+	  *     }
+	  *     implicit def Extension[T] :ExtensionConversion =
+	  *         new PriorityConversion.Wrapped(new Extension(_)) with ExtensionConversion[T]
+	  *
+	  *     trait ExtensionConversion[T] extends PriorityConversion[T, Extension[T]] {
+	  *         def apply(self :T)(implicit dummy :DummyImplicit) = new Extension(self)
+	  *     }
+	  *     "Imoen".hello //<- the compiler generates a call to the non-boxing `apply` with an implicit argument.
+	  * }}}
 	  */
 	trait PriorityConversion[-X, +Y] extends (X => Y)
 
