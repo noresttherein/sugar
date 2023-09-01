@@ -2,6 +2,7 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
+import scala.Specializable.Everything
 import scala.collection.immutable.WrappedString
 import scala.collection.{AbstractIterator, BufferedIterator}
 
@@ -215,24 +216,24 @@ private object AbstractIndexedReverseIterator {
 
 
 
-//todo: add mutable/immutable flag
+//todo: make private, separately compiled.
 /** An iterator advancing over a slice of an array. The advantages over built in array
   * [[collection.ArrayOps.iterator iterator]] are fast, in-place `take`, and `copyToArray` delegating to `Array.copy`,
   * making it considerably faster than copying by one.
   * @param first    the index in the array of the first/next element to return.
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
-  */ //no SerialVersionUID because we are not Serializable :)
-sealed class ArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
-	                      (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
+  */ //consider: ArrayOps.ArrayIterator is serializable.
+sealed class ArrayIterator[@specialized(Everything) +T] private[collections]
+	                      (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int, 
+	                       override val isImmutable :Boolean)
 	extends AbstractIterator[T] with AbstractIndexedIterator[T] with AbstractArraySlice[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, idx, array.length)
-	def this(array :Array[T]) = this(array, 0, array.length)
+	def this(array :Array[T]) = this(array, 0, array.length, false)
 
 	private[collections] final override def unsafeArray :Array[_] = array
-	private[collections] final override def startIndex :Int = first
-	private[collections] final override def isImmutable :Boolean = false
+	private[collections] final override def startIndex  :Int = first
 
 	protected final override def underlyingSize :Int = array.length
 	final override def index :Int = first
@@ -284,29 +285,35 @@ sealed class ArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[c
 		case _ => false
 	}
 	override def hashCode :Int = ArrayLike.Wrapped.Slice(array, first, `last++`).hashCode
-	override def clone = new ArrayIterator(array, first, `last++`)
+	override def clone = new ArrayIterator(array, first, `last++`, isImmutable)
 }
 
 
 /** A factory of iterators advancing over array slices. */
 @SerialVersionUID(Ver)
 object ArrayIterator {
-	private def make[T](array :Array[T], from :Int, until :Int) :ArrayIterator[T] =
+	private def make[T](array :Array[T], from :Int, until :Int, immmutable :Boolean) :ArrayIterator[T] =
 		((array :Array[_]) match {
-			case a :Array[AnyRef]  => new ArrayIterator(a, from, until)
-			case a :Array[Int]     => new ArrayIterator(a, from, until)
-			case a :Array[Long]    => new ArrayIterator(a, from, until)
-			case a :Array[Double]  => new ArrayIterator(a, from, until)
-//			case a :Array[Byte]    => new ArrayIterator(a, from, until)
-//			case a :Array[Char]    => new ArrayIterator(a, from, until)
-//			case a :Array[Float]   => new ArrayIterator(a, from, until)
-//			case a :Array[Short]   => new ArrayIterator(a, from, until)
-//			case a :Array[Boolean] => new ArrayIterator(a, from, until)
-			case _                 => new ArrayIterator(array, from, until)
+			case a :Array[AnyRef]  => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Int]     => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Long]    => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Double]  => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Byte]    => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Char]    => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Float]   => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Short]   => new ArrayIterator(a, from, until, immutable)
+			case a :Array[Boolean] => new ArrayIterator(a, from, until, immutable)
+			case null              => throw new NullPointerException(s"ArrayIterator.over(null, $from, $until)")
+//			case _                 => new ArrayIterator(array, from, until)
 		}).castParam[T]
 
 	def apply[T](array :Array[T]) :ArrayIterator[T] =
-		make(array, 0, array.length)
+		make(array, 0, array.length, false)
+	
+	def immutable[T](array :IArrayLike[T]) :ArrayIterator[T] = {
+		val a = array.asInstanceOf[Array[T]]
+		make(a, 0, a.length, true)
+	}
 
 	/** Returns elements `array(first), array(first + 1), ..., array(first + length - 1)` of the given array.
 	  * If reading would go past the end of the array, the excess index range is ignored. Negative `length`
@@ -318,13 +325,23 @@ object ArrayIterator {
 		if (first < 0 | first > len)
 			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
 		val until = first + math.min(len - first, math.max(length, 0))
-		make(array, first, until)
+		make(array, first, until, false)
+	}
+
+	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the array.")
+	def immutable[T](array :IArrayLike[T], first :Int, length :Int) :ArrayIterator[T] = {
+		val a   = array.asInstanceOf[Array[T]]
+		val len = a.length
+		if (first < 0 | first > len)
+			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+		val until = first + math.min(len - first, math.max(length, 0))
+		make(a, first, until, true)
 	}
 
 	def from[T](array :Array[T], first :Int) :ArrayIterator[T] =
-		if (first >= array.length) make(array, array.length, array.length)
-		else if (first <= 0) make(array, 0, array.length)
-		else make(array, first, array.length)
+		if (first >= array.length) make(array, array.length, array.length, false)
+		else if (first <= 0) make(array, 0, array.length, false)
+		else make(array, first, array.length, false)
 
 	/** Returns elements `array(from), array(from + 1), ..., array(until - 1)` of the given array.
 	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
@@ -333,13 +350,13 @@ object ArrayIterator {
 //		AbstractIndexedIterator.fix(make(array, from, until))
 	def over[T](array :Array[T], from :Int, until :Int) :ArrayIterator[T] = {
 		val len = array.length
-		if (from >= len) make(array, len, len)
-		else if (until <= 0) make(array, 0, 0)
-		else if (from <= 0 && until >= len) make(array, 0, len)
-		else if (from <= 0) make(array, 0, until)
-		else if (until >= len) make(array, from, len)
-		else if (until <= from) make(array, from, from)
-		else make(array, from, until)
+		if (from >= len) make(array, len, len, false)
+		else if (until <= 0) make(array, 0, 0, false)
+		else if (from <= 0 && until >= len) make(array, 0, len, false)
+		else if (from <= 0) make(array, 0, until, false)
+		else if (until >= len) make(array, from, len, false)
+		else if (until <= from) make(array, from, from, false)
+		else make(array, from, until, false)
 	}
 
 	/** An iterator over `[from, until)` index range of `array`, going in reverse. The first returned element
@@ -349,7 +366,9 @@ object ArrayIterator {
 		ReverseArrayIterator.over(array, from, until)
 
 	/** Same as `ArrayIterator(array)`, but always produces an erased, not specialized instance. */
-	def generic[T](array :Array[T]) :ArrayIterator[T] = new ArrayIterator(array)
+	def generic[T](array :Array[T]) :ArrayIterator[T] =
+		if (array == null) throw new NullPointerException("ArrayIterator(null)")
+		else new ArrayIterator(array)
 
 	/** Same as `ArrayIterator(array, first, length)`, but always produces an erased, not specialized instance. */
 	def generic[T](array :Array[T], first :Int, length :Int) :ArrayIterator[T] = {
@@ -357,7 +376,7 @@ object ArrayIterator {
 		if (first < 0 | first > len)
 			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
 		val until = first + math.min(len - first, math.max(length, 0))
-		new ArrayIterator[T](array, first, until)
+		new ArrayIterator[T](array, first, until, false)
 	}
 
 }
@@ -366,12 +385,13 @@ object ArrayIterator {
 
 
 /** An iterator advancing over a slice of an array in the reverse direction.
+  * The advantage over `ArrayOps.reverseIterator` is `O(1)` `take` and `slice` (and fast `drop`, like in the latter).
   * @param last      the index in the array `last <= first++` of the last element to return
   *                  (the first index of the slice).
   * @param `first++` the index in the array pointing directly after the first/next element to return
   *                  (the end index of the slice).
-  */
-sealed class ReverseArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
+  */ //todo: make private
+sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collections]
 	                             (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
 	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
 {
@@ -445,12 +465,13 @@ object ReverseArrayIterator {
 			case a :Array[Int]     => new ReverseArrayIterator(a, from, until)
 			case a :Array[Long]    => new ReverseArrayIterator(a, from, until)
 			case a :Array[Double]  => new ReverseArrayIterator(a, from, until)
-//			case a :Array[Byte]    => new ReverseArrayIterator(a, from, until)
-//			case a :Array[Char]    => new ReverseArrayIterator(a, from, until)
-//			case a :Array[Float]   => new ReverseArrayIterator(a, from, until)
-//			case a :Array[Short]   => new ReverseArrayIterator(a, from, until)
-//			case a :Array[Boolean] => new ReverseArrayIterator(a, from, until)
-			case _                 => new ReverseArrayIterator(array, from, until)
+			case a :Array[Byte]    => new ReverseArrayIterator(a, from, until)
+			case a :Array[Char]    => new ReverseArrayIterator(a, from, until)
+			case a :Array[Float]   => new ReverseArrayIterator(a, from, until)
+			case a :Array[Short]   => new ReverseArrayIterator(a, from, until)
+			case a :Array[Boolean] => new ReverseArrayIterator(a, from, until)
+			case null              => throw new NullPointerException(s"ReverseArrayIterator.over(null, $from, $until)")
+//			case _                 => new ReverseArrayIterator(array, from, until)
 		}).castParam[T]
 
 	def apply[T](array :Array[T]) :ReverseArrayIterator[T] =
@@ -486,7 +507,9 @@ object ReverseArrayIterator {
 	}
 
 	/** Same as `ReverseArrayIterator(array)`, but always produces an erased, not specialized iterator. */
-	def generic[T](array :Array[T]) :ReverseArrayIterator[T] = new ReverseArrayIterator[T](array, 0, array.length)
+	def generic[T](array :Array[T]) :ReverseArrayIterator[T] =
+		if (array == null) throw new NullPointerException("ReverseArrayIterator(null)")
+		else new ReverseArrayIterator[T](array, 0, array.length)
 
 	/** Same as `ReverseArrayIterator(array, first, length)`, but always produces an erased, not specialized iterator. */
 	def generic[T](array :Array[T], first :Int, length :Int) :ReverseArrayIterator[T] = {
