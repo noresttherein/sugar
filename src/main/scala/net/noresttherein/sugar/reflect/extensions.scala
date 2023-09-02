@@ -45,6 +45,14 @@ object extensions extends extensions {
 	  * demangling the runtime class name to an approximation of the class symbol as it appears in code.
 	  */
 	class ClassExtension private[reflect] (private val self :Class[_]) extends AnyVal {
+
+		/** Same as [[java.lang.Class Class]]`.`[[java.lang.Class.isInstance isInstance]], but returns `true`
+		  * also if this class is of a built in (primitive) value type to which the argument can be automatically
+		  * unboxed.
+		  */
+		@inline def accepts(value :Any) :Boolean =
+			self.isInstance(value) || self.isPrimitive && BoxClass(self).isInstance(value)
+
 		/** Returns `other isAssignableFrom this`. */
 		@inline def <:<(other :Class[_]) :Boolean = other isAssignableFrom self
 

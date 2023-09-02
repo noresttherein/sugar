@@ -2,6 +2,7 @@ package net.noresttherein.sugar.typist.casting
 
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.funny.ReturnTypeOf
 import net.noresttherein.sugar.typist
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeConstructor2Methods, castTypeConstructor3Methods, castTypeConstructorMethods, castTypeParamMethods, castingMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcastTypeParamMethods, inferredCastingMethods}
@@ -66,7 +67,7 @@ object extensions extends extensions {
 		@inline def asAnyRef :AnyRef = self.asInstanceOf[AnyRef]
 
 		/** Casts this expression to its subtype `T`. */
-		@inline def downcastTo[T <: X] :T = self.asInstanceOf[T]
+		@inline def asSubtype[T <: X] :T = self.asInstanceOf[T]
 
 		/** A safer casting expression which, in addition to the target type, accepts also the type of the cast
 		  * expression itself (`this`).
@@ -94,18 +95,38 @@ object extensions extends extensions {
 		  */
 		@inline def castAsIfBy[Y](like : => X => Y) :Y = self.asInstanceOf[Y]
 
+		/** Applies the given function for side effects to `this` if `this.isInstanceOf[T]`.
+		  * {{{
+		  *     animal.forInstanceOf[Cat](_.pushOff(vase))
+		  * }}}
+		  * Note that, as with `isInstanceOf`, this method is implemented in terms of the runtime ''class'',
+		  * and the conformance of erased type parameters is not checked.
+		  */
+		@inline def forInstanceOf[T](f :T => Any)(implicit tag :ClassTag[T]) :Unit =
+			if (tag.runtimeClass.accepts(self))
+				f(self.asInstanceOf[T])
+
 		/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.
 		  * {{{
 		  *     animal.ifInstanceOf[Cat](_.meow)
 		  * }}}
-		  * Note that as with `isInstanceOf`, this method is implemented in terms of the runtime ''class'',
+		  * Note that, as with `isInstanceOf`, this method is implemented in terms of the runtime ''class'',
 		  * and the conformance of erased type parameters is not checked.
 		  * @return an instance of a SAM type accepting a function `[X] T=>X`, and returning an `Option[X]`.
 		  */
-		@inline def ifInstanceOf[T] = new IfInstanceOf[T](self)
+		@inline def ifInstanceOf[T] = new ifInstanceOf[T](self)
 
+		//consider: renaming to castTo; it would probably warrant renaming castFrom in turn.
 		/** Returns `this` as a [[Some]]`(this)` if `this.isInstanceOf[T]`, or [[None]] otherwise. */
 		@inline def asInstanceOpt[T](implicit tag :ClassTag[T]) :Option[T] = tag.unapply(self)
+
+		/** Applies the given function for side effects to `this` if `this.isInstanceOf[T]`. This is the same as
+		  * [[net.noresttherein.sugar.typist.casting.extensions.castingMethods.forInstanceOf forInstanceOf]],
+		  * but this method additionally restricts the caller to subtypes of this object's type.
+		  */
+		@inline def forSubclass[T <: X](f :T => Any)(implicit tag :ClassTag[T]) :Unit =
+			if (tag.runtimeClass.accepts(self))
+				f(self.asInstanceOf[T])
 
 		/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.
 		  * {{{
@@ -119,7 +140,7 @@ object extensions extends extensions {
 		  * non-singleton type, and the compiler will not implicitly convert `t :T` to `Any`
 		  * in order to conform to the bound on this method's type parameter.
 		  */
-		@inline def ifSubclass[T <: X] = new IfInstanceOf[T](self)
+		@inline def ifSubclass[T <: X] = new ifInstanceOf[T](self)
 
 		/** Returns `Some(this.asInstanceOf[X])` if `this.isInstanceOf[X]`. Note that this check is based on class tag
 		  * only, which will ignore any type parameters that `X` might have. This is essentially the same as
@@ -134,7 +155,7 @@ object extensions extends extensions {
 	}
 
 
-	class IfInstanceOf[T](private val self :Any) extends AnyVal {
+	class ifInstanceOf[T](private val self :Any) extends AnyVal {
 		@inline def apply[X](f :T => X)(implicit tag :ClassTag[T]) :Option[X] =
 			if (tag.runtimeClass.isInstance(self)) Some(f(self.asInstanceOf[T]))
 			else None
@@ -229,6 +250,7 @@ object extensions extends extensions {
 	class castTypeParamMethods[T[A], X](private val self :T[X]) extends AnyVal {
 		/** Casts the type parameter of this expression's type, preserving its type constructor. */
 		@inline def castParam[A] :T[A] = self.asInstanceOf[T[A]]
+//		@inline def asWithParam[A] :T[A] = self.asInstanceOf[T[A]]
 		/** Casts the type parameter of this expression's type, preserving its type constructor.
 		  * For added safety, the type parameter of `this` must be specified as the first type argument.
 		  */
