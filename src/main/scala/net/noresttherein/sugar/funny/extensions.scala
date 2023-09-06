@@ -4,7 +4,8 @@ import scala.Specializable.Arg
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castingMethods, downcast2TypeParamsMethods, downcastTypeParamMethods}
-import net.noresttherein.sugar.funny.extensions.{FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionObjectExtension}
+import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension, FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionObjectExtension}
+import net.noresttherein.sugar.funny.fun.{ComposableFun2, ComposableFun3}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -30,6 +31,12 @@ trait extensions extends Any {
 
 	@inline implicit final def HomoPartialFunctionExtension[X](f :PartialFunction[X, X]) :HomoPartialFunctionExtension[X] =
 		new HomoPartialFunctionExtension(f)
+
+	@inline implicit final def Function2Extension[A, B, Y](f :(A, B) => Y) :Function2Extension[A, B, Y] =
+		new Function2Extension(f)
+
+	@inline implicit final def Function3Extension[A, B, C, Y](f :(A, B, C) => Y) :Function3Extension[A, B, C, Y] =
+		new Function3Extension(f)
 
 	@inline implicit final def PartialFunctionObjectExtension(pf :PartialFunction.type) :PartialFunctionObjectExtension =
 		new PartialFunctionObjectExtension {}
@@ -78,6 +85,20 @@ object extensions extends extensions {
 		@tailrec final def recurse(x :X) :X = self(x) match {
 			case Some(next) => recurse(next)
 			case _ => x
+		}
+	}
+
+	class Function2Extension[A, B, Y](private val self :(A, B) => Y) extends AnyVal {
+		def andThen[Z](f :Y => Z) :(A, B) => Z = self match {
+			case g :ComposableFun2[A, B, Y] => g andThen f
+			case _                          => new ComposedFun2(self, f)
+		}
+	}
+
+	class Function3Extension[A, B, C, Y](private val self :(A, B, C) => Y) extends AnyVal {
+		def andThen[Z](f :Y => Z) :(A, B, C) => Z = self match {
+			case g :ComposableFun3[A, B, C, Y] => g andThen f
+			case _                             => new ComposedFun3(self, f)
 		}
 	}
 
