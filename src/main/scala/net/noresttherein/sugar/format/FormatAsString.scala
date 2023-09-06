@@ -173,13 +173,13 @@ trait FormatAsString extends Format { format =>
 				else if ((possibility & MaybeTrue) == MaybeTrue) {
 					val parsed = suffix.slice(leadingWhitespace, i)
 					val remainder = suffix.drop(i)
-					Passed((prefix + parsed, true, remainder))
+					Passed((prefix ++ parsed, true, remainder))
 				} else if ({ possibility &= ~verify(i, '_', '_', 'e', 'E'); i += 1; possibility == 0 })
 					fail(suffix)
 				else {
 					val parsed = suffix.slice(leadingWhitespace, i)
 					val remainder = suffix.drop(i)
-					Passed((prefix + parsed, false, remainder))
+					Passed((prefix ++ parsed, false, remainder))
 				}
 			}
 		}
@@ -226,7 +226,7 @@ trait FormatAsString extends Format { format =>
 				fail(suffix)
 			else if ((possibility & MaybeTrue) == MaybeTrue) {
 				val (parsed, remainder) = suffix.splitAt(leadingWhitespace + 4)
-				Passed((prefix + parsed, true, remainder))
+				Passed((prefix ++ parsed, true, remainder))
 			} else if (!i.hasNext || {
 				possibility &= ~verify(i.next(), '_', '_', 'e', 'E')
 				possibility == 0 
@@ -234,12 +234,12 @@ trait FormatAsString extends Format { format =>
 				fail(suffix)
 			else {
 				val (parsed, remainder) = suffix.splitAt(leadingWhitespace + 5)
-				Passed((prefix + parsed, false, remainder))
+				Passed((prefix ++ parsed, false, remainder))
 			}
 		}
 
 		override def guardAppend(prefix :ChoppedString, model :Boolean) =
-			Passed(if (model) prefix + "true" else prefix + "false")
+			Passed(if (model) prefix ++ "true" else prefix ++ "false")
 	}
 	private final val MaybeTrue  = 1
 	private final val MaybeFalse = 2
@@ -281,12 +281,11 @@ trait FormatAsString extends Format { format =>
 			}
 			val res = fromString(numberString)
 			val (parsed, unparsed) = suffix.splitAt(numberString.length)
-			(prefix + parsed, res, unparsed)
+			(prefix ++ parsed, res, unparsed)
 		}
 
 		override def append(prefix :ChoppedString, model :S) :ChoppedString =
-			if (model == null) prefix + "null"
-			else prefix + toString(model)
+			if (model == null) prefix ++ "null" else prefix ++ toString(model)
 
 		private def gulpString(string :String, from :Int, until :Int) :String = {
 			var end = from

@@ -156,7 +156,7 @@ class XML extends FormatAsString {
 		}
 
 		override def melt(model :String) :ChoppedString = ChoppedString(model)
-		override def append(prefix :ChoppedString, model :String) :ChoppedString = prefix + model
+		override def append(prefix :ChoppedString, model :String) :ChoppedString = prefix ++ model
 
 		override def name = "String"
 	}
