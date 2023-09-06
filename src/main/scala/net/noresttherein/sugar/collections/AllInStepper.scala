@@ -28,19 +28,10 @@ private trait AllInStepper[+A, B, +Self >: Null <: AllInStepper[A, B, Self]]
 	extends Stepper[A] with Spliterator[B] with JIterator[B]
 {
 	override def hasNext :Boolean = hasStep
-	override def nextStep() :A = next().asInstanceOf[A]
-	override def forEachRemaining(action :Consumer[_ >: B]) :Unit = {
-		estimateSize match {
-			case -1 =>
-				while (tryAdvance(action)) {}
-			case n  =>
-				var remaining = n
-				while (remaining > 0) {
-					action.accept(next())
-					remaining -= 1
-				}
-		}
-	}
+//	override def next() :B = nextStep().asInstanceOf[B]
+	override def forEachRemaining(action :Consumer[_ >: B]) :Unit =
+		while (tryAdvance(action)) {}
+
 	override def tryAdvance(action :Consumer[_ >: B]) :Boolean =
 		hasStep && { action.accept(next()); true }
 
@@ -49,6 +40,7 @@ private trait AllInStepper[+A, B, +Self >: Null <: AllInStepper[A, B, Self]]
 
 
 private trait AllInAnyStepper[A] extends AnyStepper[A] with AllInStepper[A, A, AllInAnyStepper[A]] {
+	override def next() :A = nextStep()
 	override def spliterator[U >: A]  :Spliterator[U] = this.asInstanceOf[Spliterator[U]]
 	override def javaIterator[U >: A] :JIterator[U]   = this.asInstanceOf[JIterator[U]]
 }
@@ -60,7 +52,6 @@ private trait AllInPrimitiveStepper[+A, B, +Self >: Null <: AllInStepper[A, B, S
 	override def forEachRemaining(action :Consumer[_ >: B]) :Unit = super[AllInStepper].forEachRemaining(action)
 	override def spliterator[U >: A] :S  = this
 	override def javaIterator[U >: A] :I = this
-	//scala complains if we have it here
 	abstract override def characteristics = super.characteristics | NONNULL
 }
 
@@ -69,24 +60,19 @@ private trait AllInIntStepper
 	extends IntStepper with Spliterator.OfInt with JIntIterator
 	   with AllInPrimitiveStepper[Int, JInt, AllInIntStepper, Spliterator.OfInt, JIntIterator]
 {   //consider: AllInStepper might become a self type
+//	override def nextStep() :Int //specialize the method
+	override def nextInt() :Int = nextStep()
 	override def forEachRemaining(action :Consumer[_ >: JInt]) :Unit = action match {
 		case consumer :IntConsumer => forEachRemaining(consumer :IntConsumer)
 		case _ => super[AllInPrimitiveStepper].forEachRemaining(action)
 	}
-	override def forEachRemaining(action :IntConsumer) :Unit = estimateSize match {
-		case -1 =>
-			while (tryAdvance(action)) {}
-		case n =>
-			var remaining = n
-			while (remaining > 0) {
-				action.accept(nextInt())
-				remaining -= 1
-			}
-	}
+	override def forEachRemaining(action :IntConsumer) :Unit =
+		while (hasStep)
+			action.accept(nextInt())
+//		while (tryAdvance(action)) {}
+
 	override def tryAdvance(action :IntConsumer) :Boolean =
 		hasStep && { action.accept(nextInt()); true }
-
-//	abstract override def characteristics = super.characteristics | NONNULL
 }
 
 
@@ -94,24 +80,19 @@ private trait AllInLongStepper
 	extends LongStepper with Spliterator.OfLong with JLongIterator
 	   with AllInPrimitiveStepper[Long, JLong, AllInLongStepper, Spliterator.OfLong, JLongIterator]
 {
+//	override def nextStep() :Long //specialize the method
+	override def nextLong() :Long = nextStep()
 	override def forEachRemaining(action :Consumer[_ >: JLong]) :Unit = action match {
 		case consumer :LongConsumer => forEachRemaining(consumer :LongConsumer)
 		case _ => super.forEachRemaining(action)
 	}
-	override def forEachRemaining(action :LongConsumer) :Unit = estimateSize match {
-		case -1 =>
-			while (tryAdvance(action)) {}
-		case n =>
-			var remaining = n
-			while (remaining > 0) {
-				action.accept(nextLong())
-				remaining -= 1
-			}
-	}
+	override def forEachRemaining(action :LongConsumer) :Unit =
+		while (hasStep)
+			action.accept(nextLong())
+//		while (tryAdvance(action)) {}
+
 	override def tryAdvance(action :LongConsumer) :Boolean =
 		hasStep && { action.accept(nextLong()); true }
-
-//	abstract override def characteristics = super.characteristics | NONNULL
 }
 
 
@@ -119,22 +100,84 @@ private trait AllInDoubleStepper
 	extends DoubleStepper with Spliterator.OfDouble with JDoubleIterator
 	   with AllInPrimitiveStepper[Double, JDouble, AllInDoubleStepper, Spliterator.OfDouble, JDoubleIterator]
 {
+//	override def nextStep() :Double //specialize the method
+	override def nextDouble() :Double = nextStep()
 	override def forEachRemaining(action :Consumer[_ >: JDouble]) :Unit = action match {
 		case consumer :DoubleConsumer => forEachRemaining(consumer :DoubleConsumer)
 		case _ => super.forEachRemaining(action)
 	}
-	override def forEachRemaining(action :DoubleConsumer) :Unit = estimateSize match {
-		case -1 =>
-			while (tryAdvance(action)) {}
-		case n =>
-			var remaining = n
-			while (remaining > 0) {
-				action.accept(nextDouble())
-				remaining -= 1
-			}
-	}
+	override def forEachRemaining(action :DoubleConsumer) :Unit =
+		while (hasStep)
+			action.accept(nextDouble())
+//		while (tryAdvance(action)) {}
+
 	override def tryAdvance(action :DoubleConsumer) :Boolean =
 		hasStep && { action.accept(nextDouble()); true }
+}
 
-//	abstract override def characteristics = super.characteristics | NONNULL
+
+
+
+//private trait ErasedAllInStepper[+A, B, +S >: Null <: AllInStepper[A, B, S]] extends AllInStepper[A, B, S] {
+//	override def next() :B = nextStep().asInstanceOf[B]
+//}
+
+/** A variant of [[net.noresttherein.sugar.collections.Stepper.AllInIntStepper AllInIntStepper]] for steppers
+  * over sources providing already boxed values (such as Scala collections).
+  * In order to avoid unnecessary unboxing and boxing, it should be mixed in to a generic, non specialized
+  * base class implementing `nextStep()`.
+  */
+private trait BoxedAllInIntStepper
+	extends IntStepper with Spliterator.OfInt with JIntIterator
+		with AllInPrimitiveStepper[Int, JInt, BoxedAllInIntStepper, Spliterator.OfInt, JIntIterator]
+//		with ErasedAllInStepper[Int, JInt, BoxedAllInIntStepper]
+{ 
+	override def nextInt() :Int = nextStep()
+	override def next() :JInt = nextStep()
+	override def tryAdvance(action :IntConsumer) :Boolean =
+		hasStep && { action.accept(nextStep()); true }
+
+	override def forEachRemaining(action :IntConsumer) :Unit =
+		while (hasStep)
+			action.accept(nextStep())
+}
+
+/** A variant of [[net.noresttherein.sugar.collections.Stepper.AllInLongStepper AllInLongStepper]] for steppers
+  * over sources providing already boxed values (such as Scala collections).
+  * In order to avoid unnecessary unboxing and boxing, it should be mixed in to a generic, non specialized
+  * base class implementing `nextStep()`.
+  */
+private trait BoxedAllInLongStepper
+	extends LongStepper with Spliterator.OfLong with JLongIterator
+		with AllInPrimitiveStepper[Long, JLong, BoxedAllInLongStepper, Spliterator.OfLong, JLongIterator]
+//		with ErasedAllInStepper[Long, JLong, BoxedAllInLongStepper]
+{ 
+	override def nextLong() :Long = nextStep()
+	override def next() :JLong = nextStep()
+	override def tryAdvance(action :LongConsumer) :Boolean =
+		hasStep && { action.accept(nextStep()); true }
+
+	override def forEachRemaining(action :LongConsumer) :Unit =
+		while (hasStep)
+			action.accept(nextStep())
+}
+
+/** A variant of [[net.noresttherein.sugar.collections.Stepper.AllInDoubleStepper AllInDoubleStepper]] for steppers
+  * over sources providing already boxed values (such as Scala collections).
+  * In order to avoid unnecessary unboxing and boxing, it should be mixed in to a generic, non specialized
+  * base class implementing `nextStep()`.
+  */
+private trait BoxedAllInDoubleStepper
+	extends DoubleStepper with Spliterator.OfDouble with JDoubleIterator
+		with AllInPrimitiveStepper[Double, JDouble, BoxedAllInDoubleStepper, Spliterator.OfDouble, JDoubleIterator]
+//		with ErasedAllInStepper[Double, JDouble, BoxedAllInDoubleStepper]
+{ 
+	override def nextDouble() :Double = nextStep()
+	override def next() :JDouble = nextDouble()
+	override def tryAdvance(action :DoubleConsumer) :Boolean =
+		hasStep && { action.accept(nextStep()); true }
+
+	override def forEachRemaining(action :DoubleConsumer) :Unit =
+		while (hasStep)
+			action.accept(nextStep())
 }
