@@ -16,7 +16,7 @@ import net.noresttherein.sugar.witness.DefaultValue
 //todo: move it to the file with ArrayIteratorSpec
 object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140))
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(200)
 
 
 	property("ReverseArrayIterator.apply") = forAll { (array :Array[Int], start :Int, length :Int) =>
@@ -95,6 +95,34 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 				val (first, second)    = ReverseArrayIterator.over(array, from, until).splitAt(n)
 				val (expect1, expect2) = ArraySeq.unsafeWrapArray(array.slice(from, until)).reverse.splitAt(n)
 				(first.toSeq ?= expect1) :| "_1" && (second.toSeq ?= expect2) :| "_2"
+			}
+	}
+	new ArrayProperty("foldLeft") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val iter   = ReverseArrayIterator.over(array, from, until)
+				val string = iter.foldLeft("")((acc, x) => if (acc == "") x.toString + ")" else x.toString + ", " + acc)
+				val result = if (string == "") "()" else "(" + string
+				result ?= array.slice(from, until).mkString("(", ", ", ")")
+			}
+	}
+	new ArrayProperty("reduceLeft") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val slice = array.slice(from, until)
+				val iter  = ReverseArrayIterator.over(array, from, until)
+				if (slice.length == 0)
+					iter.reduceLeft(Ordering[X].max).throws[UnsupportedOperationException]
+				else
+					iter.reduceLeft(Ordering[X].max) ?= slice.reduceLeft(Ordering[X].max)
+			}
+	}
+	new ArrayProperty("reduceLeftOption") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val slice = array.slice(from, until)
+				val iter  = ReverseArrayIterator.over(array, from, until)
+				iter.reduceLeftOption(Ordering[X].min) ?= slice.reduceLeftOption(Ordering[X].min)
 			}
 	}
 

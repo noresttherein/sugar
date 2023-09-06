@@ -1,21 +1,24 @@
 package net.noresttherein.sugar.collections
 
+import scala.collection.IndexedSeqView
 import scala.collection.immutable.ArraySeq
-import scala.reflect.ClassTag
+import scala.collection.immutable.ArraySeq.unsafeWrapArray
+import scala.reflect.{ClassTag, classTag}
 
 import org.scalacheck.Prop._
 import org.scalacheck.{Arbitrary, Prop, Shrink, Test}
 import org.scalacheck.util.ConsoleReporter
 import net.noresttherein.sugar.collections.extensions.ArrayExtension
-import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify}
+import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
+import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
 import net.noresttherein.sugar.witness.DefaultValue
-
+import typeClasses.arbitraryAny
 
 
 
 object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140))
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(200)
 
 	property("ArrayIterator.apply") = forAll { (array :Array[Int], from :Int, length :Int) =>
 		if (from < 0 || from > array.length)
@@ -95,6 +98,34 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 					(second.toSeq ?= ArraySeq.unsafeWrapArray(expect2)) :| "_2"
 			}
 	}
+	new ArrayProperty("foldLeft") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val iter = ArrayIterator.over(array, from, until)
+				val string = iter.foldLeft("")((acc, x) => if (acc == "") "(" + x else acc + ", " + x)
+				val result = if (string == "") "()" else string + ")"
+				result ?= array.slice(from, until).mkString("(", ", ", ")")
+			}
+	}
+	new ArrayProperty("reduceLeft") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val slice = array.slice(from, until)
+				val iter = ArrayIterator.over(array, from, until)
+				if (slice.length == 0)
+					iter.reduceLeft(Ordering[X].max).throws[UnsupportedOperationException]
+				else
+					iter.reduceLeft(Ordering[X].max) ?= slice.reduceLeft(Ordering[X].max)
+			}
+	}
+	new ArrayProperty("reduceLeftOption") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val slice = array.slice(from, until)
+				val iter = ArrayIterator.over(array, from, until)
+				iter.reduceLeftOption(Ordering[X].min) ?= slice.reduceLeftOption(Ordering[X].min)
+			}
+	}
 	new ArrayProperty("copyToArray") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
@@ -107,12 +138,16 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 					val start0     = start min bufferSize max 0
 					val shouldCopy = len min size min bufferSize - start0 max 0
 					val buffer     = target.clone()
-					if (start < 0 && shouldCopy > 0)
+					(if (start < 0 && shouldCopy > 0)
 						iterator.copyToArray(buffer, start, len).throws[IndexOutOfBoundsException] &&
 							(ArraySeq.unsafeWrapArray(buffer) ?= ArraySeq.unsafeWrapArray(target))
 					else {
 						val copied = iterator.copyToArray(buffer, start, len)
 						val end0   = start0 + copied
+						if (array.toSeq.slice(from0, from0 + copied) != buffer.toSeq.slice(start, start + shouldCopy)) {
+							Console.err.println("Expected: " + ArraySeq.unsafeWrapArray(buffer.slice(start, start + shouldCopy)))
+							Console.err.println("Copied:   " + ArraySeq.unsafeWrapArray(array.slice(from0, from0 + copied)))
+						}
 						(copied ?= shouldCopy) &&
 							((unsafeWrapArray(array).slice(from0, from0 + copied) :Seq[Y]) =?
 								unsafeWrapArray(buffer).slice(start, start + copied) lbl "copied") &&
@@ -133,7 +168,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 							res
 						}
 */
-					}
+					}) lbl target.localClassName + "|" + target.length + "|"
 				}
 				property[X] && property[Any]
 			}

@@ -93,6 +93,11 @@ trait AbstractIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 			index += from
 		this
 	}
+	override def reduceLeft[U >: T](op :(U, T) => U) :U =
+		if (hasNext) foldLeft[U](next())(op)
+		else throw new UnsupportedOperationException("Iterator().reduceLeft")
+
+	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
 	override def clone :AbstractIndexedIterator[T] = super.clone.asInstanceOf[AbstractIndexedIterator[T]]
 
@@ -192,7 +197,11 @@ trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Clonea
 			index -= from
 		this
 	}
+	override def reduceLeft[U >: T](op :(U, T) => U) :U =
+		if (!hasNext) throw new UnsupportedOperationException("Iterator().reduceLeft")
+		else foldLeft[U](next())(op)
 
+	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
 	override def clone :AbstractIndexedReverseIterator[T] =
 		super.clone.asInstanceOf[AbstractIndexedReverseIterator[T]]
@@ -224,9 +233,9 @@ private object AbstractIndexedReverseIterator {
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
   */ //consider: ArrayOps.ArrayIterator is serializable.
-sealed class ArrayIterator[@specialized(Everything) +T] private[collections]
-	                      (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int, 
-	                       override val isImmutable :Boolean)
+private sealed class ArrayIterator[@specialized(Everything) +T] private[collections]
+	                              (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int,
+	                               override val isImmutable :Boolean = false)
 	extends AbstractIterator[T] with AbstractIndexedIterator[T] with AbstractArraySlice[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, idx, array.length)
@@ -266,12 +275,13 @@ sealed class ArrayIterator[@specialized(Everything) +T] private[collections]
 	}
 
 	final override def copyToArray[A >: T](xs :Array[A], start :Int, len :Int) :Int = {
-		if (len <= 0 || first >= `last++` || start >= xs.length)
+		val xsLength = xs.length
+		if (len <= 0 | xsLength == 0 | start >= xsLength | first >= `last++`)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xs.length + ")")
+			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xsLength + ")")
 		else {
-			val copied = math.min(len, math.min(`last++` - first, xs.length - start))
+			val copied = math.min(len, math.min(`last++` - first, xsLength - start))
 			ArrayLike.copy(array, first, xs, start, copied)
 			first += copied
 			copied
@@ -291,8 +301,8 @@ sealed class ArrayIterator[@specialized(Everything) +T] private[collections]
 
 /** A factory of iterators advancing over array slices. */
 @SerialVersionUID(Ver)
-object ArrayIterator {
-	private def make[T](array :Array[T], from :Int, until :Int, immmutable :Boolean) :ArrayIterator[T] =
+private object ArrayIterator {
+	private def make[T](array :Array[T], from :Int, until :Int, immutable :Boolean) :ArrayIterator[T] =
 		((array :Array[_]) match {
 			case a :Array[AnyRef]  => new ArrayIterator(a, from, until, immutable)
 			case a :Array[Int]     => new ArrayIterator(a, from, until, immutable)
@@ -391,8 +401,8 @@ object ArrayIterator {
   * @param `first++` the index in the array pointing directly after the first/next element to return
   *                  (the end index of the slice).
   */ //todo: make private
-sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collections]
-	                             (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
+private sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collections]
+	                                     (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
 	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, 0, idx)
@@ -426,15 +436,16 @@ sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collectio
 		res
 	}
 
-	final override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int =
-		if (len <= 0 || `first++` <= last || start >= xs.length)
+	final override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
+		val xsLength = xs.length
+		if (len <= 0 | start >= xsLength | xsLength == 0 || `first++` <= last)
 			0
 		else if (start < 0)
 			throw new IndexOutOfBoundsException(
 				errorString(this) + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
 			)
 		else {
-			val copied = math.min(size, math.min(len, xs.length - start))
+			val copied = math.min(size, math.min(len, xsLength - start))
 			val end = `first++` - copied
 			var i = start
 			while (`first++` > end) {
@@ -444,6 +455,7 @@ sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collectio
 			}
 			copied
 		}
+	}
 
 	override def equals(that :Any) :Boolean = that match {
 		case self  :AnyRef if this eq self => true
@@ -458,7 +470,7 @@ sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collectio
 
 /** A factory of iterators advancing over a slice of an array in the reverse direction. */
 @SerialVersionUID(Ver)
-object ReverseArrayIterator {
+private object ReverseArrayIterator {
 	private def make[T](array :Array[T], from :Int, until :Int) :ReverseArrayIterator[T] =
 		((array :Array[_]) match {
 			case a :Array[AnyRef]  => new ReverseArrayIterator(a, from, until)
@@ -905,16 +917,13 @@ sealed class CyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] pri
 		res
 	}
 
-	override def foldLeft[A](z :A)(op :(A, T) => A) :A = {
-		var res  = z
-		while (remaining > 0) {
-			res = op(res, array(idx))
-			idx = (idx + 1) % len
-			remaining -= 1
+	override def foldLeft[A](z :A)(op :(A, T) => A) :A =
+		if (idx + remaining <= len)
+			ArrayLikeOps.foldLeft(array, idx, { idx += remaining; idx})(z)(op)
+		else {
+			val acc = ArrayLikeOps.foldLeft(array, idx, len)(z)(op)
+			ArrayLikeOps.foldLeft(array, 0, { idx = idx + remaining - len; idx })(acc)(op)
 		}
-		res
-	}
-
 
 	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
 		if (len <= 0 | remaining <= 0 || start >= xs.length)
@@ -1036,20 +1045,22 @@ private sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, 
 	override def next() :T = {
 		if (remaining < 0)
 			throw new NoSuchElementException("Index has reached the lower bound of " + idx + ".")
-		if (idx == 0) idx = len - 1 else idx -= 1
 		remaining -= 1
+		if (idx == 0) idx = len - 1 else idx -= 1
 		array(idx)
 	}
 
 	override def foldLeft[A](z :A)(op :(A, T) => A) :A = {
-		var res = z
-		while (remaining > 0) {
-			if (idx == 0) idx = len - 1
-			else idx -= 1
-			res = op(res, array(idx))
-			remaining -= 1
+		val inverse = (elem :T, acc :A) => op(acc, elem)
+		if (idx - remaining >= 0) {
+			idx -= remaining
+			ArrayLikeOps.foldRight(array, idx, idx + remaining)(z)(inverse)
+		} else {
+			val acc = ArrayLikeOps.foldRight(array, 0, idx - remaining + len)(z)(inverse)
+			val res = ArrayLikeOps.foldRight(array, idx, len)(acc)(inverse)
+			idx = idx - remaining + len
+			res
 		}
-		res
 	}
 
 	final override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int =
@@ -1064,7 +1075,8 @@ private sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, 
 			val end = start + copied
 			var i = start
 			while (i < end) {
-				idx -= 1
+				if (idx == 0) idx = len - 1
+				else idx -= 1
 				xs(i) = array(idx)
 				i += 1
 			}
@@ -1101,7 +1113,7 @@ private object ReverseCyclicArrayIterator {
 		}).castParam[T]
 
 	/** An iterator returning elements of an array in the decreasing index order, starting with `array(first)`.
-	  * If `length > first`, then, following `array(0)`, the iterator returns `array(array.length - 1)`,
+	  * If `length > first + 1`, then, following `array(0)`, the iterator returns `array(array.length - 1)`,
 	  * `array(array.length - 2)`, and so on, until `min(length, array.length)` elements are returned.
 	  * If `length` is negative, the iterator will have no elements.
 	  */
@@ -1110,7 +1122,7 @@ private object ReverseCyclicArrayIterator {
 		val len = array.length
 		if (first < 0 | first >= len)
 			throw new IndexOutOfBoundsException(first.toString + " is out of bounds of [0, " + len + ")")
-		make(array, first, math.min(len, math.max(length, 0)))
+		make(array, first + 1, math.min(len, math.max(length, 0)))
 	}
 
 	/** An iterator returning elements of an array at decreasing indices, starting with `(until - 1) % array.length`,
@@ -1131,9 +1143,9 @@ private object ReverseCyclicArrayIterator {
 	@throws[IndexOutOfBoundsException]("if first is negative or greater or equal to the length of the array")
 	def generic[T](array :Array[T], first :Int, length :Int) :ReverseCyclicArrayIterator[T] = {
 		val len = array.length
-		if (first < 0 | first > len)
+		if (first < 0 | first >= len)
 			throw new IndexOutOfBoundsException(first.toString + " is out of bounds of [0, " + len + ")")
-		new ReverseCyclicArrayIterator(array, first, math.min(len, math.max(length, 0)))
+		new ReverseCyclicArrayIterator(array, first + 1, math.min(len, math.max(length, 0)))
 	}
 }
 
