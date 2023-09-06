@@ -19,10 +19,10 @@ import net.noresttherein.sugar.outOfBounds_!
   * The iterator advances over a window on the collection; it is assumed to use random indexing
   * to return the elements, but they are never handled by this class itself.
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
-  * @see [[net.noresttherein.sugar.collections.AbstractIndexedReverseIterator]]
+  * @see [[net.noresttherein.sugar.collections.IndexedReverseIterator]]
   * @author Marcin Mościcki
   */ //consider: throwing exceptions with constant strings as messages for performance
-trait AbstractIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
+trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
@@ -99,19 +99,19 @@ trait AbstractIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
-	override def clone :AbstractIndexedIterator[T] = super.clone.asInstanceOf[AbstractIndexedIterator[T]]
+	override def clone :IndexedIterator[T] = super.clone.asInstanceOf[IndexedIterator[T]]
 
 	override def toString :String = clone.mkString("Iterator(", ",", ")")
 }
 
 
 @SerialVersionUID(Ver)
-private object AbstractIndexedIterator {
-	def fix[E](iterator :AbstractIndexedIterator[E]) :iterator.type = {
+private object IndexedIterator {
+	def fix[E](iterator :IndexedIterator[E]) :iterator.type = {
 		iterator.adjustRange()
 		iterator
 	}
-	def validated[E](iterator :AbstractIndexedIterator[E]) :iterator.type = {
+	def validated[E](iterator :IndexedIterator[E]) :iterator.type = {
 		iterator.validateRange()
 		iterator
 	}
@@ -124,10 +124,10 @@ private object AbstractIndexedIterator {
   * of some sequential collections. The iterator advances over a window on the collection; it is assumed to use
   * random indexing to return the elements, but they are never handled by this class itself.
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
-  * @see [[net.noresttherein.sugar.collections.AbstractIndexedIterator]]
+  * @see [[net.noresttherein.sugar.collections.IndexedIterator]]
   * @author Marcin Mościcki
   */
-trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
+trait IndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
@@ -203,20 +203,20 @@ trait AbstractIndexedReverseIterator[+T] extends BufferedIterator[T] with Clonea
 
 	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
-	override def clone :AbstractIndexedReverseIterator[T] =
-		super.clone.asInstanceOf[AbstractIndexedReverseIterator[T]]
+	override def clone :IndexedReverseIterator[T] =
+		super.clone.asInstanceOf[IndexedReverseIterator[T]]
 
 	override def toString :String = clone.mkString("Iterator(", ",", ")")
 }
 
 
 @SerialVersionUID(Ver)
-private object AbstractIndexedReverseIterator {
-	def fix[E](iterator :AbstractIndexedReverseIterator[E]) :iterator.type = {
+private object IndexedReverseIterator {
+	def fix[E](iterator :IndexedReverseIterator[E]) :iterator.type = {
 		iterator.adjustRange()
 		iterator
 	}
-	def validated[E](iterator :AbstractIndexedReverseIterator[E]) :iterator.type = {
+	def validated[E](iterator :IndexedReverseIterator[E]) :iterator.type = {
 		iterator.validateRange()
 		iterator
 	}
@@ -236,7 +236,7 @@ private object AbstractIndexedReverseIterator {
 private sealed class ArrayIterator[@specialized(Everything) +T] private[collections]
 	                              (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int,
 	                               override val isImmutable :Boolean = false)
-	extends AbstractIterator[T] with AbstractIndexedIterator[T] with AbstractArraySlice[T]
+	extends AbstractIterator[T] with IndexedIterator[T] with AbstractArraySlice[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, idx, array.length)
 	def this(array :Array[T]) = this(array, 0, array.length, false)
@@ -319,7 +319,7 @@ private object ArrayIterator {
 
 	def apply[T](array :Array[T]) :ArrayIterator[T] =
 		make(array, 0, array.length, false)
-	
+
 	def immutable[T](array :IArrayLike[T]) :ArrayIterator[T] = {
 		val a = array.asInstanceOf[Array[T]]
 		make(a, 0, a.length, true)
@@ -357,7 +357,7 @@ private object ArrayIterator {
 	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
 	  */
 //	def over[T](array :Array[T], from :Int, until :Int) :ArrayIterator[T] =
-//		AbstractIndexedIterator.fix(make(array, from, until))
+//		IndexedIterator.fix(make(array, from, until))
 	def over[T](array :Array[T], from :Int, until :Int) :ArrayIterator[T] = {
 		val len = array.length
 		if (from >= len) make(array, len, len, false)
@@ -400,10 +400,10 @@ private object ArrayIterator {
   *                  (the first index of the slice).
   * @param `first++` the index in the array pointing directly after the first/next element to return
   *                  (the end index of the slice).
-  */ //todo: make private
+  */ //consider: renaming to ArrayReverseIterator
 private sealed class ReverseArrayIterator[@specialized(Everything) +T] private[collections]
 	                                     (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
+	extends AbstractIterator[T] with IndexedReverseIterator[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, 0, idx)
 	def this(array :Array[T]) = this(array, 0, array.length)
@@ -543,10 +543,10 @@ private object ReverseArrayIterator {
   * @param `last++` the index in the sequence delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
   */
-sealed class IndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
-	         (seq :collection.IndexedSeqOps[T, generic.Any, _],
-	          private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIterator[T] with AbstractIndexedIterator[T]
+private sealed class IndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
+	                                   (seq :collection.IndexedSeqOps[T, generic.Any, _],
+	                                    private[this] var first :Int, private[this] var `last++` :Int)
+	extends AbstractIterator[T] with IndexedIterator[T]
 {
 	def this(seq :collection.IndexedSeqOps[T, generic.Any, _], idx :Int) = this(seq, idx, seq.length)
 	def this(seq :collection.IndexedSeqOps[T, generic.Any, _]) = this(seq, 0, seq.length)
@@ -580,7 +580,7 @@ sealed class IndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] priv
 
 
 @SerialVersionUID(Ver)
-object IndexedSeqIterator {
+private object IndexedSeqIterator {
 	def apply[@specialized(Int, Long, Double, AnyRef) T](seq :collection.IndexedSeq[T]) :IndexedSeqIterator[T] =
 		new IndexedSeqIterator(seq, 0, seq.length)
 
@@ -634,11 +634,11 @@ object IndexedSeqIterator {
   *                  (the first index of the slice).
   * @param `first++` the index in the sequence pointing directly after the first/next element to return
   *                  (the end index of the slice).
-  */
-sealed class ReverseIndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
-	         (seq :collection.IndexedSeqOps[T, generic.Any, _],
-	          private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
+  */ //consider: renaming to IndexedSeqReverseIterator
+private sealed class ReverseIndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
+	                                          (seq :collection.IndexedSeqOps[T, generic.Any, _],
+	                                           private[this] var last :Int, private[this] var `first++` :Int)
+	extends AbstractIterator[T] with IndexedReverseIterator[T]
 {
 	def this(seq :collection.IndexedSeqOps[T, generic.Any, _], idx :Int) = this(seq, 0, idx)
 	def this(seq :collection.IndexedSeqOps[T, generic.Any, _]) = this(seq, 0, seq.length)
@@ -671,7 +671,7 @@ sealed class ReverseIndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +
 
 
 @SerialVersionUID(Ver)
-object ReverseIndexedSeqIterator {
+private object ReverseIndexedSeqIterator {
 	def apply[@specialized(Int, Long, Double, AnyRef) T](seq :collection.IndexedSeq[T]) :ReverseIndexedSeqIterator[T] =
 		new ReverseIndexedSeqIterator(seq, 0, seq.length)
 
@@ -718,7 +718,7 @@ object ReverseIndexedSeqIterator {
   */
 final class StringIterator private[collections]
 	        (string :String, private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIterator[Char] with AbstractIndexedIterator[Char]
+	extends AbstractIterator[Char] with IndexedIterator[Char]
 {
 	private def underlying = string
 	protected override def underlyingSize :Int = string.length
@@ -802,7 +802,7 @@ object StringIterator {
   */
 final class ReverseStringIterator private[collections]
 	        (string :String, private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[Char] with AbstractIndexedReverseIterator[Char]
+	extends AbstractIterator[Char] with IndexedReverseIterator[Char]
 {
 	/* Requires 0 <= from <= until <= string.length and maintains invariant 0 <= stop <= index <= string.length.
 	* The invariant can be broken only by advancing an empty iterator.
@@ -886,7 +886,7 @@ object ReverseStringIterator {
   */ //no SerialVersionUID because we are not Serializable :)
 sealed class CyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
 	                            (array :Array[T], private[this] var idx :Int, private[this] var remaining :Int)
-	extends AbstractIterator[T] with AbstractIndexedIterator[T]
+	extends AbstractIterator[T] with IndexedIterator[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, idx, array.length)
 	def this(array :Array[T]) = this(array, 0, array.length)
@@ -896,7 +896,7 @@ sealed class CyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] pri
 
 	protected final override def underlyingSize :Int = len
 	final override def index :Int = idx
-	protected final override def index_=(i :Int) :Unit = idx = i % len
+	protected final override def index_=(i :Int) :Unit = { remaining -= i - idx; idx = i % len }
 	final override def limit :Int = idx + remaining
 	protected final override def limit_=(i :Int) :Unit = remaining = i - idx
 
@@ -926,12 +926,13 @@ sealed class CyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] pri
 		}
 
 	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
-		if (len <= 0 | remaining <= 0 || start >= xs.length)
+		val xsLength = xs.length
+		if (len <= 0 | start >= xsLength | xsLength == 0 | remaining <= 0)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xs.length + ")")
+			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xsLength + ")")
 		else {
-			val copied = math.min(len, math.min(remaining, xs.length - start))
+			val copied = math.min(len, math.min(remaining, xsLength - start))
 			Array.cyclicCopy(array, idx, xs, start, copied)
 			idx = (idx + copied) % this.len
 			remaining -= copied
@@ -1020,7 +1021,7 @@ object CyclicArrayIterator {
   */
 private sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
 	                 (array :Array[T], private[this] var idx :Int, private[this] var remaining :Int)
-	extends AbstractIterator[T] with AbstractIndexedReverseIterator[T]
+	extends AbstractIterator[T] with IndexedReverseIterator[T]
 {
 //	def this(array :Array[T], idx :Int) = this(array, 0, idx)
 	def this(array :Array[T]) = this(array, 0, array.length)
@@ -1030,7 +1031,7 @@ private sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, 
 
 	protected final override def underlyingSize :Int = len
 	final override def index :Int = idx
-	protected final override def index_=(i :Int) :Unit = idx = if (i < 0) len + i else i
+	protected final override def index_=(i :Int) :Unit = { remaining -= idx - i; idx = if (i < 0) len + i else i }
 	final override def limit :Int = idx - remaining
 	protected final override def limit_=(i :Int) :Unit = remaining = idx - i
 
@@ -1063,19 +1064,20 @@ private sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, 
 		}
 	}
 
-	final override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int =
-		if (len <= 0 | remaining <= 0 || start >= xs.length)
+	final override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
+		val xsLength = xs.length
+		if (len <= 0 | start >= xsLength | xsLength == 0 | remaining <= 0)
 			0
 		else if (start < 0)
 			throw new IndexOutOfBoundsException(
 				errorString(this) + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
 			)
 		else {
-			val copied = math.min(size, math.min(len, xs.length - start))
+			val copied = math.min(remaining, math.min(len, xsLength - start))
 			val end = start + copied
 			var i = start
 			while (i < end) {
-				if (idx == 0) idx = len - 1
+				if (idx == 0) idx = this.len - 1
 				else idx -= 1
 				xs(i) = array(idx)
 				i += 1
@@ -1083,6 +1085,7 @@ private sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, 
 			remaining -= copied
 			copied
 		}
+	}
 
 	override def equals(that :Any) :Boolean = that match {
 		case self  :AnyRef if this eq self => true
