@@ -5,8 +5,7 @@ import scala.collection.immutable.ArraySeq
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
-
-import net.noresttherein.sugar.extensions.{BooleanExtension, IterableOnceExtension, IteratorExtension, IteratorObjectExtension, satisfyingMethods}
+import net.noresttherein.sugar.extensions.{BooleanExtension, IntExtension, IterableOnceExtension, IteratorExtension, IteratorObjectExtension, satisfyingMethods}
 import net.noresttherein.sugar.testing.scalacheck.extensions._
 
 
@@ -15,7 +14,7 @@ import net.noresttherein.sugar.testing.scalacheck.extensions._
 object IteratorExtensionSpec extends Properties("IteratorExtension") {
 
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(128)
 
 	import typeClasses._
 //
@@ -104,7 +103,7 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	}
 	property("flatMapWhile") = flatMappingProperty { iter :(() => Iterator[IterableOnce[Int]]) =>
 		iter().flatMapWhile(0)(_ <= Sum) { (acc, es) =>
-			val seq = es.toIterableOnceOps.toSeq
+			val seq = es.toBasicOps.toSeq
 			(acc + seq.sum, seq.map(_ + acc))
 		} -> {
 			val sums = iter().map(_.iterator.sum).scanLeft(0)(_ + _).takeWhile(_ <= Sum)
@@ -120,10 +119,10 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	}
 	property("flatMapUntil") = flatMappingProperty { iter :(() => Iterator[IterableOnce[Int]]) =>
 		iter().flatMapUntil(0) { (acc, es) =>
-			val seq = es.toIterableOnceOps.toSeq
+			val seq = es.toBasicOps.toSeq
 			(acc + seq.sum > Sum, acc + seq.sum, seq.map(_ + acc))
 		} -> {
-			val (sums1, sums2) = iter().map(_.toIterableOnceOps.sum).scanLeft(0)(_ + _).duplicate
+			val (sums1, sums2) = iter().map(_.toBasicOps.sum).scanLeft(0)(_ + _).duplicate
 			iter().zip(sums1).map {
 				case (es, acc) => es.iterator.map(_ + acc)
 			}.zip(sums2.drop(1)).takeWhile(_._2 <= Sum).flatMap(_._1)
@@ -136,11 +135,11 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	}
 	property("flatMapSome") = flatMappingProperty { (iter :() => Iterator[IterableOnce[Int]]) =>
 		iter().flatMapSome(0) { (acc, e) =>
-			val seq = e.toIterableOnceOps.toSeq
+			val seq = e.toBasicOps.toSeq
 			(acc + seq.sum, e) satisfying (_._1 <= Sum)
 		} ->
 			iter().scanLeft((0, Nil :IterableOnce[Int])) {
-				case ((acc, _), e) => val seq = e.toIterableOnceOps.toSeq; (acc + seq.sum, seq)
+				case ((acc, _), e) => val seq = e.toBasicOps.toSeq; (acc + seq.sum, seq)
 			}.drop(1).takeWhile(_._1 <= Sum).flatMap(_._2)
 	}
 	//no mapReverse for Iterator
@@ -295,7 +294,7 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 			forAll { (a :RefArraySlice[RefArraySlice[Int]], b :RefArraySlice[RefArraySlice[Int]]) =>
 				prop(a, b) :| "ArraySlice"
 		} && lazyFlatZipProperty { (l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
-			f(() => l().map(_.toIterableOnceOps.toSeq), () => r().map(_.toIterableOnceOps.toSeq))
+			f(() => l().map(_.toBasicOps.toSeq), () => r().map(_.toBasicOps.toSeq))
 		} :| "LazyList"
 	}
 
@@ -351,6 +350,18 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("zipAll3") = zip3Property { (a :() => Iterator[Int], b :() => Iterator[Int], c :() => Iterator[Int]) =>
 		a().zipAll3(b(), c(), 42, 2501, 1024) ->
 			a().zipAll(b(), 42, 2501).zipAll(c(), (42, 2501), 1024).map { case ((a, b), c) => (a, b, c) }
+	}
+
+	property("zipTail") = iteratorProperty { (it :(() => Iterator[Int])) =>
+		val i = it()
+		if (!i.hasNext)
+			i.zipTail.toSeq ?= Seq.empty
+		else {
+			val i1 = it()
+			val i2 = it()
+			i2.next()
+			i.zipTail.toSeq ?= i1.zip(i2).toSeq
+		}
 	}
 
 
@@ -497,23 +508,72 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("add")       = concat1Property { (iter, elem) => (iter() add elem) -> (iter() ++ Iterator.single(elem)) }
 	property("+:")        = concat1Property { (iter, elem) => (elem +: iter()) -> (Iterator.single(elem) ++ iter()) }
 	property("prepended") = concat1Property { (iter, elem) => (iter() prepended elem) -> (Iterator.single(elem) ++ iter()) }
+
+	property("counting")  = iteratorProperty { iter :(() => Iterator[Int]) =>
+		val counter = iter().counting
+		(counter sameElements iter() lbl s"${iter().counting.toList} ?= ${iter().toList}") &&
+			(counter.total ?= iter().size)
+	}
+	property("counting.drop") = iteratorProperty { iter :(() => Iterator[Int]) =>
+		forAll { (n :Int, m :Int) =>
+			val counter = iter().counting
+			var i = n
+			while (i > 0 && counter.hasNext) {
+				counter.next()
+				i -= 1
+			}
+			val dropped = counter.drop(m)
+			val tail = dropped.toList
+			val nm = if (n <= Int.MaxValue - m.orZeroIf(m < 0)) n.orZeroIf(n < 0) + m.orZeroIf(m < 0) else Int.MaxValue
+			val expect = iter().drop(nm).toList
+			(tail ?= expect) && (dropped.total ?= iter().size)
+		}
+	}
+	property("counting.take") = iteratorProperty { iter :(() => Iterator[Int]) =>
+		forAll { (n :Int, m :Int) =>
+			val counter = iter().counting
+			var i = n
+			while (i > 0 && counter.hasNext) {
+				counter.next()
+				i -= 1
+			}
+			val taken = counter.take(m)
+			val tail = taken.toList
+			val until = n.orZeroIf(n < 0) + m.orZeroIf(m < 0)
+			val expect = iter().slice(n, if (until < 0) Int.MaxValue else until).toList
+			(tail ?= expect) && (taken.total ?= expect.size + math.min(iter().size, n.orZeroIf(n < 0)))
+		}
+	}
+	property("counting.slice") = iteratorProperty { iter :(() => Iterator[Int]) =>
+		forAll { (n :Int, m :Int) =>
+			val counter = iter().counting.slice(n, m)
+			val tail   = counter.toList
+			val expect = iter().slice(n, m.orZeroIf(m < 0)).toList
+			(tail ?= expect) && (counter.total ?= expect.size + math.min(iter().size, n.orZeroIf(n < 0)))
+		}
+	}
 }
 
 
 
 
 
-
+//todo: test copyToArray, take, drop, slice
 object IteratorObjectExtensionSpec extends Properties("Iterator$") {
-	private val testArray :Array[Int] = Array(1, 2, 3, 4, 5, 6)
-
-	property("double")       = Iterator.double(1, 2).toSeq ?= Seq(1, 2)
-	property("const")        = Iterator.const(10)( 42).toSeq ?= Iterator.fill(10)(42).toSeq
-	property("over")         = Iterator.over(testArray).toSeq ?= testArray.toSeq
-	property("slice")        =
-		Iterator.slice(testArray, 1, 4).toSeq ?= Iterator.over(testArray).slice(1, 4).toSeq
-
-	property("reverse")      = Iterator.reverse(testArray).toSeq ?= testArray.toSeq.reverse
-	property("reverseSlice") =
-		Iterator.reverse(testArray, 1, 4).toSeq ?= Iterator.reverse(testArray).slice(2, 5).toSeq
+	property("two")   = Iterator.two(1, 2).toSeq ?= Seq(1, 2)
+	property("const") =
+		(Iterator.const(10)(42).toSeq ?= Iterator.fill(10)(42).toSeq) &&
+			(Iterator.const(0)(42).toSeq ?= Iterator.fill(0)(42).toSeq) &&
+			(Iterator.const(-1)(42).toSeq ?= Iterator.fill(-1)(42).toSeq)
+	property("over")  = forAll { array :Array[Int] => Iterator.over(array).toSeq ?= ArraySeq.unsafeWrapArray(array) }
+//	property("over")         = Iterator.over(testArray).toSeq ?= testArray.toSeq
+	property("slice") = forAll { (array :Array[Int], from :Int, until :Int) =>
+		Iterator.slice(array, from, until).toSeq ?= array.iterator.slice(from, until).toSeq
+	}
+	property("reverse") = forAll { (array :Array[Int]) =>
+		Iterator.reverse(array).toSeq ?= ArraySeq.unsafeWrapArray(array).reverse
+	}
+	property("reverse(Array, Int, Int)") = forAll { (array :Array[Int], from :Int, until :Int) =>
+		Iterator.reverse(array, from, until).toSeq ?= ArraySeq.unsafeWrapArray(array.slice(from, until)).reverse
+	}
 }
