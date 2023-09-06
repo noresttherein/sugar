@@ -188,12 +188,13 @@ object JavaTypes {
 
 		override def empty[K, V] :JHashMap[K, V] = new JHashMap()
 
-		override def newBuilder[K, V] :Builder[(K, V), JHashMap[K, V]] = new Builder[(K, V), JHashMap[K, V]] {
-			private[this] var res = new JHashMap[K, V]
-			override def addOne(elem :(K, V)) = { res.put(elem._1, elem._2); this }
-			override def clear() :Unit = if (res != null) res.clear()
-			override def result() = { val map = res; res = null; map }
-		}
+		override def newBuilder[K, V] :Builder[(K, V), JHashMap[K, V]] =
+			new ReusableBuilder[(K, V), JHashMap[K, V]] {
+				private[this] var res = new JHashMap[K, V]
+				override def addOne(elem :(K, V)) = { res.put(elem._1, elem._2); this }
+				override def clear() :Unit = if (res != null) res.clear()
+				override def result() = { val map = res; res = null; map }
+			}
 	}
 
 	@SerialVersionUID(Ver)
@@ -203,12 +204,13 @@ object JavaTypes {
 
 		override def empty[K :Ordering, V] :JTreeMap[K, V] = new JTreeMap(Ordering[K])
 
-		override def newBuilder[K :Ordering, V] :Builder[(K, V), JTreeMap[K, V]] = new Builder[(K, V), JTreeMap[K, V]] {
-			private[this] var res = new JTreeMap[K, V](Ordering[K])
-			override def addOne(elem :(K, V)) = { res.put(elem._1, elem._2); this }
-			override def clear() :Unit = if (res != null) res.clear()
-			override def result() = { val map = res; res = null; map }
-		}
+		override def newBuilder[K :Ordering, V] :Builder[(K, V), JTreeMap[K, V]] =
+			new ReusableBuilder[(K, V), JTreeMap[K, V]] {
+				private[this] var res = new JTreeMap[K, V](Ordering[K])
+				override def addOne(elem :(K, V)) = { res.put(elem._1, elem._2); this }
+				override def clear() :Unit = if (res != null) res.clear()
+				override def result() = { val map = res; res = null; map }
+			}
 	}
 
 
