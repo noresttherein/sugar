@@ -24,7 +24,7 @@ import net.noresttherein.sugar.extensions.castTypeParamMethods
   * Concrete implementations are expected to implement also the specialized versions of the three interfaces.
   * The stepper advances over a window on the collection; it is assumed to use random indexing
   * to return the elements, but they are never handled by this class itself.
-  * @see [[net.noresttherein.sugar.collections.AbstractIndexedIterator]]
+  * @see [[net.noresttherein.sugar.collections.IndexedIterator]]
   * @see [[net.noresttherein.sugar.collections.IndexedReverseStepper]]
   * @author Marcin Mościcki
   */
@@ -108,7 +108,7 @@ private abstract class AbstractIndexedStepper[+A, B, +Self >: Null <: IndexedSte
   * Aside from [[scala.collection.Stepper Stepper]], the trait implements also
   * [[java.util.Spliterator Spliterator]] and Java [[java.util.Iterator Iterator]].
   * Concrete implementations are expected to implement also the specialized versions of the three interfaces.
-  * @see [[net.noresttherein.sugar.collections.AbstractIndexedReverseIterator]]
+  * @see [[net.noresttherein.sugar.collections.IndexedReverseIterator]]
   * @see [[net.noresttherein.sugar.collections.IndexedStepper]]
   * @author Marcin Mościcki
   */
