@@ -1,4 +1,8 @@
-organization := "net.noresttherein"
+val TLD = "net"
+
+val domain = "noresttherein"
+
+organization := TLD + "." + domain
 
 name := "sugar"
 
@@ -11,16 +15,49 @@ Compile / fork := true
 
 Compile / javaOptions ++= Seq("-Xmx4G")
 
+Test / sourceGenerators += Def.task {
+	import scala.jdk.CollectionConverters.asScalaBufferConverter
 
-Test / testOptions ++= Seq(Tests.Filter {
-	s => !(Class.forName(s).isInterface || java.lang.reflect.Modifier.isAbstract(Class.forName(s).getModifiers))
+	//Create a copy of class MatrixBuffer which uses a much lower max length for a single dimension array
+	// in order to comfortably test all border cases on small data sets.
+	val input = (Compile / sourceDirectory).value / "scala" / TLD / domain / name.value / "collections" / "MatrixBuffer.scala"
+	val output = (Test / sourceManaged).value / TLD / domain / name.value / "collections" / "TestMatrixBuffer.scala"
+
+	IO.reader(input) { reader =>
+		val lines = reader.lines.toList.asScala.map { line =>
+			line.replaceAllLiterally("MatrixBuffer", "TestMatrixBuffer")
+			    .replaceAll("final val Dim1Bits = \\d*", "final val Dim1Bits = 4")
+			    .replaceAll("final val Dim2Bits = \\d*", "final val Dim2Bits = 27")
+			    .replaceAll("final val MinSize1 = \\d*", "final val MinSize1 = 4")
+			    .replaceAll("final val NewSize1 = \\d*", "final val NewSize1 = 4")
+			    .replaceAll("final val MinSize2 = \\d*", "final val MinSize2 = 4")
+			    .replaceAll("final val NewSize2 = \\d*", "final val NewSize2 = 4")
+			    .replaceAll("//\\w*override def toString", "\toverride def toString")
+		}
+		IO.writeLines(output, lines)
+	}
+	Seq(output)
+}.taskValue
+
+/*
+Test / testOptions ++= Seq(Tests.Filter { s =>
+//	try {
+		println(getClass.getClassLoader.)
+		val testClass = Class.forName(s + "$")
+		!(testClass.isInterface || java.lang.reflect.Modifier.isAbstract(testClass.getModifiers))
+//	} catch {
+//		case _ :ClassNotFoundException => false
+//	}
 })
+*/
+
+
 
 
 libraryDependencies ++= Seq( //todo: make shapeless optional
-	"org.scala-lang" % "scala-compiler" % "2.13.11",
-	"org.scala-lang" % "scala-library" % "2.13.11",
-	"org.scala-lang" % "scala-reflect" % "2.13.11",
+	"org.scala-lang" % "scala-compiler" % scalaVersion.value,
+	"org.scala-lang" % "scala-library" % scalaVersion.value,
+	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
 	"com.chuusai" %% "shapeless" % "2.3.10",
 	"net.bytebuddy" % "byte-buddy" % "1.14.2",
 
