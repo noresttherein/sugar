@@ -225,6 +225,8 @@ package typist {
 
 
 package typist {
+
+	import net.noresttherein.sugar.funny.generic
 	//consider: moving it to witness
 	/** A function class used for implicit conversions in order to force precedence of one definition over another,
 	  * despite having the same argument and return types.
@@ -267,4 +269,22 @@ package typist {
 			override def apply(v1 :X) :Y = f(v1)
 		}
 	}
+
+
+	/** A generic variant of `<:<`, projecting the relation from types to type constructors. */
+	sealed abstract class <:?<[-A[_], +B[_]] extends Serializable {
+		def apply[X](value :A[X]) :B[X]
+	}
+
+	object <:?< {
+		implicit def summon[A[_]] :A =:?= A = instance.asInstanceOf[A =:?= A]
+		private[this] val instance = new Evidence[generic.Any]
+
+		private class Evidence[A[_]] extends =:?=[A, A] {
+			override def apply[X](value :A[X]) :A[X] = value
+		}
+	}
+
+	/** A generic variant of `=:=`, projecting the relation from types to type constructors. */
+	sealed abstract class =:?=[A[_], B[_]] extends <:?<[A, B]
 }
