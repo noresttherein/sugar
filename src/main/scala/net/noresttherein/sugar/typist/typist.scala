@@ -194,7 +194,7 @@ package object typist {
 package typist {
 
 	object Rank {
-		/** A higher rank than `R`. `R` is assumed to be a [[net.noresttherein.sugar.typist.Rank Rank]] subtype,
+		/** A higher rank than `R`. `R` is expected to be a [[net.noresttherein.sugar.typist.Rank Rank]] subtype,
 		  * but the type bound is omitted for brevity. Types parameterized with `+[R]` are subtypes of the same
 		  * type constructors applied to `R` (assuming covariance in the `Rank` parameter). Multiple predefined aliases
 		  * for composition of `+` with `Rank` are defined in the same scope:
