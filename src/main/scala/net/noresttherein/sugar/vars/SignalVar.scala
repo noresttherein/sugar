@@ -42,7 +42,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * is not initialized from the business logic point of view.
   * @see [[net.noresttherein.sugar.vars.SignalVal]]
   * @see [[net.noresttherein.sugar.vars.Watched]]
-  * @see [[net.noresttherein.sugar.vars.Relay]]
+  * @see [[net.noresttherein.sugar.vars.Channel]]
   * @define Ref `SignalVar`
   */
 sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)

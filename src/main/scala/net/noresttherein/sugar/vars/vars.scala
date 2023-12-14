@@ -18,7 +18,7 @@ import net.noresttherein.sugar.vars.InOut.SpecializedVars
   * and [[net.noresttherein.sugar.vars.ThreadLocal thread local]] variables,
   * several [[net.noresttherein.sugar.vars.Lazy lazy]] `val` implementations,
   * [[net.noresttherein.sugar.vars.Opt various]] `Option` [[net.noresttherein.sugar.vars.Unsure alternatives]],
-  * [[net.noresttherein.sugar.vars.Relay synchronization]] tools
+  * [[net.noresttherein.sugar.vars.Channel synchronization]] tools
   * and [[net.noresttherein.sugar.vars.SignalVar conditional variables]],
   * [[net.noresttherein.sugar.vars.Watched observed]] variables,
   * disposable [[java.lang.ref.Reference]] [[net.noresttherein.sugar.vars.DisposableRef adapters]] and others.

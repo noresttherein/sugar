@@ -120,7 +120,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
-	  */ //consider: this is a bit misleading for some classes like Relay
+	  */ //consider: this is a bit misleading for some classes like Channel
 	def isDefined :Boolean
 
 	/** The $Ref currently holds a proper value: in single threaded context, or with proper synchronization,
