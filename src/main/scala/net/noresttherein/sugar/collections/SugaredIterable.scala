@@ -130,11 +130,11 @@ trait SugaredIterable[+A] extends Iterable[A] with SugaredIterableOps[A, Iterabl
   * like `filter` and `slice`, return a different type than those which may result in any element type, like `map`.
   * One example would be a String-like text class, which always has `Char` as its element type.
   * Similarly to [[collection.IterableFactoryDefaults]],
-  * it defines [[net.noresttherein.sugar.collections.SpecificIterableOps.specificFactory specificFactory]] property
-  * of type [[collection.SpecificIterableFactory SpecificIterableFactory]], to which it delegates
+  * it defines [[net.noresttherein.sugar.collections.SpecificIterableFactoryDefaults.specificFactory specificFactory]]
+  * property of type [[collection.SpecificIterableFactory SpecificIterableFactory]], to which it delegates
   * `empty`, `fromSpecific` and `newSpecificBuilder`.
   */
-trait SpecificIterableOps[E, +CC[_], +C <: CC[E]] extends SugaredIterableOps[E, CC, C] {
+trait SpecificIterableFactoryDefaults[E, +CC[_], +C <: CC[E]] extends SugaredIterableOps[E, CC, C] {
 	protected override def fromSpecific(coll :IterableOnce[E]) :C = specificFactory.fromSpecific(coll)
 	protected override def newSpecificBuilder :Builder[E, C] = specificFactory.newBuilder
 	override def empty :C = specificFactory.empty
@@ -185,6 +185,8 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
 //It would be very convenient if we extended only IterableOps[E, generic.Any, Any],
 // as ZigZag could then extend this trait, but we have no way of overriding empty to return C.
 trait SlicingOps[+E, +C] extends SugaredIterableOps[E, generic.Any, C] {
+//	override def empty :C = ???
+//	override def coll  :C
 	override def tail :C = {
 		val size = this.size
 		if (size == 0) throw new UnsupportedOperationException(toString + ".tail")
