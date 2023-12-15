@@ -4,7 +4,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.exceptions.reflect.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, NoInt, WithFilter}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -34,6 +34,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @see [[net.noresttherein.sugar.vars.Opt]]
   * @define Ref `IntOpt`
+  * @define coll optional `Int`
   */
 @SerialVersionUID(Ver)
 class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inlining of its construction
@@ -136,6 +137,12 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	@inline def orDefault[O >: Int](or: O) :O =
 		if (x == NoContent) or else x.toInt
 
+//
+//	/** Gets the integer in the $Ref or throws the exception given as the argument.
+//	  * @see [[net.noresttherein.sugar.vars.IntOpt.orNoSuch orNoSuch]]
+//	  * @see [[net.noresttherein.sugar.vars.IntOpt.orIllegal orIllegal]] */
+//	@inline def orThrow(e : => Throwable) :Int =
+//		if (x == NoContent) throw e else x.toInt
 
 	/** Gets the element in the `IntOpt` or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient

@@ -4,12 +4,13 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 import net.noresttherein.sugar.collections.Ranking
+import net.noresttherein.sugar.exceptions.reflect.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent, NonExistent}
 import net.noresttherein.sugar.exceptions.{AbstractException, SugaredException, SugaredThrowable}
-import net.noresttherein.sugar.vars.InOut.SpecializedVars
+
 
 
 
@@ -55,7 +56,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  *   1. $Inexistent, an [[net.noresttherein.sugar.vars.PotentialExtension.isEmpty empty]] instance corresponding
 	  *      to [[scala.None]];
 	  *   1. $Existent[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
-	  *   1. $Existent[A], defensively wrapped - used to differentiate `Existent(Inexistent)` from `Inexistent`.
+	  *   1. $Existent[A], wrapped - used to differentiate `Existent(Inexistent)` from `Inexistent`.
 	  * Outside of nesting `Potential` instances within each other, no boxing takes place for reference types
 	  * under any circumstances, in particular when creating an `Array[Potential[A]]` or `Seq[Potential[A]]`,
 	  * using it as an argument or return value of a function, or, in general, substituting it for an abstract type
@@ -76,7 +77,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  * any boxing in either direction, except for the case `Got(Inexistent) :Existent[_]`.
 	  * @see [[net.noresttherein.sugar.vars.Opt]]
 	  * @see [[net.noresttherein.sugar.vars.Unsure]]
-	  */
+	  */ //consider: we could use >: None; but then how to rename Existent?
 	type Potential[+A]// >: Existent[A]
 
 	/** An alias for $Potential`[A]`, a fully erased variant of [[scala.Option]] with an API defined
@@ -89,7 +90,10 @@ package object vars extends vars.Rank1PotentialImplicits {
 	type ??[+A] = Potential[A]
 
 
-	/** The API of $Potential in the form of extension methods. */
+	/** The API of $Potential in the form of extension methods.
+	  * @define Ref `Potential`
+	  * @define coll potential value
+	  */
 	implicit class PotentialExtension[A](private val self :Potential[A]) extends AnyVal {
 
 		/** Tests if this `Potential` does not contain a value
@@ -137,6 +141,12 @@ package object vars extends vars.Rank1PotentialImplicits {
 		@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
 			if (self.asInstanceOf[AnyRef] eq NonExistent) null.asInstanceOf[O] else get
 
+//
+//		/** Gets the element in the $Ref or throws the exception given as the argument.
+//		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orNoSuch orNoSuch]]
+//		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orIllegal orIllegal]] */
+//		@inline def orThrow(e : => Throwable) :A =
+//			if (self.asInstanceOf[AnyRef] eq NonExistent) throw e else get
 
 		/** Gets the element in this `Potential` or throws the exception given as the type parameter
 		  * with the given message.
@@ -1054,6 +1064,11 @@ package vars {
 		@inline def satisfying[A](value :A)(p :A => Boolean) :Potential[A] =
 			if (p(value)) Existent(value) else Inexistent
 
+		/** Extracts the value from the `Potential`, if available.
+		  * @return `Existent.unapply(value)`.
+		  */
+		@inline final def unapply[A](value :Potential[A]) :Opt[A] = Existent.unapply(value)
+
 		/** A factory of 'full' (`Some`) instances of `Potential`.  */
 		@SerialVersionUID(Ver)
 		object Existent {
@@ -1069,12 +1084,9 @@ package vars {
 			}
 		}
 
-
+		//We don't want anyone to manually wrap a value, as it will not symmetrically equal an erased Potential.
 		@SerialVersionUID(Ver)
 		private[vars] class Existent[+A](val value :A) extends Serializable {
-			//fixme: erased instance does not equal a wrapped instance; if we add a case value == that here,
-			//  equals will become asymmetrical. Lets look what we can do about in Scala 3, but if nothing,
-			//  then we'll have to prohibit nesting of Potentials
 			override def equals(that :Any) :Boolean = that match {
 				case exists :Existent[_] => value == exists.value
 				case _ => false

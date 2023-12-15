@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.exceptions.reflect.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -63,6 +63,7 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * issues due to using a non-standard solution.
   *
   * @define Ref `Unsure`
+  * @define coll unsure value
   * @author Marcin Mościcki
   */
 sealed trait Unsure[@specialized(SpecializedVars) +T]
@@ -114,6 +115,12 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final def orNull[O >: T](implicit isNullable :Null <:< O) :O =
 		if (this eq Missing) null.asInstanceOf[O] else get
 
+//
+//	/** Gets the element in the $Ref or throws the exception given as the argument.
+//	  * @see [[net.noresttherein.sugar.vars.Unsure.orNoSuch orNoSuch]]
+//	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]] */
+//	@inline def orThrow(e : => Throwable) :T =
+//		if (this eq Missing) throw e else get
 
 	/** Gets the value of this instance or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient

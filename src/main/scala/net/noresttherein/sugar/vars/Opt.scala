@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.exceptions.reflect.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack, NoContent, WithFilter, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -33,10 +33,10 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions''
   * composing several `Opt`s' can result in closures being created (as manual nesting of `flatMap` calls also can).
   * For this reason its best to either directly use `isEmpty` and `get` in a conditional expression, or use the
-  * [[net.noresttherein.sugar.vars.Opt.Got$ Got]] matching pattern, which should by modern compilers be translated
+  * [[net.noresttherein.sugar.vars.Opt.Got$ Got]] matching pattern, which should by be translated by the compiler
   * to non-boxing byte code.
   *
-  * This library provides a total of three `Option` alternatives:
+  * This library provides a total of five `Option` alternatives:
   *   1. A fully erased type alias [[net.noresttherein.sugar.vars.Potential Potential]]`[A]`
   *      (aliased as [[net.noresttherein.sugar.vars.?? ??]]`[A]`), which takes the concept of this class
   *      one step further, erasing the type information in all contexts: any reference to `Potential[T]` will
@@ -59,10 +59,16 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   *      In these contexts it offers largely the same benefits as `Potential` and `Opt`, because in all three cases
   *      a single boxing will need to happen. It has however an advantage over other two in that this benefit is 'free':
   *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
+  *   1. A specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
+  *   1. A specialized [[net.noresttherein.sugar.vars.BoolOpt BoolOpt]], erased in the runtime to a `Char`.
+  *
+  * In most scenarios, use of `Potential` is preferable, however it cannot be used as a result of an `unapply` method,
+  * which makes this class non redundant.
   * @see [[net.noresttherein.sugar.vars.Opt.Got$]]
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @define Ref `Opt`
+  * @define coll optional value
   */
 @SerialVersionUID(Ver)
 class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inlining of its construction
@@ -157,7 +163,12 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	/** Assuming that `A` is a nullable type, return `null` if this `Opt` is empty, or the wrapped value otherwise. */
 	@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
 		if (ref eq NoContent) null.asInstanceOf[O] else ref.asInstanceOf[O]
-
+//
+//	/** Gets the element in the `Opt` or throws the exception given as the argument.
+//	  * @see [[net.noresttherein.sugar.vars.Opt.orNoSuch orNoSuch]]
+//	  * @see [[net.noresttherein.sugar.vars.Opt.orIllegal orIllegal]] */
+//	@inline def orThrow(e: => Throwable) :A =
+//		if (ref eq NoContent) throw e else ref.asInstanceOf[A]
 
 	/** Gets the element in the `Opt` or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient

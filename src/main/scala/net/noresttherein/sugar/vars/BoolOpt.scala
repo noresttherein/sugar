@@ -4,7 +4,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.exceptions.reflect.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.BoolOpt.{Known, NoContent, Unknown, WithFilter}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -41,6 +41,7 @@ import net.noresttherein.sugar.witness.Ignored
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @see [[net.noresttherein.sugar.vars.Opt]]
   * @define Ref `BoolOpt`
+  * @define coll optional `Boolean`
   */
 @SerialVersionUID(Ver)
 class BoolOpt private[BoolOpt](private val x :Int) //private[BoolOpt] to allow inlining of its construction
@@ -144,6 +145,12 @@ class BoolOpt private[BoolOpt](private val x :Int) //private[BoolOpt] to allow i
 	@inline def orDefault[O >: Boolean](or: O) :O =
 		if (x == NoContent) or else x == 1
 
+//
+//	/** Gets the `Boolean` in the $Ref or throws the exception given as the argument.
+//	  * @see [[net.noresttherein.sugar.vars.BoolOpt.orNoSuch orNoSuch]]
+//	  * @see [[net.noresttherein.sugar.vars.BoolOpt.orIllegal orIllegal]] */
+//	@inline def orThrow(e : => Throwable) :Boolean =
+//		if (x == NoContent) throw e else x == 1
 
 	/** Gets the element in the `BoolOpt` or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
