@@ -3,8 +3,8 @@ package net.noresttherein.sugar.optional
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.extensions.castTypeParamMethods
-import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionObjectExtension, ensuringMethods, ensuringMethodsConversion, ifTrueMethods, providingMethods, satisfyingMethods}
-import net.noresttherein.sugar.raise
+import net.noresttherein.sugar.exceptions.reflect.raise
+import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionObjectExtension, ensuringMethodsConversion, ifTrueMethods, providingMethods, satisfyingMethods}
 import net.noresttherein.sugar.typist.PriorityConversion
 import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
