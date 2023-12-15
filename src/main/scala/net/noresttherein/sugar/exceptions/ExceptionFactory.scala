@@ -1,7 +1,8 @@
 package net.noresttherein.sugar.exceptions
 
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 
+import net.noresttherein.sugar.exceptions.Constructors.{defaultConstructor, defaultRethrowableConstructor, lazyStringConstructor, lazyStringThrowableBoolBoolConstructor, lazyStringThrowableConstructor, newLazyRethrowableConstructor, newRethrowableConstructor, rethrownLazyRethrowableConstructor, rethrownRethrowableConstructor, stringConstructor, stringThrowableBoolBoolConstructor, stringThrowableConstructor, throwableConstructor}
 import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Opt
@@ -33,7 +34,7 @@ import net.noresttherein.sugar.vars.Opt
 @SerialVersionUID(Ver)
 class ExceptionFactory private (maybeName :Option[String]) extends Serializable {
 	/** Creates a factory using the given name as a simulated class name for exceptions created/thrown by this instance. */
-	def this(name :String) = this(Some(name))
+	def this(name :String) = this(Option(name))
 
 	/** Creates an `ExceptionFactory` initialized with the inner name of this class. */
 	def this() = this(None)
@@ -46,7 +47,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	val name :String = maybeName getOrElse this.className
 
 	/** Creates a new exception with the given message.
-	  * `Base` is a SAM type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
@@ -54,7 +55,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	@inline final def apply(exception :Base) :SugaredException = exception
 
 	/** Creates a new exception with the given message and cause.
-	  * `Base` is a SAM type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
@@ -66,7 +67,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 
 
 	/** Throws a new exception with the given message.
-	  * `Base` is a SAM type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
@@ -74,7 +75,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	@inline def !(exception :Base) :Nothing = throw exception
 
 	/** Throws a new exception with the given message and cause.
-	  * `Base` is a SAM type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
 	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
@@ -131,11 +132,13 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 		  *         case e :ExceptionFactory#Base if e is TotalPartyKill => error(e.msg, e)
 		  *     }
 		  * }}}
+		  * The preferred method however is to use [[net.noresttherein.sugar.exceptions.ExceptionFactory.unapply unapply]]
+		  * of the owning factory object.
 		  */
 		def is(factory :ExceptionFactory) :Boolean = factory == ExceptionFactory.this
 
 		/** The implementation source for [[Throwable.getMessage getMessage]].
-		  * This class is a SAM type, so a literal `() => ??? :String` will be promoted to this class
+		  * This class is a ''SAM'' type, so a literal `() => ??? :String` will be promoted to this class
 		  * if it is the expected type of the expression. This creates a lightweight way to create exceptions
 		  * which are quite likely to get caught and handled, rather than be propagated to a point
 		  * where they are only logged.
@@ -162,58 +165,187 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 
 
 /** An interface for `Exception` companion objects providing factory methods accepting various combinations
-  * of arguments, allowing the exception class itself to only implement only the most basic one.
+  * of arguments, allowing the exception class itself to implement only the most general one.
   * Leaves a single `apply` to implement by subclasses, with an argument list matching that of exception's constructor.
-  * Note that this is a SAM type, so a new instance can be created from a function literal of the same signature:
+  * Note that this is a ''SAM'' type, so a new instance can be created from a function literal of the same signature:
   * {{{
-  *     val TotalPartyKillException :SpecificThrowableFactory =
+  *     val TotalPartyKillException :FlexibleThrowableFactory[TotalPartyKillException] =
   *         new TotalPartyKillException(_ :String, _ () => String, _ :Throwable, _ :Boolean, _ :Boolean)
   * }}}
-  * Alternative constructors for factories are located in the companion object.  */
-trait SpecificExceptionFactory extends Serializable {
+  * Additionally, there is a type alias
+  * [[net.noresttherein.sugar.exceptions.FlexibleExceptionFactory FlexibleExceptionFactory]]
+  * for `FlexibleThrowableFactory[Exception]`, so in the common case where the type of the created `Throwable`
+  * does not matter, one can simply substitute it in the example above.
+  * Alternative constructors for factories are located
+  * in [[net.noresttherein.sugar.exceptions.ThrowableFactory$ ThrowableFactory]] object.
+  * @see [[net.noresttherein.sugar.exceptions.LazyThrowableFactory LazyThrowableFactory]]
+  * @see [[net.noresttherein.sugar.exceptions.EagerThrowableFactory EagerThrowableFactory]]
+  */ //consider: swapping the order of lazy and eager messages
+trait FlexibleThrowableFactory[E <: Throwable] extends Serializable {
 	protected def apply(message :String, lazyMessage: () => String, cause :Throwable,
-	                    enableSuppression :Boolean, writableStackTrace :Boolean) :Throwable
+	                    enableSuppression :Boolean, writableStackTrace :Boolean) :E
 
-	def apply(message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :Throwable =
+	def apply(message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E =
 		this(message, null, cause, enableSuppression, writableStackTrace)
 
-	def apply(message :() => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean)
-			:Throwable =
+	def apply(message :() => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E =
 		this(null, message, cause, enableSuppression, writableStackTrace)
 
-	def apply(message :String, cause :Throwable) :Throwable = apply(message, null, cause, true, true)
-	def apply(message: () => String, cause :Throwable) :Throwable = apply(null, message, cause, true, true)
+	def apply(message :String, cause :Throwable) :E = apply(message, null, cause, true, true)
+	def apply(message: () => String, cause :Throwable) :E = apply(null, message, cause, true, true)
 
-	def apply(message :String) :Throwable = apply(message, null, null, true, true)
-	def apply(message: () => String) :Throwable = apply(null, message, null, true, true)
+	def apply(message :String) :E = apply(message, null, null, true, true)
+	def apply(message: () => String) :E = apply(null, message, null, true, true)
 
-	def apply(cause :Throwable) :Throwable = apply(defaultMessage, null, cause, true, true)
-	def apply() :Throwable = apply(defaultMessage, null, null, true, true)
+	def apply(cause :Throwable) :E = apply(defaultMessage, null, cause, true, true)
+	def apply() :E = apply(defaultMessage, null, null, true, true)
 
+	/** Message argument used by factory methods which accept neither a `String` nor a `() => String` argument. */
+	protected def defaultMessage :String = null
+}
+
+
+/** An interface for `Exception` companion objects providing factory methods accepting various combinations
+  * of arguments, allowing the exception class itself to implement only the most general one.
+  * Leaves a single `apply` to implement by subclasses, with an argument list matching that of exception's constructor.
+  * Note that this is a ''SAM'' type, so a new instance can be created from a function literal of the same signature:
+  * {{{
+  *     val TotalPartyKillException :EagerThrowableFactory[TotalPartyKillException] =
+  *         new TotalPartyKillException(_, _, _, _)
+  * }}}
+  * The code snippet assumes that the argument types of the constructor are
+  * `message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean`.
+  * Additionally, there is a type alias
+  * [[net.noresttherein.sugar.exceptions.EagerExceptionFactory EagerExceptionFactory]]
+  * for `EagerThrowableFactory[Exception]`, so in the common case where the type of the created `Throwable`
+  * does not matter, one can simply substitute it in the example above.
+  * Alternative constructors for factories are located
+  * in [[net.noresttherein.sugar.exceptions.ThrowableFactory$ ThrowableFactory]] object.
+  * @see [[net.noresttherein.sugar.exceptions.LazyThrowableFactory LazyThrowableFactory]]
+  * @see [[net.noresttherein.sugar.exceptions.FlexibleThrowableFactory FlexibleThrowableFactory]]
+  */
+trait EagerThrowableFactory[E <: Throwable] extends Serializable {
+	def apply(message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E
+	def apply(message :String, cause :Throwable) :E = apply(message, cause, true, true)
+	def apply(message :String) :E = apply(message, null, true, true)
+	def apply(cause :Throwable) :E = apply(defaultMessage, cause, true, true)
+	def apply() :E = apply(defaultMessage, null, true, true)
+
+	/** Message argument used by factory methods which do not accept a `message` argument. */
+	protected def defaultMessage :String = null
+}
+
+
+/** An interface for companion objects of `Throwable` subclasses supporting lazy message arguments.
+  * It contains factory methods accepting various combinations of arguments, allowing the exception class itself
+  * to implement only the most general one. Leaves a single `apply` to implement by subclasses, with an argument list
+  * of `(message :() => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean)`.
+  * Note that this is a ''SAM'' type, so a new instance can be created from a function literal of the same signature:
+  * {{{
+  *     val TotalPartyKillException :LazyThrowableFactory[TotalPartyKillException] =
+  *         new TotalPartyKillException(_, _, _, _)
+  * }}}
+  * Additionally, there is a type alias
+  * [[net.noresttherein.sugar.exceptions.LazyExceptionFactory LazyExceptionFactory]]
+  * for `LazyThrowableFactory[Exception]`, so in the common case where the type of the created `Throwable`
+  * does not matter, one can simply substitute it in the example above.
+  * Alternative constructors for factories are located
+  * in [[net.noresttherein.sugar.exceptions.ThrowableFactory$ ThrowableFactory]] object.
+  * @see [[net.noresttherein.sugar.exceptions.EagerThrowableFactory EagerThrowableFactory]]
+  * @see [[net.noresttherein.sugar.exceptions.FlexibleThrowableFactory FlexibleThrowableFactory]]
+  */
+trait LazyThrowableFactory[E <: Throwable] extends Serializable {
+	def apply(message: => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E
+	def apply(message: => String, cause :Throwable) :E = apply(message, cause, true, true)
+	def apply(message: => String) :E = apply(message, null, true, true)
+	def apply(cause :Throwable) :E = apply(defaultMessage, cause, true, true)
+	def apply() :E = apply(defaultMessage, null, true, true)
+
+	/** Message argument used by factory methods which do not accept a `message` argument. */
 	protected def defaultMessage :String = null
 }
 
 
 /** A factory of exception factories. */
-object SpecificExceptionFactory extends Serializable {
+@SerialVersionUID(Ver)
+object ThrowableFactory extends Serializable {
 
-	/** Creates a factory using the given function as the exception constructor. */
-	def apply(constructor :(String, () => String, Throwable, Boolean, Boolean) => Throwable) :SpecificExceptionFactory =
-		new SpecificExceptionFactory {
+	/** Creates a factory using the given function as the exception constructor.
+	  * @param constructor A constructor function for thrown exception, accepting;
+	  *                      1. message
+	  *                      1. lazy message constructor
+	  *                      1. cause
+	  *                      1. enableSuppression
+	  *                      1. writableStackTrace
+	  *                    Note that the interpretation of these arguments, in particular how to treat the case where
+	  *                    both ''message'' and ''lazy message'' arguments are non null lies squarely on the side
+	  *                    of the function, and the returned object will simply pass on arguments
+	  *                    given to its factory methods in the same order to the constructor.
+	  */
+	def apply[E <: Throwable](constructor :(String, () => String, Throwable, Boolean, Boolean) => E)
+			:FlexibleThrowableFactory[E] =
+		new FlexibleThrowableFactory[E] {
 			override def apply(message :String, lazyMessage :() => String, cause :Throwable,
-			                   enableSuppression :Boolean, writableStackTrace :Boolean) :Throwable =
+			                   enableSuppression :Boolean, writableStackTrace :Boolean) :E =
 				constructor(message, lazyMessage, cause, enableSuppression, writableStackTrace)
 
 			override lazy val toString :String = apply().localClassName + "Factory"
 		}
+//
+//	/** Creates a factory using the given function as the exception constructor. */
+//	def apply[E <: Throwable](constructor :(String, () => String, Throwable) => E) :FlexibleThrowableFactory[E] =
+//		apply { (msg, lzy, cause, _, _) => constructor(msg, lzy, cause) }
+
+	/** Creates a factory using the given function as the exception constructor.
+	  * @param constructor A constructor function for thrown exception, accepting;
+	  *                      1. lazy message constructor
+	  *                      1. cause
+	  *                      1. enableSuppression
+	  *                      1. writableStackTrace
+	  *                    Note that the interpretation of these arguments lies squarely on the side of the function,
+	  *                    and the returned object will simply pass on arguments given to its factory methods
+	  *                    in the same order to the constructor.
+	  */
+	def apply[E <: Throwable](constructor :(() => String, Throwable, Boolean, Boolean) => E) :LazyThrowableFactory[E] =
+		new LazyThrowableFactory[E] {
+			override def apply(message: => String, cause :Throwable,
+			                   enableSuppression :Boolean, writableStackTrace :Boolean) :E =
+				constructor(() => message, cause, enableSuppression, writableStackTrace)
+			override lazy val toString = apply().localClassName + "Factory"
+		}
+//
+//	/** Creates a factory using the given function as the exception constructor. */
+//	def apply[E <: Throwable](constructor :(() => String, Throwable) => Throwable) :LazyThrowableFactory[E] =
+//		apply { (lzy, cause, _, _) => constructor(lzy, cause) }
+
+	/** Creates a factory using the given function as the exception constructor.
+	  * @param constructor A constructor function for thrown exception, accepting;
+	  *                      1. message
+	  *                      1. cause
+	  *                      1. enableSuppression
+	  *                      1. writableStackTrace
+	  *                    Note that the interpretation of these arguments lies squarely on the side of the function,
+	  *                    and the returned object will simply pass on arguments given to its factory methods
+	  *                    in the same order to the constructor.
+	  */
+	def apply[E <: Throwable](constructor :(String, Throwable, Boolean, Boolean) => E) :EagerThrowableFactory[E] =
+		new EagerThrowableFactory[E] {
+			override def apply(message :String, cause :Throwable,
+			                   enableSuppression :Boolean, writableStackTrace :Boolean) :E =
+				constructor(message, cause, enableSuppression, writableStackTrace)
+			override lazy val toString = apply().localClassName + "Factory"
+		}
+//
+//	def apply[E <: Throwable](constructor :(String, Throwable) => E) :EagerThrowableFactory[E] =
+//		apply { (msg, cause, _, _) => constructor(msg, cause) }
 
 	/** Creates a factory of exceptions of type `E`, which must provide one of constructors:
 	  *   1. `(String, () => String, Throwable, Boolean, Boolean)`,
 	  *   1. `(String, Throwable, Boolean, Boolean)`, or
-	  *   1. `(() => String, Throwable, Boolean, Boolean`.
+	  *   1. `(() => String, Throwable, Boolean, Boolean)`.
 	  */
-	def apply[E <: Throwable :ClassTag] :SpecificExceptionFactory =
-		new SpecificExceptionFactory {
+	def apply[E <: Throwable :ClassTag] :FlexibleThrowableFactory[E] =
+		new FlexibleThrowableFactory[E] {
 			private[this] val noArgConstructor =
 				defaultConstructor[E].orIllegal(
 					"No (), (String), (Throwable), (String, Throwable), (String, Throwable, Boolean, Boolean), " +
@@ -292,7 +424,7 @@ object SpecificExceptionFactory extends Serializable {
 			causeConstructor(cause) //test if it works
 
 			override def apply(message :String, lazyMessage :() => String, cause :Throwable,
-			                   enableSuppression :Boolean, writableStackTrace :Boolean) :Throwable =
+			                   enableSuppression :Boolean, writableStackTrace :Boolean) :E =
 				if (message == null)
 					lazyFullConstructor(lazyMessage, cause, enableSuppression, writableStackTrace)
 				else
@@ -323,17 +455,36 @@ object SpecificExceptionFactory extends Serializable {
 
 
 
-/** An interface for `Exception` companion objects providing factory methods accepting various combinations
-  * of arguments, allowing the exception class itself to only implement only the most basic one.
-  * Leaves a single `apply` to implement by subclasses, with an argument list matching that of exception's constructor.
-  * Note that this is a SAM type, so a new instance can be created from a function literal of the same signature:
+//For this to work, we'd need either to duplicate everything (and not be an ExceptionFactory),
+// or have a generic supertype for both,
+//@SerialVersionUID(Ver)
+//class RethrowableFactory(name :String) extends ExceptionFactory(name) {
+//	def this() = this(null)
+//
+//	override
+//}
+
+
+
+
+/** An interface of [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] companion objects,
+  * providing factory methods accepting various combinations of arguments, allowing the exception class itself
+  * to only implement only the most basic one. Leaves a single `apply` to implement by subclasses,
+  * with an argument list matching
+  * that of [[net.noresttherein.sugar.exceptions.RethrowableException RethrowableException]]'s primary constructor.
+  * Note that this is a ''SAM'' type, so a new instance can be created from a function literal of the same signature:
   * {{{
-  *     val TotalPartyKillException :SpecificRethrowableFactory =
+  *     val TotalPartyKillException :FlexibleRethrowableFactory =
   *         new TotalPartyKillException(_ :String, _ () => String, _ :Throwable, _ :Boolean)
   * }}}
-  * Alternative constructors for factories are located in the companion object.
-  */
-trait SpecificRethrowableFactory extends Serializable {
+  * Factory methods which do not accept an explicit `isRethrown` argument, define it is as `cause != null`
+  * (where `cause` argument is present), or `false` for root exceptions without a cause.
+  * Alternative constructors for factories are located in object
+  * [[net.noresttherein.sugar.exceptions.RethrowableFactory$ RethrowableFactory]].
+  * @see [[net.noresttherein.sugar.exceptions.EagerRethrowableFactory EagerRethrowableFactory]]
+  * @see [[net.noresttherein.sugar.exceptions.LazyRethrowableFactory LazyRethrowableFactory]]
+  */ //consider: swapping the order of message and lazyMessage
+trait FlexibleRethrowableFactory extends Serializable {
 	protected def apply(message :String, lazyMessage: () => String, cause :Throwable, isRethrown :Boolean) :Rethrowable
 
 	def apply(message :String, cause :Throwable, isRethrown :Boolean) :Rethrowable =
@@ -351,27 +502,132 @@ trait SpecificRethrowableFactory extends Serializable {
 	def apply(cause :Throwable) :Rethrowable = apply(defaultMessage, null, cause, cause ne null)
 	def apply() :Rethrowable = apply(defaultMessage, null, null, false)
 
+	/** Message argument used by factory methods which accept neither a `String` nor a `() => String` argument. */
+	protected def defaultMessage :String = null
+}
+
+
+/** An interface for [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] companion objects,
+  * providing factory methods accepting various combinations of arguments, allowing the exception class itself
+  * to only implement only the most basic one. Leaves a single `apply` to implement by subclasses,
+  * with an argument list of `(message :String, cause :Throwable, isRethrown :Boolean)`.
+  * Note that this is a ''SAM'' type, so a new instance can be created from a function literal of the same signature:
+  * {{{
+  *     val TotalPartyKillException :EagerRethrowableFactory =
+  *         new TotalPartyKillException(_, _, _)
+  * }}}
+  * Factory methods which do not accept an explicit `isRethrown` argument, define it is as `cause != null`
+  * (where `cause` argument is present), or `false` for root exceptions without a cause.
+  * Alternative constructors for factories are located in object
+  * [[net.noresttherein.sugar.exceptions.RethrowableFactory$ RethrowableFactory]].
+  * @see [[net.noresttherein.sugar.exceptions.LazyRethrowableFactory]]
+  * @see [[net.noresttherein.sugar.exceptions.FlexibleRethrowableFactory]]
+  */
+trait EagerRethrowableFactory extends Serializable {
+	def apply(message :String, cause :Throwable, isRethrown :Boolean) :Rethrowable
+	def apply(message :String, cause :Throwable) :Rethrowable = apply(message, cause, cause ne null)
+	def apply(message :String) :Rethrowable = apply(message, null, false)
+	def apply(cause :Throwable) :Rethrowable = apply(defaultMessage, cause, cause ne null)
+	def apply() :Rethrowable = apply(defaultMessage, null, false)
+
+	/** Message argument used by factory methods which do not accept a `message` argument. */
+	protected def defaultMessage :String = null
+}
+
+
+/** An interface for companion objects of [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] subclasses 
+  * with a lazily evaluated message argument. It contains factory methods accepting various combinations of arguments, 
+  * allowing the exception class itself to only implement only the most basic one. Leaves a single `apply` 
+  * to implement by subclasses, with an argument list of `(message: => String, cause :Throwable, isRethrown :Boolean)`.
+  * Note that this is a ''SAM'' type, so a new instance can be created from a function literal of the same signature:
+  * {{{
+  *     val TotalPartyKillException :LazyRethrowableFactory =
+  *         new TotalPartyKillException(_, _, _)
+  * }}}
+  * Factory methods which do not accept an explicit `isRethrown` argument, define it is as `cause != null`
+  * (where `cause` argument is present), or `false` for root exceptions without a cause.
+  * Alternative constructors for factories are located in object
+  * [[net.noresttherein.sugar.exceptions.RethrowableFactory$ RethrowableFactory]].
+  * @see [[net.noresttherein.sugar.exceptions.EagerRethrowableFactory]]
+  * @see [[net.noresttherein.sugar.exceptions.FlexibleRethrowableFactory]]
+  */
+trait LazyRethrowableFactory extends Serializable {
+	def apply(message: => String, cause :Throwable, isRethrown :Boolean) :Rethrowable
+	def apply(message: => String, cause :Throwable) :Rethrowable = apply(message, cause, cause ne null)
+	def apply(message: => String) :Rethrowable = apply(message, null, false)
+	def apply(cause :Throwable) :Rethrowable = apply(defaultMessage, cause, cause ne null)
+	def apply() :Rethrowable = apply(defaultMessage, null, false)
+
+	/** Message argument used by factory methods which do not accept a `message` argument. */
 	protected def defaultMessage :String = null
 }
 
 
 
 /** A factory of exception factories. */
-object SpecificRethrowableFactory extends Serializable {
-	/** Creates a factory using the given function as the exception constructor. */
-	def apply(constructor :(String, () => String, Throwable, Boolean) => Rethrowable) :SpecificRethrowableFactory =
-		new SpecificRethrowableFactory {
+@SerialVersionUID(Ver)
+object RethrowableFactory extends Serializable {
+	/** Creates a factory using the given function
+	  * as the [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] constructor.
+	  * @param constructor A constructor function for thrown exception, accepting;
+	  *                      1. lazy message constructor
+	  *                      1. cause
+	  *                      1. isRethrown
+	  *                    Note that the interpretation of these arguments lies squarely on the side of the function,
+	  *                    and the returned object will simply pass on arguments given to its factory methods
+	  *                    in the same order to the constructor.
+	  */
+	def apply(constructor :(String, () => String, Throwable, Boolean) => Rethrowable) :FlexibleRethrowableFactory =
+		new FlexibleRethrowableFactory {
 			override def apply(message :String, lazyMessage :() => String, cause :Throwable, isRethrown :Boolean) =
 				constructor(message, lazyMessage, cause, isRethrown)
 
 			override lazy val toString :String = apply().localClassName + "Factory"
 		}
 
-	/** Creates a factory of exceptions of type `E`, which must provide
-	  * a `(String, () => String, Throwable, Boolean, Boolean)` constructor.
+	/** Creates a factory using the given function
+	  * as the [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] constructor.
+	  * @param constructor A constructor function for thrown exception, accepting;
+	  *                      1. message
+	  *                      1. cause
+	  *                      1. isRethrown
+	  *                    Note that the interpretation of these arguments lies squarely on the side of the function,
+	  *                    and the returned object will simply pass on arguments given to its factory methods
+	  *                    in the same order to the constructor.
 	  */
-	def apply[E <: Rethrowable :ClassTag] :SpecificRethrowableFactory =
-		new SpecificRethrowableFactory {
+	def apply(constructor :(String, Throwable, Boolean) => Rethrowable) :EagerRethrowableFactory =
+		new EagerRethrowableFactory {
+			override def apply(message :String, cause :Throwable, isRethrown :Boolean) :Rethrowable =
+				constructor(message, cause, isRethrown)
+
+			override lazy val toString :String = apply().localClassName + "Factory"
+		}
+
+	/** Creates a factory using the given function
+	  * as the [[net.noresttherein.sugar.exceptions.Rethrowable Rethrowable]] constructor.
+	  * @param constructor A constructor function for thrown exception, accepting;
+	  *                      1. lazy message constructor
+	  *                      1. cause
+	  *                      1. isRethrown
+	  *                    Note that the interpretation of these arguments lies squarely on the side of the function,
+	  *                    and the returned object will simply pass on arguments given to its factory methods
+	  *                    in the same order to the constructor.
+	  */
+	def apply(constructor :(() => String, Throwable, Boolean) => Rethrowable) :LazyRethrowableFactory =
+		new LazyRethrowableFactory {
+			override def apply(message: => String, cause :Throwable, isRethrown :Boolean) =
+				constructor(() => message, cause, isRethrown)
+
+			override lazy val toString :String = apply().localClassName + "Factory"
+		}
+
+	/** Creates a factory of exceptions of type `E`, which must provide a constructor with one of the signatures;
+	  *   - `(String, () => String, Throwable, Boolean)`
+	  *   - `(() => String, Throwable, Boolean)`
+	  *   - `(String, Throwable, Boolean)`
+	  */
+	def apply[E <: Rethrowable :ClassTag] :FlexibleRethrowableFactory =
+		new FlexibleRethrowableFactory {
 			private[this] val noArgConstructor :() => E =
 				defaultRethrowableConstructor[E] orIllegal (
 					"No (), (Throwable), (String), (() => String), (String, Throwable), (() => String, Throwable), " +
@@ -428,6 +684,8 @@ object SpecificRethrowableFactory extends Serializable {
 			override def apply(cause :Throwable) = rethrownConstructor(null, cause)
 
 			override def apply() = noArgConstructor()
+
+			override lazy val toString = classTag[E].runtimeClass.localName + "Factory"
 		}
 }
 
