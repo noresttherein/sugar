@@ -1,11 +1,13 @@
 package net.noresttherein.sugar.exceptions
 
-import java.io.{PrintStream, PrintWriter}
+import java.io.{PrintStream, PrintWriter, StringWriter}
 
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
+import net.bytebuddy.implementation.FixedValue.self
 import net.noresttherein.sugar.exceptions
+import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 
 
@@ -15,10 +17,28 @@ import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 trait SugaredThrowable extends Throwable with Cloneable {
 
 	/** A reusable immutable sequence wrapping the throwable's stack trace */
-	lazy val stackTrace :Seq[StackTraceElement] = getStackTrace match {
-		case null => Nil
-		case array => ArraySeq.unsafeWrapArray(array)
+	lazy val stackTrace :StackTrace = getStackTrace match {
+		case null => StackTrace.empty
+		case array => StackTrace(array)
 	}
+
+	/** A list of manually pushed activation frames carrying information about call parameters.
+	  * These can be pushed on a thread-local stack using the
+	  * [[net.noresttherein.sugar.exceptions.StackContext$ StackContext]] object, and allow providing
+	  * additional information about the call.
+	  */
+	val context :Seq[StackContext] = StackContext.get
+
+	/** Stack traces of this exception and all its causes, with the stack for each exception omitting the frames
+	  * already listed by previous (wrapping exception). If an exception doesn't have a stack trace,
+	  * it is represented by an empty sequence. The first element is the stack trace of this very exception,
+	  * from the point of its creation to the initial execution. Each subsequent exception omits the longest
+	  * suffix (initial call sequence) common with the previous exception on the list
+	  * ''which has a non empty stack trace''. Note that, because stack trace is filled when the exception
+	  * is created, the stack trace of an exception does not need to be an actual prefix of the exception's cause,
+	  * and, in extreme cases, may not share with it any common frames at all.
+	  */
+	def joinedStackTrace :Seq[StackTrace] = utils.joinedStackTrace(this)
 
 	/** Standard [[Throwable.getSuppressed getSuppressed]] array as a scala [[Seq]]. */
 	lazy val suppressed :Seq[Throwable] = getSuppressed match {
@@ -30,7 +50,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  * The first exception of the returned list is the original cause (one without a cause), while this exception
 	  * closes the list.
 	  */
-	lazy val causeQueue :Seq[Throwable] = exceptions.causeQueue(this)
+	lazy val causeQueue :Seq[Throwable] = utils.causeQueue(this)
 
 	/** Standard [[Throwable.getCause getCause]] wrapped in an [[Option]]. */
 	def cause :Option[Throwable] = Option(getCause)
@@ -67,25 +87,25 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  * and returns the bottom exception. The result will never be `null`: if `this.getCause == null`
 	  * then `this` is returned.
 	  */
-	def originalCause :Throwable = exceptions.originalCause(this)
+	def rootCause :Throwable = utils.rootCause(this)
 
 	/** The message included in the bottom exception of the cause stack, that is the last exception,
 	  * in the list with [[Throwable.getCause getCause]] as the next message.
 	  * @return `Option(originalCause.getMessage)`
 	  */
-	def originalMessage :Option[String] = Option(originalCause.getMessage)
+	def rootMessage :Option[String] = Option(rootCause.getMessage)
 
 	/** Denullified [[Throwable.getMessage getMessage]] of the original `Throwable` cause of this exception,
 	  * returning an empty string instead of `null` if no message was provided.
-	  * @return [[net.noresttherein.sugar.exceptions.SugaredThrowable.originalMessage originalMessage]]` getOrElse ""`.
+	  * @return [[net.noresttherein.sugar.exceptions.SugaredThrowable.rootMessage originalMessage]]` getOrElse ""`.
 	  */
-	def originalMsg :String = originalCause.getMessage match {
+	def rootMsg :String = rootCause.getMessage match {
 		case null => ""
 		case msg => msg
 	}
 
 	/** The name of the class used in `toString` implementation. It defaults simply to `getClass.getName`,
-	  * but can overriden in 'interface' exception to hide an actual, private and often anonymous, implementation.
+	  * but can overridden in 'interface' exception to hide an actual, private and often anonymous, implementation.
 	  * {{{
 	  *     trait MyAppException extends Exception with SugaredException {
 	  *         override def className = classOf[MyAppException].getName
@@ -155,6 +175,26 @@ trait SugaredThrowable extends Throwable with Cloneable {
 				this
 		}
 
+
+	/** Formats the whole stack trace of this exception as a `String`
+	  * in the same way as [[Throwable.printStackTrace printStackTrace]].
+	  */
+	def stackTraceString :String = utils.stackTraceString(this)
+
+	/** Formats the stack trace of this exception and all its causes, listed in the reverse order.
+	  * If this exception does not have a cause, this is equal to
+	  * [[net.noresttherein.sugar.exceptions.extensions.ThrowableExtension.stackTraceString stackTraceString]]
+	  * (and [[Throwable.printStackTrace printStackTrace]]). Otherwise, the root cause of this exception
+	  * has its full stack trace formatted first, followed by stack traces of wrapping exceptions, omitting
+	  * shared frames, with this exception being formatted as the last one.
+	  */
+	def reverseStackTraceString :String = utils.reverseStackTraceString(this)
+//
+//	/** Formats this exception together with its stack trace in the standard format.
+//	  * The first line of the returned `String` is equal to `this.toString`; the following lines
+//	  * are the same as would be printed with [[Throwable.printStackTrace Throwable.printStackTrace]].
+//	  */
+//	def toStringWithStackTrace :String = utils.formatWithStackTrace(this)
 
 	override def toString :String = {
 		val s :String = className
@@ -310,12 +350,12 @@ trait Rethrowable extends SugaredThrowable {
 	  */
 	def isRethrown :Boolean
 
-	override lazy val stackTrace :Seq[StackTraceElement] = ArraySeq.unsafeWrapArray(
+	override lazy val stackTrace :StackTrace = StackTrace(
 		if (getCause == null)
-			exceptions.dropFillInStackTraceFrames(super.getStackTrace)
+			utils.dropFillInStackTraceFrames(super.getStackTrace)
 		else //setStackTrace would work only if stack trace is writeable, defeating the purpose of this class
-			exceptions.stackTraceSuffix(this) match {
-				case empty if empty.length == 0 => exceptions.dropFillInStackTraceFrames(super.getStackTrace)
+			utils.stackTraceSuffix(this) match {
+				case empty if empty.length == 0 => utils.dropFillInStackTraceFrames(super.getStackTrace)
 				case suffix => suffix
 			}
 	)
@@ -328,10 +368,10 @@ trait Rethrowable extends SugaredThrowable {
 		else super.fillInStackTrace()
 
 	override def printStackTrace(s :PrintStream) :Unit = s.synchronized {
-		exceptions.printStackTrace(this, exceptions.EmptyStackTrace, s.println)
+		utils.printStackTrace(this, s.println)
 	}
 	override def printStackTrace(s :PrintWriter) :Unit = s.synchronized {
-		exceptions.printStackTrace(this, exceptions.EmptyStackTrace, s.println)
+		utils.printStackTrace(this, s.println)
 	}
 
 	override def addInfo(msg :String) :SugaredThrowable =
@@ -343,7 +383,6 @@ trait Rethrowable extends SugaredThrowable {
 				addSuppressed(new RethrowContext(msg))
 				this
 		}
-
 }
 
 
@@ -393,47 +432,6 @@ class RethrowContext(initMessage :String, lazyMessage :() => String, cause :Thro
 
 	override def getMessage :String = _msg
 }
-
-//
-//
-///** An exception which is a SAM type. Its single abstract method,
-//  * [[net.noresttherein.sugar.exceptions.AbstractLazyException.initMessage initMessage]] should return the `String`
-//  * to be returned by [[net.noresttherein.sugar.exceptions.SugaredThrowable.msg msg]]
-//  * and  [[Throwable.getMessage getMessage]]. A subclass `E <: AbstractLazyException`, in conjunction with
-//  * an accompanying value of [[net.noresttherein.sugar.exceptions.LazyExceptionFactory LazyExceptionFactory]]`[E]`,
-//  * allows to create exceptions of type `E` - which must be known statically - whose message is initialized lazily based
-//  * on a `Function0` literal expression:
-//  * {{{
-//  *     abstract class WhatTheDuckException extends AbstractLazyException
-//  *     val WhatTheDuckException = new LazyExceptionFactory[WhatTheDuckException]]
-//  *     throw WhatTheDuckException(() => "What the duck?")
-//  * }}}
-//  * While the same
-//  */
-//abstract class AbstractLazyException(defaultMessage :String)
-//	extends Exception(defaultMessage) with SugaredException
-//{
-//	def this() = this(null)
-//
-//	def apply() :String
-//	override lazy val msg :String = apply()
-//	override def getMessage :String = msg
-//
-//	override def className :String = {
-//		var myClass :Class[_] = getClass
-//		while (myClass.isAnonymousClass || myClass.isSynthetic)
-//			myClass = myClass.getSuperclass
-//		fullNameOf(myClass)
-//	}
-//}
-//
-//
-///** A factory class used to force conversion of a `Function0[String]` literal to an exception `E`, if it is a SAM type.
-//  * @see [[net.noresttherein.sugar.exceptions.AbstractLazyException]]
-//  */
-//class LazyExceptionFactory[E <: Exception] {
-//	@inline final def apply(e :E) :E = e
-//}
 
 
 
@@ -533,4 +531,228 @@ class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwab
 
 	override def addInfo(msg :String) :SugaredThrowable = new ImpossibleError(msg, this)
 	override def addInfo(msg :() => String) :SugaredThrowable = new ImpossibleError(msg, this)
+}
+
+
+
+
+
+
+@SerialVersionUID(Ver)
+class LazyIllegalArgumentRethrowable(msg :String, private[this] var lazyMsg :() => String, cause :Throwable = null)
+	extends IllegalArgumentException(msg, cause) with Rethrowable
+{
+	def this(msg :String, cause :Throwable) = this(msg, null, cause)
+	def this(msg :String) = this(msg, null, null)
+	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
+	def this(msg :() => String) = this(null, msg, null)
+	def this() = this(null, null, null)
+
+	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
+
+	override lazy val getMessage :String = super.getMessage match {
+		case null if lazyMsg != null => lazyMsg()
+		case msg  => msg
+	}
+	override def className = "IllegalArgumentException"
+}
+
+@SerialVersionUID(Ver)
+class LazyIndexOutOfBoundsRethrowable(msg :String, private[this] var lazyMsg :() => String, cause :Throwable = null)
+	extends IndexOutOfBoundsException(msg) with Rethrowable
+{
+	def this(msg :String, cause :Throwable) = this(msg, null, cause)
+	def this(msg :String) = this(msg, null, null)
+	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
+	def this(msg :() => String) = this(null, msg, null)
+	def this() = this(null, null, null)
+
+	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
+
+	override lazy val getMessage :String = super.getMessage match {
+		case null if lazyMsg != null => lazyMsg()
+		case msg  => msg
+	}
+	override def className = "IndexOutOfBoundsException"
+
+	super.initCause(cause)
+}
+
+@SerialVersionUID(Ver)
+class LazyNoSuchElementRethrowable(msg :String, private[this] var lazyMsg :() => String, cause :Throwable = null)
+	extends NoSuchElementException(cause) with Rethrowable
+{
+	def this(msg :String, cause :Throwable) = this(msg, null, cause)
+	def this(msg :String) = this(msg, null, null)
+	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
+	def this(msg :() => String) = this(null, msg, null)
+	def this() = this(null, null, null)
+
+	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
+
+	override lazy val getMessage :String = super.getMessage match {
+		case null if lazyMsg != null => lazyMsg()
+		case msg  => msg
+	}
+	override def className = "NoSuchElementException"
+}
+
+@SerialVersionUID(Ver)
+class LazyUnsupportedOperationRethrowable(msg :String, private[this] var lazyMsg :() => String, cause :Throwable = null)
+	extends UnsupportedOperationException(cause) with Rethrowable
+{
+	def this(msg :String, cause :Throwable) = this(msg, null, cause)
+	def this(msg :String) = this(msg, null, null)
+	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
+	def this(msg :() => String) = this(null, msg, null)
+	def this() = this(null, null, null)
+
+	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
+
+	override lazy val getMessage :String = super.getMessage match {
+		case null if lazyMsg != null => lazyMsg()
+		case msg  => msg
+	}
+	override def className = "UnsupportedOperationException"
+}
+
+@SerialVersionUID(Ver)
+class LazyNullPointerRethrowable(msg :String, private[this] var lazyMsg :() => String, cause :Throwable = null)
+	extends NullPointerException with Rethrowable
+{
+	def this(msg :String, cause :Throwable) = this(msg, null, cause)
+	def this(msg :String) = this(msg, null, null)
+	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
+	def this(msg :() => String) = this(null, msg, null)
+	def this() = this(null, null, null)
+
+	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
+
+	override lazy val getMessage :String = super.getMessage match {
+		case null if lazyMsg != null => lazyMsg()
+		case msg  => msg
+	}
+	override def className = "UnsupportedOperationException"
+
+	super.initCause(cause)
+}
+
+//
+//
+///** An exception which is a SAM type. Its single abstract method,
+//  * [[net.noresttherein.sugar.exceptions.AbstractLazyException.initMessage initMessage]] should return the `String`
+//  * to be returned by [[net.noresttherein.sugar.exceptions.SugaredThrowable.msg msg]]
+//  * and  [[Throwable.getMessage getMessage]]. A subclass `E <: AbstractLazyException`, in conjunction with
+//  * an accompanying value of [[net.noresttherein.sugar.exceptions.LazyExceptionFactory LazyExceptionFactory]]`[E]`,
+//  * allows to create exceptions of type `E` - which must be known statically - whose message is initialized lazily based
+//  * on a `Function0` literal expression:
+//  * {{{
+//  *     abstract class WhatTheDuckException extends AbstractLazyException
+//  *     val WhatTheDuckException = new LazyExceptionFactory[WhatTheDuckException]]
+//  *     throw WhatTheDuckException(() => "What the duck?")
+//  * }}}
+//  * While the same
+//  */
+//abstract class AbstractLazyException(defaultMessage :String)
+//	extends Exception(defaultMessage) with SugaredException
+//{
+//	def this() = this(null)
+//
+//	def apply() :String
+//	override lazy val msg :String = apply()
+//	override def getMessage :String = msg
+//
+//	override def className :String = {
+//		var myClass :Class[_] = getClass
+//		while (myClass.isAnonymousClass || myClass.isSynthetic)
+//			myClass = myClass.getSuperclass
+//		fullNameOf(myClass)
+//	}
+//}
+//
+//
+///** A factory class used to force conversion of a `Function0[String]` literal to an exception `E`, if it is a SAM type.
+//  * @see [[net.noresttherein.sugar.exceptions.AbstractLazyException]]
+//  */
+//class LazyExceptionFactory[E <: Exception] {
+//	@inline final def apply(e :E) :E = e
+//}
+
+
+@SerialVersionUID(Ver)
+class LazyIllegalArgumentException(lzyMsg: => String, cause :Throwable = null)
+	extends IllegalArgumentException(cause) with SugaredThrowable
+{
+	private[this] var init = () => lzyMsg
+	override lazy val getMessage :String = { val msg = init(); init = null; msg }
+	override def className = "IllegalArgumentException"
+}
+
+@SerialVersionUID(Ver)
+class LazyIndexOutOfBoundsException(lzyMsg: => String, cause :Throwable = null)
+	extends IndexOutOfBoundsException with SugaredThrowable
+{
+	super.initCause(cause)
+	private[this] var init = () => lzyMsg
+	override lazy val getMessage :String = { val msg = init(); init = null; msg }
+	override def className = "IndexOutOfBoundsException"
+}
+
+@SerialVersionUID(Ver)
+class LazyNoSuchElementException(lzyMsg: => String, cause :Throwable = null)
+	extends NoSuchElementException(cause) with SugaredThrowable
+{
+	private[this] var init = () => lzyMsg
+	override lazy val getMessage :String = { val msg = init(); init = null; msg }
+	override def className = "NoSuchElementException"
+}
+
+@SerialVersionUID(Ver)
+class LazyUnsupportedOperationException(lzyMsg: => String, cause :Throwable = null)
+	extends UnsupportedOperationException(cause) with SugaredThrowable
+{
+	private[this] var init = () => lzyMsg
+	override lazy val getMessage :String = { val msg = init(); init = null; msg }
+	override def className = "UnsupportedOperationException"
+}
+
+@SerialVersionUID(Ver)
+class LazyNullPointerException(lzyMsg: => String, cause :Throwable = null)
+	extends NullPointerException with SugaredThrowable
+{
+	super.initCause(cause)
+	private[this] var init = () => lzyMsg
+	override lazy val getMessage :String = { val msg = init(); init = null; msg }
+	override def className = "UnsupportedOperationException"
+}
+
+
+
+
+
+
+@SerialVersionUID(Ver)
+class SugaredIllegalArgumentException(message :String, cause :Throwable = null)
+	extends IllegalArgumentException(message, cause) with SugaredException
+
+@SerialVersionUID(Ver)
+class SugaredIndexOutOfBoundsException(message :String, cause :Throwable = null)
+	extends IndexOutOfBoundsException(message) with SugaredException
+{
+	initCause(cause)
+}
+
+@SerialVersionUID(Ver)
+class SugaredNoSuchElementException(message :String, cause :Throwable = null)
+	extends NoSuchElementException(message, cause) with SugaredException
+
+@SerialVersionUID(Ver)
+class SugaredUnsupportedOperationException(message :String, cause :Throwable = null)
+	extends UnsupportedOperationException(message, cause) with SugaredException
+
+@SerialVersionUID(Ver)
+class SugaredNullPointerException(message :String, cause :Throwable = null)
+	extends NullPointerException(message) with SugaredException
+{
+	initCause(cause)
 }
