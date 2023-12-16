@@ -7,7 +7,6 @@ import scala.collection.{IterableFactory, IterableOps, mutable}
 import scala.collection.mutable.Builder
 import scala.util.Random
 
-import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.extensions.{IArrayExtension, IRefArrayExtension, SeqExtension}
 
 
@@ -16,9 +15,12 @@ import net.noresttherein.sugar.collections.extensions.{IArrayExtension, IRefArra
 //consider: reversing the encoding to:
 //  * The `n`-th element is the index of an element in an input sequence which occurs at index `n` in the output sequence.
 // The upside is that reordering is simply this.toIndexedSeq.map(input). The downside is that not indexed sequences
-// require an intermediate structure, which the current implementation does not.
+// require an intermediate structure, which the current implementation does not. On the second hand, with reflection,
+// in this scheme we could recreate the same collection type.
 /** A permutation of values `[0, this.length)`, which can be used to reorder sequences of the same length.
   * The `n`-th element is the index in the output sequence of the `n`-th element from the input sequence.
+  * Note that this is the inverse of the common notation for permutations, which lists indices of elements
+  * from an input sequence in the order in which they should appear in the output.
   * @define Coll `Permutation`
   * @define coll permutation
   */
@@ -34,8 +36,29 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 
 	def isIdentity :Boolean = toIndexedSeq == toIndexedSeq.indices
 
-	/** Reorders the element of the given collection according to this permutation.
-	  * @return a sequence `s` of the same length as `items`, such that `s(this(i))` = items(i)`.
+/*
+	def apply[T, CC[_], C](items :collection.SeqOps[T, CC, C]) :C =
+		if (items.size != toIndexedSeq.length)
+			throw new IllegalArgumentException(
+				"Cannot reorder " + items + " according to " + this + " because its length " +
+					items.size + " is different than " + length + "."
+			)
+		else if (items.sizeIs <= 1)
+			items.drop(0)
+		else {
+			val indexed = items match {
+				case seq :collection.IndexedSeq[T] @unchecked => seq
+				case ops :collection.IndexedSeqOps[T, CC, C] @unchecked => ops(_:Int)
+				case seq :collection.Seq[T] if seq.sizeIs <= 3 => seq
+				case _ => items.toIndexedSeq //consider: MatrixBuffer
+			}
+			util.fromSpecific(items)(toIndexedSeq.view.map(indexed))
+		}
+*/
+
+	//todo: use SeqLike type class
+	/** Reorders the elements of the given collection according to this permutation.
+	  * @return a sequence `s` of the same length as `items`, such that `s(this(i)) = items(i)`.
 	  */
 	@throws[IllegalArgumentException]("if items.length != this.length.")
 	def apply[T](items :Seq[T]) :Seq[T] =
@@ -46,7 +69,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 			)
 		else if (items.sizeIs <= 1)
 			items
-		else { //todo: use a non-array buffer.
+		else { //todo: use MatrixBuffer
 //		else if (toIndexedSeq.length <= ReasonableArraySize) {
 			IRefArray.init[T](toIndexedSeq.length) { array =>
 				val it = items.iterator
@@ -86,7 +109,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 				}
 			)
 
-	/** Splits this permutation into a sequence of permutations such that `split.reduce(_ ++ ) == this`.
+	/** Splits this permutation into a sequence of permutations such that `split.reduce(_ ++ _) == this`.
 	  * The underlying index range is first split into minimal, non empty sub ranges `[i, j)` such that
 	  * `(i until j).forall(n => this(n) >= i && this(n) < j)`. Each range begets a `Permutation` by shifting down
 	  * the indices in its domain and image by `i` - the first index in range..
