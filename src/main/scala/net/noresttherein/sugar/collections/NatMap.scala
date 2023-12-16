@@ -5,7 +5,7 @@ import java.lang.System.arraycopy
 import scala.annotation.nowarn
 import scala.collection.{AbstractIterable, AbstractSet, ArrayOps, Factory}
 import scala.collection.immutable.AbstractMap
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.util.hashing.MurmurHash3
 
 import net.noresttherein.sugar.collections.ComparableFactory
@@ -753,7 +753,7 @@ object NatMap extends ImplicitNatMapFactory {
 	  * for wrapping in a `NaturalizedMap`.
 	  */
 	private class NatMapBuilder[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwANoSuchElementException)
-		extends Builder[Assoc[K, V, _], NatMap[K, V]]
+		extends ReusableBuilder[Assoc[K, V, _], NatMap[K, V]]
 	{
 		private[this] var small :Array[Assoc[K, V, _]] = _ //new Array[Assoc[K, V, _]](SmallNatMapCap)
 		private[this] var large :Map[K[_], V[_]] = _
