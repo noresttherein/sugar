@@ -1,7 +1,30 @@
 package net.noresttherein.sugar.testing
 
-import scala.collection.immutable.AbstractSet
-import scala.reflect.{classTag, ClassTag}
+import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.util.Buildable
 
-import org.scalacheck.Prop
 
+
+
+package object scalacheck {
+	@inline def collectionOf[C[_]] :CollectionGenFactory[C] = new CollectionGenFactory[C] {}
+
+	sealed trait CollectionGenFactory[C[_]] extends Any {
+		@inline final def apply[T](gen :Gen[T])(implicit buildable :Buildable[T, C[T]], isIterable :C[T] => Iterable[T])
+				:Gen[C[T]] =
+			Gen.containerOf[C, T](gen)
+	}
+
+	@inline def buildable[C] :BuildableGenFactory[C] = new BuildableGenFactory[C] {}
+
+	sealed trait BuildableGenFactory[C] extends Any {
+		@inline final def apply[T]()(implicit buildable :Buildable[T, C], gen :Arbitrary[T], isIterable :C => Iterable[T])
+				:Gen[C] =
+			Gen.buildableOf[C, T](gen.arbitrary)
+	}
+
+	@inline implicit def BuildableGenFactoryToGen[C, T](self :BuildableGenFactory[C])
+	                                                   (implicit buildable :Buildable[T, C], gen :Arbitrary[T],
+	                                                    isIterable :C => Iterable[T]) :Gen[C] =
+		self()
+}

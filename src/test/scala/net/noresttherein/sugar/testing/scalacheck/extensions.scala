@@ -11,6 +11,7 @@ import org.scalacheck.util.Pretty
 
 
 object extensions {
+	//todo: support for color terminal pull request to scalacheck.scala
 	type Prettify[X] = X => Pretty
 
 	private class LazySet[T](lzy : => Set[T]) extends AbstractSet[T] {
