@@ -39,17 +39,17 @@ Test / sourceGenerators += Def.task {
 	Seq(output)
 }.taskValue
 
-/*
+
 Test / testOptions ++= Seq(Tests.Filter { s =>
-//	try {
-		println(getClass.getClassLoader.)
-		val testClass = Class.forName(s + "$")
+	try {
+		val testClass = Test.getClass.getClassLoader.loadClass(s + "$")
 		!(testClass.isInterface || java.lang.reflect.Modifier.isAbstract(testClass.getModifiers))
-//	} catch {
-//		case _ :ClassNotFoundException => false
-//	}
+	} catch {
+		case e :ClassNotFoundException =>
+			System.err.println(e.toString)
+			false
+	}
 })
-*/
 
 
 
