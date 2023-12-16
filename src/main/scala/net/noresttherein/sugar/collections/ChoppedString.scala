@@ -459,26 +459,6 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 }
 
 
-/** Definition of a second choice implicit conversion
-  * of the [[net.noresttherein.sugar.collections.ChoppedString$ ChoppedString]] object
-  * to a Scala [[scala.collection.Factory Factory]] appending whole `String`s (rather than individual `Char`s).
-  * Included in the implicit search because object `ChoppedString` extends its companion trait.
-  */
-object LowPriorityChoppedStringImplicits {
-	implicit def choppedStringChunkFactory(companion :ChoppedString.type) :Factory[String, ChoppedString] =
-		companion.factory
-}
-
-
-/** Brings into the implicit scope of the object `ChoppedString` an implicit conversion in the companion object
-  * from the `ChoppedString` singleton object itself to standard Scala `Factory[Char, ChoppedString]`
-  * or `Factory[String, ChoppedString]`. This allows use of the former as an argument for standard method `to`:
-  * {{{
-  *     val seq = Seq("You", "Boo", "I")
-  *     val str = seq to ChoppedString
-  * }}}
-  */
-private[collections] sealed abstract class LowPriorityChoppedStringImplicits
 
 
 /**
@@ -486,7 +466,7 @@ private[collections] sealed abstract class LowPriorityChoppedStringImplicits
   * @define Coll `ChoppedString`
   * @define coll chopped string
   */
-object ChoppedString extends LowPriorityChoppedStringImplicits with SpecificIterableFactory[Char, ChoppedString] {
+object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 	override val empty :ChoppedString = Empty
 
 	def apply() :ChoppedString = empty
