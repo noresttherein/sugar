@@ -45,11 +45,18 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
   *
   * The goal of the implementation is to preserve all the advantages of an array buffer, all the while making
   * it safe to use even if the size may approach the maximum of `Int.MaxValue`.
+  * @param initialCapacity makes the buffer pre-reserve internal array(s) for this many elements. If the number exceeds
+  *                        a single array limit, the outer array size is based on the capacity,
+  *                        but only two inner arrays are actually reserved.
+  *                        Passing a negative value will result in a not initialized buffer, which delays creating
+  *                        the arrays until elements are actually added.
+  * @param shrink          a flag specifying if the buffer should shrink the underlying storage if its size drops
+  *                        below a certain fill factor threshold.
   * @define Coll     `MatrixBuffer`
   * @define coll     matrix buffer
   * @define MaxSize1 65536
   * @author Marcin Mościcki
-  */
+  */ //consider: renaming to Array2Buffer
 @SerialVersionUID(Ver)
 sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit override val iterableEvidence :ClassTag[E])
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
@@ -2586,6 +2593,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 //consider: making it an EvidenceIterableFactory[Maybe[ClassTag[_]]. The problem is that Maybe is a value class
 // and methods accepting it as an argument will clash with their generic bridges inherited from EvidenceIterableFactory.
+
+/** A factory creating $Coll instances which never shrink their underlying storage.
+  * @inheritdoc
+  * @see [[net.noresttherein.sugar.collections.ShrinkingMatrixBuffer$ ShrinkingMatrixBuffer]]
+  */
 @SerialVersionUID(Ver)
 case object MatrixBuffer extends MatrixBufferFactory(false) {
 	final val shrinking = ShrinkingMatrixBuffer
@@ -2806,22 +2818,38 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 }
 
 
-
-
+/** A factory creating $Coll instances which shrink their underlying storage when their fill factor
+  * drops below a certain threshold. This threshold varies based on the dimension of the storage array:
+  * for single-dimensional arrays, it is four, but two dimensional arrays require a much lower factor
+  * to shrink the ''outer'' array, but release the ''inner'' data arrays more readily.
+  * @define coll shrinking matrix buffer
+  * @see [[net.noresttherein.sugar.collections.MatrixBuffer$ MatrixBuffer]]
+  */
 @SerialVersionUID(Ver)
 case object ShrinkingMatrixBuffer extends MatrixBufferFactory(true)
 
 
 
 
-/**
-  * $factoryInfo
+/** The element type of the backing array depends on whether the buffer was created
+  * from an array-backed collection, such as [[scala.collection.mutable.ArraySeq ArraySeq]]. If such a collection
+  * is passed as an argument to [[net.noresttherein.sugar.collections.MatrixBufferFactory.from from]], the buffer
+  * will use the same element type. In all other cases, including builders, the created buffer is backed by `Array[Any]`
+  * like a regular [[scala.collection.mutable.ArrayBuffer ArrayBuffer]].
+  *
+  * Alternatively, one of the two member factories can be used for finer control:
+  *   - [[net.noresttherein.sugar.collections.MatrixBuffer.specific specific]]
+  *     is a [[scala.collection.ClassTagSeqFactory ClassTagSeqFactory]], whose all methods require a class tag,
+  *     and which builds buffers backed by arrays of specific types.
+  *   - [[net.noresttherein.sugar.collections.MatrixBuffer.untagged untagged]]
+  *     is a regular [[scala.collection.SeqFactory SeqFactory]] building buffers backed by `Array[Any]`,
+  *     just like `ArraySeq.`[[scala.collection.mutable.ArraySeq.untagged untagged]].
   * @define Coll     `MatrixBuffer`
   * @define coll     matrix buffer
   * @define MaxSize1 65536
   */
 @SerialVersionUID(Ver)
-sealed class MatrixBufferFactory private[collections] (shrink :Boolean)
+sealed class MatrixBufferFactory protected (shrink :Boolean)
 	extends StrictOptimizedSeqFactory[MatrixBuffer] with BufferFactory[MatrixBuffer]
 {
 	override def from[E](it :IterableOnce[E]) :MatrixBuffer[E] = it match {
