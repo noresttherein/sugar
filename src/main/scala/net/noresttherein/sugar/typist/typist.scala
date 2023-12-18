@@ -272,6 +272,7 @@ package typist {
 
 
 	/** A generic variant of `<:<`, projecting the relation from types to type constructors. */
+	//consider: a better name.
 	sealed abstract class <:?<[-A[_], +B[_]] extends Serializable {
 		def apply[X](value :A[X]) :B[X]
 	}

@@ -7,7 +7,7 @@ import scala.collection.mutable.{ArrayBuilder, Buffer}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.IterableOnceLikeSummons.{GenericSummoner, Summoner}
-import net.noresttherein.sugar.extensions.{SeqExtension, castTypeParamMethods, classNameMethods, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.extensions.{SeqExtension, castTypeParamMethods, castingMethods, classNameMethods, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.<:?<
@@ -207,7 +207,17 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @return       a new $coll resulting from applying the given collection-valued function
 	  *               `f` to each element of `elems` and concatenating the results.
 	  */
-	def flatMap[O, A](elems :C)(f :E => O)(implicit asIterable :IterableOnceLike[A, generic.Any, O]) :CC[A]
+	def flatMap[O, A](elems :C)(f :E => O)(implicit asIterableOnce :IterableOnceLike[A, generic.Any, O]) :CC[A]
+
+	/** Builds a new $coll by applying a function to all elements of `elems`
+	  * and using the elements of the resulting collections.
+	  * @tparam A     the element type of the returned collection.
+	  * @param elems  a $coll.
+	  * @param f      the function to apply to each element.
+	  * @return       a new $coll resulting from applying the given collection-valued function
+	  *               `f` to each element of `elems` and concatenating the results.
+	  */
+	def flatMapIterableOnce[A](elems :C)(f :E => IterableOnce[A]) :CC[A]
 
 	/** Converts `elems` of iterable collections into
 	  * a $coll formed by the elements of these iterable
@@ -233,8 +243,10 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param asIterable an implicit conversion which asserts that the element
 	  *                   type of `elems` is an `Iterable`.
 	  * @return a new $coll resulting from concatenating all element ${coll}s.
-	  */ //consider: using a type class instead of an implicit conversion
-	def flatten[A](elems :C)(implicit asIterable :E => IterableOnce[A]) :CC[A]
+	  */
+	def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any, U]) :CC[A]
+
+	def flattenIterableOnce[A](elems :C)(implicit asIterableOnce :E => IterableOnce[A]) :CC[A]
 
 	/** Builds a new $coll by applying a partial function to all elements of `elems`
 	  * on which the function is defined.
@@ -277,14 +289,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param n     the position at which to  lit. *  @return  a pair of ${coll}s consisting of the first `n`
 	  *              elements of `elems`, and the other elements.
 	  */
-	def splitAt(elems :C)(n :Int) :(C, C) = {
-		class Spanner extends runtime.AbstractFunction1[E, Boolean] {
-			var i = 0
-			def apply(a: E) = i < n && { i += 1 ; true }
-		}
-		val spanner = new Spanner
-		span(elems)(spanner)
-	}
+	def splitAt(elems :C)(n :Int) :(C, C)
 
 	/** Applies a side-effecting function to each element in this collection.
 	  * Strict collections will apply `f` to their elements immediately, while lazy collections
@@ -307,12 +312,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @return      `true` if `elems` is empty or the given predicate `p`
 	  *               holds for all elements of `elems`, otherwise `false`.
 	  */
-	def forall(elems :C)(p :E => Boolean) :Boolean = {
-		var res = true
-		val it = iterator(elems)
-		while (res && it.hasNext) res = p(it.next())
-		res
-	}
+	def forall(elems :C)(p :E => Boolean) :Boolean = knownSize(elems) == 0 || toIterableOnceOps(elems).forall(p)
 
 	/** Tests whether a predicate holds for at least one element of `elems`.
 	  *
@@ -321,12 +321,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param p     the predicate used to test elements.
 	  * @return  `true` if the given predicate `p` is satisfied by at least one element of `elems`, otherwise `false`.
 	  */
-	def exists(elems :C)(p :E => Boolean) :Boolean = {
-		var res = false
-		val it = iterator(elems)
-		while (!res && it.hasNext) res = p(it.next())
-		res
-	}
+	def exists(elems :C)(p :E => Boolean) :Boolean = knownSize(elems) != 0 && toIterableOnceOps(elems).exists(p)
 
 	/** Counts the number of elements in the $coll which satisfy a predicate.
 	  *
@@ -335,12 +330,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param p     the predicate  used to test elements.
 	  * @return      the number of elements satisfying the predicate `p`.
 	  */
-	def count(elems :C)(p :E => Boolean) :Int = {
-		var res = 0
-		val it = iterator(elems)
-		while (it.hasNext) if (p(it.next())) res += 1
-		res
-	}
+	def count(elems :C)(p :E => Boolean) :Int =
+		if (knownSize(elems) == 0) 0 else toIterableOnceOps(elems).count(p)
 
 	/** Finds the first element of the $coll satisfying a predicate, if any.
 	  *
@@ -351,14 +342,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param p     the predicate used to test elements.
 	  * @return an option value containing the first element in the $coll that satisfies `p`, or `None` if none exists.
 	  */
-	def find(elems :C)(p :E => Boolean) :Option[E] = {
-		val it = iterator(elems)
-		while (it.hasNext) {
-			val a = it.next()
-			if (p(a)) return Some(a)
-		}
-		None
-	}
+	def find(elems :C)(p :E => Boolean) :Option[E] =
+		if (knownSize(elems) == 0) None else toIterableOnceOps(elems).find(p)
 
 	/** Applies a binary operator to all elements of `elems` and a start value, going right to left.
 	  *
@@ -372,14 +357,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  *         with the start value `z` on the right: `op(x,,1,,, op(x,,2,,, ... op(x,,n,,, z)...))`
 	  *         where `x,,1,,, ..., x,,n,,` are the elements of `elems`. Returns `z` if `elems` is empty.
 	  */
-	def foldRight[A](elems :C)(z :A)(op :(E, A) => A) :A = reversed(elems).foldLeft(z)((b, a) => op(a, b))
-
-	private def foldr[X >: E, B>: X](seq :IndexedSeq[X], op :(X ,B) => B) :B = {
-		@tailrec def loop(at :Int, acc :B) :B =
-			if (at == 0) acc
-			else loop(at - 1, op(seq(at - 1), acc))
-		loop(seq.length - 1, seq(seq.length - 1))
-	}
+	def foldRight[A](elems :C)(z :A)(op :(E, A) => A) :A =
+		if (knownSize(elems) == 0) z else reverseIterator(elems).foldLeft(z)((b, a) => op(a, b))
 
 	/** Folds the elements of `elems` using the specified associative binary operator.
 	  * The default implementation in `IterableOnce` is equivalent to `foldLeft` but may be
@@ -426,12 +405,10 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	override def reduceLeftOption[U >: E](elems :C)(op :(U, E) => U) :Option[U] =
 		knownSize(elems) match {
-			case -1 => reduceLeftOptionIterator[U](elems)(op)
+			case -1 => toIterableOnceOps(elems).reduceLeftOption(op)
 			case 0 => None
 			case _ => Some(reduceLeft[U](elems)(op))
 		}
-	private final def reduceLeftOptionIterator[A >: E](elems :C)(op :(A, E) => A) :Option[A] =
-		reduceOptionIterator[E, A](iterator(elems))(op)
 
 	/** Applies a binary operator to all elements of `elems`, going right to left.
 	  * @tparam A    the result type of the binary operator.
@@ -443,19 +420,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @throws UnsupportedOperationException if `elems` is empty.
 	  */
 	def reduceRight[A >: E](elems :C)(op :(E, A) => A) :A = this match {
-		case seq :IndexedSeq[E @unchecked] if seq.length > 0 => foldr[E, A](seq, op)
 		case _ if knownSize(elems) == 0 => throw new UnsupportedOperationException("empty.reduceRight")
-		case _ => reversed(elems).reduceLeft[A]((x, y) => op(y, x)) // reduceLeftIterator
-	}
-
-	private final def reduceOptionIterator[X >: E, A >: X](it :Iterator[X])(op :(A, X) => A) :Option[A] = {
-		if (it.hasNext) {
-			var acc :A = it.next()
-			while (it.hasNext)
-				acc = op(acc, it.next())
-			Some(acc)
-		}
-		else None
+		case _ => reverseIterator(elems).reduceLeft[A]((x, y) => op(y, x))
 	}
 
 	/** Optionally applies a binary operator to all elements of `elems`, going right to left.
@@ -470,7 +436,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	def reduceRightOption[A >: E](elems :C)(op :(E, A) => A) :Option[A] =
 		knownSize(elems) match {
-			case -1 => reduceOptionIterator[E, A](reversed(elems).iterator)((x, y) => op(y, x))
+			case -1 => reverseIterator(elems).reduceLeftOption[A]((x, y) => op(y, x))
 			case 0 => None
 			case _ => Some(reduceRight[A](elems)(op))
 		}
@@ -512,38 +478,6 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 			case _ => reduce[A](elems)(num.times)
 		}
 
-	/** Finds the smallest element.
-	  * $willNotTerminateInf
-	  *
-	  * @tparam A    The type over which the ordering is defined.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @throws UnsupportedOperationException if `elems` is empty.
-	  * @return the smallest element of `elems` with respect to the ordering `ord`.
-	  */
-	def min[A >: E](elems :C)(implicit ord :Ordering[A]) :E = reduceLeft(elems)(ord.min)
-//		knownSize(elems) match {
-//			case -1 => reduceLeftIterator[E](elems)(throw new UnsupportedOperationException("empty.min"))(ord.min)
-//			case 0 => throw new UnsupportedOperationException("empty.min")
-//			case _ => reduceLeft(elems)(ord.min)
-//		}
-
-	/** Finds the smallest element.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The type over which the ordering is defined.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @return an option value containing the smallest element of `elems`
-	  *         with respect to the ordering `ord`.
-	  */
-	def minOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] =
-		knownSize(elems) match {
-			case -1 => reduceLeftOptionIterator[E](elems)(ord.min)
-			case 0 => None
-			case _ => Some(reduceLeft(elems)(ord.min))
-		}
-
 	/** Finds the largest element.
 	  *
 	  * $willNotTerminateInf
@@ -554,11 +488,6 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @return the largest element of `elems` with respect to the ordering `ord`.
 	  */
 	def max[A >: E](elems :C)(implicit ord :Ordering[A]) :E = reduceLeft(elems)(ord.max)
-//		knownSize(elems) match {
-//			case -1 => reduceLeftIterator[E](elems)(throw new UnsupportedOperationException("empty.max"))(ord.max)
-//			case 0 => throw new UnsupportedOperationException("empty.max")
-//			case _ => reduceLeft(elems)(ord.max)
-//		}
 
 	/** Finds the largest element.
 	  *
@@ -571,7 +500,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	def maxOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] =
 		knownSize(elems) match {
-			case -1 => reduceLeftOptionIterator[E](elems)(ord.max)
+			case -1 => toIterableOnceOps(elems).reduceLeftOption(ord.max)
 			case 0 => None
 			case _ => Some(reduceLeft(elems)(ord.max))
 		}
@@ -589,10 +518,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	def maxBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :E =
 		knownSize(elems) match {
-			case 0 =>
-				throw new UnsupportedOperationException("empty.maxBy")
-			case _ =>
-				foldLeft(elems)(new Maximum[E, A](elems)("maxBy")(f)(ord.gt))((m, a) => m(m, a)).result
+			case 0 => throw new UnsupportedOperationException("empty.maxBy")
+			case _ => foldLeft(elems)(new Maximum[E, A](elems)("maxBy")(f)(ord.gt))((m, a) => m(m, a)).result
 		}
 
 	/** Finds the first element which yields the largest value measured by function f.
@@ -607,10 +534,35 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	def maxByOption[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :Option[E] =
 		knownSize(elems) match {
-			case 0 =>
-				None
-			case _ =>
-				foldLeft(elems)(new Maximum[E, A](elems)("maxBy")(f)(ord.gt))((m, a) => m(m, a)).toOption
+			case 0 => None
+			case _ => foldLeft(elems)(new Maximum[E, A](elems)("maxBy")(f)(ord.gt))((m, a) => m(m, a)).toOption
+		}
+
+	/** Finds the smallest element.
+	  * $willNotTerminateInf
+	  *
+	  * @tparam A    The type over which the ordering is defined.
+	  * @param elems a $coll.
+	  * @param ord   An ordering to be used for comparing elements.
+	  * @throws UnsupportedOperationException if `elems` is empty.
+	  * @return the smallest element of `elems` with respect to the ordering `ord`.
+	  */
+	def min[A >: E](elems :C)(implicit ord :Ordering[A]) :E = reduceLeft(elems)(ord.min)
+
+	/** Finds the smallest element.
+	  *
+	  * $willNotTerminateInf
+	  * @tparam A    The type over which the ordering is defined.
+	  * @param elems a $coll.
+	  * @param ord   An ordering to be used for comparing elements.
+	  * @return an option value containing the smallest element of `elems`
+	  *         with respect to the ordering `ord`.
+	  */
+	def minOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] =
+		knownSize(elems) match {
+			case -1 => toIterableOnceOps(elems).reduceLeftOption(ord.min)
+			case 0 => None
+			case _ => Some(reduceLeft(elems)(ord.min))
 		}
 
 	/** Finds the first element which yields the smallest value measured by function f.
@@ -647,6 +599,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 			case _ => foldLeft(elems)(new Maximum[E, A](elems)("minBy")(f)(ord.lt))((m, a) => m(m, a)).toOption
 		}
 
+	//todo: get rid of this class and delegate max/min methods somewhere
 	private class Maximum[X, A](elems :C)(descriptor :String)(f :X => A)(cmp :(A, A) => Boolean)
 		extends ((Maximum[X, A], X) => Maximum[X, A])
 	{
@@ -687,17 +640,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  *         value for which it is defined, or `None` if none exists.
 	  * @example `Seq("a", 1, 5L).collectFirst({ case x: Int => x*10 }) = Some(10)`
 	  */
-	def collectFirst[A](elems :C)(pf :PartialFunction[E, A]) :Option[A] = {
-		// Presumably the fastest way to get in and out of a partial function is for a sentinel function to return itself
-		// (Tested to be lower-overhead than runWith.  Would be better yet to not need to (formally) allocate it)
-		val sentinel :E => Any = _ => this
-		val it = iterator(elems)
-		while (it.hasNext) {
-			val x = pf.applyOrElse(it.next(), sentinel)
-			if (x.asInstanceOf[AnyRef] ne sentinel) return Some(x.asInstanceOf[A])
-		}
-		None
-	}
+	def collectFirst[A](elems :C)(pf :PartialFunction[E, A]) :Option[A] =
+		if (knownSize(elems) == 0) None else toIterableOnceOps(elems).collectFirst(pf)
 
 	/** Tests whether every element of this collection's iterator relates to the
 	  * corresponding element of another collection by satisfying a test predicate.
@@ -713,16 +657,8 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  *         and `y` of `that`, otherwise `false`
 	  */
 	def corresponds[A, CO[_], O](elems :C)(that :O)(p :(E, A) => Boolean)
-	                            (implicit asIterable :IterableOnceLike[A, CO, O]) :Boolean =
-	{
-		val a = iterator(elems)
-		val b = asIterable.iterator(that)
-
-		while (a.hasNext && b.hasNext) {
-			if (!p(a.next(), b.next())) return false
-		}
-		a.hasNext == b.hasNext
-	}
+	                            (implicit iterableOnceLike :IterableOnceLike[A, CO, O]) :Boolean =
+		toIterableOnceOps(elems).corresponds(iterableOnceLike.toIterableOnce(that))(p)
 
 	override def appendedTo[A >: E, SC[_], S](elems :C)(seq :collection.SeqOps[A, SC, S]) :SC[A] =
 		seq appendedAll elems
@@ -809,20 +745,14 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param end   the ending string.
 	  * @return      the string builder `b` to which elements were appended.
 	  */
-	def addString(elems :C, b :StringBuilder, start :String, sep :String, end :String) :b.type = {
-		val jsb = b.underlying
-		if (start.length != 0) jsb.append(start)
-		val it = iterator(elems)
-		if (it.hasNext) {
-			jsb.append(it.next())
-			while (it.hasNext) {
-				jsb.append(sep)
-				jsb.append(it.next())
-			}
-		}
-		if (end.length != 0) jsb.append(end)
-		b
-	}
+	def addString(elems :C, b :StringBuilder, start :String, sep :String, end :String) :b.type =
+		if (knownSize(elems) == 0) {
+			val jsb = b.underlying
+			if (start.length != 0) jsb append start
+			if (end.length != 0) jsb append end
+			b
+		} else
+			toIterableOnceOps(elems).addString(b, start, sep, end)
 
 	/** Appends all elements of `elems` to a string builder using a separator string.
 	  * The written text consists of the string representations (w.r.t. the method `toString`)
@@ -878,12 +808,17 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	def to[C1](elems :C)(factory :Factory[E ,C1]):C1 = factory.fromSpecific(toIterableOnce(elems))
 
+	/** This collection as `IterableOnceOps`. Note that it's different from
+	  * [[net.noresttherein.sugar.collections.CollectionLike.toIterableOnceOps toIterableOnceOps]] in that it guarantees
+	  * that the operations relate to the described collection type `C` itself,
+	  * rather than something else (for example, an iterator).
+	  */
 	def toOps(elems :C) :IterableOnceOps[E, CC, C]
 
 	/** Adapts this collection type to `IterableOnce[E]`.
 	  * @param elems a $coll.
 	  */
-	override def toIterableOnce(elems :C) :IterableOnce[E] = toIterable(elems)
+	override def toIterableOnce(elems :C) :IterableOnce[E] = iterator(elems)
 
 	/** Converts this collection type to `Iterable`.
 	  * For single-use collection this will copy the elements, but collections supporting
@@ -921,11 +856,15 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 			val destination = new Array[A](size)
 			copyToArray[A](elems)(destination, 0)
 			destination
-		}
-		else ArrayBuilder.make[A].addAll(toIterableOnce(elems)).result()
+		} else
+			ArrayBuilder.make[A].addAll(toIterableOnce(elems)).result()
 	}
+	final def toIArray[A >: E :ClassTag](elems :C) :IArray[A] = toArray[A](elems).castFrom[Array[A], IArray[A]]
+	final def toRefArray[A >: E](elems :C) :RefArray[A] = toArray[Any](elems).castFrom[Array[Any], RefArray[A]]
+	final def toIRefArray[A >: E](elems :C) :IRefArray[A] = toArray[Any](elems).castFrom[Array[Any], IRefArray[A]]
 
 	// For internal use
+	protected def reverseIterator(elems :C) :Iterator[E] = reversed(elems).iterator
 	protected def reversed(elems :C): Iterable[E] = {
 		var xs: List[E] = Nil
 		val it = iterator(elems)
@@ -998,19 +937,6 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 	@inline final implicit def fromIterableLike[E, CC[_], C]
 	                                           (implicit like :IterableLike[E, CC, C]) :IterableOnceLike[E, CC, C] =
 		like
-//
-//	@inline def apply[C] :Summoner[C] = new Summoner[C] {}
-//
-//	sealed trait Summoner[C] extends Any {
-//		@inline final def apply[E, CC[_]]()(implicit ops :IterableOnceLike[E, CC, C]) :IterableOnceLike[E, CC, C] = ops
-//	}
-//
-//	@inline def generic[CC[_]] :GenericSummoner[CC] = new GenericSummoner[CC] {}
-//
-//	sealed trait GenericSummoner[CC[_]] extends Any {
-//		@inline final def apply[E]()(implicit ops :IterableOnceLike[E, CC, CC[E]]) :IterableOnceLike[E, CC, CC[E]] = ops
-//	}
-
 
 	/** An implementation of `IterableOnce` methods for any `IterableOnce[E]`. */
 	trait ForIterableOnce[E] extends IterableOnceLike[E, IterableOnce, IterableOnce[E]] {
@@ -1023,11 +949,15 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def takeWhile(elems :IterableOnce[E])(p :E => Boolean) :IterableOnce[E] = elems.iterator.takeWhile(p)
 		override def drop(elems :IterableOnce[E])(n :Int) :IterableOnce[E] = elems.iterator.drop(n)
 		override def dropWhile(elems :IterableOnce[E])(p :E => Boolean) :IterableOnce[E] = elems.iterator.dropWhile(p)
+
 		override def slice(elems :IterableOnce[E])(from :Int, until :Int) :IterableOnce[E] =
 			elems.iterator.slice(from, until)
 
 		override def span(elems :IterableOnce[E])(p :E => Boolean) :(IterableOnce[E], IterableOnce[E]) =
 			elems.iterator.span(p)
+
+		override def splitAt(elems :IterableOnce[E])(n :Int) :(IterableOnce[E], IterableOnce[E]) =
+			elems.iterator.splitAt(n)
 
 		override def scanLeft[A](elems :IterableOnce[E])(z :A)(op :(A, E) => A) :IterableOnce[A] =
 			elems.iterator.scanLeft(z)(op)
@@ -1035,25 +965,36 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def filter(elems :IterableOnce[E])(p :E => Boolean) :IterableOnce[E] = elems.iterator.filter(p)
 		override def filterNot(elems :IterableOnce[E])(p :E => Boolean) :IterableOnce[E] = elems.iterator.filterNot(p)
 		override def map[A](elems :IterableOnce[E])(f :E => A) :IterableOnce[A] = elems.iterator.map(f)
-		override def flatMap[O, A](elems :IterableOnce[E])(f :E => O)
-		                          (implicit asIterable :IterableOnceLike[A, funny.generic.Any, O]) :IterableOnce[A] =
-			elems.iterator.flatMap(e => asIterable.toIterableOnce(f(e)))
+		override def flatMapIterableOnce[A](elems :IterableOnce[E])(f :E => IterableOnce[A]) :IterableOnce[A] =
+			elems.iterator.flatMap(f)
 
-		override def flatten[A](elems :IterableOnce[E])(implicit asIterable :E => IterableOnce[A]) :IterableOnce[A] =
+		override def flatMap[O, A](elems :IterableOnce[E])(f :E => O)
+		                          (implicit asIterableOnce :IterableOnceLike[A, funny.generic.Any, O]) :IterableOnce[A] =
+			elems.iterator.flatMap(e => asIterableOnce.toIterableOnce(f(e)))
+
+		override def flatten[A, U >: E](elems :IterableOnce[E])
+		                               (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, U])
+				:IterableOnce[A] =
+			elems.iterator.flatten(iterableOnceLike.toIterableOnce)
+
+		override def flattenIterableOnce[A](elems :IterableOnce[E])
+		                                   (implicit asIterableOnce :E => IterableOnce[A]) :IterableOnce[A] =
 			elems.iterator.flatten
 
 		override def collect[A](elems :IterableOnce[E])(pf :PartialFunction[E, A]) :IterableOnce[A] =
 			elems.iterator.collect(pf)
 
-		override def zipWithIndex(elems :IterableOnce[E]) :IterableOnce[(E, Int)] = elems.iterator.zipWithIndex
+		override def zipWithIndex(elems :IterableOnce[E]) :IterableOnce[(E, Int)] = toIterableOnceOps(elems).zipWithIndex
 
 
-		override def tapEach[U](elems :IterableOnce[E])(f :E => U) :IterableOnce[E] = elems.iterator.tapEach(f)
+		override def tapEach[U](elems :IterableOnce[E])(f :E => U) :IterableOnce[E] = toIterableOnceOps(elems).tapEach(f)
 
 		override def toOps(elems :IterableOnce[E]) :IterableOnceOps[E, IterableOnce, IterableOnce[E]] =
 			elems.iterator
 
 		override def toIterableOnce(elems :IterableOnce[E]) :IterableOnce[E] = elems
+		override def toIterableOnceOps(elems :IterableOnce[E]) :IterableOnceOps[E, IterableOnce, IterableOnce[E]] =
+			elems.iterator
 
 		implicit override def conversion :IterableOnce[E] => IterableOnce[E] = identity
 	}
@@ -1083,11 +1024,17 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def filter(elems :C)(p :E => Boolean) :C = elems.filter(p)
 		override def filterNot(elems :C)(p :E => Boolean) :C = elems.filterNot(p)
 		override def map[A](elems :C)(f :E => A): CC[A] = elems.map(f)
+		override def flatMapIterableOnce[A](elems :C)(f :E => IterableOnce[A]) :CC[A] = elems.flatMap(f)
 		override def flatMap[O, A](elems :C)(f :E => O)
-		                          (implicit asIterable :IterableOnceLike[A, funny.generic.Any, O]) :CC[A] =
-			elems.flatMap(e => asIterable.toIterableOnce(f(e)))
+		                          (implicit asIterableOnce :IterableOnceLike[A, funny.generic.Any, O]) :CC[A] =
+			elems.flatMap(e => asIterableOnce.toIterableOnce(f(e)))
 
-		override def flatten[A](elems :C)(implicit asIterable :E => IterableOnce[A]) :CC[A] = elems.flatten
+		override def flattenIterableOnce[A](elems :C)(implicit asIterableOnce :E => IterableOnce[A]) :CC[A] =
+			elems.flatten
+
+		override def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, U]) :CC[A] =
+			elems.flatten(iterableOnceLike.toIterableOnce)
+
 		override def collect[A](elems :C)(pf: PartialFunction[E, A]) :CC[A] = elems.collect(pf)
 
 		override def zipWithIndex(elems :C) :CC[(E @uncheckedVariance, Int)] = elems.zipWithIndex
@@ -1124,8 +1071,8 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def minByOption[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :Option[E] = elems.minByOption(f)
 		override def collectFirst[A](elems :C)(pf :PartialFunction[E, A]) :Option[A] = elems.collectFirst(pf)
 		override def corresponds[A, CO[_], O](elems :C)(that :O)(p :(E, A) => Boolean)
-		                                     (implicit asIterable :IterableOnceLike[A, CO, O]) :Boolean =
-			elems.corresponds(asIterable.toIterableOnce(that))(p)
+		                                     (implicit iterableOnceLike :IterableOnceLike[A, CO, O]) :Boolean =
+			elems.corresponds(iterableOnceLike.toIterableOnce(that))(p)
 
 		override def addString(elems :C, b :StringBuilder, start :String, sep :String, end :String) :b.type =
 			elems.addString(b, start, sep, end)
@@ -1134,6 +1081,7 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 
 		override def toOps(elems :C) :IterableOnceOps[E, CC, C] = elems
 		override def toIterableOnce(elems :C) :IterableOnce[E] = elems
+		override def toIterableOnceOps(elems :C) :IterableOnceOps[E, CC, C] = elems
 		override def toList(elems :C): List[E] = elems.toList
 		override def toVector(elems :C): Vector[E] = elems.toVector
 		override def toMap[K, V](elems :C)(implicit ev: E <:< (K ,V)): Map[K, V] = elems.toMap

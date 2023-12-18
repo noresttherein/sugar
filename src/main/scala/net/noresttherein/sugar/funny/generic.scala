@@ -23,7 +23,6 @@ object generic {
 		}
 
 		def compose[W[_]](f :GenericFun[W, X]) :GenericFun[W, Y] = f andThen this
-
 	}
 
 	trait BoxFun[+Y[A]] extends GenericFun[Ident, Y] {
