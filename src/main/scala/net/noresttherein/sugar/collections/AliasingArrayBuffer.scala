@@ -2,9 +2,9 @@ package net.noresttherein.sugar.collections
 
 import java.lang.System.arraycopy
 
-import scala.collection.Factory
+import scala.collection.{Factory, StrictOptimizedSeqFactory, mutable}
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.AliasingArrayBuffer.MinGrowThreshold
@@ -22,6 +22,8 @@ import net.noresttherein.sugar.extensions.{IteratorObjectExtension, castTypePara
   * (providing at least half of it is used, i.e. `this.array.length >= this.length * 2`).
   * This sets a 'read only' flag, and any subsequent buffer modifications will reallocate the array,
   * similarly to the strategy of [[scala.collection.mutable.ListBuffer ListBuffer]].
+  * @define Coll `AliasingArrayBuffer`
+  * @define coll aliasing array buffer
   * @author Marcin Mościcki
   */
 private class AliasingArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capacity) {
@@ -310,8 +312,26 @@ private class AliasingArrayBuffer[E](capacity :Int) extends ArrayBuffer[E](capac
 }
 
 
+/** $factoryInfo
+  * @define Coll `AliasingArrayBuffer`
+  * @define coll aliasing array buffer*
+  */
+private object AliasingArrayBuffer
+	extends BufferFactory[AliasingArrayBuffer] with StrictOptimizedSeqFactory[AliasingArrayBuffer]
+{
+	override def of[E] :AliasingArrayBuffer[E] = new AliasingArrayBuffer[E]
 
+	override def ofCapacity[E](capacity :Int) :AliasingArrayBuffer[E] = new AliasingArrayBuffer[E](capacity)
 
-private object AliasingArrayBuffer {
+	override def from[E](source :IterableOnce[E]) :AliasingArrayBuffer[E] =
+		new AliasingArrayBuffer[E] ++= source
+
+	override def empty[E] :AliasingArrayBuffer[E] = new AliasingArrayBuffer[E]
+
+	override def newBuilder[E] :Builder[E, AliasingArrayBuffer[E]] =
+		new mutable.GrowableBuilder[E, AliasingArrayBuffer[E]](empty) {
+			override def sizeHint(size :Int) :Unit = elems.ensureSize(size)
+		}
+
 	private final val MinGrowThreshold = 75L
 }
