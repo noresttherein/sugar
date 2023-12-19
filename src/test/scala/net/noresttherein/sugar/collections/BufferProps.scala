@@ -27,6 +27,7 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 	type Buff[X] = C[X]
 
 	implicit def buildableChecked[T :E] :Buildable[T, C[T]]
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 
 
 	implicit def arbitrary[T :E :Arbitrary] :Arbitrary[C[T]] = Arbitrary(
@@ -65,7 +66,7 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 					indexGen(length).flatMap(i => indexGen(length - i).map(count => RemoveAll(i, count))),
 					indexGen(length).flatMap(i => gen[X].map(x => Insert(i, x))),
 					indexGen(length).flatMap(i => gen[SizedSeq[X]].map(xs => InsertAll(i, xs))),
-//					const(Clear), //for some reason scalacheck gaves up with this enabled.
+//					const(Clear), //for some reason scalacheck gives up with this enabled.
 					gen[X].map(AddOne),
 					gen[SizedSeq[X]].map(AddAll),
 					gen[X].map(Prepend),
@@ -167,7 +168,7 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 		case class RemoveAll(index :Int, count :Int) extends BufferCommand {
 			override def thrown = {
 				case _ :collection.Seq[X] if count < 0 => classOf[IllegalArgumentException]
-				case seq :collection.Seq[X] if index < 0 || count > seq.length - index =>
+				case seq :collection.Seq[X] if count > 0 && (index < 0 || count > seq.length - index) =>
 					classOf[IndexOutOfBoundsException]
 			}
 			override def apply(sut :Sut) = sut.remove(index, count)
