@@ -8,7 +8,6 @@ import scala.collection.immutable.{AbstractSeq, IndexedSeqOps}
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.{ArraySliceOps, IArray, SpecificIterableFactoryDefaults, SugaredIterable}
-import net.noresttherein.sugar.exceptions.StackTrace.StackTraceWrapper
 
 
 
@@ -107,9 +106,6 @@ case object StackTrace extends SpecificIterableFactory[StackTraceElement, StackT
 
 	@inline def unapplySeq(stack :StackTrace) :StackTrace = stack
 
-	private class StackTraceWrapper(trace :StackTrace) extends SugaredException {
-		override lazy val stackTrace = trace
-	}
 }
 
 
