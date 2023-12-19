@@ -2,6 +2,7 @@ package net.noresttherein.sugar.funny
 
 import scala.annotation.unspecialized
 import scala.reflect.ClassTag
+import scala.runtime.Statics.releaseFence
 import scala.Specializable.{Arg, Args, Return}
 
 import net.noresttherein.sugar.extensions.{Function2Extension, Function3Extension}
@@ -596,7 +597,7 @@ object fun {
 
 		private[fun] def rename(name :String) :Unit = {
 			this.name = name
-			java.lang.invoke.VarHandle.releaseFence()
+			releaseFence()
 		}
 
 		override def toString :String = {
@@ -623,7 +624,7 @@ object fun {
 
 		private[fun] def rename(name :String) :Unit = {
 			this.name = name
-			java.lang.invoke.VarHandle.releaseFence()
+			releaseFence()
 		}
 
 		override def toString :String = {
@@ -648,7 +649,7 @@ object fun {
 
 		private[fun] def rename(name :String) :Unit = {
 			this.name = name
-			java.lang.invoke.VarHandle.releaseFence()
+			releaseFence()
 		}
 
 		override def toString :String = {
