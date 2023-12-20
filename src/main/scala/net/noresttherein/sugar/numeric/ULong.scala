@@ -233,13 +233,13 @@ class ULong private[numeric] (override val toLong :Long)
 	@inline def in(range: NumericRange[ULong]): Boolean = range.containsTyped(this)
 
 
-	private[numeric] def underflow(method :String) :Nothing =
+	private def underflow(method :String) :Nothing =
 		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
-	private[numeric] def outOfRange(typeName :String) :Nothing =
+	private def outOfRange(typeName :String) :Nothing =
 		throw new ArithmeticException("Value " + this + " is out of" + typeName + " range.")
 
-	@inline private[numeric] def testRange(max :Int, typeName :String) :Unit =
+	@inline private def testRange(max :Int, typeName :String) :Unit =
 		if (toLong + MinValue > max + MinValue)
 			outOfRange(typeName)
 }
@@ -280,13 +280,13 @@ object ULong {
 			case _ => Lack
 		}
 
-	private[numeric] def throwArithmeticException(value :Long) :Nothing =
+	private def throwArithmeticException(value :Long) :Nothing =
 		throw new ArithmeticException("negative value: " + value)
 
-	private[numeric] def throwIllegalArgumentException(value :Long) :Nothing =
+	private def throwIllegalArgumentException(value :Long) :Nothing =
 		throw new ArithmeticException("negative value: " + value)
 
-	private[numeric] def throwNumberFormatException(value :String) :Nothing =
+	private def throwNumberFormatException(value :String) :Nothing =
 		throw new ArithmeticException("negative value: " + value)
 
 

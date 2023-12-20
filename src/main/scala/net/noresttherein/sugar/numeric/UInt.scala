@@ -223,13 +223,13 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def in(range: NumericRange[UInt]): Boolean = range.containsTyped(this)
 
 
-	private[numeric] def underflow(method :String) :Nothing =
+	private def underflow(method :String) :Nothing =
 		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
-	private[numeric] def outOfRange(typeName :String) :Nothing =
+	private def outOfRange(typeName :String) :Nothing =
 		throw new ArithmeticException("Value " + this + " is out of " + typeName + " range.")
 
-	@inline private[numeric] def testRange(max :Int, typeName :String) :Unit =
+	@inline private def testRange(max :Int, typeName :String) :Unit =
 		if (toInt + MinValue > max + MinValue)
 			outOfRange(typeName)
 }
@@ -249,7 +249,7 @@ object UInt {
 		if (value < 0) throwIllegalArgumentException(value)
 		else new UInt(value)
 
-	@throws[NumberFormatException]("if the string does not contain a parsable integer, or it is negative.")
+	@throws[NumberFormatException]("if the string does not contain a parseable integer, or it is negative.")
 	@inline def apply(string: String, radix: Int = 10): UInt = new UInt(jl.Integer.parseUnsignedInt(string, radix))
 
 	@throws[ArithmeticException]("If value is negative")
@@ -270,13 +270,13 @@ object UInt {
 			case _ => Lack
 		}
 
-	private[UInt] def throwArithmeticException(value :Int) :Nothing =
+	private def throwArithmeticException(value :Int) :Nothing =
 		throw new ArithmeticException("negative value: " + value)
 
-	private[UInt] def throwIllegalArgumentException(value :Int) :Nothing =
+	private def throwIllegalArgumentException(value :Int) :Nothing =
 		throw new ArithmeticException("negative value: " + value)
 
-	private[UInt] def throwNumberFormatException(value :String) :Nothing =
+	private def throwNumberFormatException(value :String) :Nothing =
 		throw new ArithmeticException("negative value: " + value)
 
 

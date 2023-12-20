@@ -5,7 +5,7 @@ import java.lang.{Math => math}
 import scala.Specializable.Integral
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.numeric.BitLogic.BitLogicOps
+import net.noresttherein.sugar.numeric.BitLogic.{ArrayBitLogic, BitLogicOps}
 import net.noresttherein.sugar.reflect.ArrayClass
 
 
@@ -246,41 +246,7 @@ object BitLogic {
 	trait FixedBitSizeLogic[@specialized(Integral) X] extends BitLogic[X] {
 		def bitLength :Long
 		override def bitSizeOf(x :X) :Long = bitLength
-//		def bitLengthOf(array :Array[X]) :Long = array.length.toLong * bitLength
 
-/*
-		override def orAllInPlace(left :Array[X], right :Array[X]) :Unit = {
-			val min = math.min(left.length, right.length)
-			var i = 0
-			while (i < min) {
-				left(i) = or_!(left(i), right(i))
-				i += 1
-			}
-		}
-		override def andAllInPlace(left :Array[X], right :Array[X]) :Unit = {
-			val min = math.min(left.length, right.length)
-			var i = 0
-			while (i < min) {
-				left(i) = and_!(left(i), right(i))
-				i += 1
-			}
-		}
-		override def xorAllInPlace(left :Array[X], right :Array[X]) :Unit = {
-			val min = math.min(left.length, right.length)
-			var i = 0
-			while (i < min) {
-				left(i) = xor_!(left(i), right(i))
-				i += 1
-			}
-		}
-		override def notAllInPlace(xs :Array[X]) :Unit = {
-			var i = xs.length
-			while (i  > 0) {
-				i -= 1
-				xs(i) = not_!(xs(i))
-			}
-		}
-*/
 		override def shiftAllLeftInPlace(xs :Array[X], n :Long) :Unit =
 			if (n < 0) {
 				if (n < Long.MinValue)

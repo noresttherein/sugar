@@ -6,7 +6,7 @@ import java.util.concurrent.ThreadLocalRandom
 import scala.util.Random
 
 
-//todo: UInt, ULong, UShort, UByte
+//todo: UShort, UByte
 package object numeric {
 	private[numeric] final val Ver = 1L
 
