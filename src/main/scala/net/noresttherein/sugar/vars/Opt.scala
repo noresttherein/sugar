@@ -572,7 +572,7 @@ object Opt {
 	  * It is represented by wrapping a special, private singleton object and all `isEmpty` tests check for
 	  * referential equality of the wrapped value with this object.
 	  * @note This value is of a refined type `Opt[Nothing] { type isEmpty = true }`. However, in many circumstances,
-	  *       it is preferrable to have a basic `Opt[T]` for some specific type `T`.
+	  *       it is preferable to have a basic `Opt[T]` for some specific type `T`.
 	  *       In those cases you can use `Opt.empty[T]`.
 	  * @see [[net.noresttherein.sugar.vars.Opt.empty]] */
 	@inline final val Lack :Lack = new Opt(NoContent).asInstanceOf[Lack]
