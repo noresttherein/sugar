@@ -11,6 +11,7 @@ import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods
 
 
 /** Extension methods casting an expression to related types, less powerful (and dangerous) than `asInstanceOf`. */
+//consider: making the package object extend it, as there is nothing else but extensions in casting
 trait extensions extends Any { //consider extending by the package object
 	@inline implicit final def castingMethods[X](self :X) :castingMethods[X] = new castingMethods[X](self)
 
