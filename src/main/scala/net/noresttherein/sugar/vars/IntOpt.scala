@@ -476,6 +476,14 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
   */
 @SerialVersionUID(Ver)
 object IntOpt {
+	private final val Content = 0xffffffffL
+	private final val NoContent = Long.MinValue
+
+	/** Returns `AnInt` containing the argument.
+	  * This is the same as [[net.noresttherein.sugar.vars.IntOpt.AnInt.apply AnInt]]`(value)`,
+	  * but the return type is `IntOpt`, rather than `AnInt`.
+	  */
+	@inline def apply(value :Int) :IntOpt = new IntOpt(value & Content)
 
 	/** Converts the given `Option[Int]` into a lighter `IntOpt`, which is erased at runtime. */
 	@inline def some_?(value :Option[Int]) :IntOpt =
@@ -535,8 +543,13 @@ object IntOpt {
 	@inline def satisfying(value :Int)(p :Int => Boolean) :IntOpt =
 		new IntOpt(if (p(value)) value & Content else NoContent)
 
+	/** Returns the argument as `AnInt` if `value >= 0`. */
+	@inline def nonNegative(value :Int) :IntOpt =
+		new IntOpt(if (value >= 0) value & Content else NoContent)
 
-	/** Returns [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] - an empty `IntOpt`. */
+	/** Returns [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] - an empty `IntOpt`.
+	  * The difference from the former is the wider type of `IntOpt` itself, rather than `NoInt`.
+	  */
 	@inline final val empty :IntOpt = new IntOpt(NoContent)
 
 	/** A refinement of [[net.noresttherein.sugar.vars.IntOpt IntOpt]] marking it through a member flag type
@@ -603,9 +616,5 @@ object IntOpt {
 		/** Implicitly lifts an `Int` to [[net.noresttherein.sugar.vars.IntOpt IntOpt]]`[T]`. */
 		@inline implicit def gotInt(x :Int) :AnInt = new IntOpt(x & Content).asInstanceOf[AnInt]
 	}
-
-
-	private final val Content = 0xffffffffL
-	private final val NoContent = Long.MinValue
 }
 
