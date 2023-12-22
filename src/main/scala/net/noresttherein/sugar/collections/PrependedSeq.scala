@@ -7,6 +7,7 @@ import net.noresttherein.sugar.collections.extensions.{IteratorExtension, Iterat
 
 
 
+/** Currently used only as a `tail` for [[net.noresttherein.sugar.collections.Prepended2Seq Prepended2Seq]]. */
 private[noresttherein] class PrependedSeq[+E](override val head :E, override val tail :Seq[E])
 	extends AbstractSeq[E]
 {
@@ -61,6 +62,9 @@ private[noresttherein] class PrependedIndexedSeq[+E](override val head :E, overr
 
 
 
+/** A convenient way of delegating a method taking `(T, T, T*)` to one taking `(Seq[T])`
+  * without worrying about the cost of concatenation.
+  */
 private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, rest :Seq[E])
 	extends AbstractSeq[E]
 {
@@ -91,7 +95,7 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 		case _ => rest(i - 2)
 	}
 
-	override def iterator :Iterator[E] = Iterator.double(head, second) ++: rest.iterator
+	override def iterator :Iterator[E] = Iterator.two(head, second) ++: rest.iterator
 	
 	protected override def className = "Seq"
 }
@@ -99,10 +103,10 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 
 private[noresttherein] object Prepended2Seq {
 	def apply[E](first :E, second :E, rest :Seq[E]) :Seq[E] = rest match {
-		case list :LinearSeq[E] => first +: second +: list
-		case _ if rest.isEmpty => PassedArray.two(first, second)
+		case list :LinearSeq[E]  => first +: second +: list
+		case _ if rest.isEmpty   => PassedArray.two(first, second)
 		case seq  :IndexedSeq[E] => new Prepended2IndexedSeq[E](first, second, seq)
-		case _ => new Prepended2Seq[E](first, second, rest)
+		case _                   => new Prepended2Seq[E](first, second, rest)
 	}
 	def apply[E](first :E, second :E, rest :IndexedSeq[E]) :IndexedSeq[E] =
 		new Prepended2IndexedSeq[E](first, second, rest)
