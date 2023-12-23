@@ -112,6 +112,11 @@ object extensions extends extensions {
 			case primitive => primitive
 		}
 
+		/** True if this class is either a Java primitive type, or the runtime representation of `Unit`
+		  * (which is a reference class). Returns `false` for custom value classes.
+		  */
+		def isAnyVal :Boolean = self.isPrimitive || self == classOf[Unit]
+
 		/** True if the Java/Scala runtime allows this type where `other` class is expected.
 		  * @return `(other isAssignableFrom this) || (this isBoxOf other) || (other isBoxOf this)`.
 		  */ //consider: renaming to isAcceptableFor
