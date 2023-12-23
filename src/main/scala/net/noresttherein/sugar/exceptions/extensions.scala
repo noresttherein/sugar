@@ -53,6 +53,9 @@ object extensions extends extensions {
 			case _ => ArraySeq.unsafeWrapArray(self.getSuppressed)
 		}
 
+		/** Calls [[Throwable.addSuppressed addSuppressed]]`(e)` and returns `this`. */
+		@inline def suppress(e :Throwable) :Throwable = { self.addSuppressed(e); self }
+
 		/** Reverses the exception stack, where `_.getCause` is treated as the next element on the list.
 		  * The first exception of the returned list is the original cause (one without a cause), while this exception
 		  * closes the list.
