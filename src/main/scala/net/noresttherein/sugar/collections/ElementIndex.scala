@@ -65,6 +65,9 @@ object ElementIndex {
 		case InsertionPoint(idx) => new ElementIndex(-idx - 1)
 	}
 
+	def apply(found :Boolean, index :Int) :ElementIndex =
+		if (found) new ElementIndex(index) else new ElementIndex(-index - 1)
+
 	@inline def unapply(result :ElementIndex) :IntOpt = result.insertionPoint
 
 	@SerialVersionUID(Ver)
