@@ -6,6 +6,7 @@ import scala.collection.{Factory, IterableOnceOps, Stepper, StepperShape, mutabl
 import scala.collection.mutable.{ArrayBuilder, Buffer}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.arrays.{IArray, IRefArray, RefArray}
 import net.noresttherein.sugar.collections.IterableOnceLikeSummons.{GenericSummoner, Summoner}
 import net.noresttherein.sugar.extensions.{SeqExtension, castTypeParamMethods, castingMethods, classNameMethods, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.funny
@@ -17,7 +18,7 @@ import net.noresttherein.sugar.typist.<:?<
 
 /** A type class providing operations available in [[collection.IterableOnce IterableOnce]] for type `C`.
   * An implicit instance exists for proper `IterableOnce` and collection-like types
-  * (arrays and [[net.noresttherein.sugar.collections.ArrayLike ArrayLike]], `String`, etc.), but also a singleton
+  * (arrays and [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]], `String`, etc.), but also a singleton
   * element. This duplication allows several benefits:
   *   1. Unbounded polymorphism without boxing overhead: for example, methods
   *      `addOne(x :X)` and `addAll(x :IterableOnce[X])` can share the same implementation

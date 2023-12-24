@@ -13,10 +13,7 @@ import org.scalacheck.Prop.{AnyOperators, all, forAll}
 
 
 
-object PassedArraySpec extends SeqProps[PassedArray]("PassedArray") {
-//	override def referenceFactory = Seq
-	override def checkedFactory :SeqFactory[PassedArray] = PassedArray
-
+object PassedArraySpec extends UntaggedSeqProps[PassedArray]("PassedArray", PassedArray) {
 	//todo: tests of appends on non-owning instances
 	//todo: tests of section, including appends
 	//todo: tests of various builders
@@ -121,4 +118,6 @@ object PassedArraySpec extends SeqProps[PassedArray]("PassedArray") {
 		val results  = input.scanRight(PassedArray.empty[Int])(_ ++: _).map(seq => seq :++ (seq ++: seq))
 		all(expected.zip(results).map { case (expect, result) => compare(expect, result) } :_*)
 	}
+
+	//todo: copyRangeToArray, cyclicCopyRangeToArray
 }

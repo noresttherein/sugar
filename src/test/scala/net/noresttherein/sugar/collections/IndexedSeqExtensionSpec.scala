@@ -3,6 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}
 import net.noresttherein.sugar.extensions.IndexedSeqExtension
 import net.noresttherein.sugar.testing.scalacheck.extensions.PropExtension
 import net.noresttherein.sugar.typist.ConvertibleTo
@@ -14,10 +15,10 @@ import org.scalacheck.util.{ConsoleReporter, Pretty}
 
 
 object IndexedSeqExtensionSpec extends Properties("IndexedSeqExtension") {
-	import typeClasses._
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500)
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(127)
 
 	def seqProperty[X :ClassTag :Arbitrary :Shrink :ConvertibleTo[Pretty]#T]
 		           (prop :collection.IndexedSeq[X] => Prop) :Prop =
@@ -46,21 +47,22 @@ object IndexedSeqExtensionSpec extends Properties("IndexedSeqExtension") {
 	property("binarySearch") = seqProperty { seq :collection.IndexedSeq[Int] =>
 		val sorted = seq.sorted
 		all(seq.indices.map {
-			i => (sorted.binarySearch(seq(i)) ?= sorted.indexOf(seq(i))) :| "@" + i + "==" + seq(i)
+			i => (sorted.binarySearch(seq(i)) ?= Present(sorted.indexOf(seq(i)))) :| "@" + i + "==" + seq(i)
 		} :_*) && forAll { x :Int =>
 			val i = sorted.indexOf(x)
 			if (i >= 0)
-				(sorted.binarySearch(x) ?= i) :| "binarySearch(" + x + ") ?= " + i
+				(sorted.binarySearch(x) ?= Present(i)) :| "binarySearch(" + x + ") ?= " + i
 			else if (seq.length == 0)
-				(sorted.binarySearch(x) ?= -1) :| "empty.binarySearch"
+				(sorted.binarySearch(x) ?= Absent(0)) :| "empty.binarySearch"
 			else {
-				val i = -sorted.binarySearch(x) - 1
-				((i >= 0) :| "binarySearch <= -1" &&
-					(i == 0 || sorted(i - 1) < x) &&
-					(i == sorted.length || sorted(i) >= x)
-				) :| "result=" + (-i - 1) :|
-					"predecessor: " + (if (i > 0) sorted(i - 1) else "none") :|
-					"successor: " + (if (i < sorted.length) sorted(i) else "none")
+				val i = sorted.binarySearch(x)
+				val prev = i.predecessor
+				(i.notFound :| "binarySearch.notFound" &&
+					(prev.get == 0 || sorted(prev.get - 1) < x) &&
+					(prev.get == sorted.length || sorted(prev.get) >= x)
+				) :| "result=" + i :|
+					"predecessor: " + (if (prev.get > 0) sorted(prev.get - 1) else "none") :|
+					"successor: " + (if (prev.get < sorted.length) sorted(prev.get) else "none")
 			}
 		} lbl "sorted: " + sorted
 	}

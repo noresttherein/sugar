@@ -11,19 +11,18 @@ import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
 /**
   * @author Marcin Mościcki
   */
-object BTreeSeqSpec extends SeqProps[BTreeSeq]("BTreeSeq") {
+object BTreeSeqSpec extends UntaggedSeqProps[BTreeSeq]("BTreeSeq", BTreeSeq) {
 	//Set BTreeSeq.Rank to 4 or 8 for testing purposes to create deeper trees!
 
-	protected override def checkedFactory :IterableFactory[BTreeSeq] = BTreeSeq
 	protected override def knowsSize = true
 
-	property("removed") = test { (seq :Seq[Int], tree :BTreeSeq[Int]) =>
+	property("removed") = test { (seq :collection.Seq[Int], tree :BTreeSeq[Int]) =>
 		forAll { i :Int =>
 			if (i < 0 || i >= seq.length) tree.removed(i).throws[IndexOutOfBoundsException]
 			else validate(seq.take(i) ++ seq.drop(i + 1), tree.removed(i))
 		}
 	}
-	property("inserted") = test { (seq :Seq[Int], tree :BTreeSeq[Int]) =>
+	property("inserted") = test { (seq :collection.Seq[Int], tree :BTreeSeq[Int]) =>
 		forAll { x :Int =>
 			(0 to seq.length).map { i =>
 				val (prefix, suffix) = seq.splitAt(i)

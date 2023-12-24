@@ -109,14 +109,12 @@ private class ReversedIndexedBuffer[E](override val reverse :IndexedBuffer[E])
 
 	override def insert(idx :Int, elem :E) :Unit =
 		if (idx < 0)
-			throw new IndexOutOfBoundsException(idx + " out of " + length)
+			throw new IndexOutOfBoundsException(idx.toString + " out of " + length)
 		else
 			reverse.insert(reverse.length - idx, elem)
 
-	override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit = {
+	override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit =
 		reverse.insertAll(reverse.length - idx, reverseOther(elems))
-		this
-	}
 
 	@tailrec final override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
 		if (from <= 0)
@@ -129,11 +127,11 @@ private class ReversedIndexedBuffer[E](override val reverse :IndexedBuffer[E])
 		}
 
 	override def remove(idx :Int) :E =
-		if (idx < 0) throw new IndexOutOfBoundsException(idx + " out of " + length)
+		if (idx < 0) throw new IndexOutOfBoundsException(idx.toString + " out of " + length)
 		else reverse.remove(reverse.length - 1 - idx)
 
 	override def remove(idx :Int, count :Int) :Unit =
-		if (idx < 0) throw new IndexOutOfBoundsException(idx + " out of " + length)
+		if (idx < 0) throw new IndexOutOfBoundsException(idx.toString + " out of " + length)
 		else reverse.remove(reverse.length - idx, count)
 
 	override def clear() :Unit = reverse.clear()
@@ -143,4 +141,16 @@ private class ReversedIndexedBuffer[E](override val reverse :IndexedBuffer[E])
 		case seq :collection.IndexedSeq[E] => ReversedSeq(seq)
 		case _ => util.reverse(elems)
 	}
+}
+
+
+@SerialVersionUID(Ver)
+private object ReversedIndexedBuffer extends BufferFactory[IndexedBuffer] {
+	def reversed[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] = new ReversedIndexedBuffer(buffer)
+
+	override def ofCapacity[E](capacity :Int) :IndexedBuffer[E] =
+		new ReversedIndexedBuffer(TemporaryBuffer.ofCapacity(capacity))
+
+	override def empty[A] :IndexedBuffer[A] =
+		new ReversedIndexedBuffer(TemporaryBuffer.empty[A])
 }

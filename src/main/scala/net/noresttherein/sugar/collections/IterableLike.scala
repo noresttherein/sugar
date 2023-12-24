@@ -5,7 +5,7 @@ import scala.collection.immutable.HashMap
 import scala.collection.{IterableFactory, IterableOnceOps, IterableOps, LazyZip2, View, WithFilter, mutable}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.extensions.{IterableExtension, IteratorExtension, cast3TypeParamsMethods}
+import net.noresttherein.sugar.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, cast3TypeParamsMethods}
 import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.<:?<

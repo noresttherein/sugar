@@ -5,8 +5,9 @@ import scala.collection.{AnyStepper, BuildFrom, DoubleStepper, Factory, IntStepp
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, LinearSeq, SortedMap, TreeMap}
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, IndexedBuffer, ListBuffer}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
+import scala.reflect.{ClassTag, classTag}
 
-import org.scalacheck.{Prop, Properties, Test}
+import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
 import net.noresttherein.sugar.extensions.{ArrayExtension, ArrayObjectExtension, BuilderExtension, ClassExtension, FactoryExtension, IndexedSeqExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqFactoryExtension, StepperExtension, StepperObjectExtension, castTypeParamMethods, classNameMethods, immutableIndexedSeqObjectExtension, immutableMapExtension, immutableSetFactoryExtension}
@@ -31,7 +32,6 @@ object ExtensionsSpec extends Properties("extensions") {
 	include(SetFactoryProps)
 	include(SeqFactoryProps)
 	include(InfiniteSeqProps)
-	include(IteratorObjectProps)
 	include(StepperObjectProps)
 
 
@@ -57,10 +57,10 @@ object ExtensionsSpec extends Properties("extensions") {
 
 	object StepperProps extends Properties("StepperExtension") {
 		property("++") =
-			forAll { (prefix :String, suffix :String) =>
-				(prefix.stepper ++ suffix.stepper).iterator
-					.foldLeft(new StringBuilder)((sb, int) => sb += int.toChar).toString ?=
-						prefix + suffix
+			forAll { strings :Seq[String] =>
+				val concat = (Stepper[Char]() /: strings)(_ ++ _.stepper)
+				val result = concat.iterator.foldLeft(new StringBuilder)((sb, int) => sb += int.toChar).toString
+				result ?= strings.foldLeft(new StringBuilder)((sb, string) => sb ++= string).toString
 			} &&
 			forAll { (prefix :List[String], suffix :List[String]) =>
 				(prefix.stepper ++ suffix.stepper).iterator.toList ?= prefix:::suffix
@@ -85,6 +85,37 @@ object ExtensionsSpec extends Properties("extensions") {
 			} &&
 			forAll { (prefix :List[Int], suffix :List[Int]) =>
 				((prefix :List[Any]).stepper ++ (suffix.stepper :Stepper[Int])).iterator.toList ?= prefix:::suffix
+			}
+
+		property(":++") =
+			forAll { strings :Seq[String] =>
+				val concat = (Stepper[Char]() /: strings)(_ :++ _.stepper)
+				val result = concat.iterator.foldLeft(new StringBuilder)((sb, int) => sb += int.toChar).toString
+				result ?= strings.foldLeft(new StringBuilder)((sb, string) => sb ++= string).toString
+			} &&
+			forAll { (prefix :List[String], suffix :List[String]) =>
+				(prefix.stepper :++ suffix.stepper).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				((prefix.stepper :Stepper[Int]) :++ suffix.stepper).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				(prefix.stepper :++ (suffix.stepper :Stepper[Int])).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				((prefix.stepper :Stepper[Int]) :++ (suffix.stepper :Stepper[Int])).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				((prefix.stepper :Stepper[Any]) :++ suffix.stepper).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				(prefix.stepper :++ (suffix.stepper :Stepper[Any])).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				((prefix.stepper :Stepper[Any]) :++ (suffix.stepper :Stepper[Any])).iterator.toList ?= prefix:::suffix
+			} &&
+			forAll { (prefix :List[Int], suffix :List[Int]) =>
+				((prefix :List[Any]).stepper :++ (suffix.stepper :Stepper[Int])).iterator.toList ?= prefix:::suffix
 			}
 	}
 
@@ -291,21 +322,6 @@ object ExtensionsSpec extends Properties("extensions") {
 	}
 
 
-	object IteratorObjectProps extends Properties("IteratorObjectExtension") {
-		property("double") = Iterator.double(1, 2).toSeq ?= Seq(1, 2)
-		property("over") = forAll { array :Array[Int] => Iterator.over(array).toSeq ?= ArraySeq.unsafeWrapArray(array) }
-		property("slice") = forAll { (array :Array[Int], from :Int, until :Int) =>
-			Iterator.slice(array, from, until).toSeq ?= ArraySeq.unsafeWrapArray(array.slice(from, until))
-		}
-		property("reverse") = forAll { (array :Array[Int]) =>
-			Iterator.reverse(array).toSeq ?= ArraySeq.unsafeWrapArray(array).reverse
-		}
-		property("reverse(Array, Int, Int)") = forAll { (array :Array[Int], from :Int, until :Int) =>
-			Iterator.reverse(array, from, until).toSeq ?= ArraySeq.unsafeWrapArray(array.slice(from, until)).reverse
-		}
-	}
-
-
 	object StepperObjectProps extends Properties("StepperObjectExtension") {
 		private def stepperProperty[A, S <: Stepper[A]](name :String, stepper: => S, expect :Seq[A], stepperClass :Class[_]) :Prop =
 			(Prop(stepperClass.isInstance(stepper)) :|
@@ -335,6 +351,18 @@ object ExtensionsSpec extends Properties("extensions") {
 					((buf :collection.Seq[Any]) ?= expect) :| name + ".spliterator.trySplit"
 				} lbl "slice: " + expect.toString lbl "stepper: " + stepper
 
+		private def spliteratorProperty[A :Arbitrary, S <: Stepper[A] :ClassTag](stepper :Seq[A] => S) :Prop =
+			forAll { expect :Vector[A] => stepperProperty("", stepper(expect), expect, classTag[S].runtimeClass) }
+
+		property("apply(Spliterator[String])") =
+			spliteratorProperty[String, AnyStepper[String]]((expect :Seq[String]) => Stepper(expect.stepper.spliterator))
+		property("apply(Spliterator.OfInt)") =
+			spliteratorProperty[Int, IntStepper]((expect :Seq[Int]) => Stepper(expect.stepper.spliterator))
+		property("apply(Spliterator.OfLong)") =
+			spliteratorProperty[Long, LongStepper]((expect :Seq[Long]) => Stepper(expect.stepper.spliterator))
+		property("apply(Spliterator.OfDouble)") =
+			spliteratorProperty[Double, DoubleStepper]((expect :Seq[Double]) => Stepper(expect.stepper.spliterator))
+
 //		property("empty") =
 //			stepperProperty("Stepper.empty[Byte]", Stepper.empty )
 //			(Prop(Stepper.empty[Byte].isInstanceOf[IntStepper]) :| "empty[Byte].isInstanceOf[IntStepper]") &&
@@ -357,77 +385,93 @@ object ExtensionsSpec extends Properties("extensions") {
 			stepperProperty("Stepper[Double]()", Stepper[Double](), Seq[Double](), classOf[DoubleStepper]) &&
 			stepperProperty("Stepper[String]()", Stepper[String](), Seq[String](), classOf[AnyStepper[_]])
 		
-		property("apply(elem:T)") =
-			stepperProperty("Stepper(1.toByte)", Stepper.apply(1.toByte), Seq(1), classOf[IntStepper]) &&
-			stepperProperty("Stepper(1.toShort)", Stepper(1.toShort), Seq(1), classOf[IntStepper]) &&
-			stepperProperty("Stepper('1')", Stepper('1'), Seq('1'.toInt), classOf[IntStepper]) &&
-			stepperProperty("Stepper(1)", Stepper(1), Seq(1), classOf[IntStepper]) &&
-			stepperProperty("Stepper(1L)", Stepper(1L), Seq(1L), classOf[LongStepper]) &&
-			stepperProperty("Stepper(1.0f)", Stepper(1.0f), Seq(1.0), classOf[DoubleStepper]) &&
-			stepperProperty("Stepper(1.0)", Stepper(1.0), Seq(1.0), classOf[DoubleStepper]) &&
-			stepperProperty("Stepper(\"1\")", Stepper("1"), Seq("1"), classOf[AnyStepper[_]])
+		property("one") =
+			stepperProperty("Stepper.one(1.toByte)", Stepper.one(1.toByte), Seq(1), classOf[IntStepper]) &&
+			stepperProperty("Stepper.one(1.toShort)", Stepper.one(1.toShort), Seq(1), classOf[IntStepper]) &&
+			stepperProperty("Stepper.one('1')", Stepper.one('1'), Seq('1'.toInt), classOf[IntStepper]) &&
+			stepperProperty("Stepper.one(1)", Stepper.one(1), Seq(1), classOf[IntStepper]) &&
+			stepperProperty("Stepper.one(1L)", Stepper.one(1L), Seq(1L), classOf[LongStepper]) &&
+			stepperProperty("Stepper.one(1.0f)", Stepper.one(1.0f), Seq(1.0), classOf[DoubleStepper]) &&
+			stepperProperty("Stepper.one(1.0)", Stepper.one(1.0), Seq(1.0), classOf[DoubleStepper]) &&
+			stepperProperty("Stepper.one(\"1\")", Stepper.one("1"), Seq("1"), classOf[AnyStepper[_]])
 
-		property("apply(first:T,second:T)") =
-			stepperProperty("Stepper(1.toByte, 2.toByte)", Stepper(1.toByte, 2.toByte), Seq(1, 2), classOf[IntStepper]) &&
-			stepperProperty("Stepper(1.toShort, 2.toShort)", Stepper(1.toShort, 2.toShort), Seq(1, 2), classOf[IntStepper]) &&
-			stepperProperty("Stepper('1', '2')", Stepper('1', '2'), Seq('1'.toInt, '2'.toInt), classOf[IntStepper]) &&
-			stepperProperty("Stepper(1, 2)", Stepper(1, 2), Seq(1, 2), classOf[IntStepper]) &&
-			stepperProperty("Stepper(1L, 2L)", Stepper(1L, 2L), Seq(1L, 2L), classOf[LongStepper]) &&
-			stepperProperty("Stepper(1.0f, 2.0f)", Stepper(1.0f, 2.0f), Seq(1.0, 2.0), classOf[DoubleStepper]) &&
-			stepperProperty("Stepper(1.0, 2.0)", Stepper(1.0, 2.0), Seq(1.0, 2.0), classOf[DoubleStepper]) 
+		property("two") =
+			stepperProperty(
+				"Stepper.two(1.toByte, 2.toByte)", Stepper.two(1.toByte, 2.toByte), Seq(1, 2), classOf[IntStepper]
+			) && stepperProperty(
+				"Stepper.two(1.toShort, 2.toShort)", Stepper.two(1.toShort, 2.toShort), Seq(1, 2), classOf[IntStepper]
+			) && stepperProperty(
+				"Stepper.two('1', '2')", Stepper.two('1', '2'), Seq('1'.toInt, '2'.toInt), classOf[IntStepper]
+			) && stepperProperty(
+				"Stepper.two(1, 2)", Stepper.two(1, 2), Seq(1, 2), classOf[IntStepper]
+			) && stepperProperty(
+				"Stepper.two(1L, 2L)", Stepper.two(1L, 2L), Seq(1L, 2L), classOf[LongStepper]
+			) && stepperProperty(
+				"Stepper.two(1.0f, 2.0f)", Stepper.two(1.0f, 2.0f), Seq(1.0, 2.0), classOf[DoubleStepper]
+			) && stepperProperty(
+				"Stepper.two(1.0, 2.0)", Stepper.two(1.0, 2.0), Seq(1.0, 2.0), classOf[DoubleStepper]
+			)
 
-		property("apply(array:Array[T],from:Int,until:Int)") = all(
+		property("over(array:Array[T],from:Int,until:Int)") = all(
 			forAll { (array :Array[Byte], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Byte]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toInt), classOf[IntStepper]
+				stepperProperty(
+					"Stepper.over(Array[Byte]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toInt), classOf[IntStepper]
 				)
 			},
 			forAll { (array :Array[Short], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Short]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toInt), classOf[IntStepper]
+				stepperProperty(
+					"Stepper.over(Array[Short]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toInt), classOf[IntStepper]
 				)
 			},
 			forAll { (array :Array[Char], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Char]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toInt), classOf[IntStepper]
+				stepperProperty(
+					"Stepper.over(Array[Char]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toInt), classOf[IntStepper]
 				)
 			},
 			forAll { (array :Array[Int], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Int]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[IntStepper]
+				stepperProperty(
+					"Stepper.over(Array[Int]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[IntStepper]
 				)
 			},
 			forAll { (array :Array[Long], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Long]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[LongStepper]
+				stepperProperty(
+					"Stepper.over(Array[Long]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[LongStepper]
 				)
 			},
 			forAll { (array :Array[Float], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Float]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toDouble), classOf[DoubleStepper]
+				stepperProperty(
+					"Stepper.over(Array[Float]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until).map(_.toDouble), classOf[DoubleStepper]
 				)
 			},
 			forAll { (array :Array[Double], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[Double]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[DoubleStepper]
+				stepperProperty(
+					"Stepper.over(Array[Double]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[DoubleStepper]
 				)
 			},
 			forAll { (array :Array[String], from :Int, until :Int) =>
-				stepperProperty("Stepper(Array[String]," + from + "," + until +")", Stepper.over(array, from, until),
-					ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[AnyStepper[String]]
+				stepperProperty(
+					"Stepper.over(Array[String]," + from + "," + until +")", Stepper.slice(array, from, until),
+						ArraySeq.unsafeWrapArray(array).slice(from, until), classOf[AnyStepper[String]]
 				)
 			},
 		)
 
-		property("ofAny[String]") =
-			stepperProperty("", Stepper.ofAny[String], Seq[String](), classOf[AnyStepper[_]])
+		property("ofAny[String]()") =
+			stepperProperty("", Stepper.ofAny(), Seq[String](), classOf[AnyStepper[_]])
 		property("ofAny[String](\"1\")") = 
 			stepperProperty("", Stepper.ofAny("1"), Seq("1"), classOf[AnyStepper[_]])
 		property("ofAny[String](\"1\", \"2\")") =
 			stepperProperty("", Stepper.ofAny("1", "2"), Seq("1", "2"), classOf[AnyStepper[_]])
 
 		property("ofInt") =
-			stepperProperty("", Stepper.ofInt, Seq[Int](), classOf[IntStepper])
+			stepperProperty("", Stepper.ofInt(), Seq[Int](), classOf[IntStepper])
 		property("ofInt(1)") = 
 			stepperProperty("", Stepper.ofInt(1), Seq(1), classOf[IntStepper])
 		property("ofInt(1, 2)") =
@@ -441,21 +485,19 @@ object ExtensionsSpec extends Properties("extensions") {
 			)
 		}
 		property("ofLong") =
-			stepperProperty("", Stepper.ofLong, Seq[Long](), classOf[LongStepper])
+			stepperProperty("", Stepper.ofLong(), Seq[Long](), classOf[LongStepper])
 		property("ofLong(1)") =
 			stepperProperty("", Stepper.ofLong(1), Seq(1L), classOf[LongStepper])
 		property("ofLong(1, 2)") =
 			stepperProperty("", Stepper.ofLong(1, 2), Seq(1L, 2L), classOf[LongStepper])
 
 		property("ofDouble") =
-			stepperProperty("", Stepper.ofDouble, Seq[Double](), classOf[DoubleStepper])
+			stepperProperty("", Stepper.ofDouble(), Seq[Double](), classOf[DoubleStepper])
 		property("ofDouble(1.0)") =
 			stepperProperty("", Stepper.ofDouble(1.0), Seq(1.0), classOf[DoubleStepper])
 		property("ofDouble(1.0, 2.0)") =
 			stepperProperty("", Stepper.ofDouble(1.0, 2.0), Seq(1.0, 2.0), classOf[DoubleStepper])
 
 	}
-
-
 
 }

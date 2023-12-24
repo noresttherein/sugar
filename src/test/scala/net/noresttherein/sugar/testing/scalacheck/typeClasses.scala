@@ -1,13 +1,14 @@
-package net.noresttherein.sugar.collections
+package net.noresttherein.sugar.testing.scalacheck
 
 import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.collections.{IRefArraySlice, RefArraySlice}
 import net.noresttherein.sugar.testing.scalacheck.extensions.GenToGenDisjunction
-import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalacheck.util.Buildable
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 
 

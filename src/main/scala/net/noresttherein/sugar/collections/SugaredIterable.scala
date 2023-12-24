@@ -45,7 +45,7 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * witness providing the suitable iterator type. The advantage over Scala iterators is that built in value types
 	  * are widened to one of `Int`, `Long` or `Double`, each having a dedicated iterator type allowing to access
 	  * the elements of the collection without boxing. Additionally, functions are specialized for these argument types.
-	  */
+	  */ //consider: renaming to jterator for lolz
 	def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
 		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 
@@ -59,7 +59,7 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * but avoids, if possible, potentially expensive `drop`.
 	  * @return the number of elements copied.
 	  */ //consider: renaming to copyFrom
-	def copyRangeToArray[A >: E](xs :Array[A], from :Int, start :Int, len :Int) :Int =
+	def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 		if (from <= 0)
 			copyToArray(xs, start, len)
 		else {
@@ -74,7 +74,7 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 		}
 
 	@inline final def copyRangeToArray[A >: E](xs :Array[A], from :Int, len :Int = Int.MaxValue) :Int =
-		copyRangeToArray(xs, from, 0, len)
+		copyRangeToArray(xs, 0, from, len)
 //
 //	/** Similar to [[net.noresttherein.sugar.collections.SugaredIterable.copyRangeToArray copyRangeToArray]],
 //	  * but copies to a boxing reference array.
@@ -90,14 +90,14 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * @return the number of elements copied.
 	  * @throws IndexOutOfBoundsException if `start` is less than zero or greater than `xs.length`.
 	  */
-	def cyclicCopyRangeToArray[A >: E](xs :Array[A], from :Int, start :Int = 0, len :Int = Int.MaxValue) :Int = {
+	def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int = Int.MaxValue) :Int = {
 		val length = xs.length
 		if (from <= 0)
 			cyclicCopyToArray(xs, start, len)
 		else if (len <= 0 | length == 0)
 			0
 		else if (len <= length - start || { val size = knownSize; size >= 0 & size <= length - start })
-			copyRangeToArray(xs, from, start, len)
+			copyRangeToArray(xs, start, from, len)
 		else
 			iterator.drop(from).cyclicCopyToArray(xs, start, len)
 	}

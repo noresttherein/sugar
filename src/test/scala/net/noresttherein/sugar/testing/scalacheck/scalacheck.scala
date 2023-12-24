@@ -1,12 +1,15 @@
 package net.noresttherein.sugar.testing
 
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalacheck.util.Buildable
 
 
 
 
 package object scalacheck {
+
+	implicit def noShrinking[T] :Shrink[T] = Shrink { (x :T) => Stream.empty }
+
 	@inline def collectionOf[C[_]] :CollectionGenFactory[C] = new CollectionGenFactory[C] {}
 
 	sealed trait CollectionGenFactory[C[_]] extends Any {

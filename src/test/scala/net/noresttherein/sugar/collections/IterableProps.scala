@@ -1,33 +1,46 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.{mutable, Factory, IterableFactory, Stepper}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
+
+import scala.collection.{EvidenceIterableFactory, Factory, IterableFactory, Stepper, immutable, mutable}
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.reflect.ClassTag
 import scala.util.{Success, Try}
 
 import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Test}
-import org.scalacheck.Prop.{all, forAll, AnyOperators}
+import org.scalacheck.Prop.{AnyOperators, all, forAll}
 import org.scalacheck.commands.Commands
 import org.scalacheck.util.{Buildable, ConsoleReporter}
-
 import net.noresttherein.sugar.numeric
-import net.noresttherein.sugar.collections.IterableProps.{filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value, Dummy, Filter, FlatMap, Fold, FoldSide, Map}
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, classNameMethods, FactoryExtension, IntObjectExtension, IterableExtension}
-import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
+import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map, filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value}
+import net.noresttherein.sugar.testing.scalacheck.typeClasses._
+import net.noresttherein.sugar.extensions.{FactoryExtension, IntObjectExtension, IterableExtension, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.testing.scalacheck.buildable
+import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}
 
 
 
 
-//This class is flawed because it relies on a IterableFactory, and C may have only an EvidenceIterableFactory or other.
-//We can't use it to test SortedSet, for example
 abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](name :String) extends Properties(name) {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(3, 140)).withMinSuccessfulTests(500)
+		p.withTestCallback(ConsoleReporter(3, 140)).withMinSuccessfulTests(500).withMaxSize(64)
+
+	val parameters = overrideParameters(Test.Parameters.default)
 
 	protected def typeS :String = S[Int].source.localClassName
 
+	if (isSerializable)
+		property("Serializable")  = forAll { col :C[Int] =>
+		                                val out = new ByteArrayOutputStream()
+		                                val obj = new ObjectOutputStream(out)
+		                                obj.writeObject(col)
+		                                obj.close()
+		                                val in   = new ObjectInputStream(new ByteArrayInputStream(out.toByteArray))
+		                                val copy = in.readObject().asInstanceOf[C[Int]]
+		                                validate(col, copy) lbl "Deserialized: " + copy + ": " + copy.localClassName
+		                            }
 	property("knownSize")         = Prop(!knowsSize) || forAll { col :C[Int] => col.knownSize =? col.size }
 	property("size")              = test { (expect :S[Int], result :C[Int]) => expect.size =? result.size }
 	property("compareSize")       = test { (expect :S[Int], result :C[Int]) =>
@@ -108,7 +121,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 			                                    compare(expect, ArraySeq.unsafeWrapArray(resultArray))
 	                                    }
 	                                }
-	property("++")                = test { (expect :S[Int], result :C[Int]) =>
+	property("concat")            = test { (expect :S[Int], result :C[Int]) =>
 	                                    forAll { list :List[Int] => validate(expect ++ list to S, result ++ list to C) }
 	                                }
 
@@ -135,17 +148,18 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 		forAll { elems :S[T] => f(elems) =? f(elems to C[T]) }
 
 	protected def compare[T :E](expect :Iterable[T], result :Iterable[T]) :Prop =
-		(if (hasOrder)
-			Prop(expect.iterator sameElements result)
-		else
-			expect =? result.to(S)
-		) lbl "Expected: " + expect + ";\n     got: " + result
+		Seq(
+			Option.when(hasOrder)(Prop(expect.iterator sameElements result)),
+			Option.when(hasEquals)(expect =? result),
+			Option.when(symmetricEquals)(expect == result lbl s"$expect == $result")
+		).flatten.reduceOption(_ && _) getOrElse expect =? result.to(S) lbl
+			"Expected: " + expect + ";\n     got: " + result
 
 	protected def validate[T, F, M, FM](label: => String, expect :S[T], result :S[T])
 	                                   (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
 	                                    fldA :FoldSide[F, T], evf :E[F], fld :Fold[T], mp :Map[T, M], evm :E[M],
 	                                    fmap :FlatMap[T, FM], evfm :E[FM]) :Prop =
-		compare(expect, result) && props(expect, result).reduce(_ && _) lbl label
+		compare(expect, result) && all(props(expect, result) :_*) lbl label
 
 	protected def validate[T, F, M, FM](expect :S[T], result :S[T])
 	                                   (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
@@ -253,7 +267,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 //			"groupMapReduce",
 //			"partitionMap"
 
-			"++"                lbl_: forAll { items :List[T] => compare(expect ++ items, result ++ items) }
+			"concat"            lbl_: forAll { items :List[T] => compare(expect ++ items, result ++ items) }
 		)
 
 
@@ -289,13 +303,24 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 						{}
 				while (s1.tryAdvance(buf += (_ :T)))
 					{}
-				buf.result() ?= expect.castParam[T]
+				expect.castParam[T] =? buf.result() lbl {
+					val s1 = stepper.spliterator.castParam[T]
+					val s2 = s1.trySplit.castParam[T]
+					val prefix = ArrayBuffer.empty[T]
+					val suffix = ArrayBuffer.empty[T]
+					if (s2 != null)
+						s2.forEachRemaining(prefix += _)
+					s1.forEachRemaining(suffix += _)
+					prefix.mkString("(", ", ", ")") + " + " + suffix.mkString("(", ", ", ")")
+				}
 			})
 	}
 
 	protected def knowsSize = false
 	protected def hasOrder  = false
-
+	protected def hasEquals = true
+	protected def symmetricEquals = true
+	protected def isSerializable :Boolean = S[Int].newBuilder.result().isInstanceOf[Serializable]
 
 	implicit def buildableChecked[T :E] :Buildable[T, C[T]] = new Buildable[T, C[T]] {
 		override def builder :Builder[T, C[T]] = C[T].newBuilder
@@ -303,6 +328,32 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	implicit def buildableReference[T :E] :Buildable[T, S[T]] = new Buildable[T, S[T]] {
 		override def builder :Builder[T, S[T]] = S[T].newBuilder
 	}
+	implicit def arbitraryChecked[T :E :Arbitrary] :Arbitrary[C[T]] = Arbitrary(
+		for {
+			size <- Gen.choose(0, parameters.maxSize)
+			col  <- Gen.buildableOfN[C[T], T](size, Arbitrary.arbitrary[T])
+		} yield col
+	)
+	implicit def arbitraryReference[T :E :Arbitrary] :Arbitrary[S[T]] = Arbitrary(
+		for {
+			size <- Gen.choose(0, parameters.maxSize)
+			col  <- Gen.buildableOfN[S[T], T](size, Arbitrary.arbitrary[T])
+		} yield col
+	)
+	implicit def arbitraryIterable[X :Arbitrary :ClassTag] :Arbitrary[Iterable[X]] = Arbitrary(
+		for {
+			length <- Gen.choose(0, parameters.maxSize)
+			gen = Arbitrary.arbitrary[X]
+			items <- Gen.oneOf(
+				Gen.listOfN(length, gen),
+				Gen.containerOfN[Vector, X](length, gen),
+				Gen.containerOfN[ArraySeq, X](length, gen),
+				Gen.containerOfN[mutable.ArraySeq, X](length, gen),
+				Gen.containerOfN[Set, X](length, gen),
+				Gen.containerOfN[UnorderedItems, X](length, gen)
+			)
+		} yield items
+	)
 
 	protected def S[T :E] :Factory[T, S[T]] //= referenceFactory[T]
 	protected def C[T :E] :Factory[T, C[T]] //= checkedFactory[T]
@@ -356,7 +407,9 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 
 
 
-abstract class IterableProps[C[T] <: S[T], S[T] <: Iterable[T]](name :String)
+abstract class IterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
+                            (name :String)
+                            (val checkedFactory :IterableFactory[C], val referenceFactory :IterableFactory[S])
 	extends GenericIterableProps[C, S, Dummy](name)
 {
 	implicit override def intEvidence    :Dummy[Int] = new Dummy
@@ -368,9 +421,19 @@ abstract class IterableProps[C[T] <: S[T], S[T] <: Iterable[T]](name :String)
 
 	protected override def S[T :Dummy] = referenceFactory
 	protected override def C[T :Dummy] = checkedFactory
+//
+//	protected def referenceFactory :IterableFactory[S]
+//	protected def checkedFactory   :IterableFactory[C]
 
-	protected def referenceFactory :IterableFactory[S]
-	protected def checkedFactory   :IterableFactory[C]
+	protected def factoryProps :Properties = new IterableFactoryProps
+
+	private class IterableFactoryProps extends Properties("iterableFactory") {
+		property("from") = forAll { items :Iterable[Int] =>
+			validate(referenceFactory from items, checkedFactory from items)
+		}
+	}
+
+	include(factoryProps)
 }
 
 
@@ -400,6 +463,46 @@ object IterableProps {
 	@inline def flatMap[T, A](implicit map :FlatMap[T, A]) :T => IterableOnce[A] = map.f
 	@inline def flatMap[T, A](x :T)(implicit map :FlatMap[T, A]) :IterableOnce[A] = map.f(x)
 	@inline implicit def dummy[T] :Dummy[T] = new Dummy[T]
+}
+
+
+
+
+
+
+abstract class EvidenceIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]]
+                                    (name :String)
+                                    (val checkedFactory :EvidenceIterableFactory[C, E],
+                                     val referenceFactory :EvidenceIterableFactory[S, E])
+                                    (implicit override val intEvidence :E[Int], override val longEvidence :E[Long],
+                                     override val stringEvidence :E[String],
+                                     override val intSEvidence :E[S[Int]], override val intCEvidence :E[C[Int]])
+	extends GenericIterableProps[C, S, E](name)
+{
+	protected override def S[T :E] = referenceFactory
+	protected override def C[T :E] = checkedFactory
+
+	protected def factoryProps :Properties = new EvidenceIterableFactoryProps
+
+	private class EvidenceIterableFactoryProps extends Properties("iterableFactory") {
+		property("from") = forAll { items :Iterable[Int] =>
+			validate(referenceFactory from items, checkedFactory from items)
+		}
+	}
+
+	include(factoryProps)
+}
+
+
+abstract class ClassTagIterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
+                                    (name :String)
+                                    (checkedFactory :EvidenceIterableFactory[C, ClassTag],
+                                     referenceFactory :EvidenceIterableFactory[S, ClassTag])
+                                    (implicit override val intSEvidence :ClassTag[S[Int]],
+                                     override val intCEvidence :ClassTag[C[Int]])
+	extends EvidenceIterableProps[C, S, ClassTag](name)(checkedFactory, referenceFactory)
+{
+	override implicit def pairEvidence[A :ClassTag, B :ClassTag] :ClassTag[(A, B)] = implicitly[ClassTag[(A, B)]]
 }
 
 
@@ -505,314 +608,9 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 	                                          filt :Filter[T], fldA :FoldSide[F, T], evf :E[F], fld :Fold[T],
 	                                          mp :Map[T, M], evm :E[M], fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
 		super.props(expect, result) ++: orderedProps(expect, result)
-}
 
-
-
-
-
-abstract class SeqProps[C[+T] <: Seq[T]](name :String)
-	extends IterableProps[C, Seq](name) with OrderedProps[C, Seq, Dummy]
-{
-	implicit def buildablePassedArray[T] :Buildable[T, PassedArray[T]] = new Buildable[T, PassedArray[T]] {
-		override def builder :Builder[T, PassedArray[T]] = PassedArray.newBuilder[T]
-	}
-
-	property("length") = test { (expect :Seq[Int], subject :C[Int]) => expect.length =? subject.length }
-	property("apply") = test { (expect :Seq[Int], subject :C[Int]) =>
-		all(expect.indices.map(i => expect(i) =? subject(i)) :_*)
-	}
-	property("distinct") = test((_ :Seq[Int]).distinct)
-	property("reverse") = test((_ :Seq[Int]).reverse)
-	property("reverseIterator") = test { (expect :Seq[Int], subject :C[Int]) =>
-		checkIterator(expect.reverse, subject.reverseIterator)
-	}
-	property("startsWith") = test { (expect :Seq[Int], subject :C[Int]) =>
-		all(
-			(for {
-				from <- 0 to expect.length
-				until <- from to expect.length
-			} yield Prop(subject.startsWith(expect.slice(from, until), from)) lbl s"startsWith(slice($from, $until), $from)")
-		:_*) && forAll { (seq :Seq[Int], offset :Int) =>
-			if (offset < 0 || offset > expect.length) Prop(!subject.startsWith(seq, offset))
-			else expect.startsWith(seq, offset) =? subject.startsWith(seq, offset)
-		}
-	}
-	property("endsWith") = test { (expect :Seq[Int], subject :C[Int]) =>
-		all((0 to expect.length).map(i => Prop(subject.endsWith(expect.drop(i)))) :_*)
-	}
-//	property("padTo") = forAll { (length :Short, elem :Int) => test((_ :Seq[Int]).padTo(length, elem)) }
-	property("padTo") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { (length :Short, elem :Int) => expect.padTo(length, elem) =? subject.padTo(length, elem) }
-	}
-	property("segmentLength") = test { (expect :Seq[Int], subject :C[Int]) =>
-		all(expect.indices.map(i => expect.segmentLength(_ % 3 <= 1, i) =? subject.segmentLength(_ % 3 <= 1, i)) :_*)
-	}
-
-
-	property("indexOf") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { (x :Int, i :Int) =>
-			expect.indexOf(x, i) =? subject.indexOf(x, i)
-		} && all(expect.mapWithIndex { (x, i) =>
-			(expect.indexOf(x) =? subject.indexOf(x)) :| (x.toString + "@" + expect.indexOf(x)) &&
-				(subject.indexOf(x, i) ?= i) :| s"#$i->$x"
-		} :_*)
-	}
-	property("lastIndexOf") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { (x :Int, i :Int) =>
-			expect.lastIndexOf(x, i) =? subject.lastIndexOf(x, i)
-		} && all(expect.mapWithIndex { (x, i) =>
-			(expect.lastIndexOf(x) =? subject.lastIndexOf(x)) :| (x.toString + "@" + expect.lastIndexOf(x)) &&
-				(subject.lastIndexOf(x, i) ?= i) :| s"#$i->$x"
-		} :_*)
-	}
-	property("indexWhere") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { (x :Int, i :Int) =>
-			expect.indexOf(x, i) =? subject.indexWhere(_ == x, i)
-		} && all(expect.mapWithIndex { (x, i) =>
-			(expect.indexOf(x) =? subject.indexWhere(_ == x)) :| (x.toString + "@" + expect.indexOf(x)) &&
-				(subject.indexWhere(_ == x, i) ?= i) :| s"#$i->$x"
-		} :_*)
-	}
-	property("lastIndexWhere") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { (x :Int, i :Int) =>
-			expect.lastIndexOf(x, i) =? subject.lastIndexWhere(_ == x, i)
-		} && all(expect.mapWithIndex { (x, i) =>
-			(expect.lastIndexOf(x) =? subject.lastIndexWhere(_ == x)) :| (x.toString + "@" + expect.lastIndexOf(x)) &&
-				(subject.lastIndexWhere(_ == x, i) ?= i) :| s"$x<-#$i"
-		} :_*)
-	}
-	property("indexOfSlice") = test { (expect :Seq[Int], subject :C[Int]) =>
-		val indexed = expect.toVector //List.indexOfSlice is buggy in 2.13.10
-		all(
-			(for {
-				from <- expect.indices
-				until <- from to expect.length
-			} yield {
-				val slice = expect.slice(from, until)
-				val i = expect.indexOfSlice(slice)
-				((subject.indexOfSlice(slice) ?= i) :| slice.toString + "@" + i) &&
-					((subject.indexOfSlice(slice, from) ?= from) :| "[" + from + ", " + until + ")@" + from)
-			})
-		:_*) && forAll { (x :Seq[Int], i :Short) =>
-			subject.indexOfSlice(x, i & 0xffff) ?= indexed.indexOfSlice(x, i & 0xffff)
-		}
-	}
-	property("lastIndexOfSlice") = test { (expect :Seq[Int], subject :C[Int]) =>
-			all(
-			(for {
-				from <- expect.indices
-				until <- from to expect.length
-			} yield {
-				val slice = expect.slice(from, until)
-				val i = expect.lastIndexOfSlice(slice)
-				((subject.lastIndexOfSlice(slice) ?= i) :| slice.toString + "@" + i) &&
-					((subject.lastIndexOfSlice(slice, from) ?= from) :| "[" + from + ", " + until + ")@" + from)
-			})
-		:_*) && forAll { (x :Seq[Int], i :Short) =>
-			subject.lastIndexOfSlice(x, i & 0xffff) ?= expect.lastIndexOfSlice(x, i & 0xffff)
-		}
-	}
-
-	property("updated") = test { (expect :Seq[Int], subject :C[Int]) =>
-		import numeric.globalRandom
-		all(expect.indices.map { i =>
-			val elem = Int.random
-			val reference = expect.updated(i, elem)
-			val result = subject.updated(i, elem)
-			result ?= reference
-		} :_*)
-	}
-	property("patch") = forAll { (from :Int, patch :Seq[Int], replaced :Int) =>
-		test((_:Seq[Int]).patch(from, patch, replaced))
-	}
-
-	property(":+(Int)") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { x :Int => validate(expect :+ x, subject :+ x) }
-	}
-	property(":+(String)") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { x :String => compare(expect :+ x, subject :+ x) }
-	}
-
-	property("(Int)+:") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { x :Int => validate(x +: expect, x +: subject) }
-	}
-	property("(String)+:") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { x :String => compare(x +: expect, x +: subject) }
-	}
-
-	property(":++(List[Int])") = forAll { (prefix :C[Int], suffix :List[Int]) =>
-		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
-	}
-	property(":++(List[String])") = forAll { (prefix :C[Int], suffix :List[String]) =>
-		compare(List.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
-	}
-	property(":++(ArraySeq[Int])") = forAll { (prefix :C[Int], suffix :ArraySeq[Int]) =>
-		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
-	}
-	property(":++(ArraySeq[String])") = forAll { (prefix :C[Int], suffix :ArraySeq[String]) =>
-		compare(List.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
-	}
-	property(":++(Vector[Int]))") = forAll { (prefix :C[Int], suffix :Vector[Int]) =>
-		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
-	}
-	property(":++(PassedArray[Int]).slice") = forAll { (prefix :C[Int], suffix :PassedArray[Int]) =>
-		validate(
-			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
-			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
-		) lbl passedArrayLabel(suffix)
-	}
-	property(":++(PassedArray[String].slice)") = forAll { (prefix :C[Int], suffix :PassedArray[String]) =>
-		try {
-		compare(
-			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
-			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
-		) lbl passedArrayLabel(suffix)
-		} catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
-	}
-
-	property(s":++(${C[Int].source.localClassName}[Int])") = forAll { (prefix :C[Int], suffix :C[Int]) =>
-		validate(List.from(prefix) ::: List.from(suffix), (prefix :++ suffix) to C)
-	}
-	property(s":++(${C[String].source.localClassName}[String])") = forAll { (prefix :C[Int], suffix :C[String]) =>
-		try {
-		compare(List.from(prefix) ::: List.from(suffix), (prefix :++ suffix) to C)
-		} catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
-
-	}
-
-	property("(List[Int])++:") = forAll { (prefix :List[Int], suffix :C[Int]) =>
-		validate(prefix ++ suffix, (prefix ++: suffix) to C)
-	}
-	property("(List[String])++:") = forAll { (prefix :List[String], suffix :C[Int]) =>
-		compare(prefix ++ suffix, (prefix ++: suffix) to C)
-	}
-	property("(ArraySeq[Int])++:") = forAll { (prefix :ArraySeq[Int], suffix :C[Int]) =>
-		validate(prefix ++ suffix, (prefix ++: suffix) to C)
-	}
-	property("(ArraySeq[String])++:") = forAll { (prefix :ArraySeq[String], suffix :C[Int]) =>
-		compare(prefix ++ suffix, (prefix ++: suffix) to C)
-	}
-	property("(Vector[Int])++:") = forAll { (prefix :Vector[Int], suffix :C[Int]) =>
-		validate(prefix ++ suffix, (prefix ++: suffix) to C)
-	}
-	property("(PassedArray[Int].slice)++:") = forAll { (prefix :PassedArray[Int], suffix :C[Int]) =>
-		validate(
-			prefix.slice(1, prefix.length - 1) ++ suffix,
-			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
-		) lbl passedArrayLabel(prefix)
-	}
-	property("(PassedArray[String].slice)++:") = forAll { (prefix :PassedArray[String], suffix :C[Int]) =>
-		try {
-		compare(
-			prefix.slice(1, prefix.length - 1) ++ suffix,
-			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
-		) lbl passedArrayLabel(prefix)
-		} catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
-
-	}
-	property(s"(${C[Int].source.localClassName}[Int])++:") = forAll { (prefix :C[Int], suffix :C[Int]) =>
-		validate(List.from(prefix) ::: List.from(suffix), (prefix ++: suffix) to C)
-	}
-	property(s"(${C[String].source.localClassName}[String])++:") =
-		forAll { (prefix :C[Int], suffix :C[String]) =>
-			compare(List.from(prefix) ::: List.from(suffix) :Seq[Any], (prefix ++: suffix) to C)
-		}
-
-
-	private def passedArrayLabel[E](seq :PassedArray[E]) = seq match {
-		case slice :AbstractPassedArray[E] => slice.dumpString
-		case _                             => seq.mkString(seq.localClassName + "(", ", ", ")")
-	}
-
-	protected override def orderedProps[T, F, M, FM](expect :Seq[T], result :Seq[T])
-	                                                (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :Dummy[T],
-	                                                 filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T],
-	                                                 mp :Map[T, M], evm :Dummy[M],
-	                                                 fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Seq[Prop] =
-		super.orderedProps(expect, result) ++: Seq(
-			"apply"           lbl_: all(expect.indices.map(i => (expect(i) =? result(i)) :| i.toString) :_*) &&
-		                                result(-1).throws[IndexOutOfBoundsException] :| "-1" &&
-			                            result(expect.length).throws[IndexOutOfBoundsException] :| expect.length.toString,
-			"distinct"        lbl_: compare(expect.distinct, result.distinct),
-			"reverseIterator" lbl_: checkIterator(expect.reverse, result.reverseIterator),
-			"reverse"         lbl_: compare(expect.reverse, result.reverse),
-			"updated"         lbl_: forAll { (i :Int, x :T) =>
-			                            if (i < 0 || i >= expect.length)
-				                            result.updated(i, x).throws[IndexOutOfBoundsException]
-			                            else
-				                            compare(expect.updated(i, x), result.updated(i, x))
-			                        },
-			"startsWith"      lbl_: forAll { (from :Int, until :Int) =>
-			                            if (from < 0)
-				                            Prop(!result.startsWith(expect.slice(from, until), from))
-			                            else if (from > expect.length)
-				                            Prop(!result.startsWith(Nil, from))
-			                            else if (from <= until) {
-				                            if (!result.startsWith(expect.slice(from, until), from)) {
-					                            println("result: " + result + ": " + result.className)
-					                            println("expect: " + expect + ": " + expect.className)
-					                            println("startsWith(" + expect.slice(from, until) + ", " + from + ")")
-				                            }
-				                            Prop(result.startsWith(expect.slice(from, until), from))
-			                            } else forAll { subseq :Seq[T] =>
-				                            expect.startsWith(subseq, from) =? result.startsWith(subseq, from)
-			                            }
-			                        },
-			"endsWith "       lbl_: forAll { (from :Int) =>
-			                            if (from < 0 || from > expect.length)
-				                            forAll {
-					                            subseq :Seq[T] => expect.endsWith(subseq) =? result.endsWith(subseq)
-				                            }
-			                            else
-				                            Prop(result.endsWith(expect.drop(from)))
-			                        },
-			"segmentLength"   lbl_: forAll { (from :Int) =>
-			                        	expect.segmentLength(filt.f, from) =? result.segmentLength(filt.f, from)
-			                        },
-			"indexOf"         lbl_: forAll { (x :T, from :Int) => expect.indexOf(x, from) =? result.indexOf(x, from) },
-			"lastIndexOf"     lbl_: forAll { (x :T, from :Int) =>
-			                            expect.lastIndexOf(x, from) =? result.lastIndexOf(x, from)
-			                        },
-			"indexWhere"      lbl_: forAll { (from :Int) =>
-			                        	expect.indexWhere(filt.f, from) =? result.indexWhere(filt.f, from)
-			                        },
-			"lastIndexWhere"   lbl_: forAll { (from :Int) =>
-			                            val clipped = math.min(from, expect.length)
-			                            expect.lastIndexWhere(filt.f, clipped) =? result.lastIndexWhere(filt.f, from)
-			                        },
-			"indexOfSlice"     lbl_: forAll { (x :Seq[T], from :Int) =>
-			                            val len = expect.length
-			                            if (from == len && x.isEmpty) result.indexOfSlice(x, from) ?= len
-			                            else expect.indexOfSlice(x, from max 0) =? result.indexOfSlice(x, from)
-			                         },
-			"lastIndexOfSlice" lbl_: forAll { (x :Seq[T], from :Int) =>
-			                            val len = expect.length
-			                            if (from >= len && x.isEmpty) result.lastIndexOfSlice(x, from) ?= len
-			                            else expect.lastIndexOfSlice(x, from) =? result.lastIndexOfSlice(x, from)
-			                         },
-		)
-
-
-	override def referenceFactory :IterableFactory[Seq] = Seq
 	override def hasOrder = true
 }
-
 
 
 
@@ -835,18 +633,7 @@ abstract class SeqProps[C[+T] <: Seq[T]](name :String)
 
 
 
-/** Generic stateful property testing for Seq builders
-  *
-  * Usage: {{{
-  *   class MyCollectionProperties extends Properties("my.Collection") {
-  *      property("MyCollection builder stateful testing") =
-  *        new SeqBuilderStateProperties(MySeq.newBuilder[A]).property() &&
-  *   }
-  * }}}
-  * @param arbA  gen for the elements of the Seq
-  * @tparam To the type of Seq under test
-  */
-class SeqBuilderStateProperties[A, To <: Seq[A]](newBuilder : => Builder[A, To])(implicit arbA :Arbitrary[A])
+class BuilderProp[A, To <: Iterable[A]](newBuilder : => Builder[A, To])(implicit arbA :Arbitrary[A])
 	extends Commands
 {
 	override type State = Seq[A]
@@ -857,12 +644,14 @@ class SeqBuilderStateProperties[A, To <: Seq[A]](newBuilder : => Builder[A, To])
 	val commandGen = Gen.oneOf(
 		const(Clear),
 		const(Result),
-		choose(0, 10000).map(SizeHint(_)),
+		choose(-1, 10000).map(SizeHint(_)),
 		arbA.arbitrary.map(a => AddOne(a)),
-		listOf(arbA.arbitrary).map(a => AddAll(a))
+		listOf(arbA.arbitrary).map(AddAll(_)),
+		buildable[Vector[A]]().map(AddAll(_)),
+		buildable[Set[A]]().map(AddAll(_))
 	)
 
-	override def genInitialState :Gen[State] = newBuilder.result()
+	override def genInitialState :Gen[State] = newBuilder.result().toSeq
 
 	override def canCreateNewSut(newState :State, initSuts :scala.Iterable[State], runningSuts :scala.Iterable[Sut]) = true
 	override def newSut(state :State) :mutable.Builder[A, To] = newBuilder.addAll(state)
@@ -900,7 +689,7 @@ class SeqBuilderStateProperties[A, To <: Seq[A]](newBuilder : => Builder[A, To])
 		override def preCondition(state :State) = true
 	}
 
-	case class AddAll(elems :scala.collection.immutable.Seq[A]) extends UnitCommand {
+	case class AddAll(elems :scala.collection.immutable.Iterable[A]) extends UnitCommand {
 		override def postCondition(state :State, success :Boolean) = success
 		override def run(sut :Sut) = sut.addAll(elems)
 		override def nextState(state :State) = state.appendedAll(elems)

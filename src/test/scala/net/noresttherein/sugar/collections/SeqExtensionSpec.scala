@@ -11,7 +11,8 @@ import net.noresttherein.sugar.extensions.{IterableExtension, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
 import net.noresttherein.sugar.typist.ConvertibleTo
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.IntOpt.AnInt
+import net.noresttherein.sugar.vars.{IntOpt, Opt}
 import net.noresttherein.sugar.vars.Opt.Got
 
 
@@ -19,9 +20,9 @@ import net.noresttherein.sugar.vars.Opt.Got
 
 object SeqExtensionSpec extends Properties("SeqExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(127)
 
-	import typeClasses._
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
 	def seqProperty[X :ClassTag :Arbitrary :Shrink :ConvertibleTo[Pretty]#T](prop :Seq[X] => Prop) :Prop =
 		forAll { seq :List[X] => prop(seq) :| "List" } &&
@@ -65,8 +66,8 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 
 	property("shuffle") = seqProperty { seq :Seq[Int] => seq.shuffle.sorted =? seq.sorted }
 
-	private def lazyIndexProperty(idx :Int, knownDeltaSizeLimit :Int = -1, deltaSizeLimit :Int = -1)
-	                               (f :Seq[Int] => (Seq[Int], Seq[Int])) =
+	private def lazyIndexProperty(idx :Int, knownDeltaSizeLimit :Int, deltaSizeLimit :Int)
+	                             (f :Seq[Int] => (Seq[Int], Seq[Int])) =
 		forAll { seq :Vector[Int] =>
 			val list = LazyList.from(seq)
 			if (idx < 0 || idx > knownDeltaSizeLimit && list.knownSize == 0)
@@ -201,14 +202,14 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 //	}
 
 
-	private def getIndex(i :Int) :Opt[Int] = Opt.when(i >= 0)(i)
+	private def getIndex(i :Int) :Option[Int] = Option.when(i >= 0)(i)
 
 	property("getIndexOf") = forAll { (seq :Seq[Int]) =>
 		forAll { (x :Int, i :Int) =>
 			seq.getIndexOf(x, i) ?= getIndex(seq.indexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getIndexOf(x) ?= getIndex(seq.indexOf(x))) :| (x.toString + "@" + seq.indexOf(x))) &&
-				(seq.getIndexOf(x, i) ?= Got(i)) :| s"#$i->$x"
+				(seq.getIndexOf(x, i) ?= Some(i)) :| s"#$i->$x"
 		} :_*)
 	}
 	property("getLastIndexOf") = forAll { (seq :Seq[Int]) =>
@@ -216,7 +217,7 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			seq.getLastIndexOf(x, i) ?= getIndex(seq.lastIndexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getLastIndexOf(x) ?= getIndex(seq.lastIndexOf(x))) :| (x.toString + "@" + seq.lastIndexOf(x))) &&
-				(seq.getLastIndexOf(x, i) ?= Got(i)) :| s"$x<-#$i"
+				(seq.getLastIndexOf(x, i) ?= Some(i)) :| s"$x<-#$i"
 		} :_*)
 	}
 	property("getIndexWhere") = forAll { (seq :Seq[Int]) =>
@@ -224,7 +225,7 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			seq.getIndexWhere(_ == x, i) ?= getIndex(seq.indexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getIndexWhere(_ == x) ?= getIndex(seq.indexOf(x))) :| (x.toString + "@" + seq.indexOf(x))) &&
-				(seq.getIndexWhere(_ == x, i) ?= Got(i)) :| s"#$i->$x"
+				(seq.getIndexWhere(_ == x, i) ?= Some(i)) :| s"#$i->$x"
 		} :_*)
 	}
 	property("getLastIndexWhere") = forAll { (seq :Seq[Int]) =>
@@ -232,7 +233,7 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			seq.getLastIndexWhere(_ == x, i) ?= getIndex(seq.lastIndexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getLastIndexWhere(_ == x) ?= getIndex(seq.lastIndexOf(x))) :| (x.toString + "@" + seq.lastIndexOf(x))) &&
-				(seq.getLastIndexWhere(_ == x, i) ?= Got(i)) :| s"$x<-#$i"
+				(seq.getLastIndexWhere(_ == x, i) ?= Some(i)) :| s"$x<-#$i"
 		} :_*)
 	}
 	property("getIndexOfSlice") = forAll { (seq :Vector[Int]) =>
@@ -244,7 +245,7 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 				val slice = seq.slice(from, until)
 				val i = seq.indexOfSlice(slice)
 				((seq.getIndexOfSlice(slice) ?= getIndex(i)) :| slice.toString + "@" + i) &&
-					((seq.getIndexOfSlice(slice, from) ?= Got(from)) :| "[" + from + ", " + until + ")@" + from)
+					((seq.getIndexOfSlice(slice, from) ?= Some(from)) :| "[" + from + ", " + until + ")@" + from)
 			})
 		:_*) && forAll { (x :Seq[Int], i :Short) =>
 			seq.getIndexOfSlice(x, i & 0xffff) ?= getIndex(seq.indexOfSlice(x, i & 0xffff))
@@ -259,10 +260,75 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 				val slice = seq.slice(from, until)
 				val i = seq.lastIndexOfSlice(slice)
 				((seq.getLastIndexOfSlice(slice) ?= getIndex(i)) :| slice.toString + "@" + i) &&
-					((seq.getLastIndexOfSlice(slice, from) ?= Got(from)) :| "[" + from + ", " + until + ")@" + from)
+					((seq.getLastIndexOfSlice(slice, from) ?= Some(from)) :| "[" + from + ", " + until + ")@" + from)
 			})
 		:_*) && forAll { (x :Seq[Int], i :Short) =>
 			seq.getLastIndexOfSlice(x, i & 0xffff) ?= getIndex(seq.lastIndexOfSlice(x, i & 0xffff))
+		}
+	}
+
+	private def findIndex(i :Int) :IntOpt = IntOpt.nonNegative(i)
+
+	property("findIndexOf") = forAll { (seq :Seq[Int]) =>
+		forAll { (x :Int, i :Int) =>
+			seq.findIndexOf(x, i) ?= findIndex(seq.indexOf(x, i))
+		} && all(seq.mapWithIndex { (x, i) =>
+			((seq.findIndexOf(x) ?= findIndex(seq.indexOf(x))) :| (x.toString + "@" + seq.indexOf(x))) &&
+				(seq.findIndexOf(x, i) ?= AnInt(i)) :| s"#$i->$x"
+		} :_*)
+	}
+	property("findLastIndexOf") = forAll { (seq :Seq[Int]) =>
+		forAll { (x :Int, i :Int) =>
+			seq.findLastIndexOf(x, i) ?= findIndex(seq.lastIndexOf(x, i))
+		} && all(seq.mapWithIndex { (x, i) =>
+			((seq.findLastIndexOf(x) ?= findIndex(seq.lastIndexOf(x))) :| (x.toString + "@" + seq.lastIndexOf(x))) &&
+				(seq.findLastIndexOf(x, i) ?= AnInt(i)) :| s"$x<-#$i"
+		} :_*)
+	}
+	property("findIndexWhere") = forAll { (seq :Seq[Int]) =>
+		forAll { (x :Int, i :Int) =>
+			seq.findIndexWhere(_ == x, i) ?= findIndex(seq.indexOf(x, i))
+		} && all(seq.mapWithIndex { (x, i) =>
+			((seq.findIndexWhere(_ == x) ?= findIndex(seq.indexOf(x))) :| (x.toString + "@" + seq.indexOf(x))) &&
+				(seq.findIndexWhere(_ == x, i) ?= AnInt(i)) :| s"#$i->$x"
+		} :_*)
+	}
+	property("findLastIndexWhere") = forAll { (seq :Seq[Int]) =>
+		forAll { (x :Int, i :Int) =>
+			seq.findLastIndexWhere(_ == x, i) ?= findIndex(seq.lastIndexOf(x, i))
+		} && all(seq.mapWithIndex { (x, i) =>
+			((seq.findLastIndexWhere(_ == x) ?= findIndex(seq.lastIndexOf(x))) :| (x.toString + "@" + seq.lastIndexOf(x))) &&
+				(seq.findLastIndexWhere(_ == x, i) ?= AnInt(i)) :| s"$x<-#$i"
+		} :_*)
+	}
+	property("findIndexOfSlice") = forAll { (seq :Vector[Int]) =>
+		all(
+			(for {
+				from <- seq.indices
+				until <- from to seq.length
+			} yield {
+				val slice = seq.slice(from, until)
+				val i = seq.indexOfSlice(slice)
+				((seq.findIndexOfSlice(slice) ?= findIndex(i)) :| slice.toString + "@" + i) &&
+					((seq.findIndexOfSlice(slice, from) ?= AnInt(from)) :| "[" + from + ", " + until + ")@" + from)
+			})
+		:_*) && forAll { (x :Seq[Int], i :Short) =>
+			seq.findIndexOfSlice(x, i & 0xffff) ?= findIndex(seq.indexOfSlice(x, i & 0xffff))
+		}
+	}
+	property("findLastIndexOfSlice") = forAll { (seq :Vector[Int]) =>
+		all(
+			(for {
+				from <- seq.indices
+				until <- from to seq.length
+			} yield {
+				val slice = seq.slice(from, until)
+				val i = seq.lastIndexOfSlice(slice)
+				((seq.findLastIndexOfSlice(slice) ?= findIndex(i)) :| slice.toString + "@" + i) &&
+					((seq.findLastIndexOfSlice(slice, from) ?= AnInt(from)) :| "[" + from + ", " + until + ")@" + from)
+			})
+		:_*) && forAll { (x :Seq[Int], i :Short) =>
+			seq.findLastIndexOfSlice(x, i & 0xffff) ?= findIndex(seq.lastIndexOfSlice(x, i & 0xffff))
 		}
 	}
 

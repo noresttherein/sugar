@@ -14,6 +14,8 @@ import net.noresttherein.sugar.extensions.{ArrayAsIterableOnceExtension, Iterabl
 /** Type aliases for ubiquitous Java types which have Scala counterparts sharing their name. */
 @SerialVersionUID(Ver)
 object JavaTypes {
+	type JArray            = java.lang.reflect.Array
+
 	type JVoid             = java.lang.Void
 	type JBoolean          = java.lang.Boolean
 	type JByte             = java.lang.Byte
@@ -60,13 +62,13 @@ object JavaTypes {
 		def over[T, I <: JIterator[_]](array :Array[T])(implicit shape :JavaIteratorShape[T, I]) :I =
 			ArrayStepper(array)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
-		def over[T, I <: JIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
-		                              (implicit shape :JavaIteratorShape[T, I]) :I =
+		def slice[T, I <: JIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
+		                               (implicit shape :JavaIteratorShape[T, I]) :I =
 			IndexedSeqStepper(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
-		def over[T, I <: JIterator[_]](array :Array[T], from :Int, until :Int)
-		                              (implicit shape :JavaIteratorShape[T, I]) :I =
-			ArrayStepper(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		def slice[T, I <: JIterator[_]](array :Array[T], from :Int, until :Int)
+		                               (implicit shape :JavaIteratorShape[T, I]) :I =
+			ArrayStepper.slice(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 	}
 
 	@SerialVersionUID(Ver)

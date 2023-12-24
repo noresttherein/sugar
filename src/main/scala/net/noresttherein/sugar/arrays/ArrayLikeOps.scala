@@ -1,7 +1,9 @@
-package net.noresttherein.sugar.collections
+package net.noresttherein.sugar.arrays
 
 import scala.Specializable.Everything
+import scala.annotation.tailrec
 
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.extensions.cast2TypeParamsMethods
 
 
@@ -13,11 +15,12 @@ import net.noresttherein.sugar.extensions.cast2TypeParamsMethods
   * allows to use them also in Scala 3, without needing to resort to 'manual specialization'.
   * @author Marcin Mościcki
   */
-private object ArrayLikeOps {
+private[sugar] object ArrayLikeOps {
 	def foreach[E, U](array :Array[E], from :Int, until :Int)(f :E => U) :Unit = {
 		def foreach[@specialized(Everything) X](arr :Array[X])(f :X => U) :Unit = {
-			var i = from
-			while (i < until) {
+			val end = math.min(until, arr.length)
+			var i   = math.max(from, 0)
+			while (i < end) {
 				f(arr(i))
 				i += 1
 			}
@@ -298,7 +301,7 @@ private object ArrayLikeOps {
 				case a :Array[Float]   => foldr(a, op.asInstanceOf[(Float, A) => A])
 				case a :Array[Short]   => foldr(a, op.asInstanceOf[(Short, A) => A])
 				case a :Array[Boolean] => foldr(a, op.asInstanceOf[(Boolean, A) => A])
-				case null               => throw new NullPointerException
+				case null              => throw new NullPointerException
 			}
 	}
 	
@@ -314,6 +317,38 @@ private object ArrayLikeOps {
 		else
 			foldRight[E, A](array, from, until - 1)(array(until - 1))(op)
 
+	def addString[E](array :Array[E], b :JStringBuilder, start :String, sep :String, end :String) :Unit = {
+		def specAddString[@specialized(Specializable.Everything) A](a :Array[A]) :Unit = {
+			if (start.length != 0)
+				b append start
+			val until = a.length - 1
+			var i = 0
+			if (until >= 0) {
+				while (i < until) {
+					b append a(i) //todo :check if this will specialize the call!
+					b append sep
+					i += 1
+				}
+				b append a(until)
+			}
+			if (end.length != 0)
+				b append end
+		}
+		(array :Array[_]) match {
+			case a :Array[AnyRef]  => specAddString(a)
+			case a :Array[Int]     => specAddString(a)
+			case a :Array[Long]    => specAddString(a)
+			case a :Array[Double]  => specAddString(a)
+			case a :Array[Byte]    => specAddString(a)
+			case a :Array[Char]    => specAddString(a)
+			case a :Array[Float]   => specAddString(a)
+			case a :Array[Short]   => specAddString(a)
+			case a :Array[Boolean] => specAddString(a)
+			case null              => throw new NullPointerException
+		}
+	}
+
+
 	/** Maps all classes representable in `JVM` to their boxed representations. */
 	private[this] val Unbox = Map[Class[_], Class[_]](
 		classOf[java.lang.Byte] -> classOf[Byte],
@@ -325,5 +360,122 @@ private object ArrayLikeOps {
 		classOf[java.lang.Double] -> classOf[Double],
 		classOf[java.lang.Boolean] -> classOf[Boolean],
 	) withDefault identity[Class[_]]
+
+}
+
+
+
+
+private object BinarySearch {
+
+	@tailrec def apply(array :Array[Byte], from :Int, until :Int, key :Byte) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[Short], from :Int, until :Int, key :Short) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[Char], from :Int, until :Int, key :Char) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[Int], from :Int, until :Int, key :Int) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[Long], from :Int, until :Int, key :Long) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[Float], from :Int, until :Int, key :Float) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[Double], from :Int, until :Int, key :Double) :Int =
+		if (until == from) {
+			val candidate = array(from)
+			if (key == candidate) from
+			else if (key < candidate) -from - 1
+			else -from - 2
+		} else {
+			val middle = from + (until - from >> 1)
+			if (key <= array(middle)) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply(array :Array[AnyRef], from :Int, until :Int, key :AnyRef)(implicit ordering :Ordering[AnyRef]) :Int =
+		if (until == from)
+			math.signum(ordering.compare(key, array(from))) match {
+				case  0 => from
+				case -1 => -from - 1
+				case  1 => -from - 2
+			}
+		else {
+			val middle = from + (until - from >> 1)
+			if (ordering.lteq(key, array(middle))) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
+
+	@tailrec def apply[X, U >: X](array :Array[X], from :Int, until :Int, key :U)(implicit ordering :Ordering[U]) :Int =
+		if (until == from)
+			math.signum(ordering.compare(key, array(from))) match {
+				case  0 => from
+				case -1 => -from - 1
+				case  1 => -from - 2
+			}
+		else {
+			val middle = from + (until - from >> 1)
+			if (ordering.lteq(key, array(middle))) apply(array, from, middle, key)
+			else apply(array, middle + 1, until, key)
+		}
 
 }

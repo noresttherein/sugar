@@ -1,17 +1,20 @@
 package net.noresttherein.sugar.collections
 
+import scala.collection.{AbstractIterator, IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, LazyZip2, SeqView, Stepper, StepperShape, View, mutable}
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.immutable.{IndexedSeqOps, StringView, WrappedString}
 import scala.collection.mutable.Builder
-import scala.collection.{AbstractIterator, IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, LazyZip2, SeqView, Stepper, StepperShape, View, mutable}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, JavaStringBuilderExtension, RefArrayExtension, RefArrayLikeExtension}
-import net.noresttherein.sugar.extensions.{ClassExtension, IterableExtension, IterableOnceExtension, IteratorExtension, castTypeParamMethods}
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, IArray, IArrayLike, IRefArray, RefArray, RefArrayLike}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, IArrayExtension, IArrayLikeExtension, IRefArrayExtension, RefArrayExtension, RefArrayLikeExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, JavaStringBuilderExtension}
 import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.{<:?<, Unknown}
+import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
+import net.noresttherein.sugar.reflect.extensions.ClassExtension
 
 
 
@@ -845,8 +848,14 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 	implicit def forArrayLike[E] :IndexedSeqLike[E, ArrayLike, ArrayLike[E]] =
 		arrayLikePrototype.asInstanceOf[IndexedSeqLike[E, ArrayLike, ArrayLike[E]]]
 
+	implicit def forRefArrayLike[E] :IndexedSeqLike[E, RefArrayLike, RefArrayLike[E]] =
+		arrayLikePrototype.asInstanceOf[IndexedSeqLike[E, RefArrayLike, RefArrayLike[E]]]
+
 	implicit def forIArrayLike[E] :IndexedSeqLike[E, IArrayLike, IArrayLike[E]] =
 		iArrayLikePrototype.asInstanceOf[IndexedSeqLike[E, IArrayLike, IArrayLike[E]]]
+
+	implicit def forArray[E] :IndexedSeqLike[E, Array, Array[E]] =
+		arrayPrototype.asInstanceOf[IndexedSeqLike[E, Array, Array[E]]]
 
 	implicit def forIArray[E] :IndexedSeqLike[E, IRefArray, IArray[E]] =
 		iArrayPrototype.asInstanceOf[IndexedSeqLike[E, IRefArray, IArray[E]]]
@@ -858,20 +867,27 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		rankingPrototype.asInstanceOf[IndexedSeqLike[E, Ranking, Ranking[E]]]
 
 	private[this] val arrayLikePrototype = new SpecificForArrayLike[Unknown, ArrayLike] {
-		override def toOps(elems :ArrayLike[Unknown]) = new ArrayLikeAsSeq(elems)
-		override def toIterable(elems :ArrayLike[Unknown]) = ArrayLikeSlice.of(elems)
-		override def toIndexedSeq(elems :ArrayLike[Unknown]) = IRefArraySlice.of(IRefArray.copyOf(elems))
+		override def toOps(elems :ArrayLike[Unknown]) = elems.toOps
+		override def toIterable(elems :ArrayLike[Unknown]) = ArrayLikeSlice.wrap(elems)
+		override def toIndexedSeq(elems :ArrayLike[Unknown]) = IRefArraySlice.wrap(IRefArray.copyOf(elems))
 		override def toString = "IndexedSeqLike.forArrayLike"
 		private def readResolve = IndexedSeqLike.forArrayLike
 	}
 	private[this] val iArrayLikePrototype = new SpecificForArrayLike[Unknown, IArrayLike] {
-		override def toOps(elems :IArrayLike[Unknown]) = new IArrayLikeAsSeq(elems)
-		override def toIndexedSeq(elems :IArrayLike[Unknown]) = IArrayLikeSlice.of(elems)
+		override def toOps(elems :IArrayLike[Unknown]) = elems.toOps
+		override def toIndexedSeq(elems :IArrayLike[Unknown]) = IArrayLikeSlice.wrap(elems)
 		override def toString = "IndexedSeqLike.forIArrayLike"
 		private def readResolve = IndexedSeqLike.forIArrayLike
 	}
+	private[this] val arrayPrototype = new SpecificForArrayLike[Unknown, Array] {
+		override def toOps(elems :Array[Unknown]) = elems.toOps
+		override def toIterable(elems :Array[Unknown]) = ArraySlice.wrap(elems)
+		override def toIndexedSeq(elems :Array[Unknown]) = IArray.Wrapped(elems.toIArray)
+		override def toString = "IndexedSeqLike.forArray"
+		private def readResolve = IndexedSeqLike.forArray
+	}
 	private[this] val iArrayPrototype = new SpecificForArrayLike[Unknown, IArray] {
-		override def toOps(elems :IArray[Unknown]) = new IArrayAsSeq(elems)
+		override def toOps(elems :IArray[Unknown]) = elems.toOps
 		override def toIndexedSeq(elems :IArray[Unknown]) = IArray.Wrapped(elems)
 		override def toString = "IndexedSeqLike.forIArray"
 		private def readResolve = IndexedSeqLike.forIArray
@@ -880,7 +896,7 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def patch[A >: Unknown](elems :IRefArray[Unknown])(from :Int, other :IterableOnce[A], replaced :Int) =
 			RefArrayLikeExtension(elems).patch(from, other, replaced)
 
-		override def toOps(elems :IRefArray[Unknown]) = new IRefArrayAsSeq(elems)
+		override def toOps(elems :IRefArray[Unknown]) = elems.toOps
 		override def toIndexedSeq(elems :IRefArray[Unknown]) = IRefArray.Wrapped(elems)
 		override def toString = "IndexedSeqLike.forIRefArray"
 		private def readResolve = IndexedSeqLike.forIRefArray
@@ -1032,9 +1048,9 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 			new StringStepper(elems).asInstanceOf[S]
 
 		override def copyToArray[A >: Char](elems :String)(array :Array[A], start :Int, max :Int) :Int =
-			copyRangeToArray[A](elems)(array, 0, start, max)
+			copyRangeToArray[A](elems)(array, start, 0, max)
 
-		def copyRangeToArray[A >: Char](elems :String)(xs :Array[A], from :Int, start :Int, len :Int) :Int = {
+		def copyRangeToArray[A >: Char](elems :String)(xs :Array[A], start :Int, from :Int, len :Int) :Int = {
 			val copied = util.elementsToCopy(xs, start, len, from, elems.length)
 			xs match {
 				case chars :Array[Char] =>
@@ -1073,7 +1089,7 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 
 private abstract class GenericForArrayLike[E, Arr[X] <: ArrayLike[X]] extends IndexedSeqLike[E, ArrayLike, Arr[E]] {
 	//shadow the inherited Arr[E] => IterableOnce[E] conversion
-	import net.noresttherein.sugar.collections.extensions.{ArrayLikeExtension => conversion}
+	import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension => conversion}
 
 	final override def knownSize(elems :Arr[E]) :Int = elems.length
 	final override def size(elems :Arr[E]) :Int = elems.length
@@ -1147,7 +1163,7 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 	extends GenericForArrayLike[E, Arr] with IndexedSeqLike[E, ArrayLike, Arr[E]]
 {
 	//shadow the inherited Arr[E] => IterableOnce[E] conversion
-	import net.noresttherein.sugar.collections.extensions.{ArrayLikeExtension => conversion}
+	import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension => conversion}
 
 	final override def slice(elems :Arr[E])(from :Int, until :Int) :Arr[E] = elems.slice(from, until)
 	final override def take(elems :Arr[E])(n :Int) :Arr[E] = elems.take(n)
@@ -1194,15 +1210,13 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 	final override def intersect[U >: E](elems :Arr[E])(that :collection.Seq[U]) :Arr[E] = elems.intersect(that)
 
 	override def empty(elems :Arr[E]) :Arr[E] =
-		ArrayAsSeq.empty(elems.getClass.getComponentType).asInstanceOf[Arr[E]]
+		ArrayFactory.empty(elems.getClass.getComponentType).asInstanceOf[Arr[E]]
 
 	protected override def fromSpecific(elems :Arr[E])(coll :IterableOnce[E]) =
 		coll.toBasicOps.toArray(ClassTag[E](elems.getClass.getComponentType)).asInstanceOf[Arr[E]]
 
 	protected override def newSpecificBuilder(elems :Arr[E]) =
-		ArrayAsSeq.newBuilder(
-			elems.getClass.getComponentType.castParam[E]
-		).asInstanceOf[Builder[E, Arr[E]]]
+		ArrayFactory.newBuilder(elems.getClass.getComponentType.castParam[E]).asInstanceOf[Builder[E, Arr[E]]]
 
 	final override def toArray[A >: E :ClassTag](elems :Arr[E]) :Array[A] = elems.toArray
 
@@ -1220,7 +1234,7 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 	override def appended[A >: E](elems :Arr[E])(elem :A) :ArrayLike[A] = {
 		val length = elems.length
 		if (elem.getClass <%< elems.getClass.getComponentType) {
-			val res = ArrayAsSeq.copyOf(elems.asInstanceOf[Array[A]], length + 1)
+			val res = ArrayFactory.copyOf(elems.asInstanceOf[Array[A]], length + 1)
 			res(length) = elem
 			res
 		} else {
@@ -1319,8 +1333,8 @@ object MutableIndexedSeqLike extends Rank1MutableIndexedSeqLike {
 
 	private[this] val arrayPrototype = new ForArrayLike[Unknown, Array] {
 		override def update(elems :Array[Unknown])(idx :Int, elem :Unknown) :Unit = elems(idx) = elem
-		override def toOps(elems :Array[Unknown]) = new ArrayAsSeq(elems)
-		override def toIterable(elems :Array[Unknown]) = ArraySlice.of(elems)
+		override def toOps(elems :Array[Unknown]) = elems.toOps
+		override def toIterable(elems :Array[Unknown]) = ArraySlice.wrap(elems)
 		override def toIndexedSeq(elems :Array[Unknown]) = IArray.Wrapped(IArray.from(elems))
 		override def toString = "MutableIndexedSeqLike.forArray"
 		private def readResolve = MutableIndexedSeqLike.forArray
@@ -1330,7 +1344,7 @@ object MutableIndexedSeqLike extends Rank1MutableIndexedSeqLike {
 		override def patch[A >: Unknown](elems :RefArray[Unknown])(from :Int, other :IterableOnce[A], replaced :Int) =
 			RefArrayLikeExtension(elems).patch(from, other, replaced)
 
-		override def toOps(elems :RefArray[Unknown]) = new RefArrayAsSeq(elems)
+		override def toOps(elems :RefArray[Unknown]) = elems.toOps
 		override def toIterable(elems :RefArray[Unknown]) = RefArray.Wrapped(elems)
 		override def toIndexedSeq(elems :RefArray[Unknown]) = IRefArray.Wrapped(IRefArray.copyOf(elems))
 		override def toString = "MutableIndexedSeqLike.forRefArray"

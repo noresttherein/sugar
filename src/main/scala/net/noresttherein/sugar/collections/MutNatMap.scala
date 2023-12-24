@@ -1,10 +1,10 @@
 package net.noresttherein.sugar.collections
 
 
-import java.lang.invoke.VarHandle.releaseFence
 
 import scala.collection.mutable
 import scala.collection.mutable.Builder
+import scala.runtime.Statics.releaseFence
 
 import net.noresttherein.sugar.collections.NatMap.Assoc
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{throwANoSuchElementException, Throw}

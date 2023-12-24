@@ -13,18 +13,28 @@ import org.scalacheck.Gen.const
 import org.scalacheck.commands.Commands
 import org.scalacheck.util.{Buildable, ConsoleReporter}
 import net.noresttherein.sugar.extensions.{BooleanExtension, ClassExtension, ThrowableExtension}
-import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, PropExtension}
+import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}
 
 
 
+//The easiest way to test buffers is to temporarily implement toString
+// so that it shows offset..(offset+length)/array.length.
+// Look at scalacheck action list output and search for the last successful one, noting the buffer stats.
+// Then simply create a buffer with the specified initial size, add offset+length elements, and drop offset elements.
+// This way you can then just debug the last action, applying it to the recreated buffer.
 
 trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqProps[C, E] {
+	protected def minSuccessfulTests = 500
+	protected def maxSize = 64
+
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(3, 140)).withMinSuccessfulTests(1000).withMaxSize(64)
+		p.withTestCallback(ConsoleReporter(3, 140)).withMinSuccessfulTests(minSuccessfulTests).withMaxSize(maxSize)
 
 	val parameters = overrideParameters(Test.Parameters.default)
 
 	type Buff[X] = C[X]
+
+	implicit protected def intEvidence :E[Int]
 
 	implicit def buildableChecked[T :E] :Buildable[T, C[T]]
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking
@@ -37,6 +47,15 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 			buff <- Gen.containerOfN[Buff, T](len, Arbitrary.arbitrary[T])
 		} yield buff.dropInPlace(drop)
 	)
+
+	property("apply") = forAll { seq :IndexedSeq[Int] =>
+		val buffer = (buildableChecked[Int].builder ++= seq).result()
+		all(0 until buffer.length map { i => seq(i) =? buffer(i) lbl s"apply($i)" } :_*) &&
+			(buffer(-1).throws[IndexOutOfBoundsException] lbl "apply(-1)") &&
+			(buffer(buffer.length).throws[IndexOutOfBoundsException] lbl s"apply(length==${buffer.length})") lbl
+			buffer.toString
+	}
+
 
 	class BufferCommands[X :E :Arbitrary :ClassTag](init :Seq[X] => C[X]) extends Commands {
 		override type State = Either[Class[_], Seq[X]]
@@ -85,7 +104,12 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 
 			override def postCondition(state :State, result :Try[Result]) =
 				(nextState(state), result) match {
-					case (Right(left), Success(right)) => left =? right
+					case (Right(left), Success(right)) =>
+						(left =? right) && all(
+							left.indices.map(i => left(i) =? right(i) lbl s"apply($i)")
+						: _*) &&
+							(right(-1).throws[IndexOutOfBoundsException] :| "apply(-1)") &&
+							(right(left.length).throws[IndexOutOfBoundsException] :| s"apply(${left.length})")
 					case (Left(cls), Failure(exception)) =>
 						cls.isInstance(exception) lbl
 							"Should have thrown " + cls.localName + ", but threw " + exception + "\n" +

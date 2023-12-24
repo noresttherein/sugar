@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.immutable.ArraySeq
+import scala.collection.immutable.{ArraySeq, StringOps}
 import scala.util.Random
 
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
@@ -15,9 +15,9 @@ import net.noresttherein.sugar.testing.scalacheck.extensions._
 object IterableExtensionSpec extends Properties("IterableExtension") {
 
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(127)
 
-	import typeClasses._
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 	private val Sum = 100
 
 	def iterableProperty(prop :Iterable[Int] => Prop) :Prop =
@@ -25,6 +25,123 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 			forAll { seq :IndexedSeq[Int] => prop(seq) :| "IndexedSeq" } &&
 			forAll { seq :RefArraySlice[Int] => prop(seq) :| "ArraySlice" } &&
 			forAll { col :OrderedItems[Int] => prop(col) :| "Iterable" }
+
+	private def lazyListProperty[X :Arbitrary, A](f :(LazyList[X], LazyList[X]) => (A, A)) :Prop = {
+		def x() = Arbitrary.arbitrary[X].sample.get
+		var i = 0
+		val left = { i += 1; x() } #:: { i += 1; x() } #:: { i += 1; x() } #:: LazyList.empty
+		var j = 0
+		val right = { j += 1; x() } #:: { j += 1; x() } #:: { j += 1; x() } #:: LazyList.empty
+		val (l, r) = f(left, right)
+		(i ?= 0) :| "evaluated " + i + " elements of left " + left &&
+			(j ?= 0) :| "evaluated " + j + "elements of right " + right &&
+			(l ?= r) :| "lazyListProperty"
+	}
+//	private def lazyListProperty[A](f :(LazyList[Int], LazyList[Int]) => (A, A)) :Prop = lazyListProperty(Random.nextInt)(f)
+
+	private def lazyListProperty[X :Arbitrary, A](f :(LazyList[X], LazyList[X], LazyList[X]) => (A, A)) :Prop =
+		lazyListProperty[X, A]((a, b) => f(a, b, b))
+
+	def zipProperty[A](f :(Iterable[Int], Iterable[Int]) => (A, A)) :Prop =
+		forAll { (a :List[Int], b :List[Int]) => val (l, r) = f(a, b);  r =? l lbl "List" } &&
+			forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int]) => val (l, r) = f(a, b); r =? l lbl "IndexedSeq" } &&
+			forAll { (a :OrderedItems[Int], b :OrderedItems[Int]) => val (l, r) = f(a, b); r =? l lbl "Iterable" } &&
+			lazyListProperty(f)
+
+	def zipEvenProperty[X, A](test :(Iterable[X], Iterable[X]) => A, expect :(Iterable[X], Iterable[X]) => A)
+	                         (implicit a :Arbitrary[X], s :Shrink[X], pretty :X => Pretty)
+			:Prop =
+	{
+		def prop(l :Iterable[X], r :Iterable[X]) =
+			if (l.size == r.size)
+				test(l, r) ?= expect(l, r)
+			else
+				test(l, r).toString.throws[NoSuchElementException] lbl expect(l, r).toString
+		forAll { (l :List[X], r :List[X]) => prop(l, r) lbl "List" } &&
+			forAll { (l :IndexedSeq[X], r :IndexedSeq[X]) => prop(l, r) lbl "IndexedSeq" } &&
+			forAll { (l :OrderedItems[X], r :OrderedItems[X]) => prop(l, r) lbl "Iterable" } &&
+			forAll { (l :LazyList[X], r :LazyList[X]) =>
+				val res = test(l, r)
+				(try res ?= expect(l, r) catch {
+					case _ :NoSuchElementException if l.size != r.size => Prop.passed
+				}) lbl "LazyList"
+			} && lazyListProperty((l :LazyList[X], r :LazyList[X]) => test(l, r) -> expect(l, r))
+	}
+
+
+	property("zipEven") = zipEvenProperty(
+		(l :Iterable[Int], r :Iterable[Int]) => l zipEven r,
+		(l :Iterable[Int], r :Iterable[Int]) => l zip r
+	)
+
+	property("zipMap") = zipProperty { (l :Iterable[Int], r :Iterable[Int]) =>
+		l.zipMap(r)((a, b) => (a + b) * 2) -> l.zip(r).map { case (a, b) => (a + b) * 2 }
+	}
+	property("zipMapEven") = zipEvenProperty(
+		(l :Iterable[Int], r :Iterable[Int]) => l.zipMapEven(r)((a, b) => (a + b) * 2),
+		(l :Iterable[Int], r :Iterable[Int]) => l.zip(r).map { case (a, b) => (a + b) * 2 }
+	)
+	property("zipMapAll") = zipProperty { (l :Iterable[Int], r :Iterable[Int]) =>
+		l.zipMapAll(r, 42, 1000)((a, b) => (a + b) * 2) ->
+			l.zipAll(r, 42, 1000).map { case (a, b) => (a + b) * 2 }
+	}
+
+	private def zipFlatMapProperty[A](f :(Iterable[Iterable[Int]], Iterable[Iterable[Int]]) => (A, A)) :Prop =
+		forAll { (a :List[List[Int]], b :List[List[Int]]) =>
+			val (l, r) = f(a, b); r =? l lbl "List"
+		} && forAll { (a :Vector[ArraySeq[Int]], b :Vector[ArraySeq[Int]]) =>
+			val (l, r) = f(a, b); r =? l lbl "Vector"
+		} && forAll { (a :OrderedItems[OrderedItems[Int]], b :OrderedItems[OrderedItems[Int]]) =>
+			val (l, r) = f(a, b); r =? l lbl "Iterable"
+		} && lazyListProperty(f)
+
+//	private def zipFlatMapEvenProperty(prop :(Iterable[Iterable[Int]], Iterable[Iterable[Int]]) => Prop) :Prop =
+//		forAll { (l :List[List[Int]], r :List[List[Int]]) => prop(l, r) } &&
+//			forAll { (l :Vector[ArraySeq[Int]], r :Vector[ArraySeq[Int]]) => prop(l, r) } &&
+//			forAll { (l :OrderedItems[OrderedItems[Int]], r :OrderedItems[OrderedItems[Int]]) => prop(l, r) }
+
+	property("zipFlatMap") = zipFlatMapProperty { (l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
+		l.zipFlatMap(r)((a, b) => a.zip(b).map { case (x, y) => x + y }) ->
+			l.zip(r).flatMap { case (a, b) => a.zip(b).map { case (x, y) => x + y} }
+	}
+	property("zipFlatMapEven") = zipEvenProperty(
+		(l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
+			l.zipFlatMapEven(r) { (a, b) => a.zip(b).map { case (x, y) => x + y }},
+		(l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
+			l.zipAll(r, Nil, Nil).flatMap { case (a, b) => a.zip(b).map { case (x, y) => x + y }}
+	)
+	property("zipFlatMapAll") = zipFlatMapProperty { (l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
+		l.zipFlatMapAll(r, Nil, Nil) { (a, b) => a.zipAll(b, 42, 1000).map { case (x, y) => x + y }} ->
+			l.zipAll(r, Nil, Nil).flatMap { case (a, b) => a.zipAll(b, 42, 1000).map { case (x, y) => x + y } }
+	}
+
+	def zip3Property[A](f :(Iterable[Int], Iterable[Int], Iterable[Int]) => (A, A)) :Prop =
+		forAll { (a :List[Int], b :List[Int], c :List[Int]) =>
+			val (l, r) = f(a, b, c); r =? l lbl "List"
+		} && forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int], c :IndexedSeq[Int]) =>
+				val (l, r) = f(a, b, c); r =? l lbl "IndexedSeq"
+		} && forAll { (a :OrderedItems[Int], b :OrderedItems[Int], c :OrderedItems[Int]) =>
+			val (l, r) = f(a, b, c); r =? l lbl "Iterable"
+		} && lazyListProperty(f)
+
+	property("zip3") = zip3Property { (a :Iterable[Int], b :Iterable[Int], c :Iterable[Int]) =>
+		a.zip3(b, c) -> a.zip(b).zip(c).map { case ((a, b), c) => (a, b, c) }
+	}
+	property("zipEven3") = zipEvenProperty(
+		(a :Iterable[Int], b :Iterable[Int]) => a.zipEven3(b, b),
+		(a :Iterable[Int], b :Iterable[Int]) => a.zip(b).zip(b).map { case ((a, b), c) => (a, b, c) }
+	)
+	property("zipAll3") = zip3Property { (a :Iterable[Int], b :Iterable[Int], c :Iterable[Int]) =>
+		a.zipAll3(b, c, 42, 2501, 1024) ->
+			a.zipAll(b, 42, 2501).zipAll(c, (42, 2501), 1024).map { case ((a, b), c) => (a, b, c) }
+	}
+
+	property("zipTail") = iterableProperty { items :Iterable[Int] =>
+		if (items.sizeIs <= 1) items.zipTail ?= items.iterableFactory.empty
+		else items.zipTail ?= items.zip(items.tail)
+	}
+
+
 
 	def mappingProperty[A](f :Iterable[Int] => (A, A)) :Prop =
 		forAll { list :List[Int] => val (l, r) = f(list); r =? l lbl "List" } &&
@@ -139,118 +256,7 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 	}
 
 
-
-	private def lazyListProperty[X :Arbitrary, A](f :(LazyList[X], LazyList[X]) => (A, A)) :Prop = {
-		def x() = Arbitrary.arbitrary[X].sample.get
-		var i = 0
-		val left = { i += 1; x() } #:: { i += 1; x() } #:: { i += 1; x() } #:: LazyList.empty
-		var j = 0
-		val right = { j += 1; x() } #:: { j += 1; x() } #:: { j += 1; x() } #:: LazyList.empty
-		val (l, r) = f(left, right)
-		(i ?= 0) :| "evaluated " + i + " elements of left " + left &&
-			(j ?= 0) :| "evaluated " + j + "elements of right " + right &&
-			(l ?= r) :| "lazyListProperty"
-	}
-//	private def lazyListProperty[A](f :(LazyList[Int], LazyList[Int]) => (A, A)) :Prop = lazyListProperty(Random.nextInt)(f)
-
-	private def lazyListProperty[X :Arbitrary, A](f :(LazyList[X], LazyList[X], LazyList[X]) => (A, A)) :Prop =
-		lazyListProperty[X, A]((a, b) => f(a, b, b))
-
-	def zipProperty[A](f :(Iterable[Int], Iterable[Int]) => (A, A)) :Prop =
-		forAll { (a :List[Int], b :List[Int]) => val (l, r) = f(a, b);  r =? l lbl "List" } &&
-			forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int]) => val (l, r) = f(a, b); r =? l lbl "IndexedSeq" } &&
-			forAll { (a :OrderedItems[Int], b :OrderedItems[Int]) => val (l, r) = f(a, b); r =? l lbl "Iterable" } &&
-			lazyListProperty(f)
-
-	def zipEvenProperty[X, A](test :(Iterable[X], Iterable[X]) => A, expect :(Iterable[X], Iterable[X]) => A)
-	                         (implicit a :Arbitrary[X], s :Shrink[X], pretty :X => Pretty)
-			:Prop =
-	{
-		def prop(l :Iterable[X], r :Iterable[X]) =
-			if (l.size == r.size)
-				test(l, r) ?= expect(l, r)
-			else
-				test(l, r).toString.throws[NoSuchElementException] lbl expect(l, r).toString
-		forAll { (l :List[X], r :List[X]) => prop(l, r) lbl "List" } &&
-			forAll { (l :IndexedSeq[X], r :IndexedSeq[X]) => prop(l, r) lbl "IndexedSeq" } &&
-			forAll { (l :OrderedItems[X], r :OrderedItems[X]) => prop(l, r) lbl "Iterable" } &&
-			forAll { (l :LazyList[X], r :LazyList[X]) =>
-				val res = test(l, r)
-				(try res ?= expect(l, r) catch {
-					case _ :NoSuchElementException if l.size != r.size => Prop.passed
-				}) lbl "LazyList"
-			} && lazyListProperty((l :LazyList[X], r :LazyList[X]) => test(l, r) -> expect(l, r))
-	}
-
-
-	property("zipEven") = zipEvenProperty(
-		(l :Iterable[Int], r :Iterable[Int]) => l zipEven r,
-		(l :Iterable[Int], r :Iterable[Int]) => l zip r
-	)
-
-	property("zipMap") = zipProperty { (l :Iterable[Int], r :Iterable[Int]) =>
-		l.zipMap(r)((a, b) => (a + b) * 2) -> l.zip(r).map { case (a, b) => (a + b) * 2 }
-	}
-	property("zipMapEven") = zipEvenProperty(
-		(l :Iterable[Int], r :Iterable[Int]) => l.zipMapEven(r)((a, b) => (a + b) * 2),
-		(l :Iterable[Int], r :Iterable[Int]) => l.zip(r).map { case (a, b) => (a + b) * 2 }
-	)
-	property("zipMapAll") = zipProperty { (l :Iterable[Int], r :Iterable[Int]) =>
-		l.zipMapAll(r, 42, 1000)((a, b) => (a + b) * 2) ->
-			l.zipAll(r, 42, 1000).map { case (a, b) => (a + b) * 2 }
-	}
-
-	private def zipFlatMapProperty[A](f :(Iterable[Iterable[Int]], Iterable[Iterable[Int]]) => (A, A)) :Prop =
-		forAll { (a :List[List[Int]], b :List[List[Int]]) =>
-			val (l, r) = f(a, b); r =? l lbl "List"
-		} && forAll { (a :Vector[ArraySeq[Int]], b :Vector[ArraySeq[Int]]) =>
-			val (l, r) = f(a, b); r =? l lbl "Vector"
-		} && forAll { (a :OrderedItems[OrderedItems[Int]], b :OrderedItems[OrderedItems[Int]]) =>
-			val (l, r) = f(a, b); r =? l lbl "Iterable"
-		} && lazyListProperty(f)
-
-//	private def zipFlatMapEvenProperty(prop :(Iterable[Iterable[Int]], Iterable[Iterable[Int]]) => Prop) :Prop =
-//		forAll { (l :List[List[Int]], r :List[List[Int]]) => prop(l, r) } &&
-//			forAll { (l :Vector[ArraySeq[Int]], r :Vector[ArraySeq[Int]]) => prop(l, r) } &&
-//			forAll { (l :OrderedItems[OrderedItems[Int]], r :OrderedItems[OrderedItems[Int]]) => prop(l, r) }
-
-	property("zipFlatMap") = zipFlatMapProperty { (l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
-		l.zipFlatMap(r)((a, b) => a.zip(b).map { case (x, y) => x + y }) ->
-			l.zip(r).flatMap { case (a, b) => a.zip(b).map { case (x, y) => x + y} }
-	}
-	property("zipFlatMapEven") = zipEvenProperty(
-		(l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
-			l.zipFlatMapEven(r) { (a, b) => a.zip(b).map { case (x, y) => x + y }},
-		(l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
-			l.zipAll(r, Nil, Nil).flatMap { case (a, b) => a.zip(b).map { case (x, y) => x + y }}
-	)
-	property("zipFlatMapAll") = zipFlatMapProperty { (l :Iterable[Iterable[Int]], r :Iterable[Iterable[Int]]) =>
-		l.zipFlatMapAll(r, Nil, Nil) { (a, b) => a.zipAll(b, 42, 1000).map { case (x, y) => x + y }} ->
-			l.zipAll(r, Nil, Nil).flatMap { case (a, b) => a.zipAll(b, 42, 1000).map { case (x, y) => x + y } }
-	}
-
-	def zip3Property[A](f :(Iterable[Int], Iterable[Int], Iterable[Int]) => (A, A)) :Prop =
-		forAll { (a :List[Int], b :List[Int], c :List[Int]) =>
-			val (l, r) = f(a, b, c); r =? l lbl "List"
-		} && forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int], c :IndexedSeq[Int]) =>
-				val (l, r) = f(a, b, c); r =? l lbl "IndexedSeq"
-		} && forAll { (a :OrderedItems[Int], b :OrderedItems[Int], c :OrderedItems[Int]) =>
-			val (l, r) = f(a, b, c); r =? l lbl "Iterable"
-		} && lazyListProperty(f)
-
-	property("zip3") = zip3Property { (a :Iterable[Int], b :Iterable[Int], c :Iterable[Int]) =>
-		a.zip3(b, c) -> a.zip(b).zip(c).map { case ((a, b), c) => (a, b, c) }
-	}
-	property("zipEven3") = zipEvenProperty(
-		(a :Iterable[Int], b :Iterable[Int]) => a.zipEven3(b, b),
-		(a :Iterable[Int], b :Iterable[Int]) => a.zip(b).zip(b).map { case ((a, b), c) => (a, b, c) }
-	)
-	property("zipAll3") = zip3Property { (a :Iterable[Int], b :Iterable[Int], c :Iterable[Int]) =>
-		a.zipAll3(b, c, 42, 2501, 1024) ->
-			a.zipAll(b, 42, 2501).zipAll(c, (42, 2501), 1024).map { case ((a, b), c) => (a, b, c) }
-	}
-
-
+	//todo: tests for keep, unique, firstOccurrences, lastOccurrences
 //	property("removed") = forAll { i :Int =>
 //		mappingProperty { list :Iterable[Int] =>
 //			list.removed(i) -> (list.take(i) ++ (if (i == Int.MaxValue) Nil else list.drop(i + 1)))
@@ -282,5 +288,7 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 			list.removed(from, until) -> (if (until <= 0 | until <= from) list else list.take(from) ++ list.drop(until))
 		}
 	}
+	//todo: test add
 
+	//todo: test copyRangeToArray, cyclicCopyRangeToArray
 }

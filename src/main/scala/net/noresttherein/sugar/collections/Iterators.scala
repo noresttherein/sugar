@@ -7,9 +7,12 @@ import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, BufferedIterator, View, mutable}
 
-import net.noresttherein.sugar.extensions.{BooleanExtension, castingMethods, classNameMethods}
-import net.noresttherein.sugar.collections.extensions.{ArrayExtension, IterableOnceExtension, IteratorExtension, IteratorObjectExtension}
+import net.noresttherein.sugar.arrays.extensions.MutableArrayExtension
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorObjectExtension}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.numeric.extensions.BooleanExtension
+import net.noresttherein.sugar.reflect.extensions.classNameMethods
+import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.outOfBounds_!
 
@@ -104,6 +107,14 @@ private object Iterators {
 		if (self.isEmpty) Iterator.empty
 		else new ZipTail(self)
 
+	def keep[E](self :Iterator[E], pred :Int => Boolean) :Iterator[E] =
+		if (self.knownSize == 0) self else new Keep(self, pred, true)
+
+	def distinct[E](self :Iterator[E]) :Iterator[E] = {
+		val size = self.knownSize
+		if (size >= 0 && size <= 1) self else new FirstOccurrences(self)
+	}
+
 	//All the following iterators could be simply replaced with
 	def removed[E](self :Iterator[E], index :Int) :Iterator[E] =
 		if (index < 0 || { val s = self.knownSize; s >= 0 & index >= s })
@@ -155,12 +166,15 @@ private object Iterators {
 			new UpdatedAll(self, index, elems.iterator)
 	}
 
+	//todo: permissive indexing. It is better to be consistent with patch,
+	// and because the valid range in Ranking depends on whether the element is already in the collection.
 	def inserted[E](self :Iterator[E], index :Int, elem :E) :Iterator[E] =
 		if (index < 0 || { val size = self.knownSize; size >= 0 & index > size })
 			throw new IndexOutOfBoundsException(self.toString + ".insertedAll(" + index.toString + ", " + elem + ")")
 		else
 			new Inserted(self, index, elem)
 
+	//todo: permissive indexing
 	def insertedAll[E](self :Iterator[E], index :Int, elems :IterableOnce[E]) :Iterator[E] =
 		if (index < 0 || { val size = self.knownSize; size >= 0 & index > size })
 			throw new IndexOutOfBoundsException(self.toString + ".insertedAll(" + index.toString + ", _:*)")
@@ -184,6 +198,30 @@ private object Iterators {
 				case _            => new Concat(first, second)
 			}
 		}
+
+	/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this validator;
+	  * instead, iterators returned by those methods share the same underlying state,
+	  * including a counter of already returned elements.
+	  * Calling `take` on this iterator returns a new iterator, which will not return elements past a certain index.
+	  * This iterator remains unaffected by the call itself, or `take` called on the iterator it created,
+	  * but advancing the latter - via `next` or `drop` - automatically also advances this iterator
+	  * by the same number of elements, and vice versa.
+	  *
+	  * Likewise, `copyToArray` is guaranteed to advance this iterator - and all created by it -
+	  * exactly by the number of written elements, as returned by the method.
+	  * @example
+	  * {{{
+	  *     val iter   = source.iterator.safe
+	  *     val arrays = Array.ofDim[Int](n, m)
+	  *     var i = 0
+	  *     while (iter.hasNext && i < n) {
+	  *         iter.take(m).copyToArray(arrays(i))
+	  *         i += 1
+	  *     }
+	  * }}}
+	  */
+	def slicer[E](self :Iterator[E]) :Iterator[E] =
+		if (!self.hasNext) self else new Slicer(self)
 
 	/** Same as `Iterator.splitAt`, but has efficient `drop`/`take` if the underlying iterator
 	  * has efficient implementations of these methods.
@@ -213,9 +251,9 @@ private object Iterators {
 				}
 			override def hasNext :Boolean = super.hasNext || i < limit && {
 				if (lookahead ne null)
-					lookahead.nonEmpty && { push(lookahead.dequeue()); i += 1; true }
+					lookahead.nonEmpty && { i += 1; push(lookahead.dequeue()) }
 				else
-					underlying.hasNext && { push(underlying.next()); i += 1; true }
+					underlying.hasNext && { i += 1; push(underlying.next()) }
 			}
 			override def take(n :Int) :Iterator[E] =
 				if (n <= 0)
@@ -369,21 +407,19 @@ private object Iterators {
 	@tailrec def reverse[E](items :IterableOnce[E]) :Iterator[E] = items match {
 		case indexed :collection.IndexedSeqOps[E, generic.Any, _] =>
 			if (indexed.isEmpty) Iterator.empty[E] else indexed.reverseIterator
-		case view :View[E] => reverse(view.iterator)
-		case it :Iterable[E] if it.sizeIs <= 1 => it.iterator
-		case it :Iterator[E] if !it.hasNext => it
-//		case ErasedArray.Wrapped(array :Array[A] @unchecked) => ReverseArrayIterator(array)
-//		case ErasedArray.Wrapped.Slice(array :Array[E @unchecked], from :Int, until :Int) =>
-//			ReverseArrayIterator.over(array, from, until)
-		case IndexedIterable(seq) => seq.reverseIterator
+		case ranking :Ranking[E]                        => ranking.reverseIterator
+		case view    :View[E]                           => reverse(view.iterator)
+		case it      :Iterable[E] if it.sizeIs <= 1     => it.iterator
+		case it      :Iterator[E] if !it.hasNext        => it
+		case IndexedIterable(seq)                       => seq.reverseIterator
 		case sorted :collection.SortedSet[E @unchecked] =>
 			new ReverseSortedSetIterator(sorted)
 		case sorted :collection.SortedMap[_, _] =>
 			new ReverseSortedMapIterator(sorted).asInstanceOf[Iterator[E]]
 		case _ =>
 			val size = items.knownSize
-			if (size >= 0) (DefaultBuffer.ofCapacity[E](size) ++= items).reverseIterator
-			else (DefaultBuffer.of[E] ++= items).reverseIterator
+			if (size >= 0) (TemporaryBuffer.ofCapacity[E](size) ++= items).reverseIterator
+			else (TemporaryBuffer.of[E] ++= items).reverseIterator
 	}
 
 
@@ -608,7 +644,6 @@ private object Iterators {
 		override def hasNext :Boolean = super.hasNext || underlying.hasNext && {
 			acc = f(acc, underlying.next())
 			push(acc)
-			true
 		}
 		override def toString :String = underlying.toString + ".scanLeft(->" + acc + ")"
 	}
@@ -790,8 +825,7 @@ private object Iterators {
 				val (include, s) = f(peek, state)
 				state = s
 				if (include == keep) {
-					push(peek)
-					return true
+					return push(peek)
 				}
 			}
 			false
@@ -815,8 +849,7 @@ private object Iterators {
 				val peek = underlying.next()
 				i += 1
 				if (f(peek, i) == keep) {
-					push(peek)
-					return true
+					return push(peek)
 				}
 			}
 			false
@@ -1009,6 +1042,37 @@ private object Iterators {
 	}
 
 
+	final class FirstOccurrences[+E](private[this] var underlying :Iterator[E])
+		extends AbstractBufferedIterator[E]
+	{
+		private[this] val seen = new mutable.HashSet[E]
+
+		@tailrec private def advance() :Boolean =
+			underlying.hasNext && {
+				val elem = underlying.next()
+				seen.add(elem) && push(elem) || advance()
+			}
+		override def hasNext :Boolean = super.hasNext || advance()
+
+		override def toString :String = underlying.toString + ".unique"
+	}
+
+
+	final class Keep[+E](underlying :Iterator[E], test :Int => Boolean, expect :Boolean)
+		extends AbstractBufferedIterator[E]
+	{
+		private[this] var i = -1
+		@tailrec private def advance() :Boolean =
+			underlying.hasNext && ({ i += 1; test(i) == expect } && push(underlying.next()) || {
+				underlying.next()
+				advance()
+			})
+		override def hasNext :Boolean = super.hasNext || advance()
+
+		override def toString :String = underlying.toString + ".keep(" + test + ")"
+	}
+
+
 	final class Removed[+E](private[this] var underlying :Iterator[E], index :Int,
 	                        private[this] var validating :Boolean = true)
 		extends AbstractBufferedIterator[E]
@@ -1034,7 +1098,7 @@ private object Iterators {
 				} else
 					validating && ioob()
 			underlying.hasNext && {
-				push(underlying.next()); i += 1; true
+				i += 1; push(underlying.next())
 			} || {
 				if (i < index & validating)
 					outOfBounds_!(index, i)
@@ -1152,9 +1216,8 @@ private object Iterators {
 				i = untilInclusive + 1
 			}
 			underlying.hasNext && {
-				push(underlying.next())
 				i += 1
-				true
+				push(underlying.next())
 			}
 		}
 		override def drop(n :Int) :Iterator[E] = {
@@ -1309,12 +1372,15 @@ private object Iterators {
 		private[this] var i = 0
 
 		override def knownSize :Int = {
-			val res   = underlying.knownSize
+			val size      = underlying.knownSize
+			val elemsSize = elems.knownSize
 			//If knownSize == 0 then IterableFactory.from will usually return an empty collection without iterating
-			if (res == 0 && (index != i || elems.hasNext))
+			if (size >= 0 && index + size < i + math.max(elemsSize, 0))
 				throw new IndexOutOfBoundsException("Iterator.empty.updatedAll(@" + index + "=" + elems + ")")
+			else if (elemsSize < 0)
+				-1
 			else
-				res
+				size
 		}
 
 		override def hasNext :Boolean =
@@ -1871,6 +1937,86 @@ private object Iterators {
 	}
 */
 
+	private class Slicer[+E](private[this] var underlying :Iterator[E])
+		extends AbstractIterator[E] with IteratorSlicing[E]
+	{ outer =>
+		private[this] var i = 0
+		private[this] var taken = 0
+		private def index :Int = i
+		private def taken_--() :Unit = taken -= 1
+		override def knownSize :Int = underlying.knownSize
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :E = { i += 1; underlying.next() }
+
+		override def drop(n :Int) :Iterator[E] = {
+			underlying = underlying.drop(n)
+			this
+		}
+		override def take(n :Int) :Iterator[E] =
+			if (n < 0) Iterator.empty
+			else if (n >= Int.MaxValue - n) new Take(Int.MaxValue)
+			else new Take(i + n)
+
+		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+			if (len <= 0 || start >= xs.length || !underlying.hasNext)
+				0
+			else if (start < 0)
+				throw new IndexOutOfBoundsException(
+					toString + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len
+				)
+			else {
+				val max = math.min(len, xs.length - start)
+				val (prefix, suffix) = underlying.splitAt(max)
+				underlying = suffix
+				val copied = prefix.copyToArray(xs, start, max)
+				i += copied
+				copied
+			}
+
+		override def toString = iterator.toString
+
+		private class Take(private[this] var until :Int)
+			extends AbstractIterator[E] with IteratorSlicing[E]
+		{
+			override def knownSize = {
+				val remaining = until - index
+				val total = outer.knownSize
+				if (remaining <= 0) 0
+				else if (total < 0) -1
+				else math.min(remaining, total)
+			}
+			override def hasNext   = index < until && underlying.hasNext
+			override def next()    =
+				if (index >= until)
+					throw new NoSuchElementException(toString)
+				else
+					Slicer.this.next()
+
+			override def drop(n :Int) :Iterator[E] = {
+				val dropped = math.min(n, until - index)
+				if (dropped > 0)
+					outer.drop(dropped)
+				this
+			}
+			override def take(n :Int) :Iterator[E] = {
+				val i = index
+				if (n <= 0) until = i
+				else if (n >= Int.MaxValue - i) until = Int.MaxValue
+				else until = math.min(until, i + n)
+				this
+			}
+			override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+				if (len <= 0 || index >= until || start >= xs.length)
+					0
+				else
+					outer.copyToArray(xs, start, math.min(len, until - index))
+
+			override def toString :String = underlying.toString + ".take(" + (until - index) + ")"
+		}
+	}
+
+
+
 	private val SplitEmpty :(Iterator[Nothing], Iterator[Nothing]) = (Iterator.empty, Iterator.empty)
 }
 
@@ -1921,12 +2067,15 @@ abstract class AbstractBufferedIterator[+Y]
 	/** Sets the `head` value of the iterator, and `hasNext` to `true`.
 	  * This method is typically called by [[net.noresttherein.sugar.collections.AbstractBufferedIterator.hasNext hasNext]]
 	  * before it returns `true`. Calling those methods has an additional effect in that `hasNext` implementation
-	  * defined here will return `true`.
+	  * defined here will return `true`. As `push` is typically called in the implementation of `hasNext`
+	  * in the case when the latter should return `true`, this method always return `true` for the convenience
+	  * of being able to return `push(elem)` in those cases.
 	  * @see [[net.noresttherein.sugar.collections.AbstractBufferedIterator.pop pop]]
 	  */
-	protected def push(head :Y @uncheckedVariance) :Unit = {
+	protected def push(head :Y @uncheckedVariance) :Boolean = {
 		hd = head
 		knownNonEmpty = true
+		true
 	}
 
 	/** Invalidates the currently stored `head`, if any. Dropping an existing value has the effect of advancing
@@ -1945,7 +2094,7 @@ abstract class AbstractBufferedIterator[+Y]
 	  *                 val e = underlying.next()
 	  *                 if (pred(e)) {
 	  *                     push(e)
-	  *                     true
+	  *                     return true
 	  *                 }
 	  *             }
 	  *             false

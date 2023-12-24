@@ -5,7 +5,7 @@ import java.util.ConcurrentModificationException
 
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.collections.ArrayLike
+import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.Constructors.{LazyStringArg, LazyStringThrowableArgs, LazyStringThrowableBoolArgs, LazyStringThrowableBoolBoolArgs, StringArg, StringLazyStringThrowableBoolArgs, StringLazyStringThrowableBoolBoolArgs, StringThrowableArgs, StringThrowableBoolArgs, StringThrowableBoolBoolArgs, defaultConstructor, findConstructor, lazyStringConstructor, lazyStringThrowableConstructor, stringConstructor, stringThrowableConstructor, throwableConstructor}
 import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, castingMethods, classNameMethods, downcastTypeParamMethods}

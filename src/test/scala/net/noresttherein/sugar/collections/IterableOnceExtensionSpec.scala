@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Builder}
 
 import org.scalacheck.{Prop, Properties, Test}
@@ -19,7 +20,7 @@ object IterableOnceExtensionSpec extends Properties("IterableOnceExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
 
-	import typeClasses._
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
 	val Sum = 100
 
@@ -250,6 +251,11 @@ object IterableOnceExtensionSpec extends Properties("IterableOnceExtension") {
 			list.take(until).drop(from).foreach(expect += _) //not slice, because Vector.slice has arithmetic overflow
 			result ?= expect
 		}
+	}
+	property("foreachWhile") = iterableProperty { list :Iterable[Int] =>
+		val res = new ArrayBuffer[Int]
+		list.foreachWhile(x => (x % 10 <= 7) && { res += x; true })
+		(list.takeWhile(_ % 10 <= 7).toSeq :collection.Seq[Int]) ?= res
 	}
 	property("forPrefix") = iterableProperty { list :Iterable[Int] =>
 		forAll { len :Int =>

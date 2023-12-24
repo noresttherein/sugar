@@ -1,4 +1,6 @@
-package net.noresttherein.sugar.collections
+package net.noresttherein.sugar.arrays
+
+import java.lang.System.arraycopy
 
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
@@ -7,11 +9,14 @@ import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import net.noresttherein.sugar.??!
-import net.noresttherein.sugar.collections.RefArray.RefArrayToSeq
-import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, IterableExtension, SeqExtension, immutableIndexedSeqObjectExtension}
-import net.noresttherein.sugar.extensions.{SeqFactoryExtension, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension, RefArrayExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension, SeqFactoryExtension, StringExtension, immutableIndexedSeqObjectExtension}
+import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}
+import net.noresttherein.sugar.collections.{IRefArraySlice, OrderedItems, Prepended2Seq}
 import net.noresttherein.sugar.reflect.prettyprint.localNameOf
+import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
+import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.witness.DefaultValue
 import net.noresttherein.sugar.witness.DefaultValue.default
 
@@ -20,7 +25,7 @@ import net.noresttherein.sugar.witness.DefaultValue.default
 
 abstract class ArrayTestingUtils(name :String) extends Properties(name) {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000)
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(128)
 
 
 	protected def any[X :Arbitrary] :X = Arbitrary.arbitrary[X].sample.get
@@ -37,16 +42,16 @@ abstract class ArrayTestingUtils(name :String) extends Properties(name) {
 //			forAll { seq :ArraySeq[X] => prop(seq.iterator) :| "Array.iterator" }
 
 	def forAllArrays(prop :GenericArrayProperty) :Prop =
-		forAll { a :Array[Byte]    => prop(a) :| "Array[Byte]" lbl a.contentsString} &&
-		forAll { a :Array[Short]   => prop(a) :| "Array[Short]" lbl a.contentsString } &&
-		forAll { a :Array[Char]    => prop(a) :| "Array[Char]" lbl a.contentsString } &&
-		forAll { a :Array[Int]     => prop(a) :| "Array[Int]" lbl a.contentsString } &&
-		forAll { a :Array[Long]    => prop(a) :| "Array[Long]" lbl a.contentsString } &&
-		forAll { a :Array[Float]   => prop(a) :| "Array[Float]" lbl a.contentsString } &&
-		forAll { a :Array[Double]  => prop(a) :| "Array[Double]" lbl a.contentsString } &&
-		forAll { a :Array[Boolean] => prop(a) :| "Array[Boolean]" lbl a.contentsString } &&
-		forAll { a :Array[Unit]    => prop(a) :| "Array[Unit]" lbl a.contentsString } &&
-		forAll { a :Array[String]  => prop(a) :| "Array[String]" lbl a.contentsString }
+		forAll { a :Array[Byte]    => prop(a.clone()) :| "Array[Byte]" lbl a.contentsString} &&
+		forAll { a :Array[Short]   => prop(a.clone()) :| "Array[Short]" lbl a.contentsString } &&
+		forAll { a :Array[Char]    => prop(a.clone()) :| "Array[Char]" lbl a.contentsString } &&
+		forAll { a :Array[Int]     => prop(a.clone()) :| "Array[Int]" lbl a.contentsString } &&
+		forAll { a :Array[Long]    => prop(a.clone()) :| "Array[Long]" lbl a.contentsString } &&
+		forAll { a :Array[Float]   => prop(a.clone()) :| "Array[Float]" lbl a.contentsString } &&
+		forAll { a :Array[Double]  => prop(a.clone()) :| "Array[Double]" lbl a.contentsString } &&
+		forAll { a :Array[Boolean] => prop(a.clone()) :| "Array[Boolean]" lbl a.contentsString } &&
+		forAll { a :Array[Unit]    => prop(Array.copyOf(a, a.length)) :| "Array[Unit]" lbl a.contentsString } &&
+		forAll { a :Array[String]  => prop(a.clone()) :| "Array[String]" lbl a.contentsString }
 
 	def forAllArrays(property :String)(prop :GenericArrayProperty) :Unit =
 		this.property(property) = forAllArrays(prop)
@@ -62,6 +67,12 @@ abstract class ArrayTestingUtils(name :String) extends Properties(name) {
 		forAllArrays(name)(this)
 	}
 
+
+	protected def rangeLength(array :Array[_], from :Int, until :Int) :Int = {
+		val from0 = from max 0 min array.length
+		val until0 = until max from0 min array.length
+		until0 - from0
+	}
 }
 
 
@@ -70,8 +81,36 @@ abstract class ArrayTestingUtils(name :String) extends Properties(name) {
 
 
 object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
-	import typeClasses._
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
+	new ArrayProperty("foreach") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+			val buffer = new StringBuilder
+			array.foreach(buffer ++= _.toString)
+			val expect = new StringBuilder
+			var i = 0
+			while (i < array.length) {
+				expect ++= array(i).toString
+				i += 1
+			}
+			buffer.toString ?= expect.toString
+		}
+	}
+	new ArrayProperty("foreach(from, until)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val buffer = new StringBuilder
+				array.foreach(from, until)(buffer ++= _.toString)
+				val expect = new StringBuilder
+				val end    = until min array.length
+				var i      = from max 0 min array.length
+				while (i < end) {
+					expect ++= array(i).toString
+					i += 1
+				}
+				buffer.toString ?= expect.toString
+			}
+	}
 
 	property("segmentLength") = forAll { (start :Int, array :Array[Int]) =>
 		val start0 = math.max(start, 0)
@@ -80,51 +119,6 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			i += 1
 		(array.segmentLength(_ % 5 > 0, start) ?= (i - start0)) lbl
 			array.contentsString + ".segmentLength(_ % 5 > 0, " + start + ")"
-	}
-
-	new ArrayProperty("binarySearch(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
-			val sorted = array.sorted
-			import Ordering.Implicits.infixOrderingOps
-			forAll { (from :Int, until :Int) =>
-				val validFrom  = from max 0 min array.length
-				val validUntil = until max validFrom min array.length
-//				val sorted = array.slice(from, until).sorted
-//				val subject = array.view.take(from) ++ sorted ++ array.view.drop(math.max(from, until)) to Array
-//				val slice = subject.slice(from, until)
-				all(
-					(validFrom until validUntil).map { i =>
-						val x = sorted(i)
-						val expect = sorted.indexOf(x, validFrom)
-						val found = sorted.binarySearch(from, until, sorted(i))
-						(found ?= expect) lbl s"searching for $x (at $i); found at $found, first occurrence at $expect"
-					} :_*
-				) && forAll { x :X =>
-					val expect = sorted.indexOf(x, validFrom) match {
-						case -1 => -1
-						case  n if n >= validUntil => -1
-						case  n => n
-					}
-					val found = sorted.binarySearch(from, until, x)
-					val successor = -found - 1
-					if (expect >= 0)
-						(found ?= expect) lbl s"searching for $x found(?) at $found, first occurrence at $expect"
-					else
-						((found < 0) lbl
-							s"should not find $x at $found"
-						) && ((successor <= validUntil && successor >= validFrom) lbl
-							s"search result $found out of range $from..$until"
-						) && {
-							val expect = sorted.indexWhere(_ >= x, validFrom) match {
-								case -1 => validUntil
-								case  n if n > validUntil => validUntil
-								case  n => n
-							}
-							(successor ?= expect)
-						}
-				} lbl "searching in range " + validFrom + ".." + validUntil
-			} lbl "sorted: " + seq(sorted)
-		}
 	}
 
 	new ArrayProperty("mismatch") {
@@ -162,78 +156,81 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 				}
 			}
 	}
-
-
 	//todo: test sameElements
 
 
-	new ArrayProperty("fill") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
-			val x = any[X]
-			array.fill(x)
-			array.toSeq ?= IndexedSeq.const(array.length)(x)
-		}
-	}
-	new ArrayProperty("fill(from, until, elem)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+	new ArrayProperty("binarySearch(from, until)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+			val sorted = array.sorted
+			import Ordering.Implicits.infixOrderingOps
 			forAll { (from :Int, until :Int) =>
-				val x = any[X]
-				val expect = array.toBuffer
-				var i   = math.max(from, 0)
-				val end = math.min(until, array.length)
-				while (i < end) {
-					expect(i) = x; i += 1
-				}
-				array.fill(from, until)(x)
-				seq(array) ?= expect
-			}
-	}
-	new ArrayProperty("clear") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
-			array.clear()
-			seq(array) ?= Array.fill(array.length)(default[X])
-		}
-	}
-	new ArrayProperty("clear(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
-			forAll { (from :Int, until :Int) =>
-				val expect = array.toBuffer
-				var i   = math.max(from, 0)
-				val end = math.min(until, array.length)
-				while (i < end) {
-					expect(i) = default
-					i += 1
-				}
-				array.clear(from, until)
-				seq(array) ?= expect
-			}
-	}
-	new ArrayProperty("clearIfRef") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
-			val copy = array.toSeq
-			array.clearIfRef()
-			if (array.isInstanceOf[Array[AnyRef]] && !array.isInstanceOf[Array[Unit]])
-				(seq(array) :collection.Seq[Any]) ?= IndexedSeq.const(array.length)(null)
-			else
-				seq(array) ?= copy
-		}
-	}
-	new ArrayProperty("clearIfRef(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
-			forAll { (from :Int, until :Int) =>
-				val expect = array.toBuffer
-				array.clearIfRef(from, until)
-				if (array.isInstanceOf[Array[AnyRef]] && !array.isInstanceOf[Array[Unit]]) {
-					var i   = math.max(from, 0)
-					val end = math.min(until, array.length)
-					while (i < end) {
-						expect(i) = default
-						i += 1
+				val validFrom  = from max 0 min array.length
+				val validUntil = until max validFrom min array.length
+//				val sorted = array.slice(from, until).sorted
+//				val subject = array.view.take(from) ++ sorted ++ array.view.drop(math.max(from, until)) to Array
+//				val slice = subject.slice(from, until)
+				all(
+					(validFrom until validUntil).map { i =>
+						val x = sorted(i)
+						val expect = sorted.indexOf(x, validFrom)
+						val found = sorted.binarySearch(from, until, sorted(i))
+						(found ?= Present(expect)) lbl s"searching for $x (at $i); found at $found, first occurrence at $expect"
+					} :_*
+				) && forAll { x :X =>
+					val expect = sorted.indexOf(x, validFrom) match {
+						case -1 => -1
+						case  n if n >= validUntil => -1
+						case  n => n
 					}
-				}
-				seq(array) ?= expect
-			}
+					val found = sorted.binarySearch(from, until, x)
+					if (expect >= 0)
+						(found ?= Present(expect)) lbl s"searching for $x found(?) at $found, first occurrence at $expect"
+					else
+						(!found.isFound lbl
+							s"should not find $x at $found"
+						) && ((found.predecessor.get <= validUntil && found.predecessor.get >= validFrom) lbl
+							s"search result $found out of range $from..$until"
+						) && {
+							val expect = sorted.indexWhere(_ >= x, validFrom) match {
+								case -1 => Absent(validUntil)
+								case  n if n > validUntil => Absent(validUntil)
+								case  n => Absent(n)
+							}
+							(found ?= expect)
+						}
+				} lbl "searching in range " + validFrom + ".." + validUntil
+			} lbl "sorted: " + seq(sorted)
+		}
 	}
+
+//	forAllArrays("isSorted")(new GenericArrayProperty {
+//		override def apply[X :ClassTag :Ordering](array :Array[X]) = {
+//			val sorted = array.sorted
+//			array.isSorted ?= (array sameElements sorted) && sorted.isSorted :| lbl "sorted: " + sorted.mkString
+//		}
+//	})
+//	property("isSortedBy") = arrayProperty { seq :Seq[Int] =>
+//		val sorted = seq.sortBy(x => x * x)
+//		(seq.isSortedBy(x => x * x) ?= (seq == sorted)) && Prop(sorted.isSortedBy(x => x * x)) :| "sorted"
+//	}
+//	property("isSortedWith") = arrayProperty { seq :Seq[Int] =>
+//		val sorted = seq.sortBy(x => x * x) //seq.sorted(Ordering.by((x :Int) => x * x))
+//		((seq.isSortedWith((x, y) => x * x <= y * y) ?=
+//			(seq.sizeIs <= 1 || seq.zip(seq.tail).forall(pair => pair._1 * pair._1 <= pair._2 * pair._2))
+//		) && Prop(sorted.isSortedWith((x, y) => x * x <= y * y))) :| "sorted: " + sorted
+//	}
+//	property("isIncreasing") = arrayProperty { seq :Seq[Int] =>
+//		val sorted = seq.sorted
+//		((seq.isIncreasing ?= (seq.sizeIs <= 1 || seq.zip(seq.tail).forall(pair => pair._1 < pair._2))) &&
+//			Prop(sorted.toSet.size != sorted.length) || Prop(sorted.isIncreasing)) :| "sorted: " + sorted
+//	}
+//	property("isDecreasing") = arrayProperty { seq :Seq[Int] =>
+//		val sorted = seq.sortWith((x, y) => x > y)
+//		((seq.isDecreasing ?= (seq.sizeIs <= 1 || seq.zip(seq.tail).forall(pair => pair._1 > pair._2))) &&
+//			Prop(sorted.toSet.size != sorted.length) || Prop(sorted.isDecreasing)) :| "sorted: " + sorted
+//	}
+//
+//	property("shuffle") = arrayProperty { seq :Seq[Int] => seq.shuffle.sorted =? seq.sorted }
 
 
 	new ArrayProperty("reverseInPlace") {
@@ -305,7 +302,8 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 						) ++ view.drop(end) to ArraySeq
 					}
 				array.rotateLeft(from, until)(n)
-				seq(array) ?= expect
+				(seq(array) ?= expect) lbl
+					"[" + start + ".." + end + ") << " + (if (start == end) "-" else n % (end - start))
 			}
 	}
 	new ArrayProperty("rotateRight") {
@@ -411,36 +409,245 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 
-//	forAllArrays("isSorted")(new GenericArrayProperty {
-//		override def apply[X :ClassTag :Ordering](array :Array[X]) = {
-//			val sorted = array.sorted
-//			array.isSorted ?= (array sameElements sorted) && sorted.isSorted :| lbl "sorted: " + sorted.mkString
-//		}
-//	})
-//	property("isSortedBy") = arrayProperty { seq :Seq[Int] =>
-//		val sorted = seq.sortBy(x => x * x)
-//		(seq.isSortedBy(x => x * x) ?= (seq == sorted)) && Prop(sorted.isSortedBy(x => x * x)) :| "sorted"
-//	}
-//	property("isSortedWith") = arrayProperty { seq :Seq[Int] =>
-//		val sorted = seq.sortBy(x => x * x) //seq.sorted(Ordering.by((x :Int) => x * x))
-//		((seq.isSortedWith((x, y) => x * x <= y * y) ?=
-//			(seq.sizeIs <= 1 || seq.zip(seq.tail).forall(pair => pair._1 * pair._1 <= pair._2 * pair._2))
-//		) && Prop(sorted.isSortedWith((x, y) => x * x <= y * y))) :| "sorted: " + sorted
-//	}
-//	property("isIncreasing") = arrayProperty { seq :Seq[Int] =>
-//		val sorted = seq.sorted
-//		((seq.isIncreasing ?= (seq.sizeIs <= 1 || seq.zip(seq.tail).forall(pair => pair._1 < pair._2))) &&
-//			Prop(sorted.toSet.size != sorted.length) || Prop(sorted.isIncreasing)) :| "sorted: " + sorted
-//	}
-//	property("isDecreasing") = arrayProperty { seq :Seq[Int] =>
-//		val sorted = seq.sortWith((x, y) => x > y)
-//		((seq.isDecreasing ?= (seq.sizeIs <= 1 || seq.zip(seq.tail).forall(pair => pair._1 > pair._2))) &&
-//			Prop(sorted.toSet.size != sorted.length) || Prop(sorted.isDecreasing)) :| "sorted: " + sorted
-//	}
-//
-//	property("shuffle") = arrayProperty { seq :Seq[Int] => seq.shuffle.sorted =? seq.sorted }
+	new ArrayProperty("shiftLeft") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { n :Int =>
+//				if (n < -array.length | n > array.length)
+//					array.shiftLeft(n).throws[IndexOutOfBoundsException]
+//				else if (n == 0) {
+				if (n == 0 || n <= -array.length || n >= array.length) {
+					val copy = array.toArray[X]
+					array.shiftLeft(n)
+					seq(array) ?= seq(copy)
+				} else if (n > 0) {
+					val suffix = array.drop(n)
+					array.shiftLeft(n)
+					seq(array.take(array.length - n)) ?= suffix
+				} else {
+					val prefix = array.take(array.length + n)
+					array.shiftLeft(n)
+					seq(array.drop(-n)) ?= prefix
+				}
+			}
+	}
+	new ArrayProperty("shiftLeft(from, until)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { (from :Int, until :Int, n :Int) =>
+				val start  = math.max(0, math.min(from, array.length))
+				val end    = math.max(start, math.min(until, array.length))
+				val copy   = array.toArray[X]
+				if (n <= start - array.length || n >= end || n == 0 || start == end) {
+					array.shiftLeft(from, until)(n)
+					seq(array) ?= seq(copy)
+				} else if (n < 0) {
+					arraycopy(copy, start, copy, start - n, math.min(end, array.length + n) - start)
+					array.shiftLeft(from, until)(n)
+					seq(array) ?= seq(copy)
+				} else {
+					arraycopy(copy, math.max(start, n), copy, math.max(start, n) - n, end - math.max(start, n))
+					array.shiftLeft(from, until)(n)
+					seq(array) ?= seq(copy)
+				}
+			}
+	}
+
+	new ArrayProperty("shiftRight") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { n :Int =>
+//				if (n < -array.length | n > array.length)
+//					array.shiftRight(n).throws[IndexOutOfBoundsException]
+//				else if (n == 0) {
+				val copy = array.toArray[X]
+				(if (n == 0 || n <= -array.length || n >= array.length) {
+					array.shiftRight(n)
+					seq(array) ?= seq(copy)
+				} else if (n < 0) {
+					val suffix = array.drop(-n)
+					array.shiftRight(n)
+					seq(array.take(array.length + n)) ?= suffix
+				} else {
+					val prefix = array.take(array.length - n)
+					array.shiftRight(n)
+					seq(array.drop(n)) ?= prefix
+				}) lbl copy.contentsString+ ".shiftRight(" + n + ") == " + array.contentsString
+			}
+	}
+	new ArrayProperty("shiftRight(from, until)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { (from :Int, until :Int, n :Int) =>
+				val start  = math.max(0, math.min(from, array.length))
+				val end    = math.max(start, math.min(until, array.length))
+				val copy   = array.toArray[X]
+				if (n <= -end || n >= array.length - start || n == 0 || start == end) {
+					array.shiftRight(from, until)(n)
+					seq(array) ?= seq(copy)
+				} else if (n < 0) {
+					arraycopy(copy, math.max(start, -n), copy, math.max(start, -n) + n, end - math.max(start, -n))
+					array.shiftRight(from, until)(n)
+					seq(array) ?= seq(copy)
+				} else {
+					arraycopy(copy, start, copy, start + n, math.min(end, array.length - n) - start)
+					array.shiftRight(from, until)(n)
+					seq(array) ?= seq(copy)
+				}
+			}
+	}
+
+	new ArrayProperty("shiftedLeft") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { n :Int =>
+				val copy = Array.copyOf(array, array.length)
+				(if (n == 0)
+					seq(array.shiftedLeft(n)) ?= seq(copy)
+				else if (n <= -array.length || n >= array.length)
+					seq(array.shiftedLeft(n)) ?= seq(ArrayFactory.ofDim[X](array.length))
+				else if (n > 0)
+					seq(array.shiftedLeft(n)) ?= seq(copy.drop(n) ++ Iterator.fill(n)(default[X]))
+				else
+					seq(array.shiftedLeft(n)) ?= Iterator.fill(-n)(default[X]) ++: copy.take(array.length + n)
+				) lbl copy.contentsString + ".shiftedLeft(" + n + ") == " + array.shiftedLeft(n).contentsString
+			}
+	}
+	new ArrayProperty("shiftedRight") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { n :Int =>
+				val copy = Array.copyOf(array, array.length)
+				(if (n == 0)
+					seq(array.shiftedRight(n)) ?= seq(copy)
+				else if (n <= -array.length || n >= array.length)
+					seq(array. shiftedRight(n)) ?= seq(ArrayFactory.ofDim[X](array.length))
+				else if (n > 0)
+					seq(array.shiftedRight(n)) ?= Iterator.fill(n)(default[X]) ++: copy.take(array.length - n)
+				else
+					seq(array.shiftedRight(n)) ?= seq(copy.drop(-n) ++ Iterator.fill(-n)(default[X]))
+				) lbl copy.contentsString + ".shiftedRight(" + n + ") == " + array.shiftedRight(n).contentsString
+			}
+	}
+
+	property("|") = forAll { (a :Array[Long], b :Array[Long]) =>
+		(seq(a | b) ?= seq(a.zipAll(b, 0L, 0L).map { case (a, b) => a | b })) lbl
+			a.map(_.toBinaryString).contentsString + " | " + b.map(_.toBinaryString).contentsString + " == " +
+				(a | b map (_.toBinaryString)).contentsString
+	}
+	property("&") = forAll { (a :Array[Int], b :Array[Int]) =>
+		(seq(a & b) ?= seq(a.zipAll(b, 0xffffffff, 0xffffffff).map { case (a, b) => a & b })) lbl
+			a.map(_.toBinaryString).contentsString + " & " + b.map(_.toBinaryString).contentsString + " == " +
+				(a & b map (_.toBinaryString)).contentsString
+	}
+	property("^") = forAll { (a :Array[Byte], b :Array[Byte]) =>
+		val zipped = a.map(Some(_)).zipAll(b.map(Some(_)), None, None)
+		(seq(a ^ b) ?= zipped.map {
+			case (Some(a), Some(b)) => (a ^ b).toByte
+			case (Some(a), _)       => a
+			case (_, Some(b))       => b
+		}) lbl a.map(_.toBinaryString).contentsString + " ^ " + b.map(_.toBinaryString).contentsString + " == " +
+			(a ^ b map (_.toBinaryString)).contentsString
+	}
+	property("~") = forAll { (a :Array[Short]) =>
+		val clone = a.clone()
+		val expect = a.map(i => (~i).toShort)
+		val not = ~a
+		def format(arr :Array[Short]) =
+			arr.map(x => (x & 0xffff).toBinaryString.lpad('0', 16)).contentsString
+		((seq(not) ?= seq(expect)) lbl "~" + format(clone) + " == " + format(not)) &&
+			((seq(a) ?= seq(clone)) lbl clone.contentsString + " modified to:\n" + a.contentsString)
+	}
 
 
+	new ArrayProperty("fill") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+			val x = any[X]
+			array.fill(x)
+			array.toSeq ?= IndexedSeq.const(array.length)(x)
+		}
+	}
+	new ArrayProperty("fill(from, until)(elem)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { (from :Int, until :Int) =>
+				val x = any[X]
+				val expect = array.toBuffer
+				var i   = math.max(from, 0)
+				val end = math.min(until, array.length)
+				while (i < end) {
+					expect(i) = x; i += 1
+				}
+				array.fill(from, until)(x)
+				seq(array) ?= expect
+			}
+	}
+	new ArrayProperty("clear") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+			array.clear()
+			seq(array) ?= Array.fill(array.length)(default[X])
+		}
+	}
+	new ArrayProperty("clear(from, until)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { (from :Int, until :Int) =>
+				val expect = array.toBuffer
+				var i   = math.max(from, 0)
+				val end = math.min(until, array.length)
+				while (i < end) {
+					expect(i) = default
+					i += 1
+				}
+				array.clear(from, until)
+				seq(array) ?= expect
+			}
+	}
+	new ArrayProperty("clearIfRef") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+			val copy = array.toSeq
+			array.clearIfRef()
+			if (array.isInstanceOf[Array[AnyRef]] && !array.isInstanceOf[Array[Unit]])
+				(seq(array) :collection.Seq[Any]) ?= IndexedSeq.const(array.length)(null)
+			else
+				seq(array) ?= copy
+		}
+	}
+	new ArrayProperty("clearIfRef(from, until)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+			forAll { (from :Int, until :Int) =>
+				val expect = array.toBuffer
+				array.clearIfRef(from, until)
+				if (array.isInstanceOf[Array[AnyRef]] && !array.isInstanceOf[Array[Unit]]) {
+					var i   = math.max(from, 0)
+					val end = math.min(until, array.length)
+					while (i < end) {
+						expect(i) = default
+						i += 1
+					}
+				}
+				seq(array) ?= expect
+			}
+	}
+
+
+	new ArrayProperty("updateAll(Int => E)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+			val clearedEven = array.clone()
+			clearedEven.updateAll { i :Int => if (i % 2 == 0) default[X] else array(i) }
+			val expectEven = array.zipWithIndex.map {
+				case (_, i) if i % 2 == 0 => default[X]
+				case (x, _) => x
+			}
+			(ArraySeq.unsafeWrapArray(clearedEven) ?= ArraySeq.unsafeWrapArray(expectEven)) lbl
+				array.contentsString + ".updateAll { i :Int => if (i % 2 == 0) default[X] else array(i) }"
+		}
+	}
+	new ArrayProperty("updateAll(Int, Int)(Int => E)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int) =>
+				val clearedOdd = array.clone()
+				clearedOdd.updateAll(from, until) { i :Int => if (i % 2 == 1) default[X] else array(i) }
+				val expectEven = array.zipWithIndex.map {
+					case (_, i) if i % 2 == 1 && i >= from && i < until => default[X]
+					case (x, _) => x
+				}
+				(ArraySeq.unsafeWrapArray(clearedOdd) ?= ArraySeq.unsafeWrapArray(expectEven)) lbl
+					array.contentsString + s".updateAll($from, $until) { i :Int => if (i % 2 == 1) default[X] else array(i) }"
+			}
+	}
 	new ArrayProperty("updateAll(Int, IterableOnce)") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { index :Int =>
@@ -450,8 +657,9 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 							array.updateAll(index, elems.iterator).throws[IndexOutOfBoundsException] :| "Iterator"
 					else {
 						val expect = array.view.take(index) ++ elems ++ array.view.drop(index + elems.size) to ArraySeq
-						array.updateAll(index, elems)
-						seq(array) ?= expect
+						val clone = array.clone
+						clone.updateAll(index, elems)
+						seq(clone) ?= expect
 					}
 				}
 			}
@@ -464,8 +672,9 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 						array.updateAll(index, elems).throws[IndexOutOfBoundsException]
 					else {
 						val expect = array.view.take(index) ++ elems ++ array.view.drop(index + elems.length) to ArraySeq
-						array.updateAll(index, elems)
-						seq(array) ?= expect
+						val clone = array.clone
+						clone.updateAll(index, elems)
+						seq(clone) ?= expect
 					}
 				} lbl "updateAll(" + index + ", Array[" + localNameOf[X] + "])") &&
 				(forAll { src :Array[X] =>
@@ -474,8 +683,9 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 						array.updateAll(index, elems).throws[IndexOutOfBoundsException]
 					else {
 						val expect = array.view.take(index) ++ src ++ array.view.drop(index + src.length) to ArraySeq
-						array.updateAll(index, elems)
-						seq(array) ?= expect
+						val clone = array.clone
+						clone.updateAll(index, elems)
+						seq(clone) ?= expect
 					}
 				} lbl "updateAll(" + index + ", RefArray[" + localNameOf[X] + "])")
 			}
@@ -493,8 +703,9 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 						val view = array.view
 						val expect =
 							view.take(index) ++ Seq(first, second) ++ rest ++ array.drop(index + updated) to ArraySeq
-						array.updateAll(index, first, second, rest :_*)
-						seq(array) ?= expect
+						val clone = array.clone
+						clone.updateAll(index, first, second, rest :_*)
+						seq(clone) ?= expect
 					}
 				} lbl "first: " + first + ", second: " + second
 			}
@@ -530,11 +741,11 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	new UpdateProperty with PatchVarArgsProperty {
 		override def patch[X, Y >: X :ClassTag]
 		                  (array :Array[X], index :Int, first :Y, second :Y, rest :Seq[Y], replaced :Int) =
-			array.updatedAll(index, first, second, rest :_*)	
+			array.updatedAll(index, first, second, rest :_*)
 	}
 	new UpdateProperty with PatchArrayLikeProperty {
 		override def patch[X, Y >: X :ClassTag](array :Array[X], index :Int, elems :ArrayLike[Y], replaced :Int) =
-			array.updatedAll(index, elems)	
+			array.updatedAll(index, elems)
 	}
 	new UpdateProperty with PatchArrayProperty {
 		override def patch[X, Y >: X](array :Array[X], index :Int, elems :Array[Y], replaced :Int) =
@@ -553,11 +764,11 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	new InsertProperty with PatchVarArgsProperty {
 		override def patch[X, Y >: X :ClassTag]
 		                  (array :Array[X], index :Int, first :Y, second :Y, rest :Seq[Y], replaced :Int) =
-			array.insertedAll(index, first, second, rest :_*)	
+			array.insertedAll(index, first, second, rest :_*)
 	}
 	new InsertProperty with PatchArrayLikeProperty {
 		override def patch[X, Y >: X :ClassTag](array :Array[X], index :Int, elems :ArrayLike[Y], replaced :Int) =
-			array.insertedAll(index, elems)	
+			array.insertedAll(index, elems)
 	}
 	new InsertProperty with PatchArrayProperty {
 		override def patch[X, Y >: X](array :Array[X], index :Int, elems :Array[Y], replaced :Int) =
@@ -576,11 +787,11 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	new AppendProperty with PatchVarArgsProperty {
 		override def patch[X, Y >: X :ClassTag]
 		                  (array :Array[X], index :Int, first :Y, second :Y, rest :Seq[Y], replaced :Int) =
-			array.appendedAll(first, second, rest :_*)	
+			array.appendedAll(first, second, rest :_*)
 	}
 	new AppendProperty with PatchArrayLikeProperty {
 		override def patch[X, Y >: X :ClassTag](array :Array[X], index :Int, elems :ArrayLike[Y], replaced :Int) =
-			array.appendedAll(elems)	
+			array.appendedAll(elems)
 	}
 	new AppendProperty with PatchArrayProperty {
 		override def patch[X, Y >: X](array :Array[X], index :Int, elems :Array[Y], replaced :Int) =
@@ -599,11 +810,11 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	new PrependProperty with PatchVarArgsProperty {
 		override def patch[X, Y >: X :ClassTag]
 			              (array :Array[X], index :Int, first :Y, second :Y, rest :Seq[Y], replaced :Int) =
-			array.prependedAll(first, second, rest :_*)	
+			array.prependedAll(first, second, rest :_*)
 	}
 	new PrependProperty with PatchArrayLikeProperty {
 		override def patch[X, Y >: X :ClassTag](array :Array[X], index :Int, elems :ArrayLike[Y], replaced :Int) =
-			array.prependedAll(elems)	
+			array.prependedAll(elems)
 	}
 	new PrependProperty with PatchArrayProperty {
 		override def patch[X, Y >: X](array :Array[X], index :Int, elems :Array[Y], replaced :Int) =
@@ -760,7 +971,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 					patchProperty(array, elems, index, replaced)(patch(array, elems, replaced)) lbl
 						"patch: " + elems.contentsString
 				) && (
-					patchProperty(array, refArray, index, replaced)(patch(array, refArray, replaced)) lbl
+					patchProperty(array, refArray.toSeq, index, replaced)(patch(array, refArray, replaced)) lbl
 						elems.mkString("patch: RefArray[" + localNameOf[U] + "](", ", ", ")")
 				)
 			}
@@ -784,8 +995,6 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 					"patch: " + elems.contentsString
 			}
 	}
-
-
 
 /*
 	private def getIndex(i :Int) :Opt[Int] = Opt.when(i >= 0)(i)
@@ -1043,21 +1252,31 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension") {
 
-	new ArrayProperty("copyOfRange(Array[], Int, Int, Int, Int)") {
+	new ArrayProperty("emptyLike") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+			val empty = Array.emptyLike(array)
+			(empty.length ?= 0) && empty.getClass == array.getClass
+		}
+	}
+	new ArrayProperty("like") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
-			forAll { (from :Int, until :Int, offset :Int, newLength :Short) =>
+			forAll { len :Byte =>
+				if (len < 0)
+					Array.like(array, len).throws[NegativeArraySizeException]
+				else {
+					val a = Array.like(array, len)
+					(a.length ?= len) && a.getClass == array.getClass
+				}
+			}
+	}
+
+	new ArrayProperty("copyOfRange(Array, Int, Int, Int, Int)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from :Int, until :Int, offset :Int, newLength :Byte) =>
 				if (offset < 0)
-					if (!throws(classOf[IndexOutOfBoundsException])(Array.copyOfRange(array, from, until, offset, newLength))) {
-						Console.err.println(s"Array.copyOfRange(${array.contentsString}, $from, $until, $offset, $newLength)")
-						Prop.falsified :| "out of range"
-					} else
-						Array.copyOfRange(array, from, until, offset, newLength).throws[IndexOutOfBoundsException]
+					Array.copyOfRange(array, from, until, offset, newLength).throws[IndexOutOfBoundsException]
 				else if (newLength < 0)
-					if (!throws(classOf[NegativeArraySizeException])(Array.copyOfRange(array, from, until, offset, newLength))) {
-						Console.err.println(s"Array.copyOfRange(${array.contentsString}, $from, $until, $offset, $newLength)")
-						Prop.falsified :| "negative array size"
-					} else
-						Array.copyOfRange(array, from, until, offset, newLength).throws[NegativeArraySizeException]
+					Array.copyOfRange(array, from, until, offset, newLength).throws[NegativeArraySizeException]
 				else {
 					val range = Array.copyOfRange(array, from, until, offset, newLength)
 					(((range.getClass :Any) ?= array.getClass) lbl
@@ -1066,16 +1285,14 @@ object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension"
 						lbl s"returns an array of length $newLength"
 					) && {
 						val expect = new Array[X](newLength)
+						if (array.isInstanceOf[Array[Unit]])
+							java.util.Arrays.fill(expect.asInstanceOf[Array[AnyRef]], 0, newLength, ())
 						array.view.slice(from, until).copyToArray(expect, offset)
-						if (range.toSeq != expect.toSeq)
-							Console.err.println(s"Array.copyOfRange(${array.contentsString}, $from, $until, $offset, $newLength) == $range != $expect")
 						range.toSeq ?= expect.toSeq
 					} lbl s"${array.contentsString}.copyOfRange($from, $until, $offset, $newLength) =? ${range.contentsString}"
 				}
 			}
 	}
-
-
 	new ArrayProperty("copyOfRange(ArrayLike, Int, Int, Int, Int)") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			prop(array, true) && forAll { array :Array[Int] =>
@@ -1084,7 +1301,7 @@ object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension"
 			}
 
 		private def prop[X :ClassTag](array :ArrayLike[X], expectSameClass :Boolean) =
-			forAll { (from :Int, until :Int, offset :Int, newLength :Short) =>
+			forAll { (from :Int, until :Int, offset :Int, newLength :Byte) =>
 				if (offset < 0)
 					Array.copyOfRange(array, from, until, offset, newLength).throws[IndexOutOfBoundsException]
 				else if (newLength < 0)
@@ -1100,38 +1317,98 @@ object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension"
 						lbl s"returns an array of length $newLength"
 					) && {
 						val expect = new Array[X](newLength)
+						if (array.isInstanceOf[Array[Unit]])
+							java.util.Arrays.fill(expect.asInstanceOf[Array[Any]], 0, newLength, ())
 						array.view.slice(from, until).copyToArray(expect, offset)
-						if (range.toSeq != expect.toSeq)
-							Console.err.println(s"Array.copyOfRange(${array.contentsString}, $from, $until, $offset, $newLength) == $range != $expect")
 						range.toSeq ?= expect.toSeq
 					} lbl s"${array.contentsString}.copyOfRange($from, $until, $offset, $newLength) =? ${range.contentsString}"
 				}
 			}
 	}
 
+	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int, Int)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from1 :Int, until1 :Int) =>
+				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
+					forAll { len :Byte =>
+						if (len < 0)
+							Array.copyOfRanges(array, from1, until1, array2, from2, until2, len).throws[NegativeArraySizeException]
+						else {
+							val result = Array.copyOfRanges(array, from1, until1, array2, from2, until2, len)
+							val expect  = array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) to ArraySeq
+							(result.getClass.castParam[Array[X]] ?= array.getClass.castParam[Array[X]]) && (
+								if (len < expect.size) {
+									ArraySeq.unsafeWrapArray(result) ?= expect.take(len)
+								} else {
+									val padded = expect ++ Iterator.fill(len - expect.size)(default[X])
+									ArraySeq.unsafeWrapArray(result) ?= padded
+								}
+							) lbl
+								"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+									array2.contentsString + ", " + from2 + ", " + until2 + ", " + len + ")"
+						}
+					}
+				}
+			}
+	}
+	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int, Int)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from1 :Int, until1 :Int) =>
+				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
+					forAll { len :Byte =>
+						val refArray = array.toArray[Any].asInstanceOf[RefArray[X]]
+						val iArray   = array2.asInstanceOf[IArray[X]]
+						if (len < 0)
+							Array.copyOfRanges(refArray, from1, until1, iArray, from2, until2, len).throws[NegativeArraySizeException]
+						else {
+							val result = Array.copyOfRanges(refArray, from1, until1, iArray, from2, until2, len)
+							val expect  = array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) to ArraySeq
+							(result.getClass.castParam[Array[X]] ?= array.getClass.castParam[Array[X]]) && (
+								if (len < expect.size)
+									ArraySeq.unsafeWrapArray(result) ?= expect.take(len)
+								else
+									ArraySeq.unsafeWrapArray(result) ?= (
+										expect ++ Iterator.fill(len - expect.size)(default[X])
+									)
+							) lbl
+								"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+									array2.contentsString + ", " + from2 + ", " + until2 + ", " + len + ")"
+						}
+					}
+				}
+			}
+	}
 
 	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int)") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
-					ArraySeq.unsafeWrapArray(Array.copyOfRanges(array, from1, until1, array2, from2, until2)) ?=
-						(array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) to ArraySeq)
+					val res = Array.copyOfRanges(array, from1, until1, array2, from2, until2)
+					(res.getClass.asAnyRef ?= array.getClass.asAnyRef) && (
+						ArraySeq.unsafeWrapArray(res) ?=
+							(array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) to ArraySeq)
+					) lbl
+						"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+							array2.contentsString + ", " + from2 + ", " + until2 + ")"
 				}
 			}
 	}
-
 	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int)") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					val refArray = array.toArray[Any].asInstanceOf[RefArray[X]]
 					val iArray   = array2.asInstanceOf[IArray[X]]
-					ArraySeq.unsafeWrapArray(Array.copyOfRanges(refArray, from1, until1, iArray, from2, until2)) ?=
-						(array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) to ArraySeq)
+					val res = Array.copyOfRanges(refArray, from1, until1, iArray, from2, until2)
+					(res.getClass.asAnyRef ?= array.getClass.asAnyRef) && (
+						ArraySeq.unsafeWrapArray(res) ?=
+							(array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) to ArraySeq)
+					) lbl
+						"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+							array2.contentsString + ", " + from2 + ", " + until2 + ")"
 				}
 			}
 	}
-
 
 	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int, Array, Int, Int)") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
@@ -1139,16 +1416,21 @@ object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension"
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
 						val res = Array.copyOfRanges(array, from1, until1, array2, from2, until2, array3, from3, until3)
-						ArraySeq.unsafeWrapArray(res) ?= (
+						val expect = (
 							array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) ++
-								array3.slice(from3, until3) to ArraySeq
-						)
+								array3.slice(from3, until3)
+							) to ArraySeq
+						(res.getClass.asAnyRef ?= array.getClass.asAnyRef) && (
+							ArraySeq.unsafeWrapArray(res) ?= expect
+						) lbl
+							"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+								array2.contentsString + ", " + from2 + ", " + until2 + ", " +
+								array3.contentsString + ", " + from3 + ", " + until3 + ")"
 					}
 				}
 			}
 	}
-
-	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int)") {
+	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int, ArrayLike, Int, Int)") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
@@ -1159,13 +1441,152 @@ object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension"
 						val res = Array.copyOfRanges(
 							refArray, from1, until1, iArray2, from2, until2, refArray3, from3, until3
 						)
-						ArraySeq.unsafeWrapArray(res) ?= (
-							array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) ++
-								array3.view.slice(from3, until3) to ArraySeq
-						)
+						(res.getClass.asAnyRef ?= array.getClass.asAnyRef) && (
+							ArraySeq.unsafeWrapArray(res) ?= (
+								array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) ++
+									array3.view.slice(from3, until3) to ArraySeq
+							)
+						) lbl
+							"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+								array2.contentsString + ", " + from2 + ", " + until2 + ", " +
+								array3.contentsString + ", " + from3 + ", " + until3 + ")"
 					}
 				}
 			}
+	}
+
+	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int, Array, Int, Int, Int)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from1 :Int, until1 :Int) =>
+				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
+					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
+						forAll { (len :Byte) =>
+							if (len < 0)
+								Array.copyOfRanges(
+									array, from1, until1, array2, from2, until2, array3, from3, until3, len
+								).throws[NegativeArraySizeException]
+							else {
+								val res = Array.copyOfRanges(
+									array, from1, until1, array2, from2, until2, array3, from3, until3, len
+								)
+								val expect = (
+									array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) ++
+										array3.slice(from3, until3)
+									) to ArraySeq
+								val len1 = rangeLength(array, from1, until1)
+								val len2 = rangeLength(array2, from2, until2)
+								val len3 = rangeLength(array3, from3, until3)
+								(res.getClass.asAnyRef ?= array.getClass.asAnyRef) && (
+									if (len1 + len2 + len3 >= len)
+										ArraySeq.unsafeWrapArray(res) ?= expect.take(len)
+									else
+										ArraySeq.unsafeWrapArray(res) ?=
+											expect.take(len) ++ Iterator.fill(len - len1 - len2 - len3)(default[X])
+								) lbl
+									"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+										array2.contentsString + ", " + from2 + ", " + until2 + ", " +
+										array3.contentsString + ", " + from3 + ", " + until3 + ", " + len + ")"
+							}
+						}
+					}
+				}
+			}
+	}
+	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int, ArrayLike, Int, Int, Int)") {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (from1 :Int, until1 :Int) =>
+				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
+					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
+						forAll { (len :Byte) =>
+							val refArray  = array.toArray[Any].asInstanceOf[RefArray[X]]
+							val iArray2   = array2.asInstanceOf[IArray[X]]
+							val refArray3 = array3.toArray[Any].asInstanceOf[IRefArray[X]]
+							if (len < 0)
+								Array.copyOfRanges(
+									refArray, from1, until1, iArray2, from2, until2, refArray3, from3, until3, len
+								).throws[NegativeArraySizeException]
+							else {
+								val res = Array.copyOfRanges(
+									refArray, from1, until1, iArray2, from2, until2, refArray3, from3, until3, len
+								)
+								val expect = (
+									array.view.slice(from1, until1) ++ array2.view.slice(from2, until2) ++
+										array3.slice(from3, until3)
+									) to ArraySeq
+								val len1   = rangeLength(array, from1, until1)
+								val len2   = rangeLength(array2, from2, until2)
+								val len3   = rangeLength(array3, from3, until3)
+								(res.getClass.asAnyRef ?= array.getClass.asAnyRef) && (
+									if (len1 + len2 + len3 >= len)
+										ArraySeq.unsafeWrapArray(res) ?= expect.take(len)
+									else
+										ArraySeq.unsafeWrapArray(res) ?=
+											expect.take(len) ++ Iterator.fill(len - len1 - len2 - len3)(default[X])
+								) lbl
+									"copyOfRanges(" + array.contentsString + ", " + from1 + ", " + until1 + ", " +
+										array2.contentsString + ", " + from2 + ", " + until2 + ", " +
+										array3.contentsString + ", " + from3 + ", " + until3 + ", " + len + ")"
+							}
+						}
+					}
+				}
+			}
+	}
+
+	private abstract class CyclicCopyArrayProperty(name :String) extends ArrayProperty(name) {
+		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+			forAll { (srcPos :Int, dstPos :Int, len :Int, length2 :Byte) =>
+				val res = new Array[X](length2 & 0xff)
+				if (!validate(array, srcPos, res, dstPos, len))
+					copy(array, srcPos, res, dstPos, len).throws[IndexOutOfBoundsException]
+				else {
+					copy(array, srcPos, res, dstPos, len)
+					val copied = shouldCopy(array, srcPos, res, dstPos, len)
+					val src =
+						if (copied <= array.length - srcPos) array.slice(srcPos, srcPos + copied)
+						else array.slice(srcPos, array.length) ++ array.slice(0, copied - (array.length - srcPos))
+					val dst =
+						if (copied <= res.length - dstPos) res.slice(dstPos, dstPos + copied)
+						else array.slice(dstPos, res.length) ++ array.slice(0, copied - (res.length - dstPos))
+					(dst.getClass.castParam[Array[X]] ?= src.getClass.castParam[Array[X]]) &&
+						(ArraySeq.unsafeWrapArray(dst) ?= ArraySeq.unsafeWrapArray(src)) lbl
+							"cpy(" + seq(array) + ", " + srcPos + ", " + seq(res) + ", " + dstPos + ", " + len + ")"
+				}
+			}
+		protected def validate[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Boolean
+		protected def copy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Unit
+		protected def shouldCopy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Int
+	}
+	new CyclicCopyArrayProperty("cyclicCopy(Array, Int, Array, Int, Int)") {
+		override def validate[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Boolean =
+			!(srcPos < 0 || dstPos < 0 || srcPos > src.length || dstPos > dst.length ||
+				len < 0 || len > src.length || len > dst.length)
+
+		override def copy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Unit =
+			Array.cyclicCopy(src, srcPos, dst, dstPos, len)
+
+		override def shouldCopy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Int =
+			src.length min dst.length min len
+	}
+	new CyclicCopyArrayProperty("cyclicCopyFrom(Array, Int, Array, Int, Int)") {
+		override def validate[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Boolean =
+			!(srcPos < 0 || dstPos < 0 || srcPos > src.length || dstPos > dst.length - len || len < 0 || len > src.length)
+
+		override def copy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Unit =
+			Array.cyclicCopyFrom(src, srcPos, dst, dstPos, len)
+
+		override def shouldCopy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Int =
+			src.length min dst.length - dstPos min len
+	}
+	new CyclicCopyArrayProperty("cyclicCopyTo(Array, Int, Array, Int, Int)") {
+		override def validate[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Boolean =
+			!(srcPos < 0 || dstPos < 0 || srcPos > src.length - len || dstPos > dst.length || len < 0 || len > dst.length)
+
+		override def copy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Unit =
+			Array.cyclicCopyTo(src, srcPos, dst, dstPos, len)
+
+		override def shouldCopy[X](src :Array[X], srcPos :Int, dst :Array[X], dstPos :Int, len :Int) :Int =
+			src.length - srcPos min dst.length min len
 	}
 
 	property("generate") = {
@@ -1192,3 +1613,4 @@ object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension"
 	}
 
 }
+

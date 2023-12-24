@@ -18,5 +18,14 @@ package object sugar extends sugar.imports {
 	@elidable(ASSERTION) @inline def notNull[X](x :X) :X =
 		if (x == null) throw new AssertionError("null")
 		else x
+
+	private final val ShowCollectionsInExceptionsProperty = this.getClass.getName + ".showCollectionsInExceptions"
+
+	/** A debugging flag telling the collections to include full argument information in thrown exceptions if possible.
+	  *  Warning: may produce huge strings! Do not use in production code.
+	  * Set by system property `net.noresttherein.sugar.showCollectionsInExceptions`. Defaults to `false`.
+	  */ //todo: use this flag in util.errorString
+	private[sugar] val ShowCollectionsInExceptions :Boolean =
+		System.getProperty(ShowCollectionsInExceptionsProperty, "false").toBoolean
 }
 //todo: add SerialVersionUID/Serializable base trait to all objects, witness classes, YesNo, EqSet,

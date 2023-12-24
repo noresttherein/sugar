@@ -4,17 +4,18 @@ import java.lang.{Math => math}
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.generic.DefaultSerializable
-import scala.collection.{AbstractIterable, SeqFactory, Stepper, StepperShape}
+import scala.collection.generic.DefaultSerializationProxy
+import scala.collection.{SeqFactory, SeqView, Stepper, StepperShape, mutable}
 import scala.collection.immutable.AbstractSeq
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{Buffer, Builder}
 
 import net.noresttherein.sugar.JavaTypes.JIterator
+import net.noresttherein.sugar.collections.IndexedIterable.applyPreferred
 import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
-import net.noresttherein.sugar.extensions.IteratorExtension
+import net.noresttherein.sugar.extensions.classNameMethods
 
 //implicits
-import net.noresttherein.sugar.extensions.{JavaIteratorExtension, StepperExtension}
+import net.noresttherein.sugar.extensions.StepperExtension
 
 
 
@@ -37,84 +38,401 @@ import net.noresttherein.sugar.extensions.{JavaIteratorExtension, StepperExtensi
   * @define coll zigzag
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: renaming to Chain
-sealed trait ZigZag[+A] extends Seq[A] with SugaredIterable[A] with DefaultSerializable {
+//We could eliminate some redundancy by extending SlicingOps, but we don't want to extend IterableOps[_, _, ZigZag[E]]
+sealed abstract class ZigZag[+E] extends AbstractSeq[E] with SugaredIterable[E] with Serializable {
 //	private[ZigZag] def depth :Int
 	override def knownSize :Int = length
 
-	override def appended[B >: A](elem :B) :ZigZag[B] = new Appended(this, elem)
-	override def prepended[B >: A](elem :B) :ZigZag[B] = new Prepended(elem, this)
+	//fixme: we can't override :++ and ++: :(
+	override def appended[B >: E](elem :B) :ZigZag[B] = new Appended(this, elem)
+	override def prepended[B >: E](elem :B) :ZigZag[B] = new Prepended(elem, this)
 
-	override def appendedAll[B >: A](suffix :IterableOnce[B]) :ZigZag[B] = suffix match {
+	override def appendedAll[B >: E](suffix :IterableOnce[B]) :ZigZag[B] = suffix match {
 		case it :Iterable[_] if it.isEmpty => this
 		case _ if isEmpty => ZigZag.from(suffix)
 		case it :Iterable[B] if it.sizeIs == 1 => new Appended(this, it.head)
 		case seq :Seq[B] => new Concat(this, seq)
-		case it :Iterable[B] => new Concat(this, it to PassedArray)
-		case _ => new Concat(this, suffix.iterator to PassedArray)
+		case it :Iterable[B] => new Concat(this, it to DefaultIndexedSeq)
+		case _ => new Concat(this, suffix.iterator to DefaultIndexedSeq)
 	}
-	override def prependedAll[B >: A](prefix :IterableOnce[B]) :ZigZag[B] = prefix match {
+	override def prependedAll[B >: E](prefix :IterableOnce[B]) :ZigZag[B] = prefix match {
 		case it :Iterable[_] if it.isEmpty     => this
 		case _ if isEmpty                      => ZigZag.from(prefix)
 		case it :Iterable[B] if it.sizeIs == 1 => new Prepended(it.head, this)
 		case seq :Seq[B]                       => new Concat(seq, this)
-		case it :Iterable[B]                   => new Concat(it to PassedArray, this)
-		case _                                 => new Concat(prefix.iterator to PassedArray, this)
+		case it :Iterable[B]                   => new Concat(it to DefaultIndexedSeq, this)
+		case _                                 => new Concat(prefix.iterator to DefaultIndexedSeq, this)
 	}
 
-	override def empty :ZigZag[A] = ZigZag.empty
-	override def take(n :Int) :ZigZag[A] = slice(0, n)
-	override def drop(n :Int) :ZigZag[A] = slice(n, length)
-	override def takeRight(n :Int) :ZigZag[A] = if (n <= 0) empty else slice(length - n, length)
-	override def dropRight(n :Int) :ZigZag[A] = if (n <= 0) this else slice(0, length - n)
+	override def empty :ZigZag[E] = ZigZag.empty
 
-	override def slice(from :Int, until :Int) :ZigZag[A] =
+	override def tail :ZigZag[E] =
+		if (length == 0)
+			throw new UnsupportedOperationException("ZigZag().tail")
+		else
+			drop(1)
+	override def init :ZigZag[E] =
+		if (length == 0)
+			throw new UnsupportedOperationException("ZigZag().init")
+		else
+			dropRight(1)
+
+	override def take(n :Int) :ZigZag[E] = slice(0, n)
+	override def drop(n :Int) :ZigZag[E] = slice(n, length)
+	override def takeRight(n :Int) :ZigZag[E] = if (n <= 0) empty else slice(length - n, length)
+	override def dropRight(n :Int) :ZigZag[E] = if (n <= 0) this else slice(0, length - n)
+
+	override def slice(from :Int, until :Int) :ZigZag[E] =
 		if (until <= from | until <= 0 || from >= length) empty
 		else if (from <= 0 && until >= length) this
 		else if (from <= 0) trustedSlice(0, until)
 		else if (until > length) trustedSlice(from, length)
 		else trustedSlice(from, until)
 
-	protected[collections] def trustedSlice(from :Int, until :Int) :ZigZag[A]
+	override def splitAt(n :Int) :(ZigZag[E], ZigZag[E]) =
+		if (n <= 0) (empty, this)
+		else if (n >= length) (this, empty)
+		else (trustedSlice(0, n), trustedSlice(n, length))
 
-	//narrow the return type, overridden by subclasses
-	override def updated[B >: A](index :Int, elem :B) :ZigZag[B] = ZigZag.from(super.updated(index, elem))
+	override def takeWhile(p :E => Boolean) :ZigZag[E] = take(segmentLength(p, 0))
+	override def dropWhile(p :E => Boolean) :ZigZag[E] = drop(segmentLength(p, 0))
+	override def span(p :E => Boolean) :(ZigZag[E], ZigZag[E]) = splitAt(segmentLength(p, 0))
 
-	//narrow the return type, overridden by subclasses
-	override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
-		ZigZag.from(super.patch(from, other, replaced))
-
-	override def foreach[U](f :A => U) :Unit = try {
-		stackForEach(f)
-	} catch {
-		case _ :StackOverflowError =>
-			//shut up tailrec error
-			@inline def headForeach(seq :Seq[A], cont :() => Unit) :Unit = rec(seq, cont)
-			@tailrec def rec(seq :Seq[A], cont :() => Unit) :Unit = seq match {
-				case concat    :Concat[A]    => rec(concat._1, () => headForeach(concat._2, cont))
-				case append    :Appended[A]  => f(append.head); rec(append.tail, cont)
-				case prepended :Prepended[A] => rec(prepended.init, () => { f(prepended.last); cont() })
-				case _      => seq.foreach(f)
+	protected def trustedSlice(from :Int, until :Int) :ZigZag[E] = {
+		@tailrec def slice(in :Seq[E], from :Int, until :Int, prefix :ZigZag[E],
+		                   suffix :mutable.Queue[ZigZag[E]], lastUntil :Int) :ZigZag[E] =
+		{
+//			@inline def newSuffix = if (suffix == null) mutable.Queue.empty[ZigZag[E]] else suffix
+			var from0      = from
+			var until0     = until
+			var lastUntil0 = lastUntil
+			var next       = null :Seq[E]
+			var newPrefix  = prefix
+			var newSuffix  = suffix
+			in match {
+				case concat :Concat[E] =>
+					val prefixLen = concat._1.length
+					if (from <= 0 & until == prefixLen)
+						newPrefix = prefix appendedAll concat._1
+					else if (until <= prefixLen)
+						next = concat._1
+					else if (from >= prefixLen) {
+						next   = concat._2
+						from0  = from - prefixLen
+						until0 = until - prefixLen
+					} else {
+						next = concat._1
+						if (newSuffix == null)
+							newSuffix = mutable.Queue.empty
+						if (newSuffix.length == 0)
+							lastUntil0 = until - prefixLen
+						concat +=: newSuffix
+					}
+				case appended :Appended[E] =>
+					val prefixLen = appended.length - 1
+					if (from == prefixLen)
+						newPrefix = prefix appended appended.last
+					else {
+						next = appended.init
+						if (until > prefixLen) {
+							if (newSuffix == null)
+								newSuffix = mutable.Queue.empty
+							appended +=: newSuffix
+						}
+					}
+				case prepended :Prepended[E] =>
+					if (until == 1)
+						newPrefix = prefix appended prepended.head
+					else {
+						next   = prepended.tail
+						from0  = from - 1
+						until0 = until - 1
+						if (from <= 0)
+							newPrefix = prefix appended prepended.head
+					}
+				case _ =>
+					newPrefix = prefix appendedAll in.slice(from, until)
 			}
+			while (next == null && newSuffix != null && newSuffix.nonEmpty)
+				newSuffix.dequeue() match {
+					case appended :Appended[E] =>
+						newPrefix = newPrefix appended appended.last
+					case concat :Concat[E] =>
+						next  = concat._2
+						from0 = 0
+						until0 = if (newSuffix.isEmpty) lastUntil0 else Int.MaxValue
+					case seq => throw new AssertionError(
+						"Illegal continuation slice \"" + seq + "\": " + seq.className + "."
+					)
+				}
+			if (next == null)
+				newPrefix
+			else
+				slice(next, from0, until0, newPrefix, newSuffix, lastUntil0)
+		}
+		slice(this, from, until, ZigZag.empty, null, 0)
+	}
+/*
+
+	protected[collections] def trustedSlice2(from :Int, until :Int) :ZigZag[E] = {
+		@tailrec def slice(in :Seq[E], from :Int, until :Int, prefix :() => ZigZag[E], suffix :() => ZigZag[E]) :ZigZag[E] =
+			in match {
+				case _ if from == 0 && until == in.length =>
+					suffix() prependedAll in
+				case concat    :Concat[E] =>
+					val prefixLen = concat._1.length
+					if (until <= prefixLen)
+						slice(concat._1, from, until, prefix, suffix)
+					else if (from >= prefixLen)
+						slice(concat._2, from - prefixLen, until - prefixLen, prefix, suffix)
+					else {
+						val lazyPrefix = () => prefix() appendedAll concat._1.slice(from, prefixLen)
+						slice(concat._2, prefixLen, until - prefixLen, lazyPrefix, suffix)
+					}
+				case appended  :Appended[E] =>
+					val prefixLen = appended.length - 1
+					if (until <= prefixLen)
+						slice(appended.init, from, until, prefix, suffix)
+					else if (from == prefixLen)
+						prefix().appended(appended.last).appendedAll(suffix())
+					else
+						slice(appended.init, from, prefixLen, prefix, () => suffix().prepended(appended.last))
+				case prepended :Prepended[E] =>
+					if (from >= 1)
+						slice(prepended.tail, from - 1, until - 1, prefix, suffix)
+					else if (until == 1)
+						prefix() appended prepended.head appendedAll suffix()
+					else
+						slice(prepended.tail, 0, until - 1, () => prefix() appended prepended.head, suffix)
+				case _ =>
+					prefix() appendedAll in.slice(from, until) appendedAll suffix()
+			}
+		slice(this, from, until, () => ZigZag.empty, () => ZigZag.empty)
+	}
+*/
+
+	override def segmentLength(p :E => Boolean, from :Int) :Int = {
+		@tailrec def segment(in :Seq[E], idx :Int, prefix :Int, suffix :mutable.Queue[ZigZag[E]]) :Int = {
+			var next      = null :Seq[E]
+			var newIdx    = idx
+			var newPrefix = prefix
+			var newSuffix = suffix
+			in match {
+				case concat :Concat[E] =>
+					val prefixSize = concat._1.length
+					if (idx >= prefixSize) {
+						next = concat._2
+						newIdx = idx - prefixSize
+					} else {
+						next = concat._1
+						newSuffix = if (suffix == null) mutable.Queue.empty[ZigZag[E]] else suffix
+						concat +=: newSuffix
+					}
+				case appended :Appended[E] =>
+					val prefixSize = appended.length - 1
+					if (idx == prefixSize) {
+						if (p(appended.last))
+							newPrefix += 1
+						else if (newSuffix != null)
+							newSuffix.clear()
+					} else {
+						next      = appended.init
+						newSuffix = if (suffix == null) mutable.Queue.empty[ZigZag[E]] else suffix
+						appended +=: newSuffix
+					}
+				case prepended :Prepended[E] =>
+					if (idx <= 0) {
+						if (p(prepended.head)) {
+							next       = prepended.tail
+							newPrefix += 1
+							newIdx     = 0
+						} else if (newSuffix != null)
+							newSuffix.clear()
+					} else {
+						next   = prepended.tail
+						newIdx = idx - 1
+					}
+				case _ =>
+					val len    = in.segmentLength(p, idx)
+					newPrefix += len
+					if (suffix != null && suffix.nonEmpty && idx + len < in.length)
+						suffix.clear()
+			}
+			while (next == null && newSuffix != null && newSuffix.nonEmpty)
+				newSuffix.dequeue() match {
+					case appended :Appended[E] =>
+						if (p(appended.last)) newPrefix += 1
+						else newSuffix = null
+					case concat :Concat[E] =>
+						next   = concat._2
+						newIdx = 0
+					case seq => throw new AssertionError(
+						"Illegal continuation slice \"" + seq + "\": " + seq.className + "."
+					)
+				}
+			if (next != null)
+				segment(next, newIdx, newPrefix, newSuffix)
+			else
+				newPrefix
+		}
+
+		if (from >= length) 0
+		else if (from < 0) segment(this, 0, 0, null)
+		else segment(this, from, 0, null)
 	}
 
-	protected def stackForEach[U](f :A => U) :Unit
+	override def apply(i :Int) :E = {
+		@tailrec def get(seq :Seq[E], idx :Int) :E = seq match {
+			case concat    :Concat[E]    =>
+				val prefixLen = concat._1.length
+				if (idx < prefixLen) get(concat._1, idx)
+				else get(concat._2, idx - prefixLen)
+			case appended  :Appended[E]  => if (idx == appended.init.length) appended.last else get(appended.init, idx)
+			case prepended :Prepended[E] => if (idx == 0) prepended.head else get(prepended.tail, idx - 1)
+			case _                       => seq(idx)
+		}
+		get(this, i)
+	}
+	//narrow the return type, overridden by subclasses
+	override def updated[U >: E](index :Int, elem :U) :ZigZag[U] = //ZigZag.from(super.updated(index, elem))
+		if (index < 0 || index >= length)
+			throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+		else if (index == 0)
+			new Prepended(elem, drop(1))
+		else if (index == length - 1)
+			new Appended(dropRight(1), elem)
+		else
+			new Concat(new Appended(take(index), elem), drop(index + 1))
+
+	//narrow the return type, overridden by subclasses
+	override def patch[U >: E](from :Int, other :IterableOnce[U], replaced :Int) :ZigZag[U] =
+		if (from >= length) appendedAll(other)
+		else if (from <= 0) drop(replaced) prependedAll other
+		else if (replaced <= 0) take(from) appendedAll other appendedAll drop(from)
+		else if (replaced >= length - from) take(from) appendedAll other
+		else take(from) appendedAll other appendedAll drop(from + replaced)
+//		ZigZag.from(super.patch(from, other, replaced))
+
+	override def foreach[U](f :E => U) :Unit = {
+		@inline def init(suffix :mutable.Queue[ZigZag[E]]) =
+			if (suffix == null) mutable.Queue.empty[ZigZag[E]] else suffix
+
+		@tailrec def rec(in :Seq[E], suffix :mutable.Queue[ZigZag[E]]) :Unit = in match {
+			case concat    :Concat[E]    =>
+				rec(concat._1, concat +=: init(suffix))
+			case appended  :Appended[E]  =>
+				rec(appended.init, appended +=: init(suffix))
+			case prepended :Prepended[E] =>
+				f(prepended.head)
+				rec(prepended.tail, suffix)
+			case _ =>
+				in.foreach(f)
+				var next :Seq[E] = null
+				while (suffix != null && suffix.nonEmpty && (suffix.dequeue() match {
+					case appended :Appended[E] =>
+						f(appended.last)
+						true
+					case concat   :Concat[E] =>
+						next = concat._2
+						false
+					case seq => throw new AssertionError(
+						"Illegal continuation slice \"" + seq + "\": " + seq.className + "."
+					)
+				})) {}
+				if (next != null)
+					rec(next, suffix)
+		}
+		rec(this, null)
+	}
+/*
+
+	def foreach2[U](f :E => U) :Unit = {
+		//shut up tailrec error
+		@inline def headForeach(seq :Seq[E], cont :() => Unit) :Unit = rec(seq, cont)
+		@tailrec def rec(seq :Seq[E], cont :() => Unit) :Unit = seq match {
+			case concat    :Concat[E]    => rec(concat._1, () => headForeach(concat._2, cont))
+			case append    :Appended[E]  => f(append.head); rec(append.tail, cont)
+			case prepended :Prepended[E] => rec(prepended.init, () => { f(prepended.last); cont() })
+			case _      => seq.foreach(f)
+		}
+	}
+*/
+
+	protected override def reversed :Iterable[E] = new SeqView.Reverse(this)
+
+	@inline private def cat2(i1 :Iterator[E @uncheckedVariance], i2 :Iterator[E @uncheckedVariance]) =
+		if (i1.hasNext)
+			if (i2.hasNext) i1 ++ i2 else i1
+		else
+			i2
+
+	override def iterator :Iterator[E] = {
+		@tailrec def catIterators(s :Seq[E], prefix :Iterator[E], suffix :Iterator[E]) :Iterator[E] =
+			s match {
+				case appended :Appended[E] =>
+					catIterators(appended.init, prefix, cat2(Iterator.single(appended.last), suffix))
+				case prepended :Prepended[E] =>
+					catIterators(prepended.tail, cat2(prefix, Iterator.single(prepended.head)), suffix)
+				case concat :Concat[E] =>
+					catIterators(concat._2, prefix ++ concat._1.iterator, suffix)
+				case _ =>
+					cat2(cat2(prefix, s.iterator), suffix)
+			}
+		catIterators(this, Iterator.empty, Iterator.empty)
+	}
+
+	override def reverseIterator :Iterator[E] = {
+		@tailrec def catIterators(s :Seq[E], prefix :Iterator[E], suffix :Iterator[E]) :Iterator[E] =
+			s match {
+				case appended :Appended[E] =>
+					catIterators(appended.init, cat2(prefix, Iterator.single(appended.last)), suffix)
+				case prepended :Prepended[E] =>
+					catIterators(prepended.tail, prefix, cat2(Iterator.single(prepended.head), suffix))
+				case concat :Concat[E] =>
+					catIterators(concat._1, prefix ++ concat._2.reverseIterator, suffix)
+				case _ =>
+					cat2(cat2(prefix, s.reverseIterator), suffix)
+			}
+		catIterators(this, Iterator.empty, Iterator.empty)
+	}
+
+	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S = {
+		@inline def cat2(i1 :S, i2 :S) =
+			if (i1.hasStep)
+				if (i2.hasStep) i1 :++ i2 else i1
+			else
+				i2
+		@tailrec def catSteppers(s :Seq[E], prefix :S, suffix :S) :S =
+			s match {
+				case appended :Appended[E] =>
+					catSteppers(appended.init, prefix, cat2(Stepper1(appended.last), suffix))
+				case prepended :Prepended[E] =>
+					catSteppers(prepended.tail, cat2(prefix, Stepper1(prepended.head)), suffix)
+				case concat :Concat[E] =>
+					catSteppers(concat._2, prefix ++ concat._1.stepper, suffix)
+				case _ =>
+					cat2(cat2(prefix, s.stepper), suffix)
+			}
+		catSteppers(this, Stepper0(), Stepper0())
+	}
 
 	//todo: remove these once the bugs are fixed in SeqOps
-	override def startsWith[B >: A](that :IterableOnce[B], offset :Int) :Boolean =
+	override def startsWith[A >: E](that :IterableOnce[A], offset :Int) :Boolean =
 		offset >= 0 && offset <= length && super.startsWith(that, offset)
 
-	override def indexOfSlice[B >: A](that :collection.Seq[B], from :Int) :Int =
+	override def indexOfSlice[A >: E](that :collection.Seq[A], from :Int) :Int =
 		if (from > length) -1
 		else super.indexOfSlice(that, 0 max from)
 
 
-	override def copyRangeToArray[B >: A](xs :Array[B], start :Int, from :Int, until :Int) :Int =
-		slice(from, until).copyToArray(xs, start)
+	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
+		drop(from).copyToArray(xs, start, len)
 
 //	protected override def fromSpecific(coll :IterableOnce[A @uncheckedVariance]) :ZigZag[A] = ZigZag.from(coll)
 //	protected override def newSpecificBuilder :Builder[A @uncheckedVariance, ZigZag[A]] = ZigZag.newBuilder
 
-	//	override def iterableFactory :SeqFactory[ZigZag] = ZigZag
+	private def writeReplace :AnyRef = new DefaultSerializationProxy(ZigZag, this)
+//	override def iterableFactory :SeqFactory[ZigZag] = ZigZag
 	protected override def className = "ZigZag"
 }
 
@@ -132,11 +450,11 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		case zigzag :ZigZag[A] => zigzag
 		case empty  :Iterable[_] if empty.knownSize == 0 => Empty
 		case seq    :Seq[A] => new Straight(seq)
-		case _ => new Straight((PassedArray.newBuilder[A] ++= source).result())
+		case _ => new Straight((DefaultIndexedSeq.newBuilder[A] ++= source).result())
 	}
 	override def empty[A] :ZigZag[A] = Empty
 
-	override def newBuilder[A] :Builder[A, ZigZag[A]] = PassedArray.newBuilder[A] mapResult (new Straight(_))
+	override def newBuilder[A] :Builder[A, ZigZag[A]] = DefaultIndexedSeq.newBuilder[A] mapResult (new Straight(_))
 
 	/** Similar to [[collection.IndexedSeqView IndexedSeqView]], but a `ZigZag`, meaning non-slicing operations
 	  * build strict, normal (non `ZigZag`) sequences, rather than another view. Unlike other zigzags,
@@ -156,20 +474,29 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			case indexed :IndexedSeq[A] => IndexedSeqStepper(indexed)(shape.stepperShape).javaIterator.asInstanceOf[I]
 			case _ => seq.stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 		}
-	@inline private def sliceOf[A](seq :Seq[A], from :Int, until :Int) :Seq[A] = seq match {
-		case zigzag :ZigZag[A] => zigzag.trustedSlice(from, until)
-		case _ => seq.slice(from, until)
-	}
+//	@inline private def sliceOf[A](seq :Seq[A], from :Int, until :Int) :Seq[A] = seq match {
+//		case zigzag :ZigZag[A] => zigzag.trustedSlice(from, until)
+//		case _ => seq.slice(from, until)
+//	}
 
 
 
 	@SerialVersionUID(Ver)
-	private class EmptyZigZag
-		extends AbstractIterable[Nothing] with EmptySeqOps.Variant[Seq, Seq[Nothing]] with ZigZag[Nothing]
-	{
+	private class EmptyZigZag extends ZigZag[Nothing] { //with EmptyIterableOps.Generic[Seq] {
+		override def length :Int = 0
+		override def apply(i :Int) = throw new IndexOutOfBoundsException(i.toString + " out of 0")
 		override def trustedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
+		override def segmentLength(p :Nothing => Boolean, from :Int) :Int = 0
+		override def view :SeqView[Nothing] = EmptySeqOps.view
+		override def iterator = Iterator.empty
+		override def reverseIterator = Iterator.empty
+		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Nothing, S]) :S = Stepper0()
 
-		override def stackForEach[U](f :Nothing => U) :Unit = {}
+		override def foreach[U](f :Nothing => U) :Unit = ()
+//		override def empty :ZigZag[Nothing] = this
+//		protected override def fromSpecific(coll :IterableOnce[Nothing]) = this
+//		protected override def newSpecificBuilder = Seq.newBuilder
+
 		private def readResolve :Seq[Nothing] = ZigZag.empty
 	}
 
@@ -177,7 +504,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 
 
 	@SerialVersionUID(Ver)
-	private class Straight[+A](elems :Seq[A]) extends AbstractSeq[A] with ZigZag[A] {
+	private class Straight[+A](elems :Seq[A]) extends ZigZag[A] {
 		private[ZigZag] def elements = elems
 //		override def depth :Int = 0
 		override lazy val length :Int = elems.length
@@ -185,6 +512,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		override def last = elems.last
 		override def tail = ZigZag.from(elems.tail)
 		override def apply(i :Int) :A = elems(i)
+		override def segmentLength(p :A => Boolean, from :Int) :Int = elems.segmentLength(p, from)
+		override def reversed :Seq[A] = elems.reverse
 		override def iterator :Iterator[A] = elems.iterator
 		override def reverseIterator :Iterator[A] = elems.reverseIterator
 		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I = jiteratorOver(elems)
@@ -195,19 +524,17 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			case _ => new Straight(elems.slice(from, until))
 		}
 
-		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] = new Straight(elems.updated(index, elem))
-		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
-			ZigZag.from(elems.patch(from, other, replaced))
+//		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] = new Straight(elems.updated(index, elem))
+//		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
+//			ZigZag.from(elems.patch(from, other, replaced))
 
 		override def foreach[U](f :A => U) :Unit = elems.foreach(f)
-		override def stackForEach[U](f :A => U) :Unit = elems.foreach(f)
+//		override def stackForEach[U](f :A => U) :Unit = elems.foreach(f)
 	}
 
 
 	@SerialVersionUID(Ver)
-	private class Slice[+A](elems :IndexedSeq[A], offset :Int, override val length :Int)
-		extends AbstractSeq[A] with ZigZag[A]
-	{
+	private class Slice[+A](elems :IndexedSeq[A], offset :Int, override val length :Int) extends ZigZag[A] {
 		private[ZigZag] def elements = elems
 		private[ZigZag] def from = offset
 		private[ZigZag] def until = offset + length
@@ -218,18 +545,36 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			else
 				elems(offset + i)
 
-		override def iterator = IndexedSeqIterator(elems, offset, offset + length)
-		override def reverseIterator :Iterator[A] = ReverseIndexedSeqIterator(elems, offset, offset + length)
+		override def segmentLength(p :A => Boolean, from :Int) :Int =
+			if (from >= length)
+				0
+			else if (applyPreferred(elems)) {
+				val end   = offset + length
+				val start = offset + math.max(from, 0)
+				var i     = start
+				while (i < end && p(elems(i)))
+					i += 1
+				i - start
+			} else {
+				var count = 0
+				val it    = elems.iterator.drop(offset + math.max(from, 0))
+				while (it.hasNext && p(it.next()))
+					count += 1
+				count
+			}
+		override def reversed = elems.view.slice(offset, offset + length).reverse
+		override def iterator = new IndexedSeqIterator(elems, offset, offset + length)
+		override def reverseIterator :Iterator[A] = new ReverseIndexedSeqIterator(elems, offset, offset + length)
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
 			IndexedSeqStepper(elems, offset, offset + length)
 
 		override def trustedSlice(from :Int, until :Int) = new Slice(elems, offset + from, until - from)
 
-		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
-			ZigZag.from(elems.view.slice(offset, offset + length).updated(index, elem))
-
-		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
-			ZigZag.from(elems.view.slice(offset, offset + length).patch(from, other, replaced))
+//		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+//			ZigZag.from(elems.view.slice(offset, offset + length).updated(index, elem))
+//
+//		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] =
+//			ZigZag.from(elems.view.slice(offset, offset + length).patch(from, other, replaced))
 
 		override def foreach[U](f :A => U) :Unit = {
 			var i = offset; val end = offset + length
@@ -238,171 +583,143 @@ case object ZigZag extends SeqFactory[ZigZag] {
 				i += 1
 			}
 		}
-		override def stackForEach[U](f :A => U) :Unit = foreach(f)
+//		override def stackForEach[U](f :A => U) :Unit = foreach(f)
 
 		override def iterableFactory :SeqFactory[Seq] = IndexedSeq
 	}
 
 
 	@SerialVersionUID(Ver)
-	private class Concat[+A](prefix :Seq[A], suffix :Seq[A]) extends AbstractSeq[A] with ZigZag[A] {
+	private class Concat[+A](prefix :Seq[A], suffix :Seq[A]) extends ZigZag[A] {
 		def _1 = prefix
-		def _2 = prefix
-		private[this] lazy val prefixLen = prefix.length
-		override lazy val length = prefixLen + suffix.length
+		def _2 = suffix
+		override lazy val length = prefix.length + suffix.length
 //		override def depth = math.max(prefix.depth, suffix.depth)
-		override def apply(i :Int) :A =
-			if (i < 0)
-				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
-			else if (i < prefixLen)
-				prefix(i)
-			else
-				suffix(i - prefixLen)
 
-		override def iterator :Iterator[A] = prefix.iterator :++ suffix.iterator
-		override def reverseIterator :Iterator[A] = suffix.reverseIterator :++ prefix.reverseIterator
+//		override def iterator :Iterator[A] = prefix.iterator :++ suffix.iterator
+//		override def reverseIterator :Iterator[A] = suffix.reverseIterator :++ prefix.reverseIterator
+//
+//		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
+//			jiteratorOver(prefix) ++ jiteratorOver(suffix)
+//
+//		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
+//			prefix.stepper ++ suffix.stepper
+//
+//		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
+//			if (until <= prefixLen)
+//				ZigZag.from(sliceOf(prefix, from, until))
+//			else if (from >= prefixLen)
+//				new Straight(suffix.slice(from - prefixLen, until - prefixLen))
+//			else {
+//				val first = sliceOf(prefix, from, prefixLen)
+//				val second = sliceOf(suffix, 0, until - prefixLen)
+//				new Concat(first, second)
+//			}
 
-		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-			jiteratorOver(prefix) ++ jiteratorOver(suffix)
-
-		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
-			prefix.stepper ++ suffix.stepper
-
-		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
-			if (until <= prefixLen)
-				ZigZag.from(sliceOf(prefix, from, until))
-			else if (from >= prefixLen)
-				new Straight(suffix.slice(from - prefixLen, until - prefixLen))
-			else {
-				val first = sliceOf(prefix, from, prefixLen)
-				val second = sliceOf(suffix, 0, until - prefixLen)
-				new Concat(first, second)
-			}
-
-		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
-			if (index < prefixLen) new Concat(prefix.updated(index, elem), suffix)
-			else new Concat(prefix, suffix.updated(index - prefixLen, elem))
-
-		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
-			val start = math.min(math.max(from, 0), length)
-			val end   = start + math.min(math.max(replaced, 0), length - start)
-			if (end == 0) prependedAll(other)
-			else if (start == length) appendedAll(other)
-			else if (end <= prefixLen) new Concat(prefix.patch(from, other, replaced), suffix)
-			else if (start >= prefixLen) new Concat(prefix, suffix.patch(start - prefixLen, other, replaced))
-			else ZigZag.from(prefix.view.take(start).concat(other.iterator).concat(suffix.view.drop(end - prefixLen)))
-		}
-
-		override def stackForEach[U](f :A => U) :Unit = {
-			prefix foreach f
-			suffix foreach f
-		}
+//		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+//			if (index < prefixLen) new Concat(prefix.updated(index, elem), suffix)
+//			else new Concat(prefix, suffix.updated(index - prefixLen, elem))
+//
+//		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
+//			val start = math.min(math.max(from, 0), length)
+//			val end   = start + math.min(math.max(replaced, 0), length - start)
+//			if (end == 0) prependedAll(other)
+//			else if (start == length) appendedAll(other)
+//			else if (end <= prefixLen) new Concat(prefix.patch(from, other, replaced), suffix)
+//			else if (start >= prefixLen) new Concat(prefix, suffix.patch(start - prefixLen, other, replaced))
+//			else ZigZag.from(prefix.view.take(start).concat(other.iterator).concat(suffix.view.drop(end - prefixLen)))
+//		}
+//
+//		override def stackForEach[U](f :A => U) :Unit = {
+//			prefix foreach f
+//			suffix foreach f
+//		}
 	}
 
 
 	@SerialVersionUID(Ver)
-	private class Appended[+A](override val init :ZigZag[A], override val last :A)
-		extends AbstractSeq[A] with ZigZag[A]
-	{
-		private[this] lazy val prefixLen = init.length
-		override lazy val length :Int = prefixLen + 1
-		override def apply(i :Int) :A =
-			if (i < 0)
-				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
-			else if (i == prefixLen)
-				last
-			else
-				init(i)
+	private class Appended[+A](override val init :ZigZag[A], override val last :A) extends ZigZag[A] {
+		override lazy val length :Int = init.length + 1
 
-		override def iterator :Iterator[A] = init.iterator + last
-		override def reverseIterator :Iterator[A] = last +: init.reverseIterator
-
-		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-			init.jiterator ++ JavaIterator(last)
-
-		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
-			init.stepper ++ Stepper1(last)
-
-		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
-			if (from == prefixLen)
-				new Appended(Empty, last)
-			else if (until <= prefixLen)
-				init.trustedSlice(from, until)
-			else
-				new Appended(init.trustedSlice(from, prefixLen), last)
-
-		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
-			if (index == prefixLen) new Appended(init, elem)
-			else new Appended(init.updated(index, elem), last)
-
-		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
-			val start = math.min(math.max(from, 0), length)
-			val end = start + math.min(math.max(replaced, 0), length - start)
-			if (end == 0) prependedAll(other)
-			else if (start == length) appendedAll(other)
-			else if (end == length) init.patch(start, other, end - start)
-			else new Appended(ZigZag.from(init.patch(start, other, replaced)), last)
-		}
-
-		override def stackForEach[U](f :A => U) :Unit = {
-			init foreach f
-			f(last)
-		}
+//		override def iterator :Iterator[A] = init.iterator :+ last
+//		override def reverseIterator :Iterator[A] = last +: init.reverseIterator
+//
+//		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
+//			init.jiterator ++ JavaIterator.one(last)
+//
+//		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
+//			init.stepper :++ Stepper1(last)
+//
+//		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
+//			if (from == prefixLen)
+//				new Appended(Empty, last)
+//			else if (until <= prefixLen)
+//				init.trustedSlice(from, until)
+//			else
+//				new Appended(init.trustedSlice(from, prefixLen), last)
+//
+//		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+//			if (index == prefixLen) new Appended(init, elem)
+//			else new Appended(init.updated(index, elem), last)
+//
+//		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
+//			val start = math.min(math.max(from, 0), length)
+//			val end = start + math.min(math.max(replaced, 0), length - start)
+//			if (end == 0) prependedAll(other)
+//			else if (start == length) appendedAll(other)
+//			else if (end == length) init.patch(start, other, end - start)
+//			else new Appended(ZigZag.from(init.patch(start, other, replaced)), last)
+//		}
+//
+//		override def stackForEach[U](f :A => U) :Unit = {
+//			init foreach f
+//			f(last)
+//		}
 	}
 
 
 	@SerialVersionUID(Ver)
-	private class Prepended[+A](override val head :A, override val tail :ZigZag[A])
-		extends AbstractSeq[A] with ZigZag[A]
-	{
+	private class Prepended[+A](override val head :A, override val tail :ZigZag[A]) extends ZigZag[A] {
 		override lazy val length :Int = 1 + tail.length
-		override def apply(i :Int) :A =
-			if (i < 0)
-				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
-			else if (i == 0)
-				head
-			else
-				tail(i - 1)
 
-		override def iterator :Iterator[A] = head +: tail.iterator
-		override def reverseIterator :Iterator[A] = tail.reverseIterator :+ head
-
-		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-			JavaIterator(head) ++ tail.jiterator
-
-		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
-			(Stepper1(head) :S) ++ tail.stepper
-
-		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
-			if (from >= 1)
-				tail.trustedSlice(from - 1, until - 1)
-			else if (until == 1)
-				new Prepended(head, Empty)
-			else
-				new Prepended(head, tail.trustedSlice(0, until - 1))
-
-		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
-			if (index == 0)
-				new Prepended(elem, tail)
-			else if (index < 0)
-				throw new IndexOutOfBoundsException("ZigZag<" + length + ">.updated(" + index + ", " + elem + ")")
-			else
-				new Prepended(head, tail.updated(index - 1, elem))
-
-		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
-			val start = math.min(math.max(from, 0), length)
-			val end = start + math.min(math.max(replaced, 0), length - start)
-			if (end == 0) prependedAll(other)
-			else if (start == length) appendedAll(other)
-			else if (start > 0) new Prepended(head, tail.patch(start - 1, other, replaced))
-			else tail.patch(start - 1, other, end - 1)
-		}
-
-
-		override def stackForEach[U](f :A => U) :Unit = {
-			f(head)
-			tail foreach f
-		}
+//		override def iterator :Iterator[A] = head +: tail.iterator
+//		override def reverseIterator :Iterator[A] = tail.reverseIterator :+ head
+//
+//		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
+//			JavaIterator.one(head) ++ tail.jiterator
+//
+//		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
+//			(Stepper1(head) :S) ++ tail.stepper
+//
+//		override def trustedSlice(from :Int, until :Int) :ZigZag[A] =
+//			if (from >= 1)
+//				tail.trustedSlice(from - 1, until - 1)
+//			else if (until == 1)
+//				new Prepended(head, Empty)
+//			else
+//				new Prepended(head, tail.trustedSlice(0, until - 1))
+//
+//		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
+//			if (index == 0)
+//				new Prepended(elem, tail)
+//			else if (index < 0)
+//				throw new IndexOutOfBoundsException("ZigZag<" + length + ">.updated(" + index + ", " + elem + ")")
+//			else
+//				new Prepended(head, tail.updated(index - 1, elem))
+//
+//		override def patch[B >: A](from :Int, other :IterableOnce[B], replaced :Int) :ZigZag[B] = {
+//			val start = math.min(math.max(from, 0), length)
+//			val end = start + math.min(math.max(replaced, 0), length - start)
+//			if (end == 0) prependedAll(other)
+//			else if (start == length) appendedAll(other)
+//			else if (start > 0) new Prepended(head, tail.patch(start - 1, other, replaced))
+//			else tail.patch(start - 1, other, end - 1)
+//		}
+//
+//		override def stackForEach[U](f :A => U) :Unit = {
+//			f(head)
+//			tail foreach f
+//		}
 	}
 
 	override def toString = "ZigZag"

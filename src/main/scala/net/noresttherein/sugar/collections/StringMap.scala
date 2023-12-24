@@ -8,11 +8,13 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractMap, AbstractSet, SeqMap}
 import scala.collection.mutable.{Builder, ImmutableBuilder}
 
-import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.collections.PrefixTree.EmptyChildrenArray
-import net.noresttherein.sugar.collections.extensions.{ArrayObjectExtension, IterableOnceExtension}
-import net.noresttherein.sugar.extensions.{BooleanExtension, castTypeParamMethods}
 import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension
+import net.noresttherein.sugar.collections.PrefixTree.EmptyChildrenArray
+import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
+import net.noresttherein.sugar.numeric.extensions.BooleanExtension
+import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -173,7 +175,7 @@ case object StringMap {
 
 
 
-/** A set of strings in the alphabetical (derived from natural `Char` comparison).
+/** A set of strings in the alphabetical order (derived from natural `Char` comparison).
   * @define Coll `StringSet`
   * @define coll string set
   */
@@ -290,7 +292,7 @@ private object PrefixTree {
 
 	val Empty = new PrefixTree[Nothing](0, "", Lack, EmptyChildrenArray, 0)
 
-	private final val StackRecursionDepthLimit = 1 << 15
+	private final val StackRecursionDepthLimit = 512
 }
 
 

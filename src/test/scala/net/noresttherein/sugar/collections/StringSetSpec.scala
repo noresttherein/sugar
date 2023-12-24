@@ -20,7 +20,7 @@ object StringSetSpec extends Properties("StringSet") {
 //		override def builder :Builder[String, StringSet] = StringSet.newBuilder
 //	}
 
-	import typeClasses.shrinkAlphaNumString
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses.shrinkAlphaNumString
 
 	implicit val arbitrary :Arbitrary[StringSet] = Arbitrary {
 		Gen.listOf(Gen.alphaNumStr).map(StringSet.fromSpecific)

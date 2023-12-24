@@ -5,6 +5,7 @@ import java.lang.{Math => math}
 import scala.collection.mutable
 import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Buffer, IndexedBuffer}
 
+import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
 import net.noresttherein.sugar.{concurrent_!, illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.collections.util.knownEmpty
 import net.noresttherein.sugar.exceptions.{SugaredException, validate}
@@ -268,10 +269,11 @@ private class BoundSeqBuffer[E](underlying :mutable.IndexedSeq[E], offset :Int, 
 
 @SerialVersionUID(Ver)
 private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, max :Int)
-	extends AbstractBoundBuffer[E](offset, len, max) with AbstractArraySlice[E]
+	extends AbstractBoundBuffer[E](offset, len, max) with ArrayIterableOnce[E]
 {
-	private[collections] override def unsafeArray :Array[_] = underlying
-	private[collections] override def startIndex :Int = super.startIndex
+	private[sugar] override def unsafeArray :Array[_] = underlying
+	private[sugar] override def startIndex :Int = super.startIndex
+	private[sugar] override def isMutable = true
 	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
 	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
 	protected override def errorString :String = util.errorString(underlying)
@@ -655,10 +657,11 @@ private object SeqViewBuffer extends SliceBufferFactory[mutable.IndexedSeq, SeqV
 
 @SerialVersionUID(Ver)
 private final class ArrayViewBuffer[E] private(underlying :Array[E], lo :Int, hi :Int, offset :Int, len :Int)
-	extends AbstractViewBuffer[E](lo, hi, offset, len) with AbstractArraySlice[E]
+	extends AbstractViewBuffer[E](lo, hi, offset, len) with ArrayIterableOnce[E]
 {
-	private[collections] override def unsafeArray :Array[_] = underlying
-	private[collections] override def startIndex :Int = headIdx
+	private[sugar] override def unsafeArray :Array[_] = underlying
+	private[sugar] override def startIndex :Int = headIdx
+	private[sugar] override def isMutable = true
 	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
 	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
 	protected override def errorString :String = util.errorString(underlying)
@@ -912,6 +915,9 @@ object PrependingBuffer {
 
 
 
+
+
+/** An exception thrown when elements are added to a buffer which does not have enough capacity to accomodate them. */
 @SerialVersionUID(Ver)
 class BufferFullException(msg :String, cause :Throwable = null)
 	extends RuntimeException(msg, cause) with SugaredException

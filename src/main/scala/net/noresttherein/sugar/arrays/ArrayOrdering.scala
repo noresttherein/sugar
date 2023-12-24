@@ -1,8 +1,10 @@
-package net.noresttherein.sugar.collections
+package net.noresttherein.sugar.arrays
 
 import java.util.Arrays
 
-import net.noresttherein.sugar.extensions.castTypeParamMethods
+import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
+
+
 
 
 @SerialVersionUID(Ver)
@@ -85,6 +87,10 @@ private object ArrayOrdering {
 	@SerialVersionUID(Ver) object CharArrayOrdering extends CharArrayOrdering[Char]
 	@SerialVersionUID(Ver) object IntArrayOrdering extends IntArrayOrdering[Int]
 	@SerialVersionUID(Ver) object LongArrayOrdering extends LongArrayOrdering[Long]
-	@SerialVersionUID(Ver) object DoubleArrayOrdering extends DoubleArrayOrdering[Double]
-	@SerialVersionUID(Ver) object FloatArrayOrdering extends FloatArrayOrdering[Float]
+	@SerialVersionUID(Ver) object FloatArrayTotalOrdering extends FloatArrayOrdering[Float]()(Ordering.Float.TotalOrdering)
+	@SerialVersionUID(Ver) object FloatArrayIEEEOrdering extends FloatArrayOrdering[Float]()(Ordering.Float.IeeeOrdering)
+	@SerialVersionUID(Ver)
+	object DoubleArrayTotalOrdering extends DoubleArrayOrdering[Double]()(Ordering.Double.TotalOrdering)
+	@SerialVersionUID(Ver)
+	object DoubleArrayIEEEOrdering extends DoubleArrayOrdering[Double]()(Ordering.Double.IeeeOrdering)
 }

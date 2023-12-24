@@ -2,19 +2,12 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.immutable.{AbstractSeq, ArraySeq}
-import scala.collection.{IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, mutable}
-import scala.collection.mutable.Builder
+import scala.collection.{IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.DefaultSerializable
-import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.collections.IndexedIterable
-import net.noresttherein.sugar.collections.extensions.{ArrayLikeExtension, IArrayExtension, IterableExtension}
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.collections.extensions.IterableExtension
+import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, castingMethods}
 import net.noresttherein.sugar.outOfBounds_!
 
 
@@ -65,16 +58,16 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 		IndexedSeqStepper(underlying, offset, offset + length)
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-		underlying.copyRangeToArray(xs, offset, start, math.min(len, length))
+		underlying.copyRangeToArray(xs, start, offset, math.min(len, length))
 
-	override def copyRangeToArray[A >: E](xs :Array[A], from :Int, start :Int, len :Int) :Int =
-		underlying.copyRangeToArray(xs, offset + math.min(Int.MaxValue - offset, math.max(from, 0)), start, len)
+	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
+		underlying.copyRangeToArray(xs, start, math.min(Int.MaxValue - offset, math.max(from, 0)) + offset, len)
 
 	override def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
-		underlying.cyclicCopyRangeToArray(xs, offset, start, math.min(len, length))
+		underlying.cyclicCopyRangeToArray(xs, start, offset, math.min(len, length))
 
-	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], from :Int, start :Int, len :Int) :Int =
-		underlying.cyclicCopyRangeToArray(xs, offset + math.min(Int.MaxValue - offset, math.max(from, 0)), start, len)
+	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
+		underlying.cyclicCopyRangeToArray(xs, start, offset + math.min(Int.MaxValue - offset, math.max(from, 0)), len)
 
 	protected override def className :String = "SeqSlice"
 
@@ -141,7 +134,7 @@ private class SeqSlice[E](whole :collection.IndexedSeq[E], offset :Int, override
 	def this(whole :collection.IndexedSeq[E]) = this (whole, 0, whole.length)
 
 	protected override def trustedSlice(from :Int, until :Int) :collection.IndexedSeq[E] =
-		new SeqSlice(whole, start + from, start + until)
+		new SeqSlice(whole, start + from, until - from)
 }
 
 
@@ -172,7 +165,7 @@ private case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq] {
 		   with IndexedSeq[E] with SlicingOps[E, IndexedSeq[E]]
 	{
 		protected override def trustedSlice(from :Int, until :Int) :IndexedSeq[E] =
-			new Immutable(whole, start + from, start + until)
+			new Immutable(whole, start + from, until - from)
 	}
 
 	private object Immutable extends SeqSliceFactory[IndexedSeq] {
@@ -192,7 +185,7 @@ private case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq] {
 			else whole
 
 		protected override def trustedSlice(from :Int, until :Int) :mutable.IndexedSeq[E] =
-			new Mutable(whole, start + from, start + until)
+			new Mutable(whole, start + from, until - from)
 	}
 
 	private object Mutable extends SeqSliceFactory[mutable.IndexedSeq] {

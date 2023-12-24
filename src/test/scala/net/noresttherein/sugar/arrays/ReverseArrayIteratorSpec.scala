@@ -1,4 +1,4 @@
-package net.noresttherein.sugar.collections
+package net.noresttherein.sugar.arrays
 
 import scala.collection.immutable.ArraySeq
 import scala.math.Ordering
@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 import org.scalacheck.Prop._
 import org.scalacheck.{Arbitrary, Prop, Shrink, Test}
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.collections.extensions.ArrayExtension
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, MutableArrayExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
 import net.noresttherein.sugar.witness.DefaultValue
 
@@ -36,7 +36,7 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 			forAll { (from :Int, until :Int) =>
 				val from0  = from max 0 min array.length
 				val until0 = until max from0 min array.length
-				apply(array, from0, until0, ReverseArrayIterator.over(array, from, until))
+				apply(array, from0, until0, ReverseArrayIterator.slice(array, from, until))
 			}
 
 		def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ReverseArrayIterator[X]) :Prop
@@ -71,28 +71,28 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 	new ArrayProperty("take") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, n :Int) =>
-				ReverseArrayIterator.over(array, from, until).take(n).toSeq ?=
+				ReverseArrayIterator.slice(array, from, until).take(n).toSeq ?=
 					ArraySeq.unsafeWrapArray(array.slice(from, until).reverse.take(n))
 			}
 	}
 	new ArrayProperty("drop") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, n :Int) =>
-				ReverseArrayIterator.over(array, from, until).drop(n).toSeq ?=
+				ReverseArrayIterator.slice(array, from, until).drop(n).toSeq ?=
 					ArraySeq.unsafeWrapArray(array.slice(from, until).reverse.drop(n))
 			}
 	}
 	new ArrayProperty("slice") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, sliceFrom :Int, sliceUntil :Int) =>
-				ReverseArrayIterator.over(array, from, until).slice(sliceFrom, sliceUntil).toSeq ?=
+				ReverseArrayIterator.slice(array, from, until).slice(sliceFrom, sliceUntil).toSeq ?=
 					ArraySeq.unsafeWrapArray(array.slice(from, until)).reverse.slice(sliceFrom, sliceUntil)
 			}
 	}
 	new ArrayProperty("splitAt") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, n :Int) =>
-				val (first, second)    = ReverseArrayIterator.over(array, from, until).splitAt(n)
+				val (first, second)    = ReverseArrayIterator.slice(array, from, until).splitAt(n)
 				val (expect1, expect2) = ArraySeq.unsafeWrapArray(array.slice(from, until)).reverse.splitAt(n)
 				(first.toSeq ?= expect1) :| "_1" && (second.toSeq ?= expect2) :| "_2"
 			}
@@ -100,7 +100,7 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 	new ArrayProperty("foldLeft") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
-				val iter   = ReverseArrayIterator.over(array, from, until)
+				val iter   = ReverseArrayIterator.slice(array, from, until)
 				val string = iter.foldLeft("")((acc, x) => if (acc == "") x.toString + ")" else x.toString + ", " + acc)
 				val result = if (string == "") "()" else "(" + string
 				result ?= array.slice(from, until).mkString("(", ", ", ")")
@@ -110,7 +110,7 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val slice = array.slice(from, until)
-				val iter  = ReverseArrayIterator.over(array, from, until)
+				val iter  = ReverseArrayIterator.slice(array, from, until)
 				if (slice.length == 0)
 					iter.reduceLeft(Ordering[X].max).throws[UnsupportedOperationException]
 				else
@@ -121,7 +121,7 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val slice = array.slice(from, until)
-				val iter  = ReverseArrayIterator.over(array, from, until)
+				val iter  = ReverseArrayIterator.slice(array, from, until)
 				iter.reduceLeftOption(Ordering[X].min) ?= slice.reduceLeftOption(Ordering[X].min)
 			}
 	}

@@ -1,8 +1,10 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
-import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
+import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
 import net.noresttherein.sugar.extensions.{BooleanExtension, IntExtension, IterableOnceExtension, IteratorExtension, IteratorObjectExtension, satisfyingMethods}
@@ -16,7 +18,7 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(128)
 
-	import typeClasses._
+	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 //
 //	implicit def buildableIterableOnce[A] = new Buildable[A, IterableOnce[A]] {
 //		override def builder :Builder[A, IterableOnce[A]] = List.newBuilder[A].mapResult(_.iterator)
@@ -29,6 +31,185 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 			forAll { seq :Vector[Int] => prop(() => seq.iterator) :| "Vector" } &&
 			forAll { seq :RefArraySlice[Int] => prop(() => seq.iterator) :| "ArraySlice" }
 //			forAll { col :OrderedItems[Int] => prop(() => col.iterator) :| "Iterable" }
+
+	private def lazyZipProperty[X :Arbitrary, A]
+	                           (f :(() => Iterator[X], () => Iterator[X]) => (Iterator[A], Iterator[A])) :Prop =
+	{
+		def x() = Arbitrary.arbitrary[X].sample.get
+		var i = 0
+		val left = { i += 1; x() } #:: { i += 1; x() } #:: { i += 1; x() } #:: LazyList.empty
+		var j = 0
+		val right = { j += 1; x() } #:: { j += 1; x() } #:: { j += 1; x() } #:: LazyList.empty
+		val (l, r) = f(() => left.iterator, () => right.iterator)
+		(i <= 1) :| "evaluated " + i + " elements of left " + left &&
+			(j <= 1) :| "evaluated " + j + "elements of right " + right &&
+			(l sameElements r) lbl {
+				val (a, b) = f(() => left.iterator, () => right.iterator)
+				s"left:  $left\nright: $right\n${a.toSeq} ?= ${b.toSeq}"
+			}
+	}
+	private def lazyFlatZipProperty[E :Arbitrary, A]
+	            (f :(() => Iterator[IterableOnce[E]], () => Iterator[IterableOnce[E]]) => (Iterator[A], Iterator[A]))
+			:Prop =
+		lazyZipProperty { (l :() => Iterator[Seq[E]], r :() => Iterator[Seq[E]]) => f(l, r) }
+//	private def lazyListProperty[A](f :(LazyList[Int], LazyList[Int]) => (A, A)) :Prop = lazyListProperty(Random.nextInt)(f)
+
+	private def lazyZip3Property[X :Arbitrary, A]
+		                        (f :(() => Iterator[X], () => Iterator[X], () => Iterator[X]) => (Iterator[A], Iterator[A]))
+			:Prop =
+		lazyZipProperty[X, A]((a, b) => f(a, b, b))
+
+	def zipProperty[A](f :(() => Iterator[Int], () => Iterator[Int]) => (Iterator[A], Iterator[A])) :Prop = {
+		def prop(a :Iterable[Int], b :Iterable[Int]) = {
+			val (l, r) = f(() => a.iterator, () => b.iterator)
+			r sameElements l lbl {
+				val (l, r) = f(() => a.iterator, () => b.iterator)
+				s"${l.toSeq} ?= ${r.toSeq}"
+			}
+		}
+		forAll { (a :List[Int], b :List[Int]) => prop(a, b) :| "List" } &&
+			forAll { (a :Vector[Int], b :Vector[Int]) => prop(a, b) :| "Vector" } &&
+			forAll { (a :RefArraySlice[Int], b :RefArraySlice[Int]) => prop(a, b) :| "ArraySlice" } &&
+			forAll { (a :LazyList[Int], b :LazyList[Int]) => prop(a, b) :| "LazyList" } &&
+			lazyZipProperty(f)
+	}
+
+	def zipEvenProperty[X, A](test :(() => Iterator[X], () => Iterator[X]) => Iterator[A],
+	                          expect :(() => Iterator[X], () => Iterator[X]) => Iterator[A])
+	                         (implicit a :Arbitrary[X], s :Shrink[X], pretty :X => Pretty)
+			:Prop =
+	{
+		def prop(l :Iterable[X], r :Iterable[X]) =
+			if (l.size == r.size)
+				test(() => l.iterator, () => r.iterator) sameElements expect(() => l.iterator, () => r.iterator) lbl {
+					test(() => l.iterator, () => r.iterator).toSeq.toString + " ?= " +
+						expect(() => l.iterator, () => r.iterator).toSeq
+				}
+			else
+				test(() => l.iterator, () => r.iterator).toSeq.throws[NoSuchElementException] lbl {
+						expect(() => l.iterator, () => r.iterator).toSeq.toString
+				}
+		forAll { (l :List[X], r :List[X]) => prop(l, r) :| "List" } &&
+			forAll { (l :Vector[X], r :Vector[X]) => prop(l, r) :| "Vector" } &&
+			forAll { (l :RefArraySlice[X], r :RefArraySlice[X]) => prop(l, r) :| "Iterable" } &&
+			forAll { (l :LazyList[X], r :LazyList[X]) =>
+				val res = test(() => l.iterator, () => r.iterator)
+				(try
+					res sameElements expect(() => l.iterator, () => r.iterator) lbl {
+						val a = test(() => l.iterator, () => r.iterator)
+						val b = expect(() => l.iterator, () => r.iterator)
+						s"${a.toSeq} ?= ${b.toSeq}"
+					}
+				catch {
+					case _ :NoSuchElementException if l.size != r.size => Prop.passed
+				}) :| "LazyList"
+			} && lazyZipProperty {
+				(l :() => Iterator[X], r :() => Iterator[X]) => test(l, r) -> expect(l, r)
+			}
+	}
+
+	property("zipEven") = zipEvenProperty(
+		(l :() => Iterator[Int], r :() => Iterator[Int]) => l() zipEven r(),
+		(l :() => Iterator[Int], r :() => Iterator[Int]) => l() zip r()
+	)
+
+	property("zipMap") = zipProperty { (l :() => Iterator[Int], r :() => Iterator[Int]) =>
+		l().zipMap(r())((a, b) => (a + b) * 2) -> l().zip(r()).map { case (a, b) => (a + b) * 2 }
+	}
+	property("zipMapEven") = zipEvenProperty(
+		(l :() => Iterator[Int], r :() => Iterator[Int]) => l().zipMapEven(r())((a, b) => (a + b) * 2),
+		(l :() => Iterator[Int], r :() => Iterator[Int]) => l().zip(r()).map { case (a, b) => (a + b) * 2 }
+	)
+	property("zipMapAll") = zipProperty { (l :() => Iterator[Int], r :() => Iterator[Int]) =>
+		l().zipMapAll(r(), 42, 1000)((a, b) => (a + b) * 2) ->
+			l().zipAll(r(), 42, 1000).map { case (a, b) => (a + b) * 2 }
+	}
+
+	private def zipFlatMapProperty[A](f :(() => Iterator[IterableOnce[Int]], () => Iterator[IterableOnce[Int]])
+	                                      => (Iterator[A], Iterator[A])) :Prop =
+	{
+		def prop(a :Iterable[Iterable[Int]], b :Iterable[Iterable[Int]]) = {
+			val (l, r) = f(() => a.iterator, () => b.iterator)
+			r sameElements l lbl {
+				val (l, r) = f(() => a.iterator, () => b.iterator)
+				s"left:  $a\nright: $b\n${l.toSeq} ?= ${r.toSeq}"
+			}
+		}
+		forAll { (a :List[List[Int]], b :List[List[Int]]) => prop(a, b) :| "List" } &&
+			forAll { (a :Vector[ArraySeq[Int]], b :Vector[ArraySeq[Int]]) => prop(a, b) :| "Vector" } &&
+			forAll { (a :RefArraySlice[RefArraySlice[Int]], b :RefArraySlice[RefArraySlice[Int]]) =>
+				prop(a, b) :| "ArraySlice"
+		} && lazyFlatZipProperty { (l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
+			f(() => l().map(_.toBasicOps.toSeq), () => r().map(_.toBasicOps.toSeq))
+		} :| "LazyList"
+	}
+
+//	private def zipFlatMapEvenProperty(prop :(Iterable[Iterable[Int]], Iterable[Iterable[Int]]) => Prop) :Prop =
+//		forAll { (l :List[List[Int]], r :List[List[Int]]) => prop(l, r) } &&
+//			forAll { (l :Vector[ArraySeq[Int]], r :Vector[ArraySeq[Int]]) => prop(l, r) } &&
+//			forAll { (l :OrderedItems[OrderedItems[Int]], r :OrderedItems[OrderedItems[Int]]) => prop(l, r) }
+
+	property("zipFlatMap") = zipFlatMapProperty {
+		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
+			l().zipFlatMap(r())((a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y }) ->
+				l().zip(r()).flatMap { case (a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y } }
+		}
+	property("zipFlatMapEven") = zipEvenProperty(
+		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
+			l().zipFlatMapEven(r()) { (a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y }},
+		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
+			l().zipAll(r(), Nil, Nil).flatMap { case (a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y }}
+	)
+	property("zipFlatMapAll") = zipFlatMapProperty {
+		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
+			l().zipFlatMapAll(r(), Nil, Nil) {
+				(a, b) => a.iterator.zipAll(b, 42, 1000).map { case (x, y) => x + y }
+			} -> l().zipAll(r(), Nil, Nil).flatMap {
+					case (a, b) => a.iterator.zipAll(b, 42, 1000).map { case (x, y) => x + y }
+				}
+		}
+
+	def zip3Property[A](f :(() => Iterator[Int], () => Iterator[Int], () => Iterator[Int]) => (Iterator[A], Iterator[A]))
+			:Prop =
+	{
+		def prop(a :Iterable[Int], b :Iterable[Int], c :Iterable[Int]) = {
+			val (l, r) = f(() => a.iterator, () => b.iterator, () => c.iterator)
+			l sameElements r lbl {
+				val (l, r) = f(() => a.iterator, () => b.iterator, () => c.iterator)
+				s"${l.toSeq} ?= ${r.toSeq}"
+			}
+		}
+		forAll { (a :List[Int], b :List[Int], c :List[Int]) => prop(a, b, c) :| "List" } &&
+			forAll { (a :Vector[Int], b :Vector[Int], c :Vector[Int]) => prop(a, b, c) :| "Vector" } &&
+			forAll { (a :RefArraySlice[Int], b :RefArraySlice[Int], c :RefArraySlice[Int]) =>
+				prop(a, b, c) :| "ArraySlice"
+		} && lazyZip3Property(f)
+	}
+
+	property("zip3") = zip3Property { (a :() => Iterator[Int], b :() => Iterator[Int], c :() => Iterator[Int]) =>
+		a().zip3(b(), c()) -> a().zip(b()).zip(c()).map { case ((a, b), c) => (a, b, c) }
+	}
+	property("zipEven3") = zipEvenProperty(
+		(a :() => Iterator[Int], b :() => Iterator[Int]) => a().zipEven3(b(), b()),
+		(a :() => Iterator[Int], b :() => Iterator[Int]) => a().zip(b()).zip(b()).map { case ((a, b), c) => (a, b, c) }
+	)
+	property("zipAll3") = zip3Property { (a :() => Iterator[Int], b :() => Iterator[Int], c :() => Iterator[Int]) =>
+		a().zipAll3(b(), c(), 42, 2501, 1024) ->
+			a().zipAll(b(), 42, 2501).zipAll(c(), (42, 2501), 1024).map { case ((a, b), c) => (a, b, c) }
+	}
+
+	property("zipTail") = iteratorProperty { (it :(() => Iterator[Int])) =>
+		val i = it()
+		if (!i.hasNext)
+			i.zipTail.toSeq ?= Seq.empty
+		else {
+			val i1 = it()
+			val i2 = it()
+			i2.next()
+			i.zipTail.toSeq ?= i1.zip(i2).toSeq
+		}
+	}
+
 
 	private def mappingProperty[A](f :(() => Iterator[Int]) => (Iterator[A], Iterator[A])) :Prop = {
 		def prop(items :Iterable[Int]) = {
@@ -184,187 +365,6 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	}
 
 
-
-	private def lazyZipProperty[X :Arbitrary, A]
-	                           (f :(() => Iterator[X], () => Iterator[X]) => (Iterator[A], Iterator[A])) :Prop =
-	{
-		def x() = Arbitrary.arbitrary[X].sample.get
-		var i = 0
-		val left = { i += 1; x() } #:: { i += 1; x() } #:: { i += 1; x() } #:: LazyList.empty
-		var j = 0
-		val right = { j += 1; x() } #:: { j += 1; x() } #:: { j += 1; x() } #:: LazyList.empty
-		val (l, r) = f(() => left.iterator, () => right.iterator)
-		(i <= 1) :| "evaluated " + i + " elements of left " + left &&
-			(j <= 1) :| "evaluated " + j + "elements of right " + right &&
-			(l sameElements r) lbl {
-				val (a, b) = f(() => left.iterator, () => right.iterator)
-				s"left:  $left\nright: $right\n${a.toSeq} ?= ${b.toSeq}"
-			}
-	}
-	private def lazyFlatZipProperty[E :Arbitrary, A]
-	            (f :(() => Iterator[IterableOnce[E]], () => Iterator[IterableOnce[E]]) => (Iterator[A], Iterator[A]))
-			:Prop =
-		lazyZipProperty { (l :() => Iterator[Seq[E]], r :() => Iterator[Seq[E]]) => f(l, r) }
-//	private def lazyListProperty[A](f :(LazyList[Int], LazyList[Int]) => (A, A)) :Prop = lazyListProperty(Random.nextInt)(f)
-
-	private def lazyZip3Property[X :Arbitrary, A]
-		                        (f :(() => Iterator[X], () => Iterator[X], () => Iterator[X]) => (Iterator[A], Iterator[A]))
-			:Prop =
-		lazyZipProperty[X, A]((a, b) => f(a, b, b))
-
-	def zipProperty[A](f :(() => Iterator[Int], () => Iterator[Int]) => (Iterator[A], Iterator[A])) :Prop = {
-		def prop(a :Iterable[Int], b :Iterable[Int]) = {
-			val (l, r) = f(() => a.iterator, () => b.iterator)
-			r sameElements l lbl {
-				val (l, r) = f(() => a.iterator, () => b.iterator)
-				s"${l.toSeq} ?= ${r.toSeq}"
-			}
-		}
-		forAll { (a :List[Int], b :List[Int]) => prop(a, b) :| "List" } &&
-			forAll { (a :Vector[Int], b :Vector[Int]) => prop(a, b) :| "Vector" } &&
-			forAll { (a :RefArraySlice[Int], b :RefArraySlice[Int]) => prop(a, b) :| "ArraySlice" } &&
-			forAll { (a :LazyList[Int], b :LazyList[Int]) => prop(a, b) :| "LazyList" } &&
-			lazyZipProperty(f)
-	}
-
-	def zipEvenProperty[X, A](test :(() => Iterator[X], () => Iterator[X]) => Iterator[A],
-	                          expect :(() => Iterator[X], () => Iterator[X]) => Iterator[A])
-	                         (implicit a :Arbitrary[X], s :Shrink[X], pretty :X => Pretty)
-			:Prop =
-	{
-		def prop(l :Iterable[X], r :Iterable[X]) =
-			if (l.size == r.size)
-				test(() => l.iterator, () => r.iterator) sameElements expect(() => l.iterator, () => r.iterator) lbl {
-					test(() => l.iterator, () => r.iterator).toSeq.toString + " ?= " +
-						expect(() => l.iterator, () => r.iterator).toSeq
-				}
-			else
-				test(() => l.iterator, () => r.iterator).toSeq.throws[NoSuchElementException] lbl {
-						expect(() => l.iterator, () => r.iterator).toSeq.toString
-				}
-		forAll { (l :List[X], r :List[X]) => prop(l, r) :| "List" } &&
-			forAll { (l :Vector[X], r :Vector[X]) => prop(l, r) :| "Vector" } &&
-			forAll { (l :RefArraySlice[X], r :RefArraySlice[X]) => prop(l, r) :| "Iterable" } &&
-			forAll { (l :LazyList[X], r :LazyList[X]) =>
-				val res = test(() => l.iterator, () => r.iterator)
-				(try
-					res sameElements expect(() => l.iterator, () => r.iterator) lbl {
-						val a = test(() => l.iterator, () => r.iterator)
-						val b = expect(() => l.iterator, () => r.iterator)
-						s"${a.toSeq} ?= ${b.toSeq}"
-					}
-				catch {
-					case _ :NoSuchElementException if l.size != r.size => Prop.passed
-				}) :| "LazyList"
-			} && lazyZipProperty {
-				(l :() => Iterator[X], r :() => Iterator[X]) => test(l, r) -> expect(l, r)
-			}
-	}
-
-
-	property("zipEven") = zipEvenProperty(
-		(l :() => Iterator[Int], r :() => Iterator[Int]) => l() zipEven r(),
-		(l :() => Iterator[Int], r :() => Iterator[Int]) => l() zip r()
-	)
-
-	property("zipMap") = zipProperty { (l :() => Iterator[Int], r :() => Iterator[Int]) =>
-		l().zipMap(r())((a, b) => (a + b) * 2) -> l().zip(r()).map { case (a, b) => (a + b) * 2 }
-	}
-	property("zipMapEven") = zipEvenProperty(
-		(l :() => Iterator[Int], r :() => Iterator[Int]) => l().zipMapEven(r())((a, b) => (a + b) * 2),
-		(l :() => Iterator[Int], r :() => Iterator[Int]) => l().zip(r()).map { case (a, b) => (a + b) * 2 }
-	)
-	property("zipMapAll") = zipProperty { (l :() => Iterator[Int], r :() => Iterator[Int]) =>
-		l().zipMapAll(r(), 42, 1000)((a, b) => (a + b) * 2) ->
-			l().zipAll(r(), 42, 1000).map { case (a, b) => (a + b) * 2 }
-	}
-
-	private def zipFlatMapProperty[A](f :(() => Iterator[IterableOnce[Int]], () => Iterator[IterableOnce[Int]])
-	                                      => (Iterator[A], Iterator[A])) :Prop =
-	{
-		def prop(a :Iterable[Iterable[Int]], b :Iterable[Iterable[Int]]) = {
-			val (l, r) = f(() => a.iterator, () => b.iterator)
-			r sameElements l lbl {
-				val (l, r) = f(() => a.iterator, () => b.iterator)
-				s"left:  $a\nright: $b\n${l.toSeq} ?= ${r.toSeq}"
-			}
-		}
-		forAll { (a :List[List[Int]], b :List[List[Int]]) => prop(a, b) :| "List" } &&
-			forAll { (a :Vector[ArraySeq[Int]], b :Vector[ArraySeq[Int]]) => prop(a, b) :| "Vector" } &&
-			forAll { (a :RefArraySlice[RefArraySlice[Int]], b :RefArraySlice[RefArraySlice[Int]]) =>
-				prop(a, b) :| "ArraySlice"
-		} && lazyFlatZipProperty { (l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
-			f(() => l().map(_.toBasicOps.toSeq), () => r().map(_.toBasicOps.toSeq))
-		} :| "LazyList"
-	}
-
-//	private def zipFlatMapEvenProperty(prop :(Iterable[Iterable[Int]], Iterable[Iterable[Int]]) => Prop) :Prop =
-//		forAll { (l :List[List[Int]], r :List[List[Int]]) => prop(l, r) } &&
-//			forAll { (l :Vector[ArraySeq[Int]], r :Vector[ArraySeq[Int]]) => prop(l, r) } &&
-//			forAll { (l :OrderedItems[OrderedItems[Int]], r :OrderedItems[OrderedItems[Int]]) => prop(l, r) }
-
-	property("zipFlatMap") = zipFlatMapProperty {
-		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
-			l().zipFlatMap(r())((a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y }) ->
-				l().zip(r()).flatMap { case (a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y } }
-		}
-	property("zipFlatMapEven") = zipEvenProperty(
-		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
-			l().zipFlatMapEven(r()) { (a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y }},
-		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
-			l().zipAll(r(), Nil, Nil).flatMap { case (a, b) => a.iterator.zip(b.iterator).map { case (x, y) => x + y }}
-	)
-	property("zipFlatMapAll") = zipFlatMapProperty {
-		(l :() => Iterator[IterableOnce[Int]], r :() => Iterator[IterableOnce[Int]]) =>
-			l().zipFlatMapAll(r(), Nil, Nil) {
-				(a, b) => a.iterator.zipAll(b, 42, 1000).map { case (x, y) => x + y }
-			} -> l().zipAll(r(), Nil, Nil).flatMap {
-					case (a, b) => a.iterator.zipAll(b, 42, 1000).map { case (x, y) => x + y }
-				}
-		}
-
-	def zip3Property[A](f :(() => Iterator[Int], () => Iterator[Int], () => Iterator[Int]) => (Iterator[A], Iterator[A]))
-			:Prop =
-	{
-		def prop(a :Iterable[Int], b :Iterable[Int], c :Iterable[Int]) = {
-			val (l, r) = f(() => a.iterator, () => b.iterator, () => c.iterator)
-			l sameElements r lbl {
-				val (l, r) = f(() => a.iterator, () => b.iterator, () => c.iterator)
-				s"${l.toSeq} ?= ${r.toSeq}"
-			}
-		}
-		forAll { (a :List[Int], b :List[Int], c :List[Int]) => prop(a, b, c) :| "List" } &&
-			forAll { (a :Vector[Int], b :Vector[Int], c :Vector[Int]) => prop(a, b, c) :| "Vector" } &&
-			forAll { (a :RefArraySlice[Int], b :RefArraySlice[Int], c :RefArraySlice[Int]) =>
-				prop(a, b, c) :| "ArraySlice"
-		} && lazyZip3Property(f)
-	}
-
-	property("zip3") = zip3Property { (a :() => Iterator[Int], b :() => Iterator[Int], c :() => Iterator[Int]) =>
-		a().zip3(b(), c()) -> a().zip(b()).zip(c()).map { case ((a, b), c) => (a, b, c) }
-	}
-	property("zipEven3") = zipEvenProperty(
-		(a :() => Iterator[Int], b :() => Iterator[Int]) => a().zipEven3(b(), b()),
-		(a :() => Iterator[Int], b :() => Iterator[Int]) => a().zip(b()).zip(b()).map { case ((a, b), c) => (a, b, c) }
-	)
-	property("zipAll3") = zip3Property { (a :() => Iterator[Int], b :() => Iterator[Int], c :() => Iterator[Int]) =>
-		a().zipAll3(b(), c(), 42, 2501, 1024) ->
-			a().zipAll(b(), 42, 2501).zipAll(c(), (42, 2501), 1024).map { case ((a, b), c) => (a, b, c) }
-	}
-
-	property("zipTail") = iteratorProperty { (it :(() => Iterator[Int])) =>
-		val i = it()
-		if (!i.hasNext)
-			i.zipTail.toSeq ?= Seq.empty
-		else {
-			val i1 = it()
-			val i2 = it()
-			i2.next()
-			i.zipTail.toSeq ?= i1.zip(i2).toSeq
-		}
-	}
-
-
 	private def lazyIndexProperty(idx :Int, knownDeltaSizeLimit :Int = -1, deltaSizeLimit :Int = -1)
 	                             (f :(() => Iterator[Int]) => (Iterator[Int], IterableOnce[Int])) =
 		forAll { seq :Vector[Int] =>
@@ -383,6 +383,24 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 			}
 		} :| "LazyList"
 
+
+	property("keep") = iteratorProperty { iter :(() => Iterator[Int]) =>
+		implicit val infiniteLazyList :Arbitrary[LazyList[Boolean]] =
+			Arbitrary(Gen.infiniteLazyList(Arbitrary.arbBool.arbitrary))
+		implicit val shrink :Shrink[LazyList[Boolean]] = Shrink { list :LazyList[Boolean] => list #:: Stream.empty }
+		implicit val pretty :LazyList[Boolean] => Pretty = list => Pretty { _ => list.toString }
+		forAll { bools :LazyList[Boolean] =>
+			val pred = bools.take(iter().size).toIndexedSeq
+			val expect = iter().zipWithIndex.collect { case (elem, i) if pred(i) => elem }.toSeq
+			expect =? iter().keep(pred).toSeq
+		}
+	}
+
+	property("distinct") = iteratorProperty { iter :(() => Iterator[Int]) =>
+		val seen = new mutable.HashSet[Int]
+		val expect = iter().toList.collect { case elem if seen.add(elem) => elem }
+		expect =? iter().distinct.toList
+	}
 //	property("removed") = forAll { i :Int =>
 //		mappingProperty { list :Iterable[Int] =>
 //			list.removed(i) -> (list.take(i) ++ (if (i == Int.MaxValue) Nil else list.drop(i + 1)))
@@ -498,6 +516,7 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("prependedAll") = concatProperty { (first, second) => second prependedAll first }
 
 
+	//todo: multiarg prepended/appended tests
 	private def concat1Property(f :(() => Iterator[Int], Int) => (Iterator[Int], Iterator[Int])) =
 		forAll { elem :Int =>
 			mappingProperty { iter :(() => Iterator[Int]) => f(iter, elem) }
@@ -508,6 +527,30 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("add")       = concat1Property { (iter, elem) => (iter() add elem) -> (iter() ++ Iterator.single(elem)) }
 	property("+:")        = concat1Property { (iter, elem) => (elem +: iter()) -> (Iterator.single(elem) ++ iter()) }
 	property("prepended") = concat1Property { (iter, elem) => (iter() prepended elem) -> (Iterator.single(elem) ++ iter()) }
+
+	property("safe") = iteratorProperty { (iter :() => Iterator[Int]) =>
+		val dim    = 5
+		val elems  = iter().toVector :collection.Seq[Int]
+		val (prefix, suffix) = elems.splitAt(dim * dim)
+		val safe   = iter().safe
+		val arrays = Array.ofDim[Int](dim, dim)
+		var copied = 0
+		var i = 0
+		while (i < dim && safe.hasNext) {
+			copied += safe.take(dim).copyToArray(arrays(i))
+			i += 1
+		}
+		val next = safe.take(dim)
+		val tail = safe.toSeq
+		val concat = arrays.take(i).foldLeft(new ArrayBuffer[Int](dim * dim)) {
+			(b, a) => b ++= a.take(math.min(dim, copied - b.length))
+		}
+		(math.min(dim * dim, elems.length) =? copied) &&
+			(prefix =? concat lbl "copied") &&
+			(elems.drop(copied) =? tail lbl "tail") &&
+			(Seq.empty[Int] =? next.toSeq lbl "exhausted side iterator") lbl
+				"copied " + copied + ": " + concat lbl "remained: " + tail
+	}
 
 	property("counting")  = iteratorProperty { iter :(() => Iterator[Int]) =>
 		val counter = iter().counting
@@ -552,6 +595,8 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 			(tail ?= expect) && (counter.total ?= expect.size + math.min(iter().size, n.orZeroIf(n < 0)))
 		}
 	}
+
+	//todo: test cyclicCopyToArray
 }
 
 

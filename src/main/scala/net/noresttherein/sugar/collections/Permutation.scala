@@ -7,7 +7,9 @@ import scala.collection.{IterableFactory, IterableOps, mutable}
 import scala.collection.mutable.Builder
 import scala.util.Random
 
-import net.noresttherein.sugar.collections.extensions.{IArrayExtension, IRefArrayExtension, SeqExtension}
+import net.noresttherein.sugar.arrays.{IArray, IRefArray}
+import net.noresttherein.sugar.arrays.extensions.{IArrayExtension, IRefArrayExtension}
+import net.noresttherein.sugar.collections.extensions.SeqExtension
 
 
 
@@ -271,7 +273,7 @@ object Permutation {
 			res(i) = out.indexOf(in(i))
 			i += 1
 		}
-		new Permutation(PassedArrayInternals.of(res))
+		new Permutation(PassedArrayInternals.wrap(res))
 	}
 
 	/** A random permutation of size `size` with equal distribution. */

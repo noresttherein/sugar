@@ -7,19 +7,20 @@ import java.lang
 import scala.annotation.tailrec
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.StepperShape.{CharShape, IntShape}
-import scala.collection.{Factory, IntStepper, SpecificIterableFactory, Stepper, StepperShape, View, mutable}
+import scala.collection.{Factory, IntStepper, SpecificIterableFactory, Stepper, StepperShape, mutable}
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, WrappedString}
-import scala.collection.immutable.ArraySeq.ofChar
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilder}
+import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
-import net.noresttherein.sugar.extensions.{castingMethods, classNameMethods}
+import net.noresttherein.sugar.collections.extensions.{StepperExtension, StepperObjectExtension}
+import net.noresttherein.sugar.typist.casting.extensions.castingMethods
+import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 //implicits
-import net.noresttherein.sugar.collections.extensions.{StepperExtension, StepperObjectExtension, StringExtension}
 
 
 

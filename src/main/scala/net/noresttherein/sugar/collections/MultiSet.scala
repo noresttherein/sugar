@@ -2,11 +2,11 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
-import scala.collection.{IterableFactory, IterableFactoryDefaults}
+import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, immutable}
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorObjectExtension, PartialFunctionObjectExtension, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorObjectExtension, MutableArrayExtension, PartialFunctionObjectExtension, castTypeParamMethods, classNameMethods}
 
 
 
@@ -15,8 +15,8 @@ import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorObjectExtensi
   * @define Coll `MultiSet`
   * @define coll multi set
   */
-trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
-	extends SugaredIterableOps[X, Multi, Multi[X]] with IterableFactoryDefaults[X, Multi]
+trait MultiSetOps[E, +Multi[A] <: MultiSetOps[A, Multi]]
+	extends SugaredIterableOps[E, Multi, Multi[E]] with IterableFactoryDefaults[E, Multi] with Serializable
 {
 	/** Number of unique elements in this $coll. */
 	def uniqueSize :Int = unique.size
@@ -32,64 +32,64 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
 	/** Returns the number of 'copies' of the argument in this $coll.
 	  * If `!this.`[[net.noresttherein.sugar.collections.MultiSetOps.contains contains]]`(x)`, returns 0.
 	  */
-	def apply(x :X) :Int
+	def apply(x :E) :Int
 
 	/** Checks if the argument is included in this $coll. */
-	def contains(x :X) :Boolean = apply(x) > 0
+	def contains(x :E) :Boolean = apply(x) > 0
 
 	/** Checks if there are at least `count` copies of `x` in this $coll. */
-	def contains(x :X, count :Int) :Boolean = apply(x) > count
+	def contains(x :E, count :Int) :Boolean = apply(x) > count
 
 	/** Checks if this $coll contains all the elements in the given collection.
 	  * If the argument contains equal elements, this $coll must contain one copy for each among equal elements.
 	  */
-	def containsAll(xs :IterableOnce[X]) :Boolean = xs match {
-		case empty :Iterable[X] if empty.isEmpty => true
+	def containsAll(xs :IterableOnce[E]) :Boolean = xs match {
+		case empty :Iterable[E] if empty.isEmpty => true
 		case multi :MultiSet[x] => multi.toSet.forall { x :x => apply(x) > multi(x) }
-		case set :collection.Set[X] => set.forall(contains)
-		case elems :Iterable[X] => containsAll(MultiSet.from(elems))
+		case set :collection.Set[E] => set.forall(contains)
+		case elems :Iterable[E] => containsAll(MultiSet.from(elems))
 		case _  => containsAll(xs.iterator to MultiSet)
 	}
 
 	/** Checks if the argument contains all the elements in this $coll; for each present element, the number of copies
 	  * in the argument must be not lower than in this $coll.
 	  */
-	def subsetOf(that :MultiSet[X]) :Boolean = forall(that(_) >= _)
+	def subsetOf(that :MultiSet[E]) :Boolean = forall(that(_) >= _)
 
 
 	/** Same as [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.forall`,
 	  * except it takes a two argument function, which makes possible passing lambdas in the placeholder syntax.
 	  */
-	def forall(pred :(X, Int) => Boolean) :Boolean   = counts forall pred.tupled
+	def forall(pred :(E, Int) => Boolean) :Boolean   = counts forall pred.tupled
 
 	/** Same as [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.exists`,
 	  * except it takes a two argument function, which makes possible passing lambdas in the placeholder syntax.
 	  */
-	def exists(pred :(X, Int) => Boolean) :Boolean   = counts exists pred.tupled
+	def exists(pred :(E, Int) => Boolean) :Boolean   = counts exists pred.tupled
 
 	/** Same as [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.count`,
 	  * except it takes a two argument function, which makes possible passing lambdas in the placeholder syntax.
 	  */
-	def count(pred :(X, Int) => Boolean)  :Int       = counts count pred.tupled
+	def count(pred :(E, Int) => Boolean)  :Int       = counts count pred.tupled
 
 	/** Same as [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.find`,
 	  * except it takes a two argument function, which makes possible passing lambdas in the placeholder syntax.
 	  * The default implementation of `MultiSet` does not maintain a particular order of elements,
 	  * and in case multiple elements satisfy the predicate, it is unspecified which will be returned.
 	  */
-	def find(pred :(X, Int) => Boolean)   :Option[X] = counts find pred.tupled map (_._1)
+	def find(pred :(E, Int) => Boolean)   :Option[E] = counts find pred.tupled map (_._1)
 
 	/** Equivalent to [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.filter`,
 	  * but returns a $Coll and takes a two argument function instead of one accepting a tuple,
 	  * which makes it more readable and allows passing lambdas in the placeholder syntax.
 	  */
-	def filter(pred :(X, Int) => Boolean)    :Multi[X] = fromCounts(countsIterator filter pred.tupled)
+	def filter(pred :(E, Int) => Boolean)    :Multi[E] = fromCounts(countsIterator filter pred.tupled)
 
 	/** Equivalent to [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.filterNot`,
 	  * but returns a $Coll and takes a two argument function instead of one accepting a tuple,
 	  * which makes it more readable and allows passing lambdas in the placeholder syntax.
 	  */
-	def filterNot(pred :(X, Int) => Boolean) :Multi[X] = fromCounts(countsIterator filterNot pred.tupled)
+	def filterNot(pred :(E, Int) => Boolean) :Multi[E] = fromCounts(countsIterator filterNot pred.tupled)
 
 	//Consider: I trully don't know if (X, Int) => IterableOnce[T] or (X, Int) => IterableOnce[T] is more useful.
 	// The variant returning a MultiSet seems less useful, but if we call view on ourselves, allowing to return
@@ -99,7 +99,7 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
 	  * which makes it more readable and allows passing lambdas in the placeholder syntax.
 	  * Note that the accepted function returns a single element.
 	  */
-	def map[T](f :(X, Int) => T) :Multi[T] = iterableFactory.from(countsIterator map f.tupled)
+	def map[O](f :(E, Int) => O) :Multi[O] = iterableFactory.from(countsIterator map f.tupled)
 
 //	/** Equivalent to the other `map`, but accepts a two argument function instead of one accepting a `(_, Int)`,
 //	  * which makes it more convenient to call passing a lambda in the placeholder syntax
@@ -111,14 +111,14 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
 	  * but the method creates a $Coll and the argument function must return pairs with an `Int` as the second element.
 	  * Like in other methods, elements paired with negative numbers are ignored.
 	  */
-	def map[T](f :((X, Int)) => (T, Int)): Multi[T] = fromCounts(countsIterator.map(f))
+	def map[O](f :((E, Int)) => (O, Int)): Multi[O] = fromCounts(countsIterator.map(f))
 
 	/** Equivalent to [[net.noresttherein.sugar.collections.MultiSetOps.counts counts]]`.flatMap`,
 	  * but returns a $Coll and takes a two argument function instead of one accepting a tuple,
 	  * which makes it more readable and allows passing lambdas in the placeholder syntax.
 	  * Note that the accepted function returns a single element.
 	  */
-	def flatMap[T](f :(X, Int) => IterableOnce[T]) :Multi[T] = iterableFactory.from(countsIterator flatMap f.tupled)
+	def flatMap[O](f :(E, Int) => IterableOnce[O]) :Multi[O] = iterableFactory.from(countsIterator flatMap f.tupled)
 
 //	/** Equivalent to the other `flatMap`, but accepts a two argument function instead of one accepting a `(_, Int)`,
 //	  * which makes it more convenient to call passing a lambda in the placeholder syntax
@@ -130,115 +130,115 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
 	  * but the method creates a $Coll and the argument function must return pairs with an `Int` as the second element.
 	  * Like in other methods, elements paired with negative numbers are ignored.
 	  */
-	def flatMap[T](f :((X, Int)) => IterableOnce[(T, Int)]) :Multi[T] = fromCounts(countsIterator flatMap f)
+	def flatMap[T](f :((E, Int)) => IterableOnce[(T, Int)]) :Multi[T] = fromCounts(countsIterator flatMap f)
 
-	/** Adds a single copy of the given elemnt from this $coll. */
-	@inline final def +(x :X) :Multi[X] = incl(x)
+	/** Adds a single copy of the given element from this $coll. */
+	@inline final def +(x :E) :Multi[E] = incl(x)
 
-	/** Removes a single occurrence of the given elemnt from this $coll. */
-	@inline final def -(x :X) :Multi[X] = excl(x)
+	/** Removes a single occurrence of the given element from this $coll. */
+	@inline final def -(x :E) :Multi[E] = excl(x)
 
 	/** If `x` is not present in this $coll, a single copy of it is added; otherwise ''all'' current copies are removed. */
-	@inline final def ^(x :X) :Multi[X] = flip(x)
+	@inline final def ^(x :E) :Multi[E] = flip(x)
 
 	/** Adds the specified number of copies of the given element to this $coll.
 	  * If `xs._2 <= 0` the call has no effect.
 	  */
-	@inline final def |(xs :(X, Int))  :Multi[X] = union(xs)
+	@inline final def |(xs :(E, Int))  :Multi[E] = union(xs)
 
 	/** Returns either an empty $coll,
 	  * if `!this.`[[net.noresttherein.sugar.collections.MultiSetOps.contains contains]]`(xs._1) || xs._2 <= 0`,
 	  * or returns an instance containing a single unique element
 	  * in [[net.noresttherein.sugar.collections.MultiSetOps.apply apply]]`(xs._1) min xs._2` copies.
 	  */
-	@inline final def &(xs :(X, Int))  :Multi[X] = intersect(xs)
+	@inline final def &(xs :(E, Int))  :Multi[E] = intersect(xs)
 
 	/** Removes the specified number of copies of the given element from this $coll.
 	  * If `xs._2 <= 0` the call has no effect.
 	  */
-	@inline final def &~(xs :(X, Int)) :Multi[X] = diff(xs)
+	@inline final def &~(xs :(E, Int)) :Multi[E] = diff(xs)
 
 	/** A symmetric difference between this $coll and the argument, working in an analogous fashion
 	  * to symmetric difference on sets. The returned $Coll contains all copies of items in either sets which are unique
 	  * to one set, and shared items in `(this(x) - that(x)).abs` copies.
 	  */
-	@inline final def ^(that :MultiSet[X])        :Multi[X] = symDiff(that)
+	@inline final def ^(that :MultiSet[E])        :Multi[E] = symDiff(that)
 
-	/** Equivalent to `this [[net.noresttherein.sugar.collections.&~ &~]]` that | that &~ this.toSet`.
+	/** Equivalent to `this `[[net.noresttherein.sugar.collections.&~ &~]] that | that &~ this.toSet`.
 	  * The returned $Coll contains a single copy of each of the elements in the argument which is not present
 	  * in this $coll, as well as all the copies of each element unique to this instance.
 	  */
-	@inline final def ^(that :collection.Set[X])  :Multi[X] = symDiff(that)
+	@inline final def ^(that :collection.Set[E])  :Multi[E] = symDiff(that)
 
 	/** Computes a union of two multi sets. The returned $Coll contains each of the elements present in either
 	  * of the collections, in `this(x) + that(x)` copies.
 	  */
-	@inline final def |(that :MultiSet[X])        :Multi[X] = union(that)
+	@inline final def |(that :MultiSet[E])        :Multi[E] = union(that)
 
 	/** Computes a union of this $coll and a set, treated as a multi set with a single occurrence of each element. */
-	@inline final def |(that :collection.Set[X])  :Multi[X] = union(that)
+	@inline final def |(that :collection.Set[E])  :Multi[E] = union(that)
 
 	/** Computes the intersection of this $coll and the argument multi set. The returned $Coll contains only elements
 	  *  present in both collections, each in `this(x) min that(x)` copies.
 	  */
-	@inline final def &(that :MultiSet[X])        :Multi[X] = intersect(that)
+	@inline final def &(that :MultiSet[E])        :Multi[E] = intersect(that)
 
 	/** Computes the intersection of this $coll and a multi set with an infinite copies of each of the elements
 	  * in the argument set. The returned $Coll contains all elements of this instance which are present
 	  * in the argument, in the same number of copies.
 	  */
-	@inline final def &(that :collection.Set[X])  :Multi[X] = intersect(that)
+	@inline final def &(that :collection.Set[E])  :Multi[E] = intersect(that)
 
 	/** Computes the difference of this $coll and the argument.
 	  * The returned $Coll contains elements present in this multi set in a number of copies greater than in `that`
 	  * (including all those not present in `that`), each in `this(x) - that(x)` copies.
 	  */
-	@inline final def &~(that :MultiSet[X])       :Multi[X] = diff(that)
+	@inline final def &~(that :MultiSet[E])       :Multi[E] = diff(that)
 
 	/** Computes the difference of this $coll and a multi set containing an infinite number of copies of each
 	  * of the elements in the argument set. The returned $Coll contains only those items from `this`
 	  * which are not present in `that`, in the same number of copies as in `this`.
 	  */
-	@inline final def &~(that :collection.Set[X]) :Multi[X] = diff(that)
+	@inline final def &~(that :collection.Set[E]) :Multi[E] = diff(that)
 
 	/** Removes all of the elements of the collection from this $coll. Each item in `that` removes
 	  * only one copy from this instance (providing it exists at all), with the result containing less of each
 	  * element in the number of its occurrences in `that`.
 	  */
-	@inline final def --(that :IterableOnce[X])   :Multi[X] = removedAll(that)
+	@inline final def --(that :IterableOnce[E])   :Multi[E] = removedAll(that)
 
 	/** Sets the number of copies of `xs._1` in this $coll to `xs._2`. The returned $Coll equals
 	  * `this.`[[net.noresttherein.sugar.collections.MultiSetOps.excl(x:X) excl]]`(xs._1).`[[net.noresttherein.sugar.collections.MultiSetOps.inc inc]]`(xs._2)`.
 	  * If `xs._2 <= 0`, all copies of `xs._1` are removed.
 	  */
-	@inline final def reset(xs :(X, Int))   :Multi[X] = reset(xs._1, xs._2)
+	@inline final def reset(xs :(E, Int))   :Multi[E] = reset(xs._1, xs._2)
 
 	/** Increases/decreases the number of copies of `xs._1` in this $coll by the delta `xs._2`.
 	  * If `xs._2 >= this(xs._1)`, the returned $Coll will contain no copy of `xs._1`
 	  * (a multi set with a 'negative number of copies' is impossible).
 	  */
-	@inline final def updated(xs :(X, Int)) :Multi[X] = updated(xs._1, xs._2)
+	@inline final def updated(xs :(E, Int)) :Multi[E] = updated(xs._1, xs._2)
 
 	/** Increases the number of copies of `xs._1` in this $coll by the specified amount `xs._2`.
 	  * If `xs._2 <= 0` the call has no effect.
 	  */
-	@inline final def inc(xs :(X, Int))     :Multi[X] = inc(xs._1, xs._2)
+	@inline final def inc(xs :(E, Int))     :Multi[E] = inc(xs._1, xs._2)
 
 	/** Decreases the number of copies of `xs._1` in this $coll by the specified amount `xs._2`.
 	  * If `xs._2 <= 0` the call has no effect.
 	  */
-	@inline final def dec(xs :(X, Int))     :Multi[X] = dec(xs._1, xs._2)
+	@inline final def dec(xs :(E, Int))     :Multi[E] = dec(xs._1, xs._2)
 
 	/** Sets the number of copies of `x` in this $coll to `count`. The returned $Coll equals
 	  * `this.`[[net.noresttherein.sugar.collections.MultiSetOps.excl(x:X) excl]]`(x).`[[net.noresttherein.sugar.collections.MultiSetOps.inc inc]]`(count)`.
 	  * If `count <= 0`, all copies of `x` are removed.
 	  */
-	def reset(x :X, count :Int)      :Multi[X]
+	def reset(x :E, count :Int)      :Multi[E]
 
 	/** Sets the number of copies in this $coll to the value returned by `f(this(x))`.
 	  * @return [[net.noresttherein.sugar.collections.MultiSetOps.reset(x:X,count:Int)* reset]]`(x, f(this(x)))`.
 	  */
-	def reset(x :X)(f :Int => Int)   :Multi[X] = reset(x, f(apply(x)))
+	def reset(x :E)(f :Int => Int)   :Multi[E] = reset(x, f(apply(x)))
 
 	/** Increases/decreases the number of copies of `x` in this $coll by `delta`.
 	  * If `delta >= this(xs._1)`, the returned $Coll will contain no copy of `x`
@@ -247,34 +247,34 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
 	  * or [[net.noresttherein.sugar.collections.MultiSetOps.dec dec]],
 	  * depending on whether `delta` is negative or positive.
 	  */
-	def updated(x :X, delta :Int)    :Multi[X] = reset(x, plus(apply(x), delta))
+	def updated(x :E, delta :Int)    :Multi[E] = reset(x, plus(apply(x), delta))
 
 	/** Updates the number of copies in this $coll to the value returned by `f(this(x))`.
 	  * @return [[net.noresttherein.sugar.collections.MultiSetOps.updated(x:X,count:Int)* updated]]`(x, f(this(x)))`.
 	  */
-	def updated(x :X)(f :Int => Int) :Multi[X] = updated(x, f(apply(x)))
+	def updated(x :E)(f :Int => Int) :Multi[E] = updated(x, f(apply(x)))
 
 	/** Increases the number of copies of `x` in `this` by the specified amount. If `count <= 0` the call has no effect;
 	  * if the `this(x) + count` overflows, the number of copies are set to `Int.MaxValue` instead.
 	  */
-	def inc(x :X, count :Int) :Multi[X] = if (count > 0) updated(x, count) else coll
+	def inc(x :E, count :Int) :Multi[E] = if (count > 0) updated(x, count) else coll
 
 	/** Decreases the number of copies of `x` in `this` by the specified amount. If `count <= 0` the call has no effect.
 	  * If `count > this(x)`, the set will contain zero copies of `x`
 	  */
-	def dec(x :X, count :Int) :Multi[X] = if (count > 0) updated(x, -count) else coll
+	def dec(x :E, count :Int) :Multi[E] = if (count > 0) updated(x, -count) else coll
 
 	/** Adds a single copy of `x` to this $coll. */
-	def incl(x :X)            :Multi[X] = inc(x, 1)
+	def incl(x :E)            :Multi[E] = inc(x, 1)
 
 	/** Removes ''all'' copies of `x` from this $coll. */
-	def excl(x :X)            :Multi[X] = dec(x, Int.MaxValue)
+	def excl(x :E)            :Multi[E] = dec(x, Int.MaxValue)
 
 	/** If this $coll contains `x`, all its copies are removed. Otherwise a single copy is added to the collection. */
-	def flip(x :X)            :Multi[X] = if (contains(x)) dec(x, Int.MaxValue) else inc(x, 1)
+	def flip(x :E)            :Multi[E] = if (contains(x)) dec(x, Int.MaxValue) else inc(x, 1)
 
 
-	def symDiff(xs :(X, Int)) :Multi[X] =
+	def symDiff(xs :(E, Int)) :Multi[E] =
 		if (xs._2 <= 0)
 			coll
 		else
@@ -282,77 +282,77 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
 				case n if n >= xs._2 => dec(xs._1, n - xs._2)
 				case n               => inc(xs._1, xs._2 - n)
 			}
-	def symDiff(that :collection.Set[X]) :Multi[X] = diff(that) | that.diff(toSet)
-	def symDiff(that :MultiSet[X])       :Multi[X] = diff(that) | that.diff(toSet)
-	def diff(xs :(X, Int))               :Multi[X] = dec(xs._1, xs._2)
-	def diff(that :collection.Set[X])    :Multi[X] = fromCounts(counts.view.filterKeys(!that(_)))
-	def diff(that :MultiSet[X])          :Multi[X] = {
-		val collector = PartialFunction[(X, Int), (X, Int)] {
-			(x :(X, Int), default :((X, Int)) => (X, Int)) =>
+	def symDiff(that :collection.Set[E]) :Multi[E] = diff(that) | that.diff(toSet)
+	def symDiff(that :MultiSet[E])       :Multi[E] = diff(that) | that.diff(toSet)
+	def diff(xs :(E, Int))               :Multi[E] = dec(xs._1, xs._2)
+	def diff(that :collection.Set[E])    :Multi[E] = fromCounts(counts.view.filterKeys(!that(_)))
+	def diff(that :MultiSet[E])          :Multi[E] = {
+		val collector = PartialFunction[(E, Int), (E, Int)] {
+			(x :(E, Int), default :((E, Int)) => (E, Int)) =>
 				val count = x._2 - that(x._1)
 				if (count < 0) default(x)
 				else (x._1, count)
 		}
 		fromCounts(counts.view.collect(collector))
 	}
-	def union(xs :(X, Int))            :Multi[X] = inc(xs._1, xs._2)
-	def union(that :collection.Set[X]) :Multi[X] = union(MultiSet.from(that))
-	def union(that :MultiSet[X])       :Multi[X] =
+	def union(xs :(E, Int))            :Multi[E] = inc(xs._1, xs._2)
+	def union(that :collection.Set[E]) :Multi[E] = union(MultiSet.from(that))
+	def union(that :MultiSet[E])       :Multi[E] =
 		fromCounts(
 			counts.view.map { case (x, count) => (x, count + that(x)) } ++
 				that.counts.view.filterKeys(apply(_) == 0)
 		)
 
-	def intersect(xs :(X, Int))            :Multi[X] //= intersect(iterableFactory fromCounts Iterator.single(xs))
-	def intersect(that :collection.Set[X]) :Multi[X] = fromCounts(counts.view.filterKeys(that))
-	def intersect(that :MultiSet[X])       :Multi[X] = {
+	def intersect(xs :(E, Int))            :Multi[E] //= intersect(iterableFactory fromCounts Iterator.single(xs))
+	def intersect(that :collection.Set[E]) :Multi[E] = fromCounts(counts.view.filterKeys(that))
+	def intersect(that :MultiSet[E])       :Multi[E] = {
 		val collector = PartialFunction {
-			(xs :(X, Int), default :((X, Int)) => (X, Int)) =>
+			(xs :(E, Int), default :((E, Int)) => (E, Int)) =>
 				val count = plus(xs._2, -that(xs._1))
 				if (count <= 0) default(xs) else (xs._1, count)
 		}
 		fromCounts(counts.collect(collector))
 	}
-	def removedAll(that :IterableOnce[X])  :Multi[X] = that match {
+	def removedAll(that :IterableOnce[E])  :Multi[E] = that match {
 		case empty :Iterable[_] if empty.isEmpty => coll
-		case multi :MultiSet[X @unchecked] => diff(multi)
+		case multi :MultiSet[E @unchecked] => diff(multi)
 		case other => diff(MultiSet.from(other))
 	}
 
-	def counts :Map[X, Int] = new AbstractMap[X, Int] {
-		override def removed(key :X) :Map[X, Int] = dec(key, 1).counts
-		override def updated[V1 >: Int](key :X, value :V1) :Map[X, V1] = value match {
+	def counts :Map[E, Int] = new AbstractMap[E, Int] {
+		override def removed(key :E) :Map[E, Int] = dec(key, 1).counts
+		override def updated[V1 >: Int](key :E, value :V1) :Map[E, V1] = value match {
 			case count :Int if count <= 0 && apply(key) <= 0 => this
 			case count :Int if apply(key) == count => this
 			case count :Int => updated(key, count)
-			case _ => (Map.newBuilder[X, V1] ++= this += ((key, value))).result()
+			case _ => (Map.newBuilder[E, V1] ++= this += ((key, value))).result()
 		}
-		override def apply(key :X) :Int = MultiSetOps.this.apply(key)
-		override def contains(key :X) :Boolean = MultiSetOps.this.contains(key)
-		override def get(key :X) :Option[Int] = Some(apply(key))
+		override def apply(key :E) :Int = MultiSetOps.this.apply(key)
+		override def contains(key :E) :Boolean = MultiSetOps.this.contains(key)
+		override def get(key :E) :Option[Int] = Some(apply(key))
 
-		override def iterator :Iterator[(X, Int)] = uniqueIterator.map(x => (x, apply(x)))
+		override def iterator :Iterator[(E, Int)] = uniqueIterator.map(x => (x, apply(x)))
 	}
 
 	/** Equivalent to [[scala.collection.Iterable.toSet toSet]], but may be faster. */
-	def unique :Set[X] = new AbstractSet[X] {
-		override def incl(elem :X) :Set[X] =
+	def unique :Set[E] = new AbstractSet[E] {
+		override def incl(elem :E) :Set[E] =
 			if (MultiSetOps.this(elem) > 0) this else inc(elem, 1).unique
 
-		override def excl(elem :X) :Set[X] =
+		override def excl(elem :E) :Set[E] =
 			if (MultiSetOps.this(elem) > 0) dec(elem, Int.MaxValue).unique else this
 
-		override def contains(elem :X) :Boolean = MultiSetOps.this(elem) > 0
-		override def iterator :Iterator[X] = uniqueIterator
+		override def contains(elem :E) :Boolean = MultiSetOps.this(elem) > 0
+		override def iterator :Iterator[E] = uniqueIterator
 	}
 
-	def countsIterator :Iterator[(X, Int)] = counts.iterator
-	def uniqueIterator :Iterator[X]
+	def countsIterator :Iterator[(E, Int)] = counts.iterator
+	def uniqueIterator :Iterator[E]
 
-	override def iterator :Iterator[X] = new Iterator[X] {
-		private[this] val i = counts.iterator
-		private[this] var count = -1
-		private[this] var head :X = _
+	override def iterator :Iterator[E] = new Iterator[E] {
+		private[this] val i       = counts.iterator
+		private[this] var count   = -1
+		private[this] var head :E = _
 		override def hasNext = count > 0 || i.hasNext
 		override def next() =
 			if (count > 0) {
@@ -405,10 +405,10 @@ trait MultiSetOps[X, +Multi[A] <: MultiSetOps[A, Multi]]
   * @see [[net.noresttherein.sugar.collections.MultiSetOps.counts]]
   * @author Marcin Mościcki
   */
-trait MultiSet[X] extends SugaredIterable[X] with MultiSetOps[X, MultiSet] {
+trait MultiSet[E] extends immutable.Iterable[E] with SugaredIterable[E] with MultiSetOps[E, MultiSet] {
 	override def iterableFactory :MultiSetFactory[MultiSet] = MultiSet
 
-	override def intersect(xs :(X, Int)) :MultiSet[X] =
+	override def intersect(xs :(E, Int)) :MultiSet[E] =
 		if (xs._2 <= 0) MultiSet.empty
 		else MultiSet.single(xs._1, math.min(apply(xs._1), xs._2))
 
@@ -421,7 +421,7 @@ trait MultiSet[X] extends SugaredIterable[X] with MultiSetOps[X, MultiSet] {
 		case empty  :MultiSet[_] if empty.sizeIs == 0 => isEmpty
 		case single :MultiSet[x] if single.uniqueSize == 1 && (single canEqual this) =>
 			uniqueSize == 1 && head == single.head && single(single.head) == apply(head)
-		case multi :MultiSet[X @unchecked] if multi.canEqual(this) =>
+		case multi :MultiSet[E @unchecked] if multi.canEqual(this) =>
 			uniqueSize == multi.uniqueSize && multi.uniqueIterator.forall(x => apply(x) == multi(x))
 		case _ => false
 	}
@@ -443,57 +443,71 @@ trait MultiSet[X] extends SugaredIterable[X] with MultiSetOps[X, MultiSet] {
   * @define coll multi set
   */
 trait MultiSetFactory[+M[A] <: MultiSetOps[A, M]] extends IterableFactory[M] {
-	override def from[A](source :IterableOnce[A]) :M[A] = (newBuilder[A] ++= source).result()
+	override def from[E](source :IterableOnce[E]) :M[E] = (newBuilder[E] ++= source).result()
 
 	/** Creates a $coll containing the first elements of the pairs, each repeated the number of times
 	  * equal to the total sum of the second elements in its pairs. Pairs with negative numbers are ignored.
 	  */
-	def fromCounts[A](counts :IterableOnce[(A, Int)]) :M[A] = counts match {
+	def fromCounts[E](counts :IterableOnce[(E, Int)]) :M[E] = counts match {
 		case empty :Iterable[_] if empty.isEmpty => MultiSetFactory.this.empty
 		case empty :Iterator[_] if !empty.hasNext => MultiSetFactory.this.empty
-		case elems :Iterable[(A, Int)] if elems.forall(_._2 > 0) => trustedCounts(elems)
-		case _ => (multiBuilder[A] ++= counts).result()
+		case elems :Iterable[(E, Int)] if elems.forall(_._2 > 0) => trustedCounts(elems)
+		case _ => (multiBuilder[E] ++= counts).result()
 	}
 
 	/** Creates a $coll containing the first elements of the pairs, each repeated the number of times
 	  * equal to the total sum of the second elements in its pairs. Pairs with negative numbers are ignored.
 	  * @return [[net.noresttherein.sugar.collections.MultiSetFactory.fromCounts fromCounts]]`(counts)`.
 	  */
-	def count[A](counts :(A, Int)*) :M[A] = fromCounts(counts)
+	def count[E](counts :(E, Int)*) :M[E] = fromCounts(counts)
 
 	/** Fast variant of [[net.noresttherein.sugar.collections.MultiSetFactory.fromCounts fromCounts]] uses
 	  * by the companion classes. It assumes that all values in the sequence are non negative and no element
 	  * occurs in more than one pair.
 	  */
-	protected def trustedCounts[A](counts :IterableOnce[(A, Int)]) :M[A]
+	protected def trustedCounts[E](counts :IterableOnce[(E, Int)]) :M[E]
 
 	/** A builder for a $Coll, to which elements are added each with a number of its repetitions.
 	  * In case of duplicates, the final result equals the total of all added pairs, but pairs with negative
 	  * second elements are ignored outright.
 	  */
-	def multiBuilder[A] :Builder[(A, Int), M[A]] = //Map.newBuilder.mapResult(fromCounts)
-		new Builder[(A, Int), M[A]] {
-			private[this] var counts = Map.empty[A, Int]
+	def multiBuilder[E] :Builder[(E, Int), M[E]] = //Map.newBuilder.mapResult(fromCounts)
+		new ReusableBuilder[(E, Int), M[E]] {
+			private[this] var counts = Map.empty[E, Int]
 
-			override def addOne(elem :(A, Int)) = {
+			override def addOne(elem :(E, Int)) = {
 				if (elem._2 > 0)
 					counts = counts.updated(elem._1, elem._2 + counts.getOrElse(elem._1, 0))
 				this
 			}
-			override def clear() :Unit = counts = Map.empty[A, Int]
-			override def result() = trustedCounts(counts)
+			override def clear() :Unit = counts = Map.empty[E, Int]
+			override def result() =
+				if (counts.isEmpty)
+					empty
+				else {
+					val res = trustedCounts(counts)
+					counts = Map.empty
+					res
+				}
 		}
 
-	override def newBuilder[A] :Builder[A, M[A]] =
-		new Builder[A, M[A]] {
-			private[this] var counts = Map.empty[A, Int]
+	override def newBuilder[E] :Builder[E, M[E]] =
+		new ReusableBuilder[E, M[E]] {
+			private[this] var counts = Map.empty[E, Int]
 
-			override def addOne(elem :A) = {
+			override def addOne(elem :E) = {
 				counts = counts.updated(elem, counts.getOrElse(elem, 0) + 1)
 				this
 			}
-			override def result() = if (counts.isEmpty) empty else trustedCounts(counts)
-			override def clear() :Unit = counts = Map.empty[A, Int]
+			override def clear() :Unit = counts = Map.empty[E, Int]
+			override def result() =
+				if (counts.isEmpty)
+					empty
+				else {
+					val res = trustedCounts(counts)
+					counts = Map.empty
+					res
+				}
 		}
 }
 
@@ -502,20 +516,20 @@ trait MultiSetFactory[+M[A] <: MultiSetOps[A, M]] extends IterableFactory[M] {
 @SerialVersionUID(Ver)
 case object MultiSet extends MultiSetFactory[MultiSet] {
 
-	override def from[A](source :IterableOnce[A]) :MultiSet[A] = source match {
-		case multi :MultiSet[A @unchecked] => multi
-		case empty :Iterable[A] if empty.knownSize == 0 => this.empty[A]
-		case one   :Iterable[A] if one.knownSize == 1 => single(one.head, 1)
-		case set   :HashSet[A] => new Unique(set)
-		case _ => (newBuilder[A] ++= source).result()
+	override def from[E](source :IterableOnce[E]) :MultiSet[E] = source match {
+		case multi :MultiSet[E @unchecked] => multi
+		case empty :Iterable[E] if empty.knownSize == 0 => this.empty[E]
+		case one   :Iterable[E] if one.knownSize == 1 => single(one.head, 1)
+		case set   :HashSet[E] => new Unique(set)
+		case _ => (newBuilder[E] ++= source).result()
 	}
-	override def fromCounts[A](counts :IterableOnce[(A, Int)]) :MultiSet[A] = counts match {
-		case elems :Iterable[(A, Int)] => fromMap(elems.toMap)
+	override def fromCounts[E](counts :IterableOnce[(E, Int)]) :MultiSet[E] = counts match {
+		case elems :Iterable[(E, Int)] => fromMap(elems.toMap)
 		case _ => fromMap(counts.iterator.toMap)
 	}
 	//We can either allow negative counts and be fast, or have fast uniqueSize and counts
-	def fromMap[A](counts :Map[A, Int]) :MultiSet[A] =
-		if (counts.isEmpty) empty[A]
+	def fromMap[E](counts :Map[E, Int]) :MultiSet[E] =
+		if (counts.isEmpty) empty[E]
 		else if (counts.sizeIs == 1) single(counts.head)
 		else if (counts.forall(_._2 > 0)) new MapAdapter(counts)
 		else new MapAdapter(counts.filter(_._2 > 0))
@@ -528,16 +542,16 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 		case _ => new MapAdapter(counts.iterator.toMap)
 	}
 
-	override def empty[A] :MultiSet[A] = Empty.asInstanceOf[MultiSet[A]]
+	override def empty[E] :MultiSet[E] = Empty.asInstanceOf[MultiSet[E]]
 
 	def single[A](x :A, count :Int) :MultiSet[A] =
 		if (count <= 0) Empty.castParam[A] else new Singleton(x, count)
 
-	@inline final def single[A](xs :(A, Int)) :MultiSet[A] = single(xs._1, xs._2)
+	@inline final def single[E](xs :(E, Int)) :MultiSet[E] = single(xs._1, xs._2)
 
 
 	@SerialVersionUID(Ver)
-	private class Empty[X] extends MultiSet[X] with EmptyIterableOps[X, MultiSet, MultiSet[X]] {
+	private class Empty[X] extends AbstractIterable[X] with MultiSet[X] with EmptyNonSeqOps[X, MultiSet, MultiSet[X]] {
 		override def totalSize = 0L
 		override def uniqueSize = 0
 		override def apply(x :X) = 0
@@ -593,22 +607,21 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 			else
 				new MapAdapter(new Map.Map2(head, knownSize, x, count))
 
-		override def copyRangeToArray[B >: X](xs :Array[B], start :Int, from :Int, until :Int) :Int =
-			if (until <= from | until <= 0 || from >= knownSize || start >= xs.length)
+		override def copyRangeToArray[A >: X](xs :Array[A], start :Int, from :Int, len :Int) :Int =
+			if (len <= 0 || from >= knownSize || start >= xs.length)
 				0
 			else if (start < 0)
 				throw new IndexOutOfBoundsException(
-					s"$this.copyRangeToArray(${xs.className}<${xs.length}>, $start, $from, $until)"
+					s"$this.copyRangeToArray(${xs.className}<${xs.length}>, $start, $from, $len)"
 				)
 			else {
-				val from0 = math.max(from, 0)
-				val until0 = math.min(until, knownSize)
-				val copied = math.min(until0 - from0, xs.length - start)
+				val from0  = math.max(from, 0)
+				val copied = math.min(len, math.min(knownSize - from0, xs.length - start))
 				xs.fill(from0, from0 + copied)(head)
 				copied
 			}
 
-		override def copyToArray[B >: X](xs :Array[B], start :Int, len :Int) :Int =
+		override def copyToArray[A >: X](xs :Array[A], start :Int, len :Int) :Int =
 			copyRangeToArray(xs, start, 0, len)
 
 		override def toString = "MultiSet(" + head + ": " + size + ")"
@@ -617,7 +630,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 	//A set pretending to be a map with all values equal 1
 	@SerialVersionUID(Ver)
-	private class SetMap[X](underlying :Set[X]) extends AbstractMap[X, Int] {
+	private class SetMap[X](underlying :Set[X]) extends AbstractMap[X, Int] with Serializable {
 		override def removed(key :X) :Map[X, Int] =
 			if (underlying.contains(key)) new SetMap(underlying - key) else this
 
@@ -639,7 +652,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 	@SerialVersionUID(Ver)
 	private class Unique[X](override val unique :HashSet[X]) extends MultiSet[X] { self =>
 		override def knownSize  = unique.knownSize
-		override def totalSize  = unique.size.toInt
+		override def totalSize  = unique.size
 		override def uniqueSize = unique.size
 
 		override def apply(x :X) :Int = if (toSet(x)) 1 else 0

@@ -1,9 +1,13 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults}
+import scala.annotation.unchecked.uncheckedVariance
+import scala.collection.immutable.{AbstractSeq, AbstractSet, ArraySeq, SeqOps}
+import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, SeqFactory}
 import scala.collection.mutable.Builder
+import scala.reflect.ClassTag
 
-import org.scalacheck.{Arbitrary, Shrink}
+import org.scalacheck.util.Buildable
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 
 
@@ -86,4 +90,100 @@ object UnorderedItems extends IterableFactory[UnorderedItems] {
 	implicit val unorderedItemsShrink :Shrink[UnorderedItems[Int]] = Shrink { col :UnorderedItems[Int] =>
 		implicitly[Shrink[Seq[Int]]].shrink(col.toSeq).map(_ to UnorderedItems)
 	}
+}
+
+
+/** A simplistic wrapper over `Seq` used to test how methods work for custom collections.
+  * @author Marcin Mościcki
+  */
+class AsIterableOnce[+E](val toSeq :Seq[E]) extends IterableOnce[E] {
+	override def knownSize :Int = toSeq.knownSize
+	override def iterator :Iterator[E] = toSeq.iterator
+
+	override def equals(that :Any) :Boolean = that match {
+		case other :AsIterableOnce[_] => canEqual(that) && other.canEqual(this) && toSeq == other.toSeq
+		case _ => false
+	}
+
+	def canEqual(that :Any) :Boolean = that.isInstanceOf[OrderedItems[_]]
+
+	override def hashCode :Int = toSeq.hashCode
+	override def toString = toSeq.mkString("IterableOnce(", ", ", ")")
+}
+
+object AsIterableOnce extends IterableFactory[AsIterableOnce] {
+	override def from[A](source :IterableOnce[A]) :AsIterableOnce[A] = source match {
+		case col :AsIterableOnce[A] => col
+		case it :Iterable[A] => new AsIterableOnce(it to Seq)
+		case _ => new AsIterableOnce(source.iterator to Seq)
+	}
+	override def empty[A] :AsIterableOnce[A] = new AsIterableOnce(Nil)
+
+	override def newBuilder[A] :Builder[A, AsIterableOnce[A]] = List.newBuilder[A].mapResult(new AsIterableOnce(_))
+
+
+	implicit val asIterableOnceGenerator :Arbitrary[AsIterableOnce[Int]] =
+		Arbitrary(Arbitrary.arbitrary[Seq[Int]].map(_ to AsIterableOnce))
+
+	implicit val asIterableOnceShrink :Shrink[AsIterableOnce[Int]] = Shrink { col :AsIterableOnce[Int] =>
+		implicitly[Shrink[Seq[Int]]].shrink(col.toSeq).map(_ to AsIterableOnce)
+	}
+}
+
+
+
+
+/** A `Seq` wrapper which overrides `toString` in order to print its length (in addition to contents). */
+class SizedSeq[+E](val underlying :Seq[E])
+	extends AbstractSeq[E] with SeqOps[E, SizedSeq, SizedSeq[E]] with IterableFactoryDefaults[E, SizedSeq]
+{
+	override def knownSize :Int = underlying.knownSize
+	override def apply(i :Int) :E = underlying(i)
+	override def length :Int = underlying.length
+	override def iterator :Iterator[E] = underlying.iterator
+
+	override def iterableFactory :SeqFactory[SizedSeq] = SizedSeq
+
+	protected override def className :String =
+		underlying.toString.replaceFirst("\\(", "|" + length + "|(")
+}
+
+object SizedSeq extends ProxyIterableFactory[SizedSeq, Seq](Vector) with SeqFactory[SizedSeq] {
+	protected override def map[X](impl :Seq[X]) :SizedSeq[X] = new SizedSeq[X](impl)
+
+	implicit def arbitrary[X :Arbitrary :ClassTag] :Arbitrary[SizedSeq[X]] = Arbitrary(
+		Gen.oneOf(
+		   Arbitrary.arbitrary[Vector[X]],
+		   Arbitrary.arbitrary[List[X]],
+		   Gen.buildableOf[ArraySeq[X], X](Arbitrary.arbitrary[X]),
+		).map(new SizedSeq(_))
+	)
+	implicit def shrink[X :Shrink] :Shrink[SizedSeq[X]] = Shrink { col :SizedSeq[X] =>
+		implicitly[Shrink[Seq[X]]].shrink(col.underlying).map(new SizedSeq(_))
+	}
+	implicit def buildable[X] :Buildable[X, SizedSeq[X]] = new Buildable[X, SizedSeq[X]] {
+		override def builder :Builder[X, SizedSeq[X]] = SizedSeq.newBuilder
+	}
+	private implicit def buildableArraySeq[X :Arbitrary :ClassTag] :Buildable[X, ArraySeq[X]] =
+		new Buildable[X, ArraySeq[X]] {
+			override def builder :Builder[X, ArraySeq[X]] = ArraySeq.newBuilder
+		}
+}
+
+
+
+class SeqSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends AbstractSet[E] {
+	private def this(unique :Seq[E]) = this(unique.toSet, unique)
+	def this(items :IterableOnce[E]) =
+		this(items.iterator.zipWithIndex.toMap.toVector.sortBy(_._2).map(_._1))
+
+	override def incl(elem :E) :Set[E] =
+		if (underlying(elem)) this else new SeqSet(underlying incl elem, toSeq :+ elem)
+
+	override def excl(elem :E) :Set[E] =
+		if (underlying(elem)) new SeqSet(underlying.excl(elem), toSeq.filterNot(_ == elem)) else this
+
+	override def contains(elem :E) :Boolean = underlying.contains(elem)
+
+	override def iterator :Iterator[E] = toSeq.iterator
 }

@@ -14,8 +14,10 @@ import scala.util.Sorting
 
 import net.noresttherein.sugar.{??!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.JavaTypes.JIterator
+import net.noresttherein.sugar.arrays.{ArrayLike, ArrayLikeOps, CyclicArrayIterator, ReverseCyclicArrayIterator}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
-import net.noresttherein.sugar.collections.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, IterableExtension, IterableOnceExtension, IteratorExtension, StepperObjectExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, StepperObjectExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.extensions.{IntExtension, cast2TypeParamsMethods, castTypeParamMethods}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -118,14 +120,14 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** The backing property for `this.size`. */
 	private[this] var dataSize :Int = 0
 
-	@inline private[collections] final def data1 :Array[E]        = data.asInstanceOf[Array[E]]
-	@inline private[collections] final def data2 :Array[Array[E]] = data.asInstanceOf[Array[Array[E]]]
+	@inline private[sugar] final def data1 :Array[E]        = data.asInstanceOf[Array[E]]
+	@inline private[sugar] final def data2 :Array[Array[E]] = data.asInstanceOf[Array[Array[E]]]
 
 	/** Returns `0` if `storageSize == 0`, `1` when `0 < storageSize <= MaxSize1`, and `2` when `storageSize > MaxSize1`. */
-	@inline private[collections] final def dim   :Int =
+	@inline private[sugar] final def dim   :Int =
 		(storageSize + (MaxSize2 - MaxSize1 - 1) >>> 31) + 1 - (storageSize - 1 >>> 31)
 
-	private[collections] final def startIndex :Int = dataOffset
+	private[sugar] final def startIndex :Int = dataOffset
 
 	/** A mask for a two dimensional index. 'Anding' with it calculates the remainder of division by the total capacity
 	  * (including unallocated arrays).
@@ -265,75 +267,73 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			throw new IllegalArgumentException(
 				"A negative length argument to " + errorString(this) + ".addAll(" +
 					errorString(elems) + ", " + idx + ", " + length + ")")
-		if (idx < 0)
+		if (idx < 0 || idx > elems.length - length)
 			throw new IndexOutOfBoundsException(idx.toString + " for an " + errorString(elems))
-		if (length > 0)
-			if (storageSize == 0) {                               //dim == 0
-				//fixme: this requires making Array.copyOfRange validate the indices.
-				if (length <= MaxSize1) {                         //create a single dimensional array
-					var capacity = NewSize1
-					while (capacity < length)
-						capacity <<= 1
-					data = Array.copyOfRange(elems, idx, idx + length, capacity)
-					storageSize = capacity
-				} else {                                          //create a two dimensional array
-					var capacity2 = NewSize2
-					val unsignedLength = length + MinValue
-					while ((capacity2 << Dim1Bits) + MinValue < unsignedLength)
-						capacity2 <<= 1
-					data = new Array[Array[E]](capacity2)
-					var i = 0
-					while (i + (MaxSize1 + MinValue) <= unsignedLength) { //compare unsigned
-						data2(dim2(i)) = Array.copyOfRange(elems, idx + i, idx + i + MaxSize1)
-						i += MaxSize1
-					}
-					storageSize = i
-					if (i <= length) {
-						data2(dim2(i)) = Array.copyOfRange(elems, idx + i, idx + i, idx + length, MaxSize1)
-						storageSize = i + MaxSize1
-					}
+		if (storageSize == 0) {                               //dim == 0
+			if (length <= MaxSize1) {                         //create a single dimensional array
+				var capacity = NewSize1
+				while (capacity < length)
+					capacity <<= 1
+				data = Array.copyOfRange(elems, idx, idx + length, capacity)
+				storageSize = capacity
+			} else {                                          //create a two dimensional array
+				var capacity2 = NewSize2
+				val unsignedLength = length + MinValue
+				while ((capacity2 << Dim1Bits) + MinValue < unsignedLength)
+					capacity2 <<= 1
+				data = new Array[Array[E]](capacity2)
+				var i = 0
+				while (i + (MaxSize1 + MinValue) <= unsignedLength) { //compare unsigned
+					data2(dim2(i)) = Array.copyOfRange(elems, idx + i, idx + i + MaxSize1)
+					i += MaxSize1
 				}
-			} else if (storageSize <= MaxSize1) {                 //dim == 1
-				val dataEnd = dataOffset + dataSize
-				if (length <= storageSize - dataSize)
-					ArrayLike.cyclicCopyTo(elems, idx, data1, dataEnd & storageSize - 1, length)
-				else if (length <= MaxSize1 - dataSize) {            //increase the array size
-					val newSize = dataSize + length
-					var capacity = storageSize << 1
-					while (capacity < newSize)
-						capacity <<= 1
-					if (dataEnd <= storageSize) {                 //data is not wrapped
-						data = Array.copyOf(data, capacity)
-						ArrayLike.cyclicCopyTo(elems, idx, data1, dataEnd, length)
-					} else {
-						data = Array.copyOfRanges(
-							data1, dataOffset, storageSize,
-							data1, 0, dataEnd - storageSize,
-							elems, idx, idx + length, capacity
-						)
-						dataOffset = 0
-					}
-					storageSize = capacity
-				} else {                                          //must grow to the second dimension
-					growToDim2(length)
-					if (dim2(dim1(dataOffset) + dataSize + length - 1) + 1 > dim2(storageSize)) {
-						val dataEnd  = dataOffset + dataSize
-						val data2    = this.data2
-						val mask2    = data2.length - 1
-						val end2     = dim2(dataEnd + length - 1) + 1 & mask2
-						var i        = dim2(dataOffset + storageSize) & mask2
-						storageSize += (end2 - i & mask2) << Dim1Bits
-						while (i != end2) {
-							data2(i) = new Array[E](MaxSize1)
-							i = i + 1 & mask2
-						}
-					}
-					write2(dataEnd, elems, idx, length)
+				storageSize = i
+				if (i <= length) {
+					data2(dim2(i)) = Array.copyOfRange(elems, idx + i, idx + i, idx + length, MaxSize1)
+					storageSize = i + MaxSize1
 				}
-			} else {                                              //dim == 2
-				allocBack(length)
-				write2(dataOffset + dataSize & indexMask, elems, idx, length)
 			}
+		} else if (storageSize <= MaxSize1) {                 //dim == 1
+			val dataEnd = dataOffset + dataSize
+			if (length <= storageSize - dataSize)
+				ArrayLike.cyclicCopyTo(elems, idx, data1, dataEnd & storageSize - 1, length)
+			else if (length <= MaxSize1 - dataSize) {            //increase the array size
+				val newSize = dataSize + length
+				var capacity = storageSize << 1
+				while (capacity < newSize)
+					capacity <<= 1
+				if (dataEnd <= storageSize) {                 //data is not wrapped
+					data = Array.copyOf(data, capacity)
+					ArrayLike.cyclicCopyTo(elems, idx, data1, dataEnd, length)
+				} else {
+					data = Array.copyOfRanges(
+						data1, dataOffset, storageSize,
+						data1, 0, dataEnd - storageSize,
+						elems, idx, idx + length, capacity
+					)
+					dataOffset = 0
+				}
+				storageSize = capacity
+			} else {                                          //must grow to the second dimension
+				growToDim2(length)
+				if (dim2(dim1(dataOffset) + dataSize + length - 1) + 1 > dim2(storageSize)) {
+					val dataEnd  = dataOffset + dataSize
+					val data2    = this.data2
+					val mask2    = data2.length - 1
+					val end2     = dim2(dataEnd + length - 1) + 1 & mask2
+					var i        = dim2(dataOffset + storageSize) & mask2
+					storageSize += (end2 - i & mask2) << Dim1Bits
+					while (i != end2) {
+						data2(i) = new Array[E](MaxSize1)
+						i = i + 1 & mask2
+					}
+				}
+				write2(dataEnd, elems, idx, length)
+			}
+		} else {                                              //dim == 2
+			allocBack(length)
+			write2(dataOffset + dataSize & indexMask, elems, idx, length)
+		}
 		dataSize += length
 		this
 	}
@@ -1523,13 +1523,14 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		val oldSize    = dataSize
 		if (count < 0)
 			throw new IllegalArgumentException(errorString(this) + ".remove(" + idx + ", " + count + ")")
-		else if (idx < 0 || idx > dataSize - count)
-			throw new IndexOutOfBoundsException(errorString(this) + ".remove(" + idx + ", " + count + ")")
-		else if (count > 0)               //dim == 0 is handled, because count must then equal zero.
+		else if (count > 0) {
+			if (idx < 0 || idx > dataSize - count)
+				throw new IndexOutOfBoundsException(errorString(this) + ".remove(" + idx + ", " + count + ")")
 			if (storageSize <= MaxSize1)
 				remove1(idx, count)
 			else
 				remove2(idx, count)
+		}
 		assert(storageSize > MaxSize1 || storageSize == Integer.highestOneBit(storageSize),
 			"|" + oldSize + "/" + oldStorage + "#" + oldOffset + "|.remove(" + idx + ", " + count + ") == |" +
 				dataSize + "/" + storageSize + "#" + dataOffset + "|"
@@ -2475,14 +2476,14 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		case _ if dataSize == 0 =>
 			Stepper.empty
 		case 1 if dataOffset + dataSize <= storageSize =>
-			Stepper.over(data1, dataOffset, dataOffset + dataSize)
+			Stepper.slice(data1, dataOffset, dataOffset + dataSize)
 		case 1 =>
 			ConcatStepper(
-				Stepper.over(data1, dataOffset, storageSize),
-				Stepper.over(data1, 0, dataOffset + dataSize - storageSize),
+				Stepper.slice(data1, dataOffset, storageSize),
+				Stepper.slice(data1, 0, dataOffset + dataSize - storageSize),
 			)
 		case 2 if dim2(dataOffset + dataSize - 1) == dim2(dataOffset) && dataSize <= MaxSize1 =>
-			Stepper.over(data2(dim2(dataOffset)), dim1(dataOffset), dim1(dataOffset) + dataSize)
+			Stepper.slice(data2(dim2(dataOffset)), dim1(dataOffset), dim1(dataOffset) + dataSize)
 		case 2 =>
 			val iters  = TemporaryIndexedSeq.newBuilder[S with EfficientSplit]
 			val data2  = this.data2
@@ -2492,11 +2493,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			var offset = dim1(dataOffset)
 			iters sizeHint dim2(dataOffset + dataSize - 1) + 1 - i
 			while (i != end) {
-				iters += Stepper.over(data2(i), offset, MaxSize1)
+				iters += Stepper.slice(data2(i), offset, MaxSize1)
 				i = i + 1 & mask
 				offset = 0
 			}
-			iters += Stepper.over(data2(i), 0, dim1(dataOffset + dataSize - 1) + 1)
+			iters += Stepper.slice(data2(i), 0, dim1(dataOffset + dataSize - 1) + 1)
 			ConcatStepper(iters.result())
 	}
 
@@ -2517,9 +2518,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			new ReverseDim2MatrixBufferIterator(data2, dataOffset + dataSize & indexMask, dataSize)
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-		copyRangeToArray(xs, 0, start, len)
+		copyRangeToArray(xs, start, 0, len)
 
-	override def copyRangeToArray[B >: E](xs :Array[B], from :Int, start :Int, len :Int) :Int =
+	override def copyRangeToArray[B >: E](xs :Array[B], start :Int, from :Int, len :Int) :Int =
 		if (len <= 0 || dataSize == 0 || from >= dataSize || start >= xs.length)
 			0
 		else if (start < 0)
@@ -2539,9 +2540,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		}
 
 	override def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
-		cyclicCopyRangeToArray(xs, 0, start, len)
+		cyclicCopyRangeToArray(xs, start, 0, len)
 
-	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], from :Int, start :Int, len :Int) :Int =
+	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 		if (len <= 0 || dataSize == 0 || from >= dataSize || start >= xs.length)
 			0
 		else if (start < 0)
@@ -2576,8 +2577,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		throw new BufferFullException(
 			"Cannot add " + delta + " elements to a buffer of size " + dataSize + ": maximum capacity exceeded."
 		)
-//	private def bufferFull() :Nothing =
-//		throw new IllegalStateException("Buffer at maximum size: " + dataSize + ".")
 
 	override def iterableFactory :SeqFactory[MatrixBuffer] = if (shrink) ShrinkingMatrixBuffer else MatrixBuffer
 	protected override def evidenceIterableFactory :EvidenceIterableFactory[MatrixBuffer, ClassTag] =
@@ -2857,7 +2856,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 		case seq :mutable.ArraySeq[E @unchecked] => new MatrixBuffer[E](shrink)(seq.elemTag.castParam[E]) ++= it
 //		case seq :ArraySeq[E@unchecked] =>
 //			new MatrixBuffer[E]()(ClassTag[E](seq.unsafeArray.getClass.getComponentType)) ++= it
-//		case arr :AbstractArraySlice[E@unchecked] =>
+//		case arr :ArrayBacked[E@unchecked] =>
 //			new MatrixBuffer[E]()(ClassTag[E](arr.unsafeArray.getClass.getComponentType)) ++= it
 		case _ => new ErasedMatrixBuffer[E](true) ++= it
 	}
@@ -2865,9 +2864,6 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 	override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
 	override def newBuilder[E] :Builder[E, MatrixBuffer[E]] = untagged.newBuilder
-
-	/** Creates a new buffer backed by an `Array[Any]`, boxing all elements. Same as `empty`. */
-	override def of[E] :MatrixBuffer[E] = new ErasedMatrixBuffer(shrink)
 
 	/** Creates a new buffer of the specified capacity, backed by an `Array[Any]`, boxing all elements. Same as `empty`.
 	  * If the capacity calls for a two dimensional buffer, not all individual data arrays will be actually allocated,
@@ -2903,8 +2899,6 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 	/** A $Coll factory producing instances backed by `Array[AnyRef]`, similarly to `mutable.ArraySeq.untagged`. */
 	object untagged extends BufferFactory[MatrixBuffer] {
-		override def from[E](source :IterableOnce[E]) :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink) ++= source
-
 		override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
 		override def newBuilder[E] :Builder[E, MatrixBuffer[E]] =
@@ -2916,8 +2910,6 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 				}
 				override def result() = this
 			}
-
-		override def of[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
 		override def ofCapacity[E](capacity :Int) :MatrixBuffer[E] = new ErasedMatrixBuffer[E](capacity, shrink)
 

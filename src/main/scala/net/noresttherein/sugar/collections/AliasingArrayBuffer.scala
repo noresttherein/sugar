@@ -10,9 +10,10 @@ import scala.collection.mutable.{ArrayBuffer, Builder, GrowableBuilder}
 import scala.reflect.ClassTag
 import scala.runtime.Statics.releaseFence
 
+import net.noresttherein.sugar.arrays.{IArrayLike, IRefArray, RefArray}
 import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
-import net.noresttherein.sugar.collections.extensions.ArrayObjectExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, castTypeParamMethods, castingMethods}
 
@@ -29,7 +30,7 @@ import net.noresttherein.sugar.extensions.{IterableOnceExtension, castTypeParamM
   * @author Marcin Mościcki
   */
 private class AliasingArrayBuffer[E](capacity :Int)
-	extends ArrayBuffer[E](capacity)
+	extends ArrayBuffer[E](capacity) with ArrayIterableOnce[E]
 	   with mutable.IndexedSeqOps[E, AliasingArrayBuffer, AliasingArrayBuffer[E]]
 	   with StrictOptimizedSeqOps[E, AliasingArrayBuffer, AliasingArrayBuffer[E]]
 	   with IterableFactoryDefaults[E, AliasingArrayBuffer] with DefaultSerializable
@@ -37,6 +38,10 @@ private class AliasingArrayBuffer[E](capacity :Int)
 	def this() = this(ArrayBuffer.DefaultInitialSize)
 
 	private[this] var aliased = false
+
+	private[sugar] override def unsafeArray :Array[_] = array
+	private[sugar] override def startIndex  :Int = 0
+	private[sugar] override def isMutable = true
 
 	private def dealias(extra :Int) :Unit =
 		if (extra > 0) {
@@ -50,7 +55,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 	@inline private def newTotalSize(total :Int) :Int = {
 		val res = math.max(math.min(array.length, MaxArraySize >> 1) << 1, total)
 		if (res < total)
-			throw new IllegalArgumentException("Cannot allocate an array of length " + res + ".")
+			throw new BufferFullException("Cannot allocate an array of length " + res + ".")
 		res
 	}
 
@@ -66,7 +71,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 		if (n > 0) {
 			val size = super.size
 			if (n < MaxArraySize - size) ensureSize(n + size)
-			else throw new IllegalArgumentException("Cannot allocate an array of length " + (size.toLong + n) + ".")
+			else throw new BufferFullException("Cannot allocate an array of length " + (size.toLong + n) + ".")
 		}
 
 	override def trimToSize() :Unit = {
@@ -97,7 +102,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 
 	override def clearAndShrink(size :Int) :this.type =
 		if (aliased) {
-			array = ErasedArray.empty
+			array = Array.emptyObjectArray
 			aliased = false
 			ensureSize(size)
 			this
@@ -170,7 +175,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 							errorString(elems) + " copied " + copied + " instead of " + elemsSize
 						)
 					arraycopy(this.array, index, array, index + elemsSize, size - index - elemsSize)
-					super.addAll(RefArraySlice.of(array.castFrom[Array[AnyRef], RefArray[E]], size - elemsSize, size))
+					super.addAll(RefArraySlice.slice(array.castFrom[Array[AnyRef], RefArray[E]], size - elemsSize, size))
 					this.array = array
 				} else {
 					this.array = Array.copyOf(array, newLength)
@@ -239,25 +244,25 @@ private class AliasingArrayBuffer[E](capacity :Int)
 
 	override def flatMapInPlace(f :E => IterableOnce[E]) :this.type =
 		if (aliased)
-			become(ArraySlice.of(array.asInstanceOf[Array[E]], 0, length).flatMap(f))
+			become(ArraySlice.slice(array.asInstanceOf[Array[E]], 0, length).flatMap(f))
 		else
 			super.flatMapInPlace(f)
 
 	override def filterInPlace(p :E => Boolean) :this.type =
 		if (aliased)
-			become(ArraySlice.of(array.asInstanceOf[Array[E]], 0, length).filter(p))
+			become(ArraySlice.slice(array.asInstanceOf[Array[E]], 0, length).filter(p))
 		else
 			super.filterInPlace(p)
 
 	override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
 		if (aliased)
-			become(ArraySlice.of(array.asInstanceOf[Array[E]], 0, length).patch(from, patch.iterator, replaced))
+			become(ArraySlice.slice(array.asInstanceOf[Array[E]], 0, length).patch(from, patch.iterator, replaced))
 		else
 			super.patchInPlace(from, patch, replaced)
 
 	override def dropInPlace(n :Int) :this.type =
 		if (aliased)
-			if (n > 0) become(ArraySlice.of(array.asInstanceOf[Array[E]], 0, length).drop(n))
+			if (n > 0) become(ArraySlice.slice(array.asInstanceOf[Array[E]], 0, length).drop(n))
 			else this
 		else
 			super.dropInPlace(n)
@@ -302,16 +307,18 @@ private class AliasingArrayBuffer[E](capacity :Int)
 		else if (size >= (array.length >> 1)) {
 			aliased = true
 			releaseFence()
-			IRefArraySlice.of(array.asInstanceOf[IRefArray[E]], 0, size)
+			IRefArraySlice.slice(array.asInstanceOf[IRefArray[E]], 0, size)
 		} else
 			ArraySeq.unsafeWrapArray(toArray(ClassTag.Any.castParam[E]))
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = factory match {
-		case CompanionFactory.IterableFactory(Seq) | CompanionFactory.IterableFactory(IndexedSeq) =>
+		case CompanionFactory.IterableFactory(Seq | IndexedSeq) =>
 			toIndexedSeq.asInstanceOf[C1]
-		case CompanionFactory.IterableFactory(DefaultRefArraySeq) if size >= (array.length >> 1) =>
+		case CompanionFactory.IterableFactory(factory :ArrayLikeSliceWrapper[Seq, IArrayLike] @unchecked)
+			if size >= (array.length >> 1) && //todo: a way of determining if a factory is immutable
+				factory == PassedArray || factory == IArrayLikeSlice || factory == IRefArraySlice =>
 			aliased = true
-			DefaultRefArraySeq.of(array.asInstanceOf[IRefArray[E]], 0, size).asInstanceOf[C1]
+			factory.slice(array.asInstanceOf[IRefArray[E]], 0, size).asInstanceOf[C1]
 		case _ =>
 			super.to(factory)
 	}

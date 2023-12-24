@@ -1,15 +1,16 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.tailrec
+import java.lang.reflect.InvocationTargetException
+
 import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
-import scala.collection.immutable.{ArraySeq, LinearSeq}
-import scala.collection.{IndexedSeqView, IterableOnceOps, IterableOps, View, mutable}
+import scala.collection.immutable.{ArraySeq, IndexedSeqOps, LinearSeq}
+import scala.collection.{IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, View, mutable}
 import scala.collection.mutable.{ArrayBuffer, Builder}
 
-import net.noresttherein.sugar.collections.IndexedIterable.HasFastUpdate
+import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.exceptions.??!
-import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.extensions.{castingMethods, classNameMethods}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -21,10 +22,23 @@ private[noresttherein] object util {
 	//These two methods are problematic because, in theory, they can be overridden by a class to throw an exception
 	// and simply not used by an implementation.
 	def specificBuilder[E, CC[_], C](items :IterableOps[E, CC, C]) :Builder[E, C] =
-		newSpecificBuilderMethod.invoke(items).asInstanceOf[Builder[E, C]]
+		try {
+			newSpecificBuilderMethod.invoke(items).asInstanceOf[Builder[E, C]]
+		} catch {
+			case e :InvocationTargetException =>
+				e.getTargetException.addSuppressed(e)
+				throw e.getTargetException
+		}
 
 	def fromSpecific[E, CC[_], C](items :IterableOps[E, CC, C])(coll :IterableOnce[E]) :C =
-		fromSpecificMethod.invoke(items, coll).asInstanceOf[C]
+		try {
+			fromSpecificMethod.invoke(items, coll).asInstanceOf[C]
+		}catch {
+			case e :InvocationTargetException =>
+				e.getTargetException.addSuppressed(e)
+				throw e.getTargetException
+		}
+
 
 	private[this] val newSpecificBuilderMethod = {
 		val m = classOf[IterableOps[Any, Iterable, Iterable[Any]]].getMethod("newSpecificBuilder")
@@ -37,10 +51,10 @@ private[noresttherein] object util {
 		m
 	}
 
-	@inline final def knownEmpty(items :IterableOnce[_]) :Boolean = {
+	final def knownEmpty(items :IterableOnce[_]) :Boolean = {
 		val size = items.knownSize
 		size == 0 || size < 0 && (items match {
-			case _     :View[_] => false //because elems.isEmpty delegates to .iterator.isEmpty
+			case _     :View[_]     => false //because elems.isEmpty delegates to .iterator.isEmpty
 			case _     :LazyList[_] => false
 			case items :Iterable[_] => items.isEmpty
 			case iter  :Iterator[_] => !iter.hasNext
@@ -48,48 +62,18 @@ private[noresttherein] object util {
 		})
 	}
 
-
-/*
-	def prependReverse[A](initReversed :IterableOnce[A], tail :LinearSeq[A]) :LinearSeq[A] =
-		initReversed match {
-			case _ if knownEmpty(initReversed) => tail
-			case list :collection.LinearSeq[A] => prependReverse(list, tail)
-			case ErasedArray.Wrapped(array) => prependReverse(array.asInstanceOf[Array[A]], 0, array.length, tail)
-			case ErasedArray.Wrapped.Slice(array, from, until) =>
-				prependReverse(array.asInstanceOf[Array[A]], from, until, tail)
-			case seq :collection.IndexedSeqOps[A, IndexedSeq, IndexedSeq[A]] @unchecked
-				if seq.length <= IndexedSeqDefaults.defaultApplyPreferredMaxLength
-			=>
-				prependReverse(seq, tail)
-			case _ =>
-				prependReverse(initReversed.iterator, tail)
+	final def knownUnique(items :IterableOnce[_]) :Boolean =
+		items.isInstanceOf[collection.Set[_]] || items.isInstanceOf[Ranking[_]] || {
+			val size = items.knownSize
+			size <= 1 || (items match {
+				case _    :View[_]     => false
+				case iter :Iterable[_] => iter.isEmpty
+				case iter :Iterator[_] => !iter.hasNext
+				case _                 => false
+			})
 		}
 
-	def prependReverse[A](iter :Iterator[A], tail :LinearSeq[A]) :LinearSeq[A] = {
-		var res = tail
-		while (iter.hasNext)
-			res = iter.next() +: res
-		res
-	}
-	def prependReverse[A](seq :collection.IndexedSeqOps[A, IndexedSeq, IndexedSeq[A]], tail :LinearSeq[A])
-			:LinearSeq[A] =
-	{
-		var i   = seq.length
-		var res = tail
-		while (i > 0) {
-			i -= 1
-			res = seq(i) +: res
-		}
-		res
-	}
-	@tailrec def prependReverse[A](initReversed :Array[A], from :Int, until :Int, tail :LinearSeq[A]) :LinearSeq[A] =
-		if (until <= from)
-			tail
-		else {
-			val i = until - 1
-			prependReverse(initReversed, from, i, initReversed(i) +: tail)
-		}
-*/
+
 	def prependReverse[A](initReversed :collection.LinearSeq[A], tail :LinearSeq[A]) :LinearSeq[A] = {
 		var init = initReversed
 		var res = tail
@@ -111,60 +95,6 @@ private[noresttherein] object util {
 		case items   :Iterable[A] if items.sizeIs <= 1            => items
 		case _                                                    => Iterators.reverse(items)
 	}
-/*
-	@tailrec def reverseIterator[A](items :IterableOnce[A]) :Iterator[A] = items match {
-		case view :View[A] => reverseIterator(view.iterator)
-		case it   :Iterable[A] if it.sizeIs <= 1 => it.iterator
-		case it   :Iterator[A] if !it.hasNext    => it
-//		case ErasedArray.Wrapped(array :Array[A] @unchecked) => ReverseArrayIterator(array)
-		case ErasedArray.Wrapped.Slice(array :Array[A @unchecked], from :Int, until :Int) =>
-			ReverseArrayIterator.over(array, from, until)
-		case IndexedIterable(seq) => seq.reverseIterator
-		case _ =>
-			val size = items.knownSize
-			if (size >= 0) (DefaultBuffer.ofCapacity[A](size) ++= items).reverseIterator
-			else (DefaultBuffer.of[A] ++= items).reverseIterator
-	}
-*/
-/*
-
-	@tailrec def reverseSeq[A](items :IterableOnce[A]) :collection.Seq[A] = items match {
-		case view :View[A]                       => reverse(view.iterator)
-		case it   :Iterable[A] if it.sizeIs <= 1 => it.toSeq
-		case it   :Iterator[A] if !it.hasNext    => Seq.empty
-		case ApplyPreferred(items) =>
-		case _ =>
-		val thatSize = items.knownSize
-		if (thatSize == 0)
-			Seq.empty
-		else if (thatSize == 1)
-			items.toIterableOnceOps.toSeq
-		else
-		val it   = suffix.iterator
-		var size = 0
-
-		val reversed = suffix.knownSize match {
-			//todo: replace with MatrixBuffer
-			case newElemCount if newElemCount >= 0 && newElemCount <= ReasonableArraySize => //reverse in an array
-				size = newElemCount
-				val res = ErasedArray.ofDim[U](newElemCount)
-				var i   = newElemCount
-				while (i > 0) {
-					i -= 1;
-					res(i) = it.next()
-				}
-				DefaultArraySeq.of(res.asInstanceOf[IArray[U]])
-			case _ => //reverse in a list
-				var reversed :List[U] = Nil
-				while (it.hasNext) {
-					reversed = it.next() :: reversed
-					size += 1
-				}
-				reversed
-		}
-
-	}
-*/
 
 	@inline def validateArraySize(length :Int) =
 		if (length < 0 | length > Constants.MaxArraySize)
@@ -221,9 +151,13 @@ private object Constants {
 
 private object IndexedIterable {
 	@inline def unapply[A](items :IterableOnce[A]) :Opt[collection.IndexedSeqOps[A, generic.Any, _]] = items match {
-		case seq :collection.IndexedSeqOps[A, generic.Any, _] => Got(seq)
-		case ranking :Ranking[A] => Got(ranking.toIndexedSeq)
-		case set :IndexedSet[A] => Got(set.toIndexedSeq)
+		case seq     :collection.IndexedSeqOps[A, generic.Any, _] => Got(seq)
+		case ranking :Ranking[A]                                  => Got(ranking.toIndexedSeq)
+		case set     :IndexedSet[A]                               => Got(set.toIndexedSeq)
+		case slice   :ArrayIterableOnce[A] =>
+			val from  = slice.startIndex
+			val until = from + slice.knownSize
+			Got(ArraySlice.slice(slice.unsafeArray.castFrom[Array[_], Array[A]], from, until))
 		case _ => Lack
 	}
 
@@ -272,13 +206,10 @@ private object IndexedIterable {
 			case _          => HasFastUpdate.unapply(items)
 		}
 	}
-//		val ApplyPreferred :BooleanMatchPattern[IterableOnce[_]] =
-//			MatchPattern.Bool.when[IterableOnce[_]]("ApplyPreferred") {
-//				case seq :collection.SeqOps[_, generic.Any, _] => applyPreferred(seq)
-//			}
+
 	object ApplyPreferred {
 		def unapply[A](items :IterableOnce[A]) :Opt[collection.SeqOps[A, generic.Any, _]] = items match {
-			case _ :AbstractArraySlice[A] => Got(items.toBasicOps.toIndexedSeq)
+			case _ :ArrayIterableOnce[A] => Got(items.toBasicOps.toIndexedSeq)
 			case seq :collection.IndexedSeqOps[A, generic.Any, _] => items match {
 				case seq :ArraySeq[A]         => Got(seq)
 				case seq :mutable.ArraySeq[A] => Got(seq)
@@ -304,7 +235,7 @@ private object IndexedIterable {
 
 	def applyPreferred(seq :collection.SeqOps[_, generic.Any, _]) :Boolean = seq match {
 //			case _ if { val s = seq.knownSize; s >= 0 && s <= applyAlwaysPreferredLength } => true
-		case _ :AbstractArraySlice[_] | _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] => true
+		case _ :ArrayIterableOnce[_] | _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] => true
 		case seq :IndexedSeq[_] if applyPreferredMaxLengthProperty.isDefined =>
 			seq.length <= applyPreferredMaxLengthProperty.get.invoke(seq).asInstanceOf[Int]
 
@@ -312,7 +243,7 @@ private object IndexedIterable {
 		case _ => seq.sizeIs <= applyAlwaysPreferredLength
 	}
 	def applyPreferredMaxLength(seq :collection.SeqOps[_, generic.Any, _]) :Int = seq match {
-		case _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] | _ :AbstractArraySlice[_] => Int.MaxValue
+		case _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] | _ :ArrayIterableOnce[_] => Int.MaxValue
 		case indexed :IndexedSeq[_] if applyPreferredMaxLengthProperty.isDefined =>
 			applyPreferredMaxLengthProperty.get.invoke(indexed).asInstanceOf[Int]
 		case _ :collection.IndexedSeqOps[_, generic.Any, _] => defaultApplyPreferredMaxLength
@@ -336,31 +267,6 @@ private object HasFastSlice {
 	def apply[A](items :IterableOnce[A]) :Boolean = unapply(items).isDefined
 
 	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = unapply(items).isDefined
-/*
-	def unapply[A, As](items :As)(implicit values :Values[A, As])
-			:Opt[IterableOnceOps[A, IterableOnce, IterableOnce[A]]] =
-		//fixme: this matches A =:= As =:= Iterable[X]
-		items match {
-			case it :Iterable[A @unchecked] if values.toIterableOnce(items).asAnyRef eq it => it match {
-				case _ :collection.IndexedSeqOps[A, IterableOnce, IterableOnce[A]] @unchecked => it match {
-					case view  :IndexedSeqView[A]        => Got(view)
-					case vec   :Vector[A]                => Got(vec)
-					case pass  :PassedArray[A]           => Got(pass.window)
-					case slice :ArrayLikeSlice[A]        => Got(slice)
-					case seq   :collection.IndexedSeq[A] => Got(new SeqSlice(seq))
-					case ArrayLike.Wrapped.Slice(array, from, until) =>
-						Got(ArrayLikeSlice.of(array, from, until))
-					//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
-//						case IndexedIterable(seq)            => Got(seq)
-					case _                        => Lack
-				}
-//					case zig :ZigZag[A]     => Got(zig)
-				case set :IndexedSet[A] => Got(set)
-				case _                  => Lack
-			}
-			case _ => Lack
-		}
-*/
 
 	def unapply[A](items :IterableOnce[A]) :Opt[IterableOnceOps[A, IterableOnce, IterableOnce[A]]] =
 		items match {
@@ -372,7 +278,7 @@ private object HasFastSlice {
 				case pass  :PassedArray[A]           => Got(pass)
 				case slice :ArrayLikeSlice[A]        => Got(slice)
 				case seq   :collection.IndexedSeq[A] => Got(new SeqSlice(seq))
-				case ArrayLike.Wrapped.Slice(array, from, until) => Got(ArrayLikeSlice.of(array, from, until))
+				case ArrayLike.Wrapped.Slice(array, from, until) => Got(ArrayLikeSlice.slice(array, from, until))
 				//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
 //						case IndexedIterable(seq)            => Got(seq)
 				case _                               => Lack
@@ -389,158 +295,46 @@ private object HasFastSlice {
 	@inline def preferDropOverIterator(items :IterableOnce[_]) :Boolean =
 		items.isInstanceOf[collection.LinearSeq[_]] || HasFastSlice(items)
 
-/*
-	def fastDrop[A](items :IterableOnce[A], n :Int) :Opt[IterableOnce[A]] = items match {
-		case _ if util.knownEmpty(items)   => Got(items)
-		case seq :collection.LinearSeq[A]  => Got(seq.drop(n))
-		case seq :Vector[A]                => Got(seq.drop(n))
-		case seq :IndexedSeqView[A]        => Got(seq.drop(n))
-		case seq :PassedArray[A]           => Got(seq.window(n, seq.length))
-		case seq :ArrayLikeSlice[A]        => Got(seq.drop(n))
-		case seq :collection.IndexedSeq[A] => Got(SeqSlice(seq, n, seq.length))
-		case seq :ZigZag[A]                => Got(seq.drop(n))
-		case _ => Lack
-	}
-*/
-
 }
-//
-//
-//
-//private object HasFastAppend {
-//	def apply[E, CC[_], C](seq :collection.SeqOps[E, CC, C]) :Boolean =
-//		seq.isInstanceOf[Vector[_]]
-//
-//	def unapply[E, CC[_]](items :CC[E]) :Opt[SeqLike[E, CC, CC[E]]] = items match {
-//		case seq :collection.IndexedSeqOps[E, CC, CC[E]] @unchecked => items match {
-//			case _ :Vector[_] =>
-//				Got(IndexedSeqLike.forIndexedSeqOps.asInstanceOf[IndexedSeqLike[E, CC, CC[E]]])
-//			case ArrayLike.Wrapped.Slice(a, from, until) =>
-//				Got(IndexedSeqLike.forIndexedSeqOps.asInstanceOf[IndexedSeqLike[E, CC, CC[E]]])
-//			case _ if HasFastUpdate(seq) =>
-//				Got(IndexedSeqLike.forIndexedSeqOps.asInstanceOf[IndexedSeqLike[E, CC, CC[E]]])
-//			case _ => Lack
-//		}
-//		case seq :List[E] if HasFastUpdate(seq) =>
-//				Got(SeqLike.forSeqOps.asInstanceOf[SeqLike[E, CC, CC[E]]])
-//		case ranking :Ranking[E] =>
-//
-//	}
-//}
 
 
 
 
-private object BinarySearch {
 
-	@tailrec def apply(array :Array[Byte], from :Int, until :Int, key :Byte) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
+//for lack of a better place to put it
+/** A non-sticky adapter of a `String` to `IterableOnce[E]` and `IndexedSeqOps[E, IndexedSeq, String]`.
+  * All operations return a `String`, or a generic `IndexedSeq` if element type changes, not another instance
+  * of this class. What makes it different from standard extension methods in [[scala.collection.StringOps StringOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.WrappedString WrappedString]] return the same sequence type when filtering or mapping.
+  * It's useful for enabling the use of strings as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `String`s.
+  */ //todo: add an implicit conversion somewhere
+@SerialVersionUID(Ver)
+private final class StringAsSeq(override val coll :String)
+	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String] with Serializable
+{
+	def length :Int = coll.length
 
-	@tailrec def apply(array :Array[Short], from :Int, until :Int, key :Short) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
+	override def apply(i :Int) :Char = coll.charAt(i)
 
-	@tailrec def apply(array :Array[Char], from :Int, until :Int, key :Char) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
+	override def iterator :Iterator[Char] = new StringIterator(coll, 0, coll.length)
 
-	@tailrec def apply(array :Array[Int], from :Int, until :Int, key :Int) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
+	override def empty :String = ""
 
-	@tailrec def apply(array :Array[Long], from :Int, until :Int, key :Long) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
+	protected override def fromSpecific(coll :IterableOnce[Char]) :String = coll match {
+		case empty :Iterable[Char] if empty.isEmpty => ""
+		case _ => (new StringBuilder ++= coll).result()
+	}
+	protected override def newSpecificBuilder :Builder[Char, String] = new StringBuilder
+	override def iterableFactory :IterableFactory[IndexedSeq] = IndexedSeq
 
-	@tailrec def apply(array :Array[Float], from :Int, until :Int, key :Float) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
+	override def toIterable :Iterable[Char] = coll
 
-	@tailrec def apply(array :Array[Double], from :Int, until :Int, key :Double) :Int =
-		if (until == from) {
-			val candidate = array(from)
-			if (key == candidate) from
-			else if (key < candidate) -from - 1
-			else -from - 2
-		} else {
-			val middle = from + (until - from >> 1)
-			if (key <= array(middle)) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
-
-	@tailrec def apply(array :Array[AnyRef], from :Int, until :Int, key :AnyRef)(implicit ordering :Ordering[AnyRef]) :Int =
-		if (until == from)
-			math.signum(ordering.compare(key, array(from))) match {
-				case  0 => from
-				case -1 => -from - 1
-				case  1 => -from - 2
-			}
-		else {
-			val middle = from + (until - from >> 1)
-			if (ordering.lteq(key, array(middle))) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
-
-	@tailrec def apply[X, U >: X](array :Array[X], from :Int, until :Int, key :U)(implicit ordering :Ordering[U]) :Int =
-		if (until == from)
-			math.signum(ordering.compare(key, array(from))) match {
-				case  0 => from
-				case -1 => -from - 1
-				case  1 => -from - 2
-			}
-		else {
-			val middle = from + (until - from >> 1)
-			if (ordering.lteq(key, array(middle))) apply(array, from, middle, key)
-			else apply(array, middle + 1, until, key)
-		}
-
+	override def equals(that :Any) :Boolean = that match {
+		case it :StringAsSeq => it.coll == coll
+		case _ => false
+	}
+	override def hashCode :Int = coll.hashCode
+	override def toString :String = coll //"StringAsSeq(" + coll + ")"
 }

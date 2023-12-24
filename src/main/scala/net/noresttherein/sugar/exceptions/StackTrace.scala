@@ -7,7 +7,8 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.collections.{ArraySliceOps, IArray, SpecificIterableFactoryDefaults, SugaredIterable}
+import net.noresttherein.sugar.arrays.IArray
+import net.noresttherein.sugar.collections.{ArraySliceOps, SpecificIterableFactoryDefaults, SugaredIterable}
 
 
 

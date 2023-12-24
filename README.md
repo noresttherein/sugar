@@ -67,37 +67,58 @@ based on the stack trace of its cause, using the suffix since the most recent `r
 
 
 
-### 4. sugar.collections ###
+### 4. sugar.arrays ###
 
-#### 4.1. Many, many extension methods
+#### 4.1 ArrayLike ####
+A supertype (well, several) of both scala `Array`s, as well as new types represented in runtime by arrays: 
+  1. An `IArray[+A]` implementation for Scala 2, that is an `Array[A]` without any mutating operations
+  1. `RefArray[A]` - underneath, a mutable `Array[AnyRef]`, guaranteed to store only values of type `A`
+  1. `IRefArray[+A]` - like above, but immutable
+  1. `ArrayLike[+A] >: Array[A] | IArray[A] | RefArray[A] | IRefArray[A]`,
+     and a small hierarchy of types in between for added polymorphism. 
+
+#### 4.2 arrays.extensions ####
+
+Several extension methods for regular arrays:
+  1. shifts, rotations, pairwise boolean logic
+  1. methods from `IndexedSeqOps` missing from `ArrayOps`
+  1. overloaded variants of many standard methods which work on a section of an array
+  1. extensions for the `Array` object, bringing back several methods missing from `SeqFactory` 
+  1. others
+
+
+
+### 5. sugar.collections ###
+
+#### 5.1. Many, many extension methods
 Examples:
 
-##### 4.1.1. Partial folding ####
+##### 5.1.1. Partial folding ####
     numbers.foldLeftWhile(0)(_ < Threshold)(_ + _)
     numbers.foldRightUntil(0)(_ >= Threshold)(_ + _)
     numbers.foldSome(0)((e, acc) => if (e + acc) < Threshold) Some(e + acc) else None)
 and others.
 
-##### 4.1.2. Mapping with state ####
+##### 5.1.2. Mapping with state ####
     values.mapWithIndex{ (val, i) => s"$i: $val" }
     (Range(0, 10) zipMap (Range(11, 20))(_ + _)
     numbers.mapWith(0) { (val, sum) => (s" +$val = $sum", val + sum) }
 and others.
 
-##### 4.1.3. Fused zipping methods
+##### 5.1.3. Fused zipping methods
 Like lazy zip, but potentially with more efficient implementations and using multi-argument functions, 
 which is good for lambda placeholder syntax:
      
     l.zipMapEven(r)(_ + _ * 2) //'even' methods throw an exception when collection sizes differ
     a.zipAll3(b, c, 'a', 'b', 'c') //like zipAll, but now does three collections for the price of two!
 
-##### 4.1.4. Extension factory methods for standard `IterableFactory` objects
+##### 5.1.4. Extension factory methods for standard `IterableFactory` objects
     Seq.generate(2) { case x if x <= 1024 => x }
     Iterator.over(Array(1, 2, 3))
     Stepper(singleton)
     Array.unfold(2)(Some(_ * 2).filter(_ <= 1024))
 
-##### 4.1.5. `Seq` extensions
+##### 5.1.5. `Seq` extensions
     Seq(1, 2, 3).isSorted
     dragons.getIndexOf(firkraag)                 // returns an Opt - non empty values are always >= 0
     dragons.sureIndexWhere(_.name == "Firkraag") //throws a NoSuchElementException instead of returning -1
@@ -106,54 +127,65 @@ which is good for lambda placeholder syntax:
           
 and others.
 
-##### 4.1.6. Stepper, Iterator and Array extensions
-Additional factory methods, in particular for specialized singleton implementations, but also bringing over
-some omitted `java.util.Arrays` methods.
+##### 5.1.6. Stepper and Iterator extensions
+Additional factory methods, in particular for specialized singleton implementations
 
-
-#### 4.2. 
-New array types! All, including built in `Array` 'extending' from `ArrayLike`, and represented by non-wrapped `Array`s:
-
-     IArray[+A]    //an immutable array - a taste of Scala 3 in Scala 2, and with more polymorphism, to boot
-     RefArray[A]   //an Array[AnyRef], mascarading for an `Array[A]`, making the ubuiquitous practice properly type safe
-     IRefArray[+A] //an Array[AnyRef] storing only values of `A`, for immutable use.
-
-#### 4.3. PassedArray
-An immutable version of a dope vector and a growing array buffer with O(1) *first* append/prepend.
-
-#### 4.4. CubeBuffer 
-A buffer implementation using multidimensional arrays for better memory usage characteristics.
-
-#### 4.5. Jack
+#### 5.2 LogSeq
 A universal, immutable sequence backed by a 'true' finger tree, with all operations taking `O(log n)` time,
-except for access near the ends (`O(1)`) and methods requiring reading/updating every value in the sequence 
+except for access near the ends (`O(1)`) and methods requiring reading/updating every value in the sequence
 (`O(n)`, naturally).
 
-#### 4.6. Ranking 
+#### 5.3. Ranking
 A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
 
-#### 4.7. MultiSet 
+#### 5.4. PassedArray
+An immutable version of a dope vector and a growing array buffer with O(1) *first* append/prepend.
+
+#### 5.5. MatrixBuffer 
+A `Buffer` similar to `ArrayDeque`, but additionally switching to a two-dimensional array once the array 
+size exceeds `Short.MaxValue` for better memory characteristics - safe to use 
+regardless of the number of elements stored.
+
+#### 5.6 Special purpose Buffer implementations
+  1. `AliasingArrayBuffer` - an `ArrayBuffer` subclass with `O(1)` `toSeq`, returning an indexed sequence
+     backed by its own underlying array, copying the contents only if/when the buffer is modified afterwards.
+  1. `ArraySliceBuffer` - similar to the above, but symmetrical: has `O(1)` prepend, not only `append`.
+     Unlike `ArrayDeque` it never wraps though, and also aliases its contents in `toSeq` like `AliasingArrayBuffer`.
+  1. `AppendingBuffer` and `PrependingBuffer` - buffers working on an - initially empty - suffix or prefix
+     of another `Buffer`, safe for passing to methods which should add, but not modify the contents of a buffer.
+  1. `BoundBuffer` and `ViewBuffer` - buffers backed by a non-resizeable section of an `Array` or `IndexedSeq`,
+     which complement `AppendingBuffer` and `PrependingBuffer` in that they only allow edits of a specific
+     fragment of data.
+
+#### 5.7. MultiSet
 A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
 with repetitions, and as a `Map[A, Int]`.
 
-#### 4.8. ZigZag 
+#### 5.8 StringSet and StringMap
+Dedicated implementations for `Strings` using prefix trees, offering optimal performance, 
+and storing the elements in alphabetical order.
+
+#### 5.9. NatMap and MutNatMap
+Maps `K[X] -> V[X]`, where `X` may be different for every entry.
+
+#### 5.10. ZigZag 
 A `Seq` offering O(1) append and prepend for any other `Seq`, at a cost of slower iteration,
 designed for use as temporary buffers.
 
-#### 4.9. ChoppedString 
+#### 5.11. ChoppedString 
 A list-like collection of composed `String` concatenations
 for use as an alternative to `StringBuilder` (has O(1) append/prepend, at the cost of O(n) random indexing).
 Includes also a `Substring` subclass, useful in itself.
 
-#### 4.10. NatMap and MutNatMap 
-Maps `K[X] -> V[X]`, where `X` may be different for every entry.
+#### 5.12. Other collections of marginal use 
+Examples:
+  1. `EqSet` and `EqMap`, forcing true referential equality over `equals`,
+  1. `ConstSeq` - a fixed (or infinite) number of equal elements,
+  1. `Prepended2Seq` - for delegating methods `[T](T, T, T*)` to `[T](Seq[T])`,
 
-#### 4.11. Other collections of marginal use ###
-`EqSet`, `ConstSeq`, many `Stepper` and `Iterator` implementations.
 
 
-
-### 5. sugar.optional ###
+### 6. sugar.optional ###
 Syntax for creating options:
 
     x / y unless y == 0 //if (y!=0) Some(x / y) else None
@@ -163,7 +195,7 @@ Syntax for creating options:
      
 
 
-### 6. sugar.repeat ###
+### 7. sugar.repeat ###
 Various styles of `repeat` loop:
 
      repeat {
@@ -180,16 +212,17 @@ Various styles of `repeat` loop:
 
 
 
-### 7. sugar.numeric ###
+### 8. sugar.numeric ###
   1. Extension methods for standard numeric value types, in particular bringing back static methods from 
      `java.lang.Integer` and the rest.
   2. `SafeInt` and `SafeLong` - overflow/underflow checking value types backed by `Int` and `Long`.
   3. `Ratio` and `IntRatio` - rational numbers implemented as pairs of values.
   4. `Decimal64` - a `BigDecimal`-like value class implemented on 64 bits, as per `java.math.MathContext.DECIMAL64`.
+  5. `UInt` and `ULong`, because everyone has one. 
 
 
 
-### 8. sugar.vars ###
+### 9. sugar.vars ###
 Generic polymorphic `var` and `val` wrappers for use as in/out method parameters,
 lazy/external initialization, garbage collecting handling and others.
 
@@ -207,43 +240,43 @@ lazy/external initialization, garbage collecting handling and others.
     val u :Unsure[Int] = Sure(0)    //a @specialized Option substitute
     val o = Opt(null)             //a value class `Option` substitute    
 
-#### 8.1. Var
+#### 9.1. Var
 A standard mutable value wrapper.
 
-#### 8.2. SyncVar, Volatile, Atomic
+#### 9.2. SyncVar, Volatile, Atomic
 Wrappers over mutable fields with synchronous access and varying memory semantics.
 
-#### 8.3. SignalVal, SignalVar, Watched
+#### 9.3. SignalVal, SignalVar, Watched
 Variables with API for waiting for value changes, or registering callbacks.
 
-#### 8.4. Out
+#### 9.4. Out
 A thread safe variable which can be set - externally - only once.
 
-#### 8.5. Freezer
+#### 9.5. Freezer
 A thread safe variable which can enter immutable state.
 
-#### 8.6. Lazy, Idempotent, and Transient
+#### 9.6. Lazy, Idempotent, and Transient
 Various alternatives of `lazy val`, providing information about initialization state
 and alternative strategies for initialization for optimized contentious read.
 
-#### 8.7. Relay
+#### 9.7. Channel
 A synchronous thread communication chanel for passing individual messages through 
 a value reader/writer handshake.
 
-#### 8.8. Unsure, Opt, Potential
+#### 9.8. Unsure, Opt, Potential
 Optimized `Option` alternative implementations: `@specialized`, as a value class,
 and a non boxing abstract type.
 
-#### 8.9. Others
+#### 9.9. Others
 `EqRef`, `Box`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.
 
-#### 8.10. Pill and Fallible
+#### 9.10. Pill and Fallible
 Alternatives to `Either` which do not box the 'right' (non error) values.
 
 
 
-### 9. sugar.matching ###
-#### 9.1. RX ####
+### 10. sugar.matching ###
+#### 10.1. RX ####
 A wrapper over `java.util.regex.Pattern` providing statically typed methods for all 
 supported character classes and constructs - for those of us who can never remember
 the more advanced features, or who value additional whitespace and commenting ability:
@@ -257,7 +290,7 @@ The types, values and factory methods generally follow the Java flavour of regul
 which should make you feel at home with the character classes you know, and provide 
 discovery and documentation viewing potential of a statically typed language in your IDE.
     
-#### 9.2. RegexpGroupMatcher ####
+#### 10.2. RegexpGroupMatcher ####
 Provides string interpolation syntax for regular expressions used in pattern matching:
 
     string match {
@@ -265,7 +298,7 @@ Provides string interpolation syntax for regular expressions used in pattern mat
     }    
 Arbitrary patterns can take place of the unbound variables `user` and `domain` in the above example.    
 
-#### 9.3. && ####
+#### 10.3. && ####
 The smallest but one of the most useful classes allows combining several extractor 
 patterns in a logical conjunction:
     
@@ -273,7 +306,7 @@ patterns in a logical conjunction:
         case MeleeDmg(melee) && RangedDmg(ranged) => ...
     }
 
-#### 9.4. Base traits and factories of match patterns and partial functions
+#### 10.4. Base traits and factories of match patterns and partial functions
 
     ints.collect(MatchFunction.collect { 
         (x :Int, default :Int => Int) => if (x % 2 == 0) x / 2 else default(x) 
@@ -287,7 +320,7 @@ patterns in a logical conjunction:
 
 
 
-### 10. sugar.format ###
+### 11. sugar.format ###
 A framework for concise and non-error-prone defining of parser-formatters abstracting over the actual data formats:
 
     case class Dragon(name :String, color :String, level :Int)
@@ -307,20 +340,20 @@ A framework for concise and non-error-prone defining of parser-formatters abstra
 
 
 
-### 11. sugar.util ###
+### 12. sugar.util ###
 
-#### 11.1. Decorable 
+#### 12.1. Decorable 
 A pattern/framework for writing decorator aware classes, which do not 'lose' the decorator
 when passing themselves to a callback method.
 
-#### 11.2. LabelPath 
+#### 12.2. LabelPath 
 A type-level way of indexing objects by `String` literal types:
 
     record("weapon" / "damage" / "fireDamage") //may know the type of the accessed field
 
 
 
-### 12. sugar.witness ###
+### 13. sugar.witness ###
 Implicit values implementing `Not`, `Maybe` and `Or` over availability of other implicit values.
 Also, tagging implicit values:
 
@@ -332,26 +365,42 @@ Also, tagging implicit values:
     
     
     
-### 13. sugar.typist ###
+### 14. sugar.typist ###
+
+#### 14.1 typist.casting
 Safer casting methods - less powerful, imposing constraints on the source and target type,
-including casting on type parameters for higher types.
+including casting on type parameters for higher types. Examples:
 
     method(param).castFrom[ExpectedType, NewType] //this must be an ExpectedType to compile
     Seq(1, 2).castParam[java.lang.Integer]
 
+#### 14.2 UpperBound and LowerBound
+Implicit evidence for `LUB` and `GLB` of two types.
+
+#### 14.3 InferTypeParams
+A magic implicit guiding the type inferer to correctly apply type arguments to polymorphic (generic) methods.
 
 
-### 14. sugar.reflect ###
-  1. `PropertyPath`: reflecting a (possibly composite) properties given as getter functions:
+
+### 15. sugar.reflect ###
+
+#### 15.1 PropertyPath
+Reflecting (possibly composite) properties given as getter functions:
       
-         assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
-  2. `Specialized` a type class carrying information about `@specialized` types, allowing to call specialized code
-     from non-specialized, and providing separate callbacks for different value types.
-  3. `RuntimeType`: an umbrella type class covering `ClassTag`, `TypeTag` and `Specialized` 
-  4. `Class` extensions, in particular with methods such as `isBoxOf` dealing with the duality of boxed and unboxed 
-     primitive values.
+    assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
 
-  5. Various ways for demangling and abbreviating class names for logging purposes, for example:
+#### 15.2 Specialized
+A type class carrying information about `@specialized` types, allowing to call specialized code
+from non-specialized, and providing separate callbacks for different value types.
+Includes also `RuntimeType`: an umbrella type class covering `ClassTag`, `TypeTag` and `Specialized`.
+
+#### 15.3 reflect.extensions
+`Class` extension methods, in particular such as `isBoxOf`, or `<%<`, 
+dealing with the duality of boxed and unboxed primitive values, with a wider meaning than `isAssignableFrom`,
+but still guaranteeing type safety by the Scala runtime.
+
+#### 15.4 reflect.prettyprint
+Various ways for demangling and abbreviating class names for logging purposes, for example:
 
          object.getClass.name       //my.package.Singleton.Specialized_:[Int]
          object.getClass.abbrevName //m.p.Singleton.Specialized_:[Int]
@@ -362,11 +411,16 @@ Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-#### 15. sugar.Sealing ###
+#### 16. sugar.Sealing ###
 A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
 and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
 
 
 
-### 16. others ###
+#### 17. Boolean.toInt
+An extension method enlisting as a candidate for the single most useful line of code here.
+
+
+
+### 18. others ###
 Whose names are not worthy to appear here.    
