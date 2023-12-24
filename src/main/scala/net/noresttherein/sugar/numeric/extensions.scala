@@ -10,7 +10,7 @@ import scala.util.Random
 
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDecimalConverter}
-import net.noresttherein.sugar.numeric.extensions.{BooleanExtension, BooleanObjectExtension, ByteExtension, ByteObjectExtension, CharExtension, CharObjectExtension, ComparableExtension, ComparatorHasAsScala, DoubleExtension, DoubleObjectExtension, FloatExtension, FloatObjectExtension, IntExtension, IntObjectExtension, JBigDecimalIsFractional, LongExtension, LongObjectExtension, ShortExtension, ShortObjectExtension, hasComparatorExtension, hasOrderingExtension}
+import net.noresttherein.sugar.numeric.extensions.{BooleanExtension, BooleanCompanionExtension, ByteExtension, ByteCompanionExtension, CharExtension, CharCompanionExtension, ComparableExtension, ComparatorHasAsScala, DoubleExtension, DoubleCompanionExtension, FloatExtension, FloatCompanionExtension, IntExtension, IntCompanionExtension, JBigDecimalIsFractional, LongExtension, LongCompanionExtension, ShortExtension, ShortCompanionExtension, hasComparatorExtension, hasOrderingExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -47,31 +47,31 @@ trait extensions extends Any {
 		new hasOrderingExtension(self)
 
 	/** Adds `random` extension methods to `Byte` singleton object. */
-	@inline implicit final def ByteObjectExtension(self :Byte.type) :ByteObjectExtension = new ByteObjectExtension {}
+	@inline implicit final def ByteCompanionExtension(self :Byte.type) :ByteCompanionExtension = new ByteCompanionExtension {}
 
 	/** Adds `random` extension methods to `Short` singleton object. */
-	@inline implicit final def ShortObjectExtension(self :Short.type) :ShortObjectExtension = new ShortObjectExtension {}
+	@inline implicit final def ShortCompanionExtension(self :Short.type) :ShortCompanionExtension = new ShortCompanionExtension {}
 
 	/** Adds `random` extension methods to `Char` singleton object. */
-	@inline implicit final def CharObjectExtension(self :Char.type) :CharObjectExtension = new CharObjectExtension {}
+	@inline implicit final def CharCompanionExtension(self :Char.type) :CharCompanionExtension = new CharCompanionExtension {}
 
 	/** Adds `random` extension methods to `Int` singleton object. */
-	@inline implicit final def IntObjectExtension(self :Int.type) :IntObjectExtension = new IntObjectExtension {}
+	@inline implicit final def IntCompanionExtension(self :Int.type) :IntCompanionExtension = new IntCompanionExtension {}
 
 	/** Adds `random` extension methods to `Long` singleton object. */
-	@inline implicit final def LongObjectExtension(self :Long.type) :LongObjectExtension = new LongObjectExtension {}
+	@inline implicit final def LongCompanionExtension(self :Long.type) :LongCompanionExtension = new LongCompanionExtension {}
 
 	/** Adds `random` extension methods to `Float` singleton object. */
-	@inline implicit final def FloatObjectExtension(self :Float.type) :FloatObjectExtension =
-		new FloatObjectExtension {}
+	@inline implicit final def FloatCompanionExtension(self :Float.type) :FloatCompanionExtension =
+		new FloatCompanionExtension {}
 
 	/** Adds `random` extension methods to `Double` singleton object. */
-	@inline implicit final def DoubleObjectExtension(self :Double.type) :DoubleObjectExtension =
-		new DoubleObjectExtension {}
+	@inline implicit final def DoubleCompanionExtension(self :Double.type) :DoubleCompanionExtension =
+		new DoubleCompanionExtension {}
 
 	/** Adds `random` extension methods to `Boolean` singleton object. */
-	@inline implicit final def BooleanObjectExtension(self :Boolean.type) :BooleanObjectExtension =
-		new BooleanObjectExtension {}
+	@inline implicit final def BooleanCompanionExtension(self :Boolean.type) :BooleanCompanionExtension =
+		new BooleanCompanionExtension {}
 
 	@inline implicit final def BigIntegerExtension(self :BigInteger) :BigIntNumerator = new BigIntNumerator(self)
 	@inline implicit final def BigIntExtension(self :BigInt) :BigIntNumerator = new BigIntNumerator(self)
@@ -484,7 +484,7 @@ object extensions extends extensions {
 	}
 
 
-	sealed trait ByteObjectExtension extends Any {
+	sealed trait ByteCompanionExtension extends Any {
 		/** A random `Byte` retrieved from the implicit `Random`. */
 		@inline final def random(implicit gen :Random) :Byte = gen.self.nextInt(0xff).toByte
 
@@ -514,7 +514,7 @@ object extensions extends extensions {
 		@inline final def apply(string :String, radix :Int = 10) :Byte = jl.Byte.parseByte(string, radix)
 	}
 
-	sealed trait ShortObjectExtension extends Any {
+	sealed trait ShortCompanionExtension extends Any {
 		/** A random `Short` retrieved from the implicit `Random`. */
 		@inline final def random(implicit gen :Random) :Short = gen.self.nextInt(0xffff).toShort
 
@@ -544,7 +544,7 @@ object extensions extends extensions {
 		@inline final def apply(string :String, radix :Int = 10) :Short = jl.Short.parseShort(string, radix)
 	}
 
-	sealed trait CharObjectExtension extends Any {
+	sealed trait CharCompanionExtension extends Any {
 		/** A random `Char` retrieved from the implicit `Random`. */
 		@inline final def random(implicit gen :Random) :Char = gen.self.nextInt(0xffff).toChar
 
@@ -556,7 +556,7 @@ object extensions extends extensions {
 			gen.self.nextInt(from, until).toChar
 	}
 
-	sealed trait IntObjectExtension extends Any {
+	sealed trait IntCompanionExtension extends Any {
 		/** Returns `implicitly[Random].nextInt`. */
 		@inline final def random(implicit gen :Random) :Int = gen.self.nextInt
 
@@ -591,7 +591,7 @@ object extensions extends extensions {
 		@inline final def apply(string :String, radix :Int = 10) :Int = jl.Integer.parseInt(string, radix)
 	}
 
-	sealed trait LongObjectExtension extends Any {
+	sealed trait LongCompanionExtension extends Any {
 		/** Returns `implicitly[Random].nextLong`. */
 		@inline final def random(implicit gen :Random) :Long = gen.self.nextLong
 
@@ -626,7 +626,7 @@ object extensions extends extensions {
 		@inline final def apply(string :String, radix :Int = 10) :Long = jl.Long.parseLong(string, radix)
 	}
 
-	sealed trait FloatObjectExtension extends Any {
+	sealed trait FloatCompanionExtension extends Any {
 		/** Returns `implicitly[Random].nextFloat`. */
 		@inline final def random(implicit gen :Random) :Float = gen.self.nextFloat
 
@@ -647,7 +647,7 @@ object extensions extends extensions {
 		@inline final def apply(string :String) :Float = jl.Float.parseFloat(string)
 	}
 
-	sealed trait DoubleObjectExtension extends Any {
+	sealed trait DoubleCompanionExtension extends Any {
 		/** Returns `implicitly[Random].nextDouble`. */
 		@inline final def random(implicit gen :Random) :Double = gen.self.nextDouble
 
@@ -669,7 +669,7 @@ object extensions extends extensions {
 		@inline final def apply(string :String) :Double = jl.Double.parseDouble(string)
 	}
 
-	sealed trait BooleanObjectExtension extends Any {
+	sealed trait BooleanCompanionExtension extends Any {
 		/** A random `Boolean` retrieved from the implicit `Random`. */
 		@inline final def random(implicit gen :Random) :Boolean = gen.self.nextInt(2) == 0
 

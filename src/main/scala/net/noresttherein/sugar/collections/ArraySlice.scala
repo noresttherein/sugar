@@ -11,7 +11,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, RefArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, RefArrayExtension}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 

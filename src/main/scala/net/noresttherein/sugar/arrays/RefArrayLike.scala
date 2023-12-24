@@ -14,7 +14,7 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.RefArrayLike.extensions.RefArrayLikeExtensionConversion
 import net.noresttherein.sugar.arrays.RefArrayLike.extensions.RefArrayLikeExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.typist.PriorityConversion
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}

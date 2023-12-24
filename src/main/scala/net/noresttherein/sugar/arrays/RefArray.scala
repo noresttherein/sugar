@@ -6,7 +6,7 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.RefArray.extensions.RefArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods

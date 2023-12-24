@@ -18,7 +18,7 @@ import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Opt.Got
 
 //implicits
-import net.noresttherein.sugar.extensions.{ArrayObjectExtension, classNameMethods, castTypeParamMethods, ClassExtension, IteratorObjectExtension, castingMethods}
+import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMethods, castTypeParamMethods, ClassExtension, IteratorCompanionExtension, castingMethods}
 
 
 

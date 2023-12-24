@@ -12,7 +12,7 @@ import scala.runtime.Statics.releaseFence
 
 import net.noresttherein.sugar.arrays.{IArrayLike, IRefArray, RefArray}
 import net.noresttherein.sugar.outOfBounds_!
-import net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension
+import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, castTypeParamMethods, castingMethods}

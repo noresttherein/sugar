@@ -13,7 +13,7 @@ import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIt
 import net.noresttherein.sugar.collections.ConcatStepper.AllCharacteristics
 import net.noresttherein.sugar.collections.Stepper0.EmptyCharacteristics
 import net.noresttherein.sugar.collections.extensions.StepType
-import net.noresttherein.sugar.extensions.{BooleanExtension, IteratorObjectExtension, castTypeParamMethods, castingMethods}
+import net.noresttherein.sugar.extensions.{BooleanExtension, IteratorCompanionExtension, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.slang.extensions.AnyRefExtension
 
 

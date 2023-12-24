@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.extensions.castTypeParamMethods
 import net.noresttherein.sugar.exceptions.reflect.raise
-import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionObjectExtension, ensuringMethodsConversion, ifTrueMethods, providingMethods, satisfyingMethods}
+import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionCompanionExtension, ensuringMethodsConversion, ifTrueMethods, providingMethods, satisfyingMethods}
 import net.noresttherein.sugar.typist.PriorityConversion
 import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
@@ -44,8 +44,8 @@ trait extensions extends Any {
 //	  */
 //	@inline implicit final def ifInstanceOfMethods[T](self :T) = new IfInstanceOfMethods[T, R](self)
 
-	@inline implicit final def OptionObjectExtension(self :Option.type) :OptionObjectExtension =
-		new OptionObjectExtension {}
+	@inline implicit final def OptionCompanionExtension(self :Option.type) :OptionCompanionExtension =
+		new OptionCompanionExtension {}
 }
 
 
@@ -365,7 +365,7 @@ object extensions extends extensions {
 	//}
 
 
-	sealed trait OptionObjectExtension extends Any {
+	sealed trait OptionCompanionExtension extends Any {
 		/** Returns the first argument in `Some` if it satisfies the predicate given as the second argument.
 		  * @return `Some(value).filter(p)`.
 		  */

@@ -8,7 +8,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, BufferedIterator, View, mutable}
 
 import net.noresttherein.sugar.arrays.extensions.MutableArrayExtension
-import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorObjectExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods

@@ -13,7 +13,7 @@ import scala.reflect.{ClassTag, classTag}
 import scala.util.Sorting
 
 import net.noresttherein.sugar.arrays.MutableArray.extensions.MutableArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayObjectExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, RefArraySlice}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension

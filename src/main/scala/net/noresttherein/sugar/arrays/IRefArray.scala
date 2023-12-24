@@ -10,7 +10,7 @@ import scala.collection.mutable.Builder
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.IRefArray.extensions.IRefArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension
+import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice, PassedArrayFactory}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IteratorExtension}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
@@ -180,7 +180,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	}
 
 	/** Creates a new $Coll by introducing changes to a slice of another `ArrayLike`. This method combines
-	  * [[net.noresttherein.sugar.collections.extensions.ArrayObjectExtension.copyOfRange copyOfRange]]`(other, from, until)`
+	  * [[net.noresttherein.sugar.collections.extensions.ArrayCompanionExtension.copyOfRange copyOfRange]]`(other, from, until)`
 	  * with [[net.noresttherein.sugar.arrays.IRefArray.init init]]: the latter, instead of an empty
 	  * array filled with default values, receives a slice of the original.
 	  *
@@ -206,7 +206,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 
 	/** Creates a new $Coll by introducing changes to a slice of another `ArrayLike`, including, potentially
 	  * appending additional elements. This method combines
-	  * [[net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension.copyOfRange copyOfRange]]`(other, from, until, newLength)`
+	  * [[net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension.copyOfRange copyOfRange]]`(other, from, until, newLength)`
 	  * with [[net.noresttherein.sugar.arrays.IRefArray.init init]]: the latter, instead of an empty
 	  * array filled with default values, receives an object array of the specified length, with its prefix already
 	  * initialized to the copy of the index range `[from, until)` of the original.
@@ -239,7 +239,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	}
 
 	/** Creates a new $Coll of the specified length by modifying a slice of another `ArrayLike`. This method combines
-	  * [[net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension.copyOfRange copyOfRange]]`(other, from, until, offset, newLength)`
+	  * [[net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension.copyOfRange copyOfRange]]`(other, from, until, offset, newLength)`
 	  * with [[net.noresttherein.sugar.arrays.IArray.init init]]: the latter, instead of an empty
 	  * array filled with default values, receives an array created as with:
 	  * {{{

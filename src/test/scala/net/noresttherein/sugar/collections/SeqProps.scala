@@ -13,7 +13,7 @@ import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap
 import net.noresttherein.sugar.collections.extensions.IterableExtension
 import net.noresttherein.sugar.extensions.{FactoryExtension, classNameMethods}
 import net.noresttherein.sugar.numeric
-import net.noresttherein.sugar.numeric.extensions.IntObjectExtension
+import net.noresttherein.sugar.numeric.extensions.IntCompanionExtension
 import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
 
 

@@ -12,7 +12,7 @@ import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, Index
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.arrays.{IArray, IRefArray, RefArray, RefArrayLike}
-import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension, ArrayExtension, ArrayObjectExtension, RefArrayExtension, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension, ArrayExtension, ArrayCompanionExtension, RefArrayExtension, RefArrayLikeExtension}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView

@@ -15,10 +15,10 @@ import scala.collection.mutable.{ArrayBuffer, Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.ArrayLike.extensions.ArrayLikeExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayObjectExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayCompanionExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex, IndexedSeqLike}
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
-import net.noresttherein.sugar.collections.extensions.StepperObjectExtension
+import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
@@ -1171,7 +1171,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  * @param xs    the destination array.
 		  * @param start the index in the target array to which the first element will be written, modulo `xs.length`.
 		  * @return the number of elements copied.
-		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayObjectExtension.cyclicCopy]]
+		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayCompanionExtension.cyclicCopy]]
 		  */
 		@throws[IndexOutOfBoundsException]("if start is less than zero.")
 		@inline def cyclicCopyToArray[U >: E](xs :Array[U], start :Int) :Int =
@@ -1185,7 +1185,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  * @param start the index in the target array to which the first element will be written, modulo `xs.length`.
 		  * @param len   the maximum number of elements to copy.
 		  * @return the number of elements copied.
-		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayObjectExtension.cyclicCopy]]
+		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayCompanionExtension.cyclicCopy]]
 		  */
 		@throws[IndexOutOfBoundsException]("if start is less than zero.")
 		@inline def cyclicCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int =
@@ -1205,7 +1205,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  *              and, if `from >= this.length`, nothing is copied.
 		  * @param len   the maximum number of elements to copy.
 		  * @return the number of elements copied.
-		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayObjectExtension.cyclicCopy]]
+		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayCompanionExtension.cyclicCopy]]
 		  */
 		@throws[IndexOutOfBoundsException]("if start is less than zero.")
 		def cyclicCopyRangeToArray[U >: E](xs :Array[U], start :Int, from :Int, len :Int) :Int =

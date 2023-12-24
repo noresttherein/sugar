@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.{AbstractSeq, LinearSeq, SeqOps}
 
-import net.noresttherein.sugar.collections.extensions.{IteratorExtension, IteratorObjectExtension, SeqFactoryExtension}
+import net.noresttherein.sugar.collections.extensions.{IteratorExtension, IteratorCompanionExtension, SeqFactoryExtension}
 
 
 

@@ -4,7 +4,7 @@ import scala.Specializable.Arg
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castingMethods, downcast2TypeParamsMethods, downcastTypeParamMethods}
-import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension, FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionObjectExtension}
+import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension, FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionCompanionExtension}
 import net.noresttherein.sugar.funny.fun.{ComposableFun2, ComposableFun3}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -38,8 +38,8 @@ trait extensions extends Any {
 	@inline implicit final def Function3Extension[A, B, C, Y](f :(A, B, C) => Y) :Function3Extension[A, B, C, Y] =
 		new Function3Extension(f)
 
-	@inline implicit final def PartialFunctionObjectExtension(pf :PartialFunction.type) :PartialFunctionObjectExtension =
-		new PartialFunctionObjectExtension {}
+	@inline implicit final def PartialFunctionCompanionExtension(pf :PartialFunction.type) :PartialFunctionCompanionExtension =
+		new PartialFunctionCompanionExtension {}
 
 //	@inline implicit final def partialFunctionFactoryExtension(self :PartialFunction.type)
 //			:PartialFunctionFactoryExtension =
@@ -137,7 +137,7 @@ object extensions extends extensions {
 
 
 	/** Extension factory method `applyOrElse` for `PartialFunction` object. */
-	sealed trait PartialFunctionObjectExtension extends Any {
+	sealed trait PartialFunctionCompanionExtension extends Any {
 		@inline def identity[X] :PartialFunction[X, X] = Identity.downcastParam[X]
 
 		/** Forces a function literal of type `(In, In => Out) => Out` to become an instance
@@ -223,7 +223,7 @@ object extensions extends extensions {
 	  * requiring from subclasses an implementation of [[PartialFunction.applyOrElse applyOrElse]] method
 	  * (as abstract [[net.noresttherein.sugar.funny.extensions.ApplyOrElse.getOrElse getOrElse]]
 	  * method). Used primarily in conjunction with
-	  * `PartialFunction.`[[net.noresttherein.sugar.funny.extensions.PartialFunctionObjectExtension.apply apply]]
+	  * `PartialFunction.`[[net.noresttherein.sugar.funny.extensions.PartialFunctionCompanionExtension.apply apply]]
 	  * to create instances of `PartialFunction` which do not resort to intermediate boxing to `Option` in that method.
 	  */
 	trait ApplyOrElse[In, Out] extends PartialFunction[In, Out] with ComposablePartialFunction[In, Out] {

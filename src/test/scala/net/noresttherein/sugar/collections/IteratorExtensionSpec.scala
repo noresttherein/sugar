@@ -7,7 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
-import net.noresttherein.sugar.extensions.{BooleanExtension, IntExtension, IterableOnceExtension, IteratorExtension, IteratorObjectExtension, satisfyingMethods}
+import net.noresttherein.sugar.extensions.{BooleanExtension, IntExtension, IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, satisfyingMethods}
 import net.noresttherein.sugar.testing.scalacheck.extensions._
 
 
@@ -604,7 +604,7 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 
 
 //todo: test copyToArray, take, drop, slice
-object IteratorObjectExtensionSpec extends Properties("Iterator$") {
+object IteratorCompanionExtensionSpec extends Properties("Iterator$") {
 	property("two")   = Iterator.two(1, 2).toSeq ?= Seq(1, 2)
 	property("const") =
 		(Iterator.const(10)(42).toSeq ?= Iterator.fill(10)(42).toSeq) &&

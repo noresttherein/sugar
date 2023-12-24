@@ -10,7 +10,7 @@ import scala.reflect.{ClassTag, classTag}
 import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.extensions.{ArrayExtension, ArrayObjectExtension, BuilderExtension, ClassExtension, FactoryExtension, IndexedSeqExtension, IterableFactoryExtension, IterableOnceExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqFactoryExtension, StepperExtension, StepperObjectExtension, castTypeParamMethods, classNameMethods, immutableIndexedSeqObjectExtension, immutableMapExtension, immutableSetFactoryExtension}
+import net.noresttherein.sugar.extensions.{ArrayExtension, ArrayCompanionExtension, BuilderExtension, ClassExtension, FactoryExtension, IndexedSeqExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqFactoryExtension, StepperExtension, StepperCompanionExtension, castTypeParamMethods, classNameMethods, immutableIndexedSeqCompanionExtension, immutableMapExtension, immutableSetFactoryExtension}
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
 import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.testing.scalacheck.extensions._
@@ -322,7 +322,7 @@ object ExtensionsSpec extends Properties("extensions") {
 	}
 
 
-	object StepperObjectProps extends Properties("StepperObjectExtension") {
+	object StepperObjectProps extends Properties("StepperCompanionExtension") {
 		private def stepperProperty[A, S <: Stepper[A]](name :String, stepper: => S, expect :Seq[A], stepperClass :Class[_]) :Prop =
 			(Prop(stepperClass.isInstance(stepper)) :|
 				"(" + name + ": " + stepper.className + ").isInstanceOf[" + stepperClass.name + "]"

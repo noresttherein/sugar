@@ -8,7 +8,7 @@ import scala.collection.{ClassTagIterableFactory, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ViewBuffer}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension

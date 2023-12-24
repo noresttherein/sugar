@@ -8,7 +8,7 @@ import org.scalacheck.Prop.{AnyOperators, all, forAll, propBoolean, throws}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
 import net.noresttherein.sugar.extensions.{SeqExtension, classNameMethods}
 import net.noresttherein.sugar.numeric.globalRandom
-import net.noresttherein.sugar.numeric.extensions.{BooleanObjectExtension, IntObjectExtension}
+import net.noresttherein.sugar.numeric.extensions.{BooleanCompanionExtension, IntCompanionExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}

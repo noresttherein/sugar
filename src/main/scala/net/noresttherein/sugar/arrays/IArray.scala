@@ -9,7 +9,7 @@ import scala.collection.mutable.Builder
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.IArray.extensions.IArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ArrayLikeWrapper, IArrayLikeSlice, IArraySlice, PassedArrayFactory}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.PriorityConversion
@@ -36,7 +36,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @see [[net.noresttherein.sugar.arrays.IArray! IArray]]
   * @define Coll `IArray`
   * @define coll immutable array
-  */ //todo: make copies of all new copyOfRange(s) methods in ArrayObjectExtension
+  */ //todo: make copies of all new copyOfRange(s) methods in ArrayCompanionExtension
 @SerialVersionUID(Ver)
 case object IArray extends ClassTagIterableFactory[IArray] {
 
@@ -1148,14 +1148,14 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@inline def slice[E](array :Array[E], from :Int, until :Int) :IArray[E] =
 		array.slice(from, until).asInstanceOf[IArray[E]]
 
-	/** Returns `Array.`[[net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension.copyOfRanges copyOfRanges]]`(array1, from1, until1, array2, from2, until2)`
+	/** Returns `Array.`[[net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension.copyOfRanges copyOfRanges]]`(array1, from1, until1, array2, from2, until2)`
 	  * as an `IArray[E]`.
 	  */
 	@inline def slice[E](array1 :Array[E], from1 :Int, until1 :Int,
 	                     array2 :Array[E], from2 :Int, until2 :Int) :IArray[E] =
 		Array.copyOfRanges(array1, from1, until1, array2, from2, until2).asInstanceOf[IArray[E]]
 
-	/** Returns `Array.`[[net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension.copyOfRanges copyOfRanges]]`(array1, from1, until1, array2, from2, until2, array3, from3, until3)`
+	/** Returns `Array.`[[net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension.copyOfRanges copyOfRanges]]`(array1, from1, until1, array2, from2, until2, array3, from3, until3)`
 	  * as an `IArray[E]`.
 	  */
 	@inline def slice[E](array1 :Array[E], from1 :Int, until1 :Int,

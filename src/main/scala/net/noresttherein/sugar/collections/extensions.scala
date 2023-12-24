@@ -17,12 +17,12 @@ import scala.util.{Random, Sorting}
 import net.noresttherein.sugar.{outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLike, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension}
 import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
-import net.noresttherein.sugar.collections.extensions.{ArrayBufferObjectExtension, BufferExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorExtension, IteratorObjectExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, StepType, StepperExtension, StepperObjectExtension, StepperShapeObjectExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqObjectExtension, immutableMapExtension, immutableMapObjectExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BufferExtension, BuilderExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, StepType, StepperExtension, StepperCompanionExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapExtension, immutableMapCompanionExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.reflect.raise
 import net.noresttherein.sugar.funny.generic
@@ -173,13 +173,13 @@ trait extensions
 	                                              (self :IterableFactory[C]) :SeqFactoryExtension[C] =
 		new SeqFactoryExtension(self)
 
-	@inline implicit final def immutableIndexedSeqObjectExtension(self :IndexedSeq.type)
-			:immutableIndexedSeqObjectExtension =
-		new immutableIndexedSeqObjectExtension {}
+	@inline implicit final def immutableIndexedSeqCompanionExtension(self :IndexedSeq.type)
+			:immutableIndexedSeqCompanionExtension =
+		new immutableIndexedSeqCompanionExtension {}
 
 	/** Extension factory methods for [[collection.mutable.ArrayBuffer$ ArrayBuffer]]. */
-	@inline implicit final def ArrayBufferObjectExtension(self :ArrayBuffer.type) :ArrayBufferObjectExtension =
-		new ArrayBufferObjectExtension {}
+	@inline implicit final def ArrayBufferCompanionExtension(self :ArrayBuffer.type) :ArrayBufferCompanionExtension =
+		new ArrayBufferCompanionExtension {}
 
 	/** Extension factory methods for single element immutable [[collection.immutable.Set Set]] subtypes' companions. */
 	@inline implicit final def immutableSetFactoryExtension[C[X] <: SetOps[X, C, C[X]]]
@@ -197,21 +197,21 @@ trait extensions
 
 
 	/** Extension factory methods creating single and two element [[Map Map]]s. */
-	@inline implicit final def immutableMapObjectExtension(self :Map.type) :immutableMapObjectExtension =
-		new immutableMapObjectExtension {}
+	@inline implicit final def immutableMapCompanionExtension(self :Map.type) :immutableMapCompanionExtension =
+		new immutableMapCompanionExtension {}
 
 
 	/** Adds several extensions methods to `Stepper` object for creating small steppers. */
-	@inline implicit final def StepperObjectExtension(self :Stepper.type) :StepperObjectExtension =
-		new StepperObjectExtension {}
+	@inline implicit final def StepperCompanionExtension(self :Stepper.type) :StepperCompanionExtension =
+		new StepperCompanionExtension {}
 
 	/** Adds an extension method for summoning a `StepperShape` for a particular element type: `StepperShape[T]()`. */
-	@inline implicit final def StepperShapeObjectExtension(self :StepperShape.type) :StepperShapeObjectExtension =
-		new StepperShapeObjectExtension {}
+	@inline implicit final def StepperShapeCompanionExtension(self :StepperShape.type) :StepperShapeCompanionExtension =
+		new StepperShapeCompanionExtension {}
 
 	/** Adds several new extension factory methods to object `Iterator`. */
-	@inline implicit final def IteratorObjectExtension(self :Iterator.type) :IteratorObjectExtension =
-		new IteratorObjectExtension {}
+	@inline implicit final def IteratorCompanionExtension(self :Iterator.type) :IteratorCompanionExtension =
+		new IteratorCompanionExtension {}
 
 
 	/** An extension method [[net.noresttherein.sugar.collections.extensions.BuilderExtension.mapInput mapElements]]
@@ -5374,7 +5374,7 @@ object extensions extends extensions {
 		@inline def +:[E](elem :E) :C[E] = elem +: self.empty[E]
 	}
 
-	sealed trait immutableIndexedSeqObjectExtension extends Any {
+	sealed trait immutableIndexedSeqCompanionExtension extends Any {
 //		@inline final def single[E](elem :E) :IndexedSeq[E] = ConstIndexedSeq(elem, 1)
 //		@inline final def one[E](elem :E) :IndexedSeq[E] = ConstIndexedSeq(elem, 1)
 //		@inline final def const[E](length :Int)(elem :E) :IndexedSeq[E] = ConstIndexedSeq(elem, length)
@@ -5384,7 +5384,7 @@ object extensions extends extensions {
 
 	//todo
 
-	sealed trait ArrayBufferObjectExtension extends Any {
+	sealed trait ArrayBufferCompanionExtension extends Any {
 		/** A new, empty buffer. Same as `empty`, but slightly more succinct, and puts emphasis on the element type. */
 		@inline final def of[E] :ArrayBuffer[E] = new AliasingArrayBuffer[E]
 
@@ -5399,7 +5399,7 @@ object extensions extends extensions {
 	}
 
 	/** Extension factory methods for single and two element [[Map Map]]s. */
-	sealed trait immutableMapObjectExtension extends Any {
+	sealed trait immutableMapCompanionExtension extends Any {
 		@inline final def single[K, V](key :K, value :V) :Map[K, V] = new Map.Map1(key, value)
 		@inline final def single[K, V](entry :(K, V)) :Map[K, V] = new Map.Map1(entry._1, entry._2)
 		@inline final def one[K, V](key :K, value :V) :Map[K, V] = new Map.Map1(key, value)
@@ -5413,10 +5413,10 @@ object extensions extends extensions {
 
 
 	/** Adds factory methods for array iterators
-	  * and a [[net.noresttherein.sugar.collections.extensions.IteratorObjectExtension.double double]] factory method
+	  * and a [[net.noresttherein.sugar.collections.extensions.IteratorCompanionExtension.double double]] factory method
 	  * for two element iterators to object `Iterator` to complement [[scala.collection.Iterator.single single]].
 	  */
-	sealed trait IteratorObjectExtension extends Any {
+	sealed trait IteratorCompanionExtension extends Any {
 		/** An iterator consisting of a single element. In contrast to the standard `Iterator.single`,
 		  * its `knownSize` is always non negative.
 		  */
@@ -5514,7 +5514,7 @@ object extensions extends extensions {
 	/** Adds factory methods to the [[scala.collection.Stepper$ Stepper]] singleton object, creating steppers
 	  * of zero, one or two elements.
 	  */
-	sealed trait StepperObjectExtension extends Any {
+	sealed trait StepperCompanionExtension extends Any {
 
 		/** Adapts the given Java spliterator to an `AnyStepper`. */
 		@inline def apply[T](spliterator :Spliterator[T]) :AnyStepper[T] = SpliteratorStepper.ofRef(spliterator)
@@ -5533,13 +5533,13 @@ object extensions extends extensions {
 		  * The returned object has an `apply()` method accepting an implicit
 		  * [[scala.collection.StepperShape StepperShape]]`[T, S]`; this allows to split type parameter groups
 		  * and provide here only the element type: `Stepper[T]()`.
-		  * @see [[net.noresttherein.sugar.collections.extensions.StepperObjectExtension.empty empty]]
+		  * @see [[net.noresttherein.sugar.collections.extensions.StepperCompanionExtension.empty empty]]
 		  */
 		@inline final def apply[T] :EmptyStepperFactory[T] = new EmptyStepperFactory[T] {}
 
 		/** Creates an empty `Stepper`. This method variant requires either explicit specification of type parameters,
 		  * or for the element type to be abstract, with a single implicit `StepperShape[T, S]` in scope.
-		  * @see [[net.noresttherein.sugar.collections.extensions.StepperObjectExtension.apply[T] apply]]`()`.
+		  * @see [[net.noresttherein.sugar.collections.extensions.StepperCompanionExtension.apply[T] apply]]`()`.
 		  */
 		@inline final def empty[T, S <: Stepper[_]](implicit shape :StepperShape[T, S]) :S with EfficientSplit =
 			Stepper0()
@@ -5653,7 +5653,7 @@ object extensions extends extensions {
 
 	/** An `apply()` factory method for ana empty stepper, accepting an implicit `StepperShape[T, S]`,
 	  * inferring the stepper type. It is a continuation of
-	  * a [[net.noresttherein.sugar.collections.extensions.StepperObjectExtension.apply Stepper]]`[T]` call.
+	  * a [[net.noresttherein.sugar.collections.extensions.StepperCompanionExtension.apply Stepper]]`[T]` call.
 	  */
 	sealed trait EmptyStepperFactory[T] extends Any {
 		/** Creates an empty `Stepper` of shape defined by an implicit `StepperShape` for element type `T`. */
@@ -5666,7 +5666,7 @@ object extensions extends extensions {
 	  *     StepperShape[Int]()
 	  * }}}
 	  */
-	sealed trait StepperShapeObjectExtension extends Any {
+	sealed trait StepperShapeCompanionExtension extends Any {
 		/** Summons an implicit `StepperShape` for the element type `T` specified as the type parameter.
 		  * The returned object has method `apply[S <: Stepper[_]]()(implicit shape :StepperShape[T, S]) :StepperShape[T, S]`,
 		  * so the shape type can be inferred based on `T` by simply following this call with `()`:
@@ -5679,7 +5679,7 @@ object extensions extends extensions {
 	}
 
 	/** An `apply()` method summoning an implicit `StepperShape[T, S]`. It is a continuation
-	  * of a [[net.noresttherein.sugar.collections.extensions.StepperShapeObjectExtension.apply StepperShape]]`[T]` call.
+	  * of a [[net.noresttherein.sugar.collections.extensions.StepperShapeCompanionExtension.apply StepperShape]]`[T]` call.
 	  */
 	sealed trait StepperShapeObjectFactory[T] extends Any {
 		@inline final def apply[S <: Stepper[_]]()(implicit shape :StepperShape[T, S]) :StepperShape[T, S] = shape

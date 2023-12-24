@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.EmptySeqOps.searchResult
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.extensions.{ArrayObjectExtension, BuilderExtension, IterableOnceExtension, PartialFunctionExtension}
+import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, BuilderExtension, IterableOnceExtension, PartialFunctionExtension}
 
 
 

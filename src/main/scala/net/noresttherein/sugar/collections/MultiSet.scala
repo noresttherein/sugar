@@ -6,7 +6,7 @@ import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefau
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorObjectExtension, MutableArrayExtension, PartialFunctionObjectExtension, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorCompanionExtension, MutableArrayExtension, PartialFunctionCompanionExtension, castTypeParamMethods, classNameMethods}
 
 
 

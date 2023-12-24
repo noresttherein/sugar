@@ -17,7 +17,7 @@ import net.noresttherein.sugar.vars.Opt.Got
 
 //implicits
 import net.noresttherein.sugar.arrays.IArray.IArrayClassTag
-import net.noresttherein.sugar.arrays.extensions.{ArrayObjectExtension, ArrayLikeExtension, IArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayLikeExtension, IArrayExtension}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 

@@ -16,7 +16,7 @@ import org.scalacheck.util.{Buildable, ConsoleReporter}
 import net.noresttherein.sugar.numeric
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map, filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value}
 import net.noresttherein.sugar.testing.scalacheck.typeClasses._
-import net.noresttherein.sugar.extensions.{FactoryExtension, IntObjectExtension, IterableExtension, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.extensions.{FactoryExtension, IntCompanionExtension, IterableExtension, castTypeParamMethods, classNameMethods}
 import net.noresttherein.sugar.testing.scalacheck.buildable
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}
 

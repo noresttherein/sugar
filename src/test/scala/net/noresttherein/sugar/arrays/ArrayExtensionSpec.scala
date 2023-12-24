@@ -9,8 +9,8 @@ import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import net.noresttherein.sugar.??!
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayObjectExtension, MutableArrayExtension, RefArrayExtension}
-import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension, SeqFactoryExtension, StringExtension, immutableIndexedSeqObjectExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension, RefArrayExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension, SeqFactoryExtension, StringExtension, immutableIndexedSeqCompanionExtension}
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}
 import net.noresttherein.sugar.collections.{IRefArraySlice, OrderedItems, Prepended2Seq}
 import net.noresttherein.sugar.reflect.prettyprint.localNameOf
@@ -1250,7 +1250,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 
 
-object ArrayObjectExtensionSpec extends ArrayTestingUtils("ArrayObjectExtension") {
+object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExtension") {
 
 	new ArrayProperty("emptyLike") {
 		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {

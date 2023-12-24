@@ -13,9 +13,9 @@ import scala.runtime.BoxedUnit
 
 //import net.noresttherein.sugar.arrays.ArrayLike.ArrayCompatibility
 import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtensionConversion, ArrayExtensionConversionPrototype, ArrayObjectExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtensionConversion, ArrayExtensionConversionPrototype, ArrayCompanionExtension}
 import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
-import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorObjectExtension, StepperObjectExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.numeric.BitLogic
@@ -37,8 +37,8 @@ trait extensions extends Any with IArray.extensions with RefArray.extensions wit
 		ArrayExtensionConversionPrototype.asInstanceOf[ArrayExtensionConversion[E]]
 
 	/** Adds extra extension methods to the `Array` object. */
-	@inline implicit final def ArrayObjectExtension(self :Array.type) :ArrayObjectExtension =
-		new ArrayObjectExtension {}
+	@inline implicit final def ArrayCompanionExtension(self :Array.type) :ArrayCompanionExtension =
+		new ArrayCompanionExtension {}
 }
 
 
@@ -2173,7 +2173,7 @@ object extensions extends extensions {
 	  * @see [[net.noresttherein.sugar.arrays.ArrayFactory ArrayFactory]] - an `IterableFactory` for arrays,
 	  *      defining also simpler, lower level copying methods.
 	  */ //todo: rename all 'Object' extensions to 'Companion'
-	sealed trait ArrayObjectExtension extends Any {
+	sealed trait ArrayCompanionExtension extends Any {
 
 		/** A type class promoting arrays to sequences. */
 		implicit final def ArrayIsSeq[E] :IsSeq[Array[E]] { type A = E; type C = Array[E] } =

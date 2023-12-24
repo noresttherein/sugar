@@ -3,7 +3,7 @@ package net.noresttherein.sugar.arrays
 import scala.Specializable.Everything
 import scala.collection.AbstractIterator
 
-import net.noresttherein.sugar.arrays.extensions.ArrayObjectExtension
+import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.slang.extensions.AnyRefExtension
