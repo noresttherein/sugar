@@ -1,4 +1,4 @@
-package net.noresttherein.sugar
+package net.noresttherein.sugar.optional
 
 import net.noresttherein.sugar.extensions.ifTrueMethods
 import org.scalacheck.{Prop, Properties}
