@@ -209,6 +209,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  * @tparam Arr the type constructor of an `ArrayLike` subtype returned by methods which return
 	  *             an `Array` in [[collection.ArrayOps ArrayOps]] (and the `ArrayLike` subtype being granted
 	  *             these methods).
+	  * @define coll `array-like`
+	  * @define Coll `ArrayLike`
 	  */
 	class ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] private[arrays] (private[ArrayLike] val self :Array[_])
 		extends AnyVal
@@ -644,31 +646,31 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def search[U >: E :Ordering](elem :U, from :Int, until :Int) :SearchResult =
 			ArraySeq.unsafeWrapArray(self).search(elem, from, until)(implicitly[Ordering[U]].castParam[Any])
 
-		/** Performs a binary search of element `x` in a section of this array, sorted according
-		  * to an implicit `Ordering[E]`. If the array is not sorted, or the `Ordering` is not consistent with `equals`,
-		  * then the behaviour
+		/** Performs a binary search of element `x` in a section of this $coll, sorted according
+		  * to an implicit `Ordering[E]`. If the $coll is not sorted, or the `Ordering` is not consistent with `equals`,
+		  * then the behaviour is unspecified.
 		  * The differences from [[collection.IndexedSeqOps.search search]] from the standard library are:
 		  *   1. ability to provide bounds within which to search,
 		  *   1. returning always the index of the first occurrence of the value in case of duplicates
 		  *      (rather than the index of any of them),
-		  *   1. avoiding boxing of the array to `IndexedSeqOps` to make the call,
+		  *   1. avoiding boxing of the $coll to `IndexedSeqOps` to make the call,
 		  *   1. returning the value as an `ElementIndex`, which does not box the result,
 		  *   1. switching to direct comparisons of built in value types if the `Ordering` is the default one.
-		  * @return index of the search key, if it is contained in the array,
+		  * @return index of the search key, if it is contained in the $coll,
 		  *         as `ElementIndex`.[[net.noresttherein.sugar.collections.ElementIndex.Present Present]].
 		  *         Otherwise, the ''insertion point'',
 		  *         as `ElementIndex.`[[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]].
-		  *         The `insertion point` is defined as the point at which the key would be inserted into the array:
+		  *         The `insertion point` is defined as the point at which the key would be inserted into the $coll:
 		  *         the index of the first element in the array greater than the key, or `until`,
 		  *         if all elements in the array are less than the specified key.
 		  */
 		@inline def binarySearch[U >: E :Ordering](x :U) :ElementIndex = binarySearch(0, self.length, x)
 //			ArrayExtension(array).binarySearch(0, array.length, x)(implicitly[Ordering[A]].castParam[Any])
 
-		/** Performs a binary search of element `x` in a section of this array, sorted
+		/** Performs a binary search of element `x` in a section of this $coll, sorted
 		  * according to an implicit `Ordering[U]`. Returns the index of the first occurrence of `x`, if present
 		  * in the given range, or an index `i`: `from <= i <= until`, such that
-		  * `i == until || array(i) > x && (i == from || array(i) < x)`. If `until <= from`,
+		  * `i == until || this(i) > x && (i == from || this(i) < x)`. If `until <= from`,
 		  * then [[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]]`(from)` is returned immediately.
 		  * The differences from [[collection.IndexedSeqOps.search search]] from the standard library are:
 		  *   1. ability to provide bounds within which to search,
@@ -686,7 +688,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  *         as `ElementIndex`.[[net.noresttherein.sugar.collections.ElementIndex.Present Present]].
 		  *         Otherwise, the ''insertion point'',
 		  *         as `ElementIndex.`[[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]].
-		  *         The `insertion point` is defined as the point at which the key would be inserted into the array:
+		  *         The `insertion point` is defined as the point at which the key would be inserted into the $coll:
 		  *         the index of the first element in the range greater than the key, or `until`,
 		  *         if all elements in the range are less than the specified key.
 		  */ //binarySearch(from :Int, until :Int)(x :U) would be more elegant, but Scala 2 infers too early U =:= E

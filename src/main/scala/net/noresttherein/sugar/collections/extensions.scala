@@ -624,9 +624,6 @@ object extensions extends extensions {
 					IterableOnceExtension(
 						TemporaryBuffer.from(self)
 					).foldRightUntilAndReturn(start)(pred)(op)(ifNotFound, ifFound)
-//					val (skipped, rest) = LazyList.from(self).scanRight(start)(op).reverse.span(!pred(_))
-//					if (rest.nonEmpty) ifFound(rest.head)
-//					else ifNotFound(skipped.last)
 			}
 
 
@@ -916,7 +913,6 @@ object extensions extends extensions {
 					IterableOnceExtension(
 						TemporaryBuffer.from(self)
 					).foldRightWhileAndReturn(start)(pred)(op)(ifNotFound, ifFound)
-//					ifFound(LazyList.from(self).scanRight(start)(op).reverse.takeWhile(pred).last)
 			}
 
 
@@ -1769,7 +1765,7 @@ object extensions extends extensions {
 
 		/** Applies the given function to the elements of this collection for as long as it returns `true`.
 		  * Equivalent to `dropWhile(f)`, except it is executes for side effects only, and avoids a potentially
-		  * expensive `drop`. Furthermore, it is always executed eagerly, even for lazy collections (including iterators)
+		  * expensive `drop`. Furthermore, it is always executed eagerly, even for lazy collections (including iterators).
 		  */
 		def foreachWhile(f :E => Boolean) :Unit = self match {
 			case _ if knownEmpty(self) =>
@@ -1821,35 +1817,17 @@ object extensions extends extensions {
 			}
 
 		/** Invokes `this.forall`, passing a function applying `f` to the next element and its position
-		  * in the iteration order.
+		  * in the iteration order. Equivalent to
+		  * {{{
+		  *     this.iterator.zipWithIndex.forall { case (e, i) => f(e, i) }
+		  * }}}
+		  * but doesn't create intermediate tuples.
 		  */
 		def forallWithIndex(f :(E, Int) => Boolean) :Boolean =
 			foldLeftUntil(0)(_ < 0) { (i, e) => if (f(e, i)) i + 1 else -1 } >= 0
 
-		/** Traverses the collection, applying a folding function `op`, checking if the condition `pred` holds
-		  * for the current state and element. The folding function is applied after the predicate:
-		  * if the latter is falsified, the former will not be evaluated for that element. It is almost equivalent to
-		  * {{{
-		  *     !foldLeftUntil(start -> false)(_._2){ (a, e) => (op(a._1, e), !pred(a._1, e))._2; }
-		  * }}}
-		  * except that in the latter `op` is evaluated one extra time, and this method does not create intermediate
-		  * tuples, which may make it slightly faster.
-		  *
-		  * @param start initial state for the folding function `op`, updated by the latter at each element.
-		  * @param op    a `foldLeft` kind of function, combining the current state with a next element of the collection.
-		  * @param pred  a predicate applied to each element of the collection and the most recent state value;
-		  *              it starts with `pred(start, this.head)` and continues with the following elements
-		  *              and a value equal to `this.take(i).foldLeft(start)(op)`, where `i` is the position
-		  *              of the element in the iteration order.
-		  * @see [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftUntil]]
-		  */ //todo: test
-//		def forallWith[A](start :A)(pred :(A, T) => Boolean)(op :(A, T) => A) :Boolean = {
-//			var state = start
-//			forall { x => val continue = pred(state, x); continue && { state = op(state, x); true }}
-//		}
-
 		/** Traverses the collection, passing state modified at each element, until the argument function returns `false`
-		  * or the whole collection is folded. This is a slightly more efficient and clear  equivalent of:
+		  * or the whole collection is folded. This is a slightly more efficient and clear equivalent of:
 		  * {{{
 		  *     toLazyList.scanLeft(start -> true)(f(_._1, _)).takeWhile(_._2).last._2
 		  * }}}
@@ -1962,6 +1940,14 @@ object extensions extends extensions {
 				{}
 			wasTrue
 		}
+
+		/** Return `foldLeft(num.zero)(num.plus)`. */
+		def sumBy[X](f :E => X)(implicit num: Numeric[X]) :X =
+			toBasicOps.foldLeft(num.zero)((sum, e) => num.plus(sum, f(e)))
+
+		/** Return `foldLeft(num.one)(num.times)`. */
+		def productBy[X](f :E => X)(implicit num :Numeric[X]) :X =
+			toBasicOps.foldLeft(num.one)((product, e) => num.times(product, f(e)))
 
 		/** Equivalent to
 		  * [[collection.IterableOnceOps.drop drop]]`(from).`[[collection.IterableOnceOps.copyToArray copyToArray]]`(xs, start, len)`,
@@ -2076,32 +2062,6 @@ object extensions extends extensions {
 					it.drop(from).copyToArray(xs, start, len)
 				case _ =>
 					self.iterator.drop(from).cyclicCopyToArray(xs, start, len)
-//				case _ :ArrayIterator[_] | _ :CyclicArrayIterator[_] =>
-////				case iter :ArrayIterator[E] | CyclicArrayIterator[E] =>
-//					val iter = self.iterator
-//					//consider: a more generic test, which will include at least MatrixBufferIterator
-//					iter.drop(from).copyToArray(xs, start, len) + iter.copyToArray(xs, 0, len - suffixSpace)
-//				case _ if size >= 0 =>
-//					val (suffix, prefix) = self.iterator.splitAt(suffixSpace)
-//					val copied = math.min(math.min(len, size), length)
-//					suffix.copyToArray(xs, start, suffixSpace)
-//					prefix.copyToArray(xs, 0, copied - suffixSpace)
-//					copied
-//				case _ =>
-//					val iter = self.iterator
-//					var i = start
-//					var end = if (len <= suffixSpace) start + len else length
-//					var copied   = -start
-//					while (copied < len && iter.hasNext) {
-//						while (i < end && iter.hasNext) {
-//							xs(i) = iter.next()
-//							i += 1
-//						}
-//						copied += i
-//						i = 0
-//						end = math.min(start, len - suffixSpace)
-//					}
-//					copied
 			}
 		}
 
@@ -2134,85 +2094,6 @@ object extensions extends extensions {
 		var wasCalled = false
 		override def apply(v1 :(T, A)) :A = { wasCalled = true; v1._2 }
 	}
-
-
-
-//	class IterableOnceOpsExtension[E, CC[_], C <: IterableOnce[E] with IterableOnceOps[E, CC, C]] private[collections]
-//	                              (private val self :IterableOnce[E] with IterableOnceOps[E, CC, C])
-//		extends AnyVal
-//	{
-///*
-//		def foldLeftInit[A](n :Int)(start :A)(op :(A, E) => A) :(A, C) = self match {
-//			case _ if knownEmpty(self) => (start, self.drop(0))
-//			case seq :collection.LinearSeq[E] =>
-//				def foldLinear(n :Int, acc :A, seq :LinearSeq[E]) :(A, C) =
-//					if (n <= 0 || seq.isEmpty) (acc, seq.castFrom[LinearSeq[E], C])
-//					else foldLinear(n - 1, op(acc, seq.head), seq.tail)
-//				foldLinear(n, start, seq)
-//			case ApplyPreferred(items) =>
-//				val end = math.min(n, items.length)
-//				var i = 0; var acc = start
-//				while (i < n) {
-//					acc = op(acc, items(i))
-//					i += 1
-//				}
-//				(acc, self.drop(n))
-//			case _ =>
-//				val it = self.iterator
-//				var i = 0; var acc = start
-//				while (i < n && it.hasNext) {
-//					acc = op(acc, it.next())
-//					i += 1
-//				}
-//				if (HasFastSlice(self)) (acc, self.drop(n))
-//				else (acc, util.fromSpecific(self)(it))
-//		}
-//*/
-//
-//		/** Executes the given function for side effects until it finds the first element for which it returns `true`,
-//		  * after which it returns the remaining elements of the collection.
-//		  * Equivalent to  `dropWhile(!f(_)).drop(1)`, but avoids executing the potentially expensive `drop` twice.
-//		  */
-//		def dropUntil(f :E => Boolean) :C = self match {
-//			case list  :collection.LinearSeq[E] =>
-//				@tailrec def advanceUntil(list :collection.LinearSeq[E]) :C =
-//					if (list.isEmpty)
-//						list.asInstanceOf[C]
-//					else {
-//						val hd = list.head
-//						if (f(hd)) list.asInstanceOf[C] else advanceUntil(list.tail)
-//					}
-//				advanceUntil(list)
-//			case seq   :Vector[E] if seq.length <= defaultApplyPreferredMaxLength =>
-//				var i = 0; val length = seq.length
-//				while (i < length && !f(seq(i)))
-//					i += 1
-//				self.drop(i + 1)
-//			case iter  :Iterator[E] =>
-//				while (iter.hasNext && !f(iter.next()))
-//					{}
-//				self.drop(0)
-//			case ErasedArray.Wrapped.Slice(slice, from, until) =>
-//				val a = slice.asInstanceOf[Array[E]]
-//				val start = slice.startIndex
-//				val end   = start + slice.size
-//				var i     = start
-//				while (i < end && !f(a(i)))
-//					i += 1
-//				self.drop(i - start + 1)
-//			case _ if knownEmpty(self) =>
-//				self.drop(0)
-//			case _ if HasFastSlice.hasFastDrop(self) =>
-//				self.dropWhile(!f(_)).drop(1)
-//			case items :IterableOps[E, CC, C] @unchecked =>
-//				val iter = self.iterator; var i = 0
-//				while (iter.hasNext && !f(iter.next()))
-//					i += 1
-//				util.fromSpecific(items)(iter) //We don't want to traverse again list like collections.
-//			case _ =>
-//				self.dropWhile(!f(_)).drop(1)
-//		}
-//	}
 
 
 
@@ -2609,11 +2490,6 @@ object extensions extends extensions {
 				self.empty
 			else
 				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred))
-//		def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :CC[E] =
-//			if (knownEmpty(self))
-//				self.iterableFactory.empty
-//			else
-//				self.iterableFactory from Iterators.filterWith(self.iterator, z, pred)
 
 		/** Equivalent to `this.iterator.zipWithIndex.filter(x => pred(x._1, x._2)) to this.iterableFactory`.
 		  * For an `IndexedSeq`, prefer `(0 until length).collect { case i if pred(this(i), i) => this(i) }`.
@@ -2623,11 +2499,6 @@ object extensions extends extensions {
 				self.empty
 			else
 				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred))
-//		def filterWithIndex(pred :(E, Int) => Boolean) :CC[E] =
-//			if (knownEmpty(self))
-//				self.iterableFactory.empty
-//			else
-//				self.iterableFactory from Iterators.filterWithIndex(self.iterator, pred)
 
 		/** Iterates over the collection from left to right, splitting elements into those for which `pred`
 		  * returns `true` as the first pair element, and those for which it returns `false`,
@@ -2640,13 +2511,6 @@ object extensions extends extensions {
 				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred)),
 				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred, false))
 			)
-//		def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(CC[E], CC[E]) =
-//			if (knownEmpty(self))
-//				(self.iterableFactory.empty, self.iterableFactory.empty)
-//			else (
-//				self.iterableFactory from Iterators.filterWith(self.iterator, z, pred),
-//				self.iterableFactory from Iterators.filterWith(self.iterator, z, pred, false)
-//			)
 
 		/** Equivalent to `this.zipWithIndex.partition(x => pred(x._1, x._2))`, but possibly more efficient. */
 		def partitionWithIndex(pred :(E, Int) => Boolean) :(C, C) =
@@ -2656,13 +2520,6 @@ object extensions extends extensions {
 				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred)),
 				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred, false))
 			)
-//		def partitionWithIndex(pred :(E, Int) => Boolean) :(CC[E], CC[E]) =
-//			if (knownEmpty(self))
-//				(self.iterableFactory.empty, self.iterableFactory.empty)
-//			else (
-//				self.iterableFactory from Iterators.filterWithIndex(self.iterator, pred),
-//				self.iterableFactory from Iterators.filterWithIndex(self.iterator, pred, false)
-//			)
 
 		/** Filters elements of this collection based on their position in the iteration order.
 		  * For collections with unspecified order, the result may be different for different runs.
@@ -2695,7 +2552,6 @@ object extensions extends extensions {
 			if (util.knownUnique(self))
 				coll
 			else {
-//				lazy val result = self.iterator.zipWithIndex.toMap.toArray.sortBy(_._2).map(_._1)
 				lazy val result = Iterators.distinct(self.toRefArray.reverseIterator).toRefArray.reverse
 				util.fromSpecific(self)(View.fromIteratorProvider(() => result.iterator))
 			}
@@ -2709,32 +2565,25 @@ object extensions extends extensions {
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index >= size")
 		def removed(index :Int) :C = //:CC[E] =
-//			if (knownEmpty(self) || index < 0 || { val s = self.knownSize; s >= 0 & index >= s }) //permissive version
-//				self.iterableFactory from self
 			if (knownEmpty(self))
 				outOfBounds_!(index, 0)
 			else if (index < 0 || { val s = self.knownSize; s >= 0 & index >= s })
 				outOfBounds_!(index, self.knownSize)
 			else if (self.knownLazy)
-//				self.iterableFactory from Iterators.removed(self.iterator, index)
 				util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			else self match {
 				case sugared :SugaredIterable[E] =>
 					util.fromSpecific(self)(sugared.removed(index))
-//					self.iterableFactory from sugared.removed(index)
 				case seq :LinearSeq[E] =>
 					//we hope that ++: reuses the right operand, and that iterableFactory.from returns the argument
 					@tailrec def drop(n :Int, seq :LinearSeq[E]) :LinearSeq[E] =
 						if (n <= 0) seq
-//						else if (seq.isEmpty) seq  //permissive version
-//						else drop(n - 1, seq.tail)
 						else {
 							val tail = try seq.tail catch {
 								case _ :UnsupportedOperationException => outOfBounds_!(index, index - n)
 							}
 							drop(n - 1, tail)
 						}
-//					val tail = if (index == Int.MaxValue) seq.drop(Int.MaxValue).drop(1) else seq.drop(index)
 					val tail =
 						if (index < Int.MaxValue)
 							drop(index + 1, seq)
@@ -2745,16 +2594,12 @@ object extensions extends extensions {
 							t.tail
 						}
 					if (tail.isEmpty)
-//						self.iterableFactory from seq.take(index)
 						util.fromSpecific(self)(seq.take(index))
 					else if (index == 0)
-//						self.iterableFactory from seq.tail
 						util.fromSpecific(self)(seq.tail)
 					else
-//						self.iterableFactory from self.iterator.take(index) ++: tail
 						util.fromSpecific(self)(self.iterator.take(index) ++: tail)
 				case _ =>
-//					self.iterableFactory from Iterators.removed(self.iterator, index)
 					util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			}
 
@@ -2772,22 +2617,18 @@ object extensions extends extensions {
 		// because we don't know the target size
 		def removed(from :Int, until :Int) :C =// :CC[E] =
 			if (until <= 0 | until <= from || knownEmpty(self))
-//				self.iterableFactory.from(self)
 				coll
 			else {
 				val size = self.knownSize
 				val nonNegFrom = math.max(from, 0)
 				val nonNegUntil = math.max(until, 0)
 				if (size >= 0 && from >= size)
-//					self.iterableFactory.from(self) //most likely a no-op for safe type conversion to CC[E]
 					coll
 				else
 					self match {
 						case sugared :SugaredIterable[E] =>
-//							self.iterableFactory from sugared.removed(from, until)
 							util.fromSpecific(self)(sugared.removed(from, until))
 						case _ if self.knownLazy =>
-//							self.iterableFactory from Iterators.removed(self.iterator, nonNegFrom, nonNegUntil)
 							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 						case list :List[E] =>
 							@tailrec def reversePrefix(seq :List[E], len :Int, acc :List[E]) :List[E] =
@@ -2797,19 +2638,13 @@ object extensions extends extensions {
 						case seq :LinearSeq[E] =>
 							val tail = seq.drop(until)
 							if (tail.isEmpty)
-//								self.iterableFactory from seq.take(from)
 								self.take(from) //this returns C, as we would prefer
 							else  if (from <= 0)
-//								self.iterableFactory from tail
 								util.fromSpecific(self)(tail)
 							else {
-//								self.iterableFactory from self.iterator.take(from) ++: tail
 								util.fromSpecific(self)(self.iterator.take(from) ++: tail)
 							}
-//						case seq :collection.SeqOps[E, CC @unchecked, C @unchecked] =>
-//							seq.patch(nonNegFrom, Nil, nonNegUntil - nonNegFrom)
 						case _ =>
-//							self.iterableFactory from Iterators.removed(self.iterator, nonNegFrom, nonNegUntil)
 							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 					}
 			}
@@ -2826,7 +2661,6 @@ object extensions extends extensions {
 		  */
 		def add(elem :E) :CC[E] = self match {
 			case seq :collection.SeqOps[E, CC, CC[E]] @unchecked => seq.appended(elem)
-//			case set :HashSet[E @unchecked] => set.incl(elem).asInstanceOf[CC[E]]
 			case set :Set[E @unchecked] =>
 				try set.incl(elem).castFrom[Set[E], CC[E]] catch {
 					case _ :Exception => set concat Iterator.single(elem)
@@ -2844,6 +2678,8 @@ object extensions extends extensions {
 	  *      which do not return a negative index when the element is not found;
 	  *   1. methods related to subsequences: sequences containing selected elements from another sequence,
 	  *      in the same order.
+	  * @define coll sequence
+	  * @define Coll `Seq`
 	  */ //todo: make it rely on SeqLike
 	class SeqExtension[E, CC[X], C] private[collections]
 	                  (private val self :scala.collection.SeqOps[E, CC, C]) extends AnyVal
@@ -2851,7 +2687,6 @@ object extensions extends extensions {
 		@inline private def length :Int = self.length
 
 		@inline private def genericSelf[U >: E] :CC[U] = self.iterableFactory.from[U](self)
-//		@inline private def coll :C = self.drop(0)
 
 		/** Checks if the elements in this sequence follow the implicit ordering.
 		  * @return [[net.noresttherein.sugar.collections.extensions.SeqExtension.isSortedWith isSortedWith]]`(implicitly[Ordering[U]].compare(_, _) <= 0)`
@@ -3067,28 +2902,6 @@ object extensions extends extensions {
 						//If we knew that C <: Seq[E], then this cast would have been unnecessary,
 						// because we would simply check if self is a linear seq, but operate solely on self.
 						rotateLinearSeq(seq)
-/*
-					case seq :collection.IndexedSeq[E] =>
-						//Implementation for IndexedSeq extracted because we hope that the builder
-						// may recognize iterators of its own type and append them more efficiently.
-						def rotateLeftIndexedSeq(seq :collection.IndexedSeq[E]) :CC[E] = {
-							val from0  = math.max(from, 0)
-							val until0 = math.min(until, size)
-							val length = until0 - from0
-							val shift  = if (n >= 0) n % length else n % length + length
-							val res    = self.iterableFactory.newBuilder[E]
-							res sizeHint size
-							if (from0 > 0)
-							res ++= self.iterator.take(from0)
-							res ++=
-								self.iterator.slice(from0 + shift, until) ++=
-								self.iterator.slice(from0, from0 + shift)
-							if (until0 < size)
-								res ++= self.iterator.drop(until0)
-							res.result()
-						}
-						rotateLeftIndexedSeq(seq)
-*/
 					case _ if size >= 0 =>
 						def rotateKnownSize :CC[E] = {
 							val length = until0 - from0
@@ -3256,10 +3069,6 @@ object extensions extends extensions {
 			val thisSize = self.knownSize
 			//If possible, try to add collections, rather than iterators, as there is a chance they'll reuse contents.
 			self match {
-//				case sugared :SugaredIterable[E] =>
-//					sugared.updatedAll(index, elems)
-//				case _ if thisSize >= 0 & index >= thisSize || thatSize >= 0 & index < 0 & index + thatSize <= 0 =>
-//					genericSelf
 				case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
 					outOfBounds()
 				case _ if self.knownLazy =>
@@ -3316,7 +3125,6 @@ object extensions extends extensions {
 				        i += 1
 					}
 					if (i < index)
-//						genericSelf
 						throw new IndexOutOfBoundsException(
 							self.className + "|" + (if (thisSize >= 0) thisSize.toString else index.toString + "+")
 								+ "|.updatedAll(" + index + ", " + errorString(elems) + ")"
@@ -3378,8 +3186,6 @@ object extensions extends extensions {
 			val size = self.knownSize
 			if (index < 0 | size >= 0 & index > size)
 				throw new IndexOutOfBoundsException(self.className + "|" + size + "|.inserted(" + index + ", _)")
-//			if (knownEmpty(self))
-//				self.iterableFactory from Iterator.single(elem)
 			else if (index == 0)
 				self.prepended(elem)
 			else if (size >= 0 & index == size)
@@ -3875,45 +3681,49 @@ object extensions extends extensions {
 			}
 		}
 
-		/** Performs a binary search of element `x` in this sequence, sorted according to an implicit `Ordering[U]`.
-		  * Returns the index of the first occurrence of `x`, if present in the sequence, or `-i - 1`,
-		  * where `0 <= i <= this.length` is an index of the first element greater than `x`, or `length`,
-		  * ''iff'' all elements in the sequence are strictly lesser than `x`. If the sequence is empty,
-		  * `-1` is returned immediately. The difference from [[collection.IndexedSeqOps.search search]]
-		  * from the standard library is that it will always find the first occurrence of a given element,
-		  * in case of repetitions: `indexOf(x) == binarySearch(x) || indexOf(x) < 0 && binarySearch(x) < 0`.
-		  * Additionally, no object is crated in the process (aside from potential autoboxing of the argument).
-		  * If the sequence is not sorted, or the `Ordering` is not consistent with `equals`,
+		/** Performs a binary search of element `x` in a section of this $coll, sorted according
+		  * to an implicit `Ordering[E]`. If the $coll is not sorted, or the `Ordering` is not consistent with `equals`,
 		  * then the behaviour is unspecified.
-		  * @return the index of the search key, if it is present in the sequence;
-		  *         otherwise, `(-(''insertion point'') - 1)`.  The `insertion point` is defined as the point at which
-		  *         the key would be inserted into the sequence: the index of the first element greater than the key,
-		  *         or `this.length` if all elements in the sequence are less than the specified key.
-		  *         Note that this guarantees that the return value will be &gt;= 0 if and only if the key is found.
-		  */ //fixme: docs not up to date
+		  * The differences from [[collection.IndexedSeqOps.search search]] from the standard library are:
+		  *   1. ability to provide bounds within which to search,
+		  *   1. returning always the index of the first occurrence of the value in case of duplicates
+		  *      (rather than the index of any of them),
+		  *   1. returning the value as an `ElementIndex`, which does not box the result,
+		  *   1. switching to direct comparisons of built in value types if the `Ordering` is the default one.
+		  * @return index of the search key, if it is contained in the $coll,
+		  *         as `ElementIndex`.[[net.noresttherein.sugar.collections.ElementIndex.Present Present]].
+		  *         Otherwise, the ''insertion point'',
+		  *         as `ElementIndex.`[[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]].
+		  *         The `insertion point` is defined as the point at which the key would be inserted into the $coll:
+		  *         the index of the first element in the array greater than the key, or `until`,
+		  *         if all elements in the array are less than the specified key.
+		  */
 		@inline final def binarySearch[U >: E :Ordering](x :U) :ElementIndex = binarySearch(0, self.length, x)
 
-		/** Performs a binary search of element `x` in a section of this sequence, sorted
+		/** Performs a binary search of element `x` in a section of this $coll, sorted
 		  * according to an implicit `Ordering[U]`. Returns the index of the first occurrence of `x`, if present
-		  * in the given range, or `-i - 1`, where `from <= i <= until` is an index of the first element greater
-		  * than `x`, or `until`, ''iff'' all elements in the range `[from, until)` are strictly lesser than `x`.
-		  * If `until <= from`, then `-from - 1` is returned immediately.
-		  * The difference from [[collection.IndexedSeqOps.search search]] from the standard library -
-		  * aside from the ability to provide the bounds within which to search - is that it will always find
-		  * the first occurrence of a given element, in case of repetitions. Additionally, no object is crated
-		  * in the process (aside from potential autoboxing of the argument). If the sequence is not sorted,
-		  * or the `Ordering` is not consistent with `equals`, then the behaviour is unspecified.
+		  * in the given range, or an index `i`: `from <= i <= until`, such that
+		  * `i == until || this(i) > x && (i == from || this(i) < x)`. If `until <= from`,
+		  * then [[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]]`(from)` is returned immediately.
+		  * The differences from [[collection.IndexedSeqOps.search search]] from the standard library are:
+		  *   1. ability to provide bounds within which to search,
+		  *   1. returning always the index of the first occurrence of the value in case of duplicates,
+		  *      (rather than the index of any of them),
+		  *   1. returning the value as an `ElementIndex`, which does not box the result,
+		  *   1. switching to direct comparisons of built in value types if the `Ordering` is the default one.
 		  * @param from  the lower bound (inclusive) on the searched index range. A negative index is equivalent to `0`,
 		  *              while if `from > this.length` the effect is the same as if `from == this.length`.
 		  * @param until the upper bound (exclusive) on the searched index range. A negative index is equivalent to `0`,
 		  *              while if `until > this.length` the effect is the same as if `until == this.length`.
 		  *              Values lesser than `from` are treated the same way as `until == from`.
-		  * @return the index of the search key, if it is present in the searched range;
-		  *         otherwise, `(-(''insertion point'') - 1)`. The `insertion point` is defined as the point at which
-		  *         the key would be inserted into the sequence: the index of the first element in the range
-		  *         greater than the key, or `until` if all elements in the range are less than the specified key.
-		  *         Note that this guarantees that the return value will be &gt;= `from` if and only if the key is found.
-		  */
+		  * @return the index of the search key, if it is present in the searched range,
+		  *         as `ElementIndex`.[[net.noresttherein.sugar.collections.ElementIndex.Present Present]].
+		  *         Otherwise, the ''insertion point'',
+		  *         as `ElementIndex.`[[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]].
+		  *         The `insertion point` is defined as the point at which the key would be inserted into the $coll:
+		  *         the index of the first element in the range greater than the key, or `until`,
+		  *         if all elements in the range are less than the specified key.
+		  */ //binarySearch(from :Int, until :Int)(x :U) would be more elegant, but Scala 2 infers too early U =:= E
 		final def binarySearch[U >: E](from :Int, until :Int, x :U)(implicit ordering :Ordering[U]) :ElementIndex = {
 			val limit = math.min(self.length, until)
 			var start = math.max(from, 0)
@@ -4066,7 +3876,7 @@ object extensions extends extensions {
 				}
 		}
 
-
+		//todo: variants of `IndexedSeqOps` existing sorting methods for ranges, which won't be seen as overloads.
 //		@inline final def sortInPlace[A >: E]()(implicit ordering :Ordering[A]) :Unit = Sorting.stableSort(self)
 //
 //		@inline final def sortInPlace[A >: E](from :Int, until :Int)(implicit ordering :Ordering[A]) :Unit =
@@ -4167,41 +3977,15 @@ object extensions extends extensions {
 	  * @define coll buffer
 	  */
 	class BufferExtension[E, This <: Buffer[E]] private[collections] (private val self :This) extends AnyVal {
-//		/** Swaps (in place) elements at indices `i` and `j`. */
-//		@inline def swap(i :Int, j :Int) :Unit = {
-//			val boo = self(i)
-//			self(i) = self(j)
-//			self(j) = boo
-//		}
-//		def removeAll(range :Range) :This = {
-//
-//		}
-//
 		/** Removes the last element from the buffer, returning its value.
 		  * @return [[collection.mutable.Buffer.remove remove]]`(this.length - 1)`.
 		  */
-		@inline def popLast  :E = self.remove(self.length - 1)
+		@inline def removeLast()  :E = self.remove(self.length - 1)
 
 		/** Removes the first element from the buffer, returning its value.
 		  * @return [[collection.mutable.Buffer.remove remove]]`(0)`.
 		  */
-		@inline def popFirst :E = self.remove(0)
-//
-//		/** Removes the first `n` elements from the buffer.
-//		  * @return [[scala.collection.mutable.Buffer.remove remove]]`(0, n)`
-//		  */
-//		@throws[IndexOutOfBoundsException]("if n < 0 or n > this.length.")
-//		@inline def removeFirst(n :Int) :Unit =
-//			if (n < 0) outOfBounds_!(n)
-//			else self.remove(0, n)
-//
-//		/** Removes the last `n` elements from the buffer.
-//		  * @return [[scala.collection.mutable.Buffer.remove remove]]`(this.length - n, n)`
-//		  */
-//		@throws[IndexOutOfBoundsException]("if n < 0 or n > this.length.")
-//		@inline def removeLast(n :Int) :Unit =
-//			if (n < 0) outOfBounds_!(n)
-//			else self.remove(self.length - n, n)
+		@inline def removeFirst() :E = self.remove(0)
 
 
 		/** Fills (in place) the whole buffer with the given value. */
@@ -4952,7 +4736,6 @@ object extensions extends extensions {
 		  */
 		def lpad(length :Int, char :Char = ' ') :String =
 			if (self.length >= length) self
-//			else self repeat char +: self until (_.length == length)
 			else ((new JStringBuilder(length) /: (length - self.length))(_ append char) append self).toString
 
 		/** If the length of this string is lesser than `length`, append `this.length - length` copies of `char`
@@ -4997,8 +4780,6 @@ object extensions extends extensions {
 		extends AnyVal
 	{
 		def shape :StepperShape.Shape = stepperShape.shape
-//		def stepperShape :Opt[StepperShape[A, S]] = Opt(shapeOrNull)
-//		def shape :Opt[StepperShape.Shape] = if (stepperShape == null) Lack else Got(shapeOrNull.shape)
 	}
 
 	private[extensions] sealed abstract class Rank1PreferredStepperShapes {
@@ -5013,8 +4794,6 @@ object extensions extends extensions {
 	}
 	@SerialVersionUID(Ver)
 	object StepType extends Rank1PreferredStepperShapes {
-//		@inline def apply[A, S <: Stepper[_]](shape :StepperShape[A, S]) :StepType[A, S] = new StepType(shape)
-
 		@inline implicit def anyStep[T, S <: AnyStepper[T]](implicit ev :S <:< AnyStepper[T]) :StepType[T, S] =
 			new StepType[T, S](StepperShape.anyStepperShape.asInstanceOf[StepperShape[T, S]])
 
@@ -5339,7 +5118,6 @@ object extensions extends extensions {
 			else if ((self eq ArrayBuffer) || (self eq mutable.IndexedSeq) || (self eq IndexedBuffer))
 				(new ArrayBuffer[E] += first += second).castCons[C]
 			else if (self eq ListBuffer) (new ListBuffer[E] += first += second).castCons[C]
-//			else if (self eq ArraySeq) ArraySeq.unsafeWrapArray(Array.two(first, second))
 			else self.from(new Prepended2Seq(first, second, Nil))
 
 		/** The same as [[collection.SeqFactory.fill fill]], but the expression is evaluated only once,
@@ -5365,7 +5143,6 @@ object extensions extends extensions {
 				}
 				b.result()
 			}
-//		@inline def two[E](value1 :E, value2 :E) :C[E] = self.empty[E] :+ value1 :+ value2
 
 		/** An alias for [[collection.IterableFactory.empty empty]]`[E] `[[collection.SeqOps.:+ :+]]` elem`. */
 		@inline def :+[E](elem :E) :C[E] = self.empty[E] :+ elem
@@ -5375,14 +5152,10 @@ object extensions extends extensions {
 	}
 
 	sealed trait immutableIndexedSeqCompanionExtension extends Any {
-//		@inline final def single[E](elem :E) :IndexedSeq[E] = ConstIndexedSeq(elem, 1)
-//		@inline final def one[E](elem :E) :IndexedSeq[E] = ConstIndexedSeq(elem, 1)
-//		@inline final def const[E](length :Int)(elem :E) :IndexedSeq[E] = ConstIndexedSeq(elem, length)
 		@inline final def infinite[E](elem :E) :IndexedSeq[E] = ConstIndexedSeq.infinite(elem)
 		@inline final def reversed[E](seq :IndexedSeq[E]) :IndexedSeq[E] = ReversedSeq(seq)
 	}
 
-	//todo
 
 	sealed trait ArrayBufferCompanionExtension extends Any {
 		/** A new, empty buffer. Same as `empty`, but slightly more succinct, and puts emphasis on the element type. */
