@@ -62,8 +62,8 @@ libraryDependencies ++= Seq( //todo: make shapeless optional
 	"net.bytebuddy" % "byte-buddy" % "1.14.2",
 
 	"junit" % "junit" % "4.13.2" % "test",
-	"org.scalatest" %% "scalatest" % "3.2.15" % "test",
-	"org.scalacheck" %% "scalacheck" % "1.17.0" % "test"
+	"org.scalatest" %% "scalatest" % "3.2.15" % Test,
+	"org.scalacheck" %% "scalacheck" % "1.17.0" % Test
 )
 
 
