@@ -632,7 +632,7 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 
 
 
-
+//todo: test the builder for all Iterables
 class BuilderProp[A, To <: Iterable[A]](newBuilder : => Builder[A, To])(implicit arbA :Arbitrary[A])
 	extends Commands
 {

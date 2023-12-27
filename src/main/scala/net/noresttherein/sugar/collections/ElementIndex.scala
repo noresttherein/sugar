@@ -17,19 +17,21 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   */ //consider: moving to vars
 @SerialVersionUID(Ver)
 class ElementIndex private[sugar] (private val idx :Int) extends AnyVal with Serializable {
-	def insertionPoint :IntOpt =
+	def index :Int =
+		if (idx >= 0) idx
+		else if (idx == Int.MinValue) throw new UnsupportedOperationException("index unknown")
+		else -idx - 1
+
+	def predecessor :IntOpt =
 		if (idx < 0)
 			if (idx == Int.MinValue) NoInt else AnInt(-idx - 1)
 		else AnInt(idx)
 
-	final def predecessor :IntOpt =
-		if (idx < 0)
-			if (idx == Int.MinValue) NoInt else AnInt(-idx - 1)
-		else AnInt(idx)
+//	def insertionPoint :IntOpt = predecessor
 
 	@inline def isFound  :Boolean = idx >= 0
 	@inline def notFound :Boolean = idx < 0
-	@inline def index    :IntOpt = if (idx < 0) NoInt else AnInt(idx)
+	@inline def get :IntOpt = if (idx < 0) NoInt else AnInt(idx)
 	@inline def toOpt    :Opt[Int] = if (idx < 0) Lack else Got(idx)
 	@inline def toOption :Option[Int] = if (idx < 0) None else Some(idx)
 	def toEither         :Either[Opt[Int], Int] =
@@ -52,9 +54,9 @@ class ElementIndex private[sugar] (private val idx :Int) extends AnyVal with Ser
 
 	override def toString :String =
 		if (idx < 0)
-			if (idx == Int.MinValue) "NotFound()" else "NotFound(" + (-idx - 1) + ")"
+			if (idx == Int.MinValue) "Absent()" else "Absent(" + (-idx - 1) + ")"
 		else
-			"Found(" + idx + ")"
+			"Present(" + idx + ")"
 }
 
 
@@ -68,7 +70,7 @@ object ElementIndex {
 	def apply(found :Boolean, index :Int) :ElementIndex =
 		if (found) new ElementIndex(index) else new ElementIndex(-index - 1)
 
-	@inline def unapply(result :ElementIndex) :IntOpt = result.insertionPoint
+	@inline def unapply(result :ElementIndex) :IntOpt = result.predecessor
 
 	@SerialVersionUID(Ver)
 	object Present {
@@ -76,19 +78,19 @@ object ElementIndex {
 			if (idx < 0) rejectNegative(idx)
 			else new ElementIndex(idx)
 
-		@inline def unapply(result :ElementIndex) :IntOpt = result.index
+		@inline def unapply(result :ElementIndex) :IntOpt = result.get
 
 	}
 
 	@SerialVersionUID(Ver)
 	object Absent {
-		@inline def apply(insertionPoint :Int) :ElementIndex =
-			if (insertionPoint < 0)
-				rejectNegative(insertionPoint)
-			else if (insertionPoint == Int.MaxValue)
-				rejectMaxInt()
+		@inline def apply(predecessor :Int) :ElementIndex =
+			if (predecessor < 0)
+				rejectNegative(predecessor)
+//			else if (predecessor == Int.MaxValue)
+//				rejectMaxInt()
 			else
-				new ElementIndex(-insertionPoint - 1)
+				new ElementIndex(-predecessor - 1)
 
 		@inline def apply() :ElementIndex = new ElementIndex(Int.MinValue)
 
