@@ -15,7 +15,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 private object CompanionFactory {
 
-	def unapply[E, C[_]](factory :Factory[E, C[E]]) :Opt[Any] = sourceCollectionFactory(factory)
+	def unapply[E, C](factory :Factory[E, C]) :Opt[Any] = sourceCollectionFactory(factory)
 
 	object IterableFactory {
 		def unapply[E, C[_]](factory :Factory[E, C[E]]) :Opt[IterableFactory[C]] = sourceIterableFactory(factory)
