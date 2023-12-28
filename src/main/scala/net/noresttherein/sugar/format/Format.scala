@@ -63,8 +63,7 @@ private[format] sealed trait FormatLiquidMoldImplicit extends FormatRawMoldImpli
   * The conversion process goes `Raw => Liquid => Solid` and `Solid => Liquid => Raw`.
   *
   *
-  * '''Converting between Scala objects and formatted values'''
-  *
+  * ==Converting between Scala objects and formatted values==
   * There are several ways in which input can be parsed or formatted in a given `Format`;
   * the following examples assume `val XML :Format` and an implicit `XML.Mold[Dragon]`:
   *   1. Methods defined directly in `Format`:
@@ -126,8 +125,7 @@ private[format] sealed trait FormatLiquidMoldImplicit extends FormatRawMoldImpli
   *      could be replaced with another type `T` for which an implicit `Mold[T]` exists.
   *
   *
-  * '''Defining class formats'''
-  *
+  * ==Defining class formats==
   * The `Format` trait itself contains declarations of molds for common built in types which are available
   * even in a generic context, where the concrete type of a `Format` is unknown.
   * Some subclasses add to those definitions more specific instances. Nevertheless, the application needs

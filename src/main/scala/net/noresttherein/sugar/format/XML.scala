@@ -1,9 +1,11 @@
 package net.noresttherein.sugar.format
 
 import javax.xml.stream.{XMLInputFactory, XMLStreamConstants}
-import net.noresttherein.sugar.collections.{ChoppedString, Substring}
+
+import net.noresttherein.sugar.collections.{ChoppedString, StringMap, Substring}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.format.XML.Tag
+import net.noresttherein.sugar.constants.MaxExceptionMessageLength
+import net.noresttherein.sugar.format.XML.{Tag, XMLEntities}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Opt
 
@@ -51,7 +53,7 @@ class XML extends FormatAsString {
 	private object Open extends SpecialOptBasedMold[String] {
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString)
 				:Opt[(ChoppedString, String, ChoppedString)] =
-		{
+		{ //todo: ChoppedString may have very inefficient apply, migrate to usage of intIterator
 			var start = 0; val len = suffix.length
 			while (start < len && suffix(start).isWhitespace)
 				start += 1
@@ -64,8 +66,8 @@ class XML extends FormatAsString {
 				if (end == len)
 					Lack
 				else {
-					val (parsed, rest) = suffix.splitAt(end)
-					Got((prefix ++ parsed, suffix.slice(start, end).toString, rest))
+					val (parsed, rest) = suffix.splitAt(end + 1)
+					Got((prefix ++ parsed, suffix.substring(start + 1, end), rest))
 				}
 			}
 		}
@@ -80,7 +82,7 @@ class XML extends FormatAsString {
 	private object Close extends SpecialOptBasedMold[String] {
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString)
 				:Opt[(ChoppedString, String, ChoppedString)] =
-		{
+		{ //todo: ChoppedString may have very inefficient apply, migrate to usage of intIterator
 			var start = 0; val len = suffix.length
 			while (start < len && suffix(start).isWhitespace)
 				start += 1
@@ -93,8 +95,9 @@ class XML extends FormatAsString {
 				if (end == len)
 					Lack
 				else {
-					val (parsed, rest) = suffix.splitAt(end)
-					Got((prefix ++ parsed, suffix.slice(start, end).toString, rest))
+					val parsed = suffix.take(end + 1)
+					val rest   = suffix.drop(end + 1)
+					Got((prefix ++ parsed, suffix.substring(start + 2, end), rest))
 				}
 			}
 		}
@@ -109,52 +112,149 @@ class XML extends FormatAsString {
 
 	@SerialVersionUID(Ver)
 	private object StringMold extends NamedMold[String] with SimpleThrowingMold[String] {
-		import XMLStreamConstants._
+//		import XMLStreamConstants._
 		private[this] val factory = XMLInputFactory.newInstance()
 
-		//todo: my own processing of XML, this is slow
+		private final val Comment = 1
+		private final val CDATA   = 2
+		private final val String  = 4
+		private final val End     = 5
+
 		override def advance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) = {
-			val reader = factory.createXMLStreamReader(suffix.toReader) //we could conceivably reuse the ChunkedStringReader
-			var event :Int = 0
-			var firstLoop = true
-			var needsCopying = false           //we can just slice a suffix due to lack of anything interpreted.
-			var firstText :String = null       //the first text 'event' data is stored here. Returned if builder == null.
-			var builder :JStringBuilder = null //created in case of multiple text events; all contents are appended in turn.
-			while (reader.hasNext && {
-				event = reader.next()
-				event == CHARACTERS || event == SPACE || event == COMMENT || event == CDATA
-			}) {
-				if ((event == COMMENT || event == CDATA) && !needsCopying && !firstLoop) {
-					val offset = reader.getLocation.getCharacterOffset
-					firstText = suffix.take(offset).toString
-					needsCopying = true
-				}
-				if (event == CDATA || needsCopying && (event == CHARACTERS || event == SPACE)) {
-					if (firstText == null)
-						firstText = reader.getText
-					else {
-						if (builder == null)
-							builder = new JStringBuilder(reader.getTextLength)
-						builder append reader.getText
+			//todo: check if suffix has a fast apply and consider using it instead of the iterator.
+			val length = suffix.length
+			val iter   = suffix.intIterator
+			val res    = new JStringBuilder
+			var state  = String
+			var end    = 0
+			while (end < length & state != End) {
+				var next = iter.next().toChar
+				state match {
+					case String  => next match {
+						case '<' => //Maybe a comment, maybe a CDATA section, otherwise end the content parsing.
+							state = End
+							if (end + 3 < length && iter.next().toChar == '!')
+								iter.next().toChar match {
+									case '-' =>
+										if (iter.next().toChar == '-') {
+											state = Comment
+											end  += 4
+										}
+									case '[' =>
+										if (end + 8 < length &&
+											iter.next().toChar == 'C' && iter.next().toChar == 'D' &&
+											iter.next().toChar == 'A' && iter.next().toChar == 'T' &&
+											iter.next().toChar == 'A' && iter.next().toChar == '['
+										) {
+											state = CDATA
+											end  += 9
+										}
+									case _ =>
+								}
+						case '&' =>
+							end += 1
+							val entity = new JStringBuilder
+							while (end < length && { next = iter.next().toChar; next != ';' }) {
+								end += 1
+								entity append next
+							}
+							if (next != ';')
+								throw ParsingException(XML)(suffix, "Unterminated entity in \"" + suffix + "\".")
+							val name = entity.toString
+							val text = XMLEntities.getOrElse(name, null)
+							if (text == null)
+								throw ParsingException(XML)(
+									suffix, "Unrecognized entity in \"" + suffix + "\": " + name + "."
+								)
+							res append text
+						case _ =>
+							res append next
+							end += 1
+					}
+					case Comment => next match {
+						case '-' =>
+							if (end + 2 >= length)
+								throw ParsingException(XML)(suffix, "Unterminated comment in \"" + suffix + "\".")
+							end += 3
+							if (iter.next().toChar == '-' && iter.next().toChar == '>')
+								state = String
+						case _   => end += 1
+					}
+					case CDATA => next match {
+						case ']' =>
+							if (end + 2 < length)
+								throw ParsingException(XML)(suffix, "Unterminated CDATA section in \"" + suffix + "\".")
+							end += 3
+							iter.next().toChar match {
+								case ']'  => iter.next().toChar match {
+									case '>'  => state = String
+									case char => res append ']' append ']' append char
+								}
+								case char => res append ']' append char
+							}
+						case _   =>
+							res append next
+							end += 1
 					}
 				}
-				firstLoop = false
 			}
-			val offset = reader.getLocation.getCharacterOffset
-			val (skipped, remainder) = suffix.splitAt(offset)
-			val res =
-				if (builder != null) {
-					val string = builder.toString
-					(concat(prefix, skipped), string, remainder)
-				} else if (firstText != null)
-					(concat(prefix, skipped), firstText, remainder)
-				else {
-					(concat(prefix, skipped), skipped.toString, remainder)
-				}
-			reader.close()
-			res
+			state match {
+				case Comment => throw ParsingException(XML)(suffix, "Unterminated comment in \"" + suffix + "\".")
+				case CDATA   =>	throw ParsingException(XML)(suffix, "Unterminated CDATA section in \"" + suffix + "\".")
+				case _ =>
+			}
+			val string    = res.toString
+			val parsed    = suffix.take(end)
+			val remainder = suffix.drop(end)
+			(prefix :++ parsed, string, remainder)
 		}
 
+/*		def erroradvance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) =
+			try {
+				val reader = factory.createXMLStreamReader(suffix.toReader) //we could conceivably reuse the ChunkedStringReader
+				var event :Int = 0
+				var firstLoop = true
+				var needsCopying = false           //we can just slice a suffix due to lack of anything interpreted.
+				var firstText :String = null       //the first text 'event' data is stored here. Returned if builder == null.
+				var builder :JStringBuilder = null //created in case of multiple text events; all contents are appended in turn.
+				while (reader.hasNext && {
+					event = reader.next()
+					event == CHARACTERS || event == SPACE || event == COMMENT || event == CDATA
+				}) {
+					if ((event == COMMENT || event == CDATA) && !needsCopying && !firstLoop) {
+						val offset = reader.getLocation.getCharacterOffset
+						firstText = suffix.take(offset).toString
+						needsCopying = true
+					}
+					if (event == CDATA || needsCopying && (event == CHARACTERS || event == SPACE)) {
+						if (firstText == null)
+							firstText = reader.getText
+						else {
+							if (builder == null)
+								builder = new JStringBuilder(reader.getTextLength)
+							builder append reader.getText
+						}
+					}
+					firstLoop = false
+				}
+				val offset = reader.getLocation.getCharacterOffset
+				val (skipped, remainder) = suffix.splitAt(offset)
+				val res =
+					if (builder != null) {
+						val string = builder.toString
+						(concat(prefix, skipped), string, remainder)
+					} else if (firstText != null)
+						(concat(prefix, skipped), firstText, remainder)
+					else {
+						(concat(prefix, skipped), skipped.toString, remainder)
+					}
+				reader.close()
+				res
+			} catch {
+				case e :Exception =>
+					throw ParsingException(XML)(suffix, e.getMessage, e)
+			}
+*/
 		override def melt(model :String) :ChoppedString = ChoppedString(model)
 		override def append(prefix :ChoppedString, model :String) :ChoppedString = prefix ++ model
 
@@ -214,4 +314,10 @@ object XML extends XML {
 //	  * the whole body of a tag.
 //	  */
 //	class Body[T](val body :T) extends AnyVal
+
+	private val XMLEntities = StringMap(
+		"lt" -> "<",
+		"gt" -> ">",
+		"amp" -> "&"
+	)
 }

@@ -53,6 +53,7 @@ abstract class ParsingException(override val format :Format, msg :String, cause 
 @SerialVersionUID(Ver)
 object ParsingException {
 	def expected(format :Format, name :String)(liquid :format.Liquid, cause :Exception = null) :ParsingException = {
+		//todo: don't include the full liquid, but only a prefix if it is long.
 		val msg = "Failed to parse '" + liquid + "' as " + name + "."
 		apply(format)(liquid, if (cause == null) msg else msg + " " + cause.getMessage, cause)
 	}
@@ -61,6 +62,7 @@ object ParsingException {
 //		apply(format)(liquid, msg, null)
 
 	def illegal(format :Format)(liquid :format.Liquid, cause :Exception = null) :ParsingException = {
+		//todo: don't include the full liquid, but only a prefix if it is long.
 		val msg = "Illegal " + format + ": '" + liquid + "'."
 		apply(format)(liquid, if (cause == null) msg else msg + " " + cause.getMessage, cause)
 	}

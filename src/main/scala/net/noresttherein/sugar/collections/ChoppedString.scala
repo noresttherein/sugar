@@ -92,10 +92,13 @@ trait StringLikeOps[+S <: Seq[Char]]
   */
 trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps[StringLike] with Serializable {
 	override def subSequence(start :Int, end :Int) :CharSequence =
-		if (start < 0 | end < 0 | start > end || end > length)
+		if (start < 0 | end < 0 | start > end | end > length)
 			throw new IndexOutOfBoundsException("[" + start + ".." + end + ") out of " + length)
 		else
 			trustedSlice(start, end)
+
+	def substring(start :Int, end :Int) :String = subSequence(start, end).toString
+	final def substring(start :Int) :String = substring(start, length)
 }
 
 
@@ -200,6 +203,47 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 				mask >>= 1
 			}
 			res
+		}
+
+	override def substring(start :Int, end :Int) :String =
+		if (start < 0 | end < 0 | end < start | end > length)
+			throw new IndexOutOfBoundsException("ChoppedString|" + length + "|.substring(" + start + ", " + end + ")")
+		else {
+			val res = new JStringBuilder(length)
+			@tailrec
+			def slice(in :Any, from :Int, until :Int, suffix :mutable.Queue[Any], last :Any, lastUntil :Int) :Unit =
+				in match {
+					case chops  :ChoppedString if from <= 0 && until >= chops.length =>
+						res append chops.toString
+						if (suffix != null && suffix.nonEmpty)
+							slice(suffix.dequeue(), 0, Int.MaxValue, suffix, last, lastUntil)
+						else if (last != null)
+							slice(last, 0, lastUntil, null, null, 0)
+					case concat :Chops =>
+						val prefixLen = concat.prefixLength
+						if (until <= prefixLen)
+							slice(concat.prefix, from, until, suffix, last, lastUntil)
+						else if (from >= prefixLen)
+							slice(concat.suffix, from - prefixLen, until - prefixLen, suffix, last, lastUntil)
+						else if (last == null)
+							slice(concat.prefix, from, prefixLen, null, concat.suffix, until - prefixLen)
+						else {
+							val queue = if (suffix == null) mutable.Queue.empty[Any] else suffix
+							slice(concat.prefix, from, prefixLen, concat.suffix +=: queue, last, lastUntil)
+						}
+					case _ =>
+						in match {
+							case s :ChoppedString => s.appendTo(res, from, until)
+							case s :String        => res append s.substring(from, until)
+							case _                => neitherStringNorChoppedString(in)
+						}
+						if (suffix != null && suffix.nonEmpty)
+							slice(suffix.dequeue(), 0, Int.MaxValue, suffix, last, lastUntil)
+						else if (last != null)
+							slice(last, 0, lastUntil, null, null, 0)
+				}
+			slice(this, start, end, null, null, 0)
+			res.toString
 		}
 
 	private def neitherStringNorChoppedString(x :Any) :Nothing =
@@ -415,9 +459,9 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 	@tailrec private def intStepper(s :ChoppedString, prefix :IntStepper, suffix :IntStepper) :IntStepper =
 		s match {
 			case append   :AppendedString  =>
-				intStepper(append.prefix, prefix, append.suffix.stepper :++ suffix)
+				intStepper(append.prefix, prefix, new StringStepper(append.suffix) :++ suffix)
 			case prepend  :PrependedString =>
-				intStepper(prepend.suffix, prefix :++ prepend.prefix.stepper, suffix)
+				intStepper(prepend.suffix, prefix :++ new StringStepper(prepend.prefix), suffix)
 			case concat   :ConcatChunks    =>
 				intStepper(concat.suffix, prefix ++ concat.prefix.stepper, suffix)
 			case straight :Substring if straight.length > 0 =>
@@ -452,7 +496,9 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 
 	override def className :String = "ChoppedString"
 
+	//todo: test if it's faster to append a String char by char, or append a whole substring
 	protected def appendTo(builder :JStringBuilder) :JStringBuilder
+	protected def appendTo(builder :JStringBuilder, from :Int, until :Int) :JStringBuilder
 
 	override def toReader :Reader = new ChoppedStringReader(this)
 
@@ -558,6 +604,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 
 		override def trustedSlice(from :Int, until :Int) :ChoppedString = this
 		protected override def appendTo(builder :java.lang.StringBuilder) :java.lang.StringBuilder = builder
+		protected override def appendTo(builder :JStringBuilder, from :Int, until :Int) :JStringBuilder = builder
 		override def toReader = Reader.nullReader()
 		override def toString = ""
 	}
@@ -579,8 +626,18 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 
 		override def apply(i :Int) :Char = if (i < prefix.length) prefix(i) else suffix.charAt(i - prefix.length)
 
-		override protected def appendTo(builder :java.lang.StringBuilder) =
+		protected override def appendTo(builder :java.lang.StringBuilder) =
 			prefix appendTo builder append suffix
+
+		protected override def appendTo(builder :java.lang.StringBuilder, from :Int, until :Int) = {
+			val prefixLength = prefix.length
+			if (until <= prefixLength)
+				prefix.appendTo(builder, from, until)
+			else if (from >= prefixLength)
+				builder append suffix.substring(from - prefixLength, until - prefixLength)
+			else
+				suffix.appendTo(prefix.appendTo(builder, from, prefixLength), 0, until - prefixLength)
+		}
 
 		override lazy val toString :String = super.toString
 		private def writeReplace :ChoppedString = Substring(toString)
@@ -598,6 +655,16 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 
 		override protected def appendTo(builder :java.lang.StringBuilder) =
 			suffix appendTo (builder append prefix)
+
+		protected override def appendTo(builder :java.lang.StringBuilder, from :Int, until :Int) = {
+			val prefixLength = prefix.length
+			if (until <= prefixLength)
+				builder append prefix.substring(from, until)
+			else if (from >= prefixLength)
+				suffix.appendTo(builder, from - prefixLength, until - prefixLength)
+			else
+				suffix.appendTo(builder append prefix.substring(from, prefixLength), 0, until - prefixLength)
+		}
 
 		override lazy val toString :String = super.toString
 		private def writeReplace :ChoppedString = Substring(toString)
@@ -617,6 +684,16 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 
 		override def appendTo(builder :java.lang.StringBuilder) =
 			suffix.appendTo(prefix.appendTo(builder))
+
+		protected override def appendTo(builder :java.lang.StringBuilder, from :Int, until :Int) = {
+			val prefixLength = prefix.length
+			if (until <= prefixLength)
+				prefix.appendTo(builder, from, until)
+			else if (from >= prefixLength)
+				suffix.appendTo(builder, from - prefixLength, until - prefixLength)
+			else
+				suffix.appendTo(prefix.appendTo(builder, from, prefixLength), 0, until - prefixLength)
+		}
 
 		override lazy val toString :String = super.toString
 		private def writeReplace :ChoppedString = Substring(toString)
@@ -742,9 +819,9 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		override def read :Int = {
 			if (tail.isEmpty)
 				throw new IOException("empty string")
-			val (h, t) = tail.splitAt(1)
-			tail = t
-			h.head
+			val h = tail.head
+			tail = tail.tail
+			h
 		}
 		override def read(cbuf :Array[Char], off :Int, len :Int) = {
 			val res = tail.copyToArray(cbuf, off, len)
@@ -930,7 +1007,12 @@ final class Substring private (protected override val whole :String,
 	protected override def fromString(string :String, from :Int, until :Int) :Substring =
 		new Substring(string, from, until - from)
 
-	def substring(start :Int, end :Int = length) :Substring = slice(start, end)
+//	override def substring(start :Int, end :Int = length) :Substring = slice(start, end)
+	override def substring(start :Int, end :Int) :String =
+		if (start < 0 | end < 0 | end < start | end > length)
+			throw new IndexOutOfBoundsException("Substring|" + length + "|.substring(" + start + ", " + end + ")")
+		else
+			whole.substring(startIndex + start, startIndex + end)
 
 	override def isWhitespace :Boolean = {
 		val string = whole
@@ -958,10 +1040,11 @@ final class Substring private (protected override val whole :String,
 		case _                   => super.prependedAll(string)
 	}
 
-	protected override def appendTo(builder :lang.StringBuilder) :lang.StringBuilder = {
+	protected override def appendTo(builder :JStringBuilder) :JStringBuilder = appendTo(builder, 0, length)
+	protected override def appendTo(builder :JStringBuilder, from :Int, until :Int) :JStringBuilder = {
 		val string = whole
-		var i      = startIndex
-		val end    = i + length
+		var i      = startIndex + from
+		val end    = startIndex + until
 		while (i < end) {
 			builder append string.charAt(i)
 			i += 1

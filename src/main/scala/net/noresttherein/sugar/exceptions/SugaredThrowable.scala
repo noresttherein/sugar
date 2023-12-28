@@ -1,12 +1,10 @@
 package net.noresttherein.sugar.exceptions
 
-import java.io.{PrintStream, PrintWriter, StringWriter}
+import java.io.{PrintStream, PrintWriter}
 
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
-import net.bytebuddy.implementation.FixedValue.self
-import net.noresttherein.sugar.exceptions
 import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 

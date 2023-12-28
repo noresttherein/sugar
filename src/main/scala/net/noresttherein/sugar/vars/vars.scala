@@ -1359,7 +1359,7 @@ x	  */
 
 		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a passed result (containing a value).
-		  */
+		  */ //consider: another name: Done
 		@SerialVersionUID(Ver)
 		object Passed {
 			/** Creates an instance of $Passed wrapping the value.
@@ -1397,7 +1397,7 @@ x	  */
 
 		/** Factory and matching pattern for [[net.noresttherein.sugar.vars.Fallible! Fallible]] instances
 		  * representing a failed result (containing an error message).
-		  */
+		  */ //consider: other names. Abort. Stop.
 		@SerialVersionUID(Ver)
 		object Failed {
 			/** A `Failed` instance with an empty message. */

@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import java.lang.reflect.InvocationTargetException
 
 import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
-import scala.collection.immutable.{ArraySeq, IndexedSeqOps, LinearSeq}
+import scala.collection.immutable.{ArraySeq, IndexedSeqOps, LinearSeq, WrappedString}
 import scala.collection.{IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, View, mutable}
 import scala.collection.mutable.{ArrayBuffer, Builder}
 
@@ -214,6 +214,8 @@ private object IndexedIterable {
 				case seq :ArraySeq[A]         => Got(seq)
 				case seq :mutable.ArraySeq[A] => Got(seq)
 				case seq :ArrayBuffer[A]      => Got(seq)
+				case seq :WrappedString       => Got(seq)
+				case seq :Substring           => Got(seq)
 				case seq :IndexedSeq[A] if applyPreferredMaxLengthProperty.isDefined =>
 					if (seq.length <= applyPreferredMaxLengthProperty.get.invoke(seq).asInstanceOf[Int])
 						Got(seq)

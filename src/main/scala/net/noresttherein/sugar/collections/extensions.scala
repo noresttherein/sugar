@@ -4753,6 +4753,8 @@ object extensions extends extensions {
 				i += 1
 			i - start
 		}
+
+		def chopped :ChoppedString = ChoppedString(self)
 	}
 	sealed trait StringExtensionConversion extends (String => StringExtension) {
 		@inline final def apply(self :String)(implicit dummy :DummyImplicit) :StringExtension =

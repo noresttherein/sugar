@@ -180,6 +180,14 @@ object ChoppedStringSpec extends Properties("ChoppedString") {
 		                                        chops.subSequence(i, j).toString ?= expect.substring(i, j)
 	                                    }
 	                                 }
+	property("substring  ")        = prop { (chops, expect) =>
+	                                 	forAll { (i :Int, j :Int) =>
+		                                    if (i < 0 || j < 0 || i > j || j > expect.length)
+			                                    Prop(throws(classOf[IndexOutOfBoundsException])(chops.substring(i, j)))
+		                                    else
+		                                        chops.substring(i, j) ?= expect.substring(i, j)
+	                                    }
+	                                 }
 	property("map")                = prop { (chops, expect) =>
 	                                    chops.map(_.toLower).toString ?= expect.map(_.toLower)
 	                                 }
