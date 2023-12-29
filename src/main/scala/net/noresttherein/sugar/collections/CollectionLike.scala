@@ -1,11 +1,11 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.{IterableOnceOps, mutable}
+import scala.collection.{IterableOnceOps, Stepper, StepperShape, mutable}
 import scala.collection.mutable.Buffer
 
 import net.noresttherein.sugar.{funny, outOfBounds_!}
 import net.noresttherein.sugar.collections.extensions.{IteratorExtension, SeqFactoryExtension}
-import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.extensions.{StepperCompanionExtension, cast2TypeParamsMethods, castTypeParamMethods, classNameMethods}
 import net.noresttherein.sugar.funny.generic
 
 
@@ -70,13 +70,39 @@ trait CollectionLike[+X, -Xs] extends Serializable {
 	  */
 	def iterator(elems :Xs) :Iterator[X]
 
-	def toIterableOnce(xs :Xs) :IterableOnce[X]
+	def toIterableOnce(elems :Xs) :IterableOnce[X]
 
 	/** The described collection as `IterableOnceOps`. Those which already are `IterableOnceOps[X, _, Xs]`
 	  * return themselves, others are recommended to return an `Iterator[X]` (rather than `Iterable[X]`),
 	  * unless a wrapper to `Iterable` overrides most methods of this interface without delegating to `iterator(elems)`.
 	  */
-	def toIterableOnceOps(xs :Xs) :IterableOnceOps[X, generic.Any, Any]
+	def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, generic.Any, Any]
+
+	/** Returns a [[scala.collection.Stepper]] for the elements of `elems`.
+	  *
+	  * The Stepper enables creating a Java stream to operate on the collection, see
+	  * [[scala.jdk.StreamConverters]]. For collections holding primitive values, the Stepper can be
+	  * used as an iterator which doesn't box the elements.
+	  *
+	  * The implicit [[scala.collection.StepperShape]] parameter defines the resulting Stepper type according to the
+	  * element type of this collection.
+	  *
+	  *   - For collections of `Int`, `Short`, `Byte` or `Char`, an [[scala.collection.IntStepper]] is returned
+	  *   - For collections of `Double` or `Float`, a [[scala.collection.DoubleStepper]] is returned
+	  *   - For collections of `Long` a [[scala.collection.LongStepper]] is returned
+	  *   - For any other element type, an [[scala.collection.AnyStepper]] is returned
+	  *
+	  * Note that this method is overridden in subclasses and the return type is refined to
+	  * `S with EfficientSplit`, for example [[scala.collection.IndexedSeqOps.stepper]]. For Steppers marked with
+	  * [[scala.collection.Stepper.EfficientSplit]], the converters in [[scala.jdk.StreamConverters]]
+	  * allow creating parallel streams, whereas bare Steppers can be converted only to sequential
+	  * streams.
+	  * @param elems a $coll.
+	  */
+	def stepper[S <: Stepper[_]](elems :Xs)(implicit shape :StepperShape[X, S]) :S =
+		iterator(elems).stepper
+
+
 //	def slice(xs :Xs, from :Int, until :Int) :IterableOnce[X] //todo: slice and drop conflict with IterableOnceLike
 //	def drop(xs :Xs, n :Int) :IterableOnce[X]
 //	def consume[U](xs :Xs)(n :Int)(f :X => U) :IterableOnce[X]
@@ -122,16 +148,41 @@ trait CollectionLike[+X, -Xs] extends Serializable {
 		case _ => toIterableOnceOps(elems).reduceLeftOption(op)
 	}
 
+
+	/** Appends all values in `elems` to `seq`, preserving the sequence kind. */
 	def appendedTo[A >: X, CC[_], C](elems :Xs)(seq :collection.SeqOps[A, CC, C]) :CC[A]
+
+	/** Prepends all values in `elems` to `seq`, preserving the sequence kind. */
 	def prependedTo[A >: X, CC[_], C](elems :Xs)(seq :collection.SeqOps[A, CC, C]) :CC[A]
+
+	/** Copies all values from `elems` to the specified sequence, starting with index `index`. */
+	@throws[IndexOutOfBoundsException]("if index < 0, or index > seq.length - elems.size.")
 	def copiedTo[A >: X, CC[_], C](elems :Xs)(seq :collection.SeqOps[A, CC, C], index :Int) :CC[A]
+
+	/** Replaces `replaced` elements starting at `index` in the specified sequence with `elems`.
+	  * This method behaves like [[scala.collection.SeqOps.patch SeqOps.patch]].
+	  */
 	def patchedOn[A >: X, CC[_], C](elems :Xs)(seq :collection.SeqOps[A, CC, C], index :Int, replaced :Int) :CC[A]
 
+	/** Appends all values in `elems` to the given buffer. */
 	def appendTo[A >: X](elems :Xs)(buffer :Buffer[A]) :Unit = insertTo[A](elems)(buffer, buffer.length)
+
+	/** Prepends all values in `elems` to the given buffer. */
 	def prependTo[A >: X](elems :Xs)(buffer :Buffer[A]) :Unit = insertTo[A](elems)(buffer, 0)
+
+	/** Inserts all values in `elems` to the given buffer at the specified position.
+	  * All elements in `[index, buffer.length)` are pushed back by `elems.size` positions.
+	  */
 	def insertTo[A >: X](elems :Xs)(buffer :Buffer[A], index :Int) :Unit
+
+	/** Analogue of `Buffer.`[[scala.collection.mutable.Buffer.patchInPlace patchInPlace]]. */
 	def patchOn[A >: X](elems :Xs)(buffer :Buffer[A], index :Int, replaced :Int) :Unit
-//	def setAll[A >: X](xs :Xs)(seq :mutable.Seq[A], index :Int) :Unit
+
+	/** Copy values from `elems` to the given mutable sequence, starting at position `index`.
+	  * Copying stops when either `elems` runs out of values, or the end of the sequence is reached,
+	  * whichever happens sooner. The contract is the same
+	  * as for `IterableOnceOps.`[[scala.collection.IterableOnceOps.copyToArray copyToArray]].
+	  */
 	def copyTo[A >: X](elems :Xs)(seq :mutable.Seq[A], index :Int) :Int
 
 //	def copyRangeToArray[A >: X](array :Array[A], start :Int, from :Int, until :Int, len :Int, xs :Xs) :Int
@@ -151,10 +202,17 @@ trait CollectionLike[+X, -Xs] extends Serializable {
 	def copyToArray[A >: X](elems :Xs)(array :Array[A], start :Int = 0, max :Int = Int.MaxValue) :Int =
 		iterator(elems).copyToArray(array, start, max)
 
+	/** Copies at most `max` values from `elems` to the specified array, starting at position `index`.
+	  * If the end of the array is reached before copying `max` values (or exhausting `elems`),
+	  * copying resumes from the beginning of the array. If `max > array.length`, at most `array.length` values
+	  * will be copied (this method will not overwrite data that it itself has copied).
+	  */
 	def cyclicCopyToArray[A >: X](elems :Xs)(array :Array[A], index :Int, max :Int) :Int =
 		iterator(elems).cyclicCopyToArray(array, index, max)
 
+	/** A short (without listing all elements) textual representation of the collection, used in `Exception` messages. */
 	def infoString(elems :Xs) :String
+
 	override def toString :String = this.innerClassName
 }
 
@@ -204,8 +262,9 @@ private class SingleValue[X] extends CollectionLike[X, X] {
 	override def isEmpty(xs :X) :Boolean = false
 
 	override def iterator(xs :X) :Iterator[X] = Iterator.single(xs)
-	override def toIterableOnce(xs :X) :IterableOnce[X] = Seq.single(xs)
-	override def toIterableOnceOps(xs :X) :IterableOnceOps[X, Any, Any] = Iterator.single(xs)
+	override def toIterableOnce(elems :X) :IterableOnce[X] = Seq.single(elems)
+	override def toIterableOnceOps(elems :X) :IterableOnceOps[X, Any, Any] = Iterator.single(elems)
+	override def stepper[S <: Stepper[_]](elems :X)(implicit shape :StepperShape[X, S]) :S = Stepper.one(elems)
 
 	override def foreach[U](xs :X)(f :X => U) :Unit = f(xs)
 	override def foldLeft[A](xs :X)(zero :A)(op :(A, X) => A) :A = op(zero, xs)
@@ -214,7 +273,8 @@ private class SingleValue[X] extends CollectionLike[X, X] {
 
 	override def appendedTo[A >: X, CC[_], C](elems :X)(seq :collection.SeqOps[A, CC, C]) :CC[A] = seq :+ elems
 	override def prependedTo[A >: X, CC[_], C](elems :X)(seq :collection.SeqOps[A, CC, C]) :CC[A] = elems +: seq
-	override def copiedTo[A >: X, CC[_], C](elems :X)(seq :collection.SeqOps[A, CC, C], index :Int) :CC[A] = seq.updated(index, elems)
+	override def copiedTo[A >: X, CC[_], C](elems :X)(seq :collection.SeqOps[A, CC, C], index :Int) :CC[A] =
+		seq.updated(index, elems)
 	override def patchedOn[A >: X, CC[_], C](elems :X)(seq :collection.SeqOps[A, CC, C], index :Int, replaced :Int) :CC[A] =
 		if (replaced == 1) copiedTo[A, CC, C](elems)(seq, index)
 		else seq.patch(index, Seq.one(elems), replaced)
@@ -278,8 +338,9 @@ private class CollectionLikeProxy[+X, -Xs](values :CollectionLike[X, Xs]) extend
 	override def isEmpty(xs :Xs) :Boolean = values.isEmpty(xs)
 
 	override def iterator(xs :Xs) :Iterator[X] = values.iterator(xs)
-	override def toIterableOnce(xs :Xs) :IterableOnce[X] = values.toIterableOnce(xs)
-	override def toIterableOnceOps(xs :Xs) :IterableOnceOps[X, generic.Any, Any] = values.toIterableOnceOps(xs)
+	override def toIterableOnce(elems :Xs) :IterableOnce[X] = values.toIterableOnce(elems)
+	override def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, generic.Any, Any] = values.toIterableOnceOps(elems)
+	override def stepper[S <: Stepper[_]](elems :Xs)(implicit shape :StepperShape[X, S]) :S = values.stepper(elems)
 
 	override def foreach[U](xs :Xs)(f :X => U) :Unit = values.foreach(xs)(f)
 	override def foldLeft[A](xs :Xs)(zero :A)(op :(A, X) => A) :A = values.foldLeft[A](xs)(zero)(op)

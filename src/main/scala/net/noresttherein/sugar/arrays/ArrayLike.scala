@@ -612,17 +612,18 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def minOption[U >: E](implicit ord :Ordering[U]) :Option[E] = reduceLeftOption(ord.min)
 		@inline def maxOption[U >: E](implicit ord :Ordering[U]) :Option[E] = reduceLeftOption(ord.max)
 
-		def minBy[A](f :E => A)(implicit cmp :Ordering[A]) :E =
-			IndexedSeqLike.forArray[E].minBy(self.asInstanceOf[Array[E]])(f)
+		//consider; bringing back those methods in IndexedSeqLike
+		def minBy[A](f :E => A)(implicit cmp :Ordering[A]) :E = toSeq.minBy(f)
+//			IndexedSeqLike.forArray[E].minBy(self.asInstanceOf[Array[E]])(f)
 
-		def maxBy[A](f :E => A)(implicit cmp :Ordering[A]) :E =
-			IndexedSeqLike.forArray[E].maxBy(self.asInstanceOf[Array[E]])(f)
+		def maxBy[A](f :E => A)(implicit cmp :Ordering[A]) :E = toSeq.maxBy(f)
+//			IndexedSeqLike.forArray[E].maxBy(self.asInstanceOf[Array[E]])(f)
 
-		def minByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] =
-			IndexedSeqLike.forArray[E].minByOption(self.asInstanceOf[Array[E]])(f)
+		def minByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = toSeq.minByOption(f)
+//			IndexedSeqLike.forArray[E].minByOption(self.asInstanceOf[Array[E]])(f)
 
-		def maxByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] =
-			IndexedSeqLike.forArray[E].maxByOption(self.asInstanceOf[Array[E]])(f)
+		def maxByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = toSeq.maxByOption(f)
+//			IndexedSeqLike.forArray[E].maxByOption(self.asInstanceOf[Array[E]])(f)
 
 		/** Search this array for a specific element.
 		  * The array should be sorted with the same `Ordering` before calling; otherwise, the results are undefined.

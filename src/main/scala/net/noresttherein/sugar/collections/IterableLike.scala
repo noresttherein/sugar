@@ -19,7 +19,7 @@ import net.noresttherein.sugar.typist.<:?<
   * @tparam C  the collection type
   * @define Coll `Iterable`
   * @define coll iterable collection
-  */
+  */ //consider: removing a large portion of less used methods.
 trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	override def isTraversableAgain(elems :C) :Boolean = true
 
@@ -28,7 +28,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  *       method needs to be overridden to return a factory for the new type (the compiler will
 	  *       issue an error otherwise).
 	  * @param elems a $coll.
-	  */
+	  */ //consider: dropping this method.
 	def iterableFactory(elems :C) :IterableFactory[CC] = toOps(elems).iterableFactory
 
 	/**

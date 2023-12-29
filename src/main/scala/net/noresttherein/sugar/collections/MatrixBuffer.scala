@@ -2700,7 +2700,7 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 //		override def prefersDropOverIterator(xs :Xs) :Boolean = false
 
 		override def iterator(xs :Xs) :Iterator[X] = Iterator.empty
-		override def toIterableOnce(xs :Xs) :IterableOnce[X] = Nil
+		override def toIterableOnce(elems :Xs) :IterableOnce[X] = Nil
 //		override def slice(xs :Xs, from :Int, until :Int) :IterableOnce[X] = Nil
 //		override def drop(xs :Xs, n :Int) :IterableOnce[X] = Nil
 //		override def consume[U](xs :Xs)(n :Int)(f :X => U) :IterableOnce[X] = values.drop(xs, n)

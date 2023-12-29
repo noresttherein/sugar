@@ -22,7 +22,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
 /**
   * @define Coll `Seq`
   * @define coll sequence
-  */
+  */ //consider: rplacing it with something like OrderedLike or PositionedLike or RankedLike
 trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 
 	override def view(elems :C) :SeqView[E] = new SeqView.Id[E](toOps(elems))
@@ -33,11 +33,6 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  */
 	@throws[IndexOutOfBoundsException]
 	def apply(elems :C)(i :Int) :E
-
-	/** The length (number of elements) of `elems`. `size` is an alias for `length` in `Seq` collections.
-	  * @param elems a $coll.
-	  */
-	@inline final def length(elems :C) :Int = size(elems)
 
 	/** A copy of `elems` with an element prepended.
 	  * Also, the original $coll is not modified, so you will want to capture the result.
@@ -175,7 +170,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  */
 	def endsWith[U >: E, O](elems :C)(that :O)(implicit iterableLike :IterableLike[U, generic.Any, O]) :Boolean = {
 		iterableLike.isEmpty(that) || {
-			val i = iterator(elems).drop(length(elems) - iterableLike.size(that))
+			val i = iterator(elems).drop(size(elems) - iterableLike.size(that))
 			val j = iterableLike.iterator(that)
 			while (i.hasNext && j.hasNext)
 				if (i.next() != j.next())
@@ -183,15 +178,6 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 			!j.hasNext
 		}
 	}
-
-	/** Tests whether `elems` contains given index.
-	  *
-	  * The implementations of methods `apply` and `isDefinedAt` turn a ` Seq[A]` into a `PartialFunction[Int, A]`.
-	  * @param elems a $coll.
-	  * @param idx   the index to test.
-	  * @return `true` if `elems` contains an element at position `idx`, `false` otherwise.
-	  */
-	def isDefinedAt(elems :C)(idx :Int) :Boolean = idx >= 0 && lengthIs(elems) > idx
 
 	/** A copy of `elems` with an element value appended until a given target length is reached.
 	  * @tparam A    the element type of the returned $coll.
@@ -255,7 +241,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  * @return the index `<= end` of the last element of `elems` that is equal
 	  *         (as determined by `==`) to `elem`, or `-1`, if none exists.
 	  */
-	def lastIndexOf[A >: E](elems :C)(elem :A, end :Int = length(elems) - 1): Int =
+	def lastIndexOf[A >: E](elems :C)(elem :A, end :Int = size(elems) - 1): Int =
 		lastIndexWhere(elems)(elem == _, end)
 
 	/** Finds index of last element satisfying some predicate before or at iven end index.
@@ -268,7 +254,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  *          or `-1`, if none exists.
 	  */
 	def lastIndexWhere(elems :C)(p :E => Boolean, end :Int): Int = {
-		var i  = length(elems) - 1
+		var i  = size(elems) - 1
 		val it = reverseIterator(elems)
 		while (it.hasNext && { val elem = it.next(); i > end || !p(elem) })
 			i -= 1
@@ -337,7 +323,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  *    // List(a, b, b)
 	  *    // List(b, a, b)
 	  *    / List(b, b, a)
-	  * }}} */
+	  * }}} */ //a candidate for removal
 	def permutations(elems :C) :Iterator[C] =
 		if (isEmpty(elems)) Iterator.single(elems) else toOps(elems).permutations
 
@@ -377,7 +363,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  *    // List(b, b)
 	  *     // List(b, a)
 	  *  }}}
-	  */
+	  */ //a candidate for removal
 	def combinations(elems :C)(n :Int) :Iterator[C] =
 		if (n < 0 || n > size(elems)) Iterator.empty else toOps(elems).combinations(n)
 
@@ -391,24 +377,22 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  * @param ord   the ordering to be used to compare elements.
 	  * @return      a $coll consisting of the elements of `elems` sorted according to the ordering `ord`.
 	  */
-	def sorted[A >: E](elems :C)(implicit ord :Ordering[A]) :C = {
-		val len = length(elems)
-		val b = newSpecificBuilder(elems)
-		if (len == 1)
-			b += head(elems)
-		else if (len > 1) {
-			b.sizeHint(len)
-			val arr = new Array[Any](len)
-			copyToArray[Any](elems)(arr)
-			java.util.Arrays.sort(arr.asInstanceOf[Array[AnyRef]], ord.asInstanceOf[Ordering[AnyRef]])
-			var i = 0
-			while (i < len) {
-				b += arr(i).asInstanceOf[E]
-				i += 1
+	def sorted[A >: E](elems :C)(implicit ord :Ordering[A]) :C =
+		if (isEmpty(elems))
+			elems
+		else {
+			val b = newSpecificBuilder(elems)
+			val len = size(elems)
+			if (len == 1)
+				b += head(elems)
+			else if (len > 1) {
+				val array = toRefArray[E](elems)
+				java.util.Arrays.sort(array.asAnyRefArray, ord.castParam[AnyRef])
+				b.sizeHint(len)
+				b ++= array.toSeq
 			}
+			b.result()
 		}
-		b.result()
-	}
 
 	/** Sorts `elems` according to a comparison function.
 	  * $willNotTerminateInf
@@ -452,57 +436,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  */
 	def sortBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :C = sorted(elems)(ord on f)
 
-	/** Produces the range of all indices of this sequence.
-	  * $willForceEvaluation
-	  * @param elems a $coll.
-	  * @return a `Range` value from `0` to one less than the length of `elems`.
-	  */
-	@inline final def indices(elems :C): Range = Range(0, length(elems))
-
-	/** Compares the length of `elems` to a test va .
-	  *
-	  * @param elems a $coll.
-	  * @param len   the test value that gets compared with th ength.
-	  * @return A value `x`  where
-	  *         {{{
-	  *             x <  0       if this.length <  len
-	  *             x == 0       if this.length == len
-	  *             x >  0       if this.length >  len
-	  *         }}}
-	  *  @see [[lengthIs]]
-	  */
-	@inline final def lengthCompare(elems :C, len: Int): Int = sizeCompare(elems, len)
-
-	/** Compares the length of `elems` to the size of another ` Iterable` .
-	  *
-	  * @param elems a $coll.
-	  * @param that  the `Iterable` whose size is compared with is $coll 's length.
-	  * @return A value `x` where
-	  *         {{{
-	  *             x <  0       if this.length <  that.size
-	  *             x == 0       if this.length == that.size
-	  *             x >  0       if this.length >  that.size
-	  *         }}}
-	  */
-	@inline final def lengthCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, generic.Any, O]) :Int =
-		sizeCompare(elems, that)
-
-	/** Returns a value class containing operations for comparing the length of `elems` to a test value.
-	  * These operations are implemented in terms of [[lengthCompare(Int) `lengthCompare(Int)`]],
-	  * and allow the following more readable usages:
-	  * {{{
-	  * this.lengthIs < len     // this.lengthCompare(len) < 0
-	  * this.lengthIs <= len    // this.lengthCompare(len) <= 0
-	  * this.lengthIs == len    // this.lengthCompare(len) == 0
-	  * this.lengthIs != len    // this.lengthCompare(len) != 0
-	  * this.lengthIs >= len    // this.lengthCompare(len) >= 0
-	  * this.lengthIs > len     // this.lengthCompare(len) > 0
-	  * }}}
-	  * @param elems a $coll.
-	  */
-	@inline final def lengthIs(elems :C) :IterableOps.SizeCompareOps = sizeIs(elems)
-
-	override def isEmpty(elems :C): Boolean = lengthCompare(elems, 0) == 0
+	override def isEmpty(elems :C): Boolean = sizeCompare(elems, 0) == 0
 
 	/** Are the elements of this collection the same (and in the same order) as those of `that`?
 	  * @param elems a $coll.
@@ -532,24 +466,6 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 		val thatSize = that.knownSize
 		(thisSize == -1 || thatSize == -1 || thisSize == thatSize) && iterator(elems).corresponds(that.iterator)(p)
 	}
-
-	/** Computes the multiset difference between his $coll a another sequence.
-	  * @param elems a $coll.
-	  * @param that  the sequence of elements to remove.
-	  * @return A new $coll which contains all the elements of `elems` except some of occurrences of elements
-	  *         that also appear in `that`. If an element value `x` appears ''n'' times in `that`, then the first ''n''
-	  *         occurrences of `x` will not form a part of the result, but any following occurrences will.
-	  */
-	def diff[A >: E](elems :C)(that :collection.Seq[A]) :C = toOps(elems).diff(that)
-
-	/** Computes the multiset intersection between `elems` and another sequence.
-	  * @param elems a $coll.
-	  * @param that  the sequence of elements to intersect with.
-	  * @return A new $coll which contains all the elements of `elems` which also appear in `that`.
-	  *         If an element value `x` appears ''n'' times in `that`, then the first ''n'' occurrences of `x`
-	  *         will be retained in the result, but any following occurrences will be omitted.
-	  */
-	def intersect[A >: E](elems :C)(that :collection.Seq[A]) :C = toOps(elems).intersect(that)
 
 	/** Produces a new $coll where a slice of elements in `elems` is replaced by another sequence.
 	  * Patching at negative indices is the same as patching starting at 0.
@@ -659,8 +575,6 @@ object SeqLike extends Rank1SeqLike {
 		                                (implicit iterableLike :IterableLike[U, funny.generic.Any, O]) :Boolean =
 			elems.endsWith(iterableLike.toIterable(that))
 
-		override def isDefinedAt(elems :C)(idx :Int) :Boolean = elems.isDefinedAt(idx)
-
 		override def segmentLength(elems :C)(p :E => Boolean, from :Int) :Int = elems.segmentLength(p, from)
 		override def indexWhere(elems :C)(p :E => Boolean, from :Int) :Int = elems.indexWhere(p, from)
 		override def indexOf[A >: E](elems :C)(elem: A, from :Int): Int = elems.indexOf(elem, from)
@@ -689,9 +603,6 @@ object SeqLike extends Rank1SeqLike {
 		override def corresponds[A](elems :C)(that :collection.Seq[A])(p :(E, A) => Boolean) :Boolean =
 			elems.corresponds(that)(p)
 		
-		override def diff[A >: E](elems :C)(that :collection.Seq[A]) :C = elems.diff(that)
-		override def intersect[A >: E](elems :C)(that :collection.Seq[A]) :C = elems.intersect(that)
-
 		override def toIterable(elems :C) :Iterable[E] = toSeq(elems)
 		override def toOps(elems :C) :collection.SeqOps[E, CC, C] = elems
 	}
@@ -753,7 +664,7 @@ trait IndexedSeqLike[+E, +CC[_], C] extends SeqLike[E, CC, C] {
 
 	override def knownSize(elems :C) :Int = size(elems)
 
-	override def sizeCompare(elems :C, len :Int) :Int = Integer.compare(length(elems), len)
+	override def sizeCompare(elems :C, len :Int) :Int = Integer.compare(size(elems), len)
 
 	override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, generic.Any, O]) :Int = {
 		val thatSize = collection.knownSize(that)
@@ -783,7 +694,7 @@ trait IndexedSeqLike[+E, +CC[_], C] extends SeqLike[E, CC, C] {
 
 	override def last(elems :C) :E =
 		if (size(elems) == 0) throw new NoSuchElementException(infoString(elems) + ".head")
-		else apply(elems)(length(elems) - 1)
+		else apply(elems)(size(elems) - 1)
 
 	override def tail(elems :C) :C = {
 		val length = size(elems)
@@ -984,12 +895,6 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def padTo[A >: E](elems :Ranking[E])(len :Int, elem :A) =
 			if (elems.length >= len || elems.contains(elem)) elems else elems :+ elem
 
-		override def diff[A >: E](elems :Ranking[E])(that :collection.Seq[A]) =
-			iterableFactory(elems) from (elems.iterator.filterNot(that.contains))
-
-		override def intersect[A >: E](elems :Ranking[E])(that :collection.Seq[A]) =
-			iterableFactory(elems) from (elems.iterator.filter(that.contains))
-
 		override def patch[A >: E](elems :Ranking[E])(from :Int, other :IterableOnce[A], replaced :Int) =
 			elems.patch(from, other, replaced)
 
@@ -1074,7 +979,7 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def view(elems :String) :StringView = elems.view
 		override def toIndexedSeq(elems :String) :IndexedSeq[Char] = elems
 		override def toOps(elems :String) :collection.IndexedSeqOps[Char, IndexedSeq, String] = new StringAsSeq(elems)
-		override def toIterableOnceOps(xs :String) :IterableOnceOps[Char, Any, Any] = StringIterator(xs)
+		override def toIterableOnceOps(elems :String) :IterableOnceOps[Char, Any, Any] = StringIterator(elems)
 
 		private def readResolve = IndexedSeqLike.forString
 		override def toString = "IndexedSeqLike.forString"
@@ -1205,9 +1110,6 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 	final override def zipAll[U >: E, A, O](elems :Arr[E])(that :O, thisElem :U, thatElem :A)
 	                                       (implicit iterableLike :IterableLike[A, generic.Any, O]) :Arr[(U, A)] =
 		elems.zipAll(iterableLike.toIterable(that), thisElem, thatElem)
-
-	final override def diff[U >: E](elems :Arr[E])(that :collection.Seq[U]) :Arr[E] = elems.diff(that)
-	final override def intersect[U >: E](elems :Arr[E])(that :collection.Seq[U]) :Arr[E] = elems.intersect(that)
 
 	override def empty(elems :Arr[E]) :Arr[E] =
 		ArrayFactory.empty(elems.getClass.getComponentType).asInstanceOf[Arr[E]]

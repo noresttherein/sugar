@@ -1,8 +1,10 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.immutable.{AbstractSeq, LinearSeq, SeqOps}
+import scala.collection.IterableFactory
+import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, LinearSeq, SeqOps}
+import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.collections.extensions.{IteratorExtension, IteratorCompanionExtension, SeqFactoryExtension}
+import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtension, IteratorExtension, SeqFactoryExtension}
 
 
 
@@ -135,3 +137,45 @@ private[noresttherein] class Prepended2IndexedSeq[+E](override val head :E, seco
 	protected override def className = "IndexedSeq"
 }
 
+
+
+
+
+
+//for lack of a better place to put it
+/** A non-sticky adapter of a `String` to `IterableOnce[E]` and `IndexedSeqOps[E, IndexedSeq, String]`.
+  * All operations return a `String`, or a generic `IndexedSeq` if element type changes, not another instance
+  * of this class. What makes it different from standard extension methods in [[scala.collection.StringOps StringOps]]
+  * is that the latter is not an `IterableOnce`. On the other hand, explicitly created
+  * [[scala.collection.immutable.WrappedString WrappedString]] return the same sequence type when filtering or mapping.
+  * It's useful for enabling the use of strings as parameters to any method/class requiring an `IterableOps[E, CC, C]`,
+  * so that the result(s) are also `String`s.
+  */ //todo: add an implicit conversion somewhere
+@SerialVersionUID(Ver)
+private final class StringAsSeq(override val coll :String)
+	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String] with Serializable
+{
+	def length :Int = coll.length
+
+	override def apply(i :Int) :Char = coll.charAt(i)
+
+	override def iterator :Iterator[Char] = new StringIterator(coll, 0, coll.length)
+
+	override def empty :String = ""
+
+	protected override def fromSpecific(coll :IterableOnce[Char]) :String = coll match {
+		case empty :Iterable[Char] if empty.isEmpty => ""
+		case _ => (new StringBuilder ++= coll).result()
+	}
+	protected override def newSpecificBuilder :Builder[Char, String] = new StringBuilder
+	override def iterableFactory :IterableFactory[IndexedSeq] = IndexedSeq
+
+	override def toIterable :Iterable[Char] = coll
+
+	override def equals(that :Any) :Boolean = that match {
+		case it :StringAsSeq => it.coll == coll
+		case _ => false
+	}
+	override def hashCode :Int = coll.hashCode
+	override def toString :String = coll //"StringAsSeq(" + coll + ")"
+}

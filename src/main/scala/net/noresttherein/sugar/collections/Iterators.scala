@@ -1941,9 +1941,7 @@ private object Iterators {
 		extends AbstractIterator[E] with IteratorSlicing[E]
 	{ outer =>
 		private[this] var i = 0
-		private[this] var taken = 0
 		private def index :Int = i
-		private def taken_--() :Unit = taken -= 1
 		override def knownSize :Int = underlying.knownSize
 		override def hasNext :Boolean = underlying.hasNext
 		override def next() :E = { i += 1; underlying.next() }

@@ -24,7 +24,6 @@ import net.noresttherein.sugar.typist.<:?<
   *      `addOne(x :X)` and `addAll(x :IterableOnce[X])` can share the same implementation
   *      {{{
   *         def add[CC[_], C](x :C)(implicit multiple :IterableOnceLike[X, CC, C])
-  *
   *      }}}
   *   2. Treating one collection type like another: for example, a [[net.noresttherein.sugar.collections.Ranking Ranking]]
   *      shares features of both a `SetOps` and an `IndexedSeqOps`, but can implement neither interface
@@ -63,31 +62,9 @@ import net.noresttherein.sugar.typist.<:?<
   *              The order in which operations are performed on elements is unspecified
   *              and may be nondeterministic.
   */
+//Todo: we must streamline this collection of interfaces to the basic bare bones, leaving out everything
+// that we are unlikely to a) need in the context of high abstraction, and b) override with specific implementations.
 trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
-
-	/** Returns a [[scala.collection.Stepper]] for the elements of `elems`.
-	  *
-	  * The Stepper enables creating a Java stream to operate on the collection, see
-	  * [[scala.jdk.StreamConverters]]. For collections holding primitive values, the Stepper can be
-	  * used as an iterator which doesn't box the elements.
-	  *
-	  * The implicit [[scala.collection.StepperShape]] parameter defines the resulting Stepper type according to the
-	  * element type of this collection.
-	  *
-	  *   - For collections of `Int`, `Short`, `Byte` or `Char`, an [[scala.collection.IntStepper]] is returned
-	  *   - For collections of `Double` or `Float`, a [[scala.collection.DoubleStepper]] is returned
-	  *   - For collections of `Long` a [[scala.collection.LongStepper]] is returned
-	  *   - For any other element type, an [[scala.collection.AnyStepper]] is returned
-	  *
-	  * Note that this method is overridden in subclasses and the return type is refined to
-	  * `S with EfficientSplit`, for example [[scala.collection.IndexedSeqOps.stepper]]. For Steppers marked with
-	  * [[scala.collection.Stepper.EfficientSplit]], the converters in [[scala.jdk.StreamConverters]]
-	  * allow creating parallel streams, whereas bare Steppers can be converted only to sequential
-	  * streams.
-	  * @param elems a $coll.
-	  */
-	def stepper[S <: Stepper[_]](elems :C)(implicit shape :StepperShape[E, S]) :S =
-		iterator(elems).stepper
 
 	/** Produces a $coll containing cumulative results of applying the
 	  * operator going left to right, including the initial value.
@@ -241,8 +218,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * }}}
 	  * @tparam A         the type of the elements of each iterable collection.
 	  * @param elems      a $coll.
-	  * @param asIterable an implicit conversion which asserts that the element
-	  *                   type of `elems` is an `Iterable`.
+	  * @param iterableOnceLike a type class allowing to treat `elems` like `IterableOnce`.
 	  * @return a new $coll resulting from concatenating all element ${coll}s.
 	  */
 	def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any, U]) :CC[A]
@@ -303,7 +279,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  */
 	def tapEach[U](elems :C)(f :E => U) :C
 
-	/////////////////////////////////////////////////////////////// Concrete methods based on iterator
+
 
 	/** Tests whether a predicate holds for all elements of `elems`.
 	  *
@@ -361,44 +337,6 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	def foldRight[A](elems :C)(z :A)(op :(E, A) => A) :A =
 		if (knownSize(elems) == 0) z else reverseIterator(elems).foldLeft(z)((b, a) => op(a, b))
 
-	/** Folds the elements of `elems` using the specified associative binary operator.
-	  * The default implementation in `IterableOnce` is equivalent to `foldLeft` but may be
-	  * overridden for more efficient traversal orders.
-	  *
-	  * $undefinedorder
-	  * $willNotTerminateInf
-	  * @tparam A a type parameter for the binary operator, a supertype of `A`.
-	  * @param elems a $coll.
-	  * @param z     a neutral element for the fold operation; may be added to the result.
-	  *           an arbitrary number of times, and must not change the result (e.g., `Nil` for list concatenation,
-	  *           0 for addition, or 1 for multiplication).
-	  * @param op a binary operator that must be associative.
-	  * @return the result of applying the fold operator `op` between all the elements and `z`, or `z` if `elems` is empty.
-	  */
-	def fold[A >: E](elems :C)(z :A)(op :(A, A) => A) :A = foldLeft(elems)(z)(op)
-
-	/** Reduces the elements of `elems` using the specified associative binary operator.
-	  *
-	  * $undefinedorder
-	  * @tparam A A type parameter for the binary operator, a supertype of `A`.
-	  * @param elems a $coll.
-	  * @param op    A binary operator that must be associative.
-	  * @return The result of applying reduce operator `op` between all the elements if the $coll is nonempty.
-	  * @throws UnsupportedOperationException if `elems` is empty.
-	  */
-	def reduce[A >: E](elems :C)(op :(A, A) => A) :A = reduceLeft[A](elems)(op)
-
-	/** Reduces the elements of `elems`, if any, using the specified associative binary operator.
-	  *
-	  * $undefinedorder
-	  * @tparam A    A type parameter for the binary operator, a supertype of `A`.
-	  * @param elems a $coll.
-	  * @param op    A binary operator that must be associative.
-	  * @return An option value containing result of applying reduce operator `op` between all
-	  *         the elements if the collection is nonempty, and `None` otherwise.
-	  */
-	def reduceOption[A >: E](elems :C)(op :(A, A) => A) :Option[A] = reduceLeftOption[A](elems)(op)
-
 	/** Optionally applies a binary operator to all elements of `elems`, going left to right.
 	  * @param elems a $coll of this type class.
 	  * @param op    a binary operator.
@@ -441,193 +379,6 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 			case 0 => None
 			case _ => Some(reduceRight[A](elems)(op))
 		}
-
-//	def cyclicCopyToArray[A >: E](elems :C)(xs :Array[A], start :Int = 0, len :Int = Int.MaxValue) :Int =
-//		toIterableOnce(elems).cyclicCopyToArray(xs, start, len)
-
-	/** Sums the elements of this collection.
-	  * The default implementation uses `reduce` for a known non-empty collection, `foldLeft` otherwise.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    the result type of the `+` operator.
-	  * @param elems a $coll.
-	  * @param num   an implicit parameter defining a set of numeric operations
-	  *              which includes the `+` operator to be used in forming the sum.
-	  * @return the sum of all elements of `elems` with respect to the `+` operator in `num`.
-	  */
-	def sum[A >: E](elems :C)(implicit num :Numeric[A]) :A =
-		knownSize(elems) match {
-			case -1 => foldLeft(elems)(num.zero)(num.plus)
-			case 0 => num.zero
-			case _ => reduce[A](elems)(num.plus)
-		}
-
-	/** Multiplies together the elements of this collection.
-	  * The default implementation uses `reduce` for a known non-empty collection, `foldLeft` otherwise.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    the result type of the `*` operator.
-	  * @param elems a $coll.
-	  * @param num   an implicit parameter defining a set of numeric operations
-	  *              which includes the `*` operator to be used in forming the product.
-	  * @return the product of all elements of `elems` with respect to the `*` operator in `num`.
-	  */
-	def product[A >: E](elems :C)(implicit num :Numeric[A]) :A =
-		knownSize(elems) match {
-			case -1 => foldLeft(elems)(num.one)(num.times)
-			case 0 => num.one
-			case _ => reduce[A](elems)(num.times)
-		}
-
-	/** Finds the largest element.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The type over which the ordering is defined.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @throws UnsupportedOperationException if `elems` is empty.
-	  * @return the largest element of `elems` with respect to the ordering `ord`.
-	  */
-	def max[A >: E](elems :C)(implicit ord :Ordering[A]) :E = reduceLeft(elems)(ord.max)
-
-	/** Finds the largest element.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The type over which the ordering is defined.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @return an option value containing the largest element of `elems` with
-	  *         respect to the ordering `ord`.
-	  */
-	def maxOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] =
-		knownSize(elems) match {
-			case -1 => toIterableOnceOps(elems).reduceLeftOption(ord.max)
-			case 0 => None
-			case _ => Some(reduceLeft(elems)(ord.max))
-		}
-
-	/** Finds the first element which yields the largest value measured by function f.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The result type of the function f.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @param f     The measuring function.
-	  * @throws UnsupportedOperationException if `elems` is empty.
-	  * @return the first element of `elems` with the largest value measured by function f
-	  *         with respect to the ordering `cmp`.
-	  */
-	def maxBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :E =
-		knownSize(elems) match {
-			case 0 => throw new UnsupportedOperationException("empty.maxBy")
-			case _ => foldLeft(elems)(new Maximum[E, A](elems)("maxBy")(f)(ord.gt))((m, a) => m(m, a)).result
-		}
-
-	/** Finds the first element which yields the largest value measured by function f.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The result type of the function f.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @param f     The measuring function.
-	  * @return an option value containing the first element of `elems` with the
-	  *         largest value measured by function f with respect to the ordering `cmp`.
-	  */
-	def maxByOption[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :Option[E] =
-		knownSize(elems) match {
-			case 0 => None
-			case _ => foldLeft(elems)(new Maximum[E, A](elems)("maxBy")(f)(ord.gt))((m, a) => m(m, a)).toOption
-		}
-
-	/** Finds the smallest element.
-	  * $willNotTerminateInf
-	  *
-	  * @tparam A    The type over which the ordering is defined.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @throws UnsupportedOperationException if `elems` is empty.
-	  * @return the smallest element of `elems` with respect to the ordering `ord`.
-	  */
-	def min[A >: E](elems :C)(implicit ord :Ordering[A]) :E = reduceLeft(elems)(ord.min)
-
-	/** Finds the smallest element.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The type over which the ordering is defined.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @return an option value containing the smallest element of `elems`
-	  *         with respect to the ordering `ord`.
-	  */
-	def minOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] =
-		knownSize(elems) match {
-			case -1 => toIterableOnceOps(elems).reduceLeftOption(ord.min)
-			case 0 => None
-			case _ => Some(reduceLeft(elems)(ord.min))
-		}
-
-	/** Finds the first element which yields the smallest value measured by function f.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The result type of the function f.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @param f     The measuring function.
-	  * @throws UnsupportedOperationException if `elems` is empty.
-	  * @return the first element of `elems` with the smallest value measured by function f
-	  *         with respect to the ordering `cmp`.
-	  */
-	def minBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :E =
-		knownSize(elems) match {
-			case 0 => throw new UnsupportedOperationException("empty.minBy")
-			case _ => foldLeft(elems)(new Maximum[E, A](elems)("minBy")(f)(ord.lt))((m, a) => m(m, a)).result
-		}
-
-	/** Finds the first element which yields the smallest value measured by function f.
-	  *
-	  * $willNotTerminateInf
-	  * @tparam A    The result type of the function f.
-	  * @param elems a $coll.
-	  * @param ord   An ordering to be used for comparing elements.
-	  * @param f     The measuring function.
-	  * @return an option value containing the first element of `elems`
-	  *         with the smallest value measured by function f
-	  *         with respect to the ordering `cmp`.
-	  */
-	def minByOption[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :Option[E] =
-		knownSize(elems) match {
-			case 0 => None
-			case _ => foldLeft(elems)(new Maximum[E, A](elems)("minBy")(f)(ord.lt))((m, a) => m(m, a)).toOption
-		}
-
-	//todo: get rid of this class and delegate max/min methods somewhere
-	private class Maximum[X, A](elems :C)(descriptor :String)(f :X => A)(cmp :(A, A) => Boolean)
-		extends ((Maximum[X, A], X) => Maximum[X, A])
-	{
-		var maxElem :X = null.asInstanceOf[X]
-		var maxF    :A = null.asInstanceOf[A]
-		var nonEmpty   = false
-
-		def toOption :Option[X] = if (nonEmpty) Some(maxElem) else None
-
-		def result :X = if (nonEmpty) maxElem else throw new UnsupportedOperationException(s"empty.$descriptor")
-
-		def apply(m :Maximum[X, A], a :X) :Maximum[X, A] =
-			if (m.nonEmpty) {
-				val fa = f(a)
-				if (cmp(fa, maxF)) {
-					maxF = fa
-					maxElem = a
-				}
-				m
-			}
-			else {
-				m.nonEmpty = true
-				m.maxElem = a
-				m.maxF = f(a)
-				m
-			}
-	}
 
 	/** Finds the first element of the $coll for which the given partial
 	  * function is defined, and applies the partial function to it.
@@ -1049,9 +800,6 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def find(elems :C)(p :E => Boolean) :Option[E] = elems.find(p)
 		override def foldLeft[B](elems :C)(z :B)(op :(B ,E) => B) :B = elems.foldLeft(z)(op)
 		override def foldRight[A](elems :C)(z :A)(op :(E, A) => A) :A = elems.foldRight(z)(op)
-		override def fold[A >: E](elems :C)(z :A)(op :(A, A) => A) :A = elems.fold(z)(op)
-		override def reduce[A >: E](elems :C)(op :(A, A) => A) :A = elems.reduce(op)
-		override def reduceOption[A >: E](elems :C)(op :(A, A) => A) :Option[A] = elems.reduceOption(op)
 		override def reduceLeft[A >: E](elems :C)(op :(A, E) => A) :A = elems.reduceLeft(op)
 		override def reduceRight[A >: E](elems :C)(op :(E, A) => A) :A = elems.reduceRight(op)
 		override def reduceLeftOption[A >: E](elems :C)(op :(A, E) => A) :Option[A] = elems.reduceLeftOption(op)
@@ -1060,16 +808,6 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def copyToArray[B >: E](elems :C)(array :Array[B], start :Int = 0, max :Int = Int.MaxValue) :Int =
 			elems.copyToArray(array, start, max)
 
-		override def sum[A >: E](elems :C)(implicit num :Numeric[A]) :A = elems.sum[A]
-		override def product[A >: E](elems :C)(implicit num :Numeric[A]) :A = elems.product[A]
-		override def min[A >: E](elems :C)(implicit ord :Ordering[A]) :E = elems.min[A]
-		override def minOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] = elems.minOption[A]
-		override def max[A >: E](elems :C)(implicit ord :Ordering[A]) :E = elems.max[A]
-		override def maxOption[A >: E](elems :C)(implicit ord :Ordering[A]) :Option[E] = elems.maxOption[A]
-		override def maxBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :E = elems.maxBy(f)
-		override def maxByOption[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :Option[E] = elems.maxByOption(f)
-		override def minBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :E = elems.minBy(f)
-		override def minByOption[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :Option[E] = elems.minByOption(f)
 		override def collectFirst[A](elems :C)(pf :PartialFunction[E, A]) :Option[A] = elems.collectFirst(pf)
 		override def corresponds[A, CO[_], O](elems :C)(that :O)(p :(E, A) => Boolean)
 		                                     (implicit iterableOnceLike :IterableOnceLike[A, CO, O]) :Boolean =
