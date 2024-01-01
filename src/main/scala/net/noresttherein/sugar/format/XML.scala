@@ -44,7 +44,7 @@ class XML extends FormatAsString {
 	  */
 	implicit override val stringMold :Mold[String] = StringMold
 
-	protected def propertyMold[S](propertyName :String)(implicit valueMold :Mold[S]) :Mold[S] =
+	protected override def propertyMold[S](propertyName :String)(implicit valueMold :Mold[S]) :Mold[S] =
 		wrap(propertyName)(valueMold) //this probably should override .option, .opt etc. to insert an empty tag.
 
 	protected override def isEmpty(liquid :ChoppedString) :Boolean = liquid.isWhitespace
@@ -75,7 +75,7 @@ class XML extends FormatAsString {
 		override def meltOpt(name :String) = Got(melt(name))
 		override def append(prefix :ChoppedString, name :String) = prefix ++ ("<" + name + '>')
 		override def appendOpt(prefix :ChoppedString, name :String) = Got(append(prefix, name))
-		override def toString :String = "XML.open"
+		override def toString :String = "XML.<>"
 	}
 
 	@SerialVersionUID(Ver)
@@ -105,15 +105,15 @@ class XML extends FormatAsString {
 		override def meltOpt(name :String) = Got(melt(name))
 		override def append(prefix :ChoppedString, name :String) = prefix ++ ("</" + name + '>')
 		override def appendOpt(prefix :ChoppedString, name :String) = Got(append(prefix, name))
-		override def toString :String = "XML.close"
+		override def toString :String = "XML.</>"
 	}
 
 
 
 	@SerialVersionUID(Ver)
 	private object StringMold extends NamedMold[String] with SimpleThrowingMold[String] {
-//		import XMLStreamConstants._
-		private[this] val factory = XMLInputFactory.newInstance()
+		import java.lang.{String=>JString}
+//		private[this] val factory = XMLInputFactory.newInstance()
 
 		private final val Comment = 1
 		private final val CDATA   = 2
@@ -161,7 +161,23 @@ class XML extends FormatAsString {
 							if (next != ';')
 								throw ParsingException(XML)(suffix, "Unterminated entity in \"" + suffix + "\".")
 							val name = entity.toString
-							val text = XMLEntities.getOrElse(name, null)
+							val text =
+								if (name.length == 5 && name.charAt(0) == '#') {
+									try JString.valueOf(Integer.parseInt(name.substring(1)).toChar) catch {
+										case e :NumberFormatException =>
+											throw ParsingException(XML)(
+												suffix, "Illegal numeric character reference: &" + name + ";", e
+											)
+									}
+								} else if (name.length == 6 && name.charAt(0) == '#' && name.charAt(1) == 'x') {
+									try JString.valueOf(Integer.parseInt(name.substring(2), 16).toChar) catch {
+										case e :NumberFormatException =>
+											throw ParsingException(XML)(
+												suffix, "Illegal numeric character reference: &" + name + ";", e
+											)
+									}
+								} else
+									XMLEntities.getOrElse(name, null)
 							if (text == null)
 								throw ParsingException(XML)(
 									suffix, "Unrecognized entity in \"" + suffix + "\": " + name + "."
@@ -208,8 +224,9 @@ class XML extends FormatAsString {
 			val remainder = suffix.drop(end)
 			(prefix :++ parsed, string, remainder)
 		}
-
-/*		def erroradvance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) =
+/*
+//		import XMLStreamConstants._
+		def erroradvance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) =
 			try {
 				val reader = factory.createXMLStreamReader(suffix.toReader) //we could conceivably reuse the ChunkedStringReader
 				var event :Int = 0
@@ -316,8 +333,29 @@ object XML extends XML {
 //	class Body[T](val body :T) extends AnyVal
 
 	private val XMLEntities = StringMap(
-		"lt" -> "<",
-		"gt" -> ">",
-		"amp" -> "&"
+		"amp"    -> "&",
+		"AMP"    -> "&",
+		"apos"   -> "'",
+		"quot"   -> "\"",
+		"dollar" -> "$",
+		"excl"   -> "!",
+		"quest"  -> "?",
+//		"comma"  -> ",",
+//		"period" -> ".",
+		"colon"  -> ":",
+		"semi"   -> ";",
+		"sol"    -> "/",
+		"num"    -> "#",
+//		"prcnt"  -> "%",
+		"lt"     -> "<",
+		"LT"     -> "<",
+		"gt"     -> ">",
+		"GT"     -> ">",
+		"equals" -> "=",
+//		"lpar"   -> "(",
+//		"rpar"   -> ")",
+//		"ast"    -> "*",
+//		"midast" -> "*",
+//		"plus"   -> "+",
 	)
 }

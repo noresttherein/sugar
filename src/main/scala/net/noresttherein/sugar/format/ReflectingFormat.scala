@@ -112,7 +112,7 @@ trait ReflectingFormat extends Format {
 //object ReflectingFormat {
 //
 //
-//	/** A factory of [[net.noresttherein.sugar.format.Format.MoldLayout MoldLayout]]s,
+//	/** A factory of [[net.noresttherein.sugar.format.MoldLayout MoldLayout]]s,
 //	  * themselves factories of [[net.noresttherein.sugar.format.Format.Mold! Mold]]s
 //	  * for any [[net.noresttherein.sugar.format.Format Format]] given as the argument.
 //	  * This allows reusing a once defined the structure of formatted model object,
@@ -138,7 +138,7 @@ trait ReflectingFormat extends Format {
 //	  * in singleton object [[net.noresttherein.sugar.format.Format$ Format]]; their signatures are exactly the same
 //	  * as those of factory methods defined in ''class'' [[net.noresttherein.sugar.format.Format Format]]
 //	  * (available on any `Format` instance), except they return
-//	  * [[net.noresttherein.sugar.format.Format.MoldLayout MoldLayout]]s instead of `Mold`s.
+//	  * [[net.noresttherein.sugar.format.MoldLayout MoldLayout]]s instead of `Mold`s.
 //	  */
 //	trait ReflectingMoldLayoutMaker[M] extends MoldLayoutFactory[M] {
 //		override val fmt :ReflectingFormat

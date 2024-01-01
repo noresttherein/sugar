@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.reflect.raise
+import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -399,6 +399,11 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  * or the given `String` as `Failed` error message if empty. */
 	@inline final def toPassed(err : => String) :Fallible[T] =
 		if (this eq Missing) Failed(() => err) else Passed(get)
+
+	/** Converts this `Unsure` to `Fallible`, returning the content as `Passed`,
+	  * or the given `Throwable` as a `Failed` error if empty. */
+	@inline final def toPassed(err :Throwable) :Fallible[T] =
+		if (this eq Missing) Failed(err) else Passed(get)
 
 	/** Formats this `Unsure` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline final override def mkString(prefix :String) :String =

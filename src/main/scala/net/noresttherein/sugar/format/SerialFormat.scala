@@ -13,19 +13,10 @@ import net.noresttherein.sugar.extensions.ClassExtension
 
 
 /** A class of formats in which object's [[net.noresttherein.sugar.format.Format.Part parts]] are written consecutively,
-  * without additional information about the part itself aside of its value. This allows it to not require property
+  * without additional information about the part itself aside from its value. This allows it to not require property
   * names in the factory methods of [[net.noresttherein.sugar.format.Format.Parts Parts]].
   */
 trait SerialFormat extends Format {
-/*
-	protected override def wrap[S](name :String)(parts :Mold[S]) :Mold[S] =
-		if (name.length == 0 || name == "_")
-
-		else if (open == Mold.empty && close == Mold.empty)
-			parts
-		else
-			super.wrap(name)(parts)
-*/
 
 	/** Returns the value `Mold` itself. */
 	protected override def propertyMold[M](propertyName :String)(implicit valueMold :Mold[M]) :Mold[M] = valueMold
@@ -53,7 +44,7 @@ trait SerialFormat extends Format {
 		override val format = SerialFormat.this
 		override def apply[P :Mold](part :M => P)  :Part[M, P] = apply("_")(part)
 		override def opt[P :Mold](part :M => P)    :Part[M, Potential[P]] = opt("_")(part)
-		override def mirror[P :Mold](part :M => P) :Part[M, (Liquid, P)] = mirror("_")(part)
+		override def mirror[P :Mold](part :M => P) :Part[M, (Liquid, P)] = dual("_")(part)
 	}
 	private class NamedSerialMoldmaker[M](name :String) extends NamedSerialParts[M](name) with SerialMoldmaker[M] {
 		override val format = SerialFormat.this

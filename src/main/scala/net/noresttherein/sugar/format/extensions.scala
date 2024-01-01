@@ -83,12 +83,18 @@ object extensions extends extensions {
 		  * but less likely to cause name conflicts with existing methods or extension methods for this type.
 		  * @param maker an unused `Mold` builder serving to specify both the underlying format and the format
 		  *              of models `S`, for example `XML[Dragon]`
+		  * @see [[net.noresttherein.sugar.format.extensions.castMethods.castAs]]
 		  */
 		@throws[ParsingException]("if this value is not in a valid specified format for the given mold.")
 		@inline def cast[S](maker :(Format { type Raw = A })#Moldmaker[S])(implicit mold :maker.format.Mold[S]) :S =
 			mold.cast(maker.format.melt(self))
 
-		/** Reads a value of type specified by the type parameter from raw data `A` of the given format. */
+		/** Reads a value of type specified by the type parameter from raw data `A` of the given format.
+		  * Unlike [[net.noresttherein.sugar.format.extensions.castMethods.cast cast]],
+		  * it expects the type of the cast object as a type argument to this method, rather than `format[S]`.
+		  * It also means that, when used in a position with an expected type,
+		  * the cast type can be inferred by the compiler.
+		  */
 		@throws[ParsingException]("if this value is not in a valid specified format for the given mold.")
 		@inline def castAs[S](format :Format { type Raw = A })(implicit mold :format.Mold[S]) :S =
 			mold.cast(format.melt(self))
@@ -100,7 +106,7 @@ object extensions extends extensions {
 	  * Both types require existence of a single implicit [[net.noresttherein.sugar.format.Format Format]].
 	  */ //todo: it should be possible to include it with the others
 	class LiquidExtension[L, M[S] <: (Format { type Liquid = L })#Mold[S]] private[format]
-	                              (private val liquid :L)
+	                     (private val liquid :L)
 		extends AnyVal
 	{
 		/** Parses a value of type `S` specified as the type parameter,

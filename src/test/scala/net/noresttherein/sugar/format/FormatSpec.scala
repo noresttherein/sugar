@@ -1,16 +1,19 @@
 package net.noresttherein.sugar.format
 
+import org.scalacheck.Prop.AnyOperators
+import org.scalacheck.Properties
+
 import net.noresttherein.sugar.collections.ChoppedString
 import net.noresttherein.sugar.collections.extensions.StringExtension
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.format.FormatSpec.BreathWeapon.{Damage, DiceCount, DiceType}
+import net.noresttherein.sugar.format.FormatSpec.Dragon.{Breath, Colour, Level, Name}
+import net.noresttherein.sugar.format.FormatSpec.XMLProps.format
+import net.noresttherein.sugar.vars.Fallible
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
-import org.scalacheck.Prop.AnyOperators
-import org.scalacheck.Properties
 
 
-
-object FormatSpec extends Properties("Format") {
+object FormatSpec extends Properties("format") {
 
 	trait DamageType
 	object DamageType {
@@ -70,10 +73,10 @@ object FormatSpec extends Properties("Format") {
 	}
 
 
-	def formatProperty(format :FormatAsString, dragon :Dragon, formattedDragon :String)
-	                  (implicit dragonMold :format.Mold[Dragon]): Properties =
-	{
-		class FormatProps extends Properties(format.toString) {
+	abstract class FormatProps(name :String, dragon :Dragon, formattedDragon :String) extends Properties(name) {
+			val format :FormatAsString
+			implicit val mold :format.Mold[Dragon]
+
 			property("read") = try { dragon =? format.read[Dragon](formattedDragon) } catch {
 				case e :ParsingException =>
 					System.err.println(e)
@@ -82,10 +85,59 @@ object FormatSpec extends Properties("Format") {
 					throw e
 			}
 			property("write") = formattedDragon =? format.write(dragon)
-		}
-		new FormatProps
 	}
 
+	object XMLProps extends FormatProps("XML", Dragon.Instance, Dragon.xml) {
+		override val format                             = XML
+		implicit override val mold :format.Mold[Dragon] = Dragon.xmlMold
 
-	include(formatProperty(XML, Dragon.Instance, Dragon.xml))
+		property("reader") = {
+			val formatted = for {
+				reader <- format.reader(Dragon.xml)
+				_      <- reader.expect(Dragon.ClassName)(format.open)
+				name   <- reader.property[String](Name)
+				colour <- reader.property[String](Colour)
+				breath <- reader.property[BreathWeapon](Breath)
+				level  <- reader.property[Int](Level)
+				_      <- reader.expect(Dragon.ClassName)(format.close)
+			} yield Dragon(name, colour, breath, level)
+			Fallible(Dragon.Instance) =? formatted
+		}
+	}
+
+	include(XMLProps)
+
+
+	property("extensions.castMethods.as") = {
+		import extensions.castMethods
+		(Dragon.xml as XML[Dragon]) =? Dragon.Instance
+	}
+	property("extensions.castMethods.cast") = {
+		import extensions._
+		(Dragon.xml cast XML[Dragon]) =? Dragon.Instance
+	}
+	property("extensions.castMethods.castAs") = {
+		import extensions._
+		Dragon.xml.castAs[Dragon](XML) =? Dragon.Instance
+	}
+
+	property("extensions.meltMethods.as") = {
+		import extensions._
+		(Dragon.Instance as XML) =? Dragon.xml
+	}
+	property("extensions.meltMethods.melt") = {
+		import extensions._
+		(Dragon.Instance as XML) =? Dragon.xml
+	}
+	property("extensions.LiquidExtension.read") = {
+		import extensions._
+		implicit val format :XML.type = XML
+		Dragon.Instance =? Dragon.xml.read[Dragon]
+	}
+	property("extensions.LiquidExtension.next") = {
+		import extensions._
+		implicit val format :XML.type = XML
+		val xml = Dragon.xml + Dragon.xml
+		(Dragon.Instance, Dragon.xml.chopped) =? xml.next[Dragon]
+	}
 }

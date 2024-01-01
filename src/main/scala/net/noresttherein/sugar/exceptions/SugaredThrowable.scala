@@ -16,7 +16,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 
 	/** A reusable immutable sequence wrapping the throwable's stack trace */
 	lazy val stackTrace :StackTrace = getStackTrace match {
-		case null => StackTrace.empty
+		case null  => StackTrace.empty
 		case array => StackTrace(array)
 	}
 

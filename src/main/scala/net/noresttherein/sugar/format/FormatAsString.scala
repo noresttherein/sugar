@@ -2,6 +2,7 @@ package net.noresttherein.sugar.format
 
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
 import net.noresttherein.sugar.collections.{ChoppedString, Substring}
+import net.noresttherein.sugar.format.util.{parseError, parseErrorMsg}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -15,7 +16,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * as their [[net.noresttherein.sugar.format.Format.Liquid Liquid]] type.
   * Implements all obligatory molds with the exception of [[net.noresttherein.sugar.format.Format.stringMold stringMold]].
   * In case of the latter, subclasses must decide on a cut off condition - how much of the input string is returned,
-  * and possibly how to treat whitespace. Additionally, subclasses must implement only the wrapping molds, if needed:
+  * and possibly how to treat whitespace. Additionally, subclasses must implement only wrapping molds, if needed:
   * [[net.noresttherein.sugar.format.Format.open open]], [[net.noresttherein.sugar.format.Format.close close]]
   * and [[net.noresttherein.sugar.format.Format.propertyMold propertyMold]].
   * @author Marcin Mościcki
@@ -66,13 +67,70 @@ trait FormatAsString extends Format { format =>
 	/** Consumes only `"true"` or `"false"` (ignoring case and leading whitespace) and appends values as such. */
 	implicit override val booleanMold :Mold[Boolean] = BooleanMold
 
+	/** A mold which consumes ''exactly'' the given amount of characters from the parsed string.
+	  * The mold will throw a [[net.noresttherein.sugar.format.ParsingException ParsingException]]
+	  * if the input is too short, and a [[net.noresttherein.sugar.format.FormattingException FormattingException]]
+	  * if the formatted string (i.e., the argument to [[net.noresttherein.sugar.Format.Mold.melt melt]])
+	  * is of a lesser length.
+	  * @see [[net.noresttherein.sugar.format.FormatAsString.stringMold stringMold]]
+	  */
+	def stringOfLength(length :Int) :Mold[String] = new FixedLengthStringMold(length)
+
+	/** A mold which consumes the given amount of characters from the parsed string, or the remainder of the string,
+	  * whichever is shorter. When ''melting''/formatting, the written string argument
+	  * will be truncated to the specified length.
+	  * @see [[net.noresttherein.sugar.format.FormatAsString.stringOfLength stringOfLength]]
+	  */
+	def stringMold(maxLength :Int) :Mold[String] = new StringMold(maxLength)
+
+	/** A mold decorating an implicit `Mold[M]` by not allowing it to parse or write more than `length` characters.
+	  * The parsed input string - `suffix` argument of [[net.noresttherein.sugar.format.Format.Mold.advance advance]] -
+	  * is longer than `length`, it is split at `length` boundary and the call is delegated to the wrapped mold's
+	  * `advance` method with the first `length` characters as suffix. If the unparsed remainder returned by `mold`
+	  * is [[net.noresttherein.sugar.format.Format.isEmpty non empty]] (in the sense of this format),
+	  * a [[net.noresttherein.sugar.format.ParsingException ParsingException]] will be thrown.
+	  *
+	  * Similarly, when this mold's [[net.noresttherein.sugar.format.Format.Mold.append append]] method is called,
+	  * it delegates it instead to `mold.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]], passing only
+	  * the model object to melt, without the already formatted prefix string. The length of the melted object
+	  * is verified to be of more than `length` characters,
+	  * a [[net.noresttherein.sugar.format.Format.FormattingException FormattingException]] is thrown.
+	  *
+	  * Note: the length argument will count whitespace.
+	  * @see [[net.noresttherein.sugar.format.FormatAsString.trim trim]].
+	  */
+	def ofLength[M](length :Int)(implicit mold :Mold[M]) :Mold[M] = mold match {
+		case named :NamedMold[M] @unchecked => new NamedMoldOfLength[M](length)(named)
+		case _ => new MoldOfLength[M](length)
+	}
+
+	/** A mold decorating an implicit `Mold[M]` by not allowing it to parse or write more than `maxLength` characters.
+	  * This mold does not force the wrapped mold to read exactly `maxLength` chqracters, but if it reads less,
+	  * the remainder is silently ignored. Instead, this mold splits `suffix` argument
+	  * of [[net.noresttherein.sugar.format.Format.Mold.advance advance]] at `maxLength` boundary.
+	  * The prefix is passed for parsing to the wrapped mold, while the suffix is appended to the remaining input
+	  * returned by `advance`. If the model object after [[net.noresttherein.sugar.format.Format.Mold.appending appending]]
+	  * exceeds the length of the `prefix` method argument plus `maxLength`,
+	  * it is silently trimmed to `prefix.length + maxLength`.
+	  *
+	  * Note: a mold may potentially modify an already melted prefix, rather than simply appending to it.
+	  * In this case the total length of the final output is counted, rather than exactly the length of the string
+	  * returned by `mold.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]].
+	  * @see [[net.noresttherein.sugar.format.FormatAsString.ofLength ofLength]]
+	  */
+	def trim[M](maxLength :Int)(implicit mold :Mold[M]) :Mold[M] = mold match {
+		case named :NamedMold[M] @unchecked => new TrimmedNamedMold[M](maxLength)(named)
+		case _ => new TrimmedMold[M](maxLength)
+	}
+
+	//todo: molds for classes from sugar.time and java.time, BigDecimal, etc.
 	
 	@SerialVersionUID(Ver)
 	private object CharMold extends SpecialMold[Char] with NamedMold[Char] {
 		override def name = "Char"
 		override def advance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, Char, ChoppedString) = {
 			if (suffix.isEmpty)
-				parseError(this, suffix)
+				parseError(FormatAsString.this)(this, suffix)
 			val head = suffix.head
 			(prefix + head, head, suffix.tail)
 		}
@@ -85,7 +143,7 @@ trait FormatAsString extends Format { format =>
 			}
 		override def guardAdvance(prefix :ChoppedString, suffix :ChoppedString) =
 			if (suffix.isEmpty)
-				Failed(() => parseErrorMsg(this, suffix))
+				Failed(() => parseErrorMsg(FormatAsString.this)(this, suffix))
 			else {
 				val head = suffix.head
 				Passed((prefix + head, head, suffix.tail))
@@ -128,6 +186,10 @@ trait FormatAsString extends Format { format =>
 	@SerialVersionUID(Ver)
 	private object BooleanMold extends NamedMold[Boolean] with SpecialGuardingMold[Boolean] {
 		override def name = "Boolean"
+
+		private final val MaybeTrue  = 1
+		private final val MaybeFalse = 2
+
 		private def eos(prefix :ChoppedString) =
 			Failed(() => "Expected a Boolean as String, but reached the end of input: '" + prefix + "'.")
 		private def fail(suffix :ChoppedString) =
@@ -241,10 +303,8 @@ trait FormatAsString extends Format { format =>
 		override def guardAppend(prefix :ChoppedString, model :Boolean) =
 			Passed(if (model) prefix ++ "true" else prefix ++ "false")
 	}
-	private final val MaybeTrue  = 1
-	private final val MaybeFalse = 2
 
-	
+
 	private abstract class NumberMold[S](override val name :String)
 		extends SpecialThrowingMold[S] with NamedMold[S]
 	{
@@ -446,6 +506,95 @@ trait FormatAsString extends Format { format =>
 				}
 				end
 			}
+	}
+
+
+	@SerialVersionUID(Ver)
+	private class FixedLengthStringMold(length :Int) extends SpecialThrowingMold[String] with NamedMold[String] {
+		override def advance(prefix :ChoppedString, suffix :ChoppedString) =
+			try {
+				val string = suffix.substring(0, length)
+				(prefix ++ string, string, suffix)
+			} catch {
+				case e :IndexOutOfBoundsException =>
+					throw ParsingException(FormatAsString.this)(
+						suffix, "Input string shorter than " + length + "(" + suffix.length + "): \"" + suffix + "\".", e
+					)
+			}
+		override def append(prefix :ChoppedString, model :String) =
+			if (model.length != length)
+				throw new FormattingException(
+					FormatAsString.this, model,
+					"the argument String's length does not equal " + length + ": " + model.length
+				)
+			else
+				prefix ++ model
+
+		override def name = "String|" + length + "|"
+	}
+
+	@SerialVersionUID(Ver)
+	private class StringMold(maxLength :Int) extends SpecialThrowingMold[String] with NamedMold[String] {
+		override def advance(prefix :ChoppedString, suffix :ChoppedString) = {
+			val length = math.min(suffix.length, maxLength)
+			val string = suffix.substring(0, length)
+			(prefix ++ string, string, suffix)
+		}
+		override def append(prefix :ChoppedString, model :String) =
+			if (model.length > maxLength) prefix ++ model.substring(0, maxLength)
+			else prefix ++ model
+
+		override def name = "String|<=" + maxLength + "|"
+	}
+
+	@SerialVersionUID(Ver)
+	private class MoldOfLength[S](maxLength: Int)(implicit mold :Mold[S]) extends SpecialThrowingMold[S] {
+		override def advance(prefix :ChoppedString, suffix :ChoppedString) = {
+			if (suffix.length <= maxLength)
+				mold.advance(prefix, suffix)
+			else {
+				val (parsed, model, remainder) = mold.advance(suffix.take(maxLength))
+				if (!isEmpty(remainder))
+					throw ParsingException(FormatAsString.this)(
+						suffix, "Mold " + mold + " left unparsed content: \"" + remainder + "\""
+					)
+				(prefix ++ parsed, model, suffix.drop(maxLength))
+			}
+		}
+		override def append(prefix :ChoppedString, model :S) = {
+			val result = mold.melt(model)
+			if (result.length > maxLength)
+				throw new FormattingException(FormatAsString.this, model,
+					"Mold " + mold + " formatted " + model + " as more than " + maxLength + " characters: \"" + result + "\""
+				)
+			prefix ++ result.take(prefix.length + maxLength)
+		}
+		override def toString = mold.toString + "|<=" + maxLength + "|"
+	}
+	@SerialVersionUID(Ver)
+	private class NamedMoldOfLength[S](maxLength :Int)(implicit mold :NamedMold[S])
+		extends MoldOfLength[S](maxLength) with NamedMold[S]
+	{
+		override val name = mold.name + "|<=" + maxLength + "|"
+	}
+	@SerialVersionUID(Ver)
+	private class TrimmedMold[S](maxLength :Int)(implicit mold :Mold[S]) extends SpecialThrowingMold[S] {
+		override def advance(prefix :ChoppedString, suffix :ChoppedString) =
+			if (suffix.length <= maxLength)
+				mold.advance(prefix, suffix)
+			else {
+				val (parsed, model, _) = mold.advance(prefix, suffix.take(maxLength))
+				(parsed, model, suffix.drop(maxLength))
+			}
+		override def append(prefix :ChoppedString, model :S) =
+			mold.append(prefix, model).take(prefix.length + maxLength)
+		override def toString = mold.toString + ".trim"
+	}
+	@SerialVersionUID(Ver)
+	private class TrimmedNamedMold[S](maxLength :Int)(implicit mold :NamedMold[S])
+		extends TrimmedMold[S](maxLength) with NamedMold[S]
+	{
+		override val name :String = mold.name + ".trim"
 	}
 
 }

@@ -8,6 +8,7 @@ import scala.reflect.{ClassTag, classTag}
 import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.Constructors.{LazyStringArg, LazyStringThrowableArgs, LazyStringThrowableBoolArgs, LazyStringThrowableBoolBoolArgs, StringArg, StringLazyStringThrowableBoolArgs, StringLazyStringThrowableBoolBoolArgs, StringThrowableArgs, StringThrowableBoolArgs, StringThrowableBoolBoolArgs, defaultConstructor, findConstructor, lazyStringConstructor, lazyStringThrowableConstructor, stringConstructor, stringThrowableConstructor, throwableConstructor}
+import net.noresttherein.sugar.exceptions.reflect.newThrowable
 import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, castingMethods, classNameMethods, downcastTypeParamMethods}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -215,6 +216,105 @@ trait imports {
 //			}
 //	}
 
+
+
+	/** Throws an exception of the class specified by the type argument. The exception class must provide
+	  * at least one constructor matching the signature of some standard `Throwable` constructor:
+	  *   - `()`,
+	  *   - `(String)`,
+	  *   - `(String, Throwable)`,
+	  *   - `(String, Throwable, Boolean, Boolean)`,
+	  *   - `(String, () => String, Throwable, Boolean, Boolean)`,
+	  *   - `(() => String)`,
+	  *   - `(() => String, Throwable)`,
+	  *   - `(() => String, Throwable, Boolean, Boolean)`.
+	  *
+	  * Note that in the byte code `() => String` is equivalent to `=> String`. The arguments provided are the same
+	  * as in the case of the default (zero argument) `Throwable` constructor.
+	  *
+	  * This method relies on reflection, and performs repeated searches through the constructor list.
+	  * With the exception of a couple cached, most often used exception classes it is significantly slower
+	  * than throwing an exception explicitly, and should not be used in performance critical code.
+	  */
+	final def raise[E <: Throwable :ClassTag] :Nothing = throw newThrowable[E]
+
+	/** Throws an exception, with the given message, of the class specified by the type argument. The exception class
+	  * must provide at least one constructor matching the signature of some standard `Throwable` constructor:
+	  *   - `(String)`,
+	  *   - `(String, Throwable)`,
+	  *   - `(String, Throwable, Boolean, Boolean)`,
+	  *   - `(String, () => String, Throwable, Boolean, Boolean)`,
+	  *   - `(() => String)`,
+	  *   - `(() => String, Throwable)`,
+	  *   - `(() => String, Throwable, Boolean, Boolean)`
+	  *
+	  * Note that in the byte code `() => String` is equivalent to `=> String`. The arguments provided are the same
+	  * as in the case of the default (zero argument) `Throwable` constructor.
+	  *
+	  * This method relies on reflection, and performs repeated searches through the constructor list.
+	  * With the exception of a couple cached, most often used exception classes, it is significantly slower
+	  * than throwing an exception explicitly, and should not be used in performance critical code.
+	  * It is however more succinct and generic, which may make it useful in domain specific languages.
+	  */ //todo: add macro versions
+	final def raise[E <: Throwable :ClassTag](msg :String) :Nothing = throw newThrowable[E](msg)
+
+	/** Throws an exception of the class specified by the type argument, with the argument as its cause.
+	  * The exception class must provide at least one constructor
+	  * matching the signature of some standard `Throwable` constructor:
+	  *   - `(Throwable)`,
+	  *   - `(String, Throwable)`,
+	  *   - `()`,
+	  *   - `(String)`
+	  *   - `(String, Throwable, Boolean, Boolean)`,
+	  *   - `(() => String)`,
+	  *   - `(() => String, Throwable)`,
+	  *   - `(() => String, Throwable, Boolean, Boolean)`,
+	  *   - `(String, () => String, Throwable, Boolean, Boolean)`,
+	  *
+	  * This method relies on reflection, and performs repeated searches through the constructor list.
+	  * With the exception of a couple cached, most often used exception classes, it is significantly slower
+	  * than throwing an exception explicitly, and should not be used in performance critical code.
+	  * It is however more succinct and generic, which may make it useful in domain specific languages.
+	  */
+	final def raise[E <: Throwable :ClassTag](cause :Throwable) :Nothing = throw newThrowable[E](cause)
+
+	/** Throws an exception of the class specified by the type argument, with the argument as its cause.
+	  * The exception class must provide at least one constructor
+	  * matching the signature of some standard `Throwable` constructor:
+	  *   - `(String, Throwable)`,
+	  *   - `(String)`,
+	  *   - `(String, Throwable, Boolean, Boolean)`,
+	  *   - `(() => String, Throwable)`,
+	  *   - `(() => String)`,
+	  *   - `(() => String, Throwable, Boolean, Boolean)`,
+	  *   - `(String, () => String, Throwable, Boolean, Boolean)`,
+	  *
+	  * This method relies on reflection, and performs repeated searches through the constructor list.
+	  * With the exception of a couple cached, most often used exception classes, it is significantly slower
+	  * than throwing an exception explicitly, and should not be used in performance critical code.
+	  * It is however more succinct and generic, which may make it useful in domain specific languages.
+	  */
+	final def raise[E <: Throwable :ClassTag](msg :String, cause :Throwable) :Nothing =
+		throw newThrowable[E](msg, cause)
+//
+//	/** Throws an exception with the given, lazily evaluated message, of the class specified by the type argument.
+//	  * The exception class must provide at least one constructor matching the signature analogous to
+//	  * one of the standard `Throwable` constructors:
+//	  *   - `(() => String)`,
+//	  *   - `(() => String, Throwable)`,
+//	  *   - `(String, Throwable, Boolean, Boolean)`,
+//	  *   - `(String, () => String, Throwable, Boolean, Boolean)`.
+//	  *
+//	  * Note that in the byte code `() => String` is equivalent to `=> String`. The arguments provided are the same
+//	  * as in the case of the default (zero argument) `Throwable` constructor.
+//	  *
+//	  * This method relies on reflection, and performs repeated searches through the constructor list.
+//	  * It is significantly slower than throwing an exception explicitly, and should not be used
+//	  * in performance critical code. It is however more succinct and generic, which may make it useful
+//	  * in domain specific languages.
+//	  */ //todo: add macro versions
+//	private[sugar] final def raise[E <: Throwable :ClassTag](msg :() => String) :Nothing =
+//		throw newThrowable[E](msg)
 
 
 	/** A 'WTF' method throwing an [[ImpossibleError ImpossibleError]].

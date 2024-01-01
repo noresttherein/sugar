@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.reflect.raise
+import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack, NoContent, WithFilter, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -470,6 +470,11 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 	  * or the value of the given `String` as `Failed` error message if empty. */
 	@inline final def toPassed(err : => String) :Fallible[A] =
 		if (ref eq NoContent) Failed(() => err) else Passed(get)
+
+	/** Converts this `Opt` to `Fallible`, returning the content as `Passed`,
+	  * or the value of the given `Throwable` as `Failed` error if empty. */
+	@inline final def toPassed(err :Throwable) :Fallible[A] =
+		if (ref eq NoContent) Failed(err) else Passed(get)
 
 	/** Formats this `Opt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String =

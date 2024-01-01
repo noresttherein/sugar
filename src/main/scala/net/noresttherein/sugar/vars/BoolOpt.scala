@@ -4,7 +4,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.reflect.raise
+import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.BoolOpt.{Known, NoContent, Unknown, WithFilter}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
