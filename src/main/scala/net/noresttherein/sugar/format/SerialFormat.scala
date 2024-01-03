@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.vars.Opt.Got
 import net.noresttherein.sugar.vars.Potential
-import net.noresttherein.sugar.witness.Maybe
+import net.noresttherein.sugar.witness.Optionally
 
 //implicits
 import net.noresttherein.sugar.extensions.ClassExtension
@@ -26,7 +26,7 @@ trait SerialFormat extends Format {
 
 	override def apply[M](name :String) :SerialMoldmaker[M] = new NamedSerialMoldmaker[M](name)
 	override def apply[M](subject :Class[M]) :SerialMoldmaker[M] = apply(subject.innerName)
-	def apply[M](implicit subject :Maybe[ClassTag[M]]) :SerialMoldmaker[M] = subject.opt match {
+	def apply[M](implicit subject :Optionally[ClassTag[M]]) :SerialMoldmaker[M] = subject.opt match {
 		case Got(tag) => apply[M](tag.runtimeClass.innerName)
 		case _ => apply("_")
 	}

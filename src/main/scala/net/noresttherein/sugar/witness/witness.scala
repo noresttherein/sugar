@@ -6,7 +6,7 @@ import scala.reflect.ClassTag
 package object witness {
 	private[witness] final val Ver = 1L
 
-	type MaybeClassTag[T] = Maybe[ClassTag[T]]
+	type MaybeClassTag[T] = Optionally[ClassTag[T]]
 
 	/** An ordering by `System.`[[java.lang.System.identityHashCode identityHashCode]],
 	  * falling back to `getClass.hashCode`, and then to `getClass.getName.hashCode`.

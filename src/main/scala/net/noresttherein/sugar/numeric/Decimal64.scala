@@ -16,7 +16,7 @@ import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact,
 import net.noresttherein.sugar.oops
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.witness.Maybe
+import net.noresttherein.sugar.witness.Optionally
 
 
 
@@ -923,16 +923,16 @@ class Decimal64 private (private val bits :Long)
 	def movePointLeft(n :Int) :Decimal64 = if (n == 0) this else Decimal64(unscaled, scale + n)
 	def movePointRight(n :Int) :Decimal64 = if (n == 0) this else Decimal64(unscaled, scale - n)
 
-	def until(end: Decimal64)(implicit mode :Maybe[MathContext]): Range.Partial[Decimal64, NumericRange.Exclusive[Decimal64]] =
+	def until(end: Decimal64)(implicit mode :Optionally[MathContext]): Range.Partial[Decimal64, NumericRange.Exclusive[Decimal64]] =
 		new Range.Partial(until(end, _))
 
-	def until(end: Decimal64, step: Decimal64)(implicit mode :Maybe[MathContext]): NumericRange.Exclusive[Decimal64] =
+	def until(end: Decimal64, step: Decimal64)(implicit mode :Optionally[MathContext]): NumericRange.Exclusive[Decimal64] =
 		new NumericRange.Exclusive(this, end, step)(Decimal64AsIfIntegral(mode getOrElse Extended))
 
-	def to(end: Decimal64)(implicit mode :Maybe[MathContext]): Range.Partial[Decimal64, NumericRange.Inclusive[Decimal64]] =
+	def to(end: Decimal64)(implicit mode :Optionally[MathContext]): Range.Partial[Decimal64, NumericRange.Inclusive[Decimal64]] =
 		new Range.Partial(to(end, _))
 
-	def to(end: Decimal64, step: Decimal64)(implicit mode :Maybe[MathContext]): NumericRange.Inclusive[Decimal64] =
+	def to(end: Decimal64, step: Decimal64)(implicit mode :Optionally[MathContext]): NumericRange.Inclusive[Decimal64] =
 		new NumericRange.Inclusive(this, end, step)(Decimal64AsIfIntegral(mode getOrElse Extended))
 
 
@@ -2209,7 +2209,7 @@ object Decimal64 {
 	  * is used, representing a maximal possible precision.
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(int :Long)(implicit mode :Maybe[MathContext]) :Decimal64 = round(int, 0)
+	@inline def round(int :Long)(implicit mode :Optionally[MathContext]) :Decimal64 = round(int, 0)
 
 	/** Creates `Decimal64` of value `significand*10^-scale`, rounded
 	  * according to the implicit [[java.math.MathContext MathContext]]. If no such instance exists,
@@ -2220,7 +2220,7 @@ object Decimal64 {
 	  * to `mode.`[[java.math.MathContext.getPrecision getPrecision]].
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	def round(significand :Long, scale :Int)(implicit mode :Maybe[MathContext]) :Decimal64 = {
+	def round(significand :Long, scale :Int)(implicit mode :Optionally[MathContext]) :Decimal64 = {
 		val ctx = mode getOrElse Extended
 		Decimal64(significand, scale, ctx.getRoundingMode, ctx.getPrecision)
 	}
@@ -2235,7 +2235,7 @@ object Decimal64 {
 	  * @note this is a counterpart of [[scala.math.BigDecimal$ BigDecimal]]`.`[[scala.math.Bigecimal.decimal decimal]](decimal)`
 	  */
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(decimal :Float)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(decimal :Float)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(decimal, mode getOrElse Extended)
 
 	/** Creates a `Decimal64` base on the decimal expansion of the given `Double`, and rounds it
@@ -2248,7 +2248,7 @@ object Decimal64 {
 	  * @note this is a counterpart of [[scala.math.BigDecimal$ BigDecimal]]`.`[[scala.math.Bigecimal.decimal decimal]](decimal)`
 	  */
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(decimal :Double)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(decimal :Double)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(decimal, mode getOrElse Extended)
 
 	/** Rounds the given [[scala.math.BigInt]] according to the rounding mode and to the precision specified
@@ -2259,7 +2259,7 @@ object Decimal64 {
 	  * the only difference is that the `MathContext` argument is implicit.
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(int :BigInt)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(int :BigInt)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(int.bigInteger, mode getOrElse Extended)
 
 	/** Rounds the given [[java.math.BigInteger]] according to the rounding mode and to the precision specified
@@ -2270,7 +2270,7 @@ object Decimal64 {
 	  * the only difference is that the `MathContext` argument is implicit.
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(int :BigInteger)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(int :BigInteger)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(int, mode getOrElse Extended)
 
 	/** Rounds the given [[scala.math.BigDecimal]] according to the rounding mode and to the precision specified
@@ -2281,7 +2281,7 @@ object Decimal64 {
 	  * the only difference is that the `MathContext` argument is implicit.
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(big :BigDecimal)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(big :BigDecimal)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(big.bigDecimal, mode getOrElse Extended)
 
 	/** Rounds the given [[java.math.BigDecimal]] according to the rounding mode and to the precision specified
@@ -2292,7 +2292,7 @@ object Decimal64 {
 	  * the only difference is that the `MathContext` argument is implicit.
 	  **/
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(big :JavaBigDecimal)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(big :JavaBigDecimal)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(big, mode getOrElse Extended)
 
 	/** Parses the given `String` as a decimal and rounds it according the rounding mode and to the precision
@@ -2303,7 +2303,7 @@ object Decimal64 {
 	  **/
 	@throws[NumberFormatException]("if the string does not represent a decimal number in an accepted format.")
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
-	@inline def round(string :String)(implicit mode :Maybe[MathContext]) :Decimal64 =
+	@inline def round(string :String)(implicit mode :Optionally[MathContext]) :Decimal64 =
 		Decimal64(string, mode getOrElse Extended)
 
 
@@ -2428,7 +2428,7 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if the parsed number exceeds both the precision of Decimal64 or the one from an implicit MathContext.")
 	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
-	def parse(string :String)(implicit mode :Maybe[MathContext]) :Opt[Decimal64] =
+	def parse(string :String)(implicit mode :Optionally[MathContext]) :Opt[Decimal64] =
 		try Got(from(string, mode getOrElse ExtendedExact)) catch {
 			case _ :ArithmeticException | _ :NumberFormatException => Lack
 		}

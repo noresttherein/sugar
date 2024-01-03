@@ -12,7 +12,7 @@ import net.noresttherein.sugar.vars.{Fallible, Opt, Potential}
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
-import net.noresttherein.sugar.witness.Maybe
+import net.noresttherein.sugar.witness.Optionally
 
 //implicits
 import net.noresttherein.sugar.reflect.extensions.{classNameMethods, ClassExtension}
@@ -1580,7 +1580,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  * If an implicit [[scala.reflect.ClassTag ClassTag]] for the molded type `M` is present,
 		  * the (inner) class name of `M` will be used in the mold's `toString` method.
 		  */
-		def unsupported[M](implicit model :Maybe[ClassTag[M]]) :Mold[M] = model.opt match {
+		def unsupported[M](implicit model :Optionally[ClassTag[M]]) :Mold[M] = model.opt match {
 			case Got(tag) => unsupported(tag.runtimeClass.innerName)
 			case _        => unsupported("")
 		}

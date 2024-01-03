@@ -10,7 +10,7 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 import net.noresttherein.sugar.vars.Watched.SerialExecutor
-import net.noresttherein.sugar.witness.{DefaultValue, Maybe}
+import net.noresttherein.sugar.witness.{DefaultValue, Optionally}
 
 
 
@@ -239,7 +239,7 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  * If no implicit value exists, [[net.noresttherein.sugar.vars.Watched.SerialExecutor SynchronousExecutor]]
 	  * will be used instead.
 	  */
-	def apply[@specialized(SpecializedVars) T](init :T)(implicit executor :Maybe[Executor]) :Watched[T] =
+	def apply[@specialized(SpecializedVars) T](init :T)(implicit executor :Optionally[Executor]) :Watched[T] =
 		new Watched[T] match {
 			case any if any.getClass == CaseUnspec =>
 				val res :Watched[T] = new Ref[T]()(executor.opt getOrElse SerialExecutor)
@@ -259,7 +259,7 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  * will be used to execute the registered callbacks. If no implicit value exists,
 	  * [[net.noresttherein.sugar.vars.Watched.SerialExecutor SerialExecutor]] will be used instead.
 	  */
-	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T], executor :Maybe[Executor]) :Watched[T] =
+	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T], executor :Optionally[Executor]) :Watched[T] =
 		apply(default.get)(executor)
 
 
