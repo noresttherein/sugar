@@ -214,7 +214,7 @@ object Lazy {
 	  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
 	  * and its runtime reference wrapper is an immutable class.
 	  */
-	@SerialVersionUID(Ver) //todo: make it specialized
+	@SerialVersionUID(Ver)
 	private final class SyncVal[@specialized(SpecializedVars) +T]
 		extends Lazy[T]
 	{

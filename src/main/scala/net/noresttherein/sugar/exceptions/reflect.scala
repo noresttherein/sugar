@@ -10,7 +10,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Opt.implicits.gotAny
+import net.noresttherein.sugar.vars.Opt.conversions.gotAny
 
 
 

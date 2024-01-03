@@ -60,7 +60,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   *      a single boxing will need to happen. It has however an advantage over other two in that this benefit is 'free':
   *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
   *   1. A specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
-  *   1. A specialized [[net.noresttherein.sugar.vars.BoolOpt BoolOpt]], erased in the runtime to a `Char`.
+  *   1. A specialized [[net.noresttherein.sugar.vars.Ternary Ternary]], erased in the runtime to a `Int`.
   *
   * In most scenarios, use of `Potential` is preferable, however it cannot be used as a result of an `unapply` method,
   * which makes this class non redundant.
@@ -469,7 +469,7 @@ class Opt[+A] private[Opt] (private val ref :AnyRef) //private[Opt] to allow inl
 
 	/** Converts this `Opt` to `Fallible`, returning the content as `Passed`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
-	@inline final def toPassed(err : => String) :Fallible[A] =
+	@inline def toPassed(err : => String) :Fallible[A] =
 		if (ref eq NoContent) Failed(() => err) else Passed(get)
 
 	/** Converts this `Opt` to `Fallible`, returning the content as `Passed`,
@@ -561,8 +561,7 @@ object Opt {
 		}
 
 	/** Returns the first argument as `Got` if it satisfies the predicate `p`.
-	  * @return `Got(value).filter(p)`.
-	  */
+	  * @return `Got(value).filter(p)`. */
 	@inline def satisfying[A](value :A)(p :A => Boolean) :Opt[A] =
 		if (p(value)) Got(value) else Lack
 
@@ -610,20 +609,17 @@ object Opt {
 
 
 
-//	@inline implicit def optToPotential[A](opt :Opt[A]) :Potential[A] = opt.toPotential
-//
 	/** Implicit conversions between `Opt` and `Option`.
 	  * Conversions between `Opt` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
-	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]]. */
+	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
 	@SerialVersionUID(Ver)
-	object implicits {
+	object conversions {
 		@inline implicit def OptToOption[T](opt :Opt[T]) :Option[T] = opt.option
 		@inline implicit def OptToIterable[T](opt :Opt[T]) :Iterable[T] = opt.toIterable
 
 		@inline implicit def OptionToOpt[T](option :Option[T]) :Opt[T] =
 			new Opt(if (option.isDefined) option.get.asInstanceOf[AnyRef] else NoContent)
 
-		//consider: placing this also in optional.extensions (or optional.implicits)
 		/** Implicitly lifts any value `T` to [[net.noresttherein.sugar.vars.Opt Opt]]`[T]`. */
 		@inline implicit def gotAny[T](x :T) :Got[T] = new Opt(x.asInstanceOf[AnyRef]).asInstanceOf[Got[T]]
 
@@ -649,7 +645,7 @@ object Opt {
 		val Option = Opt
 		val Some   = Got
 		val None   = Lack
-		//same names as in implicits so if both are imported one shadows the other
+		//same names as in conversions so if both are imported one shadows the other
 		@inline implicit def OptToOption[T](opt :Opt[T]) :scala.Option[T] = opt.option
 		@inline implicit def OptionToOpt[T](opt :scala.Option[T]) :Opt[T] = some_?(opt)
 		@inline implicit def SomeToGot[T](opt :scala.Some[T]) :Got[T] = Got(opt.get)
@@ -660,9 +656,14 @@ object Opt {
 	}
 
 
-	//extends Any => AnyRef out of laziness, allowing it to pass as the argument to applyOrElse
-	//is private[vars] so that methods of Opt can be inlined
-	// and because some Ref classes play with the erasure and need access to this marker object
+	/** The value wrapped by an empty `Opt`. In order to avoid ambiguity, it must not be used for any other purpose.
+	  * We don't use Ref.undefined, because that placeholder may actually be standing in for an `Opt`,
+	  * leading to ambiguity between `None`/`Lack` and 'not computed'.
+	  * Extends Any => AnyRef out of laziness, allowing it to pass as the argument to `applyOrElse`
+	  * to implement 'apply partial function to `this.get`, but if the former is undefined at the latter,
+	  * the result is empty' (`NoContent.apply` returns itself).
+	  * It is `private[vars]` so that methods of Opt can be inlined
+	  * and because some `Ref` classes play with the erasure and need access to this marker object. */
 	@SerialVersionUID(Ver)
 	private[vars] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this

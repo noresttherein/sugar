@@ -24,10 +24,10 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   *       or [[scala.collection.IterableOnce IterableOnce]], or passing it as a type parameter (in particular, using
   *       it as a function parameter or returned value) will however result in boxing
   *       which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions''
-  *       composing several `BoolOpt`s' can result in closures being created (as manual nesting of `flatMap` calls
+  *       composing several `IntOpt`s' can result in closures being created (as manual nesting of `flatMap` calls
   *       also can).
   *       For this reason its best to either directly use `isEmpty` and `get` in a conditional expression,
-  *       or use the [[net.noresttherein.sugar.vars.BoolOpt.Known$ Known]] matching pattern, which should,
+  *       or use the [[net.noresttherein.sugar.vars.Ternary.Known$ Known]] matching pattern, which should,
   *       by modern compilers, be translated to non-boxing byte code.
   * @see [[net.noresttherein.sugar.vars.IntOpt.AnInt$]]
   * @see [[net.noresttherein.sugar.vars.IntOpt.NoInt]]
@@ -442,7 +442,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Converts this `IntOpt` to `Fallible`, returning the content as `Passed`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
-	@inline final def toPassed(err : => String) :Fallible[Int] =
+	@inline def toPassed(err : => String) :Fallible[Int] =
 		if (x == NoContent) Failed(() => err) else Passed(get)
 
 	/** Formats this `IntOpt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
@@ -462,10 +462,10 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	@inline def same(other :IntOpt) :Boolean = x != NoContent & other.x != NoContent && x == other.x
 
 	/** Returns `for (a <- this; b <- other) yield a == b`. */
-	@inline def sameOpt(other :IntOpt) :BoolOpt =
-		if (x == NoContent) BoolOpt.Unknown
-		else if (other.x == NoContent) BoolOpt.Unknown
-		else BoolOpt.Known(x == other.x)
+	@inline def sameOpt(other :IntOpt) :Ternary =
+		if (x == NoContent) Ternary.Unknown
+		else if (other.x == NoContent) Ternary.Unknown
+		else Ternary.Known(x == other.x)
 }
 
 
@@ -486,31 +486,35 @@ object IntOpt {
 	  */
 	@inline def apply(value :Int) :IntOpt = new IntOpt(value & Content)
 
-	/** Converts the given `Option[Int]` into a lighter `IntOpt`, which is erased at runtime. */
+	/** Converts the given `Option[Int]` into a specialized `IntOpt`, which is erased at runtime. */
 	@inline def some_?(value :Option[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Opt[Int]` into a lighter `IntOpt`, erased at runtime. */
+	/** Converts the given `Opt[Int]` into a specialized `IntOpt`, erased at runtime. */
 	@inline def got_?(value :Opt[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Unsure[Int]` into a lighter `IntOpt`, erased at runtime. */
+	/** Converts the given `Unsure[Int]` into a specialized `IntOpt`, erased at runtime. */
 	@inline def sure_?(value :Unsure[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Potential[Int]` into a lighter `IntOpt` for interoperability. */
+	/** Converts the given `Potential[Int]` into a specialized `IntOpt` for interoperability. */
 	@inline def existent_?(value :Potential[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Option[Int]` into a lighter `IntOpt`, erased at runtime. */
+	/** Converts the given `Opt[Int]` into a specialized `IntOpt`, erased at runtime. */
+	@inline def fromOpt(value: Opt[Int]) :IntOpt =
+		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
+
+	/** Converts the given `Option[Int]` into a specialized `IntOpt`, erased at runtime. */
 	@inline def fromOption(value: Option[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Unsure[Int]` into a lighter `IntOpt`, erased at runtime. */
+	/** Converts the given `Unsure[Int]` into a specialized `IntOpt`, erased at runtime. */
 	@inline def fromUnsure(value: Unsure[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Potential[Int]` into a lighter `IntOpt` for interoperability. */
+	/** Converts the given `Potential[Int]` into a specialized `IntOpt` for interoperability. */
 	@inline def fromPotential(value :Potential[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
@@ -597,7 +601,7 @@ object IntOpt {
 
 	/** Implicit conversions between `IntOpt` and `IntOption`.
 	  * Conversions between `IntOpt` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
-	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.implicits implicits]]. */
+	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
 	@SerialVersionUID(Ver)
 	object implicits {
 		@inline implicit def IntOptToOption(opt :IntOpt) :Option[Int] = opt.option
@@ -613,9 +617,8 @@ object IntOpt {
 		@inline implicit def IntOptToPotential(IntOpt :IntOpt) :Potential[Int] = IntOpt.potential
 		@inline implicit def PotentialToIntOpt(opt :Potential[Int]) :IntOpt = IntOpt.fromPotential(opt)
 
-		//consider: placing this also in IntOptional.extensions (or IntOptional.implicits)
 		/** Implicitly lifts an `Int` to [[net.noresttherein.sugar.vars.IntOpt IntOpt]]`[T]`. */
-		@inline implicit def gotInt(x :Int) :AnInt = new IntOpt(x & Content).asInstanceOf[AnInt]
+		@inline implicit def IntToAnInt(x :Int) :AnInt = new IntOpt(x & Content).asInstanceOf[AnInt]
 	}
 }
 

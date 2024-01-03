@@ -349,7 +349,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	/** Conversion to standard Scala [[scala.Option]]. Same as [[net.noresttherein.sugar.vars.Unsure.toOption toOption]].
 	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise.
 	  */
-	override def option :Option[T] = None //overriden by Sure
+	override def option :Option[T] = None //overridden by Sure
 
 	/** Converts this `Unsure` to an `Opt`. Same as [[net.noresttherein.sugar.vars.Unsure.toOpt toOpt]].
 	  * @return [[net.noresttherein.sugar.vars.Opt.Got Got]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
@@ -509,7 +509,7 @@ object Unsure {
 	  * They involve boxing and are placed here for explicit importing.
 	  */
 	@SerialVersionUID(Ver)
-	object implicits {
+	object conversions {
 		/** An implicit conversion that converts an option to an iterable value. */
 		@inline implicit def UnsureToIterable[A](opt :Unsure[A]): Iterable[A] = opt.toIterable
 
