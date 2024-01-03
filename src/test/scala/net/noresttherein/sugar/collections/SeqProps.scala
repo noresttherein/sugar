@@ -24,8 +24,8 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 
 	protected implicit def anyEvidence :E[Any]
 
-	implicit def buildablePassedArray[T] :Buildable[T, PassedArray[T]] = new Buildable[T, PassedArray[T]] {
-		override def builder :Builder[T, PassedArray[T]] = PassedArray.newBuilder[T]
+	implicit def buildableRelayArray[T] :Buildable[T, RelayArray[T]] = new Buildable[T, RelayArray[T]] {
+		override def builder :Builder[T, RelayArray[T]] = RelayArray.newBuilder[T]
 	}
 
 	property("length") = test { (expect :Seq[Int], subject :C[Int]) => expect.length =? subject.length }
@@ -168,13 +168,13 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 	property("appendedAll(Vector[Int]))") = forAll { (prefix :C[Int], suffix :Vector[Int]) =>
 		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
-	property("appendedAll(PassedArray[Int].slice)") = forAll { (prefix :C[Int], suffix :PassedArray[Int]) =>
+	property("appendedAll(RelayArray[Int].slice)") = forAll { (prefix :C[Int], suffix :RelayArray[Int]) =>
 		validate(
 			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
 			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
 		) lbl passedArrayLabel(suffix)
 	}
-	property("appendedAll(PassedArray[String].slice)") = forAll { (prefix :C[Int], suffix :PassedArray[String]) =>
+	property("appendedAll(RelayArray[String].slice)") = forAll { (prefix :C[Int], suffix :RelayArray[String]) =>
 		try {
 		compare(
 			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
@@ -218,13 +218,13 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 	property("prependedAll(Vector[Int])") = forAll { (prefix :Vector[Int], suffix :C[Int]) =>
 		validate(prefix ++ suffix, (prefix ++: suffix) to C)
 	}
-	property("prependedAll(PassedArray[Int].slice)") = forAll { (prefix :PassedArray[Int], suffix :C[Int]) =>
+	property("prependedAll(RelayArray[Int].slice)") = forAll { (prefix :RelayArray[Int], suffix :C[Int]) =>
 		validate(
 			prefix.slice(1, prefix.length - 1) ++ suffix,
 			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
 		) lbl passedArrayLabel(prefix)
 	}
-	property("prependedAll(PassedArray[String].slice)") = forAll { (prefix :PassedArray[String], suffix :C[Int]) =>
+	property("prependedAll(RelayArray[String].slice)") = forAll { (prefix :RelayArray[String], suffix :C[Int]) =>
 		compare(
 			prefix.slice(1, prefix.length - 1) ++ suffix,
 			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
@@ -239,8 +239,8 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		}
 
 
-	private def passedArrayLabel[E](seq :PassedArray[E]) = seq match {
-		case slice :ProperPassedArray[E] => slice.dumpString
+	private def passedArrayLabel[E](seq :RelayArray[E]) = seq match {
+		case slice :ProperRelayArray[E] => slice.dumpString
 		case _                           => seq.mkString(seq.localClassName + "(", ", ", ")")
 	}
 

@@ -1272,7 +1272,7 @@ private object RankingImpl {
 	def deduplicateLarge[T](items :Iterable[T], keepFirst :Boolean) :Ranking[T] = {
 		val seq = items match {
 			case seq :IndexedSeq[T] => seq
-			case _ => items to PassedArray
+			case _ => items to RelayArray
 		}
 		val indexed = seq.view.zipWithIndex to DefaultIndexedSeq
 		val map = if (keepFirst) indexed.reverseIterator.toMap else indexed.toMap
@@ -3080,9 +3080,9 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			case Ranking => this.castFrom[Ranking[E], C1]
 			case Got(IRefArraySlice) | Got(ArrayLikeSlice) | Got(IArrayLikeSlice) =>
 				IRefArraySlice.wrap(elements.asIRefArray).castFrom[IRefArraySlice[E], C1]
-			//fixme: currently PassedArrayFactory equals PassedArrayInternals, not PassedArray
-			case _ if PassedArrayFactory.contains(companion) =>
-				PassedArrayFactory.get.wrap(elements.castFrom[RefArray[E], IArray[E]]).castFrom[IndexedSeq[E], C1]
+			//fixme: currently RelayArrayFactory equals PassedArrayInternals, not PassedArray
+			case _ if RelayArrayFactory.contains(companion) =>
+				RelayArrayFactory.get.wrap(elements.castFrom[RefArray[E], IArray[E]]).castFrom[IndexedSeq[E], C1]
 			case _ =>
 				factory.fromSpecific(this)
 		}

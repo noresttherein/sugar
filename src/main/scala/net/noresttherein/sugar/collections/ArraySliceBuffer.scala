@@ -385,10 +385,10 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			case ArraySeq if offset == 0 && array != null && len == array.length =>
 				markAliased()
 				ArraySeq.unsafeWrapArray(array.asAnyArray).castFrom[ArraySeq[Any], C1]
-			//fixme: currently PassedArrayFactory equals PassedArrayInternals, not PassedArray
-			case _ if canAlias && PassedArrayFactory.isDefined && PassedArrayFactory == companion =>
+			//fixme: currently RelayArrayFactory equals RelayArrayInternals, not RelayArray
+			case _ if canAlias && RelayArrayFactory.isDefined && RelayArrayFactory == companion =>
 				markAliased()
-				PassedArrayFactory.get.slice(array.asIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]
+				RelayArrayFactory.get.slice(array.asIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]
 			case _ => super.to(factory)
 		}
 		case _ => super.to(factory)

@@ -518,7 +518,7 @@ private[noresttherein] sealed trait SingletonNonSeqOps[+E, +CC[_], +C] extends S
 	override def concat[B >: E](suffix :IterableOnce[B]) :CC[B] =
 		if (suffix.toBasicOps.isEmpty) asGeneric else super.concat(suffix)
 	override def toSeq :Seq[E] = head::Nil
-	override def toIndexedSeq :IndexedSeq[E] = PassedArray.one(head)
+	override def toIndexedSeq :IndexedSeq[E] = RelayArray.one(head)
 }
 
 

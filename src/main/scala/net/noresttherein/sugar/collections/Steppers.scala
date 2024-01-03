@@ -396,7 +396,7 @@ private object Stepper2 {
   * @tparam B the type of the Java `Spliterator` - for value types, this is the Java box class of `A`.
   * @tparam S the type of concatenated steppers.
   * @tparam J the type of `Spliterator`s produced by steppers `S`.
-  */ //it would be useful if ConcatStepper *was* a Seq extending PassedArray
+  */ //it would be useful if ConcatStepper *was* a Seq extending RelayArray
 private sealed abstract class ConcatStepper
                               [A, B, +S >: Null <: Stepper[A], J >: Null <: Spliterator[B], I >: Null <: JIterator[B]]
                               (private[this] var steppers :IndexedSeq[S], //con't be mutable due to trySplit
@@ -606,7 +606,7 @@ private object ConcatStepper {
 			case (l :LongStepper, r :LongStepper)                    => ofLong(l, r).asInstanceOf[Stepper[A]]
 			case (l :DoubleStepper, r :DoubleStepper)                => ofDouble(l, r).asInstanceOf[Stepper[A]]
 //			case (l :AnyStepper[A], r :AnyStepper[A])                => ofRef(l, r)
-			case (_ :LazyStepper[_, _], _ :LazyStepper[_, _])        => new OfAny(PassedArray.two(first, second))
+			case (_ :LazyStepper[_, _], _ :LazyStepper[_, _])        => new OfAny(RelayArray.two(first, second))
 			case (_ :LazyStepper[_, _], _) if !second.hasStep        => first  //if first is lazy then second is not
 			case (_, _ :LazyStepper[_, _]) if !first.hasStep         => second //if second is lazy then first is not
 			case (_, _) if !first.hasStep  => second //at this point we now neither is lazy
@@ -633,8 +633,8 @@ private object ConcatStepper {
 //			case (_ :LazyStepper[_, _], _ :LazyStepper[_, _])      => new OfAny(PassedArray.two(first, second))
 //			case (_, any :LazyStepper.OfRef[A]) if !first.hasStep  => any //don't call hesStep on a lazy stepper
 //			case (any :LazyStepper.OfRef[A], _) if !second.hasStep => any
-			case (_ :LazyStepper[_, _], _)                         => new OfAny(PassedArray.two(first, second))
-			case (_, _ :LazyStepper[_, _])                         => new OfAny(PassedArray.two(first, second))
+			case (_ :LazyStepper[_, _], _)                         => new OfAny(RelayArray.two(first, second))
+			case (_, _ :LazyStepper[_, _])                         => new OfAny(RelayArray.two(first, second))
 			case (_, any :AnyStepper[A]) if !first.hasStep         => any //now we know first is not lazy and can call hasStep
 			case (any :AnyStepper[A], _) if !second.hasStep        => any
 			case (cat1 :ConcatStepper[A, _, Stepper[A], _, _] @unchecked,
@@ -643,7 +643,7 @@ private object ConcatStepper {
 				new OfAny(cat1.parts ++ cat2.parts)
 			case (cat1 :ConcatStepper[A, _, Stepper[A], _, _] @unchecked, _) => new OfAny(cat1.parts :+ second)
 			case (_, cat2 :ConcatStepper[A, _, Stepper[A], _, _] @unchecked) => new OfAny(first +: cat2.parts)
-			case _                                                           => new OfAny(PassedArray.two(first, second))
+			case _                                                           => new OfAny(RelayArray.two(first, second))
 		}
 
 	def ofRef[A](steppers :Seq[Stepper[A]]) :AnyStepper[A] =
@@ -652,15 +652,15 @@ private object ConcatStepper {
 	@tailrec def ofInt(first :IntStepper, second :IntStepper) :IntStepper = (first, second) match {
 		case (l :LazyStepper.OfInt, _) if l.isEvaluated   => ofInt(l.stepper, second)
 		case (_, r :LazyStepper.OfInt) if r.isEvaluated   => ofInt(first, r.stepper)
-		case (_ :LazyStepper[_, _], _ :LazyStepper[_, _]) => new OfInt(PassedArray.two(first, second))
-		case (_ :LazyStepper[_, _], _)  => if (second.hasStep) new OfInt(PassedArray.two(first, second)) else first
-		case (_, _ :LazyStepper[_, _])  => if (first.hasStep) new OfInt(PassedArray.two(first, second)) else second
+		case (_ :LazyStepper[_, _], _ :LazyStepper[_, _]) => new OfInt(RelayArray.two(first, second))
+		case (_ :LazyStepper[_, _], _)  => if (second.hasStep) new OfInt(RelayArray.two(first, second)) else first
+		case (_, _ :LazyStepper[_, _])  => if (first.hasStep) new OfInt(RelayArray.two(first, second)) else second
 		case _ if !first.hasStep        => second
 		case _ if !second.hasStep       => first
 		case (cat1 :OfInt, cat2 :OfInt) => new OfInt(cat1.parts ++ cat2.parts)
 		case (cat1 :OfInt, _)           => new OfInt(cat1.parts :+ second)
 		case (_, cat2 :OfInt)           => new OfInt(first +: cat2.parts)
-		case _                          => new OfInt(PassedArray.two(first, second))
+		case _                          => new OfInt(RelayArray.two(first, second))
 	}
 
 	def ofInt(steppers :Seq[IntStepper]) :IntStepper =
@@ -669,15 +669,15 @@ private object ConcatStepper {
 	@tailrec def ofLong(first :LongStepper, second :LongStepper) :LongStepper = (first, second) match {
 		case (l :LazyStepper.OfLong, _)                   => ofLong(l.stepper, second)
 		case (_, r :LazyStepper.OfLong)                   => ofLong(first, r.stepper)
-		case (_ :LazyStepper[_, _], _ :LazyStepper[_, _]) => new OfLong(PassedArray.two(first, second))
-		case (_ :LazyStepper[_, _], _)    => if (second.hasStep) new OfLong(PassedArray.two(first, second)) else first
-		case (_, _ :LazyStepper[_, _])    => if (first.hasStep) new OfLong(PassedArray.two(first, second)) else second
+		case (_ :LazyStepper[_, _], _ :LazyStepper[_, _]) => new OfLong(RelayArray.two(first, second))
+		case (_ :LazyStepper[_, _], _)    => if (second.hasStep) new OfLong(RelayArray.two(first, second)) else first
+		case (_, _ :LazyStepper[_, _])    => if (first.hasStep) new OfLong(RelayArray.two(first, second)) else second
 		case _ if !first.hasStep          => second
 		case _ if !second.hasStep         => first
 		case (cat1 :OfLong, cat2 :OfLong) => new OfLong(cat1.parts ++ cat2.parts)
 		case (cat1 :OfLong, _)            => new OfLong(cat1.parts :+ second)
 		case (_, cat2 :OfLong)            => new OfLong(first +: cat2.parts)
-		case _                            => new OfLong(PassedArray.two(first, second))
+		case _                            => new OfLong(RelayArray.two(first, second))
 	}
 
 	def ofLong(steppers :Seq[LongStepper]) :LongStepper =
@@ -686,15 +686,15 @@ private object ConcatStepper {
 	@tailrec def ofDouble(first :DoubleStepper, second :DoubleStepper) :DoubleStepper = (first, second) match {
 		case (l :LazyStepper.OfDouble, _)                 => ofDouble(l.stepper, second)
 		case (_, r :LazyStepper.OfDouble)                 => ofDouble(first, r.stepper)
-		case (_ :LazyStepper[_, _], _ :LazyStepper[_, _]) => new OfDouble(PassedArray.two(first, second))
-		case (_ :LazyStepper[_, _], _)        => if (second.hasStep) new OfDouble(PassedArray.two(first, second)) else first
-		case (_, _ :LazyStepper[_, _])        => if (first.hasStep) new OfDouble(PassedArray.two(first, second)) else second
+		case (_ :LazyStepper[_, _], _ :LazyStepper[_, _]) => new OfDouble(RelayArray.two(first, second))
+		case (_ :LazyStepper[_, _], _)        => if (second.hasStep) new OfDouble(RelayArray.two(first, second)) else first
+		case (_, _ :LazyStepper[_, _])        => if (first.hasStep) new OfDouble(RelayArray.two(first, second)) else second
 		case _ if !first.hasStep              => second
 		case _ if !second.hasStep             => first
 		case (cat1 :OfDouble, cat2 :OfDouble) => new OfDouble(cat1.parts ++ cat2.parts)
 		case (cat1 :OfDouble, _)              => new OfDouble(cat1.parts :+ second)
 		case (_, cat2 :OfDouble)              => new OfDouble(first +: cat2.parts)
-		case _                                => new OfDouble(PassedArray.two(first, second))
+		case _                                => new OfDouble(RelayArray.two(first, second))
 	}
 
 	def ofDouble(steppers :Seq[DoubleStepper]) :DoubleStepper =

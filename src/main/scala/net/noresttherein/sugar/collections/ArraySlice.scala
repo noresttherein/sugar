@@ -18,8 +18,8 @@ import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMet
 
 
 
-/** A collection backed by an array slice. Extended by the 'proper' `PassedArray` and various `ArrayLike` adapters,
-  * but used instead of the latter in pattern matching to decouple code from the `PassedArray` type itself.
+/** A collection backed by an array slice. Extended by the 'proper' `RelayArray` and various `ArrayLike` adapters,
+  * but used instead of the latter in pattern matching to decouple code from the `RelayArray` type itself.
   */
 private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 	private[sugar] def unsafeArray :Array[_]

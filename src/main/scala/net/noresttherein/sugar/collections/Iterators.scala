@@ -1746,15 +1746,15 @@ private object Iterators {
 	}
 
 
-	//consider: integrating the idea behind PassedArray and including the array directly.
+	//consider: integrating the idea behind RelayArray and including the array directly.
 	//Tempting to have iterators mutable, but either we'd need to copy everything on concat or throw away the original iterator.
-	final class Concat[+E](private[this] var iterators :PassedArray[Iterator[E]])
+	final class Concat[+E](private[this] var iterators :RelayArray[Iterator[E]])
 		extends AbstractFlatMap[E]
 	{
 //		def this(iterators :PassedArray[Iterator[E]]) = this(iterators.head, iterators.tail)
-		def this(first :Iterator[E], second :Iterator[E]) = this(PassedArray.two(first, second))
+		def this(first :Iterator[E], second :Iterator[E]) = this(RelayArray.two(first, second))
 
-		private def list :PassedArray[Iterator[E]] = iterators
+		private def list :RelayArray[Iterator[E]] = iterators
 		if (iterators.nonEmpty)
 			enqueue(iterators.head)
 

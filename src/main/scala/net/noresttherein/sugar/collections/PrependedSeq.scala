@@ -106,7 +106,7 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 private[noresttherein] object Prepended2Seq {
 	def apply[E](first :E, second :E, rest :Seq[E]) :Seq[E] = rest match {
 		case list :LinearSeq[E]  => first +: second +: list
-		case _ if rest.isEmpty   => PassedArray.two(first, second)
+		case _ if rest.isEmpty   => RelayArray.two(first, second)
 		case seq  :IndexedSeq[E] => new Prepended2IndexedSeq[E](first, second, seq)
 		case _                   => new Prepended2Seq[E](first, second, rest)
 	}

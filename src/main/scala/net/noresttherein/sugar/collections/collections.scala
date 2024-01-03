@@ -50,49 +50,28 @@ package object collections {
 	final val defaultBufferProperty     = "net.noresttherein.sugar.collections.BufferFactory"
 
 
-	private final val PassedArrayClassName = "net.noresttherein.sugar.collections.PassedArray"
+	private final val RelayArrayClassName = "net.noresttherein.sugar.collections.RelayArray"
 
-	/** A factory of sequences wrapping an arrays in a [[net.noresttherein.sugar.collections.PassedArray PassedArray]],
+	/** A factory of sequences wrapping an arrays in a [[net.noresttherein.sugar.collections.RelayArray RelayArray]],
 	  * if the latter is not on the classpath.
 	  */
-	private[sugar] final val PassedArrayFactory :Opt[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
+	private[sugar] final val RelayArrayFactory :Opt[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
 		Opt.guard {
-			val factoryClass = Class.forName(PassedArrayClassName + "Internals$")
+			val factoryClass = Class.forName(RelayArrayClassName + "Internals$")
 			factoryClass.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]]
 		}
-//	{
-//		val PassedArrayClass :Opt[Class[_]] = Opt.guard(Class.forName(PassedArrayClassName + '$')))
-//		PassedArrayClass flatMap { cls =>
-//			Opt.guard(cls.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]])
-//		}
-//	}
-
-//
-//	/** Switches to [[net.noresttherein.sugar.collections.PassedArray PassedArray]] as the default
-//	  * Array to IndexedSeq wrapper, if available on the class path. Otherwise,
-//	  * equals [[net.noresttherein.sugar.collections.IArraySlice IArraySlice]].
-//	  */ //consider: moving it to IArray.Wrapped
-//	private[sugar] val DefaultArraySliceSeq :ArrayLikeSliceFactory[IndexedSeq, IArray] =
-//		PassedArrayFactory getOrElse IArraySlice
-//
-//	/** Switches to [[net.noresttherein.sugar.collections.PassedArray PassedArray]] as the default
-//	  * Array to IndexedSeq wrapper, if available on the class path. Otherwise,
-//	  * equals [[net.noresttherein.sugar.collections.IRefArraySlice IRefArraySlice]].
-//	  */ //consider: moving it to IRefArray.Wrapped
-//	private[sugar] val DefaultRefArraySeq :ArrayLikeSliceWrapper[IndexedSeq, IRefArray] =
-//		PassedArrayFactory getOrElse IRefArraySlice
 
 	/** The default `IndexedSeq` implementation used by the library. */
 	private[collections] val DefaultIndexedSeq :SeqFactory[IndexedSeq] =
-		seqFactoryFromProperty[IndexedSeq](defaultIndexedSeqProperty) orElse PassedArrayFactory getOrElse IndexedSeq
+		seqFactoryFromProperty[IndexedSeq](defaultIndexedSeqProperty) orElse RelayArrayFactory getOrElse IndexedSeq
 
 	/** An `IndexedSeq` used as a temporary buffer when a collection method cannot be implemented for a particular
 	  * collection type, for example when traversing in reverse on an `Iterator` or a `LinearSeq`.
-	  * Equal to [[net.noresttherein.sugar.collections.PassedArray PassedArray]] if available, or `ArraySeq.untagged`
+	  * Equal to [[net.noresttherein.sugar.collections.RelayArray RelayArray]] if available, or `ArraySeq.untagged`
 	  * otherwise.
 	  */
 	private[collections] val TemporaryIndexedSeq :SeqFactory[IndexedSeq] =
-		PassedArrayFactory getOrElse ArraySeq.untagged
+		RelayArrayFactory getOrElse ArraySeq.untagged
 
 	val DefaultBuffer :BufferFactory[Buffer] =
 		bufferFactoryFromProperty(defaultBufferProperty) getOrElse MatrixBuffer.untagged

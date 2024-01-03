@@ -48,7 +48,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @tparam P a path type - either a `Label`, or one or more `/` instances appending new labels to the first one.
   * @see [[net.noresttherein.sugar.util.LabelPath.Label]]
   * @see [[net.noresttherein.sugar.util.LabelPath./]]
-  */ //consider: making it a value class wrapping a PassedArray, like in Scala 3 tuples.
+  */ //consider: making it a value class wrapping a RelayArray, like in Scala 3 tuples.
 sealed trait LabelPath[P] extends Any with LabelPathPrefix {
 
 	/** The instance of the path type `P` */

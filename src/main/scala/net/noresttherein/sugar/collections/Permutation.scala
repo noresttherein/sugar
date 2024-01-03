@@ -106,7 +106,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 			)
 		else
 			new Permutation(
-				PassedArray.tabulate(toIndexedSeq.length) { i =>
+				RelayArray.tabulate(toIndexedSeq.length) { i =>
 					if (i == n) toIndexedSeq(m) else if (i == m) toIndexedSeq(n) else toIndexedSeq(i)
 				}
 			)
@@ -118,9 +118,9 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	  */
 	def split :Seq[Permutation] =
 		if (toIndexedSeq.length == 0)
-			PassedArray.one(this)
+			RelayArray.one(this)
 		else {
-			val res = PassedArray.newBuilder[Permutation]
+			val res = RelayArray.newBuilder[Permutation]
 			var first = true
 			val len = toIndexedSeq.length
 			var limit = toIndexedSeq.head
@@ -149,7 +149,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	  * }}}
 	  */
 	def orbit(n :Int) :IndexedSeq[Int] = {
-		val res = PassedArray.newBuilder[Int]
+		val res = RelayArray.newBuilder[Int]
 		res += n
 		var i = toIndexedSeq(n)
 		while (i != n) {
@@ -165,7 +165,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	  */
 	def cycles :Seq[IndexedSeq[Int]] = {
 		val used = mutable.Set.empty[Int]
-		val res = PassedArray.newBuilder[IndexedSeq[Int]]
+		val res = RelayArray.newBuilder[IndexedSeq[Int]]
 		var last = 0
 		while (toIndexedSeq.indexWhere(!used(_), last) match {
 			case -1 => false
@@ -227,7 +227,7 @@ object Permutation {
 	val empty = new Permutation(IndexedSeq.empty)
 
 	/** The only permutation for sequences of length `1`. */
-	val singleton = new Permutation(PassedArray.one(0))
+	val singleton = new Permutation(RelayArray.one(0))
 
 	/** An identity permutation `0 until size`. */
 	def id(size :Int) :Permutation = new Permutation(0 until size)
@@ -273,7 +273,7 @@ object Permutation {
 			res(i) = out.indexOf(in(i))
 			i += 1
 		}
-		new Permutation(PassedArrayInternals.wrap(res))
+		new Permutation(IArray.Wrapped(res.asInstanceOf[IArray[Int]]))
 	}
 
 	/** A random permutation of size `size` with equal distribution. */

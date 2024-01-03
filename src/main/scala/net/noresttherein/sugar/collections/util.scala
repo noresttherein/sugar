@@ -277,7 +277,7 @@ private object HasFastSlice {
 			case _    :collection.IndexedSeqOps[A, IterableOnce, IterableOnce[A]] @unchecked => items match {
 				case view  :IndexedSeqView[A]        => Got(view)
 				case vec   :Vector[A]                => Got(vec)
-				case pass  :PassedArray[A]           => Got(pass)
+				case pass  :RelayArray[A]           => Got(pass)
 				case slice :ArrayLikeSlice[A]        => Got(slice)
 				case seq   :collection.IndexedSeq[A] => Got(new SeqSlice(seq))
 				case ArrayLike.Wrapped.Slice(array, from, until) => Got(ArrayLikeSlice.slice(array, from, until))

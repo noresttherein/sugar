@@ -3209,7 +3209,7 @@ object extensions extends extensions {
 //		def appended[U >: E](first :U, second :U, rest :U*) :CC[U] =
 //			rest match {
 //				case seq :LinearSeq[U] => self.appendedAll(first +: second +: rest)
-//				case _ if knownEmpty(rest) => self.appendedAll(PassedArray.two(first, second))
+//				case _ if knownEmpty(rest) => self.appendedAll(RelayArray.two(first, second))
 //				case _ => self appendedAll (Iterator.double(first, second) :++ rest)
 //			}
 //
@@ -3217,7 +3217,7 @@ object extensions extends extensions {
 //		def prepended[U >: E](first :U, second :U, rest :U*) :CC[U] =
 //			rest match {
 //				case seq :LinearSeq[U] => self.prependedAll(first +: second +: rest)
-//				case _ if knownEmpty(rest) => self.prependedAll(PassedArray.two(first, second))
+//				case _ if knownEmpty(rest) => self.prependedAll(RelayArray.two(first, second))
 //				case _ => self prependedAll (Iterator.double(first, second) ++: rest)
 //			}
 
@@ -5104,7 +5104,7 @@ object extensions extends extensions {
 
 		def one[E](elem :E) :C[E] =
 			if (self eq IndexedSeq) ConstIndexedSeq(elem, 1).castCons[C]
-			else if (self eq PassedArray) PassedArray.one(elem).castCons[C]
+			else if (self eq RelayArray) RelayArray.one(elem).castCons[C]
 			else if ((self eq Buffer) || (self eq mutable.Seq)) (Buffer.empty[E] += elem).castCons[C]
 			else if ((self eq ArrayBuffer) || (self eq IndexedBuffer) || (self eq mutable.IndexedSeq))
 				(new ArrayBuffer[E] += elem).castCons[C]
@@ -5115,7 +5115,7 @@ object extensions extends extensions {
 			if (self eq Seq) new Prepended2Seq(first, second, Nil).castCons[C]
 			else if (self eq IndexedSeq) new Prepended2IndexedSeq(first, second, IndexedSeq.empty).castCons[C]
 			else if (self eq List) (first::second::Nil).castCons[C]
-			else if (self eq PassedArray) PassedArray.two(first, second).castFrom[Seq[E], C[E]]
+			else if (self eq RelayArray) RelayArray.two(first, second).castFrom[Seq[E], C[E]]
 			else if ((self eq Buffer) || (self eq mutable.Seq)) (Buffer.empty[E] += first += second).castCons[C]
 			else if ((self eq ArrayBuffer) || (self eq mutable.IndexedSeq) || (self eq IndexedBuffer))
 				(new ArrayBuffer[E] += first += second).castCons[C]

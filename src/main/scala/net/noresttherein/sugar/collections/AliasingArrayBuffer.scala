@@ -316,7 +316,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 			toIndexedSeq.asInstanceOf[C1]
 		case CompanionFactory.IterableFactory(factory :ArrayLikeSliceWrapper[Seq, IArrayLike] @unchecked)
 			if size >= (array.length >> 1) && //todo: a way of determining if a factory is immutable
-				factory == PassedArray || factory == IArrayLikeSlice || factory == IRefArraySlice =>
+				factory == RelayArray || factory == IArrayLikeSlice || factory == IRefArraySlice =>
 			aliased = true
 			factory.slice(array.asInstanceOf[IRefArray[E]], 0, size).asInstanceOf[C1]
 		case _ =>

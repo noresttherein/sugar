@@ -10,7 +10,7 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.IArray.extensions.IArrayExtensionConversion
 import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ArrayLikeWrapper, IArrayLikeSlice, IArraySlice, PassedArrayFactory}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ArrayLikeWrapper, IArrayLikeSlice, IArraySlice, RelayArrayFactory}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.PriorityConversion
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
@@ -1426,7 +1426,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@SerialVersionUID(Ver)
 	object Wrapped {
 		private[this] val wrapper :ArrayLikeWrapper[IndexedSeq, IArray] =
-			PassedArrayFactory getOrElse IArraySlice
+			RelayArrayFactory getOrElse IArraySlice
 
 		def apply[A](array :IArray[A]) :IndexedSeq[A] = wrapper.wrap(array)
 
@@ -1450,7 +1450,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		@SerialVersionUID(Ver)
 		object Slice {
 			private[this] val wrapper :ArrayLikeSliceWrapper[IndexedSeq, IArray] =
-				PassedArrayFactory getOrElse IArraySlice
+				RelayArrayFactory getOrElse IArraySlice
 
 			def apply[E](array :IArray[E], from :Int, until :Int) :IndexedSeq[E] = wrapper.slice(array, from, until)
 

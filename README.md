@@ -138,7 +138,7 @@ except for access near the ends (`O(1)`) and methods requiring reading/updating 
 #### 5.3. Ranking
 A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
 
-#### 5.4. PassedArray
+#### 5.4. RelayArray
 An immutable version of a dope vector and a growing array buffer with O(1) *first* append/prepend.
 
 #### 5.5. MatrixBuffer 

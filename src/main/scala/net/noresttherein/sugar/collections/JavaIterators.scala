@@ -393,7 +393,7 @@ object JavaIterator {
 private class JavaConcatIterator[A, I <: JIterator[A]](iters :IndexedSeq[I], private[this] var idx :Int = 0)
 	extends JIterator[A]
 { this :I =>
-	def this(first :I, second :I) = this(PassedArray.two(first, second))
+	def this(first :I, second :I) = this(RelayArray.two(first, second))
 
 	private[this] var state = -1 //1 => hasNext, 0 => !hasNext, -1 => unknown
 	private[this] var curr :I = _
@@ -485,7 +485,7 @@ private object JavaConcatIterator {
 			case (cat1 :OfInt, cat2 :OfInt) => new OfInt(cat1.iterators ++ cat2.iterators)
 			case (cat :OfInt, _)            => new OfInt(cat.iterators :+ second)
 			case (_, cat :OfInt)            => new OfInt(first +: cat.iterators)
-			case _                          => new OfInt(PassedArray.two(first, second)) 
+			case _                          => new OfInt(RelayArray.two(first, second))
 		}
 
 	def ofInt(iterators :Seq[JIntIterator]) :JIntIterator =
@@ -500,7 +500,7 @@ private object JavaConcatIterator {
 			case (cat1 :OfLong, cat2 :OfLong) => new OfLong(cat1.iterators ++ cat2.iterators)
 			case (cat :OfLong, _)             => new OfLong(cat.iterators :+ second)
 			case (_, cat :OfLong)             => new OfLong(first +: cat.iterators)
-			case _                            => new OfLong(PassedArray.two(first, second))
+			case _                            => new OfLong(RelayArray.two(first, second))
 		}
 
 	def ofLong(iterators :Seq[JLongIterator]) :JLongIterator =
@@ -515,7 +515,7 @@ private object JavaConcatIterator {
 			case (cat1 :OfDouble, cat2 :OfDouble) => new OfDouble(cat1.iterators ++ cat2.iterators)
 			case (cat :OfDouble, _)               => new OfDouble(cat.iterators :+ second)
 			case (_, cat :OfDouble)               => new OfDouble(first +: cat.iterators)
-			case _                                => new OfDouble(PassedArray.two(first, second))
+			case _                                => new OfDouble(RelayArray.two(first, second))
 		}
 
 	def ofDouble(iterators :Seq[JDoubleIterator]) :JDoubleIterator =
@@ -533,7 +533,7 @@ private object JavaConcatIterator {
 				new OfRef(cat.iterators :+ second)
 			case (_, cat :OfRef[A] @unchecked) =>
 				new OfRef[A](first +: cat.iterators)
-			case _ => new OfRef[A](PassedArray.two(first, second))
+			case _ => new OfRef[A](RelayArray.two(first, second))
 		}
 
 	def ofRef[A](iterators :Seq[JIterator[A]]) :JIterator[A] =

@@ -11,7 +11,7 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.IRefArray.extensions.IRefArrayExtensionConversion
 import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice, PassedArrayFactory}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice, RelayArrayFactory}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IteratorExtension}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
@@ -301,7 +301,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	@SerialVersionUID(Ver)
 	object Wrapped {
 		private[this] val wrapper :ArrayLikeSliceFactory[IndexedSeq, IRefArray] =
-			PassedArrayFactory getOrElse IRefArraySlice
+			RelayArrayFactory getOrElse IRefArraySlice
 
 		def apply[A](array :IRefArray[A]) :IndexedSeq[A] = wrapper.wrap(array)
 
@@ -325,7 +325,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 		@SerialVersionUID(Ver)
 		object Slice {
 			private[this] val wrapper :ArrayLikeSliceFactory[IndexedSeq, IRefArray] =
-				PassedArrayFactory getOrElse IRefArraySlice
+				RelayArrayFactory getOrElse IRefArraySlice
 
 			def apply[A](array :IRefArray[A], from :Int, until :Int) :IndexedSeq[A] =
 				wrapper.slice(array, from, until)
