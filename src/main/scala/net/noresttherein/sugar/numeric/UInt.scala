@@ -15,21 +15,8 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 /** An unsigned 32 bit integer backed by an `Int` value. All comparisons are done as if unsigned, and `toString`
-  * and other formatting methods treat the underlying `Int` as unsigned. Provided conversion methods fall into
-  * three categories:
-  *   1. [[net.noresttherein.sugar.numeric.UInt.byteValue byteValue]],
-  *      [[net.noresttherein.sugar.numeric.UInt.shortValue shortValue]],
-  *      [[net.noresttherein.sugar.numeric.UInt.intValue intValue]], and
-  *      [[net.noresttherein.sugar.numeric.UInt.charValue charValue]]
-  *      simply reinterpret the binary value of an appropriate number of lower bytes as the desired type,
-  *      which may result in returning negative values.
-  *   1. [[net.noresttherein.sugar.numeric.UInt.toByte toByte]], [[net.noresttherein.sugar.numeric.UInt.toShort toShort]],
-  *      [[net.noresttherein.sugar.numeric.UInt.toInt toInt]], and [[net.noresttherein.sugar.numeric.UInt.toChar toChar]]
-  *      check if the value can be represented by that type, and throw an [[ArithmeticException]] if not.
-  *   1. For `Long`, `Float`, and `Double` methods `toX` and `asX` are equivalent, and return `toLong.toX`.
-  *
-  * However, this type doesn't check for overflows and underflows, meaning `UInt(1) - UInt(2)`
-  * will return `UInt.MaxValue`.
+  * and other formatting methods treat the underlying `Int` as unsigned.
+  * This type doesn't check for overflows and underflows, meaning `UInt(1) - UInt(2)` will return `UInt.MaxValue`.
   *
   * Arithmetic with `Int` is not provided by default, as it is not clear which type should be converted
   * to another, as both conversions may overflow/underflow. The same applies to implicit conversions between these types.
@@ -40,13 +27,13 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class UInt private[numeric] (override val toInt :Int)
+class UInt private[numeric] (override val toInt: Int)
 	extends AnyVal with Ordered[UInt] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
 	@inline override def isValidByte : Boolean = (toInt & 0x7f) == toInt
 	@inline override def isValidShort: Boolean = (toInt & 0x7fff) == toInt
-	@inline override def isValidChar : Boolean = (toInt & 0x7fff) == toInt
+	@inline override def isValidChar : Boolean = (toInt & 0xffff) == toInt
 	@inline override def isValidInt  : Boolean = toInt >= 0
 
 	@inline override def byteValue  : Byte    = toInt.toByte
@@ -63,12 +50,13 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline override def toFloat : Float  = toInt.toLong.toFloat
 	@inline override def toDouble: Double = toInt.toLong.toDouble
 
-	@inline def toByteExact : Byte   = { testRange(Byte.MaxValue, "Byte"); toInt.toByte }
-	@inline def toShortExact: Short  = { testRange(Short.MaxValue, "Short"); toInt.toShort }
-	@inline def toCharExact : Char   = { testRange(Char.MaxValue, "Char"); toInt.toChar }
-	@inline def toIntExact  : Int    = { if (toInt < 0) underflow("toInt"); toInt }
+	@inline def toByteExact  : Byte   = if ((toInt & 0x7f) != toInt) outOfRange("Byte") else toInt.toByte
+	@inline def toShortExact : Short  = if ((toInt & 0x7fff) != toInt) outOfRange("Short") else toInt.toShort
+	@inline def toCharExact  : Char   = if ((toInt & 0xffff) != toInt) outOfRange("Char") else toInt.toChar
+	@inline def toIntExact   : Int    = { if (toInt < 0) underflow("toInt"); toInt }
+	@inline def toUShortExact: UShort = if ((toInt & 0xff) != toInt) outOfRange("UShort") else new UShort(toInt.toShort)
 
-	/** Returns `toInt == 0`. */
+	/** Returns `toInt != 0`. */
 	@inline def toBoolean       : Boolean        = toInt != 0
 	@inline def toBigInt        : BigInt         = BigInt(toInt & 0xffffffffL)
 	@inline def toBigInteger    : BigInteger     = BigInteger.valueOf(toInt & 0xffffffffL)
@@ -76,6 +64,7 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def toJavaBigDecimal: JavaBigDecimal = JavaBigDecimal.valueOf(toInt & 0xffffffffL)
 
 	@inline def toDecimal64: Decimal64 = Decimal64(toInt & 0xffffffffL)
+	@inline def toUShort   : UShort    = new UShort(toInt.toShort)
 	@inline def toULong    : ULong     = new ULong(toInt & 0xffffffffL)
 	@inline def toSafeInt  : SafeInt   = new SafeInt(toIntExact)
 	@inline def toSafeLong : SafeLong  = new SafeLong(toInt & 0xffffffffL)
@@ -91,9 +80,9 @@ class UInt private[numeric] (override val toInt :Int)
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
 	@inline def +(x: String): String = toInt.toString + x
 
-	@inline def <<(x: Int)  : UInt = new UInt(toInt << x)
-	@inline def >>>(x: Int) : UInt = new UInt(toInt >>> x)
-	@inline def >>(x: Int)  : UInt = new UInt(toInt >> x)
+	@inline def <<(x: Int) : UInt = new UInt(toInt << x)
+	@inline def >>>(x: Int): UInt = new UInt(toInt >>> x)
+	@inline def >>(x: Int) : UInt = new UInt(toInt >> x)
 
 	//Consider: the problem with all these comparisons is that they exclude UInt, which is handled by methods
 	// inherited from Ordered. This works, because the erased signature is >(x :Object).
@@ -125,9 +114,9 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def <=(x: Short) : Boolean = x >= 0 & toInt >= 0 & toInt <= x
 	@inline def <=(x: Char)  : Boolean = toInt >= 0 & toInt <= x
 	@inline def <=(x: Int)   : Boolean = x >= 0 & toInt >= 0 & toInt <= x
-	@inline def <=(x: Long)  : Boolean = x <= (toInt & 0xffffffffL)
-	@inline def <=(x: Float) : Boolean = x <= (toInt & 0xffffffffL).toFloat
-	@inline def <=(x: Double): Boolean = x <= (toInt & 0xffffffffL).toDouble
+	@inline def <=(x: Long)  : Boolean = (toInt & 0xffffffffL) <= x
+	@inline def <=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat <= x
+	@inline def <=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble <= x
 	@inline def > (x: Byte)  : Boolean = x < 0 | toInt < 0 | toInt > x
 	@inline def > (x: Short) : Boolean = x < 0 | toInt < 0 | toInt > x
 	@inline def > (x: Char)  : Boolean = toInt < 0 | toInt > x
@@ -172,7 +161,7 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def +(x: Float) : Float  = (toInt & 0xffffffffL) + x
 	@inline def +(x: Double): Double = (toInt & 0xffffffffL) + x
 	@inline def +(x: UInt)  : UInt   = new UInt(toInt + x.toInt)
-	@inline def -(x: Char)  : UInt   = new UInt(toInt - x)
+	@inline def -(x: Char)  : UInt   = new UInt(toInt - x) //consider: making all subtractions return a signed integer
 	@inline def -(x: Long)  : Long   = (toInt & 0xffffffffL) - x
 	@inline def -(x: Float) : Float  = (toInt & 0xffffffffL) - x
 	@inline def -(x: Double): Double = (toInt & 0xffffffffL) - x
@@ -200,14 +189,14 @@ class UInt private[numeric] (override val toInt :Int)
 	  * @param denominator the denominator of the created rational (before reduction)
 	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 	  */
-	@inline def %/(denominator :UInt) :Ratio = Ratio(toInt & 0xffffffffL, denominator.toInt & 0xffffffffL)
+	@inline def %/(denominator: UInt): Ratio = Ratio(toInt & 0xffffffffL, denominator.toInt & 0xffffffffL)
 
 	/** Divides this `UInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
 	  * number representing the result.
 	  * @param denominator the denominator of the created rational (before reduction)
 	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 	  */
-	@inline def %/(denominator :Long) :Ratio = Ratio(toInt & 0xffffffffL, denominator)
+	@inline def %/(denominator: Long): Ratio = Ratio(toInt & 0xffffffffL, denominator)
 
 	type ResultWithoutStep = NumericRange[UInt]
 	@inline def to(end: UInt): NumericRange.Inclusive[UInt] =
@@ -223,15 +212,11 @@ class UInt private[numeric] (override val toInt :Int)
 	@inline def in(range: NumericRange[UInt]): Boolean = range.containsTyped(this)
 
 
-	private def underflow(method :String) :Nothing =
+	private def underflow(method: String): Nothing =
 		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
-	private def outOfRange(typeName :String) :Nothing =
+	private def outOfRange(typeName: String): Nothing =
 		throw new ArithmeticException("Value " + this + " is out of " + typeName + " range.")
-
-	@inline private def testRange(max :Int, typeName :String) :Unit =
-		if (toInt + MinValue > max + MinValue)
-			outOfRange(typeName)
 }
 
 
@@ -257,27 +242,28 @@ object UInt {
 		if (value < 0) throwArithmeticException(value)
 		else new UInt(value)
 
-	@inline def decode(string: String): UInt = {
-		val int = jl.Integer.decode(string)
-		if (int < 0)
+	@throws[NumberFormatException]("if the string does not contain a parseable integer, or it is negative.")
+	def decode(string: String): UInt = {
+		val long = jl.Long.decode(string)
+		if (long < 0L | long > 0xffffffffL)
 			throwNumberFormatException(string)
-		new UInt(int)
+		new UInt(long.toInt)
 	}
 
-	@inline def parse(string: String): Opt[UInt] =
-		Numeric.IntIsIntegral.parseString(string) match {
-			case Some(int) if int < 0 => Got(new UInt(int))
+	def parse(string: String): Opt[UInt] =
+		Numeric.LongIsIntegral.parseString(string) match {
+			case Some(long) if long >= 0L && long <= 0xffffffffL => Got(new UInt(long.toInt))
 			case _ => Lack
 		}
 
-	private def throwArithmeticException(value :Int) :Nothing =
-		throw new ArithmeticException("negative value: " + value)
+	private def throwArithmeticException(value: Int): Nothing =
+		throw new ArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
-	private def throwIllegalArgumentException(value :Int) :Nothing =
-		throw new ArithmeticException("negative value: " + value)
+	private def throwIllegalArgumentException(value: Int): Nothing =
+		throw new IllegalArgumentException("Value out of [0.." + MaxValue + "] range: " + value)
 
-	private def throwNumberFormatException(value :String) :Nothing =
-		throw new ArithmeticException("negative value: " + value)
+	private def throwNumberFormatException(value: String): Nothing =
+		throw new NumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
 
 	//todo: in Scala3 create conversions from non negative Int literals
@@ -287,7 +273,7 @@ object UInt {
 	object conversions {
 		@inline implicit def UIntToInt(number: UInt): Int = number.toInt
 		@inline implicit def IntToUInt(number: Int): UInt = new UInt(number)
-		@inline implicit def checkedUIntToInt(number: UInt): Int = number.toInt
+		@inline implicit def checkedUIntToInt(number: UInt): Int = number.toIntExact
 		@inline implicit def checkedIntToUInt(number: Int): UInt = UInt.from(number)
 	}
 
@@ -299,7 +285,7 @@ object UInt {
 			throw new ArithmeticException("Cannot negate an unsigned number " + x)
 
 		override def fromInt(x: Int): UInt = UInt.from(x)
-		override def parseString(str: String): Option[UInt] = Numeric.IntIsIntegral.parseString(str).map(UInt.apply)
+		override def parseString(str: String): Option[UInt] = UInt.parse(str).toOption
 		override def toInt(x: UInt): Int = x.toInt
 		override def toLong(x: UInt): Long = x.toLong
 		override def toFloat(x: UInt): Float = x.toFloat

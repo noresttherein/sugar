@@ -16,41 +16,25 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 /** An unsigned 64 bit integer backed by a `Long` value. All comparisons are done as if unsigned, and `toString`
-  * and other formatting methods treat the underlying `Int` as unsigned. Provided conversion methods fall into
-  * three categories:
-  *   1. [[net.noresttherein.sugar.numeric.ULong.byteValue byteValue]],
-  *      [[net.noresttherein.sugar.numeric.ULong.shortValue shortValue]],
-  *      [[net.noresttherein.sugar.numeric.ULong.intValue intValue]],
-  *      [[net.noresttherein.sugar.numeric.ULong.longValue longValue]], and
-  *      [[net.noresttherein.sugar.numeric.ULong.charValue charValue]]
-  *      simply reinterpret the binary value of an appropriate number of lower bytes as the desired type,
-  *      which may result in returning negative values.
-  *   1. [[net.noresttherein.sugar.numeric.ULong.toByte toByte]], [[net.noresttherein.sugar.numeric.ULong.toShort toShort]],
-  *      [[net.noresttherein.sugar.numeric.ULong.toInt toInt]], [[net.noresttherein.sugar.numeric.ULong.toLong toLong]],
-  *      and [[net.noresttherein.sugar.numeric.ULong.toChar toChar]]
-  *      check if the value can be represented by that type, and throw an [[ArithmeticException]] if not.
-  *   1. For `Float`, and `Double` methods `toX` and `asX` are equivalent,
-  *      and return `if (toLong >= 0) toLong.toX else -toLong.toFloat` (or `-toLong.toDouble`).
-  *
-  * However, this type doesn't check for overflows and underflows, meaning `ULong(1) - ULong(2)`
-  * will return `UInt.MaxValue`.
+  * and other formatting methods treat the underlying `Long` as unsigned.
+  * This type doesn't check for overflows and underflows, meaning `ULong(1) - ULong(2)` will return `ULong.MaxValue`.
   *
   * Arithmetic with `Long` is not provided by default, as it is not clear which type should be converted
   * to another. The same applies to implicit conversions between these types.
   * For this purpose, either use `Long` (to which `UInt` is automatically converted), explicitly convert
   * either of the values to the other type, or import one of the conversions
-  *   - [[net.noresttherein.sugar.numeric.UInt.conversions.UIntToInt]], or
-  *   - [[net.noresttherein.sugar.numeric.UInt.conversions.IntToUInt]].
+  *   - [[net.noresttherein.sugar.numeric.ULong.conversions.ULongToLong]], or
+  *   - [[net.noresttherein.sugar.numeric.UIong.conversions.LongToULong]].
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class ULong private[numeric] (override val toLong :Long)
+class ULong private[numeric] (override val toLong: Long)
 	extends AnyVal with Ordered[ULong] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
 	@inline override def isValidByte : Boolean = (toLong & 0x7fL) == toLong
 	@inline override def isValidShort: Boolean = (toLong & 0x7fffL) == toLong
-	@inline override def isValidChar : Boolean = (toLong & 0x7fffL) == toLong
+	@inline override def isValidChar : Boolean = (toLong & 0xffffL) == toLong
 	@inline override def isValidInt  : Boolean = (toLong & 0x7fffffffL) == toLong
 	@inline def isValidLong: Boolean = toLong >= 0
 
@@ -70,13 +54,17 @@ class ULong private[numeric] (override val toLong :Long)
 	@inline override def toFloat : Float  = if (toLong >= 0) toLong.toFloat else -toLong.toFloat
 	@inline override def toDouble: Double = if (toLong >= 0) toLong.toDouble else -toLong.toDouble
 
-	@inline def toByteExact : Byte   = { testRange(Byte.MaxValue, "Byte"); toLong.toByte }
-	@inline def toShortExact: Short  = { testRange(Short.MaxValue, "Short"); toLong.toShort }
-	@inline def toCharExact : Char   = { testRange(Char.MaxValue, "Char"); toLong.toChar }
-	@inline def toIntExact  : Int    = { testRange(Int.MaxValue, "Int"); toLong.toInt }
-	@inline def toLongExact : Long   = if (toLong < 0) underflow(".toLong") else toLong
+	@inline def toByteExact  : Byte   = if ((toLong & 0x7fL) != toLong) outOfRange("Byte") else toLong.toByte
+	@inline def toShortExact : Short  = if ((toLong & 0x7fffL) != toLong) outOfRange("Short") else toLong.toShort
+	@inline def toCharExact  : Char   = if ((toLong & 0xffffL) != toLong) outOfRange("Char") else toLong.toChar
+	@inline def toIntExact   : Int    = if ((toLong & 0x7fffffffL) != toLong) outOfRange("Int") else toLong.toInt
+	@inline def toLongExact  : Long   = if (toLong < 0) underflow(".toLong") else toLong
+	@inline def toUShortExact: UShort =
+		if ((toLong & 0xffffL) != toLong) outOfRange("UShort") else new UShort(toLong.toShort)
+	@inline def toUIntExact  : UInt   =
+		if ((toLong & 0xffffffffL) != toLong) outOfRange("UInt") else new UInt(toLong.toInt)
 
-	/** Returns `toLong == 0`. */
+	/** Returns `toLong != 0`. */
 	@inline def toBoolean: Boolean = toLong != 0L
 
 	@inline def toBigInt: BigInt =
@@ -95,7 +83,8 @@ class ULong private[numeric] (override val toLong :Long)
 		if (toLong >= 0) JavaBigDecimal.valueOf(toLong)
 		else JavaBigDecimalMaxLongTimes2.add(JavaBigDecimal.valueOf(toLong))
 
-	@inline def toULong    : ULong     = new ULong(toInt & 0xffffffffL)
+	@inline def toUShort   : UShort    = new UShort(toShort)
+	@inline def toUInt     : UInt      = new UInt(toInt)
 	@inline def toSafeInt  : SafeInt   = new SafeInt(toIntExact)
 	@inline def toSafeLong : SafeLong  = new SafeLong(toInt & 0xffffffffL)
 	@inline def toIntRatio : IntRatio  = IntRatio(toInt)
@@ -117,9 +106,9 @@ class ULong private[numeric] (override val toLong :Long)
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
 	@inline def +(x: String): String = toLong.toString + x
 
-	@inline def <<(x: Int)  : ULong = new ULong(toLong << x)
-	@inline def >>>(x: Int) : ULong = new ULong(toLong >>> x)
-	@inline def >>(x: Int)  : ULong = new ULong(toLong >> x)
+	@inline def <<(x: Int) : ULong = new ULong(toLong << x)
+	@inline def >>>(x: Int): ULong = new ULong(toLong >>> x)
+	@inline def >>(x: Int) : ULong = new ULong(toLong >> x)
 
 
 	//Consider: the problem with all these comparisons is that they exclude ULong, which is handled by methods
@@ -170,33 +159,33 @@ class ULong private[numeric] (override val toLong :Long)
 	@inline def >=(x: Float) : Boolean = toFloat >= x
 	@inline def >=(x: Double): Boolean = toDouble >= x
 
-	@inline def compare(other: ULong) :Int = jl.Long.compare(toLong + MinValue, other.toLong + MinValue)
+	@inline def compare(other: ULong): Int = jl.Long.compare(toLong + MinValue, other.toLong + MinValue)
 
 	@inline def min(other: ULong): ULong = new ULong(jl.Math.min(toLong + MinValue, other.toLong + MinValue) - MinValue)
 	@inline def max(other: ULong): ULong = new ULong(jl.Math.max(toLong + MinValue, other.toLong + MinValue) - MinValue)
 
 	/** Returns `this max other`. */
-	@inline def atLeast(other :ULong) :ULong = if (toLong + MinValue >= other.toLong + MinValue) this else other
+	@inline def atLeast(other: ULong): ULong = if (toLong + MinValue >= other.toLong + MinValue) this else other
 
 	/** Returns `this min other`. */
-	@inline def atMost(other :ULong) :ULong = if (toLong + MinValue <= other.toLong + MinValue) this else other
+	@inline def atMost(other: ULong): ULong = if (toLong + MinValue <= other.toLong + MinValue) this else other
 
 	/** Returns this `ULong`, or `0` if the condition is false. */
-	@inline def orZeroIf(condition :Boolean) :ULong = if (condition) new ULong(0L) else this
+	@inline def orZeroIf(condition: Boolean): ULong = if (condition) new ULong(0L) else this
 
 	/** Returns this `ULong`, or `0` if it does not satisfy the predicate. */
-	@inline def orZeroIf(condition :ULong => Boolean) :ULong = if (condition(this)) new ULong(0L) else this
+	@inline def orZeroIf(condition: ULong => Boolean): ULong = if (condition(this)) new ULong(0L) else this
 
-	@inline def |(x: Long) : ULong = new ULong(toLong | x)
-	@inline def &(x: Long) : ULong = new ULong(toLong & x)
-	@inline def ^(x: Long) : ULong = new ULong(toLong ^ x)
+	@inline def |(x: Long): ULong = new ULong(toLong | x)
+	@inline def &(x: Long): ULong = new ULong(toLong & x)
+	@inline def ^(x: Long): ULong = new ULong(toLong ^ x)
 
 	@inline def +(x: Char)  : ULong  = new ULong(toLong + x)
 	@inline def +(x: UInt)  : ULong  = new ULong(toLong + x.toLong)
 	@inline def +(x: ULong) : ULong  = new ULong(toLong + x.toLong)
 	@inline def +(x: Float) : Float  = toFloat + x
 	@inline def +(x: Double): Double = toDouble + x
-	@inline def -(x: Char)  : ULong  = new ULong(toLong - x)
+	@inline def -(x: Char)  : ULong  = new ULong(toLong - x) //consider: making all subtractions return a signed integer
 	@inline def -(x: UInt)  : ULong  = new ULong(toLong - x.toLong)
 	@inline def -(x: ULong) : ULong  = new ULong(toLong - x.toLong)
 	@inline def -(x: Float) : Float  = toFloat - x
@@ -213,8 +202,8 @@ class ULong private[numeric] (override val toLong :Long)
 	@inline def /(x: Float) : Float  = toFloat / x
 	@inline def /(x: Double): Double = toDouble / x
 	@inline def %(x: Char)  : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x))
-	@inline def %(x :UInt)  : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x.toLong))
-	@inline def %(x :ULong) : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x.toLong))
+	@inline def %(x: UInt)  : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x.toLong))
+	@inline def %(x: ULong) : ULong  = new ULong(jl.Long.remainderUnsigned(toLong, x.toLong))
 	@inline def %(x: Float) : Float  = toFloat % x
 	@inline def %(x: Double): Double = toDouble % x
 	@inline def **(n: Int)  : ULong  = new ULong(toLong.pow(n))
@@ -233,15 +222,11 @@ class ULong private[numeric] (override val toLong :Long)
 	@inline def in(range: NumericRange[ULong]): Boolean = range.containsTyped(this)
 
 
-	private def underflow(method :String) :Nothing =
+	private def underflow(method: String): Nothing =
 		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
-	private def outOfRange(typeName :String) :Nothing =
+	private def outOfRange(typeName: String): Nothing =
 		throw new ArithmeticException("Value " + this + " is out of" + typeName + " range.")
-
-	@inline private def testRange(max :Int, typeName :String) :Unit =
-		if (toLong + MinValue > max + MinValue)
-			outOfRange(typeName)
 }
 
 
@@ -267,34 +252,35 @@ object ULong {
 	@throws[NumberFormatException]("if the string does not contain a Long value, or it is negative.")
 	@inline def apply(string: String, radix: Int = 10): ULong = new ULong(jl.Long.parseUnsignedLong(string, radix))
 
-	@inline def decode(string: String): ULong = {
+	@throws[NumberFormatException]("if the string does not contain a Long value, or it is negative.")
+	def decode(string: String): ULong = {
 		val int = jl.Long.decode(string)
 		if (int < 0L)
 			throwNumberFormatException(string)
 		new ULong(int)
 	}
 
-	@inline def parse(string: String): Opt[ULong] =
+	def parse(string: String): Opt[ULong] =
 		Numeric.LongIsIntegral.parseString(string) match {
-			case Some(long) if long < 0 => Got(new ULong(long))
+			case Some(long) => if (long >= 0) Got(new ULong(long)) else Lack
 			case _ => Lack
 		}
 
-	private def throwArithmeticException(value :Long) :Nothing =
-		throw new ArithmeticException("negative value: " + value)
+	private def throwArithmeticException(value: Long): Nothing =
+		throw new ArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
-	private def throwIllegalArgumentException(value :Long) :Nothing =
-		throw new ArithmeticException("negative value: " + value)
+	private def throwIllegalArgumentException(value: Long): Nothing =
+		throw new IllegalArgumentException("Value out of [0.." + MaxValue + "] range: " + value)
 
-	private def throwNumberFormatException(value :String) :Nothing =
-		throw new ArithmeticException("negative value: " + value)
+	private def throwNumberFormatException(value: String): Nothing =
+		throw new NumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
 
 	@SerialVersionUID(Ver)
 	object conversions {
 		@inline implicit def ULongToLong(number: ULong): Long = number.toLong
 		@inline implicit def LongToULong(number: Long): ULong = new ULong(number)
-		@inline implicit def checkedULongToLong(number: ULong): Long = number.toLong
+		@inline implicit def checkedULongToLong(number: ULong): Long = number.toLongExact
 		@inline implicit def checkedLongToULong(number: Long): ULong = ULong.from(number)
 	}
 
@@ -309,12 +295,12 @@ object ULong {
 			if (x < 0) throw new ArithmeticException("Cannot convert " + x + " to an unsigned integer")
 			else new ULong(x)
 
-		override def parseString(str: String): Option[ULong] = Numeric.LongIsIntegral.parseString(str).map(ULong.apply)
+		override def parseString(str: String): Option[ULong] = ULong.parse(str).toOption
 		override def toInt(x: ULong): Int = x.toInt
 		override def toLong(x: ULong): Long = x.toLong
 		override def toFloat(x: ULong): Float = x.toFloat
 		override def toDouble(x: ULong): Double = x.toDouble
-		override def compare(x: ULong, y: ULong) :Int =
+		override def compare(x: ULong, y: ULong): Int =
 			jl.Long.compare(x.toLong + Long.MinValue, y.toLong + Long.MinValue)
 	}
 	@SerialVersionUID(Ver)
