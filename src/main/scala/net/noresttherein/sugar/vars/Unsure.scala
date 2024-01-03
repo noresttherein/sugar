@@ -63,6 +63,7 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * issues due to using a non-standard solution.
   *
   * @define Ref `Unsure`
+  * @define ref unsure value
   * @define coll unsure value
   * @author Marcin Mościcki
   */
@@ -71,11 +72,6 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 {
 	/** Tests if this `Unsure` does not contain a value (is equal to [[net.noresttherein.sugar.vars.Missing Missing]]). */
 	@inline final override def isEmpty :Boolean = this eq Missing
-//
-//	/** Tests if this `Unsure` contains a value. If true, `get` will not throw an exception.
-//	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.isDefined isDefined]].
-//	  */
-//	@inline final override def nonEmpty :Boolean = this ne Missing
 
 	/** Tests if this `Unsure` contains a value (is a [[net.noresttherein.sugar.vars.Sure Sure]]).
 	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]].
@@ -114,13 +110,6 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	/** Assuming that `T` is a nullable type, return `null` if this `Unsure` is empty, or the wrapped value otherwise. */
 	@inline final def orNull[O >: T](implicit isNullable :Null <:< O) :O =
 		if (this eq Missing) null.asInstanceOf[O] else get
-
-//
-//	/** Gets the element in the $Ref or throws the exception given as the argument.
-//	  * @see [[net.noresttherein.sugar.vars.Unsure.orNoSuch orNoSuch]]
-//	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]] */
-//	@inline def orThrow(e : => Throwable) :T =
-//		if (this eq Missing) throw e else get
 
 	/** Gets the value of this instance or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
@@ -516,16 +505,6 @@ object Unsure {
 
 
 
-//	/** Provides [[net.noresttherein.sugar.vars.Unsure.OptionToUnsureConverter.toUnsure toUnsure]] extension method
-//	  * for any `Option[T]`, converting it to a `Unsure[T]`. A fully implicit conversion is available for import
-//	  * as `Unsure.implicits.`[[net.noresttherein.sugar.vars.Unsure.implicits.optionToUnsure optionToUnsure]].
-//	  */ //consider: removing it. Duplicated by optional.OptionExtension in optional.explicits
-//	implicit class OptionToUnsureConverter[T](private val self :Option[T]) extends AnyVal {
-//		/** Converts this option into an `Unsure` wrapping the same type/value. */
-//		@inline def toUnsure :Unsure[T] = some_?(self)
-//	}
-//
-//
 	/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
 	  * They involve boxing and are placed here for explicit importing.
 	  */

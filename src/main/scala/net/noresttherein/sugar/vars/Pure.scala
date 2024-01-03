@@ -2,6 +2,7 @@ package net.noresttherein.sugar.vars
 
 import java.lang.invoke.VarHandle.{acquireFence, releaseFence}
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
@@ -14,48 +15,57 @@ import net.noresttherein.sugar.vars.Ref.undefined
 /** A lazy value initialized with an idempotent expression which may be evaluated more than once.
   * The advantage here is reduced synchronization overhead comparing to a Scala's standard `lazy val`,
   * even reduced to zero for value types once the value is initialized.
-  * @define Ref `Idempotent`
+  * @define Ref `Pure`
+  * @define ref pure value
   * @author Marcin Mościcki
   */
-trait Idempotent[@specialized(SpecializedVars) +T] extends Lazy[T] {
-	override def mkString :String = mkString("Idempotent")
+trait Pure[@specialized(SpecializedVars) +T] extends Lazy[T] {
+	override def mkString :String = mkString("Pure")
 }
 
 
 
 
 @SerialVersionUID(Ver)
-object Idempotent {
+object Pure {
 
 	/** Creates a lazy value initialized - possibly multiple times - by an idempotent expression.
 	  * This class does not use a `synchronized` block, yielding a minor performance benefit
 	  * while still remaining thread safe. It happens at the cost of possibly evaluating the initialization expression
 	  * more than once, and concurrent access of an uninitialized value may return results from different calls.
 	  * For this reason the initializer should be a relatively lightweight and '''idempotent''' function.
+	  * By ''idempotent'' we mean here that the values returned by repeated calls should be ''equal''
+	  * in terms of Scala `==`, that is, `equals` for reference types. The function does ''not'' need to
+	  * return the same object all the time, that is its returned values need not be ''referentially'' equal
+	  * (in terms of `eq`). This should be taken into account by client applications, which should not depend
+	  * on subsequent calls to [[net.noresttherein.sugar.vars.Val.get get]].
+	  *
 	  * For standard value types, access to an initialized value incurs no synchronization overhead,
 	  * although this might be partially offset by unnecessary repeated execution of the initializer after stale reads.
 	  * All testing functions become even less helpful, but at least it is guaranteed that once `isDefinite`
 	  * returns `true`, it will always be so (in the sense of the java memory 'happens before' relation).
 	  */
-	def apply[@specialized(SpecializedVars) T](idempotent: => T) :Idempotent[T] = {
+	def apply[@specialized(SpecializedVars) T](idempotent: => T) :Pure[T] = {
 		val initializer = () => idempotent
-		new IdempotentVal(initializer) match {
-			case ref if ref.getClass == classOf[Val[Any]] => new IdempotentRef(initializer)
-			case spec => spec
+		new PureVal[T] match {
+			case ref if ref.getClass == classOf[Val[Any]] => new PureRef(initializer)
+			case spec =>
+				spec.init(initializer)
+				spec
 		}
 	}
 
-	/** A wrapper over an already computed value adapting it to the `Idempotent` type. It is used
+	/** A wrapper over an already computed value adapting it to the `Pure` type. It is used
 	  * by [[net.noresttherein.sugar.vars.Lazy.map map]] and [[net.noresttherein.sugar.vars.Lazy.flatMap flatMap]]
 	  * methods and as a serialization substitute.
 	  */
-	def eager[@specialized(SpecializedVars) T](value :T) :Idempotent[T] = new Eager[T](value)
+	def eager[@specialized(SpecializedVars) T](value :T) :Pure[T] = new Eager[T](value)
 
 
 
 	/** An already computed (initialized) value. */ //todo: make it specialized
 	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in an Opt all the time
-	private class Eager[+T](x :T) extends Idempotent[T] {
+	private class Eager[+T](x :T) extends Pure[T] {
 		override def isDefinite  :Boolean = true
 		override def value    :T = x
 		override def const :T = x
@@ -75,17 +85,20 @@ object Idempotent {
   * which allows more lax synchronisation.
   */
 @SerialVersionUID(Ver)
-private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
-	extends Idempotent[T]
-{	//no need for fences because T is a value type
+private class PureVal[@specialized(SpecializedVars) +T]
+	extends Pure[T]
+{
+	private[this] var initializer : () => T = _
 	private[this] var evaluated :Any = undefined
+
+	def init(init :() => T @uncheckedVariance) :Unit = initializer = init
 
 	override def isDefinite :Boolean = evaluated != undefined
 
 	@unspecialized override def value :T = {
 		val res = evaluated
 		if (res != undefined) res.asInstanceOf[T]
-		else throw new NoSuchElementException("Uninitialized Idempotent")
+		else throw new NoSuchElementException("Uninitialized Pure")
 	}
 	@unspecialized override def const :T = {
 		var res = evaluated
@@ -96,8 +109,12 @@ private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var 
 				res = evaluated
 			else {
 				res = init()
+				//res is a primitive wrapper (like Integer) whose field is final,
+				// so anyone reading evaluated is guaranteed to either see its previous value, or a valid box.
+				// Moreover, because intializer is assumed to be idempotent, i.e return equal instances,
+				// the reader does not care if they see a previous (equal) box, or the current one.
 				evaluated = res
-				releaseFence()
+				releaseFence() //Any thread observing initializer == null must see evaluated = res
 				initializer = null
 			}
 		}
@@ -120,14 +137,14 @@ private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var 
 	@unspecialized override def map[O](f :T => O) :Lazy[O] = {
 		val v = evaluated
 		if (v != undefined)
-			Idempotent.eager(f(v.asInstanceOf[T]))
+			Pure.eager(f(v.asInstanceOf[T]))
 		else {
 			val init = initializer
 			acquireFence()
 			if (init == null)
-				Idempotent.eager(f(evaluated.asInstanceOf[T]))
+				Pure.eager(f(evaluated.asInstanceOf[T]))
 			else
-				new IdempotentRef(() => f(apply()))
+				new PureRef(() => f(apply()))
 		}
 	}
 	@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -140,7 +157,7 @@ private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var 
 			if (init == null)
 				f(evaluated.asInstanceOf[T])
 			else
-				new IdempotentRef(f(apply()))
+				new PureRef(f(apply()))
 		}
 	}
 
@@ -152,18 +169,18 @@ private class IdempotentVal[@specialized(SpecializedVars) +T](private[this] var 
 	}
 	override def toString :String = String.valueOf(evaluated)
 
-	private def writeReplace = Idempotent.eager(apply())
+	private def writeReplace = Pure.eager(apply())
 }
 
 
 
 
-/** `Idempotent` implementation for arbitrary types. All reads are behind an `acquireFence`, while initialization
+/** $Ref implementation for arbitrary types. All reads are behind an `acquireFence`, while initialization
   * completes with a `releaseFence` to ensure that `evaluated` is never visible in a partially initialized state.
   */
 @SerialVersionUID(Ver)
-private class IdempotentRef[T](private[this] var initializer :() => T) extends Idempotent[T] {
-	private[this] var evaluated :T = _
+private class PureRef[T](private[this] var initializer :() => T) extends Pure[T] {
+	@volatile private[this] var evaluated :T = _
 
 	override def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
@@ -194,7 +211,7 @@ private class IdempotentRef[T](private[this] var initializer :() => T) extends I
 			acquireFence()
 			evaluated
 		} else
-			throw new NoSuchElementException("Uninitialized Idempotent")
+			throw new NoSuchElementException("Uninitialized Pure")
 
 	override def const :T = {
 		val init = initializer
@@ -214,13 +231,13 @@ private class IdempotentRef[T](private[this] var initializer :() => T) extends I
 		val init = initializer
 		acquireFence()
 		if (init == null)
-			Idempotent.eager(f(evaluated))
+			Pure.eager(f(evaluated))
 		else {
 			val t = init()
 			evaluated = t
 			releaseFence()
 			initializer = null
-			new IdempotentRef(() => f(t))
+			new PureRef(() => f(t))
 		}
 	}
 
@@ -230,7 +247,7 @@ private class IdempotentRef[T](private[this] var initializer :() => T) extends I
 		if (init == null)
 			f(evaluated)
 		else
-			new IdempotentRef(f(apply()))
+			new PureRef(f(apply()))
 	}
 
 	override def isSpecialized = false
@@ -240,23 +257,24 @@ private class IdempotentRef[T](private[this] var initializer :() => T) extends I
 			acquireFence()
 			prefix + "(" + evaluated + ")"
 		} else prefix + "()"
+
 	override def toString :String =
 		if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
 		else undefined.toString
 
-	private def writeReplace = Idempotent.eager(apply())
+	private def writeReplace = Pure.eager(apply())
 }
 
 
 
 
 
-/** A full `Idempotent` lazy value implementation as a mix-in trait for application classes,
+/** A full `Pure` lazy value implementation as a mix-in trait for application classes,
   * in particular various lazy proxies.
   */
-private[sugar] trait AbstractIdempotent[@specialized(SpecializedVars) +T] {
+private[sugar] trait AbstractPure[@specialized(SpecializedVars) +T] {
 	protected[this] var initializer :() => T
-	private[this] var evaluated :T = _
+	@volatile private[this] var evaluated :T = _
 
 	@inline final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
@@ -280,7 +298,7 @@ private[sugar] trait AbstractIdempotent[@specialized(SpecializedVars) +T] {
 			acquireFence()
 			evaluated
 		} else
-			throw new NoSuchElementException("Uninitialized Idempotent")
+			throw new NoSuchElementException("Uninitialized " + this)
 
 	def definite :T = {
 		val init = initializer

@@ -16,11 +16,18 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @tparam T the type of this variable.
   * @see [[net.noresttherein.sugar.vars.Var$]]
   * @define Ref `Var`
-  */
+  */ //No constructor parameter, because on specialized versions it would be boxed and passed to the erased superclass.
 @SerialVersionUID(Ver)
-sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
-	extends Mutable[T] with Serializable
-{
+sealed class Var[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] with Serializable {
+	/* Consider: we could try, in @specialized subclasses, use the unspecialized super.x field
+	 *  as a cache for the boxed value. This could be accomplished by mixing in a non-specialized trait
+	 *  extending Var into the specializd subclasses, which overrides value, get, const,
+	 *  by delegating them to super, and then calling value_= with the returned value.
+	 *  Similarly, overriding value_= will override only the generic version of the method.
+	 *  The challenge is keeping it synchronized.
+	 */
+	private[this] var x :T = _
+
 	/** Current value of this variable. */
 	override def value :T = x
 
@@ -37,7 +44,7 @@ sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] v
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
 	override def testAndSet(expect :T, newValue :T) :Boolean =
-		(x == expect) && {x = newValue; true}
+		(x == expect) && { x = newValue; true }
 
 
 
@@ -258,12 +265,18 @@ sealed class Var[@specialized(SpecializedVars) T] private[vars] (private[this] v
 object Var {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
-	@inline def apply[@specialized(SpecializedVars) T](value :T) :Var[T] = new Var[T](value)
+	def apply[@specialized(SpecializedVars) T](value :T) :Var[T] = {
+		val res = new Var[T]
+		res.value = value
+		res
+	}
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as in/out method parameter. */
-	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Var[T] =
-		new Var[T](default.get)
-
+	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Var[T] = {
+		val res = new Var[T]
+		res.value = default.get
+		res
+	}
 
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs. */
@@ -273,7 +286,7 @@ object Var {
 		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `Var[T]`
 		  * makes no sense and would likely be an error.
 		  */
-		@inline implicit def boxVar[@specialized(SpecializedVars) T](value :T) :Var[T] = new Var[T](value)
+		@inline implicit def boxVar[@specialized(SpecializedVars) T](value :T) :Var[T] = Var(value)
 
 
 		/** Implicit extension of values of any type allowing chained assignments to compatible variables in the form of

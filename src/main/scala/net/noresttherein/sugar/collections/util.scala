@@ -149,7 +149,7 @@ private object Constants {
 
 
 
-private object IndexedIterable {
+private[sugar] object IndexedIterable {
 	@inline def unapply[A](items :IterableOnce[A]) :Opt[collection.IndexedSeqOps[A, generic.Any, _]] = items match {
 		case seq     :collection.IndexedSeqOps[A, generic.Any, _] => Got(seq)
 		case ranking :Ranking[A]                                  => Got(ranking.toIndexedSeq)

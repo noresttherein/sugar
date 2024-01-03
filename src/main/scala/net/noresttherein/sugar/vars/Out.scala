@@ -16,6 +16,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * `this.value = x` or `this := x`, as well as when a second attempt to set its value is made which would
   * override the previously set value. This class is thread safe with ''volatile'' semantics.
   * @define Ref `Out`
+  * @define ref value
   * @author Marcin Mościcki
   */ //todo: not thread safe LocalOut version
 @SerialVersionUID(Ver) //consider: does it make sense for it to be Serializable?

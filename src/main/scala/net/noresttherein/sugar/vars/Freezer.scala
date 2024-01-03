@@ -30,14 +30,13 @@ import net.noresttherein.sugar.witness.DefaultValue
   * and [[net.noresttherein.sugar.vars.Ref.option option]] and [[net.noresttherein.sugar.vars.Ref.opt opt]] have also
   * semantics of the immutable `Val`, returning `None`/`Lack` if the variable is not frozen.
   * @define Ref `Freezer`
+  * @define ref freezer
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: making it a Ref, not a Val, so that equality compares current values
 @SerialVersionUID(Ver) //todo: SignalFrozen
-sealed class Freezer[@specialized(SpecializedVars) T] private[vars](init :T)
-	extends InOut[T] with Val[T] with Serializable //consider: does it make sense for it to be Serializable
-{
+sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOut[T] with Val[T] with Serializable {
 	import Freezer.{Immutable, Locked, Mutable}
-	@volatile private[this] var x     :T = init
+	@volatile private[this] var x     :T = _
 	@volatile private[this] var state :Int = Mutable
 
 	/** Returns `false`. */
@@ -94,6 +93,9 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars](init :T)
 	  * Same as `this.`[[net.noresttherein.sugar.vars.Freezer.const_= const]]` = value`.
 	  */
 	@inline final def frozen_=(value :T) :Unit = const = value
+
+	/** An alias for [[net.noresttherein.sugar.vars.Freezer.const const]]. */
+	@inline final def frozen :T = const //exists so that `Freezer.frozen =` parses properly
 
 	/** Transitions this variable to an immutable `Val` state with the given value. It is equivalent to an atomic
 	  * version of
@@ -216,10 +218,14 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars](init :T)
 @SerialVersionUID(Ver)
 object Freezer {
 	/** Create a new finalizable variable which can be shared by multiple threads. */
-	def apply[@specialized(SpecializedVars) T](init :T) :Freezer[T] = new Freezer(init)
+	def apply[@specialized(SpecializedVars) T](init :T) :Freezer[T] = {
+		val res = new Freezer[T]
+		res.set(init)
+		res
+	}
 
 	/** Create a new finalizable variable which can be shared by multiple threads. */
-	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Freezer[T] =
+	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :Freezer[T] =
 		apply(default.get)
 
 	@inline implicit def unboxFinalizable[@specialized(SpecializedVars) T](ref :Freezer[T]) :T = ref.value

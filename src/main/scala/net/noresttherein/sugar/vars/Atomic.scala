@@ -24,22 +24,22 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   * It is best used as a flag controlling access to some other resource.
   * @define Ref `Atomic`
   * @author Marcin Mościcki marcin@moscicki.net
-  */
+  */ //consider: making it volatile, but with equals instead of eq semantics.
 @SerialVersionUID(Ver)
-sealed class Atomic[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
+sealed class Atomic[@specialized(SpecializedVars) T] private[vars] //private[vars] due to specialization visibility issues
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
+	private[this] var x :T = _
 	protected override def factory :Atomic.type = Atomic
 
 	override def value :T = {
-		val res = x
-		acquireFence()
-		res
+		acquireFence() //fixme: this is almost certainly not enough
+		x
 	}
 
 	override def value_=(newValue :T) :Unit = {
-		releaseFence()
 		x = newValue
+		releaseFence()
 	}
 
 	override def mkString :String = mkString("Atomic")
@@ -57,9 +57,21 @@ object Atomic extends VolatileLikeFactory[Atomic] {
 	implicit def AtomicOrdering[T :Ordering] :Ordering[Atomic[T]] = new InOutOrdering[Atomic, T]
 
 
-	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Atomic[T] = new Atomic(init)
-	protected override def newRefInstance[T](init :T) :Atomic[T] = new Ref(init)
-	protected override def newBoolInstance(init :Boolean) :Atomic[Boolean] = new Bool(init)
+	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Atomic[T] = {
+		val res = new Atomic[T]
+		res.value = init
+		res
+	}
+	protected override def newBoolInstance(init :Boolean) :Atomic[Boolean] = {
+		val res = new Bool
+		res.value = init
+		res
+	}
+	protected override def newRefInstance[T](init :T) :Atomic[T] = {
+		val res = new Ref[T]
+		res.value = init
+		res
+	}
 
 
 	/** An unspecialized `Atomic` implementation overriding atomic mutator methods to compare the value
@@ -67,12 +79,12 @@ object Atomic extends VolatileLikeFactory[Atomic] {
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class Ref[T](init :T) extends Atomic[T](init) with RefVolatileLike[T]
+	private class Ref[T] extends Atomic[T] with RefVolatileLike[T]
 
 	/** Optimised implementation of `Atomic[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class Bool(init :Boolean) extends Atomic[Boolean](init) with BoolVolatileLike
+	private class Bool extends Atomic[Boolean] with BoolVolatileLike
 
 }

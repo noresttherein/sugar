@@ -3,6 +3,7 @@ package net.noresttherein.sugar
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
+import net.noresttherein.sugar
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -47,7 +48,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 //	type Filled[+A] <: Space[A]
 //	val Blank :Space[Nothing]
 
-	private[vars] final val Ver = 1L
+	private[vars] final val Ver = sugar.Ver
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]].

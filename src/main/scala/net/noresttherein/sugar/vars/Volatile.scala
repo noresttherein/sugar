@@ -14,19 +14,25 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   * of all operations (including assign mutators like `+=`, etc.) equivalent to the reference implementation
   * of the latter.
   *
+  * For reference types, as well as in a generic context, all ''test-and-set'' and related operations
+  * compare the referential equality, as per `eq`, rather than `equals`. This means that a $Ref created
+  * by a generic method, and assigning a boxed `Integer`, will not compare the values of the integers,
+  * but object identity, which is almost certainly not what you want. Properly `@specialized` variables
+  * compare the values of the value types, as expected.
+  *
   * Volatile variables incur lower overhead than full java monitor synchronization, particularly with multiple
   * concurrent reads. However, if atomicity of more complex operations is required,
   * use [[net.noresttherein.sugar.vars.SyncVar SyncVar]] instead.
-  * @param init the initial value of this variable.
   * @tparam T the type of this variable
-	* @define Ref `Volatile`
+  * @define Ref `Volatile`
+  * @define ref volatile variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(Ver)
-sealed class Volatile[@specialized(SpecializedVars) T] private[vars] (init :T)
+sealed class Volatile[@specialized(SpecializedVars) T] private[vars]
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
-	@scala.volatile private[this] var x = init
+	@scala.volatile private[this] var x :T = _
 	protected override def factory :Volatile.type = Volatile
 
 	final override def value :T = x
@@ -47,7 +53,11 @@ object Volatile extends VolatileLikeFactory[Volatile] {
 	implicit def VolatileOrdering[T :Ordering] :Ordering[Volatile[T]] = new InOutOrdering[Volatile, T]
 
 
-	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Volatile[T] = new Volatile(init)
+	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Volatile[T] = {
+		val res = new Volatile[T]
+		res.value = init
+		res
+	}
 	protected override def newRefInstance[T](init :T) :Volatile[T] = new Ref[T](init)
 	protected override def newBoolInstance(init :Boolean) :Volatile[Boolean] = new Bool(init)
 
@@ -56,12 +66,12 @@ object Volatile extends VolatileLikeFactory[Volatile] {
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class Ref[T](init :T) extends Volatile[T](init) with RefVolatileLike[T]
+	private class Ref[T](init :T) extends Volatile[T] with RefVolatileLike[T] { value = init }
 
 	/** Optimised implementation of `Volatile[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class Bool(init :Boolean) extends Volatile[Boolean](init) with BoolVolatileLike
+	private class Bool(init :Boolean) extends Volatile[Boolean] with BoolVolatileLike { value = init }
 
 }

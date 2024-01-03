@@ -34,6 +34,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @see [[net.noresttherein.sugar.vars.Opt]]
   * @define Ref `IntOpt`
+  * @define ref optional integer
   * @define coll optional `Int`
   */
 @SerialVersionUID(Ver)

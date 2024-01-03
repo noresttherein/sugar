@@ -46,6 +46,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * and thus have a [[net.noresttherein.sugar.vars.Ref.const constant]] value.
   * @tparam T the type of referenced value.
   * @define Ref `Ref`
+  * @define ref reference
   */
 trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
@@ -203,9 +204,6 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  */
 	@throws[UnsupportedOperationException]("if this class does not impose any constraints on future mutability.")
 	def const :T
-
-	/** An alias for [[net.noresttherein.sugar.vars.Ref.const const]]. */
-	@inline final def frozen :T = const //exists so that `Freezer.frozen_=` parses properly
 
 	/** The value of this $Ref, if available or can be computed. The exact semantics depend on the actual implementation,
 	  * in particular on its mutability/immutability.

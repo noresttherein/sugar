@@ -13,7 +13,7 @@ import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic.=>:
-import net.noresttherein.sugar.vars.{AbstractIdempotent, Opt}
+import net.noresttherein.sugar.vars.{AbstractPure, Opt}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
@@ -692,7 +692,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 	@SerialVersionUID(Ver)
 	private class LazyNatMap[K[_], +V[_]](override protected[this] var initializer: () => NatMap[K, V])
-		extends BaseNatMap[K, V] with AbstractIdempotent[NatMap[K, V]]
+		extends BaseNatMap[K, V] with AbstractPure[NatMap[K, V]]
 	{
 		override def size :Int = definite.size
 

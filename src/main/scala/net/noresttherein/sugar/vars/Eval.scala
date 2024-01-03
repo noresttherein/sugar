@@ -11,6 +11,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * It is a ''single abstract method'' type,
   * leaving only [[net.noresttherein.sugar.vars.Ref.value value]] to implement by subclasses.
   * @define Ref `Eval`
+  * @define ref by-name value
   */
 trait Eval[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) with Serializable {
 	override def isFinal       = false

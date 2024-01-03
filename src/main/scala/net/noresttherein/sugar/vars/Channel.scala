@@ -24,6 +24,7 @@ import net.noresttherein.sugar.vars.Channel.{Reader, Writer}
   *
   * `Channel` redefines equality as referential equality: no instance will equal any other `Ref` instance.
   * @define Ref `Channel`
+  * @define ref channel
   * @author Marcin Mościcki
   */ //not a Serializable
 sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends InOut[T] {

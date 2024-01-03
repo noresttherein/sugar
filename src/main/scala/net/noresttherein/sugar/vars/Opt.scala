@@ -68,6 +68,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * @see [[net.noresttherein.sugar.vars.Opt.Lack]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @define Ref `Opt`
+  * @define ref optional value
   * @define coll optional value
   */
 @SerialVersionUID(Ver)

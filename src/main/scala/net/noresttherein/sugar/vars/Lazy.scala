@@ -1,10 +1,11 @@
 package net.noresttherein.sugar.vars
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Ref.{undefined, RefFractional, RefIntegral, RefNumeric, RefOrdering}
+import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, undefined}
 
 
 
@@ -17,20 +18,21 @@ import net.noresttherein.sugar.vars.Ref.{undefined, RefFractional, RefIntegral, 
   *   1. They provide monadic operations for constructing other `Lazy` instances.
   *   1. Can be stored in collections and passed as arguments without automatically including the whole outer object
   *      in the closure (for class fields).
-  *   1. [[net.noresttherein.sugar.vars.Idempotent idempotent]] offers better performance in case of many contentious
+  *   1. [[net.noresttherein.sugar.vars.Pure pure]] offers better performance in case of many contentious
   *      reads.
   *   1. [[net.noresttherein.sugar.vars.Transient transient]] discards the computed value on serialization.
   *
   * Three implementations exist:
   *   1. The default one which uses a synchronized block to ensure it is initialized at most once and has
   *      semantics equivalent to a standard Scala `lazy val`;
-  *   1. An [[net.noresttherein.sugar.vars.Idempotent idempotent]] one which uses only memory fences
+  *   1. A [[net.noresttherein.sugar.vars.Pure pure]] one which uses only memory fences
   *      for synchronization, at the cost of executing the initialization block possibly many times;
   *   1. A [[net.noresttherein.sugar.vars.Transient transient]] one with an opposite behaviour on serialization:
   *      the cached value is `@transient` and becomes discarded when the `Lazy` instance is serialized,
   *      but the initializing block is always retained.
   *
   * @define Ref `Lazy`
+  * @define ref lazy value
   * @author Marcin Mościcki
   */
 trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with Serializable {
@@ -135,9 +137,9 @@ object Lazy {
 	  */
 	def apply[@specialized(SpecializedVars) T](init : => T) :Lazy[T] = {
 		val initializer = () => init
-		new SyncVal(initializer) match {
+		new SyncVal[T] match {
 			case ref if ref.getClass == classOf[SyncVal[Any]] => new SyncRef(initializer)
-			case spec => spec
+			case spec => spec.init(initializer); spec
 		}
 	}
 
@@ -150,8 +152,10 @@ object Lazy {
 	  * execution of the initializer after stale reads.
 	  * All testing functions become even less helpful, but at least it is guaranteed that once `isDefined`
 	  * returns `true`, it will always be so (in the sense of the java memory 'happens before' relation).
+	  * @see [[net.noresttherein.sugar.vars.Pure! Pure]]
+	  * @see [[net.noresttherein.sugar.vars.Pure$.apply Pure]]`(idempotent)`
 	  */
-	@inline def idempotent[@specialized(SpecializedVars) T](idempotent : => T) :Lazy[T] = Idempotent(idempotent)
+	@inline def idempotent[@specialized(SpecializedVars) T](idempotent : => T) :Lazy[T] = Pure(idempotent)
 
 	/** Similar to [[net.noresttherein.sugar.vars.Lazy.idempotent idempotent]] lazy value, but on serialization,
 	  * instead of evaluating the value and freeing the initializer expression for garbage collection,
@@ -161,6 +165,8 @@ object Lazy {
 	  * aliasing after deserialization to ensure that only one instance exists as Scala's singleton objects do).
 	  * @param idempotent a serializable initializer expression of a SAM type extending `() => T`,
 	  *                   allowing the use of literal expressions of the latter form as argument.
+	  * @see [[net.noresttherein.sugar.vars.Transient! Transient]]
+	  * @see [[net.noresttherein.sugar.vars.Transient$.apply Transient]]`(idempotent)`
 	  */
 	@inline def transient[@specialized(SpecializedVars) T](idempotent :Eval[T]) :Lazy[T] = Transient[T](idempotent)
 
@@ -206,13 +212,16 @@ object Lazy {
 	/** `Lazy` implementation equivalent in semantics to Scala's `lazy val`.
 	  * The implementation is not really specialized to avoid boxing during generic access; boxing at initialization
 	  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
-	  * and its runtime reference wrapper is an immutable class
+	  * and its runtime reference wrapper is an immutable class.
 	  */
 	@SerialVersionUID(Ver) //todo: make it specialized
-	private final class SyncVal[@specialized(SpecializedVars) +T](private[this] var initializer : () => T)
+	private final class SyncVal[@specialized(SpecializedVars) +T]
 		extends Lazy[T]
 	{
+		private[this] var initializer :() => T = _
 		private[this] var evaluated :Any = undefined
+
+		def init(init :() => T @uncheckedVariance) :Unit = initializer = init
 
 		override def isDefinite :Boolean = evaluated != undefined
 

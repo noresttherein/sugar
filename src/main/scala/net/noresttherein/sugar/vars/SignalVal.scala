@@ -16,9 +16,10 @@ import net.noresttherein.sugar.vars.SignalVal.Mapped
   * @see [[net.noresttherein.sugar.vars.Out]]
   * @see [[net.noresttherein.sugar.vars.SignalVar]]
   * @define Ref `SignalVal`
+  * @define ref signal value
   */
 @SerialVersionUID(Ver) //consider: SignalRef (different equality semantics)
-sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend Out
+sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable { //todo: extend Out
 	@volatile private[this] var x :Opt[T] = Lack
 
 	def await(timeout: Milliseconds) :Boolean =
@@ -73,6 +74,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] { //todo: extend 
 			x
 		}
 	}
+
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]

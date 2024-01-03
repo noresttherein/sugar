@@ -24,6 +24,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * the function of the former by accepting an `Option` or an [[net.noresttherein.sugar.vars.Opt Opt]].
   * @see [[net.noresttherein.sugar.vars.Mutable]]
   * @define Ref `Box`
+  * @define ref boxed variable
   * @author Marcin Mościcki
   */
 sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializable {
@@ -524,11 +525,11 @@ object VolatileBox {
 			val current = state
 			current != Empty && { lock(current) != Empty } && {
 				if (x == expect) {
-					x = newValue;
-					state = Full;
+					x = newValue
+					state = Full
 					true
 				} else {
-					state = Full;
+					state = Full
 					false
 				}
 			}

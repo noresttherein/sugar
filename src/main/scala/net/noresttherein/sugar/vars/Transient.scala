@@ -16,9 +16,10 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * if the value is large, not serializable, or if it references singleton values (which do not implement
   * aliasing after deserialization to ensure that only one instance exists, as Scala's singleton objects do).
   * @define Ref `Transient`
+  * @define ref transient value
   * @author Marcin Mościcki
   */
-sealed trait Transient[@specialized(SpecializedVars) +T] extends Idempotent[T] {
+sealed trait Transient[@specialized(SpecializedVars) +T] extends Pure[T] {
 	override def mkString :String = mkString("Transient")
 }
 
@@ -88,7 +89,7 @@ object Transient {
 				val res = f(v.asInstanceOf[T])
 				new Ref(() => res)
 			} else
-				new IdempotentRef(() => f(apply()))
+				new PureRef(() => f(apply()))
 		}
 
 		@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -96,7 +97,7 @@ object Transient {
 			if (v != undefined)
 				f(v.asInstanceOf[T])
 			else
-				new IdempotentRef(() => f(apply()))
+				new PureRef(() => f(apply()))
 		}
 
 		override def isSpecialized = true
@@ -148,7 +149,7 @@ object Transient {
 				val res = f(v.asInstanceOf[T])
 				new Ref(() => res)
 			} else
-				new IdempotentRef(() => f(apply()))
+				new PureRef(() => f(apply()))
 		}
 
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -156,7 +157,7 @@ object Transient {
 			if (v != undefined)
 				f(v.asInstanceOf[T])
 			else
-				new IdempotentRef(f(apply()))
+				new PureRef(f(apply()))
 		}
 
 		override def isSpecialized = false

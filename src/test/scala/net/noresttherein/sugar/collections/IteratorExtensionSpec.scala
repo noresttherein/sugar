@@ -531,7 +531,7 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("safe") = iteratorProperty { (iter :() => Iterator[Int]) =>
 		val dim    = 5
 		val elems  = iter().toVector :collection.Seq[Int]
-		val (prefix, suffix) = elems.splitAt(dim * dim)
+		val prefix = elems.take(dim * dim)
 		val safe   = iter().safe
 		val arrays = Array.ofDim[Int](dim, dim)
 		var copied = 0

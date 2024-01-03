@@ -235,10 +235,10 @@ lazy/external initialization, garbage collecting handling and others.
     val watch    :InOut[Int] = Watched(0)    //@volatile var, observer pattern
     val thread   :InOut[Int] = ThreadLocal(0)
 
-    val i :Val[Int] = Idempotent(1 + 1) //lazily evaluated, backed by a @volatile field (not synchronized)
-    val t :Val[Int] = Transient(1+1)  //like above, value is @transient, initializer is serialized instead
+    val i :Val[Int] = Pure(1 + 1)     //lazily evaluated, backed by a @volatile field (not synchronized)
+    val t :Val[Int] = Transient(1+1) //like above, additionally @transient, initializer is serialized instead
     val u :Unsure[Int] = Sure(0)    //a @specialized Option substitute
-    val o = Opt(null)             //a value class `Option` substitute    
+    val o = Opt(null)              //a value class `Option` substitute    
 
 #### 9.1. Var
 A standard mutable value wrapper.
@@ -255,7 +255,7 @@ A thread safe variable which can be set - externally - only once.
 #### 9.5. Freezer
 A thread safe variable which can enter immutable state.
 
-#### 9.6. Lazy, Idempotent, and Transient
+#### 9.6. Lazy, Pure, and Transient
 Various alternatives of `lazy val`, providing information about initialization state
 and alternative strategies for initialization for optimized contentious read.
 

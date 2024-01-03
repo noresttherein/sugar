@@ -1,16 +1,16 @@
 package net.noresttherein.sugar.vars
 
 
-import java.util.concurrent.{ConcurrentSkipListSet, Executor}
+import java.util.concurrent.{ConcurrentSkipListMap, Executor}
+
 import scala.annotation.unspecialized
-import scala.jdk.CollectionConverters.SetHasAsScala
-import net.noresttherein.sugar.extensions.classNameMethods
+import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
+
+import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
-import net.noresttherein.sugar.vars.Watched.SerializedExecutor
+import net.noresttherein.sugar.vars.Watched.SerialExecutor
 import net.noresttherein.sugar.witness.{DefaultValue, Maybe}
-
-import scala.collection.mutable
 
 
 
@@ -24,7 +24,7 @@ import scala.collection.mutable
   * and synchronous watchers, registered with methods [[net.noresttherein.sugar.vars.Watched.watch watch]]
   * and [[net.noresttherein.sugar.vars.Watched.inSync inSync]], respectively. When and how the former are executed
   * in respect to the assignment call and each other is unspecified and depends solely on the provided `Executor`
-  * implementation. While the default [[net.noresttherein.sugar.vars.Watched.SerializedExecutor SerializedExecutor]]
+  * implementation. While the default [[net.noresttherein.sugar.vars.Watched.SerialExecutor SerialExecutor]]
   * executes the callbacks in the thread which set the value of this variable, most 'real' implementations will
   * have it happen asynchronously with the setter call. The latter watchers are executed synchronously: regardless
   * of the `Executor` implementation, the mutating call to this variable will return only after all synchronous
@@ -40,16 +40,19 @@ import scala.collection.mutable
   * until a change to it is made and react themselves. The communication is asynchronous in both cases.
   *
   * @see [[net.noresttherein.sugar.vars.Watched.value_=]]
-	* @define Ref `Watched`
+  * @define Ref `Watched`
+  * @define ref watched variable
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor :Executor = SerializedExecutor)
+sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit executor :Executor = SerialExecutor)
 	extends VolatileLike[T] with Mutable[T] with Serializable
 {
-	@scala.volatile private[this] var x = init
-	private[this] val watchers = new ConcurrentSkipListSet[T => Unit].asScala
-	private[this] val synchronousWatchers = new ConcurrentSkipListSet[T => Unit].asScala
+	@scala.volatile private[this] var x :T = _
+	private[this] val watchers             = new ConcurrentSkipListMap[Any, T => Unit].asScala
+	private[this] val synchronousWatchers  = new ConcurrentSkipListMap[Any, T => Unit].asScala
+
+	private def set(value :T) :Unit = x = value
 
 	protected override def factory :Watched.type = Watched
 
@@ -77,8 +80,8 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 
 	private def trigger(currentValue :T) :Unit = {
 		var exception: Exception = null //the first exception caught in this method, following are added as suppressed
-		if (executor eq SerializedExecutor) { //ignore the executor and manually inline the callbacks
-			def schedule(callback: T => Unit): Unit =
+		if (executor eq SerialExecutor) { //ignore the executor and manually inline the callbacks
+			def schedule(key :Any, callback: T => Unit): Unit =
 				try {
 					callback(currentValue)
 				} catch {
@@ -86,10 +89,10 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 					case e: Exception => exception.addSuppressed(e)
 				}
 
-			watchers.foreach(schedule)
-			synchronousWatchers.foreach(schedule)
+			watchers.foreachEntry(schedule)
+			synchronousWatchers.foreachEntry(schedule)
 		} else {
-			watchers.foreach { callback =>
+			watchers.foreachEntry { (_, callback) =>
 				try {
 					executor.execute { () => callback(currentValue) }
 				} catch {
@@ -98,12 +101,12 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 				}
 			}
 
-			if (synchronousWatchers.nonEmpty) { //there may be a race condition with the set becoming empty,
+			if (synchronousWatchers.nonEmpty) {          //there may be a race condition with the set becoming empty,
 				val triggerThread = Thread.currentThread //but it does not affect correctness
 				@volatile var goAhead = true //start flag for all threads
 				@volatile var awaiting = 0 //number of not completed tasks
 				try { //register all callbacks in the executor and wait until they all complete.
-					synchronousWatchers.foreach { callback =>
+					synchronousWatchers.foreachEntry { (_, callback) =>
 						awaiting += 1
 						try {
 							executor.execute { () =>
@@ -125,7 +128,7 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 										callback(currentValue)
 								} finally { //guarantee that either awaiting == 0 or there will be a notifyAll() call
 									synchronized {
-										awaiting -= 1;
+										awaiting -= 1
 										if (awaiting == 0) //no sense in waking up the main thread
 											notifyAll()
 									}
@@ -156,30 +159,66 @@ sealed class Watched[@specialized(SpecializedVars) T](init :T)(implicit executor
 
 	/** Registers a callback function executed every time this variable is modified. The function will be given
 	  * as the argument the value of the variable which triggered the notification, rather than its value at the point
-	  * of execution (or even scheduling of the execution) of the function. This method synchronizes
-	  * on this object's monitor.
+	  * of execution (or even scheduling of the execution) of the function.
+	  * @param key      a value identifying the callback, which can be used to unregister it
+	  *                 using [[net.noresttherein.sugar.vars.Watched.resign resign]].
+	  * @param callback a function run by this $ref's executor each time the value of this variable changes.
 	  */
-	@unspecialized def watch(callback :T => Unit) :this.type = {
-		watchers += callback; this
+	@unspecialized def watch(key :Any, callback :T => Unit) :this.type = {
+		watchers(key) = callback ; this
 	}
 
-	@unspecialized def inSync(callback :T => Unit) :this.type = {
-//		if (synchronousWatchers == null)
-//			synchronousWatchers = new ConcurrentSkipListSet[T => Unit].asScala
-		synchronousWatchers += callback; this
+	/** Registers a callback function executed every time this variable is modified. The function will be given
+	  * as the argument the value of the variable which triggered the notification, rather than its value at the point
+	  * of execution (or even scheduling of the execution) of the function.
+	  * The function object is used as its own identifier, i.e. this call is equivalent to
+	  * [[net.noresttherein.sugar.vars.Watched.watch(key:Any* watch]]`(callback, callback)`,
+	  * and passing it to [[net.noresttherein.sugar.vars.Watched.resign resign]] will unregister it.
+	  * @param callback a function run by this $ref's executor each time the value of this variable changes.
+	  */
+	@unspecialized def watch(callback :T => Unit) :this.type = watch(callback, callback)
+
+	/** Registers a callback function executed serially every time this variable is modified.
+	  * The function will be given as the argument the value of the variable which triggered the notification,
+	  * rather than its value at the point of execution (or even scheduling of the execution) of the function.
+	  * It will be run by the thread which performed the mutation, and the assignment call will not return
+	  * until all serial watchers have been executed.
+	  * @param key      a value identifying the callback, which can be used to unregister it
+	  *                 using [[net.noresttherein.sugar.vars.Watched.resign resign]].
+	  * @param callback a function run by this $ref's executor each time the value of this variable changes.
+	  */
+	@unspecialized def inSync(key :Any, callback :T => Unit) :this.type = {
+		synchronousWatchers(key) = callback; this
 	}
 
-	//consider: a better unregistering schema
+	/** Registers a callback function executed serially every time this variable is modified.
+	  * until all serial watchers have been executed. The function will ''not'' synchronize on the variable's monitor,
+	  * and concurrent modifications are possible. It will be given as the argument the value of the variable
+	  * which triggered the notification, rather than its value at the point of execution
+	  * (or even scheduling of the execution) of the function.
+	  * It will be run by the thread which performed the mutation, and the assignment call will not return
+	  * The function object is used as its own identifier, i.e. this call is equivalent to
+	  * [[net.noresttherein.sugar.vars.Watched.inSync(key:Any* inSync]]`(callback, callback)`,
+	  * and passing it to [[net.noresttherein.sugar.vars.Watched.resign resign]] will unregister it.
+	  * @param callback a function run by this $ref's executor each time the value of this variable changes.
+	  */
+	@unspecialized def inSync(callback :T => Unit) :this.type = inSync(callback, callback)
+
+	/** Removes the callback identified by the given key from the list of watchers of this variable.
+	  * The key is compared using its `equals` method with keys given as first arguments
+	  * to [[net.noresttherein.sugar.vars.Watched.watch watch]] and [[net.noresttherein.sugar.vars.Watched.inSync inSync]].
+	  */
+	@unspecialized def resign(key :Any) :this.type = synchronized {
+		watchers -= key
+		synchronousWatchers -= key
+		this
+	}
 	/** Removes the given callback from the list of watchers of this variable.
 	  * The callback is compared using its `equals` method, which, for compiler created function implementations,
 	  * is the default referential equality (`eq`), requiring the exact same instance as was given
 	  * to [[net.noresttherein.sugar.vars.Watched.watch watch]].
 	  */
-	@unspecialized def resign(callback :T => Unit) :this.type = synchronized {
-		watchers -= callback
-		synchronousWatchers -= callback
-		this
-	}
+	@unspecialized def resign(callback :T => Unit) :this.type = resign(callback :Any)
 
 	override def mkString :String = mkString("Watched")
 
@@ -197,22 +236,28 @@ object Watched extends VolatileLikeCompanion[Watched] {
 
 	/** Create a new $variable which can be shared and watched by multiple threads. The implicit
 	  * [[java.util.concurrent.Executor Executor]] will be used to execute the registered callbacks.
-	  * If no implicit value exists, [[net.noresttherein.sugar.vars.Watched.SerializedExecutor SynchronousExecutor]]
+	  * If no implicit value exists, [[net.noresttherein.sugar.vars.Watched.SerialExecutor SynchronousExecutor]]
 	  * will be used instead.
 	  */
 	def apply[@specialized(SpecializedVars) T](init :T)(implicit executor :Maybe[Executor]) :Watched[T] =
-		new Watched[T](init) match {
+		new Watched[T] match {
 			case any if any.getClass == CaseUnspec =>
-				new Ref[T](init)(executor.opt getOrElse SerializedExecutor)
+				val res :Watched[T] = new Ref[T]()(executor.opt getOrElse SerialExecutor)
+				res.set(init)
+				res
 			case bool if bool.getClass == CaseBool =>
-				new Bool(init.asInstanceOf[Boolean])(executor.opt getOrElse SerializedExecutor).asInstanceOf[Watched[T]]
-			case res => res
+				val res :Watched[Boolean] = new Bool()(executor.opt getOrElse SerialExecutor)
+				res.set(init.asInstanceOf[Boolean])
+				res.asInstanceOf[Watched[T]]
+			case res =>
+				res.set(init)
+				res
 		}
 
 	/** Create a new $variable which can be shared and watched by multiple threads, initialized with the default
 	  * value for this type (zero, `false` or `null`). The implicit [[java.util.concurrent.Executor Executor]]
 	  * will be used to execute the registered callbacks. If no implicit value exists,
-	  * [[net.noresttherein.sugar.vars.Watched.SerializedExecutor SerializedExecutor]] will be used instead.
+	  * [[net.noresttherein.sugar.vars.Watched.SerialExecutor SerialExecutor]] will be used instead.
 	  */
 	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T], executor :Maybe[Executor]) :Watched[T] =
 		apply(default.get)(executor)
@@ -222,14 +267,26 @@ object Watched extends VolatileLikeCompanion[Watched] {
 
 	/** The simplest executor which executes the given [[Runnable]] immediately in the body of its `execute` method. */
 	@SerialVersionUID(Ver)
-	final object SerializedExecutor extends Executor with Serializable { //todo: exception handling and logging.
+	final object SerialExecutor extends Executor with Serializable { //todo: exception handling and logging.
 		override def execute(command :Runnable) :Unit = command.run()
 	}
 
 	//these are only used to access classes of each specialized implementation, we care not about executors
-	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Watched[T] = new Watched(init)
-	protected override def newRefInstance[T](init :T) :Watched[T] = new Ref[T](init)
-	protected override def newBoolInstance(init :Boolean) :Watched[Boolean] = new Bool(init)
+	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :Watched[T] = {
+		val res = new Watched[T]
+		res.set(init)
+		res
+	}
+	protected override def newRefInstance[T](init :T) :Watched[T] = {
+		val res :Watched[T] = new Ref[T]
+		res.set(init)
+		res
+	}
+	protected override def newBoolInstance(init :Boolean) :Watched[Boolean] = {
+		val res :Watched[Boolean] = new Bool
+		res.set(init)
+		res
+	}
 
 	private[vars] override def getAndSet[@specialized(SpecializedVars) T](v: InOut[T], newValue: T) :T = {
 		val res = super.getAndSet(v, newValue)
@@ -255,14 +312,12 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class Ref[T](init :T)(implicit executor :Executor = SerializedExecutor)
-		extends Watched[T](init) with RefVolatileLike[T]
+	private class Ref[T](implicit executor :Executor = SerialExecutor) extends Watched[T] with RefVolatileLike[T]
 
 	/** Optimised implementation of `Watched[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class Bool(init :Boolean)(implicit executor :Executor = SerializedExecutor)
-		extends Watched[Boolean](init) with BoolVolatileLike
+	private class Bool(implicit executor :Executor = SerialExecutor) extends Watched[Boolean] with BoolVolatileLike
 
 }

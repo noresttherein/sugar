@@ -41,6 +41,7 @@ import net.noresttherein.sugar.witness.Ignored
   * @see [[net.noresttherein.sugar.vars.Unsure]]
   * @see [[net.noresttherein.sugar.vars.Opt]]
   * @define Ref `BoolOpt`
+  * @define ref optional Boolean
   * @define coll optional `Boolean`
   */
 @SerialVersionUID(Ver)

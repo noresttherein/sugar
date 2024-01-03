@@ -6,6 +6,7 @@ import scala.annotation.unchecked.uncheckedVariance
 
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
+import net.noresttherein.sugar.vars.DisposableRef.SerializedEmptyRef
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
@@ -14,7 +15,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 /** A light wrapper over Java [[java.lang.ref.ReferenceQueue ReferenceQueue]] containing only instances
   * of [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]], with API expressed in terms of the latter,
   * rather than Java [[java.lang.ref.Reference Reference]] (and using `Opt`s instead of `null`s).
-  */
+  */ //Cannot be Serializable, because internals of ReferenceQueue are not serializable.
 class RefQueue[T](name :String) { //not serializable!
 	def this() = this(null)
 
@@ -45,10 +46,15 @@ class RefQueue[T](name :String) { //not serializable!
 
 /** An adaptation of Java [[java.lang.ref.Reference Reference]] class hierarchy
   * to [[net.noresttherein.sugar.vars.Ref Ref]] interface.
+  * These classes are lighter than their standard Scala counterparts (do not require additional wrapping).
+  * Additionally, this class is `Serializable`. However, it essentially behaves like a `@transient val`:
+  * the referenced value is not serialized with the reference, and a deserialized $Ref is empty and without a queue.
+  * This allows safe use of these values in `Serializable` types.
   * @define Ref `DisposableRef`
+  * @define ref disposable reference
   * @author Marcin Mościcki
-  */ //not a Serializable because Reference is not a Serializable
-sealed trait DisposableRef[+T] extends Ref[T] { this : Reference[T @uncheckedVariance] =>
+  */
+sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Reference[T @uncheckedVariance] =>
 	def toReference :Reference[_ <: T] = this
 
 	protected def getOrNull :T
@@ -113,6 +119,8 @@ sealed trait DisposableRef[+T] extends Ref[T] { this : Reference[T @uncheckedVar
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
 	@inline final override def constUnsure :Unsure[T] = Missing
 
+	protected def factory :DisposableRefFactory[DisposableRef]
+	private def writeReplace = new SerializedEmptyRef(factory)
 
 	private[vars] override def isSpecialized = false
 
@@ -133,6 +141,22 @@ object DisposableRef {
 		case ref :DisposableRef[T @unchecked] => Got(ref)
 		case _ => Lack
 	}
+	private class SerializedEmptyRef[T](factory :DisposableRefFactory[DisposableRef]) extends Serializable {
+		private def readResolve = factory(null)
+	}
+}
+
+
+/** Creates and extracts a value from a $Ref.
+  * @define Ref `R`
+  * @define ref disposable reference
+  * @tparam R the associated reference kind.
+  */
+sealed trait DisposableRefFactory[+R[X] <: DisposableRef[X]] {
+	/** Creates a $Ref not registered for any queue. */
+	def apply[T](referent :T) :R[T]
+	/** Creates a $Ref and registers it for the given queue. */
+	def apply[T](referent :T, queue :RefQueue[T]) :R[T]
 }
 
 
@@ -140,6 +164,8 @@ object DisposableRef {
 
 /** An adapter of Java [[java.lang.ref.WeakReference WeakReference]] to `sugar` [[net.noresttherein.sugar.vars.Ref Ref]]
   * interface.
+  * @define Ref `WeakRef`
+  * @define ref weak reference
   */
 class WeakRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	extends WeakReference[T @uncheckedVariance](referent, queue) with DisposableRef[T]
@@ -147,12 +173,17 @@ class WeakRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
 	def this(referent :T) = this(referent, null :ReferenceQueue[T])
 	protected override def getOrNull :T = super[WeakReference].get
+	protected override def factory :DisposableRefFactory[WeakRef] = WeakRef
 }
 
 
-object WeakRef {
-	@inline def apply[T](referent :T) :WeakRef[T] = new WeakRef(referent)
-	@inline def apply[T](referent :T, queue :RefQueue[T]) :WeakRef[T] = new WeakRef[T](referent, queue.underlying)
+/** Factory of and extractor of values from [[net.noresttherein.sugar.vars.WeakRef weak references]].
+  * @define Ref `WeakRef`
+  * @define ref weak reference
+  */
+object WeakRef extends DisposableRefFactory[WeakRef] {
+	@inline override def apply[T](referent :T) :WeakRef[T] = new WeakRef(referent)
+	@inline override def apply[T](referent :T, queue :RefQueue[T]) :WeakRef[T] = new WeakRef[T](referent, queue.underlying)
 
 	@inline def unapply[T](ref :WeakRef[T]) :Opt[T] = ref.opt
 	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
@@ -167,6 +198,8 @@ object WeakRef {
 
 /** An adapter of Java [[java.lang.ref.SoftReference SoftReference]] to `sugar` [[net.noresttherein.sugar.vars.Ref Ref]]
   * interface.
+  * @define Ref `SoftRef`
+  * @define ref soft reference
   */
 class SoftRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	extends SoftReference[T @uncheckedVariance](referent, queue) with DisposableRef[T]
@@ -174,12 +207,17 @@ class SoftRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	def this(referent :T, queue :RefQueue[T]) = this(referent, queue.underlying)
 	def this(referent :T) = this(referent, null :ReferenceQueue[T])
 	protected override def getOrNull :T = super[SoftReference].get
+	protected override def factory :DisposableRefFactory[SoftRef] = SoftRef
 }
 
 
-object SoftRef {
-	@inline def apply[T](referent :T) :SoftRef[T] = new SoftRef(referent)
-	@inline def apply[T](referent :T, queue :RefQueue[T]) :SoftRef[T] = new SoftRef(referent, queue.underlying)
+/** Factory of and extractor of values from [[net.noresttherein.sugar.vars.SoftRef soft references]].
+  * @define Ref `SoftRef`
+  * @define ref soft reference
+  */
+object SoftRef extends DisposableRefFactory[SoftRef] {
+	@inline override def apply[T](referent :T) :SoftRef[T] = new SoftRef(referent)
+	@inline override def apply[T](referent :T, queue :RefQueue[T]) :SoftRef[T] = new SoftRef(referent, queue.underlying)
 
 	@inline def unapply[T](ref :SoftRef[T]) :Opt[T] = ref.opt
 	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
@@ -194,6 +232,8 @@ object SoftRef {
 
 /** An adapter of Java [[java.lang.ref.PhantomReference PhantomReference]]
   * to `sugar` [[net.noresttherein.sugar.vars.Ref Ref]] interface.
+  * @define Ref `PhantomRef`
+  * @define ref phantom reference
   */
 class PhantomRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	extends PhantomReference[T @uncheckedVariance](referent, queue) with DisposableRef[T]
@@ -202,11 +242,17 @@ class PhantomRef[+T] private (referent :T, queue :ReferenceQueue[T])
 	def this(referent :T) = this(referent, null :ReferenceQueue[T])
 
 	protected override def getOrNull :T = super.get
+
+	protected override def factory :DisposableRefFactory[PhantomRef] = PhantomRef
 	override def toString :String = "PhantomRef@" + Integer.toHexString(hashCode)
 }
 
 
-object PhantomRef {
-	@inline def apply[T](referent :T) :PhantomRef[T] = new PhantomRef(referent)
-	@inline def apply[T](referent :T, queue :RefQueue[T]) :PhantomRef[T] = new PhantomRef(referent, queue)
+/** Factory of and extractor of values from [[net.noresttherein.sugar.vars.PhantomRef phantom references]].
+  * @define Ref `PhantomRef`
+  * @define ref phantom reference
+  */
+object PhantomRef extends DisposableRefFactory[PhantomRef] {
+	@inline override def apply[T](referent :T) :PhantomRef[T] = new PhantomRef(referent)
+	@inline override def apply[T](referent :T, queue :RefQueue[T]) :PhantomRef[T] = new PhantomRef(referent, queue)
 }

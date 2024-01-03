@@ -30,6 +30,7 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   * This trait and all its subclasses is thread safe.
   *
   * @define Ref `Val`
+  * @define ref value
   * @author Marcin Mościcki
   */ //consider: caching of the T wrapper, Opt, Option, Unsure
 trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //consider: toRef for equality semantic change
@@ -66,8 +67,6 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) { //co
 	  * @return `this.`[[net.noresttherein.sugar.vars.Val.const const]].
 	  */
 	@inline final override def apply() :T = const
-
-//	@inline final override def ?? :Potential[T] = toPotential
 
 	/** Creates a new `Val` the value of which is derived from the value of this instance.
 	  * If `this.`[[net.noresttherein.sugar.vars.Val.isConst isConst]], then the new value is initialized immediately
@@ -149,8 +148,8 @@ private class MappedVal[V, +O](source: Val[V], f: V => O) extends Val[O] {
 	override def isDefined     :Boolean = x.isDefined || source.isDefined
 	override def isDefinite    :Boolean = x.isDefined || source.isDefinite
 
-	override def value    :O = opt.orNoSuch("Val()")
-	override def get      :O = x getOrElse adaptVal(source.get)
+	override def value :O = opt.orNoSuch("Val()")
+	override def get   :O = x getOrElse adaptVal(source.get)
 	override def const :O = x getOrElse adaptVal(source.const)
 
 	@inline private def adaptVal(v: V) :O = {
@@ -183,9 +182,8 @@ private class MappedVal[V, +O](source: Val[V], f: V => O) extends Val[O] {
 		}
 	}
 
-	override def map[Y](f :O => Y) :Val[Y] = new MappedVal(source, this.f andThen f)
-
-	override def flatMap[Y](f :O => Val[Y]) :Val[Y] = new FlatMappedVal(source, this.f andThen f)
+//	override def map[Y](f :O => Y) :Val[Y] = new MappedVal(source, this.f andThen f)
+//	override def flatMap[Y](f :O => Val[Y]) :Val[Y] = new FlatMappedVal(source, this.f andThen f)
 
 	override def mkString = mkString("Val")
 }

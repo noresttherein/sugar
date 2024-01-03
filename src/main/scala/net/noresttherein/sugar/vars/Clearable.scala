@@ -9,7 +9,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 /** `Clearable` is the opposite of [[net.noresttherein.sugar.vars.Out Out]]: a value box initialized on construction,
   * but with its contents being subject to being cleared - unreferenced and freed for a garbage collector.
-	* The value itself cannot be changed in other way than removing it.
+  * The value itself cannot be changed in other way than removing it.
   * It is not a [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]] as it uses a hard reference
   * and must be cleared manually, rather than by the garbage collector. It is typically used for temporary data,
   * such as initializer blocks, which become no longer needed once the final content is created.
@@ -58,8 +58,9 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * and [[java.lang.ref.Cleaner.Cleanable Cleanable]].
   *
   * @define Ref `Clearable`
+  * @define ref clearable value
   * @author Marcin Mościcki
-  */ //consider: making it an InOut
+  */ //consider: making it an InOut; making it @specialized
 trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serializable {
 
 	/** Returns `true` ''iff'' this `Clearable` is empty. */

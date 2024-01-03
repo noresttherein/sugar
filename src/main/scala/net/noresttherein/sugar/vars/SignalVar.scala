@@ -44,10 +44,11 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @see [[net.noresttherein.sugar.vars.Watched]]
   * @see [[net.noresttherein.sugar.vars.Channel]]
   * @define Ref `SignalVar`
+  * @define ref signal variable
   */
-sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[this] var x :T)
-	extends SyncVar[T]
-{
+sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] extends SyncVar[T] {
+	private[this] var x :T = _
+
 	//invariant: writers >= 0 && (mutations >= 0 || waiters > 0).
 	// If mutations < 0 then writers can only be decreased; if mutations >= 0 writers can only be increased
 	/** The number of threads currently waiting in one of the `await` or `testAndAwait` methods to see the result of
@@ -89,9 +90,9 @@ sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[t
 		}
 	}
 
-	private[vars] override def unsync = x
+	private[vars] override def unsafe = x
 
-	private[vars] override def unsync_=(newValue :T) :Unit = {
+	private[vars] override def unsafe_=(newValue :T) :Unit = {
 		while (mutations < 0)           //there ar threads still waiting to see the previous update
 			wait()
 		if (waiters > 0)                //prevent future updates until all waiters see the new value
@@ -101,88 +102,6 @@ sealed class SignalVar[@specialized(SpecializedVars) T] private[vars] (private[t
 		x = newValue
 		notifyAll()
 	}
-
-	//how can I add scaladocs without overriding the methods?
-//	/** The current value of this variable. The call is synchronized and thus can block,
-//	  * but it does not otherwise wait for any condition.
-//	  */ //repeated declaration for updated docs
-//	def value :T
-//
-//	/** Assigns `newValue` to this variable and notifies all threads waiting to see the next value of this variable.
-//	  * The call is synchronized on this instance's monitor, and thus all assignments happen in a sequential/serialized
-//	  * manner. It can block, both when acquiring the monitor (entering the `synchronized` block), as well as when
-//	  * some threads waiting to see the ''current'' value have not yet had a chance to return it to their caller.
-//	  * This guarantees that no assignment is lost (barring abnormal termination of the virtual machine)
-//	  * Waiting threads are notified (using [[java.lang.Object.notifyAll notifyAll]]`()`) even if `this.value == newValue`.
-//	  * While the application code can synchronize on this instance's monitor, waiting on this object is discouraged,
-//	  * as these are not the only cases when `notifyAll` is called - the caller will have no means of determining
-//	  * if an update has indeed happened and if the value they see is the one which replaced the last one they read.
-//	  */ //repeated declaration for updated docs
-//	def value_=(newValue :T) :Unit
-
-//	/** The current value of this variable. The call is synchronized and thus can block,
-//	  * but it does not otherwise wait for any condition.
-//	  */
-//	@inline override def value :T = synchronized { x }
-//
-//	/** Assigns `newValue` to this variable and notifies all waiting threads. The calls is synchronized,
-//	  * and thus all assignments happen in a sequential/serialized manner. The notification happens by
-//	  * a call to [[java.lang.Object.notifyAll notifyAll]].
-//	  */
-//	@inline final override def value_=(newValue :T) :Unit = synchronized {
-//		x = newValue; mutations += 1; notifyAll()
-//	}
-//
-//	/** Atomically swaps the value of this variable, assigning to it `newValue` and returning the value immediately
-//	  * preceding the assignment. All threads waiting for a change to happen on this object's monitor are notified.
-//	  */
-//	@inline final override def ?=(newValue :T) :T = synchronized {
-//		val res = x; unsync = newValue; mutations += 1; notifyAll(); res
-//	}
-//
-//	/** Assigns a new value to this variable providing the current value is equal to the expected value.
-//	  * All threads waiting for a change to happen on this object's monitor are notified ''iff'' an assignment
-//	  * was performed by this method.
-//	  * @param expect   a value to compare with current value.
-//	  * @param newValue a new value for this variable.
-//	  * @return `true` if previous value equaled `expect` and the variable has been set to `newValue`.
-//	  */
-//	final override def testAndSet(expect :T, newValue :T) :Boolean = synchronized {
-//		(x == expect) && { x = newValue; mutations += 1; notifyAll(); true }
-//	}
-//
-//	/** Atomically updates the value of this variable with the given function. This is equivalent to
-//	  * `this := f(this); this.get` with the guarantee that no other thread will modify the value of this variable
-//	  * between the individual operations.
-//	  * @param f a function to apply to the value of this variable.
-//	  * @return the result of applying `f` to the current value.
-//	  */
-//	final override def apply(f :T => T) :T = synchronized {
-//		val res = f(x); x = res; mutations += 1; notifyAll(); res
-//	}
-//
-//	/** Combines the value of this variable with a value of some other type, atomicALLY assigning the result
-//	  * of the application
-//	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
-//	  * new values in a way similar to an in place ''foldLeft'' operation on a singleton collection; the difference
-//	  * from `foldLeft` is that the function's result is the type of this variable, rather than the argument.
-//	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
-//	  * and is equivalent to `val res = f(z, value); value = res; res`. This method comes
-//	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SyncVar SyncVar]]
-//	  * or [[net.noresttherein.sugar.vars.Atomic Atomic]].
-//	  * @param z accumulator value to pass as the first argument to the `f` function, together with the current
-//	  *          value of this variable.
-//	  * @param f a function applied to the argument and this variable, whose result should be set to this variable.
-//	  * @return the result of applying `f` to this variable and the argument.
-//	  */
-//
-//	final override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = synchronized {
-//		val res = f(z, unsync); x = res; mutations += 1; notifyAll(); res
-//	}
-//
-//	final override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = synchronized {
-//		val res = f(unsync, z); x = res; mutations += 1; notifyAll(); res
-//	}
 
 	/** Waits for the value of this variable to change.
 	  * The change here means any call to setters [[net.noresttherein.sugar.vars.SignalVar.value_= value]]` = _`,
@@ -349,11 +268,18 @@ object SignalVar {
 	/** Creates a new wrapper over a synchronized `var`, allowing threads to wait for future changes.
 	  * @param init the initial value of the variable.
 	  */
-	def apply[@specialized(SpecializedVars) T](init :T) :SignalVar[T] = new SignalVar[T](init)
+	def apply[@specialized(SpecializedVars) T](init :T) :SignalVar[T] = {
+		val res = new SignalVar[T]
+		res.value = init
+		res
+	}
 
 	/** Creates a new wrapper over a synchronized `var`, allowing threads to wait for future changes.
 	  * The initial value of the variable is defined by the implicit type class.
 	  */
-	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :SignalVar[T] =
-		new SignalVar[T](default.get)
+	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :SignalVar[T] = {
+		val res = new SignalVar[T]
+		res.value = default.get
+		res
+	}
 }

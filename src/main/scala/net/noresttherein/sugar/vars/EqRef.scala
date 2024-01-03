@@ -12,14 +12,16 @@ import net.noresttherein.sugar.vars.Ref.FinalRef
   * @see [[net.noresttherein.sugar.collections.EqMap]]
   * @see [[net.noresttherein.sugar.collections.MutableEqSet]]
   * @see [[net.noresttherein.sugar.collections.MutableEqMap]]
+  * @define Ref `EqRef`
+  * @define ref identity reference
   */
 @SerialVersionUID(Ver)
 final class EqRef[+T] private (x :T) extends Ref[T] with FinalRef[T] with Serializable {
-	override def isEmpty   :Boolean = false
-	override def get       :T = x
-	override def option    :Option[T] = Some(x)
-	override def opt       :Opt[T] = Got(x)
-	override def unsure    :Unsure[T] = Sure(x)
+	override def isEmpty :Boolean = false
+	override def get     :T = x
+	override def option  :Option[T] = Some(x)
+	override def opt     :Opt[T] = Got(x)
+	override def unsure  :Unsure[T] = Sure(x)
 
 	override def equals(that :Any) :Boolean = that match {
 		case self :AnyRef if this eq self => true

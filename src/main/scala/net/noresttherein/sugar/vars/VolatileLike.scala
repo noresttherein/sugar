@@ -3,6 +3,8 @@ package net.noresttherein.sugar.vars
 import java.lang.invoke.{MethodHandles, VarHandle}
 
 import scala.Specializable.Args
+import scala.annotation.nowarn
+import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -112,7 +114,7 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 	private[vars] override def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
 		if (other) ev(this).value = true
 
-	//overriden to avoid the creation of a closure object capturing other
+	//overridden to avoid the creation of a closure object capturing other
 	private[vars] override def bool_&&=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
 		if (ev(this).value && !other) //race condition doesn't change the result, as if it set this.value = false then also !(value && bool)
 			ev(this).value = false
@@ -241,6 +243,7 @@ private[vars] object VolatileLike {
 		private[vars] override def isSpecialized = false
 	}
 
+
 	/** Optimised implementation of `VolatileLike[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
@@ -283,7 +286,9 @@ private[vars] object VolatileLike {
 
 
 
-/** @define variable variable */
+/** @define Ref `V`
+  * @define ref concurrent variable
+  */
 private[vars] abstract class VolatileLikeOps[+V[T] <: InOut[T]] {
 	private[vars] def getAndSet[@specialized(SpecializedVars) T](v :InOut[T], newValue :T) :T
 	private[vars] def testAndSet[@specialized(SpecializedVars) T](v :InOut[T], expect :T, newValue :T) :Boolean
@@ -431,13 +436,29 @@ private[vars] abstract class VolatileLikeCompanion[+V[T] <: InOut[T]] extends Vo
 
 
 private[vars] trait VolatileLikeFactory[+V[X] <: VolatileLike[X]] extends VolatileLikeCompanion[V] {
-	/** Create a new $variable which can be shared by multiple threads. */
+	/** Create a new $ref which can be shared by multiple threads. */
 	def apply[@specialized(SpecializedVars) T](init :T) :V[T] = newInstance(init) match {
 		case any if any.getClass == CaseUnspec => newRefInstance(init)
 		case bool if bool.getClass == CaseBool => newBoolInstance(init.asInstanceOf[Boolean]).asInstanceOf[V[T]]
 		case res => res
 	}
 
-	/** Create a new $variable which can be shared by multiple threads. */
+	/** Create a new $ref which can be shared by multiple threads. */
 	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :V[T] = apply(default.get)
+
+	/** Creates a properly `@specialized` $ref in a generic context based on an implicit class information for `T`. */
+	def generic[T](init :T)(implicit tag :ClassTag[T]) :V[T] = (tag : @nowarn) match {
+		case _ if !tag.runtimeClass.isPrimitive => apply(init)
+		case ClassTag.Int     => apply[Int](init.asInstanceOf[Int]).asInstanceOf[V[T]]
+		case ClassTag.Long    => apply[Long](init.asInstanceOf[Long]).asInstanceOf[V[T]]
+		case ClassTag.Double  => apply[Double](init.asInstanceOf[Double]).asInstanceOf[V[T]]
+		case ClassTag.Float   => apply[Float](init.asInstanceOf[Float]).asInstanceOf[V[T]]
+		case ClassTag.Char    => apply[Char](init.asInstanceOf[Char]).asInstanceOf[V[T]]
+		case ClassTag.Boolean => apply[Boolean](init.asInstanceOf[Boolean]).asInstanceOf[V[T]]
+		case ClassTag.Byte    => apply[Byte](init.asInstanceOf[Byte]).asInstanceOf[V[T]]
+		case ClassTag.Short   => apply[Short](init.asInstanceOf[Short]).asInstanceOf[V[T]]
+	}
+
+	/** Creates a properly `@specialized` $ref in a generic context based on an implicit class information for `T`. */
+	def generic[T](implicit tag :ClassTag[T], default :DefaultValue[T]) :V[T] = generic(default.get)
 }
