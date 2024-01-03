@@ -667,7 +667,7 @@ object Opt {
 	@SerialVersionUID(Ver)
 	private[vars] object NoContent extends (Any => AnyRef) with Serializable {
 		def apply(ignore :Any) :AnyRef = this
-		override def toString = "<undefined>"
+		override def toString = "<empty>"
 	}
 
 	private val unzip2Lack = (Lack, Lack)

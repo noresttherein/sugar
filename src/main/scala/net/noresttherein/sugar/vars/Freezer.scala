@@ -164,21 +164,21 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 		}
 	}
 
-	override def apply(f :T => T) :T = {
+	override def update(f :T => T) :T = {
 		lock()
 		val res = f(x)
 		x = res
 		state = Mutable
 		res
 	}
-	override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
+	override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
 		lock()
 		val res = f(z, x)
 		x = res
 		state = Mutable
 		res
 	}
-	override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
+	override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
 		lock()
 		val res = f(x, z)
 		x = res

@@ -3,7 +3,6 @@ package net.noresttherein.sugar.vars
 import java.lang.invoke.MethodHandles
 
 import scala.Specializable.Args
-import scala.annotation.nowarn
 
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
 import net.noresttherein.sugar.concurrent.currentThreadId
@@ -40,6 +39,15 @@ import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
   *     }
   * }}}
   * Overall, it is almost a perfect mirror of [[net.noresttherein.sugar.vars.SyncVar SyncVar]].
+  * However, because all threads waiting for the lock are not suspended, this feature should be used only
+  * if the critical section is very short, for example assigning values to several `SpinVar`s.
+  * Additionally, just as with `SyncVar`/`synchronized`, attempts to acquire the locks in different order
+  * by different parts of the program risk causing deadlocks.
+  *
+  * This implementation perceiveably slower than [[net.noresttherein.sugar.vars.Volatile Volatile]]`[T]`,
+  * so use it only if you need the combined locking functionality, or the ''test-and-set'' operations
+  * to use object equality (`equals` method), rather than referential equality (`eq`).
+  *
   * @tparam T the type of this variable
   * @define Ref `SpinVar`
   * @define ref locked variable
@@ -47,12 +55,15 @@ import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
   */
 @SerialVersionUID(Ver)
 class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] with Serializable {
-	/** Unsynchronized access to the variable field. */
+	/** The underlying variable field. */
 	private[this] var x :T = _
-	@volatile private[this] var mutex :Long   = -1L
+
+	/** Id of the thread currently owning the critical section, or `Unknown` if the variable is not locked. */
+	@volatile private[this] var mutex :Long   = Unlocked
 
 	/** Unsynchronized access to this variable. */
 	private[vars] def unsafe :T = x
+	/** Unsynchronized access to this variable. */
 	private[vars] def unsafe_=(value :T) :Unit = x = value
 
 	final override def value :T = {
@@ -74,9 +85,15 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 	}
 	@inline private def unlock() :Unit = mutex = Unlocked
 
-	def locked[O](expr: => O) :O =
+	/** Executes the given expression while holding the lock for this variable
+	  * (the same under which all reads and writes are performed). This is not the monitor lock acquired
+	  * by method `synchronized` of `AnyRef`, but the method may be used in the same manner, to nest critical sections
+	  * for several variables.
+	  */
+	final def locked[O](expr: => O) :O =
 		try { lock(); expr } finally mutex = Unlocked
 
+	/** Atomically assigns a new value to this $ref, returning the current value. */
 	final override def ?=(newValue :T) :T = {
 		lock()
 		val res = x
@@ -104,7 +121,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 	  * @param f function to apply to the value of this variable.
 	  * @return result of applying `f` to the current value.
 	  */
-	final override def apply(f :T => T) :T =
+	final override def update(f :T => T) :T =
 		try {
 			lock()
 			x = f(x)
@@ -112,7 +129,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 		} finally
 			mutex = Unlocked
 
-	final override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
+	final override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
 		try {
 			lock()
 			x = f(z, x)
@@ -120,7 +137,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 		} finally
 			mutex = Unlocked
 
-	final override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
+	final override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
 		try {
 			lock()
 			x = f(x, z)

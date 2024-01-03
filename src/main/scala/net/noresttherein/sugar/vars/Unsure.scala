@@ -411,6 +411,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 		case _ => Missing
 	}
 
+	//consider: allowing them to equal any constant Ref
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Unsure[_]]
 }
 
@@ -424,9 +425,8 @@ object Unsure {
 
 	/** An `Unsure` factory which creates [[net.noresttherein.sugar.vars.Sure Sure]]`(value)`
 	  * if the argument is not null, and [[net.noresttherein.sugar.vars.Missing Missing]] if it is null.
-	  *
-	  *  @param value the value.
-	  *  @return `if (value == null) Missing else Success(value)`.
+	  * @param value the value.
+	  * @return `if (value == null) Missing else Success(value)`.
 	  */
 	def apply[@specialized(SpecializedVars) T](value :T) :Unsure[T] =
 		if (value == null) Missing else new Sure(value)

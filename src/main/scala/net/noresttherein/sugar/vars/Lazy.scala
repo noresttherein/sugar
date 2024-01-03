@@ -36,10 +36,19 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   * @author Marcin Mościcki
   */
 trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with Serializable {
-	/** Returns [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]]. */
+	/** An alias for [[net.noresttherein.sugar.vars.Lazy.isFinal isFinal]]/[[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]]
+	  * with a more intuitive name.
+	  */
+	@inline final def isEvaluated :Boolean = isDefinite
+
+	/** True, if this value is already evaluated.
+	  * @return [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
+	  */
 	@inline final override def isFinal :Boolean = isDefinite
 
-	/** Returns `!`[[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]]. */
+	/** True if the value is not evaluated yet.
+	  * @return `!`[[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
+	  */
 	override def isEmpty :Boolean = !isDefinite //overridden for docs only
 
 	/** Returns `true`: all `Lazy` values can have only a single value and, once initialized,
@@ -47,11 +56,11 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  */
 	final override def isFinalizable :Boolean = true
 
-	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite]]. */
+	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite isDefinite]]. */
 	@inline final override def isConst :Boolean = isDefinite
 
 	/** Always returns `true`.
-	  * @see [[net.noresttherein.sugar.vars.Lazy.isDefinite]]
+	  * @see [[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]]
 	  */
 	@inline final override def isDefined :Boolean = true
 
@@ -66,10 +75,15 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  */
 	override def isDefinite :Boolean = opt.nonEmpty
 
-	/** The value of this `Lazy`. This method always returns the same value and throws no exception,
+	/** The value of this $Ref. This method always returns the same value and throws no exception,
 	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.Val.const const]].
 	  */
-	@inline final override def get :T = const
+	override def get :T
+
+	/** The value of this $Ref. This method always returns the same value and throws no exception,
+	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.Val.get get]].
+	  */
+	@inline final override def const :T = get
 
 	/** Returns `Some(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
 	override def toOption :Option[T] = Some(get)
@@ -87,7 +101,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	/** Returns [[net.noresttherein.sugar.vars.Opt.Got Got]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
 	  * same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
 	  */
-	@inline final override def constOpt :Opt[T] = toOpt
+	@inline final override def constOpt :Opt[T] = opt
 
 	/** Returns [[net.noresttherein.sugar.vars.Sure Sure]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
 	override def toUnsure :Unsure[T] = Sure(get)
@@ -95,22 +109,22 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	/** Returns [[net.noresttherein.sugar.vars.Sure Sure]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
 	@inline final override def constUnsure :Unsure[T] = toUnsure
 
-	/** Creates a new `Lazy[O]` instance with the same characteristics as this instance, evaluated to the application
+	/** Creates a new $Ref`[O]` instance with the same characteristics as this instance, evaluated to the application
 	  * of `f` to the value of this instance. If the value has already been evaluated, created instance will be
-	  * eagerly evaluated - use `Lazy(f(this.value))` if you wish for `f` to not be executed before
+	  * eagerly evaluated - use $Ref`(f(this.value))` if you wish for `f` to not be executed before
 	  * the method returns under any circumstances. If this instance initializes under a `synchronized` block,
 	  * it is guaranteed that it will be evaluated at most once, regardless of which of the two values are
 	  * accessed. Created `Lazy[O]` will likewise use the `synchronized` block in that case and `f` will be evaluated
 	  * at most once.
 	  */
-	override def map[O](f :T => O) :Lazy[O] = //implementation only needed because super method is not abstract
+	override def map[O](f :T => O) :Lazy[O] =
 		new MappedVal[T, O](this, f) with Lazy[O]
 
-	/** Creates a new `Lazy[O]` initialized with the expression `f(this.value)).value`. If this instance is already
+	/** Creates a new $Ref`[O]` initialized with the expression `f(this.value)).value`. If this instance is already
 	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise a new
-	  * `Lazy[O]` with the same synchronization characteristics as this instance will be created, with
+	  * $Ref`[O]` with the same synchronization characteristics as this instance will be created, with
 	  * `f(this.value)).value` as the initializing expression. If you wish for `f` to not be executed
-	  * before the method returns and the returned instance is accessed, use `Lazy(f(this.value).value))`.
+	  * before the method returns and the returned instance is accessed, use $Ref`(f(this.value).value))`.
 	  */
 	def flatMap[O](f :T => Lazy[O]) :Lazy[O] =
 		new FlatMappedVal[T, O](this, f) with Lazy[O]
@@ -200,7 +214,7 @@ object Lazy {
 	private final class Eager[+T](eager :T) extends Lazy[T] {
 		override def isDefinite = true
 		override def value :T = eager
-		override def const :T = eager
+		override def get   :T = eager
 
 		override def map[O](f :T => O) :Eager[O] = new Eager(f(eager))
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(eager)
@@ -229,7 +243,7 @@ object Lazy {
 			val res = evaluated
 			if (res != undefined) res.asInstanceOf[T] else throw new NoSuchElementException("Uninitialized Lazy")
 		}
-		@unspecialized override def const :T = {
+		@unspecialized override def get :T = {
 			var res = evaluated
 			if (res == undefined)
 				synchronized {
@@ -287,11 +301,11 @@ object Lazy {
 		override def isSpecialized = true
 
 		override def mkString(prefix :String) :String = evaluated match {
-			case `undefined` => prefix + "()"
+			case Ref.undefined => prefix + "()"
 			case v => prefix + "(" + v + ")"
 		}
 		override def mkString :String = evaluated match {
-			case `undefined` => "SyncLazy()"
+			case Ref.undefined => "SyncLazy()"
 			case v => "SyncLazy(" + v + ")"
 		}
 		override def toString :String = String.valueOf(evaluated) //can print NoContent.toString, but it's ok
@@ -311,7 +325,7 @@ object Lazy {
 			case `undefined` => throw new NoSuchElementException("Uninitialized Lazy")
 			case v => v.asInstanceOf[T]
 		}
-		override def const :T = {
+		override def get :T = {
 			var res = evaluated
 			if (res == undefined) synchronized {
 				res = evaluated

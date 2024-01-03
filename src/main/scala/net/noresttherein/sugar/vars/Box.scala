@@ -535,7 +535,7 @@ object VolatileBox {
 			}
 		}
 
-		override def apply(f :T => T) :T =
+		override def update(f :T => T) :T =
 			if (lockNonEmpty()) {
 				val res = f(x)
 				state = Full
@@ -543,7 +543,7 @@ object VolatileBox {
 			} else
 				throwNoSuch()
 
-		override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
+		override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
 			if (lockNonEmpty()) {
 				val res = f(z, x)
 				state = Full
@@ -551,7 +551,7 @@ object VolatileBox {
 			} else
 				throwNoSuch()
 
-		override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
+		override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
 			if (lockNonEmpty()) {
 				val res = f(x, z)
 				state = Full
@@ -635,25 +635,25 @@ object VolatileBox {
 		@inline override def testAndSet(expect :T, newValue :T) :Boolean =
 			RefOptField.compareAndSet(this, expect, newValue)
 
-		@tailrec override def apply(f: T => T): T = x match {
+		@tailrec override def update(f: T => T): T = x match {
 			case Got(expect) =>
 				val res = f(expect)
 				if (testAndSet(expect, res)) res
-				else apply(f)
+				else update(f)
 			case _ => throwNoSuch()
 		}
-		@tailrec override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = x match {
+		@tailrec override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = x match {
 			case Got(expect) =>
 				val res = f(z, expect)
 				if (testAndSet(expect, res)) res
-				else applyLeft(z)(f)
+				else updateLeft(z)(f)
 			case _ => throwNoSuch()
 		}
-		@tailrec override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = x match {
+		@tailrec override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = x match {
 			case Got(expect) =>
 				val res = f(expect, z)
 				if (testAndSet(expect, res)) res
-				else applyRight(z)(f)
+				else updateRight(z)(f)
 			case _ => throwNoSuch()
 		}
 

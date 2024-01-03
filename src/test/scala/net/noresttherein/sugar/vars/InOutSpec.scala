@@ -55,7 +55,7 @@ abstract class BaseInOutPropsGroup {
 		property("apply") = forAll { (x :T) =>  all(
 	        unaryFunctions.map {
 		        case (name, f) => {
-		            val v = newVar(x); (v(f) ?= f(x)) :| "return" && (v.value ?= f(x)) :| "assign"
+		            val v = newVar(x); (v.update(f) ?= f(x)) :| "return" && (v.value ?= f(x)) :| "assign"
 		        } :| ("function: x => " + name)
 	        }.toSeq : _*
 		)}

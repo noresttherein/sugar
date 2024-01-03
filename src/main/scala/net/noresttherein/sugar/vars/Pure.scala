@@ -66,9 +66,9 @@ object Pure {
 	/** An already computed (initialized) value. */ //todo: make it specialized
 	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in an Opt all the time
 	private class Eager[+T](x :T) extends Pure[T] {
-		override def isDefinite  :Boolean = true
-		override def value    :T = x
-		override def const :T = x
+		override def isDefinite :Boolean = true
+		override def value :T = x
+		override def get   :T = x
 
 		override def map[O](f :T => O) :Lazy[O] = new Eager[O](f(x))
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(x)
@@ -100,7 +100,7 @@ private class PureVal[@specialized(SpecializedVars) +T]
 		if (res != undefined) res.asInstanceOf[T]
 		else throw new NoSuchElementException("Uninitialized Pure")
 	}
-	@unspecialized override def const :T = {
+	@unspecialized override def get :T = {
 		var res = evaluated
 		if (res == undefined) {
 			val init = initializer
@@ -213,7 +213,7 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 		} else
 			throw new NoSuchElementException("Uninitialized Pure")
 
-	override def const :T = {
+	override def get :T = {
 		val init = initializer
 		acquireFence()
 		if (init == null)

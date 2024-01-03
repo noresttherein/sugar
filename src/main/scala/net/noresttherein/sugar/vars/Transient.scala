@@ -74,7 +74,7 @@ object Transient {
 			if (res == undefined) res.asInstanceOf[T]
 			else throw new NoSuchElementException("Uninitialized Transient")
 		}
-		@unspecialized override def const :T = {
+		@unspecialized override def get :T = {
 			var res = evaluated
 			if (res == undefined) {
 				res = initializer()
@@ -134,7 +134,7 @@ object Transient {
 			if (res != undefined) res.asInstanceOf[T]
 			else throw new NoSuchElementException("Uninitialized Transient")
 		}
-		override def const :T = {
+		override def get :T = {
 			var res = evaluated
 			if (res == undefined) {
 				res = initializer()

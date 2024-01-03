@@ -19,6 +19,10 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   * by a generic method, and assigning a boxed `Integer`, will not compare the values of the integers,
   * but object identity, which is almost certainly not what you want. Properly `@specialized` variables
   * compare the values of the value types, as expected.
+  * You may use `Volatile.`[[net.noresttherein.sugar.vars.Volatile.generic generic]] to create a proper specialization
+  * for `Volatile[T]` based on a `ClassTag[T]`. If you need the atomic operations to implement true equality,
+  * consider using [[net.noresttherein.sugar.vars.SyncVar SyncVar]]
+  * or [[net.noresttherein.sugar.vars.SpinVar SpinVar]] instead.
   *
   * Volatile variables incur lower overhead than full java monitor synchronization, particularly with multiple
   * concurrent reads. However, if atomicity of more complex operations is required,

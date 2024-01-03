@@ -88,17 +88,17 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
-	override def apply(f :T => T) :T =
+	override def update(f :T => T) :T =
 		throw new UnsupportedOperationException("SignalVal cannot be modified.")
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
-	override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
+	override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
 		throw new UnsupportedOperationException("SignalVal cannot be modified.")
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
-	override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
+	override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
 		throw new UnsupportedOperationException("SignalVal cannot be modified.")
 
 

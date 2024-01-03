@@ -28,6 +28,7 @@ trait SyncVar[@specialized(SpecializedVars) T] extends Mutable[T] with Serializa
 	/** Unsynchronized access to the variable field. */
 	private[vars] var unsafe :T
 
+	/** Atomically assigns a new value to this $ref, returning the current value. */
 	@inline final override def ?=(newValue :T) :T = synchronized { val res = unsafe; unsafe = newValue; res }
 
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
@@ -46,15 +47,15 @@ trait SyncVar[@specialized(SpecializedVars) T] extends Mutable[T] with Serializa
 	  * @param f function to apply to the value of this variable.
 	  * @return result of applying `f` to the current value.
 	  */
-	final override def apply(f :T => T) :T = synchronized {
+	final override def update(f :T => T) :T = synchronized {
 		val res = f(unsafe); unsafe = res; res
 	}
 
-	final override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = synchronized {
+	final override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = synchronized {
 		val res = f(z, unsafe); unsafe = res; res
 	}
 
-	final override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = synchronized {
+	final override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = synchronized {
 		val res = f(unsafe, z); unsafe = res; res
 	}
 

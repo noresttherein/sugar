@@ -81,7 +81,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	/** Updates the value of this variable with the given function. Default implementation is equivalent to
 	  * `val res = f(this.get); this.value = res; res` and has no benefit over direct application in client code.
 	  * This method comes to use with concurrent `InOut` implementations such as
-	  * [[net.noresttherein.sugar.vars.SyncVar SyncVar]] and [[net.noresttherein.sugar.vars.Atomic Atomic]] -
+	  * [[net.noresttherein.sugar.vars.SyncVar SyncVar]] and [[net.noresttherein.sugar.vars.Volatile Volatile]] -
 	  * the semantics of simple default [[net.noresttherein.sugar.vars.Var Var]] offers no guarantees in multi-threaded
 	  * environments.
 	  * @param f a function to apply to the value of this variable. Should have no side effects as it may be invoked
@@ -90,7 +90,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  */
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
 	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
-	def apply(f :T => T) :T = { val res = f(value); value = res; res }
+	def update(f :T => T) :T = { val res = f(value); value = res; res }
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
@@ -101,7 +101,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * chosen here to remind through associativity that this variable becomes the second (right) parameter
 	  * of the folding function, with the argument on the left side of the operator being the first. This method comes
 	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SyncVar SyncVar]]
-	  * or [[net.noresttherein.sugar.vars.Atomic Atomic]].
+	  * or [[net.noresttherein.sugar.vars.Volatile Volatile]].
 	  * @param z        an accumulator value to pass as the first argument to the `foldLeft` function, together
 	  *                 with the current value of this variable.
 	  * @param foldLeft a function applied to the argument and this variable whose result should be set
@@ -110,7 +110,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  */
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
 	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
-	@inline final def /=:[@specialized(Args) A](z :A)(foldLeft :(A, T) => T) :T = applyLeft(z)(foldLeft)
+	@inline final def /=:[@specialized(Args) A](z :A)(foldLeft :(A, T) => T) :T = updateLeft(z)(foldLeft)
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
@@ -121,7 +121,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * chosen here to remind through associativity that this variable becomes the first (left) parameter of the folding
 	  * function, with the argument on the right side of the operator being the second. This method comes to use with
 	  * concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SyncVar SyncVar]]
-	  * or [[net.noresttherein.sugar.vars.Atomic Atomic]].
+	  * or [[net.noresttherein.sugar.vars.Volatile Volatile]].
 	  * @param z         an accumulator value to pass as the second argument to the `foldRight` function, together
 	  *                  with the current value of this variable.
 	  * @param foldRight a function applied to this variable and the argument, whose result should be set
@@ -130,7 +130,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  */
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
 	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
-	@inline final def :\=[@specialized(Args) A](z :A)(foldRight :(T, A) => T) :T = applyRight(z)(foldRight)
+	@inline final def :\=[@specialized(Args) A](z :A)(foldRight :(T, A) => T) :T = updateRight(z)(foldRight)
 
 	/** Combines the value of this variable with a value of some other type, assigning the result of application
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
@@ -139,7 +139,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
 	  * and is equivalent to `val res = f(z, value); value = res; res`. This method comes
 	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SpinVar SyncVar]]
-	  * or [[net.noresttherein.sugar.vars.Atomic Atomic]].
+	  * or [[net.noresttherein.sugar.vars.Volatile Volatile]].
 	  * @param z accumulator value to pass as the first argument to the `f` function, together with the current
 	  *          value of this variable.
 	  * @param f a function applied to the argument and this variable, whose result should be set to this variable.
@@ -147,7 +147,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  */
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
 	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
-	def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
+	def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
 		val res = f(z, value); value = res; res
 	}
 
@@ -158,7 +158,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
 	  * and is equivalent to `val res = f(value, z); value = res; res`. This method comes
 	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SyncVar SyncVar]]
-	  * or [[net.noresttherein.sugar.vars.Atomic Atomic]].
+	  * or [[net.noresttherein.sugar.vars.Volatile Volatile]].
 	  * @param z accumulator value to pass as the second argument to the `f` function, together with the current
 	  *          value of this variable.
 	  * @param f a function applied to the this variable and the argument, whose result should be set to this variable.
@@ -166,63 +166,63 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  */
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
 	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
-	def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
+	def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
 		val res = f(value, z); value = res; res
 	}
 
 //	def map[O](f :T => O) :Var[O]
 	/************************************** Boolean methods ***********************************************************/
 
-	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ & _)
-	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ | _)
-	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this)(_ && other)
-	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this)(_ || other)
-	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).applyLeft(other)(_ ^ _)
-	private[vars] def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = ev(this)(!_)
+	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ & _)
+	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ | _)
+	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).update(_ && other)
+	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).update(_ || other)
+	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ ^ _)
+	private[vars] def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = ev(this).update(!_)
 
 	/************************************** Int methods ***************************************************************/
 
-	private[vars] def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ + _)
-	private[vars] def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ * _)
-	private[vars] def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ / _)
-	private[vars] def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ % _)
-	private[vars] def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this)(-_)
-	private[vars] def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this)(~_)
-	private[vars] def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ | _)
-	private[vars] def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ & _)
-	private[vars] def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ ^ _)
-	private[vars] def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >> _)
-	private[vars] def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >>> _)
-	private[vars] def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ << _)
+	private[vars] def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ + _)
+	private[vars] def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ * _)
+	private[vars] def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ / _)
+	private[vars] def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ % _)
+	private[vars] def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this).update(-_)
+	private[vars] def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this).update(~_)
+	private[vars] def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ | _)
+	private[vars] def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ & _)
+	private[vars] def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ ^ _)
+	private[vars] def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >> _)
+	private[vars] def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >>> _)
+	private[vars] def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ << _)
 
 	/************************************** Long methods **************************************************************/
 
-	private[vars] def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ + _)
-	private[vars] def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ * _)
-	private[vars] def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ / _)
-	private[vars] def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ % _)
-	private[vars] def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this)(-_)
-	private[vars] def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this)(~_)
-	private[vars] def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ | _)
-	private[vars] def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ & _)
-	private[vars] def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ ^ _)
-	private[vars] def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >> _)
-	private[vars] def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >>> _)
-	private[vars] def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ << _)
+	private[vars] def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ + _)
+	private[vars] def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ * _)
+	private[vars] def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ / _)
+	private[vars] def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ % _)
+	private[vars] def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this).update(-_)
+	private[vars] def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this).update(~_)
+	private[vars] def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ | _)
+	private[vars] def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ & _)
+	private[vars] def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ ^ _)
+	private[vars] def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >> _)
+	private[vars] def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >>> _)
+	private[vars] def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ << _)
 
 	/************************************** Float methods *************************************************************/
 
-	private[vars] def float_+=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).applyRight(other)(_ + _)
-	private[vars] def float_*=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).applyRight(other)(_ * _)
-	private[vars] def float_/=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).applyRight(other)(_ / _)
-	private[vars] def float_-(implicit ev :T TypeEquiv Float) :Float = ev(this)(-_)
+	private[vars] def float_+=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ + _)
+	private[vars] def float_*=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ * _)
+	private[vars] def float_/=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ / _)
+	private[vars] def float_-(implicit ev :T TypeEquiv Float) :Float = ev(this).update(-_)
 
 	/************************************** Double methods ************************************************************/
 
 	private[vars] def double_+=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ + _)
 	private[vars] def double_*=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ * _)
 	private[vars] def double_/=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ / _)
-	private[vars] def double_-(implicit ev :T TypeEquiv Double) :Double = ev(this)(-_)
+	private[vars] def double_-(implicit ev :T TypeEquiv Double) :Double = ev(this).update(-_)
 
 	//todo: specialization
 	override def equals(that :Any) :Boolean = that match {
@@ -338,7 +338,7 @@ object InOut {
 
 	/** Implicit extension of `InOut[Boolean]` providing logical operations on the $ref.
 	  * All these methods are polymorphic and guaranteed to have at least the same memory access semantics as
-	  * [[net.noresttherein.sugar.vars.InOut.applyRight applyRight]]. So if, for example, this $ref is synchronized,
+	  * [[net.noresttherein.sugar.vars.InOut.updateRight applyRight]]. So if, for example, this $ref is synchronized,
 	  * then the whole operation will be `synchronized`. The $Ref subclass may however use a different (optimized)
 	  * implementation, which might be observable if the argument expression is not idempotent.
 	  * If you wish to avoid them and to invoke the appropriate methods statically with possible inlining,
@@ -408,11 +408,11 @@ object InOut {
 		@inline def flag() :Boolean = !x.testAndSet(false, true)
 	}
 
-	
-	
-	/** Implicit conversion of a `InOut[Int]` variable providing basic arithmetic and bitwise operations. 
+
+
+	/** Implicit conversion of a `InOut[Int]` variable providing basic arithmetic and bitwise operations.
 	  * All these methods are polymorphic and guaranteed to have the same memory access semantics as
-	  * [[net.noresttherein.sugar.vars.InOut.applyRight applyRight]], although the implementation details may differ.
+	  * [[net.noresttherein.sugar.vars.InOut.updateRight applyRight]], although the implementation details may differ.
 	  * So if, for example, this $ref is synchronized, then the whole operation will be `synchronized`.
 	  * If you wish to bypass virtual calls and invoke the appropriate methods statically with possible inlining,
 	  * use the appropriate type of the variable ([[net.noresttherein.sugar.vars.Var Var]] or
@@ -524,8 +524,8 @@ object InOut {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def neg() :Int = x.int_-
-	
-		
+
+
 		/** Performs bitwise disjunction on this $ref with the given number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
@@ -579,14 +579,14 @@ object InOut {
 		@inline def flip() :Unit = x := x.int_~
 	}
 
-	
-	
-	
 
 
-	/** Implicit conversion of a `InOut[Long]` variable providing basic arithmetic and bitwise operations. 
+
+
+
+	/** Implicit conversion of a `InOut[Long]` variable providing basic arithmetic and bitwise operations.
 	  * All these methods are polymorphic and guaranteed to have the same memory access semantics as
-	  * [[net.noresttherein.sugar.vars.InOut.applyRight applyRight]], although the implementation details may differ.
+	  * [[net.noresttherein.sugar.vars.InOut.updateRight applyRight]], although the implementation details may differ.
 	  * So if, for example, this $ref is synchronized, then the whole operation will be `synchronized`.
 	  * If you wish to bypass virtual calls and invoke the appropriate methods statically with possible inlining,
 	  * use the appropriate type of the variable ([[net.noresttherein.sugar.vars.Var Var]] or
@@ -698,8 +698,8 @@ object InOut {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
 		@inline def neg() :Long = x.long_-
-		
-		
+
+
 		/** Performs bitwise disjunction on this $ref with the given number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
@@ -757,7 +757,7 @@ object InOut {
 
 	/** Implicit conversion of a `InOut[Float]` variable providing basic arithmetic and bitwise operations.
 	  * All these methods are polymorphic and guaranteed to have the same memory access semantics as
-	  * [[net.noresttherein.sugar.vars.InOut.applyRight applyRight]], although the implementation details may differ.
+	  * [[net.noresttherein.sugar.vars.InOut.updateRight applyRight]], although the implementation details may differ.
 	  * So if, for example, this $ref is synchronized, then the whole operation will be `synchronized`.
 	  * If you wish to bypass virtual calls and invoke the appropriate methods statically with possible inlining,
 	  * use the appropriate type of the variable ([[net.noresttherein.sugar.vars.Var Var]] or
@@ -833,7 +833,7 @@ object InOut {
 
 	/** Implicit conversion of a `InOut[Double]` variable providing basic arithmetic and bitwise operations.
 	  * All these methods are polymorphic and guaranteed to have the same memory access semantics as
-	  * [[net.noresttherein.sugar.vars.InOut.applyRight applyRight]], although the implementation details may differ.
+	  * [[net.noresttherein.sugar.vars.InOut.updateRight applyRight]], although the implementation details may differ.
 	  * So if, for example, this $ref is synchronized, then the whole operation will be `synchronized`.
 	  * If you wish to bypass virtual calls and invoke the appropriate methods statically with possible inlining,
 	  * use the appropriate type of the variable ([[net.noresttherein.sugar.vars.Var Var]] or

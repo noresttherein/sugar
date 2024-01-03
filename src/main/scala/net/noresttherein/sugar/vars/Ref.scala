@@ -108,7 +108,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.const const]]
 	  */
-	def isConst :Boolean //not implemented here to avoid accidentally becoming not threadsafe
+	def isConst :Boolean //not implemented here to avoid accidentally becoming not thread safe
 
 	/** The $Ref contains a proper value or can compute one on demand. In a single threaded context,
 	  * or with proper synchronization, this implies that [[net.noresttherein.sugar.vars.Ref.get get]]
@@ -121,7 +121,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
-	  */ //consider: this is a bit misleading for some classes like Channel
+	  */ //consider: this is a bit misleading for some classes like Channel or Lazy
 	def isDefined :Boolean
 
 	/** The $Ref currently holds a proper value: in single threaded context, or with proper synchronization,
@@ -415,46 +415,28 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 		case self: AnyRef if this.asInstanceOf[AnyRef] eq self => true
 		case other: Ref[_] if other canEqual this =>
 			if (isSpecialized && other.isSpecialized)
-				(toUnsure, other.toUnsure) match {
-					case (Sure(a), Sure(b)) => a == b
-					case _ => false
-				}
+				toUnsure == other.toUnsure
 			else
-				(toOpt, other.toOpt) match {
-					case (Got(a), Got(b)) => a == b
-					case _ => false
-				}
+				toOpt == other.toOpt
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Ref[_]]
 	override def hashCode: Int = toOpt.hashCode
 
 	/** Formats this instance as `s"$prefix($value)` or `s"$prefix()` if [[net.noresttherein.sugar.vars.Ref.isEmpty empty]]. */
 	def mkString(prefix :String) :String =
-		if (isSpecialized)
-			unsure match {
-				case Sure(v) => prefix + "(" + v + ")"
-				case _ => prefix + "()"
-			}
-		else
-			opt match {
-				case Got(v) => prefix + "(" + v + ")"
-				case _ => prefix + "()"
-			}
+		opt match {
+			case Got(v) => prefix + "(" + v + ")"
+			case _ => prefix + "()"
+		}
 
 	/** Formats this instance as if it was an `Iterable` holding its value. */
 	def mkString :String = mkString(this.innerClassName)
 
 	override def toString :String =
-		if (isSpecialized)
-			unsure match {
-				case Sure(v) => String.valueOf(v)
-				case _       => undefined.toString
-			}
-		else
-			opt match {
-				case Got(v) => String.valueOf(v)
-				case _ => undefined.toString
-			}
+		opt match {
+			case Got(v) => String.valueOf(v)
+			case _      => undefined.toString
+		}
 
 }
 

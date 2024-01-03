@@ -72,8 +72,8 @@ trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) wi
 	override def isFinal       = false
 	override def isEmpty       = false
 	override def isConst       = false
-	override def isDefined     = true
-	override def isDefinite    = true
+	override def isDefined     = false
+	override def isDefinite    = false
 	override def isFinalizable = false
 
 	override def value :T = opt match {

@@ -41,7 +41,7 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 	  *          several times.
 	  * @return the result of applying `f` to the current value.
 	  */
-	override def apply(f :T => T) :T = {
+	override def update(f :T => T) :T = {
 		val companion = factory
 		var curr = value
 		var newValue = f(curr)
@@ -67,7 +67,7 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 	  * @param f a function applied to the argument and this variable, whose result should be set to this variable.
 	  * @return the result of applying `f` to this variable and the argument.
 	  */
-	override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
+	override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
 		val companion = factory
 		var curr = value
 		var newValue = f(z, curr)
@@ -93,7 +93,7 @@ private[vars] trait VolatileLike[@specialized(SpecializedVars) T] extends InOut[
 	  * @param f a function applied to the this variable and the argument, whose result should be set to this variable.
 	  * @return the result of applying `f` to this variable and the argument.
 	  */
-	override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
+	override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
 		val companion = factory
 		var curr = value
 		var newValue = f(curr, z)
@@ -174,7 +174,7 @@ private[vars] object VolatileLike {
 	  * which we do not want).
 	  */
 	trait RefVolatileLike[T] extends VolatileLike[T] {
-		override def apply(f :T => T) :T = {
+		override def update(f :T => T) :T = {
 			val companion = factory
 			var curr = value
 			var newValue = f(curr)
@@ -187,7 +187,7 @@ private[vars] object VolatileLike {
 			}
 			newValue
 		}
-		override def applyLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
+		override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = {
 			val companion = factory
 			var curr = value
 			var newValue = f(z, curr)
@@ -200,7 +200,7 @@ private[vars] object VolatileLike {
 			}
 			newValue
 		}
-		override def applyRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
+		override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = {
 			val companion = factory
 			var curr = value
 			var newValue = f(curr, z)
@@ -214,31 +214,31 @@ private[vars] object VolatileLike {
 			newValue
 		}
 
-		private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ + _)
-		private[vars] override def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ * _)
-		private[vars] override def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ / _)
-		private[vars] override def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ % _)
-		private[vars] override def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this)(-_)
-		private[vars] override def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this)(~_)
-		private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ | _)
-		private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ & _)
-		private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(other)(_ ^ _)
-		private[vars] override def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >> _)
-		private[vars] override def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ >>> _)
-		private[vars] override def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).applyRight(n)(_ << _)
+		private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ + _)
+		private[vars] override def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ * _)
+		private[vars] override def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ / _)
+		private[vars] override def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ % _)
+		private[vars] override def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this).update(-_)
+		private[vars] override def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this).update(~_)
+		private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ | _)
+		private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ & _)
+		private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ ^ _)
+		private[vars] override def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >> _)
+		private[vars] override def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >>> _)
+		private[vars] override def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ << _)
 
-		private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ + _)
-		private[vars] override def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ * _)
-		private[vars] override def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ / _)
-		private[vars] override def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ % _)
-		private[vars] override def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this)(-_)
-		private[vars] override def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this)(~_)
-		private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ | _)
-		private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ & _)
-		private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(other)(_ ^ _)
-		private[vars] override def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >> _)
-		private[vars] override def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ >>> _)
-		private[vars] override def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).applyRight(n)(_ << _)
+		private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ + _)
+		private[vars] override def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ * _)
+		private[vars] override def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ / _)
+		private[vars] override def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ % _)
+		private[vars] override def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this).update(-_)
+		private[vars] override def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this).update(~_)
+		private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ | _)
+		private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ & _)
+		private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ ^ _)
+		private[vars] override def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >> _)
+		private[vars] override def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >>> _)
+		private[vars] override def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ << _)
 
 		private[vars] override def isSpecialized = false
 	}
@@ -248,7 +248,7 @@ private[vars] object VolatileLike {
 	  * in accumulate/mutate methods.
 	  */
 	trait BoolVolatileLike extends VolatileLike[Boolean] {
-		override def apply(f :Boolean => Boolean) :Boolean = {
+		override def update(f :Boolean => Boolean) :Boolean = {
 			val companion = factory
 			val expect = value
 			val ifExpected = f(expect)
@@ -257,7 +257,7 @@ private[vars] object VolatileLike {
 			else
 				companion.repeatBoolTestAndSet(this, !expect, f(!expect), ifExpected)
 		}
-		override def applyRight[@specialized(Args) A](z :A)(f :(Boolean, A) => Boolean) :Boolean = {
+		override def updateRight[@specialized(Args) A](z :A)(f :(Boolean, A) => Boolean) :Boolean = {
 			val companion = factory
 			val expect = value
 			val ifExpected = f(expect, z)
@@ -266,7 +266,7 @@ private[vars] object VolatileLike {
 			else
 				companion.repeatBoolTestAndSet(this, !expect, f(!expect, z), ifExpected)
 		}
-		override def applyLeft[@specialized(Args) A](z :A)(f :(A, Boolean) => Boolean) :Boolean = {
+		override def updateLeft[@specialized(Args) A](z :A)(f :(A, Boolean) => Boolean) :Boolean = {
 			val companion = factory
 			val expect = value
 			val ifExpected = f(z, expect)
