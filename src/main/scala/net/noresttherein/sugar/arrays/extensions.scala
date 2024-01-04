@@ -11,6 +11,8 @@ import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
+import net.noresttherein.sugar.reflect.classes
+
 //import net.noresttherein.sugar.arrays.ArrayLike.ArrayCompatibility
 import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
 import net.noresttherein.sugar.arrays.extensions.{ArrayExtensionConversion, ArrayExtensionConversionPrototype, ArrayCompanionExtension}
@@ -2228,8 +2230,9 @@ object extensions extends extensions {
 		final def like[E](original :Array[E], length :Int) :Array[E] =
 			if (length == 0)
 				emptyLike(original)
+			else if (original.getClass == classOf[Array[AnyRef]])
+				new Array[AnyRef](length).castParam[E]
 			else
-//				of(array.getClass.getComponentType.castParam[E], length)
 				((original :Array[_]) match {
 					case _ :Array[Unit]    => Array.copyOf(emptyUnitArray, length) //fills the array with the Unit value
 					case _ :Array[AnyRef]  => of(original.getClass.getComponentType.castParam[E], length)
@@ -2244,8 +2247,23 @@ object extensions extends extensions {
 				}).castParam[E]
 
 		/** An uninitialized array with the specified element type and length. */
-		@throws[NegativeArraySizeException]("if newLength is negative")
-		@inline final def of[E](elemType :Class[E], length :Int) :Array[E] = ArrayFactory.ofDim(elemType, length)
+		@throws[NegativeArraySizeException]("if newLength is negative") //consider; special cases for AnyRef and value types.
+		final def of[E](elemType :Class[E], length :Int) :Array[E] = elemType match {
+			case classes.AnyRef => new Array[AnyRef](length).asInstanceOf[Array[E]]
+			case _ if elemType.isPrimitive => (elemType match {
+				case classes.Int     => new Array[Int](length)
+				case classes.Long    => new Array[Long](length)
+				case classes.Double  => new Array[Double](length)
+				case classes.Byte    => new Array[Byte](length)
+				case classes.Char    => new Array[Char](length)
+				case classes.Float   => new Array[Float](length)
+				case classes.Short   => new Array[Short](length)
+				case classes.Boolean => new Array[Boolean](length)
+				case _               => ArrayFactory.ofDim(elemType, length)
+			}).asInstanceOf[Array[E]]
+			case _ => ArrayFactory.ofDim(elemType, length)
+		}
+
 
 		//fixme: copyOf methods will be invisible because of copyOf in Array
 		/** Clones the given array. */

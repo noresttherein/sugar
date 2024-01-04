@@ -2,6 +2,8 @@ package net.noresttherein.sugar.reflect
 
 import java.lang.reflect.Type
 
+import scala.annotation.tailrec
+
 import net.noresttherein.sugar.reflect
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
@@ -140,6 +142,23 @@ object extensions extends extensions {
 		  * of subtyping.
 		  */
 		@inline def isSuperclassOf(other :Class[_]) :Boolean = self.isAssignableFrom(other)
+
+		/** Class of an array with component type equal to this class. */
+		@inline def arrayClass :Class[_] = ArrayClass(self)
+
+		/** A `dim`-dimensional array of this element type:
+		  * array with `componentType` equal to `dim-1`-dimensional array of this element type.
+		  */
+		@throws[IllegalArgumentException]("if dim <= 0")
+		def arrayClass(dim :Int) :Class[_] =
+			if (dim <= 0)
+				throw new IllegalArgumentException("Non positive array dimension: " + dim)
+			else {
+				def arrayOf(n :Int) :Class[_] =
+					if (n == 0) self else ArrayClass(arrayOf(n - 1))
+				arrayOf(dim)
+			}
+
 
 		/** An approximation of the imported type symbol of this class, as it would be referenced
 		  * in code. First, the whole package prefix and all trailing '$' characters are dropped.

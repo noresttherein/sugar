@@ -76,16 +76,16 @@ package reflect {
 
 	/** `Class` constants for commonly used types. */
 	@SerialVersionUID(Ver)
-	object classes {
-		val Byte      :Class[Byte]     = classOf[Byte]
-		val Short     :Class[Short]    = classOf[Short]
-		val Char      :Class[Char]     = classOf[Char]
-		val Int       :Class[Int]      = classOf[Int]
-		val Long      :Class[Long]     = classOf[Long]
-		val Float     :Class[Float]    = classOf[Float]
-		val Double    :Class[Double]   = classOf[Double]
-		val Boolean   :Class[Boolean]  = classOf[Boolean]
-		val Void      :Class[java.lang.Void] = java.lang.Void.TYPE
+	object classes { //consider: adding suffix Class to field names.
+		val Byte      :Class[Byte]      = classOf[Byte]
+		val Short     :Class[Short]     = classOf[Short]
+		val Char      :Class[Char]      = classOf[Char]
+		val Int       :Class[Int]       = classOf[Int]
+		val Long      :Class[Long]      = classOf[Long]
+		val Float     :Class[Float]     = classOf[Float]
+		val Double    :Class[Double]    = classOf[Double]
+		val Boolean   :Class[Boolean]   = classOf[Boolean]
+		val Void      :Class[Void]      = java.lang.Void.TYPE
 		val Unit      :Class[Unit]      = classOf[Unit]
 		val JByte     :Class[JByte]     = classOf[JByte]
 		val JShort    :Class[JShort]    = classOf[JShort]
