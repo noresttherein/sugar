@@ -112,6 +112,10 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 	}
 
 
+	/** Wraps immutable arrays (including [[net.noresttherein.sugar.arrays.IRefArray IRefArray]])
+	  * in indexed sequences and extracts arrays from any supported collection backed by an array
+	  * (including 'erased' `Array[AnyRef]`) ''iff'' it contains all elements in the array.
+	  */
 	@SerialVersionUID(Ver)
 	object Wrapped {
 		def apply[E](array :IArrayLike[E]) :IndexedSeq[E] =
@@ -128,6 +132,11 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 			case _ => Lack
 		}
 
+		/** Wraps immutable arrays (including [[net.noresttherein.sugar.arrays.IRefArray IRefArray]])
+		  * in indexed sequences exposing a range of indices of said array,
+		  * and extracts arrays from any supported collection backed by an array (including 'erased' `Array[AnyRef]`),
+		  * together with the information about the index range which is actually a part in that collection.
+		  */
 		@SerialVersionUID(Ver)
 		object Slice {
 			def apply[E](array :IArrayLike[E], from :Int, until :Int) :IndexedSeq[E] =

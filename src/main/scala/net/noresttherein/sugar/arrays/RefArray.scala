@@ -23,7 +23,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *
   * Note: you can use the standard [[scala.collection.IterableOnceOps.copyToArray copyToArray]] method to copy
   * collections to a `RefArray` by adapting the latter
-  * using its [[net.norestherein.sugar.arrays.RefArray.RefArrayExtension.asAnyArray asAnyArray]].
+  * using its [[net.noresttherein.sugar.arrays.RefArray.RefArrayExtension.asAnyArray asAnyArray]].
   * @see [[net.noresttherein.sugar.arrays.RefArray! RefArray]]
   * @define Coll `RefArray`
   * @define coll erased array
