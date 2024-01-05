@@ -306,6 +306,7 @@ object extensions extends extensions {
 			case _                                   => self.stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 		}
 
+		//consider: making the below methods available only on IterableOnceOps
 		/** Equivalent to standard `fold`, but the folding functions takes the number of already folded elements
 		  * (i.e., how many times the function has been called, or the position of the element in the collection's
 		  * iteration order).

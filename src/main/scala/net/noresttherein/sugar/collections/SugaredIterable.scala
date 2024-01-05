@@ -73,8 +73,11 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 			}
 		}
 
-	@inline final def copyRangeToArray[A >: E](xs :Array[A], from :Int, len :Int = Int.MaxValue) :Int =
-		copyRangeToArray(xs, 0, from, len)
+	@inline final def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int) :Int =
+		copyRangeToArray(xs, start, from, Int.MaxValue)
+
+	@inline final def copyRangeToArray[A >: E](xs :Array[A], from :Int) :Int =
+		copyRangeToArray(xs, 0, from, Int.MaxValue)
 //
 //	/** Similar to [[net.noresttherein.sugar.collections.SugaredIterable.copyRangeToArray copyRangeToArray]],
 //	  * but copies to a boxing reference array.

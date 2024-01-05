@@ -1103,21 +1103,19 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def copyRangeToArray[U >: E](xs :Array[U], from :Int) :Int =
 			copyRangeToArray(xs, 0, from, Int.MaxValue)
 
-		/** Copies values from the index range `[from, from + len)` from this array to the argument array.
-		  * Copying stops when end of this or the argument array is reached, or after copying
-		  * `until - from` elements. If `[from, from + len)` range contains indices outside of `[0, this.length)`,
-		  * indices out of range are ignored.
-		  *
-		  * This is equivalent to `this.drop(from).copyToArray(xs, 0, len)`, but in one step.
-		  * @param xs   destination array.
-		  * @param from the index in this array of the first element to copy. Negative is equivalent to zero,
-		  *             and, if `from >= this.length`, nothing is copied.
-		  * @param len  the maximum number of elements to copy.
+		/** Copies values from the index range `[from, from + min(length - from, xs.length - start)`
+		  * from this array to the argument array. Copying stops when end of this or the argument array is reached.
+		  * This is equivalent to `this.drop(from).copyToArray(xs, start, min(length - from, xs.length - start)`,
+		  * but in one step.
+		  * @param xs    destination array.
+		  * @param start the index in `xs` at which to start writing.
+		  * @param from  the index in this array of the first element to copy. Negative is equivalent to zero,
+		  *              and, if `from >= this.length`, nothing is copied.
 		  * @return the number of elements copied.
 		  */
 		@throws[IndexOutOfBoundsException]("if start is less than zero.")
-		@inline def copyRangeToArray[U >: E](xs :Array[U], from :Int, len :Int) :Int =
-			copyRangeToArray(xs, 0, from, len)
+		@inline def copyRangeToArray[U >: E](xs :Array[U], start :Int, from :Int) :Int =
+			copyRangeToArray(xs, start, from, Int.MaxValue)
 
 		/** Copies values from the index range `[from, from + len)` from this array to the argument array, starting
 		  * writing at position `start`. Copying stops when end of this or the argument array is reached,
