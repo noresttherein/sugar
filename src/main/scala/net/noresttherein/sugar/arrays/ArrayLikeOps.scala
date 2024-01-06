@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.arrays
 
+import java.util.random.RandomGenerator
+
 import scala.Specializable.Everything
 import scala.annotation.tailrec
 
@@ -316,6 +318,36 @@ private[sugar] object ArrayLikeOps {
 			throw new UnsupportedOperationException("ArrayLike().reduceRight")
 		else
 			foldRight[E, A](array, from, until - 1)(array(until - 1))(op)
+
+	def shuffle[E](array :Array[E], from :Int, until :Int)(random :RandomGenerator) :Unit = {
+		val from0 = math.max(from, 0)
+		val until0 = math.min(until, array.length)
+		val downto = from0 + 1
+
+		def swap[@specialized(Specializable.Everything) T](arr :Array[T]) :Unit = {
+			var i = until0
+			while (i > downto) {
+				val j = random.nextInt(i)
+				i -= 1
+				val boo = arr(i)
+				arr(i)  = arr(j)
+				arr(j)  = boo
+			}
+		}
+		if (from0 < until0)
+			(array :Array[_]) match {
+				case a :Array[AnyRef]  => swap(a)
+				case a :Array[Int]     => swap(a)
+				case a :Array[Long]    => swap(a)
+				case a :Array[Double]  => swap(a)
+				case a :Array[Byte]    => swap(a)
+				case a :Array[Char]    => swap(a)
+				case a :Array[Float]   => swap(a)
+				case a :Array[Short]   => swap(a)
+				case a :Array[Boolean] => swap(a)
+				case null              => throw new NullPointerException
+			}
+	}
 
 	def addString[E](array :Array[E], b :JStringBuilder, start :String, sep :String, end :String) :Unit = {
 		def specAddString[@specialized(Specializable.Everything) A](a :Array[A]) :Unit = {

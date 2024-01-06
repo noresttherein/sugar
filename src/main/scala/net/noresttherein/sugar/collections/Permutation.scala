@@ -277,5 +277,5 @@ object Permutation {
 	}
 
 	/** A random permutation of size `size` with equal distribution. */
-	def random(size :Int)(implicit random :Random) :Permutation = new Permutation((0 until size).shuffle)
+	def random(size :Int)(implicit random :Random) :Permutation = new Permutation((0 until size).shuffled)
 }

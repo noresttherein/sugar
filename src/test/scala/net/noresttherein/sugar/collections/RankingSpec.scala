@@ -320,7 +320,7 @@ object RankingSpec
 	}
 	property("containsAll") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val set = expect.toSet
-		val sub = expect.toSeq.filter(_ => Boolean.random).shuffle
+		val sub = expect.toSeq.filter(_ => Boolean.random).shuffled
 		Prop(subject.containsAll(sub)) && forAll { items :Seq[Int] =>
 			items.forall(set) =? subject.containsAll(items)
 		}

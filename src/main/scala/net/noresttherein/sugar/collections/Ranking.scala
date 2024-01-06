@@ -10,16 +10,17 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.{AbstractIndexedSeqView, AbstractIterable, AbstractSeq, AbstractSet, Factory, IndexedSeqView, IterableFactory, IterableFactoryDefaults, LinearSeq, StrictOptimizedIterableOps, View, immutable, mutable}
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, IndexedSeqDefaults, IndexedSeqOps, Set, StrictOptimizedSeqOps, StrictOptimizedSetOps}
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
+import scala.util.Random
 
 import net.noresttherein.sugar.arrays.{IArray, IRefArray, RefArray, RefArrayLike}
-import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension, ArrayExtension, ArrayCompanionExtension, RefArrayExtension, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, RefArrayExtension, RefArrayLikeExtension}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView
 import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingBuilder, RankingSeqAdapter, RankingSerializer, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, smallContains}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.typist.casting.extensions.{castingMethods, castTypeParamMethods}
+import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -955,6 +956,8 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 				case seq => (seq to ArraySeq.untagged).isSortedWith(lte)
 			}
 		}
+
+	def shuffled(implicit random :Random) :C = fromSpecific(toIndexedSeq.shuffled)
 
 	/** Verifies if the element sets of the two collections are equal.
 	  * @return `this.toSet == other.toSet` (without computing the actual sets).

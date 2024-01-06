@@ -215,8 +215,8 @@ class UByte private[numeric](override val toByte: Byte)
 	@inline def in(range: NumericRange[UByte]): Boolean = range.containsTyped(this)
 
 
-	private def underflow(method :String) :Nothing =
-		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
+//	private def underflow(method :String) :Nothing =
+//		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
 	private def outOfRange(typeName :String) :Nothing =
 		throw new ArithmeticException("Value " + this + " is out of " + typeName + " range.")

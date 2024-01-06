@@ -64,7 +64,7 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			Prop(sorted.toSet.size != sorted.length) || Prop(sorted.isDecreasing)) :| "sorted: " + sorted
 	}
 
-	property("shuffle") = seqProperty { seq :Seq[Int] => seq.shuffle.sorted =? seq.sorted }
+	property("shuffled") = seqProperty { seq :Seq[Int] => seq.shuffled.sorted =? seq.sorted }
 
 	private def lazyIndexProperty(idx :Int, knownDeltaSizeLimit :Int, deltaSizeLimit :Int)
 	                             (f :Seq[Int] => (Seq[Int], Seq[Int])) =

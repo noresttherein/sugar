@@ -16,7 +16,7 @@ import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.{outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLike, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLike, ArrayLikeOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension}
 import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
@@ -2798,33 +2798,21 @@ object extensions extends extensions {
 		}
 
 		/** Reorders the elements of this sequence in such a manner that all permutations are equally probable. */
-		def shuffle(implicit random :Random) :CC[E] =
-			if (self.sizeIs <= 1)
-				genericSelf
-			else if (self.length <= ReasonableArraySize || ErasedArray.Wrapped.Slice.unapply(self).isDefined) {
-				val result = new Array[Any](self.length).castFrom[Array[Any], Array[E]]
-				self.copyToArray(result)
-				var i = result.length
-				while (i > 1) {
-					val j = random.nextInt(i)
-					val boo = result(j)
-					i -= 1
-					result(j) = result(i)
-					result(i) = boo
-				}
-				self.iterableFactory from ArraySeq.unsafeWrapArray(result)
-			} else {
-				val result = TemporaryBuffer.from(self)
-				var i = result.length
-				while (i > 1) {
-					val j   = random.nextInt(i)
-					val boo = result(j)
-					i -= 1
-					result(j) = result(i)
-					result(i) = boo
-				}
-				self.iterableFactory from result
+		def shuffled(implicit random :Random) :CC[E] = {//todo: return C
+			val length = self.length
+			self match {
+				case _ if length <= 1 =>
+					genericSelf
+				case ErasedArray.Wrapped.Slice(array, from, until) =>
+					val result = array.slice(from, until)
+					ArrayLikeOps.shuffle(result, 0, until - from)(random.self)
+					self.iterableFactory from ArraySeq.unsafeWrapArray(result.castParam[E])
+				case _ =>
+					val result = TemporaryBuffer.from(self)
+					result.shuffle()
+					self.iterableFactory from result
 			}
+		}
 
 		@inline def rotatedLeft(n :Int) :CC[E] = rotatedLeft(0, Int.MaxValue)(n)
 
@@ -3905,6 +3893,28 @@ object extensions extends extensions {
 			thatSize
 		}
 
+		@inline def shuffle()(implicit random :Random) :Unit = shuffle(0, self.length)
+
+		def shuffle(from :Int, until :Int)(implicit random :Random) :Unit = {
+			val length = self.length
+			val from0  = math.min(length, math.max(from, 0))
+			val until0 = math.min(length, math.max(from0, until))
+			if (until0 - from0 > 1)
+				self match {
+					case ErasedArray.Wrapped.Slice(array, start, _) =>
+						ArrayLikeOps.shuffle(array, start + from0, start + until0)(random.self)
+					case _ =>
+						var i = length
+						while (i > 1) {
+							val j   = random.nextInt(i)
+							val boo = self(j)
+							i -= 1
+							self(j) = self(i)
+							self(i) = boo
+						}
+				}
+		}
+
 		/** Reverses in place the order of the elements in the whole sequence. */
 		@inline def reverseInPlace() :Unit = reverseInPlace(0, self.length)
 
@@ -4019,6 +4029,7 @@ object extensions extends extensions {
 				else
 					rotateLeft(from, until)(end - start - n)
 		}
+
 	}
 
 

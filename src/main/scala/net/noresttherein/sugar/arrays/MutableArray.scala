@@ -3,6 +3,7 @@ package net.noresttherein.sugar.arrays
 
 import java.lang.System.arraycopy
 import java.util.Arrays
+import java.util.random.RandomGenerator
 
 import scala.Array.UnapplySeqWrapper
 import scala.annotation.nowarn
@@ -10,10 +11,10 @@ import scala.collection.generic.IsSeq
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{IterableFactory, mutable}
 import scala.reflect.{ClassTag, classTag}
-import scala.util.Sorting
+import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.arrays.MutableArray.extensions.MutableArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayCompanionExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, RefArraySlice}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -345,6 +346,12 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
 		@inline final def sortInPlaceBy[A](from :Int, until :Int)(f :E => A)(implicit ordering :Ordering[A]) :Unit =
 			Sorting.stableSort(self.asInstanceOf[Array[E]], (a :E, b :E) => ordering.lt(f(a), f(b)), from, until)
+
+		@inline def shuffle()(implicit random :Random) :Unit = shuffle(0, self.length, random.self)
+		@inline def shuffle(from :Int, until :Int)(implicit random :Random) :Unit = shuffle(from, until, random.self)
+
+		def shuffle(from :Int, until :Int, random :RandomGenerator) :Unit =
+			ArrayLikeOps.shuffle(self, from, until)(random)
 
 
 		@inline def toSeq        :Seq[E] = toIndexedSeq
