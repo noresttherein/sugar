@@ -108,7 +108,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
 //		val start = startIndex
 //		Iterator.reverse(array, start, start + size)
 //	}
-	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = {
+	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = {
 		val start = startIndex
 		JavaIterator.slice(array, start, start + size)
 	}

@@ -23,7 +23,7 @@ import net.noresttherein.sugar.witness.Ignored
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, because
   * it is implemented internally by a `Int`, `Ternary` will clash with an overloaded method accepting `Int`.
   *
-  * With 'empty' value is `Ternary.`[[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]], it lifts the wrapped
+  * With 'empty' value in `Ternary.`[[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]], it lifts the wrapped
   * `Boolean` value to ternary logic, and provides implementation of the same logic operators.
   * Additionally, for this purpose, constants [[net.noresttherein.sugar.vars.Ternary.True True]]
   * and [[net.noresttherein.sugar.vars.Ternary.False False]] are defined, wrapping `true` and `false`, respectively.

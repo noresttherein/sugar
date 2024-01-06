@@ -192,13 +192,13 @@ object ExtensionsSpec extends Properties("extensions") {
 		import JavaIterator.conversions._
 		property("++") =
 			forAll { (prefix :List[Int], suffix :List[Int]) =>
-				(prefix.jiterator ++ suffix.jiterator).asScala.toList ?= (prefix:::suffix).map(Integer.valueOf)
+				(prefix.javaIterator ++ suffix.javaIterator).asScala.toList ?= (prefix:::suffix).map(Integer.valueOf)
 			}  :| "JIntIterator ++ JIntIterator" &&
 			forAll { (prefix :List[Int], suffix :List[Int]) =>
-				(((prefix.jiterator :JIterator[Int]) ++ suffix.jiterator).asScala.toSeq ?= prefix:::suffix)
+				(((prefix.javaIterator :JIterator[Int]) ++ suffix.javaIterator).asScala.toSeq ?= prefix:::suffix)
 			} :| "JIterator[Int] ++ JIntIterator" &&
 			forAll { (prefix :List[Int], suffix :List[Int]) =>
-				((prefix.jiterator :JIterator[Int]) ++ (suffix.jiterator :JIterator[Int])).asScala.toSeq ?= prefix:::suffix
+				((prefix.javaIterator :JIterator[Int]) ++ (suffix.javaIterator :JIterator[Int])).asScala.toSeq ?= prefix:::suffix
 			} :| "JIterator[Int] ++ JIterator[Int]"
 	}
 

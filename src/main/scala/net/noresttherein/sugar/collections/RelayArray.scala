@@ -353,7 +353,7 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
 	def this(head :E, last :E) = this(head, last, superElementType(head, last))
 	override def iterator = Iterator.two(head, last)
 
-	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
+	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
 		JavaIterator.two(head, last)
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
@@ -708,7 +708,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 	override def iterator :Iterator[E] =
 		new ArrayIterator[E](unsafeArray.asInstanceOf[Array[E]], startIndex, startIndex + length)
 
-	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
+	override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
 		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =

@@ -557,4 +557,3 @@ object ReverseStringIterator {
 	val empty :ReverseStringIterator = new ReverseStringIterator("", 0, 0)
 }
 
-

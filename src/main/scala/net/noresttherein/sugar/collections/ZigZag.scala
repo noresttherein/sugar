@@ -468,9 +468,9 @@ case object ZigZag extends SeqFactory[ZigZag] {
 			new Slice(seq, from, math.min(until, seq.length) - from0)
 		}
 
-	private def jiteratorOver[A, I <: JIterator[_]](seq :Seq[A])(implicit shape :JavaIteratorShape[A, I]) :I =
+	private def javaIteratorOver[A, I <: JIterator[_]](seq :Seq[A])(implicit shape :JavaIteratorShape[A, I]) :I =
 		seq match {
-			case sugared :SugaredIterable[A] => sugared.jiterator
+			case sugared :SugaredIterable[A] => sugared.javaIterator
 			case indexed :IndexedSeq[A] => IndexedSeqStepper(indexed)(shape.stepperShape).javaIterator.asInstanceOf[I]
 			case _ => seq.stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 		}
@@ -516,7 +516,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		override def reversed :Seq[A] = elems.reverse
 		override def iterator :Iterator[A] = elems.iterator
 		override def reverseIterator :Iterator[A] = elems.reverseIterator
-		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I = jiteratorOver(elems)
+		override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I = javaIteratorOver(elems)
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S = elems.stepper
 
 		override def trustedSlice(from :Int, until :Int) :ZigZag[A] = elems match {
@@ -599,8 +599,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 //		override def iterator :Iterator[A] = prefix.iterator :++ suffix.iterator
 //		override def reverseIterator :Iterator[A] = suffix.reverseIterator :++ prefix.reverseIterator
 //
-//		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-//			jiteratorOver(prefix) ++ jiteratorOver(suffix)
+//		override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
+//			javaIteratorOver(prefix) ++ javaIteratorOver(suffix)
 //
 //		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
 //			prefix.stepper ++ suffix.stepper
@@ -644,8 +644,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 //		override def iterator :Iterator[A] = init.iterator :+ last
 //		override def reverseIterator :Iterator[A] = last +: init.reverseIterator
 //
-//		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-//			init.jiterator ++ JavaIterator.one(last)
+//		override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
+//			init.javaIterator ++ JavaIterator.one(last)
 //
 //		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
 //			init.stepper :++ Stepper1(last)
@@ -685,8 +685,8 @@ case object ZigZag extends SeqFactory[ZigZag] {
 //		override def iterator :Iterator[A] = head +: tail.iterator
 //		override def reverseIterator :Iterator[A] = tail.reverseIterator :+ head
 //
-//		override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
-//			JavaIterator.one(head) ++ tail.jiterator
+//		override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I =
+//			JavaIterator.one(head) ++ tail.javaIterator
 //
 //		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
 //			(Stepper1(head) :S) ++ tail.stepper

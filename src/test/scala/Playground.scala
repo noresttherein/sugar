@@ -104,6 +104,7 @@ object ValVar {
 //}
 
 object Playground extends App {
+
 	val Var1 = ValVar(10000001)
 	val Var2 :SpecVar[Int] = Var1
 	val Var3 :BaseVar[Int] = Var1

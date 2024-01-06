@@ -33,6 +33,74 @@ package object collections {
 	type JavaIntIterator    = PrimitiveIterator.OfInt
 	type JavaLongIterator   = PrimitiveIterator.OfLong
 	type JavaDoubleIterator = PrimitiveIterator.OfDouble
+//	type JavaFloatIterator
+//	type JavaByteIterator
+//	type JavaCharIterator
+//	type JavaShortIterator
+//	type JavaBooleanIterator
+
+	type Jterator[+E]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]],
+	  * with an API exposed as extension methods imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.IntJteratorExtension IntJteratorExtension]].
+	  * It exists for uniformity with other ''jterators'', and to replace ''nextInt()'' with the standard `next()`,
+	  * which helps avoiding calling of a boxing method by accident.
+	  */
+	type IntJterator <: Jterator[Int]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfLong PrimitiveIterator.OfLong]],
+	  * with an API exposed as extension methods imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.LongJteratorExtension LongJteratorExtension]].
+	  * It exists for uniformity with other ''jterators'', and to replace ''nextLong()'' with the standard `next()`,
+	  * which helps avoiding calling of a boxing method by accident.
+	  */
+	type LongJterator <: Jterator[Long]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]],
+	  * with an API exposed as extension methods imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.DoubleJteratorExtension DoubleJteratorExtension]].
+	  * It exists for uniformity with other ''jterators'', and to replace ''nextDouble()'' with the standard `next()`,
+	  * which helps avoiding calling of a boxing method by accident.
+	  */
+	type DoubleJterator <: Jterator[Double]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]],
+	  * providing extension methods allowing to treat it as an `Iterator[Float]`, imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.FloatJteratorExtension FloatJteratorExtension]].
+	  */
+	type FloatJterator <: Jterator[Float]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]],
+	  * providing extension methods allowing to treat it as an `Iterator[Short]`, imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.ShortJteratorExtension ShortJteratorExtension]].
+	  */
+	type ShortJterator <: Jterator[Short]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]],
+	  * providing extension methods allowing to treat it as an `Iterator[Char]`, imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.CharJteratorExtension CharJteratorExtension]].
+	  */
+	type CharJterator <: Jterator[Char]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]],
+	  * providing extension methods allowing to treat it as an `Iterator[Byte]`, imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.ByteJteratorExtension ByteJteratorExtension]].
+	  */
+	type ByteJterator <: Jterator[Byte]
+
+	/** An opaque alias for [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]],
+	  * providing extension methods allowing to treat it as an `Iterator[Boolean]`, imported from
+	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.ByteJteratorExtension ByteJteratorExtension]].
+	  * Zero values produced by the underlying iterator are returned as `false`, while any non zero value
+	  * is returned as `true`.
+	  */
+	type BooleanJterator <: Jterator[Boolean]
+
+	/** An opaque alias for [[java.util.Iterator]] returning a reference type, treating it in a uniform manner
+	  * with jterators representing primitive iterators.
+	  */
+	type RefJterator[+T <: AnyRef] <: Jterator[T]
 
 	type SplitStepper[+X]    = Stepper[X] with EfficientSplit
 	type AnySplitStepper[+X] = AnyStepper[X] with EfficientSplit

@@ -36,7 +36,7 @@ trait StringLikeOps[+S <: Seq[Char]]
 	override def knownSize :Int = length
 
 	def intIterator :JIntIterator = stepper.javaIterator
-//	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+//	override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
 //		intIterator.asInstanceOf[I]
 
 	override def charAt(index :Int) :Char = apply(index)
@@ -480,14 +480,14 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 //	}
 
 	def isWhitespace :Boolean = {
-		val i = jiterator
+		val i = javaIterator
 		var isWhite = true
 		while (i.hasNext && { isWhite = Character.isWhitespace(i.next().toChar); isWhite })
 			{}
 		isWhite
 	}
 	def isAlphanumeric :Boolean = {
-		val i = jiterator
+		val i = javaIterator
 		var isAlphanum = true
 		while (i.hasNext && { isAlphanum = Character.isLetterOrDigit(i.next()); isAlphanum })
 			{}
@@ -903,7 +903,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 				super.stepper
 		}
 	}
-	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
 		intIterator.asInstanceOf[I]
 
 	override def foldLeft[A](z :A)(op :(A, Char) => A) :A = {

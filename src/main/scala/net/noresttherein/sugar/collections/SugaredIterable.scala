@@ -46,11 +46,33 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * are widened to one of `Int`, `Long` or `Double`, each having a dedicated iterator type allowing to access
 	  * the elements of the collection without boxing. Additionally, functions are specialized for these argument types.
 	  */ //consider: renaming to jterator for lolz
-	def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
+	def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
 		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 
+	/** An opaque representation of a Java [[java.util.Iterator Iterator]] over this $coll, in the most specialized
+	  * subclass for the type of elements in this collection, as seen from the point of view of the caller.
+	  * Jterator API is provided in the form of extension methods which can be imported from
+	  * `sugar.collections.extensions`, which have signatures of standard `Iterator` methods, but manually
+	  * specialized for each element type.
+	  *
+	  * The difference between a `Jterator` and a `JavaIterator`, as returned by method
+	  * [[net.noresttherein.sugar.collections.SugaredIterableOps.javaIterator javaIterator]],
+	  * is that, for value types, the latter will return one of the three [[java.util.PrimitiveIterator PrimitiveIterator]]
+	  * subtypes whic match the element type the closest. This method will however always return a type parameterized
+	  * with the exact element type of this collection (not enforced by the method signature
+	  * due to problems wth  inferrence). So, a `SugaredIterable[Char].javaIterator`
+	  * will return a `PrimitiveIterator.OfInt`, but `SugaredIterable[Char].jterator`
+	  * will return a [[net.noresttherein.sugar.collections.IntJterator IntJterator]].
+	  * While underneath both thes calls amount to the same, the latter saves the user the hassle of converting
+	  * every returned element. Additionally, it prevents a common mistake of calling unspecialized `next()`
+	  * instead of the properly specialized variant like `nextInt()`.
+	  */ //todo: make this the primary method and delegate javaIterator to it instead.
+	def jterator[I <: Jterator[_]](implicit shape :JteratorShape[E, I]) :I =
+		javaIterator(shape.javaIteratorShape).asInstanceOf[I]
 
-	//todo: specialized implementations in subclasses.
+
+
+	//todo: tailored implementations in subclasses.
 	def removed(index :Int) :C = fromSpecific(Iterators.removed(iterator, index))
 	def removed(from :Int, until :Int) :C = fromSpecific(Iterators.removed(iterator, from, until))
 

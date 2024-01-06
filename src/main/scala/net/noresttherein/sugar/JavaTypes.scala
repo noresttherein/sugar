@@ -51,7 +51,7 @@ object JavaTypes {
 
 	@SerialVersionUID(Ver)
 	case object JIterator extends IterableFactory[JIterator] {
-		override def from[A](source :IterableOnce[A]) :JIterator[A] = source.jiterator
+		override def from[A](source :IterableOnce[A]) :JIterator[A] = source.javaIterator
 		override def empty[A] :JIterator[A] = JavaIterator.empty
 		override def newBuilder[A] :Builder[A, JIterator[A]] = 
 			Array.newBuilder(ClassTag.Any.castParam[A]).mapResult(JavaIterator.over(_))
@@ -75,14 +75,14 @@ object JavaTypes {
 	object JIntIterator extends SpecificIterableFactory[Int, JIntIterator] {
 		override def empty :JIntIterator = JavaIterator.ofInt()
 		override def newBuilder :Builder[Int, JIntIterator] = Array.newBuilder[Int].mapResult(JavaIterator.ofInt(_))
-		override def fromSpecific(it :IterableOnce[Int]) :JIntIterator = it.jiterator
+		override def fromSpecific(it :IterableOnce[Int]) :JIntIterator = it.javaIterator
 	}
 
 	@SerialVersionUID(Ver)
 	object JLongIterator extends SpecificIterableFactory[Long, JLongIterator] {
 		override def empty :JLongIterator = JavaIterator.ofLong()
 		override def newBuilder :Builder[Long, JLongIterator] = Array.newBuilder[Long].mapResult(JavaIterator.ofLong(_))
-		override def fromSpecific(it :IterableOnce[Long]) :JLongIterator = it.jiterator
+		override def fromSpecific(it :IterableOnce[Long]) :JLongIterator = it.javaIterator
 	}
 
 	@SerialVersionUID(Ver)
@@ -90,7 +90,7 @@ object JavaTypes {
 		override def empty :JDoubleIterator = JavaIterator.ofDouble()
 		override def newBuilder :Builder[Double, JDoubleIterator] =
 			Array.newBuilder[Double].mapResult(JavaIterator.ofDouble(_))
-		override def fromSpecific(it :IterableOnce[Double]) :JDoubleIterator = it.jiterator
+		override def fromSpecific(it :IterableOnce[Double]) :JDoubleIterator = it.javaIterator
 	}
 	
 	@SerialVersionUID(Ver)
@@ -224,19 +224,10 @@ object JavaTypes {
 		override def addOne(elem :A) = { res add elem; this }
 	}
 
-	
-	
-	/** Implicit unboxing of java wrappers of primitive types (`Integer`, `java.lang.Long`, etc.) to Scala value types. */
-	object unboxingConversions {
-		@inline implicit def unboxBoolean(x :JBoolean) :Boolean = x.booleanValue
-		@inline implicit def unboxByte(x :JByte)       :Byte = x.byteValue
-		@inline implicit def unboxShort(x :JShort)     :Short = x.shortValue
-		@inline implicit def unboxChar(x :JChar)       :Char = x.charValue
-		@inline implicit def unboxInt(x :JInt)         :Int = x.intValue
-		@inline implicit def unboxLong(x :JLong)       :Long = x.longValue
-		@inline implicit def unboxFloat(x :JFloat)     :Float = x.floatValue
-		@inline implicit def unboxDouble(x :JDouble)   :Double = x.doubleValue
 
+
+	/** Implicit unboxing of java wrappers of primitive types (`Integer`, `java.lang.Long`, etc.) to Scala value types. */
+	object equivalence {
 		@inline implicit def javaBooleanIsBoolean :JBoolean =:= Boolean = ev.asInstanceOf[JBoolean =:= Boolean]
 		@inline implicit def javaByteIsByte       :JByte =:= Byte = ev.asInstanceOf[JByte =:= Byte]
 		@inline implicit def javaShortIsShort     :JShort =:= Short = ev.asInstanceOf[JShort =:= Short]
@@ -245,20 +236,6 @@ object JavaTypes {
 		@inline implicit def javaLongIsLong       :JLong =:= Long = ev.asInstanceOf[JLong =:= Long]
 		@inline implicit def javaFloatIsFloat     :JFloat =:= Float = ev.asInstanceOf[JFloat =:= Float]
 		@inline implicit def javaDoubleIsDouble   :JDouble =:= Double = ev.asInstanceOf[JDouble =:= Double]
-
-		private[this] val ev :Any =:= Any = implicitly[Any=:=Any]
-	}
-
-	object boxingConversions {
-		import java.{lang => j}
-		@inline implicit def boxBoolean(x :Boolean) :JBoolean = j.Boolean.valueOf(x)
-		@inline implicit def boxByte(x :Byte)       :JByte    = j.Byte.valueOf(x)
-		@inline implicit def boxShort(x :Short)     :JShort   = j.Short.valueOf(x)
-		@inline implicit def boxChar(x :Char)       :JChar    = j.Character.valueOf(x)
-		@inline implicit def boxInt(x :Int)         :JInt     = j.Integer.valueOf(x)
-		@inline implicit def boxLong(x :Long)       :JLong    = j.Long.valueOf(x)
-		@inline implicit def boxFloat(x :Float)     :JFloat   = j.Float.valueOf(x)
-		@inline implicit def boxDouble(x :Double)   :JDouble  = j.Double.valueOf(x)
 
 		@inline implicit def booleanIsJavaBoolean :Boolean =:= JBoolean = ev.asInstanceOf[Boolean =:= JBoolean]
 		@inline implicit def byteIsJavaByte       :Byte =:= JByte = ev.asInstanceOf[Byte =:= JByte]

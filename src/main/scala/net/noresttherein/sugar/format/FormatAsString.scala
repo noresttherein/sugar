@@ -256,7 +256,7 @@ trait FormatAsString extends Format { format =>
 				possibility
 			}
 			var leadingWhitespace = 0
-			val i = suffix.jiterator
+			val i = suffix.javaIterator
 			var char = i.nextInt().toChar
 			while (i.hasNext && Character.isWhitespace(char)) {
 				char = i.nextInt().toChar

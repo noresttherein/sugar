@@ -2443,7 +2443,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		}
 
 
-	override def jiterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = dim match {
+	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = dim match {
 		case _ if dataSize == 0 =>
 			JavaIterator()
 		case 1 if dataOffset + dataSize <= storageSize =>

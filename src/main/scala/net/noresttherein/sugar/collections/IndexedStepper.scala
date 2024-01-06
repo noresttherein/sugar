@@ -8,7 +8,7 @@ import scala.collection.{Stepper, StepperShape}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 
-import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIterator, JLong, JLongIterator}
+import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIterator, JLong, JLongIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
 import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.funny.generic
@@ -812,4 +812,16 @@ private class StringStepper(text :String, start :Int, end :Int)
 	override def characteristics :Int = IMMUTABLE | NONNULL | ORDERED | SIZED
 	override def nextStep() = text.charAt(nextIdx())
 	override def toString = "StringStepper(" + index + " until " + limit + ")"
+}
+
+
+private class JStringBuilderStepper(text :JStringBuilder, start :Int, end :Int)
+	extends AbstractIndexedStepper[Int, JInt, JStringBuilderStepper](start, end)
+	   with AllInIntStepper with Spliterator.OfInt
+{
+	def this(text :JStringBuilder) = this(text, 0, text.length)
+	override def underlyingSize :Int = text.length
+	override def characteristics :Int = NONNULL | ORDERED | SIZED
+	override def nextStep() = text.charAt(nextIdx())
+	override def toString = "StringBuilderStepper(" + index + " until " + limit + ")"
 }

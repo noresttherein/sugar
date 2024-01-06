@@ -133,7 +133,7 @@ object ChoppedStringSpec extends Properties("ChoppedString") {
 	                                 }}
 	property("iterator")           = prop { (chops, expect) => chops.iterator.to(ArrayBuffer) ?= expect.to(ArrayBuffer) }
 	property("intIterator")        = prop { (chops, expect) => chops.intIterator.asScala.to(Seq) ?= expect.map(_.toInt) }
-	property("javaIterator")       = prop { (chops, expect) => chops.jiterator.asScala.toSeq ?= expect.map(_.toInt) }
+	property("javaIterator")       = prop { (chops, expect) => chops.javaIterator.asScala.toSeq ?= expect.map(_.toInt) }
 
 	property("isWhitespace")       = prop { (chops, expect) => chops.isWhitespace ?= expect.forall(_.isWhitespace) }
 
@@ -262,7 +262,7 @@ object ChoppedStringSpec extends Properties("ChoppedString") {
 			"stepper"            |: debug("stepper")(result.stepper.javaIterator.asScala.to(ArrayBuffer) ?=
 			                            reference.map(Integer.valueOf(_)).to(ArrayBuffer)),
 			"intIterator"        |: debug("intIterator")(result.intIterator.asScala.to(IndexedSeq) ?= reference.map(_.toInt)),
-			"javaIterator"       |: debug("javaIterator")(result.jiterator.asScala.toSeq ?= reference.map(_.toInt)),
+			"javaIterator"       |: debug("javaIterator")(result.javaIterator.asScala.toSeq ?= reference.map(_.toInt)),
 
 			"isWhitespace"       |: debug("isWhitespace")(result.isWhitespace ?= reference.forall(_.isWhitespace)),
 

@@ -199,7 +199,7 @@ private object Iterators {
 			}
 		}
 
-	/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this validator;
+	/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this iterator;
 	  * instead, iterators returned by those methods share the same underlying state,
 	  * including a counter of already returned elements.
 	  * Calling `take` on this iterator returns a new iterator, which will not return elements past a certain index.
