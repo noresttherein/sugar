@@ -310,12 +310,13 @@ object Var {
 			@inline def =:(v1 :Var[T], v2 :Var[T], vs :Var[T]*) :T = {
 				v1 := value; v2 := value
 				vs match {
-					case list :List[T @unchecked] =>
-						var l :List[T] = list
+					case list :List[Var[T] @unchecked] =>
+						var l :List[Var[T]] = list
 						while (l.nonEmpty) {
 							l.head := value; l = l.tail
 						}
-					case _ => vs foreach { _ := value }
+					case _ => //(value /: vs){ (x, v) => v := x; x }
+						vs foreach { _ := value } //faster for value types
 				}
 				value
 			}
@@ -329,7 +330,7 @@ object Var {
 
 
 
-	//extension methods overriden to operate directly on the value property, without allowing for atomicity
+	//extension methods overridden to operate directly on the value property, without allowing for atomicity
 
 	/** Implicit conversion of a `Var[Boolean]` variable providing basic logical operations. */
 	implicit class VarBooleanLogic(private val x :Var[Boolean]) extends AnyVal {

@@ -172,6 +172,9 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
 //	def map[O](f :T => O) :Var[O]
 	/************************************** Boolean methods ***********************************************************/
+	//we could make these private in a separate InOutOps trait, and have a factory property like in AtomicOps.Var,
+	// So extension methods and what not would delegate to this.factory.<method>.
+	// We could not guarantee the type of this `InOut`, though.
 
 	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ & _)
 	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ | _)
@@ -277,11 +280,11 @@ object InOut {
 	/** Extra implicits which might be helpful but can also lead to tricky bugs or cause conflicts. */
 	@SerialVersionUID(Ver)
 	object implicits {
-		/** Implicitly creates a `InOut` instance with a given value. This implicit is optional as the main use of `InOut[T]`
-		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `InOut[T]`
-		  * makes no sense and would likely be an error.
-		  */
-		@inline implicit def boxInOutParam[@specialized(SpecializedVars) T](value :T) :InOut[T] =   Var[T](value)
+//		/** Implicitly creates a `InOut` instance with a given value. This implicit is optional as the main use of `InOut[T]`
+//		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `InOut[T]`
+//		  * makes no sense and would likely be an error.
+//		  */
+//		@inline implicit def boxInOutParam[@specialized(SpecializedVars) T](value :T) :InOut[T] =   Var[T](value)
 
 		/** Implicit extension of values of any type allowing chained assignments to compatible variables in the form of
 		  * `x1 =: x2 =: x3 =: value` or `(x1, x2, x3) =: value`. This conversion needs to be manually imported
@@ -296,28 +299,31 @@ object InOut {
 		  * as the wide scope of accepted input values can easily lead to conflicts with different libraries.
 		  * @param value value to assign to a chain of variables.
 		  */
-		class InOutMultiAssignment[T, V <: InOut[T]](private val value :T) extends AnyVal {
+		class InOutMultiAssignment[X, V <: InOut[X]](private val value :X) extends AnyVal {
 
 			/** Assign the right-hand value (this) to the left-hand $ref, returning this value.
 			  * Allows C-like chained assignments: `x1 =: x2 =: x3 =: 0`.
 			  * @param v $ref which should be assigned the new value
 			  * @return assigned value
 			  */
-			@inline def =:(v :V) :T = { v := value; value }
+			@inline def =:(v :V) :X = { v := value; value }
 
 			/** Assigns this (right-hand) value to multiple variables given on the left-hand side of the operator.
-			  * `(x1, x2, x3) =: 0`. This is an arguably more readable altennative to chaining individual assignments,
-			  * although slightly less effective.
+			  * `(x1, x2, x3) =: 0`. This is an arguably more readable alternative to chaining individual assignments,
+			  * although slightly less efficient.
 			  */
-			@inline def =:(v1 :V, v2 :V, vs :V*) :T = {
+			@inline def =:(v1 :V, v2 :V, vs :V*) :X = {
 				v1 := value; v2 := value
 				vs match {
-					case list :List[T @unchecked] =>
-						var l :List[T] = list
+					case list :List[V @unchecked] =>
+						var l :List[V] = list
 						while (l.nonEmpty) {
-							l.head := value; l = l.tail
+							l.head.value = value; l = l.tail
 						}
-					case _ => vs foreach { _ := value }
+					case _ =>
+						vs foreach { _ := value }
+						//this would be faster on reference values, but does a lot of boxing on value types
+//						vs.foldLeft(value) { (x, v) => v.value = x; x }
 				}
 				value
 			}

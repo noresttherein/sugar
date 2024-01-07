@@ -7,8 +7,8 @@ import scala.annotation.unspecialized
 import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
 
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
+import net.noresttherein.sugar.vars.AtomicOps.{BoolAtomicVar, RefAtomicVar}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 import net.noresttherein.sugar.vars.Watched.SerialExecutor
 import net.noresttherein.sugar.witness.{DefaultValue, Optionally}
 
@@ -46,7 +46,7 @@ import net.noresttherein.sugar.witness.{DefaultValue, Optionally}
   */
 @SerialVersionUID(Ver)
 sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit executor :Executor = SerialExecutor)
-	extends VolatileLike[T] with Mutable[T] with Serializable
+	extends AtomicOps.AtomicVar[T] with Mutable[T] with Serializable
 {
 	@scala.volatile private[this] var x :T = _
 	private[this] val watchers             = new ConcurrentSkipListMap[Any, T => Unit].asScala
@@ -220,8 +220,6 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 	  */
 	@unspecialized def resign(callback :T => Unit) :this.type = resign(callback :Any)
 
-	override def mkString :String = mkString("Watched")
-
 	override def toString :String = "Watched(" + value + ")@" + this.identityHashCodeString
 }
 
@@ -232,7 +230,7 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
   * @define variable watched variable
   */
 @SerialVersionUID(Ver)
-object Watched extends VolatileLikeCompanion[Watched] {
+case object Watched extends AtomicCompanion[Watched] {
 
 	/** Create a new $variable which can be shared and watched by multiple threads. The implicit
 	  * [[java.util.concurrent.Executor Executor]] will be used to execute the registered callbacks.
@@ -241,7 +239,7 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  */
 	def apply[@specialized(SpecializedVars) T](init :T)(implicit executor :Optionally[Executor]) :Watched[T] =
 		new Watched[T] match {
-			case any if any.getClass == CaseUnspec =>
+			case any if any.getClass == classOf[Watched[Any]] =>
 				val res :Watched[T] = new Ref[T]()(executor.opt getOrElse SerialExecutor)
 				res.set(init)
 				res
@@ -259,7 +257,8 @@ object Watched extends VolatileLikeCompanion[Watched] {
 	  * will be used to execute the registered callbacks. If no implicit value exists,
 	  * [[net.noresttherein.sugar.vars.Watched.SerialExecutor SerialExecutor]] will be used instead.
 	  */
-	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T], executor :Optionally[Executor]) :Watched[T] =
+	def apply[@specialized(SpecializedVars) T]
+	         (implicit default :DefaultValue[T], executor :Optionally[Executor]) :Watched[T] =
 		apply(default.get)(executor)
 
 
@@ -288,36 +287,44 @@ object Watched extends VolatileLikeCompanion[Watched] {
 		res
 	}
 
-	private[vars] override def getAndSet[@specialized(SpecializedVars) T](v: InOut[T], newValue: T) :T = {
+	protected override def getAndSet[@specialized(SpecializedVars) T](v: AtomicOps.AtomicVar[T], newValue: T) :T = {
 		val res = super.getAndSet(v, newValue)
 		v.asInstanceOf[Watched[T]].trigger(newValue)
 		res
 	}
-	private[vars] override def testAndSet[@specialized(SpecializedVars) T](v: InOut[T], expect: T, newValue: T) :Boolean =
+	protected override def testAndSet[@specialized(SpecializedVars) T](v: AtomicOps.AtomicVar[T], expect: T, newValue: T)
+			:Boolean =
 		super.testAndSet(v, expect, newValue) && { v.asInstanceOf[Watched[T]].trigger(newValue); true }
 
-	private[vars] override def weakTestAndSet[@specialized(SpecializedVars) T](v: InOut[T], expect: T, newValue: T) :Boolean =
+	protected override def weakTestAndSet[@specialized(SpecializedVars) T](v: AtomicOps.AtomicVar[T], expect: T, newValue: T)
+			:Boolean =
 		super.weakTestAndSet(v, expect, newValue) && { v.asInstanceOf[Watched[T]].trigger(newValue); true }
 
-	private[vars] override def repeatBoolTestAndSet(bool: InOut[Boolean], expect: Boolean, ifExpected: Boolean, ifNotExpected: Boolean) = {
-		val res = super.repeatBoolTestAndSet(bool, expect, ifExpected, ifNotExpected)
+	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean) :Boolean =
+		super.weakTestAndSetBool(v, expect, newValue) && { v.asInstanceOf[Watched[Boolean]].trigger(newValue); true }
+
+	protected override def repeatTestAndSetBool(bool: AtomicOps.AtomicVar[Boolean], expect: Boolean,
+	                                            ifExpected: Boolean, ifNotExpected: Boolean) =
+	{
+		val res = super.repeatTestAndSetBool(bool, expect, ifExpected, ifNotExpected)
 		val old = res == ifNotExpected ^ expect
 		bool.asInstanceOf[Watched[Boolean]].trigger(old)
 		res
 	}
 
+	private[this] val CaseBool = new Watched[Boolean]().getClass
 
 	/** An unspecialized `Watched` implementation overriding atomic mutator methods to compare the value
 	  * using `eq`/`ne`, rather than `==`/`!=` as in `Volatile` (which would call `equals` on reference types,
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class Ref[T](implicit executor :Executor = SerialExecutor) extends Watched[T] with RefVolatileLike[T]
+	private class Ref[T](implicit executor :Executor = SerialExecutor) extends Watched[T] with RefAtomicVar[T]
 
 	/** Optimised implementation of `Watched[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class Bool(implicit executor :Executor = SerialExecutor) extends Watched[Boolean] with BoolVolatileLike
+	private class Bool(implicit executor :Executor = SerialExecutor) extends Watched[Boolean] with BoolAtomicVar
 
 }

@@ -224,7 +224,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOption toOption]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOption constOption]]
-	  */
+	  */ //consider: renaming to currOption
 	def option :Option[T] = opt.constOption
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
@@ -241,7 +241,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * is currently mutated, but not if no other thread currently accesses this variable.
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOption constOption]]
-	  */
+	  */ //consider: renaming to option
 	def toOption :Option[T] = toOpt.toOption
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
@@ -267,7 +267,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
-	  */
+	  */ //consider: renaming to currOpt
 	def opt :Opt[T]
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
@@ -285,7 +285,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
-	  */
+	  */ //consider: renaming to opt
 	def toOpt :Opt[T]
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
@@ -310,7 +310,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constUnsure constUnsure]]
-	  */
+	  */ //currUnsure
 	def unsure :Unsure[T] = opt.unsure
 
 	/** The value of this $Ref, if it is available or can be computed, as an option-like, specialized `Unsure`.
@@ -329,7 +329,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.unsure unsure]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constUnsure constUnsure]]
-	  */
+	  */ //rename to unsure
 	def toUnsure :Unsure[T] = toOpt.unsure
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists, as an option-like,

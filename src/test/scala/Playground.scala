@@ -1,111 +1,23 @@
 import java.lang.System.identityHashCode
 
-import scala.annotation.unspecialized
+import scala.annotation.unchecked.uncheckedVariance
+import scala.annotation.{switch, unspecialized}
 import scala.collection.immutable.{ArraySeq, TreeSet}
 import scala.collection.mutable.ArrayBuffer
 
 import net.noresttherein.sugar.collections.{ArraySliceBuffer, StringSet}
 import net.noresttherein.sugar.collections.extensions.IteratorExtension
-import net.noresttherein.sugar.vars.{PhantomRef, Pure, SoftRef, Transient, Volatile, Watched, WeakRef}
+import net.noresttherein.sugar.vars.{PhantomRef, Pure, SoftRef, Transient, Volatile, VolatileOut, Watched, WeakRef}
 import shapeless.Lazy
 
 
-trait BaseVar[T] {
-	def value :T
-	def value_=(value :T) :Unit
-	def getVal :Any
-	def setVal(value :Any) :Unit
-	def setRef(value :Any) :Unit
-	def getRef :Any
-}
 
-trait SpecVar[@specialized T] extends BaseVar[T] {
-	override def value :T = getSpec
-	override def value_=(value :T) :Unit = {
-		setVal(value)
-		setRef(null)
-	}
-	def getSpec :T
-	def setSpec(value :T) :Unit
-}
-
-class SimpleSpecVar[@specialized T](private[this] var x :T) extends SpecVar[T] {
-	override def getSpec :T = x
-	override def setSpec(value :T) :Unit = x = value
-	override def getVal :Any = x
-	override def setVal(value :Any) :Unit = x = value.asInstanceOf[T]
-	@unspecialized override def getRef :T = x
-	@unspecialized override def setRef(value :Any) :Unit = x = value.asInstanceOf[T]
-}
-
-trait TopSandwichVar[T] { this :SpecVar[T] =>
-//	@unspecialized override def value :T =
-}
-
-trait BottomSandwichVar[T] extends BaseVar[T] {
-	override def value :T = {
-		var res = getRef
-		if (res == null) {
-			res = getVal
-			setRef(res)
-		}
-		res.asInstanceOf[T]
-	}
-	override def value_=(value :T) :Unit = {
-		setVal(value)
-		setRef(value)
-	}
-}
-
-class ValVar[@specialized T]
-	extends TopSandwichVar[T] with SpecVar[T] with BottomSandwichVar[T]
-{
-	private[this] var x :T = _
-
-	private[this] final def initialize(value :T) :Unit = x = value
-
-	override def getSpec :T = x
-	override def setSpec(value :T) :Unit = x = value
-
-	override def getVal :Any = getSpec
-	override def setVal(value :Any) :Unit = setSpec(value.asInstanceOf[T])
-
-	/** Method, which in the generic version of this class, returns the value of the erased field,
-	  * and in the specialized version boxed specialized field.
-	  */
-	private[this] final def get :Any = x
-
-	/** Method, which in the generic version of this class, sets the value of the erased field,
-	  * and in the specialized version unboxes the argument to a value type and sets the specialized field.
-	  */
-	private[this] final def set(value :Any) :Unit = x = value.asInstanceOf[T]
-
-	/** Unspecialized method, which has a definition only in the erased version of this class,
-	  * and hence always returns the value of the erased field (including for the specialized class).
-	  */
-	override def getRef :Any = get
-
-	/** Unspecialized method, which has a definition only in the erased version of this class,
-	  * and hence always sets the value of the erased field (including for the specialized class).
-	  */
-	override def setRef(value :Any) :Unit = set(value)
-}
-
-object ValVar {
-	def apply[@specialized T](value :T) :ValVar[T] = {
-		val res = new ValVar[T]
-		res.setSpec(value)
-		res
-	}
-}
-
-//abstract class AbstractVar[T] extends SpecVar[T] {
-//	private[this] var x :T
-//}
 
 object Playground extends App {
-
-	val Var1 = ValVar(10000001)
+	val out = VolatileOut[Int]()
+	out := 42
+	out.value
+/*	val Var1 = ValVar(10000001)
 	val Var2 :SpecVar[Int] = Var1
 	val Var3 :BaseVar[Int] = Var1
 	def printState() :Unit = {
@@ -167,5 +79,6 @@ object Playground extends App {
 		println(s"Generic ($value): $v3")
 		println("Box preserved: " + (v1.asInstanceOf[AnyRef] eq v2.asInstanceOf[AnyRef]))
 	}
+*/
 }
 

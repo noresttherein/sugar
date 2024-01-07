@@ -159,6 +159,17 @@ package object reflect {
 	) withDefaultValue classOf[Any]
 
 
+	/** Returns the suspected class field declared as `symbol`, as present in the byte code.
+	  * Checks if the class in which it was declared follows the naming pattern of `@specialized` name mangling,
+	  * and mangles the field accordingly.
+	  */
+	private[sugar] def scalaFieldName(declaringClass :Class[_], symbol :String) :String = {
+		val specSuffixStart = declaringClass.getName.indexOf("$m")
+		if (specSuffixStart < 0) symbol
+		else symbol + declaringClass.getName.substring(specSuffixStart)
+	}
+
+
 	/** Uses java reflection to determine the type of the `n`-th type argument given to super type `givenTo` of `tpe`
 	  * by the concrete class of this object.
 	  */

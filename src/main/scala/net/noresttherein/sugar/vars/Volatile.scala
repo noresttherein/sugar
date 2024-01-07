@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.vars
 
+import net.noresttherein.sugar.vars.AtomicOps.{BoolAtomicVar, RefAtomicVar}
 import net.noresttherein.sugar.vars.InOut.{InOutOrdering, SpecializedVars}
-import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileLike}
 
 
 
@@ -34,7 +34,7 @@ import net.noresttherein.sugar.vars.VolatileLike.{BoolVolatileLike, RefVolatileL
   */
 @SerialVersionUID(Ver)
 sealed class Volatile[@specialized(SpecializedVars) T] private[vars]
-	extends VolatileLike[T] with Mutable[T] with Serializable
+	extends AtomicOps.AtomicVar[T] with Mutable[T] with Serializable
 {
 	@scala.volatile private[this] var x :T = _
 	protected override def factory :Volatile.type = Volatile
@@ -42,7 +42,7 @@ sealed class Volatile[@specialized(SpecializedVars) T] private[vars]
 	final override def value :T = x
 	final override def value_=(newValue :T) :Unit = x = newValue
 
-	override def mkString :String = mkString("Volatile")
+	private[vars] override def isSpecialized :Boolean = getClass == classOf[Volatile[Any]]
 }
 
 
@@ -52,7 +52,7 @@ sealed class Volatile[@specialized(SpecializedVars) T] private[vars]
   * @define variable volatile reference variable
   */
 @SerialVersionUID(Ver)
-object Volatile extends VolatileLikeFactory[Volatile] {
+case object Volatile extends AtomicFactory[Volatile] {
 
 	implicit def VolatileOrdering[T :Ordering] :Ordering[Volatile[T]] = new InOutOrdering[Volatile, T]
 
@@ -70,12 +70,12 @@ object Volatile extends VolatileLikeFactory[Volatile] {
 	  * which we do not want).
 	  */
 	@SerialVersionUID(Ver)
-	private class Ref[T](init :T) extends Volatile[T] with RefVolatileLike[T] { value = init }
+	private class Ref[T](init :T) extends Volatile[T] with RefAtomicVar[T] { value = init }
 
 	/** Optimised implementation of `Volatile[Bool]` which enumerates all two possible results
 	  * in accumulate/mutate methods.
 	  */
 	@SerialVersionUID(Ver)
-	private class Bool(init :Boolean) extends Volatile[Boolean] with BoolVolatileLike { value = init }
+	private class Bool(init :Boolean) extends Volatile[Boolean] with BoolAtomicVar { value = init }
 
 }
