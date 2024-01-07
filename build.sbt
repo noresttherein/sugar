@@ -8,7 +8,7 @@ name := "sugar"
 
 version := "moonshine"
 
-scalaVersion := "2.13.11"
+scalaVersion := "2.13.12"
 
 
 Compile / fork := true
@@ -51,6 +51,9 @@ Test / testOptions ++= Seq(Tests.Filter { s =>
 	}
 })
 
+import pl.project13.scala.sbt.JmhPlugin
+
+enablePlugins(JmhPlugin)
 
 
 
@@ -63,7 +66,9 @@ libraryDependencies ++= Seq( //todo: make shapeless optional
 
 	"junit" % "junit" % "4.13.2" % "test",
 	"org.scalatest" %% "scalatest" % "3.2.15" % Test,
-	"org.scalacheck" %% "scalacheck" % "1.17.0" % Test
+	"org.scalacheck" %% "scalacheck" % "1.17.0" % Test,
+	"org.openjdk.jmh" % "jmh-core" % "1.36" % Test,
+	"org.openjdk.jmh" % "jmh-generator-annprocess" % "1.36" % Test,
 )
 
 

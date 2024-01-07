@@ -7,7 +7,6 @@ import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOpt
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Builder, IndexedBuffer, IndexedSeqOps}
-import scala.runtime.Statics.releaseFence
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLikeOps, IArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension, MutableArrayExtension, RefArrayExtension, RefArrayLikeExtension}
@@ -16,6 +15,7 @@ import net.noresttherein.sugar.collections.ArraySliceBuffer.AcceptableFillFactor
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, castingMethods}
 import net.noresttherein.sugar.vars.Opt.Got
 

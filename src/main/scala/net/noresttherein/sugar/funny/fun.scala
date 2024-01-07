@@ -2,11 +2,11 @@ package net.noresttherein.sugar.funny
 
 import scala.annotation.unspecialized
 import scala.reflect.ClassTag
-import scala.runtime.Statics.releaseFence
 import scala.Specializable.{Arg, Args, Return}
 
-import net.noresttherein.sugar.extensions.{Function2Extension, Function3Extension}
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.funny.ComposableFunUtils.{FunString, InverseCompose, UnknownType, argsString, composedString, funString, typeArgumentName}
+import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension}
 import net.noresttherein.sugar.funny.fun.{ComposableFun, ComposableFun2, ComposableFun3}
 import net.noresttherein.sugar.funny.fun.specializations.ReturnVal
 import net.noresttherein.sugar.reflect

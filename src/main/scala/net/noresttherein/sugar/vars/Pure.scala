@@ -1,10 +1,9 @@
 package net.noresttherein.sugar.vars
 
-import java.lang.invoke.VarHandle.{acquireFence, releaseFence}
-
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
+import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Ref.undefined
