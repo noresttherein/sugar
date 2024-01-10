@@ -242,17 +242,6 @@ object SpecTag extends Rank1SpecTags {
 trait Specialized[+T[_], OfByte <: T[Byte], OfShort <: T[Short], OfInt <: T[Int], OfLong <: T[Long], OfChar <: T[Char],
                   OfFloat <: T[Float], OfDouble <: T[Double], OfBoolean <: T[Boolean], ofUnit <: T[scala.Unit]]
 {
-//trait Specialized[+T[_]] {
-//	type OfByte    <: T[Byte]
-//	type OfShort   <: T[Short]
-//	type OfChar    <: T[Char]
-//	type OfInt     <: T[Int]
-//	type OfLong    <: T[Long]
-//	type OfFloat   <: T[Float]
-//	type OfDouble  <: T[Double]
-//	type OfBoolean <: T[Boolean]
-//	type ofUnit    <: T[scala.Unit]
-
 	/** Calls one of the parameterless methods, depending on if `X` is an inbuilt value type and which one,
 	  * or [[net.noresttherein.sugar.util.Specialized.default default]] if `X` is not a Java primitive type
 	  * or is abstract.
