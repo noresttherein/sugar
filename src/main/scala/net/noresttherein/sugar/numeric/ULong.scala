@@ -263,6 +263,10 @@ object ULong {
 	def parse(string: String): Opt[ULong] =
 		Numeric.LongIsIntegral.parseString(string) match {
 			case Some(long) => if (long >= 0) Got(new ULong(long)) else Lack
+			case None =>
+				try Got(new ULong(jl.Long.parseUnsignedLong(string))) catch {
+					case _ :Exception => Lack
+				}
 			case _ => Lack
 		}
 
