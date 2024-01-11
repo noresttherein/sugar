@@ -102,7 +102,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 		/** Matches an exception created by this factory, extracting - and evaluating - its message and,
 		  * optionally, cause.
 		  */
-		def unapply(e :Throwable) :Opt[(String, Option[Throwable])] = e match {
+		def unapply(e :Throwable) :Opt[(String, Opt[Throwable])] = e match {
 			case base :Exception if base.factory == ExceptionFactory.this => Got((base.msg, base.cause))
 			case _ => Lack
 		}

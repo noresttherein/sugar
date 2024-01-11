@@ -12,6 +12,8 @@ import net.noresttherein.sugar.vars.Ref.undefined
 
 
 /** A lazy value initialized with an idempotent expression which may be evaluated more than once.
+  * However, if the values returned by repeated executions of the initializer are only `equal`,
+  * but not referentially equivalent (as in `eq`), different reads may potentially see different objects.
   * The advantage here is reduced synchronization overhead comparing to a Scala's standard `lazy val`,
   * even reduced to zero for value types once the value is initialized.
   * @define Ref `Pure`
@@ -268,23 +270,26 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 
 
 
-/** A full `Pure` lazy value implementation as a mix-in trait for application classes,
-  * in particular various lazy proxies.
+/** A full [[net.noresttherein.sugar.vars.Pure Pure]]-like lazy value implementation as a mix-in trait
+  * for application classes, in particular various lazy proxies. Does not implement any interface
+  * in order to not burden extending classes with unnecessary, and potentially conflicting, API.
   */
-private[sugar] trait AbstractPure[@specialized(SpecializedVars) +T] {
+trait AbstractPure[@specialized(SpecializedVars) +T] {
 	protected[this] var initializer :() => T
 	@volatile private[this] var evaluated :T = _
 
 	@inline final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
-	def ? :Opt[T] =
+	/** Returns `Got(value)` if the expression has already been evaluated, or `Lack` otherwise. */
+	protected def ? :Opt[T] = //Not opt, because of risk of conflicts.
 		if (initializer != null)
 			Lack
 		else {
 			acquireFence()
 			Got(evaluated)
 		}
-	def unsure :Unsure[T] =
+	/** Returns `Sure(value)` if the expression has already been evaluated, or `Missing` otherwise. */
+	protected def unsure :Unsure[T] =
 		if (initializer != null)
 			Missing
 		else {
@@ -292,14 +297,16 @@ private[sugar] trait AbstractPure[@specialized(SpecializedVars) +T] {
 			Sure(evaluated)
 		}
 
-	def indefinite :T =
+	/** Returns the value of this expression, or throws `NoSuchElementException`, if it has not yet been evaluated. */
+	protected def indefinite :T =
 		if (initializer == null) {
 			acquireFence()
 			evaluated
 		} else
 			throw new NoSuchElementException("Uninitialized " + this)
 
-	def definite :T = {
+	/** Returns the value of this expression, evaluating it, if needed. */
+	protected def definite :T = {
 		val init = initializer
 		acquireFence()
 		if (init == null)
