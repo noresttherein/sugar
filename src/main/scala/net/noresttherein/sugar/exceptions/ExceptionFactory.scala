@@ -18,15 +18,15 @@ import net.noresttherein.sugar.vars.Opt
   * Two factories with the same name are considered equal, and will match each other's exceptions.
   * Example of usage:
   * {{{
-  *     object TotalPartyKillException extends ExceptionFactory //will use `TotalPartyKillException` as the exception name
+  *     object TotalPartyKill extends ExceptionFactory //will use `TotalPartyKill.Exception` as the exception name
   *
   *     try { fight(dragon) } catch {
-  *         case TotalPartyKillException(e) => println(e) //"TotalPartyKillException: heroically slain by Kaladrax!"
+  *         case TotalPartyKill(e) => println(e) //"TotalPartyKill.Exception: heroically slain by Kaladrax!"
   *     }
   *
   *     def fight(opponent :Monster) :Loot =
   *         if (opponent.level > 20)
-  *             throw TotalPartyKillException(() => "heroically slain by " + opponent + "!")
+  *             throw TotalPartyKill(() => "heroically slain by " + opponent + "!")
   *         else
   *             opponent.loot
   * }}}
@@ -42,49 +42,57 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	/** The name of this factory. It is returned by
 	  * method [[net.noresttherein.sugar.exceptions.SugaredException.className className]]
 	  * of the exceptions created by this factory. This in turn is used in the exception's `toString` implementation
-	  * in place of its actual class name.
+	  * in place of its actual class name. If no name has been given to the constructor, then it defaults
+	  * to `this.className`.
 	  */
 	val name :String = maybeName getOrElse this.className
 
-	/** Creates a new exception with the given message.
-	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	/** The [[net.noresttherein.sugar.exceptions.SugaredThrowable.className className]] used by thrown exceptions:
+	  * in their `toString` method, this name will be printed instead of an actual class name
+	  * (which will normally be anonymous). Equals `this.name + ".Exception"`.
+	  */
+	val exceptionName :String = name + ".Exception"
+
+	/** Creates a new exception with the given message. `Base` is a ''SAM'' type
+	  * leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Exception.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
-	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
+	  * in a place where a `this.Exception` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  */ //inlined for a nicer stack trace
-	@inline final def apply(exception :Base) :SugaredException = exception
+	@inline final def apply(exception :this.Exception) :SugaredException = exception
 
-	/** Creates a new exception with the given message and cause.
-	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	/** Creates a new exception with the given message and cause. `Base` is a ''SAM'' type
+	  *  leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Exception.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
-	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
+	  * in a place where a `this.Exception` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  *///inlined for a nicer stack trace
-	@inline final def apply(exception :Base, cause :Throwable) :SugaredException = {
+	@inline final def apply(exception :this.Exception, cause :Throwable) :SugaredException = {
 		exception.initCause(cause)
 		exception
 	}
 
 
-	/** Throws a new exception with the given message.
-	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	/** Throws a new exception with the given message. `Base` is a ''SAM'' type
+	  * leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Exception.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
-	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
+	  * in a place where a `this.Exception` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  */ //inlined for a nicer stack trace
-	@inline def !(exception :Base) :Nothing = throw exception
+	@inline def raise(exception :this.Exception) :Nothing = throw exception
 
-	/** Throws a new exception with the given message and cause.
-	  * `Base` is a ''SAM'' type leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`()`
+	/** Throws a new exception with the given message and cause. `Base` is a ''SAM'' type
+	  * leaving only [[net.noresttherein.sugar.exceptions.ExceptionFactory.Exception.apply apply]]`()`
 	  * for subclasses to implement; therefore a `Function0[String]` literal in the form of `() => "danger! danger!"`
-	  * in a place where a `Base` is expected - such as the argument of this method - is automatically
+	  * in a place where a `this.Exception` is expected - such as the argument of this method - is automatically
 	  * promoted to the latter.
 	  *///inlined for a nicer stack trace
-	@inline final def !(exception :Base, cause :Throwable) :SugaredException = throw exception.initCause(cause)
+	@inline final def raise(exception :this.Exception, cause :Throwable) :SugaredException =
+		throw exception.initCause(cause)
 
 	/** Matches exceptions created by this factory - or an equal one. */
-	def unapply(e :Throwable) :Opt[Base] = e match {
-		case base :Base if base.factory == this => Got(base)
+	def unapply(e :Throwable) :Opt[this.Exception] = e match {
+		case base :Exception if base.factory == this => Got(base)
 		case _ => Lack
 	}
 
@@ -95,7 +103,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 		  * optionally, cause.
 		  */
 		def unapply(e :Throwable) :Opt[(String, Option[Throwable])] = e match {
-			case base :Base if base.factory == ExceptionFactory.this => Got((base.msg, base.cause))
+			case base :Exception if base.factory == ExceptionFactory.this => Got((base.msg, base.cause))
 			case _ => Lack
 		}
 	}
@@ -103,26 +111,26 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 
 	/** A base class for exceptions associated with this factory.
 	  * It is an abstract type, missing implementation solely
-	  * for its [[net.noresttherein.sugar.exceptions.ExceptionFactory.Base.apply apply]]`() :String` method introduces
-	  * for this purpose. Methods [[net.noresttherein.sugar.exceptions.SugaredException.msg msg]],
+	  * for its [[net.noresttherein.sugar.exceptions.ExceptionFactory.Exception.apply apply]]`() :String`
+	  * method introduces for this purpose. Methods [[net.noresttherein.sugar.exceptions.SugaredException.msg msg]],
 	  * [[net.noresttherein.sugar.exceptions.SugaredException.message message]]
 	  * and [[net.noresttherein.sugar.exceptions.SugaredException.getMessage getMessage]] will return the `String`
 	  * returned by that method. While the class is open for extension, the intention is that instances
 	  * are created only through promotion forced by one of the owning factory's `apply` methods:
 	  * {{{
 	  *     try {
-	  *         throw AleIsOutException(() => "Gimli drank everything!")
+	  *         throw AleIsOut(() => "Gimli drank everything!")
 	  *     } catch {
-	  *         case AleIsOutException(e) =>
-	  *             throw AleIsOutException(() => "I drank only a dozen mugs, must have been someone else!", e)
+	  *         case AleIsOut(e) =>
+	  *             throw AleIsOut(() => "I drank only a dozen mugs, must have been someone else!", e)
 	  *     }
 	  * }}}
 	  */
 	@SerialVersionUID(Ver) //todo: this makes most sense if it is at least Rethrowable
-	abstract class Base extends AbstractException(null, null, null, true, false) {
+	abstract class Exception extends AbstractException(null, null, null, true, false) {
 		private[ExceptionFactory] def factory = ExceptionFactory.this
 
-		override def className :String = ExceptionFactory.this.name
+		override def className :String = exceptionName
 
 		/** Returns `true` if this exception has been created by the argument factory (or another with the same name).
 		  * Can be used to manually match an exception instance:
@@ -157,6 +165,8 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	}
 	def canEqual(that :Any) :Boolean = that.isInstanceOf[ExceptionFactory]
 	override def hashCode :Int = name.hashCode
+
+	override def toString :String = name
 }
 
 
