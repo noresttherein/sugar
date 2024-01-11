@@ -10,6 +10,7 @@ import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.{IsIterableOnce, IsSeq}
 import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps}
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, IndexedBuffer, ListBuffer, ReusableBuilder}
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 import scala.util.{Random, Sorting}
@@ -4247,6 +4248,14 @@ object extensions extends extensions {
 	class IteratorExtension[E] private[collections](private val self :Iterator[E]) extends AnyVal {
 		@inline def nextOpt() :Opt[E] = if (self.hasNext) Got(self.next()) else Lack
 
+		/** Equivalent to `this.takeWhile(p).size`. */
+		def prefixLength(p :E => Boolean) :Int = {
+			var res = 0
+			while (self.hasNext && p(self.next()))
+				res += 1
+			res
+		}
+
 		/** Same as `this.zip(that)`, but throws a [[NoSuchElementException]] if the collections
 		  * are not of the same size. If exactly one of the iterators is empty, then the exception will be thrown
 		  * by this method. Otherwise, it will be thrown when one of the iterators becomes empty
@@ -5132,6 +5141,9 @@ object extensions extends extensions {
 		/** Standard jterator/iterator API for primitive `Int` iterators. Replaces `nextInt()`
 		  * with a manually specialized `next()`. */
 		@inline def jterator :IntJterator   = self.asInstanceOf[IntJterator]
+
+		//self.asScala is Iterator[Integer], not Iterator[Int]
+		@inline def toIterator :Iterator[Int] = self.asScala.asInstanceOf[Iterator[Int]]
 	}
 
 	/** Extension method for converting a [[java.util.PrimitiveIterator.OfLong PrimitiveIterator.OfLong]]
@@ -5141,6 +5153,9 @@ object extensions extends extensions {
 		/** Standard jterator/iterator API for primitive `Long` iterators. Replaces `nextLong()`
 		  * with a manually specialized `next()`. */
 		@inline def jterator :LongJterator = self.asInstanceOf[LongJterator]
+
+		//self.asScala is Iterator[java.lang.Long], not Iterator[Long]
+		@inline def toIterator :Iterator[Long] = self.asScala.asInstanceOf[Iterator[Long]]
 	}
 
 	/** Extension method for converting a [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]]
@@ -5154,6 +5169,9 @@ object extensions extends extensions {
 		/** Standard jterator/iterator API for primitive `Double` iterators. Replaces `nextDouble()`
 		  * with a manually specialized `next()`. */
 		@inline def jterator :DoubleJterator = self.asInstanceOf[DoubleJterator]
+
+		//self.asScala is Iterator[java.lang.Double], not Iterator[Double]
+		@inline def toIterator :Iterator[Double] = self.asScala.asInstanceOf[Iterator[Double]]
 	}
 
 	class JteratorExtension[I <: Jterator[_]] private[extensions] (private val self :JavaIterator[_]) extends AnyVal {
@@ -5171,60 +5189,82 @@ object extensions extends extensions {
 
 	//consider: moving these to companion objects.
 	/** Provides standard iterator methods for an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]. */
-	class IntJteratorExtension private[extensions] (private val self :JavaIntIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Int = self.nextInt()
+	class IntJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Int = asJava.nextInt()
+		def toIterator :Iterator[Int] = new JavaIteratorAdapters.IntIterator(asJava)
 		def ++(other :IntJterator) :IntJterator =
-			JavaConcatIterator(self, other.asInstanceOf[JavaIntIterator]).asInstanceOf[IntJterator]
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[IntJterator]
 	}
 	/** Provides standard iterator methods for an opaque [[java.util.PrimitiveIterator.OfLong PrimitiveIterator.OfLong]]. */
-	class LongJteratorExtension private[extensions] (private val self :JavaLongIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Long = self.nextLong()
+	class LongJteratorExtension private[extensions] (val asJava :JavaLongIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Long = asJava.nextLong()
+		def toIterator :Iterator[Long] = new JavaIteratorAdapters.LongIterator(asJava)
 		def ++(other :LongJterator) :LongJterator =
-			JavaConcatIterator(self, other.asInstanceOf[JavaLongIterator]).asInstanceOf[LongJterator]
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaLongIterator]).asInstanceOf[LongJterator]
 	}
 	/** Provides standard iterator methods for an opaque [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]]. */
-	class DoubleJteratorExtension private[extensions] (private val self :JavaDoubleIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Double = self.nextDouble()
-		def ++(other :DoubleJterator) :LongJterator =
-			JavaConcatIterator(self, other.asInstanceOf[JavaDoubleIterator]).asInstanceOf[LongJterator]
+	class DoubleJteratorExtension private[extensions] (val asJava :JavaDoubleIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Double = asJava.nextDouble()
+		def toIterator :Iterator[Double] = new JavaIteratorAdapters.DoubleIterator(asJava)
+		def ++(other :DoubleJterator) :DoubleJterator =
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaDoubleIterator]).asInstanceOf[DoubleJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]]
 	  * as an `Iterator[Float]`. */
-	class FloatJteratorExtension private[extensions] (private val self :JavaDoubleIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Float = self.nextDouble().toFloat
+	class FloatJteratorExtension private[extensions] (val asJava :JavaDoubleIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Float = asJava.nextDouble().toFloat
+		def toIterator :Iterator[Float] = new JavaIteratorAdapters.FloatIterator(asJava)
+		def ++(other :FloatJterator) :FloatJterator =
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaDoubleIterator]).asInstanceOf[FloatJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Short]`. */
-	class ShortJteratorExtension private[extensions] (private val self :JavaIntIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Short = self.nextInt().toShort
+	class ShortJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Short = asJava.nextInt().toShort
+		def toIterator :Iterator[Short] = new JavaIteratorAdapters.ShortIterator(asJava)
+		def ++(other :ShortJterator) :ShortJterator =
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[ShortJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Char]`. */
-	class CharJteratorExtension private[extensions] (private val self :JavaIntIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Char = self.nextInt().toChar
+	class CharJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Char = asJava.nextInt().toChar
+		def toIterator :Iterator[Char] = new JavaIteratorAdapters.CharIterator(asJava)
+		def ++(other :CharJterator) :CharJterator =
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[CharJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Byte]`. */
-	class ByteJteratorExtension private[extensions] (private val self :JavaIntIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Byte = self.nextInt().toByte
+	class ByteJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Byte = asJava.nextInt().toByte
+		def toIterator :Iterator[Byte] = new JavaIteratorAdapters.ByteIterator(asJava)
+		def ++(other :ByteJterator) :ByteJterator =
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[ByteJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Boolean]`. */
-	class BooleanJteratorExtension private[extensions] (private val self :JavaIntIterator) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :Boolean = self.nextInt() != 0
+	class BooleanJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :Boolean = asJava.nextInt() != 0
+		def toIterator :Iterator[Boolean] = new JavaIteratorAdapters.BooleanIterator(asJava)
+		def ++(other :BooleanJterator) :BooleanJterator =
+			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[BooleanJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.Iterator]] in a uniform manner with other jterators. */
-	class RefJteratorExtension[E] private[extensions] (private val self :JavaIterator[E]) extends AnyVal {
-		@inline def hasNext :Boolean = self.hasNext
-		@inline def next()  :E = self.next()
+	class RefJteratorExtension[E] private[extensions] (val asJava :JavaIterator[E]) extends AnyVal {
+		@inline def hasNext :Boolean = asJava.hasNext
+		@inline def next()  :E = asJava.next()
+		def toIterator :Iterator[E] = asJava.asScala
+		def ++[U >: E <: AnyRef](other :RefJterator[U]) :RefJterator[U] =
+			JavaConcatIterator(asJava.asInstanceOf[JavaIterator[U]], other.asInstanceOf[JavaIterator[U]])
+				.asInstanceOf[RefJterator[U]]
 	}
 
 

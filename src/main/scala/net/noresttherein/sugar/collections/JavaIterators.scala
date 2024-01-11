@@ -302,7 +302,44 @@ object JavaIterator {
 
 
 
-@SerialVersionUID(Ver) 
+private object JavaIteratorAdapters {
+	class BooleanIterator(underlying :JavaIntIterator) extends Iterator[Boolean] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Boolean = underlying.nextInt() != 0
+	}
+	class ByteIterator(underlying :JavaIntIterator) extends Iterator[Byte] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Byte = underlying.nextInt().toByte
+	}
+	class ShortIterator(underlying :JavaIntIterator) extends Iterator[Short] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Short = underlying.nextInt().toShort
+	}
+	class CharIterator(underlying :JavaIntIterator) extends Iterator[Char] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Char = underlying.nextInt().toChar
+	}
+	class IntIterator(underlying :JavaIntIterator) extends Iterator[Int] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Int = underlying.nextInt()
+	}
+	class LongIterator(underlying :JavaLongIterator) extends Iterator[Long] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Long = underlying.nextLong()
+	}
+	class DoubleIterator(underlying :JavaDoubleIterator) extends Iterator[Double] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Double = underlying.nextDouble()
+	}
+	class FloatIterator(underlying :JavaDoubleIterator) extends Iterator[Float] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :Float = underlying.nextDouble().toFloat
+	}
+}
+
+
+
+
 private class JavaConcatIterator[A, I <: JavaIterator[A]](iters :IndexedSeq[I], private[this] var idx :Int = 0)
 	extends JavaIterator[A]
 { this :I =>
@@ -483,7 +520,7 @@ private object JavaConcatIterator {
 
 
 @SerialVersionUID(Ver)
-object JIterator {
+object Jterator {
 	def over[T, I <: Jterator[_]](seq :collection.IndexedSeq[T])(implicit shape :JteratorShape[T, I]) :I =
 		IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
