@@ -5116,6 +5116,9 @@ object extensions extends extensions {
 		  */
 		def ++[A](next: => I)(implicit shape :JavaIteratorShape[A, I]) :I =
 			JavaConcatIterator(self, JavaIterator.delay(next))
+
+		/** A `Stepper` corresponding to this Java iterator type. */
+		def stepper[A](implicit shape :JavaIteratorShape[A, I]) :shape.Stepper = JavaIteratorStepper(self)
 	}
 
 	/** Extension methods for converting a [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
@@ -5177,13 +5180,18 @@ object extensions extends extensions {
 	class JteratorExtension[I <: Jterator[_]] private[extensions] (private val self :JavaIterator[_]) extends AnyVal {
 		@inline def hasNext :Boolean = self.hasNext
 
+		def asJava[E](implicit shape :JteratorShape[E, I]) :shape.JavaIterator = self.asInstanceOf[shape.JavaIterator]
+
+		def stepper[E](implicit shape :JteratorShape[E, I]) :shape.Stepper =
+			JavaIteratorStepper(self.asInstanceOf[shape.JavaIterator])(shape.javaIteratorShape)
+
 		def :++[E](other :I)(implicit shape :JteratorShape[E, I]) :I = {
 			implicit val iterShape = shape.javaIteratorShape.asInstanceOf[JavaIteratorShape[E, I]]
-			JavaConcatIterator(self.asInstanceOf[I], other).asInstanceOf[I]
+			JavaConcatIterator(self.asInstanceOf[I], other)
 		}
 		def ++[E](other: => I)(implicit shape :JteratorShape[E, I]) :I = {
 			implicit val iterShape = shape.javaIteratorShape.asInstanceOf[JavaIteratorShape[E, I]]
-			JavaConcatIterator(self.asInstanceOf[I], JavaIterator.delay(other)).asInstanceOf[I]
+			JavaConcatIterator(self.asInstanceOf[I], JavaIterator.delay(other))
 		}
 	}
 
@@ -5553,6 +5561,10 @@ object extensions extends extensions {
 		/** Adapts the given java spliterator to the corresponding stepper type. */
 		@inline def apply(spliterator :Spliterator.OfDouble) :DoubleStepper = SpliteratorStepper.ofDouble(
 			spliterator)
+
+//		/** Adapts the given colllection to its corresponding stepper type. */
+//		@inline def apply[T, S <: Stepper[_]](items :IterableOnce[T])(implicit shape :StepperShape[T, S]) :S =
+//			IteratorStepper(items)
 
 		/** Creates an empty stepper with the specified element type.
 		  * The returned object has an `apply()` method accepting an implicit

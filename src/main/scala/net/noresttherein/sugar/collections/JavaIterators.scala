@@ -2,8 +2,9 @@ package net.noresttherein.sugar.collections
 
 import java.util.Spliterator
 
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
+import scala.collection.View
 
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
 import net.noresttherein.sugar.extensions.{BooleanExtension, castTypeParamMethods}
@@ -14,6 +15,9 @@ import net.noresttherein.sugar.extensions.{BooleanExtension, castTypeParamMethod
 @SerialVersionUID(Ver)
 object JavaIterator {
 	final val Types :Specializable.Group[(Int, Long, Double)] = null
+
+	def from[T, I <: JavaIterator[_]](elems :IterableOnce[T])(implicit shape :JavaIteratorShape[T, I]) :I =
+		IteratorStepper(elems)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	def over[T, I <: JavaIterator[_]](seq :collection.IndexedSeq[T])(implicit shape :JavaIteratorShape[T, I]) :I =
 		IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]

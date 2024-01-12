@@ -28,7 +28,7 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
   * @author Marcin Mościcki
   */
 private trait IndexedStepper[+A, B, +Self >: Null <: IndexedStepper[A, B, Self]]
-	extends AllInStepper[A, B, Self] with EfficientSplit with Cloneable
+	extends AllInOneStepper[A, B, Self] with EfficientSplit with Cloneable
 {
 	protected def underlyingSize :Int
 	protected var index :Int
@@ -112,7 +112,7 @@ private abstract class AbstractIndexedStepper[+A, B, +Self >: Null <: IndexedSte
   * @author Marcin Mościcki
   */
 private trait IndexedReverseStepper[+A, B, +Self >: Null <: IndexedReverseStepper[A, B, Self]]
-	extends AllInStepper[A, B, Self] with EfficientSplit with Cloneable
+	extends AllInOneStepper[A, B, Self] with EfficientSplit with Cloneable
 {
 	protected def underlyingSize :Int
 	protected var index :Int
@@ -245,51 +245,51 @@ object IndexedSeqStepper {
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an `IndexedSeq[A]`. */
 	private class AnyIndexedSeqStepper[A](seq :Ops[A], from :Int, until :Int)
-		extends OfBox[A, A, AnyIndexedSeqStepper[A]](seq, from, until) with AllInAnyStepper[A]
+		extends OfBox[A, A, AnyIndexedSeqStepper[A]](seq, from, until) with AllInOneAnyStepper[A]
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Int]`. */
 	private class IntIndexedSeqStepper(seq :Ops[Int], from :Int, until :Int)
-		extends OfBox[Int, JInt, IntIndexedSeqStepper](seq, from, until) with BoxedAllInIntStepper
-		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
+		extends OfBox[Int, JInt, IntIndexedSeqStepper](seq, from, until) with BoxedAllInOneIntStepper
+		   with Spliterator.OfInt with JavaIntIterator //compiler complains if it doesn't get it
 
 	/** A ''boxing'' [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `IndexedSeq[Long]`. */
 	private class LongIndexedSeqStepper(seq :Ops[Long], from :Int, until :Int)
-		extends OfBox[Long, JLong, LongIndexedSeqStepper](seq, from, until) with BoxedAllInLongStepper
-		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
+		extends OfBox[Long, JLong, LongIndexedSeqStepper](seq, from, until) with BoxedAllInOneLongStepper
+		   with Spliterator.OfLong with JavaLongIterator //compiler complains if it doesn't get it
 
 	/** A ''boxing'' [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `IndexedSeq[Double]`. */
 	private class DoubleIndexedSeqStepper(seq :Ops[Double], from :Int, until :Int)
-		extends OfBox[Double, JDouble, DoubleIndexedSeqStepper](seq, from, until) with BoxedAllInDoubleStepper
-			with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
+		extends OfBox[Double, JDouble, DoubleIndexedSeqStepper](seq, from, until) with BoxedAllInOneDoubleStepper
+			with Spliterator.OfDouble with JavaDoubleIterator //compiler complains if it doesn't get it
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Char]`. */
 	private class CharIndexedSeqStepper(seq :Ops[Char], from :Int, until :Int)
-		extends IndexedSeqStepper[Int, JInt, CharIndexedSeqStepper](seq, from, until) with AllInIntStepper
-		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
+		extends IndexedSeqStepper[Int, JInt, CharIndexedSeqStepper](seq, from, until) with AllInOneIntStepper
+		   with Spliterator.OfInt with JavaIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = seq(nextIdx())
 	}
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Byte]`. */
 	private class ByteIndexedSeqStepper(seq :Ops[Byte], from :Int, until :Int)
-		extends IndexedSeqStepper[Int, JInt, ByteIndexedSeqStepper](seq, from, until) with AllInIntStepper
-		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
+		extends IndexedSeqStepper[Int, JInt, ByteIndexedSeqStepper](seq, from, until) with AllInOneIntStepper
+		   with Spliterator.OfInt with JavaIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = seq(nextIdx())
 	}
 
 	/** A ''boxing'' [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `IndexedSeq[Short]`. */
 	private class ShortIndexedSeqStepper(seq :Ops[Short], from :Int, until :Int)
-		extends IndexedSeqStepper[Int, JInt, ShortIndexedSeqStepper](seq, from, until) with AllInIntStepper
-		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
+		extends IndexedSeqStepper[Int, JInt, ShortIndexedSeqStepper](seq, from, until) with AllInOneIntStepper
+		   with Spliterator.OfInt with JavaIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = seq(nextIdx())
 	}
 
 	/** A ''boxing'' [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `IndexedSeq[Float]`. */
 	private class FloatIndexedSeqStepper(seq :Ops[Float], from :Int, until :Int)
-		extends IndexedSeqStepper[Double, JDouble, FloatIndexedSeqStepper](seq, from, until) with AllInDoubleStepper
-		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
+		extends IndexedSeqStepper[Double, JDouble, FloatIndexedSeqStepper](seq, from, until) with AllInOneDoubleStepper
+		   with Spliterator.OfDouble with JavaDoubleIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Double = seq(nextIdx())
 	}
@@ -434,7 +434,7 @@ object ArrayStepper {
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an `Array[A]`. */
 	private final class AnyArrayStepper[A](array :Array[A], from :Int, until :Int)
-		extends ArrayStepper[A, A, AnyArrayStepper[A]](array, from, until) with AllInAnyStepper[A]
+		extends ArrayStepper[A, A, AnyArrayStepper[A]](array, from, until) with AllInOneAnyStepper[A]
 	{
 		override def nextStep() :A = array(nextIdx())
 		override def iterator :Iterator[A] = new ArrayIterator(array, index, limit)
@@ -450,11 +450,11 @@ object ArrayStepper {
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an array of a reference type. */
 	private class AnyRefArrayStepper[A <: AnyRef](array :Array[AnyRef], from :Int, until :Int)
-		extends RefArrayStepper[A, A, AnyRefArrayStepper[A]](array, from, until) with AllInAnyStepper[A]
+		extends RefArrayStepper[A, A, AnyRefArrayStepper[A]](array, from, until) with AllInOneAnyStepper[A]
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Int]`. */
 	private final class IntArrayStepper(array :Array[Int], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, IntArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, IntArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -462,7 +462,7 @@ object ArrayStepper {
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Char]`. */
 	private final class CharArrayStepper(array :Array[Char], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, CharArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, CharArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -470,14 +470,14 @@ object ArrayStepper {
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Byte]`. */
 	private final class ByteArrayStepper(array :Array[Byte], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, ByteArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, ByteArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
 	}
 
 	private final class ShortArrayStepper(array :Array[Short], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, ShortArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, ShortArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -485,7 +485,7 @@ object ArrayStepper {
 
 	/** A [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `Array[Long]`. */
 	private final class LongArrayStepper(array :Array[Long], from :Int, until :Int)
-		extends ArrayStepper[Long, JLong, LongArrayStepper](array, from, until) with AllInLongStepper
+		extends ArrayStepper[Long, JLong, LongArrayStepper](array, from, until) with AllInOneLongStepper
 		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Long = array(nextIdx())
@@ -493,7 +493,7 @@ object ArrayStepper {
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Double]`. */
 	private final class DoubleArrayStepper(array :Array[Double], from :Int, until :Int)
-		extends ArrayStepper[Double, JDouble, DoubleArrayStepper](array, from, until) with AllInDoubleStepper
+		extends ArrayStepper[Double, JDouble, DoubleArrayStepper](array, from, until) with AllInOneDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Double = array(nextIdx())
@@ -501,7 +501,7 @@ object ArrayStepper {
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Float]`. */
 	private final class FloatArrayStepper(array :Array[Float], from :Int, until :Int)
-		extends ArrayStepper[Double, JDouble, FloatArrayStepper](array, from, until) with AllInDoubleStepper
+		extends ArrayStepper[Double, JDouble, FloatArrayStepper](array, from, until) with AllInOneDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Double = array(nextIdx())
@@ -511,11 +511,11 @@ object ArrayStepper {
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Integer`s. */
 	private final class IntRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
 		extends RefArrayStepper[Int, JInt, IntRefArrayStepper](array, from, until)
-		   with BoxedAllInIntStepper with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
+		   with BoxedAllInOneIntStepper with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Character`s. */
 	private final class CharRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, CharRefArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, CharRefArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx()).asInstanceOf[Char].toInt
@@ -523,7 +523,7 @@ object ArrayStepper {
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Byte`s. */
 	private final class ByteRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, ByteRefArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, ByteRefArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx()).asInstanceOf[Byte].toInt
@@ -531,7 +531,7 @@ object ArrayStepper {
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Any]` containing `Short`s. */
 	private final class ShortRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ArrayStepper[Int, JInt, ShortRefArrayStepper](array, from, until) with AllInIntStepper
+		extends ArrayStepper[Int, JInt, ShortRefArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx()).asInstanceOf[Short].toInt
@@ -539,7 +539,7 @@ object ArrayStepper {
 
 	/** A [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `Array[Any]` containing `Long`s. */
 	private final class LongRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ArrayStepper[Long, JLong, LongRefArrayStepper](array, from, until) with AllInLongStepper
+		extends ArrayStepper[Long, JLong, LongRefArrayStepper](array, from, until) with AllInOneLongStepper
 		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Long = array(nextIdx()).asInstanceOf[Long]
@@ -547,7 +547,7 @@ object ArrayStepper {
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Any]` containing `Double`s. */
 	private final class DoubleRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ArrayStepper[Double, JDouble, DoubleRefArrayStepper](array, from, until) with AllInDoubleStepper
+		extends ArrayStepper[Double, JDouble, DoubleRefArrayStepper](array, from, until) with AllInOneDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Double = array(nextIdx()).asInstanceOf[Double]
@@ -555,7 +555,7 @@ object ArrayStepper {
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Any]` containing `Float`s. */
 	private final class FloatRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ArrayStepper[Double, JDouble, FloatRefArrayStepper](array, from, until) with AllInDoubleStepper
+		extends ArrayStepper[Double, JDouble, FloatRefArrayStepper](array, from, until) with AllInOneDoubleStepper
 		   with Spliterator.OfDouble with JDoubleIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Double = array(nextIdx()).asInstanceOf[Double]
@@ -686,18 +686,18 @@ object ReverseArrayStepper {
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an `Array[A]`. */
 	private class ReverseAnyArrayStepper[A](array :Array[A], from :Int, until :Int)
-		extends ReverseArrayStepper[A, A, ReverseAnyArrayStepper[A]](array, from, until) with AllInAnyStepper[A]
+		extends ReverseArrayStepper[A, A, ReverseAnyArrayStepper[A]](array, from, until) with AllInOneAnyStepper[A]
 	{
 		override def nextStep() :A = array(nextIdx())
 		override def iterator :Iterator[A] = new ReverseArrayIterator(array, limit, index)
 	}
 
 	private class ReverseAnyRefArrayStepper[A <: AnyRef](array :Array[AnyRef], from :Int, until :Int)
-		extends ReverseRefArrayStepper[A, A, ReverseAnyRefArrayStepper[A]](array, from, until) with AllInAnyStepper[A]
+		extends ReverseRefArrayStepper[A, A, ReverseAnyRefArrayStepper[A]](array, from, until) with AllInOneAnyStepper[A]
 	
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Int]`. */
 	private class ReverseIntArrayStepper(array :Array[Int], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseIntArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseIntArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -705,7 +705,7 @@ object ReverseArrayStepper {
 	
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Char]`. */
 	private class ReverseCharArrayStepper(array :Array[Char], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseCharArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseCharArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -713,7 +713,7 @@ object ReverseArrayStepper {
 	
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Byte]`. */
 	private class ReverseByteArrayStepper(array :Array[Byte], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseByteArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseByteArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -721,7 +721,7 @@ object ReverseArrayStepper {
 	
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[Short]`. */
 	private class ReverseShortArrayStepper(array :Array[Short], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseShortArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseShortArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx())
@@ -729,7 +729,7 @@ object ReverseArrayStepper {
 	
 	/** A [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `Array[Long]`. */
 	private class ReverseLongArrayStepper(array :Array[Long], from :Int, until :Int)
-		extends ReverseArrayStepper[Long, JLong, ReverseLongArrayStepper](array, from, until) with AllInLongStepper
+		extends ReverseArrayStepper[Long, JLong, ReverseLongArrayStepper](array, from, until) with AllInOneLongStepper
 		   with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Long = array(nextIdx())
@@ -738,7 +738,7 @@ object ReverseArrayStepper {
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Double]`. */
 	private class ReverseDoubleArrayStepper(array :Array[Double], from :Int, until :Int)
 		extends ReverseArrayStepper[Double, JDouble, ReverseDoubleArrayStepper](array, from, until)
-		   with AllInDoubleStepper with Spliterator.OfDouble with JDoubleIterator
+		   with AllInOneDoubleStepper with Spliterator.OfDouble with JDoubleIterator
 	{
 		override def nextStep() :Double = array(nextIdx())
 	}
@@ -746,7 +746,7 @@ object ReverseArrayStepper {
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[Float]`. */
 	private class ReverseFloatArrayStepper(array :Array[Float], from :Int, until :Int)
 		extends ReverseArrayStepper[Double, JDouble, ReverseFloatArrayStepper](array, from, until)
-		   with AllInDoubleStepper with Spliterator.OfDouble with JDoubleIterator
+		   with AllInOneDoubleStepper with Spliterator.OfDouble with JDoubleIterator
 	{
 		override def nextStep() :Double = array(nextIdx())
 	}
@@ -755,11 +755,11 @@ object ReverseArrayStepper {
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[_]` containing `Int`s. */
 	private class ReverseIntRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
 		extends ReverseRefArrayStepper[Int, JInt, ReverseIntRefArrayStepper](array, from, until)
-		   with BoxedAllInIntStepper with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
+		   with BoxedAllInOneIntStepper with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[_]` containing `Char`s. */
 	private class ReverseCharRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseCharRefArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseCharRefArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx()).asInstanceOf[Char].toInt
@@ -767,7 +767,7 @@ object ReverseArrayStepper {
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[_]` containing `Byte`s. */
 	private class ReverseByteRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseByteRefArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseByteRefArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx()).asInstanceOf[Byte]
@@ -775,7 +775,7 @@ object ReverseArrayStepper {
 
 	/** An [[scala.collection.IntStepper IntStepper]] iterating over a slice of an `Array[_]` containing `Short`s. */
 	private class ReverseShortRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
-		extends ReverseArrayStepper[Int, JInt, ReverseShortRefArrayStepper](array, from, until) with AllInIntStepper
+		extends ReverseArrayStepper[Int, JInt, ReverseShortRefArrayStepper](array, from, until) with AllInOneIntStepper
 		   with Spliterator.OfInt with JIntIterator //compiler complains if it doesn't get it
 	{
 		override def nextStep() :Int = array(nextIdx()).asInstanceOf[Short]
@@ -784,17 +784,17 @@ object ReverseArrayStepper {
 	/** A [[scala.collection.LongStepper LongStepper]] iterating over a slice of an `Array[_]` containing `Long`s. */
 	private class ReverseLongRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
 		extends ReverseRefArrayStepper[Long, JLong, ReverseLongRefArrayStepper](array, from, until)
-		   with BoxedAllInLongStepper with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
+		   with BoxedAllInOneLongStepper with Spliterator.OfLong with JLongIterator //compiler complains if it doesn't get it
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[_]` containing `Double`s. */
 	private class ReverseDoubleRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
 		extends ReverseRefArrayStepper[Double, JDouble, ReverseDoubleRefArrayStepper](array, from, until)
-		   with BoxedAllInDoubleStepper with Spliterator.OfDouble with JDoubleIterator
+		   with BoxedAllInOneDoubleStepper with Spliterator.OfDouble with JDoubleIterator
 
 	/** A [[scala.collection.DoubleStepper DoubleStepper]] iterating over a slice of an `Array[_]` containing `Float`s. */
 	private class ReverseFloatRefArrayStepper(array :Array[AnyRef], from :Int, until :Int)
 		extends ReverseArrayStepper[Double, JDouble, ReverseFloatRefArrayStepper](array, from, until)
-		   with AllInDoubleStepper with Spliterator.OfDouble with JDoubleIterator
+		   with AllInOneDoubleStepper with Spliterator.OfDouble with JDoubleIterator
 	{
 		override def nextStep() :Double = array(nextIdx()).asInstanceOf[Float]
 	}
@@ -805,7 +805,7 @@ object ReverseArrayStepper {
 
 private class StringStepper(text :String, start :Int, end :Int)
 	extends AbstractIndexedStepper[Int, JInt, StringStepper](start, end)
-	   with AllInIntStepper with Spliterator.OfInt
+	   with AllInOneIntStepper with Spliterator.OfInt
 {
 	def this(text :String) = this(text, 0, text.length)
 	override def underlyingSize :Int = text.length
@@ -817,7 +817,7 @@ private class StringStepper(text :String, start :Int, end :Int)
 
 private class JStringBuilderStepper(text :JStringBuilder, start :Int, end :Int)
 	extends AbstractIndexedStepper[Int, JInt, JStringBuilderStepper](start, end)
-	   with AllInIntStepper with Spliterator.OfInt
+	   with AllInOneIntStepper with Spliterator.OfInt
 {
 	def this(text :JStringBuilder) = this(text, 0, text.length)
 	override def underlyingSize :Int = text.length

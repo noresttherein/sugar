@@ -2,11 +2,13 @@ package net.noresttherein.sugar.collections
 
 
 import scala.annotation.switch
-import scala.collection.{Stepper, StepperShape}
+import scala.collection.{AnyStepper, DoubleStepper, IntStepper, LongStepper, Stepper, StepperShape}
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, Shape, ShortShape}
 
 import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JFloat, JInt, JIterator, JLong, JShort}
+import net.noresttherein.sugar.collections
 import net.noresttherein.sugar.collections.JavaIteratorShape.IteratorShape
+import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -23,11 +25,13 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @author Marcin Mościcki
   */
 sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
+//	type Jterator <: collections.Jterator[_]
+	type Stepper  <: collection.Stepper[_]
 	import JteratorShape._
 
 	def shape :StepperShape.Shape
 
-	def stepperShape :StepperShape[A, _ <: Stepper[_]] =
+	def stepperShape :StepperShape[A, Stepper] =
 		(shape match {
 			case IntShape    => StepperShape.intStepperShape
 			case LongShape   => StepperShape.longStepperShape
@@ -37,7 +41,7 @@ sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
 			case FloatShape  => StepperShape.floatStepperShape
 			case ShortShape  => StepperShape.shortStepperShape
 			case _           => StepperShape.ReferenceShape
-		}).asInstanceOf[StepperShape[A, _ <: Stepper[_]]]
+		}).asInstanceOf[StepperShape[A, Stepper]]
 
 	def jteratorShape :JteratorShape[A, _ <: Jterator[_]] =
 		(shape match {
@@ -81,16 +85,58 @@ sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
 }
 
 
-private[collections] sealed abstract class Rank3JavaIteratorShapes {
-	implicit def anyJavaIteratorShape[A] :JavaIteratorShape[A, JavaIterator[A]] =
-		refJavaIteratorShape.asInstanceOf[JavaIteratorShape[A, JavaIterator[A]]]
 
-	private[this] val refJavaIteratorShape = new IteratorShape[Any, JavaIterator[Any]](ReferenceShape, JavaIterator.empty)
+
+@SerialVersionUID(Ver)
+object JavaIteratorShape extends Rank1JavaIteratorShapes {
+	@SerialVersionUID(Ver)
+	private[collections] class IteratorShape[A, I <: JIterator[_]](override val shape :Shape, override val empty :I)
+		extends JavaIteratorShape[A, I]
+
+	implicit val intJavaIteratorShape    :JavaIteratorShapeWithStepper[Int, JavaIntIterator, IntStepper] =
+		new IteratorShape(IntShape, JavaIterator.ofInt())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Int, JavaIntIterator, IntStepper]]
+	implicit val longJavaIteratorShape   :JavaIteratorShapeWithStepper[Long, JavaLongIterator, LongStepper] =
+		new IteratorShape(LongShape, JavaIterator.ofLong())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Long, JavaLongIterator, LongStepper]]
+	implicit val doubleJavaIteratorShape :JavaIteratorShapeWithStepper[Double, JavaDoubleIterator, DoubleStepper] =
+		new IteratorShape(DoubleShape, JavaIterator.ofDouble())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Double, JavaDoubleIterator, DoubleStepper]]
+}
+
+private[collections] sealed abstract class Rank1JavaIteratorShapes extends Rank2JavaIteratorShapes {
+	implicit val byteJavaIteratorShape   :JavaIteratorShapeWithStepper[Byte, JavaIntIterator, IntStepper] =
+		new IteratorShape(ByteShape, JavaIterator.ofInt())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Byte, JavaIntIterator, IntStepper]]
+	implicit val shortJavaIteratorShape  :JavaIteratorShapeWithStepper[Short, JavaIntIterator, IntStepper] =
+		new IteratorShape(ShortShape, JavaIterator.ofInt())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Short, JavaIntIterator, IntStepper]]
+	implicit val charJavaIteratorShape   :JavaIteratorShapeWithStepper[Char, JavaIntIterator, IntStepper] =
+		new IteratorShape(CharShape, JavaIterator.ofInt())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Char, JavaIntIterator, IntStepper]]
+	implicit val floatJavaIteratorShape  :JavaIteratorShapeWithStepper[Float, JavaDoubleIterator, DoubleStepper] =
+		new IteratorShape(FloatShape, JavaIterator.ofDouble())
+			.asInstanceOf[JavaIteratorShapeWithStepper[Float, JavaDoubleIterator, DoubleStepper]]
+
+	implicit val javaByteJavaIteratorShape :JavaIteratorShapeWithStepper[JByte, JavaIntIterator, IntStepper] =
+		byteJavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JByte, JavaIntIterator, IntStepper]]
+	implicit val javaShortJavaIteratorShape :JavaIteratorShapeWithStepper [JShort, JavaIntIterator, IntStepper] =
+		shortJavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JShort, JavaIntIterator, IntStepper]]
+	implicit val javaCharJavaIteratorShape :JavaIteratorShapeWithStepper[JChar, JavaIntIterator, IntStepper] =
+		charJavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JChar, JavaIntIterator, IntStepper]]
+	implicit val javaIntJavaIteratorShape :JavaIteratorShapeWithStepper[JInt, JavaIntIterator, IntStepper] =
+		JavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JInt, JavaIntIterator, IntStepper]]
+	implicit val javaLongJavaIteratorShape :JavaIteratorShapeWithStepper[JLong, JavaLongIterator, LongStepper] =
+		JavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JLong, JavaLongIterator, LongStepper]]
+	implicit val javaFloatJavaIteratorShape :JavaIteratorShapeWithStepper[JFloat, JavaDoubleIterator, DoubleStepper] =
+		floatJavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JFloat, JavaDoubleIterator, DoubleStepper]]
+	implicit val javaDoubleJavaIteratorShape :JavaIteratorShapeWithStepper[JDouble, JavaDoubleIterator, DoubleStepper] =
+		JavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[JDouble, JavaDoubleIterator, DoubleStepper]]
 }
 
 private[collections] sealed abstract class Rank2JavaIteratorShapes extends Rank3JavaIteratorShapes {
 	implicit def stepperJavaIteratorShape[A, S <: Stepper[_]](implicit shape :StepperShape[A, S])
-			:JavaIteratorShape[A, JavaIterator[A]] =
+	:JavaIteratorShapeWithStepper[A, JavaIterator[A], S] =
 		(shape.shape match {
 			case IntShape    => JavaIteratorShape.intJavaIteratorShape
 			case LongShape   => JavaIteratorShape.longJavaIteratorShape
@@ -100,48 +146,23 @@ private[collections] sealed abstract class Rank2JavaIteratorShapes extends Rank3
 			case FloatShape  => JavaIteratorShape.floatJavaIteratorShape
 			case ShortShape  => JavaIteratorShape.floatJavaIteratorShape
 			case _           => anyJavaIteratorShape
-		}).asInstanceOf[JavaIteratorShape[A, JIterator[A]]]
+		}).asInstanceOf[JavaIteratorShapeWithStepper[A, JavaIterator[A], S]]
 }
 
-private[collections] sealed abstract class Rank1JavaIteratorShapes extends Rank2JavaIteratorShapes {
-	implicit val byteJavaIteratorShape   :JavaIteratorShape[Byte, JavaIntIterator] =
-		new IteratorShape(ByteShape, JavaIterator.ofInt())
-	implicit val shortJavaIteratorShape  :JavaIteratorShape[Short, JavaIntIterator] =
-		new IteratorShape(ShortShape, JavaIterator.ofInt())
-	implicit val charJavaIteratorShape   :JavaIteratorShape[Char, JavaIntIterator] =
-		new IteratorShape(CharShape, JavaIterator.ofInt())
-	implicit val floatJavaIteratorShape  :JavaIteratorShape[Float, JavaDoubleIterator] =
-		new IteratorShape(FloatShape, JavaIterator.ofDouble())
+private[collections] sealed abstract class Rank3JavaIteratorShapes {
+	type JavaIteratorShapeWithStepper[-A, I <: JavaIterator[_], S <: Stepper[_]] =
+		JavaIteratorShape[A, I] { type Stepper = S }
 
-	implicit val javaByteJavaIteratorShape :JavaIteratorShape[JByte, JavaIntIterator] =
-		byteJavaIteratorShape.asInstanceOf[JavaIteratorShape[JByte, JavaIntIterator]]
-	implicit val javaShortJavaIteratorShape :JavaIteratorShape[JShort, JavaIntIterator] =
-		shortJavaIteratorShape.asInstanceOf[JavaIteratorShape[JShort, JavaIntIterator]]
-	implicit val javaCharJavaIteratorShape :JavaIteratorShape[JChar, JavaIntIterator] =
-		charJavaIteratorShape.asInstanceOf[JavaIteratorShape[JChar, JavaIntIterator]]
-	implicit val javaIntJavaIteratorShape :JavaIteratorShape[JInt, JavaIntIterator] =
-		JavaIteratorShape.asInstanceOf[JavaIteratorShape[JInt, JavaIntIterator]]
-	implicit val javaLongJavaIteratorShape :JavaIteratorShape[JLong, JavaLongIterator] =
-		JavaIteratorShape.asInstanceOf[JavaIteratorShape[JLong, JavaLongIterator]]
-	implicit val javaFloatJavaIteratorShape :JavaIteratorShape[JFloat, JavaDoubleIterator] =
-		floatJavaIteratorShape.asInstanceOf[JavaIteratorShape[JFloat, JavaDoubleIterator]]
-	implicit val javaDoubleJavaIteratorShape :JavaIteratorShape[JDouble, JavaDoubleIterator] =
-		JavaIteratorShape.asInstanceOf[JavaIteratorShape[JDouble, JavaDoubleIterator]]
+	implicit def anyJavaIteratorShape[A] :JavaIteratorShape[A, JavaIterator[A]] =
+		refJavaIteratorShape.asInstanceOf[JavaIteratorShapeWithStepper[A, JavaIterator[A], Stepper[A]]]
+
+	private[this] val refJavaIteratorShape =
+		new IteratorShape[Any, JavaIterator[Any]](ReferenceShape, JavaIterator.empty)
 }
 
-@SerialVersionUID(Ver)
-object JavaIteratorShape extends Rank1JavaIteratorShapes {
-	@SerialVersionUID(Ver)
-	private[collections] class IteratorShape[A, I <: JIterator[_]](override val shape :Shape, override val empty :I)
-		extends JavaIteratorShape[A, I]
 
-	implicit val intJavaIteratorShape    :JavaIteratorShape[Int, JavaIntIterator] =
-		new IteratorShape(IntShape, JavaIterator.ofInt())
-	implicit val longJavaIteratorShape   :JavaIteratorShape[Long, JavaLongIterator] =
-		new IteratorShape(LongShape, JavaIterator.ofLong())
-	implicit val doubleJavaIteratorShape :JavaIteratorShape[Double, JavaDoubleIterator] =
-		new IteratorShape(DoubleShape, JavaIterator.ofDouble())
-}
+
+
 
 
 /** A proof that [[net.noresttherein.sugar.collections.JavaIterator JavaIterator]] `I` has elements of type `E`.
@@ -155,9 +176,12 @@ object JavaIteratorShape extends Rank1JavaIteratorShapes {
   */
 @SerialVersionUID(Ver)
 final class JteratorShape[-E, I] private (val shape :Opt[StepperShape.Shape]) extends Equals with Serializable {
+	type JavaIterator <: collections.JavaIterator[_]
+	type Stepper      <: collection.Stepper[_]
+
 	import JavaIteratorShape._
 
-	def javaIteratorShape :JavaIteratorShape[E, _ <: JavaIterator[_]] = (
+	def javaIteratorShape :JavaIteratorShapeWithStepper[E, JavaIterator, Stepper] = (
 		if (!shape.isDefined)
 			anyJavaIteratorShape
 		else (shape.get : @switch) match {
@@ -171,9 +195,10 @@ final class JteratorShape[-E, I] private (val shape :Opt[StepperShape.Shape]) ex
 			case ShortShape     => shortJavaIteratorShape
 			case _              => anyJavaIteratorShape
 		}
-	).asInstanceOf[JavaIteratorShape[E, _ <: JavaIterator[_]]]
+	).asInstanceOf[JavaIteratorShapeWithStepper[E, JavaIterator, Stepper]]
 
-	def stepperShape :StepperShape[E, _ <: Stepper[_]] = javaIteratorShape.stepperShape
+	def stepperShape :StepperShape[E, Stepper] =
+		javaIteratorShape.stepperShape.castFrom[StepperShape[E, _ <: collection.Stepper[_]], StepperShape[E, Stepper]]
 
 	override def toString :String = shape match {
 		case Got(ReferenceShape) => "JteratorShape[_<:AnyRef, RefJterator[_]]"
@@ -198,21 +223,36 @@ final class JteratorShape[-E, I] private (val shape :Opt[StepperShape.Shape]) ex
 
 @SerialVersionUID(Ver)
 object JteratorShape extends JteratorShapeForAny {
-	implicit val intJteratorShape     :JteratorShape[Int, IntJterator]   = new JteratorShape(Got(IntShape))
-	implicit val longJteratorShape    :JteratorShape[Long, LongJterator] = new JteratorShape(Got(LongShape))
-	implicit val doubleJteratorShape  :JteratorShape[Double, DoubleJterator] = new JteratorShape(Got(DoubleShape))
-	implicit val floatJteratorShape   :JteratorShape[Float, FloatJterator] = new JteratorShape(Got(FloatShape))
-	implicit val shortJteratorShape   :JteratorShape[Short, ShortJterator] = new JteratorShape(Got(ShortShape))
-	implicit val charJteratorShape    :JteratorShape[Char, CharJterator] = new JteratorShape(Got(CharShape))
-	implicit val byteJteratorShape    :JteratorShape[Byte, ByteJterator] = new JteratorShape(Got(ByteShape))
+	type JteratorShapeAndTypes[-E, J <: Jterator[E], I <: JavaIterator[_], S <: Stepper[_]] =
+		JteratorShape[E, J] { type JavaIterator = J; type Stepper = S }
+
+	private def apply[E, J <: Jterator[E], I <: JavaIterator[_], S <: Stepper[_]]
+	                 (shape :Opt[Shape]) :JteratorShapeAndTypes[E, J, I, S] =
+		new JteratorShape[E, J](shape).asInstanceOf[JteratorShapeAndTypes[E, J, I, S]]
+
+	implicit val intJteratorShape     :JteratorShapeAndTypes[Int, IntJterator, JavaIntIterator, IntStepper] =
+		apply(Got(IntShape))
+	implicit val longJteratorShape    :JteratorShapeAndTypes[Long, LongJterator, JavaLongIterator, LongStepper] =
+		apply(Got(LongShape))
+	implicit val doubleJteratorShape  :JteratorShapeAndTypes[Double, DoubleJterator, JavaDoubleIterator, DoubleStepper] =
+		apply(Got(DoubleShape))
+	implicit val floatJteratorShape   :JteratorShapeAndTypes[Float, FloatJterator, JavaDoubleIterator, DoubleStepper] =
+		apply(Got(FloatShape))
+	implicit val shortJteratorShape   :JteratorShapeAndTypes[Short, ShortJterator, JavaIntIterator, IntStepper] =
+		apply(Got(ShortShape))
+	implicit val charJteratorShape    :JteratorShapeAndTypes[Char, CharJterator, JavaIntIterator, IntStepper] =
+		apply(Got(CharShape))
+	implicit val byteJteratorShape    :JteratorShapeAndTypes[Byte, ByteJterator, JavaIntIterator, IntStepper] =
+		apply(Got(ByteShape))
 	implicit val booleanJteratorShape :JteratorShape[Boolean, BooleanJterator] = new JteratorShape(Lack)
-	implicit def refJteratorShape[T <: AnyRef] :JteratorShape[T, RefJterator[T]] =
-		anyRefJteratorShape.asInstanceOf[JteratorShape[T, RefJterator[T]]]
+
+	implicit def refJteratorShape[T <: AnyRef] :JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]] =
+		anyRefJteratorShape.asInstanceOf[JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]]]
 
 	private val anyRefJteratorShape = new JteratorShape[AnyRef, RefJterator[AnyRef]](Got(ReferenceShape))
 }
 
-sealed abstract class JteratorShapeForAny {
+private[collections] sealed abstract class JteratorShapeForAny {
 	@inline implicit def anyJteratorShape[T] :JteratorShape[T, JavaIterator[T]] =
 		JteratorShape.refJteratorShape.asInstanceOf[JteratorShape[T, JavaIterator[T]]]
 }
