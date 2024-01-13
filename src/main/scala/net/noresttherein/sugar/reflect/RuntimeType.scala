@@ -9,7 +9,7 @@ import scala.reflect.runtime.universe.{Type, TypeTag, runtimeMirror, typeOf}
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.reflect.RuntimeType.{ExactRuntimeType, OfBoolean, OfDouble, OfFloat, OfInt, OfLong, OfUnit}
+import net.noresttherein.sugar.reflect.RuntimeType.{ExactRuntimeType, OfAnyRef, OfBoolean, OfByte, OfChar, OfDouble, OfFloat, OfInt, OfLong, OfShort, OfUnit}
 import net.noresttherein.sugar.reflect.Specialized.{Enforce, Fun1, Fun1Vals, Primitives, SpecializedExact}
 import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
 
@@ -512,28 +512,28 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 @SerialVersionUID(Ver)
 object RuntimeType extends SecondaryRuntimeTypeImplicits {
 
-	/** Retrieves implicit information about runtime representation of type 'E' at the point of calling.
-	  * This is just a shortcut for `implicitly[RuntimeType[E]]`. Note that there should always be an implicit value
+	/** Retrieves implicit information about runtime representation of type `T` at the point of calling.
+	  * This is just a shortcut for `implicitly[RuntimeType[T]]`. Note that there should always be an implicit value
 	  * for this parameter: if none is available in the local context, this factory is searched for a matching instance,
-	  * picking a declared constant if `E` is a known specializable type, or defaulting to a lookup based
-	  * on `@specialized` context. If `E` is abstract or not specializable, returned instance
-	  * will equal `RuntimeType.erased[E]`.
-	  * @tparam E possibly specialized type parameter of a generic method/class
-	  * @return implicit value for `RuntimeType[E]` (which should always be available),
-	  *         falling back to a lookup verifying real time type of 'E' in the place of invocation.
+	  * picking a declared constant if `T` is a known specializable type, or defaulting to a lookup based
+	  * on `@specialized` context. If `T` is abstract or not specializable, returned instance
+	  * will equal `RuntimeType.erased[T]`.
+	  * @tparam T possibly specialized type parameter of a generic method/class
+	  * @return implicit value for `RuntimeType[T]` (which should always be available),
+	  *         falling back to a lookup verifying real time type of `T` in the place of invocation.
 	  */
-	@inline def apply[E](implicit specialization :RuntimeType[E]) :RuntimeType[E] = specialization
+	@inline def apply[T](implicit specialization :RuntimeType[T]) :RuntimeType[T] = specialization
 
 
 	/** Return specialization type class instance which uses the given class as the runtime class.
-	  * This represents the case where no static information is lost except for potential type parameters of `E`,
+	  * This represents the case where no static information is lost except for potential type parameters of `T`,
 	  * if it is a generic type itself. For classes representing java primitives (including `Unit/void`)
 	  * the corresponding specialization constant is returned. For reference types
 	  * a [[net.noresttherein.sugar.reflect.RuntimeType.RefRuntimeType RefRuntimeType]] instance wrapping
 	  * the given class is returned. Custom value classes are likewise represented by their lifted reference type.
 	  * @return a `RuntimeType` instance which `runType` equals the given class.
 	  */
-	def ofClass[E](tpe :Class[E]) :RuntimeType[E] = (
+	def ofClass[T](tpe :Class[T]) :RuntimeType[T] = (
 		if (tpe.isPrimitive) tpe match {
 			case j.Integer.TYPE   => OfInt
 			case j.Double.TYPE    => OfDouble
@@ -549,32 +549,35 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 			OfAnyRef
 		else
 			new RefRuntimeType[AnyRef](tpe.asInstanceOf[Class[AnyRef]])
-	).asInstanceOf[RuntimeType[E]]
+	).asInstanceOf[RuntimeType[T]]
 
 	/** Return specialization type class instance specific to the given class, based on an implicit `ClassTag`.
-	  * Equal to [[ofClass]](classTag[E].runtimeClass).
-	  * Note that, in context where `ClassTag[E]` is available implicitly, but `E` is an erased abstract type,
+	  * Equal to [[net.noresttherein.sugar.reflect.RuntimeType.ofClass ofClass]](classTag[T].runtimeClass).
+	  * Note that, in context where `ClassTag[T]` is available implicitly, but `T` is an erased abstract type,
 	  * returned instance will be based on that class tag and equal to the appropriate value class specialization
-	  * for java primitives, despite values of `E` being auto boxed in that context.
+	  * for java primitives, despite values of `T` being auto boxed in that context.
 	  *
-	  * @tparam E type for which specialization should be resolved.
+	  * @tparam T type for which specialization should be resolved.
 	  * @return an instance representing either one of java primitives or `java.lang.Object`.
 	  */
-	@inline def of[E](implicit tpe :ClassTag[E]) :RuntimeType[E] =
-		ofClass(tpe.runtimeClass).asInstanceOf[RuntimeType[E]]
+	@inline def of[T](implicit tpe :ClassTag[T]) :RuntimeType[T] =
+		ofClass(tpe.runtimeClass).asInstanceOf[RuntimeType[T]]
 
-	/** The best representation of static type `E` based on implicit type information
+	/** The best representation of static type `T` based on implicit type information
 	  * once erasure is performed for reference types.
 	  * @return an instance representing either a java primitive (including `void`), synthetic `Null`
 	  *         or erasure/boxing (for custom value types) to `AnyRef`.
 	  */
 	override def ofType[T](implicit tag :TypeTag[T]) :RuntimeType[T] = RuntimeTypes.ofType(tag.tpe)
 
+	/** A shorthand for [[net.noresttherein.sugar.reflect.RuntimeType.ofClass ofClass]]`(array.getClass.getComponentType)` */
+	@inline def ofElements[T](array :Array[T]) :RuntimeType[T] = ofClass(array.getClass.getComponentType.castParam[T])
+
 	/** Most specific specialization for the given value. If `value` is a boxed java primitive, this will be the
 	  * specialization for the appropriate value type. In all other cases, it will be an instance representing
 	  * `value.getClass`.
 	  */
-	def ofValue[E](value :E) :RuntimeType[E] = //ofClass(UnboxedClass(value.getClass).asInstanceOf[Class[E]])
+	def ofValue[T](value :T) :RuntimeType[T] = //ofClass(UnboxedClass(value.getClass).asInstanceOf[Class[E]])
 		(value match {
 			case _ :j.Number => value match {
 				case _ :j.Integer => OfInt
@@ -590,16 +593,16 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 			case _ :Unit        => OfUnit
 			case _ if value.getClass eq classOf[AnyRef] => OfAnyRef
 			case _ => new RefRuntimeType[AnyRef](value.getClass.asInstanceOf[Class[AnyRef]])
-		}).asInstanceOf[RuntimeType[E]]
+		}).asInstanceOf[RuntimeType[T]]
 
 
-	/** Usage of type `E` as an unbound generic parameter in a fully specialized context.
+	/** Usage of type `T` as an unbound generic parameter in a fully specialized context.
 	  * If `tpe` is the token class for one of the java primitives, the corresponding constant is used to represent
 	  * the appropriate specialization. All reference types as well as custom value types are represented by an instance
-	  * whose `runType` equals `AnyRef`; in that case, the actual information about the class of `E` is discarded.
+	  * whose `runType` equals `AnyRef`; in that case, the actual information about the class of `T` is discarded.
 	  * @return one of primitive specializations or an instance representing erasure to `AnyRef`.
 	  */
-	def genericClass[E](tpe :Class[E]) :Specialized[E] = (
+	def genericClass[T](tpe :Class[T]) :Specialized[T] = (
 		if (tpe.isPrimitive) tpe match {
 			case j.Integer.TYPE   => OfInt
 			case j.Long.TYPE      => OfLong
@@ -613,13 +616,13 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 			case _                => Erased
 		} else
 			Erased
-	).asInstanceOf[Specialized[E]]
+	).asInstanceOf[Specialized[T]]
 
 	/** Equals to [[net.noresttherein.sugar.reflect.RuntimeType.genericClass genericClass]]`(clazz)`
 	  * for the runtime class as defined by an implicit `ClassTag`.
 	  */
-	@inline def generic[E](implicit tpe :ClassTag[E]) :Specialized[E] =
-		genericClass(tpe.runtimeClass).asInstanceOf[Specialized[E]]
+	@inline def generic[T](implicit tpe :ClassTag[T]) :Specialized[T] =
+		genericClass(tpe.runtimeClass).asInstanceOf[Specialized[T]]
 
 	/** Representation of any type as its auto boxed, erased form without any specialization or upper type bounds.
 	  * @return a singleton instance, with all type members are defined as `AnyRef`,
@@ -627,11 +630,11 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 	  *         [[net.noresttherein.sugar.reflect.RuntimeType.genericType genericType]],
 	  *         [[net.noresttherein.sugar.reflect.RuntimeType.boxType boxType]] all equal `classOf[AnyRef]`.
 	  */
-	@inline def erased[E] :Specialized[E] = Erased.asInstanceOf[Specialized[E]]
+	@inline def erased[T] :Specialized[T] = Erased.asInstanceOf[Specialized[T]]
 
-	/** Yields the representation of type `E` in the caller's context after erasure and specialization. */
-	def specialized[@specialized E] :Specialized[E] = {
-		new Enforce[E] match {
+	/** Yields the representation of type `T` in the caller's context after erasure and specialization. */
+	def specialized[@specialized T] :Specialized[T] = {
+		new Enforce[T] match {
 			case ErasedKey  => Erased
 			case IntKey     => OfInt
 			case LongKey    => OfLong
@@ -642,56 +645,56 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 			case FloatKey   => OfFloat
 			case ShortKey   => OfShort
 			case UnitKey    => OfUnit
-			case _ => Erased
+			case _          => Erased
 		}
-	}.asInstanceOf[Specialized[E]]
+	}.asInstanceOf[Specialized[T]]
 
 
 
 
-	/** An empty array guaranteed to hold values of `E`, with most specific element type based on the information
+	/** An empty array guaranteed to hold values of `T`, with most specific element type based on the information
 	  * about `E` in the caller's context.
-	  * @return an array which component type is some super class of `E`.
+	  * @return an array which component type is some super class of `T`.
 	  */
-	@inline def arrayOf[E](implicit specialized :RuntimeType[E]) :Array[E] =
-		specialized.emptyArray.asInstanceOf[Array[E]]
+	@inline def arrayOf[T](implicit specialized :RuntimeType[T]) :Array[T] =
+		specialized.emptyArray.asInstanceOf[Array[T]]
 
-	/** A new array of the given size, guaranteed to hold values of `E`, with most specific element type based on the
+	/** A new array of the given size, guaranteed to hold values of `T`, with most specific element type based on the
 	  * information about `E` in the caller's context. Note that this method can cause a breach in type safety,
-	  * as the returned object is actually of type `Array[S forSome { type S >: E }]`. Thus it is possible,
+	  * as the returned object is actually of type `Array[S forSome { type S >: T }]`. Thus it is possible,
 	  * by additional casting, to store in the array an element which is not of class `E` without throwing an exception,
 	  * likely resulting in `ClassCastException` at some later time when the element is accessed.
-	  * @return an array which component type is some super class of `E` as defined by the implicit `RuntimeType`
+	  * @return an array which component type is some super class of `T` as defined by the implicit `RuntimeType`
 	  *         type class.
 	  */
-	@inline def arrayOf[E](capacity :Int)(implicit specialized :RuntimeType[E]) :Array[E] =
-		specialized.newArray(capacity).asInstanceOf[Array[E]]
+	@inline def arrayOf[T](capacity :Int)(implicit specialized :RuntimeType[T]) :Array[T] =
+		specialized.newArray(capacity).asInstanceOf[Array[T]]
 
 
-	/** Creates an empty array guaranteed to be able to hold values of type `E`, as it would appear in erased
+	/** Creates an empty array guaranteed to be able to hold values of type `T`, as it would appear in erased
 	  * and specialized byte code. For inbuilt, specialized (by the implicit parameter) value classes a corresponding
 	  * java primitive array is returned. For `AnyRef` subtypes, the actual class of the created array
-	  * will be `Object[]`. The downcast required to present it as `Array[E]` is erased, so any `ClassCastException`s
+	  * will be `Object[]`. The downcast required to present it as `Array[T]` is erased, so any `ClassCastException`s
 	  * will be delayed until the client code attempts to enforce its type to an actual concrete class.
 	  * Note that it is still perfectly safe to call it if the array doesn't escape the context
-	  * in which `E` is an erased type, or if `E` is a primitive.
-	  * @param specialized specialization information about type `E`.
+	  * in which `T` is an erased type, or if `T` is a primitive.
+	  * @param specialized specialization information about type `T`.
 	  */
-	@inline def genericArrayOf[E](implicit specialized :RuntimeType[E]) :Array[E] =
-		specialized.emptyGenericArray.asInstanceOf[Array[E]]
+	@inline def genericArrayOf[T](implicit specialized :RuntimeType[T]) :Array[T] =
+		specialized.emptyGenericArray.asInstanceOf[Array[T]]
 
 
-	/** Creates an array of the given size, guaranteed to be able to hold values of type `E`, as it would appear
+	/** Creates an array of the given size, guaranteed to be able to hold values of type `T`, as it would appear
 	  * in erased and specialized byte code. For inbuilt, specialized (by the implicit parameter) value classes
 	  * a corresponding java primitive array is returned. For `AnyRef` subtypes, the actual class of the created array
-	  * will be `[Object`. The downcast required to present it as `Array[E]` is erased, so any `ClassCastException`s
+	  * will be `[Object`. The downcast required to present it as `Array[T]` is erased, so any `ClassCastException`s
 	  * will be delayed until the client code attempts to enforce its type to an actual concrete class.
 	  * Note that it is still perfectly safe to call it if the array doesn't escape the context
-	  * in which `E` is an erased type, or if `E` is a primitive.
-	  * @param specialized specialization information about type `E`
+	  * in which `E` is an erased type, or if `T` is a primitive.
+	  * @param specialized specialization information about type `T`
 	  */
-	@inline def genericArrayOf[E](capacity :Int)(implicit specialized :RuntimeType[E]) :Array[E] =
-		specialized.newGenericArray(capacity).asInstanceOf[Array[E]]
+	@inline def genericArrayOf[T](capacity :Int)(implicit specialized :RuntimeType[T]) :Array[T] =
+		specialized.newGenericArray(capacity).asInstanceOf[Array[T]]
 
 
 
@@ -1012,19 +1015,19 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 protected[reflect] sealed abstract class FallbackRuntimeTypeImplicit {
 	/** Runtime type resolution in the context of the caller.
 	  * Implemented by [[net.noresttherein.sugar.reflect.Specialized specialized]] in the subclass.
-	  * Returned instance reflects recognized runtime type of `E` in the reference point. If the call happens
-	  * from within code specialized for type argument `E` (or `E` is statically known to be a scala value type),
-	  * returned instance will carry information about the corresponding primitive. If `E` is erased, or known to be
+	  * Returned instance reflects recognized runtime type of `T` in the reference point. If the call happens
+	  * from within code specialized for type argument `T` (or `T` is statically known to be a scala value type),
+	  * returned instance will carry information about the corresponding primitive. If `T` is erased, or known to be
 	  * a reference type, returned instance represents scala `AnyRef`.
 	  */
-	@inline final implicit def specializedRuntimeType[@specialized E] :RuntimeType[E] = specialized[E]
+	@inline final implicit def specializedRuntimeType[@specialized T] :RuntimeType[T] = specialized[T]
 
-	/** Resolve local specialization information for type `E`. When called from code specialized for type `E`,
-	  * either explicitly by the `@specialized` annotation, or one where `E` is fully instantiated,
+	/** Resolve local specialization information for type `T`. When called from code specialized for type `T`,
+	  * either explicitly by the `@specialized` annotation, or one where `T` is fully instantiated,
 	  * it will return an instance associated with the specialized type.
 	  * Otherwise (including all `AnyRef` subtypes), a generic instance equal to `Specialized[Any]` is returned.
 	  */
-	def specialized[@specialized E] :Specialized[E]
+	def specialized[@specialized T] :Specialized[T]
 }
 
 
@@ -1218,24 +1221,86 @@ object Specialized extends SpecializedFromType {
 	  * There will always be a value for every type, in the most generic scenario representing the complete erasure
 	  * and boxing (for value types).
 	  */
-	@inline final def apply[T](implicit manifest :Specialized[T]) :Specialized[T] = manifest
+	@inline def apply[T](implicit manifest :Specialized[T]) :Specialized[T] = manifest
 
 	/** Determines the local specialization context at the point of calling.
 	  * Same as [[net.noresttherein.sugar.reflect.Specialized RuntimeType.specialized]].
 	  */
-	@inline final def locally[@specialized T] :Specialized[T] = RuntimeType.specialized[T]
+	@inline def locally[@specialized T] :Specialized[T] = RuntimeType.specialized[T]
+
+
+	/** Return specialization type class instance which uses the given class as the runtime class.
+	  * This represents the case where no static information is lost except for potential type parameters of `T`,
+	  * if it is a generic type itself. For classes representing java primitives (including `Unit/void`)
+	  * the corresponding specialization constant is returned. For reference types
+	  * a [[net.noresttherein.sugar.reflect.RuntimeType.RefRuntimeType RefRuntimeType]] instance wrapping
+	  * the given class is returned. Custom value classes are likewise represented by their lifted reference type.
+	  * @return a `RuntimeType` instance which `runType` equals the given class.
+	  */
+	@inline def ofClass[T](tpe :Class[T]) :Specialized[T] = RuntimeType.genericClass(tpe)
+
+	/** Return specialization type class instance specific to the given class, based on an implicit `ClassTag`.
+	  * Equal to [[net.noresttherein.sugar.reflect.Specialized.ofClass ofClass]](classTag[T].runtimeClass).
+	  * Note that, in context where `ClassTag[T]` is available implicitly, but `T` is an erased abstract type,
+	  * returned instance will be based on that class tag and equal to the appropriate value class specialization
+	  * for java primitives, despite values of `T` being auto boxed in that context.
+	  *
+	  * @tparam T type for which specialization should be resolved.
+	  * @return an instance representing either one of java primitives or `java.lang.Object`.
+	  */
+	@inline def of[T :ClassTag] :Specialized[T] = RuntimeType.generic[T]
+
+	/** The best representation of static type `T` based on implicit type information
+	  * once erasure is performed for reference types.
+	  * @return an instance representing either a java primitive (including `void`), synthetic `Null`
+	  *         or erasure/boxing (for custom value types) to `AnyRef`.
+	  */
+	def ofType[T :TypeTag] :Specialized[T] = RuntimeTypes.specializedType[T]
+
+	/** A shorthand for [[net.noresttherein.sugar.reflect.RuntimeType.ofClass ofClass]]`(array.getClass.getComponentType)` */
+	@inline def ofElements[T](array :Array[T]) :RuntimeType[T] = ofClass(array.getClass.getComponentType.castParam[T])
+
+	/** Most specific specialization for the given value. If `value` is a boxed java primitive, this will be the
+	  * specialization for the appropriate value type. In all other cases, it will be an instance representing
+	  * `value.getClass`.
+	  */
+	def ofValue[T](value :T) :Specialized[T] =
+		(value match {
+			case _ :j.Number => value match {
+				case _ :j.Integer => OfInt
+				case _ :j.Long    => OfLong
+				case _ :j.Double  => OfDouble
+				case _ :j.Byte    => OfByte
+				case _ :j.Float   => OfFloat
+				case _ :j.Short   => OfShort
+				case _            => Erasure
+			}
+			case _ :j.Character => OfChar
+			case _ :j.Boolean   => OfBoolean
+			case _ :Unit        => OfUnit
+			case _ if value.getClass eq classOf[AnyRef] => OfAnyRef
+			case _ => Erasure
+		}).asInstanceOf[Specialized[T]]
+
+	/** Representation of any type as its auto boxed, erased form without any specialization or upper type bounds.
+	  * @return a singleton instance, with all type members are defined as `AnyRef`,
+	  *         and [[net.noresttherein.sugar.reflect.RuntimeType.runType runType]],
+	  *         [[net.noresttherein.sugar.reflect.RuntimeType.genericType genericType]],
+	  *         [[net.noresttherein.sugar.reflect.RuntimeType.boxType boxType]] all equal `classOf[AnyRef]`.
+	  */
+	@inline def erased[T] :Specialized[T] = Erasure.asInstanceOf[Specialized[T]]
 
 
 	/** Default implicit value used for abstract types `T` based on passed `ClassTag`. Unlike the corresponding
 	  * `RuntimeType` implicit, all reference types and value types without java primitive representation are
 	  * collated to the same 'erased' instance.
 	  */
-	@inline implicit final def specializedClassTag[T :ClassTag] :Specialized[T] = RuntimeType.generic[T]
+	@inline implicit def specializedClassTag[T :ClassTag] :Specialized[T] = RuntimeType.generic[T]
 
 	/** Default implicit value for all reference types representing erasure. All returned values are equal regardless
 	  * of type parameter `T`.
 	  */
-	@inline implicit final def specializedRef[T <: AnyRef] :Specialized[T] = Erasure.asInstanceOf[Specialized[T]]
+	@inline implicit def specializedRef[T <: AnyRef] :Specialized[T] = Erasure.asInstanceOf[Specialized[T]]
 
 
 	/** Specialization for `Byte`. */

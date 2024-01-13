@@ -11,7 +11,7 @@ import org.scalacheck.util.ConsoleReporter
 import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension}
 import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
-import net.noresttherein.sugar.witness.DefaultValue
+import net.noresttherein.sugar.witness.{DefaultValue, NullValue}
 import net.noresttherein.sugar.testing.scalacheck.typeClasses.arbitraryAny
 
 
@@ -35,7 +35,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 	}
 
 	private abstract class ArrayIteratorProperty(name :String) extends ArrayProperty(name) {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val from0  = from max 0 min array.length
 				val until0 = until max from0 min array.length
@@ -71,28 +71,28 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 		}
 	}
 	new ArrayProperty("take") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, n :Int) =>
 				seq(ArrayIterator.slice(array, from, until).take(n)) ?=
 					ArraySeq.unsafeWrapArray(array.slice(from, until).take(n))
 			}
 	}
 	new ArrayProperty("drop") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, n :Int) =>
 				seq(ArrayIterator.slice(array, from, until).drop(n)) ?=
 					ArraySeq.unsafeWrapArray(array.slice(from, until).drop(n))
 			}
 	}
 	new ArrayProperty("slice") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, sliceFrom :Int, sliceUntil :Int) =>
 				seq(ArrayIterator.slice(array, from, until).slice(sliceFrom, sliceUntil)) ?=
 					ArraySeq.unsafeWrapArray(array.slice(from, until).slice(sliceFrom, sliceUntil))
 			}
 	}
 	new ArrayProperty("splitAt") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val (first, second) = ArrayIterator.slice(array, from, until).splitAt(n)
 				val (expect1, expect2) = array.slice(from, until).splitAt(n)
@@ -101,7 +101,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 			}
 	}
 	new ArrayProperty("foldLeft") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val iter = ArrayIterator.slice(array, from, until)
 				//this is a weird way of putting it, but it avoids the pitfall of array(0) being an empty string
@@ -111,7 +111,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 			}
 	}
 	new ArrayProperty("reduceLeft") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val slice = array.slice(from, until)
 				val iter = ArrayIterator.slice(array, from, until)
@@ -122,7 +122,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 			}
 	}
 	new ArrayProperty("reduceLeftOption") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val slice = array.slice(from, until)
 				val iter = ArrayIterator.slice(array, from, until)
@@ -130,7 +130,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 			}
 	}
 	new ArrayProperty("copyToArray") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val from0 = from max 0 min array.length
 				val size = array.view.slice(from, until).length
@@ -177,7 +177,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 			}
 	}
 	new ArrayProperty("toIndexedSeq") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (first :Int, length :Int) =>
 				val expect = ArraySeq.unsafeWrapArray(array.drop(first).take(length))
 				("immutable" |: (ArrayIterator.immutable(array.asInstanceOf[IArrayLike[X]], first, length).toIndexedSeq

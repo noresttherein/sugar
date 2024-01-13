@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.BufferedIterator
+import scala.collection.{BufferedIterator, Stepper, StepperShape}
 
 import net.noresttherein.sugar.vars.{Missing, Opt, Sure, Unsure}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack, existent_?}
@@ -32,6 +32,8 @@ trait ValIterator[@specialized(ElemTypes) +E] extends Iterator[E] {
 		override def toString :String =
 			ValIterator.this.toString + ".buffered" + (if (nonEmpty) "(" + hd + ")" else "")
 	}
+
+	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S = ValIteratorStepper(this, 0)
 }
 
 

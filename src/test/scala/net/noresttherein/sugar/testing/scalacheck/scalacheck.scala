@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.testing
 
+import scala.annotation.nowarn
+
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalacheck.util.Buildable
 
@@ -8,7 +10,7 @@ import org.scalacheck.util.Buildable
 
 package object scalacheck {
 
-	implicit def noShrinking[T] :Shrink[T] = Shrink { (x :T) => Stream.empty }
+	@nowarn implicit def noShrinking[T] :Shrink[T] = Shrink { (x :T) => Stream.empty }
 
 	@inline def collectionOf[C[_]] :CollectionGenFactory[C] = new CollectionGenFactory[C] {}
 

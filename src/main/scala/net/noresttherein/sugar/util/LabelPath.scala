@@ -700,8 +700,8 @@ object LabelPath {
 		private abstract class ConcatWithLabel[A, B <: Label] extends Concat[A, B] {
 			override type Result <: LabelPath[Result]
 			override type Path = Result
-			override def path(first :A, second :B) = apply(first, second)
-			override def unchecked(first :A, second :B)  = apply(first, second)
+			override def path(first :A, second :B) = this(first, second)
+			override def unchecked(first :A, second :B)  = this(first, second)
 		}
 		@SerialVersionUID(Ver)
 		private object concatLabelWithLabelPrototype extends ConcatWithLabel[Label, Label] {

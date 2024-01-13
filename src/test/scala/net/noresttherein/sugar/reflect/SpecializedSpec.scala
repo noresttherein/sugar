@@ -6,8 +6,6 @@ import scala.reflect.runtime.universe.TypeTag
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
 
-import net.noresttherein.sugar.reflect.RuntimeType.Specialized
-import net.noresttherein.sugar.reflect.RuntimeType.Specialized
 
 
 

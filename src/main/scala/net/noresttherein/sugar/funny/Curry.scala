@@ -363,7 +363,7 @@ object Curry {
 
 				override def cast(f: X => Y => Z) :X=>res.Mapped[L => R] = { x :X => res.cast(f(x)) }
 
-				override def map[O](f :X => Y => Z)(z :R => O) :Result[O] = { x :X => res.map(f(x))(z) }
+				override def map[O](f :X => Y => Z)(z :R => O) :this.Result[O] = { x :X => res.map(f(x))(z) }
 
 				override def skip[A[+G], P, W, V](curry :Curry[A, P, X => res.Result[W => V]]) =
 					res.skip[(A :=> P)#F, X, W, V](curry.__)

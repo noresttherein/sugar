@@ -9,7 +9,7 @@ import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import net.noresttherein.sugar.??!
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension, RefArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, MutableArrayExtension, RefArrayExtension}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension, SeqFactoryExtension, StringExtension, immutableIndexedSeqCompanionExtension}
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}
 import net.noresttherein.sugar.collections.{IRefArraySlice, OrderedItems, Prepended2Seq}
@@ -17,7 +17,7 @@ import net.noresttherein.sugar.reflect.prettyprint.localNameOf
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.witness.DefaultValue
+import net.noresttherein.sugar.witness.{DefaultValue, NullValue}
 import net.noresttherein.sugar.witness.DefaultValue.default
 
 
@@ -60,7 +60,7 @@ abstract class ArrayTestingUtils(name :String) extends Properties(name) {
 
 
 	trait GenericArrayProperty {
-		def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop
+		def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop
 	}
 
 	abstract class ArrayProperty(val name :String) extends GenericArrayProperty {
@@ -84,7 +84,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
 	new ArrayProperty("foreach") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
 			val buffer = new StringBuilder
 			array.foreach(buffer ++= _.toString)
 			val expect = new StringBuilder
@@ -97,7 +97,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 		}
 	}
 	new ArrayProperty("foreach(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val buffer = new StringBuilder
 				array.foreach(from, until)(buffer ++= _.toString)
@@ -137,7 +137,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 				s"expected mismatch at $expect, found at $result"
 		}
 
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				forAll { (split :Int, suffixLen :Byte) =>
 					val validFrom  = math.max(0, math.min(from, array.length))
@@ -160,7 +160,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 
 	new ArrayProperty("binarySearch(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
 			val sorted = array.sorted
 			import Ordering.Implicits.infixOrderingOps
 			forAll { (from :Int, until :Int) =>
@@ -234,14 +234,14 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 
 	new ArrayProperty("reverseInPlace") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
 			val reversed = seq(array).reverse
 			array.reverseInPlace()
 			seq(array) ?= reversed
 		}
 	}
 	new ArrayProperty("reverseInPlace(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int) =>
 				val expect =
 					array.view.take(from) ++
@@ -253,13 +253,13 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	}
 
 	new ArrayProperty("reverse") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
 			val reversed = seq(array).reverse
 			seq(array.reverse) ?= reversed
 		}
 	}
 	new ArrayProperty("reverse(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int) =>
 				val expect =
 					array.view.take(from) ++
@@ -271,7 +271,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 
 	new ArrayProperty("rotateLeft") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 				val expect =
 					if (array.length == 0)
@@ -286,7 +286,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("rotateLeft(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val start = math.max(0, math.min(from, array.length))
 				val end   = math.max(start, math.min(until, array.length))
@@ -307,7 +307,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("rotateRight") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 				val expect =
 					if (array.length == 0)
@@ -322,7 +322,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("rotateRight(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val start = math.max(0, math.min(from, array.length))
 				val end   = math.max(start, math.min(until, array.length))
@@ -343,7 +343,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	}
 
 	new ArrayProperty("rotatedLeft") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 				val expect =
 					if (array.length == 0)
@@ -357,7 +357,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("rotatedLeft(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val start = math.max(0, math.min(from, array.length))
 				val end   = math.max(start, math.min(until, array.length))
@@ -376,7 +376,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("rotatedRight") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 				val expect =
 					if (array.length == 0)
@@ -390,7 +390,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("rotatedRight(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val start = math.max(0, math.min(from, array.length))
 				val end   = math.max(start, math.min(until, array.length))
@@ -410,7 +410,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	}
 
 	new ArrayProperty("shiftLeft") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 //				if (n < -array.length | n > array.length)
 //					array.shiftLeft(n).throws[IndexOutOfBoundsException]
@@ -431,7 +431,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("shiftLeft(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val start  = math.max(0, math.min(from, array.length))
 				val end    = math.max(start, math.min(until, array.length))
@@ -452,7 +452,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	}
 
 	new ArrayProperty("shiftRight") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 //				if (n < -array.length | n > array.length)
 //					array.shiftRight(n).throws[IndexOutOfBoundsException]
@@ -473,7 +473,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("shiftRight(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int, n :Int) =>
 				val start  = math.max(0, math.min(from, array.length))
 				val end    = math.max(start, math.min(until, array.length))
@@ -494,7 +494,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	}
 
 	new ArrayProperty("shiftedLeft") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 				val copy = Array.copyOf(array, array.length)
 				(if (n == 0)
@@ -509,7 +509,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("shiftedRight") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { n :Int =>
 				val copy = Array.copyOf(array, array.length)
 				(if (n == 0)
@@ -555,14 +555,14 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 
 	new ArrayProperty("fill") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
 			val x = any[X]
 			array.fill(x)
 			array.toSeq ?= IndexedSeq.const(array.length)(x)
 		}
 	}
 	new ArrayProperty("fill(from, until)(elem)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int) =>
 				val x = any[X]
 				val expect = array.toBuffer
@@ -576,13 +576,13 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("clear") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
 			array.clear()
 			seq(array) ?= Array.fill(array.length)(default[X])
 		}
 	}
 	new ArrayProperty("clear(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int) =>
 				val expect = array.toBuffer
 				var i   = math.max(from, 0)
@@ -596,7 +596,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("clearIfRef") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) = {
 			val copy = array.toSeq
 			array.clearIfRef()
 			if (array.isInstanceOf[Array[AnyRef]] && !array.isInstanceOf[Array[Unit]])
@@ -606,7 +606,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 		}
 	}
 	new ArrayProperty("clearIfRef(from, until)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int) =>
 				val expect = array.toBuffer
 				array.clearIfRef(from, until)
@@ -624,7 +624,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 
 	new ArrayProperty("updateAll(Int => E)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
 			val clearedEven = array.clone()
 			clearedEven.updateAll { i :Int => if (i % 2 == 0) default[X] else array(i) }
 			val expectEven = array.zipWithIndex.map {
@@ -636,7 +636,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 		}
 	}
 	new ArrayProperty("updateAll(Int, Int)(Int => E)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val clearedOdd = array.clone()
 				clearedOdd.updateAll(from, until) { i :Int => if (i % 2 == 1) default[X] else array(i) }
@@ -649,7 +649,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("updateAll(Int, IterableOnce)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { index :Int =>
 				forAllIterable { elems :Iterable[X] =>
 					if (index < 0 || index > array.length - elems.size)
@@ -665,7 +665,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("updateAll(Int, ArrayLike)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (index :Int) =>
 				(forAll { elems :Array[X] =>
 					if (index < 0 || index > array.length - elems.length)
@@ -691,7 +691,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			}
 	}
 	new ArrayProperty("updateAll(Int, X, X, X*)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (index :Int) =>
 				val first  = any[X]
 				val second = any[X]
@@ -715,14 +715,14 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	new GenericPatchProperty {
 		override def methodName :String = "remove"
 		override def argList :String = "(Int)"
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { index :Int => patchProperty(array, Nil, index, 1)(array.removed(index)) }
 
 		override def apply[X :ClassTag :Arbitrary :Shrink :Prettify](array :Array[X], index :Int, replaced :Int => Int) =
 			??!
 	}
 	new ArrayProperty("removed(Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) =
 			forAll { (from :Int, until :Int) =>
 				val expect  = array.view.take(from) ++ array.view.drop(math.max(until, from)) to ArraySeq
 				seq(array.removed(from, until)) ?= expect
@@ -855,27 +855,27 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 
 	trait InsertProperty extends GenericPatchProperty {
 		override def methodName :String = "insertedAll"
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { index :Int => apply(array, index, _ => 0) }
 	}
 	trait UpdateProperty extends GenericPatchProperty {
 		override def methodName :String = "updatedAll"
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { index :Int => apply(array, index, identity) }
 	}
 	trait AppendProperty extends GenericPatchProperty {
 		override def methodName :String = "appendedAll"
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			apply(array, array.length, _ => 0)
 	}
 	trait PrependProperty extends GenericPatchProperty {
 		override def methodName :String = "prependedAll"
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			apply(array, 0, _ => 0)
 	}
 	trait PatchProperty extends GenericPatchProperty {
 		override def methodName :String = "patch"
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (index :Int, replaced :Int) =>
 				apply(array, index, _ => replaced)
 			}
@@ -1253,13 +1253,13 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExtension") {
 
 	new ArrayProperty("emptyLike") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop = {
 			val empty = Array.emptyLike(array)
 			(empty.length ?= 0) && empty.getClass == array.getClass
 		}
 	}
 	new ArrayProperty("like") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { len :Byte =>
 				if (len < 0)
 					Array.like(array, len).throws[NegativeArraySizeException]
@@ -1271,7 +1271,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 	}
 
 	new ArrayProperty("copyOfRange(Array, Int, Int, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int, offset :Int, newLength :Byte) =>
 				if (offset < 0)
 					Array.copyOfRange(array, from, until, offset, newLength).throws[IndexOutOfBoundsException]
@@ -1294,7 +1294,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 			}
 	}
 	new ArrayProperty("copyOfRange(ArrayLike, Int, Int, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			prop(array, true) && forAll { array :Array[Int] =>
 				val refArray = Array.copyAs[Any](array, array.length)
 				prop(refArray, false) :| "RefArray[Int]"
@@ -1327,7 +1327,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 	}
 
 	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { len :Byte =>
@@ -1352,7 +1352,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 			}
 	}
 	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { len :Byte =>
@@ -1380,7 +1380,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 	}
 
 	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					val res = Array.copyOfRanges(array, from1, until1, array2, from2, until2)
@@ -1394,7 +1394,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 			}
 	}
 	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					val refArray = array.toArray[Any].asInstanceOf[RefArray[X]]
@@ -1411,7 +1411,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 	}
 
 	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int, Array, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
@@ -1431,7 +1431,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 			}
 	}
 	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int, ArrayLike, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
@@ -1456,7 +1456,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 	}
 
 	new ArrayProperty("copyOfRanges(Array, Int, Int, Array, Int, Int, Array, Int, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
@@ -1493,7 +1493,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 			}
 	}
 	new ArrayProperty("copyOfRanges(ArrayLike, Int, Int, ArrayLike, Int, Int, ArrayLike, Int, Int, Int)") {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from1 :Int, until1 :Int) =>
 				forAll { (array2 :Array[X], from2 :Int, until2 :Int) =>
 					forAll { (array3 :Array[X], from3 :Int, until3 :Int) =>
@@ -1534,7 +1534,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 	}
 
 	private abstract class CyclicCopyArrayProperty(name :String) extends ArrayProperty(name) {
-		override def apply[X :ClassTag :Ordering :DefaultValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
+		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (srcPos :Int, dstPos :Int, len :Int, length2 :Byte) =>
 				val res = new Array[X](length2 & 0xff)
 				if (!validate(array, srcPos, res, dstPos, len))

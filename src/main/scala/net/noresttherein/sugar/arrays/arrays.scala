@@ -40,13 +40,6 @@ package object arrays {
 	  * @see [[net.noresttherein.sugar.arrays.MutableArray MutableArray]]
 	  */
 	type ArrayLike[+E] >: MutableArray[_ <: E] <: AnyRef
-//
-//	/** A supertype of both `Array[_ <: E]` and `IArray[E]`, used when the array is guaranteed to be a subclass
-//	  * of Java `E[]` (and thus can safely be cast to `Array[E]`). This stands in contrast to
-//	  * [[net.noresttherein.sugar.arrays.RefArrayLike RefArrayLike]] subtypes
-//	  * of [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]].
-//	  */
-//	type TypedArray[+E] >: Array[_ <: E] <: ArrayLike[E]
 
 	/** Common supertype of immutable [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]]
 	  * subtypes: [[net.noresttherein.sugar.arrays.IArray IArray]]
@@ -64,8 +57,8 @@ package object arrays {
 	  * [[net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension MutableArrayExtension]], enabled by importing
 	  * `sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.MutableArrayExtension MutableArrayExtension]],
 	  * or, indirectly, from `sugar.extensions`. It is a subtype of [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]],
-	  * and thus, it inherits also the inteface from its
-	  * [[net.noresttherein.sugar.arrays.ArrayLikeExtension ArrayLikeExtension]], which must be separately imported
+	  * and thus, it inherits also the interface from its
+	  * [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension ArrayLikeExtension]], which must be separately imported
 	  * from the said packages.
 	  * @see [[net.noresttherein.sugar.arrays.MutableArray$ MutableArray]]
 	  */ //consider: renaming to MutArrayLike or MutArray
@@ -79,6 +72,8 @@ package object arrays {
 	  * as well as manually specialized variants for standard value types. Conversions enabling all these methods
 	  * can be imported from `sugar.arrays.`[[net.noresttherein.sugar.arrays.extensions extensions]] or
 	  * `sugar.`[[net.noresttherein.sugar.extensions extensions]].
+	  * They treat the array like an immutable collection, and methods from [[scala.collection.ArrayOps ArrayOps]]
+	  * which would normally copy the array, like `drop(0)`, will return the array itself.
 	  *
 	  * Note that this type is covariant, hence an `IArray[Any]` may be in fact an array of any value type,
 	  * not only reference types. In general, if `A` is a value type, it is safe to cast

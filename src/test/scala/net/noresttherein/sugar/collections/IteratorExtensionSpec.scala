@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -7,7 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
-import net.noresttherein.sugar.extensions.{BooleanExtension, IntExtension, IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, satisfyingMethods}
+import net.noresttherein.sugar.extensions.{BooleanExtension, IntExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, satisfyingMethods}
 import net.noresttherein.sugar.testing.scalacheck.extensions._
 
 
@@ -387,7 +388,9 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("keep") = iteratorProperty { iter :(() => Iterator[Int]) =>
 		implicit val infiniteLazyList :Arbitrary[LazyList[Boolean]] =
 			Arbitrary(Gen.infiniteLazyList(Arbitrary.arbBool.arbitrary))
-		implicit val shrink :Shrink[LazyList[Boolean]] = Shrink { list :LazyList[Boolean] => list #:: Stream.empty }
+		@nowarn implicit val shrink :Shrink[LazyList[Boolean]] = Shrink {
+			list :LazyList[Boolean] => list #:: Stream.empty
+		}
 		implicit val pretty :LazyList[Boolean] => Pretty = list => Pretty { _ => list.toString }
 		forAll { bools :LazyList[Boolean] =>
 			val pred = bools.take(iter().size).toIndexedSeq

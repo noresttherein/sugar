@@ -389,11 +389,11 @@ object fun {
 			new ComposedFun3(g, this)
 
 		/** Double dispatch target of `andThen` to ensure proper specialization. */
-		protected[fun] def andThen_:[@specialized(Arg) W](const :X) :W => Y = new ConstFun[W, Y](apply(const))
+		protected[fun] def andThen_:[@specialized(Arg) W](const :X) :W => Y = new ConstFun[W, Y](this(const))
 
 		/** Double dispatch target of `andThen` to ensure proper specialization. */
 		protected[fun] def andThen2_:[@specialized(Args) V, @specialized(Args) W](const :X) :(V, W) => Y =
-			new ConstFun2[V, W, Y](apply(const))
+			new ConstFun2[V, W, Y](this(const))
 
 
 		def canEqual(that :Any) :Boolean = false

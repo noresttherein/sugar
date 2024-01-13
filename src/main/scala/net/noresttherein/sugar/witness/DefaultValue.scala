@@ -90,7 +90,7 @@ object DefaultValue {
   * The difference from `DefaultValue` is an addition of `NullValue[Null] == null` for true reference types.
   */ //Not specialized anymore, to avoid boxing in get on generic calls.
 @SerialVersionUID(Ver)
-final class NullValue[T] private[witness] (override val get :T) extends DefaultValue[T] {
+final class NullValue[+T] private[witness] (override val get :T) extends DefaultValue[T] {
 	override val supplier    :Supplier[_ <: T] = () => get
 	override val toFunction0 :() => T          = () => get
 }
