@@ -43,7 +43,7 @@ trait extensions extends Any {
 	@inline implicit final def LongExtension(self :Long) :LongExtension = new LongExtension(self)
 	@inline implicit final def FloatExtension(self :Float) :FloatExtension = new FloatExtension(self)
 	@inline implicit final def DoubleExtension(self :Double) :DoubleExtension = new DoubleExtension(self)
-	@inline implicit final def hasOrderingExtension[T](self :T)(implicit ordering :Ordering[T]) :hasOrderingExtension[T] =
+	@inline implicit final def hasOrderingExtension[T](self :T) :hasOrderingExtension[T] =
 		new hasOrderingExtension(self)
 
 	/** Adds `random` extension methods to `Byte` singleton object. */
