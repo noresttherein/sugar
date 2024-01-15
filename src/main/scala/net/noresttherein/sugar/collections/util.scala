@@ -10,7 +10,9 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.exceptions.??!
-import net.noresttherein.sugar.extensions.{castingMethods, classNameMethods}
+import net.noresttherein.sugar.extensions.castingMethods
+import net.noresttherein.sugar.typist.casting.extensions.castingMethods
+import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -171,8 +173,6 @@ private[sugar] object IndexedIterable {
 			case seq :collection.IndexedSeqOps[X, CC, CC[X]] @unchecked => seq match {
 				case _ :Vector[X] =>
 					Got(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
-//				case ArrayLike.Wrapped.Slice(_, from, until) =>
-//					Got(IndexedSeqLike.forIndexedSeqOps.asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
 				case _ if seq.length <= FastUpdateThreshold =>
 					Got(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
 				case _ => Lack
@@ -277,7 +277,7 @@ private object HasFastSlice {
 			case _    :collection.IndexedSeqOps[A, IterableOnce, IterableOnce[A]] @unchecked => items match {
 				case view  :IndexedSeqView[A]        => Got(view)
 				case vec   :Vector[A]                => Got(vec)
-				case pass  :RelayArray[A]           => Got(pass)
+				case pass  :RelayArray[A]            => Got(pass)
 				case slice :ArrayLikeSlice[A]        => Got(slice)
 				case seq   :collection.IndexedSeq[A] => Got(new SeqSlice(seq))
 				case ArrayLike.Wrapped.Slice(array, from, until) => Got(ArrayLikeSlice.slice(array, from, until))

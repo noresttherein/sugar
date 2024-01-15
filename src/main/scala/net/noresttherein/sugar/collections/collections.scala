@@ -8,7 +8,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer, IndexedBuffer}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{IArray, IArrayLike, IRefArray}
+import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IArrayLike, IRefArray}
 import net.noresttherein.sugar.matching.MatchPattern
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
@@ -33,12 +33,24 @@ package object collections {
 	type JavaIntIterator    = PrimitiveIterator.OfInt
 	type JavaLongIterator   = PrimitiveIterator.OfLong
 	type JavaDoubleIterator = PrimitiveIterator.OfDouble
-//	type JavaFloatIterator
-//	type JavaByteIterator
-//	type JavaCharIterator
-//	type JavaShortIterator
-//	type JavaBooleanIterator
 
+	/** An opaque wrapper over a Java iterator, possibly one of the [[java.util.PrimitiveIterator PrimitiveIterator]]
+	  * subclasse, exposing iterator-like API, returning elements of type `E`. Specialized subtypes are available
+	  * for all built in value types, allowing iteration over them without boxing or explicit casting/convnersion.
+	  * It follows, that the type of the elements of this jterator may differ from the element type of the underlying
+	  * [[net.noresttherein.sugar.collections.JavaIterator JavaIterator]]. The extension methods available through
+	  * `net.noresttherein.sugar.collections.extensions.`[[net.noresttherein.sugar.collections.extensions.JTeratorExtension JteratorExtension]]
+	  * and, in particular, extension methods for its specialized subtypes, convert `Int`, `Long`, or `Double`
+	  * into one of the types with lower precision.
+	  * @see [[net.noresttherein.sugar.collections.ByteJterator ByteJterator]]
+	  * @see [[net.noresttherein.sugar.collections.CharJterator CharJterator]]
+	  * @see [[net.noresttherein.sugar.collections.ShortJterator ShortJterator]]
+	  * @see [[net.noresttherein.sugar.collections.IntJterator IntJterator]]
+	  * @see [[net.noresttherein.sugar.collections.LongJterator LongJterator]]
+	  * @see [[net.noresttherein.sugar.collections.FloatJterator FloatJterator]]
+	  * @see [[net.noresttherein.sugar.collections.DoubleJterator DoubleJterator]]
+	  * @see [[net.noresttherein.sugar.collections.BooleanJterator BooleanJterator]]
+	  */
 	type Jterator[+E]
 
 	/** An opaque alias for [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]],
@@ -120,6 +132,8 @@ package object collections {
 
 	private final val RelayArrayClassName = "net.noresttherein.sugar.collections.RelayArray"
 
+	//todo: move all package protected methods and fields to another object for binary compatibility
+	// (or make them private/public).
 	/** A factory of sequences wrapping an arrays in a [[net.noresttherein.sugar.collections.RelayArray RelayArray]],
 	  * if the latter is not on the classpath.
 	  */
@@ -128,6 +142,10 @@ package object collections {
 			val factoryClass = Class.forName(RelayArrayClassName + "Internals$")
 			factoryClass.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]]
 		}
+
+	//consider: nothing really prevents us from making it ArrayLikeSliceFactory
+	final val DefaultArraySeq :ArrayLikeSliceWrapper[IndexedSeq, IArrayLike] =
+		arrayWrapperFromProperty(defaultArraySeqProperty) orElse RelayArrayFactory getOrElse IArrayLikeSlice
 
 	/** The default `IndexedSeq` implementation used by the library. */
 	private[collections] val DefaultIndexedSeq :SeqFactory[IndexedSeq] =
@@ -144,27 +162,31 @@ package object collections {
 	val DefaultBuffer :BufferFactory[Buffer] =
 		bufferFactoryFromProperty(defaultBufferProperty) getOrElse MatrixBuffer.untagged
 
+	//todo: see if we can drop the IndexedBuffer bound and replace usages of TemporaryBuffer with DefaultBuffer
 	private[collections] val TemporaryBuffer :BufferFactory[IndexedBuffer] = MatrixBuffer.untagged
 
 
-	private def loadSeqFactory[CC[X] <: collection.Seq[X]]
-	                          (collectionClassName :String)(implicit tag :ClassTag[CC[Any]]) :SeqFactory[CC] =
-	{
-		val factory = try {
-			val companionClass = Class.forName(collectionClassName + '$')
-			val field = companionClass.getField("MODULE$")
+	private def loadObject(className :String) :Any =
+		try {
+			val companionClass = Class.forName(className + '$')
+			val field          = companionClass.getField("MODULE$")
 			field.get(null)
 		} catch {
 			case cause :Exception => try {
-				val factoryClass = Class.forName(collectionClassName)
+				val factoryClass = Class.forName(className)
 				factoryClass.getConstructor().newInstance()
 			} catch {
 				case e :Exception =>
 					throw e.addInfo(
-						collectionClassName + " is neither a Scala object, nor does it have a default constructor"
+						className + " is neither a Scala object, nor does it have a default constructor"
 					).suppress(cause)
 			}
 		}
+
+	private def loadSeqFactory[CC[X] <: collection.Seq[X]]
+	                          (collectionClassName :String)(implicit tag :ClassTag[CC[Any]]) :SeqFactory[CC] =
+	{
+		val factory = loadObject(collectionClassName)
 		val f = try factory.asInstanceOf[SeqFactory[CC]] catch {
 			case e :ClassCastException =>
 				throw new ClassCastException(
@@ -204,6 +226,26 @@ package object collections {
 			}
 		}
 
+	private def arrayWrapperFromProperty(property :String) :Opt[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]] =
+		Opt(System.getProperty(property)) match {
+			case Got("scala.collection.immutable.ArraySeq") =>
+				Got(ArraySeqFactory.asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]])
+			case Got(className) =>
+					try {
+						val factory   = loadObject(className).asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]]
+						if (!factory.isImmutable)
+							throw new IllegalStateException(
+								"Default ArrayLikeSlicefactory is not immutable: " + factory + ": " + className + "."
+							)
+						val testInput = IArray(1, 2, 3, 4)
+						val _         = factory.slice(testInput, 1, 3)
+						Got(factory)
+					} catch {
+						case e :Exception =>
+							throw e.addInfo("Property " + property + " does not denote an ArrayLikeSliceWrapper")
+					}
+			case _ => Lack
+		}
 }
 
 

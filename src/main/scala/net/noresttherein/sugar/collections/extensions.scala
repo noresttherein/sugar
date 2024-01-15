@@ -4836,7 +4836,7 @@ object extensions extends extensions {
 	}
 
 	sealed trait StringExtensionConversion extends (String => StringExtension) {
-		@inline final def apply(self :String)(implicit dummy :DummyImplicit) :StringExtension =
+		@inline final def apply(self :String)(implicit __ :Ignored) :StringExtension =
 			new StringExtension(self)
 	}
 	private val StringExtensionConversionPrototype =

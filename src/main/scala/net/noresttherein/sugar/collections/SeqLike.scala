@@ -8,7 +8,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, IArray, IArrayLike, IRefArray, RefArray, RefArrayLike}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, IArrayExtension, IArrayLikeExtension, IRefArrayExtension, RefArrayExtension, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, IArrayExtension, IArrayLikeExtension, IRefArrayExtension, MutableArrayExtension, RefArrayExtension, RefArrayLikeExtension}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, JavaStringBuilderExtension}
 import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic

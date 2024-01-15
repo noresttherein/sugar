@@ -3,16 +3,17 @@ package net.noresttherein.sugar.collections
 import scala.Array.emptyObjectArray
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.Stepper.EfficientSplit
-import scala.collection.immutable.{AbstractSeq, IndexedSeqOps}
+import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps}
 import scala.collection.mutable.{ArrayBuilder, Builder}
-import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, mutable}
-import scala.reflect.ClassTag
+import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, immutable, mutable}
+import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, RefArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, RefArrayExtension}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
+import net.noresttherein.sugar.reflect.classes
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 
 
@@ -72,35 +73,6 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
 		if (len == 0) throw new NoSuchElementException(toString + ".last")
 		else array(startIndex + len - 1)
 	}
-/*
-
-	override def tail :C = {
-		val len = size
-		if (len == 0) throw new UnsupportedOperationException(toString + ".tail")
-		else trustedSlice(1, len)
-	}
-	override def init :C = {
-		val len = size
-		if (len == 0) throw new UnsupportedOperationException(toString + ".init")
-		else trustedSlice(0, len - 1)
-	}
-
-	override def take(n :Int) :C = slice(0, n)
-	override def drop(n :Int) :C = slice(n, size)
-	override def takeRight(n :Int) :C = if (n <= 0) empty else { val len = size; slice(len - math.max(n, 0), len) }
-	override def dropRight(n :Int) :C = if (n <= 0) coll else slice(0, size - math.max(n, 0))
-
-	override def slice(from :Int, until :Int) :C = {
-		val length = size
-		if (until <= from | until <= 0 || from >= length) empty
-		else if (from <= 0 & until >= length) coll
-		else if (from <= 0) trustedSlice(0, until)
-		else if (until >= length) trustedSlice(from, length)
-		else trustedSlice(from, until)
-	}
-
-	protected def trustedSlice(from :Int, until :Int) :C
-*/
 
 	override def iterator :Iterator[E] = ArrayIterator(array, startIndex, size)
 
@@ -180,19 +152,27 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
 
 
 
-private[sugar] trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] {
+trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] {
 	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]].
 	  * The collection will share the contents with the array,
 	  * and thus any modifications to either will be visible in the other.
 	  */
 	def wrap[E](array :A[E]) :C[E]
 
-	def isImmutable :Boolean = false
-	def isMutable   :Boolean = false
+	//consider: we could instead have separate IArrayLikeWrapper and MutableArrayWrapper to enforce this relationship,
+	// but it would involve tripling every descending trait.
+	def isImmutable :Boolean = false //this.isInstanceOf[IArrayLikeWrapper[_, _]]
+	def isMutable   :Boolean = false //this.asInstanceOf[MutableArrayWrapper[_, _]]
 //	def mutability :Mutability = Mutability.Unspecified
 }
+//
+//private[sugar] trait IArrayLikeWrapper[+C[E] <: immutable.Iterable[E], -A[E] <: IArrayLike[E]]
+//	extends ArrayLikeWrapper[C, A]
+//
+//private[sugar] trait MutableArrayWrapper[+C[_], -A[E] <: MutableArray[E]] extends ArrayLikeWrapper[C, A]
 
-private[sugar] trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends ArrayLikeWrapper[C, A] {
+
+trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends ArrayLikeWrapper[C, A] {
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
 	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]] in a collection,
@@ -214,8 +194,7 @@ private[sugar] trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends
 }
 
 
-private[sugar] trait ArrayLikeSliceFactory
-                     [+C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]], -A[E] <: ArrayLike[E]]
+trait ArrayLikeSliceFactory[+C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]], -A[E] <: ArrayLike[E]]
 	extends StrictOptimizedSeqFactory[C] with ArrayLikeSliceWrapper[C, A]
 {
 	override def from[E](source :IterableOnce[E]) :C[E] = wrap(source.toRefArray.asInstanceOf[A[E]])
@@ -226,7 +205,8 @@ private[sugar] trait ArrayLikeSliceFactory
 }
 
 
-private[collections] sealed abstract class ClassTagArrayLikeSliceFactory[+C[E] <: ArrayLikeSlice[E], A[E] <: ArrayLike[E]]
+abstract class ClassTagArrayLikeSliceFactory
+               [+C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]], A[E] <: ArrayLike[E]]
 	extends ClassTagIterableFactory[C] with ArrayLikeSliceWrapper[C, A]
 {
 	override def empty[E :ClassTag] :C[E] = wrap(ArrayFactory.empty[E].asInstanceOf[A[E]])
@@ -775,4 +755,59 @@ final class ArraySerializationProxy[A](constructor :Array[A] => Any, array :Arra
 		this (factory, if (length == array.length) array else array.slice(offset, offset + length))
 
 	protected[this] def readResolve() :Any = constructor(array)
+}
+
+
+
+
+
+
+/** An adapter of [[scala.collection.immutable.ArraySeq$ ArraySeq]] factory to
+  * [[net.noresttherein.sugar.collections.ArrayLikeSliceFactory ArrayLikeSliceFactory]] interface,
+  * allowing to plug standard `ArraySeq` instead of classes from this package.
+  */
+@SerialVersionUID(Ver)
+object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[ArraySeq, Array] {
+	override def from[E :ClassTag](it :IterableOnce[E]) :ArraySeq[E] = ArraySeq.from(it)
+
+	protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
+		if (from == 0 && until == array.length) ArraySeq.unsafeWrapArray(array)
+		else ArraySeq.unsafeWrapArray(array.slice(from, until))
+
+	override def empty[E :ClassTag] :ArraySeq[E] = (classTag[E].runtimeClass match {
+		case ref if !ref.isPrimitive => refSeq
+		case classes.Int             => intSeq
+		case classes.Long            => longSeq
+		case classes.Double          => doubleSeq
+		case classes.Byte            => byteSeq
+		case classes.Byte            => charSeq
+		case classes.Float           => floatSeq
+		case classes.Short           => shortSeq
+		case _                       => refSeq
+	}).castParam[E]
+
+	private[this] val refSeq     = ArraySeq.empty[Nothing]
+	private[this] val intSeq     = ArraySeq.empty[Int]
+	private[this] val longSeq    = ArraySeq.empty[Long]
+	private[this] val doubleSeq  = ArraySeq.empty[Double]
+	private[this] val byteSeq    = ArraySeq.empty[Double]
+	private[this] val charSeq    = ArraySeq.empty[Double]
+	private[this] val shortSeq   = ArraySeq.empty[Double]
+	private[this] val floatSeq   = ArraySeq.empty[Double]
+
+	override def isImmutable :Boolean = true
+
+	//No sense in extending SeqFactory.Delegate, because ArrayLikeSliceFactory will override it anyway.
+	object untagged extends ArrayLikeSliceFactory[ArraySeq, Array] {
+		override def empty[E] :ArraySeq[E] = ArraySeq.untagged.empty
+
+		protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
+			if (from == 0 && until == array.length) ArraySeq.unsafeWrapArray(array)
+			else ArraySeq.unsafeWrapArray(array.slice(from, until))
+
+		override def isImmutable :Boolean = true
+		override def toString = "ArraySeq.untagged"
+	}
+
+	override def toString = "ArraySeq"
 }

@@ -12,9 +12,11 @@ import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatSh
 import net.noresttherein.sugar.JavaTypes.{JDouble, JInt, JLong}
 import net.noresttherein.sugar.collections.ConcatStepper.AllCharacteristics
 import net.noresttherein.sugar.collections.Stepper0.EmptyCharacteristics
-import net.noresttherein.sugar.collections.extensions.StepType
-import net.noresttherein.sugar.extensions.{BooleanExtension, IteratorCompanionExtension, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.slang.extensions.AnyRefExtension
+import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtension, StepType}
+import net.noresttherein.sugar.extensions.{BooleanExtension, castTypeParamMethods, castingMethods}
+import net.noresttherein.sugar.numeric.extensions.BooleanExtension
+import net.noresttherein.sugar.slang.extensions.hashCodeMethods
+import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 
 
 
@@ -234,7 +236,6 @@ private sealed abstract class Stepper2[@specialized(JavaIterator.Types) A, B, +S
 		case 0                                   => Stepper2.NonNullCharacteristics
 		case _                                   => Stepper2.NullCharacteristics
 	}
-//	override def hasNext :Boolean = size > 0
 	override def hasStep :Boolean = size > 0
 	override def next()  :B = nextStep().asInstanceOf[B]
 	override def nextStep() :A = size match {
@@ -244,11 +245,6 @@ private sealed abstract class Stepper2[@specialized(JavaIterator.Types) A, B, +S
 	}
 	override def trySplit() :Null = null
 
-//	override def forEachRemaining(action :Consumer[_ >: B]) :Unit = size match {
-//		case 2 => size = 0; action.accept(first.asInstanceOf[B]); action.accept(second.asInstanceOf[B])
-//		case 1 => size = 0; action.accept(second.asInstanceOf[B])
-//	}
-//		while(tryAdvance(action)) {}
 	override def tryAdvance(action :Consumer[_ >: B]) :Boolean = size match {
 		case 2 => size = 1; action.accept(first.asInstanceOf[B]); true
 		case 1 => size = 0; action.accept(second.asInstanceOf[B]); true
@@ -260,8 +256,6 @@ private sealed abstract class Stepper2[@specialized(JavaIterator.Types) A, B, +S
 		case _ => Iterator.empty
 	}
 
-//	@inline final protected def empty() :Nothing = Stepper0.ofAny.nextStep()
-//
 	override def toString :String = estimateSize match {
 		case 2 => "Stepper(" + first + "," + second + ")"
 		case 1 => "Stepper(" + second + ")"
@@ -298,90 +292,37 @@ private object Stepper2 {
 
 	@SerialVersionUID(Ver)
 	private class Of[A](first :A, second :A) extends Stepper2[A, A, Of[A]](first, second) with AllInAnyStepper[A] {
-//		override def nextStep() :A = estimateSize match {
-//			case 2 => estimateSize = 1; first
-//			case 1 => estimateSize = 0; second
-//			case _ => empty()
-//		}
-//		override def tryAdvance(action :Consumer[_ >: A]) = estimateSize match {
-//			case 2 => action.accept(nextStep()); action.accept(nextStep()); true
-//			case 1 => estimateSize = 0; action.accept(second); true
-//			case _ => false
-//		}
-//		override def spliterator[U]  = this.asInstanceOf[Spliterator[U]]
-//		override def javaIterator[U] = this.asInstanceOf[JavaIterator[U]]
 	}
 
 	private sealed trait OfPrimitive[A, B, S >: Null <: Stepper2[A, B, S]] extends Stepper2[A, B, S] { this :S =>
 		override def forEachRemaining(action :Consumer[_ >: B]) :Unit = while(tryAdvance(action)) {}
-//		override def next() = nextStep().asInstanceOf[B]
-//		override def spliterator[U >: A] :S = this
-//		override def javaIterator[U >: A] :S = this
 	}
 
 	@SerialVersionUID(Ver)
 	private class OfInt(first :Int, second :Int)
 		extends Stepper2[Int, JInt, OfInt](first, second)
 		   with AllInIntStepper with OfPrimitive[Int, JInt, OfInt] with Spliterator.OfInt with JavaIntIterator
-			//IntStepper with Spliterator.OfInt with PrimitiveIterator.OfInt
 	{
 		override def nextInt()  :Int = nextStep()
 		override def tryAdvance(action :IntConsumer) :Boolean = hasStep && { action.accept(nextStep()); true }
-//		override def nextStep() :Int = estimateSize match {
-//			case 2 => estimateSize = 1; first
-//			case 1 => estimateSize = 0; second
-//			case _ => empty()
-//		}
-//		override def tryAdvance(action :IntConsumer) = estimateSize match {
-//			case 2 => estimateSize = 1; action.accept(first); true
-//			case 1 => estimateSize = 0; action.accept(second); true
-//			case _ => false
-//		}
-//		override def forEachRemaining(action :IntConsumer) :Unit = while(tryAdvance(action)) {}
 		override def toString :String = "Int" + super.toString
 	}
 	
 	@SerialVersionUID(Ver)
 	private class OfLong(first :Long, second :Long)
 		extends Stepper2[Long, JLong, OfLong](first, second) with AllInLongStepper
-//		   with LongStepper with Spliterator.OfLong with PrimitiveIterator.OfLong
 		   with OfPrimitive[Long, JLong, OfLong] with Spliterator.OfLong with JavaLongIterator
 	{
 		override def nextLong() :Long = nextStep()
-//		override def nextStep() :Long = estimateSize match {
-//			case 2 => estimateSize = 1; first
-//			case 1 => estimateSize = 0; second
-//			case _ => empty()
-//		}
-//		override def tryAdvance(action :LongConsumer) = estimateSize match {
-//			case 2 => estimateSize = 1; action.accept(first); true
-//			case 1 => estimateSize = 0; action.accept(second); true
-//			case _ => false
-//		}
-//		override def forEachRemaining(action :LongConsumer) :Unit = while(tryAdvance(action)) {}
-//		override def tryAdvance(action :LongConsumer) :Boolean = hasStep && { action.accept(nextStep()); true }
 		override def toString = "Long" + super.toString
 	}
 	
 	@SerialVersionUID(Ver)
 	private class OfDouble(first :Double, second :Double)
 		extends Stepper2[Double, JDouble, OfDouble](first, second) with AllInDoubleStepper
-//		   with DoubleStepper with Spliterator.OfDouble with PrimitiveIterator.OfDouble
 		   with OfPrimitive[Double, JDouble, OfDouble] with Spliterator.OfDouble with JavaDoubleIterator
 	{
 		override def nextDouble() :Double = nextStep()
-//		override def nextStep() :Double = estimateSize match {
-//			case 2 => estimateSize = 1; first
-//			case 1 => estimateSize = 0; second
-//			case _ => empty()
-//		}
-//		override def tryAdvance(action :DoubleConsumer) = estimateSize match {
-//			case 2 => estimateSize = 1; action.accept(first); true
-//			case 1 => estimateSize = 0; action.accept(second); true
-//			case _ => false
-//		}
-//		override def forEachRemaining(action :DoubleConsumer) :Unit = while(tryAdvance(action)) {}
-//		override def tryAdvance(action :DoubleConsumer) :Boolean = hasStep && { action.accept(nextStep()); true }
 		override def toString :String = "Double" + super.toString
 	}
 
@@ -440,18 +381,15 @@ private sealed abstract class ConcatStepper
 
 	final override def hasStep :Boolean = {
 		if (state < 0) {
-//			val count = steppers.length - 1
 			val count = limit - 1
 			state = first.hasStep.toInt
 			if (offset < count & state == 0) {
-//				var offset = 1
 				offset += 1
 				first = steppers(offset)
 				while (offset < count && !first.hasStep) {
 					offset += 1
 					first = steppers(offset)
 				}
-//				steppers = steppers.drop(i)
 				state = (offset < count || first.hasStep).toInt
 				flags = -1
 				firstSpliterator = null
@@ -470,14 +408,11 @@ private sealed abstract class ConcatStepper
 			currentSpliterator.forEachRemaining(action)
 
 	override def tryAdvance(action :Consumer[_ >: B]) = hasStep && { action.accept(next()); true }
-//
+
 	override def trySplit() :S with J = {
-//		val iters = steppers.length
-//		if (iters == 1)
 		if (offset + 1 >= limit)
 			null
 		else {
-//			var i = 0
 			var i = offset
 			if (hasCharacteristics(SIZED)) {
 				val halfSize   = estimateSize >> 1
@@ -494,20 +429,13 @@ private sealed abstract class ConcatStepper
 				i = (limit - offset) >> 1
 				if (i == 0) i += 1
 				else if (i == limit) i -= 1
-//			val (prefix, suffix) =
-//				if (i == 0) steppers.splitAt(i + 1)
-//				else if (i == iters) steppers.splitAt(i - 1)
-//				else steppers.splitAt(i)
 			flags    = -1
-//			steppers = prefix
 			val lim  = limit
 			limit    = i
 			val res  = clone().asInstanceOf[S with J]
-//			steppers = suffix
 			limit    = lim
 			offset   = i
 			state    = -1
-//			first    = steppers(0)
 			first    = steppers(offset)
 			firstSpliterator = null
 			firstIterator    = null
@@ -532,13 +460,10 @@ private sealed abstract class ConcatStepper
 	override def characteristics = {
 		if (flags < 0) {
 			flags = 0
-//			val iters = steppers.length
-//			if (iters == 0)
 			if (offset == limit)
 				flags = EmptyCharacteristics
 			else {
 				flags = AllCharacteristics
-//				var i = 0
 				var i = offset
 				while (i < limit) {
 					flags &= steppers(i).characteristics
@@ -571,8 +496,6 @@ private object ConcatStepper {
 	//Works for EfficientSplit because ConcatStepper extends it and there is StepperType[A, S with EfficientSplit].
 	def apply[A, S <: Stepper[_]](first :S, second :S)(implicit elemType :StepType[A, S]) :S =
 		elemType.stepperShape.shape match {
-//			case ReferenceShape if first.isInstanceOf[AnyStepper[_]] & second.isInstanceOf[AnyStepper[_]] =>
-//				ofRef(first.asInstanceOf[Stepper[A]], second.asInstanceOf[Stepper[A]]).asInstanceOf[S]
 			case ReferenceShape =>
 				ofAny(first, second).asInstanceOf[S]
 			case IntShape | ByteShape | ShortShape | CharShape =>
@@ -606,7 +529,6 @@ private object ConcatStepper {
 			case (l :IntStepper, r :IntStepper)                      => ofInt(l, r).asInstanceOf[Stepper[A]]
 			case (l :LongStepper, r :LongStepper)                    => ofLong(l, r).asInstanceOf[Stepper[A]]
 			case (l :DoubleStepper, r :DoubleStepper)                => ofDouble(l, r).asInstanceOf[Stepper[A]]
-//			case (l :AnyStepper[A], r :AnyStepper[A])                => ofRef(l, r)
 			case (_ :LazyStepper[_, _], _ :LazyStepper[_, _])        => new OfAny(RelayArray.two(first, second))
 			case (_ :LazyStepper[_, _], _) if !second.hasStep        => first  //if first is lazy then second is not
 			case (_, _ :LazyStepper[_, _]) if !first.hasStep         => second //if second is lazy then first is not
@@ -631,9 +553,6 @@ private object ConcatStepper {
 		(first, second) match { //todo; debugger says this actually creates tuples, if so - rewrite it!
 			case (l :LazyStepper[A, Stepper[A]], _) if l.isEvaluated => ofRef(l.stepper, second)
 			case (_, r :LazyStepper[A, Stepper[A]]) if r.isEvaluated => ofRef(first, r.stepper)
-//			case (_ :LazyStepper[_, _], _ :LazyStepper[_, _])      => new OfAny(PassedArray.two(first, second))
-//			case (_, any :LazyStepper.OfRef[A]) if !first.hasStep  => any //don't call hesStep on a lazy stepper
-//			case (any :LazyStepper.OfRef[A], _) if !second.hasStep => any
 			case (_ :LazyStepper[_, _], _)                         => new OfAny(RelayArray.two(first, second))
 			case (_, _ :LazyStepper[_, _])                         => new OfAny(RelayArray.two(first, second))
 			case (_, any :AnyStepper[A]) if !first.hasStep         => any //now we know first is not lazy and can call hasStep
@@ -718,8 +637,6 @@ private object ConcatStepper {
 	private trait OfPrimitive[A, B, S >: Null <: Stepper[A], J >: Null <: Spliterator[B], I >: Null <: JavaIterator[B]]
 		extends ConcatStepper[A, B, S, J, I]
 	{ this :S with J with I =>
-	//	final override def forEachRemaining(action :Consumer[_ >: B]) :Unit = super[ConcatStepper].forEachRemaining(action)
-	//	override def next() = nextStep().asInstanceOf[B]
 		final override def spliterator[U >: A]  :J = spliteratorImpl
 		final override def javaIterator[U >: A] :I = javaIteratorImpl
 	}
@@ -731,7 +648,7 @@ private object ConcatStepper {
 		   with OfPrimitive[Int, JInt, IntStepper, Spliterator.OfInt, PrimitiveIterator.OfInt]
 	{
 		override def nextStep() :Int = current.nextStep()
-		override def nextInt()  :Int = current.nextStep() //currentJavaIterator.nextInt()
+		override def nextInt()  :Int = current.nextStep()
 		override def tryAdvance(action :IntConsumer) = {
 			val s = current
 			s.hasStep && { action.accept(s.nextStep()); true }

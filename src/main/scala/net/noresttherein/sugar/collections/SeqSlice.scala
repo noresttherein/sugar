@@ -121,9 +121,10 @@ private[collections] sealed abstract class SeqSliceFactory[C[A] <: collection.In
 
 
 /** A window over a range of indices in an `IndexedSeq`. It is very similar in function to
-  * [[collection.IndexedSeqView IndexedSeqView]], but for two important differences:
-  *   1. It is a `collection.IndexedSeq`, not only `collection.IndexedSeqOps`, and
-  *   2. all operations other than slicing will produce a default `IndexedSeq` ([[collection.immutable.Vector Vector]]),
+  * [[collection.IndexedSeqView IndexedSeqView]], but for three important differences:
+  *   1. It is a `collection.IndexedSeq`, not only `collection.IndexedSeqOps`,
+  *   1. all slicing operations will return another `SeqSlice` of the underlying collection, and
+  *   1. all operations other than slicing will produce a default `IndexedSeq` ([[collection.immutable.Vector Vector]]),
   *      rather than another `View`.
   * @author Marcin Mościcki
   */ //consider: renaming to Subseq
@@ -145,7 +146,7 @@ private class SeqSlice[E](whole :collection.IndexedSeq[E], offset :Int, override
   * @define coll sequence slice
   */
 @SerialVersionUID(Ver)
-private case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq] {
+case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq] {
 	protected override def make[E](seq :collection.IndexedSeq[E], from :Int, until :Int) :collection.IndexedSeq[E] =
 		seq match {
 			case stable  :IndexedSeq[E]     => new Immutable(stable, from, until)
