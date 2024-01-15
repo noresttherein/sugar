@@ -1,6 +1,8 @@
 package net.noresttherein.sugar.exceptions
 
+import java.io.IOException
 import java.lang.reflect.Constructor
+import java.sql.SQLException
 import java.util.ConcurrentModificationException
 
 import scala.reflect.{ClassTag, classTag}
@@ -183,6 +185,7 @@ trait imports {
 		(classOf[IndexOutOfBoundsException],       new IndexOutOfBoundsException(_).initCause(_)),
 		(classOf[InstantiationException],          new InstantiationException(_).initCause(_)),
 		(classOf[InterruptedException],            new InterruptedException(_).initCause(_)),
+		(classOf[IOException],                     new IOException(_, _)), //todo: there is a shitload of thesee
 		(classOf[LayerInstantiationException],     new LayerInstantiationException(_, _)),
 		(classOf[NoSuchElementException],          new NoSuchElementException(_).initCause(_)),
 		(classOf[NegativeArraySizeException],      new NegativeArraySizeException(_).initCause(_)),
@@ -193,6 +196,7 @@ trait imports {
 		(classOf[ReflectiveOperationException],    new ReflectiveOperationException(_, _)),
 		(classOf[RuntimeException],                new RuntimeException(_, _)),
 		(classOf[SecurityException],               new SecurityException(_, _)),
+		(classOf[SQLException],                    new SQLException(_, _)),
 		(classOf[StringIndexOutOfBoundsException], new StringIndexOutOfBoundsException(_).initCause(_)),
 		(classOf[TypeNotPresentException],         new TypeNotPresentException(_, _)),
 		(classOf[UnsupportedOperationException],   new UnsupportedOperationException(_, _)),
@@ -323,11 +327,11 @@ trait imports {
 	  * for binary compatibility), or methods of sealed classes which are overriden by subclasses and similar
 	  * circumstances.
 	  */
-	def ??! :Nothing = throw new ImpossibleError
+	def ??! :Nothing = throw ImpossibleError()
 
 	/** Throws an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].  */
 	final def impossible_!(msg :String, cause :Throwable = null) :Nothing =
-		throw new ImpossibleError(msg)
+		throw ImpossibleError(msg)
 
 	/** Throws an [[java.lang.AssertionError AssertionError]]. */
 	def !!! :Nothing = throw new AssertionError
@@ -338,55 +342,55 @@ trait imports {
 	/** Throws an [[net.noresttherein.sugar.exceptions.Oops Oops]] with the given message,
 	  * to indicate a situation which should not have happened and is due to a bug in the executed code.
 	  */
-	def oops(msg :String) :Nothing = throw new Oops(msg)
+	def oops(msg :String) :Nothing = throw Oops(msg)
 
 	/** Throws an [[net.noresttherein.sugar.exceptions.Oops Oops]] with the given message,
 	  * to indicate a situation which should not have happened and is due to a bug in the executed code.
 	  */
-	def oops(msg :String, cause :Throwable) :Nothing = throw new Oops(msg, cause)
+	def oops(msg :String, cause :Throwable) :Nothing = throw Oops(msg, cause)
 
 	/** Throws an [[UnsupportedOperationException]]. */
 	final def unsupported_! :Nothing =
-		throw new SugaredUnsupportedOperationException
+		throw SugaredUnsupportedOperationException()
 
 	/** Throws an [[UnsupportedOperationException]]. */
 	final def unsupported_!(msg :String, cause :Throwable = null) :Nothing =
-		throw new SugaredUnsupportedOperationException(msg, cause)
+		throw SugaredUnsupportedOperationException(msg, cause)
 
 	/** Throws an [[UnsupportedOperationException]]`(s"$obj.$method")`. */
 	final def unsupported_!(obj :String, method :String) :Nothing =
-		throw new SugaredUnsupportedOperationException(obj + '.' + method)
+		throw SugaredUnsupportedOperationException(obj + '.' + method)
 
 	/** Throws an [[UnsupportedOperationException]]`(s"${obj.className}.$method")`. */
 	final def unsupported_!(obj :Any, method :String) :Nothing =
-		throw new SugaredUnsupportedOperationException(obj.className + '.' + method)
+		throw SugaredUnsupportedOperationException(obj.className + '.' + method)
 
 	/** Throws a [[NoSuchElementException]]. */
 	final def noSuch_!(msg :String, cause :Throwable = null) :Nothing =
-		throw new SugaredNoSuchElementException(msg, cause)
+		throw SugaredNoSuchElementException(msg, cause)
 
 	/** Throws a [[NoSuchElementException]].
 	  * @param empty an empty collection whose element was accessed, and is used to enhance the error message.
 	  */
 	final def noSuch_!(empty :IterableOnce[_]) :Nothing =
-		throw new SugaredNoSuchElementException(empty.toString + " is empty.")
+		throw SugaredNoSuchElementException(empty.toString + " is empty.")
 
 	/** Throws a [[NoSuchElementException]].
 	  * @param obj        an object whose property was accessed.
 	  * @param methodName the name of the method of `obj` which caused the exception to be thrown.
 	  */
 	final def noSuch_!(obj :Any, methodName :String) :Nothing =
-		throw new SugaredNoSuchElementException(obj.toString + "." + methodName)
+		throw SugaredNoSuchElementException(obj.toString + "." + methodName)
 
 	/** Throws a [[NoSuchElementException]].
 	  * The argument is an empty collection whose element was accessed, and is used to enhance the error message.
 	  */
 	final def noSuch_!(empty :ArrayLike[_]) :Nothing =
-		throw new SugaredNoSuchElementException(errorString(empty) + " is empty.")
+		throw SugaredNoSuchElementException(errorString(empty) + " is empty.")
 
 	/** Throws an [[IllegalArgumentException]]. */
 	final def illegal_!(msg :String, cause :Throwable = null) :Nothing =
-		throw new SugaredIllegalArgumentException(msg, cause)
+		throw SugaredIllegalArgumentException(msg, cause)
 
 	/** Throws an [[IllegalArgumentException]].
 	  * @param method the name of the method to which an illegal argument was passed.
@@ -394,7 +398,7 @@ trait imports {
 	  * @param arg    the illegal argument value.
 	  */
 	final def illegal_!(method :String, param :String, arg :Any) :Nothing =
-		throw new SugaredIllegalArgumentException("Illegal " + param + " argument for " + method + ": " + arg + ".")
+		throw SugaredIllegalArgumentException("Illegal " + param + " argument for " + method + ": " + arg + ".")
 
 	/** Throws an [[IllegalArgumentException]].
 	  * @param method the name of the method to which an illegal argument was passed.
@@ -403,7 +407,7 @@ trait imports {
 	  * @param reason a more detailed explanation why the argument is invalid.
 	  */
 	final def illegal_!(method :String, param :String, arg :Any, reason :String) :Nothing =
-		throw new SugaredIllegalArgumentException(
+		throw SugaredIllegalArgumentException(
 			"Illegal " + param + " argument for " + method + ": " + arg + " - " + reason + "."
 		)
 
@@ -413,58 +417,58 @@ trait imports {
 	  * @param reason a more detailed explanation why the argument is invalid.
 	  */
 	final def illegal_!(param :String, arg :Any, reason :String) :Nothing =
-		throw new SugaredIllegalArgumentException(
+		throw SugaredIllegalArgumentException(
 			"Illegal " + param + " argument : " + arg + " - " + reason + "."
 		)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx)
+		throw SugaredIndexOutOfBoundsException(idx.toString)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int, size :Int) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx.toString + " out of " + size)
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of " + size)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int, min :Int, max :Int) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + ")")
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + ")")
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is used to enhance the error message
 	  * and should provide information about the legal range.
 	  * @throws SugaredIndexOutOfBoundsException with message `"idx.toString + " out of bounds for " + source`.
 	  */
 	final def outOfBounds_!(idx :Int, source :String) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + source)
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + source)
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the collection which was accessed,
 	  * and is used to enhance the error message.
 	  */
 	final def outOfBounds_!(idx :Int, items :Iterable[_]) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + errorString(items))
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + errorString(items))
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the array for whch the index was out of bounds,
 	  * and is used to enhance the error message.
 	  */
 	final def outOfBounds_!(idx :Int, items :ArrayLike[_]) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + errorString(items))
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + errorString(items))
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int, cause :Throwable) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(idx.toString, cause)
+		throw SugaredIndexOutOfBoundsException(idx.toString, cause)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(msg :String, cause :Throwable = null) :Nothing =
-		throw new SugaredIndexOutOfBoundsException(msg, cause)
+		throw SugaredIndexOutOfBoundsException(msg, cause)
 
 	/** Throws a [[NullPointerException]] with the given message.
 	  * This method is useful for reducing calling methods bytecode size.
 	  */
-	final def null_!(msg :String) :Nothing = throw new SugaredNullPointerException(msg)
+	final def null_!(msg :String) :Nothing = throw SugaredNullPointerException(msg)
 
 	/** Throws a [[ConcurrentModificationException]] with the given message.
 	  * This method is useful for reducing calling methods bytecode size.
 	  */
-	final def concurrent_!(msg :String) :Nothing = throw new ConcurrentModificationException(msg)
+	final def concurrent_!(msg :String) :Nothing = throw SugaredConcurrentModificationException(msg)
 }
 
 

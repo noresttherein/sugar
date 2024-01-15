@@ -1,7 +1,9 @@
 package net.noresttherein.sugar.exceptions
 
-import java.lang.StackWalker.StackFrame
+import java.lang.StackWalker.{Option, StackFrame}
 import java.lang.reflect.Method
+
+import scala.collection.mutable.{ArrayBuffer, ArrayDeque}
 
 import net.noresttherein.sugar.exceptions.StackContext.PackageName
 import net.noresttherein.sugar.extensions.ClassExtension
@@ -23,6 +25,7 @@ class StackContext protected (val callee :Opt[AnyRef], val source :String, val m
 		this(Got(callee), callee.getClass.getName, method, params)
 
 	def this(frame :StackFrame, params :Seq[Any]) = this(frame.getClassName, frame.getMethodName, params)
+	def this(frame :StackTraceElement, params :Seq[Any]) = this(frame.getClassName, frame.getMethodName, params)
 	def this(params :Seq[Any]) = this(CallerFrame.outside(PackageName), params)
 
 	override def equals(that :Any) :Boolean = that match {
@@ -43,6 +46,7 @@ class StackContext protected (val callee :Opt[AnyRef], val source :String, val m
 
 
 
+//todo: instead of placing these methods here, create an extension class which will have access to our caller.
 @SerialVersionUID(Ver)
 object StackContext {
 	//Consider: we could accept logger as an implicit parameter instead of the called class.
@@ -61,18 +65,19 @@ object StackContext {
 	def apply[T](source :String, method :String, params :Any*)(block: => T) :T =
 		apply(new StackContext(source, method, params))(block)
 
-	def apply[T](params :Any*)(block: => T) :T = apply(new StackContext(params))(block)
+	//signature conflict
+//	def apply[T](params :Any*)(block: => T) :T = apply(new StackContext(params))(block)
 
 	def apply[T](context :StackContext)(block: => T) :T =
 		try {
-			stack set context::stack.get
+			context +=: stack.get
 			block
 		} finally {
-			stack set stack.get.tail
+			stack.get.removeHead(false)
 		}
 
 	/** Current stack of activation frames, with the most recent being the first one. */
-	def get :Seq[StackContext] = stack.get
+	def get :Seq[StackContext] = stack.get.toSeq
 
 	def unapply(ctx :StackContext) :Opt[(Opt[AnyRef], String, String, Seq[Any])] =
 		Got(ctx.callee, ctx.source, ctx.method, ctx.params)
@@ -82,10 +87,11 @@ object StackContext {
 		case _ => Lack
 	}
 
-	private val stack :ThreadLocal[List[StackContext]] =
-		new ThreadLocal[List[StackContext]] {
-			override def initialValue() :List[StackContext] = Nil
+	private[this] val stack :ThreadLocal[ArrayDeque[StackContext]] =
+		new ThreadLocal[ArrayDeque[StackContext]] {
+			override def initialValue() = ArrayDeque.empty[StackContext]
 		}
 
 	private final val PackageName = getClass.getPackageName
+//	private[this] final val walker = StackWalker.getInstance(Option.RETAIN_CLASS_REFERENCE)
 }

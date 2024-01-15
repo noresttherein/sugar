@@ -28,16 +28,11 @@ private[sugar] trait reflect extends Any {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable](implicit tag :ClassTag[E]) :Opt[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE    => Got(new IllegalArgumentException).castParam[E]
-			case IOOBE  => Got(new IndexOutOfBoundsException).castParam[E]
-			case NSEE   => Got(new NoSuchElementException).castParam[E]
-			case UOE    => Got(new UnsupportedOperationException).castParam[E]
-			case NPE    => Got(new NullPointerException).castParam[E]
-			case SIAE   => Got(new SugaredIllegalArgumentException).castParam[E]
-			case SIOOBE => Got(new SugaredIndexOutOfBoundsException).castParam[E]
-			case SNSEE  => Got(new SugaredNoSuchElementException).castParam[E]
-			case SUOE   => Got(new SugaredUnsupportedOperationException).castParam[E]
-			case SNPE   => Got(new SugaredNullPointerException).castParam[E]
+			case IAE   | SIAE   => Got(SugaredIllegalArgumentException()).castParam[E]
+			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException()).castParam[E]
+			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException()).castParam[E]
+			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException()).castParam[E]
+			case NPE   | SNPE   => Got(SugaredNullPointerException()).castParam[E]
 			case _      => defaultConstructor[E].map(_())
 		}
 
@@ -50,16 +45,11 @@ private[sugar] trait reflect extends Any {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable](msg :String)(implicit tag :ClassTag[E]) :Opt[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE    => Got(new IllegalArgumentException(msg)).castParam[E]
-			case IOOBE  => Got(new IndexOutOfBoundsException(msg)).castParam[E]
-			case NSEE   => Got(new NoSuchElementException(msg)).castParam[E]
-			case UOE    => Got(new UnsupportedOperationException(msg)).castParam[E]
-			case NPE    => Got(new NullPointerException(msg)).castParam[E]
-			case SIAE   => Got(new SugaredIllegalArgumentException(msg)).castParam[E]
-			case SIOOBE => Got(new SugaredIndexOutOfBoundsException(msg)).castParam[E]
-			case SNSEE  => Got(new SugaredNoSuchElementException(msg)).castParam[E]
-			case SUOE   => Got(new SugaredUnsupportedOperationException(msg)).castParam[E]
-			case SNPE   => Got(new SugaredNullPointerException(msg)).castParam[E]
+			case IAE   | SIAE   => Got(SugaredIllegalArgumentException(msg)).castParam[E]
+			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException(msg)).castParam[E]
+			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException(msg)).castParam[E]
+			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException(msg)).castParam[E]
+			case NPE   | SNPE   => Got(SugaredNullPointerException(msg)).castParam[E]
 			case _      => stringConstructor[E].map(_(msg))
 		}
 
@@ -71,16 +61,11 @@ private[sugar] trait reflect extends Any {
 	  */
 	private[sugar] final def getThrowable[E <: Throwable](msg :() => String)(implicit tag :ClassTag[E]) :Opt[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE    => Got(new LazyIllegalArgumentException(msg())).castParam[E]
-			case IOOBE  => Got(new LazyIndexOutOfBoundsException(msg())).castParam[E]
-			case NSEE   => Got(new LazyNoSuchElementException(msg())).castParam[E]
-			case UOE    => Got(new LazyUnsupportedOperationException(msg())).castParam[E]
-			case NPE    => Got(new LazyNullPointerException(msg())).castParam[E]
-			case SIAE   => Got(new SugaredIllegalArgumentException).castParam[E]
-			case SIOOBE => Got(new SugaredIndexOutOfBoundsException).castParam[E]
-			case SNSEE  => Got(new SugaredNoSuchElementException).castParam[E]
-			case SUOE   => Got(new SugaredUnsupportedOperationException).castParam[E]
-			case SNPE   => Got(new SugaredNullPointerException).castParam[E]
+			case IAE   | SIAE   => Got(SugaredIllegalArgumentException.Lazy(msg())).castParam[E]
+			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException.Lazy(msg())).castParam[E]
+			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException.Lazy(msg())).castParam[E]
+			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException.Lazy(msg())).castParam[E]
+			case NPE   | SNPE   => Got(SugaredNullPointerException.Lazy(msg())).castParam[E]
 			case _      => lazyStringConstructor[E].map(_(msg))
 		}
 
@@ -95,11 +80,11 @@ private[sugar] trait reflect extends Any {
 	private[sugar] final def getThrowable[E <: Throwable]
 	                                     (msg :String, cause :Throwable)(implicit tag :ClassTag[E]) :Opt[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   => Got(new IllegalArgumentException(msg, cause)).castParam[E]
-			case IOOBE => Got(new IndexOutOfBoundsException(msg).initCause(cause)).castParam[E]
-			case NSEE  => Got(new NoSuchElementException(msg, cause)).castParam[E]
-			case UOE   => Got(new UnsupportedOperationException(msg, cause)).castParam[E]
-			case NPE   => Got(new NullPointerException(msg).initCause(cause)).castParam[E]
+			case IAE   => Got(SugaredIllegalArgumentException(msg, cause)).castParam[E]
+			case IOOBE => Got(SugaredIndexOutOfBoundsException(msg).initCause(cause)).castParam[E]
+			case NSEE  => Got(SugaredNoSuchElementException(msg, cause)).castParam[E]
+			case UOE   => Got(SugaredUnsupportedOperationException(msg, cause)).castParam[E]
+			case NPE   => Got(SugaredNullPointerException(msg).initCause(cause)).castParam[E]
 			case _     => stringThrowableConstructor[E].map(_(msg, cause))
 		}
 
@@ -113,11 +98,11 @@ private[sugar] trait reflect extends Any {
 	private[sugar] final def getThrowable[E <: Throwable]
 	                                     (msg :() => String, cause :Throwable)(implicit tag :ClassTag[E]) :Opt[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   => Got(new LazyIllegalArgumentException(msg(), cause)).castParam[E]
-			case IOOBE => Got(new LazyIndexOutOfBoundsException(msg(), cause)).castParam[E]
-			case NSEE  => Got(new LazyNoSuchElementException(msg(), cause)).castParam[E]
-			case UOE   => Got(new LazyUnsupportedOperationException(msg(), cause)).castParam[E]
-			case NPE   => Got(new LazyNullPointerException(msg(), cause)).castParam[E]
+			case IAE   | SIAE   => Got(SugaredIllegalArgumentException(msg, cause)).castParam[E]
+			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException(msg, cause)).castParam[E]
+			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException(msg, cause)).castParam[E]
+			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException(msg, cause)).castParam[E]
+			case NPE   | SNPE   => Got(SugaredNullPointerException(msg, cause)).castParam[E]
 			case _     => lazyStringThrowableConstructor[E].map(_(msg, cause))
 		}
 
@@ -131,11 +116,11 @@ private[sugar] trait reflect extends Any {
 	private[sugar] final def getThrowable[E <: Throwable]
 	                                     (cause :Throwable)(implicit tag :ClassTag[E]) :Opt[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   => Got(new IllegalArgumentException(cause)).castParam[E]
-			case IOOBE => Got(new IndexOutOfBoundsException().initCause(cause)).castParam[E]
-			case NSEE  => Got(new NoSuchElementException(cause)).castParam[E]
-			case UOE   => Got(new UnsupportedOperationException(cause)).castParam[E]
-			case NPE   => Got(new NullPointerException().initCause(cause)).castParam[E]
+			case IAE   | SIAE   => Got(SugaredIllegalArgumentException(cause)).castParam[E]
+			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException(cause)).castParam[E]
+			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException(cause)).castParam[E]
+			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException(cause)).castParam[E]
+			case NPE   | SNPE   => Got(SugaredNullPointerException(cause)).castParam[E]
 			case _     => throwableConstructor[E].map(_(cause))
 		}
 
@@ -631,6 +616,8 @@ private object Constructors {
 			}
 		)
 	}
+
+
 
 	private[exceptions] final def defaultRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[() => T] = {
 		implicit val constructors :Array[Constructor[T]] =

@@ -59,13 +59,13 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
 	def cause :Opt[Throwable] = Opt(getCause)
 
-	/** Sets the [[SugaredThrowable.cause cause]] of this [[Throwable]] using
-	  * [[Throwable.initCause initCause]] method. This method can be called at most once, and only
-	  * if a `Throwable` cause was not given as a constructor parameter of this `Throwable`.
-	  */
-	def cause_=(cause :Throwable) :Unit = super.initCause(cause)
-
-	override def initCause(e :Throwable) :SugaredThrowable = { super.initCause(e); this }
+//	/** Sets the [[SugaredThrowable.cause cause]] of this [[Throwable]] using
+//	  * [[Throwable.initCause initCause]] method. This method can be called at most once, and only
+//	  * if a `Throwable` cause was not given as a constructor parameter of this `Throwable`.
+//	  */
+//	def cause_=(cause :Throwable) :Unit = super.initCause(cause)
+//
+//	override def initCause(e :Throwable) :SugaredThrowable = { super.initCause(e); this }
 
 	/** Standard[[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
 	def message :Opt[String] = Opt(getMessage)
@@ -215,14 +215,14 @@ trait SugaredException extends Exception with SugaredThrowable
 
 
 /** A mixin trait for `Throwable` with lazy messages. Requires the subclass to define `lazyMsg :() => String` variable.
-  * However, if `super.getMessage` returns a non null string, it is used instead of the lazily evaluated message,
-  * to give subclasses flexibility in the choice between eager and lazy evaluation.
   * Once evaluated, the message is cached, but in contested, multi threaded environment,
   * the constructor may be evaluated more than once.
   */
 trait LazyThrowable extends SugaredThrowable {
 	protected var lazyMsg :() => String
-	private[this] var evaluatedMsg :String = _
+	private[this] var evaluatedMsg :String = super.getMessage
+
+//	private def initMessage(msg: () => String) :Unit = lazyMsg = msg
 
 	/** Returns the message of this exception, evaluating it, if needed. */
 	override def getMessage :String = {
@@ -231,8 +231,7 @@ trait LazyThrowable extends SugaredThrowable {
 		if (init == null)
 			evaluatedMsg
 		else {
-			val msg = super.getMessage
-			val res = if (msg != null) msg else init()
+			val res = init()
 			evaluatedMsg = res
 			releaseFence()
 			lazyMsg = null
@@ -242,8 +241,6 @@ trait LazyThrowable extends SugaredThrowable {
 }
 
 /** A mixin trait for exceptions with lazy messages. Requires the subclass to define `lazyMsg :() => String` variable.
-  * However, if `super.getMessage` returns a non null string, it is used instead of the lazily evaluated message,
-  * to give subclasses flexibility in the choice between eager and lazy evaluation.
   * Once evaluated, the message is cached, but in contested, multi threaded environment,
   * the constructor may be evaluated more than once.
   */
@@ -305,7 +302,7 @@ abstract class AbstractException(initMessage :String = null, lazyMessage :() => 
 
 	def this(lazyMessage :() => String) = this(null, lazyMessage, null, true, true)
 
-	def this(cause :Throwable) = this(null, null, cause, true, true)
+	def this(cause :Throwable) = this(cause.getMessage, null, cause, true, true)
 
 	protected override var lazyMsg :() => String = lazyMessage
 }
@@ -320,7 +317,7 @@ abstract class AbstractLazyException(msg: => String, cause :Throwable = null,
 
 
 /** A base error class extending `SugaredThrowable` and accepting all constructor parameters of `Throwable`.
-  * @param initMessage        The detailed message of this exception returned from its standard
+  * @param message            The detailed message of this exception returned from its standard
   *                           [[Throwable.getMessage getMessage]] method as well as properties
   *                           [[net.noresttherein.sugar.exceptions.SugaredThrowable.message message]]
   *                           and [[net.noresttherein.sugar.exceptions.SugaredThrowable.msg msg]] properties
@@ -341,23 +338,27 @@ abstract class AbstractLazyException(msg: => String, cause :Throwable = null,
   *                           is sharing exception instances to reduce the cost of their creation.
   */
 @SerialVersionUID(Ver)
-class SugaredError(initMessage :String = null, lazyMessage :() => String, cause :Throwable = null,
-                   enableSuppression :Boolean = true, writableStackTrace :Boolean = true)
-	extends Error(initMessage, cause, enableSuppression, writableStackTrace) with LazyThrowable
+class SugaredError(message :String, lazyMessage :() => String, cause :Throwable,
+                   enableSuppression :Boolean, writableStackTrace :Boolean)
+	extends Error(message, cause, enableSuppression, writableStackTrace) with LazyThrowable
 {
-	def this(initMessage :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) =
-		this(initMessage, null, cause, enableSuppression, writableStackTrace)
+	def this(message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) =
+		this(message, null, cause, enableSuppression, writableStackTrace)
 
 	def this(lazyMessage :() => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) =
 		this(null, lazyMessage, cause, enableSuppression, writableStackTrace)
 
-	def this(initMessage :String, cause :Throwable) = this(initMessage, null, cause, true, true)
+	def this(message :String, lazyMessage :() => String, cause :Throwable) =
+		this(message, lazyMessage, cause, true, true)
+
+	def this(message :String, cause :Throwable) = this(message, null, cause, true, true)
+	def this(message :String) = this(message, null, null, true, true)
 
 	def this(lazyMessage :() => String, cause :Throwable) = this(null, lazyMessage, cause, true, true)
-
 	def this(lazyMessage :() => String) = this(null, lazyMessage, null, true, true)
 
 	def this(cause :Throwable) = this(null, null, cause, true, true)
+	def this() = this(null, null, null, true, true)
 
 	protected override var lazyMsg :() => String = lazyMessage
 }
@@ -391,7 +392,7 @@ class SugaredError(initMessage :String = null, lazyMessage :() => String, cause 
   * assumed to be the values of `enableSuppression` and `writableStackTrace` parameters passed to the `Throwable`
   * constructor with the same signature. For better performance, a override `addInfo` in order to create the rethrown
   * instance directly, rather than through reflection.
-  */
+  */ //consider: allowing rethrowing in any situation, not just in rethrow method
 trait Rethrowable extends SugaredThrowable {
 	/** A flag which should be set only when this instance is thrown from method
 	  * [[net.noresttherein.sugar.exceptions.imports imports]]`.`[[net.noresttherein.sugar.exceptions.imports.rethrow rethrow]]
@@ -417,10 +418,10 @@ trait Rethrowable extends SugaredThrowable {
 
 	override def getStackTrace :Array[StackTraceElement] = stackTrace.toArray
 
-	//The line of this method must match exceptions.fillInStackTraceElement!
-	override def fillInStackTrace() :Throwable =
+	override def fillInStackTrace() :Throwable = synchronized {
 		if (isRethrown) this
 		else super.fillInStackTrace()
+	}
 
 	override def printStackTrace(s :PrintStream) :Unit = s.synchronized {
 		utils.printStackTrace(this, s.println)
@@ -438,6 +439,13 @@ trait Rethrowable extends SugaredThrowable {
 				addSuppressed(new RethrowContext(msg))
 				this
 		}
+}
+
+
+
+/** A `Rethrowable` and `ImplException` for convenient mixing them both into exception classes. */
+trait ImplRethrowable extends Exception with Rethrowable with ImplException {
+	override def isRethrown :Boolean = getCause != null
 }
 
 
@@ -482,228 +490,4 @@ class RethrowContext(initMessage :String, lazyMessage :() => String, cause :Thro
 	def this(message :() => String) = this(null, message, null)
 
 	protected override var lazyMsg :() => String = lazyMessage
-}
-
-
-
-
-
-
-/** A lightweight, 'temporary' exception with disabled suppression and stack trace.
-  * It is thrown to indicate a well defined error discovered in a deeply nested private method,
-  * with an intent of being caught by an entry method which resulted in the problematic call,
-  * and rethrown as another type of exception, in a scope where more useful information about the input
-  * which lead to the error is available. Instances can be often reused in that case, reducing the exception
-  * overhead even further.
-  */
-@SerialVersionUID(Ver)
-class InternalException(message :String, lazyMessage :() => String, cause :Throwable)
-	extends RuntimeException(message, cause, false, false) with LazyException
-{
-	def this(message :String, cause :Throwable) = this(message, null, cause)
-	def this(message :() => String, cause :Throwable) = this(null, message, cause)
-	def this(message :String) = this(message, null, null)
-	def this(message :() => String) = this(null, message, null)
-	def this(cause :Throwable) = this(null, null, cause)
-	def this() = this(null, null, null)
-
-	protected override var lazyMsg :() => String = lazyMessage
-
-	override def addInfo(msg :String) :SugaredThrowable = new InternalException(msg, this)
-	override def addInfo(msg :() => String) :SugaredThrowable = new InternalException(msg, this)
-}
-
-
-/** An [[Error]] thrown to indicate a situation which clearly indicates a bug in the executed code,
-  * rather than invalid parameters or external state.
-  */
-@SerialVersionUID(Ver)
-class Oops(message :String, lazyMessage :() => String, cause :Throwable)
-	extends SugaredError(message, lazyMessage, cause)
-{
-	def this(message :String, cause :Throwable) = this(message, null, cause)
-	def this(message :() => String, cause :Throwable) = this(null, message, cause)
-	def this(message :String) = this(message, null, null)
-	def this(message :() => String) = this(null, message, null)
-	def this(cause :Throwable) = this(null, null, cause)
-	def this() = this(null, null, null)
-
-	override def addInfo(msg :String) :SugaredThrowable = new Oops(msg, this)
-	override def addInfo(msg :() => String) :SugaredThrowable = new Oops(msg, this)
-}
-
-
-/** An exception thrown by code which should be impossible to execute.
-  * It is different from [[AssertionError]] in that the latter is always placed in reachable code
-  * and checks for situations which, while should not occur, are half-expected as possible due to programming errors.
-  * This error is always thrown unconditionally, especially in places where a compiler expects an expression which,
-  * to the best of the programmer's knowledge, will never be executed. Examples include:
-  *   - Code following infinite loops;
-  *   - Guard match patterns following a pattern list which is presumed to already cover all matched values;
-  *   - Body of sealed class's methods which must have a concrete implementation (because they override
-  *     an existing method), but which also must be overridden by all subclasses - for example
-  *     in order to narrow down the return type;
-  *   - Never called package-protected obsolete methods remaining for binary compatibility;
-  *
-  * and similar.
-  * @see [[net.noresttherein.sugar.imports.??!]]
-  * @see [[net.noresttherein.sugar.imports.impossible_!]]
-  */
-@SerialVersionUID(Ver)
-class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwable)
-	extends SugaredError(message, lazyMessage, cause)
-{
-	def this(message :String, cause :Throwable) = this(message, null, cause)
-	def this(message :() => String, cause :Throwable) = this(null, message, cause)
-	def this(message :String) = this(message, null, null)
-	def this(message :() => String) = this(null, message, null)
-	def this(cause :Throwable) = this(null, null, cause)
-	def this() = this(null, null, null)
-
-	override def addInfo(msg :String) :SugaredThrowable = new ImpossibleError(msg, this)
-	override def addInfo(msg :() => String) :SugaredThrowable = new ImpossibleError(msg, this)
-}
-
-
-
-
-
-@SerialVersionUID(Ver)
-class LazyIllegalArgumentRethrowable(msg :String, protected override var lazyMsg :() => String, cause :Throwable = null)
-	extends IllegalArgumentException(msg, cause) with ImplException with LazyException with Rethrowable
-{
-	def this(msg :String, cause :Throwable) = this(msg, null, cause)
-	def this(msg :String) = this(msg, null, null)
-	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
-	def this(msg :() => String) = this(null, msg, null)
-	def this() = this(null, null, null)
-
-	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
-}
-
-@SerialVersionUID(Ver)
-class LazyIndexOutOfBoundsRethrowable(msg :String, protected override var lazyMsg :() => String, cause :Throwable = null)
-	extends IndexOutOfBoundsException(msg) with ImplException with LazyException with Rethrowable
-{
-	def this(msg :String, cause :Throwable) = this(msg, null, cause)
-	def this(msg :String) = this(msg, null, null)
-	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
-	def this(msg :() => String) = this(null, msg, null)
-	def this() = this(null, null, null)
-
-	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
-}
-
-@SerialVersionUID(Ver)
-class LazyNoSuchElementRethrowable(msg :String, protected override var lazyMsg :() => String, cause :Throwable = null)
-	extends NoSuchElementException(cause) with ImplException with LazyException with Rethrowable
-{
-	def this(msg :String, cause :Throwable) = this(msg, null, cause)
-	def this(msg :String) = this(msg, null, null)
-	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
-	def this(msg :() => String) = this(null, msg, null)
-	def this() = this(null, null, null)
-
-	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
-}
-
-@SerialVersionUID(Ver)
-class LazyUnsupportedOperationRethrowable(msg :String, protected override var lazyMsg :() => String, cause :Throwable = null)
-	extends UnsupportedOperationException(cause) with ImplException with LazyException with Rethrowable
-{
-	def this(msg :String, cause :Throwable) = this(msg, null, cause)
-	def this(msg :String) = this(msg, null, null)
-	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
-	def this(msg :() => String) = this(null, msg, null)
-	def this() = this(null, null, null)
-
-	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
-}
-
-@SerialVersionUID(Ver)
-class LazyNullPointerRethrowable(msg :String, protected override var lazyMsg :() => String, cause :Throwable = null)
-	extends NullPointerException with ImplException with LazyException with Rethrowable
-{
-	def this(msg :String, cause :Throwable) = this(msg, null, cause)
-	def this(msg :String) = this(msg, null, null)
-	def this(msg :() => String, cause :Throwable) = this(null, msg, cause)
-	def this(msg :() => String) = this(null, msg, null)
-	def this() = this(null, null, null)
-
-	override def isRethrown :Boolean = cause == null //not getCause, as it will always return null during fillInStackTrace
-
-	super.initCause(cause)
-}
-
-
-
-
-@SerialVersionUID(Ver)
-class LazyIllegalArgumentException(msg: => String, cause :Throwable = null)
-	extends IllegalArgumentException(cause) with ImplException with LazyException
-{
-	protected override var lazyMsg :() => String = () => msg
-}
-
-@SerialVersionUID(Ver)
-class LazyIndexOutOfBoundsException(msg: => String, cause :Throwable = null)
-	extends IndexOutOfBoundsException with ImplException with LazyException
-{
-	super.initCause(cause)
-	protected override var lazyMsg :() => String = () => msg
-}
-
-@SerialVersionUID(Ver)
-class LazyNoSuchElementException(msg: => String, cause :Throwable = null)
-	extends NoSuchElementException(cause) with ImplException with LazyException
-{
-	protected override var lazyMsg :() => String = () => msg
-}
-
-@SerialVersionUID(Ver)
-class LazyUnsupportedOperationException(msg: => String, cause :Throwable = null)
-	extends UnsupportedOperationException(cause) with ImplException with LazyException
-{
-	protected override var lazyMsg :() => String = () => msg
-}
-
-@SerialVersionUID(Ver)
-class LazyNullPointerException(msg: => String, cause :Throwable = null)
-	extends NullPointerException with ImplException with LazyException
-{
-	super.initCause(cause)
-	protected override var lazyMsg :() => String = () => msg
-}
-
-
-
-
-
-
-@SerialVersionUID(Ver)
-class SugaredIllegalArgumentException(message :String = "illegal argument", cause :Throwable = null)
-	extends IllegalArgumentException(message, cause) with ImplException
-
-@SerialVersionUID(Ver)
-class SugaredIndexOutOfBoundsException(message :String = "index out of bounds", cause :Throwable = null)
-	extends IndexOutOfBoundsException(message) with ImplException
-{
-	def this(index :Int, cause :Throwable) = this(index.toString, cause)
-	def this(index :Int) = this(index.toString)
-	initCause(cause)
-}
-
-@SerialVersionUID(Ver)
-class SugaredNoSuchElementException(message :String = "no such element", cause :Throwable = null)
-	extends NoSuchElementException(message, cause) with ImplException
-
-@SerialVersionUID(Ver)
-class SugaredUnsupportedOperationException(message :String = "unsupported operation", cause :Throwable = null)
-	extends UnsupportedOperationException(message, cause) with ImplException
-
-@SerialVersionUID(Ver)
-class SugaredNullPointerException(message :String = "null pointer", cause :Throwable = null)
-	extends NullPointerException(message) with ImplException
-{
-	initCause(cause)
 }

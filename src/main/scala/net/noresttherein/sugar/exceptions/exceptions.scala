@@ -6,6 +6,9 @@ import scala.annotation.nowarn
 
 
 package exceptions {
+
+	import java.io.IOException
+
 	private[exceptions] trait markerStackTraceElements {
 		/* WHENEVER YOU EDIT THIS FILE UPDATE evalStackTraceElement WITH A CORRECT LINE NUMBER! */
 
@@ -31,6 +34,18 @@ package exceptions {
 //			new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", 326)
 
 	}
+
+	object aliases {
+		type CCE   = ClassCastException
+		type IAE   = IllegalArgumentException
+		type IOE   = IOException
+		type IOOBE = IndexOutOfBoundsException
+		type ISE   = IllegalStateException
+		type NFE   = NumberFormatException
+		type NPE   = NullPointerException
+		type NSEE  = NoSuchElementException
+		type UOE   = UnsupportedOperationException
+	}
 }
 
 
@@ -39,9 +54,44 @@ package exceptions {
 package object exceptions extends exceptions.imports with exceptions.markerStackTraceElements {
 	private[exceptions] final val Ver = 1L
 
-	type EagerExceptionFactory    = EagerThrowableFactory[Exception]
-	type LazyExceptionFactory     = LazyThrowableFactory[Exception]
-	type FlexibleExceptionFactory = FlexibleThrowableFactory[Exception]
+	type EagerExceptionFactory            = EagerThrowableFactory[Exception]
+	type LazyExceptionFactory             = LazyThrowableFactory[Exception]
+	type FlexibleExceptionFactory         = FlexibleThrowableFactory[Exception]
+	type EagerDetailedExceptionFactory    = EagerDetailedThrowableFactory[Exception]
+	type LazyDetailedExceptionFactory     = LazyDetailedThrowableFactory[Exception]
+	type FlexibleDetailedExceptionFactory = FlexibleDetailedThrowableFactory[Exception]
+
+	val Oops            :FlexibleThrowableFactory[Oops]            = ThrowableFactory("Oops", new Oops(_, _, _))
+	val ImpossibleError :FlexibleThrowableFactory[ImpossibleError] = ThrowableFactory(new ImpossibleError(_, _, _))
+
+	val IncompatibleArgumentsException :LazyExceptionFactory =
+		ThrowableFactory(new IncompatibleArgumentsException(null, _, _))
+
+	val IncompatibleArgumentTypesException :LazyExceptionFactory =
+		ThrowableFactory(new IncompatibleArgumentTypesException(null, _, _))
+
+	val SugaredClassCastException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredClassCastException(_, _, _))
+
+	val SugaredConcurrentModificationException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredConcurrentModificationException(_, _, _))
+
+	val SugaredIllegalArgumentException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredIllegalArgumentException(_, _, _))
+
+	val SugaredIndexOutOfBoundsException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredIndexOutOfBoundsException(_, _, _))
+
+	val SugaredNoSuchElementException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredNoSuchElementException(_, _, _))
+
+	val SugaredNullPointerException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredNullPointerException(_, _, _))
+
+	val SugaredUnsupportedOperationException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredUnsupportedOperationException(_, _, _))
+
 }
+
 
 
