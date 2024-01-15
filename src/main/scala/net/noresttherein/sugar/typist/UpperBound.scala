@@ -3,13 +3,15 @@ package net.noresttherein.sugar.typist
 import scala.annotation.implicitNotFound
 
 
+
+
 /** Witnesses that `U` is a supertype of both `X` and `Y`. Implicit evidence exists which, when left without bounds for `U`,
   * calculates the ''least upper bound'' type for `X` and `Y`.
   * @param _1 evidence that `X <: U`
   * @param _2 evidence that `Y <: U`
   */
 @implicitNotFound("Cannot calculate upper bound for types ${X} and ${Y} (or prove it to be ${U}).")
-final class UpperBound[X, Y, U] private[typist] (val _1 :X<=:U, val _2 :Y<=:U) {
+final class UpperBound[X, Y, U] private[typist] (val _1 :X <:< U, val _2 :Y <:< U) {
 	type T = U
 	/** Identity conversion from `X` to its super type `U`. */
 	@inline def left(x :X) :U = x.asInstanceOf[U]
@@ -23,12 +25,12 @@ private[typist] sealed abstract class ProperUpperBoundImplicits private[typist] 
 	@inline implicit final def properUpperBound[X<:U, Y<:U, U] :UpperBound[X, Y, U] =
 		instance.asInstanceOf[UpperBound[X, Y, U]]
 
-	protected[typist] final val instance = new UpperBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
+	protected[typist] final val instance = new UpperBound[Any, Any, Any](implicitly[Any <:< Any], implicitly[Any <:< Any])
 }
 
 private[typist] sealed abstract class SelfUpperBoundImplicits private[typist] extends ProperUpperBoundImplicits {
-	@inline implicit final def leftUpperBound[X, Y<:X] :UpperBound[X, Y, X] = instance.asInstanceOf[UpperBound[X, Y, X]]
-	@inline implicit final def rightUpperBound[X<:Y, Y] :UpperBound[X, Y, Y] = instance.asInstanceOf[UpperBound[X, Y, Y]]
+	@inline implicit final def leftUpperBound[X, Y <: X] :UpperBound[X, Y, X] = instance.asInstanceOf[UpperBound[X, Y, X]]
+	@inline implicit final def rightUpperBound[X <: Y, Y] :UpperBound[X, Y, Y] = instance.asInstanceOf[UpperBound[X, Y, Y]]
 }
 
 
@@ -52,5 +54,3 @@ object UpperBound extends SelfUpperBoundImplicits {
 	@inline implicit final def identityUpperBound[X] :UpperBound[X, X, X] = leftUpperBound[X, X]
 
 }
-
-

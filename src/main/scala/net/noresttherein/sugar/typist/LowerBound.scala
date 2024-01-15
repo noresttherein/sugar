@@ -3,13 +3,15 @@ package net.noresttherein.sugar.typist
 import scala.annotation.implicitNotFound
 
 
+
+
 /** Witnesses that `L` is a subtype of both `X` and `Y`. Implicit evidence exists which, when left without bounds for `L`,
   * calculates the ''greatest lower bound'' type for `X` and `Y`.
   * @param _1 evidence that `L <: X`
   * @param _2 evidence that `L <: Y`
   */
 @implicitNotFound("Cannot calculate lower bound for types ${X} and ${Y} (or prove it to be ${L}).")
-final class LowerBound[X, Y, L] private[typist] (val _1 :L<=:X, val _2 :L<=:Y) {
+final class LowerBound[X, Y, L] private[typist] (val _1 :L <:< X, val _2 :L <:< Y) {
 	type T = L
 	@inline def left(l :L) :X = l.asInstanceOf[X]
 	@inline def right(l :L) :Y = l.asInstanceOf[Y]
@@ -17,15 +19,15 @@ final class LowerBound[X, Y, L] private[typist] (val _1 :L<=:X, val _2 :L<=:Y) {
 
 
 private[typist] sealed abstract class ProperLowerBoundImplicits private[typist] {
-	@inline implicit final def properLowerBound[X>:L, Y>:L, L] :LowerBound[X, Y, L] =
+	@inline implicit final def properLowerBound[X >: L, Y >: L, L] :LowerBound[X, Y, L] =
 		instance.asInstanceOf[LowerBound[X, Y, L]]
 
-	protected[typist] final val instance = new LowerBound[Any, Any, Any](implicitly[Any<=:Any], implicitly[Any<=:Any])
+	protected[typist] final val instance = new LowerBound[Any, Any, Any](implicitly[Any <:< Any], implicitly[Any <:< Any])
 }
 
 private[typist] sealed abstract class SelfLowerBoundImplicits private[typist] extends ProperLowerBoundImplicits {
-	@inline implicit final def leftLowerBound[X<:Y, Y] :LowerBound[X, Y, X] = instance.asInstanceOf[LowerBound[X, Y, X]]
-	@inline implicit final def rightLowerBound[X, Y<:X] :LowerBound[X, Y, Y] = instance.asInstanceOf[LowerBound[X, Y, Y]]
+	@inline implicit final def leftLowerBound[X <: Y, Y] :LowerBound[X, Y, X] = instance.asInstanceOf[LowerBound[X, Y, X]]
+	@inline implicit final def rightLowerBound[X, Y <: X] :LowerBound[X, Y, Y] = instance.asInstanceOf[LowerBound[X, Y, Y]]
 }
 
 

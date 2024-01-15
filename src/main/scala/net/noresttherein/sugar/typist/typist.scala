@@ -10,7 +10,7 @@ import net.noresttherein.sugar.vars.Opt
 
 
 
-
+//consider: moving everything to witness, and bringing casting under sugar.
 package object typist {
 
 	private[typist] final val Ver = 1L
@@ -23,94 +23,43 @@ package object typist {
 			Got(block(implicitly[left.type =:= left.type].asInstanceOf[left.type =:= right.type]))
 		else Lack
 
-	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
-	  * and creates a type with a member type constructor `F` accepting the desired argument type. Designed to be used
-	  * as a type class (context bound of generic classes and methods):
+	/** Curried type constructor for the function type X => Y. Same as [[net.noresttherein.sugar.typist.To To]];
+	  * Accepts the desired return type as the type parameter and creates a type with a member type constructor `C`,
+	  * accepting the desired argument type. Designed to be used as a type class
+	  * (otherwise known as context bounds of generic classes and methods):
 	  * {{{
-	  *     def add[T: <%<[Int]#F](x :T, y :T) :Int = x + y
+	  *     def add[T: <%<[Int]#C](x :T, y :T) :Int = x + y
 	  * }}}
 	  * The name was chosen to bring to mind the old conversion type bound `X <% Y`.
 	  */
-	type <%<[Y] = { type F[-X] = X => Y }
+	type <%<[Y] = { type C[-X] = X => Y }
 
-	type ConvertibleTo[Y] = { type T[-X] = X => Y }
-
-
-
-	final val ValueTypes = new Specializable.Group(Int, Long, Float, Double, Boolean, Char)
-
-
-	object <=: {
-		implicit def typeEquiv[@specialized(ValueTypes) X] :X ==: X = new TypeEquiv[X]
-
-		implicit def scalaSubtypeRelation[X, Y](sub :X<=:Y) :X<:<Y = sub.<:<
-		implicit def scalaTypeEquivalency[X, Y](equiv :X==:Y) :X=:=Y = equiv.=:=
-	}
-	private[this] final val ErasedEquiv = new TypeEquiv[Any]
-	@inline private[this] def genericEquiv[X] = ErasedEquiv.asInstanceOf[TypeEquiv[X]]
-
-
-	/** A specialized equivalent of standard scala `<:<`, attesting that type `X` is a subtype of type `Y`.
-	  * Introduced for specialization (including forcing specialization on methods declaring it as a parameter)
-	  * and to provide transitive by covariance and contravariance instances for higher types constructed using `X` and `Y`.
-	  * An implicit instance exists everywhere where the compiler would accept a value of `X` for type `Y`.
-	  * Being a function `X=>Y`, an implicit value serves as an implicit (identity) conversion from `X` to `Y`.
-	  * @see [[net.noresttherein.sugar.typist.==: ==:]]
+	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
+	  * and creates a type with a member type constructor `C` accepting the desired argument type. Designed to be used
+	  * as a type class (context bound of generic classes and methods):
+	  * {{{
+	  *     def add[T: To[Int]#C](x :T, y :T) :Int = x + y
+	  * }}}
 	  */
-	sealed trait <=:[@specialized(ValueTypes) -X, @specialized(ValueTypes) +Y] extends ComposableFun[X, Y] {
-		def <:< :X<:<Y
+	type To[Y] = { type C[-X] = X => Y }
 
-		def cotype[F[+T]] :F[X]<=:F[Y]
-		def contratype[F[-T]] :F[Y]<=:F[X]
-		def copair[F[+A, -R]] :F[X, Y]<=:F[Y, X]
-		def contrapair[F[-A, +R]] :F[Y, X]<=:F[X, Y]
-
-	}
-
-
-
-	/** A specialized equivalent of standard scala `=:=`, attesting that type `X` is equivalent to type `Y`
-	  * (values of `X` are accepted for type `Y` and vice versa). Introduced for specialization and
-	  * to provide instances for equivalency relation inferred by inversion and higher type application.
-	  * An implicit instance exists everywhere where the compiler would accept a value of `X` for type `Y` and vice versa.
+	/** Lifts `X <:< Y` to a type class (AKA context bound) of `X`.
+	  * @example {{{
+	  *     def append[T: Supertype[Int]#Of](first :Int, second :T) :Seq[Int] = Seq(first, second)
+	  * }}}
+	  * @tparam Y a supertype of a type specified as type argument to member type `Of[X]`.
+	  * @see [[net.noresttherein.sugar.typist.Subtype Subtype]]
 	  */
-	sealed trait ==:[@specialized(ValueTypes) X, @specialized(ValueTypes) Y] extends <=:[X, Y] {
-		def =:= :X=:=Y
-		def >:> :Y<:<X
+	type Supertype[Y] = { type Of[-X] = X <:< Y }
 
-		override def cotype[F[+T]] :F[X]==:F[Y]
-		override def contratype[F[-T]] :F[Y]==:F[X]
-		override def copair[F[A, R]] :F[X, Y]==:F[Y, X]
-		override def contrapair[F[A, R]] :F[Y, X]==:F[X, Y]
-
-		@unspecialized
-		def inverse :Y==:X
-
-		override def canEqual(that :Any) :Boolean = that.isInstanceOf[==:[_, _]]
-
-		override def toString :String = {
-			val tpe = domainString
-			tpe + "==:" + tpe
-		}
-	}
-
-
-
-	private final class TypeEquiv[@specialized(ValueTypes) X] extends (X==:X) with Identity[X] with Serializable {
-		override def <:< :X <:< X = implicitly[X<:<X]
-		override def >:> :X <:< X = implicitly[X<:<X]
-		override def =:= :X =:= X = implicitly[X=:=X]
-
-
-		override def cotype[F[+T]] :F[X] ==: F[X] = genericEquiv
-		override def contratype[F[-T]] :F[X] ==: F[X] = genericEquiv
-		override def copair[F[A, R]] :F[X, X] ==: F[X, X] = genericEquiv
-		override def contrapair[F[A, R]] :F[X, X] ==: F[X, X] = genericEquiv
-
-		@unspecialized
-		override def inverse: X==:X = this
-
-	}
+	/** Lifts `X <:< Y` to a type class (AKA context bound) of `Y`.
+	  * @example {{{
+	  *     def convert[Y: Subtype[X]#Of](value :X, buffer :Buffer[Y]) :buffer.type = buffer += value
+	  * }}}
+	  * @tparam X a subtype of a type specified as type argument to member type `Of[Y]`.
+	  * @see [[net.noresttherein.sugar.typist.Subtype Subtype]]
+	  */
+	type Subtype[X] = { type Of[+Y] = X <:< Y }
 
 
 

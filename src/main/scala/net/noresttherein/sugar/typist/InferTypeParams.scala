@@ -56,7 +56,7 @@ import scala.annotation.implicitNotFound
   * @tparam U the parameterized upper bound for types `X`, `T` with free type parameters only on the first level and
   *           with concrete (or instantiated by the inferer) bounds, for example `Generic[X]`.
   * @author Marcin Mościcki
-  */
+  */ //consider: moving it to witness.
 @implicitNotFound("Cannot infer type arguments: cannot prove ${X} =:= ${T} <:< ${U}.\n" +
                   "This may be caused by the second type parameter occurring before " +
                   "the InferTypeParams[${X}, ${T}, ${U}] argument in the method signature or its return type.")
