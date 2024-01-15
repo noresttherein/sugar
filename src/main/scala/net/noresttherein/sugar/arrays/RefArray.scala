@@ -6,14 +6,15 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.RefArray.extensions.RefArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.typist.PriorityConversion
+import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.witness.Ignored
 
 
 
@@ -110,10 +111,13 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	}
 
 
+	@inline private def expose[X](array :Array[Any]) :RefArray[X] = array.asInstanceOf[RefArray[X]]
 
 	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
 	@throws[NegativeArraySizeException]("if newLength is negative")
-	@inline final def ofDim[E](length :Int) :RefArray[E] = new Array[Any](length).castFrom[Array[Any], RefArray[E]]
+	@inline final def ofDim[E](length :Int) :RefArray[E] =
+		if (length == 0) empty
+		else expose(new Array[Any](length))
 
 	/** Reallocates the given array as a $Coll`[E]` of a new size, and copies `min(newLength - offset, array.length)`
 	  * of its first elements to positions starting with `offset`.
@@ -135,7 +139,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		else {
 			val res = new Array[Any](newLength)
 			ArrayLike.copy(array, 0, res, offset, math.min(array.length, newLength - offset))
-			res.castFrom[Array[Any], RefArray[E]]
+			expose(res)
 		}
 
 	/** Creates new $coll of the specified length and copies to it the values in the index range `[from, until)`
@@ -154,7 +158,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	  */
 	@throws[NegativeArraySizeException]("if newLength is negative")
 	@inline def copyOfRange[E](array :ArrayLike[E], from :Int, until :Int, newLength :Int) :RefArray[E] =
-		Array.copyOfRange[Any](array, from, until, newLength)(ClassTag.Any).asInstanceOf[RefArray[E]]
+		expose(Array.copyOfRange[Any](array, from, until, newLength)(ClassTag.Any))
 //		copyOfRange(array, from, until, 0, newLength)
 
 	/** Copies the elements of `array` in the index range `[from, until)` to a new array with an erased element type.
@@ -173,7 +177,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	@throws[IndexOutOfBoundsException]("if offset is negative")
 	@throws[NegativeArraySizeException]("if newLength is negative")
 	@inline def copyOfRange[E](array :ArrayLike[E], from :Int, until :Int, offset :Int, newLength :Int) :RefArray[E] =
-		Array.copyOfRange[Any](array, from, until, classOf[Any], offset, newLength).castFrom[Array[_], RefArray[E]]
+		expose(Array.copyOfRange[Any](array, from, until, classOf[Any], offset, newLength))
 
 	//consider: new methods for two and three ranges copying to a given offset.
 
@@ -195,9 +199,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	@throws[NegativeArraySizeException]("if newLength is negative")
 	@inline def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 	                            array2 :ArrayLike[E], from2 :Int, until2 :Int, newLength :Int) :RefArray[E] =
-		Array.copyOfRanges[Any](
-			array1, from1, until1, array2, from2, until2, newLength
-		)(ClassTag.Any).asInstanceOf[RefArray[E]]
+		expose(Array.copyOfRanges[Any](array1, from1, until1, array2, from2, until2, newLength)(ClassTag.Any))
 
 	/** Copies slices from three array into a new $coll. Providing `until < from` has the same effect as `until == from`,
 	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
@@ -221,10 +223,11 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	@throws[NegativeArraySizeException]("if newLength is negative")
 	@inline def copyOfRanges[E](array1 :Array[E], from1 :Int, until1 :Int,
 	                            array2 :Array[E], from2 :Int, until2 :Int,
-	                            array3 :Array[E], from3 :Int, until3 :Int, newLength :Int) :RefArray[E] =
+	                            array3 :Array[E], from3 :Int, until3 :Int, newLength :Int) :RefArray[E] = expose(
 		Array.copyOfRanges[Any](
 			array1, from1, until1, array2, from2, until2, array3, from3, until3, newLength
-		)(ClassTag.Any).asInstanceOf[RefArray[E]]
+		)(ClassTag.Any)
+	)
 
 
 	/** Wraps reference arrays in indexed sequences and unwraps all known mutable collections
@@ -292,7 +295,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		Array.ArrayOrdering[A].castParam[RefArray[A]]
 
 	implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
-	private[this] val tag = classTag[Array[AnyRef]]
+	private val tag = classTag[Array[AnyRef]]
 
 	implicit def RefArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } =
 		IsSeqPrototype.asInstanceOf[IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] }]
@@ -350,16 +353,19 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 //			new ArrayLike.ArrayLikeExtension[RefArray, A](array.castFrom[RefArray[A], Array[Any]])
 //	}
 //
+	private[arrays] trait evidence extends Any {
+		implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
+	}
+
 	/** Mixin trait with extension methods conversion for `RefArray` types.
 	  * @define Coll `RefArray`
 	  * @define Extension `RefArrayExtension[E]`
 	  */
-	private[arrays] trait extensions extends Any with RefArrayLike.extensions with MutableArray.extensions {
-//		@inline implicit final def RefArrayExtension[A, Arr[X] <: RefArray[X]](self :RefArray[A])
-//				:RefArrayExtension[A, Arr] =
-//			new RefArrayExtension(self.asInstanceOf[Array[_]])
+	private[arrays] trait extensions extends Any with RefArrayLike.extensions with MutableArray.extensions with evidence {
+//		@inline implicit final def RefArrayExtension[A](self :RefArray[A]) :RefArrayExtension[A] =
+//			new RefArrayExtension(self.asInstanceOf[Array[Any]])
 		/** Extension methods for [[net.noresttherein.sugar.arrays.RefArray RefArray]]`[E]`.
-		  * $conversionInfo 
+		  * $conversionInfo
 		  */
 		implicit final def RefArrayExtension[E] :RefArrayExtensionConversion[E] =
 			extensions.RefArrayExtensionConversionPrototype.asInstanceOf[RefArrayExtensionConversion[E]]
@@ -368,15 +374,19 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	@SerialVersionUID(Ver)
 	object extensions extends extensions {
 		sealed trait RefArrayExtensionConversion[E] extends (RefArray[E] => RefArrayExtension[E]) {
-			@inline final def apply(v1 :RefArray[E])(implicit dummy :DummyImplicit) :RefArrayExtension[E] =
+			@inline final def apply(v1 :RefArray[E])(implicit __ :Ignored) :RefArrayExtension[E] =
 				new RefArrayExtension(v1.asInstanceOf[Array[Any]])
 		}
-		private def newRefArrayExtensionConversion[E] =
-			new PriorityConversion.Wrapped[RefArray[E], RefArrayExtension[E]](
-				(arr :RefArray[E]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
-			) with RefArrayExtensionConversion[E]
-		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Any] =
-			newRefArrayExtensionConversion
+//		private def newRefArrayExtensionConversion[E] =
+//			new PriorityConversion.Wrapped[RefArray[E], RefArrayExtension[E]](
+//				(arr :RefArray[E]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
+//			) with RefArrayExtensionConversion[E]
+//		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Any] =
+//			newRefArrayExtensionConversion
+		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Unknown] =
+			new PriorityConversion.Wrapped[RefArray[Unknown], RefArrayExtension[Unknown]](
+				(arr :RefArray[Unknown]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
+			) with RefArrayExtensionConversion[Unknown]
 	}
 
 }

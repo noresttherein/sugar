@@ -14,14 +14,19 @@ import scala.reflect.{ClassTag, classTag}
 import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.arrays.MutableArray.extensions.MutableArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, MutableArrayExtension}
+import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, RefArraySlice}
+import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.typist.PriorityConversion
-import net.noresttherein.sugar.typist.casting.extensions.castingMethods
+import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
+import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.witness.Ignored
+
+
 
 
 /** Companion definitions for Scala arrays, including `Array[AnyRef]`
@@ -33,7 +38,9 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 @SerialVersionUID(Ver)
 case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray) {
 
-	class MutableArrayExtension[E] private[arrays] (private val self :Array[_]) extends AnyVal {
+	class MutableArrayExtension[E] private[arrays] (private val self :Array[Unknown]) extends AnyVal {
+//		@inline private def as[E] :Array[E] = self.asInstanceOf[Array[E]]
+
 		/** Fills (in place) the whole array with the given value. */
 		@inline def fill(elem :E) :Unit = fill(0, self.length)(elem)
 
@@ -49,7 +56,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 //					throw new IndexOutOfBoundsException(
 //						errorString(self) + "fill(" + from + ", " + until + ")"
 //					)
-				self match {
+				(self :Array[_]) match {
 					case array :Array[AnyRef]  => Arrays.fill(array, from0, until0, elem)
 					case array :Array[Int]     => Arrays.fill(array, from0, until0, elem.asInstanceOf[Int])
 					case array :Array[Long]    => Arrays.fill(array, from0, until0, elem.asInstanceOf[Long])
@@ -78,7 +85,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			if (until > from & until > 0 && from < self.length) {
 				val from0 = math.max(0, from)
 				val until0 = math.min(self.length, until)
-				self match {
+				(self :Array[_]) match {
 					case _     :Array[Unit]    => Arrays.fill(self.asInstanceOf[Array[AnyRef]], ())
 					case array :Array[AnyRef]  => Arrays.fill(array, from0, until0, null)
 					case array :Array[Int]     => Arrays.fill(array, from0, until0, 0)
@@ -99,7 +106,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		  * but only if this is an instance of `Array[AnyRef]` (or its subclass).
 		  * Indices out of `[0, this.length)` are permitted, and the method will not attempt to set them.
 		  */
-		@inline def clearIfRef(from :Int, until :Int) :Unit = self match {
+		@inline def clearIfRef(from :Int, until :Int) :Unit = (self :Array[_]) match {
 			case _     :Array[Unit] => ()
 			case array :Array[AnyRef] if until > from & until > 0 && from < self.length =>
 				val from0 = math.max(0, from)
@@ -122,26 +129,70 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		/** Swaps (in place) elements at indices `i` and `j`. */
 		@inline def swap(i :Int, j :Int) :Unit = {
-			val arr = self.asInstanceOf[Array[E]]
+			val arr = self
 			val boo = arr(i)
 			arr(i)  = arr(j)
 			arr(j)  = boo
 		}
 
-		def update(idx :Int, elem :E) :Unit = self.castFrom[Array[_], Array[E]].update(idx, elem)
+		def update(idx :Int, elem :E) :Unit = self(idx) = elem.asInstanceOf[Unknown]
+
+		/** Sets all elements in the array to values returned by the argument function applied to element's index. */
+		@inline def updateAll(f :Int => E) :Unit = updateAll(0, self.length)(f)
+
+		/** Sets all elements in the given index range in this array to values returned by the argument function
+		  * applied to element's index. If `until < from` the call has no effect.
+		  */
+//		  * @return the number of actual elements set, after adjusting the indices to legal boundaries.
+		@throws[IndexOutOfBoundsException]("if either from or until is outside range [0, this.length).")
+		def updateAll(from :Int, until :Int)(f :Int => E) :Unit =
+			ArrayLikeOps.updateAll(self, from, until)(f.castParam2[Unknown])
 
 		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
 		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
 		  * is out of range, it is simply ignored.
 		  */
-		def updateAll(idx :Int, first :E, second :E, rest :E*) :Unit =
-			ArrayExtension(self).asInstanceOf[Array[E]].updateAll(idx, first, second, rest :_*)
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + 2 + rest.length > this.length")
+		@inline def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
+			self(index) = first.asInstanceOf[Unknown]
+			self(index + 1) = second.asInstanceOf[Unknown]
+			updateAll(index + 2, rest) + 2
+		}
 
 		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
 		  * If any of the indices in the range covering all provided elements is out of range, it is simply ignored.
+		  * @return the number of updated elements.
 		  */
-		def updateAll(idx :Int, elems :IterableOnce[E]) :Unit =
-			ArrayExtension(self.asInstanceOf[Array[E]]).updateAll(idx, elems)
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
+		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {
+			val thisSize = self.length
+			val thatSize = elems.knownSize
+			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
+				throw new IndexOutOfBoundsException(
+					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
+				)
+			if (thatSize >= 0)
+				elems.castParam[Unknown].toBasicOps.copyToArray(self, index)
+			else
+				elems.castParam[Unknown].toBasicOps.foldLeft(index) { (i, elem) =>
+					self(i) = elem; i + 1
+				} - index
+		}
+
+		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
+		  * @return the number of updated elements.
+		  */
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		def updateAll(index :Int, elems :ArrayLike[E]) :Int = {
+			val thisSize = self.length
+			val thatSize = elems.length
+			if (index < 0 | index > thisSize - thatSize)
+				throw new IndexOutOfBoundsException(
+					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
+				)
+			ArrayLike.copy(elems, 0, self, index, thatSize)
+			thatSize
+		}
 
 		//name reverse is already used by ArrayOps to produce a copy
 		/** Reverses the whole array in place. */
@@ -152,7 +203,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		  * or `until > length` has the same effect as passing `0` and `length`, respectively.
 		  */
 		def reverseInPlace(from :Int, until :Int) :Unit = {
-			val a = self.asInstanceOf[Array[E]]
+			val a = self
 			var i = math.max(from, 0)
 			var j = math.min(until, self.length)
 			while (i < j) {
@@ -179,7 +230,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		  * clips it the length of the array.
 		  */ //consider: strict indexing
 		def rotateLeft(from :Int, until :Int)(n :Int) :Unit = {
-			val array  = self.asInstanceOf[Array[E]]
+			val array  = self
 			val length = array.length
 			val from0  = math.max(from, 0)
 			val until0 = math.min(until, length)
@@ -327,25 +378,29 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			}
 
 		@inline final def sortInPlace[U >: E]()(implicit ordering :Ordering[U]) :Unit =
-			Sorting.stableSort(self.asInstanceOf[Array[U]])
+			Sorting.stableSort(self)(ordering.castParam[Unknown])
 
 		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
 		@inline final def sortInPlace[U >: E](from :Int, until :Int)(implicit ordering :Ordering[U]) :Unit =
-			Sorting.stableSort(self.asInstanceOf[Array[U]], from, until)
+			Sorting.stableSort(self, from, until)(ordering.castParam[Unknown])
 
 		@inline final def sortInPlaceWith[U >: E](lt :(U, U) => Boolean) :Unit =
-			Sorting.stableSort(self.asInstanceOf[Array[U]], lt)
+			Sorting.stableSort(self, lt.castParams[Unknown, Unknown, Boolean])
 
 		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
 		@inline final def sortInPlaceWith[U >: E](from :Int, until :Int)(lt :(U, U) => Boolean) :Unit =
-			Sorting.stableSort(self.asInstanceOf[Array[U]], lt, from, until)
+			Sorting.stableSort(self, lt.castParams[Unknown, Unknown, Boolean], from, until)
 
-		@inline final def sortInPlaceBy[A](f :E => A)(implicit ordering :Ordering[A]) :Unit =
-			Sorting.stableSort(self.asInstanceOf[Array[E]], (a :E, b :E) => ordering.lt(f(a), f(b)))
+		@inline final def sortInPlaceBy[A](f :E => A)(implicit ordering :Ordering[A]) :Unit = {
+			val by = f.castParam1[Unknown]
+			Sorting.stableSort(self, (a :Unknown, b :Unknown) => ordering.lt(by(a), by(b)))
+		}
 
 		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
-		@inline final def sortInPlaceBy[A](from :Int, until :Int)(f :E => A)(implicit ordering :Ordering[A]) :Unit =
-			Sorting.stableSort(self.asInstanceOf[Array[E]], (a :E, b :E) => ordering.lt(f(a), f(b)), from, until)
+		@inline final def sortInPlaceBy[A](from :Int, until :Int)(f :E => A)(implicit ordering :Ordering[A]) :Unit = {
+			val by = f.castParam1[Unknown]
+			Sorting.stableSort(self, (a :Unknown, b :Unknown) => ordering.lt(by(a), by(b)), from, until)
+		}
 
 		@inline def shuffle()(implicit random :Random) :Unit = shuffle(0, self.length, random.self)
 		@inline def shuffle(from :Int, until :Int)(implicit random :Random) :Unit = shuffle(from, until, random.self)
@@ -356,13 +411,13 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		@inline def toSeq        :Seq[E] = toIndexedSeq
 		@inline def toIndexedSeq :IndexedSeq[E] =
-			IArrayLikeSlice.wrap(self.clone().asInstanceOf[IArrayLike[E]])
+			IArrayLikeSlice.wrap(ArrayFactory.copyOf(self).asInstanceOf[IArrayLike[E]])
 
 		@inline def toOps        :mutable.IndexedSeqOps[E, RefArray, MutableArray[E]] =
 			if (self.isInstanceOf[Array[Any]])
-				new RefArrayAsSeq(self.castFrom[Array[_], RefArray[E]])
+				new RefArrayAsSeq(self.castFrom[Array[Unknown], RefArray[E]])
 			else
-				new ArrayAsSeq(self.castFrom[Array[_], Array[E]])
+				new ArrayAsSeq(self.castFrom[Array[Unknown], Array[E]])
 	}
 
 
@@ -511,10 +566,10 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 	  * @define Extension `MutableArrayExtension[E, Arr]`
 	  */
 	private[arrays] trait extensions extends Any with ArrayLike.extensions {
-///*		@inline implicit final def MutableArrayExtension[A](self :MutableArray[A])*/ :MutableArrayExtension[A] =
-//			new MutableArrayExtension(self.asInstanceOf[Array[_]])
+//		@inline implicit final def MutableArrayExtension[A](self :MutableArray[A]) :MutableArrayExtension[A] =
+//			new MutableArrayExtension(self.asInstanceOf[Array[Unknown]])
 		/** Extension methods for all `MutableArray[E]` subtypes.
-		  * $conversionInfo 
+		  * $conversionInfo
 		  */
 		implicit final def MutableArrayExtension[E] :MutableArrayExtensionConversion[E] =
 			extensions.MutableArrayExtensionConversionPrototype.asInstanceOf[MutableArrayExtensionConversion[E]]
@@ -523,15 +578,20 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 	@SerialVersionUID(Ver)
 	object extensions extends extensions {
 		sealed trait MutableArrayExtensionConversion[E] extends (MutableArray[E] => MutableArrayExtension[E]) {
-			@inline final def apply(v1 :MutableArray[E])(implicit dummy :DummyImplicit) :MutableArrayExtension[E] =
-				new MutableArrayExtension(v1.asInstanceOf[Array[_]])
+			@inline final def apply(v1 :MutableArray[E])(implicit __ :Ignored) :MutableArrayExtension[E] =
+				new MutableArrayExtension(v1.asInstanceOf[Array[Unknown]])
 		}
-		private def newMutableArrayExtensionConversion[E] =
-			new PriorityConversion.Wrapped[MutableArray[E], MutableArrayExtension[E]](
-				(arr :MutableArray[E]) => new MutableArrayExtension(arr.asInstanceOf[Array[_]])
-			) with MutableArrayExtensionConversion[E]
-		private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Any] =
-			newMutableArrayExtensionConversion
+//		private def newMutableArrayExtensionConversion[E] =
+//			new PriorityConversion.Wrapped[MutableArray[E], MutableArrayExtension[E]](
+//				(arr :MutableArray[E]) => new MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
+//			) with MutableArrayExtensionConversion[E]
+//		private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Any] =
+//			newMutableArrayExtensionConversion
+		private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Unknown] =
+			new PriorityConversion.Wrapped[MutableArray[Unknown], MutableArrayExtension[Unknown]](
+				(arr :MutableArray[Unknown]) => new MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
+			) with MutableArrayExtensionConversion[Unknown]
+
 	}
 }
 

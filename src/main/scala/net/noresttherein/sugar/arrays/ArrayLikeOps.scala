@@ -225,7 +225,7 @@ private[sugar] object ArrayLikeOps {
 //		indexWhere(array, from, until)(f, 0) == -1
 //
 
-	def updateAll[E](array :Array[E], from :Int, until :Int)(f :Int => E) :Unit = {
+	def updateAll[E](array :Array[E], from :Int, until :Int)(f :Int => E) :Int = {
 		val length = array.length
 		if (until > from & until > 0 & from < length) {
 			val from0 = math.max(from, 0)
@@ -249,7 +249,9 @@ private[sugar] object ArrayLikeOps {
 				case a :Array[Boolean]  => fill(a, f.castParam2[Boolean])
 				case null               => throw new NullPointerException()
 			}
-		}
+			until0 - from0
+		} else
+			0
 
 	}
 

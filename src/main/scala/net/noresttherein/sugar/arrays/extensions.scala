@@ -11,11 +11,13 @@ import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
+import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.reflect.classes
+import net.noresttherein.sugar.witness.Overload
 
 //import net.noresttherein.sugar.arrays.ArrayLike.ArrayCompatibility
 import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtensionConversion, ArrayExtensionConversionPrototype, ArrayCompanionExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtensionConversion, ArrayExtensionConversionPrototype, ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
@@ -34,9 +36,42 @@ import net.noresttherein.sugar.witness.Ignored
 /** Collected definitions of implicit conversions providing extension methods to `Array` and all other
   * [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]] subtypes.
   */
-trait extensions extends Any with IArray.extensions with RefArray.extensions with IRefArray.extensions {
+trait extensions extends IArray.extensions with RefArray.extensions with IRefArray.extensions {
+	//Not an implicit anymore, but preserved for now, as in some places it is called explicitly.
+
+	/** Extension methods for arrays. This conversion has priority over the one to [[scala.collection.ArrayOps ArrayOps]]
+	  * defined in `Predef`, in order to provide overloads of standard methods, like update.
+	  */
 	implicit final def ArrayExtension[E] :ArrayExtensionConversion[E] =
 		ArrayExtensionConversionPrototype.asInstanceOf[ArrayExtensionConversion[E]]
+
+	@inline implicit final def ByteArrayExtension    :ArrayExtensionConversion[Byte]    = ArrayExtension
+	@inline implicit final def ShortArrayExtension   :ArrayExtensionConversion[Short]   = ArrayExtension
+	@inline implicit final def CharArrayExtension    :ArrayExtensionConversion[Char]    = ArrayExtension
+	@inline implicit final def IntArrayExtension     :ArrayExtensionConversion[Int]     = ArrayExtension
+	@inline implicit final def LongArrayExtension    :ArrayExtensionConversion[Long]    = ArrayExtension
+	@inline implicit final def DoubleArrayExtension  :ArrayExtensionConversion[Double]  = ArrayExtension
+	@inline implicit final def FloatArrayExtension   :ArrayExtensionConversion[Float]   = ArrayExtension
+	@inline implicit final def BooleanArrayExtension :ArrayExtensionConversion[Boolean] = ArrayExtension
+	@inline implicit final def UnitArrayExtension    :ArrayExtensionConversion[Unit]    = ArrayExtension
+
+	//Fixme: this takes precedence over Predef.genericArrayOps when imported, but conflicts with genericWrapArray
+	// which converts an Array to an ArraySeq, and we can't depend on the user importing another shadowing definition.
+	// For a conversion to be more specific and take precedence, either the argument or the return type must
+	// be strictly more specific, or the whole conversion be a subtype of Array[T] => Extension.
+	// Unfortunately, if we try to return a value class out of a function it gets boxed, which we certainly don't want.
+	// And if we try to override apply to return specifically the extension class, it produces an error
+	// of 'a method having the same erasure as an automatically generated bridge'. Here comes the trick with the
+	// PriorityConversion: extending a subtype of a function, and providing our own `apply`, but with a different
+	// signature. And it works very well. Unfortunately, due to its very nature, this code can't be generalized,
+	// and suddenly, every conversion becomes quite verbose and noisy. And we need to provide those priority conversions
+	// for all subtypes of ArrayLike, because implementing it for a subclass and for every value type in case of Array, because otherwise the converions
+	// in predef
+	/** Extension methods for arrays. This conversion shadows the one to [[scala.collection.ArrayOps ArrayOps]]
+	  * defined in `Predef` under the same name, in order to provide overloads of standard methods, like update.
+	  * The downside of this is that `ArrayOps` extension methods are no longer available.
+	  */
+//	@inline implicit final def genericArrayOps[T](self: Array[T]): ArrayExtension[T] = new ArrayExtension(self)
 
 	/** Adds extra extension methods to the `Array` object. */
 	@inline implicit final def ArrayCompanionExtension(self :Array.type) :ArrayCompanionExtension =
@@ -64,15 +99,15 @@ object extensions extends extensions {
 		/** Casts this array to `IArray[E]`. This always succeeds, but lifting mutation protection
 		  * may have undesired consequences if a reference to this array escapes and is modified.
 		  */
-		@inline def asIArray :IArray[E] = self.asInstanceOf[IArray[E]]
+		@inline def unsafeAsIArray :IArray[E] = self.asInstanceOf[IArray[E]]
 
-		/** Casts this array to `IRefArray[E]`. This always succeeds, but lifting mutation protection
-		  * may have undesired consequences if a reference to this array escapes and is modified.
-		  */
-		@inline def asIRefArray(implicit ofAny :AnyRef <:< E) :IRefArray[E] = self.asInstanceOf[IRefArray[E]]
-
-		/** Casts this `Array[Any]` to a `RefArray[Any]`. */
-		@inline def asRefArray(implicit ofAny :AnyRef <:< E) :RefArray[E] = self.asInstanceOf[RefArray[E]]
+//		/** Casts this array to `IRefArray[X]`. This always succeeds, but lifting mutation protection
+//		  * may have undesired consequences if a reference to this array escapes and is modified.
+//		  */
+//		@inline def unsafeAsIRefArray[X](implicit ofAny :AnyRef <:< E) :IRefArray[X] = self.asInstanceOf[IRefArray[X]]
+//
+//		/** Casts this `Array[Any]` to a `RefArray[Any]`. */
+//		@inline def unsafeAsRefArray[X](implicit ofAny :AnyRef <:< E) :RefArray[X] = self.asInstanceOf[RefArray[X]]
 
 		/** Creates an exact copy of this array and returns it as an immutable `IArray[E]`. */
 		@inline def toIArray :IArray[E] = ArrayFactory.copyOf(self).asInstanceOf[IArray[E]]
@@ -725,7 +760,7 @@ object extensions extends extensions {
 //				else Array.copyOfRange(self, 0, length - n, n, length)
 //		}
 
-
+		//Todo: move these methods to bitpicker instead.
 		/** Creates a new array of length `max(this.length, other.length)`, which at index `i` contains
 		  * `this(i) | that(i)`, for `i = 0, ..., min(this.length - 1, other.length - 1)`.
 		  * If the arrays are of different lengths, indices past `min(this.length, other.length)` are set
@@ -934,13 +969,13 @@ object extensions extends extensions {
 		/** Replaces the first occurrence of sequence `pattern` in this array with elements from `patch`.
 		  * Returns a new array of element type specified by the implicit `ClassTag[U]`.
 		  */
-		@inline def replace[U >: E :ClassTag](pattern :collection.Seq[U], patch :collection.Seq[U]) :Array[U] =
-			replace(pattern, patch, 0)
+		@inline def replaceFirst[U >: E :ClassTag](pattern :collection.Seq[U], patch :collection.Seq[U]) :Array[U] =
+			replaceFirst(pattern, patch, 0)
 
 		/** Replaces the first occurrence of sequence `pattern` in this array at or after index `from`
 		  * with elements from `patch`. Returns a new array of element type specified by the implicit `ClassTag[U]`.
 		  */
-		def replace[U >: E :ClassTag](pattern :collection.Seq[U], patch :collection.Seq[U], from :Int) :Array[U] = {
+		def replaceFirst[U >: E :ClassTag](pattern :collection.Seq[U], patch :collection.Seq[U], from :Int) :Array[U] = {
 			val idx = self.indexOfSlice(pattern, from)
 			if (idx < 0)
 				ArrayFactory.copyAs[U](self)
@@ -955,14 +990,16 @@ object extensions extends extensions {
 			}
 		}
 
+		//These two methods could be in MutableExtension because they don't need a ClassTag,
+		// but splitting extension methods with the same name between different extension classes causes conflicts.
 		/** Replaces the first occurrence of sequence `pattern` in this array with elements from `patch`. */
-		@inline def replace(pattern :collection.Seq[E], patch :collection.Seq[E]) :Array[E] =
-			replace(pattern, patch, 0)
+		@inline def replaceFirst(pattern :collection.Seq[E], patch :collection.Seq[E]) :Array[E] =
+			replaceFirst(pattern, patch, 0)
 
 		/** Replaces the first occurrence of sequence `pattern` in this array at or after index `from`
 		  * with elements from `patch`.
 		  */
-		def replace(pattern :collection.Seq[E], patch :collection.Seq[E], from :Int) :Array[E] = {
+		def replaceFirst(pattern :collection.Seq[E], patch :collection.Seq[E], from :Int) :Array[E] = {
 			val idx = self.indexOfSlice(pattern, from)
 			if (idx < 0)
 				self.clone()
@@ -980,24 +1017,24 @@ object extensions extends extensions {
 		/** Replaces the first occurrence of sequence `pattern` in this array with elements from `patch`.
 		  * Returns a new array of element type specified by the implicit `ClassTag[U]`.
 		  */
-		@inline def replace[U >: E :ClassTag](pattern :ArrayLike[U], patch :ArrayLike[U]) :Array[U] =
-			replace(pattern, patch, 0)
+		@inline def replaceFirst[U >: E :ClassTag](pattern :ArrayLike[U], patch :ArrayLike[U]) :Array[U] =
+			replaceFirst(pattern, patch, 0)
 
 		/** Replaces the first occurrence of sequence `pattern` in this array at or after index `from`
 		  * with elements from `patch`. Returns a new array of element type specified by the implicit `ClassTag[U]`.
 		  */ //todo: instead of wrapping, create a shared implementation based on SeqLike type class
-		@inline def replace[U >: E :ClassTag](pattern :ArrayLike[U], patch :ArrayLike[U], from :Int) :Array[U] =
-			replace(ArrayLike.Wrapped(pattern), ArrayLike.Wrapped(patch), from)
+		@inline def replaceFirst[U >: E :ClassTag](pattern :ArrayLike[U], patch :ArrayLike[U], from :Int) :Array[U] =
+			replaceFirst(ArrayLike.Wrapped(pattern), ArrayLike.Wrapped(patch), from)
 
 		/** Replaces the first occurrence of sequence `pattern` in this array with elements from `patch`. */
-		@inline def replace(pattern :ArrayLike[E], patch :ArrayLike[E]) :Array[E] =
-			replace(pattern, patch, 0)
+		@inline def replaceFirst(pattern :ArrayLike[E], patch :ArrayLike[E]) :Array[E] =
+			replaceFirst(pattern, patch, 0)
 
 		/** Replaces the first occurrence of sequence `pattern` in this array at or after index `from`
 		  * with elements from `patch`.
 		  */
-		@inline def replace(pattern :ArrayLike[E], patch :ArrayLike[E], from :Int) :Array[E] =
-			replace(ArrayLike.Wrapped(pattern), ArrayLike.Wrapped(patch), from)
+		@inline def replaceFirst(pattern :ArrayLike[E], patch :ArrayLike[E], from :Int) :Array[E] =
+			replaceFirst(ArrayLike.Wrapped(pattern), ArrayLike.Wrapped(patch), from)
 
 		/** Replaces all occurrences of sequence `pattern` in this array with `patch`. Returns a new array
 		  * of element type accommodating `patch`, regardless of whether any replacement happened.
@@ -1044,14 +1081,6 @@ object extensions extends extensions {
 			replaceAll(ArrayLike.Wrapped(pattern), ArrayLike.Wrapped(patch))
 
 
-		/** Sets all elements in the array to values returned by the argument function applied to element's index. */
-		@inline def updateAll(f :Int => E) :Unit = updateAll(0, self.length)(f)
-
-		/** Sets all elements in the given index range in this array to values returned by the argument function
-		  * applied to element's index. If `until < from` the call has no effect.
-		  */
-		@throws[IndexOutOfBoundsException]("if either from or until is outside range [0, this.length).")
-		def updateAll(from :Int, until :Int)(f :Int => E) :Unit = ArrayLikeOps.updateAll(self, from, until)(f)
 /*
 	{
 		if (from < until) {
@@ -1127,16 +1156,16 @@ object extensions extends extensions {
 //		  *     > Array("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
 //		  *     > Array[String]("CHARNAME", "Miniature Giant Space Hamster", "I")
 //		  * }}}
-		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
-		  * and subsequent elements of `rest`.
-		  * @return the number of updated elements.
-		  */
-		@throws[IndexOutOfBoundsException]("if index < 0 or index + 2 + rest.length > this.length")
-		def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
-			self(index) = first
-			self(index  + 1) = second
-			updateAll(index + 2, rest) + 2
-		}
+//		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
+//		  * and subsequent elements of `rest`.
+//		  * @return the number of updated elements.
+//		  */
+//		@throws[IndexOutOfBoundsException]("if index < 0 or index + 2 + rest.length > this.length")
+//		def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
+//			self(index) = first
+//			self(index + 1) = second
+//			updateAll(index + 2, rest) + 2
+//		}
 //		{
 //			var copied = 0
 //			if (index < self.length) {
@@ -1161,24 +1190,24 @@ object extensions extends extensions {
 //		  *     > Array("You", "Boo", "I").updateAll(-1, Seq("Imoen", "CHARNAME", "Miniature Giant Space Hamster"))
 //		  *     > Array[String]("CHARNAME", "Miniature Giant Space Hamster", "I")
 //		  * }}}
-		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
-		  * @return the number of updated elements.
-		  */
-		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
-		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {
-			val thisSize = self.length
-			val thatSize = elems.knownSize
-			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
-					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
-				)
-			if (thatSize >= 0)
-				elems.toBasicOps.copyToArray(self, index)
-			else
-				elems.toBasicOps.foldLeft(index) { (i, elem) =>
-					self(i) = elem; i + 1
-				} - index
-		}
+//		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
+//		  * @return the number of updated elements.
+//		  */
+//		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
+//		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {
+//			val thisSize = self.length
+//			val thatSize = elems.knownSize
+//			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
+//				throw new IndexOutOfBoundsException(
+//					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
+//				)
+//			if (thatSize >= 0)
+//				elems.toBasicOps.copyToArray(self, index)
+//			else
+//				elems.toBasicOps.foldLeft(index) { (i, elem) =>
+//					self(i) = elem; i + 1
+//				} - index
+//		}
 
 //		  * If any of the indices in the range covering all provided elements
 //		  * is out of range, it is simply ignored. For example,
@@ -1186,20 +1215,20 @@ object extensions extends extensions {
 //		  *     > Array("You", "Boo", "I").updateAll(-1, IArray("Imoen", "CHARNAME", "Miniature Giant Space Hamster"))
 //		  *     > Array[String]("CHARNAME", "Miniature Giant Space Hamster", "I")
 //		  * }}}
-		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
-		  * @return the number of updated elements.
-		  */
-		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
-		def updateAll(index :Int, elems :ArrayLike[E]) :Int = {
-			val thisSize = self.length
-			val thatSize = elems.length
-			if (index < 0 | index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
-					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
-				)
-			ArrayLike.copy(elems, 0, self, index, thatSize)
-			thatSize
-		}
+//		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
+//		  * @return the number of updated elements.
+//		  */
+//		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+//		def updateAll(index :Int, elems :ArrayLike[E]) :Int = {
+//			val thisSize = self.length
+//			val thatSize = elems.length
+//			if (index < 0 | index > thisSize - thatSize)
+//				throw new IndexOutOfBoundsException(
+//					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
+//				)
+//			ArrayLike.copy(elems, 0, self, index, thatSize)
+//			thatSize
+//		}
 
 		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.updated updated]], duplicated because
 		  * this extension class has strict precedence over `ArrayOps`.
@@ -1345,7 +1374,7 @@ object extensions extends extensions {
 	//		  * starts overwriting at `0`, but ignores the first `-index` values.
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection.
-		  */
+		  */ //fixme: overloading ambiguity with these three methods.
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		def updatedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :Array[U] = {
 	/*
@@ -1424,7 +1453,7 @@ object extensions extends extensions {
 			)
 		}
 	*/
-		def updatedAll[U >: E](index :Int, elems :Array[U])(implicit __ :Ignored) :Array[U] =
+		def updatedAll[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
 			updatedAll(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 
 	//			if (index >= self.length) 0
@@ -1659,14 +1688,6 @@ object extensions extends extensions {
 	//		def insertedAll(index :Int, elems :ArrayLike[E], from :Int = 0, until :Int = Int.MaxValue) :Array[E] =
 		def insertedAll(index :Int, elems :ArrayLike[E]) :Array[E] =
 			insertedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
-	//			Array.copyOfRanges(self, 0, index, elems, 0, elems.length, self, index, self.length)(
-	//				ClassTag[E](self.getClass.getComponentType)
-	//			)
-
-	//			if (from <= 0 && until >= elems.length)
-	//				insertedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
-	//			else
-	//				insertedAll[E](index, ArrayLike.Wrapped.Slice(elems, from, until))(ClassTag[E](self.getClass.getComponentType))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
 		  * and all subsequent elements.
@@ -1674,7 +1695,7 @@ object extensions extends extensions {
 		  * but requires the index to be in `[0, length]` range.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		def insertedAll[U >: E](index :Int, elems :Array[U])(implicit __ :Ignored) :Array[U] =
+		def insertedAll[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
 			insertedAll(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 	/*
 		def insertedAll[U >: E](index :Int, elems :Array[U], from :Int = 0, until :Int = Int.MaxValue) :Array[U] = {
@@ -1795,8 +1816,8 @@ object extensions extends extensions {
 		/** An overloaded variant of standard
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
 		  * of the specified array. The returned array will be of the same type as the argument.
-		  */
-		def appendedAll[U >: E](elems :Array[U])(implicit __ :Ignored) :Array[U] =
+		  */ //Can't use ProperArray/IArray, because IArray[U] may actually be Array[A] forSome A <: E.
+		def appendedAll[U >: E :Overload](elems :Array[U]) :Array[U] =
 			appendedAll(elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 	/*
 		def appendedAll[U >: E](elems :Array[U], from :Int = 0, until :Int = Int.MaxValue) :Array[U] =
@@ -1824,7 +1845,7 @@ object extensions extends extensions {
 		}
 
 		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prepended prepended]],
-		  * but does not requie a `ClassTag` and accepts only values of this array's element type.
+		  * but does not require a `ClassTag` and accepts only values of this array's element type.
 		  */
 		def prepended(elem :E) :Array[E] = {
 			val res = Array.like(self, self.length + 1)
@@ -1910,7 +1931,7 @@ object extensions extends extensions {
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
 		  * prepending the elements of the specified array. The returned array will be of the same type as the argument.
 		  */
-		def prependedAll[U >: E](elems :Array[U])(implicit __ :Ignored) :Array[U] =
+		def prependedAll[U >: E :Overload](elems :Array[U]) :Array[U] =
 			prependedAll(elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 
 		/*
@@ -1926,15 +1947,15 @@ object extensions extends extensions {
 	//			res
 	//		}
 
-		@inline def concat(elems :IterableOnce[E]) :Array[E] = appendedAll(elems)
 		@inline def concat[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = appendedAll(elems)
-		@inline def concat[U >: E :ClassTag](elems :ArrayLike[U]) :Array[U] = appendedAll(elems)
-	//		@inline def concat(elems :ArrayLike[E]) :Array[E] = appendedAll(elems)
-		//Can't be an IArray, because we rely on the fact that we can assign E to A
-		@inline def concat[U >: E](elems :Array[U]) :Array[U] =
+		@inline def concat[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = appendedAll(elems)
+		//Can't be an IArray, because we rely on the fact that we can assign E to U, and IArray is covariant.
+		@inline def concat[U >: E :Overload](elems :Array[U])        :Array[U] =
 			Array.copyOfRanges(self :ArrayLike[U], 0, self.length, elems, 0, elems.length)(
 				ClassTag[U](elems.getClass.getComponentType)
 			)
+		@inline def concat(elems :ArrayLike[E])    :Array[E] = appendedAll(elems)
+		@inline def concat(elems :IterableOnce[E]) :Array[E] = appendedAll(elems)
 
 
 		@inline def +:[U >: E :ClassTag](elem :U) :Array[U] = prepended(elem)
@@ -1943,22 +1964,22 @@ object extensions extends extensions {
 		@inline def :+(elem :E) :Array[E] = appended(elem)
 
 		@inline def :++[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = appendedAll(elems)
-		@inline def :++[U >: E :ClassTag](elems :ArrayLike[U]) :Array[U] = appendedAll(elems)
-	//		@inline def :++[A >: E](elems :Array[A]) :Array[A] = appendedAll(elems)
+		@inline def :++[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = appendedAll(elems)
+		@inline def :++[U >: E :Overload](elems :Array[U])        :Array[U] = appendedAll(elems)
+		@inline def :++(elems :ArrayLike[E])    :Array[E] = appendedAll(elems)
 		@inline def :++(elems :IterableOnce[E]) :Array[E] = appendedAll(elems)
-		@inline def :++(elems :ArrayLike[E]) :Array[E] = appendedAll(elems)
 
 		@inline def ++:[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = prependedAll(elems)
-		@inline def ++:[U >: E :ClassTag](elems :ArrayLike[U]) :Array[U] = prependedAll(elems)
-	//		@inline def ++:[A >: E](elems :Array[A]) :Array[A] = prependedAll(elems)
+		@inline def ++:[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = prependedAll(elems)
+		@inline def ++:[A >: E :Overload](elems :Array[A])        :Array[A] = prependedAll(elems)
+		@inline def ++:(elems :ArrayLike[E])    :Array[E] = prependedAll(elems)
 		@inline def ++:(elems :IterableOnce[E]) :Array[E] = prependedAll(elems)
-		@inline def ++:(elems :ArrayLike[E]) :Array[E] = prependedAll(elems)
 
 		@inline def ++[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = concat(elems)
-		@inline def ++[U >: E :ClassTag](elems :ArrayLike[U]) :Array[U] = concat(elems)
-		@inline def ++[U >: E](elems :Array[U]) :Array[U] = concat(elems)
+		@inline def ++[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = concat(elems)
+		@inline def ++[U >: E :Overload](elems :Array[U])        :Array[U] = concat(elems)
+		@inline def ++(elems :ArrayLike[E])    :Array[E] = concat(elems)
 		@inline def ++(elems :IterableOnce[E]) :Array[E] = concat(elems)
-	//		@inline def ++(elems :ArrayLike[E]) :Array[E] = concat(elems)
 
 		/** Same as standard [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.patch patch]],
 		  * duplicated because this extension has strict precedence over `ArrayOps`.
@@ -1999,7 +2020,7 @@ object extensions extends extensions {
 		  * Unlike the standard method, it does requiring a `ClassTag` for the element type, but instead
 		  * returns an array of the same type as `elems`.
 		  */
-		@inline def patch[U >: E](from :Int, elems :Array[U], replaced :Int)(implicit __ :Ignored) :Array[U] =
+		@inline def patch[U >: E :Overload](from :Int, elems :Array[U], replaced :Int) :Array[U] =
 			patch(from, elems :ArrayLike[U], replaced)(ClassTag[U](elems.getClass.getComponentType))
 
 
@@ -2009,120 +2030,9 @@ object extensions extends extensions {
 		  */
 		def subseq(from :Int, until :Int) :mutable.IndexedSeq[E] = ArraySlice.slice(self, from, until)
 
-
-		//moved to ArrayLikeExtension
-	//		/** Copies values from the index range `[from, from + len)` from this array to the argument array, starting
-	//		  * with position `start`. Copying stops when end of this or the argument array is reached, or after copying
-	//		  * `until - from` elements. If `[from, from + len)` range contains indices outside of `[0, this.length)`,
-	//		  * indices out of range are ignored.
-	//		  */
-	//		@throws[IndexOutOfBoundsException]("if start is less than zero.")
-	//		def copyRangeToArray[U >: E](xs :Array[U], from :Int, start :Int, len :Int) :Int =
-	//			if (len <= 0 || from >= self.length || start >= xs.length)
-	//				0
-	//			else {
-	//				val from0  = math.max(from, 0)
-	//				val copied = math.min(len, math.min(xs.length - start, self.length - from0))
-	//				ArrayLike.copy(self, from0, xs, start, copied)
-	//				copied
-	//			}
-	//
-	//		/** Copies values from the index range `[from, from + len)` from this array to the argument array, starting
-	//		  * with position `start`. Copying stops when end of this or the argument array is reached, or after copying
-	//		  * `until - from` elements. If `[from, from + len)` range contains indices outside of `[0, this.length)`,
-	//		  * indices out of range are ignored.
-	//		  */
-	//		@throws[IndexOutOfBoundsException]("if start is less than zero.")
-	//		@inline def copyRangeToArray[U >: E](xs :Array[U], from :Int, len :Int = Int.MaxValue) :Int =
-	//			copyRangeToArray(xs, from, 0, len)
-
-	//
-	//		/** Copies values from the index range `[from, from + len)` from this array to the argument array, starting
-	//		  * with position `start`. Copying stops when end of this or the argument array is reached, or after copying
-	//		  * `until - from` elements. If `[from, from + len)` range contains indices outside of `[0, this.length)`,
-	//		  * indices out of range are ignored.
-	//		  */
-	//		@throws[IndexOutOfBoundsException]("if start is less than zero.")
-	//		@inline def copyRangeToRefArray[A >: E](xs :RefArray[Any], from :Int, start :Int = 0, len :Int = Int.MaxValue) :Int =
-	//			copyRangeToArray(xs.asAnyArray, from, start, len)
-	//
-	//		/** Same as `copyToArray(xs :Array[A], start :Int, len :Int)`, but works for reference arrays. */
-	//		@inline def copyToRefArray[A >: E](xs :RefArray[A], start :Int = 0, len :Int = Int.MaxValue) :Int =
-	//			copyRangeToArray(xs.asAnyArray, 0, start, len)
-
-		//moved to ArrayLikeExtension
-	//		/** Copies the elements of this $coll to the given array, starting with `from`-th element.
-	//		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
-	//		  * whichever is smaller. The first element is written at index `start % xs.length`, and if the end of the $coll
-	//		  * is reached before any of the above happens, copying resumes from the beginning of the array.
-	//		  * @return the number of elements copied.
-	//		  * @throws IndexOutOfBoundsException if `start` is less than zero.
-	//		  */
-	//		def cyclicCopyRangeToArray[U >: E](xs :Array[U], from :Int, start :Int, len :Int = Int.MaxValue) :Int = {
-	//			val copied = math.max(0, math.min(self.length - math.max(from, 0), len))
-	//			Array.cyclicCopyTo(self, from, xs, start % xs.length, copied)
-	//			copied
-	//		}
-	//
-	//		/** Copies the elements of this $coll to the given array.
-	//		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
-	//		  * whichever is smaller. The first element is written at index `start % xs.length`, and if the end of the $coll
-	//		  * is reached before any of the above happens, copying resumes from the beginning of the array.
-	//		  * @return the number of elements copied.
-	//		  * @throws IndexOutOfBoundsException if `start` is less than zero.
-	//		  */
-	//		@inline def cyclicCopyToArray[U >: E](xs :Array[U], start :Int, len :Int = Int.MaxValue) :Int =
-	//			cyclicCopyRangeToArray(xs, 0, start, len)
-
-		//moved to ArrayLikeExtension
-	//		def sameElements(that :IterableOnce[_]) :Boolean = mutable.ArraySeq.make(self).sameElements(that)
-	//
-	//		/** Equality of corresponding elements in the two arrays. Array component type is ignored, and an array
-	//		  * of a primitive type will equal an array of the appropriate box class, as long as the actual values are equal.
-	//		  */
-	//		def sameElements(that :ArrayLike[_]) :Boolean =
-	//			(self eq that) || (self.length == that.length) && {
-	//				val elemType = self.getClass.getComponentType
-	//				def slowEquals = {
-	//					var i = that.length - 1
-	//					while (i > 0 && self(i) == that(i))
-	//						i -= 1
-	//					true
-	//				}
-	//				if (elemType == that.getClass.getComponentType)
-	//					if (classOf[AnyRef] isAssignableFrom elemType)
-	//						Arrays.equals(self.asInstanceOf[Array[AnyRef]], that.asInstanceOf[Array[AnyRef]])
-	//					else if (elemType == classOf[Int])
-	//						Arrays.equals(self.asInstanceOf[Array[Int]], that.asInstanceOf[Array[Int]])
-	//					else if (elemType == classOf[Long])
-	//						Arrays.equals(self.asInstanceOf[Array[Long]], that.asInstanceOf[Array[Long]])
-	//					else if (elemType == classOf[Double])
-	//						Arrays.equals(self.asInstanceOf[Array[Double]], that.asInstanceOf[Array[Double]])
-	//					else if (elemType == classOf[Byte])
-	//						Arrays.equals(self.asInstanceOf[Array[Byte]], that.asInstanceOf[Array[Byte]])
-	//					else if (elemType == classOf[Char])
-	//						Arrays.equals(self.asInstanceOf[Array[Char]], that.asInstanceOf[Array[Char]])
-	//					else if (elemType == classOf[Float])
-	//						Arrays.equals(self.asInstanceOf[Array[Float]], that.asInstanceOf[Array[Float]])
-	//					else if (elemType == classOf[Boolean])
-	//						Arrays.equals(self.asInstanceOf[Array[Boolean]], that.asInstanceOf[Array[Boolean]])
-	//					else
-	//						slowEquals
-	//				else
-	//					slowEquals
-	//			}
-	//
-	//		/** Deep equality of array elements and array component (element) types. */
-	//		def sameAs(that :Any) :Boolean = that match {
-	//			case self :AnyRef if this.asAnyRef eq self => true
-	//			case other :Array[_]
-	//				if other.length == self.length && other.getClass.getComponentType == self.getClass.getComponentType
-	//			=>
-	//				this sameElements other
-	//			case _ => false
-	//		}
-	//
-	//		def contentsString :String = self.mkString(self.localClassName + "(", ", ", ")")
+//		/************ methods copied from ArrayOps only because we shadowed conversion to ArrqyOps ********************/
+//
+//		@inline def slice(from :Int, until :Int) :Array[E] = new ArrayOps(self).slice(from, until)
 	}
 
 
@@ -2154,14 +2064,15 @@ object extensions extends extensions {
 		 * By adding an overloaded `apply` method in this class, the former resolves to this method, rather than
 		 * the inherited one.
 		 */
-		@inline final def apply(v1 :Array[E])(implicit dummy :DummyImplicit) :ArrayExtension[E] = new ArrayExtension(v1)
+		@inline final def apply(v1 :Array[E])(implicit __ :Ignored) :ArrayExtension[E] = new ArrayExtension(v1)
 	}
-	private def newArrayExtensionConversion[E] =
-		new PriorityConversion.Wrapped[Array[E], ArrayExtension[E]](new ArrayExtension(_))
-			with ArrayExtensionConversion[E]
-	private val ArrayExtensionConversionPrototype :ArrayExtensionConversion[Any] = newArrayExtensionConversion
-
-
+//	private def newArrayExtensionConversion[E] =
+//		new PriorityConversion.Wrapped[Array[E], ArrayExtension[E]](new ArrayExtension(_))
+//			with ArrayExtensionConversion[E]
+//	private val ArrayExtensionConversionPrototype :ArrayExtensionConversion[Any] = newArrayExtensionConversion
+	private val ArrayExtensionConversionPrototype :ArrayExtensionConversion[Unknown] =
+		new PriorityConversion.Wrapped[Array[Unknown], ArrayExtension[Unknown]](new ArrayExtension(_))
+			with ArrayExtensionConversion[Unknown]
 
 
 	/** Extensions methods for object [[Array]] (the array factory). These include:
@@ -3361,7 +3272,6 @@ object extensions extends extensions {
 				copyUnknown()
 		}
 */
-
 
 		/** A single element `Array[E]`. */
 		final def one[E :ClassTag](elem :E) :Array[E] = {

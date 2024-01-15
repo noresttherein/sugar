@@ -8,10 +8,11 @@ import scala.collection.immutable.{ArraySeq, IndexedSeqOps, StrictOptimizedSeqOp
 import net.noresttherein.sugar.arrays.IArrayLike.extensions.IArrayLikeExtensionConversion
 import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.collections.ArrayIterableOnce
-import net.noresttherein.sugar.typist.PriorityConversion
+import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.witness.Ignored
 
 
 
@@ -45,7 +46,13 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 	  *             an `Array` in [[collection.ArrayOps ArrayOps]] (and the `ArrayLike` subtype being granted
 	  *             these methods).
 	  */
-	class IArrayLikeExtension[+Arr[X] <: IArrayLike[X], E] private[arrays] (private val self :Array[_]) extends AnyVal {
+	class IArrayLikeExtension[+Arr[X] <: IArrayLike[X], E] private[arrays] (private val self :Array[Unknown])
+		extends AnyVal
+	{
+		@inline private def exposed :Arr[E] = self.asInstanceOf[Arr[E]]
+//		@inline private def expose(array :Array[Unknown]) :Arr[E] = array.asInstanceOf[Arr[E]]
+//		@inline private def asElement(value :Unknown) :E = value.asInstanceOf[E]
+//		@inline private def lengthOf(other :ArrayLike[_]) :Int = other.asInstanceOf[Array[_]].length
 //		def slice(from :Int, until :Int) :Arr[E] = {
 //			val len = array.length
 //			if (until <= 0 | until <= from | from >= len) Array.emptyLike(array).asInstanceOf[Arr[E]]
@@ -96,19 +103,17 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 
 		//we could also overload rotatedLeft et al.
 
-		def iterator :Iterator[E] = ArrayIterator.immutable(self.asInstanceOf[IArrayLike[E]])
+		def iterator :Iterator[E] = ArrayIterator.immutable(exposed)
 
 		/** A view on the index range `[from, until)` of this array as a sequence.
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.
 		  */
-		@inline def subseq(from :Int, until :Int) :IndexedSeq[E] =
-			Wrapped.Slice(self.asInstanceOf[IArrayLike[E]], from, until)
+		@inline def subseq(from :Int, until :Int) :IndexedSeq[E] = Wrapped.Slice(exposed, from, until)
 
-		@inline def toSeq :Seq[E] = IArrayLike.Wrapped(self.asInstanceOf[IArrayLike[E]])
-		@inline def toIndexedSeq :IndexedSeq[E] = IArrayLike.Wrapped(self.asInstanceOf[IArrayLike[E]])
+		@inline def toSeq :Seq[E] = IArrayLike.Wrapped(exposed)
+		@inline def toIndexedSeq :IndexedSeq[E] = IArrayLike.Wrapped(exposed)
 		@inline def toArraySeq :ArraySeq[E] = ArraySeq.unsafeWrapArray(self).castParam[E]
-		@inline def toOps :IndexedSeqOps[E, IArrayLike, IArrayLike[E]] =
-			new IArrayLikeAsSeq(self.asInstanceOf[IArrayLike[E]])
+		@inline def toOps :IndexedSeqOps[E, IArrayLike, IArrayLike[E]] = new IArrayLikeAsSeq(exposed)
 	}
 
 
@@ -190,7 +195,7 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 	private[arrays] trait extensions extends Any with ArrayLike.extensions {
 //		@inline implicit final def IArrayLikeExtension[Arr[X] <: IArrayLike[X], A](self :IArrayLike[A])
 //				:IArrayLikeExtension[Arr, A] =
-//			new IArrayLikeExtension(self.asInstanceOf[Array[_]])
+//			new IArrayLikeExtension(self.asInstanceOf[Array[Unknown]])
 		/** Extension methods for all `IArrayLike[E]` subtypes.
 		  * $conversionInfo
 		  */
@@ -203,15 +208,19 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 		sealed trait IArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E]
 			extends (Arr[E] => IArrayLikeExtension[Arr, E])
 		{
-			@inline final def apply(v1 :Arr[E])(implicit dummy :DummyImplicit) :IArrayLikeExtension[Arr, E] =
-				new IArrayLikeExtension(v1.asInstanceOf[Array[_]])
+			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :IArrayLikeExtension[Arr, E] =
+				new IArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
 		}
-		private def newIArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E] =
-			new PriorityConversion.Wrapped[Arr[E], IArrayLikeExtension[Arr, E]](
-				(arr :Arr[E]) => new IArrayLikeExtension(arr.asInstanceOf[Array[_]])
-			) with IArrayLikeExtensionConversion[Arr, E]
+//		private def newIArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E] =
+//			new PriorityConversion.Wrapped[Arr[E], IArrayLikeExtension[Arr, E]](
+//				(arr :Arr[E]) => new IArrayLikeExtension(arr.asInstanceOf[Array[_]])
+//			) with IArrayLikeExtensionConversion[Arr, E]
+//		private val IArrayLikeExtensionConversionPrototype :IArrayLikeExtensionConversion[IArrayLike, Any] =
+//			newIArrayLikeExtensionConversion
 		private val IArrayLikeExtensionConversionPrototype :IArrayLikeExtensionConversion[IArrayLike, Any] =
-			newIArrayLikeExtensionConversion
+			new PriorityConversion.Wrapped[IArrayLike[Any], IArrayLikeExtension[IArrayLike, Any]](
+				(arr :IArrayLike[Any]) => new IArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+			) with IArrayLikeExtensionConversion[IArrayLike, Any]
 	}
 }
 

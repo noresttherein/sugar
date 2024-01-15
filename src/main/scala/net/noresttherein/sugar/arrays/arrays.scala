@@ -1,6 +1,6 @@
 package net.noresttherein.sugar
 
-
+import scala.annotation.unchecked.uncheckedVariance
 
 
 /** Definitions of several types represented under the hood by arrays:
@@ -64,6 +64,16 @@ package object arrays {
 	  */ //consider: renaming to MutArrayLike or MutArray
 	type MutableArray[E] >: Array[E] <: AnyRef
 
+	/** A supertype of both `IArray[E]` and regular `Array[E]`. These types have in common the fact
+	  * that the component type is important and must be known during their creation.
+	  * Moreover, their own `getClass.getComponentType` can be used as a component type for a compatible array.
+	  * While it does not introduce any extra functionality in the form of extension methods,
+	  * it allows to pass both `IArray[E]` and `Array[E]` as a parameter to a method, whose split into two overloaded
+	  * variants would be impossible due to method signature conflict after erasure,
+	  * as both these types erase to `AnyRef` in a generic context.
+	  */
+	type ProperArray[+E] >: Array[E @uncheckedVariance] <: ArrayLike[E]
+
 	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
 	  * Its interface is defined as extension methods in
 	  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension IArrayExtension]]`[E]`,
@@ -86,7 +96,7 @@ package object arrays {
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.IArrayLike]]
 	  */ //todo: carefully review all usage to eliminate the chance of us casting an `IArray[Any]` to `Array[Any]`
-	type IArray[+E] >: Null <: IArrayLike[E] //with TypedArray[E]// <: ArrayLike[E]
+	type IArray[+E] >: Null <: IArrayLike[E] with ProperArray[E]
 
 	/** A common supertype of types represented in runtime by an `Array[AnyRef]`:
 	  * [[net.noresttherein.sugar.arrays.RefArray! RefArray]] and [[net.noresttherein.sugar.arrays.IRefArray! IRefArray]].

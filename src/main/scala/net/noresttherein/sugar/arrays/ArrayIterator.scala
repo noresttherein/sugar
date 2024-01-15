@@ -6,7 +6,7 @@ import scala.collection.AbstractIterator
 import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.slang.extensions.AnyRefExtension
+import net.noresttherein.sugar.slang.extensions.hashCodeMethods
 import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 
