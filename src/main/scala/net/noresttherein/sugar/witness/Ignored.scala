@@ -9,12 +9,8 @@ package net.noresttherein.sugar.witness
   * [[net.noresttherein.sugar.witness.Ignored1 Ignored1]], [[net.noresttherein.sugar.witness.Ignored2, Ignored2]], etc.
   * in the same way.
   * @author Marcin Mościcki
-  */
-final class Ignored private ()
-
-object Ignored {
-	implicit val value :Ignored = new Ignored
-}
+  */ //consider: other names - Irrelevant, Variant1, Variant2, etc.
+final class Ignored private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -28,11 +24,7 @@ object Ignored {
   *     }
   * }}}
   */
-final class Ignored1 private ()
-
-object Ignored1 {
-	implicit val value :Ignored1 = new Ignored1
-}
+final class Ignored1 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -46,11 +38,7 @@ object Ignored1 {
   *     }
   * }}}
   */
-final class Ignored2 private ()
-
-object Ignored2 {
-	implicit val value :Ignored2 = new Ignored2
-}
+final class Ignored2 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -64,11 +52,7 @@ object Ignored2 {
   *     }
   * }}}
   */
-final class Ignored3 private ()
-
-object Ignored3 {
-	implicit val value :Ignored3 = new Ignored3
-}
+final class Ignored3 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -82,11 +66,7 @@ object Ignored3 {
   *     }
   * }}}
   */
-final class Ignored4 private ()
-
-object Ignored4 {
-	implicit val value :Ignored4 = new Ignored4
-}
+final class Ignored4 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -100,11 +80,7 @@ object Ignored4 {
   *     }
   * }}}
   */
-final class Ignored5 private ()
-
-object Ignored5 {
-	implicit val value :Ignored5 = new Ignored5
-}
+final class Ignored5 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -118,11 +94,7 @@ object Ignored5 {
   *     }
   * }}}
   */
-final class Ignored6 private ()
-
-object Ignored6 {
-	implicit val value :Ignored6 = new Ignored6
-}
+final class Ignored6 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -136,11 +108,7 @@ object Ignored6 {
   *     }
   * }}}
   */
-final class Ignored7 private ()
-
-object Ignored7 {
-	implicit val value :Ignored7 = new Ignored7
-}
+final class Ignored7 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -154,11 +122,7 @@ object Ignored7 {
   *     }
   * }}}
   */
-final class Ignored8 private ()
-
-object Ignored8 {
-	implicit val value :Ignored8 = new Ignored8
-}
+final class Ignored8 private[witness]
 
 
 /** A dummy class for which an implicit value always exists. Taking an implicit parameter of this type allows
@@ -172,8 +136,30 @@ object Ignored8 {
   *     }
   * }}}
   */
-final class Ignored9 private ()
+final class Ignored9 private[witness]
 
-object Ignored9 {
-	implicit val value :Ignored9 = new Ignored9
-}
+
+
+
+
+
+final class Overload[+X] private[witness]
+
+
+final class Overload1[+X] private[witness]
+
+final class Overload2[+X] private[witness]
+
+final class Overload3[+X] private[witness]
+
+final class Overload4[+X] private[witness]
+
+final class Overload5[+X] private[witness]
+
+final class Overload6[+X] private[witness]
+
+final class Overload7[+X] private[witness]
+
+final class Overload8[+X] private[witness]
+
+final class Overload9[+X] private[witness]

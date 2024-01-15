@@ -18,10 +18,11 @@ import net.noresttherein.sugar.vars.Opt
   * and includes `null` value for reference types, which this type class does not for increased safety.
   * @author Marcin Mościcki
   */
-//Not specialized anymore, to avoid boxing in get on generic calls. This is not optimal for EvalValue,
-// but creating an implementation caching boxed values requires subclasses for every type.
+//This class is specialized, because Ref subclass factory methods accepting only it should be specialized.
+// It would be bad, because generic calls to get would box the value each time. However, the actual instances
+// are always created as non specialized, so they'll store the boxed value and unbox it on specialized calls.
 @SerialVersionUID(Ver)
-abstract class DefaultValue[+T] extends Serializable {
+sealed abstract class DefaultValue[@specialized +T] extends Serializable {
 	def get :T
 	def supplier  :Supplier[_ <: T]
 	def toFunction0 :() => T
@@ -48,15 +49,6 @@ object DefaultValue {
 	implicit val DefaultDouble  :NullValue[Double]  = new NullValue(0)
 	implicit val DefaultBoolean :NullValue[Boolean] = new NullValue(false)
 	implicit val DefaultUnit    :NullValue[Unit]    = new NullValue(())
-//	implicit val DefaultByte    :DefaultValue[Byte]    = NullValue.ZeroByte
-//	implicit val DefaultShort   :DefaultValue[Short]   = NullValue.ZeroShort
-//	implicit val DefaultChar    :DefaultValue[Char]    = NullValue.ZeroChar
-//	implicit val DefaultInt     :DefaultValue[Int]     = NullValue.ZeroInt
-//	implicit val DefaultLong    :DefaultValue[Long]    = NullValue.ZeroLong
-//	implicit val DefaultFloat   :DefaultValue[Float]   = NullValue.ZeroFloat
-//	implicit val DefaultDouble  :DefaultValue[Double]  = NullValue.ZeroDouble
-//	implicit val DefaultBoolean :DefaultValue[Boolean] = NullValue.FalseBoolean
-//	implicit val DefaultUnit    :DefaultValue[Unit]    = NullValue.UnitValue
 
 	implicit def defaultOption[T] :DefaultValue[Option[T]] = DefaultNone.asInstanceOf[DefaultValue[Option[T]]]
 	implicit def defaultOpt[T]    :DefaultValue[Opt[T]]    = DefaultLack.asInstanceOf[DefaultValue[Opt[T]]]
@@ -79,6 +71,7 @@ object DefaultValue {
 		override lazy val get :T = init()
 		override val toFunction0 :() => T = () => get
 		override val supplier :Supplier[_ <: T] = () => get
+		override def toString :String = "DefaultValue(" + get + ")"
 	}
 }
 
@@ -101,15 +94,6 @@ object NullValue {
 	@inline def apply[T](implicit value :NullValue[T]) :NullValue[T] = value
 
 	implicit val NullRef      :NullValue[Null]    = new NullValue[Null](null)
-//	implicit val ZeroByte     :NullValue[Byte]    = new NullValue[Byte](0)
-//	implicit val ZeroShort    :NullValue[Short]   = new NullValue[Short](0)
-//	implicit val ZeroChar     :NullValue[Char]    = new NullValue[Char](0)
-//	implicit val ZeroInt      :NullValue[Int]     = new NullValue[Int](0)
-//	implicit val ZeroLong     :NullValue[Long]    = new NullValue[Long](0L)
-//	implicit val ZeroFloat    :NullValue[Float]   = new NullValue[Float](0.0f)
-//	implicit val ZeroDouble   :NullValue[Double]  = new NullValue[Double](0.0d)
-//	implicit val FalseBoolean :NullValue[Boolean] = new NullValue[Boolean](false)
-//	implicit val UnitValue    :NullValue[Unit]    = new NullValue[Unit](())
 }
 
 
