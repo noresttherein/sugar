@@ -1,11 +1,14 @@
 package net.noresttherein.sugar.slang
 
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.slang.extensions.{AnyRefExtension, ensuringMethodsConversion}
+import net.noresttherein.sugar.slang.extensions.{hashCodeMethods, applyToMethod, ensuringMethodsConversion, notNullMethod}
 import net.noresttherein.sugar.typist.PriorityConversion
 import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
+import net.noresttherein.sugar.witness.Ignored
 
 
 
@@ -13,13 +16,19 @@ import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 trait extensions extends Any {
 	/** Adds `identityHashCode` method to all reference types. */
-	@inline implicit final def AnyRefExtension(self :AnyRef) :AnyRefExtension = new AnyRefExtension(self)
+	@inline implicit final def hashCodeMethods(self :AnyRef) :hashCodeMethods = new hashCodeMethods(self)
+
+	/** Adds [[net.noresttherein.sugar.slang.extensions.applyToMethod.applyTo applyTo]] method to any value,
+	  * which applies an argument function to it, inverting the writing direction. The method is also available as `=*>`.
+	  */
+	@inline implicit final def applyToMethod[X](x :X) :applyToMethod[X] = new applyToMethod(x)
 
 	/** Adds additional `ensuring` methods to any object which accept exception classes to throw on failure. */
 	@inline implicit final def ensuringMethods[T] :ensuringMethodsConversion[T] =
 		extensions.ensuringMethodsConversionPrototype.castParam[T]
 
-//	@inline implicit final def ensuringMethods[T](self :T) :ensuringMethods[T] = new ensuringMethods[T](self)
+	/** Adds a [[net.noresttherein.sugar.slang.extensions.notNullMethod.notNull notNull]]`(msg: String)` method to any value. */
+	@inline implicit final def notNullMethod[X](x :X) :notNullMethod[X] = new notNullMethod(x)
 
 }
 
@@ -27,7 +36,8 @@ trait extensions extends Any {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
-	class AnyRefExtension(private val self :AnyRef) extends AnyVal {
+
+	class hashCodeMethods private[slang] (private val self :AnyRef) extends AnyVal {
 		/** The value of `hashCode` as it would be inherited for this object from the default implementation in `AnyRef`. */
 		@inline def identityHashCode :Int = System.identityHashCode(self)
 
@@ -35,10 +45,31 @@ object extensions extends extensions {
 	}
 
 
+	/** Adds a `applyTo` method to any value which applies a given function to `this`. */
+	class applyToMethod[X] private[slang](private val x :X) extends AnyVal {
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
+		  * when applying an argument to a composed function expression:
+		  * {{{
+		  *     x applyTo (f andThen g andThen h)
+		  * }}}
+		  */
+		def applyTo[T](f :X => T) :T = f(x)
+
+		/** Applies the argument function to the 'self' argument. As self is eagerly computed, `expr feedTo f`
+		  * is equivalent to `{ val x = expr; f(x) }`, but may be more succinct and convenient to write, especially
+		  * when applying an argument to a composed function expression:
+		  * {{{
+		  *     x \=> (f andThen g andThen h)
+		  * }}}
+		  */
+		def \=>[T](f :X => T) :T = f(x)
+	}
+
 
 	//todo: new method name and a macro to include the actual expression used as a string.
 	/** Extension methods overloading `scala.ensuring`, allowing for passing an arbitrary exception to be thrown. */
-	class ensuringMethods[T](private val self :T) extends AnyVal {
+	class ensuringMethods[T] private[slang] (private val self :T) extends AnyVal {
 
 		/** Return `this` if `condition` is true, or throw the give exception otherwise. */
 		@inline def ensuring(condition :Boolean, ex :Exception) :T =
@@ -69,11 +100,39 @@ object extensions extends extensions {
 
 	sealed trait ensuringMethodsConversion[T] extends (T => ensuringMethods[T]) {
 		/* See collections.extensions.ArrayExtensionConversion. */
-		@inline final def apply(v1 :T)(implicit dummy :DummyImplicit) :ensuringMethods[T] = new ensuringMethods(v1)
+		@inline final def apply(v1 :T)(implicit __ :Ignored) :ensuringMethods[T] = new ensuringMethods(v1)
 	}
 	private def newEnsuringMethodsConversion[T] =
 		new PriorityConversion.Wrapped[T, ensuringMethods[T]](new ensuringMethods(_))
 			with ensuringMethodsConversion[T]
 	private val ensuringMethodsConversionPrototype :ensuringMethodsConversion[Any] = newEnsuringMethodsConversion
+
+
+
+	/** An extension method for any object throwing an [[AssertionError]] if it is `null`. */
+	class notNullMethod[X] private[sugar] (private val x :X) extends AnyVal {
+		/** An extension method for any object throwing an [[AssertionError]] if it is `null`. */
+		@elidable(ASSERTION) @inline def notNull(msg: => String) :X = {
+			if (x == null)
+				throw new AssertionError(msg)
+			x
+		}
+		/** An extension method for any object throwing an [[AssertionError]] if it is `null`. */
+		@elidable(ASSERTION) @inline def notNull :X = {
+			if (x == null)
+				throw new AssertionError
+			x
+		}
+	}
+
+//	object conditionalExpression {
+//		class IfFalse[+T] private[sugar] (private val ifFalse: () => T) {
+//			@inline def /:[U >: T](ifTrue: => U) :ConditionalExpressionAlternatives[U] =
+//				new ConditionalExpressionAlternatives[U](ifTrue, ifFalse)
+//		}
+//		class ConditionalExpressionAlternatives[+T] private[sugar] (ifTrue: => T, ifFalse: () => T) {
+//			@inline def ?:(condition :Boolean) :T = if (condition) ifTrue else ifFalse()
+//		}
+//	}
 
 }
