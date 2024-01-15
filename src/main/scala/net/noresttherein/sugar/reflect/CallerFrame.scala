@@ -1,7 +1,6 @@
 package net.noresttherein.sugar.reflect
 
-import java.lang.StackWalker.StackFrame
-
+import java.lang.StackWalker.{Option, StackFrame}
 
 
 
@@ -9,6 +8,8 @@ object CallerFrame {
 	private[this] val packagePrefix = classOf[CallerFrame.type].getPackageName + "."
 
 	def apply() :StackFrame = StackWalker.getInstance.walk { frames =>
+		//todo: check if Stream operations aren't faster.
+//		frames.filter(!_.getClassName.startsWith(packagePrefix)).findFirst()
 		val it = frames.iterator
 		var frame :StackFrame = null
 		while (it.hasNext) {

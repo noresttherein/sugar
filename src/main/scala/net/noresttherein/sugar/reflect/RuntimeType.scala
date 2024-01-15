@@ -10,7 +10,7 @@ import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.reflect.RuntimeType.{ExactRuntimeType, OfAnyRef, OfBoolean, OfByte, OfChar, OfDouble, OfFloat, OfInt, OfLong, OfShort, OfUnit}
-import net.noresttherein.sugar.reflect.Specialized.{Enforce, Fun1, Fun1Vals, Primitives, SpecializedExact}
+import net.noresttherein.sugar.reflect.Specialized.{Enforce, Fun1Arg, Fun1Vals, Primitives, SpecializedExact}
 import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
 
 
@@ -26,28 +26,28 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   * class is available even in contexts where `T` is abstract, representing the type after erasure and specialization.
   * In particular, it makes it possible for a generic class/trait/method to discover if it was instantiated/called
   * with one of the value types as the parameter and to which primitive java type it corresponds. In a generic, erased
-  * context, `implicitly[RuntimeType[T]]` will denote an erased (and possibly boxed) type represented in the byte code 
-  * as `java.lang.Object` instances (and downcast at point of calling). If, on the other hand, `T` can be proven to be 
-  * an inbuilt value type, the implicit value will be specific to that type. This permits to pick a specific 
+  * context, `implicitly[RuntimeType[T]]` will denote an erased (and possibly boxed) type represented in the byte code
+  * as `java.lang.Object` instances (and downcast at point of calling). If, on the other hand, `T` can be proven to be
+  * an inbuilt value type, the implicit value will be specific to that type. This permits to pick a specific
   * implementation, optimized for the given value type, or to verify if two collections share the element type.
-  * The lack of reliance on class tags makes it additionally possible to integrate specialized collections 
+  * The lack of reliance on class tags makes it additionally possible to integrate specialized collections
   * with the generic standard library which would be otherwise impossible due to established method signatures.
-  * For example, `ValSet[Byte]()`, `ValSet[Int]()`, `ValSet[Double]()` may all yield different implementations, 
+  * For example, `ValSet[Byte]()`, `ValSet[Int]()`, `ValSet[Double]()` may all yield different implementations,
   * while retaining the flexibility and uniformity of the generic interface.
   *
   * While the focus is on value types and their use with erased and specialized collections, an instance can,
   * potentially, represent any reference type, generalizing the concept to provide a uniform way for specifying the
-  * degree of available static information about a given type. In particular, in contexts where `T` 
-  * is fully instantiated (i.e., the instance was for example obtained from `RuntimeType[String]`), its full 
-  * class information is available to represent lack of any type abstraction. Other reasons are the need for subclasses 
-  * of generic, specialized types, which are dedicated to a concrete reference type 
-  * (as in `class StringSet extends ValSet[String]`), to be able to correctly inform about their actual type argument, 
+  * degree of available static information about a given type. In particular, in contexts where `T`
+  * is fully instantiated (i.e., the instance was for example obtained from `RuntimeType[String]`), its full
+  * class information is available to represent lack of any type abstraction. Other reasons are the need for subclasses
+  * of generic, specialized types, which are dedicated to a concrete reference type
+  * (as in `class StringSet extends ValSet[String]`), to be able to correctly inform about their actual type argument,
   * and a way to manually request a specific array type via the same interface.
   *
-  * It thus serves as a common umbrella for information available via scala reflection, class tags, 
-  * and local specialization. This makes it more powerful, for example allowing to call specialized code 
-  * from non-specialized based on this ype class, which in turn can make generated specialized classes smaller 
-  * by extracting the code actually referencing values of this type from methods which can be implemented 
+  * It thus serves as a common umbrella for information available via scala reflection, class tags,
+  * and local specialization. This makes it more powerful, for example allowing to call specialized code
+  * from non-specialized based on this ype class, which in turn can make generated specialized classes smaller
+  * by extracting the code actually referencing values of this type from methods which can be implemented
   * without this information. For example, the majority of collection methods accepting a function working
   * with their element type can be implemented in the generic form, deferring the application point to a single,
   * reusable specialized method.
@@ -58,7 +58,7 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   *     and thus two different `Class[_]` instances, which forces any API to either become a leaky abstraction,
   *     reflecting that duality, 'lie', committing to potentially costly conversions, or risk casting errors -
   *     especially when dealing with arrays.
-  *   - upper or lower bounds on type arguments which may affect the actual byte code signature of the method 
+  *   - upper or lower bounds on type arguments which may affect the actual byte code signature of the method
   *     are not available;
   *   - implementations of methods declared in more generic super types, which may have a more specialized erasure
   *     than the signature of the overridden method.
@@ -68,18 +68,18 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   * While scala compiler and runtime make their best attempt to hide this from user code by auto-boxing and un-boxing,
   * without being careful it is still possible to run into `ClassCastException`s, especially when working with arrays.
   *
-  * More formally, an instance of [[net.noresttherein.sugar.reflect.RuntimeType RuntimeType]]`[T]` may represent 
+  * More formally, an instance of [[net.noresttherein.sugar.reflect.RuntimeType RuntimeType]]`[T]` may represent
   * any runtime type assignable from `T`, potentially using autoboxing. For example, `RuntimeType[Int]` may represent
-  * any possible runtime type of an expression evaluating to `scala.Int`: `int`, `java.lang.Integer`, 
+  * any possible runtime type of an expression evaluating to `scala.Int`: `int`, `java.lang.Integer`,
   * or (erased) `java.lang.Object`. Instances representing each of these types are not considered equal,
-  * despite their corresponding types being almost functionally equivalent in the bytecode and `Int` 
-  * lacking polymorphism. For primitives, this is largely transparent - the code operating on any of these 
+  * despite their corresponding types being almost functionally equivalent in the bytecode and `Int`
+  * lacking polymorphism. For primitives, this is largely transparent - the code operating on any of these
   * will be generally interchangeable due to autoboxing. The situation is more complex for reference types,
-  * as the type hierarchy is unlimited and there is no auto-conversion involved (other than 
+  * as the type hierarchy is unlimited and there is no auto-conversion involved (other than
   * identity conversion / upcasting). This means there is no homomorphism between type `T` and `RuntimeType[T]`
   * regarding equality: both different instances of `RuntimeType[T]` may be unequal, being incompatible, and equality
-  * between `RuntimeType[T]` and `RuntimeType[F]` confirms only that types `T` and `F` have identical representation 
-  * in referenced contexts, but potentially little about their actual relationship - in particular, 
+  * between `RuntimeType[T]` and `RuntimeType[F]` confirms only that types `T` and `F` have identical representation
+  * in referenced contexts, but potentially little about their actual relationship - in particular,
   * both specializations may refer to `AnyRef`.
   *
   * Instances of `RuntimeType[T]` can be obtained from the companion object based either on a runtime
@@ -138,7 +138,7 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   *   2. method `newArray` doesn't require any implicit or explicit parameters, retrieving specialization information
   *      by `RuntimeType.apply[T]`
   *   3. `ClassCastException` is the consequence of erasure of the type parameter and cast in the `newArray` method
-  *      which performs a (purely syntactic in this case) cast down from an erased array to array 
+  *      which performs a (purely syntactic in this case) cast down from an erased array to array
   *      of the given type parameter.
   *
   * An implicit value `RuntimeType[T]` is always present for any concrete or abstract type `T`. If `T` is known to be
@@ -147,7 +147,7 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   * which attempts to recognize if it is requested from a context where `T` is a specialized type parameter. Therefore
   * specialization context can be passed from method to method in two ways: either as a `RuntimeType` context bound
   * (type class-like implicit parameter), or by preserving `@specialized` annotation on the type.
-  * As the implicit resolution algorithm searches local context before companion objects, any implicit parameter 
+  * As the implicit resolution algorithm searches local context before companion objects, any implicit parameter
   * will override
   * default implicit values declared in [[RuntimeType$]]. This can lead to situations, where the two values aren't equal,
   * usually due to execution of non-specialized generic code on the call stack, while a `RuntimeType` instance is passed
@@ -169,7 +169,7 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   *     println(both[Int](erase[Int])) //"(Object, int)"
   * }}}
   *
-  * @tparam T any scala type, usually itself a type parameter of a generic method/class; 
+  * @tparam T any scala type, usually itself a type parameter of a generic method/class;
   *           this is not the final erased/unboxed type.
   * @see [[net.noresttherein.sugar.reflect.Specialize]] for calling specialized code from non-specialized context.
   * @see [[net.noresttherein.sugar.reflect.Specialized]]
@@ -203,13 +203,13 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	  */
 	type BoxType
 
-	
+
 	/** The default value for type `T` as defined by the java spec. For primitive types,
 	  * it would be some version of zero/`false`, for reference type the `null` value.
 	  * `Unit` is represented by its scala singleton value.
 	  */
 	def default :T
-	
+
 	/** Performs a cast from type `T` to its runtime representation in the context where this type class was  obtained.
 	  * This cast is always safe as it amounts to either an identity upcast, or boxing a java primitive to its reference
 	  * counterpart.
@@ -248,7 +248,7 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	def fromRunTypeArray(xs :Array[RunType]) :Array[T] = xs.asInstanceOf[Array[T]]
 
 	/** Performs a cast from the erased/specialized representation type to the static type `T` as appearing in the code.
-	  * This is essentially how java generics (with erasure) and scala specialization work: the runtime either 
+	  * This is essentially how java generics (with erasure) and scala specialization work: the runtime either
 	  * casts down a `java.lang.Object` to the type `T` in the point of use, rather than in this method, deferring
 	  * any `ClassCastException`s to the moment where `T` is statically known. It is therefore safe with the same
 	  * caveats as generic collections: the cast value must not had been cast before.
@@ -256,9 +256,9 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	def fromGenericType(x :GenericType) :T = x.asInstanceOf[T]
 
 	/** Performs a cast of an array from the erased/specialized representation type to the static type `T`,
-	  * as appearing in the code. This is essentially how java generics (with erasure) and scala specialization work: 
-	  * the runtime either casts down a `java.lang.Object` to the type `T` in the point of use, rather than 
-	  * in this method, deferring any `ClassCastException`s to the moment where `T` is statically known. 
+	  * as appearing in the code. This is essentially how java generics (with erasure) and scala specialization work:
+	  * the runtime either casts down a `java.lang.Object` to the type `T` in the point of use, rather than
+	  * in this method, deferring any `ClassCastException`s to the moment where `T` is statically known.
 	  * It is therefore safe with the same caveats as generic collections: the cast value must not had been cast before.
 	  */
 	def fromGenericTypeArray(xs :Array[GenericType]) :Array[T] = xs.asInstanceOf[Array[T]]
@@ -268,8 +268,8 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	/** An empty array which element type is the class representing `T` as par this level of specialization.
 	  * This may be `T` itself, after unboxing (if `T` is specialized) or erasure (otherwise).
 	  *
-	  * @return `Array[Any]` (`Object[]`) if `T &lt:: AnyRef` or is an erased and boxed scala `AnyVal`, 
-	  *         or a java array of the primitive type corresponding to `T &lt:: AnyVal`, if `T` is known 
+	  * @return `Array[Any]` (`Object[]`) if `T &lt:: AnyRef` or is an erased and boxed scala `AnyVal`,
+	  *         or a java array of the primitive type corresponding to `T &lt:: AnyVal`, if `T` is known
 	  *         (either fully instantiated, or by being a specialized type parameter).
 	  */
 	def emptyArray :Array[RunType] = classTag.newArray(0)
@@ -289,12 +289,12 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	  * @return `Array[AnyRef]` or one of java's primitive arrays.
 	  */
 	def emptyGenericArray :Array[GenericType] = erasedClassTag.newArray(0)
-	
+
 	/** An array which can store any value of `T` after autoboxing.
 	  * @return an array of some reference element type.
 	  */
 	def emptyBoxArray :Array[BoxType] = boxClassTag.newArray(0)
-	
+
 	/** Create an array of the given length which can be used to store values of type `T`.
 	  * In a context where more type information is present (`T` is not fully erased), it may create an array
 	  * for a specific, non-erased superclass of `T`.
@@ -886,15 +886,15 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 
 
 
-	/** A representation of custom value type `T` wrapping a value of type `V` (possibly a standard scala value type). 
-	  * While in any generic context, specialized or not, value class instances are promoted to `AnyRef` and thus 
-	  * this type class is functionally equivalent to a `RuntimeType` instance representing full erasure, 
-	  * there are applications in which such information is desirable. In particular, it allows specialized collection 
-	  * implementations to store value classes as their wrapped primitives instead and box them only on access. 
-	  * By providing an implicit value of this type for your custom value class you can instruct supporting collections 
+	/** A representation of custom value type `T` wrapping a value of type `V` (possibly a standard scala value type).
+	  * While in any generic context, specialized or not, value class instances are promoted to `AnyRef` and thus
+	  * this type class is functionally equivalent to a `RuntimeType` instance representing full erasure,
+	  * there are applications in which such information is desirable. In particular, it allows specialized collection
+	  * implementations to store value classes as their wrapped primitives instead and box them only on access.
+	  * By providing an implicit value of this type for your custom value class you can instruct supporting collections
 	  * to store the values as their member field instead, as per its specialization information. Note that functions
-	  * accepting or returning custom value classes wrapping a built-in value class will always instantiate their class, 
-	  * meaning collection methods would result in boxing of each element at every access: this is a trade off 
+	  * accepting or returning custom value classes wrapping a built-in value class will always instantiate their class,
+	  * meaning collection methods would result in boxing of each element at every access: this is a trade off
 	  * between speed and space.
 	  */
 	trait ValueClass[@specialized(Primitives) V, T] extends RuntimeType[T] {
@@ -977,7 +977,7 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		/** Implicit conversions performing the boxing and unboxing based on an implicit `ValueClass` instance. */
 		@SerialVersionUID(Ver)
 		object conversions {
-			implicit def implicitBoxing[@specialized(Fun1) V <: AnyVal, T]
+			implicit def implicitBoxing[@specialized(Fun1Arg) V <: AnyVal, T]
 			                           (implicit valueClass :ValueClass[V, T]) :V => T =
 				valueClass.apply
 
@@ -1185,6 +1185,15 @@ object Specialized extends SpecializedFromType {
 	  */
 	final val MultiValue :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, AnyRef)] = null
 
+	/** An argument for `@specialized` annotation specializing for all types which are not easily cached (or `Short`). */
+	final val NotCached :Specializable.Group[(Char, Int, Long, Float, Double)] = null
+
+	/** Most commonly used value types. */ //consider: adding Float
+	final val Common :Specializable.Group[(Byte, Char, Int, Long, Double)] = null
+
+	/** Most commonly used value types as return values. */
+	final val CommonRes :Specializable.Group[(Byte, Char, Int, Long, Double, Boolean, Unit)] = null
+
 	/** An argument for `scala.specialized` annotation specializing for all numeric value classes. */
 	final val Numbers :Specializable.Group[(Byte, Short, Int, Long, Float, Double)] = null
 
@@ -1194,20 +1203,20 @@ object Specialized extends SpecializedFromType {
 	final val Fun0 = Primitives
 
 	/** Types `scala.Function1`s argument is specialized for. */
-	final val Fun1 :Specializable.Group[(Int, Long, Float, Double)] = null
+	final val Fun1Arg :Specializable.Group[(Int, Long, Float, Double)] = null
 
 	/** Types `scala.Function1` result type is specialized for. */
-	final val Fun1Res :Specializable.Group[(Int, Long, Float, Double, Boolean, Unit)] = Specializable.Return
+	final val Fun1 :Specializable.Group[(Int, Long, Float, Double, Boolean, Unit)] = Specializable.Return
 	//new Specializable.Group(Unit, Boolean, Int, Float, Long, Double)
 
 	/** Result types `scala.Function1` is specialized for with the exception of `Unit`. */
 	final val Fun1Vals :Specializable.Group[(Int, Long, Float, Double, Boolean)] = null
 
 	/** Types `scala.Function2`s arguments are specialized for. */
-	final val Fun2 :Specializable.Group[(Int, Long, Double)] = null
+	final val Fun2Arg :Specializable.Group[(Int, Long, Double)] = null
 
 	/** Types `scala.Function2` result type is specialized for - same as `Fun1Res`. */
-	final val Fun2Res :Specializable.Group[(Int, Long, Float, Double, Boolean, Unit)] = null
+	final val Fun2 :Specializable.Group[(Int, Long, Float, Double, Boolean, Unit)] = null
 
 	/** Result types `scala.Function2` is specialized for, except for `Unit` - same as `Fun1Vals`. */
 	final val Fun2Vals :Specializable.Group[(Int, Long, Float, Double, Boolean)] = null

@@ -7,6 +7,8 @@ import scala.annotation.tailrec
 import net.noresttherein.sugar.reflect
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
@@ -72,6 +74,43 @@ object extensions extends extensions {
 		  * and the other is its standard box class.
 		  */
 		@inline def =%=(other :Class[_]) :Boolean = (self == other) || isBoxOf(other) || other.isBoxOf(self)
+
+		/** Finds a superclass, or extended trait, `S` of this class and the argument, such that,
+		  * for every other class `C: C.isAssignableFrom(this) && C.isAssignableFrom(other)`, `C.isAssignableFrom(S)`.
+		  * In other words, this method traverses the inheritance graph of both classes,
+		  * and finds their least upper bound with regard to inheritance partial order.
+		  *
+		  * This search may return `Lack` in the following situations:
+		  *   1. `this` and `other` are different value types;
+		  *   1. one of the classes is a value type, and the other a reference type;
+		  *   1. Both `this` and `other` extend, directly or indirectly, two unrelated classes/traits.
+		  */
+		def commonSuperclass(other :Class[_]) :Opt[Class[_]] =
+			if (self eq other) Got(self)
+			else if (self isAssignableFrom other) Got(self)
+			else if (other isAssignableFrom self) Got(other)
+			else if (self.isPrimitive || other.isPrimitive) Lack
+			else {
+				def findSuperclass(superclass :Class[_], candidate :Class[_]) :Class[_] =
+					if (superclass isAssignableFrom other)
+						if (superclass isAssignableFrom candidate) candidate
+						else if (candidate isAssignableFrom superclass) superclass
+						else null
+					else {
+						val sup = superclass.getSuperclass
+						var best =
+							if (sup == null) candidate
+							else findSuperclass(sup, candidate)
+						val traits = superclass.getInterfaces
+						var i = traits.length
+						while (best != null & i > 0) {
+							i -= 1
+							best = findSuperclass(traits(i), best)
+						}
+						best
+					}
+				Opt(findSuperclass(self, classOf[Any]))
+			}
 
 		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.). */
 		def isBox :Boolean = PrimitiveClass.contains(self)

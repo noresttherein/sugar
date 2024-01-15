@@ -6,9 +6,10 @@ import scala.collection.immutable.ArraySeq
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
-import net.noresttherein.sugar.extensions.{castTypeParamMethods, immutableMapExtension}
+import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, immutableMapExtension}
 import net.noresttherein.sugar.matching.BooleanMatchPattern
 import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
 
 
@@ -158,6 +159,39 @@ package object reflect {
 		classOf[Unit]    -> classOf[Unit]
 	) withDefaultValue classOf[Any]
 
+
+	private[sugar] def leastSuperclass(classes :Class[_]*) :Opt[Class[_]] =
+		if (classes.isEmpty) Lack
+		else if (classes.sizeIs == 1) Got(classes.head)
+		else if (classes.sizeIs == 2) classes.head.commonSuperclass(classes.last)
+		else if (classes.forall(_ == classes.head)) Got(classes.head)
+		else if (classes.exists(_.isPrimitive)) Lack
+		else {
+			val remainder = classes match {
+				case list :collection.LinearSeq[Class[_]]  => list.tail
+//				case seq  :collection.IndexedSeq[Class[_]] => SeqSlice(seq, 1, seq.length)
+				case _                                     => classes
+			}
+			def findSuperclass(superclass :Class[_], candidate :Class[_]) :Class[_] =
+				if (remainder.forall(superclass isAssignableFrom _))
+					if (superclass isAssignableFrom candidate) candidate
+					else if (candidate isAssignableFrom superclass) superclass
+					else null
+				else {
+					val sup = superclass.getSuperclass
+					var best =
+						if (sup == null) candidate
+						else findSuperclass(sup, candidate)
+					val traits = superclass.getInterfaces
+					var i = traits.length
+					while (best != null & i > 0) {
+						i -= 1
+						best = findSuperclass(traits(i), best)
+					}
+					best
+				}
+			Opt(findSuperclass(classes.head, classOf[Any]))
+		}
 
 	/** Returns the suspected class field declared as `symbol`, as present in the byte code.
 	  * Checks if the class in which it was declared follows the naming pattern of `@specialized` name mangling,
