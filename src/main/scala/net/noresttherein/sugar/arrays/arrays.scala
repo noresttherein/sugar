@@ -25,7 +25,7 @@ import scala.annotation.unchecked.uncheckedVariance
 // (for the whole syntax sugar) and we end up with conflicting implicit values.
 package object arrays {
 	final val Ver = 1L
-
+	
 	/** Supertype of all types in this package represented by an `Array`, as well as an `Array[E]` itself. Its extension
 	  * methods are defined in [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension ArrayLikeExtension]],
 	  * with the corresponding conversion available
@@ -128,19 +128,21 @@ package object arrays {
 	  * Despite an additional layer of extension methods, `RefArray` will be generally faster
 	  * than using a generic (erased) `Array[T]`, as all access happens statically on an `Array[AnyRef]`,
 	  * and there is no need for checking the array type.
+	  * @note you can use almost any existing method to copy to a `RefArray` by adapting it to `Array[Any]`
+	  *       with its [[net.noresttherein.sugar.arrays.RefArray$.RefArrayExtension.asAnyArray asAnyArray]] method.
 	  * @see [[net.noresttherein.sugar.arrays.RefArray$ RefArray]]
 	  * @see [[net.noresttherein.sugar.arrays.RefArrayLike RefArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.MutableArray MutableArray]]
 	  */
-	type RefArray[E] >: Null <: RefArrayLike[E] with MutableArray[E] //todo: rename it to BoxArray
+	type RefArray[E] >: Null <: RefArrayLike[E] with MutableArray[E] //todo: rename it to BoxArray/AnyArray/ErasedArray
 
 	/** An immutable array with elements of type `E`, represented in runtime as `Array[Any]` (that is, `Object[]`).
 	  * Its interface is defined as extension methods in
-	  * [[net.noresttherein.sugar.arrays.IRefArray.IRefArrayExtension IRefArrayExtension]]`[E]`,
-	  * [[net.noresttherein.sugar.arrays.IRefArray.IRefArrayLikeExtension IRefArrayLikeExtension]]`[IRefArray, E]`,
-	  * [[net.noresttherein.sugar.arrays.IArrayLike.IArrayLikeExtension IArrayLikeExtension]]`[IRefArray, E]`,
-	  * [[net.noresttherein.sugar.arrays.IArrayLike.ArrayLikeExtension ArrayLikeExtension]]`[RefArray, E]`,
+	  * [[net.noresttherein.sugar.arrays.IRefArray$.IRefArrayExtension IRefArrayExtension]]`[E]`,
+	  * [[net.noresttherein.sugar.arrays.IRefArray$.IRefArrayLikeExtension IRefArrayLikeExtension]]`[IRefArray, E]`,
+	  * [[net.noresttherein.sugar.arrays.IArrayLike$.IArrayLikeExtension IArrayLikeExtension]]`[IRefArray, E]`,
+	  * [[net.noresttherein.sugar.arrays.IArrayLike$.ArrayLikeExtension ArrayLikeExtension]]`[RefArray, E]`,
 	  * which are available for importing under those names from
 	  * `sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions extensions]] or
 	  * `sugar.`[[net.noresttherein.sugar.extensions extensions]].
@@ -154,5 +156,58 @@ package object arrays {
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]]
 	  */
 	type IRefArray[+E] >: Null <: RefArrayLike[E] with IArrayLike[E]
+
+
+	/** A two dimensional array. */
+	type Array2[E] = Array[Array[E]]
+	/** A three dimensional array. */
+	type Array3[E] = Array[Array[Array[E]]]
+	/** A four dimensional array. */
+	type Array4[E] = Array[Array[Array[Array[E]]]]
+	/** A five dimensional array. */
+	type Array5[E] = Array[Array[Array[Array[Array[E]]]]]
+	/** A six dimensional array. */
+	type Array6[E] = Array[Array[Array[Array[Array[Array[E]]]]]]
+	/** A seven dimensional array. */
+	type Array7[E] = Array[Array[Array[Array[Array[Array[Array[E]]]]]]]
+
+	/** A two dimensional immutable array. */
+	type IArray2[E] = IArray[IArray[E]]
+	/** A three dimensional immutable array. */
+	type IArray3[E] = IArray[IArray[IArray[E]]]
+	/** A four dimensional immutable array. */
+	type IArray4[E] = IArray[IArray[IArray[IArray[E]]]]
+	/** A five dimensional immutable array. */
+	type IArray5[E] = IArray[IArray[IArray[IArray[IArray[E]]]]]
+	/** A six dimensional immutable array. */
+	type IArray6[E] = IArray[IArray[IArray[IArray[IArray[IArray[E]]]]]]
+	/** A seven dimensional immutable array. */
+	type IArray7[E] = IArray[IArray[IArray[IArray[IArray[IArray[IArray[E]]]]]]]
+
+	/** A two dimensional box array. */
+	type RefArray2[E] = RefArray[RefArray[E]]
+	/** A three dimensional box array. */
+	type RefArray3[E] = RefArray[RefArray[RefArray[E]]]
+	/** A four dimensional box array. */
+	type RefArray4[E] = RefArray[RefArray[RefArray[RefArray[E]]]]
+	/** A five dimensional box array. */
+	type RefArray5[E] = RefArray[RefArray[RefArray[RefArray[RefArray[E]]]]]
+	/** A six dimensional box array. */
+	type RefArray6[E] = RefArray[RefArray[RefArray[RefArray[RefArray[RefArray[E]]]]]]
+	/** A seven dimensional box array. */
+	type RefArray7[E] = RefArray[RefArray[RefArray[RefArray[RefArray[RefArray[RefArray[E]]]]]]]
+
+	/** A two dimensional immutable box array. */
+	type IRefArray2[E] = IRefArray[IRefArray[E]]
+	/** A three dimensional immutable box array. */
+	type IRefArray3[E] = IRefArray[IRefArray[IRefArray[E]]]
+	/** A four dimensional immutable box array. */
+	type IRefArray4[E] = IRefArray[IRefArray[IRefArray[IRefArray[E]]]]
+	/** A five dimensional immutable box array. */
+	type IRefArray5[E] = IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[E]]]]]
+	/** A six dimensional immutable box array. */
+	type IRefArray6[E] = IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[E]]]]]]
+	/** A seven dimensional immutable box array. */
+	type IRefArray7[E] = IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[E]]]]]]]
 
 }
