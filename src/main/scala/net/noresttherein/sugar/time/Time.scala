@@ -19,7 +19,7 @@ import net.noresttherein.sugar.time.extensions._
   * will set the time to current `UTC` time.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Time(val clock :Clock) extends AnyVal with Serializable {
 	@inline def toJava :Clock = clock
 
@@ -34,6 +34,7 @@ class Time(val clock :Clock) extends AnyVal with Serializable {
 	@inline def epochMilli :Long         = clock.millis
 	@inline def apply()    :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now(clock))
 	@inline def now        :Timestamp    = new Timestamp(clock.instant)
+//	@inline def today      ://todo: what `today` should return?
 	@inline def posix      :PosixTime    = new PosixTime(clock.millis)
 	@inline def epoch      :PosixTime    = new PosixTime(clock.millis)
 	@inline def utc        :UTCDateTime  = UTCDateTime.now(clock)
@@ -44,28 +45,28 @@ class Time(val clock :Clock) extends AnyVal with Serializable {
 	@inline def here  :OffsetTime = new OffsetTime(j.OffsetTime.now(clock))
 	@inline def local :DateTime   = new DateTime(j.LocalDateTime.now(clock))
 
-	@inline def after(time :TimeInterval)       :TimePoint    = new Timestamp(clock.instant) + time
-	@inline def after(time :TimeSpan) :DefiniteTime = new Timestamp(clock.instant) + time
+	@inline def after(time :TimeInterval)   :TimePoint    = new Timestamp(clock.instant) + time
+	@inline def after(time :TimeSpan)       :DefiniteTime = new Timestamp(clock.instant) + time
 	@inline def after(millis :Milliseconds) :PosixTime    = new PosixTime(clock.millis) + millis
 	@inline def after(time :Duration)       :Timestamp    = new Timestamp(clock.instant) + time
 
-	@inline def before(time :TimeInterval)       :TimePoint    = new Timestamp(clock.instant) - time
-	@inline def before(time :TimeSpan) :DefiniteTime = new Timestamp(clock.instant) - time
-	@inline def before(time :Milliseconds)   :PosixTime    = new PosixTime(clock.millis) - time
-	@inline def before(time :Duration)       :Timestamp    = new Timestamp(clock.instant) - time
+	@inline def before(time :TimeInterval)  :TimePoint    = new Timestamp(clock.instant) - time
+	@inline def before(time :TimeSpan)      :DefiniteTime = new Timestamp(clock.instant) - time
+	@inline def before(time :Milliseconds)  :PosixTime    = new PosixTime(clock.millis) - time
+	@inline def before(time :Duration)      :Timestamp    = new Timestamp(clock.instant) - time
 
-	@inline def until(point :TimePoint)    :TimeInterval       = point - new Timestamp(clock.instant)
-	@inline def until(point :DefiniteTime) :TimeSpan = point - new Timestamp(clock.instant)
-	@inline def until(point :PosixTime)    :Milliseconds   = Milliseconds.between(new PosixTime(clock.millis), point)
-	@inline def until(point :Timestamp)    :Duration       = point - new Timestamp(clock.instant)
-	@inline def until(point :DateTime)     :TimeInterval =
+	@inline def until(point :TimePoint)     :TimeInterval = point - new Timestamp(clock.instant)
+	@inline def until(point :DefiniteTime)  :TimeSpan     = point - new Timestamp(clock.instant)
+	@inline def until(point :PosixTime)     :Milliseconds = Milliseconds.between(new PosixTime(clock.millis), point)
+	@inline def until(point :Timestamp)     :Duration     = point - new Timestamp(clock.instant)
+	@inline def until(point :DateTime)      :TimeInterval =
 		point.toJava.toInstant(clock.getZone.getRules.getOffset(point.toJava)).toTimestamp - now
 
-	@inline def since(point :TimePoint)    :TimeInterval       = new Timestamp(clock.instant) - point
-	@inline def since(point :DefiniteTime) :TimeSpan = new Timestamp(clock.instant) - point
-	@inline def since(point :PosixTime)    :Milliseconds   = Milliseconds.between(point, new PosixTime(clock.millis))
-	@inline def since(point :Timestamp)    :Duration       = new Timestamp(clock.instant) - point
-	@inline def since(point :DateTime)     :TimeInterval =
+	@inline def since(point :TimePoint)     :TimeInterval = new Timestamp(clock.instant) - point
+	@inline def since(point :DefiniteTime)  :TimeSpan     = new Timestamp(clock.instant) - point
+	@inline def since(point :PosixTime)     :Milliseconds = Milliseconds.between(point, new PosixTime(clock.millis))
+	@inline def since(point :Timestamp)     :Duration     = new Timestamp(clock.instant) - point
+	@inline def since(point :DateTime)      :TimeInterval =
 		now - point.toJava.toInstant(clock.getZone.getRules.getOffset(point.toJava)).toTimestamp
 }
 
@@ -74,7 +75,8 @@ class Time(val clock :Clock) extends AnyVal with Serializable {
 
 
 
-object Time {
+@SerialVersionUID(Ver)
+case object Time {
 	final val UTC = new Time(Clock.systemUTC())
 	final val Local = new Time(Clock.systemDefaultZone())
 
@@ -84,9 +86,11 @@ object Time {
 
 	@inline def now :Timestamp = new Timestamp(j.Instant.now())
 
+	@inline def today :ZoneDateTime = new ZoneDateTime(j.ZonedDateTime.now)
 
-	@inline implicit def fromClock(clock :Clock) :Time = new Time(clock)
-	@inline implicit def toClock(time :Time) :Clock = time.clock
+
+	@inline implicit def TimeFromJavaClock(clock :Clock) :Time = new Time(clock)
+	@inline implicit def TimeToJavaClock(time :Time) :Clock = time.clock
 
 
 	object implicits {

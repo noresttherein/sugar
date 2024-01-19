@@ -54,7 +54,8 @@ sealed trait TimePoint extends Any with Ordered[TimePoint] with Serializable {
 
 
 
-object TimePoint {
+@SerialVersionUID(Ver)
+case object TimePoint {
 
 	@inline def now(implicit time :Time = Time.Local) :TimePoint = Timestamp.now
 
@@ -77,7 +78,7 @@ object TimePoint {
 	}
 
 
-	@inline implicit def fromJavaInstant(instant :j.Instant) :Timestamp = new Timestamp(instant)
+	@inline implicit def TimePointFromJavaInstant(instant :j.Instant) :Timestamp = new Timestamp(instant)
 
 
 	/** Base class for the two infinite limits of the time line: 'before time' (minus inf) and 'after time' (plus inf).
@@ -176,9 +177,10 @@ trait DefiniteTime extends Any with TimePoint {
 
 
 
-object DefiniteTime {
+@SerialVersionUID(Ver)
+case object DefiniteTime {
 
-	@inline def apply()(implicit time :Time = Time.Local) :DefiniteTime = Timestamp.now
+	@inline def apply(time :Time = Time.Local) :DefiniteTime = Timestamp.now
 
 	@inline def now(implicit time :Time = Time.Local) :DefiniteTime = Timestamp.now
 
@@ -198,7 +200,7 @@ object DefiniteTime {
 	}
 
 
-	@inline implicit def toJavaInstant(time :DefiniteTime) :j.Instant = time.toInstant
+	@inline implicit def DefiniteTimeToJavaInstant(time :DefiniteTime) :j.Instant = time.toInstant
 }
 
 
@@ -250,14 +252,15 @@ trait DateTimePoint extends Any with DefiniteTime {
 
 
 
-object DateTimePoint {
-	@inline implicit def toJavaOffsetDateTime(time :DateTimePoint) :j.OffsetDateTime =
+@SerialVersionUID(Ver)
+case object DateTimePoint {
+	@inline implicit def DateTimePointToJavaOffsetDateTime(time :DateTimePoint) :j.OffsetDateTime =
 		time.toZoneDateTime.toJava.toOffsetDateTime
 
-	@inline implicit def toJavaOffsetDateTime(time :ZoneDateTime) :j.OffsetDateTime =
+	@inline implicit def DateTimePointToJavaOffsetDateTime(time :ZoneDateTime) :j.OffsetDateTime =
 		time.toJava.toOffsetDateTime
 
-	@inline implicit def fromJavaOffsetDateTime(time :j.OffsetDateTime) :ZoneDateTime =
+	@inline implicit def DateTimePointFromJavaOffsetDateTime(time :j.OffsetDateTime) :ZoneDateTime =
 		new ZoneDateTime(time.toZonedDateTime)
 
 }
@@ -271,7 +274,7 @@ object DateTimePoint {
   * It may be returned as a result of an arithmetic operation involving infinite time extents `Eternity`
   * or `MinusEternity`.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 case object EndOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Max
@@ -301,7 +304,7 @@ case object EndOfTime extends TimeLimes {
   * all other [[net.noresttherein.sugar.time.TimePoint TimePoint]] instances. It may be returned
   * as a result of an arithmetic operation involving infinite time extents `Eternity` or `MinusEternity`.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 case object DawnOfTime extends TimeLimes {
 
 	override def forcedDefinite :Timestamp = Timestamp.Min

@@ -7,7 +7,8 @@ import java.{time => j}
 /** Constants related to the special UTC time zone and factory methods for `TimeOffset` instances.
   * @author Marcin Mościcki
   */
-object UTC {
+@SerialVersionUID(Ver)
+case object UTC {
 	final val zone   :TimeZone   = TimeZone.UTC
 	final val offset :TimeOffset = TimeOffset.UTC
 	final val time   :Time       = Time.UTC

@@ -15,7 +15,7 @@ import net.noresttherein.sugar.time.constants.{MaxNanoDuration, MicrosInMilli, M
   * allowing to write `42.millis`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Milliseconds(override val toMillis :Long) extends AnyVal with TimeSpan with Serializable {
 
 	@inline def toLong :Long = toMillis
@@ -303,7 +303,8 @@ class Milliseconds(override val toMillis :Long) extends AnyVal with TimeSpan wit
 
 
 
-object Milliseconds {
+@SerialVersionUID(Ver)
+case object Milliseconds {
 	@inline def apply(millis :Long) :Milliseconds = new Milliseconds(millis)
 
 	@inline def unapply(span :TimeInterval) :Option[Long] = span match {

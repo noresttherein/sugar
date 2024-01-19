@@ -11,6 +11,7 @@ import net.noresttherein.sugar.typist.Rank.Rank0
   * @author Marcin Mościcki
   */
 package object time {
+	private[time] final val Ver = 1L
 
 	/** Throws an `ArithmeticException` to indicate `Long` arithmetic overflow during operation `this op other`.
 	  * Extracted to minimize inlined footprint of calling methods. Access is `private[sugar]` to avoid

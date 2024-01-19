@@ -8,19 +8,37 @@ import net.noresttherein.sugar.time.Cycle.Phase
 
 
 
+trait TimeProjection extends Any with Serializable
+
+trait TimeProjector extends Serializable {
+	type Projection <: TimeProjection
+
+	/** The current phase of this cycle, as defined by the implicit `Time`. */
+	def now(implicit time :Time = Time.Local) :Projection = current
+	def current(implicit time :Time = Time.Local) :Projection
+
+//	def toJava :TemporalField
+}
+
+
+
+
 /** A periodically repeating sequence of time periods, such as a month of the year or a day of the week.
   * Instances of this class represent the whole cycle, while each individual period within it, such as January
-  * or Tuesday is represented by the member type `Cycle#`[[net.noresttherein.sugar.time.Cycle.Phase Phase]].
+  * or Tuesday, is represented by the member type `Cycle#`[[net.noresttherein.sugar.time.Cycle.Phase Phase]].
   * The convention here is that a class, such as [[net.noresttherein.sugar.time.Month Month]], implements `Phase`,
   * while its companion object (for example, [[net.noresttherein.sugar.time.Month$ Month object]]
   * implements the `Cycle` of that phase.
   *
   * A rough counterpart of this type in `java.time` package is [[java.time.temporal.TemporalField TemporalField]].
   * @author Marcin Mościcki
-  */
-trait Cycle extends Serializable {
+  */ //Todo: type Unit <: TimeUnit; should define phase length, and specify if it's constant.
+trait Cycle extends TimeProjector {
+	override type Projection = Phase
+
 	/** The type representing a single, specific iteration of this cycle. */
 	type Phase <: Cycle.Phase with Ordered[Phase]
+
 	/** The last phase in this cycle. */
 	val Max :Phase
 	/** The first phase in this cycle. */
@@ -29,6 +47,9 @@ trait Cycle extends Serializable {
 	val Length :Long
 
 	def toJava :TemporalField
+
+	/** The current phase of this cycle, as defined by the implicit `Time`. */
+	override def current(implicit time :Time = Time.Local) :Phase = on(time.now in time.zone)
 
 	/** The current phase of this cycle at the particular moment in time. */
 	def on(time :TimePoint)    :Phase = time(this) //todo: shouldn't these take a Time?
@@ -73,21 +94,26 @@ trait Cycle extends Serializable {
 /** A factory and deconstructor of temporal [[net.noresttherein.sugar.time.Cycle Cycle]]s.
   * Serves also as a name space providing the values of all (or most) cycles occurring in the Gregorian calendar.
   */
+@SerialVersionUID(Ver)
 object Cycle {
-	trait Phase extends Any with Serializable
+	//todo: should have specififed length, and have associated units. Should say if it's of constant length.
+	trait Phase extends Any with TimeProjection
 
 
 	def apply(field :TemporalField) :LongValueCycle = new TemporalFieldCycle(field)
 
 	def unapply(cycle :Cycle) :Some[TemporalField] = Some(cycle.toJava)
 
-
-	@inline implicit def fromJavaTemporalField(field :TemporalField) :LongValueCycle =
+	//todo: accept only some temporal fields, which indeed have a cyclic fashin,
+	// and the other downgrade to TimeProjection
+	@inline implicit def CycleFromTemporalField(field :TemporalField) :LongValueCycle =
 		new TemporalFieldCycle(field)
 
-	@inline implicit def toJavaTemporalField(cycle :Cycle) :TemporalField = cycle.toJava
+	@inline implicit def CycleToTemporalField(cycle :Cycle) :TemporalField = cycle.toJava
 
 
+	//consider: moving the constants to time package, to avoid accidental imports such as `apply`
+	//  when automatically importing the contents with _ due to using multiple Cycle constants
 	final val Epoch          = Cycle(ERA)
 	final val YearOfEra      = Cycle(YEAR_OF_ERA)
 	final val MonthOfYear    = Cycle(MONTH_OF_YEAR)
@@ -116,16 +142,15 @@ object Cycle {
 
 
 	trait AMPM extends LongValueCycle {
-		final val AM = apply(0)
-		final val PM = apply(1)
+		final val AM = this(0)
+		final val PM = this(1)
 	}
 
 
 
 	/** A phase of a `Cycle` described simply by its increasing ordinal number of type `Long`. */
-	@SerialVersionUID(1L)
+	@SerialVersionUID(Ver)
 	class LongValuePhase[C](val no :Long) extends AnyVal with Phase with Ordered[LongValuePhase[C]] {
-
 		override def compare(that :LongValuePhase[C]) :Int =
 			if (no < that.no) -1
 			else if (no > that.no) 1
@@ -144,8 +169,8 @@ object Cycle {
 		def apply(phase :Long) :Phase
 	}
 
-	@SerialVersionUID(1L)
-	private[time] class TemporalFieldCycle(val toJava :TemporalField) extends LongValueCycle {
+	@SerialVersionUID(Ver)
+	private class TemporalFieldCycle(val toJava :TemporalField) extends LongValueCycle {
 		override type Phase = LongValuePhase[this.type]
 
 		override val Max = new Phase(toJava.range().getMaximum)
@@ -185,7 +210,7 @@ object Cycle {
 
 
 /** Month of the year, from January (as numeric `1`), to December (as numeric `12`). */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered[Month] with Serializable {
 	@inline def no    :Int = toJava.getValue
 	@inline def toInt :Int = toJava.getValue
@@ -207,8 +232,8 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 	}
 
 	@inline def of(year :Year) :MonthOfYear = MonthOfYear(year, this)
-	@inline def on(day :Int)   :DateOfYear  = DateOfYear(this, day)
-	@inline def onFirst        :DateOfYear  = DateOfYear(this, 1)
+	@inline def on(day :Int)   :Anniversary  = Anniversary(this, day)
+	@inline def onFirst        :Anniversary  = Anniversary(this, 1)
 
 	@inline def +(months :Int) :Month = new Month(toJava plus months)
 	@inline def -(months :Int) :Month = new Month(toJava minus months)
@@ -277,7 +302,8 @@ class Month private (val toJava :j.Month) extends AnyVal with Phase with Ordered
 
 
 /** The cycle of months of a year. */
-object Month extends Cycle {
+@SerialVersionUID(Ver)
+case object Month extends Cycle {
 	type Phase = Month
 
 	import j.Month._
@@ -315,15 +341,18 @@ object Month extends Cycle {
 	@inline def unapply(date :Date)     :Some[Month] = Some(date.month)
 	@inline def unapply(time :DateTime) :Some[Month] = Some(time.month)
 
-	@inline def now(implicit time :Time = Time.Local) :Month = new Month(j.LocalDate.now(time.clock).getMonth)
+	@inline override def current(implicit time :Time = Time.Local) :Month =
+		new Month(j.LocalDate.now(time.clock).getMonth)
+
+	@inline def today(implicit time :Time = Time.Local) :Month = new Month(j.LocalDate.now(time.clock).getMonth)
 
 
-	@inline implicit def fromJavaMonth(month :j.Month) :Month = new Month(month)
-	@inline implicit def toJavaMonth(month :Month) :j.Month = j.Month.of(month.no)
+	@inline implicit def MonthFromJavaMonth(month :j.Month) :Month = new Month(month)
+	@inline implicit def MonthToJavaMonth(month :Month) :j.Month = j.Month.of(month.no)
 
 	object implicits {
-		@inline implicit def monthToInt(month :Month) :Int = month.no
-		@inline implicit def intToMonth(month :Int) :Month = Month(month)
+		@inline implicit def MonthToInt(month :Month) :Int = month.no
+		@inline implicit def IntToMonth(month :Int) :Month = Month(month)
 	}
 }
 
@@ -333,7 +362,7 @@ object Month extends Cycle {
 
 
 /** Day of week represented by a numeral from the `1..7` range, starting with Monday as `1`. */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Day private(val no :Int) extends AnyVal with Phase with Ordered[Day] with Serializable {
 	@inline def toInt :Int = no
 
@@ -371,7 +400,8 @@ class Day private(val no :Int) extends AnyVal with Phase with Ordered[Day] with 
 
 
 /** The cycle of days of the week. */
-object Day extends Cycle {
+@SerialVersionUID(Ver)
+case object Day extends Cycle {
 	type Phase = Day
 
 	@inline final val Monday    = new Day(1)
@@ -396,15 +426,17 @@ object Day extends Cycle {
 
 	@inline def apply(day :j.DayOfWeek) :Day = new Day(day.getValue)
 
+	@inline def today(implicit time :Time = Time.Local) :Day = ZoneDateTime.now.dayOfWeek
+
 	@inline override def on(time :UTCDateTime)  :Day = time.dayOfWeek
 	@inline override def on(time :ZoneDateTime) :Day = time.dayOfWeek
 
-	@inline implicit def fromJavaDayOfWeek(day :j.DayOfWeek) :Day = new Day(day.getValue)
-	@inline implicit def toJavaDayOfWeek(day :j.DayOfWeek) :j.DayOfWeek = day.toJava
+	@inline implicit def DayFromJavaDayOfWeek(day :j.DayOfWeek) :Day = new Day(day.getValue)
+	@inline implicit def DayToJavaDayOfWeek(day :j.DayOfWeek) :j.DayOfWeek = day.toJava
 
 	object implicits {
-		@inline implicit def dayOfWeekToInt(day :Day) :Int = day.no
-		@inline implicit def intToDayOfWeek(day :Int) :Day = Day(day)
+		@inline implicit def DayOfWeekToInt(day :Day) :Int = day.no
+		@inline implicit def IntToDayOfWeek(day :Int) :Day = Day(day)
 	}
 }
 

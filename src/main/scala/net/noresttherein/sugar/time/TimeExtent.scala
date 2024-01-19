@@ -103,7 +103,8 @@ sealed trait TimeExtent extends Any with Serializable {
 
 
 
-object TimeExtent {
+@SerialVersionUID(Ver)
+case object TimeExtent {
 	final val Zero :TimeExtent = Immediate
 	final val Inf :TimeExtent = Eternity
 	final val MinusInf :TimeExtent = MinusEternity
@@ -124,10 +125,10 @@ object TimeExtent {
 
 	@inline def unapply(time :TimeExtent) :Some[(DateInterval, TimeInterval)] = Some((time.variable, time.fixed))
 
-	@inline implicit def fromJavaDuration(time :j.Duration) :Duration = new Duration(time)
-	@inline implicit def fromJavaPeriod(time :j.Period) :Period = new Period(time)
+	@inline implicit def TimeExtentFromJavaDuration(time :j.Duration) :Duration = new Duration(time)
+	@inline implicit def TimeExtentFromJavaPeriod(time :j.Period) :Period = new Period(time)
 
-	implicit def fromScalaDuration(time :s.Duration) :TimeExtent = time match {
+	implicit def TimeExtentFromScalaDuration(time :s.Duration) :TimeExtent = time match {
 		case s.Duration.Inf => Eternity
 		case s.Duration.MinusInf => MinusEternity
 		case _ =>
@@ -147,7 +148,7 @@ object TimeExtent {
   * [[net.noresttherein.sugar.time.DateSpan DateSpan]] for date-based spans,
   * special zero-length [[net.noresttherein.sugar.time.Immediate Immediate]] and an implementation containing
   * both non-zero fixed and variable span parts.
-  */
+  */ //consider: renaming to FiniteTime
 trait TimeFrame extends Any with TimeExtent {
 	override def variable :DateSpan = period
 	override def fixed :TimeSpan = duration
@@ -188,7 +189,8 @@ trait TimeFrame extends Any with TimeExtent {
 
 
 
-object TimeFrame {
+@SerialVersionUID(Ver)
+case object TimeFrame {
 
 	def apply(period :DateSpan, time :TimeSpan) :TimeFrame =
 		if (period.isZero) time
@@ -431,7 +433,8 @@ sealed trait TimeInterval extends Any with TimeExtent with Ordered[TimeInterval]
 
 
 
-object TimeInterval {
+@SerialVersionUID(Ver)
+case object TimeInterval {
 
 	def apply(time :s.Duration) :TimeInterval =
 		if (!time.isFinite)
@@ -477,9 +480,9 @@ object TimeInterval {
 	}
 
 
-	@inline implicit def fromJavaDuration(time :j.Duration) :Duration = new Duration(time)
-	@inline implicit def toScalaDuration(time :TimeInterval) :s.Duration = time.toScala
-	@inline implicit def fromScalaDuration(time :s.Duration) :TimeInterval = TimeInterval(time)
+	@inline implicit def TimeIntervalFromJavaDuration(time :j.Duration) :Duration = new Duration(time)
+	@inline implicit def TimeIntervalToScalaDuration(time :TimeInterval) :s.Duration = time.toScala
+	@inline implicit def TimeIntervalFromScalaDuration(time :s.Duration) :TimeInterval = TimeInterval(time)
 
 
 	final val Inf      :TimeInterval = Eternity
@@ -499,7 +502,7 @@ object TimeInterval {
   * with the lightweight span of [[net.noresttherein.sugar.time.Milliseconds Milliseconds]]
   * and [[net.noresttherein.sugar.time.Immediate Immediate]]
   * (a zero-length duration which is also a [[net.noresttherein.sugar.time.DateSpan DateSpan]]).
-  */
+  */ //consider: swapping names between TimeSpan and TimeInterval; which better reflects possibility of infinite time?
 trait TimeSpan extends Any with TimeInterval with TimeFrame {
 
 	override def period   :Period = Period.Zero
@@ -600,7 +603,8 @@ trait TimeSpan extends Any with TimeInterval with TimeFrame {
 
 
 
-object TimeSpan {
+@SerialVersionUID(Ver)
+case object TimeSpan {
 
 	@inline def between(start :TimeOfDay, end :TimeOfDay) :TimeSpan =
 		new Duration(j.Duration.between(start.toJava, end.toJava))
@@ -615,7 +619,7 @@ object TimeSpan {
 		case _ => None
 	}
 
-	@inline implicit def toJavaDuration(time :TimeSpan) :j.Duration = time.toJava
+	@inline implicit def TimeSpanToJavaDuration(time :TimeSpan) :j.Duration = time.toJava
 
 
 	def since(moment :DefiniteTime)(implicit time :Time = Time.Local) :TimeSpan = moment match {
@@ -766,7 +770,8 @@ trait DateSpan extends Any with DateInterval with TimeFrame {
 
 
 
-object DateSpan {
+@SerialVersionUID(Ver)
+case object DateSpan {
 
 	@inline def between(start :Date, end :Date) :DateSpan = Period.between(start, end)
 
@@ -775,8 +780,8 @@ object DateSpan {
 		case _ => None
 	}
 
-	@inline implicit def fromJavaPeriod(period :j.Period) :Period = new Period(period)
-	@inline implicit def toJavaPeriod(period :DateSpan) :j.Period = period.toPeriod.toJava
+	@inline implicit def DateSpanFromJavaPeriod(period :j.Period) :Period = new Period(period)
+	@inline implicit def DateSpanToJavaPeriod(period :DateSpan) :j.Period = period.toPeriod.toJava
 
 	final val Zero :DateSpan = Period.Zero
 }
@@ -921,7 +926,7 @@ sealed abstract class InfiniteTimeInterval extends TimeInterval with DateInterva
   * multiplying by zero all throw a `DateTimeException`, with the exception of dividing by zero, which throws
   * an `ArithmeticException` as expected.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 object Eternity extends InfiniteTimeInterval {
 	override protected[this] def infinity :Double = Double.PositiveInfinity
 
@@ -942,7 +947,7 @@ object Eternity extends InfiniteTimeInterval {
   * multiplying by zero all throw a `DateTimeException`, with the exception of dividing by zero, which throws
   * an `ArithmeticException` as expected.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 object MinusEternity extends InfiniteTimeInterval {
 	override protected[this] def infinity :Double = Double.NegativeInfinity
 
@@ -961,7 +966,7 @@ object MinusEternity extends InfiniteTimeInterval {
 
 
 /** a `TimeSpan` of zero length. */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 object Immediate extends TimeSpan with DateSpan with Serializable {
 
 	override def nanos   :Int  = 0
@@ -1084,8 +1089,8 @@ object Immediate extends TimeSpan with DateSpan with Serializable {
 
 
 
-@SerialVersionUID(1L)
-private[time] final class DateTimeSpan(val period :Period, val duration :Duration)
+@SerialVersionUID(Ver)
+private final class DateTimeSpan(val period :Period, val duration :Duration)
 	extends TimeFrame with Serializable
 {
 	assert(!period.isZero && !duration.isZero, s"Zero component given to CombinedTimeLapse($period, $duration)")
@@ -1162,7 +1167,7 @@ private[time] final class DateTimeSpan(val period :Period, val duration :Duratio
 
 
 
-private[time] object DateTimeSpan {
+private object DateTimeSpan {
 	private[time] def periodMinusTime(period :Period, time :TimeSpan) :DateTimeSpan = {
 		val seconds = time.toSeconds
 		if (seconds == Long.MinValue)

@@ -4,12 +4,13 @@ import java.{time=>j}
 
 
 
-/** Contains information about date and time of day abstracting over time zone/offset. Can be combined
-  * with a `TimeZone`
+
+/** Contains information about date and time of day abstracting over time zone/offset.
+  * Can be combined with a `TimeZone`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
-class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with Ordered[DateTime] with Serializable {
+@SerialVersionUID(Ver)
+class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with TimeProjection with Ordered[DateTime] {
 	@inline def date :Date      = new Date(toJava.toLocalDate)
 	@inline def time :TimeOfDay = new TimeOfDay(toJava.toLocalTime)
 
@@ -92,7 +93,10 @@ class DateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with O
 
 
 
-object DateTime {
+@SerialVersionUID(Ver)
+case object DateTime extends TimeProjector {
+	override type Projection = DateTime
+
 	@inline def apply(time :j.LocalDateTime) :DateTime = new DateTime(time)
 
 	@inline def apply(date :Date, time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(date, time))
@@ -100,12 +104,13 @@ object DateTime {
 //	@inline def apply(timestamp :Timestamp)(implicit time :Time = Time.Local) :DateTime =
 //		new DateTime(j.LocalDateTime.ofInstant(timestamp, time.zone))
 //
-	@inline def apply()(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
+	@inline def apply(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
 	@inline def current(implicit time :Time = Time.Local) :DateTime = new DateTime(j.LocalDateTime.now(time.clock))
 
 	@inline def utc :DateTime = current(Time.UTC)
 
-	@inline implicit def toJava(time :DateTime) :j.LocalDateTime = time.toJava
-	@inline implicit def fromJava(time :j.LocalDateTime) :DateTime = new DateTime(time)
+	//todo: rename all implicit conversions so that they include the name of the Java class.
+	@inline implicit def DateTimeToJava(time :DateTime) :j.LocalDateTime = time.toJava
+	@inline implicit def DateTimeFromJava(time :j.LocalDateTime) :DateTime = new DateTime(time)
 }
 

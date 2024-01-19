@@ -11,7 +11,7 @@ import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
   * wrapping a `java.time.ZonedDateTime`.
   * @author Marcin Mościcki
   */ //todo: OffsetDateTime?
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver) //consider: renaming to DateTimeAtZone/DateTimeInZone
 class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 	extends AnyVal with DateTimePoint with Serializable
 {
@@ -221,7 +221,8 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 
 
 
-object ZoneDateTime {
+@SerialVersionUID(Ver)
+case object ZoneDateTime {
 	@inline def apply(time :j.ZonedDateTime) :ZoneDateTime = new ZoneDateTime(time)
 	@inline def apply(time :j.OffsetDateTime) :ZoneDateTime = new ZoneDateTime(time.toZonedDateTime)
 
@@ -234,7 +235,7 @@ object ZoneDateTime {
 //	@inline def apply(timestamp: Timestamp)(implicit time :Time = Time.Local) :ZoneDateTime =
 //		new ZoneDateTime(j.ZonedDateTime.ofInstant(timestamp, time.zone))
 
-	@inline def apply()(implicit time :Time = Time.Local) :ZoneDateTime =
+	@inline def apply(time :Time = Time.Local) :ZoneDateTime =
 		new ZoneDateTime(j.ZonedDateTime.now(time.clock))
 
 	@inline def now(implicit time :Time = Time.Local) :ZoneDateTime =
@@ -271,8 +272,8 @@ object ZoneDateTime {
 	}
 
 
-	@inline implicit def toJavaZonedDateTime(time :ZoneDateTime) :j.ZonedDateTime = time.toJava
-	@inline implicit def fromJavaZonedDateTime(time :j.ZonedDateTime) :ZoneDateTime = new ZoneDateTime(time)
-	@inline implicit def toTimestamp(time :ZoneDateTime) :Timestamp = time.toTimestamp
+	@inline implicit def ZoneDateTimeToJavaZonedDateTime(time :ZoneDateTime) :j.ZonedDateTime = time.toJava
+	@inline implicit def ZoneDateTimeFromJavaZonedDateTime(time :j.ZonedDateTime) :ZoneDateTime = new ZoneDateTime(time)
+	@inline implicit def ZoneDateTimeToTimestamp(time :ZoneDateTime) :Timestamp = time.toTimestamp
 }
 

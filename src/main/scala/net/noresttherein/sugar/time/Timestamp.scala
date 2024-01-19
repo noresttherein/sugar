@@ -12,7 +12,7 @@ import net.noresttherein.sugar.time.constants.{NanosInMilli, NanosInSecond}
   * carrying no date/time zone information.
   * @author Marcin Mościcki
   */ //consider: renaming to Instant
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal with DefiniteTime with Serializable {
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.on(this)
@@ -170,7 +170,8 @@ class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal wi
 
 
 
-object Timestamp {
+@SerialVersionUID(Ver)
+case object Timestamp {
 
 	@inline def apply(time :j.Instant) :Timestamp = new Timestamp(time)
 
@@ -188,13 +189,13 @@ object Timestamp {
 		new Timestamp(j.Instant.now(time.clock) minus duration.toJava)
 
 
-	@inline def apply()(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
+	@inline def apply(time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
 
 	@inline def now(implicit time :Time = Time.Local) :Timestamp = new Timestamp(j.Instant.now(time.clock))
 
 
-	@inline implicit def toJavaInstant(time :Timestamp) :j.Instant = time.toJava
-	@inline implicit def fromJavaInstant(time :j.Instant) :Timestamp = new Timestamp(time)
+	@inline implicit def TimestampToJavaInstant(time :Timestamp) :j.Instant = time.toJava
+	@inline implicit def TimestampFromJavaInstant(time :j.Instant) :Timestamp = new Timestamp(time)
 
 	final val Max = new Timestamp(j.Instant.MAX)
 	final val Min = new Timestamp(j.Instant.MIN)

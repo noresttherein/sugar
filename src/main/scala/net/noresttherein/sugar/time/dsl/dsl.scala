@@ -15,7 +15,7 @@ import net.noresttherein.sugar.time.dsl.partialTimeDesignators.{DateDayWithMonth
   * such as `11 Jan 1981`, `11 :- 59 :- 59` or `1000_0000.nanos`.
   * @see [[net.noresttherein.sugar.time.dsl.ISOSymbolMethods$]]
   * @author Marcin Mościcki
-  */
+  */ //todo: rename to syntax
 package object dsl {
 
 	final val Midnight = TimeOfDay(0, 0)
@@ -42,10 +42,10 @@ package object dsl {
 	@inline final val Sat = Day.Saturday
 	@inline final val Sun = Day.Sunday
 
-
+	@inline def today(implicit clock :Time = Time.Local) :Date = Date.now
 
 	/** Extension methods which starts a call chain building a [[net.noresttherein.sugar.time.Date Date]],
-	  * [[net.noresttherein.sugar.time.DateOfYear DateOfYear]] or
+	  * [[net.noresttherein.sugar.time.Anniversary DateOfYear]] or
 	  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.DateDayWithMonth DateDayWithMonth]],
 	  * beginning with `this` `Int` as the day of month.
 	  */
@@ -63,21 +63,21 @@ package object dsl {
 		@inline def Nov(year :Int) :Date = Date(year, 11, day)
 		@inline def Dec(year :Int) :Date = Date(year, 12, day)
 
-		@inline def Jan :DateOfYear = DateOfYear(dsl.Jan, day)
-		@inline def Feb :DateOfYear = DateOfYear(dsl.Feb, day)
-		@inline def Mar :DateOfYear = DateOfYear(dsl.Mar, day)
-		@inline def Apr :DateOfYear = DateOfYear(dsl.Apr, day)
-		@inline def May :DateOfYear = DateOfYear(dsl.May, day)
-		@inline def Jun :DateOfYear = DateOfYear(dsl.Jun, day)
-		@inline def Jul :DateOfYear = DateOfYear(dsl.Jul, day)
-		@inline def Aug :DateOfYear = DateOfYear(dsl.Aug, day)
-		@inline def Sep :DateOfYear = DateOfYear(dsl.Sep, day)
-		@inline def Oct :DateOfYear = DateOfYear(dsl.Oct, day)
-		@inline def Nov :DateOfYear = DateOfYear(dsl.Nov, day)
-		@inline def Dec :DateOfYear = DateOfYear(dsl.Dec, day)
+		@inline def Jan :Anniversary = Anniversary(dsl.Jan, day)
+		@inline def Feb :Anniversary = Anniversary(dsl.Feb, day)
+		@inline def Mar :Anniversary = Anniversary(dsl.Mar, day)
+		@inline def Apr :Anniversary = Anniversary(dsl.Apr, day)
+		@inline def May :Anniversary = Anniversary(dsl.May, day)
+		@inline def Jun :Anniversary = Anniversary(dsl.Jun, day)
+		@inline def Jul :Anniversary = Anniversary(dsl.Jul, day)
+		@inline def Aug :Anniversary = Anniversary(dsl.Aug, day)
+		@inline def Sep :Anniversary = Anniversary(dsl.Sep, day)
+		@inline def Oct :Anniversary = Anniversary(dsl.Oct, day)
+		@inline def Nov :Anniversary = Anniversary(dsl.Nov, day)
+		@inline def Dec :Anniversary = Anniversary(dsl.Dec, day)
 
-		@inline def :/(month :Int)   :DateDayWithMonth = DateDayWithMonth(DateOfYear(Month(month), day))
-		@inline def :/(month :Month) :DateDayWithMonth = DateDayWithMonth(DateOfYear(month, day))
+		@inline def :/(month :Int)   :DateDayWithMonth = DateDayWithMonth(Anniversary(Month(month), day))
+		@inline def :/(month :Month) :DateDayWithMonth = DateDayWithMonth(Anniversary(month, day))
 
 		/** Creates a `Year` of the [[net.noresttherein.sugar.time.Era.CE current era]] represented by this `Int`.
 		  * A negative integer results in a year of that absolute value [[net.noresttherein.sugar.time.Era.BCE BCE]]
@@ -127,14 +127,14 @@ package object dsl {
 
 	object partialTimeDesignators {
 
-		/** A wrapper of [[net.noresttherein.sugar.time.DateOfYear DateOfYear]] adding a factory method
+		/** A wrapper of [[net.noresttherein.sugar.time.Anniversary DateOfYear]] adding a factory method
 		  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.DateDayWithMonth.:/ :/]] creating
 		  * a [[net.noresttherein.sugar.time.Date Date]].
 		  *
 		  * There is an implicit conversion from this value to the wrapped `DateOfYear`.
 		  * The whole method chain enables the syntax of `day :/ month :/ year`.
 		  */
-		class DateDayWithMonth private[time] (private val dateOfYear :DateOfYear) extends AnyVal {
+		class DateDayWithMonth private[time] (private val dateOfYear :Anniversary) extends AnyVal {
 			/** Factory method creating a full date, made public by type alias
 			  * [[net.noresttherein.sugar.time.dsl.partialTimeDesignators.DateDayWithMonth DateDayWithMonth]].
 			  * Enables the syntax of `day :/ month :/ year`.
@@ -146,8 +146,8 @@ package object dsl {
 		}
 
 		object DateDayWithMonth {
-			@inline private[time] def apply(dateOfYear :DateOfYear) :DateDayWithMonth = new DateDayWithMonth(dateOfYear)
-			@inline implicit def toDateOfYear(dayMonth :DateDayWithMonth) :DateOfYear = dayMonth.dateOfYear
+			@inline private[time] def apply(dateOfYear :Anniversary) :DateDayWithMonth = new DateDayWithMonth(dateOfYear)
+			@inline implicit def toDateOfYear(dayMonth :DateDayWithMonth) :Anniversary = dayMonth.dateOfYear
 		}
 
 		/** A wrapper of [[net.noresttherein.sugar.time.TimeOfDay TimeOfDay]] adding a factory method

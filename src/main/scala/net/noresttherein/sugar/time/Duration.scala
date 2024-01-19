@@ -15,7 +15,7 @@ import net.noresttherein.sugar.time.dsl.LongTimeLapseMethods
 
 
 /** Implementation of a finite duration backed by a `java.time.Duration`. All methods return a `Duration` if possible. */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Duration private[time] (override val toJava: j.Duration) extends AnyVal with TimeSpan with Serializable {
 	@inline override def toNanos :Long   = toJava.toNanos
 	@inline override def inNanos :Double =
@@ -254,7 +254,8 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 
 
 
-object Duration {
+@SerialVersionUID(Ver)
+case object Duration {
 
 	@inline def apply(duration :j.Duration)         :Duration = new Duration(duration)
 	@inline def apply(length :Long, unit :TimeUnit) :Duration = j.Duration.of(length, unit.toJava)
@@ -286,6 +287,9 @@ object Duration {
 
 	@inline def until(moment :DefiniteTime)(implicit time :Time = Time.Local) :Duration =
 		new Duration(j.Duration.between(time.clock.instant, moment.toInstant))
+
+	@inline implicit def DurationFromJavaDuration(duration :j.Duration) :Duration = new Duration(duration)
+	@inline implicit def DurationToJavaDuration(duration :Duration)     :j.Duration = duration.toJava
 
 
 	final val Zero = new Duration(j.Duration.ZERO)

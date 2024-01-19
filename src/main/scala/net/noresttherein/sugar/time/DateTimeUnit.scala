@@ -102,7 +102,8 @@ sealed trait DateTimeUnit extends Any with Ordered[DateTimeUnit] with Serializab
 
 
 
-object DateTimeUnit {
+@SerialVersionUID(Ver)
+case object DateTimeUnit {
 	@inline final val Nanos      = new TimeUnit(NANOS)
 	@inline final val Micros     = new TimeUnit(MICROS)
 	@inline final val Millis     = new TimeUnit(MILLIS)
@@ -134,11 +135,11 @@ object DateTimeUnit {
 	@inline def unapply(unit :DateTimeUnit) :Some[ChronoUnit] = Some(unit.toJava)
 
 
-	@inline implicit def fromJava(unit :ChronoUnit) :DateTimeUnit = apply(unit)
-	@inline implicit def toJava(unit :DateTimeUnit) :TemporalUnit = unit.toJava
+	@inline implicit def DateTimeUnitFromJava(unit :ChronoUnit) :DateTimeUnit = apply(unit)
+	@inline implicit def DateTimeUnitToJava(unit :DateTimeUnit) :TemporalUnit = unit.toJava
 
-	@inline implicit def fromConcurrentUnit(unit :JTimeUnit) :DateTimeUnit = apply(unit.toChronoUnit)
-	@inline implicit def toConcurrentUnit(unit :DateTimeUnit) :JTimeUnit = JTimeUnit.of(unit.toJava)
+	@inline implicit def DateTimeUnitFromConcurrentUnit(unit :JTimeUnit) :DateTimeUnit = apply(unit.toChronoUnit)
+	@inline implicit def DateTimeUnitToConcurrentUnit(unit :DateTimeUnit) :JTimeUnit = JTimeUnit.of(unit.toJava)
 
 
 	private final val SomeNanos   = Some(Nanos)
@@ -158,7 +159,7 @@ object DateTimeUnit {
 
 
 /** A time unit of fixed length, i.e. a standard time unit and half-days. */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
 	@inline override def time :TimeSpan = toJava.getDuration
 	@inline override def span :TimeSpan = toJava.getDuration
@@ -209,7 +210,8 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 
-object TimeUnit {
+@SerialVersionUID(Ver)
+case object TimeUnit {
 	@inline final val Nanos    = new TimeUnit(ChronoUnit.NANOS)
 	@inline final val Micros   = new TimeUnit(ChronoUnit.MICROS)
 	@inline final val Millis   = new TimeUnit(ChronoUnit.MILLIS)
@@ -225,8 +227,8 @@ object TimeUnit {
 
 
 
-/** A time unit of variable length, varying from days to millenia. */
-@SerialVersionUID(1L)
+/** A time unit of variable length, varying from days to millennia. */
+@SerialVersionUID(Ver)
 class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
 	@inline override def time   :DateSpan = length
 	@inline override def span   :DateSpan = length
@@ -290,7 +292,8 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 
-object DateUnit {
+@SerialVersionUID(Ver)
+case object DateUnit {
 	@inline final val Days      = new DateUnit(ChronoUnit.DAYS)
 	@inline final val Weeks     = new DateUnit(ChronoUnit.WEEKS)
 	@inline final val Months    = new DateUnit(ChronoUnit.MONTHS)
@@ -315,7 +318,7 @@ object DateUnit {
 
 
 /** Non-cyclic time 'units' of infinite length adapting `ChronoUnit.FOREVER` and `ChronoUnit.ERAS`. */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver) //Consider: moving it to object DateTimeUnit
 class PseudoUnit private[time](override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
 	@inline override def time :InfiniteTimeInterval = Eternity
 

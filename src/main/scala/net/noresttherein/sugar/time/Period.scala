@@ -9,7 +9,7 @@ import java.{time=>j}
   * a `java.time.Period`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class Period private[time] (val toJava :j.Period) extends AnyVal with DateSpan with Serializable {
 	@inline override def days   :Int = toJava.getDays
 	@inline override def months :Int = toJava.getMonths
@@ -91,7 +91,8 @@ class Period private[time] (val toJava :j.Period) extends AnyVal with DateSpan w
 
 
 
-object Period {
+@SerialVersionUID(Ver)
+case object Period {
 	final val Zero = new Period(j.Period.ZERO)
 
 	@inline def apply(years :Int = 0, months :Int = 0, days :Int = 0) :Period =
@@ -117,6 +118,6 @@ object Period {
 	}
 
 
-	@inline implicit def toJavaPeriod(period :Period) :j.Period = period.toJava
-	@inline implicit def fromJavaPeriod(period :j.Period) :Period = new Period(period)
+	@inline implicit def PeriodToJavaPeriod(period :Period) :j.Period = period.toJava
+	@inline implicit def PeriodFromJavaPeriod(period :j.Period) :Period = new Period(period)
 }

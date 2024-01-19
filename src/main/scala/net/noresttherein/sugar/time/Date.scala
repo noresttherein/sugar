@@ -5,20 +5,25 @@ import java.time.chrono.IsoEra
 
 
 
+
 /** An ISO date without a time offset, such as description of a birthday. Serves as a light wrapper over
   * `java.time.LocalDate`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
-class Date private[time] (val toJava :j.LocalDate) extends AnyVal with Ordered[Date] with Serializable {
+@SerialVersionUID(Ver)
+class Date private[time] (val toJava :j.LocalDate) extends AnyVal with TimeProjection with Ordered[Date] {
 	@inline def day         :Int   = toJava.getDayOfMonth
 	@inline def dayOfWeek   :Day   = toJava.getDayOfWeek
 	@inline def dayOfYear   :Int   = toJava.getDayOfYear
 	@inline def month       :Month = toJava.getMonth
-	@inline def monthOfYear :Int   = toJava.getMonthValue
+	@inline def monthFrom0  :Int   = toJava.getMonthValue - 1
+	@inline def monthFrom1  :Int   = toJava.getMonthValue
 	@inline def year        :Year  = new Year(toJava.getYear)
 	@inline def yearOfEra   :Int   = year.inEra
 	@inline def era         :Era   = new Era(toJava.getEra)
+	@inline def anniversary :Anniversary = Anniversary(Month(toJava.getMonthValue), toJava.getDayOfMonth)
+	@inline def monthOfYear :MonthOfYear = MonthOfYear(year, month)
+
 
 	@inline def daysInMonth :Int = toJava.lengthOfMonth
 	@inline def daysInYear  :Int = toJava.lengthOfYear
@@ -26,6 +31,8 @@ class Date private[time] (val toJava :j.LocalDate) extends AnyVal with Ordered[D
 	@inline def midnight :DateTime = new DateTime(toJava.atStartOfDay)
 	@inline def midnight(zone :TimeZone) :ZoneDateTime = new ZoneDateTime(toJava.atStartOfDay(zone.toJava))
 	@inline def at(time :TimeOfDay) :DateTime = new DateTime(j.LocalDateTime.of(toJava, time.toJava))
+
+	@inline def is(date :Anniversary) :Boolean = anniversary == date
 
 	@inline def copy(year :Year = this.year, month :Month = this.month, day :Int = this.day) :Date =
 		new Date(j.LocalDate.of(year.no, month.no, day))
@@ -54,7 +61,10 @@ class Date private[time] (val toJava :j.LocalDate) extends AnyVal with Ordered[D
 
 
 
-object Date {
+@SerialVersionUID(Ver)
+case object Date extends TimeProjector {
+	override type Projection = Date
+
 	@inline def apply(year :Int, month :Int, day :Int) :Date = new Date(j.LocalDate.of(year, month, day))
 
 	@inline def apply(date :j.LocalDate) :Date = new Date(date)
@@ -62,14 +72,16 @@ object Date {
 //	@inline def apply(timestamp :Timestamp)(implicit time :Time = Time.Local) :Date =
 //		new Date(j.LocalDate.ofInstant(timestamp, time.zone))
 //
-	@inline def apply()(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))
+
+	@inline def apply(time :Time = Time.Local)            :Date = new Date(j.LocalDate.now(time.clock))
 	@inline def current(implicit time :Time = Time.Local) :Date = new Date(j.LocalDate.now(time.clock))
+	@inline def today(implicit time :Time = Time.Local)   :Date = new Date(j.LocalDate.now(time.clock))
 
 
 	@inline def unapply(date :Date) :Some[(Year, Month, Int)] = Some((date.year, date.month, date.day))
 
-	@inline implicit def fromJava(date :j.LocalDate) :Date = new Date(date)
-	@inline implicit def toJava(date :Date) :j.LocalDate = date.toJava
+	@inline implicit def DateFromJavaLocalDate(date :j.LocalDate) :Date = new Date(date)
+	@inline implicit def DateToJavaLocalDate(date :Date)      :j.LocalDate = date.toJava
 }
 
 
@@ -78,8 +90,8 @@ object Date {
 
 
 /** A yearly reoccurring date such as an anniversary described by a month and day of month. */
-@SerialVersionUID(1L)
-class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYear] with Serializable {
+@SerialVersionUID(Ver)
+class Anniversary private(private val dayAndMonth :Int) extends TimeProjection with Ordered[Anniversary] {
 
 	@inline def day   :Int = dayAndMonth & 0x1f
 	@inline def month :Month = Month(dayAndMonth >> 5)
@@ -100,21 +112,21 @@ class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYe
 			ofYear(today.year + 1)
 	}
 
-	def copy(month :Month = this.month, day :Int = this.day) :DateOfYear =
+	def copy(month :Month = this.month, day :Int = this.day) :Anniversary =
 		if (day < 1 || day > month.maxLength)
 			throw new IllegalArgumentException(s"month $month does not have $day days")
-		else new DateOfYear(month.no << 5 | day)
+		else new Anniversary(month.no << 5 | day)
 
 
-	@inline override def compare(that :DateOfYear) :Int = dayAndMonth - that.dayAndMonth
+	@inline override def compare(that :Anniversary) :Int = dayAndMonth - that.dayAndMonth
 
-	@inline override def <=(that :DateOfYear) :Boolean = dayAndMonth <= that.dayAndMonth
-	@inline override def < (that :DateOfYear) :Boolean = dayAndMonth < that.dayAndMonth
-	@inline override def >=(that :DateOfYear) :Boolean = dayAndMonth >= that.dayAndMonth
-	@inline override def > (that :DateOfYear) :Boolean = dayAndMonth > that.dayAndMonth
+	@inline override def <=(that :Anniversary) :Boolean = dayAndMonth <= that.dayAndMonth
+	@inline override def < (that :Anniversary) :Boolean = dayAndMonth < that.dayAndMonth
+	@inline override def >=(that :Anniversary) :Boolean = dayAndMonth >= that.dayAndMonth
+	@inline override def > (that :Anniversary) :Boolean = dayAndMonth > that.dayAndMonth
 
-	@inline def min(that :DateOfYear) :DateOfYear = if (dayAndMonth <= that.dayAndMonth) this else that
-	@inline def max(that :DateOfYear) :DateOfYear = if (dayAndMonth >= that.dayAndMonth) this else that
+	@inline def min(that :Anniversary) :Anniversary = if (dayAndMonth <= that.dayAndMonth) this else that
+	@inline def max(that :Anniversary) :Anniversary = if (dayAndMonth >= that.dayAndMonth) this else that
 
 
 	override def toString :String = twoDigit(day) + "." + month
@@ -122,28 +134,32 @@ class DateOfYear private (private val dayAndMonth :Int) extends Ordered[DateOfYe
 
 
 
-object DateOfYear {
+@SerialVersionUID(Ver)
+case object Anniversary extends TimeProjector {
+	override type Projection = Anniversary
 
-	def apply(month :Month, day :Int) :DateOfYear =
+	def apply(month :Month, day :Int) :Anniversary =
 		if (day < 1 || day > month.maxLength)
 			throw new IllegalArgumentException("Month " + month.name + " does not have " + day + " days")
 		else
-	        new DateOfYear(month.no << 5 | day)
+	        new Anniversary(month.no << 5 | day)
 
-	@inline def apply(monthDay :j.MonthDay) :DateOfYear =
-		new DateOfYear(monthDay.getMonthValue << 5 | monthDay.getDayOfMonth)
+	@inline def apply(monthDay :j.MonthDay) :Anniversary =
+		new Anniversary(monthDay.getMonthValue << 5 | monthDay.getDayOfMonth)
 
 
-	@inline def apply()(implicit time :Time = Time.Local) :DateOfYear = current
+	@inline def apply(time :Time = Time.Local) :Anniversary = current
+	@inline def today(implicit time :Time = Time.Local) :Anniversary = current
 
-	def current(implicit time :Time = Time.Local) :DateOfYear = {
+	def current(implicit time :Time = Time.Local) :Anniversary = {
 		val date = j.MonthDay.now(time.clock)
-		new DateOfYear(date.getMonthValue << 5 | date.getDayOfMonth)
+		new Anniversary(date.getMonthValue << 5 | date.getDayOfMonth)
 	}
 
 
-	@inline implicit def fromJavaMonthDay(monthDay :j.MonthDay) :DateOfYear = apply(monthDay)
-	@inline implicit def toJavaMonthDay(date :DateOfYear)       :j.MonthDay = j.MonthDay.of(date.month.no, date.day)
+	@inline implicit def AnniversaryFromJavaMonthDay(monthDay :j.MonthDay) :Anniversary = apply(monthDay)
+	@inline implicit def AnniversaryToJavaMonthDay(date :Anniversary)       :j.MonthDay =
+		j.MonthDay.of(date.month.no, date.day)
 }
 
 
@@ -152,9 +168,10 @@ object DateOfYear {
 
 
 /** A combination of a year and a month, such as ''1981 Jan''. */
-@SerialVersionUID(1L)
-class MonthOfYear private(private val yearAndMonth :Long) extends AnyVal with Ordered[MonthOfYear] with Serializable {
-
+@SerialVersionUID(Ver) //Java uses the name 'month of year' for our Month
+class MonthOfYear private (private val yearAndMonth :Long)
+	extends AnyVal with TimeProjection with Ordered[MonthOfYear]
+{
 	@inline def year  :Year  = new Year((yearAndMonth >> 32).toInt)
 	@inline def month :Month = Month(yearAndMonth.toInt)
 
@@ -210,7 +227,10 @@ class MonthOfYear private(private val yearAndMonth :Long) extends AnyVal with Or
 
 
 
-object MonthOfYear {
+@SerialVersionUID(Ver)
+case object MonthOfYear extends TimeProjector {
+	override type Projection = MonthOfYear
+
 	def apply(year :Year, month :Month) :MonthOfYear = new MonthOfYear(year.no.toLong << 32 | month.no)
 
 	def apply(date :j.YearMonth) :MonthOfYear = new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
@@ -229,21 +249,22 @@ object MonthOfYear {
 	}
 
 
-	@inline def apply()(implicit time :Time = Time.Local) :MonthOfYear = current
+	@inline def apply(time :Time = Time.Local) :MonthOfYear = current
+	@inline def today(implicit time :Time = Time.Local) :MonthOfYear = current
 
-	def current(implicit time :Time = Time.Local) :MonthOfYear = {
+	override def current(implicit time :Time = Time.Local) :MonthOfYear = {
 		val date = j.YearMonth.now(time.clock)
 		new MonthOfYear(date.getYear.toLong << 32 | date.getMonthValue)
 	}
 
 
 
-	@inline implicit def fromJavaYearMonth(ym :j.YearMonth) :MonthOfYear = apply(ym)
+	@inline implicit def MonthOfYearFromJavaYearMonth(ym :j.YearMonth) :MonthOfYear = apply(ym)
 
-	@inline implicit def toJavaYearMonth(ym :MonthOfYear) :j.YearMonth =
+	@inline implicit def MonthOfYearToJavaYearMonth(ym :MonthOfYear)   :j.YearMonth =
 		j.YearMonth.of((ym.yearAndMonth >> 32).toInt, ym.yearAndMonth.toInt)
 
-	@inline implicit def toMonth(ym :MonthOfYear) :Month = ym.month
+	@inline implicit def MonthOfYearToMonth(ym :MonthOfYear) :Month = ym.month
 
 }
 
@@ -254,16 +275,16 @@ object MonthOfYear {
 /** Proleptic year wrapping an `Int`. Proleptic year values are equal to standard date years for all
   * `CE` years, with zero denoting the first year `BCE` and negative numbers consecutive preceding years.
   */
-@SerialVersionUID(1L)
-class Year private[time] (val no :Int) extends AnyVal with Ordered[Year] with Serializable {
-	@inline def toInt  :Int     = no
+@SerialVersionUID(Ver)
+class Year private[time] (val no :Int) extends AnyVal with TimeProjection with Ordered[Year] {
+	@inline def toInt  :Int     = no //consider: renaming no to int and getting rid of this method
 	@inline def era    :Era     = if (no > 0) Era.CE else Era.BCE
 	@inline def inEra  :Int     = if (no > 0) no else 1 - no
 	@inline def toJava :j.Year  = j.Year.of(no)
 	@inline def isLeap :Boolean = j.Year.isLeap(no)
 	@inline def length :Int     = if (j.Year.isLeap(no)) 366 else 365
 
-	@inline def at(dateOfYear :DateOfYear) :Date = dateOfYear of this
+	@inline def at(dateOfYear :Anniversary) :Date = dateOfYear of this
 
 
 	def +(years :Int) :Year = {
@@ -286,24 +307,28 @@ class Year private[time] (val no :Int) extends AnyVal with Ordered[Year] with Se
 
 
 
-object Year {
+@SerialVersionUID(Ver)
+case object Year extends TimeProjector {
+	override type Projection = Year
+
 	final val CE1  = new Year(1)
 	final val BCE1 = new Year(0)
 
 	@inline def apply(year :Int)    :Year = new Year(year)
 	@inline def apply(year :j.Year) :Year = new Year(year.getValue)
 
-	@inline def apply()(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
-	@inline def current(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
+	@inline def apply(time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
+	@inline def today(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
+	@inline override def current(implicit time :Time = Time.Local) :Year = new Year(j.Year.now(time.clock).getValue)
 
 
 
-	@inline implicit def yearToInt(year :Year)      :Int  = year.no
-	@inline implicit def fromJavaYear(year :j.Year) :Year = new Year(year.getValue)
-	@inline implicit def toJavaYear(year :Year)     :Year = year.toJava
+	@inline implicit def YearToInt(year :Year)          :Int  = year.no
+	@inline implicit def YearFromJavaYear(year :j.Year) :Year = new Year(year.getValue)
+	@inline implicit def YearToJavaYear(year :Year)     :Year = year.toJava
 
 	object implicits {
-		@inline implicit def intToYear(year :Int) :Year = new Year(year)
+		@inline implicit def IntToYear(year :Int) :Year = new Year(year)
 	}
 }
 
@@ -315,16 +340,21 @@ object Year {
 /** An ISO-8601 era, being one of `Era.CE` for the current era and `Era.BCE` for the preceding years.
   * Wraps a `java.time.IsoEra` instance.
   */
-@SerialVersionUID(1L)
-class Era private[time] (val toJava :IsoEra) extends AnyVal with Serializable
+@SerialVersionUID(Ver)
+class Era private[time] (val toJava :IsoEra) extends AnyVal with TimeProjection
 
 
 
-object Era {
+@SerialVersionUID(Ver)
+case object Era extends TimeProjector {
+	override type Projection = Era
+
 	@inline def apply(era :IsoEra) :Era = new Era(era)
 
-	@inline implicit def fromJavaEra(era :IsoEra) :Era = new Era(era)
-	@inline implicit def toJavaEra(era :Era) :IsoEra = era.toJava
+	override def current(implicit time :Time) :Era = if (time.utc.year.no >= 0) CE else BCE
+
+	@inline implicit def EraFromJavaEra(era :IsoEra) :Era = new Era(era)
+	@inline implicit def EraToJavaEra(era :Era) :IsoEra = era.toJava
 
 	//consider: moving these constants (and other names) to package time
 	final val CE  = new Era(IsoEra.CE)

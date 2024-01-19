@@ -12,7 +12,7 @@ import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
   * wrapping a `java.time.LocalDateTime` and interpreting it with the fixed `ZoneOffset.UTC`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal with DateTimePoint with Serializable {
 
 	@inline override def year   :Year  = new Year(toJava.getYear)
@@ -222,7 +222,8 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 
 
 
-object UTCDateTime {
+@SerialVersionUID(Ver)
+case object UTCDateTime {
 
 	def apply(time :j.LocalDateTime) :UTCDateTime = {
 		val chrono = time.getChronology
@@ -241,7 +242,7 @@ object UTCDateTime {
 	@inline def apply(time :Timestamp) :UTCDateTime = new UTCDateTime(j.LocalDateTime.ofInstant(time, Time.UTC.zone))
 
 
-	@inline def apply()(implicit time :Time = Time.UTC) :UTCDateTime =
+	@inline def apply(time :Time = Time.UTC) :UTCDateTime =
 		new UTCDateTime(j.LocalDateTime.now(time.clock.withZone(j.ZoneOffset.UTC)))
 
 	@inline def now(implicit time :Time = Time.UTC) :UTCDateTime =
@@ -277,14 +278,14 @@ object UTCDateTime {
 	}
 
 
-	@inline implicit def toTimestamp(time :UTCDateTime)   :Timestamp   = time.toTimestamp
-	@inline implicit def fromTimestamp(time :Timestamp)   :UTCDateTime = UTCDateTime(time)
-	@inline implicit def toJavaInstant(time :UTCDateTime) :j.Instant   = time.toInstant
+	@inline implicit def UTCDateTimeToTimestamp(time :UTCDateTime)   :Timestamp   = time.toTimestamp
+	@inline implicit def UTCDateTimeFromTimestamp(time :Timestamp)   :UTCDateTime = UTCDateTime(time)
+	@inline implicit def UTCDateTimeToJavaInstant(time :UTCDateTime) :j.Instant   = time.toInstant
 
-	@inline implicit def fromJavaInstant(time :j.Instant) :UTCDateTime =
+	@inline implicit def UTCDateTimeFromJavaInstant(time :j.Instant) :UTCDateTime =
 		new UTCDateTime(time.atOffset(j.ZoneOffset.UTC).toLocalDateTime)
 
-	@inline implicit def toJavaZonedDateTime(time :UTCDateTime) :j.ZonedDateTime =
+	@inline implicit def UTCDateTimeToJavaZonedDateTime(time :UTCDateTime) :j.ZonedDateTime =
 		time.toJava atZone j.ZoneOffset.UTC
 
 

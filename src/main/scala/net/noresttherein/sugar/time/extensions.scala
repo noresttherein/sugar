@@ -82,6 +82,7 @@ trait extensions[+R <: Rank] extends Any {
 
 
 
+@SerialVersionUID(Ver)
 object extensions extends extensions[Rank0] {
 	class JavaInstantConverter[+R](private val instant :j.Instant) extends AnyVal {
 		@inline def toTimestamp :Timestamp = new Timestamp(instant)
@@ -133,8 +134,8 @@ object extensions extends extensions[Rank0] {
 	}
 
 	class JavaMonthDayConverter[+R](private val date :j.MonthDay) extends AnyVal {
-		@inline def toDateOfYear :DateOfYear = DateOfYear(date)
-		@inline def toScala      :DateOfYear = DateOfYear(date)
+		@inline def toDateOfYear :Anniversary = Anniversary(date)
+		@inline def toScala      :Anniversary = Anniversary(date)
 	}
 
 	class JavaDayOfWeekConverter[+R](private val day :j.DayOfWeek) extends AnyVal {
@@ -184,7 +185,7 @@ object extensions extends extensions[Rank0] {
 		@inline def toScala :Cycle.LongValueCycle = Cycle(field)
 	}
 
-
+	//todo: allow conversions only from ChronoUnit singleton type and provide only type safe methods.
 	class JavaChronoUnitConverter[+R](private val unit :ChronoUnit) extends AnyVal {
 		@inline def toDateTimeUnit :DateTimeUnit = DateTimeUnit(unit)
 		@inline def toTimeUnit     :TimeUnit     = DateTimeUnit(unit).asInstanceOf[TimeUnit]

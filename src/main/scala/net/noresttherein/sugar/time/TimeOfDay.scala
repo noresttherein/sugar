@@ -10,8 +10,8 @@ import net.noresttherein.sugar.time.dsl.partialTimeDesignators.HourWithMinuteAnd
 /** 'Wall clock time' with nanosecond precision. Wraps a `java.time.LocalTime` instance.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
-class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Ordered[TimeOfDay] with Serializable {
+@SerialVersionUID(Ver)
+class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with TimeProjection with Ordered[TimeOfDay] {
 	@inline def hour   :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
 	@inline def second :Int = toJava.getSecond
@@ -63,7 +63,9 @@ class TimeOfDay private[time] (val toJava :j.LocalTime) extends AnyVal with Orde
 
 
 
-object TimeOfDay {
+@SerialVersionUID(Ver)
+case object TimeOfDay extends TimeProjector {
+	override type Projection = TimeOfDay
 
 	@inline def apply(hour :Int) :TimeOfDay =
 		new TimeOfDay(j.LocalTime.of(hour, 0))
@@ -79,9 +81,10 @@ object TimeOfDay {
 //	@inline def apply(timestamp :Timestamp)(implicit time :Time = Time.Local) :TimeOfDay =
 //		new TimeOfDay(j.LocalTime.ofInstant(timestamp, time.zone))
 
-	@inline def apply()(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
+	@inline def apply(time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
 
-	@inline def current(implicit time :Time = Time.Local) :TimeOfDay = new TimeOfDay(j.LocalTime.now(time.clock))
+	@inline override def current(implicit time :Time = Time.Local) :TimeOfDay =
+		new TimeOfDay(j.LocalTime.now(time.clock))
 
 	@inline def utc :TimeOfDay = new TimeOfDay(j.LocalTime.now(Time.UTC))
 
@@ -91,8 +94,8 @@ object TimeOfDay {
 
 
 
-	@inline implicit def fromJavaLocalTime(time :j.LocalTime) :TimeOfDay = new TimeOfDay(time)
-	@inline implicit def toJavaLocalTime(time :TimeOfDay) :j.LocalTime = time.toJava
+	@inline implicit def TimeOfDayFromJavaLocalTime(time :j.LocalTime) :TimeOfDay = new TimeOfDay(time)
+	@inline implicit def TimeOfDayToJavaLocalTime(time :TimeOfDay) :j.LocalTime = time.toJava
 
 }
 
@@ -102,7 +105,7 @@ object TimeOfDay {
 
 
 /** Time of day with an offset from `UTC`, reflecting a unique instant. Wraps a `java.time.OffsetTime`. */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver) //consider: should it be a TimeProjection?
 class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Ordered[OffsetTime] with Serializable {
 	@inline def hour   :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
@@ -162,7 +165,8 @@ class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Or
 
 
 
-object OffsetTime {
+@SerialVersionUID(Ver)
+case object OffsetTime {
 	@inline def apply(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)
 
 	@inline def apply(offset :TimeOffset, time :TimeOfDay) :OffsetTime =
@@ -181,7 +185,7 @@ object OffsetTime {
 	@inline def utc :OffsetTime = new OffsetTime(j.OffsetTime.now(Time.UTC))
 
 
-	@inline def fromJavaOffsetTime(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)
-	@inline def toJavaOffsetTime(time :OffsetTime) :j.OffsetTime = time.toJava
+	@inline def OffsetTimeFromJavaOffsetTime(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)
+	@inline def OffsetTimeToJavaOffsetTime(time :OffsetTime) :j.OffsetTime = time.toJava
 
 }

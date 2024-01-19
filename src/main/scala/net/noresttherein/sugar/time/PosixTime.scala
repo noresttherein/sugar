@@ -13,7 +13,7 @@ import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli, Nan
   * another `PosixTime` or `Milliseconds` instance if possible.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class PosixTime(override val epochMilli :Long) extends AnyVal with DefiniteTime with Serializable {
 
 	@inline override def apply(cycle :Cycle) :cycle.Phase = cycle.on(this)
@@ -224,11 +224,12 @@ class PosixTime(override val epochMilli :Long) extends AnyVal with DefiniteTime 
 
 
 
-object PosixTime {
+@SerialVersionUID(Ver)
+case object PosixTime {
 	@inline def apply(epochMillis :Milliseconds) :PosixTime = new PosixTime(epochMillis.toMillis)
 
 
-	@inline def apply()(implicit time :Time = Time.Local) :PosixTime = new PosixTime(time.clock.millis)
+	@inline def apply(time :Time = Time.Local) :PosixTime = new PosixTime(time.clock.millis)
 
 	@inline def now(implicit time :Time = Time.Local) :PosixTime = new PosixTime(time.clock.millis)
 
@@ -245,9 +246,9 @@ object PosixTime {
 	}
 
 
-	@inline implicit def toJavaInstant(time :PosixTime)   :j.Instant = time.toInstant
-	@inline implicit def fromJavaInstant(time :j.Instant) :PosixTime = new PosixTime(time.toEpochMilli)
-	@inline implicit def toTimestamp(time :PosixTime)     :Timestamp = time.toTimestamp
+	@inline implicit def PosixTimeToJavaInstant(time :PosixTime)   :j.Instant = time.toInstant
+	@inline implicit def PosixTimeFromJavaInstant(time :j.Instant) :PosixTime = new PosixTime(time.toEpochMilli)
+	@inline implicit def PosixTimeToTimestamp(time :PosixTime)     :Timestamp = time.toTimestamp
 //	@inline implicit def fromTimestamp(time :Timestamp) :UnixTime = new UnixTime(time.toEpochMilli)
 
 	final val Max = new PosixTime(Long.MaxValue)

@@ -13,7 +13,7 @@ import net.noresttherein.sugar.time.constants.IntSecondsInHalfDay
   * at the location. This is a simple value type wrapping a `java.time.ZoneId`.
   * @author Marcin Mościcki
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializable {
 	@inline def id :String = toJava.getId
 
@@ -36,7 +36,8 @@ class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializ
 
 
 
-object TimeZone {
+@SerialVersionUID(Ver)
+case object TimeZone {
 	final val UTC :TimeZone = j.ZoneOffset.UTC
 
 	@inline def apply(zone :j.ZoneId) :TimeZone = new TimeZone(zone)
@@ -57,7 +58,7 @@ object TimeZone {
   * and UTC. Each `TimeOffset` is associated with a synthetic `TimeZone` which applies this offset for all time points.
   * This is a simple value type backed by a `java.time.ZoneOffset`.
   */
-@SerialVersionUID(1L)
+@SerialVersionUID(Ver)
 class TimeOffset private[time] (val toJava :j.ZoneOffset) extends AnyVal with Ordered[TimeOffset] with Serializable {
 	@inline def offset :Milliseconds = new Milliseconds(toJava.getTotalSeconds)
 
@@ -84,7 +85,8 @@ class TimeOffset private[time] (val toJava :j.ZoneOffset) extends AnyVal with Or
 
 
 
-object TimeOffset {
+@SerialVersionUID(Ver)
+case object TimeOffset {
 	final val UTC = new TimeOffset(j.ZoneOffset.UTC)
 	final val Zero = UTC
 
@@ -100,7 +102,7 @@ object TimeOffset {
 		new TimeOffset(j.ZoneOffset.ofHoursMinutesSeconds(hours, minutes, seconds))
 
 
-	@inline implicit def fromJavaZoneOffset(offset :j.ZoneOffset) :TimeOffset = new TimeOffset(offset)
-	@inline implicit def toJavaZoneOffset(offset :TimeOffset) :j.ZoneOffset = offset.toJava
+	@inline implicit def TimeOffsetFromJavaZoneOffset(offset :j.ZoneOffset) :TimeOffset = new TimeOffset(offset)
+	@inline implicit def TimeOffsetToJavaZoneOffset(offset :TimeOffset) :j.ZoneOffset = offset.toJava
 }
 
