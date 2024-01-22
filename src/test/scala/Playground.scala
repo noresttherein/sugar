@@ -41,9 +41,9 @@ object Playground extends App {
 	println(implicitly[NullValue[Unit]])
 
 	val array = Array.ofDim[Int](4, 4)
-	val iter  = new Array2Iterator(array).init(0, (3 << 14) + 3)
-	iter.next()
-	val  prefix = iter.take(10)
-	val seq = iter.toSeq
+//	val iter  = new Array2Iterator(array).init(0, (3 << 14) + 3)
+//	iter.next()
+//	val  prefix = iter.take(10)
+//	val seq = iter.toSeq
 }
 

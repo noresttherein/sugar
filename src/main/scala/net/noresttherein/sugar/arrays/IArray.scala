@@ -278,52 +278,12 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 			              (implicit asTriple :E => (E1, E2, E3), ct1 :ClassTag[E1], ct2 :ClassTag[E2], ct3 :ClassTag[E3])
 		        :(IArray[E1], IArray[E2], IArray[E3]) =
 			new ArrayOps(self).unzip3.castFrom[(Array[E1], Array[E2], Array[E3]), (IArray[E1], IArray[E2], IArray[E3])]
-/*
 
-		@inline def take(n :Int) :IArray[E] =
-			if (n <= 0) empty(array.getClass.getComponentType.castParam[E])
-			else if (n >= array.length) array.castFrom[Array[E], IArray[E]]
-			else array.take(n).castFrom[Array[E], IArray[E]]
-
-		@inline def drop(n :Int) :IArray[E] =
-			if (n <= 0) array.castFrom[Array[E], IArray[E]]
-			else if (n >= array.length) empty(array.getClass.getComponentType.castParam[E])
-			else array.drop(n).castFrom[Array[E], IArray[E]]
-
-		@inline def takeRight(n :Int) :IArray[E] =
-			if (n <= 0) empty(array.getClass.getComponentType.castParam[E])
-			else if (n >= array.length) array.castFrom[Array[E], IArray[E]]
-			else array.drop(array.length - n).castFrom[Array[E], IArray[E]]
-
-		@inline def dropRight(n :Int) :IArray[E] =
-			if (n <= 0) array.castFrom[Array[E], IArray[E]]
-			else if (n >= array.length) empty(array.getClass.getComponentType.castParam[E])
-			else array.take(array.length - n).castFrom[Array[E], IArray[E]]
-
-		@inline def takeWhile(p :E => Boolean) :IArray[E] = take(array.segmentLength(p.asInstanceOf[Any => Boolean]))
-		@inline def dropWhile(p :E => Boolean) :IArray[E] = drop(array.segmentLength(p.asInstanceOf[Any => Boolean]))
-		@inline def slice(from :Int, until :Int) :IArray[E] =
-			if (until <= from | until < 0 || from >= array.length) empty(array.getClass.getComponentType.castParam[E])
-			else if (from <= 0 && until >= array.length) array.castFrom[Array[E], IArray[E]]
-			else array.slice(from, until).castFrom[Array[E], IArray[E]]
-
-		@inline def splitAt(n :Int) :(IArray[E], IArray[E]) = (take(n), drop(n))
-
-		@inline def span(p :E => Boolean) :(IArray[E], IArray[E]) =
-			array.segmentLength(p.asInstanceOf[Any => Boolean]) match {
-				case 0 =>
-					(IArray.empty(array.getClass.getComponentType.castParam[E]), array.castFrom[Array[E], IArray[E]])
-				case n if n == array.length =>
-					(array.castFrom[Array[E], IArray[E]], IArray.empty(array.getClass.getComponentType.castParam[E]))
-				case n =>
-					(array.take(n).castFrom[Array[E], IArray[E]], array.drop(n).asInstanceOf[IArray[E]])
-			}
-*/
 
 		@inline def updated[U >: E :ClassTag](index :Int, x :U) :IArray[U] =
 			expose(new ArrayExtension(self).updated(index, x))
 
-		//we could reuse in this method this array if patch is out of range, but that would become inconsistent
+		//We could reuse in this method this array if patch is out of range, but that would become inconsistent
 		// with the class tag, and might cause problems for what's a very fringe case.
 		/** An 'exploded' variant of `updatedAll`: a copy of this array with elements starting at `index` substituted
 		  * by `first`, `second`, and contents of `rest`. The index must lie in range `[0..length - rest.size - 2)`.

@@ -173,7 +173,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 					(validFrom until validUntil).map { i =>
 						val x = sorted(i)
 						val expect = sorted.indexOf(x, validFrom)
-						val found = sorted.binarySearch(from, until, sorted(i))
+						val found = sorted.binarySearch(from, until)(sorted(i))
 						(found ?= Present(expect)) lbl s"searching for $x (at $i); found at $found, first occurrence at $expect"
 					} :_*
 				) && forAll { x :X =>
@@ -182,7 +182,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 						case  n if n >= validUntil => -1
 						case  n => n
 					}
-					val found = sorted.binarySearch(from, until, x)
+					val found = sorted.binarySearch(from, until)(x)
 					if (expect >= 0)
 						(found ?= Present(expect)) lbl s"searching for $x found(?) at $found, first occurrence at $expect"
 					else
@@ -1544,7 +1544,7 @@ object ArrayCompanionExtensionSpec extends ArrayTestingUtils("ArrayCompanionExte
 					val copied = shouldCopy(array, srcPos, res, dstPos, len)
 					val src =
 						if (copied <= array.length - srcPos) array.slice(srcPos, srcPos + copied)
-						else array.slice(srcPos, array.length) ++ array.slice(0, copied - (array.length - srcPos))
+						else array.slice(srcPos, array.length) ++ (array.slice(0, copied - (array.length - srcPos)) :MutableArray[X])
 					val dst =
 						if (copied <= res.length - dstPos) res.slice(dstPos, dstPos + copied)
 						else array.slice(dstPos, res.length) ++ array.slice(0, copied - (res.length - dstPos))

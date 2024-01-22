@@ -70,33 +70,6 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 
 		@inline def update(idx :Int, elem :E) :Unit = asAnyArray(idx) = elem
 
-		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
-		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
-		  * is out of range, it is simply ignored. For example,
-		  * {{{
-		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
-		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
-		  * }}}
-		  */
-		@inline def updateAll(idx :Int, first :E, second :E, rest :E*) :Unit =
-			self.updateAll(idx, first, second, rest :_*)
-
-		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
-		  * If any of the indices in the range covering all provided elements
-		  * is out of range, it is simply ignored. For example,
-		  * {{{
-		  *     > RefArray("You", "Boo", "I").updateAll(-1, Seq("Imoen", "CHARNAME", "Miniature Giant Space Hamster"))
-		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
-		  * }}}
-		  */
-		@inline def updateAll(idx :Int, elems :IterableOnce[E]) :Unit = self.updateAll(idx, elems)
-
-		/** Fills the whole array with the given value. */
-		@inline def fill(value :E) :Unit = self.fill(value)
-
-		/** Fills the section of this array between the specified indices with the given value. */
-		@inline def fill(from :Int, until :Int)(value :E) :Unit = self.fill(from, until)(value)
-
 		/** A sequence view on the `[from, until)` index range of this array. Any modification to either this array
 		  * or the returned sequence will be visible in the other. Further slicing of the sequence also return
 		  * views sharing the same underlying array.

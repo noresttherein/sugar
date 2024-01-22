@@ -13,7 +13,7 @@ import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.reflect.classes
-import net.noresttherein.sugar.witness.Overload
+import net.noresttherein.sugar.witness.{Ignored1, Overload}
 
 //import net.noresttherein.sugar.arrays.ArrayLike.ArrayCompatibility
 import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
@@ -37,8 +37,6 @@ import net.noresttherein.sugar.witness.Ignored
   * [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]] subtypes.
   */
 trait extensions extends IArray.extensions with RefArray.extensions with IRefArray.extensions {
-	//Not an implicit anymore, but preserved for now, as in some places it is called explicitly.
-
 	/** Extension methods for arrays. This conversion has priority over the one to [[scala.collection.ArrayOps ArrayOps]]
 	  * defined in `Predef`, in order to provide overloads of standard methods, like update.
 	  */
@@ -54,24 +52,6 @@ trait extensions extends IArray.extensions with RefArray.extensions with IRefArr
 	@inline implicit final def FloatArrayExtension   :ArrayExtensionConversion[Float]   = ArrayExtension
 	@inline implicit final def BooleanArrayExtension :ArrayExtensionConversion[Boolean] = ArrayExtension
 	@inline implicit final def UnitArrayExtension    :ArrayExtensionConversion[Unit]    = ArrayExtension
-
-	//Fixme: this takes precedence over Predef.genericArrayOps when imported, but conflicts with genericWrapArray
-	// which converts an Array to an ArraySeq, and we can't depend on the user importing another shadowing definition.
-	// For a conversion to be more specific and take precedence, either the argument or the return type must
-	// be strictly more specific, or the whole conversion be a subtype of Array[T] => Extension.
-	// Unfortunately, if we try to return a value class out of a function it gets boxed, which we certainly don't want.
-	// And if we try to override apply to return specifically the extension class, it produces an error
-	// of 'a method having the same erasure as an automatically generated bridge'. Here comes the trick with the
-	// PriorityConversion: extending a subtype of a function, and providing our own `apply`, but with a different
-	// signature. And it works very well. Unfortunately, due to its very nature, this code can't be generalized,
-	// and suddenly, every conversion becomes quite verbose and noisy. And we need to provide those priority conversions
-	// for all subtypes of ArrayLike, because implementing it for a subclass and for every value type in case of Array, because otherwise the converions
-	// in predef
-	/** Extension methods for arrays. This conversion shadows the one to [[scala.collection.ArrayOps ArrayOps]]
-	  * defined in `Predef` under the same name, in order to provide overloads of standard methods, like update.
-	  * The downside of this is that `ArrayOps` extension methods are no longer available.
-	  */
-//	@inline implicit final def genericArrayOps[T](self: Array[T]): ArrayExtension[T] = new ArrayExtension(self)
 
 	/** Adds extra extension methods to the `Array` object. */
 	@inline implicit final def ArrayCompanionExtension(self :Array.type) :ArrayCompanionExtension =
@@ -101,14 +81,6 @@ object extensions extends extensions {
 		  */
 		@inline def unsafeAsIArray :IArray[E] = self.asInstanceOf[IArray[E]]
 
-//		/** Casts this array to `IRefArray[X]`. This always succeeds, but lifting mutation protection
-//		  * may have undesired consequences if a reference to this array escapes and is modified.
-//		  */
-//		@inline def unsafeAsIRefArray[X](implicit ofAny :AnyRef <:< E) :IRefArray[X] = self.asInstanceOf[IRefArray[X]]
-//
-//		/** Casts this `Array[Any]` to a `RefArray[Any]`. */
-//		@inline def unsafeAsRefArray[X](implicit ofAny :AnyRef <:< E) :RefArray[X] = self.asInstanceOf[RefArray[X]]
-
 		/** Creates an exact copy of this array and returns it as an immutable `IArray[E]`. */
 		@inline def toIArray :IArray[E] = ArrayFactory.copyOf(self).asInstanceOf[IArray[E]]
 
@@ -117,10 +89,6 @@ object extensions extends extensions {
 
 		/** Copies the elements of this array to a new `Array[AnyRef]`, and returns it as an `IRefArray[E]`. */
 		@inline def toIRefArray :IRefArray[E] = IRefArray.copyOf(self)
-//
-//		//consider: exporting it as a specialized iterator maybe.
-//		def iterator :Iterator[E] = ArrayIterator(self)
-//		def reverseIterator :Iterator[E] = ReverseArrayIterator(self)
 
 		/** Returns `getClass.`[[java.lang.Class.getComponentType getComponentType]]. */
 		@inline def getComponentType :Class[E] = self.getClass.getComponentType.castParam[E]
@@ -131,634 +99,6 @@ object extensions extends extensions {
 			if (self.getClass.getComponentType eq classOf[Any]) ClassTag.Any.castParam[E]
 			else ClassTag[E](self.getClass.getComponentType)
 
-		//moved to ArrayLikeOps
-//		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.foreach foreach]],
-//		  * defined here because of the presence of an overloaded variant.
-//		  */
-//		@inline def foreach[U](f :E => U) :Unit = foreach(0, self.length)(f)
-//
-//		/** Executes the given function or all elements in the index range `[from, until)`. */
-//		def foreach[U](from :Int, until :Int)(f :E => U) :Unit = ArrayLikeOps.foreach(self, from, until)(f)
-/*
-		//todo: replace this with internal specialization extracted to ArrayLikeOps
-		if (until > from & until > 0 && from < self.length) {
-			val from0  = math.max(0, from)
-			val until0 = math.min(self.length, until)
-			var i      = from0
-			(self :Array[_]) match {
-				case arr :Array[AnyRef] =>
-					def foreachRef(f :AnyRef => U) :Unit =
-						while (i < until0) {
-							f(arr(i)); i += 1
-						}
-					foreachRef(f.asInstanceOf[AnyRef => U])
-				case arr :Array[Int] =>
-					def foreachInt(f :Int => U) :Unit =
-						while (i < until0) {
-							f(arr(i)); i += 1
-						}
-					foreachInt(f.asInstanceOf[Int => U])
-				case arr :Array[Long] =>
-					def foreachLong(f :Long => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachLong(f.asInstanceOf[Long => U])
-				case arr :Array[Double] =>
-					def foreachDouble(f :Double => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachDouble(f.asInstanceOf[Double => U])
-				case arr :Array[Char] =>
-					def foreachChar(f :Char => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachChar(f.asInstanceOf[Char => U])
-				case arr :Array[Byte] =>
-					def foreachByte(f :Byte => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachByte(f.asInstanceOf[Byte => U])
-				case arr :Array[Float] =>
-					def foreachFloat(f :Float => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachFloat(f.asInstanceOf[Float => U])
-				case arr :Array[Short] =>
-					def foreachShort(f :Short => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachShort(f.asInstanceOf[Short => U])
-				case arr :Array[Boolean] =>
-					def foreachBoolean(f :Boolean => U) :Unit =
-						while (i < until0) {
-							f (arr(i)); i += 1
-						}
-					foreachBoolean(f.asInstanceOf[Boolean => U])
-			}
-		}
-*/
-
-	//todo: document and test these
-	//moved to ArrayLikeExtension
-//		@inline def startsWith[U >: E](that :ArrayLike[U]) :Boolean = startsWith(that, 0)
-//		def startsWith[U >: E](that :ArrayLike[U], from :Int) :Boolean = {
-//			val thisLength = self.length
-//			val thatLength = that.length
-//			val from0    = math.max(from, 0)
-//			from0 <= thisLength - thatLength && mismatch(that, from0, from0 + thatLength, 0, thatLength) == -1
-//		}
-//		@inline def startsWith[U >: E](that :IterableOnce[U]) :Boolean =
-//			mutable.ArraySeq.make(self).startsWith(that, 0)
-//		@inline def startsWith[U >: E](that :IterableOnce[U], from :Int) :Boolean =
-//			mutable.ArraySeq.make(self).startsWith(that, from)
-//
-//		def endsWith[U >: E](that :ArrayLike[U]) :Boolean = {
-//			val thisLength = self.length
-//			val thatLength = that.length
-//			thatLength >= thisLength && mismatch(that, thisLength - thatLength, thisLength, 0, thatLength) == -1
-//		}
-//		@inline def endsWith[U >: E](that :Iterable[U]) :Boolean =
-//			mutable.ArraySeq.make(self).endsWith(that)
-//
-//		/** Computes the length of the longest segment that starts from the first element
-//		  * and whose elements all satisfy some predicate.
-//		  */
-//		def segmentLength(p :E => Boolean, from :Int = 0) :Int =
-//			ArrayLikeOps.segmentLength(self, 0, self.length)(p, from)
-//
-//		/** The same as `ArrayOps.indexOf`, but specialized to each value type in order to run faster. */
-//		def indexOf[U >: E](elem :U, from :Int = 0) :Int =
-//			ArrayLikeOps.indexOf[U](self, 0, self.length)(elem, from)
-//
-//		/** The same as `ArrayOps.lastIndexOf`, but specialized to each value type in order to run faster. */
-//		def lastIndexOf[U >: E](elem :U, end :Int = Int.MaxValue) :Int =
-//			ArrayLikeOps.lastIndexOf[U](self, 0, self.length)(elem, end)
-//
-//		/** The same as `ArrayOps.indexWhere`, but specialized to each value type in order to run faster. */
-//		def indexWhere(p :E => Boolean, from :Int = 0) :Int =
-//			ArrayLikeOps.indexWhere(self, 0, self.length)(p, from)
-//
-//		/** The same as `ArrayOps.lastIndexWhere`, but specialized to each value type in order to run faster. */
-//		def lastIndexWhere(p :E => Boolean, end :Int = 0) :Int =
-//			ArrayLikeOps.lastIndexWhere(self, 0, self.length)(p, end)
-
-	//moved to ArrayLikeExtension
-//		/** Finds and returns the relative index of the first mismatch between two arrays,
-//		  * or return -1 if no mismatch is found. If the arrays are of different lengths, but equal on all positions
-//		  * of the shorter array, `-1` is returned.
-//		  * @param that the second array to be tested for a mismatch
-//		  * @return the relative index of the first mismatch between the two arrays over the specified ranges, or `-1`.
-//		  */ //todo: move to ArrayLikeExtension
-//		@inline def mismatch[U >: E](that :ArrayLike[U]) :Int =
-//			mismatch(that, 0, self.length, 0, that.length)
-//
-//		/** Finds and returns the relative index of the first mismatch between two arrays over the specified ranges,
-//		  * otherwise return -1 if no mismatch is found. The index will be in the range of 0 (inclusive) up
-//		  * to the length (inclusive) of the smaller range. The starting indices of the two ranges must be valid indices
-//		  * in their respective arrays. The ending indices are treated exclusively, and clipped to fit in ranges
-//		  * `thisFrom..this.length` and `thatFrom..that.length`. If the ranges are of different lengths,
-//		  * the longer one is truncated to the length of the shorter one.
-//		  * @param that      the second array to be tested for a mismatch
-//		  * @param thisFrom  the index (inclusive) of the first element in this array to be tested
-//		  * @param thisUntil the index (exclusive) of the last element in the first array to be tested
-//		  * @param thatFrom  the index (inclusive) of the first element in the second array to be tested
-//		  * @param thatUntil the index (exclusive) of the last element in the second array to be tested
-//		  * @return the relative index of the first mismatch between the two arrays over the specified ranges, otherwise `-1`.
-//		  */
-//		def mismatch[U >: E](that :ArrayLike[U], thisFrom :Int, thisUntil :Int, thatFrom :Int, thatUntil :Int) :Int = {
-//			val from0 = math.max(0, math.min(thisFrom, self.length))
-//			val from1 = math.max(0, math.min(thatFrom, that.length))
-//			val until0 = math.max(from0, math.min(thisUntil, self.length))
-//			val until1 = math.max(from1, math.min(thatUntil, that.length))
-//			(self :ArrayLike[_], that :ArrayLike[_]) match {
-//				case (a :Array[AnyRef], b :Array[AnyRef]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Int], b :Array[Int]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Long], b :Array[Long]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Double], b :Array[Double]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Byte], b :Array[Byte]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Float], b :Array[Float]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Char], b :Array[Char]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Short], b :Array[Short]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case (a :Array[Boolean], b :Array[Boolean]) =>
-//					Arrays.mismatch(a, from0, until0, b, from1, until1)
-////				case _ if thisFrom < 0 | thatFrom < 0 || thisFrom > self.length || thatFrom > that.length =>
-////					throw new IndexOutOfBoundsException(
-////						s"${self.className}<${self.length}>.mismatch(${that.className}<${that.length}>, " +
-////							s"$thisFrom, $thisUntil, $thatFrom, $thatUntil)"
-////					)
-//				case _ =>
-//					var i = from0; var j = from1
-//					val end = from0 + math.min(until0 - from0, until1 - from1)
-//					while (i < end && self(i) == that(j)) {
-//						i += 1; j += 1
-//					}
-//					if (i < end) i - from0
-//					else if (until0 - from0 == until1 - from1) -1
-//					else end - from0
-//			}
-//		}
-
-
-//		//this duplicates the functionality available through an implicit conversion to IndexedSeq. Is there a point?
-//		/** Search this array for a specific element.
-//		  * The array should be sorted with the same `Ordering` before calling; otherwise, the results are undefined.
-//		  * @param elem     the element to find.
-//		  * @return a `Found` value containing the index corresponding to the element in the
-//		  *         sequence, or the `InsertionPoint` where the element would be inserted if
-//		  *         the element is not in the sequence.
-//		  */
-//		//consider: this is a duplication of IndexedSeqOps.search; is there a point, as we need to create an object anyway?
-//		def search[A >: E :Ordering](elem :A) :SearchResult = {
-//			val i = binarySearch(0, self.length, elem)
-//			if (i >= 0) Found(i) else InsertionPoint(-i - 1)
-//		}
-//
-//		/** Search the specified range of this array for a given element.
-//		  * The array should be sorted with the same `Ordering` before calling; otherwise, the results are undefined.
-//		  * @param from     the index of the first element in the searched range.
-//		  * @param until    the index following the last element in the searched range.
-//		  * @param elem     the element to find.
-//		  * @return a `Found` value containing the index corresponding to the element in the
-//		  *         sequence, or the `InsertionPoint` where the element would be inserted if
-//		  *         the element is not in the sequence.
-//		  */
-//		@tailrec def search[A >: E :Ordering](elem :A, from :Int, until :Int) :SearchResult =
-//			if (from <= 0) search(elem, 0, until)
-//			else if (until > self.length) search(elem, from, self.length)
-//			else if (from >= self.length | until <= from) InsertionPoint(from)
-//			else {
-//				val i = binarySearch(from, until, elem)
-//				if (i >= 0) Found(i) else InsertionPoint(-i - 1)
-//			}
-
-	//moved to ArrayLikeExtension
-//		/** Performs a binary search of element `x` in a section of this array, sorted according
-//		  * to an implicit `Ordering[E]`. If the array is not sorted, or the `Ordering` is not consistent with `equals`,
-//		  * then the behaviour
-//		  * The differences from [[collection.IndexedSeqOps.search search]] from the standard library are:
-//		  *   1. ability to provide bounds within which to search,
-//		  *   1. returning always the index of the first occurrence of the value in case of duplicates
-//		  *      (rather than the index of any of them),
-//		  *   1. avoiding boxing of the array to `IndexedSeqOps` to make the call,
-//		  *   1. returning the value as an `ElementIndex`, which does not box the result,
-//		  *   1. switching to direct comparisons of built in value types if the `Ordering` is the default one.
-//		  * @return index of the search key, if it is contained in the array,
-//		  *         as `ElementIndex`.[[net.noresttherein.sugar.collections.ElementIndex.Present Present]].
-//		  *         Otherwise, the ''insertion point'',
-//		  *         as `ElementIndex.`[[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]].
-//		  *         The `insertion point` is defined as the point at which the key would be inserted into the array:
-//		  *         the index of the first element in the array greater than the key, or `until`,
-//		  *         if all elements in the array are less than the specified key.
-//		  */
-//		@inline final def binarySearch[U >: E :Ordering](x :U) :ElementIndex = binarySearch(0, self.length, x)
-//
-//		/** Performs a binary search of element `x` in a section of this array, sorted
-//		  * according to an implicit `Ordering[U]`. Returns the index of the first occurrence of `x`, if present
-//		  * in the given range, or an index `i`: `from <= i <= until`, such that
-//		  * `i == until || array(i) > x && (i == from || array(i) < x)`. If `until <= from`,
-//		  * then [[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]]`(from)` is returned immediately.
-//		  * The differences from [[collection.IndexedSeqOps.search search]] from the standard library are:
-//		  *   1. ability to provide bounds within which to search,
-//		  *   1. returning always the index of the first occurrence of the value in case of duplicates
-//		  *      (rather than the index of any of them),
-//		  *   1. avoiding boxing of the array to `IndexedSeqOps` to make the call,
-//		  *   1. returning the value as an `ElementIndex`, which does not box the result,
-//		  *   1. switching to direct comparisons of built in value types if the `Ordering` is the default one.
-//		  * @return the index of the search key, if it is present in the searched range,
-//		  *         as `ElementIndex`.[[net.noresttherein.sugar.collections.ElementIndex.Present Present]].
-//		  *         Otherwise, the ''insertion point'',
-//		  *         as `ElementIndex.`[[net.noresttherein.sugar.collections.ElementIndex.Absent Absent]].
-//		  *         The `insertion point` is defined as the point at which the key would be inserted into the array:
-//		  *         the index of the first element in the range greater than the key, or `until`,
-//		  *         if all elements in the range are less than the specified key.
-//		  *///binarySearch(from :Int, until :Int)(x :U) would be more elegant, but Scala 2 infers too early U =:= E
-//		def binarySearch[U >: E](from :Int, until :Int, x :U)(implicit ordering :Ordering[U]) :ElementIndex = {
-//			val length = self.length
-//			val start  = math.min(length, math.max(from, 0))
-//			val limit  = math.min(until, length)
-//			val index  = (self :Array[_]) match {
-//				case _ if limit <= start => -start - 1
-//				case array :Array[AnyRef]  => //specialized for AnyRef - faster access than in Array[_]
-//					BinarySearch(array, start, limit - 1, x.asAnyRef)(ordering.castParam[AnyRef])
-//				case array :Array[Int]      if ordering == Ordering.Int =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Int])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Int])
-//				case array :Array[Long]     if ordering == Ordering.Long =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Long])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Long])
-//				case array :Array[Double]   if ordering == Ordering.Double.TotalOrdering =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Double])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Double])
-//				case array :Array[Byte]     if ordering == Ordering.Byte =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Byte])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Byte])
-//				case array :Array[Char]     if ordering == Ordering.Char =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Char])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Char])
-//				case array :Array[Float]    if ordering == Ordering.Float.TotalOrdering =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Float])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Float])
-//				case array :Array[Short]    if ordering == Ordering.Short =>
-////					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Short])
-//					BinarySearch(array, start, limit - 1, x.asInstanceOf[Short])
-//				case _ =>
-//					BinarySearch(self, start, limit - 1, x)
-//			}
-//			new ElementIndex(index)
-//		}
-
-	//moved to MutableArrayExtension
-//		@inline final def sortInPlace[U >: E]()(implicit ordering :Ordering[U]) :Unit =
-//			Sorting.stableSort(self.asInstanceOf[Array[U]])
-//
-//		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
-//		@inline final def sortInPlace[U >: E](from :Int, until :Int)(implicit ordering :Ordering[U]) :Unit =
-//			Sorting.stableSort(self.asInstanceOf[Array[U]], from, until)
-//
-//		@inline final def sortInPlaceWith[U >: E](lt :(U, U) => Boolean) :Unit = Sorting.stableSort(self, lt)
-//
-//		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
-//		@inline final def sortInPlaceWith[U >: E](from :Int, until :Int)(lt :(U, U) => Boolean) :Unit =
-//			Sorting.stableSort(self, lt, from, until)
-//
-//		@inline final def sortInPlaceBy[A](f :E => A)(implicit ordering :Ordering[A]) :Unit =
-//			Sorting.stableSort(self, (a :E, b :E) => ordering.lt(f(a), f(b)))
-//
-//		@throws[IndexOutOfBoundsException]("if either from or until are outside of [0, this.length) range.")
-//		@inline final def sortInPlaceBy[A](from :Int, until :Int)(f :E => A)(implicit ordering :Ordering[A]) :Unit =
-//			Sorting.stableSort(self, (a :E, b :E) => ordering.lt(f(a), f(b)), from, until)
-//
-//		//name reverse is already used by ArrayOps to produce a copy
-//		/** Reverses the whole array in place. */
-//		@inline def reverseInPlace() :Unit = reverseInPlace(0, self.length)
-//
-//		/** Reverses in place the section of this array between indices `from` (inclusive) and `until` (exclusive).
-//		  * If `until <= from`, or `until <= 0`, or `from >= length` the call has no effect. Passing a negative `from`,
-//		  * or `until > length` has the same effect as passing `0` and `length`, respectively.
-//		  *///consider: strict indexing
-//		def reverseInPlace(from :Int, until :Int) :Unit = {
-//			var i = math.max(from, 0)
-//			var j = math.min(until, self.length)
-//			while (i < j) {
-//				j -= 1
-//				val boo = self(i)
-//				self(i) = self(j)
-//				self(j) = boo
-//				i += 1
-//			}
-//		}
-//
-//		/** A new array of the same length, where every element pair at indices `(i, length - i - 1)` are swapped
-//		  * in place.
-//		  */
-//		def reverse :Array[E] = {
-//			val res = Array.of(self.getClass.getComponentType.castParam[E], self.length)
-//			var i   = self.length
-//			var j = 0
-//			while (i > 0) {
-//				i -= 1
-//				res(j) = self(i)
-//				j += 1
-//			}
-//			res
-//		}
-
-	//moved to ArrayLikeExtension
-//		/** A new array of the same length, with the specified segment reversed.
-//		  * All values at indices `[0, from)`, and `[until, length)` are the same as in this array.
-//		  * Both arguments are clipped to the valid range before copying.
-//		  */ //consider: strict indexing
-//		def reverse(from :Int, until :Int) :Array[E] = {
-//			val length = self.length
-//			if (until <= from | until <= 0 | from >= length)
-//				Array.copyOf(self, length)
-//			else {
-//				val from0 = math.max(from, 0)
-//				val until0 = math.min(until, length)
-//				val res = Array.of(self.getClass.getComponentType.castParam[E], length)
-//				ArrayLike.copy(self, 0, res, 0, from0)
-//				ArrayLike.copy(self, until0, res, until0, length - until0)
-//				var i = from0; var j = until0 - 1
-//				while (i <= j) {
-//					res(i) = self(j)
-//					res(j) = self(i)
-//					i += 1; j -= 1
-//				}
-//				res
-//			}
-//		}
-
-	//moved to MutableArrayExtension
-//
-//		/** Shifts in place all the elements in the array down by `n` positions, modulo the length of the array.
-//		  * Element at position `n` is moved to index `0`, element at position `n + 1` to index `1`, etc.
-//		  * Element at `0` is moved to index `n`, element at `1` to index `n + 1`, etc.
-//		  */
-//		@inline def rotateLeft(n :Int) :Unit = rotateLeft(0, self.length)(n)
-//
-//		/** Shifts in place the elements in the array between indices `from` (inclusive) and `until` (exclusive)
-//		  * down by `n` positions, modulo the length of the index range.
-//		  * Element at position `from + n` is moved to index `from`, element at position `from + n + 1`
-//		  * to index `from + 1`, etc. Element at `from` is moved to index `from + n`, element at `from + 1`
-//		  * to index `from + n + 1`, etc. If `until <= from`, or `until <= 0`, or `from >= length`,
-//		  * the call has no effect. Passing negative `from` is the same as passing zero, passing `until > length`
-//		  * clips it the length of the array.
-//		  */ //consider: strict indexing
-//		def rotateLeft(from :Int, until :Int)(n :Int) :Unit = {
-//			val fullLength = self.length
-//			val from0 = math.max(from, 0)
-//			val until0 = math.min(until, fullLength)
-//			val length = until0 - from0
-//			if (until > 0 & until0 > from0) {
-//				var pivot = n % length
-//				if (pivot < 0)
-//					pivot = length + pivot
-//				pivot match { //try to use fast platform arraycopy if the shift is very short
-//					case 0 =>
-//					case 1 =>
-//						val saved = self(from0)
-//						arraycopy(self, from0 + 1, self, from0, length - 1)
-//						self(until0 - 1) = saved
-//					case 2 =>
-//						val saved0 = self(from0)
-//						val saved1 = self(from0 + 1)
-//						arraycopy(self, from0 + 2, self, from0, length - 2)
-//						self(until0 - 1) = saved1
-//						self(until0 - 2) = saved0
-//					case _ if pivot == length - 1 =>
-//						val saved = self(until0 - 1)
-//						arraycopy(self, from0, self, from0 + 1, length - 1)
-//						self(from0) = saved
-//					case _ if pivot == length - 2 =>
-//						val saved1 = self(until0 - 1)
-//						val saved0 = self(until0 - 2)
-//						arraycopy(self, from0, self, from0 + 2, length - 2)
-//						self(from0) = saved0
-//						self(from0 + 1) = saved1
-//					case _ =>
-//						reverseInPlace(from0, from0 + pivot)
-//						reverseInPlace(from0 + pivot, until0)
-//						reverseInPlace(from0, until0)
-//				}
-//			}
-//		}
-//
-//		/** Shifts in place all the elements in the array down by `n` positions, modulo the length of the array.
-//		  * Element at position `n` is moved to index `0`, element at position `n + 1` to index `1`, etc.
-//		  * Element at `0` is moved to index `n`, element at `1` to index `n + 1`, etc.
-//		  */
-//		@inline def rotateRight(n :Int) :Unit = rotateRight(0, self.length)(n)
-//
-//		/** Shifts in place the elements in the array between indices `from` (inclusive) and `until` (exclusive)
-//		  * down by `n` positions, modulo the length of the index range.
-//		  * Element at position `from + n` is moved to index `from`, element at position `from + n + 1`
-//		  * to index `from + 1`, etc. Element at `from` is moved to index `from + n`, element at `from + 1`
-//		  * to index `from + n + 1`, etc. If `until <= from`, or `until <= 0`, or `from >= length`,
-//		  * the call has no effect. Passing negative `from` is the same as passing zero, passing `until > length`
-//		  * clips it the length of the array.
-//		  */
-//		def rotateRight(from :Int, until :Int)(n :Int) :Unit = {
-//			val length = self.length
-//			val start = math.min(length, math.max(from, 0))
-//			val end   = math.min(length, math.max(from, until))
-//			if (start < end)
-//				if (n < 0)
-//					rotateLeft(from, until)(start - end - n) //guards against underflow on -(n == Int.MinValue)
-//				else
-//					rotateLeft(from, until)(end - start - n)
-//		}
-
-
-	//moved to ArrayLikeExtension
-//		/** Creates a new array of the same length, consisting of `this.slice(n, length) ++ this.slice(0, n)`.
-//		  * If `n` is not in `[0, length)` range, its non-negative remainder from the division by `length` is used.
-//		  */
-//		@inline def rotatedLeft(n :Int) :Array[E] = rotatedLeft(0, self.length)(n)
-//
-//		/** Creates a new array of the same length, with the specified range shifted cyclically right by `n`.
-//		  * The bounds are clipped to `[0, length)` range, and passing `until <= from + 1` simply returns a copy
-//		  * of this array.
-//		  * If `n` is not in `[0, length)` range, its non-negative remainder from the division by `length` is used.
-//		  * @return `this.slice(0, from0) ++ this.slice(n, until0) ++ this.slice(from0, from0 + n) ++ this.slice(until0, length)`,
-//		  *         where `from0` and `until0` are `from` and `until` clipped to `[0, length)`.
-//		  */
-//		def rotatedLeft(from :Int, until :Int)(n :Int) :Array[E] = {
-//			val length = self.length
-//			val from0  = math.min(length, math.max(from, 0))
-//			val until0 = math.min(until, length)
-//			val range  = until0 - from0
-//			if (until0 <= from0)
-//				Array.copyOf(self, length)
-//			else {
-//				val pivot  = if (n >= 0) n % range else range + n % range
-//				val res    = Array.like(self, length)
-//				arraycopy(self, 0, res, 0, from0)
-//				arraycopy(self, from0 + pivot, res, from0, range - pivot)
-//				arraycopy(self, from0, res, until0 - pivot, pivot)
-//				arraycopy(self, until0, res, until0, length - until0)
-//				res
-//			}
-//		}
-//
-//		/** Creates a new array of the same length, consisting of
-//		  * `this.slice(length - n, length) ++ this.slice(0, length - n)`.
-//		  * If `n` is not in `[0, length)` range, its non-negative remainder from the division by `length` is used.
-//		  */
-//		@inline def rotatedRight(n :Int) :Array[E] = rotatedRight(0, self.length)(n)
-//
-//		/** Creates a new array of the same length, with the specified range shifted cyclically right by `n`.
-//		  * The bounds are clipped to `[0, length)` range, and passing `until <= from + 1` simply returns a copy
-//		  * of this array.
-//		  * If `n` is not in `[0, length)` range, its non-negative remainder from the division by `length` is used.
-//		  * @return `this.slice(0, from0) ++ this.slice(until0 - n, until0) ++ this.slice(from0, until0 - from0 - n) ++ this.slice(until0, length)`,
-//		  *         where `from0` and `until0` are `from` and `until` clipped to `[0, length)`.
-//		  */
-//		def rotatedRight(from :Int, until :Int)(n :Int) :Array[E] = {
-//			val length = self.length
-//			val start  = math.min(length, math.max(from, 0))
-//			val end    = math.min(length, math.max(from, until))
-//			if (end <= start)
-//				Array.copyOf(self, length)
-//			else if (n < 0)
-//				rotatedLeft(from, until)(start - end - n) //guards against underflow of -(n == Int.MinValue)
-//			else
-//				rotatedLeft(from, until)(end - start - n)
-//		}
-
-	//moved to MutableArrayExtension
-//		/** Shifts the contents of this array left by `n` position. Range `[n, length)` is copied to `[0, length - n)`.
-//		  * Range `[length - n, length)` remains unchanged. If `n >= this.length`, the call has no effect.
-//		  * If `n` is negative, the result is equivalent to
-//		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftRight shiftRight]]`(-n)`.
-//		  */
-//		def shiftLeft(n :Int) :Unit = {
-//			val length = self.length
-//			if (n < 0) {
-//				if (n > Int.MinValue && -n < length)
-//					arraycopy(self, 0, self, -n, length + n)
-//			} else if (n < length)
-//				arraycopy(self, n, self, 0, length - n)
-//		}
-//
-//		/** Shifts the contents of this array right by `n` position. Range `[0, length - n)` is copied to `[n, length)`.
-//		  * Range `[0, n)` remains unchanged. If `n >= this.length`, the call has no effect.
-//		  * If `n` is negative, the result is equivalent to
-//		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftLeft shiftLeft]]`(-n)`.
-//		  */
-//		def shiftRight(n :Int) :Unit = {
-//			val length = self.length
-//			if (n < 0) {
-//				if (n > Int.MinValue && -n < length)
-//					arraycopy(self, -n, self, 0, length + n)
-//			} else if (n < length)
-//				arraycopy(self, 0, self, n, length - n)
-//		}
-//
-//		/** Shifts the contents from range `[from, until)` of this array left by `n` positions.
-//		  * The value at `from` is moved to index `from - n`, value at `from + 1` to `from - n + 1`, and so on.
-//		  * Any write which would happen outside the valid index range of the array is ignored;
-//		  * the actual range moved is `[from max n min until, until)`. The contents from `[from max n, until)`
-//		  * remain unchanged. If `n >= until`, the call has no effect. If `n` is negative, the result is equivalent to
-//		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftRight shiftRight]]`(from, until)(-n)`.
-//		  * @note this method may update elements in this array outside range `[from, until)`
-//		  *       (depending on the signum of `n`).
-//		  */ //consider: renaming to shiftLeftInPlace
-////		@throws[IndexOutOfBoundsException]("if until < 0, until < from, or from > this.length.")
-//		def shiftLeft(from :Int, until :Int)(n :Int) :Unit =
-//			if (n < 0) {
-//				if (n > Int.MinValue)
-//					shiftRight(from, until)(-n)
-//			} else if (n > 0) {
-//				val length = self.length
-////				if (until < 0 | until < from | from > length)
-////					throw new IndexOutOfBoundsException(
-////						errorString(self) + ".shiftLeft(" + from + ", " + until + ")(" + n + ")"
-////					)
-//				val start  = math.min(length, math.max(from, 0))
-//				val end    = math.min(length, math.max(from, until))
-//				if (n < end) {
-//					val offset = math.max(start, n)
-//					arraycopy(self, offset, self, offset - n, end - offset)
-//				}
-//			}
-//
-//		/** Shifts the contents from range `[from, until)` of this array right by `n` positions.
-//		  * The value at `from` is moved to index `from + n`, value at `from + 1` to `from + n + 1`, and so on.
-//		  * Any write which would happen outside the valid index range of the array is ignored;
-//		  * the actual range moved is `[from max length - n min until, until)`.
-//		  * The contents from `[from, from max until - n)` remain unchanged. If `n >= until`, the call has no effect.
-//		  * If `n` is negative, the result is equivalent to
-//		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftLeft shiftLeft]]`(from, until)(-n)`.
-//		  * @note this method may update elements in this array outside range `[from, until)`
-//		  *       (depending on the signum of `n`).
-//		  */ //consider: renaming to shiftRightInPlace
-////		@throws[IndexOutOfBoundsException]("if until < 0, until < from, or from > this.length.")
-//		def shiftRight(from :Int, until :Int)(n :Int) :Unit =
-//			if (n < 0) {
-//				if (n > Int.MinValue)
-//					shiftLeft(from, until)(-n)
-//			} else if (n > 0) {
-//				val length = self.length
-////				if (until < 0 | until < from | from > length)
-////					throw new IndexOutOfBoundsException(
-////						errorString(self) + ".shiftRight(" + from + ", " + until + ")(" + n + ")"
-////					)
-//				val start  = math.min(length, math.max(from, 0))
-//				val end    = math.min(length - n, math.max(start, until))
-//				if (n < length - start) {
-//					arraycopy(self, start, self, start + n, end - start)
-//				}
-//			}
-
-//		/** Returns a new array, containing contents of this array shift left by `n` positions.
-//		  * Values from the range `[n, length)` are copied to range `[0, length - n)`.
-//		  * Values at `[length - n, length)` will be equal the default value for the element type (zero/null).
-//		  * If `n` is negative, the result is equivalent to
-//		  * `this `[[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftedRight shiftedRight]]` - n`.
-//		  * If `n >= length`, the call simply creates an uninitialized array of the same length.
-//		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayExtension.<<]]
-//		  */
-//		def shiftedLeft(n :Int) :Array[E] = {
-//			val length = self.length
-//			if (n < 0)
-//				if (n <= -length) Array.like(self, length)
-//				else Array.copyOfRange(self, 0, length + n, -n, length)
-//			else
-//				if (n >= length) Array.like(self, length)
-//				else Array.copyOfRange(self, n, length, 0, length)
-//		}
-//
-//		/** Returns a new array, containing contents of this array shift left by `n` positions.
-//		  * Values from the range `[n, length)` are copied to range `[0, length - n)`.
-//		  * Values at `[length - n, length)` will be equal the default value for the element type (zero/null).
-//		  * If `n` is negative, the result is equivalent to
-//		  * `this `[[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftedLeft shiftedLeft]]` - n`.
-//		  * If `n >= length`, the call simply creates an uninitialized array of the same length.
-//		  * @see [[net.noresttherein.sugar.collections.extensions.ArrayExtension.>>>]]
-//		  */
-//		def shiftedRight(n :Int) :Array[E] = {
-//			val length = self.length
-//			if (n < 0)
-//				if (n <= -length) Array.like(self, length)
-//				else Array.copyOfRange(self, -n, length, 0, length)
-//			else
-//				if (n >= length) Array.like(self, length)
-//				else Array.copyOfRange(self, 0, length - n, n, length)
-//		}
 
 		//Todo: move these methods to bitpicker instead.
 		/** Creates a new array of length `max(this.length, other.length)`, which at index `i` contains
@@ -873,97 +213,7 @@ object extensions extends extensions {
 		  */
 		def >>>=(bits :Long)(implicit logic :BitLogic[E]) :Unit = logic.forArray.shiftRight_!(self, bits)
 
-	//moved to MutableArrayExtension
-//		/** Fills (in place) the whole array with the given value. */
-//		@inline def fill(elem :E) :Unit = fill(0, self.length)(elem)
-//
-//		/** Sets (in place) all values in this array within the given index range to the specified value. */
-//		//consider: a different name, so we can define fill accepting => E, as in IterableFactory
-////		@throws[IndexOutOfBoundsException]("if either from or until are outside of range [0, this.length)")
-//		def fill(from :Int, until :Int)(elem :E) :Unit = {
-//			if (until > from && until > 0 && from < self.length) {
-//				val from0 = math.max(from, 0)
-//				val until0 = math.min(until, self.length)
-////				val length = self.length
-////				if (from < 0 | until < 0 | from > length | until > length)
-////					throw new IndexOutOfBoundsException(
-////						errorString(self) + "fill(" + from + ", " + until + ")"
-////					)
-//				(self :Array[_]) match {
-//					case array :Array[AnyRef]  => Arrays.fill(array, from0, until0, elem)
-//					case array :Array[Int]     => Arrays.fill(array, from0, until0, elem.asInstanceOf[Int])
-//					case array :Array[Long]    => Arrays.fill(array, from0, until0, elem.asInstanceOf[Long])
-//					case array :Array[Double]  => Arrays.fill(array, from0, until0, elem.asInstanceOf[Double])
-//					case array :Array[Byte]    => Arrays.fill(array, from0, until0, elem.asInstanceOf[Byte])
-//					case array :Array[Char]    => Arrays.fill(array, from0, until0, elem.asInstanceOf[Char])
-//					case array :Array[Float]   => Arrays.fill(array, from0, until0, elem.asInstanceOf[Float])
-//					case array :Array[Short]   => Arrays.fill(array, from0, until0, elem.asInstanceOf[Short])
-//					case array :Array[Boolean] => Arrays.fill(array, from0, until0, elem.asInstanceOf[Boolean])
-//					case _ =>
-//						var i = from0
-//						while (i < until0) {
-//							self(i) = elem
-//							i += 1
-//						}
-//				}
-//			}
-//		}
-//
-//		/** Sets (in place) all elements in the array to `null`/`0`/`false`, depending on its type. */
-//		@inline def clear() :Unit = clear(0, self.length)
-//
-//		//consider: strict index validation, as per most mutable methods
-//		/** Clears the specified index range, setting all elements to `null`/`0`/`false`. Returns this modified array. */
-//		def clear(from :Int, until :Int) :Unit =
-//			if (until > from & until > 0 && from < self.length) {
-//				val from0 = math.max(0, from)
-//				val until0 = math.min(self.length, until)
-//				(self :Array[_]) match {
-//					case _     :Array[Unit]    => Arrays.fill(self.asInstanceOf[Array[AnyRef]], ())
-//					case array :Array[AnyRef]  => Arrays.fill(array, from0, until0, null)
-//					case array :Array[Int]     => Arrays.fill(array, from0, until0, 0)
-//					case array :Array[Long]    => Arrays.fill(array, from0, until0, 0L)
-//					case array :Array[Double]  => Arrays.fill(array, from0, until0, 0.0)
-//					case array :Array[Byte]    => Arrays.fill(array, from0, until0, 0.toByte)
-//					case array :Array[Char]    => Arrays.fill(array, from0, until0, 0.toChar)
-//					case array :Array[Float]   => Arrays.fill(array, from0, until0, 0.0f)
-//					case array :Array[Short]   => Arrays.fill(array, from0, until0, 0.toShort)
-//					case array :Array[Boolean] => Arrays.fill(array, from0, until0, false)
-//				}
-//			}
-//
-//		/** Sets all values in this array to `null`, but only if this is an instance of `Array[AnyRef]` (or its subclass). */
-//		@inline def clearIfRef() :Unit = clearIfRef(0, self.length)
-//
-//		/** Sets all values in the specified range of this array to `null`,
-//		  * but only if this is an instance of `Array[AnyRef]` (or its subclass).
-//		  * Indices out of `[0, this.length)` are permitted, and the method will not attempt to set them.
-//		  */
-//		@inline def clearIfRef(from :Int, until :Int) :Unit = (self :Array[_]) match {
-//			case _     :Array[Unit] => ()
-//			case array :Array[AnyRef] if until > from & until > 0 && from < self.length =>
-//				val from0 = math.max(0, from)
-//				val until0 = math.min(self.length, until)
-//				Arrays.fill(array, from0, until0, null)
-//			case _ =>
-//		}
 
-	//moved to MutableArrayExtension
-//		/** Swaps (in place) elements at indices `i` and `j`. */
-//		@inline def swap(i :Int, j :Int) :Unit = {
-//			val boo = self(i)
-//			self(i) = self(j)
-//			self(j) = boo
-//		}
-	//moved to ArrayLikeExtension
-//		/** A copy of this array with values at indices `i` and `j` swapped. */
-//		@inline def swapped(i :Int, j :Int) :Array[E] = {
-//			val res = Array.copyOf(self, self.length)
-//			val boo = res(i)
-//			res(i) = res(j)
-//			res(j) = boo
-//			res
-//		}
 
 		//todo: make these methods available for anything with SeqLike type class
 		/** Replaces the first occurrence of sequence `pattern` in this array with elements from `patch`.
@@ -1081,154 +331,6 @@ object extensions extends extensions {
 			replaceAll(ArrayLike.Wrapped(pattern), ArrayLike.Wrapped(patch))
 
 
-/*
-	{
-		if (from < until) {
-			val length = self.length
-			if (until < 0 | until > length | from < 0 | from > length)
-				throw new IndexOutOfBoundsException(
-					errorString(self) + ".updateAll(" + from + ", " + until + ")(" + f + ")"
-				)
-			var i = from
-			(self :Array[_]) match {
-				case array :Array[AnyRef]   =>
-					def updateRef(f :Int => AnyRef) :Unit =
-						while (i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateRef(f.asInstanceOf[Int => AnyRef])
-				case array :Array[Int]      =>
-					def updateInt(f :Int => Int) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateInt(f.asInstanceOf[Int => Int])
-				case array :Array[Long]     =>
-					def updateLong(f :Int => Long) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateLong(f.asInstanceOf[Int => Long])
-				case array :Array[Double]   =>
-					def updateDouble(f :Int => Double) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateDouble(f.asInstanceOf[Int => Double])
-				case array :Array[Char]     =>
-					def updateChar(f :Int => Char) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateChar(f.asInstanceOf[Int => Char])
-				case array :Array[Byte]     =>
-					def updateByte(f :Int => Byte) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateByte(f.asInstanceOf[Int => Byte])
-				case array :Array[Float]    =>
-					def updateFloat(f :Int => Float) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateFloat(f.asInstanceOf[Int => Float])
-				case array :Array[Short]    =>
-					def updateShort(f :Int => Short) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateShort(f.asInstanceOf[Int => Short])
-				case array :Array[Boolean]  =>
-					def updateBoolean(f :Int => Boolean) :Unit =
-						while(i < until) {
-							array(i) = f(i); i += 1
-						}
-					updateBoolean(f.asInstanceOf[Int => Boolean])
-			}
-		}
-	}
-*/
-
-//		  * If any of the indices in the range covering all provided elements
-//		  * is out of range, it is simply ignored. For example,
-//		  * {{{
-//		  *     > Array("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
-//		  *     > Array[String]("CHARNAME", "Miniature Giant Space Hamster", "I")
-//		  * }}}
-//		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
-//		  * and subsequent elements of `rest`.
-//		  * @return the number of updated elements.
-//		  */
-//		@throws[IndexOutOfBoundsException]("if index < 0 or index + 2 + rest.length > this.length")
-//		def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
-//			self(index) = first
-//			self(index + 1) = second
-//			updateAll(index + 2, rest) + 2
-//		}
-//		{
-//			var copied = 0
-//			if (index < self.length) {
-//				if (index >= 0) {
-//					self(index) = first
-//					copied = 1
-//				}
-//				if (index < self.length - 1) {
-//					if (index >= -1) {
-//						self(index + 1) = second
-//						copied += 1
-//					}
-//					copied += updateAll(index + 2, rest)
-//				}
-//			}
-//			copied
-//		}
-
-//		  * If any of the indices in the range covering all provided elements
-//		  * is out of range, it is simply ignored. For example,
-//		  * {{{
-//		  *     > Array("You", "Boo", "I").updateAll(-1, Seq("Imoen", "CHARNAME", "Miniature Giant Space Hamster"))
-//		  *     > Array[String]("CHARNAME", "Miniature Giant Space Hamster", "I")
-//		  * }}}
-//		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
-//		  * @return the number of updated elements.
-//		  */
-//		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
-//		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {
-//			val thisSize = self.length
-//			val thatSize = elems.knownSize
-//			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
-//				throw new IndexOutOfBoundsException(
-//					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
-//				)
-//			if (thatSize >= 0)
-//				elems.toBasicOps.copyToArray(self, index)
-//			else
-//				elems.toBasicOps.foldLeft(index) { (i, elem) =>
-//					self(i) = elem; i + 1
-//				} - index
-//		}
-
-//		  * If any of the indices in the range covering all provided elements
-//		  * is out of range, it is simply ignored. For example,
-//		  * {{{
-//		  *     > Array("You", "Boo", "I").updateAll(-1, IArray("Imoen", "CHARNAME", "Miniature Giant Space Hamster"))
-//		  *     > Array[String]("CHARNAME", "Miniature Giant Space Hamster", "I")
-//		  * }}}
-//		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
-//		  * @return the number of updated elements.
-//		  */
-//		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
-//		def updateAll(index :Int, elems :ArrayLike[E]) :Int = {
-//			val thisSize = self.length
-//			val thatSize = elems.length
-//			if (index < 0 | index > thisSize - thatSize)
-//				throw new IndexOutOfBoundsException(
-//					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
-//				)
-//			ArrayLike.copy(elems, 0, self, index, thatSize)
-//			thatSize
-//		}
 
 		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.updated updated]], duplicated because
 		  * this extension class has strict precedence over `ArrayOps`.
@@ -1256,44 +358,10 @@ object extensions extends extensions {
 		  * Equivalent to `this.updated(index, first +: second +: rest)`, but may be slightly faster, depending
 		  * on the variable argument list given.
 		  */
+		//Can't be named updated, because we can't rename MutableArrayExtension.updateAll to update,
+		// as it would clash with Array.update.
 		@throws[IndexOutOfBoundsException]("if index < 0 o index + 2 + rest.size > this.length")
 		def updatedAll[U >: E :ClassTag](index :Int, first :U, second :U, rest :U*) :Array[U] = {
-	/*
-			val length = self.length
-			val res = new Array[U](length)
-			if (index >= 0) {
-				if (index >= length)
-					ArrayLike.copy(self, 0, res, 0, length)
-				else {
-					ArrayLike.copy(self, 0, res, 0, index)
-					res(index) = first
-					if (index < length - 1) {
-						res(index + 1) = second
-						if (index < length - 2) {
-							val copied = rest.copyToArray(res, index + 2)
-							val end = index + 2 + copied
-							ArrayLike.copy(self, end, res, end, length - end)
-						}
-					}
-				}
-			} else {
-				val drop = -(index + 1) //avoids -Int.MinValue
-				if (index == -1)
-					res(0) = second
-				val thatSize = rest match {
-					case ErasedArray.Wrapped.Slice(array, from, until) =>
-						val copied = math.max(0, math.min(until - from - drop, length))
-						ArrayLike.copy(array, from + drop, res, 0, copied)
-						copied
-					case _ if hasFastDrop(rest) =>
-						rest.drop(drop).copyToArray(res, index + 1)
-					case _ =>
-						rest.iterator.drop(drop).copyToArray(res, index + 1)
-				}
-				ArrayLike.copy(self, thatSize, res, thatSize, length - thatSize)
-			}
-			res
-	*/
 			val length     = self.length
 			val restSize   = rest.knownSize
 			val copiedThis = restSize >= 0 && restSize < (length >> 2)
@@ -1326,25 +394,6 @@ object extensions extends extensions {
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
 		def updatedAll[U >: E :ClassTag](index :Int, elems :IterableOnce[U]) :Array[U] = {
-	/*
-			val thisSize = self.length
-			val res = new Array[U](thisSize)
-			if (index >= thisSize || index == Int.MinValue) {
-				ArrayLike.copy(self, 0, res, 0, thisSize)
-			} else if (index >= 0) {
-				ArrayLike.copy(self, 0, res, 0, index)
-				val end = index + elems.toIterableOnceOps.copyToArray(res, index)
-				ArrayLike.copy(self, end, res, end, thisSize - end)
-			} else fastDrop(elems, -index) match {
-				case Got(dropped) =>
-					val copied = dropped.toIterableOnceOps.copyToArray(res, 0)
-					ArrayLike.copy(self, copied, res, copied, thisSize - copied)
-				case _ =>
-					val copied = elems.iterator.drop(-index).copyToArray(res, 0)
-					ArrayLike.copy(self, copied, res, copied, thisSize - copied)
-			}
-			res
-	*/
 			//strict indexing implementation
 			val length     = self.length
 			val size       = elems.knownSize
@@ -1360,16 +409,6 @@ object extensions extends extensions {
 			res
 		}
 
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
-		  * If `index >= 0` and `index + elems.size <= length`, this is equivalent to
-		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
-		  * due to a single array allocation.
-		  */
-		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
-		def updatedAll(index :Int, elems :IterableOnce[E]) :Array[E] =
-			updatedAll[E](index, elems)(getComponentClassTag)
-
 	//		  * Passing `index >= self.length` simply returns a copy of this array, while passing `index < 0`
 	//		  * starts overwriting at `0`, but ignores the first `-index` values.
 		/** Updates consecutive elements of this array, starting with the specified index,
@@ -1377,24 +416,6 @@ object extensions extends extensions {
 		  */ //fixme: overloading ambiguity with these three methods.
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		def updatedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :Array[U] = {
-	/*
-			val length = self.length
-			val elemsLength = elems.length
-			if (index >= length | index <= -elemsLength)
-				Array.copyAs[U](self, length)
-			else if (index <= 0) {
-				val res = new Array[U](length)
-				val offset = elems.copyRangeToArray(res, -index, elemsLength)
-				ArrayLike.copy(self, offset, res, offset, length - offset)
-				res
-			} else {
-				val res = new Array[U](length)
-				ArrayLike.copy(self, 0, res, 0, index)
-				val offset = index + elems.copyToArray(res, index)
-				ArrayLike.copy(self, offset, res, offset, length - offset)
-				res
-			}
-	*/
 			val length     = self.length
 			val thatLength = elems.length
 			if (index < 0 | index > length - thatLength)
@@ -1402,160 +423,40 @@ object extensions extends extensions {
 					errorString(self) + ".updatedAll[" + fullNameOf[U] + "](" + index + ", " + errorString(elems) + ")"
 				)
 			Array.copyOfRanges(self, 0, index, elems, 0, thatLength, self, index + thatLength, length)
-	/*
-			val thisElemType   = self.getClass.getComponentType
-			val resElemType    = classTag[U].runtimeClass
-			val copiesFastThis = resElemType.isAssignableFrom(thisElemType)
-			if (copiesFastThis && thatLength <= (length >> 2)) {
-				val res = ArrayAsSeq.copyOf[U](self, length)
-				ArrayLike.copy(elems, 0, res, index, thatLength)
-				res
-			} else {
-				val res = new Array[U](length)
-				ArrayLike.copy(self, 0, res, 0, index)
-				ArrayLike.copy(elems, 0, res, index, thatLength)
-				ArrayLike.copy(self, index + thatLength, res, index + thatLength, length - index - thatLength)
-				res
-			}
-	*/
 		}
+
+		/** Updates consecutive elements of this array, starting with the specified index,
+		  * with elements from the collection.
+		  */
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		def updatedAll[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
+			updatedAll(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
+
+		/** Updates consecutive elements of this array, starting with the specified index,
+		  * with elements from the collection.
+		  * If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
+		  * due to a single array allocation.
+		  */
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
+		def updatedAll(index :Int, elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] =
+			updatedAll[E](index, elems)(getComponentClassTag)
 
 		//erasure clash with the following method
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
-		def updatedAll(index :Int, elems :ArrayLike[E]) :Array[E] =
+		def updatedAll(index :Int, elems :ArrayLike[E])(implicit __ :Ignored) :Array[E] =
 			updatedAll[E](index, elems)(getComponentClassTag)
-	//		def updatedAll(index :Int, elems :ArrayLike[E], from :Int = 0, until :Int = Int.MaxValue) :Array[E] =
-	//			if (from <= 0 && until >= elems.length)
-	//				updatedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
-	//			else
-	//				updatedAll[E](index, ArrayLike.Wrapped.Slice(elems, from, until))(ClassTag[E](elems.getClass.getComponentType))
 
-	//		  * Passing `index >= self.length` simply returns a copy of this array, while passing `index < 0`
-	//		  * starts overwriting at `0`, but ignores the first `-index` values.
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
-	/*
-		def updatedAll[U >: E](index :Int, elems :Array[U], from :Int = 0, until :Int = Int.MaxValue) :Array[U] = {
-			val length = self.length
-			val from0 = math.max(from, 0)
-			val until0 = math.max(from, math.min(until, elems.length))
-			if (index < 0 || index + until0 - from0 > length)
-				throw new IndexOutOfBoundsException(
-					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ", " + from + ", " + until + ")"
-				)
-			Array.copyOfRanges(self :ArrayLike[U], 0, index, elems, from, until, self, index + until0 - from0, length)(
-				ClassTag[U](elems.getClass.getComponentType)
-			)
-		}
-	*/
-		def updatedAll[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
-			updatedAll(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
+		def updatedAll(index :Int, elems :Array[E]) :Array[E] = updatedAll(index, elems :ArrayLike[E])
 
-	//			if (index >= self.length) 0
-	//			else if (index >= 0) elems.toIterableOnceOps.copyToArray(self, index)
-	//			else elems match {
-	//				case _ if index == Int.MinValue => 0
-	//				case items :Iterable[E] if hasFastDrop(items) => items.drop(-index).copyToArray(self)
-	//				case _ => elems.iterator.drop(-index).copyToArray(self)
-	//			}
-	/*
-			elems match {
-				case _ if index >= self.length => 0
-				case _ if index >= 0 =>
-					elems.toIterableOnceOps.copyToArray(self, index)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
-					val idx = math.max(index, 0)
-					val suffixLen = until - from - (idx - index)
-					val copied = math.max(0, math.min(self.length - idx, suffixLen))
-					ArrayLike.copy(array, from, self, idx, copied)
-					copied
-				case IndexedIterable(seq) if IndexedIterable.applyPreferred(seq) =>
-					val offset = math.max(index, 0)
-					var i = offset - index
-					val end = math.min(seq.length, self.length.toLong - index).toInt
-					val copied = math.max(0, end - i)
-					while (i < end) {
-						self(offset + i) = seq(i)
-						i += 1
-					}
-					copied
-				case seq :collection.LinearSeq[E] =>
-					val length = self.length
-					@tailrec def update(i :Int, list :collection.LinearSeq[E], copied :Int) :Int =
-						if (i < length && list.nonEmpty) {
-							self(i) = list.head
-							update(i + 1, list.tail, copied + 1)
-						} else
-							copied
-					val idx = math.max(index, 0)
-					update(idx, seq.drop(idx - index), 0)
-				case _ if index >= 0 =>
-					elems.toIterableOnceOps.copyToArray(self, index, self.length)
-				case _ =>
-					elems.iterator.copyToArray(self, 0)
-			}
-	*/
 
-//	def updatedAll2[U >: E, A[X] <: ArrayLike[X]]
-//	               (index :Int, elems :A[U])(implicit elementCompatibility :ArrayCompatibility[E, U, A]) :Array[U] =
-//		elementCompatibility match {
-//			case _ :ClassTag[U @unchecked] => ???
-//			case _ if elementCompatibility == ArrayLike.sameElementTypeArrayLike => ???
-//			case _ if elementCompatibility == ArrayLike.elementSuperTypeArray => ???
-//			case _ => throw new IllegalArgumentException(
-//				"Unknown array compatibility witness: " + elementCompatibility + ": " + elementCompatibility.className + "."
-//			)
-//		}
-
-		//moved to ArrayLikeExtension
-	//		/** An array consisting of all elements of this array preceding the element at index, followed
-	//		  * by all elements at positions `index + 1` and greater.
-	//		  */
-	//		@throws[IndexOutOfBoundsException]("if index < 0 or index >= length")
-	//		def removed(index :Int) :Array[E] = {
-	////			if (index < 0 | index >= self.length)
-	////				Array.copyOf(self, self.length)  //if we allowed indices out of range
-	////			else {
-	//			val length = self.length
-	//			if (index < 0 | index >= length)
-	//				throw new IndexOutOfBoundsException(index.toString + " out of " + length)
-	//			Array.copyOfRanges(self, 0, index, self, index + 1, self.length)
-	////			val res = Array.of(self.getClass.getComponentType.castParam[E], length - 1)
-	////			arraycopy(self, 0, res, 0, index)
-	////			arraycopy(self, index + 1, res, index, length - index - 1)
-	////			res
-	//		}
-	//
-	//		/** Removes a slice from this array, copying all remaining elements to a new array of the same element type.
-	//		  * @return `take(from) ++ drop(until)`, but in one step.
-	//		  */
-	//		def removed(from :Int, until :Int) :Array[E] =
-	//			if (until <= from | until <= 0 || from > self.length)
-	//				ArrayAsSeq.copyOf(self)
-	//			else
-	//				Array.copyOfRanges(self, 0, from, self, until, self.length)
-	/*
-		{
-			val length = self.length
-			if (until <= 0 | until <= from || from >= length)
-				Array.copyOf(self, length)
-			else if (from <= 0 & until >= length)
-				ArrayAsSeq.empty(self.getClass.getComponentType.castParam[E])
-			else {
-				val validFrom  = math.max(from, 0)
-				val validUntil = math.min(until, length)
-				val res = Array.of(self.getClass.getComponentType.castParam[E], length - (validUntil - validFrom))
-				arraycopy(self, 0, res, 0, validFrom)
-				arraycopy(self, validUntil, res, validFrom, length - validUntil)
-				res
-			}
-		}
-	*/
 
 		/** A copy of this array, with the element inserted at a given position in this array,
 		  * and all elements at positions equal or greater than `index` by one element further.
@@ -1660,15 +561,6 @@ object extensions extends extensions {
 		  * but requires the index to be in `[0, length]` range.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		def insertedAll(index :Int, elems :IterableOnce[E]) :Array[E] =
-			insertedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
-
-		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
-		  * and all subsequent elements.
-		  * It is similar [[collection.ArrayOps.patch patch]]`(index, elems, 0)`,
-		  * but requires the index to be in `[0, length]` range.
-		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
-		  */
 		def insertedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :Array[U] =
 			if (index < 0 || index > self.length)
 				throw new IndexOutOfBoundsException(
@@ -1676,18 +568,6 @@ object extensions extends extensions {
 				)
 			else
 				Array.copyOfRanges(self, 0, index, elems, 0, elems.length, self, index, self.length)
-	//				patch(index, elems, 0)
-
-		//erasure clash with the following method
-		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
-		  * and all subsequent elements.
-		  * It is similar [[collection.ArrayOps.patch patch]]`(index, elems, 0)`,
-		  * but requires the index to be in `[0, length]` range.
-		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
-		  */
-	//		def insertedAll(index :Int, elems :ArrayLike[E], from :Int = 0, until :Int = Int.MaxValue) :Array[E] =
-		def insertedAll(index :Int, elems :ArrayLike[E]) :Array[E] =
-			insertedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
 		  * and all subsequent elements.
@@ -1697,28 +577,34 @@ object extensions extends extensions {
 		  */
 		def insertedAll[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
 			insertedAll(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
-	/*
-		def insertedAll[U >: E](index :Int, elems :Array[U], from :Int = 0, until :Int = Int.MaxValue) :Array[U] = {
-			val length     = self.length
-	//			val thatLength = elems.length
-			if (index < 0 || index > length)
-				throw new IndexOutOfBoundsException(
-					errorString(self) + ".insertedAll(" + index + ", " + errorString(elems) + ")"
-				)
-			Array.copyOfRanges(self :ArrayLike[U], 0, index, elems, from, until, self :ArrayLike[U], index, length)(
-				ClassTag[U](elems.getClass.getComponentType)
-			)
-	//			else {
-	//				val res = Array.like(elems, length + thatLength)
-	//				if (index > 0)
-	//					ArrayLike.copy(self, 0, res, 0, index)
-	//				arraycopy(elems, 0, res, index, thatLength)
-	//				if (index < length)
-	//					ArrayLike.copy(self, index, res, index + thatLength, length - index)
-	//				res
-	//			}
-		}
-	*/
+
+		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
+		  * and all subsequent elements.
+		  * It is similar [[collection.ArrayOps.patch patch]]`(index, elems, 0)`,
+		  * but requires the index to be in `[0, length]` range.
+		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
+		  */
+		def insertedAll(index :Int, elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] =
+			insertedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
+
+		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
+		  * and all subsequent elements.
+		  * It is similar [[collection.ArrayOps.patch patch]]`(index, elems, 0)`,
+		  * but requires the index to be in `[0, length]` range.
+		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
+		  */
+		def insertedAll(index :Int, elems :ArrayLike[E])(implicit __ :Ignored) :Array[E] =
+			insertedAll[E](index, elems)(ClassTag[E](self.getClass.getComponentType))
+
+		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
+		  * and all subsequent elements.
+		  * It is similar [[collection.ArrayOps.patch patch]]`(index, elems, 0)`,
+		  * but requires the index to be in `[0, length]` range.
+		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
+		  */
+		def insertedAll(index :Int, elems :Array[E]) :Array[E] = insertedAll(index, elems :ArrayLike[E])
+
+
 
 		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appended appended]], duplicated because
 		  * this extension class has strict precedence over `ArrayOps`.
@@ -1783,35 +669,12 @@ object extensions extends extensions {
 			}
 		}
 
-		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]],
-		  * but does not requie a `ClassTag` and accepts only values of this array's element type.
-		  */
-		def appendedAll(elems :IterableOnce[E]) :Array[E] =
-			appendedAll[E](elems)(ClassTag[E](self.getClass.getComponentType))
-
 		/** An overloaded variant of standard
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
 		  * of the specified array.
 		  */
 		def appendedAll[U >: E :ClassTag](elems :ArrayLike[U]) :Array[U] =
 			Array.copyOfRanges(self, 0, self.length, elems, 0, elems.length)
-	//		{
-	//			val thisLength = self.length
-	//			val thatLength = elems.length
-	//			val res = new Array[A](thisLength + thatLength)
-	//			ArrayLike.copy(self, 0, res, 0, thisLength)
-	//			ArrayLike.copy(elems, 0, res, thisLength, thatLength)
-	//			res
-	//		}
-
-		/** An overloaded, specific variant of standard
-		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
-		  * of the specified array.
-		  */
-		def appendedAll(elems :ArrayLike[E]) :Array[E] =
-			Array.copyOfRanges(self, 0, self.length, elems, 0, elems.length)(
-				ClassTag[E](self.getClass.getComponentType)
-			)
 
 		/** An overloaded variant of standard
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
@@ -1819,20 +682,29 @@ object extensions extends extensions {
 		  */ //Can't use ProperArray/IArray, because IArray[U] may actually be Array[A] forSome A <: E.
 		def appendedAll[U >: E :Overload](elems :Array[U]) :Array[U] =
 			appendedAll(elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
-	/*
-		def appendedAll[U >: E](elems :Array[U], from :Int = 0, until :Int = Int.MaxValue) :Array[U] =
-			Array.copyOfRanges[U](self, 0, self.length, elems, from, until)(
-				ClassTag[U](elems.getClass.getComponentType)
+
+		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]],
+		  * but does not require a `ClassTag` and accepts only values of this array's element type.
+		  */
+		def appendedAll(elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] =
+			appendedAll[E](elems)(ClassTag[E](self.getClass.getComponentType))
+
+		/** An overloaded, specific variant of standard
+		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
+		  * of the specified array.
+		  */
+		def appendedAll(elems :ArrayLike[E])(implicit __ :Ignored) :Array[E] =
+			Array.copyOfRanges(self, 0, self.length, elems, 0, elems.length)(
+				ClassTag[E](self.getClass.getComponentType)
 			)
-	*/
-	//		{
-	//			val thisLength = self.length
-	//			val thatLength = elems.length
-	//			val res = Array.like(elems, thisLength + thatLength)
-	//			ArrayLike.copy(self, 0, res, 0, thisLength)
-	//			ArrayLike.copy(elems, 0, res, self.length, thatLength)
-	//			res
-	//		}
+
+		/** An overloaded, specific variant of standard
+		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
+		  * of the specified array.
+		  */
+		def appendedAll(elems :Array[E]) :Array[E] = Array.copyOfRanges(self, 0, self.length, elems, 0, elems.length)
+
+
 
 		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prepended prepended]], duplicated because
 		  * this extension class has strict precedence over `ArrayOps`.
@@ -1899,33 +771,12 @@ object extensions extends extensions {
 			}
 		}
 
-		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
-		  * but does not requires a `ClassTag` and accepts only values of this array's element type.
-		  */
-		def prependedAll(elems :IterableOnce[E]) :Array[E] =
-			prependedAll[E](elems)(ClassTag[E](self.getClass.getComponentType))
-
 		/** An overloaded variant of standard
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
 		  * prepending the elements of the specified array.
 		  */
 		def prependedAll[U >: E :ClassTag](elems :ArrayLike[U]) :Array[U] =
 			Array.copyOfRanges(elems, 0, elems.length, self, 0, self.length)
-	//		{
-	//			val res = new Array[A](self.length + elems.length)
-	//			ArrayLike.copy(elems, 0, res, 0, elems.length)
-	//			ArrayLike.copy(self, 0, res, elems.length, self.length)
-	//			res
-	//		}
-
-		/** An overloaded variant of standard
-		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
-		  * prepending the elements of the specified array.
-		  */
-		def prependedAll(elems :ArrayLike[E]) :Array[E] =
-			Array.copyOfRanges(elems, 0, elems.length, self, 0, self.length)(
-				ClassTag[E](self.getClass.getComponentType)
-			)
 
 		/** An overloaded variant of standard
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
@@ -1934,28 +785,36 @@ object extensions extends extensions {
 		def prependedAll[U >: E :Overload](elems :Array[U]) :Array[U] =
 			prependedAll(elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 
-		/*
-				def prependedAll[U >: E](elems :Array[U], from :Int = 0, until :Int = Int.MaxValue) :Array[U] =
-					Array.copyOfRanges(elems :ArrayLike[U], from, until, self, 0, self.length)(
-						ClassTag[U](elems.getClass.getComponentType)
-					)
-		*/
-	//		{
-	//			val res = Array.of(elems.getClass.getComponentType.castParam[A], self.length + elems.length)
-	//			ArrayLike.copy(elems, 0, res, 0, elems.length)
-	//			ArrayLike.copy(self, 0, res, elems.length, self.length)
-	//			res
-	//		}
+		/** Same as [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
+		  * but does not requires a `ClassTag` and accepts only values of this array's element type.
+		  */
+		def prependedAll(elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] =
+			prependedAll[E](elems)(ClassTag[E](self.getClass.getComponentType))
 
-		@inline def concat[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = appendedAll(elems)
-		@inline def concat[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = appendedAll(elems)
-		//Can't be an IArray, because we rely on the fact that we can assign E to U, and IArray is covariant.
-		@inline def concat[U >: E :Overload](elems :Array[U])        :Array[U] =
-			Array.copyOfRanges(self :ArrayLike[U], 0, self.length, elems, 0, elems.length)(
-				ClassTag[U](elems.getClass.getComponentType)
+		/** An overloaded variant of standard
+		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
+		  * prepending the elements of the specified array.
+		  */
+		def prependedAll(elems :ArrayLike[E])(implicit __ :Ignored) :Array[E] =
+			Array.copyOfRanges(elems, 0, elems.length, self, 0, self.length)(
+				ClassTag[E](self.getClass.getComponentType)
 			)
-		@inline def concat(elems :ArrayLike[E])    :Array[E] = appendedAll(elems)
-		@inline def concat(elems :IterableOnce[E]) :Array[E] = appendedAll(elems)
+
+		/** An overloaded variant of standard
+		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.prependedAll prependedAll]],
+		  * prepending the elements of the specified array.
+		  */
+		def prependedAll(elems :Array[E]) :Array[E] = Array.copyOfRanges(elems, 0, elems.length, self, 0, self.length)
+
+
+
+		@inline def concat[U >: E :ClassTag](elems :IterableOnce[U])     :Array[U] = appendedAll(elems)
+		@inline def concat[U >: E :ClassTag](elems :ArrayLike[U])        :Array[U] = appendedAll(elems)
+		@inline def concat[U >: E :Overload](elems :Array[U])            :Array[U] = appendedAll(elems)
+		@inline def concat(elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] = appendedAll(elems)
+		@inline def concat(elems :ArrayLike[E])(implicit __ :Ignored)    :Array[E] = appendedAll(elems)
+		//Can't be an IArray, because we rely on the fact that we can assign E to U, and IArray is covariant.
+		@inline def concat(elems :Array[E])                              :Array[E] = appendedAll(elems)
 
 
 		@inline def +:[U >: E :ClassTag](elem :U) :Array[U] = prepended(elem)
@@ -1963,23 +822,26 @@ object extensions extends extensions {
 		@inline def :+[U >: E :ClassTag](elem :U) :Array[U] = appended(elem)
 		@inline def :+(elem :E) :Array[E] = appended(elem)
 
-		@inline def :++[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = appendedAll(elems)
-		@inline def :++[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = appendedAll(elems)
-		@inline def :++[U >: E :Overload](elems :Array[U])        :Array[U] = appendedAll(elems)
-		@inline def :++(elems :ArrayLike[E])    :Array[E] = appendedAll(elems)
-		@inline def :++(elems :IterableOnce[E]) :Array[E] = appendedAll(elems)
+		@inline def :++[U >: E :ClassTag](elems :IterableOnce[U])     :Array[U] = appendedAll(elems)
+		@inline def :++[U >: E :ClassTag](elems :ArrayLike[U])        :Array[U] = appendedAll(elems)
+		@inline def :++[U >: E :Overload](elems :Array[U])            :Array[U] = appendedAll(elems)
+		@inline def :++(elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] = appendedAll(elems)
+		@inline def :++(elems :ArrayLike[E])(implicit __ :Ignored)    :Array[E] = appendedAll(elems)
+		@inline def :++(elems :Array[E])                              :Array[E] = appendedAll(elems)
 
-		@inline def ++:[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = prependedAll(elems)
-		@inline def ++:[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = prependedAll(elems)
-		@inline def ++:[A >: E :Overload](elems :Array[A])        :Array[A] = prependedAll(elems)
-		@inline def ++:(elems :ArrayLike[E])    :Array[E] = prependedAll(elems)
-		@inline def ++:(elems :IterableOnce[E]) :Array[E] = prependedAll(elems)
+		@inline def ++:[U >: E :ClassTag](elems :IterableOnce[U])     :Array[U] = prependedAll(elems)
+		@inline def ++:[U >: E :ClassTag](elems :ArrayLike[U])        :Array[U] = prependedAll(elems)
+		@inline def ++:[U >: E :Overload](elems :Array[U])            :Array[U] = prependedAll(elems)
+		@inline def ++:(elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] = prependedAll(elems)
+		@inline def ++:(elems :ArrayLike[E])(implicit __ :Ignored)    :Array[E] = prependedAll(elems)
+		@inline def ++:(elems :Array[E])                              :Array[E] = prependedAll(elems)
 
-		@inline def ++[U >: E :ClassTag](elems :IterableOnce[U]) :Array[U] = concat(elems)
-		@inline def ++[U >: E :ClassTag](elems :ArrayLike[U])    :Array[U] = concat(elems)
-		@inline def ++[U >: E :Overload](elems :Array[U])        :Array[U] = concat(elems)
-		@inline def ++(elems :ArrayLike[E])    :Array[E] = concat(elems)
-		@inline def ++(elems :IterableOnce[E]) :Array[E] = concat(elems)
+		@inline def ++[U >: E :ClassTag](elems :IterableOnce[U])     :Array[U] = concat(elems)
+		@inline def ++[U >: E :ClassTag](elems :ArrayLike[U])        :Array[U] = concat(elems)
+		@inline def ++[U >: E :Overload](elems :Array[U])            :Array[U] = concat(elems)
+		@inline def ++(elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] = concat(elems)
+		@inline def ++(elems :ArrayLike[E])(implicit __ :Ignored)    :Array[E] = concat(elems)
+		@inline def ++(elems :Array[E])                              :Array[E] = concat(elems)
 
 		/** Same as standard [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.patch patch]],
 		  * duplicated because this extension has strict precedence over `ArrayOps`.

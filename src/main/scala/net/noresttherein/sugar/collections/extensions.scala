@@ -3010,82 +3010,9 @@ object extensions extends extensions {
 		  *         }
 		  *  }}}
 		  */
-		//clashes with the standard Seq.updated
-/*
-		def updated[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = {
-			def ioob() =
-				throw new IndexOutOfBoundsException(
-					self.localClassName + "|" + self.size + "|.updated(" + index + ", _, _, (" + rest.size + " more))"
-				)
-			if (index < 0)
-				ioob()
-			val size = self.knownSize
-			val elemsSize = rest.knownSize
-			if (size >= 0 & elemsSize >= 0 & index + elemsSize + 2 < size)
-				ioob()
+		def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+			updatedAll(index, Prepended2Seq(first, second, rest))
 
-			def updated(f :Substitute[E, U]) :CC[U] = {
-				val res = self.map(f)
-				if (f.advanced) {
-					if (!f.updateInRange)
-						ioob()
-					res
-				} else  //self is Lazy
-					self.iterableFactory from new Iterator[U] {
-						val i = self.iterator.map(f)
-
-						override def hasNext = {
-							val res = i.hasNext
-							if (!res && !f.updateInRange)
-								ioob()
-							res
-						}
-						override def next() = i.next()
-					}
-			}
-			rest match {
-				case _ if size >= 0 =>
-					val result = self.iterableFactory.newBuilder[U]
-					result sizeHint size
-					result ++= self.iterator.take(index) += first += second ++= rest
-					result.result()
-
-				case seq :LinearSeq[U] =>
-					updated(new Substitute[E, U] {
-						private[this] var i   = -1
-						private[this] var rem = first +: second +: seq
-						override def advanced = i >= 0
-						override def updateInRange = rem.isEmpty
-						override def apply(v1 :E) = {
-							i += 1
-							if (i < index) v1
-							else if (rem.nonEmpty) {
-								val hd = rem.head
-								rem = rem.tail
-								hd
-							} else v1
-						}
-					})
-				case _ =>
-					updated(new Substitute[E, U] {
-						private[this] var i = -1
-						private[this] val patch = rest.iterator
-						private[this] final val Index = index
-						private[this] final val IndexPlus = index + 1
-						override def advanced = i >= 0
-						override def updateInRange = i > IndexPlus && !patch.hasNext
-
-						override def apply(v1 :E) :U = i match {
-							case n if n < Index => i += 1; v1
-							case Index => i += 1; first
-							case IndexPlus => i += 1; second
-							case _ if patch.hasNext => i += 1; patch.next()
-							case _ => i += 1; v1
-						}
-					})
-			}
-		}
-*/
 
 		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
 		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
@@ -3234,7 +3161,7 @@ object extensions extends extensions {
 
 		//consider: if we renamed it to insertedAll, we could have an updatedAll with the same signature without a conflict
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtension.insertedAll insertedAll]]`(first +: second +: rest)`. */
-		def inserted[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			insertedAll(index, Iterator.two(first, second) :++ rest.iterator)
 
 
@@ -3244,7 +3171,7 @@ object extensions extends extensions {
 
 		//clashes with standard methods in SeqOps
 //		 /** Equivalent to [[net.noresttherein.sugar.collections.SeqExtension.appendedAll appendedAll]]`(first +: second +: rest)`. */
-//		def appended[U >: E](first :U, second :U, rest :U*) :CC[U] =
+//		def appendedAll[U >: E](first :U, second :U, rest :U*) :CC[U] =
 //			rest match {
 //				case seq :LinearSeq[U] => self.appendedAll(first +: second +: rest)
 //				case _ if knownEmpty(rest) => self.appendedAll(RelayArray.two(first, second))
@@ -3252,7 +3179,7 @@ object extensions extends extensions {
 //			}
 //
 //		/** Equivalent to [[net.noresttherein.sugar.collections.SeqExtension.prependedAll prependedAll]]`(first +: second +: rest)`. */
-//		def prepended[U >: E](first :U, second :U, rest :U*) :CC[U] =
+//		def prependedAll[U >: E](first :U, second :U, rest :U*) :CC[U] =
 //			rest match {
 //				case seq :LinearSeq[U] => self.prependedAll(first +: second +: rest)
 //				case _ if knownEmpty(rest) => self.prependedAll(RelayArray.two(first, second))

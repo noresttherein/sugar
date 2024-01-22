@@ -28,20 +28,23 @@ package object typist {
 	  * accepting the desired argument type. Designed to be used as a type class
 	  * (otherwise known as context bounds of generic classes and methods):
 	  * {{{
-	  *     def add[T: <%<[Int]#C](x :T, y :T) :Int = x + y
+	  *     def add[T: <%<[Int]#F](x :T, y :T) :Int = x + y
 	  * }}}
 	  * The name was chosen to bring to mind the old conversion type bound `X <% Y`.
 	  */
-	type <%<[Y] = { type C[-X] = X => Y }
+	type <%<[Y] = { type F[-X] = X => Y }
 
 	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
 	  * and creates a type with a member type constructor `C` accepting the desired argument type. Designed to be used
 	  * as a type class (context bound of generic classes and methods):
 	  * {{{
-	  *     def add[T: To[Int]#C](x :T, y :T) :Int = x + y
+	  *     def add[T: To[Int]#F](x :T, y :T) :Int = x + y
 	  * }}}
 	  */
-	type To[Y] = { type C[-X] = X => Y }
+	type To[Y] = {
+		type F[-X] = X => Y
+		type From[-X] = X => Y
+	}
 
 	/** Lifts `X <:< Y` to a type class (AKA context bound) of `X`.
 	  * @example {{{

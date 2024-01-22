@@ -150,7 +150,11 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
 		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
-		  * is out of range, it is simply ignored.
+		  * is out of range, it is simply ignored. For example,
+		  * {{{
+		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
+		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
+		  * }}}
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + 2 + rest.length > this.length")
 		@inline def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
@@ -159,9 +163,13 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			updateAll(index + 2, rest) + 2
 		}
 
-		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
-		  * If any of the indices in the range covering all provided elements is out of range, it is simply ignored.
-		  * @return the number of updated elements.
+		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
+		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
+		  * is out of range, it is simply ignored. For example,
+		  * {{{
+		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
+		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
+		  * }}}
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
 		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {

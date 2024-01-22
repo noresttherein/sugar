@@ -10,7 +10,7 @@ import org.scalacheck.util.{Buildable, ConsoleReporter, Pretty}
 import net.noresttherein.sugar.extensions.{IterableExtension, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
-import net.noresttherein.sugar.typist.ConvertibleTo
+import net.noresttherein.sugar.typist.To
 import net.noresttherein.sugar.vars.IntOpt.AnInt
 import net.noresttherein.sugar.vars.{IntOpt, Opt}
 import net.noresttherein.sugar.vars.Opt.Got
@@ -24,13 +24,13 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 
 	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
-	def seqProperty[X :ClassTag :Arbitrary :Shrink :ConvertibleTo[Pretty]#T](prop :Seq[X] => Prop) :Prop =
+	def seqProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#F](prop :Seq[X] => Prop) :Prop =
 		forAll { seq :List[X] => prop(seq) :| "List" } &&
 			forAll { seq :ArraySeq[X] => prop(seq) :| "ArraySeq" } &&
 			forAll { vec :Vector[X] => prop(vec) :| "Vector" } &&
 			forAll { slice :IRefArraySlice[X] => prop(slice) :| "ArraySlice" }
 
-	def lazyProperty[X :ClassTag :Arbitrary :Shrink :ConvertibleTo[Pretty]#T](prop :Seq[X] => Prop) :Prop =
+	def lazyProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#F](prop :Seq[X] => Prop) :Prop =
 		seqProperty[X](prop) && {
 			def x() = Arbitrary.arbitrary[X].sample.get
 			var i    = 0
@@ -144,6 +144,22 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			} && lazyIndexProperty(index, if (patch.knownSize >= 0) -patch.knownSize else 0, -patch.size)(prop)
 		}
 	}
+	property("updatedAll(first, second, rest*)") = forAll { (index :Int, first :Int, second :Int) =>
+		seqProperty { rest :Seq[Int] =>
+			def prop(seq :Seq[Int]) =
+				seq.updatedAll(index, first, second, rest :_*) -> (
+					seq.take(index) ++: first +: second +: rest ++: seq.drop(index + rest.length + 2)
+				)
+			seqProperty { seq :Seq[Int] =>
+				if (index < 0 || index > seq.length - rest.length - 2)
+					seq.updatedAll(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
+				else {
+					val (result, expect) = prop(seq)
+					result ?= expect
+				}
+			} && lazyIndexProperty(index, 0, 0)(prop)
+		}
+	}
 	property("inserted") = forAll { (index :Int, value :Int) =>
 		def prop(seq :Seq[Int]) =
 			seq.inserted(index, value) -> (seq.take(index) ++: value +: seq.drop(index))
@@ -156,15 +172,15 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			}
 		} && lazyIndexProperty(index, 0, 0)(prop)
 	}
-	property("inserted(index, first, second, rest*)") = forAll { (index :Int, first :Int, second :Int) =>
+	property("insertedAll(index, first, second, rest*)") = forAll { (index :Int, first :Int, second :Int) =>
 		seqProperty { rest :Seq[Int] =>
 			def prop(seq :Seq[Int]) =
-				seq.inserted(index, first, second, rest :_*) -> (
+				seq.insertedAll(index, first, second, rest :_*) -> (
 					seq.take(index) ++: first +: second +: rest ++: seq.drop(index)
 				)
 			seqProperty { seq :Seq[Int] =>
 				if (index < 0 || index > seq.length)
-					seq.inserted(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
+					seq.insertedAll(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
 				else {
 					val (result, expect) = prop(seq)
 					result ?= expect
