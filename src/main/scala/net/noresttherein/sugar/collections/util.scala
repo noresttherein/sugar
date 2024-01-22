@@ -10,7 +10,6 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.exceptions.??!
-import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.funny.generic
