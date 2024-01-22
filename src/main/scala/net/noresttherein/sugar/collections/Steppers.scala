@@ -79,7 +79,7 @@ private object Stepper0 {
 		override def nextInt() :Int = nextStep()
 		override def tryAdvance(action :IntConsumer) :Boolean = false
 		override def forEachRemaining(action :IntConsumer) :Unit = ()
-		override def toString = "IntAllInStepper()"
+		override def toString = "IntAllInOneStepper()"
 	}
 
 	@SerialVersionUID(Ver)
@@ -90,7 +90,7 @@ private object Stepper0 {
 		override def nextLong() :Long = nextStep()
 		override def tryAdvance(action :LongConsumer) :Boolean = false
 		override def forEachRemaining(action :LongConsumer) :Unit = ()
-		override def toString = "LongAllInStepper()"
+		override def toString = "LongAllInOneStepper()"
 	}
 
 	@SerialVersionUID(Ver)
@@ -101,7 +101,7 @@ private object Stepper0 {
 		override def nextDouble() :Double = nextStep()
 		override def tryAdvance(action :DoubleConsumer) :Boolean = false
 		override def forEachRemaining(action :DoubleConsumer) :Unit = ()
-		override def toString = "DoubleAllInStepper"
+		override def toString = "DoubleAllInOneStepper()"
 	}
 }
 
@@ -225,7 +225,7 @@ private object Stepper1 {
   */
 private sealed abstract class Stepper2[@specialized(JavaIterator.Types) A, B, +S >: Null <: Stepper2[A, B, S]]
                                       (first :A, second :A)
-	extends Stepper[A] with AllInStepper[A, B, S] with EfficientSplit //with Spliterator[B] with JavaIterator[B]
+	extends Stepper[A] with AllInOneStepper[A, B, S] with EfficientSplit //with Spliterator[B] with JavaIterator[B]
 {
 	private[this] var size = 2
 	override def estimateSize :Long = size
@@ -290,9 +290,7 @@ private object Stepper2 {
 	@inline final def iterator[A](_1 :A, _2 :A) :Iterator[A] = Iterator.two(_1, _2)
 
 	@SerialVersionUID(Ver)
-	private class Of[A](first :A, second :A) extends Stepper2[A, A, Of[A]](first, second) with AllInAnyStepper[A] {
-	}
-
+	private class Of[A](first :A, second :A) extends Stepper2[A, A, Of[A]](first, second) with AllInOneAnyStepper[A]
 	private sealed trait OfPrimitive[A, B, S >: Null <: Stepper2[A, B, S]] extends Stepper2[A, B, S] { this :S =>
 		override def forEachRemaining(action :Consumer[_ >: B]) :Unit = while(tryAdvance(action)) {}
 	}
@@ -300,7 +298,7 @@ private object Stepper2 {
 	@SerialVersionUID(Ver)
 	private class OfInt(first :Int, second :Int)
 		extends Stepper2[Int, JInt, OfInt](first, second)
-		   with AllInIntStepper with OfPrimitive[Int, JInt, OfInt] with Spliterator.OfInt with JavaIntIterator
+		   with AllInOneIntStepper with OfPrimitive[Int, JInt, OfInt] with Spliterator.OfInt with JavaIntIterator
 	{
 		override def nextInt()  :Int = nextStep()
 		override def tryAdvance(action :IntConsumer) :Boolean = hasStep && { action.accept(nextStep()); true }
@@ -309,7 +307,7 @@ private object Stepper2 {
 	
 	@SerialVersionUID(Ver)
 	private class OfLong(first :Long, second :Long)
-		extends Stepper2[Long, JLong, OfLong](first, second) with AllInLongStepper
+		extends Stepper2[Long, JLong, OfLong](first, second) with AllInOneLongStepper
 		   with OfPrimitive[Long, JLong, OfLong] with Spliterator.OfLong with JavaLongIterator
 	{
 		override def nextLong() :Long = nextStep()
@@ -318,7 +316,7 @@ private object Stepper2 {
 	
 	@SerialVersionUID(Ver)
 	private class OfDouble(first :Double, second :Double)
-		extends Stepper2[Double, JDouble, OfDouble](first, second) with AllInDoubleStepper
+		extends Stepper2[Double, JDouble, OfDouble](first, second) with AllInOneDoubleStepper
 		   with OfPrimitive[Double, JDouble, OfDouble] with Spliterator.OfDouble with JavaDoubleIterator
 	{
 		override def nextDouble() :Double = nextStep()
