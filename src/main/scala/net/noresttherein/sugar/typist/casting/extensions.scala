@@ -104,7 +104,7 @@ object extensions extends extensions {
 		  * and the conformance of erased type parameters is not checked.
 		  */
 		@inline def forInstanceOf[T](f :T => Any)(implicit tag :ClassTag[T]) :Unit =
-			if (tag.runtimeClass.accepts(self))
+			if (tag.runtimeClass.isBoxInstance(self))
 				f(self.asInstanceOf[T])
 
 		/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.
@@ -126,7 +126,7 @@ object extensions extends extensions {
 		  * but this method additionally restricts the caller to subtypes of this object's type.
 		  */
 		@inline def forSubclass[T <: X](f :T => Any)(implicit tag :ClassTag[T]) :Unit =
-			if (tag.runtimeClass.accepts(self))
+			if (tag.runtimeClass.isBoxInstance(self))
 				f(self.asInstanceOf[T])
 
 		/** Applies the given function to `this` if `this.isInstanceOf[T]`, returning the result in an `Option`.

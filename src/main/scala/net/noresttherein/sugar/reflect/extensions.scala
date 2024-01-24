@@ -36,6 +36,7 @@ object extensions extends extensions {
 		  *      is the index of the type parameter of class `C`_k+1_
 		  *      given as the type argument for the `I`_k_-th type parameter of class `C`_k_,
 		  *   1. `C` gives a concrete class `T` as the `IN`-th type parameter to `CN`,
+		  *
 		  * then `T` is the returned. Otherwise, the exact `n`-th type argument does not resolve to a concrete class,
 		  * and a [[java.lang.reflect.TypeVariable TypeVariable]] of this object's class,
 		  * to which the `n`-th type argument of `supertype` resolves.
@@ -54,11 +55,22 @@ object extensions extends extensions {
 		  * also if this class is of a built in (primitive) value type to which the argument can be automatically
 		  * unboxed.
 		  */
-		@inline def accepts(value :Any) :Boolean =
+		@inline def isBoxInstance(value :Any) :Boolean =
 			self.isInstance(value) || self.isPrimitive && BoxClass(self).isInstance(value)
 
 		/** Returns `other isAssignableFrom this`. */
 		@inline def <:<(other :Class[_]) :Boolean = other isAssignableFrom self
+
+		/** Returns `other isAssignableFrom this`. */
+		@inline def isSubclassOf(other :Class[_]) :Boolean = other isAssignableFrom self
+
+		/** Same as `this `[[java.lang.Class.isAssignableFrom isAssignableFrom]]` other`. */
+		@inline def >:>(other :Class[_]) :Boolean = self isAssignableFrom other
+
+		/** Same as [[Class.isAssignableFrom isAssignableFrom]],
+		  * but perhaps less confusing about the direction of subtyping.
+		  */
+		@inline def isSuperclassOf(other :Class[_]) :Boolean = self.isAssignableFrom(other)
 
 		/** True if a value of a variable of this type can be assigned in source code to a variable of type `other`,
 		  * possibly involving boxing or unboxing.
@@ -68,22 +80,47 @@ object extensions extends extensions {
 		  *            1. `other` is a built in value type, and `this` is its reference box type.
 		  */
 		@inline def <%<(other :Class[_]) :Boolean =
-			(other isAssignableFrom self) || other.isAssignableFrom(refClass) || isBoxOf(other)
+			(other isAssignableFrom self) || other.isAssignableFrom(Boxed(self)) || isBoxOf(other)
+
+		/** True if the Java/Scala runtime allows this type where `other` class is expected.
+		  * @return `(other isAssignableFrom this) || (other isAssignableFrom Boxed(this)) || (this isBoxOf other)`.
+		  */
+		@inline def isConvertibleTo(other :Class[_]) :Boolean =
+			other.isAssignableFrom(self) || other.isAssignableFrom(Boxed(self)) || isBoxOf(other)
+
+		/** True if a value of a variable of this type can be assigned in source code to a variable of type `other`,
+		  * possibly involving boxing or unboxing.
+		  * @return `other `[[net.noresttherein.sugar.reflect.extensions.ClassExtension.<%< <%<]]` this`.
+		  */
+		@inline def >%>(other :Class[_]) :Boolean =
+			(self isAssignableFrom other) || self.isAssignableFrom(Boxed(other)) || other.isBoxOf(self)
+
+		/** True if a value of a variable of this type can be assigned in source code to a variable of type `other`,
+		  * possibly involving boxing or unboxing.
+		  * @return `other `[[net.noresttherein.sugar.reflect.extensions.ClassExtension.<%< <%<]]` this`.
+		  */
+		@inline def accepts(other :Class[_]) :Boolean =
+			(self isAssignableFrom other) || self.isAssignableFrom(Boxed(other)) || other.isBoxOf(self)
 
 		/** Tue if either the argument is the same class as this one, or one class is a built in value type,
 		  * and the other is its standard box class.
 		  */
-		@inline def =%=(other :Class[_]) :Boolean = (self == other) || isBoxOf(other) || other.isBoxOf(self)
+		@inline def =%=(other :Class[_]) :Boolean = Boxed(self) == Boxed(other)
+
+		/** Tue if either the argument is the same class as this one, or one class is a built in value type,
+		  * and the other is its standard box class.
+		  */
+		@inline def boxedEquals(other :Class[_]) :Boolean = Boxed(self) == Boxed(other)
 
 		/** Finds a superclass, or extended trait, `S` of this class and the argument, such that,
 		  * for every other class `C: C.isAssignableFrom(this) && C.isAssignableFrom(other)`, `C.isAssignableFrom(S)`.
 		  * In other words, this method traverses the inheritance graph of both classes,
 		  * and finds their least upper bound with regard to inheritance partial order.
 		  *
-		  * This search may return `Lack` in the following situations:
+		  * The search may return `Lack` in the following situations:
 		  *   1. `this` and `other` are different value types;
 		  *   1. one of the classes is a value type, and the other a reference type;
-		  *   1. Both `this` and `other` extend, directly or indirectly, two unrelated classes/traits.
+		  *   1. both `this` and `other` extend, directly or indirectly, the same two unrelated classes/traits.
 		  */
 		def commonSuperclass(other :Class[_]) :Opt[Class[_]] =
 			if (self eq other) Got(self)
@@ -112,11 +149,13 @@ object extensions extends extensions {
 				Opt(findSuperclass(self, classOf[Any]))
 			}
 
-		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.). */
+		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.),
+		  * as well as `BoxedUnit`. */
 		def isBox :Boolean = PrimitiveClass.contains(self)
 
 		/** True if the argument is a class for a built in value type represented by a Java primitive,
 		  * and this class is the Java class used to box it when lifting the argument to a reference type.
+		  * `classOf[BoxedUnit] isBoxOf classOf[Unit]` returns `true`.
 		  */
 		def isBoxOf(valueClass :Class[_]) :Boolean = PrimitiveClass.getOrElse(self, null) == valueClass
 
@@ -158,12 +197,6 @@ object extensions extends extensions {
 		  */
 		def isAnyVal :Boolean = self.isPrimitive || self == classOf[Unit]
 
-		/** True if the Java/Scala runtime allows this type where `other` class is expected.
-		  * @return `(other isAssignableFrom this) || (this isBoxOf other) || (other isBoxOf this)`.
-		  */ //consider: renaming to isAcceptableFor
-		def isConvertibleTo(other :Class[_]) :Boolean =
-			other.isAssignableFrom(self) || isBoxOf(other) || other.isBoxOf(self)
-
 		/** Returns the appropriate box class for built in value types, or `this` if it is a reference type
 		  * (or a custom value class).
 		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.boxed boxed]]
@@ -176,11 +209,6 @@ object extensions extends extensions {
 		  */
 		@throws[UnsupportedOperationException]("if this class is neither a primitive type nor a box of a primitive type.")
 		def valueClass :Class[_] = if (self.isPrimitive) self else PrimitiveClass(self)
-
-		/** Same as [[Class.isAssignableFrom isAssignableFrom]], but perhaps less confusing about the direction
-		  * of subtyping.
-		  */
-		@inline def isSuperclassOf(other :Class[_]) :Boolean = self.isAssignableFrom(other)
 
 		/** Class of an array with component type equal to this class. */
 		@inline def arrayClass :Class[_] = ArrayClass(self)
@@ -249,7 +277,7 @@ object extensions extends extensions {
 		  * type representation for a number of reasons. Most notably, any kind of generic, non-specialized classes
 		  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
 		  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
-		  * Finally, anonymous classes receive synthetic names for the obvious reason.
+		  * Finally, anonymous classes receive synthetic names for obvious reasons.
 		  */
 		@inline def abbrevName :String = abbrevNameOf(self)
 
@@ -271,13 +299,14 @@ object extensions extends extensions {
 		  * type representation for a number of reasons. Most notably, any kind of generic, non-specialized classes
 		  * will not have any type arguments listed, and only `@specialized` type parameters of specialized classes
 		  * will be shown. Use of '$' in a demangled name will throw it off, as will identifiers quoted in backticks.
-		  * Finally, anonymous classes receive synthetic names for the obvious reason.
+		  * Finally, anonymous classes receive synthetic names for obvious reasons.
 		  */
 		@inline def demangledName :String = fullNameOf(self)
 
 		/** The actual type argument given by this class, possibly indirectly, to the specified superclass
 		  * or extended trait.
-		  * @param n the index, counting from
+		  * @param n       the index, counting from zero, of one of type parameters of `givenTo`.
+		  * @param givenTo a superclass (or trait) of this class.
 		  */
 		def typeArgument(n :Int, givenTo :Class[_]) :Type = reflect.typeArgumentOf(self, n, givenTo)
 	}

@@ -204,7 +204,7 @@ package object reflect {
 	}
 
 
-	/** Uses java reflection to determine the type of the `n`-th type argument given to super type `givenTo` of `tpe`
+	/** Uses Java reflection to determine the type of the `n`-th type argument given to super type `givenTo` of `tpe`
 	  * by the concrete class of this object.
 	  */
 	private[sugar] def typeArgumentOf(tpe :Type, n :Int, givenTo :Class[_]) :Type = tpe match {
