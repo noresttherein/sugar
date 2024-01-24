@@ -103,7 +103,7 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 
 		//we could also overload rotatedLeft et al.
 
-		def iterator :Iterator[E] = ArrayIterator.immutable(exposed)
+		def iterator :Iterator[E] = IArrayLikeIterator(exposed)
 
 		/** A view on the index range `[from, until)` of this array as a sequence.
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.
@@ -237,6 +237,6 @@ private abstract class IArrayLikeIsSeqOps[E, A[X] <: IArrayLike[X]](array :A[E])
 	override def isImmutable = true
 	@nowarn("cat=deprecation")
 	override def toIterable      = IArrayLike.Wrapped(coll)
-	override def iterator        = ArrayIterator.immutable(coll)
+	override def iterator        = IArrayLikeIterator(coll)
 	override def iterableFactory = IndexedSeq
 }

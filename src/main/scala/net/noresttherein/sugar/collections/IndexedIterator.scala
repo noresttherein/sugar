@@ -12,6 +12,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.reflect.Specialized.Steppers
 
 
 
@@ -227,12 +228,57 @@ private object IndexedReverseIterator {
 
 
 
+
+private abstract class IndexedIteratorFactory
+                       [S[X] <: collection.IterableOps[X, generic.Any, _], I[@specialized(Steppers) X]]
+{
+	protected def make[T](seq :S[T], from :Int, until :Int) :I[T]
+
+	def apply[T](seq :S[T]) :I[T] =
+		make(seq, 0, seq.size)
+
+	def from[T](seq :S[T], first :Int) :I[T] =
+		if (first >= seq.size) make(seq, seq.size, seq.size)
+		else if (first <= 0) make(seq, 0, seq.size)
+		else make(seq, first, seq.size)
+
+	/** Returns elements `seq(first), seq(first + 1), ..., seq(first + length - 1)` of the given sequence.
+	  * If reading would go past the end of the sequence, the excess index range is ignored. Negative `length`
+	  * is equivalent to zero.
+	  */
+	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the sequence.")
+	def apply[T](seq :S[T], first :Int, length :Int) :I[T] = {
+		val len   = seq.size
+		if (first < 0 | first > len)
+			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+		val until = first + math.min(len - first, math.max(length, 0))
+		make(seq, first, until)
+	}
+
+	/** Returns elements `seq(from), seq(from + 1), ..., seq(until - 1)` of the given sequence.
+	  * If any of indices in the `[from, until)` range are negative or greater than the sequence's length,
+	  * they are ignored.
+	  */
+	def slice[T](seq :S[T], from :Int, until :Int) :I[T] = {
+		val len = seq.size
+		if (from >= len) make(seq, len, len)
+		else if (until <= 0) make(seq, 0, 0)
+		else if (from <= 0 && until >= len) make(seq, 0, len)
+		else if (from <= 0) make(seq, 0, until)
+		else if (until >= len) make(seq, from, len)
+		else if (until <= from) make(seq, from, from)
+		else make(seq, from, until)
+	}
+}
+
+
+
 /** An iterator advancing over a slice of an `IndexedSeq`.
   * @param first    the index in the sequence of the first/next element to return.
   * @param `last++` the index in the sequence delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
   */
-private sealed class IndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
+private sealed class IndexedSeqIterator[+T] private[collections]
 	                                   (seq :collection.IndexedSeqOps[T, generic.Any, _],
 	                                    private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIterator[T] with IndexedIterator[T]
@@ -269,46 +315,10 @@ private sealed class IndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) 
 
 
 @SerialVersionUID(Ver)
-private object IndexedSeqIterator {
-	def apply[@specialized(Int, Long, Double, AnyRef) T](seq :collection.IndexedSeq[T]) :IndexedSeqIterator[T] =
+private case object IndexedSeqIterator extends IndexedIteratorFactory[collection.IndexedSeq, IndexedSeqIterator] {
+	protected override def make[@specialized(Steppers) T]
+	                           (seq :collection.IndexedSeq[T], from :Int, until :Int) :IndexedSeqIterator[T] =
 		new IndexedSeqIterator(seq, 0, seq.length)
-
-	def from[@specialized(Int, Long, Double, AnyRef) T](seq :collection.IndexedSeq[T], first :Int) :IndexedSeqIterator[T] =
-		if (first >= seq.length) new IndexedSeqIterator(seq, seq.length, seq.length)
-		else if (first <= 0) new IndexedSeqIterator(seq, 0, seq.length)
-		else new IndexedSeqIterator(seq, first, seq.length)
-
-	/** Returns elements `seq(first), seq(first + 1), ..., seq(first + length - 1)` of the given sequence.
-	  * If reading would go past the end of the sequence, the excess index range is ignored. Negative `length`
-	  * is equivalent to zero.
-	  */
-	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the sequence.")
-	def apply[@specialized(Int, Long, Double, AnyRef) T]
-	         (seq :collection.IndexedSeq[T], first :Int, length :Int) :IndexedSeqIterator[T] =
-	{
-		val len   = seq.length
-		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
-		val until = first + math.min(len - first, math.max(length, 0))
-		new IndexedSeqIterator(seq, first, until)
-	}
-
-	/** Returns elements `seq(from), seq(from + 1), ..., seq(until - 1)` of the given sequence.
-	  * If any of indices in the `[from, until)` range are negative or greater than the sequence's length,
-	  * they are ignored.
-	  */
-	def slice[@specialized(Int, Long, Double, AnyRef) T]
-	         (seq :collection.IndexedSeq[T], from :Int, until :Int) :IndexedSeqIterator[T] =
-	{
-		val len = seq.length
-		if (from >= len) new IndexedSeqIterator(seq, len, len)
-		else if (until <= 0) new IndexedSeqIterator(seq, 0, 0)
-		else if (from <= 0 && until >= len) new IndexedSeqIterator(seq, 0, len)
-		else if (from <= 0) new IndexedSeqIterator(seq, 0, until)
-		else if (until >= len) new IndexedSeqIterator(seq, from, len)
-		else if (until <= from) new IndexedSeqIterator(seq, from, from)
-		else new IndexedSeqIterator(seq, from, until)
-	}
 }
 
 
@@ -320,7 +330,7 @@ private object IndexedSeqIterator {
   * @param `first++` the index in the sequence pointing directly after the first/next element to return
   *                  (the end index of the slice).
   */ //consider: renaming to IndexedSeqReverseIterator
-private sealed class ReverseIndexedSeqIterator[@specialized(Int, Long, Double, AnyRef) +T] private[collections]
+private sealed class ReverseIndexedSeqIterator[+T] private[collections]
 	                                          (seq :collection.IndexedSeqOps[T, generic.Any, _],
 	                                           private[this] var last :Int, private[this] var `first++` :Int)
 	extends AbstractIterator[T] with IndexedReverseIterator[T]
@@ -357,7 +367,7 @@ private sealed class ReverseIndexedSeqIterator[@specialized(Int, Long, Double, A
 
 @SerialVersionUID(Ver)
 private object ReverseIndexedSeqIterator {
-	def apply[@specialized(Int, Long, Double, AnyRef) T](seq :collection.IndexedSeq[T]) :ReverseIndexedSeqIterator[T] =
+	def apply[T](seq :collection.IndexedSeq[T]) :ReverseIndexedSeqIterator[T] =
 		new ReverseIndexedSeqIterator(seq, 0, seq.length)
 
 	/** An iterator returning elements `seq(first), seq(first - 1), ..., seq(first - length + 1)`.
@@ -365,9 +375,7 @@ private object ReverseIndexedSeqIterator {
 	  * Negative `length` is the same as zero.
 	  */
     @throws[IndexOutOfBoundsException]("if first is negative or greater or equal to the length of the sequence")
-	def apply[@specialized(Int, Long, Double, AnyRef) T]
-	         (seq :collection.IndexedSeq[T], first :Int, length :Int) :ReverseIndexedSeqIterator[T] =
-	{
+	def apply[T](seq :collection.IndexedSeq[T], first :Int, length :Int) :ReverseIndexedSeqIterator[T] = {
 		val len = seq.length
 		if (first < 0 | first >= len)
 			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
@@ -378,9 +386,7 @@ private object ReverseIndexedSeqIterator {
 	/** An iterator returning elements `seq(hi - 1), seq(hi - 2), ..., seq(lo)`.
 	  * If any of the indices in the `[lo, hi)` range is out of bounds for `seq`, it is ignored.
 	  */
-	def slice[@specialized(Int, Long, Double, AnyRef) T]
-	        (seq :collection.IndexedSeq[T], lo :Int, hi :Int) :ReverseIndexedSeqIterator[T] =
-	{
+	def slice[T](seq :collection.IndexedSeq[T], lo :Int, hi :Int) :ReverseIndexedSeqIterator[T] = {
 		val len = seq.length
 		if (lo >= len) new ReverseIndexedSeqIterator(seq, len, len)
 		else if (hi <= 0) new ReverseIndexedSeqIterator(seq, 0, 0)

@@ -1113,6 +1113,7 @@ object extensions extends extensions {
 		  */ //consider: maybe we should throw an exception if from, until, out of range or offset > newLength?
 		@throws[IndexOutOfBoundsException]("if offset is less than zero")
 		@throws[NegativeArraySizeException]("if newLength is less than zero")
+		//consider: swap the order of offset and newLength arguments
 		final def copyOfRange[E](elems :Array[E], from :Int, until :Int, offset :Int, newLength :Int) :Array[E] =
 			if (offset < 0)
 				throw new IndexOutOfBoundsException(offset)

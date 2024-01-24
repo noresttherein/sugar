@@ -180,7 +180,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (first :Int, length :Int) =>
 				val expect = ArraySeq.unsafeWrapArray(array.drop(first).take(length))
-				("immutable" |: (ArrayIterator.immutable(array.asInstanceOf[IArrayLike[X]], first, length).toIndexedSeq
+				("immutable" |: (IArrayLikeIterator(array.asInstanceOf[IArrayLike[X]], first, length).toIndexedSeq
 					?= expect)) &&
 					("mutable" |: (ArrayIterator(array, first, length).toIndexedSeq ?= expect))
 			}

@@ -10,6 +10,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IArrayLike, IRefArray}
 import net.noresttherein.sugar.matching.MatchPattern
+import net.noresttherein.sugar.reflect.Specialized
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 
@@ -23,7 +24,7 @@ import net.noresttherein.sugar.extensions._
 package object collections {
 	private[collections] final val Ver = 1L
 
-	final val ElemTypes = Specializable.AllNumeric
+	final val ElemTypes = Specialized.MultiValue
 
 	/** An empty `LazyList` for more convenient concatenation. */
 	val LazyNil :LazyList[Nothing] = LazyList.empty
@@ -35,7 +36,7 @@ package object collections {
 	type JavaDoubleIterator = PrimitiveIterator.OfDouble
 
 	/** An opaque wrapper over a Java iterator, possibly one of the [[java.util.PrimitiveIterator PrimitiveIterator]]
-	  * subclasse, exposing iterator-like API, returning elements of type `E`. Specialized subtypes are available
+	  * subclasses, exposing iterator-like API, returning elements of type `E`. Specialized subtypes are available
 	  * for all built in value types, allowing iteration over them without boxing or explicit casting/convnersion.
 	  * It follows, that the type of the elements of this jterator may differ from the element type of the underlying
 	  * [[net.noresttherein.sugar.collections.JavaIterator JavaIterator]]. The extension methods available through

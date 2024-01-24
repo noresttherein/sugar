@@ -3,11 +3,184 @@ package net.noresttherein.sugar.arrays
 import scala.Specializable.Everything
 import scala.collection.AbstractIterator
 
-import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayLikeExtension}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ElemTypes, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
 import net.noresttherein.sugar.slang.extensions.hashCodeMethods
 import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
+
+
+
+
+
+
+private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
+	extends ValIterator.Buffered[T] with IndexedIterator[T] with ArrayIterableOnce[T]
+{
+	private[sugar] final override def startIndex  :Int = index
+	protected final override def underlyingSize :Int = unsafeArray.length
+
+	@inline private[this] def array :Array[T] = unsafeArray.asInstanceOf[Array[T]]
+
+	//consider: not implementing them here, so JVM knows there is a single implementation if only ArrayIterator is used.
+	override def head :T =
+		if (index < limit) array(index)
+		else throw new NoSuchElementException("Index " + index + " exceeds the limit of " + limit + '.')
+
+	override def next() :T = {
+		val i = index
+		if (i >= limit)
+			throw new NoSuchElementException("Index " + index + " exceeds the limit of " + limit + ".")
+		val res = array(i)
+		index = i + 1
+		res
+	}
+
+	final override def foldLeft[@specialized(Fun2Arg) A](z :A)(op :(A, T) => A) :A = {
+		var first    = index
+		val `last++` = limit
+		var res      = z
+		val a        = unsafeArray.asInstanceOf[Array[T]]
+		while (first < `last++`) {
+			res = op(res, a(first))
+			first += 1
+		}
+		index = first
+		res
+	}
+
+	final override def copyToArray[A >: T](xs :Array[A], start :Int, len :Int) :Int = {
+		val first    = index
+		val `last++` = limit
+		val xsLength = xs.length
+		if (len <= 0 | xsLength == 0 | start >= xsLength | first >= `last++`)
+			0
+		else if (start < 0)
+			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xsLength + ")")
+		else {
+			val copied = math.min(len, math.min(`last++` - first, xsLength - start))
+			ArrayLike.copy(array, first, xs, start, copied)
+			index = first + copied
+			copied
+		}
+	}
+
+	override def toSeq :Seq[T] = toIndexedSeq
+	override def toIndexedSeq :IndexedSeq[T] =
+		if (index >= limit) IndexedSeq.empty
+		else if (isImmutable) IArrayLikeSlice.slice(array.asInstanceOf[IArrayLike[T]], index, limit)
+		else IArrayLike.Wrapped(array.slice(index, limit).asInstanceOf[IArrayLike[T]])
+
+	override def equals(that :Any) :Boolean = that match {
+		case self  :AnyRef if this eq self => true
+		case other :ArrayIteratorOps[_] if other.canEqual(this) =>
+			(unsafeArray eq other.unsafeArray) && index == other.index && limit == other.limit
+		case _ => false
+	}
+	def canEqual(that :Any) :Boolean = that.isInstanceOf[ArrayIteratorOps[_]]
+	override def hashCode :Int = ArrayLike.Wrapped.Slice(array, index, limit).hashCode
+}
+
+
+
+/** Base class for array iterator factories/companions.
+  * @tparam A   The kind of arrays this factory iterates over.
+  * @tparam I   The type of the created iterator, `I[X] <: Iterator[X]`
+  * @define Coll `ArrayIterator`
+  * @define coll array iterator
+  */ //todo: reverse the order of type parameters in ArrayLikeSliceWrapper
+private[sugar] abstract class ArrayLikeIteratorFactory[A[X] <: ArrayLike[X], I[X] <: Iterator[X]]
+	extends ArrayLikeSliceWrapper[I, A]
+{
+	@inline final def apply[E](array :A[E]) :I[E] = wrap(array)
+
+	/** Returns elements `array(first), array(first + 1), ..., array(first + length - 1)` of the given array.
+	  * If reading would go past the end of the array, the excess index range is ignored. Negative `length`
+	  * is equivalent to zero.
+	  */
+	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the array.")
+	def apply[T](array :A[T], first :Int, length :Int) :I[T] = {
+		val len   = array.length
+		if (first < 0 | first > len)
+			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+		val until = first + math.min(len - first, math.max(length, 0))
+		make(array, first, until)
+	}
+
+	def from[T](array :A[T], first :Int) :I[T] = {
+		val length = array.length
+		if (first >= length) make(array, length, length)
+		else if (first <= 0) make(array, 0, length)
+		else make(array, first, length)
+	}
+
+	/** Returns elements `array(from), array(from + 1), ..., array(until - 1)` of the given array.
+	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
+	  */
+	override def slice[T](array :A[T], from :Int, until :Int) :I[T] = {
+		val len = array.length
+		if (from >= len) make(array, len, len)
+		else if (until <= 0) make(array, 0, 0)
+		else if (from <= 0 && until >= len) make(array, 0, len)
+		else if (from <= 0) make(array, 0, until)
+		else if (until >= len) make(array, from, len)
+		else if (until <= from) make(array, from, from)
+		else make(array, from, until)
+	}
+}
+
+
+@SerialVersionUID(Ver)
+private[sugar] sealed class ArrayIteratorFactory[A[X] <: ProperArray[X]]
+	extends ArrayLikeIteratorFactory[A, ArrayIterator]
+{
+	protected override def make[T](array :A[T], from :Int, until :Int) :ArrayIterator[T] =
+		((array :ArrayLike[_]) match {
+			case a :Array[AnyRef]  => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Int]     => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Long]    => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Double]  => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Byte]    => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Char]    => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Float]   => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Short]   => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[Boolean] => new ArrayIterator(a, from, until, isImmutable)
+			case null              => throw new NullPointerException(s"ArrayIterator.over(null, $from, $until)")
+//			case _                 => new ArrayIterator(array, from, until)
+		}).castParam[T]
+
+	/** Same as `ArrayIterator(array)`, but always produces an erased, not specialized instance. */
+	def generic[T](array :Array[T]) :ArrayIterator[T] =
+		if (array == null) throw new NullPointerException("ArrayIterator(null)")
+		else new ArrayIterator(array)
+
+	/** Same as `ArrayIterator(array, first, length)`, but always produces an erased, not specialized instance. */
+	def generic[T](array :Array[T], first :Int, length :Int) :ArrayIterator[T] = {
+		val len = array.length
+		if (first < 0 | first > len)
+			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+		val until = first + math.min(len - first, math.max(length, 0))
+		new ArrayIterator[T](array, first, until, false)
+	}
+}
+
+private[sugar] sealed class RefArrayLikeIteratorFactory[A[X] <: RefArrayLike[X]]
+	extends ArrayLikeIteratorFactory[A, ArrayIterator]
+{
+	override protected def make[E](array :A[E], from :Int, until :Int) :ArrayIterator[E] =
+		(array :ArrayLike[_]) match {
+			case null =>
+				throw new IllegalArgumentException("Cannot create an ArrayIterator because array is null")
+			case refs :Array[AnyRef] if refs.getClass == classOf[Array[AnyRef]] =>
+				new ArrayIterator(refs, from, until, isImmutable).asInstanceOf[ArrayIterator[E]]
+			case _ =>
+				throw new IllegalArgumentException(
+					toString + " cannot create an ArrayIterator for an array with element type different than AnyRef: "
+						+ errorString(array) + "."
+				)
+		}
+}
 
 
 
@@ -21,18 +194,16 @@ import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
   * @param first    the index in the array of the first/next element to return.
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
-  */ //consider: ArrayOps.ArrayIterator is serializable.
-private[sugar] sealed class ArrayIterator[@specialized(Everything) +T] private[sugar]
+  */
+@SerialVersionUID(Ver)
+private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                                     (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int,
 	                                      override val isImmutable :Boolean = false)
-	extends AbstractIterator[T] with IndexedIterator[T] with ArrayIterableOnce[T]
+	extends AbstractIterator[T] with ArrayIteratorOps[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length, false)
 
 	private[sugar] final override def unsafeArray :Array[_] = array
-	private[sugar] final override def startIndex  :Int = first
-
-	protected final override def underlyingSize :Int = array.length
 	final override def index :Int = first
 	protected final override def index_=(i :Int) :Unit = first = i
 	final override def limit :Int = `last++`
@@ -52,135 +223,30 @@ private[sugar] sealed class ArrayIterator[@specialized(Everything) +T] private[s
 		first += 1
 		res
 	}
-
-	final override def foldLeft[A](z :A)(op :(A, T) => A) :A = {
-		var res = z
-		while (first < `last++`) {
-			res = op(res, array(first))
-			first += 1
-		}
-		res
-	}
-
-	final override def copyToArray[A >: T](xs :Array[A], start :Int, len :Int) :Int = {
-		val xsLength = xs.length
-		if (len <= 0 | xsLength == 0 | start >= xsLength | first >= `last++`)
-			0
-		else if (start < 0)
-			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xsLength + ")")
-		else {
-			val copied = math.min(len, math.min(`last++` - first, xsLength - start))
-			ArrayLike.copy(array, first, xs, start, copied)
-			first += copied
-			copied
-		}
-	}
-
-	override def toSeq :Seq[T] = toIndexedSeq
-	override def toIndexedSeq :IndexedSeq[T] =
-		if (first >= `last++`) IndexedSeq.empty
-		else if (isImmutable) IArrayLikeSlice.slice(array.asInstanceOf[IArrayLike[T]], first, `last++`)
-		else IArrayLike.Wrapped(array.slice(first, `last++`).asInstanceOf[IArrayLike[T]])
-
-	override def equals(that :Any) :Boolean = that match {
-		case self  :AnyRef if this eq self => true
-		case other :ArrayIterator[_] => (array eq other.unsafeArray) && index == other.index && limit == other.limit
-		case _ => false
-	}
-	override def hashCode :Int = ArrayLike.Wrapped.Slice(array, first, `last++`).hashCode
 	override def clone = new ArrayIterator(array, first, `last++`, isImmutable)
 }
 
 
+
+
 /** A factory of iterators advancing over array slices. */
 @SerialVersionUID(Ver)
-private[sugar] object ArrayIterator {
-	private def make[T](array :Array[T], from :Int, until :Int, immutable :Boolean) :ArrayIterator[T] =
-		((array :Array[_]) match {
-			case a :Array[AnyRef]  => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Int]     => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Long]    => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Double]  => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Byte]    => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Char]    => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Float]   => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Short]   => new ArrayIterator(a, from, until, immutable)
-			case a :Array[Boolean] => new ArrayIterator(a, from, until, immutable)
-			case null              => throw new NullPointerException(s"ArrayIterator.over(null, $from, $until)")
-//			case _                 => new ArrayIterator(array, from, until)
-		}).castParam[T]
+private[sugar] case object ArrayIterator extends ArrayIteratorFactory[Array]
 
-	def apply[T](array :Array[T]) :ArrayIterator[T] =
-		make(array, 0, array.length, false)
-
-	def immutable[T](array :IArrayLike[T]) :ArrayIterator[T] = {
-		val a = array.asInstanceOf[Array[T]]
-		make(a, 0, a.length, true)
-	}
-
-	/** Returns elements `array(first), array(first + 1), ..., array(first + length - 1)` of the given array.
-	  * If reading would go past the end of the array, the excess index range is ignored. Negative `length`
-	  * is equivalent to zero.
-	  */
-	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the array.")
-	def apply[T](array :Array[T], first :Int, length :Int) :ArrayIterator[T] = {
-		val len   = array.length
-		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
-		val until = first + math.min(len - first, math.max(length, 0))
-		make(array, first, until, false)
-	}
-
-	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the array.")
-	def immutable[T](array :IArrayLike[T], first :Int, length :Int) :ArrayIterator[T] = {
-		val a   = array.asInstanceOf[Array[T]]
-		val len = a.length
-		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
-		val until = first + math.min(len - first, math.max(length, 0))
-		make(a, first, until, true)
-	}
-
-	def from[T](array :Array[T], first :Int) :ArrayIterator[T] =
-		if (first >= array.length) make(array, array.length, array.length, false)
-		else if (first <= 0) make(array, 0, array.length, false)
-		else make(array, first, array.length, false)
-
-	/** Returns elements `array(from), array(from + 1), ..., array(until - 1)` of the given array.
-	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
-	  */
-	def slice[T](array :Array[T], from :Int, until :Int) :ArrayIterator[T] = {
-		val len = array.length
-		if (from >= len) make(array, len, len, false)
-		else if (until <= 0) make(array, 0, 0, false)
-		else if (from <= 0 && until >= len) make(array, 0, len, false)
-		else if (from <= 0) make(array, 0, until, false)
-		else if (until >= len) make(array, from, len, false)
-		else if (until <= from) make(array, from, from, false)
-		else make(array, from, until, false)
-	}
-//
-//	/** An iterator over `[from, until)` index range of `array`, going in reverse. The first returned element
-//	  * will be the one at index `until - 1`, and the last one at index `from`.
-//	  */
-//	def reversed[T](array :Array[T], from :Int, until :Int) :ReverseArrayIterator[T] =
-//		ReverseArrayIterator.slice(array, from, until)
-
-	/** Same as `ArrayIterator(array)`, but always produces an erased, not specialized instance. */
-	def generic[T](array :Array[T]) :ArrayIterator[T] =
-		if (array == null) throw new NullPointerException("ArrayIterator(null)")
-		else new ArrayIterator(array)
-
-	/** Same as `ArrayIterator(array, first, length)`, but always produces an erased, not specialized instance. */
-	def generic[T](array :Array[T], first :Int, length :Int) :ArrayIterator[T] = {
-		val len = array.length
-		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
-		val until = first + math.min(len - first, math.max(length, 0))
-		new ArrayIterator[T](array, first, until, false)
-	}
-
+@SerialVersionUID(Ver)
+private[sugar] case object IArrayIterator extends ArrayIteratorFactory[IArray] {
+	override def isImmutable = true
 }
+
+@SerialVersionUID(Ver)
+private[sugar] case object RefArrayIterator extends RefArrayLikeIteratorFactory[RefArray]
+
+@SerialVersionUID(Ver)
+private[sugar] case object IRefArrayIterator extends RefArrayLikeIteratorFactory[IRefArray] {
+	override def isImmutable = true
+}
+
+
 
 
 
@@ -191,10 +257,11 @@ private[sugar] object ArrayIterator {
   *                  (the first index of the slice).
   * @param `first++` the index in the array pointing directly after the first/next element to return
   *                  (the end index of the slice).
-  */ //consider: renaming to ArrayReverseIterator
+  */
+@SerialVersionUID(Ver)
 private[sugar] sealed class ReverseArrayIterator[@specialized(Everything) +T] private[sugar]
 	                        (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[T] with IndexedReverseIterator[T]
+	extends AbstractIterator[T] with IndexedReverseIterator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 
@@ -332,10 +399,11 @@ private[sugar] object ReverseArrayIterator {
 /** An iterator advancing over an array, potentially wrapping over the end of the array back to the beginning.
   * @param idx       the index in the array of the first/next element to return.
   * @param remaining the remaining number of elements to iterate over.
-  */ //no SerialVersionUID because we are not Serializable :)
+  */
+@SerialVersionUID(Ver)
 private[sugar] sealed class CyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[sugar]
 	                        (array :Array[T], private[this] var idx :Int, private[this] var remaining :Int)
-	extends AbstractIterator[T] with IndexedIterator[T]
+	extends AbstractIterator[T] with IndexedIterator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 
@@ -468,9 +536,10 @@ private[sugar] object CyclicArrayIterator {
   * @param idx       the index in the array of the next element to return.
   * @param remaining the size of the iterator.
   */
+@SerialVersionUID(Ver)
 private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, Double, AnyRef) +T] private[sugar]
 	                        (array :Array[T], private[this] var idx :Int, private[this] var remaining :Int)
-	extends AbstractIterator[T] with IndexedReverseIterator[T]
+	extends AbstractIterator[T] with IndexedReverseIterator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 

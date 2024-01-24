@@ -1,7 +1,15 @@
 package net.noresttherein.sugar.collections
 
+import java.util.PrimitiveIterator
+
+import scala.Specializable.AllNumeric
+import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 import scala.collection.{BufferedIterator, Stepper, StepperShape}
 
+import net.noresttherein.sugar.collections.ValIterator.{BooleanJavaIteratorAdapter, ByteJavaIteratorAdapter, CharJavaIteratorAdapter, DoubleJavaIteratorAdapter, FloatJavaIteratorAdapter, IntJavaIteratorAdapter, JavaIteratorAdapter, LongJavaIteratorAdapter, ShortJavaIteratorAdapter}
+import net.noresttherein.sugar.extensions.castingMethods
+import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.reflect.Specialized.Fun2Arg
 import net.noresttherein.sugar.vars.{Missing, Opt, Sure, Unsure}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack, existent_?}
 
@@ -10,9 +18,23 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack, existent_?}
 
 /**
   * @author Marcin Mościcki
-  */
-trait ValIterator[@specialized(ElemTypes) +E] extends Iterator[E] {
+  */ //consider: specializing for Boolean
+trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] {
 	override def next() :E
+
+	override def reduceLeft[B >: E](op :(B, E) => B) :B =
+		if (!hasNext)
+			throw new UnsupportedOperationException("Iterator.empty.reduceLeft")
+		else
+			foldLeft[B](next())(op)
+
+	override def foldLeft[@specialized(Fun2Arg) B](z :B)(op :(B, E) => B) :B = {
+		var res = z
+		while (hasNext) {
+			res = op(res, next())
+		}
+		res
+	}
 
 	override def buffered :ValIterator.Buffered[E] = new ValIterator.Buffered[E] {
 		private[this] var hd :E = _
@@ -29,29 +51,116 @@ trait ValIterator[@specialized(ElemTypes) +E] extends Iterator[E] {
 			} else
 				throw new NoSuchElementException("Empty ValIterator")
 
+		override def jterator[J](implicit shape :JteratorShape[E, J]) :J = ValIterator.this.jterator
+
 		override def toString :String =
 			ValIterator.this.toString + ".buffered" + (if (nonEmpty) "(" + hd + ")" else "")
 	}
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S = ValIteratorStepper(this, 0)
+
+	def jterator[J](implicit shape :JteratorShape[E, J]) :J = (shape.shape match {
+		case Got(ReferenceShape) => new JavaIteratorAdapter(this)
+		case Got(IntShape)       => new IntJavaIteratorAdapter(this.asInstanceOf[ValIterator[Int]])
+		case Got(LongShape)      => new LongJavaIteratorAdapter(this.asInstanceOf[ValIterator[Long]])
+		case Got(DoubleShape)    => new DoubleJavaIteratorAdapter(this.asInstanceOf[ValIterator[Double]])
+		case Got(CharShape)      => new CharJavaIteratorAdapter(this.asInstanceOf[ValIterator[Char]])
+		case Got(ByteShape)      => new ByteJavaIteratorAdapter(this.asInstanceOf[ValIterator[Byte]])
+		case Got(FloatShape)     => new FloatJavaIteratorAdapter(this.asInstanceOf[ValIterator[Float]])
+		case Got(ShortShape)     => new ShortJavaIteratorAdapter(this.asInstanceOf[ValIterator[Short]])
+		case _ /* Boolean */     => new BooleanJavaIteratorAdapter(this.asInstanceOf[ValIterator[Boolean]])
+	}).asInstanceOf[J]
 }
 
 
+
+@SerialVersionUID(Ver)
 object ValIterator {
-	trait Buffered[@specialized(ElemTypes) +E] extends ValIterator[E] with BufferedIterator[E] {
+	def one[@specialized(AllNumeric) T](value :T) :ValIterator[T] = new Buffered[T] {
+		var hasNext = true
+		private[this] val hd = value
+		override def head = if (!hasNext) noSuch_!("empty iterator") else hd
+		override def knownSize = if (hasNext) 1 else 0
+
+		override def next() :T =
+			if (!hasNext) noSuch_!("empty iterator")
+			else { hasNext = false; hd }
+	}
+
+	def two[@specialized(AllNumeric) T](first :T, second :T) :ValIterator[T] = new Buffered[T] {
+		private[this] var remaining = 2
+		override def hasNext = remaining > 0
+		override def knownSize = remaining
+		override def head = remaining match {
+			case 2 => first
+			case 1 => second
+			case _ => noSuch_!("empty iterator")
+		}
+		override def next() = remaining match {
+			case 2 => remaining = 1; first
+			case 1 => remaining = 0; second
+			case _ => noSuch_!("empty iterator")
+		}
+	}
+
+	trait Buffered[@specialized(AllNumeric) +E] extends ValIterator[E] with BufferedIterator[E] {
 		override def head :E
 		def headOpt :Opt[E] = if (hasNext) Got(head) else Lack
 		def unsureHead :Unsure[E] = if (hasNext) Sure(head) else Missing
 		override def buffered :this.type = this
+	}
+	
+	private class IntJavaIteratorAdapter(underlying :ValIterator[Int]) extends PrimitiveIterator.OfInt {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextInt() :Int = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class LongJavaIteratorAdapter(underlying :ValIterator[Long]) extends PrimitiveIterator.OfLong {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextLong() :Long = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class DoubleJavaIteratorAdapter(underlying :ValIterator[Double]) extends PrimitiveIterator.OfDouble {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextDouble() :Double = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class FloatJavaIteratorAdapter(underlying :ValIterator[Float]) extends PrimitiveIterator.OfDouble {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextDouble() :Double = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class CharJavaIteratorAdapter(underlying :ValIterator[Char]) extends PrimitiveIterator.OfInt {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextInt() :Int = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class ByteJavaIteratorAdapter(underlying :ValIterator[Byte]) extends PrimitiveIterator.OfInt {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextInt() :Int = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class ShortJavaIteratorAdapter(underlying :ValIterator[Short]) extends PrimitiveIterator.OfInt {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextInt() :Int = underlying.next()
+		override def toString :String = underlying.toString
+	}
+	private class BooleanJavaIteratorAdapter(underlying :ValIterator[Boolean]) extends PrimitiveIterator.OfInt {
+		override def hasNext :Boolean = underlying.hasNext
+		override def nextInt() :Int = if (underlying.next()) 1 else 0
+		override def toString :String = underlying.toString
+	}
+	private class JavaIteratorAdapter[E](underlying :ValIterator[E]) extends java.util.Iterator[E] {
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :E = underlying.next()
+		override def toString :String = underlying.toString
 	}
 }
 
 
 
 
-trait IntIterator extends ValIterator[Int] {
-
-}
+trait IntIterator extends ValIterator[Int]
 object IntIterator {
 	def from(javaIterator :JavaIntIterator) :IntIterator =
 		new IntIterator {

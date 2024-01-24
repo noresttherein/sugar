@@ -1224,6 +1224,9 @@ object Specialized extends SpecializedFromType {
 	/** Element types `scala.Tuple2` is specialized for. */
 	final val Tuple2Elem :Specializable.Group[(Int, Long, Char, Double, Boolean)] = null
 
+	/** The types for which [[scala.collection.Stepper Stepper]] and Java [[java.util.Iterator Iterator]] are specialized. */
+	final val Steppers :Specializable.Group[(Int, Long, Double, AnyRef)] = null
+
 
 	/** Summons an implicit value for [[net.noresttherein.sugar.reflect.Specialized Specialized]]`[T]`,
 	  * representing the way it would be used in context of a generic call, after erasure or specialization.

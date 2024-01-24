@@ -525,6 +525,9 @@ private object JavaConcatIterator {
 
 @SerialVersionUID(Ver)
 object Jterator {
+	def from[T, I <: Jterator[_]](elems :IterableOnce[T])(implicit shape :JteratorShape[T, I]) :I =
+		JavaIterator.from(elems)(shape.javaIteratorShape).asInstanceOf[I]
+
 	def over[T, I <: Jterator[_]](seq :collection.IndexedSeq[T])(implicit shape :JteratorShape[T, I]) :I =
 		IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]
 

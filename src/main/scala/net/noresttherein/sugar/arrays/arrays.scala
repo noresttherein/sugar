@@ -210,4 +210,12 @@ package object arrays {
 	/** A seven dimensional immutable box array. */
 	type IRefArray7[E] = IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[E]]]]]]]
 
+	val ArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ArrayIterator] =
+		ArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ArrayIterator]]
+
+	val IArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ArrayIterator] =
+		IArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[IArrayLike, ArrayIterator]]
+
+	val MutableArrayMutator :ArrayLikeIteratorFactory[MutableArray, ArrayMutator] =
+		ArrayMutator.asInstanceOf[ArrayLikeIteratorFactory[MutableArray, ArrayMutator]]
 }
