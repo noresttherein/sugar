@@ -38,8 +38,9 @@ import net.noresttherein.sugar.extensions.StepperExtension
   * @define coll zigzag
   * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: renaming to Chain
-//We could eliminate some redundancy by extending SlicingOps, but we don't want to extend IterableOps[_, _, ZigZag[E]]
-sealed abstract class ZigZag[+E] extends AbstractSeq[E] with SugaredIterable[E] with Serializable {
+sealed abstract class ZigZag[+E]
+	extends AbstractSeq[E] with SugaredIterable[E] with SlicingOps[E, ZigZag[E]] with Serializable
+{
 //	private[ZigZag] def depth :Int
 	override def knownSize :Int = length
 
@@ -64,41 +65,9 @@ sealed abstract class ZigZag[+E] extends AbstractSeq[E] with SugaredIterable[E] 
 		case _                                 => new Concat(prefix.iterator to DefaultIndexedSeq, this)
 	}
 
-	override def empty :ZigZag[E] = ZigZag.empty
+	protected override def emptySlice :ZigZag[E] = ZigZag.empty
 
-	override def tail :ZigZag[E] =
-		if (length == 0)
-			throw new UnsupportedOperationException("ZigZag().tail")
-		else
-			drop(1)
-	override def init :ZigZag[E] =
-		if (length == 0)
-			throw new UnsupportedOperationException("ZigZag().init")
-		else
-			dropRight(1)
-
-	override def take(n :Int) :ZigZag[E] = slice(0, n)
-	override def drop(n :Int) :ZigZag[E] = slice(n, length)
-	override def takeRight(n :Int) :ZigZag[E] = if (n <= 0) empty else slice(length - n, length)
-	override def dropRight(n :Int) :ZigZag[E] = if (n <= 0) this else slice(0, length - n)
-
-	override def slice(from :Int, until :Int) :ZigZag[E] =
-		if (until <= from | until <= 0 || from >= length) empty
-		else if (from <= 0 && until >= length) this
-		else if (from <= 0) trustedSlice(0, until)
-		else if (until > length) trustedSlice(from, length)
-		else trustedSlice(from, until)
-
-	override def splitAt(n :Int) :(ZigZag[E], ZigZag[E]) =
-		if (n <= 0) (empty, this)
-		else if (n >= length) (this, empty)
-		else (trustedSlice(0, n), trustedSlice(n, length))
-
-	override def takeWhile(p :E => Boolean) :ZigZag[E] = take(segmentLength(p, 0))
-	override def dropWhile(p :E => Boolean) :ZigZag[E] = drop(segmentLength(p, 0))
-	override def span(p :E => Boolean) :(ZigZag[E], ZigZag[E]) = splitAt(segmentLength(p, 0))
-
-	protected def trustedSlice(from :Int, until :Int) :ZigZag[E] = {
+	protected override def clippedSlice(from :Int, until :Int) :ZigZag[E] = {
 		@tailrec def slice(in :Seq[E], from :Int, until :Int, prefix :ZigZag[E],
 		                   suffix :mutable.Queue[ZigZag[E]], lastUntil :Int) :ZigZag[E] =
 		{
@@ -172,44 +141,6 @@ sealed abstract class ZigZag[+E] extends AbstractSeq[E] with SugaredIterable[E] 
 		}
 		slice(this, from, until, ZigZag.empty, null, 0)
 	}
-/*
-
-	protected[collections] def trustedSlice2(from :Int, until :Int) :ZigZag[E] = {
-		@tailrec def slice(in :Seq[E], from :Int, until :Int, prefix :() => ZigZag[E], suffix :() => ZigZag[E]) :ZigZag[E] =
-			in match {
-				case _ if from == 0 && until == in.length =>
-					suffix() prependedAll in
-				case concat    :Concat[E] =>
-					val prefixLen = concat._1.length
-					if (until <= prefixLen)
-						slice(concat._1, from, until, prefix, suffix)
-					else if (from >= prefixLen)
-						slice(concat._2, from - prefixLen, until - prefixLen, prefix, suffix)
-					else {
-						val lazyPrefix = () => prefix() appendedAll concat._1.slice(from, prefixLen)
-						slice(concat._2, prefixLen, until - prefixLen, lazyPrefix, suffix)
-					}
-				case appended  :Appended[E] =>
-					val prefixLen = appended.length - 1
-					if (until <= prefixLen)
-						slice(appended.init, from, until, prefix, suffix)
-					else if (from == prefixLen)
-						prefix().appended(appended.last).appendedAll(suffix())
-					else
-						slice(appended.init, from, prefixLen, prefix, () => suffix().prepended(appended.last))
-				case prepended :Prepended[E] =>
-					if (from >= 1)
-						slice(prepended.tail, from - 1, until - 1, prefix, suffix)
-					else if (until == 1)
-						prefix() appended prepended.head appendedAll suffix()
-					else
-						slice(prepended.tail, 0, until - 1, () => prefix() appended prepended.head, suffix)
-				case _ =>
-					prefix() appendedAll in.slice(from, until) appendedAll suffix()
-			}
-		slice(this, from, until, () => ZigZag.empty, () => ZigZag.empty)
-	}
-*/
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int = {
 		@tailrec def segment(in :Seq[E], idx :Int, prefix :Int, suffix :mutable.Queue[ZigZag[E]]) :Int = {
@@ -344,19 +275,6 @@ sealed abstract class ZigZag[+E] extends AbstractSeq[E] with SugaredIterable[E] 
 		}
 		rec(this, null)
 	}
-/*
-
-	def foreach2[U](f :E => U) :Unit = {
-		//shut up tailrec error
-		@inline def headForeach(seq :Seq[E], cont :() => Unit) :Unit = rec(seq, cont)
-		@tailrec def rec(seq :Seq[E], cont :() => Unit) :Unit = seq match {
-			case concat    :Concat[E]    => rec(concat._1, () => headForeach(concat._2, cont))
-			case append    :Appended[E]  => f(append.head); rec(append.tail, cont)
-			case prepended :Prepended[E] => rec(prepended.init, () => { f(prepended.last); cont() })
-			case _      => seq.foreach(f)
-		}
-	}
-*/
 
 	protected override def reversed :Iterable[E] = new SeqView.Reverse(this)
 
@@ -428,11 +346,7 @@ sealed abstract class ZigZag[+E] extends AbstractSeq[E] with SugaredIterable[E] 
 	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 		drop(from).copyToArray(xs, start, len)
 
-//	protected override def fromSpecific(coll :IterableOnce[A @uncheckedVariance]) :ZigZag[A] = ZigZag.from(coll)
-//	protected override def newSpecificBuilder :Builder[A @uncheckedVariance, ZigZag[A]] = ZigZag.newBuilder
-
 	private def writeReplace :AnyRef = new DefaultSerializationProxy(ZigZag, this)
-//	override def iterableFactory :SeqFactory[ZigZag] = ZigZag
 	protected override def className = "ZigZag"
 }
 
@@ -485,7 +399,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 	private class EmptyZigZag extends ZigZag[Nothing] { //with EmptyIterableOps.Generic[Seq] {
 		override def length :Int = 0
 		override def apply(i :Int) = throw new IndexOutOfBoundsException(i.toString + " out of 0")
-		override def trustedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
+		override def clippedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
 		override def segmentLength(p :Nothing => Boolean, from :Int) :Int = 0
 		override def view :SeqView[Nothing] = EmptySeqOps.view
 		override def iterator = Iterator.empty
@@ -493,10 +407,6 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[Nothing, S]) :S = Stepper0()
 
 		override def foreach[U](f :Nothing => U) :Unit = ()
-//		override def empty :ZigZag[Nothing] = this
-//		protected override def fromSpecific(coll :IterableOnce[Nothing]) = this
-//		protected override def newSpecificBuilder = Seq.newBuilder
-
 		private def readResolve :Seq[Nothing] = ZigZag.empty
 	}
 
@@ -519,7 +429,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[A, I]) :I = javaIteratorOver(elems)
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S = elems.stepper
 
-		override def trustedSlice(from :Int, until :Int) :ZigZag[A] = elems match {
+		override def clippedSlice(from :Int, until :Int) :ZigZag[A] = elems match {
 			case indexed :IndexedSeq[A] => new Slice(indexed, from, until - from)
 			case _ => new Straight(elems.slice(from, until))
 		}
@@ -568,7 +478,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
 			IndexedSeqStepper(elems, offset, offset + length)
 
-		override def trustedSlice(from :Int, until :Int) = new Slice(elems, offset + from, until - from)
+		override def clippedSlice(from :Int, until :Int) = new Slice(elems, offset + from, until - from)
 
 //		override def updated[B >: A](index :Int, elem :B) :ZigZag[B] =
 //			ZigZag.from(elems.view.slice(offset, offset + length).updated(index, elem))

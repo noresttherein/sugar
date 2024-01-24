@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import scala.collection.immutable.SeqOps
 import scala.collection.{IterableOps, SpecificIterableFactory}
 import scala.collection.mutable.Builder
 
@@ -204,48 +205,49 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
 
 
 /** Implements all methods returning a slice of this collection by delegating them to a single
-  * [[net.noresttherein.sugar.collections.SlicingOps.trustedSlice trustedSlice]] after validation.
+  * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice trustedSlice]] after validation.
   * Assumes fast `size` operation.
   */
 //It would be very convenient if we extended only IterableOps[E, generic.Any, Any],
 // as ZigZag could then extend this trait, but we have no way of overriding empty to return C.
-trait SlicingOps[+E, +C] extends SugaredIterableOps[E, generic.Any, C] {
-//	override def empty :C = ???
-//	override def coll  :C
+trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
+//	override def empty :C
+	protected override def coll :C
+	protected def emptySlice :C
 	override def tail :C = {
 		val size = this.size
 		if (size == 0) throw new UnsupportedOperationException(toString + ".tail")
-		else trustedSlice(1, size)
+		else clippedSlice(1, size)
 	}
 	override def init :C = {
 		val size = this.size
 		if (size == 0) throw new UnsupportedOperationException(toString + ".init")
-		else trustedSlice(0, size - 1)
+		else clippedSlice(0, size - 1)
 	}
 	override def take(n :Int) :C = slice(0, n)
 	override def drop(n :Int) :C = slice(n, size)
 	override def dropRight(n :Int) :C = if (n <= 0) coll else slice(0, size - n)
-	override def takeRight(n :Int) :C = if (n <= 0) empty else { val size = this.size; slice(size - n, size) }
+	override def takeRight(n :Int) :C = if (n <= 0) emptySlice else { val size = this.size; slice(size - n, size) }
 	override def slice(from :Int, until :Int) :C = {
 		val size = this.size
-		if (until <= from | until <= 0 || from >= size) empty
+		if (until <= from | until <= 0 || from >= size) emptySlice
 		else if (from <= 0 & until >= size) coll
-		else if (from <= 0) trustedSlice(0, until)
-		else if (until >= size) trustedSlice(from, size)
-		else trustedSlice(from, until)
+		else if (from <= 0) clippedSlice(0, until)
+		else if (until >= size) clippedSlice(from, size)
+		else clippedSlice(from, until)
 	}
 	override def splitAt(n :Int) :(C, C) = {
 		val size = this.size
-		if (n <= 0) (empty, coll)
-		else if (n >= size) (coll, empty)
-		else (trustedSlice(0, n), trustedSlice(n, size))
+		if (n <= 0) (emptySlice, coll)
+		else if (n >= size) (coll, emptySlice)
+		else (clippedSlice(0, n), clippedSlice(n, size))
 	}
 	override def takeWhile(p :E => Boolean) :C = slice(0, segmentLength(p, 0))
 	override def dropWhile(p :E => Boolean) :C = slice(segmentLength(p, 0), size)
 	override def span(p :E => Boolean) :(C, C) = splitAt(segmentLength(p, 0))
 
-	protected def trustedSlice(from :Int, until :Int) :C
-	private[collections] final def `->trustedSlice`(from :Int, until :Int) :C = trustedSlice(from, until)
+	protected def clippedSlice(from :Int, until :Int) :C
+	private[collections] final def `->trustedSlice`(from :Int, until :Int) :C = clippedSlice(from, until)
 
 	protected def segmentLength(p :E => Boolean, from :Int) :Int = {
 		val iter = iterator.drop(from)
@@ -265,4 +267,16 @@ trait SlicingOps[+E, +C] extends SugaredIterableOps[E, generic.Any, C] {
 //			val copied = math.min(xs.length - start, math.min(len, size - from))
 //			slice(from, from + copied).copyToArray(xs, start, len)
 //		}
+}
+
+trait SugaredSlicingOps[+E, +CC[_], +C] extends SugaredIterableOps[E, CC, C] with SlicingOps[E, C] {
+	protected override def emptySlice :C = empty
+}
+
+trait SeqSlicingOps[+E, +CC[_], +C] extends SugaredSlicingOps[E, CC, C] with SeqOps[E, CC, C] {
+//	override def indexWhere(p :E => Boolean, from :Int) :Int = {
+//		val i = segmentLength(!p(_), from)
+//		if (i == length) -1 else i
+//	}
+	override def segmentLength(p :E => Boolean, from :Int) :Int = super.segmentLength(p, from)
 }

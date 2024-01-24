@@ -2516,7 +2516,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 	override def indexWhere(p :E => Boolean, from :Int) :Int = elements.indexWhere(p, from)
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int = elements.lastIndexWhere(p, end)
 
-	protected override def trustedSlice(from :Int, until :Int) :Ranking[E] =
+	protected override def clippedSlice(from :Int, until :Int) :Ranking[E] =
 		until - from match {
 			case 0 => EmptyRanking
 			case 1 => new SingletonRanking(elements(from))

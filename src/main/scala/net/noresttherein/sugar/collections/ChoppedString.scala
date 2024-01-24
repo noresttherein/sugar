@@ -29,7 +29,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @see [[net.noresttherein.sugar.collections.StringLike]]
   */
 trait StringLikeOps[+S <: Seq[Char]]
-	extends CharSequence with SeqOps[Char, Seq, S] with SugaredIterableOps[Char, Seq, S] with SlicingOps[Char, S]
+	extends CharSequence with SeqOps[Char, Seq, S] with SeqSlicingOps[Char, Seq, S]
 	   with SpecificIterableFactoryDefaults[Char, Seq, S]
 {
 	override def isEmpty   :Boolean = length == 0
@@ -76,12 +76,11 @@ trait StringLikeOps[+S <: Seq[Char]]
 
 	@inline final def ++:(other :IterableOnce[Char]) :S = prependedAll(other)
 	def prependedAll(other :IterableOnce[Char]) :S
-//	@inline final def ++(string :String) :StringLike = concat(string)
-//	@inline final def ++(string :StringLike) :StringLike = concat(string)
+	//consider: S as the return type
+//	@inline def ++(string :String) :StringLike = concat(string)
+//	@inline def ++(string :StringLike) :StringLike = concat(string)
 	def concat(string :String) :StringLike
 	def concat(string :StringLike) :StringLike
-
-	override def segmentLength(p :Char => Boolean, from :Int) :Int = super.segmentLength(p, from)
 
 	def toReader :Reader
 }
@@ -95,7 +94,7 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
 		if (start < 0 | end < 0 | start > end | end > length)
 			throw new IndexOutOfBoundsException("[" + start + ".." + end + ") out of " + length)
 		else
-			trustedSlice(start, end)
+			clippedSlice(start, end)
 
 	def substring(start :Int, end :Int) :String = subSequence(start, end).toString
 	final def substring(start :Int) :String = substring(start, length)
@@ -251,7 +250,7 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 			"Neither a String nor a ChoppedString: " + x + ": " + x.className + "."
 		)
 
-	protected override def trustedSlice(from :Int, until :Int) :ChoppedString = {
+	protected override def clippedSlice(from :Int, until :Int) :ChoppedString = {
 		@tailrec def slice(in :Any, from :Int, until :Int,
 		                   prefix :ChoppedString, suffix :mutable.Queue[Any], last :Any, lastUntil :Int) :ChoppedString =
 			in match {
@@ -276,7 +275,7 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 					}
 				case _ =>
 					val newPrefix = in match {
-						case s :ChoppedString => prefix appendedAll s.trustedSlice(from, until)
+						case s :ChoppedString => prefix appendedAll s.clippedSlice(from, until)
 						case s :String        => prefix appendedAll s.slice(from, until)
 						case _                => neitherStringNorChoppedString(in)
 					}
@@ -600,9 +599,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 	private object Empty extends ChoppedString with EmptySeqOps[Char, Seq, ChoppedString] {
 		override def isEmpty = true
 		override def intIterator = JavaIterator.ofInt()
-		override def segmentLength(p :Char => Boolean, from :Int) :Int = 0
 
-		override def trustedSlice(from :Int, until :Int) :ChoppedString = this
 		protected override def appendTo(builder :java.lang.StringBuilder) :java.lang.StringBuilder = builder
 		protected override def appendTo(builder :JStringBuilder, from :Int, until :Int) :JStringBuilder = builder
 		override def toReader = Reader.nullReader()
@@ -842,13 +839,13 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 
 private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 	extends IndexedSeq[Char] with IndexedSeqOps[Char, IndexedSeq, C]
-	   with SlicingOps[Char, C] with SpecificIterableFactoryDefaults[Char, IndexedSeq, C]
+	   with SugaredSlicingOps[Char, IndexedSeq, C] with SpecificIterableFactoryDefaults[Char, IndexedSeq, C]
 { this :C =>
 	protected def whole :String
 	protected def startIndex :Int
 	protected def fromString(string :String, from :Int, until :Int) :C
 
-	protected override def trustedSlice(from :Int, until :Int) :C = {
+	protected override def clippedSlice(from :Int, until :Int) :C = {
 		val start = startIndex
 		fromString(whole, start + from, start + until)
 	}

@@ -59,9 +59,7 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 
 
 
-private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
-	extends ArrayIterableOnce[E] with SugaredIterableOps[E, CC, C] with SlicingOps[E, C]
-{
+private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] {
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
 
 	override def head :E =
@@ -86,6 +84,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
 	}
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
 		ArrayStepper(array, startIndex, size)
+
 
 	protected override def segmentLength(p :E => Boolean, from :Int) :Int =
 		ArrayLikeOps.segmentLength(array, startIndex, size)(p, from)
@@ -152,7 +151,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
 
 
 
-trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] {
+trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] extends Serializable {
 	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]].
 	  * The collection will share the contents with the array,
 	  * and thus any modifications to either will be visible in the other.
@@ -172,14 +171,19 @@ trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] {
 //private[sugar] trait MutableArrayWrapper[+C[_], -A[E] <: MutableArray[E]] extends ArrayLikeWrapper[C, A]
 
 
+/**
+  * @define Coll collection
+  * @define coll collection
+  */
 trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends ArrayLikeWrapper[C, A] {
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
-	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]] in a collection,
-	  * exposing only elements `array(from), ..., array(until - 1)`. The collection will share the contents
+	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]] in a $coll,
+	  * exposing only elements `array(from), ..., array(until - 1)`. The $coll will share the contents
 	  * with the array, and thus any modifications to either will be visible in the other.
+	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
 	  */
-	def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
+	  def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
 		val length = array.length
 		if (until <= 0) make(array, 0, 0)
 		else if (from >= length) make(array, length, length)
@@ -249,7 +253,7 @@ private[collections] sealed abstract class RefArrayLikeSliceFactory[+C[E] <: Arr
   * is actually `classOf[A]` - it might be boxed (for value types), a super type (or a subtype) of `A`, or both.
   * @define Coll `ArrayLikeSlice`
   * @define coll array slice
-  */
+  */ //consider: renaming to ArraySeqOps
 trait ArrayLikeSliceOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	extends ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
 { this :C =>
@@ -285,7 +289,7 @@ trait ArrayLikeSliceOps[@specialized(ElemTypes) +E, +CC[_], +C]
 			val start = startIndex
 			val array = this.array
 			val res = Array.copyOfRanges(array, start, start + index, array, start + index + 1, start + length)
-			makeSpecific(res, 0, length - 1)
+			newSpecific(res, 0, length - 1)
 		}
 	}
 
@@ -296,22 +300,22 @@ trait ArrayLikeSliceOps[@specialized(ElemTypes) +E, +CC[_], +C]
 		else if (from <= 0 & until >= length)
 			this
 		else if (from <= 0)
-			trustedSlice(0, until)
+			clippedSlice(0, until)
 		else if (until >= length)
-			trustedSlice(from, length)
+			clippedSlice(from, length)
 		else {
 			val array = this.array
 			val start = this.startIndex
 			val res   = Array.copyOfRanges(array, 0, start + from, array, start + until, start + length)
-			makeSpecific(res, 0, length - (until - from))
+			newSpecific(res, 0, length - (until - from))
 		}
 	}
 
-	protected override def trustedSlice(from :Int, until :Int) :C = {
+	protected override def clippedSlice(from :Int, until :Int) :C = {
 		val start = startIndex
-		makeSpecific(array, start + from, start + until)
+		newSpecific(array, start + from, start + until)
 	}
-	protected def makeSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :C
+	protected def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :C
 //	protected def make[X](array :Array[X], from :Int, until :Int) :CC[X]
 }
 
@@ -320,7 +324,7 @@ trait ArrayLikeSliceOps[@specialized(ElemTypes) +E, +CC[_], +C]
   * is actually `classOf[A]` - it might be boxed (for value types), a super type (or a subtype) of `A`, or both.
   * @define Coll `ArrayLikeSlice`
   * @define coll array slice
-  */
+  */ //consider: making all these types private
 sealed trait ArrayLikeSlice[@specialized(ElemTypes) +E]
 	extends collection.IndexedSeq[E] with ArrayLikeSliceOps[E, ArrayLikeSlice, ArrayLikeSlice[E]]
 	   with IterableFactoryDefaults[E, ArrayLikeSlice] with Serializable
@@ -375,7 +379,7 @@ case object ArrayLikeSlice
 			else
 				array(offset + i)
 
-		protected override def makeSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :ArrayLikeSlice[E] =
+		protected override def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :ArrayLikeSlice[E] =
 			new Impl(array, from, until - from)
 
 		private def writeReplace = new Serializable {
@@ -487,7 +491,7 @@ sealed class ArraySlice[@specialized(ElemTypes) E] private[collections]
 		else
 			array(offset + idx) = elem
 
-	protected override def makeSpecific(array :Array[E], from :Int, until :Int) :ArraySlice[E] =
+	protected override def newSpecific(array :Array[E], from :Int, until :Int) :ArraySlice[E] =
 		new ArraySlice(array, from, until - from)
 
 	protected implicit override def iterableEvidence :ClassTag[E] =
@@ -559,7 +563,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 
 	override def empty :IArraySlice[E] = IArraySlice.empty[E]
 
-	protected override def makeSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :IArraySlice[E] =
+	protected override def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :IArraySlice[E] =
 		new IArraySlice(array.asInstanceOf[IArray[E]], from, until - from)
 
 	protected implicit override def iterableEvidence :ClassTag[E @uncheckedVariance] =
@@ -639,7 +643,7 @@ sealed class RefArraySlice[E] private (underlying :RefArray[E], offset :Int, len
 		else
 			underlying(offset + idx) = elem
 
-	protected override def makeSpecific(array :Array[E], from :Int, until :Int) :RefArraySlice[E] =
+	protected override def newSpecific(array :Array[E], from :Int, until :Int) :RefArraySlice[E] =
 		new RefArraySlice(array.asInstanceOf[RefArray[E]], from, until - from)
 
 	override def iterableFactory :SeqFactory[RefArraySlice] = RefArraySlice
@@ -698,7 +702,7 @@ sealed class IRefArraySlice[+E] private (underlying :IRefArray[E], offset :Int, 
 		else
 			underlying(offset + i)
 
-	protected override def makeSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :IRefArraySlice[E] =
+	protected override def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :IRefArraySlice[E] =
 		new IRefArraySlice(array.asInstanceOf[IRefArray[E]], from, until - from)
 
 	override def iterableFactory :SeqFactory[IRefArraySlice] = IRefArraySlice
@@ -780,7 +784,7 @@ object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[ArraySeq, Array] {
 		case classes.Long            => longSeq
 		case classes.Double          => doubleSeq
 		case classes.Byte            => byteSeq
-		case classes.Byte            => charSeq
+		case classes.Char            => charSeq
 		case classes.Float           => floatSeq
 		case classes.Short           => shortSeq
 		case _                       => refSeq

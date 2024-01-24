@@ -5,6 +5,7 @@ import java.lang.{Math => math}
 import scala.collection.{IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.DefaultSerializable
+import scala.collection.immutable.{IndexedSeqOps, SeqOps}
 
 import net.noresttherein.sugar.collections.extensions.IterableExtension
 import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, castingMethods}
@@ -13,10 +14,37 @@ import net.noresttherein.sugar.outOfBounds_!
 
 
 
+trait GenSeqRange[+E] extends collection.Seq[E] with SlicingOps[E, GenSeqRange[E]] {
+	override def segmentLength(p :E => Boolean, from :Int) :Int = super.segmentLength(p, from)
+}
+
+trait SeqRange[+E] extends Seq[E] with GenSeqRange[E] with SlicingOps[E, SeqRange[E]]
+
+trait MutSeqRange[E] extends mutable.Seq[E] with GenSeqRange[E] with SlicingOps[E, MutSeqRange[E]]
+
+trait GenIndexedSeqRange[+E]
+	extends collection.IndexedSeq[E] with GenSeqRange[E] with SlicingOps[E, GenIndexedSeqRange[E]]
+{
+	override def segmentLength(p :E => Boolean, from :Int) :Int = {
+		var i = 0; val len = length
+		while (i < len && p(apply(i)))
+			i += 1
+		i
+	}
+}
+
+trait IndexedSeqRange[+E] extends IndexedSeq[E] with GenIndexedSeqRange[E] with SlicingOps[E, IndexedSeqRange[E]]
+
+trait MutIndexedSeqRange[E]
+	extends mutable.IndexedSeq[E] with GenIndexedSeqRange[E] with SlicingOps[E, MutIndexedSeqRange[E]]
+
+
+
+
 private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] with collection.IndexedSeqOps[A, CC, CC[A]]]
                                       (underlying :CC[E], offset :Int, override val length :Int)
 	extends collection.AbstractSeq[E] with collection.IndexedSeq[E] with collection.IndexedSeqOps[E, CC, CC[E]]
-		with SugaredIterable[E] with SugaredIterableOps[E, CC, CC[E]] with SlicingOps[E, CC[E]]
+		with SugaredIterable[E] with SugaredIterableOps[E, CC, CC[E]]
 		with IterableFactoryDefaults[E, CC] with DefaultSerializable
 { this :CC[E] =>
 	protected final def whole :CC[E] = underlying
@@ -86,10 +114,10 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 
 
 
-private[collections] sealed abstract class SeqSliceFactory[C[A] <: collection.IndexedSeq[A]] {
-	protected def make[E](seq :C[E], from :Int, until :Int) :C[E]
+private[collections] sealed abstract class SeqSliceFactory[C[A] <: collection.IndexedSeq[A], S[A] <: collection.Seq[A]] {
+	protected def make[E](seq :C[E], from :Int, until :Int) :S[E]
 
-	def apply[A](seq :C[A], from :Int, until :Int) :C[A] = {
+	def apply[A](seq :C[A], from :Int, until :Int) :S[A] = {
 		val len = seq.length
 		if (from >= len) make(seq, len, len)
 		else if (until <= 0) make(seq, 0, 0)
@@ -130,11 +158,12 @@ private[collections] sealed abstract class SeqSliceFactory[C[A] <: collection.In
   */ //consider: renaming to Subseq
 @SerialVersionUID(Ver)
 private class SeqSlice[E](whole :collection.IndexedSeq[E], offset :Int, override val length :Int)
-	extends GenericSeqSlice[E, collection.IndexedSeq](whole, offset, length)
+	extends GenericSeqSlice[E, collection.IndexedSeq](whole, offset, length) with GenIndexedSeqRange[E]
 {
 	def this(whole :collection.IndexedSeq[E]) = this (whole, 0, whole.length)
 
-	protected override def trustedSlice(from :Int, until :Int) :collection.IndexedSeq[E] =
+	protected override def emptySlice :GenIndexedSeqRange[E] = SeqSlice.empty
+	protected override def clippedSlice(from :Int, until :Int) :GenIndexedSeqRange[E] =
 		new SeqSlice(whole, start + from, until - from)
 }
 
@@ -146,51 +175,59 @@ private class SeqSlice[E](whole :collection.IndexedSeq[E], offset :Int, override
   * @define coll sequence slice
   */
 @SerialVersionUID(Ver)
-case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq] {
-	protected override def make[E](seq :collection.IndexedSeq[E], from :Int, until :Int) :collection.IndexedSeq[E] =
+case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSeqRange] {
+	protected override def make[E](seq :collection.IndexedSeq[E], from :Int, until :Int) :GenIndexedSeqRange[E] =
 		seq match {
-			case stable  :IndexedSeq[E]     => new Immutable(stable, from, until)
-			case mut :mutable.IndexedSeq[E] => new Mutable(mut, from, until)
+			case empty   :IndexedSeq[E] if empty.length == 0 => Immutable.empty
+			case stable  :IndexedSeq[E]                      => new Immutable(stable, from, until)
+			case mut :mutable.IndexedSeq[E]                  => new Mutable(mut, from, until)
 			case _ => new SeqSlice(seq, from, until)
 		}
 
-	@inline def apply[E](seq :mutable.IndexedSeq[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
+	@inline def apply[E](seq :mutable.IndexedSeq[E], from :Int, until :Int) :MutIndexedSeqRange[E] =
 		Mutable(seq, from, until)
 
-	@inline def apply[E](seq :IndexedSeq[E], from :Int, until :Int) :IndexedSeq[E] =
+	@inline def apply[E](seq :IndexedSeq[E], from :Int, until :Int) :IndexedSeqRange[E] =
 		Immutable(seq, from, until)
+
+	val empty :GenIndexedSeqRange[Nothing] = Immutable.empty
 
 	@SerialVersionUID(Ver)
 	private class Immutable[E](underlying :IndexedSeq[E], offset :Int, override val length :Int)
 		extends GenericSeqSlice[E, IndexedSeq](underlying, offset, length)
-		   with IndexedSeq[E] with SlicingOps[E, IndexedSeq[E]]
+		   with IndexedSeq[E] with IndexedSeqRange[E]
 	{
-		protected override def trustedSlice(from :Int, until :Int) :IndexedSeq[E] =
+		protected override def emptySlice :IndexedSeqRange[E] = Immutable.empty
+		protected override def clippedSlice(from :Int, until :Int) :IndexedSeqRange[E] =
 			new Immutable(whole, start + from, until - from)
 	}
 
-	private object Immutable extends SeqSliceFactory[IndexedSeq] {
-		override def make[E](seq :IndexedSeq[E], from :Int, until :Int) :IndexedSeq[E] =
-			new Immutable(seq, from, until)
+	private object Immutable extends SeqSliceFactory[IndexedSeq, IndexedSeqRange] {
+		val empty :Immutable[Nothing] = new Immutable(IndexedSeq.empty, 0, 0)
+		override def make[E](seq :IndexedSeq[E], from :Int, until :Int) :IndexedSeqRange[E] =
+			if (until <= from) empty else new Immutable(seq, from, until)
 		override def toString = "SeqSlice.Immutable"
 	}
 
 
+	//Consider: making slices a view over the current sequence.
 	@SerialVersionUID(Ver)
 	private class Mutable[E](underlying :mutable.IndexedSeq[E], offset :Int, override val length :Int)
 		extends GenericSeqSlice[E, mutable.IndexedSeq](underlying, offset, length)
-		   with mutable.IndexedSeq[E] with SlicingOps[E, mutable.IndexedSeq[E]]
+		   with mutable.IndexedSeq[E] with MutIndexedSeqRange[E]
 	{
+		protected override def emptySlice :MutIndexedSeqRange[E] = new Mutable(underlying.empty, 0, 0)
+
 		override def update(idx :Int, elem :E) :Unit =
 			if (idx < 0 || idx >= length) outOfBounds_!(idx, this)
 			else whole
 
-		protected override def trustedSlice(from :Int, until :Int) :mutable.IndexedSeq[E] =
+		protected override def clippedSlice(from :Int, until :Int) :MutIndexedSeqRange[E] =
 			new Mutable(whole, start + from, until - from)
 	}
 
-	private object Mutable extends SeqSliceFactory[mutable.IndexedSeq] {
-		override def make[E](seq :mutable.IndexedSeq[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
+	private object Mutable extends SeqSliceFactory[mutable.IndexedSeq, MutIndexedSeqRange] {
+		override def make[E](seq :mutable.IndexedSeq[E], from :Int, until :Int) :MutIndexedSeqRange[E] =
 			new Mutable(seq, from, until)
 		override def toString = "SeqSlice.Mutable"
 	}

@@ -10,9 +10,10 @@ import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
 
 
 /** A view of an `IndexedSeq` reversing the order of elements. */
-@SerialVersionUID(Ver)
+@SerialVersionUID(Ver) //consider: makng it a GenIndexedSeqRange[E]; problem: trustedSlice must return range
 private sealed class ReversedSeq[+E](underlying :collection.IndexedSeq[E])
-	extends collection.AbstractSeq[E] with collection.IndexedSeq[E] with SlicingOps[E, collection.IndexedSeq[E]]
+	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
+	   with SugaredSlicingOps[E, collection.IndexedSeq, collection.IndexedSeq[E]]
 {
 //	private[this] val len = underlying.length
 //	override def length :Int = len
@@ -22,7 +23,7 @@ private sealed class ReversedSeq[+E](underlying :collection.IndexedSeq[E])
 		if (i < 0) throw new IndexOutOfBoundsException(i.toString + " out of " + underlying.length)
 		else underlying(underlying.length - i - 1)
 
-	protected override def trustedSlice(from :Int, until :Int) :collection.IndexedSeq[E] =
+	protected override def clippedSlice(from :Int, until :Int) :collection.IndexedSeq[E] =
 		if (HasFastSlice(underlying)) {
 			val len = underlying.length
 			new ReversedSeq(underlying.slice(len - until, len - from))
@@ -63,9 +64,9 @@ private object ReversedSeq {
 
 @SerialVersionUID(Ver)
 private class ImmutableReversedSeq[+E](override val reverse :IndexedSeq[E])
-	extends ReversedSeq[E](reverse) with IndexedSeq[E] with SlicingOps[E, IndexedSeq[E]]
+	extends ReversedSeq[E](reverse) with IndexedSeq[E] with SugaredSlicingOps[E, IndexedSeq, IndexedSeq[E]]
 {
-	protected override def trustedSlice(from :Int, until :Int) :IndexedSeq[E] =
+	protected override def clippedSlice(from :Int, until :Int) :IndexedSeq[E] =
 		if (HasFastSlice(reverse))
 			new ImmutableReversedSeq(reverse.slice(length - until, length - from))
 		else
@@ -75,13 +76,14 @@ private class ImmutableReversedSeq[+E](override val reverse :IndexedSeq[E])
 
 @SerialVersionUID(Ver)
 private class MutableReversedSeq[E](override val reverse :mutable.IndexedSeq[E])
-	extends ReversedSeq[E](reverse) with mutable.IndexedSeq[E] with SlicingOps[E, mutable.IndexedSeq[E]]
+	extends ReversedSeq[E](reverse) with mutable.IndexedSeq[E]
+	   with SugaredSlicingOps[E, mutable.IndexedSeq, mutable.IndexedSeq[E]]
 {
 	override def update(idx :Int, elem :E) :Unit =
 		if (idx < 0) throw new IndexOutOfBoundsException(idx.toString + " out of " + length)
 		else reverse(length - idx - 1) = elem
 
-	protected override def trustedSlice(from :Int, until :Int) :mutable.IndexedSeq[E] =
+	protected override def clippedSlice(from :Int, until :Int) :mutable.IndexedSeq[E] =
 		if (HasFastSlice(reverse))
 			new MutableReversedSeq(reverse.slice(length - until, length - from))
 		else
@@ -93,9 +95,10 @@ private class MutableReversedSeq[E](override val reverse :mutable.IndexedSeq[E])
 
 @SerialVersionUID(Ver)
 private class ReversedIndexedBuffer[E](override val reverse :IndexedBuffer[E])
-	extends MutableReversedSeq[E](reverse) with IndexedBuffer[E] with SlicingOps[E, IndexedBuffer[E]]
+	extends MutableReversedSeq[E](reverse) with IndexedBuffer[E]
+	   with SugaredSlicingOps[E, IndexedBuffer, IndexedBuffer[E]]
 {
-	protected override def trustedSlice(from :Int, until :Int) :IndexedBuffer[E] =
+	protected override def clippedSlice(from :Int, until :Int) :IndexedBuffer[E] =
 		if (HasFastSlice(reverse)) {
 			val len = reverse.length
 			new ReversedIndexedBuffer(reverse.slice(len - until, len - from))

@@ -65,7 +65,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	override def segmentLength(p :E => Boolean, from :Int) :Int = //override clash
 		ArrayLikeOps.segmentLength(array.asInstanceOf[Array[E]], offset, len)(p, from)
 
-	protected override def trustedSlice(from :Int, until :Int) :ArraySliceBuffer[E] = {
+	protected override def clippedSlice(from :Int, until :Int) :ArraySliceBuffer[E] = {
 		val length = until - from
 		val slice  = RefArray.copyOfRange(array, from, until, math.max(DefaultInitialSize, length))
 		new ArraySliceBuffer(slice, 0, length)

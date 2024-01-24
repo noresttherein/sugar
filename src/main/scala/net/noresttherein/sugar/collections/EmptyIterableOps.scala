@@ -175,7 +175,7 @@ private[noresttherein] object EmptyNonSeqOps {
 
 
 private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
-	extends EmptyIterableOps[E, CC, C] with SeqOps[E, CC, C]
+	extends SeqOps[E, CC, C] with EmptyIterableOps[E, CC, C] with SlicingOps[E, C]
 {
 	//overridden because EmptyIterableOps must be mixed in before SeqOps
 	override def isEmpty :Boolean = true
@@ -183,7 +183,7 @@ private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
 	override def length :Int = 0
 	override def head   :E = noSuch("head")
 	override def apply(i :Int) :E = outOfBounds("apply", i)
-	override def updated[B >: E](index :Int, elem :B) :CC[B] = outOfBounds("updated", index)
+	override def updated[B >: E](index :Int, elem :B) :Nothing = outOfBounds("updated", index)
 	override def isDefinedAt(idx :Int) = false
 
 	override def search[B >: E](elem :B)(implicit ord :Ordering[B]) :SearchResult = searchResult
@@ -241,6 +241,8 @@ private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
 
 	override def sameElements[B >: E](that :IterableOnce[B]) :Boolean = that.toBasicOps.isEmpty
 
+	protected override def clippedSlice(from :Int, until :Int) :C = coll
+	protected override def emptySlice :C = coll
 }
 
 
@@ -256,12 +258,18 @@ private[noresttherein] object EmptySeqOps {
 	val view :SeqView[Nothing] = new EmptyView
 
 	@SerialVersionUID(Ver)
-	private class EmptyView extends EmptyIterableOps.Generic[View] with SeqView[Nothing] with EmptySeqOps.Generic[View] {
+	private class EmptyView
+		extends EmptyIterableOps.Generic[View] with SeqView[Nothing]
+		   with EmptySeqOps.Generic[View] with SlicingOps[Nothing, SeqView[Nothing]]
+   {
 		override def prepended[B >: Nothing](elem :B) :SeqView[B] = super[SeqView].prepended(elem)
 		override def appended[B >: Nothing](elem :B) :SeqView[B] = super[SeqView].appended(elem)
 
 		override def reverse :SeqView[Nothing] = super[SeqView].reverse
 		override def sorted[B >: Nothing](implicit ord :Ordering[B]) :SeqView[Nothing] = super[SeqView].sorted[B]
+
+        protected override def clippedSlice(from :Int, until :Int) = this
+		protected override def emptySlice = this
 		private def readResolve = EmptySeqOps.view
 	}
 }
@@ -270,7 +278,7 @@ private[noresttherein] object EmptySeqOps {
 
 
 private[noresttherein] trait EmptyIndexedSeqOps[+E, +CC[_], +C]
-	extends EmptyIterableOps[E, CC, C] with IndexedSeqOps[E, CC, C] with EmptySeqOps[E, CC, C]
+	extends IndexedSeqOps[E, CC, C] with EmptyIterableOps[E, CC, C] with EmptySeqOps[E, CC, C]
 { this :C =>
 	//overridden because EmptyIterableOps must be mixed in before IndexedSeqOps
 	override def head :E = throw new NoSuchElementException(toString + ".head")
@@ -295,6 +303,7 @@ private[noresttherein] object EmptyIndexedSeqOps {
 	private class EmptyView
 		extends EmptyIterableOps.Variant[View, View[Nothing]]
 		   with IndexedSeqView[Nothing] with EmptyIndexedSeqOps.Variant[View, View[Nothing]]
+		   with SlicingOps[Nothing, IndexedSeqView[Nothing]]
 	{
 //		override def length :Int = 0
 //		override def apply(i :Int) :Nothing = outOfBounds_!(i, this)
@@ -305,6 +314,8 @@ private[noresttherein] object EmptyIndexedSeqOps {
 		override def reverse :this.type = this
 		override def sorted[B >: Nothing](implicit ord :Ordering[B]) :this.type = this
 
+		protected override def emptySlice = this
+		protected override def clippedSlice(from :Int, until :Int) = this
 		private def readResolve = EmptyIndexedSeqOps.view
 	}
 }
@@ -534,7 +545,7 @@ private[noresttherein] object SingletonNonSeqOps {
 
 
 private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
-	extends SingletonIterableOps[E, CC, C] with SeqOps[E, CC, C]
+	extends SeqOps[E, CC, C] with SingletonIterableOps[E, CC, C] with SlicingOps[E, C]
 {
 	private def outOfBounds(i :Int) = throw new IndexOutOfBoundsException(i.toString + " out of 1")
 
@@ -637,6 +648,9 @@ private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 			val i = that.iterator
 			i.hasNext && head == i.next() && !i.hasNext
 	}
+
+	protected override def clippedSlice(from :Int, until :Int) :C = if (from == 0 & until > 0) coll else empty
+	protected override def emptySlice :C = empty
 }
 
 
@@ -648,14 +662,16 @@ private[noresttherein] object SingletonSeqOps {
 	type Generic[+E, +CC[+_]] = Variant[E, CC, CC[E]]
 
 	private class View[+E](override val head :E)
-		extends SingletonIterableOps.Generic[E, collection.View] with SeqView[E] with Generic[E, collection.View]
+		extends SingletonIterableOps.Generic[E, collection.View] with SeqView[E]
+		   with Generic[E, collection.View] with SlicingOps[E, SeqView[E]]
 	{
-//		override def length :Int = 1
-//		override def apply(i :Int) :E = if (i == 0) head else outOfBounds_!(i, coll)
 		override def prepended[A >: E](elem :A) :SeqView[A] = super[SeqView].prepended(elem)
 		override def appended[A >: E](elem :A) :SeqView[A] = super[SeqView].appended(elem)
 		override def reverse :this.type = this
 		override def sorted[A >: E](implicit ord :Ordering[A]) :this.type = this
+
+		protected override def emptySlice = EmptySeqOps.view
+		protected override def clippedSlice(from :Int, until :Int) = this
 	}//with Generic[E, SeqView]
 
 	def view[E](elem :E) :SeqView[E] = new View(elem)
@@ -665,7 +681,7 @@ private[noresttherein] object SingletonSeqOps {
 
 
 private[noresttherein] trait SingletonIndexedSeqOps[+E, +CC[_], +C]
-	extends SingletonIterableOps[E, CC, C] with IndexedSeqOps[E, CC, C] with SingletonSeqOps[E, CC, C]
+	extends IndexedSeqOps[E, CC, C] with SingletonIterableOps[E, CC, C] with SingletonSeqOps[E, CC, C]
 {
 	override def iterator :Iterator[E] = Iterator.single(head)
 	override def view :IndexedSeqView[E] = new SingletonIndexedSeqOps.View(head)
@@ -680,15 +696,18 @@ private[noresttherein] object SingletonIndexedSeqOps {
 	type Generic[+E, +CC[+_]] = Variant[E, CC, CC[E]]
 
 	private class View[+E](override val head :E)
-		extends SingletonIterableOps.Generic[E, collection.View] with IndexedSeqView[E] with Generic[E, collection.View]
+		extends SingletonIterableOps.Generic[E, collection.View] with IndexedSeqView[E]
+		   with Generic[E, collection.View] with SlicingOps[E, IndexedSeqView[E]]
 	{
-		override def empty :IndexedSeqView[E] = EmptyIndexedSeqOps.view
+//		override def empty :IndexedSeqView[E] = EmptyIndexedSeqOps.view
 		override def prepended[A >: E](elem :A) :IndexedSeqView[A] = super[IndexedSeqView].prepended(elem)
 		override def appended[A >: E](elem :A) :IndexedSeqView[A] = super[IndexedSeqView].appended(elem)
-		override def slice(from :Int, until :Int) :IndexedSeqView[E] =
-			if (until <= from | until < 0 | from >= 1) empty else this
 		override def reverse :this.type = this
 		override def sorted[A >: E](implicit ord :Ordering[A]) :this.type = this
+
+		override def slice(from :Int, until :Int) :IndexedSeqView[E] = this
+		protected override def emptySlice = EmptyIndexedSeqOps.view
+		protected override def clippedSlice(from :Int, until :Int) = this
 	}
 
 	def view[E](elem :E) :IndexedSeqView[E] = new View(elem)

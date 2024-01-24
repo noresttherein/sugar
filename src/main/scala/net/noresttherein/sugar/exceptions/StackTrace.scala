@@ -127,7 +127,7 @@ private class ArrayStackTrace(array :Array[StackTraceElement], start :Int, overr
 		else
 			array(start + i)
 
-	protected override def trustedSlice(from :Int, until :Int) :StackTrace =
+	protected override def clippedSlice(from :Int, until :Int) :StackTrace =
 		new ArrayStackTrace(array, start + from, until - from)
 
 	override def segmentLength(p :StackTraceElement => Boolean, from :Int) =

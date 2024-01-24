@@ -3616,6 +3616,8 @@ object extensions extends extensions {
 	                         (private val self :collection.IndexedSeqOps[E, CC, C])
 		extends AnyVal
 	{
+//		def range(from :Int, until :Int) :GenIndexedSeqRange[E] = SeqSlice(self, from, until)
+
 		/** Takes the longest suffix of this sequence satisfying the predicate. */
 		def takeRightWhile(f :E => Boolean) :C = {
 			var i = self.length - 1

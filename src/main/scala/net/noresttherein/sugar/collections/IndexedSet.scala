@@ -33,7 +33,7 @@ import net.noresttherein.sugar.vars.Opt.Got
   * and a new set is created from an already sorted and unique list with
   * [[net.noresttherein.sugar.collections.ConsistentOptimizedSortedSetOps.fromSorted fromSorted]].
   * Note that default `equals` implementation on `SortedSet` already makes the assumption of consistent ordering
-  * and implements a similar optization for sorted set arguments.
+  * and implements a similar optimization for sorted set arguments.
   */
 trait ConsistentOptimizedSortedSetOps[E, +CC[X] <: SortedSet[X], +C <: SortedSetOps[E, CC, C]]
 	extends StrictOptimizedSortedSetOps[E, CC, C]
@@ -127,7 +127,9 @@ trait ConsistentOptimizedSortedSetOps[E, +CC[X] <: SortedSet[X], +C <: SortedSet
   * @define coll indexed set
   */
 trait IndexedSet[E]
-	extends SortedSet[E] with ConsistentOptimizedSortedSetOps[E, IndexedSet, IndexedSet[E]]
+	extends SortedSet[E] with SugaredIterable[E]
+	   with SugaredIterableOps[E, Set, Set[E]]
+	   with ConsistentOptimizedSortedSetOps[E, IndexedSet, IndexedSet[E]]
 	   with SortedSetFactoryDefaults[E, IndexedSet, Set] with Serializable
 {
 	def key(index :Int) :E
@@ -224,6 +226,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 	private abstract class AbstractIndexedSet[E](start :Int, end :Int)(implicit val ordering :Ordering[E])
 		extends AbstractSet[E] with IndexedSet[E] with SlicingOps[E, IndexedSet[E]]
 	{
+		protected override def emptySlice :IndexedSet[E] = IndexedSet.empty
 		override def knownSize = end - start
 		protected def outerSize :Int
 		protected def at(index :Int) :E
@@ -262,9 +265,9 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 			else if (start == end) //important to know in the following cases that this.nonEmpty
 				new SingletonIndexedSet[E](elem)
 			else if (i == end && end < outerSize && at(i) == elem)
-				trustedSlice(0, end - start + 1)
+				clippedSlice(0, end - start + 1)
 			else if (i == start && start > 0 && at(start - 1) == elem)
-				trustedSlice(-1, end - start)
+				clippedSlice(-1, end - start)
 			else {
 				val array = ErasedArray.ofDim[E](end - start + 1)
 				trustedCopyToArray(start, array, 0, i - start)
@@ -309,11 +312,11 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 							else if (j == end && i == start)
 								this
 							else
-								trustedSlice(i - start, j - start)
+								clippedSlice(i - start, j - start)
 						case _ if i == start =>
 							this
 						case _ =>
-							trustedSlice(i - start, end - start)
+							clippedSlice(i - start, end - start)
 					}
 				case _ => until match {
 					case Some(b) =>
@@ -321,7 +324,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 						if (j == end)
 							this
 						else
-							trustedSlice(0, j - start)
+							clippedSlice(0, j - start)
 					case _ =>
 						this
 				}
@@ -357,7 +360,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 		protected override def outerSize = elems.length
 		protected override def at(index :Int) = elems(index)
 
-		protected override def trustedSlice(from :Int, until :Int) :IndexedSet[E] =
+		protected override def clippedSlice(from :Int, until :Int) :IndexedSet[E] =
 			new ArrayIndexedSet(elems, start + from, start + until)
 
 		protected override def trustedCopyToArray[U >: E](from :Int, xs :Array[U], start :Int, len :Int) :Unit =
@@ -399,7 +402,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 		override def toIndexedSeq :IndexedSeq[E] = SeqSlice(underlying, start, end)
 
-		protected override def trustedSlice(from :Int, until :Int) :IndexedSet[E] =
+		protected override def clippedSlice(from :Int, until :Int) :IndexedSet[E] =
 			new IndexedSeqSet(underlying, start + from, start + until)
 
 		protected override def trustedCopyToArray[U >: E](from :Int, xs :Array[U], start :Int, len :Int) :Unit =

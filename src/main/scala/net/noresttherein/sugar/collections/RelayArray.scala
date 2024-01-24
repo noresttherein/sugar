@@ -794,7 +794,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		case _ => super.to(factory)
 	}
 
-	protected override def makeSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :RelayArray[E] =
+	protected override def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :RelayArray[E] =
 		new RelayArrayPlus(array, from, until - from)
 
 	private def writeReplace :Serializable = new ArraySerializationProxy[E](RelayArrayInternals.wrap(_), array)
@@ -853,7 +853,7 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 		else
 			arr(offset + i)
 
-	protected override def trustedSlice(from :Int, until :Int) :RelayArray[E] =
+	protected override def clippedSlice(from :Int, until :Int) :RelayArray[E] =
 		until - from match {
 			case 1 =>
 				new RelayArray1(arr(offset + from))
@@ -1138,7 +1138,7 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 	}
 
 	override def slice(from :Int, until :Int) :RelayArray[E] = window(from, until)
-	protected override def trustedSlice(from :Int, until :Int) :RelayArray[E] = window(from, until)
+	protected override def clippedSlice(from :Int, until :Int) :RelayArray[E] = window(from, until)
 	//fixme: we don't check for MaxArraySize
 	//fixme: overflows/underflows
 	//extracted for specialization

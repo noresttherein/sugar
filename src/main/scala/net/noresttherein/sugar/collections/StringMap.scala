@@ -55,8 +55,7 @@ trait SpecificSortedMapOps[K, +V, +C <: MapOps[K, V, Map, C]] extends MapOps[K, 
 final class StringMap[+V] private (root :PrefixTree[V])
 	extends AbstractMap[String, V] with SugaredIterable[(String, V)]
 	   with SpecificSortedMapOps[String, V, StringMap[V]] with MapOps[String, V, Map, StringMap[V]]
-       with SugaredIterableOps[(String, V), immutable.Iterable, StringMap[V]]
-	   with SlicingOps[(String, V), StringMap[V]] with DefaultSerializable
+	   with SugaredSlicingOps[(String, V), immutable.Iterable, StringMap[V]] with DefaultSerializable
 {
 	override def size :Int = root.size
 	override def knownSize :Int = root.size
@@ -149,7 +148,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 		slice(lo, hi)
 	}
 
-	protected override def trustedSlice(from :Int, until :Int) :StringMap[V] = new StringMap(root.slice(from, until))
+	protected override def clippedSlice(from :Int, until :Int) :StringMap[V] = new StringMap(root.slice(from, until))
 
 
 	override def iteratorFrom(start :String) :Iterator[(String, V)] =
@@ -243,9 +242,8 @@ case object StringMap {
   */
 final class StringSet(root :PrefixTree[_])
 	extends AbstractSet[String] with SortedSet[String] with SortedSetOps[String, SortedSet, StringSet]
-	   with SugaredIterable[String] with SugaredIterableOps[String, Set, StringSet]
-	   with SpecificIterableFactoryDefaults[String, Set, StringSet]
-	   with SlicingOps[String, StringSet] with DefaultSerializable
+	   with SugaredIterable[String] with SugaredSlicingOps[String, Set, StringSet]
+	   with SpecificIterableFactoryDefaults[String, Set, StringSet] with DefaultSerializable
 {
 	override def ordering :Ordering[String] = Ordering.String
 	override def size :Int = root.size
@@ -303,7 +301,7 @@ final class StringSet(root :PrefixTree[_])
 		slice(lo, hi)
 	}
 
-	protected override def trustedSlice(from :Int, until :Int) :StringSet = new StringSet(root.slice(from, until))
+	protected override def clippedSlice(from :Int, until :Int) :StringSet = new StringSet(root.slice(from, until))
 
 	override def specificFactory :SpecificIterableFactory[String, StringSet] = StringSet
 

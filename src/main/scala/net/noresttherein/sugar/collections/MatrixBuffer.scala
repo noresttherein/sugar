@@ -58,7 +58,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
   * @define coll     matrix buffer
   * @define MaxSize1 65536
   * @author Marcin Mościcki
-  */ //consider: renaming to Array2Buffer
+  */ //consider: renaming to Array2Buffer; specializing
 @SerialVersionUID(Ver)
 sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit override val iterableEvidence :ClassTag[E])
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
