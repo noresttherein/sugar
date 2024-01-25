@@ -6,11 +6,11 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
-import net.noresttherein.sugar.vars.Ternary.{Known, No, NoContent, WithFilter, Yes}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
+import net.noresttherein.sugar.vars.Ternary.{Known, No, NoContent, WithFilter, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -543,10 +543,10 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline def toBlue[O](red: => O) :Pill[O, Boolean] =
 		if (x == NoContent) Red(red) else Blue(x == Yes)
 
-	/** Converts this `Ternary` to `Fallible`, returning the content as `Passed`,
+	/** Converts this `Ternary` to `Outcome`, returning the content as `Done`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
-	@inline def toPassed(err : => String) :Fallible[Boolean] =
-		if (x == NoContent) Failed(() => err) else Passed(x == Yes)
+	@inline def outcome(err : => String) :Outcome[Boolean] =
+		if (x == NoContent) Failed(() => err) else Done(x == Yes)
 
 	/** Formats this `Ternary` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String = x match {

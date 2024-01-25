@@ -9,8 +9,8 @@ import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.format.FormatSpec.BreathWeapon.{Damage, DiceCount, DiceType}
 import net.noresttherein.sugar.format.FormatSpec.Dragon.{Breath, Colour, Level, Name}
 import net.noresttherein.sugar.format.FormatSpec.XMLProps.format
-import net.noresttherein.sugar.vars.Fallible
-import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
+import net.noresttherein.sugar.vars.Outcome
+import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 
 
 object FormatSpec extends Properties("format") {
@@ -22,12 +22,12 @@ object FormatSpec extends Properties("format") {
 				if (liquid.length < 4)
 					Failed("Input too short for DamageType: \"" + liquid + "\".")
 				else liquid.substring(0, 4) match {
-					case "fire" => Passed(("fire".chopped, Fire, liquid.drop(4)))
-					case "cold" => Passed(("cold".chopped, Cold, liquid.drop(4)))
-					case "acid" => Passed(("acid".chopped, Acid, liquid.drop(4)))
+					case "fire" => Done(("fire".chopped, Fire, liquid.drop(4)))
+					case "cold" => Done(("cold".chopped, Cold, liquid.drop(4)))
+					case "acid" => Done(("acid".chopped, Acid, liquid.drop(4)))
 					case tpe    => Failed("Illegal input for DamageType: \"" + tpe + "\"...")
 				},
-			(dmg :DamageType) => Passed(dmg.innerClassName.toLowerCase.chopped)
+			(dmg :DamageType) => Done(dmg.innerClassName.toLowerCase.chopped)
 		)
 	}
 	case object Fire extends DamageType
@@ -101,7 +101,7 @@ object FormatSpec extends Properties("format") {
 				level  <- reader.property[Int](Level)
 				_      <- reader.expect(Dragon.ClassName)(format.close)
 			} yield Dragon(name, colour, breath, level)
-			Fallible(Dragon.Instance) =? formatted
+			Outcome(Dragon.Instance) =? formatted
 		}
 	}
 

@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.format
 
-import net.noresttherein.sugar.vars.{Fallible, Opt, Potential}
+import net.noresttherein.sugar.vars.{Opt, Outcome, Potential}
 
 
 
@@ -68,15 +68,15 @@ trait MoldLayout[M] extends Any with Serializable {
 		}
 	/** Provides a layout for this model type reporting a missing or malformed model
 	  * - both in the parsed format and a property of a larger molded model - to the application.
-	  * A `Fallible[M]` instance is available in the layout, rather than being implicitly unwrapped.
+	  * A `Outcome[M]` instance is available in the layout, rather than being implicitly unwrapped.
 	  * If parsing fails, regardless of the used [[net.noresttherein.sugar.format.Format.Mold Mold]] method,
 	  * nothing is consumed and [[net.noresttherein.sugar.vars.Opt.Lack Lack]] is returned.
 	  * Conversely, if `Lack` is melted by a created mold, nothing is appended to the output.
 	  */
-	def guard :MoldLayout[Fallible[M]] =
-		new MoldLayout[Fallible[M]] {
-			override def apply(format :Format) :format.Mold[Fallible[M]] = MoldLayout.this(format).guard
-			override def toString :String = MoldLayout.this.toString + ".fallible"
+	def guard :MoldLayout[Outcome[M]] =
+		new MoldLayout[Outcome[M]] {
+			override def apply(format :Format) :format.Mold[Outcome[M]] = MoldLayout.this(format).guard
+			override def toString :String = MoldLayout.this.toString + ".guard"
 		}
 
 	/** A mold layout which will first try parsing/formatting using this layout,
@@ -126,9 +126,9 @@ trait NamedMoldLayout[M] extends MoldLayout[M] {
 			override def apply(format :Format) :format.NamedMold[Option[M]] =
 				NamedMoldLayout.this(format).option
 		}
-	override def guard :NamedMoldLayout[Fallible[M]] =
-		new AbstractNamedMoldLayout[Fallible[M]](name) {
-			override def apply(format :Format) :format.NamedMold[Fallible[M]] =
+	override def guard :NamedMoldLayout[Outcome[M]] =
+		new AbstractNamedMoldLayout[Outcome[M]](name) {
+			override def apply(format :Format) :format.NamedMold[Outcome[M]] =
 				NamedMoldLayout.this(format).guard
 		}
 	override def |(other :MoldLayout[M]) :MoldLayout[M] = other match {
@@ -321,7 +321,7 @@ trait MoldLayoutFactory[M] extends Serializable {
 	/** The most generic `Mold` factory method, using the given functions for parsing and formatting.
 	  * The functions are used directly to implement [[net.noresttherein.sugar.format.Format.Mold Mold]]'s
 	  * eponymous methods. They must not throw any exceptions, and instead return
-	  * a [[net.noresttherein.sugar.vars.Fallible.Failed Failed]] instance.
+	  * a [[net.noresttherein.sugar.vars.Outcome.Failed Failed]] instance.
 	  * This method is fully useful only for molds performing such functions
 	  * as checksum calculation and verification - most molds do not need to inspect already parsed/formatted data.
 	  * @param advance A function used in the implementation of the mold's
@@ -338,13 +338,13 @@ trait MoldLayoutFactory[M] extends Serializable {
 	  *                [[net.noresttherein.sugar.format.Format.concat concat]] concatenated
 	  *                with the melted model `M`.
 	  */
-	def guard(advance :(Liquid, Liquid) => Fallible[(Liquid, M, Liquid)], append :(Liquid, M) => Fallible[Liquid])
+	def guard(advance :(Liquid, Liquid) => Outcome[(Liquid, M, Liquid)], append :(Liquid, M) => Outcome[Liquid])
 			:MoldLayout[M]
 
 	/** The simplest factory method for a `Mold`,accepting functions necessary to implement
 	  * a [[net.noresttherein.sugar.format.Format.Mold Mold]] parsing and formatting values of this maker's
 	  * model type. They must not throw any exceptions, and instead return
-	  * a [[net.noresttherein.sugar.vars.Fallible.Failed Failed]] instance.
+	  * a [[net.noresttherein.sugar.vars.Outcome.Failed Failed]] instance.
 	  * @param split   A function used to implement the mold's
 	  *                [[net.noresttherein.sugar.format.Format.Mold.guardAdvance guardAdvance]] method.
 	  *                It accepts the input data, assumed to start with a formatted value of `M`,
@@ -355,7 +355,7 @@ trait MoldLayoutFactory[M] extends Serializable {
 	  *                [[net.noresttherein.sugar.format.Format.Mold.guardMelt guardMelt]] method.
 	  *                It accepts the model to melt and returns it in a formatted form.
 	  */
-	def guard(split :Liquid => Fallible[(Liquid, M, Liquid)], melt :M => Fallible[Liquid]) :MoldLayout[M]
+	def guard(split :Liquid => Outcome[(Liquid, M, Liquid)], melt :M => Outcome[Liquid]) :MoldLayout[M]
 }
 
 
@@ -390,13 +390,13 @@ private abstract class NamedMoldLayoutFactory[M](name :String) extends MoldLayou
 				format.asInstanceOf[fmt.type].Mold.opt(this.name, split, melt).asInstanceOf[format.NamedMold[M]]
 		}
 
-	override def guard(advance :(Liquid, Liquid) => Fallible[(Liquid, M, Liquid)],
-	                   append :(Liquid, M) => Fallible[Liquid]) =
+	override def guard(advance :(Liquid, Liquid) => Outcome[(Liquid, M, Liquid)],
+	                   append :(Liquid, M) => Outcome[Liquid]) =
 		new AbstractNamedMoldLayout[M](name) {
 			override def apply(format :Format) =
 				format.asInstanceOf[fmt.type].Mold.guard(this.name, advance, append).asInstanceOf[format.NamedMold[M]]
 		}
-	override def guard(split :fmt.Liquid => Fallible[(fmt.Liquid, M, fmt.Liquid)], melt :M => Fallible[fmt.Liquid])
+	override def guard(split :fmt.Liquid => Outcome[(fmt.Liquid, M, fmt.Liquid)], melt :M => Outcome[fmt.Liquid])
 			:MoldLayout[M] =
 		new AbstractNamedMoldLayout[M](name) {
 			override def apply(format :Format) =

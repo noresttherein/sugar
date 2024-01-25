@@ -22,10 +22,10 @@ package net.noresttherein.sugar.format
 							Got(parsed, construct(newPart(prefix, value, suffix)), unparsed)
 						case _ => Lack
 					}
-				override def guardAdvance(prefix :Liquid, suffix :Liquid) :Fallible[(Liquid, M, Liquid)] =
+				override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 					valueMold.guardAdvance(prefix, suffix) match {
-						case Passed((parsed, value, unparsed))  =>
-							Passed(parsed, construct(newPart(parsed, value, unparsed)), unparsed)
+						case Done((parsed, value, unparsed))  =>
+							Done(parsed, construct(newPart(parsed, value, unparsed)), unparsed)
 						case fail :Failed => fail
 					}
 				override def append(prefix :Liquid, model :M) :Liquid = {
@@ -57,9 +57,9 @@ package net.noresttherein.sugar.format
 							val mold = construct(newPart(parsed, value, unparsed))
 							mold.advanceOpt(parsed, unparsed)
 					}
-				override def guardAdvance(prefix :Liquid, suffix :Liquid) :Fallible[(Liquid, M, Liquid)] =
+				override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 					valueMold.guardAdvance(prefix, suffix) match {
-						case Passed((parsed, value, unparsed)) =>
+						case Done((parsed, value, unparsed)) =>
 							val mold = construct(newPart(parsed, value, unparsed))
 							mold.guardAdvance(parsed, unparsed)
 					}
@@ -81,7 +81,7 @@ package net.noresttherein.sugar.format
 					val value = newValue(prefix, model)
 					val part = newPart(prefix, value, emptyLiquid)
 					valueMold.guardAppend(prefix, value) match {
-						case Passed(liquid) => construct(part).guardAppend(liquid, model)
+						case Done(liquid) => construct(part).guardAppend(liquid, model)
 						case fail :Failed => fail
 					}
 				}
@@ -113,10 +113,10 @@ package net.noresttherein.sugar.format
 							}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							valueMold.guardAdvance(prefix, suffix) match {
-								case Passed((parsed, value, unparsed)) =>
+								case Done((parsed, value, unparsed)) =>
 									val part = newPart(parsed, value, unparsed)
 									if (predicate(part))
-										Passed((parsed, construct(part), unparsed))
+										Done((parsed, construct(part), unparsed))
 									else
 										Failed(() => parsingErrorMsg(suffix))
 								case fail :Failed => fail
@@ -171,7 +171,7 @@ package net.noresttherein.sugar.format
 							}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							valueMold.guardAdvance(prefix, suffix) match {
-								case Passed((parsed, value, unparsed)) =>
+								case Done((parsed, value, unparsed)) =>
 									val part = newPart(prefix, value, suffix)
 									if (predicate(part))
 										construct(part).guardAdvance(parsed, unparsed)
@@ -203,7 +203,7 @@ package net.noresttherein.sugar.format
 						override def guardAppend(prefix :Liquid, model :M) = {
 							val value = newValue(prefix, model)
 							valueMold.guardAppend(prefix, value) match {
-								case Passed(liquid) =>
+								case Done(liquid) =>
 									val part = newPart(prefix, value, emptyLiquid)
 									if (predicate(part))
 										construct(part).guardAppend(liquid, model)

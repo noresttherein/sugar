@@ -4,8 +4,8 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionCompanionExtension, ifTrueMethods, providingMethods, satisfyingMethods}
-import net.noresttherein.sugar.vars.{Fallible, Opt, Pill, Potential, Unsure}
-import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
+import net.noresttherein.sugar.vars.{Opt, Outcome, Pill, Potential, Unsure}
+import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 
 
@@ -146,10 +146,10 @@ object extensions extends extensions {
 		@inline def toBlue[O](red : => O) :Pill[O, T] =
 			if (self.isDefined) Red(red) else Blue(self.get)
 
-		/** Converts this `Option` to `Fallible`, returning the content as `Passed`,
+		/** Converts this `Option` to `Outcome`, returning the content as `Done`,
 		  * or the value of the given `String` as `Failed` error message if empty. */
-		@inline final def toPassed(err : => String) :Fallible[T] =
-			if (self.isDefined) Failed(() => err) else Passed(self.get)
+		@inline final def outcome(err : => String) :Outcome[T] =
+			if (self.isDefined) Failed(() => err) else Done(self.get)
 	}
 
 

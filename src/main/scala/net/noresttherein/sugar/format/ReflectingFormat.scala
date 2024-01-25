@@ -29,7 +29,7 @@ trait ReflectingFormat extends Format {
 		  * @param part A property getter. Must consist of any number of chained calls to parameterless methods.
 		  *             Must not throw exceptions -
 		  *             use instead [[net.noresttherein.sugar.vars.Potential Potential]]
-		  *             or [[net.noresttherein.sugar.vars.Fallible Fallible]] as the property type.
+		  *             or [[net.noresttherein.sugar.vars.Outcome Outcome]] as the property type.
 		  */
 		def apply[P](part :M => P)(implicit tag :TypeTag[M], mold :Mold[P]) :Part[M, P] =
 			apply(propertyName(PropertyPath.nameOf(part)))(part)
@@ -46,7 +46,7 @@ trait ReflectingFormat extends Format {
 		  * @param part A property getter. Must consist of any number of chained calls to parameterless methods.
 		  *             Must not throw exceptions -
 		  *             use instead [[net.noresttherein.sugar.vars.Potential Potential]]
-		  *             or [[net.noresttherein.sugar.vars.Fallible Fallible]] as the property type.
+		  *             or [[net.noresttherein.sugar.vars.Outcome Outcome]] as the property type.
 		  */
 		def opt[P](part :M => P)(implicit tag :TypeTag[M], mold :Mold[P]) :Part[M, Potential[P]] =
 			opt(propertyName(PropertyPath.nameOf(part)))(part)

@@ -270,7 +270,10 @@ and a non boxing abstract type.
 #### 9.9. Others
 `EqRef`, `Box`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.
 
-#### 9.10. Pill and Fallible
+#### 9.10. Others
+`EqRef`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.
+
+#### 9.11. Pill and Outcome
 Alternatives to `Either` which do not box the 'right' (non error) values.
 
 

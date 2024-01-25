@@ -4,9 +4,9 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Ref.FinalRef
 import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, unzip3Fail}
@@ -384,15 +384,15 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final def toBlue[O](red: => O) :Pill[O, T] =
 		if (this eq Missing) Red(red) else Blue(get)
 
-	/** Converts this `Unsure` to `Fallible`, returning the content as `Passed`,
+	/** Converts this `Unsure` to `Outcome`, returning the content as `Done`,
 	  * or the given `String` as `Failed` error message if empty. */
-	@inline final def toPassed(err : => String) :Fallible[T] =
-		if (this eq Missing) Failed(() => err) else Passed(get)
+	@inline final def outcome(err : => String) :Outcome[T] =
+		if (this eq Missing) Failed(() => err) else Done(get)
 
-	/** Converts this `Unsure` to `Fallible`, returning the content as `Passed`,
+	/** Converts this `Unsure` to `Outcome`, returning the content as `Done`,
 	  * or the given `Throwable` as a `Failed` error if empty. */
-	@inline final def toPassed(err :Throwable) :Fallible[T] =
-		if (this eq Missing) Failed(err) else Passed(get)
+	@inline final def outcome(err :Throwable) :Outcome[T] =
+		if (this eq Missing) Failed(err) else Done(get)
 
 	/** Formats this `Unsure` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline final override def mkString(prefix :String) :String =

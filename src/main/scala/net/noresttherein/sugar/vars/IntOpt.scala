@@ -5,9 +5,9 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, NoInt, WithFilter}
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
 
@@ -440,10 +440,10 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	@inline def toBlue[O](red: => O) :Pill[O, Int] =
 		if (x == NoContent) Red(red) else Blue(x.toInt)
 
-	/** Converts this `IntOpt` to `Fallible`, returning the content as `Passed`,
+	/** Converts this `IntOpt` to `Outcome`, returning the content as `Done`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
-	@inline def toPassed(err : => String) :Fallible[Int] =
-		if (x == NoContent) Failed(() => err) else Passed(get)
+	@inline def outcome(err: => String) :Outcome[Int] =
+		if (x == NoContent) Failed(() => err) else Done(get)
 
 	/** Formats this `IntOpt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String =

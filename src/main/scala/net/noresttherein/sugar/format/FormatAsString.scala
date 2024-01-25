@@ -3,9 +3,10 @@ package net.noresttherein.sugar.format
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
 import net.noresttherein.sugar.collections.{ChoppedString, Substring}
 import net.noresttherein.sugar.format.util.{parseError, parseErrorMsg}
-import net.noresttherein.sugar.vars.Fallible.{Failed, Passed}
+import net.noresttherein.sugar.numeric.{Decimal64, UInt, ULong}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 
 
 
@@ -146,12 +147,12 @@ trait FormatAsString extends Format { format =>
 				Failed(() => parseErrorMsg(FormatAsString.this)(this, suffix))
 			else {
 				val head = suffix.head
-				Passed((prefix + head, head, suffix.tail))
+				Done((prefix + head, head, suffix.tail))
 			}
 
 		override def append(prefix :ChoppedString, model :Char) :ChoppedString = prefix + model
 		override def appendOpt(prefix :ChoppedString, model :Char) :Opt[ChoppedString] = Got(prefix + model)
-		override def guardAppend(prefix :ChoppedString, model :Char) = Passed(prefix + model)
+		override def guardAppend(prefix :ChoppedString, model :Char) = Done(prefix + model)
 	}
 	@SerialVersionUID(Ver)
 	private object LongMold extends NumberMold[Long]("Long") {
