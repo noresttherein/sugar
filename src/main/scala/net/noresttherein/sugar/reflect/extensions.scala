@@ -112,6 +112,25 @@ object extensions extends extensions {
 		  */
 		@inline def boxedEquals(other :Class[_]) :Boolean = Boxed(self) == Boxed(other)
 
+		/** Finds a common superclass with another class. For the purpose of this method, `classOf[Any]`
+		  * is understood to be a superclass of all other classes, despite not satisfying
+		  * [[java.lang.Class.isAssignableFrom isAssignableFrom]] for value (primmitive) classes.
+		  * This method however does not abstract over boxing: a superclass of a primitive class and its box class
+		  * is always `classOf[Any]`.
+		  *   1. If the classes are equal, than this class is returned;
+		  *   1. Otherwise, if either of the classes is a primitive type, `classOf[Any]` is returned.
+		  *   1. Otherwise, if there is a superclass `S` of the two classes, such that all other common super classes
+		  *      are a superclass of `S`, then `classOf[S]` is returned.
+		  *   1. Otherwise, `classOf[Any]` is returned.
+		  */
+		@inline def ||(other :Class[_]) :Class[_] = commonSuperclass(other) match {
+			case Got(superClass) => superClass
+			case _ => classOf[Any]
+		}
+
+		/** Same as [[net.noresttherein.sugar.reflect.extensions.ClassExtension.|| ||]]. */
+		@inline def or(other :Class[_]) :Class[_] = this || other
+
 		/** Finds a superclass, or extended trait, `S` of this class and the argument, such that,
 		  * for every other class `C: C.isAssignableFrom(this) && C.isAssignableFrom(other)`, `C.isAssignableFrom(S)`.
 		  * In other words, this method traverses the inheritance graph of both classes,
