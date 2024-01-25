@@ -421,6 +421,10 @@ trait imports {
 			"Illegal " + param + " argument : " + arg + " - " + reason + "."
 		)
 
+	/** Throws an [[IllegalStateException]]. */
+	final def illegalState_!(msg :String, cause :Throwable = null) :Nothing =
+		throw SugaredIllegalStateException(msg, cause)
+
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int) :Nothing =
 		throw SugaredIndexOutOfBoundsException(idx.toString)

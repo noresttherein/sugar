@@ -109,6 +109,15 @@ class SugaredIllegalArgumentException(message :String, protected override var la
 	) with LazyException
 
 @SerialVersionUID(Ver)
+class SugaredIllegalStateException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
+	extends IllegalStateException(
+		if (lazyMsg == null && message == null)
+			if (cause != null) cause.getMessage else "illegal state"
+		else message
+		, cause
+	) with LazyException
+
+@SerialVersionUID(Ver)
 class SugaredIndexOutOfBoundsException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends IndexOutOfBoundsException(
 		if (lazyMsg == null && message == null)

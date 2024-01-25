@@ -79,6 +79,9 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	val SugaredIllegalArgumentException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredIllegalArgumentException(_, _, _))
 
+	val SugaredIllegalStateException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredIllegalStateException(_, _, _))
+
 	val SugaredIndexOutOfBoundsException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredIndexOutOfBoundsException(_, _, _))
 
