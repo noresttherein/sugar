@@ -1417,7 +1417,7 @@ case object RelayArray extends StrictOptimizedSeqFactory[RelayArray] {
 				ArrayFactory.ofDim(elementType, size)
 
 		protected final def realloc(newSize :Int) :Unit =
-			elems = ArrayFactory.copyAs(elems, elementType, newSize)
+			elems = ArrayFactory.copyOf(elems, elementType, newSize)
 
 		override def sizeHint(size :Int) :Unit =
 			if (size > 0)

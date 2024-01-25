@@ -1000,6 +1000,7 @@ object extensions extends extensions {
 		@inline final def like[E](original :Array[E]) :Array[E] = like(original, original.length)
 
 		/** Creates a new array of the specified length, with the same element type as the original. No data is copied. */
+		@throws[NegativeArraySizeException]("if length is negative") //consider; special cases for AnyRef and value types.
 		final def like[E](original :Array[E], length :Int) :Array[E] =
 			if (length == 0)
 				emptyLike(original)
@@ -1020,7 +1021,7 @@ object extensions extends extensions {
 				}).castParam[E]
 
 		/** An uninitialized array with the specified element type and length. */
-		@throws[NegativeArraySizeException]("if newLength is negative") //consider; special cases for AnyRef and value types.
+		@throws[NegativeArraySizeException]("if length is negative") //consider; special cases for AnyRef and value types.
 		final def of[E](elemType :Class[E], length :Int) :Array[E] = elemType match {
 			case classes.AnyRef => new Array[AnyRef](length).asInstanceOf[Array[E]]
 			case _ if elemType.isPrimitive => (elemType match {
@@ -1164,14 +1165,14 @@ object extensions extends extensions {
 			if (until <= from | until <= 0 || from >= elems.length)
 				ArrayFactory.empty(elementClass)
 			else if (from <= 0)
-				ArrayFactory.copyAs(elems, elementClass, until)
+				ArrayFactory.copyOf(elems, elementClass, until)
 			else if ({
 	            elementClass.isAssignableFrom(elems.getClass.getComponentType) ||
 	               classOf[AnyRef].isAssignableFrom(elementClass) && elems.isInstanceOf[Array[AnyRef]]
 			}) {
 				val until0 = math.min(until, elems.length)
 				((elems :Any) : @unchecked) match {
-					case a :Array[Unit]    => ArrayFactory.copyAs[E](a, elementClass, until0 - from)
+					case a :Array[Unit]    => ArrayFactory.copyOf[E](a, elementClass, until0 - from)
 					case a :Array[AnyRef]  =>
 						val arrayClass = ArrayClass(elementClass.castParam[AnyRef])
 						java.util.Arrays.copyOfRange(a, from, until0, arrayClass).castFrom[Array[AnyRef], Array[E]]
@@ -1241,14 +1242,14 @@ object extensions extends extensions {
 				else if (offset == 0 & copied == newLength)
 					copyOfRange(elems, from0, from0 + copied, elementClass)
 				else if (offset == 0 & from0 <= 0 & until0 >= math.min(length, newLength))
-					ArrayFactory.copyAs(elems, elementClass, newLength)
+					ArrayFactory.copyOf(elems, elementClass, newLength)
 				else if (from0 >= offset & newLength <= length - from0 & copied >= (newLength >> 1)) {
 					val res = copyOfRange(elems, from0 - offset, from0 + newLength - offset, elementClass)
 					res.clear(0, offset)
 					res.clear(offset + copied, newLength)
 					res
 				} else if (offset == from0 & newLength <= length & (copied >= (newLength >> 1))) {
-					val res = ArrayFactory.copyAs(elems, elementClass, newLength)
+					val res = ArrayFactory.copyOf(elems, elementClass, newLength)
 					res.clear(0, offset)
 					res.clear(offset + copied, newLength)
 					res
@@ -1463,7 +1464,7 @@ object extensions extends extensions {
 			else if (length2 == 0)
 				copyOfRange(array1, from1, from1 + length1, elementClass, 0, newLength)
 			else if (from1 == 0 && math.min(newLength, array1.length) - length1 <= (newLength >> 1)) {
-				val res = ArrayFactory.copyAs[E](array1, elementClass, newLength)
+				val res = ArrayFactory.copyOf[E](array1, elementClass, newLength)
 				ArrayLike.copy(array2, from2, res, length1, length2)
 				res.clear(length1 + length2, math.min(newLength, array1.length))
 				res
@@ -1473,7 +1474,7 @@ object extensions extends extensions {
 				res.clear(length1 + length2, newLength)
 				res
 			} else if (from2 == length1 && math.min(newLength, array2.length) - length2 <= (newLength >> 1)) {
-				val res = ArrayFactory.copyAs[E](array2, elementClass, newLength)
+				val res = ArrayFactory.copyOf[E](array2, elementClass, newLength)
 				ArrayLike.copy(array1, from1, res, 0, length1)
 				res.clear(length1 + length2, math.min(newLength, array2.length))
 				res
@@ -1755,7 +1756,7 @@ object extensions extends extensions {
 			//to avoid initializing a new array, and then immediately overwriting when copying.
 			else if (from1 == 0 && math.min(newLength, array1.length) - length12 <= (newLength >> 1)) {
 				//Use fast Array.copyOf(array1), because less than half of the new array needs to be overwritten.
-				val res = ArrayFactory.copyAs[E](array1, elementClass, newLength)
+				val res = ArrayFactory.copyOf[E](array1, elementClass, newLength)
 				if ((array1 ne array2) | from2 != length1)
 					ArrayLike.copy(array2, from2, res, length1, length2)
 				if ((array1 ne array3) | from3 != length12)
@@ -1774,7 +1775,7 @@ object extensions extends extensions {
 				res
 			} else if (from2 == length1 && math.min(newLength, array2.length) - length2 <= (newLength >> 1)) {
 				//Create a copy of array2 and overwrite the prefix with array1 and suffix with array3 - together less than half.
-				val res = ArrayFactory.copyAs[E](array2, elementClass, newLength)
+				val res = ArrayFactory.copyOf[E](array2, elementClass, newLength)
 				if ((array2 ne array1) | from1 != 0)
 					ArrayLike.copy(array1, from1, res, 0, length1)
 				if ((array2 ne array3) | from3 != from2 + length2)

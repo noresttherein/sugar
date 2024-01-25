@@ -83,45 +83,65 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 	@inline def copyAs[E](array :ArrayLike[_], newLength :Int)(implicit classTag :ClassTag[E]) :Array[E] =
 		copyAs(array, classTag.runtimeClass.asInstanceOf[Class[E]], newLength)
 
+	/** Creates a new array with all elements of the given array, but of a new element type (component class).
+	  * @return [[net.noresttherein.sugar.arrays.ArrayFactory.copyAs copyAs]]`(array, newElementClass, array.length)`.
+	  */
+	@inline def copyAs[E](array :ArrayLike[_], newElementClass :Class[_]) :Array[E] =
+		copyAs(array, newElementClass, array.asInstanceOf[Array[_]].length)
+
 	/** Creates an array of the given length and component class, and copies to it data from `array`.
 	  * The specified `elementType` needs not to match the class behind `array`, as long as it is a superclass
 	  * of all elements actually stored in the latter. If `elementClass =:= classOf[Unit]`,
 	  * then the array is filled with the unit value (rather than `null`, as it would be by the Java's API).
 	  * This method offers some minor optimizations which may be visible with small array sizes.
 	  */
-	def copyAs[E](array :ArrayLike[_], elementClass :Class[E], newLength :Int) :Array[E] =
+	def copyAs[E](array :ArrayLike[_], newElementClass :Class[_], newLength :Int) :Array[E] =
 		if (newLength == 0)
-			empty[E](elementClass)
-		else if (elementClass == Void.TYPE || elementClass == classOf[BoxedUnit]) {
+			empty(newElementClass.castParam[E])
+		else if (newElementClass == Void.TYPE || newElementClass == classOf[BoxedUnit]) {
 			val res = new Array[Unit](newLength)
 			res.fill(())
 			res.castFrom[Array[Unit], Array[E]]
-		} else if (elementClass isAssignableFrom array.getClass.getComponentType)
-			if (elementClass.isPrimitive)
+		} else if (newElementClass isAssignableFrom array.getClass.getComponentType)
+			if (newElementClass.isPrimitive) //array.getClass.getComponentType must be the same primitive type
 				Array.copyOf(array.castFrom[ArrayLike[_], Array[E]], newLength)
 			else
 				Arrays.copyOf(
 					array.castFrom[ArrayLike[_], Array[AnyRef]],
 					newLength,
-					ArrayClass(elementClass).castParam[Array[AnyRef]]
+					ArrayClass(newElementClass).castParam[Array[AnyRef]]
 				).castFrom[Array[AnyRef], Array[E]]
 		else {
 			val oldLength = array.asInstanceOf[Array[_]].length
-			val res = java.lang.reflect.Array.newInstance(elementClass, newLength).asInstanceOf[Array[E]]
+			val res = java.lang.reflect.Array.newInstance(newElementClass, newLength).asInstanceOf[Array[E]]
 			ArrayLike.copy(array, 0, res, 0, math.min(oldLength, newLength))
 			res
 		}
 
-	/** Same as [[net.noresttherein.sugar.arrays.ArrayFactory.copyAs copyAs]]`(array)`,
+
+	/** Same as [[net.noresttherein.sugar.arrays.ArrayFactory.copyAs copyAs]]`(array, elementClass)`,
+	  * but infers the element type from the `elementClass` type parameter.
+	  */
+	@inline def copyOf[E](array :ArrayLike[_], newElementClass :Class[E]) :Array[E] =
+		copyAs(array, newElementClass, array.asInstanceOf[Array[_]].length)
+
+	/** Same as [[net.noresttherein.sugar.arrays.ArrayFactory.copyAs copyAs]]`(array, elementClass, newLength)`,
+	  * but infers the element type from the `elementClass` type parameter.
+	  */
+	@inline def copyOf[E](array :ArrayLike[_], newElementClass :Class[E], newLength :Int) :Array[E] =
+		copyAs(array, newElementClass, newLength)
+
+	/** Same as [[net.noresttherein.sugar.arrays.ArrayFactory.copyOf copyAs]]`(array)`,
 	  * but the argument array-like is of the requested element type, leading to `E` being inferred.
 	  */
 	@inline def copyOf[E :ClassTag](array :ArrayLike[E]) :Array[E] =
-		copyAs(array, classTag[E].runtimeClass.asInstanceOf[Class[E]], array.asInstanceOf[Array[_]].length)
+		copyAs[E](array, classTag[E].runtimeClass, array.asInstanceOf[Array[_]].length)
 
-	/** Same as [[net.noresttherein.sugar.arrays.ArrayFactory.copyAs copyAs]]`(array, newLength)`,
+	/** Same as [[net.noresttherein.sugar.arrays.ArrayFactory.copyOf copyAs]]`(array, newLength)`,
 	  * but the argument array-like is of the requested element type, leading to `E` being inferred.
 	  */
-	@inline def copyOf[E :ClassTag](array :ArrayLike[E], newLength :Int) :Array[E] = copyAs(array, newLength)
+	@inline def copyOf[E :ClassTag](array :ArrayLike[E], newLength :Int) :Array[E] =
+		copyAs[E](array, classTag[E].runtimeClass, newLength)
 
 
 	@inline def copyOf[E](array :Array[E]) :Array[E] = {
