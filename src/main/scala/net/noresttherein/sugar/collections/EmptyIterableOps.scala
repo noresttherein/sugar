@@ -623,8 +623,8 @@ private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 	override def prepended[B >: E](elem :B) :CC[B] = two(elem, head)
 	override def appended[B >: E](elem :B)  :CC[B] = two(head, elem)
 	override def prependedAll[B >: E](prefix :IterableOnce[B]) :CC[B] =
-		if (prefix.toBasicOps.isEmpty) asGeneric
-		else super.prependedAll(prefix)
+		if (prefix.toBasicOps.isEmpty) asGeneric else super.prependedAll(prefix)
+
 	override def appendedAll[B >: E](suffix :IterableOnce[B]) :CC[B] =
 		if (suffix.toBasicOps.isEmpty) asGeneric else super.appendedAll(suffix)
 

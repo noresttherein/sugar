@@ -2584,7 +2584,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 	protected override def className :String = "MatrixBuffer[" + iterableEvidence.runtimeClass.localName + "]"
 
-	override def toString :String = mkString(className + "|" + dataSize + "/" + storageSize + "|#" + dataOffset + "(", ", ", ")")
+//	override def toString :String = mkString(className + "|" + dataSize + "/" + storageSize + "|#" + dataOffset + "(", ", ", ")")
 }
 
 
