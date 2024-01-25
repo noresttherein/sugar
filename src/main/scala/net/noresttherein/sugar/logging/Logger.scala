@@ -9,8 +9,8 @@ import net.noresttherein.sugar.logging.Logger.Level.{Config, Fine, Finer, Finest
 import net.noresttherein.sugar.logging.Logger.NamingScheme.DemangledClassName
 import net.noresttherein.sugar.reflect.CallerFrame
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevClassNameOf, classNameOf, demangledName, fullNameOf}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -37,9 +37,9 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 	@inline def level_=(level :Level) :Unit = toJava.setLevel(level.toJava)
 
 	/** Parent logger or `None` for the root logger. */
-	@inline def parent :Opt[Logger] = toJava.getParent match {
-		case null => Lack
-		case log  => Got(new Logger(log))
+	@inline def parent :Maybe[Logger] = toJava.getParent match {
+		case null => No
+		case log  => Yes(new Logger(log))
 	}
 
 
@@ -50,20 +50,20 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 	/** Logs the message at the given level. */
 	@inline def apply(level :Level, msg: => Any) :Unit =
 		if (toJava.isLoggable(level))
-			level.log(msg, Lack)(this, LogContext.reflected)
+			level.log(msg, No)(this, LogContext.reflected)
 
 	/** Logs the given message with an attached exception at the specified level. */
 	@inline def apply(level :Level, msg: => Any, thrown :Throwable) :Unit =
 		if (toJava.isLoggable(level))
-			level.log(msg, Opt(thrown))(this, LogContext.reflected)
+			level.log(msg, Maybe(thrown))(this, LogContext.reflected)
 
 	@inline def apply(level :Level, method :String, msg: => Any) :Unit =
 		if (toJava.isLoggable(level))
-			level.log(msg, Lack)(this, new LogContext(method))
+			level.log(msg, No)(this, new LogContext(method))
 	
 	@inline def apply(level :Level, method :String, msg: => Any, thrown :Throwable) :Unit =
 		if (toJava.isLoggable(level))
-			level.log(msg, Opt(thrown))	(this, new LogContext(method))
+			level.log(msg, Maybe(thrown))	(this, new LogContext(method))
 	
 	@inline def severe(msg: => Any) :Unit = apply(Severe, msg)
 	@inline def severe(msg: => Any, thrown :Throwable) :Unit = apply(Severe, msg, thrown)
@@ -185,14 +185,14 @@ object Logger {
 
 		@inline final def apply(msg: => Any)(implicit logger :Logger, method :LogContext) :Unit =
 			if (logger.toJava.isLoggable(toJava))
-				log(msg, Lack)
+				log(msg, No)
 
 		@inline final def apply(msg: => Any, e :Throwable)(implicit logger :Logger, method :LogContext) :Unit =
 			if (logger.toJava.isLoggable(toJava))
-				log(msg, Opt(e))
+				log(msg, Maybe(e))
 
-		private[Logger] def log(msg :Any, thrown :Opt[Throwable])(implicit logger :Logger, method :LogContext) :Unit = {
-			val record = composer(logger, Got(method.methodName), this, Opt(msg), thrown)
+		private[Logger] def log(msg :Any, thrown :Maybe[Throwable])(implicit logger :Logger, method :LogContext) :Unit = {
+			val record = composer(logger, Yes(method.methodName), this, Maybe(msg), thrown)
 			logger.toJava.log(record)
 		}
 
@@ -271,7 +271,7 @@ object Logger {
   */
 @SerialVersionUID(Ver)
 class RecordComposer extends Serializable {
-	def apply(logger :Logger, method :Opt[String], level :Level, msg :Opt[Any], thrown :Opt[Throwable]) :LogRecord = {
+	def apply(logger :Logger, method :Maybe[String], level :Level, msg :Maybe[Any], thrown :Maybe[Throwable]) :LogRecord = {
 		var record = new LogRecord(level.toJava, msg.map(_.toString).orNull)
 		record.setLoggerName(level.toJava.getName)
 		record.setThrown(thrown.orNull)

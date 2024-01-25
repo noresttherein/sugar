@@ -4,6 +4,7 @@ import scala.Specializable.Args
 
 import net.noresttherein.sugar.vars.AtomicOps.{BoolAtomicVar, RefAtomicVar}
 import net.noresttherein.sugar.vars.InOut.{InOutOrdering, SpecializedVars}
+import net.noresttherein.sugar.witness.DefaultValue
 
 
 
@@ -35,6 +36,7 @@ sealed class Atomic[@specialized(SpecializedVars) T] private[vars] //private[var
 		super.testAndSet(expect, newValue) || x == newValue
 
 	private[vars] override def isSpecialized :Boolean = getClass == classOf[Atomic[Any]]
+	override def mkString :String = mkString("Atomic")
 }
 
 
@@ -53,6 +55,7 @@ case object Atomic extends AtomicFactory[Atomic] {
 			atomic
 		} else newSpecific(init)
 	}
+	override def apply[@specialized(SpecializedVars) T :DefaultValue] :Atomic[T] = super.apply[T]
 
 	implicit def AtomicOrdering[T :Ordering] :Ordering[Atomic[T]] = new InOutOrdering[Atomic, T]
 

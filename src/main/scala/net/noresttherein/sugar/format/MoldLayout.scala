@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.format
 
-import net.noresttherein.sugar.vars.{Opt, Outcome, Potential}
+import net.noresttherein.sugar.vars.{Maybe, Outcome, Opt}
 
 
 
@@ -36,19 +36,19 @@ trait MoldLayout[M] extends Any with Serializable {
 	/** Provides a layout for this model type taking into account the possibility that the value may be missing
 	  * - both in the parsed format and a property of a larger molded model.
 	  * If parsing fails, regardless of the used [[net.noresttherein.sugar.format.Format.Mold Mold]] method,
-	  * nothing is consumed and [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] is returned.
-	  * Conversely, if `Inexistent` is melted by a created mold, nothing is appended to the output.
+	  * nothing is consumed and [[scala.None None]] is returned.
+	  * Conversely, if `None` is melted by a created mold, nothing is appended to the output.
 	  */
-	def potential :MoldLayout[Potential[M]] =
-		new MoldLayout[Potential[M]] {
-			override def apply(format :Format) :format.Mold[Potential[M]] = MoldLayout.this(format).potential
-			override def toString :String = MoldLayout.this.toString + ".potential"
+	def maybe :MoldLayout[Maybe[M]] =
+		new MoldLayout[Maybe[M]] {
+			override def apply(format :Format) :format.Mold[Maybe[M]] = MoldLayout.this(format).maybe
+			override def toString :String = MoldLayout.this.toString + ".maybe"
 		}
 	/** Provides a layout for this model type taking into account the possibility that the value may be missing
 	  * - both in the parsed format and a property of a larger molded model.
 	  * If parsing fails, regardless of the used [[net.noresttherein.sugar.format.Format.Mold Mold]] method,
-	  * nothing is consumed and [[net.noresttherein.sugar.vars.Opt.Lack Lack]] is returned.
-	  * Conversely, if `Lack` is melted by a created mold, nothing is appended to the output.
+	  * nothing is consumed and [[net.noresttherein.sugar.vars.Maybe.No No]] is returned.
+	  * Conversely, if `No` is melted by a created mold, nothing is appended to the output.
 	  */
 	def opt :MoldLayout[Opt[M]] =
 		new MoldLayout[Opt[M]] {
@@ -70,8 +70,8 @@ trait MoldLayout[M] extends Any with Serializable {
 	  * - both in the parsed format and a property of a larger molded model - to the application.
 	  * A `Outcome[M]` instance is available in the layout, rather than being implicitly unwrapped.
 	  * If parsing fails, regardless of the used [[net.noresttherein.sugar.format.Format.Mold Mold]] method,
-	  * nothing is consumed and [[net.noresttherein.sugar.vars.Opt.Lack Lack]] is returned.
-	  * Conversely, if `Lack` is melted by a created mold, nothing is appended to the output.
+	  * nothing is consumed and [[net.noresttherein.sugar.vars.Maybe.No No]] is returned.
+	  * Conversely, if `No` is melted by a created mold, nothing is appended to the output.
 	  */
 	def guard :MoldLayout[Outcome[M]] =
 		new MoldLayout[Outcome[M]] {
@@ -111,10 +111,10 @@ trait NamedMoldLayout[M] extends MoldLayout[M] {
 	override def map[O](read :M => O, write :O => M) :NamedMoldLayout[O] =
 		new NamedMappedMoldLayout(this, read, write)
 
-	override def potential :NamedMoldLayout[Potential[M]] =
-		new AbstractNamedMoldLayout[Potential[M]](name) {
-			override def apply(format :Format) :format.NamedMold[Potential[M]] =
-				NamedMoldLayout.this(format).potential
+	override def maybe :NamedMoldLayout[Maybe[M]] =
+		new AbstractNamedMoldLayout[Maybe[M]](name) {
+			override def apply(format :Format) :format.NamedMold[Maybe[M]] =
+				NamedMoldLayout.this(format).maybe
 		}
 	override def opt :NamedMoldLayout[Opt[M]] =
 		new AbstractNamedMoldLayout[Opt[M]](name) {
@@ -282,7 +282,7 @@ trait MoldLayoutFactory[M] extends Serializable {
 	/** The most generic `MoldLayout` factory method, using the given functions for parsing and formatting.
 	  * The functions are used directly to implement [[net.noresttherein.sugar.format.Format.Mold Mold]]'s
 	  * eponymous methods. They must not throw any exceptions, and instead return
-	  * an empty [[net.noresttherein.sugar.vars.Potential Potential]].
+	  * an empty [[net.noresttherein.sugar.vars.Opt Opt]].
 	  * This method is fully useful only for molds performing such functions
 	  * as checksum calculation and verification - most molds do not need to inspect already parsed/formatted data.
 	  * @param advance A function used in the implementation of the mold's
@@ -299,13 +299,13 @@ trait MoldLayoutFactory[M] extends Serializable {
 	  *                [[net.noresttherein.sugar.format.Format.concat concat]] concatenated
 	  *                with the melted model `M`.
 	  */
-	def opt(advance :(Liquid, Liquid) => Potential[(Liquid, M, Liquid)], append :(Liquid, M) => Potential[Liquid])
+	def opt(advance :(Liquid, Liquid) => Opt[(Liquid, M, Liquid)], append :(Liquid, M) => Opt[Liquid])
 			:MoldLayout[M]
 
 	/** The simplest factory method for a `MoldLayout`, accepting functions necessary to implement
 	  * a [[net.noresttherein.sugar.format.Format.Mold Mold]] parsing and formatting values of this maker's
 	  * model type. They must not throw any exceptions, and instead return
-	  * an empty [[net.noresttherein.sugar.vars.Potential Potential]].
+	  * an empty [[net.noresttherein.sugar.vars.Opt Opt]].
 	  * @param split   A function used to implement the mold's
 	  *                [[net.noresttherein.sugar.format.Format.Mold.advanceOpt advanceOpt]] method.
 	  *                It accepts the input data, assumed to start with a formatted value of `M`,
@@ -316,7 +316,7 @@ trait MoldLayoutFactory[M] extends Serializable {
 	  *                [[net.noresttherein.sugar.format.Format.Mold.meltOpt meltOpt]] method.
 	  *                It accepts the model to melt and returns it in a formatted form.
 	  */
-	def opt(split :Liquid => Potential[(Liquid, M, Liquid)], melt :M => Potential[Liquid]) :MoldLayout[M]
+	def opt(split :Liquid => Opt[(Liquid, M, Liquid)], melt :M => Opt[Liquid]) :MoldLayout[M]
 
 	/** The most generic `Mold` factory method, using the given functions for parsing and formatting.
 	  * The functions are used directly to implement [[net.noresttherein.sugar.format.Format.Mold Mold]]'s
@@ -377,13 +377,13 @@ private abstract class NamedMoldLayoutFactory[M](name :String) extends MoldLayou
 				format.asInstanceOf[fmt.type].Mold(this.name, split, melt).asInstanceOf[format.NamedMold[M]]
 		}
 
-	override def opt(advance :(Liquid, Liquid) => Potential[(Liquid, M, Liquid)],
-	                 append :(Liquid, M) => Potential[Liquid]) =
+	override def opt(advance :(Liquid, Liquid) => Opt[(Liquid, M, Liquid)],
+	                 append :(Liquid, M) => Opt[Liquid]) =
 		new AbstractNamedMoldLayout[M](name) {
 			override def apply(format :Format) =
 				format.asInstanceOf[fmt.type].Mold.opt(this.name, advance, append).asInstanceOf[format.NamedMold[M]]
 		}
-	override def opt(split :fmt.Liquid => Potential[(fmt.Liquid, M, fmt.Liquid)], melt :M => Potential[fmt.Liquid])
+	override def opt(split :fmt.Liquid => Opt[(fmt.Liquid, M, fmt.Liquid)], melt :M => Opt[fmt.Liquid])
 			:MoldLayout[M] =
 		new AbstractNamedMoldLayout[M](name) {
 			override def apply(format :Format) =

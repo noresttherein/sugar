@@ -7,7 +7,7 @@ import scala.annotation.nowarn
 
 
 
-package object concurrent {
+package object concurrent { //consider: Semaphore
 	@nowarn("cat=deprecation")
 	@inline private[sugar] def threadId(thread :Thread) :Long = thread.getId
 

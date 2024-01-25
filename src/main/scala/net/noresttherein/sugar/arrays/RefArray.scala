@@ -12,8 +12,8 @@ import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -219,7 +219,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		def apply[E](array :RefArray[E]) :mutable.IndexedSeq[E] =
 			mutable.ArraySeq.make(array.castFrom[RefArray[E], Array[E]])
 
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Opt[RefArray[E]] = {
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[RefArray[E]] = {
 			val array = elems match {
 				case seq   :mutable.ArraySeq[_]                                    => seq.array
 				case seq   :ArrayBuffer[_]                                         => CheatedAccess.array(seq)
@@ -228,9 +228,9 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 				case _                                                             => null
 			}
 			if (array != null && array.length == elems.length && array.getClass == classOf[Array[AnyRef]])
-				Got(array.castFrom[Array[_], RefArray[E]])
+				Yes(array.castFrom[Array[_], RefArray[E]])
 			else
-				Lack
+				No
 		}
 
 		/** Wraps and unwraps sections of a `RefArray` in mutable sequences. $warning */
@@ -239,7 +239,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 			def apply[E](array :RefArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
 				RefArraySlice.slice(array, from, until)
 
-			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Opt[(RefArray[E], Int, Int)] = {
+			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[(RefArray[E], Int, Int)] = {
 				val length = elems.length
 				var start  = 0
 				val array  = elems match {
@@ -256,9 +256,9 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 						null
 				}
 				if (array != null && array.getClass == classOf[Array[AnyRef]])
-					Got((array.castFrom[Array[_], RefArray[E]], start, start + length))
+					Yes((array.castFrom[Array[_], RefArray[E]], start, start + length))
 				else
-					Lack
+					No
 			}
 		}
 	}

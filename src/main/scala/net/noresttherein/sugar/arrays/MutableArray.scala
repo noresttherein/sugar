@@ -22,8 +22,8 @@ import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -450,38 +450,38 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		def apply[E](array :MutableArray[E]) :mutable.IndexedSeq[E] =
 			MutableArraySlice.wrap(array)
 
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Opt[MutableArray[E]] = {
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[MutableArray[E]] = {
 			val length = elems.length
 			elems match {
 				case seq   :mutable.ArraySeq[_] =>
-					Got(seq.array.castFrom[Array[_], MutableArray[E]])
+					Yes(seq.array.castFrom[Array[_], MutableArray[E]])
 				case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == length =>
-					Got(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
+					Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
 				case slice :ArrayIterableOnce[_] if slice.isMutable && slice.unsafeArray.length == length =>
-					Got(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
+					Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
 				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.data1.length == length =>
-					Got(seq.data1.castFrom[Array[_], MutableArray[E]])
+					Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
 				case _ =>
-					Lack
+					No
 			}
 		}
 
-		def unapply[E :ClassTag](elems :IterableOnce[E]) :Opt[MutableArray[E]] = elems match {
-//			case RefArray.Wrapped(array) => Got(array)
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[MutableArray[E]] = elems match {
+//			case RefArray.Wrapped(array) => Yes(array)
 			case seq   :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
-				Got(seq.array.castFrom[Array[_], MutableArray[E]])
+				Yes(seq.array.castFrom[Array[_], MutableArray[E]])
 			case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length =>
-				Got(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
+				Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
 			case slice :ArrayIterableOnce[_]
 				if slice.isMutable && slice.startIndex == 0 && slice.knownSize == slice.unsafeArray.length &&
 					classTag[E].runtimeClass <:< slice.unsafeArray.getClass.getComponentType =>
-				Got(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
+				Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
 			case seq   :MatrixBuffer[_]
 				if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length &&
 					classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
-				Got(seq.data1.castFrom[Array[_], MutableArray[E]])
+				Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
 			case _ =>
-				Lack
+				No
 		}
 
 		/** Converts a section of an array to a mutable indexd sequence, and matches any collection
@@ -496,43 +496,43 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 				else
 					ArraySlice.slice(array.asSubtype[Array[E]], from, until)
 
-			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Opt[(MutableArray[E], Int, Int)] = {
+			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[(MutableArray[E], Int, Int)] = {
 				val length = elems.length
 				elems match {
 					case seq :mutable.ArraySeq[E] =>
-						Got(seq.array.castFrom[Array[_], MutableArray[E]], 0, length)
+						Yes(seq.array.castFrom[Array[_], MutableArray[E]], 0, length)
 					case seq :ArrayBuffer[E] =>
-						Got(CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, length)
+						Yes(CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, length)
 					case seq :ArrayIterableOnce[E] if seq.isMutable =>
 						val start = seq.startIndex
-						Got(seq.unsafeArray.castFrom[Array[_], MutableArray[E]], start, start + length)
+						Yes(seq.unsafeArray.castFrom[Array[_], MutableArray[E]], start, start + length)
 					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex + length <= seq.data1.length =>
-						Got((seq.data1, seq.startIndex, seq.startIndex + length))
+						Yes((seq.data1, seq.startIndex, seq.startIndex + length))
 					case _ =>
-						Lack
+						No
 				}
 			}
 
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Opt[(MutableArray[E], Int, Int)] = elems match {
+			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(MutableArray[E], Int, Int)] = elems match {
 				case seq :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
-					Got((seq.array.castFrom[Array[_], Array[E]], 0, seq.array.length))
+					Yes((seq.array.castFrom[Array[_], Array[E]], 0, seq.array.length))
 
 				case seq :ArrayBuffer[_] =>
-					Got((CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, seq.length))
+					Yes((CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, seq.length))
 
 				case slice :ArrayIterableOnce[E] if slice.isMutable && slice.knownSize >= 0 =>
 					val array = slice.unsafeArray.castFrom[Array[_], Array[E]]
 					val start = slice.startIndex
 					if (classTag[E].runtimeClass <:< array.getClass.getComponentType)
-						Got((array, start, start + slice.knownSize))
+						Yes((array, start, start + slice.knownSize))
 					else
-						Lack
+						No
 				case seq :MatrixBuffer[E]
 					if seq.dim == 1 && seq.startIndex + seq.length <= seq.data1.length &&
 						classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
-					Got(seq.data1, seq.startIndex, seq.startIndex + seq.length)
+					Yes(seq.data1, seq.startIndex, seq.startIndex + seq.length)
 				case _ =>
-					Lack
+					No
 			}
 
 		}

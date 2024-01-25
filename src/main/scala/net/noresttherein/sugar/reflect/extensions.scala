@@ -7,8 +7,8 @@ import scala.annotation.tailrec
 import net.noresttherein.sugar.reflect
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -124,7 +124,7 @@ object extensions extends extensions {
 		  *   1. Otherwise, `classOf[Any]` is returned.
 		  */
 		@inline def ||(other :Class[_]) :Class[_] = commonSuperclass(other) match {
-			case Got(superClass) => superClass
+			case Yes(superClass) => superClass
 			case _ => classOf[Any]
 		}
 
@@ -136,16 +136,16 @@ object extensions extends extensions {
 		  * In other words, this method traverses the inheritance graph of both classes,
 		  * and finds their least upper bound with regard to inheritance partial order.
 		  *
-		  * The search may return `Lack` in the following situations:
+		  * The search may return `No` in the following situations:
 		  *   1. `this` and `other` are different value types;
 		  *   1. one of the classes is a value type, and the other a reference type;
 		  *   1. both `this` and `other` extend, directly or indirectly, the same two unrelated classes/traits.
 		  */
-		def commonSuperclass(other :Class[_]) :Opt[Class[_]] =
-			if (self eq other) Got(self)
-			else if (self isAssignableFrom other) Got(self)
-			else if (other isAssignableFrom self) Got(other)
-			else if (self.isPrimitive || other.isPrimitive) Lack
+		def commonSuperclass(other :Class[_]) :Maybe[Class[_]] =
+			if (self eq other) Yes(self)
+			else if (self isAssignableFrom other) Yes(self)
+			else if (other isAssignableFrom self) Yes(other)
+			else if (self.isPrimitive || other.isPrimitive) No
 			else {
 				def findSuperclass(superclass :Class[_], candidate :Class[_]) :Class[_] =
 					if (superclass isAssignableFrom other)
@@ -165,7 +165,7 @@ object extensions extends extensions {
 						}
 						best
 					}
-				Opt(findSuperclass(self, classOf[Any]))
+				Maybe(findSuperclass(self, classOf[Any]))
 			}
 
 		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.),

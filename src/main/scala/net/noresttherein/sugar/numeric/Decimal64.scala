@@ -14,8 +14,8 @@ import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoubleP
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
 import net.noresttherein.sugar.oops
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Optionally
 
 
@@ -1039,7 +1039,7 @@ class Decimal64 private (private val bits :Long)
 					val isExact =
 						java.lang.Float.isFinite(f) && f == f &&
 							(n >= 0 && { val whole = f.toLong; whole.toFloat == f && whole == toLong }) ||
-							this == Decimal64(new JavaBigDecimal(f)) //todo: we really need methods which return an Opt/Option
+							this == Decimal64(new JavaBigDecimal(f)) //todo: we really need methods which return an Maybe/Option
 					if (isExact) f else Float.NaN
 			}
 		} catch {
@@ -1056,7 +1056,7 @@ class Decimal64 private (private val bits :Long)
 					val isExact =
 						java.lang.Double.isFinite(d) && d == d &&
 							(n >= 0 && { val whole = d.toLong; whole.toDouble == d && whole == toLong }) ||
-							this == Decimal64(new JavaBigDecimal(d)) //todo: we really need methods which return an Opt/Option
+							this == Decimal64(new JavaBigDecimal(d)) //todo: we really need methods which return an Maybe/Option
 					if (isExact) d else Double.NaN
 			}
 		} catch {
@@ -1738,8 +1738,8 @@ object Decimal64 {
 		/** Extractor deconstructing a `MathContext` into its [[java.math.MathContext.getPrecision precision]]
 		  * and [[java.math.MathContext.getRoundingMode roundingMode]] properties.
 		  **/
-		@inline def unapply(mode :MathContext) :Opt[(Int, RoundingMode)] =
-			Got((mode.getPrecision, mode.getRoundingMode))
+		@inline def unapply(mode :MathContext) :Maybe[(Int, RoundingMode)] =
+			Yes((mode.getPrecision, mode.getRoundingMode))
 
 		@inline private[Decimal64] def isNearestNeighbour(rounding :RoundingMode) :Boolean =
 			rounding == HALF_DOWN || rounding == HALF_UP || rounding == HALF_EVEN
@@ -2299,7 +2299,7 @@ object Decimal64 {
 	  * specified by an implicit `MathContext`. If no such instance exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
 	  * is used instead. This method is equivalent to [[net.noresttherein.sugar.numeric.Decimal64.parse parse]],
-	  * except the latter returns the result in an `Opt` instead of throwing an exception.
+	  * except the latter returns the result in an `Maybe` instead of throwing an exception.
 	  **/
 	@throws[NumberFormatException]("if the string does not represent a decimal number in an accepted format.")
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")
@@ -2310,11 +2310,11 @@ object Decimal64 {
 	/** Attempts to create a `Decimal64` equal to the given `Long` value.
 	  * @param int an integer value which satisfies
 	  *            [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]]` <= int <= `[[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]].
-	  * @return `Got(Decimal(int, 0))`, or `Lack` if the former would throw an exception.
+	  * @return `Yes(Decimal(int, 0))`, or `No` if the former would throw an exception.
 	  **/
-	def exact(int :Long) :Opt[Decimal64] =
-		try Got(from(int)) catch {
-			case _ :InternalException => Lack
+	def exact(int :Long) :Maybe[Decimal64] =
+		try Yes(from(int)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a normalized `Decimal64` instance equal to `significand * 10E-scale`.
@@ -2325,7 +2325,7 @@ object Decimal64 {
 	  * `[`[[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]]`, `[[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]]`]`,
 	  * or if the `scale`, despite normalization, fails outside of
 	  * `[`[[net.noresttherein.sugar.numeric.Decimal64.MinScale MinScale]]`,`[[net.noresttherein.sugar.numeric.Decimal64.MaxScale MaxScale]]`]`,
-	  * then no such `Decimal64` exists, and `Lack` is returned.
+	  * then no such `Decimal64` exists, and `No` is returned.
 	  *
 	  * @param significand A value containing all leading non zero digits of the created `Decimal64`.
 	  *                    The decimal representation of the whole number consists of the decimal format of `significand`,
@@ -2338,81 +2338,81 @@ object Decimal64 {
 	  * @param scale       The number of least significant digits in `significand` which consist of the fractional
 	  *                    portion of the created `Decimal64` (if `scale is positive)`, or the number of trailing zeros
 	  *                    following the significand.
-	  * @return `Got(Decimal(significand, scale))`, or `Lack` if the former would throw an exception.
+	  * @return `Yes(Decimal(significand, scale))`, or `No` if the former would throw an exception.
 	  **/
-	def exact(significand :Long, scale :Int) :Opt[Decimal64] =
-		try Got(from(significand, scale)) catch {
-			case _ :InternalException => Lack
+	def exact(significand :Long, scale :Int) :Maybe[Decimal64] =
+		try Yes(from(significand, scale)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` equal exactly to the given `Float`, using maximum available precision.
-	  * If the argument cannot be represented exactly as a `Decimal64`, a `Lack` is returned.
+	  * If the argument cannot be represented exactly as a `Decimal64`, a `No` is returned.
 	  * There is a subtle difference between this method and
 	  * `Decimal64(decimal, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`)`:
 	  * other methods accepting a `Double` create a `Decimal64` based on its decimal representation,
 	  * while this method will attempt to create an instance ''exactly'' equal to the argument.
 	  * If you wish to obtain the default behaviour, call `Decimal64.exact(decimal.toString)` instead.
 	  **/
-	def exact(decimal :Float) :Opt[Decimal64] =
-		try Got(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(decimal :Float) :Maybe[Decimal64] =
+		try Yes(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` equal exactly to the given `Double`, using maximum available precision.
-	  * If the argument cannot be represented exactly as a `Decimal64`, `Lack` is returned.
+	  * If the argument cannot be represented exactly as a `Decimal64`, `No` is returned.
 	  * There is a subtle difference between this method and
 	  * `Decimal64(decimal, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`)`:
 	  * other methods accepting a `Double` create a `Decimal64` based on its decimal representation,
 	  * while this method will attempt to create an instance ''exactly'' equal to the argument.
 	  * If you wish to obtain the default behaviour, call `Decimal64.exact(decimal.toString)` instead.
 	  **/
-	def exact(decimal :Double) :Opt[Decimal64] =
-		try Got(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(decimal :Double) :Maybe[Decimal64] =
+		try Yes(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` equal exactly to the given `BigInt`, using maximum available precision.
-	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
-	  *         or `Lack` if the former would throw an [[ArithmeticException]].
+	  * @return `Yes(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `No` if the former would throw an [[ArithmeticException]].
 	  **/
-	def exact(big :BigInt) :Opt[Decimal64] =
-		try Got(from(big.bigInteger, Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(big :BigInt) :Maybe[Decimal64] =
+		try Yes(from(big.bigInteger, Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` equal exactly to the given `BigInteger`, using maximum available precision.
-	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
-	  *         or `Lack`, if the former would throw an [[ArithmeticException]].
+	  * @return `Yes(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `No`, if the former would throw an [[ArithmeticException]].
 	  **/
-	def exact(big :BigInteger) :Opt[Decimal64] =
-		try Got(from(big, Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(big :BigInteger) :Maybe[Decimal64] =
+		try Yes(from(big, Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` equal exactly to the given `BigDecimal`, using maximum available precision.
-	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
-	  *         or `Lack`, if the former would throw an exception.
+	  * @return `Yes(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `No`, if the former would throw an exception.
 	  **/
-	def exact(big :BigDecimal) :Opt[Decimal64] =
-		try Got(from(big.bigDecimal, Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(big :BigDecimal) :Maybe[Decimal64] =
+		try Yes(from(big.bigDecimal, Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` equal exactly to the given `BigDecimal`, using maximum available precision.
-	  * @return `Got(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
-	  *         or `Lack`, if the former would throw an exception.
+	  * @return `Yes(Decimal64(big, Round.`[[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]`))`,
+	  *         or `No`, if the former would throw an exception.
 	  **/
-	def exact(big :JavaBigDecimal) :Opt[Decimal64] =
-		try Got(from(big, Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(big :JavaBigDecimal) :Maybe[Decimal64] =
+		try Yes(from(big, Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 	/** Creates a `Decimal64` whose textual representation equals exactly the given `String`.
-	  * @return `Got(Decimal64(decimal))` or `Lack`, if the former would throw an exception.
+	  * @return `Yes(Decimal64(decimal))` or `No`, if the former would throw an exception.
 	  **/
-	def exact(decimal :String) :Opt[Decimal64] =
-		try Got(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
-			case _ :InternalException => Lack
+	def exact(decimal :String) :Maybe[Decimal64] =
+		try Yes(from(new JavaBigDecimal(decimal, MathContext.UNLIMITED), Round.ExtendedExact)) catch {
+			case _ :InternalException => No
 		}
 
 
@@ -2424,13 +2424,13 @@ object Decimal64 {
 	  * with the exception that [[net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact ExtendedExact]]
 	  * context is used as a default (if no implicit context is present),
 	  * rather than [[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]],
-	  * so the method will return `Lack` if the value cannot be represented exactly.
+	  * so the method will return `No` if the value cannot be represented exactly.
 	  **/
 	@throws[ArithmeticException]("if the parsed number exceeds both the precision of Decimal64 or the one from an implicit MathContext.")
 	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
-	def parse(string :String)(implicit mode :Optionally[MathContext]) :Opt[Decimal64] =
-		try Got(from(string, mode getOrElse ExtendedExact)) catch {
-			case _ :ArithmeticException | _ :NumberFormatException => Lack
+	def parse(string :String)(implicit mode :Optionally[MathContext]) :Maybe[Decimal64] =
+		try Yes(from(string, mode getOrElse ExtendedExact)) catch {
+			case _ :ArithmeticException | _ :NumberFormatException => No
 		}
 
 

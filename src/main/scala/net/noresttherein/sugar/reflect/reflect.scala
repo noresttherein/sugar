@@ -8,8 +8,8 @@ import scala.runtime.BoxedUnit
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
 import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, immutableMapExtension}
 import net.noresttherein.sugar.matching.BooleanMatchPattern
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -22,7 +22,7 @@ package reflect {
 		def apply(clss :Class[_]) :Class[_] = if (clss.isPrimitive) Wrappers(clss) else clss
 
 		/** If `clss` is a box class for a Java primitive type, return its unboxed primitive class. */
-		def unapply(clss :Class[_]) :Opt[Class[_]] = Opt(PrimitiveClass.getOrElse(clss, null))
+		def unapply(clss :Class[_]) :Maybe[Class[_]] = Maybe(PrimitiveClass.getOrElse(clss, null))
 
 		private[this] val Wrappers :Map[Class[_], Class[_]] = BoxClass
 	}
@@ -35,7 +35,7 @@ package reflect {
 		def apply(clss :Class[_]) :Class[_] = Unwrapped.getOrElse(clss, clss)
 
 		/** If `clss` is a Java primitive type, return its standard boxed reference class. */
-		def unapply(clss :Class[_]) :Opt[Class[_]] = Opt(BoxClass.getOrElse(clss, null))
+		def unapply(clss :Class[_]) :Maybe[Class[_]] = Maybe(BoxClass.getOrElse(clss, null))
 
 		private[this] val Unwrapped :Map[Class[_], Class[_]] = PrimitiveClass
 	}
@@ -49,7 +49,7 @@ package reflect {
 			cache.getOrElseApply(clss, java.lang.reflect.Array.newInstance(_, 0).getClass).castParam[Array[X]]
 
 		/** If the argument class is an array class, returns the class of its elements. */
-		def unapply(clss :Class[_]) :Opt[Class[_]] = Opt(clss.getComponentType)
+		def unapply(clss :Class[_]) :Maybe[Class[_]] = Maybe(clss.getComponentType)
 
 		private[this] val cache = Map[Class[_], Class[_]](
 			classOf[AnyRef]   -> classOf[Array[AnyRef]],
@@ -160,12 +160,12 @@ package object reflect {
 	) withDefaultValue classOf[Any]
 
 
-	private[sugar] def leastSuperclass(classes :Class[_]*) :Opt[Class[_]] =
-		if (classes.isEmpty) Lack
-		else if (classes.sizeIs == 1) Got(classes.head)
+	private[sugar] def leastSuperclass(classes :Class[_]*) :Maybe[Class[_]] =
+		if (classes.isEmpty) No
+		else if (classes.sizeIs == 1) Yes(classes.head)
 		else if (classes.sizeIs == 2) classes.head.commonSuperclass(classes.last)
-		else if (classes.forall(_ == classes.head)) Got(classes.head)
-		else if (classes.exists(_.isPrimitive)) Lack
+		else if (classes.forall(_ == classes.head)) Yes(classes.head)
+		else if (classes.exists(_.isPrimitive)) No
 		else {
 			val remainder = classes match {
 				case list :collection.LinearSeq[Class[_]]  => list.tail
@@ -190,7 +190,7 @@ package object reflect {
 					}
 					best
 				}
-			Opt(findSuperclass(classes.head, classOf[Any]))
+			Maybe(findSuperclass(classes.head, classOf[Any]))
 		}
 
 	/** Returns the suspected class field declared as `symbol`, as present in the byte code.

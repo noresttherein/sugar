@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.scalaFieldName
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -20,19 +20,20 @@ object AtomicOps {
 
 	/** Implementation trait for `InOut` implementations with `@volatile` atomic update operations.
 	  * @note the backing field holding the value must be named `x`, as it is accessed through reflection.
+	  * @see [[net.noresttherein.sugar.vars.Atomic Atomic]]
+	  * @see [[net.noresttherein.sugar.vars.Volatile Volatile]]
 	  */ //this is an inner class so it can have access to protected methods in AtomicOps.
 	trait AtomicVar[@specialized(SpecializedVars) T] extends InOut[T] {
 		protected def factory :AtomicOps[AtomicVar]
 
 		override def isDefined :Boolean = true
 
-		/** Assigns a new value to this variable, returning a value it held at some point in the past.
-		  * This method is atomic with `@volatile` access semantics.
+		/** Atomically assigns a new value to this variable, returning a value it held at some point in the past.
+		  * @return the value of this $Ref at the moment of assigning `newValue`.
 		  */
 		override def ?=(newValue :T) :T = factory.getAndSet(this, newValue)
 
-		/** Assigns a new value to this variable providing the current value is equal to the expected value.
-		  * This method is atomic with `@volatile` access semantics.
+		/** Atomically assigns a new value to this variable, providing the current value is equal to the expected value.
 		  * @param expect   a value to compare with current value.
 		  * @param newValue a new value for this variable.
 		  * @return `true` if the previous value equaled `expect` and the variable has been set to `newValue`.
@@ -41,8 +42,7 @@ object AtomicOps {
 			factory.testAndSet(this, expect, newValue)
 
 		/** Atomically updates the value of this variable with the given function. The result is equivalent to
-		  * `val res = f(this.get); this.value = res; res`, but guarantees atomicity and happens with `@volatile`
-		  * memory access semantics.
+		  * `val res = f(this.get); this.value = res; res`, but guarantees atomicity.
 		  * @param f function to apply to the value of this variable. Should have no side effects as it may be invoked
 		  *          several times.
 		  * @return the result of applying `f` to the current value.
@@ -66,8 +66,6 @@ object AtomicOps {
 		  * updated iteratively with new values in a way similar to an in place ''foldLeft'' operation
 		  * on a singleton collection; the difference from `foldLeft` is that the function's result is the type
 		  * of this variable, rather than the argument.
-		  *
-		  * The value of this variable is read and set with `@volatile` memory access semantics.
 		  * @param z accumulator value to pass as the first argument to the `f` function, together with the current
 		  *          value of this variable.
 		  * @param f a function applied to the argument and this variable, whose result should be set to this variable.
@@ -92,8 +90,6 @@ object AtomicOps {
 		  * updated iteratively with new values in a way similar to an in place ''foldRight'' operation
 		  * on a singleton collection; the difference from `foldRight` is that the function's result is the type
 		  * of this variable, rather than the argument.
-		  *
-		  * The value of this variable is read and set with `@volatile` memory access semantics.
 		  * @param z accumulator value to pass as the second argument to the `f` function, together with the current
 		  *          value of this variable.
 		  * @param f a function applied to the this variable and the argument, whose result should be set to this variable.
@@ -113,12 +109,14 @@ object AtomicOps {
 			newValue
 		}
 
-
-		private[vars] override def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-			if (!other) ev(this).value = false
-
-		private[vars] override def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-			if (other) ev(this).value = true
+		//Many methods delegate to lower level methods in the companion object (factory), as they must compare
+		// the class of this instance with specialized versions of actual implementations, which can only be created
+		// by the factory. They also benefit from access to private[this] fields.
+//		private[vars] override def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
+//			if (!other) ev(this).value = false
+//
+//		private[vars] override def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
+//			if (other) ev(this).value = true
 
 		//overridden to avoid the creation of a closure object capturing other
 		private[vars] override def bool_&&=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
@@ -217,30 +215,14 @@ object AtomicOps {
 		}
 
 		private[vars] override def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ + _)
-		private[vars] override def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ * _)
-		private[vars] override def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ / _)
-		private[vars] override def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ % _)
-		private[vars] override def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this).update(-_)
-		private[vars] override def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this).update(~_)
 		private[vars] override def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ | _)
 		private[vars] override def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ & _)
 		private[vars] override def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ ^ _)
-		private[vars] override def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >> _)
-		private[vars] override def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >>> _)
-		private[vars] override def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ << _)
 
 		private[vars] override def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ + _)
-		private[vars] override def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ * _)
-		private[vars] override def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ / _)
-		private[vars] override def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ % _)
-		private[vars] override def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this).update(-_)
-		private[vars] override def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this).update(~_)
 		private[vars] override def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ | _)
 		private[vars] override def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ & _)
 		private[vars] override def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ ^ _)
-		private[vars] override def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >> _)
-		private[vars] override def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >>> _)
-		private[vars] override def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ << _)
 
 		private[vars] override def isSpecialized = false
 	}
@@ -289,7 +271,10 @@ object AtomicOps {
 
 
 /** The nitty-gritty of the implementations for various atomic variables.
-  * [[net.noresttherein.sugar.vars.AtomicOps.AtomicVar AtomicOps.Var]] delegate to this class for lower level operations.
+  * [[net.noresttherein.sugar.vars.AtomicOps.AtomicVar AtomicVar]] delegates to this class for lower level operations.
+  * The manner of synchronization is not specified, but all compound
+  * ([[net.noresttherein.sugar.vars.AtomicOps.getAndSet getAndSet]],
+  * [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]], etc.) are guaranteed to be performed atomically.
   * @define Ref `V`
   * @define ref concurrent variable
   */
@@ -298,10 +283,10 @@ trait AtomicOps[+V[T] <: InOut[T]] {
 	protected def testAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean
 	protected def weakTestAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean
 
-	protected def repeatTestAndSetBool
-	    (bool :AtomicOps.AtomicVar[Boolean], expect :Boolean, ifExpected :Boolean, ifNotExpected :Boolean) :Boolean
-
 	protected def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean) :Boolean
+
+	protected def repeatTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean,
+	                                   ifExpected :Boolean, ifNotExpected :Boolean) :Boolean
 
 	protected def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int
 	protected def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Int], value :Int) :Int
@@ -313,8 +298,8 @@ trait AtomicOps[+V[T] <: InOut[T]] {
 	protected def getAndBitwiseOr(v :AtomicOps.AtomicVar[Long], value :Long) :Long
 	protected def getAndBitwiseXor(v :AtomicOps.AtomicVar[Long], value :Long) :Long
 
-//	def intHandle(variable :InOut[Int]) :Opt[VarHandle]
-//	def longHandle(variable :InOut[Long]) :Opt[VarHandle]
+//	def intHandle(variable :InOut[Int]) :Maybe[VarHandle]
+//	def longHandle(variable :InOut[Long]) :Maybe[VarHandle]
 //	def intHandle :VarHandle
 //	def longHandle :VarHandle
 //	def boolHandle :VarHandle
@@ -402,17 +387,19 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean) :Boolean =
 		boolHandle(v).weakCompareAndSet(v, expect, newValue)
 
-	protected override def repeatTestAndSetBool(bool :AtomicOps.AtomicVar[Boolean], expect :Boolean,
+	protected override def repeatTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean,
 	                                            ifExpected :Boolean, ifNotExpected :Boolean) :Boolean =
 	{
-		val handle = boolHandle(bool)
-		var v = expect
-		while (!handle.weakCompareAndSet(bool, if (v == expect) ifExpected else ifNotExpected))
-			v = !v
-		if (v == expect) ifExpected else ifNotExpected
+		val handle = boolHandle(v)
+		var x = expect
+		while (!handle.weakCompareAndSet(v, if (x == expect) ifExpected else ifNotExpected))
+			x = !x
+		if (x == expect) ifExpected else ifNotExpected
 	}
 
-	protected override def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = intHandle.getAndAdd(v :AnyRef, value)
+	protected override def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int =
+		intHandle.getAndAdd(v :AnyRef, value)
+
 	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Int], value :Int) :Int =
 		intHandle.getAndBitwiseAnd(v :AnyRef, value)
 
@@ -422,7 +409,8 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Int], value :Int) :Int =
 		intHandle.getAndBitwiseOr(v :AnyRef, value)
 
-	protected override def getAndAdd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = longHandle.getAndAdd(v :AnyRef, value)
+	protected override def getAndAdd(v :AtomicOps.AtomicVar[Long], value :Long) :Long =
+		longHandle.getAndAdd(v :AnyRef, value)
 
 	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Long], value :Long) :Long =
 		longHandle.getAndBitwiseAnd(v :AnyRef, value)

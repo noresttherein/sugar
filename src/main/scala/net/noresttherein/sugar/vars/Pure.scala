@@ -5,7 +5,7 @@ import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -46,15 +46,18 @@ object Pure {
 	  * All testing functions become even less helpful, but at least it is guaranteed that once `isDefinite`
 	  * returns `true`, it will always be so (in the sense of the java memory 'happens before' relation).
 	  */
-	def apply[@specialized(SpecializedVars) T](idempotent: => T) :Pure[T] = {
-		val initializer = () => idempotent
+	@inline def apply[@specialized(SpecializedVars) T](idempotent: => T) :Pure[T] = from(() => idempotent)
+
+	/** Same as [[net.noresttherein.sugar.vars.Pure$.apply apply]], but accepts a `Function0`,
+	  * rather a by-name parameter.
+	  */
+	def from[@specialized(SpecializedVars) T](initializer: () => T) :Pure[T] =
 		new PureVal[T] match {
 			case ref if ref.getClass == classOf[Val[Any]] => new PureRef(initializer)
 			case spec =>
 				spec.init(initializer)
 				spec
 		}
-	}
 
 	/** A wrapper over an already computed value adapting it to the `Pure` type. It is used
 	  * by [[net.noresttherein.sugar.vars.Lazy.map map]] and [[net.noresttherein.sugar.vars.Lazy.flatMap flatMap]]
@@ -65,7 +68,7 @@ object Pure {
 
 
 	/** An already computed (initialized) value. */ //todo: make it specialized
-	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in an Opt all the time
+	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in an Maybe all the time
 	private class Eager[+T](x :T) extends Pure[T] {
 		override def isDefinite :Boolean = true
 		override def value :T = x
@@ -86,9 +89,7 @@ object Pure {
   * which allows more lax synchronisation.
   */
 @SerialVersionUID(Ver)
-private class PureVal[@specialized(SpecializedVars) +T]
-	extends Pure[T]
-{
+private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
 	private[this] var initializer : () => T = _
 	private[this] var evaluated :Any = undefined
 
@@ -126,9 +127,9 @@ private class PureVal[@specialized(SpecializedVars) +T]
 		val res = evaluated
 		if (res == undefined) None else Some(res.asInstanceOf[T])
 	}
-	override def opt :Opt[T] = {
+	override def maybe :Maybe[T] = {
 		val res = evaluated
-		if (res == undefined) Lack else Got(res.asInstanceOf[T])
+		if (res == undefined) No else Yes(res.asInstanceOf[T])
 	}
 	override def unsure :Unsure[T] = {
 		val res = evaluated
@@ -164,12 +165,6 @@ private class PureVal[@specialized(SpecializedVars) +T]
 
 	override def isSpecialized = true
 
-	override def mkString(prefix :String) :String = evaluated match {
-		case `undefined` => prefix + "()"
-		case v => prefix + "(" + v + ")"
-	}
-	override def toString :String = String.valueOf(evaluated)
-
 	private def writeReplace = Pure.eager(apply())
 }
 
@@ -192,12 +187,12 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 			acquireFence()
 			Some(evaluated)
 		}
-	override def opt :Opt[T] =
+	override def maybe :Maybe[T] =
 		if (initializer == null)
-			Lack
+			No
 		else {
 			acquireFence()
-			Got(evaluated)
+			Yes(evaluated)
 		}
 	override def unsure :Unsure[T] =
 		if (initializer == null)
@@ -253,16 +248,6 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 
 	override def isSpecialized = false
 
-	override def mkString(prefix :String) =
-		if (initializer == null) {
-			acquireFence()
-			prefix + "(" + evaluated + ")"
-		} else prefix + "()"
-
-	override def toString :String =
-		if (initializer == null) { acquireFence(); String.valueOf(evaluated) }
-		else undefined.toString
-
 	private def writeReplace = Pure.eager(apply())
 }
 
@@ -280,13 +265,13 @@ trait AbstractPure[@specialized(SpecializedVars) +T] {
 
 	@inline final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
-	/** Returns `Got(value)` if the expression has already been evaluated, or `Lack` otherwise. */
-	protected def ? :Opt[T] = //Not opt, because of risk of conflicts.
+	/** Returns `Yes(value)` if the expression has already been evaluated, or `No` otherwise. */
+	protected def ? :Maybe[T] = //Not opt, because of risk of conflicts.
 		if (initializer != null)
-			Lack
+			No
 		else {
 			acquireFence()
-			Got(evaluated)
+			Yes(evaluated)
 		}
 	/** Returns `Sure(value)` if the expression has already been evaluated, or `Missing` otherwise. */
 	protected def unsure :Unsure[T] =

@@ -11,8 +11,8 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IArrayLike, IRefArray}
 import net.noresttherein.sugar.matching.MatchPattern
 import net.noresttherein.sugar.reflect.Specialized
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 //implicits
 import net.noresttherein.sugar.extensions._
@@ -123,7 +123,7 @@ package object collections {
 
 
 	val KnownSize :MatchPattern[IterableOnce[_], Int] =
-		MatchPattern { elems :IterableOnce[_] => Opt.satisfying(elems.knownSize)(_ >= 0) }
+		MatchPattern { elems :IterableOnce[_] => Maybe.satisfying(elems.knownSize)(_ >= 0) }
 
 
 	final val defaultIndexedSeqProperty = "net.noresttherein.sugar.collections.IndexedSeqFactory"
@@ -138,8 +138,8 @@ package object collections {
 	/** A factory of sequences wrapping an arrays in a [[net.noresttherein.sugar.collections.RelayArray RelayArray]],
 	  * if the latter is not on the classpath.
 	  */
-	private[sugar] final val RelayArrayFactory :Opt[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
-		Opt.guard {
+	private[sugar] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
+		Maybe.guard {
 			val factoryClass = Class.forName(RelayArrayClassName + "Internals$")
 			factoryClass.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]]
 		}
@@ -204,8 +204,8 @@ package object collections {
 	}
 
 	private def seqFactoryFromProperty[CC[X] <: collection.Seq[X]]
-	                                  (property :String)(implicit tag :ClassTag[CC[Any]]) :Opt[SeqFactory[CC]] =
-		Opt(System.getProperty(property)).map { className =>
+	                                  (property :String)(implicit tag :ClassTag[CC[Any]]) :Maybe[SeqFactory[CC]] =
+		Maybe(System.getProperty(property)).map { className =>
 			try loadSeqFactory[CC](className) catch {
 				case e :Exception =>
 					throw e.addInfo("Property " + property +
@@ -214,8 +214,8 @@ package object collections {
 			}
 		}
 
-	private def bufferFactoryFromProperty(property :String) :Opt[BufferFactory[Buffer]] =
-		Opt(System.getProperty(property)).map { className =>
+	private def bufferFactoryFromProperty(property :String) :Maybe[BufferFactory[Buffer]] =
+		Maybe(System.getProperty(property)).map { className =>
 			try {
 				loadSeqFactory[Buffer](className) match {
 					case factory :BufferFactory[Buffer] => factory
@@ -227,11 +227,11 @@ package object collections {
 			}
 		}
 
-	private def arrayWrapperFromProperty(property :String) :Opt[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]] =
-		Opt(System.getProperty(property)) match {
-			case Got("scala.collection.immutable.ArraySeq") =>
-				Got(ArraySeqFactory.asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]])
-			case Got(className) =>
+	private def arrayWrapperFromProperty(property :String) :Maybe[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]] =
+		Maybe(System.getProperty(property)) match {
+			case Yes("scala.collection.immutable.ArraySeq") =>
+				Yes(ArraySeqFactory.asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]])
+			case Yes(className) =>
 					try {
 						val factory   = loadObject(className).asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]]
 						if (!factory.isImmutable)
@@ -240,12 +240,12 @@ package object collections {
 							)
 						val testInput = IArray(1, 2, 3, 4)
 						val _         = factory.slice(testInput, 1, 3)
-						Got(factory)
+						Yes(factory)
 					} catch {
 						case e :Exception =>
 							throw e.addInfo("Property " + property + " does not denote an ArrayLikeSliceWrapper")
 					}
-			case _ => Lack
+			case _ => No
 		}
 }
 

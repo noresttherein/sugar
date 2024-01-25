@@ -22,6 +22,8 @@ sealed class ThreadLocal[T] protected (local :java.lang.ThreadLocal[T]) extends 
 	override def value_=(newValue :T) :Unit = local.set(newValue)
 
 	private[vars] override def isSpecialized = false
+
+	override def mkString :String = mkString("ThreadLocal")
 }
 
 
@@ -31,7 +33,7 @@ sealed class ThreadLocal[T] protected (local :java.lang.ThreadLocal[T]) extends 
 object ThreadLocal {
 	def apply[T](init: => T) :ThreadLocal[T] = new ThreadLocal[T](() => init)
 
-	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.function0)
+	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.toFunction0)
 
 	def inheritable[T](init: => T, inherit :T => T) :ThreadLocal[T] = new ThreadLocal[T](
 		new java.lang.InheritableThreadLocal[T] {

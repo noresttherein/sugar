@@ -6,7 +6,7 @@ import scala.Specializable.Args
 
 import net.noresttherein.sugar.vars.Freezer.stateField
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -28,7 +28,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * becomes frozen. Method [[net.noresttherein.sugar.vars.Freezer.isDefined isDefined]] can be used to determine
   * if the variable has been frozen (although `false` results may become outdated before being read by the caller)
   * and [[net.noresttherein.sugar.vars.Ref.option option]] and [[net.noresttherein.sugar.vars.Ref.opt opt]] have also
-  * semantics of the immutable `Val`, returning `None`/`Lack` if the variable is not frozen.
+  * semantics of the immutable `Val`, returning `None`/`No` if the variable is not frozen.
   * @define Ref `Freezer`
   * @define ref freezer
   * @author Marcin Mościcki marcin@moscicki.net
@@ -118,8 +118,8 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	/** The current value of this variable: `Some(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
 	override def option :Option[T] = Some(x)
 
-	/** The current value of this variable: `Got(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
-	override def opt    :Opt[T] = Got(x)
+	/** The current value of this variable: `Yes(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
+	override def maybe    :Maybe[T] = Yes(x)
 
 	/** The current value of this variable: `Sure(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
 	override def unsure :Unsure[T] = Sure(x)
@@ -128,19 +128,19 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	@inline final override def toOption :Option[T] = constOption
 
 	/** The value of this variable if it is in the immutable state (frozen).  */
-	@inline final override def toOpt    :Opt[T]  = constOpt
+	@inline final override def toMaybe    :Maybe[T]  = maybeConst
 
 	/** The value of this variable if it is in the immutable state (frozen). */
-	@inline final override def toUnsure :Unsure[T] = constUnsure
+	@inline final override def toUnsure :Unsure[T] = unsureConst
 
 	/** The value of this variable if it is in the immutable state (frozen). */
 	override def constOption :Option[T] = if (state == Immutable) Some(x) else None
 
 	/** The value of this variable if it is in the immutable state (frozen). */
-	override def constOpt    :Opt[T] = if (state == Immutable) Got(x) else Lack
+	override def maybeConst    :Maybe[T] = if (state == Immutable) Yes(x) else No
 
 	/** The value of this variable if it is in the immutable state (frozen). */
-	override def constUnsure :Unsure[T] = if (state == Immutable) Sure(x) else Missing
+	override def unsureConst :Unsure[T] = if (state == Immutable) Sure(x) else Missing
 
 	override def ?=(newValue :T) :T = {
 		lock()
@@ -208,6 +208,18 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[Freezer[_]]
 
+	override def mkString :String = {
+		while (state != Immutable && !stateField.weakCompareAndSet(this :AnyRef, Mutable, Locked))
+			{}
+		if (state == Immutable)
+			"Frozen(" + x + ")"
+		else {
+			val res = "Freezer(" + x + ")"
+			state = Mutable
+			res
+		}
+	}
+	override def toString :String = String.valueOf(value)
 }
 
 

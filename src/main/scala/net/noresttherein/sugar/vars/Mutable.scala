@@ -2,7 +2,7 @@ package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.{InOutOrdering, SpecializedVars}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -15,6 +15,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * and their default [[net.noresttherein.sugar.vars.Mutable.get get]] method
   * returns their current [[net.noresttherein.sugar.vars.Mutable.value value]].
   * @define Ref `Mutable`
+  * @define ref mutable value
   * @author Marcin Mościcki
   */
 trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
@@ -44,18 +45,18 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 	override def toOption    :Some[T] = option
 	/** Returns `None`. */
 	override def constOption :Option[T] = None
-	/** Returns `Got(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */
-	override def opt         :Got[T]  = Got(value)
-	/** Same as [[net.noresttherein.sugar.vars.Mutable.opt opt]]. */
-	override def toOpt       :Got[T]  = opt
-	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. */
-	override def constOpt    :Opt[T]  = Lack
+	/** Returns `Yes(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */
+	override def maybe         :Yes[T]  = Yes(value)
+	/** Same as [[net.noresttherein.sugar.vars.Mutable.maybe opt]]. */
+	override def toMaybe       :Yes[T]  = maybe
+	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]]. */
+	override def maybeConst    :Maybe[T]  = No
 	/** Returns `Sure(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */
 	override def unsure      :Sure[T] = Sure(value)
 	/** Same as [[net.noresttherein.sugar.vars.Mutable.unsure unsure]]. */
 	override def toUnsure    :Sure[T] = unsure
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
-	override def constUnsure :Unsure[T] = Missing
+	override def unsureConst :Unsure[T] = Missing
 
 	private def specializedEquals(left :Mutable[T], right :Any) :Boolean = right match {
 		case self :AnyRef if left eq self => true
@@ -64,8 +65,8 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 				left.value == other.asInstanceOf[Mutable[T]].value
 			else
 				left.value == other.value
-		case other :Ref[_] if other canEqual this => other.toOpt match {
-			case Got(v) => value == v
+		case other :Ref[_] if other canEqual this => other.toMaybe match {
+			case Yes(v) => value == v
 			case _ => false
 		}
 	}

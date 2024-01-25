@@ -21,7 +21,9 @@ import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
   * @define ref synchronized variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
-trait SyncVar[@specialized(SpecializedVars) T] extends Mutable[T] with Serializable {
+trait SyncVar[@specialized(SpecializedVars) T] extends AtomicOps.AtomicVar[T] with Mutable[T] with Serializable {
+	protected override def factory :AtomicOps[SyncVar] = SyncVar
+
 	@inline final override def value :T = synchronized { unsafe }
 	@inline final override def value_=(newValue :T) :Unit = synchronized { unsafe = newValue }
 
@@ -93,7 +95,6 @@ trait SyncVar[@specialized(SpecializedVars) T] extends Mutable[T] with Serializa
 		val self = ev(this)
 		self.unsafe = self.unsafe && other
 	}
-
 	private[vars] override def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
 		val self = ev(this)
 		self.unsafe = self.unsafe || other
@@ -112,7 +113,7 @@ trait SyncVar[@specialized(SpecializedVars) T] extends Mutable[T] with Serializa
   * to provide inlining of synchronized operations.
   */
 @SerialVersionUID(Ver)
-object SyncVar {
+case object SyncVar extends AtomicOps[SyncVar] {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	def apply[@specialized(SpecializedVars) T](value :T) :SyncVar[T] = {
@@ -128,6 +129,61 @@ object SyncVar {
 		res.value = default.get
 		res
 	}
+
+	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T =
+		v.synchronized {
+			val res = v.value; v.value = newValue; res
+		}
+	protected override def testAndSet[@specialized(SpecializedVars) T]
+	                                 (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		v.synchronized {
+			v.value == expect && { v.value = newValue; true }
+		}
+
+	protected override def weakTestAndSet[@specialized(SpecializedVars) T]
+	                                     (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		testAndSet(v, expect, newValue)
+
+	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean)
+			:Boolean =
+		testAndSet(v, expect, newValue)
+
+	protected override def repeatTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean,
+	                                            ifExpected :Boolean, ifNotExpected :Boolean) :Boolean =
+		v.synchronized {
+			if (v.value == expect) {
+				v.value = ifExpected
+				ifExpected
+			} else {
+				v.value = ifNotExpected
+				ifNotExpected
+			}
+		}
+	protected override def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
+		val res = v.value + value; v.value = res; res
+	}
+	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
+		val res = v.value & value; v.value = res; res
+	}
+	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
+		val res = v.value | value; v.value = res; res
+	}
+	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
+		val res = v.value ^ value; v.value = res; res
+	}
+	protected override def getAndAdd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
+		val res = v.value + value; v.value = res; res
+	}
+	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
+		val res = v.value & value; v.value = res; res
+	}
+	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
+		val res = v.value | value; v.value = res; res
+	}
+	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
+		val res = v.value ^ value; v.value = res; res
+	}
+
 
 
 	/** Implicit conversion of `SyncVar[Boolean]` values providing logical operators.

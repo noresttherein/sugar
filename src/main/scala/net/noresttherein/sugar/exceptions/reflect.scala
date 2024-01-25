@@ -8,9 +8,9 @@ import net.noresttherein.sugar.exceptions.Constructors.{LazyStringArg, LazyStrin
 import net.noresttherein.sugar.exceptions.reflect.{IAE, IOOBE, NPE, NSEE, SIAE, SIOOBE, SNPE, SNSEE, SUOE, UOE}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Opt.conversions.gotAny
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.conversions.gotAny
 
 
 
@@ -26,13 +26,13 @@ private[sugar] trait reflect extends Any {
 	  * (note that in the byte code `() => String` is equivalent to `=> String`),
 	  * and provides the same arguments that `Throwable`'s default constructor would.
 	  */
-	private[sugar] final def getThrowable[E <: Throwable](implicit tag :ClassTag[E]) :Opt[E] =
+	private[sugar] final def getThrowable[E <: Throwable](implicit tag :ClassTag[E]) :Maybe[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   | SIAE   => Got(SugaredIllegalArgumentException()).castParam[E]
-			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException()).castParam[E]
-			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException()).castParam[E]
-			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException()).castParam[E]
-			case NPE   | SNPE   => Got(SugaredNullPointerException()).castParam[E]
+			case IAE   | SIAE   => Yes(SugaredIllegalArgumentException()).castParam[E]
+			case IOOBE | SIOOBE => Yes(SugaredIndexOutOfBoundsException()).castParam[E]
+			case NSEE  | SNSEE  => Yes(SugaredNoSuchElementException()).castParam[E]
+			case UOE   | SUOE   => Yes(SugaredUnsupportedOperationException()).castParam[E]
+			case NPE   | SNPE   => Yes(SugaredNullPointerException()).castParam[E]
 			case _      => defaultConstructor[E].map(_())
 		}
 
@@ -43,13 +43,13 @@ private[sugar] trait reflect extends Any {
 	  * (note that in the byte code `() => String` is equivalent to `=> String`),
 	  * and provides as an argument `msg` and same arguments that `Throwable`'s default constructor would.
 	  */
-	private[sugar] final def getThrowable[E <: Throwable](msg :String)(implicit tag :ClassTag[E]) :Opt[E] =
+	private[sugar] final def getThrowable[E <: Throwable](msg :String)(implicit tag :ClassTag[E]) :Maybe[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   | SIAE   => Got(SugaredIllegalArgumentException(msg)).castParam[E]
-			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException(msg)).castParam[E]
-			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException(msg)).castParam[E]
-			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException(msg)).castParam[E]
-			case NPE   | SNPE   => Got(SugaredNullPointerException(msg)).castParam[E]
+			case IAE   | SIAE   => Yes(SugaredIllegalArgumentException(msg)).castParam[E]
+			case IOOBE | SIOOBE => Yes(SugaredIndexOutOfBoundsException(msg)).castParam[E]
+			case NSEE  | SNSEE  => Yes(SugaredNoSuchElementException(msg)).castParam[E]
+			case UOE   | SUOE   => Yes(SugaredUnsupportedOperationException(msg)).castParam[E]
+			case NPE   | SNPE   => Yes(SugaredNullPointerException(msg)).castParam[E]
 			case _      => stringConstructor[E].map(_(msg))
 		}
 
@@ -59,13 +59,13 @@ private[sugar] trait reflect extends Any {
 	  * (note that in the byte code `() => String` is equivalent to `=> String`),
 	  * and provides as an argument `msg` and same arguments that `Throwable`'s default constructor would.
 	  */
-	private[sugar] final def getThrowable[E <: Throwable](msg :() => String)(implicit tag :ClassTag[E]) :Opt[E] =
+	private[sugar] final def getThrowable[E <: Throwable](msg :() => String)(implicit tag :ClassTag[E]) :Maybe[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   | SIAE   => Got(SugaredIllegalArgumentException.Lazy(msg())).castParam[E]
-			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException.Lazy(msg())).castParam[E]
-			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException.Lazy(msg())).castParam[E]
-			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException.Lazy(msg())).castParam[E]
-			case NPE   | SNPE   => Got(SugaredNullPointerException.Lazy(msg())).castParam[E]
+			case IAE   | SIAE   => Yes(SugaredIllegalArgumentException.Lazy(msg())).castParam[E]
+			case IOOBE | SIOOBE => Yes(SugaredIndexOutOfBoundsException.Lazy(msg())).castParam[E]
+			case NSEE  | SNSEE  => Yes(SugaredNoSuchElementException.Lazy(msg())).castParam[E]
+			case UOE   | SUOE   => Yes(SugaredUnsupportedOperationException.Lazy(msg())).castParam[E]
+			case NPE   | SNPE   => Yes(SugaredNullPointerException.Lazy(msg())).castParam[E]
 			case _      => lazyStringConstructor[E].map(_(msg))
 		}
 
@@ -78,13 +78,13 @@ private[sugar] trait reflect extends Any {
 	  * presumed to be `enableSuppression` and `writeableStackTrace`.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable]
-	                                     (msg :String, cause :Throwable)(implicit tag :ClassTag[E]) :Opt[E] =
+	                                     (msg :String, cause :Throwable)(implicit tag :ClassTag[E]) :Maybe[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   => Got(SugaredIllegalArgumentException(msg, cause)).castParam[E]
-			case IOOBE => Got(SugaredIndexOutOfBoundsException(msg).initCause(cause)).castParam[E]
-			case NSEE  => Got(SugaredNoSuchElementException(msg, cause)).castParam[E]
-			case UOE   => Got(SugaredUnsupportedOperationException(msg, cause)).castParam[E]
-			case NPE   => Got(SugaredNullPointerException(msg).initCause(cause)).castParam[E]
+			case IAE   => Yes(SugaredIllegalArgumentException(msg, cause)).castParam[E]
+			case IOOBE => Yes(SugaredIndexOutOfBoundsException(msg).initCause(cause)).castParam[E]
+			case NSEE  => Yes(SugaredNoSuchElementException(msg, cause)).castParam[E]
+			case UOE   => Yes(SugaredUnsupportedOperationException(msg, cause)).castParam[E]
+			case NPE   => Yes(SugaredNullPointerException(msg).initCause(cause)).castParam[E]
 			case _     => stringThrowableConstructor[E].map(_(msg, cause))
 		}
 
@@ -96,13 +96,13 @@ private[sugar] trait reflect extends Any {
 	  * `true` for the `Boolean` parameters presumed to be `enableSuppression` and `writeableStackTrace`.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable]
-	                                     (msg :() => String, cause :Throwable)(implicit tag :ClassTag[E]) :Opt[E] =
+	                                     (msg :() => String, cause :Throwable)(implicit tag :ClassTag[E]) :Maybe[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   | SIAE   => Got(SugaredIllegalArgumentException(msg, cause)).castParam[E]
-			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException(msg, cause)).castParam[E]
-			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException(msg, cause)).castParam[E]
-			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException(msg, cause)).castParam[E]
-			case NPE   | SNPE   => Got(SugaredNullPointerException(msg, cause)).castParam[E]
+			case IAE   | SIAE   => Yes(SugaredIllegalArgumentException(msg, cause)).castParam[E]
+			case IOOBE | SIOOBE => Yes(SugaredIndexOutOfBoundsException(msg, cause)).castParam[E]
+			case NSEE  | SNSEE  => Yes(SugaredNoSuchElementException(msg, cause)).castParam[E]
+			case UOE   | SUOE   => Yes(SugaredUnsupportedOperationException(msg, cause)).castParam[E]
+			case NPE   | SNPE   => Yes(SugaredNullPointerException(msg, cause)).castParam[E]
 			case _     => lazyStringThrowableConstructor[E].map(_(msg, cause))
 		}
 
@@ -114,13 +114,13 @@ private[sugar] trait reflect extends Any {
 	  * `true` for the `Boolean` parameters presumed to be the standard flags `enableSuppression` and `writeableStackTrace`.
 	  */
 	private[sugar] final def getThrowable[E <: Throwable]
-	                                     (cause :Throwable)(implicit tag :ClassTag[E]) :Opt[E] =
+	                                     (cause :Throwable)(implicit tag :ClassTag[E]) :Maybe[E] =
 		(tag.runtimeClass :Any) match {
-			case IAE   | SIAE   => Got(SugaredIllegalArgumentException(cause)).castParam[E]
-			case IOOBE | SIOOBE => Got(SugaredIndexOutOfBoundsException(cause)).castParam[E]
-			case NSEE  | SNSEE  => Got(SugaredNoSuchElementException(cause)).castParam[E]
-			case UOE   | SUOE   => Got(SugaredUnsupportedOperationException(cause)).castParam[E]
-			case NPE   | SNPE   => Got(SugaredNullPointerException(cause)).castParam[E]
+			case IAE   | SIAE   => Yes(SugaredIllegalArgumentException(cause)).castParam[E]
+			case IOOBE | SIOOBE => Yes(SugaredIndexOutOfBoundsException(cause)).castParam[E]
+			case NSEE  | SNSEE  => Yes(SugaredNoSuchElementException(cause)).castParam[E]
+			case UOE   | SUOE   => Yes(SugaredUnsupportedOperationException(cause)).castParam[E]
+			case NPE   | SNPE   => Yes(SugaredNullPointerException(cause)).castParam[E]
 			case _     => throwableConstructor[E].map(_(cause))
 		}
 
@@ -152,62 +152,62 @@ private[sugar] trait reflect extends Any {
 	  * starting with most recent call to
 	  * [[net.noresttherein.sugar.exceptions.imports imports]]`.`[[net.noresttherein.sugar.exceptions.imports.rethrow rethrow]].
 	  */
-	private[sugar] final def getRethrowable[E <: Rethrowable :ClassTag](msg :String, cause :E) :Opt[E] = {
+	private[sugar] final def getRethrowable[E <: Rethrowable :ClassTag](msg :String, cause :E) :Maybe[E] = {
 		implicit val constructors :Array[Constructor[E]] =
 			classTag[E].runtimeClass.getDeclaredConstructors.castParam[Constructor[E]]
 		(findConstructor(StringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, cause))
-			case _ => Lack
+			case Yes(cons) => Yes(cons.newInstance(msg, cause))
+			case _ => No
 		}).orElse(findConstructor(StringThrowableBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, cause, cause != null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(StringThrowableBoolBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, cause, true, cause == null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		//can't set cause because fillInStackTrace is called from the constructor
 		}).orElse(findConstructor(LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(() => msg, cause))
-			case _ => Lack
+			case Yes(cons) => Yes(cons.newInstance(() => msg, cause))
+			case _ => No
 		}).orElse(findConstructor(LazyStringThrowableBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(() => msg, cause, cause != null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(() => msg, cause, true, cause == null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(StringLazyStringThrowableArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, null, cause)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(StringLazyStringThrowableBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, null, cause, cause != null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, null, cause, true, cause == null)
-				if (e.isRethrown) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown) Yes(e) else No
+			case _ => No
 		//Constructors without a cause won't work because fillInStackTrace is called from the constructor.
 //		}).orElse(findConstructor(StringArg) match {
-//			case Got(cons) =>
+//			case Yes(cons) =>
 //				val e = cons.newInstance(msg).initCause(cause).downcastTo[E]
-//				if (e.isRethrown == (cause != null)) Got(e) else Lack
-//			case _ => Lack
+//				if (e.isRethrown == (cause != null)) Yes(e) else No
+//			case _ => No
 //		}).orElse(findConstructor(LazyStringArg) match {
-//			case Got(cons) =>
+//			case Yes(cons) =>
 //				val e = cons.newInstance(() => msg).initCause(cause).downcastTo[E]
-//				if (e.isRethrown == (cause != null)) Got(e) else Lack
-//			case _ => Lack
+//				if (e.isRethrown == (cause != null)) Yes(e) else No
+//			case _ => No
 		})
 	}
 
@@ -234,41 +234,41 @@ private[sugar] trait reflect extends Any {
 	  * starting with most recent call to
 	  * [[net.noresttherein.sugar.exceptions.imports imports]]`.`[[net.noresttherein.sugar.exceptions.imports.rethrow rethrow]].
 	  */
-	private[sugar] final def getRethrowable[E <: Rethrowable :ClassTag](msg :() => String, cause :E) :Opt[E] = {
+	private[sugar] final def getRethrowable[E <: Rethrowable :ClassTag](msg :() => String, cause :E) :Maybe[E] = {
 		implicit val constructors :Array[Constructor[E]] =
 			classTag[E].runtimeClass.getDeclaredConstructors.castParam[Constructor[E]]
 		(findConstructor(LazyStringThrowableArgs) match {
-			case Got(cons) => Got(cons.newInstance(msg, cause))
-			case _ => Lack
+			case Yes(cons) => Yes(cons.newInstance(msg, cause))
+			case _ => No
 		}).orElse(findConstructor(LazyStringThrowableBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, cause, cause != null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(LazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(msg, cause, true, cause == null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(StringLazyStringThrowableArgs) match {
-			case Got(cons) => cons.newInstance(null, msg, cause)
-			case _ => Lack
+			case Yes(cons) => cons.newInstance(null, msg, cause)
+			case _ => No
 		}).orElse(findConstructor(StringLazyStringThrowableBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(null, msg, cause, cause != null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		}).orElse(findConstructor(StringLazyStringThrowableBoolBoolArgs) match {
-			case Got(cons) =>
+			case Yes(cons) =>
 				val e = cons.newInstance(null, msg, cause, true, cause == null)
-				if (e.isRethrown == (cause != null)) Got(e) else Lack
-			case _ => Lack
+				if (e.isRethrown == (cause != null)) Yes(e) else No
+			case _ => No
 		//Constructors without a cause won't work because fillInStackTrace is called from the constructor.
 //		}).orElse(findConstructor(LazyStringArg) match {
-//			case Got(cons) =>
+//			case Yes(cons) =>
 //				val e = cons.newInstance(msg).initCause(cause).downcastTo[E]
-//				if (e.isRethrown == (cause != null)) Got(e) else Lack
-//			case _ => Lack
+//				if (e.isRethrown == (cause != null)) Yes(e) else No
+//			case _ => No
 		})
 	}
 
@@ -425,7 +425,7 @@ private object Constructors {
 		Array[Class[_]](classOf[() => String], classOf[Throwable], classOf[Boolean], classOf[Boolean])
 
 
-	private[exceptions] final def defaultConstructor[T :ClassTag] :Opt[() => T] = {
+	private[exceptions] final def defaultConstructor[T :ClassTag] :Maybe[() => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -455,7 +455,7 @@ private object Constructors {
 		)
 	}
 
-	private[exceptions] final def throwableConstructor[T <: Throwable :ClassTag] :Opt[Throwable => T] = {
+	private[exceptions] final def throwableConstructor[T <: Throwable :ClassTag] :Maybe[Throwable => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -483,7 +483,7 @@ private object Constructors {
 		)
 	}
 
-	private[exceptions] final def stringConstructor[T :ClassTag] :Opt[String => T] = {
+	private[exceptions] final def stringConstructor[T :ClassTag] :Maybe[String => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -505,7 +505,7 @@ private object Constructors {
 		)
 	}
 
-	private[exceptions] final def stringThrowableConstructor[T <: Throwable :ClassTag] :Opt[(String, Throwable) => T] = {
+	private[exceptions] final def stringThrowableConstructor[T <: Throwable :ClassTag] :Maybe[(String, Throwable) => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -535,7 +535,7 @@ private object Constructors {
 	}
 
 	private[exceptions] final def stringThrowableBoolBoolConstructor[T <: Throwable :ClassTag]
-			:Opt[(String, Throwable, Boolean, Boolean) => T] =
+			:Maybe[(String, Throwable, Boolean, Boolean) => T] =
 	{
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
@@ -553,7 +553,7 @@ private object Constructors {
 		)
 	}
 
-	private[exceptions] final def lazyStringConstructor[T :ClassTag] :Opt[(() => String) => T] = {
+	private[exceptions] final def lazyStringConstructor[T :ClassTag] :Maybe[(() => String) => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -576,7 +576,7 @@ private object Constructors {
 	}
 
 	private[exceptions] final def lazyStringThrowableConstructor[T <: Throwable :ClassTag]
-			:Opt[(() => String, Throwable) => T] =
+			:Maybe[(() => String, Throwable) => T] =
 	{
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
@@ -602,7 +602,7 @@ private object Constructors {
 	}
 
 	private[exceptions] final def lazyStringThrowableBoolBoolConstructor[T <: Throwable :ClassTag]
-			:Opt[(() => String, Throwable, Boolean, Boolean) => T] =
+			:Maybe[(() => String, Throwable, Boolean, Boolean) => T] =
 	{
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
@@ -619,7 +619,7 @@ private object Constructors {
 
 
 
-	private[exceptions] final def defaultRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[() => T] = {
+	private[exceptions] final def defaultRethrowableConstructor[T <: Rethrowable :ClassTag] :Maybe[() => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -645,7 +645,7 @@ private object Constructors {
 		)
 	}
 
-	private[exceptions] final def newRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[String => T] = {
+	private[exceptions] final def newRethrowableConstructor[T <: Rethrowable :ClassTag] :Maybe[String => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		(
@@ -681,7 +681,7 @@ private object Constructors {
 		)
 	}
 
-	private[exceptions] final def newLazyRethrowableConstructor[T <: Rethrowable :ClassTag] :Opt[(() => String) => T] = {
+	private[exceptions] final def newLazyRethrowableConstructor[T <: Rethrowable :ClassTag] :Maybe[(() => String) => T] = {
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
 		val testArg = () => ""
@@ -709,7 +709,7 @@ private object Constructors {
 	}
 
 	private[exceptions] final def rethrownRethrowableConstructor[T <: Rethrowable :ClassTag]
-			:Opt[(String, Throwable) => T] =
+			:Maybe[(String, Throwable) => T] =
 	{
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
@@ -742,7 +742,7 @@ private object Constructors {
 	}
 
 	private[exceptions] final def rethrownLazyRethrowableConstructor[T <: Rethrowable :ClassTag]
-			:Opt[(() => String, Throwable) => T] =
+			:Maybe[(() => String, Throwable) => T] =
 	{
 		implicit val constructors :Array[Constructor[T]] =
 			classTag[T].runtimeClass.getDeclaredConstructors.castParam[Constructor[T]]
@@ -775,11 +775,11 @@ private object Constructors {
 		val count = constructors.length
 		while (i < count && !(constructors(i).getParameterTypes sameElements paramTypes))
 			i += 1
-		if (i == count) Lack else Got(constructors(i))
+		if (i == count) No else Yes(constructors(i))
 	}
 
 
-	private[exceptions] final def findConstructor[T](clazz :Class[T], paramTypes :Array[Class[_]]) :Opt[Constructor[T]] =
+	private[exceptions] final def findConstructor[T](clazz :Class[T], paramTypes :Array[Class[_]]) :Maybe[Constructor[T]] =
 		findConstructor(paramTypes)(clazz.getDeclaredConstructors.castParam[Constructor[T]])
 
 }

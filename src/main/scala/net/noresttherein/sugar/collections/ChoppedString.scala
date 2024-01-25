@@ -17,8 +17,8 @@ import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, Choppe
 import net.noresttherein.sugar.collections.extensions.{StepperExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 //implicits
 
@@ -1080,21 +1080,21 @@ object Substring extends SpecificIterableFactory[Char, Substring] {
 	/** If `chars` is a [[net.noresttherein.sugar.collections.Substring! Substring]], extracts its underlying string
 	  * as well as the indices of the first character and the character following the last character.
 	  */
-	def unapply(chars :Seq[Char]) :Opt[(String, Int, Int)] = chars match {
-		case string :Substring => Got((string.whole, string.startIndex, string.startIndex + string.length))
-		case _ => Lack
+	def unapply(chars :Seq[Char]) :Maybe[(String, Int, Int)] = chars match {
+		case string :Substring => Yes((string.whole, string.startIndex, string.startIndex + string.length))
+		case _ => No
 	}
 	/** If `chars` is a [[net.noresttherein.sugar.collections.Substring! Substring]], extracts its underlying string
 	  * as well as the indices of the first character and the character following the last character.
 	  */
-	def unapply(chars :CharSequence) :Opt[(String, Int, Int)] = chars match {
-		case string :Substring => Got((string.whole, string.startIndex, string.startIndex + string.length))
-		case _ => Lack
+	def unapply(chars :CharSequence) :Maybe[(String, Int, Int)] = chars match {
+		case string :Substring => Yes((string.whole, string.startIndex, string.startIndex + string.length))
+		case _ => No
 	}
 	/** If `chars` is a [[net.noresttherein.sugar.collections.Substring! Substring]], extracts its underlying string
 	  * as well as the indices of the first character and the character following the last character.
 	  */
-	@inline def unapply(chars :StringLike) :Opt[(String, Int, Int)] = unapply(chars :CharSequence)
+	@inline def unapply(chars :StringLike) :Maybe[(String, Int, Int)] = unapply(chars :CharSequence)
 
 
 	override def newBuilder :Builder[Char, Substring] = new StringBuilder().mapResult(apply _)

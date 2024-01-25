@@ -69,7 +69,7 @@ abstract class StackTrace
 		}
 
 	//todo: zip with another stack trace
-//	def zip(seq :Seq[StackContext]) :Seq[(StackTraceElement, Opt[StackContext])] = ???
+//	def zip(seq :Seq[StackContext]) :Seq[(StackTraceElement, Maybe[StackContext])] = ???
 
 
 	override def specificFactory :SpecificIterableFactory[StackTraceElement, StackTrace] = StackTrace

@@ -6,10 +6,10 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, NoInt, WithFilter}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
-import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -32,7 +32,7 @@ import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
   * @see [[net.noresttherein.sugar.vars.IntOpt.AnInt$]]
   * @see [[net.noresttherein.sugar.vars.IntOpt.NoInt]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
-  * @see [[net.noresttherein.sugar.vars.Opt]]
+  * @see [[net.noresttherein.sugar.vars.Maybe]]
   * @define Ref `IntOpt`
   * @define ref optional integer
   * @define coll optional `Int`
@@ -228,10 +228,10 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	@inline def map(f :Int => Int) :IntOpt =
 		if (x == NoContent) this else new IntOpt(f(x.toInt) & Content)
 
-	/** Returns a new `Opt` which is empty ''iff'' this value is empty, or one containing the result of applying
+	/** Returns a new `Maybe` which is empty ''iff'' this value is empty, or one containing the result of applying
 	  * the given function to its value otherwise. */
-	@inline def map[O](f :Int => O) :Opt[O] =
-		if (x == NoContent) Lack else Got(f(x.toInt))
+	@inline def map[O](f :Int => O) :Maybe[O] =
+		if (x == NoContent) No else Yes(f(x.toInt))
 
 	/** Applies the given function to the content of this `IntOpt` and returns the result or the provided alternative
 	  * if this instance is empty. Equivalent to `this map f getOrElse or`, but in one step. */
@@ -240,7 +240,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Applies the given function to the content of this `IntOpt` and returns the result or the provided alternative
 	  * if this instance is empty. Equivalent to
-	  * `this.toOpt.`[[net.noresttherein.sugar.collections.Opt.mapOrElse mapOrElse]]`(f, or)`, but in one step. */
+	  * `this.toMaybe.`[[net.noresttherein.sugar.vars.Maybe.mapOrElse mapOrElse]]`(f, or)`, but in one step. */
 	@inline def mapOrElse[O](f :Int => O, or: => O) :O =
 		if (x == NoContent) or else f(x.toInt)
 
@@ -263,13 +263,13 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** The same as [[net.noresttherein.sugar.vars.IntOpt.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] is returned instead. */
-	@inline def guardMap[O](f :Int => O) :Opt[O] =
+	@inline def guardMap[O](f :Int => O) :Maybe[O] =
 		if (x == NoContent)
-			Lack
+			No
 		else try {
-			Got(f(x.toInt))
+			Yes(f(x.toInt))
 		} catch {
-			case _ :Exception => Lack
+			case _ :Exception => No
 		}
 
 	/** Returns the result of applying the given function to the value of this `IntOpt` if it is not empty,
@@ -279,8 +279,8 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Returns the result of applying the given function to the value of this `IntOpt` if it is not empty,
 	  * or `this` if `this.isEmpty`. */
-	@inline def flatMap[O](f :Int => Opt[O]) :Opt[O] =
-		if (x == NoContent) Lack else f(x.toInt)
+	@inline def flatMap[O](f :Int => Maybe[O]) :Maybe[O] =
+		if (x == NoContent) No else f(x.toInt)
 
 	/** Returns an empty `IntOpt` if `this.contains(o)`, or `this` otherwise. */
 	@inline def removed(value :Int) :IntOpt =
@@ -336,25 +336,25 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 		else
 			new IntOpt(f.andThen(_ & Content).applyOrElse(x.toInt, { x :Int => NoContent }))
 
-	/** Returns an empty `Opt` if this `IntOpt` is empty or the partial function `f` is not defined for its value,
-	  * otherwise applies it and wraps the result it in a new `Opt`. */
-	@inline def collect[O](f :PartialFunction[Int, O]) :Opt[O] =
+	/** Returns an empty `Maybe` if this `IntOpt` is empty or the partial function `f` is not defined for its value,
+	  * otherwise applies it and wraps the result it in a new `Maybe`. */
+	@inline def collect[O](f :PartialFunction[Int, O]) :Maybe[O] =
 		if (x == NoContent)
-			Lack
+			No
 		else
-			f.asInstanceOf[PartialFunction[Int, AnyRef]].applyOrElse(x.toInt, Opt.NoContent) match {
-				case Opt.NoContent   => Lack
-				case o :O @unchecked => Got(o)
+			f.asInstanceOf[PartialFunction[Int, AnyRef]].applyOrElse(x.toInt, Maybe.NoContent) match {
+				case Maybe.NoContent   => No
+				case o :O @unchecked => Yes(o)
 			}
 
 
 	/** Returns an `IntOpt` formed from the contents of `this` and `that` by combining the corresponding elements in a pair.
 	  * If either of the two IntOptions is empty, `NoInt` is returned. */
-	@inline def zip(that :IntOpt) :Opt[(Int, Int)] = toOpt.zip(that.toOpt)
+	@inline def zip(that :IntOpt) :Maybe[(Int, Int)] = toMaybe.zip(that.toMaybe)
 
 	/** Returns an `IntOpt` formed from the contents of `this` and `that` by combining the corresponding elements
 	  * in a pair. If either of the two IntOptions is empty, `NoInt` is returned. */
-	@inline def zip[O](that :Opt[O]) :Opt[(Int, O)] = toOpt.zip(that)
+	@inline def zip[O](that :Maybe[O]) :Maybe[(Int, O)] = toMaybe.zip(that)
 
 
 	/** An iterator returning this value as the only element if `this.nonEmpty`. */
@@ -382,9 +382,9 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	@inline override def constOption :Option[Int] = if (x == NoContent) None else Some(x.toInt)
 
-	@inline override def opt      :Opt[Int] = if (x == NoContent) Lack else Got(x.toInt)
-	@inline override def toOpt    :Opt[Int] = if (x == NoContent) Lack else Got(x.toInt)
-	@inline override def constOpt :Opt[Int] = if (x == NoContent) Lack else Got(x.toInt)
+	@inline override def maybe      :Maybe[Int] = if (x == NoContent) No else Yes(x.toInt)
+	@inline override def toMaybe    :Maybe[Int] = if (x == NoContent) No else Yes(x.toInt)
+	@inline override def maybeConst :Maybe[Int] = if (x == NoContent) No else Yes(x.toInt)
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any.
 	  * Same as [[net.noresttherein.sugar.vars.IntOpt.toUnsure toUnsure]]. */
@@ -397,26 +397,26 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any.
       * Same as [[net.noresttherein.sugar.vars.IntOpt.toUnsure toUnsure]]. */
-	@inline override def constUnsure :Unsure[Int] =
+	@inline override def unsureConst :Unsure[Int] =
 		if (x == NoContent) Missing else new Sure(x.toInt)
 
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
-	  * Same as [[net.noresttherein.sugar.vars.IntOpt.toPotential toPotential]]. */
-	@inline override def potential :Potential[Int] = if (x == NoContent) Inexistent else Existent(x.toInt)
+	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
+	  * Same as [[net.noresttherein.sugar.vars.IntOpt.toOpt toOpt]]. */
+	@inline override def opt :Opt[Int] = if (x == NoContent) None else One(x.toInt)
 
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any. */
-	@inline override def toPotential :Potential[Int] =
-		if (x == NoContent) Inexistent else Existent(x.toInt)
+	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any. */
+	@inline override def toOpt :Opt[Int] =
+		if (x == NoContent) None else One(x.toInt)
 
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
-	  * Same as [[net.noresttherein.sugar.vars.IntOpt.toPotential toPotential]]. */
-	@inline override def constPotential :Potential[Int] =
-		if (x == NoContent) Inexistent else Existent(x.toInt)
+	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
+	  * Same as [[net.noresttherein.sugar.vars.IntOpt.toOpt toOpt]]. */
+	@inline override def constOpt :Opt[Int] =
+		if (x == NoContent) None else One(x.toInt)
 //
-//	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
+//	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
 //	  * This conversion does not require boxing. */
-//	@inline override def ?? :Potential[A] =
-//		if (x == NoContent) Inexistent else Existent(x.asInstanceOf[A])
+//	@inline override def ?? :Opt[A] =
+//		if (x == NoContent) None else One(x.asInstanceOf[A])
 
 
 	/** Converts this `IntOpt` to `Either`, returning the content as `Left`, or the value of the given expression
@@ -442,8 +442,13 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Converts this `IntOpt` to `Outcome`, returning the content as `Done`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
-	@inline def outcome(err: => String) :Outcome[Int] =
+	@inline def doneOr(err: => String) :Outcome[Int] =
 		if (x == NoContent) Failed(() => err) else Done(get)
+
+	/** Converts this `IntOpt` to `Outcome`, returning the content as `Done`,
+	  * or the given `Throwable` as an error. */
+	@inline def doneOr(err: Throwable) :Outcome[Int] =
+		if (x == NoContent) err.asInstanceOf[Outcome[Int]] else Done(get)
 
 	/** Formats this `IntOpt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String =
@@ -490,20 +495,20 @@ object IntOpt {
 	@inline def some_?(value :Option[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Opt[Int]` into a specialized `IntOpt`, erased at runtime. */
-	@inline def got_?(value :Opt[Int]) :IntOpt =
+	/** Converts the given `Maybe[Int]` into a specialized `IntOpt`, erased at runtime. */
+	@inline def yes_?(value :Maybe[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** Converts the given `Unsure[Int]` into a specialized `IntOpt`, erased at runtime. */
 	@inline def sure_?(value :Unsure[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Potential[Int]` into a specialized `IntOpt` for interoperability. */
-	@inline def existent_?(value :Potential[Int]) :IntOpt =
+	/** Converts the given `Opt[Int]` into a specialized `IntOpt` for interoperability. */
+	@inline def one_?(value :Opt[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Opt[Int]` into a specialized `IntOpt`, erased at runtime. */
-	@inline def fromOpt(value: Opt[Int]) :IntOpt =
+	/** Converts the given `Maybe[Int]` into a specialized `IntOpt`, erased at runtime. */
+	@inline def fromOpt(value: Maybe[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** Converts the given `Option[Int]` into a specialized `IntOpt`, erased at runtime. */
@@ -514,8 +519,8 @@ object IntOpt {
 	@inline def fromUnsure(value: Unsure[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
-	/** Converts the given `Potential[Int]` into a specialized `IntOpt` for interoperability. */
-	@inline def fromPotential(value :Potential[Int]) :IntOpt =
+	/** Converts the given `Opt[Int]` into a specialized `IntOpt` for interoperability. */
+	@inline def fromYield(value :Opt[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** When a given condition is true, evaluates the `a` argument and returns `AnInt(a).`
@@ -590,9 +595,9 @@ object IntOpt {
 	  * `map`, `flatMap` or `foreach` is called. */
 	final class WithFilter(self :IntOpt, p :Int => Boolean) {
 		def map(f :Int => Int) :IntOpt = if (self.x == NoContent) self else new IntOpt(f(self.x.toInt) & Content)
-		def map[B](f: Int => B): Opt[B] = self filter p map f
+		def map[B](f: Int => B): Maybe[B] = self filter p map f
 		def flatMap(f: Int => IntOpt): IntOpt = self filter p flatMap f
-		def flatMap[B](f: Int => Opt[B]): Opt[B] = self filter p flatMap f
+		def flatMap[B](f: Int => Maybe[B]): Maybe[B] = self filter p flatMap f
 		def foreach[U](f: Int => U): Unit = self filter p foreach f
 		def withFilter(q: Int => Boolean): WithFilter = new WithFilter(self, x => p(x) && q(x))
 	}
@@ -610,12 +615,12 @@ object IntOpt {
 		@inline implicit def IntOptionToIntOpt(option :Option[Int]) :IntOpt =
 			new IntOpt(if (option.isDefined) option.get & Content else NoContent)
 
-		@inline implicit def IntOptToOpt(opt :IntOpt) :Opt[Int] = opt.opt
-		@inline implicit def OptToIntOpt(opt :Opt[Int]) :IntOpt =
+		@inline implicit def IntOptToOpt(opt :IntOpt) :Maybe[Int] = opt.maybe
+		@inline implicit def OptToIntOpt(opt :Maybe[Int]) :IntOpt =
 			new IntOpt(if (opt.isDefined) opt.get & Content else NoContent)
 
-		@inline implicit def IntOptToPotential(IntOpt :IntOpt) :Potential[Int] = IntOpt.potential
-		@inline implicit def PotentialToIntOpt(opt :Potential[Int]) :IntOpt = IntOpt.fromPotential(opt)
+		@inline implicit def IntOptToYield(IntOpt :IntOpt) :Opt[Int] = IntOpt.opt
+		@inline implicit def YieldToIntOpt(opt :Opt[Int]) :IntOpt = IntOpt.fromYield(opt)
 
 		/** Implicitly lifts an `Int` to [[net.noresttherein.sugar.vars.IntOpt IntOpt]]`[T]`. */
 		@inline implicit def IntToAnInt(x :Int) :AnInt = new IntOpt(x & Content).asInstanceOf[AnInt]

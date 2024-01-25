@@ -120,7 +120,7 @@ which is good for lambda placeholder syntax:
 
 ##### 5.1.5. `Seq` extensions
     Seq(1, 2, 3).isSorted
-    dragons.getIndexOf(firkraag)                 // returns an Opt - non empty values are always >= 0
+    dragons.getIndexOf(firkraag)                 // returns an Maybe - non empty values are always >= 0
     dragons.sureIndexWhere(_.name == "Firkraag") //throws a NoSuchElementException instead of returning -1
     heroes.updatedAll(0, Seq("You", "Boo", "I")) //updated for consecutive elements
     weekdays.remove(0, 5)                        //an 'inverse' of slice
@@ -230,7 +230,7 @@ lazy/external initialization, garbage collecting handling and others.
     val param    :InOut[Int] = Var(0)
     val sync     :InOut[Int] = SyncVar(0)    //synchronized access  
     val volatile :InOut[Int] = Volatile(0)   //declared as @volatile
-    val atomic   :InOut[Int] = Atomic(0)     //uses memory fences
+    val atomic   :InOut[Int] = Atomic(0)     //like above, uses equals rather than eq in atomic operations
     val signal   :InOut[Int] = SignalVar(0)  //synchronized, notifies waiting threads on change 
     val watch    :InOut[Int] = Watched(0)    //@volatile var, observer pattern
     val thread   :InOut[Int] = ThreadLocal(0)
@@ -238,18 +238,18 @@ lazy/external initialization, garbage collecting handling and others.
     val i :Val[Int] = Pure(1 + 1)     //lazily evaluated, backed by a @volatile field (not synchronized)
     val t :Val[Int] = Transient(1+1) //like above, additionally @transient, initializer is serialized instead
     val u :Unsure[Int] = Sure(0)    //a @specialized Option substitute
-    val o = Opt(null)              //a value class `Option` substitute    
+    val o = Maybe(null)              //a value class `Option` substitute    
 
 #### 9.1. Var
 A standard mutable value wrapper.
 
-#### 9.2. SyncVar, Volatile, Atomic
+#### 9.2. SyncVar, Volatile, Atomic, SpinVar
 Wrappers over mutable fields with synchronous access and varying memory semantics.
 
 #### 9.3. SignalVal, SignalVar, Watched
 Variables with API for waiting for value changes, or registering callbacks.
 
-#### 9.4. Out
+#### 9.4. Out, VolatileOut
 A thread safe variable which can be set - externally - only once.
 
 #### 9.5. Freezer
@@ -263,12 +263,12 @@ and alternative strategies for initialization for optimized contentious read.
 A synchronous thread communication chanel for passing individual messages through 
 a value reader/writer handshake.
 
-#### 9.8. Unsure, Opt, Potential
+#### 9.8. Unsure, Maybe, Opt
 Optimized `Option` alternative implementations: `@specialized`, as a value class,
 and a non boxing abstract type.
 
-#### 9.9. Others
-`EqRef`, `Box`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.
+#### 9.9 Box
+A mutable `Option`.
 
 #### 9.10. Others
 `EqRef`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.

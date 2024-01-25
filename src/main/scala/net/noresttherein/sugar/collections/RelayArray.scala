@@ -15,7 +15,7 @@ import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IAr
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.RelayArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 //implicits
 import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMethods, castTypeParamMethods, ClassExtension, IteratorCompanionExtension, castingMethods}
@@ -783,13 +783,13 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		}
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
-		case Got(RelayArray) | Got(Seq) | Got(IndexedSeq) | Got(collection.Seq) | Got(collection.IndexedSeq) =>
+		case Yes(RelayArray) | Yes(Seq) | Yes(IndexedSeq) | Yes(collection.Seq) | Yes(collection.IndexedSeq) =>
 			this.asInstanceOf[C1]
-		case Got(ArraySeq) if length == unsafeArray.length                                                    =>
+		case Yes(ArraySeq) if length == unsafeArray.length                                                    =>
 			ArraySeq.unsafeWrapArray(unsafeArray).castFrom[ArraySeq[Any], C1]
-		case Got(IRefArraySlice) if elementType == classOf[Any] =>
+		case Yes(IRefArraySlice) if elementType == classOf[Any] =>
 			IRefArraySlice.wrap(unsafeArray.castFrom[Array[_], IRefArray[E]]).castFrom[IRefArraySlice[E], C1]
-		case Got(IArrayLikeSlice) | Got(IArraySlice) | Got(ArrayLikeSlice) if elementType.isPrimitive =>
+		case Yes(IArrayLikeSlice) | Yes(IArraySlice) | Yes(ArrayLikeSlice) if elementType.isPrimitive =>
 			IArraySlice.wrap(unsafeArray.castFrom[Array[_], IArray[E]]).castFrom[IArraySlice[E], C1]
 		case _ => super.to(factory)
 	}

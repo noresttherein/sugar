@@ -6,6 +6,7 @@ import java.util.concurrent.{ConcurrentSkipListMap, Executor}
 import scala.annotation.unspecialized
 import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
 
+import net.noresttherein.sugar.concurrent.currentThreadId
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.AtomicOps.{BoolAtomicVar, RefAtomicVar}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
@@ -102,7 +103,7 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 			}
 
 			if (synchronousWatchers.nonEmpty) {          //there may be a race condition with the set becoming empty,
-				val triggerThread = Thread.currentThread //but it does not affect correctness
+				val triggerThread = currentThreadId      //but it does not affect correctness
 				@volatile var goAhead = true //start flag for all threads
 				@volatile var awaiting = 0 //number of not completed tasks
 				try { //register all callbacks in the executor and wait until they all complete.
@@ -110,7 +111,7 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 						awaiting += 1
 						try {
 							executor.execute { () =>
-								if (Thread.currentThread == triggerThread) {
+								if (currentThreadId == triggerThread) {
 									try { //the executor is some in-the-calling thread implementation
 										if (goAhead)
 											callback(currentValue)
@@ -220,6 +221,7 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 	  */
 	@unspecialized def resign(callback :T => Unit) :this.type = resign(callback :Any)
 
+	override def mkString :String = mkString("Watched")
 	override def toString :String = "Watched(" + value + ")@" + this.identityHashCodeString
 }
 
@@ -303,12 +305,12 @@ case object Watched extends AtomicCompanion[Watched] {
 	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean) :Boolean =
 		super.weakTestAndSetBool(v, expect, newValue) && { v.asInstanceOf[Watched[Boolean]].trigger(newValue); true }
 
-	protected override def repeatTestAndSetBool(bool: AtomicOps.AtomicVar[Boolean], expect: Boolean,
+	protected override def repeatTestAndSetBool(v: AtomicOps.AtomicVar[Boolean], expect: Boolean,
 	                                            ifExpected: Boolean, ifNotExpected: Boolean) =
 	{
-		val res = super.repeatTestAndSetBool(bool, expect, ifExpected, ifNotExpected)
+		val res = super.repeatTestAndSetBool(v, expect, ifExpected, ifNotExpected)
 		val old = res == ifNotExpected ^ expect
-		bool.asInstanceOf[Watched[Boolean]].trigger(old)
+		v.asInstanceOf[Watched[Boolean]].trigger(old)
 		res
 	}
 

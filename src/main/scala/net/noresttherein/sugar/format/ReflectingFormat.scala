@@ -5,7 +5,7 @@ import scala.reflect.runtime.universe.{runtimeMirror, TypeTag}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.reflect.PropertyPath
 import net.noresttherein.sugar.reflect.prettyprint.innerNameOf
-import net.noresttherein.sugar.vars.Potential
+import net.noresttherein.sugar.vars.Opt
 
 //implicits
 import net.noresttherein.sugar.extensions.classNameMethods
@@ -28,7 +28,7 @@ trait ReflectingFormat extends Format {
 		  * but its name is set to the reflected name of the function.
 		  * @param part A property getter. Must consist of any number of chained calls to parameterless methods.
 		  *             Must not throw exceptions -
-		  *             use instead [[net.noresttherein.sugar.vars.Potential Potential]]
+		  *             use instead [[net.noresttherein.sugar.vars.Opt Opt]]
 		  *             or [[net.noresttherein.sugar.vars.Outcome Outcome]] as the property type.
 		  */
 		def apply[P](part :M => P)(implicit tag :TypeTag[M], mold :Mold[P]) :Part[M, P] =
@@ -36,8 +36,8 @@ trait ReflectingFormat extends Format {
 
 		/** A part representing a property of type `P` of molded type `M`.
 		  * Parsing of the property is allowed to fail without automatically propagating the error.
-		  * Instead the application receives a `Potential[P]` which can be inspected before continuing the parsing.
-		  * If [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] is passed as the argument to `part`,
+		  * Instead the application receives a `Opt[P]` which can be inspected before continuing the parsing.
+		  * If [[scala.None None]] is passed as the argument to `part`,
 		  * nothing is consumed from the input or appended to the output.
 		  *
 		  * It is the same `Part` as returned
@@ -45,10 +45,10 @@ trait ReflectingFormat extends Format {
 		  * but its name is set to the reflected name of the function.
 		  * @param part A property getter. Must consist of any number of chained calls to parameterless methods.
 		  *             Must not throw exceptions -
-		  *             use instead [[net.noresttherein.sugar.vars.Potential Potential]]
+		  *             use instead [[net.noresttherein.sugar.vars.Opt Opt]]
 		  *             or [[net.noresttherein.sugar.vars.Outcome Outcome]] as the property type.
 		  */
-		def opt[P](part :M => P)(implicit tag :TypeTag[M], mold :Mold[P]) :Part[M, Potential[P]] =
+		def opt[P](part :M => P)(implicit tag :TypeTag[M], mold :Mold[P]) :Part[M, Opt[P]] =
 			opt(propertyName(PropertyPath.nameOf(part)))(part)
 	}
 

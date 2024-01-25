@@ -3,8 +3,8 @@ package net.noresttherein.sugar.util
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -396,7 +396,7 @@ object Decorable {
 	                                * this is an identity function. */
 	                              val decoration :Self => Self,
 	                              /** The future of this zipper, following the current `decoration`. */
-	                              //consider: using Opt
+	                              //consider: using Maybe
 	                              val continuation :Option[DecorationsZipper[Self]])
 	{
 		private def this(decorator :Decorator[Self], above :Option[DecorationsZipper[Self]]) =
@@ -495,7 +495,7 @@ object Decorable {
 		  * wrapping [[net.noresttherein.sugar.util.Decorable.Decorator decorators]], until the argument $Self
 		  * is reached, pushing the constructors of every unwrapped `decorator` onto the
 		  * [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.continuation continuation]] stack.
-		  * If `point` is not found, `Lack` is returned.
+		  * If `point` is not found, `No` is returned.
 		  */
 		def <<(point :Decorable[Self]) :Option[DecorationsZipper[Self]] = {
 			val End = point

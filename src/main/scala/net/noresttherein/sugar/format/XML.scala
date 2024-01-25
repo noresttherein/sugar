@@ -1,18 +1,65 @@
 package net.noresttherein.sugar.format
 
-import javax.xml.stream.{XMLInputFactory, XMLStreamConstants}
+import scala.annotation.tailrec
 
-import net.noresttherein.sugar.collections.{ChoppedString, StringMap, Substring}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.constants.MaxExceptionMessageLength
+import net.noresttherein.sugar.collections.{ChoppedString, StringMap, Substring}
+import net.noresttherein.sugar.collections.extensions.CharJteratorExtension
 import net.noresttherein.sugar.format.XML.{Tag, XMLEntities}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.{Maybe, Opt}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
 
-/** A very simplistic implementation of XML marshalling and unmarshalling.
+/** A very simple implementation of XML marshalling and unmarshalling.
+  * Basic value types, `String` - all types for which implicit molds are declared - are parsed as untagged content.
+  * User created molds composed in a ''for comprehension'' format their model as a tag of the same name
+  * as the one given to its mold (or local class name, by default). The properties must occur in the exact order
+  * in which they are listed in the ''for comprehension'' creating the mold, and are formatted as tags named
+  * after the property (name argument passed to [[net.noresttherein.sugar.format.Format.Parts Parts]] factory method).
+  * Values of properties are formatted recursively. Whitespace around values is ignored by all provided molds,
+  * as well as those created by flat mapping `Parts`, but may be considered significant by other molds.
+  * Note that the latter applies also to [[net.noresttherein.sugar.format.XML.stringMold stringMold]], i.e.,
+  * leading and trailing whitespace in any formatted `String` is not preserved. Example:
+  * {{{
+  *
+  *     case class BreathWeapon(damageType :String, diceCount :Int, diceType :Int)
+  *     object BreathWeapon {
+  *     	implicit val xmlMold :XML.Mold[BreathWeapon] = for {
+  *     		weapon   <- XML[BreathWeapon]
+  *     		dmg      <- weapon("damage")(_.damageType)
+  *     		dice     <- weapon("dice")(_.diceCount)
+  *     		diceType <- weapon("diceType")(_.diceType)
+  *     	} yield BreathWeapon(dmg, dice, diceType)
+  *     }
+  *
+  *     case class Dragon(name :String, colour :String, breath :BreathWeapon, level :Int)
+  *     object Dragon {
+  *     	implicit val xmlMold :XML.Mold[Dragon] = for {
+  *     		dragon <- XML[Dragon]
+  *     		name   <- dragon("name")(_.name)
+  *     		colour <- dragon("colour")(_.colour)
+  *     		breath <- dragon("breath")(_.breath)
+  *     		level  <- dragon("level")(_.level)
+  *     	} yield Dragon(name, colour, breath, level)
+  *     }
+  *
+  *     XML.read("""
+  *         <Dragon>
+  *             <name>Firkraag</name>
+  *             <colour>red</colour>
+  *             <breath>
+  *                 <BreathWeapon>
+  *                     <damage>fire</damage>
+  *                     <dice>2</dice>
+  *                     <diceType>6</diceType>
+  *                 </BreathWeapon>
+  *             </breath>
+  *         </Dragon>
+  *     """)
+  * }}}
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
@@ -44,13 +91,18 @@ class XML extends FormatAsString {
 	  */
 	implicit override val stringMold :Mold[String] = StringMold
 
+	implicit def seqMold[M :Mold] :Mold[Seq[M]] = implicitly[Mold[M]] match {
+		case named :NamedMold[M @unchecked] => new NamedSeqMold[M]()(named)
+		case mold                           => new SeqMold[M]()(mold)
+	}
+
 	protected override def propertyMold[S](propertyName :String)(implicit valueMold :Mold[S]) :Mold[S] =
 		wrap(propertyName)(valueMold) //this probably should override .option, .opt etc. to insert an empty tag.
 
 	protected override def isEmpty(liquid :ChoppedString) :Boolean = liquid.isWhitespace
 
 	@SerialVersionUID(Ver)
-	private object Open extends SpecialOptBasedMold[String] {
+	private object Open extends SpecialOptBasedMold[String] with SafeMeltingMold[String] {
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString)
 				:Opt[(ChoppedString, String, ChoppedString)] =
 		{ //todo: ChoppedString may have very inefficient apply, migrate to usage of intIterator
@@ -58,28 +110,26 @@ class XML extends FormatAsString {
 			while (start < len && suffix(start).isWhitespace)
 				start += 1
 			if (start == len || suffix(start) != '<')
-				Lack
+				None
 			else {
 				var end = start + 1
 				while (end  < len && suffix(end) != '>')
 					end += 1
 				if (end == len)
-					Lack
+					None
 				else {
 					val (parsed, rest) = suffix.splitAt(end + 1)
-					Got((prefix ++ parsed, suffix.substring(start + 1, end), rest))
+					One((prefix ++ parsed, suffix.substring(start + 1, end), rest))
 				}
 			}
 		}
 		override def melt(name :String) = ChoppedString("<" + name + '>')
-		override def meltOpt(name :String) = Got(melt(name))
 		override def append(prefix :ChoppedString, name :String) = prefix ++ ("<" + name + '>')
-		override def appendOpt(prefix :ChoppedString, name :String) = Got(append(prefix, name))
 		override def toString :String = "XML.<>"
 	}
 
 	@SerialVersionUID(Ver)
-	private object Close extends SpecialOptBasedMold[String] {
+	private object Close extends SpecialOptBasedMold[String] with SafeMeltingMold[String] {
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString)
 				:Opt[(ChoppedString, String, ChoppedString)] =
 		{ //todo: ChoppedString may have very inefficient apply, migrate to usage of intIterator
@@ -87,24 +137,22 @@ class XML extends FormatAsString {
 			while (start < len && suffix(start).isWhitespace)
 				start += 1
 			if (start >= len - 1 || suffix(start) != '<' || suffix(start + 1) != '/')
-				Lack
+				None
 			else {
 				var end = start + 2
 				while (end  < len && suffix(end) != '>')
 					end += 1
 				if (end == len)
-					Lack
+					None
 				else {
 					val parsed = suffix.take(end + 1)
 					val rest   = suffix.drop(end + 1)
-					Got((prefix ++ parsed, suffix.substring(start + 2, end), rest))
+					One((prefix ++ parsed, suffix.substring(start + 2, end), rest))
 				}
 			}
 		}
 		override def melt(name :String) = ChoppedString("</" + name + '>')
-		override def meltOpt(name :String) = Got(melt(name))
 		override def append(prefix :ChoppedString, name :String) = prefix ++ ("</" + name + '>')
-		override def appendOpt(prefix :ChoppedString, name :String) = Got(append(prefix, name))
 		override def toString :String = "XML.</>"
 	}
 
@@ -120,31 +168,69 @@ class XML extends FormatAsString {
 		private final val String  = 4
 		private final val End     = 5
 
-		override def advance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) = {
-			//todo: check if suffix has a fast apply and consider using it instead of the iterator.
+		override def advance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) =
+			suffix match {
+				case _ if suffix.isEmpty => (prefix, "", suffix)
+				case Substring(string, from :Int, until :Int) => advanceSubstring(prefix, suffix, string, from, until)
+				case _ => advanceJterator(prefix, suffix)
+			}
+		private def advanceSubstring(prefix :ChoppedString, suffix :ChoppedString, string :String, from :Int, until :Int) = {
+			val res    = new JStringBuilder
+			var end    = from
+			while (end < until) {
+				string.charAt(end) match {
+					case '<' =>
+						if (string.startsWith("<!--", end)) {
+							end += 4
+							while (end < until && !string.startsWith("-->", end))
+								end += 1
+						} else if (string.startsWith("<[CDATA[")) {
+							end += 8
+							while (end < until && !string.startsWith("]]>"))
+								end += 1
+						} else
+							end = until
+					case '&' =>
+						end += 1
+						val start = end
+						while (end < until && string.charAt(end) != ';')
+							end += 1
+						if (end == until)
+							throw ParsingException(XML)(suffix, "Unterminated entity in \"" + suffix + "\".")
+						val entity = this.entity(string.substring(start, end - 1), suffix)
+						res append entity
+					case char =>
+						res append char
+						end += 1
+				}
+			}
+			result(prefix, suffix, res.toString)
+		}
+
+		private def advanceJterator(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) = {
 			val length = suffix.length
-			val iter   = suffix.intIterator
 			val res    = new JStringBuilder
 			var state  = String
 			var end    = 0
+			val iter   = suffix.jterator //intIterator
 			while (end < length & state != End) {
-				var next = iter.next().toChar
+				var next = iter.next()
 				state match {
 					case String  => next match {
 						case '<' => //Maybe a comment, maybe a CDATA section, otherwise end the content parsing.
 							state = End
-							if (end + 3 < length && iter.next().toChar == '!')
-								iter.next().toChar match {
+							if (end + 3 < length && iter.next() == '!')
+								iter.next() match {
 									case '-' =>
-										if (iter.next().toChar == '-') {
+										if (iter.next() == '-') {
 											state = Comment
 											end  += 4
 										}
 									case '[' =>
 										if (end + 8 < length &&
-											iter.next().toChar == 'C' && iter.next().toChar == 'D' &&
-											iter.next().toChar == 'A' && iter.next().toChar == 'T' &&
-											iter.next().toChar == 'A' && iter.next().toChar == '['
+											iter.next() == 'C' && iter.next() == 'D' &&
+											iter.next() == 'A' && iter.next() == 'T' &&
+											iter.next() == 'A' && iter.next() == '['
 										) {
 											state = CDATA
 											end  += 9
@@ -154,34 +240,13 @@ class XML extends FormatAsString {
 						case '&' =>
 							end += 1
 							val entity = new JStringBuilder
-							while (end < length && { next = iter.next().toChar; next != ';' }) {
+							while (end < length && { next = iter.next(); next != ';' }) {
 								end += 1
 								entity append next
 							}
 							if (next != ';')
 								throw ParsingException(XML)(suffix, "Unterminated entity in \"" + suffix + "\".")
-							val name = entity.toString
-							val text =
-								if (name.length == 5 && name.charAt(0) == '#') {
-									try JString.valueOf(Integer.parseInt(name.substring(1)).toChar) catch {
-										case e :NumberFormatException =>
-											throw ParsingException(XML)(
-												suffix, "Illegal numeric character reference: &" + name + ";", e
-											)
-									}
-								} else if (name.length == 6 && name.charAt(0) == '#' && name.charAt(1) == 'x') {
-									try JString.valueOf(Integer.parseInt(name.substring(2), 16).toChar) catch {
-										case e :NumberFormatException =>
-											throw ParsingException(XML)(
-												suffix, "Illegal numeric character reference: &" + name + ";", e
-											)
-									}
-								} else
-									XMLEntities.getOrElse(name, null)
-							if (text == null)
-								throw ParsingException(XML)(
-									suffix, "Unrecognized entity in \"" + suffix + "\": " + name + "."
-								)
+							val text = this.entity(entity.toString, suffix)
 							res append text
 						case _ =>
 							res append next
@@ -192,7 +257,7 @@ class XML extends FormatAsString {
 							if (end + 2 >= length)
 								throw ParsingException(XML)(suffix, "Unterminated comment in \"" + suffix + "\".")
 							end += 3
-							if (iter.next().toChar == '-' && iter.next().toChar == '>')
+							if (iter.next() == '-' && iter.next() == '>')
 								state = String
 						case _   => end += 1
 					}
@@ -201,8 +266,8 @@ class XML extends FormatAsString {
 							if (end + 2 < length)
 								throw ParsingException(XML)(suffix, "Unterminated CDATA section in \"" + suffix + "\".")
 							end += 3
-							iter.next().toChar match {
-								case ']'  => iter.next().toChar match {
+							iter.next() match {
+								case ']'  => iter.next() match {
 									case '>'  => state = String
 									case char => res append ']' append ']' append char
 								}
@@ -219,63 +284,70 @@ class XML extends FormatAsString {
 				case CDATA   =>	throw ParsingException(XML)(suffix, "Unterminated CDATA section in \"" + suffix + "\".")
 				case _ =>
 			}
-			val string    = res.toString
-			val parsed    = suffix.take(end)
-			val remainder = suffix.drop(end)
-			(prefix :++ parsed, string, remainder)
+			result(prefix, suffix, res.toString)
 		}
-/*
-//		import XMLStreamConstants._
-		def erroradvance(prefix :ChoppedString, suffix :ChoppedString) :(ChoppedString, String, ChoppedString) =
-			try {
-				val reader = factory.createXMLStreamReader(suffix.toReader) //we could conceivably reuse the ChunkedStringReader
-				var event :Int = 0
-				var firstLoop = true
-				var needsCopying = false           //we can just slice a suffix due to lack of anything interpreted.
-				var firstText :String = null       //the first text 'event' data is stored here. Returned if builder == null.
-				var builder :JStringBuilder = null //created in case of multiple text events; all contents are appended in turn.
-				while (reader.hasNext && {
-					event = reader.next()
-					event == CHARACTERS || event == SPACE || event == COMMENT || event == CDATA
-				}) {
-					if ((event == COMMENT || event == CDATA) && !needsCopying && !firstLoop) {
-						val offset = reader.getLocation.getCharacterOffset
-						firstText = suffix.take(offset).toString
-						needsCopying = true
+
+		private def entity(name :String, suffix :ChoppedString) :String = {
+			val text =
+				if (name.length == 5 && name.charAt(0) == '#') {
+					try JString.valueOf(Integer.parseInt(name.substring(1)).toChar) catch {
+						case e :NumberFormatException =>
+							throw ParsingException(XML)(
+								suffix, "Illegal numeric character reference: &" + name + ";", e
+							)
 					}
-					if (event == CDATA || needsCopying && (event == CHARACTERS || event == SPACE)) {
-						if (firstText == null)
-							firstText = reader.getText
-						else {
-							if (builder == null)
-								builder = new JStringBuilder(reader.getTextLength)
-							builder append reader.getText
-						}
+				} else if (name.length == 6 && name.charAt(0) == '#' && name.charAt(1) == 'x') {
+					try JString.valueOf(Integer.parseInt(name.substring(2), 16).toChar) catch {
+						case e :NumberFormatException =>
+							throw ParsingException(XML)(
+								suffix, "Illegal numeric character reference: &" + name + ";", e
+							)
 					}
-					firstLoop = false
-				}
-				val offset = reader.getLocation.getCharacterOffset
-				val (skipped, remainder) = suffix.splitAt(offset)
-				val res =
-					if (builder != null) {
-						val string = builder.toString
-						(concat(prefix, skipped), string, remainder)
-					} else if (firstText != null)
-						(concat(prefix, skipped), firstText, remainder)
-					else {
-						(concat(prefix, skipped), skipped.toString, remainder)
-					}
-				reader.close()
-				res
-			} catch {
-				case e :Exception =>
-					throw ParsingException(XML)(suffix, e.getMessage, e)
-			}
-*/
+				} else
+					XMLEntities.getOrElse(name, null)
+			if (text == null)
+				throw ParsingException(XML)(
+					suffix, "Unrecognized entity in \"" + suffix + "\": " + name + "."
+				)
+			text
+		}
+
+		private def result(prefix :ChoppedString, suffix :ChoppedString, model :String) = {
+			val parsed = suffix.take(model.length + 2)
+			val remainder = suffix.drop(model.length + 2)
+			(prefix ++ parsed, model, remainder)
+		}
 		override def melt(model :String) :ChoppedString = ChoppedString(model)
 		override def append(prefix :ChoppedString, model :String) :ChoppedString = prefix ++ model
 
 		override def name = "String"
+	}
+
+
+	@SerialVersionUID(Ver)
+	private class SeqMold[M](implicit elementMold :Mold[M]) extends SpecialMold[Seq[M]] with SafeMold[Seq[M]] {
+		override def advance(prefix :ChoppedString, suffix :ChoppedString) =
+			if (suffix.isEmpty)
+				(prefix, Seq.empty, suffix)
+			else {
+				val builder = Seq.newBuilder[M]
+				@tailrec def rec(past :ChoppedString, next :ChoppedString) :(ChoppedString, Seq[M], ChoppedString) =
+					elementMold.advanceOpt(past, next) match {
+						case One((past, model, next)) => builder += model; rec(past, next)
+						case _ => (past, builder.result(), next)
+					}
+				rec(prefix, suffix)
+			}
+
+		override def append(prefix :ChoppedString, model :Seq[M]) =
+			model.map(elementMold.melt).foldLeft(prefix)(_ ++ _)
+
+		override def toString :String = "Seq[" + elementMold + "]"
+	}
+
+	@SerialVersionUID(Ver)
+	private class NamedSeqMold[M](implicit elementMold :NamedMold[M]) extends SeqMold[M] with NamedMold[Seq[M]] {
+		override lazy val name = "Seq[" + elementMold.name + "]"
 	}
 
 
@@ -285,13 +357,9 @@ class XML extends FormatAsString {
 	{
 		override def advance(prefix :ChoppedString, suffix :ChoppedString) = {
 			val (tagPrefix, _, tagSuffix) = open.advance(tagName)(prefix, suffix)
-			val (bodyPrefix, body, bodySuffix) = StringMold.advance(tagPrefix, tagSuffix)
-			val (_, model, modelSuffix) = bodyMold.advance(tagPrefix, ChoppedString(body))
-			if (!modelSuffix.isWhitespace)
-				throw ParsingException(XML.this :XML.this.type)(
-					tagSuffix, "expected closing tag </" + tagName + "> after " + model + ", but got '" + modelSuffix + "'."
-				)
-			val (parsed, _, unparsed) = close.advance(tagName)(bodyPrefix, bodySuffix)
+//			val (bodyPrefix, body, bodySuffix) = StringMold.advance(tagPrefix, tagSuffix)
+			val (bodyEnd, model, closeStart) = bodyMold.advance(tagPrefix, tagSuffix)
+			val (parsed, _, unparsed) = close.advance(tagName)(bodyEnd, closeStart)
 			(parsed, new Tag(model), unparsed)
 		}
 		override def append(prefix :ChoppedString, model :Tag[M]) = {

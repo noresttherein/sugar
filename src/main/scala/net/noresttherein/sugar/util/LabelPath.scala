@@ -8,8 +8,8 @@ import scala.util.matching.Regex
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods, classNameMethods, castingMethods}
 import net.noresttherein.sugar.util.LabelPath.{/, ~/, Concat, Label, LabelPathPrefix, Split}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -106,14 +106,14 @@ object LabelPath {
 	  * @see [[net.noresttherein.sugar.util.LabelPath.~/]]
 	  */
 	object Label {
-		@inline def unapply[P](path :LabelPath[P]) :Opt[P with Label] = path match {
-			case label: ~/[_] => Got(label.last.asInstanceOf[P with Label])
-			case _ => Lack
+		@inline def unapply[P](path :LabelPath[P]) :Maybe[P with Label] = path match {
+			case label: ~/[_] => Yes(label.last.asInstanceOf[P with Label])
+			case _ => No
 		}
 
-		@inline def unapply[P](path :P) :Opt[P with String with path.type] = path match {
-			case label :String => Got(label.asInstanceOf[P with String with path.type])
-			case _ => Lack
+		@inline def unapply[P](path :P) :Maybe[P with String with path.type] = path match {
+			case label :String => Yes(label.asInstanceOf[P with String with path.type])
+			case _ => No
 		}
 	}
 
@@ -127,12 +127,12 @@ object LabelPath {
 
 	/** Provides the type class instance for a presumed ''label path'' type `P`.
 	  * @return `path` itself if it is an instance of `LabelPath`, a `~/` if it is an instance of `String`,
-	  *         or an empty `Opt` otherwise.
+	  *         or an empty `Maybe` otherwise.
 	  */
-	def fromPath[P](path :P) :Opt[LabelPath[P]] = path match {
-		case path :LabelPath[P @unchecked] => Got(path)
-		case label :String => Got(new ~/[label.type](label).castFrom[~/[label.type], LabelPath[P]])
-		case _ => Lack
+	def fromPath[P](path :P) :Maybe[LabelPath[P]] = path match {
+		case path :LabelPath[P @unchecked] => Yes(path)
+		case label :String => Yes(new ~/[label.type](label).castFrom[~/[label.type], LabelPath[P]])
+		case _ => No
 	}
 
 	/** Creates a `LabelPath` consisting of labels equal to the strings in the given collection, in the same order.
@@ -420,14 +420,14 @@ object LabelPath {
 		/** Creates a singleton `LabelPath` for the given `Label`. Same as `apply`. */
 		@inline def /[N <: Label](label :N) : ~/[N] = apply(label)
 
-		def unapply[P](path :LabelPath[P]) :Opt[P with Label] = path match {
-			case atom: ~/[_] => Got(atom.last.asInstanceOf[P with Label])
-			case _ => Lack
+		def unapply[P](path :LabelPath[P]) :Maybe[P with Label] = path match {
+			case atom: ~/[_] => Yes(atom.last.asInstanceOf[P with Label])
+			case _ => No
 		}
 
-		def unapply(path :LabelPathPrefix) :Opt[Label] = path match {
-			case atom: ~/[_]  => Got(atom.last)
-			case _ => Lack
+		def unapply(path :LabelPathPrefix) :Maybe[Label] = path match {
+			case atom: ~/[_]  => Yes(atom.last)
+			case _ => No
 		}
 	}
 
@@ -480,15 +480,15 @@ object LabelPath {
 		def apply[P, L <: Label](first :LabelPath[P], last :L) :P / L =
 			new /[P, L](first, last)
 
-		def unapply[P, L <: Label](path :P / L) :Opt[(LabelPath[P], L)] = path.prefix match {
-			case label :String => Got((~/[label.type](label).asInstanceOf[LabelPath[P]], path.last))
-			case prefix :LabelPath[P @unchecked] => Got((prefix, path.last))
-			case _ => Lack //should never happen, unless someone messes with new implementations
+		def unapply[P, L <: Label](path :P / L) :Maybe[(LabelPath[P], L)] = path.prefix match {
+			case label :String => Yes((~/[label.type](label).asInstanceOf[LabelPath[P]], path.last))
+			case prefix :LabelPath[P @unchecked] => Yes((prefix, path.last))
+			case _ => No //should never happen, unless someone messes with new implementations
 		}
 
-		def unapply(path :LabelPathPrefix) :Opt[(LabelPath[_], Label)] = path match {
+		def unapply(path :LabelPathPrefix) :Maybe[(LabelPath[_], Label)] = path match {
 			case split: /[p, l] => unapply[p, l](split)
-			case _ => Lack
+			case _ => No
 		}
 	}
 

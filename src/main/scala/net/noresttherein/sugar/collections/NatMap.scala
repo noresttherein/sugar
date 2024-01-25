@@ -13,8 +13,9 @@ import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic.=>:
-import net.noresttherein.sugar.vars.{AbstractPure, Opt}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.{AbstractPure, Maybe, Opt}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -39,7 +40,7 @@ trait NatMap[K[X], +V[X]]
 	def getOrElse[U[T] >: V[T], X](key :K[X], default: => U[X]) :U[X] = get(key) getOrElse default
 
 	def apply[X](key :K[X]) :V[X] = opt(key) match {
-		case Got(v) => v
+		case One(v) => v
 		case _ => defaults(key)
 	}
 
@@ -185,7 +186,7 @@ object NatMap extends ImplicitNatMapFactory {
 		def apply[K[_], V[_], X](key :K[X], value :V[X]) :Assoc[K, V, X] =
 			new Singleton(key, value)
 
-		@inline def unapply[K[_], V[_], X](assoc :Assoc[K, V, X]) :Got[(K[X], V[X])] = Got((assoc._1, assoc._2))
+		@inline def unapply[K[_], V[_], X](assoc :Assoc[K, V, X]) :Yes[(K[X], V[X])] = Yes((assoc._1, assoc._2))
 	}
 
 	implicit class ->:[K[_], X](private val key :K[X]) extends AnyVal {
@@ -324,7 +325,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def updated[U[T] >: V[T], X](key :K[X], value :U[X]) :NatMap[K, U] =
 			opt(key) match {
-				case Got(x) if x == value => this
+				case Yes(x) if x == value => this
 				case _ => (NatMap.newBuilder[K, U] ++= this += Assoc(key, value)).result()
 			}
 
@@ -356,12 +357,12 @@ object NatMap extends ImplicitNatMapFactory {
 				override def knownSize = outer.knownSize
 				override def iterator = outer.iterator.map(entry => (entry._1, entry._2))
 				override def removed(key :K[_]) = outer.opt(key) match {
-					case Got(_) => iterator.filterNot(_._1 == key) to Map
+					case Yes(_) => iterator.filterNot(_._1 == key) to Map
 					case _ => this
 				}
 				override def updated[V1 >: V[_]](key :K[_], value :V1) = opt(key) match {
-					case Got(v) if v == value => this
-					case Got(_) => outer.iterator.map {
+					case Yes(v) if v == value => this
+					case Yes(_) => outer.iterator.map {
 						entry => if (entry._1 == key) (key, value) else (entry._1, entry._2)
 					} to Map
 					case _ => iterator ++ Iterator.single((key, value)) to Map
@@ -388,7 +389,7 @@ object NatMap extends ImplicitNatMapFactory {
 		override def head = throw new NoSuchElementException("NatMap().head")
 		override def tail = throw new UnsupportedOperationException("NatMap().tail")
 
-		override def opt[X](key :K[X]) :Opt[V[X]] = Lack
+		override def opt[X](key :K[X]) :Opt[V[X]] = None
 		override def apply[X](key :K[X]) = defaults(key)
 		override def get[X](key :K[X]) :Option[V[X]] = None
 		override def getOrElse[U[T] >: V[T], X](key :K[X], default : => U[X]) :U[X] = default
@@ -441,7 +442,7 @@ object NatMap extends ImplicitNatMapFactory {
 			else default(key)
 
 		override def opt[X](key :K[X]) :Opt[V[X]] =
-			if (key == _1) Got(_2.asInstanceOf[V[X]]) else Lack
+			if (key == _1) One(_2.asInstanceOf[V[X]]) else None
 
 		override def get[X](key :K[X]) :Option[V[X]] =
 			if (key == _1) Some(_2.asInstanceOf[V[X]]) else None
@@ -525,19 +526,19 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def apply[X](key :K[X]) :V[X] = indexOf(key) match {
 			case -1 => defaults(key)
-			case n => entries(n)._2.asInstanceOf[V[X]]
+			case  n => entries(n)._2.asInstanceOf[V[X]]
 		}
 		override def opt[X](key :K[X]) :Opt[V[X]] = indexOf(key) match {
-			case -1 => Lack
-			case n => Got(entries(n)._2.asInstanceOf[V[X]])
+			case -1 => None
+			case  n => One(entries(n)._2.asInstanceOf[V[X]])
 		}
 		override def get[X](key :K[X]) :Option[V[X]] = indexOf(key) match {
 			case -1 => None
-			case n => Some(entries(n)._2.asInstanceOf[V[X]])
+			case  n => Some(entries(n)._2.asInstanceOf[V[X]])
 		}
 		override def getOrElse[U[T] >: V[T], X](key :K[X], default : => U[X]) :U[X] = indexOf(key) match {
 			case -1 => default
-			case n => entries(n)._2.asInstanceOf[V[X]]
+			case  n => entries(n)._2.asInstanceOf[V[X]]
 		}
 
 		override def contains(key :K[_]) :Boolean = indexOf(key) >= 0
@@ -703,37 +704,37 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def removed(key :K[_]) :NatMap[K, V] =
 			? match {
-				case Got(map) => map.removed(key)
+				case Yes(map) => map.removed(key)
 				case _ => new LazyNatMap(() => definite.removed(key))
 			}
 		override def updated[U[T] >: V[T], X](key :K[X], value :U[X]) :NatMap[K, U] =
 			? match {
-				case Got(map) => map.updated(key, value)
+				case Yes(map) => map.updated(key, value)
 				case _ => new LazyNatMap(() => definite.updated(key, value))
 			}
 		override def ++[U[T] >: V[T]](entries :IterableOnce[Assoc[K, U, _]]) :NatMap[K, U] =
 			? match {
-				case Got(map) => map ++ entries
+				case Yes(map) => map ++ entries
 				case _ => new LazyNatMap(() => definite ++ entries)
 			}
 		override def map[A[_], B[_]](f :Assoc[K, V, _] => Assoc[A, B, _]) :NatMap[A, B] =
 			? match {
-				case Got(map) => map.map(f)
+				case Yes(map) => map.map(f)
 				case _ => new LazyNatMap(() => definite map f)
 			}
 		override def flatMap[A[_], B[_]](f :Assoc[K, V, _] => IterableOnce[Assoc[A, B, _]]) :NatMap[A, B] =
 			? match {
-				case Got(map) => map.flatMap(f)
+				case Yes(map) => map.flatMap(f)
 				case _ => new LazyNatMap(() => definite flatMap f)
 			}
 		override def filter(p :Assoc[K, V, _] => Boolean) :NatMap[K, V] =
 			? match {
-				case Got(map) => map.filter(p)
+				case Yes(map) => map.filter(p)
 				case _ => new LazyNatMap(() => definite filter p)
 			}
 		override def partition(p :Assoc[K, V, _] => Boolean) :(NatMap[K, V], NatMap[K, V]) =
 			? match {
-				case Got(map) => map.partition(p)
+				case Yes(map) => map.partition(p)
 				case _ => (new LazyNatMap(() => definite.filter(p)), new LazyNatMap(() => definite.filterNot(p)))
 			}
 		override def iterator :Iterator[Assoc[K, V, _]] = view.iterator

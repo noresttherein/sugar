@@ -5,8 +5,8 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.extensions.{OptionExtension, castingMethods, downcastTypeParamMethods}
 import net.noresttherein.sugar.matching.MatchPattern.SpecializedArgs
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 //implicits
 import net.noresttherein.sugar.extensions.classNameMethods
@@ -16,27 +16,27 @@ import net.noresttherein.sugar.extensions.classNameMethods
 
 /** An skeleton for extractor objects which can be used both in pattern matching and to directly attempt to narrow
   * down or extract `Out` out of a `In` type value. It is a single abstract method type (''SAM'') and thus
-  * the compiler will convert a lambda function `In => Opt[Out]` where the type `MatchPattern[In, Out]` is expected,
+  * the compiler will convert a lambda function `In => Maybe[Out]` where the type `MatchPattern[In, Out]` is expected,
   * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
   * It is similar to [[PartialFunction]], but its `apply` method is equivalent to `unapply`,
-  * goth returning an [[net.noresttherein.sugar.vars.Opt Opt]].
+  * goth returning an [[net.noresttherein.sugar.vars.Maybe Maybe]].
   * @tparam In type of matched (argument) values
   * @tparam Out type of extracted (result) values.
   */
 @SerialVersionUID(Ver)
 trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable {
-	/** The single abstract method of this class, possibly extracting a value of `Out` from an `In` as an `Opt`. */
-	def unapply(arg :In) :Opt[Out]
+	/** The single abstract method of this class, possibly extracting a value of `Out` from an `In` as an `Maybe`. */
+	def unapply(arg :In) :Maybe[Out]
 
 	/** Equivalent to `unapply(arg).get` - forces a result value out of the argument failing with an exception instead
-	  * of returning `Lack`.
-	  * @throws NoSuchElementException if `unapply` returns `Lack`.
+	  * of returning `No`.
+	  * @throws NoSuchElementException if `unapply` returns `No`.
 	  */
 	@inline final def force(arg :In) :Out = unapply(arg) orNoSuch s"$this.force($arg)"
 
 	/** Same as [[net.noresttherein.sugar.matching.MatchPattern.unapply unapply]]. Directly dispatches this call
 	  * to the latter. */
-	@inline final def apply(arg :In) :Opt[Out] = unapply(arg)
+	@inline final def apply(arg :In) :Maybe[Out] = unapply(arg)
 
 	/** Converts this pattern to an `Option` returning function. */
 	def lift :In => Option[Out] = unapply(_).option
@@ -55,7 +55,7 @@ trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable
 	/** Composes this pattern with another one in a way analogous to `Function.andThen`. */
 	def andThen[O](pattern :MatchPattern[Out, O]) :MatchPattern[In, O] =
 		new MatchPattern[In, O] {
-			override def unapply(arg :In) :Opt[O] = MatchPattern.this.unapply(arg).flatMap(pattern.unapply)
+			override def unapply(arg :In) :Maybe[O] = MatchPattern.this.unapply(arg).flatMap(pattern.unapply)
 			override def toString = pattern.toString + "*" + MatchPattern.this
 		}
 
@@ -73,7 +73,7 @@ trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable
   */
 @SerialVersionUID(Ver)
 object MatchPattern { //todo: a constructor macro adapting a partial function literal
-	/** Forces a function literal `In => Opt[Out]` given as the argument
+	/** Forces a function literal `In => Maybe[Out]` given as the argument
 	  * to be SAM-converted to a [[net.noresttherein.sugar.matching.MatchPattern MatchPattern]].
 	  */
 	@inline def apply[In, Out](pattern :MatchPattern[In, Out]) :MatchPattern[In, Out] = pattern
@@ -82,7 +82,7 @@ object MatchPattern { //todo: a constructor macro adapting a partial function li
 	  * @param name a textual identifier of the extractor, used in its `toString` implementation.
 	  * @param f    an extractor function.
 	  */
-	def adapt[@specialized(SpecializedArgs) In, Out](name :String)(f :In => Opt[Out]) :MatchPattern[In, Out] =
+	def adapt[@specialized(SpecializedArgs) In, Out](name :String)(f :In => Maybe[Out]) :MatchPattern[In, Out] =
 		new MatchPattern[In, Out] {
 			override def unapply(in :In) = f(in)
 			override def lift = f andThen (_.toOption)
@@ -90,7 +90,7 @@ object MatchPattern { //todo: a constructor macro adapting a partial function li
 		}
 
 	/** Adapt a given option returning function to an extractor object usable in pattern matching. */
-	def adapt[@specialized(SpecializedArgs) In, Out](f :In => Opt[Out]) :MatchPattern[In, Out] =
+	def adapt[@specialized(SpecializedArgs) In, Out](f :In => Maybe[Out]) :MatchPattern[In, Out] =
 		MatchPattern.adapt(s"MatchPattern(${f.innerClassName})")(f)
 
 	/** Adapt a given partial function to an extractor object usable in pattern matching.
@@ -101,8 +101,8 @@ object MatchPattern { //todo: a constructor macro adapting a partial function li
 		new MatchPattern[In, Out] {
 			override def unapply(in :In) = {
 				val res = f.applyOrElse(in, fallback)
-				if (res.asAnyRef eq fallback) Lack
-				else Got(res.asInstanceOf[Out])
+				if (res.asAnyRef eq fallback) No
+				else Yes(res.asInstanceOf[Out])
 			}
 			override def lift = f.lift
 			override def toString = "name"
@@ -118,7 +118,7 @@ object MatchPattern { //todo: a constructor macro adapting a partial function li
 	  */
 	def sure[@specialized(SpecializedArgs) In, Out](name :String)(f :In => Out) :MatchPattern[In, Out] =
 		new MatchPattern[In, Out] {
-			override def unapply(in :In) = Got(f(in))
+			override def unapply(in :In) = Yes(f(in))
 			override def lift = f andThen Some.apply
 			override def toString = name
 		}
@@ -145,7 +145,7 @@ object MatchPattern { //todo: a constructor macro adapting a partial function li
 	def narrow[X, Y :ClassTag] :MatchPattern[X, Y] = new MatchPattern[X, Y with X] {
 		private[this] val Result :ClassTag[Y] = implicitly[ClassTag[Y]]
 
-		override def unapply(arg :X) :Opt[X with Y] = Result.unapply(arg).downcastParam[X with Y].toOpt
+		override def unapply(arg :X) :Maybe[X with Y] = Result.unapply(arg).downcastParam[X with Y].toMaybe
 		override def lift = Result.unapply(_).asInstanceOf[Option[X  with Y]]
 
 		override def toString :String = "narrow[_=>" + Result.runtimeClass.getName + "]"

@@ -997,14 +997,14 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	}
 
 /*
-	private def getIndex(i :Int) :Opt[Int] = Opt.when(i >= 0)(i)
+	private def getIndex(i :Int) :Maybe[Int] = Maybe.when(i >= 0)(i)
 
 	property("getIndexOf") = forAll { (seq :Seq[Int]) =>
 		forAll { (x :Int, i :Int) =>
 			seq.getIndexOf(x, i) ?= getIndex(seq.indexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getIndexOf(x) ?= getIndex(seq.indexOf(x))) :| (x.toString + "@" + seq.indexOf(x))) &&
-				(seq.getIndexOf(x, i) ?= Got(i)) :| s"#$i->$x"
+				(seq.getIndexOf(x, i) ?= Yes(i)) :| s"#$i->$x"
 		} :_*)
 	}
 	property("getLastIndexOf") = forAll { (seq :Seq[Int]) =>
@@ -1012,7 +1012,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			seq.getLastIndexOf(x, i) ?= getIndex(seq.lastIndexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getLastIndexOf(x) ?= getIndex(seq.lastIndexOf(x))) :| (x.toString + "@" + seq.lastIndexOf(x))) &&
-				(seq.getLastIndexOf(x, i) ?= Got(i)) :| s"$x<-#$i"
+				(seq.getLastIndexOf(x, i) ?= Yes(i)) :| s"$x<-#$i"
 		} :_*)
 	}
 	property("getIndexWhere") = forAll { (seq :Seq[Int]) =>
@@ -1020,7 +1020,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			seq.getIndexWhere(_ == x, i) ?= getIndex(seq.indexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getIndexWhere(_ == x) ?= getIndex(seq.indexOf(x))) :| (x.toString + "@" + seq.indexOf(x))) &&
-				(seq.getIndexWhere(_ == x, i) ?= Got(i)) :| s"#$i->$x"
+				(seq.getIndexWhere(_ == x, i) ?= Yes(i)) :| s"#$i->$x"
 		} :_*)
 	}
 	property("getLastIndexWhere") = forAll { (seq :Seq[Int]) =>
@@ -1028,7 +1028,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			seq.getLastIndexWhere(_ == x, i) ?= getIndex(seq.lastIndexOf(x, i))
 		} && all(seq.mapWithIndex { (x, i) =>
 			((seq.getLastIndexWhere(_ == x) ?= getIndex(seq.lastIndexOf(x))) :| (x.toString + "@" + seq.lastIndexOf(x))) &&
-				(seq.getLastIndexWhere(_ == x, i) ?= Got(i)) :| s"$x<-#$i"
+				(seq.getLastIndexWhere(_ == x, i) ?= Yes(i)) :| s"$x<-#$i"
 		} :_*)
 	}
 	property("getIndexOfSlice") = forAll { (seq :Vector[Int]) =>
@@ -1040,7 +1040,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 				val slice = seq.slice(from, until)
 				val i = seq.indexOfSlice(slice)
 				((seq.getIndexOfSlice(slice) ?= getIndex(i)) :| slice.toString + "@" + i) &&
-					((seq.getIndexOfSlice(slice, from) ?= Got(from)) :| "[" + from + ", " + until + ")@" + from)
+					((seq.getIndexOfSlice(slice, from) ?= Yes(from)) :| "[" + from + ", " + until + ")@" + from)
 			})
 		:_*) && forAll { (x :Seq[Int], i :Short) =>
 			seq.getIndexOfSlice(x, i & 0xffff) ?= getIndex(seq.indexOfSlice(x, i & 0xffff))
@@ -1055,7 +1055,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 				val slice = seq.slice(from, until)
 				val i = seq.lastIndexOfSlice(slice)
 				((seq.getLastIndexOfSlice(slice) ?= getIndex(i)) :| slice.toString + "@" + i) &&
-					((seq.getLastIndexOfSlice(slice, from) ?= Got(from)) :| "[" + from + ", " + until + ")@" + from)
+					((seq.getLastIndexOfSlice(slice, from) ?= Yes(from)) :| "[" + from + ", " + until + ")@" + from)
 			})
 		:_*) && forAll { (x :Seq[Int], i :Short) =>
 			seq.getLastIndexOfSlice(x, i & 0xffff) ?= getIndex(seq.lastIndexOfSlice(x, i & 0xffff))

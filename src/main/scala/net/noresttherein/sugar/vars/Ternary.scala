@@ -6,10 +6,9 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
-import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ternary.{Known, No, NoContent, WithFilter, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
@@ -39,6 +38,7 @@ import net.noresttherein.sugar.witness.Ignored
   * @see [[net.noresttherein.sugar.vars.Ternary.Known$]]
   * @see [[net.noresttherein.sugar.vars.Ternary.Unknown]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
+  * @see [[net.noresttherein.sugar.vars.Maybe]]
   * @see [[net.noresttherein.sugar.vars.Opt]]
   * @define Ref  `Ternary`
   * @define ref  ternary value
@@ -339,7 +339,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	/** Returns a new `Opt` which is empty ''iff'' this value is empty, or one containing the result of applying
 	  * the given function to its value otherwise. */
 	@inline def map[O](f :Boolean => O) :Opt[O] =
-		if (x == NoContent) Lack else Got(f(x == Yes))
+		if (x == NoContent) None else One(f(x == Yes))
 
 	/** Applies the given function to the content of this `Ternary` and returns the result or the provided alternative
 	  * if this instance is empty. Equivalent to `this map f getOrElse or`, but in one step. */
@@ -348,7 +348,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Applies the given function to the content of this `Ternary` and returns the result or the provided alternative
 	  * if this instance is empty. Equivalent to
-	  * `this.toOpt.`[[net.noresttherein.sugar.collections.Opt.mapOrElse mapOrElse]]`(f, or)`, but in one step. */
+	  * `this.toMaybe.`[[net.noresttherein.sugar.vars.Maybe.mapOrElse mapOrElse]]`(f, or)`, but in one step. */
 	@inline def mapOrElse[O](f :Boolean => O, or: => O) :O =
 		if (x == NoContent) or else f(x == Yes)
 
@@ -371,13 +371,13 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** The same as [[net.noresttherein.sugar.vars.Ternary.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]] is returned instead. */
-	@inline def guardMap[O](f :Boolean => O) :Opt[O] =
+	@inline def guardMap[O](f :Boolean => O) :Opt[O] = //consider: returning Outcome instead.
 		if (x == NoContent)
-			Lack
+			None
 		else try {
-			Got(f(x == Yes))
+			One(f(x == Yes))
 		} catch {
-			case _ :Exception => Lack
+			case _ :Exception => None
 		}
 
 	/** Returns the result of applying the given function to the value of this `Ternary` if it is not empty,
@@ -388,7 +388,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	/** Returns the result of applying the given function to the value of this `Ternary` if it is not empty,
 	  * or `this` if `this.isEmpty`. */
 	@inline def flatMap[O](f :Boolean => Opt[O]) :Opt[O] =
-		if (x == NoContent) Lack else f(x == Yes)
+		if (x == NoContent) Maybe.No else f(x == Yes)
 
 	/** Returns an empty `Ternary` if `this.contains(o)`, or `this` otherwise. */
 	@inline def removed(value :Boolean) :Ternary =
@@ -445,14 +445,14 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 			new Ternary(f.andThen(y => if (y) Yes else No).applyOrElse(x == Yes, { _ :Boolean => NoContent }))
 
 	/** Returns an empty `Opt` if this `Ternary` is empty or the partial function `f` is not defined for its value,
-	  * otherwise applies it and wraps the result it in a new `Opt`. */
+	  * otherwise applies it and wraps the result it in a new `One`. */
 	@inline def collect[O](f :PartialFunction[Int, O]) :Opt[O] =
 		if (x == NoContent)
-			Lack
+			None
 		else
-			f.asInstanceOf[PartialFunction[Boolean, AnyRef]].applyOrElse(x == Yes, Opt.NoContent) match {
-				case Opt.NoContent   => Lack
-				case o :O @unchecked => Got(o)
+			f.asInstanceOf[PartialFunction[Boolean, AnyRef]].applyOrElse(x == Yes, Maybe.NoContent) match {
+				case Maybe.NoContent => None
+				case o :O @unchecked => One(o)
 			}
 
 
@@ -490,9 +490,9 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	@inline override def constOption :Option[Boolean] = if (x == NoContent) None else Some(x == Yes)
 
-	@inline override def opt      :Opt[Boolean] = if (x == NoContent) Lack else Got(x == Yes)
-	@inline override def toOpt    :Opt[Boolean] = if (x == NoContent) Lack else Got(x == Yes)
-	@inline override def constOpt :Opt[Boolean] = if (x == NoContent) Lack else Got(x == Yes)
+	@inline override def maybe      :Maybe[Boolean] = if (x == NoContent) Maybe.No else Maybe.Yes(x == Yes)
+	@inline override def toMaybe    :Maybe[Boolean] = if (x == NoContent) Maybe.No else Maybe.Yes(x == Yes)
+	@inline override def maybeConst :Maybe[Boolean] = if (x == NoContent) Maybe.No else Maybe.Yes(x == Yes)
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any.
 	  * Same as [[net.noresttherein.sugar.vars.Ternary.toUnsure toUnsure]]. */
@@ -505,21 +505,21 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any.
       * Same as [[net.noresttherein.sugar.vars.Ternary.toUnsure toUnsure]]. */
-	@inline override def constUnsure :Unsure[Boolean] =
+	@inline override def unsureConst :Unsure[Boolean] =
 		if (x == NoContent) Missing else new Sure(x == Yes)
 
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
-	  * Same as [[net.noresttherein.sugar.vars.Ternary.toPotential toPotential]]. */
-	@inline override def potential :Potential[Boolean] = if (x == NoContent) Inexistent else Existent(x == Yes)
+	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
+	  * Same as [[net.noresttherein.sugar.vars.Ternary.toOpt toOpt]]. */
+	@inline override def opt :Opt[Boolean] = if (x == NoContent) None else One(x == Yes)
 
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any. */
-	@inline override def toPotential :Potential[Boolean] =
-		if (x == NoContent) Inexistent else Existent(x == Yes)
+	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any. */
+	@inline override def toOpt :Opt[Boolean] =
+		if (x == NoContent) None else One(x == Yes)
 
-	/** Conversion to a fully erased `Potential` carrying the same value as this instance, if any.
-	  * Same as [[net.noresttherein.sugar.vars.Ternary.toPotential toPotential]]. */
-	@inline override def constPotential :Potential[Boolean] =
-		if (x == NoContent) Inexistent else Existent(x == Yes)
+	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
+	  * Same as [[net.noresttherein.sugar.vars.Ternary.toOpt toOpt]]. */
+	@inline override def constOpt :Opt[Boolean] =
+		if (x == NoContent) None else One(x == Yes)
 
 
 	/** Converts this `Ternary` to `Either`, returning the content as `Left`, or the value of the given expression
@@ -545,8 +545,13 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Converts this `Ternary` to `Outcome`, returning the content as `Done`,
 	  * or the value of the given `String` as `Failed` error message if empty. */
-	@inline def outcome(err : => String) :Outcome[Boolean] =
+	@inline def doneOr(err: => String) :Outcome[Boolean] =
 		if (x == NoContent) Failed(() => err) else Done(x == Yes)
+
+	/** Converts this `Ternary` to `Outcome`, returning the content as `Done`,
+	  * or the given `Throwable` as an error if empty. */
+	@inline def doneOr(err: Throwable) :Outcome[Boolean] =
+		if (x == NoContent) err.asInstanceOf[Outcome[Boolean]] else Done(x == Yes)
 
 	/** Formats this `Ternary` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 	@inline override def mkString(prefix :String) :String = x match {
@@ -563,9 +568,9 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	}
 
 	@inline override def toString :String = x match {
-		case No  => "False"
-		case Yes => "True"
-		case _   => "Unknown"
+		case No  => "false"
+		case Yes => "true"
+		case _   => "unknown"
 	}
 
 	private[vars] override def isSpecialized = false
@@ -599,8 +604,8 @@ object Ternary {
 			else No
 		)
 
-	/** Converts the given `Opt[Boolean]` into a specialized `Ternary`, erased at runtime. */
-	@inline def got_?(value :Opt[Boolean]) :Ternary =
+	/** Converts the given `Maybe[Boolean]` into a specialized `Ternary`, erased at runtime. */
+	@inline def yes_?(value :Maybe[Boolean]) :Ternary =
 		new Ternary(
 			if (value.isEmpty) NoContent
 			else if (value.get) Yes
@@ -615,8 +620,8 @@ object Ternary {
 			else No
 		)
 
-	/** Converts the given `Potential[Boolean]` into a specialized `Ternary` for interoperability. */
-	@inline def existent_?(value :Potential[Boolean]) :Ternary =
+	/** Converts the given `Opt[Boolean]` into a specialized `Ternary` for interoperability. */
+	@inline def one_?(value :Opt[Boolean]) :Ternary =
 		new Ternary(
 			if (value.isEmpty) NoContent
 			else if (value.get) Yes
@@ -631,8 +636,8 @@ object Ternary {
 			else No
 		)
 
-	/** Converts the given `Opt[Boolean]` into a specialized `Ternary`, erased at runtime. */
-	@inline def fromOpt(value: Opt[Boolean]) :Ternary =
+	/** Converts the given `Maybe[Boolean]` into a specialized `Ternary`, erased at runtime. */
+	@inline def fromOpt(value: Maybe[Boolean]) :Ternary =
 		new Ternary(
 			if (value.isEmpty) NoContent
 			else if (value.get) Yes
@@ -647,8 +652,8 @@ object Ternary {
 			else No
 		)
 
-	/** Converts the given `Potential[Boolean]` into a specialized `Ternary` for interoperability. */
-	@inline def fromPotential(value :Potential[Boolean]) :Ternary =
+	/** Converts the given `Opt[Boolean]` into a specialized `Ternary` for interoperability. */
+	@inline def fromYield(value :Opt[Boolean]) :Ternary =
 		new Ternary(
 			if (value.isEmpty) NoContent
 			else if (value.get) Yes
@@ -707,6 +712,7 @@ object Ternary {
 	/** Returns [[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]] - an empty `Ternary`. */
 	@inline final def empty :Ternary = Unknown
 
+	//todo: remove this type and make Unknown be simply Ternary
 	/** A refinement of [[net.noresttherein.sugar.vars.Ternary Ternary]] marking it through a member flag type
 	  * as empty. [[net.noresttherein.sugar.vars.Ternary.Unknown Ternary.Unknown]] is an instance of this type. */
 	type Unknown = Ternary { type isEmpty = true }
@@ -743,7 +749,7 @@ object Ternary {
 	final class WithFilter(self :Ternary, p :Boolean => Boolean) {
 		def map(f :Boolean => Boolean) :Ternary =
 			if (self.x == NoContent) self else new Ternary(if (f(self.x == Yes)) Yes else No)
-		def map[B](f: Boolean => B): Opt[B] = self filter p map f
+		def map[B](f: Boolean => B): Maybe[B] = self filter p map f
 		def flatMap(f: Boolean => Ternary): Ternary = self filter p flatMap f
 		def flatMap[B](f: Boolean => Opt[B]): Opt[B] = self filter p flatMap f
 		def foreach[U](f: Boolean => U): Unit = self filter p foreach f
@@ -754,7 +760,7 @@ object Ternary {
 	/** Implicitly lifts a `Boolean` to [[net.noresttherein.sugar.vars.Ternary Ternary]]`[T]`. */
 	@inline implicit def BooleanToTernary(x :Boolean) :Ternary = new Ternary(if (x) Yes else No)
 
-	/** Implicit conversions between `Ternary` and `Option` and `Opt`.
+	/** Implicit conversions between `Ternary` and `Option` and `Maybe`.
 	  * Conversions between `Ternary` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
 	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
 	@SerialVersionUID(Ver)
@@ -769,23 +775,23 @@ object Ternary {
 				else NoContent
 			)
 
-		@inline implicit def TernaryToOpt(opt :Ternary) :Opt[Boolean] = opt.opt
-		@inline implicit def OptToTernary(opt :Opt[Boolean]) :Ternary =
+		@inline implicit def TernaryToOpt(opt :Ternary) :Maybe[Boolean] = opt.maybe
+		@inline implicit def OptToTernary(opt :Maybe[Boolean]) :Ternary =
 			new Ternary(
 				if (opt.isDefined)
 					if (opt.get) Yes else No
 				else NoContent
 			)
 
-		@inline implicit def TernaryToPotential(Ternary :Ternary) :Potential[Boolean] = Ternary.potential
-		@inline implicit def PotentialToTernary(opt :Potential[Boolean]) :Ternary = Ternary.fromPotential(opt)
+		@inline implicit def TernaryToYield(Ternary :Ternary) :Opt[Boolean] = Ternary.opt
+		@inline implicit def YieldToTernary(opt :Opt[Boolean]) :Ternary = Ternary.fromYield(opt)
 
 		/** Implicitly lifts a `Boolean` to [[net.noresttherein.sugar.vars.Ternary Ternary]]`[T]`. */
 		@inline implicit def BooleanToKnown(x :Boolean) :Known = new Ternary(if (x) Yes else No).asInstanceOf[Known]
 	}
 
 
-	private[Ternary] final val Yes       = 1
-	private[Ternary] final val No        = 0
+	private[Ternary] final val Yes       =  1
+	private[Ternary] final val No        =  0
 	private[Ternary] final val NoContent = -1
 }

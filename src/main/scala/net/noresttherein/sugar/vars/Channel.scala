@@ -5,8 +5,9 @@ import scala.annotation.tailrec
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Channel.{Reader, Writer}
+import net.noresttherein.sugar.vars.Ref.undefined
 
 
 
@@ -59,6 +60,7 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 	  * }}}
 	  */
 	override def isDefinite :Boolean = synchronized { writers != null }
+
 
 	/** Synchronously returns a value some other thread 'assigns' to this variable, with every call
 	  * returning a different value (that is, a value set by a separate assignment operations).
@@ -171,11 +173,32 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 
 
 	/** Consumes a value if any producers are waiting on this instance. */
-	override def opt :Opt[T] = synchronized {
-		if (writers != null) Got(value) else Lack
+	override def maybe :Maybe[T] = synchronized {
+		if (writers != null) Yes(value) else No
 	}
-	override def toOpt :Opt[T] = opt
-	override def constOpt :Opt[T] = Lack
+	override def toMaybe :Maybe[T] = maybe
+	override def maybeConst :Maybe[T] = No
+
+	/** If a writer is waiting on the other side of the channel, returns the set value,
+	  * but without consuming it and freeing the writer. If no writer is waiting on this $ref, returns `No`.
+	  */
+	def peek :Maybe[T] = synchronized {
+		if (writers != null) Yes(writers.value) else No
+	}
+
+	/** The number of waiting writers. Note that, unless externally synchronized by the application,
+	  * the value may be already stale when the method returns.
+	  */
+	def waitingWriters :Int = synchronized {
+		if (writers == null) 0 else writers.length
+	}
+
+	/** The number of waiting readers. Note that, unless externally synchronized by the application,
+	  * the value may be already stale when the method returns.
+	  */
+	def waitingReaders :Int = synchronized {
+		if (readers == null) 0 else readers.length
+	}
 
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[Channel[_]]
 
@@ -183,14 +206,16 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Channel[_]]
 	override def hashCode :Int = System.identityHashCode(this)
 
+	override def mkString :String = mkString("Channel")
 	override def mkString(prefix :String) :String = synchronized {
 		if (writers == null) prefix + "()"
 		else prefix + "(" + writers.value + ")"
 	}
 	override def toString :String = synchronized {
-		if (writers != null) writers.writersString("Channel") + "@" + this.hashCodeString
-		else if (readers != null) "Channel"  + "(" + readers.length + " readers)@" + this.hashCodeString
-		else "Channel()@" + this.hashCodeString
+		if (writers != null) String.valueOf(writers.value) else undefined.toString
+//		if (writers != null) writers.writersString("Channel") + "@" + this.hashCodeString
+//		else if (readers != null) "Channel"  + "(" + readers.length + " readers)@" + this.hashCodeString
+//		else "Channel()@" + this.hashCodeString
 	}
 }
 

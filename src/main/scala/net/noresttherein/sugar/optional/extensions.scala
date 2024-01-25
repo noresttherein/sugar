@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionCompanionExtension, ifTrueMethods, providingMethods, satisfyingMethods}
-import net.noresttherein.sugar.vars.{Opt, Outcome, Pill, Potential, Unsure}
+import net.noresttherein.sugar.vars.{Maybe, Outcome, Pill, Opt, Unsure}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 
@@ -126,14 +126,14 @@ object extensions extends extensions {
 		@inline def orNoneUnless(condition :Boolean) :Option[T] =
 			if (condition) self else None
 
-		/** Converts this option into an [[net.noresttherein.sugar.vars.Opt Opt]] wrapping the same type/value. */
-		@inline def toOpt :Opt[T] = Opt.some_?(self)
+		/** Converts this option into an [[net.noresttherein.sugar.vars.Maybe Maybe]] wrapping the same type/value. */
+		@inline def toMaybe :Maybe[T] = Maybe.some_?(self)
 
 		/** Converts this option into an [[net.noresttherein.sugar.vars.Unsure Unsure]] wrapping the same type/value. */
 		@inline def toUnsure :Unsure[T] = Unsure.some_?(self) //not specialized
 
-		/** Converts this option into an [[net.noresttherein.sugar.vars.Potential Potential]] wrapping the same type/value. */
-		@inline def toPotential :Potential[T] = Potential.some_?(self) //not specialized
+		/** Converts this option into an [[net.noresttherein.sugar.vars.Opt Opt]] wrapping the same type/value. */
+		@inline def toOpt :Opt[T] = Opt.some_?(self) //not specialized
 
 
 		/** Converts this `Option` to `Pill`, returning the content as `Red`, or the value of the given expression
@@ -148,8 +148,13 @@ object extensions extends extensions {
 
 		/** Converts this `Option` to `Outcome`, returning the content as `Done`,
 		  * or the value of the given `String` as `Failed` error message if empty. */
-		@inline final def outcome(err : => String) :Outcome[T] =
+		@inline final def doneOr(err : => String) :Outcome[T] =
 			if (self.isDefined) Failed(() => err) else Done(self.get)
+
+		/** Converts this `Option` to `Outcome`, returning the content as `Done`,
+		  * or the given `Throwable` as a failure if empty. */
+		@inline final def doneOr(err: Throwable) :Outcome[T] =
+			if (self.isDefined) err.asInstanceOf[Outcome[T]] else Done(self.get)
 	}
 
 

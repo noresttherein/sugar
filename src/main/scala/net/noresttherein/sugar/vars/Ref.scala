@@ -2,7 +2,7 @@ package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -10,7 +10,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
 
 /** The root type of a class hierarchy of various value wrappers such as
   * [[net.noresttherein.sugar.vars.InOut variable references]], [[net.noresttherein.sugar.vars.Lazy lazy values]],
-  * [[net.noresttherein.sugar.vars.Unsure various]] [[net.noresttherein.sugar.vars.Opt optional]]
+  * [[net.noresttherein.sugar.vars.Unsure various]] [[net.noresttherein.sugar.vars.Maybe optional]]
   * [[net.noresttherein.sugar.vars.LazyUnsure value]] implementations
   * and [[java.lang.ref.Reference]] [[net.noresttherein.sugar.vars.DisposableRef wrappers]] among others.
   *
@@ -62,13 +62,13 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * In a single threaded context, it implies that `this.`[[net.noresttherein.sugar.vars.Ref.value value]]
 	  * will throw a [[NoSuchElementException]] and
 	  * [[net.noresttherein.sugar.vars.Ref.option option]]/[[net.noresttherein.sugar.vars.Ref.opt opt]]/[[net.noresttherein.sugar.vars.Ref.unsure unsure]]
-	  * will return `None`/[[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Missing Missing]].
+	  * will return `None`/[[net.noresttherein.sugar.vars.Maybe.No No]]/[[net.noresttherein.sugar.vars.Missing Missing]].
 	  * Note that in a multi-threaded context the result may be stale the moment the method returns.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @return [[net.noresttherein.sugar.vars.Ref.opt opt]]`.isEmpty` (or equivalent).
 	  */
-	def isEmpty :Boolean = opt.isEmpty
+	def isEmpty :Boolean = maybe.isEmpty
 
 	/** The $Ref currently holds a [[net.noresttherein.sugar.vars.Ref.value value]].
 	  * Note that in a multi-threaded context the result may be incorrect the moment the method returns.
@@ -98,7 +98,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * it will remain `true` for the rest of this $Ref's lifetime, although in a multi-threaded context
 	  * this is guaranteed only for thread safe implementations.
 	  * Implies `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]],
-	  * [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]
+	  * [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]], [[net.noresttherein.sugar.vars.Ref.isFinal isFinal]],
 	  * and [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]].
 	  * A constant $Ref will never throw an exception from [[net.noresttherein.sugar.vars.Ref.value value]],
 	  * [[net.noresttherein.sugar.vars.Ref.get get]], [[net.noresttherein.sugar.vars.Ref.const const]],
@@ -113,8 +113,8 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	/** The $Ref contains a proper value or can compute one on demand. In a single threaded context,
 	  * or with proper synchronization, this implies that [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * will return this value without throwing an exception, although
-	  * [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
-	  * may still return `None`/[[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Missing Missing]]
+	  * [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
+	  * may still return `None`/[[net.noresttherein.sugar.vars.Maybe.No No]]/[[net.noresttherein.sugar.vars.Missing Missing]]
 	  * to avoid blocking. This implies nothing about `this.`[[net.noresttherein.sugar.vars.Ref.value value]]:
 	  * it might return a different result or throw a [[NoSuchElementException]].
 	  * Depending on the implementation, this state can be temporary and/or the actual value returned by `get` may change.
@@ -125,7 +125,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isDefined :Boolean
 
 	/** The $Ref currently holds a proper value: in single threaded context, or with proper synchronization,
-	  * [[net.noresttherein.sugar.vars.Ref.get get]] and [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]],
+	  * [[net.noresttherein.sugar.vars.Ref.get get]] and [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]],
 	  * [[net.noresttherein.sugar.vars.Ref.toOption toOption]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
 	  * will return this value without blocking. Implies [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]].
 	  * This value needs not be final - the above methods are allowed to return different values in the future.
@@ -148,6 +148,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.const const]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.maybe maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.NonEmpty.unapply NonEmpty.unapply]]
 	  */ //consider: renaming to current, and making get an alias for value
@@ -167,14 +168,14 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  *   1. if `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]] and `get` returns a value
 	  *      without throwing an exception, then all subsequent calls will also succeed and return the same value;
 	  *   1. if `this.`[[net.noresttherein.sugar.vars.Ref.toOption toOption]]
-	  *      ([[net.noresttherein.sugar.vars.Ref.toOpt toOpt]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]])
-	  *      returns `Some` (`Got`, `Sure`), then this method will return the same value unwrapped;
+	  *      ([[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]])
+	  *      returns `Some` (`Yes`, `Sure`), then this method will return the same value unwrapped;
 	  *   1. if this method returns `v` without an exception, then [[net.noresttherein.sugar.vars.Ref.value value]]
 	  *      will also return the same value (i.e., the 'value' of a `Ref` is also always 'its current value');
 	  *   1. if this method returns `v` without an exception, then, in a synchronized or single thread context,
 	  *      all subsequent calls to
-	  *      [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
-	  *      will return `Some(v)`/`Got(v)`/`Sure(v)`.
+	  *      [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
+	  *      will return `Some(v)`/`Yes(v)`/`Sure(v)`.
 	  *   1. if a call to `this.`[[net.noresttherein.sugar.vars.const const]] succeeds and returns `v`,
 	  *      then all subsequent calls to `get` will also return `v`.
 	  *
@@ -185,7 +186,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * This method is equivalent to [[net.noresttherein.sugar.vars.Ref.apply apply]]`()`.
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.const const]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOption toOption]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.unapply Ref.unapply]]
 	  */
@@ -197,8 +198,8 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * (in particular, making it [[net.noresttherein.sugar.vars.Ref.isFinal final]]).
 	  * All calls always have the same effect: either the same value is returned, or the same exception is thrown.
 	  * If this call succeeds and returns `v`, then
-	  * [[net.noresttherein.sugar.vars.Ref.constOption constOption]]/[[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]/[[net.noresttherein.sugar.vars.Ref.constUnsure constUnsure]]
-	  * will always return `Some(v)`/`Got(v)`/`Sure(v)` and vice versa.
+	  * [[net.noresttherein.sugar.vars.Ref.constOption constOption]]/[[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]/[[net.noresttherein.sugar.vars.Ref.unsureConst unsureConst]]/[[net.noresttherein.sugar.vars.Ref.maybeConst maybeConst]]
+	  * will always return `Some(v)`/`Yes(v)`/`Sure(v)` and vice versa.
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  */
@@ -225,7 +226,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOption toOption]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOption constOption]]
 	  */ //consider: renaming to currOption
-	def option :Option[T] = opt.constOption
+	def option :Option[T] = maybe.constOption
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
 	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
@@ -242,7 +243,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOption constOption]]
 	  */ //consider: renaming to option
-	def toOption :Option[T] = toOpt.toOption
+	def toOption :Option[T] = toMaybe.toOption
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
 	  * All non-empty returned values are equal: in a single threaded context (or when properly synchronized),
@@ -250,56 +251,56 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * Also, if `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  * As a rule, it is equivalent to `Try(const).toOption`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
-	  * always return [[net.noresttherein.sugar.vars.Opt.Lack Lack]], unless they can be 'finalized'
+	  * always return [[net.noresttherein.sugar.vars.Maybe.No No]], unless they can be 'finalized'
 	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return `Some(const)`
 	  * (possibly initializing the value).
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOption toOption]]
 	  */
-	def constOption :Option[T] = constOpt.toOption
+	def constOption :Option[T] = maybeConst.toOption
 
 	/** The current value of this $Ref. In a single threaded context - or with synchronization proper
 	  * to the implementation - it is equivalent to
 	  * {{{
-	  * 	if (nonEmpty) Got(value) else Lack
+	  * 	if (nonEmpty) Yes(value) else No
 	  * }}}
 	  * @see [[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.maybeConst maybeConst]]
 	  */ //consider: renaming to currOpt
-	def opt :Opt[T]
+	def maybe :Maybe[T]
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
 	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
-	  * external setting of the value will return [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+	  * external setting of the value will return [[net.noresttherein.sugar.vars.Maybe.No No]].
 	  * As a rule, in a single threaded context (or when properly synchronized),
-	  * if this method returns `Got(v)`, then [[net.noresttherein.sugar.vars.Ref.get get]] will return `v`
-	  * without throwing an exception. Conversely, if `get` returns `v`, this method can return only `Got(v)`
-	  * or `Lack` (in particular to avoid blocking).
+	  * if this method returns `Yes(v)`, then [[net.noresttherein.sugar.vars.Ref.get get]] will return `v`
+	  * without throwing an exception. Conversely, if `get` returns `v`, this method can return only `Yes(v)`
+	  * or `No` (in particular to avoid blocking).
 	  *
 	  * The method can return different values for different calls, unless this instance is immutable
 	  * (a [[net.noresttherein.sugar.vars.Val Val]]).
 	  * It can block to wait for another thread only if initialization is currently in progress/the value
 	  * is currently mutated, but not if no other thread currently accesses this variable.
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.maybe maybe]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.maybeConst maybeConst]]
 	  */ //consider: renaming to opt
-	def toOpt :Opt[T]
+	def toMaybe :Maybe[T]
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
 	  * All non-empty returned values are equal: in a single threaded context (or when properly synchronized),
-	  * if `const` returns `v`, then this method will return `Got(v)` and vice versa.
-	  * As a rule, it is equivalent to `Opt.fromOption(Try(const).toOption)`.
+	  * if `const` returns `v`, then this method will return `Yes(v)` and vice versa.
+	  * As a rule, it is equivalent to `Maybe.fromOption(Try(const).toOption)`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
-	  * always return [[net.noresttherein.sugar.vars.Opt.Lack Lack]], unless they can be 'finalized'
+	  * always return [[net.noresttherein.sugar.vars.Maybe.No No]], unless they can be 'finalized'
 	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return
-	  * [[net.noresttherein.sugar.vars.Opt.Got Got]]`(const)` (possibly initializing the value).
-	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
+	  * [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(const)` (possibly initializing the value).
+	  * @see [[net.noresttherein.sugar.vars.Ref.maybe maybe]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]
 	  */
-	def constOpt :Opt[T]
+	def maybeConst :Maybe[T]
 
 	/** The current value of this $Ref, as an option-like, specialized `Unsure`.
 	  * In a single threaded context - or with synchronization proper to the implementation - it is equivalent to
@@ -309,9 +310,9 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.constUnsure constUnsure]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.unsureConst unsureConst]]
 	  */ //currUnsure
-	def unsure :Unsure[T] = opt.unsure
+	def unsure :Unsure[T] = maybe.unsure
 
 	/** The value of this $Ref, if it is available or can be computed, as an option-like, specialized `Unsure`.
 	  * Lazily initialized objects (containing their initializers) will proceed with the initialization if necessary,
@@ -328,9 +329,9 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * is currently mutated, but not if no other thread currently accesses this variable.
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.unsure unsure]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.constUnsure constUnsure]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.unsureConst unsureConst]]
 	  */ //rename to unsure
-	def toUnsure :Unsure[T] = toOpt.unsure
+	def toUnsure :Unsure[T] = toMaybe.unsure
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists, as an option-like,
 	  * specialized `Unsure`. All non-empty returned values are equal: in a single threaded context
@@ -343,69 +344,69 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.unsure unsure]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
 	  */
-	def constUnsure :Unsure[T] = constOpt.unsure
+	def unsureConst :Unsure[T] = maybeConst.unsure
 
 	/** The current value of this $Ref. In a single threaded context - or with synchronization proper
 	  * to the implementation - it is equivalent to
 	  * {{{
-	  * 	if (nonEmpty) Existent(value) else Inexistent
+	  * 	if (nonEmpty) One(value) else None
 	  * }}}
 	  * @see [[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.constPotential constPotential]]
-	  */
-	def potential :Potential[T] = opt.potential
+	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
+	  */ //todo: reverse the order of delegation
+	def opt :Opt[T] = maybe.opt
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
 	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
-	  * external setting of the value will return [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+	  * external setting of the value will return [[scala.None None]].
 	  * As a rule, in a single threaded context (or when properly synchronized),
-	  * if this method returns `Got(v)`, then [[net.noresttherein.sugar.vars.Ref.get get]] will return `v`
-	  * without throwing an exception. Conversely, if `get` returns `v`, this method can return only `Got(v)`
-	  * or `Lack` (in particular to avoid blocking).
+	  * if this method returns `One(v)`, then [[net.noresttherein.sugar.vars.Ref.get get]] will return `v`
+	  * without throwing an exception. Conversely, if `get` returns `v`, this method can return only `One(v)`
+	  * or `None` (in particular to avoid blocking).
 	  *
 	  * The method can return different values for different calls, unless this instance is immutable
 	  * (a [[net.noresttherein.sugar.vars.Val Val]]).
 	  * It can block to wait for another thread only if initialization is currently in progress/the value
 	  * is currently mutated, but not if no other thread currently accesses this variable.
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.potential potential]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.constPotential constPotential]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
 	  */
-	def toPotential :Potential[T] = toOpt.potential
+	def toOpt :Opt[T] = toMaybe.opt
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
 	  * All non-empty returned values are equal: in a single threaded context (or when properly synchronized),
-	  * if `const` returns `v`, then this method will return `Got(v)` and vice versa.
+	  * if `const` returns `v`, then this method will return `One(v)` and vice versa.
 	  * As a rule, it is equivalent to `Opt.fromOption(Try(const).toOption)`.
 	  * [[net.noresttherein.sugar.vars.Mutable Mutable]] implementations
-	  * always return [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]], unless they can be 'finalized'
+	  * always return [[scala.None None]], unless they can be 'finalized'
 	  * (see [[net.noresttherein.sugar.vars.Freezer Freezer]]). Immutable instances return
-	  * [[net.noresttherein.sugar.vars.Opt.Got Got]]`(const)` (possibly initializing the value).
-	  * @see [[net.noresttherein.sugar.vars.Ref.potential potential]]
-	  * @see [[net.noresttherein.sugar.vars.Ref.toPotential toPotential]]
+	  * [[net.noresttherein.sugar.vars.Opt.One One]]`(const)` (possibly initializing the value).
+	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
 	  */
-	def constPotential :Potential[T] = constOpt.potential
+	def constOpt :Opt[T] = maybeConst.opt
 
 	/** Returns `true` if both instances are [[net.noresttherein.sugar.vars.Ref.isDefined defined]]
 	  * and their  [[net.noresttherein.sugar.vars.Ref.value values]] are equal.
 	  */
-	def valueEquals(other :Ref[_]) :Boolean = (opt, other.opt) match {
-		case (Got(a), Got(b)) => a == b
+	def valueEquals(other :Ref[_]) :Boolean = (maybe, other.maybe) match {
+		case (Yes(a), Yes(b)) => a == b
 		case _ => false
 	}
 
 	/** Equivalent to
-	  * [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]` `[[net.noresttherein.sugar.vars.Opt.same same]]` other.toOpt`.
+	  * [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]` `[[net.noresttherein.sugar.vars.Maybe.same same]]` other.toMaybe`.
 	  */
-	def same(other :Ref[_]) :Boolean = toOpt same other.toOpt
+	def same(other :Ref[_]) :Boolean = toMaybe same other.toMaybe
 
 //	def sameOpt(other :Ref[_]) :Ref[Boolean] =
 
 	/** True if the content type is known to be a value type and the class is specialized for it.
 	  * Signifies that usage of [[net.noresttherein.sugar.vars.Unsure Unsure]] is preferable
-	  * over [[net.noresttherein.sugar.vars.Opt Opt]]. Should not be relied upon for anything critical
+	  * over [[net.noresttherein.sugar.vars.Maybe Maybe]]. Should not be relied upon for anything critical
 	  * and code should work correctly if this method returns a false result, in particular
 	  * a false negative (the default return value being `false`).
 	  */
@@ -413,19 +414,19 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
 	override def equals(that: Any): Boolean = that match {
 		case self: AnyRef if this.asInstanceOf[AnyRef] eq self => true
-		case other: Ref[_] if other canEqual this =>
+		case other: Ref[_] if (this canEqual other) && (other canEqual this) =>
 			if (isSpecialized && other.isSpecialized)
 				toUnsure == other.toUnsure
 			else
-				toOpt == other.toOpt
+				toMaybe == other.toMaybe
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Ref[_]]
-	override def hashCode: Int = toOpt.hashCode
+	override def hashCode: Int = toMaybe.hashCode
 
 	/** Formats this instance as `s"$prefix($value)` or `s"$prefix()` if [[net.noresttherein.sugar.vars.Ref.isEmpty empty]]. */
 	def mkString(prefix :String) :String =
-		opt match {
-			case Got(v) => prefix + "(" + v + ")"
+		maybe match {
+			case Yes(v) => prefix + "(" + v + ")"
 			case _ => prefix + "()"
 		}
 
@@ -433,8 +434,8 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def mkString :String = mkString(this.innerClassName)
 
 	override def toString :String =
-		opt match {
-			case Got(v) => String.valueOf(v)
+		maybe match {
+			case Yes(v) => String.valueOf(v)
 			case _      => undefined.toString
 		}
 
@@ -449,14 +450,14 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 @SerialVersionUID(Ver)
 object Ref {
 	/** Extracts the value returned by [[net.noresttherein.sugar.vars.Ref.get get]], if it is available. */
-	@inline def unapply[T](ref :Ref[T]) :Opt[T] = ref.toOpt
+	@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
 
 	/** A match pattern for currently [[net.noresttherein.sugar.vars.Ref.nonEmpty non empty]]
 	  * [[net.noresttherein.sugar.vars.Ref Ref]] instances.
 	  */
 	object NonEmpty {
-		/** Returns `ref.`[[net.noresttherein.sugar.vars.Ref.opt opt]]. */
-		@inline def unapply[T](ref :Ref[T]) :Opt[T] = ref.opt
+		/** Returns `ref.`[[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
+		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.maybe
 	}
 
 
@@ -478,8 +479,8 @@ object Ref {
 					case _ => None
 				}
 			else
-				(x.toOpt, y.toOpt) match {
-					case (Got(vx), Got(vy)) =>  content.tryCompare(vx, vy)
+				(x.toMaybe, y.toMaybe) match {
+					case (Yes(vx), Yes(vy)) =>  content.tryCompare(vx, vy)
 					case _ => None
 				}
 
@@ -492,8 +493,8 @@ object Ref {
 					case _ => false
 				}
 			else
-				(x.toOpt, y.toOpt) match {
-					case (Got(vx), Got(vy)) => content.lteq(vx, vy)
+				(x.toMaybe, y.toMaybe) match {
+					case (Yes(vx), Yes(vy)) => content.lteq(vx, vy)
 					case _ => false
 				}
 	}
@@ -579,14 +580,14 @@ object Ref {
 		@inline final override def toOption    :Option[T] = option
 		/** Same as [[net.noresttherein.sugar.vars.Ref.option option]]. */
 		@inline final override def constOption :Option[T] = option
-		/** Same as [[net.noresttherein.sugar.vars.Ref.opt opt]]. */
-		@inline final override def toOpt       :Opt[T] = opt
-		/** Same as [[net.noresttherein.sugar.vars.Ref.opt opt]]. */
-		@inline final override def constOpt    :Opt[T] = opt
+		/** Same as [[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
+		@inline final override def toMaybe       :Maybe[T] = maybe
+		/** Same as [[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
+		@inline final override def maybeConst    :Maybe[T] = maybe
 		/** Same as [[net.noresttherein.sugar.vars.Ref.unsure unsure]]. */
 		@inline final override def toUnsure    :Unsure[T] = unsure
 		/** Same as [[net.noresttherein.sugar.vars.Ref.unsure unsure]]. */
-		@inline final override def constUnsure :Unsure[T] = unsure
+		@inline final override def unsureConst :Unsure[T] = unsure
 	}
 
 

@@ -1,12 +1,15 @@
 package net.noresttherein.sugar.format
 
-import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
+import java.math.BigInteger
+
+import net.noresttherein.sugar.JavaTypes.{JBigDecimal, JIntIterator, JStringBuilder}
 import net.noresttherein.sugar.collections.{ChoppedString, Substring}
 import net.noresttherein.sugar.format.util.{parseError, parseErrorMsg}
 import net.noresttherein.sugar.numeric.{Decimal64, UInt, ULong}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.{Maybe, Opt}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -40,10 +43,20 @@ trait FormatAsString extends Format { format =>
 	  */
 	implicit override val longMold    :Mold[Long] = LongMold
 
+	/** Uses [[net.noresttherein.sugar.numeric.ULong ULong]]`.`[[net.noresttherein.sugar.numeric.ULong.parse parse]]
+	  * to read a value (skipping leading whitespace), and appends values to the output using its `toString` method.
+	  */
+	implicit override val unsignedLongMold :Mold[ULong] = ULongMold
+
 	/** Uses [[java.lang.Integer]]`.`[[java.lang.Integer.parseInt parseInt]] to read a value
 	  * (skipping leading whitespace), and appends values to the output simply using their `toString` method.
 	  */
 	implicit override val intMold     :Mold[Int] = IntMold
+
+	/** Uses [[net.noresttherein.sugar.numeric.UInt UInt]]`.`[[net.noresttherein.sugar.numeric.UInt.parse parse]]
+	  * to read a value (skipping leading whitespace), and appends values to the output using its `toString` method.
+	  */
+	implicit override val unsignedIntMold :Mold[UInt] = UIntMold
 
 	/** Uses [[java.lang.Short]]`.`[[java.lang.Short.parseShort parseShort]] to read a value
 	  * (skipping leading whitespace), and appends values to the output simply using their `toString` method.
@@ -62,11 +75,36 @@ trait FormatAsString extends Format { format =>
 
 	/** Uses [[java.lang.Float]]`.`[[java.lang.Float.parseFloat parseFloat]] to read a value
 	  * (skipping leading whitespace), and appends values to the output simply using their `toString` method.
-	  */
+	  */ //consider: UInt, ULong
 	implicit override val floatMold   :Mold[Float] = FloatMold
 
+	/** Uses `BigInt(String)` for a valid hexadecimal, decimal prefix of the parsed `String`,
+	  * including in scientific notation. Formatted with `BigInt.toString`.
+	  */
+	override implicit val bigIntMold  :Mold[BigInt] = BigIntMold
+
+	/** Uses `new BigDecimal(String)` for a valid hexadecimal, decimal prefix of the parsed `String`,
+	  * including in scientific notation. Formatted with `BigInt.toString`.
+	  */
+	override implicit val bigDecimalMold :Mold[BigDecimal] = BigDecimalMold
+
+	/** Uses `new BigInteger(String)` for a valid hexadecimal, decimal prefix of the parsed `String`,
+	  * including in scientific notation. Formatted with `BigInteger.toString`.
+	  */
+	override implicit val bigIntegerMold :Mold[BigInteger] = BigIntegerMold
+
+	/** Uses `new java.math.BigDecimal(String)` for a valid hexadecimal, decimal prefix of the parsed `String`,
+	  * including in scientific notation. Formatted with `BigInt.toString`.
+	  */
+	override implicit val javaBigDecimalMold :Mold[JBigDecimal] = JavaBigDecimalMold
+
+	/** Uses `Decimal64.`[[net.noresttherein.sugar.numeric.Decimal64.parse parse]] to read a value,
+	  * after skipping whitespace, and appends values to the output simply using its `toString` method.
+	  */
+	override implicit val decimal64Mold :Mold[Decimal64] = Decimal64Mold
+
 	/** Consumes only `"true"` or `"false"` (ignoring case and leading whitespace) and appends values as such. */
-	implicit override val booleanMold :Mold[Boolean] = BooleanMold
+	implicit override val booleanMold    :Mold[Boolean] = BooleanMold
 
 	/** A mold which consumes ''exactly'' the given amount of characters from the parsed string.
 	  * The mold will throw a [[net.noresttherein.sugar.format.ParsingException ParsingException]]
@@ -95,7 +133,7 @@ trait FormatAsString extends Format { format =>
 	  * it delegates it instead to `mold.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]], passing only
 	  * the model object to melt, without the already formatted prefix string. The length of the melted object
 	  * is verified to be of more than `length` characters,
-	  * a [[net.noresttherein.sugar.format.Format.FormattingException FormattingException]] is thrown.
+	  * a [[net.noresttherein.sugar.format.FormattingException FormattingException]] is thrown.
 	  *
 	  * Note: the length argument will count whitespace.
 	  * @see [[net.noresttherein.sugar.format.FormatAsString.trim trim]].
@@ -137,10 +175,10 @@ trait FormatAsString extends Format { format =>
 		}
 		override def advanceOpt(prefix :ChoppedString, suffix :ChoppedString) =
 			if (suffix.isEmpty)
-				Lack
+				None
 			else {
 				val head = suffix.head
-				Got((prefix + head, head, suffix.tail))
+				One((prefix + head, head, suffix.tail))
 			}
 		override def guardAdvance(prefix :ChoppedString, suffix :ChoppedString) =
 			if (suffix.isEmpty)
@@ -151,7 +189,7 @@ trait FormatAsString extends Format { format =>
 			}
 
 		override def append(prefix :ChoppedString, model :Char) :ChoppedString = prefix + model
-		override def appendOpt(prefix :ChoppedString, model :Char) :Opt[ChoppedString] = Got(prefix + model)
+		override def appendOpt(prefix :ChoppedString, model :Char) :Opt[ChoppedString] = One(prefix + model)
 		override def guardAppend(prefix :ChoppedString, model :Char) = Done(prefix + model)
 	}
 	@SerialVersionUID(Ver)
@@ -185,126 +223,40 @@ trait FormatAsString extends Format { format =>
 		override def toString(input :Float) :String = input.toString
 	}
 	@SerialVersionUID(Ver)
-	private object BooleanMold extends NamedMold[Boolean] with SpecialGuardingMold[Boolean] {
-		override def name = "Boolean"
-
-		private final val MaybeTrue  = 1
-		private final val MaybeFalse = 2
-
-		private def eos(prefix :ChoppedString) =
-			Failed(() => "Expected a Boolean as String, but reached the end of input: '" + prefix + "'.")
-		private def fail(suffix :ChoppedString) =
-			Failed(() => "Expected a Boolean as String, but got '" + suffix + "'.")
-
-		override def guardAdvance(prefix :ChoppedString, suffix :ChoppedString) =
-			if (suffix.isEmpty)
-				eos(prefix)
-			else suffix match {
-				case substring :Substring => parseSubstring(prefix, substring)
-				case _                    => parseIterator(prefix, suffix)
-			}
-		private def parseSubstring(prefix :ChoppedString, suffix :Substring) = {
-			val len = suffix.length
-			def verify(idx :Int, lt :Char, ht :Char, lf :Char, hf :Char) :Int = {
-				if (idx < len) {
-					var possibility = MaybeTrue | MaybeFalse
-					val char = suffix(idx)
-					if (char != lt & char != ht)
-						possibility &= ~MaybeTrue
-					if (char != lf & char != hf)
-						possibility &= ~MaybeFalse
-					possibility
-				} else
-					0
-			}
-			var i = 0
-			while (i < len && Character.isWhitespace(i))
-				i += 1
-			if (i == len)
-				eos(prefix)
-			else {
-				val leadingWhitespace = i
-				var possibility = MaybeTrue | MaybeFalse
-				if ({ possibility &= ~verify(i, 't', 'T', 'f', 'F'); i += 1; possibility == 0 })
-					fail(suffix)
-				else if ({ possibility &= ~verify(i, 'r', 'R', 'a', 'A'); i += 1; possibility == 0 })
-					fail(suffix)
-				else if ({ possibility &= ~verify(i, 'u', 'U', 'l', 'L'); i += 1; possibility == 0 })
-					fail(suffix)
-				else if ({ possibility &= ~verify(i, 'e', 'E', 's', 'S'); i += 1; possibility == 0 })
-					fail(suffix)
-				else if ((possibility & MaybeTrue) == MaybeTrue) {
-					val parsed = suffix.slice(leadingWhitespace, i)
-					val remainder = suffix.drop(i)
-					Passed((prefix ++ parsed, true, remainder))
-				} else if ({ possibility &= ~verify(i, '_', '_', 'e', 'E'); i += 1; possibility == 0 })
-					fail(suffix)
-				else {
-					val parsed = suffix.slice(leadingWhitespace, i)
-					val remainder = suffix.drop(i)
-					Passed((prefix ++ parsed, false, remainder))
-				}
-			}
-		}
-		private def parseIterator(prefix :ChoppedString, suffix :ChoppedString) = {
-			def verify(next :Int, lt :Char, ht :Char, lf :Char, hf :Char) :Int = {
-				val char = next.toChar
-				var possibility = MaybeTrue | MaybeFalse
-				if (char != lt & char != ht)
-					possibility &= ~MaybeTrue
-				if (char != lf & char != hf)
-					possibility &= ~MaybeFalse
-				possibility
-			}
-			var leadingWhitespace = 0
-			val i = suffix.javaIterator
-			var char = i.nextInt().toChar
-			while (i.hasNext && Character.isWhitespace(char)) {
-				char = i.nextInt().toChar
-				leadingWhitespace += 1
-			}
-			var possibility = MaybeTrue | MaybeFalse
-			if (char != 't' & char != 'T')
-				possibility &= ~MaybeTrue
-			if (char != 'f' & char != 'F')
-				possibility &= ~MaybeFalse
-			if (possibility == 0)
-				fail(suffix)
-			if ({ 
-				possibility &= ~verify(char, 't', 'T', 'f', 'F')
-				possibility == 0 || !i.hasNext 
-			})
-				fail(suffix)
-			else if ({ 
-				possibility &= ~verify(i.nextInt(), 'r', 'R', 'a', 'A')
-				possibility == 0 || !i.hasNext
-			})
-				fail(suffix)
-			else if ({
-				possibility &= ~verify(i.nextInt(), 'u', 'R', 'l', 'L')
-				possibility == 0 || !i.hasNext
-			})
-				fail(suffix)
-			else if ({possibility &= ~verify(i.nextInt(), 'e', 'E', 's', 'S'); possibility == 0 })
-				fail(suffix)
-			else if ((possibility & MaybeTrue) == MaybeTrue) {
-				val (parsed, remainder) = suffix.splitAt(leadingWhitespace + 4)
-				Passed((prefix ++ parsed, true, remainder))
-			} else if (!i.hasNext || {
-				possibility &= ~verify(i.next(), '_', '_', 'e', 'E')
-				possibility == 0 
-			})
-				fail(suffix)
-			else {
-				val (parsed, remainder) = suffix.splitAt(leadingWhitespace + 5)
-				Passed((prefix ++ parsed, false, remainder))
-			}
-		}
-
-		override def guardAppend(prefix :ChoppedString, model :Boolean) =
-			Passed(if (model) prefix ++ "true" else prefix ++ "false")
+	private object ULongMold extends NumberMold[ULong]("ULong") {
+		override def fromString(input :String) :ULong = ULong(input)
+		override def toString(input :ULong) :String = input.toString
 	}
-
+	@SerialVersionUID(Ver)
+	private object UIntMold extends NumberMold[UInt]("UInt") {
+		override def fromString(input :String) :UInt = UInt(input)
+		override def toString(input :UInt) :String = input.toString
+	}
+	@SerialVersionUID(Ver)
+	private object BigIntegerMold extends NumberMold[BigInteger]("BigInteger") {
+		override def fromString(input :String) :BigInteger = new BigInteger(input)
+		override def toString(input :BigInteger) :String = input.toString
+	}
+	@SerialVersionUID(Ver)
+	private object BigIntMold extends NumberMold[BigInt]("BigInt") {
+		override def fromString(input :String) :BigInt = BigInt(input)
+		override def toString(input :BigInt) :String = input.toString
+	}
+	@SerialVersionUID(Ver)
+	private object JavaBigDecimalMold extends NumberMold[JBigDecimal]("JBigDecimal") {
+		override def fromString(input :String) :JBigDecimal = new JBigDecimal(input)
+		override def toString(input :JBigDecimal) :String = input.toString
+	}
+	@SerialVersionUID(Ver)
+	private object BigDecimalMold extends NumberMold[BigDecimal]("BigDecimal") {
+		override def fromString(input :String) :BigDecimal = BigDecimal(input)
+		override def toString(input :BigDecimal) :String = input.toString
+	}
+	@SerialVersionUID(Ver)
+	private object Decimal64Mold extends NumberMold[Decimal64]("Decimal64") {
+		override def fromString(input :String) :Decimal64 = Decimal64(input)
+		override def toString(input :Decimal64) :String = input.toString
+	}
 
 	private abstract class NumberMold[S](override val name :String)
 		extends SpecialThrowingMold[S] with NamedMold[S]
@@ -507,6 +459,126 @@ trait FormatAsString extends Format { format =>
 				}
 				end
 			}
+	}
+	@SerialVersionUID(Ver)
+	private object BooleanMold extends NamedMold[Boolean] with SpecialGuardingMold[Boolean] {
+		override def name = "Boolean"
+
+		private final val MaybeTrue  = 1
+		private final val MaybeFalse = 2
+
+		private def eos(prefix :ChoppedString) =
+			Failed(() => "Expected a Boolean as String, but reached the end of input: '" + prefix + "'.")
+		private def fail(suffix :ChoppedString) =
+			Failed(() => "Expected a Boolean as String, but got '" + suffix + "'.")
+
+		override def guardAdvance(prefix :ChoppedString, suffix :ChoppedString) =
+			if (suffix.isEmpty)
+				eos(prefix)
+			else suffix match {
+				case substring :Substring => parseSubstring(prefix, substring)
+				case _                    => parseIterator(prefix, suffix)
+			}
+		private def parseSubstring(prefix :ChoppedString, suffix :Substring) = {
+			val len = suffix.length
+			def verify(idx :Int, lt :Char, ht :Char, lf :Char, hf :Char) :Int = {
+				if (idx < len) {
+					var possibility = MaybeTrue | MaybeFalse
+					val char = suffix(idx)
+					if (char != lt & char != ht)
+						possibility &= ~MaybeTrue
+					if (char != lf & char != hf)
+						possibility &= ~MaybeFalse
+					possibility
+				} else
+					0
+			}
+			var i = 0
+			while (i < len && Character.isWhitespace(i))
+				i += 1
+			if (i == len)
+				eos(prefix)
+			else {
+				val leadingWhitespace = i
+				var possibility = MaybeTrue | MaybeFalse
+				if ({ possibility &= ~verify(i, 't', 'T', 'f', 'F'); i += 1; possibility == 0 })
+					fail(suffix)
+				else if ({ possibility &= ~verify(i, 'r', 'R', 'a', 'A'); i += 1; possibility == 0 })
+					fail(suffix)
+				else if ({ possibility &= ~verify(i, 'u', 'U', 'l', 'L'); i += 1; possibility == 0 })
+					fail(suffix)
+				else if ({ possibility &= ~verify(i, 'e', 'E', 's', 'S'); i += 1; possibility == 0 })
+					fail(suffix)
+				else if ((possibility & MaybeTrue) == MaybeTrue) {
+					val parsed = suffix.slice(leadingWhitespace, i)
+					val remainder = suffix.drop(i)
+					Done((prefix ++ parsed, true, remainder))
+				} else if ({ possibility &= ~verify(i, '_', '_', 'e', 'E'); i += 1; possibility == 0 })
+					fail(suffix)
+				else {
+					val parsed = suffix.slice(leadingWhitespace, i)
+					val remainder = suffix.drop(i)
+					Done((prefix ++ parsed, false, remainder))
+				}
+			}
+		}
+		private def parseIterator(prefix :ChoppedString, suffix :ChoppedString) = {
+			def verify(next :Int, lt :Char, ht :Char, lf :Char, hf :Char) :Int = {
+				val char = next.toChar
+				var possibility = MaybeTrue | MaybeFalse
+				if (char != lt & char != ht)
+					possibility &= ~MaybeTrue
+				if (char != lf & char != hf)
+					possibility &= ~MaybeFalse
+				possibility
+			}
+			var leadingWhitespace = 0
+			val i = suffix.javaIterator
+			var char = i.nextInt().toChar
+			while (i.hasNext && Character.isWhitespace(char)) {
+				char = i.nextInt().toChar
+				leadingWhitespace += 1
+			}
+			var possibility = MaybeTrue | MaybeFalse
+			if (char != 't' & char != 'T')
+				possibility &= ~MaybeTrue
+			if (char != 'f' & char != 'F')
+				possibility &= ~MaybeFalse
+			if (possibility == 0)
+				fail(suffix)
+			if ({
+				possibility &= ~verify(char, 't', 'T', 'f', 'F')
+				possibility == 0 || !i.hasNext
+			})
+				fail(suffix)
+			else if ({
+				possibility &= ~verify(i.nextInt(), 'r', 'R', 'a', 'A')
+				possibility == 0 || !i.hasNext
+			})
+				fail(suffix)
+			else if ({
+				possibility &= ~verify(i.nextInt(), 'u', 'R', 'l', 'L')
+				possibility == 0 || !i.hasNext
+			})
+				fail(suffix)
+			else if ({possibility &= ~verify(i.nextInt(), 'e', 'E', 's', 'S'); possibility == 0 })
+				fail(suffix)
+			else if ((possibility & MaybeTrue) == MaybeTrue) {
+				val (parsed, remainder) = suffix.splitAt(leadingWhitespace + 4)
+				Done((prefix ++ parsed, true, remainder))
+			} else if (!i.hasNext || {
+				possibility &= ~verify(i.next(), '_', '_', 'e', 'E')
+				possibility == 0
+			})
+				fail(suffix)
+			else {
+				val (parsed, remainder) = suffix.splitAt(leadingWhitespace + 5)
+				Done((prefix ++ parsed, false, remainder))
+			}
+		}
+
+		override def guardAppend(prefix :ChoppedString, model :Boolean) =
+			Done(if (model) prefix ++ "true" else prefix ++ "false")
 	}
 
 

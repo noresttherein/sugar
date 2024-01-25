@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.vars
 
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Ref.FinalRef
 
 
@@ -20,7 +20,7 @@ final class EqRef[+T] private (x :T) extends Ref[T] with FinalRef[T] with Serial
 	override def isEmpty :Boolean = false
 	override def get     :T = x
 	override def option  :Option[T] = Some(x)
-	override def opt     :Opt[T] = Got(x)
+	override def maybe     :Maybe[T] = Yes(x)
 	override def unsure  :Unsure[T] = Sure(x)
 
 	override def equals(that :Any) :Boolean = that match {
@@ -44,8 +44,8 @@ object EqRef {
 	/** Creates an immutable wrapper over `value` defining equality as `value eq _`. */
 	def apply[T](value :T) :EqRef[T] = new EqRef(value)
 
-	def unapply[T](ref :Ref[T]) :Opt[T] = ref match {
-		case ref :EqRef[T] => Got(ref.get)
-		case _ => Lack
+	def unapply[T](ref :Ref[T]) :Maybe[T] = ref match {
+		case ref :EqRef[T] => Yes(ref.get)
+		case _ => No
 	}
 }

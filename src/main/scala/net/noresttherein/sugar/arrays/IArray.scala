@@ -15,8 +15,8 @@ import net.noresttherein.sugar.exceptions.IncompatibleArgumentTypesException
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -961,7 +961,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 				val cls1 = array1.getClass.getComponentType
 				val cls2 = array2.getClass.getComponentType
 				implicit val tag = (cls1 commonSuperclass cls2) match {
-					case Got(superclass :Class[E @unchecked]) => ClassTag[E](superclass)
+					case Yes(superclass :Class[E @unchecked]) => ClassTag[E](superclass)
 					case _ if cls1.isPrimitive || cls2.isPrimitive => ClassTag.Any.castParam[E]//E must be `Any`
 					case _ => throw IncompatibleArgumentTypesException(
 						"No least common superclass of " + array1.getClass.getComponentType + " and " +
@@ -1205,7 +1205,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  */
 	def specific[E](first :E, second :E) :IArray[E] = expose {
 		first.getClass commonSuperclass second.getClass match {
-			case Got(cls :Class[E @unchecked]) =>
+			case Yes(cls :Class[E @unchecked]) =>
 				val res = ArrayFactory.ofDim(cls, 2)
 				res(0) = first
 				res(1) = second
@@ -1366,18 +1366,18 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 
 		def apply[A](array :IArray[A]) :IndexedSeq[A] = wrapper.wrap(array)
 
-		def unapply[E :ClassTag](elems :IterableOnce[E]) :Opt[IArray[E]] = {
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[IArray[E]] = {
 			val array = elems match {
 				case slice :ArrayIterableOnce[_] if slice.isImmutable && slice.knownSize == slice.unsafeArray.length =>
-					Got(slice.unsafeArray)
-				case seq :ArraySeq[_] => Got(seq.unsafeArray)
-				case _                => Lack
+					Yes(slice.unsafeArray)
+				case seq :ArraySeq[_] => Yes(seq.unsafeArray)
+				case _                => No
 			}
 			val tag = classTag[E]
 			if (array.isDefined && (tag == ClassTag.Any || array.get.getClass.getComponentType <:< tag.runtimeClass))
-				array.castFrom[Opt[Array[_]], Opt[IArray[E]]]
+				array.castFrom[Maybe[Array[_]], Maybe[IArray[E]]]
 			else
-				Lack
+				No
 		}
 
 		/** Factory of views on slices of immutable arrays as indexed sequences,
@@ -1390,25 +1390,25 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 
 			def apply[E](array :IArray[E], from :Int, until :Int) :IndexedSeq[E] = wrapper.slice(array, from, until)
 
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Opt[(IArray[E], Int, Int)] = {
+			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(IArray[E], Int, Int)] = {
 				val tag = classTag[E]
 				val expectedClass = tag.runtimeClass
 				elems match {
 					case seq :Vector[_] if seq.length <= CheatedAccess.FlatVectorSize && tag == ClassTag.Any =>
-						Got((CheatedAccess.array(seq).castFrom[Array[_], IArray[E]], 0, seq.length))
+						Yes((CheatedAccess.array(seq).castFrom[Array[_], IArray[E]], 0, seq.length))
 					case seq :ArraySeq[_]
 						if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
 					=>
-						Got((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
+						Yes((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
 
 					case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
 						val array = slice.unsafeArray.castFrom[Array[_], IArray[E]]
 						if (tag == ClassTag.Any || array.getClass.getComponentType <:< expectedClass)
-							Got((array, slice.startIndex, slice.startIndex + slice.knownSize))
+							Yes((array, slice.startIndex, slice.startIndex + slice.knownSize))
 						else
-							Lack
+							No
 					case _ =>
-						Lack
+						No
 				}
 			}
 		}

@@ -4,8 +4,9 @@ import java.util.function.Supplier
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.vars.Opt.Lack
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.{Const, Eval, Lazy, Maybe, Ref, SyncLazyRef}
 
 
 
@@ -22,10 +23,14 @@ import net.noresttherein.sugar.vars.Opt
 // It would be bad, because generic calls to get would box the value each time. However, the actual instances
 // are always created as non specialized, so they'll store the boxed value and unbox it on specialized calls.
 @SerialVersionUID(Ver)
-sealed abstract class DefaultValue[@specialized +T] extends Serializable {
-	def get :T
+sealed trait DefaultValue[@specialized +T] extends Ref[T] with Serializable {
+	def map[O](f :T => O) :DefaultValue[O]
+	def flatMap[O](f :T => DefaultValue[O]) :DefaultValue[O]
+
 	def supplier  :Supplier[_ <: T]
 	def toFunction0 :() => T
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[DefaultValue[_]]
+	override def mkString :String = mkString("DefaultValue")
 }
 
 
@@ -36,9 +41,9 @@ object DefaultValue {
 	//todo: in Scala3, drop the empty param list
 	@inline def apply[T]()(implicit value :DefaultValue[T]) :value.type = value
 
-	@inline def apply[T](value :T) :DefaultValue[T] = new ConstValue(value)
-	@inline def delay[T](value: => T) :DefaultValue[T] = new LazyValue[T](() => value)
-	@inline def eval[T](value: => T) :DefaultValue[T] = new EvalValue[T](() => value)
+	@inline def apply[T](value :T) :DefaultValue[T] = new ConstDefault(value)
+	@inline def delay[T](value: => T) :DefaultValue[T] = new LazyDefault[T](() => value)
+	@inline def eval[T](value: => T) :DefaultValue[T] = new EvalDefault[T](() => value)
 
 	implicit val DefaultByte    :NullValue[Byte]    = new NullValue(0)
 	implicit val DefaultShort   :NullValue[Short]   = new NullValue(0)
@@ -51,27 +56,49 @@ object DefaultValue {
 	implicit val DefaultUnit    :NullValue[Unit]    = new NullValue(())
 
 	implicit def defaultOption[T] :DefaultValue[Option[T]] = DefaultNone.asInstanceOf[DefaultValue[Option[T]]]
-	implicit def defaultOpt[T]    :DefaultValue[Opt[T]]    = DefaultLack.asInstanceOf[DefaultValue[Opt[T]]]
+	implicit def defaultOpt[T]    :DefaultValue[Maybe[T]]    = DefaultLack.asInstanceOf[DefaultValue[Maybe[T]]]
 
-	private[this] final val DefaultNone = new ConstValue(None)
-	private[this] final val DefaultLack = new ConstValue(Lack)
+	private[this] final val DefaultNone = new ConstDefault(None)
+	private[this] final val DefaultLack = new ConstDefault(No)
 
 
-	private class ConstValue[T](override val get :T) extends DefaultValue[T] {
+	@SerialVersionUID(Ver)
+	private class ConstDefault[T](override val get :T) extends Const[T] with Lazy[T] with DefaultValue[T] {
 		override val supplier    :Supplier[_ <: T] = () => get
 		override val toFunction0 :() => T          = () => get
+
+		override def map[O](f :T => O) :ConstDefault[O] = new ConstDefault(f(get))
+		override def flatMap[O](f :T => DefaultValue[O]) :DefaultValue[O] = f(get)
+
 		override def toString :String = "DefaultValue(" + get + ")"
 	}
-	private class EvalValue[T](override val toFunction0 :() => T) extends DefaultValue[T] {
-		override def get = toFunction0()
+	@SerialVersionUID(Ver)
+	private class EvalDefault[T](override val toFunction0 :() => T) extends Eval[T] with DefaultValue[T] {
 		override val supplier :Supplier[_ <: T] = () => toFunction0()
+		override def get = toFunction0()
+		override def apply() :T = toFunction0()
+
+		override def map[O](f :T => O) :DefaultValue[O] = new EvalDefault(() => f(toFunction0()))
+		override def flatMap[O](f :T => DefaultValue[O]) :DefaultValue[O] = new EvalDefault(() => f(toFunction0()).get)
+
+		override def canEqual(that :Any) :Boolean = that.asInstanceOf[AnyRef] eq this
 		override def toString :String = "DefaultValue(_)"
 	}
-	private class LazyValue[T](init :() => T) extends DefaultValue[T] {
-		override lazy val get :T = init()
+	@SerialVersionUID(Ver)
+	private class LazyDefault[T](init :() => T) extends SyncLazyRef[T](init) with DefaultValue[T] {
 		override val toFunction0 :() => T = () => get
 		override val supplier :Supplier[_ <: T] = () => get
+
+		override def map[O](f :T => O) :DefaultValue[O] with Lazy[O] = maybe match {
+			case Yes(v) => new ConstDefault(f(v))
+			case _      => new LazyDefault(() => f(get))
+		}
+		override def flatMap[O](f :T => DefaultValue[O]) :DefaultValue[O] = maybe match {
+			case Yes(v) => f(v)
+			case _      => new LazyDefault(() => f(get).get)
+		}
 		override def toString :String = "DefaultValue(" + get + ")"
+		private def writeReplace = new ConstDefault(get)
 	}
 }
 
@@ -86,6 +113,24 @@ object DefaultValue {
 final class NullValue[+T] private[witness] (override val get :T) extends DefaultValue[T] {
 	override val supplier    :Supplier[_ <: T] = () => get
 	override val toFunction0 :() => T          = () => get
+
+	override def apply()  :T = get
+	override def value    :T = get
+	override def const    :T = get
+	override def maybe      :Maybe[T] = Yes(get)
+	override def toMaybe    :Maybe[T] = Yes(get)
+	override def maybeConst :Maybe[T] = Yes(get)
+
+	override def isFinal       :Boolean = true
+	override def isFinalizable :Boolean = true
+	override def isConst       :Boolean = true
+	override def isDefined     :Boolean = true
+	override def isDefinite    :Boolean = true
+
+	override def map[O](f :T => O) :DefaultValue[O] = DefaultValue(f(get))
+	override def flatMap[O](f :T => DefaultValue[O]) :DefaultValue[O] = f(get)
+
+	override def mkString :String = mkString("NullValue")
 }
 
 
@@ -93,7 +138,5 @@ final class NullValue[+T] private[witness] (override val get :T) extends Default
 object NullValue {
 	@inline def apply[T](implicit value :NullValue[T]) :NullValue[T] = value
 
-	implicit val NullRef      :NullValue[Null]    = new NullValue[Null](null)
+	implicit val NullRef :NullValue[Null]    = new NullValue[Null](null)
 }
-
-

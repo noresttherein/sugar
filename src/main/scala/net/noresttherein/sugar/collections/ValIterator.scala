@@ -10,8 +10,8 @@ import net.noresttherein.sugar.collections.ValIterator.{BooleanJavaIteratorAdapt
 import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.Specialized.Fun2Arg
-import net.noresttherein.sugar.vars.{Missing, Opt, Sure, Unsure}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack, existent_?}
+import net.noresttherein.sugar.vars.{Missing, Maybe, Sure, Unsure}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No, one_?}
 
 
 
@@ -60,14 +60,14 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] {
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S = ValIteratorStepper(this, 0)
 
 	def jterator[J](implicit shape :JteratorShape[E, J]) :J = (shape.shape match {
-		case Got(ReferenceShape) => new JavaIteratorAdapter(this)
-		case Got(IntShape)       => new IntJavaIteratorAdapter(this.asInstanceOf[ValIterator[Int]])
-		case Got(LongShape)      => new LongJavaIteratorAdapter(this.asInstanceOf[ValIterator[Long]])
-		case Got(DoubleShape)    => new DoubleJavaIteratorAdapter(this.asInstanceOf[ValIterator[Double]])
-		case Got(CharShape)      => new CharJavaIteratorAdapter(this.asInstanceOf[ValIterator[Char]])
-		case Got(ByteShape)      => new ByteJavaIteratorAdapter(this.asInstanceOf[ValIterator[Byte]])
-		case Got(FloatShape)     => new FloatJavaIteratorAdapter(this.asInstanceOf[ValIterator[Float]])
-		case Got(ShortShape)     => new ShortJavaIteratorAdapter(this.asInstanceOf[ValIterator[Short]])
+		case Yes(ReferenceShape) => new JavaIteratorAdapter(this)
+		case Yes(IntShape)       => new IntJavaIteratorAdapter(this.asInstanceOf[ValIterator[Int]])
+		case Yes(LongShape)      => new LongJavaIteratorAdapter(this.asInstanceOf[ValIterator[Long]])
+		case Yes(DoubleShape)    => new DoubleJavaIteratorAdapter(this.asInstanceOf[ValIterator[Double]])
+		case Yes(CharShape)      => new CharJavaIteratorAdapter(this.asInstanceOf[ValIterator[Char]])
+		case Yes(ByteShape)      => new ByteJavaIteratorAdapter(this.asInstanceOf[ValIterator[Byte]])
+		case Yes(FloatShape)     => new FloatJavaIteratorAdapter(this.asInstanceOf[ValIterator[Float]])
+		case Yes(ShortShape)     => new ShortJavaIteratorAdapter(this.asInstanceOf[ValIterator[Short]])
 		case _ /* Boolean */     => new BooleanJavaIteratorAdapter(this.asInstanceOf[ValIterator[Boolean]])
 	}).asInstanceOf[J]
 }
@@ -105,7 +105,7 @@ object ValIterator {
 
 	trait Buffered[@specialized(AllNumeric) +E] extends ValIterator[E] with BufferedIterator[E] {
 		override def head :E
-		def headOpt :Opt[E] = if (hasNext) Got(head) else Lack
+		def headOpt :Maybe[E] = if (hasNext) Yes(head) else No
 		def unsureHead :Unsure[E] = if (hasNext) Sure(head) else Missing
 		override def buffered :this.type = this
 	}

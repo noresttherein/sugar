@@ -10,8 +10,8 @@ import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.collections.ArrayIterableOnce
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -127,14 +127,14 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 			if (array.getClass == classOf[Array[AnyRef]]) IRefArray.Wrapped(array.asInstanceOf[IRefArray[E]])
 			else IArray.Wrapped(array.asInstanceOf[IArray[E]])
 
-		def unapply[E](elems :IterableOnce[E]) :Opt[IArrayLike[E]] = elems match {
+		def unapply[E](elems :IterableOnce[E]) :Maybe[IArrayLike[E]] = elems match {
 			case seq :ArraySeq[_] =>
-				Got(seq.unsafeArray.asInstanceOf[IArrayLike[E]])
+				Yes(seq.unsafeArray.asInstanceOf[IArrayLike[E]])
 			case seq :Vector[_] if seq.length == CheatedAccess.FlatVectorSize =>
-				Got(CheatedAccess.array(seq).asInstanceOf[IArrayLike[E]])
+				Yes(CheatedAccess.array(seq).asInstanceOf[IArrayLike[E]])
 			case slice :ArrayIterableOnce[E] if slice.knownSize == slice.unsafeArray.length && slice.isImmutable =>
-				Got(slice.unsafeArray.asInstanceOf[IArrayLike[E]])
-			case _ => Lack
+				Yes(slice.unsafeArray.asInstanceOf[IArrayLike[E]])
+			case _ => No
 		}
 
 		/** Wraps immutable arrays (including [[net.noresttherein.sugar.arrays.IRefArray IRefArray]])
@@ -150,17 +150,17 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 				else
 					IArray.Wrapped.Slice(array.asInstanceOf[IArray[E]], from, until)
 
-			def unapply[E](elems :IterableOnce[E]) :Opt[(IArrayLike[E], Int, Int)] = elems match {
+			def unapply[E](elems :IterableOnce[E]) :Maybe[(IArrayLike[E], Int, Int)] = elems match {
 				case seq :ArraySeq[_] =>
-					Got((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
+					Yes((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
 				case seq :Vector[_] if seq.length <= CheatedAccess.FlatVectorSize =>
-					Got((CheatedAccess.array(seq).castFrom[Array[_], IArrayLike[E]], 0, seq.length))
+					Yes((CheatedAccess.array(seq).castFrom[Array[_], IArrayLike[E]], 0, seq.length))
 				case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
 					val array = slice.unsafeArray.castFrom[Array[_], IArrayLike[E]]
 					val start = slice.startIndex
-					Got((array, start, start + slice.knownSize))
+					Yes((array, start, start + slice.knownSize))
 				case _ =>
-					Lack
+					No
 
 			}
 		}

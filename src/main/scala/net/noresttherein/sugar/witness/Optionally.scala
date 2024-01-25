@@ -1,8 +1,8 @@
 package net.noresttherein.sugar.witness
 
 import net.noresttherein.sugar.extensions.castingMethods
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness
 import net.noresttherein.sugar.witness.Optionally.NoImplicit
 import net.noresttherein.sugar.witness.WithDefault.Default
@@ -11,12 +11,12 @@ import net.noresttherein.sugar.witness.WithDefault.Default
 
 
 /** A type for which an implicit value is always present, however, if an implicit value for `T` can be found,
-  * it is exposed as `Got[T]` through this instances [[net.noresttherein.sugar.witness.Optionally.opt opt]] method.
+  * it is exposed as `Yes[T]` through this instances [[net.noresttherein.sugar.witness.Optionally.opt opt]] method.
   * @note there is an implicit conversion from `T` to `Optionally[T]`, so values of `T` can be passed explicitly
   *       as arguments to methods expecting an `Optionally[T]`.
   */ 
 class Optionally[+T] private[witness](private val content :AnyRef) extends AnyVal {
-	def opt :Opt[T] = if (content == NoImplicit) Lack else Got(content.asInstanceOf[T])
+	def opt :Maybe[T] = if (content == NoImplicit) No else Yes(content.asInstanceOf[T])
 
 	/** Returns the content of this maybe or a default alternative if not content is available. */
 	@inline def getOrElse[O >: T](alternative: => O) :O  = content match {
@@ -63,17 +63,17 @@ object Optionally extends OptionallyNoneImplicit {
 	  */
 	type a[F[_]] = { type T[X] = Optionally[F[X]] }
 
-	/** Summons an optional implicit `T` instance as an `Opt[T]` instance. */
-	@inline def apply[T](implicit maybe :Optionally[T]) :Opt[T] = maybe.opt
+	/** Summons an optional implicit `T` instance as an `Maybe[T]` instance. */
+	@inline def apply[T](implicit maybe :Optionally[T]) :Maybe[T] = maybe.opt
 
 	/** Returns an implicit instance o `T` or a default alternative provided as an argument.  */
 	@inline def orElse[T](alternative: => T)(implicit maybe :Optionally[T]) :T = maybe.opt match {
-		case Got(value) => value
+		case Yes(value) => value
 		case _ => alternative
 	}
 
 	/** Extracts the optional content of a `Optionally[T]`. This pattern will match only 'yes' instances. */
-	def unapply[T](maybe :Optionally[T]) :Opt[T] = maybe.opt
+	def unapply[T](maybe :Optionally[T]) :Maybe[T] = maybe.opt
 
 	/** An empty `Optionally` conforming to any `Optionally[TT]` type. */
 	final val none = new Optionally[Nothing](NoImplicit)

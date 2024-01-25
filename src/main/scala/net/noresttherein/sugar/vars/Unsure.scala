@@ -5,7 +5,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Ref.FinalRef
@@ -26,37 +26,37 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * Like `Option`, it implements [[IterableOnce]]`[T]` and completely parrots full `Option` API, making it a suitable
   * drop in replacement.
   *
-  * This type has rivals in this library in the form of value class [[net.noresttherein.sugar.vars.Opt Opt]],
-  * and type [[net.noresttherein.sugar.vars.Potential Potential]], which are other `Option` replacement candidates,
+  * This type has rivals in this library in the form of value class [[net.noresttherein.sugar.vars.Maybe Maybe]],
+  * and type [[net.noresttherein.sugar.vars.Opt Opt]], which are other `Option` replacement candidates,
   * also aiming to reduce boxing. The difference lies in exactly what boxing is avoided:
   *   - when an `Int` or other value type is placed in a Scala `Option`, two objects need to be created:
   *     an `Integer` wrapper, and `Some` itself containing the wrapper.
-  *   - `Opt` is a value class, and in any context in which it doesn't require runtime promotion to a reference type
+  *   - `Maybe` is a value class, and in any context in which it doesn't require runtime promotion to a reference type
   *     (use as a type parameter, upcasting to `Any`, putting it into an `Array` or a collection,
   *     returning from a function or passing as an argument to one), it is erased to a reference to the contained object.
   *     However, instances for value types (and other value classes) require boxing to their wrapper types.
   *     For integer types, especially smaller values, `Unit` and `Boolean`, this is partly offset by the runtime
   *     environment's employment of caching of commonly used values. Value classes and floating point numbers
   *     will however require boxing. Another drawback is that its erasure clashes with the wrapped type itself,
-  *     preventing overloaded methods, just as compiler bridges required when a method accepting/returning an `Opt`
-  *     overrides a generic method with an abstract type in place of the `Opt` value clash with the method's erasure.
+  *     preventing overloaded methods, just as compiler bridges required when a method accepting/returning an `Maybe`
+  *     overrides a generic method with an abstract type in place of the `Maybe` value clash with the method's erasure.
   *     When an instance is repeatedly passed between contexts in which it is referred to as an abstract type
   *     and where it is erased, this can paradoxically result in significantly more boxing than a once created
   *     and used as-is `Option` would require.
-  *   - `Potential` is a type alias erased to `AnyRef`, so all notes about value types needing boxing within `Opt`
+  *   - `Opt` is a type alias erased to `AnyRef`, so all notes about value types needing boxing within `Maybe`
   *     also apply here. Where it has an advantage over the former is that it introduces no boxing class at all
-  *     (except for the case of `Existent(Inexistent)`), making it more efficient as array elements
+  *     (except for the case of `One(None)`), making it more efficient as array elements
   *     or function parameters and return types. It is however in several regards a rather leaky abstraction.
   *   - `Unsure` does not involve boxing of value types used as type parameters, but is itself a reference type,
-  *     so an object will always be created, while `Opt` can, in some circumstances, avoid boxing altogether.
+  *     so an object will always be created, while `Maybe` can, in some circumstances, avoid boxing altogether.
   *     This boxing however means that it can 'safely' be used in generic contexts, as once created object.
-  *     It does not have the other erasure related drawbacks of `Opt`.
+  *     It does not have the other erasure related drawbacks of `Maybe`.
   *
   * In cases where the wrapped type is expected to (often) be a value type, `Unsure` is a safer option,
-  * without the risks and headaches of `Opt`, especially for longer-living objects or when the programmer doesn't have
+  * without the risks and headaches of `Maybe`, especially for longer-living objects or when the programmer doesn't have
   * the full control of how and where the created instances are used. On the other hand, for short-living objects
   * which are likely to be used as parameters/return values of a single method call, such as `unapply` methods,
-  * as well as when the wrapped type is known or realistically expected to be a reference type, `Opt` will generally
+  * as well as when the wrapped type is known or realistically expected to be a reference type, `Maybe` will generally
   * be the better choice. Both however should be used only when many objects are created in succession,
   * or when reducing the garbage collector pauses is a priority, or when the values do not escape the scope
   * of a single class, as in most cases the benefits are outweighed by the drawbacks of potential compatibility
@@ -351,12 +351,12 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  */
 	override def option :Option[T] = None //overridden by Sure
 
-	/** Converts this `Unsure` to an `Opt`. Same as [[net.noresttherein.sugar.vars.Unsure.toOpt toOpt]].
-	  * @return [[net.noresttherein.sugar.vars.Opt.Got Got]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
+	/** Converts this `Unsure` to an `Maybe`. Same as [[net.noresttherein.sugar.vars.Unsure.toMaybe toMaybe]].
+	  * @return [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
 	  *         if `this.`[[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]
-	  *         or [[net.noresttherein.sugar.vars.Opt.Lack Lack]] otherwise.
+	  *         or [[net.noresttherein.sugar.vars.Maybe.No No]] otherwise.
 	  */
-	override def opt :Opt[T] = Lack
+	override def maybe :Maybe[T] = No
 
 	final override def unsure :Unsure[T] = this
 
@@ -386,12 +386,12 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Converts this `Unsure` to `Outcome`, returning the content as `Done`,
 	  * or the given `String` as `Failed` error message if empty. */
-	@inline final def outcome(err : => String) :Outcome[T] =
+	@inline final def doneOr(err: => String) :Outcome[T] =
 		if (this eq Missing) Failed(() => err) else Done(get)
 
 	/** Converts this `Unsure` to `Outcome`, returning the content as `Done`,
-	  * or the given `Throwable` as a `Failed` error if empty. */
-	@inline final def outcome(err :Throwable) :Outcome[T] =
+	  * or the given `Throwable` as an error if empty. */
+	@inline final def doneOr(err :Throwable) :Outcome[T] =
 		if (this eq Missing) Failed(err) else Done(get)
 
 	/** Formats this `Unsure` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
@@ -419,7 +419,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 
 /** A factory of `Option`-like values [[net.noresttherein.sugar.vars.Unsure Unsure]]`[T]`, providing additionally
-  * implicit conversions to and from [[scala.Option]], [[net.noresttherein.sugar.vars.Opt]] and [[Iterable]].
+  * implicit conversions to and from [[scala.Option]], [[net.noresttherein.sugar.vars.Maybe]] and [[Iterable]].
   */
 object Unsure {
 
@@ -435,24 +435,24 @@ object Unsure {
 	def some_?[@specialized(SpecializedVars) T](value :Option[T]) :Unsure[T] =
 		if (value.isDefined) new Sure(value.get, value) else Missing
 
-	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
-	def got_?[@specialized(SpecializedVars) T](value :Opt[T]) :Unsure[T] =
+	/** Converts the given `Maybe[T]` into a ''specialized'' `Unsure[T]` instance. */
+	def yes_?[@specialized(SpecializedVars) T](value :Maybe[T]) :Unsure[T] =
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
-	/** Converts the given `Potential[T]` into a ''specialized'' `Unsure[T]` instance. */
-	def existent_?[@specialized(SpecializedVars) T](value :Potential[T]) :Unsure[T] =
+	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
+	def one_?[@specialized(SpecializedVars) T](value :Opt[T]) :Unsure[T] =
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
 	/** Converts the given `Option[T]` into a specialized `Unsure[T]`. */
 	def fromOption[@specialized(SpecializedVars) T](value: Option[T]): Unsure[T] =
 		if (value.isDefined) new Sure(value.get, value) else Missing
 
-	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
-	def fromOpt[@specialized(SpecializedVars) T](value: Opt[T]): Unsure[T] =
+	/** Converts the given `Maybe[T]` into a ''specialized'' `Unsure[T]` instance. */
+	def fromOpt[@specialized(SpecializedVars) T](value: Maybe[T]): Unsure[T] =
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
-	/** Converts the given `Potential[T]` into a ''specialized'' `Unsure[T]` instance. */
-	def fromPotential[@specialized(SpecializedVars) T](value: Potential[T]): Unsure[T] =
+	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
+	def fromYield[@specialized(SpecializedVars) T](value: Opt[T]): Unsure[T] =
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
 
@@ -505,7 +505,7 @@ object Unsure {
 
 
 
-	/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
+	/** Optional implicit conversions to/from `Maybe`, `Option` and `Iterable`.
 	  * They involve boxing and are placed here for explicit importing.
 	  */
 	@SerialVersionUID(Ver)
@@ -527,17 +527,17 @@ object Unsure {
 		/** Wraps any object in a [[net.noresttherein.sugar.vars.Sure Sure]] monad. */
 		@inline implicit def sureAny[@specialized(SpecializedVars) A](sure :A) :Sure[A] = Sure(sure)
 
-		/** A nomen omen optional implicit conversion of an `Opt[A]` to a `Unsure[A]`.
+		/** A nomen omen optional implicit conversion of an `Maybe[A]` to a `Unsure[A]`.
 		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]]
 		  */
-		@inline implicit def OptToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] = got_?(opt)
+		@inline implicit def OptToUnsure[@specialized(SpecializedVars) A](opt :Maybe[A]) :Unsure[A] = yes_?(opt)
 
-		@inline implicit def UnsureToOpt[A](opt :Unsure[A]) :Opt[A] = opt.opt
+		@inline implicit def UnsureToOpt[A](opt :Unsure[A]) :Maybe[A] = opt.maybe
 
-		@inline implicit def PotentialToUnsure[@specialized(SpecializedVars) A](opt :Potential[A]) :Unsure[A] =
-			fromPotential(opt)
+		@inline implicit def YieldToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] =
+			fromYield(opt)
 
-		@inline implicit def PotentialFromUnsure[A](opt :Unsure[A]) :Potential[A] = Potential.fromUnsure(opt)
+		@inline implicit def YieldFromUnsure[A](opt :Unsure[A]) :Opt[A] = Opt.fromUnsure(opt)
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
@@ -546,7 +546,7 @@ object Unsure {
 	  * which allow seamless interoperability with standard Scala APIs.
 	  *
 	  * While the idea of using it in production code should be carefully reconsidered,
-	  * it is useful for quickly checking during profiling what impact using `Option` vs `Opt` has.
+	  * it is useful for quickly checking during profiling what impact using `Option` vs `Maybe` has.
 	  *
 	  * Other files which reference classes defined in the import's scope may also
 	  */
@@ -591,7 +591,7 @@ object Unsure {
   */
 @SerialVersionUID(Ver)
 final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don't these vars have to be @volatile?
-                (x :T, private[this] var cachedOption :Option[T] = None, private[this] var cachedOpt :Opt[T] = Lack)
+                (x :T, private[this] var cachedOption :Option[T] = None, private[this] var cachedOpt :Maybe[T] = No)
 	extends Unsure[T]
 {
 	/** Same as [[net.noresttherein.sugar.vars.Sure.get get]], for compatibility with [[Some]].
@@ -607,9 +607,9 @@ final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don
 			cachedOption = Some(value)
 		cachedOption
 	}
-	override def opt :Opt[T] = {
+	override def maybe :Maybe[T] = {
 		if (cachedOpt.isEmpty)
-			cachedOpt = Got(value)
+			cachedOpt = Yes(value)
 		cachedOpt
 	}
 
@@ -647,6 +647,6 @@ object Sure {
 @SerialVersionUID(Ver)
 case object Missing extends Unsure[Nothing] {
 	override def get :Nothing = throw new NoSuchElementException("Missing.get")
-	override def opt :Opt[Nothing] = Lack
+	override def maybe :Maybe[Nothing] = No
 	override def option :Option[Nothing] = None
 }

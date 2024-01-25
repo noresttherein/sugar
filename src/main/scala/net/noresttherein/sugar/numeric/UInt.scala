@@ -8,8 +8,8 @@ import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.numeric.extensions.IntExtension
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -250,10 +250,10 @@ object UInt {
 		new UInt(long.toInt)
 	}
 
-	def parse(string: String): Opt[UInt] =
+	def parse(string: String): Maybe[UInt] =
 		Numeric.LongIsIntegral.parseString(string) match {
-			case Some(long) if long >= 0L && long <= 0xffffffffL => Got(new UInt(long.toInt))
-			case _ => Lack
+			case Some(long) if long >= 0L && long <= 0xffffffffL => Yes(new UInt(long.toInt))
+			case _ => No
 		}
 
 	private def throwArithmeticException(value: Int): Nothing =

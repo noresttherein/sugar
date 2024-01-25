@@ -12,8 +12,8 @@ import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
 import net.noresttherein.sugar.typist.To
 import net.noresttherein.sugar.vars.IntOpt.AnInt
-import net.noresttherein.sugar.vars.{IntOpt, Opt}
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.{IntOpt, Maybe}
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 
 

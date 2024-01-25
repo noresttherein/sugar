@@ -38,8 +38,8 @@ import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
-import net.noresttherein.sugar.vars.{IntOpt, Opt}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -297,7 +297,7 @@ object extensions extends extensions {
 	  *
 	  * @param self any collection to fold.
 	  * @tparam E element type of this collection.
-	  */ //todo: use Pill and Potential
+	  */ //todo: use Pill and Opt
 	class IterableOnceExtension[E] private[collections](private val self :IterableOnce[E]) extends AnyVal {
 
 		/** True for collections known to be non strict: [[collection.View View]], [[collection.Iterator Iterator]],
@@ -3442,20 +3442,20 @@ object extensions extends extensions {
 			i
 		}
 
-		/** Finds the location of the given subsequence in this sequence, returning its index as an `Opt`.
+		/** Finds the location of the given subsequence in this sequence, returning its index as an `Maybe`.
 		  * @param that a presumed consecutive subsequence of this sequence.
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
-		  * @return `Opt(this.indexOfSlice(that, from)).filter(_ >= 0)`.
+		  * @return `Maybe(this.indexOfSlice(that, from)).filter(_ >= 0)`.
 		  */
 		@inline def getIndexOfSlice[B >: E](that :Seq[B], from :Int = 0) :Option[Int] =
 			self.indexOfSlice(that, from) match {
 				case -1 => None
 				case  n => Some(n)
 			}
-		/** Finds the last location of the given subsequence in this sequence, returning its index as an `Opt`.
+		/** Finds the last location of the given subsequence in this sequence, returning its index as an `Maybe`.
 		  * @param that a presumed consecutive subsequence of this sequence.
 		  * @param end  the upper, inclusive bound on the returned index.
-		  * @return `Opt(this.lastIndexOfSlice(that, end)).filter(_ >= 0)`.
+		  * @return `Maybe(this.lastIndexOfSlice(that, end)).filter(_ >= 0)`.
 		  */ //Note that Seq(1).lastIndexOf(Nil) == 1, so end must start with length, not length - 1
 		@inline def getLastIndexOfSlice[B >: E](that :Seq[B], end :Int = length) :Option[Int] =
 			self.lastIndexOfSlice(that, end) match {
@@ -4142,6 +4142,14 @@ object extensions extends extensions {
 	class immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[extensions](private val self :M[K, V])
 		extends AnyVal
 	{
+		/** Equivalent to [[collection.MapOps.get get]], but returns a non-boxing `Maybe`, rather than an `Option`.
+		  * @note will also return `No` if `this(key) == null`.
+		  */
+		@inline def opt(key :K) :Opt[V] =
+			try Opt(self.getOrElse(key, null.asInstanceOf[V])) catch {
+				case _ :Exception => Maybe.fromOption(self.get(key))
+			}
+
 		/** Equivalent to [[collection.MapOps.applyOrElse applyOrElse]]
 		  * (and similar to [[collection.MapOps.getOrElse getOrElse]]), but does not need to create an object
 		  * if `default` is a pure function.
@@ -4175,7 +4183,7 @@ object extensions extends extensions {
 	  * as [[net.noresttherein.sugar.collections.extensions.IterableExtension IterableExtension]].
 	  */ //todo: move it up in the file after IterableOnceExtension
 	class IteratorExtension[E] private[collections](private val self :Iterator[E]) extends AnyVal {
-		@inline def nextOpt() :Opt[E] = if (self.hasNext) Got(self.next()) else Lack
+		@inline def nextOpt() :Maybe[E] = if (self.hasNext) Yes(self.next()) else No
 
 		/** Equivalent to `this.takeWhile(p).size`. */
 		def prefixLength(p :E => Boolean) :Int = {
@@ -5004,7 +5012,7 @@ object extensions extends extensions {
 		/** If this `Factory` was created by `IterableFactory.`[[scala.collection.IterableFactory.toFactory toFactory]],
 		  * return the `IterableFactory` which created it.
 		  */
-		def iterableFactory[I[X]](implicit compat :C =:= I[E]) :Opt[IterableFactory[I]] =
+		def iterableFactory[I[X]](implicit compat :C =:= I[E]) :Maybe[IterableFactory[I]] =
 			CompanionFactory.sourceIterableFactory(compat.substituteCo(self))
 
 		/** If this `Factory` was created by
@@ -5012,20 +5020,20 @@ object extensions extends extensions {
 		  * return the `EvidenceIterableFactory` which created it.
 		  */
 		def evidenceIterableFactory[I[X]](implicit compat :C =:= I[E])
-				:Opt[EvidenceIterableFactory[I, E] forSome { type E[v] }] =
+				:Maybe[EvidenceIterableFactory[I, E] forSome { type E[v] }] =
 			CompanionFactory.sourceEvidenceIterableFactory(compat.substituteCo(self))
 
 		/** If this `Factory` was created by `MapFactory.`[[scala.collection.MapFactory.toFactory toFactory]],
 		  * return the `MapFactory` which created it.
 		  */
-		def mapFactory[K, V, M[A, B] <: Map[A, B]](implicit elemType :E =:= (K, V), compat :C =:= M[K, V]) :Opt[MapFactory[M]] =
+		def mapFactory[K, V, M[A, B] <: Map[A, B]](implicit elemType :E =:= (K, V), compat :C =:= M[K, V]) :Maybe[MapFactory[M]] =
 			CompanionFactory.sourceMapFactory(compat.substituteCo(elemType.substituteCo[({ type F[X] = Factory[X, C] })#F](self)))
 
 		/** If this `Factory` was created by `SortedMapFactory.`[[scala.collection.SortedMapFactory.toFactory toFactory]],
 		  * return the `IterableFactory` which created it.
 		  */
 		def sortedMapFactory[K, V, M[A, B] <: Map[A, B]](implicit elemType :E =:= (K, V), compat :C =:= M[K, V])
-				:Opt[SortedMapFactory[M]] =
+				:Maybe[SortedMapFactory[M]] =
 			CompanionFactory.sourceSortedMapFactory(
 				compat.substituteCo(elemType.substituteCo[({ type F[X] = Factory[X, C] })#F](self))
 			)

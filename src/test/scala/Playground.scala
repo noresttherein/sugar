@@ -5,10 +5,10 @@ import scala.annotation.{switch, unspecialized}
 import scala.collection.immutable.{ArraySeq, TreeSet}
 import scala.collection.mutable.ArrayBuffer
 
-import net.noresttherein.sugar.collections.{Array2Iterator, ArraySliceBuffer, StringSet}
+import net.noresttherein.sugar.collections.{Cuboid2Iterator, ArraySliceBuffer, StringSet}
 import net.noresttherein.sugar.collections.extensions.IteratorExtension
-import net.noresttherein.sugar.vars.Opt.Got
-import net.noresttherein.sugar.vars.{EvalOpt, LocalLazy, PhantomRef, Pure, SoftRef, Transient, Volatile, VolatileOut, Watched, WeakRef}
+import net.noresttherein.sugar.vars.Maybe.Yes
+import net.noresttherein.sugar.vars.{EvalOpt, LocalLazy, Maybe, PhantomRef, Pure, SoftRef, Transient, Volatile, VolatileOut, Watched, WeakRef, Opt}
 import net.noresttherein.sugar.witness.NullValue
 import shapeless.Lazy
 
@@ -36,7 +36,8 @@ import shapeless.Lazy
 
 object Playground extends App {
 	LocalLazy(() => 1 + 1)
-	EvalOpt(() => Got(42))
+	EvalOpt(() => Yes(42))
+
 
 	println(implicitly[NullValue[Unit]])
 

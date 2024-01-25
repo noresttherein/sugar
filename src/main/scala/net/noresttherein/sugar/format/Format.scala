@@ -1,18 +1,21 @@
 package net.noresttherein.sugar.format
 
 
+import java.math.BigInteger
+
 import scala.annotation.{implicitAmbiguous, implicitNotFound}
 import scala.reflect.{ClassTag, classTag}
 
+import net.noresttherein.sugar.JavaTypes.JBigDecimal
 import net.noresttherein.sugar.format.{MoldLayout, MoldLayoutFactory, NamedMoldLayout}
 import net.noresttherein.sugar.format.Format.MoldingProcess
 import net.noresttherein.sugar.format.Format.MoldingProcess.{Casting, Melting}
 import net.noresttherein.sugar.format.util.{filteredFlatMapMoldString, filteredMapMoldString, filteredPartString, flatMapMoldString, formatError, formatErrorMsg, mapMoldString, parseError, parseErrorMsg, partString}
 import net.noresttherein.sugar.numeric.{Decimal64, UInt, ULong}
-import net.noresttherein.sugar.vars.{Opt, Outcome, Potential}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.{Maybe, Opt, Outcome}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
-import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent}
 import net.noresttherein.sugar.witness.Optionally
 
 //implicits
@@ -251,7 +254,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  */
 	def reader(raw :Raw) :RawReader = guardMelt(raw) match {
 		case Done(liquid) => new DefaultRawReader(liquid)
-		case fail :Failed => new FailingReader(fail)
+		case Failed(fail) => new FailingReader(Failed(fail))
 	}
 
 	/** Starts a process of ad-hoc reading of arbitrary values from sources
@@ -283,7 +286,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			)
 		) match {
 			case Done(reader) => reader
-			case fail :Failed => new FailingReader(fail)
+			case Failed(fail) => new FailingReader(Failed(fail))
 		}
 	}
 
@@ -381,7 +384,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def flatMap[O](f :RawReader => ReadNext[O]) :Outcome[O] = f(this)(input).map(_._1)
 	}
 
-	private class FailingReader(result :Failed) extends RawReader {
+	private class FailingReader(result :Outcome[Nothing]) extends RawReader {
 		override def flatMap[S](f :RawReader => ReadNext[S]) = result
 	}
 
@@ -408,13 +411,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		//we verify the prefix before proceeding with the ReadNext returned by f
 		override def flatMap[O](f :RawReader => ReadNext[O]) :Outcome[O] = {
 			val withoutSuffix = prefix match {
-				case Got(expect) =>
+				case One(expect) =>
 					Mold[Pre].guardDrop(expect)(input) flatMap (f(this)(_))
 				case _ =>
 					f(this)(input)
 			}
 			suffix match { //we could also implement suffix handling in ReadNext.map
-				case Got(expect) =>
+				case One(expect) =>
 					withoutSuffix map {
 						case (result, remainder) => Mold[Suf].guardDrop(expect)(remainder); result
 					}
@@ -425,10 +428,10 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 	private abstract class SeparatedReadNext[M :Mold, Sep :Mold, Suf :Mold](separator :Opt[Sep]) extends ReadNext[M] {
 		override def flatMap[O](f :M => ReadNext[O]) :ReadNext[O] = separator match {
-			case Got(expect) =>
+			case One(expect) =>
 				liquid =>
 					for {
-						mine       <- apply(liquid)
+						mine       <- this(liquid)
 						(o, afterO) = mine
 						afterSep   <- Mold[Sep].guardDrop(expect)(afterO)
 						remainder  <- f(o)(afterSep)
@@ -476,8 +479,8 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  */
 	def list[Sep :Mold](separator :Sep) :RawWriter =
 		Mold[Sep].guardMelt(separator) match {
-			case Done(s)    => new DefaultRawWriter(Lack, Got(s), Lack)
-			case fail :Failed => new DefaultRawWriter(fail, Lack, Lack, Lack)
+			case Done(s)    => new DefaultRawWriter(None, One(s), None)
+			case Failed(fail) => new DefaultRawWriter(Failed(fail), None, None, None)
 		}
 
 	/** An ad-hoc writer of arbitrary values creating [[net.noresttherein.sugar.format.Format.Raw Raw]] (formatted)
@@ -513,11 +516,11 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			post <- Mold[Suf].guardMelt(suffix)
 		} yield
 			new DefaultRawWriter(
-				Got(pre).filterNot(isEmpty), Got(sep).filterNot(isEmpty), Got(post).filterNot(isEmpty)
+				Yes(pre).filterNot(isEmpty), Yes(sep).filterNot(isEmpty), Yes(post).filterNot(isEmpty)
 			)
 		) match {
 			case Done(writer) => writer
-			case fail :Failed => new DefaultRawWriter(fail, Lack, Lack, Lack)
+			case Failed(fail) => new DefaultRawWriter(Failed(fail), None, None, None)
 		}
 
 	/** An ad-hoc formatter of arbitrary values working as a pure [[scala.collection.mutable.Builder Builder]]
@@ -564,21 +567,21 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	                                     postSeparator :Opt[Liquid], postfix :Opt[Liquid])
 		extends RawWriter with Serializable //because we have a Format.writer val
 	{
-		def this() = this(Done(emptyLiquid), Lack, Lack, Lack)
+		def this() = this(Done(emptyLiquid), No, No, No)
 
-		def this(prefix :Liquid) = this(Done(prefix), Lack, Lack, Lack)
+		def this(prefix :Liquid) = this(Done(prefix), No, No, No)
 
 		def this(prefix :Opt[Liquid], separator :Opt[Liquid], postfix :Opt[Liquid]) =
-			this(Done(prefix.orDefault(emptyLiquid)), Lack, separator, postfix)
+			this(Done(prefix.orDefault(emptyLiquid)), No, separator, postfix)
 
 		override def out :Outcome[Liquid] = postfix match {
-			case Got(suffix) => prefix flatMap (guardConcat(_, suffix))
+			case One(suffix) => prefix flatMap (guardConcat(_, suffix))
 			case _           => prefix
 		}
 
 		override def +[O :Mold](model :O) :RawWriter = {
 			val appended = preSeparator match {
-				case Got(s) => out flatMap (guardConcat(_, s)) flatMap (Mold[O].guardAppend(_, model))
+				case One(s) => out flatMap (guardConcat(_, s)) flatMap (Mold[O].guardAppend(_, model))
 				case _      => out flatMap (Mold[O].guardAppend(_, model))
 			}
 			new DefaultRawWriter(appended, postSeparator, postSeparator, postfix)
@@ -616,7 +619,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	@throws[FormattingException]("if the separator cannot be melted.")
 	def newBuilder[Sep :Mold](separator :Sep) :RawBuilder = {
 		val sep = Mold[Sep].melt(separator)
-		if (isEmpty(sep)) new DefaultRawBuilder else new DefaultRawBuilder(Lack, Got(sep), Lack)
+		if (isEmpty(sep)) new DefaultRawBuilder else new DefaultRawBuilder(None, One(sep), None)
 	}
 
 	/** Creates a mutable builder appending arbitrary values having
@@ -646,7 +649,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	def newBuilder[Pre :Mold, Sep :Mold, Suf :Mold](prefix :Pre, separator :Sep, suffix :Suf) :RawBuilder = {
 		def prepare[X](model :X)(implicit mold :Mold[X]) = {
 			val melted = mold.melt(model)
-			if (isEmpty(melted)) Lack else Got(melted)
+			if (isEmpty(melted)) No else Yes(melted)
 		}
 		val pre = prepare(prefix)
 		val sep = prepare(separator)
@@ -703,14 +706,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		def clear() :Unit
 	}
 
-	private class DefaultRawBuilder(prefix :Opt[Liquid] = Lack, separator :Opt[Liquid] = Lack, suffix :Opt[Liquid] = Lack)
+	private class DefaultRawBuilder(prefix :Opt[Liquid] = None, separator :Opt[Liquid] = None, suffix :Opt[Liquid] = None)
 		extends RawBuilder
 	{
 		private[this] var liquid :Liquid = prefix getOrElse emptyLiquid
 		private[this] var inInitialState = true
 
 		override def +=[O :Mold](model :O) :this.type = separator match {
-			case Got(s) =>
+			case One(s) =>
 				if (inInitialState) {
 					liquid = concat(liquid, s)
 					inInitialState = false
@@ -876,14 +879,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		}
 		/** Attempts to parse the whole of the given formatted liquid as this mold's model type.
 		  * If parsing leaves a [[net.noresttherein.sugar.format.Format.isEmpty non empty]] suffix of `liquid`,
-		  * [[net.noresttherein.sugar.vars.Opt.Lack Lack]] is returned even if the prefix is in the correct format.
+		  * `None` is returned even if the prefix is in the correct format.
 		  * @see [[net.noresttherein.sugar.format.Format.Mold.cast]]
 		  * @see [[net.noresttherein.sugar.format.Format.Mold.headOpt]]
 		  * @see [[net.noresttherein.sugar.format.Format.Mold.nextOpt]]
 		  */
 		def castOpt(liquid :Liquid) :Opt[M] = nextOpt(liquid) match {
-			case Got((model, rem)) if isEmpty(rem) => Got(model)
-			case _ => Lack
+			case One((model, rem)) if isEmpty(rem) => One(model)
+			case _ => None
 		}
 		/** A variant of method [[net.noresttherein.sugar.format.Format.Mold.cast cast]],
 		  * parsing the whole of the given formatted liquid as this mold's model type,
@@ -1076,9 +1079,9 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  * The comparison happens on the model level, by parsing `suffix` using regular `advance(prefix, suffix)`,
 		  * and comparing the parsed value with `constant` using `equals`. If the comparison fails
 		  * (or `suffix` doesn't start with a correctly formatted model value of this mold at all), the method
-		  * returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. Otherwise the returned `(parsed, model, unparsed)`
-		  * triple is exactly the same as for the regular, non-comparing `advance`. Note that this means that the parsed
-		  * fragment may potentially not equal `this.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]]`(constant)`,
+		  * returns `None`. Otherwise the returned `(parsed, model, unparsed)` triple is exactly the same
+		  * as for the regular, non-comparing `advance`. Note that this means that the parsed fragment
+		  * may potentially not equal `this.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]]`(constant)`,
 		  * (in particular in `String`-based formats ignoring whitespace).
 		  */
 		def advanceOpt(constant :M)(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] =
@@ -1091,9 +1094,9 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  * The comparison happens on the model level, by parsing `suffix` using regular `advance(prefix, suffix)`,
 		  * and comparing the parsed value with `constant` using `equals`. If the comparison fails
 		  * (or `suffix` doesn't start with a correctly formatted model value of this mold at all), the method
-		  * returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. Otherwise the returned `(parsed, model, unparsed)`
-		  * triple is exactly the same as for the regular, non-comparing `advance`. Note that this means that the parsed
-		  * fragment may potentially not equal `this.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]]`(constant)`,
+		  * returns `None`. Otherwise the returned `(parsed, model, unparsed)` triple is exactly the same
+		  * as for the regular, non-comparing `advance`. Note that this means that the parsed fragment
+		  * may potentially not equal `this.`[[net.noresttherein.sugar.format.Format.Mold.melt melt]]`(constant)`,
 		  * (in particular in `String`-based formats ignoring whitespace).
 		  * All 'guard' methods can be composed in a for comprehension or as a chain
 		  * of `Outcome.`[[net.noresttherein.sugar.vars.OutcomeExtension.flatMap flatMap]] calls.
@@ -1241,7 +1244,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			new NamedMappedMold(name, this, read, write)
 
 		/** Creates a mold for some type `T` which can be converted to and from this mold's model type `M`. */
-		def optMap[T](read :M => Potential[T], write :T => Potential[M]) :Mold[T] =
+		def optMap[T](read :M => Opt[T], write :T => Opt[M]) :Mold[T] =
 			new OptMappedMold(this, read, write)
 
 		/** Creates a mold for some type `T` which can be converted to and from this mold's model type `M`.
@@ -1250,7 +1253,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  * @param read  a function applied to every value parsed by this mold to obtain the new model.
 		  * @param write a function applied to every model value of the name mold before formatting it with this mold.
 		  */
-		def optMap[T](name :String, read :M => Potential[T], write :T => Potential[M]) :NamedMold[T] =
+		def optMap[T](name :String, read :M => Opt[T], write :T => Opt[M]) :NamedMold[T] =
 			new NamedOptMappedMold(name, this, read, write)
 
 		/** A `Mold` parsing the same values as this mold, but additionally paired with liquid fragments corresponding
@@ -1258,20 +1261,20 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  */
 		def dual :Mold[(Liquid, M)] = new DualMold(this)
 
-		/** An optional `Mold` for the same model type. [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]]
+		/** An optional `Mold` for the same model type. [[scala.None None]]
 		  * values are formatted as [[net.noresttherein.sugar.format.Format.Liquid.empty empty]] liquids.
-		  * When parsing, an [[net.noresttherein.sugar.vars.Potential.Existent Existent]] value is returned on success
-		  * and `Inexistent` if this mold fails to parse the argument(s).
+		  * When parsing, an [[net.noresttherein.sugar.vars.Opt.One One]] value is returned on success
+		  * and `None` if this mold fails to parse the argument(s).
 		  *
 		  * Note that this is not a universal implementation appropriate for all formats;
 		  * it is provided only as an utility.
 		  */
-		def potential :Mold[Potential[M]] = new PotentialMold(this)
+		def maybe :Mold[Maybe[M]] = new MaybeMold(this)
 
-		/** An optional `Mold` for the same model type. [[net.noresttherein.sugar.vars.Opt.Lack Lack]]
-		  * values are formatted as [[net.noresttherein.sugar.format.Format.Liquid.empty empty]] liquids.
-		  * When parsing, a [[net.noresttherein.sugar.vars.Opt.Got Got]] value is returned on success
-		  * and `Lack` if this mold fails to parse the argument(s).
+		/** An optional `Mold` for the same model type.
+		  * `None` is formatted as [[net.noresttherein.sugar.format.Format.Liquid.empty empty]] liquids.
+		  * When parsing, a [[net.noresttherein.sugar.vars.Opt.One One]] value is returned on success
+		  * and `None` if this mold fails to parse the argument(s).
 		  *
 		  * Note that this is not a universal implementation appropriate for all formats;
 		  * it is provided only as an utility.
@@ -1404,7 +1407,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		/** The most generic `Mold` factory method, using the given functions for parsing and formatting.
 		  * The functions are used directly to implement their eponymous methods.
 		  * They must not throw any exceptions, and instead return
-		  * an empty [[net.noresttherein.sugar.vars.Potential Potential]].
+		  * an empty [[net.noresttherein.sugar.vars.Opt Opt]].
 		  * This method is fully useful only for molds performing such functions
 		  * as checksum calculation and verification - most molds do not need to inspect already parsed/formatted data.
 		  * @param advance A function used in the implementation of the mold's
@@ -1421,14 +1424,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *                [[net.noresttherein.sugar.format.Format.concat concat]] concatenated
 		  *                with the melted model `M`.
 		  */
-		def opt[M](advance :(Liquid, Liquid) => Potential[(Liquid, M, Liquid)],
-		           append :(Liquid, M) => Potential[Liquid]) :Mold[M] =
+		def opt[M](advance :(Liquid, Liquid) => Opt[(Liquid, M, Liquid)],
+		           append :(Liquid, M) => Opt[Liquid]) :Mold[M] =
 			new CustomOptMold(advance, append)
 
 		/** The most generic `Mold` factory method, using the given functions for parsing and formatting.
 		  * The functions are used directly to implement their eponymous methods.
 		  * They must not throw any exceptions, and instead return
-		  * an empty [[net.noresttherein.sugar.vars.Potential Potential]].
+		  * an empty [[net.noresttherein.sugar.vars.Opt Opt]].
 		  * This method is fully useful only for molds performing such functions
 		  * as checksum calculation and verification - most molds do not need to inspect already parsed/formatted data.
 		  * @param name    An arbitrary name of the molded type `M`, used only for debugging purposes.
@@ -1446,14 +1449,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *                [[net.noresttherein.sugar.format.Format.concat concat]] concatenated
 		  *                with the melted model `M`.
 		  */
-		def opt[M](name :String, advance :(Liquid, Liquid) => Potential[(Liquid, M, Liquid)],
-		           append :(Liquid, M) => Potential[Liquid])
+		def opt[M](name :String, advance :(Liquid, Liquid) => Opt[(Liquid, M, Liquid)],
+		           append :(Liquid, M) => Opt[Liquid])
 				:NamedMold[M] =
 			new NamedCustomOptMold(name, advance, append)
 
 		/** The simplest factory method for a `Mold`, accepting functions necessary to implement its abstract methods.
 		  * They must not throw any exceptions, and instead return
-		  * an empty [[net.noresttherein.sugar.vars.Potential Potential]].
+		  * an empty [[net.noresttherein.sugar.vars.Opt Opt]].
 		  * @param split   A function used to implement the mold's
 		  *                [[net.noresttherein.sugar.format.Format.Mold.advanceOpt advanceOpt]] method.
 		  *                It accepts the input data, assumed to start with a formatted value of `M`,
@@ -1464,12 +1467,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *                [[net.noresttherein.sugar.format.Format.Mold.meltOpt meltOpt]] method.
 		  *                It accepts the model to melt and returns it in a formatted form.
 		  */
-		def opt[M](split :Liquid => Potential[(Liquid, M, Liquid)], melt :M => Potential[Liquid]) :Mold[M] =
+		def opt[M](split :Liquid => Opt[(Liquid, M, Liquid)], melt :M => Opt[Liquid]) :Mold[M] =
 			new SimplestOptMold(split, melt)
 
 		/** The simplest factory method for a `Mold`, accepting functions necessary to implement its abstract methods.
 		  * They must not throw any exceptions, and instead return
-		  * an empty [[net.noresttherein.sugar.vars.Potential Potential]].
+		  * an empty [[net.noresttherein.sugar.vars.Opt Opt]].
 		  * @param name    An arbitrary name of the molded type `M`, used only for debugging purposes.
 		  * @param split   A function used to implement the mold's
 		  *                [[net.noresttherein.sugar.format.Format.Mold.advanceOpt advanceOpt]] method.
@@ -1481,7 +1484,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *                [[net.noresttherein.sugar.format.Format.Mold.meltOpt meltOpt]] method.
 		  *                It accepts the model to melt and returns it in a formatted form.
 		  */
-		def opt[M](name :String, split :Liquid => Potential[(Liquid, M, Liquid)], melt :M => Potential[Liquid])
+		def opt[M](name :String, split :Liquid => Opt[(Liquid, M, Liquid)], melt :M => Opt[Liquid])
 				:NamedMold[M] =
 			new NamedSimplestOptMold(name, split, melt)
 
@@ -1577,23 +1580,23 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		val emptyString :Mold[String] = new EmptyMold("") //not clear what model type would be best
 
 		/** An 'error' mold which throws an [[UnsupportedOperationException]] on every call (or returns
-		  * [[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Outcome.Failed Failed]]).
+		  * `None`/[[net.noresttherein.sugar.vars.Outcome.Failed Failed]]).
 		  * If an implicit [[scala.reflect.ClassTag ClassTag]] for the molded type `M` is present,
 		  * the (inner) class name of `M` will be used in the mold's `toString` method.
 		  */
 		def unsupported[M](implicit model :Optionally[ClassTag[M]]) :Mold[M] = model.opt match {
-			case Got(tag) => unsupported(tag.runtimeClass.innerName)
+			case Yes(tag) => unsupported(tag.runtimeClass.innerName)
 			case _        => unsupported("")
 		}
 
 		/** An 'error' mold which throws an [[UnsupportedOperationException]] on every call (or returns
-		  * [[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Outcome.Failed Failed]]).
+		  * `None`/[[net.noresttherein.sugar.vars.Outcome.Failed Failed]]).
 		  * @param model the molded class, used only by `toString` of the returned mold.
 		  */
 		def unsupported[M](model :Class[M]) :Mold[M] = unsupported(model.innerName)
 
 		/** An 'error' mold which throws an [[UnsupportedOperationException]] on every call (or returns
-		  * [[net.noresttherein.sugar.vars.Opt.Lack Lack]]/[[net.noresttherein.sugar.vars.Outcome.Failed Failed]]).
+		  * `None`/[[net.noresttherein.sugar.vars.Outcome.Failed Failed]]).
 		  * @param name the name of the molded model,
 		  *             used in returned mold's `toString` representation: `s"$format[$name]".`
 		  */
@@ -1604,10 +1607,10 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		@SerialVersionUID(Ver)
 		private class UnsupportedMold[S] extends SpecialMold[S] {
 			override def advance(prefix :Liquid, suffix :Liquid) = parseError(Format.this)(this, suffix)
-			override def advanceOpt(prefix :Liquid, suffix :Liquid) = Lack
+			override def advanceOpt(prefix :Liquid, suffix :Liquid) = None
 			override def guardAdvance(prefix :Liquid, suffix :Liquid) = Failed(() => parseErrorMsg(Format.this)(this, suffix))
 			override def append(prefix :Liquid, model :S) = formatError(Format.this)(this, model)
-			override def appendOpt(prefix :Liquid, model :S) = Lack
+			override def appendOpt(prefix :Liquid, model :S) = None
 			override def guardAppend(prefix :Liquid, model :S) = Failed(() => formatErrorMsg(Format.this)(this, model))
 			override def toString = Format.this.toString + "<unsupported>"
 		}
@@ -1624,68 +1627,99 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val stringMold  :Mold[String]
+
 	/** A mandatory `Char` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val charMold    :Mold[Char]
+
 	/** A mandatory `Long` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val longMold    :Mold[Long]
+
 	/** A mandatory `Int` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val intMold     :Mold[Int]
+
 	/** A mandatory `Short` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val shortMold   :Mold[Short]
+
 	/** A mandatory `Byte` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val byteMold    :Mold[Byte]
+
 	/** A mandatory `Double` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val doubleMold  :Mold[Double]
+
 	/** A mandatory `Float` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val floatMold   :Mold[Float]
+
+	/** A partially supported mold for `BigInt`. Format implementations need not support arbitrarily large range. */
+	implicit val bigIntMold :Mold[BigInt]
+
+	/** A partially supported mold for `BigDecimal`. Format implementations need not support arbitrarily large precision. */
+	implicit val bigDecimalMold :Mold[BigDecimal]
+
+	/** A partially supported mold for `BigInteger`. Format implementations need not support arbitrarily large range. */
+	implicit val bigIntegerMold :Mold[BigInteger]
+
+	/** A partially supported mold for `BigInt`. Format implementations need not support arbitrarily large precision. */
+	implicit val javaBigDecimalMold :Mold[JBigDecimal]
+
+	implicit val unsignedLongMold :Mold[ULong]
+
+	implicit val unsignedIntMold :Mold[UInt]
+
+	/** A partially supported mold for `Decimal64`. Format implementations need not support arbitrarily large precision. */
+	implicit val decimal64Mold :Mold[Decimal64]
+
 	/** A mandatory `Boolean` mold, allowing the type to be used
 	  * in a [[net.noresttherein.sugar.format.MoldLayout MoldLayout]] definition, to define molds abstracting
 	  * over an actual `Format` used.
 	  * @see [[net.noresttherein.sugar.format.Format.MoldLayoutMaker]]
 	  */
 	implicit val booleanMold :Mold[Boolean]
-	//todo: molds for java.time types
+
+	//todo: molds for java.time types - or maybe just in FormatAsString
 //		implicit val InstantMold :Mold[Instant]
-	/** An implicit `Mold` for type `Nothing`. It has a use in a context where an object to be melted/cast is parsed as an `Option` (or similar type)
-	  * and requires an implicit mold. This mold allows to pass `Non` as an argument, satisfying the requirement for the existence of a mold for its contents.
+	/** An implicit `Mold` for type `Nothing`. It has a use in a context where an object to be melted/cast
+	  * is parsed as an `Option` (or similar type) and requires an implicit mold. This mold allows to pass `None`
+	  * as an argument, satisfying the requirement for the existence of a mold for its contents.
 	  */
 	implicit val nothingMold :Mold[Nothing] = NothingMold
+
 	/** A `Mold` embedding directly given `Liquid` values in the formatted result.
 	  * When parsing, all of the input is automatically consumed, regardless of its contents.
 	  */
-	private[format] def liquidMoldPrototype :Mold[Liquid] = LiquidMold
+	protected def liquidMoldPrototype :Mold[Liquid] = LiquidMold
+
 	/** A `Mold` embedding directly given `Raw` values in the formatted result.
 	  * When parsing, all of the input is automatically consumed, regardless of its contents.
 	  */
-	private[format] def rawMoldPrototype     :Mold[Raw] = RawMold
+	protected def rawMoldPrototype     :Mold[Raw] = RawMold
 
 
 
@@ -1706,10 +1740,10 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	trait SimpleMold[M] extends MoldDefaults[M] {
 		//leaving advance(liquid) family for subclasses and implementing two argument versions instead
 		// would make for a simpler interface, but it would have to create a new tuple.
-		override def append(prefix :Liquid, model :M) :Liquid = concat(prefix, melt(model))
-		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = meltOpt(model).flatMap(concatOpt(prefix, _))
-		override def guardAppend(prefix :Liquid, model :M) :Fallible[Liquid] =
-			guardMelt(model).flatMap(guardConcat(prefix, _))
+		override def append(prefix :Liquid, model :M) :Liquid = concat(prefix, this.melt(model))
+		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = this.meltOpt(model).flatMap(concatOpt(prefix, _))
+		override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] =
+			this.guardMelt(model).flatMap(guardConcat(prefix, _))
 	}
 
 	/** Base trait for molds which need to access data previously parsed/formatted by molds for preceding properties
@@ -1734,19 +1768,19 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  */ //todo: SimpleExceptionBasedMold, etc. - (advance(liquid :Liquid) + melt(model :M))
 	trait ThrowingMold[M] extends Mold[M] {
 		override def castOpt(liquid :Liquid) :Opt[M] =
-			try Got(cast(liquid)) catch {
-				case _ :Exception => Lack
+			try One(cast(liquid)) catch {
+				case _ :Exception => None
 			}
 		override def guardCast(liquid :Liquid) :Outcome[M] =
 			try Done(cast(liquid)) catch {
 				case e :Exception => Failed(e)
 			}
 		override def headOpt(liquid :Liquid) :Opt[M] =
-			try { Got(head(liquid)) } catch {
-				case _ :Exception => Lack
+			try One(this.head(liquid)) catch {
+				case _ :Exception => None
 			}
-		override def guardHead(liquid :Liquid) :Fallible[M] =
-			try { Passed(head(liquid)) } catch {
+		override def guardHead(liquid :Liquid) :Outcome[M] =
+			try Done(this.head(liquid)) catch {
 				case e :Exception => Failed(e)
 			}
 		override def guardNext(liquid :Liquid) :Outcome[(M, Liquid)] =
@@ -1754,36 +1788,36 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				case e :Exception => Failed(e)
 			}
 		override def nextOpt(liquid :Liquid) :Opt[(M, Liquid)] =
-			try Got(next(liquid)) catch {
-				case _ :Exception => Lack
+			try One(next(liquid)) catch {
+				case _ :Exception => None
 			}
 		override def advanceOpt(liquid :Liquid) :Opt[(Liquid, M, Liquid)] =
-			try Got(advance(liquid)) catch {
-				case _ :Exception => Lack
+			try One(advance(liquid)) catch {
+				case _ :Exception => None
 			}
 		override def guardAdvance(liquid :Liquid) :Outcome[(Liquid, M, Liquid)] =
 			try Done(advance(liquid)) catch {
 				case e :Exception => Failed(e)
 			}
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] =
-			try Got(advance(prefix, suffix)) catch {
-				case _ :Exception => Lack
+			try One(advance(prefix, suffix)) catch {
+				case _ :Exception => None
 			}
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 			try Done(advance(prefix, suffix)) catch {
 				case e :Exception => Failed(e)
 			}
 		override def meltOpt(model :M) :Opt[Liquid] =
-			try { Got(melt(model)) } catch {
-				case _ :Exception => Lack
+			try One(this.melt(model)) catch {
+				case _ :Exception => None
 			}
-		override def guardMelt(model :M) :Fallible[Liquid] =
-			try { Passed(melt(model)) } catch {
+		override def guardMelt(model :M) :Outcome[Liquid] =
+			try Done(this.melt(model)) catch {
 				case e :Exception => Failed(e)
 			}
 		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] =
-			try Got(append(prefix, model)) catch {
-				case _ :Exception => Lack
+			try One(append(prefix, model)) catch {
+				case _ :Exception => None
 			}
 		override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] =
 			try Done(append(prefix, model)) catch {
@@ -1844,24 +1878,24 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def append(prefix :Liquid, model :M) :Liquid = format(appendOpt(prefix, model), model)
 		override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] =
 			formatGuard(appendOpt(prefix, model), model)
-		override def melt(model :M) :Liquid = format(meltOpt(model), model)
-		override def guardMelt(model :M) :Fallible[Liquid] = formatGuard(meltOpt(model), model)
+		override def melt(model :M) :Liquid = format(this.meltOpt(model), model)
+		override def guardMelt(model :M) :Outcome[Liquid] = formatGuard(this.meltOpt(model), model)
 
 		private def parseGuard[X](result :Opt[X], input :Liquid) = result match {
-			case Got(res) => Done(res)
+			case One(res) => Done(res)
 			case _ => Failed(() => parseErrorMsg(Format.this)(this, input))
 		}
 		private def formatGuard[X](result :Opt[Liquid], model :M) = result match {
-			case Got(res) => Done(res)
+			case One(res) => Done(res)
 			case _ => Failed(() => formatErrorMsg(Format.this)(this, model))
 		}
 		private def parse[X](result :Opt[X], input :Liquid) :X = result match {
-			case Got(res) => res
-			case _ => parseError(Format.this)(this, input)
+			case One(res) => res
+			case _        => parseError(Format.this)(this, input)
 		}
 		private def format(result :Opt[Liquid], model :M) :Liquid = result match {
-			case Got(res) => res
-			case _ => formatError(Format.this)(this, model)
+			case One(res) => res
+			case _        => formatError(Format.this)(this, model)
 		}
 	}
 
@@ -1905,7 +1939,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			parse(guardAdvance(prefix, suffix), suffix)
 
 		override def append(prefix :Liquid, model :M) :Liquid = format(guardAppend(prefix, model), model)
-		override def melt(model :M) :Liquid = format(guardMelt(model), model)
+		override def melt(model :M) :Liquid = format(this.guardMelt(model), model)
 
 		override def castOpt(liquid :Liquid) :Opt[M] = guardCast(liquid).toOpt
 		override def headOpt(liquid :Liquid) :Opt[M] = guardHead(liquid).toOpt
@@ -1915,14 +1949,16 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			guardAdvance(prefix, suffix).toOpt
 
 		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = guardAppend(prefix, model).toOpt
-		override def meltOpt(model :M) :Opt[Liquid] = guardMelt(model).toOpt
+		override def meltOpt(model :M) :Opt[Liquid] = this.guardMelt(model).toOpt
 
-		private def parse[X](result :Fallible[X], input :Liquid) = result match {
-			case Passed(res) => res
+		private def parse[X](result :Outcome[X], input :Liquid) = result match {
+			case Done(res) => res
+			case Failed(err :ParsingException) => throw err
 			case Failed(err) => throw ParsingException(Format.this :Format.this.type)(input, err.getMessage, err)
 		}
-		private def format[X](result :Fallible[Liquid], model :X) = result match {
-			case Passed(res) => res
+		private def format[X](result :Outcome[Liquid], model :X) = result match {
+			case Done(res) => res
+			case Failed(err :FormattingException) => throw err
 			case Failed(err) => throw new FormattingException(Format.this, model, err)
 		}
 	}
@@ -1964,15 +2000,15 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  */ //consider; making all molds named. Currently we have a problem if we want to wrap an unnamed mold.
 	trait NamedMold[M] extends Mold[M] {
 		def name :String
-		override def dual :NamedMold[(Liquid, M)] = new NamedDualMold(this)
-		override def potential :NamedMold[Potential[M]] = new NamedPotentialMold(this)
-		override def opt :NamedMold[Opt[M]] = new NamedOptMold(this)
+		override def dual   :NamedMold[(Liquid, M)] = new NamedDualMold(this)
+		override def maybe  :NamedMold[Maybe[M]] = new NamedMaybeMold(this)
+		override def opt    :NamedMold[Opt[M]] = new NamedOptMold(this)
 		override def option :NamedMold[Option[M]] = new NamedOptionMold(this)
-		override def guard :NamedMold[Outcome[M]] = new NamedOutcomeMold(this)
+		override def guard  :NamedMold[Outcome[M]] = new NamedOutcomeMold(this)
 
 		override def map[O](read :M => O, write :O => M) :NamedMold[O] =
 			new NamedMappedMold(this, read, write)
-		override def optMap[O](read :M => Potential[O], write :O => Potential[M]) :NamedMold[O] =
+		override def optMap[O](read :M => Opt[O], write :O => Opt[M]) :NamedMold[O] =
 			new NamedOptMappedMold(this, read, write)
 
 		override def |(other :Mold[M]) :Mold[M] = other match {
@@ -2023,12 +2059,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def guardMelt(model :M) = mold.guardMelt(model)
 
 		override def dual = new NamedDualMold(name, mold)
-		override def potential = new NamedPotentialMold(name, mold)
+		override def maybe = new NamedMaybeMold(name, mold)
 		override def opt = new NamedOptMold(name, mold)
 		override def option = new NamedOptionMold(name, mold)
 
 		override def map[O](read :M => O, write :O => M) :NamedMold[O] = new NamedMappedMold(name, mold, read, write)
-		override def optMap[O](read :M => Potential[O], write :O => Potential[M]) :NamedMold[O] =
+		override def optMap[O](read :M => Opt[O], write :O => Opt[M]) :NamedMold[O] =
 			new NamedOptMappedMold(name, mold, read, write)
 	}
 
@@ -2037,57 +2073,57 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	// and assign it to a private field here. This would move a considerable part of implementation outside,
 	// leading to a smaller file. However, we'd need to introduce a Mold interface which is not an inner class.
 
-	private trait ReadOnlyMold[M] extends Mold[M] {
+	protected trait ReadOnlyMold[M] extends Mold[M] {
 		override def melt(model :M) :Liquid = emptyLiquid
-		override def meltOpt(model :M) :Opt[Liquid] = Got(emptyLiquid)
+		override def meltOpt(model :M) :Opt[Liquid] = One(emptyLiquid)
 		override def guardMelt(model :M) :Outcome[Liquid] = Done(emptyLiquid)
 		override def append(prefix :Liquid, model :M) :Liquid = prefix
-		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = Got(prefix)
+		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = One(prefix)
 		override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] = Done(prefix)
 	}
-	private trait SafeCastingMold[M] extends Mold[M] {
-		override def headOpt(liquid :Liquid) :Opt[M] = Got(head(liquid))
-		override def guardHead(liquid :Liquid) :Fallible[M] = Passed(head(liquid))
-		override def nextOpt(liquid :Liquid) :Opt[(M, Liquid)] = Got(next(liquid))
+	protected trait SafeCastingMold[M] extends Mold[M] {
+		override def headOpt(liquid :Liquid) :Opt[M] = One(this.head(liquid))
+		override def guardHead(liquid :Liquid) :Outcome[M] = Done(this.head(liquid))
+		override def nextOpt(liquid :Liquid) :Opt[(M, Liquid)] = One(next(liquid))
 		override def guardNext(liquid :Liquid) :Outcome[(M, Liquid)] = Done(next(liquid))
 		override def advance(liquid :Liquid) = advance(emptyLiquid, liquid)
-		override def advanceOpt(liquid :Liquid) :Opt[(Liquid, M, Liquid)] = Got(advance(liquid))
+		override def advanceOpt(liquid :Liquid) :Opt[(Liquid, M, Liquid)] = One(advance(liquid))
 		override def guardAdvance(liquid :Liquid) :Outcome[(Liquid, M, Liquid)] = Done(advance(liquid))
-		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] = Got(advance(prefix, suffix))
+		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] = One(advance(prefix, suffix))
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 			Done(advance(prefix, suffix))
 	}
-	private trait SafeMeltingMold[M] extends Mold[M] {
-		override def meltOpt(model :M) :Opt[Liquid] = Got(melt(model))
-		override def guardMelt(model :M) :Fallible[Liquid] = Passed(melt(model))
-		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = Got(append(prefix, model))
+	protected trait SafeMeltingMold[M] extends Mold[M] {
+		override def meltOpt(model :M) :Opt[Liquid] = One(this.melt(model))
+		override def guardMelt(model :M) :Outcome[Liquid] = Done(this.melt(model))
+		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = One(append(prefix, model))
 		override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] = Done(append(prefix, model))
 	}
 	/** A `Mold` which never throws any exceptions - implements 'opt' and 'guard' methods with their basic variants.
 	  * This happens with molds which forward parsing/formatting errors to the application in their model type,
 	  * instead of automatically propagating them.
 	  */
-	private trait SafeMold[M] extends SafeCastingMold[M] with SafeMeltingMold[M]
+	protected trait SafeMold[M] extends SafeCastingMold[M] with SafeMeltingMold[M]
 
 	private trait AbstractEmptyMold[M] extends SafeMold[M] {
 		override def cast(liquid :Liquid) :M =
 			if (isEmpty(liquid))
-				head(liquid)
+				this.head(liquid)
 			else
 				throw ParsingException(Format.this :Format.this.type)(
 					liquid, toString + " expected empty input, got '" + liquid + "'."
 				)
 		override def castOpt(liquid :Liquid) :Opt[M] =
-			if (isEmpty(liquid)) Got(head(liquid)) else Lack
+			if (isEmpty(liquid)) One(this.head(liquid)) else None
 
 		override def guardCast(liquid :Liquid) :Outcome[M] =
 			if (isEmpty(liquid))
-				Passed(head(liquid))
+				Done(this.head(liquid))
 			else
 				Failed(() => toString + " expected empty input, got '" + liquid + "'")
 
-		override def next(liquid :Liquid) = (head(liquid), liquid)
-		override def advance(prefix :Liquid, suffix :Liquid) = (prefix, head(suffix), suffix)
+		override def next(liquid :Liquid) = (this.head(liquid), liquid)
+		override def advance(prefix :Liquid, suffix :Liquid) = (prefix, this.head(suffix), suffix)
 
 		override def append(prefix :Liquid, model :M) = prefix
 		override def melt(model :M) :Liquid = emptyLiquid
@@ -2103,13 +2139,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	private object NothingMold extends SimpleMold[Nothing] {
 		override def advance(prefix :Liquid, suffix :Liquid) :Nothing =
 			throw ParsingException(Format.this :Format.this.type)(suffix, "NothingMold of " + Format.this + " cannot be used to parse anything.")
-		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[Nothing] = Lack
+		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[Nothing] = None
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[Nothing] =
 			Failed(() => "NothingMold of " + Format.this + " cannot be used to parse anything.")
 
 		override def melt(model :Nothing) :Liquid =
 			throw new FormattingException(Format.this, model, "NothingMold of " + Format.this + " cannot be used to parse anything.")
-		override def meltOpt(model :Nothing) :Opt[Liquid] = Lack
+		override def meltOpt(model :Nothing) :Opt[Liquid] = None
 		override def guardMelt(model :Nothing) :Outcome[Liquid] =
 			Failed(() => "NothingMold of " + Format.this + " cannot be used to parse anything.")
 
@@ -2118,16 +2154,16 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 
 	private trait AbstractSuffixMold[M] extends Mold[M] {
-		override def cast(liquid :Liquid) = head(liquid)
+		override def cast(liquid :Liquid) = this.head(liquid)
 		override def castOpt(liquid :Liquid) = headOpt(liquid)
 		override def guardCast(liquid :Liquid) = guardHead(liquid)
-		override def next(liquid :Liquid) = (head(liquid), emptyLiquid)
+		override def next(liquid :Liquid) = (this.head(liquid), emptyLiquid)
 		override def nextOpt(liquid :Liquid) = headOpt(liquid) map ((_, emptyLiquid))
 		override def guardNext(liquid :Liquid) = guardHead(liquid) map ((_, emptyLiquid))
-		override def advance(prefix :Liquid, suffix :Liquid) = (prefix, head(suffix), emptyLiquid)
+		override def advance(prefix :Liquid, suffix :Liquid) = (prefix, this.head(suffix), emptyLiquid)
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) = headOpt(suffix) map ((prefix, _, emptyLiquid))
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) = guardHead(suffix) map ((prefix, _, emptyLiquid))
-		override def append(prefix :Liquid, model :M) = melt(model)
+		override def append(prefix :Liquid, model :M) = this.melt(model)
 	}
 	@SerialVersionUID(Ver)
 	private object LiquidMold extends SafeMold[Liquid] with AbstractSuffixMold[Liquid] {
@@ -2163,8 +2199,8 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	   extends CustomMold[M](parse, format) with NamedMold[M]
 
 	@SerialVersionUID(Ver)
-	private class CustomOptMold[M](parse :(Liquid, Liquid) => Potential[(Liquid, M, Liquid)],
-	                               format :(Liquid, M) => Potential[Liquid])
+	private class CustomOptMold[M](parse :(Liquid, Liquid) => Opt[(Liquid, M, Liquid)],
+	                               format :(Liquid, M) => Opt[Liquid])
 		extends SpecialOptBasedMold[M]
 	{
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) = parse(prefix, suffix)
@@ -2174,8 +2210,8 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 	@SerialVersionUID(Ver)
 	private class NamedCustomOptMold[M](override val name :String,
-	                                    parse :(Liquid, Liquid) => Potential[(Liquid, M, Liquid)],
-	                                    format :(Liquid, M) => Potential[Liquid])
+	                                    parse :(Liquid, Liquid) => Opt[(Liquid, M, Liquid)],
+	                                    format :(Liquid, M) => Opt[Liquid])
 		extends CustomOptMold[M](parse, format) with NamedMold[M]
 
 	@SerialVersionUID(Ver)
@@ -2212,15 +2248,15 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		extends SimplestMold[M](parse, format) with NamedMold[M]
 
 	@SerialVersionUID(Ver)
-	private class SimplestOptMold[M](parse :Liquid => Potential[(Liquid, M, Liquid)], format :M => Potential[Liquid])
+	private class SimplestOptMold[M](parse :Liquid => Opt[(Liquid, M, Liquid)], format :M => Opt[Liquid])
 		extends SimpleOptBasedMold[M]
 	{
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) = parse(suffix) match {
-			case Existent((parsed, model, remainder)) => concatOpt(prefix, parsed) match {
-				case Got(done) => Got((done, model, remainder))
-				case _ => Lack
+			case One((parsed, model, remainder)) => concatOpt(prefix, parsed) match {
+				case One(done) => One((done, model, remainder))
+				case _         => None
 			}
-			case _ => Lack
+			case _ => None
 		}
 		override def meltOpt(model :M) = format(model)
 		override def toString = Format.this.toString + "[_]@" + this.hashCodeString
@@ -2228,7 +2264,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 	@SerialVersionUID(Ver)
 	private class NamedSimplestOptMold[M](override val name :String,
-	                                      parse :Liquid => Potential[(Liquid, M, Liquid)], format :M => Potential[Liquid])
+	                                      parse :Liquid => Opt[(Liquid, M, Liquid)], format :M => Opt[Liquid])
 		extends SimplestOptMold[M](parse, format) with NamedMold[M]
 
 	@SerialVersionUID(Ver)
@@ -2238,7 +2274,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) = parse(suffix) match {
 			case Done((parsed, model, remainder)) => guardConcat(prefix, parsed) match {
 				case Done(done) => Done((done, model, remainder))
-				case fail :Failed => fail
+				case Failed(fail) => Failed(fail)
 			}
 			case fail => fail
 		}
@@ -2254,110 +2290,110 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 
 	@SerialVersionUID(Ver)
-	private class PotentialMold[M](mold :Mold[M]) extends SpecialMold[Potential[M]] {
-		override def advance(prefix :Liquid, suffix :Liquid) :(Liquid, Potential[M], Liquid) =
+	private class OptMold[M](mold :Mold[M]) extends SpecialMold[Opt[M]] {
+		override def advance(prefix :Liquid, suffix :Liquid) :(Liquid, Opt[M], Liquid) =
 			mold.advanceOpt(prefix, suffix) match {
-				case Got((parsed, model, rem)) => (parsed, Existent(model), rem)
-				case _ => (prefix, Inexistent, suffix)
+				case One((parsed, model, rem)) => (parsed, One(model), rem)
+				case _                         => (prefix, None, suffix)
 			}
-		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, Potential[M], Liquid)] =
-			Got(advance(prefix, suffix))
-		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, Potential[M], Liquid)] =
+		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, Opt[M], Liquid)] =
+			One(advance(prefix, suffix))
+		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, Opt[M], Liquid)] =
 			Done(advance(prefix, suffix))
 
-		override def append(prefix :Liquid, model :Potential[M]) :Liquid = model match {
-			case Existent(o) => mold.append(prefix, o)
-			case _ => prefix
+		override def append(prefix :Liquid, model :Opt[M]) :Liquid = model match {
+			case One(o) => mold.append(prefix, o)
+			case _      => prefix
 		}
-		override def appendOpt(prefix :Liquid, model :Potential[M]) :Opt[Liquid] = model match {
-			case Existent(o) => mold.appendOpt(prefix, o)
-			case _ => Got(prefix)
+		override def appendOpt(prefix :Liquid, model :Opt[M]) :Opt[Liquid] = model match {
+			case One(o) => mold.appendOpt(prefix, o)
+			case _      => One(prefix)
 		}
-		override def guardAppend(prefix :Liquid, model :Potential[M]) :Outcome[Liquid] = model match {
-			case Existent(o) => mold.guardAppend(prefix, o)
-			case _ => Done(prefix)
+		override def guardAppend(prefix :Liquid, model :Opt[M]) :Outcome[Liquid] = model match {
+			case One(o) => mold.guardAppend(prefix, o)
+			case _      => Done(prefix)
 		}
-		override def toString :String = mold.toString + ".potential"
+		override def toString :String = mold.toString + ".opt"
 	}
 
 	@SerialVersionUID(Ver)
-	private class NamedPotentialMold[M](moldName :String, mold :Mold[M])
-		extends PotentialMold(mold) with NamedMold[Potential[M]]
+	private class NamedOptMold[M](moldName :String, mold :Mold[M])
+		extends OptMold(mold) with NamedMold[Opt[M]]
 	{
 		def this(mold :NamedMold[M]) = this(mold.name, mold)
-		override def name :String = "Potential[" + moldName + "]"
+		override def name :String = "Opt[" + moldName + "]"
 	}
 
-	private abstract class OptMoldBase[S, T] extends SpecialMold[S] {
-		implicit val lift :S => Opt[T]
+	private abstract class MaybeMoldBase[S, T] extends SpecialMold[S] {
+		implicit val lift :S => Maybe[T]
 		final override def append(prefix :Liquid, model :S)      = appendValue(prefix, model)
 		final override def appendOpt(prefix :Liquid, model :S)   = appendValueOpt(prefix, model)
 		final override def guardAppend(prefix :Liquid, model :S) = appendValueGuard(prefix, model)
 		final override def melt(model :S) :Liquid = meltValue(model)
 		final override def meltOpt(model :S) :Opt[Liquid] = unapplyValue(model)
 		final override def guardMelt(model :S) :Outcome[Liquid] = meltValueGuard(model)
-		protected def appendValue(prefix :Liquid, suffix :Opt[T]) :Liquid
-		protected def appendValueOpt(prefix :Liquid, suffix :Opt[T]) :Opt[Liquid]
-		protected def appendValueGuard(prefix :Liquid, suffix :Opt[T]) :Outcome[Liquid]
-		protected def meltValue(model :Opt[T]) :Liquid = appendValue(emptyLiquid, model)
-		protected def unapplyValue(model :Opt[T]) :Opt[Liquid] = appendValueOpt(emptyLiquid, model)
-		protected def meltValueGuard(model :Opt[T]) :Outcome[Liquid] = appendValueGuard(emptyLiquid, model)
+		protected def appendValue(prefix :Liquid, suffix :Maybe[T]) :Liquid
+		protected def appendValueOpt(prefix :Liquid, suffix :Maybe[T]) :Opt[Liquid]
+		protected def appendValueGuard(prefix :Liquid, suffix :Maybe[T]) :Outcome[Liquid]
+		protected def meltValue(model :Maybe[T]) :Liquid = appendValue(emptyLiquid, model)
+		protected def unapplyValue(model :Maybe[T]) :Opt[Liquid] = appendValueOpt(emptyLiquid, model)
+		protected def meltValueGuard(model :Maybe[T]) :Outcome[Liquid] = appendValueGuard(emptyLiquid, model)
 	}
 
 	@SerialVersionUID(Ver)
-	private class OptMold[M](mold :Mold[M]) extends OptMoldBase[Opt[M], M] {
-		implicit final override val lift :Opt[M] => Opt[M] = identity
+	private class MaybeMold[M](mold :Mold[M]) extends MaybeMoldBase[Maybe[M], M] {
+		implicit final override val lift :Maybe[M] => Maybe[M] = identity
 		override def advance(prefix :Liquid, suffix :Liquid) =
 			mold.advanceOpt(prefix, suffix) match {
-				case Got((parsed, model, rem)) => (parsed, Got(model), rem)
-				case _ => (prefix, Lack, suffix)
+				case One((parsed, model, rem)) => (parsed, Yes(model), rem)
+				case _                         => (prefix, No, suffix)
 			}
-		override def advanceOpt(prefix :Liquid, suffix :Liquid) = Got(advance(prefix, suffix))
+		override def advanceOpt(prefix :Liquid, suffix :Liquid) = One(advance(prefix, suffix))
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) = Done(advance(prefix, suffix))
-		override def appendValue(prefix :Liquid, model :Opt[M]) = model match {
-			case Got(o) => mold.append(prefix, o)
-			case _ => prefix
+		override def appendValue(prefix :Liquid, model :Maybe[M]) = model match {
+			case Yes(o) => mold.append(prefix, o)
+			case _      => prefix
 		}
-		override def appendValueOpt(prefix :Liquid, model :Opt[M]) = model match {
-			case Got(o) => mold.appendOpt(prefix, o)
-			case _ => Got(prefix)
+		override def appendValueOpt(prefix :Liquid, model :Maybe[M]) = model match {
+			case Yes(o) => mold.appendOpt(prefix, o)
+			case _      => One(prefix)
 		}
-		override def appendValueGuard(prefix :Liquid, model :Opt[M]) = model match {
-			case Got(o) => mold.guardAppend(prefix, o)
-			case _ => Done(prefix)
+		override def appendValueGuard(prefix :Liquid, model :Maybe[M]) = model match {
+			case Yes(o) => mold.guardAppend(prefix, o)
+			case _      => Done(prefix)
 		}
-		override def toString = mold.toString + ".opt"
+		override def toString = mold.toString + ".maybe"
 	}
 
 	@SerialVersionUID(Ver)
-	private class NamedOptMold[M](moldName :String, mold :Mold[M])
-		extends OptMold[M](mold) with NamedMold[Opt[M]]
+	private class NamedMaybeMold[M](moldName :String, mold :Mold[M])
+		extends MaybeMold[M](mold) with NamedMold[Maybe[M]]
 	{
 		def this(mold :NamedMold[M]) = this(mold.name, mold)
-		override def name :String = "Opt[" + moldName + "]"
+		override def name :String = "Maybe[" + moldName + "]"
 	}
 
 	@SerialVersionUID(Ver)
 	private class OptionMold[M](mold :Mold[M]) extends SpecialMold[Option[M]] {
 		override def advance(prefix :Liquid, suffix :Liquid) =
 			mold.advanceOpt(prefix, suffix) match {
-				case Got((parsed, model, rem)) => (parsed, Some(model), rem)
-				case _ => (prefix, None, suffix)
+				case One((parsed, model, rem)) => (parsed, Some(model), rem)
+				case _                         => (prefix, None, suffix)
 			}
-		override def advanceOpt(prefix :Liquid, suffix :Liquid) = Got(advance(prefix, suffix))
+		override def advanceOpt(prefix :Liquid, suffix :Liquid) = One(advance(prefix, suffix))
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) = Done(advance(prefix, suffix))
 
 		override def append(prefix :Liquid, model :Option[M]) = model match {
 			case Some(o) => mold.append(prefix, o)
-			case _ => prefix
+			case _       => prefix
 		}
 		override def appendOpt(prefix :Liquid, model :Option[M]) = model match {
 			case Some(o) => mold.appendOpt(prefix, o)
-			case _ => Got(prefix)
+			case _       => One(prefix)
 		}
 		override def guardAppend(prefix :Liquid, model :Option[M]) = model match {
 			case Some(o) => mold.guardAppend(prefix, o)
-			case _ => Done(prefix)
+			case _       => Done(prefix)
 		}
 		override def toString = mold.toString + ".option"
 	}
@@ -2375,22 +2411,22 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def advance(prefix :Liquid, suffix :Liquid) =
 			mold.guardAdvance(prefix, suffix) match {
 				case Done((parsed, model, unparsed)) => (parsed, Done(model), unparsed)
-				case fail :Failed => (prefix, fail, suffix)
+				case Failed(fail) => (prefix, Failed(fail), suffix)
 			}
-		override def advanceOpt(prefix :Liquid, suffix :Liquid) = Got(advance(prefix, suffix))
+		override def advanceOpt(prefix :Liquid, suffix :Liquid) = One(advance(prefix, suffix))
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) = Done(advance(prefix, suffix))
 
 		override def append(prefix :Liquid, model :Outcome[M]) = model match {
 			case Done(f) => mold.append(prefix, f)
-			case _ => prefix
+			case _       => prefix
 		}
 		override def appendOpt(prefix :Liquid, model :Outcome[M]) = model match {
 			case Done(f) => mold.appendOpt(prefix, f)
-			case _ => Got(prefix)
+			case _       => One(prefix)
 		}
 		override def guardAppend(prefix :Liquid, model :Outcome[M]) = model match {
 			case Done(f) => mold.guardAppend(prefix, f)
-			case _ => Done(prefix)
+			case _       => Done(prefix)
 		}
 		override def toString = mold.toString + ".outcome"
 	}
@@ -2415,8 +2451,8 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				case e :Exception => Failed(() => "Failed to map " + x + " from " + mold + ": " + e + ".")
 			}
 		private def optRead(x :X) =
-			try Got(read(x)) catch {
-				case _ :Exception => Lack
+			try One(read(x)) catch {
+				case _ :Exception => None
 			}
 		override def cast(liquid :Liquid) = read(mold.cast(liquid))
 		override def castOpt(liquid :Liquid) = mold.castOpt(liquid) flatMap optRead
@@ -2429,12 +2465,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			(read(x), unparsed)
 		}
 		override def nextOpt(liquid :Liquid) = mold.advanceOpt(liquid) match {
-			case Got((_, x, unparsed)) => optRead(x) map ((_, unparsed))
-			case _ => Lack
+			case One((_, x, unparsed)) => optRead(x) map ((_, unparsed))
+			case _ => None
 		}
 		override def guardNext(liquid :Liquid) = mold.guardAdvance(liquid) match {
 			case Done((_, x, unparsed)) => guardRead(x) map ((_, unparsed))
-			case fail :Failed => fail
+			case Failed(fail) => Failed(fail)
 		}
 		override def advance(prefix :Liquid, suffix :Liquid) :(Liquid, Y, Liquid) = {
 			val (parsed, x, rem) = mold.advance(prefix, suffix)
@@ -2442,19 +2478,19 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		}
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 			mold.advanceOpt(prefix, suffix) match {
-				case Got((parsed, x, unparsed)) => optRead(x) map ((parsed, _, unparsed))
-				case _ => Lack
+				case One((parsed, x, unparsed)) => optRead(x) map ((parsed, _, unparsed))
+				case _ => None
 			}
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 			mold.guardAdvance(prefix, suffix) match {
 				case Done((parsed, x, unparsed)) => guardRead(x) map ((parsed, _, unparsed))
-				case fail :Failed => fail
+				case Failed(fail) => Failed(fail)
 			}
 
 		override def append(prefix :Liquid, model :Y) :Liquid = mold.append(prefix, write(model))
 		override def appendOpt(prefix :Liquid, model :Y) :Opt[Liquid] =
 			try mold.appendOpt(prefix, write(model)) catch {
-				case _ :Exception => Lack
+				case _ :Exception => None
 			}
 		override def guardAppend(prefix :Liquid, model :Y) :Outcome[Liquid] =
 			try mold.guardAppend(prefix, write(model)) catch {
@@ -2472,78 +2508,79 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	}
 
 	@SerialVersionUID(Ver)
-	private class OptMappedMold[X, Y](mold :Mold[X], read :X => Potential[Y],
-	                                  write :Y => Potential[X])
+	private class OptMappedMold[X, Y](mold :Mold[X], read :X => Opt[Y],
+	                                  write :Y => Opt[X])
 		extends SpecialMold[Y]
 	{
 		private def forceRead(liquid :Liquid, x :X) = read(x) match {
-			case Existent(res) => res
+			case One(res) => res
 			case _ =>
 				throw ParsingException(Format.this :Format.this.type)(liquid, "Failed to map " + x + " from " + mold + ".")
 		}
 		private def forceWrite(y :Y) = write(y) match {
-			case Existent(res) => res
+			case One(res) => res
 			case _ => throw new FormattingException(Format.this, y, "Failed to map " + y + " for " + mold + ".")
 		}
 		private def readFail(x :X)  = Failed(() => "Could not map " + x + " from " + mold + ".")
 		private def guardRead(x :X) = read(x) match {
-			case Existent(y) => Done(y)
-			case _           => readFail(x)
+			case One(y) => Done(y)
+			case _      => readFail(x)
 		}
 		override def cast(liquid :Liquid) :Y = forceRead(liquid, mold.cast(liquid))
-		override def castOpt(liquid :Liquid) = mold.castOpt(liquid).toPotential.flatMap(read)
+		override def castOpt(liquid :Liquid) = mold.castOpt(liquid).flatMap(read)
 		override def guardCast(liquid :Liquid) = mold.guardCast(liquid) flatMap guardRead
 		override def head(liquid :Liquid) :Y = forceRead(liquid, mold.head(liquid))
-		override def headOpt(liquid :Liquid) = mold.headOpt(liquid).toPotential.flatMap(read)
+		override def headOpt(liquid :Liquid) = mold.headOpt(liquid).flatMap(read)
 		override def guardHead(liquid :Liquid) = mold.guardHead(liquid) flatMap guardRead
 		override def next(liquid :Liquid) = {
 			val (_, x, rem) = mold.advance(liquid)
 			(forceRead(liquid, x), rem)
 		}
 		override def nextOpt(liquid :Liquid) = mold.advanceOpt(liquid) match {
-			case Got((_, x, rem)) => read(x).map((_, rem))
-			case _ => Lack
+			case One((_, x, rem)) => read(x).map((_, rem))
+			case _                => None
 		}
 		override def guardNext(liquid :Liquid) = mold.guardAdvance(liquid) match {
 			case Done((_, x, rem)) => read(x) match {
-				case Existent(model) => Done((model, rem))
-				case _               => readFail(x)
+				case One(model) => Done((model, rem))
+				case _          => readFail(x)
 			}
+			case Failed(fail) => Failed(fail)
 		}
 		override def advance(prefix :Liquid, suffix :Liquid) = {
 			val (parsed, x, unparsed) = mold.advance(prefix, suffix)
 			(parsed, forceRead(suffix, x), unparsed)
 		}
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) = mold.advanceOpt(prefix, suffix) match {
-			case Got((parsed, x, unparsed)) => read(x).map((parsed, _, unparsed))
-			case _ => Lack
+			case One((parsed, x, unparsed)) => read(x).map((parsed, _, unparsed))
+			case _ => None
 		}
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) = mold.guardAdvance(prefix, suffix) match {
 			case Done((parsed, x, unparsed)) => read(x) match {
-				case Existent(model) => Done((parsed, model, unparsed))
-				case _               => readFail(x)
+				case One(model) => Done((parsed, model, unparsed))
+				case _          => readFail(x)
 			}
-			case fail :Failed => fail
+			case Failed(fail) => Failed(fail)
 		}
 
 		override def append(prefix :Liquid, model :Y) :Liquid = mold.append(prefix, forceWrite(model))
 		override def appendOpt(prefix :Liquid, model :Y) = write(model) match {
-			case Existent(x) => mold.appendOpt(prefix, x)
-			case _ => Lack
+			case One(x) => mold.appendOpt(prefix, x)
+			case _      => None
 		}
 		override def guardAppend(prefix :Liquid, model :Y) = write(model) match {
-			case Existent(x) => mold.guardAppend(prefix, x)
-			case _           => Failed(() => "Could not map " + model + " for " + mold + ".")
+			case One(x) => mold.guardAppend(prefix, x)
+			case _      => Failed(() => "Could not map " + model + " for " + mold + ".")
 		}
 		override def toString = mold.toString + ".optMap"
 	}
 
 	@SerialVersionUID(Ver)
 	private class NamedOptMappedMold[X, Y](override val name :String, mold :Mold[X],
-	                                       read :X => Potential[Y], write :Y => Potential[X])
+	                                       read :X => Opt[Y], write :Y => Opt[X])
 		extends OptMappedMold[X, Y](mold, read, write) with NamedMold[Y]
 	{
-		def this(mold :NamedMold[X], read :X => Potential[Y], write :Y => Potential[X]) =
+		def this(mold :NamedMold[X], read :X => Opt[Y], write :Y => Opt[X]) =
 			this("map(" + mold.name+ ")", mold, read, write)
 	}
 
@@ -2588,12 +2625,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	private class DualMold[M](mold :Mold[M]) extends SpecialMold[(Liquid, M)] {
 		override def cast(liquid :Liquid) :(Liquid, M) = (liquid, mold.cast(liquid))
 		override def castOpt(liquid :Liquid) :Opt[(Liquid, M)] = mold.castOpt(liquid) match {
-			case Got(o) => Got((liquid, o))
-			case _ => Lack
+			case One(o) => One((liquid, o))
+			case _      => None
 		}
 		override def guardCast(liquid :Liquid) :Outcome[(Liquid, M)] = mold.guardCast(liquid) match {
-			case Done(o) => Done((liquid, o))
-			case fail :Failed => fail
+			case Done(o)      => Done((liquid, o))
+			case Failed(fail) => Failed(fail)
 		}
 		override def head(liquid :Liquid) :(Liquid, M) = {
 			val (parsed, model, _) = mold.advance(liquid)
@@ -2622,25 +2659,25 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		}
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, (Liquid, M), Liquid)] =
 			mold.advanceOpt(suffix) match {
-				case Got((parsed, model, rem)) => concatOpt(prefix, parsed) match {
-					case Got(done) => Got((done, (parsed, model), rem))
-					case _ => Lack
+				case One((parsed, model, rem)) => concatOpt(prefix, parsed) match {
+					case One(done) => One((done, (parsed, model), rem))
+					case _ => None
 				}
-				case _ => Lack
+				case _ => None
 			}
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, (Liquid, M), Liquid)] =
 			mold.guardAdvance(suffix) match {
 				case Done((parsed, model, rem)) => guardConcat(prefix, parsed) match {
-					case Done(done) => Done((done, (parsed, model), rem))
-					case fail :Failed => fail
+					case Done(done)   => Done((done, (parsed, model), rem))
+					case Failed(fail) => Failed(fail)
 				}
-				case fail :Failed => fail
+				case Failed(fail) => Failed(fail)
 			}
 		override def append(prefix :Liquid, model :(Liquid, M)) :Liquid = concat(prefix, model._1)
 		override def appendOpt(prefix :Liquid, model :(Liquid, M)) :Opt[Liquid] = concatOpt(prefix, model._1)
 		override def guardAppend(prefix :Liquid, model :(Liquid, M)) :Outcome[Liquid] = guardConcat(prefix, model._1)
 
-		override def toString :String = mold.toString + ".mirror"
+		override def toString :String = mold.toString + ".dual"
 	}
 
 	@SerialVersionUID(Ver)
@@ -2668,12 +2705,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		}
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] =
 			partMold.advanceOpt(prefix, suffix) match {
-				case Got((done, part, rem)) => try {
-					Got((done, construct(part), rem))
+				case One((done, part, rem)) => try {
+					One((done, construct(part), rem))
 				} catch {
-					case _ :Exception => Lack
+					case _ :Exception => None
 				}
-				case _ => Lack
+				case _ => None
 			}
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 			partMold.guardAdvance(prefix, suffix) match {
@@ -2682,7 +2719,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				} catch {
 					case e :Exception => Failed(e)
 				}
-				case fail :Failed => fail
+				case Failed(fail) => Failed(fail)
 			}
 		override def append(prefix :Liquid, model :M) :Liquid = partMold.append(prefix, get(model))
 		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = partMold.appendOpt(prefix, get(model))
@@ -2706,13 +2743,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		}
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 			partMold.advanceOpt(prefix, suffix) match {
-				case Got((done, part, rem)) => construct(part).advanceOpt(done, rem)
-				case _ => Lack
+				case One((done, part, rem)) => construct(part).advanceOpt(done, rem)
+				case _ => None
 			}
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 			partMold.guardAdvance(prefix, suffix) match {
 				case Done((done, part, rem)) => construct(part).guardAdvance(done, rem)
-				case fail :Failed => fail
+				case Failed(fail)            => Failed(fail)
 			}
 		override def append(prefix :Liquid, model :M) :Liquid = {
 			val part = get(model)
@@ -2721,15 +2758,15 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = {
 			val part = get(model)
 			partMold.appendOpt(prefix, part) match {
-				case Got(appended) => construct(part).appendOpt(appended, model)
-				case _ => Lack
+				case One(appended) => construct(part).appendOpt(appended, model)
+				case _ => None
 			}
 		}
 		override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] = {
 			val part = get(model)
 			partMold.guardAppend(prefix, part) match {
 				case Done(appended) => construct(part).guardAppend(appended, model)
-				case fail :Failed => fail
+				case Failed(fail)   => Failed(fail)
 			}
 		}
 		override def toString = flatMapMoldString(Format.this)(name, partName)
@@ -2748,7 +2785,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 		override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 			if (predicate(parse(prefix, suffix))) unfiltered.advanceOpt(prefix, suffix)
-			else Lack
+			else None
 
 		override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 			if (predicate(parse(prefix, suffix))) unfiltered.guardAdvance(prefix, suffix)
@@ -2760,7 +2797,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 		override def appendOpt(prefix :Liquid, model :M) =
 			if (predicate(format(prefix, model))) unfiltered.appendOpt(prefix, model)
-			else Lack
+			else None
 
 		override def guardAppend(prefix :Liquid, model :M) =
 			if (predicate(format(prefix, model))) unfiltered.guardAppend(prefix, model)
@@ -3017,17 +3054,17 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *             as a tag/attribute name inside the greater `Mold[M]`.
 		  *             It is also used in the returned part's `toString` method.
 		  * @param part A property getter. Must not throw exceptions -
-		  *             use instead [[net.noresttherein.sugar.vars.Potential Potential]]
+		  *             use instead [[net.noresttherein.sugar.vars.Opt Opt]]
 		  *             or [[net.noresttherein.sugar.vars.Outcome Outcome]] as the property type.
 		  */
 		def apply[P :Mold](name :String)(part :M => P) :Part[M, P]
 
 		/** A part representing a property of type `P` of molded type `M`.
 		  * Parsing of the property is allowed to fail without automatically propagating the error.
-		  * Instead the application receives a `Potential[P]` which can be inspected before continuing the parsing.
-		  * If [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] is passed as the argument to `part`,
+		  * Instead the application receives a `Opt[P]` which can be inspected before continuing the parsing.
+		  * If [[scala.None None]] is passed as the argument to `part`,
 		  * nothing is consumed from the input or appended to the output.
-		  * The case of [[net.noresttherein.sugar.vars.Potential.Existent Existent]] value works the same way
+		  * The case of [[net.noresttherein.sugar.vars.Opt.One One]] value works the same way
 		  * as with a standard `Part`.
 		  *
 		  * If followed by [[net.noresttherein.sugar.format.Format.Part.filter filter]]
@@ -3037,13 +3074,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *             It is used by formats such as [[net.noresttherein.sugar.format.XML XML]]
 		  *             as a tag/attribute name inside the greater `Mold[M]`.
 		  *             It is also used in the returned part's `toString` method.
-		  * @param part A property getter. Any exceptions thrown are caught and `Inexistent` is being passed as
+		  * @param part A property getter. Any exceptions thrown are caught and `None` is being passed as
 		  *             the property value to the mold, resulting in no change to the output.
-		  *             However, if the part is followed by `filter`, the predicate receives the empty `Potential`
+		  *             However, if the part is followed by `filter`, the predicate receives the empty `Opt`
 		  *             and can decide on the further course of action.
 		  */
-		def opt[P :Mold](name :String)(part :M => P) :Part[M, Potential[P]] =
-			apply(name)(Potential.guard(part))(Mold[P].potential)
+		def opt[P :Mold](name :String)(part :M => P) :Part[M, Opt[P]] =
+			apply(name)(Opt.guard(part))(Mold[P].opt)
 
 		/** A part representing a property of type `P` of molded type `M`, both in its solid and liquid forms.
 		  * Together with the value of the property, the application receives it
@@ -3057,7 +3094,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *             as a tag/attribute name inside the greater `Mold[M]`.
 		  *             It is also used in the returned part's `toString` method.
 		  * @param part A property getter. Must not throw exceptions -
-		  *             use instead [[net.noresttherein.sugar.vars.Potential Potential]]
+		  *             use instead [[net.noresttherein.sugar.vars.Opt Opt]]
 		  *             or [[net.noresttherein.sugar.vars.Outcome Outcome]] as the property type.
 		  */
 		def dual[P :Mold](name :String)(part :M => P) :Part[M, (Liquid, P)] =
@@ -3065,13 +3102,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 		/** A part representing a property of type `P` of molded type `M`, both in its solid and liquid forms.
 		  * Parsing of the property is allowed to fail without automatically propagating the error.
-		  * Instead the application receives a `Potential[(Liquid, P)]` which can be inspected
+		  * Instead the application receives a `Opt[(Liquid, P)]` which can be inspected
 		  * before continuing the parsing. Together with the value of the property, the application receives it
 		  * in its [[net.noresttherein.sugar.format.Format.Liquid Liquid]] format -
 		  * the result of melting it (when formatting), or the consumed fragment of the input when parsing.
-		  * If [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] is passed as the argument to `part`,
+		  * If [[scala.None None]] is passed as the argument to `part`,
 		  * nothing is consumed from the input or appended to the output.
-		  * The case of [[net.noresttherein.sugar.vars.Potential.Existent Existent]] value works the same way
+		  * The case of [[net.noresttherein.sugar.vars.Opt.One One]] value works the same way
 		  * as with a standard `Part`. If followed by [[net.noresttherein.sugar.format.Format.Part.filter filter]]
 		  * (or `if` in a for comprehension) the condition will be checked for the value property
 		  * both when parsing and formatting and will abort the process with an error if not satisfied.
@@ -3079,25 +3116,25 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  *             It is used by formats such as [[net.noresttherein.sugar.format.XML XML]]
 		  *             as a tag/attribute name inside the greater `Mold[M]`.
 		  *             It is also used in the returned part's `toString` method.
-		  * @param part A property getter. Any exceptions thrown are caught and `Inexistent` is being passed as
+		  * @param part A property getter. Any exceptions thrown are caught and `None` is being passed as
 		  *             the property value to the mold, resulting in no change to the output.
-		  *             However, if the part is followed by `filter`, the predicate receives the empty `Potential`
+		  *             However, if the part is followed by `filter`, the predicate receives the empty `Opt`
 		  *             and can decide on the further course of action.
 		  */
-		def dualOpt[P :Mold](name :String)(part :M => P) :Part[M, Potential[(Liquid, P)]] =
-			apply(name)(Potential.guard(part)(_).map((emptyLiquid, _)))(Mold[P].dual.potential)
+		def dualOpt[P :Mold](name :String)(part :M => P) :Part[M, Opt[(Liquid, P)]] =
+			apply(name)(Opt.guard(part)(_).map((emptyLiquid, _)))(Mold[P].dual.opt)
 
 		/** A part representing an optional property of type `P` of molded type `M` similarly
 		  * to [[net.noresttherein.sugar.format.Format.Parts.opt opt]], but which doesn't write anything when formatting
 		  * and does not consume anything from the input when parsing,
-		  * even for [[net.noresttherein.sugar.vars.Potential.Existent Existent]] values.
+		  * even for [[net.noresttherein.sugar.vars.Opt.One One]] values.
 		  * When formatting, the value is initialized using passed here getter, executed within a `try` block.
-		  * @param part A property getter. Any exceptions thrown are caught and `Inexistent` is being passed as
+		  * @param part A property getter. Any exceptions thrown are caught and `None` is being passed as
 		  *             the property value to the mold, resulting in no change to the output.
-		  *             However, if the part is followed by `filter`, the predicate receives the empty `Potential`
+		  *             However, if the part is followed by `filter`, the predicate receives the empty `Opt`
 		  *             and can decide on the further course of action.
 		  */
-		def peek[P :Mold](part :M => P) :Part[M, Potential[P]] //Would a property name be helpful here?
+		def peek[P :Mold](part :M => P) :Part[M, Opt[P]] //Would a property name be helpful here?
 
 		/** A part representing already parsed/formatted data for all previous parts of `M` in the created `Mold[M]`.
 		  * The [[net.noresttherein.sugar.format.Format.open open]] tag prefixing all properties is not included
@@ -3124,8 +3161,8 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		/** A part representing yet unparsed data - a suffix of the input raw data. Essentially, it returns
 		  * the `suffix` argument of
 		  * [[net.noresttherein.sugar.format.Format.Mold Mold]]`.`[[net.noresttherein.sugar.format.Format.Mold.advance advance]].
-		  * When parsing, the value is always wrapped in [[net.noresttherein.sugar.vars.Potential.Existent Existent]],
-		  * but when formatting, it is [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]]
+		  * When parsing, the value is always wrapped in [[net.noresttherein.sugar.vars.Opt.One One]],
+		  * but when formatting, it is [[scala.None None]]
 		  * to allow code within nested `Part.flatMap` calls to discover if it is currently parsing or formatting.
 		  *
 		  * Unlike with [[net.noresttherein.sugar.format.Format.Parts.prefix prefix]], this potentially can include
@@ -3135,7 +3172,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  * of the molded model `M` up to the [[net.noresttherein.sugar.format.Format.close closing]] mold
 		  * (if defined).
 		  */
-		def unparsed :Part[M, Potential[Liquid]]
+		def unparsed :Part[M, Opt[Liquid]]
 
 		/** A part for an indicator of which process the code is running.
 		  * It allows to execute within its [[net.noresttherein.sugar.format.Format.Part.flatMap flatMap]]
@@ -3156,12 +3193,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		override def dual[P :Mold](name :String)(part :M => P) :Part[M, (Liquid, P)] =
 			new DualPart(part, this.name, name)(propertyMold(name))
 
-		override def peek[P :Mold](part :M => P) :Part[M, Potential[P]] =
+		override def peek[P :Mold](part :M => P) :Part[M, Opt[P]] =
 			new PeekPart(part, this.name, "_")(propertyMold(name))
 
 		override def prefix   :Part[M, Liquid]            = new LookBehindPart[M](name)
 		override def suffix   :Part[M, Liquid]            = new LookAheadPart[M](name)
-		override def unparsed :Part[M, Potential[Liquid]] = new UnparsedPart[M](name)
+		override def unparsed :Part[M, Opt[Liquid]] = new UnparsedPart[M](name)
 		override def process  :Part[M, MoldingProcess]    = new MoldingProcessPart[M](name)
 
 		override def toString = "Parts[" + Format.this + "](" + name + ")"
@@ -3286,14 +3323,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						}
 						override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 							partMold.advanceOpt(prefix, suffix) match {
-								case Got((done, part, rem)) if p(part) => Got((done, construct(part), rem))
-								case _ => Lack
+								case One((done, part, rem)) if p(part) => One((done, construct(part), rem))
+								case _ => None
 						}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							partMold.guardAdvance(prefix, suffix) match {
 								case Done((done, part, rem)) if p(part) => Done((done, construct(part), rem))
 								case Done((_, _, _)) => Failed(() => parsingErrorMsg(suffix))
-								case failed: Failed => failed
+								case Failed(failed)   => Failed(failed)
 							}
 						override def append(prefix :Liquid, model :M) = {
 							val part = get(model)
@@ -3305,7 +3342,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 							val part = get(model)
 							val res = partMold.appendOpt(prefix, part)
 							if (p(part)) res
-							else Lack
+							else No
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
 							val part = get(model)
@@ -3325,14 +3362,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						}
 						override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 							partMold.advanceOpt(prefix, suffix) match {
-								case Got((done, part, rem)) if p(part) => construct(part).advanceOpt(done, rem)
-								case _ => Lack
+								case One((done, part, rem)) if p(part) => construct(part).advanceOpt(done, rem)
+								case _ => None
 							}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							partMold.guardAdvance(prefix, suffix) match {
 								case Done((done, part, rem)) if p(part) => construct(part).guardAdvance(done, rem)
 								case Done((_, _, _)) => Failed(() => parsingErrorMsg(suffix))
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 						override def append(prefix :Liquid, model :M) = {
 							val part = get(model)
@@ -3343,16 +3380,16 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						override def appendOpt(prefix :Liquid, model :M) = {
 							val part = get(model)
 							partMold.appendOpt(prefix, part) match {
-								case Got(liquid) if p(part) => construct(part).appendOpt(liquid, model)
-								case _ => Lack
+								case One(liquid) if p(part) => construct(part).appendOpt(liquid, model)
+								case _ => None
 							}
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
 							val part = get(model)
 							partMold.guardAppend(prefix, part) match {
 								case Done(liquid) if p(part) => construct(part).guardAppend(liquid, model)
-								case Done(_) => Failed(() => formattingErrorMsg(model))
-								case fail :Failed => fail
+								case Done(_)      => Failed(() => formattingErrorMsg(model))
+								case Failed(fail) => Failed(fail)
 							}
 						}
 						override def toString :String = filteredFlatMapMoldString(Format.this)(modelName, partName)
@@ -3391,19 +3428,19 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] =
 					//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
 					partMold.advanceOpt(suffix) match {
-						case Got((parsed, part, rem)) => concatOpt(prefix, parsed) match {
-							case Got(done) => Got((done, construct((parsed, part)), rem))
+						case One((parsed, part, rem)) => concatOpt(prefix, parsed) match {
+							case One(done) => One((done, construct((parsed, part)), rem))
 						}
-						case _ => Lack
+						case _ => None
 					}
 				override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 					//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
 					partMold.guardAdvance(suffix) match {
 						case Done((parsed, part, rem)) => guardConcat(prefix, parsed) match {
-							case Done(done) => Done((done, construct((parsed, part)), rem))
-							case fail :Failed => fail
+							case Done(done)   => Done((done, construct((parsed, part)), rem))
+							case Failed(fail) => Failed(fail)
 						}
-						case fail :Failed => fail
+						case Failed(fail) => Failed(fail)
 					}
 				override def append(prefix :Liquid, model :M) :Liquid =
 					partMold.append(prefix, get(model))
@@ -3425,21 +3462,20 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 					//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
 					partMold.advanceOpt(suffix) match {
-						case Got((parsed, part, rem)) => concatOpt(prefix, parsed) match {
-							case Got(done) => construct((parsed, part)).advanceOpt(done, rem)
-							case _ => Lack
+						case One((parsed, part, rem)) => concatOpt(prefix, parsed) match {
+							case One(done) => construct((parsed, part)).advanceOpt(done, rem)
+							case _ => None
 						}
-
-						case _ => Lack
+						case _ => None
 					}
 				override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 					//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
 					partMold.guardAdvance(suffix) match {
 						case Done((parsed, part, rem)) => guardConcat(prefix, parsed) match {
 							case Done(done) => construct((parsed, part)).guardAdvance(done, rem)
-							case fail :Failed => fail
+							case Failed(fail) => Failed(fail)
 						}
-						case fail :Failed => fail
+						case Failed(fail) => Failed(fail)
 					}
 				override def append(prefix :Liquid, model :M) :Liquid = {
 					val part = get(model)
@@ -3449,21 +3485,21 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] = {
 					val part = get(model)
 					partMold.meltOpt(part) match {
-						case Got(melted) => concatOpt(prefix, melted) match {
-							case Got(done) => construct((melted, part)).appendOpt(done, model)
-							case _ => Lack
+						case One(melted) => concatOpt(prefix, melted) match {
+							case One(done) => construct((melted, part)).appendOpt(done, model)
+							case _ => None
 						}
-						case _ => Lack
+						case _ => None
 					}
 				}
 				override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] = {
 					val part = get(model)
 					partMold.guardMelt(part) match {
 						case Done(melted) => guardConcat(prefix, melted) match {
-							case Done(done) => construct((melted, part)).guardAppend(done, model)
-							case fail :Failed => fail
+							case Done(done)   => construct((melted, part)).guardAppend(done, model)
+							case Failed(fail) => Failed(fail)
 						}
-						case fail :Failed => fail
+						case Failed(fail) => Failed(fail)
 					}
 				}
 				override def toString = flatMapMoldString(Format.this)(modelName, "(" + partName + ", melted)")
@@ -3486,15 +3522,15 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 							//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
 							partMold.advanceOpt(suffix) match {
-								case Got((liquid, part, rem)) =>
+								case One((liquid, part, rem)) =>
 									val mirror = (liquid, part)
 									if (p(mirror))
 										concatOpt(prefix, liquid) match {
-											case Got(done) => Got((done, construct(mirror), rem))
-											case _ => Lack
+											case One(done) => One((done, construct(mirror), rem))
+											case _ => None
 										}
-									else Lack
-								case _ => Lack
+									else None
+								case _ => None
 						}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
@@ -3503,11 +3539,11 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 									val mirror = (liquid, part)
 									if (p(mirror)) {
 										guardConcat(prefix, liquid) match {
-											case Done(done) => Done((done, construct(mirror), rem))
-											case fail :Failed => fail
+											case Done(done)   => Done((done, construct(mirror), rem))
+											case Failed(fail) => Failed(fail)
 										}
 									} else Failed(() => parsingErrorMsg(suffix))
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 						override def append(prefix :Liquid, model :M) = {
 							val part = get(model)
@@ -3518,16 +3554,16 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						override def appendOpt(prefix :Liquid, model :M) = {
 							val part = get(model)
 							partMold.meltOpt(part) match {
-								case Got(melted) if p((melted, part)) => concatOpt(prefix, melted)
-								case _ => Lack
+								case One(melted) if p((melted, part)) => concatOpt(prefix, melted)
+								case _ => None
 							}
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
 							val part = get(model)
 							partMold.guardMelt(part) match {
 								case Done(melted) if p((melted, part)) => guardConcat(prefix, melted)
-								case Done(_) => Failed(() => formattingErrorMsg(model))
-								case fail :Failed => fail
+								case Done(_)      => Failed(() => formattingErrorMsg(model))
+								case Failed(fail) => Failed(fail)
 							}
 						}
 						override def toString :String = filteredMapMoldString(Format.this)(modelName, partName)
@@ -3545,15 +3581,15 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 							//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
 							partMold.advanceOpt(suffix) match {
-								case Got((liquid, part, rem)) =>
+								case One((liquid, part, rem)) =>
 									val mirror = (liquid, part)
 									if (p(mirror))
 										concatOpt(prefix, liquid) match {
-											case Got(done) => construct(mirror).advanceOpt(done, rem)
-											case _ => Lack
+											case One(done) => construct(mirror).advanceOpt(done, rem)
+											case _ => None
 										}
-									else Lack
-								case _ => Lack
+									else None
+								case _ => None
 							}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							//not using prefix in advance may be problematic if the part needs it, but it shouldn't be the case
@@ -3562,11 +3598,11 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 									val mirror = (liquid, part)
 									if (p(mirror))
 										guardConcat(prefix, liquid) match {
-											case Done(done) => construct(mirror).guardAdvance(done, rem)
-											case fail :Failed => fail
+											case Done(done)   => construct(mirror).guardAdvance(done, rem)
+											case Failed(fail) => Failed(fail)
 										}
 									else Failed(() => parsingErrorMsg(suffix))
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 
 						override def append(prefix :Liquid, model :M) = {
@@ -3579,13 +3615,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 						override def appendOpt(prefix :Liquid, model :M) = {
 							val part = get(model)
 							partMold.meltOpt(part) match {
-								case Got(melted) =>
+								case One(melted) =>
 									val mirror = (melted, part)
 									concatOpt(prefix, melted) match {
-										case Got(done) if p(mirror) => construct(mirror).appendOpt(done, model)
-										case _ => Lack
+										case One(done) if p(mirror) => construct(mirror).appendOpt(done, model)
+										case _ => None
 									}
-								case _ => Lack
+								case _ => None
 							}
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
@@ -3596,9 +3632,9 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 									guardConcat(prefix, melted) match {
 										case Done(done) if p(mirror) => construct(mirror).guardAppend(done, model)
 										case Done(_) => Failed(() => formattingErrorMsg(model))
-										case fail :Failed => fail
+										case Failed(fail) => Failed(fail)
 									}
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 						}
 						override def toString :String = filteredFlatMapMoldString(Format.this)(modelName, partName)
@@ -3620,13 +3656,13 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * [[net.noresttherein.sugar.format.Format.Liquid! Liquid]]. The part's value is optional to support
 	  * conditional logic depending on the actual parsed input. The part does not add anything to the formatted
 	  * output when melting the model.
-	  */ //consider: get :W => Potential[P]
+	  */ //consider: get :W => Opt[P]
 	@SerialVersionUID(Ver)
 	private class PeekPart[M, P](get :M => P, modelName :String = "_", partName :String = "_")
 	                            (implicit partMold :Mold[P])
-		extends Part[M, Potential[P]]
+		extends Part[M, Opt[P]]
 	{
-		override def map(construct :Potential[P] => M) :Mold[M] =
+		override def map(construct :Opt[P] => M) :Mold[M] =
 			new AbstractEmptyMold[M] with NamedMold[M] {
 				override def name = modelName
 				override def head(liquid :Liquid) = construct(partMold.headOpt(liquid))
@@ -3635,7 +3671,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 				override def toString = mapMoldString(Format.this)(modelName, "peek(" + partName + ")")
 			}
 
-		override def flatMap(construct :Potential[P] => Mold[M]) :Mold[M] =
+		override def flatMap(construct :Opt[P] => Mold[M]) :Mold[M] =
 			new SpecialNamedMold[M](modelName) {
 				override def advance(prefix :Liquid, suffix :Liquid) =
 					construct(partMold.headOpt(suffix)).advance(prefix, suffix)
@@ -3645,28 +3681,28 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 					construct(partMold.headOpt(suffix)).guardAdvance(prefix, suffix)
 
 				override def append(prefix :Liquid, model :M) :Liquid =
-					construct(Potential.guard(get)(model)).append(prefix, model)
+					construct(Opt.guard(get)(model)).append(prefix, model)
 				override def appendOpt(prefix :Liquid, model :M) :Opt[Liquid] =
-					construct(Potential.guard(get)(model)).appendOpt(prefix, model)
+					construct(Opt.guard(get)(model)).appendOpt(prefix, model)
 				override def guardAppend(prefix :Liquid, model :M) :Outcome[Liquid] =
-					construct(Potential.guard(get)(model)).guardAppend(prefix, model)
+					construct(Opt.guard(get)(model)).guardAppend(prefix, model)
 
 				override def toString = flatMapMoldString(Format.this)(modelName, "peek(" + partName + ")")
 			}
 
-		override def filter(predicate :Potential[P] => Boolean) :Part[M, Potential[P]] =
-			new FilteredPartBase[M, Potential[P]](modelName, partName) {
+		override def filter(predicate :Opt[P] => Boolean) :Part[M, Opt[P]] =
+			new FilteredPartBase[M, Opt[P]](modelName, partName) {
 				private def FilteredMold(unfiltered :Mold[M], isFlatMap :Boolean) =
-					new EmptyFilterPartMold[M, Potential[P]](modelName, partName, isFlatMap, unfiltered,
-						(_, suffix) => partMold.headOpt(suffix), (_, model) => Potential.guard(get)(model), predicate
+					new EmptyFilterPartMold[M, Opt[P]](modelName, partName, isFlatMap, unfiltered,
+						(_, suffix) => partMold.headOpt(suffix), (_, model) => Opt.guard(get)(model), predicate
 					)
-				override def map(construct :Potential[P] => M) :Mold[M] =
+				override def map(construct :Opt[P] => M) :Mold[M] =
 					FilteredMold(PeekPart.this.map(construct), false)
 
-				override def flatMap(construct :Potential[P] => Mold[M]) :Mold[M] =
+				override def flatMap(construct :Opt[P] => Mold[M]) :Mold[M] =
 					FilteredMold(PeekPart.this.flatMap(construct), true)
 
-				override def filter(p :Potential[P] => Boolean) =
+				override def filter(p :Opt[P] => Boolean) =
 					PeekPart.this.filter { part => predicate(part) && p(part) }
 
 				override def toString =
@@ -3728,45 +3764,45 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 	/** A `Part` representing the unparsed suffix of the input [[net.noresttherein.sugar.format.Format.Liquid! Liquid]].
 	  * It does not consume anything when parsing or add anything to the output when formatting.
-	  * When parsing, the part value is always `Existent`, even if the following suffix is empty.
-	  * When formatting, the part value is always `Inexistent`.
+	  * When parsing, the part value is always `One`, even if the following suffix is empty.
+	  * When formatting, the part value is always `None`.
 	  */
 	@SerialVersionUID(Ver)
 	private class UnparsedPart[M](modelName :String = "_", partName :String = "unprocessed")
-		extends Part[M, Potential[Liquid]]
+		extends Part[M, Opt[Liquid]]
 	{
-		override def map(construct :Potential[Liquid] => M) =
+		override def map(construct :Opt[Liquid] => M) =
 			new AbstractEmptyMold[M] with NamedMold[M] {
 				override def name = modelName
-				override def head(liquid :Liquid) = construct(Existent(liquid))
+				override def head(liquid :Liquid) = construct(One(liquid))
 				override def toString = mapMoldString(Format.this)(modelName, partName)
 			}
-		override def flatMap(construct :Potential[Liquid] => Mold[M]) =
+		override def flatMap(construct :Opt[Liquid] => Mold[M]) =
 			new SpecialNamedMold[M](modelName) {
 				override def advance(prefix :Liquid, suffix :Liquid) =
-					construct(Existent(suffix)).advance(prefix, suffix)
+					construct(One(suffix)).advance(prefix, suffix)
 				override def advanceOpt(prefix :Liquid, suffix :Liquid) =
-					construct(Existent(suffix)).advanceOpt(prefix, suffix)
+					construct(One(suffix)).advanceOpt(prefix, suffix)
 				override def guardAdvance(prefix :Liquid, suffix :Liquid) =
-					construct(Existent(suffix)).guardAdvance(prefix, suffix)
+					construct(One(suffix)).guardAdvance(prefix, suffix)
 
-				override def append(prefix :Liquid, model :M) = construct(Inexistent).append(prefix, model)
-				override def appendOpt(prefix :Liquid, model :M) = construct(Inexistent).appendOpt(prefix, model)
-				override def guardAppend(prefix :Liquid, model :M) = construct(Inexistent).guardAppend(prefix, model)
+				override def append(prefix :Liquid, model :M) = construct(None).append(prefix, model)
+				override def appendOpt(prefix :Liquid, model :M) = construct(None).appendOpt(prefix, model)
+				override def guardAppend(prefix :Liquid, model :M) = construct(None).guardAppend(prefix, model)
 				override def toString = flatMapMoldString(Format.this)(modelName, partName)
 			}
 
-		override def filter(predicate :Potential[Liquid] => Boolean) =
-			new FilteredPartBase[M, Potential[Liquid]](modelName, partName) {
+		override def filter(predicate :Opt[Liquid] => Boolean) =
+			new FilteredPartBase[M, Opt[Liquid]](modelName, partName) {
 				def FilteredMold(unfiltered :Mold[M], isFlatMap :Boolean) =
-					new EmptyFilterPartMold[M, Potential[Liquid]](modelName, partName, isFlatMap, unfiltered, (_, suffix) => Existent(suffix), (_, _) => Inexistent, predicate)
-				override def map(construct :Potential[Liquid] => M) :Mold[M] =
+					new EmptyFilterPartMold[M, Opt[Liquid]](modelName, partName, isFlatMap, unfiltered, (_, suffix) => One(suffix), (_, _) => None, predicate)
+				override def map(construct :Opt[Liquid] => M) :Mold[M] =
 					FilteredMold(UnparsedPart.this.map(construct), false)
 
-				override def flatMap(construct :Potential[Liquid] => Mold[M]) :Mold[M] =
+				override def flatMap(construct :Opt[Liquid] => Mold[M]) :Mold[M] =
 					FilteredMold(UnparsedPart.this.flatMap(construct), true)
 
-				override def filter(p :Potential[Liquid] => Boolean) =
+				override def filter(p :Opt[Liquid] => Boolean) =
 					UnparsedPart.this.filter(potential => predicate(potential) && p(potential))
 			}
 		}
@@ -3881,7 +3917,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * as it is not the place where actual parsing starts, in order to guarantee that `Mold` methods returning
 	  * an [[net.noresttherein.sugar.vars.Opt Opt]] do not unexpectedly result in an exception,
 	  * this method is not allowed to throw exceptions for any reason related to the argument (i.e., repeatable errors).
-	  * Errors result in returning [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+	  * Errors result in returning `None`.
 	  * @return `Opt.`[[net.noresttherein.sugar.vars.Opt.guard guard]]`(cool)(liquid)`.
 	  */
 	def meltOpt(raw :Raw) :Opt[Liquid] = Opt.guard(melt _)(raw)
@@ -3915,7 +3951,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * as it is not the place where actual parsing starts, in order to guarantee that `Mold` methods returning
 	  * an [[net.noresttherein.sugar.vars.Opt Opt]] do not unexpectedly result in an exception,
 	  * this method is not allowed to throw exceptions for any reason related to the argument (i.e., repeatable errors).
-	  * Errors result in returning [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+	  * Errors result in returning `None`.
 	  * @return `Opt.`[[net.noresttherein.sugar.vars.Opt.guard guard]]`(cool)(liquid)`.
 	  */
 	def coolOpt(liquid :Liquid) :Opt[Raw] = Opt.guard(cool _)(liquid)
@@ -3975,14 +4011,14 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	  * on application's domain, in order to guarantee that `Mold` methods returning
 	  * an [[net.noresttherein.sugar.vars.Opt Opt]] do not unexpectedly result in an exception,
 	  * this method is not allowed to throw exceptions for any reason related to the arguments (i.e., repeatable errors).
-	  * Errors result in returning [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+	  * Errors result in returning `None`.
 	  * @param prefix result of formatting already processed (in the format order) parts of an input model object.
 	  * @param suffix result of formatting an individual part/property of the formatted input object.
 	  * @return `Opt.`[[net.noresttherein.sugar.vars.Opt.guard guard]]`(concat(prefix, suffix))`.
 	  */
 	protected def concatOpt(prefix :Liquid, suffix :Liquid) :Opt[Liquid] =
-		try { Got(concat(prefix, suffix)) } catch {
-			case _ :Exception => Lack
+		try One(concat(prefix, suffix)) catch {
+			case _ :Exception => None
 		}
 
 	/** Appends a freshly formatted part of a larger object to the previously formatted output, reporting errors

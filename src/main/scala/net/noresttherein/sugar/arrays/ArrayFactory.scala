@@ -13,8 +13,8 @@ import net.noresttherein.sugar.collections.{ArrayIterableOnce, ViewBuffer}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -322,21 +322,21 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 	object Wrapped {
 		def apply[A](array :Array[A]) :mutable.IndexedSeq[A] = mutable.ArraySeq.make(array)
 
-		def unapply[E :ClassTag](elems :IterableOnce[E]) :Opt[Array[E]] = {
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[Array[E]] = {
 			val tag = classTag[E]
 			val array = elems match {
 				case seq :mutable.ArraySeq[_] =>
-					Got(seq.array)
+					Yes(seq.array)
 				case seq :ArrayBuffer[_] if seq.length == CheatedAccess.array(seq) =>
-					Got(CheatedAccess.array(seq))
+					Yes(CheatedAccess.array(seq))
 				case slice :ArrayIterableOnce[_] if slice.isMutable && slice.knownSize == slice.unsafeArray.length =>
-					Got(slice.unsafeArray)
-				case _ => Lack
+					Yes(slice.unsafeArray)
+				case _ => No
 			}
 			if (array.isDefined && array.get.getClass.getComponentType == tag.runtimeClass)
 				array.castParam[Array[E]]
 			else
-				Lack
+				No
 		}
 
 		/** Factory of views on slices of arrays as indexed sequences, and unwraps known mutable collections
@@ -349,22 +349,22 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 			def apply[E](array :Array[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
 				ViewBuffer.full(array, from, until)
 
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Opt[(Array[E], Int, Int)] = {
+			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(Array[E], Int, Int)] = {
 				val tag = classTag[E]
 				val expectedClass = tag.runtimeClass
 				elems match {
 					case seq :mutable.ArraySeq[_] if expectedClass == seq.array.getClass.getComponentType =>
-						Got((seq.array.castParam[E], 0, seq.array.length))
+						Yes((seq.array.castParam[E], 0, seq.array.length))
 					case seq :ArrayBuffer[_] if expectedClass == CheatedAccess.array(seq).getClass.getComponentType =>
-						Got((CheatedAccess.array(seq).castParam[E], 0, seq.length))
+						Yes((CheatedAccess.array(seq).castParam[E], 0, seq.length))
 					case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isMutable =>
 						val array = slice.unsafeArray
 						if (expectedClass == array.getClass.getComponentType)
-							Got((array.castParam[E], slice.startIndex, slice.startIndex + slice.knownSize))
+							Yes((array.castParam[E], slice.startIndex, slice.startIndex + slice.knownSize))
 						else
-							Lack
+							No
 					case _ =>
-						Lack
+						No
 				}
 			}
 		}

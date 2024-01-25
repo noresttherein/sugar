@@ -24,8 +24,8 @@ import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
-import net.noresttherein.sugar.vars.{IntOpt, Opt}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.{IntOpt, Maybe}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -1199,19 +1199,19 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		def apply[E](array :ArrayLike[E]) :collection.IndexedSeq[E] =
 			ArrayLikeSlice.wrap(array.castFrom[ArrayLike[E], Array[E]])
 
-		def unapply[E](elems :IterableOnce[E]) :Opt[ArrayLike[E]] = elems match {
+		def unapply[E](elems :IterableOnce[E]) :Maybe[ArrayLike[E]] = elems match {
 			case seq :ArrayIterableOnce[E] if seq.knownSize == seq.unsafeArray.length =>
-				Got(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
+				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
 			case _ :collection.IndexedSeq[_] => elems match {
-				case seq :mutable.ArraySeq[E]   => Got(seq.array.castFrom[Array[_], ArrayLike[E]])
-				case seq :ArraySeq[E]           => Got(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
+				case seq :mutable.ArraySeq[E]   => Yes(seq.array.castFrom[Array[_], ArrayLike[E]])
+				case seq :ArraySeq[E]           => Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
 				case seq :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length  =>
-					Got(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
+					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
 				case seq :Vector[E] if seq.length == CheatedAccess.FlatVectorSize =>
-					Got(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
-				case _ => Lack
+					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
+				case _ => No
 			}
-			case _ => Lack
+			case _ => No
 		}
 
 		/** A factory and pattern for non-immutable collections backed by array slices.
@@ -1223,23 +1223,23 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			def apply[E](array :ArrayLike[E], from :Int, until :Int) :collection.IndexedSeq[E] =
 				ArrayLikeSlice.slice[E](array.castFrom[ArrayLike[E], Array[E]], from, until)
 
-			def unapply[E](elems :IterableOnce[E]) :Opt[(ArrayLike[E], Int, Int)] = elems match {
+			def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
 				case seq :ArrayIterableOnce[E] =>
-					Got(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
+					Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
 				case _ :collection.IndexedSeq[_] => elems match {
 					case seq :ArraySeq[E] =>
-						Got((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
+						Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
 					case seq :mutable.ArraySeq[E] =>
-						Got((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
+						Yes((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
 					case seq :ArrayBuffer[_] =>
-						Got(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
+						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
 					case seq :Vector[_] if seq.length <= CheatedAccess.FlatVectorSize =>
-						Got(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
+						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
 //					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex + seq.length <= seq.data1.length =>
-//						Got(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
-					case _ => Lack
+//						Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
+					case _ => No
 				}
-				case _ => Lack
+				case _ => No
 			}
 		}
 	}
@@ -1509,7 +1509,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  *                        While the shadowed extension methods have the same semantics as in `ArrayOps` and
 	  *                        collection extensions, they also have overloaded variants,
 	  *                        which would otherwise be invisible.
-	  */
+	  */ //todo: let package object extend it instead of extensions object.
 	private[arrays] trait extensions extends Any with evidence /*with conversions*/ {
 //		@inline implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], A](self :Arr[A])
 //				:ArrayLikeExtension[Arr, A] =

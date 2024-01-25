@@ -7,103 +7,103 @@ import scala.collection.{BuildFrom, EvidenceIterableFactory, Factory, IterableFa
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.extensions.{OptionExtension, classNameMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
 
 private object CompanionFactory {
 
-	def unapply[E, C](factory :Factory[E, C]) :Opt[Any] = sourceCollectionFactory(factory)
+	def unapply[E, C](factory :Factory[E, C]) :Maybe[Any] = sourceCollectionFactory(factory)
 
 	object IterableFactory {
-		def unapply[E, C[_]](factory :Factory[E, C[E]]) :Opt[IterableFactory[C]] = sourceIterableFactory(factory)
+		def unapply[E, C[_]](factory :Factory[E, C[E]]) :Maybe[IterableFactory[C]] = sourceIterableFactory(factory)
 	}
 	object EvidenceIterableFactory {
-		def unapply[E, C[_]](factory :Factory[E, C[E]]) :Opt[EvidenceIterableFactory[C, E] forSome { type E[v] }] =
+		def unapply[E, C[_]](factory :Factory[E, C[E]]) :Maybe[EvidenceIterableFactory[C, E] forSome { type E[v] }] =
 			sourceEvidenceIterableFactory(factory)
 	}
 	object MapFactory {
-		def unapply[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]]) :Opt[MapFactory[M]] =
+		def unapply[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]]) :Maybe[MapFactory[M]] =
 			sourceMapFactory(factory)
 	}
 	object SortedMapFactory {
-		def unapply[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]]) :Opt[SortedMapFactory[M]] =
+		def unapply[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]]) :Maybe[SortedMapFactory[M]] =
 			sourceSortedMapFactory(factory)
 	}
 
 	//Methods for extracting IterableFactory and friends from various objects
 
-	private val IterableFactoryClass = scala.collection.Iterable.iterableFactory.getClass
-	private val IterableFactoryField :Opt[Field] =
+	private val IterableFactoryClass               = scala.collection.Iterable.iterableFactory.getClass
+	private val IterableFactoryField :Maybe[Field] =
 		IterableFactoryClass.getDeclaredFields.find(
 			_.getType == classOf[IterableFactory[Iterable]]
-		).toOpt.map { f => f.setAccessible(true); f }
+		).toMaybe.map { f => f.setAccessible(true); f }
 
-	private val MapFactoryClass = scala.collection.Map.mapFactory.getClass
-	private val MapFactoryField :Opt[Field] =
+	private val MapFactoryClass               = scala.collection.Map.mapFactory.getClass
+	private val MapFactoryField :Maybe[Field] =
 		MapFactoryClass.getDeclaredFields.find(
 			_.getType == classOf[MapFactory[Map]]
-		).toOpt.map { f => f.setAccessible(true); f }
+		).toMaybe.map { f => f.setAccessible(true); f }
 
-	private val EvidenceIterableFactoryClass = scala.collection.mutable.ArraySeq.evidenceIterableFactory[Any].getClass
-	private val EvidenceIterableFactoryField :Opt[Field] =
+	private val EvidenceIterableFactoryClass               = scala.collection.mutable.ArraySeq.evidenceIterableFactory[Any].getClass
+	private val EvidenceIterableFactoryField :Maybe[Field] =
 		EvidenceIterableFactoryClass.getDeclaredFields.find(
 			_.getType == classOf[EvidenceIterableFactory[ArraySeq, ClassTag]]
-		).toOpt.map { f => f.setAccessible(true); f }
+		).toMaybe.map { f => f.setAccessible(true); f }
 
-	private val SortedMapFactoryClass = scala.collection.immutable.SortedMap.sortedMapFactory[Int, Any].getClass
-	private val SortedMapFactoryField :Opt[Field] =
+	private val SortedMapFactoryClass               = scala.collection.immutable.SortedMap.sortedMapFactory[Int, Any].getClass
+	private val SortedMapFactoryField :Maybe[Field] =
 		SortedMapFactoryClass.getDeclaredFields.find(
 			_.getType == classOf[SortedMapFactory[SortedMap]]
-		).toOpt.map { f => f.setAccessible(true); f }
+		).toMaybe.map { f => f.setAccessible(true); f }
 
 	private val ArrayFactoryClass = scala.Array.toFactory[Any](Array).getClass
 
-	private val BuildFromFactoryClass = BuildFrom.buildFromString.toFactory("").getClass
-	private val BuildFromFactoryField :Opt[Field] =
+	private val BuildFromFactoryClass               = BuildFrom.buildFromString.toFactory("").getClass
+	private val BuildFromFactoryField :Maybe[Field] =
 		BuildFromFactoryClass.getDeclaredFields.find(
 			_.getType == classOf[BuildFrom[_, _, _]]
-		).toOpt.map { f => f.setAccessible(true); f }
+		).toMaybe.map { f => f.setAccessible(true); f }
 
-	def sourceIterableFactory[E, C[_]](factory :Factory[E, C[E]]) :Opt[IterableFactory[C]] =
+	def sourceIterableFactory[E, C[_]](factory :Factory[E, C[E]]) :Maybe[IterableFactory[C]] =
 		factory match {
-			case ComparableFactory(res :IterableFactory[C @unchecked]) => Got(res)
+			case ComparableFactory(res :IterableFactory[C @unchecked]) => Yes(res)
 			case _ if factory.getClass == IterableFactoryClass =>
 				IterableFactoryField.map(_.get(factory).asInstanceOf[IterableFactory[C]])
-			case _ => Lack
+			case _ => No
 		}
 
 	def sourceEvidenceIterableFactory[X, C[_]](factory :Factory[X, C[X]])
-			:Opt[EvidenceIterableFactory[C, E] forSome { type E[v] }] =
+			:Maybe[EvidenceIterableFactory[C, E] forSome { type E[v] }] =
 		factory match {
-			case ComparableFactory(res :EvidenceIterableFactory[C, ClassTag] @unchecked) => Got(res)
+			case ComparableFactory(res :EvidenceIterableFactory[C, ClassTag] @unchecked) => Yes(res)
 			case _ if factory.getClass == EvidenceIterableFactoryClass =>
 				EvidenceIterableFactoryField.map(_.get(factory).asInstanceOf[EvidenceIterableFactory[C, ClassTag]])
-			case _ => Lack
+			case _ => No
 		}
 
-	def sourceMapFactory[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]]) :Opt[MapFactory[M]] =
+	def sourceMapFactory[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]]) :Maybe[MapFactory[M]] =
 		(factory :Factory[(K, V), Iterable[(K, V)]]) match {
-			case ComparableFactory(res :MapFactory[M @unchecked]) => Got(res)
+			case ComparableFactory(res :MapFactory[M @unchecked]) => Yes(res)
 			case _ if factory.getClass == MapFactoryClass =>
 				MapFactoryField.map(_.get(factory).asInstanceOf[MapFactory[M]])
-			case _ => Lack
+			case _ => No
 		}
 
 	def sourceSortedMapFactory[K, V, M[X, Y] <: Map[X, Y]](factory :Factory[(K, V), M[K, V]])
-			:Opt[SortedMapFactory[M]] =
+			:Maybe[SortedMapFactory[M]] =
 		(factory :Factory[(K, V), Iterable[(K, V)]]) match {
-			case ComparableFactory(res :SortedMapFactory[M @unchecked]) => Got(res)
+			case ComparableFactory(res :SortedMapFactory[M @unchecked]) => Yes(res)
 			case _ if factory.getClass == SortedMapFactoryClass =>
 				SortedMapFactoryField.map(_.get(factory).asInstanceOf[SortedMapFactory[M]])
-			case _ => Lack
+			case _ => No
 		}
 
-	def sourceCollectionFactory[E, T](factory :Factory[E, T]) :Opt[Any] =
+	def sourceCollectionFactory[E, T](factory :Factory[E, T]) :Maybe[Any] =
 		factory match {
-			case comparable :ComparableFactory[_, _] => Got(comparable.factory)
+			case comparable :ComparableFactory[_, _] => Yes(comparable.factory)
 			case _ => factory.getClass match {
 				case IterableFactoryClass =>
 					IterableFactoryField.map(_.get(factory))//.asInstanceOf[IterableFactory[Iterable]])
@@ -114,10 +114,10 @@ private object CompanionFactory {
 				case SortedMapFactoryClass =>
 					SortedMapFactoryField.map(_.get(factory))//.asInstanceOf[SortedMapFactory[SortedMap]])
 				case ArrayFactoryClass =>
-					Got(Array)
+					Yes(Array)
 				case BuildFromFactoryClass =>
 					BuildFromFactoryField.map(_.get(factory))
-				case _ => Lack
+				case _ => No
 			}
 		}
 
@@ -174,9 +174,9 @@ private object ComparableFactory {
 	def apply[K :Ordering, V, M[_, _]](factory :SortedMapFactory[M]) :ComparableFactory[(K, V), M[K, V]] =
 		new EvidenceMapFactory[K, V, M](factory)
 
-	def unapply[X, C[A]](factory :Factory[X, C[X]]) :Opt[Any] = factory match {
-		case f :ComparableFactory[_, _] => Got(f.factory)
-		case _ => Lack
+	def unapply[X, C[A]](factory :Factory[X, C[X]]) :Maybe[Any] = factory match {
+		case f :ComparableFactory[_, _] => Yes(f.factory)
+		case _ => No
 	}
 
 	implicit def comparableIterableFactory[E, C[_]](factory :IterableFactory[C]) :ComparableFactory[E, C[E]] =

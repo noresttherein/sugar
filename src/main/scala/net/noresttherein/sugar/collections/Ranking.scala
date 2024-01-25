@@ -22,8 +22,8 @@ import net.noresttherein.sugar.collections.extensions.{IterableExtension, Iterab
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 //implicits
 
@@ -144,9 +144,9 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	  * @param p    a function applied consecutively to all elements with indices greater or equal `from`.
 	  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 	  */
-	def getIndexWhere(p :E => Boolean, from :Int = 0) :Opt[Int] = indexWhere(p, from) match {
-		case -1 => Lack
-		case  n => Got(n)
+	def getIndexWhere(p :E => Boolean, from :Int = 0) :Maybe[Int] = indexWhere(p, from) match {
+		case -1 => No
+		case  n => Yes(n)
 	}
 
 	/** Finds an element of this $coll at or after index `from` which satisfies the predicate,
@@ -185,11 +185,11 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	  * @param p   a function applied consecutively to all elements with indices lesser or equal `end`.
 	  * @param end an inclusive upper bound for the element's index,
 	  * @return the maximum number `n <= end` such that `p(this(n))`,
-	  *         or `Lack` if no element in this $coll's index range `[0..end]` satisfies the predicate.
+	  *         or `No` if no element in this $coll's index range `[0..end]` satisfies the predicate.
 	  */
-	def getLastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Opt[Int] = {
+	def getLastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Maybe[Int] = {
 		val res = lastIndexWhere(p, end)
-		if (res == -1) Lack else Got(res)
+		if (res == -1) No else Yes(res)
 	}
 
 	/** Finds the last element at or before index `end` satisfying the predicate.
@@ -211,11 +211,11 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	def indexOf[U >: E](elem :U) :Int
 
 	/** Same as the standard [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]],
-	  * but returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] instead of returning `-1` if no such element exists.
+	  * but returns [[net.noresttherein.sugar.vars.Maybe.No No]] instead of returning `-1` if no such element exists.
 	  */
-	def getIndexOf[U >: E](elem :U) :Opt[Int] = indexOf(elem) match {
-		case -1 => Lack
-		case n => Got(n)
+	def getIndexOf[U >: E](elem :U) :Maybe[Int] = indexOf(elem) match {
+		case -1 => No
+		case n => Yes(n)
 	}
 
 	/** Same as the standard [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]],
@@ -248,17 +248,17 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 			    case _ => -1
 		    }
 
-	/** Finds the location of the given subsequence in this $coll, returning its index as an `Opt`.
+	/** Finds the location of the given subsequence in this $coll, returning its index as an `Maybe`.
 	  * Thanks to the uniqueness of elements in a $coll and fast
 	  * [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]], this method runs in O(that.size).
 	  * @param that a presumed consecutive subsequence of this sequence.
 	  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
-	  * @return `Opt(this.indexOfSlice(that, from)).filter(_ >= 0)`.
-	  */
-	def getIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Opt[Int] =
+	  * @return `Maybe(this.indexOfSlice(that, from)).filter(_ >= 0)`.
+	  */ //todo: use Option, consistently with SeqExtension, but add also a variant for IntOpt.
+	def getIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Maybe[Int] =
 		indexOfSlice(that, from) match {
-			case -1 => Lack
-			case  n => Got(n)
+			case -1 => No
+			case  n => Yes(n)
 		}
 
 	/** Finds the location of the given subsequence in this $coll, throwing a [[NoSuchElementException]]
@@ -1005,9 +1005,9 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 		if (isEmpty) EmptyIndexedSeqOps.view else new RankingView[E](this)
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
-		case Got(Seq) | Got(IndexedSeq) => toIndexedSeq.asInstanceOf[C1]
-		case Got(Set) => toSet.asInstanceOf[C1]
-		case Got(Ranking) => this.asInstanceOf[C1]
+		case Yes(Seq) | Yes(IndexedSeq) => toIndexedSeq.asInstanceOf[C1]
+		case Yes(Set) => toSet.asInstanceOf[C1]
+		case Yes(Ranking) => this.asInstanceOf[C1]
 		case _ => super.to(factory)
 	}
 
@@ -1177,7 +1177,7 @@ case object Ranking extends IterableFactory[Ranking] {
 	def single[T](singleton :T) :Ranking[T] = new SingletonRanking(singleton)
 
 
-	def unapplySeq[T](elems :Ranking[T]) :Got[Seq[T]] = Got(elems.toSeq)
+	def unapplySeq[T](elems :Ranking[T]) :Yes[Seq[T]] = Yes(elems.toSeq)
 
 	@SerialVersionUID(Ver)
 	object implicits {
@@ -3077,11 +3077,11 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 	override def toIndexedSeq = IRefArray.Wrapped(elements.asInstanceOf[IRefArray[E]])
 	override def toSeq = toIndexedSeq
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
-		case Got(companion) => companion match {
+		case Yes(companion) => companion match {
 			case Seq | IndexedSeq | collection.Seq | collection.IndexedSeq => toIndexedSeq.castFrom[IndexedSeq[E], C1]
 			case Set | collection.Set => toSet.castFrom[Set[E], C1]
 			case Ranking => this.castFrom[Ranking[E], C1]
-			case Got(IRefArraySlice) | Got(ArrayLikeSlice) | Got(IArrayLikeSlice) =>
+			case Yes(IRefArraySlice) | Yes(ArrayLikeSlice) | Yes(IArrayLikeSlice) =>
 				IRefArraySlice.wrap(elements.asIRefArray).castFrom[IRefArraySlice[E], C1]
 			//fixme: currently RelayArrayFactory equals PassedArrayInternals, not PassedArray
 			case _ if RelayArrayFactory.contains(companion) =>

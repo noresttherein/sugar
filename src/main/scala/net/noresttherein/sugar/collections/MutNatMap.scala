@@ -6,11 +6,11 @@ import scala.collection.mutable
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.NatMap.Assoc
-import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{throwANoSuchElementException, Throw}
+import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{Throw, throwANoSuchElementException}
 import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic.=>:
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.{Maybe, Opt}
 
 
 

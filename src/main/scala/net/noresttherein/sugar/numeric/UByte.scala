@@ -7,8 +7,8 @@ import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.numeric.extensions.IntExtension
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -261,10 +261,10 @@ object UByte {
 		new UByte(long.toByte)
 	}
 
-	def parse(string: String): Opt[UByte] =
+	def parse(string: String): Maybe[UByte] =
 		Numeric.IntIsIntegral.parseString(string) match {
-			case Some(int) if int >= 0 & int <= 0xff => Got(new UByte(int.toByte))
-			case _ => Lack
+			case Some(int) if int >= 0 & int <= 0xff => Yes(new UByte(int.toByte))
+			case _ => No
 		}
 
 	private def throwArithmeticException(value: Int): Nothing =

@@ -3,8 +3,8 @@ package net.noresttherein.sugar
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.funny.fun.{ComposableFun, Identity}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe
 
 
 
@@ -16,12 +16,12 @@ package object typist {
 	private[typist] final val Ver = 1L
 
 	/** Tests if `left eq right`, executing the given block with the evidence to the identity as its argument,
-	  * returning its result in an [[net.noresttherein.sugar.vars.Opt Opt]].
+	  * returning its result in an [[net.noresttherein.sugar.vars.Maybe Maybe]].
 	  */
-	def ifeq[T](left :AnyRef, right :AnyRef)(block :(left.type =:= right.type) => T) :Opt[T] =
+	def ifeq[T](left :AnyRef, right :AnyRef)(block :(left.type =:= right.type) => T) :Maybe[T] =
 		if (left eq right)
-			Got(block(implicitly[left.type =:= left.type].asInstanceOf[left.type =:= right.type]))
-		else Lack
+			Yes(block(implicitly[left.type =:= left.type].asInstanceOf[left.type =:= right.type]))
+		else No
 
 	/** Curried type constructor for the function type X => Y. Same as [[net.noresttherein.sugar.typist.To To]];
 	  * Accepts the desired return type as the type parameter and creates a type with a member type constructor `C`,

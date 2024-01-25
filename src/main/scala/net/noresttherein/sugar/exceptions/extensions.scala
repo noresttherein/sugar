@@ -3,7 +3,7 @@ package net.noresttherein.sugar.exceptions
 import scala.collection.immutable.ArraySeq
 
 import net.noresttherein.sugar.exceptions.extensions.{StackTraceElementExtension, ThrowableExtension}
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Maybe
 
 
 
@@ -63,10 +63,10 @@ object extensions extends extensions {
 			case _ => utils.causeQueue(self)
 		}
 
-		/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
-		def cause :Opt[Throwable] = self match {
+		/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
+		def cause :Maybe[Throwable] = self match {
 			case e :SugaredThrowable => e.cause
-			case _ => Opt(self.getCause)
+			case _ => Maybe(self.getCause)
 		}
 
 		/** Sets the [[ThrowableExtension.cause cause]] of this [[Throwable]] using
@@ -79,10 +79,10 @@ object extensions extends extensions {
 		}
 
 
-		/** Standard[[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
-		def message :Opt[String] = self match {
+		/** Standard[[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
+		def message :Maybe[String] = self match {
 			case e :SugaredThrowable => e.message
-			case _ => Opt(self.getMessage)
+			case _ => Maybe(self.getMessage)
 		}
 
 		/** Denullified [[Throwable.getMessage getMessage]] returning an empty string
@@ -95,10 +95,10 @@ object extensions extends extensions {
 		}
 
 
-		/**`Opt(getLocalizedMessage)`. */
-		def localizedMessage :Opt[String] = self match {
+		/**`Maybe(getLocalizedMessage)`. */
+		def localizedMessage :Maybe[String] = self match {
 			case e :SugaredThrowable => e.localizedMessage
-			case _ => Opt(self.getLocalizedMessage)
+			case _ => Maybe(self.getLocalizedMessage)
 		}
 
 		/**`Option(getLocalizedMessage) getOrElse ""`. */
@@ -116,11 +116,11 @@ object extensions extends extensions {
 
 		/** The message included in the bottom exception of the cause stack, that is the last exception,
 		  * in the list with [[Throwable.getCause getCause]] as the next message.
-		  * @return `Opt(originalCause.getMessage)`
+		  * @return `Maybe(originalCause.getMessage)`
 		  */
-		def rootMessage :Opt[String] = self match {
+		def rootMessage :Maybe[String] = self match {
 			case e :SugaredThrowable => e.rootMessage
-			case _ => Opt(rootCause.getMessage)
+			case _ => Maybe(rootCause.getMessage)
 		}
 
 		/** Denullified [[Throwable.getMessage getMessage]] of the original `Throwable` cause of this exception,

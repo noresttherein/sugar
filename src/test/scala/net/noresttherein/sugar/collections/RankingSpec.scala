@@ -10,8 +10,8 @@ import net.noresttherein.sugar.extensions.{SeqExtension, classNameMethods}
 import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.numeric.extensions.{BooleanCompanionExtension, IntCompanionExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -153,17 +153,17 @@ object RankingSpec
 	}
 	property("getIndexWhere") = forAll { subject :Ranking[Int] =>
 		all(subject.indices.map { i =>
-			(s"$i =? getIndexWhere(_==${subject(i)})" lbl_: Opt(i) =? subject.getIndexWhere(_ == subject(i)))  &&
-				(s"getIndexWhere(_==${subject(i)}, ${i-1})" lbl_: Opt(i) =? subject.getIndexWhere(_ == subject(i), i - 1)) &&
-				(s"getIndexWhere(_==${subject(i)}, -1)" lbl_: Opt(i) =? subject.getIndexWhere(_ == subject(i), -1)) &&
-				(s"getIndexWhere(_==${subject(i)}, $i)" lbl_: Opt(i) =? subject.getIndexWhere(_ == subject(i), i)) &&
+			(s"$i =? getIndexWhere(_==${subject(i)})" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i)))  &&
+				(s"getIndexWhere(_==${subject(i)}, ${i-1})" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i), i - 1)) &&
+				(s"getIndexWhere(_==${subject(i)}, -1)" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i), -1)) &&
+				(s"getIndexWhere(_==${subject(i)}, $i)" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i), i)) &&
 				(s"getIndexWhere(_==${subject(i)}, ${i + 1})" lbl_: 
-					(Lack :Opt[Int]) =? subject.getIndexWhere(_ == subject(i), i + 1))
+					(No :Maybe[Int]) =? subject.getIndexWhere(_ == subject(i), i + 1))
 		} : _*) &&
-			(s"getIndexWhere(_=>false)" lbl_: (Lack :Opt[Int]) =? subject.getIndexWhere(_ => false)) &&
-			(s"getIndexWhere(_=>false, -1)" lbl_: (Lack :Opt[Int]) =? subject.getIndexWhere(_ => false, -1)) &&
+			(s"getIndexWhere(_=>false)" lbl_: (No :Maybe[Int]) =? subject.getIndexWhere(_ => false)) &&
+			(s"getIndexWhere(_=>false, -1)" lbl_: (No :Maybe[Int]) =? subject.getIndexWhere(_ => false, -1)) &&
 			(s"indexWhere(_=>false, ${subject.length})" lbl_:
-				(Lack :Opt[Int]) =? subject.getIndexWhere(_ => false, subject.length))
+				(No :Maybe[Int]) =? subject.getIndexWhere(_ => false, subject.length))
 	}
 	property("sureIndexWhere") = forAll { subject :Ranking[Int] =>
 		all(subject.indices.map { i =>
@@ -201,22 +201,22 @@ object RankingSpec
 	property("getLastIndexWhere") = forAll { subject :Ranking[Int] =>
 		all(subject.indices.map { i =>
 			(s"$i =? getLastIndexWhere(_==${subject(i)})" lbl_:
-				Opt(i) =? subject.getLastIndexWhere(_ == subject(i))) &&
+				Maybe(i) =? subject.getLastIndexWhere(_ == subject(i))) &&
 				(s"$i =? getLastIndexWhere(_==${subject(i)}, $i)" lbl_:
-					Opt(i) =? subject.getLastIndexWhere(_ == subject(i), i)) &&
+					Maybe(i) =? subject.getLastIndexWhere(_ == subject(i), i)) &&
 				(s"$i =? getLastIndexWhere(_==${subject(i)}, ${i + 1})" lbl_: 
-					Opt(i) =? subject.getLastIndexWhere(_ == subject(i), i + 1)) &&
+					Maybe(i) =? subject.getLastIndexWhere(_ == subject(i), i + 1)) &&
 				(s"$i =? getLastIndexWhere(_==${subject(i)}, ${subject.length + 1})" lbl_:
-					Opt(i) =? subject.getLastIndexWhere(_ == subject(i), subject.length + 1)) &&
+					Maybe(i) =? subject.getLastIndexWhere(_ == subject(i), subject.length + 1)) &&
 				(s"-1 =? getLastIndexWhere(_==${subject(i)}, ${i - 1})" lbl_:
-					(Lack :Opt[Int]) =? subject.getLastIndexWhere(_ == subject(i), i - 1))
+					(No :Maybe[Int]) =? subject.getLastIndexWhere(_ == subject(i), i - 1))
 		} : _*) &&
 			(s"getLastIndexWhere(_=>false)" lbl_:
-				(Lack :Opt[Int]) =? subject.getLastIndexWhere(_ => false)) &&
+				(No :Maybe[Int]) =? subject.getLastIndexWhere(_ => false)) &&
 			(s"getLastIndexWhere(_=>false, Int.MaxValue)" lbl_: 
-				(Lack :Opt[Int]) =? subject.getLastIndexWhere(_ => false, Int.MaxValue)) &&
+				(No :Maybe[Int]) =? subject.getLastIndexWhere(_ => false, Int.MaxValue)) &&
 			(s"getLastIndexWhere(_=>false, -1)" lbl_:
-				(Lack :Opt[Int]) =? subject.getLastIndexWhere(_ => false, -1))
+				(No :Maybe[Int]) =? subject.getLastIndexWhere(_ => false, -1))
 	}
 	property("sureLastIndexWhere") = forAll { subject :Ranking[Int] =>
 		all(subject.indices.map { i =>
@@ -248,7 +248,7 @@ object RankingSpec
 	property("getIndexOf") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		forAll { (x :Int) =>
-			Opt(seq.indexOf(x)).filter(_ >= 0) =? subject.getIndexOf(x) lbl
+			Maybe(seq.indexOf(x)).filter(_ >= 0) =? subject.getIndexOf(x) lbl
 				seq.toString + ".getIndexOf(" + x + ")" lbl subject.toString + " :" + subject.className
 		}
 	}
@@ -287,11 +287,11 @@ object RankingSpec
 			} yield {
 				val slice = indexed.slice(from, until)
 				val i = indexed.indexOfSlice(slice)
-				((subject.getIndexOfSlice(slice) ?= Got(i)) :| slice.toString + "@" + i) &&
-					((subject.getIndexOfSlice(slice, from) ?= Got(from)) :| "[" + from + ", " + until + ")@" + from)
+				((subject.getIndexOfSlice(slice) ?= Yes(i)) :| slice.toString + "@" + i) &&
+					((subject.getIndexOfSlice(slice, from) ?= Yes(from)) :| "[" + from + ", " + until + ")@" + from)
 			})
 		:_*) && forAll { (x :Seq[Int], i :Short) =>
-			subject.getIndexOfSlice(x, i & 0xffff) ?= Opt(indexed.indexOfSlice(x, i & 0xffff)).filter(_ >= 0)
+			subject.getIndexOfSlice(x, i & 0xffff) ?= Maybe(indexed.indexOfSlice(x, i & 0xffff)).filter(_ >= 0)
 		}
 	}
 	property("sureIndexOfSlice") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>

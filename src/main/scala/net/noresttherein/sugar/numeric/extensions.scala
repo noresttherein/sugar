@@ -12,8 +12,8 @@ import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDecimalConverter}
 import net.noresttherein.sugar.numeric.extensions.{BooleanExtension, BooleanCompanionExtension, ByteExtension, ByteCompanionExtension, CharExtension, CharCompanionExtension, ComparableExtension, ComparatorHasAsScala, DoubleExtension, DoubleCompanionExtension, FloatExtension, FloatCompanionExtension, IntExtension, IntCompanionExtension, JBigDecimalIsFractional, LongExtension, LongCompanionExtension, ShortExtension, ShortCompanionExtension, hasComparatorExtension, hasOrderingExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -498,14 +498,14 @@ object extensions extends extensions {
 		/** Parses a `Byte` value from the `String`
 		  * @return [[scala.math.Numeric.ByteIsIntegral.parseString ByteIsIntegral.parseString]].
 		  */
-		@inline final def parse(string :String) :Opt[Byte] = ByteIsIntegral.parseString(string).toOpt
+		@inline final def parse(string :String) :Maybe[Byte] = ByteIsIntegral.parseString(string).toMaybe
 
 		/** Parses a `Byte` value from the `String`
 		  * @return [[java.lang.Byte.parseByte Byte.parseByte]]`(string)`.
 		  */
-		@inline final def parse(string :String, radix :Int) :Opt[Byte] = 
-			try Got(jl.Byte.parseByte(string, radix)) catch {
-				case _ :NumberFormatException => Lack
+		@inline final def parse(string :String, radix :Int) :Maybe[Byte] =
+			try Yes(jl.Byte.parseByte(string, radix)) catch {
+				case _ :NumberFormatException => No
 			}
 		
 		/** Parses a `Byte` value from the `String`
@@ -528,14 +528,14 @@ object extensions extends extensions {
 		/** Parses a `Short` value from the `String`
 		  * @return [[scala.math.Numeric.ShortIsIntegral.parseString ShortIsIntegral.parseString]]`(string)`.
 		  */
-		@inline final def parse(string :String) :Opt[Short] = ShortIsIntegral.parseString(string).toOpt
+		@inline final def parse(string :String) :Maybe[Short] = ShortIsIntegral.parseString(string).toMaybe
 
 		/** Parses a `Short` value from the `String`
 		  * @return [[java.lang.Short.parseShort Short.parseShort]]`(string)`.
 		  */
-		@inline final def parse(string :String, radix :Int) :Opt[Short] =
-			try Got(jl.Short.parseShort(string, radix)) catch {
-				case _ :NumberFormatException => Lack
+		@inline final def parse(string :String, radix :Int) :Maybe[Short] =
+			try Yes(jl.Short.parseShort(string, radix)) catch {
+				case _ :NumberFormatException => No
 			}
 
 		/** Parses a `Short` value from the `String`
@@ -569,14 +569,14 @@ object extensions extends extensions {
 		/** Parses an `Int` value from the `String`
 		  * @return [[scala.math.Numeric.IntIsIntegral.parseString IntIsIntegral.parseString]]`(string)`.
 		  */
-		@inline final def parse(string :String) :Opt[Int] = IntIsIntegral.parseString(string).toOpt
+		@inline final def parse(string :String) :Maybe[Int] = IntIsIntegral.parseString(string).toMaybe
 
 		/** Parses a `Short` value from the `String`
 		  * @return [[scala.math.Numeric.ShortIsIntegral.parseString ShortIsIntegral.parseString]]`(string)`.
 		  */
-		@inline final def parse(string :String, radix :Int) :Opt[Int] =
-			try Got(jl.Integer.parseInt(string, radix)) catch {
-				case _ :NumberFormatException => Lack
+		@inline final def parse(string :String, radix :Int) :Maybe[Int] =
+			try Yes(jl.Integer.parseInt(string, radix)) catch {
+				case _ :NumberFormatException => No
 			}
 //
 //		/** Parses a `Int` value from the `CharSequence`
@@ -604,14 +604,14 @@ object extensions extends extensions {
 		/** Parses a `Long` value from the `String`
 		  * @see [[scala.math.Numeric.LongIsIntegral.parseString LongIsIntegral.parseString]]`(string)`.
 		  */
-		@inline final def parse(string :String) :Opt[Long] = LongIsIntegral.parseString(string).toOpt
+		@inline final def parse(string :String) :Maybe[Long] = LongIsIntegral.parseString(string).toMaybe
 
 		/** Parses a `Long` value from the `String`
 		  * @return [[java.lang.Long.parseLong Long.parseLong]]`(string)`.
 		  */
-		@inline final def parse(string :String, radix :Int) :Opt[Long] =
-			try Got(jl.Long.parseLong(string, radix)) catch {
-				case _ :NumberFormatException => Lack
+		@inline final def parse(string :String, radix :Int) :Maybe[Long] =
+			try Yes(jl.Long.parseLong(string, radix)) catch {
+				case _ :NumberFormatException => No
 			}
 //
 //		/** Parses a `Long` value from the `CharSequence`
@@ -639,7 +639,7 @@ object extensions extends extensions {
 		/** Parses a `Float` value from the `String`
 		  * @return [[scala.math.Numeric.FloatIsFractional.parseString FloatIsFractional.parseString]]`(string)`.
 		  */
-		@inline final def parse(string :String) :Opt[Float] = FloatIsFractional.parseString(string).toOpt
+		@inline final def parse(string :String) :Maybe[Float] = FloatIsFractional.parseString(string).toMaybe
 
 		/** Parses a `Float` value from the `String`
 		  * @return [[java.lang.Float.parseFloat parseFloat]]`(string)`.
@@ -661,7 +661,7 @@ object extensions extends extensions {
 		/** Parses a `Double` value from the `String`
 		  * @return [[scala.math.Numeric.DoubleIsFractional.parseString DoubleIsFactional.parseString]]`(string)`.
 		  */
-		@inline final def parse(string :String) :Opt[Double] = DoubleIsFractional.parseString(string).toOpt
+		@inline final def parse(string :String) :Maybe[Double] = DoubleIsFractional.parseString(string).toMaybe
 
 		/** Parses a `Double` value from the `String`
 		  * @return [[java.lang.Double.parseDouble Double.parseDouble]]`(string)`.

@@ -8,8 +8,8 @@ import scala.collection.mutable.{ArrayBuffer, ArrayDeque}
 import net.noresttherein.sugar.exceptions.StackContext.PackageName
 import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.CallerFrame
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -17,12 +17,12 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
 /** A manually created activation frame containing information about the called object, class, method and parameters.
   */
 @SerialVersionUID(Ver)
-class StackContext protected (val callee :Opt[AnyRef], val source :String, val method :String, val params :Seq[Any])
+class StackContext protected (val callee :Maybe[AnyRef], val source :String, val method :String, val params :Seq[Any])
 	extends Equals with Serializable
 {
-	def this(source :String, method :String, params :Seq[Any]) = this(Lack, source, method, params)
+	def this(source :String, method :String, params :Seq[Any]) = this(No, source, method, params)
 	def this(callee :AnyRef, method :String, params :Seq[Any]) =
-		this(Got(callee), callee.getClass.getName, method, params)
+		this(Yes(callee), callee.getClass.getName, method, params)
 
 	def this(frame :StackFrame, params :Seq[Any]) = this(frame.getClassName, frame.getMethodName, params)
 	def this(frame :StackTraceElement, params :Seq[Any]) = this(frame.getClassName, frame.getMethodName, params)
@@ -79,12 +79,12 @@ object StackContext {
 	/** Current stack of activation frames, with the most recent being the first one. */
 	def get :Seq[StackContext] = stack.get.toSeq
 
-	def unapply(ctx :StackContext) :Opt[(Opt[AnyRef], String, String, Seq[Any])] =
-		Got(ctx.callee, ctx.source, ctx.method, ctx.params)
+	def unapply(ctx :StackContext) :Maybe[(Maybe[AnyRef], String, String, Seq[Any])] =
+		Yes(ctx.callee, ctx.source, ctx.method, ctx.params)
 
-	def unapply(e :Throwable) :Opt[Seq[StackContext]] = e match {
-		case sugared :SugaredThrowable => Got(sugared.context)
-		case _ => Lack
+	def unapply(e :Throwable) :Maybe[Seq[StackContext]] = e match {
+		case sugared :SugaredThrowable => Yes(sugared.context)
+		case _ => No
 	}
 
 	private[this] val stack :ThreadLocal[ArrayDeque[StackContext]] =

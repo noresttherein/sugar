@@ -7,30 +7,30 @@ import scala.annotation.unchecked.uncheckedVariance
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
 import net.noresttherein.sugar.vars.DisposableRef.SerializedEmptyRef
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
 
 /** A light wrapper over Java [[java.lang.ref.ReferenceQueue ReferenceQueue]] containing only instances
   * of [[net.noresttherein.sugar.vars.DisposableRef DisposableRef]], with API expressed in terms of the latter,
-  * rather than Java [[java.lang.ref.Reference Reference]] (and using `Opt`s instead of `null`s).
+  * rather than Java [[java.lang.ref.Reference Reference]] (and using `Maybe`s instead of `null`s).
   */ //Cannot be Serializable, because internals of ReferenceQueue are not serializable.
 class RefQueue[T](name :String) { //not serializable!
 	def this() = this(null)
 
 	private[vars] val underlying :ReferenceQueue[T] = new ReferenceQueue[T]
 
-	private def unwrap[S <: T](ref :Reference[S]) :Opt[DisposableRef[T]] =
-		Opt(ref.asInstanceOf[DisposableRef[S]])
+	private def unwrap[S <: T](ref :Reference[S]) :Maybe[DisposableRef[T]] =
+		Maybe(ref.asInstanceOf[DisposableRef[S]])
 
-	def poll :Opt[DisposableRef[T]] = unwrap(underlying.poll)
+	def poll :Maybe[DisposableRef[T]] = unwrap(underlying.poll)
 
-	def remove() :Opt[DisposableRef[T]] = unwrap(underlying.remove)
+	def remove() :Maybe[DisposableRef[T]] = unwrap(underlying.remove)
 
-	def remove(timeout :Milliseconds) :Opt[DisposableRef[T]] = unwrap(underlying.remove(timeout.toMillis))
+	def remove(timeout :Milliseconds) :Maybe[DisposableRef[T]] = unwrap(underlying.remove(timeout.toMillis))
 
-	def remove(timeout :TimeInterval) :Opt[DisposableRef[T]] = timeout match {
+	def remove(timeout :TimeInterval) :Maybe[DisposableRef[T]] = timeout match {
 		case Eternity => remove()
 		case MinusEternity => poll
 		case _ => remove(timeout.asMillis)
@@ -102,13 +102,13 @@ sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Referen
 	@inline final override def constOption :Option[T] = None
 
 	/** The referenced object, unless garbage collected. */
-	override def opt :Opt[T] = Opt(getOrNull)
+	override def maybe :Maybe[T] = Maybe(getOrNull)
 
-	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.opt opt]]. */
-	@inline final override def toOpt :Opt[T] = opt
+	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.maybe opt]]. */
+	@inline final override def toMaybe :Maybe[T] = maybe
 
-	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. */
-	@inline final override def constOpt :Opt[T] = Lack
+	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]]. */
+	@inline final override def maybeConst :Maybe[T] = No
 
 	/** The referenced object, unless garbage collected. */
 	override def unsure :Unsure[T] = Unsure(getOrNull)
@@ -117,7 +117,7 @@ sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Referen
 	@inline final override def toUnsure :Unsure[T] = unsure
 
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
-	@inline final override def constUnsure :Unsure[T] = Missing
+	@inline final override def unsureConst :Unsure[T] = Missing
 
 	protected def factory :DisposableRefFactory[DisposableRef]
 	private def writeReplace = new SerializedEmptyRef(factory)
@@ -136,10 +136,10 @@ sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Referen
 
 
 object DisposableRef {
-	def unapply[T](ref :Reference[T]) :Opt[DisposableRef[T]] = ref match {
-		case null => Lack
-		case ref :DisposableRef[T @unchecked] => Got(ref)
-		case _ => Lack
+	def unapply[T](ref :Reference[T]) :Maybe[DisposableRef[T]] = ref match {
+		case null => No
+		case ref :DisposableRef[T @unchecked] => Yes(ref)
+		case _ => No
 	}
 	private class SerializedEmptyRef[T](factory :DisposableRefFactory[DisposableRef]) extends Serializable {
 		private def readResolve = factory(null)
@@ -185,11 +185,11 @@ object WeakRef extends DisposableRefFactory[WeakRef] {
 	@inline override def apply[T](referent :T) :WeakRef[T] = new WeakRef(referent)
 	@inline override def apply[T](referent :T, queue :RefQueue[T]) :WeakRef[T] = new WeakRef[T](referent, queue.underlying)
 
-	@inline def unapply[T](ref :WeakRef[T]) :Opt[T] = ref.opt
-	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
-		case null => Lack
-		case ref :WeakRef[T] => ref.opt
-		case _ => Lack
+	@inline def unapply[T](ref :WeakRef[T]) :Maybe[T] = ref.maybe
+	@inline def unapply[T](ref :Reference[T]) :Maybe[T] = ref match {
+		case null => No
+		case ref :WeakRef[T] => ref.maybe
+		case _ => No
 	}
 }
 
@@ -219,11 +219,11 @@ object SoftRef extends DisposableRefFactory[SoftRef] {
 	@inline override def apply[T](referent :T) :SoftRef[T] = new SoftRef(referent)
 	@inline override def apply[T](referent :T, queue :RefQueue[T]) :SoftRef[T] = new SoftRef(referent, queue.underlying)
 
-	@inline def unapply[T](ref :SoftRef[T]) :Opt[T] = ref.opt
-	@inline def unapply[T](ref :Reference[T]) :Opt[T] = ref match {
-		case null => Lack
-		case ref :SoftRef[T] => ref.opt
-		case _ => Lack
+	@inline def unapply[T](ref :SoftRef[T]) :Maybe[T] = ref.maybe
+	@inline def unapply[T](ref :Reference[T]) :Maybe[T] = ref match {
+		case null => No
+		case ref :SoftRef[T] => ref.maybe
+		case _ => No
 	}
 }
 

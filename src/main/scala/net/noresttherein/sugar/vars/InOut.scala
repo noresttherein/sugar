@@ -4,7 +4,7 @@ import scala.Specializable.Args
 import scala.annotation.nowarn
 
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TestAndSet, TypeEquiv}
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -176,8 +176,10 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	// So extension methods and what not would delegate to this.factory.<method>.
 	// We could not guarantee the type of this `InOut`, though.
 
-	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ & _)
-	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ | _)
+	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = //ev(this).updateLeft(other)(_ & _)
+		if (!other) ev(this).value = false
+	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = //ev(this).updateLeft(other)(_ | _)
+		if (other) ev(this).value = true
 	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).update(_ && other)
 	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).update(_ || other)
 	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ ^ _)
@@ -230,14 +232,14 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	//todo: specialization
 	override def equals(that :Any) :Boolean = that match {
 		case self :AnyRef if this eq self => true
-		case v :InOut[_] if v canEqual this => (opt, v.opt) match {
-			case (Got(v1), Got(v2)) => v1 == v2
+		case v :InOut[_] if v canEqual this => (maybe, v.maybe) match {
+			case (Yes(v1), Yes(v2)) => v1 == v2
 			case _ => false
 		}
 		case _ => false
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[InOut[_]]
-	override def hashCode :Int = opt.hashCode
+	override def hashCode :Int = maybe.hashCode
 
 }
 

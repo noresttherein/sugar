@@ -44,17 +44,20 @@ import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
   * Additionally, just as with `SyncVar`/`synchronized`, attempts to acquire the locks in different order
   * by different parts of the program risk causing deadlocks.
   *
-  * This implementation perceiveably slower than [[net.noresttherein.sugar.vars.Volatile Volatile]]`[T]`,
-  * so use it only if you need the combined locking functionality, or the ''test-and-set'' operations
-  * to use object equality (`equals` method), rather than referential equality (`eq`).
-  *
+  * This implementation is perceiveably slower than [[net.noresttherein.sugar.vars.Volatile Volatile]]`[T]`
+  * and [[net.noresttherein.sugar.vars.Atomic Atomic]]`[T]`,
+  * so use it only if you need the combined locking functionality.
   * @tparam T the type of this variable
   * @define Ref `SpinVar`
   * @define ref locked variable
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(Ver)
-class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] with Serializable {
+final class SpinVar[@specialized(SpecializedVars) T] private[vars]
+	extends AtomicOps.AtomicVar[T] with Mutable[T] with Serializable
+{
+	protected override def factory :AtomicOps[SpinVar] = SpinVar
+	
 	/** The underlying variable field. */
 	private[this] var x :T = _
 
@@ -66,13 +69,13 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 	/** Unsynchronized access to this variable. */
 	private[vars] def unsafe_=(value :T) :Unit = x = value
 
-	final override def value :T = {
+	override def value :T = {
 		lock()
 		val res = x
 		mutex = Unlocked
 		res
 	}
-	final override def value_=(newValue :T) :Unit = {
+	override def value_=(newValue :T) :Unit = {
 		lock()
 		x = newValue
 		mutex = Unlocked
@@ -90,11 +93,11 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 	  * by method `synchronized` of `AnyRef`, but the method may be used in the same manner, to nest critical sections
 	  * for several variables.
 	  */
-	final def locked[O](expr: => O) :O =
+	def locked[O](expr: => O) :O =
 		try { lock(); expr } finally mutex = Unlocked
 
 	/** Atomically assigns a new value to this $ref, returning the current value. */
-	final override def ?=(newValue :T) :T = {
+	override def ?=(newValue :T) :T = {
 		lock()
 		val res = x
 		x = newValue
@@ -107,7 +110,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 	  * @param newValue a new value for this variable.
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
-	final override def testAndSet(expect :T, newValue :T) :Boolean =
+	override def testAndSet(expect :T, newValue :T) :Boolean =
 		try { //We must do it in a try block because we are invoking x.equals
 			lock()
 			x == expect && { x = newValue; true }
@@ -121,7 +124,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 	  * @param f function to apply to the value of this variable.
 	  * @return result of applying `f` to the current value.
 	  */
-	final override def update(f :T => T) :T =
+	override def update(f :T => T) :T =
 		try {
 			lock()
 			x = f(x)
@@ -129,7 +132,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 		} finally
 			mutex = Unlocked
 
-	final override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
+	override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
 		try {
 			lock()
 			x = f(z, x)
@@ -137,7 +140,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
 		} finally
 			mutex = Unlocked
 
-	final override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
+	override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
 		try {
 			lock()
 			x = f(x, z)
@@ -206,7 +209,7 @@ class SpinVar[@specialized(SpecializedVars) T] private[vars] extends Mutable[T] 
   * to provide inlining o synchronized operations.
   */
 @SerialVersionUID(Ver)
-object SpinVar {
+case object SpinVar extends AtomicOps[SpinVar] {
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	def apply[@specialized(SpecializedVars) T](value :T) :SpinVar[T] = {
@@ -219,6 +222,94 @@ object SpinVar {
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
 	@inline def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :SpinVar[T] =
 		SpinVar(default.get)	
+
+
+	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T = {
+		val spin = v.asInstanceOf[SpinVar[T]]
+		spin.locked {
+			val res = spin.unsafe; spin.unsafe = newValue; res
+		}
+	}
+
+	protected override def testAndSet[@specialized(SpecializedVars) T]
+	                                 (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+	{
+		val spin = v.asInstanceOf[SpinVar[T]]
+		spin.locked {
+			spin.unsafe == expect && { spin.unsafe = newValue; true }
+		}
+	}
+
+	protected override def weakTestAndSet[@specialized(SpecializedVars) T]
+	                                     (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		testAndSet(v, expect, newValue)
+
+	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean)
+			:Boolean =
+		testAndSet(v, expect, newValue)
+
+	protected override def repeatTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean,
+	                                            ifExpected :Boolean, ifNotExpected :Boolean) :Boolean =
+	{
+		val spin = v.asInstanceOf[SpinVar[Boolean]]
+		spin.locked {
+			if (spin.unsafe == expect) {
+				spin.unsafe = ifExpected
+				ifExpected
+			} else {
+				spin.unsafe = ifNotExpected
+				ifNotExpected
+			}
+		}
+	}
+	protected override def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
+		val spin = v.asInstanceOf[SpinVar[Int]]
+		spin.locked {
+			val res = spin.unsafe + value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
+		val spin = v.asInstanceOf[SpinVar[Int]]
+		spin.locked {
+			val res = spin.unsafe & value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
+		val spin = v.asInstanceOf[SpinVar[Int]]
+		spin.locked {
+			val res = spin.unsafe | value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
+		val spin = v.asInstanceOf[SpinVar[Int]]
+		spin.locked {
+			val res = spin.unsafe ^ value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndAdd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
+		val spin = v.asInstanceOf[SpinVar[Long]]
+		spin.locked {
+			val res = spin.unsafe + value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
+		val spin = v.asInstanceOf[SpinVar[Long]]
+		spin.locked {
+			val res = spin.unsafe & value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
+		val spin = v.asInstanceOf[SpinVar[Long]]
+		spin.locked {
+			val res = spin.unsafe | value; spin.unsafe = res; res
+		}
+	}
+	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
+		val spin = v.asInstanceOf[SpinVar[Long]]
+		spin.locked {
+			val res = spin.unsafe ^ value; spin.unsafe = res; res
+		}
+	}
 
 
 	/** Implicit conversion of `SpinVar[Boolean]` values providing logical operators.

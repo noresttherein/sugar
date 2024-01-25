@@ -13,8 +13,8 @@ import net.noresttherein.sugar.exceptions.??!
 import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -151,15 +151,15 @@ private object Constants {
 
 
 private[sugar] object IndexedIterable {
-	@inline def unapply[A](items :IterableOnce[A]) :Opt[collection.IndexedSeqOps[A, generic.Any, _]] = items match {
-		case seq     :collection.IndexedSeqOps[A, generic.Any, _] => Got(seq)
-		case ranking :Ranking[A]                                  => Got(ranking.toIndexedSeq)
-		case set     :IndexedSet[A]                               => Got(set.toIndexedSeq)
+	@inline def unapply[A](items :IterableOnce[A]) :Maybe[collection.IndexedSeqOps[A, generic.Any, _]] = items match {
+		case seq     :collection.IndexedSeqOps[A, generic.Any, _] => Yes(seq)
+		case ranking :Ranking[A]                                  => Yes(ranking.toIndexedSeq)
+		case set     :IndexedSet[A]                               => Yes(set.toIndexedSeq)
 		case slice   :ArrayIterableOnce[A] =>
 			val from  = slice.startIndex
 			val until = from + slice.knownSize
-			Got(ArraySlice.slice(slice.unsafeArray.castFrom[Array[_], Array[A]], from, until))
-		case _ => Lack
+			Yes(ArraySlice.slice(slice.unsafeArray.castFrom[Array[_], Array[A]], from, until))
+		case _ => No
 	}
 
 
@@ -168,22 +168,22 @@ private[sugar] object IndexedIterable {
 
 		@inline def apply[K, V](map :Map[K, V]) :Boolean = true
 
-		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Opt[SeqLike[X, CC, CC[X]]] = items match {
+		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Maybe[SeqLike[X, CC, CC[X]]] = items match {
 			case seq :collection.IndexedSeqOps[X, CC, CC[X]] @unchecked => seq match {
 				case _ :Vector[X] =>
-					Got(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
 				case _ if seq.length <= FastUpdateThreshold =>
-					Got(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
-				case _ => Lack
+					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+				case _ => No
 			}
 			case seq :collection.Seq[X] if seq.sizeIs <= FastUpdateThreshold =>
-				Got(SeqLike.generic[X, Seq].asInstanceOf[SeqLike[X, CC, CC[X]]])
+				Yes(SeqLike.generic[X, Seq].asInstanceOf[SeqLike[X, CC, CC[X]]])
 			case ranking :Ranking[X] =>
 				if (ranking.size <= FastUpdateThreshold || HasFastUpdate(ranking.toIndexedSeq))
-					Got(IndexedSeqLike.forRanking.asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+					Yes(IndexedSeqLike.forRanking.asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
 				else
-					Lack
-			case _ => Lack
+					No
+			case _ => No
 		}
 
 		private final val FastUpdateThreshold = 8
@@ -200,36 +200,36 @@ private[sugar] object IndexedIterable {
 	object HasFastPrepend {
 		def apply[X](seq :Seq[X]) :Boolean = seq.isInstanceOf[List[_]] || HasFastUpdate(seq)
 
-		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Opt[SeqLike[X, CC, CC[X]]] = items match {
-			case _ :List[_] => Got(SeqLike.generic[X, Seq].asInstanceOf[SeqLike[X, CC, CC[X]]])
+		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Maybe[SeqLike[X, CC, CC[X]]] = items match {
+			case _ :List[_] => Yes(SeqLike.generic[X, Seq].asInstanceOf[SeqLike[X, CC, CC[X]]])
 			case _          => HasFastUpdate.unapply(items)
 		}
 	}
 
 	object ApplyPreferred {
-		def unapply[A](items :IterableOnce[A]) :Opt[collection.SeqOps[A, generic.Any, _]] = items match {
-			case _ :ArrayIterableOnce[A] => Got(items.toBasicOps.toIndexedSeq)
+		def unapply[A](items :IterableOnce[A]) :Maybe[collection.SeqOps[A, generic.Any, _]] = items match {
+			case _ :ArrayIterableOnce[A] => Yes(items.toBasicOps.toIndexedSeq)
 			case seq :collection.IndexedSeqOps[A, generic.Any, _] => items match {
-				case seq :ArraySeq[A]         => Got(seq)
-				case seq :mutable.ArraySeq[A] => Got(seq)
-				case seq :ArrayBuffer[A]      => Got(seq)
-				case seq :WrappedString       => Got(seq)
-				case seq :Substring           => Got(seq)
+				case seq :ArraySeq[A]         => Yes(seq)
+				case seq :mutable.ArraySeq[A] => Yes(seq)
+				case seq :ArrayBuffer[A]      => Yes(seq)
+				case seq :WrappedString       => Yes(seq)
+				case seq :Substring           => Yes(seq)
 				case seq :IndexedSeq[A] if applyPreferredMaxLengthProperty.isDefined =>
 					if (seq.length <= applyPreferredMaxLengthProperty.get.invoke(seq).asInstanceOf[Int])
-						Got(seq)
+						Yes(seq)
 					else
-						Lack
-				case _ if seq.length <= defaultApplyPreferredMaxLength => Got(seq)
-				case _ => Lack
+						No
+				case _ if seq.length <= defaultApplyPreferredMaxLength => Yes(seq)
+				case _ => No
 			}
 			case seq :collection.SeqOps[A, generic.Any, _] =>
-				if (seq.sizeIs <= applyAlwaysPreferredLength) Got(seq) else Lack
+				if (seq.sizeIs <= applyAlwaysPreferredLength) Yes(seq) else No
 			case ranking :Ranking[A] if ranking.applyPreferred =>
-				if (ranking.length <= defaultApplyPreferredMaxLength) Got(ranking.toIndexedSeq) else Lack
+				if (ranking.length <= defaultApplyPreferredMaxLength) Yes(ranking.toIndexedSeq) else No
 			case set     :IndexedSet[A] if set.size <= defaultApplyPreferredMaxLength =>
-				if (set.size <= defaultApplyPreferredMaxLength) Got(set.toIndexedSeq) else Lack
-			case _ => Lack
+				if (set.size <= defaultApplyPreferredMaxLength) Yes(set.toIndexedSeq) else No
+			case _ => No
 		}
 		@inline def apply(items :collection.SeqOps[_, generic.Any, _]) :Boolean = applyPreferred(items)
 	}
@@ -252,12 +252,12 @@ private[sugar] object IndexedIterable {
 	}
 	private[this] final val applyAlwaysPreferredLength = 4
 	private[this] val applyPreferredMaxLengthProperty =
-		try Opt {
+		try Maybe {
 			val m = classOf[IndexedSeq[_]].getMethod("applyPreferredMaxLength")
 			m.setAccessible(true)
 			m
 		} catch {
-			case _ :Exception => Lack
+			case _ :Exception => No
 		}
 }
 
@@ -269,24 +269,24 @@ private object HasFastSlice {
 
 	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = unapply(items).isDefined
 
-	def unapply[A](items :IterableOnce[A]) :Opt[IterableOnceOps[A, IterableOnce, IterableOnce[A]]] =
+	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOnceOps[A, IterableOnce, IterableOnce[A]]] =
 		items match {
-//				case view :View[A]       => Got(view)
-//				case iter :Iterator[A]   => Got(iter)
+//				case view :View[A]       => Yes(view)
+//				case iter :Iterator[A]   => Yes(iter)
 			case _    :collection.IndexedSeqOps[A, IterableOnce, IterableOnce[A]] @unchecked => items match {
-				case view  :IndexedSeqView[A]        => Got(view)
-				case vec   :Vector[A]                => Got(vec)
-				case pass  :RelayArray[A]            => Got(pass)
-				case slice :ArrayLikeSlice[A]        => Got(slice)
-				case seq   :collection.IndexedSeq[A] => Got(new SeqSlice(seq))
-				case ArrayLike.Wrapped.Slice(array, from, until) => Got(ArrayLikeSlice.slice(array, from, until))
+				case view  :IndexedSeqView[A]        => Yes(view)
+				case vec   :Vector[A]                => Yes(vec)
+				case pass  :RelayArray[A]            => Yes(pass)
+				case slice :ArrayLikeSlice[A]        => Yes(slice)
+				case seq   :collection.IndexedSeq[A] => Yes(new SeqSlice(seq))
+				case ArrayLike.Wrapped.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
 				//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
-//						case IndexedIterable(seq)            => Got(seq)
-				case _                               => Lack
+//						case IndexedIterable(seq)            => Yes(seq)
+				case _                               => No
 			}
-			case zig  :ZigZag[A]     => Got(zig)
-			case set  :IndexedSet[A] => Got(set)
-			case _                   => Lack
+			case zig  :ZigZag[A]     => Yes(zig)
+			case set  :IndexedSet[A] => Yes(set)
+			case _                   => No
 		}
 
 

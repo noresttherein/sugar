@@ -9,8 +9,8 @@ import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.numeric.ULong.{BigDecimalMaxLongTimes2, BigIntMaxLongTimes2, BigIntegerMaxLongTimes2, Decimal64MaxLongTimes2, DoubleMaxLongTimes2, FloatMaxLongTimes2, JavaBigDecimalMaxLongTimes2}
 import net.noresttherein.sugar.numeric.extensions.LongExtension
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -260,14 +260,14 @@ object ULong {
 		new ULong(int)
 	}
 
-	def parse(string: String): Opt[ULong] =
+	def parse(string: String): Maybe[ULong] =
 		Numeric.LongIsIntegral.parseString(string) match {
-			case Some(long) => if (long >= 0) Got(new ULong(long)) else Lack
+			case Some(long) => if (long >= 0) Yes(new ULong(long)) else No
 			case None =>
-				try Got(new ULong(jl.Long.parseUnsignedLong(string))) catch {
-					case _ :Exception => Lack
+				try Yes(new ULong(jl.Long.parseUnsignedLong(string))) catch {
+					case _ :Exception => No
 				}
-			case _ => Lack
+			case _ => No
 		}
 
 	private def throwArithmeticException(value: Long): Nothing =

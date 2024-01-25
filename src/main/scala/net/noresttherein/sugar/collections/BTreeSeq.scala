@@ -13,7 +13,7 @@ import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.arrays.{ArrayIterator, ErasedArray, IArray}
 import net.noresttherein.sugar.collections.BTreeSeq.{CompletePrefixes, ConvertToBTreeOnConcatFactor, Empty, Leaf, MaxChildren, Node, Rank, SemiCompletePrefixes, grow, semiCompleteNode}
 import net.noresttherein.sugar.vars.Box
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 //implicits
 import net.noresttherein.sugar.arrays.IArray.IArrayClassTag
@@ -883,7 +883,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 	  */
 	private def grow[E](first :BTreeSeq[E], second :Box[BTreeSeq[E]]) :BTreeSeq[E] =
 		second.removeOpt() match {
-			case Got(node) => new Node(first, node)
+			case Yes(node) => new Node(first, node)
 			case _         => first
 		}
 
@@ -1919,7 +1919,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 					else
 						suffix.prependedAll(prefix, suffixDepth - prefixDepth, surplus)
 				surplus.removeOpt() match {
-					case Got(second) => new Node(first, second)
+					case Yes(second) => new Node(first, second)
 					case _           => first
 				}
 			} else if (fromIdx + 2 == untilIdx) {
@@ -1927,10 +1927,10 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 				val suffix = children(untilIdx).slice(0, relativeUntil, height - 1, surplus)
 				val first  = children(fromIdx + 1).prependedAll(prefix, height - 1 - prefix.depth, surplus)
 				surplus.removeOpt() match {
-					case Got(node) =>
+					case Yes(node) =>
 						val second = node.appendedAll(suffix, height - 1 - suffix.depth, surplus)
 						surplus.removeOpt() match {
-							case Got(third) =>
+							case Yes(third) =>
 								val newChildren = new Array[BTreeSeq[U]](3)
 								newChildren(0) = first
 								newChildren(1) = second
@@ -1942,7 +1942,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 					case _ =>
 						val res = first.appendedAll(suffix, height - 1 - suffix.depth, surplus)
 						surplus.removeOpt() match {
-							case Got(next) => new Node(res, next)
+							case Yes(next) => new Node(res, next)
 							case _ => res
 						}
 				}

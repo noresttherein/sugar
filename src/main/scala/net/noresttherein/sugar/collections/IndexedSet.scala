@@ -17,8 +17,8 @@ import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedS
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension}
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.outOfBounds_!
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 
 
@@ -145,8 +145,8 @@ trait IndexedSet[E]
 	}
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
-		case Got(IndexedSet | Set) => this.asInstanceOf[C1]
-		case Got(Seq | IndexedSeq) => toIndexedSeq.asInstanceOf[C1]
+		case Yes(IndexedSet | Set) => this.asInstanceOf[C1]
+		case Yes(Seq | IndexedSeq) => toIndexedSeq.asInstanceOf[C1]
 		case _ => super.to(factory)
 	}
 	private[collections] def applyPreferredMaxLength :Int = Int.MaxValue

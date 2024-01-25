@@ -4,7 +4,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, undefined}
 
 
@@ -49,12 +49,12 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	/** True if the value is not evaluated yet.
 	  * @return `!`[[net.noresttherein.sugar.vars.Lazy.isDefinite isDefinite]].
 	  */
-	override def isEmpty :Boolean = !isDefinite //overridden for docs only
+	@inline final override def isEmpty :Boolean = !isDefinite //overridden for docs only
 
 	/** Returns `true`: all `Lazy` values can have only a single value and, once initialized,
 	  * [[net.noresttherein.sugar.vars.Ref.value value]] always returns it.
 	  */
-	final override def isFinalizable :Boolean = true
+	@inline final override def isFinalizable :Boolean = true
 
 	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite isDefinite]]. */
 	@inline final override def isConst :Boolean = isDefinite
@@ -73,7 +73,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  * }}}
 	  * is thread safe for all implementations.
 	  */
-	override def isDefinite :Boolean = opt.nonEmpty
+	override def isDefinite :Boolean //= opt.nonEmpty
 
 	/** The value of this $Ref. This method always returns the same value and throws no exception,
 	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.Val.const const]].
@@ -93,21 +93,21 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  */
 	@inline final override def constOption :Option[T] = toOption
 
-	override def opt :Opt[T] = if (!isEmpty) Got(value) else Lack
+	override def maybe :Maybe[T] = if (!isEmpty) Yes(value) else No
 
-	/** Returns [[net.noresttherein.sugar.vars.Opt.Got Got]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
-	@inline final override def toOpt :Opt[T] = opt
+	/** Returns [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
+	@inline final override def toMaybe :Maybe[T] = Yes(get)
 
-	/** Returns [[net.noresttherein.sugar.vars.Opt.Got Got]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
-	  * same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
+	/** Returns [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
+	  * same as [[net.noresttherein.sugar.vars.Lazy.toMaybe toMaybe]].
 	  */
-	@inline final override def constOpt :Opt[T] = opt
+	@inline final override def maybeConst :Maybe[T] = Yes(get)
 
 	/** Returns [[net.noresttherein.sugar.vars.Sure Sure]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
 	override def toUnsure :Unsure[T] = Sure(get)
 
 	/** Returns [[net.noresttherein.sugar.vars.Sure Sure]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
-	@inline final override def constUnsure :Unsure[T] = toUnsure
+	@inline final override def unsureConst :Unsure[T] = toUnsure
 
 	/** Creates a new $Ref`[O]` instance with the same characteristics as this instance, evaluated to the application
 	  * of `f` to the value of this instance. If the value has already been evaluated, created instance will be
@@ -130,6 +130,11 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 		new FlatMappedVal[T, O](this, f) with Lazy[O]
 
 	override def mkString :String = mkString("Lazy")
+
+	override def toString :String = maybe match {
+		case Yes(v) => String.valueOf(v)
+		case _      => "<uninitialized>"
+	}
 }
 
 
@@ -149,13 +154,16 @@ object Lazy {
 	  *  The implementation returned by this method uses its synchronized lock to ensure the `init` block
 	  *  is called at most once.
 	  */
-	def apply[@specialized(SpecializedVars) T](init : => T) :Lazy[T] = {
-		val initializer = () => init
-		new SyncVal[T] match {
-			case ref if ref.getClass == classOf[SyncVal[Any]] => new SyncRef(initializer)
-			case spec => spec.init(initializer); spec
+	@inline def apply[@specialized(SpecializedVars) T](init : => T) :Lazy[T] = from(() => init)
+
+	/** Same as [[net.noresttherein.sugar.vars.Lazy$.apply apply]], but accepts a `Function0`,
+	  * rather a by-name parameter.
+	  */
+	def from[@specialized(SpecializedVars) T](init: () => T) :Lazy[T] =
+		new SyncLazyVal[T] match {
+			case ref if ref.getClass == classOf[SyncLazyVal[Any]] => new SyncLazyRef(init)
+			case spec => spec.init(init); spec
 		}
-	}
 
 	/** Unlike the default `Lazy(_)` and built in `lazy val`s, this lazy value does not use a `synchronized` block,
 	  * yielding a minor performance benefit while still remaining thread safe. It happens
@@ -211,173 +219,155 @@ object Lazy {
 	/** An already computed (initialized) value. */
 	@SerialVersionUID(Ver) //todo: make it specialized
 	//Not specialized to avoid boxing of T to ref-wrapper-of-T, especially that we likely already have the wrapper
-	private final class Eager[+T](eager :T) extends Lazy[T] {
-		override def isDefinite = true
-		override def value :T = eager
-		override def get   :T = eager
-
-		override def map[O](f :T => O) :Eager[O] = new Eager(f(eager))
-		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(eager)
-
+	private final class Eager[+T](override val get :T) extends Const[T] with Lazy[T] {
+		override def map[O](f :T => O) :Eager[O] = new Eager(f(get))
+		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(get)
 		override def isSpecialized :Boolean = false //getClass == classOf[Eager[_]]
 	}
 
+}
 
-	/** `Lazy` implementation equivalent in semantics to Scala's `lazy val`.
-	  * The implementation is not really specialized to avoid boxing during generic access; boxing at initialization
-	  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
-	  * and its runtime reference wrapper is an immutable class.
-	  */
-	@SerialVersionUID(Ver)
-	private final class SyncVal[@specialized(SpecializedVars) +T]
-		extends Lazy[T]
-	{
-		private[this] var initializer :() => T = _
-		private[this] var evaluated :Any = undefined
 
-		def init(init :() => T @uncheckedVariance) :Unit = initializer = init
 
-		override def isDefinite :Boolean = evaluated != undefined
 
-		@unspecialized override def value :T = {
-			val res = evaluated
-			if (res != undefined) res.asInstanceOf[T] else throw new NoSuchElementException("Uninitialized Lazy")
-		}
-		@unspecialized override def get :T = {
-			var res = evaluated
-			if (res == undefined)
-				synchronized {
-					val init = initializer
-					if (init == null)
-						res = evaluated
-					else {
-						res = init()
-						evaluated = res
-						initializer = null
-					}
-				}
-			res.asInstanceOf[T]
-		}
 
-		override def option :Option[T] = {
-			val res = evaluated
-			if (res == undefined) None else Some(res.asInstanceOf[T])
-		}
-		override def opt :Opt[T] = {
-			val res = evaluated
-			if (res == undefined) Lack else Got(res.asInstanceOf[T])
-		}
-		@unspecialized override def unsure :Unsure[T] = {
-			val res = evaluated
-			if (res == undefined) Missing else Sure(res.asInstanceOf[T])
-		}
 
-		@unspecialized override def map[O](f :T => O) :Lazy[O] = {
-			val v = evaluated
-			if (v != undefined)
-				eager(f(v.asInstanceOf[T]))
-			else synchronized {
-				val init = initializer
-				if (init == null) {
-					val t = evaluated.asInstanceOf[T]
-					eager(f(t))
-				} else
-					new SyncRef(() => f(apply()))
-			}
-		}
-		@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
-			val v = evaluated
-			if (v != undefined)
-				f(v.asInstanceOf[T])
-			else synchronized {
+/** `Lazy` implementation equivalent in semantics to Scala's `lazy val`.
+  * The implementation is not really specialized to avoid boxing during generic access; boxing at initialization
+  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
+  * and its runtime reference wrapper is an immutable class.
+  */
+@SerialVersionUID(Ver)
+private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T] {
+	private[this] var initializer :() => T = _
+	private[this] var evaluated :Any = undefined
+
+	def init(init :() => T @uncheckedVariance) :Unit = initializer = init
+
+	override def isDefinite :Boolean = evaluated != undefined
+
+	@unspecialized override def value :T = {
+		val res = evaluated
+		if (res != undefined) res.asInstanceOf[T]
+		else throw new NoSuchElementException("Uninitialized Lazy")
+	}
+	@unspecialized override def get :T = {
+		var res = evaluated
+		if (res == undefined)
+			synchronized {
 				val init = initializer
 				if (init == null)
-					f(evaluated.asInstanceOf[T])
-				else
-					new SyncRef(f(apply()))
-			}
-		}
-
-		override def isSpecialized = true
-
-		override def mkString(prefix :String) :String = evaluated match {
-			case Ref.undefined => prefix + "()"
-			case v => prefix + "(" + v + ")"
-		}
-		override def mkString :String = evaluated match {
-			case Ref.undefined => "SyncLazy()"
-			case v => "SyncLazy(" + v + ")"
-		}
-		override def toString :String = String.valueOf(evaluated) //can print NoContent.toString, but it's ok
-
-		private def writeReplace = Lazy.eager(apply())
-	}
-
-
-
-	@SerialVersionUID(Ver)
-	private final class SyncRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
-		@volatile private[this] var evaluated :Any = undefined
-
-		override def isDefinite :Boolean = evaluated != undefined
-
-		override def value :T = evaluated match {
-			case `undefined` => throw new NoSuchElementException("Uninitialized Lazy")
-			case v => v.asInstanceOf[T]
-		}
-		override def get :T = {
-			var res = evaluated
-			if (res == undefined) synchronized {
-				res = evaluated
-				if (res == undefined) {
-					res = initializer()
+					res = evaluated
+				else {
+					res = init()
 					evaluated = res
 					initializer = null
 				}
 			}
-			res.asInstanceOf[T]
-		}
-
-		override def opt :Opt[T] = synchronized {
-			val res = evaluated
-			if (res == undefined) Lack else Got(res.asInstanceOf[T])
-		}
-
-		override def map[O](f :T => O) :Lazy[O] = {
-			var v = evaluated
-			if (v != undefined)
-				eager(f(v.asInstanceOf[T]))
-			else synchronized {
-				v = evaluated
-				if (v != undefined)
-					eager(f(v.asInstanceOf[T]))
-				else
-					new SyncRef(() => f(apply()))
-			}
-		}
-		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
-			var v = evaluated
-			if (v != undefined) {
-				f(v.asInstanceOf[T])
-			} else synchronized {
-				v = evaluated
-				if (v != undefined)
-					f(v.asInstanceOf[T])
-				else
-					new SyncRef(f(apply()))
-			}
-		}
-
-		override def isSpecialized = false
-
-		override def mkString :String = evaluated match {
-			case `undefined` => "SyncLazy()"
-			case v => "SyncLazy(" + v + ")"
-		}
-		override def toString :String = String.valueOf(evaluated) //can print Undefined.toString, but it's ok
-
-		private def writeReplace = Lazy.eager(apply())
+		res.asInstanceOf[T]
 	}
 
+	override def option :Option[T] = {
+		val res = evaluated
+		if (res == undefined) None else Some(res.asInstanceOf[T])
+	}
+	override def maybe :Maybe[T] = {
+		val res = evaluated
+		if (res == undefined) No else Yes(res.asInstanceOf[T])
+	}
+	@unspecialized override def unsure :Unsure[T] = {
+		val res = evaluated
+		if (res == undefined) Missing else Sure(res.asInstanceOf[T])
+	}
+
+	@unspecialized override def map[O](f :T => O) :Lazy[O] = {
+		val v = evaluated
+		if (v != undefined)
+			Lazy.eager(f(v.asInstanceOf[T]))
+		else synchronized {
+			val init = initializer
+			if (init == null) {
+				val t = evaluated.asInstanceOf[T]
+				Lazy.eager(f(t))
+			} else
+				new SyncLazyRef(() => f(get))
+		}
+	}
+	@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+		val v = evaluated
+		if (v != undefined)
+			f(v.asInstanceOf[T])
+		else synchronized {
+			val init = initializer
+			if (init == null)
+				f(evaluated.asInstanceOf[T])
+			else
+				new SyncLazyRef(f(get))
+		}
+	}
+
+	override def isSpecialized = true
+
+	private def writeReplace = Lazy.eager(get)
+}
+
+
+
+@SerialVersionUID(Ver)
+private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) extends Lazy[T] {
+	@volatile private[this] var evaluated :Any = undefined
+
+	final override def isDefinite :Boolean = evaluated != undefined
+
+	final override def value :T = evaluated match {
+		case `undefined` => throw new NoSuchElementException("Uninitialized Lazy")
+		case v => v.asInstanceOf[T]
+	}
+	final override def get :T = {
+		var res = evaluated
+		if (res == undefined) synchronized {
+			res = evaluated
+			if (res == undefined) {
+				res = initializer()
+				evaluated = res
+				initializer = null
+			}
+		}
+		res.asInstanceOf[T]
+	}
+
+	final override def maybe :Maybe[T] = synchronized {
+		val res = evaluated
+		if (res == undefined) No else Yes(res.asInstanceOf[T])
+	}
+
+	override def map[O](f :T => O) :Lazy[O] = {
+		var v = evaluated
+		if (v != undefined)
+			Lazy.eager(f(v.asInstanceOf[T]))
+		else synchronized {
+			v = evaluated
+			if (v != undefined)
+				Lazy.eager(f(v.asInstanceOf[T]))
+			else
+				new SyncLazyRef(() => f(get))
+		}
+	}
+	override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+		var v = evaluated
+		if (v != undefined) {
+			f(v.asInstanceOf[T])
+		} else synchronized {
+			v = evaluated
+			if (v != undefined)
+				f(v.asInstanceOf[T])
+			else
+				new SyncLazyRef(f(get))
+		}
+	}
+
+	override def isSpecialized = false
+
+	private def writeReplace = Lazy.eager(get)
 }
 

@@ -4,8 +4,9 @@ import scala.collection.Searching
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
-import net.noresttherein.sugar.vars.{IntOpt, Opt}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -32,17 +33,18 @@ class ElementIndex private[sugar] (private val idx :Int) extends AnyVal with Ser
 	@inline def isFound  :Boolean = idx >= 0
 	@inline def notFound :Boolean = idx < 0
 	@inline def get :IntOpt = if (idx < 0) NoInt else AnInt(idx)
-	@inline def toOpt    :Opt[Int] = if (idx < 0) Lack else Got(idx)
+	@inline def toMaybe  :Maybe[Int] = if (idx < 0) No else Yes(idx)
 	@inline def toOption :Option[Int] = if (idx < 0) None else Some(idx)
-	def toEither         :Either[Opt[Int], Int] =
+	@inline def toOpt    :Opt[Int] = if (idx < 0) None else One(idx)
+	def toEither         :Either[Maybe[Int], Int] =
 		if (idx < 0)
-			if (idx == Int.MinValue) Left(Lack)
-			else Left(Got(-idx - 1))
+			if (idx == Int.MinValue) Left(No)
+			else Left(Yes(-idx - 1))
 		else Right(idx)
-//	def toPill :Pill[Opt[Int], Int] =
+//	def toPill :Pill[Maybe[Int], Int] =
 //		if (idx < 0)
-//			if (idx == Int.MinValue) Red(Lack)
-//			else Red(Got(-idx - 1))
+//			if (idx == Int.MinValue) Red(No)
+//			else Red(Yes(-idx - 1))
 //		else Blue(idx)
 
 	@throws[UnsupportedOperationException]("if insertion point was not specified (and the element has not been found).")

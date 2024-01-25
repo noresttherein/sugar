@@ -3,6 +3,7 @@ package net.noresttherein.sugar.numeric
 import java.lang.{Math => math}
 
 import scala.Specializable.Integral
+import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.numeric.BitLogic.{ArrayBitLogic, BitLogicOps}
@@ -243,6 +244,7 @@ object BitLogic {
 	/** A variant of `BitLogic` type class for types of a well defined bit size, such as all inbuilt integral types.
 	  * @note the implementation assumes that `bitLength <= Long.MaxValue / Int.MaxValue`
 	  */
+	@nowarn
 	trait FixedBitSizeLogic[@specialized(Integral) X] extends BitLogic[X] {
 		def bitLength :Long
 		override def bitSizeOf(x :X) :Long = bitLength
@@ -309,6 +311,7 @@ object BitLogic {
 
 	}
 
+	@nowarn
 	trait ValueTypeBitLogic[@specialized(Integral) X] extends BitLogic[X] {
 		override def clear(x :X, from :Long, until :Long) :X = {
 			if (from == 0) shiftRight(shiftLeft(x, until), until)

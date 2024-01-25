@@ -9,8 +9,8 @@ import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JFloat, JInt, J
 import net.noresttherein.sugar.collections
 import net.noresttherein.sugar.collections.JavaIteratorShape.IteratorShape
 import net.noresttherein.sugar.extensions.castingMethods
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -175,7 +175,7 @@ private[collections] sealed abstract class Rank3JavaIteratorShapes {
   * @tparam I a subtype of `Jterator[_]`, compatible with element type `A`.
   */
 @SerialVersionUID(Ver)
-final class JteratorShape[-E, I] private (val shape :Opt[StepperShape.Shape]) extends Equals with Serializable {
+final class JteratorShape[-E, I] private (val shape :Maybe[StepperShape.Shape]) extends Equals with Serializable {
 	type JavaIterator <: collections.JavaIterator[_]
 	type Stepper      <: collection.Stepper[_]
 
@@ -201,14 +201,14 @@ final class JteratorShape[-E, I] private (val shape :Opt[StepperShape.Shape]) ex
 		javaIteratorShape.stepperShape.castFrom[StepperShape[E, _ <: collection.Stepper[_]], StepperShape[E, Stepper]]
 
 	override def toString :String = shape match {
-		case Got(ReferenceShape) => "JteratorShape[_<:AnyRef, RefJterator[_]]"
-		case Got(IntShape)       => "JteratorShape[Int, IntJterator]"
-		case Got(LongShape)      => "JteratorShape[Long, LongJterator]"
-		case Got(DoubleShape)    => "JteratorShape[Double, DoubleJterator]"
-		case Got(FloatShape)     => "JteratorShape[Float, FloatJterator]"
-		case Got(ShortShape)     => "JteratorShape[Short, ShortJterator]"
-		case Got(CharShape)      => "JteratorShape[Char, CharJterator]"
-		case Got(ByteShape)      => "JteratorShape[Byte, ByteJterator]"
+		case Yes(ReferenceShape) => "JteratorShape[_<:AnyRef, RefJterator[_]]"
+		case Yes(IntShape)       => "JteratorShape[Int, IntJterator]"
+		case Yes(LongShape)      => "JteratorShape[Long, LongJterator]"
+		case Yes(DoubleShape)    => "JteratorShape[Double, DoubleJterator]"
+		case Yes(FloatShape)     => "JteratorShape[Float, FloatJterator]"
+		case Yes(ShortShape)     => "JteratorShape[Short, ShortJterator]"
+		case Yes(CharShape)      => "JteratorShape[Char, CharJterator]"
+		case Yes(ByteShape)      => "JteratorShape[Byte, ByteJterator]"
 		case _                   => "Jterator[Boolean, BooleanJterator]"
 	}
 
@@ -227,29 +227,29 @@ object JteratorShape extends JteratorShapeForAny {
 		JteratorShape[E, J] { type JavaIterator = J; type Stepper = S }
 
 	private def apply[E, J <: Jterator[E], I <: JavaIterator[_], S <: Stepper[_]]
-	                 (shape :Opt[Shape]) :JteratorShapeAndTypes[E, J, I, S] =
+	                 (shape :Maybe[Shape]) :JteratorShapeAndTypes[E, J, I, S] =
 		new JteratorShape[E, J](shape).asInstanceOf[JteratorShapeAndTypes[E, J, I, S]]
 
 	implicit val intJteratorShape     :JteratorShapeAndTypes[Int, IntJterator, JavaIntIterator, IntStepper] =
-		apply(Got(IntShape))
+		apply(Yes(IntShape))
 	implicit val longJteratorShape    :JteratorShapeAndTypes[Long, LongJterator, JavaLongIterator, LongStepper] =
-		apply(Got(LongShape))
+		apply(Yes(LongShape))
 	implicit val doubleJteratorShape  :JteratorShapeAndTypes[Double, DoubleJterator, JavaDoubleIterator, DoubleStepper] =
-		apply(Got(DoubleShape))
+		apply(Yes(DoubleShape))
 	implicit val floatJteratorShape   :JteratorShapeAndTypes[Float, FloatJterator, JavaDoubleIterator, DoubleStepper] =
-		apply(Got(FloatShape))
+		apply(Yes(FloatShape))
 	implicit val shortJteratorShape   :JteratorShapeAndTypes[Short, ShortJterator, JavaIntIterator, IntStepper] =
-		apply(Got(ShortShape))
+		apply(Yes(ShortShape))
 	implicit val charJteratorShape    :JteratorShapeAndTypes[Char, CharJterator, JavaIntIterator, IntStepper] =
-		apply(Got(CharShape))
+		apply(Yes(CharShape))
 	implicit val byteJteratorShape    :JteratorShapeAndTypes[Byte, ByteJterator, JavaIntIterator, IntStepper] =
-		apply(Got(ByteShape))
-	implicit val booleanJteratorShape :JteratorShape[Boolean, BooleanJterator] = new JteratorShape(Lack)
+		apply(Yes(ByteShape))
+	implicit val booleanJteratorShape :JteratorShape[Boolean, BooleanJterator] = new JteratorShape(No)
 
 	implicit def refJteratorShape[T <: AnyRef] :JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]] =
 		anyRefJteratorShape.asInstanceOf[JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]]]
 
-	private val anyRefJteratorShape = new JteratorShape[AnyRef, RefJterator[AnyRef]](Got(ReferenceShape))
+	private val anyRefJteratorShape = new JteratorShape[AnyRef, RefJterator[AnyRef]](Yes(ReferenceShape))
 }
 
 private[collections] sealed abstract class JteratorShapeForAny {

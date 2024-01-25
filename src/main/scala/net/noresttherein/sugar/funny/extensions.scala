@@ -6,8 +6,8 @@ import scala.annotation.tailrec
 import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castingMethods, downcast2TypeParamsMethods, downcastTypeParamMethods}
 import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension, FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionCompanionExtension}
 import net.noresttherein.sugar.funny.fun.{ComposableFun2, ComposableFun3}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -20,7 +20,7 @@ trait extensions extends Any {
 	@inline implicit final def HomoFunctionExtension[X](f :X => X) :HomoFunctionExtension[X] =
 		new HomoFunctionExtension(f)
 
-	@inline implicit final def OptHomoFunctionExtension[X](f :X => Opt[X]) :OptHomoFunctionExtension[X] =
+	@inline implicit final def OptHomoFunctionExtension[X](f :X => Maybe[X]) :OptHomoFunctionExtension[X] =
 		new OptHomoFunctionExtension(f)
 
 	@inline implicit final def OptionHomoFunctionExtension[X](f :X => Option[X]) :OptionHomoFunctionExtension[X] =
@@ -66,13 +66,13 @@ object extensions extends extensions {
 			else x
 	}
 
-	class OptHomoFunctionExtension[X] private[funny] (private val self :X => Opt[X]) extends AnyVal {
+	class OptHomoFunctionExtension[X] private[funny] (private val self :X => Maybe[X]) extends AnyVal {
 		/** Applies this function to the argument, and then recursively to its own result, for as long as its result
 		  * is non empty. Note that the function must be applied one more time in order to determine the result is empty.
 		  * @return `this(x).map(recurse).getOrElse(x)`
 		  */
 		@tailrec final def recurse(x :X) :X = self(x) match {
-			case Got(next) => recurse(next)
+			case Yes(next) => recurse(next)
 			case _ => x
 		}
 	}
@@ -104,9 +104,9 @@ object extensions extends extensions {
 
 	class PartialFunctionExtension[X, Y] private[funny] (private val self :PartialFunction[X, Y]) extends AnyVal {
 		/** Same as `PartialFunction.`[[PartialFunction.unapply unapply]], but does not box. */
-		def get(x :X) :Opt[Y] = {
+		def get(x :X) :Maybe[Y] = {
 			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
-			if (y.asAnyRef eq Fallback) Lack else Got(y)
+			if (y.asAnyRef eq Fallback) No else Yes(y)
 		}
 
 		/** Equivalent to `(this andThen f).applyOrElse(x, default)`, but without constructing an intermediate function. */
@@ -174,7 +174,7 @@ object extensions extends extensions {
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
 		def from[@specialized(Arg) In, Out]
-		        (name :String)(f :In => Opt[Out]) :PartialFunction[In, Out] =
+		        (name :String)(f :In => Maybe[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, name)
 
 		/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
@@ -184,7 +184,7 @@ object extensions extends extensions {
 		  * @param f    a function extracting `Out` values from `In` arguments.
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def from[@specialized(Arg) In, Out](f :In => Opt[Out]) :PartialFunction[In, Out] =
+		def from[@specialized(Arg) In, Out](f :In => Maybe[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, "<unlifted function>")
 	}
 
@@ -298,7 +298,7 @@ object extensions extends extensions {
 
 	@SerialVersionUID(Ver)
 	private final class OptFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
-	                               (f :In => Opt[Out], override val toString :String)
+	                               (f :In => Maybe[Out], override val toString :String)
 		extends ComposablePartialFunction[In, Out]
 	{
 		override def isDefinedAt(x :In) :Boolean = f(x).isDefined

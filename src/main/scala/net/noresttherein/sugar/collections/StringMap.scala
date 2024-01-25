@@ -17,8 +17,8 @@ import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compa
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.typist.casting.extensions.{castingMethods, castTypeParamMethods}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -85,7 +85,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	def value(n :Int) :V = root.at(n).value.get
 
 	override def apply(key :String) :V = root.get(key) match {
-		case Got(value) => value
+		case Yes(value) => value
 		case _          => default(key)
 	}
 	override def get(key :String) :Option[V] = root.get(key).toOption
@@ -93,7 +93,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	def indexOf(key :String) :ElementIndex = root.indexOf(key)
 
 	override def getOrElse[V1 >: V](key :String, default: => V1) :V1 = root.get(key) match {
-		case Got(value) => value
+		case Yes(value) => value
 		case _          => default
 	}
 
@@ -356,22 +356,22 @@ case object StringSet extends SpecificIterableFactory[String, StringSet] {
 
 private object PrefixTree {
 	@inline def apply(key :String) :PrefixTree[String] =
-		new PrefixTree(key.length, key, Got(key), EmptyChildrenArray.castParam[PrefixTree[String]], 1, 1)
+		new PrefixTree(key.length, key, Yes(key), EmptyChildrenArray.castParam[PrefixTree[String]], 1, 1)
 
 	@inline def apply[V](key :String, value :V) :PrefixTree[V] =
-		new PrefixTree(key.length, key, Got(value), EmptyChildrenArray.castParam[PrefixTree[V]], 1, 1)
+		new PrefixTree(key.length, key, Yes(value), EmptyChildrenArray.castParam[PrefixTree[V]], 1, 1)
 
 //	@inline def apply[V](entry :(String, V)) :PrefixTree[V] =
-//		new PrefixTree(entry._1.length, entry._1, Got(entry._2), EmptyChildrenArray.castParam[PrefixTree[V]], 1, 1)
+//		new PrefixTree(entry._1.length, entry._1, Yes(entry._2), EmptyChildrenArray.castParam[PrefixTree[V]], 1, 1)
 
 	@inline def apply[V](key :String, value :V, child :PrefixTree[V]) :PrefixTree[V] =
-		new PrefixTree(key.length, key, Got(value), Array.one(child), child.size + 1, child.depth + 1)
+		new PrefixTree(key.length, key, Yes(value), Array.one(child), child.size + 1, child.depth + 1)
 
 	/** Joins to valid prefix trees which diverge at `offset` in a single node for the divergence point. */
 	@inline def apply[V](offset :Int, left :PrefixTree[V], right :PrefixTree[V]) :PrefixTree[V] = {
 		val key = left.firstKey
 		val depth = math.max(left.depth, right.depth) + 1
-		new PrefixTree(offset, key, Lack, Array.two(left, right), left.size + right.size, depth)
+		new PrefixTree(offset, key, No, Array.two(left, right), left.size + right.size, depth)
 	}
 //	@inline def apply[V](offset :Int, key :String, left :PrefixTree[V], right :PrefixTree[V]) :PrefixTree[V] = {
 //	}
@@ -404,7 +404,7 @@ private object PrefixTree {
 
 	val EmptyChildrenArray = new Array[PrefixTree[Nothing]](0)
 
-	val Empty = new PrefixTree[Nothing](0, "", Lack, EmptyChildrenArray, 0)
+	val Empty = new PrefixTree[Nothing](0, "", No, EmptyChildrenArray, 0)
 
 
 	private final val StackRecursionDepthLimit = 512
@@ -451,11 +451,11 @@ private object PrefixTree {
 }
 
 
-private final class PrefixTree[+V](val offset :Int, val firstKey :String, val value :Opt[V],
+private final class PrefixTree[+V](val offset :Int, val firstKey :String, val value :Maybe[V],
                                    val children :Array[PrefixTree[V @uncheckedVariance]], val size :Int, val depth :Int)
 	extends IterableOnce[V]
 {
-	def this(offset :Int, key :String, value :Opt[V], children :Array[PrefixTree[V]], size :Int) =
+	def this(offset :Int, key :String, value :Maybe[V], children :Array[PrefixTree[V]], size :Int) =
 		this(offset, key, value, children, size, {
 			var depth = 1
 			var i = children.length - 1
@@ -465,7 +465,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 			}
 			depth
 		})
-	def this(offset :Int, key :String, value :Opt[V], children :Array[PrefixTree[V]]) =
+	def this(offset :Int, key :String, value :Maybe[V], children :Array[PrefixTree[V]]) =
 		this(offset, key, value, children, {
 			var size = if (value.isDefined) 1 else 0
 			var i = children.length
@@ -479,7 +479,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 	def isDeep = depth > PrefixTree.StackRecursionDepthLimit
 	override def knownSize :Int = size
 
-	def entry :Opt[(String, V)] = value.map((firstKey, _))
+	def entry :Maybe[(String, V)] = value.map((firstKey, _))
 
 	/** Compares key <> this.key.substring(from, offset). Requires key.length >= offset. */
 	def compareKeyFrom(key :String, from :Int) :Int = {
@@ -521,23 +521,23 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 		}
 	}
 
-	def get(key :String) :Opt[V] = {
+	def get(key :String) :Maybe[V] = {
 		val length = key.length
 		var node   = this
 		var cmpTo  = 0
 		while (node != null) {
 			val offset = node.offset
 			if (offset > length)
-				return Lack
+				return No
 			val cmp = compareRange(key, node.firstKey, cmpTo, offset)
 			if (cmp < 0)
-				return Lack
+				return No
 			if (offset == length)
-				return if (cmp == 0) node.value else Lack
+				return if (cmp == 0) node.value else No
 			cmpTo = offset
 			node  = node.child(key.charAt(cmpTo))
 		}
-		Lack
+		No
 	}
 
 	def indexOf(key :String) :ElementIndex = {
@@ -624,16 +624,16 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 			val first    = children(0)
 			val firstKey = children(1).firstKey
 			if (first.depth < depth - 1)
-				new PrefixTree(offset, firstKey, Lack, children.tail, size - first.size, depth)
+				new PrefixTree(offset, firstKey, No, children.tail, size - first.size, depth)
 			else
-				new PrefixTree(offset, firstKey, Lack, children.tail, size - first.size)
+				new PrefixTree(offset, firstKey, No, children.tail, size - first.size)
 		}
 	}
 
 	def dropLastChild :PrefixTree[V] = children.length match {
 		case 0 => null
 		case 1 => value match {
-			case Got(v) => PrefixTree(firstKey, v)
+			case Yes(v) => PrefixTree(firstKey, v)
 			case _      => null
 		}
 		case n =>
@@ -679,7 +679,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 	/** Updates/sets the value on this node. The key must equal `this.firstKey.substring(0, this.offset)`. */
 	def updated[V1 >: V](key :String, value :V1) :PrefixTree[V1] =
 		if (this.value.isEmpty)
-			new PrefixTree(offset, key, Got(value.asInstanceOf[V]), children, size + 1, depth)
+			new PrefixTree(offset, key, Yes(value.asInstanceOf[V]), children, size + 1, depth)
 		else {
 			val x = this.value.get
 			val equal = value match {
@@ -694,7 +694,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 				case v :Boolean => v == x
 			}
 			if (equal) this
-			else new PrefixTree(offset, key, Got(value.asInstanceOf[V]), children, size, depth)
+			else new PrefixTree(offset, key, Yes(value.asInstanceOf[V]), children, size, depth)
 		}
 
 	@inline def -(char :Char) :PrefixTree[V] = remove(char)
@@ -721,7 +721,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 		if (value.isEmpty) this
 		else if (children.length == 1) children(0)
 		else if (children.length == 0) PrefixTree.Empty
-		else new PrefixTree(offset, children(0).firstKey, Lack, children, size - 1, depth)
+		else new PrefixTree(offset, children(0).firstKey, No, children, size - 1, depth)
 
 	@inline def -(key :String) :PrefixTree[V] = remove(key)
 
@@ -780,7 +780,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 						node = null
 					else //loop termination
 						node = new PrefixTree(
-							node.offset, node.children(0).firstKey, Lack, node.children, node.size - 1, node.depth
+							node.offset, node.children(0).firstKey, No, node.children, node.size - 1, node.depth
 						)
 				else {
 					node = node.child(key.charAt(offset))
@@ -947,7 +947,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 					new PrefixTree(offset, firstKey, value, slicedChildren, until - from)
 				else {
 					val k = if (firstKey.length == offset) firstKey else slicedChildren(0).firstKey
-					new PrefixTree(offset, k, Lack, slicedChildren, until - from)
+					new PrefixTree(offset, k, No, slicedChildren, until - from)
 				}
 			}
 		}
@@ -1176,7 +1176,7 @@ private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
 						stack(top) = children(first)
 					else if (remaining == 0)
 						stack(top) = new PrefixTree(
-							node.offset, children(first).firstKey, Lack, children.drop(first), node.size - prefixSize
+							node.offset, children(first).firstKey, No, children.drop(first), node.size - prefixSize
 						)
 					else {
 						if (first == childrenNo - 2)
@@ -1184,7 +1184,7 @@ private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
 						else {
 							val newSize = node.size - prefixSize - size
 							stack(top) = new PrefixTree(
-								node.offset, children(first + 1).firstKey, Lack, children.drop(first + 1), newSize
+								node.offset, children(first + 1).firstKey, No, children.drop(first + 1), newSize
 							)
 						}
 						top += 1
@@ -1346,7 +1346,7 @@ private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
 					start  = offset
 					if (cmp > 0 | cmp == 0 & offset < length) { //firstKey in node is lesser or equal to key
 						if (nextIdx < childrenNo - 1) {
-							stack(depth) = new PrefixTree(start, node.firstKey, Lack, children.drop(nextIdx + 1))
+							stack(depth) = new PrefixTree(start, node.firstKey, No, children.drop(nextIdx + 1))
 							depth += 1
 							if (depth == stack.length)
 								stack = Array.copyOf(stack, stack.length << 1)
@@ -1357,7 +1357,7 @@ private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
 					//key falls between two children of node, this is the last iteration.
 					node = children(-nextIdx - 1)
 					if (nextIdx > -childrenNo) {
-						stack(depth) = new PrefixTree(start, node.firstKey, Lack, children.drop(-nextIdx))
+						stack(depth) = new PrefixTree(start, node.firstKey, No, children.drop(-nextIdx))
 						depth += 1
 						if (depth == stack.length)
 							stack = Array.copyOf(stack, stack.length << 1)

@@ -5,10 +5,10 @@ import scala.util.{Failure, Success, Try}
 
 import net.noresttherein.sugar
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
-import net.noresttherein.sugar.vars.Potential.{Existent, Inexistent, NonExistent}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.exceptions.SugaredThrowable
 
 
@@ -18,15 +18,15 @@ import net.noresttherein.sugar.exceptions.SugaredThrowable
   * method parameters, [[net.noresttherein.sugar.vars.Atomic atomic]]
   * and [[net.noresttherein.sugar.vars.ThreadLocal thread local]] variables,
   * several [[net.noresttherein.sugar.vars.Lazy lazy]] `val` implementations,
-  * [[net.noresttherein.sugar.vars.Opt various]] `Option` [[net.noresttherein.sugar.vars.Unsure alternatives]],
+  * [[net.noresttherein.sugar.vars.Maybe various]] `Option` [[net.noresttherein.sugar.vars.Unsure alternatives]],
   * [[net.noresttherein.sugar.vars.Channel synchronization]] tools
   * and [[net.noresttherein.sugar.vars.SignalVar conditional variables]],
   * [[net.noresttherein.sugar.vars.Watched observed]] variables,
   * disposable [[java.lang.ref.Reference]] [[net.noresttherein.sugar.vars.DisposableRef adapters]] and others.
   *
-  * @define Potential [[net.noresttherein.sugar.vars.Potential! Potential]]
-  * @define Existent [[net.noresttherein.sugar.vars.Potential.Existent$ Existent]]
-  * @define Inexistent [[net.noresttherein.sugar.vars.Potential.Inexistent$ Inexistent]]
+  * @define Opt [[net.noresttherein.sugar.vars.Opt! Opt]]
+  * @define One [[net.noresttherein.sugar.vars.Opt.One One]]
+  * @define None [[scala.None None]]
   * @define Outcome [[net.noresttherein.sugar.vars.Outcome! Outcome]]
   * @define Done [[net.noresttherein.sugar.vars.Outcome.Done Done]]
   * @define Failed [[net.noresttherein.sugar.vars.Outcome.Failed Failed]]
@@ -34,7 +34,7 @@ import net.noresttherein.sugar.exceptions.SugaredThrowable
   * @define Blue [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]]
   * @define Red  [[net.noresttherein.sugar.vars.Pill.Red$ Red]]
   */
-package object vars extends vars.Rank1PotentialImplicits {
+package object vars extends vars.Rank1YieldImplicits {
 
 //	type Wish[+A]
 //	type Granted[+A] <: Wish[A]
@@ -51,391 +51,396 @@ package object vars extends vars.Rank1PotentialImplicits {
 	private[vars] final val Ver = sugar.Ver
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
-	  * in [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]].
-	  * A `Potential[A]` can be have three forms:
-	  *   1. $Inexistent, an [[net.noresttherein.sugar.vars.PotentialExtension.isEmpty empty]] instance corresponding
-	  *      to [[scala.None]];
-	  *   1. $Existent[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
-	  *   1. $Existent[A], wrapped - used to differentiate `Existent(Inexistent)` from `Inexistent`.
-	  * Outside of nesting `Potential` instances within each other, no boxing takes place for reference types
-	  * under any circumstances, in particular when creating an `Array[Potential[A]]` or `Seq[Potential[A]]`,
-	  * using it as an argument or return value of a function, or, in general, substituting it for an abstract type
-	  * (including type parameters). It is for this reason well suited to monadic composition of computations
-	  * through `flatMap`, avoiding boxing of the result of each step. The type is not `@specialized`,
-	  * so boxing of value types to their Java wrappers, as well as lifting of value classes
-	  * to their reference representations, will still occur: all values and arguments
-	  * of type `Potential[A]` are erased to `AnyRef` by the compiler. Code
+	  * in [[net.noresttherein.sugar.vars.YieldExtension YieldExtension]].
+	  * A `Opt[A]` can be have three forms:
+	  *   1. $None, serving the same role as in `scala.Option`,
+	  *   1. $Done[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
+	  *   1. $Done[A], wrapped - used to differentiate `One(None)` from `None`.
+	  *
+	  * Outside of nesting `Opt` instances within each other (or `Option` within `Opt`),
+	  * no boxing takes place for reference types under any circumstances, in particular when creating
+	  * an `Array[Opt[A]]` or `Seq[Opt[A]]`, using it as an argument or return value of a function, or,
+	  * in general, substituting it for an abstract type (including type parameters). It is thus well suited
+	  * for monadic composition of computations through `flatMap`, avoiding boxing of the result of each step.
+	  * The type is not `@specialized`, so boxing of value types to their Java wrappers, as well as lifting
+	  * of value classes to their reference representations, will still occur: all values and arguments
+	  * of type `Opt[A]` are erased to `AnyRef` by the compiler. Code
 	  * {{{
-	  *     val qoluae = Potential(42)
+	  *     val qoluae = Opt(42)
 	  * }}}
 	  * will compile to `new Integer(42)`, unless aggressively inlined by the compiler.
 	  *
-	  * The downside is the same as with opaque types, a `Potential[A]` selector in pattern matching may match
+	  * The downside is the same as with opaque types, a `Opt[A]` selector in pattern matching may match
 	  * patterns for values of `A` itself.
 	  *
-	  * Implicit conversions exists to and from `Opt[A]` in order to improve interoperability; they do not involve
-	  * any boxing in either direction, except for the case `Got(Inexistent) :Existent[_]`.
-	  * @see [[net.noresttherein.sugar.vars.Opt]]
-	  * @see [[net.noresttherein.sugar.vars.Unsure]]
-	  */ //consider: we could use >: None; but then how to rename Existent? Stuff?
-	type Potential[+A] //>: None.type// >: Existent[A] //other names: Hope >: Vain/? or Lucky/NoLuck; Maybe; Perhaps; Yield > One | None
-
-	/** An alias for $Potential`[A]`, a fully erased variant of [[scala.Option]] with an API defined
-	  * by [[net.noresttherein.sugar.vars.PotentialExtension PotentialExtension]] as extension methods.
-	  * @see [[net.noresttherein.sugar.vars.Potential.Existent$]]
-	  * @see [[net.noresttherein.sugar.vars.Potential.Inexistent]]
-	  * @see [[net.noresttherein.sugar.vars.Opt]]
+	  * Implicit conversions exists to and from `Maybe[A]` in order to improve interoperability; they do not involve
+	  * any boxing in either direction, except for the case `Yes(None) :One[_]`.
+	  * @see [[net.noresttherein.sugar.vars.Maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Unsure]]
 	  */
-	type ??[+A] = Potential[A]
+	//Todo: Opt is not a good name, because we can't name methods after it. How to rename it? Maybe is tempting,
+	// to be closer to Option, but then how do we rename current `Maybe`? One good choice is Maybe/Yes/No,
+	// or perhaps Home/Lucky/Unlucky.
+	type Opt[+A] >: None.type// >: One[A] //other names: Hope >: Vain/? or Lucky/NoLuck; Maybe; Perhaps; Opt > One | None
+
+//	@inline implicit def YieldExtension[A](self :Opt[A]) :YieldExtension[A] = new YieldExtension(self)
+
+	/** An alias for $Yield`[A]`, a fully erased variant of [[scala.Option]] with an API defined
+	  * by [[net.noresttherein.sugar.vars.YieldExtension YieldExtension]] as extension methods.
+	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
+	  * @see [[scala.None]]
+	  * @see [[net.noresttherein.sugar.vars.Maybe]]
+	  * @see [[net.noresttherein.sugar.vars.Unsure]]
+	  */
+	type ??[+A] = Opt[A]
 
 
-	/** The API of $Potential in the form of extension methods.
-	  * @define Ref `Potential`
+	/** The API of $Yield in the form of extension methods.
+	  * @define Ref `Opt`
 	  * @define coll potential value
 	  */
-	implicit class PotentialExtension[A](private val self :Potential[A]) extends AnyVal {
+	implicit class YieldExtension[A](private val self :Opt[A]) extends AnyVal {
 
-		/** Tests if this `Potential` does not contain a value
-		  * (is equal to [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]]). */
-		@inline def isEmpty: Boolean = self.asInstanceOf[AnyRef] eq NonExistent
+		/** Tests if this `Opt` does not contain a value
+		  * (is equal to [[scala.None None]]). */
+		@inline def isEmpty: Boolean = self.asInstanceOf[AnyRef] eq None
 
-		/** Tests if this `Potential` is defined. If true, `get` will not throw an exception. */
-		@inline def nonEmpty: Boolean = self.asInstanceOf[AnyRef] ne NonExistent
+		/** Tests if this `Opt` is defined. If true, `get` will not throw an exception. */
+		@inline def nonEmpty: Boolean = self.asInstanceOf[AnyRef] ne None
 
-		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
-		@inline def isConst: Boolean = self.asInstanceOf[AnyRef] ne NonExistent
+		/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
+		@inline def isConst: Boolean = self.asInstanceOf[AnyRef] ne None
 
-		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
-		@inline def isDefined: Boolean = self.asInstanceOf[AnyRef] ne NonExistent
+		/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
+		@inline def isDefined: Boolean = self.asInstanceOf[AnyRef] ne None
 
-		/** Tests if this `Potential` contains a value. This is the same as `nonEmpty`. */
-		@inline def isDefinite :Boolean = self.asInstanceOf[AnyRef] ne NonExistent
+		/** Tests if this `Opt` contains a value. This is the same as `nonEmpty`. */
+		@inline def isDefinite :Boolean = self.asInstanceOf[AnyRef] ne None
 
-		/** Returns `1` if the `Potential` carries a value and `0` otherwise. */
-		@inline def size :Int = if (self.asInstanceOf[AnyRef] eq NonExistent) 0 else 1
+		/** Returns `1` if the `Opt` carries a value and `0` otherwise. */
+		@inline def size :Int = if (self.asInstanceOf[AnyRef] eq None) 0 else 1
 
 		/** Forces extraction of the value.
 		  * @return contained value, if one exists.
-		  * @throws NoSuchElementException if this `Potential` is empty. */
+		  * @throws NoSuchElementException if this `Opt` is empty. */
 		@inline def get :A = (self :Any) match {
-			case NonExistent                    => throw new NoSuchElementException("Inexistent.get")
-			case exists :Existent[A @unchecked] => exists.value
-			case _                              => self.asInstanceOf[A]
+			case None                      => throw new NoSuchElementException("None.get")
+			case exists :One[A @unchecked] => exists.value
+			case _                         => self.asInstanceOf[A]
 		}
 
 		/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
 		@inline def getOrElse[O >: A](or: => O) :O =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) or else get
+			if (self.asInstanceOf[AnyRef] eq None) or else get
 
-		/** Similarly to [[net.noresttherein.sugar.vars.PotentialExtension.getOrElse getOrElse]],
+		/** Similarly to [[net.noresttherein.sugar.vars.YieldExtension.getOrElse getOrElse]],
 		  * returns the value if non-empty and `alt` otherwise. The difference is that the alternative value
 		  * is not lazily computed and guarantees no closure will be created,
 		  * at the cost of possibly discarding it without use.
 		  * @param or the value to return if this instance is empty. */
 		@inline def orDefault[O >: A](or: O) :O =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) or else get
+			if (self.asInstanceOf[AnyRef] eq None) or else get
 
-		/** Assuming that `A` is a nullable type, return `null` if this `Potential` is `Inexistent`,
+		/** Assuming that `A` is a nullable type, return `null` if this `Opt` is `None`,
 		  * or the wrapped value otherwise. */
 		@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) null.asInstanceOf[O] else get
+			if (self.asInstanceOf[AnyRef] eq None) null.asInstanceOf[O] else get
 
 //
 //		/** Gets the element in the $Ref or throws the exception given as the argument.
-//		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orNoSuch orNoSuch]]
-//		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orIllegal orIllegal]] */
+//		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orNoSuch orNoSuch]]
+//		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orIllegal orIllegal]] */
 //		@inline def orThrow(e : => Throwable) :A =
-//			if (self.asInstanceOf[AnyRef] eq NonExistent) throw e else get
+//			if (self.asInstanceOf[AnyRef] eq None) throw e else get
 
-		/** Gets the element in this `Potential` or throws the exception given as the type parameter
+		/** Gets the element in this `Opt` or throws the exception given as the type parameter
 		  * with the given message.
 		  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 		  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
-		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orNoSuch orNoSuch]]
-		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orIllegal orIllegal]] */
+		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orNoSuch orNoSuch]]
+		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orIllegal orIllegal]] */
 		@inline def orThrow[E <: Throwable :ClassTag](msg: => String) :A =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) raise[E](msg) else get
+			if (self.asInstanceOf[AnyRef] eq None) raise[E](msg) else get
 
-		/** Gets the element in this `Potential` or throws a [[NoSuchElementException]] with the given message.
-		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orThrow orThrow]] */
+		/** Gets the element in this `Opt` or throws a [[NoSuchElementException]] with the given message.
+		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orThrow orThrow]] */
 		@inline def orNoSuch(msg: => String) :A =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) throw new NoSuchElementException(msg) else get
+			if (self.asInstanceOf[AnyRef] eq None) throw new NoSuchElementException(msg) else get
 
-		/** Gets the element in this `Potential` or throws an [[IllegalArgumentException]] with the given message.
-		  * @see [[net.noresttherein.sugar.vars.PotentialExtension.orThrow orThrow]] */
+		/** Gets the element in this `Opt` or throws an [[IllegalArgumentException]] with the given message.
+		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orThrow orThrow]] */
 		@inline def orIllegal(msg: => String) :A =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) throw new IllegalArgumentException(msg) else get
+			if (self.asInstanceOf[AnyRef] eq None) throw new IllegalArgumentException(msg) else get
 
 		/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 		@inline def orError(msg: => String) :A = {
-			assert(self.asInstanceOf[AnyRef] ne NonExistent, msg)
+			assert(self.asInstanceOf[AnyRef] ne None, msg)
 			get
 		}
 
 
-		/** Returns the value this `Potential` if it is not empty, or the lazily computed alternative otherwise. */
-		@inline def orElse[O >: A](or: => Potential[O]) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) or else self
+		/** Returns the value this `Opt` if it is not empty, or the lazily computed alternative otherwise. */
+		@inline def orElse[O >: A](or: => Opt[O]) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None) or else self
 
-		/** Similarly to [[net.noresttherein.sugar.vars.PotentialExtension.orElse orElse]], returns this `Potential`
+		/** Similarly to [[net.noresttherein.sugar.vars.YieldExtension.orElse orElse]], returns this `Opt`
 		  *  if it is not empty and `or` otherwise. The difference is that the alternative value is not lazily computed
 		  *  and guarantees no closure would be be created, at the cost of possibly discarding it without use.
 		  * @param or the value to return if this instance is empty. */
-		@inline def ifEmpty[O >: A](or: Potential[O]) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) or else self
+		@inline def ifEmpty[O >: A](or: Opt[O]) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None) or else self
 
-		/** Returns this `Potential` if the condition is false and `Lack` if it is true. This is equivalent
+		/** Returns this `Opt` if the condition is false and `No` if it is true. This is equivalent
 		  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better. */
-		@inline def orEmptyIf(condition :Boolean) :Potential[A] =
-			if (condition) Inexistent else self
+		@inline def orEmptyIf(condition :Boolean) :Opt[A] =
+			if (condition) None else self
 
-		/** Returns this `Potential` if the condition is true and `Lack` if it is false. This is equivalent
+		/** Returns this `Opt` if the condition is true and `No` if it is false. This is equivalent
 		  * to `this.filter(_ => condition)`, but avoids creating a function and arguably conveys the intent better. */
-		@inline def orEmptyUnless(condition :Boolean) :Potential[A] =
-			if (condition) self else Inexistent
+		@inline def orEmptyUnless(condition :Boolean) :Opt[A] =
+			if (condition) self else None
 
 
-		/** Returns a new `Potential` which is empty ''iff'' this value is empty, or one containing
+		/** Returns a new `Opt` which is empty ''iff'' this value is empty, or one containing
 		  * the result of applying the given function to its value otherwise. */
-		@inline def map[O](f :A => O) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Inexistent else Existent(f(get))
+		@inline def map[O](f :A => O) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None) None else One(f(get))
 
-		/** Applies the given function to the content of this `Potential` and returns the result
+		/** Applies the given function to the content of this `Opt` and returns the result
 		  * or the provided alternative if this instance is empty.
 		  * Equivalent to `this map f getOrElse or`, but in one step. */
 		@inline def mapOrElse[O](f :A => O, or: => O) :O =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) or else f(get)
+			if (self.asInstanceOf[AnyRef] eq None) or else f(get)
 
-		/** Returns the result of applying `f` to the value of this `Potential` if it is non empty,
+		/** Returns the result of applying `f` to the value of this `Opt` if it is non empty,
 		  * or the result of evaluating expression `ifEmpty` otherwise.
 		  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
 		  * one with another, but its name might be misleading. Consider using
-		  * [[net.noresttherein.sugar.vars.PotentialExtension.mapOrElse mapOrElse]] instead.
+		  * [[net.noresttherein.sugar.vars.YieldExtension.mapOrElse mapOrElse]] instead.
 		  *  @param  ifEmpty the expression to evaluate if empty.
 		  *  @param  f       the function to apply if nonempty. */
 		@inline def fold[O](ifEmpty: => O)(f: A => O): O =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) ifEmpty else f(get)
+			if (self.asInstanceOf[AnyRef] eq None) ifEmpty else f(get)
 
-		/** The same as [[net.noresttherein.sugar.vars.PotentialExtension.map map]], but exceptions thrown
-		  * by the function are caught and $Inexistent is returned instead.
+		/** The same as [[net.noresttherein.sugar.vars.YieldExtension.map map]], but exceptions thrown
+		  * by the function are caught and $None is returned instead.
 		  */
-		@inline def guardMap[O](f :A => O) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent)
-				Inexistent
-			else try {
-				Existent(f(get))
-			} catch {
-				case _ :Exception => Inexistent
-			}
+		@inline def guardMap[O](f :A => O) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None)
+				None
+			else
+				try One(f(get)) catch {
+					case _ :Exception => None
+				}
 
-		/** Returns the result of applying the given function to the value of this `Potential` if it is not empty,
+		/** Returns the result of applying the given function to the value of this `Opt` if it is not empty,
 		  * or `this` if `this.isEmpty`. */
-		@inline def flatMap[O](f :A => Potential[O]) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Inexistent else f(get)
+		@inline def flatMap[O](f :A => Opt[O]) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None) None else f(get)
 
-		/** Flattens `Potential[Potential[O]]` to a single `Potential[O]`. */
-		@inline def flatten[O](implicit isPotential :A <:< Potential[O]) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Inexistent else get
+		/** Flattens `Opt[Opt[O]]` to a single `Opt[O]`. */
+		@inline def flatten[O](implicit isPotential :A <:< Opt[O]) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None) None else get
 
-		/** Returns `Inexistent` if `this.contains(o)`, or `this` otherwise. */
-		@inline def removed[O >: A](o :O) :Potential[A] =
-			if ((self.asInstanceOf[AnyRef] eq NonExistent) || get == o) Inexistent else self
+		/** Returns `None` if `this.contains(o)`, or `this` otherwise. */
+		@inline def removed[O >: A](o :O) :Opt[A] =
+			if ((self.asInstanceOf[AnyRef] eq None) || get == o) None else self
 
-		/** Returns `Inexistent` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
-		def removedAll[O >: A](that :IterableOnce[O]) :Potential[A] = that match {
-			case _ if self.asInstanceOf[AnyRef] eq NonExistent => self
-			case it :Set[O]     => if (it(get)) Inexistent else self
-			case it :Ranking[O] => if (it.contains(get)) Inexistent else self
+		/** Returns `None` if `this.isEmpty` or `that` contains `this.get`, or `this` otherwise. */
+		def removedAll[O >: A](that :IterableOnce[O]) :Opt[A] = that match {
+			case _ if self.asInstanceOf[AnyRef] eq None => self
+			case it :Set[O]     => if (it(get)) None else self
+			case it :Ranking[O] => if (it.contains(get)) None else self
 			case it :Iterable[O] if it.isEmpty => self
 			case _ =>
 				val i = that.iterator
 				val x = get
 				while (i.hasNext)
 					if (i.next() == x)
-						return Inexistent
+						return None
 				self
 		}
 
-		/** Returns a new `Potential` containing this value if it is not empty and its value satisfies
-		  * the given predicate, or [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] otherwise. */
-		@inline def filter(p :A => Boolean) :Potential[A] =
-			if ((self.asInstanceOf[AnyRef] eq NonExistent) || p(get)) self else Inexistent
+		/** Returns a new `Opt` containing this value if it is not empty and its value satisfies
+		  * the given predicate, or [[scala.None None]] otherwise. */
+		@inline def filter(p :A => Boolean) :Opt[A] =
+			if ((self.asInstanceOf[AnyRef] eq None) || p(get)) self else None
 
-		/** Returns a new `Potential` containing this value if it is not empty and its value falsifies
-		  * the given predicate, or [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] otherwise. */
-		@inline def filterNot(p :A => Boolean) :Potential[A] =
-			if ((self.asInstanceOf[AnyRef] eq NonExistent) || !p(get)) self else Inexistent
+		/** Returns a new `Opt` containing this value if it is not empty and its value falsifies
+		  * the given predicate, or [[scala.None None]] otherwise. */
+		@inline def filterNot(p :A => Boolean) :Opt[A] =
+			if ((self.asInstanceOf[AnyRef] eq None) || !p(get)) self else None
 
-		/** Equivalent to `this.`[[net.noresttherein.sugar.vars.PotentialExtension.filter filter]]`(p)` -
+		/** Equivalent to `this.`[[net.noresttherein.sugar.vars.YieldExtension.filter filter]]`(p)` -
 		  * a variant for use in for-comprehensions. Note that as this implementation is performance oriented,
 		  * it evaluates the predicate immediately, unlikely standard methods of [[scala.collection.Iterable Iterable]]. */
 //		@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](self, p)
-		@inline def withFilter(p :A => Boolean) :Potential[A] =
-			if ((self.asInstanceOf[AnyRef] eq NonExistent) || p(get)) self else Inexistent
+		@inline def withFilter(p :A => Boolean) :Opt[A] =
+			if ((self.asInstanceOf[AnyRef] eq None) || p(get)) self else None
 
-		/** Tests if this `Potential` is not empty and its value is equal to the given argument. */
-		@inline def contains[O >: A](o :O): Boolean = (self.asInstanceOf[AnyRef] ne NonExistent) && get == o
+		/** Tests if this `Opt` is not empty and its value is equal to the given argument. */
+		@inline def contains[O >: A](o :O): Boolean = (self.asInstanceOf[AnyRef] ne None) && get == o
 
-		/** Tests if this `Potential` is not empty and its value satisfies the given predicate. */
-		@inline def exists(p :A => Boolean): Boolean = (self.asInstanceOf[AnyRef] ne NonExistent) && p(get)
+		/** Tests if this `Opt` is not empty and its value satisfies the given predicate. */
+		@inline def exists(p :A => Boolean): Boolean = (self.asInstanceOf[AnyRef] ne None) && p(get)
 
-		/** Tests if this `Potential` contains no value or its value satisfies the given predicate. */
-		@inline def forall(p :A => Boolean): Boolean = (self.asInstanceOf[AnyRef] eq NonExistent) || p(get)
+		/** Tests if this `Opt` contains no value or its value satisfies the given predicate. */
+		@inline def forall(p :A => Boolean): Boolean = (self.asInstanceOf[AnyRef] eq None) || p(get)
 
-		/** Executes the given block for this `Potential`'s value if it is not empty. */
-		@inline def foreach[O](f :A => O) :Unit = if (self.asInstanceOf[AnyRef] ne NonExistent) f(get)
+		/** Executes the given block for this `Opt`'s value if it is not empty. */
+		@inline def foreach[O](f :A => O) :Unit = if (self.asInstanceOf[AnyRef] ne None) f(get)
 
-		/** Returns `Inexistent` if this `Potential` is empty or the partial function `f` is not defined for its value,
-		  * otherwise applies it and wraps the result it in a new `Opt`. */
-		@inline def collect[O](f :PartialFunction[A, O]) :Potential[O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent)
-				Inexistent
+		/** Returns `None` if this `Opt` is empty or the partial function `f` is not defined for its value,
+		  * otherwise applies it and wraps the result it in a new `Maybe`. */
+		@inline def collect[O](f :PartialFunction[A, O]) :Opt[O] =
+			if (self.asInstanceOf[AnyRef] eq None)
+				None
 			else
-				f.applyOrElse(get, Opt.NoContent.asInstanceOf[A => O]) match {
-					case Opt.NoContent => Inexistent
-					case result => Existent(result)
+				f.applyOrElse(get, Maybe.NoContent.asInstanceOf[A => O]) match {
+					case Maybe.NoContent => None
+					case result        => One(result)
 				}
 
 
-		/** Returns a `Potential` formed from the contents of `this` and `that` by combining the corresponding elements
-		  *  in a pair. If either of the two options is empty, `Inexistent` is returned. */
-		@inline def zip[O](that :Potential[O]) :Potential[(A, O)] =
-			if ((self.asInstanceOf[AnyRef] eq NonExistent) | (that.asInstanceOf[AnyRef] eq NonExistent))
-				Inexistent
-			else Existent((get, that.get))
+		/** Returns a `Opt` formed from the contents of `this` and `that` by combining the corresponding elements
+		  *  in a pair. If either of the two options is empty, `None` is returned. */
+		@inline def zip[O](that :Opt[O]) :Opt[(A, O)] =
+			if ((self.asInstanceOf[AnyRef] eq None) | (that.asInstanceOf[AnyRef] eq None))
+				None
+			else One((get, that.get))
 
-		/** Converts an `Potential` of a pair into `Potential`s of its first and second elements. */
-		@inline def unzip[A1, A2](implicit asPair: A <:< (A1, A2)): (Potential[A1], Potential[A2]) =
-			Potential.unzip(asPair.liftCo[Potential](self))
+		/** Converts an `Opt` of a pair into `Opt`s of its first and second elements. */
+		@inline def unzip[A1, A2](implicit asPair: A <:< (A1, A2)): (Opt[A1], Opt[A2]) =
+			Opt.unzip(asPair.liftCo[Opt](self))
 
-		/** Converts an `Potential` of a triple into three `Potential`s, one containing the element
+		/** Converts an `Opt` of a triple into three `Opt`s, one containing the element
 		  * from each position of the triple. */
-		@inline def unzip3[A1, A2, A3](implicit asTriple: A <:< (A1, A2, A3)): (Potential[A1], Potential[A2], Potential[A3]) =
-			Potential.unzip3(asTriple.liftCo[Potential](self))
+		@inline def unzip3[A1, A2, A3](implicit asTriple: A <:< (A1, A2, A3)): (Opt[A1], Opt[A2], Opt[A3]) =
+			Opt.unzip3(asTriple.liftCo[Opt](self))
 
 
 		/** An iterator returning this value as the only element if `this.nonEmpty`. */
 		@inline def iterator :Iterator[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Iterator.empty else Iterator.single(get)
+			if (self.asInstanceOf[AnyRef] eq None) Iterator.empty else Iterator.single(get)
 
-		/** Returns `Nil` if this `Potential` is empty or or `this.get::Nil` otherwise. */
-		@inline def toList :List[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Nil else get::Nil
+		/** Returns `Nil` if this `Opt` is empty or or `this.get::Nil` otherwise. */
+		@inline def toList :List[A] = if (self.asInstanceOf[AnyRef] eq None) Nil else get::Nil
 
-		/** Returns an empty list if this `Potential` is empty or a single element list with its value otherwise. */
-		@inline def toSeq :Seq[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Nil else get::Nil
+		/** Returns an empty list if this `Opt` is empty or a single element list with its value otherwise. */
+		@inline def toSeq :Seq[A] = if (self.asInstanceOf[AnyRef] eq None) Nil else get::Nil
 
-		/** Returns an empty collection if this `Potential` is empty or a singleton with its value otherwise. */
+		/** Returns an empty collection if this `Opt` is empty or a singleton with its value otherwise. */
 		@inline def toIterable :Iterable[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Iterable.empty else Iterable.single(get)
+			if (self.asInstanceOf[AnyRef] eq None) Iterable.empty else Iterable.single(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOption toOption]]. */
-		@inline def option :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toOption toOption]]. */
+		@inline def option :Option[A] = if (self.asInstanceOf[AnyRef] eq None) None else Some(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOpt toOpt]]. */
-		@inline def opt :Opt[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Lack else Got(get)
+		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toMaybe toMaybe]]. */
+		@inline def maybe :Maybe[A] = if (self.asInstanceOf[AnyRef] eq None) No else Yes(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toUnsure toUnsure]]. */
+		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toUnsure toUnsure]]. */
 		@inline def unsure :Unsure[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent)
-				Missing else {
+			if (self.asInstanceOf[AnyRef] eq None)
+				Missing
+			else {
 				val a = get
-				new Sure(a, cachedOpt = Got(a))
+				new Sure(a, cachedOpt = Yes(a))
 			}
 
 		/** Conversion to standard Scala [[scala.Option]].
 		  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
-		@inline def toOption :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+		@inline def toOption :Option[A] = if (self.asInstanceOf[AnyRef] eq None) None else Some(get)
 
-		/** Conversion to a value class `Opt`. The difference is that `Opt` will be reified to a runtime object
+		/** Conversion to a value class `Maybe`. The difference is that `Maybe` will be reified to a runtime object
 		  * wrapping its value when used as a value of its supertype or an abstract type (for example, a type parameter).
-		  * The benefit is that, unlike `Potential`, it loses no information and can be pattern matched,
+		  * The benefit is that, unlike `Opt`, it loses no information and can be pattern matched,
 		  * but at the cost of boxing. There is an implicit conversion to the same effect.
 		  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
-		@inline def toOpt :Opt[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Lack else Got(get)
+		@inline def toMaybe :Maybe[A] = if (self.asInstanceOf[AnyRef] eq None) No else Yes(get)
 
 		/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 		  * is specialized for value types, this type is not, and the result will not be specialized. Neither will it
-		  * require boxing though, as any value type was promoted to a reference wrapper when creating this `Potential`.
+		  * require boxing though, as any value type was promoted to a reference wrapper when creating this `Opt`.
 		  */
 		@inline def toUnsure :Unsure[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent)
+			if (self.asInstanceOf[AnyRef] eq None)
 				Missing
 			else {
 				val a = get
-				new Sure(a, cachedOpt = Got(a))
+				new Sure(a, cachedOpt = Yes(a))
 			}
 
-		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOption toOption]]
+		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toOption toOption]]
 		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
 		  */
-		@inline def constOption :Option[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) None else Some(get)
+		@inline def constOption :Option[A] = if (self.asInstanceOf[AnyRef] eq None) None else Some(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toOpt toOpt]]
+		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toMaybe toMaybe]]
 		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
 		  */
-		@inline def constOpt :Opt[A] = if (self.asInstanceOf[AnyRef] eq NonExistent) Lack else Got(get)
+		@inline def constOpt :Maybe[A] = if (self.asInstanceOf[AnyRef] eq None) No else Yes(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.PotentialExtension.toUnsure toUnsure]]
+		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toUnsure toUnsure]]
 		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
 		  */
-		@inline def constUnsure :Unsure[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent)
+		@inline def unsureConst :Unsure[A] =
+			if (self.asInstanceOf[AnyRef] eq None)
 				Missing else {
 				val a = get
-				new Sure(a, cachedOpt = Got(a))
+				new Sure(a, cachedOpt = Yes(a))
 			}
 
 
-		/** Converts this `Potential` to `Either`, returning the content as `Left`,
+		/** Converts this `Opt` to `Either`, returning the content as `Left`,
 		  *  or the value of the given expression as `Right` if empty. */
 		@inline def toLeft[O](right: => O) :Either[A, O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Right(right) else Left(get)
+			if (self.asInstanceOf[AnyRef] eq None) Right(right) else Left(get)
 
-		/** Converts this `Potential` to `Either`, returning the content as `Right`,
+		/** Converts this `Opt` to `Either`, returning the content as `Right`,
 		  *  or the value of the given expression as `Left` if empty. */
 		@inline def toRight[O](left: => O) :Either[O, A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Left(left) else Right(get)
+			if (self.asInstanceOf[AnyRef] eq None) Left(left) else Right(get)
 
-		/** Converts this `Potential` to $Pill, returning the content as $Red,
+		/** Converts this `Opt` to $Pill, returning the content as $Red,
 		  *  or the value of the given expression as $Blue if empty. */
 		@inline def toRed[O](blue: => O) :Pill[A, O] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Blue(blue) else Red(get)
+			if (self.asInstanceOf[AnyRef] eq None) Blue(blue) else Red(get)
 
-		/** Converts this `Potential` to $Pill, returning the content as $Blue,
+		/** Converts this `Opt` to $Pill, returning the content as $Blue,
 		  *  or the value of the given expression as $Red if empty. */
 		@inline def toBlue[O](red: => O) :Pill[O, A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Red(red) else Blue(get)
+			if (self.asInstanceOf[AnyRef] eq None) Red(red) else Blue(get)
 
-		/** Converts this `Potential` to $Outcome, returning the content as $Done,
+		/** Converts this `Opt` to $Outcome, returning the content as $Done,
 		  *  or the given `String` as $Failed error message if empty. */
-		@inline def outcome(err: => String) :Outcome[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Failed(() => err) else Done(get)
+		@inline def doneOr(err: => String) :Outcome[A] =
+			if (self.asInstanceOf[AnyRef] eq None) Failed(() => err) else Done(get)
 
-		/** Converts this `Potential` to $Outcome, returning the content as $Done,
+		/** Converts this `Opt` to $Outcome, returning the content as $Done,
 		  *  or the given `Throwable` as $Failed error if empty. */
-		@inline def outcome(err :Throwable) :Outcome[A] =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) Failed(err) else Done(get)
+		@inline def doneOr(err :Throwable) :Outcome[A] =
+			if (self.asInstanceOf[AnyRef] eq None) Failed(err) else Done(get)
 
 
-		/** Formats this `Potential` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
+		/** Formats this `Opt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
 		@inline def mkString(prefix :String) :String =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) prefix + "()" else prefix + "(" + self + ")"
+			if (self.asInstanceOf[AnyRef] eq None) prefix + "()" else prefix + "(" + self + ")"
 
-		/** Formats this `Potential` as `s"Potential($get)"` or `"Potential()"`. */
+		/** Formats this `Opt` as `s"Opt($get)"` or `"Opt()"`. */
 		@inline def mkString :String =
-			if (self.asInstanceOf[AnyRef] eq NonExistent) "Potential()" else "Potential(" + self + ")"
+			if (self.asInstanceOf[AnyRef] eq None) "Opt()" else "Opt(" + self + ")"
 
 		/** Compares the contents for equality, with the result being false if any of the operands are empty. */
-		@inline def same(other :Potential[_]) :Boolean =
-			(self.asInstanceOf[AnyRef] ne NonExistent) & (other.asInstanceOf[AnyRef] ne NonExistent) && self == other
+		@inline def same(other :Opt[_]) :Boolean =
+			(self.asInstanceOf[AnyRef] ne None) & (other.asInstanceOf[AnyRef] ne None) && self == other
 
 		/** Returns `for (a <- this; b <- other) yield a == b`. */
-		@inline def sameOpt(other :Potential[_]) :Potential[Boolean] =
-			(if (self.asInstanceOf[AnyRef] eq NonExistent) self
-			 else if (other.asInstanceOf[AnyRef] eq NonExistent) other
+		@inline def sameOpt(other :Opt[_]) :Opt[Boolean] =
+			(if (self.asInstanceOf[AnyRef] eq None) self
+			 else if (other.asInstanceOf[AnyRef] eq None) other
 			 else (self == other)
-			).asInstanceOf[Potential[Boolean]]
+			).asInstanceOf[Opt[Boolean]]
 	}
 
 
@@ -646,12 +651,12 @@ package object vars extends vars.Rank1PotentialImplicits {
 			if (!self.isInstanceOf[Red[_]])
 				f(get)
 
-		/** Converts this value to an `Opt` if it is $Blue, losing the information by replacing
-		  * $Red with [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+		/** Converts this value to an `Maybe` if it is $Blue, losing the information by replacing
+		  * $Red with [[net.noresttherein.sugar.vars.Maybe.No No]].
 		  */
-		@inline def toOpt :Opt[B] = self match {
-			case _ :Red[_] => Lack
-			case _         => Got(get)
+		@inline def toMaybe :Maybe[B] = self match {
+			case _ :Red[_] => No
+			case _         => Yes(get)
 		}
 		/** Standard conversion to [[scala.Option]].
 		  * @return `Some(this.get)` if `this.isBlue` or `None` otherwise. */
@@ -659,12 +664,12 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case _ :Red[_] => None
 			case _         => Some(get)
 		}
-		/** Converts this value to a `Potential` if it is $Blue, losing the information by replacing
-		  * $Red with [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+		/** Converts this value to a `Opt` if it is $Blue, losing the information by replacing
+		  * $Red with [[scala.None None]].
 		  */
-		@inline def toPotential :Potential[B] = self match {
-			case _ :Red[_] => Inexistent
-			case _         => Existent(get)
+		@inline def toYield :Opt[B] = self match {
+			case _ :Red[_] => None
+			case _         => One(get)
 		}
 		/** Conversion to an `Unsure` carrying the value of this instance if it is $Blue.
 		  * Note that the result will not be `specialized` for value types, but neither will it require boxing,
@@ -701,19 +706,19 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case _                      => false
 		}
 
-		/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] if any of the operands are $Red,
+		/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]] if any of the operands are $Red,
 		  * and `this == other` otherwise.
 		  */
-		@inline def blueEqualsOpt(other :Pill[_, _]) :Opt[Boolean] =
-			if (self.isInstanceOf[Red[_]] | other.isInstanceOf[Red[_]]) Lack
-			else Got(self == other)
+		@inline def blueEqualsOpt(other :Pill[_, _]) :Maybe[Boolean] =
+			if (self.isInstanceOf[Red[_]] | other.isInstanceOf[Red[_]]) No
+			else Yes(self == other)
 
-		/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]] if any of the operands are $Blue,
+		/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]] if any of the operands are $Blue,
 		  * and `this == other` otherwise.
 		  */
-		@inline def redEqualsOpt(other :Pill[_, _]) :Opt[Boolean] = (self, other) match {
-			case (a :Red[_], b :Red[_]) => Got(a.value == b.value)
-			case _                      => Lack
+		@inline def redEqualsOpt(other :Pill[_, _]) :Maybe[Boolean] = (self, other) match {
+			case (a :Red[_], b :Red[_]) => Yes(a.value == b.value)
+			case _                      => No
 		}
 	}
 
@@ -734,7 +739,7 @@ package object vars extends vars.Rank1PotentialImplicits {
 	  *      object $Done. [[net.noresttherein.sugar.vars.OutcomeExtension Extension]] methods are provided,
 	  *      mirroring the relevant part of functionality of `Either` and `Option`.
 	  */
-	//consider: Renaming to Yield. The advantage lies in that methods could be named yieldXxx (and in a shorter name),
+	//consider: Renaming to Opt. The advantage lies in that methods could be named yieldXxx (and in a shorter name),
 	// but `Done` and `Failed` are not good name matches for its subtypes.
 	type Outcome[+A] >: Failed //can be also named Fail
 
@@ -922,12 +927,12 @@ package object vars extends vars.Rank1PotentialImplicits {
 			if (!self.isInstanceOf[Throwable])
 				f(get)
 
-		/** Converts this value to an `Opt` if it is $Done, losing the information by replacing
-		  * $Failed with [[net.noresttherein.sugar.vars.Opt.Lack Lack]].
+		/** Converts this value to an `Maybe` if it is $Done, losing the information by replacing
+		  * $Failed with [[net.noresttherein.sugar.vars.Maybe.No No]].
 		  */
-		@inline def toOpt :Opt[A] = self match {
-			case _ :Throwable => Lack
-			case _            => Got(get)
+		@inline def toMaybe :Maybe[A] = self match {
+			case _ :Throwable => No
+			case _            => Yes(get)
 		}
 
 		/** Standard conversion to [[scala.Option]].
@@ -937,12 +942,12 @@ package object vars extends vars.Rank1PotentialImplicits {
 			case _            => Some(get)
 		}
 
-		/** Converts this value to a `Potential` if it is $Done, losing the information by replacing
-		  * $Failed with [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+		/** Converts this value to a `Opt` if it is $Done, losing the information by replacing
+		  * $Failed with [[scala.None None]].
 		  */
-		@inline def toPotential :Potential[A] = self match {
-			case _ :Throwable => Inexistent
-			case _            => Existent(get)
+		@inline def toOpt :Opt[A] = self match {
+			case _ :Throwable => None
+			case _            => One(get)
 		}
 
 		/** Conversion to an `Unsure` carrying the value of this instance if it is $Done.
@@ -976,10 +981,10 @@ package object vars extends vars.Rank1PotentialImplicits {
 		@inline def same(other :Outcome[_]) :Boolean =
 			!self.isInstanceOf[Throwable] & !other.isInstanceOf[Throwable] && self == other
 
-		/** Returns `Got(this == other)` if both operands are $Done, or `Lack` otherwise. */
-		@inline def sameOpt(other :Outcome[_]) :Opt[Boolean] =
-			if (self.isInstanceOf[Throwable] | other.isInstanceOf[Throwable]) Lack
-			else Got(self == other)
+		/** Returns `Yes(this == other)` if both operands are $Done, or `No` otherwise. */
+		@inline def sameOpt(other :Outcome[_]) :Maybe[Boolean] =
+			if (self.isInstanceOf[Throwable] | other.isInstanceOf[Throwable]) No
+			else Yes(self == other)
 	}
 }
 
@@ -992,244 +997,234 @@ package vars {
 
 	import net.noresttherein.sugar.exceptions.SugaredException
 
-	private[sugar] sealed abstract class Rank1PotentialImplicits {
-		@inline implicit def optFromPotential[T](opt :Potential[T]) :Opt[T] = Existent.unapply(opt)
-		@inline implicit def potentialFromOpt[T](opt :Opt[T]) :Potential[T] = Potential.got_?(opt)
+	private[sugar] sealed abstract class Rank1YieldImplicits {
+		@inline implicit def optFromYield[T](opt :Opt[T]) :Maybe[T] = One.unapply(opt)
+		@inline implicit def yieldFromOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
 	}
 
 
 
-	/** A companion and factory of $Potential, a very lightweight alternative to [[Option]].
-	  * @see [[net.noresttherein.sugar.vars.Potential.Existent]]
-	  * @see [[net.noresttherein.sugar.vars.Potential.Inexistent]]
+	/** A companion and factory of $Yield, a very lightweight alternative to [[Option]].
+	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
+	  * @see [[scala.None]]
 	  *
-	  * @define Potential  [[net.noresttherein.sugar.vars.Potential! Potential]]
-	  * @define Existent   [[net.noresttherein.sugar.vars.Existent$ Existent]]
-	  * @define Inexistent [[net.noresttherein.sugar.vars.Inexistent$ Inexistent]]
+	  * @define Opt [[net.noresttherein.sugar.vars.Opt! Opt]]
+	  * @define One   [[net.noresttherein.sugar.vars.Opt.One$ One]]
+	  * @define None  [[scala.None None]]
 	  */
 	@SerialVersionUID(Ver)
-	object Potential { //Synonyms: Yield; Maybe/Yes/No; Hope/Lucky/NoLuck; Wish
-		/** Creates an $Existent instance wrapping the value unless it is null, in which case it returns $Inexistent.
-		  * This call will not box the value unless it is already an instance of `Potential`.
+	object Opt { //Synonyms: Opt; Maybe/Yes/No; Hope/Lucky/NoLuck; Wish
+		/** Creates an $Done instance wrapping the value unless it is null, in which case it returns $None.
+		  * This call will not box the value unless it is already an instance of `Opt`.
 		  */
-		def apply[A](value :A) :Potential[A] = value match {
-			case null                        => Inexistent
-			case Inexistent | _ :Existent[_] => new Existent(value).asInstanceOf[Potential[A]]
-			case _                           => value.asInstanceOf[Potential[A]]
+		def apply[A](value :A) :Opt[A] = value match {
+			case null             => None
+			case None | _ :One[_] => new One(value).asInstanceOf[Opt[A]]
+			case _                => value.asInstanceOf[Opt[A]]
 		}
 
-		/** Converts the given `Option[T]` into a lighter `Potential[T]` which is erased at runtime. */
-		@inline def some_?[A](value :Option[A]) :Potential[A] = value match {
-			case Some(a) => Existent(a)
-			case _       => Inexistent
+		/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
+		@inline def some_?[A](value :Option[A]) :Opt[A] = value match {
+			case Some(a) => One(a)
+			case _       => None
 		}
 
-		/** Converts the given `Opt[T]` into a `Potential[T]`. */
-		@inline def got_?[A](value :Opt[A]) :Potential[A] = value match {
-			case Got(a) => Existent(a)
-			case _      => Inexistent
+		/** Converts the given `Maybe[T]` into a `Opt[T]`. */
+		@inline def yes_?[A](value :Maybe[A]) :Opt[A] = value match {
+			case Yes(a) => One(a)
+			case _      => None
 		}
 
-		/** Converts the given `Unsure[T]` into a `Potential[T]`, erased at runtime. */
-		@inline def sure_?[A](value :Unsure[A]) :Potential[A] = value match {
-			case Sure(a) => Existent(a)
-			case _       => Inexistent
+		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
+		@inline def sure_?[A](value :Unsure[A]) :Opt[A] = value match {
+			case Sure(a) => One(a)
+			case _       => None
 		}
 
-		/** Converts the given `Option[T]` into a lighter `Potential[T]` which is erased at runtime. */
-		@inline def fromOption[A](value :Option[A]) :Potential[A] = value match {
-			case Some(a) => Existent(a)
-			case _       => Inexistent
+		/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
+		@inline def fromOption[A](value :Option[A]) :Opt[A] = value match {
+			case Some(a) => One(a)
+			case _       => None
 		}
 
-		/** Converts the given `Opt[T]` into a `Potential[T]`. */
-		@inline def fromOpt[A](value :Opt[A]) :Potential[A] = value match {
-			case Got(a) => Existent(a)
-			case _      => Inexistent
+		/** Converts the given `Maybe[T]` into a `Opt[T]`. */
+		@inline def fromOpt[A](value :Maybe[A]) :Opt[A] = value match {
+			case Yes(a) => One(a)
+			case _      => None
 		}
 
-		/** Converts the given `Unsure[T]` into a `Potential[T]`, erased at runtime. */
-		@inline def fromUnsure[A](value :Unsure[A]) :Potential[A] = value match {
-			case Sure(a) => Existent(a)
-			case _       => Inexistent
+		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
+		@inline def fromUnsure[A](value :Unsure[A]) :Opt[A] = value match {
+			case Sure(a) => One(a)
+			case _       => None
 		}
 
-		/** Returns [[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]] - an empty `Potential`. */
-		@inline final def empty[T] :Potential[T] = Inexistent
+		/** Returns [[scala.None None]] - an empty `Opt`. */
+		@inline final def empty[T] :Opt[T] = None
 
-		/** When a given condition is true, evaluates the `a` argument and returns `Existent(a).`
-		  * When the condition is false, `a` is not evaluated and `Inexistent` is returned.
+		/** When a given condition is true, evaluates the `a` argument and returns `One(a).`
+		  * When the condition is false, `a` is not evaluated and `None` is returned.
 		  */
-		@inline def when[A](cond: Boolean)(a: => A): Potential[A] =
-			if (cond) Existent(a) else Inexistent
+		@inline def when[A](cond: Boolean)(a: => A): Opt[A] =
+			if (cond) One(a) else None
 
-		/** Unless a given condition is true, this will evaluate the `a` argument and return `Existent(a)`.
-		  * Otherwise, `a` is not evaluated and `Inexistent` is returned. */
-		@inline def unless[A](cond: Boolean)(a: => A): Potential[A] =
-			if (!cond) Existent(a) else Inexistent
+		/** Unless a given condition is true, this will evaluate the `a` argument and return `One(a)`.
+		  * Otherwise, `a` is not evaluated and `None` is returned. */
+		@inline def unless[A](cond: Boolean)(a: => A): Opt[A] =
+			if (!cond) One(a) else None
 
-		/** Executes the given lazy expression in a `try-catch` block, returning `Inexistent` in case
-		  * any exception is caught. Otherwise the value is returned in an `Existent` instance as normal. */
-		@inline def guard[A](a: => A) :Potential[A] =
-			try Existent(a) catch {
-				case _ :Exception => Inexistent
+		/** Executes the given lazy expression in a `try-catch` block, returning `None` in case
+		  * any exception is caught. Otherwise the value is returned in an `One` instance as normal. */
+		@inline def guard[A](a: => A) :Opt[A] =
+			try One(a) catch {
+				case _ :Exception => None
 			}
 
-		/** Applies the given function to the second argument in a `try-catch` block, returning `Inexistent` in case
-		  * any exception is caught. Otherwise the value is returned in an `Existent` instance as normal. */
-		@inline def guard[A, B](f: A => B)(a :A) :Potential[B] =
-			try Existent(f(a)) catch {
-				case _ :Exception => Inexistent
+		/** Applies the given function to the second argument in a `try-catch` block, returning `None` in case
+		  * any exception is caught. Otherwise the value is returned in an `One` instance as normal. */
+		@inline def guard[A, B](f: A => B)(a :A) :Opt[B] =
+			try One(f(a)) catch {
+				case _ :Exception => None
 			}
 
-		/** Returns the first argument in `Existent` if it satisfies the predicate `p`.
-		  * @return `Existent(value).filter(p)`.
+		/** Returns the first argument in `One` if it satisfies the predicate `p`.
+		  * @return `One(value).filter(p)`.
 		  */
-		@inline def satisfying[A](value :A)(p :A => Boolean) :Potential[A] =
-			if (p(value)) Existent(value) else Inexistent
+		@inline def satisfying[A](value :A)(p :A => Boolean) :Opt[A] =
+			if (p(value)) One(value) else None
 
-		/** Extracts the value from the `Potential`, if available.
-		  * @return `Existent.unapply(value)`.
+		/** Extracts the value from the `Opt`, if available.
+		  * @return `One.unapply(value)`.
 		  */
-		@inline final def unapply[A](value :Potential[A]) :Opt[A] = Existent.unapply(value)
+		@inline final def unapply[A](value :Opt[A]) :Maybe[A] = One.unapply(value)
 
-		/** A factory of 'full' (`Some`) instances of `Potential`.  */
+		/** A factory of 'full' (`Some`) instances of `Opt`.  */
 		@SerialVersionUID(Ver) //Synonyms: Extant, Stuff, Lucky, One, Given
-		object Existent {
-			def apply[A](value :A) :Potential[A] = value match {
-				case Inexistent | _ :Existent[_] => new Existent(value).asInstanceOf[Potential[A]]
-				case _                           => value.asInstanceOf[Potential[A]]
+		object One { //consider: moving out to package vars
+			def apply[A](value :A) :Opt[A] = value match {
+				case None | _ :One[_] => new One(value).asInstanceOf[Opt[A]]
+				case _                => value.asInstanceOf[Opt[A]]
 			}
 
-			def unapply[A](opt :Potential[A]) :Opt[A] = opt match {
-				case Inexistent                     => Lack
-				case exists :Existent[A @unchecked] => Got(exists.value)
-				case _                              => Got(opt.asInstanceOf[A])
+			def unapply[A](opt :Opt[A]) :Maybe[A] = opt match {
+				case None                      => No
+				case exists :One[A @unchecked] => Yes(exists.value)
+				case _                         => Yes(opt.asInstanceOf[A])
 			}
 		}
 
-		//We don't want anyone to manually wrap a value, as it will not symmetrically equal an erased Potential.
+		//We don't want anyone to manually wrap a value, as it will not symmetrically equal an erased Opt.
 		@SerialVersionUID(Ver)
-		private[vars] class Existent[+A](val value :A) extends Serializable {
+		private[vars] class One[+A](val value :A) extends Serializable {
 			override def equals(that :Any) :Boolean = that match {
-				case exists :Existent[_] => value == exists.value
-				case _                   => false
+				case exists :One[_] => value == exists.value
+				case _              => false
 			}
 			override def hashCode :Int = value.hashCode
-			override def toString :String = "Existent(" + value + ")"
-		}
-
-
-		/** The only 'empty' value of `Potential`. */ //Synonyms: NoLuck, scala.None
-		final val Inexistent :Potential[Nothing] = NonExistent.asInstanceOf[Potential[Nothing]]
-
-		@SerialVersionUID(Ver)
-		private[vars] object NonExistent extends (Any => AnyRef) with Serializable {
-			override def apply(v1 :Any) = this
-			override def toString = "Inexistent"
+			override def toString :String = "One(" + value + ")"
 		}
 //
-//		/** The for-comprehension facade for `Potential[A]`, which does not evaluate the filter predicate until
+//		/** The for-comprehension facade for `Opt[A]`, which does not evaluate the filter predicate until
 //		  * `map`, `flatMap` or `foreach` is called.
 //		  */
-//		final class WithFilter[+A](self :Potential[A], p :A => Boolean) {
-//			@inline def map[B](f: A => B): Potential[B] = self filter p map f
-//			@inline def flatMap[B](f: A => Potential[B]): Potential[B] = self filter p flatMap f
+//		final class WithFilter[+A](self :Opt[A], p :A => Boolean) {
+//			@inline def map[B](f: A => B): Opt[B] = self filter p map f
+//			@inline def flatMap[B](f: A => Opt[B]): Opt[B] = self filter p flatMap f
 //			@inline def foreach[U](f: A => U): Unit = self filter p foreach f
 //			@inline def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
 //		}
 
 
 
-		/** Optional implicit conversions to/from `Opt`, `Option` and `Iterable`.
+		/** Optional implicit conversions to/from `Maybe`, `Option` and `Iterable`.
 		  * They involve boxing and are placed here for explicit importing.
 		  */
 		@SerialVersionUID(Ver)
 		object implicits {
-			/** An implicit conversion that converts a $Potential to an iterable value. */
-			@inline implicit def PotentialToIterable[A](opt :Potential[A]) :Iterable[A] = opt match {
-				case Existent(v) => v::Nil
-				case _           => Nil
+			/** An implicit conversion that converts a $Yield to an iterable value. */
+			@inline implicit def YieldToIterable[A](opt :Opt[A]) :Iterable[A] = opt match {
+				case One(v) => v::Nil
+				case _      => Nil
 			}
 
-			/** An implicit conversion from a `Potential[A]` to an `Option[A]`.
+			/** An implicit conversion from a `Opt[A]` to an `Option[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
-			@inline implicit def PotentialToOption[T](opt :Potential[T]) :Option[T] = opt match {
-				case Existent(v) => Some(v)
-				case _           => None
+			@inline implicit def YieldToOption[T](opt :Opt[T]) :Option[T] = opt match {
+				case One(v) => Some(v)
+				case _      => None
 			}
 
-			/** A nomen omen optional implicit conversion of an `Option[A]` to a `Potential[A]`.
+			/** A nomen omen optional implicit conversion of an `Option[A]` to a `Opt[A]`.
 			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 			  */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-			@inline implicit def OptionToPotential[A](opt :Option[A]) :Potential[A] = some_?(opt)
+			@inline implicit def OptionToYield[A](opt :Option[A]) :Opt[A] = some_?(opt)
 
-			/** An implicit conversion from an `Potential[A]` to an `Opt[A]`.
+			/** An implicit conversion from an `Opt[A]` to an `Maybe[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
-			@inline implicit def PotentialToOpt[T](value :Potential[T]) :Opt[T] = value match {
-				case Existent(v) => Got(v)
-				case _           => Lack
+			@inline implicit def YieldToOpt[T](value :Opt[T]) :Maybe[T] = value match {
+				case One(v) => Yes(v)
+				case _      => No
 			}
 
-			/** A nomen omen optional implicit conversion of an `Opt[A]` to a `Potential[A]`. */
+			/** A nomen omen optional implicit conversion of an `Maybe[A]` to a `Opt[A]`. */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-			@inline implicit def OptToPotential[A](opt :Opt[A]) :Potential[A] = got_?(opt)
+			@inline implicit def OptToYield[A](opt :Maybe[A]) :Opt[A] = yes_?(opt)
 
-			/** Wraps any object in a [[net.noresttherein.sugar.vars.Potential Potential]] monad. */
-			@inline implicit def existentAny[A](existent :A) :Potential[A] = Existent(existent)
+			/** Wraps any object in a [[net.noresttherein.sugar.vars.Opt Opt]] monad. */
+			@inline implicit def existentAny[A](existent :A) :Opt[A] = One(existent)
 		}
 
 
 		/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
-		  * [[net.noresttherein.sugar.vars.Potential Potential]]/[[net.noresttherein.sugar.vars.Potential.Existent Existent]]/[[net.noresttherein.sugar.vars.Potential.Inexistent Inexistent]].
+		  * [[net.noresttherein.sugar.vars.Opt Opt]]/[[net.noresttherein.sugar.vars.Opt.One One]]/[[scala.None None]].
 		  * This object contains the requiring type aliases overriding the standard types as well as implicit conversions
 		  * which allow seamless interoperability with standard Scala APIs.
 		  *
 		  * While the idea of using it in production code should be carefully reconsidered,
-		  * it is useful for quickly checking during profiling what impact using `Option` vs `Potential` has.
+		  * it is useful for quickly checking during profiling what impact using `Option` vs `Opt` has.
 		  *
 		  * Other files which reference classes defined in the import's scope may also need to be modified in order
 		  * to comply with changed interfaces. */
 		@SerialVersionUID(Ver)
-		object PotentialAsOption {
-			type Option[T] = Potential[T]
+		object YieldAsOption {
+			type Option[T] = Opt[T]
 
-			val Option = Potential
-			val Some   = Existent
-//			val None   = Inexistent
+			val Option = Opt
+			val Some   = One
+//			val None   = None
 			//same names as in implicits so if both are imported one shadows the other
-			@inline implicit def PotentialFromOption[T](opt :Potential[T]) :scala.Option[T] = opt.option
-			@inline implicit def OptionToPotential[T](opt :scala.Option[T]) :Potential[T] = fromOption(opt)
+			@inline implicit def YieldFromOption[T](opt :Opt[T]) :scala.Option[T] = opt.option
+			@inline implicit def OptionToYield[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
 
-//			@inline implicit def NoneToInexistent(none :scala.None.type) :Inexistent.type = Inexistent
-//			@inline implicit def InexistentToNone(miss :Inexistent.type) :scala.None.type = scala.None
+//			@inline implicit def NoneToInexistent(none :scala.None.type) :None.type = None
+//			@inline implicit def InexistentToNone(miss :None.type) :scala.None.type = scala.None
 		}
 
 
 
-		private[vars] def unzip[A, B](pair :Potential[(A, B)]) :(Potential[A], Potential[B]) =
-			if (pair.asInstanceOf[AnyRef] eq NonExistent)
-				unzip2Inexistent
+		private[vars] def unzip[A, B](pair :Opt[(A, B)]) :(Opt[A], Opt[B]) =
+			if (pair.asInstanceOf[AnyRef] eq None)
+				unzip2None
 			else {
 				val (a, b) = pair.get
-				(Existent(a), Existent(b))
+				(One(a), One(b))
 			}
 
-		private[vars] def unzip3[A, B, C](triplet :Potential[(A, B, C)]) :(Potential[A], Potential[B], Potential[C]) =
-			if (triplet.asInstanceOf[AnyRef] eq NonExistent)
-				unzip3Inexistent
+		private[vars] def unzip3[A, B, C](triplet :Opt[(A, B, C)]) :(Opt[A], Opt[B], Opt[C]) =
+			if (triplet.asInstanceOf[AnyRef] eq None)
+				unzip3None
 			else {
 				val (a, b, c) = triplet.get
-				(Existent(a), Existent(b), Existent(c))
+				(One(a), One(b), One(c))
 			}
 
-		private val unzip2Inexistent = (Inexistent, Inexistent)
-		private val unzip3Inexistent = (Inexistent, Inexistent, Inexistent)
+		private val unzip2None = (None, None)
+		private val unzip3None = (None, None, None)
 	}
 
 
@@ -1237,18 +1232,18 @@ package vars {
 
 	@SerialVersionUID(Ver)
 	object Defined {
-		@inline def apply[T](value :T) :Potential[T] = if (value == null) Inexistent else Existent(value)
+		@inline def apply[T](value :T) :Opt[T] = if (value == null) None else One(value)
 
-		@inline def unapply[T](ref :Ref[T]) :Opt[T] = ref.toOpt
-		@inline def unapply[T](ref :Potential[T]) :Opt[T] = Existent.unapply(ref)
+		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
+		@inline def unapply[T](ref :Opt[T]) :Maybe[T] = One.unapply(ref)
 	}
 
 	@SerialVersionUID(Ver)
 	object Undefined {
-		@inline def apply() :Potential[Nothing] = Inexistent
+		@inline def apply() :Opt[Nothing] = None
 
 		@inline def unapply(ref :Ref[_]) :Boolean = !ref.isDefined
-		@inline def unapply(ref :Potential[_]) :Boolean = ref == Inexistent
+		@inline def unapply(ref :Opt[_]) :Boolean = ref == None
 	}
 
 
@@ -1289,10 +1284,10 @@ package vars {
 				case _                      => value.asInstanceOf[Pill[Nothing, B]]
 			}
 
-			def unapply[B](alt :Pill[Any, B]) :Opt[B] = alt match {
-				case _    :Red[_]             => Lack
-				case blue :Blue[B @unchecked] => Got(blue.value)
-				case _                        => Got(alt.asInstanceOf[B])
+			def unapply[B](alt :Pill[Any, B]) :Maybe[B] = alt match {
+				case _    :Red[_]             => No
+				case blue :Blue[B @unchecked] => Yes(blue.value)
+				case _                        => Yes(alt.asInstanceOf[B])
 			}
 		}
 
@@ -1316,9 +1311,9 @@ package vars {
 		object Red {
 			def apply[R](value :R) :Pill[R, Nothing] = new Red(value)
 
-			def unapply[R](alt :Pill[R, Any]) :Opt[R] = alt match {
-				case red :Red[R @unchecked] => Got(red.value)
-				case _                      => Lack
+			def unapply[R](alt :Pill[R, Any]) :Maybe[R] = alt match {
+				case red :Red[R @unchecked] => Yes(red.value)
+				case _                      => No
 			}
 		}
 
@@ -1358,7 +1353,7 @@ package vars {
 	  * @define Failed  [[net.noresttherein.sugar.vars.Outcome.Failed Failed]]
 	  */
 	@SerialVersionUID(Ver)
-	object Outcome { //other names: Return; Result; Outcome; Attempt; Action/Act; Do; Compute; Upshot; Issue; Yield
+	object Outcome { //other names: Return; Result; Outcome; Attempt; Action/Act; Do; Compute; Upshot; Issue; Opt
 
 		/** Executes the given expression, and returns it in a $Done if it is not null, or $Failed otherwise.
 		  * All exceptions are caught and returned as as `Failed(e)`.
@@ -1429,10 +1424,10 @@ package vars {
 				case _                         => value.asInstanceOf[Outcome[T]]
 			}
 			/** If `exam` is $Done, extracts its value. */
-			def unapply[T](exam :Outcome[T]) :Opt[T] = (exam :Any) match {
-				case _    :Throwable          => Lack
-				case pass :Done[T @unchecked] => Got(pass.value)
-				case _                        => Got(exam.asInstanceOf[T])
+			def unapply[T](exam :Outcome[T]) :Maybe[T] = (exam :Any) match {
+				case _    :Throwable          => No
+				case pass :Done[T @unchecked] => Yes(pass.value)
+				case _                        => Yes(exam.asInstanceOf[T])
 			}
 		}
 
@@ -1480,9 +1475,9 @@ package vars {
 			/** Extracts the message from the argument `Outcome` if it is `Failed`.
 			  * Note that this will evaluate a lazy message.
 			  */
-			def unapply(exam :Outcome[Any]) :Opt[Throwable] = exam match {
-				case fail :Throwable => Got(fail)
-				case _               => Lack
+			def unapply(exam :Outcome[Any]) :Maybe[Throwable] = exam match {
+				case fail :Throwable => Yes(fail)
+				case _               => No
 			}
 			private[this] val failed = new EagerFailed("")
 		}

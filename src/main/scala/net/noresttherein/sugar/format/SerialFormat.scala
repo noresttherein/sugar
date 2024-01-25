@@ -2,8 +2,8 @@ package net.noresttherein.sugar.format
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.vars.Opt.Got
-import net.noresttherein.sugar.vars.Potential
+import net.noresttherein.sugar.vars.Maybe.Yes
+import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.witness.Optionally
 
 //implicits
@@ -27,14 +27,14 @@ trait SerialFormat extends Format {
 	override def apply[M](name :String) :SerialMoldmaker[M] = new NamedSerialMoldmaker[M](name)
 	override def apply[M](subject :Class[M]) :SerialMoldmaker[M] = apply(subject.innerName)
 	def apply[M](implicit subject :Optionally[ClassTag[M]]) :SerialMoldmaker[M] = subject.opt match {
-		case Got(tag) => apply[M](tag.runtimeClass.innerName)
+		case Yes(tag) => apply[M](tag.runtimeClass.innerName)
 		case _ => apply("_")
 	}
 
 
 	trait SerialParts[M] extends Parts[M] {
 		def apply[P :Mold](part :M => P) :Part[M, P]
-		def opt[P :Mold](part :M => P) :Part[M, Potential[P]]
+		def opt[P :Mold](part :M => P) :Part[M, Opt[P]]
 		def mirror[P :Mold](part :M => P) :Part[M, (Liquid, P)]
 	}
 
@@ -43,7 +43,7 @@ trait SerialFormat extends Format {
 	private class NamedSerialParts[M](name :String) extends NamedParts[M](name) with SerialParts[M] {
 		override val format = SerialFormat.this
 		override def apply[P :Mold](part :M => P)  :Part[M, P] = apply("_")(part)
-		override def opt[P :Mold](part :M => P)    :Part[M, Potential[P]] = opt("_")(part)
+		override def opt[P :Mold](part :M => P)    :Part[M, Opt[P]] = opt("_")(part)
 		override def mirror[P :Mold](part :M => P) :Part[M, (Liquid, P)] = dual("_")(part)
 	}
 	private class NamedSerialMoldmaker[M](name :String) extends NamedSerialParts[M](name) with SerialMoldmaker[M] {

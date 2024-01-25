@@ -2,7 +2,7 @@ package net.noresttherein.sugar.vars
 
 import java.lang.ref.Cleaner.Cleanable
 
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 
 
@@ -60,11 +60,11 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   * @define Ref `Clearable`
   * @define ref clearable value
   * @author Marcin Mościcki
-  */ //consider: making it an InOut; making it @specialized
+  */
 trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serializable {
 
 	/** Returns `true` ''iff'' this `Clearable` is empty. */
-	@inline final override def isFinal :Boolean = opt.isEmpty
+	@inline final override def isFinal :Boolean = maybe.isEmpty
 
 	/** Checks if this variable currently holds a value. Note that,
 	  * unlike with [[net.noresttherein.sugar.vars.Lazy Lazy]], this property is `true` when the object is created
@@ -72,10 +72,10 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	  * It makes this method of very dubious utility, as any positive value can be outdated before even
 	  * it is returned to the caller. It can however still be used as a flag signaling that some other variable
 	  * is initialized, if the initialization of the latter is synchronized with clearing of this object.
-	  * In order to access the value, use [[net.noresttherein.sugar.vars.Ref.opt opt]],
+	  * In order to access the value, use [[net.noresttherein.sugar.vars.Ref.maybe maybe]],
 	  * [[net.noresttherein.sugar.vars.Ref.option option]] or [[net.noresttherein.sugar.vars.Ref.unsure unsure]].
 	  */
-	override def isEmpty :Boolean = opt.isEmpty
+	override def isEmpty :Boolean = maybe.isEmpty
 
 	/** Returns `false` because a `Clearable` is not (effectively) immutable. */
 	@inline final override def isFinalizable: Boolean = false
@@ -90,7 +90,7 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final override def isDefinite :Boolean = !isEmpty
 
 	/** Returns `0` if the variable has been [[net.noresttherein.sugar.vars.Clearable.clear cleared]], or `1` otherwise. */
-	@inline final def size :Int = opt.size
+	@inline final def size :Int = maybe.size
 
 	/** Same as [[net.noresttherein.sugar.vars.Clearable.get get]]. */
 	@inline final override def value :T = get
@@ -106,17 +106,17 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	/** Returns [[None]]. */
 	@inline final override def constOption :Option[T] = None
 
-	/** Same as [[net.noresttherein.sugar.vars.Clearable.opt opt]]. */
-	@inline final override def toOpt :Opt[T] = opt
+	/** Same as [[net.noresttherein.sugar.vars.Clearable.maybe opt]]. */
+	@inline final override def toMaybe :Maybe[T] = maybe
 
-	/** Returns [[net.noresttherein.sugar.vars.Opt.Lack Lack]]. */
-	@inline final override def constOpt :Opt[T] = Lack
+	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]]. */
+	@inline final override def maybeConst :Maybe[T] = No
 
 	/** Same as [[net.noresttherein.sugar.vars.Clearable.unsure unsure]]. */
 	@inline final override def toUnsure :Unsure[T] = unsure
 
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]]. */
-	@inline final override def constUnsure :Unsure[T] = Missing
+	@inline final override def unsureConst :Unsure[T] = Missing
 
 	/** Clears this variable, returning its current value. If this instance is already cleared,
 	  * an [[NoSuchElementException]] will be thrown.
@@ -124,7 +124,7 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final def remove() :T = { val res = get; clear(); res }
 
 	/** Clears this variable, returning its current value, if any. */
-	@inline final def removeOpt() :Opt[T] = { val res = opt; clear(); res }
+	@inline final def removeOpt() :Maybe[T] = { val res = maybe; clear(); res }
 
 	/** Resets this variable to an undefined state, unreferencing its contents. */
 	def clear() :Unit
@@ -142,6 +142,10 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	override def clean() :Unit = clear()
 
 	override def mkString :String = mkString("Clearable")
+	override def toString :String = maybe match {
+		case Yes(v) => String.valueOf(v)
+		case _      => "<cleared>"
+	}
 }
 
 
@@ -150,35 +154,35 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 @SerialVersionUID(Ver)
 object Clearable {
 	/** A non synchronized, non thread safe `Clearable` variable initialized with the given value. */
-	def apply[T](value :T) :Clearable[T] = new Plain[T](Got(value))
+	def apply[T](value :T) :Clearable[T] = new Plain[T](Yes(value))
 
 	/** A `Clearable` variable initialized with the given value, synchronizing all access on its monitor. */
-	def sync[T](value :T) :Clearable[T] = new Synced(Got(value))
+	def sync[T](value :T) :Clearable[T] = new Synced(Yes(value))
 
 	/** A `Clearable` instance backed by a `@volatile` variable. */
 	def volatile[T](value :T) :Clearable[T] = new Volatile(value)
 
 
 	@SerialVersionUID(Ver)
-	private class Plain[+T](private[this] var x :Opt[T]) extends Clearable[T] {
+	private class Plain[+T](private[this] var x :Maybe[T]) extends Clearable[T] {
 		override def get :T = x.get
-		override def opt :Opt[T] = x
-		override def clear() :Unit = x = Lack
+		override def maybe :Maybe[T] = x
+		override def clear() :Unit = x = No
 	}
 
 	@SerialVersionUID(Ver)
-	private final class Synced[+T](private[this] var x :Opt[T]) extends Clearable[T] {
+	private final class Synced[+T](private[this] var x :Maybe[T]) extends Clearable[T] {
 		override def get :T = synchronized(x.get)
-		override def opt :Opt[T] = synchronized(x)
-		override def clear() :Unit = synchronized { x = Lack }
+		override def maybe :Maybe[T] = synchronized(x)
+		override def clear() :Unit = synchronized { x = No }
 	}
 
 	@SerialVersionUID(Ver)
 	private final class Volatile[+T](init :T) extends Clearable[T] {
-		@volatile private[this] var x :Opt[T] =  Got(init)
+		@volatile private[this] var x :Maybe[T] =  Yes(init)
 
 		override def get :T = x.get
-		override def opt :Opt[T] = x
-		override def clear() :Unit = x = Lack
+		override def maybe :Maybe[T] = x
+		override def clear() :Unit = x = No
 	}
 }

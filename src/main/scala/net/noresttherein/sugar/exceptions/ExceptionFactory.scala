@@ -4,8 +4,8 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.exceptions.Constructors.{defaultRethrowableConstructor, lazyStringThrowableConstructor, newLazyRethrowableConstructor, newRethrowableConstructor, rethrownLazyRethrowableConstructor, rethrownRethrowableConstructor, stringThrowableConstructor}
 import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
-import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe
 
 
 
@@ -91,9 +91,9 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 		throw exception.initCause(cause)
 
 	/** Matches exceptions created by this factory - or an equal one. */
-	def unapply(e :Throwable) :Opt[this.Exception] = e match {
-		case base :Exception if base.factory == this => Got(base)
-		case _ => Lack
+	def unapply(e :Throwable) :Maybe[this.Exception] = e match {
+		case base :Exception if base.factory == this => Yes(base)
+		case _ => No
 	}
 
 	/** A match pattern for exceptions from this factory, extracting their error messages and causes. */
@@ -102,9 +102,9 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 		/** Matches an exception created by this factory, extracting - and evaluating - its message and,
 		  * optionally, cause.
 		  */
-		def unapply(e :Throwable) :Opt[(String, Opt[Throwable])] = e match {
-			case base :Exception if base.factory == ExceptionFactory.this => Got((base.msg, base.cause))
-			case _ => Lack
+		def unapply(e :Throwable) :Maybe[(String, Maybe[Throwable])] = e match {
+			case base :Exception if base.factory == ExceptionFactory.this => Yes((base.msg, base.cause))
+			case _ => No
 		}
 	}
 

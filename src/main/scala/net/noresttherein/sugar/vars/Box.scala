@@ -6,7 +6,8 @@ import scala.annotation.{nowarn, tailrec}
 import scala.Specializable.Args
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -21,7 +22,7 @@ import net.noresttherein.sugar.vars.Opt.{Got, Lack}
   *
   * While the default implementation is not thread safe, [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]]
   * method is complemented with [[net.noresttherein.sugar.vars.Box.testAndSwap testAndSwap]], which generalize
-  * the function of the former by accepting an `Option` or an [[net.noresttherein.sugar.vars.Opt Opt]].
+  * the function of the former by accepting an `Option` or an [[net.noresttherein.sugar.vars.Maybe Maybe]].
   * @see [[net.noresttherein.sugar.vars.Mutable]]
   * @define Ref `Box`
   * @define ref boxed variable
@@ -61,10 +62,10 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 
 	override def toOption    :Option[T] = option
 	override def constOption :Option[T] = None
-	override def toOpt       :Opt[T] = opt
-	override def constOpt    :Opt[T] = Lack
+	override def toMaybe       :Maybe[T] = maybe
+	override def maybeConst    :Maybe[T] = No
 	override def toUnsure    :Unsure[T] = unsure
-	override def constUnsure :Unsure[T] = Missing
+	override def unsureConst :Unsure[T] = Missing
 
 	/** Replaces the contents of this box with the content of the given `Option`.
 	  * It is a setter matching getter `this.`[[net.noresttherein.sugar.vars.Ref.option option]]
@@ -73,13 +74,21 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  */
 	def option_=(content :Option[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
-	/** Replaces the contents of this box with the content of the given optional value.
-	  * It is a setter method matching getter `this.`[[net.noresttherein.sugar.vars.Ref.opt opt]] and is equivalent to
-	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Opt.get get]]
-	  * if `content.`[[net.noresttherein.sugar.vars.Opt.isDefined isDefined]],
+	/** Replaces the contents of this box with the content of the given optional value. It is a setter method
+	  * matching getter `this.`[[net.noresttherein.sugar.vars.Ref.opt opt]] and is equivalent to
+	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Maybe.get get]]
+	  * if `content.`[[net.noresttherein.sugar.vars.Maybe.isDefined isDefined]],
 	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
 	  */
 	def opt_=(content :Opt[T]) :Unit = if (content.isDefined) value = content.get else clear()
+
+	/** Replaces the contents of this box with the content of the given optional value. It is a setter method
+	  * matching getter `this.`[[net.noresttherein.sugar.vars.Ref.maybe maybe]] and is equivalent to
+	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Maybe.get get]]
+	  * if `content.`[[net.noresttherein.sugar.vars.Maybe.isDefined isDefined]],
+	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
+	  */
+	def maybe_=(content :Maybe[T]) :Unit = if (content.isDefined) value = content.get else clear()
 
 	/** Replaces the contents of this box with the content of the given unsure value.
 	  * It is a setter method matching getter `this.`[[net.noresttherein.sugar.vars.Ref.unsure unsure]] and is equivalent
@@ -103,8 +112,8 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * Any thread safe type however guarantees the atomicity of these operations.
 	  */
 	def :?=(content :Ref[T]) :Unit =
-		if (content.isSpecialized) unsure = content.toUnsure //Unsure cheaper than Opt
-		else opt = content.opt //use content.opt for atomicity (at least if content is thread safe)
+		if (content.isSpecialized) unsure = content.toUnsure //Unsure cheaper than Maybe
+		else maybe = content.maybe //use content.opt for atomicity (at least if content is thread safe)
 
 	/** Replaces the contents of this box with the content of the given optional value.
 	  * It is equivalent to
@@ -115,11 +124,11 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 
 	/** Replaces the contents of this box with the content of the given optional value.
 	  * It is equivalent to
-	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Opt.get get]]
-	  * if `content.`[[net.noresttherein.sugar.vars.Opt.isDefined isDefined]],
+	  * `this `[[net.noresttherein.sugar.vars.InOut.:= :=]]` content.`[[net.noresttherein.sugar.vars.Maybe.get get]]
+	  * if `content.`[[net.noresttherein.sugar.vars.Maybe.isDefined isDefined]],
 	  * or [[net.noresttherein.sugar.vars.Box.clear clear]]`()` if `content` is empty.
 	  */
-	@inline final def reset(content :Opt[T]) :Unit = opt = content
+	@inline final def reset(content :Maybe[T]) :Unit = maybe = content
 
 	/** Replaces the contents of this box with the content of the given unsure value.
 	  * It is equivalent to
@@ -152,7 +161,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	@inline final def remove() :T = { val res = value; clear(); res }
 
 	/** Empties the box, returning its current value, if any. */
-	@inline final def removeOpt() :Opt[T] = { val res = opt; clear(); res }
+	@inline final def removeOpt() :Maybe[T] = { val res = maybe; clear(); res }
 
 	/** Empties the box, unreferencing the currently held value, if any. */
 	def clear() :Unit
@@ -201,7 +210,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 
 	/** Implements a ''get-and-set'' operation, which sets the value of this box to `content`
 	  * ([[net.noresttherein.sugar.vars.Box.clear clearing]] it
-	  * if `content.`[[net.noresttherein.sugar.vars.Opt.isEmpty isEmpty]]) and returns the value contained by
+	  * if `content.`[[net.noresttherein.sugar.vars.Maybe.isEmpty isEmpty]]) and returns the value contained by
 	  * this box before the method was called. In a synchronised context it is equivalent to
 	  * {{{
 	  *     def swap(content :Opt[T]) = {
@@ -257,7 +266,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	}
 
 	/** Replaces the contents of this box, if they are equal to `expect`, with the contents of `newValue`.
-	  * For the purpose of this method, 'contents' are defined as `this.`[[net.noresttherein.sugar.vars.Box.opt opt]].
+	  * For the purpose of this method, 'contents' are defined as `this.`[[net.noresttherein.sugar.vars.Box.maybe opt]].
 	  * Depending on whether each of the parameters is defined, this method is equivalent
 	  * to one of [[net.noresttherein.sugar.vars.Box.clear(expect* clear]]`(expect.get)`,
 	  * [[net.noresttherein.sugar.vars.Box.put put]]`(newValue.get)`,
@@ -265,9 +274,9 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * [[net.noresttherein.sugar.vars.Box.isEmpty]] if both arguments are empty.
 	  * On a [[net.noresttherein.sugar.vars.VolatileBox VolatileBox]], this operation happens atomically.
 	  */
-	def testAndSwap(expect :Opt[T], newValue :Opt[T]) :Boolean = expect match {
-		case Got(current) => newValue match {
-			case Got(value) => testAndSet(current, value)
+	def testAndSwap(expect :Maybe[T], newValue :Maybe[T]) :Boolean = expect match {
+		case Yes(current) => newValue match {
+			case Yes(value) => testAndSet(current, value)
 			case _ => clear(current)
 		}
 		case _ if newValue.isDefined => put(newValue.get)
@@ -303,15 +312,15 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 		if (expect.isSpecialized && newValue.isSpecialized)
 			testAndSwap(expect.toUnsure, newValue.toUnsure)
 		else
-			testAndSwap(expect.toOpt, newValue.toOpt)
+			testAndSwap(expect.toMaybe, newValue.toMaybe)
 
 
 	override def equals(that :Any) :Boolean = that match {
-		case other :Box[_] => (this eq other) || (opt == other.opt)
+		case other :Box[_] => (this eq other) || (maybe == other.maybe)
 		case _ => false
 	}
 //	override def canEqual(that :Any) :Boolean = that.isInstanceOf[Box[_]]
-	override def hashCode :Int = opt.hashCode
+	override def hashCode :Int = maybe.hashCode
 
 	override def mkString :String = mkString("Box")
 }
@@ -361,7 +370,7 @@ object Box {
 			full = true
 		}
 		override def option :Option[T] = if (full) Some(x) else None
-		override def opt :Opt[T] = if (full) Got(x) else Lack
+		override def maybe :Maybe[T] = if (full) Yes(x) else No
 		override def unsure :Unsure[T] = if (full) Sure(x) else Missing
 
 		override def clear() :Unit = { full = false; x = nullVal }
@@ -439,20 +448,20 @@ object VolatileBox {
 
 		override def isEmpty :Boolean = state == Empty
 
-		override def value :T = opt getOrElse throwNoSuch()
+		override def value :T = maybe getOrElse throwNoSuch()
 
 		override def value_=(newValue :T) :Unit = set(newValue, Full)
 
-		override def opt :Opt[T] = {
+		override def maybe :Maybe[T] = {
 			val current = state
 			if (current == Empty)
-				Lack
+				No
 			else if (lockNonEmpty(current)) {
-				val res = Got(x)
+				val res = Yes(x)
 				state = Full
 				res
 			} else
-				Lack
+				No
 		}
 		override def unsure :Unsure[T] = {
 			val current = state
@@ -488,7 +497,7 @@ object VolatileBox {
 			}
 		}
 		override def swap(content :Opt[T]) :Opt[T] = {
-			val res = if (lock() == Empty) Lack else Got(x)
+			val res = if (lock() == Empty) None else One(x)
 			if (content.isDefined) {
 				x = content.get
 				state = Full
@@ -587,27 +596,27 @@ object VolatileBox {
 
 
 
-	/** A simple implementation of VolatileBox based on an `Opt` field erased to `AnyRef` in the byte code,
+	/** A simple implementation of VolatileBox based on an `Maybe` field erased to `AnyRef` in the byte code,
 	  * which reduces all operations to a single test-and-set (in the worst case)
 	  */
 	@SerialVersionUID(Ver)
 	private final class OfRef[T] extends VolatileBox[T] {
-		private[this] var x :Opt[T] = Lack //name x is used by VolatileBox.RefOptField
+		private[this] var x :Maybe[T] = No //name x is used by VolatileBox.RefOptField
 
 		override def isEmpty :Boolean = x.isEmpty
 		override def value :T = x.get
-		override def value_=(newValue :T) :Unit = x = Got(newValue)
+		override def value_=(newValue :T) :Unit = x = Yes(newValue)
 
-		override def opt: Opt[T] = x
+		override def maybe: Maybe[T] = x
 
-		override def clear() :Unit = x = Lack
+		override def clear() :Unit = x = No
 		override def clear(expect :T) :Boolean = testAndSet(expect, emptyContent)
 		override def put(newValue :T) :Boolean = testAndSet(emptyContent, newValue)
 
 		override def swap(content :Opt[T]) :Opt[T] =
 			(RefOptField.getAndSet(this, contentsOf(content)) :T) match {
-				case empty :AnyRef if empty eq emptyContent => Lack
-				case old => Got(old)
+				case empty :AnyRef if empty eq emptyContent => None
+				case old => One(old)
 			}
 		override def swap(content :Option[T]) :Option[T] =
 			(RefOptField.getAndSet(this, content getOrElse emptyContent) :T) match {
@@ -620,11 +629,11 @@ object VolatileBox {
 				case old => Sure(old)
 			}
 
-		override def testAndSwap(expect :Opt[T], newValue :Opt[T]) :Boolean =
+		override def testAndSwap(expect :Maybe[T], newValue :Maybe[T]) :Boolean =
 			testAndSet(contentsOf(expect), contentsOf(newValue))
 
 		@tailrec override def ?=(newValue :T) :T = x match {
-			case Got(expect) =>
+			case Yes(expect) =>
 				if (testAndSet(expect, newValue))
 					expect
 				else
@@ -636,21 +645,21 @@ object VolatileBox {
 			RefOptField.compareAndSet(this, expect, newValue)
 
 		@tailrec override def update(f: T => T): T = x match {
-			case Got(expect) =>
+			case Yes(expect) =>
 				val res = f(expect)
 				if (testAndSet(expect, res)) res
 				else update(f)
 			case _ => throwNoSuch()
 		}
 		@tailrec override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = x match {
-			case Got(expect) =>
+			case Yes(expect) =>
 				val res = f(z, expect)
 				if (testAndSet(expect, res)) res
 				else updateLeft(z)(f)
 			case _ => throwNoSuch()
 		}
 		@tailrec override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = x match {
-			case Got(expect) =>
+			case Yes(expect) =>
 				val res = f(expect, z)
 				if (testAndSet(expect, res)) res
 				else updateRight(z)(f)
@@ -663,8 +672,8 @@ object VolatileBox {
 
 	private def throwNoSuch() :Nothing = throw new NoSuchElementException("Box()")
 
-	@inline private def contentsOf[T](opt :Opt[T]) :T =
-		if (opt.isDefined) opt.get else Opt.NoContent.asInstanceOf[T]
+	@inline private def contentsOf[T](opt :Maybe[T]) :T =
+		if (opt.isDefined) opt.get else Maybe.NoContent.asInstanceOf[T]
 
-	@inline private def emptyContent[T] = Opt.NoContent.asInstanceOf[T]
+	@inline private def emptyContent[T] = Maybe.NoContent.asInstanceOf[T]
 }

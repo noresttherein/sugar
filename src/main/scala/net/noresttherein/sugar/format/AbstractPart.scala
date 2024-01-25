@@ -16,17 +16,17 @@ package net.noresttherein.sugar.format
 					val model = construct(newPart(parsed, value, unparsed))
 					(parsed, model, unparsed)
 				}
-				override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] =
+				override def advanceOpt(prefix :Liquid, suffix :Liquid) :Maybe[(Liquid, M, Liquid)] =
 					valueMold.advanceOpt(prefix, suffix) match {
-						case Got((parsed, value, unparsed)) =>
-							Got(parsed, construct(newPart(prefix, value, suffix)), unparsed)
-						case _ => Lack
+						case Yes((parsed, value, unparsed)) =>
+							Yes(parsed, construct(newPart(prefix, value, suffix)), unparsed)
+						case _ => No
 					}
 				override def guardAdvance(prefix :Liquid, suffix :Liquid) :Outcome[(Liquid, M, Liquid)] =
 					valueMold.guardAdvance(prefix, suffix) match {
 						case Done((parsed, value, unparsed))  =>
 							Done(parsed, construct(newPart(parsed, value, unparsed)), unparsed)
-						case fail :Failed => fail
+						case Failed(fail) => Failed(fail)
 					}
 				override def append(prefix :Liquid, model :M) :Liquid = {
 					val value = newValue(prefix, model)
@@ -51,9 +51,9 @@ package net.noresttherein.sugar.format
 					val mold = construct(newPart(parsed, value, unparsed))
 					mold.advance(parsed, unparsed)
 				}
-				override def advanceOpt(prefix :Liquid, suffix :Liquid) :Opt[(Liquid, M, Liquid)] =
+				override def advanceOpt(prefix :Liquid, suffix :Liquid) :Maybe[(Liquid, M, Liquid)] =
 					valueMold.advanceOpt(prefix, suffix) match {
-						case Got((parsed, value, unparsed)) =>
+						case Yes((parsed, value, unparsed)) =>
 							val mold = construct(newPart(parsed, value, unparsed))
 							mold.advanceOpt(parsed, unparsed)
 					}
@@ -73,8 +73,8 @@ package net.noresttherein.sugar.format
 					val value = newValue(prefix, model)
 					val part = newPart(prefix, value, emptyLiquid)
 					valueMold.appendOpt(prefix, value) match {
-						case Got(liquid) => construct(part).appendOpt(liquid, model)
-						case _           => Lack
+						case Yes(liquid) => construct(part).appendOpt(liquid, model)
+						case _           => No
 					}
 				}
 				override def guardAppend(prefix :Liquid, model :M) = {
@@ -82,7 +82,7 @@ package net.noresttherein.sugar.format
 					val part = newPart(prefix, value, emptyLiquid)
 					valueMold.guardAppend(prefix, value) match {
 						case Done(liquid) => construct(part).guardAppend(liquid, model)
-						case fail :Failed => fail
+						case Failed(fail) => Failed(fail)
 					}
 				}
 				override def toString = flatMapMoldString(modelName, partName)
@@ -103,13 +103,13 @@ package net.noresttherein.sugar.format
 						}
 						override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 							valueMold.advanceOpt(prefix, suffix) match {
-								case Got((parsed, value, unparsed)) =>
+								case Yes((parsed, value, unparsed)) =>
 									val part = newPart(parsed, value, unparsed)
 									if (predicate(part))
-										Got((parsed, construct(part), unparsed))
+										Yes((parsed, construct(part), unparsed))
 									else
-										Lack
-								case _ => Lack
+										No
+								case _ => No
 							}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							valueMold.guardAdvance(prefix, suffix) match {
@@ -119,7 +119,7 @@ package net.noresttherein.sugar.format
 										Done((parsed, construct(part), unparsed))
 									else
 										Failed(() => parsingErrorMsg(suffix))
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 						override def append(prefix :Liquid, model :M) = {
 							val value = newValue(prefix, model)
@@ -135,7 +135,7 @@ package net.noresttherein.sugar.format
 							if (predicate(part))
 								valueMold.appendOpt(prefix, value)
 							else
-								Lack
+								No
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
 							val value = newValue(prefix, model)
@@ -161,13 +161,13 @@ package net.noresttherein.sugar.format
 						}
 						override def advanceOpt(prefix :Liquid, suffix :Liquid) =
 							valueMold.advanceOpt(prefix, suffix) match {
-								case Got((parsed, value, unparsed)) =>
+								case Yes((parsed, value, unparsed)) =>
 									val part = newPart(prefix, value, suffix)
 									if (predicate(part))
 										construct(part).advanceOpt(parsed, unparsed)
 									else
-										Lack
-								case _ => Lack
+										No
+								case _ => No
 							}
 						override def guardAdvance(prefix :Liquid, suffix :Liquid) =
 							valueMold.guardAdvance(prefix, suffix) match {
@@ -177,7 +177,7 @@ package net.noresttherein.sugar.format
 										construct(part).guardAdvance(parsed, unparsed)
 									else
 										Failed(() => parseErrorMsg(this, suffix))
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 						override def append(prefix :Liquid, model :M) = {
 							val value = newValue(prefix, model)
@@ -191,13 +191,13 @@ package net.noresttherein.sugar.format
 						override def appendOpt(prefix :Liquid, model :M) = {
 							val value = newValue(prefix, model)
 							valueMold.appendOpt(prefix, value) match {
-								case Got(liquid)  =>
+								case Yes(liquid)  =>
 									val part = newPart(prefix, value, emptyLiquid)
 									if (predicate(part))
 										construct(part).appendOpt(liquid, model)
 									else
-										Lack
-								case _ => Lack
+										No
+								case _ => No
 							}
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
@@ -209,7 +209,7 @@ package net.noresttherein.sugar.format
 										construct(part).guardAppend(liquid, model)
 									else
 										Failed(() => formatErrorMsg(this, model))
-								case fail :Failed => fail
+								case Failed(fail) => Failed(fail)
 							}
 						}
 
@@ -243,7 +243,7 @@ package net.noresttherein.sugar.format
 	}
 	private class PeekPart1[M, P](modelName :String = "_", partName :String = "_", get :M => P)
 	                             (implicit valueMold :Mold[P])
-		extends AbstractPart[M, P, Potential[P]](modelName, partName, valueMold.potential)
+		extends AbstractPart[M, P, Opt[P]](modelName, partName, valueMold.potential)
 	{
 		protected override def newPart(prefix :Liquid, model :P, suffix :Liquid) = ???
 		protected override def newValue(prefix :Liquid, model :M) = ???

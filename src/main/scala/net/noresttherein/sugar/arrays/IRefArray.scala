@@ -18,8 +18,8 @@ import net.noresttherein.sugar.collections.extensions.{IterableExtension, Iterat
 import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
-import net.noresttherein.sugar.vars.Opt
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -325,7 +325,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 
 		def apply[A](array :IRefArray[A]) :IndexedSeq[A] = wrapper.wrap(array)
 
-		def unapply[A](elems :IterableOnce[A]) :Opt[IRefArray[A]] = {
+		def unapply[A](elems :IterableOnce[A]) :Maybe[IRefArray[A]] = {
 			val array = elems match {
 				case seq :ArraySeq[_] => seq.unsafeArray
 				case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length && slice.isImmutable =>
@@ -334,9 +334,9 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 				case _                => null
 			}
 			if (array != null && array.getClass == classOf[Array[AnyRef]])
-				Got(array.castFrom[Array[_], IRefArray[A]])
+				Yes(array.castFrom[Array[_], IRefArray[A]])
 			else
-				Lack
+				No
 		}
 
 		/** Wraps and unwraps `IndexedSeq` instances and other immutable collections backed by consecutive sections
@@ -350,20 +350,20 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 			def apply[A](array :IRefArray[A], from :Int, until :Int) :IndexedSeq[A] =
 				wrapper.slice(array, from, until)
 
-			def unapply[A](elems :IterableOnce[A]) :Opt[(IRefArray[A], Int, Int)] = elems match {
+			def unapply[A](elems :IterableOnce[A]) :Maybe[(IRefArray[A], Int, Int)] = elems match {
 				case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
-					Got((seq.unsafeArray.castFrom[Array[_], IRefArray[A]], 0, seq.unsafeArray.length))
+					Yes((seq.unsafeArray.castFrom[Array[_], IRefArray[A]], 0, seq.unsafeArray.length))
 
 				case arr :ArrayIterableOnce[A] if arr.isImmutable =>
 					val array = arr.unsafeArray.castFrom[Array[_], IRefArray[A]]
 					if (array.getClass == classOf[Array[AnyRef]])
-						Got((array, arr.startIndex, arr.startIndex + arr.knownSize))
+						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
 					else
-						Lack
+						No
 				case seq :Vector[A] if seq.length <= CheatedAccess.FlatVectorSize =>
-					Got((CheatedAccess.array(seq).castFrom[Array[_], IRefArray[A]], 0, seq.length))
+					Yes((CheatedAccess.array(seq).castFrom[Array[_], IRefArray[A]], 0, seq.length))
 				case _ =>
-					Lack
+					No
 			}
 		}
 	}

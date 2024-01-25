@@ -43,6 +43,8 @@ sealed class Volatile[@specialized(SpecializedVars) T] private[vars]
 	final override def value_=(newValue :T) :Unit = x = newValue
 
 	private[vars] override def isSpecialized :Boolean = getClass == classOf[Volatile[Any]]
+
+	override def mkString :String = mkString("Volatile")
 }
 
 

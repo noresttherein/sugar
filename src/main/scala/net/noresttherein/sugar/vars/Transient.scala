@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Opt.{Got, Lack}
+import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -45,6 +45,13 @@ object Transient {
 		}
 	}
 
+	//todo: verify that Scala Function0 lambdas are now serializable.
+	def from[@specialized(SpecializedVars) T](idempotent :() => T) :Transient[T] =
+		Transient.delay(idempotent())
+
+	def delay[@specialized(SpecializedVars) T](idempotent: => T) :Transient[T] =
+		Transient(() => idempotent)
+
 
 
 	/** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
@@ -60,9 +67,9 @@ object Transient {
 			val res = evaluated
 			if (res == undefined) None else Some(res.asInstanceOf[T])
 		}
-		override def opt :Opt[T] = {
+		override def maybe :Maybe[T] = {
 			val res = evaluated
-			if (res == undefined) Lack else Got(res.asInstanceOf[T])
+			if (res == undefined) No else Yes(res.asInstanceOf[T])
 		}
 		@unspecialized override def unsure :Unsure[T] = {
 			val res = evaluated
@@ -89,7 +96,7 @@ object Transient {
 				val res = f(v.asInstanceOf[T])
 				new Ref(() => res)
 			} else
-				new PureRef(() => f(apply()))
+				new PureRef(() => f(get))
 		}
 
 		@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -97,12 +104,10 @@ object Transient {
 			if (v != undefined)
 				f(v.asInstanceOf[T])
 			else
-				new PureRef(() => f(apply()))
+				new PureRef(() => f(get))
 		}
 
 		override def isSpecialized = true
-
-		override def toString :String = String.valueOf(evaluated)
 	}
 
 
@@ -120,9 +125,9 @@ object Transient {
 			val res = evaluated
 			if (res == undefined) None else Some(evaluated.asInstanceOf[T])
 		}
-		override def opt :Opt[T] = {
+		override def maybe :Maybe[T] = {
 			val res = evaluated
-			if (res == undefined) Lack else Got(evaluated.asInstanceOf[T])
+			if (res == undefined) No else Yes(evaluated.asInstanceOf[T])
 		}
 		override def unsure :Unsure[T] = {
 			val res = evaluated
@@ -149,7 +154,7 @@ object Transient {
 				val res = f(v.asInstanceOf[T])
 				new Ref(() => res)
 			} else
-				new PureRef(() => f(apply()))
+				new PureRef(() => f(get))
 		}
 
 		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
@@ -157,12 +162,10 @@ object Transient {
 			if (v != undefined)
 				f(v.asInstanceOf[T])
 			else
-				new PureRef(f(apply()))
+				new PureRef(f(get))
 		}
 
 		override def isSpecialized = false
-
-		override def toString :String = String.valueOf(evaluated)
 	}
 
 }

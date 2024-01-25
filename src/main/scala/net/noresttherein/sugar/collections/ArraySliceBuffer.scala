@@ -17,7 +17,7 @@ import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, castingMethods}
-import net.noresttherein.sugar.vars.Opt.Got
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 
 
@@ -377,7 +377,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			IndexedSeq.from(this)
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
-		case Got(companion) => companion match {
+		case Yes(companion) => companion match {
 			case Seq | IndexedSeq | collection.Seq | collection.IndexedSeq => toIndexedSeq.castFrom[IndexedSeq[E], C1]
 			case ArrayLikeSlice | IArrayLikeSlice | IRefArraySlice if canAlias =>
 				markAliased()
