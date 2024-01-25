@@ -229,9 +229,7 @@ private object IndexedReverseIterator {
 
 
 
-private abstract class IndexedIteratorFactory
-                       [S[X] <: collection.IterableOps[X, generic.Any, _], I[@specialized(Steppers) X]]
-{
+private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, generic.Any, _], I[X]] {
 	protected def make[T](seq :S[T], from :Int, until :Int) :I[T]
 
 	def apply[T](seq :S[T]) :I[T] =
@@ -316,8 +314,7 @@ private sealed class IndexedSeqIterator[+T] private[collections]
 
 @SerialVersionUID(Ver)
 private case object IndexedSeqIterator extends IndexedIteratorFactory[collection.IndexedSeq, IndexedSeqIterator] {
-	protected override def make[@specialized(Steppers) T]
-	                           (seq :collection.IndexedSeq[T], from :Int, until :Int) :IndexedSeqIterator[T] =
+	protected override def make[T](seq :collection.IndexedSeq[T], from :Int, until :Int) :IndexedSeqIterator[T] =
 		new IndexedSeqIterator(seq, 0, seq.length)
 }
 
