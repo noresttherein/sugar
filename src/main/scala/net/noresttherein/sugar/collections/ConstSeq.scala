@@ -4,7 +4,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.AbstractSeq
 import scala.collection.immutable.{LinearSeq, SeqOps}
 
-import net.noresttherein.sugar.arrays.extensions.MutableArrayExtension
+import net.noresttherein.sugar.arrays.MutableArrayExtension
 import net.noresttherein.sugar.collections.extensions.IteratorCompanionExtension
 
 

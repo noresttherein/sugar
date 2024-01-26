@@ -3,21 +3,20 @@ package net.noresttherein.sugar.collections
 import java.lang.System.arraycopy
 
 import scala.annotation.{nowarn, tailrec}
-import scala.collection.generic.DefaultSerializable
 import scala.collection.{BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, mutable}
+import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqDefaults, IndexedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.arrays.{ArrayIterator, ErasedArray, IArray}
 import net.noresttherein.sugar.collections.BTreeSeq.{CompletePrefixes, ConvertToBTreeOnConcatFactor, Empty, Leaf, MaxChildren, Node, Rank, SemiCompletePrefixes, grow, semiCompleteNode}
+import net.noresttherein.sugar.exceptions.??!
 import net.noresttherein.sugar.vars.Box
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 //implicits
-import net.noresttherein.sugar.arrays.IArray.IArrayClassTag
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayLikeExtension, IArrayExtension}
+import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 

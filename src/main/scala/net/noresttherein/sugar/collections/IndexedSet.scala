@@ -14,9 +14,8 @@ import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable
 import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedSeqSet}
-import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension}
-import net.noresttherein.sugar.extensions.{IterableOnceExtension, IteratorExtension}
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IterableExtension, SeqExtension}
+import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.Yes
 

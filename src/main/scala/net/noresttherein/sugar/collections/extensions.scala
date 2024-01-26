@@ -15,17 +15,15 @@ import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 import scala.util.{Random, Sorting}
 
-import net.noresttherein.sugar.{outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLike, ArrayLikeOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
 import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BooleanJteratorExtension, BufferExtension, BuilderExtension, ByteJteratorExtension, CharJteratorExtension, DoubleJteratorExtension, FactoryExtension, FloatJteratorExtension, IndexedSeqExtension, IntJteratorExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, JteratorExtension, LongJteratorExtension, RefJteratorExtension, SeqExtension, SeqFactoryExtension, ShortJteratorExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
-import net.noresttherein.sugar.exceptions.raise
+import net.noresttherein.sugar.exceptions.{raise, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
 import net.noresttherein.sugar.numeric.BitLogic
@@ -37,8 +35,8 @@ import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
+import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Ignored
 

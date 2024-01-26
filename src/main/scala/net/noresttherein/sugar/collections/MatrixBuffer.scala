@@ -12,15 +12,16 @@ import scala.collection.mutable.{AbstractBuffer, Builder, IndexedBuffer}
 import scala.reflect.ClassTag
 import scala.util.Sorting
 
-import net.noresttherein.sugar.{??!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.arrays.{ArrayLike, ArrayLikeOps, CyclicArrayIterator, ReverseCyclicArrayIterator}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator}
+import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayCompanionExtension}
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.extensions.{IntExtension, cast2TypeParamsMethods, castTypeParamMethods}
+import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
+import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, castTypeParamMethods}
 
 
 

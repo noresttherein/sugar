@@ -11,7 +11,7 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
+import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension

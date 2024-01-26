@@ -10,16 +10,12 @@ import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.ArraySeq
 import scala.collection.{ArrayOps, IterableFactory, Stepper, StepperShape, View, mutable}
 import scala.collection.mutable.{ArrayBuffer, Builder}
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.RefArrayLike.extensions.RefArrayLikeExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, MutableArrayExtension}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer, RefArraySlice}
-import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer}
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
-import net.noresttherein.sugar.witness.Ignored
 
 
 
@@ -371,47 +367,47 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 			}
 		}
 	}
-
-
-	implicit def RefArrayLikeClassTag[X, Arr[X] <: RefArrayLike[X]] :ClassTag[Arr[X]] =
-		ArrayAnyClassTag.asInstanceOf[ClassTag[Arr[X]]]
-
-	private[this] val ArrayAnyClassTag = classTag[Array[Any]]
-
-	/** Mixin trait with extension methods conversion for `RefArrayLike` subtypes.
-	  * @define Coll `RefArrayLike`
-	  * @define Extension `RefArrayLikeExtension[E, Arr]`
-	  */
-	private[arrays] trait extensions extends Any with ArrayLike.extensions {
-//		@inline implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], A](self :RefArrayLike[A])
-//				:RefArrayLikeExtension[Arr, A] =
-//			new RefArrayLikeExtension(self.asInstanceOf[Array[_]])
-		/** Extension methods for all `RefArrayLike[E]` subtypes.
-		  * $conversionInfo
-		  */
-		implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], E] :RefArrayLikeExtensionConversion[Arr, E] =
-			extensions.RefArrayLikeExtensionConversionPrototype.asInstanceOf[RefArrayLikeExtensionConversion[Arr, E]]
-	}
-	
-	@SerialVersionUID(Ver)
-	object extensions extends extensions {
-		sealed trait RefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E]
-			extends (Arr[E] => RefArrayLikeExtension[Arr, E])
-		{
-			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :RefArrayLikeExtension[Arr, E] =
-				new RefArrayLikeExtension(v1.asInstanceOf[Array[Any]])
-		}
-//		private def newRefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E] =
-//			new PriorityConversion.Wrapped[Arr[E], RefArrayLikeExtension[Arr, E]](
-//				(arr :Arr[E]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
-//			) with RefArrayLikeExtensionConversion[Arr, E]
-//		private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Any] =
-//			newRefArrayLikeExtensionConversion
-		private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Unknown] =
-			new PriorityConversion.Wrapped[RefArrayLike[Unknown], RefArrayLikeExtension[RefArrayLike, Unknown]](
-				(arr :RefArrayLike[Unknown]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
-			) with RefArrayLikeExtensionConversion[RefArrayLike, Unknown]
-	}
+//
+//
+//	implicit def RefArrayLikeClassTag[X, Arr[X] <: RefArrayLike[X]] :ClassTag[Arr[X]] =
+//		ArrayAnyClassTag.asInstanceOf[ClassTag[Arr[X]]]
+//
+//	private[this] val ArrayAnyClassTag = classTag[Array[Any]]
+//
+//	/** Mixin trait with extension methods conversion for `RefArrayLike` subtypes.
+//	  * @define Coll `RefArrayLike`
+//	  * @define Extension `RefArrayLikeExtension[E, Arr]`
+//	  */
+//	private[arrays] trait extensions extends Any with ArrayLike.extensions {
+////		@inline implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], A](self :RefArrayLike[A])
+////				:RefArrayLikeExtension[Arr, A] =
+////			new RefArrayLikeExtension(self.asInstanceOf[Array[_]])
+//		/** Extension methods for all `RefArrayLike[E]` subtypes.
+//		  * $conversionInfo
+//		  */
+//		implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], E] :RefArrayLikeExtensionConversion[Arr, E] =
+//			extensions.RefArrayLikeExtensionConversionPrototype.asInstanceOf[RefArrayLikeExtensionConversion[Arr, E]]
+//	}
+//
+//	@SerialVersionUID(Ver)
+//	object extensions extends extensions {
+//		sealed trait RefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E]
+//			extends (Arr[E] => RefArrayLikeExtension[Arr, E])
+//		{
+//			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :RefArrayLikeExtension[Arr, E] =
+//				new RefArrayLikeExtension(v1.asInstanceOf[Array[Any]])
+//		}
+////		private def newRefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E] =
+////			new PriorityConversion.Wrapped[Arr[E], RefArrayLikeExtension[Arr, E]](
+////				(arr :Arr[E]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
+////			) with RefArrayLikeExtensionConversion[Arr, E]
+////		private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Any] =
+////			newRefArrayLikeExtensionConversion
+//		private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Unknown] =
+//			new PriorityConversion.Wrapped[RefArrayLike[Unknown], RefArrayLikeExtension[RefArrayLike, Unknown]](
+//				(arr :RefArrayLike[Unknown]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
+//			) with RefArrayLikeExtensionConversion[RefArrayLike, Unknown]
+//	}
 }
 
 

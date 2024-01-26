@@ -14,17 +14,15 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.arrays.ArrayLike.extensions.ArrayLikeExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex, IndexedSeqLike}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex}
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
+import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.witness.Ignored
 
@@ -1279,25 +1277,25 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 //	implicit def arrayLikeToIterableOnce[A](array :ArrayLike[A]) :IterableOnce[A] =
 //		new ArrayAsSeq(array.asInstanceOf[Array[_]]).castParam[A]
 
-	implicit def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
-		Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
-
-//	implicit def ArrayLikeToSeq[E](array :IArray[E]) :collection.IndexedSeq[E] = Wrapped(array)
-
-	//fixme: precedence conflicts with ArrayLikeExtension
-	implicit def ArrayLikeIsSeq[E] :IsSeq[ArrayLike[E]] { type A = E; type C = ArrayLike[E] } =
-		IsSeqPrototype.asInstanceOf[IsSeq[ArrayLike[E]] { type A = E; type C = ArrayLike[E] }]
-
-	//We don't know what the particular element type of the array will be, so we must use Scala's polymorphic delegates.
-	private class ArrayLikeIsSeq[E] extends ArrayLikeIsSeqTemplate[E, collection.Seq, ArrayLike] {
-		override def apply(array :ArrayLike[E]) = //not ArrayLikeAsSeq because it must use collection.Seq, not ArrayLike
-			new ArrayLikeIsSeqOps[E, ArrayLike](array.asInstanceOf[Array[E]]) {
-				protected override def fromSpecific(coll :IterableOnce[E]) :ArrayLike[E] = IRefArray.from(coll)
-				protected override def newSpecificBuilder :Builder[E, ArrayLike[E]] = IRefArray.newBuilder
-			}
-		private def readResolve = ArrayLike.ArrayLikeIsSeq
-	}
-	private[this] val IsSeqPrototype :ArrayLikeIsSeq[Any] = new ArrayLikeIsSeq[Any]
+//	implicit def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
+//		Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
+//
+////	implicit def ArrayLikeToSeq[E](array :IArray[E]) :collection.IndexedSeq[E] = Wrapped(array)
+//
+//	//fixme: precedence conflicts with ArrayLikeExtension
+//	implicit def ArrayLikeIsSeq[E] :IsSeq[ArrayLike[E]] { type A = E; type C = ArrayLike[E] } =
+//		IsSeqPrototype.asInstanceOf[IsSeq[ArrayLike[E]] { type A = E; type C = ArrayLike[E] }]
+//
+//	//We don't know what the particular element type of the array will be, so we must use Scala's polymorphic delegates.
+//	private class ArrayLikeIsSeq[E] extends ArrayLikeIsSeqTemplate[E, collection.Seq, ArrayLike] {
+//		override def apply(array :ArrayLike[E]) = //not ArrayLikeAsSeq because it must use collection.Seq, not ArrayLike
+//			new ArrayLikeIsSeqOps[E, ArrayLike](array.asInstanceOf[Array[E]]) {
+//				protected override def fromSpecific(coll :IterableOnce[E]) :ArrayLike[E] = IRefArray.from(coll)
+//				protected override def newSpecificBuilder :Builder[E, ArrayLike[E]] = IRefArray.newBuilder
+//			}
+//		private def readResolve = ArrayLike.ArrayLikeIsSeq
+//	}
+//	private[this] val IsSeqPrototype :ArrayLikeIsSeq[Any] = new ArrayLikeIsSeq[Any]
 
 
 	/** A type class defining the specific `collection.IndexedSeq` subclass to which
@@ -1489,57 +1487,57 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	}
 
 
-	private[arrays] sealed trait conversions extends Any {
-		@inline implicit final def ArrayLikeToSeq[A, Arr[X] <: ArrayLike[X]]
-	                               (self :Arr[A])(implicit wrap :ArrayLikeToSeqConversion[A, Arr]) :wrap.IndexedSeq =
-			wrap(self)
-	}
-
-	private[arrays] sealed trait evidence extends Any {
-		implicit def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
-			Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
-	}
-
-	/** Mixin trait with extension methods conversion for `ArrayLike` subtypes.
-	  * @define Coll `ArrayLike`
-	  * @define Extension `ArrayLikeExtension[Arr, E]`
-	  * @define conversionInfo It is a specific subclass of `E => `$Extension function in order for it to have precedence
-	  *                        over conversions in `Predef` `Array[E] => ArrayOps[E]` as well as extension methods
-	  *                        from `sugar.collections.extensions`, available through wrapping to `IterableOnceOps` .
-	  *                        While the shadowed extension methods have the same semantics as in `ArrayOps` and
-	  *                        collection extensions, they also have overloaded variants,
-	  *                        which would otherwise be invisible.
-	  */ //todo: let package object extend it instead of extensions object.
-	private[arrays] trait extensions extends Any with evidence /*with conversions*/ {
-//		@inline implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], A](self :Arr[A])
-//				:ArrayLikeExtension[Arr, A] =
-//			new ArrayLikeExtension(self.asInstanceOf[Array[Unknown]])
-		/** Extension methods for all `ArrayLike` subtypes.
-		  * $conversionInfo
-		  */
-		implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] :ArrayLikeExtensionConversion[Arr, E] =
-			extensions.ArrayLikeExtensionConversionPrototype.asInstanceOf[ArrayLikeExtensionConversion[Arr, E]]
-	}
-
-	@SerialVersionUID(Ver)
-	object extensions extends extensions {
-		sealed trait ArrayLikeExtensionConversion[Arr[X] <: ArrayLike[X], E]
-			extends (Arr[E] => ArrayLikeExtension[Arr, E])
-		{
-			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :ArrayLikeExtension[Arr, E] =
-				new ArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
-		}
-//		private def newArrayLikeExtensionConversion[E, Arr[X] <: ArrayLike[X]] =
-//			new PriorityConversion.Wrapped[Arr[E], ArrayLikeExtension[Arr, E]](
-//				(arr :Arr[E]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
-//			) with ArrayLikeExtensionConversion[Arr, E]
-//		private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Any] =
-//			newArrayLikeExtensionConversion
-		private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Unknown] =
-			new PriorityConversion.Wrapped[ArrayLike[Unknown], ArrayLikeExtension[ArrayLike, Unknown]](
-				(arr :ArrayLike[Unknown]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
-			) with ArrayLikeExtensionConversion[ArrayLike, Unknown]
-	}
+//	private[arrays] sealed trait conversions extends Any {
+//		@inline implicit final def ArrayLikeToSeq[A, Arr[X] <: ArrayLike[X]]
+//	                               (self :Arr[A])(implicit wrap :ArrayLikeToSeqConversion[A, Arr]) :wrap.IndexedSeq =
+//			wrap(self)
+//	}
+//
+//	private[arrays] sealed trait evidence extends Any {
+//		implicit def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
+//			Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
+//	}
+//
+//	/** Mixin trait with extension methods conversion for `ArrayLike` subtypes.
+//	  * @define Coll `ArrayLike`
+//	  * @define Extension `ArrayLikeExtension[Arr, E]`
+//	  * @define conversionInfo It is a specific subclass of `E => `$Extension function in order for it to have precedence
+//	  *                        over conversions in `Predef` `Array[E] => ArrayOps[E]` as well as extension methods
+//	  *                        from `sugar.collections.extensions`, available through wrapping to `IterableOnceOps` .
+//	  *                        While the shadowed extension methods have the same semantics as in `ArrayOps` and
+//	  *                        collection extensions, they also have overloaded variants,
+//	  *                        which would otherwise be invisible.
+//	  */ //todo: let package object extend it instead of extensions object.
+//	private[arrays] trait extensions extends Any with evidence /*with conversions*/ {
+////		@inline implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], A](self :Arr[A])
+////				:ArrayLikeExtension[Arr, A] =
+////			new ArrayLikeExtension(self.asInstanceOf[Array[Unknown]])
+//		/** Extension methods for all `ArrayLike` subtypes.
+//		  * $conversionInfo
+//		  */
+//		implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] :ArrayLikeExtensionConversion[Arr, E] =
+//			extensions.ArrayLikeExtensionConversionPrototype.asInstanceOf[ArrayLikeExtensionConversion[Arr, E]]
+//	}
+//
+//	@SerialVersionUID(Ver)
+//	object extensions extends extensions {
+//		sealed trait ArrayLikeExtensionConversion[Arr[X] <: ArrayLike[X], E]
+//			extends (Arr[E] => ArrayLikeExtension[Arr, E])
+//		{
+//			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :ArrayLikeExtension[Arr, E] =
+//				new ArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
+//		}
+////		private def newArrayLikeExtensionConversion[E, Arr[X] <: ArrayLike[X]] =
+////			new PriorityConversion.Wrapped[Arr[E], ArrayLikeExtension[Arr, E]](
+////				(arr :Arr[E]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+////			) with ArrayLikeExtensionConversion[Arr, E]
+////		private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Any] =
+////			newArrayLikeExtensionConversion
+//		private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Unknown] =
+//			new PriorityConversion.Wrapped[ArrayLike[Unknown], ArrayLikeExtension[ArrayLike, Unknown]](
+//				(arr :ArrayLike[Unknown]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+//			) with ArrayLikeExtensionConversion[ArrayLike, Unknown]
+//	}
 }
 
 

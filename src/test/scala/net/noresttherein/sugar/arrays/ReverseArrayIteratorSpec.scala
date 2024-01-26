@@ -7,7 +7,6 @@ import scala.reflect.ClassTag
 import org.scalacheck.Prop._
 import org.scalacheck.{Arbitrary, Prop, Shrink, Test}
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, MutableArrayExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
 import net.noresttherein.sugar.witness.{DefaultValue, NullValue}
 

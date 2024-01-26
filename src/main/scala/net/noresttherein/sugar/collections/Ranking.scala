@@ -12,8 +12,8 @@ import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, Index
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 import scala.util.Random
 
-import net.noresttherein.sugar.arrays.{IArray, IRefArray, RefArray, RefArrayLike}
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, RefArrayExtension, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayLike}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView

@@ -2,6 +2,8 @@ package net.noresttherein.sugar
 
 import scala.annotation.unchecked.uncheckedVariance
 
+import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
+
 
 /** Definitions of several types represented under the hood by arrays:
   *   1. [[net.noresttherein.sugar.arrays.IArray! IArray!]]`[E]` is a covariant, immutable representation of `Array[E]`.
@@ -19,11 +21,7 @@ import scala.annotation.unchecked.uncheckedVariance
   * Note that the types can be often cast into one another without causing a `ClassCastException`,
   * and thus the immutability is guaranteed only under the assumption that no such casting is done by the application.
   */
-//Consider: extending extensions. Anyone importing one of these types will want also the extension, and,
-// if we do not have any public classes, a wildcard import will cause no namespace pollution.
-// The problem starts if someone imports both arrays._ (for the types), and sugar.extensions._
-// (for the whole syntax sugar) and we end up with conflicting implicit values.
-package object arrays {
+package object arrays extends extensions {
 	final val Ver = 1L
 	
 	/** Supertype of all types in this package represented by an `Array`, as well as an `Array[E]` itself. Its extension

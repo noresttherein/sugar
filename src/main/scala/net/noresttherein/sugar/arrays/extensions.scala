@@ -7,28 +7,31 @@ import java.util.Arrays
 import scala.annotation.tailrec
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.IsSeq
+import scala.collection.mutable.Builder
 import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
-import net.noresttherein.sugar.arrays.extensions.ArrayExtension
-import net.noresttherein.sugar.reflect.classes
-import net.noresttherein.sugar.witness.{Ignored1, Overload}
-
-//import net.noresttherein.sugar.arrays.ArrayLike.ArrayCompatibility
+import net.noresttherein.sugar.arrays.ArrayLike.{ArrayLikeExtension, ArrayLikeToSeqConversion}
 import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtensionConversion, ArrayExtensionConversionPrototype, ArrayCompanionExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.IArray.{BooleanIArrayExtension, ByteIArrayExtension, CharIArrayExtension, DoubleIArrayExtension, FloatIArrayExtension, IArrayExtension, IntIArrayExtension, LongIArrayExtension, RefIArrayExtension, ShortIArrayExtension}
+import net.noresttherein.sugar.arrays.IArrayLike.IArrayLikeExtension
+import net.noresttherein.sugar.arrays.IRefArray.IRefArrayExtension
+import net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension
+import net.noresttherein.sugar.arrays.RefArray.RefArrayExtension
+import net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayExtensionConversion, ArrayExtensionConversionPrototype, IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
 import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
-import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, StepperCompanionExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
-import net.noresttherein.sugar.reflect.extensions.classNameMethods
+import net.noresttherein.sugar.reflect.classes
+import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.witness.Ignored
+import net.noresttherein.sugar.witness.{Ignored, Ignored1, Overload}
 
 
 
@@ -36,7 +39,7 @@ import net.noresttherein.sugar.witness.Ignored
 /** Collected definitions of implicit conversions providing extension methods to `Array` and all other
   * [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]] subtypes.
   */
-trait extensions extends IArray.extensions with RefArray.extensions with IRefArray.extensions {
+trait extensions extends IArrayExtensions with IRefArrayExtensions with RefArrayExtensions {
 	/** Extension methods for arrays. This conversion has priority over the one to [[scala.collection.ArrayOps ArrayOps]]
 	  * defined in `Predef`, in order to provide overloads of standard methods, like update.
 	  */
@@ -60,8 +63,13 @@ trait extensions extends IArray.extensions with RefArray.extensions with IRefArr
 
 
 
+
+/** Extension classes for working with [[net.noresttherein.sugar.array.ArrayLike ArrayLike]] subtypes
+  * (including `Array`s). Implicit conversions granting these extension methods are available, as an exception,
+  * from package object [[net.noresttherein.sugar.arrays arrays]].
+  */
 @SerialVersionUID(Ver)
-object extensions extends extensions {
+object extensions {
 
 	//Consider: removing methods shared with IndexedSeqExtension - they are granted by promoting an Array to ArrayAsSeq.
 	/** Adds smart proxies to [[java.util.Arrays]] methods and additional mutable and immutable updating methods,
@@ -928,10 +936,6 @@ object extensions extends extensions {
 		 */
 		@inline final def apply(v1 :Array[E])(implicit __ :Ignored) :ArrayExtension[E] = new ArrayExtension(v1)
 	}
-//	private def newArrayExtensionConversion[E] =
-//		new PriorityConversion.Wrapped[Array[E], ArrayExtension[E]](new ArrayExtension(_))
-//			with ArrayExtensionConversion[E]
-//	private val ArrayExtensionConversionPrototype :ArrayExtensionConversion[Any] = newArrayExtensionConversion
 	private val ArrayExtensionConversionPrototype :ArrayExtensionConversion[Unknown] =
 		new PriorityConversion.Wrapped[Array[Unknown], ArrayExtension[Unknown]](new ArrayExtension(_))
 			with ArrayExtensionConversion[Unknown]
@@ -947,7 +951,7 @@ object extensions extends extensions {
 	  *      as well as pick the likely most efficient method based on the array and range lengths.
 	  * @see [[net.noresttherein.sugar.arrays.ArrayFactory ArrayFactory]] - an `IterableFactory` for arrays,
 	  *      defining also simpler, lower level copying methods.
-	  */ //todo: rename all 'Object' extensions to 'Companion'
+	  */
 	sealed trait ArrayCompanionExtension extends Any {
 
 		/** A type class promoting arrays to sequences. */
@@ -2367,5 +2371,361 @@ object extensions extends extensions {
 		                 (array :Array[E], from :Int = 0, size :Int = Int.MaxValue)
 		                 (implicit shape :StepperShape[E, S]) :S with EfficientSplit = Stepper(array, from, size)
 	}
+
+
+
+
+
+
+	private[arrays] sealed trait ArrayLikeEvidence extends Any {
+		@inline implicit final def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
+			Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
+	}
+
+	private[arrays] sealed trait ArrayLikeConversions extends Any {
+		@inline implicit final def ArrayLikeToSeq[A, Arr[X] <: ArrayLike[X]]
+	                               (self :Arr[A])(implicit wrap :ArrayLikeToSeqConversion[A, Arr]) :wrap.IndexedSeq =
+			wrap(self)
+	}
+
+	/** Mixin trait with extension methods conversion for `ArrayLike` subtypes.
+	  * @define Coll `ArrayLike`
+	  * @define Extension `ArrayLikeExtension[Arr, E]`
+	  * @define conversionInfo It is a specific subclass of `E => `$Extension function in order for it to have precedence
+	  *                        over conversions in `Predef` `Array[E] => ArrayOps[E]` as well as extension methods
+	  *                        from `sugar.collections.extensions`, available through wrapping to `IterableOnceOps` .
+	  *                        While the shadowed extension methods have the same semantics as in `ArrayOps` and
+	  *                        collection extensions, they also have overloaded variants,
+	  *                        which would otherwise be invisible.
+	  */
+	private[arrays] sealed trait ArrayLikeExtensions extends Any with ArrayLikeEvidence /*with conversions*/ {
+		/** Extension methods for all `ArrayLike` subtypes.
+		  * $conversionInfo
+		  */
+		implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] :ArrayLikeExtensionConversion[Arr, E] =
+			extensions.ArrayLikeExtensionConversionPrototype.asInstanceOf[ArrayLikeExtensionConversion[Arr, E]]
+	}
+
+	sealed trait ArrayLikeExtensionConversion[Arr[X] <: ArrayLike[X], E]
+		extends (Arr[E] => ArrayLikeExtension[Arr, E])
+	{
+		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :ArrayLikeExtension[Arr, E] =
+			new ArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
+	}
+	private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Unknown] =
+		new PriorityConversion.Wrapped[ArrayLike[Unknown], ArrayLikeExtension[ArrayLike, Unknown]](
+			(arr :ArrayLike[Unknown]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+		) with ArrayLikeExtensionConversion[ArrayLike, Unknown]
+
+
+
+//	private[arrays] sealed trait IArrayLikeConversions extends Any with ArrayLikeConversions {
+//		//fixme: conflicts with ArrayLikeExtension because it's more specific
+//		@inline implicit final def IArrayLikeToSeq[A](self :IArrayLike[A]) :IndexedSeq[A] = IArrayLike.Wrapped(self)
+//	}
+
+//	private[arrays] sealed trait IArrayLikeEvidence extends Any with ArrayLikeEvidence {
+//		//fixme: precedence conflicts with ArrayLikeExtension
+//		implicit final def IArrayLikeIsSeq[E] :IsSeq[IArrayLike[E]] { type A = E; type C = IArrayLike[E] } =
+//			IArrayIsSeqPrototype.asInstanceOf[IsSeq[IArrayLike[E]] { type A = E; type C = IArrayLike[E] }]
+//	}
+//		isSeqPrototype.asInstanceOf[IsSeq[IArrayLike[E]] { type A = E; type C = IArrayLike[E] }]
+//
+//	We don't know what the particular element type of the array will be, so we must use Scala's polymorphic delegates.
+//	private class IArrayLikeIsSeq[E] extends ArrayLikeIsSeqTemplate[E, Seq, IArrayLike] {
+//		override def apply(array :IArrayLike[E]) =
+//			new IArrayLikeIsSeqOps[E, IArrayLike](array) {
+//				protected override def fromSpecific(coll :IterableOnce[E]) :IArrayLike[E] = IRefArray.from(coll)
+//				protected override def newSpecificBuilder :Builder[E, IArrayLike[E]] = IRefArray.newBuilder
+//			}
+//		private def readResolve = IArrayLike.IArrayLikeIsSeq
+//	}
+//	private[this] val isSeqPrototype :IArrayLikeIsSeq[Any] = new IArrayLikeIsSeq[Any]
+
+
+	/** Mixin trait with extension methods conversion for `IArrayLike` subtypes.
+	  * @define Coll `IArrayLike`
+	  * @define Extension `IArrayLikeExtension[Arr, E]`
+	  */
+	private[arrays] sealed trait IArrayLikeExtensions extends Any with ArrayLikeExtensions {
+		/** Extension methods for all `IArrayLike[E]` subtypes.
+		  * $conversionInfo
+		  */
+		implicit final def IArrayLikeExtension[Arr[X] <: IArrayLike[X], E] :IArrayLikeExtensionConversion[Arr, E] =
+			extensions.IArrayLikeExtensionConversionPrototype.asInstanceOf[IArrayLikeExtensionConversion[Arr, E]]
+	}
+
+	sealed trait IArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E]
+		extends (Arr[E] => IArrayLikeExtension[Arr, E])
+	{
+		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :IArrayLikeExtension[Arr, E] =
+			new IArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
+	}
+	private val IArrayLikeExtensionConversionPrototype :IArrayLikeExtensionConversion[IArrayLike, Any] =
+		new PriorityConversion.Wrapped[IArrayLike[Any], IArrayLikeExtension[IArrayLike, Any]](
+			(arr :IArrayLike[Any]) => new IArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+		) with IArrayLikeExtensionConversion[IArrayLike, Any]
+
+
+
+	private[arrays] sealed trait IArrayEvidence extends Any {
+		@inline implicit final def IArrayClassTag[E :ClassTag] :ClassTag[IArray[E]] = classTag[Array[E]].castParam[IArray[E]]
+		//todo: specialize
+//		implicit final def IArrayOrdering[E :Ordering] :Ordering[IArray[E]] =
+//			Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[IArray[E]]]
+//
+//		/** A type class promoting immutable arrays to sequences. */
+//		implicit final def IArrayIsSeq[E] :IsSeq[IArray[E]] { type A = E; type C = IArray[E] } =
+//			IArrayIsSeqPrototype.asInstanceOf[IsSeq[IArray[E]] { type A = E; type C = IArray[E] }]
+	}
+//	private val IArrayIsSeqPrototype = new ArrayLikeIsSeqTemplate[Unknown, Seq, IArray] {
+//		final override def apply(coll :IArray[Unknown]) =
+//			new IArrayLikeIsSeqOps[Unknown, IArray](coll) {
+//				protected final override def fromSpecific(coll :IterableOnce[Unknown]) :IArray[Unknown] =
+//					IArray.from(coll)(ClassTag[Unknown](this.coll.getClass.getComponentType))
+//
+//				protected final override def newSpecificBuilder :Builder[Unknown, IArray[Unknown]] =
+//					IArray.newBuilder(this.coll.getClass.getComponentType.castParam[Unknown])
+//			}
+//		private def readResolve = IArrayIsSeqPrototype
+//	}
+
+//	private[arrays] sealed trait IArrayConversions extends Any {
+//		implicit final def IArrayToSeq[E](self :IArray[E]) :IndexedSeq[E] =
+//	}
+
+	/** Conversions providing extension methods for `IArray`. */
+	private[arrays] sealed trait IArrayExtensions extends IArrayLikeExtensions with IArrayEvidence {
+		implicit final def IArrayExtension[E] :IArrayExtensionConversion[E] =
+			extensions.IArrayExtensionConversionPrototype.asInstanceOf[IArrayExtensionConversion[E]]
+
+		implicit final def RefIArrayExtension[E <: AnyRef] :RefIArrayExtensionConversion[E] =
+			extensions.RefIArrayExtensionConversionPrototype.asInstanceOf[RefIArrayExtensionConversion[E]]
+
+		implicit object ByteIArrayExtension extends PriorityConversion.Wrapped[IArray[Byte], ByteIArrayExtension](
+			(arr :IArray[Byte]) => new ByteIArrayExtension(arr.asInstanceOf[Array[Byte]])
+		) {
+			@inline final def apply(v1 :IArray[Byte])(implicit __ :Ignored) :ByteIArrayExtension =
+				new ByteIArrayExtension(v1.asInstanceOf[Array[Byte]])
+		}
+		implicit object ShortIArrayExtension extends PriorityConversion.Wrapped[IArray[Short], ShortIArrayExtension](
+			(arr :IArray[Short]) => new ShortIArrayExtension(arr.asInstanceOf[Array[Short]])
+		) {
+			@inline final def apply(v1 :IArray[Short])(implicit __ :Ignored) :ShortIArrayExtension =
+				new ShortIArrayExtension(v1.asInstanceOf[Array[Short]])
+		}
+		implicit object CharIArrayExtension extends PriorityConversion.Wrapped[IArray[Char], CharIArrayExtension](
+			(arr :IArray[Char]) => new CharIArrayExtension(arr.asInstanceOf[Array[Char]])
+		) {
+			@inline final def apply(v1 :IArray[Char])(implicit __ :Ignored) :CharIArrayExtension =
+				new CharIArrayExtension(v1.asInstanceOf[Array[Char]])
+		}
+		implicit object IntIArrayExtension extends PriorityConversion.Wrapped[IArray[Int], IntIArrayExtension](
+			(arr :IArray[Int]) => new IntIArrayExtension(arr.asInstanceOf[Array[Int]])
+		) {
+			@inline final def apply(v1 :IArray[Int])(implicit __ :Ignored) :IntIArrayExtension =
+				new IntIArrayExtension(v1.asInstanceOf[Array[Int]])
+		}
+		implicit object LongIArrayExtension extends PriorityConversion.Wrapped[IArray[Long], LongIArrayExtension](
+			(arr :IArray[Long]) => new LongIArrayExtension(arr.asInstanceOf[Array[Long]])
+		) {
+			@inline final def apply(v1 :IArray[Long])(implicit __ :Ignored) :LongIArrayExtension =
+				new LongIArrayExtension(v1.asInstanceOf[Array[Long]])
+		}
+		implicit object FloatIArrayExtension extends PriorityConversion.Wrapped[IArray[Float], FloatIArrayExtension](
+			(arr :IArray[Float]) => new FloatIArrayExtension(arr.asInstanceOf[Array[Float]])
+		) {
+			@inline final def apply(v1 :IArray[Float])(implicit __ :Ignored) :FloatIArrayExtension =
+				new FloatIArrayExtension(v1.asInstanceOf[Array[Float]])
+		}
+		implicit object DoubleIArrayExtension extends PriorityConversion.Wrapped[IArray[Double], DoubleIArrayExtension](
+			(arr :IArray[Double]) => new DoubleIArrayExtension(arr.asInstanceOf[Array[Double]])
+		) {
+			@inline final def apply(v1 :IArray[Double])(implicit __ :Ignored) :DoubleIArrayExtension =
+				new DoubleIArrayExtension(v1.asInstanceOf[Array[Double]])
+		}
+		implicit object BooleanIArrayExtension extends PriorityConversion.Wrapped[IArray[Boolean], BooleanIArrayExtension](
+			(arr :IArray[Boolean]) => new BooleanIArrayExtension(arr.asInstanceOf[Array[Boolean]])
+		) {
+			@inline final def apply(v1 :IArray[Boolean])(implicit __ :Ignored) :BooleanIArrayExtension =
+				new BooleanIArrayExtension(v1.asInstanceOf[Array[Boolean]])
+		}
+	}
+
+	sealed trait IArrayExtensionConversion[E] extends (IArray[E] => IArrayExtension[E]) {
+		@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :IArrayExtension[E] =
+			new IArrayExtension(v1.asInstanceOf[Array[E]])
+	}
+	sealed trait RefIArrayExtensionConversion[E <: AnyRef] extends (IArray[E] => RefIArrayExtension[E]) {
+		@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :RefIArrayExtension[E] =
+			new RefIArrayExtension(v1.asInstanceOf[Array[E]])
+	}
+	private val IArrayExtensionConversionPrototype :IArrayExtensionConversion[Unknown] =
+		new PriorityConversion.Wrapped[IArray[Unknown], IArrayExtension[Unknown]](
+			(arr :IArray[Unknown]) => new IArrayExtension(arr.asInstanceOf[Array[Unknown]])
+		) with IArrayExtensionConversion[Unknown]
+
+	private val RefIArrayExtensionConversionPrototype :RefIArrayExtensionConversion[AnyRef] =
+		new PriorityConversion.Wrapped[IArray[AnyRef], RefIArrayExtension[AnyRef]](
+			(arr :IArray[AnyRef]) => new RefIArrayExtension(arr.asInstanceOf[Array[AnyRef]])
+		) with RefIArrayExtensionConversion[AnyRef]
+
+
+
+//	private[arrays] sealed trait MutableArrayConversions extends Any {
+//		implicit final def MutableArrayToSeq[E](array :MutableArray[E]) :collection.IndexedSeq[E] =
+//			MutableArray.Wrapped(array)
+//	}
+//	private[arrays] sealed trait MutableArrayEvidence extends Any {
+//		//fixme: precedence conflicts with ArrayLikeExtension
+//		implicit final def MutableArrayIsSeq[E] :IsSeq[MutableArray[E]] { type A = E; type C = MutableArray[E] } =
+//			Array.ArrayIsSeq.asInstanceOf[IsSeq[MutableArray[E]] { type A = E; type C = MutableArray[E] }]
+//	}
+
+	/** Mixin trait with extension methods conversion for `MutableArray` subtypes.
+	  * @define Coll `MutableArray`
+	  * @define Extension `MutableArrayExtension[E, Arr]`
+	  */
+	private[arrays] sealed trait MutableArrayExtensions extends Any with ArrayLikeExtensions {
+		/** Extension methods for all `MutableArray[E]` subtypes.
+		  * $conversionInfo
+		  */
+		implicit final def MutableArrayExtension[E] :MutableArrayExtensionConversion[E] =
+			extensions.MutableArrayExtensionConversionPrototype.asInstanceOf[MutableArrayExtensionConversion[E]]
+	}
+
+	sealed trait MutableArrayExtensionConversion[E] extends (MutableArray[E] => MutableArrayExtension[E]) {
+		@inline final def apply(v1 :MutableArray[E])(implicit __ :Ignored) :MutableArrayExtension[E] =
+			new MutableArrayExtension(v1.asInstanceOf[Array[Unknown]])
+	}
+	private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Unknown] =
+		new PriorityConversion.Wrapped[MutableArray[Unknown], MutableArrayExtension[Unknown]](
+			(arr :MutableArray[Unknown]) => new MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
+		) with MutableArrayExtensionConversion[Unknown]
+
+
+
+	private[arrays] sealed trait RefArrayLikeEvidence extends Any {
+		implicit final def RefArrayLikeClassTag[X, Arr[X] <: RefArrayLike[X]] :ClassTag[Arr[X]] =
+			ArrayAnyClassTag.asInstanceOf[ClassTag[Arr[X]]]
+//		implicit final def RefArrayLikeIsSeq[E, Arr[X] <: RefArrayLike[X]] :IsSeq[Arr[E]] { type A = E; type C = Arr[E] } =
+//			RefArrayLikeIsSeqPrototype.castFrom[IsSeq[RefArrayLike[Any]], IsSeq[Arr[E]] { type A = E; type C = Arr[E] }]
+	}
+	private[this] val ArrayAnyClassTag = classTag[Array[AnyRef]]
+//
+//	private val RefArrayLikeIsSeqPrototype :ArrayLikeIsSeqTemplate[Any, collection.Seq, RefArrayLike] =
+//		new ArrayLikeIsSeqTemplate[Any, collection.Seq, RefArrayLike] {
+//			final override def apply(array :RefArrayLike[Any]) =
+//				new ArrayLikeIsSeqOps[Any, RefArrayLike](array.asInstanceOf[Array[Any]]) {
+//					override def fromSpecific(coll :IterableOnce[Any]) :RefArrayLike[Any] = RefArrayLike.from(coll)
+//					override def newSpecificBuilder :Builder[Any, RefArrayLike[Any]] = RefArrayLike.newBuilder
+//				}
+//			private def readResolve = extensions.RefArrayLikeIsSeqPrototype
+//			override lazy val toString = "RefArrayLikeIsSeq"
+//		}
+
+	/** Mixin trait with extension methods conversion for `RefArrayLike` subtypes.
+	  * @define Coll `RefArrayLike`
+	  * @define Extension `RefArrayLikeExtension[E, Arr]`
+	  */
+	private[arrays] sealed trait RefArrayLikeExtensions extends Any with ArrayLikeExtensions {
+		/** Extension methods for all `RefArrayLike[E]` subtypes.
+		  * $conversionInfo
+		  */
+		implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], E] :RefArrayLikeExtensionConversion[Arr, E] =
+			extensions.RefArrayLikeExtensionConversionPrototype.asInstanceOf[RefArrayLikeExtensionConversion[Arr, E]]
+	}
+
+	sealed trait RefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E]
+		extends (Arr[E] => RefArrayLikeExtension[Arr, E])
+	{
+		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :RefArrayLikeExtension[Arr, E] =
+			new RefArrayLikeExtension(v1.asInstanceOf[Array[Any]])
+	}
+	private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Unknown] =
+		new PriorityConversion.Wrapped[RefArrayLike[Unknown], RefArrayLikeExtension[RefArrayLike, Unknown]](
+			(arr :RefArrayLike[Unknown]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
+		) with RefArrayLikeExtensionConversion[RefArrayLike, Unknown]
+
+
+
+//	private[arrays] trait RefArrayEvidence extends Any {
+//		implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
+//		implicit def RefArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } =
+//			RefArrayIsSeqPrototype.asInstanceOf[IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] }]
+//	}
+//	private val RefArrayIsSeqPrototype :ArrayLikeIsSeqTemplate[Any, mutable.Seq, RefArray] =
+//		new ArrayLikeIsSeqTemplate[Any, mutable.Seq, RefArray] {
+//			final override def apply(coll :RefArray[Any]) =
+//				new MutableArrayIsSeqOps[Any, RefArray](coll) {
+//					protected override def fromSpecific(coll :IterableOnce[Any]) :RefArray[Any] = RefArray.from(coll)
+//					protected override def newSpecificBuilder :Builder[Any, RefArray[Any]] = RefArray.newBuilder
+//				}
+//			private def readResolve = RefArrayIsSeqPrototype
+//			override def toString = "RefArrayIsSeq"
+//		}
+
+	/** Mixin trait with extension methods conversion for `RefArray` types.
+	  * @define Coll `RefArray`
+	  * @define Extension `RefArrayExtension[E]`
+	  */
+	private[arrays] sealed trait RefArrayExtensions extends Any with RefArrayLikeExtensions with MutableArrayExtensions {
+		/** Extension methods for [[net.noresttherein.sugar.arrays.RefArray RefArray]]`[E]`.
+		  * $conversionInfo
+		  */
+		implicit final def RefArrayExtension[E] :RefArrayExtensionConversion[E] =
+			extensions.RefArrayExtensionConversionPrototype.asInstanceOf[RefArrayExtensionConversion[E]]
+	}
+
+	sealed trait RefArrayExtensionConversion[E] extends (RefArray[E] => RefArrayExtension[E]) {
+		@inline final def apply(v1 :RefArray[E])(implicit __ :Ignored) :RefArrayExtension[E] =
+			new RefArrayExtension(v1.asInstanceOf[Array[Any]])
+	}
+	private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Unknown] =
+		new PriorityConversion.Wrapped[RefArray[Unknown], RefArrayExtension[Unknown]](
+			(arr :RefArray[Unknown]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
+		) with RefArrayExtensionConversion[Unknown]
+
+
+
+//	private[arrays] trait IRefArrayEvidence extends Any {
+//		implicit def IRefArrayClassTag[A] :ClassTag[IRefArray[A]] = ArrayAnyClassTag.castParam[IRefArray[A]]
+//		implicit def IRefArrayIsSeq[E] :IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] } =
+//			IRefArrayIsSeqPrototype.asInstanceOf[IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] }]
+//	}
+//	private val IRefArrayIsSeqPrototype :ArrayLikeIsSeqTemplate[Any, Seq, IRefArray] =
+//		new ArrayLikeIsSeqTemplate[Any, Seq, IRefArray] {
+//			final override def apply(coll :IRefArray[Any]) =
+//				new IArrayLikeIsSeqOps[Any, IRefArray](coll) {
+//					protected override def fromSpecific(coll :IterableOnce[Any]) :IRefArray[Any] = IRefArray.from(coll)
+//					protected override def newSpecificBuilder :Builder[Any, IRefArray[Any]] = IRefArray.newBuilder
+//				}
+//			private def readResolve = extensions.IRefArrayIsSeqPrototype
+//			override def toString = "IRefArrayIsSeq"
+//		}
+
+	/** Mixin trait with extension methods conversion for `IRefArray` types.
+	  * @define Coll `IRefArray`
+	  * @define Extension `IRefArrayExtension[E]`
+	  */
+	private[arrays] sealed trait IRefArrayExtensions
+		extends Any with RefArrayLikeExtensions with IArrayLikeExtensions //with IRefArrayEvidence
+	{
+		/** Extension methods for [[net.noresttherein.sugar.arrays.IRefArray IRefArray]]`[E]`.
+		  * $conversionInfo
+		  */
+		implicit final def IRefArrayExtension[E] :IRefArrayExtensionConversion[E] =
+			extensions.IRefArrayExtensionConversionPrototype.asInstanceOf[IRefArrayExtensionConversion[E]]
+	}
+
+	sealed trait IRefArrayExtensionConversion[E] extends (IRefArray[E] => IRefArrayExtension[E]) {
+		@inline final def apply(v1 :IRefArray[E])(implicit __ :Ignored) :IRefArrayExtension[E] =
+			new IRefArrayExtension(v1.asInstanceOf[Array[Any]])
+	}
+	private val IRefArrayExtensionConversionPrototype :IRefArrayExtensionConversion[Unknown] =
+		new PriorityConversion.Wrapped[IRefArray[Unknown], IRefArrayExtension[Unknown]](
+			(arr :IRefArray[Unknown]) => new IRefArrayExtension(arr.asInstanceOf[Array[Any]])
+		) with IRefArrayExtensionConversion[Unknown]
+
 
 }

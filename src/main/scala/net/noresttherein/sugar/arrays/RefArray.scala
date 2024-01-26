@@ -1,20 +1,15 @@
 package net.noresttherein.sugar.arrays
 
-import scala.collection.generic.IsSeq
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, Builder}
-import scala.reflect.{ClassTag, classTag}
+import scala.collection.mutable.ArrayBuffer
+import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.RefArray.extensions.RefArrayExtensionConversion
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayLikeExtension, MutableArrayExtension}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
+import net.noresttherein.sugar.typist.casting.extensions.{castingMethods, castTypeParamMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
-import net.noresttherein.sugar.witness.Ignored
 
 
 
@@ -264,33 +259,33 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 	}
 
 
-	implicit def RefArrayOrdering[A :Ordering] :Ordering[RefArray[A]] =
-		Array.ArrayOrdering[A].castParam[RefArray[A]]
-
-	implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
-	private val tag = classTag[Array[AnyRef]]
-
-	implicit def RefArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } =
-		IsSeqPrototype.asInstanceOf[IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] }]
-
-	private[this] val IsSeqPrototype =
-		new ArrayLikeIsSeqTemplate[Any, mutable.Seq, RefArray] {
-			override def apply(coll :RefArray[Any]) =
-				new MutableArrayIsSeqOps[Any, RefArray](coll) {
-					protected override def fromSpecific(coll :IterableOnce[Any]) :RefArray[Any] = RefArray.from(coll)
-					protected override def newSpecificBuilder :Builder[Any, RefArray[Any]] = RefArray.newBuilder
-				}
-			private def readResolve = RefArrayIsSeq
-			override def toString = "RefArrayIsSeq"
-		}
+//	implicit def RefArrayOrdering[A :Ordering] :Ordering[RefArray[A]] =
+//		Array.ArrayOrdering[A].castParam[RefArray[A]]
+//
+//	implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
+//	private val tag = classTag[Array[AnyRef]]
+//
+//	implicit def RefArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } =
+//		IsSeqPrototype.asInstanceOf[IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] }]
+//
+//	private[this] val IsSeqPrototype =
+//		new ArrayLikeIsSeqTemplate[Any, mutable.Seq, RefArray] {
+//			override def apply(coll :RefArray[Any]) =
+//				new MutableArrayIsSeqOps[Any, RefArray](coll) {
+//					protected override def fromSpecific(coll :IterableOnce[Any]) :RefArray[Any] = RefArray.from(coll)
+//					protected override def newSpecificBuilder :Builder[Any, RefArray[Any]] = RefArray.newBuilder
+//				}
+//			private def readResolve = RefArrayIsSeq
+//			override def toString = "RefArrayIsSeq"
+//		}
 //	implicit def RefArrayIsSeq[E] :IsSeq[RefArray[E]] { type A = E; type C = RefArray[A] } = isSeq
-
-
+//
+//
 //	private[arrays] sealed trait conversions extends Any with MutableArray.conversions {
 //		//fixme: conflicts with ArrayLikeExtension
 ////		@inline implicit final def RefArrayToSeq[A](self :RefArray[A]) :mutable.IndexedSeq[A] = Wrapped(self)
 //	}
-
+//
 //	private[arrays] sealed trait RefArrayRank1Extensions
 //		extends Any with RefArrayLike.extensions with MutableArray.extensions
 //	{
@@ -319,47 +314,47 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 //				:IndexedSeqExtension[E, RefArray, RefArray[E]] =
 //			new IndexedSeqExtension(new RefArrayAsSeq(self))
 //	}
-
+//
 //	private[arrays] trait RefArrayRank1Extensions extends Any with RefArrayRank2Extensions {
 //		@inline implicit final def RefArrayAsArrayLikeExtension[A](array :RefArray[A])
 //				:ArrayLike.ArrayLikeExtension[RefArray, A] =
 //			new ArrayLike.ArrayLikeExtension[RefArray, A](array.castFrom[RefArray[A], Array[Any]])
 //	}
 //
-	private[arrays] trait evidence extends Any {
-		implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
-	}
-
-	/** Mixin trait with extension methods conversion for `RefArray` types.
-	  * @define Coll `RefArray`
-	  * @define Extension `RefArrayExtension[E]`
-	  */
-	private[arrays] trait extensions extends Any with RefArrayLike.extensions with MutableArray.extensions with evidence {
-//		@inline implicit final def RefArrayExtension[A](self :RefArray[A]) :RefArrayExtension[A] =
-//			new RefArrayExtension(self.asInstanceOf[Array[Any]])
-		/** Extension methods for [[net.noresttherein.sugar.arrays.RefArray RefArray]]`[E]`.
-		  * $conversionInfo
-		  */
-		implicit final def RefArrayExtension[E] :RefArrayExtensionConversion[E] =
-			extensions.RefArrayExtensionConversionPrototype.asInstanceOf[RefArrayExtensionConversion[E]]
-	}
-	
-	@SerialVersionUID(Ver)
-	object extensions extends extensions {
-		sealed trait RefArrayExtensionConversion[E] extends (RefArray[E] => RefArrayExtension[E]) {
-			@inline final def apply(v1 :RefArray[E])(implicit __ :Ignored) :RefArrayExtension[E] =
-				new RefArrayExtension(v1.asInstanceOf[Array[Any]])
-		}
-//		private def newRefArrayExtensionConversion[E] =
-//			new PriorityConversion.Wrapped[RefArray[E], RefArrayExtension[E]](
-//				(arr :RefArray[E]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
-//			) with RefArrayExtensionConversion[E]
-//		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Any] =
-//			newRefArrayExtensionConversion
-		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Unknown] =
-			new PriorityConversion.Wrapped[RefArray[Unknown], RefArrayExtension[Unknown]](
-				(arr :RefArray[Unknown]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
-			) with RefArrayExtensionConversion[Unknown]
-	}
+//	private[arrays] trait evidence extends Any {
+//		implicit def RefArrayClassTag[A] :ClassTag[RefArray[A]] = tag.castParam[RefArray[A]]
+//	}
+//
+//	/** Mixin trait with extension methods conversion for `RefArray` types.
+//	  * @define Coll `RefArray`
+//	  * @define Extension `RefArrayExtension[E]`
+//	  */
+//	private[arrays] trait extensions extends Any with RefArrayLike.extensions with MutableArray.extensions with evidence {
+////		@inline implicit final def RefArrayExtension[A](self :RefArray[A]) :RefArrayExtension[A] =
+////			new RefArrayExtension(self.asInstanceOf[Array[Any]])
+//		/** Extension methods for [[net.noresttherein.sugar.arrays.RefArray RefArray]]`[E]`.
+//		  * $conversionInfo
+//		  */
+//		implicit final def RefArrayExtension[E] :RefArrayExtensionConversion[E] =
+//			extensions.RefArrayExtensionConversionPrototype.asInstanceOf[RefArrayExtensionConversion[E]]
+//	}
+//
+//	@SerialVersionUID(Ver)
+//	object extensions extends extensions {
+//		sealed trait RefArrayExtensionConversion[E] extends (RefArray[E] => RefArrayExtension[E]) {
+//			@inline final def apply(v1 :RefArray[E])(implicit __ :Ignored) :RefArrayExtension[E] =
+//				new RefArrayExtension(v1.asInstanceOf[Array[Any]])
+//		}
+////		private def newRefArrayExtensionConversion[E] =
+////			new PriorityConversion.Wrapped[RefArray[E], RefArrayExtension[E]](
+////				(arr :RefArray[E]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
+////			) with RefArrayExtensionConversion[E]
+////		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Any] =
+////			newRefArrayExtensionConversion
+//		private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Unknown] =
+//			new PriorityConversion.Wrapped[RefArray[Unknown], RefArrayExtension[Unknown]](
+//				(arr :RefArray[Unknown]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
+//			) with RefArrayExtensionConversion[Unknown]
+//	}
 
 }

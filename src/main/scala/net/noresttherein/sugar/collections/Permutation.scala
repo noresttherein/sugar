@@ -8,7 +8,6 @@ import scala.collection.mutable.Builder
 import scala.util.Random
 
 import net.noresttherein.sugar.arrays.{IArray, IRefArray}
-import net.noresttherein.sugar.arrays.extensions.{IArrayExtension, IRefArrayExtension}
 import net.noresttherein.sugar.collections.extensions.SeqExtension
 
 

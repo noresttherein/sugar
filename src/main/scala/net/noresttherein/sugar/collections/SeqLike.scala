@@ -7,8 +7,7 @@ import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, IArray, IArrayLike, IRefArray, RefArray, RefArrayLike}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayLikeExtension, ArrayCompanionExtension, IArrayExtension, IArrayLikeExtension, IRefArrayExtension, MutableArrayExtension, RefArrayExtension, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayCompanionExtension, ArrayExtension, ArrayLike, ArrayLikeExtension, IArray, IArrayExtension, IArrayLike, IArrayLikeExtension, IRefArray, IRefArrayExtension, MutableArrayExtension, RefArray, RefArrayExtension, RefArrayLike, RefArrayLikeExtension}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, JavaStringBuilderExtension}
 import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
@@ -994,7 +993,7 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 
 private abstract class GenericForArrayLike[E, Arr[X] <: ArrayLike[X]] extends IndexedSeqLike[E, ArrayLike, Arr[E]] {
 	//shadow the inherited Arr[E] => IterableOnce[E] conversion
-	import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension => conversion}
+	import net.noresttherein.sugar.arrays.{ArrayLikeExtension => conversion}
 
 	final override def knownSize(elems :Arr[E]) :Int = elems.length
 	final override def size(elems :Arr[E]) :Int = elems.length
@@ -1068,7 +1067,7 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 	extends GenericForArrayLike[E, Arr] with IndexedSeqLike[E, ArrayLike, Arr[E]]
 {
 	//shadow the inherited Arr[E] => IterableOnce[E] conversion
-	import net.noresttherein.sugar.arrays.extensions.{ArrayLikeExtension => conversion}
+	import net.noresttherein.sugar.arrays.{ArrayLikeExtension => conversion}
 
 	final override def slice(elems :Arr[E])(from :Int, until :Int) :Arr[E] = elems.slice(from, until)
 	final override def take(elems :Arr[E])(n :Int) :Arr[E] = elems.take(n)
