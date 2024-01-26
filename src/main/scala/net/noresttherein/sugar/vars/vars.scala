@@ -1353,7 +1353,7 @@ package vars {
 	  * @define Failed  [[net.noresttherein.sugar.vars.Outcome.Failed Failed]]
 	  */
 	@SerialVersionUID(Ver)
-	object Outcome { //other names: Return; Result; Outcome; Attempt; Action/Act; Do; Compute; Upshot; Issue; Opt
+	object Outcome { //other names: Watchman; Custodian; Return; Result; Outcome; Attempt; Action/Act; Do; Compute; Upshot; Issue; Opt
 
 		/** Executes the given expression, and returns it in a $Done if it is not null, or $Failed otherwise.
 		  * All exceptions are caught and returned as as `Failed(e)`.

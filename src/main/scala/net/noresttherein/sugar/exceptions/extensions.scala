@@ -63,7 +63,7 @@ object extensions extends extensions {
 			case _ => utils.causeQueue(self)
 		}
 
-		/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
+		/** Standard [[Throwable.getCause getCause]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
 		def cause :Maybe[Throwable] = self match {
 			case e :SugaredThrowable => e.cause
 			case _ => Maybe(self.getCause)
@@ -79,7 +79,7 @@ object extensions extends extensions {
 		}
 
 
-		/** Standard[[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
+		/** Standard[[Throwable.getMessage getMessage]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
 		def message :Maybe[String] = self match {
 			case e :SugaredThrowable => e.message
 			case _ => Maybe(self.getMessage)

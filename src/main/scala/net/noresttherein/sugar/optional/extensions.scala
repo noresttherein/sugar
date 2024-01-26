@@ -126,7 +126,7 @@ object extensions extends extensions {
 		@inline def orNoneUnless(condition :Boolean) :Option[T] =
 			if (condition) self else None
 
-		/** Converts this option into an [[net.noresttherein.sugar.vars.Maybe Maybe]] wrapping the same type/value. */
+		/** Converts this option into a [[net.noresttherein.sugar.vars.Maybe Maybe]] wrapping the same type/value. */
 		@inline def toMaybe :Maybe[T] = Maybe.some_?(self)
 
 		/** Converts this option into an [[net.noresttherein.sugar.vars.Unsure Unsure]] wrapping the same type/value. */

@@ -22,7 +22,7 @@ import net.noresttherein.sugar.vars.Opt.One
   *
   * While the default implementation is not thread safe, [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]]
   * method is complemented with [[net.noresttherein.sugar.vars.Box.testAndSwap testAndSwap]], which generalize
-  * the function of the former by accepting an `Option` or an [[net.noresttherein.sugar.vars.Maybe Maybe]].
+  * the function of the former by accepting an `Option` or a [[net.noresttherein.sugar.vars.Maybe Maybe]].
   * @see [[net.noresttherein.sugar.vars.Mutable]]
   * @define Ref `Box`
   * @define ref boxed variable

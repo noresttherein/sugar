@@ -77,7 +77,7 @@ A supertype (well, several) of both scala `Array`s, as well as new types represe
   1. `ArrayLike[+A] >: Array[A] | IArray[A] | RefArray[A] | IRefArray[A]`,
      and a small hierarchy of types in between for added polymorphism. 
 
-#### 4.2 arrays.extensions ####
+#### 4.2 extensions ####
 
 Several extension methods for regular arrays:
   1. shifts, rotations, pairwise boolean logic
@@ -238,7 +238,7 @@ lazy/external initialization, garbage collecting handling and others.
     val i :Val[Int] = Pure(1 + 1)     //lazily evaluated, backed by a @volatile field (not synchronized)
     val t :Val[Int] = Transient(1+1) //like above, additionally @transient, initializer is serialized instead
     val u :Unsure[Int] = Sure(0)    //a @specialized Option substitute
-    val o = Maybe(null)              //a value class `Option` substitute    
+    val o = Maybe(null)            //a value class `Option` substitute    
 
 #### 9.1. Var
 A standard mutable value wrapper.
@@ -274,7 +274,20 @@ A mutable `Option`.
 `EqRef`, `Clearable`, `WeakRef`, `SoftRef`, `PhantomRef`, `ThreadLocal`, `Eval`, `EvalOpt`.
 
 #### 9.11. Pill and Outcome
-Alternatives to `Either` which do not box the 'right' (non error) values.
+Non boxing alternatives to `Either`:
+
+    val pill :Pill[Firetruck, Police] = car match {
+        case firetruck :Firetruck => Red(firetruck) //Boxes to Red(Firetruck)
+        case police    :Police    => Blue(police)   //Passes erased police as AnyRef
+    }
+    val outcome = for { 
+        x <- Outcome(args(0).toInt)
+        y <- Outcome(args(1).toInt)       
+    } yield x + y
+    outcome match { //Underneath either java.lang.Integer (done) or Throwable (failed)
+        case Done(number) => println(number)
+        case Failed(err)  => e.printStackTrace(Console.err)
+    }
 
 
 
@@ -367,42 +380,44 @@ Also, tagging implicit values:
     implicitly[Double Labeled Planck]
     
     
-    
-### 14. sugar.typist ###
 
-#### 14.1 typist.casting
+### 14 casting ###
 Safer casting methods - less powerful, imposing constraints on the source and target type,
 including casting on type parameters for higher types. Examples:
 
     method(param).castFrom[ExpectedType, NewType] //this must be an ExpectedType to compile
     Seq(1, 2).castParam[java.lang.Integer]
 
-#### 14.2 UpperBound and LowerBound
+
+    
+### 15 sugar.typist ###
+
+#### 15.2 UpperBound and LowerBound
 Implicit evidence for `LUB` and `GLB` of two types.
 
-#### 14.3 InferTypeParams
+#### 15.3 InferTypeParams
 A magic implicit guiding the type inferer to correctly apply type arguments to polymorphic (generic) methods.
 
 
 
-### 15. sugar.reflect ###
+### 16. sugar.reflect ###
 
-#### 15.1 PropertyPath
+#### 16.1 PropertyPath
 Reflecting (possibly composite) properties given as getter functions:
       
     assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
 
-#### 15.2 Specialized
+#### 16.2 Specialized
 A type class carrying information about `@specialized` types, allowing to call specialized code
 from non-specialized, and providing separate callbacks for different value types.
 Includes also `RuntimeType`: an umbrella type class covering `ClassTag`, `TypeTag` and `Specialized`.
 
-#### 15.3 reflect.extensions
+#### 16.3 reflect.extensions
 `Class` extension methods, in particular such as `isBoxOf`, or `<%<`, 
 dealing with the duality of boxed and unboxed primitive values, with a wider meaning than `isAssignableFrom`,
 but still guaranteeing type safety by the Scala runtime.
 
-#### 15.4 reflect.prettyprint
+#### 16.4 reflect.prettyprint
 Various ways for demangling and abbreviating class names for logging purposes, for example:
 
          object.getClass.name       //my.package.Singleton.Specialized_:[Int]
@@ -414,16 +429,16 @@ Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-#### 16. sugar.Sealing ###
+#### 17. sugar.Sealing ###
 A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
 and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
 
 
 
-#### 17. Boolean.toInt
+#### 18. Boolean.toInt
 An extension method enlisting as a candidate for the single most useful line of code here.
 
 
 
-### 18. others ###
+### 19. others ###
 Whose names are not worthy to appear here.    

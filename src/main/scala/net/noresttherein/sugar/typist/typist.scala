@@ -16,7 +16,7 @@ package object typist {
 	private[typist] final val Ver = 1L
 
 	/** Tests if `left eq right`, executing the given block with the evidence to the identity as its argument,
-	  * returning its result in an [[net.noresttherein.sugar.vars.Maybe Maybe]].
+	  * returning its result in a [[net.noresttherein.sugar.vars.Maybe Maybe]].
 	  */
 	def ifeq[T](left :AnyRef, right :AnyRef)(block :(left.type =:= right.type) => T) :Maybe[T] =
 		if (left eq right)

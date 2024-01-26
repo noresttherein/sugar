@@ -19,7 +19,7 @@ import net.noresttherein.sugar.extensions.classNameMethods
   * the compiler will convert a lambda function `In => Maybe[Out]` where the type `MatchPattern[In, Out]` is expected,
   * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
   * It is similar to [[PartialFunction]], but its `apply` method is equivalent to `unapply`,
-  * goth returning an [[net.noresttherein.sugar.vars.Maybe Maybe]].
+  * goth returning a [[net.noresttherein.sugar.vars.Maybe Maybe]].
   * @tparam In type of matched (argument) values
   * @tparam Out type of extracted (result) values.
   */

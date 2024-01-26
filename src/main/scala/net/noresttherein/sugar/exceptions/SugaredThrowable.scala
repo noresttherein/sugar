@@ -56,7 +56,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  */
 	lazy val causeQueue :Seq[Throwable] = utils.causeQueue(this)
 
-	/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
+	/** Standard [[Throwable.getCause getCause]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
 	def cause :Maybe[Throwable] = Maybe(getCause)
 
 //	/** Sets the [[SugaredThrowable.cause cause]] of this [[Throwable]] using
@@ -67,7 +67,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 //
 //	override def initCause(e :Throwable) :SugaredThrowable = { super.initCause(e); this }
 
-	/** Standard[[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
+	/** Standard[[Throwable.getMessage getMessage]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
 	def message :Maybe[String] = Maybe(getMessage)
 
 	/** Denullified [[Throwable.getMessage getMessage]] returning an empty string instead of `null` if no message
