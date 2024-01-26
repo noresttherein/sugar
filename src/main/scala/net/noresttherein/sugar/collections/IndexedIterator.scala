@@ -6,9 +6,9 @@ import scala.Specializable.Everything
 import scala.collection.immutable.WrappedString
 import scala.collection.{AbstractIterator, BufferedIterator}
 
-import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.typist.casting.extensions.castingMethods
+import net.noresttherein.sugar.funny.generic
 
 
 

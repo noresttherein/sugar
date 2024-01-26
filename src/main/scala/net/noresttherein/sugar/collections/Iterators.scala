@@ -8,11 +8,11 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, BufferedIterator, View, mutable}
 
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, MutableArrayExtension}
+import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.funny.generic
 

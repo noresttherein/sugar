@@ -4,9 +4,9 @@ import scala.annotation.nowarn
 import scala.collection.IterableFactory
 import scala.collection.immutable.{ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ArrayIterableOnce
 import net.noresttherein.sugar.typist.Unknown
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 

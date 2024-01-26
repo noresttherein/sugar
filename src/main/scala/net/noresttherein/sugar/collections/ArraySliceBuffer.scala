@@ -10,13 +10,13 @@ import scala.collection.mutable.{AbstractBuffer, IndexedBuffer}
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLikeOps, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ArraySliceBuffer.AcceptableFillFactor
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.releaseFence
-import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 

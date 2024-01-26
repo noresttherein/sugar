@@ -573,7 +573,7 @@ object Maybe {
 	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]] - an empty `Maybe`. */
 	@inline final def empty[T] :Maybe[T] = new Maybe(NoContent)
 
-	//todo: remove this type and make No simply an Maybe[Nothing]
+	//todo: remove this type and make No simply a Maybe[Nothing]
 	/** A refinement of [[net.noresttherein.sugar.vars.Maybe Maybe]] marking it through a member flag type
 	  * as empty. [[net.noresttherein.sugar.vars.Maybe.No Maybe.No]] is an instance of this type. */
 	type No = Maybe[Nothing] { type isEmpty = true }

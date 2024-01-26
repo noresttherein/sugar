@@ -4,10 +4,10 @@ import java.lang.reflect.Constructor
 
 import scala.reflect.{ClassTag, classTag}
 
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.exceptions.Constructors.{LazyStringArg, LazyStringThrowableArgs, LazyStringThrowableBoolArgs, LazyStringThrowableBoolBoolArgs, StringArg, StringLazyStringThrowableArgs, StringLazyStringThrowableBoolArgs, StringLazyStringThrowableBoolBoolArgs, StringThrowableArgs, StringThrowableBoolArgs, StringThrowableBoolBoolArgs, defaultConstructor, findConstructor, lazyStringConstructor, lazyStringThrowableConstructor, stringConstructor, stringThrowableConstructor, throwableConstructor}
 import net.noresttherein.sugar.exceptions.reflect.{IAE, IOOBE, NPE, NSEE, SIAE, SIOOBE, SNPE, SNSEE, SUOE, UOE}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Maybe.conversions.gotAny

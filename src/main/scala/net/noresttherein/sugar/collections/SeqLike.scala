@@ -8,11 +8,11 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayCompanionExtension, ArrayExtension, ArrayLike, ArrayLikeExtension, IArray, IArrayExtension, IArrayLike, IArrayLikeExtension, IRefArray, IRefArrayExtension, MutableArrayExtension, RefArray, RefArrayExtension, RefArrayLike, RefArrayLikeExtension}
+import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, JavaStringBuilderExtension}
 import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.{<:?<, Unknown}
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 
 

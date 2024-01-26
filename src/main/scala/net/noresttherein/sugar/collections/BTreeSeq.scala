@@ -16,9 +16,9 @@ import net.noresttherein.sugar.vars.Box
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 //implicits
+import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 
 

@@ -13,14 +13,13 @@ import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 import scala.util.Random
 
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayLike}
-import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView
 import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingBuilder, RankingSeqAdapter, RankingSerializer, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, smallContains}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}

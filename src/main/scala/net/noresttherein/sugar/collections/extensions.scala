@@ -17,6 +17,7 @@ import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
+import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
@@ -34,7 +35,6 @@ import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

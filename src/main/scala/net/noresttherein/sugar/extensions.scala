@@ -3,7 +3,6 @@ package net.noresttherein.sugar
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 
-import net.noresttherein.sugar.typist.casting
 import net.noresttherein.sugar.typist.Rank.Rank1
 
 

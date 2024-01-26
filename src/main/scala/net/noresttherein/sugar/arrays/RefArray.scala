@@ -4,10 +4,10 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.casting.{castingMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.typist.casting.extensions.{castingMethods, castTypeParamMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 

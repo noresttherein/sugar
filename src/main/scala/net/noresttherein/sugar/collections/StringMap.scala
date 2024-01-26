@@ -12,11 +12,11 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
+import net.noresttherein.sugar.casting.{castingMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
-import net.noresttherein.sugar.typist.casting.extensions.{castingMethods, castTypeParamMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 

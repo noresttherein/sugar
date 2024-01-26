@@ -4,10 +4,10 @@ import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.exceptions.raise
 import net.noresttherein.sugar.slang.extensions.{hashCodeMethods, applyToMethod, ensuringMethodsConversion, notNullMethod}
 import net.noresttherein.sugar.typist.PriorityConversion
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 import net.noresttherein.sugar.witness.Ignored
 
 

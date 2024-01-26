@@ -13,9 +13,9 @@ import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
+import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
 import net.noresttherein.sugar.collections.extensions.{StepperExtension, StepperCompanionExtension}
-import net.noresttherein.sugar.typist.casting.extensions.castingMethods
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}

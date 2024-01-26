@@ -1039,7 +1039,7 @@ class Decimal64 private (private val bits :Long)
 					val isExact =
 						java.lang.Float.isFinite(f) && f == f &&
 							(n >= 0 && { val whole = f.toLong; whole.toFloat == f && whole == toLong }) ||
-							this == Decimal64(new JavaBigDecimal(f)) //todo: we really need methods which return an Maybe/Option
+							this == Decimal64(new JavaBigDecimal(f)) //todo: we really need methods which return a Maybe/Option
 					if (isExact) f else Float.NaN
 			}
 		} catch {
@@ -1056,7 +1056,7 @@ class Decimal64 private (private val bits :Long)
 					val isExact =
 						java.lang.Double.isFinite(d) && d == d &&
 							(n >= 0 && { val whole = d.toLong; whole.toDouble == d && whole == toLong }) ||
-							this == Decimal64(new JavaBigDecimal(d)) //todo: we really need methods which return an Maybe/Option
+							this == Decimal64(new JavaBigDecimal(d)) //todo: we really need methods which return a Maybe/Option
 					if (isExact) d else Double.NaN
 			}
 		} catch {

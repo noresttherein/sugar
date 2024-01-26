@@ -8,12 +8,12 @@ import scala.collection.mutable.{ArrayBuilder, Builder}
 import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, immutable, mutable}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayCompanionExtension, ArrayIterator, ArrayLike, ArrayLikeOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
-import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.JavaTypes.JIterator
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayCompanionExtension, ArrayIterator, ArrayLike, ArrayLikeOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
+import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
+import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.reflect.classes
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 
 
 

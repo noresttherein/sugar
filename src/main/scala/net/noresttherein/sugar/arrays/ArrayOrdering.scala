@@ -2,7 +2,7 @@ package net.noresttherein.sugar.arrays
 
 import java.util.Arrays
 
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
+import net.noresttherein.sugar.casting.castTypeParamMethods
 
 
 

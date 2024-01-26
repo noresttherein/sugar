@@ -68,7 +68,7 @@ object Pure {
 
 
 	/** An already computed (initialized) value. */ //todo: make it specialized
-	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in an Maybe all the time
+	@SerialVersionUID(Ver) //Not specialized so we don't box the value type to fit in a Maybe all the time
 	private class Eager[+T](x :T) extends Pure[T] {
 		override def isDefinite :Boolean = true
 		override def value :T = x

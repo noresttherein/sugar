@@ -7,10 +7,10 @@ import scala.collection.immutable.IndexedSeqOps
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, IArrayLikeSlice, SugaredIterableOps}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.reflect.ArrayClass
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 //extension methods
 import extensions._

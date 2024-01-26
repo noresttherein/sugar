@@ -8,10 +8,10 @@ import scala.collection.{ClassTagIterableFactory, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ViewBuffer}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 

@@ -11,12 +11,12 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.{IArrayLike, IRefArray, RefArray}
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 
 
 

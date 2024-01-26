@@ -21,6 +21,7 @@ import net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension
 import net.noresttherein.sugar.arrays.RefArray.RefArrayExtension
 import net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayExtensionConversion, ArrayExtensionConversionPrototype, IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
@@ -30,7 +31,6 @@ import net.noresttherein.sugar.reflect.classes
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.witness.{Ignored, Ignored1, Overload}
 
 

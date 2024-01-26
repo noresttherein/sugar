@@ -8,14 +8,14 @@ import scala.reflect.ClassTag
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
-import net.noresttherein.sugar.??!
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension, SeqFactoryExtension, StringExtension, immutableIndexedSeqCompanionExtension}
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}
 import net.noresttherein.sugar.collections.{IRefArraySlice, OrderedItems, Prepended2Seq}
+import net.noresttherein.sugar.exceptions.??!
 import net.noresttherein.sugar.reflect.prettyprint.localNameOf
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.witness.{DefaultValue, NullValue}
 import net.noresttherein.sugar.witness.DefaultValue.default
 

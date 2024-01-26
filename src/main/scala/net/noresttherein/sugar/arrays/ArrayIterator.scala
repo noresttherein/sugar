@@ -4,11 +4,11 @@ import scala.Specializable.Everything
 import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
+import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ElemTypes, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
 import net.noresttherein.sugar.slang.extensions.hashCodeMethods
-import net.noresttherein.sugar.typist.casting.extensions.castTypeParamMethods
 
 
 

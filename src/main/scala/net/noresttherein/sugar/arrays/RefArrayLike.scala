@@ -12,8 +12,8 @@ import scala.collection.{ArrayOps, IterableFactory, Stepper, StepperShape, View,
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer}
-import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 

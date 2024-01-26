@@ -14,13 +14,13 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
+import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex}
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
-import net.noresttherein.sugar.typist.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}

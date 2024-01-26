@@ -11,9 +11,9 @@ import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
 import scala.collection.mutable.Builder
 import scala.reflect.{ClassTag, classTag}
 
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice, RelayArrayFactory}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.typist.casting.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
