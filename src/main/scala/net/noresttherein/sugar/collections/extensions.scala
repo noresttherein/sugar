@@ -22,11 +22,12 @@ import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
-import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BooleanJteratorExtension, BufferExtension, BuilderExtension, ByteJteratorExtension, CharJteratorExtension, DoubleJteratorExtension, FactoryExtension, FloatJteratorExtension, IndexedSeqExtension, IntJteratorExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, JteratorExtension, LongJteratorExtension, RefJteratorExtension, SeqExtension, SeqFactoryExtension, ShortJteratorExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BooleanJteratorExtension, BufferExtension, BuilderExtension, ByteJteratorExtension, CharJteratorExtension, ClassTagIterableFactoryExtension, DoubleJteratorExtension, FactoryExtension, FloatJteratorExtension, IndexedSeqExtension, IntJteratorExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, JteratorExtension, LongJteratorExtension, RefJteratorExtension, SeqExtension, SeqFactoryExtension, ShortJteratorExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
-import net.noresttherein.sugar.exceptions.{raise, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -38,6 +39,7 @@ import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -206,6 +208,25 @@ trait extensions
 		new RefJteratorExtension(self.asInstanceOf[JavaIterator[E]])
 
 
+	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
+	  * [[scala.collection.IterableFactory IterableFactory]]`[C]`.
+	  * Adds methods [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.expand expand]]
+	  * and [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.generate generate]]
+	  * to any [[scala.collection.IterableFactory IterableFactory]].
+	  */
+	@inline implicit final def IterableFactoryExtension[C[_]](self :IterableFactory[C]) :IterableFactoryExtension[C] =
+		new IterableFactoryExtension[C](self)
+
+	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
+	  * [[scala.collection.ClassTagIterableFactory ClassTagIterableFactory]]`[C]`.
+	  * Adds methods [[net.noresttherein.sugar.collections.extensions.ClassTagIterableFactoryExtension.expand expand]]
+	  * and [[net.noresttherein.sugar.collections.extensions.ClassTagIterableFactoryExtension.generate generate]]
+	  * to any [[scala.collection.ClassTagIterableFactory ClassTagIterableFactory]].
+	  */
+	@inline implicit final def ClassTagIterableFactoryExtension[C[_]](self :ClassTagIterableFactory[C])
+	:ClassTagIterableFactoryExtension[C] =
+		new ClassTagIterableFactoryExtension[C](self)
+
 	/** Extension factory methods for single element mutable and immutable [[collection.Seq Seq]] subtypes' companions. */
 	@inline implicit final def SeqFactoryExtension[C[X] <: collection.SeqOps[X, C, C[X]]]
 	                                              (self :IterableFactory[C]) :SeqFactoryExtension[C] =
@@ -223,15 +244,6 @@ trait extensions
 	@inline implicit final def immutableSetFactoryExtension[C[X] <: SetOps[X, C, C[X]]]
 	                                                       (self :IterableFactory[C]) :immutableSetFactoryExtension[C] =
 		new immutableSetFactoryExtension(self)
-
-	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
-	  * [[scala.collection.IterableFactory IterableFactory]]`[C]`.
-	  * Adds methods [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.expand expand]]
-	  * and [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension.generate generate]]
-	  * to any [[scala.collection.IterableFactory IterableFactory]].
-	  */
-	@inline implicit final def IterableFactoryExtension[C[_]](self :IterableFactory[C]) :IterableFactoryExtension[C] =
-		new IterableFactoryExtension[C](self)
 
 
 	/** Extension factory methods creating single and two element [[Map Map]]s. */
@@ -5249,23 +5261,75 @@ object extensions extends extensions {
 		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
 		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
 		  * of [[scala.collection.IterableOnceOps.fold fold]].
-		  * @param start The first element added to the collection.
-		  * @param next  A generator function returning subsequent elements for the collection based on the previous one,
-		  *              or `None` to indicate the end of recursion.
+		  * @param a0   The first element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous one,
+		  *             or `None` to indicate the end of recursion.
 		  * @tparam E the element type of the generated collection.
-		  * @return a collection containing the sequence starting with `start` and resulting from recursively applying `next`
-		  *         to itself.
+		  * @return a collection containing the sequence starting with `a0`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@inline final def expand[E](a0 :E)(next :E => Option[E]) :C[E] =
+			companion from Iterator.expand(a0)(next)
+
+		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `next` to itself.
 		  */
 		@nowarn("cat=deprecation")
-		final def expand[E](start :E)(next :E => Option[E]) :C[E] =
-			companion match {
-				case Stream =>
-					(start #:: (next(start).map(Stream.expand(_)(next)) getOrElse Stream.empty)).castCons[C]
-				case LazyList =>
-					(start #:: (next(start).map(LazyList.expand(_)(next)) getOrElse LazyList.empty)).castCons[C]
-				case _ =>
-					companion from Iterator.expand(start)(next)
-			}
+		final def expand2[E](a0 :E, a1 :E)(next :(E, E) => Option[E]) :C[E] =
+			companion from Iterator.expand2(a0, a1)(next)
+
+		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param a2   The third element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection
+		  *             based on the previous three, or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@nowarn("cat=deprecation")
+		final def expand3[E](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Option[E]) :C[E] =
+			companion from Iterator.expand3(a0, a1, a2)(next)
+
+		/** Returns the first `n` elements of a sequence defined by recursive equation
+		  * a_n_ = next(a_{n - 2}_, a_{n - 1}_). If `n <= 2`, only the first `n` elements of `a0, a1` are returned
+		  * (`n` specifies the size of the collection, not the number of iterations).
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param n    The index of the last sequence element to add to the collection.
+		  * @param next A recursive function computing the next sequence element based on the previous two.
+ 		  */
+		@inline final def iterate2[E](a0 :E, a1 :E, n :Int)(next :(E, E) => E) :C[E] =
+			companion from Iterator.iterate2(a0, a1, n)(next).take(n)
+
+		/** Returns the first `n` elements of a sequence defined by recursive equation
+		  * a_n_ = next(a_{n - 3}, a_{n - 2}_, a_{n - 1}_). If `n <= 2`, only the first `n` elements of `a0, a1, a3`
+		  * are returned (`n` specifies the size of the collection, not the number of iterations).
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param a2   The third element added to the collection.
+		  * @param n    The index of the last sequence element to add to the collection.
+		  * @param next A recursive function computing the next sequence element based on the previous three.
+		  */
+		@inline final def iterate3[E](a0 :E, a1 :E, a2 :E, n :Int)(next :(E, E, E) => E) :C[E] =
+			companion from Iterator.iterate3(a0, a1, a2, n)(next).take(n)
 
 		/** Similar to [[scala.collection.IterableFactory IterableFactory]]`.`[[scala.collection.IterableFactory.iterate iterate]],
 		  * but the iterating function accepts the positional index of the next element as an additional argument.
@@ -5276,7 +5340,139 @@ object extensions extends extensions {
 		  */
 		final def iterateWithIndex[E](start :E, len :Int)(f :(E, Int) => E) :C[E] =
 			companion.from(Iterator.iterateWithIndex(start, len)(f))
+
+		/** Returns `newBuilder[E]` after calling `sizeHint(size)` on it. */
+		@inline def sizedBuilder[E](size :Int) :Builder[E, C[E]] = {
+			val b = companion.newBuilder[E]; b sizeHint size; b
+		}
 	}
+
+
+	/** Extension methods for [[scala.collection.IterableFactory IterableFactory]], the most common type of
+	  * companion objects for collection types conforming to the Scala collection framework.
+	  * Provides additional generator methods which construct the collection of the proper type.
+	  */
+	class ClassTagIterableFactoryExtension[C[_]] private[extensions] (private val companion :ClassTagIterableFactory[C])
+		extends AnyVal
+	{
+		/** A complement of `C.iterate` and `C.unfold` provided by collection companion objects, which creates
+		  * a collection `C` by recursively applying a partial function while defined to its own results and collecting
+		  * all returned values. It is very similar to the standard
+		  * [[scala.collection.ClassTagIterableFactory.iterate iterate]], but instead of a fixed number of iterations,
+		  * the generator function `next` is called for its return values until it is no longer applicable,
+		  * which marks the end of the collection.
+		  * @param start first element added to the collection.
+		  * @param next generator function returning subsequent elements for the collection based on the previous one,
+		  *             serving as the termination condition by indicating that it can no longer be applied
+		  *             to the given argument.
+		  * @tparam E element type of the generated collection.
+		  * @return a collection containing the sequence starting with `start` and resulting from recursively applying
+		  *         `next` to itself.
+		  */
+		@nowarn("cat=deprecation")
+		@inline final def generate[E :ClassTag](start :E)(next :PartialFunction[E, E]) :C[E] =
+			companion match {
+				case Stream =>
+					(start#::(next.applyAndThenOrElse(start, Stream.generate(_)(next), _ => Stream.empty[E]))).castCons[C]
+				case LazyList =>
+					(start#::(next.applyAndThenOrElse(start, LazyList.generate(_)(next), _ => LazyList.empty[E]))).castCons[C]
+				case _ =>
+					companion from Iterator.generate(start)(next)
+			}
+
+		/** Builds a collection `C[E]` by recursively reapplying the given function to the initial element.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param a0   The first element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous one,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@inline final def expand[E :ClassTag](a0 :E)(next :E => Option[E]) :C[E] =
+			companion from Iterator.expand(a0)(next)
+
+		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@nowarn("cat=deprecation")
+		final def expand2[E :ClassTag](a0 :E, a1 :E)(next :(E, E) => Option[E]) :C[E] =
+			companion from Iterator.expand2(a0, a1)(next)
+
+		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
+		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param a2   The third element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection
+		  *             based on the previous three, or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@nowarn("cat=deprecation")
+		final def expand3[E :ClassTag](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Option[E]) :C[E] =
+			companion from Iterator.expand3(a0, a1, a2)(next)
+
+		/** Returns the first `n` elements of a sequence defined by recursive equation
+		  * a_n_ = next(a_{n - 2}_, a_{n - 1}_). If `n <= 2`, only the first `n` elements of `a0, a1` are returned
+		  * (`n` specifies the size of the collection, not the number of iterations).
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param n    The index of the last sequence element to add to the collection.
+		  * @param next A recursive function computing the next sequence element based on the previous two.
+ 		  */
+		@inline final def iterate2[E :ClassTag](a0 :E, a1 :E, n :Int)(next :(E, E) => E) :C[E] =
+			companion from Iterator.iterate2(a0, a1, n)(next).take(n)
+
+		/** Returns the first `n` elements of a sequence defined by recursive equation
+		  * a_n_ = next(a_{n - 3}, a_{n - 2}_, a_{n - 1}_). If `n <= 2`, only the first `n` elements of `a0, a1, a3`
+		  * are returned (`n` specifies the size of the collection, not the number of iterations).
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param a2   The third element added to the collection.
+		  * @param n    The index of the last sequence element to add to the collection.
+		  * @param next A recursive function computing the next sequence element based on the previous three.
+		  */
+		@inline final def iterate3[E :ClassTag](a0 :E, a1 :E, a2 :E, n :Int)(next :(E, E, E) => E) :C[E] =
+			companion from Iterator.iterate3(a0, a1, a2, n)(next).take(n)
+
+		/** Similar to [[scala.collection.ClassTagIterableFactory ClassTagIterableFactory]]`.`[[scala.collection.ClassTagIterableFactory.iterate iterate]],
+		  * but the iterating function accepts the positional index of the next element as an additional argument.
+		  * @param start The first element of the created collection.
+		  * @param len   The size of the created collection.
+		  * @param f     A function generating subsequent elements following start.
+		  *              The second element of the collection will be `f(start, 1)`, the third `f(f(start, 1), 2)`, and so on.
+		  */
+		final def iterateWithIndex[E :ClassTag](start :E, len :Int)(f :(E, Int) => E) :C[E] =
+			companion.from(Iterator.iterateWithIndex(start, len)(f))
+
+		/** Returns `newBuilder[E]` after calling `sizeHint(size)` on it. */
+		@inline def sizedBuilder[E :ClassTag](size :Int) :Builder[E, C[E]] = {
+			val b = companion.newBuilder[E]; b sizeHint size; b
+		}
+	}
+
+
 
 
 	/** Extension factory methods for single element immutable [[collection.immutable.Set Set]] companions. */
@@ -5442,28 +5638,234 @@ object extensions extends extensions {
 		}
 
 		/** Creates an iterator by recursively reapplying the given function to the initial element.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
+		  * Instead of listing a fixed number of elements, this method uses the generator function `f`
 		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
 		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
 		  * [[scala.collection.Iterator.unfold unfold]] is the opposite
 		  * of [[scala.collection.IterableOnceOps.fold fold]].
-		  * @param start The first element returned by the iterator.
-		  * @param next  A generator function returning subsequent elements of the iterator based on the previous one,
-		  *              or `None` to indicate the end of recursion.
+		  * @param a0 The first element returned by the iterator.
+		  * @param f  A generator function returning subsequent elements of the iterator based on the previous one,
+		  *           or `None` to indicate the end of recursion.
 		  * @tparam E the type of the elements returned by the iterator.
-		  * @return an iterator containing a sequence starting with `start`,
-		  *         and resulting from recursively applying `next` to itself.
-		  */
-		@nowarn("cat=deprecation")
-		final def expand[E](start :E)(next :E => Option[E]) :Iterator[E] = {
-			val f = next
+		  * @return an iterator containing a sequence starting with `a0`,
+		  *         and resulting from recursively applying `f` to itself.
+		  */ //consider: migration to Opt, or doubling the methods.
+		final def expand[E](a0 :E)(f :E => Option[E]) :Iterator[E] =
 			new BufferedIterator[E] {
-					private[this] var cont :Option[E] = Some(start)
-					override def head = cont.get
-					override def hasNext = cont.isDefined
-					override def next() = { val res = cont.get; cont = f(res); res }
+				private[this] var cont :Option[E] = Some(a0)
+				override def head = cont.get
+				override def headOption = cont
+				override def hasNext = cont.isDefined
+				override def nextOption() = cont match {
+					case res @ Some(x) => cont = f(x); res
+					case _ => cont
 				}
-		}
+				override def next() = { val res = cont.get; cont = f(res); res }
+			}
+
+		/** Creates an iterator by recursively reapplying the given function to the previous two elements.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `f`
+		  * as the termination condition and ends the recursion once it returns `None`.
+		  * @param a0   The first element returned by the iterator.
+		  * @param a1   The second element returned by the iterator.
+		  * @param f    A generator function returning subsequent elements of the iterator based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `f` to itself.
+		  */
+		final def expand2[E](a0 :E, a1 :E)(f :(E, E) => Option[E]) :Iterator[E] =
+			new BufferedIterator[E] {
+				private[this] var lastOpt :Option[E] = None
+				private[this] var cont :Option[E] = Some(a0)
+				override def head = cont.get
+				override def headOption = cont
+				override def hasNext = cont.isDefined
+				override def next() = {
+					val res = cont.get
+					cont = lastOpt match {
+						case Some(last) => f(last, res)
+						case _          => Some(a1)
+					}
+					lastOpt = Some(res)
+					res
+				}
+				override def nextOption() = { val res = cont; if (cont.isDefined) next(); res }
+			}
+
+		/** Creates an iterator by recursively reapplying the given function to the previous two elements.
+		  * Instead of listing a fixed number of elements, this method uses the generator function `f`
+		  * as the termination condition and ends the recursion once it returns `None`.
+		  * @param a0   The first element returned by the iterator.
+		  * @param a1   The second element returned by the iterator.
+		  * @param a2   The second element returned by the iterator.
+		  * @param f    A generator function returning subsequent elements of the iterator based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `f` to itself.
+		  */
+		final def expand3[E](a0 :E, a1 :E, a2 :E)(f :(E, E, E) => Option[E]) :Iterator[E] =
+			new BufferedIterator[E] {
+				private[this] var secondLastOpt :Option[E] = None
+				private[this] var lastOpt :Option[E] = None
+				private[this] var cont :Option[E] = Some(a0)
+				override def head = cont.get
+				override def headOption :Option[E] = cont
+				override def hasNext = cont.isDefined
+				override def next() = {
+					val res = cont.get
+					cont = lastOpt match {
+						case Some(last) => secondLastOpt match {
+							case Some(secondLast) => f(last, secondLast, res)
+							case _                => Some(a2)
+						}
+						case _ => Some(a1)
+					}
+					secondLastOpt = lastOpt
+					lastOpt = Some(res)
+					res
+				}
+			}
+
+		/** Creates an iterator by recursively reapplying the given function to previous two elements.
+		  * @param a0  The first element returned by the iterator.
+		  * @param a1  The first element returned by the iterator.
+		  * @param f   A generator function returning subsequent elements of the iterator based on the previous two,
+		  *            or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `f` to the previous two elements.
+		  */
+		final def iterate2[E](a0 :E, a1 :E)(f :(E, E) => E) :Iterator[E] =
+			new Iterator[E] {
+				private[this] var rem = -1
+				private[this] var last :Opt[E] = None
+				private[this] var secondLast :Opt[E] = None
+				override def knownSize = rem
+				override def take(n :Int) :Iterator[E] = {
+					if (n >= 0 & (rem < 0 | n < rem))
+						rem = n
+					this
+				}
+				override def hasNext = rem != 0
+				override def next() =
+					if (rem <= 0)
+						noSuch_!("Iterator.iterate.empty")
+					else {
+						val res = last match {
+							case One(y) => secondLast match {
+								case One(x) => f(x, y)
+								case _      => a1
+							}
+							case _ => a0
+						}
+						secondLast = last
+						last = One(res)
+						rem -= 1
+						res
+					}
+			}
+
+		/** Creates an iterator by recursively reapplying the given function to previous two elements.
+		  * @param a0  The first element returned by the iterator.
+		  * @param a1  The first element returned by the iterator.
+		  * @param n   The number of elements to return, including `a0, a1, a2`.
+		  * @param f   A generator function returning subsequent elements of the iterator based on the previous two,
+		  *            or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `f` to the previous two elements.
+		  */
+		final def iterate2[E](a0 :E, a1 :E, n :Int)(f :(E, E) => E) :Iterator[E] = iterate2(a1, a1)(f).take(n)
+
+		/** Creates an iterator by recursively reapplying the given function to previous three elements.
+		  * @param a0  The first element returned by the iterator.
+		  * @param a1  The second element returned by the iterator.
+		  * @param a2  The third element returned by the iterator.
+		  * @param f   A generator function returning subsequent elements of the iterator based on the previous three,
+		  *            or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `f` to the previous three elements.
+		  */
+		final def iterate3[E](a0 :E, a1 :E, a2 :E)(f :(E, E, E) => E) :Iterator[E] =
+			new Iterator[E] {
+				private[this] var rem = -1
+				private[this] var last :Opt[E] = None
+				private[this] var secondLast :Opt[E] = None
+				private[this] var thirdLast :Opt[E] = None
+				override def knownSize = rem
+				override def take(n :Int) :Iterator[E] = {
+					if (n >= 0 & (rem < 0 || n < rem))
+						rem = n
+					this
+				}
+				override def hasNext = rem != 0
+				override def next() =
+					if (rem == 0)
+						noSuch_!("Iterator.iterate.empty")
+					else {
+						val res = last match {
+							case One(z) => secondLast match {
+								case One(y) => thirdLast match {
+									case One(x) => f(x, y, z)
+									case _      => a2
+								}
+								case _      => a1
+							}
+							case _ => a0
+						}
+						thirdLast  = secondLast
+						secondLast = last
+						last = One(res)
+						rem -= 1
+						res
+					}
+			}
+
+		/** Creates an iterator of `n` elements by recursively reapplying the given function to previous three elements.
+		  * @param a0  The first element returned by the iterator.
+		  * @param a1  The second element returned by the iterator.
+		  * @param a2  The third element returned by the iterator.
+		  * @param n   The number of elements to return, including `a0, a1, a2`.
+		  * @param f   A generator function returning subsequent elements of the iterator based on the previous three,
+		  *            or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1, a2`,
+		  *         and continuing by applying `f` to the previous three elements `n-3` times.
+		  */
+		final def iterate3[E](a0 :E, a1 :E, a2 :E, n :Int)(f :(E, E, E) => E) :Iterator[E] =
+			iterate3(a0, a1, a2)(f).take(n)
+
+		/** Similar to [[scala.collection.Iterator$ Iterator]]`.`[[scala.collection.Iterator.iterate iterate]],
+		  * but the iterating function accepts the positional index of the next element as an additional argument.
+		  * @param start The first element of the created iterator.
+		  * @param f     A function generating subsequent elements following start.
+		  *              The second element returned by the iterator will be `f(start, 1)`,
+		  *              the third `f(f(start, 1), 2)`, and so on.
+		  */
+		final def iterateWithIndex[E](start :E)(f :(E, Int) => E) :Iterator[E] =
+			new BufferedIterator[E] {
+				private[this] var rem = -1
+				private[this] var i = 0
+				private[this] var hd = start
+				override def knownSize = rem
+				override def take(n :Int) = {
+					if (n > 0 & (rem < 0 | n < rem))
+						rem = n
+					this
+				}
+				override def head = hd
+				override def hasNext = rem != 0
+				override def next() = {
+					val res = hd
+					hd   = f(hd, i)
+					i   += 1
+					rem -= 1
+					res
+				}
+			}
 
 		/** Similar to [[scala.collection.Iterator$ Iterator]]`.`[[scala.collection.Iterator.iterate iterate]],
 		  * but the iterating function accepts the positional index of the next element as an additional argument.
@@ -5474,7 +5876,7 @@ object extensions extends extensions {
 		  *              the third `f(f(start, 1), 2)`, and so on.
 		  */
 		final def iterateWithIndex[E](start :E, len :Int)(f :(E, Int) => E) :Iterator[E] =
-			Iterator.iterate((start, 0), len) { xi => (f(xi._1, xi._2 + 1), xi._2 + 1) }.map(_._1)
+			iterateWithIndex(start)(f).take(len)
 	}
 
 
