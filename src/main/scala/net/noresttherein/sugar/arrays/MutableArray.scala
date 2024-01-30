@@ -133,6 +133,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			arr(j)  = boo
 		}
 
+		@throws[IndexOutOfBoundsException]("if idx < 0 or idx >= this.length")
 		def update(idx :Int, elem :E) :Unit = self(idx) = elem.asInstanceOf[Unknown]
 
 		/** Sets all elements in the array to values returned by the argument function applied to element's index. */
@@ -140,6 +141,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		/** Sets all elements in the given index range in this array to values returned by the argument function
 		  * applied to element's index. If `until < from` the call has no effect.
+		  * @return the number of updated elements.
 		  */
 //		  * @return the number of actual elements set, after adjusting the indices to legal boundaries.
 		@throws[IndexOutOfBoundsException]("if either from or until is outside range [0, this.length).")
@@ -147,12 +149,8 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			ArrayLikeOps.updateAll(self, from, until)(f.castParam2[Unknown])
 
 		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
-		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
-		  * is out of range, it is simply ignored. For example,
-		  * {{{
-		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
-		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
-		  * }}}
+		  * and subsequent elements of `rest`.
+		  * @return the number of updated elements.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + 2 + rest.length > this.length")
 		@inline def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
@@ -162,12 +160,8 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		}
 
 		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
-		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
-		  * is out of range, it is simply ignored. For example,
-		  * {{{
-		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
-		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
-		  * }}}
+		  * and subsequent elements of `rest`.
+		  * @return the number of updated elements.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
 		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {
@@ -199,6 +193,65 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			ArrayLike.copy(elems, 0, self, index, thatSize)
 			thatSize
 		}
+
+
+
+		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
+		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
+		  * is out of range, it is simply ignored. For example,
+		  * {{{
+		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
+		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
+		  * }}}
+		  * @return the number of updated elements.
+		  */
+		def overwrite(index :Int, first :E, second :E, rest :E*) :Int = {
+			val length = self.length
+			index match {
+				case _ if index >= length => 0
+				case -1 =>
+					self(0) = second.asInstanceOf[Unknown]
+					rest.castParam[Unknown].toBasicOps.copyToArray(self, 1) + 1
+				case _ if index < 0 =>
+					rest.castParam[Unknown].toBasicOps.copyRangeToArray(self, 0, -index, length)
+				case _ =>
+					self(index)     = first.asInstanceOf[Unknown]
+					self(index + 1) = second.asInstanceOf[Unknown]
+					rest.castParam[Unknown].toBasicOps.copyToArray(self, index + 2, Int.MaxValue) + 2
+			}
+		}
+
+		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
+		  * and subsequent elements of `rest`. If any of the indices in the range covering all provided elements
+		  * is out of range, it is simply ignored. For example,
+		  * {{{
+		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
+		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
+		  * }}}
+		  * @return the number of updated elements.
+		  */
+		def overwrite(index :Int, elems :IterableOnce[E]) :Int =
+			if (index >= 0)
+				elems.castParam[Unknown].toBasicOps.copyToArray(self, index)
+			else
+				elems.castParam[Unknown].toBasicOps.copyRangeToArray(self, -index, 0, Int.MaxValue) + index
+
+		/** Sets the values at indices `index, index + 1, ...` to subsequent elements of `elems`.
+		  * @return the number of updated elements.  If any of the indices in the range covering all provided elements
+		  * is out of range, it is simply ignored. For example,
+		  * {{{
+		  *     > RefArray("You", "Boo", "I").updateAll(-1, "Imoen", "CHARNAME", "Miniature Giant Space Hamster")
+		  *     > Array[AnyRef]("CHARNAME", "Miniature Giant Space Hamster", "I")
+		  * }}}
+		  * @return the number of updated elements.
+		  */
+		def overwrite(index :Int, elems :ArrayLike[E]) :Int =
+			if (index >= 0)
+				elems.castParam[Unknown].copyToArray(self, index)
+			else
+				elems.castParam[Unknown].copyRangeToArray(self, -index, 0, Int.MaxValue)
+
+
 
 		//name reverse is already used by ArrayOps to produce a copy
 		/** Reverses the whole array in place. */

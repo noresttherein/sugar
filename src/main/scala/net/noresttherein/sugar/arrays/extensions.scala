@@ -26,6 +26,7 @@ import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.BitLogic
+import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.classes
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
@@ -394,9 +395,8 @@ object extensions {
 
 	//		  * Passing `index >= self.length` simply returns a copy of this array, while passing `index < 0`
 	//		  * starts overwriting at `0`, but ignores the first `-index` values.
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
-		  * If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection. If `index >= 0` and `index + elems.size <= length`, this is equivalent to
 		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
 		  * due to a single array allocation.
 		  */
@@ -419,9 +419,11 @@ object extensions {
 
 	//		  * Passing `index >= self.length` simply returns a copy of this array, while passing `index < 0`
 	//		  * starts overwriting at `0`, but ignores the first `-index` values.
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
-		  */ //fixme: overloading ambiguity with these three methods.
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection. If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
+		  * due to a single array allocation.
+		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		def updatedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :Array[U] = {
 			val length     = self.length
@@ -433,16 +435,17 @@ object extensions {
 			Array.copyOfRanges(self, 0, index, elems, 0, thatLength, self, index + thatLength, length)
 		}
 
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array. If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
+		  * due to a single array allocation.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		def updatedAll[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
 			updatedAll(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
-		  * If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection. If `index >= 0` and `index + elems.size <= length`, this is equivalent to
 		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
 		  * due to a single array allocation.
 		  */
@@ -451,18 +454,172 @@ object extensions {
 			updatedAll[E](index, elems)(getComponentClassTag)
 
 		//erasure clash with the following method
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array. If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
+		  * due to a single array allocation.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		def updatedAll(index :Int, elems :ArrayLike[E])(implicit __ :Ignored) :Array[E] =
 			updatedAll[E](index, elems)(getComponentClassTag)
 
-		/** Updates consecutive elements of this array, starting with the specified index,
-		  * with elements from the collection.
-		  */
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection. If `index >= 0` and `index + elems.size <= length`, this is equivalent to
+		  * [[collection.ArrayOps.patch patch]]`(index, elems, elems.size)`, but more efficient
+		  * due to a single array allocation.
+		  */ //Needed because otherwise there would be ambigouity between elems :ArrayLike[E] and ArrayToSeq(elems).
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		def updatedAll(index :Int, elems :Array[E]) :Array[E] = updatedAll(index, elems :ArrayLike[E])
+
+
+
+		/** A copy of this array, with elements starting at `index` overwritten by the given arguments.
+		  * For indices in range, it is equivalent to `this.updated(index, first +: second +: rest)`,
+		  * but may be slightly faster, depending on the variable argument list given. However, if index is out of range,
+		  * instead of throwing an exception, it treats this sequence as a view on a slice some infinite sequence,
+		  * and instead 'updates' that sequence. Indices out of range are silently ignored,
+		  * and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, -4, -3, -2, -1) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten[U >: E :ClassTag](index :Int, first :U, second :U, rest :U*) :Array[U] = {
+			val res = overwritten(index + 2, rest)
+			if (index >= 0 && index < res.length)
+				res(index) = first
+			if (index + 1 >= 0 && index + 1 <= res.length)
+				res(index + 1) = second
+			res
+		}
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Seq(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten[U >: E :ClassTag](index :Int, elems :IterableOnce[U]) :Array[U] = {
+			val length     = self.length
+			val size       = elems.knownSize
+			val copiedThis = size >= 0 & size < (length >> 2)
+			val res =
+				if (copiedThis) ArrayFactory.copyAs[U](self, length)
+				else new Array[U](length)
+			val copied = res.overwrite(index, elems)
+			if (!copiedThis) {
+				ArrayLike.copy(self, 0, res, 0, index)
+				ArrayLike.copy(self, index + copied, res, index + copied, length - index - copied)
+			}
+			res
+		}
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :Array[U] = {
+			val length     = self.length
+			val size       = elems.length
+			val res =
+				if (size <= (length >>> 2)) ArrayFactory.copyAs[U](self, length)
+				else new Array[U](length)
+			val copied = res.overwrite(index, elems)
+			if (size > (length >>> 2)) {
+				ArrayLike.copy(self, 0, res, 0, index)
+				ArrayLike.copy(self, index + copied, res, index + copied, length - index - copied)
+			}
+			res
+		}
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten[U >: E :Overload](index :Int, elems :Array[U]) :Array[U] =
+			overwritten(index, elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
+
+		/** A copy of this array, with elements starting at `index` overwritten by the given arguments.
+		  * For indices in range, it is equivalent to `this.updated(index, first +: second +: rest)`,
+		  * but may be slightly faster, depending on the variable argument list given. However, if index is out of range,
+		  * instead of throwing an exception, it treats this sequence as a view on a slice some infinite sequence,
+		  * and instead 'updates' that sequence. Indices out of range are silently ignored,
+		  * and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, -4, -3, -2, -1) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten(index :Int, first :E, second :E, rest :E*) :Array[E] =
+			overwritten[E](index, first, second, rest :_*)(getComponentClassTag)
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Seq(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten(index :Int, elems :IterableOnce[E])(implicit __ :Ignored) :Array[E] =
+			overwritten[E](index, elems)(getComponentClassTag)
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten(index :Int, elems :ArrayLike[E])(implicit __ :Ignored) :Array[E] =
+			overwritten[E](index, elems)(getComponentClassTag)
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		def overwritten(index :Int, elems :Array[E]) :Array[E] = overwritten(index, elems :ArrayLike[E])
 
 
 

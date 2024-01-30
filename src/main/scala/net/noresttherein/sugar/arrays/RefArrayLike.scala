@@ -62,7 +62,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		@inline def scanRight[A](z :A)(op :(E, A) => A) :Arr[A] =
 			exposeOther(self.scanRight[Any](z)(op.castParams[Any, Any, Any]))
 
-		@inline def scan[A >: E](z :A)(op :(A, A) => A) :Arr[A] =
+		@inline def scan[U >: E](z :U)(op :(U, U) => U) :Arr[U] =
 			expose(self.scan[Any](z)(op.castParams[Any, Any, Any]))
 
 		@inline def collect[A](pf :PartialFunction[E, A]) :Arr[A] =
@@ -93,13 +93,15 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 			self.unzip3(asTriple.castParams[Any, (Any, Any, Any)], ClassTag.Any, ClassTag.Any, ClassTag.Any)
 			     .castFrom[(Array[Any], Array[Any], Array[Any]), (Arr[E1], Arr[E2], Arr[E3])]
 
-		@inline def updated[A >: E](index :Int, elem :A) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index >= this.length")
+		@inline def updated[U >: E](index :Int, elem :U) :Arr[U] =
 			expose(new ArrayOps(self).updated(index, elem))
 
 		/** An 'exploded' variant of `updatedAll`: a copy of this array with elements starting at `index` substituted
 		  * by `first`, `second`, and contents of `rest`. The index must lie in range `[0..length - rest.size - 2)`.
 		  */
-		@inline def updatedAll[A >: E](index :Int, first :A, second :A, rest :A*) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		@inline def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :Arr[U] =
 			expose(self.updatedAll[Any](index, first, second, rest :_*))
 
 		/** Updates consecutive elements of this array, starting with the specified index,
@@ -107,7 +109,8 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
 		  * but more efficient due to a single array allocation.
 		  */
-		@inline def updatedAll[A >: E](index :Int, elems :IterableOnce[A]) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		@inline def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :Arr[U] =
 			expose(self.updatedAll[Any](index, elems))
 
 		/** Updates consecutive elements of this array, starting with the specified index,
@@ -115,8 +118,47 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
 		  * but more efficient due to a single array allocation.
 		  */
-		@inline def updatedAll[A >: E](index :Int, elems :ArrayLike[A]) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		@inline def updatedAll[U >: E](index :Int, elems :ArrayLike[U]) :Arr[U] =
 			expose(self.updatedAll[Any](index, elems))
+
+
+
+		/** An 'exploded' variant of `overwritten`: a copy of this array with elements starting at `index` substituted
+		  * by `first`, `second`, and contents of `rest`. The index must lie in range `[0..length - rest.size - 2)`.
+		  */
+		@inline def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :Arr[U] =
+			expose(self.overwritten[Any](index, first, second, rest :_*))
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = Array.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Seq(-4, -3, -2, -1)) //Array(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		@inline def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :Arr[U] =
+			expose(self.overwritten[Any](index, elems))
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.extensions.ArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = RefArray.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //RefArray(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		@inline def overwritten[U >: E](index :Int, elems :ArrayLike[U]) :Arr[U] =
+			expose(self.overwritten[Any](index, elems))
 
 		/** A copy of this array, with the element inserted at a given position in this array,
 		  * and all elements at positions equal or greater than `index` by one element further.
@@ -126,12 +168,14 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * @return `take(index) :+ elem :++ drop(index)`, but in a more efficient manner.
 		  * @throws IndexOutOfBoundsException if `index` < 0 or `index > length`.
 		  */
-		@inline def inserted[A >: E](index :Int, elem :A) :Arr[A] = expose(self.inserted[Any](index, elem))
+		@throws[IndexOutOfBoundsException]("if index < 0 or index > this.length")
+		@inline def inserted[U >: E](index :Int, elem :U) :Arr[U] = expose(self.inserted[Any](index, elem))
 
 		/** An 'exploded' variant of `updatedAll`: a copy of this array with elements starting at `index` substituted
 		  * by `first`, `second`, and contents of `rest`. The index must lie in range `[0..length)`.
 		  */
-		@inline def insertedAll[A >: E](index :Int, first :A, second :A, rest :A*) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		@inline def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :Arr[U] =
 			expose(self.insertedAll[Any](index, first, second, rest :_*))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
@@ -139,7 +183,8 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * @return [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension.patch patch]]`(index, elems, 0)`.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		@inline def insertedAll[A >: E](index :Int, elems :IterableOnce[A]) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
+		@inline def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :Arr[U] =
 			expose(self.insertedAll[Any](index, elems))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
@@ -147,34 +192,35 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * @return [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension.patch patch]]`(index, elems, 0)`.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		@inline def insertedAll[A >: E](index :Int, elems :ArrayLike[A]) :Arr[A] =
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
+		@inline def insertedAll[U >: E](index :Int, elems :ArrayLike[U]) :Arr[U] =
 			expose(self.insertedAll[Any](index, elems))
 
-		@inline def :+[A >: E](x :A) :Arr[A] = expose(self.appended[Any](x))
-		@inline def +:[A >: E](x :A) :Arr[A] = expose(self.prepended[Any](x))
+		@inline def :+[U >: E](x :U) :Arr[U] = expose(self.appended[Any](x))
+		@inline def +:[U >: E](x :U) :Arr[U] = expose(self.prepended[Any](x))
 
-		@inline def appended[A >: E](x :A) :Arr[A] = expose(self.appended[Any](x))
-		@inline def prepended[A >: E](x :A) :Arr[A] = expose(self.prepended[Any](x))
+		@inline def appended[U >: E](x :U) :Arr[U] = expose(self.appended[Any](x))
+		@inline def prepended[U >: E](x :U) :Arr[U] = expose(self.prepended[Any](x))
 
-		@inline def appendedAll[A >: E](first :A, second :A, rest :A*) :Arr[A] =
+		@inline def appendedAll[U >: E](first :U, second :U, rest :U*) :Arr[U] =
 			expose(self.appendedAll[Any](first, second,  rest :_*))
 
-		@inline def prependedAll[A >: E](first :A, second :A, rest :A*) :Arr[A] =
+		@inline def prependedAll[U >: E](first :U, second :U, rest :U*) :Arr[U] =
 			expose(self.prependedAll[Any](first, second, rest :_*))
 
-		@inline def concat[A >: E](suffix :IterableOnce[A]) :Arr[A] = appendedAll(suffix)
-		@inline def concat[A >: E](suffix :ArrayLike[A]) :Arr[A] = appendedAll(suffix)
+		@inline def concat[U >: E](suffix :IterableOnce[U]) :Arr[U] = appendedAll(suffix)
+		@inline def concat[U >: E](suffix :ArrayLike[U]) :Arr[U] = appendedAll(suffix)
 
-		@inline def ++[A >: E](suffix :IterableOnce[A]) :Arr[A] = appendedAll(suffix)
-		@inline def ++[A >: E](suffix :ArrayLike[A]) :Arr[A] = appendedAll(suffix)
+		@inline def ++[U >: E](suffix :IterableOnce[U]) :Arr[U] = appendedAll(suffix)
+		@inline def ++[U >: E](suffix :ArrayLike[U]) :Arr[U] = appendedAll(suffix)
 
-		@inline def :++[A >: E](suffix :IterableOnce[A]) :Arr[A] = appendedAll(suffix)
-		@inline def :++[A >: E](suffix :ArrayLike[A]) :Arr[A] = appendedAll(suffix)
+		@inline def :++[U >: E](suffix :IterableOnce[U]) :Arr[U] = appendedAll(suffix)
+		@inline def :++[U >: E](suffix :ArrayLike[U]) :Arr[U] = appendedAll(suffix)
 
-		@inline def appendedAll[A >: E](suffix :IterableOnce[A]) :Arr[A] = expose(self.appendedAll[Any](suffix))
+		@inline def appendedAll[U >: E](suffix :IterableOnce[U]) :Arr[U] = expose(self.appendedAll[Any](suffix))
 
-		@inline def appendedAll[A >: E](suffix :ArrayLike[A]) :Arr[A] =
-			RefArray.copyOfRanges(self, 0, self.length, suffix, 0, suffix.length).castFrom[RefArray[Any], Arr[A]]
+		@inline def appendedAll[U >: E](suffix :ArrayLike[U]) :Arr[U] =
+			RefArray.copyOfRanges(self, 0, self.length, suffix, 0, suffix.length).castFrom[RefArray[Any], Arr[U]]
 /*
 		{
 			val res = new Array[Any](array.length + suffix.length)
@@ -184,14 +230,14 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		}
 */
 
-		@inline def ++:[A >: E](prefix :IterableOnce[A]) :Arr[A] = prependedAll(prefix)
-		@inline def ++:[A >: E](prefix :ArrayLike[A]) :Arr[A] = prependedAll(prefix)
+		@inline def ++:[U >: E](prefix :IterableOnce[U]) :Arr[U] = prependedAll(prefix)
+		@inline def ++:[U >: E](prefix :ArrayLike[U]) :Arr[U] = prependedAll(prefix)
 
-		@inline def prependedAll[A >: E](prefix :IterableOnce[A]) :Arr[A] =
+		@inline def prependedAll[U >: E](prefix :IterableOnce[U]) :Arr[U] =
 			expose(self.prependedAll[Any](prefix))
 
-		@inline def prependedAll[A >: E](prefix :ArrayLike[A]) :Arr[A] =
-			RefArray.copyOfRanges(prefix, 0, prefix.length, self, 0, self.length).castFrom[RefArray[Any], Arr[A]]
+		@inline def prependedAll[U >: E](prefix :ArrayLike[U]) :Arr[U] =
+			RefArray.copyOfRanges(prefix, 0, prefix.length, self, 0, self.length).castFrom[RefArray[Any], Arr[U]]
 /*
 		{
 			val prefixLength = prefix.length
@@ -202,7 +248,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		}
 */
 
-		def padTo[A >: E](len :Int, elem :A) :Arr[A] = expose {
+		def padTo[U >: E](len :Int, elem :U) :Arr[U] = expose {
 			val res = new Array[Any](len)
 			var i = self.length
 			arraycopy(self, 0, res, 0, i)
@@ -213,10 +259,10 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 			res
 		}
 
-		@inline def patch[A >: E](from :Int, other :IterableOnce[A], replaced :Int) :Arr[A] =
+		@inline def patch[U >: E](from :Int, other :IterableOnce[U], replaced :Int) :Arr[U] =
 			expose(self.patch[Any](from, other, replaced))
 
-		@inline def patch[A >: E](from :Int, other :ArrayLike[A], replaced :Int) :Arr[A] = expose {
+		@inline def patch[U >: E](from :Int, other :ArrayLike[U], replaced :Int) :Arr[U] = expose {
 			val clippedFrom     = math.max(from, 0)
 			val clippedReplaced = math.min(math.max(replaced, 0), self.length - clippedFrom)
 			val until           = clippedFrom + clippedReplaced

@@ -226,9 +226,9 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  * or `net.noresttherein.sugar.extensions.IArrayExtension`.
 	  * @see [[net.noresttherein.sugar.arrays.IArrayLike.IArrayLikeExtension]]
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension]]
-	  * @tparam E the component type of the elements in the underlying array.
+	  * @tparam U the component type of the elements in the underlying array.
 	  */
-	class IArrayExtension[E] private[arrays] (private[IArray] val self :Array[E])
+	class IArrayExtension[E] private[arrays](private[IArray] val self :Array[E])
 		extends AnyVal
 	{
 //		@inline private def asIArray = self.asInstanceOf[IArray[E]]
@@ -290,24 +290,79 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
 		  * but more efficient due to a single array allocation.
 		  */
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.size > this.length")
 		@inline def updatedAll[U >: E :ClassTag](index :Int, elems :IterableOnce[U]) :IArray[U] =
 			expose(ArrayExtension(self).updatedAll(index, elems))
 
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection. Equivalent to
-		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
+		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.length)`,
 		  * but more efficient due to a single array allocation.
 		  */
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		@inline def updatedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :IArray[U] =
 			expose(ArrayExtension(self).updatedAll(index, elems))
 
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection. Equivalent to
-		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
+		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.length)`,
 		  * but more efficient due to a single array allocation.
 		  */ //we can't use IArray because we are covariant, so both can be of unrelated types
+		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
 		@inline def updatedAll[U >: E](index :Int, elems :Array[U]) :IArray[U] =
 			expose(ArrayExtension(self).updatedAll(index, elems))
+
+
+		/** An 'exploded' variant of `updatedAll`: a copy of this array with elements starting at `index` substituted
+		  * by `first`, `second`, and contents of `rest`.
+		  */
+		@inline def overwritten[U >: E :ClassTag](index :Int, first :U, second :U, rest :U*) :IArray[U] =
+			expose(ArrayExtension(self).overwritten(index, first, second, rest :_*))
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument collection.
+		  * This is the same as [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = IArray.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Seq(-4, -3, -2, -1)) //IArray(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		@inline def overwritten[U >: E :ClassTag](index :Int, elems :IterableOnce[U]) :IArray[U] =
+			expose(ArrayExtension(self).overwritten(index, elems))
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = IArray.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //IArray(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		@inline def overwritten[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :IArray[U] =
+			expose(ArrayExtension(self).overwritten(index, elems))
+
+		/** A copy o this array, with elements starting at `index` overwritten by subsequent elements
+		  * of the argument array.
+		  * This is the same as [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.updatedAll updatedAll]],
+		  * except it behaves differently if `index` is out of range: instead of throwing an exception,
+		  * it treats this sequence as a view on a slice some infinite sequence, and instead 'updates' that sequence.
+		  * Indices out of range are silently ignored, and only the legal range is actually updated.
+		  * @example
+		  * {{{
+		  *     val array = IArray.iterate(0, 5)(0, _ + 1)
+		  *     val array.overwritten(-2, Array(-4, -3, -2, -1)) //IArray(-2, -1, 2, 3, 4)
+		  * }}}
+		  */
+		@inline def overwritten[U >: E](index :Int, elems :Array[U]) :IArray[U] =
+			expose(ArrayExtension(self).overwritten(index, elems))
 
 
 		/** A copy of this array, with the element inserted at a given position in this array,
@@ -318,13 +373,13 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  * @return `take(index) :+ elem :++ drop(index)`, but in a more efficient manner.
 		  * @throws IndexOutOfBoundsException if `index` < 0 or `index > length`.
 		  */
-		@inline def inserted[A >: E :ClassTag](index :Int, elem :A) :IArray[A] =
+		@inline def inserted[U >: E :ClassTag](index :Int, elem :U) :IArray[U] =
 			expose(ArrayExtension(self).inserted(index, elem))
 
 		/** An 'exploded' variant of `updatedAll`: a copy of this array with elements starting at `index` substituted
 		  * by `first`, `second`, and contents of `rest`. The index must lie in range `[0..length)`.
 		  */
-		@inline def insertedAll[A >: E :ClassTag](index :Int, first :A, second :A, rest :A*) :IArray[A] =
+		@inline def insertedAll[U >: E :ClassTag](index :Int, first :U, second :U, rest :U*) :IArray[U] =
 			expose(ArrayExtension(self).insertedAll(index, first, second, rest :_*))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
@@ -332,7 +387,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  * @return [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, 0)`.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		@inline def insertedAll[A >: E :ClassTag](index :Int, elems :IterableOnce[A]) :IArray[A] =
+		@inline def insertedAll[U >: E :ClassTag](index :Int, elems :IterableOnce[U]) :IArray[U] =
 			expose(ArrayExtension(self).insertedAll(index, elems))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
@@ -340,7 +395,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  * @return [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, 0)`.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		@inline def insertedAll[A >: E :ClassTag](index :Int, elems :ArrayLike[A]) :IArray[A] =
+		@inline def insertedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :IArray[U] =
 			expose(ArrayExtension(self).insertedAll(index, elems))
 
 		/** A copy with this array with `elems` inserted starting with position `index`, followed by `this(index)`
@@ -348,71 +403,71 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  * @return [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, 0)`.
 		  * @throws IndexOutOfBoundsException if `index < 0` or `index > length`.
 		  */
-		@inline def insertedAll[A >: E](index :Int, elems :Array[A]) :IArray[A] =
+		@inline def insertedAll[U >: E](index :Int, elems :Array[U]) :IArray[U] =
 			expose(ArrayExtension(self).insertedAll(index, elems))
 
 
-		@inline def :+[A >: E :ClassTag](x :A) :IArray[A] = appended(x)
-		@inline def +:[A >: E :ClassTag](x :A) :IArray[A] = prepended(x)
+		@inline def :+[U >: E :ClassTag](x :U) :IArray[U] = appended(x)
+		@inline def +:[U >: E :ClassTag](x :U) :IArray[U] = prepended(x)
 
-		@inline def appended[A >: E :ClassTag](x :A) :IArray[A] =
+		@inline def appended[U >: E :ClassTag](x :U) :IArray[U] =
 			expose(ArrayExtension(self).appended(x))
 
-		@inline def appendedAll[A >: E :ClassTag](first :A, second :A, rest :A*) :IArray[A] =
+		@inline def appendedAll[U >: E :ClassTag](first :U, second :U, rest :U*) :IArray[U] =
 			expose(ArrayExtension(self).appendedAll(first, second, rest :_*))
 
-		@inline def prepended[A >: E :ClassTag](x :A) :IArray[A] =
+		@inline def prepended[U >: E :ClassTag](x :U) :IArray[U] =
 			expose(ArrayExtension(self).prepended(x))
 
-		@inline def prependedAll[A >: E :ClassTag](first :A, second :A, rest :A*) :IArray[A] =
+		@inline def prependedAll[U >: E :ClassTag](first :U, second :U, rest :U*) :IArray[U] =
 			expose(ArrayExtension(self).prependedAll(first, second, rest :_*))
 
-		@inline def ++[A >: E :ClassTag](suffix :IterableOnce[A]) :IArray[A] = concat(suffix)
-		@inline def ++[A >: E :ClassTag](suffix :ArrayLike[A]) :IArray[A] = concat(suffix)
-		@inline def ++[A >: E](suffix :Array[A]) :IArray[A] = concat(suffix)
+		@inline def ++[U >: E :ClassTag](suffix :IterableOnce[U]) :IArray[U] = concat(suffix)
+		@inline def ++[U >: E :ClassTag](suffix :ArrayLike[U]) :IArray[U] = concat(suffix)
+		@inline def ++[U >: E](suffix :Array[U]) :IArray[U] = concat(suffix)
 
-		@inline def concat[A >: E :ClassTag](suffix :IterableOnce[A]) :IArray[A] =
+		@inline def concat[U >: E :ClassTag](suffix :IterableOnce[U]) :IArray[U] =
 			expose(ArrayExtension(self).appendedAll(suffix))
 
-		@inline def concat[A >: E :ClassTag](suffix :ArrayLike[A]) :IArray[A] =
+		@inline def concat[U >: E :ClassTag](suffix :ArrayLike[U]) :IArray[U] =
 			expose(ArrayExtension(self).appendedAll(suffix))
 
-		@inline def concat[A >: E](suffix :Array[A]) :IArray[A] = expose(ArrayExtension(self).concat(suffix))
+		@inline def concat[U >: E](suffix :Array[U]) :IArray[U] = expose(ArrayExtension(self).concat(suffix))
 
-		@inline def :++[A >: E :ClassTag](suffix :IterableOnce[A]) :IArray[A] = appendedAll(suffix)
-		@inline def :++[A >: E :ClassTag](suffix :ArrayLike[A]) :IArray[A] = appendedAll(suffix)
-		@inline def :++[A >: E](suffix :Array[E]) :IArray[E] = appendedAll(suffix)
+		@inline def :++[U >: E :ClassTag](suffix :IterableOnce[U]) :IArray[U] = appendedAll(suffix)
+		@inline def :++[U >: E :ClassTag](suffix :ArrayLike[U]) :IArray[U] = appendedAll(suffix)
+		@inline def :++[U >: E](suffix :Array[U]) :IArray[U] = appendedAll(suffix)
 
-		@inline def appendedAll[A >: E :ClassTag](suffix :IterableOnce[A]) :IArray[A] =
+		@inline def appendedAll[U >: E :ClassTag](suffix :IterableOnce[U]) :IArray[U] =
 			expose(ArrayExtension(self).appendedAll(suffix))
 
-		@inline def appendedAll[A >: E :ClassTag](suffix :ArrayLike[A]) :IArray[A] =
+		@inline def appendedAll[U >: E :ClassTag](suffix :ArrayLike[U]) :IArray[U] =
 			expose(ArrayExtension(self).appendedAll(suffix))
 
-		@inline def appendedAll[A >: E](suffix :Array[A]) :IArray[A] =
+		@inline def appendedAll[U >: E](suffix :Array[U]) :IArray[U] =
 			expose(ArrayExtension(self).appendedAll(suffix))
 
 
-		@inline def ++:[A >: E :ClassTag](prefix :IterableOnce[A]) :IArray[A] = prependedAll(prefix)
-		@inline def ++:[A >: E :ClassTag](prefix :ArrayLike[A]) :IArray[A] = prependedAll(prefix)
-		@inline def ++:[A >: E](prefix :Array[A]) :IArray[A] = prependedAll(prefix)
+		@inline def ++:[U >: E :ClassTag](prefix :IterableOnce[U]) :IArray[U] = prependedAll(prefix)
+		@inline def ++:[U >: E :ClassTag](prefix :ArrayLike[U]) :IArray[U] = prependedAll(prefix)
+		@inline def ++:[U >: E](prefix :Array[U]) :IArray[U] = prependedAll(prefix)
 
-		@inline def prependedAll[A >: E :ClassTag](prefix :IterableOnce[A]) :IArray[A] =
+		@inline def prependedAll[U >: E :ClassTag](prefix :IterableOnce[U]) :IArray[U] =
 			expose(ArrayExtension(self).prependedAll(prefix))
 
-		@inline def prependedAll[A >: E :ClassTag](prefix :ArrayLike[A]) :IArray[A] =
+		@inline def prependedAll[U >: E :ClassTag](prefix :ArrayLike[U]) :IArray[U] =
 			expose(ArrayExtension(self).prependedAll(prefix))
 
-		@inline def prependedAll[A >: E](suffix :Array[A]) :IArray[A] =
+		@inline def prependedAll[U >: E](suffix :Array[U]) :IArray[U] =
 			expose(ArrayExtension(self).prependedAll(suffix))
 
-		@inline def patch[A >: E :ClassTag](from :Int, elems :IterableOnce[A], replaced :Int) :IArray[A] =
+		@inline def patch[U >: E :ClassTag](from :Int, elems :IterableOnce[U], replaced :Int) :IArray[U] =
 			expose(ArrayExtension(self).patch(from, elems, replaced))
 
-		@inline def patch[A >: E :ClassTag](from :Int, elems :ArrayLike[A], replaced :Int) :IArray[A] =
+		@inline def patch[U >: E :ClassTag](from :Int, elems :ArrayLike[U], replaced :Int) :IArray[U] =
 			expose(ArrayExtension(self).patch(from, elems, replaced))
 
-		@inline def patch[A >: E](from :Int, elems :Array[A], replaced :Int) :IArray[A] =
+		@inline def patch[U >: E](from :Int, elems :Array[U], replaced :Int) :IArray[U] =
 			expose(ArrayExtension(self).patch(from, elems, replaced))
 
 		/** A view on the index range `[from, until)` of this array as a sequence.
