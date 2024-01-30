@@ -3036,14 +3036,13 @@ object extensions extends extensions {
 		 */
 		def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
 			def outOfBounds(msg :String = "") =
-				throw new IndexOutOfBoundsException(
-					errorString(self) + "|.updatedAll(" + index + ", " + errorString(elems) + ")" +
+				outOfBounds_!(
+					errorString(self) + ".updatedAll(" + index + ", " + errorString(elems) + ")" +
 						(if (msg.nonEmpty) ": " + msg else msg)
 				)
 			val thatSize = elems.knownSize
 			val thisSize = self.knownSize
-			//If possible, try to add collections, rather than iterators, as there is a chance they'll reuse contents.
-			self match {
+			self match { //todo: SugaredSeq with method updatedAll
 				case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
 					outOfBounds()
 				case _ if self.knownLazy =>
@@ -3055,100 +3054,187 @@ object extensions extends extensions {
 						outOfBounds_!(index, length)
 					self.iterableFactory from (self :collection.SeqOps[U, CC, C])
 				case HasFastSlice(items) =>
-					val res = self.iterableFactory.newBuilder[U]
-					res sizeHint thisSize
-					res ++= items.take(index)
-					val toDrop =
-						if (thatSize >= 0) {
-							res ++= elems
-							thatSize
-						} else {
-							var i  = 0
-							val it = elems.iterator
-							while (it.hasNext) {
-								res += it.next()
-								i += 1
-							}
-							def outOfBounds() =
-								throw new IndexOutOfBoundsException(
-									errorString(self) + "|.updatedAll(" + index + ", " + elems.className + "|" + i + "|)"
-								)
-							if (thisSize >= 0) {
-								if (index > thisSize - i)
-									outOfBounds()
-							} else if (i <= Int.MaxValue - index + 1) {
-								if (items.drop(index - 1 + i).toBasicOps.nonEmpty)
-									outOfBounds()
-							} else
-								if (self.iterator.drop(index).drop(i - 1).nonEmpty)
-									outOfBounds()
-							i
-						}
-					if (index <= thisSize - toDrop)
-						res ++= items.drop(index + toDrop)
-					else
-						res ++= self.iterator.drop(index).drop(toDrop)
-					res.result()
-				//we hope for fast tail, that hd +: tail reuses tail, and that iterableFactory from seq eq seq
-				case seq :LinearSeq[E] @unchecked =>
-					var i = 0
-					var initReversed :List[U] = Nil
-					var tail :LinearSeq[U] = seq
-					while (i < index && tail.nonEmpty) {
-						initReversed = tail.head::initReversed
-						tail = tail.tail
-				        i += 1
-					}
-					if (i < index)
-						throw new IndexOutOfBoundsException(
-							self.className + "|" + (if (thisSize >= 0) thisSize.toString else index.toString + "+")
-								+ "|.updatedAll(" + index + ", " + errorString(elems) + ")"
-						)
-					else {
-						elems match {
-							case list :collection.LinearSeq[U] =>
-								var patch = list
-								var i = 0
-								while (patch.nonEmpty && tail.nonEmpty) {
-									initReversed = patch.head::initReversed
-									patch = patch.tail
-									tail = tail.tail
-									i += 1
-								}
-								if (tail.isEmpty && patch.nonEmpty)
-									throw new IndexOutOfBoundsException(
-										self.className + ".updatedAll(" + index + ", " + elems.className + "|" +
-											(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
-									)
-							case IndexedIterable(seq) => //matches only collections of known size
-								tail = tail.drop(thatSize - 1)
-								if (tail.isEmpty)
-									outOfBounds("patch too large")
-								tail = tail.tail
-								if (applyPreferred(seq)) {
-									var i = thatSize
-									while (i > 0) {
-										i -= 1
-										tail = seq(i) +: tail
-									}
-								} else {
-									val i = seq.reverseIterator
-									while (i.hasNext)
-										tail = i.next() +: tail
-								}
-							case _ =>
-								val i = elems.iterator
-								while (i.hasNext && tail.nonEmpty) {
-									initReversed = i.next()::initReversed
-									tail = tail.tail
-								}
-						}
-						self.iterableFactory from util.prependReverse(initReversed, tail)
-					}
+					updatedAll(items, index, elems, true)
+				case seq :collection.LinearSeq[E] @unchecked =>
+					updatedAll(seq, index, elems, true)
 				case _ =>
 					self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
 			}
 		}
+
+		private def updatedAll[U >: E](seq :collection.LinearSeq[U], index :Int, elems :IterableOnce[U],
+		                               validate :Boolean) :CC[U] =
+		{
+			val thisSize = seq.knownSize
+			val thatSize = elems.knownSize
+			var i = 0
+			var initReversed :List[U] = Nil
+			var tail :collection.LinearSeq[U] = seq
+			while (i < index && tail.nonEmpty) {
+				initReversed = tail.head::initReversed
+				tail = tail.tail
+				i += 1
+			}
+			if (i < index)
+				if (validate)
+					outOfBounds_!(
+						self.className + "|" + (if (thisSize >= 0) thisSize.toString else index.toString + "+")
+							+ "|.updatedAll(" + index + ", " + errorString(elems) + ")"
+					)
+				else
+					genericSelf
+			else {
+				elems match {
+					case list :collection.LinearSeq[U] =>
+						var patch = list
+						var i = 0
+						while (i < -index) {
+							patch = patch.tail
+							i += 1
+						}
+						while (patch.nonEmpty && tail.nonEmpty) {
+							initReversed = patch.head::initReversed
+							patch = patch.tail
+							tail = tail.tail
+							i += 1
+						}
+						if (validate && tail.isEmpty && patch.nonEmpty)
+							outOfBounds_!(
+								self.className + ".updatedAll(" + index + ", " + elems.className + "|" +
+									(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
+							)
+					case IndexedIterable(seq) => //matches only collections of known size
+						tail = tail.drop(thatSize - 1)
+						if (tail.isEmpty) {
+							if (validate)
+								outOfBounds_!(
+									self.className + ".updatedAll(" + index + ", " + errorString(elems) + ": patch too large"
+								)
+						} else
+							tail = tail.tail
+						if (applyPreferred(seq)) {
+							var i = thatSize
+							while (i > 0) {
+								i -= 1
+								tail = seq(i) +: tail
+							}
+						} else {
+							val i = seq.reverseIterator
+							while (i.hasNext)
+								tail = i.next() +: tail
+						}
+					case _ =>
+						val i = elems.iterator
+						while (i.hasNext && tail.nonEmpty) {
+							initReversed = i.next()::initReversed
+							tail = tail.tail
+						}
+						if (validate && tail.isEmpty && i.hasNext)
+							outOfBounds_!(
+								self.className + ".updatedAll(" + index + ", " + elems.className + "|" +
+									(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
+							)
+				}
+				self.iterableFactory from util.prependReverse(initReversed, tail)
+			}
+		}
+
+		private def updatedAll[U >: E](items :IterableOnceOps[U, IterableOnce, IterableOnce[U]], index :Int,
+		                               elems :IterableOnce[U], validate :Boolean) :CC[U] =
+		{
+			//If possible, try to add collections, rather than iterators, as there is a chance they'll reuse contents.
+			val thisSize = self.knownSize
+			val thatSize = elems.knownSize
+			val res = self.iterableFactory.newBuilder[U]
+			res sizeHint thisSize
+			res ++= items.take(index)
+			val toDrop =
+				if (thatSize >= 0) {
+					if (index < 0)
+						if (preferDropOverIterator(elems))
+							res ++= elems.toIterableOnceOps.drop(-index)
+						else
+							res ++= elems.iterator.drop(-index)
+					thatSize
+				} else {
+					var i  = 0
+					val it = elems.iterator
+					while (it.hasNext) {
+						res += it.next()
+						i += 1
+					}
+					def outOfBounds() =
+						throw new IndexOutOfBoundsException(
+							errorString(self) + ".updatedAll(" + index + ", " + elems.className + "|" + i + "|)"
+						)
+					if (validate)
+						if (thisSize >= 0) {
+							if (index > thisSize - i)
+								outOfBounds()
+						} else if (i <= Int.MaxValue - index + 1) {
+							if (items.drop(index - 1 + i).toBasicOps.nonEmpty)
+								outOfBounds()
+						} else
+							if (self.iterator.drop(index).drop(i - 1).nonEmpty)
+								outOfBounds()
+					i
+				}
+			if (index <= thisSize - toDrop)
+				res ++= items.drop(index + toDrop)
+			else
+				res ++= self.iterator.drop(index).drop(toDrop)
+			res.result()
+			//we hope for fast tail, that hd +: tail reuses tail, and that iterableFactory from seq eq seq
+		}
+
+
+		/** Updates the element at `index` and following elements with the specified values.
+		  * @return The same result as {{{
+		  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
+		  *             case (res, (e, i)) => res.updated(i, e)
+		  *         }
+		  *  }}}
+		  */
+		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+			overwritten(index, Prepended2Seq(first, second, rest))
+
+		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
+		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
+		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
+		  * which may make it slightly more efficient than `patch`.
+		  */
+		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
+		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
+		 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
+		 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
+		 */
+		def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
+			val thatSize = elems.knownSize
+			val thisSize = self.knownSize
+			self match {
+				case _ if thatSize == 0 || thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
+					|| thisSize >= 0 && thisSize >= index || index == Int.MinValue || index == Int.MaxValue
+				=>
+					genericSelf
+				case _ if self.knownLazy =>
+					self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
+				case _ if thatSize >= 0 && thisSize >= 0 =>
+					val replaced =
+						if (index < 0) math.min(thatSize + index, thisSize)
+						else math.min(thatSize, thisSize - index)
+					val that = if (index < 0) elems.iterator.drop(-index) else elems
+					self.patch(index, that, replaced)
+				case _ if elems.toBasicOps.isEmpty =>
+					self.iterableFactory from (self :collection.SeqOps[U, CC, C])
+				case HasFastSlice(items) =>
+					updatedAll(items, index, elems, true)
+				case seq :collection.LinearSeq[E] @unchecked =>
+					updatedAll(seq, index, elems, true)
+				case _ =>
+					self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
+			}
+		}
+
 
 		/** Inserts a new element to this sequence at the specified position, pushing all elements at `index`
 		  * and beyond by one position. Equivalent to

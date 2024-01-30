@@ -9,12 +9,13 @@ import scala.collection.{AbstractIterator, BufferedIterator, View, mutable}
 
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, MutableArrayExtension}
 import net.noresttherein.sugar.casting.castingMethods
-import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IteratorCompanionExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.noSuch_!
 
 
 
@@ -164,6 +165,17 @@ private object Iterators {
 			self
 		else
 			new UpdatedAll(self, index, elems.iterator)
+	}
+
+	def overwritten[E](self :Iterator[E], index :Int, elems :IterableOnce[E]) :Iterator[E] = {
+		val size      = self.knownSize
+		val patchSize = elems.knownSize
+		if (patchSize == 0 || size == 0 || index <= 0 && patchSize >= 0 && index + patchSize <= 0 ||
+			size >= 0 && index >= size
+		)
+			self
+		else
+			new Overwritten(self, index, elems.iterator)
 	}
 
 	//todo: permissive indexing. It is better to be consistent with patch,
@@ -1502,6 +1514,86 @@ private object Iterators {
 			}
 		private def ioob() = throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + i)
 		override def toString :String = underlying.toString + ".updatedAll(@" + (index - i) + "=" + elems + ")"
+	}
+
+
+	final class Overwritten[+E](private[this] var underlying :Iterator[E], index :Int, private[this] var elems :Iterator[E])
+		extends AbstractIterator[E] with IteratorSlicing[E]
+	{
+		private[this] var i = 0
+		if (index < 0)
+			elems = elems.drop(-index)
+
+		override def knownSize = underlying.knownSize
+
+		override def hasNext :Boolean = underlying.hasNext
+		override def next() :E =
+			if (!underlying.hasNext)
+				noSuch_!(toString + ".next()")
+			else if (i >= index)
+				if (elems.hasNext) {
+					underlying.next()
+					elems.next()
+				} else
+					underlying.next()
+			else {
+				i += 1
+				underlying.next()
+			}
+
+		override def take(n :Int) :Iterator[E] = {
+			if (n > 0)
+				underlying = underlying.take(n)
+			this
+		}
+		override def drop(n :Int) :Iterator[E] = {
+			if (n > 0) {
+				if (i > index)
+					elems = elems.drop(n)
+				underlying = underlying.drop(n)
+			}
+			this
+		}
+
+		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+			if (i >= index)
+				if (elems.hasNext) {
+					val rem = elems.knownSize
+					if (rem >= 0) {
+						underlying = underlying.drop(rem)
+						val copied = elems.copyToArray(xs, start, len)
+						copied + underlying.copyToArray(xs, start + copied, len - copied)
+					} else {
+						val max = math.min(len, xs.length - start)
+						var copied = 0
+						while (copied < max && underlying.hasNext && elems.hasNext) {
+							xs(copied) = elems.next()
+							underlying.next()
+							copied += 1
+						}
+						underlying.copyToArray(xs, start + copied, max - copied)
+					}
+				} else
+					underlying.copyToArray(xs, start, len)
+			else if (len <= 0 || start >= xs.length)
+				0
+			else {
+				val size = underlying.knownSize
+				val max =
+					if (size >= 0) math.min(math.min(len, size), xs.length - start)
+					else math.min(len, xs.length - start)
+				val copied =
+					if (max <= index - i)
+						underlying.copyToArray(xs, start, len)
+					else {
+						val (before, after) = underlying.splitAt(index - i)
+						underlying = after
+						before.copyToArray(xs, start, len)
+					}
+				i += copied
+				copied + copyToArray(xs, start + copied, max - copied)
+			}
+		override def toString :String = underlying.toString + ".overwritten(@" + (index - i) + "=" + elems + ")"
 	}
 
 

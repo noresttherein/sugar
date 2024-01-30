@@ -75,17 +75,12 @@ private[noresttherein] object util {
 		}
 
 
-	def prependReverse[A](initReversed :collection.LinearSeq[A], tail :LinearSeq[A]) :LinearSeq[A] = {
+	def prependReverse[A](initReversed :collection.LinearSeq[A], tail :collection.LinearSeq[A]) :collection.LinearSeq[A] = {
 		var init = initReversed
 		var res = tail
-		try {
-			while (true) {
-				res = init.head +: res
-				init = init.tail
-			}
-			??!
-		} catch {
-			case _ :NoSuchElementException => res
+		while (init.nonEmpty) {
+			res = init.head +: res
+			init = init.tail
 		}
 	}
 
@@ -294,6 +289,6 @@ private object HasFastSlice {
 	  * It still may be O(n), but likely there is no way around it then.
 	  */
 	@inline def preferDropOverIterator(items :IterableOnce[_]) :Boolean =
-		items.isInstanceOf[collection.LinearSeq[_]] || HasFastSlice(items)
+		items.isInstanceOf[collection.LinearSeq[_]] || hasFastDrop(items)
 
 }
