@@ -645,7 +645,7 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
   * and [[net.noresttherein.sugar.collections.RelayArrayView RelayArrayView]].
   */ //todo: rename to SubRelayArray or RelayArraySlice; problem with 'Slice' is slice method from Iterable
 private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
-	extends RelayArray[E] with ArrayLikeSliceOps[E, RelayArray, RelayArray[E]] //ArrayBacked[E]
+	extends RelayArray[E] with ArraySliceSeqOps[E, RelayArray, RelayArray[E]] //ArrayBacked[E]
 {
 	override def elementType :Class[_] = unsafeArray.getClass.getComponentType
 	override def isImmutable :Boolean = true
