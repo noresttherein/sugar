@@ -4,10 +4,11 @@ import scala.Specializable.Arg
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castingMethods, downcast2TypeParamsMethods, downcastTypeParamMethods}
-import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension, FunctionExtension, HomoFunctionExtension, HomoPartialFunctionExtension, OptHomoFunctionExtension, OptionHomoFunctionExtension, PartialFunctionExtension, PartialFunctionCompanionExtension}
+import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension, FunctionExtension, homoFunctionExtension, homoOptFunctionExtension, homoOptionFunctionExtension, HomoPartialFunctionExtension, homoUnsureFunctionExtension, homoMaybeFunctionExtension, PartialFunctionCompanionExtension, PartialFunctionExtension}
 import net.noresttherein.sugar.funny.fun.{ComposableFun2, ComposableFun3}
-import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.{Maybe, Opt, Sure, Unsure}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -17,19 +18,25 @@ trait extensions extends Any {
 	@inline implicit final def FunctionExtension[X, Y](f :X => Y) :FunctionExtension[X, Y] =
 		new FunctionExtension(f)
 
-	@inline implicit final def HomoFunctionExtension[X](f :X => X) :HomoFunctionExtension[X] =
-		new HomoFunctionExtension(f)
+	@inline implicit final def homoFunctionExtension[X](f :X => X) :homoFunctionExtension[X] =
+		new homoFunctionExtension(f)
 
-	@inline implicit final def OptHomoFunctionExtension[X](f :X => Maybe[X]) :OptHomoFunctionExtension[X] =
-		new OptHomoFunctionExtension(f)
+	@inline implicit final def homoOptionFunctionExtension[X](f :X => Option[X]) :homoOptionFunctionExtension[X] =
+		new homoOptionFunctionExtension(f)
 
-	@inline implicit final def OptionHomoFunctionExtension[X](f :X => Option[X]) :OptionHomoFunctionExtension[X] =
-		new OptionHomoFunctionExtension(f)
+	@inline implicit final def homoOptFunctionExtension[X](f :X => Opt[X]) :homoOptFunctionExtension[X] =
+		new homoOptFunctionExtension(f)
+
+	@inline implicit final def homoMaybeFunctionExtension[X](f :X => Maybe[X]) :homoMaybeFunctionExtension[X] =
+		new homoMaybeFunctionExtension(f)
+
+	@inline implicit final def homoUnsureFunctionExtension[X](f :X => Unsure[X]) :homoUnsureFunctionExtension[X] =
+		new homoUnsureFunctionExtension(f)
 
 	@inline implicit final def PartialFunctionExtension[X, Y](f :PartialFunction[X, Y]) :PartialFunctionExtension[X, Y] =
 		new PartialFunctionExtension(f)
 
-	@inline implicit final def HomoPartialFunctionExtension[X](f :PartialFunction[X, X]) :HomoPartialFunctionExtension[X] =
+	@inline implicit final def homoPartialFunctionExtension[X](f :PartialFunction[X, X]) :HomoPartialFunctionExtension[X] =
 		new HomoPartialFunctionExtension(f)
 
 	@inline implicit final def Function2Extension[A, B, Y](f :(A, B) => Y) :Function2Extension[A, B, Y] =
@@ -57,36 +64,64 @@ object extensions extends extensions {
 		def toPartialFunction :PartialFunction[X, Y] = new FunctionAsPartialFunction(self)
 	}
 
-	class HomoFunctionExtension[X] private[funny] (private val self :X => X) extends AnyVal {
+	class homoFunctionExtension[X] private[funny](private val self :X => X) extends AnyVal {
 		/** Applies this function to `x` for as long as `pred` is satisfied.
 		  * @return `if (pred(x)) x else applyWhile(this(x))(pred)`.
 		  */
 		@tailrec final def applyWhile(x :X)(pred :X => Boolean) :X =
 			if (pred(x)) applyWhile(self(x))(pred)
 			else x
+
+		/** Applies this function recursively `n` times to its own return values.
+		  * @return `if (n <= 0) x else reapply(this(x), n - 1)`.
+		  */
+		@tailrec final def reapply(x :X, n :Int) :X = if (n <= 0) x else reapply(self(x), n - 1)
 	}
 
-	class OptHomoFunctionExtension[X] private[funny] (private val self :X => Maybe[X]) extends AnyVal {
+	class homoOptionFunctionExtension[X] private[funny](private val self :X => Option[X]) extends AnyVal {
 		/** Applies this function to the argument, and then recursively to its own result, for as long as its result
 		  * is non empty. Note that the function must be applied one more time in order to determine the result is empty.
 		  * @return `this(x).map(recurse).getOrElse(x)`
 		  */
-		@tailrec final def recurse(x :X) :X = self(x) match {
-			case Yes(next) => recurse(next)
+		@tailrec final def reapply(x :X) :X = self(x) match {
+			case Some(next) => reapply(next)
 			case _ => x
 		}
 	}
 
-	class OptionHomoFunctionExtension[X] private[funny] (private val self :X => Option[X]) extends AnyVal {
+	class homoOptFunctionExtension[X] private[funny](private val self :X => Opt[X]) extends AnyVal {
 		/** Applies this function to the argument, and then recursively to its own result, for as long as its result
 		  * is non empty. Note that the function must be applied one more time in order to determine the result is empty.
-		  * @return `this(x).map(recurse).getOrElse(x)`
+		  * @return `this(x).map(reapply).getOrElse(x)`
 		  */
-		@tailrec final def recurse(x :X) :X = self(x) match {
-			case Some(next) => recurse(next)
+		@tailrec final def reapply(x :X) :X = self(x) match {
+			case One(next) => reapply(next)
 			case _ => x
 		}
 	}
+
+	class homoMaybeFunctionExtension[X] private[funny](private val self :X => Maybe[X]) extends AnyVal {
+		/** Applies this function to the argument, and then recursively to its own result, for as long as its result
+		  * is non empty. Note that the function must be applied one more time in order to determine the result is empty.
+		  * @return `this(x).map(reapply).getOrElse(x)`
+		  */
+		@tailrec final def reapply(x :X) :X = self(x) match {
+			case Yes(next) => reapply(next)
+			case _ => x
+		}
+	}
+
+	class homoUnsureFunctionExtension[X] private[funny](private val self :X => Unsure[X]) extends AnyVal {
+		/** Applies this function to the argument, and then recursively to its own result, for as long as its result
+		  * is non empty. Note that the function must be applied one more time in order to determine the result is empty.
+		  * @return `this(x).map(reapply).getOrElse(x)`
+		  */
+		@tailrec final def reapply(x :X) :X = self(x) match {
+			case Sure(next) => reapply(next)
+			case _ => x
+		}
+	}
+
 
 	class Function2Extension[A, B, Y](private val self :(A, B) => Y) extends AnyVal {
 		def andThen[Z](f :Y => Z) :(A, B) => Z = self match {
@@ -126,11 +161,11 @@ object extensions extends extensions {
 
 	class HomoPartialFunctionExtension[X] private[funny] (private val self :PartialFunction[X, X]) extends AnyVal {
 		/** Applies this function to the argument, and then recursively to its own result, for as long as it is defined.
-		  * @return `this(x).applyOrElse(x, recurse)`
+		  * @return `this(x).applyOrElse(x, reapply)`
 		  */
-		@tailrec final def recurse(x :X) :X = {
+		@tailrec final def reapply(x :X) :X = {
 			val res = self.applyOrElse(x, Fallback.downcastParams[X, X])
-			if (res.asAnyRef eq Fallback) x else recurse(res)
+			if (res.asAnyRef eq Fallback) x else reapply(res)
 		}
 	}
 
@@ -165,7 +200,7 @@ object extensions extends extensions {
 			}
 
 
-		/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
+		/** Turn a given function returning an `Opt[Out]` for input values `In` into an extractor
 		  * that can be used in pattern matching or as a partial function.
 		  * @tparam In  the argument type.
 		  * @tparam Out the extracted result type.
@@ -174,7 +209,7 @@ object extensions extends extensions {
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
 		def from[@specialized(Arg) In, Out]
-		        (name :String)(f :In => Maybe[Out]) :PartialFunction[In, Out] =
+		        (name :String)(f :In => Opt[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, name)
 
 		/** Turn a given function returning an `Option[Out]` for input values `In` into an extractor
@@ -184,7 +219,7 @@ object extensions extends extensions {
 		  * @param f    a function extracting `Out` values from `In` arguments.
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def from[@specialized(Arg) In, Out](f :In => Maybe[Out]) :PartialFunction[In, Out] =
+		def from[@specialized(Arg) In, Out](f :In => Opt[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, "<unlifted function>")
 	}
 
@@ -298,7 +333,7 @@ object extensions extends extensions {
 
 	@SerialVersionUID(Ver)
 	private final class OptFunction[@specialized(Specializable.Arg) -In, @specialized(Specializable.Return) +Out]
-	                               (f :In => Maybe[Out], override val toString :String)
+	                               (f :In => Opt[Out], override val toString :String)
 		extends ComposablePartialFunction[In, Out]
 	{
 		override def isDefinedAt(x :In) :Boolean = f(x).isDefined

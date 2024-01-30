@@ -1,6 +1,6 @@
 package net.noresttherein.sugar
 
-
+import net.noresttherein.sugar
 
 
 package object funny {
@@ -14,5 +14,5 @@ package object funny {
 		private[this] val instance = new ReturnTypeOf[Nothing]
 	}
 
-	private[funny] final val Ver = 1L
+	private[funny] final val Ver = sugar.Ver
 }
