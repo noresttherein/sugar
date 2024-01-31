@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.reflect
 
-import java.{lang=>j}
+import java.{lang => j}
 
 import scala.annotation.{implicitNotFound, unspecialized}
 import scala.collection.concurrent.TrieMap
@@ -9,6 +9,7 @@ import scala.reflect.runtime.universe.{Type, TypeTag, runtimeMirror, typeOf}
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.RuntimeType.{ExactRuntimeType, OfAnyRef, OfBoolean, OfByte, OfChar, OfDouble, OfFloat, OfInt, OfLong, OfShort, OfUnit}
 import net.noresttherein.sugar.reflect.Specialized.{Enforce, Fun1Arg, Fun1Vals, Primitives, SpecializedExact}
 import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
@@ -807,7 +808,7 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		override type BoxType = scala.runtime.Nothing$
 		override type GenericType = Any
 
-		override def default = throw new NoSuchElementException("Specialized[Nothing].default")
+		override def default = noSuch_!("Specialized[Nothing].default")
 
 		override val runType = classOf[Nothing]
 		override val classTag = ClassTag(classOf[Nothing])

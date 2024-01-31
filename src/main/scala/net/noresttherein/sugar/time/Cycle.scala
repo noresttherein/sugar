@@ -4,6 +4,7 @@ import java.{time => j}
 import java.time.temporal.{ChronoField, TemporalField}
 import java.time.temporal.ChronoField._
 
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.time.Cycle.Phase
 
 
@@ -184,7 +185,7 @@ object Cycle {
 
 		override def apply(phase :Long) :LongValuePhase[this.type] =
 			if (phase < Min.no | phase > Max.no)
-				throw new IllegalArgumentException("Phase " + phase +" is out of range for " + this)
+				illegal_!("Phase " + phase +" is out of range for " + this)
 			else
 				new LongValuePhase[this.type](phase)
 
@@ -420,7 +421,7 @@ case object Day extends Cycle {
 
 	@inline def apply(number :Int) :Day =
 		if (number < 1 || number > 7)
-			throw new IllegalArgumentException("Day(" + number + ")")
+			illegal_!("Day(" + number + ")")
 		else
 			new Day(number)
 

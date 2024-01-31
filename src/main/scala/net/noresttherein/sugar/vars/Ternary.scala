@@ -6,6 +6,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
+import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
@@ -93,7 +94,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	@inline override def productElement(n :Int) :Any =
 		if (n == 1 && x != NoContent) x == Yes
-		else throw new IndexOutOfBoundsException(mkString + ".productElement(" + n + ")")
+		else outOfBounds_!(mkString + ".productElement(" + n + ")")
 
 
 	/** The wrapped value. It is the same as [[net.noresttherein.sugar.vars.Ternary.get get]], but this method
@@ -103,7 +104,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline def sure(implicit nonEmpty :this.type <:< Known) :Boolean = x match {
 		case Yes => true
 		case No  => false
-		case _   => throw new NoSuchElementException("Unknown.sure")
+		case _   => noSuch_!("Unknown.sure")
 	}
 
 	/** Forces extraction of the value.
@@ -112,7 +113,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline override def get :Boolean = x match {
 		case Yes => true
 		case No  => false
-		case _   => throw new NoSuchElementException("Unknown.get")
+		case _   => noSuch_!("Unknown.get")
 	}
 
 	/** Forces extraction of the value.
@@ -121,7 +122,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline override def value :Boolean = x match {
 		case Yes => true
 		case No => false
-		case _ => throw new NoSuchElementException("Unknown.value")
+		case _ => noSuch_!("Unknown.value")
 	}
 
 	/** Forces extraction of the value.
@@ -130,7 +131,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline override def const :Boolean = x match {
 		case Yes => true
 		case No  => false
-		case _   => throw new NoSuchElementException("Unknown.const")
+		case _   => noSuch_!("Unknown.const")
 	}
 
 	/** Forces extraction of the value.
@@ -139,14 +140,14 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline override def apply() :Boolean = x match {
 		case Yes => true
 		case No => false
-		case _ => throw new NoSuchElementException("Unknown.get")
+		case _ => noSuch_!("Unknown.get")
 	}
 
 	/** Converts this ternary value to a `Boolean`, or throws an `UnsupportedOperationException` if it is `Unknown`. */
 	@inline def toBoolean :Boolean = x match {
 		case Yes => true
 		case No  => false
-		case _   => throw new UnsupportedOperationException("Unknown.toBoolean")
+		case _   => unsupported_!("Unknown.toBoolean")
 	}
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -202,22 +203,22 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	/** Gets the element in this `Ternary` or throws a [[NoSuchElementException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Ternary.orThrow orThrow]] */
 	@inline def orNoSuch(msg: => String) :Boolean =
-		if (x == NoContent) throw new NoSuchElementException(msg) else x == Yes
+		if (x == NoContent) noSuch_!(msg) else x == Yes
 
 	/** Gets the element in this `Ternary` or throws a [[NoSuchElementException]].
 	  * @see [[net.noresttherein.sugar.vars.Ternary.orThrow orThrow]] */
 	@inline def orNoSuch :Boolean =
-		if (x == NoContent) throw new NoSuchElementException else x == Yes
+		if (x == NoContent) noSuch_! else x == Yes
 
 	/** Gets the element in this `Ternary` or throws an [[IllegalArgumentException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Ternary.orThrow orThrow]] */
 	@inline def orIllegal(msg: => String) :Boolean =
-		if (x == NoContent) throw new IllegalArgumentException(msg) else x == Yes
+		if (x == NoContent) illegal_!(msg) else x == Yes
 
 	/** Gets the element in this `Ternary` or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.Ternary.orThrow orThrow]] */
 	@inline def orIllegal :Boolean =
-		if (x == NoContent) throw new IllegalArgumentException else x == Yes
+		if (x == NoContent) illegal_! else x == Yes
 
 	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 	@inline def orError(msg: => String) :Boolean = {

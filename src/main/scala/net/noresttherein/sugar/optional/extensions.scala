@@ -3,8 +3,9 @@ package net.noresttherein.sugar.optional
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.optional.extensions.{OptionExtension, OptionCompanionExtension, ifTrueMethods, providingMethods, satisfyingMethods}
-import net.noresttherein.sugar.vars.{Maybe, Outcome, Pill, Opt, Unsure}
+import net.noresttherein.sugar.{illegal_!, noSuch_!}
+import net.noresttherein.sugar.optional.extensions.{OptionCompanionExtension, OptionExtension, ifTrueMethods, providingMethods, satisfyingMethods}
+import net.noresttherein.sugar.vars.{Maybe, Opt, Outcome, Pill, Unsure}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 
@@ -74,7 +75,7 @@ object extensions extends extensions {
 		/** Gets the element in the option or throws a `NoSuchElementException` with the given message. */
 		@inline def orThrow(msg: => String) :T = self match {
 			case Some(t) => t
-			case _ => throw new NoSuchElementException(msg)
+			case _ => noSuch_!(msg)
 		}
 
 		/** Gets the element in the option or throws the exception given as the type parameter with the given message.
@@ -88,13 +89,13 @@ object extensions extends extensions {
 		  */
 		@inline def orNoSuch(msg: => String) :T = self match {
 			case Some(t) => t
-			case _ => throw new NoSuchElementException(msg)
+			case _ => noSuch_!(msg)
 		}
 
 		/** Gets the element in the option or throws an `IllegalArgumentException` with the given message. */
 		@inline def orIllegal(msg: => String) :T = self match {
 			case Some(t) => t
-			case _ => throw new IllegalArgumentException(msg)
+			case _ => illegal_!(msg)
 		}
 
 		/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */

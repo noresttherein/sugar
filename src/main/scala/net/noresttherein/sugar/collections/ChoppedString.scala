@@ -15,10 +15,11 @@ import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilde
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
-import net.noresttherein.sugar.collections.extensions.{StepperExtension, StepperCompanionExtension}
+import net.noresttherein.sugar.collections.extensions.{StepperCompanionExtension, StepperExtension}
+import net.noresttherein.sugar.{illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 //implicits
 
@@ -92,7 +93,7 @@ trait StringLikeOps[+S <: Seq[Char]]
 trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps[StringLike] with Serializable {
 	override def subSequence(start :Int, end :Int) :CharSequence =
 		if (start < 0 | end < 0 | start > end | end > length)
-			throw new IndexOutOfBoundsException("[" + start + ".." + end + ") out of " + length)
+			outOfBounds_!("[" + start + ".." + end + ") out of " + length)
 		else
 			clippedSlice(start, end)
 
@@ -191,7 +192,7 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 	@inline final def *(n :Int) :ChoppedString = times(n)
 	def times(n :Int) :ChoppedString =
 		if (n < 0)
-			throw new IllegalArgumentException("Negative repeat count " + n + " for " + this + ".")
+			illegal_!("Negative repeat count " + n + " for " + this + ".")
 		else {
 			var mask = Integer.highestOneBit(n)
 			var res = ChoppedString.empty
@@ -206,7 +207,7 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 
 	override def substring(start :Int, end :Int) :String =
 		if (start < 0 | end < 0 | end < start | end > length)
-			throw new IndexOutOfBoundsException("ChoppedString|" + length + "|.substring(" + start + ", " + end + ")")
+			outOfBounds_!("ChoppedString|" + length + "|.substring(" + start + ", " + end + ")")
 		else {
 			val res = new JStringBuilder(length)
 			@tailrec
@@ -336,7 +337,7 @@ sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike wi
 
 	override def updated(index :Int, elem :Char) :ChoppedString =
 		if (index < 0 || index >= length)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+			outOfBounds_!(index.toString + " out of " + length)
 		else if (index == 0)
 			new PrependedString(elem.toString, drop(1))
 		else if (index == length - 1)
@@ -815,7 +816,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 	private class ChoppedStringReader(private[this] var tail :ChoppedString) extends Reader {
 		override def read :Int = {
 			if (tail.isEmpty)
-				throw new IOException("empty string")
+				io_!("empty string")
 			val h = tail.head
 			tail = tail.tail
 			h
@@ -851,17 +852,17 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 	}
 
 	override def head :Char =
-		if (length == 0) throw new NoSuchElementException("Substring().head")
+		if (length == 0) noSuch_!("Substring().head")
 		else whole.charAt(startIndex)
 
 	override def last :Char = {
 		val length = this.length
-		if (length == 0) throw new NoSuchElementException("Substring().last")
+		if (length == 0) noSuch_!("Substring().last")
 		else whole.charAt(startIndex + length - 1)
 	}
 	override def apply(i :Int) :Char =
 		if (i < 0 || i >= length)
-			throw new IndexOutOfBoundsException(i.toString + " out of " + length)
+			outOfBounds_!(i.toString + " out of " + length)
 		else
 			whole.charAt(startIndex + i)
 
@@ -1007,7 +1008,7 @@ final class Substring private (protected override val whole :String,
 //	override def substring(start :Int, end :Int = length) :Substring = slice(start, end)
 	override def substring(start :Int, end :Int) :String =
 		if (start < 0 | end < 0 | end < start | end > length)
-			throw new IndexOutOfBoundsException("Substring|" + length + "|.substring(" + start + ", " + end + ")")
+			outOfBounds_!("Substring|" + length + "|.substring(" + start + ", " + end + ")")
 		else
 			whole.substring(startIndex + start, startIndex + end)
 

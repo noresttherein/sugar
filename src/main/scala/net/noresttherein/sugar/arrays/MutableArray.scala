@@ -168,7 +168,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			val thisSize = self.length
 			val thatSize = elems.knownSize
 			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			if (thatSize >= 0)
@@ -187,7 +187,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			val thisSize = self.length
 			val thatSize = elems.length
 			if (index < 0 | index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			ArrayLike.copy(elems, 0, self, index, thatSize)

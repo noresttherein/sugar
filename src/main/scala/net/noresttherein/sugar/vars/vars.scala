@@ -51,7 +51,7 @@ package object vars extends vars.Rank1YieldImplicits {
 	private[vars] final val Ver = sugar.Ver
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
-	  * in [[net.noresttherein.sugar.vars.YieldExtension YieldExtension]].
+	  * in [[net.noresttherein.sugar.vars.OptExtension YieldExtension]].
 	  * A `Opt[A]` can be have three forms:
 	  *   1. $None, serving the same role as in `scala.Option`,
 	  *   1. $Done[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
@@ -85,8 +85,8 @@ package object vars extends vars.Rank1YieldImplicits {
 
 //	@inline implicit def YieldExtension[A](self :Opt[A]) :YieldExtension[A] = new YieldExtension(self)
 
-	/** An alias for $Yield`[A]`, a fully erased variant of [[scala.Option]] with an API defined
-	  * by [[net.noresttherein.sugar.vars.YieldExtension YieldExtension]] as extension methods.
+	/** An alias for $Opt`[A]`, a fully erased variant of [[scala.Option]] with an API defined
+	  * by [[net.noresttherein.sugar.vars.OptExtension YieldExtension]] as extension methods.
 	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
 	  * @see [[scala.None]]
 	  * @see [[net.noresttherein.sugar.vars.Maybe]]
@@ -95,11 +95,11 @@ package object vars extends vars.Rank1YieldImplicits {
 	type ??[+A] = Opt[A]
 
 
-	/** The API of $Yield in the form of extension methods.
+	/** The API of $Opt in the form of extension methods.
 	  * @define Ref `Opt`
 	  * @define coll potential value
 	  */
-	implicit class YieldExtension[A](private val self :Opt[A]) extends AnyVal {
+	implicit class OptExtension[A](private val self :Opt[A]) extends AnyVal {
 
 		/** Tests if this `Opt` does not contain a value
 		  * (is equal to [[scala.None None]]). */
@@ -124,7 +124,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * @return contained value, if one exists.
 		  * @throws NoSuchElementException if this `Opt` is empty. */
 		@inline def get :A = (self :Any) match {
-			case None                      => throw new NoSuchElementException("None.get")
+			case None                      => noSuch_!("None.get")
 			case exists :One[A @unchecked] => exists.value
 			case _                         => self.asInstanceOf[A]
 		}
@@ -133,7 +133,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		@inline def getOrElse[O >: A](or: => O) :O =
 			if (self.asInstanceOf[AnyRef] eq None) or else get
 
-		/** Similarly to [[net.noresttherein.sugar.vars.YieldExtension.getOrElse getOrElse]],
+		/** Similarly to [[net.noresttherein.sugar.vars.OptExtension.getOrElse getOrElse]],
 		  * returns the value if non-empty and `alt` otherwise. The difference is that the alternative value
 		  * is not lazily computed and guarantees no closure will be created,
 		  * at the cost of possibly discarding it without use.
@@ -157,20 +157,20 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * with the given message.
 		  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 		  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
-		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orNoSuch orNoSuch]]
-		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orIllegal orIllegal]] */
+		  * @see [[net.noresttherein.sugar.vars.OptExtension.orNoSuch orNoSuch]]
+		  * @see [[net.noresttherein.sugar.vars.OptExtension.orIllegal orIllegal]] */
 		@inline def orThrow[E <: Throwable :ClassTag](msg: => String) :A =
 			if (self.asInstanceOf[AnyRef] eq None) raise[E](msg) else get
 
 		/** Gets the element in this `Opt` or throws a [[NoSuchElementException]] with the given message.
-		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orThrow orThrow]] */
+		  * @see [[net.noresttherein.sugar.vars.OptExtension.orThrow orThrow]] */
 		@inline def orNoSuch(msg: => String) :A =
-			if (self.asInstanceOf[AnyRef] eq None) throw new NoSuchElementException(msg) else get
+			if (self.asInstanceOf[AnyRef] eq None) noSuch_!(msg) else get
 
 		/** Gets the element in this `Opt` or throws an [[IllegalArgumentException]] with the given message.
-		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orThrow orThrow]] */
+		  * @see [[net.noresttherein.sugar.vars.OptExtension.orThrow orThrow]] */
 		@inline def orIllegal(msg: => String) :A =
-			if (self.asInstanceOf[AnyRef] eq None) throw new IllegalArgumentException(msg) else get
+			if (self.asInstanceOf[AnyRef] eq None) illegal_!(msg) else get
 
 		/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 		@inline def orError(msg: => String) :A = {
@@ -183,7 +183,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		@inline def orElse[O >: A](or: => Opt[O]) :Opt[O] =
 			if (self.asInstanceOf[AnyRef] eq None) or else self
 
-		/** Similarly to [[net.noresttherein.sugar.vars.YieldExtension.orElse orElse]], returns this `Opt`
+		/** Similarly to [[net.noresttherein.sugar.vars.OptExtension.orElse orElse]], returns this `Opt`
 		  *  if it is not empty and `or` otherwise. The difference is that the alternative value is not lazily computed
 		  *  and guarantees no closure would be be created, at the cost of possibly discarding it without use.
 		  * @param or the value to return if this instance is empty. */
@@ -216,13 +216,13 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * or the result of evaluating expression `ifEmpty` otherwise.
 		  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
 		  * one with another, but its name might be misleading. Consider using
-		  * [[net.noresttherein.sugar.vars.YieldExtension.mapOrElse mapOrElse]] instead.
+		  * [[net.noresttherein.sugar.vars.OptExtension.mapOrElse mapOrElse]] instead.
 		  *  @param  ifEmpty the expression to evaluate if empty.
 		  *  @param  f       the function to apply if nonempty. */
 		@inline def fold[O](ifEmpty: => O)(f: A => O): O =
 			if (self.asInstanceOf[AnyRef] eq None) ifEmpty else f(get)
 
-		/** The same as [[net.noresttherein.sugar.vars.YieldExtension.map map]], but exceptions thrown
+		/** The same as [[net.noresttherein.sugar.vars.OptExtension.map map]], but exceptions thrown
 		  * by the function are caught and $None is returned instead.
 		  */
 		@inline def guardMap[O](f :A => O) :Opt[O] =
@@ -271,7 +271,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		@inline def filterNot(p :A => Boolean) :Opt[A] =
 			if ((self.asInstanceOf[AnyRef] eq None) || !p(get)) self else None
 
-		/** Equivalent to `this.`[[net.noresttherein.sugar.vars.YieldExtension.filter filter]]`(p)` -
+		/** Equivalent to `this.`[[net.noresttherein.sugar.vars.OptExtension.filter filter]]`(p)` -
 		  * a variant for use in for-comprehensions. Note that as this implementation is performance oriented,
 		  * it evaluates the predicate immediately, unlikely standard methods of [[scala.collection.Iterable Iterable]]. */
 //		@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](self, p)
@@ -333,13 +333,13 @@ package object vars extends vars.Rank1YieldImplicits {
 		@inline def toIterable :Iterable[A] =
 			if (self.asInstanceOf[AnyRef] eq None) Iterable.empty else Iterable.single(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toOption toOption]]. */
+		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toOption toOption]]. */
 		@inline def option :Option[A] = if (self.asInstanceOf[AnyRef] eq None) None else Some(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toMaybe toMaybe]]. */
+		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toMaybe toMaybe]]. */
 		@inline def maybe :Maybe[A] = if (self.asInstanceOf[AnyRef] eq None) No else Yes(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toUnsure toUnsure]]. */
+		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toUnsure toUnsure]]. */
 		@inline def unsure :Unsure[A] =
 			if (self.asInstanceOf[AnyRef] eq None)
 				Missing
@@ -371,17 +371,17 @@ package object vars extends vars.Rank1YieldImplicits {
 				new Sure(a, cachedOpt = Yes(a))
 			}
 
-		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toOption toOption]]
+		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toOption toOption]]
 		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
 		  */
 		@inline def constOption :Option[A] = if (self.asInstanceOf[AnyRef] eq None) None else Some(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toMaybe toMaybe]]
+		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toMaybe toMaybe]]
 		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
 		  */
 		@inline def constOpt :Maybe[A] = if (self.asInstanceOf[AnyRef] eq None) No else Yes(get)
 
-		/** Same as [[net.noresttherein.sugar.vars.YieldExtension.toUnsure toUnsure]]
+		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toUnsure toUnsure]]
 		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
 		  */
 		@inline def unsureConst :Unsure[A] =
@@ -490,7 +490,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * @return contained value, if `this` is $Blue.
 		  * @throws NoSuchElementException if this $Pill is $Red. */
 		def get :B = (self :Any) match {
-			case red  :Red[_]             => throw new NoSuchElementException(red.toString)
+			case red  :Red[_]             => noSuch_!(red.toString)
 			case blue :Blue[B @unchecked] => blue.value
 			case _                        => self.asInstanceOf[B]
 		}
@@ -537,14 +537,14 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * with [[net.noresttherein.sugar.vars.Pill.Red.value value]]`.toString` as the error message if $Red.
 		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orNoSuch :B = self match {
-			case red :Red[_] => throw new NoSuchElementException(red.value.toString)
+			case red :Red[_] => noSuch_!(red.value.toString)
 			case _           => get
 		}
 		/** Gets the element in this $Pill if it is $Blue, or throws an [[IllegalArgumentException]]
 		  * with [[net.noresttherein.sugar.vars.Pill.Red.value value]]`.toString` as the error message if $Red.
 		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orIllegal :B = self match {
-			case red :Red[_] => throw new IllegalArgumentException(red.value.toString)
+			case red :Red[_] => illegal_!(red.value.toString)
 			case _           => get
 		}
 		/** Asserts that this instance is $Blue and returns its contents, throwing an [[AssertionError]]
@@ -762,7 +762,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * @throws NoSuchElementException if this $Outcome is $Failed. */
 		def get :A = (self :Any) match {
 			case pass :Done[A @unchecked] => pass.value
-			case fail :Throwable          => throw new NoSuchElementException(fail)
+			case fail :Throwable          => noSuch_!(fail)
 			case _                        => self.asInstanceOf[A]
 		}
 
@@ -813,8 +813,8 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * with the exception carried by [[net.noresttherein.sugar.vars.Outcome.Failed Failed]] as its cause otherwise.
 		  * @see [[net.noresttherein.sugar.vars.OutcomeExtension.orThrow orThrow]] */
 		@inline def orNoSuch :A = self match {
-			case fail :Failed    => throw new NoSuchElementException(fail.msg)
-			case fail :Throwable => throw new NoSuchElementException(fail)
+			case fail :Failed    => noSuch_!(fail.msg)
+			case fail :Throwable => noSuch_!(fail)
 			case _ => get
 		}
 
@@ -822,8 +822,8 @@ package object vars extends vars.Rank1YieldImplicits {
 		  * with the exception carried by [[net.noresttherein.sugar.vars.Outcome.Failed Failed]] as its cause otherwise.
 		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orIllegal :A = self match {
-			case fail :Failed    => throw new IllegalArgumentException(fail.msg)
-			case fail :Throwable => throw new IllegalArgumentException(fail)
+			case fail :Failed    => illegal_!(fail.msg)
+			case fail :Throwable => illegal_!(fail)
 			case _ => get
 		}
 
@@ -1004,7 +1004,7 @@ package vars {
 
 
 
-	/** A companion and factory of $Yield, a very lightweight alternative to [[Option]].
+	/** A companion and factory of $Opt, a very lightweight alternative to [[Option]].
 	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
 	  * @see [[scala.None]]
 	  *
@@ -1141,7 +1141,7 @@ package vars {
 		  */
 		@SerialVersionUID(Ver)
 		object implicits {
-			/** An implicit conversion that converts a $Yield to an iterable value. */
+			/** An implicit conversion that converts a $Opt to an iterable value. */
 			@inline implicit def YieldToIterable[A](opt :Opt[A]) :Iterable[A] = opt match {
 				case One(v) => v::Nil
 				case _      => Nil

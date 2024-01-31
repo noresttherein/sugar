@@ -4,11 +4,11 @@ import java.lang.reflect.Type
 
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.reflect
+import net.noresttherein.sugar.{illegal_!, reflect, unsupported_!}
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -184,7 +184,7 @@ object extensions extends extensions {
 		  */ //consider: there is an inconsistency in naming with Boxed and Unboxed, which never throw.
 		@throws[UnsupportedOperationException]("if this class is not a built in value type.")
 		def boxed   :Class[_] = BoxClass.getOrElse(self, null) match {
-			case null => throw new UnsupportedOperationException(
+			case null => unsupported_!(
 				"Class " + self.getName + " is not a built in value type."
 			)
 			case box => box
@@ -195,7 +195,7 @@ object extensions extends extensions {
 		  */
 		@throws[UnsupportedOperationException]("if this class is not a box for a value type.")
 		def unboxed :Class[_] = PrimitiveClass.getOrElse(self, null) match {
-			case null => throw new UnsupportedOperationException(
+			case null => unsupported_!(
 				"Class " + self.getName + " is not a wrapper for a built-in value type."
 			)
 			case primitive => primitive
@@ -238,7 +238,7 @@ object extensions extends extensions {
 		@throws[IllegalArgumentException]("if dim <= 0")
 		def arrayClass(dim :Int) :Class[_] =
 			if (dim <= 0)
-				throw new IllegalArgumentException("Non positive array dimension: " + dim)
+				illegal_!("Non positive array dimension: " + dim)
 			else {
 				def arrayOf(n :Int) :Class[_] =
 					if (n == 0) self else ArrayClass(arrayOf(n - 1))

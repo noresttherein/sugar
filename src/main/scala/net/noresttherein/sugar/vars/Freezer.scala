@@ -4,9 +4,10 @@ import java.lang.invoke.MethodHandles
 
 import scala.Specializable.Args
 
+import net.noresttherein.sugar.{illegalState_!, illegal_!, unsupported_!}
 import net.noresttherein.sugar.vars.Freezer.stateField
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -81,13 +82,13 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	  * @throws NoSuchElementException if this variable is not frozen.
 	  */
 	final override def get :T =
-		if (state == Immutable) x else throw new NoSuchElementException(toString + " is not frozen.")
+		if (state == Immutable) x else illegal_!(toString + " is not frozen.")
 
 	/** The frozen value of this variable.
 	  * @throws IllegalStateException if this variable is not frozen.
 	  */
 	override def const :T =
-		if (state == Immutable) x else throw new UnsupportedOperationException(toString + " is not frozen.")
+		if (state == Immutable) x else unsupported_!(toString + " is not frozen.")
 
 	/** Sets the final, [[net.noresttherein.sugar.vars.Freezer.const constant]] value of this `Val`.
 	  * Same as `this.`[[net.noresttherein.sugar.vars.Freezer.const_= const]]` = value`.
@@ -189,7 +190,7 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	private def lock() :Unit =
 		while (!stateField.weakCompareAndSet(this :AnyRef, Mutable, Locked))
 			if (state == Immutable)
-				throw new IllegalStateException(toString + " is frozen.")
+				illegalState_!(toString + " is frozen.")
 
 	//overridden to avoid the creation of a closure object capturing other
 	private[vars] override def bool_&&=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {

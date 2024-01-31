@@ -6,8 +6,9 @@ import scala.annotation.unchecked.uncheckedVariance
 
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.DisposableRef.SerializedEmptyRef
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -81,14 +82,14 @@ sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Referen
 	@inline final override def value :T = getOrNull
 
 	/** Throws [[UnsupportedOperationException]]. */
-	@inline final override def const :T = throw new UnsupportedOperationException(this.localClassName + ".const")
+	@inline final override def const :T = unsupported_!(this.localClassName + ".const")
 
 	/** Returns the referenced object, or throws [[NoSuchElementException]] if it has been garbage collected. */
 	@inline final override def apply() :T = get
 
 	/** Returns the referenced object, or throws [[NoSuchElementException]] if it has been garbage collected. */
 	override def get :T = getOrNull match {
-		case null => throw new NoSuchElementException("Object was garbage collected")
+		case null => noSuch_!("Object was garbage collected")
 		case x => x
 	}
 

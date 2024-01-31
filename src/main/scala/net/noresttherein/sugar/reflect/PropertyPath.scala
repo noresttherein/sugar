@@ -5,9 +5,9 @@ import java.lang.reflect.{Method, Modifier}
 import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe._
 
-import net.noresttherein.sugar.??!
+import net.noresttherein.sugar.{??!, illegal_!, unsupported_!}
 import net.noresttherein.sugar.exceptions.RethrowableException
-import net.noresttherein.sugar.extensions.{providingMethods, castingMethods}
+import net.noresttherein.sugar.extensions.{castingMethods, providingMethods}
 import net.noresttherein.sugar.reflect.InvocationReflection.Trace
 import net.noresttherein.sugar.reflect.PropertyPath.UpdatableProperty
 
@@ -295,7 +295,7 @@ object PropertyPath {
 	def proper[X :TypeTag, Y](property :X => Y) :Property[X, Y] =
 		this.property(property) match {
 			case p :Property[X @unchecked, Y @unchecked] => p
-			case p => throw new IllegalArgumentException(s"Passed function is an identity property: '$p'")
+			case p => illegal_!(s"Passed function is an identity property: '$p'")
 		}
 
 	/** Checks if this function represents an non-empty chain of property calls on its argument and,
@@ -310,7 +310,7 @@ object PropertyPath {
 	def simple[X :TypeTag, Y](property :X => Y) :SimpleProperty[X, Y] =
 		this.property(property) match {
 			case s :SimpleProperty[X @unchecked, Y @unchecked] => s
-			case p => throw new IllegalArgumentException(s"Passed function doesn't represent a single property call: $p")
+			case p => illegal_!(s"Passed function doesn't represent a single property call: $p")
 		}
 
 	/** Check if this function represents a single zero-argument method call on its argument and,
@@ -384,7 +384,7 @@ object PropertyPath {
 		def this(name :String, fun :X => Y)(implicit argTag :TypeTag[X]) = this(name, fun, typeOf[X])
 
 		if (name.length==0 || name(0).isWhitespace || name(name.length-1).isWhitespace)
-			throw new IllegalArgumentException(s"Illegal property name: '$name'.")
+			illegal_!(s"Illegal property name: '$name'.")
 
 		override def isSimple :Boolean = !name.contains('.')
 
@@ -461,7 +461,7 @@ object PropertyPath {
 		override def isSimple :Boolean = false
 
 		override def updatable[LX <: X :TypeTag, UY >: X](set :(LX, UY) => LX) :UpdatableProperty[LX, UY] =
-			throw new UnsupportedOperationException("IdentityProperty.updatable")
+			unsupported_!("IdentityProperty.updatable")
 
 
 		override def equals(that :Any) :Boolean = that match {

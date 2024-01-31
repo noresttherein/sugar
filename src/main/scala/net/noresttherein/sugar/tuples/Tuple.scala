@@ -9,6 +9,8 @@ import scala.annotation.implicitNotFound
 import scala.collection.immutable.ArraySeq
 import scala.compat.Platform
 
+import net.noresttherein.sugar.outOfBounds_!
+
 
 //todo: use a macro to elide the implicit witnesses
 //todo: zipper; maybe lenses
@@ -548,7 +550,7 @@ object Tuple {
 
 		override def isEmpty :Boolean = true
 
-		override def productElement(n :Int) :Any = throw new IndexOutOfBoundsException(n.toString)
+		override def productElement(n :Int) :Any = outOfBounds_!(n.toString)
 
 		/** Create a single element tuple consisting of element `head`. */
 		def ><[X](head :X): <*>[X] = {
@@ -751,7 +753,7 @@ object Tuple {
 		  */
 		def apply[U](n :Int)(implicit lub :TupleLUB[P >< L, U]) :U = {
 			if (n <= 0 || n > size)
-				throw new IndexOutOfBoundsException(s"$this($n)")
+				outOfBounds_!(s"$this($n)")
 			elements(n - 1).asInstanceOf[U]
 		}
 

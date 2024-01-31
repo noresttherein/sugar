@@ -14,6 +14,7 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ConcatStepper.AllCharacteristics
 import net.noresttherein.sugar.collections.Stepper0.EmptyCharacteristics
 import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtension, StepType}
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.slang.extensions.hashCodeMethods
 
@@ -28,7 +29,7 @@ private sealed abstract class Stepper0[A]
 {
 	override def hasStep = false
 	override def hasNext = false
-	override def nextStep() = throw new NoSuchElementException("Empty Stepper")
+	override def nextStep() = noSuch_!("Empty Stepper")
 	override def next() = nextStep()
 	override def tryAdvance(action :Consumer[_ >: A]) :Boolean = false
 	override def trySplit() :Null = null
@@ -119,7 +120,7 @@ private sealed abstract class Stepper1[@specialized(JavaIterator.Types) A, B]
 	private[this] var has = true
 	override def hasStep :Boolean = has
 	override def hasNext :Boolean = has
-	override def nextStep() :A = if (has) { has = false; elem } else throw new NoSuchElementException(toString)
+	override def nextStep() :A = if (has) { has = false; elem } else noSuch_!(toString)
 	override def next() :B = nextStep().asInstanceOf[B]
 	override def estimateSize :Long = if (has) 1 else 0
 	override def trySplit() :Null = null
@@ -240,7 +241,7 @@ private sealed abstract class Stepper2[@specialized(JavaIterator.Types) A, B, +S
 	override def nextStep() :A = size match {
 		case 2 => size = 1; first
 		case 1 => size = 0; second
-		case _ => throw new NoSuchElementException(toString)
+		case _ => noSuch_!(toString)
 	}
 	override def trySplit() :Null = null
 
@@ -782,7 +783,7 @@ private abstract class SpliteratorStepper[@specialized(JavaIterator.Types) A, B,
 {
 	private[this] var hd :A = _
 	private[this] var hasHead = false
-	@inline protected final def head :A = if (hasHead) hd else throw new NoSuchElementException("Stepper.empty")
+	@inline protected final def head :A = if (hasHead) hd else noSuch_!("Stepper.empty")
 	protected final def head_=(value :A) :Unit = { hd = value; hasHead = true }
 
 	override def estimateSize :Long = underlying.estimateSize
@@ -799,7 +800,7 @@ private abstract class SpliteratorStepper[@specialized(JavaIterator.Types) A, B,
 		if (!hasHead) {
 			buffer(underlying)
 			if (!hasHead)
-				throw new NoSuchElementException("Stepper.empty")
+				noSuch_!("Stepper.empty")
 		}
 		hasHead = false
 		hd

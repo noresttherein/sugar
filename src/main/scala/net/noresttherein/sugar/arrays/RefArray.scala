@@ -99,7 +99,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		else if (newLength == 0)
 			empty[E]
 		else if (offset < 0 | offset > newLength)
-			throw new IndexOutOfBoundsException(
+			throw new ArrayIndexOutOfBoundsException(
 				toString + ".copyOf(" + array.className + "|" + array.length + "|, " + offset + ", " + newLength + ")"
 			)
 		else if (newLength <= array.length - offset)

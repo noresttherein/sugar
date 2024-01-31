@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.arrays.{IArray, IRefArray, RefArray}
 import net.noresttherein.sugar.collections.IterableOnceLikeSummons.{GenericSummoner, Summoner}
 import net.noresttherein.sugar.extensions.{SeqExtension, castTypeParamMethods, castingMethods, classNameMethods, mutableIndexedSeqExtension}
-import net.noresttherein.sugar.funny
+import net.noresttherein.sugar.{funny, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.<:?<
 
@@ -359,7 +359,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @throws UnsupportedOperationException if `elems` is empty.
 	  */
 	def reduceRight[A >: E](elems :C)(op :(E, A) => A) :A = this match {
-		case _ if knownSize(elems) == 0 => throw new UnsupportedOperationException("empty.reduceRight")
+		case _ if knownSize(elems) == 0 => unsupported_!("empty.reduceRight")
 		case _ => reverseIterator(elems).reduceLeft[A]((x, y) => op(y, x))
 	}
 

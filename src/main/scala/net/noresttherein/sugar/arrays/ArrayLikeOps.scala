@@ -7,6 +7,7 @@ import scala.annotation.tailrec
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.extensions.cast2TypeParamsMethods
+import net.noresttherein.sugar.{null_!, unsupported_!}
 
 
 
@@ -38,7 +39,7 @@ private[sugar] object ArrayLikeOps {
 			case a :Array[Float]    => foreach(a)(g)
 			case a :Array[Short]    => foreach(a)(g)
 			case a :Array[Boolean]  => foreach(a)(g)
-			case null               => throw new NullPointerException()
+			case null               => null_!("null array")
 		}
 	}
 	
@@ -67,7 +68,7 @@ private[sugar] object ArrayLikeOps {
 			case a :Array[Float]   => indexOf(a, elem, from)
 			case a :Array[Short]   => indexOf(a, elem, from)
 			case a :Array[Boolean] => indexOf(a, elem, from)
-			case null               => throw new NullPointerException()
+			case null              => null_!("null array")
 		}
 	}
 
@@ -95,7 +96,7 @@ private[sugar] object ArrayLikeOps {
 			case a :Array[Float]   => lastIndexOf(a, elem, math.min(end, length - 1))
 			case a :Array[Short]   => lastIndexOf(a, elem, math.min(end, length - 1))
 			case a :Array[Boolean] => lastIndexOf(a, elem, math.min(end, length - 1))
-			case null               => throw new NullPointerException()
+			case null              => null_!("null array")
 		}
 	}
 
@@ -119,7 +120,7 @@ private[sugar] object ArrayLikeOps {
 			case a :Array[Float]   => lastIndexWhere(a, p.asInstanceOf[Float => Boolean], offset, start)
 			case a :Array[Short]   => lastIndexWhere(a, p.asInstanceOf[Short => Boolean], offset, start)
 			case a :Array[Boolean] => lastIndexWhere(a, p.asInstanceOf[Boolean => Boolean], offset, start)
-			case null               => throw new NullPointerException()
+			case null              => null_!("null array")
 		}
 	}
 
@@ -191,7 +192,7 @@ private[sugar] object ArrayLikeOps {
 			case a :Array[Float]   => segmentLen(a, p.asInstanceOf[Float => Boolean])
 			case a :Array[Short]   => segmentLen(a, p.asInstanceOf[Short => Boolean])
 			case a :Array[Boolean] => segmentLen(a, p.asInstanceOf[Boolean => Boolean])
-			case null               => throw new NullPointerException()
+			case null              => null_!("null array")
 		}
 	}
 /*
@@ -247,7 +248,7 @@ private[sugar] object ArrayLikeOps {
 				case a :Array[Float]    => fill(a, f.castParam2[Float])
 				case a :Array[Short]    => fill(a, f.castParam2[Short])
 				case a :Array[Boolean]  => fill(a, f.castParam2[Boolean])
-				case null               => throw new NullPointerException()
+				case null               => null_!("null array")
 			}
 			until0 - from0
 		} else
@@ -278,7 +279,7 @@ private[sugar] object ArrayLikeOps {
 				case a :Array[Float]   => foldl(a, op.asInstanceOf[(A, Float) => A])
 				case a :Array[Short]   => foldl(a, op.asInstanceOf[(A, Short) => A])
 				case a :Array[Boolean] => foldl(a, op.asInstanceOf[(A, Boolean) => A])
-				case null               => throw new NullPointerException()
+				case null              => null_!("null array")
 			}
 	}
 
@@ -305,19 +306,19 @@ private[sugar] object ArrayLikeOps {
 				case a :Array[Float]   => foldr(a, op.asInstanceOf[(Float, A) => A])
 				case a :Array[Short]   => foldr(a, op.asInstanceOf[(Short, A) => A])
 				case a :Array[Boolean] => foldr(a, op.asInstanceOf[(Boolean, A) => A])
-				case null              => throw new NullPointerException
+				case null              => null_!("null array")
 			}
 	}
 	
 	def reduceLeft[A >: E, E](array :Array[E], from :Int, until :Int)(op :(A, E) => A) :A =
 		if (until <= from)
-			throw new UnsupportedOperationException("ArrayLike().reduceLeft")
+			unsupported_!("ArrayLike().reduceLeft")
 		else
 			foldLeft[A, E](array, from + 1, until)(array(from))(op)
 
 	def reduceRight[E, A >: E](array :Array[E], from :Int, until :Int)(op :(E, A) => A) :A =
 		if (until <= from)
-			throw new UnsupportedOperationException("ArrayLike().reduceRight")
+			unsupported_!("ArrayLike().reduceRight")
 		else
 			foldRight[E, A](array, from, until - 1)(array(until - 1))(op)
 
@@ -347,7 +348,7 @@ private[sugar] object ArrayLikeOps {
 				case a :Array[Float]   => swap(a)
 				case a :Array[Short]   => swap(a)
 				case a :Array[Boolean] => swap(a)
-				case null              => throw new NullPointerException
+				case null              => null_!("null array")
 			}
 	}
 
@@ -378,7 +379,7 @@ private[sugar] object ArrayLikeOps {
 			case a :Array[Float]   => specAddString(a)
 			case a :Array[Short]   => specAddString(a)
 			case a :Array[Boolean] => specAddString(a)
-			case null              => throw new NullPointerException
+			case null              => null_!("null array")
 		}
 	}
 

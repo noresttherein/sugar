@@ -8,12 +8,13 @@ import java.util.Comparator
 import scala.math.Numeric.{ByteIsIntegral, DoubleIsFractional, FloatIsFractional, IntIsIntegral, LongIsIntegral, ShortIsIntegral}
 import scala.util.Random
 
+import net.noresttherein.sugar.exceptions.SugaredArithmeticException
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDecimalConverter}
-import net.noresttherein.sugar.numeric.extensions.{BooleanExtension, BooleanCompanionExtension, ByteExtension, ByteCompanionExtension, CharExtension, CharCompanionExtension, ComparableExtension, ComparatorHasAsScala, DoubleExtension, DoubleCompanionExtension, FloatExtension, FloatCompanionExtension, IntExtension, IntCompanionExtension, JBigDecimalIsFractional, LongExtension, LongCompanionExtension, ShortExtension, ShortCompanionExtension, hasComparatorExtension, hasOrderingExtension}
+import net.noresttherein.sugar.numeric.extensions.{BooleanCompanionExtension, BooleanExtension, ByteCompanionExtension, ByteExtension, CharCompanionExtension, CharExtension, ComparableExtension, ComparatorHasAsScala, DoubleCompanionExtension, DoubleExtension, FloatCompanionExtension, FloatExtension, IntCompanionExtension, IntExtension, JBigDecimalIsFractional, LongCompanionExtension, LongExtension, ShortCompanionExtension, ShortExtension, hasComparatorExtension, hasOrderingExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -389,7 +390,7 @@ object extensions extends extensions {
 		/** Converts this `Long` to an unsigned `UInt`. */
 		@throws[ArithmeticException]("if this Long is negative or greater than Int.MaxValue")
 		@inline def toUIntExact :UInt =
-			if (self > Int.MaxValue | self < 0) throw new ArithmeticException("Not an unsigned Int: " + self)
+			if (self > Int.MaxValue | self < 0) throw SugaredArithmeticException("Not an unsigned Int: " + self)
 			else new UInt(self.toInt)
 
 		/** Interprets lower 4 bytes in this `Long`'s binary format as an unsigned 32 bit integer.

@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.reflect
 
 import net.noresttherein.sugar.funny.generic.Fixed
+import net.noresttherein.sugar.unsupported_!
 
 
 /** Generic specialized callback, allowing to call a specialized method from non-specialized code based on passed
@@ -189,7 +190,7 @@ object Specialize {
 		  * @throws UnsupportedOperationException unless overridden.
 		  */
 		override def specialized[@specialized E :RuntimeType] :R[E] =
-			throw new UnsupportedOperationException("(" + this + " :SpecializeSome).specialized")
+			unsupported_!("(" + this + " :SpecializeSome).specialized")
 	}
 
 

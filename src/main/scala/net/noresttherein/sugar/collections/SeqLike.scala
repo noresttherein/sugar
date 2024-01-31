@@ -7,10 +7,10 @@ import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayCompanionExtension, ArrayExtension, ArrayLike, ArrayLikeExtension, IArray, IArrayExtension, IArrayLike, IArrayLikeExtension, IRefArray, IRefArrayExtension, MutableArrayExtension, RefArray, RefArrayExtension, RefArrayLike, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayFactory, ArrayLike, ArrayLikeExtension, IArray, IArrayExtension, IArrayLike, IArrayLikeExtension, IRefArray, IRefArrayExtension, MutableArrayExtension, RefArray, RefArrayExtension, RefArrayLike, RefArrayLikeExtension}
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, JavaStringBuilderExtension}
-import net.noresttherein.sugar.funny
+import net.noresttherein.sugar.{funny, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.{<:?<, Unknown}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -686,23 +686,23 @@ trait IndexedSeqLike[+E, +CC[_], C] extends SeqLike[E, CC, C] {
 	override def foldRight[A](elems :C)(z :A)(op :(E, A) => A) :A = toOps(elems).foldRight(z)(op)
 
 	override def head(elems :C) :E =
-		if (size(elems) == 0) throw new NoSuchElementException(infoString(elems) + ".head")
+		if (size(elems) == 0) noSuch_!(infoString(elems) + ".head")
 		else apply(elems)(0)
 
 	override def headOption(elems :C) :Option[E] = if (size(elems) == 0) None else Some(head(elems))
 
 	override def last(elems :C) :E =
-		if (size(elems) == 0) throw new NoSuchElementException(infoString(elems) + ".head")
+		if (size(elems) == 0) noSuch_!(infoString(elems) + ".head")
 		else apply(elems)(size(elems) - 1)
 
 	override def tail(elems :C) :C = {
 		val length = size(elems)
-		if (length == 0) throw new UnsupportedOperationException(infoString(elems) + "().tail")
+		if (length == 0) unsupported_!(infoString(elems) + "().tail")
 		else slice(elems)(1, length)
 	}
 	override def init(elems :C) :C = {
 		val length = size(elems)
-		if (length == 0) throw new UnsupportedOperationException(infoString(elems) + "().init")
+		if (length == 0) unsupported_!(infoString(elems) + "().init")
 		else slice(elems)(0, length - 1)
 	}
 	override def drop(elems :C)(n :Int) :C = slice(elems)(n, size(elems))

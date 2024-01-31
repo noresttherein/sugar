@@ -5,11 +5,11 @@ import java.util.logging.SimpleFormatter
 import org.scalacheck.Prop.AnyOperators
 import org.scalacheck.{Properties, Test}
 import org.scalacheck.util.ConsoleReporter
-
 import net.noresttherein.sugar.extensions.StringExtension
 import net.noresttherein.sugar.logging.Log.LevelDef
 import net.noresttherein.sugar.logging.{Log, Logger}
 import net.noresttherein.sugar.logging.Logger.Level.{Finest, Severe}
+import net.noresttherein.sugar.unsupported_!
 
 
 
@@ -83,7 +83,7 @@ object LogSpec extends Properties("Log") {
 		try {
 			Log.surround("surroundTest", "boo") { implicit m =>
 				Severe(testMsg)
-				throw new UnsupportedOperationException("No eyes!")
+				unsupported_!("No eyes!")
 			}
 		} catch {
 			case _ :UnsupportedOperationException =>

@@ -2,6 +2,8 @@ package net.noresttherein.sugar.concurrent
 
 import java.lang.invoke.{MethodHandle, MethodHandles, MethodType}
 
+import net.noresttherein.sugar.illegalState_!
+
 
 
 
@@ -43,7 +45,7 @@ private[sugar] object Fences {
 				return field.get(null)
 			}
 		}
-		throw new IllegalStateException("No sun.misc.Unsafe found")
+		illegalState_!("No sun.misc.Unsafe found")
 	}
 
 }

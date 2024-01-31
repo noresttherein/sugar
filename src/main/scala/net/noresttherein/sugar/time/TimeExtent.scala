@@ -6,7 +6,9 @@ import java.time.DateTimeException
 
 import scala.concurrent.{duration => s}
 
+import net.noresttherein.sugar.exceptions.SugaredArithmeticException
 import net.noresttherein.sugar.time.constants.{IntNanosInSecond, NanosInSecond}
+import net.noresttherein.sugar.{illegal_!, unsupported_!}
 
 
 
@@ -117,7 +119,7 @@ case object TimeExtent {
 				new DateTimeSpan(p.toPeriod, t.toDuration)
 			case (_ :InfiniteTimeInterval, _ :InfiniteTimeInterval) =>
 				if (period != time)
-					throw new IllegalArgumentException("TimeExtent(" + period + ", " + time + ")")
+					illegal_!("TimeExtent(" + period + ", " + time + ")")
 				else period
 			case (_ :InfiniteTimeInterval, _ ) => period
 			case _ => time
@@ -797,41 +799,41 @@ case object DateSpan {
   */
 sealed abstract class InfiniteTimeInterval extends TimeInterval with DateInterval with Serializable {
 	//we don't bother with inlining as all calls are most likely polymorphic through its interfaces
-	final override def nanos   :Nothing = throw new UnsupportedOperationException(s"$this.nanos")
-	final override def seconds :Nothing = throw new UnsupportedOperationException(s"$this.seconds")
-	final override def minutes :Nothing = throw new UnsupportedOperationException(s"$this.minutes")
-	final override def hours   :Nothing = throw new UnsupportedOperationException(s"$this.hours")
-	final override def days    :Nothing = throw new UnsupportedOperationException(s"$this.days")
-	final override def months  :Nothing = throw new UnsupportedOperationException(s"$this.months")
-	final override def years   :Nothing = throw new UnsupportedOperationException(s"$this.years")
+	final override def nanos   :Nothing = unsupported_!(s"$this.nanos")
+	final override def seconds :Nothing = unsupported_!(s"$this.seconds")
+	final override def minutes :Nothing = unsupported_!(s"$this.minutes")
+	final override def hours   :Nothing = unsupported_!(s"$this.hours")
+	final override def days    :Nothing = unsupported_!(s"$this.days")
+	final override def months  :Nothing = unsupported_!(s"$this.months")
+	final override def years   :Nothing = unsupported_!(s"$this.years")
 
-	final override def toNanos   :Nothing = throw new UnsupportedOperationException(s"$this.toNanos")
+	final override def toNanos   :Nothing = unsupported_!(s"$this.toNanos")
 	final override def inNanos   :Double  = infinity
-	final override def toMicros  :Nothing = throw new UnsupportedOperationException(s"$this.toMicros")
+	final override def toMicros  :Nothing = unsupported_!(s"$this.toMicros")
 	final override def inMicros  :Double  = infinity
-	final override def toMillis  :Nothing = throw new UnsupportedOperationException(s"$this.toMillis")
+	final override def toMillis  :Nothing = unsupported_!(s"$this.toMillis")
 	final override def inMillis  :Double  = infinity
-	final override def asMillis  :Nothing = throw new UnsupportedOperationException(s"$this.asMillis")
-	final override def toSeconds :Nothing = throw new UnsupportedOperationException(s"$this.toSeconds")
+	final override def asMillis  :Nothing = unsupported_!(s"$this.asMillis")
+	final override def toSeconds :Nothing = unsupported_!(s"$this.toSeconds")
 	final override def inSeconds :Double  = infinity
-	final override def toMinutes :Nothing = throw new UnsupportedOperationException(s"$this.toMinutes")
+	final override def toMinutes :Nothing = unsupported_!(s"$this.toMinutes")
 	final override def inMinutes :Double  = infinity
-	final override def toHours   :Nothing = throw new UnsupportedOperationException(s"$this.toHours")
+	final override def toHours   :Nothing = unsupported_!(s"$this.toHours")
 	final override def inHours   :Double  = infinity
-	final override def toDays    :Nothing = throw new UnsupportedOperationException(s"$this.toDays")
+	final override def toDays    :Nothing = unsupported_!(s"$this.toDays")
 	final override def inDays    :Double  = infinity
-	final override def inMonths  :Nothing = throw new UnsupportedOperationException(s"$this.inMonths")
-	final override def inYears   :Nothing = throw new UnsupportedOperationException(s"$this.inYears")
+	final override def inMonths  :Nothing = unsupported_!(s"$this.inMonths")
+	final override def inYears   :Nothing = unsupported_!(s"$this.inYears")
 
-	final override def to(unit :TimeUnit)    :Nothing = throw new UnsupportedOperationException(s"$this in $unit")
+	final override def to(unit :TimeUnit)    :Nothing = unsupported_!(s"$this in $unit")
 	final override def in(unit :TimeUnit)    :Double  = infinity
-	final override def apply(unit :DateUnit) :Nothing = throw new UnsupportedOperationException(s"$this($unit)")
+	final override def apply(unit :DateUnit) :Nothing = unsupported_!(s"$this($unit)")
 
 	protected[this] def infinity :Double
 
-	final override def toMilliseconds :Nothing = throw new UnsupportedOperationException(s"$this.toMilliseconds")
-	final override def toDuration     :Nothing = throw new UnsupportedOperationException(s"$this.toDuration")
-	final override def toJava         :Nothing = throw new UnsupportedOperationException(s"$this.toJava")
+	final override def toMilliseconds :Nothing = unsupported_!(s"$this.toMilliseconds")
+	final override def toDuration     :Nothing = unsupported_!(s"$this.toDuration")
+	final override def toJava         :Nothing = unsupported_!(s"$this.toJava")
 	override def toScala              :s.Duration.Infinite
 
 	final override def unit :DateUnit = new DateUnit(ChronoUnit.FOREVER)
@@ -857,11 +859,11 @@ sealed abstract class InfiniteTimeInterval extends TimeInterval with DateInterva
 
 	final override def +(time :TimeExtent) :InfiniteTimeInterval =
 		if (time.isInfinite && time != this)
-			throw new DateTimeException(s"$this + $time")
+			throw SugaredDateTimeException(s"$this + $time")
 		else this
 
 	final override def -(time :TimeExtent) :InfiniteTimeInterval =
-		if (time == this) throw new DateTimeException(s"$this - $this")
+		if (time == this) throw SugaredDateTimeException(s"$this - $this")
 		else this
 
 
@@ -874,7 +876,7 @@ sealed abstract class InfiniteTimeInterval extends TimeInterval with DateInterva
 
 	final override def /(time :TimeInterval) :Double = time match {
 		case _ if time.isInfinite => 1d * signum * time.signum
-		case _ if time.signum == 0 => throw new ArithmeticException(s"$this / $time")
+		case _ if time.signum == 0 => throw SugaredArithmeticException(s"$this / $time")
 		case _ if signum * time.signum == 1 => Double.PositiveInfinity
 		case _ => Double.NegativeInfinity
 	}
@@ -882,32 +884,32 @@ sealed abstract class InfiniteTimeInterval extends TimeInterval with DateInterva
 	final override def /(n :Long) :InfiniteTimeInterval =
 		if (n > 0) this
 		else if (n < 0) -this
-		else throw new ArithmeticException(s"$this / 0")
+		else throw SugaredArithmeticException(s"$this / 0")
 
 	final override def /(n :Double) :InfiniteTimeInterval =
-		if (n.isInfinite || n.isNaN) throw new DateTimeException(s"$this / $n")
+		if (n.isInfinite || n.isNaN) throw SugaredDateTimeException(s"$this / $n")
 		else if (n > 0) this
 		else if (n < 0) -this
-		else throw new ArithmeticException(s"$this / 0")
+		else throw SugaredArithmeticException(s"$this / 0")
 
 	final override def *(n :Long) :InfiniteTimeInterval =
 		if (n > 0) this
 		else if (n < 0) -this
-		else throw new DateTimeException(s"$this * 0")
+		else throw SugaredDateTimeException(s"$this * 0")
 
 	final override def *(n :Int) :InfiniteTimeInterval =
 		if (n > 0) this
 		else if (n < 0) -this
-		else throw new DateTimeException(s"$this * 0")
+		else throw SugaredDateTimeException(s"$this * 0")
 
 	final override def *(n :Double) :InfiniteTimeInterval =
-		if (n == 0d || n.isInfinite || n.isNaN) throw new DateTimeException(s"$this * $n")
+		if (n == 0d || n.isInfinite || n.isNaN) throw SugaredDateTimeException(s"$this * $n")
 		else if (n > 0) this
 		else -this
 
 
 	final override def /(unit :TimeUnit) :Double = if (signum < 0) Double.NegativeInfinity else Double.PositiveInfinity
-	final override def %(unit :TimeUnit) :Nothing = throw new UnsupportedOperationException(s"$this % $unit")
+	final override def %(unit :TimeUnit) :Nothing = unsupported_!(s"$this % $unit")
 
 	final override def compare(that :TimeInterval) :Int = that match {
 		case inf :InfiniteTimeInterval => signum - inf.signum
@@ -1049,16 +1051,16 @@ object Immediate extends TimeSpan with DateSpan with Serializable {
 
 
 	override def /(time :TimeInterval) :Double = time.signum match {
-		case 0 => throw new ArithmeticException("0ns / 0")
+		case 0 => throw SugaredArithmeticException("0ns / 0")
 		case _ => 0d
 	}
 
 	override def /(n :Long) :this.type =
-		if (n == 0L) throw new ArithmeticException("0ns / 0")
+		if (n == 0L) throw SugaredArithmeticException("0ns / 0")
 		else this
 
 	override def /(n :Double) :this.type =
-		if (n == 0d) throw new ArithmeticException(s"$this / 0")
+		if (n == 0d) throw SugaredArithmeticException(s"$this / 0")
 		else this
 
 	override def *(n :Long) :this.type = this
@@ -1066,7 +1068,7 @@ object Immediate extends TimeSpan with DateSpan with Serializable {
 	override def *(n :Int) :this.type = this
 
 	override def *(n :Double) :this.type =
-		if (n.isInfinite || n.isNaN) throw new DateTimeException(s"0ns * $n")
+		if (n.isInfinite || n.isNaN) throw SugaredDateTimeException(s"0ns * $n")
 		else this
 
 

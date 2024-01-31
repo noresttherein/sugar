@@ -9,7 +9,7 @@ object validate { //consider: macros which use the argument expression as the ba
 
 	/** Throws a [[NullPointerException]] if `x` is `null`. Otherwise simply returns `x`. */
 	@inline def notNull[X](name :String, x :X) :X =
-		if (x == null) throw new NullPointerException(name + " is null")
+		if (x == null) null_!(name + " is null")
 		else x
 
 

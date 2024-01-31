@@ -1,8 +1,9 @@
 package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.unsupported_!
 import net.noresttherein.sugar.vars.InOut.{InOutOrdering, SpecializedVars}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -36,7 +37,7 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 	/** Same as [[net.noresttherein.sugar.vars.Mutable.value value]]. */
 	override def get   :T = value
 	/** Throws an [[UnsupportedOperationException]]. */
-	override def const :T = throw new UnsupportedOperationException(this.localClassName + ".const")
+	override def const :T = unsupported_!(this.localClassName + ".const")
 	/** Same as [[net.noresttherein.sugar.vars.Mutable.get get]]. */
 	@inline final override def apply() :T = get
 	/** Returns `Some(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */

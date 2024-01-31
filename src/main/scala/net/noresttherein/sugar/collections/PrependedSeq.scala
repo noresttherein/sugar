@@ -5,6 +5,7 @@ import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, LinearSeq, SeqOps
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtension, IteratorExtension, SeqFactoryExtension}
+import net.noresttherein.sugar.outOfBounds_!
 
 
 
@@ -27,7 +28,7 @@ private[noresttherein] class PrependedSeq[+E](override val head :E, override val
 
 	override def apply(i :Int) :E =
 		if (i < 0)
-			throw new IndexOutOfBoundsException(i)
+			outOfBounds_!(i, length)
 		else if (i == 0) head
 		else tail(i - 1)
 
@@ -93,7 +94,7 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 	override def apply(i :Int) :E = i match {
 		case 0 => head
 		case 1 => second
-		case _ if i < 0 => throw new IndexOutOfBoundsException(i)
+		case _ if i < 0 => outOfBounds_!(i, length)
 		case _ => rest(i - 2)
 	}
 

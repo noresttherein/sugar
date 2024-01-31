@@ -12,6 +12,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.arrays.{ArrayIterator, ErasedArray, IArray}
 import net.noresttherein.sugar.collections.BTreeSeq.{CompletePrefixes, ConvertToBTreeOnConcatFactor, Empty, Leaf, MaxChildren, Node, Rank, SemiCompletePrefixes, grow, semiCompleteNode}
 import net.noresttherein.sugar.exceptions.??!
+import net.noresttherein.sugar.{noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.vars.Box
 import net.noresttherein.sugar.vars.Maybe.Yes
 
@@ -96,7 +97,7 @@ sealed trait BTreeSeq[+E]
 	  * For leaves, the new `Leaf`'s `keys` will equal `this.keys ++ successor.keys.take(siblingCount)`.
 	  */
 	def appendedSome[U >: E](successor :BTreeSeq[U], siblingCount :Int) :BTreeSeq[U] =
-		throw new UnsupportedOperationException(toString + ".appended(" + successor + ", " + siblingCount + ")")
+		unsupported_!(toString + ".appended(" + successor + ", " + siblingCount + ")")
 
 	/** Prepends to this node the last `siblingCount` children of a preceding sibling, which must be of the same class
 	  * as this instance. For inner nodes, the new `Node`s `children` will equal
@@ -104,7 +105,7 @@ sealed trait BTreeSeq[+E]
 	  * For leaves, the new `Leaf`'s `keys` will equal `predecessor.keys.takeRight(siblingCount) ++ this.keys`.
 	  */
     def prependedSome[U >: E](predecessor :BTreeSeq[U], siblingCount :Int) :BTreeSeq[U] =
-		throw new UnsupportedOperationException(toString + ".prepended(" + predecessor + ", " + siblingCount + ")")
+		unsupported_!(toString + ".prepended(" + predecessor + ", " + siblingCount + ")")
 
 
 	/** Inserts the tree argument into this tree at the appropriate depth, by appending it to children
@@ -905,16 +906,16 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 //		override def length = 0
 //		override def head :Nothing = throw new NoSuchElementException("BTreeSeq().head")
 //		override def last :Nothing = throw new NoSuchElementException("BTreeSeq().last")
-//		override def apply(index :Int) = throw new IndexOutOfBoundsException(index.toString + " out of 0")
+//		override def apply(index :Int) = outOfBounds_!(index.toString + " out of 0")
 //		override def updated[U >: Nothing](i :Int, elem :U) =
-//			throw new IndexOutOfBoundsException(i.toString + " out of 0")
+//			outOfBounds_!(i.toString + " out of 0")
 
 		override def inserted[U >: Nothing](i :Int, elem :U) =
 			if (i == 0) new Singleton(elem)
-			else throw new IndexOutOfBoundsException(i.toString + " out of 0")
+			else outOfBounds_!(i.toString + " out of 0")
 
 		override def removed(index :Int) :BTreeSeq[Nothing] =
-			throw new IndexOutOfBoundsException(index.toString + " out of 0")
+			outOfBounds_!(index.toString + " out of 0")
 
 		//		override def appended[U >: Nothing](elem :U) = new Singleton(elem)
 		//		override def prepended[U >: Nothing](elem :U) = new Singleton(elem)
@@ -947,20 +948,20 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 		override def length = 1
 		override def apply(i :Int) =
 			if (i == 0) head
-			else throw new IndexOutOfBoundsException(i.toString + " out of 1")
+			else outOfBounds_!(i.toString + " out of 1")
 
 		override def updated[U >: E](index :Int, elem :U) =
 			if (index == 0) new Singleton(elem)
-			else throw new IndexOutOfBoundsException(index.toString + " out of 1")
+			else outOfBounds_!(index.toString + " out of 1")
 
 		override def inserted[U >: E](index :Int, elem :U) = index match {
 			case 0 => new Leaf(ErasedArray.two(elem, head))
 			case 1 => new Leaf(ErasedArray.two(head, elem))
-			case _ => throw new IndexOutOfBoundsException(index.toString + " out of 1")
+			case _ => outOfBounds_!(index.toString + " out of 1")
 		}
 		override def removed(index :Int) :BTreeSeq[E] =
 			if (index == 0) Empty
-			else throw new IndexOutOfBoundsException(index.toString + " out of 1")
+			else outOfBounds_!(index.toString + " out of 1")
 
 		override def appended[U >: E](elem :U) = new Leaf(ErasedArray.two(head, elem))
 		override def prepended[U >: E](elem :U) = new Leaf(ErasedArray.two(elem, head))
@@ -1069,7 +1070,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 
 		override def inserted[U >: E](index :Int, elem :U) :BTreeSeq[U] =
 			if (index < 0 | index > keys.length)
-				throw new IndexOutOfBoundsException(index.toString + " out of " + keys.length)
+				outOfBounds_!(index.toString + " out of " + keys.length)
 			else
 				inserted(index, elem, null)
 
@@ -1079,7 +1080,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 				index match {
 					case 0 => new Singleton(keys(1))
 					case 1 => new Singleton(keys(0))
-					case _ => throw new IndexOutOfBoundsException(index.toString + " out of " + rank)
+					case _ => outOfBounds_!(index.toString + " out of " + rank)
 				}
 			else {
 				val newKeys = ErasedArray.ofDim[E](rank - 1)
@@ -1565,7 +1566,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 
 		override def inserted[U >: E](index :Int, elem :U) :BTreeSeq[U] =
 			if (index < 0 | index > length)
-				throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+				outOfBounds_!(index.toString + " out of " + length)
 			else {
 				val growth = Box[BTreeSeq[U]]
 				grow(inserted(index, elem, growth), growth)
@@ -2259,7 +2260,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 
 		override def next() :E = {
 			val res = try leaf(keyIdx) catch {
-				case e :IndexOutOfBoundsException => throw new NoSuchElementException(e)
+				case e :IndexOutOfBoundsException => noSuch_!(e)
 			}
 			keyIdx += 1
 			if (keyIdx == leaf.length) {

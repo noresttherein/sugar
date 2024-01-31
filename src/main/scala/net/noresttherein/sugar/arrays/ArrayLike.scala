@@ -19,6 +19,7 @@ import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, A
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
@@ -526,7 +527,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 				case (a :Array[Boolean], b :Array[Boolean]) =>
 					Arrays.mismatch(a, from0, until0, b, from1, until1)
 //				case _ if thisFrom < 0 | thatFrom < 0 || thisFrom > self.length || thatFrom > that.length =>
-//					throw new IndexOutOfBoundsException(
+//					outOfBounds_!(
 //						s"${self.className}<${self.length}>.mismatch(${that.className}<${that.length}>, " +
 //							s"$thisFrom, $thisUntil, $thatFrom, $thatUntil)"
 //					)
@@ -755,7 +756,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		def removed(index :Int) :Arr[E] = expose {
 			val length = self.length
 			if (index < 0 | index >= length)
-				throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+				outOfBounds_!(index.toString + " out of " + length)
 			Array.copyOfRanges(self, 0, index, self, index + 1, length)
 		}
 

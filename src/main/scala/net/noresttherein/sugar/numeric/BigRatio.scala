@@ -5,6 +5,7 @@ import java.math.BigInteger.{ONE, ZERO}
 
 import scala.annotation.tailrec
 
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.numeric.BigRatio.GCD
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
 
@@ -82,7 +83,7 @@ final class BigRatio private (n :BigInteger, d :BigInteger,
 	  * @return `denominator * this.sign %/ numerator * this.sign`
 	  */
 	def reciprocal :BigRatio = n compareTo d match {
-		case 0 => throw new ArithmeticException("Division by zero: (0/1).reciprocal")
+		case 0 => throw SugaredArithmeticException("Division by zero: (0/1).reciprocal")
 		case 1 => newBigRatio(d, n)
 		case _ => newBigRatio(d.negate, n.negate)
 	}
@@ -254,7 +255,7 @@ object BigRatio {//extends BigRatioImplicits {
 			case ONE => BigRatio(numerator)
 			case HUNDRED => percent(numerator)
 			case MINUS_HUNDRED => percent(numerator.negate)
-			case ZERO => throw new ArithmeticException("BigRatio " + numerator + "/0")
+			case ZERO => throw SugaredArithmeticException("BigRatio " + numerator + "/0")
 			case _ if numerator equals ONE => unit(denominator)
 			case _ => new BigRatio(numerator, denominator)
 		}
@@ -264,7 +265,7 @@ object BigRatio {//extends BigRatioImplicits {
 			case 1L => BigRatio(numerator)
 			case 100L if numerator.toInt == numerator => percent(numerator.toInt)
 //			case -100L if numerator.toInt == numerator => -percent(-numerator.toInt)
-			case 0L => throw new ArithmeticException("BigRatio " + numerator + "/0")
+			case 0L => throw SugaredArithmeticException("BigRatio " + numerator + "/0")
 			case _ if numerator == 1L => unit(denominator)
 			case _ => new BigRatio(BigInteger.valueOf(numerator), BigInteger.valueOf(denominator))
 		}
@@ -290,7 +291,7 @@ object BigRatio {//extends BigRatioImplicits {
 			else
 				new BigRatio(MINUS_ONE, denominator.negate)
 		else
-			throw new ArithmeticException("BigRatio 1/0")
+			throw SugaredArithmeticException("BigRatio 1/0")
 
 	/** Creates a unit fraction, that is one with `1` as the numerator and the given denominator.
 	  * Passing a negative value will result in a negative `BigRatio` with `-1` as the numerator
@@ -311,7 +312,7 @@ object BigRatio {//extends BigRatioImplicits {
 			else
 				new BigRatio(BigMinusOne, -denominator)
 		else
-			throw new ArithmeticException("BigRatio 1/0")
+			throw SugaredArithmeticException("BigRatio 1/0")
 
 
 	/** A reduced fraction `n / 100`.*/
@@ -391,7 +392,7 @@ object BigRatio {//extends BigRatioImplicits {
 			val divisor = Ratio.GCD(numerator, denominator)
 			newBigRatio(-(numerator / divisor), -(denominator / divisor))
 		} else
-			throw new ArithmeticException("BigRatio: division by zero.")
+			throw SugaredArithmeticException("BigRatio: division by zero.")
 
 	/** Creates a rational number in the canonical form.
 	  * @param numerator the dividend (the numerator of the fraction).
@@ -410,7 +411,7 @@ object BigRatio {//extends BigRatioImplicits {
 		else if (denominator.compareTo(ZERO) < 0)
 			reduce(numerator.negate, denominator.negate)
 		else
-			throw new ArithmeticException("BigRatio: division by zero.")
+			throw SugaredArithmeticException("BigRatio: division by zero.")
 
 	/** Creates a rational number in the canonical form.
 	  * @param numerator the dividend (the numerator of the fraction).
@@ -425,7 +426,7 @@ object BigRatio {//extends BigRatioImplicits {
 		else denominator compare BigZero match {
 			case  1 => reduce(numerator, denominator)
 			case -1 => reduce(numerator.bigInteger.negate, denominator.bigInteger.negate)
-			case _  => throw new ArithmeticException("BigRatio: division by zero.")
+			case _  => throw SugaredArithmeticException("BigRatio: division by zero.")
 		}
 
 	/** Parses the string as a ratio of two `Int` numbers.
@@ -455,7 +456,7 @@ object BigRatio {//extends BigRatioImplicits {
 		} catch {
 			case e :NullPointerException => throw e
 			case e :Exception =>
-				throw new NumberFormatException("\"" + string + "\" is not a valid BigRatio.").initCause(e)
+				throw SugaredNumberFormatException("\"" + string + "\" is not a valid BigRatio.").initCause(e)
 		}
 
 

@@ -6,7 +6,7 @@ import scala.collection.{IterableFactory, IterableOnceOps, IterableOps, LazyZip2
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, cast3TypeParamsMethods}
-import net.noresttherein.sugar.funny
+import net.noresttherein.sugar.{funny, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.<:?<
 
@@ -287,7 +287,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  * @param elems a $coll.
 	  */
 	def tail(elems :C) :C = {
-		if (isEmpty(elems)) throw new UnsupportedOperationException("empty.tail")
+		if (isEmpty(elems)) unsupported_!("empty.tail")
 		drop(elems)(1)
 	}
 
@@ -296,7 +296,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  * @param elems a $coll.
 	  */
 	def init(elems :C) :C = {
-		if (isEmpty(elems)) throw new UnsupportedOperationException("empty.init")
+		if (isEmpty(elems)) unsupported_!("empty.init")
 		dropRight(elems)(1)
 	}
 

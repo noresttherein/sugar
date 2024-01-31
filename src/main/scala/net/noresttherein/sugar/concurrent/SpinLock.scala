@@ -4,8 +4,9 @@ import java.lang.invoke.MethodHandles
 
 import scala.annotation.nowarn
 
-import net.noresttherein.sugar.concurrent.SpinLock.{ownerField, Open, SpinsBetweenChecks}
+import net.noresttherein.sugar.concurrent.SpinLock.{Open, SpinsBetweenChecks, ownerField}
 import net.noresttherein.sugar.exceptions.{AbstractException, SugaredException}
+import net.noresttherein.sugar.illegalState_!
 import net.noresttherein.sugar.time.{Milliseconds, PosixTime}
 
 
@@ -142,7 +143,7 @@ class SpinLock private (initiallyOpen :Boolean) extends AutoCloseable {
 		val me = currentThreadId
 		if (!ownerField.compareAndSet(this, me, 0L)) {
 			checkNotBroken()
-			throw new IllegalStateException("Thread #" + me + "doesn't hold " + this + ".")
+			illegalState_!("Thread #" + me + "doesn't hold " + this + ".")
 		}
 		checkNotBroken()
 	}

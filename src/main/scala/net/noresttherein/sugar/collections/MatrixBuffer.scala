@@ -14,12 +14,13 @@ import scala.util.Sorting
 
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator}
-import net.noresttherein.sugar.arrays.extensions.{ArrayExtension, ArrayCompanionExtension}
+import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.{illegal_!, unsupported_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 
@@ -144,11 +145,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		offset >= 0 && offset <= dataSize && super.startsWith(that, offset)
 
 	final override def head :E = //todo: remove when the method becomes overridden in IndexedSeq in a future Scala version.
-		if (dataSize == 0) throw new NoSuchElementException(className + "().head")
+		if (dataSize == 0) noSuch_!(className + "().head")
 		else apply(0)
 
 	final override def last :E =
-		if (dataSize == 0) throw new NoSuchElementException(className + "().last")
+		if (dataSize == 0) noSuch_!(className + "().last")
 		else apply(dataSize - 1)
 
 
@@ -265,11 +266,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		if (length > MaxValue - dataSize)
 			bufferFull(length)
 		if (length < 0) //We check length here to avoid attempting to write to a non allocated table.
-			throw new IllegalArgumentException(
+			illegal_!(
 				"A negative length argument to " + errorString(this) + ".addAll(" +
 					errorString(elems) + ", " + idx + ", " + length + ")")
 		if (idx < 0 || idx > elems.length - length)
-			throw new IndexOutOfBoundsException(idx.toString + " for an " + errorString(elems))
+			outOfBounds_!(idx.toString + " for an " + errorString(elems))
 		if (storageSize == 0) {                               //dim == 0
 			if (length <= MaxSize1) {                         //create a single dimensional array
 				var capacity = NewSize1
@@ -501,7 +502,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		if (length > MaxValue - dataSize)
 			bufferFull(length)
 		if (length < 0) //We check length here to avoid attempting to write to a non allocated table.
-			throw new IllegalArgumentException(
+			illegal_!(
 				"A negative length argument to " + errorString(this) + ".adAll(" +
 					errorString(elems) + ", " + idx + ", " + length + ")")
 		if (length == 0)
@@ -1523,10 +1524,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		val oldOffset  = dataOffset
 		val oldSize    = dataSize
 		if (count < 0)
-			throw new IllegalArgumentException(errorString(this) + ".remove(" + idx + ", " + count + ")")
+			illegal_!(errorString(this) + ".remove(" + idx + ", " + count + ")")
 		else if (count > 0) {
 			if (idx < 0 || idx > dataSize - count)
-				throw new IndexOutOfBoundsException(errorString(this) + ".remove(" + idx + ", " + count + ")")
+				outOfBounds_!(errorString(this) + ".remove(" + idx + ", " + count + ")")
 			if (storageSize <= MaxSize1)
 				remove1(idx, count)
 			else
@@ -2395,7 +2396,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			MatrixBuffer.foldRight2(data2, dataOffset, dataSize)(z)(op)
 
 	override def reduceLeft[U >: E](op :(U, E) => U) :U =
-		if (dataSize == 0) throw new UnsupportedOperationException(className + "().reduceLeft")
+		if (dataSize == 0) unsupported_!(className + "().reduceLeft")
 		else reduceLeftImpl(op)
 
 	override def reduceLeftOption[U >: E](op :(U, E) => U) :Option[U] =
@@ -2419,7 +2420,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		}
 
 	override def reduceRight[U >: E](op :(E, U) => U) :U =
-		if (dataSize == 0) throw new UnsupportedOperationException(className + "().reduceRight")
+		if (dataSize == 0) unsupported_!(className + "().reduceRight")
 		else reduceRightImpl(op)
 
 	override def reduceRightOption[U >: E](op :(E, U) => U) :Option[U] =

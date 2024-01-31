@@ -3,8 +3,9 @@ package net.noresttherein.sugar.vars
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, undefined}
 
 
@@ -249,7 +250,7 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 	@unspecialized override def value :T = {
 		val res = evaluated
 		if (res != undefined) res.asInstanceOf[T]
-		else throw new NoSuchElementException("Uninitialized Lazy")
+		else noSuch_!("Uninitialized Lazy")
 	}
 	@unspecialized override def get :T = {
 		var res = evaluated
@@ -320,8 +321,8 @@ private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) ext
 	final override def isDefinite :Boolean = evaluated != undefined
 
 	final override def value :T = evaluated match {
-		case `undefined` => throw new NoSuchElementException("Uninitialized Lazy")
-		case v => v.asInstanceOf[T]
+		case `undefined` => noSuch_!("Uninitialized Lazy")
+		case v         => v.asInstanceOf[T]
 	}
 	final override def get :T = {
 		var res = evaluated

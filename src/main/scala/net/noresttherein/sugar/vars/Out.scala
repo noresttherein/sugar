@@ -4,8 +4,9 @@ import java.lang.invoke.MethodHandles
 
 import scala.annotation.nowarn
 
+import net.noresttherein.sugar.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -30,7 +31,7 @@ sealed trait Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] w
 	@inline final override def get :T = value
 
 	@inline final override def const :T =
-		if (isDefined) value else throw new UnsupportedOperationException("Out.const")
+		if (isDefined) value else unsupported_!("Out.const")
 
 //	override def option      :Option[T] = if (isDefined) Some(value) else None
 	override def maybe         :Maybe[T] = if (isDefined) Yes(value) else No
@@ -70,13 +71,13 @@ object Out {
 
 		final override def value :T = {
 			if (!isSet)
-				throw new NoSuchElementException("Out value not set.")
+				noSuch_!("Out value not set.")
 			x
 		}
 		@throws[IllegalStateException]("if this instance is already initialized.")
 		final override def value_=(newValue :T) :Unit =
 			if (isSet)
-				throw new IllegalStateException("Out value already initialized: " + x  + ".")
+				illegalState_!("Out value already initialized: " + x  + ".")
 			else {
 				x     = newValue
 				isSet = true
@@ -115,13 +116,13 @@ sealed class VolatileOut[@specialized(SpecializedVars) T] private[vars] extends 
 
 	final override def value :T = {
 		if (!isSet)
-			throw new NoSuchElementException("Out value not set.")
+			noSuch_!("Out value not set.")
 		x
 	}
 	@throws[IllegalStateException]("if this instance is already initialized.")
 	final override def value_=(newValue :T) :Unit = {
 		if (!(VolatileOut.isSetField.compareAndSet(this :VolatileOut[_], false, true) :Boolean))
-			throw new IllegalStateException("Out value already initialized: " + x  + ".")
+			illegalState_!("Out value already initialized: " + x  + ".")
 		x = newValue
 	}
 	override def maybe         :Maybe[T] = if (isSet) Yes(x) else No

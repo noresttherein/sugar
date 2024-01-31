@@ -70,6 +70,9 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	val IncompatibleArgumentTypesException :LazyExceptionFactory =
 		ThrowableFactory(new IncompatibleArgumentTypesException(null, _, _))
 
+	val SugaredArithmeticException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredArithmeticException(_, _, _))
+
 	val SugaredClassCastException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredClassCastException(_, _, _))
 
@@ -85,11 +88,17 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	val SugaredIndexOutOfBoundsException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredIndexOutOfBoundsException(_, _, _))
 
+	val SugaredIOException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredIOException(_, _, _))
+
 	val SugaredNoSuchElementException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredNoSuchElementException(_, _, _))
 
 	val SugaredNullPointerException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredNullPointerException(_, _, _))
+
+	val SugaredNumberFormatException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredNumberFormatException(_, _, _))
 
 	val SugaredUnsupportedOperationException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredUnsupportedOperationException(_, _, _))

@@ -10,16 +10,17 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.collections.EmptySeqOps.searchResult
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, BuilderExtension, IterableOnceExtension, PartialFunctionExtension}
+import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 
 
 
 
 /** Base trait for specialized implementations of empty collections. */
 private[noresttherein] trait EmptyIterableOps[+E, +CC[_], +C] extends SugaredIterableOps[E, CC, C] {
-	protected def unsupported(method :String) = throw new UnsupportedOperationException(toString + '.' + method)
-	protected def noSuch(method :String) = throw new NoSuchElementException(toString + "." + method)
+	protected def unsupported(method :String) = unsupported_!(toString + '.' + method)
+	protected def noSuch(method :String) = noSuch_!(toString + "." + method)
 	protected def outOfBounds(method :String, index :Int) =
-		throw new IndexOutOfBoundsException(index.toString + " for " + this + '.' + method)
+		outOfBounds_!(index.toString + " for " + this + '.' + method)
 
 	protected def genericEmpty[X] :CC[X] = iterableFactory.empty
 	protected def one[T](elem :T) :CC[T] = (iterableFactory.newBuilder[T] hinted 1 addOne elem).result()
@@ -281,8 +282,8 @@ private[noresttherein] trait EmptyIndexedSeqOps[+E, +CC[_], +C]
 	extends IndexedSeqOps[E, CC, C] with EmptyIterableOps[E, CC, C] with EmptySeqOps[E, CC, C]
 { this :C =>
 	//overridden because EmptyIterableOps must be mixed in before IndexedSeqOps
-	override def head :E = throw new NoSuchElementException(toString + ".head")
-	override def last :E = throw new NoSuchElementException(toString + ".last")
+	override def head :E = noSuch_!(toString + ".head")
+	override def last :E = noSuch_!(toString + ".last")
 	override def iterator :Iterator[E] = Iterator.empty
 	override def slice(from :Int, until :Int) :C = this
 	override def view :IndexedSeqView[E] = EmptyIndexedSeqOps.view
@@ -328,7 +329,7 @@ private[noresttherein] object EmptyIndexedSeqOps {
 /** Base trait for specialized implementations of collections containing a single element. */
 private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends SugaredIterableOps[E, CC, C] {
 	protected def outOfBounds(method :String, index :Int) :Nothing =
-		throw new IndexOutOfBoundsException(index.toString + " for " + errorString(this) + "." + method)
+		outOfBounds_!(index.toString + " for " + errorString(this) + "." + method)
 
 	override def knownSize :Int = 1
 
@@ -401,9 +402,9 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 		if (from > 0 | until < 0 | until < from) coll else empty
 
 	override def grouped(size :Int) :Iterator[C] =
-		if (size <= 0) throw new IllegalArgumentException("size=" +  size) else Iterator.single(coll)
+		if (size <= 0) illegal_!("size=" +  size) else Iterator.single(coll)
 	override def sliding(size :Int, step :Int) :Iterator[C] =
-		if (size <= 0 | step <= 0) throw new IllegalArgumentException("size=" + size + ", step=" + step)
+		if (size <= 0 | step <= 0) illegal_!("size=" + size + ", step=" + step)
 		else Iterator.single(coll)
 
 	override def last :E = head
@@ -547,7 +548,7 @@ private[noresttherein] object SingletonNonSeqOps {
 private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 	extends SeqOps[E, CC, C] with SingletonIterableOps[E, CC, C] with SlicingOps[E, C]
 {
-	private def outOfBounds(i :Int) = throw new IndexOutOfBoundsException(i.toString + " out of 1")
+	private def outOfBounds(i :Int) = outOfBounds_!(i.toString + " out of 1")
 
 	override def length :Int = 1
 	override def apply(i :Int) :E = if (i == 0) head else outOfBounds(i)

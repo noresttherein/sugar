@@ -7,6 +7,7 @@ import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.extensions.ClassExtension
+import net.noresttherein.sugar.illegal_!
 
 
 /**
@@ -119,7 +120,7 @@ package object prettyprint {
 	def innerClassName(className :String) :String = {
 		def buildInnerName(offset :Int, buffer :JStringBuilder) :JStringBuilder =
 			if (offset == className.length)
-				throw new IllegalArgumentException("Not a valid class name '" + className + "'")
+				illegal_!("Not a valid class name '" + className + "'")
 			else if (className.charAt(offset) == '[')
 				buildInnerName(offset + 1, buffer append "Array[") append ']'
 			else if (offset > 0 && className.charAt(offset - 1) == '[' && className.charAt(offset) == 'L')
@@ -189,7 +190,7 @@ package object prettyprint {
 	def localClassName(className :String) :String = {
 		def buildLocalName(offset :Int, buffer :JStringBuilder) :JStringBuilder =
 			if (offset == className.length)
-				throw new IllegalArgumentException("Not a valid class name '" + className + "'")
+				illegal_!("Not a valid class name '" + className + "'")
 			else if (className.charAt(offset) == '[')
 				buildLocalName(offset + 1, buffer append "Array[") append ']'
 			else if (offset > 0 && className.charAt(offset - 1) == '[' && className.charAt(offset) == 'L')
@@ -239,7 +240,7 @@ package object prettyprint {
 	def abbrevClassName(className :String) :String = {
 		def buildAbbrevName(offset :Int, buffer :JStringBuilder) :JStringBuilder =
 			if (offset == className.length)
-				throw new IllegalArgumentException("Not a valid class name '" + className + "'")
+				illegal_!("Not a valid class name '" + className + "'")
 			else if (className.charAt(offset) == '[')
 				buildAbbrevName(offset + 1, buffer append "Array[") append ']'
 			else if (offset > 0 && className.charAt(offset - 1) == '[' && className.charAt(offset) == 'L')
@@ -319,7 +320,7 @@ package object prettyprint {
 	def demangledName(className :String) :String = {
 		def buildClassName(offset :Int, buffer :JStringBuilder) :JStringBuilder =
 			if (offset == className.length)
-				throw new IllegalArgumentException("Not a valid class name '" + className + "'")
+				illegal_!("Not a valid class name '" + className + "'")
 			else if (className.charAt(offset) == '[')
 				buildClassName(offset + 1, buffer append "Array[") append ']'
 			else if (offset > 0 && className.charAt(offset - 1) == '[' && className.charAt(offset) == 'L')
@@ -349,7 +350,7 @@ package object prettyprint {
 
 	private def javaToScala(className :String, offset :Int, res :JStringBuilder, boxNames :Array[String]) :Boolean = {
 		def illegal() =
-			throw new IllegalArgumentException("Not a valid class name: '" + className + "'")
+			illegal_!("Not a valid class name: '" + className + "'")
 		if (offset > 0 && offset == className.length - 1 && className.charAt(offset - 1) == '[') {
 			val i = typeParamCodes.indexOf(className.charAt(offset))
 			if (i < 0)
@@ -391,7 +392,7 @@ package object prettyprint {
 			trimTrailingDollars(input)
 		else {
 			if (input.charAt(input.length - 1) != ';')
-				throw new IllegalArgumentException("Not a valid class name '" + input + "' (missing suffix ';')")
+				illegal_!("Not a valid class name '" + input + "' (missing suffix ';')")
 			trimTrailingDollars(input, input.length - 2)
 		}
 

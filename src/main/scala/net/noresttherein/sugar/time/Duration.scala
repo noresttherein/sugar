@@ -5,6 +5,7 @@ import java.util.concurrent.{TimeUnit => JTimeUnit}
 
 import scala.concurrent.{duration => s}
 
+import net.noresttherein.sugar.exceptions.SugaredArithmeticException
 import net.noresttherein.sugar.time.constants.{NanosInDay, NanosInHour, NanosInMicro, NanosInMilli, NanosInMinute, NanosInSecond}
 import net.noresttherein.sugar.time.dsl.LongTimeLapseMethods
 
@@ -168,7 +169,7 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 	private[sugar] def divideBy(seconds :Long, nano :Int) :Double = {
 		val s1 = toJava.getSeconds;	val n1 = toJava.getNano
 		if (seconds == 0 && nano == 0)
-			throw new ArithmeticException(s"($this) / 0")
+			throw SugaredArithmeticException(s"($this) / 0")
 		else if (s1 == 0 && n1 == 0)
 			0d
 		else
@@ -179,12 +180,12 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 
 	override def /(d :Double) :Duration =
 		if (d == 0d)
-			throw new ArithmeticException(s"($this) / 0")
+			throw SugaredArithmeticException(s"($this) / 0")
 		else {
 			val length = (BigDecimal(toJava.getSeconds) * NanosInSecond + toJava.getNano) / d
 			val seconds = length / NanosInSecond
 			if (!seconds.isValidLong)
-				throw new ArithmeticException(s"Long overflow: $this / $d")
+				throw SugaredArithmeticException(s"Long overflow: $this / $d")
 			new Duration(j.Duration.ofSeconds(seconds.toLong, (length % NanosInSecond).toInt))
 		}
 

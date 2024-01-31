@@ -5,6 +5,7 @@ import java.lang.invoke.MethodHandles
 import scala.annotation.{nowarn, tailrec}
 import scala.Specializable.Args
 
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
@@ -58,7 +59,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	@inline final override def get :T = value
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	override def const :T = throw new UnsupportedOperationException("Box has no constant value")
+	override def const :T = unsupported_!("Box has no constant value")
 
 	override def toOption    :Option[T] = option
 	override def constOption :Option[T] = None
@@ -363,7 +364,7 @@ object Box {
 		override def isEmpty :Boolean = !full
 
 		override def value :T =
-			if (full) x else throw new NoSuchElementException("Box()")
+			if (full) x else noSuch_!("Box()")
 
 		override def value_=(newValue :T) :Unit = {
 			x = newValue
@@ -670,7 +671,7 @@ object VolatileBox {
 	}
 
 
-	private def throwNoSuch() :Nothing = throw new NoSuchElementException("Box()")
+	private def throwNoSuch() :Nothing = noSuch_!("Box()")
 
 	@inline private def contentsOf[T](opt :Maybe[T]) :T =
 		if (opt.isDefined) opt.get else Maybe.NoContent.asInstanceOf[T]

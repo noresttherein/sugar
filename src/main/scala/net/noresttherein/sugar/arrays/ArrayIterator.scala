@@ -7,6 +7,7 @@ import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ElemTypes, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
 import net.noresttherein.sugar.slang.extensions.hashCodeMethods
 
@@ -26,12 +27,12 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 	//consider: not implementing them here, so JVM knows there is a single implementation if only ArrayIterator is used.
 	override def head :T =
 		if (index < limit) array(index)
-		else throw new NoSuchElementException("Index " + index + " exceeds the limit of " + limit + '.')
+		else noSuch_!("Index " + index + " exceeds the limit of " + limit + '.')
 
 	override def next() :T = {
 		val i = index
 		if (i >= limit)
-			throw new NoSuchElementException("Index " + index + " exceeds the limit of " + limit + ".")
+			noSuch_!("Index " + index + " exceeds the limit of " + limit + ".")
 		val res = array(i)
 		index = i + 1
 		res
@@ -57,7 +58,7 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 		if (len <= 0 | xsLength == 0 | start >= xsLength | first >= `last++`)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xsLength + ")")
+			outOfBounds_!(start.toString + " out of [0, " + xsLength + ")")
 		else {
 			val copied = math.min(len, math.min(`last++` - first, xsLength - start))
 			ArrayLike.copy(array, first, xs, start, copied)
@@ -103,7 +104,7 @@ private[sugar] abstract class ArrayLikeIteratorFactory[A[X] <: ArrayLike[X], I[X
 	def apply[T](array :A[T], first :Int, length :Int) :I[T] = {
 		val len   = array.length
 		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val until = first + math.min(len - first, math.max(length, 0))
 		make(array, first, until)
 	}
@@ -146,20 +147,20 @@ private[sugar] sealed class ArrayIteratorFactory[A[X] <: ProperArray[X]]
 			case a :Array[Float]   => new ArrayIterator(a, from, until, isImmutable)
 			case a :Array[Short]   => new ArrayIterator(a, from, until, isImmutable)
 			case a :Array[Boolean] => new ArrayIterator(a, from, until, isImmutable)
-			case null              => throw new NullPointerException(s"ArrayIterator.over(null, $from, $until)")
+			case null              => null_!(s"ArrayIterator.over(null, $from, $until)")
 //			case _                 => new ArrayIterator(array, from, until)
 		}).castParam[T]
 
 	/** Same as `ArrayIterator(array)`, but always produces an erased, not specialized instance. */
 	def generic[T](array :Array[T]) :ArrayIterator[T] =
-		if (array == null) throw new NullPointerException("ArrayIterator(null)")
+		if (array == null) null_!("ArrayIterator(null)")
 		else new ArrayIterator(array)
 
 	/** Same as `ArrayIterator(array, first, length)`, but always produces an erased, not specialized instance. */
 	def generic[T](array :Array[T], first :Int, length :Int) :ArrayIterator[T] = {
 		val len = array.length
 		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val until = first + math.min(len - first, math.max(length, 0))
 		new ArrayIterator[T](array, first, until, false)
 	}
@@ -171,11 +172,11 @@ private[sugar] sealed class RefArrayLikeIteratorFactory[A[X] <: RefArrayLike[X]]
 	override protected def make[E](array :A[E], from :Int, until :Int) :ArrayIterator[E] =
 		(array :ArrayLike[_]) match {
 			case null =>
-				throw new IllegalArgumentException("Cannot create an ArrayIterator because array is null")
+				illegal_!("Cannot create an ArrayIterator because array is null")
 			case refs :Array[AnyRef] if refs.getClass == classOf[Array[AnyRef]] =>
 				new ArrayIterator(refs, from, until, isImmutable).asInstanceOf[ArrayIterator[E]]
 			case _ =>
-				throw new IllegalArgumentException(
+				illegal_!(
 					toString + " cannot create an ArrayIterator for an array with element type different than AnyRef: "
 						+ errorString(array) + "."
 				)
@@ -214,11 +215,11 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 	final override def hasNext :Boolean = first < `last++`
 	override def head :T =
 		if (first < `last++`) array(first)
-		else throw new NoSuchElementException("Index " + first + " exceeds the limit of " + `last++` + '.')
+		else noSuch_!("Index " + first + " exceeds the limit of " + `last++` + '.')
 
 	override def next() :T = {
 		if (first >= `last++`)
-			throw new NoSuchElementException("Index " + first + " exceeds the limit of " + `last++` + ".")
+			noSuch_!("Index " + first + " exceeds the limit of " + `last++` + ".")
 		val res = array(first)
 		first += 1
 		res
@@ -275,11 +276,11 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(Everything) +T] pr
 	final override def hasNext :Boolean = `first++` > last
 	override def head :T =
 		if (`first++` > last) array(`first++` - 1)
-		else throw new NoSuchElementException("Index " + `first++` + " reached the lower bound of " + last + ".")
+		else noSuch_!("Index " + `first++` + " reached the lower bound of " + last + ".")
 
 	override def next() :T = {
 		if (`first++` <= last)
-			throw new NoSuchElementException("Index " + `first++` + " reached the lower bound of " + last + ".")
+			noSuch_!("Index " + `first++` + " reached the lower bound of " + last + ".")
 		`first++` -= 1
 		array(`first++`)
 	}
@@ -298,7 +299,7 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(Everything) +T] pr
 		if (len <= 0 | start >= xsLength | xsLength == 0 || `first++` <= last)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				errorString(this) + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
 			)
 		else {
@@ -340,7 +341,7 @@ private[sugar] object ReverseArrayIterator {
 			case a :Array[Float]   => new ReverseArrayIterator(a, from, until)
 			case a :Array[Short]   => new ReverseArrayIterator(a, from, until)
 			case a :Array[Boolean] => new ReverseArrayIterator(a, from, until)
-			case null              => throw new NullPointerException(s"ReverseArrayIterator.over(null, $from, $until)")
+			case null              => null_!(s"ReverseArrayIterator.over(null, $from, $until)")
 //			case _                 => new ReverseArrayIterator(array, from, until)
 		}).castParam[T]
 
@@ -357,7 +358,7 @@ private[sugar] object ReverseArrayIterator {
 	{
 		val len = array.length
 		if (first < 0 | first >= len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val downTo = first + 1 - math.min(first + 1, math.max(length, 0))
 		make(array, downTo, first + 1)
 	}
@@ -378,14 +379,14 @@ private[sugar] object ReverseArrayIterator {
 
 	/** Same as `ReverseArrayIterator(array)`, but always produces an erased, not specialized iterator. */
 	def generic[T](array :Array[T]) :ReverseArrayIterator[T] =
-		if (array == null) throw new NullPointerException("ReverseArrayIterator(null)")
+		if (array == null) null_!("ReverseArrayIterator(null)")
 		else new ReverseArrayIterator[T](array, 0, array.length)
 
 	/** Same as `ReverseArrayIterator(array, first, length)`, but always produces an erased, not specialized iterator. */
 	def generic[T](array :Array[T], first :Int, length :Int) :ReverseArrayIterator[T] = {
 		val len = array.length
 		if (first < 0 | first >= len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val downTo = first + 1 - math.min(first + 1, math.max(length, 0))
 		new ReverseArrayIterator[T](array, downTo, first + 1)
 	}
@@ -420,11 +421,11 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(Int, Long, Double, 
 	final override def hasNext :Boolean = remaining > 0
 	override def head :T =
 		if (remaining > 0) array(idx)
-		else throw new NoSuchElementException("Index has reached the limit of " + idx + ".")
+		else noSuch_!("Index has reached the limit of " + idx + ".")
 
 	override def next() :T = {
 		if (remaining <= 0)
-			throw new NoSuchElementException("Index has reached the limit of " + idx + ".")
+			noSuch_!("Index has reached the limit of " + idx + ".")
 		val res = array(idx)
 		remaining -= 1
 		idx = (idx + 1) % len
@@ -444,7 +445,7 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(Int, Long, Double, 
 		if (len <= 0 | start >= xsLength | xsLength == 0 | remaining <= 0)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start.toString + " out of [0, " + xsLength + ")")
+			outOfBounds_!(start.toString + " out of [0, " + xsLength + ")")
 		else {
 			val copied = math.min(len, math.min(remaining, xsLength - start))
 			Array.cyclicCopy(array, idx, xs, start, copied)
@@ -491,7 +492,7 @@ private[sugar] object CyclicArrayIterator {
 	def apply[T](array :Array[T], offset :Int, length :Int) :CyclicArrayIterator[T] = {
 		val len   = array.length
 		if (offset < 0 | offset > len)
-			throw new IndexOutOfBoundsException(offset.toString + " out of bounds of [0, " + len + ")")
+			outOfBounds_!(offset.toString + " out of bounds of [0, " + len + ")")
 		make(array, offset, math.min(math.max(length, 0), len))
 	}
 
@@ -522,7 +523,7 @@ private[sugar] object CyclicArrayIterator {
 	def generic[T](array :Array[T], offset :Int, length :Int) :CyclicArrayIterator[T] = {
 		val len = array.length
 		if (offset < 0 | offset > len)
-			throw new IndexOutOfBoundsException(offset.toString + " out of bounds of [0, " + len + ")")
+			outOfBounds_!(offset.toString + " out of bounds of [0, " + len + ")")
 		new CyclicArrayIterator(array, offset, math.min(math.max(length, 0), len))
 	}
 
@@ -558,11 +559,11 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, D
 		if (remaining > 0)
 			if (idx == 0) array(len - 1) else array(idx - 1)
 		else
-			throw new NoSuchElementException("Index has reached the lower bound of " + idx + ".")
+			noSuch_!("Index has reached the lower bound of " + idx + ".")
 
 	override def next() :T = {
 		if (remaining < 0)
-			throw new NoSuchElementException("Index has reached the lower bound of " + idx + ".")
+			noSuch_!("Index has reached the lower bound of " + idx + ".")
 		remaining -= 1
 		if (idx == 0) idx = len - 1 else idx -= 1
 		array(idx)
@@ -586,7 +587,7 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(Int, Long, D
 		if (len <= 0 | start >= xsLength | xsLength == 0 | remaining <= 0)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				errorString(this) + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
 			)
 		else {
@@ -641,7 +642,7 @@ private[sugar] object ReverseCyclicArrayIterator {
 	def apply[T](array :Array[T], first :Int, length :Int) :ReverseCyclicArrayIterator[T] = {
 		val len = array.length
 		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds of [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds of [0, " + len + ")")
 		make(array, first + 1, math.min(len, math.max(length, 0)))
 	}
 
@@ -668,7 +669,7 @@ private[sugar] object ReverseCyclicArrayIterator {
 	def generic[T](array :Array[T], first :Int, length :Int) :ReverseCyclicArrayIterator[T] = {
 		val len = array.length
 		if (first < 0 | first >= len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds of [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds of [0, " + len + ")")
 		new ReverseCyclicArrayIterator(array, first + 1, math.min(len, math.max(length, 0)))
 	}
 }

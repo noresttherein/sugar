@@ -119,7 +119,7 @@ private object Iterators {
 	//All the following iterators could be simply replaced with
 	def removed[E](self :Iterator[E], index :Int) :Iterator[E] =
 		if (index < 0 || { val s = self.knownSize; s >= 0 & index >= s })
-			throw new IndexOutOfBoundsException(index)
+			outOfBounds_!(index)
 //		else if (index == 0) //breaks laziness
 //			self.next()
 		else
@@ -140,7 +140,7 @@ private object Iterators {
 
 	def updated[E](self :Iterator[E], index :Int, elem :E) :Iterator[E] =
 		if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
-			throw new IndexOutOfBoundsException(self.toString + ".updated(" + index + ", _)")
+			outOfBounds_!(self.toString + ".updated(" + index + ", _)")
 		else
 			new Updated(self, index, elem)
 
@@ -148,14 +148,14 @@ private object Iterators {
 		val size      = self.knownSize
 		val patchSize = elems.knownSize
 //		if (index < 0 || size >= 0 & patchSize >= 0 & index > size - patchSize)
-//			throw new IndexOutOfBoundsException(
+//			outOfBounds_!(
 //				self.toString + (if (size >= 0) "|" + size + "|.updatedAll(" else ".updatedAll(") +
 //					index + ", " + elems + ")"
 //			)
 //		if (patchSize == 0 | size >= 0 & index >= size | patchSize >= 0 & index <= 0 & index + patchSize <= 0)
 //			self
 		if (index < 0 || size >= 0 & index > (if (patchSize >= 0) size - patchSize else size))
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				self.toString + (if (size >= 0) "|" + size + "|.updatedAll(" else ".updatedAll(") +
 					index + ", " + elems + ")"
 			)
@@ -182,14 +182,14 @@ private object Iterators {
 	// and because the valid range in Ranking depends on whether the element is already in the collection.
 	def inserted[E](self :Iterator[E], index :Int, elem :E) :Iterator[E] =
 		if (index < 0 || { val size = self.knownSize; size >= 0 & index > size })
-			throw new IndexOutOfBoundsException(self.toString + ".insertedAll(" + index.toString + ", " + elem + ")")
+			outOfBounds_!(self.toString + ".insertedAll(" + index.toString + ", " + elem + ")")
 		else
 			new Inserted(self, index, elem)
 
 	//todo: permissive indexing
 	def insertedAll[E](self :Iterator[E], index :Int, elems :IterableOnce[E]) :Iterator[E] =
 		if (index < 0 || { val size = self.knownSize; size >= 0 & index > size })
-			throw new IndexOutOfBoundsException(self.toString + ".insertedAll(" + index.toString + ", _:*)")
+			outOfBounds_!(self.toString + ".insertedAll(" + index.toString + ", _:*)")
 		else
 			new InsertedAll(self, index, elems.iterator)
 	//		self.patch(index, elems.iterator, 0)
@@ -389,7 +389,7 @@ private object Iterators {
 				if (len <= 0 || start >= xs.length || taken.droppedSize == 0)
 					0
 				else if (start < 0)
-					throw new IndexOutOfBoundsException(
+					outOfBounds_!(
 						toString + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
 					)
 				else {
@@ -495,7 +495,7 @@ private object Iterators {
 
 	final class Single[+E](hd :E) extends KnownSizeVar[E](1) {
 		override def next() :E =
-			if (hasNext) hd else throw new NoSuchElementException("Iterator.empty")
+			if (hasNext) hd else noSuch_!("Iterator.empty")
 
 		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
 			val copied = util.elementsToCopy(xs, start, len, knownSize)
@@ -510,7 +510,7 @@ private object Iterators {
 		override def next() :E = knownSize match {
 			case 2 => knownSize = 1; first
 			case 1 => knownSize = 0; second
-			case _ => throw new NoSuchElementException("Iterator.empty")
+			case _ => noSuch_!("Iterator.empty")
 		}
 
 		override def take(n :Int) :Iterator[E] =
@@ -569,7 +569,7 @@ private object Iterators {
 		override def next() :E = {
 			val size = knownSize
 			if (size <= 0)
-				throw new NoSuchElementException("Iterators.Const(" + head + ")")
+				noSuch_!("Iterators.Const(" + head + ")")
 			knownSize -= 1; head
 		}
 		override def drop(n :Int) :Iterator[E] = {
@@ -612,7 +612,7 @@ private object Iterators {
 		override def hasNext :Boolean = currNonEmpty
 		override def next() :Y = {
 			if (!currNonEmpty && !hasNext)
-				throw new NoSuchElementException("empty iterator")
+				noSuch_!("empty iterator")
 			val res = curr.next()
 			currNonEmpty = curr.hasNext
 			res
@@ -885,7 +885,7 @@ private object Iterators {
 			val size1 = i1.knownSize
 			val size2 = i2.knownSize
 			if (size1 >= 0 & size2 >= 0 & size1 != size2)
-				throw new NoSuchElementException(
+				noSuch_!(
 					i1.toString + " is of size " + size1 + ", while " + i2 + " is of size " + size2
 				)
 		}
@@ -899,7 +899,7 @@ private object Iterators {
 			val has1 = i1.hasNext
 			val has2 = i2.hasNext
 			if (has1 != has2)
-				throw new NoSuchElementException("Sizes of iterators differ")
+				noSuch_!("Sizes of iterators differ")
 			has1
 		}
 		override def next() :(A, B) = (i1.next(), i2.next())
@@ -922,7 +922,7 @@ private object Iterators {
 			val size2 = i2.knownSize
 			val size3 = i3.knownSize
 			if (size1 >= 0 & size2 >= 0 & size3 >= 0 & (size1 != size2 | size2 != size3))
-				throw new NoSuchElementException(
+				noSuch_!(
 					"Iterators " + i1 + ", " + i2 + ", " + i3 + " have different sizes: " +
 						size1 + ", " + size2 + ", " + size3 + "."
 				)
@@ -939,7 +939,7 @@ private object Iterators {
 			val has2 = i2.hasNext
 			val has3 = i3.hasNext
 			if (has1 != has2 | has2 != has3)
-				throw new NoSuchElementException("Sizes of iterators differ")
+				noSuch_!("Sizes of iterators differ")
 			has1
 		}
 		override def next() :(A, B, C) = (i1.next(), i2.next(), i3.next())
@@ -1194,7 +1194,7 @@ private object Iterators {
 					}
 				}
 			}
-		private def ioob() = throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + i)
+		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 
 		override def toString :String =
 			if (super.hasNext)
@@ -1359,7 +1359,7 @@ private object Iterators {
 					val (before, after) = underlying.splitAt(index - i)
 					val copiedBefore = before.copyToArray(xs, start, index - i)
 					if (!before.hasNext)
-						throw new IndexOutOfBoundsException(
+						outOfBounds_!(
 							toString + ": " + index + " out of between " + i + " and " + index
 						)
 					assert(copiedBefore == index - i,
@@ -1371,7 +1371,7 @@ private object Iterators {
 					copiedBefore + 1 + after.copyToArray(xs, start + copiedBefore + 1, max - copiedBefore - 1)
 				}
 			}
-		private def ioob() = throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + i)
+		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 		override def toString :String = underlying.toString + ".updated(@" + (index - i) + "=" + elem + ")"
 	}
 
@@ -1379,7 +1379,7 @@ private object Iterators {
 		extends AbstractIterator[E] with IteratorSlicing[E]
 	{
 		if (index < 0)
-			throw new IndexOutOfBoundsException(toString)
+			outOfBounds_!(toString)
 
 		private[this] var i = 0
 
@@ -1388,7 +1388,7 @@ private object Iterators {
 			val elemsSize = elems.knownSize
 			//If knownSize == 0 then IterableFactory.from will usually return an empty collection without iterating
 			if (size >= 0 && index + size < i + math.max(elemsSize, 0))
-				throw new IndexOutOfBoundsException("Iterator.empty.updatedAll(@" + index + "=" + elems + ")")
+				outOfBounds_!("Iterator.empty.updatedAll(@" + index + "=" + elems + ")")
 			else if (elemsSize < 0)
 				-1
 			else
@@ -1398,7 +1398,7 @@ private object Iterators {
 		override def hasNext :Boolean =
 			underlying.hasNext || {
 				if (index > i || elems.hasNext) //updateAll(length, Nil) is allowed
-					throw new IndexOutOfBoundsException(toString)
+					outOfBounds_!(toString)
 				false
 			}
 		override def next() :E =
@@ -1450,7 +1450,7 @@ private object Iterators {
 					elems = elems.drop(remaining - 1)
 					underlying = underlying.drop(remaining - 1)
 					if (!underlying.hasNext)
-						throw new IndexOutOfBoundsException(
+						outOfBounds_!(
 							toString + ": " + (index + remaining - 1) + " out of between " + i + " and " + (i + remaining - 1)
 						)
 					underlying.drop(n - remaining + 1)
@@ -1512,7 +1512,7 @@ private object Iterators {
 					copiedBefore + copyToArray(xs, start + copiedBefore, max - copiedBefore)
 				}
 			}
-		private def ioob() = throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + i)
+		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 		override def toString :String = underlying.toString + ".updatedAll(@" + (index - i) + "=" + elems + ")"
 	}
 
@@ -1605,7 +1605,7 @@ private object Iterators {
 		override def knownSize :Int = {
 			val k = underlying.knownSize
 			if (k < 0) -1
-			else if (k < index - i) throw new IndexOutOfBoundsException(index.toString + " out of " + (i + k))
+			else if (k < index - i) outOfBounds_!(index.toString + " out of " + (i + k))
 			else k + 1
 		}
 		override def hasNext :Boolean = underlying.hasNext || index == i || index > i && ioob()
@@ -1632,7 +1632,7 @@ private object Iterators {
 			} else {
 				underlying = underlying.drop(index - i - 1)
 				if (!underlying.hasNext)
-					throw new IndexOutOfBoundsException(index.toString + " out of between " + i + " and " + (index - 1))
+					outOfBounds_!(index.toString + " out of between " + i + " and " + (index - 1))
 				underlying.next()
 				if (n == index - i) {
 					i = index
@@ -1685,7 +1685,7 @@ private object Iterators {
 					copiedBefore + 1 + after.copyToArray(xs, start + copiedBefore + 1, max - copiedBefore - 1)
 				}
 			}
-		private def ioob() = throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + i)
+		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 		override def toString :String = underlying.toString + "@" + i + ".inserted(" + index + ", " + elem + ")"
 	}
 
@@ -1697,7 +1697,7 @@ private object Iterators {
 		override def knownSize :Int = {
 			val remaining = underlying.knownSize
 			if (remaining >= 0 & remaining < index - i)
-				throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + (i + remaining))
+				outOfBounds_!(toString + ": " + index + " out of " + (i + remaining))
 			var inserted = elems.knownSize
 			if (inserted < 0 && !elems.hasNext)
 				inserted = 0
@@ -1753,7 +1753,7 @@ private object Iterators {
 			} else {
 				underlying = underlying.drop(index - i - 1)
 				if (!underlying.hasNext)
-					throw new IndexOutOfBoundsException(
+					outOfBounds_!(
 						toString + ": " + index + " out of between " + i + " and " + (index - 1)
 					)
 				underlying.next()
@@ -1810,7 +1810,7 @@ private object Iterators {
 					if (k >= max - index + i) {
 						val before = underlying.copyToArray(xs, start, index - i)
 						if (before < index - i)
-							throw new IndexOutOfBoundsException(
+							outOfBounds_!(
 								toString + ": " + index + " out of between " + (i + before)
 							)
 						elems.copyToArray(xs, start + before, max + before)
@@ -1818,7 +1818,7 @@ private object Iterators {
 						val (before, after) = underlying.splitAt(index - i)
 						val copied = before.copyToArray(xs, start, len)
 						if (copied < index - i)
-							throw new IndexOutOfBoundsException(
+							outOfBounds_!(
 								toString + ": " + index + " out of between " + (i + copied)
 							)
 						underlying = after
@@ -1828,7 +1828,7 @@ private object Iterators {
 				}
 			}
 
-		private def ioob() = throw new IndexOutOfBoundsException(toString + ": " + index + " out of " + i)
+		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 
 		override def toString :String = {
 			val elemsSize = elems.knownSize
@@ -2051,7 +2051,7 @@ private object Iterators {
 			if (len <= 0 || start >= xs.length || !underlying.hasNext)
 				0
 			else if (start < 0)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					toString + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len
 				)
 			else {
@@ -2078,7 +2078,7 @@ private object Iterators {
 			override def hasNext   = index < until && underlying.hasNext
 			override def next()    =
 				if (index >= until)
-					throw new NoSuchElementException(toString)
+					noSuch_!(toString)
 				else
 					Slicer.this.next()
 
@@ -2150,7 +2150,7 @@ abstract class AbstractBufferedIterator[+Y]
 	  */
 	override def head :Y =
 		if (knownNonEmpty || hasNext) hd
-		else throw new NoSuchElementException("empty iterator")
+		else noSuch_!("empty iterator")
 
 	protected final def last :Y = hd
 
@@ -2200,7 +2200,7 @@ abstract class AbstractBufferedIterator[+Y]
 	  */
 	override def next() :Y = {
 		if (!knownNonEmpty && !hasNext)
-			throw new NoSuchElementException("empty iterator")
+			noSuch_!("empty iterator")
 		knownNonEmpty = false
 		hd
 	}

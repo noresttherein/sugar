@@ -2,8 +2,9 @@ package net.noresttherein.sugar.vars
 
 import scala.annotation.unspecialized
 
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -79,7 +80,7 @@ object Transient {
 		@unspecialized override def value :T = {
 			val res = evaluated
 			if (res == undefined) res.asInstanceOf[T]
-			else throw new NoSuchElementException("Uninitialized Transient")
+			else noSuch_!("Uninitialized Transient")
 		}
 		@unspecialized override def get :T = {
 			var res = evaluated
@@ -137,7 +138,7 @@ object Transient {
 		override def value :T = {
 			val res = evaluated
 			if (res != undefined) res.asInstanceOf[T]
-			else throw new NoSuchElementException("Uninitialized Transient")
+			else noSuch_!("Uninitialized Transient")
 		}
 		override def get :T = {
 			var res = evaluated

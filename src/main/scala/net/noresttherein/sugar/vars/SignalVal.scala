@@ -1,8 +1,10 @@
 package net.noresttherein.sugar.vars
 
 import scala.Specializable.Args
+
 import net.noresttherein.sugar.time.{Eternity, Immediate, Milliseconds, TimeInterval}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.{illegalState_!, noSuch_!, unsupported_!}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.SignalVal.Mapped
 
 
@@ -45,7 +47,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 
 	override def value :T = maybe match {
 		case Yes(v) => v
-		case _ => throw new NoSuchElementException(toString + ".value")
+		case _      => noSuch_!(toString + ".value")
 	}
 	/** Sets the value of this `SignalVal` and notifies all threads waiting for it using one of
 	  * [[net.noresttherein.sugar.vars.SignalVal.await await]] methods. After the value is set,
@@ -56,7 +58,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 	  */
 	override def value_=(newValue :T) :Unit = synchronized {
 		if (isDefined)
-			throw new IllegalStateException(s"Cannot set SignalVal(${x.get}) to $newValue: already initialized.")
+			illegalState_!(s"Cannot set SignalVal(${x.get}) to $newValue: already initialized.")
 		else {
 			x = Yes(newValue)
 			notifyAll()
@@ -79,27 +81,27 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
 	override def ?=(newValue :T) :T =
-		throw new UnsupportedOperationException("SignalVal can't be set multiple times.")
+		unsupported_!("SignalVal can't be set multiple times.")
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
 	override def testAndSet(expect :T, newValue :T) :Boolean =
-		throw new UnsupportedOperationException("Cannot testAndSet a SignalVal")
+		unsupported_!("Cannot testAndSet a SignalVal")
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
 	override def update(f :T => T) :T =
-		throw new UnsupportedOperationException("SignalVal cannot be modified.")
+		unsupported_!("SignalVal cannot be modified.")
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
 	override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T =
-		throw new UnsupportedOperationException("SignalVal cannot be modified.")
+		unsupported_!("SignalVal cannot be modified.")
 
 	/** Throws [[UnsupportedOperationException]]. */
 	@throws[UnsupportedOperationException]
 	override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T =
-		throw new UnsupportedOperationException("SignalVal cannot be modified.")
+		unsupported_!("SignalVal cannot be modified.")
 
 
 	/** A new `SignalVal` with a value derived from this one.
@@ -152,7 +154,7 @@ object SignalVal {
 		override def await(timeout :TimeInterval): Boolean = source.await(timeout)
 
 		override def value_=(newValue: O) :Unit =
-			throw new UnsupportedOperationException("Cannot manually set the value of a mapped SignalVal " + this + ".")
+			unsupported_!("Cannot manually set the value of a mapped SignalVal " + this + ".")
 
 		override def maybe: Maybe[O] = {
 			val local = super.maybe

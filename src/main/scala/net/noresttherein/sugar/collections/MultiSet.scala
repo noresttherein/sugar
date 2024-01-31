@@ -7,6 +7,7 @@ import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorCompanionExtension, MutableArrayExtension, PartialFunctionCompanionExtension, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.outOfBounds_!
 
 
 
@@ -611,7 +612,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 			if (len <= 0 || from >= knownSize || start >= xs.length)
 				0
 			else if (start < 0)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					s"$this.copyRangeToArray(${xs.className}<${xs.length}>, $start, $from, $len)"
 				)
 			else {

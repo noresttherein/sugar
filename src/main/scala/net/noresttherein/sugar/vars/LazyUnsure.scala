@@ -1,7 +1,8 @@
 package net.noresttherein.sugar.vars
 
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -124,7 +125,7 @@ object LazyUnsure {
 		override def isDefinite :Boolean = evaluated != undefined && evaluated.asInstanceOf[Maybe[T]].isDefined
 
 		override def value :T = evaluated match {
-			case Ref.undefined => throw new NoSuchElementException("Uninitialized LazyUnsure")
+			case Ref.undefined => noSuch_!("Uninitialized LazyUnsure")
 			case v => v.asInstanceOf[Maybe[T]].get
 		}
 		override def maybe :Maybe[T] = synchronized {

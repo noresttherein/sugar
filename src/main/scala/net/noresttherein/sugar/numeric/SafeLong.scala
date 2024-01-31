@@ -6,6 +6,8 @@ import java.{lang => jl}
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.exceptions.SugaredArithmeticException
+
 
 
 
@@ -249,10 +251,10 @@ class SafeLong private[numeric] (override val toLong :Long)
 	@inline def in(range: NumericRange[SafeLong]): Boolean = range.containsTyped(this)
 
 	@inline private def overflow(msg :String) :Nothing =
-		throw new ArithmeticException("Arithmetic overflow: " + msg + ".")
+		throw SugaredArithmeticException("Arithmetic overflow: " + msg + ".")
 
 	@inline private def underflow(msg :String) :Nothing =
-		throw new ArithmeticException("Arithmetic overflow: " + msg + ".")
+		throw SugaredArithmeticException("Arithmetic overflow: " + msg + ".")
 
 	@inline private def checkFloatResult(arg :Float, op :String, result :Float) :Float = {
 		if (result != result | result == jl.Float.POSITIVE_INFINITY | result == jl.Float.NEGATIVE_INFINITY)
@@ -261,7 +263,7 @@ class SafeLong private[numeric] (override val toLong :Long)
 			else if (result == jl.Float.NEGATIVE_INFINITY)
 				underflow(String.valueOf(toLong) + " " + op + " " + arg + " is Float.NEGATIVE_INFINITY.")
 			else
-				throw new ArithmeticException(String.valueOf(toLong) + " " + op + " " + arg + " == NaN")
+				throw SugaredArithmeticException(String.valueOf(toLong) + " " + op + " " + arg + " == NaN")
 		result
 	}
 
@@ -272,15 +274,15 @@ class SafeLong private[numeric] (override val toLong :Long)
 			else if (result == jl.Double.NEGATIVE_INFINITY)
 				underflow(String.valueOf(toLong) + " " + op + " " + arg + " is Double.NEGATIVE_INFINITY.")
 			else
-				throw new ArithmeticException(String.valueOf(toLong) + " " + op + " " + arg + " == NaN")
+				throw SugaredArithmeticException(String.valueOf(toLong) + " " + op + " " + arg + " == NaN")
 		result
 	}
 
 	private[numeric] def outOfPrecision(typeName :String) :Nothing =
-		throw new ArithmeticException("Value " + toLong + " cannot be exactly represented as a " + typeName + ".")
+		throw SugaredArithmeticException("Value " + toLong + " cannot be exactly represented as a " + typeName + ".")
 
 	private[numeric] def outOfRange(typeName :String) :Nothing =
-			throw new ArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
+			throw SugaredArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
 
 	@inline private[numeric] def testRange(min :Long, max :Long, typeName :String) :Unit =
 		if (toLong < min | toLong > max)

@@ -10,6 +10,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, IArrayLikeSlice, SugaredIterableOps}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.reflect.ArrayClass
 
 //extension methods
@@ -70,7 +71,7 @@ private class ArrayLikeAsSeq[E](a :ArrayLike[E])
 		if (len <= 0 || from >= array.length || start >= xs.length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				errorString(array) + ".copyRangeToArray(" + errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
 			)
 		else {

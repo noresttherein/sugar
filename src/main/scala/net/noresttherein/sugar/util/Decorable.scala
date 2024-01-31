@@ -3,8 +3,9 @@ package net.noresttherein.sugar.util
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -445,7 +446,7 @@ object Decorable {
 		@throws[NoSuchElementException]("if the zipper points to the outermost instance (continuation.isEmpty).")
 		def >> :DecorationsZipper[Self] = continuation match {
 			case Some(zipper) => zipper
-			case _ => throw new NoSuchElementException("Zipper pointing to the outermost instance.")
+			case _ => noSuch_!("Zipper pointing to the outermost instance.")
 		}
 		/** Advances this zipper, wrapping its [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.point point]]
 		  * in the decorators, until `pred(this.point)` is true,
@@ -489,7 +490,7 @@ object Decorable {
 			case decorator :Decorator[Self @unchecked] =>
 				new DecorationsZipper[Self](decorator, Some(this))
 			case _ =>
-				throw new NoSuchElementException("Zipper pointing to the bottom instance.")
+				noSuch_!("Zipper pointing to the bottom instance.")
 		}
 		/** Unwraps `this.`[[net.noresttherein.sugar.util.Decorable.DecorationsZipper.point point]] from all
 		  * wrapping [[net.noresttherein.sugar.util.Decorable.Decorator decorators]], until the argument $Self
@@ -558,7 +559,7 @@ object Decorable {
 			case Some(next) =>
 				DecorationsZipper(point, next.decoration, next.continuation)
 			case _ =>
-				throw new UnsupportedOperationException("Cannot remove a decorator: zipper pointing to the outermost instance")
+				unsupported_!("Cannot remove a decorator: zipper pointing to the outermost instance")
 		}
 		/** Removes from the stack all decorators applied on top of
 		  * `this.`[[net.noresttherein.sugar.util.Decorable.DecorationsZipper.point point]],
@@ -583,7 +584,7 @@ object Decorable {
 			case decorator :Decorator[Self @unchecked] =>
 				DecorationsZipper(decorator.`->decorated`, decoration, continuation)
 			case _ =>
-				throw new UnsupportedOperationException("Cannot remove the bottommost instance.")
+				unsupported_!("Cannot remove the bottommost instance.")
 		}
 		/** Unwraps the underlying $Self, removing all [[net.noresttherein.sugar.util.Decorable.Decorator decorators]]
 		  * below this zipper's [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.point point]].

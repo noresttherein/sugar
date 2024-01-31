@@ -357,6 +357,10 @@ trait imports {
 	final def unsupported_!(msg :String, cause :Throwable = null) :Nothing =
 		throw SugaredUnsupportedOperationException(msg, cause)
 
+	/** Throws an [[UnsupportedOperationException]]. */
+	final def unsupported_!(cause :Throwable) :Nothing =
+		throw SugaredUnsupportedOperationException(cause)
+
 	/** Throws an [[UnsupportedOperationException]]`(s"$obj.$method")`. */
 	final def unsupported_!(obj :String, method :String) :Nothing =
 		throw SugaredUnsupportedOperationException(obj + '.' + method)
@@ -366,8 +370,16 @@ trait imports {
 		throw SugaredUnsupportedOperationException(obj.className + '.' + method)
 
 	/** Throws a [[NoSuchElementException]]. */
+	final def noSuch_! :Nothing =
+		throw SugaredNoSuchElementException()
+
+	/** Throws a [[NoSuchElementException]]. */
 	final def noSuch_!(msg :String, cause :Throwable = null) :Nothing =
 		throw SugaredNoSuchElementException(msg, cause)
+
+	/** Throws a [[NoSuchElementException]]. */
+	final def noSuch_!(cause :Throwable) :Nothing =
+		throw SugaredNoSuchElementException(cause)
 
 	/** Throws a [[NoSuchElementException]].
 	  * @param empty an empty collection whose element was accessed, and is used to enhance the error message.
@@ -389,8 +401,16 @@ trait imports {
 		throw SugaredNoSuchElementException(errorString(empty) + " is empty.")
 
 	/** Throws an [[IllegalArgumentException]]. */
+	final def illegal_! :Nothing =
+		throw SugaredIllegalArgumentException()
+
+	/** Throws an [[IllegalArgumentException]]. */
 	final def illegal_!(msg :String, cause :Throwable = null) :Nothing =
 		throw SugaredIllegalArgumentException(msg, cause)
+
+	/** Throws an [[IllegalArgumentException]]. */
+	final def illegal_!(cause :Throwable) :Nothing =
+		throw SugaredIllegalArgumentException(cause)
 
 	/** Throws an [[IllegalArgumentException]].
 	  * @param method the name of the method to which an illegal argument was passed.
@@ -421,9 +441,19 @@ trait imports {
 			"Illegal " + param + " argument : " + arg + " - " + reason + "."
 		)
 
+	final def io_!(msg :String, cause :Throwable = null) :Nothing =
+		throw SugaredIOException(msg, cause)
+
+	/** Throws an [[IllegalStateException]]. */
+	final def illegalState_! :Nothing = throw SugaredIllegalStateException()
+
 	/** Throws an [[IllegalStateException]]. */
 	final def illegalState_!(msg :String, cause :Throwable = null) :Nothing =
 		throw SugaredIllegalStateException(msg, cause)
+
+	/** Throws an [[IllegalStateException]]. */
+	final def illegalState_!(cause :Throwable) :Nothing =
+		throw SugaredIllegalStateException(cause)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int) :Nothing =
@@ -463,6 +493,14 @@ trait imports {
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(msg :String, cause :Throwable = null) :Nothing =
 		throw SugaredIndexOutOfBoundsException(msg, cause)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(cause :Throwable) :Nothing =
+		throw SugaredIndexOutOfBoundsException(cause)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_! :Nothing =
+		throw SugaredIndexOutOfBoundsException()
 
 	/** Throws a [[NullPointerException]] with the given message.
 	  * This method is useful for reducing calling methods bytecode size.

@@ -9,10 +9,11 @@ import scala.collection.mutable.{ArrayBuffer, Buffer, IndexedBuffer}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IArrayLike, IRefArray}
+import net.noresttherein.sugar.exceptions.SugaredClassCastException
 import net.noresttherein.sugar.matching.MatchPattern
 import net.noresttherein.sugar.reflect.Specialized
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 //implicits
 import net.noresttherein.sugar.extensions._
@@ -190,13 +191,13 @@ package object collections {
 		val factory = loadObject(collectionClassName)
 		val f = try factory.asInstanceOf[SeqFactory[CC]] catch {
 			case e :ClassCastException =>
-				throw new ClassCastException(
+				throw SugaredClassCastException(
 					collectionClassName + " object " + factory + " is not a SeqFactory: " + factory.className
 				).initCause(e)
 		}
 		val what = f.from(1::2::Nil)
 		if (!(tag.runtimeClass isAssignableFrom what.getClass))
-			throw new IllegalStateException(
+			illegalState_!(
 				collectionClassName + " is not a factory for " + tag.runtimeClass.name +
 					"; created a " + what.getClass.name + " instead."
 			)
@@ -235,7 +236,7 @@ package object collections {
 					try {
 						val factory   = loadObject(className).asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]]
 						if (!factory.isImmutable)
-							throw new IllegalStateException(
+							illegalState_!(
 								"Default ArrayLikeSlicefactory is not immutable: " + factory + ": " + className + "."
 							)
 						val testInput = IArray(1, 2, 3, 4)

@@ -10,10 +10,11 @@ import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ViewBuffer}
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -50,7 +51,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 			else if (elementType == classOf[Short]) emptyShortArray
 			else if (elementType == classOf[Boolean]) emptyBooleanArray
 			else if (elementType == classOf[Unit]) emptyUnitArray
-			else throw new IllegalArgumentException("Cannot create an array of " + elementType.name)
+			else illegal_!("Cannot create an array of " + elementType.name)
 		else if (elementType == classOf[BoxedUnit]) emptyUnitArray
 		else java.lang.reflect.Array.newInstance(elementType, 0)
 	}.asInstanceOf[Array[A]]

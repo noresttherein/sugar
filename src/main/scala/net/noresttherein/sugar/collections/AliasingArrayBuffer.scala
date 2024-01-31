@@ -17,6 +17,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.illegal_!
 
 
 
@@ -135,7 +136,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 		if (index == size)
 			addOne(elem)
 		else if (index < 0 | index > size)
-			throw new IndexOutOfBoundsException(errorString(this) + ".insert(" + index + ", _)")
+			outOfBounds_!(errorString(this) + ".insert(" + index + ", _)")
 		else {
 			var array     = this.array
 			val last      = array(size - 1).asInstanceOf[E]
@@ -160,7 +161,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 			val size   = this.length
 			val length = array.length
 			if (index < 0 | index > size)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(this) + ".insertAll(" + index + ", " + errorString(elems) + ")"
 				)
 			val elemsSize = elems.knownSize
@@ -214,7 +215,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 	override def remove(index :Int, count :Int) :Unit =
 		if (aliased) {
 			if (count < 0)
-				throw new IllegalArgumentException(
+				illegal_!(
 					"Cannot remove a negative number of elements: " + errorString(this) +
 						".remove(" + index + ", " + count + ")"
 				)

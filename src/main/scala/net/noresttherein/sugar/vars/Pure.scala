@@ -4,8 +4,9 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -100,7 +101,7 @@ private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
 	@unspecialized override def value :T = {
 		val res = evaluated
 		if (res != undefined) res.asInstanceOf[T]
-		else throw new NoSuchElementException("Uninitialized Pure")
+		else noSuch_!("Uninitialized Pure")
 	}
 	@unspecialized override def get :T = {
 		var res = evaluated
@@ -207,7 +208,7 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 			acquireFence()
 			evaluated
 		} else
-			throw new NoSuchElementException("Uninitialized Pure")
+			noSuch_!("Uninitialized Pure")
 
 	override def get :T = {
 		val init = initializer
@@ -288,7 +289,7 @@ trait AbstractPure[@specialized(SpecializedVars) +T] {
 			acquireFence()
 			evaluated
 		} else
-			throw new NoSuchElementException("Uninitialized " + this)
+			noSuch_!("Uninitialized " + this)
 
 	/** Returns the value of this expression, evaluating it, if needed. */
 	protected def definite :T = {

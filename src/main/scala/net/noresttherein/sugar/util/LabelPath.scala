@@ -6,10 +6,11 @@ import scala.collection.LinearSeq
 import scala.util.matching.Regex
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods, classNameMethods, castingMethods}
-import net.noresttherein.sugar.util.LabelPath.{/, ~/, Concat, Label, LabelPathPrefix, Split}
+import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods, classNameMethods}
+import net.noresttherein.sugar.{illegal_!, unsupported_!}
+import net.noresttherein.sugar.util.LabelPath.{/, Concat, Label, LabelPathPrefix, Split, ~/}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -141,7 +142,7 @@ object LabelPath {
 	@throws[IllegalArgumentException]("if path is empty or contains an empty string.")
 	def fromSeq(path :Seq[String]) :LabelPath[_] = path match {
 		case _ if path.isEmpty =>
-			throw new IllegalArgumentException("Cannot create an empty path.")
+			illegal_!("Cannot create an empty path.")
 		case list :LinearSeq[String] =>
 			@tailrec def rec(parent :LabelPath[_], rest :Seq[String]) :LabelPath[_] =
 				if (rest.isEmpty)
@@ -176,7 +177,7 @@ object LabelPath {
 	@throws[IllegalArgumentException]("if path is an empty String or contains two consecutive occurrences of the separator.")
 	def parse(path :String, separator :Char = '/') :LabelPath[_] =
 		if (path.length == 0)
-			throw new IllegalArgumentException("Empty path.")
+			illegal_!("Empty path.")
 		else
 			fromSeq(ArraySeq.unsafeWrapArray(path.split(separator)))
 
@@ -190,7 +191,7 @@ object LabelPath {
 	@throws[IllegalArgumentException]("if path is an empty String or contains two consecutive occurrences of the separator.")
 	def parse(path :String, separator :String) :LabelPath[_] =
 		if (path.length == 0)
-			throw new IllegalArgumentException("Empty path.")
+			illegal_!("Empty path.")
 		else
 			fromSeq(ArraySeq.unsafeWrapArray(path.split(Regex.quote(separator))))
 
@@ -224,7 +225,7 @@ object LabelPath {
 		@throws[IllegalArgumentException]("if labels is negative or greater than this.length.")
 		def pop(labels :Int) :LabelPathPrefix = {
 			if (labels < 0)
-				throw new IllegalArgumentException("Cannot drop a " + labels + " umber of labels from " + this + ".")
+				illegal_!("Cannot drop a " + labels + " umber of labels from " + this + ".")
 			@tailrec def rec(path :LabelPathPrefix, n :Int) :LabelPathPrefix =
 				(path: @unchecked) match {
 					case _ if n == 0 => path
@@ -233,7 +234,7 @@ object LabelPath {
 				}
 			try rec(this, labels) catch {
 				case EmptyPathException =>
-					throw new IllegalArgumentException("Cannot drop " + labels + " labels from " + this + ".")
+					illegal_!("Cannot drop " + labels + " labels from " + this + ".")
 			}
 		}
 
@@ -413,7 +414,7 @@ object LabelPath {
 		/** Creates a singleton `LabelPath` for the given `Label`. */
 		def apply[N <: Label](label :N): ~/[N] =
 			if (label.length == 0)
-				throw new IllegalArgumentException("Cannot create a LabelPath for an empty label.")
+				illegal_!("Cannot create a LabelPath for an empty label.")
 			else
 				new ~/(label)
 
@@ -443,7 +444,7 @@ object LabelPath {
 		extends LabelPath[P / L]
 	{
 		if (last.length == 0)
-			throw new IllegalArgumentException("Empty path element: " + init + "/" + "''.")
+			illegal_!("Empty path element: " + init + "/" + "''.")
 
 		def prefix :P = init.path
 
@@ -569,7 +570,7 @@ object LabelPath {
 					case LabelPath.~/ => first match {
 						case path  :LabelPathPrefix => path //all implementation extend a Concat instance
 						case label :String => label
-						case _ => throw new IllegalArgumentException(
+						case _ => illegal_!(
 							"Second argument is neither a LabelPathPrefix nor a Label (String): " + second + "."
 						)
 					}
@@ -588,7 +589,7 @@ object LabelPath {
 				case LabelPath.~/ => second
 				case other :String => ~/(other) / second.path
 				case _ =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"The first argument is neither a LabelPathPrefix nor a Label (String): " + first + "."
 					)
 			}
@@ -602,7 +603,7 @@ object LabelPath {
 			override def path(first :Any, second :Any) = apply(first, second) match {
 				case path  :LabelPath[_] => path.castParam[Result]
 				case label :String => ~/[label.type](label).castFrom[~/[label.type], LabelPath[Any]]
-				case _ => throw new UnsupportedOperationException(
+				case _ => unsupported_!(
 					"No LabelPath type class for an empty path prefix ~/"
 				)
 			}
@@ -685,7 +686,7 @@ object LabelPath {
 			override type Path = Nothing
 			override def unchecked(prefix: ~/.type, suffix: ~/.type) = ~/
 			override def path(prefix: ~/.type, suffix: ~/.type) =
-				throw new UnsupportedOperationException("No LabelPath type class for an empty path prefix ~/.")
+				unsupported_!("No LabelPath type class for an empty path prefix ~/.")
 		}
 		@SerialVersionUID(Ver)
 		private object concatEmptyWithPathPrototype extends ConcatEmpty[LabelPath[_]] {
@@ -807,7 +808,7 @@ object LabelPath {
 			override type Suffix = ~/.type
 			override def first(path :Label) = path
 			override def suffix(path :Label) =
-				throw new UnsupportedOperationException("A label '" + path + "' has an empty suffix")
+				unsupported_!("A label '" + path + "' has an empty suffix")
 			override def apply(path :Label) = (path, ~/)
 			override def join(first :Label, suffix: ~/.type) = first
 			override def toString = "Split[Label]"

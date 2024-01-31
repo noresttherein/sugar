@@ -4,8 +4,9 @@ import java.{time => j}
 import java.time.temporal.Temporal
 
 import net.noresttherein.sugar.time.TimePoint.TimeLimes
-
 import scala.concurrent.duration.{Deadline, FiniteDuration}
+
+import net.noresttherein.sugar.unsupported_!
 
 
 
@@ -91,20 +92,20 @@ case object TimePoint {
 
 		final override def apply(cycle :Cycle) :cycle.Phase = cycle.on(this)
 
-		final override def nano        :Int         = throw new UnsupportedOperationException(s"($this).nano")
-		final override def epochSecond :Long        = throw new UnsupportedOperationException(s"($this).epochSecond")
-		final override def epochMilli  :Long        = throw new UnsupportedOperationException(s"($this).epochMilli")
-		final override def toPosix     :PosixTime   = throw new UnsupportedOperationException(s"($this).toUnix")
-		final override def toUTC       :UTCDateTime = throw new UnsupportedOperationException(s"($this).toUTC")
-		final override def toTimestamp :Timestamp   = throw new UnsupportedOperationException(s"($this).toTimestamp")
-		final override def toInstant   :j.Instant   = throw new UnsupportedOperationException(s"($this).toInstant")
-		final override def toJava      :Temporal    = throw new UnsupportedOperationException(s"($this).toJava")
+		final override def nano        :Int         = unsupported_!(s"($this).nano")
+		final override def epochSecond :Long        = unsupported_!(s"($this).epochSecond")
+		final override def epochMilli  :Long        = unsupported_!(s"($this).epochMilli")
+		final override def toPosix     :PosixTime   = unsupported_!(s"($this).toUnix")
+		final override def toUTC       :UTCDateTime = unsupported_!(s"($this).toUTC")
+		final override def toTimestamp :Timestamp   = unsupported_!(s"($this).toTimestamp")
+		final override def toInstant   :j.Instant   = unsupported_!(s"($this).toInstant")
+		final override def toJava      :Temporal    = unsupported_!(s"($this).toJava")
 
 		final override def in(zone :TimeZone)     :ZoneDateTime =
-			throw new UnsupportedOperationException(s"$this in $zone")
+			unsupported_!(s"$this in $zone")
 
 		final override def at(offset :TimeOffset) :ZoneDateTime =
-			throw new UnsupportedOperationException(s"$this at $offset")
+			unsupported_!(s"$this at $offset")
 
 	}
 

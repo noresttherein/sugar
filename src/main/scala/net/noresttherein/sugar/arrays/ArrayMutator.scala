@@ -9,6 +9,7 @@ package net.noresttherein.sugar.arrays
 import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.collections.Mutator
+import net.noresttherein.sugar.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
 
 /**
@@ -46,20 +47,20 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 	final override def hasNext :Boolean = first < `last++`
 	override def head :T =
 		if (first < `last++`) array(first)
-		else throw new NoSuchElementException("Index " + first + " exceeds the limit of " + `last++` + '.')
+		else noSuch_!("Index " + first + " exceeds the limit of " + `last++` + '.')
 
 	override def head_=(value :T) :Unit =
 		if (first < `last++`) array(first) = value
-		else throw new IllegalStateException("Empty mutator")
+		else illegalState_!("Empty mutator")
 
 	override def next() :T = {
 		if (first >= `last++`)
-			throw new NoSuchElementException("Index " + first + " exceeds the limit of " + `last++` + ".")
+			noSuch_!("Index " + first + " exceeds the limit of " + `last++` + ".")
 		val res = array(first)
 		first += 1
 		res
 	}
-	override def remove() :Unit = throw new UnsupportedOperationException("Cannot remove an element from an array")
+	override def remove() :Unit = unsupported_!("Cannot remove an element from an array")
 
 	override def clone = new ArrayMutator(array, first, `last++`)
 }

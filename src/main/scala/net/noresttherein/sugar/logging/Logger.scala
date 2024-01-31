@@ -7,10 +7,11 @@ import java.util.logging.Level._
 import net.noresttherein.sugar.logging.Logger.Level
 import net.noresttherein.sugar.logging.Logger.Level.{Config, Fine, Finer, Finest, Info, Severe, Warn}
 import net.noresttherein.sugar.logging.Logger.NamingScheme.DemangledClassName
+import net.noresttherein.sugar.null_!
 import net.noresttherein.sugar.reflect.CallerFrame
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevClassNameOf, classNameOf, demangledName, fullNameOf}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -130,10 +131,10 @@ object Logger {
 	/** Creates a logger of the given name, matching the global logging configuration. */
 	def apply(name :String) :Logger = {
 		if (name == null)
-			throw new NullPointerException("Cannot create a Logger with a null name.")
+			null_!("Cannot create a Logger with a null name.")
 		val log = JLogger.getLogger(name)
 		if (log == null)
-			throw new NullPointerException("No logger named '" + name + "'")
+			null_!("No logger named '" + name + "'")
 		new Logger(log)
 	}
 
@@ -141,7 +142,7 @@ object Logger {
 	def apply(cls :Class[_]) :Logger = {
 		val log = JLogger.getLogger(fullNameOf(cls))
 		if (log == null)
-			throw new NullPointerException("No logger for class '" + cls.getName + "'.")
+			null_!("No logger for class '" + cls.getName + "'.")
 		new Logger(log)
 	}
 

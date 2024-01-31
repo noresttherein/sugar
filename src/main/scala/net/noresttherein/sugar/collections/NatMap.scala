@@ -13,6 +13,7 @@ import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic.=>:
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.{AbstractPure, Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
@@ -304,7 +305,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 		@SerialVersionUID(Ver)
 		private object noSuch extends WhenNoKey[({ type K[_] = Any })#K, Throw] {
-			override def apply[X](key :Any) = throw new NoSuchElementException(key.toString)
+			override def apply[X](key :Any) = noSuch_!(key.toString)
 		}
 	}
 
@@ -386,8 +387,8 @@ object NatMap extends ImplicitNatMapFactory {
 		override def size = 0
 		override def isEmpty = true
 
-		override def head = throw new NoSuchElementException("NatMap().head")
-		override def tail = throw new UnsupportedOperationException("NatMap().tail")
+		override def head = noSuch_!("NatMap().head")
+		override def tail = unsupported_!("NatMap().tail")
 
 		override def opt[X](key :K[X]) :Opt[V[X]] = None
 		override def apply[X](key :K[X]) = defaults(key)

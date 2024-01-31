@@ -9,16 +9,16 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, SortedSetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
-import net.noresttherein.sugar.casting.{castingMethods, castTypeParamMethods}
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -67,10 +67,10 @@ final class StringMap[+V] private (root :PrefixTree[V])
 		else new StringMap(tree)
 
 	override def head :(String, V) =
-		if (root.size == 0) throw new NoSuchElementException("StringMap().head") else root.at(0).entry.get
+		if (root.size == 0) noSuch_!("StringMap().head") else root.at(0).entry.get
 
 	override def last :(String, V) =
-		if (root.size == 0) throw new NoSuchElementException("StringMap().last") else root.at(root.size - 1).entry.get
+		if (root.size == 0) noSuch_!("StringMap().last") else root.at(root.size - 1).entry.get
 
 	/** The `n`-th key in this map. */
 	@throws[IndexOutOfBoundsException]("if n < 0 or n >= size")
@@ -255,10 +255,10 @@ final class StringSet(root :PrefixTree[_])
 		else new StringSet(tree)
 
 	override def head :String =
-		if (root.size == 0) throw new NoSuchElementException("StringSet().head") else root.at(0).firstKey
+		if (root.size == 0) noSuch_!("StringSet().head") else root.at(0).firstKey
 
 	override def last :String =
-		if (root.size == 0) throw new NoSuchElementException("StringSet().last") else root.at(root.size - 1).firstKey
+		if (root.size == 0) noSuch_!("StringSet().last") else root.at(root.size - 1).firstKey
 
 	//todo: think of a universal name for OrderedSet
 	def key(i :Int) :String = root.at(i).firstKey

@@ -10,6 +10,7 @@ import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{Throw, throwANoSuch
 import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic.=>:
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.vars.{Maybe, Opt}
 
 
@@ -62,7 +63,7 @@ object MutNatMap {
 		}
 		private def guard() :Unit =
 			if (frozen)
-				throw new IllegalArgumentException("Can't modify a frozen Map")
+				illegal_!("Can't modify a frozen Map")
 
 		abstract override def addAll(xs :IterableOnce[Assoc[K, V, _]]) :this.type = {
 			guard(); super.addAll(xs)

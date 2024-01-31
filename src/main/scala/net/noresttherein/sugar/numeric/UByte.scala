@@ -6,9 +6,11 @@ import java.{lang => jl}
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -216,10 +218,10 @@ class UByte private[numeric](override val toByte: Byte)
 
 
 //	private def underflow(method :String) :Nothing =
-//		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
+//		throw SugaredArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
 	private def outOfRange(typeName :String) :Nothing =
-		throw new ArithmeticException("Value " + this + " is out of " + typeName + " range.")
+		throw SugaredArithmeticException("Value " + this + " is out of " + typeName + " range.")
 
 //	@inline private def testRange(max :Int, typeName :String) :Unit =
 //		if (toInt + MinValue > max + MinValue)
@@ -268,13 +270,13 @@ object UByte {
 		}
 
 	private def throwArithmeticException(value: Int): Nothing =
-		throw new ArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
+		throw SugaredArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwIllegalArgumentException(value: Int): Nothing =
-		throw new IllegalArgumentException("Value out of [0.." + MaxValue + "] range: " + value)
+		illegal_!("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwNumberFormatException(value: String): Nothing =
-		throw new NumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
+		throw SugaredNumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
 
 	//todo: in Scala3 create conversions from non negative Int literals
@@ -298,7 +300,7 @@ object UByte {
 		override def minus(x: UByte, y: UByte): UByte = x - y
 		override def times(x: UByte, y: UByte): UByte = x * y
 		override def negate(x: UByte): UByte =
-			throw new ArithmeticException("Cannot negate an unsigned number " + x)
+			throw SugaredArithmeticException("Cannot negate an unsigned number " + x)
 
 		override def fromInt(x: Int): UByte = UByte.from(x)
 		override def parseString(str: String): Option[UByte] = UByte.parse(str).toOption

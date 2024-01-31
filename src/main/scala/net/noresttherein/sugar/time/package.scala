@@ -2,7 +2,7 @@ package net.noresttherein.sugar
 
 import java.time.temporal.ChronoUnit
 
-import net.noresttherein.sugar.typist.Rank.Rank0
+import net.noresttherein.sugar.exceptions.{FlexibleExceptionFactory, LazyException, SugaredArithmeticException, ThrowableFactory}
 
 
 
@@ -13,13 +13,16 @@ import net.noresttherein.sugar.typist.Rank.Rank0
 package object time {
 	private[time] final val Ver = 1L
 
+	private[time] val SugaredDateTimeException :FlexibleExceptionFactory =
+		ThrowableFactory(new SugaredDateTimeException(_, _, _))
+
 	/** Throws an `ArithmeticException` to indicate `Long` arithmetic overflow during operation `this op other`.
 	  * Extracted to minimize inlined footprint of calling methods. Access is `private[sugar]` to avoid
 	  * leaking of the API while still allowing inlining of calling methods (because it translates to `public`
 	  * in the bytecode).
 	  */
 	private[sugar] def overflow(left :Any, op :String, right :Any) :Nothing =
-		throw new ArithmeticException("Long overflow: " + left + op + right)
+		throw SugaredArithmeticException("Long overflow: " + left + op + right)
 
 	/** Throws an `ArithmeticException` to indicate that a division by zero was requested.
 	  * Extracted to minimize the footprint of inlined methods. Access is `private[sugar]` to avoid
@@ -27,7 +30,7 @@ package object time {
 	  * in the bytecode).
 	  */
 	private[sugar] def divZero(what :String) :Nothing =
-		throw new ArithmeticException(what + " / 0")
+		throw SugaredArithmeticException(what + " / 0")
 
 	/** Throws an `ArithmeticException` to indicate `Long` arithmetic overflow during method `method`.
 	  * Extracted to minimize inlined footprint of calling methods. Access is `private[sugar]` to avoid
@@ -35,7 +38,7 @@ package object time {
 	  * in the bytecode).
 	  */
 	private[sugar] def overflow(self :Any, method :String) :Nothing =
-		throw new ArithmeticException("Long overflow: (" + self + ")." + method)
+		throw SugaredArithmeticException("Long overflow: (" + self + ")." + method)
 
 
 	@inline private[sugar] def twoDigit(ord :Int) :String =
@@ -62,6 +65,12 @@ package object time {
 
 
 package time {
+
+	import java.time.DateTimeException
+
+	@SerialVersionUID(Ver)
+	private[time] class SugaredDateTimeException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
+		extends DateTimeException(message, cause) with LazyException
 
 	object constants {
 		@inline final val NanosInMicro    = 1000L

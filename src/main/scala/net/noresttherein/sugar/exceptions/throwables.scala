@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.exceptions
 
+import java.io.IOException
 import java.util.ConcurrentModificationException
 
 
@@ -82,6 +83,9 @@ class IncompatibleArgumentTypesException(msg :String, lazyMsg :() => String = nu
 
 
 
+@SerialVersionUID(Ver)
+class SugaredArithmeticException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
+	extends ArithmeticException(message) with LazyException
 
 @SerialVersionUID(Ver)
 class SugaredClassCastException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
@@ -129,12 +133,27 @@ class SugaredIndexOutOfBoundsException(message :String, protected override var l
 }
 
 @SerialVersionUID(Ver)
+class SugaredIOException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
+	extends IOException(
+		if (lazyMsg == null && message == null)
+			if (cause != null) cause.getMessage else null
+		else message
+	) with LazyException
+
+@SerialVersionUID(Ver)
 class SugaredNoSuchElementException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends NoSuchElementException(message, cause) with LazyException
 
 @SerialVersionUID(Ver)
 class SugaredNullPointerException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends NullPointerException(message) with LazyException
+{
+	initCause(cause)
+}
+
+@SerialVersionUID(Ver)
+class SugaredNumberFormatException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
+	extends NumberFormatException(message) with LazyException
 {
 	initCause(cause)
 }

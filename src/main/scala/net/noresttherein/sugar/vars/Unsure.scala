@@ -4,8 +4,9 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
+import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Ref.FinalRef
@@ -87,7 +88,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	@inline final override def productElement(n :Int) :Any =
 		if (n == 1 && (this ne Missing)) get
-		else throw new IndexOutOfBoundsException(toString + ".productElement(" + n + ")")
+		else outOfBounds_!(toString + ".productElement(" + n + ")")
 
 	/** Forces extraction of the value.
 	  * @return contained value, if this is a [[net.noresttherein.sugar.vars.Sure Sure]].
@@ -138,25 +139,25 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orNoSuch(msg: => String) :T =
-		if (this eq Missing) throw new NoSuchElementException(msg) else get
+		if (this eq Missing) noSuch_!(msg) else get
 
 	/** Gets the value of this instance or throws a [[NoSuchElementException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orNoSuch :T =
-		if (this eq Missing) throw new NoSuchElementException("Missing") else get
+		if (this eq Missing) noSuch_!("Missing") else get
 
 	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orIllegal(msg: => String) :T =
-		if (this eq Missing) throw new IllegalArgumentException(msg) else get
+		if (this eq Missing) illegal_!(msg) else get
 
 	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
 	  */
 	@inline final def orIllegal :T =
-		if (this eq Missing) throw new IllegalArgumentException("Missing") else get
+		if (this eq Missing) illegal_!("Missing") else get
 
 	/** Asserts that this instance is not empty, throwing an `AssertionError` otherwise, and returns its contents. */
 	@inline final def orError(msg: => String) :T = {
@@ -646,7 +647,7 @@ object Sure {
 /** An empty (''missing'') [[net.noresttherein.sugar.vars.Unsure Unsure]] instance, a counterpart of [[scala.None]]. */
 @SerialVersionUID(Ver)
 case object Missing extends Unsure[Nothing] {
-	override def get :Nothing = throw new NoSuchElementException("Missing.get")
+	override def get :Nothing = noSuch_!("Missing.get")
 	override def maybe :Maybe[Nothing] = No
 	override def option :Option[Nothing] = None
 }

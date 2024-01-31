@@ -2,6 +2,7 @@ package net.noresttherein.sugar.repeat
 
 import scala.annotation.tailrec
 
+import net.noresttherein.sugar.illegalState_!
 import net.noresttherein.sugar.repeat.extensions.{repeatMethod, timesMethods}
 import net.noresttherein.sugar.typist.Rank
 
@@ -79,7 +80,7 @@ object extensions extends extensions {
 		  */
 		def repeatWhile(pred :T => Boolean)(f :T => T) :T = {
 			if (!pred(start))
-				throw new IllegalStateException("Predicate " + pred + " not satisfied for " + start + ".")
+				illegalState_!("Predicate " + pred + " not satisfied for " + start + ".")
 			var last = start
 			var next = f(last)
 			while (!pred(next)) {

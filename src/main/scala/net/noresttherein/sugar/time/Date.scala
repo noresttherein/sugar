@@ -3,6 +3,9 @@ package net.noresttherein.sugar.time
 import java.{time => j}
 import java.time.chrono.IsoEra
 
+import net.noresttherein.sugar.exceptions.SugaredArithmeticException
+import net.noresttherein.sugar.illegal_!
+
 
 
 
@@ -114,7 +117,7 @@ class Anniversary private(private val dayAndMonth :Int) extends TimeProjection w
 
 	def copy(month :Month = this.month, day :Int = this.day) :Anniversary =
 		if (day < 1 || day > month.maxLength)
-			throw new IllegalArgumentException(s"month $month does not have $day days")
+			illegal_!(s"month $month does not have $day days")
 		else new Anniversary(month.no << 5 | day)
 
 
@@ -140,7 +143,7 @@ case object Anniversary extends TimeProjector {
 
 	def apply(month :Month, day :Int) :Anniversary =
 		if (day < 1 || day > month.maxLength)
-			throw new IllegalArgumentException("Month " + month.name + " does not have " + day + " days")
+			illegal_!("Month " + month.name + " does not have " + day + " days")
 		else
 	        new Anniversary(month.no << 5 | day)
 
@@ -244,7 +247,7 @@ case object MonthOfYear extends TimeProjector {
 		}
 		m += 1
 		if (y < Int.MinValue | y > Int.MaxValue)
-			throw new ArithmeticException(s"Int overflow: MonthOfYear($year, $month)")
+			throw SugaredArithmeticException(s"Int overflow: MonthOfYear($year, $month)")
 		new MonthOfYear(y << 32 | m)
 	}
 
@@ -289,13 +292,13 @@ class Year private[time] (val no :Int) extends AnyVal with TimeProjection with O
 
 	def +(years :Int) :Year = {
 		if (if (no > 0) years > Int.MaxValue - no else years < Int.MinValue - no)
-			throw new ArithmeticException("Int overflow: " + this + " + " + years)
+			throw SugaredArithmeticException("Int overflow: " + this + " + " + years)
 		new Year(no + years)
 	}
 
 	def -(years :Int) :Year = {
 		if (if (no > 0) years < no - Int.MaxValue else years > no - Int.MinValue)
-			throw new ArithmeticException("Int overflow: " + this + " - "+ years)
+			throw SugaredArithmeticException("Int overflow: " + this + " - "+ years)
 		new Year(no - years)
 	}
 

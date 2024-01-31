@@ -17,6 +17,7 @@ import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.{illegalState_!, illegal_!}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 
@@ -179,7 +180,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit = elems.knownSize match {
 		case -1 =>
 			if (idx < 0 | idx > len)
-				throw new IndexOutOfBoundsException(errorString(this) + ".insertAll(" + idx + ", _)")
+				outOfBounds_!(errorString(this) + ".insertAll(" + idx + ", _)")
 			var suffix       = array
 			var suffixOffset = offset + idx
 			val suffixLength = len - idx
@@ -203,7 +204,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			arraycopy(suffix, suffixOffset, array, offset + len - suffixLength, suffixLength)
 		case  0 =>
 			if (idx < 0 || idx > len)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(this) + ".insertAll(" + idx + ", " + errorString(elems) + ")"
 				)
 		case  n =>
@@ -219,12 +220,12 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	  * and it is safe to call `copyToArray(this.array, offset + idx, space)`.
 	  */
 	private def shiftAside(idx :Int, space :Int) :Unit = {
-		def outOfBounds_! =
-			throw new IndexOutOfBoundsException(
+		def outOfBounds() =
+			outOfBounds_!(
 				"Cannot insert " + space + " elements at " + idx + " to " + errorString(this)
 			)
 		if (idx < 0 | idx > len)
-			outOfBounds_!
+			outOfBounds()
 		val oldArray  = array
 		val length    = oldArray.length
 		val oldOffset = offset
@@ -278,16 +279,16 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	}
 
 	override def remove(idx :Int, count :Int) :Unit = {
-		def illegal_! = //extracted to minimize the size out of the outer method
-			throw new IllegalArgumentException(errorString(this) + ".remove(" + idx + ", " + count + ")")
-		def outOfBounds_! =
-			throw new IndexOutOfBoundsException(errorString(this) + ".remove(" + idx + ", " + count + ")")
+		def illegal() = //extracted to minimize the size out of the outer method
+			illegal_!(errorString(this) + ".remove(" + idx + ", " + count + ")")
+		def outOfBounds() =
+			outOfBounds_!(errorString(this) + ".remove(" + idx + ", " + count + ")")
 		if (count < 0)
-			illegal_!
+			illegal()
 		if (count > 0) {
 			val end = idx + count
 			if (idx < 0 || idx > len - count)
-				outOfBounds_!
+				outOfBounds()
 			if (idx < len - end) {
 				arraycopy(array, offset, array, offset + count, idx)
 				array.clear(offset, offset + count)
@@ -337,7 +338,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	}
 
 	private def illegalCopiedCount(idx :Int, declared :Int, copied :Int) :Nothing =
-		throw new IllegalStateException(
+		illegalState_!(
 			"Copied " + copied + " instead of the declared " + declared + " into " + errorString(this) + " at " + idx + "."
 		)
 

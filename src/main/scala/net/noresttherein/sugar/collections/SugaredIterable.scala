@@ -216,12 +216,12 @@ trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
 	protected def emptySlice :C
 	override def tail :C = {
 		val size = this.size
-		if (size == 0) throw new UnsupportedOperationException(toString + ".tail")
+		if (size == 0) unsupported_!(toString + ".tail")
 		else clippedSlice(1, size)
 	}
 	override def init :C = {
 		val size = this.size
-		if (size == 0) throw new UnsupportedOperationException(toString + ".init")
+		if (size == 0) unsupported_!(toString + ".init")
 		else clippedSlice(0, size - 1)
 	}
 	override def take(n :Int) :C = slice(0, n)

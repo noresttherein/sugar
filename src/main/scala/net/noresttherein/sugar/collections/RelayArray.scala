@@ -14,6 +14,7 @@ import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloa
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IRefArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.RelayArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
+import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
@@ -326,7 +327,7 @@ private class RelayArray1[@specialized(ElemTypes) +E] private[collections](overr
 		if (start >= xs.length | len <= 0 | from > 0)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start)
+			outOfBounds_!(start)
 		else if (start >= xs.length)
 			0
 		else try {
@@ -364,7 +365,7 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
 	override def apply(i :Int) :E = i match {
 		case 0 => head
 		case 1 => last
-		case _ => throw new IndexOutOfBoundsException("RelayArray|2|(" + i + ")")
+		case _ => outOfBounds_!("RelayArray|2|(" + i + ")")
 	}
 
 	override def tail :RelayArray[E] = new RelayArray1(last)
@@ -435,7 +436,7 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
 		case 0 => new RelayArray2(elem, last)
 		case 1 if (elementType.isPrimitive || elementType.isBox) && elem == last => this
 		case 1 => new RelayArray2(head, elem)
-		case _ => throw new IndexOutOfBoundsException(toString + ".updated(" + index + ", " + elem + ")")
+		case _ => outOfBounds_!(toString + ".updated(" + index + ", " + elem + ")")
 	}
 
 	private[this] def newInstance(array :Array[E], offset :Int, len :Int) =
@@ -570,7 +571,7 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
 		if (len <= 0 | from >= 2 || start >= xs.length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start)
+			outOfBounds_!(start)
 		else {
 			val from0  = math.min(math.max(from, 0), 2)
 			val copied = math.min(2 - from0, math.min(xs.length - start, len))
@@ -600,7 +601,7 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
 		if (len <= 0 | from >= 2)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start)
+			outOfBounds_!(start)
 		else {
 			val length = xs.length
 			val start0 = start % length
@@ -682,7 +683,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 	override def updated[B >: E](index :Int, elem :B) :RelayArray[B] = {
 		val len = length
 		if (index < 0 | index >= len)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + len)
+			outOfBounds_!(index.toString + " out of " + len)
 		val array = unsafeArray.asInstanceOf[Array[B]]
 		val offset = startIndex
 		val elemType = elementType
@@ -752,7 +753,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		if (len <= 0 || start >= xs.length || from >= length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start)
+			outOfBounds_!(start)
 		else {
 			val from0 = math.max(from, 0)
 			val copied = math.min(length - from0, math.min(len, xs.length - start))
@@ -764,7 +765,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		if (len <= 0 || from >= length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start)
+			outOfBounds_!(start)
 		else {
 			val from0  = math.max(from, 0)
 			val start0 = start % xs.length
@@ -849,7 +850,7 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 
 	override def apply(i :Int) :E =
 		if (i < 0 | i >= len)
-			throw new IndexOutOfBoundsException("RelayArray|" + len + "|(" + i + ")")
+			outOfBounds_!("RelayArray|" + len + "|(" + i + ")")
 		else
 			arr(offset + i)
 
@@ -1127,7 +1128,7 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 
 	override def apply(i :Int) :E =
 		if (i < 0 | i >= len)
-			throw new IndexOutOfBoundsException("RelayArray|" + len + "|(" + i + ")")
+			outOfBounds_!("RelayArray|" + len + "|(" + i + ")")
 		else
 			arr(offset + i)
 

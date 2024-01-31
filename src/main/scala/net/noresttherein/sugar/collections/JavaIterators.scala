@@ -8,6 +8,7 @@ import scala.collection.View
 
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
 import net.noresttherein.sugar.extensions.{BooleanExtension, castTypeParamMethods}
+import net.noresttherein.sugar.noSuch_!
 
 
 
@@ -255,7 +256,7 @@ object JavaIterator {
 	}
 	private[this] val emptyPrototype = new JavaIterator[Nothing] {
 		override def hasNext = false
-		override def next() = throw new NoSuchElementException("Empty Iterator")
+		override def next() = noSuch_!("Empty Iterator")
 		override def toString = "JavaIterator()"
 	}
 

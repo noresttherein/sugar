@@ -4,6 +4,8 @@ import java.math.{BigInteger, MathContext}
 
 import scala.annotation.tailrec
 
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
 import net.noresttherein.sugar.numeric.IntRatio.{naturalGCD, newIntRatio}
 
@@ -53,7 +55,7 @@ final class IntRatio private(n :Int, d :Int) extends Number {
 	  */
 	@inline def reciprocal :IntRatio =
 		if (n == 0)
-			throw new ArithmeticException("Division by zero: (0/1).reciprocal")
+			throw SugaredArithmeticException("Division by zero: (0/1).reciprocal")
 		else if (n > 0)
 			new IntRatio(d, n)
 		else
@@ -80,7 +82,7 @@ final class IntRatio private(n :Int, d :Int) extends Number {
 		val resNum = bigNum / gcd; val resDen = bigDen / gcd
 		val intNum = resNum.toInt; val intDen = resDen.toInt
 		if (-resNum != -intNum || -resDen != -intDen)
-			throw new ArithmeticException(
+			throw SugaredArithmeticException(
 				s"IntRatio overflow: $this + $num/$den = $resNum/$resDen cannot be represented as an Int fraction."
 			)
 		newIntRatio(intNum, intDen)
@@ -102,7 +104,7 @@ final class IntRatio private(n :Int, d :Int) extends Number {
 		val reducedNum = num / gcd; val resNum = reducedNum.toInt
 		val reducedDen = den / gcd; val resDen = reducedDen.toInt
 		if (-reducedNum != -resNum || -reducedDen != -resDen) //checks both for overflow and Int.MinValue
-			throw new ArithmeticException(s"IntRatio multiplication overflow: $reducedNum/$reducedDen.")
+			throw SugaredArithmeticException(s"IntRatio multiplication overflow: $reducedNum/$reducedDen.")
 		new IntRatio(resNum, resDen)
 	}
 
@@ -229,7 +231,7 @@ object IntRatio {//extends IntRatioImplicits {
 	private[numeric] def newIntRatio(numerator :Int, denominator :Int) :IntRatio = denominator match {
 		case 1 => IntRatio(numerator)
 		case 100 => percent(numerator)
-		case 0 => throw new ArithmeticException("IntRatio " + numerator + "/0")
+		case 0 => throw SugaredArithmeticException("IntRatio " + numerator + "/0")
 		case _ if numerator == 1 => unit(denominator)
 		case _ => new IntRatio(numerator, denominator)
 	}
@@ -254,11 +256,11 @@ object IntRatio {//extends IntRatioImplicits {
 			if (denominator >= -CachedUnits)
 				Units(CachedUnits + denominator)
 			else if (denominator == Int.MinValue)
-				throw new IllegalArgumentException("Can't represent 1/Int.MinValue as an IntRatio.")
+				illegal_!("Can't represent 1/Int.MinValue as an IntRatio.")
 			else
 				new IntRatio(-1, -denominator)
 		else
-			throw new ArithmeticException("Ratio 1/0")
+			throw SugaredArithmeticException("Ratio 1/0")
 
 	/** A reduced fraction `n / 100`.*/
 	def percent(n :Int) :IntRatio =
@@ -273,7 +275,7 @@ object IntRatio {//extends IntRatioImplicits {
 		if (-CachedIntegers <= integer & integer <= CachedIntegers)
 			Integers(CachedIntegers + integer)
 		else if (integer == Int.MinValue)
-			throw new IllegalArgumentException("Can't represent Int.MinValue as an IntRatio.")
+			illegal_!("Can't represent Int.MinValue as an IntRatio.")
 		else
 	        new IntRatio(integer, 1)
 
@@ -296,7 +298,7 @@ object IntRatio {//extends IntRatioImplicits {
 				else if (numerator == Int.MinValue) {
 					val d = naturalGCD(-numerator.toLong, denominator.toLong)
 					if (d == 1)
-						throw new ArithmeticException(
+						throw SugaredArithmeticException(
 							s"Can't represent $numerator/$denominator as an IntRatio: no representation of -Int.MinValue."
 						)
 					d.toInt
@@ -307,7 +309,7 @@ object IntRatio {//extends IntRatioImplicits {
 			if (denominator == Int.MinValue || numerator == Int.MinValue) {
 				val divisor = naturalGCD(if (numerator >= 0) numerator.toLong else -numerator.toLong, -denominator.toLong)
 				if (divisor == 1)
-					throw new ArithmeticException(
+					throw SugaredArithmeticException(
 						s"Can't represent $numerator/$denominator as an IntRatio: no representation of -Int.MinValue."
 					)
 				newIntRatio((-(numerator / divisor)).toInt, (-(denominator / divisor)).toInt)
@@ -316,7 +318,7 @@ object IntRatio {//extends IntRatioImplicits {
 				newIntRatio(-(numerator / divisor), -(denominator / divisor))
 			}
 		} else
-			throw new ArithmeticException("IntRatio: division by zero.")
+			throw SugaredArithmeticException("IntRatio: division by zero.")
 
 
 	/** Creates a rational number in the canonical form. Returned [[net.noresttherein.sugar.numeric.IntRatio IntRatio]]
@@ -335,39 +337,39 @@ object IntRatio {//extends IntRatioImplicits {
 				val divisor = naturalGCD(numerator, denominator)
 				val n = numerator / divisor; val d = denominator / divisor
 				if (n > Int.MaxValue || d > Int.MaxValue)
-					throw new ArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
+					throw SugaredArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
 				newIntRatio(n.toInt, d.toInt)
 			} else if (numerator == Long.MinValue)
-				throw new IllegalArgumentException(s"IntRatio overflow: $numerator/$denominator.")
+				illegal_!(s"IntRatio overflow: $numerator/$denominator.")
 			else {
 				val divisor = naturalGCD(-numerator, denominator)
 				val n = numerator / divisor
 				val d = denominator / divisor
 				if (n <= Int.MinValue || d > Int.MaxValue)
-					throw new ArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
+					throw SugaredArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
 				newIntRatio(n.toInt, d.toInt)
 			}
 		} else if (denominator < 0) {
 			if (denominator == Long.MinValue)
-				throw new IllegalArgumentException(s"IntRatio overflow: $numerator/$denominator.")
+				illegal_!(s"IntRatio overflow: $numerator/$denominator.")
 			else if (numerator >= 0) {
 				val divisor = naturalGCD(numerator, -denominator)
 				val n = numerator / divisor; val d = denominator / divisor
 				if (n > Int.MaxValue || d <= Int.MinValue)
-					throw new ArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
+					throw SugaredArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
 				newIntRatio(-n.toInt, -d.toInt)
 			} else if (numerator == Long.MinValue)
-		       throw new IllegalArgumentException(s"IntRatio overflow: $numerator/$denominator.")
+		       illegal_!(s"IntRatio overflow: $numerator/$denominator.")
 			else {
 				val divisor = naturalGCD(-numerator, -denominator)
 				val n = numerator / divisor
 				val d = denominator / divisor
 				if (n <= Int.MinValue || d <= Int.MinValue)
-					throw new ArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
+					throw SugaredArithmeticException(s"IntRatio overflow: $n/$d ($numerator/$denominator).")
 				newIntRatio(-n.toInt, -d.toInt)
 			}
 		} else
-			  throw new ArithmeticException("IntRatio: division by zero.")
+			  throw SugaredArithmeticException("IntRatio: division by zero.")
 
 
 	/** Parses the string as a ratio of two `Int` numbers.
@@ -383,7 +385,7 @@ object IntRatio {//extends IntRatioImplicits {
 		if (res.numerator.isValidInt && res.denominator.isValidInt)
 			newIntRatio(res.numerator.toInt, res.denominator.toInt)
 		else
-			throw new NumberFormatException(s"'$string' is not a valid IntRatio: arithmetic overflow.")
+			throw SugaredNumberFormatException(s"'$string' is not a valid IntRatio: arithmetic overflow.")
 	}
 
 

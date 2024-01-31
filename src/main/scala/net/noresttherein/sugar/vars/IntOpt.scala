@@ -5,8 +5,9 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
+import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, NoInt, WithFilter}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
@@ -77,7 +78,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	@inline override def productElement(n :Int) :Any =
 		if (n == 1 && x != NoContent) x.toInt
-		else throw new IndexOutOfBoundsException(toString + ".productElement(" + n + ")")
+		else outOfBounds_!(toString + ".productElement(" + n + ")")
 
 
 	/** The wrapped value. It is the same as [[net.noresttherein.sugar.vars.IntOpt.get get]], but this method
@@ -85,35 +86,35 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	  * [[net.noresttherein.sugar.vars.IntOpt.isEmpty! isEmpty]] member type.
 	  * @return the contained value. */
 	@inline def sure(implicit nonEmpty :this.type <:< AnInt) :Int =
-		if (x == NoContent) throw new NoSuchElementException("NoInt.sure")
+		if (x == NoContent) noSuch_!("NoInt.sure")
 		else x.toInt
 
 	/** Forces extraction of the value.
 	  * @return contained value, if one exists.
 	  * @throws NoSuchElementException if this `IntOpt` is empty. */
 	@inline override def get :Int =
-		if (x == NoContent) throw new NoSuchElementException("NoInt.get")
+		if (x == NoContent) noSuch_!("NoInt.get")
 		else x.toInt
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
 		* @throws NoSuchElementException if this `IntOpt` is empty. */
 	@inline override def value :Int =
-		if (x == NoContent) throw new NoSuchElementException("NoInt.value")
+		if (x == NoContent) noSuch_!("NoInt.value")
 		else x.toInt
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
 		* @throws UnsupportedOperationException if this `IntOpt` is empty. */
 	@inline override def const :Int =
-		if (x == NoContent) throw new UnsupportedOperationException("NoInt.const")
+		if (x == NoContent) unsupported_!("NoInt.const")
 		else x.toInt
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
 		* @throws UnsupportedOperationException if this `IntOpt` is empty. */
 	@inline override def apply() :Int =
-		if (x == NoContent) throw new UnsupportedOperationException("NoInt.const")
+		if (x == NoContent) unsupported_!("NoInt.const")
 		else x.toInt
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -169,22 +170,22 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	/** Gets the element in this `IntOpt` or throws a [[NoSuchElementException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.IntOpt.orThrow orThrow]] */
 	@inline def orNoSuch(msg: => String) :Int =
-		if (x == NoContent) throw new NoSuchElementException(msg) else x.toInt
+		if (x == NoContent) noSuch_!(msg) else x.toInt
 
 	/** Gets the element in this `IntOpt` or throws a [[NoSuchElementException]].
 	  * @see [[net.noresttherein.sugar.vars.IntOpt.orThrow orThrow]] */
 	@inline def orNoSuch :Int =
-		if (x == NoContent) throw new NoSuchElementException else x.toInt
+		if (x == NoContent) noSuch_! else x.toInt
 
 	/** Gets the element in this `IntOpt` or throws an [[IllegalArgumentException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.IntOpt.orThrow orThrow]] */
 	@inline def orIllegal(msg: => String) :Int =
-		if (x == NoContent) throw new IllegalArgumentException(msg) else x.toInt
+		if (x == NoContent) illegal_!(msg) else x.toInt
 
 	/** Gets the element in this `IntOpt` or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.IntOpt.orThrow orThrow]] */
 	@inline def orIllegal :Int =
-		if (x == NoContent) throw new IllegalArgumentException else x.toInt
+		if (x == NoContent) illegal_! else x.toInt
 
 	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 	@inline def orError(msg: => String) :Int = {

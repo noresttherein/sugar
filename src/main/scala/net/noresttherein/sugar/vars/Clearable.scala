@@ -2,7 +2,8 @@ package net.noresttherein.sugar.vars
 
 import java.lang.ref.Cleaner.Cleanable
 
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.unsupported_!
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -96,7 +97,7 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final override def value :T = get
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	@inline final override def const :Nothing = throw new UnsupportedOperationException("Clearable.const")
+	@inline final override def const :Nothing = unsupported_!("Clearable.const")
 
 	@inline final override def apply() :T = get
 

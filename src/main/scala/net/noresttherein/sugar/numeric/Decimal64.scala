@@ -9,13 +9,13 @@ import scala.annotation.tailrec
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
-import net.noresttherein.sugar.exceptions.InternalException
+import net.noresttherein.sugar.exceptions.{InternalException, SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
-import net.noresttherein.sugar.oops
+import net.noresttherein.sugar.{illegal_!, io_!, oops}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Optionally
 
 
@@ -203,7 +203,7 @@ class Decimal64 private (private val bits :Long)
 	@throws[ArithmeticException]("if this is the minimal (negative) representable Decimal64 and overflow occurs.")
 	def abs :Decimal64 = {
 		if ((bits & SignificandMask) == Long.MinValue) //unscaled == MinUnscaled
-			throw new ArithmeticException("Unscaled overflow: abs(" + this + ").")
+			throw SugaredArithmeticException("Unscaled overflow: abs(" + this + ").")
 		new Decimal64((bits & ~bits >> 63 | (-bits & bits >> 63)) & SignificandMask | bits & ScaleMask)
 	}
 
@@ -221,7 +221,7 @@ class Decimal64 private (private val bits :Long)
 	@throws[ArithmeticException]("if this is the minimal (negative) representable Decimal64 and overflow occurs.")
 	def unary_- :Decimal64 = {
 		if ((bits & SignificandMask) == Long.MinValue) //unscaled == MinUnscaled
-			throw new ArithmeticException("Unscaled overflow: " + toString.substring(1) + ".")
+			throw SugaredArithmeticException("Unscaled overflow: " + toString.substring(1) + ".")
 		new Decimal64(-(bits & SignificandMask) | bits & ScaleMask)
 	}
 
@@ -360,7 +360,7 @@ class Decimal64 private (private val bits :Long)
 	@throws[ArithmeticException]("if underflow or overflow occurs.") //consider: accept negative values
 	def round(fractional :Int, rounding :RoundingMode) :Decimal64 = {
 		if (fractional < 0)
-			throw new IllegalArgumentException("Negative fractional digits: " + fractional + ".")
+			illegal_!("Negative fractional digits: " + fractional + ".")
 		val m = unscaled; val s = scale
 		if (s <= fractional)
 			this
@@ -608,7 +608,7 @@ class Decimal64 private (private val bits :Long)
 	                             " precision or mode.getRoundingMode is UNNECESSARY and rounding is necessary.")
 	def div(that :Decimal64, mode :MathContext) :Decimal64 =
 		if (that.bits == 0L)
-			throw new ArithmeticException("Division by zero.")
+			throw SugaredArithmeticException("Division by zero.")
 		else if (bits == 0L | that == One)
 			round(mode)
 		else if (that == MinusOne)
@@ -627,7 +627,7 @@ class Decimal64 private (private val bits :Long)
 				val p = mode.getPrecision match {
 					case 0 => Precision
 					case n if n >= MaxPrecision =>
-						throw new ArithmeticException(
+						throw SugaredArithmeticException(
 							"Cannot represent " + this + " / " + that +
 								(if (unscaled < 0L) " == " + -unscaled else " == -" + unscaled) +
 								"e" + (scale - that.scale) + " as a Decimal64 with precision " + n + "."
@@ -674,7 +674,7 @@ class Decimal64 private (private val bits :Long)
 	                             " precision or mode.getRoundingMode is UNNECESSARY and rounding is necessary.")
 	def quot(that :Decimal64, mode :MathContext) :Decimal64 = //roundingMode from mode is ignored, only precision is taken into account
 		if (that.bits == 0L)
-			throw new ArithmeticException("Division by zero.")
+			throw SugaredArithmeticException("Division by zero.")
 		else if (bits == 0L | that == One)
 			round(mode)
 		else if (that == MinusOne)
@@ -879,7 +879,7 @@ class Decimal64 private (private val bits :Long)
 	def pow(n :Int, mode :MathContext) :Decimal64 = {
 		if (n < 0)
 			if (n == Int.MinValue)
-				throw new IllegalArgumentException(toString + " ** Int.MinValue")
+				illegal_!(toString + " ** Int.MinValue")
 			else mode.getRoundingMode match {
 				case _ if mode.getPrecision > Precision => One.div(pow(-n, mode), mode)
 				case UNNECESSARY => One.div(pow(-n, ExtendedExact), mode)
@@ -914,7 +914,7 @@ class Decimal64 private (private val bits :Long)
 				res.round(mode)
 			} catch {
 				case e :ArithmeticException =>
-					throw new ArithmeticException("Cannot calculate " + this + " ** " + n + ". " + e.getMessage)
+					throw SugaredArithmeticException("Cannot calculate " + this + " ** " + n + ". " + e.getMessage)
 						.initCause(e)
 			}
 	}
@@ -1119,47 +1119,47 @@ class Decimal64 private (private val bits :Long)
 
 	def toByteExact :Byte =
 		if (isValidByte) byteValue
-		else throw new ArithmeticException("Decimal64 " + this + " is not a Byte.")
+		else throw SugaredArithmeticException("Decimal64 " + this + " is not a Byte.")
 
 	def toShortExact :Short =
 		if (isValidShort) shortValue
-		else throw new ArithmeticException("Decimal64 " + this + " is not a Short.")
+		else throw SugaredArithmeticException("Decimal64 " + this + " is not a Short.")
 
 	def toIntExact :Int =
 		if (isValidInt) intValue
-		else throw new ArithmeticException("Decimal64 " + this + " is not an Int.")
+		else throw SugaredArithmeticException("Decimal64 " + this + " is not an Int.")
 
 	def toLongExact :Long =
 		if (isValidLong) longValue
-		else throw new ArithmeticException("Decimal64 " + this + " is not a Long.")
+		else throw SugaredArithmeticException("Decimal64 " + this + " is not a Long.")
 
 	def toFloatExact :Float = {
 		val res = exactFloat
 		if (res != res)
-			throw new ArithmeticException("Decimal64 " + this + " is not a Float.")
+			throw SugaredArithmeticException("Decimal64 " + this + " is not a Float.")
 		res
 	}
 	def toDoubleExact :Double = {
 		val res = exactDouble
 		if (res != res)
-			throw new ArithmeticException("Decimal64 " + this + " is not a Double.")
+			throw SugaredArithmeticException("Decimal64 " + this + " is not a Double.")
 		res
 	}
 
 	def toUIntExact :UInt =
 		if (isValidUInt) toUInt
-		else throw new ArithmeticException("Decimal64 " + this + " is not an UInt.")
+		else throw SugaredArithmeticException("Decimal64 " + this + " is not an UInt.")
 
 	def toULongExact :ULong =
 		if (isValidLong) toULong
-		else throw new ArithmeticException("Decimal64" + this + " is not an ULong")
+		else throw SugaredArithmeticException("Decimal64" + this + " is not an ULong")
 
 	
 	def toBigIntExact :BigInt = BigInt(toBigIntegerExact)
 
 	def toBigIntegerExact :BigInteger =
 		if (scale <= 0) BigInteger.valueOf(unscaled).pow(-scale)
-		else throw new ArithmeticException("Decimal64 " + this + " is not an integer.")
+		else throw SugaredArithmeticException("Decimal64 " + this + " is not an integer.")
 
 	def toIntRatioExact :IntRatio = IntRatio(numerator.toIntExact, denominator.toIntExact)
 	def toRatioExact    :Ratio    = Ratio(numerator.toLongExact, denominator.toLongExact)
@@ -1213,7 +1213,7 @@ class Decimal64 private (private val bits :Long)
 
 	def format(scale :Int, context :MathContext = Extended) :String = {
 		if (scale < 0)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Cannot format " + this + " to a negative number of fractional digits: " + scale + "."
 			)
 		val rounded = round(context)
@@ -1622,7 +1622,7 @@ object Decimal64 {
 				if (normalized.compareTo(BigMinLong) >= 0 && normalized.compareTo(BigMaxLong) <= 0)
 					maxPrecision(normalized.longValue, rounding)
 				else if (rounding == UNNECESSARY)
-					throw new ArithmeticException(
+					throw SugaredArithmeticException(
 						"Rounding of " + value + " is necessary for a precision of " + MaxPrecision + "."
 					)
 				else {
@@ -1646,7 +1646,7 @@ object Decimal64 {
 				MaxPrecision
 			else if (significand == Long.MinValue) //for overflows in abs
 				if (rounding == UNNECESSARY)
-					throw new ArithmeticException(
+					throw SugaredArithmeticException(
 						"Rounding of " + significand + " is necessary for a precision of " + MaxPrecision + "."
 					)
 				else
@@ -1671,7 +1671,7 @@ object Decimal64 {
 					if (p <= MaxPrecision)
 						whenInRange(value, p)
 					else if (rounding == UNNECESSARY)
-						throw new ArithmeticException(
+						throw SugaredArithmeticException(
 							"Rounding of " + significand + " is necessary for a precision of " + MaxPrecision + "."
 						)
 					else try {
@@ -1862,7 +1862,7 @@ object Decimal64 {
 	def apply(significand :Long, scale :Int) :Decimal64 =
 		try from(significand, scale) catch {
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					"Decimal64(" + significand + "L, " + scale + "): " + e.getMessage + "."
 				)
 		}
@@ -1938,7 +1938,7 @@ object Decimal64 {
 	def apply(decimal :Float, mode :MathContext) :Decimal64 =
 		try from(decimal, mode) catch {
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					"Cannot accurately represent Double " + decimal + " as a Decimal64 with a precision of " +
 						mode.getPrecision + ", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
 				)
@@ -1979,7 +1979,7 @@ object Decimal64 {
 	def apply(decimal :Double, mode :MathContext) :Decimal64 =
 		try from(decimal, mode) catch {
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					"Cannot accurately represent Double " + decimal + " as a Decimal64 with a precision of " +
 						mode.getPrecision + ", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
 				)
@@ -2039,7 +2039,7 @@ object Decimal64 {
 	def apply(big :BigInteger, mode :MathContext) :Decimal64 =
 		try from(big, mode) catch {
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					"Cannot represent BigInteger " + big + " as a Decimal64 with a precision of " +
 						mode.getPrecision + ", rounding " + mode.getRoundingMode +": " + e.getMessage + "."
 				)
@@ -2102,7 +2102,7 @@ object Decimal64 {
 	def apply(big :JavaBigDecimal, mode :MathContext) :Decimal64 =
 		try from(big, mode) catch {
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					"Cannot accurately represent java.math.BigDecimal " + big + " as a Decimal64 with a precision of " +
 						mode.getPrecision + ", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
 				)
@@ -2142,12 +2142,12 @@ object Decimal64 {
 	def apply(string :String, mode :MathContext) :Decimal64 =
 		try from(string, mode) catch {
 			case DecimalFormatException =>
-				throw new NumberFormatException(
+				throw SugaredNumberFormatException(
 					"Cannot convert '" + string + "' to a Decimal64 with a precision of " + mode.getPrecision +
 						", rounding " + mode.getRoundingMode + ": invalid decimal format."
 				)
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					"Cannot convert '" + string + "' to a Decimal64 with a precision of " + mode.getPrecision +
 						", rounding " + mode.getRoundingMode + ": " + e.getMessage + "."
 				)
@@ -2161,7 +2161,7 @@ object Decimal64 {
 	private def apply(significand :Long, scale :Int, rounding :RoundingMode, precision :Int) :Decimal64 =
 		try from(significand, scale, rounding, precision) catch {
 			case e :InternalException =>
-				throw new ArithmeticException(
+				throw SugaredArithmeticException(
 					s"Cannot round $rounding ${significand}e${-scale} to $precision precision: " +
 						e.getMessage + "."
 				)
@@ -2454,7 +2454,7 @@ object Decimal64 {
 		else if (scale > MaxScale + MaxPrecision | scale < MinScale - MaxPrecision) //for overflow/underflow
 			throw ScaleOutOfRangeException
 		else if (precision < 0)
-			throw new IllegalArgumentException(
+			illegal_!(
 				s"Cannot round $rounding ${significand}e${-scale} to a negative precision: $precision."
 			)
 		else {
@@ -2672,7 +2672,7 @@ object Decimal64 {
 		val exponent = lo & 0xff
 		val res = Decimal64(significand, exponent)
 		if (res.bits != bits)
-			throw new IOException("Corrupt Decimal64: " + bits.toHexString + ".")
+			io_!("Corrupt Decimal64: " + bits.toHexString + ".")
 		res
 	}
 
@@ -2854,23 +2854,23 @@ object Decimal64 {
 
 
 	private def scaleOutOfRangeException(significand :Long, scale :Long) :Nothing =
-		throw new ArithmeticException(
+		throw SugaredArithmeticException(
 			s"Unable to precisely represent ${significand}e${-scale} as a Decimal64: scale out of range."
 		)
 //	private def throwArithmeticException(x :Decimal64, method :String, e :Exception) :Nothing =
 //		e match {
 //			case _ :InternalException =>
-//				throw new ArithmeticException(x.toString + "." + method + ": " + e.getMessage + ".")
+//				throw SugaredArithmeticException(x.toString + "." + method + ": " + e.getMessage + ".")
 //			case _ =>
-//				throw new ArithmeticException("Error when executing " + x + "." + method +". " + e.getMessage)
+//				throw SugaredArithmeticException("Error when executing " + x + "." + method +". " + e.getMessage)
 //					.initCause(e)
 //		}
 	private def throwArithmeticException(x :Decimal64, op :String, y :Decimal64, mc :MathContext, e :Exception) :Nothing =
 		e match {
 			case _ :InternalException =>
-				throw new ArithmeticException("Cannot calculate " + x + op + y + " (" + mc + "): " + e.getMessage + ".")
+				throw SugaredArithmeticException("Cannot calculate " + x + op + y + " (" + mc + "): " + e.getMessage + ".")
 			case _ =>
-				throw new ArithmeticException("Cannot calculate " + x + op + y + " (" + mc + "). " + e.getMessage)
+				throw SugaredArithmeticException("Cannot calculate " + x + op + y + " (" + mc + "). " + e.getMessage)
 					.initCause(e)
 		}
 

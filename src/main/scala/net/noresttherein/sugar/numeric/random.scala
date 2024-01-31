@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.numeric
 
-
+import net.noresttherein.sugar.illegal_!
 
 
 /** A facade for a random number generator given as the by-name argument, returning values of other types than `Double`
@@ -17,7 +17,7 @@ class random(generator: => Double) {
 	/** A random `Int` from range `[start, end)`. */
 	def Int(start :Int, until :Int) :Int =
 		if (until == scala.Int.MinValue)
-			throw new IllegalArgumentException("Cannot return a random Int from range[" + start + ", " + until + "].")
+			illegal_!("Cannot return a random Int from range[" + start + ", " + until + "].")
 		else
 			IntInclusive(start, until - 1)
 
@@ -33,14 +33,14 @@ class random(generator: => Double) {
 	/** A random `Long` from range `[start, until)`. */
 	def Long(start :Long, until :Long) :Long =
 		if (until == scala.Long.MinValue)
-			throw new IllegalArgumentException("Cannot return a random number from range[" + start + ", " + until + "].")
+			illegal_!("Cannot return a random number from range[" + start + ", " + until + "].")
 		else
 			LongInclusive(start, until - 1)
 
 	/** A random `Long` from range `[start, to]` */
 	def LongInclusive(start :Long, to :Long) :Long =
 		if (to < start)
-			throw new IllegalArgumentException("Cannot return a random number from range[" + start + ", " + to + "].")
+			illegal_!("Cannot return a random number from range[" + start + ", " + to + "].")
 		else
 			(generator * (to.toDouble - start.toDouble) + start).round
 }

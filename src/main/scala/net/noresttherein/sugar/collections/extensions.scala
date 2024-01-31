@@ -27,7 +27,7 @@ import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.{outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.{illegal_!, noSuch_!}
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -872,7 +872,7 @@ object extensions extends extensions {
 		@throws[IllegalArgumentException]("if !pred(start).")
 		def foldLeftWhile[A](start :A)(pred :A => Boolean)(op :(A, E) => A) :A =
 			foldLeftWhileAndReturn(start)(pred)(op)(
-				start => throw new IllegalArgumentException(
+				start => illegal_!(
 					"foldLeftWhile: starting value " + start + " does not satisfy the predicate."
 				),
 				identity)
@@ -1000,7 +1000,7 @@ object extensions extends extensions {
 		@throws[IllegalArgumentException]("if !pred(start).")
 		def foldRightWhile[A](start :A)(pred :A => Boolean)(op :(E, A) => A) :A =
 			foldRightWhileAndReturn(start)(pred)(op)(
-				start => throw new IllegalArgumentException(
+				start => illegal_!(
 					"foldLeftWhile: starting value " + start + " does not satisfy the predicate."
 				),
 				identity
@@ -1423,11 +1423,7 @@ object extensions extends extensions {
 		  */
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def reduceLeftUntil[A >: E](pred :A => Boolean)(op :(A, E) => A) :A =
-			reduceLeftUntilAndReturn(pred)(op)(
-				throw new UnsupportedOperationException("empty.reduceLeftUntil"),
-				identity,
-				identity
-			)
+			reduceLeftUntilAndReturn(pred)(op)(unsupported_!("empty.reduceLeftUntil"), identity, identity)
 
 		/** Reduces this collection, going from left to right, for as long as the given predicate is not satisfied.
 		  * The method returns in `Some` the first value which satisfies the predicate; if `pred(this.head)`,
@@ -1501,11 +1497,7 @@ object extensions extends extensions {
 		  */
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def reduceRightUntil[A >: E](pred :A => Boolean)(op :(E, A) => A) :A =
-			reduceRightUntilAndReturn(pred)(op)(
-				throw new UnsupportedOperationException("empty.reduceRightUntil"),
-				identity,
-				identity
-			)
+			reduceRightUntilAndReturn(pred)(op)(unsupported_!("empty.reduceRightUntil"), identity, identity)
 
 		/** Reduces this collection, going from right to left, for as long as the given predicate is not satisfied.
 		  * The method returns in `Some` the first value which satisfies the predicate; if `pred(this.last)`,

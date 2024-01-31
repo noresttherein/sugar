@@ -5,6 +5,7 @@ import java.time.chrono.{Chronology, IsoChronology}
 
 import scala.concurrent.duration.Deadline
 
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
 
 
@@ -79,7 +80,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 		case finite :TimeSpan => this + finite
 		case Eternity => EndOfTime
 		case MinusEternity => DawnOfTime
-		case _ => throw new IllegalArgumentException(s"($this) + ($time): time extent is neither TimeSpan nor InfiniteTimeInterval")
+		case _ => illegal_!(s"($this) + ($time): time extent is neither TimeSpan nor InfiniteTimeInterval")
 	}
 	@inline override def +(time :TimeSpan) :UTCDateTime =
 		new UTCDateTime(toJava plusSeconds time.toSeconds plusNanos time.nanos)
@@ -108,7 +109,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 		case finite :TimeSpan => this - finite
 		case Eternity => DawnOfTime
 		case MinusEternity => EndOfTime
-		case _ => throw new IllegalArgumentException(s"($this) - ($time): time extent is neither TimeSpan nor InfiniteTimeInterval")
+		case _ => illegal_!(s"($this) - ($time): time extent is neither TimeSpan nor InfiniteTimeInterval")
 	}
 	@inline override def -(time :TimeSpan) :UTCDateTime =
 		new UTCDateTime(toJava minusSeconds time.toSeconds minusNanos time.nanos)
@@ -228,14 +229,14 @@ case object UTCDateTime {
 	def apply(time :j.LocalDateTime) :UTCDateTime = {
 		val chrono = time.getChronology
 		if (chrono != null && chrono != IsoChronology.INSTANCE)
-			throw new IllegalArgumentException("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
+			illegal_!("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
 		new UTCDateTime(time)
 	}
 
 	def apply(date :Date, time :TimeOfDay) :UTCDateTime = {
 		val chrono = date.getChronology
 		if (chrono != null && chrono != IsoChronology.INSTANCE)
-			throw new IllegalArgumentException("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
+			illegal_!("UTCDateTime accepts only dates in IsoChronology; got " + chrono)
 		new UTCDateTime(j.LocalDateTime.of(date.toJava, time.toJava))
 	}
 

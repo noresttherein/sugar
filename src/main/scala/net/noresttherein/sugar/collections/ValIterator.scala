@@ -8,10 +8,10 @@ import scala.collection.{BufferedIterator, Stepper, StepperShape}
 
 import net.noresttherein.sugar.collections.ValIterator.{BooleanJavaIteratorAdapter, ByteJavaIteratorAdapter, CharJavaIteratorAdapter, DoubleJavaIteratorAdapter, FloatJavaIteratorAdapter, IntJavaIteratorAdapter, JavaIteratorAdapter, LongJavaIteratorAdapter, ShortJavaIteratorAdapter}
 import net.noresttherein.sugar.extensions.castingMethods
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.Fun2Arg
-import net.noresttherein.sugar.vars.{Missing, Maybe, Sure, Unsure}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No, one_?}
+import net.noresttherein.sugar.vars.{Maybe, Missing, Sure, Unsure}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes, one_?}
 
 
 
@@ -24,7 +24,7 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] {
 
 	override def reduceLeft[B >: E](op :(B, E) => B) :B =
 		if (!hasNext)
-			throw new UnsupportedOperationException("Iterator.empty.reduceLeft")
+			unsupported_!("Iterator.empty.reduceLeft")
 		else
 			foldLeft[B](next())(op)
 
@@ -49,7 +49,7 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] {
 					hd = ValIterator.this.next()
 				res
 			} else
-				throw new NoSuchElementException("Empty ValIterator")
+				noSuch_!("Empty ValIterator")
 
 		override def jterator[J](implicit shape :JteratorShape[E, J]) :J = ValIterator.this.jterator
 

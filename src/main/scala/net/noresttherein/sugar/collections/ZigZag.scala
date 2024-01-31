@@ -13,6 +13,7 @@ import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.collections.IndexedIterable.applyPreferred
 import net.noresttherein.sugar.collections.ZigZag.{Appended, Concat, Prepended}
 import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.outOfBounds_!
 
 //implicits
 import net.noresttherein.sugar.extensions.StepperExtension
@@ -227,7 +228,7 @@ sealed abstract class ZigZag[+E]
 	//narrow the return type, overridden by subclasses
 	override def updated[U >: E](index :Int, elem :U) :ZigZag[U] = //ZigZag.from(super.updated(index, elem))
 		if (index < 0 || index >= length)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+			outOfBounds_!(index.toString + " out of " + length)
 		else if (index == 0)
 			new Prepended(elem, drop(1))
 		else if (index == length - 1)
@@ -398,7 +399,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 	@SerialVersionUID(Ver)
 	private class EmptyZigZag extends ZigZag[Nothing] { //with EmptyIterableOps.Generic[Seq] {
 		override def length :Int = 0
-		override def apply(i :Int) = throw new IndexOutOfBoundsException(i.toString + " out of 0")
+		override def apply(i :Int) = outOfBounds_!(i.toString + " out of 0")
 		override def clippedSlice(from :Int, until :Int) :ZigZag[Nothing] = this
 		override def segmentLength(p :Nothing => Boolean, from :Int) :Int = 0
 		override def view :SeqView[Nothing] = EmptySeqOps.view
@@ -451,7 +452,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 //		override def depth = 0
 		override def apply(i :Int) :A =
 			if (i < 0 || i >= length)
-				throw new IndexOutOfBoundsException(i.toString + " out of " + length)
+				outOfBounds_!(i.toString + " out of " + length)
 			else
 				elems(offset + i)
 
@@ -613,7 +614,7 @@ case object ZigZag extends SeqFactory[ZigZag] {
 //			if (index == 0)
 //				new Prepended(elem, tail)
 //			else if (index < 0)
-//				throw new IndexOutOfBoundsException("ZigZag<" + length + ">.updated(" + index + ", " + elem + ")")
+//				outOfBounds_!("ZigZag<" + length + ">.updated(" + index + ", " + elem + ")")
 //			else
 //				new Prepended(head, tail.updated(index - 1, elem))
 //

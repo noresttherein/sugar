@@ -4,7 +4,8 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.vars.Maybe.{Yes, No, NoContent, WithFilter, unzip2Lack, unzip3Lack}
+import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.vars.Maybe.{No, NoContent, WithFilter, Yes, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
@@ -111,7 +112,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 
 	@inline override def productElement(n :Int) :Any =
 		if (n == 1 && (ref ne NoContent)) ref
-		else throw new IndexOutOfBoundsException(toString + ".productElement(" + n + ")")
+		else outOfBounds_!(toString + ".productElement(" + n + ")")
 
 
 	/** The wrapped value. It is the same as [[net.noresttherein.sugar.vars.Maybe.get get]], but this method
@@ -119,35 +120,35 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	  * [[net.noresttherein.sugar.vars.Maybe.isEmpty! isEmpty]] member type.
 	  * @return the contained value. */
 	@inline def sure(implicit nonEmpty :this.type <:< Yes[_]) :A =
-		if (ref eq NoContent) throw new NoSuchElementException("No.sure")
+		if (ref eq NoContent) noSuch_!("No.sure")
 		else ref.asInstanceOf[A]
 
 	/** Forces extraction of the value.
 	  * @return contained value, if one exists.
 	  * @throws NoSuchElementException if this `Maybe` is empty. */
 	@inline override def get :A =
-		if (ref eq NoContent) throw new NoSuchElementException("No.get")
+		if (ref eq NoContent) noSuch_!("No.get")
 		else ref.asInstanceOf[A]
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
 		* @throws NoSuchElementException if this `Maybe` is empty. */
 	@inline override def value :A =
-		if (ref eq NoContent) throw new NoSuchElementException("No.value")
+		if (ref eq NoContent) noSuch_!("No.value")
 		else ref.asInstanceOf[A]
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
 		* @throws UnsupportedOperationException if this `Maybe` is empty. */
 	@inline override def const :A =
-		if (ref eq NoContent) throw new UnsupportedOperationException("No.const")
+		if (ref eq NoContent) unsupported_!("No.const")
 		else ref.asInstanceOf[A]
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
 		* @throws UnsupportedOperationException if this `Maybe` is empty. */
 	@inline override def apply() :A =
-		if (ref eq NoContent) throw new UnsupportedOperationException("No.const")
+		if (ref eq NoContent) unsupported_!("No.const")
 		else ref.asInstanceOf[A]
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -195,22 +196,22 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	/** Gets the element in this `Maybe` or throws a [[NoSuchElementException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Maybe.orThrow orThrow]] */
 	@inline def orNoSuch(msg: => String) :A =
-		if (ref eq NoContent) throw new NoSuchElementException(msg) else ref.asInstanceOf[A]
+		if (ref eq NoContent) noSuch_!(msg) else ref.asInstanceOf[A]
 
 	/** Gets the element in this `Maybe` or throws a [[NoSuchElementException]].
 	  * @see [[net.noresttherein.sugar.vars.Maybe.orThrow orThrow]] */
 	@inline def orNoSuch :A =
-		if (ref eq NoContent) throw new NoSuchElementException else ref.asInstanceOf[A]
+		if (ref eq NoContent) noSuch_! else ref.asInstanceOf[A]
 
 	/** Gets the element in this `Maybe` or throws an [[IllegalArgumentException]] with the given message.
 	  * @see [[net.noresttherein.sugar.vars.Maybe.orThrow orThrow]] */
 	@inline def orIllegal(msg: => String) :A =
-		if (ref eq NoContent) throw new IllegalArgumentException(msg) else ref.asInstanceOf[A]
+		if (ref eq NoContent) illegal_!(msg) else ref.asInstanceOf[A]
 
 	/** Gets the element in this `Maybe` or throws an [[IllegalArgumentException]].
 	  * @see [[net.noresttherein.sugar.vars.Maybe.orThrow orThrow]] */
 	@inline def orIllegal :A =
-		if (ref eq NoContent) throw new IllegalArgumentException else ref.asInstanceOf[A]
+		if (ref eq NoContent) illegal_! else ref.asInstanceOf[A]
 
 	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 	@inline def orError(msg: => String) :A = {

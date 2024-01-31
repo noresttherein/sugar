@@ -94,13 +94,13 @@ private[noresttherein] object util {
 
 	@inline def validateArraySize(length :Int) =
 		if (length < 0 | length > Constants.MaxArraySize)
-			throw new IllegalArgumentException("Cannot allocate an array of size" + length + ".")
+			illegal_!("Cannot allocate an array of size" + length + ".")
 
 	def elementsToCopy(xs :Array[_], start :Int, max :Int, length :Int) :Int =
 		if (max < 0 | length == 0 || start > xs.length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(s"|$length|.copyToArray(${errorString(xs)}, $start, $max)")
+			outOfBounds_!(s"|$length|.copyToArray(${errorString(xs)}, $start, $max)")
 		else
 			math.min(math.min(max, length), xs.length - start)
 
@@ -108,7 +108,7 @@ private[noresttherein] object util {
 		if (max < 0 | length == 0 | from >= length || start > xs.length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(s"|$length|.copyToArray(${errorString(xs)}, $start, $max)")
+			outOfBounds_!(s"|$length|.copyToArray(${errorString(xs)}, $start, $max)")
 		else
 			math.min(math.min(max, length - math.max(0, from)), xs.length - start)
 

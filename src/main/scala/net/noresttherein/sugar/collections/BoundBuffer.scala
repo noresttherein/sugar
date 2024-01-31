@@ -603,13 +603,13 @@ private sealed abstract class SliceBufferFactory[S[_], C[_]] {
 	def empty[E](seq :S[E], from :Int, until :Int, offset :Int) :C[E] = {
 		validateRange(seq, from, until)
 		if (offset < from | offset > until)
-			throw new IndexOutOfBoundsException(offset.toString + " out of [" + from + ", " + until + "] range")
+			outOfBounds_!(offset.toString + " out of [" + from + ", " + until + "] range")
 		over(seq, offset, offset, from, math.max(until, from))
 	}
 	def empty[E](seq :S[E], offset :Int) :C[E] = {
 		val len = length(seq)
 		if (offset < 0 | offset > len)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				offset.toString + " is not a valid index in " + seq + " (of length " + len + ")"
 			)
 		over(seq, offset, offset, 0, len)
@@ -628,7 +628,7 @@ private sealed abstract class SliceBufferFactory[S[_], C[_]] {
 	private def validateRange(seq :S[_], from :Int, until :Int) :Unit = {
 		val len = length(seq)
 		if (from < 0 | from > len | until < 0 | until > len)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				"[" + from + ", " + until + ") is not a valid index range in " + seq
 			)
 	}
@@ -760,9 +760,9 @@ private class AppendingBuffer[E] private (underlying :Buffer[E], offset :Int) ex
 
 	private def validateIdx(idx :Int) :Unit = {
 		if (idx < 0)
-			throw new IndexOutOfBoundsException(idx.toString + " is less than zero")
+			outOfBounds_!(idx.toString + " is less than zero")
 		if (idx > Int.MaxValue - offset)
-			throw new IndexOutOfBoundsException(idx)
+			outOfBounds_!(idx)
 	}
 	@inline private def validateOffset() :Unit = {
 		val len = underlying.length

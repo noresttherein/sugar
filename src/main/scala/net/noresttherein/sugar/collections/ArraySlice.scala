@@ -14,6 +14,7 @@ import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, Ar
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.classes
 
 
@@ -63,12 +64,12 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
 
 	override def head :E =
-		if (size == 0) throw new NoSuchElementException(toString + ".head")
+		if (size == 0) noSuch_!(toString + ".head")
 		else array(startIndex)
 
 	override def last :E = {
 		val len = size
-		if (len == 0) throw new NoSuchElementException(toString + ".last")
+		if (len == 0) noSuch_!(toString + ".last")
 		else array(startIndex + len - 1)
 	}
 
@@ -284,7 +285,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	override def removed(index :Int) :C = {
 		val length = this.length
 		if (index < 0 || index > length)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + length)
+			outOfBounds_!(index.toString + " out of " + length)
 		else {
 			val start = startIndex
 			val array = this.array

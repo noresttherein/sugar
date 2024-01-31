@@ -7,10 +7,12 @@ import scala.Long.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.ULong.{BigDecimalMaxLongTimes2, BigIntMaxLongTimes2, BigIntegerMaxLongTimes2, Decimal64MaxLongTimes2, DoubleMaxLongTimes2, FloatMaxLongTimes2, JavaBigDecimalMaxLongTimes2}
 import net.noresttherein.sugar.numeric.extensions.LongExtension
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -95,7 +97,7 @@ class ULong private[numeric] (override val toLong: Long)
 
 	@inline def toDecimal64Exact: Decimal64 =
 		if (toLong >= 0) Decimal64(toLong)
-		else throw new ArithmeticException(toString + " cannot be represented exactly as a Decimal64.")
+		else throw SugaredArithmeticException(toString + " cannot be represented exactly as a Decimal64.")
 
 	@inline override def toString   : String = jl.Long.toUnsignedString(toLong)
 	@inline def toString(radix: Int): String = jl.Long.toUnsignedString(toLong, radix)
@@ -223,10 +225,10 @@ class ULong private[numeric] (override val toLong: Long)
 
 
 	private def underflow(method: String): Nothing =
-		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
+		throw SugaredArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
 	private def outOfRange(typeName: String): Nothing =
-		throw new ArithmeticException("Value " + this + " is out of" + typeName + " range.")
+		throw SugaredArithmeticException("Value " + this + " is out of" + typeName + " range.")
 }
 
 
@@ -271,13 +273,13 @@ object ULong {
 		}
 
 	private def throwArithmeticException(value: Long): Nothing =
-		throw new ArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
+		throw SugaredArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwIllegalArgumentException(value: Long): Nothing =
-		throw new IllegalArgumentException("Value out of [0.." + MaxValue + "] range: " + value)
+		illegal_!("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwNumberFormatException(value: String): Nothing =
-		throw new NumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
+		throw SugaredNumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
 
 	@SerialVersionUID(Ver)
@@ -293,10 +295,10 @@ object ULong {
 		override def minus(x: ULong, y: ULong): ULong = x - y
 		override def times(x: ULong, y: ULong): ULong = x * y
 		override def negate(x: ULong): ULong =
-			throw new ArithmeticException("Cannot negate an unsigned number " + x)
+			throw SugaredArithmeticException("Cannot negate an unsigned number " + x)
 
 		override def fromInt(x: Int): ULong =
-			if (x < 0) throw new ArithmeticException("Cannot convert " + x + " to an unsigned integer")
+			if (x < 0) throw SugaredArithmeticException("Cannot convert " + x + " to an unsigned integer")
 			else new ULong(x)
 
 		override def parseString(str: String): Option[ULong] = ULong.parse(str).toOption

@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.unsupported_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.vars.Ref.undefined
@@ -575,7 +576,7 @@ object Ref {
 			* except throws an [[UnsupportedOperationException]] instead of [[NoSuchElementException]].
 			*/
 		@inline final override def const :T =
-			if (!isEmpty) get else throw new UnsupportedOperationException(this.localClassName + ".const")
+			if (!isEmpty) get else unsupported_!(this.localClassName + ".const")
 		/** Same as [[net.noresttherein.sugar.vars.Ref.option option]]. */
 		@inline final override def toOption    :Option[T] = option
 		/** Same as [[net.noresttherein.sugar.vars.Ref.option option]]. */

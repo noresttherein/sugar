@@ -9,6 +9,7 @@ import scala.collection.{AbstractIterator, BufferedIterator}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 
 
 
@@ -62,7 +63,7 @@ trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def next() :T = {
 		if (index >= limit)
-			throw new NoSuchElementException("Index " + index + " exceeds the limit of " + limit + ".")
+			noSuch_!("Index " + index + " exceeds the limit of " + limit + ".")
 		val res = head
 		index += 1
 		res
@@ -93,7 +94,7 @@ trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 	}
 	override def reduceLeft[U >: T](op :(U, T) => U) :U =
 		if (hasNext) foldLeft[U](next())(op)
-		else throw new UnsupportedOperationException("Iterator().reduceLeft")
+		else unsupported_!("Iterator().reduceLeft")
 
 	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
@@ -167,7 +168,7 @@ trait IndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def next() :T = {
 		if (index <= limit)
-			throw new NoSuchElementException("Index " + index + " reached the lower bound of " + limit + ".")
+			noSuch_!("Index " + index + " reached the lower bound of " + limit + ".")
 		val hd = head
 		index -= 1
 		hd
@@ -196,7 +197,7 @@ trait IndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
 		this
 	}
 	override def reduceLeft[U >: T](op :(U, T) => U) :U =
-		if (!hasNext) throw new UnsupportedOperationException("Iterator().reduceLeft")
+		if (!hasNext) unsupported_!("Iterator().reduceLeft")
 		else foldLeft[U](next())(op)
 
 	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
@@ -244,7 +245,7 @@ private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, 
 	def apply[T](seq :S[T], first :Int, length :Int) :I[T] = {
 		val len   = seq.size
 		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val until = first + math.min(len - first, math.max(length, 0))
 		make(seq, first, until)
 	}
@@ -291,7 +292,7 @@ private sealed class IndexedSeqIterator[+T] private[collections]
 	override def head :T = seq(first)
 	override def next() :T = {
 		if (first >= `last++`)
-			throw new NoSuchElementException("Index " + first + " exceeds the upper bound of " + `last++` + ".")
+			noSuch_!("Index " + first + " exceeds the upper bound of " + `last++` + ".")
 		val res = seq(first)
 		first += 1
 		res
@@ -342,7 +343,7 @@ private sealed class ReverseIndexedSeqIterator[+T] private[collections]
 	override def head :T = seq(`first++` - 1)
 	override def next() :T = {
 		if (`first++` <= last)
-			throw new NoSuchElementException("Index " + `first++` + " has reached the lower bound of " + last + ".")
+			noSuch_!("Index " + `first++` + " has reached the lower bound of " + last + ".")
 		`first++` -= 1
 		seq(`first++`)
 	}
@@ -371,7 +372,7 @@ private object ReverseIndexedSeqIterator {
 	def apply[T](seq :collection.IndexedSeq[T], first :Int, length :Int) :ReverseIndexedSeqIterator[T] = {
 		val len = seq.length
 		if (first < 0 | first >= len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val downTo = first + 1 - math.min(first + 1, math.max(length, 0))
 		new ReverseIndexedSeqIterator(seq, downTo, first + 1)
 	}
@@ -416,7 +417,7 @@ final class StringIterator private[collections]
 
 	override def next() :Char = {
 		if (first >= `last++`)
-			throw new NoSuchElementException("Index " + first + " has reached its upper bound of " + `last++` + ".")
+			noSuch_!("Index " + first + " has reached its upper bound of " + `last++` + ".")
 		val res = string.charAt(first)
 		first += 1
 		res
@@ -452,7 +453,7 @@ object StringIterator {
 	def apply(string :String, first :Int, length :Int) :StringIterator = {
 		val len = string.length
 		if (first < 0 | first > len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val until = first + math.min(len - first, math.max(length, 0))
 		new StringIterator(string, first, until)
 	}
@@ -506,7 +507,7 @@ final class ReverseStringIterator private[collections]
 
 	override def next() :Char = {
 		if (`first++` <= last)
-			throw new NoSuchElementException("Index " + `first++` + " has reached its lower bound of " + last + ".")
+			noSuch_!("Index " + `first++` + " has reached its lower bound of " + last + ".")
 		`first++` -= 1
 		string.charAt(`first++`)
 	}
@@ -534,7 +535,7 @@ object ReverseStringIterator {
 	def apply(string :String, first :Int, length :Int) :ReverseStringIterator = {
 		val len = string.length
 		if (first < 0 | first >= len)
-			throw new IndexOutOfBoundsException(first.toString + " is out of bounds [0, " + len + ")")
+			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
 		val downTo = first + 1 - math.min(first + 1, math.max(length, 0))
 		new ReverseStringIterator(string, downTo, first + 1)
 	}

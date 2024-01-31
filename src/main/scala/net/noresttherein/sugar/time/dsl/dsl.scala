@@ -85,7 +85,7 @@ package object dsl {
 		  */
 		@throws[DateTimeException]("if this value is zero.")
 		@inline def CE :Year =
-			if (day == 0) throw new DateTimeException("0.CE: no year zero in ISO chronology")
+			if (day == 0) throw SugaredDateTimeException("0.CE: no year zero in ISO chronology")
 			else new Year(day)
 
 		/** Creates a [[net.noresttherein.sugar.time.Era.BCE BCE]] year represented by this `Int`.
@@ -94,7 +94,7 @@ package object dsl {
 		  */
 		@throws[DateTimeException]("if this value is zero.")
 		@inline def BCE :Year =
-			if (day == 0) throw new DateTimeException("0.BCE: no year zero in ISO chronology")
+			if (day == 0) throw SugaredDateTimeException("0.BCE: no year zero in ISO chronology")
 			else new Year(1 - day)
 	}
 
@@ -112,7 +112,7 @@ package object dsl {
 			else if (hour >= 0 & hour <= 11)
 				new TimeOfDayFactoryMethod(hour)
 			else
-				throw new DateTimeException(hour.toString + "am")
+				throw SugaredDateTimeException(hour.toString + "am")
 
 		def pm :TimeOfDayFactoryMethod =
 			if (hour == 12)
@@ -120,7 +120,7 @@ package object dsl {
 			else if (hour >= 0 & hour <= 11)
 				new TimeOfDayFactoryMethod(12 + hour)
 			else
-				throw new DateTimeException(hour.toString + "pm")
+				throw SugaredDateTimeException(hour.toString + "pm")
 	}
 
 

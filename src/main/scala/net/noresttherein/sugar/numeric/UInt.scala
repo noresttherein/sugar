@@ -7,9 +7,11 @@ import scala.Int.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -213,10 +215,10 @@ class UInt private[numeric] (override val toInt: Int)
 
 
 	private def underflow(method: String): Nothing =
-		throw new ArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
+		throw SugaredArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
 
 	private def outOfRange(typeName: String): Nothing =
-		throw new ArithmeticException("Value " + this + " is out of " + typeName + " range.")
+		throw SugaredArithmeticException("Value " + this + " is out of " + typeName + " range.")
 }
 
 
@@ -257,13 +259,13 @@ object UInt {
 		}
 
 	private def throwArithmeticException(value: Int): Nothing =
-		throw new ArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
+		throw SugaredArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwIllegalArgumentException(value: Int): Nothing =
-		throw new IllegalArgumentException("Value out of [0.." + MaxValue + "] range: " + value)
+		illegal_!("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwNumberFormatException(value: String): Nothing =
-		throw new NumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
+		throw SugaredNumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
 
 	//todo: in Scala3 create conversions from non negative Int literals
@@ -282,7 +284,7 @@ object UInt {
 		override def minus(x: UInt, y: UInt): UInt = x - y
 		override def times(x: UInt, y: UInt): UInt = x * y
 		override def negate(x: UInt): UInt =
-			throw new ArithmeticException("Cannot negate an unsigned number " + x)
+			throw SugaredArithmeticException("Cannot negate an unsigned number " + x)
 
 		override def fromInt(x: Int): UInt = UInt.from(x)
 		override def parseString(str: String): Option[UInt] = UInt.parse(str).toOption

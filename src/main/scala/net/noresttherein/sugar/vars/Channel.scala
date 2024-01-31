@@ -4,8 +4,9 @@ import scala.annotation.tailrec
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Channel.{Reader, Writer}
 import net.noresttherein.sugar.vars.Ref.undefined
 
@@ -113,7 +114,7 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 	override def value :T = {
 		val actor = synchronized {
 			if (writers == null)
-				throw new NoSuchElementException("No writers queued on " + this + ".")
+				noSuch_!("No writers queued on " + this + ".")
 			//writers are waiting - dequeue one
 			val writer = writers
 			writers = writers.next
@@ -169,7 +170,7 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 	}
 
 	/** Throws an [[UnsupportedOperationException]]. */
-	override def const :T = throw new UnsupportedOperationException("Channel.const")
+	override def const :T = unsupported_!("Channel.const")
 
 
 	/** Consumes a value if any producers are waiting on this instance. */

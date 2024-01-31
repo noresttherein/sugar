@@ -9,6 +9,7 @@ import scala.util.Random
 
 import net.noresttherein.sugar.arrays.{IArray, IRefArray}
 import net.noresttherein.sugar.collections.extensions.SeqExtension
+import net.noresttherein.sugar.{illegal_!, outOfBounds_!}
 
 
 
@@ -40,7 +41,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 /*
 	def apply[T, CC[_], C](items :collection.SeqOps[T, CC, C]) :C =
 		if (items.size != toIndexedSeq.length)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Cannot reorder " + items + " according to " + this + " because its length " +
 					items.size + " is different than " + length + "."
 			)
@@ -64,7 +65,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	@throws[IllegalArgumentException]("if items.length != this.length.")
 	def apply[T](items :Seq[T]) :Seq[T] =
 		if (items.length != toIndexedSeq.length)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Cannot reorder " + items + " according to " + this + " because its length " +
 					items.length + " is different than " + length + "."
 			)
@@ -100,7 +101,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	/** Swaps the values at positions `n` and `m`. */
 	def transpose(n :Int, m :Int) :Permutation =
 		if (m >= toIndexedSeq.length || n >= toIndexedSeq.length)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				"Permutation[" + toIndexedSeq.length + "].transpose(" + n + ", " + m + ")"
 			)
 		else
@@ -179,7 +180,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	/** A permutation `p` such that `p(i) == this(first(i))`. */
 	def compose(first :Permutation) :Permutation =
 		if (first.length != length)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Cannot compose permutations of different lengths: " + this + " compose " + first + "."
 			)
 		else
@@ -240,7 +241,7 @@ object Permutation {
 		if (indices.isEmpty)
 			new Permutation(indices)
 		else if (indices.sorted != indices.indices)
-			throw new IllegalArgumentException(
+			illegal_!(
 				indices.toString + " is not a valid permutation."
 			)
 		else
@@ -252,15 +253,15 @@ object Permutation {
 		val in = from to Ranking
 		val out = to to Ranking
 		if (in.length != from.length)
-			throw new IllegalArgumentException("Input sequence contains duplicates: " + from + ".")
+			illegal_!("Input sequence contains duplicates: " + from + ".")
 		if (out.length != to.length)
-			throw new IllegalArgumentException("Output sequence contains duplicates: " + to + ".")
+			illegal_!("Output sequence contains duplicates: " + to + ".")
 		if (in.length != out.length)
-			throw new IllegalArgumentException(
+			illegal_!(
 				from.toString  + " and " + to + " are of different lengths: " + from.length + " vs. " + to.length
 			)
 		if (!in.forall(out.toSet))
-			throw new IllegalArgumentException(
+			illegal_!(
 				from.toString + " and " + to + " contain different elements: " + in.find(!out.contains(_)).get +
 					" does not exist in the output sequence."
 			)

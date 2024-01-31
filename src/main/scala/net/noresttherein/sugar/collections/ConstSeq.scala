@@ -6,6 +6,7 @@ import scala.collection.immutable.{LinearSeq, SeqOps}
 
 import net.noresttherein.sugar.arrays.MutableArrayExtension
 import net.noresttherein.sugar.collections.extensions.IteratorCompanionExtension
+import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 
 
 
@@ -16,29 +17,29 @@ private sealed trait ConstSeqOps[+E, CC[+_], +C] extends SeqOps[E, CC, C] { this
 
 	final override def length :Int =
 		if (knownSize >= 0) knownSize
-		else throw new UnsupportedOperationException("Seq.infinite.length")
+		else unsupported_!("Seq.infinite.length")
 
 	override def apply(i :Int) :E =
 		if (i < 0 || knownSize >= 0 && i >= knownSize)
-			throw new IndexOutOfBoundsException(i)
+			outOfBounds_!(i)
 		else head
 
 	protected def subseq(n :Int) :C
 
 	override def tail :C = knownSize match {
-		case 0 => throw new UnsupportedOperationException("Seq().tail")
+		case 0 => unsupported_!("Seq().tail")
 		case infinite if infinite < 0 => this
 		case n => subseq(n - 1)
 	}
 	override def init :C = knownSize match {
-		case 0 => throw new UnsupportedOperationException("Seq().init")
-		case infinite if infinite < 0 => throw new UnsupportedOperationException("Seq.infinite.init")
+		case 0 => unsupported_!("Seq().init")
+		case infinite if infinite < 0 => unsupported_!("Seq.infinite.init")
 		case n => subseq(n - 1)
 	}
 
 	override def last :E =
-		if (knownSize == 0) throw new NoSuchElementException("Seq().last")
-		else if (knownSize <= 0) throw new UnsupportedOperationException("Seq.infinite.last")
+		if (knownSize == 0) noSuch_!("Seq().last")
+		else if (knownSize <= 0) unsupported_!("Seq.infinite.last")
 		else head
 
 	override def slice(from :Int, until :Int) :C = {
@@ -76,14 +77,14 @@ private abstract class AbstractConstSeq[+E] protected (elem :E, override val kno
 {
 	override def isEmpty = knownSize == 0
 	override def head :E =
-		if (knownSize == 0) throw new NoSuchElementException("Seq().head")
+		if (knownSize == 0) noSuch_!("Seq().head")
 		else elem
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
 		if (len < 0 || knownSize == 0 || start > xs.length)
 			0
 		else if (start < 0)
-			throw new IndexOutOfBoundsException(start)
+			outOfBounds_!(start)
 		else {
 			val len0 = math.min(len, xs.length - start)
 			val copied = if (knownSize < 0) len0 else math.min(len0, knownSize)
@@ -124,7 +125,7 @@ private class ConstIndexedSeq[+E] private (elem :E, override val knownSize :Int)
 private[collections] object ConstIndexedSeq {
 	def apply[E](elem :E, length :Int) :IndexedSeq[E] =
 		if (length < 0)
-			throw new IllegalArgumentException("negative size " + length)
+			illegal_!("negative size " + length)
 		else if (length == 0)
 			IndexedSeq.empty
 		else
@@ -153,7 +154,7 @@ private class ConstLinearSeq[+E] private (elem :E, override val knownSize :Int)
 private[collections] object ConstLinearSeq {
 	def apply[E](elem :E, length :Int) :LinearSeq[E] =
 		if (length < 0)
-			throw new IllegalArgumentException("negative size " + length)
+			illegal_!("negative size " + length)
 		else if (length == 0)
 			Nil
 		else

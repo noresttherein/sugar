@@ -3,6 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.Searching
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 
+import net.noresttherein.sugar.{illegal_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -20,7 +21,7 @@ import net.noresttherein.sugar.vars.Opt.One
 class ElementIndex private[sugar] (private val idx :Int) extends AnyVal with Serializable {
 	def index :Int =
 		if (idx >= 0) idx
-		else if (idx == Int.MinValue) throw new UnsupportedOperationException("index unknown")
+		else if (idx == Int.MinValue) unsupported_!("index unknown")
 		else -idx - 1
 
 	def predecessor :IntOpt =
@@ -50,7 +51,7 @@ class ElementIndex private[sugar] (private val idx :Int) extends AnyVal with Ser
 	@throws[UnsupportedOperationException]("if insertion point was not specified (and the element has not been found).")
 	def toSearchResult :SearchResult =
 		if (idx < 0)
-			if (idx == Int.MinValue) throw new UnsupportedOperationException("Unspecified insertion point")
+			if (idx == Int.MinValue) unsupported_!("Unspecified insertion point")
 			else InsertionPoint(-idx - 1)
 		else Searching.Found(idx)
 
@@ -100,7 +101,7 @@ object ElementIndex {
 
 		//private[Absent] for inlining
 		private[Absent] def rejectMaxInt() :Nothing =
-			throw new IllegalArgumentException("Cannot possibly insert at index Int.MaxValue")
+			illegal_!("Cannot possibly insert at index Int.MaxValue")
 	}
 
 	@SerialVersionUID(Ver)
@@ -112,27 +113,27 @@ object ElementIndex {
 
 	//private[ElementIndex] for inlining
 	private[ElementIndex] def rejectNegative(index :Int) :Nothing =
-		throw new IllegalArgumentException("Negative index: " + index)
+		illegal_!("Negative index: " + index)
 
 
 
 	private[sugar] def indexOfNotFound(self :String, x :Any, from :Int) :Nothing =
-		throw new NoSuchElementException(indexOfErrorMessage(self, x, from))
+		noSuch_!(indexOfErrorMessage(self, x, from))
 
 	private[sugar] def lastIndexOfNotFound(self :String, length :Int, x :Any, end :Int) :Nothing =
-		throw new NoSuchElementException(lastIndexOfErrorMessage(self, length, x, end))
+		noSuch_!(lastIndexOfErrorMessage(self, length, x, end))
 
 	private[sugar] def indexWhereNotFound(self :String, from :Int) :Nothing =
-		throw new NoSuchElementException(indexWhereErrorMessage(self, from))
+		noSuch_!(indexWhereErrorMessage(self, from))
 
 	private[sugar] def lastIndexWhereNotFound(self :String, length :Int, end :Int) :Nothing =
-		throw new NoSuchElementException(lastIndexWhereErrorMessage(self, length, end))
+		noSuch_!(lastIndexWhereErrorMessage(self, length, end))
 
 	private[sugar] def indexOfSliceNotFound(self :String, seq :collection.Seq[Any], from :Int) :Nothing =
-		throw new NoSuchElementException(indexOfSliceErrorMessage(self, seq, from))
+		noSuch_!(indexOfSliceErrorMessage(self, seq, from))
 
 	private[sugar] def lastIndexOfSliceNotFound(self :String, length :Int, seq :collection.Seq[Any], end :Int) :Nothing =
-		throw new NoSuchElementException(lastIndexOfSliceErrorMessage(self, length, seq, end))
+		noSuch_!(lastIndexOfSliceErrorMessage(self, length, seq, end))
 
 	private[sugar] def indexOfErrorMessage(self :String, x :Any, from :Int) :String =
 		"No " + x + " in " + self + (if (from == 0) "." else " at or after index " + from + ".")

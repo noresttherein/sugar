@@ -21,8 +21,9 @@ import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyH
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 //implicits
 
@@ -310,7 +311,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 		if (idx1 > idx2)
 			swapped(idx2, idx1)
 		else if (idx1 < 0 | idx2 < 0 | { val n = size; idx1 >= n | idx2 >= n })
-			throw new IndexOutOfBoundsException(errorString(this) + ".swapped(" + idx1 + ", " + idx2 + ")")
+			outOfBounds_!(errorString(this) + ".swapped(" + idx1 + ", " + idx2 + ")")
 		else if (idx1 == idx2)
 			coll
 		else {
@@ -330,7 +331,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	                                   "to size, or start is lesser than zero or greater than size - range.length.")
 	final def swapped(range :Range, dst :Int) :C = {
 		if (range.step != 1)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Range " + range + " is not a valid index range for " + errorString(this) + "."
 			)
 		swapped(range.head, dst, range.length)
@@ -344,7 +345,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 		def swap(src :Int, dst :Int, length :Int) :C = {
 			val length0 = math.max(length, 0)
 			if (src < 0 | dst > size - length0)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(this) + ".swapped(" + src + ", " + dst + ", " + length + ")"
 				)
 			if (src == dst | length <= 0)
@@ -352,7 +353,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 			else if (length == 1)
 				swapped(src, dst)
 			else if (src > dst - length0)
-				throw new IllegalArgumentException(
+				illegal_!(
 					errorString(this) + ".swapped: swapped ranges [" + src + ", " + (src + length) + ") and [" +
 						dst + ", " + (dst + length) + ") overlap."
 				)
@@ -403,7 +404,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	@throws[IndexOutOfBoundsException]("if either range.start or dst is outside index range [0..this.size - range.length).")
 	final def moved(range :Range, dst :Int) :C = {
 		if (range.step != 1)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Range " + range + " is not a valid index range for " + errorString(this) + "."
 			)
 		moved(range.head, dst, range.length)
@@ -433,7 +434,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	def moved(src :Int, dst :Int, length :Int) :C = {
 		val length0 = math.max(length, 0)
 		if (dst < 0 | dst > size - length0 | src < 0 | src > size - length0)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				"Cannot move elements of " + errorString(this) + " at positions [" + src + ".." +
 					(src + length) + ") to positions [" + dst + ", " + (dst + length) + ")."
 			)
@@ -547,7 +548,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 		case old if old == index =>
 			iterableFactory.from(this)
 		case _ if index < 0 | index >= size =>
-			throw new IndexOutOfBoundsException(errorString(this) + ".updated(" + index + ", _)")
+			outOfBounds_!(errorString(this) + ".updated(" + index + ", _)")
 		case -1 =>
 			replaceWithAbsent(index, elem)
 		case old =>
@@ -587,7 +588,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	@throws[IndexOutOfBoundsException]("if index is negative, greater or equal to this.size")
 	def replace[U >: E](index :Int, elem :U) :CC[U] = indexOf(elem) match {
 		case _ if index < 0 | index >= this.size =>
-			throw new IndexOutOfBoundsException(errorString(this) + ".replaced(" + index + ", _)")
+			outOfBounds_!(errorString(this) + ".replaced(" + index + ", _)")
 		case -1 =>
 			replaceWithAbsent(index, elem)
 		case old if old == index =>
@@ -967,7 +968,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 	/** Creates a `r :`$Coll such that `r(permutation(i)) == this(i)`. */
 	def reorder(permutation :Permutation) :C =
 		if (permutation.length != size)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Cannot reorder " + this + " according to " + permutation +
 					" because it is of a wrong size: expected " + size + ", but got " + permutation.length + "."
 
@@ -2078,7 +2079,7 @@ trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
 				if (index == knownSize && elems.toBasicOps.isEmpty)
 					this
 				else
-					throw new IndexOutOfBoundsException(
+					outOfBounds_!(
 						"Cannot update " + errorString(this) + " at " + index + " with " + errorString(elems)
 					)
 			case empty   :Iterable[U] if empty.isEmpty      => this
@@ -2129,7 +2130,7 @@ trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
 		}
 		val ranking = res.result()
 		if (ranking.size != length)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				"Patch collection too large for " + errorString(this) + ".updatedAll(" + index + ", " +
 					errorString(unique) + "); result: " + errorString(ranking) + ")"
 			)
@@ -2158,7 +2159,7 @@ trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
 			i += 1
 		}
 		if (prefix + unique.size > length)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				"Patch collection too large for " + errorString(this) + ".replaceAll(" + index + ", " +
 					errorString(unique) + ")."
 			)
@@ -2244,7 +2245,7 @@ trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
 	//todo: move it up, perhaps add fromSpecific(Array) to the super type.
 	override def reorder(permutation :Permutation) :Ranking[E] =
 		if (permutation.length != size)
-			throw new IllegalArgumentException(
+			illegal_!(
 				"Cannot reorder " + this + " according to " + permutation +
 					" because it is of a wrong size: expected " + size + ", but got " + permutation.length + "."
 
@@ -2356,7 +2357,7 @@ private final class SingletonRanking[+E](override val head :E)
 
 	override def updated[U >: E](index :Int, elem :U) :Ranking[U] =
 		if (index == 0) new SingletonRanking(elem)
-		else throw new IndexOutOfBoundsException(errorString(this) + ".updated(" + index + ", " + elem + ")")
+		else outOfBounds_!(errorString(this) + ".updated(" + index + ", " + elem + ")")
 
 	override def inserted[U >: E](index :Int, elem :U) :Ranking[U] =
 		if (index <= 0) two(elem, head)
@@ -2375,7 +2376,7 @@ private final class SingletonRanking[+E](override val head :E)
 		unique.size match {
 			case 0 => this //in the unlikely case original elems were neither an Iterable nor an Iterator
 			case 1 if index == 0 => Ranking.from(unique)
-			case _ => throw new IndexOutOfBoundsException(
+			case _ => outOfBounds_!(
 				errorString(this) + ".updatedAll(" + index + ", " + errorString(unique) + "): patch collection too large."
 			)
 		}
@@ -2594,13 +2595,13 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 		val size = hashes.length
 		val length0 = math.max(length, 0)
 		if (if (idx1 < idx2) idx1 < 0 | idx2 > size - length0 else idx2 < 0 | idx1 > size - length0)
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				errorString(this) + ".swapped(" + idx1 + ", " + idx2 + ", " + length + ")"
 			)
 		if (idx1 == idx2 | length <= 0)
 			this
 		else if (if (idx1 < idx2) idx1 + length0 > idx2 else idx2 + length0 > idx1)
-			throw new IllegalArgumentException(
+			illegal_!(
 				errorString(this) + ".swapped(" + idx1 + ", " + idx2 + ", " + length + "): swapped ranges overlap."
 			)
 		else {
@@ -2719,7 +2720,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 
 	override def removed(index :Int) :Ranking[E] = hashes.length match {
 		case length if index < 0 | index >= length =>
-			throw new IndexOutOfBoundsException(errorString (this) + ".removed(" + index + ")")
+			outOfBounds_!(errorString (this) + ".removed(" + index + ")")
 		case 1      => Ranking.empty
 		case 2      => Ranking.one(elements(1 - index))
 		case length if length - 1 == index =>
@@ -3185,7 +3186,7 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 		if (idx1 > idx2)
 			swapped(idx2, idx1, length)
 		else if (idx1 < 0 | idx2 > items.length - math.max(length, 0))
-			throw new IndexOutOfBoundsException(
+			outOfBounds_!(
 				errorString(this) + ".swapped(" + idx1 + ", " + idx2 + ", " + length + ")"
 			)
 		else if (length == 1)
@@ -3193,7 +3194,7 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 		else if (idx1 == idx2 | length <= 0)
 			this
 		else if (idx1 + length > idx2)
-			throw new IllegalArgumentException(
+			illegal_!(
 				errorString(this) + ".swapped(" + idx1 + ", " + idx2 + ", " + length + "): ranges overlap."
 			)
 		else {
@@ -3486,13 +3487,13 @@ private class ReversedRanking[T](override val reverse :Ranking[T])
 
 	override def apply(index :Int) =
 		if (index < 0)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + reverse.size)
+			outOfBounds_!(index.toString + " out of " + reverse.size)
 		else
 			reverse(reverse.size - index - 1)
 
 	override def updated[U >: T](index :Int, elem :U) =
 		if (index < 0)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + reverse.size)
+			outOfBounds_!(index.toString + " out of " + reverse.size)
 		else
 			new ReversedRanking(reverse.updated(reverse.size - index - 1, elem))
 
@@ -3503,7 +3504,7 @@ private class ReversedRanking[T](override val reverse :Ranking[T])
 
 	override def replace[U >: T](index :Int, elem :U) :Ranking[U] =
 		if (index < 0 | index > reverse.knownSize)
-			throw new IndexOutOfBoundsException(index.toString + " out of " + reverse.size)
+			outOfBounds_!(index.toString + " out of " + reverse.size)
 		else
 			newInstance(reverse.replace(reverse.size - index - 1, elem))
 

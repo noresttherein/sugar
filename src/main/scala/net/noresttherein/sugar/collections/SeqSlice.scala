@@ -52,7 +52,7 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 
 	override def apply(i :Int) :E =
 		if (i >= length)
-			throw new IndexOutOfBoundsException(i.toString + " out of " + length)
+			outOfBounds_!(i.toString + " out of " + length)
 		else
 			underlying(offset + i)
 

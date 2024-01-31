@@ -12,6 +12,7 @@ import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIt
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
 import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.{illegal_!, noSuch_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 
 
@@ -45,7 +46,7 @@ private trait IndexedStepper[+A, B, +Self >: Null <: IndexedStepper[A, B, Self]]
 	protected def nextIdx() :Int = {
 		val i = index
 		if (i >= limit)
-			throw new NoSuchElementException(toString)
+			noSuch_!(toString)
 		index = i + 1
 		i
 	}
@@ -91,7 +92,7 @@ private abstract class AbstractIndexedStepper[+A, B, +Self >: Null <: IndexedSte
 	@inline protected final override def nextIdx() :Int = {
 		val res = first
 		if (res == `last++`)
-			throw new NoSuchElementException(toString)
+			noSuch_!(toString)
 		first += 1
 		res
 	}
@@ -120,7 +121,7 @@ private trait IndexedReverseStepper[+A, B, +Self >: Null <: IndexedReverseSteppe
 	protected def nextIdx() :Int = {
 		val i = index
 		if (i >= limit)
-			throw new NoSuchElementException(toString)
+			noSuch_!(toString)
 		index = i - 1
 		i
 	}
@@ -166,7 +167,7 @@ private abstract class AbstractIndexedReverseStepper[+A, B, +Self >: Null <: Ind
 	protected final override def nextIdx() :Int = {
 		`first++` -= 1
 		if (`first++` <= last)
-			throw new NoSuchElementException(toString)
+			noSuch_!(toString)
 		`first++`
 	}
 	override def hasStep :Boolean = `first++` > last
@@ -376,7 +377,7 @@ object ArrayStepper {
 				case ints :Array[Int]    => new IntArrayStepper(ints, from, until)
 				case refs :Array[AnyRef] => new IntRefArrayStepper(refs, from, until)
 				case _                   =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Int] or an Array of Integers for IntShape, got " + array.className + "."
 					)
 			}
@@ -384,7 +385,7 @@ object ArrayStepper {
 				case longs :Array[Long]   => new LongArrayStepper(longs, from, until)
 				case refs  :Array[AnyRef] => new LongRefArrayStepper(refs, from, until)
 				case _                    =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Long] or an Array of boxed Longs for LongShape, got " + array.className + "."
 					)
 			}
@@ -392,7 +393,7 @@ object ArrayStepper {
 				case doubles :Array[Double] => new DoubleArrayStepper(doubles, from, until)
 				case refs    :Array[AnyRef] => new DoubleRefArrayStepper(refs, from, until)
 				case _                      =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Double] or an Array of boxed Doubles for DoubleShape, got " + array.className + "."
 					)
 			}
@@ -400,7 +401,7 @@ object ArrayStepper {
 				case chars :Array[Char]   => new CharArrayStepper(chars, from, until)
 				case refs  :Array[AnyRef] => new CharRefArrayStepper(refs, from, until)
 				case _                    =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Char] or an Array of Characters for CharShape, got " + array.className + "."
 					)
 			}
@@ -408,7 +409,7 @@ object ArrayStepper {
 				case bytes :Array[Byte]   => new ByteArrayStepper(bytes, from, until)
 				case refs  :Array[AnyRef] => new ByteRefArrayStepper(refs, from, until)
 				case _                    =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Byte] or an Array of boxed Bytes for ByteShape, got " + array.className + "."
 					)
 			}
@@ -416,7 +417,7 @@ object ArrayStepper {
 				case floats :Array[Float]  => new FloatArrayStepper(floats, from, until)
 				case refs   :Array[AnyRef] => new FloatRefArrayStepper(refs, from, until)
 				case _                     =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Float] or an Array of boxed Floats for FloatShape, got " + array.className + "."
 					)
 			}
@@ -424,7 +425,7 @@ object ArrayStepper {
 				case shorts :Array[Short]  => new ShortArrayStepper(shorts, from, until)
 				case refs   :Array[AnyRef] => new ShortRefArrayStepper(refs, from, until)
 				case _                     =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Short] or an Array of boxed Shorts for ShortShape, got " + array.className + "."
 					)
 			}
@@ -620,7 +621,7 @@ object ReverseArrayStepper {
 				case ints :Array[Int]    => new ReverseIntArrayStepper(ints, from, until)
 				case refs :Array[AnyRef] => new ReverseIntRefArrayStepper(refs, from, until)
 				case _                   =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Int] or an Array of Integers for IntShape, got " + array.className + "."
 					)
 			}
@@ -628,7 +629,7 @@ object ReverseArrayStepper {
 				case longs :Array[Long]   => new ReverseLongArrayStepper(longs, from, until)
 				case refs  :Array[AnyRef] => new ReverseLongRefArrayStepper(refs, from, until)
 				case _ =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Long] or an Array of boxed Longs for LongShape, got " + array.className + "."
 					)
 			}
@@ -636,7 +637,7 @@ object ReverseArrayStepper {
 				case doubles :Array[Double] => new ReverseDoubleArrayStepper(doubles, from, until)
 				case refs    :Array[AnyRef] => new ReverseDoubleRefArrayStepper(refs, from, until)
 				case _                      =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Double] or an Array of boxed Doubles for DoubleShape, got " + array.className + "."
 					)
 			}
@@ -644,7 +645,7 @@ object ReverseArrayStepper {
 				case chars :Array[Char]   => new ReverseCharArrayStepper(chars, from, until)
 				case refs  :Array[AnyRef] => new ReverseCharRefArrayStepper(refs, from, until)
 				case _                    =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Char] or an Array of Characters for CharShape, got " + array.className + "."
 					)
 			}
@@ -652,7 +653,7 @@ object ReverseArrayStepper {
 				case bytes :Array[Byte]   => new ReverseByteArrayStepper(bytes, from, until)
 				case refs  :Array[AnyRef] => new ReverseByteRefArrayStepper(refs, from, until)
 				case _                    =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Byte] or an Array of boxed Bytes for ByteShape, got " + array.className + "."
 					)
 			}
@@ -660,7 +661,7 @@ object ReverseArrayStepper {
 				case floats :Array[Float]  => new ReverseFloatArrayStepper(floats, from, until)
 				case refs   :Array[AnyRef] => new ReverseFloatRefArrayStepper(refs, from, until)
 				case _                     =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Float] or an Array of boxed Floats for FloatShape, got " + array.className + "."
 					)
 			}
@@ -668,7 +669,7 @@ object ReverseArrayStepper {
 				case shorts :Array[Short]  => new ReverseShortArrayStepper(shorts, from, until)
 				case refs   :Array[AnyRef] => new ReverseShortRefArrayStepper(refs, from, until)
 				case _                     =>
-					throw new IllegalArgumentException(
+					illegal_!(
 						"Expected either Array[Short] or an Array of boxed Shorts for ShortShape, got " + array.className + "."
 					)
 			}

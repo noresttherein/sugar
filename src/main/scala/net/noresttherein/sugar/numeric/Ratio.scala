@@ -2,9 +2,11 @@ package net.noresttherein.sugar.numeric
 
 import java.math.{BigInteger, MathContext}
 
-import net.noresttherein.sugar.numeric.Ratio.{naturalGCD, GCD}
+import net.noresttherein.sugar.numeric.Ratio.{GCD, naturalGCD}
 import scala.annotation.tailrec
 
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
+import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
 
 
@@ -52,7 +54,7 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 	  */
 	def reciprocal :Ratio =
 		if (n == 0)
-			throw new ArithmeticException("Division by zero: (0/1).reciprocal")
+			throw SugaredArithmeticException("Division by zero: (0/1).reciprocal")
 		else if (n > 0)
 			new Ratio(d, n)
 		else
@@ -88,7 +90,7 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 
 	private def multiply(num :Long, den :Long) :Ratio = {
 		if (den == 0)
-			throw new ArithmeticException("Division by zero: " + this + " * " + num + "/" + den)
+			throw SugaredArithmeticException("Division by zero: " + this + " * " + num + "/" + den)
 		val gcd_\ = GCD(n, den); val gcd_/ = GCD(d, num)
 		val resNum = (n / gcd_\) * (num / gcd_/)
 		val resDen = (d / gcd_/) * (den / gcd_\)
@@ -155,7 +157,7 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 
 	def toIntRatioExact    :IntRatio   =
 		if (numerator < Int.MinValue | numerator > Int.MaxValue | denominator < Int.MinValue | denominator > Int.MaxValue)
-			throw new ArithmeticException("Cannot represent " + this + " as IntRatio.")
+			throw SugaredArithmeticException("Cannot represent " + this + " as IntRatio.")
 		else
 			IntRatio.newIntRatio(n.toInt, d.toInt)
 
@@ -223,7 +225,7 @@ object Ratio {
 	private def newRatio(numerator :Long, denominator :Long) :Ratio = denominator match {
 		case 1L => Ratio(numerator)
 		case 100L => percent(numerator)
-		case 0L => throw new ArithmeticException("Ratio " + numerator + "/0")
+		case 0L => throw SugaredArithmeticException("Ratio " + numerator + "/0")
 		case _ if numerator == 1L => unit(denominator)
 		case _ => new Ratio(numerator, denominator)
 	}
@@ -246,11 +248,11 @@ object Ratio {
 			if (denominator >= -CachedUnits)
 				Units((CachedUnits + denominator).toInt)
 			else if (denominator == Long.MinValue)
-				throw new IllegalArgumentException("Can't represent 1/Long.MinValue as a Ratio")
+				illegal_!("Can't represent 1/Long.MinValue as a Ratio")
 			else
                 new Ratio(-1, -denominator)
 		else
-			throw new ArithmeticException("Ratio 1/0")
+			throw SugaredArithmeticException("Ratio 1/0")
 
 	/** A reduced fraction `n/100`. */
 	def percent(n :Long) :Ratio =
@@ -281,7 +283,7 @@ object Ratio {
 				else if (numerator == Long.MinValue) {
 					val d = naturalGCD(-numerator, denominator)
 					if (d == 1L)
-						throw new ArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Long.MinValue")
+						throw SugaredArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Long.MinValue")
 					d
 				} else
                     naturalGCD(-numerator, denominator)
@@ -290,14 +292,14 @@ object Ratio {
 			if (denominator == Long.MinValue || numerator==Long.MinValue) {
 				val divisor = naturalGCD(if (numerator >= 0) numerator.toLong else -numerator.toLong, -denominator.toLong)
 				if (divisor == 1)
-					throw new ArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Long.MinValue")
+					throw SugaredArithmeticException(s"Can't represent $numerator/$denominator as a Ratio: no representation of -Long.MinValue")
 				newRatio(numerator = -(numerator / divisor), denominator = -(denominator / divisor))
 			} else {
 				val divisor = naturalGCD(if (numerator > 0) numerator else -numerator, -denominator)
 				newRatio(-(numerator / divisor), -(denominator / divisor))
 			}
 		} else
-			  throw new ArithmeticException("Ratio: division by zero")
+			  throw SugaredArithmeticException("Ratio: division by zero")
 
 
 	/** Parses the string as a ratio of two `Long` numbers.
@@ -325,11 +327,11 @@ object Ratio {
 						var i = fraction.length - 1
 						while (i >= 0) {
 							if (!fraction.charAt(i).isDigit)
-								throw new NumberFormatException(
+								throw SugaredNumberFormatException(
 									"non-digit character in the fractional portion: '" + fraction.charAt(i) + "'"
 								)
 							if (den > Long.MaxValue / 10)
-								throw new ArithmeticException("denominator overflow")
+								throw SugaredArithmeticException("denominator overflow")
 							den *= 10
 							i -= 1
 						}
@@ -341,7 +343,7 @@ object Ratio {
 		} catch {
 			case n :NullPointerException => throw n
 			case e :Exception =>
-				throw new NumberFormatException(s"'$string' is not a valid Ratio: ${e.getMessage}.").initCause(e)
+				throw SugaredNumberFormatException(s"'$string' is not a valid Ratio: ${e.getMessage}.").initCause(e)
 		}
 
 

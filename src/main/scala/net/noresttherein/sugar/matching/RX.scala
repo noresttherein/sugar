@@ -3,10 +3,11 @@ package net.noresttherein.sugar.matching
 import java.util.regex.Pattern
 import java.lang.Character.{MAX_CODE_POINT, MIN_CODE_POINT}
 
-import net.noresttherein.sugar.matching.RX.{Alternative, AtLeast, Concatenation, Flag, FlaggedGroup, NamedGroup, QuantifiedRX, RepeatedRX, RXGroup}
-
+import net.noresttherein.sugar.matching.RX.{Alternative, AtLeast, Concatenation, Flag, FlaggedGroup, NamedGroup, QuantifiedRX, RXGroup, RepeatedRX}
 import scala.collection.immutable.NumericRange
 import scala.util.matching.Regex
+
+import net.noresttherein.sugar.illegal_!
 
 
 
@@ -194,17 +195,17 @@ sealed abstract class RX extends Serializable {
 
 	private def times(n :Int, symbol :String = "") :RX =
 		if (n < 0)
-			throw new IllegalArgumentException("Illegal regexp group quantifier: {" + n +",}")
+			illegal_!("Illegal regexp group quantifier: {" + n +",}")
 		else new QuantifiedRX(ncgroup, n, n, symbol)
 
 	private def atLeast(min :Int, symbol :String = "") :RX =
 		if (min < 0)
-			throw new IllegalArgumentException("Illegal regexp group quantifier: {" + min + '}')
+			illegal_!("Illegal regexp group quantifier: {" + min + '}')
 		else new QuantifiedRX(ncgroup, min, -1, symbol)
 
 	private def between(min :Int, max :Int, symbol :String = "") :RX =
 		if (min < 0 || max < 0 || max < min)
-			throw new IllegalArgumentException("Illegal regexp group quantifiers: {" + min + ',' + max + '}')
+			illegal_!("Illegal regexp group quantifiers: {" + min + ',' + max + '}')
 		else new QuantifiedRX(ncgroup, min, max, symbol)
 
 
@@ -896,7 +897,7 @@ object RX {
 	  */
 	def oct(octal :String) :CharacterClass = {
 		java.lang.Integer.parseInt(octal, 8)
-		@inline def invalid = throw new IllegalArgumentException("Not an octal character code: \"" + octal + "\"")
+		@inline def invalid = illegal_!("Not an octal character code: \"" + octal + "\"")
 
 		def validate(digit :Char) :Unit =
 			if (digit > '7' || digit < '0')
@@ -921,7 +922,7 @@ object RX {
 	  */
 	def oct(value :Int) :CharacterClass =
 		if (value < 0 || value > 255)
-			throw new IllegalArgumentException("Invalid character code: " + value)
+			illegal_!("Invalid character code: " + value)
 		else
 			atom("\\0" + value.toOctalString)
 
@@ -931,7 +932,7 @@ object RX {
 	  */
 	def hex(hexadecimal :String) :CharacterClass =
 		if (hexadecimal.length > 2)
-			throw new IllegalArgumentException("Invalid character code: \"" + hexadecimal + "\"")
+			illegal_!("Invalid character code: \"" + hexadecimal + "\"")
 		else Hex(hexadecimal)
 
 	/** A regular expression matching a character from the UTF8 8-bit range specified by its code.
@@ -940,7 +941,7 @@ object RX {
 	  */
 	def hex(codePoint :Int) :CharacterClass =
 		if (codePoint < 0 || codePoint > 255)
-			throw new IllegalArgumentException("Invalid character code: " + codePoint)
+			illegal_!("Invalid character code: " + codePoint)
 		else if (codePoint < 16)
 		     atom("\\x0" + codePoint.toHexString)
 		else
@@ -954,12 +955,12 @@ object RX {
 	def Hex(hexadecimal :String) :CharacterClass = {
 		def validate(digit :Char) :Unit =
 			if (!(digit >= '0' && digit <= '9' || digit >= 'a' && digit <= 'f' || digit >= 'A' && digit <= 'F'))
-				throw new IllegalArgumentException("Not a hexadecimal character code: \"" + hexadecimal + "\"")
+				illegal_!("Not a hexadecimal character code: \"" + hexadecimal + "\"")
 		hexadecimal foreach validate
 
 		hexadecimal.length match {
 			case n if n <= 0 =>
-				throw new IllegalArgumentException("Not a hexadecimal character code: \"" + hexadecimal + "\"")
+				illegal_!("Not a hexadecimal character code: \"" + hexadecimal + "\"")
 			case 1 =>
 				atom("\\x0" + hexadecimal)
 			case 2 =>
@@ -969,7 +970,7 @@ object RX {
 			case _ =>
 				val code = java.lang.Integer.parseInt(hexadecimal, 16)
 				if (code < MIN_CODE_POINT || code > MAX_CODE_POINT)
-					throw new IllegalArgumentException("Not a hexadecimal character code: \"" + hexadecimal + "\"")
+					illegal_!("Not a hexadecimal character code: \"" + hexadecimal + "\"")
 				atom("\\x{" + hexadecimal + '}')
 		}
 	}

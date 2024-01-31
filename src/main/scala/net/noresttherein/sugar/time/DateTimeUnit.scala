@@ -7,7 +7,9 @@ import java.util.concurrent.{TimeUnit => JTimeUnit}
 
 import DateTimeUnit._
 import DateUnit._
+import net.noresttherein.sugar.exceptions.SugaredArithmeticException
 import net.noresttherein.sugar.time.constants.{NanosInMicro, NanosInMilli, SecondsInDay, SecondsInEra, SecondsInHour, SecondsInMinute, SecondsInMonth, SecondsInYear}
+import net.noresttherein.sugar.unsupported_!
 
 
 
@@ -274,7 +276,7 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 		case DECADES if number <= Int.MaxValue / 10 => Period.years(number * 10)
 		case CENTURIES if number <= Int.MaxValue / 100 => Period.years(100 * number)
 		case MILLENNIA if number <= Int.MaxValue / 1000 => Period.years(1000 * number)
-		case _ => throw new ArithmeticException(s"Int overflow: " + number + " " + this)
+		case _ => throw SugaredArithmeticException(s"Int overflow: " + number + " " + this)
 	}
 
 
@@ -322,8 +324,7 @@ case object DateUnit {
 class PseudoUnit private[time](override val toJava :ChronoUnit) extends AnyVal with DateTimeUnit {
 	@inline override def time :InfiniteTimeInterval = Eternity
 
-	override def span :TimeFrame =
-		throw new UnsupportedOperationException(toString + ".span")
+	override def span :TimeFrame = unsupported_!(toString + ".span")
 
 	@inline override def approx :Duration = toJava.getDuration
 

@@ -1,8 +1,9 @@
 package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.reflect.Specialized.{Fun1, Fun1Arg}
+import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -24,7 +25,7 @@ trait Eval[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) with 
 
 	override def value :T = apply()
 	override def get   :T = apply()
-	override def const :T = throw new UnsupportedOperationException("Eval.const")
+	override def const :T = unsupported_!("Eval.const")
 
 	override def option :Option[T] =
 		try { Some(value) } catch {
@@ -80,12 +81,12 @@ trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) wi
 
 	override def value :T = maybe match {
 		case Yes(v) => v
-		case _ => throw new NoSuchElementException("EvalOpt.value")
+		case _      => noSuch_!("EvalOpt.value")
 	}
 
 	@inline final override def get     :T = value
 	@inline final override def apply() :T = value
-	override def const :T = throw new UnsupportedOperationException("EvalOpt.const")
+	override def const :T = unsupported_!("EvalOpt.const")
 
 	final override def maybe :Maybe[T] = eval().toMaybe
 	@inline final override def toMaybe    :Maybe[T] = maybe

@@ -26,7 +26,7 @@ import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.BitLogic
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.classes
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
@@ -429,7 +429,7 @@ object extensions {
 			val length     = self.length
 			val thatLength = elems.length
 			if (index < 0 | index > length - thatLength)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					errorString(self) + ".updatedAll[" + fullNameOf[U] + "](" + index + ", " + errorString(elems) + ")"
 				)
 			Array.copyOfRanges(self, 0, index, elems, 0, thatLength, self, index + thatLength, length)
@@ -634,7 +634,7 @@ object extensions {
 		def inserted[U >: E :ClassTag](index :Int, elem :U) :Array[U] = {
 			val length = self.length
 			if (index < 0 || index > length)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					s"${self.className}|${self.length}|.inserted[${fullNameOf[U]}]($index, $elem)"
 				)
 			else if (length == 0)
@@ -670,7 +670,7 @@ object extensions {
 		  */
 		def insertedAll[U >: E :ClassTag](index :Int, first :U, second :U, rest :U*) :Array[U] = {
 			if (index < 0 || index > self.length)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					s"${self.className}|${self.length}|.inserted[${fullNameOf[U]}]($index, _, _, _:*)"
 				)
 			val restSize = rest.knownSize
@@ -728,7 +728,7 @@ object extensions {
 		  */
 		def insertedAll[U >: E :ClassTag](index :Int, elems :ArrayLike[U]) :Array[U] =
 			if (index < 0 || index > self.length)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					s"${self.className}|${self.length}|.insertedAll($index, ${elems.className})"
 				)
 			else
@@ -1218,7 +1218,7 @@ object extensions {
 
 	final def copyOf[E](elems :Array[E], offset :Int, newLength :Int) :Array[E] =
 		if (offset < 0)
-			throw new IndexOutOfBoundsException(offset)
+			throw new ArrayIndexOutOfBoundsException(offset)
 		else if (newLength == 0)
 			ArrayAsSeq.empty(elems.getClass.getComponentType.castParam[E])
 		else {
@@ -1231,7 +1231,7 @@ object extensions {
 
 	final def copyOf[E :ClassTag](elems :ArrayLike[E], offset :Int, newLength :Int) :Array[E] =
 		if (offset < 0)
-			throw new IndexOutOfBoundsException(offset)
+			throw new ArrayIndexOutOfBoundsException(offset)
 		else if (newLength == 0)
 			ArrayAsSeq.empty(elems.getClass.getComponentType.castParam[E])
 		else {
@@ -1278,7 +1278,7 @@ object extensions {
 		//consider: swap the order of offset and newLength arguments
 		final def copyOfRange[E](elems :Array[E], from :Int, until :Int, offset :Int, newLength :Int) :Array[E] =
 			if (offset < 0)
-				throw new IndexOutOfBoundsException(offset)
+				throw new ArrayIndexOutOfBoundsException(offset)
 			else if (newLength == 0)
 				ArrayFactory.empty(elems.getClass.getComponentType.castParam[E])
 			else if (until <= from | until <= 0 | offset >= newLength || from >= elems.length)
@@ -1379,7 +1379,7 @@ object extensions {
 		final def copyOfRange[E](elems :ArrayLike[E], from :Int, until :Int,
 		                         elementClass :Class[E], offset :Int, newLength :Int) :Array[E] =
 			if (offset < 0)
-				throw new IndexOutOfBoundsException(offset)
+				throw new ArrayIndexOutOfBoundsException(offset)
 			else if (newLength == 0)
 				ArrayFactory.empty(elementClass)
 //			else if ({ val E = classTag[E].runtimeClass; E == classOf[Unit] || E == classOf[BoxedUnit] })
@@ -1518,7 +1518,7 @@ object extensions {
 		final def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int, elementClass :Class[E]) :Array[E] =
 //			if (from1 < 0 | from2 < 0 || from1 > array1.length || from2 > array2.length)
-//				throw new IndexOutOfBoundsException(
+//				throw new ArrayIndexOutOfBoundsException(
 //					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
 //						s"${array2.localClassName}<${array2.length}>, $from2, $until2)."
 //				)
@@ -1531,7 +1531,7 @@ object extensions {
 			val length1       = until1InRange - from1InRange
 			val length2       = until2InRange - from2InRange
 			if (length2 > Int.MaxValue - length1)
-				throw new IllegalArgumentException(
+				illegal_!(
 					"Array.copyOfRanges[" + elementClass.name + "](" +
 						errorString(array1) + ", " + from1 + ", " + until1 + ", " +
 						errorString(array2) + ", " + from2 + ", " + until2 + "): " +
@@ -1586,7 +1586,7 @@ object extensions {
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int, elementClass :Class[E], newLength :Int)
 				:Array[E] =
 //			if (from1 < 0 | from2 < 0 || from1 > array1.length || from2 > array2.length)
-//				throw new IndexOutOfBoundsException(
+//				throw new ArrayIndexOutOfBoundsException(
 //					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
 //						s"${array2.localClassName}<${array2.length}>, $from2, $until2)."
 //				)
@@ -1773,7 +1773,7 @@ object extensions {
 		                          array3 :ArrayLike[E], from3 :Int, until3 :Int, elementClass :Class[E]) :Array[E] =
 //			if (from1 < 0 | from2 < 0 | from3 < 0 || from1 > array1.length || from2 > array2.length || from3 > array3
 //				.length)
-//				throw new IndexOutOfBoundsException(
+//				throw new ArrayIndexOutOfBoundsException(
 //					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
 //						s"${array2.localClassName}<${array2.length}>, $from2, $until2, " +
 //						s"${array3.localClassName}<${array3.length}>, $from3, $until3)."
@@ -1790,7 +1790,7 @@ object extensions {
 			val length2       = until2InRange - from2InRange
 			val length3       = until3InRange - from3InRange
 			if (length3 > Int.MaxValue - length1 - length2)
-				throw new IllegalArgumentException(
+				illegal_!(
 					"Array.copyOfRanges[" + elementClass.name + "](" +
 						errorString(array1) + ", " + from1 + ", " + until1 + ", " +
 						errorString(array1) + ", " + from1 + ", " + until1 + ", " +
@@ -1862,7 +1862,7 @@ object extensions {
 		                          elementClass :Class[E], newLength :Int) :Array[E] =
 //			if (from1 < 0 | from2 < 0 | from3 < 0 || from1 > array1.length || from2 > array2.length || from3 > array3
 //				.length)
-//				throw new IndexOutOfBoundsException(
+//				throw new ArrayIndexOutOfBoundsException(
 //					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
 //						s"${array2.localClassName}<${array2.length}>, $from2, $until2, " +
 //						s"${array3.localClassName}<${array3.length}>, $from3, $until3)."
@@ -1984,7 +1984,7 @@ object extensions {
 			val length1 = src.length
 			val length2 = dst.length
 			if (srcPos < 0 | srcPos > length1 | dstPos < 0 | dstPos > length2 | len < 0 | len > length1 | len > length2)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					"Array.cyclicCopy(" + errorString(src) + ", " + srcPos + ", " +
 						errorString(dst) + ", " + dstPos + ", " + len + ")"
 				)
@@ -2081,7 +2081,7 @@ object extensions {
 		                             "including boxing and unboxing.")
 		final def cyclicCopyFrom(src :Array[_], srcPos :Int, dst :Array[_], dstPos :Int, len :Int) :Unit =
 			if (dstPos < 0 | len > dst.length - dstPos)
-				throw new IndexOutOfBoundsException(
+				throw new ArrayIndexOutOfBoundsException(
 					"Array.cyclicCopyFrom(" + errorString(src) + ", " + srcPos + ", " +
 						errorString(dst) + ", " + dstPos + ", " + len + ")"
 				)

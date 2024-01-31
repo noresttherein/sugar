@@ -14,8 +14,9 @@ import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable
 import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedSeqSet}
-import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, IterableExtension, SeqExtension}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension}
 import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.Yes
 
@@ -235,11 +236,11 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 			else at(index)
 
 		override def head :E =
-			if (end <= start) throw new NoSuchElementException("IndexedSet().head")
+			if (end <= start) noSuch_!("IndexedSet().head")
 			else at(start)
 
 		override def last :E =
-			if (end <= start) throw new NoSuchElementException("IndexedSet().last")
+			if (end <= start) noSuch_!("IndexedSet().last")
 			else at(end - 1)
 
 		override def headOption :Option[E] = if (end <= start) None else Some(at(start))
