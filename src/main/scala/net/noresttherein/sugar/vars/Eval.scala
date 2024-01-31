@@ -1,9 +1,10 @@
 package net.noresttherein.sugar.vars
 
-import net.noresttherein.sugar.reflect.Specialized.{Fun1, Fun1Arg}
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
+import net.noresttherein.sugar.reflect.Specialized.Fun1
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Maybe.Yes
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -34,12 +35,12 @@ trait Eval[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) with 
 	@inline final override def toOption    :Option[T] = option
 	@inline final override def constOption :Option[T] = None
 
-	override def maybe :Maybe[T] =
-		try { Yes(value) } catch {
-			case _ :NoSuchElementException => No
+	override def opt :Opt[T] =
+		try One(value) catch {
+			case _ :NoSuchElementException => None
 		}
-	@inline final override def toMaybe    :Maybe[T] = maybe
-	@inline final override def maybeConst :Maybe[T] = No
+	@inline final override def toOpt    :Opt[T] = opt
+	@inline final override def constOpt :Opt[T] = None
 
 	override def unsure :Unsure[T] =
 		try { Sure(value) } catch {
@@ -88,9 +89,6 @@ trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) wi
 	@inline final override def apply() :T = value
 	override def const :T = unsupported_!("EvalOpt.const")
 
-	final override def maybe :Maybe[T] = eval().toMaybe
-	@inline final override def toMaybe    :Maybe[T] = maybe
-	@inline final override def maybeConst :Maybe[T] = No
 	protected def eval() :Opt[T]
 
 	@inline final override def opt :Opt[T] = eval()

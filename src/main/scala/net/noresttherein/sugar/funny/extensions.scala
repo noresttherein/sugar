@@ -76,6 +76,27 @@ object extensions extends extensions {
 		  * @return `if (n <= 0) x else reapply(this(x), n - 1)`.
 		  */
 		@tailrec final def reapply(x :X, n :Int) :X = if (n <= 0) x else reapply(self(x), n - 1)
+
+		/** Applies this function repeatedly to its results, starting with the given argument,
+		  * and until the returned value equals the argument.
+		  * May not terminate if the function does not converge on a fixed point.
+		  */
+		@tailrec final def fixedPoint(start :X) :X = self(start) match {
+			case found if found == start => start
+			case other => fixedPoint(other)
+		}
+
+		/** Applies this function repeatedly to its results, starting with the given argument,
+		  * and until the returned value equals the argument, or the predefined maximum number of iterations is reached.
+		  */
+		@tailrec final def fixedPoint(start :X, maxIterations :Int) :Opt[X] =
+			if (maxIterations <= 0)
+				None
+			else self(start) match {
+				case found if found == start    => One(start)
+				case other if maxIterations > 0 => fixedPoint(other, maxIterations - 1)
+				case _                          => None
+			}
 	}
 
 	class homoOptionFunctionExtension[X] private[funny](private val self :X => Option[X]) extends AnyVal {

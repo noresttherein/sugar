@@ -2,8 +2,7 @@ package net.noresttherein.sugar.optional
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.{illegal_!, noSuch_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, raise}
 import net.noresttherein.sugar.optional.extensions.{OptionCompanionExtension, OptionExtension, ifTrueMethods, providingMethods, satisfyingMethods}
 import net.noresttherein.sugar.vars.{Maybe, Opt, Outcome, Pill, Unsure}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
@@ -181,8 +180,7 @@ object extensions extends extensions {
 		  * @return `Some(thenThis)` if this condition is true and `thenThis` is not null or `None` otherwise.
 		  */
 		@inline def ifTrue[T](thenThis: => T) :Option[T] =
-			if (condition) Option(thenThis)
-			else None
+			if (condition) Option(thenThis) else None
 
 
 		/** If `this` boolean expression is false, return the given value in an `Option`. If it evaluates to `true`,
@@ -201,7 +199,7 @@ object extensions extends extensions {
 		  * @tparam T value type of this expression
 		  * @return `thenThis` if this condition is true or `None` otherwise.
 		  */
-		@inline def thenMaybe[T](thenThis: => Option[T]) :Option[T] =
+		@inline def thenOption[T](thenThis: => Option[T]) :Option[T] =
 			if (condition) thenThis else None
 
 
@@ -211,7 +209,7 @@ object extensions extends extensions {
 		  * @tparam T value type of this expression
 		  * @return `Some(thenThis)` if this condition is true and `thenThis` is not null or `None` otherwise.
 		  */
-		@inline def otherwiseMaybe[T](thenThis: => Option[T]) :Option[T] =
+		@inline def otherwiseOption[T](thenThis: => Option[T]) :Option[T] =
 			if (condition) None else thenThis
 	}
 

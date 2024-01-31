@@ -303,7 +303,7 @@ object SafeLong {
 		new SafeLong(jl.Long.decode(string))
 
 	@inline def parse(string :String) :Option[SafeLong] =
-		Numeric.IntIsIntegral.parseString(string).map(new SafeLong(_))
+		Numeric.LongIsIntegral.parseString(string).map(new SafeLong(_))
 
 	@inline implicit def safeLongFromByte(value :Byte) :SafeLong = new SafeLong(value)
 	@inline implicit def safeLongFromShort(value :Short) :SafeLong = new SafeLong(value)

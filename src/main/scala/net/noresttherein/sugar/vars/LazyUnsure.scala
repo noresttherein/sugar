@@ -3,6 +3,7 @@ package net.noresttherein.sugar.vars
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -51,12 +52,12 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 	/** The value of this $Ref, if it has been already evaluated, and is non empty.
 	  * Throws a [[NoSuchElementException]] otherwise.
 	  */
-	override def value :T = maybe.get
+	override def value :T = opt.get
 
 	/** The value of this $Ref. This method always returns the same value and throws no exception,
 	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.LazyUnsure.const const]].
 	  */
-	override def get :T = toMaybe.get
+	override def get :T = toOpt.get
 
 	/** The value of this $Ref. This method always returns the same value and throws no exception,
 	  * but may block in order to avoid initialization. Same as [[net.noresttherein.sugar.vars.LazyUnsure.get get]].
@@ -67,6 +68,11 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 	  * same as [[net.noresttherein.sugar.vars.Lazy.toMaybe toMaybe]].
 	  */
 	@inline final override def maybeConst :Maybe[T] = maybe
+
+	/** Returns [[net.noresttherein.sugar.vars.Opt.One One]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
+	  * same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
+	  */
+	@inline final override def constOpt :Opt[T] = opt
 
 	/** Creates a new $Ref`[O]` instance with the same characteristics as this instance, evaluated
 	  * to the application of `f` to the value of this instance. If the value has already been evaluated,
@@ -94,21 +100,21 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 
 @SerialVersionUID(Ver)
 object LazyUnsure {
-	def apply[@specialized(SpecializedVars) T](init: => Maybe[T]) :LazyUnsure[T] = new SyncUnsure(() => init)
+	def apply[@specialized(SpecializedVars) T](init: => Opt[T]) :LazyUnsure[T] = new SyncUnsure(() => init)
 
 	def eager[@specialized(SpecializedVars) T](value :T) :LazyUnsure[T] = new EagerUnsure(Yes(value))
 
-	def fromOpt[@specialized(SpecializedVars) T](value :Maybe[T]) :LazyUnsure[T] =
+	def fromOpt[@specialized(SpecializedVars) T](value :Opt[T]) :LazyUnsure[T] =
 		if (value.isEmpty) Empty else new EagerUnsure(value)
 
 	val Empty :LazyUnsure[Nothing] = new EagerUnsure(No)
 
 
 	@SerialVersionUID(Ver)
-	private class EagerUnsure[+T](x :Maybe[T]) extends LazyUnsure[T] {
+	private class EagerUnsure[+T](x :Opt[T]) extends LazyUnsure[T] {
 		override def isFinal = x.isDefined
-		override def maybe   = x
-		override def toMaybe = x
+		override def opt   = x
+		override def toOpt = x
 
 		override def map[O](f :T => O) = if (x.isDefined) new EagerUnsure(Yes(f(x.get))) else Empty
 		override def flatMap[O](f :T => LazyUnsure[O]) =
@@ -118,21 +124,21 @@ object LazyUnsure {
 
 
 	@SerialVersionUID(Ver)
-	private final class SyncUnsure[+T](private[this] var initializer :() => Maybe[T]) extends LazyUnsure[T] {
+	private final class SyncUnsure[+T](private[this] var initializer :() => Opt[T]) extends LazyUnsure[T] {
 		@volatile private[this] var evaluated :Any = undefined
 
 		override def isFinal :Boolean = evaluated != undefined
-		override def isDefinite :Boolean = evaluated != undefined && evaluated.asInstanceOf[Maybe[T]].isDefined
+		override def isDefinite :Boolean = evaluated != undefined && evaluated.asInstanceOf[Opt[T]].isDefined
 
 		override def value :T = evaluated match {
 			case Ref.undefined => noSuch_!("Uninitialized LazyUnsure")
-			case v => v.asInstanceOf[Maybe[T]].get
+			case v => v.asInstanceOf[Opt[T]].get
 		}
-		override def maybe :Maybe[T] = synchronized {
+		override def opt :Opt[T] = synchronized {
 			val res = evaluated
-			if (res == undefined) No else res.asInstanceOf[Maybe[T]]
+			if (res == undefined) None else One(res.asInstanceOf[T])
 		}
-		override def toMaybe :Maybe[T] = {
+		override def toOpt :Opt[T] = {
 			var res = evaluated
 			if (res == undefined)
 				synchronized {
@@ -143,7 +149,7 @@ object LazyUnsure {
 						initializer = null
 					}
 				}
-			res.asInstanceOf[Maybe[T]]
+			res.asInstanceOf[Opt[T]]
 		}
 
 		override def map[O](f :T => O) :LazyUnsure[O] = {
@@ -153,27 +159,27 @@ object LazyUnsure {
 			else synchronized {
 				opt = evaluated
 				if (opt == undefined)
-					new SyncUnsure[O](() => toMaybe.map(f))
+					new SyncUnsure[O](() => toOpt.map(f))
 				else
-					fromOpt(opt.asInstanceOf[Maybe[T]].map(f))
+					fromOpt(opt.asInstanceOf[Opt[T]].map(f))
 			}
 		}
 		override def flatMap[O](f :T => LazyUnsure[O]) :LazyUnsure[O] = {
 			var opt = evaluated
 			if (opt != undefined)
-				opt.asInstanceOf[Maybe[T]] match {
-					case Yes(v) => f(v)
+				opt.asInstanceOf[Opt[T]] match {
+					case One(v) => f(v)
 					case _      => Empty
 				}
 			else synchronized {
 				opt = evaluated
 				if (opt != undefined)
-					opt.asInstanceOf[Maybe[T]] match {
-						case Yes(v) => f(v)
+					opt.asInstanceOf[Opt[T]] match {
+						case One(v) => f(v)
 						case _      => Empty
 					}
 				else
-					new SyncUnsure(() => toMaybe.flatMap(f(_).maybe))
+					new SyncUnsure(() => toOpt.flatMap(f(_).opt))
 			}
 		}
 

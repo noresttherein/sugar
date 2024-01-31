@@ -10,7 +10,7 @@ import net.noresttherein.sugar.exceptions.reflect.{IAE, IOOBE, NPE, NSEE, SIAE, 
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
-import net.noresttherein.sugar.vars.Maybe.conversions.gotAny
+import net.noresttherein.sugar.vars.Maybe.conversions.anyToYes
 
 
 

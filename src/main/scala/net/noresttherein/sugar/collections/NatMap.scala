@@ -11,9 +11,9 @@ import scala.util.hashing.MurmurHash3
 import net.noresttherein.sugar.collections.ComparableFactory
 import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic.=>:
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.{AbstractPure, Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One

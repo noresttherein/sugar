@@ -2,9 +2,10 @@ package net.noresttherein.sugar.vars
 
 import scala.Specializable.Args
 
+import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.time.{Eternity, Immediate, Milliseconds, TimeInterval}
-import net.noresttherein.sugar.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.SignalVal.Mapped
 
 
@@ -22,7 +23,7 @@ import net.noresttherein.sugar.vars.SignalVal.Mapped
   */
 @SerialVersionUID(Ver) //consider: SignalRef (different equality semantics)
 sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable { //todo: extend Out
-	@volatile private[this] var x :Maybe[T] = No
+	@volatile private[this] var x :Opt[T] = None
 
 	def await(timeout: Milliseconds) :Boolean =
 		x.isDefined || synchronized {
@@ -42,11 +43,11 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 	override def isEmpty       :Boolean = !isDefined
 	override def isFinalizable :Boolean = true
 	override def isConst       :Boolean = isDefined
-	override def isDefined     :Boolean = maybe.isDefined
-	override def isDefinite    :Boolean = maybe.isDefined
+	override def isDefined     :Boolean = opt.isDefined
+	override def isDefinite    :Boolean = opt.isDefined
 
-	override def value :T = maybe match {
-		case Yes(v) => v
+	override def value :T = opt match {
+		case One(v) => v
 		case _      => noSuch_!(toString + ".value")
 	}
 	/** Sets the value of this `SignalVal` and notifies all threads waiting for it using one of
@@ -67,9 +68,9 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 	override def get   :T = value
 	override def const :T = maybeConst.get
 
-	override def maybe      :Maybe[T] = x
-	override def toMaybe    :Maybe[T] = maybe
-	override def maybeConst :Maybe[T] = x match {
+	override def opt      :Opt[T] = x
+	override def toOpt    :Opt[T] = opt
+	override def constOpt :Opt[T] = x match {
 		case res if res.isDefined => res
 		case _ => synchronized {
 			while (x.isEmpty) wait()
@@ -113,7 +114,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 	  * and their optional variants defer to this instance.
 	  */
 	override def map[O](f :T => O) :SignalVal[O] = x match {
-		case Yes(defined) =>
+		case One(defined) =>
 			val res = new SignalVal[O]
 			res.value = f(defined)
 			res
@@ -126,7 +127,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 	override def mkString :String = mkString("SignalVal")
 
 	override def toString :String = x match {
-		case Yes(v) => String.valueOf(v)
+		case One(v) => String.valueOf(v)
 		case _ => "<undefined>@" + Integer.toHexString(System.identityHashCode(this))
 	}
 }
@@ -156,29 +157,29 @@ object SignalVal {
 		override def value_=(newValue: O) :Unit =
 			unsupported_!("Cannot manually set the value of a mapped SignalVal " + this + ".")
 
-		override def maybe: Maybe[O] = {
-			val local = super.maybe
+		override def opt: Opt[O] = {
+			val local = super.opt
 			if (local.isDefined)
 				local
 			else
-				result(source.maybe)
+				result(source.opt)
 		}
-		override def maybeConst :Maybe[O] = {
-			val local = super.maybe
+		override def constOpt :Opt[O] = {
+			val local = super.constOpt
 			if (local.isDefined)
 				local
 			else
-				result(source.maybeConst)
+				result(source.constOpt)
 		}
-		private def result(outer :Maybe[T]) =
+		private def result(outer :Opt[T]) =
 			if (outer.isDefined) {
 				val res = f(outer.get)
 				synchronized {
-					if (super.maybe.isEmpty)
+					if (super.opt.isEmpty)
 						super.value_=(res)
 				}
-				Yes(res)
+				One(res)
 			} else
-				No
+				None
 	}
 }

@@ -1,6 +1,9 @@
 package net.noresttherein.sugar.time
 
-import java.{time=>j}
+import java.{time => j}
+
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -112,9 +115,9 @@ case object Period {
 	@inline def since(date :Date)(implicit time :Time = Time.Local) :Period = between(date, time.date)
 
 
-	@inline def unapply(time :TimeExtent) :Option[(Int, Int, Int)] = time match {
-		case period :Period => Some(period.years, period.months, period.days)
-		case _ => None
+	@inline def unapply(time :TimeExtent) :Maybe[(Int, Int, Int)] = time match {
+		case period :Period => Yes(period.years, period.months, period.days)
+		case _              => No
 	}
 
 

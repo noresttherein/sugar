@@ -3,6 +3,8 @@ package net.noresttherein.sugar
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.typist.Rank.Rank0
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.One
 
 
 /** A group of higher order functions and syntax extensions repeatedly or recursively applying other functions.
@@ -116,9 +118,9 @@ package object repeat {
 	/** Applies the given function repeatedly to its results, starting with the given argument
 	  * and until the returned value equals the argument, or the predefined maximum number of iterations is reached.
 	  */
-	@tailrec def fixedPoint[X](start :X, maxIterations :Int)(f :X => X) :Option[X] = f(start) match {
+	@tailrec def fixedPoint[X](start :X, maxIterations :Int)(f :X => X) :Opt[X] = f(start) match {
 		case _ if maxIterations <= 0 => None
-		case found if found == start => Some(start)
+		case found if found == start => One(start)
 		case other => fixedPoint(other, maxIterations - 1)(f)
 	}
 

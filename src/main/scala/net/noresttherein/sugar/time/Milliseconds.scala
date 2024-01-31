@@ -5,6 +5,8 @@ import java.{time => j}
 import scala.concurrent.{duration => s}
 
 import net.noresttherein.sugar.time.constants.{MaxNanoDuration, MicrosInMilli, MillisInDay, MillisInHour, MillisInMinute, MillisInSecond, NanosInHour, NanosInMilli, NanosInMinute, NanosInSecond}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -307,9 +309,9 @@ class Milliseconds(override val toMillis :Long) extends AnyVal with TimeSpan wit
 case object Milliseconds {
 	@inline def apply(millis :Long) :Milliseconds = new Milliseconds(millis)
 
-	@inline def unapply(span :TimeInterval) :Option[Long] = span match {
-		case millis :Milliseconds => Some(millis.toMillis)
-		case _ => None
+	@inline def unapply(span :TimeInterval) :Maybe[Long] = span match {
+		case millis :Milliseconds => Yes(millis.toMillis)
+		case _                    => No
 	}
 
 	def between(start :PosixTime, until :PosixTime) :Milliseconds =

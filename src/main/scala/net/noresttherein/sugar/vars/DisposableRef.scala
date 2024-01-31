@@ -4,9 +4,9 @@ import java.lang.ref.{PhantomReference, Reference, ReferenceQueue, SoftReference
 
 import scala.annotation.unchecked.uncheckedVariance
 
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.time.{Eternity, Milliseconds, MinusEternity, TimeInterval}
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.DisposableRef.SerializedEmptyRef
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -103,13 +103,13 @@ sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Referen
 	@inline final override def constOption :Option[T] = None
 
 	/** The referenced object, unless garbage collected. */
-	override def maybe :Maybe[T] = Maybe(getOrNull)
+	override def opt :Opt[T] = Opt(getOrNull)
 
-	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.maybe opt]]. */
-	@inline final override def toMaybe :Maybe[T] = maybe
+	/** Same as [[net.noresttherein.sugar.vars.DisposableRef.opt opt]]. */
+	@inline final override def toOpt :Opt[T] = opt
 
-	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]]. */
-	@inline final override def maybeConst :Maybe[T] = No
+	/** Returns `None`. */
+	@inline final override def constOpt :Opt[T] = None
 
 	/** The referenced object, unless garbage collected. */
 	override def unsure :Unsure[T] = Unsure(getOrNull)

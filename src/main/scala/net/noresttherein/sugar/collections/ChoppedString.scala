@@ -11,12 +11,12 @@ import scala.collection.{Factory, IntStepper, SpecificIterableFactory, Stepper, 
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, WrappedString}
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.JavaTypes.{JIntIterator, JIterator, JStringBuilder}
+import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
 import net.noresttherein.sugar.collections.extensions.{StepperCompanionExtension, StepperExtension}
-import net.noresttherein.sugar.{illegal_!, io_!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

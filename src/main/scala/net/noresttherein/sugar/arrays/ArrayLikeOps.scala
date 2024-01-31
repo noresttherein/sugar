@@ -6,8 +6,8 @@ import scala.Specializable.Everything
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.exceptions.{null_!, unsupported_!}
 import net.noresttherein.sugar.extensions.cast2TypeParamsMethods
-import net.noresttherein.sugar.{null_!, unsupported_!}
 
 
 

@@ -3,10 +3,10 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Ref.FinalRef
@@ -357,7 +357,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  *         if `this.`[[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]
 	  *         or [[net.noresttherein.sugar.vars.Maybe.No No]] otherwise.
 	  */
-	override def maybe :Maybe[T] = No
+	override def opt :Opt[T] = None
 
 	final override def unsure :Unsure[T] = this
 
@@ -438,7 +438,7 @@ object Unsure {
 
 	/** Converts the given `Maybe[T]` into a ''specialized'' `Unsure[T]` instance. */
 	def yes_?[@specialized(SpecializedVars) T](value :Maybe[T]) :Unsure[T] =
-		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
+		if (value.isDefined) new Sure(value.get, cachedOpt = value.toOpt) else Missing
 
 	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
 	def one_?[@specialized(SpecializedVars) T](value :Opt[T]) :Unsure[T] =
@@ -449,12 +449,12 @@ object Unsure {
 		if (value.isDefined) new Sure(value.get, value) else Missing
 
 	/** Converts the given `Maybe[T]` into a ''specialized'' `Unsure[T]` instance. */
-	def fromOpt[@specialized(SpecializedVars) T](value: Maybe[T]): Unsure[T] =
-		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
+	def fromMaybe[@specialized(SpecializedVars) T](value: Maybe[T]): Unsure[T] =
+		if (value.isDefined) new Sure(value.get, cachedOpt = value.toOpt) else Missing
 
 	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
-	def fromYield[@specialized(SpecializedVars) T](value: Opt[T]): Unsure[T] =
-		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
+	def fromOpt[@specialized(SpecializedVars) T](value: Opt[T]): Unsure[T] =
+		if (value.isDefined) new Sure(value.get, cachedOpt = value.toOpt) else Missing
 
 
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]] in a manner consistent with the collections hierarchy. */
@@ -531,14 +531,14 @@ object Unsure {
 		/** A nomen omen optional implicit conversion of an `Maybe[A]` to a `Unsure[A]`.
 		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]]
 		  */
-		@inline implicit def OptToUnsure[@specialized(SpecializedVars) A](opt :Maybe[A]) :Unsure[A] = yes_?(opt)
+		@inline implicit def MaybeToUnsure[@specialized(SpecializedVars) A](opt :Maybe[A]) :Unsure[A] = yes_?(opt)
 
-		@inline implicit def UnsureToOpt[A](opt :Unsure[A]) :Maybe[A] = opt.maybe
+		@inline implicit def UnsureToMaybe[A](opt :Unsure[A]) :Maybe[A] = opt.maybe
 
-		@inline implicit def YieldToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] =
-			fromYield(opt)
+		@inline implicit def OptToUnsure[@specialized(SpecializedVars) A](opt :Opt[A]) :Unsure[A] =
+			fromOpt(opt)
 
-		@inline implicit def YieldFromUnsure[A](opt :Unsure[A]) :Opt[A] = Opt.fromUnsure(opt)
+		@inline implicit def OptFromUnsure[A](opt :Unsure[A]) :Opt[A] = Opt.fromUnsure(opt)
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
@@ -590,9 +590,9 @@ object Unsure {
   * Unlike `Some`, it is specialized and does not involve boxing of built in value types used as contents.
   * @tparam T the content type.
   */
-@SerialVersionUID(Ver)
+@SerialVersionUID(Ver) //todo: stop using default arguments, they involve additional method calls.
 final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don't these vars have to be @volatile?
-                (x :T, private[this] var cachedOption :Option[T] = None, private[this] var cachedOpt :Maybe[T] = No)
+                (x :T, private[this] var cachedOption :Option[T] = None, private[this] var cachedOpt :Opt[T] = None)
 	extends Unsure[T]
 {
 	/** Same as [[net.noresttherein.sugar.vars.Sure.get get]], for compatibility with [[Some]].
@@ -605,12 +605,12 @@ final class Sure[@specialized(SpecializedVars) +T] private[vars] //consider: don
 
 	override def option :Option[T] = {
 		if (cachedOption eq None)
-			cachedOption = Some(value)
+			cachedOption = Some(x)
 		cachedOption
 	}
-	override def maybe :Maybe[T] = {
+	override def opt :Opt[T] = {
 		if (cachedOpt.isEmpty)
-			cachedOpt = Yes(value)
+			cachedOpt = One(value)
 		cachedOpt
 	}
 
@@ -648,6 +648,6 @@ object Sure {
 @SerialVersionUID(Ver)
 case object Missing extends Unsure[Nothing] {
 	override def get :Nothing = noSuch_!("Missing.get")
-	override def maybe :Maybe[Nothing] = No
+	override def opt :Opt[Nothing] = None
 	override def option :Option[Nothing] = None
 }

@@ -1,32 +1,32 @@
 package net.noresttherein.sugar.witness
 
-import net.noresttherein.sugar.extensions.castingMethods
-import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.{Maybe, Opt, Pill}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
+import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.witness
-import net.noresttherein.sugar.witness.Optionally.NoImplicit
 import net.noresttherein.sugar.witness.WithDefault.Default
 
 
 
 
 /** A type for which an implicit value is always present, however, if an implicit value for `T` can be found,
-  * it is exposed as `Yes[T]` through this instances [[net.noresttherein.sugar.witness.Optionally.opt opt]] method.
+  * it is exposed as `Yes[T]` through this instances [[net.noresttherein.sugar.witness.Optionally.maybe opt]] method.
   * @note there is an implicit conversion from `T` to `Optionally[T]`, so values of `T` can be passed explicitly
   *       as arguments to methods expecting an `Optionally[T]`.
-  */ 
-class Optionally[+T] private[witness](private val content :AnyRef) extends AnyVal {
-	def opt :Maybe[T] = if (content == NoImplicit) No else Yes(content.asInstanceOf[T])
+  */
+class Optionally[+T] private[witness](val opt :Opt[T]) extends AnyVal {
+	def maybe :Maybe[T] = opt.maybe
 
 	/** Returns the content of this maybe or a default alternative if not content is available. */
-	@inline def getOrElse[O >: T](alternative: => O) :O  = content match {
-		case NoImplicit => alternative
-		case o :O @unchecked => o
+	@inline def getOrElse[O >: T](alternative: => O) :O = maybe match {
+		case Yes(o :O @unchecked) => o
+		case _                    => alternative
 	}
 
 	@inline def isDefined :Boolean = opt.isDefined
 
-	override def toString :String = content.toString
+	override def toString :String = opt.toString
 }
 
 
@@ -63,31 +63,29 @@ object Optionally extends OptionallyNoneImplicit {
 	  */
 	type a[F[_]] = { type T[X] = Optionally[F[X]] }
 
-	/** Summons an optional implicit `T` instance as an `Maybe[T]` instance. */
-	@inline def apply[T](implicit maybe :Optionally[T]) :Maybe[T] = maybe.opt
+	/** Summons an optional implicit `T` instance as an `Opt[T]` instance. */
+	@inline def apply[T](implicit maybe :Optionally[T]) :Opt[T] = maybe.opt
 
 	/** Returns an implicit instance o `T` or a default alternative provided as an argument.  */
-	@inline def orElse[T](alternative: => T)(implicit maybe :Optionally[T]) :T = maybe.opt match {
+	@inline def orElse[T](alternative: => T)(implicit maybe :Optionally[T]) :T = maybe.maybe match {
 		case Yes(value) => value
 		case _ => alternative
 	}
 
 	/** Extracts the optional content of a `Optionally[T]`. This pattern will match only 'yes' instances. */
-	def unapply[T](maybe :Optionally[T]) :Maybe[T] = maybe.opt
+	def unapply[T](maybe :Optionally[T]) :Maybe[T] = maybe.maybe
 
 	/** An empty `Optionally` conforming to any `Optionally[TT]` type. */
-	final val none = new Optionally[Nothing](NoImplicit)
+	final val none = new Optionally[Nothing](None)
 
 	/** Explicitly wraps an implicit evidence instance o `T` in a `Optionally`. */
-	def some[T](implicit evidence :T) :Optionally[T] = new Optionally(evidence.asAnyRef)
+	def some[T](implicit evidence :T) :Optionally[T] = new Optionally(One(evidence))
 
 
-	@inline implicit def optionallySome[T](implicit e :T) :Optionally[T] = new Optionally(e.asAnyRef)
+	@inline implicit def optionallySome[T](implicit e :T) :Optionally[T] = new Optionally(One(e))
 
 	/** An implicit conversion from any value of type `T` to a `Optionally[T]`. */
-	implicit def anyToOptionally[T](value :T) :Optionally[T] = new Optionally(value.asAnyRef)
-
-	private[witness] case object NoImplicit
+	implicit def anyToOptionally[T](value :T) :Optionally[T] = new Optionally(One(value))
 }
 
 
@@ -97,19 +95,31 @@ object Optionally extends OptionallyNoneImplicit {
   * as [[net.noresttherein.sugar.witness.WithDefault.Preferred Preferred]]`[T]` if an implicit one is available,
   * or an implicit `D` as [[net.noresttherein.sugar.witness.WithDefault.Default Default]]`[D]` otherwise.
   */
-sealed trait WithDefault[+T, +D] extends Any //todo: get :T|D
+class WithDefault[+T, +D] private (val toPill :Pill[D, T]) extends AnyVal //todo: get :T|D
 
 
 private[witness] sealed abstract class WithDefaultEvidence {
-	implicit final def default[D](implicit evidence :D) :Default[D] = new Default(evidence)
-	@inline implicit final def withDefault[D](default :D) :Default[D] = new Default(default)
+	implicit final def default[D](implicit evidence :D) :Default[D] = Default(evidence)
+	@inline implicit final def withDefault[D](default :D) :Default[D] = Default(default)
 }
 
 object WithDefault extends WithDefaultEvidence {
 	implicit def preferred[T](implicit evidence :T) :Preferred[T] = Preferred(evidence)
 
-	@inline implicit def anyPreferred[T](value :T) :Preferred[T] = new Preferred(value)
+	@inline implicit def anyPreferred[T](value :T) :Preferred[T] = Preferred(value)
 
-	final case class Preferred[+T](get :T) extends AnyVal with  WithDefault[T, Nothing]
-	final case class Default[+D](get :D) extends AnyVal with WithDefault[Nothing, D]
+	type Preferred[+T] = WithDefault[T, Nothing]
+	type Default[+T] = WithDefault[Nothing, T]
+
+	object Preferred {
+		def apply[T](value :T) :Preferred[T] = new WithDefault(Blue(value))
+		def unapply[T](withDefault :WithDefault[T, Any]) :Maybe[T] = withDefault.toPill.toMaybe
+	}
+	object Default {
+		def apply[T](value :T) :Default[T] = new WithDefault(Red(value))
+		def unapply[T](withDefault :WithDefault[Any, T]) :Maybe[T] = withDefault.toPill match {
+			case Red(default) => Yes(default)
+			case _            => No
+		}
+	}
 }

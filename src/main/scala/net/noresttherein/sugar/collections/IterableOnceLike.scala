@@ -8,8 +8,9 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.{IArray, IRefArray, RefArray}
 import net.noresttherein.sugar.collections.IterableOnceLikeSummons.{GenericSummoner, Summoner}
+import net.noresttherein.sugar.exceptions.unsupported_!
 import net.noresttherein.sugar.extensions.{SeqExtension, castTypeParamMethods, castingMethods, classNameMethods, mutableIndexedSeqExtension}
-import net.noresttherein.sugar.{funny, unsupported_!}
+import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.<:?<
 

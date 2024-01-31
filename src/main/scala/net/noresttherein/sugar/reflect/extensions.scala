@@ -4,9 +4,9 @@ import java.lang.reflect.Type
 
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.{illegal_!, reflect, unsupported_!}
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
+import net.noresttherein.sugar.exceptions.{illegal_!, reflect, unsupported_!}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 

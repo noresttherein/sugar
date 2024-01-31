@@ -16,6 +16,8 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -66,6 +68,12 @@ private object Iterators {
 
 	def flatMapSome[E, A, O](self :Iterator[E], z :A, f :(A, E) => Option[(A, IterableOnce[O])]) :Iterator[O] =
 		mapSome(self, z, f).flatten
+
+	def mapPrefix[E, A, O](self :Iterator[E], z :A, f :(A, E) => Opt[(A, O)]) :Iterator[O] =
+		new MapPrefix(self, z, f)
+
+	def flatMapPrefix[E, A, O](self :Iterator[E], z :A, f :(A, E) => Opt[(A, IterableOnce[O])]) :Iterator[O] =
+		mapPrefix(self, z, f).flatten
 
 	def filterWith[E, A](self :Iterator[E], z :A, pred :(E, A) => (Boolean, A), keep :Boolean = true) :Iterator[E] =
 		new FilterWith(self, z, pred, keep)
@@ -793,9 +801,33 @@ private object Iterators {
 			res._2
 		}
 		override def toString :String = hd match {
-			case null => source.toString + ".mapSome(" + state + ")"
+			case null         => source.toString + ".mapSome(" + state + ")"
 			case Some((s, e)) => source.toString + ".mapSome(" + s + "->" + e + ")"
-			case _ => "Iterator()"
+			case _            => "Iterator()"
+		}
+	}
+
+	final class MapPrefix[X, S, +Y](source :Iterator[X], private[this] var state :S, f :(S, X) => Opt[(S, Y)])
+		extends AbstractIterator[Y] with IteratorSlicing[Y]
+	{
+		private[this] var hd :Opt[(S, Y)] = this.asInstanceOf[Opt[(S, Y)]]
+		override def hasNext :Boolean = {
+			if (hd.asAnyRef eq this)
+				hd = if (source.hasNext) f(state, source.next()) else None
+			hd.isDefined
+		}
+		override def next() :Y = {
+			if (hd.asAnyRef eq this)
+				hd = f(state, source.next())
+			val res = hd.get
+			hd = null
+			state = res._1
+			res._2
+		}
+		override def toString :String = hd match {
+			case _ if hd.asAnyRef eq this => source.toString + ".mapPrefix(" + state + ")"
+			case One((s, e))              => source.toString + ".mapPrefix(" + s + "->" + e + ")"
+			case _                        => "Iterator()"
 		}
 	}
 //	final class FlatMapSome[X, S, +Y](source: Iterator[X], private[this] var state: S,

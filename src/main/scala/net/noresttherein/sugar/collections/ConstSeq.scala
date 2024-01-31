@@ -6,7 +6,7 @@ import scala.collection.immutable.{LinearSeq, SeqOps}
 
 import net.noresttherein.sugar.arrays.MutableArrayExtension
 import net.noresttherein.sugar.collections.extensions.IteratorCompanionExtension
-import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 
 
 

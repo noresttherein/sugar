@@ -5,6 +5,7 @@ import scala.annotation.unspecialized
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -68,9 +69,9 @@ object Transient {
 			val res = evaluated
 			if (res == undefined) None else Some(res.asInstanceOf[T])
 		}
-		override def maybe :Maybe[T] = {
+		override def opt :Opt[T] = {
 			val res = evaluated
-			if (res == undefined) No else Yes(res.asInstanceOf[T])
+			if (res == undefined) None else One(res.asInstanceOf[T])
 		}
 		@unspecialized override def unsure :Unsure[T] = {
 			val res = evaluated
@@ -126,9 +127,9 @@ object Transient {
 			val res = evaluated
 			if (res == undefined) None else Some(evaluated.asInstanceOf[T])
 		}
-		override def maybe :Maybe[T] = {
+		override def opt :Opt[T] = {
 			val res = evaluated
-			if (res == undefined) No else Yes(evaluated.asInstanceOf[T])
+			if (res == undefined) None else One(evaluated.asInstanceOf[T])
 		}
 		override def unsure :Unsure[T] = {
 			val res = evaluated

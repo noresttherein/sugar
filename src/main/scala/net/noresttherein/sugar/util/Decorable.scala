@@ -3,9 +3,10 @@ package net.noresttherein.sugar.util
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
+import net.noresttherein.sugar.vars.{Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -341,12 +342,12 @@ object Decorable {
 		}
 
 	@inline private def DecorationsZipper[Self <: Decorable[Self]]
-	                                     (decorator :Decorator[Self], next :Option[DecorationsZipper[Self]])
+	                                     (decorator :Decorator[Self], next :Opt[DecorationsZipper[Self]])
 			:DecorationsZipper[Self] =
 		DecorationsZipper[Self](decorator.`->decorated`, decorator.`->constructor`, next)
 
 	@inline private def DecorationsZipper[Self <: Decorable[Self]]
-	                                     (current :Self, next :Self => Self, following :Option[DecorationsZipper[Self]])
+	                                     (current :Self, next :Self => Self, following :Opt[DecorationsZipper[Self]])
 			:DecorationsZipper[Self] =
 		new DecorationsZipper(current, next, following)
 //		current match {
@@ -397,10 +398,9 @@ object Decorable {
 	                                * this is an identity function. */
 	                              val decoration :Self => Self,
 	                              /** The future of this zipper, following the current `decoration`. */
-	                              //consider: using Maybe
-	                              val continuation :Option[DecorationsZipper[Self]])
+	                              val continuation :Opt[DecorationsZipper[Self]])
 	{
-		private def this(decorator :Decorator[Self], above :Option[DecorationsZipper[Self]]) =
+		private def this(decorator :Decorator[Self], above :Opt[DecorationsZipper[Self]]) =
 			this(decorator.`->decorated`, decorator.`->constructor`, above)
 
 		/** A function with decorations applied on top of the instance this zipper is pointing at.
@@ -410,8 +410,8 @@ object Decorable {
 		  * If this zipper points to the outermost instance, `identity` function is returned.
 		  */
 		def decorations :Self => Self = continuation match {
-			case Some(zipper) => decoration andThen zipper.decorations
-			case _            => decoration
+			case One(zipper) => decoration andThen zipper.decorations
+			case _           => decoration
 		}
 
 		/** True if this zipper points to the bottommost instance of the `Decorable` stack
@@ -445,7 +445,7 @@ object Decorable {
 		  */
 		@throws[NoSuchElementException]("if the zipper points to the outermost instance (continuation.isEmpty).")
 		def >> :DecorationsZipper[Self] = continuation match {
-			case Some(zipper) => zipper
+			case One(zipper) => zipper
 			case _ => noSuch_!("Zipper pointing to the outermost instance.")
 		}
 		/** Advances this zipper, wrapping its [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.point point]]
@@ -456,7 +456,7 @@ object Decorable {
 		  */
 		def >>(pred :Self => Boolean) :DecorationsZipper[Self] = {
 			@tailrec def up(zipper :DecorationsZipper[Self]) :DecorationsZipper[Self] = zipper.continuation match {
-				case Some(next) if pred(next.point) => up(next)
+				case One(next) if pred(next.point) => up(next)
 				case _ => zipper
 			}
 			up(this)
@@ -473,8 +473,8 @@ object Decorable {
 		def >>| :DecorationsZipper[Self] = {
 			@tailrec def rec(current :DecorationsZipper[Self]) :DecorationsZipper[Self] =
 				current.continuation match {
-					case Some(next) => rec(next)
-					case _          => current
+					case One(next) => rec(next)
+					case _         => current
 				}
 			rec(this)
 		}
@@ -488,7 +488,7 @@ object Decorable {
 		@throws[NoSuchElementException]("if this.point is not a Decorator.")
 		def << :DecorationsZipper[Self] = point match {
 			case decorator :Decorator[Self @unchecked] =>
-				new DecorationsZipper[Self](decorator, Some(this))
+				new DecorationsZipper[Self](decorator, One(this))
 			case _ =>
 				noSuch_!("Zipper pointing to the bottom instance.")
 		}
@@ -498,12 +498,12 @@ object Decorable {
 		  * [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.continuation continuation]] stack.
 		  * If `point` is not found, `No` is returned.
 		  */
-		def <<(point :Decorable[Self]) :Option[DecorationsZipper[Self]] = {
+		def <<(point :Decorable[Self]) :Opt[DecorationsZipper[Self]] = {
 			val End = point
-			@tailrec def unwrap(zipper :DecorationsZipper[Self]) :Option[DecorationsZipper[Self]] =
+			@tailrec def unwrap(zipper :DecorationsZipper[Self]) :Opt[DecorationsZipper[Self]] =
 				zipper.point match {
-					case End => Some(zipper)
-					case decorator :Decorator[Self @unchecked] => unwrap(new DecorationsZipper(decorator, Some(zipper)))
+					case End => One(zipper)
+					case decorator :Decorator[Self @unchecked] => unwrap(new DecorationsZipper(decorator, One(zipper)))
 					case _ => None
 				}
 			unwrap(this)
@@ -516,7 +516,7 @@ object Decorable {
 			@tailrec def unwrap(zipper :DecorationsZipper[Self]) :DecorationsZipper[Self] =
 				zipper.point match {
 					case decorator :Decorator[Self @unchecked] if pred(zipper.point) =>
-						unwrap(new DecorationsZipper(decorator, Some(zipper)))
+						unwrap(new DecorationsZipper(decorator, One(zipper)))
 					case _ => zipper
 				}
 			unwrap(this)
@@ -534,11 +534,11 @@ object Decorable {
 		  * @see [[net.noresttherein.sugar.util.Decorable.DecorationsZipper.<<]]
 		  */
 		def |<< :DecorationsZipper[Self] = {
-			@tailrec def rec(current :Self, next :Self => Self, up :Option[DecorationsZipper[Self]])
+			@tailrec def rec(current :Self, next :Self => Self, up :Opt[DecorationsZipper[Self]])
 					:DecorationsZipper[Self] =
 				current match {
 					case decorator :Decorator[Self @unchecked] =>
-						rec(decorator.`->decorated`, decorator.`->constructor`, Some(new DecorationsZipper(decorator, up)))
+						rec(decorator.`->decorated`, decorator.`->constructor`, One(new DecorationsZipper(decorator, up)))
 					case _ if current eq point =>
 						this
 					case _ =>
@@ -556,7 +556,7 @@ object Decorable {
 		  */
 		@throws[UnsupportedOperationException]("if the zipper points to the outermost instance (continuation.isEmpty).")
 		def >>- :DecorationsZipper[Self] = continuation match {
-			case Some(next) =>
+			case One(next) =>
 				DecorationsZipper(point, next.decoration, next.continuation)
 			case _ =>
 				unsupported_!("Cannot remove a decorator: zipper pointing to the outermost instance")
@@ -667,13 +667,13 @@ object Decorable {
 			DecorationsZipper(decoration(point), this.decoration, continuation)
 
 
-		@tailrec private def unwrap(current :Self, next :Self => Self, up :Option[DecorationsZipper[Self]])
+		@tailrec private def unwrap(current :Self, next :Self => Self, up :Opt[DecorationsZipper[Self]])
 				:DecorationsZipper[Self] =
 			current match {
 				case _ if current eq point => new DecorationsZipper(point, next, up)
 				case decorator :Decorator[Self @unchecked] =>
 					unwrap(decorator.`->decorated`, decorator.`->constructor`,
-					       Some(new DecorationsZipper(decorator.`->this`, next, up)))
+					       One(new DecorationsZipper(decorator.`->this`, next, up)))
 				case bottom => DecorationsZipper[Self](bottom, next, up)
 			}
 

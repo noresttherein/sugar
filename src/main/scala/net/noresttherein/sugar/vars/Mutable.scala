@@ -4,6 +4,7 @@ import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.unsupported_!
 import net.noresttherein.sugar.vars.InOut.{InOutOrdering, SpecializedVars}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -46,12 +47,12 @@ trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 	override def toOption    :Some[T] = option
 	/** Returns `None`. */
 	override def constOption :Option[T] = None
-	/** Returns `Yes(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */
-	override def maybe         :Yes[T]  = Yes(value)
-	/** Same as [[net.noresttherein.sugar.vars.Mutable.maybe opt]]. */
-	override def toMaybe       :Yes[T]  = maybe
-	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]]. */
-	override def maybeConst    :Maybe[T]  = No
+	/** Returns `One(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */
+	override def opt         :Opt[T]  = One(value)
+	/** Same as [[net.noresttherein.sugar.vars.Mutable.opt opt]]. */
+	override def toOpt       :Opt[T]  = opt
+	/** Returns `None`. */
+	override def constOpt    :Opt[T]  = None
 	/** Returns `Sure(`[[net.noresttherein.sugar.vars.Mutable.value value]]`)`. */
 	override def unsure      :Sure[T] = Sure(value)
 	/** Same as [[net.noresttherein.sugar.vars.Mutable.unsure unsure]]. */

@@ -5,8 +5,7 @@ import java.lang.reflect.{Method, Modifier}
 import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe._
 
-import net.noresttherein.sugar.{??!, illegal_!, unsupported_!}
-import net.noresttherein.sugar.exceptions.RethrowableException
+import net.noresttherein.sugar.exceptions.{RethrowableException, ??!, illegal_!, unsupported_!}
 import net.noresttherein.sugar.extensions.{castingMethods, providingMethods}
 import net.noresttherein.sugar.reflect.InvocationReflection.Trace
 import net.noresttherein.sugar.reflect.PropertyPath.UpdatableProperty

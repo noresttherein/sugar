@@ -3,8 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!, raise}
 import net.noresttherein.sugar.vars.Maybe.{No, NoContent, WithFilter, Yes, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -45,8 +44,8 @@ import net.noresttherein.sugar.vars.Opt.One
   *      primarily in that returning it from a function or a accepting it as a type parameter does not require
   *      the creation of an `Maybe` instance through reference reification. As a bonus, it doesn't cause
   *      'auto generated bridge method conflicts with the method itself' compile error when overriding
-  *      a method taking a parameter `T` with a `Opt[S]` (by passing `Opt[S] as T` to the super class).
-  *      The disadvantages are the loss of dynamic type information (a `??[T]` will match all match patterns
+  *      a method taking a parameter `T` with a `Maybe[S]` (by passing `Maybe[S] as T` to the super class).
+  *      The disadvantages are the loss of dynamic type information (a `Opt[T]` will match all match patterns
   *      which would match `T`), higher potential for erasure conflicts, and inability to use
   *      as a return type of an `unapply` method (because it provides only extension methods, rather than class methods
   *      as `Maybe` does. This makes it best suited as very short living objects where the `Opt` type
@@ -291,7 +290,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 		else f(ref.asInstanceOf[A])
 
 	/** Flattens `Maybe[Maybe[O]]` to a single `Maybe[O]`. */
-	def flatten[O](implicit isOpt :A <:< Maybe[O]) :Maybe[O] =
+	def flatten[O](implicit isMaybe :A <:< Maybe[O]) :Maybe[O] =
 		(ref :Any) match {
 			case NoContent => new Maybe(NoContent)
 			case opt :Maybe[O @unchecked] => opt
@@ -413,20 +412,20 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Maybe`.
 	  * Same as [[net.noresttherein.sugar.vars.Maybe.toUnsure toUnsure]]. */
 	@inline override def unsure :Unsure[A] =
-		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = toOpt)
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
 	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Maybe`. */
 	@inline override def toUnsure :Unsure[A] =
-		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = toOpt)
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
 	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Maybe`.
       * Same as [[net.noresttherein.sugar.vars.Maybe.toUnsure toUnsure]]. */
 	@inline override def unsureConst :Unsure[A] =
-		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = this)
+		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = toOpt)
 
 	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
 	  * This conversion does not require boxing. Same as [[net.noresttherein.sugar.vars.Maybe.toOpt toOpt]]. */
@@ -539,7 +538,7 @@ object Maybe {
 		new Maybe(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
 	/** Converts the given `Opt[T]` into an `Maybe[T]` for interoperability. */
-	@inline def fromYield[T](value :Opt[T]) :Maybe[T] = One.unapply(value)
+	@inline def fromOpt[T](value :Opt[T]) :Maybe[T] = One.unapply(value)
 
 	/** When a given condition is true, evaluates the `a` argument and returns `Yes(a).`
 	  * When the condition is false, `a` is not evaluated and `No` is returned. */
@@ -628,10 +627,10 @@ object Maybe {
 			new Maybe(if (option.isDefined) option.get.asInstanceOf[AnyRef] else NoContent)
 
 		/** Implicitly lifts any value `T` to [[net.noresttherein.sugar.vars.Maybe Maybe]]`[T]`. */
-		@inline implicit def gotAny[T](x :T) :Yes[T] = new Maybe(x.asInstanceOf[AnyRef]).asInstanceOf[Yes[T]]
+		@inline implicit def anyToYes[T](x :T) :Yes[T] = new Maybe(x.asInstanceOf[AnyRef]).asInstanceOf[Yes[T]]
 
-		@inline implicit def OptToYield[T](opt :Maybe[T]) :Opt[T] = opt.opt
-		@inline implicit def YieldToOpt[T](opt :Opt[T]) :Maybe[T] = Maybe.fromYield(opt)
+		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = opt.opt
+		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = Maybe.fromOpt(opt)
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
@@ -655,11 +654,11 @@ object Maybe {
 		//same names as in conversions so if both are imported one shadows the other
 		@inline implicit def OptToOption[T](opt :Maybe[T]) :scala.Option[T] = opt.option
 		@inline implicit def OptionToOpt[T](opt :scala.Option[T]) :Maybe[T] = some_?(opt)
-		@inline implicit def SomeToGot[T](opt :scala.Some[T]) :Yes[T] = Yes(opt.get)
-		@inline implicit def GotToSome[T](opt :Sure[T]) :scala.Some[T] = opt.option.asInstanceOf[scala.Some[T]]
+		@inline implicit def SomeToYes[T](opt :scala.Some[T]) :Yes[T] = Yes(opt.get)
+		@inline implicit def GotToYes[T](opt :Sure[T]) :scala.Some[T] = opt.option.asInstanceOf[scala.Some[T]]
 
-		@inline implicit def NoneToLack(none :scala.None.type) :No.type = No
-		@inline implicit def LackToNone(miss :No.type) :scala.None.type = scala.None
+		@inline implicit def NoneToNo(none :scala.None.type) :No.type = No
+		@inline implicit def NoToNone(miss :No.type) :scala.None.type = scala.None
 	}
 
 

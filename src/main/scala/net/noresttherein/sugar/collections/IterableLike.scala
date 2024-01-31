@@ -1,12 +1,12 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.immutable.HashMap
-import scala.collection.{IterableFactory, IterableOnceOps, IterableOps, LazyZip2, View, WithFilter, mutable}
+import scala.collection.{IterableFactory, IterableOps, LazyZip2, View, WithFilter}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, cast3TypeParamsMethods}
-import net.noresttherein.sugar.{funny, unsupported_!}
+import net.noresttherein.sugar.exceptions.unsupported_!
+import net.noresttherein.sugar.extensions.{IterableOnceExtension, cast3TypeParamsMethods}
+import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.<:?<
 

@@ -9,12 +9,11 @@ import scala.annotation.tailrec
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
-import net.noresttherein.sugar.exceptions.{InternalException, SugaredArithmeticException, SugaredNumberFormatException}
+import net.noresttherein.sugar.exceptions.{InternalException, SugaredArithmeticException, SugaredNumberFormatException, illegal_!, io_!, oops}
 import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
-import net.noresttherein.sugar.{illegal_!, io_!, oops}
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.{Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Optionally
 
@@ -2428,9 +2427,9 @@ object Decimal64 {
 	  **/
 	@throws[ArithmeticException]("if the parsed number exceeds both the precision of Decimal64 or the one from an implicit MathContext.")
 	@throws[NumberFormatException]("if the string does not represent a valid decimal number.")
-	def parse(string :String)(implicit mode :Optionally[MathContext]) :Maybe[Decimal64] =
-		try Yes(from(string, mode getOrElse ExtendedExact)) catch {
-			case _ :ArithmeticException | _ :NumberFormatException => No
+	def parse(string :String)(implicit mode :Optionally[MathContext]) :Opt[Decimal64] =
+		try Opt.One(from(string, mode getOrElse ExtendedExact)) catch {
+			case _ :ArithmeticException | _ :NumberFormatException => None
 		}
 
 

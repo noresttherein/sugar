@@ -269,8 +269,8 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.maybeConst maybeConst]]
-	  */ //consider: renaming to currOpt
-	def maybe :Maybe[T]
+	  */ //consider: renaming to currMaybe
+	def maybe :Maybe[T] = opt.toMaybe
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
 	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
@@ -287,8 +287,8 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.maybe maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.maybeConst maybeConst]]
-	  */ //consider: renaming to opt
-	def toMaybe :Maybe[T]
+	  */
+	def toMaybe :Maybe[T] = toOpt.toMaybe
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
 	  * All non-empty returned values are equal: in a single threaded context (or when properly synchronized),
@@ -301,7 +301,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.maybe maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]
 	  */
-	def maybeConst :Maybe[T]
+	def maybeConst :Maybe[T] = constOpt.toMaybe
 
 	/** The current value of this $Ref, as an option-like, specialized `Unsure`.
 	  * In a single threaded context - or with synchronization proper to the implementation - it is equivalent to
@@ -357,7 +357,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
 	  */ //todo: reverse the order of delegation
-	def opt :Opt[T] = maybe.opt
+	def opt :Opt[T]
 
 	/** The value of this $Ref, if it is available or can be computed. Lazily initialized objects
 	  * (containing their initializers) will proceed with the initialization if necessary, but subclasses which require
@@ -375,7 +375,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]
 	  */
-	def toOpt :Opt[T] = toMaybe.opt
+	def toOpt :Opt[T]
 
 	/** The [[net.noresttherein.sugar.vars.Ref.const constant]] value of this $Ref, if one exists.
 	  * All non-empty returned values are equal: in a single threaded context (or when properly synchronized),
@@ -388,7 +388,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.opt opt]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.toOpt toOpt]]
 	  */
-	def constOpt :Opt[T] = maybeConst.opt
+	def constOpt :Opt[T]
 
 	/** Returns `true` if both instances are [[net.noresttherein.sugar.vars.Ref.isDefined defined]]
 	  * and their  [[net.noresttherein.sugar.vars.Ref.value values]] are equal.
@@ -581,14 +581,18 @@ object Ref {
 		@inline final override def toOption    :Option[T] = option
 		/** Same as [[net.noresttherein.sugar.vars.Ref.option option]]. */
 		@inline final override def constOption :Option[T] = option
-		/** Same as [[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
-		@inline final override def toMaybe       :Maybe[T] = maybe
-		/** Same as [[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
-		@inline final override def maybeConst    :Maybe[T] = maybe
+		/** Same as [[net.noresttherein.sugar.vars.Ref.opt opt]]. */
+		@inline final override def toOpt       :Opt[T] = opt
+		/** Same as [[net.noresttherein.sugar.vars.Ref.opt opt]]. */
+		@inline final override def constOpt    :Opt[T] = opt
 		/** Same as [[net.noresttherein.sugar.vars.Ref.unsure unsure]]. */
 		@inline final override def toUnsure    :Unsure[T] = unsure
 		/** Same as [[net.noresttherein.sugar.vars.Ref.unsure unsure]]. */
 		@inline final override def unsureConst :Unsure[T] = unsure
+		/** Same as [[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
+		@inline final override def toMaybe      :Maybe[T] = maybe
+		/** Same as [[net.noresttherein.sugar.vars.Ref.maybe maybe]]. */
+		@inline final override def maybeConst   :Maybe[T] = maybe
 	}
 
 

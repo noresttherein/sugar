@@ -9,13 +9,13 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, SortedSetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
+import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

@@ -4,8 +4,8 @@ import scala.collection.immutable.SeqOps
 import scala.collection.{IterableOps, SpecificIterableFactory}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.collections.extensions.IteratorExtension
+import net.noresttherein.sugar.exceptions.unsupported_!
 import net.noresttherein.sugar.funny.generic
 
 

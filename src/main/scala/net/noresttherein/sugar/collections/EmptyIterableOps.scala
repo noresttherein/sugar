@@ -9,8 +9,8 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.EmptySeqOps.searchResult
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, BuilderExtension, IterableOnceExtension, PartialFunctionExtension}
-import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 
 
 

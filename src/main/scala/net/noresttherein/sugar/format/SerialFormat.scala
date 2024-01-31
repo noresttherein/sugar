@@ -26,7 +26,7 @@ trait SerialFormat extends Format {
 
 	override def apply[M](name :String) :SerialMoldmaker[M] = new NamedSerialMoldmaker[M](name)
 	override def apply[M](subject :Class[M]) :SerialMoldmaker[M] = apply(subject.innerName)
-	def apply[M](implicit subject :Optionally[ClassTag[M]]) :SerialMoldmaker[M] = subject.opt match {
+	def apply[M](implicit subject :Optionally[ClassTag[M]]) :SerialMoldmaker[M] = subject.maybe match {
 		case Yes(tag) => apply[M](tag.runtimeClass.innerName)
 		case _ => apply("_")
 	}

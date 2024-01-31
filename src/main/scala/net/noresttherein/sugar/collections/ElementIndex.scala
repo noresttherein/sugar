@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.Searching
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 
-import net.noresttherein.sugar.{illegal_!, noSuch_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

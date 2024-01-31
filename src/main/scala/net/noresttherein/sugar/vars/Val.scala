@@ -1,7 +1,8 @@
 package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, undefined}
 
 
@@ -141,7 +142,7 @@ object Val {
 /** A proxy `Val` mapping the value of another `Val`. */
 @SerialVersionUID(Ver)
 private class MappedVal[V, +O](source: Val[V], f: V => O) extends Ref[O] with Val[O] {
-	@volatile private[this] var x: Maybe[O] = No
+	@volatile private[this] var x: Opt[O] = None
 
 	override def isFinalizable :Boolean = x.isDefined || source.isFinalizable
 	override def isConst       :Boolean = x.isDefined || source.isConst
@@ -154,29 +155,29 @@ private class MappedVal[V, +O](source: Val[V], f: V => O) extends Ref[O] with Va
 
 	@inline private def adaptVal(v: V) :O = {
 		val res = f(v)
-		x = Yes(res)
+		x = One(res)
 		res
 	}
 
-	override def maybe :Maybe[O] = x orElse {
+	override def opt :Opt[O] = x orElse {
 		if (source.isConst) {
-			val res = Yes(f(source.const))
+			val res = One(f(source.const))
 			x = res
 			res
 		} else
 			No
 	}
-	override def toMaybe    :Maybe[O] = x orElse adaptOpt(source.toMaybe)
-	override def maybeConst :Maybe[O] = x orElse adaptOpt(source.maybeConst)
+	override def toOpt    :Opt[O] = x orElse adaptOpt(source.toMaybe)
+	override def constOpt :Opt[O] = x orElse adaptOpt(source.maybeConst)
 
-	private def adaptOpt(outer: Maybe[V]) = {
+	private def adaptOpt(outer: Opt[V]) = {
 		val local = x
 		if (local.isDefined)
 			local
 		else if (outer.isEmpty)
-			No
+			None
 		else {
-			val res = Yes(f(outer.get))
+			val res = One(f(outer.get))
 			x = res
 			res
 		}
@@ -195,14 +196,14 @@ private class MappedVal[V, +O](source: Val[V], f: V => O) extends Ref[O] with Va
 /** A proxy `Val` flat mapping the value of another `Val`. */
 @SerialVersionUID(Ver)
 private class FlatMappedVal[V, +O](source: Val[V], f: V => Val[O]) extends Ref[O] with Val[O] {
-	@volatile private[this] var cache :Maybe[Val[O]] = No
+	@volatile private[this] var cache :Opt[Val[O]] = None
 
-	@inline protected final def cached :Maybe[Val[O]] =
-		cache orElse Maybe.when(source.isConst)(adaptVal(source.const))
+	@inline protected final def cached :Opt[Val[O]] =
+		cache orElse Opt.when(source.isConst)(adaptVal(source.const))
 
 	@inline private def adaptVal(v: V) :Val[O] = {
 		val res = f(v)
-		cache = Yes(res)
+		cache = One(res)
 		res
 	}
 
@@ -215,9 +216,9 @@ private class FlatMappedVal[V, +O](source: Val[V], f: V => Val[O]) extends Ref[O
 	override def get   :O = toMaybe getOrElse adaptVal(source.get).get
 	override def const :O = maybeConst.orNoSuch("Val()")
 
-	override def maybe      :Maybe[O] = cached.flatMap(_.maybe)
-	override def toMaybe    :Maybe[O] = (cache orElse source.toMaybe.map(adaptVal)).flatMap(_.toMaybe)
-	override def maybeConst :Maybe[O] = (cache orElse source.maybeConst.map(adaptVal)).flatMap(_.maybeConst)
+	override def opt      :Opt[O] = cached.flatMap(_.opt)
+	override def toOpt    :Opt[O] = (cache orElse source.toOpt.map(adaptVal)).flatMap(_.toOpt)
+	override def constOpt :Opt[O] = (cache orElse source.constOpt.map(adaptVal)).flatMap(_.constOpt)
 
 	override def mkString = mkString("Val")
 	override def toString = super[Ref].toString
@@ -230,9 +231,9 @@ private class FlatMappedVal[V, +O](source: Val[V], f: V => Val[O]) extends Ref[O
 private[sugar] trait Const[@specialized(SpecializedVars) +V] extends Val[V] {
 	override def value :V = get
 	override def const :V = get
-	override def maybe   :Maybe[V] = Yes(get)
-	override def toMaybe :Maybe[V] = Yes(get)
-	override def maybeConst :Maybe[V] = Yes(get)
+	override def opt   :Opt[V] = One(get)
+	override def toOpt :Opt[V] = One(get)
+	override def constOpt :Opt[V] = One(get)
 
 	override def isFinalizable :Boolean = true
 	override def isConst       :Boolean = true

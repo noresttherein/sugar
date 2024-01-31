@@ -242,11 +242,11 @@ case object Watched extends AtomicCompanion[Watched] {
 	def apply[@specialized(SpecializedVars) T](init :T)(implicit executor :Optionally[Executor]) :Watched[T] =
 		new Watched[T] match {
 			case any if any.getClass == classOf[Watched[Any]] =>
-				val res :Watched[T] = new Ref[T]()(executor.opt getOrElse SerialExecutor)
+				val res :Watched[T] = new Ref[T]()(executor.maybe getOrElse SerialExecutor)
 				res.set(init)
 				res
 			case bool if bool.getClass == CaseBool =>
-				val res :Watched[Boolean] = new Bool()(executor.opt getOrElse SerialExecutor)
+				val res :Watched[Boolean] = new Bool()(executor.maybe getOrElse SerialExecutor)
 				res.set(init.asInstanceOf[Boolean])
 				res.asInstanceOf[Watched[T]]
 			case res =>

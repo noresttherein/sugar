@@ -32,7 +32,7 @@ trait MutNatMap[K[_], V[_]]
 
 
 	def +=[X](key :K[X], value :V[X]) :this.type = { put(key, value); this }
-
+	//consider: variant for Opt
 	def put[X](key :K[X], value :V[X]) :Option[V[X]]
 
 	def mapValuesInPlace(f :Item =>: V) :this.type

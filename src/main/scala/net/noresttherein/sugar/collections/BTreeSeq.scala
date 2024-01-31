@@ -11,8 +11,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, ErasedArray, IArray}
 import net.noresttherein.sugar.collections.BTreeSeq.{CompletePrefixes, ConvertToBTreeOnConcatFactor, Empty, Leaf, MaxChildren, Node, Rank, SemiCompletePrefixes, grow, semiCompleteNode}
-import net.noresttherein.sugar.exceptions.??!
-import net.noresttherein.sugar.{noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.vars.Box
 import net.noresttherein.sugar.vars.Maybe.Yes
 
@@ -882,7 +881,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 	  * @return `second.opt.mapOrElse(new Node(first, _), first)`.
 	  */
 	private def grow[E](first :BTreeSeq[E], second :Box[BTreeSeq[E]]) :BTreeSeq[E] =
-		second.removeOpt() match {
+		second.maybeRemove() match {
 			case Yes(node) => new Node(first, node)
 			case _         => first
 		}
@@ -1918,7 +1917,7 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 						prefix.appendedAll(suffix, prefixDepth - suffixDepth, surplus)
 					else
 						suffix.prependedAll(prefix, suffixDepth - prefixDepth, surplus)
-				surplus.removeOpt() match {
+				surplus.maybeRemove() match {
 					case Yes(second) => new Node(first, second)
 					case _           => first
 				}
@@ -1926,10 +1925,10 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 				//prefix and suffix trees must be merged to the same child at fromIdx + 1 (= untilIdx - 1)
 				val suffix = children(untilIdx).slice(0, relativeUntil, height - 1, surplus)
 				val first  = children(fromIdx + 1).prependedAll(prefix, height - 1 - prefix.depth, surplus)
-				surplus.removeOpt() match {
+				surplus.maybeRemove() match {
 					case Yes(node) =>
 						val second = node.appendedAll(suffix, height - 1 - suffix.depth, surplus)
-						surplus.removeOpt() match {
+						surplus.maybeRemove() match {
 							case Yes(third) =>
 								val newChildren = new Array[BTreeSeq[U]](3)
 								newChildren(0) = first
@@ -1941,17 +1940,17 @@ object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 						}
 					case _ =>
 						val res = first.appendedAll(suffix, height - 1 - suffix.depth, surplus)
-						surplus.removeOpt() match {
+						surplus.maybeRemove() match {
 							case Yes(next) => new Node(res, next)
 							case _ => res
 						}
 				}
 			} else { //Finally, we can inject prefix and suffix trees independently into their following/preceding nodes.
 				val first  = children(fromIdx + 1).prependedAll(prefix, prefix.depth, surplus)
-				val second = surplus.removeOpt()
+				val second = surplus.maybeRemove()
 				val suffix = children(untilIdx).take(relativeUntil, height - 1, surplus)
 				val last   = children(untilIdx - 1).appendedAll(suffix, height - 1 - suffix.depth, surplus)
-				val extra  = surplus.removeOpt()
+				val extra  = surplus.maybeRemove()
 				val copied = untilIdx - fromIdx - 3
 				val newChildren = new Array[BTreeSeq[U]](copied + 2 + second.size + extra.size)
 				newChildren(0) = first

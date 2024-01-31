@@ -7,6 +7,7 @@ import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -128,9 +129,9 @@ private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
 		val res = evaluated
 		if (res == undefined) None else Some(res.asInstanceOf[T])
 	}
-	override def maybe :Maybe[T] = {
+	override def opt :Opt[T] = {
 		val res = evaluated
-		if (res == undefined) No else Yes(res.asInstanceOf[T])
+		if (res == undefined) None else One(res.asInstanceOf[T])
 	}
 	override def unsure :Unsure[T] = {
 		val res = evaluated
@@ -188,12 +189,12 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 			acquireFence()
 			Some(evaluated)
 		}
-	override def maybe :Maybe[T] =
+	override def opt :Opt[T] =
 		if (initializer == null)
-			No
+			None
 		else {
 			acquireFence()
-			Yes(evaluated)
+			One(evaluated)
 		}
 	override def unsure :Unsure[T] =
 		if (initializer == null)

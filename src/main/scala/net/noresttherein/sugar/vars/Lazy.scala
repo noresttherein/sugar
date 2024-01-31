@@ -6,6 +6,7 @@ import scala.annotation.unspecialized
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, undefined}
 
 
@@ -94,15 +95,15 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	  */
 	@inline final override def constOption :Option[T] = toOption
 
-	override def maybe :Maybe[T] = if (!isEmpty) Yes(value) else No
+	override def opt :Opt[T] = if (!isEmpty) One(value) else None
 
-	/** Returns [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
-	@inline final override def toMaybe :Maybe[T] = Yes(get)
+	/** Returns [[net.noresttherein.sugar.vars.Opt.One One]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
+	@inline final override def toOpt :Opt[T] = One(get)
 
-	/** Returns [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
-	  * same as [[net.noresttherein.sugar.vars.Lazy.toMaybe toMaybe]].
+	/** Returns [[net.noresttherein.sugar.vars.Opt.One One]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
+	  * same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
 	  */
-	@inline final override def maybeConst :Maybe[T] = Yes(get)
+	@inline final override def constOpt :Opt[T] = One(get)
 
 	/** Returns [[net.noresttherein.sugar.vars.Sure Sure]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`. */
 	override def toUnsure :Unsure[T] = Sure(get)
@@ -272,9 +273,9 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 		val res = evaluated
 		if (res == undefined) None else Some(res.asInstanceOf[T])
 	}
-	override def maybe :Maybe[T] = {
+	override def opt :Opt[T] = {
 		val res = evaluated
-		if (res == undefined) No else Yes(res.asInstanceOf[T])
+		if (res == undefined) None else One(res.asInstanceOf[T])
 	}
 	@unspecialized override def unsure :Unsure[T] = {
 		val res = evaluated
@@ -337,9 +338,9 @@ private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) ext
 		res.asInstanceOf[T]
 	}
 
-	final override def maybe :Maybe[T] = synchronized {
+	final override def opt :Opt[T] = synchronized {
 		val res = evaluated
-		if (res == undefined) No else Yes(res.asInstanceOf[T])
+		if (res == undefined) None else One(res.asInstanceOf[T])
 	}
 
 	override def map[O](f :T => O) :Lazy[O] = {

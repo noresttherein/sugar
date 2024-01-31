@@ -4,9 +4,8 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
-import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, NoInt, WithFilter}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!, raise}
+import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, WithFilter}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -509,7 +508,7 @@ object IntOpt {
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** Converts the given `Maybe[Int]` into a specialized `IntOpt`, erased at runtime. */
-	@inline def fromOpt(value: Maybe[Int]) :IntOpt =
+	@inline def fromMaybe(value: Maybe[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** Converts the given `Option[Int]` into a specialized `IntOpt`, erased at runtime. */
@@ -521,7 +520,7 @@ object IntOpt {
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** Converts the given `Opt[Int]` into a specialized `IntOpt` for interoperability. */
-	@inline def fromYield(value :Opt[Int]) :IntOpt =
+	@inline def fromOpt(value :Opt[Int]) :IntOpt =
 		new IntOpt(if (value.isDefined) value.get & Content else NoContent)
 
 	/** When a given condition is true, evaluates the `a` argument and returns `AnInt(a).`
@@ -616,12 +615,12 @@ object IntOpt {
 		@inline implicit def IntOptionToIntOpt(option :Option[Int]) :IntOpt =
 			new IntOpt(if (option.isDefined) option.get & Content else NoContent)
 
-		@inline implicit def IntOptToOpt(opt :IntOpt) :Maybe[Int] = opt.maybe
-		@inline implicit def OptToIntOpt(opt :Maybe[Int]) :IntOpt =
+		@inline implicit def IntOptToMaybe(opt :IntOpt) :Maybe[Int] = opt.maybe
+		@inline implicit def MaybeToIntOpt(opt :Maybe[Int]) :IntOpt =
 			new IntOpt(if (opt.isDefined) opt.get & Content else NoContent)
 
-		@inline implicit def IntOptToYield(IntOpt :IntOpt) :Opt[Int] = IntOpt.opt
-		@inline implicit def YieldToIntOpt(opt :Opt[Int]) :IntOpt = IntOpt.fromYield(opt)
+		@inline implicit def IntOptToOpt(IntOpt :IntOpt) :Opt[Int] = IntOpt.opt
+		@inline implicit def OptToIntOpt(opt :Opt[Int]) :IntOpt = IntOpt.fromOpt(opt)
 
 		/** Implicitly lifts an `Int` to [[net.noresttherein.sugar.vars.IntOpt IntOpt]]`[T]`. */
 		@inline implicit def IntToAnInt(x :Int) :AnInt = new IntOpt(x & Content).asInstanceOf[AnInt]

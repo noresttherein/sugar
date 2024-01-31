@@ -5,6 +5,8 @@ import java.{time => j}
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli, NanosInSecond}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 /** A time point defined in terms of the ''epoch milli'' (aka 'Unix time'), that is the number of milliseconds
@@ -240,9 +242,9 @@ case object PosixTime {
 		new PosixTime(time.clock.millis - interval.toMillis)
 
 
-	def unapply(time :TimePoint) :Option[Long] = time match {
-		case t :PosixTime => Some(t.epochMilli)
-		case _ => None
+	def unapply(time :TimePoint) :Maybe[Long] = time match {
+		case t :PosixTime => Yes(t.epochMilli)
+		case _            => No
 	}
 
 

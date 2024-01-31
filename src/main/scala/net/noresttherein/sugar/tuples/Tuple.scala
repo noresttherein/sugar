@@ -7,9 +7,10 @@ import net.noresttherein.sugar.tuples.Tuple.evidence.{TupleAt, TupleDrop, TupleD
 import net.noresttherein.sugar.typist.UpperBound
 import scala.annotation.implicitNotFound
 import scala.collection.immutable.ArraySeq
-import scala.compat.Platform
 
 import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 
 //todo: use a macro to elide the implicit witnesses
@@ -623,7 +624,7 @@ object Tuple {
 			new ><(elems, 2)
 		}
 
-		def unapply[A, B](tuple :A >:< B) :Option[(A, B)] = Some((tuple.array(0), tuple.array(1)).asInstanceOf[(A, B)])
+		def unapply[A, B](tuple :A >:< B) :Maybe[(A, B)] = Yes((tuple.array(0), tuple.array(1)).asInstanceOf[(A, B)])
 	}
 	
 	/** Implicit conversion from values of any type `X` adding a [[net.noresttherein.sugar.tuples.Tuple.Tuple2Constructor.>:< >:<]]
@@ -1037,7 +1038,7 @@ object Tuple {
 	  * @see [[net.noresttherein.sugar.tuples.Tuple.>:<$ >:<]]
 	  */
 	object >< {
-		def unapply[P <: Tuple, L](tuple :P >< L) :Option[(P, L)] = Some(tuple.init, tuple.last)
+		def unapply[P <: Tuple, L](tuple :P >< L) :Maybe[(P, L)] = Yes(tuple.init, tuple.last)
 	}
 
 

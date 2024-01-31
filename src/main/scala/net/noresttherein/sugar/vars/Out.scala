@@ -4,9 +4,10 @@ import java.lang.invoke.MethodHandles
 
 import scala.annotation.nowarn
 
-import net.noresttherein.sugar.{illegalState_!, noSuch_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -34,12 +35,12 @@ sealed trait Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] w
 		if (isDefined) value else unsupported_!("Out.const")
 
 //	override def option      :Option[T] = if (isDefined) Some(value) else None
-	override def maybe         :Maybe[T] = if (isDefined) Yes(value) else No
+	override def opt         :Opt[T] = if (isDefined) One(value) else None
 	override def unsure      :Unsure[T] = if (isDefined) Sure(value) else Missing
 	@inline final override def toOption    :Option[T] = option
 	@inline final override def constOption :Option[T] = option
-	@inline final override def toMaybe       :Maybe[T] = maybe
-	@inline final override def maybeConst    :Maybe[T] = maybe
+	@inline final override def toOpt       :Opt[T] = opt
+	@inline final override def constOpt    :Opt[T] = opt
 	@inline final override def toUnsure    :Unsure[T] = unsure
 	@inline final override def unsureConst :Unsure[T] = unsure
 
@@ -84,7 +85,7 @@ object Out {
 			}
 
 	//	override def option      :Option[T] = if (isSet) Some(x) else None
-		override def maybe         :Maybe[T] = if (isSet) Yes(x) else No
+		override def opt         :Opt[T] = if (isSet) One(x) else None
 		override def unsure      :Unsure[T] = if (isSet) Sure(x) else Missing
 
 		private[vars] override def isSpecialized :Boolean = getClass != classOf[LocalOut[Any]]
@@ -125,7 +126,7 @@ sealed class VolatileOut[@specialized(SpecializedVars) T] private[vars] extends 
 			illegalState_!("Out value already initialized: " + x  + ".")
 		x = newValue
 	}
-	override def maybe         :Maybe[T] = if (isSet) Yes(x) else No
+	override def opt         :Opt[T] = if (isSet) One(x) else None
 	override def unsure      :Unsure[T] = if (isSet) Sure(x) else Missing
 
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[VolatileOut[Any]]

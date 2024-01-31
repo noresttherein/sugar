@@ -4,10 +4,10 @@ import java.lang.invoke.MethodHandles
 
 import scala.Specializable.Args
 
-import net.noresttherein.sugar.{illegalState_!, illegal_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, unsupported_!}
 import net.noresttherein.sugar.vars.Freezer.stateField
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -120,7 +120,7 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	override def option :Option[T] = Some(x)
 
 	/** The current value of this variable: `Yes(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
-	override def maybe    :Maybe[T] = Yes(x)
+	override def opt    :Opt[T] = One(x)
 
 	/** The current value of this variable: `Sure(`[[net.noresttherein.sugar.vars.Freezer.value value]]`)`. */
 	override def unsure :Unsure[T] = Sure(x)
@@ -129,7 +129,7 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	@inline final override def toOption :Option[T] = constOption
 
 	/** The value of this variable if it is in the immutable state (frozen).  */
-	@inline final override def toMaybe    :Maybe[T]  = maybeConst
+	@inline final override def toOpt    :Opt[T]  = constOpt
 
 	/** The value of this variable if it is in the immutable state (frozen). */
 	@inline final override def toUnsure :Unsure[T] = unsureConst
@@ -138,7 +138,7 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	override def constOption :Option[T] = if (state == Immutable) Some(x) else None
 
 	/** The value of this variable if it is in the immutable state (frozen). */
-	override def maybeConst    :Maybe[T] = if (state == Immutable) Yes(x) else No
+	override def constOpt    :Opt[T] = if (state == Immutable) One(x) else None
 
 	/** The value of this variable if it is in the immutable state (frozen). */
 	override def unsureConst :Unsure[T] = if (state == Immutable) Sure(x) else Missing

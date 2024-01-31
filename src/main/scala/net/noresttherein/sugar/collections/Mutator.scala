@@ -2,9 +2,8 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.{AbstractIterator, BufferedIterator, mutable}
 
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.reflect.Specialized.Steppers
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 
 
 

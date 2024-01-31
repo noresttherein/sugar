@@ -3,9 +3,10 @@ package net.noresttherein.sugar.collections
 import scala.collection.{IterableOnceOps, Stepper, StepperShape, mutable}
 import scala.collection.mutable.Buffer
 
-import net.noresttherein.sugar.{funny, outOfBounds_!}
 import net.noresttherein.sugar.collections.extensions.{IteratorExtension, SeqFactoryExtension}
+import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.extensions.{StepperCompanionExtension, cast2TypeParamsMethods, castTypeParamMethods, classNameMethods}
+import net.noresttherein.sugar.funny
 import net.noresttherein.sugar.funny.generic
 
 
@@ -142,7 +143,7 @@ trait CollectionLike[+X, -Xs] extends Serializable {
 	  * @param elems a $coll of this type class.
 	  * @param op    a binary operator.
 	  * @return an option value containing the result of `reduceLeft(op)` if `elems` is nonempty, `None` otherwise.
-	  */
+	  */ //consider: variant for Opt
 	def reduceLeftOption[U >: X](elems :Xs)(op :(U, X) => U) :Option[U] = knownSize(elems) match {
 		case 0 => None
 		case _ => toIterableOnceOps(elems).reduceLeftOption(op)

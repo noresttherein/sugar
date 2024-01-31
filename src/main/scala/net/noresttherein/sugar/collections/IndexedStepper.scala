@@ -10,9 +10,9 @@ import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatSh
 
 import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIterator, JLong, JLongIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!}
 import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.{illegal_!, noSuch_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 
 

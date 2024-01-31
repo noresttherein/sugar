@@ -6,9 +6,8 @@ import scala.collection.mutable
 import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Buffer, IndexedBuffer}
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
-import net.noresttherein.sugar.{concurrent_!, illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.collections.util.knownEmpty
-import net.noresttherein.sugar.exceptions.{SugaredException, validate}
+import net.noresttherein.sugar.exceptions.{SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
 
 

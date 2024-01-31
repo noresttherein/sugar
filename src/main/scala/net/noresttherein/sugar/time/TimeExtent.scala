@@ -6,9 +6,10 @@ import java.time.DateTimeException
 
 import scala.concurrent.{duration => s}
 
-import net.noresttherein.sugar.exceptions.SugaredArithmeticException
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, illegal_!, unsupported_!}
 import net.noresttherein.sugar.time.constants.{IntNanosInSecond, NanosInSecond}
-import net.noresttherein.sugar.{illegal_!, unsupported_!}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -217,11 +218,9 @@ case object TimeFrame {
 
 	@inline def between(start :DefiniteTime, end :DefiniteTime) :TimeFrame = end - start
 
-
-
-	@inline def unapply(time :TimeExtent) :Option[(Period, Duration)] = time match {
-		case finite :TimeFrame => Some((finite.period, finite.duration))
-		case _ => None
+	@inline def unapply(time :TimeExtent) :Maybe[(Period, Duration)] = time match {
+		case finite :TimeFrame => Yes((finite.period, finite.duration))
+		case _                 => No
 	}
 
 
@@ -616,9 +615,13 @@ case object TimeSpan {
 
 	@inline def between(start :DefiniteTime, end :DefiniteTime) :TimeSpan = end - start
 
-	def unapply(time :TimeExtent) :Option[(Long, Int)] = time match {
-		case finite :TimeSpan => Some((finite.toSeconds, finite.nanos))
-		case _ => None
+	def apply(seconds :Long, nanos :Int) :TimeSpan =
+		if (seconds == 0 && nanos == 0) Immediate
+		else Duration(seconds, nanos)
+
+	def unapply(time :TimeExtent) :Maybe[(Long, Int)] = time match {
+		case finite :TimeSpan => Yes((finite.toSeconds, finite.nanos))
+		case _                => No
 	}
 
 	@inline implicit def TimeSpanToJavaDuration(time :TimeSpan) :j.Duration = time.toJava
@@ -774,12 +777,15 @@ trait DateSpan extends Any with DateInterval with TimeFrame {
 
 @SerialVersionUID(Ver)
 case object DateSpan {
-
 	@inline def between(start :Date, end :Date) :DateSpan = Period.between(start, end)
 
-	@inline def unapply(time :TimeExtent) :Option[(Int, Int, Int)] = time match {
-		case span :DateSpan => Some((span.years, span.months, span.days))
-		case _ => None
+	@inline def apply(years :Int, months :Int, days :Int) :DateSpan =
+		if (years == 0 & months == 0 & days == 0) Immediate
+		else Period(years, months, days)
+
+	@inline def unapply(time :TimeExtent) :Maybe[(Int, Int, Int)] = time match {
+		case span :DateSpan => Yes((span.years, span.months, span.days))
+		case _              => No
 	}
 
 	@inline implicit def DateSpanFromJavaPeriod(period :j.Period) :Period = new Period(period)

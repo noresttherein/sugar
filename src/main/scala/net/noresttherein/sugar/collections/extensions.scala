@@ -24,10 +24,10 @@ import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
 import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BooleanJteratorExtension, BufferExtension, BuilderExtension, ByteJteratorExtension, CharJteratorExtension, ClassTagIterableFactoryExtension, DoubleJteratorExtension, FactoryExtension, FloatJteratorExtension, IndexedSeqExtension, IntJteratorExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, JteratorExtension, LongJteratorExtension, RefJteratorExtension, SeqExtension, SeqFactoryExtension, ShortJteratorExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
-import net.noresttherein.sugar.exceptions.{outOfBounds_!, raise, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
+import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
-import net.noresttherein.sugar.{illegal_!, noSuch_!}
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -468,7 +468,7 @@ object extensions extends extensions {
 		  * @param op    a folding function.
 		  * @return This implementation delegates to
 		  *         [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftUntilOption foldLeftUntilOption]]`(start)(pred)(op)`
-		  */
+		  */ //consider: variant for Opt
 		def foldUntilOption[A >: E](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
 			foldLeftUntilOption(start)(pred)(op)
 
@@ -602,7 +602,7 @@ object extensions extends extensions {
 		  *    1. Otherwise, apply `op` recursively and return the first `Right(ai)`, `a_0 = start; a_i+1 = op(a_i, ei)`,
 		  *       where `toSeq == Seq(e0,...,en)`, such that `pred(ai)`;
 		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
-		  */
+		  */ //consider: variant for Opt
 		def foldLeftUntilOption[A](start :A)(pred :A => Boolean)(op :(A, E) => A) :Option[A] =
 			foldLeftUntilAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
@@ -740,7 +740,7 @@ object extensions extends extensions {
 		  *    1. Otherwise, apply `op` recursively and return the first `Some(ai)`,
 		  *       `a_0 = start; a_i+1 = op(e_n-i, a_i)`, where `toSeq == Seq(e1,...,en)`, such that `pred(ai)`;
 		  *    1. If, after folding the whole collection, the predicate is still not satisfied, then return `None`
-		  */
+		  */ //consider: variant for Opt
 		def foldRightUntilOption[A](start :A)(pred :A => Boolean)(op :(E, A) => A) :Option[A] =
 			foldRightUntilAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
@@ -781,6 +781,7 @@ object extensions extends extensions {
 		def foldWhile[A >: E](start :A)(pred :A => Boolean)(op :(A, A) => A) :A =
 			foldLeftWhile(start)(pred)(op)
 
+		//consider: variant for Opt
 		/** Same as [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftWhileOption foldLeftWhileOption]]. */
 		def foldWhileOption[A >: E](start :A)(pred :A => Boolean)(op :(A, A) => A) :Option[A] =
 			foldLeftWhileOption(start)(pred)(op)
@@ -894,7 +895,7 @@ object extensions extends extensions {
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
 		  * @return the last folding result for which `pred` is true in a `Some`, or `None` if it is false for `start`.
-		  */
+		  */ //consider: variant for Opt
 		def foldLeftWhileOption[A](start :A)(pred :A => Boolean)(op :(A, E) => A) :Option[A] =
 			foldLeftWhileAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
@@ -1024,7 +1025,7 @@ object extensions extends extensions {
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
 		  * @return the last folding result for which `pred` is true in a `Some`, or `None` if it is false for `start`.
-		  */
+		  */ //consider: variant for Opt
 		def foldRightWhileOption[A](start :A)(pred :A => Boolean)(op :(E, A) => A) :Option[A] =
 			foldRightWhileAndReturn(start)(pred)(op)(_ => None, Some.apply)
 
@@ -1243,52 +1244,7 @@ object extensions extends extensions {
 		  * @return the result of the last execution of `op` which returned `Some`,
 		  *         or `start` if either this collection is empty or `op(this.head, start) == None`.
 		  */
-		def foldLeftSome[A](start :A)(op :(A, E) => Option[A]) :A =
-			self match {
-				case seq :collection.LinearSeq[E] =>
-					@tailrec def foldList(last :A, list :collection.LinearSeq[E]) :A =
-						if (list.isEmpty) last
-						else op(last, list.head) match {
-							case Some(next) => foldList(next, list.tail)
-							case _ => last
-						}
-						foldList(start, seq)
-				case _ if knownEmpty(self) => start
-				case ErasedArray.Wrapped.Slice(array, from :Int, until :Int) =>
-					def foldArray(array :Array[E]) :A = {
-						var last = start; var i = from
-						while (i < until)
-							op(last, array(i)) match {
-								case Some(next) => last = next; i += 1
-								case _ => return last
-							}
-						last
-					}
-					foldArray(array.castFrom[Array[_], Array[E]])
-				case ApplyPreferred(seq)  =>
-					def foldIndexed :A = {
-						var last = start; var i = 0; val end = seq.length
-						while (i < end)
-							op(last, seq(i)) match {
-								case Some(next) => last = next; i += 1
-								case _ => return last
-							}
-						last
-					}
-					foldIndexed
-				case _ =>
-					def foldIterator :A = {
-						val it   = self.iterator
-						var last = start
-						while (it.hasNext)
-							op(last, it.next()) match {
-								case Some(next) => last = next
-								case _ => return last
-							}
-						last
-					}
-					foldIterator
-			}
+		def foldLeftSome[A](start :A)(op :(A, E) => Option[A]) :A = foldLeftPrefix(start)(op(_, _).toOpt)
 
 
 		/** Applies the given folding function `op` to the elements of this collection from right to  left,
@@ -1308,7 +1264,116 @@ object extensions extends extensions {
 		  * @return the result of the last execution of `op` which returned `Some`,
 		  *         or `start` if either this collection is empty or `op(this.last, start) == None`.
 		  */
-		@tailrec final def foldRightSome[A](start :A)(op :(E, A) => Option[A]) :A = {
+		def foldRightSome[A](start :A)(op :(E, A) => Option[A]) :A = foldRightSuffix(start)(op(_, _).toOpt)
+
+		/** Recursively applies the given function to the elements of this collection and a folded value,
+		  * starting with `start`, for as long is it returns [[net.noresttherein.sugar.vars.Opt.One One]].
+		  * This method can be defined recursively as
+		  * {{{
+		  *     if (isEmpty) start
+		  *     else op(head, start).map(tail.foldPrefix(_)(op)) getOrElse start
+		  * }}}
+		  * @param start initial accumulator value passed to the first call of `op` together with the first element
+		  *              of this collection.
+		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
+		  *           of this collection, yielding `None` to signal the termination of folding.
+		  * @return [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftSome foldLeftSome]]`(start)(op)`.
+		  */
+		def foldPrefix[A >: E](start :A)(op :(A, A) => Opt[A]) :A = foldLeftPrefix(start)(op)
+
+		/** Applies the given folding function to the elements of this collection and a folded value,
+		  * starting with `start`, for as long as it returns non empty results.
+		  * The method traverses this collection in the iteration order, maintaining the result of folding
+		  * its current prefix, and stops when the function is no longer applicable to the intermediate result,
+		  * It can be defined recursively as
+		  * {{{
+		  *     if (isEmpty) start
+		  *     else op(head, start).map(tail.foldLeftPrefix(_)(op)) getOrElse start
+		  * }}}
+		  * @param start initial accumulator value passed to the first call of `op` together with the first element
+		  *              of this collection.
+		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
+		  *           of this collection, yielding `None` to signal the termination of folding.
+		  * @tparam A type of generated values.
+		  * @return the result of the last execution of `op` which returned `One`,
+		  *         or `start` if either this collection is empty or `op(this.head, start) == None`.
+		  */
+		def foldLeftPrefix[A](start :A)(op :(A, E) => Opt[A]) :A =
+			self match {
+				case seq :collection.LinearSeq[E] =>
+					@tailrec def foldList(last :A, list :collection.LinearSeq[E]) :A =
+						if (list.isEmpty)
+							last
+						else {
+							val next = op(last, list.head)
+							if (next.isDefined) foldList(next.get, list.tail)
+							else last
+						}
+						foldList(start, seq)
+				case _ if knownEmpty(self) => start
+				case ErasedArray.Wrapped.Slice(array, from :Int, until :Int) =>
+					def foldArray(array :Array[E]) :A = {
+						var last = start; var i = from
+						while (i < until) {
+							val next = op(last, array(i))
+							if (next.isDefined) {
+								last = next.get
+								i += 1
+							} else
+								return last
+						}
+						last
+					}
+					foldArray(array.castFrom[Array[_], Array[E]])
+				case ApplyPreferred(seq)  =>
+					def foldIndexed :A = {
+						var last = start; var i = 0; val end = seq.length
+						while (i < end) {
+							val next = op(last, seq(i))
+							if (next.isDefined) {
+								last = next.get
+								i += 1
+							} else
+								return last
+						}
+						last
+					}
+					foldIndexed
+				case _ =>
+					def foldIterator :A = {
+						val it   = self.iterator
+						var last = start
+						while (it.hasNext) {
+							val next = op(last, it.next())
+							if (next.isDefined)
+								last = next.get
+							else
+								return last
+						}
+						last
+					}
+					foldIterator
+			}
+
+
+		/** Applies the given folding function `op` to the elements of this collection from right to  left,
+		  * starting with the given initial value `start`, for as long as `op` is defined
+		  * for the previously computed value.
+		  * The method reverses the iteration order of the collection, maintaining the result of folding
+		  * its current suffix, and stops when the function is no longer applicable to the intermediate result,
+		  * returning it. It can be recursively defined as
+		  * {{{
+		  *     if (isEmpty) start
+		  *     else op(last, start).map(tail.foldRightSuffix(_)(op)) getOrElse start
+		  * }}}
+		  * @param start an accumulator given as the first argument to first invocation of `op`.
+		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
+		  *           of this collection, yielding `None` to signal the termination of folding.
+		  * @tparam A type of generated values.
+		  * @return the result of the last execution of `op` which returned `Some`,
+		  *         or `start` if either this collection is empty or `op(this.last, start) == None`.
+		  */
+		@tailrec final def foldRightSuffix[A](start :A)(op :(E, A) => Opt[A]) :A = {
 			if (knownEmpty(self))
 				return start
 			self match {
@@ -1317,10 +1382,9 @@ object extensions extends extensions {
 						var last = start; var i = until
 						while (i > from) {
 							i -= 1
-							op(array(i), last) match {
-								case Some(next) => last = next
-								case _ => return last
-							}
+							val next = op(array(i), last)
+							if (next.isDefined) last = next.get
+							else return last
 						}
 						last
 					}
@@ -1330,10 +1394,9 @@ object extensions extends extensions {
 						var last = start; var i = seq.length
 						while (i > 0) {
 							i -= 1
-							op(seq(i), last) match {
-								case Some(next) => last = next
-								case _ => return last
-							}
+							val next = op(seq(i), last)
+							if (next.isDefined) last = next.get
+							else return last
 						}
 						last
 					}
@@ -1342,16 +1405,16 @@ object extensions extends extensions {
 					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :A = {
 						var last = start
 						val it   = seq.reverseIterator
-						while (it.hasNext)
-							op(it.next(), last) match {
-								case Some(next) => last = next
-								case _ => return last
-							}
+						while (it.hasNext) {
+							val next = op(it.next(), last)
+							if (next.isDefined) last = next.get
+							else return last
+						}
 						last
 					}
 					foldSeq(seq)
 				case _ =>
-					TemporaryBuffer.from(self).foldRightSome(start)(op)
+					TemporaryBuffer.from(self).foldRightSuffix(start)(op)
 			}
 		}
 
@@ -1359,6 +1422,7 @@ object extensions extends extensions {
 		/** Same as [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.reduceLeftUntil reduceLeftUntil]]. */
 		def reduceUntil[A >: E](pred :A => Boolean)(op :(A, A) => A) :A = reduceLeftUntil(pred)(op)
 
+		//consider: variant for Opt
 		/** Same as [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.reduceLeftUntilOption reduceLeftUntilOption]]. */
 		def reduceUntilOption[A >: E](pred :A => Boolean)(op :(A, A) => A) :Option[A] =
 			reduceLeftUntilOption(pred)(op)
@@ -1429,7 +1493,7 @@ object extensions extends extensions {
 		  * The method returns in `Some` the first value which satisfies the predicate; if `pred(this.head)`,
 		  * then it is returned, without invoking the function. If the collection is empty,
 		  * or is completely reduced without ever satisfying the predicate, `None` is returned.
-		  */
+		  */ //consider: variant for Opt
 		def reduceLeftUntilOption[A >: E](pred :A => Boolean)(op :(A, E) => A) :Option[A] =
 			reduceLeftUntilAndReturn(pred)(op)(None, _ => None, Some.apply)
 
@@ -1503,7 +1567,7 @@ object extensions extends extensions {
 		  * The method returns in `Some` the first value which satisfies the predicate; if `pred(this.last)`,
 		  * then it is returned, without invoking the function. If the whole collection is empty,
 		  * or is completely reduced without ever satisfying the predicate, `None` is returned.
-		  */
+		  */ //consider: variant for Opt
 		def reduceRightUntilOption[A >: E](pred :A => Boolean)(op :(E, A) => A) :Option[A] =
 			reduceRightUntilAndReturn(pred)(op)(None, _ => None, Some.apply)
 
@@ -1645,29 +1709,50 @@ object extensions extends extensions {
 		  * by `f` in `Some` is returned.
 		  */
 		@throws[UnsupportedOperationException]("if the collection is empty.")
-		def reduceLeftSome[A >: E](f :(A, E) => Option[A]) :A =
+		def reduceLeftSome[A >: E](f :(A, E) => Option[A]) :A = reduceLeftPrefix[A](f(_, _).toOpt)
+
+		/** Reduces this collection with the given function, going from right to left, for as long as it returns `Some`.
+		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
+		  * by `f` in `Some` is returned.
+		  */
+		@throws[UnsupportedOperationException]("if the collection is empty.")
+		def reduceRightSome[A >: E](f :(E, A) => Option[A]) :A = reduceRightSuffix[A](f(_, _).toOpt)
+
+		/** Same as [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.reduceLeftPrefix reduceLeftPrefix]]. */
+		def reducePrefix[A >: E](f :(A, A) => Option[A]) :A = reduceLeftSome(f)
+
+		/** Reduces this collection with the given function, going from left to right, for as long as it returns `One`.
+		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
+		  * by `f` in `One` is returned.
+		  */
+		@throws[UnsupportedOperationException]("if the collection is empty.")
+		def reduceLeftPrefix[A >: E](f :(A, E) => Opt[A]) :A =
 			self match {
 				case seq :collection.LinearSeq[E] =>
 					@tailrec def reduceList(last :A, list :collection.LinearSeq[E]) :A =
 						if (list.isEmpty)
 							last
-						else f(last, list.head) match {
-							case Some(next) => reduceList(next, list.tail)
-							case _ => last
+						else {
+							val next = f(last, list.head)
+							if (next.isDefined) reduceList(next.get, list.tail)
+							else last
 						}
 					if (seq.isEmpty)
-						unsupported_!("reduceLeftSome on an empty " + self.className)
+						unsupported_!("reduceLeftPrefix on an empty " + self.className)
 					reduceList(seq.head, seq.tail)
 				case ErasedArray.Wrapped.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						if (until <= from)
-							unsupported_!("reduceLeftSome on an empty " + self.className)
+							unsupported_!("reduceLeftPrefix on an empty " + self.className)
 						var i = from + 1; var last :A = array(from)
-						while (i < until)
-							f(last, array(i)) match {
-								case Some(next) => last = next; i += 1
-								case _ => return last
-							}
+						while (i < until) {
+							val next = f(last, array(i))
+							if (next.isDefined) {
+								last = next.get
+								i += 1
+							} else
+								return last
+						}
 						last
 					}
 					foldArray(array.asInstanceOf[Array[E]])
@@ -1675,86 +1760,95 @@ object extensions extends extensions {
 					def foldIndexed :A = {
 						val len = seq.length
 						var last :A = seq.head; var i = 1
-						while (i < len)
-							f(last, seq(i)) match {
-								case Some(next) => last = next; i += 1
-								case _ => return last
-							}
+						while (i < len) {
+							val next = f(last, seq(i))
+							if (next.isDefined) {
+								last = next.get
+								i += 1
+							} else
+								return last
+						}
 						last
 					}
 					if (seq.isEmpty)
-						unsupported_!("reduceLeftSome on an empty " + self.className)
+						unsupported_!("reduceLeftPrefix on an empty " + self.className)
 					foldIndexed
 				case _ =>
 					def foldIterator :A = {
 						val it = self.iterator
 						if (it.isEmpty)
-							unsupported_!("reduceLeftSome on an empty " + self.className)
+							unsupported_!("reduceLeftPrefix on an empty " + self.className)
 						var last :A = it.next()
-						while (it.hasNext)
-							f(last, it.next()) match {
-								case Some(a) => last = a
-								case _ => return last
-							}
+						while (it.hasNext) {
+							val next = f(last, it.next())
+							if (next.isDefined) last = next.get
+							else return last
+						}
 						last
 					}
 					foldIterator
 			}
 
-		/** Reduces this collection with the given function, going from right to left, for as long as it returns `Some`.
+		/** Reduces this collection with the given function, going from right to left, for as long as it returns `One`.
 		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
-		  * by `f` in `Some` is returned.
+		  * by `f` in `One` is returned.
 		  */
 		@throws[UnsupportedOperationException]("if the collection is empty.")
-		def reduceRightSome[A >: E](f :(E, A) => Option[A]) :A =
+		def reduceRightSuffix[A >: E](f :(E, A) => Opt[A]) :A =
 			self match {
 				case ErasedArray.Wrapped.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						var i = until - 1
 						var last :A = array(i)
 						i -= 1
-						while (i >= from)
-							f(array(i), last) match {
-								case Some(next) => last = next; i -= 1
-								case _ => return last
-							}
+						while (i >= from) {
+							val next = f(array(i), last)
+							if (next.isDefined) {
+								last = next.get
+								i -= 1
+							} else
+								return last
+						}
 						last
 					}
 					if (until == from)
-						unsupported_!("reduceRightSome on an empty " + self.className)
+						unsupported_!("reduceRightSuffix on an empty " + self.className)
 					foldArray(array.castFrom[Array[_], Array[E]])
 				case ApplyPreferred(seq) =>
 					def foldIndexed :A = {
 						var last :A = seq.last
 						var i = seq.length - 2
-						while (i >= 0)
-							f(seq(i), last) match {
-								case Some(next) => last = next; i -= 1
-								case _ => return last
-							}
+						while (i >= 0) {
+							val next = f(seq(i), last)
+							if (next.isDefined) {
+								last = next.get
+								i -= 1
+							} else
+								return last
+						}
 						last
 					}
 					val len = seq.length
 					if (len == 0)
-						unsupported_!("reduceRightSome on an empty " + self.className)
+						unsupported_!("reduceRightSuffix on an empty " + self.className)
 					else
 						foldIndexed
 				case seq :collection.SeqOps[E, generic.Any, _] =>
 					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :A = {
 						val it      = seq.reverseIterator
 						var last :A = it.next()
-						while (it.hasNext)
-							f(it.next(), last) match {
-								case Some(next) => last = next
-								case _ => return last
-							}
+						while (it.hasNext) {
+							val next = f(it.next(), last)
+							if (next.isDefined) last = next.get
+							else return last
+						}
 						last
 					}
 					if (seq.isEmpty)
-						unsupported_!("reduceRightSome on an empty " + self.className)
+						unsupported_!("reduceRightSuffix on an empty " + self.className)
 					foldSeq(seq)
 				case _ =>
-					TemporaryBuffer.from(self).reduceRightSome(f)
+					TemporaryBuffer.from(self).reduceRightSuffix(f)
 			}
 
 		/** Iterates over the collection, passing the index of the current element to the given function.
@@ -1909,14 +2003,29 @@ object extensions extends extensions {
 		  * }}}
 		  * but does not traverse the whole collection if `result` becomes  `false`.
 		  */
-		def forallSome[A](start :A)(f :(E, A) => Option[A]) :Boolean =
+		def forallSome[A](start :A)(f :(E, A) => Option[A]) :Boolean = forallOne(start)(f(_, _).toOpt)
+
+		/** Tests if all elements in the collection satisfy a certain condition, which depends on state updated
+		  * when inspecting each element. The argument function is applied first to the initial state `start`
+		  * and `this.head`. If it returns `One(state)`, the condition is understood to hold for the element,
+		  * and the returned state is used when testing the next element. If the function returns `None`,
+		  * then the test stops. The result is equivalent to
+		  * {{{
+		  *     foldLeft((start, true)){ case ((state, result), elem) =>
+		  *         if (result)
+		  *             f(state, element).map((_._1, true)) getOrElse (state, false)
+		  *         else
+		  *             (state, false)
+		  *     }._2
+		  * }}}
+		  * but does not traverse the whole collection if `result` becomes  `false`.
+		  */
+		def forallOne[A](start :A)(f :(E, A) => Opt[A]) :Boolean =
 			knownEmpty(self) || {
 				var state = start
 				self.toBasicOps.forall { x =>
-					f(x, state) match {
-						case Some(newState) => state = newState; true
-						case _              => false
-					}
+					val next = f(x, state)
+					next.isDefined && { state = next.get; true }
 				}
 			}
 
@@ -2017,7 +2126,7 @@ object extensions extends extensions {
 				case _ if from <= 0 =>
 					toBasicOps.copyToArray(xs, start, len)
 				case _ if start < 0 =>
-					throw new IndexOutOfBoundsException(
+					outOfBounds_!(
 						errorString(self) + ".copyRangeToArray(" +
 							errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
 					)
@@ -2083,7 +2192,7 @@ object extensions extends extensions {
 				case _ if len <= 0 | size >= 0 & from >= size =>
 					0
 				case _ if start < 0 =>
-					throw new IndexOutOfBoundsException(
+					outOfBounds_!(
 						errorString(self) + ".cyclicCopyRangeToArray(" +
 							errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
 					)
@@ -2460,6 +2569,37 @@ object extensions extends extensions {
 				self.iterableFactory.empty
 			else
 				self.iterableFactory from Iterators.flatMapSome(self.iterator, z, f)
+
+		/** Maps initial elements of this collection, passing updated state between each function application.
+		  * If this collection is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
+		  * and then, recursively, to the first element of previously returned pair and the next element
+		  * in this collection. Once `f` returns `None`, mapping stops, and second elements of all pairs previously
+		  * returned by the mapping function are returned.
+		  * @return {{{
+		  *         scanLeft(Opt((z, null :E))) {
+		  *             case (One(acc, _), elem) => f(acc, elem)
+		  *             case _                   => None
+		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
+		  *         }}}
+		  */
+		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :CC[O] =
+			if (knownEmpty(self))
+				self.iterableFactory.empty
+			else
+				self.iterableFactory from Iterators.mapPrefix(self.iterator, z, f)
+
+		/** A collection of the same type, containing the elements of all collections returned by applying
+		  * the given function to the elements of this collection, and state updated by the same function
+		  * when mapping each element. If this collection is empty, an empty collection is returned.
+		  * Otherwise, `f` is applied to `(z, this.head)`, and then recursively to the first element of the returned
+		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
+		  * of this collection. are ignored
+		  */
+		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :CC[O] =
+			if (knownEmpty(self))
+				self.iterableFactory.empty
+			else
+				self.iterableFactory from Iterators.flatMapPrefix(self.iterator, z, f)
 
 		/** Maps the elements of the collection and reverses their order. The order in which the mapping function
 		  * will be applied to the elements is undefined and depends on the runtime type of this collection.
@@ -3034,7 +3174,9 @@ object extensions extends extensions {
 				)
 			val thatSize = elems.knownSize
 			val thisSize = self.knownSize
-			self match { //todo: SugaredSeq with method updatedAll
+			self match {
+				case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+					seq.updatedAll(index, elems)
 				case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
 					outOfBounds()
 				case _ if self.knownLazy =>
@@ -3156,7 +3298,7 @@ object extensions extends extensions {
 						i += 1
 					}
 					def outOfBounds() =
-						throw new IndexOutOfBoundsException(
+						outOfBounds_!(
 							errorString(self) + ".updatedAll(" + index + ", " + elems.className + "|" + i + "|)"
 						)
 					if (validate)
@@ -3204,6 +3346,8 @@ object extensions extends extensions {
 			val thatSize = elems.knownSize
 			val thisSize = self.knownSize
 			self match {
+				case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+					seq.overwritten(index, elems)
 				case _ if thatSize == 0 || thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
 					|| thisSize >= 0 && thisSize >= index || index == Int.MinValue || index == Int.MaxValue
 				=>
@@ -3238,24 +3382,35 @@ object extensions extends extensions {
 		def inserted[U >: E](index :Int, elem :U) :CC[U] = {
 			val size = self.knownSize
 			if (index < 0 | size >= 0 & index > size)
-				throw new IndexOutOfBoundsException(self.className + "|" + size + "|.inserted(" + index + ", _)")
+				outOfBounds_!(self.className + "|" + size + "|.inserted(" + index + ", _)")
 			else if (index == 0)
 				self.prepended(elem)
 			else if (size >= 0 & index == size)
 				self.appended(elem)
-			else //todo: SugaredSeq with method inserted
-				self.iterableFactory from Iterators.inserted(self.iterator, index, elem)
+			else self match {
+				case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.inserted(index, elem)
+				case _ => self.iterableFactory from Iterators.inserted(self.iterator, index, elem)
+			}
 		}
 
 		//consider: if we renamed it to insertedAll, we could have an updatedAll with the same signature without a conflict
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtension.insertedAll insertedAll]]`(first +: second +: rest)`. */
 		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
-			insertedAll(index, Iterator.two(first, second) :++ rest.iterator)
+			insertedAll(index, Prepended2Seq(first, second, rest))
 
 
 		/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
-		def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =
-			self.iterableFactory from Iterators.insertedAll(self.iterator, index, elems)
+		def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+				seq.insertedAll(index, elems)
+			case _ if self.knownSize >= 0 =>
+				val size = self.knownSize
+				if (index < 0 || index > size)
+					outOfBounds_!(errorString(self) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
+				self.patch(index, elems, 0)
+			case _ => //Can't use patch because insertedAll validates the index.
+				self.iterableFactory from Iterators.insertedAll(self.iterator, index, elems)
+		}
 
 		//clashes with standard methods in SeqOps
 //		 /** Equivalent to [[net.noresttherein.sugar.collections.SeqExtension.appendedAll appendedAll]]`(first +: second +: rest)`. */
@@ -3863,7 +4018,7 @@ object extensions extends extensions {
 			val thisSize = self.length
 			val thatSize = elems.knownSize
 			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			val res =
@@ -3895,7 +4050,7 @@ object extensions extends extensions {
 			val thisSize = self.length
 			val thatSize = elems.length
 			if (index < 0 | index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			self match {
@@ -4122,7 +4277,7 @@ object extensions extends extensions {
 			val thisSize = self.length
 			val thatSize = patch.size
 			if (index < 0 | index > thisSize | index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			self.patchInPlace(index, patch, thatSize)
@@ -4142,7 +4297,7 @@ object extensions extends extensions {
 			val thisSize = self.length
 			val thatSize = elems.length
 			if (index < 0 | index > thisSize - thatSize)
-				throw new IndexOutOfBoundsException(
+				outOfBounds_!(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			self.patch(index, ArrayLike.Wrapped(elems), thatSize)
@@ -4230,11 +4385,18 @@ object extensions extends extensions {
 	class immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[extensions](private val self :M[K, V])
 		extends AnyVal
 	{
-		/** Equivalent to [[collection.MapOps.get get]], but returns a non-boxing `Maybe`, rather than an `Option`.
-		  * @note will also return `No` if `this(key) == null`.
+		/** Equivalent to [[collection.MapOps.get get]], but returns a non-boxing `Opt`, rather than an `Option`.
+		  * @note will also return `None` if `this(key) == null`.
 		  */
 		@inline def opt(key :K) :Opt[V] =
 			try Opt(self.getOrElse(key, null.asInstanceOf[V])) catch {
+				case _ :Exception => Opt.fromOption(self.get(key))
+			}
+		/** Equivalent to [[collection.MapOps.get get]], but returns a non-boxing `Maybe`, rather than an `Option`.
+		  * @note will also return `No` if `this(key) == null`.
+		  */
+		@inline def maybe(key :K) :Maybe[V] =
+			try Maybe(self.getOrElse(key, null.asInstanceOf[V])) catch {
 				case _ :Exception => Maybe.fromOption(self.get(key))
 			}
 
@@ -4271,7 +4433,7 @@ object extensions extends extensions {
 	  * as [[net.noresttherein.sugar.collections.extensions.IterableExtension IterableExtension]].
 	  */ //todo: move it up in the file after IterableOnceExtension
 	class IteratorExtension[E] private[collections](private val self :Iterator[E]) extends AnyVal {
-		@inline def nextOpt() :Maybe[E] = if (self.hasNext) Yes(self.next()) else No
+		@inline def nextOpt() :Opt[E] = if (self.hasNext) One(self.next()) else None
 
 		/** Equivalent to `this.takeWhile(p).size`. */
 		def prefixLength(p :E => Boolean) :Int = {
@@ -4522,6 +4684,27 @@ object extensions extends extensions {
 			if (!self.hasNext) Iterator.empty
 			else Iterators.flatMapSome(self, z, f)
 
+		/** Maps initial elements of this iterator, passing updated state between each function application.
+		  * Mapping stops once `f` returns `None`.
+		  * @return {{{
+		  *         scanLeft(Opt((z, null :E))) {
+		  *             case (One(acc, _), elem) => f(acc, elem)
+		  *             case _                   => None
+		  *         }.drop(1).takeWhile(_.isDefined).flatMap(_._2)
+		  *         }}}
+		  */
+		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.mapPrefix(self, z, f)
+
+		/** An iterator returning all elements of collections returned by applying the given function
+		  * to the elements of this iterator and state updated by the same function when mapping each element.
+		  * Once the function returns `None`, the iteration stops.
+		  */
+		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.flatMapPrefix(self, z, f)
+
 
 		/** Filters this iterator, keeping only those elements for which `pred`
 		  * returns `true` as the first pair element, all the while passing to it the latest right element as
@@ -4576,10 +4759,10 @@ object extensions extends extensions {
 		@throws[IndexOutOfBoundsException]("if index is negative, or this.knownSize is non negative and not greater than index.")
 		def removed(index :Int) :Iterator[E] =
 			if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
-				throw new IndexOutOfBoundsException(index)
+				outOfBounds_!(index)
 			else if (index == 0)
 				if (self.hasNext) self.drop(1)
-				else throw new IndexOutOfBoundsException("0 out of 0")
+				else outOfBounds_!("0 out of 0")
 			else
 				Iterators.removed(self, index)
 
@@ -4615,7 +4798,7 @@ object extensions extends extensions {
 		  */
 		def updated[U >: E](index :Int, elem :U) :Iterator[U] =
 			if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
-				throw new IndexOutOfBoundsException(self.toString + ".updated(" + index + ", _)")
+				outOfBounds_!(self.toString + ".updated(" + index + ", _)")
 			else
 				Iterators.updated(self, index, elem)
 

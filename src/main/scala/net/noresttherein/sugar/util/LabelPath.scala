@@ -6,8 +6,8 @@ import scala.collection.LinearSeq
 import scala.util.matching.Regex
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.exceptions.{illegal_!, unsupported_!}
 import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods, classNameMethods}
-import net.noresttherein.sugar.{illegal_!, unsupported_!}
 import net.noresttherein.sugar.util.LabelPath.{/, Concat, Label, LabelPathPrefix, Split, ~/}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

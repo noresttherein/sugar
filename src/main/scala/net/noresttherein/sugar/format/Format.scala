@@ -1584,7 +1584,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 		  * If an implicit [[scala.reflect.ClassTag ClassTag]] for the molded type `M` is present,
 		  * the (inner) class name of `M` will be used in the mold's `toString` method.
 		  */
-		def unsupported[M](implicit model :Optionally[ClassTag[M]]) :Mold[M] = model.opt match {
+		def unsupported[M](implicit model :Optionally[ClassTag[M]]) :Mold[M] = model.maybe match {
 			case Yes(tag) => unsupported(tag.runtimeClass.innerName)
 			case _        => unsupported("")
 		}

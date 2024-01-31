@@ -5,6 +5,8 @@ import java.{time => j}
 import scala.concurrent.duration.Deadline
 
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 /** A time point carrying time zone information and thus reflecting a unique date. It is a lightweight value type
@@ -266,9 +268,9 @@ case object ZoneDateTime {
 
 
 
-	def unapply(time :TimePoint) :Option[(Date, TimeOfDay, TimeZone)] = time match {
-		case t :ZoneDateTime => Some((t.date, t.time, t.zone))
-		case _ => None
+	def unapply(time :TimePoint) :Maybe[(Date, TimeOfDay, TimeZone)] = time match {
+		case t :ZoneDateTime => Yes((t.date, t.time, t.zone))
+		case _               => No
 	}
 
 

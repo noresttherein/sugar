@@ -5,8 +5,9 @@ import java.util.function.Supplier
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.noSuch_!
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
-import net.noresttherein.sugar.vars.{Const, Eval, Lazy, Maybe, Ref, SyncLazyRef}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
+import net.noresttherein.sugar.vars.{Const, Eval, Lazy, Maybe, Opt, Ref, SyncLazyRef}
 
 
 
@@ -56,10 +57,11 @@ object DefaultValue {
 	implicit val DefaultUnit    :NullValue[Unit]    = new NullValue(())
 
 	implicit def defaultOption[T] :DefaultValue[Option[T]] = DefaultNone.asInstanceOf[DefaultValue[Option[T]]]
-	implicit def defaultOpt[T]    :DefaultValue[Maybe[T]]    = DefaultLack.asInstanceOf[DefaultValue[Maybe[T]]]
+	implicit def defaultMaybe[T]  :DefaultValue[Maybe[T]]  = DefaultNo.asInstanceOf[DefaultValue[Maybe[T]]]
+	implicit def defaultOpt[T]    :DefaultValue[Opt[T]]    = DefaultNone.asInstanceOf[DefaultValue[Opt[T]]]
 
 	private[this] final val DefaultNone = new ConstDefault(None)
-	private[this] final val DefaultLack = new ConstDefault(No)
+	private[this] final val DefaultNo   = new ConstDefault(No)
 
 
 	@SerialVersionUID(Ver)
@@ -117,9 +119,9 @@ final class NullValue[+T] private[witness] (override val get :T) extends Default
 	override def apply()  :T = get
 	override def value    :T = get
 	override def const    :T = get
-	override def maybe      :Maybe[T] = Yes(get)
-	override def toMaybe    :Maybe[T] = Yes(get)
-	override def maybeConst :Maybe[T] = Yes(get)
+	override def opt      :Opt[T] = One(get)
+	override def toOpt    :Opt[T] = One(get)
+	override def constOpt :Opt[T] = One(get)
 
 	override def isFinal       :Boolean = true
 	override def isFinalizable :Boolean = true

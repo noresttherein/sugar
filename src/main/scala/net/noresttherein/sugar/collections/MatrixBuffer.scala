@@ -19,8 +19,7 @@ import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMet
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!}
-import net.noresttherein.sugar.{illegal_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{??!, illegal_!, unsupported_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 

@@ -9,7 +9,7 @@ import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
 import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.{Maybe, Opt}
 
 
 
@@ -56,8 +56,8 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  */
 	lazy val causeQueue :Seq[Throwable] = utils.causeQueue(this)
 
-	/** Standard [[Throwable.getCause getCause]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
-	def cause :Maybe[Throwable] = Maybe(getCause)
+	/** Standard [[Throwable.getCause getCause]] wrapped in a [[net.noresttherein.sugar.vars.Opt Opt]]. */
+	def cause :Opt[Throwable] = Opt(getCause)
 
 //	/** Sets the [[SugaredThrowable.cause cause]] of this [[Throwable]] using
 //	  * [[Throwable.initCause initCause]] method. This method can be called at most once, and only
@@ -67,8 +67,8 @@ trait SugaredThrowable extends Throwable with Cloneable {
 //
 //	override def initCause(e :Throwable) :SugaredThrowable = { super.initCause(e); this }
 
-	/** Standard[[Throwable.getMessage getMessage]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
-	def message :Maybe[String] = Maybe(getMessage)
+	/** Standard[[Throwable.getMessage getMessage]] wrapped in a [[net.noresttherein.sugar.vars.Opt Opt]]. */
+	def message :Opt[String] = Opt(getMessage)
 
 	/** Denullified [[Throwable.getMessage getMessage]] returning an empty string instead of `null` if no message
 	  * was provided.
@@ -78,8 +78,8 @@ trait SugaredThrowable extends Throwable with Cloneable {
 		case string => string
 	}
 
-	/**`Maybe(getLocalizedMessage)`. */
-	def localizedMessage :Maybe[String] = Maybe(getLocalizedMessage)
+	/**`Opt(getLocalizedMessage)`. */
+	def localizedMessage :Opt[String] = Opt(getLocalizedMessage)
 
 	/**`Option(getLocalizedMessage) getOrElse ""`. */
 	def localizedMsg :String = getLocalizedMessage match {
@@ -95,9 +95,9 @@ trait SugaredThrowable extends Throwable with Cloneable {
 
 	/** The message included in the bottom exception of the cause stack, that is the last exception,
 	  * in the list with [[Throwable.getCause getCause]] as the next message.
-	  * @return `Option(originalCause.getMessage)`
+	  * @return `Opt(originalCause.getMessage)`
 	  */
-	def rootMessage :Maybe[String] = Maybe(rootCause.getMessage)
+	def rootMessage :Opt[String] = Opt(rootCause.getMessage)
 
 	/** Denullified [[Throwable.getMessage getMessage]] of the original `Throwable` cause of this exception,
 	  * returning an empty string instead of `null` if no message was provided.

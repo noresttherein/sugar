@@ -8,6 +8,8 @@ import scala.concurrent.{duration => s}
 import net.noresttherein.sugar.exceptions.SugaredArithmeticException
 import net.noresttherein.sugar.time.constants.{NanosInDay, NanosInHour, NanosInMicro, NanosInMilli, NanosInMinute, NanosInSecond}
 import net.noresttherein.sugar.time.dsl.LongTimeLapseMethods
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -264,9 +266,9 @@ case object Duration {
 	@inline def apply(seconds :Long, nanos :Int)    :Duration = new Duration(j.Duration.ofSeconds(seconds, nanos))
 
 
-	@inline def unapply(span :TimeInterval) :Option[(Long, Int)] = span match {
-		case d :Duration => Some(d.toJava.getSeconds, d.toJava.getNano)
-		case _ => None
+	@inline def unapply(span :TimeInterval) :Maybe[(Long, Int)] = span match {
+		case d :Duration => Yes(d.toJava.getSeconds, d.toJava.getNano)
+		case _           => No
 	}
 
 

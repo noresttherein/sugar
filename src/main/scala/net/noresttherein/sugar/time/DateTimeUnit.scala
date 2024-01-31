@@ -7,9 +7,10 @@ import java.util.concurrent.{TimeUnit => JTimeUnit}
 
 import DateTimeUnit._
 import DateUnit._
-import net.noresttherein.sugar.exceptions.SugaredArithmeticException
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, unsupported_!}
 import net.noresttherein.sugar.time.constants.{NanosInMicro, NanosInMilli, SecondsInDay, SecondsInEra, SecondsInHour, SecondsInMinute, SecondsInMonth, SecondsInYear}
-import net.noresttherein.sugar.unsupported_!
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -181,9 +182,9 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 	@inline def *(number :Long) :Duration = new Duration(j.Duration.of(number, toJava))
 
-	def unapply(time :TimeInterval) :Option[(Long, TimeInterval)] = time match {
-		case finite :TimeSpan => Some((finite quot toJava.getDuration, time % this))
-		case _ => None
+	def unapply(time :TimeInterval) :Maybe[(Long, TimeInterval)] = time match {
+		case finite :TimeSpan => Yes((finite quot toJava.getDuration, time % this))
+		case _                => No
 	}
 
 

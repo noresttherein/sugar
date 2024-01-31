@@ -7,7 +7,6 @@ import java.util.Arrays
 import scala.annotation.tailrec
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.IsSeq
-import scala.collection.mutable.Builder
 import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
@@ -25,14 +24,14 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.BitLogic
-import net.noresttherein.sugar.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.classes
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
-import net.noresttherein.sugar.witness.{Ignored, Ignored1, Overload}
+import net.noresttherein.sugar.witness.{Ignored, Overload}
 
 
 

@@ -5,8 +5,7 @@ import scala.annotation.switch
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.raise
-import net.noresttherein.sugar.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!, raise}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
@@ -638,7 +637,7 @@ object Ternary {
 		)
 
 	/** Converts the given `Maybe[Boolean]` into a specialized `Ternary`, erased at runtime. */
-	@inline def fromOpt(value: Maybe[Boolean]) :Ternary =
+	@inline def fromMaybe(value: Maybe[Boolean]) :Ternary =
 		new Ternary(
 			if (value.isEmpty) NoContent
 			else if (value.get) Yes
@@ -654,7 +653,7 @@ object Ternary {
 		)
 
 	/** Converts the given `Opt[Boolean]` into a specialized `Ternary` for interoperability. */
-	@inline def fromYield(value :Opt[Boolean]) :Ternary =
+	@inline def fromOpt(value :Opt[Boolean]) :Ternary =
 		new Ternary(
 			if (value.isEmpty) NoContent
 			else if (value.get) Yes
@@ -776,16 +775,16 @@ object Ternary {
 				else NoContent
 			)
 
-		@inline implicit def TernaryToOpt(opt :Ternary) :Maybe[Boolean] = opt.maybe
-		@inline implicit def OptToTernary(opt :Maybe[Boolean]) :Ternary =
+		@inline implicit def TernaryToMaybe(opt :Ternary) :Maybe[Boolean] = opt.maybe
+		@inline implicit def MaybeToTernary(opt :Maybe[Boolean]) :Ternary =
 			new Ternary(
 				if (opt.isDefined)
 					if (opt.get) Yes else No
 				else NoContent
 			)
 
-		@inline implicit def TernaryToYield(Ternary :Ternary) :Opt[Boolean] = Ternary.opt
-		@inline implicit def YieldToTernary(opt :Opt[Boolean]) :Ternary = Ternary.fromYield(opt)
+		@inline implicit def TernaryToOpt(Ternary :Ternary) :Opt[Boolean] = Ternary.opt
+		@inline implicit def OptToTernary(opt :Opt[Boolean]) :Ternary = Ternary.fromOpt(opt)
 
 		/** Implicitly lifts a `Boolean` to [[net.noresttherein.sugar.vars.Ternary Ternary]]`[T]`. */
 		@inline implicit def BooleanToKnown(x :Boolean) :Known = new Ternary(if (x) Yes else No).asInstanceOf[Known]

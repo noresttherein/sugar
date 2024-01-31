@@ -7,6 +7,8 @@ import scala.concurrent.duration.Deadline
 
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
+import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 /** A time point set in the special UTC time zone, to which all date fields are related. It is a simple value type
@@ -273,9 +275,9 @@ case object UTCDateTime {
 
 
 
-	def unapply(time :TimePoint) :Option[(Date, TimeOfDay)] = time match {
-		case utc :UTCDateTime => Some((utc.date, utc.time))
-		case _ => None
+	def unapply(time :TimePoint) :Maybe[(Date, TimeOfDay)] = time match {
+		case utc :UTCDateTime => Yes((utc.date, utc.time))
+		case _                => No
 	}
 
 

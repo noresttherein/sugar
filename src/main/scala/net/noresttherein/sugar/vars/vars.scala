@@ -9,7 +9,7 @@ import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.exceptions.SugaredThrowable
+import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
 
 
 
@@ -34,24 +34,12 @@ import net.noresttherein.sugar.exceptions.SugaredThrowable
   * @define Blue [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]]
   * @define Red  [[net.noresttherein.sugar.vars.Pill.Red$ Red]]
   */
-package object vars extends vars.Rank1YieldImplicits {
-
-//	type Wish[+A]
-//	type Granted[+A] <: Wish[A]
-//	val Denied :Wish[Nothing] = ???
-//
-//	type Optional[+A]
-//	type Defined[+A] <: Optional[A]
-//	val Undefined = ???
-//
-//	type Space[+A]
-//	type Filled[+A] <: Space[A]
-//	val Blank :Space[Nothing]
+package object vars extends vars.Rank1OptImplicits {
 
 	private[vars] final val Ver = sugar.Ver
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
-	  * in [[net.noresttherein.sugar.vars.OptExtension YieldExtension]].
+	  * in [[net.noresttherein.sugar.vars.OptExtension OptExtension]].
 	  * A `Opt[A]` can be have three forms:
 	  *   1. $None, serving the same role as in `scala.Option`,
 	  *   1. $Done[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
@@ -78,15 +66,11 @@ package object vars extends vars.Rank1YieldImplicits {
 	  * @see [[net.noresttherein.sugar.vars.Maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Unsure]]
 	  */
-	//Todo: Opt is not a good name, because we can't name methods after it. How to rename it? Maybe is tempting,
-	// to be closer to Option, but then how do we rename current `Maybe`? One good choice is Maybe/Yes/No,
-	// or perhaps Home/Lucky/Unlucky.
-	type Opt[+A] >: None.type// >: One[A] //other names: Hope >: Vain/? or Lucky/NoLuck; Maybe; Perhaps; Opt > One | None
-
-//	@inline implicit def YieldExtension[A](self :Opt[A]) :YieldExtension[A] = new YieldExtension(self)
+	//other names: Hope/Lucky/NoLuck(Vain); Perhaps; Wish/Granted/Denied; Optional/Defined/Undefined; Space/Filled/Blank
+	type Opt[+A] >: None.type
 
 	/** An alias for $Opt`[A]`, a fully erased variant of [[scala.Option]] with an API defined
-	  * by [[net.noresttherein.sugar.vars.OptExtension YieldExtension]] as extension methods.
+	  * by [[net.noresttherein.sugar.vars.OptExtension OptExtension]] as extension methods.
 	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
 	  * @see [[scala.None]]
 	  * @see [[net.noresttherein.sugar.vars.Maybe]]
@@ -148,8 +132,8 @@ package object vars extends vars.Rank1YieldImplicits {
 
 //
 //		/** Gets the element in the $Ref or throws the exception given as the argument.
-//		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orNoSuch orNoSuch]]
-//		  * @see [[net.noresttherein.sugar.vars.YieldExtension.orIllegal orIllegal]] */
+//		  * @see [[net.noresttherein.sugar.vars.OptExtension.orNoSuch orNoSuch]]
+//		  * @see [[net.noresttherein.sugar.vars.OptExtension.orIllegal orIllegal]] */
 //		@inline def orThrow(e : => Throwable) :A =
 //			if (self.asInstanceOf[AnyRef] eq None) throw e else get
 
@@ -345,7 +329,7 @@ package object vars extends vars.Rank1YieldImplicits {
 				Missing
 			else {
 				val a = get
-				new Sure(a, cachedOpt = Yes(a))
+				new Sure(a, cachedOpt = One(a))
 			}
 
 		/** Conversion to standard Scala [[scala.Option]].
@@ -368,7 +352,7 @@ package object vars extends vars.Rank1YieldImplicits {
 				Missing
 			else {
 				val a = get
-				new Sure(a, cachedOpt = Yes(a))
+				new Sure(a, cachedOpt = One(a))
 			}
 
 		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toOption toOption]]
@@ -388,7 +372,7 @@ package object vars extends vars.Rank1YieldImplicits {
 			if (self.asInstanceOf[AnyRef] eq None)
 				Missing else {
 				val a = get
-				new Sure(a, cachedOpt = Yes(a))
+				new Sure(a, cachedOpt = One(a))
 			}
 
 
@@ -667,7 +651,7 @@ package object vars extends vars.Rank1YieldImplicits {
 		/** Converts this value to a `Opt` if it is $Blue, losing the information by replacing
 		  * $Red with [[scala.None None]].
 		  */
-		@inline def toYield :Opt[B] = self match {
+		@inline def toOpt :Opt[B] = self match {
 			case _ :Red[_] => None
 			case _         => One(get)
 		}
@@ -995,11 +979,9 @@ package object vars extends vars.Rank1YieldImplicits {
 
 package vars {
 
-	import net.noresttherein.sugar.exceptions.SugaredException
-
-	private[sugar] sealed abstract class Rank1YieldImplicits {
-		@inline implicit def optFromYield[T](opt :Opt[T]) :Maybe[T] = One.unapply(opt)
-		@inline implicit def yieldFromOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
+	private[sugar] sealed abstract class Rank1OptImplicits {
+		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe
+		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
 	}
 
 
@@ -1030,16 +1012,10 @@ package vars {
 		}
 
 		/** Converts the given `Maybe[T]` into a `Opt[T]`. */
-		@inline def yes_?[A](value :Maybe[A]) :Opt[A] = value match {
-			case Yes(a) => One(a)
-			case _      => None
-		}
+		@inline def yes_?[A](value :Maybe[A]) :Opt[A] = value.toOpt
 
 		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
-		@inline def sure_?[A](value :Unsure[A]) :Opt[A] = value match {
-			case Sure(a) => One(a)
-			case _       => None
-		}
+		@inline def sure_?[A](value :Unsure[A]) :Opt[A] = value.toOpt
 
 		/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
 		@inline def fromOption[A](value :Option[A]) :Opt[A] = value match {
@@ -1048,10 +1024,7 @@ package vars {
 		}
 
 		/** Converts the given `Maybe[T]` into a `Opt[T]`. */
-		@inline def fromOpt[A](value :Maybe[A]) :Opt[A] = value match {
-			case Yes(a) => One(a)
-			case _      => None
-		}
+		@inline def fromMaybe[A](value :Maybe[A]) :Opt[A] = value.toOpt
 
 		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
 		@inline def fromUnsure[A](value :Unsure[A]) :Opt[A] = value match {
@@ -1142,7 +1115,7 @@ package vars {
 		@SerialVersionUID(Ver)
 		object implicits {
 			/** An implicit conversion that converts a $Opt to an iterable value. */
-			@inline implicit def YieldToIterable[A](opt :Opt[A]) :Iterable[A] = opt match {
+			@inline implicit def OptToIterable[A](opt :Opt[A]) :Iterable[A] = opt match {
 				case One(v) => v::Nil
 				case _      => Nil
 			}
@@ -1151,7 +1124,7 @@ package vars {
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
-			@inline implicit def YieldToOption[T](opt :Opt[T]) :Option[T] = opt match {
+			@inline implicit def OptToOption[T](opt :Opt[T]) :Option[T] = opt match {
 				case One(v) => Some(v)
 				case _      => None
 			}
@@ -1160,23 +1133,23 @@ package vars {
 			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 			  */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-			@inline implicit def OptionToYield[A](opt :Option[A]) :Opt[A] = some_?(opt)
+			@inline implicit def OptionToOpt[A](opt :Option[A]) :Opt[A] = some_?(opt)
 
 			/** An implicit conversion from an `Opt[A]` to an `Maybe[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
-			@inline implicit def YieldToOpt[T](value :Opt[T]) :Maybe[T] = value match {
+			@inline implicit def OptToMaybe[T](value :Opt[T]) :Maybe[T] = value match {
 				case One(v) => Yes(v)
 				case _      => No
 			}
 
 			/** A nomen omen optional implicit conversion of an `Maybe[A]` to a `Opt[A]`. */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
-			@inline implicit def OptToYield[A](opt :Maybe[A]) :Opt[A] = yes_?(opt)
+			@inline implicit def MaybeToOpt[A](opt :Maybe[A]) :Opt[A] = yes_?(opt)
 
 			/** Wraps any object in a [[net.noresttherein.sugar.vars.Opt Opt]] monad. */
-			@inline implicit def existentAny[A](existent :A) :Opt[A] = One(existent)
+			@inline implicit def anyOne[A](any :A) :Opt[A] = One(any)
 		}
 
 
@@ -1191,15 +1164,15 @@ package vars {
 		  * Other files which reference classes defined in the import's scope may also need to be modified in order
 		  * to comply with changed interfaces. */
 		@SerialVersionUID(Ver)
-		object YieldAsOption {
+		object OptAsOption {
 			type Option[T] = Opt[T]
 
 			val Option = Opt
 			val Some   = One
 //			val None   = None
 			//same names as in implicits so if both are imported one shadows the other
-			@inline implicit def YieldFromOption[T](opt :Opt[T]) :scala.Option[T] = opt.option
-			@inline implicit def OptionToYield[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
+			@inline implicit def OptFromOption[T](opt :Opt[T]) :scala.Option[T] = opt.option
+			@inline implicit def OptionToOpt[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
 
 //			@inline implicit def NoneToInexistent(none :scala.None.type) :None.type = None
 //			@inline implicit def InexistentToNone(miss :None.type) :scala.None.type = scala.None
@@ -1235,7 +1208,7 @@ package vars {
 		@inline def apply[T](value :T) :Opt[T] = if (value == null) None else One(value)
 
 		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
-		@inline def unapply[T](ref :Opt[T]) :Maybe[T] = One.unapply(ref)
+		@inline def unapply[T](ref :Opt[T]) :Maybe[T] = ref.toMaybe
 	}
 
 	@SerialVersionUID(Ver)

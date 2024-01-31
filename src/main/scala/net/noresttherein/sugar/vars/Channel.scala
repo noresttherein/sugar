@@ -3,11 +3,11 @@ package net.noresttherein.sugar.vars
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.classNameMethods
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Channel.{Reader, Writer}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
 
@@ -174,17 +174,17 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 
 
 	/** Consumes a value if any producers are waiting on this instance. */
-	override def maybe :Maybe[T] = synchronized {
-		if (writers != null) Yes(value) else No
+	override def opt :Opt[T] = synchronized {
+		if (writers != null) One(value) else None
 	}
-	override def toMaybe :Maybe[T] = maybe
-	override def maybeConst :Maybe[T] = No
+	override def toOpt :Opt[T] = opt
+	override def constOpt :Opt[T] = None
 
 	/** If a writer is waiting on the other side of the channel, returns the set value,
-	  * but without consuming it and freeing the writer. If no writer is waiting on this $ref, returns `No`.
+	  * but without consuming it and freeing the writer. If no writer is waiting on this $ref, returns `None`.
 	  */
-	def peek :Maybe[T] = synchronized {
-		if (writers != null) Yes(writers.value) else No
+	def peek :Opt[T] = synchronized {
+		if (writers != null) One(writers.value) else None
 	}
 
 	/** The number of waiting writers. Note that, unless externally synchronized by the application,

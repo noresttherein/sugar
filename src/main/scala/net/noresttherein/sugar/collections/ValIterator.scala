@@ -7,11 +7,11 @@ import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatSh
 import scala.collection.{BufferedIterator, Stepper, StepperShape}
 
 import net.noresttherein.sugar.collections.ValIterator.{BooleanJavaIteratorAdapter, ByteJavaIteratorAdapter, CharJavaIteratorAdapter, DoubleJavaIteratorAdapter, FloatJavaIteratorAdapter, IntJavaIteratorAdapter, JavaIteratorAdapter, LongJavaIteratorAdapter, ShortJavaIteratorAdapter}
+import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.castingMethods
-import net.noresttherein.sugar.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.Fun2Arg
 import net.noresttherein.sugar.vars.{Maybe, Missing, Sure, Unsure}
-import net.noresttherein.sugar.vars.Maybe.{No, Yes, one_?}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 

@@ -4,6 +4,7 @@ import java.lang.ref.Cleaner.Cleanable
 
 import net.noresttherein.sugar.unsupported_!
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -108,10 +109,10 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final override def constOption :Option[T] = None
 
 	/** Same as [[net.noresttherein.sugar.vars.Clearable.maybe opt]]. */
-	@inline final override def toMaybe :Maybe[T] = maybe
+	@inline final override def toOpt :Opt[T] = opt
 
 	/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]]. */
-	@inline final override def maybeConst :Maybe[T] = No
+	@inline final override def constOpt :Opt[T] = None
 
 	/** Same as [[net.noresttherein.sugar.vars.Clearable.unsure unsure]]. */
 	@inline final override def toUnsure :Unsure[T] = unsure
@@ -125,7 +126,10 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final def remove() :T = { val res = get; clear(); res }
 
 	/** Clears this variable, returning its current value, if any. */
-	@inline final def removeOpt() :Maybe[T] = { val res = maybe; clear(); res }
+	@inline final def removeOpt() :Opt[T] = { val res = opt; clear(); res }
+
+	/** Clears this variable, returning its current value, if any. */
+	@inline final def maybeRemove() :Maybe[T] = { val res = maybe; clear(); res }
 
 	/** Resets this variable to an undefined state, unreferencing its contents. */
 	def clear() :Unit
@@ -165,25 +169,25 @@ object Clearable {
 
 
 	@SerialVersionUID(Ver)
-	private class Plain[+T](private[this] var x :Maybe[T]) extends Clearable[T] {
+	private class Plain[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = x.get
-		override def maybe :Maybe[T] = x
-		override def clear() :Unit = x = No
+		override def opt :Opt[T] = x
+		override def clear() :Unit = x = None
 	}
 
 	@SerialVersionUID(Ver)
-	private final class Synced[+T](private[this] var x :Maybe[T]) extends Clearable[T] {
+	private final class Synced[+T](private[this] var x :Opt[T]) extends Clearable[T] {
 		override def get :T = synchronized(x.get)
-		override def maybe :Maybe[T] = synchronized(x)
-		override def clear() :Unit = synchronized { x = No }
+		override def opt :Opt[T] = synchronized(x)
+		override def clear() :Unit = synchronized { x = None }
 	}
 
 	@SerialVersionUID(Ver)
 	private final class Volatile[+T](init :T) extends Clearable[T] {
-		@volatile private[this] var x :Maybe[T] =  Yes(init)
+		@volatile private[this] var x :Opt[T] =  One(init)
 
 		override def get :T = x.get
-		override def maybe :Maybe[T] = x
-		override def clear() :Unit = x = No
+		override def opt :Opt[T] = x
+		override def clear() :Unit = x = None
 	}
 }
