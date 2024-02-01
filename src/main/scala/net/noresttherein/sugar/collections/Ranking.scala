@@ -20,6 +20,7 @@ import net.noresttherein.sugar.collections.Ranking.RankingView
 import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingBuilder, RankingSeqAdapter, RankingSerializer, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, smallContains}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.Maybe
@@ -2497,6 +2498,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 {
 	def this(elements :RefArray[E]) = this(elements, elements.asAnyArray.map(hashCodeOf))
 
+	releaseFence()
 	private[sugar] override def unsafeArray :Array[_] = elements.asAnyArray
 	private[sugar] override def startIndex  :Int = 0
 	private[sugar] def array :RefArray[E @uncheckedVariance] = elements

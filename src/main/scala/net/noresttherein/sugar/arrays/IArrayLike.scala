@@ -46,58 +46,6 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 		extends AnyVal
 	{
 		@inline private def exposed :Arr[E] = self.asInstanceOf[Arr[E]]
-//		@inline private def expose(array :Array[Unknown]) :Arr[E] = array.asInstanceOf[Arr[E]]
-//		@inline private def asElement(value :Unknown) :E = value.asInstanceOf[E]
-//		@inline private def lengthOf(other :ArrayLike[_]) :Int = other.asInstanceOf[Array[_]].length
-//		def slice(from :Int, until :Int) :Arr[E] = {
-//			val len = array.length
-//			if (until <= 0 | until <= from | from >= len) Array.emptyLike(array).asInstanceOf[Arr[E]]
-//			else if (from <= 0 & until >= len) array.asInstanceOf[Arr[E]]
-//			else array.slice(from, until).castFrom[Array[_], Arr[E]]
-//		}
-//		@inline def take(n :Int) :Arr[E] = slice(0, n)
-//		@inline def drop(n :Int) :Arr[E] = slice(n, Int.MaxValue)
-//		@inline def takeRight(n :Int) :Arr[E] = { val l = array.length; slice(l - n, l) }
-//		@inline def dropRight(n :Int) :Arr[E] = slice(0, array.length - n)
-//		def takeWhile(p :E => Boolean) :Arr[E] =
-//			slice(0, ArrayLikeOps.segmentLength(array, 0, array.length)(p.castParam1[Any], 0))
-//		def dropWhile(p :E => Boolean) :Arr[E] =
-//			slice(ArrayLikeOps.segmentLength(array, 0, array.length)(p.castParam1[Any], 0), Int.MaxValue)
-//
-//		@inline def splitAt(n :Int) :(Arr[E], Arr[E]) = (slice(0, n), slice(n, Int.MaxValue))
-//		def span(p :E => Boolean) :(Arr[E], Arr[E]) =
-//			splitAt(ArrayLikeOps.segmentLength(array, 0, array.length)(p.castParam1[Any], 0))
-//
-//		@inline def removed(index :Int) :Arr[E] = ArrayExtension(array).removed(index).castFrom[Array[_], Arr[E]]
-//		@inline def removed(from :Int, until :Int) :Arr[E] =
-//			if (until <= 0 | until <= from || from >= array.length) array.asInstanceOf[Arr[E]]
-//			else ArrayExtension(array).removed(from, until).castFrom[Array[_], Arr[E]]
-//
-//		@inline def reverse :Arr[E] =
-//			if (array.length <= 1) array.asInstanceOf[Arr[E]]
-//			else array.reverse.castFrom[Array[_], Arr[E]]
-//
-//		@inline def sortWith(lt :(E, E) => Boolean) :Arr[E] =
-//			if (array.length <= 1) array.asInstanceOf[Arr[E]]
-//			else array.sortWith(lt.castParams[Any, Any, Boolean]).castFrom[Array[_], Arr[E]]
-//
-//		@inline def sortBy[A :Ordering](f :E => A) :Arr[E] =
-//			if (array.length <= 1) array.asInstanceOf[Arr[E]]
-//			else array.sortBy(f.castParam1[Any]).castFrom[Array[_], Arr[E]]
-//
-//		@inline def sorted[A >: E :Ordering] :Arr[E] =
-//			if (array.length <= 1) array.asInstanceOf[Arr[E]]
-//			else array.sorted(implicitly[Ordering[A]].castParam[Any]).castFrom[Array[_], Arr[E]]
-//
-//		@inline def distinct :Arr[E] =
-//			if (array.length <= 1) array.asInstanceOf[Arr[E]]
-//			else array.distinct.castFrom[Array[_], Arr[E]]
-//
-//		@inline def distinctBy[A](f :E => A) :Arr[E] =
-//			if (array.length <= 1) array.asInstanceOf[Arr[E]]
-//			else array.distinctBy(f.asInstanceOf[Any => A]).castFrom[Array[_], Arr[E]]
-
-		//we could also overload rotatedLeft et al.
 
 		def iterator :Iterator[E] = IArrayLikeIterator(exposed)
 

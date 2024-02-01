@@ -167,48 +167,10 @@ private final class ArrayAsSeq[E](override val coll :Array[E])
 private object ArrayAsSeq extends ClassTagIterableFactory[Array] {
 
 	@inline override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = ArrayFactory.from(it)
-//	override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = it match {
-//		case elems :Iterable[E] if elems.knownSize == 0 => empty[E]
-//		case iter  :Iterator[E] if !iter.hasNext        => empty[E]
-////		case elems :ArrayAsSeq[E] if elems.coll.getClass.getComponentType == classTag[E].runtimeClass => elems.coll
-//		case elems :Iterable[E]                         => elems.toArray[E]
-//		case _                                          => it.iterator.toArray[E]
-//	}
-//	def fromAs[E](it :IterableOnce[E], elementType :Class[E]) :Array[E] = it match {
-//		case elems :Iterable[E] if elems.knownSize == 0 => empty(elementType)
-//		case iter  :Iterator[E] if !iter.hasNext        => empty(elementType)
-////		case elems :ArrayAsSeq[E] if elems.coll.getClass.getComponentType == classTag[E].runtimeClass => elems.coll
-//		case elems :Iterable[E] => elems.toArray[E]
-//		case _ => it.iterator.toArray[E]
-//	}
-
-	//Array.copyAs resorts to slowcopy if not classOf[E] >:> array.getClass.getComponentType.
-	// We instead always default to System.arraycopy if both element types are reference types.
-/*
-	def copyAs[E :ClassTag](array :ArrayLike[E], start :Int, newLength :Int) :Array[E] =
-		if (start == 0)
-			copyAs[E](array, newLength)
-		else if (start < 0)
-			throw new IndexOutOfBoundsException(
-				"ArrayAsSeq.copyAs[" + fullNameOf[E] + "](" + array.className + "<" + array.length + ">, " +
-					start + ", " + newLength + ")"
-			)
-		else if (newLength == 0)
-			empty[E]
-		else {
-			val res = new Array[E](newLength)
-			if (start < newLength)
-			ArrayLike.copy(array, 0, res, start, math.min(newLength - start, array.length))
-			res
-		}
-*/
 
 	override def empty[A :ClassTag] :Array[A] = ArrayFactory.empty
 
 	override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder[A] //new ArrayBuilder[A]
-
-//	def newBuilder[A](init :Array[A]) :Builder[A, Array[A]] =
-//		new ArrayBuilder(init)
 
 }
 
@@ -244,8 +206,6 @@ private final class IArrayAsSeq[E](override val coll :IArray[E])
 	@nowarn("cat=deprecation")
 	override def toIterable :Iterable[E] = toIndexedSeq
 	override def toIndexedSeq :IndexedSeq[E] = IArray.Wrapped(coll)
-
-//	private implicit def classTag :ClassTag[E] = ClassTag(coll.getClass.getComponentType)
 
 	override def className = "IArray"
 }

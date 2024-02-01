@@ -9,6 +9,7 @@ import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.arrays.IArray
 import net.noresttherein.sugar.collections.{ArraySliceOps, SpecificIterableFactoryDefaults, SugaredIterable}
+import net.noresttherein.sugar.concurrent.releaseFence
 
 
 
@@ -118,6 +119,7 @@ private class ArrayStackTrace(array :Array[StackTraceElement], start :Int, overr
 {
 	def this(array :Array[StackTraceElement]) = this(array, 0, array.length)
 
+	releaseFence()
 	override def unsafeArray = array
 	override def startIndex  = start
 

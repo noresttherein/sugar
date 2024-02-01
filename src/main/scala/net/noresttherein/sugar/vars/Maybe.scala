@@ -584,7 +584,7 @@ object Maybe {
 	  * @note This value is of a refined type `Maybe[Nothing] { type isEmpty = true }`. However, in many circumstances,
 	  *       it is preferable to have a basic `Maybe[T]` for some specific type `T`.
 	  *       In those cases you can use `Maybe.empty[T]`.
-	  * @see [[net.noresttherein.sugar.vars.Maybe.empty]] */
+	  * @see [[net.noresttherein.sugar.vars.Maybe.empty]] */ //consider: renaming it to Lack
 	@inline final val No :No = new Maybe(NoContent).asInstanceOf[No]
 
 	//todo: remove this type and make Yes return simply Maybe.
@@ -595,7 +595,7 @@ object Maybe {
 
 	/** Factory and a matching pattern for non empty values of [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
 	@SerialVersionUID(Ver)
-	object Yes {
+	object Yes { //consider: renaming it to Got
 		/** Creates a non-empty [[net.noresttherein.sugar.vars.Maybe Maybe]] wrapping the given value. */
 		@inline def apply[T](x :T) :Yes[T] = new Maybe(x.asInstanceOf[AnyRef]).asInstanceOf[Yes[T]]
 

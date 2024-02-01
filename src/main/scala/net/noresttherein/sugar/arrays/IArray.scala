@@ -9,10 +9,11 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ArrayLikeWrapper, IArraySlice, RelayArrayFactory}
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.exceptions.IncompatibleArgumentTypesException
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -232,7 +233,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		extends AnyVal
 	{
 //		@inline private def asIArray = self.asInstanceOf[IArray[E]]
-		@inline private def expose[X](array :Array[X]) :IArray[X] = array.asInstanceOf[IArray[X]]
+		@inline private def expose[X](array :Array[X]) :IArray[X] = {
+			releaseFence()
+			array.asInstanceOf[IArray[X]]
+		}
 
 		/** Returns `getClass.`[[java.lang.Class.getComponentType getComponentType]]. */
 		@inline def getComponentType :Class[E] = self.getClass.getComponentType.castParam[E]
@@ -545,8 +549,13 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	}
 
 
-	@inline private def expose[E](array :Array[E]) :IArray[E] = array.asInstanceOf[IArray[E]]
+	//private[IArray] to enable inlining methods calling it.
+	@inline private[IArray] def expose[E](array :Array[E]) :IArray[E] = {
+		releaseFence()
+		array.asInstanceOf[IArray[E]]
+	}
 
+	//Important to inline these methods, as f may create a closure otherwise.
 	/** Creates a new `Array[E]` of the specified length, executes the given initialization function for it,
 	  * and returns it as an `IArray[E]`. It is a pattern for initialization safer than manually creating
 	  * an `Array[E]`, writing to it, and casting it `IArray[E]`. The application should ''not'' retain a reference
@@ -559,14 +568,14 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *     }
 	  * }}}
 	  */
-	@inline def init[E :ClassTag](length :Int)(f :Array[E] => Unit) :IArray[E] = expose {
+	@inline def init[E :ClassTag](length :Int)(f :Array[E] => Unit) :IArray[E] = {
 		val res = if (length == 0) ArrayFactory.empty[E] else new Array[E](length)
 		res match {
 			case units :Array[Unit] => units.fill(())
 			case _ =>
 		}
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new `Array[E]` of the specified length and element type, executes the given initialization function
@@ -581,10 +590,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *     }
 	  * }}}
 	  */
-	@inline def init[E](elementType :Class[E], length :Int)(f :Array[_ >: E] => Unit) :IArray[E] = expose {
+	@inline def init[E](elementType :Class[E], length :Int)(f :Array[_ >: E] => Unit) :IArray[E] = {
 		val res = ArrayFactory.ofDim(elementType, length)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new `Array[E]` of the specified length and the same element type as the argument array,
@@ -593,8 +602,12 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  * @see [[net.noresttherein.sugar.arrays.IArray.init]]
 	  * @see [[net.noresttherein.sugar.arrays.IArray.updated(]]
 	  */ //Can't use IArray argument due to covariance
-	@inline def like[E](other :Array[E], length :Int)(f :Array[_ >: E] => Unit) :IArray[E] =
-		init(other.getClass.getComponentType.castParam[E], length)(f)
+	@inline def like[E](other :Array[E], length :Int)(f :Array[_ >: E] => Unit) :IArray[E] = {
+		val res = ArrayFactory.ofDim(other.getClass.getComponentType.castParam[E], length)
+		f(res)
+		expose(res)
+//		init(other.getClass.getComponentType.castParam[E], length)(f) //manually inlined for guaranteed method inlining.
+	}
 
 	/** Creates a new `IArray` by modifying another `ArrayLike`.
 	  * This method combines [[net.noresttherein.sugar.arrays.IArray.copyOf copyOf]]`(other)`
@@ -614,10 +627,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *              Should not retain the reference to the argument after its completion, or immutability
 	  *              of the result will be compromised.
 	  */
-	@inline def updated[E :ClassTag](other :ArrayLike[E])(f :Array[_ >: E] => Unit) :IArray[E] = expose {
+	@inline def updated[E :ClassTag](other :ArrayLike[E])(f :Array[_ >: E] => Unit) :IArray[E] = {
 		val res = ArrayFactory.copyOf(other)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new `IArray` by copying and modifying contents of another `ArrayLike`.
@@ -641,12 +654,11 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *                  Should not retain the reference to the argument after its completion, or immutability
 	  *                  of the result will be compromised.
 	  */
-	@inline def updated[E :ClassTag](other :ArrayLike[E], newLength :Int)(f :Array[_ >: E] => Unit) :IArray[E] =
-		expose {
-			val res = ArrayFactory.copyOf(other, newLength)
-			f(res)
-			res
-		}
+	@inline def updated[E :ClassTag](other :ArrayLike[E], newLength :Int)(f :Array[_ >: E] => Unit) :IArray[E] = {
+		val res = ArrayFactory.copyOf(other, newLength)
+		f(res)
+		expose(res)
+	}
 
 	/** Creates a new `IArray` by introducing changes to a slice of another `ArrayLike`.
 	  * This method combines [[net.noresttherein.sugar.arrays.IArray.copyOfRange copyOfRange]]`(other, from, until)`
@@ -669,12 +681,11 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *              Should not retain the reference to the argument after its completion, or immutability
 	  *              of the result will be compromised.
 	  */
-	@inline def updated[E :ClassTag](other :ArrayLike[E], from :Int, until :Int)(f :Array[_ >: E] => Unit) :IArray[E] =
-		expose {
-			val res = Array.copyOfRange(other, from, until)
-			f(res)
-			res
-		}
+	@inline def updated[E :ClassTag](other :ArrayLike[E], from :Int, until :Int)(f :Array[_ >: E] => Unit) :IArray[E] = {
+		val res = Array.copyOfRange(other, from, until)
+		f(res)
+		expose(res)
+	}
 
 	/** Creates a new `IArray` by introducing changes to a slice of another `ArrayLike`, including, potentially
 	  * appending additional elements. This method combines
@@ -706,11 +717,11 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@throws[NegativeArraySizeException]("if newLength is less than zero")
 	@inline def updated[E :ClassTag](other :ArrayLike[E], from :Int, until :Int, newLength :Int)
 	                                (f :Array[_ >: E] => Unit) :IArray[E] =
-		expose {
-			val res = Array.copyOfRange(other, from, until, newLength)
-			f(res)
-			res
-		}
+	{
+		val res = Array.copyOfRange(other, from, until, newLength)
+		f(res)
+		expose(res)
+	}
 
 	/** Creates a new `IArray` of the specified length by modifying a slice of another `ArrayLike`. This method combines
 	  * [[net.noresttherein.sugar.arrays.IArray.copyOfRange copyOfRange]]`(other, from, until, offset, newLength)`
@@ -749,11 +760,11 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@throws[NegativeArraySizeException]("if newLength is less than zero")
 	@inline def updated[E :ClassTag](other :ArrayLike[E], from :Int, until :Int, offset :Int, newLength :Int)
 	                                (f :Array[_ >: E] => Unit) :IArray[E] =
-		expose {
-			val res = Array.copyOfRange(other, from, until, offset, newLength)
-			f(res)
-			res
-		}
+	{
+		val res = Array.copyOfRange(other, from, until, offset, newLength)
+		f(res)
+		expose(res)
+	}
 
 	/** Creates a new `IArray` by modifying another `ArrayLike`.
 	  * The underlying type of the new array will be the same as of the argument.
@@ -772,10 +783,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *              Should not retain the reference to the argument after its completion, or immutability
 	  *              of the result will be compromised.
 	  */ //can't take IArray argument due to covariance
-	@inline def updated[E](other :Array[E])(f :Array[_ >: E] => Unit) :IArray[E] = expose {
+	@inline def updated[E](other :Array[E])(f :Array[_ >: E] => Unit) :IArray[E] = {
 		val res = ArrayFactory.copyOf(other)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new `IArray` by copying and modifying contents of another `ArrayLike`.
@@ -798,10 +809,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *                  Should not retain the reference to the argument after its completion, or immutability
 	  *                  of the result will be compromised.
 	  */
-	@inline def updated[E](other :Array[E], newLength :Int)(f :Array[_ >: E] => Unit) :IArray[E] = expose {
+	@inline def updated[E](other :Array[E], newLength :Int)(f :Array[_ >: E] => Unit) :IArray[E] = {
 		val res = ArrayFactory.copyOf(other, newLength)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new `IArray` by introducing changes to a slice of some regular `Array`.
@@ -825,10 +836,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *                  Should not retain the reference to the argument after its completion, or immutability
 	  *                  of the result will be compromised.
 	  */
-	@inline def updated[E](other :Array[E], from :Int, until :Int)(f :Array[_ >: E] => Unit) :IArray[E] = expose {
+	@inline def updated[E](other :Array[E], from :Int, until :Int)(f :Array[_ >: E] => Unit) :IArray[E] = {
 		val res = Array.copyOfRange(other, from, until)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new `IArray` by introducing changes to a slice of another `ArrayLike`, including, potentially
@@ -860,11 +871,11 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@throws[NegativeArraySizeException]("if newLength is less than zero")
 	@inline def updated[E](other :Array[E], from :Int, until :Int, newLength :Int)
 	                      (f :Array[_ >: E] => Unit) :IArray[E] =
-		expose {
-			val res = Array.copyOfRange(other, from, until, newLength)
-			f(res)
-			res
-		}
+	{
+		val res = Array.copyOfRange(other, from, until, newLength)
+		f(res)
+		expose(res)
+	}
 
 	/** Creates a new `IArray` of the specified length by modifying a slice of another `ArrayLike`. This method combines
 	  * [[net.noresttherein.sugar.arrays.IArray.copyOfRange copyOfRange]]`(other, from, until, offset, newLength)`
@@ -901,17 +912,18 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@throws[NegativeArraySizeException]("if newLength is less than zero")
 	@inline def updated[E](other :Array[E], from :Int, until :Int, offset :Int, newLength :Int)
 	                      (f :Array[_ >: E] => Unit) :IArray[E] =
-		expose {
-			val res = Array.copyOfRange(other, from, until, offset, newLength)
-			f(res)
-			res
-		}
+	{
+		val res = Array.copyOfRange(other, from, until, offset, newLength)
+		f(res)
+		expose(res)
+	}
 
 	//probably is not useful to have an immutable array with uninitialized segments.
 
 
 	/** Creates a copy of the given array, possibly changing its element type. */
-	@inline def copyAs[E :ClassTag](array :ArrayLike[_]) :IArray[E] = copyAs(array, array.length)
+	@inline def copyAs[E :ClassTag](array :ArrayLike[_]) :IArray[E] =
+		expose(ArrayFactory.copyAs[E](array, array.asInstanceOf[Array[_]].length))
 
 	/** Copies one array to another, truncating or padding with default values (if necessary),
 	  * so that the copy has the specified length. The new array can have a different type than the original one,
@@ -924,18 +936,20 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	/** Creates a new immutable array with the element type specified by `ClassTag[E]`
 	  * and the same contents as the argument.
 	  */
-	@inline def copyOf[E :ClassTag](array :ArrayLike[E]) :IArray[E] = copyAs(array, array.length)
+	@inline def copyOf[E :ClassTag](array :ArrayLike[E]) :IArray[E] =
+		expose(ArrayFactory.copyAs[E](array, array.asInstanceOf[Array[_]].length))
 
 	/** Copies one array to another, truncating or padding with default values (if necessary), so that the copy has
 	  * the specified length. The returned array will be of the element type specified by the `ClassTag[E]`.
 	  * Equivalent to `Array.`[[Array.copyAs copyAs]]`(array, newLength)`, but accepts any `ArrayLike` and returns
 	  * the result as an $Coll.
 	  */
-	@inline def copyOf[E :ClassTag](array :ArrayLike[E], newLength :Int) :IArray[E] = copyAs(array, newLength)
+	@inline def copyOf[E :ClassTag](array :ArrayLike[E], newLength :Int) :IArray[E] =
+		expose(ArrayFactory.copyAs[E](array, newLength))
 
 	/** Creates an immutable copy of the argument, with the same element type. */
 	def copyOf[E](array :ProperArray[E]) :IArray[E] =
-		expose(ArrayFactory.copyOf(array.castFrom[ArrayLike[E], Array[E]]))
+		expose(ArrayFactory.copyOf(array.asInstanceOf[Array[E]]))
 
 	/** Copies one array to another, truncating or padding with default values (if necessary) so the copy has
 	  * the specified length. The returned array will be of the same type as the original.
@@ -943,7 +957,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  * the result as an $Coll.
 	  */
 	@inline def copyOf[E](array :ProperArray[E], newLength :Int) :IArray[E] =
-		expose(ArrayFactory.copyOf(array.castFrom[ArrayLike[E], Array[E]], newLength))
+		expose(ArrayFactory.copyOf(array.asInstanceOf[Array[E]], newLength))
 
 	/** Copies a fragment of an array to a new array. This works similarly
 	  * to `array.`[[scala.collection.ArrayOps.slice slice]]`(from, until)`, with a couple of exceptions:
@@ -957,7 +971,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 
 	/** Returns `array.slice(from, until)` as an `IArray[E]`. */
 	@inline def copyOfRange[E](array :ProperArray[E], from :Int, until :Int) :IArray[E] =
-		expose(array.castFrom[ProperArray[E], Array[E]].slice(from, until))
+		expose(array.asInstanceOf[Array[E]].slice(from, until))
 
 	/** Copies slices from two array into a new array. Providing `until < from` has the same effect as `until == from`,
 	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
@@ -977,7 +991,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  */
 	@inline def copyOfRanges[E :ClassTag](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 	                                      array2 :ArrayLike[E], from2 :Int, until2 :Int) :IArray[E] =
-		Array.copyOfRanges(array1, from1, until1, array2, from2, until2).castFrom[Array[E], IArray[E]]
+		expose(Array.copyOfRanges(array1, from1, until1, array2, from2, until2))
 
 	/** Copies slices from two array into a new array. Providing `until < from` has the same effect as `until == from`,
 	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
@@ -998,8 +1012,8 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *         with the copied slices. The element type of the `IArray` will equal the element type of `array1`.
 	  */
 	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
-	@inline def copyOfRanges[E](array1 :ProperArray[E], from1 :Int, until1 :Int,
-	                            array2 :ProperArray[E], from2 :Int, until2 :Int) :IArray[E] =
+	def copyOfRanges[E](array1 :ProperArray[E], from1 :Int, until1 :Int,
+	                    array2 :ProperArray[E], from2 :Int, until2 :Int) :IArray[E] =
 		expose {
 			if (array1.getClass == array2.getClass)
 				Array.copyOfRanges(
@@ -1045,8 +1059,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	@inline def copyOfRanges[E :ClassTag](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 	                                      array2 :ArrayLike[E], from2 :Int, until2 :Int,
 	                                      array3 :ArrayLike[E], from3 :Int, until3 :Int) :IArray[E] =
-		Array.copyOfRanges(array1, from1, until1, array2, from2, until2, array3, from3, until3)
-		     .castFrom[Array[E], IArray[E]]
+		expose(Array.copyOfRanges(array1, from1, until1, array2, from2, until2, array3, from3, until3))
 
 	/** Copies slices from three array into a new array. Providing `until < from` has the same effect as `until == from`,
 	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
@@ -1072,9 +1085,9 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *         with the copied slices. The element type of the array will be equal to the element type of `array1`.
 	  */
 	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
-	@inline def copyOfRanges[E](array1 :ProperArray[E], from1 :Int, until1 :Int,
-	                            array2 :ProperArray[E], from2 :Int, until2 :Int,
-	                            array3 :ProperArray[E], from3 :Int, until3 :Int) :IArray[E] =
+	def copyOfRanges[E](array1 :ProperArray[E], from1 :Int, until1 :Int,
+	                    array2 :ProperArray[E], from2 :Int, until2 :Int,
+	                    array3 :ProperArray[E], from3 :Int, until3 :Int) :IArray[E] =
 		expose {
 			if (array1.getClass == array2.getClass && array2.getClass == array3.getClass)
 				Array.copyOfRanges(
@@ -1123,9 +1136,10 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	/** Creates an `IArray` with the same element type and contents as the argument array.
 	  * @return `Array.copyOf(array)` as an `IArray[E]`.
 	  */
-	def from[E](array :Array[E]) :IArray[E] = expose(ArrayFactory.copyOf(array, array.length))
+	@inline def from[E](array :Array[E]) :IArray[E] = expose(ArrayFactory.copyOf(array, array.length))
 
-	@inline def from[E :ClassTag](array :ArrayLike[E]) :IArray[E] = copyOf(array)
+	@inline def from[E :ClassTag](array :ArrayLike[E]) :IArray[E] =
+		expose(ArrayFactory.copyOf(array, array.asInstanceOf[Array[_]].length))
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = it match {
 		case elems :View[E]                      => from(elems.iterator)
@@ -1173,7 +1187,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		else if (elementType == classOf[Float]) emptyFloatIArray
 		else if (elementType == classOf[Short]) emptyShortIArray
 		else if (elementType == classOf[Boolean]) emptyBooleanIArray
-		else Array.of(elementType, 0).castFrom[Array[E], IArray[E]]
+		else expose(Array.of(elementType, 0))
 	).castParam[E]
 
 	override def newBuilder[E :ClassTag] :Builder[E, IArray[E]] =
@@ -1463,416 +1477,4 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		}
 	}
 
-
-
-//	//todo: specialize
-//	//Does having them in a 'companion object' even makes sense, or is it better to move it to extensions?
-////	implicit def IArrayOrdering[E :Ordering] :Ordering[IArray[E]] =
-////		Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[IArray[E]]]
-//
-//	implicit def IArrayClassTag[E :ClassTag] :ClassTag[IArray[E]] = classTag[Array[E]].castParam[IArray[E]]
-////
-////	implicit def IArrayToSeq[E](array :IArray[E]) :IndexedSeq[E] = Wrapped(array)
-//
-//	/** A type class promoting immutable arrays to sequences. */
-//	implicit def IArrayIsSeq[E] :IsSeq[IArray[E]] { type A = E; type C = IArray[E] } =
-//		IsSeqPrototype.asInstanceOf[IsSeq[IArray[E]] { type A = E; type C = IArray[E] }]
-//
-//	private[this] val IsSeqPrototype = new IArrayIsSeq[Any]
-//
-//	private class IArrayIsSeq[E] extends ArrayLikeIsSeqTemplate[E, Seq, IArray] {
-//		override def apply(coll :IArray[E]) =
-//			new IArrayLikeIsSeqOps[E, IArray](coll) {
-//				protected override def fromSpecific(coll :IterableOnce[E]) :IArray[E] =
-//					IArray.from(coll)(ClassTag[E](this.coll.getClass.getComponentType))
-//
-//				protected override def newSpecificBuilder :Builder[E, IArray[E]] =
-//					IArray.newBuilder(this.coll.getClass.getComponentType.castParam[E])
-//			}
-//		private def readResolve = IArrayIsSeq
-//	}
-
-
-//	/** A type class defining the specific `immutable.ArraySeq` subclass for the given element type.
-//	  * Used in implicit conversion from `IArray` to `this.Wrapped`.
-//	  */
-//	/* This type exists because without it we would need separate implicit conversion methods for each type,
-//	 * Which would then cause conflict with non-specific conversions to extension classes.
-//	 * It is either this, or having ByteArrayAsArrayLikeExtension, ByteArrayAsIArrayLikeExtension, and so on.
-//	 * It also means there is a single method to import instead of a couple dozen.
-//	 */
-//	sealed abstract class ArraySeqType[E] extends Serializable {
-//		type Wrapped <: ArraySeq[E]
-//		def apply(array :Array[E]) :Wrapped
-//	}
-//
-//	private[IArray] sealed abstract class Rank1ArraySeqType {
-//		@inline implicit final def GenericArraySeqType[E] :GenericArraySeqType[E] =
-//			GenericArraySeqTypePrototype.asInstanceOf[GenericArraySeqType[E]]
-//		private[this] final val GenericArraySeqTypePrototype = new GenericArraySeqType[Any]
-//	}
-//
-//	@SerialVersionUID(Ver)
-//	object ArraySeqType {
-//		implicit case object ByteArraySeqType extends ArraySeqType[Byte] {
-//			override type Wrapped = ArraySeq.ofByte
-//			@inline override def apply(array :Array[Byte]) :ArraySeq.ofByte = new ArraySeq.ofByte(array)
-//		}
-//		implicit case object ShortArraySeqType extends ArraySeqType[Short] {
-//			override type Wrapped = ArraySeq.ofShort
-//			@inline override def apply(array :Array[Short]) :ArraySeq.ofShort = new ArraySeq.ofShort(array)
-//		}
-//		implicit case object CharArraySeqType extends ArraySeqType[Char] {
-//			override type Wrapped = ArraySeq.ofChar
-//			@inline override def apply(array :Array[Char]) :ArraySeq.ofChar = new ArraySeq.ofChar(array)
-//		}
-//		implicit case object IntArraySeqType extends ArraySeqType[Int] {
-//			override type Wrapped = ArraySeq.ofInt
-//			@inline override def apply(array :Array[Int]) :ArraySeq.ofInt = new ArraySeq.ofInt(array)
-//		}
-//		implicit case object LongArraySeqType extends ArraySeqType[Long] {
-//			override type Wrapped = ArraySeq.ofLong
-//			@inline override def apply(array :Array[Long]) :ArraySeq.ofLong = new ArraySeq.ofLong(array)
-//		}
-//		implicit case object FloatArraySeqType extends ArraySeqType[Float] {
-//			override type Wrapped = ArraySeq.ofFloat
-//			@inline override def apply(array :Array[Float]) :ArraySeq.ofFloat = new ArraySeq.ofFloat(array)
-//		}
-//		implicit case object DoubleArraySeqType extends ArraySeqType[Double] {
-//			override type Wrapped = ArraySeq.ofDouble
-//			@inline override def apply(array :Array[Double]) :ArraySeq.ofDouble = new ArraySeq.ofDouble(array)
-//		}
-//		implicit case object BooleanArraySeqType extends ArraySeqType[Boolean] {
-//			override type Wrapped = ArraySeq.ofBoolean
-//			@inline override def apply(array :Array[Boolean]) :ArraySeq.ofBoolean = new ArraySeq.ofBoolean(array)
-//		}
-//		implicit def RefArraySeqType[E <: AnyRef] :RefArraySeqType[E] =
-//			RefArraySeqTypePrototype.asInstanceOf[RefArraySeqType[E]]
-//
-//		final class RefArraySeqType[E <: AnyRef] private[IArray] extends ArraySeqType[E] {
-//			override type Wrapped = ArraySeq.ofRef[E]
-//			@inline override def apply(array :Array[E]) :ArraySeq.ofRef[E] = new ArraySeq.ofRef(array)
-//			override def toString = "RefArraySeqType"
-//		}
-//		final class GenericArraySeqType[E] private[IArray] extends ArraySeqType[E] {
-//			override type Wrapped = ArraySeq[E]
-//			@inline override def apply(array :Array[E]) :ArraySeq[E] = ArraySeq.unsafeWrapArray(array)
-//			override def toString = "GenericArraySeqType"
-//		}
-//		private[this] final val RefArraySeqTypePrototype = new RefArraySeqType[AnyRef]
-//	}
-
-
-//	private[arrays] sealed trait IArrayRank2Conversions extends Any with IArrayLike.conversions {
-//		@inline implicit final def IArrayToSeq[E](array :IArray[E]) :IndexedSeq[E] = IArray.Wrapped(array)
-//	}
-//
-//	/** Conversions of `IArray` of various element types to their dedicated
-//	  * [[collection.immutable.ArraySeq ArraySeq]].
-//	  */ //todo: see if we can drop these conversions without causing conflicts with Predef
-//	private[arrays] sealed trait IArrayRank1Conversions extends Any with IArrayRank2Conversions {
-//		@inline implicit final def byteIArrayToSeq(array :IArray[Byte]) :ArraySeq.ofByte =
-//			new ArraySeq.ofByte(array.castFrom[IArray[Byte], Array[Byte]])
-//
-//		@inline implicit final def shortIArrayToSeq(array :IArray[Short]) :ArraySeq.ofShort =
-//			new ArraySeq.ofShort(array.castFrom[IArray[Short], Array[Short]])
-//
-//		@inline implicit final def charIArrayToSeq(array :IArray[Char]) :ArraySeq.ofChar =
-//			new ArraySeq.ofChar(array.castFrom[IArray[Char], Array[Char]])
-//
-//		@inline implicit final def intIArrayToSeq(array :IArray[Int]) :ArraySeq.ofInt =
-//			new ArraySeq.ofInt(array.castFrom[IArray[Int], Array[Int]])
-//
-//		@inline implicit final def longIArrayToSeq(array :IArray[Long]) :ArraySeq.ofLong =
-//			new ArraySeq.ofLong(array.castFrom[IArray[Long], Array[Long]])
-//
-//		@inline implicit final def floatIArrayToSeq(array :IArray[Float]) :ArraySeq.ofFloat =
-//			new ArraySeq.ofFloat(array.castFrom[IArray[Float], Array[Float]])
-//
-//		@inline implicit final def doubleIArrayToSeq(array :IArray[Double]) :ArraySeq.ofDouble =
-//			new ArraySeq.ofDouble(array.castFrom[IArray[Double], Array[Double]])
-//
-//		@inline implicit final def booleanIArrayToSeq(array :IArray[Boolean]) :ArraySeq.ofBoolean =
-//			new ArraySeq.ofBoolean(array.castFrom[IArray[Boolean], Array[Boolean]])
-//
-//		@inline implicit final def refIArrayToSeq[E <: AnyRef](array :IArray[E]) :ArraySeq.ofRef[E] =
-//			new ArraySeq.ofRef(array.castFrom[IArray[E], Array[E]])
-//	}
-
-//	private[arrays] sealed trait conversions extends Any with IArrayLike.conversions {
-////		@inline implicit final def IArrayToSeq[E](self :Array[E])(implicit wrapper :ArraySeqType[E]) :wrapper.Wrapped =
-////			wrapper(self)
-//	}
-
-//	private[arrays] sealed trait IArrayRank2Extensions extends Any with ArrayLike.extensions {
-//		//todo: drop these and use a type class in each extension class
-//		/** Adds various additional folding methods with a break condition to any `IArray`. */
-//		@inline implicit final def IArrayAsIterableOnceExtension[E](self :IArray[E]) :IterableOnceExtension[E] =
-//			new IterableOnceExtension[E](new IArrayAsSeq(self))
-//
-//		/** Adds various methods for mapping/flatMapping collections to any `IArray`.
-//		  * These either pass along additional state, or have a break condition. Roughly equivalent to working
-//		  * with `toLazyList.scan`, but cleaner and more efficient.
-//		  */
-//		@inline implicit final def IArrayAsIterableExtension[E](self :IArray[E])
-//				:IterableExtension[E, IRefArray, IArray[E]] =
-//			new IterableExtension[E, IRefArray, IArray[E]](new IArrayAsSeq(self))
-//
-//		/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for immutable arrays,
-//		  * which do not return a negative index when the element is not found.
-//		  */
-//	   @inline implicit final def IArrayAsSeqExtension[E](self :IArray[E]) :SeqExtension[E, IRefArray, IArray[E]] =
-//			new SeqExtension[E, IRefArray, IArray[E]](new IArrayAsSeq(self))
-//
-//		/** Operations on suffixes of a sequence and binary search methods on sorted immutable arrays. */
-//		@inline implicit final def IArrayAsIndexedSeqExtension[E](self :IArray[E])
-//				:IndexedSeqExtension[E, IRefArray, IArray[E]] =
-//			new IndexedSeqExtension[E, IRefArray, IArray[E]](new IArrayAsSeq(self))
-//	}
-//
-//	private[arrays] sealed trait IArrayRank1Extensions extends Any with IArrayRank2Extensions {
-//		@inline implicit final def GenericIArrayExtension[E](array :IArray[E]) :GenericIArrayExtension[E] =
-//			new GenericIArrayExtension[E](array.castFrom[IArray[E], Array[E]])
-//	}
-
-/*
-	private[arrays] sealed trait IArrayRank1Extensions extends Any with IArrayRank2Extensions {
-		@inline implicit final def byteIArrayAsArrayLikeExtension(array :IArray[Byte])
-				:ArrayLike.ArrayLikeExtension[Byte, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Byte], Array[_]])
-
-		@inline implicit final def shortIArrayAsArrayLikeExtension(array :IArray[Short])
-				:ArrayLike.ArrayLikeExtension[Short, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Short], Array[_]])
-
-		@inline implicit final def charIArrayAsArrayLikeExtension(array :IArray[Char])
-				:ArrayLike.ArrayLikeExtension[Char, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Char], Array[_]])
-
-		@inline implicit final def intIArrayAsArrayLikeExtension(array :IArray[Int])
-				:ArrayLike.ArrayLikeExtension[Int, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Int], Array[_]])
-
-		@inline implicit final def longIArrayAsArrayLikeExtension(array :IArray[Long])
-				:ArrayLike.ArrayLikeExtension[Long, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Long], Array[_]])
-
-		@inline implicit final def floatIArrayAsArrayLikeExtension(array :IArray[Float])
-				:ArrayLike.ArrayLikeExtension[Float, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Float], Array[_]])
-
-		@inline implicit final def doubleIArrayAsArrayLikeExtension(array :IArray[Double])
-				:ArrayLike.ArrayLikeExtension[Double, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Double], Array[_]])
-
-		@inline implicit final def booleanIArrayAsArrayLikeExtension(array :IArray[Boolean])
-				:ArrayLike.ArrayLikeExtension[Boolean, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[Boolean], Array[_]])
-
-		@inline implicit final def refIArrayAsArrayLikeExtension[E <: AnyRef](array :IArray[E])
-				:ArrayLike.ArrayLikeExtension[E, IArray] =
-			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[E], Array[_]])
-//
-//		@inline implicit final def IArrayAsArrayLikeExtension[E](array :IArray[E])
-//				:ArrayLike.ArrayLikeExtension[E, IArray] =
-//			new ArrayLike.ArrayLikeExtension(array.castFrom[IArray[E], Array[_]])
-	}
-*/
-
-//	private[arrays] trait evidence extends Any {
-//		implicit def IArrayClassTag[E :ClassTag] :ClassTag[IArray[E]] = classTag[Array[E]].castParam[IArray[E]]
-//		//todo: specialize
-////		implicit def IArrayOrdering[E :Ordering] :Ordering[IArray[E]] =
-////			Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[IArray[E]]]
-//	}
-//
-//	/** Conversions providing extension methods for `IArray`. */
-//	private[arrays] trait extensions extends IArrayLike.extensions with evidence {
-////		@inline implicit final def IArrayExtension[E](array :IArray[E]) :IArrayExtension[E] =
-////			new IArrayExtension(array.castFrom[IArray[E], Array[E]])
-//		@inline implicit final def IArrayExtension[E] :IArrayExtensionConversion[E] =
-//			extensions.IArrayExtensionConversionPrototype.asInstanceOf[IArrayExtensionConversion[E]]
-//
-//		@inline implicit final def RefIArrayExtension[E <: AnyRef] :RefIArrayExtensionConversion[E] =
-//			extensions.RefIArrayExtensionConversionPrototype.asInstanceOf[RefIArrayExtensionConversion[E]]
-//
-//		implicit object ByteIArrayExtension extends PriorityConversion.Wrapped[IArray[Byte], ByteIArrayExtension](
-//			(arr :IArray[Byte]) => new ByteIArrayExtension(arr.asInstanceOf[Array[Byte]])
-//		) {
-//			@inline final def apply(v1 :IArray[Byte])(implicit __ :Ignored) :ByteIArrayExtension =
-//				new ByteIArrayExtension(v1.asInstanceOf[Array[Byte]])
-//		}
-//		implicit object ShortIArrayExtension extends PriorityConversion.Wrapped[IArray[Short], ShortIArrayExtension](
-//			(arr :IArray[Short]) => new ShortIArrayExtension(arr.asInstanceOf[Array[Short]])
-//		) {
-//			@inline final def apply(v1 :IArray[Short])(implicit __ :Ignored) :ShortIArrayExtension =
-//				new ShortIArrayExtension(v1.asInstanceOf[Array[Short]])
-//		}
-//		implicit object CharIArrayExtension extends PriorityConversion.Wrapped[IArray[Char], CharIArrayExtension](
-//			(arr :IArray[Char]) => new CharIArrayExtension(arr.asInstanceOf[Array[Char]])
-//		) {
-//			@inline final def apply(v1 :IArray[Char])(implicit __ :Ignored) :CharIArrayExtension =
-//				new CharIArrayExtension(v1.asInstanceOf[Array[Char]])
-//		}
-//		implicit object IntIArrayExtension extends PriorityConversion.Wrapped[IArray[Int], IntIArrayExtension](
-//			(arr :IArray[Int]) => new IntIArrayExtension(arr.asInstanceOf[Array[Int]])
-//		) {
-//			@inline final def apply(v1 :IArray[Int])(implicit __ :Ignored) :IntIArrayExtension =
-//				new IntIArrayExtension(v1.asInstanceOf[Array[Int]])
-//		}
-//		implicit object LongIArrayExtension extends PriorityConversion.Wrapped[IArray[Long], LongIArrayExtension](
-//			(arr :IArray[Long]) => new LongIArrayExtension(arr.asInstanceOf[Array[Long]])
-//		) {
-//			@inline final def apply(v1 :IArray[Long])(implicit __ :Ignored) :LongIArrayExtension =
-//				new LongIArrayExtension(v1.asInstanceOf[Array[Long]])
-//		}
-//		implicit object FloatIArrayExtension extends PriorityConversion.Wrapped[IArray[Float], FloatIArrayExtension](
-//			(arr :IArray[Float]) => new FloatIArrayExtension(arr.asInstanceOf[Array[Float]])
-//		) {
-//			@inline final def apply(v1 :IArray[Float])(implicit __ :Ignored) :FloatIArrayExtension =
-//				new FloatIArrayExtension(v1.asInstanceOf[Array[Float]])
-//		}
-//		implicit object DoubleIArrayExtension extends PriorityConversion.Wrapped[IArray[Double], DoubleIArrayExtension](
-//			(arr :IArray[Double]) => new DoubleIArrayExtension(arr.asInstanceOf[Array[Double]])
-//		) {
-//			@inline final def apply(v1 :IArray[Double])(implicit __ :Ignored) :DoubleIArrayExtension =
-//				new DoubleIArrayExtension(v1.asInstanceOf[Array[Double]])
-//		}
-//		implicit object BooleanIArrayExtension extends PriorityConversion.Wrapped[IArray[Boolean], BooleanIArrayExtension](
-//			(arr :IArray[Boolean]) => new BooleanIArrayExtension(arr.asInstanceOf[Array[Boolean]])
-//		) {
-//			@inline final def apply(v1 :IArray[Boolean])(implicit __ :Ignored) :BooleanIArrayExtension =
-//				new BooleanIArrayExtension(v1.asInstanceOf[Array[Boolean]])
-//		}
-//
-///*		implicit final val ByteIArrayExtension :ByteIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Byte], ByteIArrayExtension](
-//				(arr :IArray[Byte]) => new ByteIArrayExtension(arr.asInstanceOf[Array[Byte]])
-//			) with ByteIArrayExtensionConversion
-//
-//		implicit final val ShortIArrayExtension :ShortIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Short], ShortIArrayExtension](
-//				(arr :IArray[Short]) => new ShortIArrayExtension(arr.asInstanceOf[Array[Short]])
-//			) with ShortIArrayExtensionConversion
-//
-//		implicit final val CharIArrayExtension :CharIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Char], CharIArrayExtension](
-//				(arr :IArray[Char]) => new CharIArrayExtension(arr.asInstanceOf[Array[Char]])
-//			) with CharIArrayExtensionConversion
-//
-//		implicit final val IntIArrayExtension :IntIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Int], IntIArrayExtension](
-//				(arr :IArray[Int]) => new IntIArrayExtension(arr.asInstanceOf[Array[Int]])
-//			) with IntIArrayExtensionConversion
-//
-//		implicit final val LongIArrayExtension :LongIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Long], LongIArrayExtension](
-//				(arr :IArray[Long]) => new LongIArrayExtension(arr.asInstanceOf[Array[Long]])
-//			) with LongIArrayExtensionConversion
-//
-//		implicit final val FloatIArrayExtension :FloatIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Float], FloatIArrayExtension](
-//				(arr :IArray[Float]) => new FloatIArrayExtension(arr.asInstanceOf[Array[Float]])
-//			) with FloatIArrayExtensionConversion
-//
-//		implicit final val DoubleIArrayExtension :DoubleIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Double], DoubleIArrayExtension](
-//				(arr :IArray[Double]) => new DoubleIArrayExtension(arr.asInstanceOf[Array[Double]])
-//			) with DoubleIArrayExtensionConversion
-//
-//		implicit final val BooleanIArrayExtension :BooleanIArrayExtensionConversion =
-//			new PriorityConversion.Wrapped[IArray[Boolean], BooleanIArrayExtension](
-//				(arr :IArray[Boolean]) => new BooleanIArrayExtension(arr.asInstanceOf[Array[Boolean]])
-//			) with BooleanIArrayExtensionConversion
-//
-//*/
-///*		@inline implicit final def RefIArrayExtension[E <: AnyRef](array :IArray[E]) :RefIArrayExtension[E] =
-//			new RefIArrayExtension(array.castFrom[IArray[E], Array[E]])
-//
-//		@inline implicit final def ByteIArrayExtension(array :IArray[Byte]) :ByteIArrayExtension =
-//			new ByteIArrayExtension(array.castFrom[IArray[Byte], Array[Byte]])
-//
-//		@inline implicit final def ShortIArrayExtension(array :IArray[Short]) :ShortIArrayExtension =
-//			new ShortIArrayExtension(array.castFrom[IArray[Short], Array[Short]])
-//
-//		@inline implicit final def CharIArrayExtension(array :IArray[Char]) :CharIArrayExtension =
-//			new CharIArrayExtension(array.castFrom[IArray[Char], Array[Char]])
-//
-//		@inline implicit final def IntIArrayExtension(array :IArray[Int]) :IntIArrayExtension =
-//			new IntIArrayExtension(array.castFrom[IArray[Int], Array[Int]])
-//
-//		@inline implicit final def LongIArrayExtension(array :IArray[Long]) :LongIArrayExtension =
-//			new LongIArrayExtension(array.castFrom[IArray[Long], Array[Long]])
-//
-//		@inline implicit final def FloatIArrayExtension(array :IArray[Float]) :FloatIArrayExtension =
-//			new FloatIArrayExtension(array.castFrom[IArray[Float], Array[Float]])
-//
-//		@inline implicit final def DoubleIArrayExtension(array :IArray[Double]) :DoubleIArrayExtension =
-//			new DoubleIArrayExtension(array.castFrom[IArray[Double], Array[Double]])
-//
-//		@inline implicit final def BooleanIArrayExtension(array :IArray[Boolean]) :BooleanIArrayExtension =
-//			new BooleanIArrayExtension(array.castFrom[IArray[Boolean], Array[Boolean]])
-//*/
-//	}
-//
-//
-//	/** Conversions providing extension methods for `IArray`. */
-//	@SerialVersionUID(Ver)
-//	object extensions extends extensions {
-//		sealed trait IArrayExtensionConversion[E] extends (IArray[E] => IArrayExtension[E]) {
-//			@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :IArrayExtension[E] =
-//				new IArrayExtension(v1.asInstanceOf[Array[E]])
-//		}
-//		sealed trait RefIArrayExtensionConversion[E <: AnyRef] extends (IArray[E] => RefIArrayExtension[E]) {
-//			@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :RefIArrayExtension[E] =
-//				new RefIArrayExtension(v1.asInstanceOf[Array[E]])
-//		}
-///*		sealed trait ByteIArrayExtensionConversion extends (IArray[Byte] => ByteIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Byte])(implicit __ :Ignored) :ByteIArrayExtension =
-//				new ByteIArrayExtension(v1.asInstanceOf[Array[Byte]])
-//		}
-//		sealed trait ShortIArrayExtensionConversion extends (IArray[Short] => ShortIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Short])(implicit __ :Ignored) :ShortIArrayExtension =
-//				new ShortIArrayExtension(v1.asInstanceOf[Array[Short]])
-//		}
-//		sealed trait CharIArrayExtensionConversion extends (IArray[Char] => CharIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Char])(implicit __ :Ignored) :CharIArrayExtension =
-//				new CharIArrayExtension(v1.asInstanceOf[Array[Char]])
-//		}
-//		sealed trait IntIArrayExtensionConversion extends (IArray[Int] => IntIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Int])(implicit __ :Ignored) :IntIArrayExtension =
-//				new IntIArrayExtension(v1.asInstanceOf[Array[Int]])
-//		}
-//		sealed trait LongIArrayExtensionConversion extends (IArray[Long] => LongIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Long])(implicit __ :Ignored) :LongIArrayExtension =
-//				new LongIArrayExtension(v1.asInstanceOf[Array[Long]])
-//		}
-//		sealed trait FloatIArrayExtensionConversion extends (IArray[Float] => FloatIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Float])(implicit __ :Ignored) :FloatIArrayExtension =
-//				new FloatIArrayExtension(v1.asInstanceOf[Array[Float]])
-//		}
-//		sealed trait DoubleIArrayExtensionConversion extends (IArray[Double] => DoubleIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Double])(implicit __ :Ignored) :DoubleIArrayExtension =
-//				new DoubleIArrayExtension(v1.asInstanceOf[Array[Double]])
-//		}
-//		sealed trait BooleanIArrayExtensionConversion extends (IArray[Boolean] => BooleanIArrayExtension) {
-//			@inline final def apply(v1 :IArray[Boolean])(implicit __ :Ignored) :BooleanIArrayExtension =
-//				new BooleanIArrayExtension(v1.asInstanceOf[Array[Boolean]])
-//		}
-//*/
-////		private def newIArrayExtensionConversion[E] =
-////			new PriorityConversion.Wrapped[IArray[E], IArrayExtension[E]](
-////				(arr :IArray[E]) => new IArrayExtension(arr.asInstanceOf[Array[E]])
-////			) with IArrayExtensionConversion[E]
-////		private val IArrayExtensionConversionPrototype :IArrayExtensionConversion[Any] = newIArrayExtensionConversion
-//		private val IArrayExtensionConversionPrototype :IArrayExtensionConversion[Unknown] =
-//			new PriorityConversion.Wrapped[IArray[Unknown], IArrayExtension[Unknown]](
-//				(arr :IArray[Unknown]) => new IArrayExtension(arr.asInstanceOf[Array[Unknown]])
-//			) with IArrayExtensionConversion[Unknown]
-//
-//		private val RefIArrayExtensionConversionPrototype :RefIArrayExtensionConversion[AnyRef] =
-//			new PriorityConversion.Wrapped[IArray[AnyRef], RefIArrayExtension[AnyRef]](
-//				(arr :IArray[AnyRef]) => new RefIArrayExtension(arr.asInstanceOf[Array[AnyRef]])
-//			) with RefIArrayExtensionConversion[AnyRef]
-//	}
 }

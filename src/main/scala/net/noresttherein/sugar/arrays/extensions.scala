@@ -1470,7 +1470,7 @@ object extensions {
 		  * @param newLength    The length of the created array.
 		  * @return An `Array[E]` of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
 		  *         with the copied slices.
-		  */
+		  */ //todo: copyOfRanges(array1, from1, until1, array2, from2, until2, offset, newLength)
 		@inline final def copyOfRanges[E](array1 :Array[E], from1 :Int, until1 :Int,
 		                                  array2 :Array[E], from2 :Int, until2 :Int, newLength :Int) :Array[E] =
 			copyOfRanges(array1 :ArrayLike[E], from1, until1, array2, from2, until2,
@@ -1557,7 +1557,7 @@ object extensions {
 		  * @param newLength The length of the created array.
 		  * @return An `Array[E]` of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
 		  *         with the copied slices.
-		  */
+		  */ //todo: copyOfRanges[E :ClassTag](array1, from1, until1, array2, from2, until2, offset, newLength)
 		@inline final def copyOfRanges[E :ClassTag](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 		                                            array2 :ArrayLike[E], from2 :Int, until2 :Int, newLength :Int)
 				:Array[E] =
@@ -1854,7 +1854,7 @@ object extensions {
 		  * @param newLength    The length of the created array.
 		  * @return An `Array[E]` of length `until1 - from1 + until2 - from2 + until3 - from3` (for `untilN >= fromN`),
 		  *         with the copied slices.
-		  */
+		  */ //todo: copyOfRanges(array1, from1, until1, array2, from2, until2, array3, from3, until3, offset, newLength)
 		final def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int,
 		                          array3 :ArrayLike[E], from3 :Int, until3 :Int,

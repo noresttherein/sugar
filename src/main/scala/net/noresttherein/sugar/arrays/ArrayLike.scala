@@ -19,12 +19,13 @@ import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, A
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -219,7 +220,10 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		// These methods are private, which may stop other methods from inlining, if no recursive inlining happens.
 		// If so, they must be made package protected.
 //		@inline private def exposeKind[X](array :Array[X]) :Arr[X] = array.asInstanceOf[Arr[X]]
-		@inline private def expose(array :Array[Unknown]) :Arr[E] = array.asInstanceOf[Arr[E]]
+		@inline private def expose(array :Array[Unknown]) :Arr[E] = {
+			releaseFence()
+			array.asInstanceOf[Arr[E]]
+		}
 //		@inline private def unknown(value :E) :Unknown = value.asInstanceOf[Unknown]
 		@inline private def asElement(value :Unknown) :E = value.asInstanceOf[E]
 		@inline private def lengthOf(other :ArrayLike[_]) :Int = other.asInstanceOf[Array[_]].length

@@ -449,8 +449,9 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 	private[this] val anyHandle    = newHandle(newRefInstance(null).getClass, classOf[Any])
 
 	private def newHandle[T](varType :Class[_], paramType :Class[_]) =
-		MethodHandles.lookup().findVarHandle(varType, scalaFieldName(varType, "x"), paramType)
+		MethodHandles.lookup().findVarHandle(varType, scalaFieldName(varType, valueVariableName), paramType)
 
+	protected val valueVariableName = "x"
 }
 
 

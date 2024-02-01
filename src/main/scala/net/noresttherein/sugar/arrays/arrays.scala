@@ -1,5 +1,6 @@
 package net.noresttherein.sugar
 
+import scala.Specializable.Everything
 import scala.annotation.unchecked.uncheckedVariance
 
 import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
@@ -70,7 +71,7 @@ package object arrays extends extensions {
 	  * variants would be impossible due to method signature conflict after erasure,
 	  * as both these types erase to `AnyRef` in a generic context.
 	  */
-	type ProperArray[+E] >: Array[E @uncheckedVariance] <: ArrayLike[E]
+	type ProperArray[@specialized(Everything) +E] >: Array[E @uncheckedVariance] <: ArrayLike[E]
 
 	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
 	  * Its interface is defined as extension methods in
@@ -94,7 +95,7 @@ package object arrays extends extensions {
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.IArrayLike]]
 	  */ //todo: carefully review all usage to eliminate the chance of us casting an `IArray[Any]` to `Array[Any]`
-	type IArray[+E] >: Null <: IArrayLike[E] with ProperArray[E]
+	type IArray[@specialized(Everything) +E] >: Null <: IArrayLike[E] with ProperArray[E]
 
 	/** A common supertype of types represented in runtime by an `Array[AnyRef]`:
 	  * [[net.noresttherein.sugar.arrays.RefArray! RefArray]] and [[net.noresttherein.sugar.arrays.IRefArray! IRefArray]].

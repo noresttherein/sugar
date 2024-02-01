@@ -14,6 +14,7 @@ import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloa
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IRefArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.RelayArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Maybe.Yes
@@ -837,7 +838,7 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 //	private[sugar] override def unsafeArray :Array[_] = array
 	protected override def array :Array[E @uncheckedVariance] = arr
 	private[sugar] override def startIndex :Int = offset
-	@volatile private[this] var isOwner = owner
+	@volatile private[this] var isOwner = owner //This assignment works as a memory fence ensuring visibility of the array.
 
 	override def length :Int = len
 
@@ -1121,6 +1122,7 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 	                              (arr :Array[E], offset :Int, len :Int)
 	extends AbstractSeq[E] with ProperRelayArray[E]
 {
+	releaseFence()
 	protected override def array :Array[E @uncheckedVariance] = arr
 //	private[sugar] override def unsafeArray :Array[_] = array
 	private[sugar] override def startIndex :Int = offset

@@ -56,3 +56,59 @@ private class AdditiveBuilder[E, C[X] <: IterableOps[X, C, C[X]]](empty :C[E])
 
 	override def addAll(xs :IterableOnce[E]) :this.type = { elems = elems concat xs; this }
 }
+
+
+object Builders {
+	trait fromBytes[To] extends Builder[Byte, To] {
+		override def addOne(elem :Byte) :this.type
+	}
+	trait fromChars[To] extends Builder[Char, To] {
+		override def addOne(elem :Char) :this.type
+	}
+	trait fromShorts[To] extends Builder[Short, To] {
+		override def addOne(elem :Short) :this.type
+	}
+	trait fromInts[To] extends Builder[Int, To] {
+		override def addOne(elem :Int) :this.type
+	}
+	trait fromLongs[To] extends Builder[Long, To] {
+		override def addOne(elem :Long) :this.type
+	}
+	trait fromFloats[To] extends Builder[Float, To] {
+		override def addOne(elem :Float) :this.type
+	}
+	trait fromDoubles[To] extends Builder[Double, To] {
+		override def addOne(elem :Double) :this.type
+	}
+	trait fromBooleans[To] extends Builder[Boolean, To] {
+		override def addOne(elem :Boolean) :this.type
+	}
+}
+
+
+/*
+trait BuilderFromBytes[To] extends Builder[Byte, To] {
+	override def addOne(elem :Byte) :this.type
+}
+trait BuilderFromChars[To] extends Builder[Char, To] {
+	override def addOne(elem :Char) :this.type
+}
+trait BuilderFromShorts[To] extends Builder[Short, To] {
+	override def addOne(elem :Short) :this.type
+}
+trait BuilderFromInts[To] extends Builder[Int, To] {
+	override def addOne(elem :Int) :this.type
+}
+trait BuilderFromLongs[To] extends Builder[Long, To] {
+	override def addOne(elem :Long) :this.type
+}
+trait BuilderFromFloats[To] extends Builder[Float, To] {
+	override def addOne(elem :Float) :this.type
+}
+trait BuilderFromDoubles[To] extends Builder[Double, To] {
+	override def addOne(elem :Double) :this.type
+}
+trait BuilderFromBooleans[To] extends Builder[Boolean, To] {
+	override def addOne(elem :Boolean) :this.type
+}
+*/

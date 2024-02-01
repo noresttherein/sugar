@@ -114,7 +114,7 @@ class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	/** Splits this permutation into a sequence of permutations such that `split.reduce(_ ++ _) == this`.
 	  * The underlying index range is first split into minimal, non empty sub ranges `[i, j)` such that
 	  * `(i until j).forall(n => this(n) >= i && this(n) < j)`. Each range begets a `Permutation` by shifting down
-	  * the indices in its domain and image by `i` - the first index in range..
+	  * the indices in its domain and image by `i` - the first index in range.
 	  */
 	def split :Seq[Permutation] =
 		if (toIndexedSeq.length == 0)

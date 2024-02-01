@@ -13,6 +13,7 @@ import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.classes
@@ -290,6 +291,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 			val start = startIndex
 			val array = this.array
 			val res = Array.copyOfRanges(array, start, start + index, array, start + index + 1, start + length)
+			releaseFence()
 			newSpecific(res, 0, length - 1)
 		}
 	}
@@ -308,6 +310,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 			val array = this.array
 			val start = this.startIndex
 			val res   = Array.copyOfRanges(array, 0, start + from, array, start + until, start + length)
+			releaseFence()
 			newSpecific(res, 0, length - (until - from))
 		}
 	}
@@ -570,6 +573,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.asInstanceOf[Array[E]]
+	releaseFence()
 //	override def empty :IArraySlice[E] = IArraySlice.empty[E]
 	@unspecialized override def slice(from :Int, until :Int) :IArraySlice[E] =
 		super[ArraySliceSeqOps].slice(from, until)
@@ -684,6 +688,7 @@ private[sugar] sealed class IRefArraySlice[+E] private
 	   with ArrayLikeSliceFactoryDefaults[E, IRefArraySlice, IRefArray]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.castFrom[IRefArray[E], Array[E]]
+	releaseFence()
 
 	override def slice(from :Int, until :Int) :IRefArraySlice[E] =
 		super[ArraySliceSeqOps].slice(from, until)

@@ -13,10 +13,11 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice, RelayArrayFactory}
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -61,7 +62,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	  *      `net.noresttherein.sugar.arrays.IArrayLike.extensions.IArrayLikeExtension`.
 	  */
 	class IRefArrayExtension[E] private[arrays](private val self :Array[Any]) extends AnyVal {
-		@inline private def expose[U >: E](array :Array[Any]) :IRefArray[U] = self.asInstanceOf[IRefArray[E]]
+		@inline private def expose[U >: E](array :Array[Any]) :IRefArray[U] = {
+			releaseFence()
+			array.asInstanceOf[IRefArray[E]]
+		}
 
 		def padTo[A >: E](len :Int, elem :A) :IRefArray[A] = expose(
 			if (len <= self.length)
@@ -129,7 +133,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 
 
 
-	@inline private def expose[X](array :Array[Any]) :IRefArray[X] = array.asInstanceOf[IRefArray[X]]
+	@inline private[IRefArray] def expose[X](array :Array[Any]) :IRefArray[X] = {
+		releaseFence()
+		array.asInstanceOf[IRefArray[X]]
+	}
 
 	/** Creates a new `Array[Any]` of the specified length, executes the given initialization function for it,
 	  * and returns it as an $Coll. It is a pattern for initialization safer than manually creating
@@ -144,10 +151,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	  * }}}
 	  */
 	@throws[NegativeArraySizeException]("if length is negative")
-	@inline def init[E](length :Int)(f :Array[Any] => Unit) :IRefArray[E] = expose {
+	@inline def init[E](length :Int)(f :Array[Any] => Unit) :IRefArray[E] = {
 		val res = if (length == 0) emptyObjectArray.asInstanceOf[Array[Any]] else new Array[Any](length)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new $Coll by modifying another `ArrayLike`. This method combines [[Array.copyOf copyOf]]`(other)`
@@ -164,10 +171,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	  *              Should not retain the reference to the argument after its completion, or immutability
 	  *              of the result will be compromised.
 	  */
-	def updated[E](other :ArrayLike[E])(f :Array[Any] => Unit) :IRefArray[E] = expose {
+	def updated[E](other :ArrayLike[E])(f :Array[Any] => Unit) :IRefArray[E] = {
 		val res = ArrayFactory.copyOf[Any](other)(ClassTag.Any)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new $Coll by copying and modifying contents of another `ArrayLike`.
@@ -190,10 +197,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	  *                  of the result will be compromised.
 	  */
 	@throws[NegativeArraySizeException]("if newLength is negative")
-	@inline def updated[E](other :ArrayLike[E], newLength :Int)(f :Array[Any] => Unit) :IRefArray[E] = expose {
+	@inline def updated[E](other :ArrayLike[E], newLength :Int)(f :Array[Any] => Unit) :IRefArray[E] = {
 		val res = ArrayFactory.copyOf[Any](other, newLength)(ClassTag.Any)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new $Coll by introducing changes to a slice of another `ArrayLike`. This method combines
@@ -215,10 +222,10 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	  *              Should not retain the reference to the argument after its completion, or immutability
 	  *              of the result will be compromised.
 	  */
-	@inline def updated[E](other :ArrayLike[E], from :Int, until :Int)(f :Array[Any] => Unit) :IRefArray[E] = expose {
+	@inline def updated[E](other :ArrayLike[E], from :Int, until :Int)(f :Array[Any] => Unit) :IRefArray[E] = {
 		val res = Array.copyOfRange[Any](other, from, until)(ClassTag.Any)
 		f(res)
-		res
+		expose(res)
 	}
 
 	/** Creates a new $Coll by introducing changes to a slice of another `ArrayLike`, including, potentially
@@ -364,109 +371,4 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 			}
 		}
 	}
-
-
-
-//	implicit def IRefArrayOrdering[A :Ordering] :Ordering[IRefArray[A]] =
-//		Array.ArrayOrdering[A].castParam[IRefArray[A]]
-//
-//	implicit def IRefArrayClassTag[A] :ClassTag[IRefArray[A]] = tag.castParam[IRefArray[A]]
-//	private val tag = classTag[Array[AnyRef]]
-//
-//	//todo: integrate it into package arrays.
-////	@inline implicit def IRefArrayToSeq[A](array :IRefArray[A]) :IndexedSeq[A] = Wrapped(array)
-//	implicit def IRefArrayIsSeq[E] :IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] } =
-//		IsSeqPrototype.asInstanceOf[IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] }]
-//
-//	private[this] val IsSeqPrototype =
-//		new ArrayLikeIsSeqTemplate[Any, Seq, IRefArray] {
-//			override def apply(coll :IRefArray[Any]) =
-//				new IArrayLikeIsSeqOps[Any, IRefArray](coll) {
-//					protected override def fromSpecific(coll :IterableOnce[Any]) :IRefArray[Any] = from(coll)
-//					protected override def newSpecificBuilder :Builder[Any, IRefArray[Any]] = newBuilder
-//				}
-//			private def readResolve = IRefArrayIsSeq
-//			override def toString = "IRefArrayIsSeq"
-//		}
-////
-////	implicit def IRefArrayIsSeq[E] :IsSeq[IRefArray[E]] { type A = E; type C = IRefArray[A] } =
-////		isSeq
-//
-//
-////	private[arrays] sealed trait conversions extends Any with IArrayLike.conversions {
-////		//fixme: conflicts with ArrayLikeExtension
-//////		@inline implicit final def IRefArrayToSeq[E](self :IRefArray[E]) :IndexedSeq[E] = Wrapped(self)
-////	}
-////
-////	private[arrays] sealed trait IRefArrayRank1Extensions
-////		extends Any with RefArrayLike.extensions with IArrayLike.extensions
-////	{
-////		/** Adds various additional folding methods with a break condition to any `RefArray`. */
-////		@inline implicit final def IRefArrayAsIterableOnceExtension[E](self :IRefArray[E]) :IterableOnceExtension[E] =
-////			new IterableOnceExtension(new IRefArrayAsSeq(self))
-////
-////		/** Adds various methods for mapping/flatMapping collections to any `IRefArray`.
-////		  * These either pass along additional state, or have a break condition. Roughly equivalent to working
-////		  * with `toLazyList.scan`, but cleaner and more efficient.
-////		  */
-////		@inline implicit final def IRefArrayAsIterableExtension[E](self :IRefArray[E])
-////				:IterableExtension[E, IRefArray, IRefArray[E]] =
-////			new IterableExtension[E, IRefArray, IRefArray[E]](new IRefArrayAsSeq(self))
-////
-////		/** Alternative, safer implementations of [[scala.collection.SeqOps.indexOf indexOf]] for immutable reference arrays,
-////		  * which do not return a negative index when the element is not found.
-////		  */
-////	   @inline implicit final def IRefArrayAsSeqExtension[E](self :IRefArray[E]) :SeqExtension[E, IRefArray, IRefArray[E]] =
-////			new SeqExtension[E, IRefArray, IRefArray[E]](new IRefArrayAsSeq(self))
-////
-////		/** Operations on suffixes of a sequence and binary search methods on sorted immutable reference arrays. */
-////		@inline implicit final def IRefArrayAsIndexedSeqExtension[E](self :IRefArray[E])
-////				:IndexedSeqExtension[E, IRefArray, IRefArray[E]] =
-////			new IndexedSeqExtension(new IRefArrayAsSeq(self))
-////	}
-//
-////	private[arrays] sealed trait IRefArrayRank1Extensions extends Any with IRefArrayRank2Extensions {
-////
-////		@inline implicit final def IRefArrayAsArrayLikeExtension[A](array :IRefArray[A])
-////				:ArrayLike.ArrayLikeExtension[IRefArray, A] =
-////			new ArrayLike.ArrayLikeExtension(array.castFrom[IRefArray[A], Array[Any]])
-////	}
-////
-//
-//	private[arrays] trait evidence extends Any {
-//		implicit def IRefArrayClassTag[A] :ClassTag[IRefArray[A]] = tag.castParam[IRefArray[A]]
-//	}
-//
-//	/** Mixin trait with extension methods conversion for `IRefArray` types.
-//	  * @define Coll `IRefArray`
-//	  * @define Extension `IRefArrayExtension[E]`
-//	  */
-//	private[arrays] trait extensions extends Any with RefArrayLike.extensions with IArrayLike.extensions with evidence {
-////		@inline implicit final def IRefArrayExtension[A](self :IRefArray[A]) :IRefArrayExtension[A] =
-////			new IRefArrayExtension(self.asInstanceOf[Array[Any]])
-//		/** Extension methods for [[net.noresttherein.sugar.arrays.IRefArray IRefArray]]`[E]`.
-//		  * $conversionInfo
-//		  */
-//		implicit final def IRefArrayExtension[E] :IRefArrayExtensionConversion[E] =
-//			extensions.IRefArrayExtensionConversionPrototype.asInstanceOf[IRefArrayExtensionConversion[E]]
-//	}
-//
-//	@SerialVersionUID(Ver)
-//	object extensions extends extensions {
-//		sealed trait IRefArrayExtensionConversion[E] extends (IRefArray[E] => IRefArrayExtension[E]) {
-//			@inline final def apply(v1 :IRefArray[E])(implicit __ :Ignored) :IRefArrayExtension[E] =
-//				new IRefArrayExtension(v1.asInstanceOf[Array[Any]])
-//		}
-////		private def newIRefArrayExtensionConversion[E] =
-////			new PriorityConversion.Wrapped[IRefArray[E], IRefArrayExtension[E]](
-////				(arr :IRefArray[E]) => new IRefArrayExtension(arr.asInstanceOf[Array[Any]])
-////			) with IRefArrayExtensionConversion[E]
-////		private val IRefArrayExtensionConversionPrototype :IRefArrayExtensionConversion[Any] =
-////			newIRefArrayExtensionConversion
-//		private val IRefArrayExtensionConversionPrototype :IRefArrayExtensionConversion[Unknown] =
-//			new PriorityConversion.Wrapped[IRefArray[Unknown], IRefArrayExtension[Unknown]](
-//				(arr :IRefArray[Unknown]) => new IRefArrayExtension(arr.asInstanceOf[Array[Any]])
-//			) with IRefArrayExtensionConversion[Unknown]
-//	}
-
 }

@@ -9,9 +9,11 @@ import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ViewBuffer}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, Builders, ViewBuffer}
+import net.noresttherein.sugar.concurrent.releaseFence
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.reflect.ArrayClass
+import net.noresttherein.sugar.reflect.Specialized.NotUnit
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -188,11 +190,40 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 			}).asInstanceOf[Array[E]]
 */
 
-	@inline override def newBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder
+	def byteBuilder :Builders.fromBytes[Array[Byte]] =
+		new ArrayBuilder[Byte](classOf[Byte]) with Builders.fromBytes[Array[Byte]] 
+	
+	def charBuilder :Builders.fromChars[Array[Char]] = 
+		new ArrayBuilder[Char](classOf[Char]) with Builders.fromChars[Array[Char]] 
+	
+	def shortBuilder :Builders.fromShorts[Array[Short]] = 
+		new ArrayBuilder[Short](classOf[Short]) with Builders.fromShorts[Array[Short]] 
+	
+	def intBuilder :Builders.fromInts[Array[Int]] = 
+		new ArrayBuilder[Int](classOf[Int]) with Builders.fromInts[Array[Int]] 
+	
+	def longBuilder :Builders.fromLongs[Array[Long]] = 
+		new ArrayBuilder[Long](classOf[Long]) with Builders.fromLongs[Array[Long]] 
+	
+	def floatBuilder :Builders.fromFloats[Array[Float]] = 
+		new ArrayBuilder[Float](classOf[Float]) with Builders.fromFloats[Array[Float]] 
+	
+	def doubleBuilder :Builders.fromDoubles[Array[Double]] = 
+		new ArrayBuilder[Double](classOf[Double]) with Builders.fromDoubles[Array[Double]] 
+	
+	def booleanBuilder :Builders.fromBooleans[Array[Boolean]] = 
+		new ArrayBuilder[Boolean](classOf[Boolean]) with Builders.fromBooleans[Array[Boolean]] 
+	
+	def refBuilder[E <: AnyRef :ClassTag] :Builder[E, Array[E]] = new ArrayBuilder[E]
 
-	def newBuilder[A](elementType :Class[A]) :Builder[A, Array[A]] =
+	def refBuilder[E <: AnyRef](elementType :Class[E]) :Builder[E, Array[E]] =
+		new ArrayBuilder(elementType)
+
+	override def newBuilder[E :ClassTag] :Builder[E, Array[E]] = new ArrayBuilder[E]
+	
+	def newBuilder[E](elementType :Class[E]) :Builder[E, Array[E]] =
 		if (elementType == classOf[AnyRef])
-			new ArrayBuilder.ofRef()(ClassTag.AnyRef).asInstanceOf[Builder[A, Array[A]]]
+			new ArrayBuilder.ofRef()(ClassTag.AnyRef).asInstanceOf[Builder[E, Array[E]]]
 		else if (classOf[AnyRef] isAssignableFrom elementType)
 			new this.ArrayBuilder(elementType)
 		else {
@@ -206,20 +237,22 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 			else if (elementType == classOf[Boolean]) new ArrayBuilder.ofBoolean
 			else if (elementType == classOf[Unit]) new ArrayBuilder.ofUnit
 			else ArrayBuilder.make(ClassTag(elementType))
-		}.asInstanceOf[Builder[A, Array[A]]]
+		}.asInstanceOf[Builder[E, Array[E]]]
 
 	@inline def newBuilderLike[A](template :Array[A]) :Builder[A, Array[A]] =
 		newBuilder(template.getClass.getComponentType.castParam[A])
 
 	private val InitialBuilderSize = 16
 
-	/** Our own version of a builder for  */
-	private class ArrayBuilder[A](private[this] var init :Array[A], elemType :Class[A])
-		extends ReusableBuilder[A, Array[A]]
+	//Consider: making it private, or at least an interface.
+	//Todo: addAll(array :ArrayLike, offset :Int, length :Int) and addAll(array :ProperArray[E], offset length)
+	/** Our own version of a builder. Calls `releaseFence` before returning the array for safe use with `IArrayLike`.  */
+	private class ArrayBuilder[@specialized(NotUnit) E](private[this] var init :Array[E], elemType :Class[E])
+		extends ReusableBuilder[E, Array[E]]
 	{
-		def this(elemType :Class[A]) = this(null, elemType)
-		def this()(implicit tag :ClassTag[A]) = this(tag.runtimeClass.castParam[A])
-		def this(buffer :Array[A]) = this(buffer, buffer.getClass.getComponentType.castParam[A])
+		def this(elemType :Class[E]) = this(null, elemType)
+		def this()(implicit tag :ClassTag[E]) = this(tag.runtimeClass.castParam[E])
+		def this(buffer :Array[E]) = this(buffer, buffer.getClass.getComponentType.castParam[E])
 
 		private[this] var buffer = init
 		private[this] var size :Int = if (buffer == null) 0 else buffer.length
@@ -232,11 +265,10 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 					buffer = Array.copyOf(buffer, size)
 			}
 
-		override def addAll(xs :IterableOnce[A]) :this.type =
+		override def addAll(xs :IterableOnce[E]) :this.type =
 			xs match {
-				case it :Iterable[A] if it.isEmpty => this
-				case it :Iterator[A] if !it.hasNext => this
-				case it :Iterable[A] => it.knownSize match {
+				case it :Iterable[E] => it.knownSize match {
+					case 0 => this
 					case unknown if unknown < 0 => super.addAll(xs)
 					case extra if buffer == null =>
 						buffer = Array.of(elemType, extra)
@@ -268,7 +300,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 					this
 			}
 
-		override def addOne(elem :A) = {
+		override def addOne(elem :E) = {
 			if (buffer == null)
 				buffer = Array.of(elemType, InitialBuilderSize)
 			else if (size == buffer.length)
@@ -285,15 +317,19 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 		}
 
 		override def result() =
-			if (size == 0)
-				ArrayFactory.empty(elemType)
-			else if (size == buffer.length && (buffer ne init))
+			if (size == 0) {
+				val res = ArrayFactory.empty(elemType)
+				releaseFence()
+				res
+			} else if (size == buffer.length && (buffer ne init)) {
+				releaseFence()
 				buffer
-			else {
+			} else {
 				val res = Array.copyOf(buffer, size)
 				init = null
 				buffer = null
 				size = 0
+				releaseFence()
 				res
 			}
 	}
