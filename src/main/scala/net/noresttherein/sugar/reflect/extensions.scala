@@ -4,9 +4,10 @@ import java.lang.reflect.Type
 
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.reflect.extensions.{ClassExtension, ReflectAnyExtension}
+import net.noresttherein.sugar
+import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevNameOf, fullNameOf, innerNameOf, localNameOf}
-import net.noresttherein.sugar.exceptions.{illegal_!, reflect, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, unsupported_!}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -16,9 +17,6 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 trait extensions extends Any with prettyprint.extensions {
 	/** Adds `innerName`, `localName` and `abbrevName` methods to `Class`, providing a shorter alternative to `getName`. */
 	@inline implicit final def ClassExtension(self :Class[_]) :ClassExtension = new ClassExtension(self)
-
-	/** Adds methods for reflected querying of an object for its type parameters. */
-	@inline implicit final def ReflectAnyExtension(self :Any) :ReflectAnyExtension = new ReflectAnyExtension(self)
 }
 
 
@@ -26,25 +24,6 @@ trait extensions extends Any with prettyprint.extensions {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
-	class ReflectAnyExtension(private val self :Any) extends AnyVal {
-		/** Returns the Java type given as the `n`-th type parameter to a superclass of this object.
-		  * If the type is known, that is there is a chain of classes `C1, ..., CN, C`, such that;
-		  *   1. `C1 == supertype`,
-		  *   1. `this :C`,
-		  *   1. each class directly extends (or implements, for traits) the previous one,
-		  *   1. `I1,.., IN` is a sequence of integers such that `I1 = n`, and `I`_k+1_
-		  *      is the index of the type parameter of class `C`_k+1_
-		  *      given as the type argument for the `I`_k_-th type parameter of class `C`_k_,
-		  *   1. `C` gives a concrete class `T` as the `IN`-th type parameter to `CN`,
-		  *
-		  * then `T` is the returned. Otherwise, the exact `n`-th type argument does not resolve to a concrete class,
-		  * and a [[java.lang.reflect.TypeVariable TypeVariable]] of this object's class,
-		  * to which the `n`-th type argument of `supertype` resolves.
-		  */
-		@inline def typeArgumentOf(n :Int, supertype :Class[_]) :Type =
-			reflect.typeArgumentOf(self.getClass, n, supertype)
-	}
-
 
 	/** Extension methods dealing with boxing and unboxing, as well as formatting the name of a class in several ways,
 	  * demangling the runtime class name to an approximation of the class symbol as it appears in code.
@@ -323,11 +302,22 @@ object extensions extends extensions {
 		@inline def demangledName :String = fullNameOf(self)
 
 		/** The actual type argument given by this class, possibly indirectly, to the specified superclass
-		  * or extended trait.
+		  * or extended trait. If the type is known, that is there is a chain of classes `C1, ..., CN, C`, such that;
+		  *   1. `C1 == supertype`,
+		  *   1. `this =:= C`,
+		  *   1. each class directly extends (or implements, for traits) the previous one,
+		  *   1. `I1,.., IN` is a sequence of integers such that `I1 = n`, and `I`_k+1_
+		  *      is the index of the type parameter of class `C`_k+1_
+		  *      given as the type argument for the `I`_k_-th type parameter of class `C`_k_,
+		  *   1. `C` gives a concrete class `T` as the `IN`-th type parameter to `CN`,
+		  *
+		  * then `T` is the returned. Otherwise, the exact `n`-th type argument does not resolve to a concrete class,
+		  * and a [[java.lang.reflect.TypeVariable TypeVariable]] of this object's class,
+		  * to which the `n`-th type argument of `supertype` resolves.
 		  * @param n       the index, counting from zero, of one of type parameters of `givenTo`.
 		  * @param givenTo a superclass (or trait) of this class.
 		  */
-		def typeArgument(n :Int, givenTo :Class[_]) :Type = reflect.typeArgumentOf(self, n, givenTo)
+		def typeArgument(n :Int, givenTo :Class[_]) :Type = sugar.reflect.typeArgumentOf(self, n, givenTo)
 	}
 
 }
