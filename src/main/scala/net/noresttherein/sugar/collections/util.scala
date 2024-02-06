@@ -264,11 +264,11 @@ private object HasFastSlice {
 
 	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = unapply(items).isDefined
 
-	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOnceOps[A, IterableOnce, IterableOnce[A]]] =
+	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOps[A, IterableOnce, IterableOnce[A]]] =
 		items match {
 //				case view :View[A]       => Yes(view)
 //				case iter :Iterator[A]   => Yes(iter)
-			case _    :collection.IndexedSeqOps[A, IterableOnce, IterableOnce[A]] @unchecked => items match {
+			case _    :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
 				case view  :IndexedSeqView[A]        => Yes(view)
 				case vec   :Vector[A]                => Yes(vec)
 				case pass  :RelayArray[A]            => Yes(pass)
@@ -279,6 +279,7 @@ private object HasFastSlice {
 //						case IndexedIterable(seq)            => Yes(seq)
 				case _                               => No
 			}
+//			case it   :IteratorSlicing[A] if it.hasFastDrop => Yes(it)
 			case zig  :ZigZag[A]     => Yes(zig)
 			case set  :IndexedSet[A] => Yes(set)
 			case _                   => No
