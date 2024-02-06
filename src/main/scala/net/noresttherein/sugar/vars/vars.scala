@@ -56,10 +56,11 @@ package object vars extends vars.Rank1OptImplicits {
 	  * {{{
 	  *     val qoluae = Opt(42)
 	  * }}}
-	  * will compile to `new Integer(42)`, unless aggressively inlined by the compiler.
+	  * will compile to `Integer.valueOf(42)`, unless aggressively inlined by the compiler.
 	  *
-	  * The downside is the same as with opaque types, a `Opt[A]` selector in pattern matching may match
-	  * patterns for values of `A` itself.
+	  * The downsides are:
+	  *   - cannot be used as a type pattern in pattern matching
+	  *   - cannot be used as a return type of `unapply` methods (but see [[net.noresttherein.sugar.vars.Maybe Maybe]]).
 	  *
 	  * Implicit conversions exists to and from `Maybe[A]` in order to improve interoperability; they do not involve
 	  * any boxing in either direction, except for the case `Yes(None) :One[_]`.
