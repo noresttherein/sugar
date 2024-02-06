@@ -4,8 +4,10 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.exceptions.Constructors.{defaultRethrowableConstructor, lazyStringThrowableConstructor, newLazyRethrowableConstructor, newRethrowableConstructor, rethrownLazyRethrowableConstructor, rethrownRethrowableConstructor, stringThrowableConstructor}
 import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.matching.MatchPattern
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
+import net.noresttherein.sugar.vars.{Maybe, Opt}
+import net.noresttherein.sugar.vars.Opt.One
 
 
 
@@ -98,14 +100,25 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 
 	/** A match pattern for exceptions from this factory, extracting their error messages and causes. */
 	@SerialVersionUID(Ver)
-	object Extract {
+	object Unapply {
 		/** Matches an exception created by this factory, extracting - and evaluating - its message and,
 		  * optionally, cause.
 		  */
-		def unapply(e :Throwable) :Maybe[(String, Maybe[Throwable])] = e match {
-			case base :Exception if base.factory == ExceptionFactory.this => Yes((base.msg, base.cause))
-			case _ => No
+		def unapply(e :Throwable) :Maybe[(String, Opt[Throwable])] = e match {
+			case base :Exception if base.factory == ExceptionFactory.this => One((base.msg, base.cause))
+			case _ => None
 		}
+	}
+
+	/** A match pattern extracting messages of exceptions created by this factory. */
+	val Message :MatchPattern[Throwable, String] = MatchPattern[Throwable, String] {
+		case base :Exception if base.factory == ExceptionFactory.this => Yes(base.msg)
+		case _ => No
+	}
+	/** A match pattern extracting cause throwables of exceptions created by this factory. */
+	val Cause :MatchPattern[Throwable, Opt[Throwable]] = MatchPattern[Throwable, Opt[Throwable]] {
+		case base :Exception if base.factory == ExceptionFactory.this => Yes(base.cause)
+		case _ => No
 	}
 
 
@@ -125,7 +138,7 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 	  *             throw AleIsOut(() => "I drank only a dozen mugs, must have been someone else!", e)
 	  *     }
 	  * }}}
-	  */
+	  */ //Consider: a better name for ExceptionFactory.Exception
 	@SerialVersionUID(Ver) //todo: this makes most sense if it is at least Rethrowable
 	abstract class Exception extends AbstractException(null, null, null, true, false) {
 		private[ExceptionFactory] def factory = ExceptionFactory.this
