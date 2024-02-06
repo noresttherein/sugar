@@ -26,6 +26,7 @@ import net.noresttherein.sugar.witness.Ignored
   * `Boolean` value to ternary logic, and provides implementation of the same logic operators.
   * Additionally, for this purpose, constants [[net.noresttherein.sugar.vars.Ternary.True True]]
   * and [[net.noresttherein.sugar.vars.Ternary.False False]] are defined, wrapping `true` and `false`, respectively.
+  * An Implicit conversion from `Boolean` to `Ternary` exists.
   *
   * @note Using a `Ternary` via a super trait, such as [[net.noresttherein.sugar.vars.Ref Ref]]
   *       or [[scala.collection.IterableOnce IterableOnce]], or passing it as a type parameter (in particular, using
