@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.tailrec
+import scala.annotation.{switch, tailrec}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractView, IndexedSeqView, SeqView, Stepper, StepperShape, View}
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.collections.EmptySeqOps.searchResult
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
-import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, BuilderExtension, IterableOnceExtension, PartialFunctionExtension}
+import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, BuilderExtension, IterableOnceExtension, IteratorExtension, PartialFunctionExtension}
 
 
 
@@ -176,39 +176,38 @@ private[noresttherein] object EmptyNonSeqOps {
 
 
 private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
-	extends SeqOps[E, CC, C] with EmptyIterableOps[E, CC, C] with SlicingOps[E, C]
+	extends SeqOps[E, CC, C] with SugaredSeqOps[E, CC, C] with EmptyIterableOps[E, CC, C] with SlicingOps[E, C]
 {
 	//overridden because EmptyIterableOps must be mixed in before SeqOps
-	override def isEmpty :Boolean = true
+//	override def isEmpty :Boolean = true
 
 	override def length :Int = 0
 	override def head   :E = noSuch("head")
 	override def apply(i :Int) :E = outOfBounds("apply", i)
-	override def updated[B >: E](index :Int, elem :B) :Nothing = outOfBounds("updated", index)
 	override def isDefinedAt(idx :Int) = false
 
-	override def search[B >: E](elem :B)(implicit ord :Ordering[B]) :SearchResult = searchResult
-	override def search[B >: E](elem :B, from :Int, to :Int)(implicit ord :Ordering[B]) :SearchResult =
+	override def search[U >: E](elem :U)(implicit ord :Ordering[U]) :SearchResult = searchResult
+	override def search[U >: E](elem :U, from :Int, to :Int)(implicit ord :Ordering[U]) :SearchResult =
 		if (from < to) searchResult else InsertionPoint(from)
 
 	override def findLast(p :E => Boolean) :Option[E] = None
 	override def indexWhere(p :E => Boolean, from :Int) :Int = -1
-	override def indexOf[B >: E](elem :B, from :Int) :Int = -1
-	override def lastIndexOf[B >: E](elem :B, end :Int) :Int = -1
+	override def indexOf[U >: E](elem :U, from :Int) :Int = -1
+	override def lastIndexOf[U >: E](elem :U, end :Int) :Int = -1
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int = -1
 
-	override def indexOfSlice[B >: E](that :collection.Seq[B], from :Int) :Int =
+	override def indexOfSlice[U >: E](that :collection.Seq[U], from :Int) :Int =
 		if (from <= 0 && that.isEmpty) 0 else -1
 
-	override def lastIndexOfSlice[B >: E](that :collection.Seq[B], end :Int) :Int =
+	override def lastIndexOfSlice[U >: E](that :collection.Seq[U], end :Int) :Int =
 		if (end >= 0 && that.isEmpty) 0 else -1
 
-	override def contains[A1 >: E](elem :A1) = false
-	override def containsSlice[B >: E](that :collection.Seq[B]) = false
+	override def contains[U >: E](elem :U) = false
+	override def containsSlice[U >: E](that :collection.Seq[U]) = false
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int = 0
-	override def endsWith[B >: E](that :Iterable[B]) :Boolean = that.isEmpty
-	override def startsWith[B >: E](that :IterableOnce[B], offset :Int) :Boolean =
+	override def endsWith[U >: E](that :Iterable[U]) :Boolean = that.isEmpty
+	override def startsWith[U >: E](that :IterableOnce[U], offset :Int) :Boolean =
 		offset == 0 && that.toBasicOps.isEmpty
 
 	override def padTo[B >: E](len :Int, elem :B) = iterableFactory.fill(len)(elem)
@@ -217,17 +216,35 @@ private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
 	override def combinations(n :Int) :Iterator[C] = if (n == 0) Iterator.single(coll) else Iterator.empty
 
 
-	override def diff[B >: E](that :collection.Seq[B]) :C = coll
-	override def intersect[B >: E](that :collection.Seq[B]) :C = coll
-	override def patch[B >: E](from :Int, other :IterableOnce[B], replaced :Int) :CC[B] =
+	override def diff[U >: E](that :collection.Seq[U]) :C = coll
+	override def intersect[U >: E](that :collection.Seq[U]) :C = coll
+	override def patch[U >: E](from :Int, other :IterableOnce[U], replaced :Int) :CC[U] =
 		iterableFactory.from(other)
 
-	override def prepended[B >: E](elem :B) :CC[B] = one(elem)
-	override def appended[B >: E](elem :B)  :CC[B] = one(elem)
-	override def prependedAll[B >: E](prefix :IterableOnce[B]) :CC[B] = iterableFactory.from(prefix)
+	override def updated[U >: E](index :Int, elem :U) :Nothing = outOfBounds("updated", index)
+	override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =
+		if (index == 0 && elems.toBasicOps.isEmpty) genericEmpty
+		else outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", " + errorString(elems) + ")")
+
+	override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", _, _, " + errorString(rest) + ")")
+
+	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = genericEmpty
+	override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = genericEmpty
+
+	override def inserted[U >: E](index :Int, elem :U) :CC[U] =
+		if (index == 0) one(elem) else outOfBounds_!(errorString(this) + ".inserted(" + index + ", _)")
+
+	override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =
+		if (index == 0) iterableFactory.from(elems)
+		else outOfBounds_!(errorString(this) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
+
+	override def prepended[U >: E](elem :U) :CC[U] = one(elem)
+	override def appended[U >: E](elem :U)  :CC[U] = one(elem)
+	override def prependedAll[U >: E](prefix :IterableOnce[U]) :CC[U] = iterableFactory.from(prefix)
 	override def appendedAll[B >: E](suffix :IterableOnce[B]) :CC[B] = iterableFactory.from(suffix)
 
-	override def sorted[B >: E](implicit ord :Ordering[B]) :C = coll
+	override def sorted[U >: E](implicit ord :Ordering[U]) :C = coll
 	override def sortWith(lt :(E, E) => Boolean) :C = coll
 	override def sortBy[B](f :E => B)(implicit ord :Ordering[B]) :C = coll
 
@@ -546,13 +563,12 @@ private[noresttherein] object SingletonNonSeqOps {
 
 
 private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
-	extends SeqOps[E, CC, C] with SingletonIterableOps[E, CC, C] with SlicingOps[E, C]
+	extends SeqOps[E, CC, C] with SugaredSeqOps[E, CC, C] with SingletonIterableOps[E, CC, C] with SlicingOps[E, C]
 {
 	private def outOfBounds(i :Int) = outOfBounds_!(i.toString + " out of 1")
 
 	override def length :Int = 1
 	override def apply(i :Int) :E = if (i == 0) head else outOfBounds(i)
-	override def updated[B >: E](i :Int, elem :B) :CC[B] = if (i != 0) outOfBounds(i) else one(elem)
 	override def isDefinedAt(idx :Int) = idx == 0
 
 	override def search[B >: E](elem :B)(implicit ord :Ordering[B]) :SearchResult = searchImpl(elem, 0, 1)
@@ -620,6 +636,72 @@ private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 	override def intersect[B >: E](that :collection.Seq[B]) :C = if (that.contains(head)) coll else empty
 //	override def patch[B >: E](from :Int, other :IterableOnce[B], replaced :Int) :CC[B] =
 //		iterableFactory.from(other)
+	override def updated[U >: E](index :Int, elem :U) :CC[U] = if (index != 0) outOfBounds(index) else one(elem)
+	override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = elems match {
+		case _ if index < 0 | index > 1 =>
+			outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", " + errorString(elems) + ")")
+		case _ if elems.knownSize == 0 =>
+			asGeneric
+		case view  :View[U] => updatedAll(index, view.iterator)
+		case items :Iterable[U] if items.isEmpty => asGeneric
+		case items :Iterable[U] if index == 0 && items.sizeIs == 1 => one(items.head)
+		case _ =>
+			val it = elems.iterator
+			if (!it.hasNext)
+				asGeneric
+			else {
+				val first = it.next()
+				if (it.hasNext)
+					outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", " + errorString(elems) + "/size>=1)")
+				one(first)
+			}
+	}
+	override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", _, _, " + errorString(rest) + ")")
+
+	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
+		val s = elems.knownSize
+		elems match {
+			case _ if index >= 1 | s == 0 | s > 0 & index < 0 & s <= -index => asGeneric
+			case view  :View[U]                                             => overwritten(index, view.iterator)
+			case items :Iterable[U] if items.isEmpty                        => asGeneric
+			case items :Iterable[U] if index == 0 && items.sizeIs == 1      => one(items.head)
+			case _ =>
+				val it = elems.iterator
+				if (it.hasNext) one(it.next()) else asGeneric
+		}
+	}
+	override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = math.min(index, 1) match {
+		case  1 => asGeneric
+		case  0 => one(first)
+		case -1 => one(second)
+		case -2 => overwritten(0, rest)
+		case  _ => //index < -2
+			val k = rest.knownSize
+			val toDrop = -index - 2
+			rest match { //index < -2
+				case _ if index >= 1 || k == 0 | k > 0 & k <= -index - 2 => asGeneric
+				case HasFastSlice(_) | _ :collection.LinearSeq[_]        => overwritten(0, rest.drop(toDrop))
+				case _                                                   => overwritten(0, rest.iterator.drop(toDrop))
+			}
+	}
+
+	override def inserted[U >: E](index :Int, elem :U) :CC[U] = index match {
+		case 0 => two(elem, head)
+		case 1 => two(head, elem)
+		case _ => outOfBounds_!(errorString(this) + ".inserted(" + index + ", _)")
+	}
+
+	override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = elems match {
+		case _ if index < 0 | index > 1 =>
+			outOfBounds_!(errorString(this) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
+		case _ if elems.knownSize == 0           => asGeneric
+		case view :View[U] if index == 0         => iterableFactory.from(view.iterator :+ head)
+		case view :View[U]                       => iterableFactory.from(head +: view.iterator)
+		case items :Iterable[U] if items.isEmpty => asGeneric
+		case _ if index == 0                     => iterableFactory.from(view.iterator :+ head)
+		case _                                   => iterableFactory.from(head +: view.iterator)
+	}
 
 	override def prepended[B >: E](elem :B) :CC[B] = two(elem, head)
 	override def appended[B >: E](elem :B)  :CC[B] = two(head, elem)

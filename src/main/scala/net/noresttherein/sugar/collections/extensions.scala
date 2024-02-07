@@ -2754,7 +2754,7 @@ object extensions extends extensions {
 		  *
 		  * Note: if you'd prefer the method to silently ignore indices out of range,
 		  * you can call `remove(index, index + 1)` instead.
-		  */
+		  */ //fixme: this name clashes with Map.removed
 		@throws[IndexOutOfBoundsException]("if index < 0 or index >= size")
 		def removed(index :Int) :C = //:CC[E] =
 			if (knownEmpty(self))
@@ -2859,6 +2859,17 @@ object extensions extends extensions {
 				}
 			case rank :Ranking[E] => (rank + elem).castFrom[Ranking[E], CC[E]]
 			case _ => self concat Iterator.single(elem)
+		}
+
+		/** The second element of this collection in its iteration order. */
+		@throws[NoSuchElementException]("if this.size < 2")
+		def second :E = self match {
+			case _ if self.sizeIs < 2                     => noSuch_!(errorString(self) + ".second")
+			case list  :collection.LinearSeq[E]           => list.tail.head
+			case seq   :collection.IndexedSeqOps[E, _, _] => seq(1)
+			case rank  :Ranking[E]                        => rank(1)
+			case items :Iterable[E] if items.sizeIs == 2  => items.last
+			case _                                        => self.iterator.drop(1).next()
 		}
 	}
 
