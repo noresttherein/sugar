@@ -1,7 +1,7 @@
+/*
 package net.noresttherein.sugar.format
 
 
-/*
 	private abstract class AbstractPart[M, V, P](modelName :String, partName :String, valueMold :Mold[V])
 		extends Part[M, P]
 	{

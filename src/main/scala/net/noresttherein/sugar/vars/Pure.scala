@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
-import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
+import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

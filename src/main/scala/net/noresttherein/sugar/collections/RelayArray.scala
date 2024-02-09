@@ -16,7 +16,7 @@ import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFact
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.RelayArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, IterableExtension}
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}

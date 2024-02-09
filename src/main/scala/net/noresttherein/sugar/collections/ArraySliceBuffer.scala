@@ -16,7 +16,7 @@ import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFact
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 

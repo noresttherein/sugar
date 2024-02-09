@@ -9,7 +9,7 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ArrayLikeWrapper, IArraySlice, RelayArrayFactory}
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.IncompatibleArgumentTypesException
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
 import net.noresttherein.sugar.vars.Maybe

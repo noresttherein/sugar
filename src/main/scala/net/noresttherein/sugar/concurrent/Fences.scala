@@ -7,7 +7,7 @@ import net.noresttherein.sugar.illegalState_!
 
 
 
-private[sugar] object Fences {
+object Fences {
 
 	def acquireFence() :Unit = AcquireFence.invoke()
 	def releaseFence() :Unit = ReleaseFence.invoke()

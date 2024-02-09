@@ -20,7 +20,7 @@ import net.noresttherein.sugar.collections.Ranking.RankingView
 import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingBuilder, RankingSeqAdapter, RankingSerializer, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, smallContains}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.Maybe

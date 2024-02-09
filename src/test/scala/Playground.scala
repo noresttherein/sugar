@@ -16,5 +16,26 @@ import shapeless.Lazy
 
 
 object Playground extends App {
+
+/*
+	val jack = 0 until 15 to Jack
+	jack to List
+	println(jack)
+	var ok = true
+	var i = 0
+	while (i < 256 && ok) {
+		val b = Jack.newBuilder[Int]
+		for (j <- 0 until i)
+			b += j
+		val jack = b.result()
+		val range = 0 until i
+		ok = jack == range
+		if (!ok) {
+			println(i.toString + ":")
+			println(jack)
+		}
+		i += 1
+	}
+*/
 }
 

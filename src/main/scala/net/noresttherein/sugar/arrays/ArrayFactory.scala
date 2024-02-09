@@ -10,7 +10,7 @@ import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, Builders, ViewBuffer}
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.Specialized.NotUnit

@@ -14,8 +14,8 @@ package object concurrent { //consider: Semaphore
 	@nowarn("cat=deprecation")
 	@inline private[sugar] def currentThreadId :Long = Thread.currentThread.getId
 
-	@inline private[sugar] def releaseFence() :Unit = Fences.releaseFence()
-
-	@inline private[sugar] def acquireFence() :Unit = Fences.acquireFence()
+//	@inline private[sugar] def releaseFence() :Unit = Fences.releaseFence()
+//
+//	@inline private[sugar] def acquireFence() :Unit = Fences.acquireFence()
 
 }

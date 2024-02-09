@@ -19,7 +19,7 @@ import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, A
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}

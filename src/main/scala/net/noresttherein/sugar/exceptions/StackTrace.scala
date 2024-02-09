@@ -9,7 +9,7 @@ import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.arrays.IArray
 import net.noresttherein.sugar.collections.{ArraySliceOps, SpecificIterableFactoryDefaults, SugaredIterable}
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 
 
 

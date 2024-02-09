@@ -4,7 +4,7 @@ import scala.annotation.unspecialized
 import scala.reflect.ClassTag
 import scala.Specializable.{Arg, Args, Return}
 
-import net.noresttherein.sugar.concurrent.releaseFence
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.funny.ComposableFunUtils.{FunString, InverseCompose, UnknownType, argsString, composedString, funString, typeArgumentName}
 import net.noresttherein.sugar.funny.extensions.{Function2Extension, Function3Extension}
 import net.noresttherein.sugar.funny.fun.{ComposableFun, ComposableFun2, ComposableFun3}

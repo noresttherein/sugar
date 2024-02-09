@@ -5,7 +5,7 @@ import java.io.{PrintStream, PrintWriter}
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.concurrent.{acquireFence, releaseFence}
+import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
