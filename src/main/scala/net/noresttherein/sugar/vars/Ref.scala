@@ -48,6 +48,37 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * @tparam T the type of referenced value.
   * @define Ref `Ref`
   * @define ref reference
+  * @define optionalTypesInfo
+  * This library provides a total of six `Option` alternatives:
+  *   1. A fully erased type alias [[net.noresttherein.sugar.vars.Opt Opt]]`[A]`
+  *      (aliased as [[net.noresttherein.sugar.vars.?? ??]]`[A]`), which takes the concept of this class
+  *      one step further, erasing the type information in all contexts: any reference to `Opt[T]` will
+  *      translate to `AnyRef` in the byte code, regardless if `T` is abstract or not. It has an advantage over `Maybe`
+  *      primarily in that returning it from a function or a accepting it as a type parameter does not require
+  *      the creation of a `Maybe` instance through reference reification. As a bonus, it doesn't cause
+  *      'auto generated bridge method conflicts with the method itself' compile error when overriding
+  *      a method taking a parameter `T` with a `Maybe[S]` (by passing `Maybe[S] as T` to the super class).
+  *      The disadvantages are the loss of dynamic type information (an `Opt[T]` will match all match patterns
+  *      which would match `T`), lack of polymorphism, higher potential for erasure conflicts, and inability to use
+  *      as a return type of an `unapply` method (because it provides only extension methods, rather than class methods
+  *      as `Maybe` does. This makes it best suited as very short living objects where `Opt` type
+  *      is never upcasted or used as a type argument.
+  *   1. A relatively safer alternative `Maybe`, in that it can be used both in erased and non erased contexts,
+  *      and `Maybe[T]` will not match pattern `_ :T` (for a non abstract type `T`).
+  *      It has fewer restrictions and then the former, and can be used as the return type of `unapply` methods.
+  *      This however also makes it no better than `Option` as a function argument/return type
+  *      or an element type of an array.
+  *   1. A `@specialized` [[net.noresttherein.sugar.vars.Unsure Unsure]] is the most niche of the three,
+  *      as it is never erased and always results in a creation of a new object. Unlike `Option` (and the other two
+  *      alternatives), it will not result in boxing of built in value types and opaque types mapped to value types.
+  *      In these contexts it offers largely the same benefits as `Opt` and `Nullable`, because in all three cases
+  *      a single boxing will need to happen. It has however an advantage over other two in that this benefit is 'free':
+  *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
+  *   1. [[net.noresttherein.sugar.vars.Nullable Nullable]] is also a value class, like `Maybe`, but erased to `T`,
+  *      rather than `Any`, which means it has a lesser potential for clashes between erased method signatures.
+  *      Other than that, has the same characteristics as `Maybe`, but cannot be used for value types.
+  *   1. A specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
+  *   1. A specialized [[net.noresttherein.sugar.vars.Ternary Ternary]], erased in the runtime to a `Int`.
   */
 trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 

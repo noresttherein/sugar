@@ -597,6 +597,13 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
   */
 @SerialVersionUID(Ver)
 object Ternary {
+	private final val Yes       =  1
+	private final val No        =  0
+	private final val NoContent = -1
+
+	/** Creates a `Ternary` representation of a `Boolean` value. */
+	@inline def apply(value :Boolean) :Ternary = new Ternary(if (value) Yes else No)
+
 	/** Converts the given `Option[Boolean]` into a specialized `Ternary`, which is erased at runtime. */
 	@inline def some_?(value :Option[Boolean]) :Ternary =
 		new Ternary(
@@ -705,10 +712,10 @@ object Ternary {
 
 
 	/** Equals `Known(true)`. */
-	final val True  :Ternary = new Ternary(1)
+	final val True  :Ternary = new Ternary(Yes)
 
 	/** Equals `Known(false)`. */
-	final val False :Ternary = new Ternary(0)
+	final val False :Ternary = new Ternary(No)
 
 	/** Returns [[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]] - an empty `Ternary`. */
 	@inline final def empty :Ternary = Unknown
@@ -738,10 +745,10 @@ object Ternary {
 	@SerialVersionUID(Ver)
 	object Known {
 		/** Creates a non-empty [[net.noresttherein.sugar.vars.Ternary Ternary]] wrapping the given value. */
-		@inline def apply(x :Boolean) :Known = new Ternary(if (x) 1 else 0).asInstanceOf[Known]
+		@inline def apply(x :Boolean) :Known = new Ternary(if (x) Yes else No).asInstanceOf[Known]
 
 		/** Matches non-empty [[net.noresttherein.sugar.vars.Ternary Ternary]] instances. */
-		@inline def unapply(Ternary :Ternary) :Ternary = Ternary
+		@inline def unapply(ternary :Ternary) :Ternary = ternary
 	}
 
 
@@ -791,8 +798,4 @@ object Ternary {
 		@inline implicit def BooleanToKnown(x :Boolean) :Known = new Ternary(if (x) Yes else No).asInstanceOf[Known]
 	}
 
-
-	private[Ternary] final val Yes       =  1
-	private[Ternary] final val No        =  0
-	private[Ternary] final val NoContent = -1
 }

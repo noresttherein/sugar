@@ -66,6 +66,9 @@ package object vars extends vars.Rank1OptImplicits {
 	  * any boxing in either direction, except for the case `Yes(None) :One[_]`.
 	  * @see [[net.noresttherein.sugar.vars.Maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Unsure]]
+	  * @see [[net.noresttherein.sugar.vars.Nullable]]
+	  * @see [[net.noresttherein.sugar.vars.IntOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ternary]]
 	  */
 	//other names: Hope/Lucky/NoLuck(Vain); Perhaps; Wish/Granted/Denied; Optional/Defined/Undefined; Space/Filled/Blank
 	type Opt[+A] >: None.type
@@ -76,6 +79,9 @@ package object vars extends vars.Rank1OptImplicits {
 	  * @see [[scala.None]]
 	  * @see [[net.noresttherein.sugar.vars.Maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Unsure]]
+	  * @see [[net.noresttherein.sugar.vars.Nullable]]
+	  * @see [[net.noresttherein.sugar.vars.IntOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ternary]]
 	  */
 	type ??[+A] = Opt[A]
 
@@ -287,7 +293,7 @@ package object vars extends vars.Rank1OptImplicits {
 				}
 
 
-		/** Returns a `Opt` formed from the contents of `this` and `that` by combining the corresponding elements
+		/** Returns an `Opt` formed from the contents of `this` and `that` by combining the corresponding elements
 		  *  in a pair. If either of the two options is empty, `None` is returned. */
 		@inline def zip[O](that :Opt[O]) :Opt[(A, O)] =
 			if ((self.asInstanceOf[AnyRef] eq None) | (that.asInstanceOf[AnyRef] eq None))
@@ -649,7 +655,7 @@ package object vars extends vars.Rank1OptImplicits {
 			case _ :Red[_] => None
 			case _         => Some(get)
 		}
-		/** Converts this value to a `Opt` if it is $Blue, losing the information by replacing
+		/** Converts this value to an `Opt` if it is $Blue, losing the information by replacing
 		  * $Red with [[scala.None None]].
 		  */
 		@inline def toOpt :Opt[B] = self match {
@@ -927,7 +933,7 @@ package object vars extends vars.Rank1OptImplicits {
 			case _            => Some(get)
 		}
 
-		/** Converts this value to a `Opt` if it is $Done, losing the information by replacing
+		/** Converts this value to an `Opt` if it is $Done, losing the information by replacing
 		  * $Failed with [[scala.None None]].
 		  */
 		@inline def toOpt :Opt[A] = self match {
@@ -980,6 +986,8 @@ package object vars extends vars.Rank1OptImplicits {
 
 package vars {
 
+	import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
+
 	private[sugar] sealed abstract class Rank1OptImplicits {
 		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe
 		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
@@ -1018,6 +1026,9 @@ package vars {
 		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
 		@inline def sure_?[A](value :Unsure[A]) :Opt[A] = value.toOpt
 
+		/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+		@inline def nonNull_?[A <: AnyRef](value :Nullable[A]) :Opt[A] = value.toOpt
+
 		/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
 		@inline def fromOption[A](value :Option[A]) :Opt[A] = value match {
 			case Some(a) => One(a)
@@ -1032,6 +1043,9 @@ package vars {
 			case Sure(a) => One(a)
 			case _       => None
 		}
+
+		/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+		@inline def fromNullable[A <: AnyRef](value :Nullable[A]) :Opt[A] = value.toOpt
 
 		/** Returns [[scala.None None]] - an empty `Opt`. */
 		@inline final def empty[T] :Opt[T] = None
@@ -1114,7 +1128,7 @@ package vars {
 		  * They involve boxing and are placed here for explicit importing.
 		  */
 		@SerialVersionUID(Ver)
-		object implicits {
+		object conversions {
 			/** An implicit conversion that converts a $Opt to an iterable value. */
 			@inline implicit def OptToIterable[A](opt :Opt[A]) :Iterable[A] = opt match {
 				case One(v) => v::Nil
@@ -1149,6 +1163,12 @@ package vars {
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
 			@inline implicit def MaybeToOpt[A](opt :Maybe[A]) :Opt[A] = yes_?(opt)
 
+			@inline implicit def OptToNullable[A <: AnyRef](opt :Opt[A]) :Nullable[A] = opt match {
+				case One(v) => NonNull(v)
+				case _      => Null
+			}
+			@inline def NullableToOpt[A <: AnyRef](value :Nullable[A]) :Opt[A] = nonNull_?(value)
+
 			/** Wraps any object in a [[net.noresttherein.sugar.vars.Opt Opt]] monad. */
 			@inline implicit def anyOne[A](any :A) :Opt[A] = One(any)
 		}
@@ -1170,13 +1190,10 @@ package vars {
 
 			val Option = Opt
 			val Some   = One
-//			val None   = None
+
 			//same names as in implicits so if both are imported one shadows the other
 			@inline implicit def OptFromOption[T](opt :Opt[T]) :scala.Option[T] = opt.option
 			@inline implicit def OptionToOpt[T](opt :scala.Option[T]) :Opt[T] = fromOption(opt)
-
-//			@inline implicit def NoneToInexistent(none :scala.None.type) :None.type = None
-//			@inline implicit def InexistentToNone(miss :None.type) :scala.None.type = scala.None
 		}
 
 
@@ -1204,20 +1221,33 @@ package vars {
 
 
 
+	/** Matching pattern extracting value from [[net.noresttherein.sugar.vars.Opt Opt]]
+	  * or any [[net.noresttherein.sugar.vars.Ref Ref]] value
+	  * (in particular option-like types like [[net.noresttherein.sugar.vars.Maybe Maybe]],
+	  * [[net.noresttherein.sugar.vars.Unsure Unsure]], [[net.noresttherein.sugar.vars.Nullable Nullable]]).
+	  * The value is the one returned by
+	  * [[net.noresttherein.sugar.vars.Ref.get get]]/[[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]].
+	  */
 	@SerialVersionUID(Ver)
 	object Defined {
 		@inline def apply[T](value :T) :Opt[T] = if (value == null) None else One(value)
 
 		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
 		@inline def unapply[T](ref :Opt[T]) :Maybe[T] = ref.toMaybe
+		@inline def unapply[T](ref :Option[T]) :Maybe[T] = Maybe.fromOption(ref)
 	}
 
+	/** Matching pattern which matches undefined [[net.noresttherein.sugar.vars.Ref Ref]]
+	  * or [[net.noresttherein.sugar.vars.Opt Opt]].
+	  * It returns `true` ''iff'' [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]] returns `false`.
+	  */
 	@SerialVersionUID(Ver)
 	object Undefined {
 		@inline def apply() :Opt[Nothing] = None
 
 		@inline def unapply(ref :Ref[_]) :Boolean = !ref.isDefined
 		@inline def unapply(ref :Opt[_]) :Boolean = ref == None
+		@inline def unapply(ref :Option[_]) :Boolean = ref == None
 	}
 
 

@@ -17,7 +17,8 @@ import net.noresttherein.sugar.vars.Opt.One
   * recursion/loops. As a value class, it has no distinct subclasses for empty and non-empty instances, which results
   * in certain differences from `Option`. Aside from the obvious lack of creation of an additional object,
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, a disadvantage
-  * of being erased in runtime is that a method accepting an `Maybe[T]` will clash with an overloaded method accepting `T`.
+  * of being erased in runtime is that a method accepting an `Maybe[T]` will clash with an overloaded method
+  * accepting `Any` (including any erased, generic type parameter `T`).
   * Moreover, a generic method accepting/returning an abstract type (parameter) `T` cannot be overridden/implemented
   * by a method accepting an `Maybe[O]`, where `O` is a type parameter, an abstract type, or a reference type
   * (this is a limitation of the current Scala compiler).
@@ -27,7 +28,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * (that is, `No` is distinguishable from `Yes(No)`), but the inner `Maybe`s will always be reified
   * to instances of `Maybe` class, rather than erased to their contents.
   *
-  * Using an `Maybe` via a super trait, such as [[net.noresttherein.sugar.vars.Ref Ref]]
+  * Using a `Maybe` via a super trait, such as [[net.noresttherein.sugar.vars.Ref Ref]]
   * or [[scala.collection.IterableOnce IterableOnce]], or passing it as a type parameter (in particular, using
   * it as a function parameter or returned value), will however result in boxing
   * which this type was designed to prevent, so should be typically avoided. Similarly, ''for comprehensions''
@@ -36,37 +37,14 @@ import net.noresttherein.sugar.vars.Opt.One
   * [[net.noresttherein.sugar.vars.Maybe.Yes Yes]] matching pattern, which should by be translated by the compiler
   * to non-boxing byte code.
   *
-  * This library provides a total of five `Option` alternatives:
-  *   1. A fully erased type alias [[net.noresttherein.sugar.vars.Opt Opt]]`[A]`
-  *      (aliased as [[net.noresttherein.sugar.vars.?? ??]]`[A]`), which takes the concept of this class
-  *      one step further, erasing the type information in all contexts: any reference to `Opt[T]` will
-  *      translate to `AnyRef` in the byte code, regardless if `T` is abstract or not. It has an advantage over `Maybe`
-  *      primarily in that returning it from a function or a accepting it as a type parameter does not require
-  *      the creation of an `Maybe` instance through reference reification. As a bonus, it doesn't cause
-  *      'auto generated bridge method conflicts with the method itself' compile error when overriding
-  *      a method taking a parameter `T` with a `Maybe[S]` (by passing `Maybe[S] as T` to the super class).
-  *      The disadvantages are the loss of dynamic type information (a `Opt[T]` will match all match patterns
-  *      which would match `T`), higher potential for erasure conflicts, and inability to use
-  *      as a return type of an `unapply` method (because it provides only extension methods, rather than class methods
-  *      as `Maybe` does. This makes it best suited as very short living objects where the `Opt` type
-  *      is never upcasted or used as a type argument.
-  *   1. This `Maybe` is a relatively safer alternative in that it can be used both in erased and non erased contexts,
-  *      has fewer restrictions and lower bug potential then the former. This however also makes it no better than
-  *      `Option` as a function argument/return type or an element type of an array.
-  *   1. A `@specialized` [[net.noresttherein.sugar.vars.Unsure Unsure]] is the most niche of the three,
-  *      as it is never erased and always results in a creation of a new object. Unlike `Option` (and the other two
-  *      alternatives), it will not result in boxing of built in value types and opaque types mapped to value types.
-  *      In these contexts it offers largely the same benefits as `Opt` and `Maybe`, because in all three cases
-  *      a single boxing will need to happen. It has however an advantage over other two in that this benefit is 'free':
-  *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
-  *   1. A specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
-  *   1. A specialized [[net.noresttherein.sugar.vars.Ternary Ternary]], erased in the runtime to a `Int`.
+  * $optionalTypesInfo
   *
   * In most scenarios, use of `Opt` is preferable, however it cannot be used as a result of an `unapply` method,
   * which makes this class non redundant.
   * @see [[net.noresttherein.sugar.vars.Maybe.Yes]]
   * @see [[net.noresttherein.sugar.vars.Maybe.No]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
+  * @see [[net.noresttherein.sugar.vars.Nullable]]
   * @define Ref `Maybe`
   * @define ref optional value
   * @define coll optional value
@@ -352,13 +330,13 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 			new Maybe(f.asInstanceOf[PartialFunction[A, AnyRef]].applyOrElse(ref.asInstanceOf[A], NoContent))
 
 
-	/** Returns an `Maybe` formed from the contents of `this` and `that` by combining the corresponding elements in a pair.
+	/** Returns a `Maybe` formed from the contents of `this` and `that` by combining the corresponding elements in a pair.
 	  * If either of the two options is empty, `No` is returned. */
 	@inline def zip[O](that :Maybe[O]) :Maybe[(A, O)] =
 		if ((ref eq NoContent) | (that.ref eq NoContent)) new Maybe(NoContent)
 		else Yes((ref.asInstanceOf[A], that.ref.asInstanceOf[O]))
 
-	/** Converts an `Maybe` of a pair into `Maybe`s of its first and second elements. */
+	/** Converts a `Maybe` of a pair into `Maybe`s of its first and second elements. */
 	@inline def unzip[A1, A2](implicit asPair: A <:< (A1, A2)): (Maybe[A1], Maybe[A2]) =
 		if (ref eq NoContent)
 			unzip2Lack
@@ -367,7 +345,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 			new Maybe[A2](ref.asInstanceOf[(A1, A2)]._2.asInstanceOf[AnyRef])
 		)
 
-	/** Converts an `Maybe` of a triple into three `Maybe`s, one containing the element from each position of the triple. */
+	/** Converts a `Maybe` of a triple into three `Maybe`s, one containing the element from each position of the triple. */
 	@inline def unzip3[A1, A2, A3](implicit asTriple: A <:< (A1, A2, A3)): (Maybe[A1], Maybe[A2], Maybe[A3]) =
 		if (ref eq NoContent)
 			unzip3Lack
@@ -409,20 +387,20 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
-	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Maybe`.
+	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in a `Maybe`.
 	  * Same as [[net.noresttherein.sugar.vars.Maybe.toUnsure toUnsure]]. */
 	@inline override def unsure :Unsure[A] =
 		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = toOpt)
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
-	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Maybe`. */
+	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in a `Maybe`. */
 	@inline override def toUnsure :Unsure[A] =
 		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = toOpt)
 
 	/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 	  * is specialized for value types, this class is not, and the result will not be specialized. Neither will it
-	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in an `Maybe`.
+	  * require boxing though, as any value type was promoted to a reference wrapper before putting it in a `Maybe`.
       * Same as [[net.noresttherein.sugar.vars.Maybe.toUnsure toUnsure]]. */
 	@inline override def unsureConst :Unsure[A] =
 		if (ref eq NoContent) Missing else new Sure(ref.asInstanceOf[A], cachedOpt = toOpt)
@@ -526,6 +504,9 @@ object Maybe {
 	/** Converts the given `Opt[T]` into an `Maybe[T]` for interoperability. */
 	@inline def one_?[T](value :Opt[T]) :Maybe[T] = One.unapply(value)
 
+	/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+	@inline def nonNull_?[T <: AnyRef](value :Nullable[T]) :Opt[T] = value.toOpt
+
 	//Would be nice to rename these all methods to from[T](_), but,
 	// for consistency, we should also do it for other option-like types,
 	// and from[T](Maybe[T]) clashes with from[T](Opt[T]).
@@ -540,33 +521,36 @@ object Maybe {
 	/** Converts the given `Opt[T]` into an `Maybe[T]` for interoperability. */
 	@inline def fromOpt[T](value :Opt[T]) :Maybe[T] = One.unapply(value)
 
+	/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+	@inline def fromNullable[T <: AnyRef](value :Nullable[T]) :Opt[T] = value.toOpt
+
 	/** When a given condition is true, evaluates the `a` argument and returns `Yes(a).`
 	  * When the condition is false, `a` is not evaluated and `No` is returned. */
-	@inline def when[A](cond: Boolean)(a: => A) :Maybe[A] =
+	@inline def when[T](cond: Boolean)(a: => T) :Maybe[T] =
 		new Maybe(if (cond) a.asInstanceOf[AnyRef] else NoContent)
 
 	/** Unless a given condition is true, this will evaluate the `a` argument and return `Yes(a)`.
 	  * Otherwise, `a` is not evaluated and `No` is returned. */
-	@inline def unless[A](cond: Boolean)(a: => A) :Maybe[A] =
+	@inline def unless[T](cond: Boolean)(a: => T) :Maybe[T] =
 		new Maybe(if (!cond) a.asInstanceOf[AnyRef] else NoContent)
 
 	/** Executes the given lazy expression in a `try-catch` block, returning `No` in case
 	  * any exception is caught. Otherwise the value is returned as a `Yes` instance as normal. */
-	@inline def guard[A](a : => A) :Maybe[A] =
-		try { Yes(a) } catch {
+	@inline def guard[T](a : => T) :Maybe[T] =
+		try Yes(a) catch {
 			case _ :Exception => No
 		}
 
 	/** Applies the given function to the second argument in a `try-catch` block, returning `No` in case
 	  * any exception is caught. Otherwise the result is returned as a `Yes` instance as normal. */
 	@inline def guard[A, B](f :A => B)(a :A) :Maybe[B] =
-		try { Yes(f(a)) } catch {
+		try Yes(f(a)) catch {
 			case _ :Exception => No
 		}
 
 	/** Returns the first argument as `Yes` if it satisfies the predicate `p`.
 	  * @return `Yes(value).filter(p)`. */
-	@inline def satisfying[A](value :A)(p :A => Boolean) :Maybe[A] =
+	@inline def satisfying[T](value :T)(p :T => Boolean) :Maybe[T] =
 		if (p(value)) Yes(value) else No
 
 
@@ -620,10 +604,10 @@ object Maybe {
 	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
 	@SerialVersionUID(Ver)
 	object conversions {
-		@inline implicit def OptToOption[T](opt :Maybe[T]) :Option[T] = opt.option
-		@inline implicit def OptToIterable[T](opt :Maybe[T]) :Iterable[T] = opt.toIterable
+		@inline implicit def MaybeToOption[T](opt :Maybe[T]) :Option[T] = opt.option
+		@inline implicit def MaybeToIterable[T](opt :Maybe[T]) :Iterable[T] = opt.toIterable
 
-		@inline implicit def OptionToOpt[T](option :Option[T]) :Maybe[T] =
+		@inline implicit def OptionToMaybe[T](option :Option[T]) :Maybe[T] =
 			new Maybe(if (option.isDefined) option.get.asInstanceOf[AnyRef] else NoContent)
 
 		/** Implicitly lifts any value `T` to [[net.noresttherein.sugar.vars.Maybe Maybe]]`[T]`. */
@@ -631,6 +615,9 @@ object Maybe {
 
 		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = opt.opt
 		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = Maybe.fromOpt(opt)
+
+		@inline implicit def MaybeToNullable[T <: AnyRef](opt :Maybe[T]) :Nullable[T] = Nullable.fromMaybe(opt)
+		@inline implicit def NullableToMaybe[T <: AnyRef](opt :Nullable[T]) :Maybe[T] = opt.toMaybe
 	}
 
 	/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
@@ -652,8 +639,8 @@ object Maybe {
 		val Some   = Yes
 		val None   = No
 		//same names as in conversions so if both are imported one shadows the other
-		@inline implicit def OptToOption[T](opt :Maybe[T]) :scala.Option[T] = opt.option
-		@inline implicit def OptionToOpt[T](opt :scala.Option[T]) :Maybe[T] = some_?(opt)
+		@inline implicit def MaybeToOption[T](opt :Maybe[T]) :scala.Option[T] = opt.option
+		@inline implicit def OptionToMaybe[T](opt :scala.Option[T]) :Maybe[T] = some_?(opt)
 		@inline implicit def SomeToYes[T](opt :scala.Some[T]) :Yes[T] = Yes(opt.get)
 		@inline implicit def GotToYes[T](opt :Sure[T]) :scala.Some[T] = opt.option.asInstanceOf[scala.Some[T]]
 
@@ -663,7 +650,7 @@ object Maybe {
 
 
 	/** The value wrapped by an empty `Maybe`. In order to avoid ambiguity, it must not be used for any other purpose.
-	  * We don't use Ref.undefined, because that placeholder may actually be standing in for an `Maybe`,
+	  * We don't use Ref.undefined, because that placeholder may actually be standing in for a `Maybe`,
 	  * leading to ambiguity between `None`/`No` and 'not computed'.
 	  * Extends Any => AnyRef out of laziness, allowing it to pass as the argument to `applyOrElse`
 	  * to implement 'apply partial function to `this.get`, but if the former is undefined at the latter,

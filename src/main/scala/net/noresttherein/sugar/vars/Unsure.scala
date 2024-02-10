@@ -63,6 +63,11 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * of a single class, as in most cases the benefits are outweighed by the drawbacks of potential compatibility
   * issues due to using a non-standard solution.
   *
+  * @see [[net.noresttherein.sugar.vars.Opt Opt]]
+  * @see [[net.noresttherein.sugar.vars.Maybe Maybe]]
+  * @see [[net.noresttherein.sugar.vars.Nullable Nullable]]
+  * @see [[net.noresttherein.sugar.vars.IntOpt IntOpt]]
+  * @see [[net.noresttherein.sugar.vars.Ternary Ternary]]
   * @define Ref `Unsure`
   * @define ref unsure value
   * @define coll unsure value
