@@ -4,26 +4,25 @@ import java.lang.{Math => math}
 import java.lang.invoke.MethodHandles
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{AbstractIterable, Factory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, mutable}
+import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JIterator, JLong, JShort}
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IRefArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.RelayArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, IterableExtension}
+import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 //implicits
-import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMethods, castTypeParamMethods, ClassExtension, IteratorCompanionExtension, castingMethods}
+import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMethods, castTypeParamMethods, ClassExtension, IterableExtension, IteratorCompanionExtension, castingMethods}
 
 
 
@@ -823,7 +822,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 					ArrayFactory.copyOf(array, length).asInstanceOf[Array[U]]
 				else
 					ArrayFactory.copyAs[U](array, classOf[Any], length)
-			elems.copyRangeToArray(res, offset, drop, Int.MaxValue)
+			elems.toBasicOps.copyRangeToArray(res, offset, drop, Int.MaxValue)
 			RelayArrayInternals.wrap(res)
 		}
 		elems match {
@@ -1275,7 +1274,6 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 {
 	releaseFence()
 	protected override def array :Array[E @uncheckedVariance] = arr
-//	private[sugar] override def unsafeArray :Array[_] = array
 	private[sugar] override def startIndex :Int = offset
 	override def length :Int = len
 
@@ -1537,8 +1535,7 @@ case object RelayArray extends StrictOptimizedSeqFactory[RelayArray] {
 	  * [[collection.immutable.ArraySeq immutable.ArraySeq]], [[collection.mutable.ArraySeq mutable.ArraySeq]]
 	  * and `RelayArray`.
 	  */
-	override def newBuilder[E] :Builder[E, RelayArray[E]] = //newBuilder(classOf[AnyRef].asInstanceOf[Class[A]])
-		new OptimisticBuilder[E](null)
+	override def newBuilder[E] :Builder[E, RelayArray[E]] = new OptimisticBuilder[E](null)
 
 	/** A builder of a `RelayArray` backed by an `Array[AnyRef]`. More efficient for reference types than
 	  * [[net.noresttherein.sugar.collections.RelayArray.newBuilder newBuilder]].

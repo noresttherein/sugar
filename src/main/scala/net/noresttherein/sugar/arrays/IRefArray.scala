@@ -5,20 +5,16 @@ import java.lang.System.arraycopy
 
 import scala.Array.emptyObjectArray
 import scala.annotation.tailrec
-import scala.collection.generic.IsSeq
 import scala.collection.{IterableFactory, View}
 import scala.collection.immutable.{ArraySeq, IndexedSeqOps}
-import scala.collection.mutable.Builder
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice, RelayArrayFactory}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
-import net.noresttherein.sugar.witness.Ignored
 
 
 

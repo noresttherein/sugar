@@ -4,6 +4,8 @@ import scala.Specializable.Everything
 import scala.annotation.unchecked.uncheckedVariance
 
 import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
+import net.noresttherein.sugar.collections.ArrayLikeSliceFactory
+import net.noresttherein.sugar.vars.Maybe
 
 
 /** Definitions of several types represented under the hood by arrays:
@@ -22,6 +24,21 @@ import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExt
   * Note that the types can be often cast into one another without causing a `ClassCastException`,
   * and thus the immutability is guaranteed only under the assumption that no such casting is done by the application.
   */
+/* Dependencies on collections package to drop:
+ *   1. util.errorString
+ *   1. ArrayIterableOnce
+ *   1. ArrayLikeWrapper and ArrayLikeSliceWrapper, ArrayLikeSliceFactory
+ *   1. ArrayLikeSlice and subclasses
+ *   1. SugaredIterableOps
+ *   1. Builders (manually specialized Builder traits) in ArrayFactory
+ *   1. ViewBuffer in ArrayFactory (easy to drop, like RelayArray)
+ *   1. MatrixBuffer
+ *   1. RelayArrayFactory
+ *   1. IndexedIterator, IndexedReverseIterator, ValIterator (ArrayIterator), Mutator
+ *   1. ArrayStepper
+ *   1. IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, StepperCompanionExtension
+ *   1. ElementIndex
+ */
 package object arrays extends extensions {
 	final val Ver = 1L
 	
@@ -217,4 +234,7 @@ package object arrays extends extensions {
 
 	val MutableArrayMutator :ArrayLikeIteratorFactory[MutableArray, ArrayMutator] =
 		ArrayMutator.asInstanceOf[ArrayLikeIteratorFactory[MutableArray, ArrayMutator]]
+
+	private[arrays] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
+		collections.RelayArrayFactory
 }

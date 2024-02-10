@@ -303,8 +303,8 @@ private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, m
   * The first pair shifts the elements following the index right, just as in `ArrayBuffer`, while the latter two
   * always shift the preceding elements left. If there is no space left after/before the contents,
   * a `BufferFullException` is thrown.
-  */
-trait ViewBuffer[E] extends IndexedBuffer[E] {
+  */ //todo: MutSugaredSeqOps
+trait ViewBuffer[E] extends IndexedBuffer[E] with SugaredSeqOps[E, IndexedBuffer, IndexedBuffer[E]] {
 	/** The lower (inclusive) index bound in the underlying sequence for elements of this buffer. */
 	def floor :Int
 
@@ -360,7 +360,6 @@ object ViewBuffer {
 private abstract class AbstractViewBuffer[E](lo :Int, hi :Int, private[this] var offset :Int, private[this] var len :Int)
 	extends AbstractBuffer[E] with IndexedBuffer[E] with ViewBuffer[E]
 {
-	// override def maxSize   :Int = hi - lo
 	override def knownSize :Int = len
 	override def length    :Int = len
 	override def floor     :Int = lo
@@ -656,16 +655,19 @@ private object SeqViewBuffer extends SliceBufferFactory[mutable.IndexedSeq, SeqV
 
 @SerialVersionUID(Ver)
 private final class ArrayViewBuffer[E] private(underlying :Array[E], lo :Int, hi :Int, offset :Int, len :Int)
-	extends AbstractViewBuffer[E](lo, hi, offset, len) with ArrayIterableOnce[E]
+	extends AbstractViewBuffer[E](lo, hi, offset, len) with ArraySliceSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 {
-	private[sugar] override def unsafeArray :Array[_] = underlying
+	protected override def array :Array[E] = underlying
 	private[sugar] override def startIndex :Int = headIdx
 	private[sugar] override def isMutable = true
 	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
 	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
 	protected override def errorString :String = util.errorString(underlying)
-	override def iterator :Iterator[E] = ArrayIterator(underlying, headIdx, length)
 	override def reverseIterator :Iterator[E] = ReverseArrayIterator(underlying, headIdx + length - 1, length)
+
+	protected override def newSpecific(array :Array[E], from :Int, until :Int) :IndexedBuffer[E] =
+		if (array eq underlying) new ArrayViewBuffer(array.slice(from, until), 0, until - from, 0, until - from)
+		else new ArrayViewBuffer(array, 0, array.length, from, until - from)
 }
 
 @SerialVersionUID(Ver)

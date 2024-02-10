@@ -8,7 +8,7 @@ import scala.collection.mutable.Builder
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ArrayLikeWrapper, IArraySlice, RelayArrayFactory}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, IArraySlice}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.IncompatibleArgumentTypesException
 import net.noresttherein.sugar.reflect.extensions.{ClassExtension, classNameMethods}
@@ -197,22 +197,6 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		@inline def apply(n :Int) :E = array(n)
 		@inline def toArraySeq :ArraySeq.ofRef[E] = new ArraySeq.ofRef(array)
 	}
-//
-//	/** Accessor extension methods for [[net.noresttherein.sugar.arrays.IArray IArray]]`[T]` for some type `T`.
-//	  * Enabled by importing any of
-//	  * `net.noresttherein.sugar.collections.extensions.`[[net.noresttherein.sugar.collections.extensions.GenericIArrayExtension GenericIArrayExtension]],
-//	  * `net.noresttherein.sugar.arrays.IArray.extensions.GenericIArrayExtension`,
-//	  * or `net.noresttherein.sugar.extensions.GenericIArrayExtension`.
-//	  * @see [[net.noresttherein.sugar.arrays.IArray.IArrayExtension]]
-//	  * @see [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension]]
-//	  * @tparam E the component type of the elements in the underlying array.
-//	  */ //consider: do we really need it? ArrayLikeExtension does not work? Is it only for toArraySeq?
-//	class GenericIArrayExtension[E] private[arrays] (private val array :Array[E]) extends AnyVal {
-//		@inline def head :E = array(0)
-//		@inline def last :E = array(array.length - 1)
-//		@inline def apply(n :Int) :E = array(n)
-//		@inline def toArraySeq :ArraySeq[E] = ArraySeq.unsafeWrapArray(array)
-//	}
 
 
 	/** Extension methods specific to [[net.noresttherein.sugar.arrays.IArray IArray]] only.
@@ -232,7 +216,6 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	class IArrayExtension[E] private[arrays](private[IArray] val self :Array[E])
 		extends AnyVal
 	{
-//		@inline private def asIArray = self.asInstanceOf[IArray[E]]
 		@inline private def expose[X](array :Array[X]) :IArray[X] = {
 			releaseFence()
 			array.asInstanceOf[IArray[X]]
@@ -918,13 +901,12 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		expose(res)
 	}
 
-	//probably is not useful to have an immutable array with uninitialized segments.
-
 
 	/** Creates a copy of the given array, possibly changing its element type. */
 	@inline def copyAs[E :ClassTag](array :ArrayLike[_]) :IArray[E] =
 		expose(ArrayFactory.copyAs[E](array, array.asInstanceOf[Array[_]].length))
 
+	//probably is not useful to have an immutable array with uninitialized segments.
 	/** Copies one array to another, truncating or padding with default values (if necessary),
 	  * so that the copy has the specified length. The new array can have a different type than the original one,
 	  * as long as the values are assignment-compatible. When copying between primitive and object arrays,
@@ -1424,10 +1406,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  */
 	@SerialVersionUID(Ver)
 	object Wrapped {
-		private[this] val wrapper :ArrayLikeWrapper[IndexedSeq, IArray] =
-			RelayArrayFactory getOrElse IArraySlice
-
-		def apply[A](array :IArray[A]) :IndexedSeq[A] = wrapper.wrap(array)
+		def apply[A](array :IArray[A]) :IndexedSeq[A] = Slice(array, 0, array.length)
 
 		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[IArray[E]] = {
 			val array = elems match {

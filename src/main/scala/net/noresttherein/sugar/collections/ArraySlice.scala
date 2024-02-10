@@ -25,6 +25,7 @@ import net.noresttherein.sugar.reflect.classes
   * but used instead of the latter in pattern matching to decouple code from the `RelayArray` type itself.
   */
 private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
+	//todo: make it ArrayLike[E]
 	private[sugar] def unsafeArray :Array[_]
 	private[sugar] def startIndex :Int
 	private[sugar] def isImmutable :Boolean = false //mutability.isImmutable
@@ -60,9 +61,11 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 }
 
 
-
+//todo: rename it to ArrayLikeSliceOps
 private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] {
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
+
+	def elementType :Class[_] = array.getClass.getComponentType
 
 	override def head :E =
 		if (size == 0) noSuch_!(toString + ".head")
@@ -76,10 +79,6 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 
 	override def iterator :Iterator[E] = ArrayIterator(array, startIndex, size)
 
-//	override def reverseIterator :Iterator[E] = {
-//		val start = startIndex
-//		Iterator.reverse(array, start, start + size)
-//	}
 	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = {
 		val start = startIndex
 		JavaIterator.slice(array, start, start + size)
@@ -147,6 +146,10 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 			copied
 		}
 }
+//
+//
+//
+//trait ProperArraySliceOps[+E, +CC[_], +C] extends ArraySliceOps[E, CC, C]
 
 
 
@@ -162,15 +165,9 @@ trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] extends Serializable {
 
 	//consider: we could instead have separate IArrayLikeWrapper and MutableArrayWrapper to enforce this relationship,
 	// but it would involve tripling every descending trait.
-	def isImmutable :Boolean = false //this.isInstanceOf[IArrayLikeWrapper[_, _]]
-	def isMutable   :Boolean = false //this.asInstanceOf[MutableArrayWrapper[_, _]]
-//	def mutability :Mutability = Mutability.Unspecified
+	def isImmutable :Boolean = false
+	def isMutable   :Boolean = false
 }
-//
-//private[sugar] trait IArrayLikeWrapper[+C[E] <: immutable.Iterable[E], -A[E] <: IArrayLike[E]]
-//	extends ArrayLikeWrapper[C, A]
-//
-//private[sugar] trait MutableArrayWrapper[+C[_], -A[E] <: MutableArray[E]] extends ArrayLikeWrapper[C, A]
 
 
 /**
@@ -185,7 +182,7 @@ trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends ArrayLikeWrapp
 	  * with the array, and thus any modifications to either will be visible in the other.
 	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
 	  */
-	  def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
+	def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
 		val length = array.length
 		if (until <= 0) make(array, 0, 0)
 		else if (from >= length) make(array, length, length)
@@ -236,17 +233,6 @@ private[collections] sealed abstract class RefArrayLikeSliceFactory[+C[E] <: Arr
 }
 
 
-//private[collections] sealed trait ArrayLikeSliceFactoryDelegate[+C[E] <: ArrayLikeSlice[E], A[E] <: ArrayLike[E]]
-//	extends ArrayLikeSliceFactory[C, A]
-//{
-//	override def of[E](array :A[E]) :C[E] = delegate.of(array)
-//	override def of[E](array :A[E], from :Int, until :Int) :C[E] = delegate.of(array, from, until)
-//	protected override def make[E](array :A[E], from :Int, until :Int) :C[E] = delegate.of(array, from, until)
-//
-//	protected val delegate :ArrayLikeSliceFactory[C, A]
-//}
-
-
 
 
 
@@ -260,7 +246,6 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	extends ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
 { this :C =>
 	private[sugar] final override def unsafeArray :Array[_] = array
-//	final def underlying :ArrayLike[E] = array
 	protected def array :Array[E @uncheckedVariance]
 
 	override def reverseIterator :Iterator[E] = {
@@ -488,7 +473,6 @@ private[sugar] case object IArrayLikeSlice
 		IArraySlice.slice(array.castFrom[IArrayLike[E], IArray[E]], from, until)
 
 	override def isImmutable = true
-//	override def mutability = Mutability.Immutable
 }
 
 
@@ -505,6 +489,7 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
 	extends mutable.AbstractSeq[E]
 	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, ArraySlice[E]]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, MutableArraySlice, ArraySlice[E]]
+//	   with ProperArraySliceOps[E, MutableArraySlice, ArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, ArraySlice, Array]
 	   with EvidenceIterableFactoryOverrides[E, ArraySlice, ClassTag]
 {
@@ -554,7 +539,6 @@ private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Arra
 		}).castParam[E]
 
 	override def isMutable = true
-//	override def mutability = Mutability.Mutable
 }
 
 
@@ -569,12 +553,12 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
                         (underlying :IArray[E], final override val startIndex :Int, final override val length :Int)
 	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
+//	   with ProperArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, IArraySlice, IArray]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.asInstanceOf[Array[E]]
 	releaseFence()
-//	override def empty :IArraySlice[E] = IArraySlice.empty[E]
 	@unspecialized override def slice(from :Int, until :Int) :IArraySlice[E] =
 		super[ArraySliceSeqOps].slice(from, until)
 
@@ -618,7 +602,6 @@ private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IAr
 		}).castParam[E]
 
 	override def isImmutable = true
-//	override def mutability = Mutability.Immutable
 }
 
 
@@ -668,7 +651,6 @@ private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArr
 		new RefArraySlice(array, from, until)
 
 	override def isMutable = true
-//	override def mutability = Mutability.Mutable
 }
 
 
@@ -719,7 +701,6 @@ private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefA
 		new IRefArraySlice(array, from, until - from)
 
 	override def isImmutable = true
-//	override def mutability = Mutability.Immutable
 }
 
 

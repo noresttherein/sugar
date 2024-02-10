@@ -370,7 +370,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 					CheatedAccess.array(seq)
 				case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length =>
 					slice.unsafeArray
-				case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 => seq.data1
+				case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startOffset == 0 => seq.data1
 				case _ => null
 			}
 			if (array != null && array.getClass == classOf[Array[AnyRef]])
@@ -402,7 +402,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 						No
 				case seq :MatrixBuffer[_] if seq.dim == 1 =>
 					val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
-					val start = seq.startIndex
+					val start = seq.startOffset
 					val end   = start + seq.length
 					if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
 						Yes((array, start, end))
@@ -413,47 +413,6 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 			}
 		}
 	}
-//
-//
-//	implicit def RefArrayLikeClassTag[X, Arr[X] <: RefArrayLike[X]] :ClassTag[Arr[X]] =
-//		ArrayAnyClassTag.asInstanceOf[ClassTag[Arr[X]]]
-//
-//	private[this] val ArrayAnyClassTag = classTag[Array[Any]]
-//
-//	/** Mixin trait with extension methods conversion for `RefArrayLike` subtypes.
-//	  * @define Coll `RefArrayLike`
-//	  * @define Extension `RefArrayLikeExtension[E, Arr]`
-//	  */
-//	private[arrays] trait extensions extends Any with ArrayLike.extensions {
-////		@inline implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], A](self :RefArrayLike[A])
-////				:RefArrayLikeExtension[Arr, A] =
-////			new RefArrayLikeExtension(self.asInstanceOf[Array[_]])
-//		/** Extension methods for all `RefArrayLike[E]` subtypes.
-//		  * $conversionInfo
-//		  */
-//		implicit final def RefArrayLikeExtension[Arr[X] <: RefArrayLike[X], E] :RefArrayLikeExtensionConversion[Arr, E] =
-//			extensions.RefArrayLikeExtensionConversionPrototype.asInstanceOf[RefArrayLikeExtensionConversion[Arr, E]]
-//	}
-//
-//	@SerialVersionUID(Ver)
-//	object extensions extends extensions {
-//		sealed trait RefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E]
-//			extends (Arr[E] => RefArrayLikeExtension[Arr, E])
-//		{
-//			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :RefArrayLikeExtension[Arr, E] =
-//				new RefArrayLikeExtension(v1.asInstanceOf[Array[Any]])
-//		}
-////		private def newRefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E] =
-////			new PriorityConversion.Wrapped[Arr[E], RefArrayLikeExtension[Arr, E]](
-////				(arr :Arr[E]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
-////			) with RefArrayLikeExtensionConversion[Arr, E]
-////		private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Any] =
-////			newRefArrayLikeExtensionConversion
-//		private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Unknown] =
-//			new PriorityConversion.Wrapped[RefArrayLike[Unknown], RefArrayLikeExtension[RefArrayLike, Unknown]](
-//				(arr :RefArrayLike[Unknown]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
-//			) with RefArrayLikeExtensionConversion[RefArrayLike, Unknown]
-//	}
 }
 
 
@@ -466,17 +425,6 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
   * @define coll object array
   */
 private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] extends IterableFactory[Arr] {
-//
-//	/** Creates a new `Array[E]` of length `size`, executes the given initialization function for it,
-//	  * and returns it as an $Coll`[E]`. It is a pattern for initialization safer than manually creating
-//	  * an `Array[E]`, writing to it, and casting it $Coll`[E]`. The application should ''not'' retain a reference
-//	  * to the array given as the function argument.
-//	  */
-//	@inline final def init[E](size :Int)(f :Array[_ >: E] => Unit) :Arr[E] = {
-//		val res = new Array[Any](size)
-//		f(res.castFrom[Array[Any], Array[E]])
-//		res.castFrom[Array[Any], Arr[E]]
-//	}
 	@inline private def expose[X](array :Array[Any]) :Arr[X] = array.asInstanceOf[Arr[X]]
 
 	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument, returning it as a $Coll`[E]`.
@@ -491,19 +439,6 @@ private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] exten
 	@throws[NegativeArraySizeException]("if newLength is negative")
 	final def copyOf[E](array :ArrayLike[E], newLength :Int) :Arr[E] =
 		expose(ArrayFactory.copyOf[Any](array, newLength)(ClassTag.Any))
-/*
-		if (newLength == 0 || array.asInstanceOf[Array[_]].length == 0)
-			empty
-		else if (array.isInstanceOf[Array[AnyRef]])
-			java.util.Arrays.copyOf(
-				array.castFrom[ArrayLike[E], Array[AnyRef]], newLength, classOf[Array[AnyRef]]
-			).castFrom[Array[AnyRef], Arr[E]]
-		else {
-			val res = new Array[Any](newLength)
-			ArrayLike.copy(array, 0, res, 0, newLength)
-			res.castFrom[Array[Any], Arr[E]]
-		}
-*/
 
 	/** Copies the elements of `array` in the index range `[from, until)` to a new $coll with an erased element type.
 	  * @param array The sliced array.
@@ -536,25 +471,6 @@ private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] exten
 	final def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 	                          array2 :ArrayLike[E], from2 :Int, until2 :Int) :Arr[E] =
 		expose(Array.copyOfRanges[Any](array1, from1, until1, array2, from2, until2)(ClassTag.Any))
-/*
-		if (from1 < 0 | from2 < 0 || from1 > array1.length || from2 > array2.length)
-			throw new IndexOutOfBoundsException(
-				s"$toString.copyOfRanges(${array1.localClassName}|${array1.length}|, $from1, $until1, " +
-					s"${array2.localClassName}|${array2.length}|, $from2, $until2)."
-			)
-		else {
-			val length1 = math.max(from1, until1) - from1
-			val length2 = math.max(from2, until2) - from2
-			if (length1 + length2 == 0)
-				empty[E]
-			else {
-				val res = new Array[Any](length1 + length2).castFrom[Array[Any], Array[E]]
-				ArrayLike.copy(array1, from1, res, 0, length1)
-				ArrayLike.copy(array2, from2, res, length1, length2)
-				res.castFrom[Array[E], Arr[E]]
-			}
-		}
-*/
 
 	/** Copies slices from three array into a new array. Providing `until < from` has the same effect as `until == from`,
 	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
@@ -583,28 +499,6 @@ private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] exten
 		expose(
 			Array.copyOfRanges[Any](array1, from1, until1, array2, from2, until2, array3, from3, until3)(ClassTag.Any)
 		)
-/*
-		if (from1 < 0 | from2 < 0 | from3 < 0 || from1 > array1.length || from2 > array2.length || from3 > array3.length)
-			throw new IndexOutOfBoundsException(
-				s"$toString.copyOfRanges(${array1.localClassName}|${array1.length}|, $from1, $until1, " +
-					s"${array2.localClassName}|${array2.length}|, $from2, $until2, " +
-					s"${array3.localClassName}|${array3.length}|, $from3, $until3)."
-			)
-		else {
-			val length1 = math.min(from1, until1) - from1
-			val length2 = math.min(from2, until2) - from2
-			val length3 = math.min(from3, until3) - from2
-			if (length1 + length2 + length3 == 0)
-				empty[E]
-			else {
-				val res     = new Array[Any](length1 + length2 + length3).castFrom[Array[Any], Array[E]]
-				ArrayLike.copy(array1, from1, res, 0, length1)
-				ArrayLike.copy(array2, from2, res, length1, length2)
-				ArrayLike.copy(array3, from3, res, length1 + length2, length3)
-				res.castFrom[Array[E], Arr[E]]
-			}
-		}
-*/
 
 
 	@inline final override def apply[E](elems :E*) :Arr[E] = expose(Array[Any](elems :_*))
@@ -701,20 +595,6 @@ private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] exten
 
 	@inline final def unapplySeq[E](array :Arr[E]) :UnapplySeqWrapper[E] =
 		new UnapplySeqWrapper(array.castFrom[Arr[E], Array[E]])
-//
-//	protected final def isSeq[E] :IsSeq[Arr[E]] { type A = E; type C = Arr[E] } =
-//		IsSeqPrototype.castFrom[IsSeq[Arr[Any]], IsSeq[Arr[E]] { type A = E; type C = Arr[E] }]
-//
-//	private[this] val IsSeqPrototype =
-//		new ArrayLikeIsSeqTemplate[Any, collection.Seq, Arr] {
-//			override def apply(array :Arr[Any]) =
-//				new ArrayLikeIsSeqOps[Any, Arr](array.asInstanceOf[Array[Any]]) {
-//					override def fromSpecific(coll :IterableOnce[Any]) :Arr[Any] = RefArrayLikeFactory.this.from(coll)
-//					override def newSpecificBuilder :Builder[Any, Arr[Any]] = newBuilder
-//				}
-//			private def readResolve = RefArrayLikeFactory.this.isSeq
-//			override lazy val toString = RefArrayLikeFactory.this.toString + "IsSeq"
-//		}
 
 }
 
@@ -805,8 +685,11 @@ private[noresttherein] case object ErasedArray extends RefArrayLikeFactory[Array
 						Yes((CheatedAccess.array(seq), 0, seq.length))
 					case seq :mutable.ArraySeq[_] => Yes((seq.array, 0, seq.array.length))
 					case seq :ArrayBuffer[_]      => Yes((CheatedAccess.array(seq), 0, seq.length))
-//					case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex + seq.length <= seq.data1.length =>
-//						Yes((seq.data1, seq.startIndex, seq.startIndex + seq.length))
+					case seq :MatrixBuffer[_]
+						if seq.dim == 1 && seq.data1.getClass == classOf[Array[Any]] &&
+							seq.startOffset + seq.length <= seq.data1.length
+					=>
+						Yes((seq.data1, seq.startOffset, seq.startOffset + seq.length))
 					case _                        => No
 				}
 				case _ => No

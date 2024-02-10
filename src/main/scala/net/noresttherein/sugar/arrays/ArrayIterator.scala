@@ -5,7 +5,7 @@ import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.arrays.extensions.ArrayCompanionExtension
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, ElemTypes, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}

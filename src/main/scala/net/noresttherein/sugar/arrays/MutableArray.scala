@@ -510,7 +510,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 					Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
 				case slice :ArrayIterableOnce[_] if slice.isMutable && slice.unsafeArray.length == length =>
 					Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
-				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.data1.length == length =>
+				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startOffset == 0 && seq.data1.length == length =>
 					Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
 				case _ =>
 					No
@@ -528,7 +528,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 					classTag[E].runtimeClass <:< slice.unsafeArray.getClass.getComponentType =>
 				Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
 			case seq   :MatrixBuffer[_]
-				if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length &&
+				if seq.dim == 1 && seq.startOffset == 0 && seq.length == seq.data1.length &&
 					classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
 				Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
 			case _ =>
@@ -557,8 +557,8 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 					case seq :ArrayIterableOnce[E] if seq.isMutable =>
 						val start = seq.startIndex
 						Yes(seq.unsafeArray.castFrom[Array[_], MutableArray[E]], start, start + length)
-					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex + length <= seq.data1.length =>
-						Yes((seq.data1, seq.startIndex, seq.startIndex + length))
+					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startOffset + length <= seq.data1.length =>
+						Yes((seq.data1, seq.startOffset, seq.startOffset + length))
 					case _ =>
 						No
 				}
@@ -579,79 +579,15 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 					else
 						No
 				case seq :MatrixBuffer[E]
-					if seq.dim == 1 && seq.startIndex + seq.length <= seq.data1.length &&
+					if seq.dim == 1 && seq.startOffset + seq.length <= seq.data1.length &&
 						classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
-					Yes(seq.data1, seq.startIndex, seq.startIndex + seq.length)
+					Yes(seq.data1, seq.startOffset, seq.startOffset + seq.length)
 				case _ =>
 					No
 			}
 
 		}
 	}
-
-//
-//	implicit def MutableArrayOrdering[E :Ordering] :Ordering[MutableArray[E]] =
-//		Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[MutableArray[E]]]
-//
-//	implicit def MutableArrayToSeq[E](array :MutableArray[E]) :collection.IndexedSeq[E] = Wrapped(array)
-//
-//	//fixme: precedence conflicts with ArrayLikeExtension
-//	implicit def MutableArrayIsSeq[E] :IsSeq[MutableArray[E]] { type A = E; type C = MutableArray[E] } =
-//		Array.ArrayIsSeq.asInstanceOf[IsSeq[MutableArray[E]] { type A = E; type C = MutableArray[E] }]
-////		IsSeqPrototype.asInstanceOf[IsSeq[ArrayLike[E]] { type A = E; type C = MutableArray[E] }]
-////	implicit def MutableArrayIsSeq[E] :IsSeq[MutableArray[E]] { type A = E; type C = MutableArray[E] } =
-////		RefArray.RefArrayIsSeq.asInstanceOf[IsSeq[MutableArray[E]] { type A = E; type C = MutableArray[E] }]
-////		IsSeqPrototype.asInstanceOf[IsSeq[ArrayLike[E]] { type A = E; type C = MutableArray[E] }]
-////
-////	//We don't know what the particular element type of the array will be, so we must use Scala's polymorphic delegates.
-////	private class MutableArrayIsSeq[E] extends ArrayLikeIsSeqTemplate[E, mutable.Seq, MutableArray] {
-////		override def apply(array :MutableArray[E]) = //not ArrayLikeAsSeq because it must use collection.Seq, not ArrayLike
-////			new MutableArrayIsSeqOps[E, MutableArray](array.asInstanceOf[Array[E]]) {
-////				protected override def fromSpecific(coll :IterableOnce[E]) :MutableArray[E] = RefArray.from(coll)
-////				protected override def newSpecificBuilder :Builder[E, MutableArray[E]] = RefArray.newBuilder
-////			}
-////		private def readResolve = MutableArray.MutableArrayIsSeq
-////	}
-////	private[this] val IsSeqPrototype :MutableArrayIsSeq[Any] = new MutableArrayIsSeq[Any]
-//
-////
-////	private[arrays] sealed trait conversions extends Any with ArrayLike.conversions {
-////		//fixme: conflicts with ArrayLikeExtension
-//////		@inline implicit final def MutableArrayToSeq[E](self :MutableArray[E]) :mutable.IndexedSeq[E] = Wrapped(self)
-////	}
-//
-//	/** Mixin trait with extension methods conversion for `MutableArray` subtypes.
-//	  * @define Coll `MutableArray`
-//	  * @define Extension `MutableArrayExtension[E, Arr]`
-//	  */
-//	private[arrays] trait extensions extends Any with ArrayLike.extensions {
-////		@inline implicit final def MutableArrayExtension[A](self :MutableArray[A]) :MutableArrayExtension[A] =
-////			new MutableArrayExtension(self.asInstanceOf[Array[Unknown]])
-//		/** Extension methods for all `MutableArray[E]` subtypes.
-//		  * $conversionInfo
-//		  */
-//		implicit final def MutableArrayExtension[E] :MutableArrayExtensionConversion[E] =
-//			extensions.MutableArrayExtensionConversionPrototype.asInstanceOf[MutableArrayExtensionConversion[E]]
-//	}
-//
-//	@SerialVersionUID(Ver)
-//	object extensions extends extensions {
-//		sealed trait MutableArrayExtensionConversion[E] extends (MutableArray[E] => MutableArrayExtension[E]) {
-//			@inline final def apply(v1 :MutableArray[E])(implicit __ :Ignored) :MutableArrayExtension[E] =
-//				new MutableArrayExtension(v1.asInstanceOf[Array[Unknown]])
-//		}
-////		private def newMutableArrayExtensionConversion[E] =
-////			new PriorityConversion.Wrapped[MutableArray[E], MutableArrayExtension[E]](
-////				(arr :MutableArray[E]) => new MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
-////			) with MutableArrayExtensionConversion[E]
-////		private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Any] =
-////			newMutableArrayExtensionConversion
-//		private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Unknown] =
-//			new PriorityConversion.Wrapped[MutableArray[Unknown], MutableArrayExtension[Unknown]](
-//				(arr :MutableArray[Unknown]) => new MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
-//			) with MutableArrayExtensionConversion[Unknown]
-//
-//	}
 }
 
 

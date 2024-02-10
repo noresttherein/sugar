@@ -109,63 +109,6 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 			}
 		}
 	}
-
-//	//fixme: precedence conflicts with ArrayLikeExtension
-//	implicit def IArrayLikeIsSeq[E] :IsSeq[IArrayLike[E]] { type A = E; type C = IArrayLike[E] } =
-//		IArray.IArrayIsSeq.asInstanceOf[IsSeq[IArrayLike[E]] { type A = E; type C = IArrayLike[E] }]
-//		isSeqPrototype.asInstanceOf[IsSeq[IArrayLike[E]] { type A = E; type C = IArrayLike[E] }]
-//
-//	We don't know what the particular element type of the array will be, so we must use Scala's polymorphic delegates.
-//	private class IArrayLikeIsSeq[E] extends ArrayLikeIsSeqTemplate[E, Seq, IArrayLike] {
-//		override def apply(array :IArrayLike[E]) =
-//			new IArrayLikeIsSeqOps[E, IArrayLike](array) {
-//				protected override def fromSpecific(coll :IterableOnce[E]) :IArrayLike[E] = IRefArray.from(coll)
-//				protected override def newSpecificBuilder :Builder[E, IArrayLike[E]] = IRefArray.newBuilder
-//			}
-//		private def readResolve = IArrayLike.IArrayLikeIsSeq
-//	}
-//	private[this] val isSeqPrototype :IArrayLikeIsSeq[Any] = new IArrayLikeIsSeq[Any]
-
-
-//	private[arrays] sealed trait conversions extends Any with ArrayLike.conversions {
-//		//fixme: conflicts with ArrayLikeExtension because it's more specific
-////		@inline implicit final def IArrayLikeToSeq[A](self :IArrayLike[A]) :IndexedSeq[A] = Wrapped(self)
-//	}
-//
-//	/** Mixin trait with extension methods conversion for `IArrayLike` subtypes.
-//	  * @define Coll `IArrayLike`
-//	  * @define Extension `IArrayLikeExtension[Arr, E]`
-//	  */
-//	private[arrays] trait extensions extends Any with ArrayLike.extensions {
-////		@inline implicit final def IArrayLikeExtension[Arr[X] <: IArrayLike[X], A](self :IArrayLike[A])
-////				:IArrayLikeExtension[Arr, A] =
-////			new IArrayLikeExtension(self.asInstanceOf[Array[Unknown]])
-//		/** Extension methods for all `IArrayLike[E]` subtypes.
-//		  * $conversionInfo
-//		  */
-//		implicit final def IArrayLikeExtension[Arr[X] <: IArrayLike[X], E] :IArrayLikeExtensionConversion[Arr, E] =
-//			extensions.IArrayLikeExtensionConversionPrototype.asInstanceOf[IArrayLikeExtensionConversion[Arr, E]]
-//	}
-//
-//	@SerialVersionUID(Ver)
-//	object extensions extends extensions {
-//		sealed trait IArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E]
-//			extends (Arr[E] => IArrayLikeExtension[Arr, E])
-//		{
-//			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :IArrayLikeExtension[Arr, E] =
-//				new IArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
-//		}
-////		private def newIArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E] =
-////			new PriorityConversion.Wrapped[Arr[E], IArrayLikeExtension[Arr, E]](
-////				(arr :Arr[E]) => new IArrayLikeExtension(arr.asInstanceOf[Array[_]])
-////			) with IArrayLikeExtensionConversion[Arr, E]
-////		private val IArrayLikeExtensionConversionPrototype :IArrayLikeExtensionConversion[IArrayLike, Any] =
-////			newIArrayLikeExtensionConversion
-//		private val IArrayLikeExtensionConversionPrototype :IArrayLikeExtensionConversion[IArrayLike, Any] =
-//			new PriorityConversion.Wrapped[IArrayLike[Any], IArrayLikeExtension[IArrayLike, Any]](
-//				(arr :IArrayLike[Any]) => new IArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
-//			) with IArrayLikeExtensionConversion[IArrayLike, Any]
-//	}
 }
 
 

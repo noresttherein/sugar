@@ -128,7 +128,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	@inline private[sugar] final def dim   :Int =
 		(storageSize + (MaxSize2 - MaxSize1 - 1) >>> 31) + 1 - (storageSize - 1 >>> 31)
 
-	private[sugar] final def startIndex :Int = dataOffset
+	private[sugar] final def startOffset :Int = dataOffset
 
 	/** A mask for a two dimensional index. 'Anding' with it calculates the remainder of division by the total capacity
 	  * (including unallocated arrays).
@@ -650,14 +650,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			} catch {
 				case e :Exception =>     //Restore the buffer state from before.
 					restore(data1, oldOffset, oldSize, oldStorage)
-//					if (oldOffset < dataEnd) {
-//						dataSize = dataEnd - oldOffset
-//						data1.clearIfRef(dataEnd, oldStorage)
-//						data1.clearIfRef(0, oldOffset)
-//					} else {
-//						dataSize = oldStorage - oldOffset + dataEnd
-//						data1.clearIfRef(dataEnd, oldOffset)
-//					}
 					throw e
 			}
 			if (dataSize > MaxValue - oldSize) {
@@ -976,7 +968,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					shiftLeft2(end << Dim1Bits, suffixLength, gap)
 					if (suffix.isInstanceOf[Array[AnyRef]])
 						suffix.clear(math.max(0, suffixLength - gap), suffixLength)
-//					suffix.clearIfRef(math.max(0, suffixLength - gap), suffixLength)
 					storageSize += MaxSize1
 					dataSize    += suffixLength
 				} else
@@ -1020,11 +1011,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					data2(front2) = prefix
 					shiftRight2(front, idx, dim1(dataOffset))
 					if (idx > dim1(dataOffset)) {
-//						prefix.clearIfRef(offset, offset + dim1(dataOffset))
 						if (prefix.isInstanceOf[Array[AnyRef]])
 							prefix.clear(offset, offset + dim1(dataOffset))
 					} else {
-//						prefix.clearIfRef(offset, MaxSize1)
 						if (prefix.isInstanceOf[Array[AnyRef]])
 							prefix.clear(offset, MaxSize1)
 						data2(front2) = null
@@ -1063,7 +1052,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 							(firstInSuffix eq after) && idx1 > 0 && dataSize < idx - idx1 + MaxSize1
 						)
 							firstInSuffix.clear(size - idx, MaxSize1)
-//							firstInSuffix.clearIfRef(size - idx, MaxSize1)
 						remove(idx, dataSize - idx)
 						e
 				}
@@ -1438,7 +1426,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				data2(dim2(dataOffset + dataSize - 1) & capacity2 - 1) = suffix
 				if (a.isInstanceOf[Array[AnyRef]])
 					a.clear(0, suffixSize)
-//				a.clearIfRef(0, suffixSize)
 				storageSize += MaxSize1
 			}
 		}
@@ -1465,13 +1452,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				if (dataOffset < (MaxSize1 >> 1)) { //Reuse the current array for the prefix, copy the suffix to a new one.
 					array2(0) = data1
 					array2(1) = Array.copyOfRange(data1, 0, dataOffset + dataSize & Dim1Mask, MaxSize1)
-//					data.clearIfRef(0, dataOffset)
 					if (data.isInstanceOf[Array[AnyRef]])
 						data.clear(0, dataOffset)
 				} else {                            //Reuse the current array for the suffix, copy the prefix to a new one.
 					array2(0) = Array.copyOfRange(data1, dataOffset, MaxSize1, dataOffset, MaxSize1)
 					array2(1) = data1
-//					data.clearIfRef(dataOffset, MaxSize1)
 					if (data.isInstanceOf[Array[AnyRef]])
 						data.clear(dataOffset, MaxSize1)
 				}
@@ -1570,24 +1555,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			if (idx > 0)
 				Array.cyclicCopy(data, dataOffset, data, newOffset, idx)
 			clearIfRef(dataOffset, count)
-//			if (dataOffset <= newOffset)
-//				data.clearIfRef(dataOffset, newOffset)
-//			else {
-//				data.clearIfRef(dataOffset, storageSize)
-//				data.clearIfRef(0, newOffset)
-//			}
 			dataOffset = newOffset
 		} else {
 			if (suffixSize > 0)
 				Array.cyclicCopy(data, suffixOffset, data, dataOffset + idx & mask, suffixSize)
-//			val end = dataOffset + dataSize & mask
-//			val newEnd = dataOffset + dataSize - count & mask
-//			if (newEnd <= end)
-//				data.clearIfRef(newEnd, end)
-//			else {
-//				data.clearIfRef(newEnd, storageSize)
-//				data.clearIfRef(0, end)
-//			}
 			clearIfRef(dataOffset + dataSize - count & mask, count)
 		}
 		dataSize -= count
@@ -1643,9 +1614,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					val deallocatedBack = math.max(0, math.min(emptyBackArrays, deallocated - freedPrefix))
 					deallocate(storageEnd2 - deallocatedBack & mask, deallocatedBack)
 					deallocate(dataOffset2, freedPrefix)
-//					val dataOffset1  = dim1(newOffset)
-//					val clearOffset1 = math.max(0, dataOffset1 - count)
-//					data2(dim2(newOffset)).clearIfRef(clearOffset1, dataOffset1) //Deallocate old elements in the first array.
 					val cleared = math.min(count, dim1(newOffset))
 					clearIfRef(newOffset - cleared, cleared)                    //Deallocate old elements in the first array.
 					storageSize -= deallocatedBack + freedPrefix << Dim1Bits
@@ -1711,9 +1679,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 							clearIfRef(dataOffset1, MaxSize1 - dataOffset1)
 					} else
 						clearIfRef(dataOffset1, suffixOffset1 - dataOffset1)
-//					data.clearIfRef(if (dataOffset2 < dataEnd2) 0 else dataOffset1, suffixOffset1)
-//					if (dataOffset2 + length2 == dataEnd2)
-//						data.clearIfRef(dataOffset1, MaxSize1)
 				} else {                                      //The suffix is split into two arrays.
 					val suffixInitSize = MaxSize1 - suffixOffset1
 					val suffixTailSize = dim1(suffixOffset1 + suffixSize)
@@ -1727,13 +1692,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 						//Copy the init part to the tail part array.
 						data = data2(dataEnd2 & mask2)
 						arraycopy(data2(dataEnd2 - 1 & mask2), suffixOffset1, data, suffixOffset1, suffixInitSize)
-//						data1.clearIfRef(suffixTailSize, suffixTailSize + dirtyAfterTail)
 						clearIfRef(suffixTailSize, dirtyAfterTail)
 					} else {
 						//Copy the tail part to the init part array.
 						data = data2(dataEnd2 - 1 & mask2)
 						arraycopy(data2(dataEnd2 & mask2), 0, data, 0, suffixTailSize)
-//						data1.clearIfRef(suffixOffset1 - dirtyBeforeInit, suffixOffset1)
 						clearIfRef(suffixOffset1 - dirtyBeforeInit, dirtyBeforeInit)
 					}
 				}
@@ -1747,9 +1710,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 							clearIfRef(0, dataEnd1)
 					} else
 						clearIfRef(dataOffset1 + idx, dataSize - idx)
-//					data.clearIfRef(dataOffset1 + idx, if (dataOffset2 < dataEnd2) MaxSize1 else dataEnd1)
-//					if (dataOffset2 + length2 == dataEnd2)
-//						data.clearIfRef(0, dataEnd1)
 				} else {                                      //The prefix is split into two arrays.
 					val prefixInitSize = MaxSize1 - dataOffset1
 					val prefixTailSize = dim1(dataOffset + idx)
@@ -1763,13 +1723,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 						//Copy the tail part to the init part array.
 						data = data2(dataOffset2 + 1 & mask2)
 						arraycopy(data2(dataOffset2), dataOffset1, data, dataOffset1, prefixInitSize)
-//						data1.clearIfRef(prefixTailSize, prefixTailSize + dirtyAfterTail)
 						clearIfRef(prefixTailSize, dirtyAfterTail)
 					} else {
 						//Copy the init part to the tail part array.
 						data = data2(dataOffset2)
 						arraycopy(data2(dataOffset2 + 1 & mask2), 0, data, 0, prefixTailSize)
-//						data1.clearIfRef(prefixTailSize, prefixTailSize + dirtyBeforeInit)
 						clearIfRef(prefixTailSize, dirtyBeforeInit)
 					}
 				}
@@ -1779,12 +1737,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				if (idx < suffixSize) {
 					arraycopy(data, dataOffset1, data, dataOffset1 + count, idx)
 					clearIfRef(dataOffset1, count)
-//					data.clearIfRef(dataOffset1, dataOffset1 + count)
 					dataOffset = dataOffset1 + count
 				} else {
 					arraycopy(data, dataOffset1 + end, data, dataOffset1 + idx, suffixSize)
 					clearIfRef(dataEnd1 - count, count)
-//					data.clearIfRef(dataEnd1 - count, dataEnd1)
 					dataOffset = dataOffset1
 				}
 			} else {                                          //dataOffset2 < dataEnd2
@@ -1867,7 +1823,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			data = data1
 		}
 		dataSize   -= count
-//		storageSize = newLength
 	}
 
 	/** Called from [[net.noresttherein.sugar.collections.MatrixBuffer.remove remove]] if the buffer has two dimensions,
@@ -1948,15 +1903,12 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			} else {
 				dataSize -= count
 				if (idx == 0) {
-//					data2(0).clearIfRef(math.max(0, dataOffset - (suffixOffset2 << Dim1Bits)) , dim1(suffixOffset))
 					val clearOffset = math.max(0, dataOffset - (suffixOffset2 << Dim1Bits))
 					clearIfRef(clearOffset, dim1(suffixOffset) - clearOffset)
 					dataOffset = dim1(suffixOffset)
 				} else { //end == dataSize
 					dataOffset   = dim1(dataOffset)
 					val newMask  = (newLength2 << Dim1Bits) - 1
-//					val dataEnd1 = dim1(dataOffset + dataSize)
-//					data2(dim2(dataOffset + dataSize) & newMask).clearIfRef(dataEnd1, math.min(MaxSize1, dataEnd1 + count))
 					val dataEnd  = dataOffset + dataSize & newMask
 					clearIfRef(dataEnd, math.min(count, MaxSize1 - dim1(dataEnd)))
 				}
@@ -2220,8 +2172,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	private def clearFront(n :Int) :Unit =
 		if (n > 0) {
 			clearIfRef(dataOffset, n)
-//			val emptyArrays = dim2(dataOffset + n) - dim2(dataOffset)
-//			dropFront2(emptyArrays)
 			val length2     = data2.length
 			val mask        = length2 - 1
 			val dataOffset2 = dim2(dataOffset)
@@ -2306,13 +2256,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				data        = null
 				storageSize = 0
 				dataOffset  = 0
-//			} else if (storageSize <= MaxSize1) {
-//				if (dataOffset + dataSize <= storageSize)
-//					data.clearIfRef(dataOffset, dataOffset + dataSize)
-//				else {
-//					data.clearIfRef(0, dataOffset + dataSize - storageSize)
-//					data.clearIfRef(dataOffset, storageSize)
-//				}
 			} else {
 				clearIfRef(dataOffset, dataSize)
 				dataOffset = dim2(dataOffset) << Dim1Bits
@@ -2585,6 +2528,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 	protected override def className :String = "MatrixBuffer[" + iterableEvidence.runtimeClass.localName + "]"
 
+	//Don't remove, it is uncommented in the generate sources stage for testing.
 //	override def toString :String = mkString(className + "|" + dataSize + "/" + storageSize + "|#" + dataOffset + "(", ", ", ")")
 }
 
@@ -2695,16 +2639,8 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 	  * `insert` method.
 	  */
 	private class SpacerValues[+X, -Xs](implicit values :CollectionLike[X, Xs]) extends CollectionLikeProxy[X, Xs](values) {
-//		override def hasFastSlice(xs :Xs) :Boolean = false
-//		override def hasFastDrop(xs :Xs) :Boolean = false
-//		override def isConsumable(xs :Xs) :Boolean = false
-//		override def prefersDropOverIterator(xs :Xs) :Boolean = false
-
 		override def iterator(xs :Xs) :Iterator[X] = Iterator.empty
 		override def toIterableOnce(elems :Xs) :IterableOnce[X] = Nil
-//		override def slice(xs :Xs, from :Int, until :Int) :IterableOnce[X] = Nil
-//		override def drop(xs :Xs, n :Int) :IterableOnce[X] = Nil
-//		override def consume[U](xs :Xs)(n :Int)(f :X => U) :IterableOnce[X] = values.drop(xs, n)
 
 		override def foreach[U](xs :Xs)(f :X => U) :Unit = {}
 		override def foldLeft[A](xs :Xs)(zero :A)(op :(A, X) => A) :A = zero
@@ -2855,10 +2791,6 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 	override def from[E](it :IterableOnce[E]) :MatrixBuffer[E] = it match {
 		case buffer :MatrixBuffer[E @unchecked]  => new MatrixBuffer[E](shrink)(buffer.iterableEvidence) ++= it
 		case seq :mutable.ArraySeq[E @unchecked] => new MatrixBuffer[E](shrink)(seq.elemTag.castParam[E]) ++= it
-//		case seq :ArraySeq[E@unchecked] =>
-//			new MatrixBuffer[E]()(ClassTag[E](seq.unsafeArray.getClass.getComponentType)) ++= it
-//		case arr :ArrayBacked[E@unchecked] =>
-//			new MatrixBuffer[E]()(ClassTag[E](arr.unsafeArray.getClass.getComponentType)) ++= it
 		case _ => new ErasedMatrixBuffer[E](true) ++= it
 	}
 

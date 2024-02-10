@@ -22,11 +22,10 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
-import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
+import net.noresttherein.sugar.typist.Unknown
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
-import net.noresttherein.sugar.witness.Ignored
 
 
 
@@ -118,12 +117,12 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		else
 			Array.copyOf(a, newLength).castFrom[Array[_], Array[E]]
 	}
-//
-//	def copyAs[E :ClassTag](src :ArrayLike[E], newLength :Int) :Array[E] =
-//		ArrayFactory.copyAs[E](src, newLength)
-//
-//	@inline final def copyAs[E :ClassTag](src :ArrayLike[E]) :Array[E] =
-//		copyAs[E](src, src.asInstanceOf[Array[_]].length)
+
+	def copyAs[E :ClassTag](src :ArrayLike[_], newLength :Int) :Array[E] =
+		ArrayFactory.copyAs[E](src, newLength)
+
+	@inline final def copyAs[E :ClassTag](src :ArrayLike[_]) :Array[E] =
+		copyAs[E](src, src.asInstanceOf[Array[_]].length)
 
 	/** A stepper iterating over a range of an array. Indices out of range are skipped silently. */
 	def stepper[A, S <: Stepper[_]]
@@ -219,12 +218,10 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		//'Safe' casting methods with very limited application.
 		// These methods are private, which may stop other methods from inlining, if no recursive inlining happens.
 		// If so, they must be made package protected.
-//		@inline private def exposeKind[X](array :Array[X]) :Arr[X] = array.asInstanceOf[Arr[X]]
 		@inline private def expose(array :Array[Unknown]) :Arr[E] = {
 			releaseFence()
 			array.asInstanceOf[Arr[E]]
 		}
-//		@inline private def unknown(value :E) :Unknown = value.asInstanceOf[Unknown]
 		@inline private def asElement(value :Unknown) :E = value.asInstanceOf[E]
 		@inline private def lengthOf(other :ArrayLike[_]) :Int = other.asInstanceOf[Array[_]].length
 
@@ -530,11 +527,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 					Arrays.mismatch(a, from0, until0, b, from1, until1)
 				case (a :Array[Boolean], b :Array[Boolean]) =>
 					Arrays.mismatch(a, from0, until0, b, from1, until1)
-//				case _ if thisFrom < 0 | thatFrom < 0 || thisFrom > self.length || thatFrom > that.length =>
-//					outOfBounds_!(
-//						s"${self.className}<${self.length}>.mismatch(${that.className}<${that.length}>, " +
-//							s"$thisFrom, $thisUntil, $thatFrom, $thatUntil)"
-//					)
 				case (a :Array[E @unchecked], b :Array[U @unchecked]) =>
 					var i = from0; var j = from1
 					val end = from0 + math.min(until0 - from0, until1 - from1)
@@ -749,10 +741,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		}
 
 
-//		@inline def removed(index :Int) :Arr[E] = ArrayExtension(array).removed(index).castFrom[Array[_], Arr[E]]
-//		@inline def removed(from :Int, until :Int) :Arr[E] =
-//			ArrayExtension(array).removed(from, until).castFrom[Array[_], Arr[E]]
-
 		/** An array, of the same kind and element type, consisting of all elements of this array
 		  * preceding the element at index, followed by all elements at positions `index + 1` and greater.
 		  */
@@ -780,7 +768,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		//We can't have any updated/inserted/appended methods, because they either build an array based on a ClassTag
 		// (wrong for RefArrayLike), or assume an elem :E can be stored in an identical array (wrong for IArray).
 
-//		@inline def reverse :Arr[E] = array.reverse.castFrom[Array[_], Arr[E]]
 
 		/** A new array of the same kind and length, where every element pair at indices `(i, length - i - 1)`
 		  * are swapped in place.
@@ -1056,15 +1043,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def copyToArray[U >: E](xs :Array[U]) :Int = copyRangeToArray(xs, 0, 0, Int.MaxValue)
 		@inline def copyToArray[U >: E](xs :Array[U], start :Int) :Int = copyRangeToArray(xs, start, 0, Int.MaxValue)
 		@inline def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = copyRangeToArray(xs, start, 0, len)
-//
-//		@inline def copyToRefArray[A >: E](xs :RefArray[A]) :Int =
-//			copyRangeToArray(xs.asAnyArray, 0, 0, Int.MaxValue)
-//
-//		@inline def copyToRefArray[A >: E](xs :RefArray[A], start :Int) :Int =
-//			copyRangeToArray(xs.asAnyArray, 0, start, Int.MaxValue)
-//
-//		@inline def copyToRefArray[A >: E](xs :RefArray[A], start :Int, len :Int) :Int =
-//			copyRangeToArray(xs.asAnyArray, 0, start, len)
 
 		/** Copies values from the index range `[from, this.length)` from this array to the argument array.
 		  * Copying stops when end of this or the argument array is reached.
@@ -1260,47 +1238,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  * as methods without implicit arguments have strict precedence. Unfortunately, adding a `DummyImplicit`
 	  * to the variant for `ArrayLike[T]` makes it, in turn, conflict with `[U >: T]ArrayLike[U]` with a `ClassTag[U]`.
 	  */
-	//This is all very nice, but we either need to make ArrayCompatibility a regular class, wrapping a ClassTag,
-	// and we really try to avoid creating unnecessary objects in this package,
-	// or we use the hack of having the type class be an alias for ClassTag itself, but in that case
-	// the implicit values for cases 2 and 3 are not in the implicit search scope, and the thing doesn't work
-	// right out of the box. We don't want users to have to figure out this whole scheme.
-	// In Scala 3 this can be easily solved with either an opaque type, or, even better, a union type as an argument,
-	// but for Scala 2 we need to figure out something different.
-/*	type ArrayCompatibility[T <: U, U, A[X] <: ArrayLike[X]] >: ClassTag[U]
-
-	implicit def sameElementTypeArrayLike[E, A[X] <: ArrayLike[X]] :ArrayCompatibility[E, E, A] =
-		SameElementTypeArrayLike.asInstanceOf[ArrayCompatibility[E, E, A    ]]
-
-	implicit def elementSuperTypeArray[T <: U, U] :ArrayCompatibility[T, U, Array] =
-		ElementSuperTypeArray.asInstanceOf[ArrayCompatibility[T, U, Array]]
-	private[this] case object SameElementTypeArrayLike
-	private[this] case object ElementSuperTypeArray
-*/
-
-
-//	implicit def arrayLikeToIterableOnce[A](array :ArrayLike[A]) :IterableOnce[A] =
-//		new ArrayAsSeq(array.asInstanceOf[Array[_]]).castParam[A]
-
-//	implicit def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
-//		Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
-//
-////	implicit def ArrayLikeToSeq[E](array :IArray[E]) :collection.IndexedSeq[E] = Wrapped(array)
-//
-//	//fixme: precedence conflicts with ArrayLikeExtension
-//	implicit def ArrayLikeIsSeq[E] :IsSeq[ArrayLike[E]] { type A = E; type C = ArrayLike[E] } =
-//		IsSeqPrototype.asInstanceOf[IsSeq[ArrayLike[E]] { type A = E; type C = ArrayLike[E] }]
-//
-//	//We don't know what the particular element type of the array will be, so we must use Scala's polymorphic delegates.
-//	private class ArrayLikeIsSeq[E] extends ArrayLikeIsSeqTemplate[E, collection.Seq, ArrayLike] {
-//		override def apply(array :ArrayLike[E]) = //not ArrayLikeAsSeq because it must use collection.Seq, not ArrayLike
-//			new ArrayLikeIsSeqOps[E, ArrayLike](array.asInstanceOf[Array[E]]) {
-//				protected override def fromSpecific(coll :IterableOnce[E]) :ArrayLike[E] = IRefArray.from(coll)
-//				protected override def newSpecificBuilder :Builder[E, ArrayLike[E]] = IRefArray.newBuilder
-//			}
-//		private def readResolve = ArrayLike.ArrayLikeIsSeq
-//	}
-//	private[this] val IsSeqPrototype :ArrayLikeIsSeq[Any] = new ArrayLikeIsSeq[Any]
 
 
 	/** A type class defining the specific `collection.IndexedSeq` subclass to which
@@ -1490,59 +1427,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		}
 
 	}
-
-
-//	private[arrays] sealed trait conversions extends Any {
-//		@inline implicit final def ArrayLikeToSeq[A, Arr[X] <: ArrayLike[X]]
-//	                               (self :Arr[A])(implicit wrap :ArrayLikeToSeqConversion[A, Arr]) :wrap.IndexedSeq =
-//			wrap(self)
-//	}
-//
-//	private[arrays] sealed trait evidence extends Any {
-//		implicit def ArrayLikeOrdering[E :Ordering, Arr[X] <: ArrayLike[X]] :Ordering[Arr[E]] =
-//			Array.ArrayOrdering[E].castFrom[Ordering[Array[E]], Ordering[Arr[E]]]
-//	}
-//
-//	/** Mixin trait with extension methods conversion for `ArrayLike` subtypes.
-//	  * @define Coll `ArrayLike`
-//	  * @define Extension `ArrayLikeExtension[Arr, E]`
-//	  * @define conversionInfo It is a specific subclass of `E => `$Extension function in order for it to have precedence
-//	  *                        over conversions in `Predef` `Array[E] => ArrayOps[E]` as well as extension methods
-//	  *                        from `sugar.collections.extensions`, available through wrapping to `IterableOnceOps` .
-//	  *                        While the shadowed extension methods have the same semantics as in `ArrayOps` and
-//	  *                        collection extensions, they also have overloaded variants,
-//	  *                        which would otherwise be invisible.
-//	  */ //todo: let package object extend it instead of extensions object.
-//	private[arrays] trait extensions extends Any with evidence /*with conversions*/ {
-////		@inline implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], A](self :Arr[A])
-////				:ArrayLikeExtension[Arr, A] =
-////			new ArrayLikeExtension(self.asInstanceOf[Array[Unknown]])
-//		/** Extension methods for all `ArrayLike` subtypes.
-//		  * $conversionInfo
-//		  */
-//		implicit final def ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] :ArrayLikeExtensionConversion[Arr, E] =
-//			extensions.ArrayLikeExtensionConversionPrototype.asInstanceOf[ArrayLikeExtensionConversion[Arr, E]]
-//	}
-//
-//	@SerialVersionUID(Ver)
-//	object extensions extends extensions {
-//		sealed trait ArrayLikeExtensionConversion[Arr[X] <: ArrayLike[X], E]
-//			extends (Arr[E] => ArrayLikeExtension[Arr, E])
-//		{
-//			@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :ArrayLikeExtension[Arr, E] =
-//				new ArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
-//		}
-////		private def newArrayLikeExtensionConversion[E, Arr[X] <: ArrayLike[X]] =
-////			new PriorityConversion.Wrapped[Arr[E], ArrayLikeExtension[Arr, E]](
-////				(arr :Arr[E]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
-////			) with ArrayLikeExtensionConversion[Arr, E]
-////		private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Any] =
-////			newArrayLikeExtensionConversion
-//		private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Unknown] =
-//			new PriorityConversion.Wrapped[ArrayLike[Unknown], ArrayLikeExtension[ArrayLike, Unknown]](
-//				(arr :ArrayLike[Unknown]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
-//			) with ArrayLikeExtensionConversion[ArrayLike, Unknown]
-//	}
 }
 
 
