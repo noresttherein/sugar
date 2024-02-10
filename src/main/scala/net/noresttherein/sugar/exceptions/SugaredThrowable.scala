@@ -5,10 +5,13 @@ import java.io.{PrintStream, PrintWriter}
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
+import net.noresttherein.sugar.text.{EOL, StringWriter}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.{Maybe, Opt}
 
 
@@ -61,7 +64,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 
 	/** Standard [[Throwable.getSuppressed getSuppressed]] array as a scala [[Seq]]. */
 	lazy val suppressed :Seq[Throwable] = getSuppressed match {
-		case null => Nil
+		case null  => Nil
 		case array => ArraySeq.unsafeWrapArray(array)
 	}
 
@@ -211,12 +214,18 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  * shared frames, with this exception being formatted as the last one.
 	  */
 	def reverseStackTraceString :String = utils.reverseStackTraceString(this)
-//
-//	/** Formats this exception together with its stack trace in the standard format.
-//	  * The first line of the returned `String` is equal to `this.toString`; the following lines
-//	  * are the same as would be printed with [[Throwable.printStackTrace Throwable.printStackTrace]].
-//	  */
-//	def toStringWithStackTrace :String = utils.formatWithStackTrace(this)
+
+	/** Similar to the standard [[Throwable.printStackTrace printStackTrace]],
+	  * but, for exceptions thrown as a result of other exceptions, prints the cause stack in the reverse order.
+	  * @see [[net.noresttherein.sugar.exceptions.SugaredThrowable.causeQueue causeQueue]]
+	  */
+	def printReverseStackTrace(s :PrintWriter) :Unit = s.print(reverseStackTraceString)
+
+	/** Similar to the standard [[Throwable.printStackTrace printStackTrace]],
+	  * but, for exceptions thrown as a result of other exceptions, prints the cause stack in the reverse order.
+	  * @see [[net.noresttherein.sugar.exceptions.SugaredThrowable.causeQueue causeQueue]]
+	  */
+	def printReverseStackTrace(s :PrintStream) :Unit = s.print(reverseStackTraceString)
 
 	override def toString :String = {
 		val s :String = className
@@ -293,6 +302,20 @@ trait LazyException extends SugaredException with LazyThrowable
   */
 trait ImplException extends SugaredException {
 	override def className :String = getClass.getSuperclass.name
+
+	override def stackTraceString :String =  {
+		val res = new JStringBuilder
+		utils.printStackTrace(this, res.append(_).append(EOL), One(classOf[ImplException].getPackageName))
+		res.toString
+	}
+	override def reverseStackTraceString :String = {
+		val res = new JStringBuilder
+		utils.printReverseStackTrace(this, res.append(_).append(EOL), One(classOf[ImplException].getPackageName))
+		res.toString
+	}
+
+	override def printStackTrace(s :PrintStream) :Unit = s.print(stackTraceString)
+	override def printStackTrace(s :PrintWriter) :Unit = s.print(stackTraceString)
 }
 
 
@@ -455,12 +478,8 @@ trait Rethrowable extends SugaredThrowable {
 		else super.fillInStackTrace()
 	}
 
-	override def printStackTrace(s :PrintStream) :Unit = s.synchronized {
-		utils.printStackTrace(this, s.println)
-	}
-	override def printStackTrace(s :PrintWriter) :Unit = s.synchronized {
-		utils.printStackTrace(this, s.println)
-	}
+	override def printStackTrace(s :PrintStream) :Unit = s.print(stackTraceString)
+	override def printStackTrace(s :PrintWriter) :Unit = s.print(stackTraceString)
 
 	override def addInfo(msg :String) :SugaredThrowable =
 		try {
@@ -476,7 +495,7 @@ trait Rethrowable extends SugaredThrowable {
 
 
 /** A `Rethrowable` and `ImplException` for convenient mixing them both into exception classes. */
-trait ImplRethrowable extends Exception with Rethrowable with ImplException {
+trait ImplRethrowable extends Exception with ImplException with Rethrowable {
 	override def isRethrown :Boolean = getCause != null
 }
 

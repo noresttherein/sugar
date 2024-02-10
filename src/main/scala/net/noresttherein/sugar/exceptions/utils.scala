@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.exceptions
 
+import java.io.{PrintWriter}
 import java.lang.System.arraycopy
 
 import scala.annotation.tailrec
@@ -10,7 +11,8 @@ import scala.collection.mutable.{ArrayBuffer, Buffer}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.collections.MutableEqSet
 import net.noresttherein.sugar.exceptions.extensions.ThrowableExtension
-import net.noresttherein.sugar.text.EOL
+import net.noresttherein.sugar.text.{EOL, StringWriter}
+import net.noresttherein.sugar.vars.Opt
 
 
 
@@ -58,33 +60,6 @@ private object utils {
 		val stack = e.stackTrace
 		val stackSize = stack.length
 		buffer += stack.dropSharedFrames(fullLastStackTrace)
-//		if (stack.isEmpty)
-//			buffer += Nil
-//		else {
-//			var last = buffer.length
-//			val previousStackSize = fullLastStackTrace.length
-//			if (previousStackSize == 0)
-//				buffer += ArraySeq.unsafeWrapArray(stack)
-//			else if (!matches(fullLastStackTrace.last, stack.last))
-//				buffer += ArraySeq.unsafeWrapArray(stack)
-//			else if (previousStackSize <= stackSize
-//				&& matches(stack(stackSize - previousStackSize - 1), fullLastStackTrace(0))
-//			)
-//				buffer += ErasedArray.Wrapped.Slice.unsafe(stack, 0, previousStackSize - stackSize)
-//			else { //bin search for the point where the stacks diverge
-//				val length = math.min(stack.length, fullLastStackTrace.length)
-//				var unmatched = length - 1
-//				var matched = 0
-//				while (matched != unmatched) {
-//					val middle = (matched + unmatched + 1) >>> 1
-//					if (matches(stack(stackSize - middle), fullLastStackTrace(previousStackSize - middle)))
-//						matched = middle
-//					else
-//						unmatched = middle - 1
-//				}
-//				buffer += ErasedArray.Wrapped.Slice.unsafe(stack, 0, stackSize - matched)
-//			}
-//		}
 		e.getCause match {
 			case null =>
 				buffer to ArraySeq
@@ -172,6 +147,7 @@ private object utils {
 	  * The code is shamelessly nicked and adapted from the reference implementation of [[Throwable]].
 	  */
 	private[exceptions] def printStackTrace(e :Throwable, printer :AnyRef => Unit,
+	                                        droppedFramesPrefix :Opt[String] = None,
 	                                        enclosingTrace :StackTrace = StackTrace.empty,
 	                                        dejaVu :mutable.Set[Throwable] = dejaVuSet,
 	                                        prefix :String = "", caption :String = "") :Unit =
@@ -187,6 +163,10 @@ private object utils {
 			val framePrefix = prefix + "\tat "
 			printer(prefix + caption + e)
 			var i = 0
+			droppedFramesPrefix foreach { prefix =>
+				while (i < stackSize && trace(i).getClassName.startsWith(prefix))
+					i += 1
+			}
 			while (i < stackSize) {
 				printer(framePrefix + trace(i))
 				i += 1
@@ -196,12 +176,12 @@ private object utils {
 
 			// Print suppressed exceptions, if any
 			e.suppressed foreach { suppressed =>
-				printStackTrace(suppressed, printer, trace, dejaVu, prefix + "\t", SuppressedCaption)
+				printStackTrace(suppressed, printer, None, trace, dejaVu, prefix + "\t", SuppressedCaption)
 			}
 			// Print cause, if any
 			val cause = e.getCause
 			if (cause != null)
-				printStackTrace(cause, printer, trace, dejaVu, prefix, CauseCaption)
+				printStackTrace(cause, printer, None, trace, dejaVu, prefix, CauseCaption)
 		}
 
 	/** Prints stack trace in the reverse order, using `printer` argument.
@@ -209,8 +189,9 @@ private object utils {
 	  * by any wrapping exceptions.
 	  */
 	private[exceptions] def printReverseStackTrace(e :Throwable, printer :AnyRef => Unit,
-	                                               dejaVu :mutable.Set[Throwable] = dejaVuSet,
+	                                               droppedFramesPrefix :Opt[String] = None,
 	                                               enclosingTrace :StackTrace = StackTrace.empty,
+	                                               dejaVu :mutable.Set[Throwable] = dejaVuSet,
 	                                               prefix :String = "", rootCaption :String = "") :Unit =
 		if (dejaVu(e)) {
 			printer("\t[CIRCULAR REFERENCE:" + e + "]")
@@ -222,7 +203,7 @@ private object utils {
 				if (cause == null)
 					rootCaption
 				else { //first, print the cause
-					printReverseStackTrace(cause, printer, dejaVu, enclosingTrace, prefix, rootCaption)
+					printReverseStackTrace(cause, printer, None, enclosingTrace, dejaVu, prefix, rootCaption)
 					WrappedCaption
 				}
 			printer(prefix + caption + e)
@@ -243,7 +224,7 @@ private object utils {
 
 			// Print suppressed exceptions, if any
 			e.suppressed foreach { suppressed =>
-				printReverseStackTrace(suppressed, printer, dejaVu, trace,prefix + "\t", SuppressedCaption)
+				printReverseStackTrace(suppressed, printer, None, trace, dejaVu,prefix + "\t", SuppressedCaption)
 			}
 		}
 
@@ -261,19 +242,6 @@ private object utils {
 		printReverseStackTrace(e, res append _ append EOL)
 		res.toString
 	}
-//
-//	/** Formats `e` together with its stack trace in the standard format.
-//	  * The first line of the returned `String` is equal to `e.toString`; the following lines
-//	  * are the same as would be printed with `e.`[[Throwable.printStackTrace Throwable.printStackTrace]].
-//	  */
-//	private[exceptions] def formatWithStackTrace(e :Throwable) :String = {
-//		val writer  = new StringWriter
-//		val printer = new PrintWriter(writer)
-//		printer.println(e)
-//		printStackTrace(e, StackTrace.empty, printer.println)
-//		printer.close()
-//		writer.toString
-//	}
 
 
 	private[this] final val SuppressedCaption    = "Suppressed: "

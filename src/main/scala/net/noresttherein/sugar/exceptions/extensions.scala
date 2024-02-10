@@ -1,9 +1,11 @@
 package net.noresttherein.sugar.exceptions
 
+import java.io.{PrintStream, PrintWriter}
+
 import scala.collection.immutable.ArraySeq
 
 import net.noresttherein.sugar.exceptions.extensions.{StackTraceElementExtension, ThrowableExtension}
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.Opt
 
 
 
@@ -60,29 +62,25 @@ object extensions extends extensions {
 		  */
 		def causeQueue :Seq[Throwable] = self match {
 			case e :SugaredThrowable => e.causeQueue
-			case _ => utils.causeQueue(self)
+			case _                   => utils.causeQueue(self)
 		}
 
 		/** Standard [[Throwable.getCause getCause]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
-		def cause :Maybe[Throwable] = self match {
+		def cause :Opt[Throwable] = self match {
 			case e :SugaredThrowable => e.cause
-			case _ => Maybe(self.getCause)
+			case _                   => Opt(self.getCause)
 		}
 
 		/** Sets the [[ThrowableExtension.cause cause]] of this [[Throwable]] using
 		  * [[Throwable.initCause initCause]] method. This method can be called at most once, and only
 		  * if a `Throwable` cause was not given as a constructor parameter of this `Throwable`.
 		  */
-		def cause_=(cause :Throwable) :Unit = self match {
-			case e :SugaredThrowable => e.cause = cause
-			case _ => self.initCause(cause)
-		}
-
+		def cause_=(cause :Throwable) :Unit = self.initCause(cause)
 
 		/** Standard[[Throwable.getMessage getMessage]] wrapped in a [[net.noresttherein.sugar.vars.Maybe Maybe]]. */
-		def message :Maybe[String] = self match {
+		def message :Opt[String] = self match {
 			case e :SugaredThrowable => e.message
-			case _ => Maybe(self.getMessage)
+			case _                   => Opt(self.getMessage)
 		}
 
 		/** Denullified [[Throwable.getMessage getMessage]] returning an empty string
@@ -96,9 +94,9 @@ object extensions extends extensions {
 
 
 		/**`Maybe(getLocalizedMessage)`. */
-		def localizedMessage :Maybe[String] = self match {
+		def localizedMessage :Opt[String] = self match {
 			case e :SugaredThrowable => e.localizedMessage
-			case _ => Maybe(self.getLocalizedMessage)
+			case _                   => Opt(self.getLocalizedMessage)
 		}
 
 		/**`Option(getLocalizedMessage) getOrElse ""`. */
@@ -118,9 +116,9 @@ object extensions extends extensions {
 		  * in the list with [[Throwable.getCause getCause]] as the next message.
 		  * @return `Maybe(originalCause.getMessage)`
 		  */
-		def rootMessage :Maybe[String] = self match {
+		def rootMessage :Opt[String] = self match {
 			case e :SugaredThrowable => e.rootMessage
-			case _ => Maybe(rootCause.getMessage)
+			case _                   => Opt(rootCause.getMessage)
 		}
 
 		/** Denullified [[Throwable.getMessage getMessage]] of the original `Throwable` cause of this exception,
@@ -154,7 +152,7 @@ object extensions extends extensions {
 		  */
 		def stackTraceString :String = self match {
 			case sugared :SugaredThrowable => sugared.stackTraceString
-			case _ => utils.stackTraceString(self)
+			case _                         => utils.stackTraceString(self)
 		}
 
 		/** Formats the stack trace of this exception and all its causes, listed in the reverse order.
@@ -166,14 +164,26 @@ object extensions extends extensions {
 		  */
 		def reverseStackTraceString :String = self match {
 			case sugared :SugaredThrowable => sugared.reverseStackTraceString
-			case _ => utils.reverseStackTraceString(self)
+			case _                         => utils.reverseStackTraceString(self)
 		}
-//
-//		/** Formats this exception together with its stack trace in the standard format.
-//		  * The first line of the returned `String` is equal to `this.toString`; the following lines
-//		  * are the same as would be printed with [[Throwable.printStackTrace Throwable.printStackTrace]].
-//		  */
-//		def toStringWithStackTrace :String = utils.formatWithStackTrace(self)
+
+		/** Similar to the standard [[Throwable.printStackTrace printStackTrace]],
+		  * but, for exceptions thrown as a result of other exceptions, prints the cause stack in the reverse order.
+		  * @see [[net.noresttherein.sugar.exceptions.extensions.ThrowableExtension.causeQueue causeQueue]]
+		  */
+		def printReverseStackTrace(s :PrintStream) :Unit = self match {
+			case sugared :SugaredThrowable => sugared.printReverseStackTrace(s)
+			case _                         => utils.printReverseStackTrace(self, s.println)
+		}
+
+		/** Similar to the standard [[Throwable.printStackTrace printStackTrace]],
+		  * but, for exceptions thrown as a result of other exceptions, prints the cause stack in the reverse order.
+		  * @see [[net.noresttherein.sugar.exceptions.extensions.ThrowableExtension.causeQueue causeQueue]]
+		  */
+		def printReverseStackTrace(s :PrintWriter) :Unit = self match {
+			case sugared :SugaredThrowable => sugared.printReverseStackTrace(s)
+			case _                         => utils.printReverseStackTrace(self, s.println)
+		}
 	}
 
 
