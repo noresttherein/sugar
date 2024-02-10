@@ -14,12 +14,14 @@ import net.noresttherein.sugar.illegal_!
   * @define innerClassNameDocs  First, the whole package prefix and all trailing '$' characters are dropped.
   *                             Then, all escape sequences for special characters which are legal for use in identifiers
   *                             are unescaped to their original forms. Then, dropped is the prefix up until and including
-  *                             to the last '$'. If the class is specialized, its mangled type parameters are resolved
-  *                             and composed in a type parameter list in Scala's syntax. If the class is anonymous,
-  *                             a simple '.anon' replaces its whole anonymous name section, and prepended to it
-  *                             is the directly preceding/enclosing class name, that is the inner-most class name
-  *                             from the non-anonymous prefix. Primitive types are capitalized to their Scala names,
-  *                             while their Java boxes receive "J" as a prefix. Arrays are formatted recursively
+  *                             to the last '$'. Inner classes of package objects are formatted as if they were declared
+  *                             directly in the package. If the class is specialized, its mangled type parameters
+  *                             are resolved and composed in a type parameter list in Scala's syntax.
+  *                             If the class is anonymous, a simple '.anon' replaces its whole anonymous name section,
+  *                             and prepended to it is the directly preceding/enclosing class name,
+  *                             that is the inner-most class name from the non-anonymous prefix.
+  *                             Primitive types are capitalized to their Scala names, while their Java boxes
+  *                             receive "J" as a prefix. Arrays are formatted recursively
   *                             as 'Array['`innerClassName(element)`']'.
   *
   *                             This algorithm is a heuristic and can only be used for informational, debugging purposes,
@@ -37,10 +39,12 @@ import net.noresttherein.sugar.illegal_!
   *                             in identifiers are unescaped to their original forms. All individual '$' signs
   *                             (used in name mangling of inner classes as the separators) are replaced with a '.',
   *                             and so is the double '$$' in '$$anon' sequence for anonymous classes.
-  *                             If the class is specialized, its mangled type parameters are resolved and composed
-  *                             in a type parameter list in Scala's syntax. Primitive types are capitalized
-  *                             to their Scala names, while their Java box classes receive "J" as a prefix.
-  *                             Arrays are formatted recursively as 'Array['`localClassName(element)`']'.
+  *                             Inner classes of package objects are formatted as if they were defined
+  *                             in the package itself. If the class is specialized, its mangled type parameters
+  *                             are resolved and composed in a type parameter list in Scala's syntax.
+  *                             Primitive types are capitalized to their Scala names, while their Java box classes
+  *                             receive "J" as a prefix. Arrays are formatted recursively
+  *                             as 'Array['`localClassName(element)`']'.
   *
   *                             This algorithm is a heuristic and can only be used for informational, debugging purposes,
   *                             and not for identifiers or in any sort of reflection operations, as it can fail to produce
@@ -56,7 +60,8 @@ import net.noresttherein.sugar.illegal_!
   *                             Encoding of type arguments for `@specialized` classes is resolved and replaced
   *                             with a parameter list, as it would occur in the code. Finally, all individual '$'
   *                             (used in particular for separating names of nested classes) are replaced with '.',
-  *                             as is the double '$$' in '$$anon' marking an anonymous class. Primitive types
+  *                             as is the double '$$' in '$$anon' marking an anonymous class. Prefix "package$"
+  *                             of local names of classes defined in package objects is ignored. Primitive types
   *                             are capitalized to their Scala names and arrays are formatted recursively as
   *                             'Array['`abbrevName(element)`']'.
   *
@@ -73,7 +78,8 @@ import net.noresttherein.sugar.illegal_!
   *                             Encoding of type arguments for `@specialized` classes is resolved and replaced
   *                             with a parameter list, as it would occur in the code. Finally, all individual '$'
   *                             (used in particular for separating names of nested classes) are replaced with '.',
-  *                             as is the double '$$' in '$$anon' marking an anonymous class. Primitive types
+  *                             as is the double '$$' in '$$anon' marking an anonymous class. Prefix "package$"
+  *                             of local names of classes defined in package objects is ignored. Primitive types
   *                             are capitalized to their Scala names and arrays are formatted recursively
   *                             as 'Array['`fullNameOf(element)`']'.
   *
@@ -252,16 +258,21 @@ package object prettyprint {
 				val end    = typeNameEnd(className, offset)
 				var i      = offset
 				var wasDot = true
-				while (i < local) {
-					if (className.charAt(i) == '.') {
-						buffer append '.'
-						wasDot = true
-					} else if (wasDot) {
-						buffer append className.charAt(i)
-						wasDot = false
+				while (i < local)
+					className.charAt(i) match {
+						case '.' =>
+							wasDot = true
+							buffer append '.'
+							i += 1
+							if (className.startsWith("package$", i))
+								i += 9
+						case c if wasDot =>
+							buffer append c
+							wasDot = false
+							i += 1
+						case _ =>
+							i += 1
 					}
-					i += 1
-				}
 				demangleClassName(className, local, end, buffer)
 				buffer
 			}
@@ -405,7 +416,9 @@ package object prettyprint {
 
 
 	private def demangleClassName(input :String, offset :Int, end :Int, result :JStringBuilder) :Unit = {
-		var i  = offset
+		var i = offset
+		if (input.startsWith("package$", offset))
+			i = offset + 8
 		while (i < end) input.charAt(i) match {
 			case '$' =>
 				i += 1
@@ -414,11 +427,12 @@ package object prettyprint {
 				else if (input.startsWith("anon", i)) {
 					result append "anon"; i += 4
 				} else {
-					val jump = unescape(input, i, result)
-					if (jump == i)
+					val symbolEnd = unescape(input, i, result)
+					if (symbolEnd == i)
 						result append '.'
+					else
+						i = symbolEnd
 				}
-
 			case c => 
 				result append c; i += 1
 		}
@@ -426,13 +440,13 @@ package object prettyprint {
 
 
 	private def unescape(input :String, offset :Int, result :JStringBuilder) :Int = {
-		var s = escapes.length
+		var i = escapes.length
 		var symbol = ""
-		while (s > 0) {
-			s -= 1
-			symbol = escapes(s)
+		while (i > 0) {
+			i -= 1
+			symbol = escapes(i)
 			if (input.startsWith(symbol, offset)) {
-				result append symbols(s)
+				result append symbols(i)
 				return offset + symbol.length
 			}
 		}

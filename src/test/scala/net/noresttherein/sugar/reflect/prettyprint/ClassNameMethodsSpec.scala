@@ -1,15 +1,16 @@
 package net.noresttherein.sugar.reflect.prettyprint
 
-import scala.collection.AbstractSeq
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.{JBoolean, JByte, JChar, JDouble, JFloat, JInt, JLong, JShort}
 import org.scalacheck.Prop._
 import org.scalacheck.Properties
-import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 
 
-
+package object test {
+	class Test
+}
 
 
 object ClassNameMethodsSpec extends Properties("classNameMethods") {
@@ -93,6 +94,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.innerClassName ?= "Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).innerClassName ?= "boo") &&
 			((new AnyRef).innerClassName ?= "AnyRef") &&
+			((new test.Test).innerClassName ?= "Test") &&
 			primitivesProp(innerNameOf) &&
 			arraysProp("J", innerNameOf)
 	}
@@ -109,6 +111,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.localClassName ?= "ClassNameMethodsSpec.Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).localClassName ?= "ClassNameMethodsSpec.Spec.boo") &&
 			((new AnyRef).localClassName ?= "AnyRef") &&
+			((new test.Test).localClassName ?= "Test") &&
 			primitivesProp(localNameOf) &&
 			arraysProp("J", localNameOf)
 	}
@@ -126,6 +129,7 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.abbrevClassName ?= prefix + ".Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).abbrevClassName ?= prefix + ".Spec.boo") &&
 			((new AnyRef).abbrevClassName ?= "AnyRef") &&
+			((new test.Test).abbrevClassName ?= getClass.getPackageName.replaceAll("([^.])[^.]*", "$1") + ".t.Test") &&
 			primitivesProp(abbrevNameOf) &&
 			arraysProp("j.l.", abbrevNameOf)
 	}
@@ -143,19 +147,21 @@ object ClassNameMethodsSpec extends Properties("classNameMethods") {
 			(CharBool.className ?= prefix + ".Spec[Char,Boolean]") &&
 			((new DoubleUnit.boo).className ?= prefix + ".Spec.boo") &&
 			((new AnyRef).className ?= "AnyRef") &&
+			((new test.Test).className ?= getClass.getPackageName + ".test.Test") &&
 			primitivesProp(fullNameOf) &&
 			arraysProp("java.lang.", fullNameOf)
 	}
 
 
-	Console.err.println(ByteShort.getClass.getName)
-	Console.err.println(Outer.inner.getClass.getName)
-	Console.err.println(Outer.anon.getClass.getName)
-	Console.err.println(classOf[Inner].getName)
-	Console.err.println((new ClassNameMethodsSpec).inner.getClass.getName)
-	Console.err.println((new ClassNameMethodsSpec).anon.getClass.getName)
-	Console.err.println((new !@#%^&*-+=<>?/|\:).getClass.getName)
-	Console.err.println(Array.ofDim[Any](1, 1, 1).getClass.getName)
+	Console.out.println(ByteShort.getClass.getName)
+	Console.out.println(Outer.inner.getClass.getName)
+	Console.out.println(Outer.anon.getClass.getName)
+	Console.out.println(classOf[Inner].getName)
+	Console.out.println((new ClassNameMethodsSpec).inner.getClass.getName)
+	Console.out.println((new ClassNameMethodsSpec).anon.getClass.getName)
+	Console.out.println((new !@#%^&*-+=<>?/|\:).getClass.getName)
+	Console.out.println(Array.ofDim[Any](1, 1, 1).getClass.getName)
+	Console.out.println((new test.Test).getClass.getName)
 }
 
 
