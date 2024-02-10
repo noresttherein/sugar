@@ -180,23 +180,6 @@ final class SpinVar[@specialized(SpecializedVars) T] private[vars]
 	  */
 	@inline def foreach[U](f :T => U) :Unit = flatMap(f)
 
-	//overridden to avoid creating a functional object closure
-	private[vars] override def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-		try {
-			lock()
-			val self = ev(this)
-			self.unsafe = self.unsafe && other
-		} finally
-			mutex = Unlocked
-
-	private[vars] override def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-		try {
-			val self = ev(this)
-			self.unsafe = self.unsafe || other
-		} finally
-			mutex = Unlocked
-
-
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[SpinVar[_]]
 }
 

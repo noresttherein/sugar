@@ -90,17 +90,6 @@ trait SyncVar[@specialized(SpecializedVars) T] extends AtomicOps.AtomicVar[T] wi
 	  */
 	@inline final def foreach[U](f :T => U) :Unit = flatMap(f)
 
-	//overridden to avoid creating a functional object closure
-	private[vars] override def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this)
-		self.unsafe = self.unsafe && other
-	}
-	private[vars] override def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = synchronized {
-		val self = ev(this)
-		self.unsafe = self.unsafe || other
-	}
-
-
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[SyncVar[_]]
 }
 

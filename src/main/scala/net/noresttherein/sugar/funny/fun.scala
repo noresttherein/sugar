@@ -668,7 +668,7 @@ object fun {
 	  * on composition. Additionally, provides an indicative `toString` implementation.
 	  */
 	trait Identity[@specialized(Arg) X] extends ComposableFun[X, X] with PureFun[X, X] {
-		final override def apply(x :X) :X = x
+		override def apply(x :X) :X = x
 
 		@unspecialized override def compose[A](g :A => X) :A => X = g
 		@unspecialized override def compose[A, B](g :(A, B) => X) :(A, B) => X = g

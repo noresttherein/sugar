@@ -192,21 +192,6 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 			if (state == Immutable)
 				illegalState_!(toString + " is frozen.")
 
-	//overridden to avoid the creation of a closure object capturing other
-	private[vars] override def bool_&&=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
-		lock()
-		if (ev(this).value && !other)
-			ev(this).set(false)
-		state = Mutable
-	}
-
-	private[vars] override def bool_||=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
-		lock()
-		if (!ev(this).value && other)
-			ev(this).set(true)
-		state = Mutable
-	}
-
 	private[vars] override def isSpecialized :Boolean = getClass != classOf[Freezer[_]]
 
 	override def mkString :String = {

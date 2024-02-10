@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.typist
 
+import net.noresttherein.sugar.funny.fun.Identity
 import net.noresttherein.sugar.reflect.Specialized.{NotCached, Primitives, Vals}
 import net.noresttherein.sugar.typist.extensions.{extensions_<:<, extensions_=:=}
 import net.noresttherein.sugar.witness.Ignored
@@ -30,18 +31,25 @@ trait extensions extends Any with extensionsLowPriority {
   */ //Consider: if we moved this to witness, we could bring casting to top level.
 @SerialVersionUID(Ver)
 object extensions extends extensions {
+	@SerialVersionUID(Ver)
+	object spec_<:< {
+		implicit def identity[X] :X spec_=:= X = RefIsRef.asInstanceOf[X spec_=:= X]
+		private case object RefIsRef extends Identity[Unknown] with spec_=:=[Unknown, Unknown]
+		implicit case object ByteIsByte extends Identity[Byte] with spec_=:=[Byte, Byte]
+		implicit case object ShortIsShort extends Identity[Short] with spec_=:=[Short, Short]
+		implicit case object CharIsChar extends Identity[Char] with spec_=:=[Char, Char]
+		implicit case object IntIsInt extends Identity[Int] with spec_=:=[Int, Int]
+		implicit case object LongIsLong extends Identity[Long] with spec_=:=[Long, Long]
+		implicit case object FloatIsFloat extends Identity[Float] with spec_=:=[Float, Float]
+		implicit case object DoubleIsDouble extends Identity[Double] with spec_=:=[Double, Double]
+		implicit case object BooleanIsBoolean extends Identity[Boolean] with spec_=:=[Boolean, Boolean]
+	}
 
 	/** A `@specialized` variant of standard `<:<`. Can be obtained through an extension method from any `<:<`. */
 	@SerialVersionUID(Ver)
 	sealed trait spec_<:<[@specialized(Vals) -X, @specialized(Vals) +Y] extends (X => Y) with Serializable {
 		def unspec :X <:< Y
-
-		/** Upcasts the argument to the supertype parameter. In order to be able to specialize for more types
-		  * than `Function1`, it provides an `apply` with a higher precedence, and different signature than `X => Y`.
-		  * When used as an implicit conversion, the compiler will then insert calls to this method,
-		  * rather than the generic one.
-		  */
-		@inline final def apply(sub :X)(implicit __ :Ignored) :Y = sub.asInstanceOf[Y]
+		final override def apply(sub :X) :Y = sub.asInstanceOf[Y]
 	}
 
 	/** A `@specialized` variant of standard `=:=`. Can be obtained through an extension method from any `=:=`. */
@@ -51,22 +59,12 @@ object extensions extends extensions {
 		@inline final def flip :spec_=:=[Y, X] = this.asInstanceOf[spec_=:=[Y, X]]
 	}
 
-	@SerialVersionUID(Ver)
-	object spec_<:< {
-		implicit final def reflective[X] :X spec_=:= X = instance.asInstanceOf[X spec_=:= X]
-		private[this] final val instance = new impl
-
-		private final class impl[X] extends spec_=:=[X, X] {
-			override def apply(v1 :X) :X = v1
-		}
-	}
-
 
 	class extensions_<:<[A, B](private val ev :A <:< B) extends AnyVal {
 		/** A `@specialized` version of `A <:< B`.
 		  * It is an implicit value, hence importing it will automatically enable implicit conversion.
-		  */
-		@inline implicit def spec :A spec_<:< B = spec_<:<.reflective.asInstanceOf[A spec_<:< B]
+		  */ //fixme: this makes no sense, as we'll never get a specialized instance.
+		@inline implicit def spec :A spec_<:< B = spec_<:<.identity.asInstanceOf[A spec_<:< B]
 
 		/** Provides counterparts of lift/substitute methods of `A <:< B` working with functors
 		  * with an upper bound `U` on their argument(s).
@@ -111,7 +109,7 @@ object extensions extends extensions {
 		/** A `@specialized` version of `A =:= B`.
 		  * It is an implicit value, hence importing it will automatically enable implicit conversion.
 		  */
-		@inline implicit def spec :A spec_=:= B = spec_<:<.reflective.asInstanceOf[A spec_=:= B]
+		@inline implicit def spec :A spec_=:= B = spec_<:<.identity.asInstanceOf[A spec_=:= B]
 
 		/** Provides counterparts of lift/substitute methods of `A =:= B` working with functors
 		  * with an upper bound `U` on their argument(s).

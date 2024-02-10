@@ -180,8 +180,17 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 		if (!other) ev(this).value = false
 	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = //ev(this).updateLeft(other)(_ | _)
 		if (other) ev(this).value = true
-	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).update(_ && other)
-	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).update(_ || other)
+	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
+		val self = ev(this)
+		//Race condition doesn't change the result, because it would set this to the same value as 'if'.
+		if (self.value && !other)
+			self.value = false
+	}
+	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
+		val self = ev(this)
+		if (!self.value && other)
+			self.value = true
+	}
 	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ ^ _)
 	private[vars] def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = ev(this).update(!_)
 
@@ -216,7 +225,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	private[vars] def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ << _)
 
 	/************************************** Float methods *************************************************************/
-
+	//fixme: Float, Byte, Short, Char, Boolean being not specialized defeat the purpose of these methods.
 	private[vars] def float_+=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ + _)
 	private[vars] def float_*=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ * _)
 	private[vars] def float_/=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ / _)

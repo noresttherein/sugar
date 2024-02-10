@@ -24,6 +24,7 @@ object AtomicOps {
 	  * @see [[net.noresttherein.sugar.vars.Volatile Volatile]]
 	  */ //this is an inner class so it can have access to protected methods in AtomicOps.
 	trait AtomicVar[@specialized(SpecializedVars) T] extends InOut[T] {
+		//todo: refactor it so it holds the VarHandle itself
 		protected def factory :AtomicOps[AtomicVar]
 
 		override def isDefined :Boolean = true
@@ -112,21 +113,6 @@ object AtomicOps {
 		//Many methods delegate to lower level methods in the companion object (factory), as they must compare
 		// the class of this instance with specialized versions of actual implementations, which can only be created
 		// by the factory. They also benefit from access to private[this] fields.
-//		private[vars] override def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-//			if (!other) ev(this).value = false
-//
-//		private[vars] override def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-//			if (other) ev(this).value = true
-
-		//overridden to avoid the creation of a closure object capturing other
-		private[vars] override def bool_&&=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-			if (ev(this).value && !other) //race condition doesn't change the result, as if it set this.value = false then also !(value && bool)
-				ev(this).value = false
-
-		private[vars] override def bool_||=(other : => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit =
-			if (!ev(this).value && other)
-				ev(this).value = true
-
 		private[vars] override def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
 			val expect = ev(this).value
 			factory.repeatTestAndSetBool(ev(this), expect, expect ^ other, !expect ^ other)
