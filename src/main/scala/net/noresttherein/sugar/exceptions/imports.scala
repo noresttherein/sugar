@@ -400,7 +400,7 @@ trait imports {
 	final def noSuch_!(empty :ArrayLike[_]) :Nothing =
 		throw SugaredNoSuchElementException(errorString(empty) + " is empty.")
 
-	/** Throws an [[IllegalArgumentException]]. */
+	/** Throws an [[IllegalArgumentException]]. */ //consider: adding a nullary parametr list
 	final def illegal_! :Nothing =
 		throw SugaredIllegalArgumentException()
 

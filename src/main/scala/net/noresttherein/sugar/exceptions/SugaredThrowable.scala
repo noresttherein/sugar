@@ -14,7 +14,25 @@ import net.noresttherein.sugar.vars.{Maybe, Opt}
 
 
 
-/** Base trait for [[Throwable]] errors and exceptions, providing Scala-style accessors to properties of `Throwable`. */
+/** Base trait for [[Throwable]] errors and exceptions, providing Scala-style accessors to properties of `Throwable`.
+  * @define hasFlexibleFactoryNote
+  *         This exception has a [[net.noresttherein.sugar.exceptions.FlexibleExceptionFactory factory]] object
+  *         of the same name, which provides `apply` methods taking all combinations of arguments:
+  *           - `()`
+  *           - `(String)`
+  *           - `(() => String)`
+  *           - `(Throwable)`
+  *           - `(String, Throwable)`
+  *           - `(() => String, Throwable)`
+  * @define hasEagerFactoryNote
+  *         This exception has a [[net.noresttherein.sugar.exceptions.EagerThrowableFactory factory]] object
+  *         of the same name, which provides `apply` methods for all combinations of arguments
+  *         `(message :String, cause :Throwable)`.
+  * @define hasLazyFactoryNote
+  *         This exception has a [[net.noresttherein.sugar.exceptions.LazyThrowableFactory factory]] object
+  *         of the same name, which provides `apply` methods for all combinations of arguments
+  *         `(message: => String, cause: Throwable)`.
+  */
 trait SugaredThrowable extends Throwable with Cloneable {
 
 	/** A reusable immutable sequence wrapping the throwable's stack trace */
@@ -56,7 +74,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  */
 	lazy val causeQueue :Seq[Throwable] = utils.causeQueue(this)
 
-	/** Standard [[Throwable.getCause getCause]] wrapped in a [[net.noresttherein.sugar.vars.Opt Opt]]. */
+	/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
 	def cause :Opt[Throwable] = Opt(getCause)
 
 //	/** Sets the [[SugaredThrowable.cause cause]] of this [[Throwable]] using
@@ -67,7 +85,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 //
 //	override def initCause(e :Throwable) :SugaredThrowable = { super.initCause(e); this }
 
-	/** Standard[[Throwable.getMessage getMessage]] wrapped in a [[net.noresttherein.sugar.vars.Opt Opt]]. */
+	/** Standard [[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
 	def message :Opt[String] = Opt(getMessage)
 
 	/** Denullified [[Throwable.getMessage getMessage]] returning an empty string instead of `null` if no message
@@ -217,6 +235,16 @@ trait SugaredException extends Exception with SugaredThrowable
 /** A mixin trait for `Throwable` with lazy messages. Requires the subclass to define `lazyMsg :() => String` variable.
   * Once evaluated, the message is cached, but in contested, multi threaded environment,
   * the constructor may be evaluated more than once.
+  * @define lazyParamsNote
+  *         The primary constructor of this class takes three arguments:
+  *         `(message :String, lazyMessage :() => String, Throwable)`. Any number of them may be `null`,
+  *         and, usually exactly one of `message` and `lazyMessage` is `null`. If `message` is `null`,
+  *         then `lazyMessage` is used to evaluate the error message on demand; if `lazyMessage` is `null`,
+  *         then `message` is used as in standard Java exception arguments. If neither of the above is `null`,
+  *         then `lazyMessage` takes precedence. Note however that the argument may be evaluated more than once
+  *         in case of contested concurrent access to [[net.noresttherein.sugar.exceptions.SugaredThrowable.msg msg]],
+  *         [[net.noresttherein.sugar.exceptions.SugaredThrowable.message message]] and
+  *         [[net.noresttherein.sugar.exceptions.SugaredThrowable.getMessage getMessage]].
   */
 trait LazyThrowable extends SugaredThrowable {
 	protected var lazyMsg :() => String
@@ -253,11 +281,15 @@ trait LazyException extends SugaredException with LazyThrowable
   * a [[net.noresttherein.sugar.exceptions.SugaredIllegalArgumentException SugaredIllegalArgumentException]],
   * but have it (in most cases) show up in logs as a regular `IllegalArgumentException`. It diminishes the chance
   * someone will try to catch the implementation exception instead of the regular Scala/Java one, and allows
-  * expressing the API in terms of standard clases, and treat the use of a sugared exception as an implementation detail.
+  * expressing the API in terms of standard classes, and treat the use of a sugared exception as an implementation detail.
   *
   * Another use case are exceptions of an anonymous class, which might occur either because the base class has properties
   * expressed in terms of path dependant types (for example, `ParsingException.liquid :this.format.Liquid`),
   * or because the super class is a ''single abstract method'' type, used to lift a lambda literal to an anonymous class.
+  * @define superClassNameNote
+  *         This is an implementation class, and it will normally show as its superclass
+  *         when formatted with `toString` and `printStackTrace`. Catching it explicitly is discouraged:
+  *         consider catching its superclass instead.
   */
 trait ImplException extends SugaredException {
 	override def className :String = getClass.getSuperclass.name

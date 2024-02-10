@@ -210,6 +210,9 @@ trait FlexibleThrowableFactory[E <: Throwable] extends EagerThrowableFactory[E] 
 	override def apply(message :String, cause :Throwable) :E = apply(message, null, cause)
 	override def apply(message :String) :E = apply(message, null, null)
 
+	def apply(message: () => String, cause :Opt[Throwable]) :E =
+		if (cause.isDefined) apply(message, cause.get) else apply(message)
+
 	def apply(message: () => String, cause :Throwable) :E = apply(null, message, cause)
 	def apply(message: () => String) :E = apply(null, message, null)
 
@@ -244,6 +247,9 @@ trait FlexibleDetailedThrowableFactory[E <: Throwable]
 	def apply(message :() => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E =
 		this(null, message, cause, enableSuppression, writableStackTrace)
 
+	def apply(message :() => String, cause :Opt[Throwable], enableSuppression :Boolean, writableStackTrace :Boolean) :E =
+		apply(null, message, cause.orNull, enableSuppression, writableStackTrace)
+
 	override val Lazy :LazyDetailedThrowableFactory[E] = ThrowableFactory(defaultMessage, apply(null, _, _, _, _))
 }
 
@@ -268,10 +274,13 @@ trait FlexibleDetailedThrowableFactory[E <: Throwable]
   * @see [[net.noresttherein.sugar.exceptions.FlexibleThrowableFactory FlexibleThrowableFactory]]
   */
 trait EagerThrowableFactory[E <: Throwable] extends Serializable {
+	def apply(message :String, cause :Opt[Throwable]) :E =
+		if (cause.isDefined) apply(message, cause.get) else apply(message)
+
 	def apply(message :String, cause :Throwable) :E
-	def apply(message :String) :E = apply(message, null)
+	def apply(message :String) :E = apply(message, null :Throwable)
 	def apply(cause :Throwable) :E = apply(defaultMessage, cause)
-	def apply() :E = apply(defaultMessage, null)
+	def apply() :E = apply(defaultMessage, null :Throwable)
 
 	/** Message argument used by factory methods which do not accept a `message` argument. */
 	protected def defaultMessage :String = null
@@ -299,6 +308,9 @@ trait EagerThrowableFactory[E <: Throwable] extends Serializable {
   * @see [[net.noresttherein.sugar.exceptions.FlexibleDetailedThrowableFactory FlexibleDetailedThrowableFactory]]
   */
 trait EagerDetailedThrowableFactory[E <: Throwable] extends EagerThrowableFactory[E] {
+	def apply(message :String, cause :Opt[Throwable], enableSuppression :Boolean, writableStackTrace :Boolean) :E =
+		apply(message, cause.orNull, enableSuppression, writableStackTrace)
+
 	def apply(message :String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E
 	override def apply(message :String, cause :Throwable) :E = apply(message, cause, true, true)
 }
@@ -324,10 +336,13 @@ trait EagerDetailedThrowableFactory[E <: Throwable] extends EagerThrowableFactor
   * @see [[net.noresttherein.sugar.exceptions.FlexibleThrowableFactory FlexibleThrowableFactory]]
   */
 trait LazyThrowableFactory[E <: Throwable] extends Serializable {
+	def apply(message: => String, cause :Opt[Throwable]) :E =
+		if (cause.isDefined) apply(message, cause.get) else apply(message)
+
 	def apply(message: => String, cause :Throwable) :E
-	def apply(message: => String) :E = apply(message, null)
+	def apply(message: => String) :E = apply(message, null :Throwable)
 	def apply(cause :Throwable) :E = apply(defaultMessage, cause)
-	def apply() :E = apply(defaultMessage, null)
+	def apply() :E = apply(defaultMessage, null :Throwable)
 
 	/** Message argument used by factory methods which do not accept a `message` argument. */
 	protected def defaultMessage :String = null
@@ -354,6 +369,9 @@ trait LazyThrowableFactory[E <: Throwable] extends Serializable {
   * @see [[net.noresttherein.sugar.exceptions.FlexibleThrowableFactory FlexibleThrowableFactory]]
   */
 trait LazyDetailedThrowableFactory[E <: Throwable] extends LazyThrowableFactory[E] {
+	def apply(message: => String, cause :Opt[Throwable], enableSuppression :Boolean, writableStackTrace :Boolean) :E =
+		apply(message, cause.orNull, enableSuppression, writableStackTrace)
+
 	def apply(message: => String, cause :Throwable, enableSuppression :Boolean, writableStackTrace :Boolean) :E
 	override def apply(message: => String, cause :Throwable) :E = apply(message, cause, true, true)
 }
@@ -645,6 +663,9 @@ trait FlexibleRethrowableFactory extends FlexibleThrowableFactory[Rethrowable] w
 	def apply(message :String, cause :Throwable, isRethrown :Boolean) :Rethrowable =
 		this(message, null, cause, isRethrown)
 
+	def apply(message :() => String, cause :Opt[Throwable], isRethrown :Boolean) :Rethrowable =
+		this(null, message, cause.orNull, isRethrown)
+
 	def apply(message :() => String, cause :Throwable, isRethrown :Boolean) :Rethrowable =
 		this(null, message, cause, isRethrown)
 }
@@ -667,6 +688,9 @@ trait FlexibleRethrowableFactory extends FlexibleThrowableFactory[Rethrowable] w
   * @see [[net.noresttherein.sugar.exceptions.FlexibleRethrowableFactory]]
   */
 trait EagerRethrowableFactory extends EagerThrowableFactory[Rethrowable] {
+	def apply(message :String, cause :Opt[Throwable], isRethrown :Boolean) :Rethrowable =
+		apply(message, cause.orNull, isRethrown)
+
 	def apply(message :String, cause :Throwable, isRethrown :Boolean) :Rethrowable
 	override def apply(message :String, cause :Throwable) :Rethrowable = apply(message, cause, cause ne null)
 }
@@ -689,6 +713,9 @@ trait EagerRethrowableFactory extends EagerThrowableFactory[Rethrowable] {
   * @see [[net.noresttherein.sugar.exceptions.FlexibleRethrowableFactory]]
   */
 trait LazyRethrowableFactory extends LazyThrowableFactory[Rethrowable] {
+	def apply(message: => String, cause :Opt[Throwable], isRethrown :Boolean) :Rethrowable =
+		apply(message, cause.orNull, isRethrown)
+
 	def apply(message: => String, cause :Throwable, isRethrown :Boolean) :Rethrowable
 	override def apply(message: => String, cause :Throwable) :Rethrowable = apply(message, cause, cause ne null)
 }

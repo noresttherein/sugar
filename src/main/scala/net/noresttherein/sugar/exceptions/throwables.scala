@@ -3,6 +3,8 @@ package net.noresttherein.sugar.exceptions
 import java.io.IOException
 import java.util.ConcurrentModificationException
 
+import net.noresttherein.sugar.reflect.prettyprint.classNameOf
+
 
 /** A lightweight, 'temporary' exception with disabled suppression and stack trace.
   * It is thrown to indicate a well defined error discovered in a deeply nested private method,
@@ -67,11 +69,15 @@ class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwab
 }
 
 
+/** An [[IllegalArgumentException]] subclass thrown to indicate that while the method arguments are legal independently,
+  * as a whole, they do not satisfy the required pre condition.
+  */
 @SerialVersionUID(Ver)
-class IncompatibleArgumentsException(msg :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends RuntimeException(msg, cause) with LazyException
+class IncompatibleArgumentsException(msg :String, lazyMsg :() => String, cause :Throwable)
+	extends SugaredIllegalArgumentException(msg, lazyMsg, cause)
 {
 	def this(msg :String, cause :Throwable) = this(msg, null, cause)
+	override def className :String = classNameOf(this)
 }
 
 @SerialVersionUID(Ver)
@@ -82,18 +88,39 @@ class IncompatibleArgumentTypesException(msg :String, lazyMsg :() => String = nu
 }
 
 
-
+/** An [[ArithmeticException]] subclass mixing in [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredArithmeticException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends ArithmeticException(message) with LazyException
+	extends ArithmeticException(message) with ImplException with LazyException
 
+/** A [[ClassCastException]] subclass mixing in [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredClassCastException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends ClassCastException(message) with LazyException
+	extends ClassCastException(message) with ImplException with LazyException
 {
 	initCause(cause)
 }
 
+/** A [[ConcurrentModificationException]] subclass mixing in
+  * [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredConcurrentModificationException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends ConcurrentModificationException(
@@ -101,8 +128,16 @@ class SugaredConcurrentModificationException(message :String, protected override
 			if (cause != null) cause.getMessage else "concurrent modification"
 		else message
 		, cause
-	) with LazyException
+	) with ImplException with LazyException
 
+/** An [[IllegalArgumentException]] subclass mixing in
+  * [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredIllegalArgumentException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends IllegalArgumentException(
@@ -110,8 +145,16 @@ class SugaredIllegalArgumentException(message :String, protected override var la
 			if (cause != null) cause.getMessage else "illegal argument"
 		else message
 		, cause
-	) with LazyException
+	) with ImplException with LazyException
 
+/** An [[IllegalStateException]] subclass mixing in
+  * [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredIllegalStateException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends IllegalStateException(
@@ -119,48 +162,93 @@ class SugaredIllegalStateException(message :String, protected override var lazyM
 			if (cause != null) cause.getMessage else "illegal state"
 		else message
 		, cause
-	) with LazyException
+	) with ImplException with LazyException
 
+/** An [[IndexOutOfBoundsException]] subclass mixing in
+  * [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredIndexOutOfBoundsException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends IndexOutOfBoundsException(
 		if (lazyMsg == null && message == null)
 			if (cause != null) cause.getMessage else "index out of bounds"
 		else message
-	) with LazyException
+	) with ImplException with LazyException
 {
 	initCause(cause)
 }
 
+/** An [[IOException]] subclass mixing in [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredIOException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
 	extends IOException(
 		if (lazyMsg == null && message == null)
 			if (cause != null) cause.getMessage else null
 		else message
-	) with LazyException
+	) with ImplException with LazyException
 
+/** A [[NoSuchElementException]] subclass mixing in
+  * [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredNoSuchElementException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends NoSuchElementException(message, cause) with LazyException
+	extends NoSuchElementException(message, cause) with ImplException with LazyException
 
+/** A [[NullPointerException]] subclass mixing in [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredNullPointerException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends NullPointerException(message) with LazyException
+	extends NullPointerException(message) with ImplException with LazyException
 {
 	initCause(cause)
 }
 
+/** A [[NumberFormatException]] subclass mixing in [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredNumberFormatException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends NumberFormatException(message) with LazyException
+	extends NumberFormatException(message) with ImplException with LazyException
 {
 	initCause(cause)
 }
 
+/** An [[UnsupportedOperationException]] subclass mixing in
+  * [[net.noresttherein.sugar.exceptions.SugaredException SugaredException]].
+  * $lazyParamsNote
+  *
+  * $superClassNameNote
+  *
+  * $hasFlexibleFactoryNote
+  */
 @SerialVersionUID(Ver)
 class SugaredUnsupportedOperationException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends UnsupportedOperationException(message, cause) with LazyException
+	extends UnsupportedOperationException(message, cause) with ImplException with LazyException
 
 
 
