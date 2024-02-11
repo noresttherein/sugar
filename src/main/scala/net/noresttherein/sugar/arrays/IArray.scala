@@ -1410,10 +1410,11 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 
 		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[IArray[E]] = {
 			val array = elems match {
+				case VectorArray(array) => Yes(array)
 				case slice :ArrayIterableOnce[_] if slice.isImmutable && slice.knownSize == slice.unsafeArray.length =>
 					Yes(slice.unsafeArray)
-				case seq :ArraySeq[_] => Yes(seq.unsafeArray)
-				case _                => No
+				case seq :ArraySeq[_]   => Yes(seq.unsafeArray)
+				case _                  => No
 			}
 			val tag = classTag[E]
 			if (array.isDefined && (tag == ClassTag.Any || array.get.getClass.getComponentType <:< tag.runtimeClass))
@@ -1436,8 +1437,8 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 				val tag = classTag[E]
 				val expectedClass = tag.runtimeClass
 				elems match {
-					case seq :Vector[_] if seq.length <= CheatedAccess.FlatVectorSize && tag == ClassTag.Any =>
-						Yes((CheatedAccess.array(seq).castFrom[Array[_], IArray[E]], 0, seq.length))
+					case VectorArray(array) if tag == ClassTag.Any =>
+						Yes((array.castFrom[Array[_], IArray[E]], 0, elems.knownSize))
 					case seq :ArraySeq[_]
 						if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
 					=>

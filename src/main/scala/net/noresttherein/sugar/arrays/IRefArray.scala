@@ -327,11 +327,12 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 
 		def unapply[A](elems :IterableOnce[A]) :Maybe[IRefArray[A]] = {
 			val array = elems match {
-				case seq :ArraySeq[_] => seq.unsafeArray
-				case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length && slice.isImmutable =>
-					slice.unsafeArray
-				case seq :Vector[_] if seq.length == CheatedAccess.FlatVectorSize => CheatedAccess.array(seq)
-				case _                => null
+				case seq :ArraySeq[_]            => seq.unsafeArray
+				case slice :ArrayIterableOnce[_] =>
+					val array = slice.unsafeArray
+					if (slice.knownSize == array.length && slice.isImmutable) array else null
+				case VectorArray(array)          => array
+				case _                           => null
 			}
 			if (array != null && array.getClass == classOf[Array[AnyRef]])
 				Yes(array.castFrom[Array[_], IRefArray[A]])
@@ -360,8 +361,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
 					else
 						No
-				case seq :Vector[A] if seq.length <= CheatedAccess.FlatVectorSize =>
-					Yes((CheatedAccess.array(seq).castFrom[Array[_], IRefArray[A]], 0, seq.length))
+				case VectorArray(array) => Yes((array.castFrom[Array[_], IRefArray[A]], 0, array.length))
 				case _ =>
 					No
 			}

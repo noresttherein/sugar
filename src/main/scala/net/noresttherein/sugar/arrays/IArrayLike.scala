@@ -72,12 +72,14 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 			else IArray.Wrapped(array.asInstanceOf[IArray[E]])
 
 		def unapply[E](elems :IterableOnce[E]) :Maybe[IArrayLike[E]] = elems match {
-			case seq :ArraySeq[_] =>
+			case seq :ArraySeq[_]            =>
 				Yes(seq.unsafeArray.asInstanceOf[IArrayLike[E]])
-			case seq :Vector[_] if seq.length == CheatedAccess.FlatVectorSize =>
-				Yes(CheatedAccess.array(seq).asInstanceOf[IArrayLike[E]])
-			case slice :ArrayIterableOnce[E] if slice.knownSize == slice.unsafeArray.length && slice.isImmutable =>
-				Yes(slice.unsafeArray.asInstanceOf[IArrayLike[E]])
+			case VectorArray(array)          => Yes(array.asInstanceOf[IArrayLike[E]])
+			case slice :ArrayIterableOnce[E] =>
+				val array = slice.unsafeArray
+				if (slice.knownSize == array.length && slice.isImmutable)
+					Yes(array.asInstanceOf[IArrayLike[E]])
+				else No
 			case _ => No
 		}
 
@@ -95,10 +97,9 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 					IArray.Wrapped.Slice(array.asInstanceOf[IArray[E]], from, until)
 
 			def unapply[E](elems :IterableOnce[E]) :Maybe[(IArrayLike[E], Int, Int)] = elems match {
-				case seq :ArraySeq[_] =>
+				case seq :ArraySeq[_]   =>
 					Yes((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
-				case seq :Vector[_] if seq.length <= CheatedAccess.FlatVectorSize =>
-					Yes((CheatedAccess.array(seq).castFrom[Array[_], IArrayLike[E]], 0, seq.length))
+				case VectorArray(array) => Yes(array.castFrom[Array[AnyRef], IArrayLike[E]], 0, array.length)
 				case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
 					val array = slice.unsafeArray.castFrom[Array[_], IArrayLike[E]]
 					val start = slice.startIndex

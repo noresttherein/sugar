@@ -15,7 +15,7 @@ import scala.collection.mutable.{ArrayBuffer, Buffer, Builder}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex, MatrixBuffer}
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
@@ -1183,13 +1183,13 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		def unapply[E](elems :IterableOnce[E]) :Maybe[ArrayLike[E]] = elems match {
 			case seq :ArrayIterableOnce[E] if seq.knownSize == seq.unsafeArray.length =>
 				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
-			case _ :collection.IndexedSeq[_] => elems match {
+			case seq :collection.IndexedSeq[_] => elems match {
 				case seq :mutable.ArraySeq[E]   => Yes(seq.array.castFrom[Array[_], ArrayLike[E]])
 				case seq :ArraySeq[E]           => Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
 				case seq :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length  =>
 					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
-				case seq :Vector[E] if seq.length == CheatedAccess.FlatVectorSize =>
-					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
+				case VectorArray(array)         => Yes(array.asInstanceOf[RefArray[E]])
+				case MatrixBufferArray(array) if array.length == seq.length => Yes(array.asInstanceOf[ArrayLike[E]])
 				case _ => No
 			}
 			case _ => No
@@ -1208,16 +1208,16 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 				case seq :ArrayIterableOnce[E] =>
 					Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
 				case _ :collection.IndexedSeq[_] => elems match {
-					case seq :ArraySeq[E] =>
+					case seq :ArraySeq[E]          =>
 						Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
-					case seq :mutable.ArraySeq[E] =>
+					case seq :mutable.ArraySeq[E]  =>
 						Yes((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
-					case seq :ArrayBuffer[_] =>
+					case seq :ArrayBuffer[_]       =>
 						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
-					case seq :Vector[_] if seq.length <= CheatedAccess.FlatVectorSize =>
-						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
-//					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex + seq.length <= seq.data1.length =>
-//						Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
+					case VectorArray(array)        =>
+						Yes(array.asInstanceOf[RefArray[E]], 0, array.length)
+					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startOffset <= seq.data1.length - seq.length =>
+						Yes(seq.data1, seq.startOffset, seq.startOffset + seq.knownSize)
 					case _ => No
 				}
 				case _ => No
@@ -1457,4 +1457,29 @@ private abstract class ArrayLikeIsSeqOps[E, A[X] <: ArrayLike[X]](array :Array[E
 	override def toIterable = ArrayLike.Wrapped(array)
 	override def iterator = ArrayIterator(array)
 	override def iterableFactory :SeqFactory[collection.IndexedSeq] = collection.IndexedSeq
+}
+
+
+
+
+
+
+object VectorArray {
+	def unapply[E](elems :IterableOnce[E]) :Maybe[Array[AnyRef]] = elems match {
+		case seq :Vector[E] =>
+			val array = CheatedAccess.array(seq)
+			val length = seq.length
+			if (array.length == length) Yes(array) else No
+		case _ => No
+	}
+}
+
+object MatrixBufferArray {
+	def unapply[E](elems :IterableOnce[E]) :Maybe[Array[_]] = elems match {
+		case seq :MatrixBuffer[E @unchecked] if seq.dim == 1 =>
+			val array = seq.data1
+			val length = seq.length
+			if (length <= array.length - seq.startOffset) Yes(array) else No
+		case _ => No
+	}
 }
