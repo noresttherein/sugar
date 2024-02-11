@@ -14,14 +14,14 @@ import scala.reflect.{ClassTag, classTag}
 import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, RefArraySlice}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, Mutator, RefArraySlice}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -467,6 +467,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		def shuffle(from :Int, until :Int, random :RandomGenerator) :Unit =
 			ArrayLikeOps.shuffle(self, from, until)(random)
 
+		def mutator :Mutator[E] = MutableArrayMutator(self.asInstanceOf[Array[E]])
 
 		@inline def toSeq        :Seq[E] = toIndexedSeq
 		@inline def toIndexedSeq :IndexedSeq[E] =

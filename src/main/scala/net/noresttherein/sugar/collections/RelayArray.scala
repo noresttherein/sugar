@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import java.lang.constant.Constable
 import java.lang.{Math => math}
 import java.lang.invoke.MethodHandles
 
@@ -10,7 +11,7 @@ import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictO
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IRefArray}
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IArrayLike, IRefArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.RelayArrayInternals.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
@@ -18,7 +19,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.outOfBounds_!
-import net.noresttherein.sugar.reflect.{PrimitiveClass, Unboxed}
+import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 //implicits
@@ -159,7 +160,7 @@ sealed trait RelayArray[@specialized(ElemTypes) +E]
 private class RelayArray0
 	extends AbstractSeq[Nothing] with RelayArray[Nothing] with EmptyIndexedSeqOps.Generic[RelayArray]
 {
-	protected override def one[T](elem :T) :RelayArray[T] = new RelayArray1(elem)
+	protected override def one[T](elem :T) :RelayArray[T] = RelayArray.one(elem)
 	override def elementType = classOf[AnyRef]
 	override def window(from :Int, until :Int) :this.type = this
 }
@@ -980,9 +981,9 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 {
 	private[collections] def this(array :Array[E]) = this(array, 0, array.length)
 //
-//	assert(offset >= 0, "negative offset " + offset + " out of " + arr.length)
-//	assert(len >= 0, "negative length " + len)
-//	assert(len <= arr.length - offset, "array[" + arr.length + "].slice(" + offset + ", " + (offset + len) + ")")
+	assert(offset >= 0, "negative offset " + offset + " out of " + arr.length)
+	assert(len >= 0, "negative length " + len)
+	assert(len <= arr.length - offset, "array[" + arr.length + "].slice(" + offset + ", " + (offset + len) + ")")
 
 //	private[sugar] override def unsafeArray :Array[_] = array
 	protected override def array :Array[E @uncheckedVariance] = arr
@@ -1405,7 +1406,7 @@ case object RelayArray extends StrictOptimizedSeqFactory[RelayArray] {
 	override def from[E](it :IterableOnce[E]) :RelayArray[E] = it match {
 		case elems :RelayArray[E] =>
 			elems
-		case elems :Iterable[E] if elems.knownSize == 0 =>
+		case _ if it.knownSize == 0 =>
 			Empty
 		case elems :View[E] =>
 			//Views delegate isEmpty to iterator.isEmpty, but are common arguments,
@@ -1413,8 +1414,8 @@ case object RelayArray extends StrictOptimizedSeqFactory[RelayArray] {
 			new RelayArrayPlus(elems.toArray(classTag[AnyRef].asInstanceOf[ClassTag[E]]))
 		case elems :Iterable[E] if elems.isEmpty => //usually, it should be also knownSize == 0, but it's not guaranteed.
 			Empty
-		case elems :Iterable[E] if elems.sizeIs == 1 =>
-			new RelayArray1(elems.head)
+		case elems :Iterable[E] if elems.sizeIs <= 2 =>
+			if (elems.size == 1) one(elems.head) else two(elems.head, elems.last)
 		case elems :ArraySeq[E] =>
 			RelayArrayInternals.make(elems.unsafeArray, 0, elems.length).castParam[E]
 		//todo: IArray extractor not requiring a ClassTag
@@ -1443,47 +1444,91 @@ case object RelayArray extends StrictOptimizedSeqFactory[RelayArray] {
 	/** A `RelayArray` containing the elements of the given array. If the array has two or fewer elements,
 	  * a dedicated instance is returned, not backed by an array. Otherwise, the array is copied and wrapped.
 	  */
-	def from[E](array :Array[E]) :RelayArray[E] = array.length match {
+	def from[E](array :ArrayLike[E]) :RelayArray[E] = array.length match {
 		case 0 => Empty
-		case 1 => new RelayArray1(array(0))
-		case 2 =>
-			((array :Array[_]) match {
-				case a :Array[AnyRef]  => new RelayArray2(a(0), a(1))
-				case a :Array[Int]     => new RelayArray2(a(0), a(1))
-				case a :Array[Long]    => new RelayArray2(a(0), a(1))
-				case a :Array[Double]  => new RelayArray2(a(0), a(1))
-				case a :Array[Byte]    => new RelayArray2(a(0), a(1))
-				case a :Array[Char]    => new RelayArray2(a(0), a(1))
-				case a :Array[Float]   => new RelayArray2(a(0), a(1))
-				case a :Array[Short]   => new RelayArray2(a(0), a(1))
-				case a :Array[Boolean] => new RelayArray2(a(0), a(1))
-			}).castParam[E]
-		case n => new RelayArrayPlus(Array.copyOf(array, n))
+		case 1 => one(array(0))
+		case 2 => two(array(0), array(1))
+		case n => array(0).getClass match {
+			case Boxed(valCls) => RelayArrayInternals.wrap(
+				try ArrayFactory.copyAs[E](array, valCls) catch {
+					case _ :ArrayStoreException => ArrayFactory.copyOf(array.asInstanceOf[Array[E]], n)
+				}
+			)
+			case _ => RelayArrayInternals.wrap(ArrayFactory.copyOf(array.asInstanceOf[Array[E]], n))
+		}
 	}
 
-	def slice[E](array :Array[E], from :Int, until :Int) :RelayArray[E] =
+	/** A $Coll backed by an identical copy of this array, containing all its elements.
+	  * @see [[net.noresttherein.sugar.collections.RelayArray.wrap wrap]]
+	  * @see [[net.noresttherein.sugar.collections.RelayArray.from from]]
+	  */
+	def copy[E](array :Array[E]) :RelayArray[E] = RelayArrayInternals.wrap(ArrayFactory.copyOf(array))
+
+	/** A $Coll backed by an array of length `until - from` and the same element type as `array`,
+	  * containing elements `array.slice(from, until)`.
+	  * @see [[net.noresttherein.sugar.collections.RelayArray.slice slice]]
+	  * @see [[net.noresttherein.sugar.collections.RelayArray.from from]]
+	  */
+	def copy[E](array :Array[E], from :Int, until :Int) :RelayArray[E] =
 		RelayArrayInternals.wrap(array.slice(from, until))
 
+	/** Creates a $Coll backed by a specific `IArray` instance. */
 	implicit def wrap[E](array :IArray[E]) :RelayArray[E] = {
 		val a = array.castFrom[IArray[E], Array[E]]
 		RelayArrayInternals.make(a, 0, a.length)
 	}
 
-	def view[E](array :IArray[E], from :Int, until :Int) :RelayArray[E] =
+	/** Creates a $Coll backed by the given array instance, containing elements from its `[from, until)` range.
+	  * @see [[net.noresttherein.sugar.collections.RelayArray.slice slice]]
+	  * @see [[net.noresttherein.sugar.collections.RelayArray.from from]]
+	  */
+	def slice[E](array :IArray[E], from :Int, until :Int) :RelayArray[E] =
 		RelayArrayInternals.slice(array.castFrom[IArray[E], Array[E]], from, until)
 
 
 	override def empty[E] :RelayArray[E] = Empty
 
-	@inline def :+[@specialized(ElemTypes) E](elem :E) :RelayArray[E] = single(elem)
+	/** An empty $Coll with an array of the specified element type. Appending to this instance
+	  * will preserve the array type, as long as new elements can be stored (possibly after boxing/unboxing)
+	  * in such an array.
+	  */
+	def empty[E](elementType :Class[_ <: E]) :RelayArray[E] =
+		new RelayArrayPlus[E](ArrayFactory.ofDim(elementType.castParam[E], InitSize), 0, 0)
 
+	/** Equivalent to [[net.noresttherein.sugar.collections.RelayArray.one one]]`(elem)` */
+	@inline def :+[@specialized(ElemTypes) E](elem :E) :RelayArray[E] = one(elem)
+
+	/** Equivalent to [[net.noresttherein.sugar.collections.RelayArray.from from]]`(elems)`.
+	  * Use of this method is more convenient when the resulting $coll is being immediately appended to,
+	  * as `from` has lower precedence than `:++`:
+	  * {{{
+	  *     RelayArray from seq1 :++ seq2  //error, parsed as RelayArray.from(seq1 :++ seq2)
+	  *     RelayArray.from(seq1) :++ seq2 //OK, but more syntax noise
+	  *     RelayArray :++ seq1 :++ seq2   //Correct, most legible
+	  * }}}
+	  */
 	@inline def :++[@specialized(ElemTypes) E](elems :IterableOnce[E]) :RelayArray[E] = from(elems)
 
-	/** A $Coll singleton */
+	/** A specialized $Coll singleton. */
 	def single[@specialized(ElemTypes) E](elem :E) :RelayArray[E] = new RelayArray1(elem)
 
-	/** A $Coll singleton (same as [[net.noresttherein.sugar.collections.RelayArray.single single]]). */
-	def one[@specialized(ElemTypes) E](elem :E) :RelayArray[E] = single(elem)
+	/** A $Coll singleton. This method is not `@specialized`, but produces an instance specialized
+	  * for the runtime type of unboxed `elem`.
+	  */
+	def one[E](elem :E) :RelayArray[E] = elem match {
+		case _ :Constable => (elem match {
+			case x :Int     => new RelayArray1(x)
+			case x :Long    => new RelayArray1(x)
+			case x :Double  => new RelayArray1(x)
+			case x :Char    => new RelayArray1(x)
+			case x :Byte    => new RelayArray1(x)
+			case x :Float   => new RelayArray1(x)
+			case x :Short   => new RelayArray1(x)
+			case x :Boolean => new RelayArray1(x)
+			case _          => new RelayArray1(elem)
+		}).asInstanceOf[RelayArray[E]]
+		case _ => new RelayArray1(elem)
+	}
 
 	/** A special $Coll of only two elements. */
 	def two[@specialized(ElemTypes) A](first :A, second :A) :RelayArray[A] = {
@@ -1733,7 +1778,7 @@ private object RelayArrayPlus {
 
 //todo: make ProperRelayArray wrap IArrayLike, move the wrapping method to RelayArray object, and remove this class.
 private object RelayArrayInternals
-	extends ArrayLikeSliceWrapper[RelayArray, Array] with StrictOptimizedSeqFactory[RelayArray]
+	extends ArrayLikeSliceWrapper[Array, RelayArray] with StrictOptimizedSeqFactory[RelayArray]
 {
 	override def make[E](array :Array[E], from :Int, until :Int) :RelayArray[E] =
 		((array :Array[_]) match {

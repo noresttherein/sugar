@@ -226,15 +226,72 @@ package object arrays extends extensions {
 	/** A seven dimensional immutable box array. */
 	type IRefArray7[E] = IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[IRefArray[E]]]]]]]
 
-	val ArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ArrayIterator] =
-		ArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ArrayIterator]]
 
-	val IArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ArrayIterator] =
+
+	private[sugar] val ArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ArrayIterator] =
+		ProperArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ArrayIterator]]
+
+	private[sugar] val IArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ArrayIterator] =
 		IArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[IArrayLike, ArrayIterator]]
 
-	val MutableArrayMutator :ArrayLikeIteratorFactory[MutableArray, ArrayMutator] =
+	private[sugar] val ArrayIterator :ArrayIteratorFactory[Array] = ProperArrayIterator
+
+	private[sugar] val RefArrayIterator :RefArrayLikeIteratorFactory[RefArray] = RefArrayLikeIterator
+//		RefArrayLikeIterator.asInstanceOf[RefArrayLikeIteratorFactory[RefArray]]
+
+
+	private[sugar] val ReverseArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ReverseArrayIterator] =
+		ReverseProperArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ReverseArrayIterator]]
+
+	private[sugar] val ReverseIArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ReverseArrayIterator] =
+		ReverseArrayLikeIterator
+
+	private[sugar] val ReverseArrayIterator :ReverseArrayIteratorFactory[Array] = ReverseProperArrayIterator
+
+	private[sugar] val ReverseIArrayIterator :ReverseArrayIteratorFactory[IArray] = ReverseProperArrayIterator
+
+	private[sugar] val ReverseRefArrayIterator :ReverseArrayLikeIteratorFactory[RefArray, ReverseArrayIterator] =
+		ReverseRefArrayLikeIterator
+
+	private[sugar] val ReverseIRefArrayIterator :ReverseArrayLikeIteratorFactory[IRefArray, ReverseArrayIterator] =
+		ReverseRefArrayLikeIterator
+
+
+	private[sugar] val CyclicIArrayLikeIterator :CyclicArrayLikeIteratorFactory[IArrayLike, CyclicArrayIterator] =
+		CyclicArrayLikeIterator
+
+	private[sugar] val CyclicArrayIterator :CyclicArrayIteratorFactory[Array] = CyclicArrayLikeIterator
+
+	private[sugar] val CyclicIArrayIterator :CyclicArrayIteratorFactory[IArray] = CyclicArrayLikeIterator
+
+	private[sugar] val CyclicRefArrayIterator :CyclicArrayLikeIteratorFactory[RefArray, CyclicArrayIterator] =
+		CyclicArrayLikeIterator
+
+	private[sugar] val CyclicIRefArrayIterator :CyclicArrayLikeIteratorFactory[IRefArray, CyclicArrayIterator] =
+		CyclicArrayLikeIterator
+
+
+	private[sugar] val ReverseCyclicIArrayLikeIterator :ReverseCyclicArrayLikeIteratorFactory[IArrayLike, ReverseCyclicArrayIterator] =
+		ReverseCyclicArrayLikeIterator
+
+	private[sugar] val ReverseCyclicArrayIterator  :ReverseCyclicArrayIteratorFactory[Array] =
+		ReverseCyclicArrayLikeIterator
+
+	private[sugar] val ReverseCyclicIArrayIterator :ReverseCyclicArrayIteratorFactory[IArray] =
+		ReverseCyclicArrayLikeIterator
+
+	private[sugar] val ReverseCyclicRefArrayIterator :ReverseCyclicArrayLikeIteratorFactory[RefArray, ReverseCyclicArrayIterator] =
+		ReverseCyclicArrayLikeIterator
+
+	private[sugar] val ReverseCyclicIReArrayIterator :ReverseCyclicArrayLikeIteratorFactory[IRefArray, ReverseCyclicArrayIterator] =
+		ReverseCyclicArrayLikeIterator
+
+
+	private[sugar] val MutableArrayMutator :ArrayLikeIteratorFactory[MutableArray, ArrayMutator] =
 		ArrayMutator.asInstanceOf[ArrayLikeIteratorFactory[MutableArray, ArrayMutator]]
 
-	private[arrays] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
+
+
+	private[arrays] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =
 		collections.RelayArrayFactory
 }

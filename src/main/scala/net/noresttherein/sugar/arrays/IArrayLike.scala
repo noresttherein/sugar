@@ -48,6 +48,7 @@ case object IArrayLike extends IterableFactory.Delegate[IRefArray](IRefArray) {
 		@inline private def exposed :Arr[E] = self.asInstanceOf[Arr[E]]
 
 		def iterator :Iterator[E] = IArrayLikeIterator(exposed)
+		def reverseIterator :Iterator[E] = ReverseIArrayLikeIterator(exposed)
 
 		/** A view on the index range `[from, until)` of this array as a sequence.
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.

@@ -138,15 +138,15 @@ package object collections {
 	// (or make them private/public).
 	/** A factory of sequences wrapping an arrays in a [[net.noresttherein.sugar.collections.RelayArray RelayArray]],
 	  * if the latter is not on the classpath.
-	  */
-	private[sugar] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]] =
+	  */ //consider: moving it to arrays
+	private[sugar] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =
 		Maybe.guard {
 			val factoryClass = Class.forName(RelayArrayClassName + "Internals$")
-			factoryClass.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IndexedSeq, IArrayLike]]
+			factoryClass.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]]
 		}
 
 	//consider: nothing really prevents us from making it ArrayLikeSliceFactory
-	final val DefaultArraySeq :ArrayLikeSliceWrapper[IndexedSeq, IArrayLike] =
+	final val DefaultArraySeq :ArrayLikeSliceFactory[IArrayLike, IndexedSeq] =
 		arrayWrapperFromProperty(defaultArraySeqProperty) orElse RelayArrayFactory getOrElse IArrayLikeSlice
 
 	/** The default `IndexedSeq` implementation used by the library. */
@@ -224,27 +224,27 @@ package object collections {
 					case factory => new BufferFactoryAdapter(factory)
 				}
 			} catch {
-				case e :Exception => throw e.addInfo("Property " + property + " does not denote a SeqFactory[Buffer].")
+				case e :Exception => throw e.addInfo("Property " + property + " does not specify a SeqFactory[Buffer].")
 			}
 		}
 
-	private def arrayWrapperFromProperty(property :String) :Maybe[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]] =
+	private def arrayWrapperFromProperty(property :String) :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =
 		Maybe(System.getProperty(property)) match {
 			case Yes("scala.collection.immutable.ArraySeq") =>
-				Yes(ArraySeqFactory.asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]])
+				Yes(ArraySeqFactory.asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]])
 			case Yes(className) =>
 					try {
-						val factory   = loadObject(className).asInstanceOf[ArrayLikeSliceWrapper[IndexedSeq, IArrayLike]]
+						val factory   = loadObject(className).asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]]
 						if (!factory.isImmutable)
 							illegalState_!(
-								"Default ArrayLikeSlicefactory is not immutable: " + factory + ": " + className + "."
+								"Default ArrayLikeSliceFactory is not immutable: " + factory + ": " + className + "."
 							)
 						val testInput = IArray(1, 2, 3, 4)
 						val _         = factory.slice(testInput, 1, 3)
 						Yes(factory)
 					} catch {
 						case e :Exception =>
-							throw e.addInfo("Property " + property + " does not denote an ArrayLikeSliceWrapper")
+							throw e.addInfo("Property " + property + " does not specify an ArrayLikeSliceFactory")
 					}
 			case _ => No
 		}

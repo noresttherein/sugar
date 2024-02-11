@@ -320,7 +320,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	  */
 	@SerialVersionUID(Ver)
 	object Wrapped {
-		private[this] val wrapper :ArrayLikeSliceFactory[IndexedSeq, IRefArray] =
+		private[this] val wrapper :ArrayLikeSliceFactory[IRefArray, IndexedSeq] =
 			RelayArrayFactory getOrElse IRefArraySlice
 
 		def apply[A](array :IRefArray[A]) :IndexedSeq[A] = wrapper.wrap(array)
@@ -345,7 +345,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 		  */
 		@SerialVersionUID(Ver)
 		object Slice {
-			private[this] val wrapper :ArrayLikeSliceFactory[IndexedSeq, IRefArray] =
+			private[this] val wrapper :ArrayLikeSliceFactory[IRefArray, IndexedSeq] =
 				RelayArrayFactory getOrElse IRefArraySlice
 
 			def apply[A](array :IRefArray[A], from :Int, until :Int) :IndexedSeq[A] =

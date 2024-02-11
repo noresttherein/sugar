@@ -100,22 +100,22 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 
 	/** Creates an exact copy of `original`. May return the same object if `original.length == 0`. */
-	@inline def copyOf[E](original :ArrayLike[E]) :ArrayLike[E] = {
+	@inline def copyOf[A[X] <: ArrayLike[X], E](original :A[E]) :A[E] = {
 		val a = original.asInstanceOf[Array[_]]
 		val l = a.length
-		if (l == 0) original else Array.copyOf(a, l).asInstanceOf[ArrayLike[E]]
+		if (l == 0) original else Array.copyOf(a, l).asInstanceOf[A[E]]
 	}
 
 	/** Creates a new array of the specified length and the same element type as `original`,
 	  * and copies all elements of `original` to it (or `newLength`, whichever is lesser).
 	  */
 	@throws[NegativeArraySizeException]("if newLength is negative")
-	def copyOf[E](original :ArrayLike[E], newLength :Int) :ArrayLike[E] = {
+	def copyOf[A[X] <: ArrayLike[X], E](original :A[E], newLength :Int) :A[E] = {
 		val a = original.asInstanceOf[Array[_]]
 		if (a.length == 0)
-			Array.emptyLike(original.castFrom[ArrayLike[E], Array[_]]).castFrom[Array[_], Array[E]]
+			Array.emptyLike(original.castFrom[ArrayLike[E], Array[_]]).castFrom[Array[_], A[E]]
 		else
-			Array.copyOf(a, newLength).castFrom[Array[_], Array[E]]
+			Array.copyOf(a, newLength).castFrom[Array[_], A[E]]
 	}
 
 	def copyAs[E :ClassTag](src :ArrayLike[_], newLength :Int) :Array[E] =

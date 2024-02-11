@@ -1428,7 +1428,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  */
 		@SerialVersionUID(Ver)
 		object Slice {
-			private[this] val wrapper :ArrayLikeSliceWrapper[IndexedSeq, IArray] =
+			private[this] val wrapper :ArrayLikeSliceWrapper[IArray, IndexedSeq] =
 				RelayArrayFactory getOrElse IArraySlice
 
 			def apply[E](array :IArray[E], from :Int, until :Int) :IndexedSeq[E] = wrapper.slice(array, from, until)

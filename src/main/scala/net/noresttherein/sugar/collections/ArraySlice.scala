@@ -156,7 +156,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 
 
 
-trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] extends Serializable {
+trait ArrayLikeWrapper[-A[E] <: ArrayLike[E], +C[_]] extends Serializable {
 	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]].
 	  * The collection will share the contents with the array,
 	  * and thus any modifications to either will be visible in the other.
@@ -170,11 +170,15 @@ trait ArrayLikeWrapper[+C[_], -A[E] <: ArrayLike[E]] extends Serializable {
 }
 
 
+trait ArrayLikeSeqFactory[-A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
+	extends StrictOptimizedSeqFactory[C] with ArrayLikeWrapper[A, C]
+
+
 /**
   * @define Coll collection
   * @define coll collection
   */
-trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends ArrayLikeWrapper[C, A] {
+trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapper[A, C] {
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
 	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]] in a $coll,
@@ -197,20 +201,32 @@ trait ArrayLikeSliceWrapper[+C[_], -A[E] <: ArrayLike[E]] extends ArrayLikeWrapp
 }
 
 
-trait ArrayLikeSliceFactory[+C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]], -A[E] <: ArrayLike[E]]
-	extends StrictOptimizedSeqFactory[C] with ArrayLikeSliceWrapper[C, A]
-{
-	override def from[E](source :IterableOnce[E]) :C[E] = wrap(source.toRefArray.asInstanceOf[A[E]])
+trait ArrayLikeSliceFactory[-A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
+	extends ArrayLikeSeqFactory[A, C] with ArrayLikeSliceWrapper[A, C]
 
-	override def empty[E] :C[E] = wrap(Array.emptyObjectArray.asInstanceOf[A[E]])
+
+private[sugar] abstract class RefArrayLikeSliceFactory
+                              [-A[E] <: RefArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
+	extends ArrayLikeSliceFactory[A, C]
+{
+	override def from[E](source :IterableOnce[E]) :C[E] = source match {
+		case view  :View[E] => from(view.iterator)
+		case empty :Iterable[E] if empty.isEmpty => this.empty
+		case empty :Iterator[E] if !empty.hasNext => this.empty
+		case _ => wrap(source.toRefArray.asInstanceOf[A[E]])
+	}
+
+//	override def empty[E] :C[E] = wrap(Array.emptyObjectArray.asInstanceOf[A[E]])
+	override def empty[E] :C[E] = emptyPrototype.asInstanceOf[C[E]]
+	private[this] val emptyPrototype :C[Nothing] = wrap[Nothing](emptyObjectArray.asInstanceOf[A[Nothing]])
 
 	override def newBuilder[E] :Builder[E, C[E]] = RefArrayLike.newBuilder[E].mapResult(a => wrap(a.asInstanceOf[A[E]]))
 }
 
 
 abstract class ClassTagArrayLikeSliceFactory
-               [+C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]], A[E] <: ArrayLike[E]]
-	extends ClassTagIterableFactory[C] with ArrayLikeSliceWrapper[C, A]
+               [A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
+	extends ClassTagIterableFactory[C] with ArrayLikeSliceWrapper[A, C]
 {
 	override def empty[E :ClassTag] :C[E] = wrap(ArrayFactory.empty[E].asInstanceOf[A[E]])
 
@@ -221,15 +237,6 @@ abstract class ClassTagArrayLikeSliceFactory
 
 	def newBuilder[E](elemType :Class[E]) :Builder[E, C[E]] =
 		ArrayFactory.newBuilder(elemType).mapResult(array => wrap(array.asInstanceOf[A[E]]))
-}
-
-
-private[collections] sealed abstract class RefArrayLikeSliceFactory[+C[E] <: ArrayLikeSlice[E], A[E] <: RefArrayLike[E]]
-	extends ArrayLikeSliceFactory[C, A]
-{
-	override def empty[E] :C[E] = emptyPrototype.asInstanceOf[C[E]]
-	private[this] val emptyPrototype :C[Nothing] =
-		make[Nothing](emptyObjectArray.asInstanceOf[A[Nothing]], 0, 0)
 }
 
 
@@ -309,8 +316,9 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 }
 
 
+//todo: swap the order of C and A type arguments in all subclasses.
 private[sugar] trait ArrayLikeSliceFactoryDefaults
-                     [@specialized(ElemTypes) +E, +C[x] <: collection.IndexedSeq[x], -A[x] <: ArrayLike[x]]
+                     [@specialized(ElemTypes) +E, -A[x] <: ArrayLike[x], +C[x] <: collection.IndexedSeq[x]]
 	extends ArraySliceSeqOps[E, collection.IndexedSeq, C[E @uncheckedVariance]]
 { this :C[E @uncheckedVariance] =>
 
@@ -320,7 +328,7 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 		else
 			array(startIndex + i)
 
-	protected def sliceFactory :ArrayLikeSliceWrapper[C, A]
+	protected def sliceFactory :ArrayLikeSliceWrapper[A, C]
 
 	protected override def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int)
 			:C[E @uncheckedVariance] =
@@ -337,7 +345,7 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 private[sugar] abstract class AbstractArrayLikeSlice[+E, -A[x] <: ArrayLike[x]]
                               (arr :A[E], final override val startIndex :Int, final override val length :Int)
 	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
-	   with ArrayLikeSliceFactoryDefaults[E, collection.IndexedSeq, A]
+	   with ArrayLikeSliceFactoryDefaults[E, A, collection.IndexedSeq]
 {
 	protected final override val array :Array[E @uncheckedVariance] = arr.asInstanceOf[Array[E]]
 	override def apply(i :Int) :E =
@@ -369,7 +377,7 @@ private[sugar] sealed trait ArrayLikeSlice[@specialized(ElemTypes) +E]
   */
 @SerialVersionUID(Ver)
 private[sugar] case object ArrayLikeSlice
-	extends SeqFactory.Delegate[ArrayLikeSlice](IRefArraySlice) with ArrayLikeSliceWrapper[ArrayLikeSlice, ArrayLike]
+	extends SeqFactory.Delegate[ArrayLikeSlice](IRefArraySlice) with ArrayLikeSliceWrapper[ArrayLike, ArrayLikeSlice]
 {
 	override def from[E](it :IterableOnce[E]) :ArrayLikeSlice[E] = it match {
 		case view  :View[E] => from(view.iterator)
@@ -399,7 +407,7 @@ private[sugar] case object ArrayLikeSlice
 	                         (final override val array :Array[E], final override val startIndex :Int,
 	                          final override val length :Int)
 		extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
-		   with ArrayLikeSlice[E] with ArrayLikeSliceFactoryDefaults[E, ArrayLikeSlice, ArrayLike]
+		   with ArrayLikeSlice[E] with ArrayLikeSliceFactoryDefaults[E, ArrayLike, ArrayLikeSlice]
 	{
 		protected override def sliceFactory = ArrayLikeSlice
 	}
@@ -428,8 +436,7 @@ private[sugar] sealed trait MutableArraySlice[@specialized(ElemTypes) E]
 @SerialVersionUID(Ver)
 private[sugar] case object MutableArraySlice
 	extends SeqFactory.Delegate[MutableArraySlice](RefArraySlice)
-//	   with ArrayLikeSliceFactoryDelegate[MutableArraySlice, MutableArray]
-	   with ArrayLikeSliceWrapper[MutableArraySlice, MutableArray]
+	   with ArrayLikeSliceWrapper[MutableArray, MutableArraySlice]
 {
 	override def slice[E](array :MutableArray[E], from :Int, until :Int) :MutableArraySlice[E] =
 		ArraySlice.slice(array.asSubtype[Array[E]], from, until)
@@ -464,7 +471,7 @@ private[sugar] sealed trait IArrayLikeSlice[@specialized(ElemTypes) +E]
 @SerialVersionUID(Ver)
 private[sugar] case object IArrayLikeSlice
 	extends SeqFactory.Delegate[IArrayLikeSlice](IRefArraySlice)
-	   with ArrayLikeSliceFactory[IArrayLikeSlice, IArrayLike]
+	   with ArrayLikeSliceFactory[IArrayLike, IArrayLikeSlice]
 {
 	override def slice[E](array :IArrayLike[E], from :Int, until :Int) :IArrayLikeSlice[E] =
 		IArraySlice.slice(array.asSubtype[IArray[E]], from, until)
@@ -490,7 +497,7 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
 	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, ArraySlice[E]]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, MutableArraySlice, ArraySlice[E]]
 //	   with ProperArraySliceOps[E, MutableArraySlice, ArraySlice[E]]
-	   with ArrayLikeSliceFactoryDefaults[E, ArraySlice, Array]
+	   with ArrayLikeSliceFactoryDefaults[E, Array, ArraySlice]
 	   with EvidenceIterableFactoryOverrides[E, ArraySlice, ClassTag]
 {
 	override def update(idx :Int, elem :E) :Unit =
@@ -505,7 +512,7 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
 	protected implicit override def iterableEvidence :ClassTag[E] =
 		ClassTag(array.getClass.getComponentType.castParam[E])
 
-	protected override def sliceFactory :ArrayLikeSliceWrapper[ArraySlice, Array] = ArraySlice
+	protected override def sliceFactory :ArrayLikeSliceWrapper[Array, ArraySlice] = ArraySlice
 	protected override def evidenceIterableFactory :EvidenceIterableFactory[ArraySlice, ClassTag] = ArraySlice
 }
 
@@ -515,7 +522,7 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
   * @define coll array slice
   */
 @SerialVersionUID(Ver)
-private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[ArraySlice, Array] {
+private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Array, ArraySlice] {
 	override def from[E :ClassTag](it :IterableOnce[E]) :ArraySlice[E] = it match {
 		case view  :View[E] => from(view.iterator)
 		case empty :Iterable[E] if empty.isEmpty => this.empty
@@ -554,7 +561,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 //	   with ProperArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
-	   with ArrayLikeSliceFactoryDefaults[E, IArraySlice, IArray]
+	   with ArrayLikeSliceFactoryDefaults[E, IArray, IArraySlice]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.asInstanceOf[Array[E]]
@@ -562,7 +569,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 	@unspecialized override def slice(from :Int, until :Int) :IArraySlice[E] =
 		super[ArraySliceSeqOps].slice(from, until)
 
-	protected override def sliceFactory :ArrayLikeSliceWrapper[IArraySlice, IArray] = IArraySlice
+	protected override def sliceFactory :ArrayLikeSliceWrapper[IArray, IArraySlice] = IArraySlice
 
 
 	protected implicit override def iterableEvidence :ClassTag[E @uncheckedVariance] =
@@ -577,7 +584,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
   * @define coll immutable array slice
   */
 @SerialVersionUID(Ver)
-private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IArraySlice, IArray] {
+private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IArray, IArraySlice] {
 	override def from[E :ClassTag](it :IterableOnce[E]) :IArraySlice[E] = it match {
 		case view  :View[E] => from(view.iterator)
 		case empty :Iterable[E] if empty.isEmpty => this.empty
@@ -617,7 +624,7 @@ private[sugar] sealed class RefArraySlice[E] private
 	extends mutable.AbstractSeq[E]
 	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, RefArraySlice, RefArraySlice[E]]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, RefArraySlice, RefArraySlice[E]]
-	   with ArrayLikeSliceFactoryDefaults[E, RefArraySlice, RefArray]
+	   with ArrayLikeSliceFactoryDefaults[E, RefArray, RefArraySlice]
 	   with IterableFactoryDefaults[E, RefArraySlice]
 {
 	protected final override val array :Array[E] = underlying.castFrom[RefArray[E], Array[E]]
@@ -628,7 +635,7 @@ private[sugar] sealed class RefArraySlice[E] private
 		else
 			array(startIndex + idx) = elem
 
-	protected override def sliceFactory :ArrayLikeSliceWrapper[RefArraySlice, RefArray] = RefArraySlice
+	protected override def sliceFactory :ArrayLikeSliceWrapper[RefArray, RefArraySlice] = RefArraySlice
 	override def iterableFactory :SeqFactory[RefArraySlice] = RefArraySlice
 }
 
@@ -638,15 +645,7 @@ private[sugar] sealed class RefArraySlice[E] private
   * @define coll reference array slice
   */
 @SerialVersionUID(Ver)
-private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArraySlice, RefArray] {
-	override def from[E](source :IterableOnce[E]) :RefArraySlice[E] = source match {
-		case view  :View[E] => from(view.iterator)
-		case empty :Iterable[E] if empty.isEmpty => this.empty
-		case empty :Iterator[E] if !empty.hasNext => this.empty
-//		case RefArray.Wrapped.Slice(array, from, until) => new RefArraySlice(array, from, until)
-		case _ => wrap(source.toBasicOps.toArray[Any].castFrom[Array[Any], RefArray[E]])
-	}
-
+private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArray, RefArraySlice] {
 	protected def make[E](array :RefArray[E], from :Int, until :Int) :RefArraySlice[E] =
 		new RefArraySlice(array, from, until)
 
@@ -667,7 +666,7 @@ private[sugar] sealed class IRefArraySlice[+E] private
 	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
 	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
 	   with IterableFactoryDefaults[E, IRefArraySlice]
-	   with ArrayLikeSliceFactoryDefaults[E, IRefArraySlice, IRefArray]
+	   with ArrayLikeSliceFactoryDefaults[E, IRefArray, IRefArraySlice]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.castFrom[IRefArray[E], Array[E]]
 	releaseFence()
@@ -675,7 +674,7 @@ private[sugar] sealed class IRefArraySlice[+E] private
 	override def slice(from :Int, until :Int) :IRefArraySlice[E] =
 		super[ArraySliceSeqOps].slice(from, until)
 
-	protected final override def sliceFactory :ArrayLikeSliceWrapper[IRefArraySlice, IRefArray] = IRefArraySlice
+	protected final override def sliceFactory :ArrayLikeSliceWrapper[IRefArray, IRefArraySlice] = IRefArraySlice
 	final override def iterableFactory :SeqFactory[IRefArraySlice] = IRefArraySlice
 
 	protected override def applyPreferredMaxLength :Int = Int.MaxValue
@@ -687,14 +686,14 @@ private[sugar] sealed class IRefArraySlice[+E] private
   * @define coll immutable reference array slice
   */
 @SerialVersionUID(Ver)
-private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefArraySlice, IRefArray] {
+private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefArray, IRefArraySlice] {
 	override def from[E](source :IterableOnce[E]) :IRefArraySlice[E] = source match {
 		case slice :IRefArraySlice[E]                    => slice
 		case view  :View[E]                              => from(view.iterator)
 		case empty :Iterable[E] if empty.isEmpty         => this.empty
 		case empty :Iterator[E] if !empty.hasNext        => this.empty
 		case IRefArray.Wrapped.Slice(array, from, until) => new IRefArraySlice(array, from, until)
-		case _ => wrap(source.toBasicOps.toArray[Any].castFrom[Array[Any], IRefArray[E]])
+		case _ => wrap(source.toIRefArray)
 	}
 
 	protected def make[E](array :IRefArray[E], from :Int, until :Int) :IRefArraySlice[E] =
@@ -734,7 +733,7 @@ final class ArraySerializationProxy[+A](constructor :Array[A] => Any, array :Arr
   * allowing to plug standard `ArraySeq` instead of classes from this package.
   */
 @SerialVersionUID(Ver)
-private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[ArraySeq, Array] {
+private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[Array, ArraySeq] {
 	override def from[E :ClassTag](it :IterableOnce[E]) :ArraySeq[E] = ArraySeq.from(it)
 
 	protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
@@ -765,9 +764,7 @@ private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[Arra
 	override def isImmutable :Boolean = true
 
 	//No sense in extending SeqFactory.Delegate, because ArrayLikeSliceFactory will override it anyway.
-	object untagged extends ArrayLikeSliceFactory[ArraySeq, Array] {
-		override def empty[E] :ArraySeq[E] = ArraySeq.untagged.empty
-
+	object untagged extends SeqFactory.Delegate(ArraySeq.untagged) with ArrayLikeSliceFactory[Array, ArraySeq] {
 		protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
 			if (from == 0 && until == array.length) ArraySeq.unsafeWrapArray(array)
 			else ArraySeq.unsafeWrapArray(array.slice(from, until))

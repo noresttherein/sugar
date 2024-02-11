@@ -438,7 +438,7 @@ object ArrayStepper {
 		extends ArrayStepper[A, A, AnyArrayStepper[A]](array, from, until) with AllInOneAnyStepper[A]
 	{
 		override def nextStep() :A = array(nextIdx())
-		override def iterator :Iterator[A] = new ArrayIterator(array, index, limit)
+		override def iterator :Iterator[A] = new ArrayIterator(array, index, limit, false)
 	}
 
 	private abstract class RefArrayStepper[A, B, +S >: Null <: ArrayStepper[A, B, S]]
@@ -446,7 +446,7 @@ object ArrayStepper {
 		extends ArrayStepper[A, B, S](array, from, until)
 	{
 		override def nextStep() :A = array(nextIdx()).asInstanceOf[A]
-		override def iterator :Iterator[A] = new ArrayIterator(array, index, limit).asInstanceOf[Iterator[A]]
+		override def iterator :Iterator[A] = new ArrayIterator(array, index, limit, false).asInstanceOf[Iterator[A]]
 	}
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an array of a reference type. */
