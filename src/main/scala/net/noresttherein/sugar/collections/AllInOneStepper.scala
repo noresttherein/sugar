@@ -61,8 +61,7 @@ private trait AllInOneIntStepper
 	extends IntStepper with Spliterator.OfInt with JavaIntIterator
 	   with AllInOnePrimitiveStepper[Int, JInt, AllInOneIntStepper, Spliterator.OfInt, JavaIntIterator]
 {   //consider: AllInOneStepper might become a self type
-	override def nextStep() :Int //specialize the method
-	override def nextInt() :Int = nextStep()
+	override def nextInt() :Int = nextStep() //Stepper is specialized, so this doesn't box
 	override def forEachRemaining(action :Consumer[_ >: JInt]) :Unit = action match {
 		case consumer :IntConsumer => forEachRemaining(consumer :IntConsumer)
 		case _ => super[AllInOnePrimitiveStepper].forEachRemaining(action)
@@ -81,8 +80,7 @@ private trait AllInOneLongStepper
 	extends LongStepper with Spliterator.OfLong with JavaLongIterator
 	   with AllInOnePrimitiveStepper[Long, JLong, AllInOneLongStepper, Spliterator.OfLong, JavaLongIterator]
 {
-	override def nextStep() :Long //specialize the method
-	override def nextLong() :Long = nextStep()
+	override def nextLong() :Long = nextStep() //Stepper is specialized, so this doesn't box
 	override def forEachRemaining(action :Consumer[_ >: JLong]) :Unit = action match {
 		case consumer :LongConsumer => forEachRemaining(consumer :LongConsumer)
 		case _ => super.forEachRemaining(action)
@@ -101,8 +99,7 @@ private trait AllInOneDoubleStepper
 	extends DoubleStepper with Spliterator.OfDouble with JavaDoubleIterator
 	   with AllInOnePrimitiveStepper[Double, JDouble, AllInOneDoubleStepper, Spliterator.OfDouble, JavaDoubleIterator]
 {
-	override def nextStep() :Double //specialize the method
-	override def nextDouble() :Double = nextStep()
+	override def nextDouble() :Double = nextStep() //Stepper is specialized, so this doesn't box
 	override def forEachRemaining(action :Consumer[_ >: JDouble]) :Unit = action match {
 		case consumer :DoubleConsumer => forEachRemaining(consumer :DoubleConsumer)
 		case _ => super.forEachRemaining(action)
