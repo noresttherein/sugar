@@ -481,8 +481,8 @@ private object Iterators {
 		extends AbstractIterator[E] with IteratorSlicing[E]
 	{
 		final override def knownSize = currentSize
-		final def knownSize_=(value :Int) :Unit = currentSize = value
-		final def knownSize_--() :Unit = currentSize -= 1
+		protected final def knownSize_=(value :Int) :Unit = currentSize = value
+		protected final def knownSize_--() :Unit = currentSize -= 1
 		override def hasNext = currentSize > 0
 	}
 	private[Iterators] sealed abstract class IteratorTake[+E](size :Int) extends IteratorKnownSize[E](size) {
@@ -499,7 +499,8 @@ private object Iterators {
 	private[Iterators] sealed abstract class IteratorDrop[+E](size :Int) extends IteratorKnownSize[E](size) {
 		override def hasFastDrop = true
 		override def drop(n :Int) :Iterator[E] = {
-			knownSize = math.max(0, knownSize - n)
+			if (n > 0)
+				knownSize = math.max(0, knownSize - n)
 			this
 		}
 	}
@@ -535,10 +536,6 @@ private object Iterators {
 				if (n >= size) this
 				else Iterator.single(first)
 			}
-		override def drop(n :Int) = {
-			knownSize = math.max(0, knownSize - n)
-			this
-		}
 		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
 			val size = knownSize
 			val copied = util.elementsToCopy(xs, start, len, size)
