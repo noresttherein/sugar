@@ -1249,14 +1249,13 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			self.toArray(classTag[U].castParam[Unknown]).castParam[U]
 
 		/** Copies this array to a new `IArray[A]`, with the element type specified by the class tag. */
-		@inline def toIArray[U >: E :ClassTag] :IArray[U] =
-			self.toArray(classTag[U].castParam[Unknown]).castFrom[Array[Unknown], IArray[U]]
+		@inline def toIArray[U >: E :ClassTag] :IArray[U] = IArray.copyOf(self.asInstanceOf[ArrayLike[U]]).castParam[U]
 
 		/** Copies this array to a new `RefArray[A]`. */
-		@inline def toRefArray[U >: E] :RefArray[U] = self.toArray(ClassTag.Any).castFrom[Array[Any], RefArray[U]]
+		@inline def toRefArray[U >: E] :RefArray[U] = RefArray.copyOf(self.asInstanceOf[ArrayLike[U]])
 
 		/** Copies this array to a new `IRefArray[A]`. */
-		@inline def toIRefArray[U >: E] :IRefArray[U] = self.toArray(ClassTag.Any).castFrom[Array[Any], IRefArray[U]]
+		@inline def toIRefArray[U >: E] :IRefArray[U] = IRefArray.copyOf(self.asInstanceOf[ArrayLike[U]])
 
 		@inline def toOps :collection.IndexedSeqOps[E, ArrayLike, ArrayLike[E]] =
 			new ArrayLikeAsSeq(expose(self))

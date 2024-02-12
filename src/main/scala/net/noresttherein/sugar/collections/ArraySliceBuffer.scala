@@ -8,7 +8,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{AbstractBuffer, IndexedBuffer}
 
-import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLikeOps, RefArray, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLikeOps, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ArraySliceBuffer.AcceptableFillFactor
@@ -38,6 +38,8 @@ import net.noresttherein.sugar.vars.Maybe.Yes
   *
   * Together, this makes it the most efficient way to create a sequence by prepending elements,
   * especially if the size is initially known.
+  * @define Coll `ArraySliceBuffer`
+  * @define coll array buffer
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
@@ -55,12 +57,31 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 
 	private[this] var aliased :Boolean = false
 
-	override def length    :Int = len
-	override def knownSize :Int = len
-
 	private[sugar] override def unsafeArray :Array[_] = array.asAnyArray
 	private[sugar] override def startIndex :Int = offset
 	private[sugar] override def isMutable = true
+
+	override def length    :Int = len
+	override def knownSize :Int = len
+
+	/** Ensures the capacity for the specified number of elements in the buffer, reallocating the array if necessary.
+	  * It will not shrink a buffer with already higher capacity.
+	  */
+	def sizeHint(totalSize :Int) :Unit =
+		if (totalSize > len) {
+			if (totalSize < array.length) {
+				if (offset + totalSize <= array.length) {
+					array = RefArray.copyOfRange(array, offset, offset + len, totalSize)
+					offset = 0
+				} else {
+					val newOffset = array.length - totalSize
+					array = RefArray.copyOfRange(array, offset, offset + len, newOffset, totalSize)
+				}
+			} else if (totalSize > array.length) {
+				array  = RefArray.copyOfRange(array, offset, offset + len, totalSize)
+				offset = 0
+			}
+		}
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int = //override clash
 		ArrayLikeOps.segmentLength(array.asInstanceOf[Array[E]], offset, len)(p, from)
@@ -363,32 +384,36 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 		if (len == 0) Iterator.empty
 		else ReverseArrayIterator.slice(array.castFrom[RefArray[E], Array[E]], offset, offset + len)
 
+	/** Same as [[net.noresttherein.sugar.collections.ArraySliceBuffer.toIndexedSeq toIndexedSeq]]. */
 	override def toSeq        :Seq[E] = toIndexedSeq
+
+	/** Creates an array-backed indexed sequence. If the fill factor is above a certain percentage (a minimum of half
+	  * the array size), the returned instance will wrap the array used by this buffer, and the buffer will copy it
+	  * on subsequent write attempts. The exact type of the returned sequence is defined
+	  * by [[net.noresttherein.sugar.collections.DefaultArraySeq DefaultArraySeq]] factory.
+	  */
 	override def toIndexedSeq :IndexedSeq[E] =
 		if (len == 0)
 			IndexedSeq.empty
 		else if (canAlias) {
 			markAliased()
-			if (len == array.length)
-				ArraySeq.unsafeWrapArray(array.castFrom[RefArray[E], Array[E]])
-			else
-				IRefArraySlice.slice(array.asIRefArray, offset, offset + len)
+			DefaultArraySeq.slice(array.unsafeIRefArray, offset, offset + len)
 		} else
-			IndexedSeq.from(this)
+			DefaultArraySeq.wrap(IRefArray.copyOfRange(array, offset, offset + len))
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
 		case Yes(companion) => companion match {
 			case Seq | IndexedSeq | collection.Seq | collection.IndexedSeq => toIndexedSeq.castFrom[IndexedSeq[E], C1]
 			case ArrayLikeSlice | IArrayLikeSlice | IRefArraySlice if canAlias =>
 				markAliased()
-				IRefArraySlice.slice(array.asIRefArray, offset, offset + len).castFrom[IRefArraySlice[E], C1]
+				IRefArraySlice.slice(array.unsafeIRefArray, offset, offset + len).castFrom[IRefArraySlice[E], C1]
 			case ArraySeq if offset == 0 && array != null && len == array.length =>
 				markAliased()
 				ArraySeq.unsafeWrapArray(array.asAnyArray).castFrom[ArraySeq[Any], C1]
 			//fixme: currently RelayArrayFactory equals RelayArrayInternals, not RelayArray
 			case _ if canAlias && RelayArrayFactory.isDefined && RelayArrayFactory == companion =>
 				markAliased()
-				RelayArrayFactory.get.slice(array.asIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]
+				RelayArrayFactory.get.slice(array.unsafeIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]
 			case _ => super.to(factory)
 		}
 		case _ => super.to(factory)
@@ -408,8 +433,12 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 }
 
 
-
-
+/** A factory of alternative array buffers, which can grow and shrink both from the beginning and the end of an array,
+  * and able to [[net.noresttherein.sugar.collections.ArraySliceBuffer.toSeq share]] the underlying array
+  * with created immutable sequences.
+  * @define Coll `ArraySliceBuffer`
+  * @define coll array buffer
+  */
 @SerialVersionUID(Ver)
 case object ArraySliceBuffer extends BufferFactory[ArraySliceBuffer] {
 	override def ofCapacity[E](capacity :Int) :ArraySliceBuffer[E] = new ArraySliceBuffer[E](capacity)

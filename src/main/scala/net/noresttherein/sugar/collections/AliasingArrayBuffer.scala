@@ -31,6 +31,7 @@ import net.noresttherein.sugar.illegal_!
   * @define coll aliasing array buffer
   * @author Marcin Mościcki
   */
+@SerialVersionUID(Ver)
 private class AliasingArrayBuffer[E](capacity :Int)
 	extends ArrayBuffer[E](capacity) with ArrayIterableOnce[E]
 	   with mutable.IndexedSeqOps[E, AliasingArrayBuffer, AliasingArrayBuffer[E]]
@@ -301,17 +302,23 @@ private class AliasingArrayBuffer[E](capacity :Int)
 		else
 			super.padToInPlace(len, elem)
 
+	/** Same as [[net.noresttherein.sugar.collections.ArraySliceBuffer.toIndexedSeq toIndexedSeq]]. */
 	override def toSeq :Seq[E] = toIndexedSeq
 
+	/** Creates an array-backed indexed sequence. If the fill factor is above a certain percentage (a minimum of half
+	  * the array size), the returned instance will wrap the array used by this buffer, and the buffer will copy it
+	  * on subsequent write attempts. The exact type of the returned sequence is defined
+	  * by [[net.noresttherein.sugar.collections.DefaultArraySeq DefaultArraySeq]] factory.
+	  */
 	override def toIndexedSeq :IndexedSeq[E] =
 		if (size == 0)
-			IndexedSeq.empty
+			DefaultArraySeq.empty
 		else if (size >= (array.length >> 1)) {
 			aliased = true
 			releaseFence()
-			IRefArraySlice.slice(array.asInstanceOf[IRefArray[E]], 0, size)
+			DefaultArraySeq.slice(array.asInstanceOf[IRefArray[E]], 0, size)
 		} else
-			ArraySeq.unsafeWrapArray(toArray(ClassTag.Any.castParam[E]))
+			DefaultArraySeq.wrap(toArray(ClassTag.Any).asInstanceOf[IRefArray[E]])
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = factory match {
 		case CompanionFactory.IterableFactory(Seq | IndexedSeq) =>
@@ -331,10 +338,14 @@ private class AliasingArrayBuffer[E](capacity :Int)
 
 
 
-/** $factoryInfo
+/** A factory of special [[scala.collection.mutable.ArrayBuffer ArrayBuffer]] instances performing aliasing
+  * of their underlying array when their [[scala.collection.IterableOnceOps.toSeq toSeq]] method is used.
+  * If the contents use more than a certain percentage of the array, `toSeq` will create an instance
+  * backed by the buffer's own array. The array is then copied by the buffer on any subsequent write attempt.
   * @define Coll `AliasingArrayBuffer`
-  * @define coll aliasing array buffer*
-  */
+  * @define coll aliasing array buffer
+  */ //Not public because the ability to extend ArrayBuffer may go away.
+@SerialVersionUID(Ver)
 private case object AliasingArrayBuffer
 	extends BufferFactory[AliasingArrayBuffer] with StrictOptimizedSeqFactory[AliasingArrayBuffer]
 {

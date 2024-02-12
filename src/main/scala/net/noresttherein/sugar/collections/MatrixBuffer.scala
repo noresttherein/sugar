@@ -63,7 +63,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
 @SerialVersionUID(Ver)
 sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit override val iterableEvidence :ClassTag[E])
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
-	   with SugaredIterable[E] with SugaredIterableOps[E, MatrixBuffer, MatrixBuffer[E]]
+	   with SugaredIterable[E] with SugaredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with collection.StrictOptimizedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with EvidenceIterableFactoryDefaults[E, MatrixBuffer, ClassTag]
 	   with DefaultSerializable
@@ -1261,8 +1261,99 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		copied
 	}
 
+	/** Attempts to reallocate/deallocate memory to best fit the capacity of `totalSize` elements.
+	  * This will ''not'' shrink below the capacity required for the currently stored elements,
+	  * and neither will it allocate the exact requested capacity. It does however guarantee that the buffer will
+	  * use no more than `2 * max(totalSize, size)` memory (if `max(size, totalSize) <= MaxSize1`),
+	  * or `((max(totalSize, size) + MaxSize1 - 1) / MaxSize1) * MaxSize1` (that is, the minimal number
+	  * of full two dimensional arrays) if `max(size, totalSize) > MaxSize1`, where `MaxSize1` is the size limit
+	  * of a single dimensional buffer.
+	  */
+	def sizeHint(totalSize :Int) :Unit =
+		if (totalSize > storageSize)
+			reserve(totalSize - dataSize)
+		else if (totalSize < storageSize & totalSize > dataSize) {
+			val newCapacity = totalSize.nextPowerOf2
+			if (storageSize <= MaxSize1) {                             //Shrink a single dimensional buffer.
+				if (newCapacity < storageSize) {
+					if (dataOffset + dataSize <= MaxSize1)
+						data = Array.copyOfRange(data, dataOffset, dataOffset + dataSize, newCapacity)
+					else
+						data = Array.copyOfRanges(
+							data1, dataOffset, storageSize,
+							data1, 0, dataSize - (storageSize - dataOffset),
+							newCapacity
+						)
+					dataOffset  = 0
+					storageSize = newCapacity
+				}
+			} else if (newCapacity <= MaxSize1) {                      //Must shrink from two to one dimensions.
+				val data2   = this.data2
+				val array1  = data2(dim2(dataOffset))
+				val offset2 = dim2(dataOffset)
+				val offset1 = dim1(dataOffset)
+				if (offset2 == dim2(dataOffset + dataSize)) {          //All contents are within array1.
+					if (newCapacity == MaxSize1) {                     //Just reuse the array.
+						data = array1
+						dataOffset = offset1
+					} else {
+						data = Array.copyOfRange(array1, offset1, offset1 + dataSize, newCapacity)
+						dataOffset = 0
+					}
+				} else {                                               //Contents are within two arrays.
+					val array2 = data2((offset2 + 1) % data2.length)
+					if (newCapacity == MaxSize1) {                     //Reuse either array1 or array2.
+						if (MaxSize1 - dataSize >= (dataSize >> 1)) {
+							arraycopy(array2, 0, array1, 0, dataSize - (MaxSize1 - dataSize))
+							data = array1
+						} else {
+							arraycopy(array1, offset1, array2, offset1, MaxSize1 - dataSize)
+							data = array2
+						}
+						dataOffset = offset1
+					} else {                                           //Copy the slices into a new array < MaxSize1.
+						data = Array.copyOfRanges(
+							array1, dataOffset, MaxSize1,
+							array2, 0, dataSize - (MaxSize1 - dataOffset),
+							newCapacity
+						)
+						dataOffset = 0
+					}
+				}
+				storageSize = newCapacity
+			} else {                                                   //The buffer will remain two dimensional.
+				val data2   = this.data2
+				val offset2 = dim2(dataOffset)
+				val minCapacityNoReallocate = dim2(dim1(dataOffset) + dataSize - 1) + 1 << Dim1Bits
+				val requestedCapacity       = dim2(totalSize - 1) + 1
+				val newCapacity             = math.max(minCapacityNoReallocate, requestedCapacity)
+				if (newCapacity < storageSize) {
+					val newLength2 = shrunkOuterDimension(totalSize)
+					if (newLength2 < data2.length) {                   //Reallocate the outer array.
+						if (offset2 + newLength2 <= data2.length)
+							data = Array.copyOfRange(data2, offset2, offset2 + newLength2)
+						else
+							data = Array.copyOfRanges(
+								data2, offset2, data2.length,
+								data2, 0, newLength2 - data2.length,
+							)
+						dataOffset = dim1(dataOffset)
+					} else {                                           //Deallocate some single dimensional arrays.
+						val end = (dim2(dataOffset) + dim2(newCapacity)) % data2.length
+						deallocate(end, dim2(storageSize - newCapacity))
+					}
+					storageSize = newCapacity
+				}
+			}
+		}
+
 	/** Reserves space for additional `delta` elements in order to avoid repeated copying and reallocation
-	  * when adding elements one by one.
+	  * when adding elements one by one. It will not resize the buffer exactly to the given capacity,
+	  * but grow it by chunks of minimal size. It will however guarantee that the allocated storage is not greater
+	  * than `2 * (size + delta)`. If the requested capacity requires a two dimensional buffer,
+	  * this method will not allocate additional single dimensional arrays, but only ensure that the outer array
+	  * will not need to be copied. The former will be allocated as needed, when writing to the buffer.
+	  * Passing negative `delta` causes no effect.
 	  */
 	def reserve(delta :Int) :Unit =
 		if (delta > storageSize - dataSize)
@@ -1833,10 +1924,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	private def removeAndShrink2(idx :Int, count :Int) :Boolean = {
 		//We allow a lower fill factor for the dim 2 array, because its length is dwarfed by the total length of dim1 arrays.
 		val length2    = data2.length
-		val maxLength  = math.max(dim2(dataSize - count + MaxSize1 - 1) << 3, (MinSize2 << 1) - 1)
-		var newLength2 = length2
-		while (newLength2 > maxLength)
-			newLength2 >>= 1
+		val newLength2 = shrunkOuterDimension(dataSize - count)
 		newLength2 < length2 && {
 			val mask2          = length2 - 1
 			val end            = idx + count
@@ -2125,6 +2213,18 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				}
 			}
 		}
+
+	/** The length of the outer array in a two dimensional buffer to which the buffer should shrink
+	  * if it contains `toTotalSize` elements. Will never return less than `MinSize2`.
+	  */
+	private def shrunkOuterDimension(toTotalSize :Int) :Int = {
+		val length2    = data2.length
+		val maxLength  = math.max(dim2(toTotalSize + MaxSize1 - 1) << 3, (MinSize2 << 1) - 1)
+		var newLength2 = length2
+		while (newLength2 > maxLength)
+			newLength2 >>= 1
+		newLength2
+	}
 
 	/** The array size to which a single-dimensional buffer should shrink after removing `delta` elements.
 	  * Will return `storageSize` if no shrinking is necessary.

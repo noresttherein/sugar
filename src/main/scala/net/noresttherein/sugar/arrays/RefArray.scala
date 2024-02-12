@@ -4,12 +4,13 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.casting.{castingMethods, castTypeParamMethods}
+import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, MatrixBuffer, RefArraySlice}
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -243,7 +244,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		  * and provided here due to a common demand, but it requires the caller to ensure that this array
 		  * is no longer modified, or the immutability will be compromised.
 		  */
-		@inline def asIRefArray :IRefArray[E] = self.asInstanceOf[IRefArray[E]]
+		@inline def unsafeIRefArray :IRefArray[E] = { releaseFence(); self.asInstanceOf[IRefArray[E]] }
 
 		@inline def update(idx :Int, elem :E) :Unit = asAnyArray(idx) = elem
 

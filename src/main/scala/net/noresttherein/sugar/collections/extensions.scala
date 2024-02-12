@@ -9,7 +9,7 @@ import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterato
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.{IsIterableOnce, IsSeq}
 import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps}
-import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, IndexedBuffer, ListBuffer, ReusableBuilder}
+import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, Growable, IndexedBuffer, ListBuffer, ReusableBuilder}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
@@ -4386,6 +4386,20 @@ object extensions extends extensions {
 					rotateLeft(from, until)(start - end - n) //guards against underflow on -(n == Int.MinValue)
 				else
 					rotateLeft(from, until)(end - start - n)
+		}
+
+
+		/** Attempts to hint the buffer about expected final size, if the implementation supports it.
+		  * This method works only for buffers in this library and `ArrayBuffer`,
+		  * as well as those which implement `Builder`.
+		  */
+		def trySizeHint(totalSize :Int) :This = (self :Growable[E]) match {
+			case buffer :ArrayBuffer[E]      => buffer sizeHint totalSize; self
+			case buffer :ArraySliceBuffer[E] => buffer sizeHint totalSize; self
+			case buffer :MatrixBuffer[E]     => buffer sizeHint totalSize; self
+//			case buffer :ListBuffer[E]       => buffer sizeHint totalSize
+			case builder :Builder[E, Any]    => builder sizeHint totalSize; self
+			case _                           => self
 		}
 	}
 

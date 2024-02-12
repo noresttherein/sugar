@@ -6,7 +6,7 @@ import scala.annotation.unspecialized
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps}
 import scala.collection.mutable.{ArrayBuilder, Builder}
-import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, IterableOps, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, immutable, mutable}
+import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, IterableOps, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, View, immutable, mutable}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.JavaTypes.JIterator
@@ -61,7 +61,7 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 }
 
 
-//todo: rename it to ArrayLikeSliceOps
+
 private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] {
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
 
@@ -156,7 +156,11 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 
 
 
-/**
+/** A factory wrapping $Arr arrays in collection $Coll.
+  * This is a limited implementation, which supports only collections backed by entire arrays,
+  * such as standard `ArraySeq`. See [[net.noresttherein.sugar.collections.ArrayLikeSliceWrapper ArrayLikeSliceWrapper]]
+  * for a factory of collections backed by slices of larger arrays.
+  * @see [[net.noresttherein.sugar.collections.ArraySeqFactory ArraySeqFactory]]
   * @define Coll collection
   * @define coll collection
   * @define Arr `ArrayLike`
@@ -175,10 +179,17 @@ trait ArrayLikeWrapper[-A[E] <: ArrayLike[E], +C[_]] extends Serializable {
 }
 
 
+/** A factory of $Coll sequences backed by arrays of $Arr kind.
+  * Combines the wrapping interface with standard `SeqFactory` for a single type;
+  * used to define default array-backed sequences used by the library.
+  * @see [[net.noresttherein.sugar.collections.DefaultArraySeq]]
+  * @see [[net.noresttherein.sugar.collections.ArraySeqFactory.]]
+  */ //consider: replaces ArrayLike with simply Array at least in the XxxFactory traits.
 trait ArrayLikeSeqFactory[-A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
 	extends StrictOptimizedSeqFactory[C] with ArrayLikeWrapper[A, C]
 
 
+/** A factory of $Coll, exposing slices of arrays of $Arr kind. */
 trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapper[A, C] {
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
@@ -201,6 +212,13 @@ trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapp
 }
 
 
+/** A factory of $Coll sequences backed by slices of arrays of $Arr kind.
+  * Combines the wrapping methods with standard [[scala.collection.SeqFactory SeqFactory]]
+  * in order to provide a single interface, which can be used to specify default
+  * [[scala.collection.immutable.ArraySeq ArraySeq]]-like implementations used by the library.
+  * @see [[net.noresttherein.sugar.collections.DefaultArraySeq]]
+  * @see [[net.noresttherein.sugar.collections.ArraySeqFactory.untagged]]
+  */
 trait ArrayLikeSliceFactory[-A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
 	extends ArrayLikeSeqFactory[A, C] with ArrayLikeSliceWrapper[A, C]
 
@@ -224,8 +242,7 @@ private[sugar] abstract class RefArrayLikeSliceFactory
 }
 
 
-abstract class ClassTagArrayLikeSliceFactory
-               [A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
+abstract class ClassTagArrayLikeSliceFactory[A[E] <: ArrayLike[E], +C[E]]
 	extends ClassTagIterableFactory[C] with ArrayLikeSliceWrapper[A, C]
 {
 	override def empty[E :ClassTag] :C[E] = wrap(ArrayFactory.empty[E].asInstanceOf[A[E]])
@@ -238,6 +255,11 @@ abstract class ClassTagArrayLikeSliceFactory
 	def newBuilder[E](elemType :Class[E]) :Builder[E, C[E]] =
 		ArrayFactory.newBuilder(elemType).mapResult(array => wrap(array.asInstanceOf[A[E]]))
 }
+
+abstract class ClassTagArrayLikeSliceSeqFactory
+               [A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
+	extends ClassTagArrayLikeSliceFactory[A, C] with StrictOptimizedClassTagSeqFactory[C]
+
 
 
 
@@ -752,7 +774,7 @@ final class ArraySerializationProxy[+A](constructor :Array[A] => Any, array :Arr
   * @define arr array
   */
 @SerialVersionUID(Ver)
-private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[Array, ArraySeq] {
+private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceSeqFactory[Array, ArraySeq] {
 	override def from[E :ClassTag](it :IterableOnce[E]) :ArraySeq[E] = ArraySeq.from(it)
 
 	protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =

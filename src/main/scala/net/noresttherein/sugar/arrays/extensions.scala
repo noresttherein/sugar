@@ -24,6 +24,7 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
@@ -87,10 +88,10 @@ object extensions {
 		/** Casts this array to `IArray[E]`. This always succeeds, but lifting mutation protection
 		  * may have undesired consequences if a reference to this array escapes and is modified.
 		  */
-		@inline def unsafeAsIArray :IArray[E] = self.asInstanceOf[IArray[E]]
+		@inline def unsafeIArray :IArray[E] = { releaseFence(); self.asInstanceOf[IArray[E]] }
 
 		/** Creates an exact copy of this array and returns it as an immutable `IArray[E]`. */
-		@inline def toIArray :IArray[E] = ArrayFactory.copyOf(self).asInstanceOf[IArray[E]]
+		@inline def toIArray :IArray[E] = IArray.copyOf(self)
 
 		/** Copies the elements of this array to a new `Array[AnyRef]`, and returns it as an `RefArray[A]`. */
 		@inline def toRefArray[A >: E] :RefArray[A] = RefArray.copyOf(self)

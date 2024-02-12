@@ -3,11 +3,13 @@ package net.noresttherein.sugar.collections
 import scala.collection.SeqFactory
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, GrowableBuilder}
 
+import net.noresttherein.sugar.collections.extensions.BufferExtension
 
 
 
-/**
-  * @author Marcin Mościcki
+
+/** An extension of `SeqFactory` with a method allowing to create buffer instances with prereserved space
+  * for a requested number of elements.
   */
 trait BufferFactory[+C[A] <: Buffer[A]] extends SeqFactory[C] {
 	/** A new, empty buffer. Same as `empty`, but slightly more succinct, and puts emphasis on the element type. */
@@ -15,6 +17,7 @@ trait BufferFactory[+C[A] <: Buffer[A]] extends SeqFactory[C] {
 
 	/** A new buffer, with space reserved for `capacity` elements. Works similarly to
 	  * [[collection.mutable.Builder Builder]]`.`[[collection.mutable.Builder.sizeHint sizeHint]].
+	  * Not all implementations support pre-reserving space.
 	  */
 	def ofCapacity[E](capacity :Int) :C[E]
 
@@ -25,7 +28,7 @@ trait BufferFactory[+C[A] <: Buffer[A]] extends SeqFactory[C] {
 
 
 @SerialVersionUID(Ver)
-private object ArrayBufferFactory extends BufferFactory[ArrayBuffer] {
+object ArrayBufferFactory extends BufferFactory[ArrayBuffer] {
 	override def ofCapacity[E](capacity :Int) :ArrayBuffer[E] = new ArrayBuffer(capacity)
 	override def empty[A] :ArrayBuffer[A] = new ArrayBuffer
 }
@@ -34,5 +37,5 @@ private object ArrayBufferFactory extends BufferFactory[ArrayBuffer] {
 private class BufferFactoryAdapter[C[A] <: Buffer[A]](factory :SeqFactory[C])
 	extends SeqFactory.Delegate[C](factory) with BufferFactory[C]
 {
-	override def ofCapacity[E](capacity :Int) :C[E] = empty
+	override def ofCapacity[E](capacity :Int) :C[E] = empty[E] trySizeHint capacity
 }

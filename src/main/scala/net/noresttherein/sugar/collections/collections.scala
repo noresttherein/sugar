@@ -22,6 +22,12 @@ import net.noresttherein.sugar.extensions._
 
 
 //consider: extending imports
+/**
+  *
+  * @define defaultArraySeqProperty   `net.noresttherein.sugar.collections.ArraySeqFactory`
+  * @define defaultIndexedSeqProperty `net.noresttherein.sugar.collections.IndexedSeqFactory`
+  * @define defaultBufferProperty     `net.noresttherein.sugar.collections.BufferFactory`
+  */
 package object collections {
 	private[collections] final val Ver = 1L
 
@@ -123,12 +129,32 @@ package object collections {
 	type DoubleSplitStepper  = DoubleStepper with EfficientSplit
 
 
+	/** A matching pattern extracting the size of any collection for which `knownSize >= 0`. */
 	val KnownSize :MatchPattern[IterableOnce[_], Int] =
 		MatchPattern { elems :IterableOnce[_] => Maybe.satisfying(elems.knownSize)(_ >= 0) }
 
 
+	/** An optional system property with a name of an
+	  * [[scala.collection.immutable.SeqFactory SeqFactory]]`[`[[scala.collection.immutable.IndexedSeq IndexedSeq]]`]`
+	  * class or object used by the library whenever an `IndexedSeq` should be returned.
+	  * @see [[net.noresttherein.sugar.collections.DefaultIndexedSeq DefaultIndexedSeq]]
+	  */
 	final val defaultIndexedSeqProperty = "net.noresttherein.sugar.collections.IndexedSeqFactory"
+
+	/** An optional system property with a name of an
+	  * [[net.noresttherein.sugar.collections.ArrayLikeSliceFactory ArrayLikeSliceFactory]]`[`[[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`, `[[scala.collection.immutable.IndexedSeq IndexedSeq]]`]`
+	  * class or object to wrap an array in a sequence, or for temporary indexed sequences used internally.
+	  * @see [[net.noresttherein.sugar.collections.DefaultArraySeq DefaultArraySeq]]
+	  */
 	final val defaultArraySeqProperty   = "net.noresttherein.sugar.collections.ArraySeqFactory"
+
+	/** An optional system property with a name o a class or object extending
+	  * [[net.noresttherein.sugar.collections.BufferFactory BufferFactory]]`[`[[scala.collection.mutable.Buffer Buffer]]`]`,
+	  * which is used whenever a method implementation needs to use a buffer. Alternatively, if the system property
+	  * specifies a [[scala.collection.SeqFactory SeqFactory]]`[Buffer]`, an adapter to `BufferFactory` will be created.
+	  * @see [[net.noresttherein.sugar.collections.DefaultBuffer DefaultBuffer]]
+	  */
+//	  * [[scala.collection.mutable.IndexedBuffer IndexedBuffer]]
 	final val defaultBufferProperty     = "net.noresttherein.sugar.collections.BufferFactory"
 
 
@@ -146,10 +172,25 @@ package object collections {
 		}
 
 	//consider: nothing really prevents us from making it ArrayLikeSliceFactory
+	/** Default implementation of immutable sequences backed by immutable arrays and array slices used by all classes
+	  * and extension methods in this library. Can be specified by setting system property $defaultArraySeqProperty
+	  * to class name of a class or object implementing `ArrayLikeSliceFactory`, or `scala.collection.immutable.ArraySeq`,
+	  * if standard implementation should be used for this purpose. In the latter case, creating a sequence based
+	  * on a [[net.noresttherein.sugar.collections.ArrayLikeSliceWrapper.slice slice]] of an array will create
+	  * a new array. The implementation must support arrays of arbitrary types, in particular both
+	  * [[net.noresttherein.sugar.arrays.IArray IArray]] of built in value types,
+	  * and [[net.noresttherein.sugar.arrays.IRefArray IRefArray]] (that is, `Array[AnyRef]`).
+	  * If the property is not set, defaults to [[net.noresttherein.sugar.collections.RelayArray RelayArray]].
+	  * @see [[net.noresttherein.sugar.collections.IArrayLikeSlice]]
+	  */
 	final val DefaultArraySeq :ArrayLikeSliceFactory[IArrayLike, IndexedSeq] =
 		arrayWrapperFromProperty(defaultArraySeqProperty) orElse RelayArrayFactory getOrElse IArrayLikeSlice
 
-	/** The default `IndexedSeq` implementation used by the library. */
+	/** The default immutable `IndexedSeq` implementation used by the library. Can be specified by setting
+	  * system property $defaultIndexedSeqProperty to the name of any class or object
+	  * implementing `SeqFactory[IndexedSeq]`. In case of its absence,
+	  * [[net.noresttherein.sugar.collections.RelayArray RelayArray]] is used by default.
+	  */
 	private[collections] val DefaultIndexedSeq :SeqFactory[IndexedSeq] =
 		seqFactoryFromProperty[IndexedSeq](defaultIndexedSeqProperty) orElse RelayArrayFactory getOrElse IndexedSeq
 
@@ -161,6 +202,17 @@ package object collections {
 	private[collections] val TemporaryIndexedSeq :SeqFactory[IndexedSeq] =
 		RelayArrayFactory getOrElse ArraySeq.untagged
 
+	/** The default buffer implementation used by the library, mostly as a temporary fast-accessed copy of a collection
+	  * within extension methods. Can be defined by setting $defaultBufferProperty system property
+	  * to name of a class or object extending `BufferFactory[Buffer]`, or `SeqFactory[Buffer]`. If not set, defaults to
+	  * [[net.noresttherein.sugar.collections.MatrixBuffer MatrixBuffer]]`.`[[net.noresttherein.sugar.collections.MatrixBuffer.untagged untagged]].
+	  * @see [[net.noresttherein.sugar.collections.ArrayBufferFactory ArrayBufferFactory]] - an implementation using
+	  *      standard [[scala.collection.mutable.ArrayBuffer ArrayBuffer]].
+	  * @see [[net.noresttherein.sugar.collections.AliasingArrayBuffer AliasingArrayBuffer]] -
+	  *      an `ArrayBuffer` variant which aliases (shares) its underlying array with sequences created with its
+	  *      [[net.noresttherein.sugar.collections.AliasingArrayBuffer.toSeq toSeq]]
+	  * @see [[net.noresttherein.sugar.collections.ArraySliceBuffer$ ArrayBufferFactory]] - a special
+	  */
 	val DefaultBuffer :BufferFactory[Buffer] =
 		bufferFactoryFromProperty(defaultBufferProperty) getOrElse MatrixBuffer.untagged
 

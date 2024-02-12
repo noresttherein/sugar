@@ -985,7 +985,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 			val to   = permutation.iterator
 			while (to.hasNext)
 				seq(to.next()) = from.next()
-			fromSpecific(IRefArray.Wrapped(seq.asIRefArray))
+			fromSpecific(IRefArray.Wrapped(seq.unsafeIRefArray))
 		}
 
 	/** The same as `toSeq.`[[scala.collection.SeqOps.sameElements sameElements]]. */
@@ -1320,7 +1320,7 @@ private object RankingImpl {
 
 		private def readResolve =
 			if (elems.length <= SmallRankingCap) new SmallRanking(elems)
-			else new IndexedRanking(IRefArray.Wrapped(elems.asIRefArray))
+			else new IndexedRanking(IRefArray.Wrapped(elems.unsafeIRefArray))
 	}
 
 
@@ -2266,7 +2266,7 @@ trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
 			if (size <= SmallRankingCap)
 				new SmallRanking(seq)
 			else
-				new IndexedRanking(IRefArray.Wrapped(seq.asIRefArray))
+				new IndexedRanking(IRefArray.Wrapped(seq.unsafeIRefArray))
 		} else {
 			val size = this.size
 			val seq  = RefArray.ofDim[E](size)
@@ -2274,7 +2274,7 @@ trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
 			val to   = permutation.iterator
 			while (to.hasNext)
 				seq(to.next()) = from.next()
-			new IndexedRanking(IRefArray.Wrapped(seq.asIRefArray))
+			new IndexedRanking(IRefArray.Wrapped(seq.unsafeIRefArray))
 		}
 
 	override def empty :Ranking[E] = EmptyRanking //reusableEmpty
@@ -2796,7 +2796,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 
 	private def prependAbsent[U >: E](elem :U, hash :Int) :Ranking[U] =
 		if (hashes.length >= SmallRankingCap)
-			new IndexedRanking(elem +: IRefArray.Wrapped(elements.asIRefArray))
+			new IndexedRanking(elem +: IRefArray.Wrapped(elements.unsafeIRefArray))
 		else {
 			val length = hashes.length
 			val res = RefArray.ofDim[U](length + 1)
@@ -2952,7 +2952,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			// We take advantage here that both hashes and keep are Array[Int] and use keep as a throw away sink.
 			copyKept(keep, resItems, DummyHashArray, 0, kept)
 			arraycopy(suffix.array, 0, resItems, kept, suffixSize)
-			new IndexedRanking(IRefArray.Wrapped(resItems.asIRefArray))
+			new IndexedRanking(IRefArray.Wrapped(resItems.unsafeIRefArray))
 		}
 	}
 
@@ -3032,7 +3032,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			new SmallRanking(resItems, resHashes)
 		} else {
 			suffix.copyKept(keep, resItems, DummyHashArray, size, kept)
-			new IndexedRanking(IRefArray.Wrapped(resItems.asIRefArray))
+			new IndexedRanking(IRefArray.Wrapped(resItems.unsafeIRefArray))
 		}
 	}
 
@@ -3084,7 +3084,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			case Set | collection.Set => toSet.castFrom[Set[E], C1]
 			case Ranking => this.castFrom[Ranking[E], C1]
 			case Yes(IRefArraySlice) | Yes(ArrayLikeSlice) | Yes(IArrayLikeSlice) =>
-				IRefArraySlice.wrap(elements.asIRefArray).castFrom[IRefArraySlice[E], C1]
+				IRefArraySlice.wrap(elements.unsafeIRefArray).castFrom[IRefArraySlice[E], C1]
 			//fixme: currently RelayArrayFactory equals PassedArrayInternals, not PassedArray
 			case _ if RelayArrayFactory.contains(companion) =>
 				RelayArrayFactory.get.wrap(elements.castFrom[RefArray[E], IArray[E]]).castFrom[IndexedSeq[E], C1]
