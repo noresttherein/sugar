@@ -215,6 +215,16 @@ object extensions extends extensions {
 		/** True if this `Int` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
 
+		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Int`.
+		  * If `this >= 0`, then the result will be greater or equal to `this`; otherwise, it will be lesser or equal
+		  * to `this`.
+		  * @note the method does not check for arithmetic overflow.
+		  */
+		@inline def nextPowerOf2 :Int = {
+			val lowerPowerOf2 = jl.Integer.highestOneBit(self)
+			if (lowerPowerOf2 == self) self else lowerPowerOf2 << 1
+		}
+
 		/** The number of digits in this number's decimal expansion. */
 		@inline def digitCount :Int = { //adapted from java.math.BigDecimal.longDigitLength
 			val x = if (self < 0) -self else self
@@ -346,6 +356,16 @@ object extensions extends extensions {
 
 		/** True if this `Long` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Long.bitCount(self) == 1
+
+		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Long`.
+		  * If `this >= 0`, then the result will be greater or equal to `this`
+		  * otherwise, it will be lesser or equal to `this`.
+		  * @note the method does not check for arithmetic overflow.
+		  */
+		@inline def nextPowerOf2 :Long = {
+			val lowerPowerOf2 = jl.Long.highestOneBit(self)
+			if (lowerPowerOf2 == self) self else lowerPowerOf2 << 1
+		}
 
 		/** The number of digits in this number's decimal expansion. */
 		@inline def digitCount :Int = { //adapted from java.math.BigDecimal.longDigitLength
