@@ -143,7 +143,7 @@ private object Iterators {
 			if (size >= 0 && from >= size)
 				self
 			else
-				new RemovedSlice(self, nonNegFrom, nonNegUntil - 1)
+				new RemovedSlice(self, nonNegFrom, nonNegUntil)
 		}
 
 	def updated[E](self :Iterator[E], index :Int, elem :E) :Iterator[E] =
@@ -1264,28 +1264,27 @@ private object Iterators {
 	}
 
 	//An overflow conscious implementation. However, untilInclusive == Int.MaxValue is de facto treated as infinity.
-	final class RemovedSlice[+E](private[this] var underlying :Iterator[E], from :Int, untilInclusive :Int)
+	final class RemovedSlice[+E](private[this] var underlying :Iterator[E], from :Int, until :Int)
 		extends AbstractBufferedIterator[E]
 	{
 		private[this] var i = 0
-		def offset :Int = i
 
 		override def knownSize :Int = {
 			val size = underlying.knownSize
 			if (size < 0)
 				-1
-			else if (i > untilInclusive)
-				size
+			else if (i >= until)
+				size + super.hasNext.toInt
 			else {
-				val start = math.min(from, size)
-				val end   = math.min(math.max(untilInclusive, start - 1), size - 1)
-				size - (end - start) - 1
+				val start = math.min(from, i + size)
+				val end   = math.min(math.max(until, start), i + size)
+				size + super.hasNext.toInt - (end - start)
 			}
 		}
 		override def hasNext :Boolean = super.hasNext || {
 			if (i == from) {
-				underlying = underlying.drop(untilInclusive - from + 1)
-				i = untilInclusive + 1
+				underlying = underlying.drop(until - from)
+				i = until
 			}
 			underlying.hasNext && {
 				i += 1
@@ -1296,19 +1295,15 @@ private object Iterators {
 			if (n > 0) {
 				var toDrop = n
 				if (super.hasNext) {
-					toDrop += 1
+					toDrop -= 1
 					pop()
 				}
-				if (i > untilInclusive)
-					underlying = underlying.drop(toDrop) //don't increase i to avoid overflow
-				else if (toDrop < from - i) {
-					i += n
-					underlying = underlying.drop(n)
-				} else {
-					underlying = underlying.drop(untilInclusive - i)
-					i = untilInclusive
-					pop()
+				if (i < until & toDrop > from - i) {
+					toDrop += math.min(until - from, Int.MaxValue - toDrop)
+					underlying = underlying.drop(toDrop)
 				}
+				underlying = underlying.drop(toDrop)
+				i += math.min(toDrop, Int.MaxValue - i)
 			}
 			this
 		}
@@ -1317,28 +1312,26 @@ private object Iterators {
 			this
 		}
 
-		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-			if (i > untilInclusive)
-				underlying.copyToArray(xs, start, len)
-			else if (len <= 0 | from == 0 && untilInclusive == Int.MaxValue || start >= xs.length) //overflow guard
+		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int =
+			if (len <= 0 | from == 0 & until == Int.MaxValue || start >= xs.length) //overflow guard
 				0
-			else if (i >= from && i <= untilInclusive) {
-				if (untilInclusive == Int.MaxValue && i == 0)
-					0
-				else {
-					underlying = underlying.drop(untilInclusive + 1 - i)
-					underlying.copyToArray(xs, start, len)
-				}
-			} else {
-				val max = math.min(len, xs.length - start)
+			else if (super.hasNext) {
+				xs(start) = head
+				pop()
+				1 + copyToArray(xs, start + 1, len - 1)
+			} else if (i >= until)
+				underlying.copyToArray(xs, start, len)
+			else {
+				val size = knownSize
+				val max =
+					if (size < 0) math.min(len, xs.length - start)
+					else math.min(len, math.min(size, xs.length - start))
 				if (max <= from - i)
 					underlying.copyToArray(xs, start, max)
-				else if (max <= untilInclusive + 1 - i || untilInclusive == Int.MaxValue && i == 0)
-					underlying.copyToArray(xs, start, from - i)
 				else {
 					val (before, after) = underlying.splitAt(from - i)
 					val copiedBefore    = before.copyToArray(xs, start, from - i)
-					underlying          = after.drop(untilInclusive + 1 - from)
+					underlying          = after.drop(until - from)
 					copiedBefore + underlying.copyToArray(xs, start + copiedBefore, max - copiedBefore)
 				}
 			}
@@ -1350,7 +1343,7 @@ private object Iterators {
 //			else if (from == untilInclusive)
 //				underlying.toString + "@" + i + ".removed(" + from + ")"
 			else
-				underlying.toString + "@" + i + ".removed(" + from + ".." + (untilInclusive + 1) + ")"
+				underlying.toString + "@" + i + ".removed(" + from + ".." + until + ")"
 	}
 
 	final class Updated[+E](private[this] var underlying :Iterator[E], index :Int, elem :E)
