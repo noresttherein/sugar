@@ -149,7 +149,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 //
 //
 //
-//trait ProperArraySliceOps[+E, +CC[_], +C] extends ArraySliceOps[E, CC, C]
+//trait TypedArraySliceOps[+E, +CC[_], +C] extends ArraySliceOps[E, CC, C]
 
 
 
@@ -500,7 +500,7 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
 	extends mutable.AbstractSeq[E]
 	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, ArraySlice[E]]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, MutableArraySlice, ArraySlice[E]]
-//	   with ProperArraySliceOps[E, MutableArraySlice, ArraySlice[E]]
+//	   with TypedArraySliceOps[E, MutableArraySlice, ArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, Array, ArraySlice]
 	   with EvidenceIterableFactoryOverrides[E, ArraySlice, ClassTag]
 {
@@ -566,7 +566,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
                         (underlying :IArray[E], final override val startIndex :Int, final override val length :Int)
 	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
-//	   with ProperArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
+//	   with TypedArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, IArray, IArraySlice]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
 {

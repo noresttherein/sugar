@@ -46,7 +46,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 case object IArray extends ClassTagIterableFactory[IArray] {
 
 	//private[IArray] to enable inlining methods calling it.
-	@inline private[IArray] def expose[E](array :ProperArray[E]) :IArray[E] = {
+	@inline private[IArray] def expose[E](array :TypedArray[E]) :IArray[E] = {
 		releaseFence()
 		array.asInstanceOf[IArray[E]]
 	}
@@ -474,16 +474,16 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	/** Creates an immutable copy of the argument, with the same element type. This method is exactly equivalent to
 	  * [[net.noresttherein.sugar.arrays.IArray.copyAs copyAs]]`[E](array, newLength)`, but never throws an exception.
 	  */
-	def copyOf[E](array :ProperArray[E]) :IArray[E] =
+	def copyOf[E](array :TypedArray[E]) :IArray[E] =
 		expose(ArrayFactory.copyOf(array.asInstanceOf[Array[E]]))
 
 	/** Copies one array to another, truncating or padding with default values (if necessary) so the copy has
 	  * the specified length. The returned array will be of the same type as the original.
-	  * Equivalent to `Array.`[[Array.copyOf copyOf]]`(array, newLength)`, but accepts a `ProperArray` and returns
+	  * Equivalent to `Array.`[[Array.copyOf copyOf]]`(array, newLength)`, but accepts a `TypedArray` and returns
 	  * the result as an $Coll.
 	  * @throws NegativeArraySizeException If `newLength` is negative.
 	  */
-	@inline def copyOf[E](array :ProperArray[E], newLength :Int) :IArray[E] =
+	@inline def copyOf[E](array :TypedArray[E], newLength :Int) :IArray[E] =
 		expose(ArrayFactory.copyOf(array.asInstanceOf[Array[E]], newLength))
 
 	//fixme: outdated docs, but maybe better semantics.
@@ -497,7 +497,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		expose(Array.copyOfRange(array, from, until))
 
 	/** Returns `array.slice(from, until)` as an `IArray[E]`. */
-	@inline def copyOfRange[E](array :ProperArray[E], from :Int, until :Int) :IArray[E] =
+	@inline def copyOfRange[E](array :TypedArray[E], from :Int, until :Int) :IArray[E] =
 		expose(array.asInstanceOf[Array[E]].slice(from, until))
 
 	/** Copies slices from two array into a new array. Providing `until < from` has the same effect as `until == from`,
@@ -535,8 +535,8 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *         with the copied slices. The element type of the `IArray` will equal the element type of `array1`.
 	  */
 	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
-	@inline def copyOfRanges[E](array1 :ProperArray[E], from1 :Int, until1 :Int,
-	                            array2 :ProperArray[E], from2 :Int, until2 :Int) :IArray[E] =
+	@inline def copyOfRanges[E](array1 :TypedArray[E], from1 :Int, until1 :Int,
+	                            array2 :TypedArray[E], from2 :Int, until2 :Int) :IArray[E] =
 		expose(ArrayLike.copyOfRanges(array1, from1, until1, array2, from2, until2))
 
 	/** Copies slices from three array into a new array. Providing `until < from` has the same effect as `until == from`,
@@ -583,9 +583,9 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	  *         with the copied slices. The element type of the array will be equal to the element type of `array1`.
 	  */
 	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
-	@inline def copyOfRanges[E](array1 :ProperArray[E], from1 :Int, until1 :Int,
-	                            array2 :ProperArray[E], from2 :Int, until2 :Int,
-	                            array3 :ProperArray[E], from3 :Int, until3 :Int) :IArray[E] =
+	@inline def copyOfRanges[E](array1 :TypedArray[E], from1 :Int, until1 :Int,
+	                            array2 :TypedArray[E], from2 :Int, until2 :Int,
+	                            array3 :TypedArray[E], from3 :Int, until3 :Int) :IArray[E] =
 		expose(ArrayLike.copyOfRanges(array1, from1, until1, array2, from2, until2, array3, from3, until3))
 
 

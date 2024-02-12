@@ -843,7 +843,7 @@ object extensions {
 		/** An overloaded variant of standard
 		  * [[collection.ArrayOps ArrayOps]]`.`[[collection.ArrayOps.appendedAll appendedAll]], appending the elements
 		  * of the specified array. The returned array will be of the same type as the argument.
-		  */ //Can't use ProperArray/IArray, because IArray[U] may actually be Array[A] forSome A <: E.
+		  */ //Can't use TypedArray/IArray, because IArray[U] may actually be Array[A] forSome A <: E.
 		def appendedAll[U >: E :Overload](elems :Array[U]) :Array[U] =
 			appendedAll(elems :ArrayLike[U])(ClassTag[U](elems.getClass.getComponentType))
 

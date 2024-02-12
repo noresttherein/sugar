@@ -132,7 +132,7 @@ abstract class ArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator
 }
 
 
-sealed trait ProperArrayIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]]
+sealed trait TypedArrayIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]]
 	extends ArrayLikeIteratorFactory[A, I]
 {
 	/** Same as $Coll`(array)`, but always produces an erased, not specialized instance. */
@@ -145,8 +145,8 @@ sealed trait ProperArrayIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator
 
 
 @SerialVersionUID(Ver)
-sealed class ArrayIteratorFactory[-A[X] <: ProperArray[X]] private[arrays]
-	extends ArrayLikeIteratorFactory[A, ArrayIterator] with ProperArrayIteratorFactory[A, ArrayIterator]
+sealed class ArrayIteratorFactory[-A[X] <: TypedArray[X]] private[arrays]
+	extends ArrayLikeIteratorFactory[A, ArrayIterator] with TypedArrayIteratorFactory[A, ArrayIterator]
 {
 	protected override def make[T](array :A[T], from :Int, until :Int) :ArrayIterator[T] =
 		((array :ArrayLike[_]) match {
@@ -198,7 +198,7 @@ private[sugar] sealed class RefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]
 
 /** A factory of iterators advancing over array slices. */
 @SerialVersionUID(Ver)
-private[sugar] object ProperArrayIterator extends ArrayIteratorFactory[ProperArray] {
+private[sugar] object TypedArrayIterator extends ArrayIteratorFactory[TypedArray] {
 	override def toString :String = "ArrayIterator"
 }
 
@@ -297,9 +297,9 @@ sealed abstract class ReverseArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[
 
 
 @SerialVersionUID(Ver)
-sealed class ReverseArrayIteratorFactory[-A[X] <: ProperArray[X]] private[arrays]
+sealed class ReverseArrayIteratorFactory[-A[X] <: TypedArray[X]] private[arrays]
 	extends ReverseArrayLikeIteratorFactory[A, ReverseArrayIterator]
-	   with ProperArrayIteratorFactory[A, ReverseArrayIterator]
+	   with TypedArrayIteratorFactory[A, ReverseArrayIterator]
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ReverseArrayIterator[T] =
 		((array :ArrayLike[_]) match {
@@ -346,7 +346,7 @@ private[sugar] sealed class ReverseRefArrayLikeIteratorFactory[-A[X] <: RefArray
 
 
 @SerialVersionUID(Ver)
-object ReverseProperArrayIterator extends ReverseArrayIteratorFactory[ProperArray] {
+object ReverseTypedArrayIterator extends ReverseArrayIteratorFactory[TypedArray] {
 	override def toString :String = "ReverseArrayIterator"
 }
 
@@ -551,7 +551,7 @@ abstract class CyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: It
 @SerialVersionUID(Ver)
 sealed class CyclicArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
 	extends CyclicArrayLikeIteratorFactory[A, CyclicArrayIterator]
-	   with ProperArrayIteratorFactory[A, CyclicArrayIterator]
+	   with TypedArrayIteratorFactory[A, CyclicArrayIterator]
 {
 	protected final override def make[T](array :A[T], offset :Int, length :Int) :CyclicArrayIterator[T] =
 		((array :ArrayLike[_]) match {
@@ -762,7 +762,7 @@ sealed abstract class ReverseCyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X
 @SerialVersionUID(Ver)
 sealed class ReverseCyclicArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
 	extends ReverseCyclicArrayLikeIteratorFactory[A, ReverseCyclicArrayIterator]
-	   with ProperArrayIteratorFactory[A, ReverseCyclicArrayIterator]
+	   with TypedArrayIteratorFactory[A, ReverseCyclicArrayIterator]
 {
 	protected final override def make[T](array :A[T], offset :Int, length :Int) :ReverseCyclicArrayIterator[T] =
 		((array :ArrayLike[_]) match {

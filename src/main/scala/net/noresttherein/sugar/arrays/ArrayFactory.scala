@@ -245,7 +245,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 	private val InitialBuilderSize = 16
 
 	//Consider: making it private, or at least an interface.
-	//Todo: addAll(array :ArrayLike, offset :Int, length :Int) and addAll(array :ProperArray[E], offset length)
+	//Todo: addAll(array :ArrayLike, offset :Int, length :Int) and addAll(array :TypedArray[E], offset length)
 	/** Our own version of a builder. Calls `releaseFence` before returning the array for safe use with `IArrayLike`.  */
 	private class ArrayBuilder[@specialized(NotUnit) E](private[this] var init :Array[E], elemType :Class[E])
 		extends ReusableBuilder[E, Array[E]]

@@ -88,7 +88,7 @@ package object arrays extends extensions {
 	  * variants would be impossible due to method signature conflict after erasure,
 	  * as both these types erase to `AnyRef` in a generic context.
 	  */
-	type ProperArray[@specialized(Everything) +E] >: Array[E @uncheckedVariance] <: ArrayLike[E]
+	type TypedArray[@specialized(Everything) +E] >: Array[E @uncheckedVariance] <: ArrayLike[E]
 
 	/** An immutable array with elements of type `E`, represented in runtime as some `Array[_ >: E]`.
 	  * Its interface is defined as extension methods in
@@ -112,7 +112,7 @@ package object arrays extends extensions {
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.IArrayLike]]
 	  */ //todo: carefully review all usage to eliminate the chance of us casting an `IArray[Any]` to `Array[Any]`
-	type IArray[@specialized(Everything) +E] >: Null <: IArrayLike[E] with ProperArray[E]
+	type IArray[@specialized(Everything) +E] >: Null <: IArrayLike[E] with TypedArray[E]
 
 	/** A common supertype of types represented in runtime by an `Array[AnyRef]`:
 	  * [[net.noresttherein.sugar.arrays.RefArray! RefArray]] and [[net.noresttherein.sugar.arrays.IRefArray! IRefArray]].
@@ -229,26 +229,26 @@ package object arrays extends extensions {
 
 
 	private[sugar] val ArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ArrayIterator] =
-		ProperArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ArrayIterator]]
+		TypedArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ArrayIterator]]
 
 	private[sugar] val IArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ArrayIterator] =
 		IArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[IArrayLike, ArrayIterator]]
 
-	private[sugar] val ArrayIterator :ArrayIteratorFactory[Array] = ProperArrayIterator
+	private[sugar] val ArrayIterator :ArrayIteratorFactory[Array] = TypedArrayIterator
 
 	private[sugar] val RefArrayIterator :RefArrayLikeIteratorFactory[RefArray] = RefArrayLikeIterator
 //		RefArrayLikeIterator.asInstanceOf[RefArrayLikeIteratorFactory[RefArray]]
 
 
 	private[sugar] val ReverseArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ReverseArrayIterator] =
-		ReverseProperArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ReverseArrayIterator]]
+		ReverseTypedArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ReverseArrayIterator]]
 
 	private[sugar] val ReverseIArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ReverseArrayIterator] =
 		ReverseArrayLikeIterator
 
-	private[sugar] val ReverseArrayIterator :ReverseArrayIteratorFactory[Array] = ReverseProperArrayIterator
+	private[sugar] val ReverseArrayIterator :ReverseArrayIteratorFactory[Array] = ReverseTypedArrayIterator
 
-	private[sugar] val ReverseIArrayIterator :ReverseArrayIteratorFactory[IArray] = ReverseProperArrayIterator
+	private[sugar] val ReverseIArrayIterator :ReverseArrayIteratorFactory[IArray] = ReverseTypedArrayIterator
 
 	private[sugar] val ReverseRefArrayIterator :ReverseArrayLikeIteratorFactory[RefArray, ReverseArrayIterator] =
 		ReverseRefArrayLikeIterator
