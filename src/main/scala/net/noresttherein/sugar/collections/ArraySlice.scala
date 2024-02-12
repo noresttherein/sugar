@@ -156,9 +156,14 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 
 
 
+/**
+  * @define Coll collection
+  * @define coll collection
+  * @define Arr `ArrayLike`
+  * @define arr array-like
+  */
 trait ArrayLikeWrapper[-A[E] <: ArrayLike[E], +C[_]] extends Serializable {
-	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]].
-	  * The collection will share the contents with the array,
+	/** Wraps the given $Arr in a $Coll. The collection will share the contents with the array,
 	  * and thus any modifications to either will be visible in the other.
 	  */
 	def wrap[E](array :A[E]) :C[E]
@@ -174,18 +179,13 @@ trait ArrayLikeSeqFactory[-A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, c
 	extends StrictOptimizedSeqFactory[C] with ArrayLikeWrapper[A, C]
 
 
-/**
-  * @define Coll collection
-  * @define coll collection
-  */
 trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapper[A, C] {
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
-	/** Wraps the given [[net.noresttherein.sugar.arrays.ArrayLike array-like]] in a $coll,
-	  * exposing only elements `array(from), ..., array(until - 1)`. The $coll will share the contents
-	  * with the array, and thus any modifications to either will be visible in the other.
+	/** Wraps the given $arr in a $coll, exposing only elements `array(from), ..., array(until - 1)`. The $coll
+	  * will share the contents with the array, and thus any modifications to either will be visible in the other.
 	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
-	  */
+	  */ //consider: renaming to range
 	def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
 		val length = array.length
 		if (until <= 0) make(array, 0, 0)
@@ -295,9 +295,9 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 		else if (from <= 0 & until >= length)
 			empty
 		else if (from <= 0)
-			clippedSlice(0, until)
+			clippedSlice(until, length)
 		else if (until >= length)
-			clippedSlice(from, length)
+			clippedSlice(0, from)
 		else {
 			val array = this.array
 			val start = this.startIndex
@@ -432,6 +432,8 @@ private[sugar] sealed trait MutableArraySlice[@specialized(ElemTypes) E]
 /** $factoryInfo
   * @define Coll `MutableArrayLikeSlice`
   * @define coll mutable array slice
+  * @define Arr `MutableArray`
+  * @define arr mutable array-like
   */
 @SerialVersionUID(Ver)
 private[sugar] case object MutableArraySlice
@@ -467,6 +469,8 @@ private[sugar] sealed trait IArrayLikeSlice[@specialized(ElemTypes) +E]
 /** $factoryInfo
   * @define Coll `IArrayLikeSlice`
   * @define coll immutable array slice
+  * @define Arr `IArray`
+  * @define arr immutable array
   */
 @SerialVersionUID(Ver)
 private[sugar] case object IArrayLikeSlice
@@ -520,6 +524,8 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
 /** $factoryInfo
   * @define Coll `ArraySlice`
   * @define coll array slice
+  * @define Arr `Array`
+  * @define arr array
   */
 @SerialVersionUID(Ver)
 private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Array, ArraySlice] {
@@ -582,6 +588,8 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 /** $factoryInfo
   * @define Coll `IArraySlice`
   * @define coll immutable array slice
+  * @define Arr `IArrayLike`
+  * @define arr immutable array-like
   */
 @SerialVersionUID(Ver)
 private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IArray, IArraySlice] {
@@ -643,6 +651,8 @@ private[sugar] sealed class RefArraySlice[E] private
 /** $factoryInfo
   * @define Coll `RefArraySlice`
   * @define coll reference array slice
+  * @define Arr `RefArray`
+  * @define arr boxed array
   */
 @SerialVersionUID(Ver)
 private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArray, RefArraySlice] {
@@ -684,6 +694,8 @@ private[sugar] sealed class IRefArraySlice[+E] private
 /** $factoryInfo
   * @define Coll `IRefArraySlice`
   * @define coll immutable reference array slice
+  * @define Arr `IRefArray`
+  * @define arr immutable boxed array
   */
 @SerialVersionUID(Ver)
 private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefArray, IRefArraySlice] {
@@ -717,8 +729,11 @@ private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefA
 final class ArraySerializationProxy[+A](constructor :Array[A] => Any, array :Array[A])
 	extends Serializable
 {
+	def this(factory :ArrayLikeWrapper[Array, IterableOnce], array :Array[A]) =
+		this(factory.wrap(_), array)
+
 	def this(factory :Array[A] => Any, array :Array[A], offset :Int, length :Int) =
-		this (factory, if (length == array.length) array else array.slice(offset, offset + length))
+		this(factory, if (length == array.length) array else array.slice(offset, offset + length))
 
 	protected[this] def readResolve() :Any = constructor(array)
 }
@@ -731,6 +746,10 @@ final class ArraySerializationProxy[+A](constructor :Array[A] => Any, array :Arr
 /** An adapter of [[scala.collection.immutable.ArraySeq$ ArraySeq]] factory to
   * [[net.noresttherein.sugar.collections.ArrayLikeSliceFactory ArrayLikeSliceFactory]] interface,
   * allowing to plug standard `ArraySeq` instead of classes from this package.
+  * @define Coll `ArraySeq`
+  * @define coll array sequence
+  * @define Arr `Array`
+  * @define arr array
   */
 @SerialVersionUID(Ver)
 private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[Array, ArraySeq] {
@@ -764,6 +783,14 @@ private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceFactory[Arra
 	override def isImmutable :Boolean = true
 
 	//No sense in extending SeqFactory.Delegate, because ArrayLikeSliceFactory will override it anyway.
+
+	/** Wraps any `Array` in an immutable `ArraySeq`. This implementation allows to make the library use the standard
+	  * `ArraySeq` instead of one of its own implementations.
+	  * @define Coll `ArraySeq`
+	  * @define coll array sequence
+	  * @define Arr `Array`
+	  * @define arr array
+	  */
 	object untagged extends SeqFactory.Delegate(ArraySeq.untagged) with ArrayLikeSliceFactory[Array, ArraySeq] {
 		protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
 			if (from == 0 && until == array.length) ArraySeq.unsafeWrapArray(array)

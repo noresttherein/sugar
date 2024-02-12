@@ -36,6 +36,118 @@ import net.noresttherein.sugar.witness.Ignored
 @SerialVersionUID(Ver)
 case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray) {
 
+	@inline def unapplySeq[E](array :MutableArray[E]) :UnapplySeqWrapper[E] =
+		new UnapplySeqWrapper(array.asSubtype[Array[E]])
+
+
+	/** Wraps and unwraps arrays in mutable indexed sequences.
+	  * $warning
+	  * @define warning Extraction relies on a `ClassTag` for the unwrapped
+	  * `IterableOnce[E]` to guarantee that the underlying array type can store new elements of that type.
+	  * This however goes only as far as class comparison, and is unsound if the element type is generic,
+	  * or otherwise carries information which distinguishes it from simply its runtime class.
+	  * The array is shared, not copied, so changes to either the array or the sequence will be mutually visible.
+	  * Note, however, that extracted `MutableArray[E]` may technically be neither `RefArray[E]` (`Array[E]`)
+	  * nor an `Array[E]`; it is however guaranteed that
+	  *   1. it is possible to store values of `E` in it, using `MutableArray`'s extension methods, and
+	  *   1. all actual elements stored in it are subclasses of the runtime class of `E`.
+	  */
+	@SerialVersionUID(Ver)
+	object Wrapped {
+		def apply[E](array :MutableArray[E]) :mutable.IndexedSeq[E] =
+			MutableArraySlice.wrap(array)
+
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[MutableArray[E]] = {
+			val length = elems.length
+			elems match {
+				case seq   :mutable.ArraySeq[_] =>
+					Yes(seq.array.castFrom[Array[_], MutableArray[E]])
+				case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == length =>
+					Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
+				case slice :ArrayIterableOnce[_] if slice.isMutable && slice.unsafeArray.length == length =>
+					Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
+				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.data1.length == length =>
+					Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
+				case _ =>
+					No
+			}
+		}
+
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[MutableArray[E]] = elems match {
+//			case RefArray.Wrapped(array) => Yes(array)
+			case seq   :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
+				Yes(seq.array.castFrom[Array[_], MutableArray[E]])
+			case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length =>
+				Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
+			case slice :ArrayIterableOnce[_]
+				if slice.isMutable && slice.startIndex == 0 && slice.knownSize == slice.unsafeArray.length &&
+					classTag[E].runtimeClass <:< slice.unsafeArray.getClass.getComponentType =>
+				Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
+			case seq   :MatrixBuffer[_]
+				if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length &&
+					classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
+				Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
+			case _ =>
+				No
+		}
+
+		/** Converts a section of an array to a mutable indexd sequence, and matches any collection
+		  * from which an underlying array can be extracted.
+		  * $warning
+		  */
+		@SerialVersionUID(Ver)
+		object Slice {
+			def apply[E](array :MutableArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
+				if (array.getClass == classOf[Array[Any]])
+					RefArraySlice.slice(array.asSubtype[RefArray[E]], from, until)
+				else
+					ArraySlice.slice(array.asSubtype[Array[E]], from, until)
+
+			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[(MutableArray[E], Int, Int)] = {
+				val length = elems.length
+				elems match {
+					case seq :mutable.ArraySeq[E] =>
+						Yes(seq.array.castFrom[Array[_], MutableArray[E]], 0, length)
+					case seq :ArrayBuffer[E] =>
+						Yes(CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, length)
+					case seq :ArrayIterableOnce[E] if seq.isMutable =>
+						val start = seq.startIndex
+						Yes(seq.unsafeArray.castFrom[Array[_], MutableArray[E]], start, start + length)
+					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex + length <= seq.data1.length =>
+						Yes((seq.data1, seq.startIndex, seq.startIndex + length))
+					case _ =>
+						No
+				}
+			}
+
+			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(MutableArray[E], Int, Int)] = elems match {
+				case seq :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
+					Yes((seq.array.castFrom[Array[_], Array[E]], 0, seq.array.length))
+
+				case seq :ArrayBuffer[_] =>
+					Yes((CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, seq.length))
+
+				case slice :ArrayIterableOnce[E] if slice.isMutable && slice.knownSize >= 0 =>
+					val array = slice.unsafeArray.castFrom[Array[_], Array[E]]
+					val start = slice.startIndex
+					if (classTag[E].runtimeClass <:< array.getClass.getComponentType)
+						Yes((array, start, start + slice.knownSize))
+					else
+						No
+				case seq :MatrixBuffer[E]
+					if seq.dim == 1 && seq.startIndex + seq.length <= seq.data1.length &&
+						classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
+					Yes(seq.data1, seq.startIndex, seq.startIndex + seq.length)
+				case _ =>
+					No
+			}
+
+		}
+	}
+
+
+
+	/** Mutating extension methods available for `Array` and [[net.noresttherein.sugar.arrays.RefArray! RefArray]]. */
 	class MutableArrayExtension[E] private[arrays] (private val self :Array[Unknown]) extends AnyVal {
 //		@inline private def as[E] :Array[E] = self.asInstanceOf[Array[E]]
 
@@ -478,116 +590,6 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 				new RefArrayAsSeq(self.castFrom[Array[Unknown], RefArray[E]])
 			else
 				new ArrayAsSeq(self.castFrom[Array[Unknown], Array[E]])
-	}
-
-
-	@inline def unapplySeq[E](array :MutableArray[E]) :UnapplySeqWrapper[E] =
-		new UnapplySeqWrapper(array.asSubtype[Array[E]])
-
-
-	/** Wraps and unwraps arrays in mutable indexed sequences.
-	  * $warning
-	  * @define warning Extraction relies on a `ClassTag` for the unwrapped
-	  * `IterableOnce[E]` to guarantee that the underlying array type can store new elements of that type.
-	  * This however goes only as far as class comparison, and is unsound if the element type is generic,
-	  * or otherwise carries information which distinguishes it from simply its runtime class.
-	  * The array is shared, not copied, so changes to either the array or the sequence will be mutually visible.
-	  * Note, however, that extracted `MutableArray[E]` may technically be neither `RefArray[E]` (`Array[E]`)
-	  * nor an `Array[E]`; it is however guaranteed that
-	  *   1. it is possible to store values of `E` in it, using `MutableArray`'s extension methods, and
-	  *   1. all actual elements stored in it are subclasses of the runtime class of `E`.
-	  */
-	@SerialVersionUID(Ver)
-	object Wrapped {
-		def apply[E](array :MutableArray[E]) :mutable.IndexedSeq[E] =
-			MutableArraySlice.wrap(array)
-
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[MutableArray[E]] = {
-			val length = elems.length
-			elems match {
-				case seq   :mutable.ArraySeq[_] =>
-					Yes(seq.array.castFrom[Array[_], MutableArray[E]])
-				case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == length =>
-					Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
-				case slice :ArrayIterableOnce[_] if slice.isMutable && slice.unsafeArray.length == length =>
-					Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
-				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startOffset == 0 && seq.data1.length == length =>
-					Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
-				case _ =>
-					No
-			}
-		}
-
-		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[MutableArray[E]] = elems match {
-//			case RefArray.Wrapped(array) => Yes(array)
-			case seq   :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
-				Yes(seq.array.castFrom[Array[_], MutableArray[E]])
-			case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length =>
-				Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
-			case slice :ArrayIterableOnce[_]
-				if slice.isMutable && slice.startIndex == 0 && slice.knownSize == slice.unsafeArray.length &&
-					classTag[E].runtimeClass <:< slice.unsafeArray.getClass.getComponentType =>
-				Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
-			case seq   :MatrixBuffer[_]
-				if seq.dim == 1 && seq.startOffset == 0 && seq.length == seq.data1.length &&
-					classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
-				Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
-			case _ =>
-				No
-		}
-
-		/** Converts a section of an array to a mutable indexd sequence, and matches any collection
-		  * from which an underlying array can be extracted.
-		  * $warning
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[E](array :MutableArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
-				if (array.getClass == classOf[Array[Any]])
-					RefArraySlice.slice(array.asSubtype[RefArray[E]], from, until)
-				else
-					ArraySlice.slice(array.asSubtype[Array[E]], from, until)
-
-			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[(MutableArray[E], Int, Int)] = {
-				val length = elems.length
-				elems match {
-					case seq :mutable.ArraySeq[E] =>
-						Yes(seq.array.castFrom[Array[_], MutableArray[E]], 0, length)
-					case seq :ArrayBuffer[E] =>
-						Yes(CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, length)
-					case seq :ArrayIterableOnce[E] if seq.isMutable =>
-						val start = seq.startIndex
-						Yes(seq.unsafeArray.castFrom[Array[_], MutableArray[E]], start, start + length)
-					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startOffset + length <= seq.data1.length =>
-						Yes((seq.data1, seq.startOffset, seq.startOffset + length))
-					case _ =>
-						No
-				}
-			}
-
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(MutableArray[E], Int, Int)] = elems match {
-				case seq :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
-					Yes((seq.array.castFrom[Array[_], Array[E]], 0, seq.array.length))
-
-				case seq :ArrayBuffer[_] =>
-					Yes((CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, seq.length))
-
-				case slice :ArrayIterableOnce[E] if slice.isMutable && slice.knownSize >= 0 =>
-					val array = slice.unsafeArray.castFrom[Array[_], Array[E]]
-					val start = slice.startIndex
-					if (classTag[E].runtimeClass <:< array.getClass.getComponentType)
-						Yes((array, start, start + slice.knownSize))
-					else
-						No
-				case seq :MatrixBuffer[E]
-					if seq.dim == 1 && seq.startOffset + seq.length <= seq.data1.length &&
-						classTag[E].runtimeClass <:< seq.iterableEvidence.runtimeClass =>
-					Yes(seq.data1, seq.startOffset, seq.startOffset + seq.length)
-				case _ =>
-					No
-			}
-
-		}
 	}
 }
 

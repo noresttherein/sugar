@@ -20,7 +20,8 @@ import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexO
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.exceptions.{IncompatibleArgumentTypesException, outOfBounds_!}
+import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.typist.Unknown
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
@@ -36,9 +37,254 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   * @see [[net.noresttherein.sugar.arrays.ArrayLike! ArrayLike]]
   * @define Coll `ArrayLike`
   * @define coll array-like
+  * @define LUBComponentTypeInfo
+  * If the actual classes of the argument arrays are not the same, then the returned array
+  * will use the least common superclass of their element types for its element types.
+  * If the element type of either array is a value type - and they are not equal -
+  * then the returned array will box it to `AnyRef`, which will be used as the common upper bound.
+  * In case no single minimal upper bound exists, due to element classes extending several shared, but unrelated
+  * traits, an exception will be thrown.
   */
 @SerialVersionUID(Ver)
 case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
+
+	/** Creates an exact copy of `original`. May return the same object if `original.length == 0`. */
+	@inline def copyOf[A[X] <: ArrayLike[X], E](original :A[E]) :A[E] = {
+		val a = original.asInstanceOf[Array[_]]
+		val l = a.length
+		if (l == 0) original else Array.copyOf(a, l).asInstanceOf[A[E]]
+	}
+
+	/** Creates a new array of the specified length and the same element type as `original`,
+	  * and copies all elements of `original` to it (or `newLength`, whichever is lesser).
+	  */
+	@throws[NegativeArraySizeException]("if newLength is negative")
+	def copyOf[A[X] <: ArrayLike[X], E](original :A[E], newLength :Int) :A[E] = {
+		val a = original.asInstanceOf[Array[_]]
+		if (a.length == 0)
+			Array.emptyLike(original.castFrom[ArrayLike[E], Array[_]]).castFrom[Array[_], A[E]]
+		else
+			Array.copyOf(a, newLength).castFrom[Array[_], A[E]]
+	}
+
+
+//	def copyAs[E :ClassTag](src :ArrayLike[_], newLength :Int) :Array[E] =
+//		ArrayFactory.copyAs[E](src, newLength)
+//
+//	@inline final def copyAs[E :ClassTag](src :ArrayLike[_]) :Array[E] =
+//		copyAs[E](src, src.asInstanceOf[Array[_]].length)
+
+
+	/** Creates an array of the same type as the argument, containing its elements from index range `[from, until)`. */
+	def copyOfRange[A[X] <: ArrayLike[X], E](original :A[E], from :Int, until :Int) :A[E] =
+		Array.copyOfRange(original.asInstanceOf[Array[E]], from, until).asInstanceOf[A[E]]
+
+	/** Creates a copy of a slice of the specified array, truncating or padding it to the desired length. */
+	def copyOfRange[A[X] <: ArrayLike[X], E](original :A[E], from :Int, until :Int, newLength :Int) :A[E] =
+		Array.copyOfRange(original.asInstanceOf[Array[E]], from, until, newLength).asInstanceOf[A[E]]
+
+	/** Creates a new array of the same type as the argument, and copies the data from range `[from, until)`
+	  *  of the argument to the new array, starting at index `offset`.
+	  */ //consider: maybe we should throw an exception if from, until, out of range or offset > newLength?
+	@throws[IndexOutOfBoundsException]("if offset is less than zero")
+	@throws[NegativeArraySizeException]("if newLength is less than zero")
+	def copyOfRange[A[X] <: ArrayLike[X], E](original :A[E], from :Int, until :Int, offset :Int, newLength :Int) :A[E] =
+		Array.copyOfRange(original.asInstanceOf[Array[Unknown]], from, until, offset, newLength).asInstanceOf[A[E]]
+
+	/** Copies slices from two array into a new array. Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * were of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, until `array2(from2)`
+	  * is copied to `result(until1 - from1)` (assuming `until1 >= from1`).
+	  *
+	  * $LUBComponentTypeInfo
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until - 1)` to the new array.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @return An array of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
+	  *         of the same type as the arguments.
+	  */
+	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
+	def copyOfRanges[A[X] <: ArrayLike[X], E](array1 :A[E], from1 :Int, until1 :Int,
+	                                          array2 :A[E], from2 :Int, until2 :Int) :A[E] =
+	{
+		val a1 = array1.asInstanceOf[Array[Unknown]]
+		val a2 = array2.asInstanceOf[Array[Unknown]]
+		if (array1.getClass == array2.getClass)
+			Array.copyOfRanges(a1, from1, until1, a2, from2, until2).asInstanceOf[A[E]]
+		else {
+			val cls1 = array1.getClass.getComponentType
+			val cls2 = array2.getClass.getComponentType
+			val elemType = elementType[E](cls1, cls2)
+			Array.copyOfRanges(array1, from1, until1, array2, from2, until2, elemType).asInstanceOf[A[E]]
+		}
+	}
+
+	/** Copies slices from two array into a new array, truncating or padding it to the requested length.
+	  * Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * were of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, until `array2(from2)`
+	  * is copied to `result(until1 - from1)` (assuming `until1 >= from1`).
+	  *
+	  * $LUBComponentTypeInfo
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until - 1)` to the new array.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @return An array of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
+	  *         of the same type as the arguments.
+	  */
+	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
+	@throws[NegativeArraySizeException]("if newLength is negative.")
+	def copyOfRanges[A[X] <: ArrayLike[X], E](array1 :A[E], from1 :Int, until1 :Int,
+	                                          array2 :A[E], from2 :Int, until2 :Int, newLength :Int) :A[E] =
+	{
+		val a1 = array1.asInstanceOf[Array[Unknown]]
+		val a2 = array2.asInstanceOf[Array[Unknown]]
+		if (array1.getClass == array2.getClass)
+			Array.copyOfRanges(a1, from1, until1, a2, from2, until2, newLength).asInstanceOf[A[E]]
+		else {
+			val cls1 = array1.getClass.getComponentType
+			val cls2 = array2.getClass.getComponentType
+			val elemType = elementType[E](cls1, cls2)
+			Array.copyOfRanges(array1, from1, until1, array2, from2, until2, elemType, newLength).asInstanceOf[A[E]]
+		}
+	}
+
+	/** Copies slices from three array into a new array. Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * where of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, with `array2(from2)`
+	  * copied to `result(until1 - from1)`, and `array3(from3)` to `result(until2 - from2 + until1 - from1)`
+	  * (assuming `until1 >= from1`).
+	  *
+	  * $LUBComponentTypeInfo
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until1 - 1)` into the new array.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @param array3 The third sliced array.
+	  * @param from3  The index of the element in `array3` to be copied after `array2(until2 - 1)` into the new array.
+	  * @param until3 The index after the last copied element in `array1`.
+	  * @return An array of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
+	  *         of the same type as the arguments.
+	  */
+	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
+	def copyOfRanges[A[X] <: ArrayLike[X], E](array1 :A[E], from1 :Int, until1 :Int,
+	                                          array2 :A[E], from2 :Int, until2 :Int,
+	                                          array3 :A[E], from3 :Int, until3 :Int) :A[E] =
+	{
+		val a1 = array1.asInstanceOf[Array[Unknown]]
+		val a2 = array2.asInstanceOf[Array[Unknown]]
+		val a3 = array3.asInstanceOf[Array[Unknown]]
+		if (array1.getClass == array2.getClass && array2.getClass == array3.getClass)
+			Array.copyOfRanges(a1, from1, until1, a2, from2, until2, a3, from3, until3).asInstanceOf[A[E]]
+		else {
+			val cls1 = array1.getClass.getComponentType
+			val cls2 = array2.getClass.getComponentType
+			val cls3 = array3.getClass.getComponentType
+			val elemType = elementType[E](cls1, cls2, cls3)
+			Array.copyOfRanges(
+				array1, from1, until1, array2, from2, until2, array3, from3, until3, elemType
+			).asInstanceOf[A[E]]
+		}
+	}
+
+	/** Copies slices from three array into a new array, truncating or padding it to the requested length.
+	  * Providing `until < from` has the same effect as `until == from`,
+	  * that is copying nothing. However, `untilX > arrayX.length` is treated as if the source array
+	  * where of length `untilX`, and contained zeros/nulls past its actual length.
+	  * Element `array1(from1)` is copied to `result(0)`, and so on, with `array2(from2)`
+	  * copied to `result(until1 - from1)`, and `array3(from3)` to `result(until2 - from2 + until1 - from1)`
+	  * (assuming `until1 >= from1`).
+	  *
+	  * $LUBComponentTypeInfo
+	  * @param array1 The first sliced array.
+	  * @param from1  The index of the element in `array1` to be copied as the first element of the new array.
+	  * @param until1 The index after the last copied element in `array1`.
+	  * @param array2 The second sliced array.
+	  * @param from2  The index of the element in `array2` to be copied after `array1(until1 - 1)` into the new array.
+	  * @param until2 The index after the last copied element in `array1`.
+	  * @param array3 The third sliced array.
+	  * @param from3  The index of the element in `array3` to be copied after `array2(until2 - 1)` into the new array.
+	  * @param until3 The index after the last copied element in `array1`.
+	  * @return An array of length `until1 - from1 + until2 - from2` (for `from1 <= until1 && from2 <= until2`),
+	  *         of the same type as the arguments.
+	  */
+	@throws[IncompatibleArgumentTypesException]("if there is no least upper bound of the arrays' component types.")
+	@throws[NegativeArraySizeException]("if newLength is negative.")
+	def copyOfRanges[A[X] <: ArrayLike[X], E](array1 :A[E], from1 :Int, until1 :Int,
+	                                          array2 :A[E], from2 :Int, until2 :Int,
+	                                          array3 :A[E], from3 :Int, until3 :Int, newLength :Int) :A[E] =
+	{
+		val a1 = array1.asInstanceOf[Array[Unknown]]
+		val a2 = array2.asInstanceOf[Array[Unknown]]
+		val a3 = array3.asInstanceOf[Array[Unknown]]
+		if (array1.getClass == array2.getClass && array2.getClass == array3.getClass)
+			Array.copyOfRanges(a1, from1, until1, a2, from2, until2, a3, from3, until3, newLength).asInstanceOf[A[E]]
+		else {
+			val cls1 = array1.getClass.getComponentType
+			val cls2 = array2.getClass.getComponentType
+			val cls3 = array3.getClass.getComponentType
+			val elemType = elementType[E](cls1, cls2, cls3)
+			Array.copyOfRanges(
+				array1, from1, until1, array2, from2, until2, array3, from3, until3, elemType, newLength
+			).asInstanceOf[A[E]]
+		}
+	}
+
+
+	private def elementType[E](cls1 :Class[_], cls2 :Class[_]) :Class[E] =
+		(cls1 commonSuperclass cls2) match {
+			case Yes(superclass :Class[_])                 => superclass.castParam[E]
+			case _ if cls1.isPrimitive || cls2.isPrimitive => classOf[Any].castParam[E] //E must be `Any`
+			case _ => throw IncompatibleArgumentTypesException(
+				"No least common superclass of " + cls1.getName + " and " + cls2.getName + "."
+			)
+		}
+
+	private def elementType[E](cls1 :Class[_], cls2 :Class[_], cls3 :Class[_]) :Class[E] = {
+		val res =
+			if (cls1.isPrimitive || cls2.isPrimitive || cls3.isPrimitive)
+				classOf[Any].castParam[E]
+			else {
+				def findSuperclass(superclass :Class[_], candidate :Class[_]) :Class[_] =
+					if (superclass.isAssignableFrom(cls2) && superclass.isAssignableFrom(cls3))
+						if (superclass isAssignableFrom candidate) candidate
+						else if (candidate isAssignableFrom superclass) superclass
+						else null
+					else {
+						val sup    = superclass.getSuperclass
+						var best   =
+							if (sup == null) candidate
+							else findSuperclass(sup, candidate)
+						val traits = superclass.getInterfaces
+						var i      = traits.length
+						while (best != null & i > 0) {
+							i -= 1
+							best = findSuperclass(traits(i), best)
+						}
+						best
+					}
+				val lub = findSuperclass(cls1, classOf[Any])
+				if (lub == null) null else lub.castParam[E]
+			}
+		if (res == null)
+			throw IncompatibleArgumentTypesException(
+				"Classes " + cls1.getName + "," + cls2.getName + ", " + cls3.getName + " do not have a least superclass."
+			)
+		res
+	}
+
+
 
 	//Array.copy resorts to slowcopy if not classOf[E] >:> array.getClass.getComponentType.
 	// We instead always default to System.arraycopy if both element types are reference types.
@@ -99,30 +345,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		Array.cyclicCopyTo(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length)
 
 
-	/** Creates an exact copy of `original`. May return the same object if `original.length == 0`. */
-	@inline def copyOf[A[X] <: ArrayLike[X], E](original :A[E]) :A[E] = {
-		val a = original.asInstanceOf[Array[_]]
-		val l = a.length
-		if (l == 0) original else Array.copyOf(a, l).asInstanceOf[A[E]]
-	}
-
-	/** Creates a new array of the specified length and the same element type as `original`,
-	  * and copies all elements of `original` to it (or `newLength`, whichever is lesser).
-	  */
-	@throws[NegativeArraySizeException]("if newLength is negative")
-	def copyOf[A[X] <: ArrayLike[X], E](original :A[E], newLength :Int) :A[E] = {
-		val a = original.asInstanceOf[Array[_]]
-		if (a.length == 0)
-			Array.emptyLike(original.castFrom[ArrayLike[E], Array[_]]).castFrom[Array[_], A[E]]
-		else
-			Array.copyOf(a, newLength).castFrom[Array[_], A[E]]
-	}
-
-	def copyAs[E :ClassTag](src :ArrayLike[_], newLength :Int) :Array[E] =
-		ArrayFactory.copyAs[E](src, newLength)
-
-	@inline final def copyAs[E :ClassTag](src :ArrayLike[_]) :Array[E] =
-		copyAs[E](src, src.asInstanceOf[Array[_]].length)
 
 	/** A stepper iterating over a range of an array. Indices out of range are skipped silently. */
 	def stepper[A, S <: Stepper[_]]
@@ -183,6 +405,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		else
 			ReverseCyclicArrayIterator(array.asInstanceOf[Array[A]], first, size)
 	}
+
+
 
 	//Consider: there is a small issue in that the factory extension method is in extensions,
 	// so a clash between imports is possible.
@@ -1216,8 +1440,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
 					case VectorArray(array)        =>
 						Yes(array.asInstanceOf[RefArray[E]], 0, array.length)
-					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startOffset <= seq.data1.length - seq.length =>
-						Yes(seq.data1, seq.startOffset, seq.startOffset + seq.knownSize)
+					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex <= seq.data1.length - seq.length =>
+						Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
 					case _ => No
 				}
 				case _ => No
@@ -1479,7 +1703,7 @@ object MatrixBufferArray {
 		case seq :MatrixBuffer[E @unchecked] if seq.dim == 1 =>
 			val array = seq.data1
 			val length = seq.length
-			if (length <= array.length - seq.startOffset) Yes(array) else No
+			if (length <= array.length - seq.startIndex) Yes(array) else No
 		case _ => No
 	}
 }

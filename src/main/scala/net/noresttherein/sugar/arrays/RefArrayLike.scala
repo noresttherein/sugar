@@ -22,6 +22,84 @@ import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 
 @SerialVersionUID(Ver)
 object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
+
+	/** Wraps and unwraps 'erased' arrays in scala collections,
+	  * being mindful both of type safety and mutability contracts. $warning
+	  * @define warning Arrays are always shared, never copied, and represented as
+	  *                 [[net.noresttherein.sugar.arrays.RefArrayLike! RefArrayLike!]]`[E]`
+	  *                 (that is, internally, as `Array[AnyRef]`). Only 'untagged' collections,
+	  *                 that is backed by `Array[AnyRef]`, and not any of its subclasses, are recognized.
+	  *                 Wrapping sequences are neither mutable nor immutable, and the matching pattern will likewise
+	  *                 extract an array from any supported collection backed by an `Array[AnyRef]`,
+	  *                 be it mutable or immutable. Note however that neither is `RefArrayLike` a mutable type,
+	  *                 and casting it to [[net.noresttherein.sugar.arrays.RefArray! RefArray]] or `Array`
+	  *                 may both compromise immutability, and modifying it will, most likely,
+	  *                 result in an exception (likely `ClassCastException`) being thrown at some later point
+	  *                 by a part of application using the unwrapped collection.
+	  */
+	@SerialVersionUID(Ver)
+	object Wrapped {
+		def apply[A](array :RefArrayLike[A]) :collection.IndexedSeq[A] = ArrayLikeSlice.wrap(array)
+
+		def unapply[A](elems :IterableOnce[A]) :Maybe[RefArrayLike[A]] = {
+			val array = elems match {
+				case seq :ArraySeq[_]         => seq.unsafeArray
+				case seq :mutable.ArraySeq[_] => seq.array
+				case VectorArray(array)       => array
+				case seq :ArrayBuffer[_] if seq.length == CheatedAccess.array(seq).length =>
+					CheatedAccess.array(seq)
+				case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length =>
+					slice.unsafeArray
+				case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length =>
+					seq.data1
+				case _ => null
+			}
+			if (array != null && array.getClass == classOf[Array[AnyRef]])
+				Yes(array.castFrom[Array[_], IRefArray[A]])
+			else
+				No
+		}
+
+		/** Wraps and unwraps both mutable and immutable scala collections backed by consecutive sections
+		  * of `Array[AnyRef]` arrays in a safe manner. $warning
+		  */
+		@SerialVersionUID(Ver)
+		object Slice {
+			def apply[A](array :RefArrayLike[A], from :Int, until :Int) :collection.IndexedSeq[A] =
+				ArrayLikeSlice.slice(array, from, until)
+
+			def unapply[A](elems :IterableOnce[A]) :Maybe[(RefArrayLike[A], Int, Int)] = elems match {
+				case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
+					Yes((seq.unsafeArray.castFrom[Array[_], RefArrayLike[A]], 0, seq.unsafeArray.length))
+
+				case seq :mutable.ArraySeq[_] if seq.array.getClass == classOf[Array[AnyRef]] =>
+					Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
+
+				case VectorArray(array)        =>
+					Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
+
+				case arr :ArrayIterableOnce[_] =>
+					val array = arr.unsafeArray.castFrom[Array[_], RefArrayLike[A]]
+					if (array.getClass == classOf[Array[AnyRef]])
+						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
+					else
+						No
+				case seq :MatrixBuffer[_] if seq.dim == 1 =>
+					val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
+					val start = seq.startIndex
+					val end   = start + seq.length
+					if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
+						Yes((array, start, end))
+					else
+						No
+				case _ =>
+					No
+			}
+		}
+	}
+
+
+
 	/** Extension methods for [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]]`[E]` implementations
 	  * backed by an erased array (`Object[]`), boxing value types. These consist of
 	  * [[net.noresttherein.sugar.arrays.RefArray RefArray]] and
@@ -340,82 +418,6 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		def withFilter(q :E => Boolean) :WithFilter[Arr, E] =
 			new WithFilter[Arr, E](a => p(a) && q(a), xs, factory)
 	}
-
-
-	/** Wraps and unwraps 'erased' arrays in scala collections,
-	  * being mindful both of type safety and mutability contracts. $warning
-	  * @define warning Arrays are always shared, never copied, and represented as
-	  *                 [[net.noresttherein.sugar.arrays.RefArrayLike! RefArrayLike!]]`[E]`
-	  *                 (that is, internally, as `Array[AnyRef]`). Only 'untagged' collections,
-	  *                 that is backed by `Array[AnyRef]`, and not any of its subclasses, are recognized.
-	  *                 Wrapping sequences are neither mutable nor immutable, and the matching pattern will likewise
-	  *                 extract an array from any supported collection backed by an `Array[AnyRef]`,
-	  *                 be it mutable or immutable. Note however that neither is `RefArrayLike` a mutable type,
-	  *                 and casting it to [[net.noresttherein.sugar.arrays.RefArray! RefArray]] or `Array`
-	  *                 may both compromise immutability, and modifying it will, most likely,
-	  *                 result in an exception (likely `ClassCastException`) being thrown at some later point
-	  *                 by a part of application using the unwrapped collection.
-	  */
-	@SerialVersionUID(Ver)
-	object Wrapped {
-		def apply[A](array :RefArrayLike[A]) :collection.IndexedSeq[A] = ArrayLikeSlice.wrap(array)
-
-		def unapply[A](elems :IterableOnce[A]) :Maybe[RefArrayLike[A]] = {
-			val array = elems match {
-				case seq :ArraySeq[_]         => seq.unsafeArray
-				case seq :mutable.ArraySeq[_] => seq.array
-				case VectorArray(array)       => array
-				case seq :ArrayBuffer[_] if seq.length == CheatedAccess.array(seq).length =>
-					CheatedAccess.array(seq)
-				case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length =>
-					slice.unsafeArray
-				case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startOffset == 0 && seq.length == seq.data1.length =>
-					seq.data1
-				case _ => null
-			}
-			if (array != null && array.getClass == classOf[Array[AnyRef]])
-				Yes(array.castFrom[Array[_], IRefArray[A]])
-			else
-				No
-		}
-
-		/** Wraps and unwraps both mutable and immutable scala collections backed by consecutive sections
-		  * of `Array[AnyRef]` arrays in a safe manner. $warning
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[A](array :RefArrayLike[A], from :Int, until :Int) :collection.IndexedSeq[A] =
-				ArrayLikeSlice.slice(array, from, until)
-
-			def unapply[A](elems :IterableOnce[A]) :Maybe[(RefArrayLike[A], Int, Int)] = elems match {
-				case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
-					Yes((seq.unsafeArray.castFrom[Array[_], RefArrayLike[A]], 0, seq.unsafeArray.length))
-
-				case seq :mutable.ArraySeq[_] if seq.array.getClass == classOf[Array[AnyRef]] =>
-					Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
-
-				case VectorArray(array)        =>
-					Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
-
-				case arr :ArrayIterableOnce[_] =>
-					val array = arr.unsafeArray.castFrom[Array[_], RefArrayLike[A]]
-					if (array.getClass == classOf[Array[AnyRef]])
-						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
-					else
-						No
-				case seq :MatrixBuffer[_] if seq.dim == 1 =>
-					val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
-					val start = seq.startOffset
-					val end   = start + seq.length
-					if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
-						Yes((array, start, end))
-					else
-						No
-				case _ =>
-					No
-			}
-		}
-	}
 }
 
 
@@ -427,14 +429,14 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
   * @define Coll `RefArrayLike`
   * @define coll object array
   */
-private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] extends IterableFactory[Arr] {
+abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] private[arrays] extends IterableFactory[Arr] {
 	@inline private def expose[X](array :Array[Any]) :Arr[X] = array.asInstanceOf[Arr[X]]
 
 	/** Allocates a new `Array[AnyRef]` and copies all elements from the argument, returning it as a $Coll`[E]`.
 	  * If the argument is a value array, the elements will be boxed.
 	  */
 	@inline final def copyOf[E](array :ArrayLike[E]) :Arr[E] =
-		copyOf(array, array.castFrom[ArrayLike[E], Array[_]].length)
+		copyOf(array, array.length)
 
 	/** Reallocates the given array as a $Coll`[E]` of a new size, and copies `min(newLength, array.length)`
 	  * of its first elements. If the argument is a value array, the elements will be boxed.
@@ -519,7 +521,7 @@ private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] exten
 
 	@inline final def from[E](array :ArrayLike[E]) :Arr[E] = copyOf(array)
 
-	@inline final override def empty[E] :Arr[E] = expose(Array.emptyAnyArray)
+	@inline final override def empty[E] :Arr[E] = Array.emptyObjectArray.castFrom[Array[AnyRef], Arr[E]]
 
 	final override def newBuilder[E] :Builder[E, Arr[E]] = Array.newBuilder(ClassTag.Any).castParam2[Arr[E]]
 
@@ -587,12 +589,6 @@ private[arrays] abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] exten
 	  */
 	@inline final def iterateWithIndex[X](start :X, len :Int)(f :(X, Int) => X) :Arr[X] =
 		expose(Array.iterateWithIndex[Any](start, len)(f.castParam1[Any]))
-
-	/** A stepper iterating over the range of an array. Indices out of range are skipped silently. */
-	@inline final def stepper[A, S <: Stepper[_]]
-	                         (array :IArray[A], from :Int = 0, until :Int = Int.MaxValue)
-	                         (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
-		Array.stepper(array.castFrom[IArray[A], Array[A]], from, until)
 
 
 
@@ -695,9 +691,9 @@ private[noresttherein] case object ErasedArray extends RefArrayLikeFactory[Array
 					case seq :ArrayBuffer[_]      => Yes((CheatedAccess.array(seq), 0, seq.length))
 					case seq :MatrixBuffer[_]
 						if seq.dim == 1 && seq.data1.getClass == classOf[Array[Any]] &&
-							seq.startOffset + seq.length <= seq.data1.length
+							seq.startIndex + seq.length <= seq.data1.length
 					=>
-						Yes((seq.data1, seq.startOffset, seq.startOffset + seq.length))
+						Yes((seq.data1, seq.startIndex, seq.startIndex + seq.length))
 					case _                        => No
 				}
 				case _ => No

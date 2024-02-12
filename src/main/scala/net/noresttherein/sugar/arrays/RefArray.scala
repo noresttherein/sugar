@@ -26,60 +26,8 @@ import net.noresttherein.sugar.vars.Maybe.{Yes, No}
   */
 @SerialVersionUID(Ver)
 case object RefArray extends RefArrayLikeFactory[RefArray] {
-	/** Extension methods specific to [[net.noresttherein.sugar.arrays.RefArray RefArray]] only.
-	  * These are the standard [[net.noresttherein.sugar.arrays.RefArray.RefArrayExtension.update update]],
-	  * as `RefArray` is the only mutable `ArrayLike` other than `Array`, and conversions to immutable sequences,
-	  * implemented by low level array copying and `Array`-backed implementations. Enabled by importing any of
-	  * `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.RefArrayExtension RefArrayExtension]],
-	  * `net.noresttherein.sugar.extensions.RefArrayExtension`, or
-	  * `net.noresttherein.sugar.arrays.RefArray.extensions.RefArrayExtension`.
-	  * @see [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension]] imported as
-	  *      `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.ArrayLikeExtension ArrayLikeExtension]],
-	  *      `net.noresttherein.sugar.extensions.ArrayLikeExtension`, or
-	  *      `net.noresttherein.sugar.arrays.ArrayLike.extensions.ArrayLikeExtension`.
-	  * @see [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension]] imported as
-	  *      `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.RefArrayLikeExtension RefArrayLikeExtension]],
-	  *      `net.noresttherein.sugar.extensions.RefArrayLikeExtension`, or
-	  *      `net.noresttherein.sugar.arrays.RefArrayLike.extensions.RefArrayLikeExtension`.
-	  * @see [[net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension]] imported as
-	  *      `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.MutableArrayExtension MutableArrayExtension]],
-	  *      `net.noresttherein.sugar.extensions.MutableArrayExtension`, or
-	  *      `net.noresttherein.sugar.arrays.MutableArray.extensions.MutableArrayExtension`.
-	  */
-	class RefArrayExtension[E] private[arrays](private val self :Array[Any]) extends AnyVal {
-		/** The underlying array. This method is particularly useful when passing a `RefArray` to methods
-		  * which write to an array, such as `copyToArray`.
-		  */
-		@inline def asAnyArray :Array[Any] = self
 
-		/** The underlying array. This method is particularly useful when passing a `RefArray` to methods
-		  * which write to an array, such as `copyToArray`.
-		  */
-		@inline final def asAnyRefArray :Array[AnyRef] = self.asInstanceOf[Array[AnyRef]]
-
-		/** Casts this `RefArray` to an immutable `IRefArray`. This method is preferable to using `asInstanceOf`,
-		  * and provided here due to a common demand, but it requires the caller to ensure that this array
-		  * is no longer modified, or the immutability will be compromised.
-		  */
-		@inline def asIRefArray :IRefArray[E] = self.asInstanceOf[IRefArray[E]]
-
-		@inline def update(idx :Int, elem :E) :Unit = asAnyArray(idx) = elem
-
-		/** A sequence view on the `[from, until)` index range of this array. Any modification to either this array
-		  * or the returned sequence will be visible in the other. Further slicing of the sequence also return
-		  * views sharing the same underlying array.
-		  */
-		@inline def subseq(from :Int, until :Int) :mutable.IndexedSeq[E] =
-			Wrapped.Slice(self.asInstanceOf[RefArray[E]], from, until)
-
-		@inline def toSeq        :Seq[E] = toIndexedSeq
-		@inline def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped(self.toIRefArray.castParam[E])
-		@inline def toOps        :mutable.IndexedSeqOps[E, RefArray, RefArray[E]] =
-			new RefArrayAsSeq(self.castFrom[Array[Any], RefArray[E]])
-	}
-
-
-	@inline private def expose[X](array :Array[Any]) :RefArray[X] = array.asInstanceOf[RefArray[X]]
+	@inline private[RefArray] def expose[X](array :Array[Any]) :RefArray[X] = array.asInstanceOf[RefArray[X]]
 
 	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
 	@throws[NegativeArraySizeException]("if newLength is negative")
@@ -219,7 +167,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 				case seq   :mutable.ArraySeq[_]                                     => seq.array
 				case seq   :ArrayBuffer[_]                                          => CheatedAccess.array(seq)
 				case slice :ArrayIterableOnce[_] if slice.isMutable                 => slice.unsafeArray
-				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startOffset == 0 => seq.data1
+				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 => seq.data1
 				case _                                                              => null
 			}
 			if (array != null && array.length == elems.length && array.getClass == classOf[Array[AnyRef]])
@@ -245,7 +193,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 						slice.unsafeArray
 					case seq   :MatrixBuffer[_] if seq.dim == 1 =>
 						val a = seq.data1
-						start = seq.startOffset
+						start = seq.startIndex
 						if (start <= a.length - length) a else null
 					case _ =>
 						null
@@ -256,5 +204,59 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 					No
 			}
 		}
+	}
+
+
+
+	/** Extension methods specific to [[net.noresttherein.sugar.arrays.RefArray RefArray]] only.
+	  * These are the standard [[net.noresttherein.sugar.arrays.RefArray.RefArrayExtension.update update]],
+	  * as `RefArray` is the only mutable `ArrayLike` other than `Array`, and conversions to immutable sequences,
+	  * implemented by low level array copying and `Array`-backed implementations. Enabled by importing any of
+	  * `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.RefArrayExtension RefArrayExtension]],
+	  * `net.noresttherein.sugar.extensions.RefArrayExtension`, or
+	  * `net.noresttherein.sugar.arrays.RefArray.extensions.RefArrayExtension`.
+	  * @see [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension]] imported as
+	  *      `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.ArrayLikeExtension ArrayLikeExtension]],
+	  *      `net.noresttherein.sugar.extensions.ArrayLikeExtension`, or
+	  *      `net.noresttherein.sugar.arrays.ArrayLike.extensions.ArrayLikeExtension`.
+	  * @see [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension]] imported as
+	  *      `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.RefArrayLikeExtension RefArrayLikeExtension]],
+	  *      `net.noresttherein.sugar.extensions.RefArrayLikeExtension`, or
+	  *      `net.noresttherein.sugar.arrays.RefArrayLike.extensions.RefArrayLikeExtension`.
+	  * @see [[net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension]] imported as
+	  *      `net.noresttherein.sugar.arrays.extensions.`[[net.noresttherein.sugar.arrays.extensions.MutableArrayExtension MutableArrayExtension]],
+	  *      `net.noresttherein.sugar.extensions.MutableArrayExtension`, or
+	  *      `net.noresttherein.sugar.arrays.MutableArray.extensions.MutableArrayExtension`.
+	  */
+	class RefArrayExtension[E] private[arrays](private val self :Array[Any]) extends AnyVal {
+		/** The underlying array. This method is particularly useful when passing a `RefArray` to methods
+		  * which write to an array, such as `copyToArray`.
+		  */
+		@inline def asAnyArray :Array[Any] = self
+
+		/** The underlying array. This method is particularly useful when passing a `RefArray` to methods
+		  * which write to an array, such as `copyToArray`.
+		  */
+		@inline final def asAnyRefArray :Array[AnyRef] = self.asInstanceOf[Array[AnyRef]]
+
+		/** Casts this `RefArray` to an immutable `IRefArray`. This method is preferable to using `asInstanceOf`,
+		  * and provided here due to a common demand, but it requires the caller to ensure that this array
+		  * is no longer modified, or the immutability will be compromised.
+		  */
+		@inline def asIRefArray :IRefArray[E] = self.asInstanceOf[IRefArray[E]]
+
+		@inline def update(idx :Int, elem :E) :Unit = asAnyArray(idx) = elem
+
+		/** A sequence view on the `[from, until)` index range of this array. Any modification to either this array
+		  * or the returned sequence will be visible in the other. Further slicing of the sequence also return
+		  * views sharing the same underlying array.
+		  */
+		@inline def subseq(from :Int, until :Int) :mutable.IndexedSeq[E] =
+			Wrapped.Slice(self.asInstanceOf[RefArray[E]], from, until)
+
+		@inline def toSeq        :Seq[E] = toIndexedSeq
+		@inline def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped(self.toIRefArray.castParam[E])
+		@inline def toOps        :mutable.IndexedSeqOps[E, RefArray, RefArray[E]] =
+			new RefArrayAsSeq(self.castFrom[Array[Any], RefArray[E]])
 	}
 }

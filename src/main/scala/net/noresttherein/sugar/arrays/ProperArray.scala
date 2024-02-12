@@ -29,7 +29,7 @@ private[sugar] object ProperArray extends ClassTagIterableFactory.Delegate[Prope
 				Yes(seq.unsafeArray.castFrom[Array[_], ProperArray[E]])
 			case seq :MatrixBuffer[E]
 				if seq.dim == 1 && seq.data1.getClass != classOf[Array[Any]] &&
-					seq.length == seq.data1.length && seq.startOffset == 0 &&
+					seq.length == seq.data1.length && seq.startIndex == 0 &&
 					seq.data1.getClass.getComponentType != classOf[Any]
 			=>
 				Yes(seq.data1)
@@ -55,9 +55,9 @@ private[sugar] object ProperArray extends ClassTagIterableFactory.Delegate[Prope
 					Yes((seq.unsafeArray.castFrom[Array[_], ProperArray[E]], offset, offset + seq.length))
 				case seq :MatrixBuffer[E]
 					if seq.dim == 1 && seq.data1.getClass != classOf[Array[Any]] &&
-						seq.startOffset + seq.length <= seq.data1.length && seq.startOffset == 0
+						seq.startIndex + seq.length <= seq.data1.length && seq.startIndex == 0
 				=>
-					val offset = seq.startOffset
+					val offset = seq.startIndex
 					Yes((seq.data1, offset, offset + seq.length))
 				case _ => No
 			}

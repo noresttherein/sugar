@@ -128,7 +128,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	@inline private[sugar] final def dim   :Int =
 		(storageSize + (MaxSize2 - MaxSize1 - 1) >>> 31) + 1 - (storageSize - 1 >>> 31)
 
-	private[sugar] final def startOffset :Int = dataOffset
+	private[sugar] final def startIndex :Int = dataOffset
 
 	/** A mask for a two dimensional index. 'Anding' with it calculates the remainder of division by the total capacity
 	  * (including unallocated arrays).

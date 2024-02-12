@@ -1242,6 +1242,7 @@ object extensions {
 		}
 */
 
+		//todo: if until >= elems, create a longer array.
 		/** Same as `elems.slice(from, until)`, except it reuses empty arrays. */
 		final def copyOfRange[E](elems :Array[E], from :Int, until :Int) :Array[E] =
 			if (until <= from)
@@ -1264,7 +1265,7 @@ object extensions {
 			}
 
 		/** Creates a new `Array[E]` of the specified length, and copies to it the data between indices `from`
-		  * (inclusive) and `until` (exclusive), starting writing at index `0`.
+		  * (inclusive) and `until` (exclusive).
 		  */
 		@inline final def copyOfRange[E](elems :Array[E], from :Int, until :Int, newLength :Int) :Array[E] =
 			copyOfRange(elems, from, until, 0, newLength)
