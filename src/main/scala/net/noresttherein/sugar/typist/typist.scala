@@ -178,6 +178,8 @@ package typist {
 
 package typist {
 
+	import scala.reflect.ClassTag
+
 	import net.noresttherein.sugar.funny.generic
 	//consider: moving it to witness
 	/** A function class used for implicit conversions in order to force precedence of one definition over another,
@@ -240,4 +242,8 @@ package typist {
 
 	/** A generic variant of `=:=`, projecting the relation from types to type constructors. */
 	sealed abstract class =:?=[A[_], B[_]] extends <:?<[A, B]
+
+	object Unknown {
+		implicit val unknownAsAnyClassTag :ClassTag[Unknown] = ClassTag(classOf[Any])
+	}
 }
