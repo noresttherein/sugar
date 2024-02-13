@@ -1,16 +1,17 @@
 package net.noresttherein.sugar.collections
 
 
-import scala.annotation.switch
+import scala.annotation.{implicitNotFound, switch}
 import scala.collection.{AnyStepper, DoubleStepper, IntStepper, LongStepper, Stepper, StepperShape}
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, Shape, ShortShape}
 
 import net.noresttherein.sugar.JavaTypes.{JByte, JChar, JDouble, JFloat, JInt, JIterator, JLong, JShort}
 import net.noresttherein.sugar.collections
 import net.noresttherein.sugar.collections.JavaIteratorShape.IteratorShape
+import net.noresttherein.sugar.collections.extensions.StepType
 import net.noresttherein.sugar.extensions.castingMethods
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -25,8 +26,20 @@ import net.noresttherein.sugar.vars.Maybe.{Yes, No}
   * @author Marcin Mościcki
   */
 sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
-//	type Jterator <: collections.Jterator[_]
+	/** The specific Scala [[scala.collection.Stepper Stepper]] type corresponding to this Java iterator type. */
 	type Stepper  <: collection.Stepper[_]
+
+	/** The specific [[net.noresttherein.sugar.collections.Jterator Jterator]] type corresponding
+	  * to this Java iterator type. While this type is never definite, because there is no bijection between
+	  * [[net.noresttherein.sugar.collections.JavaIterator JavaIterator]] and `Jterator`, it enables to reference
+	  * this particular type and its tracking by the compiler.
+	  * @example
+	  * {{{
+	  *     jterator(shape.jteratorShape).asJava(shape.jteratorShape)
+	  * }}}
+	  */
+	type Jterator <: collections.Jterator[_]
+
 	import JteratorShape._
 
 	def shape :StepperShape.Shape
@@ -43,7 +56,7 @@ sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
 			case _           => StepperShape.ReferenceShape
 		}).asInstanceOf[StepperShape[A, Stepper]]
 
-	def jteratorShape :JteratorShape[A, _ <: Jterator[_]] =
+	def jteratorShape :JteratorShape[A, Jterator] { type JavaIterator = I } =
 		(shape match {
 			case ReferenceShape => anyJteratorShape
 			case IntShape       => intJteratorShape
@@ -54,7 +67,13 @@ sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
 			case FloatShape     => floatJteratorShape
 			case ShortShape     => shortJteratorShape
 			case _              => anyJteratorShape
-		}).asInstanceOf[JteratorShape[A, _ <: Jterator[_]]]
+		}).asInstanceOf[JteratorShape[A, Jterator] { type JavaIterator = I }]
+
+	/** The type of the elements returned by this `JavaIterator` type.
+	  * @return a `StepType` for one of `IntShape`, `LongShape`, `DoubleShape` and `ReferenceShape`.
+	  */
+	def stepType :StepType[_ >: A, Stepper] = StepType.fromStepperShape(stepperShape)
+
 
 	def empty :I
 
@@ -90,8 +109,11 @@ sealed trait JavaIteratorShape[-A, I] extends Equals with Serializable {
 @SerialVersionUID(Ver)
 object JavaIteratorShape extends Rank1JavaIteratorShapes {
 	@SerialVersionUID(Ver)
-	private[collections] class IteratorShape[A, I <: JIterator[_]](override val shape :Shape, override val empty :I)
+	private[collections] class IteratorShape[A, I <: JavaIterator[_]](override val shape :Shape, override val empty :I)
 		extends JavaIteratorShape[A, I]
+
+	implicit def javaIteratorShapeToStepperShape[A, I](shape :JavaIteratorShape[A, I]) :StepperShape[A, shape.Stepper] =
+		shape.stepperShape
 
 	implicit val intJavaIteratorShape    :JavaIteratorShapeWithStepper[Int, JavaIntIterator, IntStepper] =
 		new IteratorShape(IntShape, JavaIterator.ofInt())
@@ -176,7 +198,10 @@ private[collections] sealed abstract class Rank3JavaIteratorShapes {
   */
 @SerialVersionUID(Ver)
 final class JteratorShape[-E, I] private (val shape :Maybe[StepperShape.Shape]) extends Equals with Serializable {
+	/** The specific Java [[net.noresttherein.sugar.collections.JavaIterator iterator]] type backing this jterator type. */
 	type JavaIterator <: collections.JavaIterator[_]
+
+	/** The Scala [[scala.collection.Stepper Stepper]] type corresponding to the element type of this jterator type. */
 	type Stepper      <: collection.Stepper[_]
 
 	import JavaIteratorShape._
@@ -230,6 +255,7 @@ object JteratorShape extends JteratorShapeForAny {
 	                 (shape :Maybe[Shape]) :JteratorShapeAndTypes[E, J, I, S] =
 		new JteratorShape[E, J](shape).asInstanceOf[JteratorShapeAndTypes[E, J, I, S]]
 
+	
 	implicit val intJteratorShape     :JteratorShapeAndTypes[Int, IntJterator, JavaIntIterator, IntStepper] =
 		apply(Yes(IntShape))
 	implicit val longJteratorShape    :JteratorShapeAndTypes[Long, LongJterator, JavaLongIterator, LongStepper] =
@@ -250,10 +276,77 @@ object JteratorShape extends JteratorShapeForAny {
 		anyRefJteratorShape.asInstanceOf[JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]]]
 
 	private val anyRefJteratorShape = new JteratorShape[AnyRef, RefJterator[AnyRef]](Yes(ReferenceShape))
+	
+	@inline implicit def intJteratorShapeFromStepperShape(stepperShape :StepperShape[Int, IntStepper]) 
+			:intJteratorShape.type =
+		intJteratorShape
+	
+	@inline implicit def longJteratorShapeFromStepperShape(stepperShape :StepperShape[Long, LongStepper]) 
+			:longJteratorShape.type =
+		longJteratorShape
+	
+	@inline implicit def doubleJteratorShapeFromStepperShape(stepperShape :StepperShape[Double, DoubleStepper]) 
+			:doubleJteratorShape.type =
+		doubleJteratorShape
+	
+	@inline implicit def byteJteratorShapeFromStepperShape(stepperShape :StepperShape[Byte, IntStepper])
+			:byteJteratorShape.type =
+		byteJteratorShape
+	
+	@inline implicit def charJteratorShapeFromStepperShape(stepperShape :StepperShape[Char, IntStepper])
+			:charJteratorShape.type =
+		charJteratorShape
+	
+	@inline implicit def shortJteratorShapeFromStepperShape(stepperShape :StepperShape[Short, IntStepper])
+			:shortJteratorShape.type =
+		shortJteratorShape
+	
+	@inline implicit def floatJteratorShapeFromStepperShape(stepperShape :StepperShape[Float, DoubleStepper])
+			:floatJteratorShape.type =
+		floatJteratorShape
+
+	implicit def refJteratorShapeFromStepperShape[T <: AnyRef](stepperShape :StepperShape[T, AnyStepper[T]])
+			:JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]] =
+		anyRefJteratorShape.asInstanceOf[JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]]]
+
+	
+	@inline implicit def intJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Int, JavaIntIterator])
+			:intJteratorShape.type =
+		intJteratorShape
+	
+	@inline implicit def longJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Long, JavaLongIterator])
+			:longJteratorShape.type =
+		longJteratorShape
+	
+	@inline implicit def doubleJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Double, JavaDoubleIterator])
+			:doubleJteratorShape.type =
+		doubleJteratorShape
+	
+	@inline implicit def byteJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Byte, JavaIntIterator])
+			:byteJteratorShape.type =
+		byteJteratorShape
+	
+	@inline implicit def charJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Char, JavaIntIterator])
+			:charJteratorShape.type =
+		charJteratorShape
+	
+	@inline implicit def shortJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Short, JavaIntIterator])
+			:shortJteratorShape.type =
+		shortJteratorShape
+	
+	@inline implicit def floatJteratorShapeFromJavaIteratorShape(__ :JavaIteratorShape[Float, JavaDoubleIterator])
+			:floatJteratorShape.type =
+		floatJteratorShape
+
+	implicit def refJteratorShapeFromJavaIteratorShape[T <: AnyRef](stepperShape :JavaIteratorShape[T, AnyStepper[T]])
+			:JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]] =
+		anyRefJteratorShape.asInstanceOf[JteratorShapeAndTypes[T, RefJterator[T], JavaIterator[T], AnyStepper[T]]]
+
 }
 
+
 private[collections] sealed abstract class JteratorShapeForAny {
-	@inline implicit def anyJteratorShape[T] :JteratorShape[T, JavaIterator[T]] =
-		JteratorShape.refJteratorShape.asInstanceOf[JteratorShape[T, JavaIterator[T]]]
+	@inline implicit def anyJteratorShape[T] :JteratorShape[T, Jterator[T]] =
+		JteratorShape.refJteratorShape.asInstanceOf[JteratorShape[T, Jterator[T]]]
 }
 

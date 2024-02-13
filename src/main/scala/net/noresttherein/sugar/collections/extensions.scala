@@ -22,7 +22,7 @@ import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
-import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BooleanJteratorExtension, BufferExtension, BuilderExtension, ByteJteratorExtension, CharJteratorExtension, ClassTagIterableFactoryExtension, DoubleJteratorExtension, FactoryExtension, FloatJteratorExtension, IndexedSeqExtension, IntJteratorExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, JteratorExtension, LongJteratorExtension, RefJteratorExtension, SeqExtension, SeqFactoryExtension, ShortJteratorExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BufferExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.extensions.OptionExtension
@@ -43,6 +43,42 @@ import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.Ignored
 
 
+/** Extension methods for [[net.noresttherein.sugar.collections.Jterator jterators]].
+  * Extracted because it's extended both by [[net.noresttherein.sugar.collections.extensions extensions]]
+  * and [[net.noresttherein.sugar.collections collections]] package object itself.
+  */
+private[sugar] trait JteratorExtensions extends Any {
+	import extensions._
+	@inline implicit final def JteratorExtension[I <: Jterator[_]](self :I) :JteratorExtension[I] =
+		new JteratorExtension(self.asInstanceOf[JavaIterator[_]])
+
+	@inline implicit final def IntJteratorExtension(self :IntJterator) :IntJteratorExtension =
+		new IntJteratorExtension(self.asInstanceOf[JavaIntIterator])
+
+	@inline implicit final def LongJteratorExtension(self :LongJterator) :LongJteratorExtension =
+		new LongJteratorExtension(self.asInstanceOf[JavaLongIterator])
+
+	@inline implicit final def DoubleJteratorExtension(self :DoubleJterator) :DoubleJteratorExtension =
+		new DoubleJteratorExtension(self.asInstanceOf[JavaDoubleIterator])
+
+	@inline implicit final def FloatJteratorExtension(self :FloatJterator) :FloatJteratorExtension =
+		new FloatJteratorExtension(self.asInstanceOf[JavaDoubleIterator])
+
+	@inline implicit final def CharJteratorExtension(self :CharJterator) :CharJteratorExtension =
+		new CharJteratorExtension(self.asInstanceOf[JavaIntIterator])
+
+	@inline implicit final def ShortJteratorExtension(self :ShortJterator) :ShortJteratorExtension =
+		new ShortJteratorExtension(self.asInstanceOf[JavaIntIterator])
+
+	@inline implicit final def ByteJteratorExtension(self :ByteJterator) :ByteJteratorExtension =
+		new ByteJteratorExtension(self.asInstanceOf[JavaIntIterator])
+
+	@inline implicit final def BooleanJteratorExtension(self :BooleanJterator) :BooleanJteratorExtension =
+		new BooleanJteratorExtension(self.asInstanceOf[JavaIntIterator])
+
+	@inline implicit final def RefJteratorExtension[E <: AnyRef](self :RefJterator[E]) :RefJteratorExtension[E] =
+		new RefJteratorExtension(self.asInstanceOf[JavaIterator[E]])
+}
 
 
 //I don't think this introduces priority as they need to be imported by name
@@ -59,9 +95,7 @@ private[collections] sealed trait extensionsLowPriority extends Any {
 
 //todo: global method for exception messages, which allow to switch if one wants to include collections/elems in the message
 /** Extension methods for various collection types as well as collection companion objects. */
-trait extensions
-	extends Any with extensionsLowPriority
-{
+trait extensions extends Any with extensionsLowPriority with JteratorExtensions {
 	/** Adds various additional folding methods with a break condition to any `Iterable`. */
 	@inline implicit final def IterableOnceExtension[E](self :IterableOnce[E]) :IterableOnceExtension[E] =
 		new IterableOnceExtension[E](self)
@@ -176,36 +210,6 @@ trait extensions
 
 	@inline implicit final def JavaDoubleIteratorExtension(self :JavaDoubleIterator) :JavaDoubleIteratorExtension =
 		new JavaDoubleIteratorExtension(self)
-
-	@inline implicit final def JteratorExtension[I <: Jterator[_]](self :I) :JteratorExtension[I] =
-		new JteratorExtension(self.asInstanceOf[JavaIterator[_]])
-
-	@inline implicit final def IntJteratorExtension(self :IntJterator) :IntJteratorExtension =
-		new IntJteratorExtension(self.asInstanceOf[JavaIntIterator])
-
-	@inline implicit final def LongJteratorExtension(self :LongJterator) :LongJteratorExtension =
-		new LongJteratorExtension(self.asInstanceOf[JavaLongIterator])
-
-	@inline implicit final def DoubleJteratorExtension(self :DoubleJterator) :DoubleJteratorExtension =
-		new DoubleJteratorExtension(self.asInstanceOf[JavaDoubleIterator])
-
-	@inline implicit final def FloatJteratorExtension(self :FloatJterator) :FloatJteratorExtension =
-		new FloatJteratorExtension(self.asInstanceOf[JavaDoubleIterator])
-
-	@inline implicit final def CharJteratorExtension(self :CharJterator) :CharJteratorExtension =
-		new CharJteratorExtension(self.asInstanceOf[JavaIntIterator])
-
-	@inline implicit final def ShortJteratorExtension(self :ShortJterator) :ShortJteratorExtension =
-		new ShortJteratorExtension(self.asInstanceOf[JavaIntIterator])
-
-	@inline implicit final def ByteJteratorExtension(self :ByteJterator) :ByteJteratorExtension =
-		new ByteJteratorExtension(self.asInstanceOf[JavaIntIterator])
-
-	@inline implicit final def BooleanJteratorExtension(self :BooleanJterator) :BooleanJteratorExtension =
-		new BooleanJteratorExtension(self.asInstanceOf[JavaIntIterator])
-
-	@inline implicit final def RefJteratorExtension[E <: AnyRef](self :RefJterator[E]) :RefJteratorExtension[E] =
-		new RefJteratorExtension(self.asInstanceOf[JavaIterator[E]])
 
 
 	/** Additional, higher level factory methods of any [[Iterable]] type `C[_]` as extensions of its companion
@@ -5089,7 +5093,7 @@ object extensions extends extensions {
 	  * including their specializations `with EfficientSplit`,
 	  */
 	@implicitNotFound("Cannot determine the element type ${A} of ${S}: is the latter a Stepper?")
-	@SerialVersionUID(Ver)
+	@SerialVersionUID(Ver) //Does it have to be invariant?
 	class StepType[A, S <: Stepper[_]] private[extensions](val stepperShape :StepperShape[A, S])
 		extends AnyVal
 	{
@@ -5097,11 +5101,14 @@ object extensions extends extensions {
 	}
 
 	private[extensions] sealed abstract class Rank1PreferredStepperShapes {
+		/** The step type for a `S with EfficientSplit forSome { type S <: Stepper[_] }`,
+		  * listing the stepper type without `EfficientSplit`. */
 		@inline implicit def withEfficientSplit[A, U <: Stepper[_], S <: Stepper[_]]
 		                                       (implicit shape :StepperShape[A, U], split :S =:= U with EfficientSplit)
 		       :StepType[A, S] =
 			new StepType[A, S](shape.asInstanceOf[StepperShape[A, S]])
 
+		/** `StepType` instance wrapping an implicit `StepperShape[A, S]` */
 		@inline implicit def compatibleStepType[A, S <: Stepper[_]]
 		                                       (implicit shape :StepperShape[A, S]) :StepType[A, S] =
 			new StepType[A, S](shape)
@@ -5119,6 +5126,10 @@ object extensions extends extensions {
 
 		@inline implicit def doubleStep[S <: DoubleStepper] :StepType[Double, S] =
 			new StepType[Double, S](StepperShape.doubleStepperShape.asInstanceOf[StepperShape[Double, S]])
+
+		/** `StepType` instance wrapping the specified `StepperShape`. */
+		@inline def fromStepperShape[A, S <: Stepper[_]](shape :StepperShape[A, S]) :StepType[A, S] =
+			new StepType[A, S](shape)
 	}
 
 	/** Adds a `++` extension method to any `Stepper[_]`. */
@@ -5410,7 +5421,10 @@ object extensions extends extensions {
 		@inline def toIterator :Iterator[Double] = self.asScala.asInstanceOf[Iterator[Double]]
 	}
 
-	class JteratorExtension[I <: Jterator[_]] private[extensions] (private val self :JavaIterator[_]) extends AnyVal {
+	/** Extension methods shared by all specific [[net.noresttherein.sugar.collections.Jterator Jterator]] subtypes.
+	  * Note the absence of `next()`.
+	  */
+	class JteratorExtension[I <: Jterator[_]] private[collections] (private val self :JavaIterator[_]) extends AnyVal {
 		@inline def hasNext :Boolean = self.hasNext
 
 		def asJava[E](implicit shape :JteratorShape[E, I]) :shape.JavaIterator = self.asInstanceOf[shape.JavaIterator]
@@ -5430,7 +5444,7 @@ object extensions extends extensions {
 
 	//consider: moving these to companion objects.
 	/** Provides standard iterator methods for an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]. */
-	class IntJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+	class IntJteratorExtension private[collections] (val asJava :JavaIntIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Int = asJava.nextInt()
 		def toIterator :Iterator[Int] = new JavaIteratorAdapters.IntIterator(asJava)
@@ -5438,7 +5452,7 @@ object extensions extends extensions {
 			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[IntJterator]
 	}
 	/** Provides standard iterator methods for an opaque [[java.util.PrimitiveIterator.OfLong PrimitiveIterator.OfLong]]. */
-	class LongJteratorExtension private[extensions] (val asJava :JavaLongIterator) extends AnyVal {
+	class LongJteratorExtension private[collections] (val asJava :JavaLongIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Long = asJava.nextLong()
 		def toIterator :Iterator[Long] = new JavaIteratorAdapters.LongIterator(asJava)
@@ -5446,7 +5460,7 @@ object extensions extends extensions {
 			JavaConcatIterator(asJava, other.asInstanceOf[JavaLongIterator]).asInstanceOf[LongJterator]
 	}
 	/** Provides standard iterator methods for an opaque [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]]. */
-	class DoubleJteratorExtension private[extensions] (val asJava :JavaDoubleIterator) extends AnyVal {
+	class DoubleJteratorExtension private[collections] (val asJava :JavaDoubleIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Double = asJava.nextDouble()
 		def toIterator :Iterator[Double] = new JavaIteratorAdapters.DoubleIterator(asJava)
@@ -5455,7 +5469,7 @@ object extensions extends extensions {
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfDouble PrimitiveIterator.OfDouble]]
 	  * as an `Iterator[Float]`. */
-	class FloatJteratorExtension private[extensions] (val asJava :JavaDoubleIterator) extends AnyVal {
+	class FloatJteratorExtension private[collections] (val asJava :JavaDoubleIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Float = asJava.nextDouble().toFloat
 		def toIterator :Iterator[Float] = new JavaIteratorAdapters.FloatIterator(asJava)
@@ -5464,7 +5478,7 @@ object extensions extends extensions {
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Short]`. */
-	class ShortJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+	class ShortJteratorExtension private[collections] (val asJava :JavaIntIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Short = asJava.nextInt().toShort
 		def toIterator :Iterator[Short] = new JavaIteratorAdapters.ShortIterator(asJava)
@@ -5473,7 +5487,7 @@ object extensions extends extensions {
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Char]`. */
-	class CharJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+	class CharJteratorExtension private[collections] (val asJava :JavaIntIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Char = asJava.nextInt().toChar
 		def toIterator :Iterator[Char] = new JavaIteratorAdapters.CharIterator(asJava)
@@ -5482,7 +5496,7 @@ object extensions extends extensions {
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Byte]`. */
-	class ByteJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+	class ByteJteratorExtension private[collections] (val asJava :JavaIntIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Byte = asJava.nextInt().toByte
 		def toIterator :Iterator[Byte] = new JavaIteratorAdapters.ByteIterator(asJava)
@@ -5491,7 +5505,7 @@ object extensions extends extensions {
 	}
 	/** Extension methods allowing treating an opaque [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]
 	  * as an `Iterator[Boolean]`. */
-	class BooleanJteratorExtension private[extensions] (val asJava :JavaIntIterator) extends AnyVal {
+	class BooleanJteratorExtension private[collections] (val asJava :JavaIntIterator) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :Boolean = asJava.nextInt() != 0
 		def toIterator :Iterator[Boolean] = new JavaIteratorAdapters.BooleanIterator(asJava)
@@ -5499,7 +5513,7 @@ object extensions extends extensions {
 			JavaConcatIterator(asJava, other.asInstanceOf[JavaIntIterator]).asInstanceOf[BooleanJterator]
 	}
 	/** Extension methods allowing treating an opaque [[java.util.Iterator]] in a uniform manner with other jterators. */
-	class RefJteratorExtension[E] private[extensions] (val asJava :JavaIterator[E]) extends AnyVal {
+	class RefJteratorExtension[E] private[collections] (val asJava :JavaIterator[E]) extends AnyVal {
 		@inline def hasNext :Boolean = asJava.hasNext
 		@inline def next()  :E = asJava.next()
 		def toIterator :Iterator[E] = asJava.asScala

@@ -526,6 +526,9 @@ private object JavaConcatIterator {
 
 @SerialVersionUID(Ver)
 object Jterator {
+//	def apply[T, I <: Jterator[_]]()(implicit shape :JteratorShape[T, I]) :I =
+//		JavaIterator()(shape.javaIteratorShape).asInstanceOf[I]
+
 	def from[T, I <: Jterator[_]](elems :IterableOnce[T])(implicit shape :JteratorShape[T, I]) :I =
 		JavaIterator.from(elems)(shape.javaIteratorShape).asInstanceOf[I]
 
@@ -568,4 +571,6 @@ object Jterator {
 	def two[T, I <: Jterator[_]](first :T, second :T)(implicit shape :JteratorShape[T, I]) :I =
 		JavaIterator.two(first, second)(shape.javaIteratorShape).asInstanceOf[I]
 
+	def concat[T, I <: Jterator[_]](jterators :Seq[I])(implicit shape :JteratorShape[T, I]) :I =
+		JavaConcatIterator(jterators.castParam[shape.JavaIterator])(shape.javaIteratorShape).asInstanceOf[I]
 }

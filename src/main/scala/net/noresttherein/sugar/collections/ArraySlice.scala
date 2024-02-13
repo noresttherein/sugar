@@ -79,9 +79,9 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 
 	override def iterator :Iterator[E] = ArrayIterator(array, startIndex, size)
 
-	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = {
+	override def jterator[I <: Jterator[_]](implicit shape :JteratorShape[E, I]) :I = {
 		val start = startIndex
-		JavaIterator.slice(array, start, start + size)
+		Jterator.slice(array, start, start + size)
 	}
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
 		ArrayStepper(array, startIndex, size)

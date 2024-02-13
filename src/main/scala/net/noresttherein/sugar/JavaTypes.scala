@@ -1,5 +1,6 @@
 package net.noresttherein.sugar
 
+import scala.annotation.nowarn
 import scala.collection.{IterableFactory, MapFactory, SortedIterableFactory, SortedMapFactory, SpecificIterableFactory}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.jdk.CollectionConverters.IterableHasAsJava
@@ -30,9 +31,13 @@ object JavaTypes {
 	type JBigInt           = java.math.BigInteger
 
 	type JStringBuilder    = java.lang.StringBuilder
+	@deprecated("Use collections.JavaIterator. The name of JIterator is too similar to Jterator.", "0.1")
 	type JIterator[T]      = java.util.Iterator[T]
+	@deprecated("Use collections.JavaIntIterator. The name of JIntIterator is too similar to IntJterator.", "0.1")
 	type JIntIterator      = java.util.PrimitiveIterator.OfInt
+	@deprecated("Use collections.JavaLongIterator. The name of JLongIterator is too similar to LongJterator.", "0.1")
 	type JLongIterator     = java.util.PrimitiveIterator.OfLong
+	@deprecated("Use collections.JavaDoubleIterator. The name of JDoubleIterator is too similar to DoubleJterator.", "0.1")
 	type JDoubleIterator   = java.util.PrimitiveIterator.OfDouble
 	type JCollection[T]    = java.util.Collection[T]
 	type JList[T]          = java.util.List[T]
@@ -49,6 +54,8 @@ object JavaTypes {
 	type JDeque[T]         = java.util.Deque[T]
 	type JPriorityQueue[T] = java.util.PriorityQueue[T]
 
+	@deprecated("Use collections.JavaIterator. The name of JIterator is too similar to Jterator.", "0.1")
+	@nowarn("cat=deprecation")
 	@SerialVersionUID(Ver)
 	case object JIterator extends IterableFactory[JIterator] {
 		override def from[A](source :IterableOnce[A]) :JIterator[A] = source.javaIterator
@@ -71,6 +78,8 @@ object JavaTypes {
 			ArrayStepper.slice(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 	}
 
+	@deprecated("Use collections.JavaIntIterator. The name of JIntIterator is too similar to IntJterator.", "0.1")
+	@nowarn("cat=deprecation")
 	@SerialVersionUID(Ver)
 	object JIntIterator extends SpecificIterableFactory[Int, JIntIterator] {
 		override def empty :JIntIterator = JavaIterator.ofInt()
@@ -78,6 +87,8 @@ object JavaTypes {
 		override def fromSpecific(it :IterableOnce[Int]) :JIntIterator = it.javaIterator
 	}
 
+	@deprecated("Use collections.JavaIntIterator. The name of JIntIterator is too similar to IntJterator.", "0.1")
+	@nowarn("cat=deprecation")
 	@SerialVersionUID(Ver)
 	object JLongIterator extends SpecificIterableFactory[Long, JLongIterator] {
 		override def empty :JLongIterator = JavaIterator.ofLong()
@@ -85,6 +96,8 @@ object JavaTypes {
 		override def fromSpecific(it :IterableOnce[Long]) :JLongIterator = it.javaIterator
 	}
 
+	@deprecated("Use collections.JavaIntIterator. The name of JIntIterator is too similar to IntJterator.", "0.1")
+	@nowarn("cat=deprecation")
 	@SerialVersionUID(Ver)
 	object JDoubleIterator extends SpecificIterableFactory[Double, JDoubleIterator] {
 		override def empty :JDoubleIterator = JavaIterator.ofDouble()

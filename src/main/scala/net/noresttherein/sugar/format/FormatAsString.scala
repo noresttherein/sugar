@@ -3,7 +3,7 @@ package net.noresttherein.sugar.format
 import java.math.BigInteger
 
 import net.noresttherein.sugar.JavaTypes.{JBigDecimal, JIntIterator, JStringBuilder}
-import net.noresttherein.sugar.collections.{ChoppedString, Substring}
+import net.noresttherein.sugar.collections.{ChoppedString, JavaIntIterator, Substring}
 import net.noresttherein.sugar.format.util.{parseError, parseErrorMsg}
 import net.noresttherein.sugar.numeric.{Decimal64, UInt, ULong}
 import net.noresttherein.sugar.vars.{Maybe, Opt}
@@ -329,7 +329,7 @@ trait FormatAsString extends Format { format =>
 				string.substring(from, end)
 		    }
 		}
-		private def gulpIterator(first :Char, it :JIntIterator) :String =
+		private def gulpIterator(first :Char, it :JavaIntIterator) :String =
 			if (!it.hasNext)
 				if (first.isDigit) first.toString else ""
 			else if (first == 'I' | first == 'i') {
@@ -432,7 +432,7 @@ trait FormatAsString extends Format { format =>
 				i += 1
 			i
 		}
-		private def skip(first :Char, it :JIntIterator, res :JStringBuilder)(p :Int => Boolean) :Char = {
+		private def skip(first :Char, it :JavaIntIterator, res :JStringBuilder)(p :Int => Boolean) :Char = {
 			var char :Int = first
 			while (p(char) && { res append char.toChar; it.hasNext })
 				char = it.nextInt()
@@ -442,7 +442,7 @@ trait FormatAsString extends Format { format =>
 			if (isHex) skip(string, from, until)(this.isHex)
 			else skip(string, from, until)(isDigit)
 
-		@inline private def skip(isHex :Boolean, first :Char, it :JIntIterator, res :JStringBuilder) :Char =
+		@inline private def skip(isHex :Boolean, first :Char, it :JavaIntIterator, res :JStringBuilder) :Char =
 			if (isHex) skip(first, it, res)(this.isHex)
 			else skip(first, it, res)(isDigit)
 

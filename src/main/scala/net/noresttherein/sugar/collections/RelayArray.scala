@@ -372,8 +372,8 @@ private final class RelayArray2[@specialized(Specializable.Arg) +E] private[coll
 	override def iterator = Iterator.two(head, last)
 	override def reverseIterator = Iterator.two(last, head)
 
-	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
-		JavaIterator.two(head, last)
+	override def jterator[I <: Jterator[_]](implicit shape :JteratorShape[E, I]) :I =
+		Jterator.two(head, last)
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
 		Stepper2(head, last)

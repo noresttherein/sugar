@@ -28,7 +28,7 @@ import net.noresttherein.sugar.extensions._
   * @define defaultIndexedSeqProperty `net.noresttherein.sugar.collections.IndexedSeqFactory`
   * @define defaultBufferProperty     `net.noresttherein.sugar.collections.BufferFactory`
   */
-package object collections {
+package object collections extends JteratorExtensions {
 	private[collections] final val Ver = 1L
 
 	final val ElemTypes = Specialized.MultiValue

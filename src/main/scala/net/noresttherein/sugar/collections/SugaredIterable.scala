@@ -46,9 +46,12 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * witness providing the suitable iterator type. The advantage over Scala iterators is that built in value types
 	  * are widened to one of `Int`, `Long` or `Double`, each having a dedicated iterator type allowing to access
 	  * the elements of the collection without boxing. Additionally, functions are specialized for these argument types.
-	  */ //consider: renaming to jterator for lolz
+	  * @see [[net.noresttherein.sugar.collections.SugaredIterable.jterator jterator]] - a more convenient,
+	  *      manually specialized alternative to Java primitive iterators.
+	  * @return `this.jterator.javaIterator`.
+	  */
 	def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I =
-		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
+		jterator(shape.jteratorShape).asJava(shape.jteratorShape)
 
 	/** An opaque representation of a Java [[java.util.Iterator Iterator]] over this $coll, in the most specialized
 	  * subclass for the type of elements in this collection, as seen from the point of view of the caller.
@@ -67,9 +70,9 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * While underneath both thes calls amount to the same, the latter saves the user the hassle of converting
 	  * every returned element. Additionally, it prevents a common mistake of calling unspecialized `next()`
 	  * instead of the properly specialized variant like `nextInt()`.
-	  */ //todo: make this the primary method and delegate javaIterator to it instead.
+	  */
 	def jterator[I <: Jterator[_]](implicit shape :JteratorShape[E, I]) :I =
-		javaIterator(shape.javaIteratorShape).asInstanceOf[I]
+		stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 
 

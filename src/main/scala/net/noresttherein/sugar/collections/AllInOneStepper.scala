@@ -42,7 +42,7 @@ private trait AllInOneStepper[+A, B, +Self >: Null <: AllInOneStepper[A, B, Self
 private trait AllInOneAnyStepper[A] extends AnyStepper[A] with AllInOneStepper[A, A, AllInOneAnyStepper[A]] {
 	override def next() :A = nextStep()
 	override def spliterator[U >: A]  :Spliterator[U] = this.asInstanceOf[Spliterator[U]]
-	override def javaIterator[U >: A] :JavaIterator[U]   = this.asInstanceOf[JIterator[U]]
+	override def javaIterator[U >: A] :JavaIterator[U]   = this.asInstanceOf[JavaIterator[U]]
 }
 
 
@@ -167,7 +167,7 @@ private trait BoxedAllInOneLongStepper
   */
 private trait BoxedAllInOneDoubleStepper
 	extends DoubleStepper with Spliterator.OfDouble with JavaDoubleIterator
-		with AllInOnePrimitiveStepper[Double, JDouble, BoxedAllInOneDoubleStepper, Spliterator.OfDouble, JDoubleIterator]
+		with AllInOnePrimitiveStepper[Double, JDouble, BoxedAllInOneDoubleStepper, Spliterator.OfDouble, JavaDoubleIterator]
 //		with ErasedAllInStepper[Double, JDouble, BoxedAllInDoubleStepper]
 { 
 	override def nextDouble() :Double = nextStep()

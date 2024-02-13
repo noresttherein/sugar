@@ -36,7 +36,7 @@ trait StringLikeOps[+S <: Seq[Char]]
 	override def isEmpty   :Boolean = length == 0
 	override def knownSize :Int = length
 
-	def intIterator :JIntIterator = stepper.javaIterator
+	def intIterator :JavaIntIterator = stepper.javaIterator
 //	override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
 //		intIterator.asInstanceOf[I]
 
@@ -886,7 +886,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 		val start = startIndex
 		new ReverseStringIterator(whole, start, start + length)
 	}
-	override def intIterator :JIntIterator = {
+	override def intIterator :JavaIntIterator = {
 		val start = startIndex
 		JavaIterator.slice(whole, start, start + length)
 	}
@@ -901,7 +901,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 				super.stepper
 		}
 	}
-	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
+	override def jterator[I <: Jterator[_]](implicit shape :JteratorShape[Char, I]) :I =
 		intIterator.asInstanceOf[I]
 
 	override def foldLeft[A](z :A)(op :(A, Char) => A) :A = {

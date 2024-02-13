@@ -2487,18 +2487,16 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		}
 
 
-	override def javaIterator[I <: JavaIterator[_]](implicit shape :JavaIteratorShape[E, I]) :I = dim match {
-		case _ if dataSize == 0 =>
-			JavaIterator()
+	override def jterator[I <: Jterator[_]](implicit shape :JteratorShape[E, I]) :I = dim match {
+		case _ if dataSize == 0 => //Consider: I don't think this method does anything stepper.jterator doesn't.
+			Jterator.empty
 		case 1 if dataOffset + dataSize <= storageSize =>
-			JavaIterator.slice(data1, dataOffset, dataOffset + dataSize)
+			Jterator.slice(data1, dataOffset, dataOffset + dataSize)
 		case 1 =>
-			JavaConcatIterator(
-				JavaIterator.slice(data1, dataOffset, storageSize),
-				JavaIterator.slice(data1, 0, dataOffset + dataSize - storageSize)
-			)
+			Jterator.slice(data1, dataOffset, storageSize) :++
+				Jterator.slice(data1, 0, dataOffset + dataSize - storageSize)
 		case _ if dim2(dataOffset + dataSize - 1) == dim2(dataOffset) =>
-			JavaIterator.slice(data2(dim2(dataOffset)), dim1(dataOffset), dim1(dataOffset) + dataSize)
+			Jterator.slice(data2(dim2(dataOffset)), dim1(dataOffset), dim1(dataOffset) + dataSize)
 		case _ =>
 			val iters  = TemporaryIndexedSeq.newBuilder[I]
 			val data2  = this.data2
@@ -2508,12 +2506,12 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			var offset = dim1(dataOffset)
 			iters sizeHint dim2(storageSize + dataSize - 1) + 1 - i
 			while (i != end) {
-				iters += JavaIterator.slice(data2(i), offset, MaxSize1)
+				iters += Jterator.slice(data2(i), offset, MaxSize1)
 				i = i + 1 & mask
 				offset = 0
 			}
-			iters += JavaIterator.slice(data2(i), 0, dim1(dataOffset + dataSize - 1) + 1)
-			JavaConcatIterator(iters.result())
+			iters += Jterator.slice(data2(i), 0, dim1(dataOffset + dataSize - 1) + 1)
+			Jterator.concat(iters.result())
 	}
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit = dim match {
