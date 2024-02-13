@@ -13,7 +13,7 @@ import scala.reflect.ClassTag
 import scala.util.Sorting
 
 import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
@@ -2390,10 +2390,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				val start = dataOffset + math.max(from, 0) & mask1
 				val end   = dataOffset + math.min(dataSize, until)
 				if (end <= storageSize)
-					ArrayLikeOps.foreach(data1, start, end)(f)
+					ArrayLikeSpecOps.foreach(data1, start, end)(f)
 				else {
-					ArrayLikeOps.foreach(data1, start, storageSize)(f)
-					ArrayLikeOps.foreach(data1, 0, end - storageSize)(f)
+					ArrayLikeSpecOps.foreach(data1, start, storageSize)(f)
+					ArrayLikeSpecOps.foreach(data1, 0, end - storageSize)(f)
 				}
 			} else {
 				val data2 = this.data2
@@ -2406,22 +2406,22 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				var idx1  = dim1(start)
 				var count = (end - 1 >>> Dim1Bits) - idx2
 				while (count > 0) {
-					ArrayLikeOps.foreach(data2(idx2), idx1, MaxSize1)(f)
+					ArrayLikeSpecOps.foreach(data2(idx2), idx1, MaxSize1)(f)
 					idx2   = idx2 + 1 & mask2
 					idx1   = 0
 					count -= 1
 				}
-				ArrayLikeOps.foreach(data2(idx2), idx1, end1)(f)
+				ArrayLikeSpecOps.foreach(data2(idx2), idx1, end1)(f)
 			}
 		}
 
 	override def foldLeft[A](z :A)(op :(A, E) => A) :A =
 		if (storageSize <= MaxSize1)
 			if (dataOffset + dataSize <= storageSize)
-				ArrayLikeOps.foldLeft(data1, dataOffset, dataOffset + dataSize)(z)(op)
+				ArrayLikeSpecOps.foldLeft(data1, dataOffset, dataOffset + dataSize)(z)(op)
 			else {
-				val acc = ArrayLikeOps.foldLeft(data1, dataOffset, storageSize)(z)(op)
-				ArrayLikeOps.foldLeft(data1, 0, dataOffset + dataSize - storageSize)(acc)(op)
+				val acc = ArrayLikeSpecOps.foldLeft(data1, dataOffset, storageSize)(z)(op)
+				ArrayLikeSpecOps.foldLeft(data1, 0, dataOffset + dataSize - storageSize)(acc)(op)
 			}
 		else
 			MatrixBuffer.foldLeft2(data2, dataOffset, dataSize)(z)(op)
@@ -2429,10 +2429,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	override def foldRight[A](z :A)(op :(E, A) => A) :A =
 		if (storageSize <= MaxSize1)
 			if (dataOffset + dataSize <= storageSize)
-				ArrayLikeOps.foldRight(data1, dataOffset, dataOffset + dataSize)(z)(op)
+				ArrayLikeSpecOps.foldRight(data1, dataOffset, dataOffset + dataSize)(z)(op)
 			else {
-				val acc = ArrayLikeOps.foldRight(data1, 0, dataOffset + dataSize - storageSize)(z)(op)
-				ArrayLikeOps.foldRight(data1, dataOffset, storageSize)(acc)(op)
+				val acc = ArrayLikeSpecOps.foldRight(data1, 0, dataOffset + dataSize - storageSize)(z)(op)
+				ArrayLikeSpecOps.foldRight(data1, dataOffset, storageSize)(acc)(op)
 			}
 		else
 			MatrixBuffer.foldRight2(data2, dataOffset, dataSize)(z)(op)
@@ -2451,10 +2451,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			val head    = data1(dataOffset)
 			val until   = dataOffset + 1 & data.length - 1
 			if (dataEnd <= storageSize)
-				ArrayLikeOps.foldLeft[U, E](data1, until, dataEnd)(head)(op)
+				ArrayLikeSpecOps.foldLeft[U, E](data1, until, dataEnd)(head)(op)
 			else {
-				val acc = ArrayLikeOps.foldLeft[U, E](data1, until, storageSize)(head)(op)
-				ArrayLikeOps.foldLeft[U, E](data1, 0, dataEnd - storageSize)(acc)(op)
+				val acc = ArrayLikeSpecOps.foldLeft[U, E](data1, until, storageSize)(head)(op)
+				ArrayLikeSpecOps.foldLeft[U, E](data1, 0, dataEnd - storageSize)(acc)(op)
 			}
 		} else {
 			val head = data2(dim2(dataOffset))(dim1(dataOffset))
@@ -2475,10 +2475,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			val until   = dataEnd - 1 & data.length - 1
 			val last    = data1(until)
 			if (dataEnd <= storageSize)
-				ArrayLikeOps.foldRight[E, U](data1, dataOffset, dataEnd - 1)(last)(op)
+				ArrayLikeSpecOps.foldRight[E, U](data1, dataOffset, dataEnd - 1)(last)(op)
 			else {
-				val acc = ArrayLikeOps.foldRight[E, U](data1, 0, until)(last)(op)
-				ArrayLikeOps.foldRight[E, U](data1, dataOffset, storageSize)(acc)(op)
+				val acc = ArrayLikeSpecOps.foldRight[E, U](data1, 0, until)(last)(op)
+				ArrayLikeSpecOps.foldRight[E, U](data1, dataOffset, storageSize)(acc)(op)
 			}
 		} else {
 			val i    = dataOffset + dataSize - 1 & indexMask
@@ -2688,13 +2688,13 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 			var count2 = dim2(start + length - 1) - idx2
 			var res    = z
 			while (count2 > 0) {
-				res     = ArrayLikeOps.foldLeft(array(idx2), idx1, MaxSize1)(res)(op)
+				res     = ArrayLikeSpecOps.foldLeft(array(idx2), idx1, MaxSize1)(res)(op)
 				idx1    = 0
 				idx2    = idx2 + 1 & mask2
 				count2 -= 1
 			}
 			val end1  = dim1(start + length - 1) + 1
-			ArrayLikeOps.foldLeft(array(idx2), idx1, end1)(res)(op)
+			ArrayLikeSpecOps.foldLeft(array(idx2), idx1, end1)(res)(op)
 		}
 	private def foldRight2[E, A](array :Array[Array[E]], start :Int, length :Int)(z :A)(op :(E, A) => A) :A =
 		if (length == 0)
@@ -2706,12 +2706,12 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 			var count2 = dim2(start + length - 1) - dim2(start)
 			var res   = z
 			while (count2 > 0) {
-				res     = ArrayLikeOps.foldRight(array(idx2), 0, idx1)(res)(op)
+				res     = ArrayLikeSpecOps.foldRight(array(idx2), 0, idx1)(res)(op)
 				idx1    = MaxSize1
 				idx2    = idx2 - 1 & mask2
 				count2 -= 1
 			}
-			ArrayLikeOps.foldRight(array(idx2), dim1(start), idx1)(res)(op)
+			ArrayLikeSpecOps.foldRight(array(idx2), dim1(start), idx1)(res)(op)
 		}
 
 	private def copyToArray2[E](data :Array[Array[E]], from :Int, xs :Array[_ >: E], start :Int, count :Int) :Unit = {

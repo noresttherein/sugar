@@ -10,7 +10,7 @@ import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, Itera
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeSpecOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
@@ -88,23 +88,23 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 
 
 	protected override def segmentLength(p :E => Boolean, from :Int) :Int =
-		ArrayLikeOps.segmentLength(array, startIndex, size)(p, from)
+		ArrayLikeSpecOps.segmentLength(array, startIndex, size)(p, from)
 
 	override def foldLeft[A](z :A)(op :(A, E) => A) :A = {
 		val start = startIndex
-		ArrayLikeOps.foldLeft(array, start, start + size)(z)(op)
+		ArrayLikeSpecOps.foldLeft(array, start, start + size)(z)(op)
 	}
 	override def foldRight[A](z :A)(op :(E, A) => A) :A = {
 		val start = startIndex
-		ArrayLikeOps.foldRight(array, start, start + size)(z)(op)
+		ArrayLikeSpecOps.foldRight(array, start, start + size)(z)(op)
 	}
 	override def reduceLeft[U >: E](op :(U, E) => U) :U = {
 		val start = startIndex
-		ArrayLikeOps.reduceLeft[U, E](array, start, start + size)(op)
+		ArrayLikeSpecOps.reduceLeft[U, E](array, start, start + size)(op)
 	}
 	override def reduceRight[U >: E](op :(E, U) => U) :U = {
 		val start = startIndex
-		ArrayLikeOps.reduceRight[E, U](array, start, start + size)(op)
+		ArrayLikeSpecOps.reduceRight[E, U](array, start, start + size)(op)
 	}
 
 	override def foreach[U](f :E => U) :Unit = foreach(0, size)(f)
@@ -113,10 +113,11 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 		val start = startIndex
 		val from0 = math.min(length, math.max(from, 0))
 		val until0 = math.min(length, math.max(from0, until))
-		ArrayLikeOps.foreach(array, start + from0, start + until0)(f)
+		ArrayLikeSpecOps.foreach(array, start + from0, start + until0)(f)
 	}
 
 	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
+		//Implementation inconsistent with IterableOnceOps, but consistent with Vector (check from >= size)
 		copyRangeToArray(xs, start, 0, len)
 
 	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
@@ -125,7 +126,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 		else if (start < 0)
 			outOfBounds_!(start, xs.length)
 		else {
-			val from0  = math.min(size, math.max(0, from))
+			val from0  = math.max(0, from)
 			val copied = math.min(len, math.min(xs.length - start, size - from0))
 			ArrayLike.copy(unsafeArray, startIndex + from0, xs, start, copied)
 			copied
@@ -150,6 +151,80 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 //
 //
 //trait TypedArraySliceOps[+E, +CC[_], +C] extends ArraySliceOps[E, CC, C]
+
+
+
+
+/** A window over a range of indices in an `Array`. There is no guarantee that the component type of the array
+  * is actually `classOf[A]` - it might be boxed (for value types), a super type (or a subtype) of `A`, or both.
+  * @define Coll `ArrayLikeSlice`
+  * @define coll array slice
+  */
+trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
+	extends ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
+{ this :C =>
+	private[sugar] final override def unsafeArray :Array[_] = array
+	protected def array :Array[E @uncheckedVariance]
+
+	override def reverseIterator :Iterator[E] = {
+		val start = startIndex
+		ReverseArrayIterator.slice(array, start, start + length)
+	}
+
+	override def indexOf[U >: E](elem :U, from :Int) :Int =
+		ArrayLikeSpecOps.indexOf[U](array, startIndex, length)(elem, from)
+
+	override def lastIndexOf[U >: E](elem :U, end :Int) :Int =
+		ArrayLikeSpecOps.lastIndexOf[U](array, startIndex, length)(elem, end)
+
+	override def lastIndexWhere(p :E => Boolean, end :Int) :Int =
+		ArrayLikeSpecOps.lastIndexWhere(array, startIndex, length)(p, end)
+
+	override def indexWhere(p :E => Boolean, from :Int) :Int =
+		ArrayLikeSpecOps.indexWhere(array, startIndex, length)(p, from)
+
+	override def segmentLength(p :E => Boolean, from :Int) :Int =
+		ArrayLikeSpecOps.segmentLength(array, startIndex, length)(p, from)
+
+	override def removed(index :Int) :C = {
+		val length = this.length
+		if (index < 0 || index > length)
+			outOfBounds_!(index.toString + " out of " + length)
+		else {
+			val start = startIndex
+			val array = this.array
+			val res = Array.copyOfRanges(array, start, start + index, array, start + index + 1, start + length)
+			releaseFence()
+			newSpecific(res, 0, length - 1)
+		}
+	}
+
+	override def removed(from :Int, until :Int) :C = {
+		val length = this.length
+		if (until <= from | until <= 0 || from >= length)
+			this
+		else if (from <= 0 & until >= length)
+			empty
+		else if (from <= 0)
+			clippedSlice(until, length)
+		else if (until >= length)
+			clippedSlice(0, from)
+		else {
+			val array = this.array
+			val start = this.startIndex
+			val res   = Array.copyOfRanges(array, 0, start + from, array, start + until, start + length)
+			releaseFence()
+			newSpecific(res, 0, length - (until - from))
+		}
+	}
+
+	protected override def clippedSlice(from :Int, until :Int) :C = {
+		val start = startIndex
+		newSpecific(array, start + from, start + until)
+	}
+	protected def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :C
+//	protected def make[X](array :Array[X], from :Int, until :Int) :CC[X]
+}
 
 
 
@@ -263,79 +338,6 @@ abstract class ClassTagArrayLikeSliceSeqFactory
 
 
 
-
-
-
-/** A window over a range of indices in an `Array`. There is no guarantee that the component type of the array
-  * is actually `classOf[A]` - it might be boxed (for value types), a super type (or a subtype) of `A`, or both.
-  * @define Coll `ArrayLikeSlice`
-  * @define coll array slice
-  */
-trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
-	extends ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
-{ this :C =>
-	private[sugar] final override def unsafeArray :Array[_] = array
-	protected def array :Array[E @uncheckedVariance]
-
-	override def reverseIterator :Iterator[E] = {
-		val start = startIndex
-		ReverseArrayIterator.slice(array, start, start + length)
-	}
-
-	override def indexOf[U >: E](elem :U, from :Int) :Int =
-		ArrayLikeOps.indexOf[U](array, startIndex, length)(elem, from)
-
-	override def lastIndexOf[U >: E](elem :U, end :Int) :Int =
-		ArrayLikeOps.lastIndexOf[U](array, startIndex, length)(elem, end)
-
-	override def lastIndexWhere(p :E => Boolean, end :Int) :Int =
-		ArrayLikeOps.lastIndexWhere(array, startIndex, length)(p, end)
-
-	override def indexWhere(p :E => Boolean, from :Int) :Int =
-		ArrayLikeOps.indexWhere(array, startIndex, length)(p, from)
-
-	override def segmentLength(p :E => Boolean, from :Int) :Int =
-		ArrayLikeOps.segmentLength(array, startIndex, length)(p, from)
-
-	override def removed(index :Int) :C = {
-		val length = this.length
-		if (index < 0 || index > length)
-			outOfBounds_!(index.toString + " out of " + length)
-		else {
-			val start = startIndex
-			val array = this.array
-			val res = Array.copyOfRanges(array, start, start + index, array, start + index + 1, start + length)
-			releaseFence()
-			newSpecific(res, 0, length - 1)
-		}
-	}
-
-	override def removed(from :Int, until :Int) :C = {
-		val length = this.length
-		if (until <= from | until <= 0 || from >= length)
-			this
-		else if (from <= 0 & until >= length)
-			empty
-		else if (from <= 0)
-			clippedSlice(until, length)
-		else if (until >= length)
-			clippedSlice(0, from)
-		else {
-			val array = this.array
-			val start = this.startIndex
-			val res   = Array.copyOfRanges(array, 0, start + from, array, start + until, start + length)
-			releaseFence()
-			newSpecific(res, 0, length - (until - from))
-		}
-	}
-
-	protected override def clippedSlice(from :Int, until :Int) :C = {
-		val start = startIndex
-		newSpecific(array, start + from, start + until)
-	}
-	protected def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :C
-//	protected def make[X](array :Array[X], from :Int, until :Int) :CC[X]
-}
 
 
 //todo: swap the order of C and A type arguments in all subclasses.

@@ -290,9 +290,10 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	// We instead always default to System.arraycopy if both element types are reference types.
 	/** Copies contents of one array-like object to another, mutable, array-like.
 	  * Has the same semantics as `Array.`[[scala.Array.copy copy]], but works or any `ArrayLike`,
-	  * and reverts to `System.`[[java.lang.System.arraycopy arraycopy]] always if both objects
+	  * and reverts on a fast path to `System.`[[java.lang.System.arraycopy arraycopy]] always if both objects
 	  * are reference (not value type) arrays (unlike `Array.copy`, which does it only if the array types
-	  * statically guarantee success).
+	  * statically guarantee success). It is also faster for copying between a value array and a reference array
+	  * in both directions (unless `Array.copy` is heavily inlined to the calling method by the hotspot compiler).
 	  */
 	@throws[IndexOutOfBoundsException]("if [srcPos, srcPos+length) is not a valid index range in src," +
 	                                   "or [dstPos, dstPos+length) is not a valid index range in dst.")
@@ -300,10 +301,22 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	                             "even after auto boxing/auto unboxing.")
 	@inline def copy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Unit =
 		if (length > 0)
-			if (src.isInstanceOf[Array[AnyRef]] & dst.isInstanceOf[Array[AnyRef]])
-				arraycopy(src, srcPos, dst, dstPos, length)
+			if (src.isInstanceOf[Array[AnyRef]])
+				if (dst.isInstanceOf[Array[AnyRef]])
+					arraycopy(src, srcPos, dst, dstPos, length)
+				else
+					ArrayLikeSpecOps.unboxingCopy(
+						src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length
+					)
 			else
-				Array.copy(src, srcPos, dst, dstPos, length)
+				if (dst.isInstanceOf[Array[AnyRef]])
+					ArrayLikeSpecOps.boxingCopy(
+						src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length
+					)
+				else if (src.getClass == dst.getClass)
+					arraycopy(src, srcPos, dst, dstPos, length)
+				else //This will fail, but I don't want to be the one to do it.
+					Array.copy(src, srcPos, dst, dstPos, length)
 
 	/** Copies a maximum of `length` elements from one array-like to another, wrapping at array ends.
 	  * Reading starts with index `srcPos` in `src`, and writing starts with index `dstPos` in `dst`.
@@ -343,6 +356,102 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	                             "including boxing and unboxing.")
 	@inline def cyclicCopyTo(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Unit =
 		Array.cyclicCopyTo(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length)
+
+	/** Brings all the benefits of [[net.noresttherein.sugar.arrays.ArrayLike.copy copy]], but clips the input indices
+	  * and maximum number of elements to arrays' sizes, providing semantics of
+	  * {{{
+	  *     src.drop(srcPos).copyToArray(dst, dstPos, length)
+	  * }}}
+	  * @return The number of copied elements.
+	  */
+	@throws[IndexOutOfBoundsException]("if dstPos is negative.")
+	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
+	                             "including boxing and unboxing.")
+	def permissiveCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+		val srcLength = src.asInstanceOf[Array[_]].length
+		val dstLength = dst.asInstanceOf[Array[_]].length
+		//we could check heere if srcLength == 0 | dstLength == 0, but it would be inconsistent
+		// with the implementation in IterableOnceOps
+		if (srcPos >= srcLength | dstPos >= dstLength | length <= 0)
+			0
+		else if (dstPos < 0)
+			outOfBounds_!(dstPos, dstLength)
+		else {
+			val srcIdx = math.max(srcPos, 0)
+			val max = math.min(math.min(srcLength - srcIdx, dstLength - dstPos), length)
+			copy(src, srcIdx, dst, dstPos, max)
+			max
+		}
+	}
+
+	/** Invokes [[net.noresttherein.sugar.arrays.ArrayLike.cyclicCopy cyclicCopy]], but uses `srcPos` and `dstPos`
+	  * module `src.length` and `dst.length` (making all indices valid), and clips `length`
+	  * to the maximum number of elements to copy, based on arrays' lengths. In particular, providing a negative index
+	  * results in effectively counting from the end of the array. Offers semantics of
+	  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.cyclicCopyToArray cyclicCopyToArray]]
+	  * (with the exception of wrapping the copying back to the start of `src` array),
+	  * consistent with the standard `copyToArray` method.
+	  * @return The number of copied elements.
+	  */
+	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
+	                             "including boxing and unboxing.")
+	def permissiveCyclicCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+		val srcLength = src.asInstanceOf[Array[_]].length
+		val dstLength = dst.asInstanceOf[Array[_]].length
+		if (srcLength == 0 | dstLength == 0 | length <= 0)
+			0
+		else {
+			val srcIdx = if (srcPos < 0) srcLength - srcPos % srcLength else srcPos % srcLength
+			val dstIdx = if (dstPos < 0) dstLength - dstPos % dstLength else dstPos % dstLength
+			val max = math.min(math.min(srcLength, dstLength), length)
+			cyclicCopy(src, srcIdx, dst, dstIdx, max)
+			max
+		}
+	}
+
+	/** Invokes [[net.noresttherein.sugar.arrays.ArrayLike.cyclicCopyFrom cyclicCopyFrom]],
+	  * but treats `srcPos` as modulo `src.length`, copies nothing if `dstPos >= dst.length`, and clips `length`
+	  * to the maximum number of elements to copy, based on arrays' lengths and `srcPos` and `dstPos`. Offers semantics
+	  * consistent with the standard `copyToArray` method.
+	  * @return The number of copied elements.
+	  */ //consider: allowing
+	@throws[IndexOutOfBoundsException]("if dstPos is negative.")
+	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
+	                             "including boxing and unboxing.")
+	def permissiveCyclicCopyFrom(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+		val srcLength = src.asInstanceOf[Array[_]].length
+		val dstLength = dst.asInstanceOf[Array[_]].length
+		if (srcLength == 0 | dstLength == 0 | dstPos >= dstLength | length <= 0)
+			0
+		else {
+			val srcIdx = if (srcPos < 0) srcLength - srcPos % srcLength else srcPos % srcLength
+			val max = math.min(math.min(srcLength, dstLength - dstPos), length)
+			cyclicCopy(src, srcIdx, dst, dstPos, max)
+			max
+		}
+	}
+
+	/** Invokes [[net.noresttherein.sugar.arrays.ArrayLike.cyclicCopyTo cyclicCopyTo]], but treats `dstPos`
+	  * as modulo `dst.length`, copies nothing if `srcPos >= src.length`, and clips `length` to the maximum number
+	  * of elements to copy, based on arrays' lengths and `srcPos`. Offers semantics consistent with
+	  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.cyclicCopyRangeToArray cyclicCopyRangeToArray]].
+	  * @return The number of copied elements.
+	  */
+	@throws[IndexOutOfBoundsException]("if srcPos is negative.")
+	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
+	                             "including boxing and unboxing.")
+	def permissiveCyclicCopyTo(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+		val srcLength = src.asInstanceOf[Array[_]].length
+		val dstLength = dst.asInstanceOf[Array[_]].length
+		if (srcLength == 0 | dstLength == 0 | dstPos >= dstLength | length <= 0)
+			0
+		else {
+			val dstIdx = if (dstPos < 0) dstLength - dstPos % dstLength else dstPos % srcLength
+			val max = math.min(math.min(srcLength - srcPos, dstLength), length)
+			cyclicCopy(src, srcPos, dst, dstIdx, max)
+			max
+		}
+	}
 
 
 
@@ -408,6 +517,66 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 
 
+	@inline def unapplySeq[E](items :ArrayLike[E]) :UnapplySeqWrapper[E] =
+		new UnapplySeqWrapper(items.castFrom[ArrayLike[E], Array[E]])
+
+	/** A factory and pattern for all known collections wrapping arrays, including all
+	  * [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]] subtypes.
+	  * It recognizes both mutable and immutable collections, and the extracted/wrapped array is shared, not copied.
+	  * Note that the actual component type of the array may be a subtype of the collection's element type.
+	  */
+	@SerialVersionUID(Ver)
+	object Wrapped {
+		def apply[E](array :ArrayLike[E]) :collection.IndexedSeq[E] =
+			ArrayLikeSlice.wrap(array.castFrom[ArrayLike[E], Array[E]])
+
+		def unapply[E](elems :IterableOnce[E]) :Maybe[ArrayLike[E]] = elems match {
+			case seq :ArrayIterableOnce[E] if seq.knownSize == seq.unsafeArray.length =>
+				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
+			case seq :collection.IndexedSeq[_] => elems match {
+				case seq :mutable.ArraySeq[E]   => Yes(seq.array.castFrom[Array[_], ArrayLike[E]])
+				case seq :ArraySeq[E]           => Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
+				case seq :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length  =>
+					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
+				case VectorArray(array)         => Yes(array.asInstanceOf[RefArray[E]])
+				case MatrixBufferArray(array) if array.length == seq.length => Yes(array.asInstanceOf[ArrayLike[E]])
+				case _ => No
+			}
+			case _ => No
+		}
+
+		/** A factory and pattern for non-immutable collections backed by array slices.
+		  * It recognizes both mutable and immutable collections, and the extracted/wrapped array is shared, not copied.
+          * Note that the actual component type of the array may be a subtype of the collection's element type.
+		  */
+		@SerialVersionUID(Ver)
+		object Slice {
+			def apply[E](array :ArrayLike[E], from :Int, until :Int) :collection.IndexedSeq[E] =
+				ArrayLikeSlice.slice[E](array.castFrom[ArrayLike[E], Array[E]], from, until)
+
+			def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
+				case seq :ArrayIterableOnce[E] =>
+					Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
+				case _ :collection.IndexedSeq[_] => elems match {
+					case seq :ArraySeq[E]          =>
+						Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
+					case seq :mutable.ArraySeq[E]  =>
+						Yes((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
+					case seq :ArrayBuffer[_]       =>
+						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
+					case VectorArray(array)        =>
+						Yes(array.asInstanceOf[RefArray[E]], 0, array.length)
+					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex <= seq.data1.length - seq.length =>
+						Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
+					case _ => No
+				}
+				case _ => No
+			}
+		}
+	}
+
+
+
 	//Consider: there is a small issue in that the factory extension method is in extensions,
 	// so a clash between imports is possible.
 
@@ -436,7 +605,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  * @define coll `array-like`
 	  * @define Coll `ArrayLike`
 	  */
-	class ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] private[arrays] (private[ArrayLike] val self :Array[Unknown])
+	class ArrayLikeExtension[Arr[X] <: ArrayLike[X], E] private[sugar] (private[ArrayLike] val self :Array[Unknown])
 		extends AnyVal
 	{   //Avoid casting array to Array[E], as it may easily cause problems if inlined.
 		//'Safe' casting methods with very limited application.
@@ -476,27 +645,27 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def count(p :E => Boolean) :Int = self.count(p.castFrom[E => Boolean, Unknown => Boolean])
 		@inline def exists(p :E => Boolean) :Boolean = indexWhere(p) >= 0
 		def forall(p :E => Boolean) :Boolean =
-			ArrayLikeOps.segmentLength(self, 0, self.length, true)(p.castParam1[Unknown]) == -1
+			ArrayLikeSpecOps.segmentLength(self, 0, self.length, true)(p.castParam1[Unknown]) == -1
 
 		def find(p :E => Boolean) :Option[E] = {
 			val length = self.length
-			val i = ArrayLikeOps.indexWhere(self, 0, length)(p.castParam1[Unknown], 0)
+			val i = ArrayLikeSpecOps.indexWhere(self, 0, length)(p.castParam1[Unknown], 0)
 			if (i == length) None else Some(asElement(self(i)))
 		}
 		def findLast(p :E => Boolean) :Option[E] = {
 			val len = self.length
-			val i = ArrayLikeOps.lastIndexWhere(self, 0, len)(p.castParam1[Unknown], len)
+			val i = ArrayLikeSpecOps.lastIndexWhere(self, 0, len)(p.castParam1[Unknown], len)
 			if (i < 0) None else Some(asElement(self(i)))
 		}
 
 		def segmentLength(p :E => Boolean, from :Int = 0) :Int =
-			ArrayLikeOps.segmentLength(self, 0, self.length)(p.castParam1[Unknown], from)
+			ArrayLikeSpecOps.segmentLength(self, 0, self.length)(p.castParam1[Unknown], from)
 
 		def indexWhere(p :E => Boolean, from :Int = 0) :Int =
-			ArrayLikeOps.indexWhere(self, 0, self.length)(p.castParam1[Unknown], from)
+			ArrayLikeSpecOps.indexWhere(self, 0, self.length)(p.castParam1[Unknown], from)
 
 		def lastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Int =
-			ArrayLikeOps.lastIndexWhere(self, 0, self.length)(p.castParam1[Unknown], end)
+			ArrayLikeSpecOps.lastIndexWhere(self, 0, self.length)(p.castParam1[Unknown], end)
 
 		@inline def getIndexWhere(p :E => Boolean, from :Int = 0) :Option[Int] = indexWhere(p, from) match {
 			case -1 => None
@@ -525,9 +694,9 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			case  n => n
 		}
 
-		def indexOf[U >: E](elem :U, from :Int = 0) :Int = ArrayLikeOps.indexOf[Any](self, 0, self.length)(elem, from)
+		def indexOf[U >: E](elem :U, from :Int = 0) :Int = ArrayLikeSpecOps.indexOf[Any](self, 0, self.length)(elem, from)
 		def lastIndexOf[U >: E](elem :U, end :Int = Int.MaxValue) :Int =
-			ArrayLikeOps.lastIndexOf[Any](self, 0, self.length)(elem, end)
+			ArrayLikeSpecOps.lastIndexOf[Any](self, 0, self.length)(elem, end)
 
 		/** Returns `Some(`[[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension.indexOf indexOf]]`(elem, from)).filter(_>=0)`. */
 		@inline def getIndexOf[U >: E](elem :U, from :Int = 0) :Option[Int] = indexOf(elem, from) match {
@@ -935,24 +1104,24 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def foldLeft[A](z :A)(op :(A, E) => A) :A = new ArrayOps(self).foldLeft(z)(op.castParams[A, Unknown, A])
 
 		def foldRight[A](z :A)(op :(E, A) => A) :A =
-			ArrayLikeOps.foldRight(self, 0, self.length)(z)(op.castParams[Unknown, A, A])
+			ArrayLikeSpecOps.foldRight(self, 0, self.length)(z)(op.castParams[Unknown, A, A])
 
 		@inline def reduce[U >: E](op :(U, U) => U) :U = reduceLeft(op)
 		@inline def reduceOption[U >: E](op :(U, U) => U) :Option[U] = reduceLeftOption[U](op)
 
 		def reduceLeft[U >: E](op :(U, E) => U) :U =
-			ArrayLikeOps.reduceLeft(self, 0, self.length)(op.castParams[Unknown, Unknown, Unknown]).castFrom[Unknown, U]
+			ArrayLikeSpecOps.reduceLeft(self, 0, self.length)(op.castParams[Unknown, Unknown, Unknown]).castFrom[Unknown, U]
 
 		def reduceLeftOption[U >: E](op :(U, E) => U) :Option[U] =
 			if (self.length == 0) None
-			else Some(ArrayLikeOps.reduceLeft(self, 0, length)(op.castParams[Unknown, Unknown, Unknown])).castParam[U]
+			else Some(ArrayLikeSpecOps.reduceLeft(self, 0, length)(op.castParams[Unknown, Unknown, Unknown])).castParam[U]
 
 		def reduceRight[U >: E](op :(E, U) => U) :U =
-			ArrayLikeOps.reduceRight(self, 0, length)(op.castParams[Unknown, Unknown, Unknown]).castFrom[Unknown, U]
+			ArrayLikeSpecOps.reduceRight(self, 0, length)(op.castParams[Unknown, Unknown, Unknown]).castFrom[Unknown, U]
 
 		def reduceRightOption[U >: E](op :(E, U) => U) :Option[U] =
 			if (self.length == 0) None
-			else Some(ArrayLikeOps.reduceRight(self, 0, length)(op.castParams[Unknown, Unknown, Unknown])).castParam[U]
+			else Some(ArrayLikeSpecOps.reduceRight(self, 0, length)(op.castParams[Unknown, Unknown, Unknown])).castParam[U]
 
 		/** A copy of this array with values at indices `i` and `j` swapped. */
 		@inline def swapped(i :Int, j :Int) :Arr[E] = expose {
@@ -1200,7 +1369,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 		/** Executes the given function or all elements in the index range `[from, until)`. */
 		def foreach[U](from :Int, until :Int)(f :E => U) :Unit =
-			ArrayLikeOps.foreach(self, from, until)(f.castParam1[Unknown])
+			ArrayLikeSpecOps.foreach(self, from, until)(f.castParam1[Unknown])
 
 		@inline def zipWithIndex :Arr[(E, Int)] =
 			new ArrayOps(self).zipWithIndex.castFrom[Array[(Unknown, Int)], Arr[(E, Int)]]
@@ -1381,86 +1550,13 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def addString(b :StringBuilder) :b.type = addString(b, "", "", "")
 		@inline def addString(b :StringBuilder, sep :String) :b.type = addString(b, "", sep, "")
 		def addString(b :StringBuilder, start :String, sep :String, end :String) :b.type = {
-			ArrayLikeOps.addString(self, b.underlying, start, sep, end); b
+			ArrayLikeSpecOps.addString(self, b.underlying, start, sep, end); b
 		}
 
 		/** A `String` representation of this array in the format of Scala collections' `toString`. */
 		def contentsString :String = mkString(self.localClassName + "(", ", ", ")")
 	}
 
-
-
-	@inline def unapplySeq[E](items :ArrayLike[E]) :UnapplySeqWrapper[E] =
-		new UnapplySeqWrapper(items.castFrom[ArrayLike[E], Array[E]])
-
-	/** A factory and pattern for all known collections wrapping arrays, including all
-	  * [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]] subtypes.
-	  * It recognizes both mutable and immutable collections, and the extracted/wrapped array is shared, not copied.
-	  * Note that the actual component type of the array may be a subtype of the collection's element type.
-	  */
-	@SerialVersionUID(Ver)
-	object Wrapped {
-		def apply[E](array :ArrayLike[E]) :collection.IndexedSeq[E] =
-			ArrayLikeSlice.wrap(array.castFrom[ArrayLike[E], Array[E]])
-
-		def unapply[E](elems :IterableOnce[E]) :Maybe[ArrayLike[E]] = elems match {
-			case seq :ArrayIterableOnce[E] if seq.knownSize == seq.unsafeArray.length =>
-				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
-			case seq :collection.IndexedSeq[_] => elems match {
-				case seq :mutable.ArraySeq[E]   => Yes(seq.array.castFrom[Array[_], ArrayLike[E]])
-				case seq :ArraySeq[E]           => Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
-				case seq :ArrayBuffer[_] if CheatedAccess.array(seq).length == seq.length  =>
-					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]])
-				case VectorArray(array)         => Yes(array.asInstanceOf[RefArray[E]])
-				case MatrixBufferArray(array) if array.length == seq.length => Yes(array.asInstanceOf[ArrayLike[E]])
-				case _ => No
-			}
-			case _ => No
-		}
-
-		/** A factory and pattern for non-immutable collections backed by array slices.
-		  * It recognizes both mutable and immutable collections, and the extracted/wrapped array is shared, not copied.
-          * Note that the actual component type of the array may be a subtype of the collection's element type.
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[E](array :ArrayLike[E], from :Int, until :Int) :collection.IndexedSeq[E] =
-				ArrayLikeSlice.slice[E](array.castFrom[ArrayLike[E], Array[E]], from, until)
-
-			def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
-				case seq :ArrayIterableOnce[E] =>
-					Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
-				case _ :collection.IndexedSeq[_] => elems match {
-					case seq :ArraySeq[E]          =>
-						Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
-					case seq :mutable.ArraySeq[E]  =>
-						Yes((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
-					case seq :ArrayBuffer[_]       =>
-						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
-					case VectorArray(array)        =>
-						Yes(array.asInstanceOf[RefArray[E]], 0, array.length)
-					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex <= seq.data1.length - seq.length =>
-						Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
-					case _ => No
-				}
-				case _ => No
-			}
-		}
-	}
-
-
-	/** A type class allowing to build an `Array[U]` out of elements of an `Array[T]` and array-like `A[U]`.
-	  * This can be done given one of the following:
-	  *   1. an implicit `ClassTag[U]` is always enough;
-	  *   1. `U=:=T`, in which case the returned array will use the same component type as the first argument, or
-	  *   1. `A[U] =:= Array[U]`, in which case the new array will be of the same type as the second argument.
-	  *
-	  * It allows to provide a single method definition for methods like `updatedAll`, `appendedAll`, etc.,
-	  * without running into issues with erased signature conflicts between overloaded variants
-	  * for `[U >: T]Array[T]` (case 3) and `ArrayLike[T]` (case 2), which can't be easily resolved with dummy implicits,
-	  * as methods without implicit arguments have strict precedence. Unfortunately, adding a `DummyImplicit`
-	  * to the variant for `ArrayLike[T]` makes it, in turn, conflict with `[U >: T]ArrayLike[U]` with a `ClassTag[U]`.
-	  */
 
 
 	/** A type class defining the specific `collection.IndexedSeq` subclass to which
@@ -1480,29 +1576,26 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 	@SerialVersionUID(Ver)
 	object ArrayLikeToSeqConversion {
-		private case object ArrayLikeToSeq extends ArrayLikeToSeqConversion[Any, ArrayLike] {
-			override type IndexedSeq = collection.IndexedSeq[Any]
-			override def apply(array :ArrayLike[Any]) = ArrayLike.Wrapped(array)
-//			override def toString = "ArrayLikeToSeq"
+		private case object ArrayLikeToSeq extends ArrayLikeToSeqConversion[Unknown, ArrayLike] {
+			override type IndexedSeq = collection.IndexedSeq[Unknown]
+			override def apply(array :ArrayLike[Unknown]) = ArrayLike.Wrapped(array)
 		}
-		private case object IArrayLikeToSeq extends ArrayLikeToSeqConversion[Any, IArrayLike] {
-			override type IndexedSeq = immutable.IndexedSeq[Any]
-			override def apply(array :IArrayLike[Any]) = IArrayLike.Wrapped(array)
-//			override def toString = "IArrayLikeToSeq"
+		private case object IArrayLikeToSeq extends ArrayLikeToSeqConversion[Unknown, IArrayLike] {
+			override type IndexedSeq = immutable.IndexedSeq[Unknown]
+			override def apply(array :IArrayLike[Unknown]) = IArrayLike.Wrapped(array)
 		}
-		private case object MutableArrayToSeq extends ArrayLikeToSeqConversion[Any, MutableArray] {
-			override type IndexedSeq = mutable.IndexedSeq[Any]
-			override def apply(array :MutableArray[Any]) = MutableArray.Wrapped(array)
-//			override def toString = "MutableArrayToSeq"
+		private case object MutableArrayToSeq extends ArrayLikeToSeqConversion[Unknown, MutableArray] {
+			override type IndexedSeq = mutable.IndexedSeq[Unknown]
+			override def apply(array :MutableArray[Unknown]) = MutableArray.Wrapped(array)
 		}
-		private case object IRefArrayToSeqProto extends ArrayLikeToSeqConversion[Any, IRefArray] {
-			override type IndexedSeq = immutable.IndexedSeq[Any]
-			override def apply(array :IRefArray[Any]) = IRefArray.Wrapped(array)
+		private case object IRefArrayToSeqProto extends ArrayLikeToSeqConversion[Unknown, IRefArray] {
+			override type IndexedSeq = immutable.IndexedSeq[Unknown]
+			override def apply(array :IRefArray[Unknown]) = IRefArray.Wrapped(array)
 			override def toString = "IRefArrayToSeq"
 		}
-		private case object RefArrayToSeqProto extends ArrayLikeToSeqConversion[Any, RefArray] {
-			override type IndexedSeq = mutable.IndexedSeq[Any]
-			override def apply(array :RefArray[Any]) = RefArray.Wrapped(array)
+		private case object RefArrayToSeqProto extends ArrayLikeToSeqConversion[Unknown, RefArray] {
+			override type IndexedSeq = mutable.IndexedSeq[Unknown]
+			override def apply(array :RefArray[Unknown]) = RefArray.Wrapped(array)
 			override def toString = "RefArrayToSeq"
 		}
 		implicit def genericArrayLikeToSeq[E]
@@ -1536,17 +1629,16 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			override def apply(array :IArray[Any]) =
 				ArraySeq.unsafeWrapArray(array.asInstanceOf[Array[_]])
 		}
-		private case object refIArrayToSeqProto extends ArrayLikeToSeqConversion[AnyRef, IArray] {
+		private case object AnyRefIArrayToSeq extends ArrayLikeToSeqConversion[AnyRef, IArray] {
 			override type IndexedSeq = ArraySeq.ofRef[AnyRef]
 			override def apply(array :IArray[AnyRef]) = new ArraySeq.ofRef(array.asInstanceOf[Array[AnyRef]])
-			override def toString = "refIArrayToSeq"
 		}
 		implicit def genericIArrayToSeq[E] :ArrayLikeToSeqConversion[E, IArray] { type IndexedSeq = ArraySeq[E] } =
 			IArrayToSeq.asInstanceOf[ArrayLikeToSeqConversion[E, IArray] { type IndexedSeq = ArraySeq[E] }]
 
 		implicit def refIArrayToSeq[E <: AnyRef]
 				:ArrayLikeToSeqConversion[E, IArray] { type IndexedSeq = ArraySeq.ofRef[E] } =
-			refIArrayToSeqProto.asInstanceOf[ArrayLikeToSeqConversion[E, IArray] { type IndexedSeq = ArraySeq.ofRef[E] }]
+			AnyRefIArrayToSeq.asInstanceOf[ArrayLikeToSeqConversion[E, IArray] { type IndexedSeq = ArraySeq.ofRef[E] }]
 
 		implicit case object ByteIArrayToSeq extends ArrayLikeToSeqConversion[Byte, IArray] {
 			override type IndexedSeq = ArraySeq.ofByte
@@ -1594,17 +1686,16 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			override def apply(array :Array[Any]) =
 				ArraySeq.unsafeWrapArray(array.asInstanceOf[Array[_]])
 		}
-		private case object ArrayToRefSeqProto extends ArrayLikeToSeqConversion[AnyRef, Array] {
+		private case object AnyRefArrayToSeq extends ArrayLikeToSeqConversion[AnyRef, Array] {
 			override type IndexedSeq = mutable.ArraySeq.ofRef[AnyRef]
 			override def apply(array :Array[AnyRef]) = new mutable.ArraySeq.ofRef(array)
-			override def toString = "refArrayToSeq"
 		}
 		implicit def genericArrayToSeq[E] :ArrayLikeToSeqConversion[E, Array] { type IndexedSeq = mutable.ArraySeq[E] } =
 			ArrayToSeq.asInstanceOf[ArrayLikeToSeqConversion[E, Array] { type IndexedSeq = mutable.ArraySeq[E] }]
 
 		implicit def refArrayToSeq[E <: AnyRef]
 				:ArrayLikeToSeqConversion[E, Array] { type IndexedSeq = mutable.ArraySeq.ofRef[E] } =
-			ArrayToRefSeqProto.asInstanceOf[
+			AnyRefArrayToSeq.asInstanceOf[
 				ArrayLikeToSeqConversion[E, Array] { type IndexedSeq = mutable.ArraySeq.ofRef[E] }
 			]
 
@@ -1648,7 +1739,6 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			@inline override def apply(array :Array[Boolean]) :mutable.ArraySeq.ofBoolean =
 				new mutable.ArraySeq.ofBoolean(array)
 		}
-
 	}
 }
 

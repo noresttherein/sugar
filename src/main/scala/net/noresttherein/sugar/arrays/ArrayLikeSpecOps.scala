@@ -6,8 +6,10 @@ import scala.Specializable.Everything
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{null_!, unsupported_!}
 import net.noresttherein.sugar.extensions.cast2TypeParamsMethods
+import net.noresttherein.sugar.outOfBounds_!
 
 
 
@@ -18,7 +20,7 @@ import net.noresttherein.sugar.extensions.cast2TypeParamsMethods
   * allows to use them also in Scala 3, without needing to resort to 'manual specialization'.
   * @author Marcin Mościcki
   */
-private[sugar] object ArrayLikeOps {
+private[sugar] object ArrayLikeSpecOps {
 	def foreach[E, U](array :Array[E], from :Int, until :Int)(f :E => U) :Unit = {
 		def foreach[@specialized(Everything) X](arr :Array[X])(f :X => U) :Unit = {
 			val end = math.min(until, arr.length)
@@ -383,6 +385,62 @@ private[sugar] object ArrayLikeOps {
 		}
 	}
 
+
+	def boxingCopy[V, B](unboxedSrc :Array[V], srcIdx :Int, boxedDst :Array[B], dstIdx :Int, length :Int) :Unit = {
+		if (length > 0) {
+			validateCopyIndices(unboxedSrc, srcIdx, boxedDst, dstIdx, length)
+			val dst = boxedDst.asInstanceOf[Array[Any]]
+			def cpy[@specialized X](src :Array[X]) :Unit = {
+				var i = 0
+				while (i < length) {
+					dst(dstIdx + i) = src(srcIdx + i)
+					i += 1
+				}
+			}
+			(unboxedSrc :ArrayLike[Any] @unchecked) match {
+				case a :Array[AnyRef]  => cpy(a)
+				case a :Array[Int]     => cpy(a)
+				case a :Array[Long]    => cpy(a)
+				case a :Array[Double]  => cpy(a)
+				case a :Array[Char]    => cpy(a)
+				case a :Array[Byte]    => cpy(a)
+				case a :Array[Float]   => cpy(a)
+				case a :Array[Boolean] => cpy(a)
+				case a :Array[Short]   => cpy(a)
+			}
+		}
+	}
+
+	def unboxingCopy[B, V](boxedSrc :Array[B], srcIdx :Int, unboxedDst :Array[V], dstIdx :Int, length :Int) :Unit =
+		if (length > 0) {
+			validateCopyIndices(boxedSrc, srcIdx, unboxedDst, dstIdx, length)
+			val src = boxedSrc.asInstanceOf[Array[Any]]
+			def cpy[@specialized X](dst :Array[X]) :Unit = {
+				var i = 0
+				while (i < length) {
+					dst(dstIdx + i) = src(srcIdx + i).asInstanceOf[X]
+					i += 1
+				}
+			}
+			(unboxedDst :ArrayLike[Any] @unchecked) match {
+				case a :Array[AnyRef]  => cpy(a)
+				case a :Array[Int]     => cpy(a)
+				case a :Array[Long]    => cpy(a)
+				case a :Array[Double]  => cpy(a)
+				case a :Array[Char]    => cpy(a)
+				case a :Array[Byte]    => cpy(a)
+				case a :Array[Float]   => cpy(a)
+				case a :Array[Boolean] => cpy(a)
+				case a :Array[Short]   => cpy(a)
+			}
+		}
+
+	@inline def validateCopyIndices(src :Array[_], srcStart :Int, dst :Array[_], dstStart :Int, length :Int) :Unit =
+		if (srcStart < 0 | dstStart < 0 | srcStart > src.length - length | dstStart > dst.length - length)
+			outOfBounds_!(
+				"ArrayLike.copy(" + errorString(src) + ", " + srcStart + ", " +
+					errorString(dst) + ", " + dstStart + ", " + length + ")"
+			)
 
 	/** Maps all classes representable in `JVM` to their boxed representations. */
 	private[this] val Unbox = Map[Class[_], Class[_]](

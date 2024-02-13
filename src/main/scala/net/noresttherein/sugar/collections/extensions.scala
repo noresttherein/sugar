@@ -2959,7 +2959,7 @@ object extensions extends extensions {
 					genericSelf
 				case ErasedArray.Wrapped.Slice(array, from, until) =>
 					val result = array.slice(from, until)
-					ArrayLikeOps.shuffle(result, 0, until - from)(random.self)
+					ArrayLikeSpecOps.shuffle(result, 0, until - from)(random.self)
 					self.iterableFactory from ArraySeq.unsafeWrapArray(result.castParam[E])
 				case _ =>
 					val result = TemporaryBuffer.from(self)
@@ -4086,7 +4086,7 @@ object extensions extends extensions {
 			if (until0 - from0 > 1)
 				self match {
 					case ErasedArray.Wrapped.Slice(array, start, _) =>
-						ArrayLikeOps.shuffle(array, start + from0, start + until0)(random.self)
+						ArrayLikeSpecOps.shuffle(array, start + from0, start + until0)(random.self)
 					case _ =>
 						var i = length
 						while (i > 1) {

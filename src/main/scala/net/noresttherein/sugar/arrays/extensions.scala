@@ -1243,6 +1243,7 @@ object extensions {
 		}
 */
 
+		//consider: moving the actual implementations of copying methods to ArrayLike and only delegate from here
 		//todo: if until >= elems, create a longer array.
 		/** Same as `elems.slice(from, until)`, except it reuses empty arrays. */
 		final def copyOfRange[E](elems :Array[E], from :Int, until :Int) :Array[E] =

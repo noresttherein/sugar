@@ -258,7 +258,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 //		  * @return the number of actual elements set, after adjusting the indices to legal boundaries.
 		@throws[IndexOutOfBoundsException]("if either from or until is outside range [0, this.length).")
 		def updateAll(from :Int, until :Int)(f :Int => E) :Unit =
-			ArrayLikeOps.updateAll(self, from, until)(f.castParam2[Unknown])
+			ArrayLikeSpecOps.updateAll(self, from, until)(f.castParam2[Unknown])
 
 		/** Sets the values at indices `index, index + 1, index + 2, ...` to `first, second, elems.head`
 		  * and subsequent elements of `rest`.
@@ -577,7 +577,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		@inline def shuffle(from :Int, until :Int)(implicit random :Random) :Unit = shuffle(from, until, random.self)
 
 		def shuffle(from :Int, until :Int, random :RandomGenerator) :Unit =
-			ArrayLikeOps.shuffle(self, from, until)(random)
+			ArrayLikeSpecOps.shuffle(self, from, until)(random)
 
 		def mutator :Mutator[E] = MutableArrayMutator(self.asInstanceOf[Array[E]])
 

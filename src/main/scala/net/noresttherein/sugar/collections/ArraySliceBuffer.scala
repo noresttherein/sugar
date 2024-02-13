@@ -8,7 +8,7 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{AbstractBuffer, IndexedBuffer}
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLikeOps, IRefArray, RefArray, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLikeSpecOps, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ArraySliceBuffer.AcceptableFillFactor
@@ -84,7 +84,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 		}
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int = //override clash
-		ArrayLikeOps.segmentLength(array.asInstanceOf[Array[E]], offset, len)(p, from)
+		ArrayLikeSpecOps.segmentLength(array.asInstanceOf[Array[E]], offset, len)(p, from)
 
 	protected override def clippedSlice(from :Int, until :Int) :ArraySliceBuffer[E] = {
 		val length = until - from

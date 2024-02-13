@@ -623,10 +623,10 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(MultiValue) +T] pri
 
 	override def foldLeft[A](z :A)(op :(A, T) => A) :A =
 		if (idx + remaining <= len)
-			ArrayLikeOps.foldLeft(array, idx, { idx += remaining; idx})(z)(op)
+			ArrayLikeSpecOps.foldLeft(array, idx, { idx += remaining; idx})(z)(op)
 		else {
-			val acc = ArrayLikeOps.foldLeft(array, idx, len)(z)(op)
-			ArrayLikeOps.foldLeft(array, 0, { idx = idx + remaining - len; idx })(acc)(op)
+			val acc = ArrayLikeSpecOps.foldLeft(array, idx, len)(z)(op)
+			ArrayLikeSpecOps.foldLeft(array, 0, { idx = idx + remaining - len; idx })(acc)(op)
 		}
 
 	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
@@ -840,10 +840,10 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) 
 		val inverse = (elem :T, acc :A) => op(acc, elem)
 		if (idx - remaining >= 0) {
 			idx -= remaining
-			ArrayLikeOps.foldRight(array, idx, idx + remaining)(z)(inverse)
+			ArrayLikeSpecOps.foldRight(array, idx, idx + remaining)(z)(inverse)
 		} else {
-			val acc = ArrayLikeOps.foldRight(array, 0, idx - remaining + len)(z)(inverse)
-			val res = ArrayLikeOps.foldRight(array, idx, len)(acc)(inverse)
+			val acc = ArrayLikeSpecOps.foldRight(array, 0, idx - remaining + len)(z)(inverse)
+			val res = ArrayLikeSpecOps.foldRight(array, idx, len)(acc)(inverse)
 			idx = idx - remaining + len
 			res
 		}
