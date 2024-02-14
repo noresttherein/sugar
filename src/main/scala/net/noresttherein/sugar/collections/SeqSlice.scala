@@ -25,6 +25,7 @@ trait MutSeqRange[E] extends mutable.Seq[E] with GenSeqRange[E] with SlicingOps[
 trait GenIndexedSeqRange[+E]
 	extends collection.IndexedSeq[E] with GenSeqRange[E] with SlicingOps[E, GenIndexedSeqRange[E]]
 {
+	protected override def hasFastSlice = true
 	override def segmentLength(p :E => Boolean, from :Int) :Int = {
 		var i = 0; val len = length
 		while (i < len && p(apply(i)))

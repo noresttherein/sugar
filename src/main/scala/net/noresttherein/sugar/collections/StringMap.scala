@@ -148,6 +148,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 		slice(lo, hi)
 	}
 
+	protected override def hasFastSlice = true
 	protected override def clippedSlice(from :Int, until :Int) :StringMap[V] = new StringMap(root.slice(from, until))
 
 
@@ -301,6 +302,7 @@ final class StringSet(root :PrefixTree[_])
 		slice(lo, hi)
 	}
 
+	protected override def hasFastSlice = true
 	protected override def clippedSlice(from :Int, until :Int) :StringSet = new StringSet(root.slice(from, until))
 
 	override def specificFactory :SpecificIterableFactory[String, StringSet] = StringSet

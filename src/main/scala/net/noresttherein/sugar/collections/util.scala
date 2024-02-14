@@ -221,7 +221,7 @@ private[sugar] object IndexedIterable {
 			case seq :collection.SeqOps[A, generic.Any, _] =>
 				if (seq.sizeIs <= applyAlwaysPreferredLength) Yes(seq) else No
 			case ranking :Ranking[A] if ranking.applyPreferred =>
-				if (ranking.length <= defaultApplyPreferredMaxLength) Yes(ranking.toIndexedSeq) else No
+				if (ranking.applyPreferred) Yes(ranking.toIndexedSeq) else No
 			case set     :IndexedSet[A] if set.size <= defaultApplyPreferredMaxLength =>
 				if (set.size <= defaultApplyPreferredMaxLength) Yes(set.toIndexedSeq) else No
 			case _ => No
@@ -230,7 +230,7 @@ private[sugar] object IndexedIterable {
 	}
 
 	def applyPreferred(seq :collection.SeqOps[_, generic.Any, _]) :Boolean = seq match {
-//			case _ if { val s = seq.knownSize; s >= 0 && s <= applyAlwaysPreferredLength } => true
+//		case _ if { val s = seq.knownSize; s >= 0 && s <= applyAlwaysPreferredLength } => true
 		case _ :ArrayIterableOnce[_] | _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] => true
 		case seq :IndexedSeq[_] if applyPreferredMaxLengthProperty.isDefined =>
 			seq.length <= applyPreferredMaxLengthProperty.get.invoke(seq).asInstanceOf[Int]
@@ -260,29 +260,74 @@ private[sugar] object IndexedIterable {
 
 
 private object HasFastSlice {
-	def apply[A](items :IterableOnce[A]) :Boolean = unapply(items).isDefined
+	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = apply(items)
 
-	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = unapply(items).isDefined
+	def apply[A](items :IterableOnce[A]) :Boolean = items match { //don't use unapply to avoid creating wrappers.
+		case _ if { val size = items.knownSize; size >= 0 & size <= fastSliceSize } => true
+		case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
+			case _ :IndexedSeqView[_] | _ :Vector[_] | _ :RelayArrayView[_] => true
+			case _ => false
+		}
+		case _ :Cat[_] | _ :IndexedSet[_] | _ :StringSet | _ :StringMap[_] => true
+		case _ => false
+	}
 
 	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOps[A, IterableOnce, IterableOnce[A]]] =
 		items match {
-//				case view :View[A]       => Yes(view)
-//				case iter :Iterator[A]   => Yes(iter)
-			case _    :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
+			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize           => Yes(coll)
+			case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
 				case view  :IndexedSeqView[A]        => Yes(view)
 				case vec   :Vector[A]                => Yes(vec)
-				case pass  :RelayArray[A]            => Yes(pass)
+				case pass  :RelayArray[A]            => Yes(pass.temp)
 				case slice :ArrayLikeSlice[A]        => Yes(slice)
 				case seq   :collection.IndexedSeq[A] => Yes(new SeqSlice(seq))
-				case ArrayLike.Wrapped.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
+//					case ArrayLike.Wrapped.Slice(array, from, until) =>
+//						Yes(ArrayLikeSlice.slice(array, from, until))
 				//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
 //						case IndexedIterable(seq)            => Yes(seq)
 				case _                               => No
 			}
+			case cat  :Cat[A]        => Yes(cat)
 //			case it   :IteratorSlicing[A] if it.hasFastDrop => Yes(it)
-			case zig  :ZigZag[A]     => Yes(zig)
 			case set  :IndexedSet[A] => Yes(set)
+			case rank :Ranking[A]    => unapply(rank.toIndexedSeq)
+			case set  :StringSet     => Yes(set.asInstanceOf[Iterable[A]])
+			case map  :StringMap[_]  => Yes(map.asInstanceOf[Iterable[A]])
 			case _                   => No
+		}
+
+	//todo: use it instead of pattern matching.
+	def quickSlice[A](items :Iterable[A], from :Int, until :Int) :Maybe[IterableOps[A, Iterable, Iterable[A]]] =
+		items match {
+			case _ if items.knownSize == 0 => Yes(Nil)
+			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize => Yes(coll.slice(from, until))
+			case seq  :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
+				case _ :IndexedSeqView[_] | _ :Vector[_] | _ :ArrayLikeSlice[_] => Yes(seq.slice(from, until))
+				//There is no guarantee that a subclass won't reallocate on slice, like RelayArray can.
+//				case _ :ArraySliceSeqOps[A, _, _]    => Yes(seq.slice(from, until))
+				case array :RelayArray[A]            => Yes(array.range(from, until))
+				case ArrayLike.Wrapped.Slice(array, start, end) =>
+					Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
+				case seq   :collection.IndexedSeq[A] => Yes(SeqSlice(seq, from, until))
+				case _                               => Yes(seq.view.slice(from, until))
+			}
+			case cat  :Cat[A]        => Yes(cat.slice(from, until))
+			case set  :IndexedSet[A] => Yes(set.slice(from, until))
+			//Unsafe, no bound forcing Iterable, for example in ArrayAsSeq.
+			// We also don't know if it doesn't copy on slice (like a mutable collection must).
+//			case arr  :ArraySliceOps[A, Iterable, Iterable[A]] => Yes(arr.slice(from, until))
+			case rank :Ranking[A]    => quickSlice(rank.toIndexedSeq, from, until)
+			case set  :StringSet     => Yes(set.slice(from, until).asInstanceOf[Iterable[A]])
+			case map  :StringMap[_]  => Yes(map.slice(from, until).asInstanceOf[Iterable[A]])
+			case _                   => No
+		}
+	def slice[A](items :IterableOnce[A], from :Int, until :Int) :IterableOnceOps[A, IterableOnce, IterableOnce[A]] =
+		items match {
+			case it :Iterable[A] => quickSlice(it, from, until) match {
+				case Yes(result) => result
+				case _           => items.iterator.slice(from, until)
+			}
+			case _ => items.iterator.slice(from, until)
 		}
 
 
@@ -292,4 +337,5 @@ private object HasFastSlice {
 	@inline def preferDropOverIterator(items :IterableOnce[_]) :Boolean =
 		items.isInstanceOf[collection.LinearSeq[_]] || hasFastDrop(items)
 
+	private[this] val fastSliceSize :Int = 4
 }

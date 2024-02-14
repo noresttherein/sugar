@@ -23,6 +23,7 @@ private sealed class ReversedSeq[+E](underlying :collection.IndexedSeq[E])
 		if (i < 0) throw new IndexOutOfBoundsException(i.toString + " out of " + underlying.length)
 		else underlying(underlying.length - i - 1)
 
+//	protected override def hasFastSlice = HasFastSlice(underlying)
 	protected override def clippedSlice(from :Int, until :Int) :collection.IndexedSeq[E] =
 		if (HasFastSlice(underlying)) {
 			val len = underlying.length

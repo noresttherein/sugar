@@ -261,6 +261,7 @@ private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
 
 	protected override def clippedSlice(from :Int, until :Int) :C = coll
 	protected override def emptySlice :C = coll
+	protected override def hasFastSlice = true
 }
 
 
@@ -734,6 +735,7 @@ private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 
 	protected override def clippedSlice(from :Int, until :Int) :C = if (from == 0 & until > 0) coll else empty
 	protected override def emptySlice :C = empty
+	protected override def hasFastSlice = true
 }
 
 

@@ -846,6 +846,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 	protected def startIndex :Int
 	protected def fromString(string :String, from :Int, until :Int) :C
 
+	protected override def hasFastSlice = true
 	protected override def clippedSlice(from :Int, until :Int) :C = {
 		val start = startIndex
 		fromString(whole, start + from, start + until)

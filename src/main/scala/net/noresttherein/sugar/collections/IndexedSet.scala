@@ -226,6 +226,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 	private abstract class AbstractIndexedSet[E](start :Int, end :Int)(implicit val ordering :Ordering[E])
 		extends AbstractSet[E] with IndexedSet[E] with SlicingOps[E, IndexedSet[E]]
 	{
+		protected override def hasFastSlice = true
 		protected override def emptySlice :IndexedSet[E] = IndexedSet.empty
 		override def knownSize = end - start
 		protected def outerSize :Int
@@ -384,7 +385,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
 
 		private def writeReplace :Serializable =
-			new ArraySerializationProxy[E](new ArrayIndexedSet(_), elems, start, end - start)
+			new ArraySerializationProxy[Array, E](new ArrayIndexedSet(_), elems, start, end - start)
 
 	}
 

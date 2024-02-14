@@ -15,6 +15,7 @@ import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypePara
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.classes
 
@@ -62,6 +63,7 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 
 
 
+//todo: consistent naming between ArrayLikeXxx and ArrayXxx
 private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] {
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
 
@@ -159,6 +161,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
   * is actually `classOf[A]` - it might be boxed (for value types), a super type (or a subtype) of `A`, or both.
   * @define Coll `ArrayLikeSlice`
   * @define coll array slice
+  * @see [[net.noresttherein.sugar.collections.ArrayLikeSliceFactoryDefaults]]
   */
 trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	extends ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
@@ -170,6 +173,14 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 		val start = startIndex
 		ReverseArrayIterator.slice(array, start, start + length)
 	}
+
+	//Not overridden for performance considerations, so a subclass can 1) use direct member field acces,
+	// and 2) it may be the only implementation for a certain class, which facilitates inlining.
+//	override def apply(i :Int) :E =
+//		if (i < 0 | i >= length)
+//			outOfBounds_!(i, length)
+//		else
+//			array(startIndex + i)
 
 	override def indexOf[U >: E](elem :U, from :Int) :Int =
 		ArrayLikeSpecOps.indexOf[U](array, startIndex, length)(elem, from)
@@ -186,6 +197,20 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	override def segmentLength(p :E => Boolean, from :Int) :Int =
 		ArrayLikeSpecOps.segmentLength(array, startIndex, length)(p, from)
 
+	//todo: implement these here after we change semantics of copyOfRanges to allow gaps.
+/*	override def updated[U >: E](index :Int, elem :U) :CC[U] = {
+		val elementType = array.getClass.getComponentType
+		val newElemType = if (elementType accepts elem.getClass) elementType else classOf[Any].castParam[E]
+		val newArray = Array.newL
+	}
+	override def updatedAll[U >: E](index :Int, elems :U) :CC[U] =
+	override def inserted[U >: E](index :Int, elem :U) :CC[U] = {
+		val start = startIndex
+		val newArray = RefArray.copyOfRanges[U](array, start, start + index + 1, array, start + index, start + length)
+		newArray(index) = elem
+		newSpecific(newArray, 0, length)
+	}
+*/
 	override def removed(index :Int) :C = {
 		val length = this.length
 		if (index < 0 || index > length)
@@ -202,7 +227,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	override def removed(from :Int, until :Int) :C = {
 		val length = this.length
 		if (until <= from | until <= 0 || from >= length)
-			this
+			coll
 		else if (from <= 0 & until >= length)
 			empty
 		else if (from <= 0)
@@ -224,6 +249,12 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	}
 	protected def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :C
 //	protected def make[X](array :Array[X], from :Int, until :Int) :CC[X]
+
+	//Can't override here: aside from the mutability risk, Seq.toSeq and IndexedSeq.toIndexedSeq are final.
+//	override def toSeq :Seq[E] = toIndexedSeq
+//	override def toIndexedSeq :IndexedSeq[E] =
+//		if (isImmutable) IArrayLikeSlice.slice(array.asInstanceOf[IArrayLike[E]], startIndex, startIndex + length)
+//		else IndexedSeq.from(this)
 }
 
 
@@ -344,7 +375,7 @@ abstract class ClassTagArrayLikeSliceSeqFactory
 private[sugar] trait ArrayLikeSliceFactoryDefaults
                      [@specialized(ElemTypes) +E, -A[x] <: ArrayLike[x], +C[x] <: collection.IndexedSeq[x]]
 	extends ArraySliceSeqOps[E, collection.IndexedSeq, C[E @uncheckedVariance]]
-{ this :C[E @uncheckedVariance] =>
+{ this :C[E @uncheckedVariance] => //If ArraySliceSeqOps doesn't have the same self type, this causes a compiler error.
 
 	override def apply(i :Int) :E =
 		if (i < 0 || i >= length)
@@ -359,25 +390,13 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 		sliceFactory.slice(array.asInstanceOf[A[E]], from, until - from)
 
 	private def writeReplace :Serializable =
-		new ArraySerializationProxy[E](array => newSpecific(array, 0, array.length), array)
+		//todo: get rid of this cast by changing unsafeArray to ArrayLike, and then array to A[E]
+		new ArraySerializationProxy[A, E](sliceFactory, array.asInstanceOf[A[E]])
 
 	protected override def className :String = sliceFactory.toString
 }
 
 
-//unused
-private[sugar] abstract class AbstractArrayLikeSlice[+E, -A[x] <: ArrayLike[x]]
-                              (arr :A[E], final override val startIndex :Int, final override val length :Int)
-	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
-	   with ArrayLikeSliceFactoryDefaults[E, A, collection.IndexedSeq]
-{
-	protected final override val array :Array[E @uncheckedVariance] = arr.asInstanceOf[Array[E]]
-	override def apply(i :Int) :E =
-		if (i < 0 || i >= length)
-			outOfBounds_!(i, length)
-		else
-			array(startIndex + i)
-}
 
 
 
@@ -750,13 +769,13 @@ private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefA
   * the deserialized object can be created in `O(1)` based on an array, because it bypasses the builder.
   */
 @SerialVersionUID(Ver)
-final class ArraySerializationProxy[+A](constructor :Array[A] => Any, array :Array[A])
+final class ArraySerializationProxy[A[X] <: ArrayLike[X], +E](constructor :A[E] => Any, array :A[E])
 	extends Serializable
 {
-	def this(factory :ArrayLikeWrapper[Array, IterableOnce], array :Array[A]) =
+	def this(factory :ArrayLikeWrapper[A, IterableOnce], array :A[E]) =
 		this(factory.wrap(_), array)
 
-	def this(factory :Array[A] => Any, array :Array[A], offset :Int, length :Int) =
+	def this(factory :A[E] => Any, array :A[E], offset :Int, length :Int) =
 		this(factory, if (length == array.length) array else array.slice(offset, offset + length))
 
 	protected[this] def readResolve() :Any = constructor(array)

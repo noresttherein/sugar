@@ -210,13 +210,13 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
 /** Implements all methods returning a slice of this collection by delegating them to a single
   * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice trustedSlice]] after validation.
   * Assumes fast `size` operation.
-  */
-//It would be very convenient if we extended only IterableOps[E, generic.Any, Any],
-// as ZigZag could then extend this trait, but we have no way of overriding empty to return C.
+  */ //Most methods don't exist in IterableOnceOps, so we can't use it for iterators, too.
 trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
-//	override def empty :C
+	protected def hasFastSlice :Boolean = false
 	protected override def coll :C
 	protected def emptySlice :C
+	protected def fullSlice :C = coll //fixme: override it in mutable subclasses, or, better, in immutable.
+
 	override def tail :C = {
 		val size = this.size
 		if (size == 0) unsupported_!(toString + ".tail")
@@ -234,7 +234,7 @@ trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
 	override def slice(from :Int, until :Int) :C = {
 		val size = this.size
 		if (until <= from | until <= 0 || from >= size) emptySlice
-		else if (from <= 0 & until >= size) coll
+		else if (from <= 0 & until >= size) fullSlice
 		else if (from <= 0) clippedSlice(0, until)
 		else if (until >= size) clippedSlice(from, size)
 		else clippedSlice(from, until)
