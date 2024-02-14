@@ -1,38 +1,41 @@
-import java.lang.System.identityHashCode
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.annotation.{switch, unspecialized}
-import scala.collection.immutable.{ArraySeq, TreeSet}
-import scala.collection.mutable.ArrayBuffer
+import scala.annotation.unspecialized
+import scala.collection.{IterableFactory, IterableFactoryDefaults, IterableOps, View}
+import scala.collection.immutable.{AbstractSeq, ArraySeq}
 
-import net.noresttherein.sugar.collections.{Cuboid2Iterator, ArraySliceBuffer, StringSet}
-import net.noresttherein.sugar.collections.extensions.IteratorExtension
-import net.noresttherein.sugar.vars.Maybe.Yes
-import net.noresttherein.sugar.vars.{EvalOpt, LocalLazy, Maybe, PhantomRef, Pure, SoftRef, Transient, Volatile, VolatileOut, Watched, WeakRef, Opt}
-import net.noresttherein.sugar.witness.NullValue
-import shapeless.Lazy
+import net.noresttherein.sugar.arrays.IArray
+import net.noresttherein.sugar.collections.{ArraySliceBuffer, Cuboid2Iterator, Fingers, RelayArray, StrictView, StringSet, ValIterator}
+import net.noresttherein.sugar.extensions.{ClassExtension, SeqExtension, classNameMethods}
 
 
+//class Spec[@specialized T](param1 :T, param2 :T, val cls :Class[_]) {
+//	def this(param1 :T, param2 :T) = this(param1, param2, param1.getClass)
+//}
 
-
-object Playground extends App {
-
+private object Playground extends App {
+	val input = List(-1104130103.toByte, 1080965414.toByte, -2147483648.toByte)
+	val relay = RelayArray from input
+	println(relay.className)
 /*
-	val jack = 0 until 15 to Jack
-	jack to List
-	println(jack)
 	var ok = true
 	var i = 0
-	while (i < 256 && ok) {
-		val b = Jack.newBuilder[Int]
-		for (j <- 0 until i)
-			b += j
-		val jack = b.result()
-		val range = 0 until i
-		ok = jack == range
-		if (!ok) {
-			println(i.toString + ":")
-			println(jack)
+	while (i < 2048 && ok) {
+		try {
+			val b = Jack.newBuilder[Int]
+			for (j <- 0 until i)
+				b += j
+			val jack = b.result()
+			val range = 0 until i
+			ok = jack == range
+			if (!ok) {
+				println(i.toString + ":")
+				println(jack)
+			}
+		} catch {
+			case e :Exception =>
+				System.err.println(i.toString + ": " + e)
+				throw e
 		}
 		i += 1
 	}

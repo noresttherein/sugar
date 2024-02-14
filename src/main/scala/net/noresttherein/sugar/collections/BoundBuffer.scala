@@ -2,13 +2,14 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
-import scala.collection.mutable
+import scala.collection.{StrictOptimizedSeqOps, mutable}
 import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Buffer, IndexedBuffer}
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
 import net.noresttherein.sugar.collections.util.knownEmpty
 import net.noresttherein.sugar.exceptions.{SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
+import net.noresttherein.sugar.funny.generic
 
 
 
@@ -141,6 +142,9 @@ object BoundBuffer {
 private abstract class AbstractBoundBuffer[E](private[this] var offset :Int,
                                               private[this] var len :Int, override val maxSize :Int)
 	extends AbstractBuffer[E] with IndexedBuffer[E] with BoundBuffer[E]
+		//We care about extending this trait because IterableOnceExtension checks for it in its knownStrict method.
+		//Note that everywhere in this file this symbol refers to the trait in scala.collection, not collection.immutable.
+	   with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 {
 	override def knownSize :Int = len
 	override def length    :Int = len
@@ -269,7 +273,7 @@ private class BoundSeqBuffer[E](underlying :mutable.IndexedSeq[E], offset :Int, 
 @SerialVersionUID(Ver)
 private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, max :Int)
 	extends AbstractBoundBuffer[E](offset, len, max) with ArrayIterableOnce[E]
-{
+{ //todo: override methods to use elems.copyToArray
 	private[sugar] override def unsafeArray :Array[_] = underlying
 	private[sugar] override def startIndex :Int = super.startIndex
 	private[sugar] override def isMutable = true
@@ -359,6 +363,7 @@ object ViewBuffer {
 @SerialVersionUID(Ver)
 private abstract class AbstractViewBuffer[E](lo :Int, hi :Int, private[this] var offset :Int, private[this] var len :Int)
 	extends AbstractBuffer[E] with IndexedBuffer[E] with ViewBuffer[E]
+	   with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 {
 	override def knownSize :Int = len
 	override def length    :Int = len
@@ -635,40 +640,28 @@ private sealed abstract class SliceBufferFactory[S[_], C[_]] {
 
 
 @SerialVersionUID(Ver)
-private final class SeqViewBuffer[E] private(underlying :mutable.IndexedSeq[E], lo :Int, hi :Int, offset :Int, len :Int)
-	extends AbstractViewBuffer[E](lo, hi, offset, len)
-{
-	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
-	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
-	protected override def errorString :String = util.errorString(underlying)
-	override def iterator :Iterator[E] = IndexedSeqIterator(underlying, headIdx, length)
-	override def reverseIterator :Iterator[E] = ReverseIndexedSeqIterator(underlying, headIdx + length - 1, length)
-}
-
-@SerialVersionUID(Ver)
 private object SeqViewBuffer extends SliceBufferFactory[mutable.IndexedSeq, SeqViewBuffer] {
 	protected override def length[E](seq :mutable.IndexedSeq[E]) :Int = seq.length
-	protected override def over[E](seq :mutable.IndexedSeq[E], from :Int, until :Int, loBound :Int, hiBound :Int) :SeqViewBuffer[E] =
-		new SeqViewBuffer(seq, loBound, hiBound, from, until - from)
+	protected override def over[E](seq :mutable.IndexedSeq[E], from :Int, until :Int, loBound :Int, hiBound :Int)
+			:SeqViewBuffer[E] =
+				if (seq.isInstanceOf[StrictOptimizedSeqOps[_, generic.Any1, _]])
+			new SeqViewBuffer[E](seq, loBound, hiBound, from, until - from)
+				with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+		else
+			new SeqViewBuffer[E](seq, loBound, hiBound, from, until - from)
 }
-
 
 @SerialVersionUID(Ver)
-private final class ArrayViewBuffer[E] private(underlying :Array[E], lo :Int, hi :Int, offset :Int, len :Int)
-	extends AbstractViewBuffer[E](lo, hi, offset, len) with ArraySliceSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+private sealed class SeqViewBuffer[E] private(underlying :mutable.IndexedSeq[E], lo :Int, hi :Int, offset :Int, len :Int)
+	extends AbstractViewBuffer[E](lo, hi, offset, len)
 {
-	protected override def array :Array[E] = underlying
-	private[sugar] override def startIndex :Int = headIdx
-	private[sugar] override def isMutable = true
-	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
-	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
-	protected override def errorString :String = util.errorString(underlying)
-	override def reverseIterator :Iterator[E] = ReverseArrayIterator(underlying, headIdx + length - 1, length)
-
-	protected override def newSpecific(array :Array[E], from :Int, until :Int) :IndexedBuffer[E] =
-		if (array eq underlying) new ArrayViewBuffer(array.slice(from, until), 0, until - from, 0, until - from)
-		else new ArrayViewBuffer(array, 0, array.length, from, until - from)
+	protected final override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
+	protected final override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
+	protected final override def errorString :String = util.errorString(underlying)
+	override final def iterator :Iterator[E] = IndexedSeqIterator(underlying, headIdx, length)
+	override final def reverseIterator :Iterator[E] = ReverseIndexedSeqIterator(underlying, headIdx + length - 1, length)
 }
+
 
 @SerialVersionUID(Ver)
 private object ArrayViewBuffer extends SliceBufferFactory[Array, ArrayViewBuffer] {
@@ -677,11 +670,51 @@ private object ArrayViewBuffer extends SliceBufferFactory[Array, ArrayViewBuffer
 		new ArrayViewBuffer(seq, loBound, hiBound, from, until)
 }
 
+@SerialVersionUID(Ver)
+private final class ArrayViewBuffer[E] private(underlying :Array[E], lo :Int, hi :Int, offset :Int, len :Int)
+	extends AbstractViewBuffer[E](lo, hi, offset, len) with ArraySliceSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+{   //todo: take advantage of copyToArray of added elements.
+	protected override def array :Array[E] = underlying
+	private[sugar] override def startIndex :Int = headIdx
+	private[sugar] override def isMutable = true
+	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
+	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
+	protected override def errorString :String = util.errorString(underlying)
+	override def reverseIterator :Iterator[E] = ReverseArrayIterator(underlying, headIdx + length - 1, length)
 
+	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :IndexedBuffer[E] =
+		if (array eq underlying) new ArrayViewBuffer(array.slice(from, until), 0, until - from, 0, until - from)
+		else new ArrayViewBuffer(array, 0, array.length, from, until - from)
+}
+
+
+
+
+/** A factory of buffers appending values to another [[scala.collection.mutable.Buffer Buffer]].
+  * Created buffer is a view on a suffix of the argument buffer past its size in the moment the appending buffer was created,
+  * and do not allow the original to be modified before that index.
+  */
+@SerialVersionUID(Ver)
+object AppendingBuffer {
+	def apply[E](buffer :Buffer[E]) :Buffer[E] = buffer match {
+		case indexed :IndexedBuffer[E]         => apply(indexed)
+		case _ :StrictOptimizedSeqOps[_, _, _] =>
+			new AppendingBuffer[E](buffer, buffer.length) with StrictOptimizedSeqOps[E, Buffer, Buffer[E]]
+		case _ =>
+			new AppendingBuffer(buffer, buffer.length)
+	}
+
+	def apply[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] =
+		if (buffer.isInstanceOf[StrictOptimizedSeqOps[_, generic.Any1, _]])
+			new AppendingIndexedBuffer[E](buffer, buffer.length)
+				with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+		else
+			new AppendingIndexedBuffer[E](buffer, buffer.length)
+}
 
 
 @SerialVersionUID(Ver)
-private class AppendingBuffer[E] private (underlying :Buffer[E], offset :Int) extends AbstractBuffer[E] {
+private class AppendingBuffer[E] protected (underlying :Buffer[E], offset :Int) extends AbstractBuffer[E] {
 	def this(underlying :Buffer[E]) = this(underlying, underlying.length)
 
 	override def length :Int = {
@@ -703,6 +736,7 @@ private class AppendingBuffer[E] private (underlying :Buffer[E], offset :Int) ex
 		underlying(offset + idx) = elem
 	}
 
+	//These may fail if elems is this, underlying, or its iterator, but so is life.
 	override def addOne(elem :E) :this.type = { underlying.addOne(elem); this }
 	override def addAll(elems :IterableOnce[E]) :this.type = { underlying.addAll(elems); this }
 	override def prepend(elem :E) :this.type = { underlying.insert(offset, elem); this }
@@ -773,31 +807,45 @@ private class AppendingBuffer[E] private (underlying :Buffer[E], offset :Int) ex
 }
 
 
-/** A factory of buffers appending values to another [[scala.collection.mutable.Buffer Buffer]].
-  * Created buffer is a view on a suffix of the argument buffer past its size in the moment the appending buffer was created, 
-  * and do not allow the original to be modified before that index.
-  */
 @SerialVersionUID(Ver)
-object AppendingBuffer {
-	def apply[E](buffer :Buffer[E]) :Buffer[E] = buffer match {
-		case indexed :IndexedBuffer[E] => apply(indexed)
-		case _ => new AppendingBuffer(buffer, buffer.length)
-	}
-
-	def apply[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] = 
-		new AppendingBuffer[E](buffer, buffer.length) with IndexedBuffer[E] {
-			override def knownSize :Int = length
-			override def iterator :Iterator[E] = super[AppendingBuffer].iterator
-			override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
-				super[AppendingBuffer].patchInPlace(from, patch, replaced)
-		}
+private class AppendingIndexedBuffer[E](underlying :IndexedBuffer[E], offset :Int)
+	extends AppendingBuffer[E](underlying, offset) with IndexedBuffer[E]
+{
+	//Methods with override conflicts because IndexedBuffer doesn't declare them as override :(
+	override def knownSize :Int = length
+	override def iterator :Iterator[E] = super[AppendingBuffer].iterator
+	override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
+		super[AppendingBuffer].patchInPlace(from, patch, replaced)
 }
 
 
 
 
+/** A factory of buffers prepending values to another [[scala.collection.mutable.Buffer Buffer]].
+  * Created buffer is a view on a prefix of the argument buffer, and do not allow the original to be modified
+  * past the number of elements prepended to it through the decorator buffer.
+  */
 @SerialVersionUID(Ver)
-private class PrependingBuffer[E] private (underlying :Buffer[E], suffix :Int) extends AbstractBuffer[E] {
+object PrependingBuffer {
+	def apply[E](buffer :Buffer[E]) :Buffer[E] = buffer match {
+		case indexed :IndexedBuffer[E] => apply(indexed)
+		case _ :StrictOptimizedSeqOps[_, _, _] =>
+			new PrependingBuffer[E](buffer, buffer.length) with StrictOptimizedSeqOps[E, Buffer, Buffer[E]]
+		case _ =>
+			new PrependingBuffer(buffer, buffer.length)
+	}
+
+	def apply[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] =
+		if (buffer.isInstanceOf[StrictOptimizedSeqOps[_, generic.Any1, _]])
+			new PrependingIndexedBuffer[E](buffer, buffer.length)
+				with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+		else
+			new PrependingIndexedBuffer(buffer, buffer.length)
+}
+
+
+@SerialVersionUID(Ver)
+private class PrependingBuffer[E] protected (underlying :Buffer[E], suffix :Int) extends AbstractBuffer[E] {
 	def this(underlying :Buffer[E]) = this(underlying, underlying.length)
 
 	override def length :Int = {
@@ -892,25 +940,14 @@ private class PrependingBuffer[E] private (underlying :Buffer[E], suffix :Int) e
 	}	
 }
 
-
-/** A factory of buffers prepending values to another [[scala.collection.mutable.Buffer Buffer]].
-  * Created buffer is a view on a prefix of the argument buffer, and do not allow the original to be modified
-  * past the number of elements prepended to it through the decorator buffer.
-  */
 @SerialVersionUID(Ver)
-object PrependingBuffer {
-	def apply[E](buffer :Buffer[E]) :Buffer[E] = buffer match {
-		case indexed :IndexedBuffer[E] => apply(indexed)
-		case _ => new PrependingBuffer(buffer, buffer.length)
-	}
-
-	def apply[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] = 
-		new PrependingBuffer(buffer, buffer.length) with IndexedBuffer[E] {
-			override def knownSize = length
-			override def iterator :Iterator[E] = super[PrependingBuffer].iterator
-			override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
-				super[PrependingBuffer].patchInPlace(from, patch, replaced)
-		}
+private sealed class PrependingIndexedBuffer[E](underlying :IndexedBuffer[E], suffix :Int)
+	extends PrependingBuffer[E](underlying, suffix) with IndexedBuffer[E]
+{
+	final override def knownSize :Int = length
+	final override def iterator :Iterator[E] = super[PrependingBuffer].iterator
+	final override def patchInPlace(from :Int, patch :IterableOnce[E], replaced :Int) :this.type =
+		super[PrependingBuffer].patchInPlace(from, patch, replaced)
 }
 
 
@@ -918,7 +955,7 @@ object PrependingBuffer {
 
 
 
-/** An exception thrown when elements are added to a buffer which does not have enough capacity to accomodate them. */
+/** An exception thrown when elements are added to a buffer which does not have enough capacity to accommodate them. */
 @SerialVersionUID(Ver)
 class BufferFullException(msg :String, cause :Throwable = null)
 	extends RuntimeException(msg, cause) with SugaredException

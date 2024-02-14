@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.{switch, tailrec}
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{AbstractView, IndexedSeqView, SeqView, Stepper, StepperShape, View}
+import scala.collection.{AbstractView, IndexedSeqView, SeqView, Stepper, StepperShape, StrictOptimizedIterableOps, View}
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.immutable.{IndexedSeqOps, SeqOps}
 import scala.reflect.ClassTag
@@ -16,7 +16,9 @@ import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, BuilderExten
 
 
 /** Base trait for specialized implementations of empty collections. */
-private[noresttherein] trait EmptyIterableOps[+E, +CC[_], +C] extends SugaredIterableOps[E, CC, C] {
+private[noresttherein] trait EmptyIterableOps[+E, +CC[_], +C]
+	extends SugaredIterableOps[E, CC, C] with StrictOptimizedIterableOps[E, CC, C]
+{
 	protected def unsupported(method :String) = unsupported_!(toString + '.' + method)
 	protected def noSuch(method :String) = noSuch_!(toString + "." + method)
 	protected def outOfBounds(method :String, index :Int) =
@@ -241,8 +243,8 @@ private[noresttherein] trait EmptySeqOps[+E, +CC[_], +C]
 
 	override def prepended[U >: E](elem :U) :CC[U] = one(elem)
 	override def appended[U >: E](elem :U)  :CC[U] = one(elem)
-	override def prependedAll[U >: E](prefix :IterableOnce[U]) :CC[U] = iterableFactory.from(prefix)
-	override def appendedAll[B >: E](suffix :IterableOnce[B]) :CC[B] = iterableFactory.from(suffix)
+	override def prependedAll[U >: E](prefix :IterableOnce[U]) :CC[U] = insertedAll(0, prefix)
+	override def appendedAll[B >: E](suffix :IterableOnce[B]) :CC[B] = insertedAll(0, suffix)
 
 	override def sorted[U >: E](implicit ord :Ordering[U]) :C = coll
 	override def sortWith(lt :(E, E) => Boolean) :C = coll
@@ -417,7 +419,7 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 
 	override def removed(index :Int) :C = if (index == 0) empty else outOfBounds("removed", index)
 	override def removed(from :Int, until :Int) :C =
-		if (from > 0 | until < 0 | until < from) coll else empty
+		if (from > 0 | until <= 0 | from == until) coll else empty
 
 	override def grouped(size :Int) :Iterator[C] =
 		if (size <= 0) illegal_!("size=" +  size) else Iterator.single(coll)
@@ -481,7 +483,7 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 
 
 	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 | from > 0 || start > xs.length)
+		if (len <= 0 | from > 0 || {val l = xs.length; l == 0 || start >= l })
 			0
 		else {
 			xs(start) = head; 1
@@ -494,14 +496,14 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 		}
 
 	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 | from > 0)
+		if (len <= 0 | from > 0 || xs.length == 0)
 			0
 		else {
 			xs(start % xs.length) = head
 			1
 		}
 	override def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
-		if (len <= 0)
+		if (len <= 0 || xs.length == 0)
 			0
 		else {
 			xs(start % xs.length) = head
@@ -663,27 +665,30 @@ private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
 		val s = elems.knownSize
 		elems match {
-			case _ if index >= 1 | s == 0 | s > 0 & index < 0 & s <= -index => asGeneric
+			case _ if index >= 1 | s == 0 | s > 0 & index < 0 & index <= -s => asGeneric
 			case view  :View[U]                                             => overwritten(index, view.iterator)
 			case items :Iterable[U] if items.isEmpty                        => asGeneric
 			case items :Iterable[U] if index == 0 && items.sizeIs == 1      => one(items.head)
+			case _ if index == Int.MinValue                                 => asGeneric
 			case _ =>
-				val it = elems.iterator
+				var it = elems.iterator
+				if (index < 0)
+					it = it.drop(-index)
 				if (it.hasNext) one(it.next()) else asGeneric
 		}
 	}
 	override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = math.min(index, 1) match {
-		case  1 => asGeneric
-		case  0 => one(first)
-		case -1 => one(second)
-		case -2 => overwritten(0, rest)
+		case  1           => asGeneric
+		case  0           => one(first)
+		case -1           => one(second)
+		case -2           => overwritten(0, rest)
 		case  _ => //index < -2
 			val k = rest.knownSize
-			val toDrop = -index - 2
+			val toDrop = -(index + 2)
 			rest match { //index < -2
-				case _ if index >= 1 || k == 0 | k > 0 & k <= -index - 2 => asGeneric
-				case HasFastSlice(_) | _ :collection.LinearSeq[_]        => overwritten(0, rest.drop(toDrop))
-				case _                                                   => overwritten(0, rest.iterator.drop(toDrop))
+				case _ if k == 0 | k > 0 & index <= -k - 2        => asGeneric
+				case HasFastSlice(_) | _ :collection.LinearSeq[_] => overwritten(0, rest.drop(toDrop))
+				case _                                            => overwritten(0, rest.iterator.drop(toDrop))
 			}
 	}
 
@@ -700,8 +705,8 @@ private[noresttherein] trait SingletonSeqOps[+E, +CC[_], +C]
 		case view :View[U] if index == 0         => iterableFactory.from(view.iterator :+ head)
 		case view :View[U]                       => iterableFactory.from(head +: view.iterator)
 		case items :Iterable[U] if items.isEmpty => asGeneric
-		case _ if index == 0                     => iterableFactory.from(view.iterator :+ head)
-		case _                                   => iterableFactory.from(head +: view.iterator)
+		case _ if index == 0                     => iterableFactory.from(elems.iterator :+ head)
+		case _                                   => iterableFactory.from(head +: elems.iterator)
 	}
 
 	override def prepended[B >: E](elem :B) :CC[B] = two(elem, head)

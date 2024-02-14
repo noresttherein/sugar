@@ -1,14 +1,14 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.{IterableFactory, immutable}
+import scala.collection.{IterableFactory, View, immutable}
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
-import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Test}
+import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop.{AnyOperators, all, forAll}
 import org.scalacheck.commands.Commands
-import org.scalacheck.util.{Buildable, ConsoleReporter}
+import org.scalacheck.util.{Buildable, ConsoleReporter, Pretty}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
 import net.noresttherein.sugar.collections.extensions.IterableExtension
 import net.noresttherein.sugar.extensions.{FactoryExtension, classNameMethods}
@@ -32,8 +32,8 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 	property("apply") = test { (expect :Seq[Int], subject :C[Int]) =>
 		all(expect.indices.map(i => expect(i) =? subject(i)) :_*)
 	}
-	property("distinct") = test((_ :Seq[Int]).distinct)
-	property("reverse") = test((_ :Seq[Int]).reverse)
+	property("distinct") = validate((_ :Seq[Int]).distinct)
+	property("reverse") = validate((_ :Seq[Int]).reverse)
 	property("reverseIterator") = test { (expect :Seq[Int], subject :C[Int]) =>
 		checkIterator(expect.reverse, subject.reverseIterator)
 	}
@@ -136,7 +136,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		} :_*)
 	}
 	property("patch") = forAll { (from :Int, patch :Seq[Int], replaced :Int) =>
-		test((_:Seq[Int]).patch(from, patch, replaced))
+		validate((_:Seq[Int]).patch(from, patch, replaced))
 	}
 
 	property("appended(Int)") = test { (expect :Seq[Int], subject :C[Int]) =>
@@ -154,60 +154,44 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 	}
 
 	property("appendedAll(List[Int])") = forAll { (prefix :C[Int], suffix :List[Int]) =>
-		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+		validate(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
 	property("appendedAll(List[String])") = forAll { (prefix :C[Int], suffix :List[String]) =>
-		compare(List.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
+		compare(Vector.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
 	}
 	property("appendedAll(ArraySeq[Int])") = forAll { (prefix :C[Int], suffix :ArraySeq[Int]) =>
-		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+		validate(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
 	property("appendedAll(ArraySeq[String])") = forAll { (prefix :C[Int], suffix :ArraySeq[String]) =>
-		compare(List.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
+		compare(Vector.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
 	}
 	property("appendedAll(Vector[Int]))") = forAll { (prefix :C[Int], suffix :Vector[Int]) =>
-		validate(List.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+		validate(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
 	property("appendedAll(RelayArray[Int].slice)") = forAll { (prefix :C[Int], suffix :RelayArray[Int]) =>
 		validate(
-			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
+			Vector.from(prefix) ++ suffix.slice(1, suffix.length - 1),
 			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
 		) lbl passedArrayLabel(suffix)
 	}
 	property("appendedAll(RelayArray[String].slice)") = forAll { (prefix :C[Int], suffix :RelayArray[String]) =>
-		try {
 		compare(
-			List.from(prefix) ++ suffix.slice(1, suffix.length - 1),
+			Vector.from(prefix) ++ suffix.slice(1, suffix.length - 1),
 			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
 		) lbl passedArrayLabel(suffix)
-		} catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
 	}
-
 	property(s"appendedAll(${C[Int].source.localClassName}[Int])") = forAll { (prefix :C[Int], suffix :C[Int]) =>
-		validate(List.from(prefix) ::: List.from(suffix), (prefix :++ suffix) to C)
+		validate(Vector.from(prefix) :++ Vector.from(suffix), (prefix :++ suffix) to C)
 	}
-	property(s"appendedAll(${C[String].source.localClassName}[String])") = forAll { (prefix :C[Int], suffix :C[String]) =>
-		try {
-		compare(List.from(prefix) ::: List.from(suffix), (prefix :++ suffix) to C)
-		} catch {
-			case e :Exception =>
-				System.err.println(e)
-				e.printStackTrace(System.err)
-				throw e
-		}
-
+	property(s"appendedAll(${C[String].source.localClassName}[String])") = forAll {
+		(prefix :C[Int], suffix :C[String]) =>
+			compare(Vector.from(prefix) :++ Vector.from(suffix), (prefix :++ suffix) to C)
 	}
-
 	property("prependedAll(List[Int])") = forAll { (prefix :List[Int], suffix :C[Int]) =>
-		validate(prefix ++ suffix, (prefix ++: suffix) to C)
+		validate(Vector.from(prefix) ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(List[String])") = forAll { (prefix :List[String], suffix :C[Int]) =>
-		compare(prefix ++ suffix, (prefix ++: suffix) to C)
+		compare(Vector.from(prefix) ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(ArraySeq[Int])") = forAll { (prefix :ArraySeq[Int], suffix :C[Int]) =>
 		validate(prefix ++ suffix, (prefix ++: suffix) to C)
@@ -231,12 +215,13 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		) lbl passedArrayLabel(prefix)
 	}
 	property(s"prependedAll(${C[Int].source.localClassName}[Int])") = forAll { (prefix :C[Int], suffix :C[Int]) =>
-		validate(List.from(prefix) ::: List.from(suffix), (prefix ++: suffix) to C)
+		validate(Vector.from(prefix) ++ Vector.from(suffix), (prefix ++: suffix) to C)
 	}
 	property(s"prependedAll(${C[String].source.localClassName}[String])") =
 		forAll { (prefix :C[Int], suffix :C[String]) =>
-			compare(List.from(prefix) ::: List.from(suffix) :Seq[Any], (prefix ++: suffix) to C)
+			compare(Vector.from(prefix) ++ Vector.from(suffix) :Seq[Any], (prefix ++: suffix) to C)
 		}
+
 
 
 	private def passedArrayLabel[E](seq :RelayArray[E]) = seq match {
@@ -317,5 +302,167 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 abstract class UntaggedSeqProps[C[T] <: collection.Seq[T]](name :String, factory :IterableFactory[C])
 	extends IterableProps[C, collection.Seq](name)(factory, Vector) with SeqProps[C, Dummy]
 {
+//	override val referenceFactory :IterableFactory[collection.Seq] = if (knowsSize) Vector else List
 	protected override implicit def anyEvidence :Dummy[Any] = new Dummy
+}
+
+
+
+
+
+
+trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, C, C[T]], E[_]]
+	extends SeqProps[C, E] with SugaredIterableProps[C, collection.Seq, E]
+{
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
+	def updateAllProperty[I[X] <: Iterable[X], A, B >: A](method :String)(prop :(C[A], Int, I[B]) => Prop)
+	                    (implicit ev :E[A], aElem :Arbitrary[A], aElems :Arbitrary[I[B]],
+	                     shrinkElem :Shrink[A], shrinkElems :Shrink[I[B]],
+	                     prettyElem :A => Pretty, prettyElems :I[B] => Pretty) :Prop =
+		indexedProperty[A] { (subject :C[A], index :Int) =>
+			forAll { (elems :I[B]) => prop(subject, index, elems) lbl s"$method($index, $elems)" }
+		}
+
+	def explodedUpdateProperty[A, B >: A](method :String)(prop :(C[A], Int, B, B, Seq[B]) => Prop)
+	                                     (implicit ev :E[A], aElem :Arbitrary[A], aElems :Arbitrary[B],
+	                                      shrinkElem :Shrink[A], shrinkElems :Shrink[B],
+	                                      prettyElem :A => Pretty, prettyElems :B => Pretty) :Prop =
+		forAll { (subject :C[A], first :B, second :B,  rest :Seq[B]) =>
+			forAll { (index :Short) =>
+				(prop(subject, index, first, second, rest) lbl s"$method($index, $first, $second, $rest)") &&
+				(prop(subject, Int.MaxValue, first, second, rest) lbl s"$method(Int.MaxValue, $first, $second, $rest)") &&
+				(prop(subject, Int.MinValue, first, second, rest) lbl s"$method(Int.MinValue, $first, $second, $rest)")
+			}
+		}
+
+
+	private def updatedAll[A, B](subject :C[A], index :Int, items :Iterable[A])
+	                            (implicit ev :E[A], evB :E[B], tag :ClassTag[A], arbitrary :Arbitrary[A],
+	                             filt :Filter[A], fldA :FoldSide[B, A], fld :Fold[A], mp :Map[A, B], fmap :FlatMap[A, B])
+			:Prop =
+		if (index < 0 || index > subject.size - items.size)
+			subject.updatedAll(index, items).throws[IndexOutOfBoundsException]
+		else {
+			val vec    = Vector.from(subject)
+			val expect = vec.take(index) :++ items :++ vec.drop(index + items.size)
+			validate(expect, subject.updatedAll(index, items) to C)
+		}
+
+	private def explodedUpdatedAll[A, B](subject :C[A], index :Int, first :A, second :A, rest :Seq[A])
+	                                    (implicit ev :E[A], evB :E[B], tag :ClassTag[A],
+	                                     arbitrary :Arbitrary[A], filt :Filter[A], fldA :FoldSide[B, A], fld :Fold[A],
+	                                     mp :Map[A, B], fmap :FlatMap[A, B]) :Prop =
+		if (index < 0 || index > subject.size - rest.size - 2)
+			subject.updatedAll(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
+		else {
+			val vec    = Vector.from(subject)
+			val expect = vec.take(index) :+ first :+ second :++ rest :++ vec.drop(index + 2 + rest.size)
+			validate(expect, subject.updatedAll(index, first, second, rest :_*) to C)
+		}
+
+	private def overwritten[A, B](subject :C[A], index :Int, items :Iterable[A])
+	                             (implicit ev :E[A], evB :E[B], tag :ClassTag[A], arbitrary :Arbitrary[A],
+	                              filt :Filter[A], fldA :FoldSide[B, A], fld :Fold[A], mp :Map[A, B], fmap :FlatMap[A, B])
+			:Prop =
+	{
+		val expect = expectOverwritten(subject, index, items)
+		val result = subject.overwritten(index, items)
+		validate(expect, result to C)
+	}
+
+	private def explodedOverwritten[A, B](subject :C[A], index :Int, first :A, second :A, rest :Seq[A])
+	                                     (implicit ev :E[A], evB :E[B], tag :ClassTag[A],
+	                                      arbitrary :Arbitrary[A], filt :Filter[A], fldA :FoldSide[B, A], fld :Fold[A],
+	                                      mp :Map[A, B], fmap :FlatMap[A, B]) :Prop =
+	{
+		val expect = expectOverwritten(subject, index, Prepended2Seq(first, second, rest))
+		val result = subject.overwritten(index, first, second, rest :_*)
+		validate(expect, result)
+	}
+
+	private def expectOverwritten[A](subject :C[A], index :Int, items :Iterable[A]) :Seq[A] = {
+		val drop = math.max(0, -math.max(index, -Int.MaxValue))
+		val from = math.min(subject.length, math.max(index, 0))
+		val max  = subject.length - from
+		val end  = from + math.max(0, math.min(max, items.size - drop))
+		val vec  = Vector.from(subject)
+		vec.take(index) :++ items.toSeq.slice(drop, drop + max) :++ vec.drop(end)
+	}
+
+
+	private def insertedAll[A, B](subject :C[A], index :Int, items :Iterable[A])
+	                             (implicit ev :E[A], evB :E[B], tag :ClassTag[A], arbitrary :Arbitrary[A],
+	                              filt :Filter[A], fldA :FoldSide[B, A], fld :Fold[A], mp :Map[A, B], fmap :FlatMap[A, B])
+			:Prop =
+		if (index < 0 || index > subject.size)
+			subject.updatedAll(index, items).throws[IndexOutOfBoundsException]
+		else {
+			val vec    = Vector.from(subject)
+			val expect = vec.take(index) :++ items :++ vec.drop(index)
+			validate(expect, subject.insertedAll(index, items))
+		}
+
+	private def explodedInsertedAll[A, B](subject :C[A], index :Int, first :A, second :A, rest :Seq[A])
+	                                     (implicit ev :E[A], evB :E[B], tag :ClassTag[A],
+	                                      arbitrary :Arbitrary[A], filt :Filter[A], fldA :FoldSide[B, A], fld :Fold[A],
+	                                      mp :Map[A, B], fmap :FlatMap[A, B]) :Prop =
+		if (index < 0 || index > subject.size)
+			subject.insertedAll(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
+		else {
+			val vec    = Vector.from(subject)
+			val expect = vec.take(index) :+ first :+ second :++ rest :++ vec.drop(index)
+			validate(expect, subject.insertedAll(index, first, second, rest :_*))
+		}
+
+
+	private def inserted[A, Z](subject :C[A], index :Int, elem :A)
+	                          (implicit evA :E[A], evZ :E[Z], tagA :ClassTag[A], arbA :Arbitrary[A], arbZ :Arbitrary[Z],
+	                           filt :Filter[A], fldA :FoldSide[Z, A], fld :Fold[A], mp :Map[A, Z], fmap :FlatMap[A, Z])
+			:Prop =
+		if (index < 0 || index > subject.size)
+			subject.inserted(index, elem).throws[IndexOutOfBoundsException]
+		else {
+			val vec = Vector.from(subject)
+			val expect = vec.take(index) :+ elem :++ vec.drop(index)
+			val result = subject.inserted(index, elem)
+			validate(expect, result)
+		}
+
+	property("updatedAll(Int, Iterable[Int])") = updateAllProperty[Iterable, Int, Int]("updatedAll")(
+		updatedAll[Int, Long](_, _, _)
+	)
+//	property("updatedAll(Int, Iterable[String])") = updatedAll[Iterable, String, Long]
+	property(s"updatedAll(Int, ${C[Int].source.localClassName}[Int])") = updateAllProperty[C, Int, Int]("updatedAll")(
+		updatedAll[Int, Long](_, _, _)
+	)
+	property("updatedAll(Int, Int, Int, Int*)") = explodedUpdateProperty[Int, Int]("updatedAll")(
+		explodedUpdatedAll[Int, Long](_, _, _, _, _)
+	)
+
+	//todo: overwritten takes two orders of magnitude more time than updatedAll, why???
+	property("overwritten(Int, Iterable[Int])") = updateAllProperty[Iterable, Int, Int]("overwritten")(
+		overwritten[Int, Long](_, _, _)
+	)
+	property(s"overwritten(Int, ${C[Int].source.localClassName}[Int]") = updateAllProperty[C, Int, Int]("overwritten")(
+		overwritten[Int, Long](_, _, _)
+	)
+	property("overwritten(Int, Int, Int, Int*)") = explodedUpdateProperty[Int, Int]("overwritten")(
+		explodedOverwritten[Int, Long](_, _, _, _, _)
+	)
+
+
+	property("insertedAll(Int, Iterable[Int])") = updateAllProperty[Iterable, Int, Int]("insertedAll")(
+		insertedAll[Int, Long](_, _, _)
+	)
+	property(s"insertedAll(Int, ${C[Int].source.localClassName}[Int]") = updateAllProperty[C, Int, Int]("insertedAll")(
+		insertedAll[Int, Long](_, _, _)
+	)
+	property("insertedAll(Int, Int, Int, Int*)") = explodedUpdateProperty[Int, Int]("insertedAll")(
+		explodedInsertedAll[Int, Long](_, _, _, _, _)
+	)
+
+	property("inserted(Int, Int)") = indexedProperty[Int] { (subject :C[Int], index :Int) =>
+		forAll { elem :Int => inserted[Int, Long](subject, index, elem) lbl s"inserted($index, $elem)" }
+	}
+
 }

@@ -2,8 +2,8 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
-import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, immutable}
-import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet}
+import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, StrictOptimizedIterableOps, immutable}
+import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet, StrictOptimizedMapOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorCompanionExtension, MutableArrayExtension, PartialFunctionCompanionExtension, castTypeParamMethods, classNameMethods}
@@ -532,15 +532,20 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 	def fromMap[E](counts :Map[E, Int]) :MultiSet[E] =
 		if (counts.isEmpty) empty[E]
 		else if (counts.sizeIs == 1) single(counts.head)
-		else if (counts.forall(_._2 > 0)) new MapAdapter(counts)
-		else new MapAdapter(counts.filter(_._2 > 0))
+		else trustedFromMap(if (counts.forall(_._2 > 0)) counts else counts.filter(_._2 > 0))
+
+	@inline private def trustedFromMap[E](counts :Map[E, Int]) :MultiSet[E] =
+		if (counts.isInstanceOf[StrictOptimizedMapOps[E, Int, Map, Map[E, Int]] @unchecked])
+			new MapAdapter[E](counts) with StrictOptimizedIterableOps[E, MultiSet, MultiSet[E]]
+		else
+			new MapAdapter(counts)
 
 	protected override def trustedCounts[A](counts :IterableOnce[(A, Int)]) :MultiSet[A] = counts match {
-		case elems :Iterable[(A, Int)] if elems.isEmpty => empty
-		case elems :Iterator[(A, Int)] if !elems.hasNext => empty
+		case elems :Iterable[(A, Int)] if elems.isEmpty     => empty
+		case elems :Iterator[(A, Int)] if !elems.hasNext    => empty
 		case elems :Iterable[(A, Int)] if elems.sizeIs == 1 => single(elems.head)
-		case elems :Iterable[(A, Int)] => new MapAdapter(elems.toMap)
-		case _ => new MapAdapter(counts.iterator.toMap)
+		case elems :Iterable[(A, Int)]                      => trustedFromMap(elems.toMap)
+		case _                                              => trustedFromMap(counts.iterator.toMap)
 	}
 
 	override def empty[E] :MultiSet[E] = Empty.asInstanceOf[MultiSet[E]]
@@ -586,7 +591,9 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 
 	@SerialVersionUID(Ver)
-	private class Singleton[X](override val head :X, override val knownSize :Int) extends MultiSet[X] {
+	private class Singleton[X](override val head :X, override val knownSize :Int)
+		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]]
+	{
 		assert(knownSize > 0)
 		override def totalSize = knownSize
 		override def uniqueSize = 1
@@ -651,7 +658,9 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 	//hash set because we treat it as covariant
 	@SerialVersionUID(Ver)
-	private class Unique[X](override val unique :HashSet[X]) extends MultiSet[X] { self =>
+	private class Unique[X](override val unique :HashSet[X])
+		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]]
+	{ self =>
 		override def knownSize  = unique.knownSize
 		override def totalSize  = unique.size
 		override def uniqueSize = unique.size

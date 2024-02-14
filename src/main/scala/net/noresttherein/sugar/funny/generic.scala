@@ -6,10 +6,11 @@ package net.noresttherein.sugar.funny
 @SerialVersionUID(Ver)
 object generic {
 //	type Subtype[U] = { type T[X <: U] = X }
-	type Any[+_]     = scala.Any
-	type Nothing[-_] = scala.Nothing
-	type Ident[+X]   = X //consider: renaming to Identity
-	type Fixed[Y]    = { type T[X] = Y }
+	type Any1[+_]      = scala.Any
+	type Any2[+_, +_]  = scala.Any
+	type Nothing1[-_]  = scala.Nothing
+	type Identity[+X]  = X
+	type Fixed[Y]      = { type T[X] = Y }
 
 	type =>:[-X[A], +Y[A]] = GenericFun[X, Y]
 
@@ -25,11 +26,11 @@ object generic {
 		def compose[W[_]](f :GenericFun[W, X]) :GenericFun[W, Y] = f andThen this
 	}
 
-	trait BoxFun[+Y[A]] extends GenericFun[Ident, Y] {
+	trait BoxFun[+Y[A]] extends GenericFun[Identity, Y] {
 		override def apply[T](x :T) :Y[T]
 	}
 
-	trait UnboxFun[-X[A]] extends GenericFun[X, Ident] {
+	trait UnboxFun[-X[A]] extends GenericFun[X, Identity] {
 		override def apply[T](x :X[T]) :T
 	}
 
@@ -37,7 +38,7 @@ object generic {
 
 	def ident[X[A]] :GenericFun[X, X] = identity.asInstanceOf[GenericFun[X, X]]
 
-	private[this] final val identity = new GenericFun[Ident, Ident] {
+	private[this] final val identity = new GenericFun[Identity, Identity] {
 		override def apply[T](x :T) = x
 	}
 

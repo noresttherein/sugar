@@ -5,8 +5,8 @@ import java.lang.{Math => math}
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.generic.DefaultSerializationProxy
-import scala.collection.{SeqFactory, SeqView, Stepper, StepperShape, mutable}
-import scala.collection.immutable.AbstractSeq
+import scala.collection.{SeqFactory, SeqView, Stepper, StepperShape, View, immutable, mutable}
+import scala.collection.immutable.{AbstractSeq, StrictOptimizedSeqOps}
 import scala.collection.mutable.{Buffer, Builder}
 
 import net.noresttherein.sugar.JavaTypes.JIterator

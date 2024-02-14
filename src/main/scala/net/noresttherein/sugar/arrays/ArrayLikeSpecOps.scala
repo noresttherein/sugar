@@ -19,7 +19,7 @@ import net.noresttherein.sugar.outOfBounds_!
   * and methods which internally use specialization. Separate compilation with Scala 2
   * allows to use them also in Scala 3, without needing to resort to 'manual specialization'.
   * @author Marcin Mościcki
-  */
+  */ //todo: KMP search
 private[sugar] object ArrayLikeSpecOps {
 	def foreach[E, U](array :Array[E], from :Int, until :Int)(f :E => U) :Unit = {
 		def foreach[@specialized(Everything) X](arr :Array[X])(f :X => U) :Unit = {

@@ -17,7 +17,7 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 		val length = knownSize
 		if (until > 0 & until > from & (length < 0 | from < length))
 			if (length >= 0 & until >= length)
-				if (from <= 0) foreach(f)
+				if (from <= 0) foreach(f)           //We must use iterator, because there is no bound on drop(from) :C.
 				else iterator.drop(from).foreach(f)
 			else if (from <= 0)
 				iterator.take(until).foreach(f)
@@ -56,18 +56,18 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	/** An opaque representation of a Java [[java.util.Iterator Iterator]] over this $coll, in the most specialized
 	  * subclass for the type of elements in this collection, as seen from the point of view of the caller.
 	  * Jterator API is provided in the form of extension methods which can be imported from
-	  * `sugar.collections.extensions`, which have signatures of standard `Iterator` methods, but manually
+	  * `sugar.collections.extensions`, and have signatures of standard `Iterator` methods, but manually
 	  * specialized for each element type.
 	  *
 	  * The difference between a `Jterator` and a `JavaIterator`, as returned by method
 	  * [[net.noresttherein.sugar.collections.SugaredIterableOps.javaIterator javaIterator]],
 	  * is that, for value types, the latter will return one of the three [[java.util.PrimitiveIterator PrimitiveIterator]]
-	  * subtypes whic match the element type the closest. This method will however always return a type parameterized
+	  * subtypes which match the element type the closest. This method will however always return a type parameterized
 	  * with the exact element type of this collection (not enforced by the method signature
-	  * due to problems wth  inferrence). So, a `SugaredIterable[Char].javaIterator`
+	  * due to problems wth  inference). So, a `SugaredIterable[Char].javaIterator`
 	  * will return a `PrimitiveIterator.OfInt`, but `SugaredIterable[Char].jterator`
 	  * will return a [[net.noresttherein.sugar.collections.IntJterator IntJterator]].
-	  * While underneath both thes calls amount to the same, the latter saves the user the hassle of converting
+	  * While underneath both these calls amount to the same, the latter saves the user the hassle of converting
 	  * every returned element. Additionally, it prevents a common mistake of calling unspecialized `next()`
 	  * instead of the properly specialized variant like `nextInt()`.
 	  */
@@ -77,9 +77,14 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 
 
 	//todo: tailored implementations in subclasses.
+	//todo: SugaredStrictIterableOps which use take/drop/slice
 	def removed(index :Int) :C = fromSpecific(Iterators.removed(iterator, index))
 	def removed(from :Int, until :Int) :C = fromSpecific(Iterators.removed(iterator, from, until))
 
+//	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
+//		copyRangeToArray(xs, start, 0, len)
+
+	//todo: accept MutableArray instead of Array
 	/** Equivalent to
 	  * [[collection.IterableOnceOps.drop drop]]`(from).`[[collection.IterableOnceOps.copyToArray copyToArray]]`(xs, start, len)`,
 	  * but avoids, if possible, potentially expensive `drop`.
@@ -88,16 +93,10 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 		if (from <= 0)
 			copyToArray(xs, start, len)
-		else {
-			val size = knownSize
-			if (len <= 0 | size >= 0 & from >= size || start >= xs.length)
-				0
-			else {
-				val from0 = math.max(from, 0)
-				val i = iterator.drop(from0)
-				i.copyToArray(xs, start, len)
-			}
-		}
+		else if (len <= 0 || start >= xs.length || { val size = knownSize; size == 0 || size > 0 & from >= size })
+			0
+		else
+			iterator.drop(from).copyToArray(xs, start, len)
 
 	@inline final def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int) :Int =
 		copyRangeToArray(xs, start, from, Int.MaxValue)
@@ -118,7 +117,7 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 	  * before any of the above happens, copying resumes from the beginning of the array.
 	  * @return the number of elements copied.
 	  * @throws IndexOutOfBoundsException if `start` is less than zero or greater than `xs.length`.
-	  */
+	  */ //todo: remove these two and make them only extension methods.
 	def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int = Int.MaxValue) :Int = {
 		val length = xs.length
 		if (from <= 0)
@@ -211,7 +210,7 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
   * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice trustedSlice]] after validation.
   * Assumes fast `size` operation.
   */ //Most methods don't exist in IterableOnceOps, so we can't use it for iterators, too.
-trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
+trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any1, Any] {
 	protected def hasFastSlice :Boolean = false
 	protected override def coll :C
 	protected def emptySlice :C
@@ -249,8 +248,8 @@ trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
 	override def dropWhile(p :E => Boolean) :C = slice(segmentLength(p, 0), size)
 	override def span(p :E => Boolean) :(C, C) = splitAt(segmentLength(p, 0))
 
+	/** Method to which `slice` delegates to, after ensuring that `0 <= from < until <= size`. */
 	protected def clippedSlice(from :Int, until :Int) :C
-	private[collections] final def `->trustedSlice`(from :Int, until :Int) :C = clippedSlice(from, until)
 
 	protected def segmentLength(p :E => Boolean, from :Int) :Int = {
 		val iter = iterator.drop(from)
@@ -274,6 +273,17 @@ trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any, Any] {
 
 trait SugaredSlicingOps[+E, +CC[_], +C] extends SugaredIterableOps[E, CC, C] with SlicingOps[E, C] {
 	protected override def emptySlice :C = empty
+
+/*	override def removed(from :Int, until :Int) :C =
+		if (until <= 0 | until <= from | from >= size)
+			coll
+		else if (from <= 0)
+			drop(until)
+		else if (until >= size)
+			take(from)
+		else
+			clippedSlice(0, from) concat clippedSlice(until, size)
+*/
 }
 
 trait SeqSlicingOps[+E, +CC[_], +C] extends SugaredSlicingOps[E, CC, C] with SeqOps[E, CC, C] {
@@ -282,4 +292,22 @@ trait SeqSlicingOps[+E, +CC[_], +C] extends SugaredSlicingOps[E, CC, C] with Seq
 //		if (i == length) -1 else i
 //	}
 	override def segmentLength(p :E => Boolean, from :Int) :Int = super.segmentLength(p, from)
+}
+
+
+
+
+trait SugaredSeqOps[+E, +CC[_], +C] extends collection.SeqOps[E, CC, C] with SugaredIterableOps[E, CC, C] {
+	def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.updatedAll(this, index, elems)
+	def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		updatedAll(index, Prepended2Seq(first, second, rest))
+	//consider: renaming to overlay. However, overwrite is better for mutable Seq.
+	def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.overwritten(this, index, elems)
+	def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		overwritten(index, Prepended2Seq(first, second, rest))
+
+	def inserted[U >: E](index :Int, elem :U) :CC[U] = Defaults.inserted(this, index, elem)
+	def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.insertedAll(this, index, elems)
+	def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		insertedAll(index, Prepended2Seq(first, second, rest))
 }

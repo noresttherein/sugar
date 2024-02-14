@@ -104,7 +104,7 @@ object extensions extends extensions {
 		  */
 		@inline def ||(other :Class[_]) :Class[_] = commonSuperclass(other) match {
 			case Yes(superClass) => superClass
-			case _ => classOf[Any]
+			case _               => classOf[Any]
 		}
 
 		/** Same as [[net.noresttherein.sugar.reflect.extensions.ClassExtension.|| ||]]. */
@@ -147,6 +147,9 @@ object extensions extends extensions {
 				Maybe(findSuperclass(self, classOf[Any]))
 			}
 
+		/** True for Java primitive types and their reference wrappers. */
+		def isPrimitiveOrBox :Boolean = PrimitiveClass.contains(self) || BoxClass.contains(self)
+
 		/** True for Java classes which serve as wrappers for Java primitive types (`Integer`, `Character`, etc.),
 		  * as well as `BoxedUnit`. */
 		def isBox :Boolean = PrimitiveClass.contains(self)
@@ -156,7 +159,7 @@ object extensions extends extensions {
 		  * `classOf[BoxedUnit] isBoxOf classOf[Unit]` returns `true`.
 		  */
 		def isBoxOf(valueClass :Class[_]) :Boolean = PrimitiveClass.getOrElse(self, null) == valueClass
-
+		//todo: rename it to box; and make boxed non-throwing. The same with unbox/unboxed
 		/** If this class represents a built in value type (a Java primitive type), return the Java class to which
 		  * it is auto boxed when a reference type is needed.
 		  * @see [[net.noresttherein.sugar.reflect.extensions.ClassExtension.refClass refClass]]

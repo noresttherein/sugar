@@ -3,13 +3,14 @@ package net.noresttherein.sugar.collections
 import java.lang.{Math => math}
 
 import scala.annotation.nowarn
-import scala.collection.{IterableFactory, IterableOps, mutable}
+import scala.collection.{IterableFactory, IterableOps, StrictOptimizedIterableOps, mutable}
 import scala.collection.mutable.Builder
 import scala.util.Random
 
 import net.noresttherein.sugar.arrays.{IArray, IRefArray}
 import net.noresttherein.sugar.collections.extensions.SeqExtension
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.funny.generic.Any1
 
 
 
@@ -27,7 +28,7 @@ import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
   * @define coll permutation
   */
 class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
-	extends AnyVal with IterableOnce[Int] with IterableOps[Int, IndexedSeq, IndexedSeq[Int]]
+	extends AnyVal with IterableOnce[Int] with StrictOptimizedIterableOps[Int, IndexedSeq, IndexedSeq[Int]]
 {
 	/** The index in the output sequence to which the `n`-th element of an input sequence is mapped. */
 	def apply(n :Int) :Int = toIndexedSeq(n)
@@ -244,8 +245,10 @@ object Permutation {
 			illegal_!(
 				indices.toString + " is not a valid permutation."
 			)
-		else
+		else if (indices.isInstanceOf[StrictOptimizedIterableOps[_, Any1, _]])
 			new Permutation(indices)
+		else
+			new Permutation(indices to DefaultArraySeq)
 
 	/** A permutation `p` such that `p.`[[net.noresttherein.sugar.collections.Permutation.apply apply]](`from) == to`. */
 	@throws[IllegalArgumentException]("if from or to contains duplicates, or if from.toSet != to.toSet.")

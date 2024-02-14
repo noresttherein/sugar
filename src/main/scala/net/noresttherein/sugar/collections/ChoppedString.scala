@@ -8,7 +8,7 @@ import scala.annotation.tailrec
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.StepperShape.{CharShape, IntShape}
 import scala.collection.{Factory, IntStepper, SpecificIterableFactory, Stepper, StepperShape, mutable}
-import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, WrappedString}
+import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, StrictOptimizedSeqOps, WrappedString}
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
@@ -123,7 +123,10 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
   * @define Coll `ChoppedString`
   * @define coll chopped string
   */
-sealed abstract class ChoppedString extends AbstractSeq[Char] with StringLike with StringLikeOps[ChoppedString] {
+sealed abstract class ChoppedString
+	extends AbstractSeq[Char] with StringLike with StringLikeOps[ChoppedString]
+	   with StrictOptimizedSeqOps[Char, Seq, ChoppedString]
+{
 //	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap
 //	override def empty :ChoppedString = ChoppedString.empty
 
@@ -993,7 +996,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 @SerialVersionUID(1L)
 final class Substring private (protected override val whole :String,
                                protected override val startIndex :Int, override val length :Int)
-	extends ChoppedString with SubstringOps[Substring]
+	extends ChoppedString with SubstringOps[Substring] with StrictOptimizedSeqOps[Char, IndexedSeq, Substring]
 {
 	assert(startIndex >= 0 & startIndex <= whole.length,
 		"Offset out of bounds: \"" + whole + "\".substring(" + startIndex + "->" + length + ")."

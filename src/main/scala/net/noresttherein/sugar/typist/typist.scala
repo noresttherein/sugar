@@ -233,7 +233,7 @@ package typist {
 
 	object <:?< {
 		implicit def summon[A[_]] :A =:?= A = instance.asInstanceOf[A =:?= A]
-		private[this] val instance = new Evidence[generic.Any]
+		private[this] val instance = new Evidence[generic.Any1]
 
 		private class Evidence[A[_]] extends =:?=[A, A] {
 			override def apply[X](value :A[X]) :A[X] = value

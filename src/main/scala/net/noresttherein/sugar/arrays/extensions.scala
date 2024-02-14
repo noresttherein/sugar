@@ -2557,7 +2557,7 @@ object extensions {
 	  *                        collection extensions, they also have overloaded variants,
 	  *                        which would otherwise be invisible.
 	  */
-	private[arrays] sealed trait ArrayLikeExtensions extends Any with ArrayLikeEvidence /*with conversions*/ {
+	private[arrays] sealed trait ArrayLikeExtensions extends Any with ArrayLikeEvidence /*with ArrayLikeConversions*/ {
 		/** Extension methods for all `ArrayLike` subtypes.
 		  * $conversionInfo
 		  */

@@ -57,7 +57,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		def apply[E](array :MutableArray[E]) :mutable.IndexedSeq[E] =
 			MutableArraySlice.wrap(array)
 
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[MutableArray[E]] = {
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[MutableArray[E]] = {
 			val length = elems.length
 			elems match {
 				case seq   :mutable.ArraySeq[_] =>
@@ -103,7 +103,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 				else
 					ArraySlice.slice(array.asSubtype[Array[E]], from, until)
 
-			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[(MutableArray[E], Int, Int)] = {
+			def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(MutableArray[E], Int, Int)] = {
 				val length = elems.length
 				elems match {
 					case seq :mutable.ArraySeq[E] =>
@@ -320,16 +320,25 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		def overwrite(index :Int, first :E, second :E, rest :E*) :Int = {
 			val length = self.length
 			index match {
-				case _ if index >= length => 0
+				case Int.MinValue => 0
 				case -1 =>
-					self(0) = second.asInstanceOf[Unknown]
-					rest.castParam[Unknown].toBasicOps.copyToArray(self, 1) + 1
+					if (length == 0)
+						0
+					else {
+						self(0) = second.asInstanceOf[Unknown]
+						rest.castParam[Unknown].toBasicOps.copyToArray(self, 1) + 1
+					}
+				case _ if index >= length => 0
 				case _ if index < 0 =>
 					rest.castParam[Unknown].toBasicOps.copyRangeToArray(self, 0, -index, length)
 				case _ =>
 					self(index)     = first.asInstanceOf[Unknown]
-					self(index + 1) = second.asInstanceOf[Unknown]
-					rest.castParam[Unknown].toBasicOps.copyToArray(self, index + 2, Int.MaxValue) + 2
+					if (index == length - 1)
+						1
+					else {
+						self(index + 1) = second.asInstanceOf[Unknown]
+						rest.castParam[Unknown].toBasicOps.copyToArray(self, index + 2, Int.MaxValue) + 2
+					}
 			}
 		}
 

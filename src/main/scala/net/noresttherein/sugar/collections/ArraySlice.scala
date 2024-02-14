@@ -6,7 +6,7 @@ import scala.annotation.unspecialized
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps}
 import scala.collection.mutable.{ArrayBuilder, Builder}
-import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, IterableOps, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, View, immutable, mutable}
+import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, IterableFactory, IterableFactoryDefaults, IterableOps, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedIterableOps, StrictOptimizedSeqFactory, View, immutable, mutable}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.JavaTypes.JIterator
@@ -64,7 +64,9 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 
 
 //todo: consistent naming between ArrayLikeXxx and ArrayXxx
-private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] {
+private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
+	extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] with StrictOptimizedIterableOps[E, CC, C]
+{
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
 
 	def elementType :Class[_] = array.getClass.getComponentType
@@ -92,6 +94,15 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 	protected override def segmentLength(p :E => Boolean, from :Int) :Int =
 		ArrayLikeSpecOps.segmentLength(array, startIndex, size)(p, from)
 
+	override def find(p :E => Boolean) :Option[E] = {
+		val a = array
+		val start = startIndex
+		ArrayLikeSpecOps.indexWhere(a, start, size)(p, 0) match {
+			case -1 => None
+			case  i => Some(a(start + i))
+		}
+	}
+
 	override def foldLeft[A](z :A)(op :(A, E) => A) :A = {
 		val start = startIndex
 		ArrayLikeSpecOps.foldLeft(array, start, start + size)(z)(op)
@@ -118,12 +129,17 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 		ArrayLikeSpecOps.foreach(array, start + from0, start + until0)(f)
 	}
 
+	override def filter(p :E => Boolean) :C = fromSpecific(ArrayIterator(array, startIndex, size).filter(p))
+	override def filterNot(p :E => Boolean) :C = fromSpecific(ArrayIterator(array, startIndex, size).filterNot(p))
+
+	//Missing: count
+
 	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
 		//Implementation inconsistent with IterableOnceOps, but consistent with Vector (check from >= size)
 		copyRangeToArray(xs, start, 0, len)
 
 	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 || start >= xs.length || from >= size)
+		if (len <= 0 || start >= xs.length || { val s = size; s == 0 | from >= s })
 			0
 		else if (start < 0)
 			outOfBounds_!(start, xs.length)
@@ -138,7 +154,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C] extends ArrayIterableOnce[E] 
 		cyclicCopyRangeToArray(xs, start, 0, len)
 
 	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 || from >= size)
+		if (len <= 0 || xs.length == 0 || from >= size)
 			0
 		else if (start < 0)
 			outOfBounds_!(start, xs.length)
@@ -173,8 +189,18 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 		val start = startIndex
 		ReverseArrayIterator.slice(array, start, start + length)
 	}
+	//Overridden for specialization.
+	override def head :E =
+		if (size == 0) noSuch_!(toString + ".head")
+		else array(startIndex)
 
-	//Not overridden for performance considerations, so a subclass can 1) use direct member field acces,
+	override def last :E = {
+		val len = size
+		if (len == 0) noSuch_!(toString + ".last")
+		else array(startIndex + len - 1)
+	}
+
+	//Not overridden for performance considerations, so a subclass can 1) use direct member field access,
 	// and 2) it may be the only implementation for a certain class, which facilitates inlining.
 //	override def apply(i :Int) :E =
 //		if (i < 0 | i >= length)
@@ -197,6 +223,21 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	override def segmentLength(p :E => Boolean, from :Int) :Int =
 		ArrayLikeSpecOps.segmentLength(array, startIndex, length)(p, from)
 
+	@unspecialized override def filterNot(p :E => Boolean) :C = filter(p, false)
+	@unspecialized override def filter(p :E => Boolean) :C = filter(p, true)
+	private def filter(p :E => Boolean, keep :Boolean) :C = {
+		val res = newSpecificBuilder
+		val a = array
+		var i = startIndex
+		val end = i + length
+		while (i < end) {
+			val elem = a(i)
+			if (p(elem) == keep)
+				res += elem
+			i += 1
+		}
+		res.result()
+	}
 	//todo: implement these here after we change semantics of copyOfRanges to allow gaps.
 /*	override def updated[U >: E](index :Int, elem :U) :CC[U] = {
 		val elementType = array.getClass.getComponentType
@@ -213,7 +254,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 */
 	override def removed(index :Int) :C = {
 		val length = this.length
-		if (index < 0 || index > length)
+		if (index < 0 || index >= length)
 			outOfBounds_!(index.toString + " out of " + length)
 		else {
 			val start = startIndex
@@ -247,7 +288,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 		val start = startIndex
 		newSpecific(array, start + from, start + until)
 	}
-	protected def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int) :C
+	protected[this] def newSpecific(array :Array[E], from :Int, until :Int) :C
 //	protected def make[X](array :Array[X], from :Int, until :Int) :CC[X]
 
 	//Can't override here: aside from the mutability risk, Seq.toSeq and IndexedSeq.toIndexedSeq are final.
@@ -371,7 +412,14 @@ abstract class ClassTagArrayLikeSliceSeqFactory
 
 
 
-//todo: swap the order of C and A type arguments in all subclasses.
+/** An analogue of [[scala.collection.IterableFactoryDefaults IterableFactoryDefaults]],
+  * it implements several methods based on its
+  * [[net.noresttherein.sugar.collections.ArrayLikeSliceFactoryDefaults.sliceFactory sliceFactory]] property
+  * of [[net.noresttherein.sugar.collections.ArrayLikeSliceWrapper ArrayLikeSliceWrapper]].
+  * @tparam E The element type of this collection (may or may not be the component type of the underlying array).
+  * @tparam A The kind of wrapped array/array-like type.
+  * @tparam C The kind of of this collection.
+  */
 private[sugar] trait ArrayLikeSliceFactoryDefaults
                      [@specialized(ElemTypes) +E, -A[x] <: ArrayLike[x], +C[x] <: collection.IndexedSeq[x]]
 	extends ArraySliceSeqOps[E, collection.IndexedSeq, C[E @uncheckedVariance]]
@@ -385,15 +433,14 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 
 	protected def sliceFactory :ArrayLikeSliceWrapper[A, C]
 
-	protected override def newSpecific(array :Array[E @uncheckedVariance], from :Int, until :Int)
-			:C[E @uncheckedVariance] =
+	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :C[E @uncheckedVariance] =
 		sliceFactory.slice(array.asInstanceOf[A[E]], from, until - from)
 
 	private def writeReplace :Serializable =
 		//todo: get rid of this cast by changing unsafeArray to ArrayLike, and then array to A[E]
 		new ArraySerializationProxy[A, E](sliceFactory, array.asInstanceOf[A[E]])
 
-	protected override def className :String = sliceFactory.toString
+	protected[this] override def className :String = sliceFactory.toString
 }
 
 
@@ -553,7 +600,7 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
 		else
 			array(startIndex + idx) = elem
 
-	protected override def newSpecific(array :Array[E], from :Int, until :Int) :ArraySlice[E] =
+	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :ArraySlice[E] =
 		new ArraySlice(array, from, until - from)
 
 	protected implicit override def iterableEvidence :ClassTag[E] =

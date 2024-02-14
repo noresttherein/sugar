@@ -66,7 +66,7 @@ private object IteratorStepper {
 					characteristics |= IMMUTABLE
 				if (elems.isInstanceOf[collection.Set[_]])
 					characteristics |= DISTINCT
-				if (elems.isInstanceOf[collection.SeqOps[_, generic.Any, _]])
+				if (elems.isInstanceOf[collection.SeqOps[_, generic.Any1, _]])
 					characteristics |= ORDERED
 				//We could also infer SORTED for a SortedSet, but we'd need to pass a Comparator to the stepper.
 				// The problem is that we need a Comparator of the stepper element type, not input iterator type.

@@ -85,7 +85,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  * @return       a new $coll which contains all elements of `prefix` followed by all the elements of `elems`.
 	  */
 	def prependedAll[U >: E, O](elems :C)(prefix :O)
-	                           (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :CC[U] =
+	                           (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :CC[U] =
 		toOps(elems).prependedAll(iterableOnceLike.toIterableOnce(prefix))
 
 	/** Returns a new $coll containing the elements from the left hand operand followed by the elem ts from the
@@ -99,11 +99,11 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  *               of `elems` followed by all elements of `suffix`.
 	  */
 	@inline final def appendedAll[U >: E, O](elems :C)(suffix :O)
-	                                        (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :CC[U] =
+	                                        (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :CC[U] =
 		concat[U, O](elems)(suffix)
 
 	override def concat[U >: E, O](elems :C)(suffix :O)
-	                              (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :CC[U] =
+	                              (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :CC[U] =
 		toOps(elems).appendedAll(iterableOnceLike.toIterableOnce(suffix))
 
 	/** Selects all the elements of `elems` ignoring the duplicates.
@@ -151,7 +151,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  *         index `offset`, otherwise `false`.
 	  */
 	def startsWith[U >: E, O](elems :C)(that :O, offset :Int = 0)
-	                         (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :Boolean =
+	                         (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :Boolean =
 		iterableOnceLike.isEmpty(that) || {
 			val i = iterator(elems) drop offset
 			val j = iterableOnceLike.iterator(that)
@@ -168,7 +168,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  * @param that  the sequence to test
 	  * @return `true` if `elems` has `that` as a suffix, `false` otherwise.
 	  */
-	def endsWith[U >: E, O](elems :C)(that :O)(implicit iterableLike :IterableLike[U, generic.Any, O]) :Boolean = {
+	def endsWith[U >: E, O](elems :C)(that :O)(implicit iterableLike :IterableLike[U, generic.Any1, O]) :Boolean = {
 		iterableLike.isEmpty(that) || {
 			val i = iterator(elems).drop(size(elems) - iterableLike.size(that))
 			val j = iterableLike.iterator(that)
@@ -442,7 +442,7 @@ trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 	  * @param elems a $coll.
 	  */
 	def sameElements[U >: E, O](elems :C)(that :O)
-	                           (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :Boolean =
+	                           (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :Boolean =
 	{
 		val thisKnownSize = knownSize(elems)
 		val knownSizeDifference = thisKnownSize != -1 && {
@@ -567,12 +567,12 @@ object SeqLike extends Rank1SeqLike {
 		override def reverseIterator(elems :C): Iterator[E] = elems.reverseIterator
 
 		override def startsWith[U >: E, O](elems :C)(that :O, offset :Int = 0)
-		                                  (implicit iterableOnceLike :IterableOnceLike[U, funny.generic.Any, O])
+		                                  (implicit iterableOnceLike :IterableOnceLike[U, funny.generic.Any1, O])
 				:Boolean =
 			elems.startsWith(iterableOnceLike.toIterableOnce(that), offset)
 
 		override def endsWith[U >: E, O](elems :C)(that :O)
-		                                (implicit iterableLike :IterableLike[U, funny.generic.Any, O]) :Boolean =
+		                                (implicit iterableLike :IterableLike[U, funny.generic.Any1, O]) :Boolean =
 			elems.endsWith(iterableLike.toIterable(that))
 
 		override def segmentLength(elems :C)(p :E => Boolean, from :Int) :Int = elems.segmentLength(p, from)
@@ -590,13 +590,13 @@ object SeqLike extends Rank1SeqLike {
 		override def sortBy[A](elems :C)(f :E => A)(implicit ord :Ordering[A]) :C = elems.sortBy(f)
 
 		override def sizeCompare(elems :C, len: Int): Int = elems.lengthCompare(len)
-		override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, funny.generic.Any, O]) :Int =
+		override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, funny.generic.Any1, O]) :Int =
 			elems.lengthCompare(collection.toIterable(that))
 
 		override def isEmpty(elems :C): Boolean = elems.isEmpty
 		
 		override def sameElements[U >: E, O](elems :C)(that :O)
-		                                    (implicit iterableOnceLike :IterableOnceLike[U, funny.generic.Any, O])
+		                                    (implicit iterableOnceLike :IterableOnceLike[U, funny.generic.Any1, O])
 				:Boolean =
 			elems.sameElements(iterableOnceLike.toIterableOnce(that))
 
@@ -666,7 +666,7 @@ trait IndexedSeqLike[+E, +CC[_], C] extends SeqLike[E, CC, C] {
 
 	override def sizeCompare(elems :C, len :Int) :Int = Integer.compare(size(elems), len)
 
-	override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, generic.Any, O]) :Int = {
+	override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, generic.Any1, O]) :Int = {
 		val thatSize = collection.knownSize(that)
 		if (thatSize >= 0)
 			Integer.compare(size(elems), thatSize)
@@ -874,19 +874,19 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 
 		override def segmentLength(elems :Ranking[E])(p :E => Boolean, from :Int) = elems.segmentLength(p, from)
 		override def endsWith[U >: E, O](elems :Ranking[E])(that :O)
-		                                (implicit iterableLike :IterableLike[U, funny.generic.Any, O]) =
+		                                (implicit iterableLike :IterableLike[U, funny.generic.Any1, O]) =
 			elems.endsWith(iterableLike.toIterable(that))
 		override def startsWith[U >: E, O](elems :Ranking[E])(that :O, offset :Int)
-		                                  (implicit iterableOnceLike :IterableOnceLike[U, funny.generic.Any, O]) =
+		                                  (implicit iterableOnceLike :IterableOnceLike[U, funny.generic.Any1, O]) =
 			elems.startsWith(iterableOnceLike.toIterableOnce(that), offset)
 
 		override def prepended[A >: E](elems :Ranking[E])(elem :A) = elems.prepended(elem)
 		override def appended[A >: E](elems :Ranking[E])(elem :A) = elems.appended(elem)
 		override def prependedAll[A >: E, O](elems :Ranking[E])(prefix :O)
-		                                    (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, O]) =
+		                                    (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any1, O]) =
 			elems.prependedAll(iterableOnceLike.toIterableOnce(prefix))
 		override def concat[A >: E, O](elems :Ranking[E])(suffix :O)
-		                              (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, O]) =
+		                              (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any1, O]) =
 			elems.concat(iterableOnceLike.toIterableOnce(suffix))
 
 		override def distinct(elems :Ranking[E]) = elems
@@ -1014,11 +1014,11 @@ private abstract class GenericForArrayLike[E, Arr[X] <: ArrayLike[X]] extends In
 
 	final override def segmentLength(elems :Arr[E])(p :E => Boolean, from :Int = 0) :Int = elems.segmentLength(p)
 	final override def startsWith[U >: E, O](elems :Arr[E])(that :O, offset :Int = 0)
-	                                        (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :Boolean =
+	                                        (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :Boolean =
 		elems.startsWith(iterableOnceLike.toIterableOnce(that), offset)
 
 	final override def endsWith[U >: E, O](elems :Arr[E])(that :O)
-	                                      (implicit iterableLike :IterableLike[U, generic.Any, O]) :Boolean =
+	                                      (implicit iterableLike :IterableLike[U, generic.Any1, O]) :Boolean =
 		elems.endsWith(iterableLike.toIterable(that))
 
 	final override def indexOfSlice[A >: E](elems :Arr[E])(that :collection.Seq[A], from :Int = 0) :Int =
@@ -1028,7 +1028,7 @@ private abstract class GenericForArrayLike[E, Arr[X] <: ArrayLike[X]] extends In
 		elems.lastIndexOfSlice(that, end)
 
 	final override def sameElements[U >: E, O](elems :Arr[E])(that :O)
-	                                          (implicit iterableOnceLike :IterableOnceLike[U, generic.Any, O]) :Boolean =
+	                                          (implicit iterableOnceLike :IterableOnceLike[U, generic.Any1, O]) :Boolean =
 		elems.sameElements(iterableOnceLike.toIterableOnce(that))
 
 	final override def corresponds[A](elems :Arr[E])(that :collection.Seq[A])(p :(E, A) => Boolean) :Boolean =
@@ -1057,7 +1057,7 @@ private abstract class GenericForArrayLike[E, Arr[X] <: ArrayLike[X]] extends In
 
 	override def view(elems :Arr[E]) :IndexedSeqView[E] = elems.view //new IndexedSeqView.Id(toOps(elems))
 	override def toIterableOnce(elems :Arr[E]) :IterableOnce[E] = elems.iterator
-	override def toIterableOnceOps(elems :Arr[E]) :IterableOnceOps[E, generic.Any, Any] = elems.iterator
+	override def toIterableOnceOps(elems :Arr[E]) :IterableOnceOps[E, generic.Any1, Any] = elems.iterator
 
 	override def infoString(elems :Arr[E]) :String = util.errorString(elems)
 }
@@ -1102,13 +1102,13 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 
 	final override def zipWithIndex(elems :Arr[E]) :Arr[(E, Int)] = elems.zipWithIndex
 	final override def zip[A, O](elems :Arr[E])(that :O)
-	                            (implicit iterableOnceLike :IterableOnceLike[A, generic.Any, O]) :Arr[(E, A)] =
+	                            (implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, O]) :Arr[(E, A)] =
 		elems.zip(iterableOnceLike.toIterableOnce(that))
 	final override def lazyZip[A, O](elems :Arr[E])(that: O)
-	                                (implicit iterableLike :IterableLike[A, generic.Any, O]) :LazyZip2[E, A, Arr[E]] =
+	                                (implicit iterableLike :IterableLike[A, generic.Any1, O]) :LazyZip2[E, A, Arr[E]] =
 		elems.lazyZip(iterableLike.toIterable(that))
 	final override def zipAll[U >: E, A, O](elems :Arr[E])(that :O, thisElem :U, thatElem :A)
-	                                       (implicit iterableLike :IterableLike[A, generic.Any, O]) :Arr[(U, A)] =
+	                                       (implicit iterableLike :IterableLike[A, generic.Any1, O]) :Arr[(U, A)] =
 		elems.zipAll(iterableLike.toIterable(that), thisElem, thatElem)
 
 	override def empty(elems :Arr[E]) :Arr[E] =
@@ -1148,7 +1148,7 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 	}
 
 	override def prependedAll[A >: E, O](elems :Arr[E])(prefix :O)
-	                                    (implicit iterableOnceLike :IterableOnceLike[A, generic.Any, O]) =
+	                                    (implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, O]) =
 	{
 		val size = iterableOnceLike.knownSize(prefix)
 		val length = elems.length
@@ -1163,7 +1163,7 @@ private abstract class SpecificForArrayLike[E, Arr[X] <: ArrayLike[X]]
 		}
 	}
 	override def concat[A >: E, O](elems :Arr[E])(suffix :O)
-	                              (implicit iterableOnceLike :IterableOnceLike[A, generic.Any, O]) =
+	                              (implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, O]) =
 	{
 		val size   = iterableOnceLike.knownSize(suffix)
 		val length = elems.length

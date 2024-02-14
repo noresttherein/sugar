@@ -53,11 +53,11 @@ object RankingSpec
 			check(distinct, Ranking.from(elems)) lbl distinct.mkString("Distinct(", ", ", ")")
 		}
 
-	protected override def test[T, X, F, M, FM]
-	                           (f :Iterable[T] => Iterable[X])
-	                           (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
-	                            tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
-	                            mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
+	protected override def validate[T, X, F, M, FM]
+	                               (f :Iterable[T] => Iterable[X])
+	                               (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
+	                                tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
+	                                mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
 		forAll { elems :Seq[T] => validate(f(elems.toSeq.distinct).toSeq.distinct, f(elems to C) to C) }
 
 	protected override def validate[T, F, M, FM](label: => String, expect :Iterable[T], result :Iterable[T])

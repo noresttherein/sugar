@@ -425,7 +425,7 @@ private object Iterators {
 	}
 
 	@tailrec def reverse[E](items :IterableOnce[E]) :Iterator[E] = items match {
-		case indexed :collection.IndexedSeqOps[E, generic.Any, _] =>
+		case indexed :collection.IndexedSeqOps[E, generic.Any1, _] =>
 			if (indexed.isEmpty) Iterator.empty[E] else indexed.reverseIterator
 		case ranking :Ranking[E]                        => ranking.reverseIterator
 		case view    :View[E]                           => reverse(view.iterator)

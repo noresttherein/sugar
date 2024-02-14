@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.testing.scalacheck
 
 import scala.annotation.nowarn
+import scala.collection.View
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
@@ -73,6 +74,10 @@ object typeClasses {
 
 	implicit def buildableVector[T] :Buildable[T, Vector[T]] = new Buildable[T, Vector[T]] {
 		override def builder = Vector.newBuilder[T]
+	}
+
+	implicit def buildableView[T] :Buildable[T, View[T]] = new Buildable[T, View[T]] {
+		override def builder = List.newBuilder[T].mapResult { list => View.fromIteratorProvider(() => list.iterator) }
 	}
 
 

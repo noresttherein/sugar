@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import java.lang.System.arraycopy
 
 import scala.annotation.nowarn
-import scala.collection.{AbstractIterable, AbstractSet, ArrayOps, Factory}
+import scala.collection.{AbstractIterable, AbstractSet, ArrayOps, Factory, StrictOptimizedIterableOps}
 import scala.collection.immutable.AbstractMap
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.util.hashing.MurmurHash3
@@ -31,6 +31,7 @@ import net.noresttherein.sugar.vars.Opt.One
   */
 //consider: making it invariant. Type inference sucks for this trait and we don't really take advantage of covariance
 // much as we need casting on the key type anyway.
+//todo: rename to GenNatMap, and make an immutable NatMap.
 trait NatMap[K[X], +V[X]]
 	extends Iterable[NatMap.Assoc[K, V, _]] with (K =>: V) with Equals with Serializable
 { outer =>
@@ -139,12 +140,13 @@ trait NatMap[K[X], +V[X]]
 
 	private[collections] implicit def defaults :WhenNoKey[K, V]
 
-	protected[this] override def newSpecificBuilder :Builder[NatMap.Assoc[K, V, _], NatMap[K, V]] =
-		NatMap.newBuilder[K, V]
+	protected[this] override def fromSpecific(coll :IterableOnce[Assoc[K, V, _]]) :NatMap[K, V] = NatMap.from(coll)
+	protected[this] override def newSpecificBuilder :Builder[Assoc[K, V, _], NatMap[K, V]] = NatMap.newBuilder
+	override def empty :NatMap[K, V] = MutNatMap.empty
 
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[NatMap[K @unchecked, V @unchecked]]
 
-	override def className :String = "NatMap"
+	protected[this] override def className :String = "NatMap"
 
 }
 
@@ -624,7 +626,7 @@ object NatMap extends ImplicitNatMapFactory {
 	private class NaturalizedMap[K[_], +V[_]]
 	                            (private val entries :Map[K[_], V[_]] = Map.empty[K[_], V[_]])
 	                            (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
-		extends NatMap[K, V]
+		extends NatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, NatMap[K, V]]
 	{
 		override def size :Int = entries.size
 		override def knownSize :Int = entries.knownSize

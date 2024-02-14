@@ -186,7 +186,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @return       a new $coll resulting from applying the given collection-valued function
 	  *               `f` to each element of `elems` and concatenating the results.
 	  */
-	def flatMap[O, A](elems :C)(f :E => O)(implicit asIterableOnce :IterableOnceLike[A, generic.Any, O]) :CC[A]
+	def flatMap[O, A](elems :C)(f :E => O)(implicit asIterableOnce :IterableOnceLike[A, generic.Any1, O]) :CC[A]
 
 	/** Builds a new $coll by applying a function to all elements of `elems`
 	  * and using the elements of the resulting collections.
@@ -222,7 +222,7 @@ trait IterableOnceLike[+E, +CC[_], C] extends CollectionLike[E, C] {
 	  * @param iterableOnceLike a type class allowing to treat `elems` like `IterableOnce`.
 	  * @return a new $coll resulting from concatenating all element ${coll}s.
 	  */
-	def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any, U]) :CC[A]
+	def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, U]) :CC[A]
 
 	def flattenIterableOnce[A](elems :C)(implicit asIterableOnce :E => IterableOnce[A]) :CC[A]
 
@@ -722,11 +722,11 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 			elems.iterator.flatMap(f)
 
 		override def flatMap[O, A](elems :IterableOnce[E])(f :E => O)
-		                          (implicit asIterableOnce :IterableOnceLike[A, funny.generic.Any, O]) :IterableOnce[A] =
+		                          (implicit asIterableOnce :IterableOnceLike[A, funny.generic.Any1, O]) :IterableOnce[A] =
 			elems.iterator.flatMap(e => asIterableOnce.toIterableOnce(f(e)))
 
 		override def flatten[A, U >: E](elems :IterableOnce[E])
-		                               (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, U])
+		                               (implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any1, U])
 				:IterableOnce[A] =
 			elems.iterator.flatten(iterableOnceLike.toIterableOnce)
 
@@ -779,13 +779,13 @@ object IterableOnceLike extends Rank1IterableOnceLike {
 		override def map[A](elems :C)(f :E => A): CC[A] = elems.map(f)
 		override def flatMapIterableOnce[A](elems :C)(f :E => IterableOnce[A]) :CC[A] = elems.flatMap(f)
 		override def flatMap[O, A](elems :C)(f :E => O)
-		                          (implicit asIterableOnce :IterableOnceLike[A, funny.generic.Any, O]) :CC[A] =
+		                          (implicit asIterableOnce :IterableOnceLike[A, funny.generic.Any1, O]) :CC[A] =
 			elems.flatMap(e => asIterableOnce.toIterableOnce(f(e)))
 
 		override def flattenIterableOnce[A](elems :C)(implicit asIterableOnce :E => IterableOnce[A]) :CC[A] =
 			elems.flatten
 
-		override def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, U]) :CC[A] =
+		override def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any1, U]) :CC[A] =
 			elems.flatten(iterableOnceLike.toIterableOnce)
 
 		override def collect[A](elems :C)(pf: PartialFunction[E, A]) :CC[A] = elems.collect(pf)

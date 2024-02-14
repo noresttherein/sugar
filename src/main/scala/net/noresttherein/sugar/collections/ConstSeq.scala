@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 
 import scala.collection.AbstractSeq
-import scala.collection.immutable.{LinearSeq, SeqOps}
+import scala.collection.immutable.{LinearSeq, SeqOps, StrictOptimizedSeqOps}
 
 import net.noresttherein.sugar.arrays.MutableArrayExtension
 import net.noresttherein.sugar.collections.extensions.IteratorCompanionExtension
@@ -13,7 +13,7 @@ import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, u
 
 
 
-private sealed trait ConstSeqOps[+E, CC[+_], +C] extends SeqOps[E, CC, C] { this :C =>
+private sealed trait ConstSeqOps[+E, CC[+_], +C] extends StrictOptimizedSeqOps[E, CC, C] { this :C =>
 
 	final override def length :Int =
 		if (knownSize >= 0) knownSize

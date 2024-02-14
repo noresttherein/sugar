@@ -35,7 +35,7 @@ import net.noresttherein.sugar.illegal_!
 private class AliasingArrayBuffer[E](capacity :Int)
 	extends ArrayBuffer[E](capacity) with ArrayIterableOnce[E]
 	   with mutable.IndexedSeqOps[E, AliasingArrayBuffer, AliasingArrayBuffer[E]]
-	   with StrictOptimizedSeqOps[E, AliasingArrayBuffer, AliasingArrayBuffer[E]]
+	   with collection.StrictOptimizedSeqOps[E, AliasingArrayBuffer, AliasingArrayBuffer[E]]
 	   with IterableFactoryDefaults[E, AliasingArrayBuffer] with DefaultSerializable
 {
 	def this() = this(ArrayBuffer.DefaultInitialSize)

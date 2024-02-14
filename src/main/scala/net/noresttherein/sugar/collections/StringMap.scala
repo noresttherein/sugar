@@ -6,7 +6,7 @@ import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, Factory, SpecificIterableFactory, immutable}
 import scala.collection.generic.DefaultSerializable
-import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, SortedSetOps}
+import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, SortedSetOps, StrictOptimizedMapOps, StrictOptimizedSortedSetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
@@ -53,9 +53,10 @@ trait SpecificSortedMapOps[K, +V, +C <: MapOps[K, V, Map, C]] extends MapOps[K, 
   */
 @SerialVersionUID(Ver)
 final class StringMap[+V] private (root :PrefixTree[V])
-	extends AbstractMap[String, V] with SugaredIterable[(String, V)]
-	   with SpecificSortedMapOps[String, V, StringMap[V]] with MapOps[String, V, Map, StringMap[V]]
-	   with SugaredSlicingOps[(String, V), immutable.Iterable, StringMap[V]] with DefaultSerializable
+	extends AbstractMap[String, V] with StrictOptimizedMapOps[String, V, Map, StringMap[V]]
+	   with SugaredIterable[(String, V)] with SpecificSortedMapOps[String, V, StringMap[V]]
+	   with SugaredSlicingOps[(String, V), immutable.Iterable, StringMap[V]]
+	   with DefaultSerializable
 {
 	override def size :Int = root.size
 	override def knownSize :Int = root.size
@@ -242,7 +243,7 @@ case object StringMap {
   * @define coll string set
   */
 final class StringSet(root :PrefixTree[_])
-	extends AbstractSet[String] with SortedSet[String] with SortedSetOps[String, SortedSet, StringSet]
+	extends AbstractSet[String] with SortedSet[String] with StrictOptimizedSortedSetOps[String, SortedSet, StringSet]
 	   with SugaredIterable[String] with SugaredSlicingOps[String, Set, StringSet]
 	   with SpecificIterableFactoryDefaults[String, Set, StringSet] with DefaultSerializable
 {

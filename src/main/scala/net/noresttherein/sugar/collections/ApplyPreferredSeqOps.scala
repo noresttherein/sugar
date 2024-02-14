@@ -8,9 +8,9 @@ import scala.collection.{Stepper, StepperShape}
 /** A mixin traits for mutable and immutable `IndexedSeq` implementations which overrides `IterableOnceOps` methods
   * to use `apply`, rather than `iterator`.
   */
-trait ApplyPreferredSeqOps[+E, CC[_], +C <: collection.IndexedSeq[E]]
-	extends collection.IndexedSeqOps[E, CC, C] with scala.collection.StrictOptimizedSeqOps[E, CC, C]
- {
+trait ApplyPreferredSeqOps[+E, +CC[_], +C <: collection.IndexedSeq[E]]
+	extends collection.IndexedSeqOps[E, CC, C] with collection.StrictOptimizedSeqOps[E, CC, C]
+{
 	override def iterator :Iterator[E] = IndexedSeqIterator(coll)
 	override def reverseIterator :Iterator[E] = ReverseIndexedSeqIterator(coll)
 
@@ -29,14 +29,14 @@ trait ApplyPreferredSeqOps[+E, CC[_], +C <: collection.IndexedSeq[E]]
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int = segmentLength(p, from, false)
 	private def segmentLength(p :E => Boolean, from :Int, flipped :Boolean) :Int = {
-		var i = 0; val len = length
+		var i = from; val len = length
 		while (i < len && p(apply(i)) != flipped)
 			i += 1
 		i
 	}
 	override def indexWhere(p :E => Boolean, from :Int) :Int = {
 		val len = segmentLength(p, from, true)
-		if (len < 0) -1 else len
+		if (len == length) -1 else len
 	}
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int = {
 		var i = math.min(length - 1, end)
@@ -45,11 +45,11 @@ trait ApplyPreferredSeqOps[+E, CC[_], +C <: collection.IndexedSeq[E]]
 		if (i < 0) -1 else i
 	}
 
-	override def find(p :E => Boolean) :Option[E] = indexOf(p) match {
+	override def find(p :E => Boolean) :Option[E] = indexWhere(p) match {
 		case -1 => None
 		case  i => Some(apply(i))
 	}
-	override def findLast(p :E => Boolean) :Option[E] = lastIndexOf(p) match {
+	override def findLast(p :E => Boolean) :Option[E] = lastIndexWhere(p) match {
 		case -1 => None
 		case  i => Some(apply(i))
 	}
@@ -72,7 +72,7 @@ trait ApplyPreferredSeqOps[+E, CC[_], +C <: collection.IndexedSeq[E]]
 	override def partition(p :E => Boolean) :(C, C) = {
 		val yes = newSpecificBuilder
 		val no  = newSpecificBuilder
-		val len = 0
+		val len = length
 		var i   = 0
 		while (i < len) {
 			val elem = apply(i)

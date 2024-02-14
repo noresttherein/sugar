@@ -163,7 +163,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		def apply[E](array :RefArray[E]) :mutable.IndexedSeq[E] =
 			mutable.ArraySeq.make(array.castFrom[RefArray[E], Array[E]])
 
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[RefArray[E]] = {
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[RefArray[E]] = {
 			val array = elems match {
 				case seq   :mutable.ArraySeq[_]                                     => seq.array
 				case seq   :ArrayBuffer[_]                                          => CheatedAccess.array(seq)
@@ -183,7 +183,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 			def apply[E](array :RefArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
 				RefArraySlice.slice(array, from, until)
 
-			def unapply[E](elems :mutable.SeqOps[E, generic.Any, _]) :Maybe[(RefArray[E], Int, Int)] = {
+			def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(RefArray[E], Int, Int)] = {
 				val length = elems.length
 				var start  = 0
 				val array  = elems match {

@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 
 
-import scala.collection.mutable
+import scala.collection.{StrictOptimizedIterableOps, mutable}
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.NatMap.Assoc
@@ -36,6 +36,12 @@ trait MutNatMap[K[_], V[_]]
 	def put[X](key :K[X], value :V[X]) :Option[V[X]]
 
 	def mapValuesInPlace(f :Item =>: V) :this.type
+
+	protected override def fromSpecific(coll :IterableOnce[Assoc[K, V, _]]) :MutNatMap[K, V] = MutNatMap.from(coll)
+	protected override def newSpecificBuilder :Builder[Assoc[K, V, _], MutNatMap[K, V]] = MutNatMap.empty
+	override def empty :MutNatMap[K, V] = MutNatMap.empty
+
+	protected[this] override def className :String = "MutNatMap"
 }
 
 
@@ -44,12 +50,14 @@ trait MutNatMap[K[_], V[_]]
 @SerialVersionUID(Ver)
 object MutNatMap {
 
-	def apply[K[_], V[_]](entries :Assoc[K, V, _]*) :MutNatMap[K, V] =
-		new NaturaliazedMap[K, V] ++= entries
+	def from[K[_], V[_]](entries :IterableOnce[Assoc[K, V, _]]) :MutNatMap[K, V] =
+		new NaturalizedMap[K, V] ++= entries
 
-	def empty[K[_], V[_]] :MutNatMap[K, V] = new NaturaliazedMap[K, V]
+	def apply[K[_], V[_]](entries :Assoc[K, V, _]*) :MutNatMap[K, V] = from(entries)
 
-	def freezable[K[_], V[_]] :FreezableMap[K, V] = new NaturaliazedMap[K, V] with FreezableMap[K, V]
+	def empty[K[_], V[_]] :MutNatMap[K, V] = new NaturalizedMap[K, V]
+
+	def freezable[K[_], V[_]] :FreezableMap[K, V] = new NaturalizedMap[K, V] with FreezableMap[K, V]
 
 
 
@@ -85,18 +93,14 @@ object MutNatMap {
 
 
 	@SerialVersionUID(Ver)
-	private class NaturaliazedMap[K[_], V[_]](entries :mutable.Map[K[_], V[_]])
-		extends MutNatMap[K, V]
+	private class NaturalizedMap[K[_], V[_]](entries :mutable.Map[K[_], V[_]])
+		extends MutNatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, MutNatMap[K, V]]
 	{
 		def this() = this(mutable.Map.empty[K[_], V[_]])
 
 		override def size :Int = entries.size
 
 		override def knownSize :Int = entries.knownSize
-
-
-		protected[this] override def newSpecificBuilder :Builder[Assoc[K, V, _], MutNatMap[K, V]] =
-			new NaturaliazedMap[K, V]
 
 		override def getOrElse[U[T] >: V[T], X](key :K[X], default : => U[X]) :U[X] =
 			entries.getOrElse(key, default).asInstanceOf[V[X]]
@@ -107,8 +111,6 @@ object MutNatMap {
 		override def apply[X](key :K[X]) :V[X] = entries(key).asInstanceOf[V[X]]
 
 		override def contains(key :K[_]) :Boolean = entries.contains(key)
-
-
 
 		override def iterator :Iterator[Assoc[K, V, _]] =
 			entries.iterator.map { case (k, v) => Assoc(k.asInstanceOf[K[Any]], v.asInstanceOf[V[Any]]) }
@@ -132,10 +134,8 @@ object MutNatMap {
 			res.result()
 		}
 
-
 		override def ++[U[T] >: V[T]](entries :IterableOnce[Assoc[K, U, _]]) :NatMap[K, U] =
 			NatMap.empty[K, U] ++ this ++ entries
-
 
 		override def put[X](key :K[X], value :V[X]) :Option[V[X]] =
 			entries.put(key, value).asInstanceOf[Option[V[X]]]
@@ -147,7 +147,6 @@ object MutNatMap {
 		override def addOne(elem :Assoc[K, V, _]) :this.type = {
 			entries.addOne (elem._1, elem._2); this
 		}
-
 
 		override def mapValuesInPlace(f :Item =>: V) :this.type = {
 			entries.mapValuesInPlace {

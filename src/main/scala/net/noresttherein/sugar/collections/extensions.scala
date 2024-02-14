@@ -5,7 +5,7 @@ import java.lang.{Math => math}
 import java.lang.System.arraycopy
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
-import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SortedMapFactory, Stepper, StepperShape, View, mutable}
+import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.{IsIterableOnce, IsSeq}
 import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps}
@@ -16,7 +16,8 @@ import scala.runtime.BoxedUnit
 import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
@@ -25,9 +26,9 @@ import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, appl
 import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BufferExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
-import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
+import net.noresttherein.sugar.funny.generic.Any1
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -36,6 +37,7 @@ import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
+import net.noresttherein.sugar.optional.extensions.OptionExtension
 import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -324,8 +326,26 @@ object extensions extends extensions {
 			case _ => false
 		}
 
+		/** True for collections known to be strict, that is having their elements already computed.
+		  * @return `this.isInstanceOf[`[[scala.collection.StrictOptimizedIterableOps StrictOptimizedIterableOps]]`[_, _, _]`.
+		  */
+		def knownStrict :Boolean = self.isInstanceOf[StrictOptimizedIterableOps[_, Any1, _]]
+
+		/** True for collections iterating over which is idempotent. They may be lazy, and may still have side effects,
+		  * but only if they are evaluated once. The only possibly non-pure collections
+		  * are [[scala.collection.View View]] and [[scala.collection.Iterator Iterator]], but this check is based
+		  * on a white list, not black list to be proof against unknown collection types, at the cost of possibly
+		  * yielding false negatives.
+		  */
+		@nowarn("cat=deprecation")
+		def knownPure :Boolean = self match {
+			case _ :StrictOptimizedIterableOps[_, _, _] | _ :LazyList[_] | _ :Stream[_] => true
+			case _ => false
+		}
+
 		/** Returns `this` if this collection is an [[collection.Iterable Iterable]], or `this.iterator` otherwise. */
 		@inline def toIterableOnceOps :IterableOnceOps[E, IterableOnce, IterableOnce[E]] = self match {
+//			case view  :View[E]     => view.iterator
 			case items :Iterable[E] => items
 			case iter  :Iterator[E] => iter
 			case _                  => self.iterator
@@ -338,7 +358,7 @@ object extensions extends extensions {
 		  * delegating to `iterator` in fewer cases, but the result's 'self' type is unknown,
 		  * meaning all methods which create collections may return arbitrary objects, not an `IterableOnce`.
 		  */
-		@inline def toBasicOps :IterableOnce[E] with IterableOnceOps[E, generic.Any, _] = self match {
+		@inline def toBasicOps :IterableOnce[E] with IterableOnceOps[E, generic.Any1, _] = self match {
 			case ops  :IterableOnceOps[E @unchecked, _, _] => ops
 			case _                                         => self.iterator
 		}
@@ -390,6 +410,8 @@ object extensions extends extensions {
 						if (list.isEmpty) acc
 						else foldList(i + 1, op(acc, list.head, i), list.tail)
 					foldList(0, start, seq)
+				//consider: either removing special cases for array-backed collections, or specializing them,
+				// at least for AnyRef. A simple way would be to wrap the array in a RelayArray, and use its methods.
 				case ErasedArray.Wrapped.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						var i = 0; val end = until - from
@@ -672,8 +694,8 @@ object extensions extends extensions {
 						ifNotFound(acc)
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :X = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :X = {
 						val it  = seq.reverseIterator
 						var acc = start
 						while (it.hasNext) {
@@ -961,8 +983,8 @@ object extensions extends extensions {
 						ifFound(acc)
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :X = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :X = {
 						var last = start
 						val it   = seq.reverseIterator
 						while (it.hasNext) {
@@ -1198,8 +1220,8 @@ object extensions extends extensions {
 						last
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :A = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
 						val it   = seq.reverseIterator
 						var last = start
 						while (it.hasNext) {
@@ -1405,8 +1427,8 @@ object extensions extends extensions {
 						last
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :A = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
 						var last = start
 						val it   = seq.reverseIterator
 						while (it.hasNext) {
@@ -1537,8 +1559,8 @@ object extensions extends extensions {
 						if (pred(last)) ifFound(last) else ifNotFound(last)
 					}
 					reduceIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def reduceSeq(seq :collection.SeqOps[E, generic.Any, _]) :X = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def reduceSeq(seq :collection.SeqOps[E, generic.Any1, _]) :X = {
 						if (seq.isEmpty)
 							return ifEmpty
 						val i       = seq.reverseIterator
@@ -1686,8 +1708,8 @@ object extensions extends extensions {
 					if (len == 0)
 						unsupported_!("partialReduceRight on an empty " + self.className)
 					reduceIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def reduceSeq(seq :collection.SeqOps[E, generic.Any, _]) :A = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def reduceSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
 						val fallback = new PartialFoldRightFunction[A, E]
 						val i        = seq.reverseIterator
 						if (!i.hasNext)
@@ -1837,8 +1859,8 @@ object extensions extends extensions {
 						unsupported_!("reduceRightSuffix on an empty " + self.className)
 					else
 						foldIndexed
-				case seq :collection.SeqOps[E, generic.Any, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any, _]) :A = {
+				case seq :collection.SeqOps[E, generic.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
 						val it      = seq.reverseIterator
 						var last :A = it.next()
 						while (it.hasNext) {
@@ -2135,7 +2157,7 @@ object extensions extends extensions {
 							errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
 					)
 				case ErasedArray.Wrapped(array :Array[A @unchecked]) =>
-					array.copyRangeToArray(xs, start, from, len)
+					ArrayLikeExtension(array).copyRangeToArray(xs, start, from, len)
 				case ApplyPreferred(seq) =>
 					val from0  = math.max(from, 0)
 					val copied = math.min(len, math.min(xs.length - start, seq.size - from0))
@@ -2203,9 +2225,12 @@ object extensions extends extensions {
 				case _ if from <= 0 && (len <= suffixSpace || size >= 0 && size <= suffixSpace) =>
 					toBasicOps.copyToArray(xs, start, len)
 				case ErasedArray.Wrapped(array :Array[A @unchecked]) =>
-					array.cyclicCopyRangeToArray(xs, start, from, len)
+					ArrayLikeExtension(array).cyclicCopyRangeToArray(xs, start, from, len)
+
 				case ErasedArray.Wrapped.Slice(array :Array[A @unchecked], lo, _) =>
-					array.cyclicCopyRangeToArray(xs, start, lo + start + from, math.min(len, size - start - from))
+					ArrayLikeExtension(array).cyclicCopyRangeToArray(
+						xs, start, lo + start + from, math.min(len, size - start - from)
+					)
 				case ApplyPreferred(seq) =>
 					val size   = seq.size
 					val from0  = math.min(size, math.max(from, 0))
@@ -2241,13 +2266,13 @@ object extensions extends extensions {
 			cyclicCopyRangeToArray(xs, start, 0, len)
 
 		/** An immutable array with the contents of this collection. */
-		def toIArray[A >: E :ClassTag] :IArray[A] = toBasicOps.toArray[A].asInstanceOf[IArray[A]]
+		def toIArray[A >: E :ClassTag] :IArray[A] = IArray.from[A](self)
 
 		/** Creates an `Array[AnyRef]` with elements of this collection, and passes it as an `RefArray[A]`. */
-		def toRefArray[A >: E] :RefArray[A] = toBasicOps.toArray[Any].asInstanceOf[RefArray[A]]
+		def toRefArray[A >: E] :RefArray[A] = RefArray.from[A](self)
 
 		/** Creates an `Array[AnyRef]` with elements of this collection, and passes it as an `IRefArray[A]`. */
-		def toIRefArray[A >: E] :IRefArray[A] = toBasicOps.toArray[Any].asInstanceOf[IRefArray[A]] //type param superfluous, but kept for consistency
+		def toIRefArray[A >: E] :IRefArray[A] = IRefArray.from(self)
 
 	}
 
@@ -2747,9 +2772,9 @@ object extensions extends extensions {
 		def lastOccurrences :C =
 			if (util.knownUnique(self))
 				coll
-			else {
-				lazy val result = Iterators.distinct(self.toRefArray.reverseIterator).toRefArray.reverse
-				util.fromSpecific(self)(View.fromIteratorProvider(() => result.iterator))
+			else { //Lazy so it isn't evaluated if self is a lazy collection.
+				lazy val result = Iterators.distinct(self.toRefArray.reverseIterator).toRefArray
+				util.fromSpecific(self)(View.fromIteratorProvider(() => result.reverseIterator))
 			}
 
 		/** A copy of this collection with the element at the specified index removed.
@@ -4079,6 +4104,88 @@ object extensions extends extensions {
 					}
 			}
 			thatSize
+		}
+
+		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.mutableIndexedSeqExtension.overwrite overwrite]]`(index, first +: second +: rest)`. */
+		def overwrite(index :Int, first :E, second :E, rest :E*) :Int = {
+			val length = self.length
+			if (index >= length)
+				0
+			else {
+				if (index <= -2)
+					overwrite(index + 2, rest)
+				else if (index == -1) {
+					if (length == 0)
+						0
+					else {
+						self(0) = second
+						1 + overwrite(1, rest)
+					}
+				} else {
+					self(index) = first
+					if (index == length - 1)
+						1
+					else {
+						self(index + 1) = second
+						2 + overwrite(index + 2, rest)
+					}
+				}
+			}
+		}
+
+		def overwrite(index :Int, elems :IterableOnce[E]) :Int = {
+			val length    = self.length
+			val elemsSize = elems.knownSize
+			if (index >= length || elemsSize >= 0 && index <= -elemsSize)
+				0
+			else elems match {
+				case _ if index == Int.MinValue    => 0
+				case list :collection.LinearSeq[E] =>
+					var next = list
+					var i = index
+					if (index < 0) {
+						i = 0
+						next = list.drop(-index)
+					}
+					while (i < length && next.nonEmpty) {
+						self(i) = next.head
+						next    = next.tail
+						i      += 1
+					}
+					math.max(0, i - math.max(index, 0))
+				//consider: is it even worthwile to have special cases for arrays if we don't have specialized code?
+				case ErasedArray.Wrapped.Slice(array, from, until) =>
+					val thisOffset = if (index >= 0) index else 0
+					val thatOffset = if (index >= 0) from else math.min(Int.MinValue + index, from) - index
+					val count = math.max(length - thisOffset, until - thatOffset)
+					var i = 0
+					array match {
+						case a :Array[AnyRef] =>
+							val seq = self.asInstanceOf[mutable.IndexedSeq[AnyRef]]
+							while (i < count) {
+								seq(thisOffset + i) = a(thatOffset + i)
+								i += 1
+							}
+						case a :Array[E @unchecked] =>
+							while (i < count) {
+								self(thisOffset + i) = a(thatOffset + i)
+								i += 1
+							}
+					}
+					count
+				case ApplyPreferred(seq) =>
+					val thisOffset = if (index >= 0) index else 0
+					val thatOffset = if (index >= 0) 0 else - index
+					val count = math.max(length - thisOffset, seq.length - thatOffset)
+					var i = 0
+					while (i < count) {
+						self(thisOffset + i) = seq(thatOffset + i)
+						i += 1
+					}
+					count
+				case HasFastSlice(items)           => overwrite(0, items.drop(-index))
+				case _                             => overwrite(0, elems.iterator.drop(-index))
+			}
 		}
 
 		@inline def shuffle()(implicit random :Random) :Unit = shuffle(0, self.length)
@@ -5800,16 +5907,17 @@ object extensions extends extensions {
 			else if (self eq ListBuffer) (ListBuffer.empty[E] += elem).castFrom[ListBuffer[E], C[E]]
 			else self.empty[E] :+ elem
 
-		def two[E](first :E, second :E) :C[E] = //not match because of 'pattern type is incompatible with matched value'
-			if (self eq Seq) new Prepended2Seq(first, second, Nil).castCons[C]
-			else if (self eq IndexedSeq) new Prepended2IndexedSeq(first, second, IndexedSeq.empty).castCons[C]
-			else if (self eq List) (first::second::Nil).castCons[C]
-			else if (self eq RelayArray) RelayArray.two(first, second).castFrom[Seq[E], C[E]]
-			else if ((self eq Buffer) || (self eq mutable.Seq)) (Buffer.empty[E] += first += second).castCons[C]
-			else if ((self eq ArrayBuffer) || (self eq mutable.IndexedSeq) || (self eq IndexedBuffer))
-				(new ArrayBuffer[E] += first += second).castCons[C]
-			else if (self eq ListBuffer) (new ListBuffer[E] += first += second).castCons[C]
-			else self.from(new Prepended2Seq(first, second, Nil))
+		def two[E](first :E, second :E) :C[E] = (self :Any) match {
+			case Seq                  => Prepended2Seq(first, second, Nil).castCons[C]
+			case IndexedSeq           => Prepended2Seq(first, second, IndexedSeq.empty).castCons[C]
+			case RelayArray           => RelayArray.two(first, second).castCons[C]
+			case Buffer | mutable.Seq => (Buffer.empty[E] += first += second).castCons[C]
+			case ListBuffer           => (new ListBuffer[E] += first += second).castCons[C]
+			case ArrayBuffer | mutable.IndexedSeq | IndexedBuffer =>
+				(new ArrayBuffer[E](2) += first += second).castCons[C]
+			case _ =>
+				self from Prepended2Seq(first, second, RelayArray.empty)
+		}
 
 		/** The same as [[collection.SeqFactory.fill fill]], but the expression is evaluated only once,
 		  * rather than for each element independently. Additionally, [[collection.immutable.Seq$ Seq]],
@@ -6359,4 +6467,7 @@ object extensions extends extensions {
 		@inline final def apply[S <: Stepper[_]]()(implicit shape :StepperShape[T, S]) :StepperShape[T, S] = shape
 	}
 
+
+	@inline implicit private def ArrayLikeExtension[Arr[X] <: ArrayLike[X], E](array :Arr[E]) :ArrayLikeExtension[Arr, E] =
+		new ArrayLikeExtension(array.asInstanceOf[Array[Unknown]])
 }

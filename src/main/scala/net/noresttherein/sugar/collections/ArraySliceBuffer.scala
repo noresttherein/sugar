@@ -2,6 +2,7 @@ package net.noresttherein.sugar.collections
 
 import java.lang.System.arraycopy
 
+import scala.annotation.tailrec
 import scala.collection.generic.DefaultSerializable
 import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqOps, mutable}
 import scala.collection.immutable.ArraySeq
@@ -47,7 +48,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
                                          private[this] var offset :Int, private[this] var len :Int)
 	extends AbstractBuffer[E] with IndexedBuffer[E] with ArraySliceOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with mutable.IndexedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
-	   with StrictOptimizedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
+	   with collection.StrictOptimizedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with IterableFactoryDefaults[E, ArraySliceBuffer] with DefaultSerializable
 {
 	def this(initialCapacity :Int) =
@@ -197,42 +198,46 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 		array(offset + idx) = elem
 	}
 
-	override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit = elems.knownSize match {
-		case -1 =>
-			if (idx < 0 | idx > len)
-				outOfBounds_!(errorString(this) + ".insertAll(" + idx + ", _)")
-			var suffix       = array
-			var suffixOffset = offset + idx
-			val suffixLength = len - idx
-			val newLength    = if (len < suffix.length) suffix.length else newSizeForExtra(1)
-			if (aliased || idx < (len >> 1) || newLength > suffix.length) {
-				//Keep the current array as the suffix, and create a new one for the prefix.
-				array = RefArray.copyOfRange(suffix, offset, offset + idx, offset, newLength)
-			} else {
-				//Copy the suffix aside, drop it, and append to this array.
-				suffixOffset = 0
-				suffix = array.slice(offset + idx, offset + len)
-				array  = RefArray.copyOfRange(array, offset, offset + idx, newLength)
-				offset = 0
-			}
-			len = idx
-			elems.toBasicOps.foldLeft(this)((buff, elem) => buff += elem)
-			if (offset + len > array.length - suffixLength)
-				shiftAside(len, suffixLength)
-			else
-				len += suffixLength
-			arraycopy(suffix, suffixOffset, array, offset + len - suffixLength, suffixLength)
-		case  0 =>
-			if (idx < 0 || idx > len)
-				outOfBounds_!(
-					errorString(this) + ".insertAll(" + idx + ", " + errorString(elems) + ")"
-				)
-		case  n =>
-			shiftAside(idx, n)
-			val copied = elems.toBasicOps.copyToArray(array.asAnyArray, offset + idx)
-			if (copied != n)
-				illegalCopiedCount(idx, n, copied)
-	}
+
+	@tailrec override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit =
+		if (this eq elems.asAnyRef)
+			insertAll(idx, ArrayBufferFactory.ofCapacity(len) ++= this)
+		else elems.knownSize match {
+			case -1 =>
+				if (idx < 0 | idx > len)
+					outOfBounds_!(errorString(this) + ".insertAll(" + idx + ", _)")
+				var suffix       = array
+				var suffixOffset = offset + idx
+				val suffixLength = len - idx
+				val newLength    = if (len < suffix.length) suffix.length else newSizeForExtra(1)
+				if (aliased || idx < (len >> 1) || newLength > suffix.length) {
+					//Keep the current array as the suffix, and create a new one for the prefix.
+					array = RefArray.copyOfRange(suffix, offset, offset + idx, offset, newLength)
+				} else {
+					//Copy the suffix aside, drop it, and append to this array.
+					suffixOffset = 0
+					suffix = array.slice(offset + idx, offset + len)
+					array  = RefArray.copyOfRange(array, offset, offset + idx, newLength)
+					offset = 0
+				}
+				len = idx
+				elems.toBasicOps.foldLeft(this)((buff, elem) => buff += elem)
+				if (offset + len > array.length - suffixLength)
+					shiftAside(len, suffixLength)
+				else
+					len += suffixLength
+				arraycopy(suffix, suffixOffset, array, offset + len - suffixLength, suffixLength)
+			case  0 =>
+				if (idx < 0 || idx > len)
+					outOfBounds_!(
+						errorString(this) + ".insertAll(" + idx + ", " + errorString(elems) + ")"
+					)
+			case  n =>
+				shiftAside(idx, n)
+				val copied = elems.toBasicOps.copyToArray(array.asAnyArray, offset + idx)
+				if (copied != n)
+					illegalCopiedCount(idx, n, copied)
+		}
 
 	/** Shifts the contents in the buffer, adding `space` uninitialized entries after `idx`.
 	  * This may shift the prefix left, shift the suffix right, allocate a new array and copy the contents,
@@ -410,7 +415,6 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			case ArraySeq if offset == 0 && array != null && len == array.length =>
 				markAliased()
 				ArraySeq.unsafeWrapArray(array.asAnyArray).castFrom[ArraySeq[Any], C1]
-			//fixme: currently RelayArrayFactory equals RelayArrayInternals, not RelayArray
 			case _ if canAlias && RelayArrayFactory.isDefined && RelayArrayFactory == companion =>
 				markAliased()
 				RelayArrayFactory.get.slice(array.unsafeIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]

@@ -176,7 +176,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  *          is `O(this.size min that.size)` instead of `O(this.size + that.size)`.
 	  *          The method should be overridden if computing `size` is cheap and `knownSize` returns `-1`.
 	  */
-	def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, generic.Any, O]) :Int = {
+	def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, generic.Any1, O]) :Int = {
 		val thatKnownSize = collection.knownSize(that)
 		if (thatKnownSize >= 0)
 			this.sizeCompare(elems, thatKnownSize)
@@ -391,10 +391,10 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 
 	override def flatMapIterableOnce[A](elems :C)(f :E => IterableOnce[A]) :CC[A] = toOps(elems).flatMap(f)
 
-	override def flatMap[O, A](elems :C)(f :E => O)(implicit asIterableOnce :IterableOnceLike[A, generic.Any, O]) :CC[A] =
+	override def flatMap[O, A](elems :C)(f :E => O)(implicit asIterableOnce :IterableOnceLike[A, generic.Any1, O]) :CC[A] =
 		toOps(elems).flatMap((e :E) => asIterableOnce.toIterableOnce(f(e)))
 
-	override def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any, U]) :CC[A] =
+	override def flatten[A, U >: E](elems :C)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, U]) :CC[A] =
 		flattenIterableOnce(elems)(iterableOnceLike.toIterableOnce)
 
 	override def flattenIterableOnce[A](elems :C)(implicit asIterableOnce :E => IterableOnce[A]): CC[A] =
@@ -423,7 +423,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  * @param elems  a $coll.
 	  * @return       a new $coll which contains all elements of `elems` followed by all elements of `suffix`.
 	  */
-	def concat[A >: E, O](elems :C)(suffix :O)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any, O]) :CC[A] =
+	def concat[A >: E, O](elems :C)(suffix :O)(implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, O]) :CC[A] =
 		toOps(elems).concat(iterableOnceLike.toIterableOnce(suffix))
 
 	/** Returns a $coll formed from `elems` and another iterable collection
@@ -436,7 +436,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  *              The length of the returned collection is the minimum of the lengths of `elems` and `that`.
 	  */
 	def zip[A, O](elems :C)(that :O)
-	             (implicit iterableOnceLike :IterableOnceLike[A, generic.Any, O]) :CC[(E @uncheckedVariance, A)] =
+	             (implicit iterableOnceLike :IterableOnceLike[A, generic.Any1, O]) :CC[(E @uncheckedVariance, A)] =
 		toOps(elems).zip(iterableOnceLike.toIterableOnce(that))
 
 	override def zipWithIndex(elems :C) :CC[(E @uncheckedVariance, Int)] = toOps(elems).zipWithIndex
@@ -454,7 +454,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  *         If `that` is shorter than `elems`, `thatElem` values are used to pad the result.
 	  */
 	def zipAll[U >: E, A, O](elems :C)(that :O, thisElem :U, thatElem :A)
-	                        (implicit iterableLike :IterableLike[A, generic.Any, O]): CC[(U, A)] =
+	                        (implicit iterableLike :IterableLike[A, generic.Any1, O]): CC[(U, A)] =
 		toOps(elems).zipAll(iterableLike.toIterable(that), thisElem, thatElem)
 
 	/** Converts `elems` of pairs into two collections of the first and second half of each pair.
@@ -494,7 +494,7 @@ trait IterableLike[+E, +CC[_], C] extends IterableOnceLike[E, CC, C] {
 	  * @return a decorator `LazyZip2` that allows strict operations to be performed on the lazily evaluated pairs
 	  *         or chained calls to `lazyZip`. Implicit conversion to `Iterable[(A, B)]` is also supported.
 	  */
-	def lazyZip[A, O](elems :C)(that :O)(implicit iterableLike :IterableLike[A, generic.Any, O]) :LazyZip2[E, A, C] =
+	def lazyZip[A, O](elems :C)(that :O)(implicit iterableLike :IterableLike[A, generic.Any1, O]) :LazyZip2[E, A, C] =
 		toIterable(elems).lazyZip(iterableLike.toIterable(that)).castParam3[C]
 
 	/** Partitions elements in fixed size ${coll}s.
@@ -600,7 +600,7 @@ object IterableLike extends Rank1IterableLike {
 		override def dropRight(elems :C)(n :Int) :C = elems.dropRight(n)
 
 		override def sizeCompare(elems :C, otherSize :Int) :Int = elems.sizeCompare(otherSize)
-		override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, funny.generic.Any, O]) :Int =
+		override def sizeCompare[O](elems :C, that :O)(implicit collection :IterableLike[_, funny.generic.Any1, O]) :Int =
 			elems.sizeCompare(collection.toIterable(that))
 
 		override def tail(elems :C) :C = elems.tail
@@ -609,7 +609,7 @@ object IterableLike extends Rank1IterableLike {
 		override def scanRight[A](elems :C)(z :A)(op :(E, A) => A) :CC[A] = elems.scanRight(z)(op)
 
 		override def flatten[A, U >: E]
-		                    (elems :C)(implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any, U]) :CC[A] =
+		                    (elems :C)(implicit iterableOnceLike :IterableOnceLike[A, funny.generic.Any1, U]) :CC[A] =
 			elems.flatten(iterableOnceLike.toIterableOnce)
 
 		override def flattenIterableOnce[A](elems :C)(implicit asIterableOnce :E => IterableOnce[A]): CC[A] =

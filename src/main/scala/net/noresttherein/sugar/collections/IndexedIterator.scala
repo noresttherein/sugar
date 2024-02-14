@@ -224,7 +224,7 @@ private object IndexedReverseIterator {
 
 
 
-private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, generic.Any, _], I[X]] {
+private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, generic.Any1, _], I[X]] {
 	protected def make[T](seq :S[T], from :Int, until :Int) :I[T]
 
 	def apply[T](seq :S[T]) :I[T] =
@@ -272,12 +272,12 @@ private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, 
   *                 the iterator should return.
   */
 private sealed class IndexedSeqIterator[+T] private[collections]
-	                                   (seq :collection.IndexedSeqOps[T, generic.Any, _],
+	                                   (seq :collection.IndexedSeqOps[T, generic.Any1, _],
 	                                    private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIterator[T] with IndexedIterator[T]
 {
-	def this(seq :collection.IndexedSeqOps[T, generic.Any, _], idx :Int) = this(seq, idx, seq.length)
-	def this(seq :collection.IndexedSeqOps[T, generic.Any, _]) = this(seq, 0, seq.length)
+	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, idx, seq.length)
+	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length
@@ -323,12 +323,12 @@ private case object IndexedSeqIterator extends IndexedIteratorFactory[collection
   *                  (the end index of the slice).
   */ //consider: renaming to IndexedSeqReverseIterator
 private sealed class ReverseIndexedSeqIterator[+T] private[collections]
-	                                          (seq :collection.IndexedSeqOps[T, generic.Any, _],
+	                                          (seq :collection.IndexedSeqOps[T, generic.Any1, _],
 	                                           private[this] var last :Int, private[this] var `first++` :Int)
 	extends AbstractIterator[T] with IndexedReverseIterator[T]
 {
-	def this(seq :collection.IndexedSeqOps[T, generic.Any, _], idx :Int) = this(seq, 0, idx)
-	def this(seq :collection.IndexedSeqOps[T, generic.Any, _]) = this(seq, 0, seq.length)
+	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, 0, idx)
+	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length

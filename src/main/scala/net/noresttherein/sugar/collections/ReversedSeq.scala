@@ -1,12 +1,43 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
+import scala.collection.immutable.StrictOptimizedSeqOps
 import scala.collection.mutable
 import scala.collection.mutable.IndexedBuffer
 
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
+import net.noresttherein.sugar.funny.generic.Any1
 
 
+
+
+@SerialVersionUID(Ver)
+private object ReversedSeq {
+	def apply[E](seq :collection.IndexedSeq[E]) :collection.IndexedSeq[E] = seq match {
+		case seq :IndexedSeq[E]                           => apply(seq)
+		case seq :mutable.IndexedSeq[E]                   => apply(seq)
+		case _ :collection.StrictOptimizedSeqOps[_, _, _] =>
+			new ReversedSeq(seq) with collection.StrictOptimizedSeqOps[E, collection.IndexedSeq, collection.IndexedSeq[E]]
+		case _                                            => new ReversedSeq(seq)
+	}
+	def apply[E](seq :IndexedSeq[E]) :IndexedSeq[E] =
+		if (seq.isInstanceOf[StrictOptimizedSeqOps[_, Any1, _]])
+			new ImmutableReversedSeq(seq) with StrictOptimizedSeqOps[E, IndexedSeq, IndexedSeq[E]]
+		else
+			new ImmutableReversedSeq(seq)
+
+	def apply[E](seq :mutable.IndexedSeq[E]) :mutable.IndexedSeq[E] =
+		if (seq.isInstanceOf[collection.StrictOptimizedSeqOps[_, Any1, _]])
+			new MutableReversedSeq(seq) with collection.StrictOptimizedSeqOps[E, mutable.IndexedSeq, mutable.IndexedSeq[E]]
+		else
+			new MutableReversedSeq(seq)
+
+	def apply[E](seq :IndexedBuffer[E]) :IndexedBuffer[E] =
+		if (seq.isInstanceOf[collection.StrictOptimizedSeqOps[_, Any1, _]])
+			new ReversedIndexedBuffer[E](seq) with collection.StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+		else
+			new ReversedIndexedBuffer(seq)
+}
 
 
 /** A view of an `IndexedSeq` reversing the order of elements. */
@@ -52,24 +83,12 @@ private sealed class ReversedSeq[+E](underlying :collection.IndexedSeq[E])
 
 
 @SerialVersionUID(Ver)
-private object ReversedSeq {
-	def apply[E](seq :collection.IndexedSeq[E]) :collection.IndexedSeq[E] = seq match {
-		case seq :IndexedSeq[E]         => new ImmutableReversedSeq(seq)
-		case seq :mutable.IndexedSeq[E] => new MutableReversedSeq(seq)
-		case _                          => new ReversedSeq(seq)
-	}
-	def apply[E](seq :IndexedSeq[E]) :IndexedSeq[E] = new ImmutableReversedSeq(seq)
-	def apply[E](seq :mutable.IndexedSeq[E]) :mutable.IndexedSeq[E] = new MutableReversedSeq(seq)
-}
-
-
-@SerialVersionUID(Ver)
 private class ImmutableReversedSeq[+E](override val reverse :IndexedSeq[E])
 	extends ReversedSeq[E](reverse) with IndexedSeq[E] with SugaredSlicingOps[E, IndexedSeq, IndexedSeq[E]]
 {
 	protected override def clippedSlice(from :Int, until :Int) :IndexedSeq[E] =
 		if (HasFastSlice(reverse))
-			new ImmutableReversedSeq(reverse.slice(length - until, length - from))
+			ReversedSeq(reverse.slice(length - until, length - from))
 		else
 			super[IndexedSeq].slice(from, until)
 }
@@ -86,12 +105,26 @@ private class MutableReversedSeq[E](override val reverse :mutable.IndexedSeq[E])
 
 	protected override def clippedSlice(from :Int, until :Int) :mutable.IndexedSeq[E] =
 		if (HasFastSlice(reverse))
-			new MutableReversedSeq(reverse.slice(length - until, length - from))
+			ReversedSeq(reverse.slice(length - until, length - from))
 		else
 			super[IndexedSeq].slice(from, until)
 }
 
 
+
+
+@SerialVersionUID(Ver)
+private object ReversedIndexedBuffer extends BufferFactory[IndexedBuffer] {
+	def reversed[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] =
+		if (buffer.isInstanceOf[collection.StrictOptimizedSeqOps[_, Any1, _]])
+			new ReversedIndexedBuffer(buffer) with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
+		else
+			new ReversedIndexedBuffer(buffer)
+
+	override def ofCapacity[E](capacity :Int) :IndexedBuffer[E] = reversed(TemporaryBuffer.ofCapacity(capacity))
+
+	override def empty[A] :IndexedBuffer[A] = reversed(TemporaryBuffer.empty[A])
+}
 
 
 @SerialVersionUID(Ver)
@@ -102,7 +135,7 @@ private class ReversedIndexedBuffer[E](override val reverse :IndexedBuffer[E])
 	protected override def clippedSlice(from :Int, until :Int) :IndexedBuffer[E] =
 		if (HasFastSlice(reverse)) {
 			val len = reverse.length
-			new ReversedIndexedBuffer(reverse.slice(len - until, len - from))
+			ReversedSeq(reverse.slice(len - until, len - from)) //so it creates a strict instance, if necessary.
 		} else
 			super[IndexedBuffer].slice(from, until)
 
@@ -145,16 +178,4 @@ private class ReversedIndexedBuffer[E](override val reverse :IndexedBuffer[E])
 		case seq :collection.IndexedSeq[E] => ReversedSeq(seq)
 		case _ => util.reverse(elems)
 	}
-}
-
-
-@SerialVersionUID(Ver)
-private object ReversedIndexedBuffer extends BufferFactory[IndexedBuffer] {
-	def reversed[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] = new ReversedIndexedBuffer(buffer)
-
-	override def ofCapacity[E](capacity :Int) :IndexedBuffer[E] =
-		new ReversedIndexedBuffer(TemporaryBuffer.ofCapacity(capacity))
-
-	override def empty[A] :IndexedBuffer[A] =
-		new ReversedIndexedBuffer(TemporaryBuffer.empty[A])
 }

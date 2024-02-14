@@ -25,12 +25,12 @@ trait Mutator[E] extends BufferedIterator[E] {
   *                 the iterator should return.
   */
 private sealed class IndexedSeqMutator[@specialized(Int, Long, Double, AnyRef) T] private[collections]
-	                                  (seq :mutable.IndexedSeqOps[T, generic.Any, _ <: AnyRef],
+	                                  (seq :mutable.IndexedSeqOps[T, generic.Any1, _ <: AnyRef],
 	                                   private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIterator[T] with IndexedIterator[T] with Mutator[T]
 {
-	def this(seq :mutable.IndexedSeqOps[T, generic.Any, _ <: AnyRef], idx :Int) = this(seq, idx, seq.length)
-	def this(seq :mutable.IndexedSeqOps[T, generic.Any, _ <: AnyRef]) = this(seq, 0, seq.length)
+	def this(seq :mutable.IndexedSeqOps[T, generic.Any1, _ <: AnyRef], idx :Int) = this(seq, idx, seq.length)
+	def this(seq :mutable.IndexedSeqOps[T, generic.Any1, _ <: AnyRef]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length

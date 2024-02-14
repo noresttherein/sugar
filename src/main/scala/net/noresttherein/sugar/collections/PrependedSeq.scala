@@ -1,17 +1,36 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.IterableFactory
-import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, LinearSeq, SeqOps}
+import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, LinearSeq, SeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtension, IteratorExtension, SeqFactoryExtension}
+import net.noresttherein.sugar.funny.generic.Any1
 import net.noresttherein.sugar.outOfBounds_!
 
 
 
 
+object PrependedSeq {
+	def apply[E](head :E, tail :Seq[E]) :Seq[E] = tail match {
+		case list :LinearSeq[E]                => head +: list
+		case _ if tail.isEmpty                 => IndexedSeq.one(head)
+		case seq  :IndexedSeq[E]               => apply(head, seq)
+		case _ :StrictOptimizedSeqOps[_, _, _] =>
+			new PrependedSeq[E](head, tail) with StrictOptimizedSeqOps[E, Seq, Seq[E]]
+		case _ =>
+			new PrependedSeq[E](head, tail)
+	}
+	def apply[E](head :E, tail :IndexedSeq[E]) :IndexedSeq[E] =
+		if (tail.isInstanceOf[StrictOptimizedSeqOps[_, Any1, _]])
+			new PrependedIndexedSeq[E](head, tail) with StrictOptimizedSeqOps[E, IndexedSeq, IndexedSeq[E]]
+		else
+			new PrependedIndexedSeq(head, tail)
+}
+
+
 /** Currently used only as a `tail` for [[net.noresttherein.sugar.collections.Prepended2Seq Prepended2Seq]]. */
-private[noresttherein] class PrependedSeq[+E](override val head :E, override val tail :Seq[E])
+private class PrependedSeq[+E](override val head :E, override val tail :Seq[E])
 	extends AbstractSeq[E]
 {
 	override def length :Int = tail.length + 1
@@ -23,7 +42,7 @@ private[noresttherein] class PrependedSeq[+E](override val head :E, override val
 	override def take(n :Int) :Seq[E] = slice(0, n)
 	override def slice(from :Int, until :Int) :Seq[E] =
 		if (until <= 0 || until <= from) empty
-		else if (from <= 0) new PrependedSeq(head, tail.drop(until - 1))
+		else if (from <= 0) PrependedSeq(head, tail.drop(until - 1))
 		else tail.slice(from - 1, until - 1)
 
 	override def apply(i :Int) :E =
@@ -37,25 +56,14 @@ private[noresttherein] class PrependedSeq[+E](override val head :E, override val
 }
 
 
-private[noresttherein] object PrependedSeq {
-	def apply[E](head :E, tail :Seq[E]) :Seq[E] = tail match {
-		case list :LinearSeq[E] => head +: list
-		case _ if tail.isEmpty => IndexedSeq.one(head)
-		case seq  :IndexedSeq[E] => new PrependedIndexedSeq[E](head, seq)
-		case _ => new PrependedSeq[E](head, tail)
-	}
-	def apply[E](head :E, tail :IndexedSeq[E]) :IndexedSeq[E] = new PrependedIndexedSeq[E](head, tail)
-}
-
-
-private[noresttherein] class PrependedIndexedSeq[+E](override val head :E, override val tail :IndexedSeq[E])
+private class PrependedIndexedSeq[+E](override val head :E, override val tail :IndexedSeq[E])
 	extends PrependedSeq(head, tail) with IndexedSeq[E]
 {
 	override def drop(n :Int) :IndexedSeq[E] = slice(n, Int.MaxValue)
 	override def take(n :Int) :IndexedSeq[E] = slice(0, n)
 	override def slice(from :Int, until :Int) :IndexedSeq[E] =
 		if (until <= 0 || until <= from) empty
-		else if (from <= 0) new PrependedIndexedSeq(head, tail.drop(until - 1))
+		else if (from <= 0) PrependedSeq(head, tail.drop(until - 1))
 		else tail.slice(from - 1, until - 1)
 
 	override def iterator :Iterator[E] = head +: tail.iterator
@@ -65,10 +73,28 @@ private[noresttherein] class PrependedIndexedSeq[+E](override val head :E, overr
 
 
 
+object Prepended2Seq {
+	def apply[E](first :E, second :E, rest :Seq[E]) :Seq[E] = rest match {
+		case list :LinearSeq[E]                => first +: second +: list
+		case _ if rest.isEmpty                 => RelayArray.two(first, second)
+		case seq  :IndexedSeq[E]               => apply(first, second, seq)
+		case _ :StrictOptimizedSeqOps[_, Any1, _] =>
+			new Prepended2Seq[E](first, second, rest) with StrictOptimizedSeqOps[E, Seq, Seq[E]]
+		case _ =>
+			new Prepended2Seq[E](first, second, rest)
+	}
+	def apply[E](first :E, second :E, rest :IndexedSeq[E]) :IndexedSeq[E] =
+		if (rest.isInstanceOf[StrictOptimizedSeqOps[_, Any1, _]])
+			new Prepended2IndexedSeq[E](first, second, rest) with StrictOptimizedSeqOps[E, IndexedSeq, IndexedSeq[E]]
+		else
+			new Prepended2IndexedSeq[E](first, second, rest)
+}
+
+
 /** A convenient way of delegating a method taking `(T, T, T*)` to one taking `(Seq[T])`
   * without worrying about the cost of concatenation.
   */
-private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, rest :Seq[E])
+private class Prepended2Seq[+E](override val head :E, second :E, rest :Seq[E])
 	extends AbstractSeq[E]
 {
 	override def length :Int = rest.length + 2
@@ -77,7 +103,7 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 		if (size >= 0) size + 2 else -1
 	}
 
-	override def tail :Seq[E] = new PrependedSeq(second, rest)
+	override def tail :Seq[E] = PrependedSeq(second, rest)
 	override def drop(n :Int) :Seq[E] = slice(n, Int.MaxValue)
 	override def take(n :Int) :Seq[E] = slice(0, n)
 	override def slice(from :Int, until :Int) :Seq[E] =
@@ -85,9 +111,9 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 			empty
 		else if (from <= 0)
 			if (until == 1) Seq.one(head)
-			else new Prepended2Seq(head, second, rest.take(until - 2))
+			else Prepended2Seq(head, second, rest.take(until - 2))
 		else if (from == 1)
-			new PrependedSeq(second, rest.take(until - 2))
+			PrependedSeq(second, rest.take(until - 2))
 		else
 			rest.slice(from - 2, until - 2)
 
@@ -104,24 +130,12 @@ private[noresttherein] class Prepended2Seq[+E](override val head :E, second :E, 
 }
 
 
-private[noresttherein] object Prepended2Seq {
-	def apply[E](first :E, second :E, rest :Seq[E]) :Seq[E] = rest match {
-		case list :LinearSeq[E]  => first +: second +: list
-		case _ if rest.isEmpty   => RelayArray.two(first, second)
-		case seq  :IndexedSeq[E] => new Prepended2IndexedSeq[E](first, second, seq)
-		case _                   => new Prepended2Seq[E](first, second, rest)
-	}
-	def apply[E](first :E, second :E, rest :IndexedSeq[E]) :IndexedSeq[E] =
-		new Prepended2IndexedSeq[E](first, second, rest)
-}
-
-
-private[noresttherein] class Prepended2IndexedSeq[+E](override val head :E, second :E, rest :IndexedSeq[E])
+private class Prepended2IndexedSeq[+E](override val head :E, second :E, rest :IndexedSeq[E])
 	extends Prepended2Seq(head, second, rest) with IndexedSeq[E]
 {
 	override def iterator :Iterator[E] = super[Prepended2Seq].iterator
 
-	override def tail :IndexedSeq[E] = new PrependedIndexedSeq(second, rest)
+	override def tail :IndexedSeq[E] = PrependedSeq(second, rest)
 	override def drop(n :Int) :IndexedSeq[E] = slice(n, Int.MaxValue)
 	override def take(n :Int) :IndexedSeq[E] = slice(0, n)
 	override def slice(from :Int, until :Int) :IndexedSeq[E] =
@@ -129,9 +143,9 @@ private[noresttherein] class Prepended2IndexedSeq[+E](override val head :E, seco
 			empty
 		else if (from <= 0)
 			if (until == 1) IndexedSeq.one(head)
-			else new Prepended2IndexedSeq(head, second, rest.take(until - 2))
+			else Prepended2Seq(head, second, rest.take(until - 2))
 		else if (from == 1)
-			new PrependedIndexedSeq(second, rest.take(until - 2))
+			PrependedSeq(second, rest.take(until - 2))
 		else
 			rest.slice(from - 2, until - 2)
 
@@ -154,7 +168,8 @@ private[noresttherein] class Prepended2IndexedSeq[+E](override val head :E, seco
   */ //todo: add an implicit conversion somewhere
 @SerialVersionUID(Ver)
 private final class StringAsSeq(override val coll :String)
-	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String] with Serializable
+	extends IterableOnce[Char] with IndexedSeqOps[Char, IndexedSeq, String]
+	   with StrictOptimizedSeqOps[Char, IndexedSeq, String] with Serializable
 {
 	def length :Int = coll.length
 

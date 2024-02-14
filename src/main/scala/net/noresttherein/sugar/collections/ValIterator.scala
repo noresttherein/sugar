@@ -19,7 +19,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 /**
   * @author Marcin Mościcki
   */ //consider: specializing for Boolean
-trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] {
+trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] { outer =>
 	override def next() :E
 
 	override def reduceLeft[B >: E](op :(B, E) => B) :B =
@@ -34,6 +34,31 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] {
 			res = op(res, next())
 		}
 		res
+	}
+
+	override def filterNot(p :E => Boolean) :ValIterator[E] = filter(p, false)
+	override def filter(p :E => Boolean) :ValIterator[E] = filter(p, true)
+	private def filter(p :E => Boolean, truth :Boolean) :ValIterator[E] = new ValIterator.Buffered[E] {
+		private[this] var hasMore = false
+		private[this] var hd :E = _
+		override def head =
+			if (hasMore) hd
+			else noSuch_!("Empty iterator " + this)
+
+		while (outer.hasNext && { hd = outer.next(); hasMore = p(hd) == truth; !hasMore })
+			{}
+		override def hasNext = hasMore
+		override def next() :E =
+			if (!hasMore)
+				noSuch_!("Empty iterator " + this)
+			else {
+				val res = hd
+				hasMore = false
+				while (outer.hasNext && { hd = outer.next(); hasMore = p(hd) == truth; !hasMore })
+					()
+				res
+		}
+		override def toString :String = outer.toString + (if (truth) ".filter(" else ".filterNot(") + p + ")"
 	}
 
 	override def buffered :ValIterator.Buffered[E] = new ValIterator.Buffered[E] {

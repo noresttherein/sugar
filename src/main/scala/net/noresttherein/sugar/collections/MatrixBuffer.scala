@@ -15,11 +15,11 @@ import scala.util.Sorting
 import net.noresttherein.sugar.JavaTypes.JIterator
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
-import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods}
+import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.exceptions.{??!, illegal_!, unsupported_!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{??!, illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 
@@ -257,7 +257,8 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		this
 	}
 
-	override def addAll(elems :IterableOnce[E]) :this.type = genericAdd(elems)
+	override def addAll(elems :IterableOnce[E]) :this.type =
+		genericAdd(if (elems.asAnyRef eq this) MatrixBuffer.from(elems) else elems)
 
 	def addAll(elems :ArrayLike[E]) :this.type = addAll(elems, 0, elems.length)
 
@@ -493,7 +494,8 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		this
 	}
 
-	override def prependAll(elems :IterableOnce[E]) :this.type = genericPrepend(elems)
+	override def prependAll(elems :IterableOnce[E]) :this.type =
+		genericPrepend(if (this eq elems.asAnyRef) MatrixBuffer.from(this) else elems)
 
 	def prependAll(elems :ArrayLike[E]) :this.type = prependAll(elems, 0, elems.length)
 
@@ -749,7 +751,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 
 	override def insert(idx :Int, elem :E) :Unit = genericInsert(idx, elem)
-	override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit = genericInsert(idx, elems)
+	override def insertAll(idx :Int, elems :IterableOnce[E]) :Unit =
+		//We can't defend against this.view or this.iterator, though.
+		genericInsert(idx, if (this eq elems.asAnyRef) MatrixBuffer.from(elems) else elems)
 
 	def insertAll(idx :Int, elems :ArrayLike[E]) :Unit = genericInsert(idx, elems)
 
@@ -2585,7 +2589,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		cyclicCopyRangeToArray(xs, start, 0, len)
 
 	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 || dataSize == 0 || from >= dataSize || start >= xs.length)
+		if (len <= 0 || dataSize == 0 || from >= dataSize || xs.length == 0)
 			0
 		else if (start < 0)
 			outOfBounds_!(start, xs.length)
@@ -2916,11 +2920,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 		override def newBuilder[E :ClassTag] :Builder[E, MatrixBuffer[E]] =
 			new MatrixBuffer[E](shrink) with Builder[E, MatrixBuffer[E]] {
-				override def sizeHint(size :Int) :Unit = {
-					val length = this.length
-					if (size > length)
-						reserve(size - length)
-				}
+				override def sizeHint(size :Int) :Unit = super[MatrixBuffer].sizeHint(size)
 				override def result() = this
 			}
 
@@ -2934,11 +2934,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 		override def newBuilder[E] :Builder[E, MatrixBuffer[E]] =
 			new ErasedMatrixBuffer[E](shrink) with Builder[E, ErasedMatrixBuffer[E]] {
-				override def sizeHint(size :Int) :Unit = {
-					val length = this.length
-					if (size > length)
-						reserve(size - length)
-				}
+				override def sizeHint(size :Int) :Unit = super[ErasedMatrixBuffer].sizeHint(size)
 				override def result() = this
 			}
 

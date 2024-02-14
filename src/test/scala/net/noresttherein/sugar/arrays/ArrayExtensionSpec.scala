@@ -943,7 +943,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 	                            (patch :(Array[X], U, U, Seq[U], Int) => Array[U]) :Prop =
 			forAll { (first :U, second :U) =>
 				forAllSeq { rest :Seq[U] =>
-					val elems = new Prepended2Seq(first, second, rest)
+					val elems = Prepended2Seq(first, second, rest)
 					val replaced = replace(elems.size)
 					patchProperty(array, elems, index, replaced)(patch(array, first, second, rest, replaced)) lbl
 						"[" + localNameOf[U] + "](" + first + ", " + second + ", " + rest + ")"

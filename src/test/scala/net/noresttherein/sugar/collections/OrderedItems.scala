@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable.{AbstractSeq, AbstractSet, ArraySeq, SeqOps}
-import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, SeqFactory}
+import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, SeqFactory, View}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
@@ -186,4 +186,19 @@ class SeqSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends Abstract
 	override def contains(elem :E) :Boolean = underlying.contains(elem)
 
 	override def iterator :Iterator[E] = toSeq.iterator
+}
+
+
+
+class StrictView[E](underlying :Seq[E]) extends View[E] {
+	override def iterator :Iterator[E] = underlying.iterator
+	override def toString = underlying.mkString("View(", ", ", ")")
+}
+
+object StrictView extends IterableFactory[StrictView] {
+	override def from[A](source :IterableOnce[A]) :StrictView[A] = new StrictView(source.toSeq)
+
+	override def empty[A] :StrictView[A] = new StrictView(Nil)
+
+	override def newBuilder[A] :Builder[A, StrictView[A]] = Seq.newBuilder[A].mapResult(new StrictView(_))
 }

@@ -167,7 +167,7 @@ package object collections extends JteratorExtensions {
 	  */ //consider: moving it to arrays
 	private[sugar] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =
 		Maybe.guard {
-			val factoryClass = Class.forName(RelayArrayClassName + "Internals$")
+			val factoryClass = Class.forName(RelayArrayClassName + "$")
 			factoryClass.getField("MODULE$").get(null).asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]]
 		}
 

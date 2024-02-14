@@ -5,7 +5,7 @@ import java.lang.System.arraycopy
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, mutable}
 import scala.collection.generic.DefaultSerializable
-import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqDefaults, IndexedSeqOps}
+import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqDefaults, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.ClassTag
 
@@ -31,7 +31,7 @@ import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
   */
 sealed trait BTreeSeq[+E]
 	extends IndexedSeq[E] with IndexedSeqOps[E, BTreeSeq, BTreeSeq[E]] with IterableFactoryDefaults[E, BTreeSeq]
-	   with DefaultSerializable
+	   with StrictOptimizedSeqOps[E, BTreeSeq, BTreeSeq[E]] with DefaultSerializable
 {
 	//todo: patch, iterator, reverseIterator
 	def rank :Int
