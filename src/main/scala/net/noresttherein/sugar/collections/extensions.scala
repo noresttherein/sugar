@@ -5635,6 +5635,26 @@ object extensions extends extensions {
 	/** Extension methods for [[scala.collection.IterableFactory IterableFactory]], the most common type of
 	  * companion objects for collection types conforming to the Scala collection framework.
 	  * Provides additional generator methods which construct the collection of the proper type.
+	  * @define expand1Doc Builds a collection `C[E]` by recursively reapplying the given function
+	  *                    to the value of its preceding execution. Instead of listing a fixed number of elements,
+	  *                    this method uses the generator function `next` also as the termination condition,
+	  *                    and ends the recursion once it returns `None`. It is the opposite
+	  *                    of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
+	  *                    [[scala.collection.IterableFactory.unfold unfold]] is the opposite
+	  *                    of [[scala.collection.IterableOnceOps.fold fold]].
+	  * @define expand2Doc Builds a collection `C[E]` by recursively reapplying the given function
+	  *                    to the results of last two elements in the sequence, starting with `(a0, a1)`.
+	  *                    The collection will always include these two initial elements, and the `n`-th and n+1`-th
+	  *                    elements become the arguments for the `n`-th execution of `next`, returning the `n+2`-th
+	  *                    element for the collection. This method uses the generator function `next`
+	  *                    also as the termination condition, and ends the recursion once it returns `None`.
+	  * @define expand3Doc Builds a collection `C[E]` by recursively reapplying the given function
+	  *                    to the results of last three elements in the sequence, starting with `(a0, a1, a2)`.
+	  *                    The collection will always include these three initial elements, and each subsequent
+	  *                    value returned by `next` pushes the first of the three arguments to which it was applied out,
+	  *                    shifting the remaining two down and adding the returned value as the third argument
+	  *                    of the next loop. This method uses the generator function `next`
+	  *                    also as the termination condition, and ends the recursion once it returns `None`.
 	  */
 	class IterableFactoryExtension[C[_]] private[extensions] (private val companion :IterableFactory[C]) extends AnyVal {
 
@@ -5662,12 +5682,7 @@ object extensions extends extensions {
 					companion from Iterator.generate(start)(next)
 			}
 
-		/** Builds a collection `C[E]` by recursively reapplying the given function to the initial element.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand1Doc
 		  * @param a0   The first element added to the collection.
 		  * @param next A generator function returning subsequent elements for the collection based on the previous one,
 		  *             or `None` to indicate the end of recursion.
@@ -5675,15 +5690,10 @@ object extensions extends extensions {
 		  * @return a collection containing the sequence starting with `a0`,
 		  *         and resulting from recursively applying `next` to itself.
 		  */
-		@inline final def expand[E](a0 :E)(next :E => Option[E]) :C[E] =
+		@inline final def expand[E](a0 :E)(next :E => Opt[E]) :C[E] =
 			companion from Iterator.expand(a0)(next)
 
-		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand2Doc
 		  * @param a0   The first element added to the collection.
 		  * @param a1   The second element added to the collection.
 		  * @param next A generator function returning subsequent elements for the collection based on the previous two,
@@ -5692,16 +5702,11 @@ object extensions extends extensions {
 		  * @return a collection containing the sequence starting with `a0, a1`,
 		  *         and resulting from recursively applying `next` to itself.
 		  */
-		@nowarn("cat=deprecation")
-		final def expand2[E](a0 :E, a1 :E)(next :(E, E) => Option[E]) :C[E] =
-			companion from Iterator.expand2(a0, a1)(next)
+//		@nowarn("cat=deprecation")
+		@inline def expand[E](a0 :E, a1 :E)(next :(E, E) => Opt[E]) :C[E] =
+			companion from Iterator.expand(a0, a1)(next)
 
-		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand3Doc
 		  * @param a0   The first element added to the collection.
 		  * @param a1   The second element added to the collection.
 		  * @param a2   The third element added to the collection.
@@ -5711,9 +5716,47 @@ object extensions extends extensions {
 		  * @return a collection containing the sequence starting with `a0, a1, a2`,
 		  *         and resulting from recursively applying `next` to itself.
 		  */
-		@nowarn("cat=deprecation")
-		final def expand3[E](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Option[E]) :C[E] =
-			companion from Iterator.expand3(a0, a1, a2)(next)
+//		@nowarn("cat=deprecation")
+		@inline def expand[E](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Opt[E]) :C[E] =
+			companion from Iterator.expand(a0, a1, a2)(next)
+
+		/** $expand1Doc
+		  * @param a0   The first element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous one,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@inline def some[E](a0 :E)(next :E => Option[E]) :C[E] =
+			companion from Iterator.some(a0)(next)
+
+		/** $expand2Doc
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+//		@nowarn("cat=deprecation")
+		@inline def some[E](a0 :E, a1 :E)(next :(E, E) => Option[E]) :C[E] =
+			companion from Iterator.some(a0, a1)(next)
+
+		/** $expand3Doc
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param a2   The third element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection
+		  *             based on the previous three, or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+//		@nowarn("cat=deprecation")
+		@inline def some[E](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Option[E]) :C[E] =
+			companion from Iterator.some(a0, a1, a2)(next)
 
 		/** Returns the first `n` elements of a sequence defined by recursive equation
 		  * a_n_ = next(a_{n - 2}_, a_{n - 1}_). If `n <= 2`, only the first `n` elements of `a0, a1` are returned
@@ -5723,7 +5766,7 @@ object extensions extends extensions {
 		  * @param n    The index of the last sequence element to add to the collection.
 		  * @param next A recursive function computing the next sequence element based on the previous two.
  		  */
-		@inline final def iterate2[E](a0 :E, a1 :E, n :Int)(next :(E, E) => E) :C[E] =
+		@inline def iterate2[E](a0 :E, a1 :E, n :Int)(next :(E, E) => E) :C[E] =
 			companion from Iterator.iterate2(a0, a1, n)(next).take(n)
 
 		/** Returns the first `n` elements of a sequence defined by recursive equation
@@ -5735,7 +5778,7 @@ object extensions extends extensions {
 		  * @param n    The index of the last sequence element to add to the collection.
 		  * @param next A recursive function computing the next sequence element based on the previous three.
 		  */
-		@inline final def iterate3[E](a0 :E, a1 :E, a2 :E, n :Int)(next :(E, E, E) => E) :C[E] =
+		@inline def iterate3[E](a0 :E, a1 :E, a2 :E, n :Int)(next :(E, E, E) => E) :C[E] =
 			companion from Iterator.iterate3(a0, a1, a2, n)(next).take(n)
 
 		/** Similar to [[scala.collection.IterableFactory IterableFactory]]`.`[[scala.collection.IterableFactory.iterate iterate]],
@@ -5745,7 +5788,7 @@ object extensions extends extensions {
 		  * @param f     A function generating subsequent elements following start.
 		  *              The second element of the collection will be `f(start, 1)`, the third `f(f(start, 1), 2)`, and so on.
 		  */
-		final def iterateWithIndex[E](start :E, len :Int)(f :(E, Int) => E) :C[E] =
+		@inline def iterateWithIndex[E](start :E, len :Int)(f :(E, Int) => E) :C[E] =
 			companion.from(Iterator.iterateWithIndex(start, len)(f))
 
 		/** Returns `newBuilder[E]` after calling `sizeHint(size)` on it. */
@@ -5758,6 +5801,20 @@ object extensions extends extensions {
 	/** Extension methods for [[scala.collection.IterableFactory IterableFactory]], the most common type of
 	  * companion objects for collection types conforming to the Scala collection framework.
 	  * Provides additional generator methods which construct the collection of the proper type.
+	  * @define expand1Doc Builds a collection `C[E]` by recursively reapplying the given function
+	  *                    to the initial element. Instead of listing a fixed number of elements, this method uses
+	  *                    a generator function `next` as the termination condition and ends the recursion once
+	  *                    it returns `None`. It is the opposite of [[scala.collection.IterableOnceOps.reduce reduce]]
+	  *                    in the same way as [[scala.collection.IterableFactory.unfold unfold]]
+	  *                    is the opposite of [[scala.collection.IterableOnceOps.fold fold]].
+	  * @define expand2Doc Builds a collection `C[E]` by recursively reapplying the given function to the preceding
+	  *                    two elements. Instead of listing a fixed number of elements, this method uses
+	  *                    a generator function `next` as the termination condition and ends the recursion once
+	  *                    it returns `None`.
+	  * @define expand3Doc Builds a collection `C[E]` by recursively reapplying the given function to the preceding
+	  *                    three elements. Instead of listing a fixed number of elements, this method uses
+	  *                    a generator function `next` as the termination condition and ends the recursion once
+	  *                    it returns `None`.
 	  */
 	class ClassTagIterableFactoryExtension[C[_]] private[extensions] (private val companion :ClassTagIterableFactory[C])
 		extends AnyVal
@@ -5800,15 +5857,10 @@ object extensions extends extensions {
 		  * @return a collection containing the sequence starting with `a0`,
 		  *         and resulting from recursively applying `next` to itself.
 		  */
-		@inline final def expand[E :ClassTag](a0 :E)(next :E => Option[E]) :C[E] =
+		@inline final def expand[E :ClassTag](a0 :E)(next :E => Opt[E]) :C[E] =
 			companion from Iterator.expand(a0)(next)
 
-		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand2Doc
 		  * @param a0   The first element added to the collection.
 		  * @param a1   The second element added to the collection.
 		  * @param next A generator function returning subsequent elements for the collection based on the previous two,
@@ -5818,15 +5870,10 @@ object extensions extends extensions {
 		  *         and resulting from recursively applying `next` to itself.
 		  */
 		@nowarn("cat=deprecation")
-		final def expand2[E :ClassTag](a0 :E, a1 :E)(next :(E, E) => Option[E]) :C[E] =
-			companion from Iterator.expand2(a0, a1)(next)
+		final def expand[E :ClassTag](a0 :E, a1 :E)(next :(E, E) => Opt[E]) :C[E] =
+			companion from Iterator.expand(a0, a1)(next)
 
-		/** Builds a collection `C[E]` by recursively reapplying the given function to the previous two elements.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand3Doc
 		  * @param a0   The first element added to the collection.
 		  * @param a1   The second element added to the collection.
 		  * @param a2   The third element added to the collection.
@@ -5837,8 +5884,44 @@ object extensions extends extensions {
 		  *         and resulting from recursively applying `next` to itself.
 		  */
 		@nowarn("cat=deprecation")
-		final def expand3[E :ClassTag](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Option[E]) :C[E] =
-			companion from Iterator.expand3(a0, a1, a2)(next)
+		final def expand[E :ClassTag](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Opt[E]) :C[E] =
+			companion from Iterator.expand(a0, a1, a2)(next)
+
+		/** $expand1Doc
+		  * @param a0   The first element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous one,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		@inline final def some[E :ClassTag](a0 :E)(next :E => Option[E]) :C[E] =
+			companion from Iterator.some(a0)(next)
+
+		/** $expand2Doc
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		final def some[E :ClassTag](a0 :E, a1 :E)(next :(E, E) => Option[E]) :C[E] =
+			companion from Iterator.some(a0, a1)(next)
+
+		/** $expand3Doc
+		  * @param a0   The first element added to the collection.
+		  * @param a1   The second element added to the collection.
+		  * @param a2   The third element added to the collection.
+		  * @param next A generator function returning subsequent elements for the collection
+		  *             based on the previous three, or `None` to indicate the end of recursion.
+		  * @tparam E the element type of the generated collection.
+		  * @return a collection containing the sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `next` to itself.
+		  */
+		final def some[E :ClassTag](a0 :E, a1 :E, a2 :E)(next :(E, E, E) => Option[E]) :C[E] =
+			companion from Iterator.some(a0, a1, a2)(next)
 
 		/** Returns the first `n` elements of a sequence defined by recursive equation
 		  * a_n_ = next(a_{n - 2}_, a_{n - 1}_). If `n <= 2`, only the first `n` elements of `a0, a1` are returned

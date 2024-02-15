@@ -1083,7 +1083,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 
 
 private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
-	extends AbstractIterator[E] with IteratorSlicing[E]
+	extends AbstractIterator[E] with IteratorWithDrop[E]
 {
 	//Invariant: top < 0 || stack(top).value.isDefined) & stack.take(top - 1).forall(t => t.value.isEmpty & t.size > 0)
 	//Can't delegate to recursive PrefixTree methods, because it is used to avoid blowing the stack.
