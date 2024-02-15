@@ -3,7 +3,7 @@ package net.noresttherein.sugar.repeat
 import scala.annotation.tailrec
 
 import net.noresttherein.sugar.illegalState_!
-import net.noresttherein.sugar.repeat.extensions.{repeatMethod, timesMethods}
+import net.noresttherein.sugar.repeat.extensions.{repeatMethods, timesMethods}
 import net.noresttherein.sugar.typist.Rank
 
 
@@ -15,7 +15,7 @@ trait extensions extends Any {
 	/** Adds a `repeat` method to any value, applying the function given as the argument repeatedly to its own
 	  * results until the condition passed to a subsequent `until` method evaluates to true.
 	  */
-	@inline implicit final def repeatMethod[T](self :T) :repeatMethod[T] = new repeatMethod[T](self)
+	@inline implicit final def repeatMethods[T](self :T) :repeatMethods[T] = new repeatMethods[T](self)
 
 	/** Adds a `times` method to any `Int` for executing a block the given number of times. */
 	@inline implicit final def timesMethods[T](self :Int) :timesMethods = new timesMethods(self)
@@ -26,13 +26,13 @@ trait extensions extends Any {
 
 @SerialVersionUID(Ver)
 object extensions extends extensions {
-	/** Extends any value with method [[net.noresttherein.sugar.repeat.extensions.repeatMethod.repeat repeat]],
+	/** Extends any value with method [[net.noresttherein.sugar.repeat.extensions.repeatMethods.repeat repeat]],
 	  * creating a pure functional equivalent of a `repeat ... until` loops:
 	  * {{{
 	  *     val kilo = 2 repeat { _ * 2 } until (_ > 1000)
 	  * }}}
 	  */
-	class repeatMethod[T](private val start :T) extends AnyVal {
+	class repeatMethods[T](private val start :T) extends AnyVal {
 		/** Executes the given function repeatedly applying it to the values it returns until the condition
 		  * passed to [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] method of the returned object
 		  * becomes true. The function will be executed at least once and this instance is used as the initial argument.
@@ -41,11 +41,11 @@ object extensions extends extensions {
 		  *     println(s"There are $kilo bytes in a kilobyte")
 		  * }}}
 		  */
-		@inline def repeat(f :T => T) :RepeatBlock[T] =
-			new RepeatBlock(new RecursionBlock(start, f))
+		@inline def repeat(f :T => T) :RepeatFunction[T] =
+			new RepeatFunction(start, f)
 
 		/** Executes the given function repeatedly applying it to previously returned values, returning the number
-		  * o iterations needed to satisfy the condition passed to
+		  * of iterations needed to satisfy the condition passed to
 		  * passed to [[net.noresttherein.sugar.repeat.CountingBlock.until until]] becomes true.
 		  * The function will be executed at least once and this instance is used as the initial argument.
 		  * {{{

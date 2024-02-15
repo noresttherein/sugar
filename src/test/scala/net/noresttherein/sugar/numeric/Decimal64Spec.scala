@@ -8,7 +8,7 @@ import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 import scala.util.Try
 
-import net.noresttherein.sugar.extensions.{ShortAsIntExtension, repeatMethod}
+import net.noresttherein.sugar.extensions.{ShortAsIntExtension, repeatMethods}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, Standard}
 import net.noresttherein.sugar.numeric.Decimal64.{MaxPrecision, MaxScale, MinScale, Precision, Round}
 import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
