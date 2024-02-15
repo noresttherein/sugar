@@ -3061,7 +3061,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 		/** A part representing a property of type `P` of molded type `M`.
 		  * Parsing of the property is allowed to fail without automatically propagating the error.
-		  * Instead the application receives a `Opt[P]` which can be inspected before continuing the parsing.
+		  * Instead the application receives an `Opt[P]` which can be inspected before continuing the parsing.
 		  * If [[scala.None None]] is passed as the argument to `part`,
 		  * nothing is consumed from the input or appended to the output.
 		  * The case of [[net.noresttherein.sugar.vars.Opt.One One]] value works the same way
@@ -3102,7 +3102,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 
 		/** A part representing a property of type `P` of molded type `M`, both in its solid and liquid forms.
 		  * Parsing of the property is allowed to fail without automatically propagating the error.
-		  * Instead the application receives a `Opt[(Liquid, P)]` which can be inspected
+		  * Instead the application receives an `Opt[(Liquid, P)]` which can be inspected
 		  * before continuing the parsing. Together with the value of the property, the application receives it
 		  * in its [[net.noresttherein.sugar.format.Format.Liquid Liquid]] format -
 		  * the result of melting it (when formatting), or the consumed fragment of the input when parsing.

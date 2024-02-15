@@ -36,7 +36,7 @@ trait ReflectingFormat extends Format {
 
 		/** A part representing a property of type `P` of molded type `M`.
 		  * Parsing of the property is allowed to fail without automatically propagating the error.
-		  * Instead the application receives a `Opt[P]` which can be inspected before continuing the parsing.
+		  * Instead the application receives an `Opt[P]` which can be inspected before continuing the parsing.
 		  * If [[scala.None None]] is passed as the argument to `part`,
 		  * nothing is consumed from the input or appended to the output.
 		  *

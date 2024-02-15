@@ -250,7 +250,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]] extends SugaredIte
 			    case _ => -1
 		    }
 
-	/** Finds the location of the given subsequence in this $coll, returning its index as an `Maybe`.
+	/** Finds the location of the given subsequence in this $coll, returning its index as a `Maybe`.
 	  * Thanks to the uniqueness of elements in a $coll and fast
 	  * [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]], this method runs in O(that.size).
 	  * @param that a presumed consecutive subsequence of this sequence.

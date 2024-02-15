@@ -25,7 +25,7 @@ import net.noresttherein.sugar.extensions.classNameMethods
   */
 @SerialVersionUID(Ver)
 trait MatchPattern[@specialized(SpecializedArgs) -In, +Out] extends Serializable {
-	/** The single abstract method of this class, possibly extracting a value of `Out` from an `In` as an `Maybe`. */
+	/** The single abstract method of this class, possibly extracting a value of `Out` from an `In` as a `Maybe`. */
 	def unapply(arg :In) :Maybe[Out]
 
 	/** Equivalent to `unapply(arg).get` - forces a result value out of the argument failing with an exception instead

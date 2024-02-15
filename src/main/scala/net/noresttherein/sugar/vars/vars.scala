@@ -40,7 +40,7 @@ package object vars extends vars.Rank1OptImplicits {
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.OptExtension OptExtension]].
-	  * A `Opt[A]` can be have three forms:
+	  * an `Opt[A]` can be have three forms:
 	  *   1. $None, serving the same role as in `scala.Option`,
 	  *   1. $Done[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
 	  *   1. $Done[A], wrapped - used to differentiate `One(None)` from `None`.
@@ -642,7 +642,7 @@ package object vars extends vars.Rank1OptImplicits {
 			if (!self.isInstanceOf[Red[_]])
 				f(get)
 
-		/** Converts this value to an `Maybe` if it is $Blue, losing the information by replacing
+		/** Converts this value to a `Maybe` if it is $Blue, losing the information by replacing
 		  * $Red with [[net.noresttherein.sugar.vars.Maybe.No No]].
 		  */
 		@inline def toMaybe :Maybe[B] = self match {
@@ -918,7 +918,7 @@ package object vars extends vars.Rank1OptImplicits {
 			if (!self.isInstanceOf[Throwable])
 				f(get)
 
-		/** Converts this value to an `Maybe` if it is $Done, losing the information by replacing
+		/** Converts this value to a `Maybe` if it is $Done, losing the information by replacing
 		  * $Failed with [[net.noresttherein.sugar.vars.Maybe.No No]].
 		  */
 		@inline def toMaybe :Maybe[A] = self match {
@@ -989,7 +989,7 @@ package vars {
 	import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
 
 	private[sugar] sealed abstract class Rank1OptImplicits {
-		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe
+		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe //consider: making these explicit
 		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
 	}
 
@@ -1020,13 +1020,13 @@ package vars {
 			case _       => None
 		}
 
-		/** Converts the given `Maybe[T]` into a `Opt[T]`. */
+		/** Converts the given `Maybe[T]` into an `Opt[T]`. */
 		@inline def yes_?[A](value :Maybe[A]) :Opt[A] = value.toOpt
 
-		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
+		/** Converts the given `Unsure[T]` into an `Opt[T]`, erased at runtime. */
 		@inline def sure_?[A](value :Unsure[A]) :Opt[A] = value.toOpt
 
-		/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+		/** Converts the given `Nullable[T]` into an `Opt[T]`, erased at runtime. */
 		@inline def nonNull_?[A <: AnyRef](value :Nullable[A]) :Opt[A] = value.toOpt
 
 		/** Converts the given `Option[T]` into a lighter `Opt[T]` which is erased at runtime. */
@@ -1035,16 +1035,16 @@ package vars {
 			case _       => None
 		}
 
-		/** Converts the given `Maybe[T]` into a `Opt[T]`. */
+		/** Converts the given `Maybe[T]` into an `Opt[T]`. */
 		@inline def fromMaybe[A](value :Maybe[A]) :Opt[A] = value.toOpt
 
-		/** Converts the given `Unsure[T]` into a `Opt[T]`, erased at runtime. */
+		/** Converts the given `Unsure[T]` into an `Opt[T]`, erased at runtime. */
 		@inline def fromUnsure[A](value :Unsure[A]) :Opt[A] = value match {
 			case Sure(a) => One(a)
 			case _       => None
 		}
 
-		/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+		/** Converts the given `Nullable[T]` into an `Opt[T]`, erased at runtime. */
 		@inline def fromNullable[A <: AnyRef](value :Nullable[A]) :Opt[A] = value.toOpt
 
 		/** Returns [[scala.None None]] - an empty `Opt`. */
@@ -1135,7 +1135,7 @@ package vars {
 				case _      => Nil
 			}
 
-			/** An implicit conversion from a `Opt[A]` to an `Option[A]`.
+			/** An implicit conversion from an `Opt[A]` to an `Option[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
@@ -1144,13 +1144,13 @@ package vars {
 				case _      => None
 			}
 
-			/** A nomen omen optional implicit conversion of an `Option[A]` to a `Opt[A]`.
+			/** A nomen omen optional implicit conversion of an `Option[A]` to an `Opt[A]`.
 			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
 			  */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
 			@inline implicit def OptionToOpt[A](opt :Option[A]) :Opt[A] = some_?(opt)
 
-			/** An implicit conversion from an `Opt[A]` to an `Maybe[A]`.
+			/** An implicit conversion from an `Opt[A]` to a `Maybe[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
 			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
 			  */
@@ -1159,7 +1159,7 @@ package vars {
 				case _      => No
 			}
 
-			/** A nomen omen optional implicit conversion of an `Maybe[A]` to a `Opt[A]`. */
+			/** A nomen omen optional implicit conversion of a `Maybe[A]` to an `Opt[A]`. */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
 			@inline implicit def MaybeToOpt[A](opt :Maybe[A]) :Opt[A] = yes_?(opt)
 

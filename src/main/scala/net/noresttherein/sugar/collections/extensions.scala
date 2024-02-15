@@ -3725,7 +3725,7 @@ object extensions extends extensions {
 			i
 		}
 
-		/** Finds the location of the given subsequence in this sequence, returning its index as an `Maybe`.
+		/** Finds the location of the given subsequence in this sequence, returning its index as a `Maybe`.
 		  * @param that a presumed consecutive subsequence of this sequence.
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  * @return `Maybe(this.indexOfSlice(that, from)).filter(_ >= 0)`.
@@ -3735,7 +3735,7 @@ object extensions extends extensions {
 				case -1 => None
 				case  n => Some(n)
 			}
-		/** Finds the last location of the given subsequence in this sequence, returning its index as an `Maybe`.
+		/** Finds the last location of the given subsequence in this sequence, returning its index as a `Maybe`.
 		  * @param that a presumed consecutive subsequence of this sequence.
 		  * @param end  the upper, inclusive bound on the returned index.
 		  * @return `Maybe(this.lastIndexOfSlice(that, end)).filter(_ >= 0)`.
@@ -5844,12 +5844,7 @@ object extensions extends extensions {
 					companion from Iterator.generate(start)(next)
 			}
 
-		/** Builds a collection `C[E]` by recursively reapplying the given function to the initial element.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `next`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.IterableFactory.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand1Doc
 		  * @param a0   The first element added to the collection.
 		  * @param next A generator function returning subsequent elements for the collection based on the previous one,
 		  *             or `None` to indicate the end of recursion.
@@ -6070,6 +6065,24 @@ object extensions extends extensions {
 	/** Adds factory methods for array iterators
 	  * and a [[net.noresttherein.sugar.collections.extensions.IteratorCompanionExtension.double double]] factory method
 	  * for two element iterators to object `Iterator` to complement [[scala.collection.Iterator.single single]].
+	  * @define customArrayIteratorInfo It is not the class from the Scala standard library,
+	  *                                 but one with specialized implementation of several most important methods,
+	  *                                 like `slice`, `copyToArray`, `foldLeft`.
+	  * @define expand1Doc Creates an iterator by recursively reapplying the given function to the initial element.
+	  *                    Instead of listing a fixed number of elements, this method uses the generator function `f`
+	  *                    as the termination condition and ends the recursion once it returns `None`.
+	  *                    It is the opposite of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way
+	  *                    as [[scala.collection.Iterator.unfold unfold]] is the opposite
+	  *                    of [[scala.collection.IterableOnceOps.fold fold]].
+	  * @define expand2Doc Creates an iterator by recursively reapplying the given function to the previous two elements.
+	  *                    Instead of listing a fixed number of elements, this method uses the generator function `f`
+	  *                    as the termination condition and ends the recursion once it returns `None`.
+	  * @define expand3Doc Creates an iterator by recursively reapplying the given function to the initial element.
+	  *                    Instead of listing a fixed number of elements, this method uses the generator function `f` as
+	  *                    the termination condition and ends the recursion once it returns `None`. It is the opposite
+	  *                    of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way
+	  *                    as [[scala.collection.Iterator.unfold unfold]] is the opposite
+	  *                    of [[scala.collection.IterableOnceOps.fold fold]].
 	  */
 	sealed trait IteratorCompanionExtension extends Any {
 		/** An iterator consisting of a single element. In contrast to the standard `Iterator.single`,
@@ -6084,23 +6097,25 @@ object extensions extends extensions {
 		final def double[A](first :A, second :A) :Iterator[A] = Iterators.double(first, second)
 
 		/** Same as `Iterator.`[[scala.collection.Iterator.fill fill]](len)(value), but returns a constant value. */
-		final def const[A](len :Int)(value :A) :Iterator[A] = new Iterators.Const(len, value)
+		final def const[A](len :Int)(value :A) :Iterator[A] = Iterators.const(value, len)
 
 		/** Same as `Iterator.`[[scala.collection.Iterator.continually continually]](value), but returns a constant value. */
-		final def infinite[A](value :A) :Iterator[A] = new Iterators.ConstInfinite(value)
+		final def infinite[A](value :A) :Iterator[A] = Iterators.const(value)
 
-		/** An iterator over the entirety of the specified array. */
+		/** An iterator over the entirety of the specified array.
+		  * $customArrayIteratorInfo
+		  */
 		final def over[X](array :Array[X]) :Iterator[X] = ArrayIterator(array)
 
 		/** An iterator over a slice of an array. */
 		final def slice[X](array :Array[X], from :Int, until :Int) :Iterator[X] =
 			ArrayIterator.slice(array, from, until)
 
-		/** An iterator going over the elements of an array in reverse. */
+		/** An iterator going over the elements of an array in reverse. $customArrayIteratorInfo */
 		final def reverse[X](array :Array[X]) :Iterator[X] = ReverseArrayIterator(array)
 
 		/** An iterator over a slice of an array going in reverse. The first item returned will be at `array(until-1)`,
-		  * and the last `array(from)`.
+		  * and the last `array(from)`. $customArrayIteratorInfo
 		  */
 		final def reverse[X](array :Array[X], from :Int, until :Int) :Iterator[X] =
 			ReverseArrayIterator.slice(array, from, until)
@@ -6128,35 +6143,28 @@ object extensions extends extensions {
 			}
 		}
 
-		/** Creates an iterator by recursively reapplying the given function to the initial element.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `f`
-		  * as the termination condition and ends the recursion once it returns `None`. It is the opposite
-		  * of [[scala.collection.IterableOnceOps.reduce reduce]] in the same way as
-		  * [[scala.collection.Iterator.unfold unfold]] is the opposite
-		  * of [[scala.collection.IterableOnceOps.fold fold]].
+		/** $expand1Doc
 		  * @param a0 The first element returned by the iterator.
 		  * @param f  A generator function returning subsequent elements of the iterator based on the previous one,
 		  *           or `None` to indicate the end of recursion.
 		  * @tparam E the type of the elements returned by the iterator.
 		  * @return an iterator containing a sequence starting with `a0`,
 		  *         and resulting from recursively applying `f` to itself.
-		  */ //consider: migration to Opt, or doubling the methods.
-		final def expand[E](a0 :E)(f :E => Option[E]) :Iterator[E] =
+		  */
+		final def expand[E](a0 :E)(f :E => Opt[E]) :Iterator[E] =
 			new BufferedIterator[E] {
-				private[this] var cont :Option[E] = Some(a0)
+				private[this] var cont :Opt[E] = One(a0)
 				override def head = cont.get
-				override def headOption = cont
+				override def headOption = cont.toOption
 				override def hasNext = cont.isDefined
 				override def nextOption() = cont match {
-					case res @ Some(x) => cont = f(x); res
-					case _ => cont
+					case res @ One(x) => cont = f(x); res.toOption
+					case _ => cont.toOption
 				}
 				override def next() = { val res = cont.get; cont = f(res); res }
 			}
 
-		/** Creates an iterator by recursively reapplying the given function to the previous two elements.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `f`
-		  * as the termination condition and ends the recursion once it returns `None`.
+		/** $expand2Doc
 		  * @param a0   The first element returned by the iterator.
 		  * @param a1   The second element returned by the iterator.
 		  * @param f    A generator function returning subsequent elements of the iterator based on the previous two,
@@ -6165,59 +6173,91 @@ object extensions extends extensions {
 		  * @return an iterator containing a sequence starting with `a0, a1`,
 		  *         and resulting from recursively applying `f` to itself.
 		  */
-		final def expand2[E](a0 :E, a1 :E)(f :(E, E) => Option[E]) :Iterator[E] =
+		final def expand[E](a0 :E, a1 :E)(f :(E, E) => Opt[E]) :Iterator[E] =
 			new BufferedIterator[E] {
-				private[this] var lastOpt :Option[E] = None
-				private[this] var cont :Option[E] = Some(a0)
+				private[this] var lastOpt :Opt[E] = None
+				private[this] var cont :Opt[E] = One(a0)
 				override def head = cont.get
-				override def headOption = cont
+				override def headOption = cont.toOption
 				override def hasNext = cont.isDefined
 				override def next() = {
 					val res = cont.get
 					cont = lastOpt match {
-						case Some(last) => f(last, res)
-						case _          => Some(a1)
+						case One(last) => f(last, res)
+						case _          => One(a1)
 					}
-					lastOpt = Some(res)
+					lastOpt = One(res)
 					res
 				}
-				override def nextOption() = { val res = cont; if (cont.isDefined) next(); res }
+				override def nextOption() = { val res = cont; if (cont.isDefined) next(); res.toOption }
 			}
 
-		/** Creates an iterator by recursively reapplying the given function to the previous two elements.
-		  * Instead of listing a fixed number of elements, this method uses the generator function `f`
-		  * as the termination condition and ends the recursion once it returns `None`.
+		/** $expand3Doc
 		  * @param a0   The first element returned by the iterator.
 		  * @param a1   The second element returned by the iterator.
 		  * @param a2   The second element returned by the iterator.
 		  * @param f    A generator function returning subsequent elements of the iterator based on the previous two,
 		  *             or `None` to indicate the end of recursion.
-		  * @tparam E the type of the elements returned by the iterator.
-		  * @return an iterator containing a sequence starting with `a0, a1, a2`,
+		  * @tparam E   The type of the elements returned by the iterator.
+		  * @return An iterator containing a sequence starting with `a0, a1, a2`,
 		  *         and resulting from recursively applying `f` to itself.
 		  */
-		final def expand3[E](a0 :E, a1 :E, a2 :E)(f :(E, E, E) => Option[E]) :Iterator[E] =
+		final def expand[E](a0 :E, a1 :E, a2 :E)(f :(E, E, E) => Opt[E]) :Iterator[E] =
 			new BufferedIterator[E] {
-				private[this] var secondLastOpt :Option[E] = None
-				private[this] var lastOpt :Option[E] = None
-				private[this] var cont :Option[E] = Some(a0)
+				private[this] var secondLastOpt :Opt[E] = None
+				private[this] var lastOpt :Opt[E] = None
+				private[this] var cont :Opt[E] = One(a0)
 				override def head = cont.get
-				override def headOption :Option[E] = cont
+				override def headOption :Option[E] = cont.toOption
 				override def hasNext = cont.isDefined
 				override def next() = {
 					val res = cont.get
 					cont = lastOpt match {
-						case Some(last) => secondLastOpt match {
-							case Some(secondLast) => f(last, secondLast, res)
-							case _                => Some(a2)
+						case One(last) => secondLastOpt match {
+							case One(secondLast) => f(last, secondLast, res)
+							case _                => One(a2)
 						}
-						case _ => Some(a1)
+						case _ => One(a1)
 					}
 					secondLastOpt = lastOpt
-					lastOpt = Some(res)
+					lastOpt = One(res)
 					res
 				}
 			}
+
+		/** $expand1Doc
+		  * @param a0 The first element returned by the iterator.
+		  * @param f  A generator function returning subsequent elements of the iterator based on the previous one,
+		  *           or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0`,
+		  *         and resulting from recursively applying `f` to itself.
+		  */
+		final def some[E](a0 :E)(f :E => Option[E]) :Iterator[E] = expand(a0)(f(_).toOpt)
+
+		/** $expand2Doc
+		  * @param a0   The first element returned by the iterator.
+		  * @param a1   The second element returned by the iterator.
+		  * @param f    A generator function returning subsequent elements of the iterator based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E the type of the elements returned by the iterator.
+		  * @return an iterator containing a sequence starting with `a0, a1`,
+		  *         and resulting from recursively applying `f` to itself.
+		  */
+		final def some[E](a0 :E, a1 :E)(f :(E, E) => Option[E]) :Iterator[E] = expand(a0, a1)(f(_, _).toOpt)
+
+		/** $expand3Doc
+		  * @param a0   The first element returned by the iterator.
+		  * @param a1   The second element returned by the iterator.
+		  * @param a2   The second element returned by the iterator.
+		  * @param f    A generator function returning subsequent elements of the iterator based on the previous two,
+		  *             or `None` to indicate the end of recursion.
+		  * @tparam E   The type of the elements returned by the iterator.
+		  * @return An iterator containing a sequence starting with `a0, a1, a2`,
+		  *         and resulting from recursively applying `f` to itself.
+		  */
+		final def some[E](a0 :E, a1 :E, a2 :E)(f :(E, E, E) => Option[E]) :Iterator[E] =
+			expand(a0, a1, a2)(f(_, _, _).toOpt)
 
 		/** Creates an iterator by recursively reapplying the given function to previous two elements.
 		  * @param a0  The first element returned by the iterator.
@@ -6227,7 +6267,7 @@ object extensions extends extensions {
 		  * @tparam E the type of the elements returned by the iterator.
 		  * @return an iterator containing a sequence starting with `a0, a1`,
 		  *         and resulting from recursively applying `f` to the previous two elements.
-		  */
+		  */ //I'd love to name it iterate, but it will not work because a single argument iterate already exists.
 		final def iterate2[E](a0 :E, a1 :E)(f :(E, E) => E) :Iterator[E] =
 			new Iterator[E] {
 				private[this] var rem = -1

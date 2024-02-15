@@ -17,10 +17,10 @@ import net.noresttherein.sugar.vars.Opt.One
   * recursion/loops. As a value class, it has no distinct subclasses for empty and non-empty instances, which results
   * in certain differences from `Option`. Aside from the obvious lack of creation of an additional object,
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, a disadvantage
-  * of being erased in runtime is that a method accepting an `Maybe[T]` will clash with an overloaded method
+  * of being erased in runtime is that a method accepting a `Maybe[T]` will clash with an overloaded method
   * accepting `Any` (including any erased, generic type parameter `T`).
   * Moreover, a generic method accepting/returning an abstract type (parameter) `T` cannot be overridden/implemented
-  * by a method accepting an `Maybe[O]`, where `O` is a type parameter, an abstract type, or a reference type
+  * by a method accepting a `Maybe[O]`, where `O` is a type parameter, an abstract type, or a reference type
   * (this is a limitation of the current Scala compiler).
   *
   * Note that, as this is a value class wrapping any type, boxing of built in value types to their reference wrappers
@@ -485,7 +485,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 /** Companion object providing factory methods and extractors working with [[net.noresttherein.sugar.vars.Maybe Maybe]]s.
   * @see [[net.noresttherein.sugar.vars.Maybe.No]]
   * @see [[net.noresttherein.sugar.vars.Maybe.Yes]]
-  */
+  */ //todo: rename Yes to Got and No to Lack; consider swapping the namee with Unsure.
 @SerialVersionUID(Ver)
 object Maybe {
 	/** Wraps the given object in a purely syntactic option-like object erased in the runtime. */
@@ -497,14 +497,14 @@ object Maybe {
 	@inline def some_?[T](value :Option[T]) :Maybe[T] =
 		new Maybe(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
-	/** Converts the given `Unsure[T]` into an `Maybe[T]`, erased at runtime. */
+	/** Converts the given `Unsure[T]` into a `Maybe[T]`, erased at runtime. */
 	@inline def sure_?[T](value :Unsure[T]) :Maybe[T] =
 		new Maybe(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
-	/** Converts the given `Opt[T]` into an `Maybe[T]` for interoperability. */
+	/** Converts the given `Opt[T]` into a `Maybe[T]` for interoperability. */
 	@inline def one_?[T](value :Opt[T]) :Maybe[T] = One.unapply(value)
 
-	/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+	/** Converts the given `Nullable[T]` into an `Opt[T]`, erased at runtime. */
 	@inline def nonNull_?[T <: AnyRef](value :Nullable[T]) :Opt[T] = value.toOpt
 
 	//Would be nice to rename these all methods to from[T](_), but,
@@ -514,14 +514,14 @@ object Maybe {
 	@inline def fromOption[T](value: Option[T]) :Maybe[T] =
 		new Maybe(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
-	/** Converts the given `Unsure[T]` into an `Maybe[T]`, erased at runtime. */
+	/** Converts the given `Unsure[T]` into a `Maybe[T]`, erased at runtime. */
 	@inline def fromUnsure[T](value: Unsure[T]) :Maybe[T] =
 		new Maybe(if (value.isDefined) value.get.asInstanceOf[AnyRef] else NoContent)
 
-	/** Converts the given `Opt[T]` into an `Maybe[T]` for interoperability. */
+	/** Converts the given `Opt[T]` into a `Maybe[T]` for interoperability. */
 	@inline def fromOpt[T](value :Opt[T]) :Maybe[T] = One.unapply(value)
 
-	/** Converts the given `Nullable[T]` into a `Opt[T]`, erased at runtime. */
+	/** Converts the given `Nullable[T]` into an `Opt[T]`, erased at runtime. */
 	@inline def fromNullable[T <: AnyRef](value :Nullable[T]) :Opt[T] = value.toOpt
 
 	/** When a given condition is true, evaluates the `a` argument and returns `Yes(a).`

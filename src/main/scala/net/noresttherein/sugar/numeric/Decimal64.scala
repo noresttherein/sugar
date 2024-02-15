@@ -2298,7 +2298,7 @@ object Decimal64 {
 	  * specified by an implicit `MathContext`. If no such instance exists,
 	  * [[net.noresttherein.sugar.numeric.Decimal64.Round Round]]`.`[[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]]
 	  * is used instead. This method is equivalent to [[net.noresttherein.sugar.numeric.Decimal64.parse parse]],
-	  * except the latter returns the result in an `Maybe` instead of throwing an exception.
+	  * except the latter returns the result in a `Maybe` instead of throwing an exception.
 	  **/
 	@throws[NumberFormatException]("if the string does not represent a decimal number in an accepted format.")
 	@throws[ArithmeticException]("if the value exceeds the precision of Decimal64 or the one from the implicit MathContext.")

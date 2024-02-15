@@ -39,7 +39,7 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   *     For integer types, especially smaller values, `Unit` and `Boolean`, this is partly offset by the runtime
   *     environment's employment of caching of commonly used values. Value classes and floating point numbers
   *     will however require boxing. Another drawback is that its erasure clashes with the wrapped type itself,
-  *     preventing overloaded methods, just as compiler bridges required when a method accepting/returning an `Maybe`
+  *     preventing overloaded methods, just as compiler bridges required when a method accepting/returning a `Maybe`
   *     overrides a generic method with an abstract type in place of the `Maybe` value clash with the method's erasure.
   *     When an instance is repeatedly passed between contexts in which it is referred to as an abstract type
   *     and where it is erased, this can paradoxically result in significantly more boxing than a once created
@@ -357,7 +357,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  */
 	override def option :Option[T] = None //overridden by Sure
 
-	/** Converts this `Unsure` to an `Maybe`. Same as [[net.noresttherein.sugar.vars.Unsure.toMaybe toMaybe]].
+	/** Converts this `Unsure` to a `Maybe`. Same as [[net.noresttherein.sugar.vars.Unsure.toMaybe toMaybe]].
 	  * @return [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
 	  *         if `this.`[[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]
 	  *         or [[net.noresttherein.sugar.vars.Maybe.No No]] otherwise.
@@ -533,7 +533,7 @@ object Unsure {
 		/** Wraps any object in a [[net.noresttherein.sugar.vars.Sure Sure]] monad. */
 		@inline implicit def sureAny[@specialized(SpecializedVars) A](sure :A) :Sure[A] = Sure(sure)
 
-		/** A nomen omen optional implicit conversion of an `Maybe[A]` to a `Unsure[A]`.
+		/** A nomen omen optional implicit conversion of a `Maybe[A]` to a `Unsure[A]`.
 		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]]
 		  */
 		@inline implicit def MaybeToUnsure[@specialized(SpecializedVars) A](opt :Maybe[A]) :Unsure[A] = yes_?(opt)
