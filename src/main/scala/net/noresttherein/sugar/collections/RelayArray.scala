@@ -15,12 +15,14 @@ import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IArrayLike, IRefArray, TypedArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
+import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.RelayArrayPlus.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.illegalState_!
+import net.noresttherein.sugar.extensions.IntExtension
+import net.noresttherein.sugar.{illegalState_!, illegal_!, unsupported_!}
 import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -30,8 +32,8 @@ import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMet
 
 
 
-//Consider: a supertype for RelayArrayView, ReversedSeq, SeqSlice, etc. AdapterSeq, Subcollection?
-//todo: introduce a supertype, and make RelayArrayView a subtype of it, apart from other subclasses.
+//Consider: a supertype for RelayArrayRange, ReversedSeq, SeqSlice, etc. AdapterSeq, Subcollection?
+//todo: introduce a supertype, and make RelayArrayRange a subtype of it, apart from other subclasses.
 //todo: RelaySeq; RelayArray1=>RelaySeq1, RelayArray2=>RelaySeq2, maybe RelayArraySeq which will shrink to RelaySeq?
 //todo: RelayMatrix: a two dimensional array when size exceeds a threshold.
 
@@ -773,7 +775,7 @@ private final class RelayArray2[@specialized(ElemTypes) +E] private[collections]
 
 /** Most of the implementation of an actual array backed [[net.noresttherein.sugar.collections.RelayArray RelayArray]].
   * Base trait for [[net.noresttherein.sugar.collections.RelayArrayPlus RelayArrayPlus]]
-  * and [[net.noresttherein.sugar.collections.RelayArrayView RelayArrayView]].
+  * and [[net.noresttherein.sugar.collections.RelayArrayRange RelayArrayRange]].
   */ //todo: rename to SubRelayArray or RelayArraySlice; problem with 'Slice' is slice method from Iterable
 private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 	extends RelayArrayPrivates[E] with ApplyPreferredSeqOps[E, RelayArray, RelayArray[E]]
@@ -781,6 +783,8 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 {  //todo: review and try to use Array.copyOf rather than separate creation and copying of arrays.
 	override def elementType :Class[_] = unsafeArray.getClass.getComponentType
 	override def isImmutable :Boolean = true
+	protected var isOwner    :Boolean
+	protected def canPassOn  :Boolean
 
 	private[collections] def dumpString :String =
 		mkString(s"${this.localClassName}|$startIndex-${startIndex + length}/${ unsafeArray.length}|(", ", ", ")")
@@ -966,7 +970,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		if (until <= from | until <= 0 | from >= len)
 			RelayArray.empty
 		else if (from <= 0 && until >= len)
-			new RelayArrayView[E](array, offset, len)
+			new RelayArrayRange[E](array, offset, len)
 		else {
 			val array   = unsafeArray.asInstanceOf[Array[E]]
 			val start   = math.max(from, 0)
@@ -976,7 +980,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 			else if (newSize == 2)
 				new RelayArray2[E](array(offset + start), array(offset + start + 1), elementType)
 			else
-				new RelayArrayView[E](array, offset + start, newSize)
+				new RelayArrayRange[E](array, offset + start, newSize)
 		}
 	}
 
@@ -987,6 +991,244 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 			val copy = unsafeArray.asInstanceOf[Array[E]].slice(startIndex, startIndex + length)
 			new RelayArrayPlus[E](copy)
 		}
+
+
+	override def appended[U >: E](elem :U) :RelayArray[U] = {
+		val len = length
+		if (len == MaxArraySize)
+			maxCapacityError(1)
+		val arr      = array
+		val offset   = startIndex
+		val elemType = elem.getClass
+		val canStore = elemType isConvertibleTo elementType
+		var res      = null :RelayArray[U]
+		if (canStore)
+			if (offset + len < arr.length) {
+				if (canPassOn) {
+					arr(offset + len) = elem.asInstanceOf[E]
+					res = newSpecific(arr, offset, offset + len + 1, true)
+				}
+			} else if (len == 0 && arr.length > 0 && canPassOn) {
+				arr(0) = elem.asInstanceOf[E]
+				res = newSpecific(arr, 0, 1, true)
+			}
+		if (res == null) {
+			val halfSize  = len + 1 >> 2
+			val newOffset = math.max(0, math.min(math.min(offset, halfSize), MaxArraySize - len - halfSize))
+			val newEnd    = newOffset + len + 1
+			val capacity  = math.max(newEnd + math.min(MaxArraySize - newEnd, halfSize), InitSize)
+			val copy =
+				if (canStore) ArrayFactory.ofDim(elementType, capacity).asInstanceOf[Array[U]]
+				else new Array[AnyRef](capacity).asInstanceOf[Array[U]]
+			copy(newOffset + len) = elem
+			ArrayLike.copy(arr, offset, copy, newOffset, len)
+			res =
+				if (canStore) newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + len + 1, true)
+				else new RelayArrayPlus[U](copy, newOffset, len + 1, true)
+		}
+		res
+	}
+
+	override def prepended[U >: E](elem :U) :RelayArray[U] = {
+		val len = length
+		if (len == MaxArraySize)
+			maxCapacityError(1)
+		val arr      = array
+		val offset   = startIndex
+		val elemType = elem.getClass
+		val canStore = elemType isConvertibleTo elementType
+		var res      = null :RelayArray[U]
+		if (canStore)
+			if (offset > 0) {
+				if (canPassOn) {
+					arr(offset - 1) = elem.asInstanceOf[E]
+					res = newSpecific(arr, offset - 1, offset + len, true)
+				}
+			} else if (len == 0 && arr.length > 0 && canPassOn) {
+				val newOffset = arr.length - 1
+				arr(newOffset) = elem.asInstanceOf[E]
+				res = newSpecific(arr, newOffset, newOffset + 1, true)
+			}
+		if (res == null) {
+			val halfSize  = len + 1 >> 2
+			val padding   = math.min(arr.length - offset - len, halfSize)
+			val capacity  = math.min(MaxArraySize, math.max(halfSize +~ len +~ padding, InitSize))
+			val newOffset = math.max(1, capacity - padding - len)
+			val copy =
+				if (canStore) ArrayFactory.ofDim(elementType, capacity).asInstanceOf[Array[U]]
+				else new Array[AnyRef](capacity).asInstanceOf[Array[U]]
+			ArrayLike.copy(arr, offset, copy, newOffset, len)
+			copy(newOffset - 1) = elem
+			res =
+				if (canStore) newSpecific(copy.asInstanceOf[Array[E]], newOffset - 1, newOffset + len, true)
+				else new RelayArrayPlus[U](copy, newOffset - 1, len + 1)
+		}
+		res
+	}
+
+	override def appendedAll[U >: E](suffix :IterableOnce[U]) :RelayArray[U] = {
+		val len      = length
+		val arr      = array
+		val offset   = startIndex
+		val capacity = arr.length
+		suffix match { //We don't want to evaluate elements of a view multiple times.
+			case it :View[U]                    => appendedAll(it.iterator)
+			case it :Iterable[U] if it.isEmpty  => this
+			case it :Iterator[U] if !it.hasNext => this
+			case it :RelayArray[U] if len == 0 && (it.length > capacity || !isOwner) => it
+			case it :RelayArray[U] =>
+				val extras    = it.length
+				val newSize   = len + extras
+				val myType    = elementType
+				val theirType = it.elementType
+				val canStore  = theirType isConvertibleTo myType
+				var res       = null :RelayArray[U]
+				if (canStore)
+					if (offset + newSize <= capacity) {
+						if (canPassOn) {
+							it.copyToArray(arr.asInstanceOf[Array[U]], offset + len, extras)
+							res = newSpecific(arr, offset, offset + newSize, true)
+						}
+					} else if (len == 0 && extras <= capacity && canPassOn) {
+						it.copyToArray(arr.asInstanceOf[Array[U]], 0, extras)
+						res = newSpecific(arr, 0, extras, true)
+					}
+				if (res == null)
+					res = appendedAll(it, if (canStore) myType else classOf[Any], extras)
+				res
+			case it :Iterable[U] => it.knownSize match {
+				case -1 =>
+					super.appendedAll(it)
+				case extras =>
+					val newSize = len + extras
+					var wasOwner = false
+					try {
+						var res :RelayArray[U] = null
+						if (offset + newSize <= unsafeArray.length) {
+							wasOwner = canPassOn
+							if (wasOwner) {
+								it.copyToArray(arr.asInstanceOf[Array[U]], offset + len, newSize)
+								res = newSpecific(arr, offset, offset + newSize, true)
+							}
+						}
+						if (res == null)
+							res = appendedAll(it, arr.getClass.getComponentType, extras)
+						res
+					} catch {
+						case _ :ClassCastException | _ :ArrayStoreException | _ :NullPointerException =>
+							if (wasOwner)
+								isOwner = true
+							appendedAll(it, classOf[Any], extras)
+					}
+			}
+			case _ => super.appendedAll(suffix)
+		}
+	}
+
+	private def appendedAll[U >: E](items :Iterable[U], elemType :Class[_], itemsSize :Int) :RelayArray[U] = {
+		val len = length
+		if (itemsSize > MaxArraySize - len)
+			maxCapacityError(itemsSize)
+		val halfSize   = (len + 1) / 2
+		val newSize    = len + itemsSize
+		val growth     = math.max(itemsSize, halfSize)
+		val offset     = startIndex
+		val offsetIdea = math.min(offset, halfSize)
+		val desiredCap = offsetIdea +~ len +~ growth
+		val capacity   = math.min(math.max(desiredCap, InitSize), MaxArraySize)
+		val newOffset  = math.max(0, math.min(offsetIdea, capacity - len - growth))
+		//capacity - len - extras|growth does not overflow: 0 <= len <= capacity & 0 < growth|extras <= Int.MaxValue
+		val copy = ArrayFactory.ofDim(elemType, capacity).asInstanceOf[Array[U]]
+		items.copyToArray(copy, newOffset + len, Int.MaxValue)
+		ArrayLike.copy(array, offset, copy, newOffset, len)
+		if (elemType eq elementType)
+			newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize, true)
+		else
+			new RelayArrayPlus(copy, newOffset, newSize, true)
+	}
+
+
+	override def prependedAll[U >: E](prefix :IterableOnce[U]) :RelayArray[U] = {
+		val len      = length
+		val arr      = array
+		val offset   = startIndex
+		val capacity = arr.length
+		prefix match { //We don't want to evaluate elements of a view multiple times.
+			case it :View[U]                    => prependedAll(it.iterator)
+			case it :Iterable[U] if it.isEmpty  => this
+			case it :Iterator[U] if !it.hasNext => this
+			case it :RelayArray[U] if len == 0 && (it.length > capacity || !isOwner) => it
+			case it :RelayArray[U] =>
+				val extras    = it.length
+				val newSize   = len + extras
+				val myType    = elementType
+				val theirType = it.elementType
+				val canStore  = theirType isConvertibleTo myType
+				var res       = null :RelayArray[U]
+				if (canStore)
+					if (offset >= extras) {
+						if (canPassOn) {
+							it.copyToArray(arr.asInstanceOf[Array[U]], offset - extras, extras)
+							res = newSpecific(arr, offset - extras, offset - extras + newSize, true)
+						}
+					} else if (len == 0 && extras <= capacity && canPassOn) {
+						val newOffset = capacity - extras
+						it.copyToArray(arr.asInstanceOf[Array[U]], newOffset, extras)
+						res = newSpecific(arr, newOffset, newOffset + extras, true)
+					}
+				if (res == null)
+					res = prependedAll(it, if (canStore) myType else classOf[Any], extras)
+				res
+			case it :Iterable[U] => it.knownSize match {
+				case -1 => super.prependedAll(prefix)
+				case extras =>
+					val newSize = len + extras
+					var wasOwner = false
+					try {
+						var res :RelayArray[U] = null
+						if (offset >= extras) {
+							wasOwner = canPassOn
+							if (wasOwner) {
+								it.copyToArray(arr.asInstanceOf[Array[U]], offset - extras, extras)
+								res = newSpecific(arr, offset - extras, offset - extras + newSize, true)
+							}
+						}
+						if (res == null)
+							res = prependedAll(it, elementType, extras)
+						res
+					} catch {
+						case _ :ClassCastException | _ :ArrayStoreException | _ :NullPointerException =>
+							if (wasOwner)
+								isOwner = true
+							prependedAll(it, classOf[Any], extras)
+					}
+			}
+			case _ => super.prependedAll(prefix)
+		}
+	}
+
+	private def prependedAll[U >: E](items :Iterable[U], elemType :Class[_], itemsSize :Int) :RelayArray[U] = {
+		val len = length
+		if (itemsSize > MaxArraySize - len)
+			maxCapacityError(itemsSize)
+		val arr        = array
+		val newSize    = len + itemsSize
+		val halfSize   = (len + 1) / 2
+		val offset     = startIndex
+		val padding    = math.min(arr.length - offset - len, halfSize)
+		val offsetIdea = math.max(0, halfSize - itemsSize)
+		val desiredCap = offsetIdea +~ newSize +~ padding
+		val capacity   = math.min(MaxArraySize, math.max(desiredCap, InitSize))
+		val newOffset  = math.min(offsetIdea, capacity - newSize)
+		val copy       = ArrayFactory.ofDim(elemType, capacity).asInstanceOf[Array[U]]
+		items.copyToArray(copy, newOffset, itemsSize)
+		ArrayLike.copy(arr, offset, copy, newOffset + itemsSize, len)
+		if (elemType eq elementType)
+			newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize, true)
+		else
+			new RelayArrayPlus(copy, newOffset, newSize, true)
+	}
+
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
 		case Yes(RelayArray | Seq | IndexedSeq | collection.Seq | collection.IndexedSeq) => this.asInstanceOf[C1]
@@ -999,8 +1241,8 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		case _ => super.to(factory)
 	}
 
-	private def writeReplace :Serializable =
-		new ArraySerializationProxy[IArrayLike, E](RelayArray, array.asInstanceOf[IArrayLike[E]])
+	protected[this] def writeReplace :Serializable =
+		new ArraySerializationProxy[IArrayLike, E](RelayArray, array.asInstanceOf[IArrayLike[E]], startIndex, length)
 }
 
 
@@ -1023,7 +1265,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
   * equals the specialization type. All reference types are normally (although not strictly enforced)
   * stored in an `Array[AnyRef]`, so as to maximize the likelihood that append/prepend
   * will be able to use the free space.
-  * @see [[net.noresttherein.sugar.collections.RelayArrayView RelayArrayView]]
+  * @see [[net.noresttherein.sugar.collections.RelayArrayRange RelayArrayRange]]
   */
 @SerialVersionUID(Ver)
 private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collections]
@@ -1039,14 +1281,21 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 //	private[sugar] override def unsafeArray :Array[_] = array
 	protected override def array :Array[E @uncheckedVariance] = arr
 	private[sugar] override def startIndex :Int = offset
-	@volatile private[this] var isOwner = owner //This assignment works as a memory fence ensuring visibility of the array.
+	@volatile private[this] var owns = owner //This assignment works as a memory fence ensuring visibility of the array.
+	protected override def isOwner :Boolean = owns
+	protected override def isOwner_=(value :Boolean) :Unit = owns = value
 
 	override def length :Int = len
 
-	private def canPassOn :Boolean = {
-		var read :Boolean = isOwner
+	private def ownerField = MethodHandles.lookup().findVarHandle(
+		classOf[RelayArrayPlus[Any]], "owns", classOf[Boolean]
+//		classOf[RelayArrayPlus[Any]].getName.replace('.', '$') + "$$owns", classOf[Boolean] //if the field were accessed from specialized subclasses
+	)
+
+	protected override def canPassOn :Boolean = {
+		var read :Boolean = owns
 		while (read && !OwnerField.weakCompareAndSet(this, true, false))
-			read = isOwner
+			read = owns
 		read
 	}
 
@@ -1077,10 +1326,7 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 		else
 			new RelayArrayPlus[E](array, from, len, array ne this.arr)
 	}
-
-	//fixme: we don't check for MaxArraySize
-	//fixme: overflows/underflows
-
+/*
 	//todo: Move up canPassOn and appending/prepending methods up to ProperRelayArray
 	override def appended[U >: E](elem :U) :RelayArray[U] = {
 		if (len == MaxArraySize)
@@ -1310,14 +1556,18 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
   * the elements (unlike in [[net.noresttherein.sugar.collections.RelayArrayPlus PassedArrayPlus]].
   */
 @SerialVersionUID(Ver)
-private final class RelayArrayView[@specialized(ElemTypes) +E] private[collections]
-	                              (arr :Array[E], offset :Int, len :Int)
+private final class RelayArrayRange[@specialized(ElemTypes) +E] private[collections]
+	                               (arr :Array[E], offset :Int, len :Int)
 	extends AbstractSeq[E] with ProperRelayArray[E]
 {
 	releaseFence()
 	protected override def array :Array[E @uncheckedVariance] = arr
 	private[sugar] override def startIndex :Int = offset
 	override def length :Int = len
+
+	protected override def canPassOn :Boolean = false
+	protected override def isOwner   :Boolean = false
+	protected override def isOwner_=(value :Boolean) :Unit = unsupported_!("RelayArrayRange.isOwner = " + value)
 
 	override def apply(i :Int) :E =
 		if (i < 0 | i >= len)
@@ -1338,7 +1588,7 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 	override def slice(from :Int, until :Int) :RelayArray[E] = range(from, until)
 	protected override def clippedSlice(from :Int, until :Int) :RelayArray[E] = range(from, until)
 	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :RelayArray[E] =
-		if (array eq this.arr) new RelayArrayView[E](array, from, until - from)
+		if (array eq this.arr) new RelayArrayRange[E](array, from, until - from)
 		else new RelayArrayPlus[E](array, from, until - from, true)
 
 
@@ -1943,7 +2193,7 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 /** Internal methods and constants which must be public because they are used by multiple `RelayArray` subclasses,
   * and thus can't be in `RelayArray` object.
   */
-private object RelayArrayPlus {
+private object RelayArrayPlus { //Must be RelayArrayPlus to access var handle for the owner field in RelayArrayPlus.
 
 	def superElementType(elem1 :Any, elem2 :Any) :Class[_] =
 		if (elem1 == null | elem2 == null)
@@ -1964,9 +2214,10 @@ private object RelayArrayPlus {
 	final val AcceptableBuilderFillRatio = 0.75
 	final val applyPreferredMaxLength = Int.MaxValue
 
-	val OwnerField = MethodHandles.lookup().findVarHandle(
-		classOf[RelayArrayPlus[Any]],
-//			"isOwner", classOf[Boolean]
-		classOf[RelayArrayPlus[Any]].getName.replace('.', '$') + "$$isOwner", classOf[Boolean]
-	)
+	val OwnerField = new RelayArrayPlus(Array.emptyObjectArray, 0, 0).ownerField
+//	val OwnerField = MethodHandles.lookup().findVarHandle(
+//		classOf[RelayArrayPlus[Any]],
+//			"owns", classOf[Boolean]
+//		classOf[RelayArrayPlus[Any]].getName.replace('.', '$') + "$$owns", classOf[Boolean]
+//	)
 }

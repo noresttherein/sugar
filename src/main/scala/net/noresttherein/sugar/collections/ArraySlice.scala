@@ -436,7 +436,7 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :C[E @uncheckedVariance] =
 		sliceFactory.slice(array.asInstanceOf[A[E]], from, until - from)
 
-	private def writeReplace :Serializable =
+	protected[this] def writeReplace :Serializable =
 		//todo: get rid of this cast by changing unsafeArray to ArrayLike, and then array to A[E]
 		new ArraySerializationProxy[A, E](sliceFactory, array.asInstanceOf[A[E]], startIndex, length)
 

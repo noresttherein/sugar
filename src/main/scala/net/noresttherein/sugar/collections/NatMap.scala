@@ -179,7 +179,7 @@ object NatMap extends ImplicitNatMapFactory {
 	/** A single entry of a [[net.noresttherein.sugar.collections.NatMap NatMap]],
 	  * associating a value of `V[X]` with a key of `K[X]`.
 	  */
-	sealed trait Assoc[+K[_], +V[_], X] extends Product2[K[X], V[X]] {
+	sealed trait Assoc[+K[_], +V[_], X] extends Product2[K[X], V[X]] with Serializable {
 		private[NatMap] def asMap[U[A] >: K[A]] :NatMap[U, V] = this.asInstanceOf[NatMap[U, V]]
 		private[NatMap] def keyHashCode :Int
 	}
@@ -495,14 +495,15 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def toString = "(" + _1 + ", " + _2 + ")"
 
-		private def writeReplace :Serializable = new Serializable {
-			private[this] val key = Singleton.this._1
-			private[this] val value = Singleton.this._2
-			private[this] val defaults = Singleton.this.defaults
-			private def readResolve = new Singleton(key, value)(defaults)
-		}
+		private def writeReplace :Serializable = new SerializedAssoc(_1, _2)
 	}
 
+	@SerialVersionUID(Ver)
+	private class SerializedAssoc[K[_], V[_], T](key :K[T], value :V[T])(implicit defaults :WhenNoKey[K, V])
+		extends Serializable
+	{
+		private def readResolve = new Singleton(key, value)
+	}
 
 
 

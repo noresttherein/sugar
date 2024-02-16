@@ -15,6 +15,7 @@ import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
+import net.noresttherein.sugar.collections.Substring.SubstringSerializationProxy
 import net.noresttherein.sugar.collections.extensions.{StepperCompanionExtension, StepperExtension}
 import net.noresttherein.sugar.exceptions.{illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
@@ -1054,7 +1055,8 @@ final class Substring private (protected override val whole :String,
 		builder
 	}
 
-	private def writeReplace = new Substring(whole.substring(startIndex, startIndex + length), 0, length)
+	private def writeReplace =
+		new SubstringSerializationProxy(whole.substring(startIndex, startIndex + length))
 }
 
 
@@ -1065,7 +1067,7 @@ final class Substring private (protected override val whole :String,
   * $coll substring
   */
 @SerialVersionUID(Ver)
-object Substring extends SpecificIterableFactory[Char, Substring] {
+case object Substring extends SpecificIterableFactory[Char, Substring] {
 	def apply(string :String) :Substring = new Substring(string, 0, string.length)
 
 	def apply(string :String, offset :Int) :Substring =
@@ -1112,7 +1114,10 @@ object Substring extends SpecificIterableFactory[Char, Substring] {
 
 	override val empty :Substring = new Substring("", 0, 0) //we could do read resolve to have a single instance
 
-	override def toString = "Substring"
+	@SerialVersionUID(Ver)
+	private class SubstringSerializationProxy(string :String) extends Serializable {
+		private def readResolve = new Substring(string, 0, string.length)
+	}
 }
 
 

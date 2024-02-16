@@ -121,7 +121,7 @@ sealed trait DisposableRef[+T] extends Ref[T] with Serializable { this : Referen
 	@inline final override def unsureConst :Unsure[T] = Missing
 
 	protected def factory :DisposableRefFactory[DisposableRef]
-	private def writeReplace = new SerializedEmptyRef(factory)
+	protected[this] def writeReplace :AnyRef = new SerializedEmptyRef(factory)
 
 	private[vars] override def isSpecialized = false
 
