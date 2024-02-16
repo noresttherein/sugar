@@ -179,6 +179,32 @@ object extensions extends extensions {
 		/** Raises this `Int` to the given power. If the argument is negative, `0` is returned. */
 		@inline def **(exp :Int) :Int = pow(exp)
 
+		/** Addition which clips to `Int.MinValue`/`Int.MaxValue` instead of overflowing/underflowing. */
+		@inline def +~(other :Int) :Int = {
+			val sum = self + other
+			val selfLtZero  = self >> 31
+			val otherLtZero = other >> 31
+			val sumLtZero   = sum >> 31
+			val sumGteZero  = ~sum >> 31
+			~self >> 31 & ~other >> 31 & (sumGteZero & sum | sumLtZero & Int.MaxValue) | //if self >= 0 && other >= 0
+				selfLtZero & otherLtZero & (sumLtZero & sum | sumGteZero & Int.MinValue) | //if self < 0 && other < 0
+				(selfLtZero ^ otherLtZero) & sum
+		}
+
+		/** Subtraction which clips to `Int.MinValue`/`Int.MaxValue` instead of overflowing/underflowing. */
+		@inline def -~(other :Int) :Int = { //Can't just this +~ -other, because -Int.MinValue == Int.MinValue
+			val sum = self - other
+			val sumLtZero   = sum >> 31
+			val sumGteZero  = ~sum >> 31
+			val selfLtZero  = self >> 31
+			val selfGteZero = ~self >> 31
+			val otherLtZero = other >> 31
+			selfGteZero & otherLtZero & (sumGteZero & sum | sumLtZero & Int.MaxValue) |
+				selfLtZero & ~other >> 31 & (sumLtZero & sum | sumGteZero & Int.MinValue) |
+				(selfLtZero ^ otherLtZero) & sum
+		}
+
+
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(self)
 
@@ -320,6 +346,31 @@ object extensions extends extensions {
 
 		/** Raises this `Long` to the given power. If the argument is negative, `0` is returned. */
 		@inline def **(exp :Int) :Long = pow(exp)
+
+		/** Addition which clips to `Long.MinValue`/`Long.MaxValue` instead of overflowing/underflowing. */
+		@inline def +~(other :Long) :Long = {
+			val sum = self + other
+			val selfLtZero  = self >> 63
+			val otherLtZero = other >> 63
+			val sumLtZero   = sum >> 63
+			val sumGteZero  = ~sum >> 63
+			~self >> 63 & ~other >> 63 & (sumGteZero & sum | sumLtZero & Long.MaxValue) | //if self >= 0 && other >= 0
+				selfLtZero & otherLtZero & (sumLtZero & sum | sumGteZero & Long.MinValue) | //if self < 0 && other < 0
+				(selfLtZero ^ otherLtZero) & sum
+		}
+
+		/** Subtraction which clips to `Long.MinValue`/`Long.MaxValue` instead of overflowing/underflowing. */
+		@inline def -~(other :Long) :Long = { //Can't just this +~ -other, because -Long.MinValue == Long.MinValue
+			val sum = self - other
+			val sumLtZero   = sum >> 63
+			val sumGteZero  = ~sum >> 63
+			val selfLtZero  = self >> 63
+			val selfGteZero = ~self >> 63
+			val otherLtZero = other >> 63
+			selfGteZero & otherLtZero & (sumGteZero & sum | sumLtZero & Long.MaxValue) |
+				selfLtZero & ~other >> 63 & (sumLtZero & sum | sumGteZero & Long.MinValue) |
+				(selfLtZero ^ otherLtZero) & sum
+		}
 
 		/** Creates the reduced form of fraction `this/100`. */
 		@inline def % :Ratio = Ratio.percent(self)
