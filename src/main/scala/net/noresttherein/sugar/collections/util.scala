@@ -179,7 +179,7 @@ private object Constants {
 		case _ :Exception => DefaultReasonableArraySize
 	}
 
-	final val MaxArraySize = 2147483645
+	final val MaxArraySize = Int.MaxValue - 8 //2147483645
 }
 
 

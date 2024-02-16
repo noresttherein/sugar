@@ -1,8 +1,9 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.IterableOps
-import scala.collection.mutable.{Builder, ImmutableBuilder, ReusableBuilder}
+import scala.collection.mutable.{ArrayBuffer, Builder, Growable, ImmutableBuilder, ReusableBuilder}
 
+import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableExtension
 
 
@@ -112,3 +113,41 @@ trait BuilderFromBooleans[To] extends Builder[Boolean, To] {
 	override def addOne(elem :Boolean) :this.type
 }
 */
+
+
+/** A simple `Array[Any]`-based stack implementation.
+  * A base class for builders everywhere, but also iterators over tree-like structures which need to keep track
+  * of the path to the current leaf, possibilities are limitless!
+  * @note Designed for trusted code, it does not perform bounds check when accessing the array.
+  */
+private class ArrayGrowable[E](private[this] var capacity :Int) extends Growable[E] {
+	if (capacity <= 0)
+		capacity = ArrayBuffer.DefaultInitialSize
+	private[this] var stack = new Array[Any](capacity)
+	private[this] var size  = 0
+	final override def knownSize = size
+
+	protected final def apply(idx :Int) :E = stack(idx).asInstanceOf[E]
+	protected final def pop() :E = { size -= 1; stack(size).asInstanceOf[E] }
+	protected final def top :E = stack(size - 1).asInstanceOf[E]
+
+	//todo: addAll
+	override def addOne(elem :E) :this.type = {
+		if (size == capacity) {
+			capacity = math.max(math.min(MaxArraySize >> 1, capacity) << 1, ArrayBuffer.DefaultInitialSize)
+			if (stack == null)
+				stack = new Array[Any](capacity)
+			else
+				stack = Array.copyOf(stack, capacity)
+		}
+		stack(size) = elem
+		size += 1
+		this
+	}
+
+	override def clear() :Unit = {
+		capacity = 0
+		size     = 0
+		stack    = null
+	}
+}

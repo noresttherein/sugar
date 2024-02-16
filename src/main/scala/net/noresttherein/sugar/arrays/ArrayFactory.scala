@@ -9,8 +9,9 @@ import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, Builders, ViewBuffer}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, BufferFullException, Builders, ViewBuffer}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
+import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.Specialized.NotUnit
@@ -59,6 +60,8 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 	}.asInstanceOf[Array[A]]
 
 	private val emptyUnitArray = Array.emptyUnitArray
+
+	final val MaxSize = Int.MaxValue - 8 //According to java.util.ArrayDeque, and it should know
 
 	@inline def emptyLike[A](template :Array[A]) :Array[A] = empty(template.getClass.getComponentType.castParam[A])
 
@@ -257,54 +260,49 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 		private[this] var buffer = init
 		private[this] var size :Int = if (buffer == null) 0 else buffer.length
 
+		private def maxArraySizeExceeded(extra :Int) =
+			throw new BufferFullException(
+				if (size == MaxSize) "Maximum array size reached."
+				else "Cannot add " + extra + " elements to " + size.toString + ": maximum array size exceeded."
+			)
+
+
 		override def sizeHint(size :Int) :Unit =
-			if (size > 0) {
+			if (size > this.size & size <= MaxSize)
 				if (buffer == null)
 					buffer = Array.of(elemType, size)
-				else if (buffer.length * 2 < size)
+				else
 					buffer = Array.copyOf(buffer, size)
-			}
 
 		override def addAll(xs :IterableOnce[E]) :this.type =
-			xs match {
-				case it :Iterable[E] => it.knownSize match {
-					case 0 => this
-					case unknown if unknown < 0 => super.addAll(xs)
-					case extra if buffer == null =>
-						buffer = Array.of(elemType, extra)
-						it.copyToArray(buffer)
-						size = extra
-						this
-					case extra if size + extra <= buffer.length =>
-						it.copyToArray(buffer, size)
-						size += extra
-						this
-					case extra =>
-						buffer = Array.copyOf(buffer, buffer.length * 2 max size + extra)
-						this
-				}
-				case _ =>
-					val it = xs.iterator
-					it.knownSize match {
-						case unknown if unknown < 0 => super.addAll(xs)
-						case extra if buffer == null =>
-							buffer = Array.of(elemType, extra)
-							it.copyToArray(buffer)
-							size = extra
-						case extra if size + extra <= buffer.length =>
-							it.copyToArray(buffer, size)
-							size += extra
-						case extra =>
-							buffer = Array.copyOf(buffer, buffer.length * 2 max size + extra)
-					}
+			xs.knownSize match {
+				case  0 => this
+				case -1 => super.addAll(xs)
+				case extra if buffer == null =>
+					buffer = Array.of(elemType, extra)
+					xs.toBasicOps.copyToArray(buffer)
+					this
+				case extra if extra > MaxSize - size =>
+					maxArraySizeExceeded(extra)
+				case extra if size + extra <= buffer.length =>
+					xs.toBasicOps.copyToArray(buffer, size)
+					size += extra
+					this
+				case extra =>
+					val newCapacity = math.max(size + extra, math.min(buffer.length, MaxSize >> 1) << 1)
+					buffer = Array.copyOf(buffer, newCapacity)
+					xs.toBasicOps.copyToArray(buffer, size)
 					this
 			}
 
 		override def addOne(elem :E) = {
 			if (buffer == null)
 				buffer = Array.of(elemType, InitialBuilderSize)
-			else if (size == buffer.length)
-				buffer = Array.copyOf(buffer, buffer.length * 2)
+			else if (size == buffer.length) {
+				if (size == MaxSize)
+					throw new BufferFullException("Maximum array size reached.")
+				buffer = Array.copyOf(buffer, math.min(MaxSize >> 1, buffer.length) << 1)
+			}
 			buffer(size) = elem
 			size += 1
 			this

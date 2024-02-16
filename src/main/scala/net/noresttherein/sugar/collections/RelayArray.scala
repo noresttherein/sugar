@@ -785,6 +785,11 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 	private[collections] def dumpString :String =
 		mkString(s"${this.localClassName}|$startIndex-${startIndex + length}/${ unsafeArray.length}|(", ", ", ")")
 
+	protected final def maxCapacityError(extras :Int) =
+		throw new BufferFullException(
+			"Cannot append " + extras + " elements to a RelayArray of size " + length + ": arithmetic overflow."
+		)
+
 	override def updated[U >: E](index :Int, elem :U) :RelayArray[U] = {
 		val len = length
 		if (index < 0 | index >= len)
@@ -913,6 +918,8 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		else if (index < 0 || index > length) outOfBounds_!(index, errorString(this) + ".inserted")
 		else {
 			val length = this.length
+			if (length == MaxArraySize)
+				maxCapacityError(1)
 			val res = newArray[U](elem.getClass, length + 1)
 			copyRangeToArray(res, 0, 0, index)
 			res(index) = elem
@@ -922,6 +929,8 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 
 	override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :RelayArray[U] = {
 		def insertAs(elemType :Class[_], elemsSize :Int) :RelayArray[U] = {
+			if (elemsSize > MaxArraySize - length)
+				maxCapacityError(elemsSize)
 			val res =
 				if (elemType.isConvertibleTo(elementType))
 					newArray[U](elementType, length + elemsSize)
@@ -1074,6 +1083,8 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 
 	//todo: Move up canPassOn and appending/prepending methods up to ProperRelayArray
 	override def appended[U >: E](elem :U) :RelayArray[U] = {
+		if (len == MaxArraySize)
+			maxCapacityError(1)
 		val elemType           = elem.getClass
 		val canStore           = elemType isConvertibleTo elementType
 		var res :RelayArray[U] = null
@@ -1088,9 +1099,10 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 				res = newSpecific(arr, 0, 1, true)
 			}
 		if (res == null) {
-			val halfSize = (len + 1) / 2
-			val newOffset = math.min(offset, halfSize)
-			val capacity = math.max(newOffset + len + halfSize, InitSize)
+			val halfSize  = len + 1 >> 2
+			val newOffset = math.max(0, math.min(math.min(offset, halfSize), MaxArraySize - len - halfSize))
+			val newEnd    = newOffset + len + 1
+			val capacity  = math.max(newEnd + math.min(MaxArraySize - newEnd, halfSize), InitSize)
 			val copy =
 				if (canStore) ArrayFactory.ofDim(elementType, capacity).asInstanceOf[Array[U]]
 				else new Array[AnyRef](capacity).asInstanceOf[Array[U]]
@@ -1105,6 +1117,8 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 
 
 	override def prepended[U >: E](elem :U) :RelayArray[U] = {
+		if (len == MaxArraySize)
+			maxCapacityError(1)
 		val elemType           = elem.getClass
 		val canStore           = elemType isConvertibleTo elementType
 		var res :RelayArray[U] = null
@@ -1120,10 +1134,10 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 				res = newSpecific(arr, newOffset, newOffset + 1, true)
 			}
 		if (res == null) {
-			val halfSize = (len + 1) / 2
-			val padding = math.min(arr.length - offset - len, halfSize)
-			val capacity = math.max(halfSize + len + padding, InitSize)
-			val newOffset = capacity - padding - len
+			val halfSize  = len + 1 >> 2
+			val padding   = math.min(arr.length - offset - len, halfSize)
+			val capacity  = math.min(MaxArraySize, math.max(halfSize +~ len +~ padding, InitSize))
+			val newOffset = math.max(1, capacity - padding - len)
 			val copy =
 				if (canStore) ArrayFactory.ofDim(elementType, capacity).asInstanceOf[Array[U]]
 				else new Array[AnyRef](capacity).asInstanceOf[Array[U]]
@@ -1160,20 +1174,8 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 						it.copyToArray(arr.asInstanceOf[Array[U]], 0, extras)
 						res = newSpecific(arr, 0, extras, true)
 					}
-				if (res == null) {
-					val halfSize = (len + 1) / 2
-					val newOffset = math.min(offset, halfSize)
-					val capacity = math.max(newOffset + len + math.max(extras, halfSize), InitSize)
-					val copy =
-						if (canStore) ArrayFactory.ofDim(myType, capacity).asInstanceOf[Array[U]]
-						else new Array[AnyRef](capacity).asInstanceOf[Array[U]]
-					ArrayLike.copy(arr, offset, copy, newOffset, len)
-					it.copyToArray(copy, newOffset + len, extras)
-					if (canStore)
-						res = newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize)
-					else
-						res = new RelayArrayPlus[U](copy, newOffset, newSize, true)
-				}
+				if (res == null)
+					res = appendedAll(it, if (canStore) myType else classOf[Any], extras)
 				res
 			case it :Iterable[U] => it.knownSize match {
 				case -1 =>
@@ -1190,31 +1192,38 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 								res = newSpecific(arr, offset, offset + newSize, true)
 							}
 						}
-						if (res == null) {
-							val halfSize = (len + 1) / 2
-							val newOffset = math.min(offset, halfSize)
-							val capacity = math.max(newOffset + len + math.max(extras, halfSize), InitSize)
-							val copy = ArrayFactory.ofDim(arr.getClass.getComponentType, capacity).asInstanceOf[Array[E]]
-							it.copyToArray(copy.asInstanceOf[Array[U]], newOffset + len, newSize)
-							ArrayLike.copy(arr, offset, copy, newOffset, len)
-							res = newSpecific(copy, newOffset, newOffset + newSize, true)
-						}
+						if (res == null)
+							res = appendedAll(it, arr.getClass.getComponentType, extras)
 						res
 					} catch {
 						case _ :ClassCastException | _ :ArrayStoreException | _ :NullPointerException =>
 							if (wasOwner)
 								isOwner = true
-							val halfSize = (len + 1) / 2
-							val newOffset = math.min(offset, halfSize)
-							val capacity = math.max(newOffset + len + math.max(extras, halfSize), InitSize)
-							val copy = new Array[AnyRef](capacity).asInstanceOf[Array[U]]
-							it.copyToArray(copy, newOffset + len, newSize)
-							ArrayLike.copy(unsafeArray, offset, copy, newOffset, len)
-							new RelayArrayPlus[U](copy, newOffset, newSize, true)
+							appendedAll(it, classOf[Any], extras)
 					}
 			}
 			case _ => super.appendedAll(suffix)
 		}
+
+	private def appendedAll[U >: E](items :Iterable[U], elemType :Class[_], itemsSize :Int) :RelayArray[U] = {
+		if (itemsSize > MaxArraySize - len)
+			maxCapacityError(itemsSize)
+		val halfSize   = (len + 1) / 2
+		val newSize    = len + itemsSize
+		val growth     = math.max(itemsSize, halfSize)
+		val offsetIdea = math.min(offset, halfSize)
+		val desiredCap = offsetIdea +~ len +~ growth
+		val capacity   = math.min(math.max(desiredCap, InitSize), MaxArraySize)
+		val newOffset  = math.max(0, math.min(offsetIdea, capacity - len - growth))
+		//capacity - len - extras|growth does not overflow: 0 <= len <= capacity & 0 < growth|extras <= Int.MaxValue
+		val copy = ArrayFactory.ofDim(elemType, capacity).asInstanceOf[Array[U]]
+		items.copyToArray(copy, newOffset + len, Int.MaxValue)
+		ArrayLike.copy(arr, offset, copy, newOffset, len)
+		if (elemType eq elementType)
+			newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize, true)
+		else
+			new RelayArrayPlus(copy, newOffset, newSize, true)
+	}
 
 
 	override def prependedAll[U >: E](prefix :IterableOnce[U]) :RelayArray[U] =
@@ -1241,27 +1250,8 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 						it.copyToArray(arr.asInstanceOf[Array[U]], newOffset, extras)
 						res = newSpecific(arr, newOffset, newOffset + extras, true)
 					}
-				if (res == null) {
-					val halfSize = (len + 1) / 2
-					val padding = math.min(unsafeArray.length - offset - len, halfSize)
-					val capacity = math.max(math.max(extras, halfSize) + len + padding, InitSize)
-					val newOffset = capacity - padding - len - extras
-					val copy =
-						if (canStore) ArrayFactory.ofDim(elementType, capacity).asInstanceOf[Array[U]]
-						else new Array[AnyRef](capacity).asInstanceOf[Array[U]]
-					ArrayLike.copy(unsafeArray, offset, copy, newOffset + extras, len)
-					it.copyToArray(copy, newOffset, extras)
-					if (canStore)
-						try
-							res = newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize, true)
-						catch { case _ :ClassCastException => //Wouldn't it be faster to use RelayArray.make insteead?
-							//Apparently possible when both arrays are value arrays, but this instance is not specialied.
-							//I try to minimize the risk of this happening by always creating an instance specialized
-							// for the array type, but mistakes happen.
-						}
-					if (res == null)
-						res = new RelayArrayPlus[U](copy, newOffset, newSize, true)
-				}
+				if (res == null)
+					res = prependedAll(it, if (canStore) myType else classOf[Any], extras)
 				res
 			case it :Iterable[U] => it.knownSize match {
 				case -1 => super.prependedAll(prefix)
@@ -1277,33 +1267,38 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 								res = newSpecific(arr, offset - extras, offset - extras + newSize, true)
 							}
 						}
-						if (res == null) {
-							val halfSize = (len + 1) / 2
-							val padding = math.min(arr.length - offset - len, halfSize)
-							val capacity = math.max(math.max(extras, halfSize) + len + padding, InitSize)
-							val newOffset = capacity - padding - len - extras
-							val copy = ArrayFactory.ofDim(arr.getClass.getComponentType, capacity).asInstanceOf[Array[E]]
-							it.copyToArray(copy.asInstanceOf[Array[U]], newOffset, extras)
-							ArrayLike.copy(arr, offset, copy, newOffset + extras, len)
-							res = newSpecific(copy, newOffset, newOffset + newSize, true)
-						}
+						if (res == null)
+							res = prependedAll(it, elementType, extras)
 						res
 					} catch {
 						case _ :ClassCastException | _ :ArrayStoreException | _ :NullPointerException =>
 							if (wasOwner)
 								isOwner = true
-							val halfSize = (len + 1) / 2
-							val padding = math.min(unsafeArray.length - offset - len, halfSize)
-							val capacity = math.max(math.max(extras, halfSize) + len + padding, InitSize)
-							val newOffset = capacity - padding - len - extras
-							val copy = new Array[AnyRef](capacity).asInstanceOf[Array[U]]
-							it.copyToArray(copy, newOffset, extras)
-							ArrayLike.copy(arr, offset, copy, newOffset + extras, len)
-							new RelayArrayPlus[U](copy, newOffset, newSize, true)
+							prependedAll(it, classOf[Any], extras)
 					}
 			}
 			case _ => super.prependedAll(prefix)
 		}
+
+	private def prependedAll[U >: E](items :Iterable[U], elemType :Class[_], itemsSize :Int) :RelayArray[U] = {
+		if (itemsSize > MaxArraySize - len)
+			maxCapacityError(itemsSize)
+		val newSize    = len + itemsSize
+		val halfSize   = (len + 1) / 2
+		val padding    = math.min(arr.length - offset - len, halfSize)
+		val offsetIdea = math.max(0, halfSize - itemsSize)
+		val desiredCap = offsetIdea +~ len +~ padding
+		val capacity   = math.min(MaxArraySize, math.max(desiredCap, InitSize))
+		val newOffset  = math.min(newOffset, capacity - newSize)
+		val copy       = ArrayFactory.ofDim(elemType, capacity).asInstanceOf[Array[U]]
+		items.copyToArray(copy, newOffset, itemsSize)
+		ArrayLike.copy(arr, offset, copy, newOffset + itemsSize, len)
+		if (elemType eq elementType)
+			newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize, true)
+		else
+			new RelayArrayPlus(copy, newOffset, newSize, true)
+	}
+*/
 }
 
 
@@ -1342,13 +1337,13 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 
 	override def slice(from :Int, until :Int) :RelayArray[E] = range(from, until)
 	protected override def clippedSlice(from :Int, until :Int) :RelayArray[E] = range(from, until)
-	//fixme: we don't check for MaxArraySize
-	//fixme: overflows/underflows
-
 	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :RelayArray[E] =
 		if (array eq this.arr) new RelayArrayView[E](array, from, until - from)
 		else new RelayArrayPlus[E](array, from, until - from, true)
 
+
+/*	//fixme: we don't check for MaxArraySize
+	//fixme: overflows/underflows
 
 	override def appended[U >: E](elem :U) :RelayArray[U] = {
 		val elemType = elem.getClass
@@ -1430,6 +1425,7 @@ private final class RelayArrayView[@specialized(ElemTypes) +E] private[collectio
 				}
 			case _ => super.prependedAll(prefix)
 		}
+*/
 }
 
 
@@ -1730,6 +1726,7 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 	def newBuilder[E](elementType :Class[E]) :Builder[E, RelayArray[E]] =
 		new SpecificBuilder(elementType)
 
+
 	/** A builder of $Coll backed by an array of `elemType` component type. */
 	private class SpecificBuilder[E](elemType :Class[E])
 		extends ReusableBuilder[E, RelayArray[E]]
@@ -1754,7 +1751,7 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 			elems = ArrayFactory.copyOf(elems, elementType, newSize)
 
 		override def sizeHint(size :Int) :Unit =
-			if (size > 0)
+			if (size > 0 & size <= MaxArraySize)
 				if (elementType == null)
 					initSize = size
 				else if (elems == null)
@@ -1763,13 +1760,18 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 					realloc(size)
 
 		final def ensure(extras :Int) :Unit = {
+			if (extras > MaxArraySize - size)
+				throw new BufferFullException(
+					"Cannot add " + extras + " new elements to a Builder[" + elementType.localName +
+						", RelayArray] with " + size + " elements: arithmetic overflow."
+				)
 			if (elems == null)
 				elems = newArray(math.max(extras, initSize))
 			else {
 				val capacity = elems.length
 				val newSize = size + extras
 				if (newSize > capacity) {
-					val newCapacity = math.max(capacity * 2, newSize)
+					val newCapacity = math.max(math.min(MaxArraySize >> 1, capacity) << 1, newSize)
 					if (initSize > newSize)
 						realloc(math.min(newCapacity, initSize))
 					else
@@ -1799,8 +1801,11 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 		override def addOne(elem :E) = {
 			if (elems == null)
 				elems = newArray(initSize)
-			else if (size == elems.length)
-				elems = Array.copyOf(elems, size * 2)
+			else if (size == elems.length) {
+				if (size == Int.MaxValue)
+					ensure(1) //throw a BufferFullException
+				elems = Array.copyOf(elems, math.min(MaxArraySize >> 1, size) << 1)
+			}
 			elems(size) = elem
 			size += 1 //Must be after write attempt in case the latter throws an exception.
 			this

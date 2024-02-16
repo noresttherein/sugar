@@ -438,7 +438,7 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 
 	private def writeReplace :Serializable =
 		//todo: get rid of this cast by changing unsafeArray to ArrayLike, and then array to A[E]
-		new ArraySerializationProxy[A, E](sliceFactory, array.asInstanceOf[A[E]])
+		new ArraySerializationProxy[A, E](sliceFactory, array.asInstanceOf[A[E]], startIndex, length)
 
 	protected[this] override def className :String = sliceFactory.toString
 }
@@ -819,10 +819,13 @@ private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefA
 final class ArraySerializationProxy[A[X] <: ArrayLike[X], +E](constructor :A[E] => Any, array :A[E])
 	extends Serializable
 {
+	def this(factory :A[E] => Any, array :A[E], offset :Int, length :Int) =
+		this(factory, if (length == array.length) array else array.slice(offset, offset + length))
+
 	def this(factory :ArrayLikeWrapper[A, IterableOnce], array :A[E]) =
 		this(factory.wrap(_), array)
 
-	def this(factory :A[E] => Any, array :A[E], offset :Int, length :Int) =
+	def this(factory :ArrayLikeWrapper[A, IterableOnce], array :A[E], offset :Int, length :Int) =
 		this(factory, if (length == array.length) array else array.slice(offset, offset + length))
 
 	protected[this] def readResolve() :Any = constructor(array)
