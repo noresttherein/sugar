@@ -32,8 +32,8 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 /** Companion object of all array-like types in the package.
-  * Provides various utility methods, mirroring those defined in [[scala.Array$ Array]] and [[java.util.Arrays]],
-  * as well as wrapping and unwrapping arrays to Scala collections.
+  * Provides various utility methods, in particular for copying arrays, mirroring those defined
+  * in [[scala.Array$ Array]] and [[java.util.Arrays]], as well as wrapping and unwrapping arrays to Scala collections.
   * @see [[net.noresttherein.sugar.arrays.ArrayLike! ArrayLike]]
   * @define Coll `ArrayLike`
   * @define coll array-like

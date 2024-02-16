@@ -65,7 +65,7 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 
 //todo: consistent naming between ArrayLikeXxx and ArrayXxx
 private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
-	extends ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] with StrictOptimizedIterableOps[E, CC, C]
+	extends Any with ArrayIterableOnce[E] with SugaredSlicingOps[E, CC, C] with StrictOptimizedIterableOps[E, CC, C]
 {
 	@inline private def array :Array[E @uncheckedVariance] = unsafeArray.asInstanceOf[Array[E]]
 
@@ -180,7 +180,7 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
   * @see [[net.noresttherein.sugar.collections.ArrayLikeSliceFactoryDefaults]]
   */
 trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
-	extends ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
+	extends Any with ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
 { this :C =>
 	private[sugar] final override def unsafeArray :Array[_] = array
 	protected def array :Array[E @uncheckedVariance]

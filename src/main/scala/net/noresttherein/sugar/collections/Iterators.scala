@@ -2083,6 +2083,10 @@ private[collections] trait IteratorWithDrop[+E] extends Iterator[E] {
   * proceed to return the current `head`, or throw a [[NoSuchElementException]] otherwise.
   * The latter method additionally clears the head value before returning.
   * This may be also done manually by the subclass by the use of `pop()`.
+  *
+  * The advantage of this scheme over always precomputing the `n+1`-th element immediately before
+  * returning the `n`-th one from `next()`, is that it is lazy, and thus will never evaluate more elements
+  * than actually requested, which is important for implementations which adapt other iterators of unknown origin.
   */
 abstract class AbstractBufferedIterator[+Y]
 	extends AbstractIterator[Y] with BufferedIterator[Y] with IteratorWithDrop[Y]

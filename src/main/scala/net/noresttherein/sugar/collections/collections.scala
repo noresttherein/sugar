@@ -322,5 +322,4 @@ package collections {
 		}
 		@SerialVersionUID(0) case object Unspecified extends Mutability
 	}
-
 }

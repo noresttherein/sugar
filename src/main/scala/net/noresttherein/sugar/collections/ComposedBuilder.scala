@@ -3,8 +3,10 @@ package net.noresttherein.sugar.collections
 import scala.collection.IterableOps
 import scala.collection.mutable.{ArrayBuffer, Builder, Growable, ImmutableBuilder, ReusableBuilder}
 
+import net.noresttherein.sugar.arrays.{ArrayIterator, RefArray}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableExtension
+
 
 
 
@@ -120,34 +122,46 @@ trait BuilderFromBooleans[To] extends Builder[Boolean, To] {
   * of the path to the current leaf, possibilities are limitless!
   * @note Designed for trusted code, it does not perform bounds check when accessing the array.
   */
-private class ArrayGrowable[E](private[this] var capacity :Int) extends Growable[E] {
+private class ArrayGrowable[E](private[this] var capacity :Int)
+	extends IterableOnce[E] with Growable[E] with ArrayIterableOnce[E]
+{
+	def this() = this(-1)
+
 	if (capacity <= 0)
 		capacity = ArrayBuffer.DefaultInitialSize
 	private[this] var stack = new Array[Any](capacity)
-	private[this] var size  = 0
-	final override def knownSize = size
+	private[this] var len = 0
+
+	final override def knownSize :Int = len
+
+	override def unsafeArray :Array[Any] = stack
+	override def startIndex = 0
+
 
 	protected final def apply(idx :Int) :E = stack(idx).asInstanceOf[E]
-	protected final def pop() :E = { size -= 1; stack(size).asInstanceOf[E] }
-	protected final def top :E = stack(size - 1).asInstanceOf[E]
+	protected final def pop() :E = { len -= 1; stack(len).asInstanceOf[E] }
+	protected final def top :E = stack(len - 1).asInstanceOf[E]
 
 	//todo: addAll
 	override def addOne(elem :E) :this.type = {
-		if (size == capacity) {
+		if (len == capacity) {
 			capacity = math.max(math.min(MaxArraySize >> 1, capacity) << 1, ArrayBuffer.DefaultInitialSize)
 			if (stack == null)
 				stack = new Array[Any](capacity)
 			else
 				stack = Array.copyOf(stack, capacity)
 		}
-		stack(size) = elem
-		size += 1
+		stack(len) = elem
+		len += 1
 		this
 	}
 
 	override def clear() :Unit = {
 		capacity = 0
-		size     = 0
+		len      = 0
 		stack    = null
 	}
+
+	override def iterator :Iterator[E] = new ArrayIterator[E](stack.asInstanceOf[Array[E]], 0, len, false)
+	def toRefArray :RefArray[E] = stack.slice(0, len).asInstanceOf[RefArray[E]]
 }

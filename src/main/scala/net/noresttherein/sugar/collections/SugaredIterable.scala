@@ -210,7 +210,7 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
   * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice trustedSlice]] after validation.
   * Assumes fast `size` operation.
   */ //Most methods don't exist in IterableOnceOps, so we can't use it for iterators, too.
-trait SlicingOps[+E, +C] extends IterableOps[E, generic.Any1, Any] {
+trait SlicingOps[+E, +C] extends Any with IterableOps[E, generic.Any1, Any] {
 	protected def hasFastSlice :Boolean = false
 	protected override def coll :C
 	protected def emptySlice :C
