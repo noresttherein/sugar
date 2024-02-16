@@ -120,7 +120,7 @@ which is good for lambda placeholder syntax:
 
 ##### 5.1.5. `Seq` extensions
     Seq(1, 2, 3).isSorted
-    dragons.getIndexOf(firkraag)                 // returns an Maybe - non empty values are always >= 0
+    dragons.getIndexOf(firkraag)                 // returns an Option - non empty values are always >= 0
     dragons.sureIndexWhere(_.name == "Firkraag") //throws a NoSuchElementException instead of returning -1
     heroes.updatedAll(0, Seq("You", "Boo", "I")) //updated for consecutive elements
     weekdays.remove(0, 5)                        //an 'inverse' of slice
@@ -130,23 +130,28 @@ and others.
 ##### 5.1.6. Stepper and Iterator extensions
 Additional factory methods, in particular for specialized singleton implementations
 
-#### 5.2 LogSeq
-A universal, immutable sequence backed by a 'true' finger tree, with all operations taking `O(log n)` time,
-except for access near the ends (`O(1)`) and methods requiring reading/updating every value in the sequence
-(`O(n)`, naturally).
+#### 5.2 Fingers
+A universal, immutable sequence backed by a 'true' finger tree, with all operations - including concatenation
+with another finger tree - taking `O(log n)` time, except for access near the ends (`O(1)`) and methods 
+requiring reading/updating every value in the sequence (`O(n)`, naturally).
 
 #### 5.3. Ranking
 A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
 
 #### 5.4. RelayArray
-An immutable version of a dope vector and a growing array buffer with O(1) *first* append/prepend.
+An immutable version of a dope vector and a growing array buffer with `O(1)` *first* append/prepend.
 
-#### 5.5. MatrixBuffer 
+#### 5.5 Cuboid
+An immutable sequence backed by a mulidimensional array, with super fast random and sequential read, 
+amortised `O(1)` slicing and first append/prepend for growing, as well as worst case `O(sqrt n)` update 
+and concatenation with another `Cuboid`
+
+#### 5.6. MatrixBuffer 
 A `Buffer` similar to `ArrayDeque`, but additionally switching to a two-dimensional array once the array 
-size exceeds `Short.MaxValue` for better memory characteristics - safe to use 
+size exceeds `Short.MaxValue` for better memory allocation characteristics - safe to use 
 regardless of the number of elements stored.
 
-#### 5.6 Special purpose Buffer implementations
+#### 5.7 Special purpose Buffer implementations
   1. `AliasingArrayBuffer` - an `ArrayBuffer` subclass with `O(1)` `toSeq`, returning an indexed sequence
      backed by its own underlying array, copying the contents only if/when the buffer is modified afterwards.
   1. `ArraySliceBuffer` - similar to the above, but symmetrical: has `O(1)` prepend, not only `append`.
@@ -157,31 +162,33 @@ regardless of the number of elements stored.
      which complement `AppendingBuffer` and `PrependingBuffer` in that they only allow edits of a specific
      fragment of data.
 
-#### 5.7. MultiSet
+#### 5.8. MultiSet
 A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
-with repetitions, and as a `Map[A, Int]`.
+with repetitions, and as a `Map[A, Int]`. Unlike `Dict` from `scala-collections`, multiples are stored
+as a single instance and occurrence count, rather than separate instances (where equality is only partial).
 
-#### 5.8 StringSet and StringMap
+#### 5.9 StringSet and StringMap
 Dedicated implementations for `Strings` using prefix trees, offering optimal performance, 
 and storing the elements in alphabetical order.
 
-#### 5.9. NatMap and MutNatMap
+#### 5.10. NatMap and MutNatMap
 Maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
-#### 5.10. ZigZag 
-A `Seq` offering O(1) append and prepend for any other `Seq`, at a cost of slower iteration,
-designed for use as temporary buffers.
+#### 5.11. Car 
+A `Seq` offering `O(1)` append and prepend for any other `Seq`, at a cost of slower iteration,
+designed for use as temporary buffers. Equivalent to `Chain` from `cats` library, but fully integrated
+within the scala collection library framework.
 
-#### 5.11. ChoppedString 
+#### 5.12. ChoppedString 
 A list-like collection of composed `String` concatenations
-for use as an alternative to `StringBuilder` (has O(1) append/prepend, at the cost of O(n) random indexing).
-Includes also a `Substring` subclass, useful in itself.
+for use as an alternative to `StringBuilder` (has `O(1)` append/prepend of any `String`, at the cost of `O(n)`
+random indexing). Includes also a `Substring` subclass, exposing a slice of a `String`, useful in itself.
 
-#### 5.12. Other collections of marginal use 
+#### 5.13. Other collections of marginal use 
 Examples:
   1. `EqSet` and `EqMap`, forcing true referential equality over `equals`,
   1. `ConstSeq` - a fixed (or infinite) number of equal elements,
-  1. `Prepended2Seq` - for delegating methods `[T](T, T, T*)` to `[T](Seq[T])`,
+  1. `Prepended2Seq` - for delegating methods `[T](T, T, T*)` to `[T](Seq[T])`.
 
 
 

@@ -311,7 +311,7 @@ abstract class UntaggedSeqProps[C[T] <: collection.Seq[T]](name :String, factory
 
 
 
-trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, C, C[T]], E[_]]
+trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection.Seq, collection.Seq[T]], E[_]]
 	extends SeqProps[C, E] with SugaredIterableProps[C, collection.Seq, E]
 {
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking

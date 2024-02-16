@@ -25,12 +25,18 @@ import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
 
 
+/** Tests properties of any `Iterable`, by comparing results with the same call on a reference implementation.
+  * @tparam C the type constructor of the tested collection.
+  * @tparam S a more generic, standard (with an existing implementation) type constructor for the reference collection.
+  * @tparam E type constructor for evidence needed to create an instance of `C[X]`.
+  */
 abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](name :String) extends Properties(name) {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(3, 140)).withMinSuccessfulTests(500).withMaxSize(64)
 
 	val parameters = overrideParameters(Test.Parameters.default)
 
+	/** The name (or its best guess) of the reference collection type, for the use in property names and labels. */
 	protected def typeS :String = S[Int].source.localClassName
 
 	if (isSerializable)
@@ -98,7 +104,14 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	property("concat")            = forAll { list :List[Int] => validate((_ :S[Int]) ++ list) }
 
 
-
+	/** A set of properties checked for every result of a method returning a `C[T]`.
+	  * @param expect the result of executing the tested method on an equal instance of a reference collection.
+	  * @param result the result of executing the tested method on an instance of the tested collection type.
+	  * @tparam T  the element type of the collection.
+	  * @tparam F  the argument and return type of `foldLeft` and `foldRight`.
+	  * @tparam M  the element type to which the implicit `Map` type class maps `T` for the purpose of testing `map`.
+	  * @tparam FM the element type to whch the implicit `FlatMap` type class maps `T` for testing `flatMap`.
+	  */
 	protected def props[T, F, M, FM](expect :S[T], result :S[T])
 	                                (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T], filt :Filter[T],
 	                                 fldA :FoldSide[F, T], evf :E[F], fld :Fold[T], mp :Map[T, M], evm :E[M],
@@ -197,6 +210,13 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	protected def checkIterator[T :E](expect :S[T], iterator: => Iterator[T], prefix :String = "iterator") :Prop =
 		expect =? iterator.to(S[T])
 
+	/** Properties for results of `stepper` method of the tested collection type.
+	  * @param expect  a reference collection with the same elements which the tested stepper should return.
+	  * @param stepper a lazy expression used to create instances of the tested stepper,
+	  *                for the purpose of testing its various methods.
+	  * @param prefix  the name of the method used to create the stepper, for use in labels (mainly useful when
+	  *                the latter is not `stepper` method itself).
+	  */
 	protected def checkStepper[T :E](expect :S[T], stepper: => Stepper[T], prefix :String = "stepper") :Prop = {
 		val s = stepper
 		val b = S[T].newBuilder
@@ -240,27 +260,55 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	}
 
 
-
+	/** A higher order method for testing properties accepting an index of an element in the collection.
+	  * Tests `prop` `forAll { (sut :C[A], index :Int) => }`, as well as `Int.MinValue` and `Int.MaxValue`
+	  * for the index. The range of values otherwise used for `index` is `Short.MinValue` to `Short.MaxValue`,
+	  * to reduce the number of fail path tests. Note that it means that larger collections may not be suitable
+	  * tested in the result.
+	  */
 	protected def indexedProperty[A](prop :(C[A], Int) => Prop)
 	                                (implicit ev :E[A], a :Arbitrary[A], s :Shrink[A], p :A => Pretty) :Prop =
 		forAll { (subject :C[A]) => s"Input: $subject :${subject.localClassName}" lbl_:
 			forAll { (index :Short) => prop(subject, index) } && prop(subject, Int.MinValue) && prop(subject, Int.MaxValue)
 		}
 
+	/** Applies `check` to aribrary instances of the reference collection `S[A]`,
+	  * as wel as instances of the tested collection produced by factory
+	  * [[net.noresttherein.sugar.collections.GenericIterableProps.C C]] from said reference collections.
+	  */
 	protected def test[A :Arbitrary :E](check :(S[A], C[A]) => Prop) :Prop =
 		forAll { elems :S[A] => check(elems, elems to C) }
 
+	/** The primary function for testing methods which do not return another collection, or more specifically,
+	  * need only be tested for equality. Applies `f` to multiple arbitrary instances of reference collection `S`,
+	  * together with instances of the tested collection type produced by its factory
+	  * [[net.noresttherein.sugar.collections.GenericIterableProps.C C]] from the former, and compares the results
+	  * for equality.
+	  */
 	protected def compare[A :Arbitrary :E, X](f :S[A] => X) :Prop =
 		forAll { elems :S[A] => f(elems) =? f(elems to C[A]) }
 
+	/** Compares two collection results of executing some tested method for a reference collection `S`,
+	  * as well as an equal (assuming correctness of its builder) collection `C`. Assumes the runtime types
+	  * of the arguments to be `S[E]` and `C[E]`, respectively (not tested and not strictly required for practicality
+	  * of not having to use bounds of `IterableOps` and the like to enforce the upper bound `C[E]` for method results.
+	  * Takes into account the fact if the collection type has an inherent order (that is, `expect` and `result`
+	  * must have the elements in the same order). Tests for equality, as well as `sameElements` for ordered collections.
+	  */
 	protected def compare[A :E](expect :Iterable[A], result :Iterable[A]) :Prop =
 		Seq(
 			Option.when(hasOrder)(Prop(expect.iterator sameElements result)),
 			Option.when(hasEquals)(expect =? result),
 			Option.when(symmetricEquals)(expect == result lbl s"$expect == $result")
 		).flatten.reduceOption(_ && _) getOrElse expect =? result.to(S) lbl
-			"Expected: " + expect + ";\n     got: " + result
+			"Expected: " + expect + " (size=" + expect.size + ");\n     got: " + result + " (size=" + result.size + ")"
 
+	/** A factory for comparing the results of executing a method for both a collection of the reference type
+	  * and an equal one under test in the same way as
+	  * [[net.noresttherein.sugar.collections.GenericIterableProps.compare compare]], but executes the function
+	  * passed as an argument to the returned object's `apply` only for non empty collections, while at the same time
+	  * checking that executing it on an empty collection throws an exception of type `T`.
+	  */
 	protected def compareNonEmpty[T <: Throwable] = new CompareNonEmpty[T]
 
 	class CompareNonEmpty[T <: Throwable] {
@@ -271,9 +319,22 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 			}
 	}
 
+	/** Compares the results of executing an order-dependent method like `tail` on an instance of the tested collection
+	  * `coll` with an expect result obtained by the same method on a known working implementation obtained from
+	  * `f(coll to Vector)`. This method is used in tests of relevant methods when the tested collection doesn't
+	  * have an inherent order, and, in particular, an equal instance of the reference collection may contain
+	  * the elements in a different order, even if one collection was directly converted into the second one.
+	  */
 	protected def orderedCompare[A :Arbitrary :E, X](f :Iterable[A] => X) :Prop =
-		forAll { subject :C[A] => f(subject to List) =? f(subject) }
+		forAll { subject :C[A] => f(subject to Vector) =? f(subject) }
 
+	/** Like [[net.noresttherein.sugar.collections.GenericIterableProps.orderedCompare orderedCompare]],
+	  * applies the function given as the argument to the `apply` method of the returned object to a non empty instance
+	  * of the tested collection type and a `Seq` obtained by converting the former, and tests the results
+	  * for equality. Additionally,
+	  * similarly to [[net.noresttherein.sugar.collections.GenericIterableProps.compareNonEmpty compareNonEmpty]],
+	  * tests that the given function throws an exception of type `T` when executed on an empty instance.
+	  */
 	protected def orderedCompareNonEmpty[T <: Throwable] = new OrderedCompareNonEmpty[T]
 
 	class OrderedCompareNonEmpty[T <: Throwable] {
@@ -285,6 +346,14 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	}
 
 
+	/** The primary testing method for properties which return another collection (typically of the same type).
+	  * Applies function `f` to arbitrary instances of the reference collection type and an instance of the tested type
+	  * like [[net.noresttherein.sugar.collections.GenericIterableProps.compare compare]], but, in addition
+	  * to comparing the results for equality, executes a full test suite for most standard methods for both results,
+	  * comparing their outcome with `compare`. This method immediately delegates to the lower-level two argument
+	  * `validate`, which in turn returns the property test obtained from method
+	  * [[net.noresttherein.sugar.collections.GenericIterableProps.props props]].
+	  */
 	protected def validate[A, B, F, M, FM]
 	                      (f :S[A] => Iterable[B])
 	                      (implicit input :Arbitrary[A], output :Arbitrary[B], ev1 :E[A], ev2 :E[B], tag :ClassTag[B],
@@ -292,18 +361,26 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	                       mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) :Prop =
 		forAll { elems :S[A] => validate(f(elems) to S, f(elems to C) to C) }
 
+	/** Same as two argument validate, but additionally attaches a lazy label to the created property. */
 	protected def validate[A, F, M, FM](label: => String, expect :S[A], result :S[A])
 	                                   (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A], filt :Filter[A],
 	                                    fldA :FoldSide[F, A], evf :E[F], fld :Fold[A], mp :Map[A, M], evm :E[M],
 	                                    fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
 		compare(expect, result) && all(props(expect, result) :_*) lbl label
 
+	/** Compares `expect` with `result` using [[net.noresttherein.sugar.collections.GenericIterableProps.compare compare]],
+	  * and combines properties for testing most of their methods obtained from
+	  * `this.`[[net.noresttherein.sugar.collections.GenericIterableProps.props props]] into a single propety object.
+	  */
 	protected def validate[A, F, M, FM](expect :S[A], result :S[A])
 	                                   (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A], filt :Filter[A],
 	                                    fldA :FoldSide[F, A], evf :E[F], fld :Fold[A], mp :Map[A, M], evm :E[M],
 	                                    fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
 
-		validate(s"Result:  $expect;\ntesting: $result :${result.localClassName}", expect, result)
+		validate(
+			s"Result:  $expect (size=${expect.size});\ntesting: $result :${result.localClassName} (size=${result.size})",
+			expect, result
+		)
 
 	protected def validateNonEmpty[T <: Throwable] = new ValidateNonEmpty[T]
 
@@ -395,8 +472,21 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 		} yield items
 	)
 
+	/** A factory of the reference collection type (assumed to work correctly),
+	  * used to generate arbitrary collection instances for testing.
+	  */
 	protected def S[T :E] :Factory[T, S[T]] //= referenceFactory[T]
+
+	/** A factory of the tested collection type, used primarily to convert an arbitrary instance
+	  * of reference collection type `S[T]` to a tested collection instance, but also - mainly for formality -
+	  * to convert `Iterable` returned by tested methods of `C` back to `C`. For this reason, its `from` method
+	  * should always return the argument, if it is already a `C`.
+	  */
 	protected def C[T :E] :Factory[T, C[T]] //= checkedFactory[T]
+
+	/* Evidence instances required to build the tested collection for several element types,
+	 * and type classes providing example function arguments to the tested methods.
+	 */
 
 	implicit def intEvidence    :E[Int]
 	implicit def longEvidence   :E[Long]
@@ -409,8 +499,6 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 		new Filter[Int]((i :Int) => i % 10 >= 7)
 	implicit val intMapToLong          :Map[Int, Long]          =
 		new Map[Int, Long](i => i.toLong << 32 | i & 0xffffffffL)
-//	implicit val intFlatMapToInt       :FlatMap[Int, Int]       =
-//		new FlatMap[Int, Int]((i :Int) => Seq.iterate(i, 10)(_ + i))
 	implicit val intFlatMapToLong      :FlatMap[Int, Long]      =
 		new FlatMap[Int, Long]((i :Int) => Seq.iterate(i.toLong, 10)(_ * i))
 	implicit val intFold               :Fold[Int]               =
@@ -449,6 +537,12 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 
 
 
+/** Base class for specifications of collection type `C`, in comparison to the reference, functionally equivalent
+  * collection type `S`, used for implementations which do not require any implicit evidence for the element type
+  * when creating new collections.
+  * @tparam C the type constructor of the tested collection.
+  * @tparam S a more generic, standard (with an existing implementation) type constructor for the reference collection.
+  */ //todo: full IteratorProps testing on this.iterator (take, drop, copyToArray, etc.)
 abstract class IterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
                             (name :String)
                             (val checkedFactory :IterableFactory[C], val referenceFactory :IterableFactory[S])
@@ -463,9 +557,6 @@ abstract class IterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
 
 	protected override def S[T :Dummy] = referenceFactory
 	protected override def C[T :Dummy] = checkedFactory
-//
-//	protected def referenceFactory :IterableFactory[S]
-//	protected def checkedFactory   :IterableFactory[C]
 
 	protected def factoryProps :Properties = new IterableFactoryProps
 
@@ -512,6 +603,13 @@ object IterableProps {
 
 
 
+/** Base class for specifications of collection type `C`, in comparison to the reference, functionally equivalent
+  * collection type `S`, used for implementations which require implicit evidence of type `E` for the element type
+  * when creating new collections.
+  * @tparam C the type constructor of the tested collection.
+  * @tparam S a more generic, standard (with an existing implementation) type constructor for the reference collection.
+  * @tparam E type constructor for evidence needed to create an instance of `C[X]`.
+  */
 abstract class EvidenceIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]]
                                     (name :String)
                                     (val checkedFactory :EvidenceIterableFactory[C, E],
@@ -552,8 +650,15 @@ abstract class ClassTagIterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
 
 
 
+/** A mixin for [[net.noresttherein.sugar.collections.GenericIterableProps GenericIterableProps]] specifications
+  * of collection types having a specific order to their elements, either inherent (`SortedSet`), or arbitrary (`Seq`).
+  * @tparam C the type constructor of the tested collection.
+  * @tparam S a more generic, standard (with an existing implementation) type constructor for the reference collection.
+  * @tparam E type constructor for evidence needed to create an instance of `C[X]`.
+  */
 trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericIterableProps[C, S, E] {
 
+	//todo: move this up to GenericIterableProps and remove this trait altogether, at least once all our tests work.
 	protected def orderedProps[T, F, M, FM](expect :S[T], result :S[T])
 	                                       (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :E[T],
 	                                                 filt :Filter[T], fldA :FoldSide[F, T], evf :E[F], fld :Fold[T],
@@ -649,7 +754,7 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 
 
 
-trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, C, C[X]], S[X] <: Iterable[X], E[_]]
+trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, S, S[X]], S[X] <: Iterable[X], E[_]]
 	extends GenericIterableProps[C, S, E]
 {
 	property("removed(Int)") = indexedProperty[Int] { (subject :C[Int], index :Int) =>

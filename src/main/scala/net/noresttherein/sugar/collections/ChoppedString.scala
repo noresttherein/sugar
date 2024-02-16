@@ -117,7 +117,7 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
   * implementing `toString` methods. Despite the lack of fast random access, `length`/`size` are still `O(1)` operations
   * as long as appended/prepended sequences' `length` is O(n), because their length is computed on concatenation.
   *
-  * This class is very similar to generic [[net.noresttherein.sugar.collections.ZigZag ZigZag]],
+  * This class is very similar to generic [[net.noresttherein.sugar.collections.Cat Cat]],
   * but exposes API dedicated to concatenating `String`s and some other methods specific to `Char`,
   * as covariance of `Seq` forces boxing of elements. It differs from a [[scala.collection.StringView StringView]]
   * in that all mapping operations are strict.

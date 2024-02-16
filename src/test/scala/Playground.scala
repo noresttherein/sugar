@@ -5,7 +5,7 @@ import scala.collection.{IterableFactory, IterableFactoryDefaults, IterableOps, 
 import scala.collection.immutable.{AbstractSeq, ArraySeq}
 
 import net.noresttherein.sugar.arrays.IArray
-import net.noresttherein.sugar.collections.{ArraySliceBuffer, Cuboid2Iterator, Fingers, RelayArray, StrictView, StringSet, ValIterator}
+import net.noresttherein.sugar.collections.{ArraySliceBuffer, Cat, Cuboid2Iterator, Fingers, RelayArray, StrictView, StringSet, ValIterator}
 import net.noresttherein.sugar.extensions.{ClassExtension, SeqExtension, classNameMethods}
 
 
@@ -14,9 +14,14 @@ import net.noresttherein.sugar.extensions.{ClassExtension, SeqExtension, classNa
 //}
 
 private object Playground extends App {
-	val input = List(-1104130103.toByte, 1080965414.toByte, -2147483648.toByte)
-	val relay = RelayArray from input
-	println(relay.className)
+	val relay = RelayArray(1, 2, 3, 4, 5)
+	val seq = ArraySeq(-1, -2, -3, -4)
+	val concat = seq ++: relay
+	println(concat)
+	val cat = Cat.empty :+ 1
+	val tail = cat.tail
+
+
 /*
 	var ok = true
 	var i = 0
