@@ -7,7 +7,7 @@ import scala.annotation.elidable.ASSERTION
 /**
   * @see [[net.noresttherein.sugar.imports]]
   * @author Marcin Mościcki
-  */
+  */ //A good name for a library of an assortment of various weird classes like Curried would be attic or exotics.
 package object sugar extends sugar.imports {
 	private[sugar] final val Ver = 1L
 
