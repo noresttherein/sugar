@@ -510,12 +510,9 @@ abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] private[arrays] exten
 
 	override def from[E](source :IterableOnce[E]) :Arr[E] = expose(
 		source match {
-			case empty if empty.knownSize == 0 =>
-				Array.emptyAnyArray
-			case items :Iterable[E] =>
-				items.toArray[Any]
-			case _                  =>
-				source.iterator.toArray[Any]
+			case empty if empty.knownSize == 0 => Array.emptyAnyArray
+			case items :Iterable[E]            => items.toArray[Any]
+			case _                             => source.iterator.toArray[Any]
 		}
 	)
 

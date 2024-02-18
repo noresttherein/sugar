@@ -194,14 +194,11 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 	}
 
 
-	@tailrec override def from[A](source :IterableOnce[A]) :IRefArray[A] = source match {
+	override def from[A](source :IterableOnce[A]) :IRefArray[A] = source match {
 		case _ if source.knownSize == 0           => empty
-		case _ :View[A]                           => from(source.iterator)
 		case Wrapped(array)                       => array
-		case items :Iterable[A] if items.isEmpty  => empty
-		case items :Iterator[A] if !items.hasNext => empty
-		case items :Iterable[A]                   => items.toIRefArray
-		case _                                    => source.iterator.toIRefArray
+		case items :Iterable[A]                   => expose(items.toArray[Any])
+		case _                                    => expose(source.iterator.toArray[Any])
 	}
 
 

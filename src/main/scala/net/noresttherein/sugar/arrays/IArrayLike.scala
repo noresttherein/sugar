@@ -107,8 +107,8 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 			case _ if source.knownSize == 0                  => IRefArray.empty
 			case Wrapped(array)                              => array
 			case ArrayLike.Wrapped.Slice(array, from, until) => array.slice(from, until)
-			case items :Iterable[E]                          => items.toIRefArray
-			case _                                           => source.iterator.toIRefArray
+			case items :Iterable[E]                          => items.toArray[Any].castParam[E]
+			case _                                           => source.iterator.toArray[Any].castParam[E]
 		}
 	)
 

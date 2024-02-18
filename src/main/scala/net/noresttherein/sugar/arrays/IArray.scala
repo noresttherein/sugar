@@ -598,10 +598,8 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		expose(ArrayFactory.copyOf(array, array.asInstanceOf[Array[_]].length))
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :IArray[E] = it match {
-		case elems :View[E]                      => from(elems.iterator)
+		case _ if it.knownSize == 0              => empty[E]
 		case Wrapped(array)                      => array
-		case elems :Iterable[E] if elems.isEmpty => empty[E]
-		case iter  :Iterator[E] if !iter.hasNext => empty[E]
 		case elems :Iterable[E]                  => expose(elems.toArray[E])
 		case _                                   => expose(it.iterator.toArray[E])
 	}
