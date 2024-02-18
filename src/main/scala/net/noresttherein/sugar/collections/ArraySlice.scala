@@ -16,6 +16,7 @@ import net.noresttherein.sugar.collections.extensions.{IterableExtension, Iterab
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.extensions.ClassExtension
+import net.noresttherein.sugar.funny.generic.Any1
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.classes
 
@@ -816,19 +817,14 @@ private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefA
   * the deserialized object can be created in `O(1)` based on an array, because it bypasses the builder.
   */
 @SerialVersionUID(Ver)
-final class ArraySerializationProxy[A[X] <: ArrayLike[X], +E](constructor :A[E] => Any, array :A[E])
+final class ArraySerializationProxy[A[X] <: ArrayLike[X], +E](factory :ArrayLikeWrapper[A, Any1], array :A[E])
 	extends Serializable
 {
-	def this(factory :A[E] => Any, array :A[E], offset :Int, length :Int) =
-		this(factory, if (length == array.length) array else array.slice(offset, offset + length))
-
-	def this(factory :ArrayLikeWrapper[A, IterableOnce], array :A[E]) =
-		this(factory.wrap(_), array)
-
 	def this(factory :ArrayLikeWrapper[A, IterableOnce], array :A[E], offset :Int, length :Int) =
 		this(factory, if (length == array.length) array else array.slice(offset, offset + length))
 
-	protected[this] def readResolve() :Any = constructor(array)
+	protected[this] def readResolve() :Any = factory.wrap(array)
+	override def toString :String = array.mkString(factory.toString + ".wrap(", ", ", ")")
 }
 
 

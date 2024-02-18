@@ -55,7 +55,7 @@ package object arrays extends extensions {
 	  * @see [[net.noresttherein.sugar.arrays.IRefArray IRefArray]]
 	  * @see [[net.noresttherein.sugar.arrays.MutableArray MutableArray]]
 	  */
-	type ArrayLike[+E] >: MutableArray[_ <: E] <: AnyRef
+	type ArrayLike[+E] >: MutableArray[_ <: E] <: AnyRef with Serializable
 
 	/** Common supertype of immutable [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]]
 	  * subtypes: [[net.noresttherein.sugar.arrays.IArray IArray]]
@@ -78,7 +78,7 @@ package object arrays extends extensions {
 	  * from the said packages.
 	  * @see [[net.noresttherein.sugar.arrays.MutableArray$ MutableArray]]
 	  */ //consider: renaming to MutArrayLike or MutArray
-	type MutableArray[E] >: Array[E] <: AnyRef
+	type MutableArray[E] >: Array[E] <: AnyRef with Serializable
 
 	/** A supertype of both `IArray[E]` and regular `Array[E]`. These types have in common the fact
 	  * that the component type is important and must be known during their creation.

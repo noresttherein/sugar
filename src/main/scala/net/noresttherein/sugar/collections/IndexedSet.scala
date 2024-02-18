@@ -17,6 +17,7 @@ import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedS
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension}
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.Yes
 
@@ -385,7 +386,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
 
 		private def writeReplace :Serializable =
-			new ArraySerializationProxy[Array, E](new ArrayIndexedSet(_), elems, start, end - start)
+			new SerializationProxy[Array[E]](elems.slice(start, end - start), new ArrayIndexedSet(_))
 
 	}
 
