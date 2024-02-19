@@ -149,6 +149,7 @@ object extensions extends extensions {
 			case g :ComposableFun2[A, B, Y] => g andThen f
 			case _                          => new ComposedFun2(self, f)
 		}
+		def swap :(B, A) => Y = (b, a) => self(a, b)
 	}
 
 	class Function3Extension[A, B, C, Y](private val self :(A, B, C) => Y) extends AnyVal {
