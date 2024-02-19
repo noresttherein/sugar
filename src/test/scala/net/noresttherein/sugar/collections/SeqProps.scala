@@ -28,16 +28,16 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		override def builder :Builder[T, RelayArray[T]] = RelayArray.newBuilder[T]
 	}
 
-	property("length") = test { (expect :Seq[Int], subject :C[Int]) => expect.length =? subject.length }
-	property("apply") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("length") = forAllChecked { (expect :Seq[Int], subject :C[Int]) => expect.length =? subject.length }
+	property("apply") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		all(expect.indices.map(i => expect(i) =? subject(i)) :_*)
 	}
-	property("distinct") = validate((_ :Seq[Int]).distinct)
-	property("reverse") = validate((_ :Seq[Int]).reverse)
-	property("reverseIterator") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("distinct") = test((_ :Seq[Int]).distinct)
+	property("reverse") = test((_ :Seq[Int]).reverse)
+	property("reverseIterator") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		checkIterator(expect.reverse, subject.reverseIterator)
 	}
-	property("startsWith") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("startsWith") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		all(
 			(for {
 				from <- 0 to expect.length
@@ -48,21 +48,21 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 			else expect.startsWith(seq, offset) =? subject.startsWith(seq, offset)
 		}
 	}
-	property("endsWith") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("endsWith") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		all((0 to expect.length).map(i => Prop(subject.endsWith(expect.drop(i))) lbl s"endsWith(${expect.drop(i)})") :_*)
 	}
 //	property("padTo") = forAll { (length :Short, elem :Int) => test((_ :Seq[Int]).padTo(length, elem)) }
-	property("padTo") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("padTo") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { (length :Short, elem :Int) => expect.padTo(length, elem) =? subject.padTo(length, elem) }
 	}
-	property("segmentLength") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("segmentLength") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		all(expect.indices.map { i =>
 			(expect.segmentLength(_ % 3 <= 1, i) =? subject.segmentLength(_ % 3 <= 1, i)) label "from " + i
 		} :_*)
 	}
 
 
-	property("indexOf") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("indexOf") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { (x :Int, i :Int) =>
 			expect.indexOf(x, i) =? subject.indexOf(x, i)
 		} && all(expect.view.mapWithIndex { (x, i) =>
@@ -70,7 +70,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 				(subject.indexOf(x, i) ?= i) :| s"#$i->$x"
 		}.toSeq :_*)
 	}
-	property("lastIndexOf") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("lastIndexOf") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { (x :Int, i :Int) =>
 			expect.lastIndexOf(x, i) =? subject.lastIndexOf(x, i)
 		} && all(expect.view.mapWithIndex { (x, i) =>
@@ -78,7 +78,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 				(subject.lastIndexOf(x, i) ?= i) :| s"#$i->$x"
 		}.toSeq :_*)
 	}
-	property("indexWhere") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("indexWhere") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { (x :Int, i :Int) =>
 			expect.indexOf(x, i) =? subject.indexWhere(_ == x, i)
 		} && all(expect.view.mapWithIndex { (x, i) =>
@@ -86,7 +86,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 				(subject.indexWhere(_ == x, i) ?= i) :| s"#$i->$x"
 		}.toSeq :_*)
 	}
-	property("lastIndexWhere") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("lastIndexWhere") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { (x :Int, i :Int) =>
 			expect.lastIndexOf(x, i) =? subject.lastIndexWhere(_ == x, i)
 		} && all(expect.view.mapWithIndex { (x, i) =>
@@ -94,7 +94,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 				(subject.lastIndexWhere(_ == x, i) ?= i) :| s"$x<-#$i"
 		}.toSeq :_*)
 	}
-	property("indexOfSlice") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("indexOfSlice") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		val indexed = expect.toVector //List.indexOfSlice is buggy in 2.13.10
 		all(
 			(for {
@@ -110,7 +110,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 			subject.indexOfSlice(x, i & 0xffff) ?= indexed.indexOfSlice(x, i & 0xffff)
 		}
 	}
-	property("lastIndexOfSlice") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("lastIndexOfSlice") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 			all(
 			(for {
 				from <- expect.indices
@@ -126,7 +126,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		}
 	}
 
-	property("updated") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("updated") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		import numeric.globalRandom
 		all(expect.indices.map { i =>
 			val elem = Int.random
@@ -136,40 +136,40 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		} :_*)
 	}
 	property("patch") = forAll { (from :Int, patch :Seq[Int], replaced :Int) =>
-		validate((_:Seq[Int]).patch(from, patch, replaced))
+		test((_:Seq[Int]).patch(from, patch, replaced))
 	}
 
-	property("appended(Int)") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { x :Int => validate(expect :+ x, subject :+ x) }
+	property("appended(Int)") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
+		forAll { x :Int => test(expect :+ x, subject :+ x) }
 	}
-	property("appended(String)") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("appended(String)") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { x :String => compare(expect :+ x, subject :+ x) }
 	}
 
-	property("prepended(Int)") = test { (expect :Seq[Int], subject :C[Int]) =>
-		forAll { x :Int => validate(x +: expect, x +: subject) }
+	property("prepended(Int)") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
+		forAll { x :Int => test(x +: expect, x +: subject) }
 	}
-	property("prepended(String)") = test { (expect :Seq[Int], subject :C[Int]) =>
+	property("prepended(String)") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		forAll { x :String => compare(x +: expect, x +: subject) }
 	}
 
 	property("appendedAll(List[Int])") = forAll { (prefix :C[Int], suffix :List[Int]) =>
-		validate(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+		test(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
 	property("appendedAll(List[String])") = forAll { (prefix :C[Int], suffix :List[String]) =>
 		compare(Vector.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
 	}
 	property("appendedAll(ArraySeq[Int])") = forAll { (prefix :C[Int], suffix :ArraySeq[Int]) =>
-		validate(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+		test(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
 	property("appendedAll(ArraySeq[String])") = forAll { (prefix :C[Int], suffix :ArraySeq[String]) =>
 		compare(Vector.from(prefix) ++ suffix :Seq[Any], (prefix :++ suffix) to C)
 	}
 	property("appendedAll(Vector[Int]))") = forAll { (prefix :C[Int], suffix :Vector[Int]) =>
-		validate(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
+		test(Vector.from(prefix) ++ suffix, (prefix :++ suffix) to C)
 	}
 	property("appendedAll(RelayArray[Int].slice)") = forAll { (prefix :C[Int], suffix :RelayArray[Int]) =>
-		validate(
+		test(
 			Vector.from(prefix) ++ suffix.slice(1, suffix.length - 1),
 			(prefix :++ suffix.slice(1, suffix.length - 1)) to C
 		) lbl passedArrayLabel(suffix)
@@ -181,29 +181,29 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		) lbl passedArrayLabel(suffix)
 	}
 	property(s"appendedAll(${C[Int].source.localClassName}[Int])") = forAll { (prefix :C[Int], suffix :C[Int]) =>
-		validate(Vector.from(prefix) :++ Vector.from(suffix), (prefix :++ suffix) to C)
+		test(Vector.from(prefix) :++ Vector.from(suffix), (prefix :++ suffix) to C)
 	}
 	property(s"appendedAll(${C[String].source.localClassName}[String])") = forAll {
 		(prefix :C[Int], suffix :C[String]) =>
 			compare(Vector.from(prefix) :++ Vector.from(suffix), (prefix :++ suffix) to C)
 	}
 	property("prependedAll(List[Int])") = forAll { (prefix :List[Int], suffix :C[Int]) =>
-		validate(Vector.from(prefix) ++ suffix, (prefix ++: suffix) to C)
+		test(Vector.from(prefix) ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(List[String])") = forAll { (prefix :List[String], suffix :C[Int]) =>
 		compare(Vector.from(prefix) ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(ArraySeq[Int])") = forAll { (prefix :ArraySeq[Int], suffix :C[Int]) =>
-		validate(prefix ++ suffix, (prefix ++: suffix) to C)
+		test(prefix ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(ArraySeq[String])") = forAll { (prefix :ArraySeq[String], suffix :C[Int]) =>
 		compare(prefix ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(Vector[Int])") = forAll { (prefix :Vector[Int], suffix :C[Int]) =>
-		validate(prefix ++ suffix, (prefix ++: suffix) to C)
+		test(prefix ++ suffix, (prefix ++: suffix) to C)
 	}
 	property("prependedAll(RelayArray[Int].slice)") = forAll { (prefix :RelayArray[Int], suffix :C[Int]) =>
-		validate(
+		test(
 			prefix.slice(1, prefix.length - 1) ++ suffix,
 			(prefix.slice(1, prefix.length - 1) ++: suffix) to C
 		) lbl passedArrayLabel(prefix)
@@ -215,7 +215,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		) lbl passedArrayLabel(prefix)
 	}
 	property(s"prependedAll(${C[Int].source.localClassName}[Int])") = forAll { (prefix :C[Int], suffix :C[Int]) =>
-		validate(Vector.from(prefix) ++ Vector.from(suffix), (prefix ++: suffix) to C)
+		test(Vector.from(prefix) ++ Vector.from(suffix), (prefix ++: suffix) to C)
 	}
 	property(s"prependedAll(${C[String].source.localClassName}[String])") =
 		forAll { (prefix :C[Int], suffix :C[String]) =>
@@ -229,6 +229,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		case _                           => seq.mkString(seq.localClassName + "(", ", ", ")")
 	}
 
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	//todo: copy&paste to RankingSpec
 	protected override def orderedProps[T, F, M, FM](expect :Seq[T], result :Seq[T])
 	                                                (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :E[T],
@@ -319,7 +320,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 	                    (implicit ev :E[A], aElem :Arbitrary[A], aElems :Arbitrary[I[B]],
 	                     shrinkElem :Shrink[A], shrinkElems :Shrink[I[B]],
 	                     prettyElem :A => Pretty, prettyElems :I[B] => Pretty) :Prop =
-		indexedProperty[A] { (subject :C[A], index :Int) =>
+		forAllIndices[A] { (subject :C[A], index :Int) =>
 			forAll { (elems :I[B]) => prop(subject, index, elems) lbl s"$method($index, $elems)" }
 		}
 
@@ -345,7 +346,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 		else {
 			val vec    = Vector.from(subject)
 			val expect = vec.take(index) :++ items :++ vec.drop(index + items.size)
-			validate(expect, subject.updatedAll(index, items) to C)
+			test(expect, subject.updatedAll(index, items) to C)
 		}
 
 	private def explodedUpdatedAll[A, B](subject :C[A], index :Int, first :A, second :A, rest :Seq[A])
@@ -357,7 +358,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 		else {
 			val vec    = Vector.from(subject)
 			val expect = vec.take(index) :+ first :+ second :++ rest :++ vec.drop(index + 2 + rest.size)
-			validate(expect, subject.updatedAll(index, first, second, rest :_*) to C)
+			test(expect, subject.updatedAll(index, first, second, rest :_*) to C)
 		}
 
 	private def overwritten[A, B](subject :C[A], index :Int, items :Iterable[A])
@@ -367,7 +368,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 	{
 		val expect = expectOverwritten(subject, index, items)
 		val result = subject.overwritten(index, items)
-		validate(expect, result to C)
+		test(expect, result to C)
 	}
 
 	private def explodedOverwritten[A, B](subject :C[A], index :Int, first :A, second :A, rest :Seq[A])
@@ -377,7 +378,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 	{
 		val expect = expectOverwritten(subject, index, Prepended2Seq(first, second, rest))
 		val result = subject.overwritten(index, first, second, rest :_*)
-		validate(expect, result)
+		test(expect, result)
 	}
 
 	private def expectOverwritten[A](subject :C[A], index :Int, items :Iterable[A]) :Seq[A] = {
@@ -399,7 +400,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 		else {
 			val vec    = Vector.from(subject)
 			val expect = vec.take(index) :++ items :++ vec.drop(index)
-			validate(expect, subject.insertedAll(index, items))
+			test(expect, subject.insertedAll(index, items))
 		}
 
 	private def explodedInsertedAll[A, B](subject :C[A], index :Int, first :A, second :A, rest :Seq[A])
@@ -411,7 +412,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 		else {
 			val vec    = Vector.from(subject)
 			val expect = vec.take(index) :+ first :+ second :++ rest :++ vec.drop(index)
-			validate(expect, subject.insertedAll(index, first, second, rest :_*))
+			test(expect, subject.insertedAll(index, first, second, rest :_*))
 		}
 
 
@@ -425,7 +426,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 			val vec = Vector.from(subject)
 			val expect = vec.take(index) :+ elem :++ vec.drop(index)
 			val result = subject.inserted(index, elem)
-			validate(expect, result)
+			test(expect, result)
 		}
 
 	property("updatedAll(Int, Iterable[Int])") = updateAllProperty[Iterable, Int, Int]("updatedAll")(
@@ -461,7 +462,7 @@ trait SugaredSeqProps[C[T] <: collection.Seq[T] with SugaredSeqOps[T, collection
 		explodedInsertedAll[Int, Long](_, _, _, _, _)
 	)
 
-	property("inserted(Int, Int)") = indexedProperty[Int] { (subject :C[Int], index :Int) =>
+	property("inserted(Int, Int)") = forAllIndices[Int] { (subject :C[Int], index :Int) =>
 		forAll { elem :Int => inserted[Int, Long](subject, index, elem) lbl s"inserted($index, $elem)" }
 	}
 

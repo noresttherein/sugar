@@ -41,15 +41,15 @@ object CatSpec extends UntaggedSeqProps[Cat]("Cat", Cat) with SugaredSeqProps[Ca
 		class CatGen {
 			val zz :Gen[Build[E]] = Gen.frequency(
 				4 -> Gen.const(Empty),
-				2 -> Gen.lzy(for { prefix <- zigzag; suffix <- Arbitrary.arbitrary[E] } yield Append(prefix, suffix)),
-				2 -> Gen.lzy(for { prefix <- Arbitrary.arbitrary[E]; suffix <- zigzag } yield Prepend(prefix, suffix)),
-				1 -> Gen.lzy(for { prefix <- zigzag; suffix <- zigzag } yield AppendedAll(prefix, suffix)),
-				1 -> Gen.lzy(for { prefix <- zigzag; suffix <- zigzag } yield PrependedAll(prefix, suffix)),
+				2 -> Gen.lzy(for {prefix <- cat; suffix <- Arbitrary.arbitrary[E]} yield Append(prefix, suffix)),
+				2 -> Gen.lzy(for { prefix <- Arbitrary.arbitrary[E]; suffix <- cat} yield Prepend(prefix, suffix)),
+				1 -> Gen.lzy(for {prefix <- cat; suffix <- cat} yield AppendedAll(prefix, suffix)),
+				1 -> Gen.lzy(for {prefix <- cat; suffix <- cat} yield PrependedAll(prefix, suffix)),
 			)
-			def zigzag = zz
+			def cat = zz
 		}
-		(new CatGen).zigzag
+		(new CatGen).cat
 	}
 
-	property("build") = forAll { template :Build[Int] => validate(template.expect, template()) }
+	property("build") = forAll { template :Build[Int] => test(template.expect, template()) }
 }

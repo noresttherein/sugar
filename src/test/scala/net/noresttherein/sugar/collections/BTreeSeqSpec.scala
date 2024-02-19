@@ -16,13 +16,13 @@ object BTreeSeqSpec extends UntaggedSeqProps[BTreeSeq]("BTreeSeq", BTreeSeq) {
 
 	protected override def knowsSize = true
 
-	property("removed") = test { (seq :collection.Seq[Int], tree :BTreeSeq[Int]) =>
+	property("removed") = forAllChecked { (seq :collection.Seq[Int], tree :BTreeSeq[Int]) =>
 		forAll { i :Int =>
 			if (i < 0 || i >= seq.length) tree.removed(i).throws[IndexOutOfBoundsException]
-			else validate(seq.take(i) ++ seq.drop(i + 1), tree.removed(i))
+			else test(seq.take(i) ++ seq.drop(i + 1), tree.removed(i))
 		}
 	}
-	property("inserted") = test { (seq :collection.Seq[Int], tree :BTreeSeq[Int]) =>
+	property("inserted") = forAllChecked { (seq :collection.Seq[Int], tree :BTreeSeq[Int]) =>
 		forAll { x :Int =>
 			(0 to seq.length).map { i =>
 				val (prefix, suffix) = seq.splitAt(i)

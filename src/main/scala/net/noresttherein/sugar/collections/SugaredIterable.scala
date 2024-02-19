@@ -271,7 +271,7 @@ trait SlicingOps[+E, +C] extends Any with IterableOps[E, generic.Any1, Any] {
 //		}
 }
 
-trait SugaredSlicingOps[+E, +CC[_], +C] extends SugaredIterableOps[E, CC, C] with SlicingOps[E, C] {
+trait SugaredSlicingOps[+E, +CC[_], +C] extends Any with SugaredIterableOps[E, CC, C] with SlicingOps[E, C] {
 	protected override def emptySlice :C = empty
 
 /*	override def removed(from :Int, until :Int) :C =

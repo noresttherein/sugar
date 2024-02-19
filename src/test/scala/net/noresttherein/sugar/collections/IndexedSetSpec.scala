@@ -15,14 +15,14 @@ import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExten
 trait SetProps[C[A] <: S[A], S[A] <: Set[A], E[_]] extends GenericIterableProps[C, S, E] {
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 
-	property("contains") = test { (expect :S[Int], subject :C[Int]) =>
+	property("contains") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
 		all(expect.toSeq.map { i => subject.contains(i) :| i.toString } :_*) &&
 			forAll { i :Int =>
 				expect.contains(i) =? subject.contains(i)
 			}
 	}
 
-	property("subsetOf") = test { (expect :S[Int], subject :C[Int]) =>
+	property("subsetOf") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
 		forAll { xs :List[Int] =>
 			val superset = expect ++ xs
 			val same     = subject ++ xs
@@ -47,30 +47,30 @@ trait SetProps[C[A] <: S[A], S[A] <: Set[A], E[_]] extends GenericIterableProps[
 		forAll { size :Int => expect.subsets(size).toSeq =? subject.subsets(size).toSeq }
 	}
 
-	property("incl") = test { (expect :S[Int], subject :C[Int]) =>
-		forAll { x :Int => validate(expect + x to S, subject + x to C) }
+	property("incl") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
+		forAll { x :Int => test(expect + x to S, subject + x to C) }
 	}
-	property("excl") = test { (expect :S[Int], subject :C[Int]) =>
-		forAll { x :Int => validate(expect - x to S, subject - x to C) }
+	property("excl") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
+		forAll { x :Int => test(expect - x to S, subject - x to C) }
 	}
-	property("union") = test { (expect :S[Int], subject :C[Int]) =>
-		forAll { xs :Set[Int] => validate(expect | xs to S, subject | xs to C) } &&
-			forAll { xs :S[Int] => validate(expect | xs to S, subject | xs.to(C) to C) }
+	property("union") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
+		forAll { xs :Set[Int] => test(expect | xs to S, subject | xs to C) } &&
+			forAll { xs :S[Int] => test(expect | xs to S, subject | xs.to(C) to C) }
 	}
-	property("intersect") = test { (expect :S[Int], subject :C[Int]) =>
-		forAll { xs :Set[Int] => validate(expect & xs to S, subject & xs to C) } &&
-			forAll { xs :S[Int] => validate(expect & xs to S, subject & xs.to(C) to C) }
+	property("intersect") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
+		forAll { xs :Set[Int] => test(expect & xs to S, subject & xs to C) } &&
+			forAll { xs :S[Int] => test(expect & xs to S, subject & xs.to(C) to C) }
 	}
-	property("diff") = test { (expect :S[Int], subject :C[Int]) =>
-		forAll { xs :Set[Int] => validate(expect &~ xs to S, subject &~ xs to C) } &&
-			forAll { xs :S[Int] => validate(expect &~ xs to C, subject &~ xs.to(C) to C) }
+	property("diff") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
+		forAll { xs :Set[Int] => test(expect &~ xs to S, subject &~ xs to C) } &&
+			forAll { xs :S[Int] => test(expect &~ xs to C, subject &~ xs.to(C) to C) }
 	}
-	property("removedAll") = test { (expect :S[Int], subject :C[Int]) =>
-		def forColl(xs :Iterable[Int]) = validate(expect -- xs to S, subject -- xs to C)
+	property("removedAll") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
+		def forColl(xs :Iterable[Int]) = test(expect -- xs to S, subject -- xs to C)
 		forAll { xs :List[Int] => forColl(xs) } &&
 			forAll { xs :Vector[Int] => forColl(xs) } &&
 			forAll { xs :Set[Int] => forColl(xs) } &&
-			forAll { xs :S[Int] => validate(expect -- xs to S, subject -- xs.to(C) to C) } &&
+			forAll { xs :S[Int] => test(expect -- xs to S, subject -- xs.to(C) to C) } &&
 			forAll { xs :View[Int] => forColl(xs) }
 	}
 

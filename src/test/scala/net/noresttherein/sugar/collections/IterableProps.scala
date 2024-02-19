@@ -47,7 +47,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 		                                obj.close()
 		                                val in   = new ObjectInputStream(new ByteArrayInputStream(out.toByteArray))
 		                                val copy = in.readObject().asInstanceOf[C[Int]]
-		                                validate(col, copy) lbl "Deserialized: " + copy + ": " + copy.localClassName
+		                                test(col, copy) lbl "Deserialized: " + copy + ": " + copy.localClassName
 		                            }
 	property("knownSize")         = Prop(!knowsSize) || forAll { col :C[Int] => col.knownSize =? col.size }
 	property("size")              = compare((_ :S[Int]).size)
@@ -60,34 +60,34 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	property("lastOption")        = orderedCompare((_ :Iterable[Int]).lastOption)
 	property("collectFirst")      = orderedCompare((_ :Iterable[Int]).collectFirst { case i if filter(i) => i })
 	property("find")              = orderedCompare((_ :Iterable[Int]).find(filter))
-	property("init")              = validateOrderNonEmpty[UnsupportedOperationException]((_ :Iterable[Int]).init)
-	property("tail")              = validateOrderNonEmpty[UnsupportedOperationException]((_ :Iterable[Int]).tail)
-	property("take")              = forAll { i :Int => validateOrder((_:Iterable[Int]).take(i)) }
-	property("drop")              = forAll { i :Int => validateOrder((_:Iterable[Int]).drop(i)) }
-	property("takeRight")         = forAll { i :Int => validateOrder((_:Iterable[Int]).takeRight(i)) }
-	property("dropRight")         = forAll { i :Int => validateOrder((_:Iterable[Int]).dropRight(i)) }
-	property("slice")             = forAll { (from :Int, until :Int) => validateOrder((_:Iterable[Int]).slice(from, until)) }
-	property("scan")              = validateOrder((_ :Iterable[Int]).scan(value[Int])(fold))
-	property("scanLeft")          = validateOrder((_ :Iterable[Int]).scanLeft(foldZero[Long, Int])(foldLeft))
-	property("scanRight")         = validateOrder((_ :Iterable[Int]).scanRight(foldZero[Long, Int])(foldRight))
+	property("init")              = testOrderNonEmpty[UnsupportedOperationException]((_ :Iterable[Int]).init)
+	property("tail")              = testOrderNonEmpty[UnsupportedOperationException]((_ :Iterable[Int]).tail)
+	property("take")              = forAll { i :Int => testOrder((_:Iterable[Int]).take(i)) }
+	property("drop")              = forAll { i :Int => testOrder((_:Iterable[Int]).drop(i)) }
+	property("takeRight")         = forAll { i :Int => testOrder((_:Iterable[Int]).takeRight(i)) }
+	property("dropRight")         = forAll { i :Int => testOrder((_:Iterable[Int]).dropRight(i)) }
+	property("slice")             = forAll { (from :Int, until :Int) => testOrder((_:Iterable[Int]).slice(from, until)) }
+	property("scan")              = testOrder((_ :Iterable[Int]).scan(value[Int])(fold))
+	property("scanLeft")          = testOrder((_ :Iterable[Int]).scanLeft(foldZero[Long, Int])(foldLeft))
+	property("scanRight")         = testOrder((_ :Iterable[Int]).scanRight(foldZero[Long, Int])(foldRight))
 	property("zipWithIndex")      = orderedCompare((_ :Iterable[Int]).zipWithIndex)
 
-	property("iterator")          = test { (expect :S[Int], result :C[Int]) => checkIterator(expect, result.iterator) }
-	property("stepper")           = test { (expect :S[Int], result :C[Int]) => checkStepper(expect, result.stepper) }
+	property("iterator")          = forAllChecked { (expect :S[Int], result :C[Int]) => checkIterator(expect, result.iterator) }
+	property("stepper")           = forAllChecked { (expect :S[Int], result :C[Int]) => checkStepper(expect, result.stepper) }
 	property("empty")             = forAll { (col :C[Int]) => compare(S[Int].fromSpecific(Nil), col.empty) }
-	property("filter")            = validate((_ :S[Int]).filter(filter))
-	property("filterNot")         = validate((_ :S[Int]).filterNot(filter))
-	property("partition")         = test { (expect :S[Int], result :C[Int]) => //A bit too slow
+	property("filter")            = test((_ :S[Int]).filter(filter))
+	property("filterNot")         = test((_ :S[Int]).filterNot(filter))
+	property("partition")         = forAllChecked { (expect :S[Int], result :C[Int]) => //A bit too slow
 	                                    val (expect_1, expect_2) = expect.partition(filter)
 	                                    val (result_1, result_2) = result.partition(filter)
-	                                	("_1" |: validate(expect_1.to(S), result_1.to(C))) &&
-			                                ("_2" |: validate(expect_2.to(S), result_2.to(C)))
+	                                	("_1" |: test(expect_1.to(S), result_1.to(C))) &&
+			                                ("_2" |: test(expect_2.to(S), result_2.to(C)))
 	                                }
-	property("map")               = validate((_ :S[Int]).map(map))
-	property("flatMap(Seq)")      = validate((_ :S[Int]).flatMap(flatMap)) //This is very slow
-	property(s"flatMap($name)")   = validate((_ :S[Int]).flatMap(i => C[Long].fromSpecific(flatMap(i))))
-	property(s"flatten($typeS)")  = validate((_ :S[C[Int]]).flatten) //todo: this is extremely slow
-	property("collect")           = validate((_ :S[Int]).collect { case i if filter(i) => i })
+	property("map")               = test((_ :S[Int]).map(map))
+	property("flatMap(Seq)")      = test((_ :S[Int]).flatMap(flatMap)) //This is very slow
+	property(s"flatMap($name)")   = test((_ :S[Int]).flatMap(i => C[Long].fromSpecific(flatMap(i))))
+	property(s"flatten($typeS)")  = test((_ :S[C[Int]]).flatten) //todo: this is extremely slow
+	property("collect")           = test((_ :S[Int]).collect { case i if filter(i) => i })
 	property("foreach")           = compare { s :S[Int] => var sum = 0; s.foreach { sum += _ }; sum }
 	property("forall")            = compare((_ :S[Int]).forall(filter))
 	property("exists")            = compare((_ :S[Int]).exists(filter))
@@ -101,7 +101,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	property("reduceLeftOption")  = compare((_ :S[Int]).reduceLeftOption(fold[Int]))
 	property("reduceRightOption") = compare((_ :S[Int]).reduceRightOption(fold[Int]))
 	property("copyToArray")       = forAll { (s :C[Int]) => copyToArrayProp(s, Vector.from(s)) }
-	property("concat")            = forAll { list :List[Int] => validate((_ :S[Int]) ++ list) }
+	property("concat")            = forAll { list :List[Int] => test((_ :S[Int]) ++ list) }
 
 
 	/** A set of properties checked for every result of a method returning a `C[T]`.
@@ -160,6 +160,17 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 			"reduceLeftOption"  lbl_: expect.reduceLeftOption(fold[T]) =? result.reduceLeftOption(fold[T]),
 			"reduceRightOption" lbl_: expect.reduceRightOption(fold[T]) =? result.reduceRightOption(fold[T]),
 			"copyToArray"       lbl_: copyToArrayProp(result to C, if (hasOrder) expect else Vector from result),
+/*			"fold"              lbl_: compare((_ :Iterable[T]).fold(value[T])(fold)),
+			"foldLeft"          lbl_: orderedCompare((_ :Iterable[T]).foldLeft(foldZero[F, T])(foldLeft)),
+			"foldRight"         lbl_: orderedCompare((_ :Iterable[T]).foldRight(foldZero[F, T])(foldRight)),
+			"reduce"            lbl_: compareNonEmpty[UnsupportedOperationException]((_ :Iterable[T]).reduce(fold[T])),
+			"reduceLeft"        lbl_: orderedCompareNonEmpty[UnsupportedOperationException]((_ :Iterable[T]).reduceLeft(fold[T])),
+			"reduceRight"       lbl_: orderedCompareNonEmpty[UnsupportedOperationException]((_ :Iterable[T]).reduceRight(fold[T])),
+			"reduceOption"      lbl_: compare((_ :Iterable[T]).reduceOption(fold[T])),
+			"reduceLeftOption"  lbl_: orderedCompare((_ :Iterable[T]).reduceLeftOption(fold[T])),
+			"reduceRightOption" lbl_: orderedCompare((_ :Iterable[T]).reduceRightOption(fold[T])),
+			"copyToArray"       lbl_: copyToArrayProp(result to C, if (hasOrder) expect else Vector from result),
+*/
 //			"grouped",
 //			"sliding",
 //          "inits",
@@ -169,8 +180,22 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 //			"groupMapReduce",
 //			"partitionMap"
 
-			"concat"            lbl_: forAll { items :List[T] => compare(expect ++ items, result ++ items) }
-		)
+/*			"concat"            lbl_: forAll { items :List[T] => compare(expect ++ items, result ++ items) },
+			"head"              lbl_: orderedCompareNonEmpty[NoSuchElementException]((_ :Iterable[Int]).head),
+			"last"              lbl_: orderedCompareNonEmpty[NoSuchElementException]((_ :Iterable[Int]).last),
+			"headOption"        lbl_: orderedCompare((_ :Iterable[Int]).headOption),
+			"lastOption"        lbl_: orderedCompare((_ :Iterable[Int]).lastOption),
+			"init"              lbl_: orderedCompare((_ :Iterable[Int]).init),
+			"tail"              lbl_: orderedCompare((_ :Iterable[Int]).tail),
+			"take"              lbl_: forAll { n :Int => orderedCompare((_ :Iterable[Int]).take(n)) },
+			"drop"              lbl_: forAll { n :Int => orderedCompare((_ :Iterable[Int]).drop(n)) },
+			"takeRight"         lbl_: forAll { n :Int => orderedCompare((_ :Iterable[Int]).takeRight(n)) },
+			"dropRight"         lbl_: forAll { n :Int => orderedCompare((_ :Iterable[Int]).dropRight(n)) },
+			"slice"             lbl_: forAll { (from :Int, until :Int) =>
+			                            orderedCompare((_:Iterable[Int]).slice(from, until))
+			                          },
+			"splitAt"           lbl_: forAll { n :Int => }
+*/		)
 
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	private def copyToArrayProp[T :Arbitrary :ClassTag](subject :C[T], ordered :Iterable[T]) :Prop =
@@ -266,18 +291,18 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	  * to reduce the number of fail path tests. Note that it means that larger collections may not be suitable
 	  * tested in the result.
 	  */
-	protected def indexedProperty[A](prop :(C[A], Int) => Prop)
-	                                (implicit ev :E[A], a :Arbitrary[A], s :Shrink[A], p :A => Pretty) :Prop =
+	protected def forAllIndices[A](prop :(C[A], Int) => Prop)
+	                              (implicit ev :E[A], a :Arbitrary[A], s :Shrink[A], p :A => Pretty) :Prop =
 		forAll { (subject :C[A]) => s"Input: $subject :${subject.localClassName}" lbl_:
 			forAll { (index :Short) => prop(subject, index) } && prop(subject, Int.MinValue) && prop(subject, Int.MaxValue)
 		}
 
-	/** Applies `check` to aribrary instances of the reference collection `S[A]`,
+	/** Applies `check` to arbitrary instances of the reference collection `S[A]`,
 	  * as wel as instances of the tested collection produced by factory
 	  * [[net.noresttherein.sugar.collections.GenericIterableProps.C C]] from said reference collections.
 	  */
-	protected def test[A :Arbitrary :E](check :(S[A], C[A]) => Prop) :Prop =
-		forAll { elems :S[A] => check(elems, elems to C) }
+	protected def forAllChecked[A :Arbitrary :E](check :(S[A], C[A]) => Prop) :Prop =
+		forAll { elems :C[A] => check(elems to ArraySeq.untagged to S, elems) }
 
 	/** The primary function for testing methods which do not return another collection, or more specifically,
 	  * need only be tested for equality. Applies `f` to multiple arbitrary instances of reference collection `S`,
@@ -286,7 +311,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	  * for equality.
 	  */
 	protected def compare[A :Arbitrary :E, X](f :S[A] => X) :Prop =
-		forAll { elems :S[A] => f(elems) =? f(elems to C[A]) }
+		forAll { elems :C[A] => f(elems to List to S) =? f(elems) }
 
 	/** Compares two collection results of executing some tested method for a reference collection `S`,
 	  * as well as an equal (assuming correctness of its builder) collection `C`. Assumes the runtime types
@@ -301,7 +326,7 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 			Option.when(hasEquals)(expect =? result),
 			Option.when(symmetricEquals)(expect == result lbl s"$expect == $result")
 		).flatten.reduceOption(_ && _) getOrElse expect =? result.to(S) lbl
-			"Expected: " + expect + " (size=" + expect.size + ");\n     got: " + result + " (size=" + result.size + ")"
+			"EXPECTED: " + expect + " (size=" + expect.size + ");\nGOT:      " + result + " (size=" + result.size + ")"
 
 	/** A factory for comparing the results of executing a method for both a collection of the reference type
 	  * and an equal one under test in the same way as
@@ -312,10 +337,10 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	protected def compareNonEmpty[T <: Throwable] = new CompareNonEmpty[T]
 
 	class CompareNonEmpty[T <: Throwable] {
-		def apply[A :Arbitrary :E, X](f :(S[A] => X))(implicit tag :ClassTag[T]) :Prop =
-			forAll { elems :S[A] =>
-				if (elems.isEmpty) f(elems to C).throws[T]
-				else f(elems) =? f(elems to C)
+		def apply[A :Arbitrary :E, X](f :S[A] => X)(implicit tag :ClassTag[T]) :Prop =
+			forAll { elems :C[A] =>
+				if (elems.isEmpty) f(elems).throws[T]
+				else f(elems to ArraySeq.untagged to S) =? f(elems)
 			}
 	}
 
@@ -340,8 +365,8 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	class OrderedCompareNonEmpty[T <: Throwable] {
 		def apply[A :Arbitrary :E, X](f :Iterable[A] => X)(implicit tag :ClassTag[T]) :Prop =
 			forAll { elems :Iterable[A] =>
-				if (elems.isEmpty) f(elems to C).throws[T]
-				else f(elems) =? f(elems to C)
+				if (elems.isEmpty) f(elems).throws[T]
+				else f(elems to ArraySeq.untagged to S) =? f(elems)
 			}
 	}
 
@@ -354,16 +379,16 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	  * `validate`, which in turn returns the property test obtained from method
 	  * [[net.noresttherein.sugar.collections.GenericIterableProps.props props]].
 	  */
-	protected def validate[A, B, F, M, FM]
-	                      (f :S[A] => Iterable[B])
-	                      (implicit input :Arbitrary[A], output :Arbitrary[B], ev1 :E[A], ev2 :E[B], tag :ClassTag[B],
-	                       filt :Filter[B], fldA :FoldSide[F, B], evf :E[F], fld :Fold[B],
-	                       mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) :Prop =
-		forAll { elems :S[A] => validate(f(elems) to S, f(elems to C) to C) }
+	protected def test[A, B, F, M, FM]
+	                  (f :S[A] => Iterable[B])
+	                  (implicit input :Arbitrary[A], output :Arbitrary[B], ev1 :E[A], ev2 :E[B], tag :ClassTag[B],
+	                            filt :Filter[B], fldA :FoldSide[F, B], evf :E[F], fld :Fold[B],
+	                            mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) :Prop =
+		forAll { elems :C[A] => test(f(elems to ArraySeq.untagged to S) to S, f(elems) to C) }
 
 	/** Same as two argument validate, but additionally attaches a lazy label to the created property. */
-	protected def validate[A, F, M, FM](label: => String, expect :S[A], result :S[A])
-	                                   (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A], filt :Filter[A],
+	protected def test[A, F, M, FM](label: => String, expect :S[A], result :S[A])
+	                               (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A], filt :Filter[A],
 	                                    fldA :FoldSide[F, A], evf :E[F], fld :Fold[A], mp :Map[A, M], evm :E[M],
 	                                    fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
 		compare(expect, result) && all(props(expect, result) :_*) lbl label
@@ -372,49 +397,48 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	  * and combines properties for testing most of their methods obtained from
 	  * `this.`[[net.noresttherein.sugar.collections.GenericIterableProps.props props]] into a single propety object.
 	  */
-	protected def validate[A, F, M, FM](expect :S[A], result :S[A])
-	                                   (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A], filt :Filter[A],
-	                                    fldA :FoldSide[F, A], evf :E[F], fld :Fold[A], mp :Map[A, M], evm :E[M],
-	                                    fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
-
-		validate(
-			s"Result:  $expect (size=${expect.size});\ntesting: $result :${result.localClassName} (size=${result.size})",
+	protected def test[A, F, M, FM](expect :S[A], result :S[A])
+	                               (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A], filt :Filter[A],
+	                                         fldA :FoldSide[F, A], evf :E[F], fld :Fold[A], mp :Map[A, M], evm :E[M],
+	                                         fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
+		test(
+			s"RESULT:  $expect (size=${expect.size});\nTESTING: $result :${result.localClassName} (size=${result.size})",
 			expect, result
 		)
 
-	protected def validateNonEmpty[T <: Throwable] = new ValidateNonEmpty[T]
+	protected def testNonEmpty[T <: Throwable] = new TestNonEmpty[T]
 
-	protected class ValidateNonEmpty[T <: Throwable] {
+	protected class TestNonEmpty[T <: Throwable] {
 		def apply[A, B, F, M, FM](f :S[A] => Iterable[B])
 		                         (implicit input :Arbitrary[A], output :Arbitrary[B], ev1 :E[A], ev2 :E[B],
 		                                   tag :ClassTag[B], exTag :ClassTag[T],
 		                                   filt :Filter[B], fldA :FoldSide[F, B], evf :E[F], fld :Fold[B],
 		                                   mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) :Prop =
-			forAll { elems :S[A] =>
-				if (elems.isEmpty) f(elems to C[A]).throws[T]
-				else validate(f(elems) to S, f(elems to C[A]) to C)
+			forAll { elems :C[A] =>
+				if (elems.isEmpty) f(elems).throws[T]
+				else test(f(elems to ArraySeq.untagged  to S) to S, f(elems) to C)
 			}
 	}
 
-	protected def validateOrder[A, X, F, M, FM]
-	                           (f :Iterable[A] => Iterable[X])
-	                           (implicit input :Arbitrary[A], output :Arbitrary[X], ev1 :E[A], ev2 :E[X],
-	                            tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :E[F], fld :Fold[X],
-	                            mp :Map[X, M], evm :E[M], fmap :FlatMap[X, FM], evfm :E[FM]) :Prop =
-		forAll { elems :C[A] => validate(f(elems.toList) to S, f(elems) to C) }
+	protected def testOrder[A, X, F, M, FM]
+	                       (f :Iterable[A] => Iterable[X])
+	                       (implicit input :Arbitrary[A], output :Arbitrary[X], ev1 :E[A], ev2 :E[X],
+	                                 tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :E[F], fld :Fold[X],
+	                                 mp :Map[X, M], evm :E[M], fmap :FlatMap[X, FM], evfm :E[FM]) :Prop =
+		forAll { elems :C[A] => test(f(elems.toList) to S, f(elems) to C) }
 
 
-	protected def validateOrderNonEmpty[T <: Throwable] = new ValidateOrderNonEmpty[T]
+	protected def testOrderNonEmpty[T <: Throwable] = new TestOrderNonEmpty[T]
 
-	protected class ValidateOrderNonEmpty[T <: Throwable] {
+	protected class TestOrderNonEmpty[T <: Throwable] {
 		def apply[A, B, F, M, FM](f :Iterable[A] => Iterable[B])
 		                         (implicit input :Arbitrary[A], output :Arbitrary[B], ev1 :E[A], ev2 :E[B],
-		                          tag :ClassTag[B], exTag :ClassTag[T],
-		                          filt :Filter[B], fldA :FoldSide[F, B], evf :E[F], fld :Fold[B],
-		                          mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) :Prop =
+		                                   tag :ClassTag[B], exTag :ClassTag[T],
+		                                   filt :Filter[B], fldA :FoldSide[F, B], evf :E[F], fld :Fold[B],
+		                                   mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) :Prop =
 			forAll { elems :Iterable[A] =>
 				if (elems.isEmpty) f(elems to C[A]).throws[T]
-				else validate(f(elems) to S, f(elems to C[A]) to C)
+				else test(f(elems.toList) to S, f(elems to C[A]) to C)
 			}
 	}
 
@@ -562,7 +586,7 @@ abstract class IterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
 
 	private class IterableFactoryProps extends Properties("iterableFactory") {
 		property("from") = forAll { items :Iterable[Int] =>
-			validate(referenceFactory from items, checkedFactory from items)
+			test(referenceFactory from items, checkedFactory from items)
 		}
 	}
 
@@ -626,7 +650,7 @@ abstract class EvidenceIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]]
 
 	private class EvidenceIterableFactoryProps extends Properties("iterableFactory") {
 		property("from") = forAll { items :Iterable[Int] =>
-			validate(referenceFactory from items, checkedFactory from items)
+			test(referenceFactory from items, checkedFactory from items)
 		}
 	}
 
@@ -726,15 +750,15 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 				}
 		}
 
-	protected override def validateOrder[A, X, F, M, FM]
+	protected override def testOrder[A, X, F, M, FM]
 	                       (f :Iterable[A] => Iterable[X])
 	                       (implicit input :Arbitrary[A], output :Arbitrary[X], ev1 :E[A], ev2 :E[X], tag :ClassTag[X],
 	                                 filt :Filter[X], fldA :FoldSide[F, X], evf :E[F], fld :Fold[X],
 	                                 mp :Map[X, M], evm :E[M], fmap :FlatMap[X, FM], evfm :E[FM]) :Prop =
-		forAll { ref :S[A] => validate(f(ref) to S, f(ref to C) to C) }
+		forAll { ref :S[A] => test(f(ref) to S, f(ref to C) to C) }
 
-	protected override def validateOrderNonEmpty[T <: Throwable] :ValidateOrderNonEmpty[T] =
-		new ValidateOrderNonEmpty[T] {
+	protected override def testOrderNonEmpty[T <: Throwable] :TestOrderNonEmpty[T] =
+		new TestOrderNonEmpty[T] {
 			override def apply[A, B, F, M, FM](f :Iterable[A] => Iterable[B])
 			                                  (implicit input :Arbitrary[A], output :Arbitrary[B], ev1 :E[A], ev2 :E[B],
 			                                            tag :ClassTag[B], exTag :ClassTag[T],
@@ -742,7 +766,7 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 			                                            mp :Map[B, M], evm :E[M], fmap :FlatMap[B, FM], evfm :E[FM]) =
 				forAll { ref :S[A] =>
 					if (ref.isEmpty) f(ref to C).throws[T]
-					else validate(f(ref) to S, f(ref) to C)
+					else test(f(ref) to S, f(ref) to C)
 				}
 		}
 
@@ -757,53 +781,64 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, S, S[X]], S[X] <: Iterable[X], E[_]]
 	extends GenericIterableProps[C, S, E]
 {
-	property("removed(Int)") = indexedProperty[Int] { (subject :C[Int], index :Int) =>
+	property("removed(Int)") = forAllIndices[Int] { (subject :C[Int], index :Int) =>
 		val vec = subject to Vector
 		if (index < 0 || index >= vec.length)
 			subject.removed(index).throws[IndexOutOfBoundsException]
 		else {
 			val expect = vec.take(index) :++ (if (index == Int.MaxValue) Vector.empty else vec.drop(index + 1))
 			val result = subject.removed(index)
-			validate(expect to S, result) lbl s"removed($index)"
+			test(expect to S, result) lbl s"removed($index)"
 		}
 	}
 	property("removed(Int, Int)") =	forAll { (subject :C[Int], from :Int, until :Int) =>
 		val vec = subject.toVector
 		val expect = vec.take(from) :++ vec.drop(math.max(from, until))
 		val result = subject.removed(from, until)
-		validate(expect to S, result) lbl s"removed($from, $until)" lbl s"Input: $subject :${subject.localClassName}"
+		test(expect to S, result) lbl s"removed($from, $until)" lbl s"Input: $subject :${subject.localClassName}"
 	}
 
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking
-	property("copyRangeToArray") = forAll { (s :C[Int], capacity :Short, start :Int, from :Int, len :Int) =>
-        val cap       = capacity.toInt.abs
-		val from0     = math.max(0, from)
-        val ordered   = Vector from s
-        val specific1 = Array.iterate(42, cap)(_ + 1)
-        val specific2 = Array.iterate(42, cap)(_ + 1)
-        val generic1  = specific1.map[Any](_.toString)
-        val generic2  = specific2.map[Any](_.toString)
-		//For some strange reason the check for zero array size is not made before checking for negative start.
-		if (start < 0 && from0 < s.size && (len max 0 min s.size - from0) > 0)
-	        (s"copyRangeToArray(${specific1.mkString("Array[Int](", ",", ")")}, $start, $from, $len)" lbl_:
-                s.copyRangeToArray(specific1, start, from, len).throws[IndexOutOfBoundsException]) &&
-		        (s"copyRangeToArray(${generic1.mkString("Array[Any](", ",", ")")}, $start, $from, $len)" lbl_:
-	                s.copyRangeToArray(generic1, start, from, len).throws[IndexOutOfBoundsException])
-        else {
-	        val copiedSpecific1 = ordered.drop(from).copyToArray(specific1, start, len)
-            val copiedSpecific2 = s.copyRangeToArray(specific2, start, from, len)
-	        val copiedGeneric1  = ordered.drop(from).copyToArray(generic1, start, len)
-	        val copiedGeneric2  = s.copyRangeToArray(generic2, start, from, len)
-	        all(
-		        (copiedSpecific1 =? copiedSpecific2) && (
-			        ArraySeq.unsafeWrapArray(specific1) =? ArraySeq.unsafeWrapArray(specific2)
-		        ) lbl s"copyRangeToArray(${specific2.mkString("Array[Int](", ", ", ")")}, $start, $from, $len)",
-		        (copiedGeneric1 =? copiedGeneric2) && (
-			        ArraySeq.unsafeWrapArray(specific1) =? ArraySeq.unsafeWrapArray(specific2)
-		        ) lbl s"copyRangeToArray(${specific2.mkString("Array[Any](", ", ", ")")}, $start, $from, $len)"
-	        )
-        }
-    }
+	property("copyRangeToArray") = forAll { (s :C[Int]) => copyRangeToArrayProp(s, s to Vector) }
+
+
+	private def copyRangeToArrayProp[T :Arbitrary :ClassTag](subject :C[T], ordered :Iterable[T]) :Prop =
+		forAll { (capacity :Short, start :Int, from :Int, len :Int) =>
+			val cap       = capacity.toInt.abs
+			val from0     = math.max(0, from)
+			val specific1 = Array.fill(cap)(Arbitrary.arbitrary[T].sample.get)
+			val specific2 = specific1.clone
+			val generic1  = specific1.map[Any](_.toString)
+			val generic2  = generic1.clone()
+			//For some strange reason the check for zero array size is not made before checking for negative start.
+			if (start < 0 && from0 < subject.size && (len max 0 min subject.size - from0) > 0)
+				(s"copyRangeToArray(${specific1.mkString("Array[Int](", ",", ")")}, $start, $from, $len)" lbl_:
+					subject.copyRangeToArray(specific1, start, from, len).throws[IndexOutOfBoundsException]) &&
+					(s"copyRangeToArray(${generic1.mkString("Array[Any](", ",", ")")}, $start, $from, $len)" lbl_:
+						subject.copyRangeToArray(generic1, start, from, len).throws[IndexOutOfBoundsException])
+			else {
+				val copiedSpecific1 = ordered.drop(from).copyToArray(specific1, start, len)
+				val copiedSpecific2 = subject.copyRangeToArray(specific2, start, from, len)
+				val copiedGeneric1  = ordered.drop(from).copyToArray(generic1, start, len)
+				val copiedGeneric2  = subject.copyRangeToArray(generic2, start, from, len)
+				all(
+					(copiedSpecific1 =? copiedSpecific2) && (
+						ArraySeq.unsafeWrapArray(specific1) =? ArraySeq.unsafeWrapArray(specific2)
+						) lbl s"copyRangeToArray(${specific2.mkString("Array[Int](", ", ", ")")}, $start, $from, $len)",
+					(copiedGeneric1 =? copiedGeneric2) && (
+						ArraySeq.unsafeWrapArray(specific1) =? ArraySeq.unsafeWrapArray(specific2)
+						) lbl s"copyRangeToArray(${specific2.mkString("Array[Any](", ", ", ")")}, $start, $from, $len)"
+				)
+			}
+		}
+
+	protected override def props[T, F, M, FM](expect :S[T], result :S[T])
+	                                         (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T],
+	                                          filt :Filter[T], fldA :FoldSide[F, T], evf :E[F], fld :Fold[T],
+	                                          mp :Map[T, M], evm :E[M], fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
+		super.props(expect, result) ++ Seq(
+			"copyRangeToArray" lbl_: copyRangeToArrayProp(result to C, if (hasOrder) expect else Vector from result)
+		)
 }
 
 

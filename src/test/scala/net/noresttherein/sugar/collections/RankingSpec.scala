@@ -47,40 +47,40 @@ object RankingSpec
 	protected override def compare[T :Arbitrary :Dummy, X](f :Iterable[T] => X) :Prop =
 		forAll { elems :Seq[T] => f(elems.toSeq.distinct) =? f(elems to C) }
 
-	protected override def test[T :Arbitrary :Dummy](check :(Iterable[T], Ranking[T]) => Prop) :Prop =
+	protected override def forAllChecked[T :Arbitrary :Dummy](check :(Iterable[T], Ranking[T]) => Prop) :Prop =
 		forAll { elems :Seq[T] =>
 			val distinct = elems.toSeq.distinct
 			check(distinct, Ranking.from(elems)) lbl distinct.mkString("Distinct(", ", ", ")")
 		}
 
-	protected override def validate[T, X, F, M, FM]
-	                               (f :Iterable[T] => Iterable[X])
-	                               (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
-	                                tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
-	                                mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
-		forAll { elems :Seq[T] => validate(f(elems.toSeq.distinct).toSeq.distinct, f(elems to C) to C) }
+	protected override def test[T, X, F, M, FM]
+	                           (f :Iterable[T] => Iterable[X])
+	                           (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
+	                            tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
+	                            mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
+		forAll { elems :Seq[T] => test(f(elems.toSeq.distinct).toSeq.distinct, f(elems to C) to C) }
 
-	protected override def validate[T, F, M, FM](label: => String, expect :Iterable[T], result :Iterable[T])
-	                                            (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T],
-	                                             filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T],
-	                                             mp :Map[T, M], evm :Dummy[M], fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
+	protected override def test[T, F, M, FM](label: => String, expect :Iterable[T], result :Iterable[T])
+	                                        (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T],
+	                                         filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T],
+	                                         mp :Map[T, M], evm :Dummy[M], fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
 		equalsFirstOccurrences(expect, result) && all(props(result.toSeq, result) :_*) lbl label
 
-	private def validateAppend[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
-	                                      (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T], filt :Filter[T],
-	                                       fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T], mp :Map[T, M], evm :Dummy[M],
-	                                       fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
+	private def testAppend[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
+	                                   (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T], filt :Filter[T],
+	                                    fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T], mp :Map[T, M], evm :Dummy[M],
+	                                    fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
 		equalsLastOccurrences(expect, result) && all(props(result.toSeq, result) :_*) lbl
-			s"Input:   $expect;\ntesting: $result :${result.localClassName}"
+			s"RESULT:   $expect;\nTESTING: $result :${result.localClassName}"
 
-	private def validateAnyOrder[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
-	                                         (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T], filt :Filter[T],
-	                                          fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T], mp :Map[T, M], evm :Dummy[M],
-	                                          fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
+	private def testAnyOrder[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
+	                                     (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T], filt :Filter[T],
+	                                      fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T], mp :Map[T, M], evm :Dummy[M],
+	                                      fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
 		result.isInstanceOf[Ranking[_]] :| s"${result.className}.isInstanceOf[Ranking]" &&
 			(aligned(expect.toList, result to Ranking, 0) lbl "aligned with any occurrences") &&
 			all(props(result.toSeq, result) :_*) lbl
-				s"Input:   $expect;\ntesting: $result :${result.localClassName}"
+				s"RESULT:   $expect;\nTESTING: $result :${result.localClassName}"
 
 //
 //	protected override def props[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
@@ -111,13 +111,13 @@ object RankingSpec
 	}
 	//todo: stateful tests for newBuilder, appendingBuilder, unorderedBuilder
 
-	property("length") = test { (expect :Iterable[Int], subject :Ranking[Int]) => expect.size =? subject.length }
-	property("apply") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("length") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) => expect.size =? subject.length }
+	property("apply") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		all(seq.indices.map(i => seq(i) =? subject(i)) :_*)
 	}
 
-	property("startsWith") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("startsWith") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toVector
 		all(
 			(for {
@@ -130,11 +130,11 @@ object RankingSpec
 			(offset >= 0 && offset <= seq.length && seq.startsWith(subseq, offset)) =? subject.startsWith(subseq, offset)
 		}
 	}
-	property("endsWith") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("endsWith") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		all((0 to seq.length).map(i => Prop(subject.endsWith(seq.drop(i)))) :_*)
 	}
-	property("segmentLength") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("segmentLength") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		all(seq.indices.map(i => seq.segmentLength(_ % 3 <= 1, i) =? subject.segmentLength(_ % 3 <= 1, i)) :_*)
 	}
@@ -238,21 +238,21 @@ object RankingSpec
 				subject.sureLastIndexWhere(_ => false, -1).throws[NoSuchElementException])
 	}
 	
-	property("indexOf") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("indexOf") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		forAll { (x :Int) =>
 			seq.indexOf(x) =? subject.indexOf(x) lbl
 				seq.toString + ".indexOf(" + x + ")" lbl subject.toString + " :" + subject.className
 		}
 	}
-	property("getIndexOf") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("getIndexOf") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		forAll { (x :Int) =>
 			Maybe(seq.indexOf(x)).filter(_ >= 0) =? subject.getIndexOf(x) lbl
 				seq.toString + ".getIndexOf(" + x + ")" lbl subject.toString + " :" + subject.className
 		}
 	}
-	property("sureIndexOf") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("sureIndexOf") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		forAll { (x :Int) =>
 			seq.indexOf(x) match {
@@ -262,7 +262,7 @@ object RankingSpec
 		}
 	}
 
-	property("indexOfSlice") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("indexOfSlice") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val indexed = expect.toVector //Seq.indexOfSlice is buggy in 2.13.10
 		all(
 			(for {
@@ -278,7 +278,7 @@ object RankingSpec
 			subject.indexOfSlice(x, i & 0xffff) ?= indexed.indexOfSlice(x, i & 0xffff)
 		}
 	}
-	property("getIndexOfSlice") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("getIndexOfSlice") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val indexed = expect.toVector //Seq.indexOfSlice is buggy in 2.13.10
 		all(
 			(for {
@@ -294,7 +294,7 @@ object RankingSpec
 			subject.getIndexOfSlice(x, i & 0xffff) ?= Maybe(indexed.indexOfSlice(x, i & 0xffff)).filter(_ >= 0)
 		}
 	}
-	property("sureIndexOfSlice") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("sureIndexOfSlice") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val indexed = expect.toVector //List.indexOfSlice is buggy in 2.13.10
 		def prop(expect :Int, from :Int = 0)(result: => Int) =
 			if (expect < from) Prop(throws(classOf[NoSuchElementException])(result))
@@ -314,11 +314,11 @@ object RankingSpec
 		}
 	}
 
-	property("contains") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("contains") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		forAll { x :Int => seq.contains(x) =? subject.contains(x) }
 	}
-	property("containsAll") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("containsAll") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val set = expect.toSet
 		val sub = expect.toSeq.filter(_ => Boolean.random).shuffled
 		Prop(subject.containsAll(sub)) && forAll { items :Seq[Int] =>
@@ -349,7 +349,7 @@ object RankingSpec
 				subject.iterator.slice(lo + len, hi) ++
 				subject.iterator.slice(lo, lo + len) ++
 				subject.iterator.drop(hi + len) to Seq
-			validate(expect, subject.swapped(i, j, len))
+			test(expect, subject.swapped(i, j, len))
 		}
 	}
 
@@ -359,7 +359,7 @@ object RankingSpec
 		else {
 			val removed = (subject.iterator.take(i) ++ subject.iterator.drop(i + 1)).toSeq
 			val expect = removed.take(j) :+ subject(i) :++ removed.iterator.drop(j)
-			validate(expect, subject.moved(i, j))
+			test(expect, subject.moved(i, j))
 		}
 	}
 	property("moved(x, y, len)") = forAll { (subject :Ranking[Int], i :Int, j :Int, len :Int) =>
@@ -371,7 +371,7 @@ object RankingSpec
 		else {
 			val removed = subject.iterator.take(i) ++ subject.iterator.drop(i + length) to Seq
 			val expect = removed.iterator.take(j) ++ subject.iterator.slice(i, i + length) ++ removed.iterator.drop(j)
-			validate(expect.toSeq, subject.moved(i, j, len))
+			test(expect.toSeq, subject.moved(i, j, len))
 		}
 	}
 
@@ -393,7 +393,7 @@ object RankingSpec
 							seq.slice(until0 + n, until0) :++ seq.slice(from0, until0 + n)
 					seq.take(from0) :++ rotated :++ seq.drop(until0)
 				}
-			validate(expect, subject.rotatedLeft(from, until)(shift))
+			test(expect, subject.rotatedLeft(from, until)(shift))
 		}
 	}
 	property("rotatedRight") = forAll { (subject :Ranking[Int], shift :Int) =>
@@ -414,20 +414,20 @@ object RankingSpec
 							seq.slice(from0 - n, until0) :++ seq.slice(from0, from0 - n)
 					seq.take(from0) :++ rotated :++ seq.drop(until0)
 				}
-			validate(expect, subject.rotatedRight(from, until)(shift))
+			test(expect, subject.rotatedRight(from, until)(shift))
 		}
 	}
 	//todo: test patch
 
-	property("updated") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("updated") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		all((0 until expect.size).map { i =>
 			val elem = Int.random
 			val reference = expect.toSeq.updated(i, elem)
 			val result = subject.updated(i, elem)
-			validate(reference, result)
+			test(reference, result)
 		} :_*)
 	}
-	property("updatedAll") = test { (input :Iterable[Int], subject :Ranking[Int]) =>
+	property("updatedAll") = forAllChecked { (input :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { (index :Int, patch :List[Int]) =>
 			val set    = new mutable.HashSet[Int]
 			val unique = patch.toSeq.collect { case x if set.add(x) => x }
@@ -438,7 +438,7 @@ object RankingSpec
 				if (index < 0 || index > input.size || expect.size > input.size)
 					subject.updatedAll(index, elems).throws[IndexOutOfBoundsException]
 				else
-					validate(expect, subject.updatedAll(index, elems))
+					test(expect, subject.updatedAll(index, elems))
 			(s"updatedAll($index, List)" lbl_: update(patch)) &&
 				(s"updatedAll($index, Vector)" lbl_: update(patch.toVector)) &&
 				(s"updatedAll($index, Set)" lbl_: update(new SeqSet(set.toSet, unique))) &&
@@ -454,11 +454,11 @@ object RankingSpec
 		else {
 			val prefix = subject.toSeq.take(i).filterNot(_ == elem)
 			val suffix = subject.toSeq.drop(i + 1).filterNot(_ == elem)
-			validate(prefix :+ elem :++ suffix, subject.replace(i, elem)) lbl
+			test(prefix :+ elem :++ suffix, subject.replace(i, elem)) lbl
 				subject.mkString(subject.getClass.getName + "(", ", ", ")")
 		}
 	}
-	property("replaceAll") = test { (input :Iterable[Int], subject :Ranking[Int]) =>
+	property("replaceAll") = forAllChecked { (input :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { (index :Int, elems :List[Int]) =>
 			val set      = new mutable.HashSet[Int]
 			val patch    = elems.toSeq.collect { case x if set.add(x) => x }
@@ -471,7 +471,7 @@ object RankingSpec
 				if (index < 0 || index > input.size || expect.size > input.size)
 					subject.replaceAll(index, elems).throws[IndexOutOfBoundsException]
 				else
-					validate(expect, subject.replaceAll(index, elems))
+					test(expect, subject.replaceAll(index, elems))
 			(s"replaceAll($index, List)" lbl_: replace(elems)) &&
 				(s"replaceAll($index, Vector)" lbl_: replace(elems.toVector)) &&
 				(s"replaceAll($index, Set)" lbl_: replace(new SeqSet(set.toSet, patch))) &&
@@ -483,123 +483,123 @@ object RankingSpec
 
 	property("inserted") = forAll { (subject :Ranking[Int], i :Int, elem :Int) =>
 		val filtered = subject.toSeq.filterNot(_ == elem)
-		validate(filtered.take(i) :+ elem :++ filtered.drop(i), subject.inserted(i, elem))
+		test(filtered.take(i) :+ elem :++ filtered.drop(i), subject.inserted(i, elem))
 	}
 	property("insertedAll") = forAll { (subject :Ranking[Int], i :Int, elems :List[Int]) =>
 		val set = new SeqSet(elems)
 		val diff = subject.toSeq.filterNot(set.contains)
 		val expect = diff.take(i) :++ set :++ diff.drop(i)
-		(s"insertAll($i, List)" lbl_: validate(expect, subject.insertedAll(i, elems))) &&
-			(s"insertedAll($i, Vector)" lbl_: validate(expect, subject.insertedAll(i, elems.toVector))) &&
-			(s"insertedAll($i, $set)" lbl_: validate(expect, subject.insertedAll(i, set))) &&
-			(s"insertedAll($i, Ranking)" lbl_: validate(expect, subject.insertedAll(i, Ranking.from(set)))) &&
-			(s"insertedAll($i, Iterator)" lbl_: validate(expect, subject.insertedAll(i, elems.iterator))) &&
-			(s"insertedAll($i, VectorIterator)" lbl_: validate(expect, subject.insertedAll(i, elems.toVector.iterator)))
+		(s"insertAll($i, List)" lbl_: test(expect, subject.insertedAll(i, elems))) &&
+			(s"insertedAll($i, Vector)" lbl_: test(expect, subject.insertedAll(i, elems.toVector))) &&
+			(s"insertedAll($i, $set)" lbl_: test(expect, subject.insertedAll(i, set))) &&
+			(s"insertedAll($i, Ranking)" lbl_: test(expect, subject.insertedAll(i, Ranking.from(set)))) &&
+			(s"insertedAll($i, Iterator)" lbl_: test(expect, subject.insertedAll(i, elems.iterator))) &&
+			(s"insertedAll($i, VectorIterator)" lbl_: test(expect, subject.insertedAll(i, elems.toVector.iterator)))
 	}
 	//todo: test patch
 
 
 	property("+|") = forAll { (subject :Ranking[Int], x :Int) =>
-		validateAnyOrder(subject.toSeq :+ x, subject +| x)
+		testAnyOrder(subject.toSeq :+ x, subject +| x)
 	}
-	property("+") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("+") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { x :Int => expect.toSet + x =? (subject + x).toSet }
 	}
-	property(":+") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { x :Int => validateAppend(expect.toSeq.distinct.filterNot(_ == x) :+ x, subject :+ x) }
+	property(":+") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { x :Int => testAppend(expect.toSeq.distinct.filterNot(_ == x) :+ x, subject :+ x) }
 	}
-	property("+:") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { x :Int => validate(x +: expect.toSeq.distinct.filterNot(_ == x), x +: subject) }
+	property("+:") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { x :Int => test(x +: expect.toSeq.distinct.filterNot(_ == x), x +: subject) }
 	}
 
 	property(":++(List))") = forAll { (prefix :Ranking[Int], suffix :List[Int]) =>
-		validateAppend(prefix.toSeq :++ suffix, prefix :++ suffix)
+		testAppend(prefix.toSeq :++ suffix, prefix :++ suffix)
 	}
 	property(":++(Vector))") = forAll { (prefix :Ranking[Int], suffix :Vector[Int]) =>
-		validateAppend(prefix.toSeq :++ suffix, prefix :++ suffix)
+		testAppend(prefix.toSeq :++ suffix, prefix :++ suffix)
 	}
 	property(":++(Set))") = forAll { (prefix :Ranking[Int], suffix :Set[Int]) =>
-		validateAppend(prefix.toSeq :++ suffix, prefix :++ suffix)
+		testAppend(prefix.toSeq :++ suffix, prefix :++ suffix)
 	}
 	property(":++(Ranking)") = forAll { (prefix :Ranking[Int], suffix :Ranking[Int]) =>
-		validateAppend(List.from(prefix).filterNot(suffix.contains) ++ suffix, prefix :++ suffix)
+		testAppend(List.from(prefix).filterNot(suffix.contains) ++ suffix, prefix :++ suffix)
 	}
 
 	property("++:(List))") = forAll { (prefix :List[Int], suffix :Ranking[Int]) =>
-		validate(prefix.distinct ++ suffix.toSeq.diff(prefix), prefix ++: suffix)
+		test(prefix.distinct ++ suffix.toSeq.diff(prefix), prefix ++: suffix)
 	}
 	property("++:(Vector))") = forAll { (prefix :Vector[Int], suffix :Ranking[Int]) =>
-		validate(prefix.distinct ++ suffix.toSeq.diff(prefix), prefix ++: suffix)
+		test(prefix.distinct ++ suffix.toSeq.diff(prefix), prefix ++: suffix)
 	}
 	property("++:(Seq))") = forAll { (prefix :Set[Int], suffix :Ranking[Int]) =>
-		validate(prefix ++: suffix.toSeq.filterNot(prefix), prefix ++: suffix)
+		test(prefix ++: suffix.toSeq.filterNot(prefix), prefix ++: suffix)
 	}
 	property("++:(Ranking)") = forAll { (prefix :Ranking[String], suffix :Ranking[Int]) =>
 		compare(prefix ++: suffix.toSeq.filterNot(prefix.contains), prefix ++: suffix)
 	}
 
 	property("++(List))") = forAll { (prefix :Ranking[Int], suffix :List[Int]) =>
-		validate(prefix.toSeq :++ suffix, prefix ++ suffix)
+		test(prefix.toSeq :++ suffix, prefix ++ suffix)
 	}
 	property("++(Vector))") = forAll { (prefix :Ranking[Int], suffix :Vector[Int]) =>
-		validate(prefix.toSeq :++ suffix, prefix ++ suffix)
+		test(prefix.toSeq :++ suffix, prefix ++ suffix)
 	}
 	property("++(Set))") = forAll { (prefix :Ranking[Int], suffix :Set[Int]) =>
-		validate(prefix.toSeq :++ suffix, prefix ++ suffix)
+		test(prefix.toSeq :++ suffix, prefix ++ suffix)
 	}
 	property("++(Ranking)") = forAll { (prefix :Ranking[Int], suffix :Ranking[Int]) =>
-		validate(prefix.toSeq :++ suffix, prefix ++ suffix)
+		test(prefix.toSeq :++ suffix, prefix ++ suffix)
 //		Set.from(prefix) ++ Set.from(suffix) =? (prefix ++ suffix).toSet
 	}
 
 	property("+|+(List))") = forAll { (prefix :Ranking[Int], suffix :List[Int]) =>
-		validateAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
+		testAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
 	}
 	property("+|+(Vector))") = forAll { (prefix :Ranking[Int], suffix :Vector[Int]) =>
-		validateAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
+		testAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
 	}
 	property("+|+(Set))") = forAll { (prefix :Ranking[Int], suffix :Set[Int]) =>
-		validateAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
+		testAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
 	}
 	property("+|+(Ranking)") = forAll { (prefix :Ranking[Int], suffix :Ranking[Int]) =>
-		validateAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
+		testAnyOrder(prefix.toSeq :++ suffix, prefix +|+ suffix)
 	}
 
 
-	property("-") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("-") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { x :Int => compare(expect.filterNot(_ == x), subject - x) }
 	}
-	property("--(List)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { xs :Seq[Int] => validate(expect.toList diff xs, subject -- xs) }
+	property("--(List)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :Seq[Int] => test(expect.toList diff xs, subject -- xs) }
 	}
-	property("--(Vector)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { xs :Seq[Int] => validate(expect.toVector diff xs, subject -- xs) }
+	property("--(Vector)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :Seq[Int] => test(expect.toVector diff xs, subject -- xs) }
 	}
-	property("--(Set)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { xs :Set[Int] => validate(expect.toSeq.filterNot(xs), subject -- xs) }
+	property("--(Set)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :Set[Int] => test(expect.toSeq.filterNot(xs), subject -- xs) }
 	}
-	property("--(Ranking)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { xs :Ranking[Int] => validate(expect.toSeq.filterNot(xs.contains), subject -- xs) }
+	property("--(Ranking)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :Ranking[Int] => test(expect.toSeq.filterNot(xs.contains), subject -- xs) }
 	}
 
-	property("&(Set)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("&(Set)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { xs :collection.Set[Int] =>
 			val result = subject & xs
 			expect.toSeq.filter(xs.contains).toSet =? result.toSet && all(props(result.toSeq, result) :_*)
 		}
 	}
-	property("&(Ranking)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("&(Ranking)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { xs :Ranking[Int] =>
 			val result = subject & xs
 			expect.toSeq.filter(xs.contains).toSet =? result.toSet && all(props(result.toSeq, result) :_*)
 		}
 	}
 
-	property(":&(Set)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { xs :collection.Set[Int] => validate(expect.toSeq.filter(xs.contains), subject :& xs) }
+	property(":&(Set)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :collection.Set[Int] => test(expect.toSeq.filter(xs.contains), subject :& xs) }
 	}
-	property(":&(Ranking)") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
-		forAll { xs :Ranking[Int] => validate(expect.toSeq.filter(xs.contains), subject :& xs) }
+	property(":&(Ranking)") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
+		forAll { xs :Ranking[Int] => test(expect.toSeq.filter(xs.contains), subject :& xs) }
 	}
 
 	property("intersectionSize(Ranking)") = forAll { (rank1 :Ranking[Int], rank2 :Ranking[Int]) =>
@@ -615,20 +615,20 @@ object RankingSpec
 		(rank.toSet & set).isEmpty =? rank.disjoint(set)
 	}
 
-	property("reorder") = test { (expect :Iterable[Int], subject :Ranking[Int]) =>
+	property("reorder") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val permutation = Permutation.random(subject.size)
 		compare(permutation(expect.toSeq), subject.reorder(permutation))
 	}
-	property("reverse") = test {
+	property("reverse") = forAllChecked {
 		(expect :Iterable[Int], subject :Ranking[Int]) => subject.reverse ?= expect.toList.reverse.to(Ranking)
 	}
-	property("reverseIterator") = test {
+	property("reverseIterator") = forAllChecked {
 		(expect :Iterable[Int], subject :Ranking[Int]) => checkIterator(expect.toList.reverse, subject.reverseIterator)
 	}
-	property("iterator") = test {
+	property("iterator") = forAllChecked {
 		(expect :Iterable[Int], subject :Ranking[Int]) => checkIterator(expect.toList, subject.iterator)
 	}
 
-	//todo: test copyRangeToArray, cyclicCopyRangeToArray
+	//todo: properties in SeqProps.props
 	//todo: test unorderedBuilder and appendingBuilder
 }
