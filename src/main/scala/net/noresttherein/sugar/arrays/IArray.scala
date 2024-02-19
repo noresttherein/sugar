@@ -626,6 +626,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	val emptyObjectIArray  :IArray[AnyRef]  = expose(Array.emptyObjectArray)
 	val emptyUnitIArray    :IArray[Unit]    = expose(Array.emptyUnitArray)
 	val emptyAnyIArray     :IArray[Any]     = emptyObjectIArray.asInstanceOf[IArray[Any]]
+	val emptyNothingArray  :IArray[Nothing] = expose(Array.emptyNothingArray)
 
 
 	override def empty[E :ClassTag] :IArray[E] = empty(classTag[E].runtimeClass.castParam[E])

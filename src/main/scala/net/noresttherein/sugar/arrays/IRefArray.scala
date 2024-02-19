@@ -50,6 +50,9 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 		array.asInstanceOf[IRefArray[X]]
 	}
 
+	/** An empty `IRefArray` conforming to `IRefArray[T]` for any type `T`. */
+	final val ofNothing :IRefArray[Nothing] = expose(Array.emptyAnyArray)
+
 	/** Creates a new `Array[Any]` of the specified length, executes the given initialization function for it,
 	  * and returns it as an $Coll. It is a pattern for initialization safer than manually creating
 	  * an `Array[Any]`, writing to it, and casting it $Coll. The application should ''not'' retain a reference

@@ -1081,6 +1081,7 @@ object extensions {
 	}
 	private val arrayIsSeqPrototype = new ArrayIsSeq[Any]
 	private val emptyUnitArray = new Array[Unit](0)
+	private val emptyNothingArray = new Array[Any](0).asInstanceOf[Array[Nothing]]
 
 	sealed trait ArrayExtensionConversion[E] extends (Array[E] => ArrayExtension[E]) {
 		/* We can't override Function1.apply to return ArrayExtension[E] here, because it leads to the error
@@ -1140,6 +1141,9 @@ object extensions {
 
 		/** An empty `Array[BoxedUnit]`. */
 		final def emptyUnitArray :Array[Unit] = extensions.emptyUnitArray
+
+		/** An empty `Array[Any]` posing as an `Array[Nothing]`. */
+		final def emptyNothingArray :Array[Nothing] = extensions.emptyNothingArray
 
 		/** An empty array of the same element type as `original` */
 		final def emptyLike[E](original :Array[E]) :Array[E] = ((original :Array[_]) match {
