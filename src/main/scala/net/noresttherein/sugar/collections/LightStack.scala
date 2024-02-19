@@ -142,6 +142,16 @@ class LightStack[E] private[collections] (
 		stack(size).asInstanceOf[E]
 	}
 
+	/** Remove the top element of the stack, if non empty, and return it. */
+	@inline def popOpt() :Opt[E] = {
+		val size = stack(0).asInstanceOf[Int]
+		if (size == 0) None
+		else {
+			stack(0) = size - 1
+			One(stack(size).asInstanceOf[E])
+		}
+	}
+
 	/** Puts a new element on top of the stack, growing the underlying array if needed, and returns the modified stack.
 	  * Leaves the instance in an undefined state: the application must use the returned stack from this point forward.
 	  */
@@ -156,6 +166,13 @@ class LightStack[E] private[collections] (
 		array(size + 1) = elem
 		new LightStack(array)
 	}
+
+	/** Resets the size of the stack to zero.
+	  * @note This does not unreference current contents of the buffer, or shrinks the array.
+	  *       If you wish for a behaviour similar to `Buffer.`[[scala.collection.mutable.Buffer.clear clear]]`()`,
+	  *       simply use a fresh, empty instance in its place.
+	  */
+	@inline def clear() :Unit = stack(0) = 0
 
 	override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
 		val size = if (stack == null) 0 else stack(0).asInstanceOf[Int]
