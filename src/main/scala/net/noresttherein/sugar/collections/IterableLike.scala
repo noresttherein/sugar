@@ -573,7 +573,7 @@ private[collections] sealed abstract class Rank1IterableLike extends IterableOnc
 		prototype.asInstanceOf[IterableLike[E, CC, C]]
 
 	private[this] val prototype = new IterableLike.ForOps[Any, Iterable, Iterable[Any]] {
-		private def readResolve = IterableLike.forOps[Any, Iterable, Iterable[Any]]
+		private def readResolve :AnyRef = IterableLike.forOps[Any, Iterable, Iterable[Any]]
 		override def toString = "IterableLike.forOps"
 	}
 }

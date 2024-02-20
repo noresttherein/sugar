@@ -532,7 +532,7 @@ private[collections] sealed abstract class Rank2SeqLike extends IterableOnceLike
 		prototype.asInstanceOf[SeqLike[E, CC, C]]
 
 	private[this] val prototype = new SeqLike.ForOps[Any, Iterable, collection.Seq[Any]] {
-		private def readResolve = SeqLike.forOps[Any, Iterable, collection.Seq[Any]]
+		private def readResolve :AnyRef = SeqLike.forOps[Any, Iterable, collection.Seq[Any]]
 		override def toString :String = "SeqLike.forOps"
 	}
 }
@@ -636,7 +636,7 @@ private[collections] sealed abstract class Rank1MutableSeqLike extends IterableO
 		prototype.asInstanceOf[MutableSeqLike[E, CC, C]]
 
 	private[this] val prototype = new MutableSeqLike.ForOps[Any, Iterable, mutable.Seq[Any]] {
-		private def readResolve = MutableSeqLike.forOps[Any, Iterable, mutable.Seq[Any]]
+		private def readResolve :AnyRef = MutableSeqLike.forOps[Any, Iterable, mutable.Seq[Any]]
 		override def toString :String = "MutableSeqLike.forOps"
 	}
 }
@@ -741,7 +741,7 @@ private[collections] sealed abstract class Rank1IndexedSeqLike extends IterableO
 		prototype.asInstanceOf[IndexedSeqLike[E, CC, C]]
 
 	private[this] val prototype = new IndexedSeqLike.ForOps[Any, Iterable, collection.IndexedSeq[Any]] {
-		private def readResolve = IndexedSeqLike.forOps[Any, Iterable, collection.IndexedSeq[Any]]
+		private def readResolve :AnyRef = IndexedSeqLike.forOps[Any, Iterable, collection.IndexedSeq[Any]]
 		override def toString = "IndexedSeqLike.forOps"
 	}
 }
@@ -782,26 +782,26 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def toIterable(elems :ArrayLike[Unknown]) = ArrayLikeSlice.wrap(elems)
 		override def toIndexedSeq(elems :ArrayLike[Unknown]) = IRefArraySlice.wrap(IRefArray.copyOf(elems))
 		override def toString = "IndexedSeqLike.forArrayLike"
-		private def readResolve = IndexedSeqLike.forArrayLike
+		private def readResolve :AnyRef = IndexedSeqLike.forArrayLike
 	}
 	private[this] val iArrayLikePrototype = new SpecificForArrayLike[Unknown, IArrayLike] {
 		override def toOps(elems :IArrayLike[Unknown]) = elems.toOps
 		override def toIndexedSeq(elems :IArrayLike[Unknown]) = IArrayLikeSlice.wrap(elems)
 		override def toString = "IndexedSeqLike.forIArrayLike"
-		private def readResolve = IndexedSeqLike.forIArrayLike
+		private def readResolve :AnyRef = IndexedSeqLike.forIArrayLike
 	}
 	private[this] val arrayPrototype = new SpecificForArrayLike[Unknown, Array] {
 		override def toOps(elems :Array[Unknown]) = elems.toOps
 		override def toIterable(elems :Array[Unknown]) = ArraySlice.wrap(elems)
 		override def toIndexedSeq(elems :Array[Unknown]) = IArray.Wrapped(elems.toIArray)
 		override def toString = "IndexedSeqLike.forArray"
-		private def readResolve = IndexedSeqLike.forArray
+		private def readResolve :AnyRef = IndexedSeqLike.forArray
 	}
 	private[this] val iArrayPrototype = new SpecificForArrayLike[Unknown, IArray] {
 		override def toOps(elems :IArray[Unknown]) = elems.toOps
 		override def toIndexedSeq(elems :IArray[Unknown]) = IArray.Wrapped(elems)
 		override def toString = "IndexedSeqLike.forIArray"
-		private def readResolve = IndexedSeqLike.forIArray
+		private def readResolve :AnyRef = IndexedSeqLike.forIArray
 	}
 	private[this] val iRefArrayPrototype = new SpecificForArrayLike[Unknown, IRefArray] {
 		override def patch[A >: Unknown](elems :IRefArray[Unknown])(from :Int, other :IterableOnce[A], replaced :Int) =
@@ -810,10 +810,10 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def toOps(elems :IRefArray[Unknown]) = elems.toOps
 		override def toIndexedSeq(elems :IRefArray[Unknown]) = IRefArray.Wrapped(elems)
 		override def toString = "IndexedSeqLike.forIRefArray"
-		private def readResolve = IndexedSeqLike.forIRefArray
+		private def readResolve :AnyRef = IndexedSeqLike.forIRefArray
 	}
 	private[this] val rankingPrototype = new ForRanking[Any] {
-		private def readResolve = IndexedSeqLike.forRanking
+		private def readResolve :AnyRef = IndexedSeqLike.forRanking
 		override def toString = "IndexedSeqLike.forRanking"
 	}
 
@@ -981,7 +981,7 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def toOps(elems :String) :collection.IndexedSeqOps[Char, IndexedSeq, String] = new StringAsSeq(elems)
 		override def toIterableOnceOps(elems :String) :IterableOnceOps[Char, Any, Any] = StringIterator(elems)
 
-		private def readResolve = IndexedSeqLike.forString
+		private def readResolve :AnyRef = IndexedSeqLike.forString
 		override def toString = "IndexedSeqLike.forString"
 	}
 
@@ -1211,7 +1211,7 @@ private[collections] sealed abstract class Rank1MutableIndexedSeqLike
 		forOpsPrototype.asInstanceOf[MutableIndexedSeqLike[E, CC, C]]
 
 	private[this] val forOpsPrototype = new MutableIndexedSeqLike.ForOps[Any, Iterable, mutable.IndexedSeq[Any]] {
-		private def readResolve = MutableIndexedSeqLike.forOps[Any, Iterable, mutable.IndexedSeq[Any]]
+		private def readResolve :AnyRef = MutableIndexedSeqLike.forOps[Any, Iterable, mutable.IndexedSeq[Any]]
 		override def toString = "MutableIndexedSeqLike.forOps"
 	}
 }
@@ -1239,7 +1239,7 @@ object MutableIndexedSeqLike extends Rank1MutableIndexedSeqLike {
 		override def toIterable(elems :Array[Unknown]) = ArraySlice.wrap(elems)
 		override def toIndexedSeq(elems :Array[Unknown]) = IArray.Wrapped(IArray.from(elems))
 		override def toString = "MutableIndexedSeqLike.forArray"
-		private def readResolve = MutableIndexedSeqLike.forArray
+		private def readResolve :AnyRef = MutableIndexedSeqLike.forArray
 	}
 	private[this] val refArrayPrototype = new ForArrayLike[Unknown, RefArray] {
 		override def update(elems :RefArray[Unknown])(idx :Int, elem :Unknown) :Unit = elems(idx) = elem
@@ -1250,7 +1250,7 @@ object MutableIndexedSeqLike extends Rank1MutableIndexedSeqLike {
 		override def toIterable(elems :RefArray[Unknown]) = RefArray.Wrapped(elems)
 		override def toIndexedSeq(elems :RefArray[Unknown]) = IRefArray.Wrapped(IRefArray.copyOf(elems))
 		override def toString = "MutableIndexedSeqLike.forRefArray"
-		private def readResolve = MutableIndexedSeqLike.forRefArray
+		private def readResolve :AnyRef = MutableIndexedSeqLike.forRefArray
 	}
 
 

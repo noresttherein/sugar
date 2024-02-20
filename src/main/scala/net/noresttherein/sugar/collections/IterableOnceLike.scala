@@ -666,7 +666,7 @@ private[collections] sealed abstract class Rank2IterableOnceLike extends Iterabl
 		prototype.castParam[E]
 
 	private[this] val prototype = new IterableOnceLike.ForIterableOnce[Any] {
-		private def readResolve = IterableOnceLike.forIterableOnce
+		private def readResolve :AnyRef = IterableOnceLike.forIterableOnce
 		override def toString = "IterableOnceLike.forIterableOnce"
 	}
 }
@@ -678,7 +678,7 @@ private[collections] sealed abstract class Rank1IterableOnceLike extends Rank2It
 		prototype.asInstanceOf[IterableOnceLike[E, CC, C]]
 
 	private[this] val prototype = new IterableOnceLike.ForOps[Any, IterableOnce, Iterable[Any]] {
-		private def readResolve = IterableOnceLike.forOps[Any, IterableOnce, Iterable[Any]]
+		private def readResolve :AnyRef = IterableOnceLike.forOps[Any, IterableOnce, Iterable[Any]]
 		override def toString = "IterableOnceLike.forOps"
 	}
 }

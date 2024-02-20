@@ -167,7 +167,7 @@ private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
 
 	override def isSpecialized = true
 
-	private def writeReplace = Pure.eager(apply())
+	private def writeReplace :AnyRef = Pure.eager(apply())
 }
 
 
@@ -250,7 +250,7 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 
 	override def isSpecialized = false
 
-	private def writeReplace = Pure.eager(apply())
+	private def writeReplace :AnyRef = Pure.eager(apply())
 }
 
 

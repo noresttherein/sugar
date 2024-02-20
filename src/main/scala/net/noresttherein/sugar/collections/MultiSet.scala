@@ -586,7 +586,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 		override def toString = "MultiSet()"
 	}
 	private val Empty :Empty[Any] = new Empty[Any] {
-		private def readResolve = MultiSet.Empty
+		private def readResolve :AnyRef = MultiSet.Empty
 	}
 
 

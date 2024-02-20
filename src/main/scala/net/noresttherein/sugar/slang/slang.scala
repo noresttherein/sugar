@@ -16,7 +16,7 @@ package slang {
 	  */
 	@SerialVersionUID(Ver)
 	class SerializationProxy[T <: Serializable](substitute: T, reconstruct: T => Any) extends Serializable {
-		private def readResolve = reconstruct(substitute)
+		private def readResolve :Any = reconstruct(substitute)
 		override def toString :String = substitute.toString
 	}
 
@@ -33,7 +33,7 @@ package slang {
 	  * @example {{{
 	  *     object WebPage1995 {
 	  *         final val VisitorCount :AtomicInteger = new AtomicInteger {
-	  *             private def readResolve = new SingletonSerializationProxy
+	  *             private def readResolve :AnyRef = new SingletonSerializationProxy
 	  *         }
 	  *     }
 	  * }}}

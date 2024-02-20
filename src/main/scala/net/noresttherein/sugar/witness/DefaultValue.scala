@@ -100,7 +100,7 @@ object DefaultValue {
 			case _      => new LazyDefault(() => f(get).get)
 		}
 		override def toString :String = "DefaultValue(" + get + ")"
-		private def writeReplace = new ConstDefault(get)
+		private def writeReplace :AnyRef = new ConstDefault(get)
 	}
 }
 

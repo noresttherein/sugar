@@ -17,12 +17,13 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView
-import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingBuilder, RankingSeqAdapter, RankingSerializer, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, smallContains}
-import net.noresttherein.sugar.collections.extensions.{immutableMapExtension, IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
+import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingBuilder, RankingSeqAdapter, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, smallContains}
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension, immutableMapExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -1197,7 +1198,10 @@ case object Ranking extends IterableFactory[Ranking] {
 
 
 
-private object RankingImpl {
+private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
+	override def wrap[E](array :RefArray[E]) :Ranking[E] =
+		if (array.length <= SmallRankingCap) new SmallRanking(array)
+		else new IndexedRanking(IRefArray.Wrapped(array.unsafeIRefArray))
 
 	private[this] val Duplicate = new AnyRef
 	def deduplicateSmall[T](items :Iterable[T], keepFirst :Boolean) :Ranking[T] = {
@@ -1309,16 +1313,6 @@ private object RankingImpl {
 	final val SmallRankingPessimismCap = SmallRankingCap << 2
 	final val SmallRankingPessimismFactor = 8
 	final val DummyHashArray = new Array[Int](SmallRankingCap << 1)
-
-
-	@SerialVersionUID(Ver)
-	class RankingSerializer[+E](elems :RefArray[E]) extends Serializable {
-		def this(elems :Ranking[E]) = this(RefArray.from(elems))
-
-		private def readResolve =
-			if (elems.length <= SmallRankingCap) new SmallRanking(elems)
-			else new IndexedRanking(IRefArray.Wrapped(elems.unsafeIRefArray))
-	}
 
 
 	@SerialVersionUID(Ver)
@@ -2327,10 +2321,11 @@ private class EmptyRanking
 	override def toIndexedSeq :IndexedSeq[Nothing] = Vector.empty
 	override def view         :IndexedSeqView[Nothing] = EmptyIndexedSeqOps.view
 
-	private def readResolve :Ranking[Nothing] = Ranking.empty
+	private def readResolve :AnyRef = Ranking.empty
 }
 
 
+@SerialVersionUID(Ver)
 private object EmptyRanking extends EmptyRanking
 
 
@@ -3128,7 +3123,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 		}
 	}
 
-	private def writeReplace = new RankingSerializer(elements)
+	private def writeReplace :AnyRef = new ArraySerializationProxy(RankingImpl, elements)
 }
 
 
@@ -3437,7 +3432,10 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 		items.cyclicCopyRangeToArray(xs, start, from, len)
 
 	override def applyPreferred :Boolean = IndexedIterable.applyPreferred(items)
-	private[this] def writeReplace = new RankingSerializer(this)
+	private[this] def writeReplace :AnyRef =
+		new ArraySerializationProxy(
+			RankingImpl, IRefArray.Wrapped.unapply(items).mapOrElse(_.asInstanceOf[RefArray[T]], items.toRefArray)
+		)
 }
 
 
@@ -3551,7 +3549,7 @@ private class ReversedRanking[T](override val reverse :Ranking[T])
 			}.result()
 	}
 
-	private def writeReplace = new RankingSerializer(this)
+	private def writeReplace :AnyRef = new ArraySerializationProxy(RankingImpl, this.toRefArray)
 }
 
 

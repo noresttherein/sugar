@@ -161,7 +161,7 @@ private[collections] sealed abstract class Rank1SetLike extends IterableOnceLike
 		prototype.asInstanceOf[SetLike[E, CC, C]]
 
 	private[this] val prototype = new SetLike.ForOps[Any, Iterable, collection.Set[Any]] {
-		private def readResolve = SetLike.forOps[Any, Iterable, collection.Set[Any]]
+		private def readResolve :AnyRef = SetLike.forOps[Any, Iterable, collection.Set[Any]]
 		override def toString = "Rank1SetLike.forOps"
 	}
 }

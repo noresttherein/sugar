@@ -143,7 +143,7 @@ object DisposableRef {
 		case _ => No
 	}
 	private class SerializedEmptyRef[T](factory :DisposableRefFactory[DisposableRef]) extends Serializable {
-		private def readResolve = factory(null)
+		private def readResolve :AnyRef = factory(null)
 	}
 }
 

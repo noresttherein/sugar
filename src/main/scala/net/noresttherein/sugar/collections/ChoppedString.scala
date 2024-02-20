@@ -616,6 +616,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		def prefixLength :Int
 		def prefix :Any
 		def suffix :Any
+		protected def writeReplace :AnyRef = Substring(this.toString)
 	}
 
 	@SerialVersionUID(Ver)
@@ -642,7 +643,6 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		}
 
 		override lazy val toString :String = super.toString
-		private def writeReplace :ChoppedString = Substring(toString)
 	}
 
 
@@ -669,7 +669,6 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		}
 
 		override lazy val toString :String = super.toString
-		private def writeReplace :ChoppedString = Substring(toString)
 	}
 
 
@@ -698,7 +697,6 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		}
 
 		override lazy val toString :String = super.toString
-		private def writeReplace :ChoppedString = Substring(toString)
 	}
 
 
@@ -1055,7 +1053,7 @@ final class Substring private (protected override val whole :String,
 		builder
 	}
 
-	private def writeReplace =
+	private def writeReplace :AnyRef =
 		new SubstringSerializationProxy(whole.substring(startIndex, startIndex + length))
 }
 
@@ -1116,7 +1114,7 @@ case object Substring extends SpecificIterableFactory[Char, Substring] {
 
 	@SerialVersionUID(Ver)
 	private class SubstringSerializationProxy(string :String) extends Serializable {
-		private def readResolve = new Substring(string, 0, string.length)
+		private def readResolve :AnyRef = new Substring(string, 0, string.length)
 	}
 }
 

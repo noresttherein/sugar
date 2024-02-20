@@ -1077,7 +1077,7 @@ object extensions {
 					ArrayFactory.from(coll)(ClassTag[E](this.coll.getClass.getComponentType))
 	//					Array.from(coll)(ClassTag[E](this.coll.getClass.getComponentType))
 			}
-		private def readResolve = Array.ArrayIsSeq
+		private def readResolve :AnyRef = Array.ArrayIsSeq
 	}
 	private val arrayIsSeqPrototype = new ArrayIsSeq[Any]
 	private val emptyUnitArray = new Array[Unit](0)
@@ -2601,7 +2601,7 @@ object extensions {
 //				protected override def fromSpecific(coll :IterableOnce[E]) :IArrayLike[E] = IRefArray.from(coll)
 //				protected override def newSpecificBuilder :Builder[E, IArrayLike[E]] = IRefArray.newBuilder
 //			}
-//		private def readResolve = IArrayLike.IArrayLikeIsSeq
+//		private def readResolve :AnyRef = IArrayLike.IArrayLikeIsSeq
 //	}
 //	private[this] val isSeqPrototype :IArrayLikeIsSeq[Any] = new IArrayLikeIsSeq[Any]
 
@@ -2650,7 +2650,7 @@ object extensions {
 //				protected final override def newSpecificBuilder :Builder[Unknown, IArray[Unknown]] =
 //					IArray.newBuilder(this.coll.getClass.getComponentType.castParam[Unknown])
 //			}
-//		private def readResolve = IArrayIsSeqPrototype
+//		private def readResolve :AnyRef = IArrayIsSeqPrototype
 //	}
 
 //	private[arrays] sealed trait IArrayConversions extends Any {
@@ -2783,7 +2783,7 @@ object extensions {
 //					override def fromSpecific(coll :IterableOnce[Any]) :RefArrayLike[Any] = RefArrayLike.from(coll)
 //					override def newSpecificBuilder :Builder[Any, RefArrayLike[Any]] = RefArrayLike.newBuilder
 //				}
-//			private def readResolve = extensions.RefArrayLikeIsSeqPrototype
+//			private def readResolve :AnyRef = extensions.RefArrayLikeIsSeqPrototype
 //			override lazy val toString = "RefArrayLikeIsSeq"
 //		}
 
@@ -2824,7 +2824,7 @@ object extensions {
 //					protected override def fromSpecific(coll :IterableOnce[Any]) :RefArray[Any] = RefArray.from(coll)
 //					protected override def newSpecificBuilder :Builder[Any, RefArray[Any]] = RefArray.newBuilder
 //				}
-//			private def readResolve = RefArrayIsSeqPrototype
+//			private def readResolve :AnyRef = RefArrayIsSeqPrototype
 //			override def toString = "RefArrayIsSeq"
 //		}
 
@@ -2863,7 +2863,7 @@ object extensions {
 //					protected override def fromSpecific(coll :IterableOnce[Any]) :IRefArray[Any] = IRefArray.from(coll)
 //					protected override def newSpecificBuilder :Builder[Any, IRefArray[Any]] = IRefArray.newBuilder
 //				}
-//			private def readResolve = extensions.IRefArrayIsSeqPrototype
+//			private def readResolve :AnyRef = extensions.IRefArrayIsSeqPrototype
 //			override def toString = "IRefArrayIsSeq"
 //		}
 

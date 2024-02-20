@@ -633,8 +633,8 @@ case object Cat extends SeqFactory[Cat] {
 			Stepper0()
 
 		override def foreach[U](f :Nothing => U) :Unit = ()
-		protected override def writeReplace = new SingletonSerializationProxy(Cat.empty)
-		private def readResolve :Seq[Nothing] = Cat.empty
+		protected override def writeReplace :AnyRef = new SingletonSerializationProxy(Cat.empty)
+		private def readResolve :AnyRef = Cat.empty
 	}
 
 	private[this] final val Empty :Cat[Nothing] = new EmptyCat

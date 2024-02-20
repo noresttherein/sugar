@@ -310,7 +310,7 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 
 	override def isSpecialized = true
 
-	private def writeReplace = Lazy.eager(get)
+	private def writeReplace :AnyRef = Lazy.eager(get)
 }
 
 
@@ -370,6 +370,6 @@ private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) ext
 
 	override def isSpecialized = false
 
-	private def writeReplace = Lazy.eager(get)
+	private def writeReplace :AnyRef = Lazy.eager(get)
 }
 

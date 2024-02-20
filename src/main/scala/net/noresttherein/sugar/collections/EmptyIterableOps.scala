@@ -291,7 +291,7 @@ private[noresttherein] object EmptySeqOps {
 
         protected override def clippedSlice(from :Int, until :Int) = this
 		protected override def emptySlice = this
-		private def readResolve = EmptySeqOps.view
+		private def readResolve :AnyRef = EmptySeqOps.view
 	}
 }
 
@@ -337,7 +337,7 @@ private[noresttherein] object EmptyIndexedSeqOps {
 
 		protected override def emptySlice = this
 		protected override def clippedSlice(from :Int, until :Int) = this
-		private def readResolve = EmptyIndexedSeqOps.view
+		private def readResolve :AnyRef = EmptyIndexedSeqOps.view
 	}
 }
 

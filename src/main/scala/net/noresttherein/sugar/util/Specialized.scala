@@ -221,7 +221,7 @@ object SpecTag extends Rank1SpecTags {
 		                  ) :T[X] =
 			specialized.default
 
-		private def readResolve = SpecTag.default[X]
+		private def readResolve :AnyRef = SpecTag.default[X]
 	}
 
 }

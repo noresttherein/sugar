@@ -495,14 +495,14 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def toString = "(" + _1 + ", " + _2 + ")"
 
-		private def writeReplace :Serializable = new SerializedAssoc(_1, _2)
+		private def writeReplace :AnyRef = new SerializedAssoc(_1, _2)
 	}
 
 	@SerialVersionUID(Ver)
 	private class SerializedAssoc[K[_], V[_], T](key :K[T], value :V[T])(implicit defaults :WhenNoKey[K, V])
 		extends Serializable
 	{
-		private def readResolve = new Singleton(key, value)
+		private def readResolve :AnyRef = new Singleton(key, value)
 	}
 
 
@@ -747,7 +747,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def defaults = definite.defaults
 
-		private def writeReplace = definite
+		private def writeReplace :AnyRef = definite
 	}
 
 

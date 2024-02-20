@@ -185,7 +185,7 @@ object LazyUnsure {
 
 		override def mkString :String = mkString("SyncUnsure")
 
-		private def writeReplace = LazyUnsure.eager(get)
+		private def writeReplace :AnyRef = LazyUnsure.eager(get)
 	}
 
 }

@@ -385,7 +385,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
 
-		private def writeReplace :Serializable =
+		private def writeReplace :AnyRef =
 			new SerializationProxy[Array[E]](elems.slice(start, end - start), new ArrayIndexedSet(_))
 
 	}

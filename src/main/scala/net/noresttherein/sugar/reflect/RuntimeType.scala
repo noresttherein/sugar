@@ -782,7 +782,7 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		override final val emptyArray :Array[AnyRef] = new Array[AnyRef](0)
 
 		protected[reflect] override final val discriminator = new Enforce[AnyRef]
-		private def readResolve = RuntimeType.OfAnyRef
+		private def readResolve :AnyRef = RuntimeType.OfAnyRef
 		override def toString = "[AnyRef]"
 	}
 
@@ -820,7 +820,7 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		protected[reflect] override def call[R[X]](callback :SpecializeIndividually[R])(implicit force :Enforce[Nothing]) =
 			callback.forNothing
 
-		private def readResolve = RuntimeType.OfNothing
+		private def readResolve :AnyRef = RuntimeType.OfNothing
 		override def toString = "[Nothing]"
 	}
 

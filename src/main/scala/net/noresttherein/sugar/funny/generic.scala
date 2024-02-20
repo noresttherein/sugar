@@ -6,11 +6,13 @@ package net.noresttherein.sugar.funny
 @SerialVersionUID(Ver)
 object generic {
 //	type Subtype[U] = { type T[X <: U] = X }
-	type Any1[+_]      = scala.Any
-	type Any2[+_, +_]  = scala.Any
-	type Nothing1[-_]  = scala.Nothing
-	type Identity[+X]  = X
-	type Fixed[Y]      = { type T[X] = Y }
+	type Any1[+_]        = scala.Any
+	type AnyRef1[+_]     = scala.AnyRef
+	type Any2[+_, +_]    = scala.Any
+	type AnyRef2[+_, +_] = scala.AnyRef
+	type Nothing1[-_]    = scala.Nothing
+	type Identity[+X]    = X
+	type Fixed[Y]        = { type T[X] = Y }
 
 	type =>:[-X[A], +Y[A]] = GenericFun[X, Y]
 

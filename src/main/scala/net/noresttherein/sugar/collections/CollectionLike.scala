@@ -323,7 +323,7 @@ private class SingleValue[X] extends CollectionLike[X, X] {
 
 	override def infoString(elems :X) :String = "{" + elems.localClassName + "}|1|"
 
-	private def readResolve = CollectionLike.singleton
+	private def readResolve :AnyRef = CollectionLike.singleton
 	override def toString = "Values[T, T]"
 }
 

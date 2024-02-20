@@ -1241,7 +1241,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		case _ => super.to(factory)
 	}
 
-	protected[this] def writeReplace :Serializable =
+	protected[this] def writeReplace :AnyRef =
 		new ArraySerializationProxy[IArrayLike, E](RelayArray, array.asInstanceOf[IArrayLike[E]], startIndex, length)
 }
 
