@@ -242,13 +242,18 @@ object extensions extends extensions {
 		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
 
 		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Int`.
-		  * If `this >= 0`, then the result will be greater or equal to `this`; otherwise, it will be lesser or equal
-		  * to `this`.
+		  *   - if `this > 0`, then the result will be greater or equal to `this`;
+		  *   - if `this < 0`, then the result will be lesser or equal `this`;
+		  *   - if `this == 0`, then one is returned.
 		  * @note the method does not check for arithmetic overflow.
 		  */
 		@inline def nextPowerOf2 :Int = {
-			val lowerPowerOf2 = jl.Integer.highestOneBit(self)
-			if (lowerPowerOf2 == self) self else lowerPowerOf2 << 1
+			val lowerPow2 = jl.Integer.highestOneBit(math.abs(self))  //Greatest power of 2 lesser or equal to self.abs.
+			val pow2Mask  = self - 1 & lowerPow2                      //if (self > lowerPow2) lowerPow2 else 0
+			val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
+			val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+			val ifZero    = (-(self & -self) >> 31) & 1               //if (self == 0) 1 else 0
+			(ifGtPow2 | ifEqPow2 | ifZero) * ((self & Int.MinValue) >> 31)
 		}
 
 		/** The number of digits in this number's decimal expansion. */
@@ -409,13 +414,18 @@ object extensions extends extensions {
 		@inline def isPowerOf2 :Boolean = jl.Long.bitCount(self) == 1
 
 		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Long`.
-		  * If `this >= 0`, then the result will be greater or equal to `this`
-		  * otherwise, it will be lesser or equal to `this`.
+		  *   - if `this > 0`, then the result will be greater or equal to `this`;
+		  *   - if `this < 0`, then the result will be lesser or equal `this`;
+		  *   - if `this == 0`, then one is returned.
 		  * @note the method does not check for arithmetic overflow.
 		  */
 		@inline def nextPowerOf2 :Long = {
-			val lowerPowerOf2 = jl.Long.highestOneBit(self)
-			if (lowerPowerOf2 == self) self else lowerPowerOf2 << 1
+			val lowerPow2 = jl.Long.highestOneBit(math.abs(self))     //Greatest power of 2 lesser or equal to self.abs.
+			val pow2Mask  = self - 1L & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
+			val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2*2 else 0
+			val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+			val ifZero    = (-(self & -self) >> 63) & 1L              //if (self == 0) 1 else 0
+			(ifGtPow2 | ifEqPow2 | ifZero) * ((self & Long.MinValue) >> 63)
 		}
 
 		/** The number of digits in this number's decimal expansion. */
