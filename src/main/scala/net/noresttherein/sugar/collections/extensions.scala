@@ -5,7 +5,7 @@ import java.lang.{Math => math}
 import java.lang.System.arraycopy
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
-import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
+import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.{IsIterableOnce, IsSeq}
 import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps}
@@ -23,7 +23,7 @@ import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
-import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BufferExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BufferExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, SeqViewExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.funny.generic
@@ -173,6 +173,9 @@ trait extensions extends Any with extensionsLowPriority with JteratorExtensions 
 
 	@inline implicit final def mutableIndexedSeqExtension[E](self :mutable.IndexedSeq[E]) :mutableIndexedSeqExtension[E] =
 		new mutableIndexedSeqExtension(self)
+
+	/** Extension methods for [[scala.collection.SeqView SeqView]]`[E]` returning another `SeqView[E]`. */
+	@inline implicit final def SeqViewExtension[E](self :SeqView[E]) :SeqViewExtension[E] = new SeqViewExtension(self)
 
 	/** Binary search methods for sorted arrays. */
 //	@inline implicit final def ArrayExtension[E](self :Array[E]) :ArrayExtension[E] =
@@ -2294,6 +2297,7 @@ object extensions extends extensions {
 	  */
 	class IterableExtension[E, CC[X], C] private[collections] (private val self :IterableOps[E, CC, C]) extends AnyVal {
 		@inline private def coll :C = self.drop(0)
+		//todo: lazyZipAll, lazyZipEven
 
 		/** Same as `this.zip(that)`, but throws a [[NoSuchElementException]] if the collections
 		  * are not of the same size. If this collection is strict, or both collections have `knownSize >= 0`,
@@ -2301,21 +2305,29 @@ object extensions extends extensions {
 		  * In the other case, it will be thrown when iterating over the result.
 		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipEven[X](that :IterableOnce[X]) :CC[(E, X)] =
+		def zipEven[X](that :IterableOnce[X]) :CC[(E, X)] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipEven(self, that)
 			else
-				self.iterableFactory from Iterators.zipEven(self.iterator, that.iterator)
+				factory from Iterators.zipEven(self.iterator, that.iterator)
+		}
 
 		/** Zips this collection with another one and maps the result in one step.
 		  * No intermediate collection is created, and the mapping function accepts two arguments rather than a tuple,
 		  * making it more convenient to use with placeholder parameters.
 		  */
-		def zipMap[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] =
+		def zipMap[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipMap(self, that)(f)
 			else
-				self.iterableFactory from Iterators.zipMap(self.iterator, that.iterator)(f)
+				factory from Iterators.zipMap(self.iterator, that.iterator)(f)
+		}
 
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IterableExtension.zipMap zipMap]],
 		  * but throws a [[NoSuchElementException]] if the collections are not of the same size. If this collection
@@ -2323,29 +2335,41 @@ object extensions extends extensions {
 		  * In the other case, it will be thrown when iterating over the result.
 		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipMapEven[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] =
+		def zipMapEven[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipMapEven(self, that)(f)
 			else
-				self.iterableFactory from Iterators.zipMapEven(self.iterator, that.iterator)(f)
+				factory from Iterators.zipMapEven(self.iterator, that.iterator)(f)
+		}
 
 		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step and the argument function
 		  * takes two arguments instead of a pair, which makes it possible to use with lambda placeholder parameters.
 		  */
-		def zipMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => O) :CC[O] =
+		def zipMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => O) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipMapAll(self, that, thisElem, thatElem)(f)
 			else
-				self.iterableFactory from Iterators.zipMapAll(self.iterator, that.iterator, thisElem, thatElem)(f)
+				factory from Iterators.zipMapAll(self.iterator, that.iterator, thisElem, thatElem)(f)
+		}
 
 		/** Equivalent to `this.zip(rights).map`, but takes a two argument function instead of a function of a pair,
 		  * which makes it possible to use with placeholder lambda parameters.
 		  */
-		def zipFlatMap[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] =
+		def zipFlatMap[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipFlatMap(self, that)(f)
 			else
-				self.iterableFactory from Iterators.zipFlatMap(self.iterator, that.iterator)(f)
+				factory from Iterators.zipFlatMap(self.iterator, that.iterator)(f)
+		}
 
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IterableExtension.zipFlatMap zipFlatMap]],
 		  * but throws a [[NoSuchElementException]] if the collections are not of the same size. If this collection
@@ -2353,60 +2377,85 @@ object extensions extends extensions {
 		  * In the other case, it will be thrown when iterating over the result.
 		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipFlatMapEven[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] =
+		def zipFlatMapEven[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipFlatMapEven(self, that)(f)
 			else
-				self.iterableFactory from Iterators.zipFlatMapEven(self.iterator, that.iterator)(f)
+				factory from Iterators.zipFlatMapEven(self.iterator, that.iterator)(f)
+		}
 
 		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step
 		  * and the argument function takes two arguments instead of a pair, which makes it possible to use
 		  * with lambda placeholder parameters.
 		  */
-		def zipFlatMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => IterableOnce[O]) :CC[O] =
+		def zipFlatMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => IterableOnce[O]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipFlatMapAll(self, that, thisElem, thatElem)(f)
 			else
-				self.iterableFactory from Iterators.zipFlatMapAll(self.iterator, that.iterator, thisElem, thatElem)(f)
+				factory from Iterators.zipFlatMapAll(self.iterator, that.iterator, thisElem, thatElem)(f)
+		}
 
 
 		/** Similar to [[scala.collection.IterableOps.zip zip]], except it zips three collections at once. */
-		def zip3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] =
+		def zip3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(second) && knownEmpty(third))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zip3(self, second, third)
 			else
-				self.iterableFactory from Iterators.zip3(self.iterator, second.iterator, third.iterator)
+				factory from Iterators.zip3(self.iterator, second.iterator, third.iterator)
+		}
 
 		/** Zips three collections, throwing a [[NoSuchElementException]] if they are of different sizes.
 		  * If this collection is strict, or all collections have `knownSize >= 0`, then the exception
 		  * will be thrown by this method. In the other case, it will be thrown when iterating over the result.
 		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipEven3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] =
+		def zipEven3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(second) && knownEmpty(third))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.zipEven3(self, second, third)
 			else
-				self.iterableFactory from Iterators.zipEven3(self.iterator, second.iterator, third.iterator)
+				factory from Iterators.zipEven3(self.iterator, second.iterator, third.iterator)
+		}
 
 		/** Similar to [[scala.collection.IterableOps.zipAll zipAll]], but zips three collections at once. */
 		def zipAll3[U >: E, A, B](second :IterableOnce[A], third :IterableOnce[B],
 		                          thisElem :U, secondElem :A, thirdElem :B) :CC[(U, A, B)] =
+		{
+			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(second) && knownEmpty(third))
 				self.iterableFactory.empty
-			else
-				self.iterableFactory from Iterators.zipAll3(
+			else if (factory eq View)
+				factory from Views.zipAll3(
 					self.iterator, second.iterator, third.iterator, thisElem, secondElem, thirdElem
 				)
+			else
+				factory from Iterators.zipAll3(
+					self.iterator, second.iterator, third.iterator, thisElem, secondElem, thirdElem
+				)
+		}
 
 		/** A collection of consecutive elements in this collection. This is similar to `this.sliding(2)`,
 		  * but the elements are returned as tuples, and a singleton collection always returns an empty collection.
 		  * @return an empty collection of the same type if this collection has fewer than two elements,
 		  *         or `this.zip(this.tail)` otherwise (but possibly in a more efficient manner).
 		  */
-		def zipTail :CC[(E, E)] =
-			if (knownEmpty(self)) self.iterableFactory.empty
-			else self.iterableFactory from Iterators.zipTail(self.iterator)
-
+		def zipTail :CC[(E, E)] = {
+			val factory = self.iterableFactory
+			if (knownEmpty(self)) factory.empty
+			else if (factory eq View) factory from Views.zipTail(self)
+			else factory from Iterators.zipTail(self.iterator)
+		}
 
 
 		/** Maps this collection from left to right with an accumulating state updated by the mapping function.
@@ -2414,48 +2463,68 @@ object extensions extends extensions {
 		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
 		  * as this collection.
 		  */
-		def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :CC[O] =
+		def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty[O]
+				factory.empty[O]
+			else if (factory eq View)
+				factory from Views.mapWith(self, z, f)
 			else
-				self.iterableFactory from Iterators.mapWith(self.iterator, z, f)
+				factory from Iterators.mapWith(self.iterator, z, f)
+		}
 
 		/** Flat maps this collection from left to right with an accumulating state updated by the mapping function.
 		  * The state is discarded after the operation and only the mapping results (the collections returned by
 		  * by the given function) are returned in a collection of the same dynamic type as this collection.
 		  */
-		def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :CC[O] =
+		def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty[O]
+				factory.empty[O]
+			else if (factory eq View)
+				factory from Iterators.flatMapWith(self.iterator, z, f)
 			else
-				self.iterableFactory from Iterators.flatMapWith(self.iterator, z, f)
+				factory from Iterators.flatMapWith(self.iterator, z, f)
+		}
 
 		/** Maps this collection in order consistent with `foreach`, passing as the second argument the index
 		  * of the mapped element.
 		  */
-		def mapWithIndex[O](f :(E, Int) => O) :CC[O] =
+		def mapWithIndex[O](f :(E, Int) => O) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty[O]
+				factory.empty[O]
+			else if (factory eq View)
+				factory from Views.mapWithIndex(self, f)
 			else
-				self.iterableFactory from Iterators.mapWithIndex(self.iterator, f)
+				factory from Iterators.mapWithIndex(self.iterator, f)
+		}
 
 		/** Flat maps this collection in order consistent with `foreach`, passing as the second argument the index
 		  * of the mapped element in this collection (that is, the number of elements processed before it).
 		  */
-		def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :CC[O] =
+		def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty[O]
+				factory.empty[O]
+			else if (factory eq View)
+				factory from Views.flatMapWithIndex(self, f)
 			else
-				self.iterableFactory from Iterators.flatMapWithIndex(self.iterator, f)
+				factory from Iterators.flatMapWithIndex(self.iterator, f)
+		}
 
 		/** Similar to [[collection.IterableOnceOps.collect collect]], but the collecting function takes a tuple
 		  * consisting of a collection element and its position in the iteration order of this collection.
 		  */
-		def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :CC[O] =
+		def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.collectWithIndex(self, f)
 			else
-				self.iterableFactory from Iterators.collectWithIndex(self.iterator, f)
+				factory from Iterators.collectWithIndex(self.iterator, f)
+		}
 
 		/** Maps this collection from left to right with an accumulating state updated by the mapping function
 		  * for as long as the state passes a given predicate. If `!pred(z)`, an empty collection is returned.
@@ -2465,11 +2534,15 @@ object extensions extends extensions {
 		  * as this collection.
 		  */
 		//Consider: the order of parameters to f. On one side, it works as a foldLeft, but on the other like mapWith
-		def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :CC[O] =
+		def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.mapWhile(self, z, pred, f)
 			else
-				self.iterableFactory from Iterators.mapWhile(self.iterator, z, pred, f)
+				factory from Iterators.mapWhile(self.iterator, z, pred, f)
+		}
 
 		//commented out until Scala 3
 /*
@@ -2500,11 +2573,15 @@ object extensions extends extensions {
 		  * The state is discarded after the operation and only the mapping results (the collections returned by
 		  * by the given function) are returned in a collection of the same dynamic type as this collection.
 		  */
-		def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :CC[O] =
+		def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.flatMapWhile(self, z, pred, f)
 			else
-				self.iterableFactory from Iterators.flatMapWhile(self.iterator, z, pred, f)
+				factory from Iterators.flatMapWhile(self.iterator, z, pred, f)
+		}
 
 		//Uncomment in Scala 3
 /*
@@ -2541,11 +2618,15 @@ object extensions extends extensions {
 		  *          the given function applied to initial elements of this collection and a previously updated state,
 		  *          until it returns `false`.
 		  */
-		def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :CC[O] =
+		def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.mapUntil(self, z, f)
 			else
-				self.iterableFactory from Iterators.mapUntil(self.iterator, z, f)
+				factory from Iterators.mapUntil(self.iterator, z, f)
+		}
 
 		/** Flat maps this collection from left to right with an accumulating state updated by the mapping function
 		  * for as long as the function returns `false` on the first position. If this collection is empty,
@@ -2562,11 +2643,15 @@ object extensions extends extensions {
 		  *         returned by applying the given function to initial elements of this collection
 		  *         and a previously updated state, until the function returns `true` as the first value.
 		  */
-		def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :CC[O] =
+		def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.flatMapUntil(self, z, f)
 			else
-				self.iterableFactory from Iterators.flatMapUntil(self.iterator, z, f)
+				factory from Iterators.flatMapUntil(self.iterator, z, f)
+		}
 
 		/** Maps initial elements of this collection, passing updated state between each function application.
 		  * If this collection is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
@@ -2580,11 +2665,15 @@ object extensions extends extensions {
 		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
 		  *         }}}
 		  */
-		def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :CC[O] =
+		def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.mapSome(self, z, f)
 			else
-				self.iterableFactory from Iterators.mapSome(self.iterator, z, f)
+				factory from Iterators.mapSome(self.iterator, z, f)
+		}
 
 		/** A collection of the same type, containing the elements of all collections returned by applying
 		  * the given function to the elements of this collection, and state updated by the same function
@@ -2593,11 +2682,15 @@ object extensions extends extensions {
 		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
 		  * of this collection. are ignored
 		  */
-		def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :CC[O] =
+		def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.flatMapSome(self, z, f)
 			else
-				self.iterableFactory from Iterators.flatMapSome(self.iterator, z, f)
+				factory from Iterators.flatMapSome(self.iterator, z, f)
+		}
 
 		/** Maps initial elements of this collection, passing updated state between each function application.
 		  * If this collection is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
@@ -2611,11 +2704,15 @@ object extensions extends extensions {
 		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
 		  *         }}}
 		  */
-		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :CC[O] =
+		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.mapPrefix(self, z, f)
 			else
-				self.iterableFactory from Iterators.mapPrefix(self.iterator, z, f)
+				factory from Iterators.mapPrefix(self.iterator, z, f)
+		}
 
 		/** A collection of the same type, containing the elements of all collections returned by applying
 		  * the given function to the elements of this collection, and state updated by the same function
@@ -2624,11 +2721,15 @@ object extensions extends extensions {
 		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
 		  * of this collection. are ignored
 		  */
-		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :CC[O] =
+		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :CC[O] = {
+			val factory = self.iterableFactory
 			if (knownEmpty(self))
-				self.iterableFactory.empty
+				factory.empty
+			else if (factory eq View)
+				factory from Views.flatMapPrefix(self, z, f)
 			else
-				self.iterableFactory from Iterators.flatMapPrefix(self.iterator, z, f)
+				factory from Iterators.flatMapPrefix(self.iterator, z, f)
+		}
 
 		/** Maps the elements of the collection and reverses their order. The order in which the mapping function
 		  * will be applied to the elements is undefined and depends on the runtime type of this collection.
@@ -2671,7 +2772,7 @@ object extensions extends extensions {
 					b.result()
 				}
 				mapIndexed()
-			case seq :scala.collection.Seq[E] =>
+			case seq :scala.collection.SeqOps[E, CC, C] @unchecked =>
 				def mapSeq() = {
 					val i = seq.reverseIterator
 					val b = self.iterableFactory.newBuilder[O]
@@ -2682,21 +2783,8 @@ object extensions extends extensions {
 				}
 				mapSeq()
 			case _ :View[E] =>
-				self.iterableFactory.from(new Iterator[O] {
-					private[this] var elems :List[O] = _
-					override def hasNext = {
-						if (elems == null)
-							elems = (List.empty[O] /: self) { (acc, e) => f(e)::acc }
-						elems ne Nil
-					}
-					override def next() = {
-						if (elems == null)
-							elems = (List.empty[O] /: self) { (acc, e) => f(e)::acc }
-						val hd = elems.head
-						elems = elems.tail
-						hd
-					}
-				})
+				lazy val reverse = (List.empty[O] /: self) { (acc, e) => f(e)::acc }
+				self.iterableFactory from reverse.iterator
 			case _ =>
 				self.iterableFactory.from((List.empty[O] /: self){ (acc, e) => f(e)::acc })
 		}
@@ -2709,8 +2797,10 @@ object extensions extends extensions {
 		def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :C =
 			if (knownEmpty(self))
 				self.empty
+			else if (self.isInstanceOf[View[_]])
+				util.fromSpecific(self)(Views.filterWith(self, z, pred, true))
 			else
-				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred))
+				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred, true))
 
 		/** Equivalent to `this.iterator.zipWithIndex.filter(x => pred(x._1, x._2)) to this.iterableFactory`.
 		  * For an `IndexedSeq`, prefer `(0 until length).collect { case i if pred(this(i), i) => this(i) }`.
@@ -2718,8 +2808,10 @@ object extensions extends extensions {
 		def filterWithIndex(pred :(E, Int) => Boolean) :C =
 			if (knownEmpty(self))
 				self.empty
+			else if (self.isInstanceOf[View[_]])
+				util.fromSpecific(self)(Views.filterWithIndex(self, pred, true))
 			else
-				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred))
+				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred, true))
 
 		/** Iterates over the collection from left to right, splitting elements into those for which `pred`
 		  * returns `true` as the first pair element, and those for which it returns `false`,
@@ -2728,8 +2820,11 @@ object extensions extends extensions {
 		def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(C, C) =
 			if (knownEmpty(self))
 				(self.empty, self.empty)
-			else (
-				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred)),
+			else  if (self.isInstanceOf[View[_]]) (
+				util.fromSpecific(self)(Views.filterWith(self, z, pred, true)),
+				util.fromSpecific(self)(Views.filterWith(self, z, pred, false))
+			) else (
+				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred, true)),
 				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred, false))
 			)
 
@@ -2737,41 +2832,51 @@ object extensions extends extensions {
 		def partitionWithIndex(pred :(E, Int) => Boolean) :(C, C) =
 			if (knownEmpty(self))
 				(self.empty, self.empty)
-			else (
-				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred)),
+			else if (self.isInstanceOf[View[_]]) (
+				util.fromSpecific(self)(Views.filterWithIndex(self, pred, true)),
+				util.fromSpecific(self)(Views.filterWithIndex(self, pred, false))
+			) else (
+				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred, true)),
 				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred, false))
 			)
 
 		/** Filters elements of this collection based on their position in the iteration order.
 		  * For collections with unspecified order, the result may be different for different runs.
 		  * @return every element for whose index the predicate returns `true`, as a collection of the same type.
-		  */
+		  */ //consider: moving it to SeqExtension
 		def keep(pred :Int => Boolean) :C =
 			if (knownEmpty(self) || self.knownSize == 1) coll
+			else if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.keep(self, pred))
 			else util.fromSpecific(self)(Iterators.keep(self.iterator, pred))
 
-		/** Removes the duplicates from this collection. The order of the elements in this collection is preserved,
+		/** Removes the duplicates from this collection. If the collection has an inherent order, it is preserved,
 		  * but it is unspecified which instance, out of all duplicates, is returned in the result.
 		  */
 		def distinct :C =
 			if (util.knownUnique(self))
 				coll
-			else {
+			else if (self.knownStrict) {
 				val seen = new mutable.HashSet[E]
 				self.filter(elem => seen.add(elem))
-			}
+			} else if (self.isInstanceOf[View[_]])
+				util.fromSpecific(self)(Views.distinct(self))
+			else
+				util.fromSpecific(self)(Iterators.distinct(self.iterator))
 
 		/** Removes the duplicates from this collection, retaining the first occurrence of every element,
 		  * and filtering out their any subsequent occurrences.
 		  */ //consider: moving these two to SeqExtension
 		def firstOccurrences :C =
 			if (util.knownUnique(self)) coll
+			else if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.distinct(self))
 			else util.fromSpecific(self)(Iterators.distinct(self.iterator))
 
 		/** Removes the duplicates from this collection, retaining the last occurrence of every element. */
 		def lastOccurrences :C =
 			if (util.knownUnique(self))
 				coll
+			else if (self.knownStrict)
+				util.fromSpecific(self)(Iterators.distinct(self.toRefArray.reverseIterator).toRefArray.reverseIterator)
 			else { //Lazy so it isn't evaluated if self is a lazy collection.
 				lazy val result = Iterators.distinct(self.toRefArray.reverseIterator).toRefArray
 				util.fromSpecific(self)(View.fromIteratorProvider(() => result.reverseIterator))
@@ -2820,6 +2925,8 @@ object extensions extends extensions {
 						util.fromSpecific(self)(seq.tail)
 					else
 						util.fromSpecific(self)(self.iterator.take(index) ++: tail)
+				case _ :View[_] =>
+					util.fromSpecific(self)(Views.removed(self, index))
 				case _ =>
 					util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			}
@@ -2865,6 +2972,8 @@ object extensions extends extensions {
 							else {
 								util.fromSpecific(self)(self.iterator.take(from) ++: tail)
 							}
+						case _ :View[_] =>
+							util.fromSpecific(self)(Views.removed(self, nonNegFrom, nonNegUntil))
 						case _ =>
 							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 					}
@@ -2903,6 +3012,66 @@ object extensions extends extensions {
 	}
 
 
+	/** Extension methods of any [[scala.collection.SeqOps SeqOps]]`[E, CC, C]` as well as `SeqView[E]`
+	  * (which extends `SeqOps[E, View, View[E]]`, not `SeqOps[E, SeqView, SeqView[E]]`). Extracted for documentation.
+	  * @define coll sequence
+	  * @define Coll `Seq`
+	  */
+	sealed trait SeqExtensionMethods[E, CC[_]] extends Any {
+		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
+		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
+		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
+		  * which may make it slightly more efficient than `patch`.
+		  */
+		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
+		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
+		 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
+		 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
+		 */
+		def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
+
+		/** Updates the element at `index` and following elements with the specified values.
+		  * @return The same result as {{{
+		  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
+		  *             case (res, (e, i)) => res.updated(i, e)
+		  *         }
+		  *  }}}
+		  */
+		def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U]
+
+		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
+		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
+		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
+		  * which may make it slightly more efficient than `patch`.
+		  */
+		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
+		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
+		 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
+		 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
+		 */
+		def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
+
+		/** Updates the element at `index` and following elements with the specified values.
+		  * @return The same result as {{{
+		  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
+		  *             case (res, (e, i)) => res.updated(i, e)
+		  *         }
+		  *  }}}
+		  */
+		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U]
+
+		/** Inserts a new element to this sequence at the specified position, pushing all elements at `index`
+		  * and beyond by one position. Equivalent to
+		  * [[collection.SeqOps.patch patch]]`(index, Seq(elem), 0)`.
+		  */ //todo: permissive indexing
+		def inserted[U >: E](index :Int, elem :U) :CC[U]
+
+		/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
+		def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
+
+		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtensionMethods.insertedAll insertedAll]]`(first +: second +: rest)`. */
+		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U]
+	}
 
 
 	/** Extension methods of mutable and immutable sequences (and arrays through a wrapper):
@@ -2913,8 +3082,8 @@ object extensions extends extensions {
 	  * @define coll sequence
 	  * @define Coll `Seq`
 	  */ //todo: make it rely on SeqLike
-	class SeqExtension[E, CC[X], C] private[collections]
-	                  (private val self :scala.collection.SeqOps[E, CC, C]) extends AnyVal
+	class SeqExtension[E, CC[_], C] private[collections](private val self :scala.collection.SeqOps[E, CC, C])
+		extends AnyVal with SeqExtensionMethods[E, CC]
 	{
 		@inline private def length :Int = self.length
 
@@ -2990,10 +3159,17 @@ object extensions extends extensions {
 					val result = array.slice(from, until)
 					ArrayLikeSpecOps.shuffle(result, 0, until - from)(random.self)
 					self.iterableFactory from ArraySeq.unsafeWrapArray(result.castParam[E])
-				case _ =>
+				case _ if self.knownStrict =>
 					val result = TemporaryBuffer.from(self)
 					result.shuffle()
 					self.iterableFactory from result
+				case _ =>
+					lazy val result = {
+						val buffer = TemporaryBuffer.from(self)
+						buffer.shuffle()
+						buffer
+					}
+					self.iterableFactory from View.fromIteratorProvider(() => result.iterator)
 			}
 		}
 
@@ -3028,6 +3204,13 @@ object extensions extends extensions {
 			else {
 				val shift = splitAt(length, n)
 				self match {
+					case _ if self.knownLazy =>
+						lazy val rotated = {
+							val buffer = TemporaryBuffer.from(self)
+                            buffer.rotateLeft(from, until)(shift)
+							buffer
+						}
+						self.iterableFactory from View.fromIteratorProvider(() => rotated.iterator)
 					case seq :Seq[E] if updatePreferred(seq, length) => //need to be a seq so that updated returns a Seq
 						def rotateByUpdates(seq :Seq[E]) :CC[E] = {
 							val shiftRight = until0 - from0 - shift
@@ -3185,28 +3368,11 @@ object extensions extends extensions {
 //		def swapped(idx1 :Int, idx2 :Int) :C = ???
 //		def swapped(idx1 :Int, idx2 :Int, length :Int) :C = ???
 
-		/** Updates the element at `index` and following elements with the specified values.
-		  * @return The same result as {{{
-		  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
-		  *             case (res, (e, i)) => res.updated(i, e)
-		  *         }
-		  *  }}}
-		  */
-		def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			updatedAll(index, Prepended2Seq(first, second, rest))
 
 
-		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
-		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
-		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
-		  * which may make it slightly more efficient than `patch`.
-		  */
-		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
-		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
-		 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
-		 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
-		 */
-		def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
+		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
 			def outOfBounds(msg :String = "") =
 				outOfBounds_!(
 					errorString(self) + ".updatedAll(" + index + ", " + errorString(elems) + ")" +
@@ -3220,7 +3386,8 @@ object extensions extends extensions {
 				case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
 					outOfBounds()
 				case _ if self.knownLazy =>
-					self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
+					if (self.isInstanceOf[View[_]]) self.iterableFactory from Views.updatedAll(self, index, elems)
+					else self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
 				case _ if thatSize == 0 || elems.toBasicOps.isEmpty =>
 					//consider: traversing the whole list to compute its length only to throw an exception is wasteful
 					val length = self.length
@@ -3362,27 +3529,10 @@ object extensions extends extensions {
 		}
 
 
-		/** Updates the element at `index` and following elements with the specified values.
-		  * @return The same result as {{{
-		  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
-		  *             case (res, (e, i)) => res.updated(i, e)
-		  *         }
-		  *  }}}
-		  */
 		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			overwritten(index, Prepended2Seq(first, second, rest))
 
-		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
-		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
-		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
-		  * which may make it slightly more efficient than `patch`.
-		  */
-		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
-		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
-		 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
-		 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
-		 */
-		def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
+		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
 			val thatSize = elems.knownSize
 			val thisSize = self.knownSize
 			self match {
@@ -3393,7 +3543,8 @@ object extensions extends extensions {
 				=>
 					genericSelf
 				case _ if self.knownLazy =>
-					self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
+					if (self.isInstanceOf[View[_]]) self.iterableFactory from Views.overwritten(self, index, elems)
+					else self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
 				case _ if thatSize >= 0 && thisSize >= 0 =>
 					val replaced =
 						if (index < 0) math.min(thatSize + index, thisSize)
@@ -3403,23 +3554,19 @@ object extensions extends extensions {
 				case _ if elems.toBasicOps.isEmpty =>
 					self.iterableFactory from (self :collection.SeqOps[U, CC, C])
 				case HasFastSlice(items) =>
-					updatedAll(items, index, elems, true)
+					updatedAll(items, index, elems, false)
 				case seq :collection.LinearSeq[E] @unchecked =>
-					updatedAll(seq, index, elems, true)
+					updatedAll(seq, index, elems, false)
 				case _ =>
 					self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
 			}
 		}
 
 
-		/** Inserts a new element to this sequence at the specified position, pushing all elements at `index`
-		  * and beyond by one position. Equivalent to
-		  * [[collection.SeqOps.patch patch]]`(index, Seq(elem), elems.size)`.
-		  */ //todo: permissive indexing
 		//Consider: use patch, in case it is overridden like in a Finger tree:
 		// negative indices are treated as zero, while indices greater than the length
 		// of this sequence result in appending the element to the end of the sequence.
-		def inserted[U >: E](index :Int, elem :U) :CC[U] = {
+		override def inserted[U >: E](index :Int, elem :U) :CC[U] = {
 			val size = self.knownSize
 			if (index < 0 | size >= 0 & index > size)
 				outOfBounds_!(self.className + "|" + size + "|.inserted(" + index + ", _)")
@@ -3433,14 +3580,13 @@ object extensions extends extensions {
 			}
 		}
 
-		//consider: if we renamed it to insertedAll, we could have an updatedAll with the same signature without a conflict
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtension.insertedAll insertedAll]]`(first +: second +: rest)`. */
-		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		override def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			insertedAll(index, Prepended2Seq(first, second, rest))
 
 
 		/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
-		def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
+		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
 			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
 				seq.insertedAll(index, elems)
 			case _ if self.knownSize >= 0 =>
@@ -3448,6 +3594,8 @@ object extensions extends extensions {
 				if (index < 0 || index > size)
 					outOfBounds_!(errorString(self) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
 				self.patch(index, elems, 0)
+			case _ :View[_] =>
+				self.iterableFactory from Views.insertedAll(self, index, elems)
 			case _ => //Can't use patch because insertedAll validates the index.
 				self.iterableFactory from Iterators.insertedAll(self.iterator, index, elems)
 		}
@@ -3530,7 +3678,7 @@ object extensions extends extensions {
 		}
 		/** Finds the last element of this sequence which satisfies the predicate, returning its index as an `IntOpt`.
 		  * @param p   a function applied consecutively to all elements with indices lesser or equal `end`,
-		  *            in a decreasing order.
+		  *                in a decreasing order.
 		  * @param end the upper, inclusive bound on the returned index; elements after this position will not be checked.
 		  */
 		@inline def findLastIndexWhere(p :E => Boolean, end :Int = length - 1) :IntOpt =
@@ -3890,6 +4038,35 @@ object extensions extends extensions {
 
 		/** A new sequence `s`, consisting of all elements of this sequence, such that `this(i) == s(permutation(i))`. */
 		def reorder(permutation :Permutation) :CC[E] = permutation(self.toSeq) to self.iterableFactory
+	}
+
+
+	/** Extension methods for [[scala.collection.SeqView SeqView]] returning another `SeqView[E]`.
+	  * @define Coll `SeqView`
+	  * @define coll sequence view
+	  */
+	class SeqViewExtension[E] private[collections] (private val self :SeqView[E])
+		extends AnyVal with SeqExtensionMethods[E, SeqView]
+	{
+		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :SeqView[U] =
+			Views.updatedAll(self, index, elems)
+
+		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :SeqView[U] =
+			Views.updatedAll(self, index, Prepended2Seq(first, second, rest))
+
+		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :SeqView[U] =
+			Views.overwritten(self, index, elems)
+
+		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :SeqView[U] =
+			Views.updatedAll(self, index, Prepended2Seq(first, second, rest))
+
+		override def inserted[U >: E](index :Int, elem :U) :SeqView[U] = Views.inserted(self, index, elem)
+
+		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :SeqView[U] =
+			Views.insertedAll(self, index, elems)
+
+		override def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :SeqView[U] =
+			Views.insertedAll(self, index, Prepended2Seq(first, second, rest))
 	}
 
 
@@ -5140,6 +5317,12 @@ object extensions extends extensions {
 				copied
 			}
 		}
+	}
+
+
+
+	class ViewExtension[E] private[collections] (private val self :View[E]) extends AnyVal {
+
 	}
 
 

@@ -40,6 +40,44 @@ private object Iterators {
 	def scanLeft[E, A](self :Iterator[E], z :A, f :(A, E) => A) :Iterator[A] =
 		new ScanLeft(self, z, f)
 
+
+	def zipEven[A, B](left :Iterator[A], right :Iterator[B]) :Iterator[(A, B)] = new ZipEven(left, right)
+
+	def zipMap[A, B, O](left :Iterator[A], right :Iterator[B])(f :(A, B) => O) :Iterator[O] =
+		left.zip(right).map(f.tupled)
+
+	def zipMapEven[A, B, O](left :Iterator[A], right :Iterator[B])(f :(A, B) => O) :Iterator[O] =
+		new ZipEven(left, right).map(f.tupled)
+
+	def zipMapAll[A, B, O](left :Iterator[A], right :Iterator[B], leftElem :A, rightElem :B)
+	                      (f :(A, B) => O) :Iterator[O] =
+		left.zipAll(right, leftElem, rightElem).map(f.tupled)
+
+	def zipFlatMap[A, B, O](left :Iterator[A], right :Iterator[B])(f :(A, B) => IterableOnce[O]) :Iterator[O] =
+		left.zip(right).flatMap(f.tupled)
+
+	def zipFlatMapEven[A, B, O](left :Iterator[A], right :Iterator[B])(f :(A, B) => IterableOnce[O]) :Iterator[O] =
+		new ZipEven(left, right).flatMap(f.tupled)
+
+	def zipFlatMapAll[A, B, O](left :Iterator[A], right :Iterator[B], leftElem :A, rightElem :B)
+	                          (f :(A, B) => IterableOnce[O]) :Iterator[O] =
+		left.zipAll(right, leftElem, rightElem).flatMap(f.tupled)
+
+	def zip3[A, B, C](first :Iterator[A], second :Iterator[B], third :Iterator[C]) :Iterator[(A, B, C)] =
+		new Zip3(first, second, third)
+
+	def zipEven3[A, B, C](first :Iterator[A], second :Iterator[B], third :Iterator[C]) :Iterator[(A, B, C)] =
+		new ZipEven3(first, second, third)
+
+	def zipAll3[A, B, C](first :Iterator[A], second :Iterator[B], third :Iterator[C],
+	                     firstElem :A, secondElem :B, thirdElem :C) :Iterator[(A, B, C)] =
+		new ZipAll3(first, firstElem, second, secondElem, third, thirdElem)
+
+	def zipTail[A](self :Iterator[A]) :Iterator[(A, A)] =
+		if (self.isEmpty) Iterator.empty
+		else new ZipTail(self)
+
+
 	def mapWith[E, O, A](self :Iterator[E], z :A, f :(E, A) => (O, A)) :Iterator[O] =
 		new MapWith(self, z, f)
 
@@ -79,46 +117,12 @@ private object Iterators {
 	def flatMapPrefix[E, A, O](self :Iterator[E], z :A, f :(A, E) => Opt[(A, IterableOnce[O])]) :Iterator[O] =
 		mapPrefix(self, z, f).flatten
 
+
 	def filterWith[E, A](self :Iterator[E], z :A, pred :(E, A) => (Boolean, A), keep :Boolean = true) :Iterator[E] =
 		new FilterWith(self, z, pred, keep)
 
-	def filterWithIndex[E](self :Iterator[E], pred :(E, Int) => Boolean, keep :Boolean = true) :Iterator[E] =
+	def filterWithIndex[A](self :Iterator[A], pred :(A, Int) => Boolean, keep :Boolean = true) :Iterator[A] =
 		new FilterWithIndex(self, pred, keep)
-
-	def zipEven[E, X](self :Iterator[E], that :Iterator[X]) :Iterator[(E, X)] = new ZipEven(self, that)
-
-	def zipMap[E, X, O](self :Iterator[E], that :Iterator[X])(f :(E, X) => O) :Iterator[O] =
-		self.zip(that).map(f.tupled)
-
-	def zipMapEven[E, X, O](self :Iterator[E], that :Iterator[X])(f :(E, X) => O) :Iterator[O] =
-		new ZipEven(self, that).map(f.tupled)
-
-	def zipMapAll[E, X, O](self :Iterator[E], that :Iterator[X], thisElem :E, thatElem :X)(f :(E, X) => O) :Iterator[O] =
-		self.zipAll(that, thisElem, thatElem).map(f.tupled)
-
-	def zipFlatMap[E, X, O](self :Iterator[E], that :Iterator[X])(f :(E, X) => IterableOnce[O]) :Iterator[O] =
-		self.zip(that).flatMap(f.tupled)
-
-	def zipFlatMapEven[E, X, O](self :Iterator[E], that :Iterator[X])(f :(E, X) => IterableOnce[O]) :Iterator[O] =
-		new ZipEven(self, that).flatMap(f.tupled)
-
-	def zipFlatMapAll[E, X, O](self :Iterator[E], that :Iterator[X], thisElem :E, thatElem :X)
-	                          (f :(E, X) => IterableOnce[O]) :Iterator[O] =
-		self.zipAll(that, thisElem, thatElem).flatMap(f.tupled)
-
-	def zip3[E, A, B](self :Iterator[E], second :Iterator[A], third :Iterator[B]) :Iterator[(E, A, B)] =
-		new Zip3(self, second, third)
-
-	def zipEven3[E, A, B](self :Iterator[E], second :Iterator[A], third :Iterator[B]) :Iterator[(E, A, B)] =
-		new ZipEven3(self, second, third)
-
-	def zipAll3[E, A, B](self :Iterator[E], second :Iterator[A], third :Iterator[B],
-	                     thisElem :E, secondElem :A, thirdElem :B) :Iterator[(E, A, B)] =
-		new ZipAll3(self, thisElem, second, secondElem, third, thirdElem)
-
-	def zipTail[E](self :Iterator[E]) :Iterator[(E, E)] =
-		if (self.isEmpty) Iterator.empty
-		else new ZipTail(self)
 
 	def keep[E](self :Iterator[E], pred :Int => Boolean) :Iterator[E] =
 		if (self.knownSize == 0) self else new Keep(self, pred, true)
@@ -127,6 +131,7 @@ private object Iterators {
 		val size = self.knownSize
 		if (size >= 0 && size <= 1) self else new FirstOccurrences(self)
 	}
+
 
 	//All the following iterators could be simply replaced with
 	def removed[E](self :Iterator[E], index :Int) :Iterator[E] =
@@ -149,6 +154,7 @@ private object Iterators {
 			else
 				new RemovedSlice(self, nonNegFrom, nonNegUntil)
 		}
+
 
 	def updated[E](self :Iterator[E], index :Int, elem :E) :Iterator[E] =
 		if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
@@ -222,6 +228,7 @@ private object Iterators {
 				case _            => new Concat(first, second)
 			}
 		}
+
 
 	/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this iterator;
 	  * instead, iterators returned by those methods share the same underlying state,
