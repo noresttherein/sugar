@@ -3,7 +3,7 @@ package net.noresttherein.sugar
 import net.noresttherein.sugar
 
 
-package object funny {
+package object funny { //consider: renaming to funsies
 
 	final class ReturnTypeOf[F <: Nothing => Any] private { type Return }
 

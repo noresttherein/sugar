@@ -151,6 +151,31 @@ class UInt private[numeric] (override val toInt: Int)
 	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
 	@inline def orZeroIf(condition :UInt => Boolean) :UInt = if (condition(this)) new UInt(0) else this
 
+	/** True if this `UInt` is a power of `2`. */
+	@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(toInt) == 1
+
+	/** The greatest power of 2 lesser or equal to `this`, or zero if this `Int` equals zero. */
+	@inline def powerOf2Floor :UInt = new UInt(jl.Integer.highestOneBit(toInt))
+
+	/** The least power of 2 greater or equal to `this`, or zero if this `Int` equals zero. */
+	@inline def powerOf2Ceil :UInt = {
+		val lowerPow2 = jl.Integer.highestOneBit(toInt)
+		val pow2Mask  = toInt - 1 & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
+		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
+		val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+		new UInt(ifGtPow2 | ifEqPow2)
+	}
+
+	/** The least power of 2 greater or equal to `this`. */
+	@inline def nextPowerOf2 :UInt = {
+		val lowerPow2 = jl.Integer.highestOneBit(toInt)
+		val pow2Mask  = toInt - 1 & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
+		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
+		val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+		val ifZero    = (-(toInt & -toInt) >> 31) & 1             //if (self == 0) 1 else 0
+		new UInt(ifGtPow2 | ifEqPow2 | ifZero)
+	}
+
 	@inline def |(x: Int)  : UInt  = new UInt(toInt | x)
 	@inline def |(x: Long) : Long  = toInt & 0xffffffffL | x
 	@inline def &(x: Int)  : UInt  = new UInt(toInt & x)

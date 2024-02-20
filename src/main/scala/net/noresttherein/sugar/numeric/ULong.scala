@@ -178,6 +178,28 @@ class ULong private[numeric] (override val toLong: Long)
 	/** Returns this `ULong`, or `0` if it does not satisfy the predicate. */
 	@inline def orZeroIf(condition: ULong => Boolean): ULong = if (condition(this)) new ULong(0L) else this
 
+	/** The greatest power of 2 lesser or equal to `this`, or zero if this `Long` equals zero. */
+	@inline def powerOf2Floor :ULong = new ULong(jl.Long.highestOneBit(toLong))
+
+	/** The least power of 2 greater or equal to `this`, or zero if this `Long` equals zero. */
+	@inline def powerOf2Ceil :ULong = {
+		val lowerPow2 = jl.Long.highestOneBit(toLong)
+		val pow2Mask  = toLong - 1 & lowerPow2                    //if (self > lowerPow2) lowerPow2 else 0
+		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
+		val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+		new ULong(ifGtPow2 | ifEqPow2)
+	}
+
+	/** The least power of 2 greater or equal to `this`. */
+	@inline def nextPowerOf2 :ULong = {
+		val lowerPow2 = jl.Long.highestOneBit(toLong)
+		val pow2Mask  = toLong - 1 & lowerPow2                    //if (self > lowerPow2) lowerPow2 else 0
+		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
+		val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+		val ifZero    = (-(toLong & -toLong) >> 63) & 1           //if (self == 0) 1 else 0
+		new ULong(ifGtPow2 | ifEqPow2 | ifZero)
+	}
+
 	@inline def |(x: Long): ULong = new ULong(toLong | x)
 	@inline def &(x: Long): ULong = new ULong(toLong & x)
 	@inline def ^(x: Long): ULong = new ULong(toLong ^ x)

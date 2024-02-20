@@ -159,7 +159,7 @@ object extensions extends extensions {
 	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
-	class IntExtension private[extensions] (private val self :Int) extends AnyVal {
+	class IntExtension private[numeric] (private val self :Int) extends AnyVal {
 		/** Raises this `Int` to the given power. If the argument is negative, `0` is returned. */
 		def pow(exp :Int) :Int =
 			if (exp < 0)
@@ -241,6 +241,13 @@ object extensions extends extensions {
 		/** True if this `Int` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
 
+		/** The largest in absolute value power of 2 lesser or equal to this `Int`.
+		  *   - if `this > 0`, then the result will be an `Int` greater or equal to `this`;
+		  *   - if `this < 0`, then the result will be an `Int` lesser or equal to `this`;
+		  *   - if `this == 0`, then the result, as an exception, will equal zero.
+		  */
+		@inline def lastPowerOf2 :Int = jl.Integer.highestOneBit(math.abs(self)) * (self >> 31 & -self >> 31)
+
 		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Int`.
 		  *   - if `this > 0`, then the result will be greater or equal to `this`;
 		  *   - if `this < 0`, then the result will be lesser or equal `this`;
@@ -248,13 +255,18 @@ object extensions extends extensions {
 		  * @note the method does not check for arithmetic overflow.
 		  */
 		@inline def nextPowerOf2 :Int = {
-			val lowerPow2 = jl.Integer.highestOneBit(math.abs(self))  //Greatest power of 2 lesser or equal to self.abs.
-			val pow2Mask  = self - 1 & lowerPow2                      //if (self > lowerPow2) lowerPow2 else 0
+			val abs       = math.abs(self)
+			val lowerPow2 = jl.Integer.highestOneBit(abs)             //Greatest power of 2 lesser or equal to self.abs.
+			val pow2Mask  = abs - 1 & lowerPow2                       //if (self > lowerPow2) lowerPow2 else 0
 			val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
 			val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
 			val ifZero    = (-(self & -self) >> 31) & 1               //if (self == 0) 1 else 0
-			(ifGtPow2 | ifEqPow2 | ifZero) * ((self & Int.MinValue) >> 31)
+			val signum    = self >> 31 & -self >> 31
+			(ifGtPow2 | ifEqPow2 | ifZero) * signum
 		}
+
+		/** A faster `signum` implementation than in `RichInt`. */
+		@inline def signum :Int = self >> 31 & -self >> 31
 
 		/** The number of digits in this number's decimal expansion. */
 		@inline def digitCount :Int = { //adapted from java.math.BigDecimal.longDigitLength
@@ -413,6 +425,14 @@ object extensions extends extensions {
 		/** True if this `Long` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Long.bitCount(self) == 1
 
+		/** The largest in absolute value power of 2 lesser or equal to this `Long`.
+		  *   - if `this > 0`, then the result will be an `Long` greater or equal to `this`;
+		  *   - if `this < 0`, then the result will be an `Long` lesser or equal to `this`;
+		  *   - if `this == 0`, then the result, as an exception, will equal zero.
+		  */
+		@inline def lastPowerOf2 :Long = jl.Long.highestOneBit(math.abs(self)) * (self >> 63 & -self >> 63)
+
+		@inline def powerOf2Floor :Long = jl.Long.highestOneBit(self)
 		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Long`.
 		  *   - if `this > 0`, then the result will be greater or equal to `this`;
 		  *   - if `this < 0`, then the result will be lesser or equal `this`;
@@ -420,13 +440,18 @@ object extensions extends extensions {
 		  * @note the method does not check for arithmetic overflow.
 		  */
 		@inline def nextPowerOf2 :Long = {
-			val lowerPow2 = jl.Long.highestOneBit(math.abs(self))     //Greatest power of 2 lesser or equal to self.abs.
-			val pow2Mask  = self - 1L & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
+			val abs       = math.abs(self)
+			val lowerPow2 = jl.Long.highestOneBit(abs)                //Greatest power of 2 lesser or equal to self.abs.
+			val pow2Mask  = abs - 1L & lowerPow2                      //if (self > lowerPow2) lowerPow2 else 0
 			val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2*2 else 0
 			val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
 			val ifZero    = (-(self & -self) >> 63) & 1L              //if (self == 0) 1 else 0
-			(ifGtPow2 | ifEqPow2 | ifZero) * ((self & Long.MinValue) >> 63)
+			val signum    = self >> 63 & -self >> 63
+			(ifGtPow2 | ifEqPow2 | ifZero) * signum
 		}
+
+		/** A faster `signum` implementation than in `RichLong`. */
+		@inline def signum :Long = self >> 63 & -self >> 63
 
 		/** The number of digits in this number's decimal expansion. */
 		@inline def digitCount :Int = { //adapted from java.math.BigDecimal.longDigitLength
