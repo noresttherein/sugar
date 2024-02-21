@@ -2145,12 +2145,11 @@ object extensions extends extensions {
 		  * @return the number of elements copied.
 		  * @throws IndexOutOfBoundsException if `start` is less than zero.
 		  */ //todo: untested
-		def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int = {
-			val size = self.knownSize
+		def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 			self match {
 				case sugared :SugaredIterable[A] =>
 					sugared.copyRangeToArray(xs, start, from, len)
-				case _ if len <= 0 || size >= 0 & from >= size || start >= xs.length =>
+				case _ if len <= 0 || start >= xs.length || { val size = self.knownSize; size >= 0 & from >= size } =>
 					0
 				case _ if from <= 0 =>
 					toBasicOps.copyToArray(xs, start, len)
@@ -2175,7 +2174,6 @@ object extensions extends extensions {
 				case _ =>
 					self.iterator.drop(from).copyToArray(xs, start, len)
 			}
-		}
 
 		/** Equivalent to
 		  * [[collection.IterableOnceOps.drop drop]]`(from).`[[collection.IterableOnceOps.copyToArray copyToArray]]`(xs, 0, len)`,

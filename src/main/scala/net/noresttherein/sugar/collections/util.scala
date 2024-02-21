@@ -375,7 +375,7 @@ private object HasFastSlice {
 	  * It still may be O(n), but likely there is no way around it then.
 	  */
 	@inline def preferDropOverIterator(items :IterableOnce[_]) :Boolean =
-		items.isInstanceOf[collection.LinearSeq[_]] || hasFastDrop(items)
+		items.isInstanceOf[collection.LinearSeq[_]] || items.knownSize == 0
 
 	private[this] val fastSliceSize :Int = 4
 }
