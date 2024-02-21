@@ -64,6 +64,9 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	val Oops            :FlexibleThrowableFactory[Oops]            = ThrowableFactory("Oops", new Oops(_, _, _))
 	val ImpossibleError :FlexibleThrowableFactory[ImpossibleError] = ThrowableFactory(new ImpossibleError(_, _, _))
 
+	val MaxSizeReachedException :FlexibleExceptionFactory = //Consider: making it a lazy factory
+		ThrowableFactory("Size limit exceeded", new MaxSizeReachedException(_, _, _))
+
 	val IncompatibleArgumentsException :LazyExceptionFactory =
 		ThrowableFactory(new IncompatibleArgumentsException(null, _, _))
 

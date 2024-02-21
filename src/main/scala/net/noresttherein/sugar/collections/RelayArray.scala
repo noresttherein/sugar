@@ -22,7 +22,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.extensions.IntExtension
-import net.noresttherein.sugar.{illegalState_!, illegal_!, unsupported_!}
+import net.noresttherein.sugar.{illegalState_!, illegal_!, maxSize_!, unsupported_!}
 import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -790,9 +790,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		mkString(s"${this.localClassName}|$startIndex-${startIndex + length}/${ unsafeArray.length}|(", ", ", ")")
 
 	protected final def maxCapacityError(extras :Int) =
-		throw new BufferFullException(
-			"Cannot append " + extras + " elements to a RelayArray of size " + length + ": arithmetic overflow."
-		)
+		maxSize_!("Cannot append " + extras + " elements to a RelayArray of size " + length + ": arithmetic overflow.")
 
 	override def updated[U >: E](index :Int, elem :U) :RelayArray[U] = {
 		val len = length
@@ -2011,7 +2009,7 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 
 		final def ensure(extras :Int) :Unit = {
 			if (extras > MaxArraySize - size)
-				throw new BufferFullException(
+				maxSize_!(
 					"Cannot add " + extras + " new elements to a Builder[" + elementType.localName +
 						", RelayArray] with " + size + " elements: arithmetic overflow."
 				)

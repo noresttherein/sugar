@@ -69,6 +69,15 @@ class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwab
 }
 
 
+/** An exception thrown when a size of container is exceeded, for example when adding an element to a collection
+  * of size `Int.MaxValue`.
+  *
+  * $hasFlexibleFactoryNote
+  */ //consider: should we check the collection size for exceeding Int.MaxValue on every append?
+@SerialVersionUID(Ver)
+class MaxSizeReachedException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
+	extends RuntimeException(message, cause) with LazyException //consider: extending SugaredIndexOutOfBoundsException
+
 /** An [[IllegalArgumentException]] subclass thrown to indicate that while the method arguments are legal independently,
   * as a whole, they do not satisfy the required pre condition.
   */

@@ -23,6 +23,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.maxSize_!
 import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
@@ -1512,6 +1513,8 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 		}
 
 		override def addOne(elem :T) :this.type =
+//			if (size == Int.MaxValue)
+//				maxSize_!(Int.MaxValue)
 			if (smallSize >= 0)
 				smallAddOne(elem, hashCodeOf(elem))
 			else

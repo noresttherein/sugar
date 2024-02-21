@@ -56,7 +56,7 @@ object validate { //consider: macros which use the argument expression as the ba
 
 
 	/** Throws an [[IndexOutOfBoundsException]] if `x` is outside the given range (both bounds are inclusive). */
-	@inline def inRange(name :String, x :Int, min :Int, max :Int) :Int =
+	@inline def inRange(name :String, x :Int, min :Int, max :Int) :Int = //consider renaming to withinBounds
 		if (x < min | x > max) outOfBounds_!(name + " is out of range [" + min + ".." + max + "]: " + x)
 		else x
 
@@ -86,13 +86,13 @@ object validate { //consider: macros which use the argument expression as the ba
 		else x
 
 	/** Throws an [[IndexOutOfBoundsException]] if `x` is outside the given range (both bounds are inclusive). */
-	def inRange[X](name :String, x :X, min :X, max :X)(implicit ordering :Ordering[X]) :X =
+	@inline def inRange[X](name :String, x :X, min :X, max :X)(implicit ordering :Ordering[X]) :X =
 		if (ordering.lt(x, min)  || ordering.gt(x, max))
 			outOfBounds_!(name + " is out of range [" + min + ".." + max + "]: " + x)
 		else x
 
 	/** Throws an [[IndexOutOfBoundsException]] if `x` is outside the given range (both bounds are inclusive). */
-	def inRange[X](x :X, min :X, max :X)(implicit ordering :Ordering[X]) :X =
+	@inline def inRange[X](x :X, min :X, max :X)(implicit ordering :Ordering[X]) :X =
 		if (ordering.lt(x, min)  || ordering.gt(x, max))
 			outOfBounds_!("index is out of range [" + min + ".." + max + "]: " + x)
 		else x
@@ -144,4 +144,29 @@ object validate { //consider: macros which use the argument expression as the ba
 //	 	else if (numeric.lt(x, min) || numeric.gt(x, numeric.plus(numeric.one, numeric.minus(max, length))))
 //	 		outOfBounds_!(xName + " is out of range [" + min + ".." + max + "-" + length + "]")
 //	 	else x
+
+	/** Throws [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]
+	  * if `delta > limit - coll.size`. */
+	@inline def sizeLimit(coll :Iterable[_], delta :Int, limit :Int) :Unit =
+		if (delta > limit - coll.size)
+			maxSize_!(coll, delta, limit)
+
+	/** Throws [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]
+	  * if `delta > Int.MaxValue - coll.size`. */
+	@inline def sizeLimit(coll :Iterable[_], delta :Int) :Unit =
+		if (delta > Int.MaxValue - coll.size)
+			maxSize_!(coll, delta)
+
+	/** Throws [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]
+	  * if `extra.knownSize > limit - coll.size`. */
+	@inline def sizeLimit(coll :Iterable[_], extra :IterableOnce[_], limit :Int) :Unit =
+		if (extra.knownSize > limit - coll.size)
+			maxSize_!(coll, extra, limit)
+
+	/** Throws [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]
+	  * if `extra.knownSize > Int.MaxValue - coll.size`. */
+	@inline def sizeLimit(coll :Iterable[_], extra :IterableOnce[_]) :Unit =
+		if (extra.knownSize > Int.MaxValue - coll.size)
+			maxSize_!(coll, extra)
+
 }

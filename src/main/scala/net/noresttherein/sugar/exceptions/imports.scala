@@ -8,12 +8,12 @@ import java.util.ConcurrentModificationException
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.arrays.ArrayLike
-import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.collections.util.{className, errorString}
 import net.noresttherein.sugar.exceptions.Constructors.{LazyStringArg, LazyStringThrowableArgs, LazyStringThrowableBoolArgs, LazyStringThrowableBoolBoolArgs, StringArg, StringLazyStringThrowableBoolArgs, StringLazyStringThrowableBoolBoolArgs, StringThrowableArgs, StringThrowableBoolArgs, StringThrowableBoolBoolArgs, defaultConstructor, findConstructor, lazyStringConstructor, lazyStringThrowableConstructor, stringConstructor, stringThrowableConstructor, throwableConstructor}
 import net.noresttherein.sugar.exceptions.reflect.newThrowable
 import net.noresttherein.sugar.extensions.{ClassExtension, castTypeParamMethods, castingMethods, classNameMethods, downcastTypeParamMethods}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -349,6 +349,7 @@ trait imports {
 	  */
 	def oops(msg :String, cause :Throwable) :Nothing = throw Oops(msg, cause)
 
+
 	/** Throws an [[UnsupportedOperationException]]. */
 	final def unsupported_! :Nothing =
 		throw SugaredUnsupportedOperationException()
@@ -368,6 +369,7 @@ trait imports {
 	/** Throws an [[UnsupportedOperationException]]`(s"${obj.className}.$method")`. */
 	final def unsupported_!(obj :Any, method :String) :Nothing =
 		throw SugaredUnsupportedOperationException(obj.className + '.' + method)
+
 
 	/** Throws a [[NoSuchElementException]]. */
 	final def noSuch_! :Nothing =
@@ -398,7 +400,8 @@ trait imports {
 	  * The argument is an empty collection whose element was accessed, and is used to enhance the error message.
 	  */
 	final def noSuch_!(empty :ArrayLike[_]) :Nothing =
-		throw SugaredNoSuchElementException(errorString(empty) + " is empty.")
+		throw SugaredNoSuchElementException(() => errorString(empty) + " is empty.")
+
 
 	/** Throws an [[IllegalArgumentException]]. */ //consider: adding a nullary parametr list
 	final def illegal_! :Nothing =
@@ -441,8 +444,6 @@ trait imports {
 			"Illegal " + param + " argument : " + arg + " - " + reason + "."
 		)
 
-	final def io_!(msg :String, cause :Throwable = null) :Nothing =
-		throw SugaredIOException(msg, cause)
 
 	/** Throws an [[IllegalStateException]]. */
 	final def illegalState_! :Nothing = throw SugaredIllegalStateException()
@@ -454,6 +455,23 @@ trait imports {
 	/** Throws an [[IllegalStateException]]. */
 	final def illegalState_!(cause :Throwable) :Nothing =
 		throw SugaredIllegalStateException(cause)
+
+	/** Throws an [[IOException]]. */
+	final def io_!(msg :String, cause :Throwable = null) :Nothing =
+		throw SugaredIOException(msg, cause)
+
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_! :Nothing =
+		throw SugaredIndexOutOfBoundsException()
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(msg :String, cause :Throwable = null) :Nothing =
+		throw SugaredIndexOutOfBoundsException(msg, cause)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(cause :Throwable) :Nothing =
+		throw SugaredIndexOutOfBoundsException(cause)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int) :Nothing =
@@ -478,29 +496,78 @@ trait imports {
 	  * and is used to enhance the error message.
 	  */
 	final def outOfBounds_!(idx :Int, items :Iterable[_]) :Nothing =
-		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + errorString(items))
+		throw SugaredIndexOutOfBoundsException(() => idx.toString + " out of bounds for " + errorString(items))
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the array for whch the index was out of bounds,
 	  * and is used to enhance the error message.
 	  */
 	final def outOfBounds_!(idx :Int, items :ArrayLike[_]) :Nothing =
-		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + errorString(items))
+		throw SugaredIndexOutOfBoundsException(() => idx.toString + " out of bounds for " + errorString(items))
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int, cause :Throwable) :Nothing =
 		throw SugaredIndexOutOfBoundsException(idx.toString, cause)
 
-	/** Throws an [[IndexOutOfBoundsException]]. */
-	final def outOfBounds_!(msg :String, cause :Throwable = null) :Nothing =
-		throw SugaredIndexOutOfBoundsException(msg, cause)
 
-	/** Throws an [[IndexOutOfBoundsException]]. */
-	final def outOfBounds_!(cause :Throwable) :Nothing =
-		throw SugaredIndexOutOfBoundsException(cause)
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]. */
+	final def maxSize_! :Nothing =
+		throw MaxSizeReachedException()
 
-	/** Throws an [[IndexOutOfBoundsException]]. */
-	final def outOfBounds_! :Nothing =
-		throw SugaredIndexOutOfBoundsException()
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]. */
+	final def maxSize_!(msg :String) :Nothing =
+		throw MaxSizeReachedException(msg)
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]. */
+	final def maxSize_!(msg :String, cause :Throwable) :Nothing =
+		throw MaxSizeReachedException(msg, cause)
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]. */
+	final def maxSize_!(size :Int) :Nothing =
+		throw MaxSizeReachedException("Maximum size reached: " + size + ".")
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]].
+	  * @param collection a collection
+	  */
+	final def maxSize_!(collection :IterableOnce[_], size :Int) :Nothing =
+		throw MaxSizeReachedException(() => errorString(collection) + " reached maximum size: " + size + ".")
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]].
+	  * @param size  the current size of a collection.
+	  * @param delta new elements added to the collection.
+	  * @param limit the upper bound on the collection's size exceeded by `size + delta`.
+	  */
+	final def maxSize_!(size :Int, delta :Int, limit :Int) :Nothing =
+		throw MaxSizeReachedException("Cannot add " + delta + " elements to " + size + ": " + limit + " limit exceeded.")
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]].
+	  * @param collection a collection operation on which lead to throwing this exception.
+	  * @param delta      the number of new elements added to the collection, which would exceed the size limit.
+	  * @param limit      the upper bound on the collection's size exceeded by `collection.size + delta`.
+	  */
+	final def maxSize_!(collection :IterableOnce[_], delta :Int, limit :Int = Int.MaxValue) :Nothing =
+		throw MaxSizeReachedException(
+			() => "Cannot add " + delta + " elements to " + errorString(collection) + ": " + limit + " exceeded."
+		)
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]].
+	  * @param collection a collection operation on which lead to throwing this exception.
+	  * @param extra      new elements added to the collection causing it to exceed the size limit.
+	  */
+	final def maxSize_!(collection :IterableOnce[_], extra :IterableOnce[_]) :Nothing =
+		throw MaxSizeReachedException(
+			() => "Cannot add " + errorString(extra) + " to " + errorString(collection) + ": maximum size reached."
+		)
+
+	/** Throws an [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]].
+	  * @param collection a collection operation on which lead to throwing this exception.
+	  * @param extra      new elements added to the collection causing it to exceed the size limit.
+	  */
+	final def maxSize_!(collection :IterableOnce[_], extra :IterableOnce[_], limit :Int) :Nothing =
+		throw MaxSizeReachedException(
+			() => "Cannot add " + errorString(extra) + " to " + errorString(collection) +
+				": maximum " + limit + " size reached."
+		)
+
 
 	/** Throws a [[NullPointerException]] with the given message.
 	  * This method is useful for reducing calling methods bytecode size.
@@ -511,6 +578,15 @@ trait imports {
 	  * This method is useful for reducing calling methods bytecode size.
 	  */
 	final def concurrent_!(msg :String) :Nothing = throw SugaredConcurrentModificationException(msg)
+
+
+	private def errorString(items :IterableOnce[_]) :String = {
+		val size = items.knownSize
+		if (size >= 0) className(items) + '|' + size + '|' else className(items)
+	}
+	private def errorString(items :ArrayLike[_]) :String =
+		items.className + '|' + items.asInstanceOf[Array[_]].length + '|'
+
 }
 
 

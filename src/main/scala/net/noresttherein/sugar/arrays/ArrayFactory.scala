@@ -12,7 +12,7 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, BufferFullException, Builders, ViewBuffer}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.{illegal_!, maxSize_!}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.Specialized.NotUnit
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -261,11 +261,8 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 		private[this] var size :Int = if (buffer == null) 0 else buffer.length
 
 		private def maxArraySizeExceeded(extra :Int) =
-			throw new BufferFullException(
-				if (size == MaxSize) "Maximum array size reached."
-				else "Cannot add " + extra + " elements to " + size.toString + ": maximum array size exceeded."
-			)
-
+			if (size == MaxSize) maxSize_!("Maximum array size reached")
+			else maxSize_!("Cannot add " + extra + " elements to " + size.toString + ": maximum array size exceeded.")
 
 		override def sizeHint(size :Int) :Unit =
 			if (size > this.size & size <= MaxSize)

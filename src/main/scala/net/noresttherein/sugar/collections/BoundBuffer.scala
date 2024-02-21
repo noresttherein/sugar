@@ -7,7 +7,7 @@ import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Buffer, IndexedBuf
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
 import net.noresttherein.sugar.collections.util.knownEmpty
-import net.noresttherein.sugar.exceptions.{SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
+import net.noresttherein.sugar.exceptions.{MaxSizeReachedException, SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.funny.generic
 
@@ -957,8 +957,6 @@ private sealed class PrependingIndexedBuffer[E](underlying :IndexedBuffer[E], su
 
 /** An exception thrown when elements are added to a buffer which does not have enough capacity to accommodate them. */
 @SerialVersionUID(Ver)
-class BufferFullException(msg :String, cause :Throwable = null)
-	extends RuntimeException(msg, cause) with SugaredException
-{
+class BufferFullException(msg :String, cause :Throwable = null) extends MaxSizeReachedException(msg, null, cause) {
 	def this() = this("buffer full")
 }
