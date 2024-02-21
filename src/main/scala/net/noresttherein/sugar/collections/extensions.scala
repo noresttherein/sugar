@@ -2290,22 +2290,741 @@ object extensions extends extensions {
 
 
 
-	//todo: return C instead of CC everywhere where possible by using util.fromSpecific
-	/** Additional extension methods for collections of the standard library framework.
-	  * The common theme is performing mapping with help of a passed state/accumulator value.
+	/** Extension methods for [[scala.collection.Iterable Iterable]] and [[scala.collection.Iterator Iterator]],
+      * requiring a collection to extend [[scala.collection.IterableOnceOps IterableOnceOps]]`[E, CC, C]`.
+	  * Extracted for documentation.
+	  * @define Coll `Iterable`
 	  * @define coll collection
+	  * @tparam E  the element type of this $coll.
+	  * @tparam CC the type constructor for this $coll kind.
+	  * @tparam C  the specific type of this $coll, returned by slicing/filtering methods.
+	  * @tparam I  a type constructor of collections accepted as method arguments.
 	  */
-	class IterableExtension[E, CC[X], C] private[collections] (private val self :IterableOps[E, CC, C]) extends AnyVal {
-		@inline private def coll :C = self.drop(0)
-		//todo: lazyZipAll, lazyZipEven
-
+	sealed trait IterableOnceOpsExtensionMethods[E, CC[_], C, I[_]] extends Any {
 		/** Same as `this.zip(that)`, but throws a [[NoSuchElementException]] if the collections
 		  * are not of the same size. If this collection is strict, or both collections have `knownSize >= 0`,
 		  * then the exception will be thrown by this method.
 		  * In the other case, it will be thrown when iterating over the result.
 		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipEven[X](that :IterableOnce[X]) :CC[(E, X)] = {
+		def zipEven[X](that :I[X]) :CC[(E, X)]
+
+		/** Zips this collection with another one and maps the result in one step.
+		  * No intermediate collection is created, and the mapping function accepts two arguments rather than a tuple,
+		  * making it more convenient to use with placeholder parameters.
+		  */
+		def zipMap[X, O](that :I[X])(f :(E, X) => O) :CC[O]
+
+		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IterableOnceOpsExtensionMethods.zipMap zipMap]],
+		  * but throws a [[NoSuchElementException]] if the collections are not of the same size. If this collection
+		  * is strict, or both collections have `knownSize >= 0`, then the exception will be thrown by this method.
+		  * In the other case, it will be thrown when iterating over the result.
+		  */
+		@throws[NoSuchElementException]("if the collections are not of the same size")
+		def zipMapEven[X, O](that :I[X])(f :(E, X) => O) :CC[O]
+
+		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step and the argument function
+		  * takes two arguments instead of a pair, which makes it possible to use with lambda placeholder parameters.
+		  */
+		def zipMapAll[X, O](that :I[X], thisElem :E, thatElem :X)(f :(E, X) => O) :CC[O]
+
+		/** Equivalent to `this.zip(rights).map`, but takes a two argument function instead of a function of a pair,
+		  * which makes it possible to use with placeholder lambda parameters.
+		  */
+		def zipFlatMap[X, O](that :I[X])(f :(E, X) => IterableOnce[O]) :CC[O]
+
+		/** Equivalent to
+		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceOpsExtensionMethods.zipFlatMap zipFlatMap]],
+		  * but throws a [[NoSuchElementException]] if the collections are not of the same size. If this collection
+		  * is strict, or both collections have `knownSize >= 0`, then the exception will be thrown by this method.
+		  * In the other case, it will be thrown when iterating over the result.
+		  */
+		@throws[NoSuchElementException]("if the collections are not of the same size")
+		def zipFlatMapEven[X, O](that :I[X])(f :(E, X) => IterableOnce[O]) :CC[O]
+
+		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step
+		  * and the argument function takes two arguments instead of a pair, which makes it possible to use
+		  * with lambda placeholder parameters.
+		  */
+		def zipFlatMapAll[X, O](that :I[X], thisElem :E, thatElem :X)(f :(E, X) => IterableOnce[O]) :CC[O]
+
+		/** Similar to [[scala.collection.IterableOps.zip zip]], except it zips three collections at once. */
+		def zip3[A, B](second :I[A], third :I[B]) :CC[(E, A, B)]
+
+		/** Zips three collections, throwing a [[NoSuchElementException]] if they are of different sizes.
+		  * If this collection is strict, or all collections have `knownSize >= 0`, then the exception
+		  * will be thrown by this method. In the other case, it will be thrown when iterating over the result.
+		  */
+		@throws[NoSuchElementException]("if the collections are not of the same size")
+		def zipEven3[A, B](second :I[A], third :I[B]) :CC[(E, A, B)]
+
+		/** Similar to [[scala.collection.IterableOps.zipAll zipAll]], but zips three collections at once. */
+		def zipAll3[U >: E, A, B](second :I[A], third :I[B], thisElem :U, secondElem :A, thirdElem :B) :CC[(U, A, B)]
+
+		/** A $coll of consecutive elements in this $coll. This is similar to `this.sliding(2)`,
+		  * but the elements are returned as tuples, and a singleton collection always returns an empty $coll.
+		  * @return an empty $Coll of the same type if this collection has fewer than two elements,
+		  *         or `this.zip(this.tail)` otherwise (but possibly in a more efficient manner).
+		  */
+		def zipTail :CC[(E, E)]
+
+		/** Maps this $coll from left to right with an accumulating state updated by the mapping function.
+		  * The state is discarded after the operation and only the mapping results (the second elements
+		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
+		  * as this $Coll.
+		  */
+		def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :CC[O]
+
+		/** Flat maps this $coll from left to right with an accumulating state updated by the mapping function.
+		  * The state is discarded after the operation and only the mapping results (the collections returned by
+		  * by the given function) are returned in a $Coll of the same dynamic type as this collection.
+		  */
+		def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :CC[O]
+
+		/** Maps this $coll in order consistent with `foreach`, passing as the second argument the index
+		  * of the mapped element.
+		  */
+		def mapWithIndex[O](f :(E, Int) => O) :CC[O]
+
+		/** Flat maps this $coll in order consistent with `foreach`, passing as the second argument the index
+		  * of the mapped element in this collection (that is, the number of elements processed before it).
+		  */
+		def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :CC[O]
+
+		/** Similar to [[collection.IterableOnceOps.collect collect]], but the collecting function takes a tuple
+		  * consisting of a collection element and its position in the iteration order of this $coll.
+		  */
+		def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :CC[O]
+
+		/** Maps this $coll from left to right with an accumulating state updated by the mapping function
+		  * for as long as the state passes a given predicate. If `!pred(z)`, an empty $coll is returned.
+		  * Otherwise, the last included element is the one returned by `f` together with the first state not satisfying
+		  * the predicate. The state is discarded after the operation and only the mapping results (the second elements
+		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
+		  * as this $Coll.
+		  */
+		//Consider: the order of parameters to f. On one side, it works as a foldLeft, but on the other like mapWith
+		def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :CC[O]
+
+		/** Flat maps this $coll from left to right with an accumulating state updated by the mapping function
+		  * for as long as the state passes a given predicate. If `!pred(z)`, an empty $coll is returned.
+		  * Otherwise, the last included elements are those in the collection returned by `f` together
+		  * with the first state not satisfying the predicate.
+		  * The state is discarded after the operation and only the mapping results (the collections returned by
+		  * by the given function) are returned in a collection of the same dynamic type as this $Coll.
+		  */
+		def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :CC[O]
+
+		/** Maps this $coll from left to right with an accumulating state updated by the mapping function
+		  * for as long as the function returns `false` on the first position. If this $coll is empty,
+		  * an empty $coll is returned. Otherwise `f` is applied first to `(z, this.head)`, and  then,
+		  * recursively, to the second element of the previously returned triple and the next element of this $coll.
+		  * The process continues until `f` returns `(true, _, _)`, when the mapped element, and all remaining elements
+		  * of this $coll, are ignored.
+		  * @param z initial state, passed as the first argument when calling `f` for the first time.
+		  * @param f an all-in-one function, which takes the state returned when mapping the previous element,
+		  *          an element of the $coll, and returns, in order: answer to the question if mapping should stop,
+		  *          an updated state value, and the value to which the $coll element is mapped.
+		  * @return  A $Coll of the same kind, containing the third elements of the triples returned by
+		  *          the given function applied to initial elements of this $coll and a previously updated state,
+		  *          until it returns `false`.
+		  */
+		def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :CC[O]
+
+		/** Flat maps this $coll from left to right with an accumulating state updated by the mapping function
+		  * for as long as the function returns `false` on the first position. If this $coll is empty,
+		  * an empty $coll is returned. Otherwise, `f` is applied first to `(z, head)`, and then, recursively,
+		  * to the second value in the previously returned triple and the next element of this $coll.
+		  * If at any point the function returns `(true, _, _)`, all remaining elements of this $coll
+		  * are ignored, and previously returned collections (not including the one returned by mapping the last element)
+		  * are concatenated into a collection of the same kind as this one.
+		  * @param z initial state, passed as the first argument when calling `f` for the first time.
+		  * @param f an all-in-one function, which takes the state returned when mapping the previous element,
+		  *          an element of the collection, and returns, in order: answer to the question if mapping should stop,
+		  *          an updated state value, and a collection of subsequent elements of the final result.
+		  * @return A $Coll of the same kind, containing, in order, all elements included in the collections
+		  *         returned by applying the given function to initial elements of this $coll
+		  *         and a previously updated state, until the function returns `true` as the first value.
+		  */
+		def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :CC[O]
+
+		/** Maps initial elements of this $coll, passing updated state between each function application.
+		  * If this $coll is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
+		  * and then, recursively, to the first element of previously returned pair and the next element
+		  * in this $coll. Once `f` returns `None`, mapping stops, and second elements of all pairs previously
+		  * returned by the mapping function are returned.
+		  * @return {{{
+		  *         scanLeft(Option((z, null :E))) {
+		  *             case (Some(acc, _), elem) => f(acc, elem)
+		  *             case _                    => None
+		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
+		  *         }}}
+		  */
+		def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :CC[O]
+
+		/** A $coll of the same type, containing the elements of all collections returned by applying
+		  * the given function to the elements of this collection, and state updated by the same function
+		  * when mapping each element. If this $coll is empty, an empty $coll is returned.
+		  * Otherwise, `f` is applied to `(z, this.head)`, and then recursively to the first element of the returned
+		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
+		  * of this $coll are ignored.
+		  */
+		def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :CC[O]
+
+		/** Maps initial elements of this $coll, passing updated state between each function application.
+		  * If this $coll is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
+		  * and then, recursively, to the first element of previously returned pair and the next element
+		  * in this $coll. Once `f` returns `None`, mapping stops, and second elements of all pairs previously
+		  * returned by the mapping function are returned.
+		  * @return {{{
+		  *         scanLeft(Opt((z, null :E))) {
+		  *             case (One(acc, _), elem) => f(acc, elem)
+		  *             case _                   => None
+		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
+		  *         }}}
+		  */
+		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :CC[O]
+
+		/** A $coll of the same type, containing the elements of all collections returned by applying
+		  * the given function to the elements of this $coll, and state updated by the same function
+		  * when mapping each element. If this $coll is empty, an empty collection is returned.
+		  * Otherwise, `f` is applied to `(z, this.head)`, and then recursively to the first element of the returned
+		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
+		  * of this $coll are ignored.
+		  */
+		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :CC[O]
+
+//		/** Maps the elements of the $coll and reverses their order. The order in which the mapping function
+//		  * will be applied to the elements is undefined and depends on the runtime type of this collection.
+//		  * Note that if this $Coll is unordered, the order of the elements in the result
+//		  * is likewise undefined and depends on the implementation of this collection's builder.
+//		  * This operation is faster than `this.map(f).reverse`.
+//		  */
+//		def mapReverse[O](f :E => O) :CC[O]
+
+		/** Iterates over the $coll from left to right, keeping only those elements for which `pred`
+		  * returns `true` as the first pair element, all the while passing to it the latest right element as
+		  * the second argument.
+		  */
+		def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :C
+
+		/** Equivalent to `this.iterator.zipWithIndex.filter(x => pred(x._1, x._2)) to this.iterableFactory`.
+		  * For an `IndexedSeq`, prefer `(0 until length).collect { case i if pred(this(i), i) => this(i) }`.
+		  */
+		def filterWithIndex(pred :(E, Int) => Boolean) :C
+
+		/** Iterates over the $coll from left to right, splitting elements into those for which `pred`
+		  * returns `true` as the first pair element, and those for which it returns `false`,
+		  * all the while passing to it the latest right element as the second argument.
+		  */
+		def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(C, C)
+
+		/** Equivalent to `this.zipWithIndex.partition(x => pred(x._1, x._2))`, but possibly more efficient. */
+		def partitionWithIndex(pred :(E, Int) => Boolean) :(C, C)
+
+		/** Filters elements of this $coll based on their position in the iteration order.
+		  * For collections with unspecified order, the result may be different for different runs.
+		  * @return every element for whose index the predicate returns `true`, as an $coll of the same type.
+		  */ //consider: moving it to SeqExtension
+		def keep(pred :Int => Boolean) :C
+
+		/** Removes the duplicates from this $coll. If the $coll has an inherent order, it is preserved,
+		  * but it is unspecified which instance, out of all duplicates, is returned in the result.
+		  */
+		def distinct :C
+
+//		/** Removes the duplicates from this $coll, retaining the first occurrence of every element,
+//		  * and filtering out their any subsequent occurrences.
+//		  */ //consider: moving these two to SeqExtension
+//		def firstOccurrences :C
+//
+//		/** Removes the duplicates from this $coll, retaining the last occurrence of every element. */
+//		def lastOccurrences :C
+
+		/** A copy of this $coll with the element at the specified index removed.
+		  * If the index is  out of range, an [[IndexOutOfBoundsException]] will be thrown, either by this method,
+		  * or when traversing the returned $Coll (if this collection is lazy).
+		  *
+		  * Note: if you'd prefer the method to silently ignore indices out of range,
+		  * you can call `remove(index, index + 1)` instead.
+		  */ //fixme: this name clashes with Map.removed
+		@throws[IndexOutOfBoundsException]("if index < 0 or index >= size")
+		def removed(index :Int) :C
+
+		/** The reverse of [[scala.collection.IterableOnceOps.slice slice]]: cuts out a segment of this $coll
+		  * with elements starting with element `from` and ending before `until`.
+		  * For indices in range, it is equivalent to `this.take(from) ++ this.drop(until)`, but possibly faster.
+		  * Specifying `until <= from` results in returning the same instance (or an equal one,
+		  * for most mutable collections). Note that, unlike the single argument `remove(index)`, this method
+		  * will not throw an [[IndexOutOfBoundsException]], in line with other slicing methods.
+		  * @return `take(from) ++ drop(until)`, but possibly more efficiently.
+		  */
+		//The only way to implement this so it returns C is by using filter, and this will be less efficient,
+		// because we don't know the target size
+		def removed(from :Int, until :Int) :C
+
+	}
+
+
+
+	/** Adds the same extension methods to `Iterator`
+	  * as [[net.noresttherein.sugar.collections.extensions.IterableExtension IterableExtension]].
+	  * @define Coll `Iterator`
+	  * @define coll iterator
+	  */ //todo: move it up in the file after IterableOnceExtension
+	class IteratorExtension[E] private[collections](private val self :Iterator[E])
+		extends AnyVal with IterableOnceOpsExtensionMethods[E, Iterator, Iterator[E], Iterator]
+		   with SeqExtensionMethods[E, Iterator]
+	{
+		@inline def nextOpt() :Opt[E] = if (self.hasNext) One(self.next()) else None
+
+		/** Equivalent to `this.takeWhile(p).size`. */
+		def prefixLength(p :E => Boolean) :Int = {
+			var res = 0
+			while (self.hasNext && p(self.next()))
+				res += 1
+			res
+		}
+
+		override def zipEven[X](that :Iterator[X]) :Iterator[(E, X)] =
+			if (!self.hasNext && !that.hasNext) Iterator.empty
+			else Iterators.zipEven(self, that)
+
+		override def zipMap[X, O](that :Iterator[X])(f :(E, X) => O) :Iterator[O] =
+			if (!self.hasNext || !that.hasNext) Iterator.empty
+			else Iterators.zipMap(self, that)(f)
+
+		override def zipMapEven[X, O](that :Iterator[X])(f :(E, X) => O) :Iterator[O] =
+			if (!self.hasNext && !that.hasNext) Iterator.empty
+			else Iterators.zipMapEven(self, that)(f)
+
+		override def zipMapAll[X, O](that :Iterator[X], thisElem :E, thatElem :X)(f :(E, X) => O) :Iterator[O] =
+			if (!self.hasNext && !that.hasNext) Iterator.empty
+			else Iterators.zipMapAll(self, that, thisElem, thatElem)(f)
+
+		override def zipFlatMap[X, O](that :Iterator[X])(f :(E, X) => IterableOnce[O]) :Iterator[O] =
+			if (!self.hasNext || !that.hasNext) Iterator.empty
+			else Iterators.zipFlatMap(self, that)(f)
+
+		override def zipFlatMapEven[X, O](that :Iterator[X])(f :(E, X) => IterableOnce[O]) :Iterator[O] =
+			if (!self.hasNext && !that.hasNext) Iterator.empty
+			else Iterators.zipFlatMapEven(self, that)(f)
+
+		override def zipFlatMapAll[X, O](that :Iterator[X], thisElem :E, thatElem :X)
+		                                (f :(E, X) => IterableOnce[O]) :Iterator[O] =
+			if (!self.hasNext && !that.hasNext) Iterator.empty
+			else Iterators.zipFlatMapAll(self, that, thisElem, thatElem)(f)
+
+
+		override def zip3[A, B](second :Iterator[A], third :Iterator[B]) :Iterator[(E, A, B)] =
+			if (!self.hasNext && !second.hasNext && !third.hasNext) Iterator.empty
+			else Iterators.zip3(self, second, third)
+
+		override def zipEven3[A, B](second :Iterator[A], third :Iterator[B]) :Iterator[(E, A, B)] =
+			if (!self.hasNext && !second.hasNext && !third.hasNext) Iterator.empty
+			else Iterators.zipEven3(self, second, third)
+
+		override def zipAll3[U >: E, A, B](second :Iterator[A], third :Iterator[B],
+		                                   thisElem :U, secondElem :A, thirdElem :B) :Iterator[(U, A, B)] =
+			if (!self.hasNext && !second.hasNext && !third.hasNext)
+				Iterator.empty
+			else
+				Iterators.zipAll3(self, second, third, thisElem, secondElem, thirdElem)
+
+		override def zipTail :Iterator[(E, E)] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.zipTail(self)
+
+
+		override def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty[O]
+			else Iterators.mapWith(self, z, f)
+
+		override def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty[O]
+			else Iterators.flatMapWith(self, z, f)
+
+		override def mapWithIndex[O](f :(E, Int) => O) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty[O]
+			else Iterators.mapWithIndex(self, f)
+
+		override def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty[O]
+			else Iterators.flatMapWithIndex(self, f)
+
+		override def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty[O]
+			else Iterators.collectWithIndex(self, f)
+
+		//Consider: the order of parameters to f. On one side, it works as a foldLeft, but on the other like mapWith
+		override def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.mapWhile(self, z, pred, f)
+
+		//commented out until Scala 3
+/*
+		def mapWhile[O, A](z :A)(pred :(A, E) => Boolean)(f :(A, E) => (A, O)) :Iterator[O] =
+			if (!self.hasNext)
+				Iterator.empty[O]
+			else {
+				val b = self.iterableFactory.newBuilder[O]
+				val i = self.iterator
+				var acc = z
+				while (i.hasNext && {
+					val e = i.next()
+					pred(acc, e) && {
+						val (updated, out) = f(acc, e)
+						b += out
+						acc = updated
+						true
+					}
+				}) {}
+				b.result()
+			}
+*/
+
+		override def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.flatMapWhile(self, z, pred, f)
+
+		//Uncomment in Scala 3
+/*
+		def flatMapWhile[O, A](z :A)(pred :(A, E) => Boolean)(f :(A, E) => (A, IterableOnce[O])) :C[O] =
+			if (self.isEmpty)
+				self.iterableFactory.empty
+			else {
+				val b = self.iterableFactory.newBuilder[O]
+				val i = self.iterator
+				var acc = z
+				while (i.hasNext && {
+					val e = i.next()
+					pred(acc, e) && {
+						val (updated, out) = f(acc, e)
+						b ++= out
+						acc = updated
+						true
+					}
+				}) {}
+				b.result()
+			}
+*/
+		override def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.mapUntil(self, z, f)
+
+		override def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.flatMapUntil(self, z, f)
+
+		override def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.mapSome(self, z, f)
+
+		override def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.flatMapSome(self, z, f)
+
+		override def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.mapPrefix(self, z, f)
+
+		override def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :Iterator[O] =
+			if (!self.hasNext) Iterator.empty
+			else Iterators.flatMapPrefix(self, z, f)
+
+
+		override def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :Iterator[E] =
+			if (!self.hasNext) self
+			else Iterators.filterWith(self, z, pred)
+
+		override def filterWithIndex(pred :(E, Int) => Boolean) :Iterator[E] =
+			if (!self.hasNext) self
+			else Iterators.filterWithIndex(self, pred)
+
+		override def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(Iterator[E], Iterator[E]) =
+			if (!self.hasNext)
+				(self, self)
+			else {
+				val (i1, i2) = self.duplicate
+				(Iterators.filterWith(i1, z, pred), Iterators.filterWith(i2, z, pred, false))
+			}
+
+		override def partitionWithIndex(pred :(E, Int) => Boolean) :(Iterator[E], Iterator[E]) =
+			if (!self.hasNext)
+				(self, self)
+			else {
+				val (i1, i2) = self.duplicate
+				(Iterators.filterWithIndex(i1, pred), Iterators.filterWithIndex(i2, pred, false))
+			}
+
+		override def keep(pred :Int => Boolean) :Iterator[E] = Iterators.keep(self, pred)
+
+		override def distinct :Iterator[E] = Iterators.distinct(self)
+
+
+		@throws[IndexOutOfBoundsException]("if index is negative, or this.knownSize is non negative and not greater than index.")
+		override def removed(index :Int) :Iterator[E] =
+			if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
+				outOfBounds_!(index)
+			else if (index == 0)
+				if (self.hasNext) self.drop(1)
+				else outOfBounds_!("0 out of 0")
+			else
+				Iterators.removed(self, index)
+
+		//Consider: Buffer.remove validates arguments. Should we also do it for consistency?
+		//Consider: taking count instead of until as an argument, the same as in Buffer.remove
+		override def removed(from :Int, until :Int) :Iterator[E] =
+			if (until <= 0 | until <= from || !self.hasNext)
+				self
+			else {
+				val size = self.knownSize
+				val nonNegFrom = math.max(from, 0)
+				val nonNegUntil = math.max(until, 0)
+				if (size >= 0 && from >= size)
+					self
+				else
+					Iterators.removed(self, nonNegFrom, nonNegUntil)
+			}
+
+		/** An iterator which substitutes `index`-th element in this iterator with `elem`.
+		  * If `index` is less than zero, or greater or equal to the number of iterated elements,
+		  * an [[IndexOutOfBoundsException]] will be thrown; if `index` is negative, or this iterator has known size,
+		  * it will be thrown by this method. Otherwise, the exception will be thrown when the returned iterator
+		  * exhausts this iterator's elements, without reaching `index`. This validation does not happen if
+		  * the number of elements in the iterator is later explicitly limited by `take`/`slice`.
+		  * Methods which leave the iterator in an undefined state, such as `copyToArray`,
+		  * may - or may not - enforce index validation if the iterator has advanced to it.
+		  */
+		def updated[U >: E](index :Int, elem :U) :Iterator[U] =
+			if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
+				outOfBounds_!(self.toString + ".updated(" + index + ", _)")
+			else
+				Iterators.updated(self, index, elem)
+
+		/** An iterator which substitutes `index`-th and following elements in this iterator with values returned
+		  * by `elems`. If `index` is less than zero, or greater or equal to the number of iterated elements minus
+		  * the number of elements in the patch iterator, an [[IndexOutOfBoundsException]] will be thrown.
+		  * If `index` is negative, or exceeds this iterator's size, if it is known, or `index > this.size - elems.size`
+		  * and the sizes of both iterators are known, it will be thrown by this method.
+		  * Otherwise, the exception will be thrown when the returned iterator exhausts this iterator's elements,
+		  * without reaching `index` and/or exhausting `elems` iterator. If, however, before that the iterator
+		  * is instead sliced, taking fewer than `index` elements (relative to the current position),
+		  * this validation will not trigger. Methods which leave the iterator in an undefined state,
+		  * such as `copyToArray`, may - or may not - enforce index validation if the iterator has advanced to it.
+		  * @return An iterator with the same elements (but with additional validation described above) as
+		  *         {{{
+		  *             this.zipWithIndex.map {
+		  *                 case (_, i) if i >= index && elems.hasNext => elems.next()
+		  *                 case (e, _) => e
+		  *             }
+		  *        }}}
+		  */ //consider: changing elems type to Iterator[U]
+		//todo: implementing validation prevents efficient slice. We should overhaul all iterators to not validate.
+		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :Iterator[U] =
+			Iterators.updatedAll(self, index, elems)
+
+		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :Iterator[U] =
+			Iterators.overwritten(self, index, elems)
+
+		/** An iterator which returns the given value between the `index`-th and `index + 1`-th elements
+		  * of this iterator. If `index` is less than zero, or greater than the number of iterated elements,
+		  * an [[IndexOutOfBoundsException]] will be thrown. If `index` is negative,
+		  * or `index > this.knownSize && this.knownSize >= 0`, then the exception will be thrown by this method.
+		  * Otherwise, it will be thrown when the iterator reaches its last element, unless its number of elements
+		  * is later explicitly limited by `take`/`slice`.
+		  * Methods which leave the iterator in an undefined state, such as `copyToArray`,
+		  * may - or may not - enforce index validation if the iterator has advanced to it.
+		  * @return An iterator equivalent to `this.take(index) ++ Iterator.single(elem) ++ this`
+		  *         (note that `this` appended as last will iterate over elements past `index`, as the preceding
+		  *         ones are consumed by `this.take(index)`).
+		  */ //todo: permissive indexing
+		override def inserted[U >: E](index :Int, elem :U) :Iterator[U] =
+			Iterators.inserted(self, index, elem)
+
+		/** An iterator which returns elements of `elems` between the elements at positions `index` and `index + 1`
+		  * in this iterator. If `index` is less than zero, or greater than the number of iterated elements,
+		  * an [[IndexOutOfBoundsException]] will be thrown. If `index` is negative,
+		  * or `index > this.knownSize && this.knownSize >= 0`, then the exception will be thrown by this method.
+		  * Otherwise, it will be thrown when the iterator reaches its last element, unless its number of elements
+		  * is later explicitly limited by `take`/`slice`.
+		  * Methods which leave the iterator in an undefined state, such as `copyToArray`,
+		  * may - or may not - enforce index validation if the iterator has advanced to it.
+		  * @return An iterator equivalent to `this.take(index) ++ elems ++ this`
+		  *         (note that `this` appended as last will iterate over elements past `index`, as the preceding
+		  *         ones are consumed by `this.take(index)`).
+		  */
+		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :Iterator[U] =
+			Iterators.insertedAll(self, index, elems)
+
+		/** An iterator which returns `elem` after all the elements of this iterator.
+		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
+		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
+		  */
+		@inline def +[U >: E](elem :U) :Iterator[U] = appended(elem)
+
+		/** An iterator which returns `elem` after all the elements of this iterator.
+		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
+		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
+		  */
+		@inline def add[U >: E](elem :U) :Iterator[U] = appended(elem)
+
+		/** An iterator which returns `elem` after all the elements of this iterator.
+		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
+		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
+		  */
+		@inline def :+[U >: E](elem :U) :Iterator[U] = appended(elem)
+
+		/** An iterator which returns `elem` after all the elements of this iterator.
+		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
+		  */
+		def appended[U >: E](elem :U) :Iterator[U] = Iterators.appended(self, elem)
+
+		/** Equivalent to `this ++ Iterator.single(first) ++ Iterator.single(second) ++ rest`.
+		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
+		  * making it a slightly more efficient alternative.
+		  */
+		def appended[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
+			if (knownEmpty(rest))
+				Iterators.concat(self, Iterator.two(first, second))
+			else
+				Iterators.concat(self, Iterators.concat(Iterator.two(first, second), rest.iterator))
+
+		/** Equivalent to `this ++ elems`, but the argument is not lazy,
+		  * making the implementation slightly more efficient.
+		  */
+		@inline def :++[U >: E](elems :IterableOnce[U]) :Iterator[U] = appendedAll(elems)
+
+		/** Equivalent to `this ++ elems`, but the argument is not lazy,
+		  * making the implementation slightly more efficient.
+		  */
+		def appendedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
+			if (knownEmpty(elems)) self
+			else Iterators.concat(self, elems.iterator)
+
+		/** An iterator which returns `elem` as its first element, followed by all elements of this iterator. */
+		@inline def +:[U >: E](elem :U) :Iterator[U] = prepended(elem)
+
+		/** An iterator which returns `elem` as its first element, followed by all elements of this iterator. */
+		def prepended[U >: E](elem :U) :Iterator[U] =
+			if (self.hasNext) Iterators.prepended(self, elem)
+			else Iterator.single(elem)
+
+		/** Equivalent to `Iterator.single(first) ++ Iterator.single(second) ++ rest ++ this`.
+		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
+		  * making it a slightly more efficient alternative.
+		  */
+		def prepended[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
+			if (knownEmpty(rest))
+				Iterators.concat(Iterator.two(first, second), self)
+			else
+				Iterators.concat(Iterators.concat(Iterator.two(first, second), rest.iterator), self)
+
+		/** Equivalent to `Iterator.single(first) ++ Iterator.single(second) ++ rest ++ this`.
+		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
+		  * making it a slightly more efficient alternative.
+		  */
+		@inline def ++:[U >: E](elems :IterableOnce[U]) :Iterator[U] = prependedAll(elems)
+
+		/** Equivalent to `elems.iterator ++ this`. Unlike the standard `Iterator.`[[collection.Iterator.concat concat]],
+		  *  the arguments are not lazy, making it a slightly more efficient alternative.
+		  */
+		def prependedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
+			if (knownEmpty(elems)) self
+			else Iterators.concat(elems.iterator, self)
+
+		/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this validator;
+		  * instead, iterators returned by those methods share the same underlying state,
+		  * including a counter of already returned elements.
+		  * Calling `take` on this iterator returns a new iterator, which will not return elements past a certain index.
+		  * This iterator remains unaffected by the call itself, or `take` called on the latter iterator,
+		  * but advancing the latter - via `next` or `drop` - automatically also advances this iterator
+		  * by the same number of elements, and vice versa.
+		  *
+		  * Likewise, `copyToArray` is guaranteed to advance this iterator - and all created by it -
+		  * exactly by the number of written elements, as returned by the method.
+		  * Note that `splitAt(n)` is different from `val drop = safe; (drop.take(n), drop)`
+		  * in that the iterators in the former case are independent, while in the latter case advancing one
+		  * advancing another, and `drop.next()` returns `this.next()`, not `this.drop(n).next()`.
+		  * @example
+		  * {{{
+		  *     val iter   = source.iterator.safe
+		  *     val arrays = Array.ofDim[Int](n, m)
+		  *     var i = 0
+		  *     while (iter.hasNext && i < n) {
+		  *         iter.take(m).copyToArray(arrays(i))
+		  *         i += 1
+		  *     }
+		  * }}}
+		  */
+		def safe :Iterator[E] = Iterators.slicer(self)
+
+		/** An iterator maintaining a counter of elements advanced over, accessible through method
+		  * [[net.noresttherein.sugar.collections.CountingIterator.total total]].
+		  */
+		@inline def counting :CountingIterator[E] = new CountingIterator(self)
+//
+//		/** Same as [[collection.Iterator.copyToArray copyToArray]], but accepts a boxing array. */
+//		@inline def copyToRefArray[A >: E](xs :RefArray[A], start :Int = 0, len :Int = Int.MaxValue) :Int =
+//			self.copyToArray(xs.asInstanceOf[Array[Any]], start, len)
+
+		/** Copies the elements of this iterator to the given array, starting at position `start`.
+		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
+		  * whichever is smaller. If the end of the array is reached before any of the above happens,
+		  * copying resumes from the beginning of the array.
+		  */ //todo: integrate this method into IterableOnceExtension.cyclicCopyToArray
+		def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int = Int.MaxValue) :Int = {
+			val size = self.knownSize
+			val length = xs.length
+			val suffixSpace = length - start
+			if (size == 0 | len <= 0 | length == 0)
+				0
+			else if (start < 0)
+				outOfBounds_!(start, xs.length)
+			else if (len <= suffixSpace | size >= 0 & size <= suffixSpace)
+				self.copyToArray(xs, start, len)
+			else if (self.isInstanceOf[ArrayIterator[_]] || self.isInstanceOf[CyclicArrayIterator[_]]) {
+				//consider: a more generic test, which will include at least MatrixBufferIterator
+				self.copyToArray(xs, start, len) + self.copyToArray(xs, 0, len - suffixSpace)
+			} else if (size >= 0) {
+				val (suffix, prefix) = self.splitAt(suffixSpace)
+				val copied = math.min(math.min(len, size), length)
+				suffix.copyToArray(xs, start, suffixSpace)
+				prefix.copyToArray(xs, 0, copied - suffixSpace)
+				copied
+			} else {
+				var i = start
+				var end = if (len <= suffixSpace) start + len else length
+				var copied = -start
+				while (copied < len && self.hasNext) {
+					while (i < end && self.hasNext) {
+						xs(i) = self.next()
+						i += 1
+					}
+					copied += i
+					i   = 0
+					end = math.min(start, len - suffixSpace)
+				}
+				copied
+			}
+		}
+	}
+
+
+
+	//todo: return C instead of CC everywhere where possible by using util.fromSpecific
+	/** Additional extension methods for collections of the standard library framework.
+	  * The common theme is performing mapping with help of a passed state/accumulator value.
+	  * @define coll collection
+	  */
+	class IterableExtension[E, CC[X], C] private[collections] (private val self :IterableOps[E, CC, C])
+		extends AnyVal with IterableOnceOpsExtensionMethods[E, CC, C, IterableOnce]
+	{
+		@inline private def coll :C = self.drop(0)
+		//todo: lazyZipAll, lazyZipEven
+
+		@throws[NoSuchElementException]("if the collections are not of the same size")
+		override def zipEven[X](that :IterableOnce[X]) :CC[(E, X)] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
 				factory.empty
@@ -2315,11 +3034,7 @@ object extensions extends extensions {
 				factory from Iterators.zipEven(self.iterator, that.iterator)
 		}
 
-		/** Zips this collection with another one and maps the result in one step.
-		  * No intermediate collection is created, and the mapping function accepts two arguments rather than a tuple,
-		  * making it more convenient to use with placeholder parameters.
-		  */
-		def zipMap[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] = {
+		override def zipMap[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2329,13 +3044,8 @@ object extensions extends extensions {
 				factory from Iterators.zipMap(self.iterator, that.iterator)(f)
 		}
 
-		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IterableExtension.zipMap zipMap]],
-		  * but throws a [[NoSuchElementException]] if the collections are not of the same size. If this collection
-		  * is strict, or both collections have `knownSize >= 0`, then the exception will be thrown by this method.
-		  * In the other case, it will be thrown when iterating over the result.
-		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipMapEven[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] = {
+		override def zipMapEven[X, O](that :IterableOnce[X])(f :(E, X) => O) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
 				factory.empty
@@ -2345,10 +3055,7 @@ object extensions extends extensions {
 				factory from Iterators.zipMapEven(self.iterator, that.iterator)(f)
 		}
 
-		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step and the argument function
-		  * takes two arguments instead of a pair, which makes it possible to use with lambda placeholder parameters.
-		  */
-		def zipMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => O) :CC[O] = {
+		override def zipMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => O) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
 				factory.empty
@@ -2358,10 +3065,7 @@ object extensions extends extensions {
 				factory from Iterators.zipMapAll(self.iterator, that.iterator, thisElem, thatElem)(f)
 		}
 
-		/** Equivalent to `this.zip(rights).map`, but takes a two argument function instead of a function of a pair,
-		  * which makes it possible to use with placeholder lambda parameters.
-		  */
-		def zipFlatMap[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] = {
+		override def zipFlatMap[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
 				factory.empty
@@ -2371,13 +3075,8 @@ object extensions extends extensions {
 				factory from Iterators.zipFlatMap(self.iterator, that.iterator)(f)
 		}
 
-		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IterableExtension.zipFlatMap zipFlatMap]],
-		  * but throws a [[NoSuchElementException]] if the collections are not of the same size. If this collection
-		  * is strict, or both collections have `knownSize >= 0`, then the exception will be thrown by this method.
-		  * In the other case, it will be thrown when iterating over the result.
-		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipFlatMapEven[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] = {
+		override def zipFlatMapEven[X, O](that :IterableOnce[X])(f :(E, X) => IterableOnce[O]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
 				factory.empty
@@ -2387,11 +3086,9 @@ object extensions extends extensions {
 				factory from Iterators.zipFlatMapEven(self.iterator, that.iterator)(f)
 		}
 
-		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step
-		  * and the argument function takes two arguments instead of a pair, which makes it possible to use
-		  * with lambda placeholder parameters.
-		  */
-		def zipFlatMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)(f :(E, X) => IterableOnce[O]) :CC[O] = {
+		override def zipFlatMapAll[X, O](that :IterableOnce[X], thisElem :E, thatElem :X)
+		                                (f :(E, X) => IterableOnce[O]) :CC[O] =
+		{
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(that))
 				factory.empty
@@ -2402,8 +3099,7 @@ object extensions extends extensions {
 		}
 
 
-		/** Similar to [[scala.collection.IterableOps.zip zip]], except it zips three collections at once. */
-		def zip3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] = {
+		override def zip3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(second) && knownEmpty(third))
 				factory.empty
@@ -2413,12 +3109,8 @@ object extensions extends extensions {
 				factory from Iterators.zip3(self.iterator, second.iterator, third.iterator)
 		}
 
-		/** Zips three collections, throwing a [[NoSuchElementException]] if they are of different sizes.
-		  * If this collection is strict, or all collections have `knownSize >= 0`, then the exception
-		  * will be thrown by this method. In the other case, it will be thrown when iterating over the result.
-		  */
 		@throws[NoSuchElementException]("if the collections are not of the same size")
-		def zipEven3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] = {
+		override def zipEven3[A, B](second :IterableOnce[A], third :IterableOnce[B]) :CC[(E, A, B)] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(second) && knownEmpty(third))
 				factory.empty
@@ -2428,9 +3120,8 @@ object extensions extends extensions {
 				factory from Iterators.zipEven3(self.iterator, second.iterator, third.iterator)
 		}
 
-		/** Similar to [[scala.collection.IterableOps.zipAll zipAll]], but zips three collections at once. */
-		def zipAll3[U >: E, A, B](second :IterableOnce[A], third :IterableOnce[B],
-		                          thisElem :U, secondElem :A, thirdElem :B) :CC[(U, A, B)] =
+		override def zipAll3[U >: E, A, B](second :IterableOnce[A], third :IterableOnce[B],
+		                                   thisElem :U, secondElem :A, thirdElem :B) :CC[(U, A, B)] =
 		{
 			val factory = self.iterableFactory
 			if (knownEmpty(self) && knownEmpty(second) && knownEmpty(third))
@@ -2445,12 +3136,7 @@ object extensions extends extensions {
 				)
 		}
 
-		/** A collection of consecutive elements in this collection. This is similar to `this.sliding(2)`,
-		  * but the elements are returned as tuples, and a singleton collection always returns an empty collection.
-		  * @return an empty collection of the same type if this collection has fewer than two elements,
-		  *         or `this.zip(this.tail)` otherwise (but possibly in a more efficient manner).
-		  */
-		def zipTail :CC[(E, E)] = {
+		override def zipTail :CC[(E, E)] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self)) factory.empty
 			else if (factory eq View) factory from Views.zipTail(self)
@@ -2458,12 +3144,7 @@ object extensions extends extensions {
 		}
 
 
-		/** Maps this collection from left to right with an accumulating state updated by the mapping function.
-		  * The state is discarded after the operation and only the mapping results (the second elements
-		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
-		  * as this collection.
-		  */
-		def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :CC[O] = {
+		override def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty[O]
@@ -2473,11 +3154,7 @@ object extensions extends extensions {
 				factory from Iterators.mapWith(self.iterator, z, f)
 		}
 
-		/** Flat maps this collection from left to right with an accumulating state updated by the mapping function.
-		  * The state is discarded after the operation and only the mapping results (the collections returned by
-		  * by the given function) are returned in a collection of the same dynamic type as this collection.
-		  */
-		def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :CC[O] = {
+		override def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty[O]
@@ -2487,10 +3164,7 @@ object extensions extends extensions {
 				factory from Iterators.flatMapWith(self.iterator, z, f)
 		}
 
-		/** Maps this collection in order consistent with `foreach`, passing as the second argument the index
-		  * of the mapped element.
-		  */
-		def mapWithIndex[O](f :(E, Int) => O) :CC[O] = {
+		override def mapWithIndex[O](f :(E, Int) => O) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty[O]
@@ -2500,10 +3174,7 @@ object extensions extends extensions {
 				factory from Iterators.mapWithIndex(self.iterator, f)
 		}
 
-		/** Flat maps this collection in order consistent with `foreach`, passing as the second argument the index
-		  * of the mapped element in this collection (that is, the number of elements processed before it).
-		  */
-		def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :CC[O] = {
+		override def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty[O]
@@ -2513,10 +3184,7 @@ object extensions extends extensions {
 				factory from Iterators.flatMapWithIndex(self.iterator, f)
 		}
 
-		/** Similar to [[collection.IterableOnceOps.collect collect]], but the collecting function takes a tuple
-		  * consisting of a collection element and its position in the iteration order of this collection.
-		  */
-		def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :CC[O] = {
+		override def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2526,15 +3194,7 @@ object extensions extends extensions {
 				factory from Iterators.collectWithIndex(self.iterator, f)
 		}
 
-		/** Maps this collection from left to right with an accumulating state updated by the mapping function
-		  * for as long as the state passes a given predicate. If `!pred(z)`, an empty collection is returned.
-		  * Otherwise, the last included element is the one returned by `f` together with the first state not satisfying
-		  * the predicate. The state is discarded after the operation and only the mapping results (the second elements
-		  * of the tuples returned by the given function) are returned in a collection of the same dynamic type
-		  * as this collection.
-		  */
-		//Consider: the order of parameters to f. On one side, it works as a foldLeft, but on the other like mapWith
-		def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :CC[O] = {
+		override def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2566,14 +3226,7 @@ object extensions extends extensions {
 			}
 */
 
-		/** Flat maps this collection from left to right with an accumulating state updated by the mapping function
-		  * for as long as the state passes a given predicate. If `!pred(z)`, an empty collection is returned.
-		  * Otherwise, the last included elements are those in the collection returned by `f` together
-		  * with the first state not satisfying the predicate.
-		  * The state is discarded after the operation and only the mapping results (the collections returned by
-		  * by the given function) are returned in a collection of the same dynamic type as this collection.
-		  */
-		def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :CC[O] = {
+		override def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2604,21 +3257,8 @@ object extensions extends extensions {
 				b.result()
 			}
 */
-		/** Maps this collection from left to right with an accumulating state updated by the mapping function
-		  * for as long as the function returns `false` on the first position. If this collection is empty,
-		  * an empty collection is returned. Otherwise `f` is applied first to `(z, this.head)`, and  then,
-		  * recursively, to the second element of the previously returned triple and the next element of this collection.
-		  * The process continues until `f` returns `(true, _, _)`, when the mapped element, and all remaining elements
-		  * of this collection, are ignored.
-		  * @param z initial state, passed as the first argument when calling `f` for the first time.
-		  * @param f an all-in-one function, which takes the state returned when mapping the previous element,
-		  *          an element of the collection, and returns, in order: answer to the question if mapping should stop,
-		  *          an updated state value, and the value to which the collection element is mapped.
-		  * @return  A collection of the same kind, containing the third elements of the triples returned by
-		  *          the given function applied to initial elements of this collection and a previously updated state,
-		  *          until it returns `false`.
-		  */
-		def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :CC[O] = {
+
+		override def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2628,22 +3268,7 @@ object extensions extends extensions {
 				factory from Iterators.mapUntil(self.iterator, z, f)
 		}
 
-		/** Flat maps this collection from left to right with an accumulating state updated by the mapping function
-		  * for as long as the function returns `false` on the first position. If this collection is empty,
-		  * an empty collection is returned. Otherwise, `f` is applied first to `(z, head)`, and then, recursively,
-		  * to the second value in the previously returned triple and the next element of this collection.
-		  * If at any point the function returns `(true, _, _)`, all remaining elements of this collection
-		  * are ignored, and previously returned collections (not including the one returned by mapping the last element)
-		  * are concatenated into a collection of the same kind as this one.
-		  * @param z initial state, passed as the first argument when calling `f` for the first time.
-		  * @param f an all-in-one function, which takes the state returned when mapping the previous element,
-		  *          an element of the collection, and returns, in order: answer to the question if mapping should stop,
-		  *          an updated state value, and a collection of subsequent elements of the final result.
-		  * @return A collection of the same kind, containing, in order, all elements included in the collections
-		  *         returned by applying the given function to initial elements of this collection
-		  *         and a previously updated state, until the function returns `true` as the first value.
-		  */
-		def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :CC[O] = {
+		override def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2653,19 +3278,7 @@ object extensions extends extensions {
 				factory from Iterators.flatMapUntil(self.iterator, z, f)
 		}
 
-		/** Maps initial elements of this collection, passing updated state between each function application.
-		  * If this collection is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
-		  * and then, recursively, to the first element of previously returned pair and the next element
-		  * in this collection. Once `f` returns `None`, mapping stops, and second elements of all pairs previously
-		  * returned by the mapping function are returned.
-		  * @return {{{
-		  *         scanLeft(Option((z, null :E))) {
-		  *             case (Some(acc, _), elem) => f(acc, elem)
-		  *             case _                    => None
-		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
-		  *         }}}
-		  */
-		def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :CC[O] = {
+		override def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2675,14 +3288,7 @@ object extensions extends extensions {
 				factory from Iterators.mapSome(self.iterator, z, f)
 		}
 
-		/** A collection of the same type, containing the elements of all collections returned by applying
-		  * the given function to the elements of this collection, and state updated by the same function
-		  * when mapping each element. If this collection is empty, an empty collection is returned.
-		  * Otherwise, `f` is applied to `(z, this.head)`, and then recursively to the first element of the returned
-		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
-		  * of this collection. are ignored
-		  */
-		def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :CC[O] = {
+		override def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2692,19 +3298,7 @@ object extensions extends extensions {
 				factory from Iterators.flatMapSome(self.iterator, z, f)
 		}
 
-		/** Maps initial elements of this collection, passing updated state between each function application.
-		  * If this collection is empty, an empty collection is returned. Otherwise, `f` is applied to `(z, this.head)`,
-		  * and then, recursively, to the first element of previously returned pair and the next element
-		  * in this collection. Once `f` returns `None`, mapping stops, and second elements of all pairs previously
-		  * returned by the mapping function are returned.
-		  * @return {{{
-		  *         scanLeft(Opt((z, null :E))) {
-		  *             case (One(acc, _), elem) => f(acc, elem)
-		  *             case _                   => None
-		  *         }.tail.takeWhile(_.isDefined).flatMap(_._2)
-		  *         }}}
-		  */
-		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :CC[O] = {
+		override def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2714,14 +3308,7 @@ object extensions extends extensions {
 				factory from Iterators.mapPrefix(self.iterator, z, f)
 		}
 
-		/** A collection of the same type, containing the elements of all collections returned by applying
-		  * the given function to the elements of this collection, and state updated by the same function
-		  * when mapping each element. If this collection is empty, an empty collection is returned.
-		  * Otherwise, `f` is applied to `(z, this.head)`, and then recursively to the first element of the returned
-		  * pair and the next element in the collection. When `f` returns `None`, the remaining elements
-		  * of this collection. are ignored
-		  */
-		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :CC[O] = {
+		override def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :CC[O] = {
 			val factory = self.iterableFactory
 			if (knownEmpty(self))
 				factory.empty
@@ -2731,9 +3318,9 @@ object extensions extends extensions {
 				factory from Iterators.flatMapPrefix(self.iterator, z, f)
 		}
 
-		/** Maps the elements of the collection and reverses their order. The order in which the mapping function
+		/** Maps the elements of the $coll and reverses their order. The order in which the mapping function
 		  * will be applied to the elements is undefined and depends on the runtime type of this collection.
-		  * Note that if this collection is unordered, the order of the elements in the mapped collection
+		  * Note that if this $Coll is unordered, the order of the elements in the result
 		  * is likewise undefined and depends on the implementation of this collection's builder.
 		  * This operation is faster than `this.map(f).reverse`.
 		  */
@@ -2789,12 +3376,7 @@ object extensions extends extensions {
 				self.iterableFactory.from((List.empty[O] /: self){ (acc, e) => f(e)::acc })
 		}
 
-
-		/** Iterates over the collection from left to right, keeping only those elements for which `pred`
-		  * returns `true` as the first pair element, all the while passing to it the latest right element as
-		  * the second argument.
-		  */
-		def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :C =
+		override def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :C =
 			if (knownEmpty(self))
 				self.empty
 			else if (self.isInstanceOf[View[_]])
@@ -2802,10 +3384,7 @@ object extensions extends extensions {
 			else
 				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred, true))
 
-		/** Equivalent to `this.iterator.zipWithIndex.filter(x => pred(x._1, x._2)) to this.iterableFactory`.
-		  * For an `IndexedSeq`, prefer `(0 until length).collect { case i if pred(this(i), i) => this(i) }`.
-		  */
-		def filterWithIndex(pred :(E, Int) => Boolean) :C =
+		override def filterWithIndex(pred :(E, Int) => Boolean) :C =
 			if (knownEmpty(self))
 				self.empty
 			else if (self.isInstanceOf[View[_]])
@@ -2813,11 +3392,7 @@ object extensions extends extensions {
 			else
 				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred, true))
 
-		/** Iterates over the collection from left to right, splitting elements into those for which `pred`
-		  * returns `true` as the first pair element, and those for which it returns `false`,
-		  * all the while passing to it the latest right element as the second argument.
-		  */
-		def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(C, C) =
+		override def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(C, C) =
 			if (knownEmpty(self))
 				(self.empty, self.empty)
 			else  if (self.isInstanceOf[View[_]]) (
@@ -2828,8 +3403,7 @@ object extensions extends extensions {
 				util.fromSpecific(self)(Iterators.filterWith(self.iterator, z, pred, false))
 			)
 
-		/** Equivalent to `this.zipWithIndex.partition(x => pred(x._1, x._2))`, but possibly more efficient. */
-		def partitionWithIndex(pred :(E, Int) => Boolean) :(C, C) =
+		override def partitionWithIndex(pred :(E, Int) => Boolean) :(C, C) =
 			if (knownEmpty(self))
 				(self.empty, self.empty)
 			else if (self.isInstanceOf[View[_]]) (
@@ -2840,19 +3414,12 @@ object extensions extends extensions {
 				util.fromSpecific(self)(Iterators.filterWithIndex(self.iterator, pred, false))
 			)
 
-		/** Filters elements of this collection based on their position in the iteration order.
-		  * For collections with unspecified order, the result may be different for different runs.
-		  * @return every element for whose index the predicate returns `true`, as a collection of the same type.
-		  */ //consider: moving it to SeqExtension
-		def keep(pred :Int => Boolean) :C =
+		override def keep(pred :Int => Boolean) :C =
 			if (knownEmpty(self) || self.knownSize == 1) coll
 			else if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.keep(self, pred))
 			else util.fromSpecific(self)(Iterators.keep(self.iterator, pred))
 
-		/** Removes the duplicates from this collection. If the collection has an inherent order, it is preserved,
-		  * but it is unspecified which instance, out of all duplicates, is returned in the result.
-		  */
-		def distinct :C =
+		override def distinct :C =
 			if (util.knownUnique(self))
 				coll
 			else if (self.knownStrict) {
@@ -2863,7 +3430,7 @@ object extensions extends extensions {
 			else
 				util.fromSpecific(self)(Iterators.distinct(self.iterator))
 
-		/** Removes the duplicates from this collection, retaining the first occurrence of every element,
+		/** Removes the duplicates from this $coll, retaining the first occurrence of every element,
 		  * and filtering out their any subsequent occurrences.
 		  */ //consider: moving these two to SeqExtension
 		def firstOccurrences :C =
@@ -2871,7 +3438,7 @@ object extensions extends extensions {
 			else if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.distinct(self))
 			else util.fromSpecific(self)(Iterators.distinct(self.iterator))
 
-		/** Removes the duplicates from this collection, retaining the last occurrence of every element. */
+		/** Removes the duplicates from this $coll, retaining the last occurrence of every element. */
 		def lastOccurrences :C =
 			if (util.knownUnique(self))
 				coll
@@ -2882,15 +3449,8 @@ object extensions extends extensions {
 				util.fromSpecific(self)(View.fromIteratorProvider(() => result.reverseIterator))
 			}
 
-		/** A copy of this collection with the element at the specified index removed.
-		  * If the index is  out of range, an [[IndexOutOfBoundsException]] will be thrown, either by this method,
-		  * or when traversing the returned collection (if this collection is lazy).
-		  *
-		  * Note: if you'd prefer the method to silently ignore indices out of range,
-		  * you can call `remove(index, index + 1)` instead.
-		  */ //fixme: this name clashes with Map.removed
 		@throws[IndexOutOfBoundsException]("if index < 0 or index >= size")
-		def removed(index :Int) :C = //:CC[E] =
+		override def removed(index :Int) :C = //:CC[E] =
 			if (knownEmpty(self))
 				outOfBounds_!(index, 0)
 			else if (index < 0 || { val s = self.knownSize; s >= 0 & index >= s })
@@ -2931,19 +3491,9 @@ object extensions extends extensions {
 					util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			}
 
-		/** The reverse of [[scala.collection.IterableOnceOps.slice slice]]: cuts out a segment of this collection
-		  * with elements starting with element `from` and ending before `until`.
-		  * For indices in range, it is equivalent to `this.take(from) ++ this.drop(until)`, but possibly faster.
-		  * Specifying `until <= from` results in returning the same instance (or an equal one,
-		  * for most mutable collections). Note that, unlike the single argument `remove(index)`, this method
-		  * will not throw an [[IndexOutOfBoundsException]], in line with other slicing methods.
-		  * @return `take(from) ++ drop(until)`, but possibly more efficiently.
-		  */
 		//todo: use util.specificBuilder
 		//todo: make the second parameter length instead, as it is inconsistent with buffer
-		//The only way to implement this so it returns C is by using filter, and this will be less efficient,
-		// because we don't know the target size
-		def removed(from :Int, until :Int) :C =// :CC[E] =
+		override def removed(from :Int, until :Int) :C =// :CC[E] =
 			if (until <= 0 | until <= from || knownEmpty(self))
 				coll
 			else {
@@ -3012,6 +3562,7 @@ object extensions extends extensions {
 	}
 
 
+
 	/** Extension methods of any [[scala.collection.SeqOps SeqOps]]`[E, CC, C]` as well as `SeqView[E]`
 	  * (which extends `SeqOps[E, View, View[E]]`, not `SeqOps[E, SeqView, SeqView[E]]`). Extracted for documentation.
 	  * @define coll sequence
@@ -3037,7 +3588,8 @@ object extensions extends extensions {
 		  *         }
 		  *  }}}
 		  */
-		def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U]
+		def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+			updatedAll(index, Prepended2Seq(first, second, rest))
 
 		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
 		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
@@ -3058,7 +3610,8 @@ object extensions extends extensions {
 		  *         }
 		  *  }}}
 		  */
-		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U]
+		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+			overwritten(index, Prepended2Seq(first, second, rest))
 
 		/** Inserts a new element to this sequence at the specified position, pushing all elements at `index`
 		  * and beyond by one position. Equivalent to
@@ -3070,7 +3623,8 @@ object extensions extends extensions {
 		def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
 
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtensionMethods.insertedAll insertedAll]]`(first +: second +: rest)`. */
-		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U]
+		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+			insertedAll(index, Prepended2Seq(first, second, rest))
 	}
 
 
@@ -3529,7 +4083,7 @@ object extensions extends extensions {
 		}
 
 
-		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
+		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			overwritten(index, Prepended2Seq(first, second, rest))
 
 		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
@@ -4740,590 +5294,6 @@ object extensions extends extensions {
 			self.keysIterator.map { key => pair(f(key, self(key))) }.toMap
 	}
 
-
-
-	/** Adds the same extension methods to `Iterator`
-	  * as [[net.noresttherein.sugar.collections.extensions.IterableExtension IterableExtension]].
-	  */ //todo: move it up in the file after IterableOnceExtension
-	class IteratorExtension[E] private[collections](private val self :Iterator[E]) extends AnyVal {
-		@inline def nextOpt() :Opt[E] = if (self.hasNext) One(self.next()) else None
-
-		/** Equivalent to `this.takeWhile(p).size`. */
-		def prefixLength(p :E => Boolean) :Int = {
-			var res = 0
-			while (self.hasNext && p(self.next()))
-				res += 1
-			res
-		}
-
-		/** Same as `this.zip(that)`, but throws a [[NoSuchElementException]] if the collections
-		  * are not of the same size. If exactly one of the iterators is empty, then the exception will be thrown
-		  * by this method. Otherwise, it will be thrown when one of the iterators becomes empty
-		  * when iterating over the result.
-		  */
-		def zipEven[X](that :Iterator[X]) :Iterator[(E, X)] =
-			if (!self.hasNext && !that.hasNext) Iterator.empty
-			else Iterators.zipEven(self, that)
-
-		/** Zips this iterator with another one and maps the result in one step. */
-		def zipMap[X, O](that :Iterator[X])(f :(E, X) => O) :Iterator[O] =
-			if (!self.hasNext || !that.hasNext) Iterator.empty
-			else Iterators.zipMap(self, that)(f)
-
-		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IteratorExtension.zipMap zipMap]],
-		  * but throws an exception if the iterators are of different sizes.
-		  * If exactly one iterator is empty, an `IllegalArgumentException` will be thrown by this method.
-		  * Otherwise, a `NoSuchElementException` will be thrown when one of the iterators becomes empty
-		  * while iterating over the result.
-		  */
-		def zipMapEven[X, O](that :Iterator[X])(f :(E, X) => O) :Iterator[O] =
-			if (!self.hasNext && !that.hasNext) Iterator.empty
-			else Iterators.zipMapEven(self, that)(f)
-
-		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step and the argument function
-		  * takes two arguments instead of a pair, which makes it possible to use with lambda placeholder parameters.
-		  */
-		def zipMapAll[X, O](that :Iterator[X], thisElem :E, thatElem :X)(f :(E, X) => O) :Iterator[O] =
-			if (!self.hasNext && !that.hasNext) Iterator.empty
-			else Iterators.zipMapAll(self, that, thisElem, thatElem)(f)
-
-		/** Equivalent to `this.zip(rights).map`, but takes a two argument function instead of a function of a pair,
-		  * which makes it possible to use with placeholder lambda parameters.
-		  */
-		def zipFlatMap[X, O](that :Iterator[X])(f :(E, X) => IterableOnce[O]) :Iterator[O] =
-			if (!self.hasNext || !that.hasNext) Iterator.empty
-			else Iterators.zipFlatMap(self, that)(f)
-
-		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.IteratorExtension.zipFlatMap zipFlatMap]],
-		  * but throws an exception if the iterators are of different sizes.
-		  * If exactly one of the iterators is empty, an `IllegalArgumentException` will be thrown by this method.
-		  * Otherwise, a `NoSuchElementException` will be thrown when one of the iterators becomes empty
-		  * while iterating over the result.
-		  */
-		def zipFlatMapEven[X, O](that :Iterator[X])(f :(E, X) => IterableOnce[O]) :Iterator[O] =
-			if (!self.hasNext && !that.hasNext) Iterator.empty
-			else Iterators.zipFlatMapEven(self, that)(f)
-
-		/** Equivalent to `this.zipAll(that, thisElem, thatElem).map(f)`, but happens in one step
-		  * and the argument function takes two arguments instead of a pair, which makes it possible to use
-		  * with lambda placeholder parameters.
-		  */
-		def zipFlatMapAll[X, O](that :Iterator[X], thisElem :E, thatElem :X)(f :(E, X) => IterableOnce[O]) :Iterator[O] =
-			if (!self.hasNext && !that.hasNext) Iterator.empty
-			else Iterators.zipFlatMapAll(self, that, thisElem, thatElem)(f)
-
-
-		/** Similar to [[scala.collection.Iterator.zip zip]], except it zips three iterators at once. */
-		def zip3[A, B](second :Iterator[A], third :Iterator[B]) :Iterator[(E, A, B)] =
-			if (!self.hasNext && !second.hasNext && !third.hasNext) Iterator.empty
-			else Iterators.zip3(self, second, third)
-
-		/** Zips three iterators, throwing an exception if they are of different sizes.
-		  * If one or two iterators are empty, an `ArgumentException` will be thrown by this method.
-		  * Otherwise, a `NoSuchElementException` will be thrown when one of the iterators becomes empty
-		  * while iterating over the result.
-		  */
-		def zipEven3[A, B](second :Iterator[A], third :Iterator[B]) :Iterator[(E, A, B)] =
-			if (!self.hasNext && !second.hasNext && !third.hasNext) Iterator.empty
-			else Iterators.zipEven3(self, second, third)
-
-		/** Similar to [[scala.collection.Iterator.zipAll zipAll]], but zips three iterators at once. */
-		def zipAll3[U >: E, A, B](second :Iterator[A], third :Iterator[B],
-		                          thisElem :U, secondElem :A, thirdElem :B) :Iterator[(U, A, B)] =
-			if (!self.hasNext && !second.hasNext && !third.hasNext)
-				Iterator.empty
-			else
-				Iterators.zipAll3(self, second, third, thisElem, secondElem, thirdElem)
-
-		/** Iterates over consecutive element pairs of this iterator.
-		  * If this iterator has no more than a single element, an empty iterator will be returned.
-		  * Otherwise it is equivalent to:
-		  * {{{
-		  *     val list = this to LazyList
-		  *     list.zip(list.tail).iterator
-		  * }}}
-		  */
-		def zipTail :Iterator[(E, E)] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.zipTail(self)
-
-
-		/** Maps this iterator with an accumulating state, updated by the mapping function.
-		  * The state is discarded after the operation and only the mapping results (the second elements
-		  * of the tuples returned by the given function) are returned.
-		  */
-		def mapWith[O, A](z :A)(f :(E, A) => (O, A)) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty[O]
-			else Iterators.mapWith(self, z, f)
-
-		/** Flat maps this iterator from left to right with an accumulating state updated by the mapping function.
-		  * The state is discarded after the operation and only the mapping results (the collections returned by
-		  * by the given function) are returned.
-		  */
-		def flatMapWith[A, O](z :A)(f :(E, A) => (IterableOnce[O], A)) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty[O]
-			else Iterators.flatMapWith(self, z, f)
-
-		/** Maps this iterator, passing as the second argument the index of the mapped element. */
-		def mapWithIndex[O](f :(E, Int) => O) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty[O]
-			else Iterators.mapWithIndex(self, f)
-
-		/** Flat maps this iterator, passing as the second argument the index
-		  * of the mapped element (that is, the number of elements processed before it).
-		  */
-		def flatMapWithIndex[O](f :(E, Int) => IterableOnce[O]) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty[O]
-			else Iterators.flatMapWithIndex(self, f)
-
-		/** Similar to [[collection.IterableOnceOps.collect collect]], but the collecting function takes a tuple
-		  * consisting of an element of the iterator and its index.
-		  */
-		def collectWithIndex[O](f :PartialFunction[(E, Int), O]) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty[O]
-			else Iterators.collectWithIndex(self, f)
-
-		/** Maps this iterator with an accumulating state, updated by the mapping function,
-		  * for as long as the state passes the given predicate. If `!pred(z)`, an empty iterator is returned.
-		  * Otherwise, the last returned element is the one returned by `f` together with the first state not satisfying
-		  * the predicate. The state is discarded after the operation and only the mapping results (the second elements
-		  * of the tuples returned by the given function) are returned.
-		  *///Consider: the order of parameters to f. On one side, it works as a foldLeft, but on the other like mapWith
-		def mapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, O)) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.mapWhile(self, z, pred, f)
-
-		//commented out until Scala 3
-/*
-		def mapWhile[O, A](z :A)(pred :(A, E) => Boolean)(f :(A, E) => (A, O)) :Iterator[O] =
-			if (!self.hasNext)
-				Iterator.empty[O]
-			else {
-				val b = self.iterableFactory.newBuilder[O]
-				val i = self.iterator
-				var acc = z
-				while (i.hasNext && {
-					val e = i.next()
-					pred(acc, e) && {
-						val (updated, out) = f(acc, e)
-						b += out
-						acc = updated
-						true
-					}
-				}) {}
-				b.result()
-			}
-*/
-
-		/** Flat maps this iterator with an accumulating state, updated by the mapping function,
-		  * for as long as the state passes a given predicate. If `!pred(z)`, an empty collection is returned.
-		  * Otherwise, the last included elements are those in the collection returned by `f` together
-		  * with the first state not satisfying the predicate. The state is discarded after the operation
-		  * and only the mapping results (the collections returned by by the given function) are returned.
-		  */
-		def flatMapWhile[O, A](z :A)(pred :A => Boolean)(f :(A, E) => (A, IterableOnce[O])) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.flatMapWhile(self, z, pred, f)
-
-		//Uncomment in Scala 3
-/*
-		def flatMapWhile[O, A](z :A)(pred :(A, E) => Boolean)(f :(A, E) => (A, IterableOnce[O])) :C[O] =
-			if (self.isEmpty)
-				self.iterableFactory.empty
-			else {
-				val b = self.iterableFactory.newBuilder[O]
-				val i = self.iterator
-				var acc = z
-				while (i.hasNext && {
-					val e = i.next()
-					pred(acc, e) && {
-						val (updated, out) = f(acc, e)
-						b ++= out
-						acc = updated
-						true
-					}
-				}) {}
-				b.result()
-			}
-*/
-		/** Maps this iterator with an accumulating state, updated by the mapping function,
-		  * for as long as the function returns `false` on the first position. Once the function returns `true`,
-		  * the associated mapped element is discarded, and the iteration ends. The last element of the returned
-		  * iterator is the last element `x` for which `f` returned `(false, _, x)`.
-		  * @param z initial state, passed as the first argument when calling `f` for the first time.
-		  * @param f an all-in-one function, which takes the state returned when mapping the previous element,
-		  *          an element of the collection, and returns, in order: answer to the question if mapping should stop,
-		  *          an updated state value, and the value to which the collection element is mapped.
-		  * @return  An iterator returning the third elements of the triples returned by
-		  *          the given function applied to initial elements of this iterator, and a previously updated state,
-		  *          for which the function returned `false`.
-		  */
-		def mapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, O)) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.mapUntil(self, z, f)
-
-		/** Flat maps this iterator with an accumulating state, updated by the mapping function,
-		  * for as long as the function returns `false` on the first position. Once the function returns `true`,
-		  * the associated collection is ignored, and the iteration ends.
-		  * @param z initial state, passed as the first argument when calling `f` for the first time.
-		  * @param f an all-in-one function, which takes the state returned when mapping the previous element,
-		  *          an element of the collection, and returns, in order: answer to the question if mapping should stop,
-		  *          an updated state value, and a collection of subsequent elements of the final result.
-		  * @return An iterator returning, in order, all elements included in the collections
-		  *         returned by the given function, for as long as the function returns until it returns `false`.
-		  */
-		def flatMapUntil[A, O](z :A)(f :(A, E) => (Boolean, A, IterableOnce[O])) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.flatMapUntil(self, z, f)
-
-		/** Maps initial elements of this iterator, passing updated state between each function application.
-		  * Mapping stops once `f` returns `None`.
-		  * @return {{{
-		  *         scanLeft(Option((z, null :E))) {
-		  *             case (Some(acc, _), elem) => f(acc, elem)
-		  *             case _                    => None
-		  *         }.drop(1).takeWhile(_.isDefined).flatMap(_._2)
-		  *         }}}
-		  */
-		def mapSome[A, O](z :A)(f :(A, E) => Option[(A, O)]) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.mapSome(self, z, f)
-
-		/** An iterator returning all elements of collections returned by applying the given function
-		  * to the elements of this iterator and state updated by the same function when mapping each element.
-		  * Once the function returns `None`, the iteration stops.
-		  */
-		def flatMapSome[A, O](z :A)(f :(A, E) => Option[(A, IterableOnce[O])]) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.flatMapSome(self, z, f)
-
-		/** Maps initial elements of this iterator, passing updated state between each function application.
-		  * Mapping stops once `f` returns `None`.
-		  * @return {{{
-		  *         scanLeft(Opt((z, null :E))) {
-		  *             case (One(acc, _), elem) => f(acc, elem)
-		  *             case _                   => None
-		  *         }.drop(1).takeWhile(_.isDefined).flatMap(_._2)
-		  *         }}}
-		  */
-		def mapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, O)]) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.mapPrefix(self, z, f)
-
-		/** An iterator returning all elements of collections returned by applying the given function
-		  * to the elements of this iterator and state updated by the same function when mapping each element.
-		  * Once the function returns `None`, the iteration stops.
-		  */
-		def flatMapPrefix[A, O](z :A)(f :(A, E) => Opt[(A, IterableOnce[O])]) :Iterator[O] =
-			if (!self.hasNext) Iterator.empty
-			else Iterators.flatMapPrefix(self, z, f)
-
-
-		/** Filters this iterator, keeping only those elements for which `pred`
-		  * returns `true` as the first pair element, all the while passing to it the latest right element as
-		  * the second argument.
-		  */
-		def filterWith[A](z :A)(pred :(E, A) => (Boolean, A)) :Iterator[E] =
-			if (!self.hasNext) self
-			else Iterators.filterWith(self, z, pred)
-
-		/** Equivalent to `this.zipWithIndex.filter(x => pred(x._1, x._2))`. */
-		def filterWithIndex(pred :(E, Int) => Boolean) :Iterator[E] =
-			if (!self.hasNext) self
-			else Iterators.filterWithIndex(self, pred)
-
-		/** Splits the iterated elements into those for which `pred` returns `true` as the first pair element,
-		  * and those for which it returns `false`, all the while passing to it the latest right element
-		  * as the second argument.
-		  */
-		def partitionWith[A](z :A)(pred :(E, A) => (Boolean, A)) :(Iterator[E], Iterator[E]) =
-			if (!self.hasNext)
-				(self, self)
-			else {
-				val (i1, i2) = self.duplicate
-				(Iterators.filterWith(i1, z, pred), Iterators.filterWith(i2, z, pred, false))
-			}
-
-		/** Equivalent to `this.zipWithIndex.partition(x => pred(x._1, x._2))`, but possibly more efficient. */
-		def partitionWithIndex(pred :(E, Int) => Boolean) :(Iterator[E], Iterator[E]) =
-			if (!self.hasNext)
-				(self, self)
-			else {
-				val (i1, i2) = self.duplicate
-				(Iterators.filterWithIndex(i1, pred), Iterators.filterWithIndex(i2, pred, false))
-			}
-
-		/** An iterator removing all elements for whose positions the predicate returns `false`. */
-		def keep(pred :Int => Boolean) :Iterator[E] = Iterators.keep(self, pred)
-
-		/** An iterator which removes all duplicates in this iterator after the first occurrence of every unique element. */
-		def distinct :Iterator[E] = Iterators.distinct(self)
-
-
-		/** A copy of this iterator omitting the element at the specified index. The iterator is validated:
-		  * if the index is out of range for the number of the elements in the iterator,
-		  * an [[IndexOutOfBoundsException]] will be thrown. If the fact can be verified immediately,
-		  * the exception will be thrown by this method. Otherwise, it will be thrown once the iterator reaches
-		  * its last element (without reaching `index`). If, in the meantime, the iterator is sliced
-		  * (or its [[Iterator.take take]] method is called), the resulting iterator will not perform the validation,
-		  * unless `index` is included in the sliced range. Methods which leave the iterator in an undefined state,
-		  * such as `copyToArray`, may - or may not - enforce index validation if the iterator has advanced to it.
-		  */
-		@throws[IndexOutOfBoundsException]("if index is negative, or this.knownSize is non negative and not greater than index.")
-		def removed(index :Int) :Iterator[E] =
-			if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
-				outOfBounds_!(index)
-			else if (index == 0)
-				if (self.hasNext) self.drop(1)
-				else outOfBounds_!("0 out of 0")
-			else
-				Iterators.removed(self, index)
-
-		/** The reverse of [[scala.collection.Iterator.slice slice]]: cuts out a segment of this iterator
-		  * with elements starting with element `from` and ending before `until`.
-		  * For indices in range, it is equivalent to `val (i1, i2) = this.duplicate; i1.take(from) ++ i2.drop(until)`,
-		  * but possibly faster. Specifying `until <= from` results in returning the same iterator.
-		  * @return `take(from) ++ drop(until)`, but possibly more efficiently.
-		  */
-		//Consider: Buffer.remove validates arguments. Should we also do it for consistency?
-		//Consider: taking count instead of until as an argument, the same as in Buffer.remove
-		def removed(from :Int, until :Int) :Iterator[E] =
-			if (until <= 0 | until <= from || !self.hasNext)
-				self
-			else {
-				val size = self.knownSize
-				val nonNegFrom = math.max(from, 0)
-				val nonNegUntil = math.max(until, 0)
-				if (size >= 0 && from >= size)
-					self
-				else
-					Iterators.removed(self, nonNegFrom, nonNegUntil)
-			}
-
-		/** An iterator which substitutes `index`-th element in this iterator with `elem`.
-		  * If `index` is less than zero, or greater or equal to the number of iterated elements,
-		  * an [[IndexOutOfBoundsException]] will be thrown; if `index` is negative, or this iterator has known size,
-		  * it will be thrown by this method. Otherwise, the exception will be thrown when the returned iterator
-		  * exhausts this iterator's elements, without reaching `index`. This validation does not happen if
-		  * the number of elements in the iterator is later explicitly limited by `take`/`slice`.
-		  * Methods which leave the iterator in an undefined state, such as `copyToArray`,
-		  * may - or may not - enforce index validation if the iterator has advanced to it.
-		  */
-		def updated[U >: E](index :Int, elem :U) :Iterator[U] =
-			if (index < 0 || { val size = self.knownSize; size >= 0 & index >= size })
-				outOfBounds_!(self.toString + ".updated(" + index + ", _)")
-			else
-				Iterators.updated(self, index, elem)
-
-		/** An iterator which substitutes `index`-th and following elements in this iterator with values returned
-		  * by `elems`. If `index` is less than zero, or greater or equal to the number of iterated elements minus
-		  * the number of elements in the patch iterator, an [[IndexOutOfBoundsException]] will be thrown.
-		  * If `index` is negative, or exceeds this iterator's size, if it is known, or `index > this.size - elems.size`
-		  * and the sizes of both iterators are known, it will be thrown by this method.
-		  * Otherwise, the exception will be thrown when the returned iterator exhausts this iterator's elements,
-		  * without reaching `index` and/or exhausting `elems` iterator. If, however, before that the iterator
-		  * is instead sliced, taking fewer than `index` elements (relative to the current position),
-		  * this validation will not trigger. Methods which leave the iterator in an undefined state,
-		  * such as `copyToArray`, may - or may not - enforce index validation if the iterator has advanced to it.
-		  * @return An iterator with the same elements (but with additional validation described above) as
-		  *         {{{
-		  *             this.zipWithIndex.map {
-		  *                 case (_, i) if i >= index && elems.hasNext => elems.next()
-		  *                 case (e, _) => e
-		  *             }
-		  *        }}}
-		  */ //todo: implementing validation prevents efficient slice. We should overhaul all iterators to not validate.
-		def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :Iterator[U] =
-			Iterators.updatedAll(self, index, elems)
-
-		/** An iterator which returns the given value between the `index`-th and `index + 1`-th elements
-		  * of this iterator. If `index` is less than zero, or greater than the number of iterated elements,
-		  * an [[IndexOutOfBoundsException]] will be thrown. If `index` is negative,
-		  * or `index > this.knownSize && this.knownSize >= 0`, then the exception will be thrown by this method.
-		  * Otherwise, it will be thrown when the iterator reaches its last element, unless its number of elements
-		  * is later explicitly limited by `take`/`slice`.
-		  * Methods which leave the iterator in an undefined state, such as `copyToArray`,
-		  * may - or may not - enforce index validation if the iterator has advanced to it.
-		  * @return An iterator equivalent to `this.take(index) ++ Iterator.single(elem) ++ this`
-		  *         (note that `this` appended as last will iterate over elements past `index`, as the preceding
-		  *         ones are consumed by `this.take(index)`).
-		  */ //todo: permissive indexing
-		def inserted[U >: E](index :Int, elem :U) :Iterator[U] =
-			Iterators.inserted(self, index, elem)
-
-		/** An iterator which returns elements of `elems` between the elements at positions `index` and `index + 1`
-		  * in this iterator. If `index` is less than zero, or greater than the number of iterated elements,
-		  * an [[IndexOutOfBoundsException]] will be thrown. If `index` is negative,
-		  * or `index > this.knownSize && this.knownSize >= 0`, then the exception will be thrown by this method.
-		  * Otherwise, it will be thrown when the iterator reaches its last element, unless its number of elements
-		  * is later explicitly limited by `take`/`slice`.
-		  * Methods which leave the iterator in an undefined state, such as `copyToArray`,
-		  * may - or may not - enforce index validation if the iterator has advanced to it.
-		  * @return An iterator equivalent to `this.take(index) ++ elems ++ this`
-		  *         (note that `this` appended as last will iterate over elements past `index`, as the preceding
-		  *         ones are consumed by `this.take(index)`).
-		  */
-		def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :Iterator[U] =
-			Iterators.insertedAll(self, index, elems)
-
-		/** An iterator which returns `elem` after all the elements of this iterator.
-		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
-		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
-		  */
-		@inline def +[U >: E](elem :U) :Iterator[U] = appended(elem)
-
-		/** An iterator which returns `elem` after all the elements of this iterator.
-		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
-		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
-		  */
-		@inline def add[U >: E](elem :U) :Iterator[U] = appended(elem)
-
-		/** An iterator which returns `elem` after all the elements of this iterator.
-		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
-		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
-		  */
-		@inline def :+[U >: E](elem :U) :Iterator[U] = appended(elem)
-
-		/** An iterator which returns `elem` after all the elements of this iterator.
-		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
-		  */
-		def appended[U >: E](elem :U) :Iterator[U] = Iterators.appended(self, elem)
-
-		/** Equivalent to `this ++ Iterator.single(first) ++ Iterator.single(second) ++ rest`.
-		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
-		  * making it a slightly more efficient alternative.
-		  */
-		def appended[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
-			if (knownEmpty(rest))
-				Iterators.concat(self, Iterator.two(first, second))
-			else
-				Iterators.concat(self, Iterators.concat(Iterator.two(first, second), rest.iterator))
-
-		/** Equivalent to `this ++ elems`, but the argument is not lazy,
-		  * making the implementation slightly more efficient.
-		  */
-		@inline def :++[U >: E](elems :IterableOnce[U]) :Iterator[U] = appendedAll(elems)
-
-		/** Equivalent to `this ++ elems`, but the argument is not lazy,
-		  * making the implementation slightly more efficient.
-		  */
-		def appendedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
-			if (knownEmpty(elems)) self
-			else Iterators.concat(self, elems.iterator)
-
-		/** An iterator which returns `elem` as its first element, followed by all elements of this iterator. */
-		@inline def +:[U >: E](elem :U) :Iterator[U] = prepended(elem)
-
-		/** An iterator which returns `elem` as its first element, followed by all elements of this iterator. */
-		def prepended[U >: E](elem :U) :Iterator[U] =
-			if (self.hasNext) Iterators.prepended(self, elem)
-			else Iterator.single(elem)
-
-		/** Equivalent to `Iterator.single(first) ++ Iterator.single(second) ++ rest ++ this`.
-		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
-		  * making it a slightly more efficient alternative.
-		  */
-		def prepended[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
-			if (knownEmpty(rest))
-				Iterators.concat(Iterator.two(first, second), self)
-			else
-				Iterators.concat(Iterators.concat(Iterator.two(first, second), rest.iterator), self)
-
-		/** Equivalent to `Iterator.single(first) ++ Iterator.single(second) ++ rest ++ this`.
-		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
-		  * making it a slightly more efficient alternative.
-		  */
-		@inline def ++:[U >: E](elems :IterableOnce[U]) :Iterator[U] = prependedAll(elems)
-
-		/** Equivalent to `elems.iterator ++ this`. Unlike the standard `Iterator.`[[collection.Iterator.concat concat]],
-		  *  the arguments are not lazy, making it a slightly more efficient alternative.
-		  */
-		def prependedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
-			if (knownEmpty(elems)) self
-			else Iterators.concat(elems.iterator, self)
-
-		/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this validator;
-		  * instead, iterators returned by those methods share the same underlying state,
-		  * including a counter of already returned elements.
-		  * Calling `take` on this iterator returns a new iterator, which will not return elements past a certain index.
-		  * This iterator remains unaffected by the call itself, or `take` called on the latter iterator,
-		  * but advancing the latter - via `next` or `drop` - automatically also advances this iterator
-		  * by the same number of elements, and vice versa.
-		  *
-		  * Likewise, `copyToArray` is guaranteed to advance this iterator - and all created by it -
-		  * exactly by the number of written elements, as returned by the method.
-		  * Note that `splitAt(n)` is different from `val drop = safe; (drop.take(n), drop)`
-		  * in that the iterators in the former case are independent, while in the latter case advancing one
-		  * advancing another, and `drop.next()` returns `this.next()`, not `this.drop(n).next()`.
-		  * @example
-		  * {{{
-		  *     val iter   = source.iterator.safe
-		  *     val arrays = Array.ofDim[Int](n, m)
-		  *     var i = 0
-		  *     while (iter.hasNext && i < n) {
-		  *         iter.take(m).copyToArray(arrays(i))
-		  *         i += 1
-		  *     }
-		  * }}}
-		  */
-		def safe :Iterator[E] = Iterators.slicer(self)
-
-		/** An iterator maintaining a counter of elements advanced over, accessible through method
-		  * [[net.noresttherein.sugar.collections.CountingIterator.total total]].
-		  */
-		@inline def counting :CountingIterator[E] = new CountingIterator(self)
-//
-//		/** Same as [[collection.Iterator.copyToArray copyToArray]], but accepts a boxing array. */
-//		@inline def copyToRefArray[A >: E](xs :RefArray[A], start :Int = 0, len :Int = Int.MaxValue) :Int =
-//			self.copyToArray(xs.asInstanceOf[Array[Any]], start, len)
-
-		/** Copies the elements of this iterator to the given array, starting at position `start`.
-		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
-		  * whichever is smaller. If the end of the array is reached before any of the above happens,
-		  * copying resumes from the beginning of the array.
-		  */ //todo: integrate this method into IterableOnceExtension.cyclicCopyToArray
-		def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int = Int.MaxValue) :Int = {
-			val size = self.knownSize
-			val length = xs.length
-			val suffixSpace = length - start
-			if (size == 0 | len <= 0 | length == 0)
-				0
-			else if (start < 0)
-				outOfBounds_!(start, xs.length)
-			else if (len <= suffixSpace | size >= 0 & size <= suffixSpace)
-				self.copyToArray(xs, start, len)
-			else if (self.isInstanceOf[ArrayIterator[_]] || self.isInstanceOf[CyclicArrayIterator[_]]) {
-				//consider: a more generic test, which will include at least MatrixBufferIterator
-				self.copyToArray(xs, start, len) + self.copyToArray(xs, 0, len - suffixSpace)
-			} else if (size >= 0) {
-				val (suffix, prefix) = self.splitAt(suffixSpace)
-				val copied = math.min(math.min(len, size), length)
-				suffix.copyToArray(xs, start, suffixSpace)
-				prefix.copyToArray(xs, 0, copied - suffixSpace)
-				copied
-			} else {
-				var i = start
-				var end = if (len <= suffixSpace) start + len else length
-				var copied = -start
-				while (copied < len && self.hasNext) {
-					while (i < end && self.hasNext) {
-						xs(i) = self.next()
-						i += 1
-					}
-					copied += i
-					i   = 0
-					end = math.min(start, len - suffixSpace)
-				}
-				copied
-			}
-		}
-	}
-
-
-
-	class ViewExtension[E] private[collections] (private val self :View[E]) extends AnyVal {
-
-	}
 
 
 	/** Extension methods for `String`. */
