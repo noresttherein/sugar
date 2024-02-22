@@ -1598,10 +1598,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		res
 	}
 
-	override def remove(idx :Int, count :Int) :Unit = {
-		val oldStorage = storageSize
-		val oldOffset  = dataOffset
-		val oldSize    = dataSize
+	override def remove(idx :Int, count :Int) :Unit =
 		if (count < 0)
 			illegal_!(errorString(this) + ".remove(" + idx + ", " + count + ")")
 		else if (count > 0) {
@@ -1612,11 +1609,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			else
 				remove2(idx, count)
 		}
-		assert(storageSize > MaxSize1 || storageSize == Integer.highestOneBit(storageSize),
-			"|" + oldSize + "/" + oldStorage + "#" + oldOffset + "|.remove(" + idx + ", " + count + ") == |" +
-				dataSize + "/" + storageSize + "#" + dataOffset + "|"
-		)
-	}
 
 	/** Implementation of `remove` for the case of a single dimensional buffer. */
 	private def remove1(idx :Int, count :Int) :Unit = {
