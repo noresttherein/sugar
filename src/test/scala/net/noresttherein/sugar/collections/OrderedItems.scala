@@ -6,6 +6,7 @@ import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefau
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.extensions.IterableOnceExtension
 import org.scalacheck.util.Buildable
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
@@ -196,7 +197,7 @@ class StrictView[E](underlying :Seq[E]) extends View[E] {
 }
 
 object StrictView extends IterableFactory[StrictView] {
-	override def from[A](source :IterableOnce[A]) :StrictView[A] = new StrictView(source.toSeq)
+	override def from[A](source :IterableOnce[A]) :StrictView[A] = new StrictView(source.toBasicOps.toSeq)
 
 	override def empty[A] :StrictView[A] = new StrictView(Nil)
 

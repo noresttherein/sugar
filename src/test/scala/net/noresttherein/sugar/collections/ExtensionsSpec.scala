@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.nowarn
-import scala.collection.{AnyStepper, BuildFrom, DoubleStepper, Factory, IntStepper, LongStepper, SeqFactory, Stepper, mutable}
+import scala.collection.{AnyStepper, BuildFrom, DoubleStepper, Factory, IntStepper, IterableFactory, LongStepper, SeqFactory, Stepper, mutable}
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, LinearSeq, SortedMap, TreeMap}
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, IndexedBuffer, ListBuffer}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
@@ -10,10 +10,11 @@ import scala.reflect.{ClassTag, classTag}
 import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.extensions.{ArrayExtension, ArrayCompanionExtension, BuilderExtension, ClassExtension, FactoryExtension, IndexedSeqExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, JavaIteratorExtension, JavaStringBuilderExtension, SeqFactoryExtension, StepperExtension, StepperCompanionExtension, castTypeParamMethods, classNameMethods, immutableIndexedSeqCompanionExtension, immutableMapExtension, immutableSetFactoryExtension}
+import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, ArrayExtension, BuilderExtension, ClassExtension, FactoryExtension, IndexedSeqExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, JavaIteratorExtension, JavaStringBuilderExtension, OptionExtension, SeqFactoryExtension, StepperCompanionExtension, StepperExtension, castTypeParamMethods, classNameMethods, immutableIndexedSeqCompanionExtension, immutableMapExtension, immutableSetFactoryExtension}
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
 import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.testing.scalacheck.extensions._
+import net.noresttherein.sugar.vars.Opt
 
 
 
@@ -195,10 +196,11 @@ object ExtensionsSpec extends Properties("extensions") {
 				(prefix.javaIterator ++ suffix.javaIterator).asScala.toList ?= (prefix:::suffix).map(Integer.valueOf)
 			}  :| "JIntIterator ++ JIntIterator" &&
 			forAll { (prefix :List[Int], suffix :List[Int]) =>
-				(((prefix.javaIterator :JIterator[Int]) ++ suffix.javaIterator).asScala.toSeq ?= prefix:::suffix)
+				(((prefix.javaIterator :JavaIterator[Int]) ++ suffix.javaIterator).asScala.toSeq ?= prefix:::suffix)
 			} :| "JIterator[Int] ++ JIntIterator" &&
 			forAll { (prefix :List[Int], suffix :List[Int]) =>
-				((prefix.javaIterator :JIterator[Int]) ++ (suffix.javaIterator :JIterator[Int])).asScala.toSeq ?= prefix:::suffix
+				val concat = (prefix.javaIterator :JavaIterator[Int]) ++ (suffix.javaIterator :JavaIterator[Int])
+				concat.asScala.toSeq ?= prefix:::suffix
 			} :| "JIterator[Int] ++ JIterator[Int]"
 	}
 
@@ -218,18 +220,22 @@ object ExtensionsSpec extends Properties("extensions") {
 				(x ?= 0) && ((lzy :Seq[Int]) ?= expect) :| "Stream"
 			}
 		}
-		property("expand") = {
+		private def someProperty(some :(IterableFactory[Iterable], Int, Int => Option[Int]) => Iterable[Int]) = {
 			val expect = Vector(2, 4, 16, 256)
-			(Vector.expand(2) { i => Option(i * i).filter(_ < 1000) } ?= expect) :| "Vector" && {
-				var x = 0
-				val lzy :Seq[Int] = LazyList.expand(2) { case i => x += 1; Option(i * i).filter(_ < 1000) }
+			(some(Vector, 2, (i :Int) => Option(i * i).filter(_ < 1000)) ?= expect) :| "Vector" && {
+				var x             = 0
+				val lzy = some(LazyList, 2, { i :Int => x += 1; Option(i * i).filter(_ < 1000) })
 				(x ?= 0) && (lzy ?= expect) :| "LazyList"
 			} && {
-				var x = 0
-				val lzy :Seq[Int] = Stream.expand(2) { case i => x += 1; Option(i * i).filter(_ < 1000) }
+				var x             = 0
+				val lzy = some(Stream, 2, { i :Int => x += 1; Option(i * i).filter(_ < 1000) })
 				(x ?= 0) && (lzy ?= expect) :| "Stream"
 			}
 		}
+		property("some") = someProperty(_.some(_)(_))
+		property("expand") = someProperty((fac, a, f) => fac.expand(a)(f(_).toOpt))
+		//todo: some2, some3, expand2, expand3
+
 		property("iterateWithIndex") =
 			Seq.iterateWithIndex(1, 10)((acc, i) => acc + i) ?= Seq(1, 2, 4, 7, 11, 16, 22, 29, 37, 46)
 	}

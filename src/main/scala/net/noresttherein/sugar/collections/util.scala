@@ -305,7 +305,7 @@ private object HasFastSlice {
 	def apply[A](items :IterableOnce[A]) :Boolean = items match { //don't use unapply to avoid creating wrappers.
 		case _ if { val size = items.knownSize; size >= 0 & size <= fastSliceSize } => true
 		case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
-			case _ :IndexedSeqView[_] | _ :Vector[_] | _ :RelayArrayView[_] => true
+			case _ :IndexedSeqView[_] | _ :Vector[_] | _ :RelayArrayRange[_] => true
 			case _ => false
 		}
 		case _ :Cat[_] | _ :IndexedSet[_] | _ :StringSet | _ :StringMap[_] => true
