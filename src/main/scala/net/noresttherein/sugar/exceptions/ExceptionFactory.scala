@@ -279,7 +279,7 @@ trait EagerThrowableFactory[E <: Throwable] extends Serializable {
 
 	def apply(message :String, cause :Throwable) :E
 	def apply(message :String) :E = apply(message, null :Throwable)
-	def apply(cause :Throwable) :E = apply(defaultMessage, cause)
+	def apply(cause :Throwable) :E = apply(cause.getMessage, cause)
 	def apply() :E = apply(defaultMessage, null :Throwable)
 
 	/** Message argument used by factory methods which do not accept a `message` argument. */
@@ -341,7 +341,7 @@ trait LazyThrowableFactory[E <: Throwable] extends Serializable {
 
 	def apply(message: => String, cause :Throwable) :E
 	def apply(message: => String) :E = apply(message, null :Throwable)
-	def apply(cause :Throwable) :E = apply(defaultMessage, cause)
+	def apply(cause :Throwable) :E = apply(cause.getMessage, cause)
 	def apply() :E = apply(defaultMessage, null :Throwable)
 
 	/** Message argument used by factory methods which do not accept a `message` argument. */

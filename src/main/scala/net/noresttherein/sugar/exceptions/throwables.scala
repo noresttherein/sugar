@@ -3,7 +3,7 @@ package net.noresttherein.sugar.exceptions
 import java.io.IOException
 import java.util.ConcurrentModificationException
 
-import net.noresttherein.sugar.reflect.prettyprint.classNameOf
+import net.noresttherein.sugar.reflect.prettyprint.{classNameOf, replaceClassNames}
 
 
 /** A lightweight, 'temporary' exception with disabled suppression and stack trace.
@@ -117,7 +117,7 @@ class SugaredArithmeticException(message :String, protected override var lazyMsg
   */
 @SerialVersionUID(Ver)
 class SugaredClassCastException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends ClassCastException(message) with ImplException with LazyException
+	extends ClassCastException(replaceClassNames(message)) with ImplException with LazyException
 {
 	initCause(cause)
 }

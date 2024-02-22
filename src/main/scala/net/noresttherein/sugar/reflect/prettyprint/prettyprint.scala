@@ -8,6 +8,8 @@ import scala.runtime.BoxedUnit
 
 import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.vars.Opt
+import net.noresttherein.sugar.vars.Opt.One
 
 
 /**
@@ -303,26 +305,6 @@ package object prettyprint {
 	  * $fullClassNameDocs
 	  */
 	def fullNameOf(clazz :Class[_]) :String = demangledName(clazz.getName)
-/*
-	clazz match {
-		case Void.TYPE        => "Unit"
-		case AnyRef           => "AnyRef"
-//		case BoxedUnit        => clazz.getName
-		case Primitive()      => clazz.getName.capitalize
-		case ArrayClass(elem) => "Array[" + fullNameOf(elem) + "]"
-		case _                =>
-			val qname = clazz.getName
-			val start = qname.lastIndexOf('.') + 1
-			val end = trimTrailingDollars(qname)
-			val res = new JStringBuilder(qname.length)
-			var i = 0
-			while (i < start) {
-				res append qname.charAt(i); i += 1
-			}
-			demangleClassName(qname, start, end, res)
-			res.toString
-	}
-*/
 
 	/** An approximation of the full, qualified and demangled name of the given class, as it would appear in code.
 	  *
@@ -355,6 +337,42 @@ package object prettyprint {
 			typeParamNames(primitive)
 		else
 			buildClassName(0, new JStringBuilder(className.length)).toString
+	}
+
+	//todo: make Opt-returning methods primary.
+	def parseClassName(className :String) :Opt[String] =
+		try One(demangledName(className)) catch {
+			case _ :IllegalArgumentException => None
+		}
+
+
+	def replaceClassNames(message :String) :String = {
+		val length = message.length
+		val res  = new JStringBuilder(length)
+		var char = ' '
+		var wordStart = 0
+		while (wordStart < length && {char = message.charAt(wordStart); char.isWhitespace}) {
+			wordStart += 1
+			res append char
+		}
+		if (wordStart == length)
+			return message
+		while (wordStart < length) {
+			var wordEnd = wordStart + 1
+			while (wordEnd < length && !message.charAt(wordEnd).isWhitespace)
+				wordEnd += 1
+			val word = message.substring(wordStart, wordEnd)
+			parseClassName(word) match {
+				case One(name) => res append name
+				case _         => res append word
+			}
+			wordStart = wordEnd
+			while (wordStart < length && {char = message.charAt(wordStart); char.isWhitespace}) {
+				wordStart += 1
+				res append char
+			}
+		}
+		res.toString
 	}
 
 
