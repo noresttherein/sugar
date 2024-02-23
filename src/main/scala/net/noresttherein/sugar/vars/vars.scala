@@ -1560,4 +1560,18 @@ package vars {
 			}
 		}
 	}
+
+
+
+	@SerialVersionUID(Ver)
+	class IntPair private (private val bits :Long) extends AnyVal with Serializable {
+		def _1 :Int = (bits >> 32).toInt
+		def _2 :Int = bits.toInt
+		def toTuple :(Int, Int) = (_1, _2)
+	}
+
+	object IntPair {
+		def apply(first :Int, second :Int) :IntPair = new IntPair(first.toLong << 32 | second & 0xffffffffL)
+		def unapply(pair :IntPair) :Opt[(Int, Int)] = One(pair.toTuple)
+	}
 }
