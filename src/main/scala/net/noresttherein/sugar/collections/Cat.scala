@@ -697,7 +697,7 @@ case object Cat extends SeqFactory[Cat] {
 		override def iterator = new IndexedSeqIterator(elems, offset, offset + length)
 		override def reverseIterator :Iterator[A] = new ReverseIndexedSeqIterator(elems, offset, offset + length)
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
-			IndexedSeqStepper(elems, offset, offset + length)
+			IndexedSeqStepper.slice(elems, offset, offset + length)
 
 		override def clippedSlice(from :Int, until :Int) = new Slice(elems, offset + from, until - from)
 

@@ -24,15 +24,18 @@ object JavaIterator {
 		IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	def over[T, I <: JavaIterator[_]](array :Array[T])(implicit shape :JavaIteratorShape[T, I]) :I =
-		ArrayStepper(array)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		if (array.length == 0) JavaIterator[T]()
+		else ArrayStepper(array)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	def slice[T, I <: JavaIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
 	                               (implicit shape :JavaIteratorShape[T, I]) :I =
-		IndexedSeqStepper(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		if (until <= 0 | until <= from | from >= seq.length) JavaIterator[T]()
+		else IndexedSeqStepper.slice(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	def slice[T, I <: JavaIterator[_]](array :Array[T], from :Int, until :Int)
 	                                  (implicit shape :JavaIteratorShape[T, I]) :I =
-		ArrayStepper(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		if (until <= 0 | until <= from | from >= array.length) JavaIterator[T]()
+		else ArrayStepper.slice(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 	//Using I without an upper bound of JavaIterator[_] saves us casting the argument in some places,
 	// which could create another closure.
@@ -533,18 +536,18 @@ object Jterator {
 		JavaIterator.from(elems)(shape.javaIteratorShape).asInstanceOf[I]
 
 	def over[T, I <: Jterator[_]](seq :collection.IndexedSeq[T])(implicit shape :JteratorShape[T, I]) :I =
-		IndexedSeqStepper(seq)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		JavaIterator.over(seq)(shape.javaIteratorShape).asInstanceOf[I]
 
 	def over[T, I <: Jterator[_]](array :Array[T])(implicit shape :JteratorShape[T, I]) :I =
-		ArrayStepper(array)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		JavaIterator.over(array)(shape.javaIteratorShape).asInstanceOf[I]
 
 	def slice[T, I <: Jterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
 	                              (implicit shape :JteratorShape[T, I]) :I =
-		IndexedSeqStepper(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		JavaIterator.slice(seq, from, until)(shape.javaIteratorShape).asInstanceOf[I]
 
 	def slice[T, I <: Jterator[_]](array :Array[T], from :Int, until :Int)
 	                              (implicit shape :JteratorShape[T, I]) :I =
-		ArrayStepper(array, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+		JavaIterator.slice(array, from, until)(shape.javaIteratorShape).asInstanceOf[I]
 
 	//Using I without an upper bound of JavaIterator[_] saves us casting the argument in some places,
 	// which could create another closure.

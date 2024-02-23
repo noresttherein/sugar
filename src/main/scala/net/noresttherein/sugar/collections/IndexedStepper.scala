@@ -214,7 +214,18 @@ object IndexedSeqStepper {
 	  */ //we could make it work for collection.IndexedSeq
 	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any1, _])
 	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
-		apply(seq, 0, seq.length)
+		slice(seq, 0, seq.length)
+
+	/** A [[scala.collection.Stepper Stepper]] iterating over a slice of an indexed sequence.
+	  * The stepper will box the elements, but the result will be of the proper specialization for `A` -
+	  * one of `Any`, `Int`, `Long`, `Double`.
+	  * @param seq      the sequence with elements over which to iterate.
+	  * @param from     the index of the first (and later current) element in the sequence (the one returned by `next()`).
+	  * @param sizee    the maximum number of elements returned by the stepper.
+	  */
+//	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any1, _], from :Int, size :Int)
+//	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
+//		slice(seq, from, from + math.min(Int.MaxValue - from, size))
 
 	/** A [[scala.collection.Stepper Stepper]] iterating over a slice of an indexed sequence.
 	  * The stepper will box the elements, but the result will be of the proper specialization for `A` -
@@ -222,8 +233,8 @@ object IndexedSeqStepper {
 	  * @param seq      the sequence with elements over which to iterate.
 	  * @param from     the index of the first (and later current) element in the sequence (the one returned by `next()`).
 	  * @param until    the index immediately following the index of the last element in the slice.
-	  */ //consider: this is inconsistent with IndexedSeqIterator, which accepts (offset, length) instead of (from, until)
-	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any1, _], from :Int, until :Int)
+	  */
+	def slice[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any1, _], from :Int, until :Int)
 	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
 		(shape.shape match {
 			case IntShape    => new IntIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Int]], from, until)

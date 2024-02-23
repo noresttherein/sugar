@@ -71,7 +71,7 @@ object JavaTypes {
 
 		def slice[T, I <: JIterator[_]](seq :collection.IndexedSeq[T], from :Int, until :Int)
 		                               (implicit shape :JavaIteratorShape[T, I]) :I =
-			IndexedSeqStepper(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
+			IndexedSeqStepper.slice(seq, from, until)(shape.stepperShape).javaIterator.asInstanceOf[I]
 
 		def slice[T, I <: JIterator[_]](array :Array[T], from :Int, until :Int)
 		                               (implicit shape :JavaIteratorShape[T, I]) :I =

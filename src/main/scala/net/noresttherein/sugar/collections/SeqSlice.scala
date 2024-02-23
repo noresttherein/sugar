@@ -79,7 +79,7 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 	override def iterator :Iterator[E] = new IndexedSeqIterator(underlying, offset, offset + length)
 	override def reverseIterator :Iterator[E] = new ReverseIndexedSeqIterator(underlying, offset, offset + length)
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
-		IndexedSeqStepper(underlying, offset, offset + length)
+		IndexedSeqStepper.slice(underlying, offset, offset + length)
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
 		underlying.copyRangeToArray(xs, start, offset, math.min(len, length))

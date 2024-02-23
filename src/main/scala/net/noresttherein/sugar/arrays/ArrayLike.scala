@@ -1062,7 +1062,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  */ //<:< argument required because if we use [U >: E], then scalac infers too early U =:= E.
 		@inline def binarySearch[U](from :Int, until :Int)(x :U)(implicit ordering :Ordering[U], sub :E <:< U)
 				:ElementIndex =
-		{
+		{   //Arrays.binarySearch and IndexedSeqOps.search do not make any guarantees when there are duplicates.
 			val length = self.length
 			val start  = math.min(length, math.max(from, 0))
 			val limit  = math.min(until, length)
@@ -1071,25 +1071,18 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 				case array :Array[AnyRef]  => //specialized for AnyRef - faster access than in Array[_]
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[AnyRef])(ordering.castParam[AnyRef])
 				case array :Array[Int]      if ordering == Ordering.Int =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Int])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Int])
 				case array :Array[Long]     if ordering == Ordering.Long =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Long])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Long])
 				case array :Array[Double]   if ordering == Ordering.Double.TotalOrdering =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Double])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Double])
 				case array :Array[Byte]     if ordering == Ordering.Byte =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Byte])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Byte])
 				case array :Array[Char]     if ordering == Ordering.Char =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Char])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Char])
 				case array :Array[Float]    if ordering == Ordering.Float.TotalOrdering =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Float])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Float])
 				case array :Array[Short]    if ordering == Ordering.Short =>
-//					Arrays.binarySearch(array, start, limit, x.asInstanceOf[Short])
 					BinarySearch(array, start, limit - 1, x.asInstanceOf[Short])
 				case array :Array[U @unchecked] =>
 					BinarySearch[U, U](array, start, limit - 1, x)

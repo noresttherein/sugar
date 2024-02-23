@@ -10,7 +10,7 @@ import scala.collection.{ClassTagIterableFactory, EvidenceIterableFactory, Itera
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeSpecOps, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeSpecOps, IArray, IArrayLike, IArrayLikeIterator, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
@@ -82,14 +82,18 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
 		else array(startIndex + len - 1)
 	}
 
-	override def iterator :Iterator[E] = ArrayIterator(array, startIndex, size)
-
+	override def iterator :Iterator[E] = {
+		val length = this.size
+		if (length == 0) Iterator.empty else ArrayIterator(array, startIndex, size)
+	}
 	override def jterator[I <: Jterator[_]](implicit shape :JteratorShape[E, I]) :I = {
 		val start = startIndex
 		Jterator.slice(array, start, start + size)
 	}
-	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
-		ArrayStepper(array, startIndex, size)
+	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit = {
+		val len = size
+		if (len == 0) Stepper0() else ArrayStepper(array, startIndex, len)
+	}
 
 
 	protected override def segmentLength(p :E => Boolean, from :Int) :Int =
@@ -431,6 +435,13 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 			outOfBounds_!(i, length)
 		else
 			array(startIndex + i)
+
+	override def iterator :Iterator[E] = {
+		val length = this.size
+		if (length == 0) Iterator.empty
+		else if (sliceFactory.isImmutable) IArrayLikeIterator(array.asInstanceOf[IArrayLike[E]], startIndex, size)
+		else ArrayIterator(array, startIndex, size)
+	}
 
 	protected def sliceFactory :ArrayLikeSliceWrapper[A, C]
 

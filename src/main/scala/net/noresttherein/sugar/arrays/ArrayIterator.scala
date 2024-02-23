@@ -94,6 +94,7 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 abstract class ArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] private[arrays]
 	extends ArrayLikeSliceWrapper[A, I]
 {
+//	private[this] val empty = make(Array.emptyObjectArray.asInstanceOf[A[Nothing]])
 	@inline final def apply[E](array :A[E]) :I[E] = wrap(array)
 
 	/** Returns elements `array(first), array(first + 1), ..., array(first + length - 1)` of the given array.
