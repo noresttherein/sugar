@@ -1,6 +1,9 @@
 package net.noresttherein.sugar.exceptions
 
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
 
+import net.noresttherein.sugar.extensions.classNameMethods
 
 
 /** Validators for ubiquitous argument constraints. */
@@ -169,4 +172,20 @@ object validate { //consider: macros which use the argument expression as the ba
 		if (extra.knownSize > Int.MaxValue - coll.size)
 			maxSize_!(coll, extra)
 
+
+
+	@elidable(ASSERTION)
+	def assertEqual(x :Any, y :Any) :Unit =
+		if (x != y)
+			throw new AssertionError(
+				x.toString + ": " + x.localClassName + " does not equal " + y + ": " + y.localClassName + "."
+			)
+
+	@elidable(ASSERTION)
+	def assertEqual(x :Any, y :Any, msg: => Any) :Unit =
+		if (x != y)
+			throw new AssertionError(
+				msg.toString + ": " + x + " (" + x.abbrevClassName + ") does not equal " +
+					y + " (" + y.abbrevClassName + ")."
+			)
 }
