@@ -71,7 +71,7 @@ package object vars extends vars.Rank1OptImplicits {
 	  * @see [[net.noresttherein.sugar.vars.Ternary]]
 	  */
 	//other names: Hope/Lucky/NoLuck(Vain); Perhaps; Wish/Granted/Denied; Optional/Defined/Undefined; Space/Filled/Blank
-	type Opt[+A] >: None.type
+	type Opt[+A] >: None.type <: AnyRef
 
 	/** An alias for $Opt`[A]`, a fully erased variant of [[scala.Option]] with an API defined
 	  * by [[net.noresttherein.sugar.vars.OptExtension OptExtension]] as extension methods.

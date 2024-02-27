@@ -328,7 +328,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 		override def updated[U[T] >: V[T], X](key :K[X], value :U[X]) :NatMap[K, U] =
 			opt(key) match {
-				case Yes(x) if x == value => this
+				case One(x) if x == value => this
 				case _ => (NatMap.newBuilder[K, U] ++= this += Assoc(key, value)).result()
 			}
 
@@ -360,12 +360,12 @@ object NatMap extends ImplicitNatMapFactory {
 				override def knownSize = outer.knownSize
 				override def iterator = outer.iterator.map(entry => (entry._1, entry._2))
 				override def removed(key :K[_]) = outer.opt(key) match {
-					case Yes(_) => iterator.filterNot(_._1 == key) to Map
+					case One(_) => iterator.filterNot(_._1 == key) to Map
 					case _ => this
 				}
 				override def updated[V1 >: V[_]](key :K[_], value :V1) = opt(key) match {
-					case Yes(v) if v == value => this
-					case Yes(_) => outer.iterator.map {
+					case One(v) if v == value => this
+					case One(_) => outer.iterator.map {
 						entry => if (entry._1 == key) (key, value) else (entry._1, entry._2)
 					} to Map
 					case _ => iterator ++ Iterator.single((key, value)) to Map
