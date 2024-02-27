@@ -103,6 +103,8 @@ private class MutableReversedSeq[E](override val reverse :mutable.IndexedSeq[E])
 		if (idx < 0) throw new IndexOutOfBoundsException(idx.toString + " out of " + length)
 		else reverse(length - idx - 1) = elem
 
+	//Returns IndexedBuffer so we don't have to override it in ReversedBuffer
+	protected override def fullSlice :mutable.IndexedBuffer[E] = TemporaryBuffer.empty[E] ++= this
 	protected override def clippedSlice(from :Int, until :Int) :mutable.IndexedSeq[E] =
 		if (HasFastSlice(reverse))
 			ReversedSeq(reverse.slice(length - until, length - from))

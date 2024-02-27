@@ -42,7 +42,7 @@ import net.noresttherein.sugar.vars.Maybe.Yes
   * @define Coll `ArraySliceBuffer`
   * @define coll array buffer
   * @author Marcin Mościcki
-  */
+  */ //consider: using a ClassTag and creating specific and untagged factories like in MatrixBuffer
 @SerialVersionUID(Ver)
 final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
                                          private[this] var offset :Int, private[this] var len :Int)

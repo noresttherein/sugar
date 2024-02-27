@@ -403,8 +403,8 @@ private object Defaults {
 		val thatSize = elems.knownSize
 		val thisSize = self.knownSize
 		self match {
-			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
-				seq.updatedAll(index, elems)
+//			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+//				seq.updatedAll(index, elems)
 			case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
 				outOfBounds()
 			case _ if self.knownLazy =>
@@ -564,12 +564,14 @@ private object Defaults {
 		val thatSize = elems.knownSize
 		val thisSize = self.knownSize
 		self match {
-			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
-				seq.overwritten(index, elems)
+//			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+//				seq.overwritten(index, elems)
 			case _ if thatSize == 0 || thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
 				|| thisSize >= 0 && thisSize >= index || index == Int.MinValue || index == Int.MaxValue
 			=>
 				self.iterableFactory from self
+			case _ :View[_]          =>
+				self.iterableFactory from Views.overwritten(self, index, elems)
 			case _ if self.knownLazy =>
 				self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
 			case _ if thatSize >= 0 && thisSize >= 0 =>
@@ -592,7 +594,7 @@ private object Defaults {
 
 	/** Inserts a new element to this sequence at the specified position, pushing all elements at `index`
 	  * and beyond by one position. Equivalent to
-	  * [[collection.SeqOps.patch patch]]`(index, Seq(elem), elems.size)`.
+	  * [[collection.SeqOps.patch patch]]`(index, Seq(elem), 1)`.
 	  */ //todo: permissive indexing
 	//Consider: use patch, in case it is overridden like in a Finger tree:
 	// negative indices are treated as zero, while indices greater than the length
@@ -606,7 +608,8 @@ private object Defaults {
 		else if (size >= 0 & index == size)
 			self.appended(elem)
 		else self match {
-			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.inserted(index, elem)
+			case _ :View[_] => self.iterableFactory from Views.inserted(self, index, elem)
+//			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.inserted(index, elem)
 			case _ => self.iterableFactory from Iterators.inserted(self.iterator, index, elem)
 		}
 	}
@@ -614,13 +617,14 @@ private object Defaults {
 	/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
 	def insertedAll[E, CC[_], C](self :collection.SeqOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] =
 		self match {
-			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
-				seq.insertedAll(index, elems)
+//			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+//				seq.insertedAll(index, elems)
 			case _ if self.knownSize >= 0 =>
 				val size = self.knownSize
 				if (index < 0 || index > size)
 					outOfBounds_!(errorString(self) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
 				self.patch(index, elems, 0)
+			case _ :View[_] => self.iterableFactory from Views.insertedAll(self, index, elems)
 			case _ => //Can't use patch because insertedAll validates the index.
 				self.iterableFactory from Iterators.insertedAll(self.iterator, index, elems)
 		}

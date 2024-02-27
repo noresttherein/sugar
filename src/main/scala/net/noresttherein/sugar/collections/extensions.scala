@@ -5,7 +5,7 @@ import java.lang.{Math => math}
 import java.lang.System.arraycopy
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
-import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
+import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.{IsIterableOnce, IsSeq}
 import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps}
@@ -23,7 +23,7 @@ import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
-import net.noresttherein.sugar.collections.extensions.{ArrayBufferCompanionExtension, BufferExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, SeqViewExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.collections.extensions.{BufferExtension, BufferFactoryExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, SeqViewExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.funny.generic
@@ -49,7 +49,7 @@ import net.noresttherein.sugar.witness.Ignored
   * Extracted because it's extended both by [[net.noresttherein.sugar.collections.extensions extensions]]
   * and [[net.noresttherein.sugar.collections collections]] package object itself.
   */
-private[sugar] trait JteratorExtensions extends Any {
+private[collections] trait JteratorExtensions extends Any {
 	import extensions._
 	@inline implicit final def JteratorExtension[I <: Jterator[_]](self :I) :JteratorExtension[I] =
 		new JteratorExtension(self.asInstanceOf[JavaIterator[_]])
@@ -246,8 +246,8 @@ trait extensions extends Any with extensionsLowPriority with JteratorExtensions 
 		new immutableIndexedSeqCompanionExtension {}
 
 	/** Extension factory methods for [[collection.mutable.ArrayBuffer$ ArrayBuffer]]. */
-	@inline implicit final def ArrayBufferCompanionExtension(self :ArrayBuffer.type) :ArrayBufferCompanionExtension =
-		new ArrayBufferCompanionExtension {}
+	@inline implicit final def BufferFactoryExtension[B[X] <: Buffer[X]](self :SeqFactory[B]) :BufferFactoryExtension[B] =
+		new BufferFactoryExtension(self)
 
 	/** Extension factory methods for single element immutable [[collection.immutable.Set Set]] subtypes' companions. */
 	@inline implicit final def immutableSetFactoryExtension[C[X] <: SetOps[X, C, C[X]]]
@@ -3589,24 +3589,21 @@ object extensions extends extensions {
 		def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			updatedAll(index, Prepended2Seq(first, second, rest))
 
-		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
-		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
-		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
-		  * which may make it slightly more efficient than `patch`.
+		/** Updates the element at `index` and following elements with the specified values.
+		  * For indices in range, it is the same as
+		  * [[net.noresttherein.sugar.collections.extensions.SeqExtensionMethods.updatedAll updatedAll]]`(index, elems)`.
+		  * It does not however throw exceptions if the index is out of range. Instead, if the index is negative,
+		  * it updates elements starting at index zero, but after dropping `-index` initial elements from
+		  * `elems`. Similarly, if `this.length < index + elems.size`, then the remaining elements are simply ignored.
 		  */
-		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
-		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
-		 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
-		 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
-		 */
 		def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
 
 		/** Updates the element at `index` and following elements with the specified values.
-		  * @return The same result as {{{
-		  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
-		  *             case (res, (e, i)) => res.updated(i, e)
-		  *         }
-		  *  }}}
+		  * For indices in range, it is the same as `updatedAll(index, first, second, rest :_*)`.
+		  * It does not however throw exceptions if the index is out of range. Instead, if the index is negative,
+		  * it updates elements starting at index zero, but after dropping `-index` initial elements from
+		  * `first +: second +: rest`. Similarly, if `this.length < index + 2 + rest.length`, then the remaining
+		  * elements are simply ignored.
 		  */
 		def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			overwritten(index, Prepended2Seq(first, second, rest))
@@ -3923,213 +3920,27 @@ object extensions extends extensions {
 		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			updatedAll(index, Prepended2Seq(first, second, rest))
 
-
-		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
-			def outOfBounds(msg :String = "") =
-				outOfBounds_!(
-					errorString(self) + ".updatedAll(" + index + ", " + errorString(elems) + ")" +
-						(if (msg.nonEmpty) ": " + msg else msg)
-				)
-			val thatSize = elems.knownSize
-			val thisSize = self.knownSize
-			self match {
-				case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
-					seq.updatedAll(index, elems)
-				case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
-					outOfBounds()
-				case _ if self.knownLazy =>
-					if (self.isInstanceOf[View[_]]) self.iterableFactory from Views.updatedAll(self, index, elems)
-					else self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
-				case _ if thatSize == 0 || elems.toBasicOps.isEmpty =>
-					//consider: traversing the whole list to compute its length only to throw an exception is wasteful
-					val length = self.length
-					if (index > length)
-						outOfBounds_!(index, length)
-					self.iterableFactory from (self :collection.SeqOps[U, CC, C])
-				case HasFastSlice(items) =>
-					updatedAll(items, index, elems, true)
-				case seq :collection.LinearSeq[E] @unchecked =>
-					updatedAll(seq, index, elems, true)
-				case _ =>
-					self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
-			}
-		}
-
-		private def updatedAll[U >: E](seq :collection.LinearSeq[U], index :Int, elems :IterableOnce[U],
-		                               validate :Boolean) :CC[U] =
-		{
-			val thisSize = seq.knownSize
-			val thatSize = elems.knownSize
-			var i = 0
-			var initReversed :List[U] = Nil
-			var tail :collection.LinearSeq[U] = seq
-			while (i < index && tail.nonEmpty) {
-				initReversed = tail.head::initReversed
-				tail = tail.tail
-				i += 1
-			}
-			if (i < index)
-				if (validate)
-					outOfBounds_!(
-						self.className + "|" + (if (thisSize >= 0) thisSize.toString else index.toString + "+")
-							+ "|.updatedAll(" + index + ", " + errorString(elems) + ")"
-					)
-				else
-					genericSelf
-			else {
-				elems match {
-					case list :collection.LinearSeq[U] =>
-						var patch = list
-						var i = 0
-						while (i < -index) {
-							patch = patch.tail
-							i += 1
-						}
-						while (patch.nonEmpty && tail.nonEmpty) {
-							initReversed = patch.head::initReversed
-							patch = patch.tail
-							tail = tail.tail
-							i += 1
-						}
-						if (validate && tail.isEmpty && patch.nonEmpty)
-							outOfBounds_!(
-								self.className + ".updatedAll(" + index + ", " + elems.className + "|" +
-									(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
-							)
-					case IndexedIterable(seq) => //matches only collections of known size
-						tail = tail.drop(thatSize - 1)
-						if (tail.isEmpty) {
-							if (validate)
-								outOfBounds_!(
-									self.className + ".updatedAll(" + index + ", " + errorString(elems) + ": patch too large"
-								)
-						} else
-							tail = tail.tail
-						if (applyPreferred(seq)) {
-							var i = thatSize
-							while (i > 0) {
-								i -= 1
-								tail = seq(i) +: tail
-							}
-						} else {
-							val i = seq.reverseIterator
-							while (i.hasNext)
-								tail = i.next() +: tail
-						}
-					case _ =>
-						val i = elems.iterator
-						while (i.hasNext && tail.nonEmpty) {
-							initReversed = i.next()::initReversed
-							tail = tail.tail
-						}
-						if (validate && tail.isEmpty && i.hasNext)
-							outOfBounds_!(
-								self.className + ".updatedAll(" + index + ", " + elems.className + "|" +
-									(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
-							)
-				}
-				self.iterableFactory from util.prependReverse(initReversed, tail)
-			}
-		}
-
-		private def updatedAll[U >: E](items :IterableOnceOps[U, IterableOnce, IterableOnce[U]], index :Int,
-		                               elems :IterableOnce[U], validate :Boolean) :CC[U] =
-		{
-			//If possible, try to add collections, rather than iterators, as there is a chance they'll reuse contents.
-			val thisSize = self.knownSize
-			val thatSize = elems.knownSize
-			val res = self.iterableFactory.newBuilder[U]
-			res sizeHint thisSize
-			res ++= items.take(index)
-			val toDrop =
-				if (thatSize >= 0) {
-					if (index < 0)
-						if (preferDropOverIterator(elems))
-							res ++= elems.toIterableOnceOps.drop(-index)
-						else
-							res ++= elems.iterator.drop(-index)
-					thatSize
-				} else {
-					var i  = 0
-					val it = elems.iterator
-					while (it.hasNext) {
-						res += it.next()
-						i += 1
-					}
-					def outOfBounds() =
-						outOfBounds_!(
-							errorString(self) + ".updatedAll(" + index + ", " + elems.className + "|" + i + "|)"
-						)
-					if (validate)
-						if (thisSize >= 0) {
-							if (index > thisSize - i)
-								outOfBounds()
-						} else if (i <= Int.MaxValue - index + 1) {
-							if (items.drop(index - 1 + i).toBasicOps.nonEmpty)
-								outOfBounds()
-						} else
-							if (self.iterator.drop(index).drop(i - 1).nonEmpty)
-								outOfBounds()
-					i
-				}
-			if (index <= thisSize - toDrop)
-				res ++= items.drop(index + toDrop)
-			else
-				res ++= self.iterator.drop(index).drop(toDrop)
-			res.result()
-			//we hope for fast tail, that hd +: tail reuses tail, and that iterableFactory from seq eq seq
+		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.updatedAll(index, elems)
+			case _                                                  => Defaults.updatedAll(self, index, elems)
 		}
 
 
 		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			overwritten(index, Prepended2Seq(first, second, rest))
 
-		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = {
-			val thatSize = elems.knownSize
-			val thisSize = self.knownSize
-			self match {
-				case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
-					seq.overwritten(index, elems)
-				case _ if thatSize == 0 || thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
-					|| thisSize >= 0 && thisSize >= index || index == Int.MinValue || index == Int.MaxValue
-				=>
-					genericSelf
-				case _ if self.knownLazy =>
-					if (self.isInstanceOf[View[_]]) self.iterableFactory from Views.overwritten(self, index, elems)
-					else self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
-				case _ if thatSize >= 0 && thisSize >= 0 =>
-					val replaced =
-						if (index < 0) math.min(thatSize + index, thisSize)
-						else math.min(thatSize, thisSize - index)
-					val that = if (index < 0) elems.iterator.drop(-index) else elems
-					self.patch(index, that, replaced)
-				case _ if elems.toBasicOps.isEmpty =>
-					self.iterableFactory from (self :collection.SeqOps[U, CC, C])
-				case HasFastSlice(items) =>
-					updatedAll(items, index, elems, false)
-				case seq :collection.LinearSeq[E] @unchecked =>
-					updatedAll(seq, index, elems, false)
-				case _ =>
-					self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
-			}
+		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.overwritten(index, elems)
+			case _                                                  => Defaults.overwritten(self, index, elems)
 		}
 
 
 		//Consider: use patch, in case it is overridden like in a Finger tree:
 		// negative indices are treated as zero, while indices greater than the length
 		// of this sequence result in appending the element to the end of the sequence.
-		override def inserted[U >: E](index :Int, elem :U) :CC[U] = {
-			val size = self.knownSize
-			if (index < 0 | size >= 0 & index > size)
-				outOfBounds_!(self.className + "|" + size + "|.inserted(" + index + ", _)")
-			else if (index == 0)
-				self.prepended(elem)
-			else if (size >= 0 & index == size)
-				self.appended(elem)
-			else self match {
-				case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.inserted(index, elem)
-				case _ => self.iterableFactory from Iterators.inserted(self.iterator, index, elem)
-			}
+		override def inserted[U >: E](index :Int, elem :U) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.inserted(index, elem)
+			case _                                                  => Defaults.inserted(self, index, elem)
 		}
 
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtension.insertedAll insertedAll]]`(first +: second +: rest)`. */
@@ -4139,17 +3950,8 @@ object extensions extends extensions {
 
 		/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
 		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
-			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
-				seq.insertedAll(index, elems)
-			case _ if self.knownSize >= 0 =>
-				val size = self.knownSize
-				if (index < 0 || index > size)
-					outOfBounds_!(errorString(self) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
-				self.patch(index, elems, 0)
-			case _ :View[_] =>
-				self.iterableFactory from Views.insertedAll(self, index, elems)
-			case _ => //Can't use patch because insertedAll validates the index.
-				self.iterableFactory from Iterators.insertedAll(self.iterator, index, elems)
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.insertedAll(index, elems)
+			case _                                                  => Defaults.insertedAll(self, index, elems)
 		}
 
 		//clashes with standard methods in SeqOps
@@ -6143,7 +5945,7 @@ object extensions extends extensions {
 			case Buffer | mutable.Seq => (Buffer.empty[E] += first += second).castCons[C]
 			case ListBuffer           => (new ListBuffer[E] += first += second).castCons[C]
 			case ArrayBuffer | mutable.IndexedSeq | IndexedBuffer =>
-				(new ArrayBuffer[E](2) += first += second).castCons[C]
+				(new AliasingArrayBuffer[E](2) += first += second).castCons[C]
 			case _ =>
 				self from Prepended2Seq(first, second, RelayArray.empty)
 		}
@@ -6185,17 +5987,24 @@ object extensions extends extensions {
 	}
 
 
-	sealed trait ArrayBufferCompanionExtension extends Any {
+	class BufferFactoryExtension[B[X] <: Buffer[X]](private val self :SeqFactory[B]) extends AnyVal {
 		/** A new, empty buffer. Same as `empty`, but slightly more succinct, and puts emphasis on the element type. */
-		@inline final def of[E] :ArrayBuffer[E] = new AliasingArrayBuffer[E]
+		@inline final def of[E] :B[E] = (self :SeqFactory[Buffer]) match {
+			case Buffer | ArrayBuffer => new AliasingArrayBuffer[E].castCons[B]
+			case _                    => self.empty[E]
+		}
 
 		/** A new buffer, with space reserved for `capacity` elements. Works similarly to
 		  * [[collection.mutable.Builder Builder]]`.`[[collection.mutable.Builder.sizeHint sizeHint]].
 		  */
-		@inline final def ofCapacity[E](capacity :Int) :ArrayBuffer[E] = {
-			val res = new AliasingArrayBuffer[E]
-			res.sizeHint(capacity)
-			res
+		@inline final def ofCapacity[E](capacity :Int) :B[E] = (self :SeqFactory[Buffer]) match {
+			case factory :BufferFactory[B @unchecked]         => factory.ofCapacity(capacity)
+			case factory :ClassTagBufferFactory[B @unchecked] => factory.ofCapacity(capacity)(ClassTag.Any.castParam[E])
+			case Buffer | ArrayBuffer =>
+				val res = new AliasingArrayBuffer[E]
+				res sizeHint capacity
+				res.castCons[B]
+			case _ => self.empty[E]
 		}
 	}
 

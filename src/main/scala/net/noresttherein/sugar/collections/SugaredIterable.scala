@@ -6,6 +6,7 @@ import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.extensions.IteratorExtension
 import net.noresttherein.sugar.exceptions.unsupported_!
+import net.noresttherein.sugar.extensions.SeqFactoryExtension
 import net.noresttherein.sugar.funny.generic
 
 
@@ -207,14 +208,20 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
 
 
 /** Implements all methods returning a slice of this collection by delegating them to a single
-  * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice trustedSlice]] after validation.
+  * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice clippedSlice]] after validation.
   * Assumes fast `size` operation.
   */ //Most methods don't exist in IterableOnceOps, so we can't use it for iterators, too.
 trait SlicingOps[+E, +C] extends Any with IterableOps[E, generic.Any1, Any] {
 	protected def hasFastSlice :Boolean = false
 	protected override def coll :C
+
+	/** The instance returned from `slice` and related methods when the returned collection is empty. */
 	protected def emptySlice :C
-	protected def fullSlice :C = coll //fixme: override it in mutable subclasses, or, better, in immutable.
+
+	/** The instance returned from `slice` and related methods when the slice includes the whole collection.
+	  * Defaults to `this.coll`, but should be overridden in mutable subclasses to return a fresh copy.
+	  */
+	protected def fullSlice :C = coll
 
 	override def tail :C = {
 		val size = this.size
@@ -298,16 +305,52 @@ trait SeqSlicingOps[+E, +CC[_], +C] extends SugaredSlicingOps[E, CC, C] with Seq
 
 
 trait SugaredSeqOps[+E, +CC[_], +C] extends collection.SeqOps[E, CC, C] with SugaredIterableOps[E, CC, C] {
+	/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
+	  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
+	  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
+	  * which may makes it slightly more efficient than `patch`.
+	  */
 	def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.updatedAll(this, index, elems)
+
+	/** Updates the element at `index` and following elements with the specified values.
+	  * @return The same result as {{{
+	  *         (first +: second +: rest).zip(Iterator.iterate(index)(_ + 1)).foldLeft(this) {
+	  *             case (res, (e, i)) => res.updated(i, e)
+	  *         }
+	  *  }}}
+	  */
 	def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 		updatedAll(index, Prepended2Seq(first, second, rest))
-	//consider: renaming to overlay. However, overwrite is better for mutable Seq.
+
+	/** Updates the element at `index` and following elements with the specified values.
+	  * For indices in range, it is the same as
+	  * [[net.noresttherein.sugar.collections.SugaredSeqOps.updatedAll updatedAll]]`(index, elems)`.
+	  * It does not however throw exceptions if the index is out of range. Instead, if the index is negative,
+	  * it updates elements starting at index zero, but after dropping `-index` initial elements from
+	  * `elems`. Similarly, if `this.length < index + elems.size`, then the remaining elements are simply ignored.
+	  *///consider: renaming to overlay. However, overwrite is better for mutable Seq.
 	def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.overwritten(this, index, elems)
+
+	/** Updates the element at `index` and following elements with the specified values.
+	  * For indices in range, it is the same as `updatedAll(index, first, second, rest :_*)`.
+	  * It does not however throw exceptions if the index is out of range. Instead, if the index is negative,
+	  * it updates elements starting at index zero, but after dropping `-index` initial elements from
+	  * `first +: second +: rest`. Similarly, if `this.length < index + 2 + rest.length`, then the remaining
+	  * elements are simply ignored.
+	  */
 	def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 		overwritten(index, Prepended2Seq(first, second, rest))
 
+	/** Inserts a new element to this sequence at the specified position, pushing all elements at `index`
+	  * and beyond by one position. Equivalent to
+	  * [[collection.SeqOps.patch patch]]`(index, Seq(elem), 1)`.
+	  */ //todo: permissive indexing
 	def inserted[U >: E](index :Int, elem :U) :CC[U] = Defaults.inserted(this, index, elem)
+
+	/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
 	def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.insertedAll(this, index, elems)
+
+	/** Equivalent to [[collection.SeqOps.patch patch]]`(index, first +: second +: elems, 0)`. */
 	def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 		insertedAll(index, Prepended2Seq(first, second, rest))
 }

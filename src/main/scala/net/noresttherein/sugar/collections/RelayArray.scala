@@ -23,7 +23,7 @@ import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.extensions.IntExtension
 import net.noresttherein.sugar.{illegalState_!, illegal_!, maxSize_!, unsupported_!}
-import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed}
+import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed, classes}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 //implicits
@@ -1973,6 +1973,80 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 	/** A builder for a $Coll backed by an array with the specified element type. */
 	def newBuilder[E](elementType :Class[E]) :Builder[E, RelayArray[E]] =
 		new SpecificBuilder(elementType)
+
+
+	/** A [[scala.collection.ClassTagSeqFactory ClassTagSeqFactory]] creating
+	  * [[net.noresttherein.sugar.collections.RelayArray RelayArray]]s backed by arrays of specific element types
+	  * (defined by a `ClassTag` type class).
+	  * @define Coll `RelayArray`
+	  * @define coll relay array
+	  */
+	@SerialVersionUID(Ver)
+	object specific extends ClassTagArrayLikeSliceSeqFactory[IArray, RelayArray] {
+		protected override def make[E](array :IArray[E], from :Int, until :Int) :RelayArray[E] =
+			RelayArray.make(array, from, until, false)
+
+		override def from[E :ClassTag](it :IterableOnce[E]) :RelayArray[E] = it match {
+			case relay :RelayArray[E] if relay.elementType == classTag[E].runtimeClass => relay
+			case empty if empty.knownSize == 0                                         => this.empty[E]
+			case IArray.Wrapped.Slice(array, from, until)
+				if array.getClass.getComponentType == classTag[E].runtimeClass
+			=>
+				RelayArray.make(array, from, until, false)
+			case _ => wrap(IArray.from(it))
+		}
+
+		override def empty[E :ClassTag] :RelayArray[E] = classTag[E].runtimeClass match {
+			case ref if classOf[AnyRef].isAssignableFrom(ref) => wrap(IArray.empty[E])
+			case classes.Int     => emptyIntRelay.castParam[E]
+			case classes.Long    => emptyLongRelay.castParam[E]
+			case classes.Double  => emptyDoubleRelay.castParam[E]
+			case classes.Char    => emptyCharRelay.castParam[E]
+			case classes.Byte    => emptyByteRelay.castParam[E]
+			case classes.Float   => emptyFloatRelay.castParam[E]
+			case classes.Short   => emptyShortRelay.castParam[E]
+			case classes.Boolean => emptyBooleanRelay.castParam[E]
+			case _               => wrap(IArray.empty[E])
+		}
+
+		private[this] val emptyByteRelay    = wrap(IArray.emptyByteIArray)
+		private[this] val emptyCharRelay    = wrap(IArray.emptyCharIArray)
+		private[this] val emptyShortRelay   = wrap(IArray.emptyShortIArray)
+		private[this] val emptyIntRelay     = wrap(IArray.emptyIntIArray)
+		private[this] val emptyLongRelay    = wrap(IArray.emptyLongIArray)
+		private[this] val emptyDoubleRelay  = wrap(IArray.emptyDoubleIArray)
+		private[this] val emptyFloatRelay   = wrap(IArray.emptyFloatIArray)
+		private[this] val emptyBooleanRelay = wrap(IArray.emptyBooleanIArray)
+
+		override def newBuilder[E :ClassTag] :Builder[E, RelayArray[E]] =
+			new SpecificBuilder(classTag[E].runtimeClass.castParam[E])
+
+		override def toString :String = "RelayArray.specific"
+	}
+
+
+	/** A [[scala.collection.SeqFactory SeqFactory]] building
+	  * [[net.noresttherein.sugar.collections.RelayArray RelayArray]]s always backed by `Array[Any]`.
+	  */
+	@SerialVersionUID(Ver)
+	object untagged extends ArrayLikeSliceFactory[IRefArray, RelayArray] {
+		override def from[A](source :IterableOnce[A]) :RelayArray[A] = source match {
+			case relay :RelayArray[A] if relay.elementType == classOf[Any] => relay
+			case IRefArray.Wrapped.Slice(array, from, until) => make(array, from, until)
+			case _                                           => wrap(IRefArray.from(source))
+		}
+		override def empty[A] :RelayArray[A] = Empty
+
+		override def newBuilder[A] :Builder[A, RelayArray[A]] = genericBuilder
+
+		protected override def make[E](array :IRefArray[E], from :Int, until :Int) :RelayArray[E] =
+			RelayArray.make(array, from, until, false)
+
+		private[this] val Empty = wrap(IRefArray.empty[Nothing])
+
+		override def toString = "RelayArray.untagged"
+	}
+
 
 
 	/** A builder of $Coll backed by an array of `elemType` component type. */

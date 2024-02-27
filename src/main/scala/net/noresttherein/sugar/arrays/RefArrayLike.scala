@@ -605,7 +605,7 @@ abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] private[arrays] exten
   * @define coll array
   */
 @SerialVersionUID(Ver)
-private[noresttherein] case object ErasedArray extends RefArrayLikeFactory[Array] with IterableFactory[Array] {
+private[sugar] case object ErasedArray extends RefArrayLikeFactory[Array] with IterableFactory[Array] {
 
 	/** A new `Array[AnyRef]` of the specified length, cast to $Coll`[E]`. */
 	@inline final def ofDim[E](length :Int) :Array[E] = new Array[Any](length).castFrom[Array[Any], Array[E]]

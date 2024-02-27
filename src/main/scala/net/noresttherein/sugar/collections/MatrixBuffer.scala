@@ -2900,15 +2900,15 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 
 	/** A $Coll factory producing instances backed by arrays of specific types, similarly to `mutable.ArraySeq`. */
-	object specific extends StrictOptimizedClassTagSeqFactory[MatrixBuffer] {
+	@SerialVersionUID(Ver)
+	object specific
+		extends StrictOptimizedClassTagSeqFactory[MatrixBuffer] with ClassTagBufferFactory[MatrixBuffer]
+	{
 		override def from[E :ClassTag](it :IterableOnce[E]) :MatrixBuffer[E] = new MatrixBuffer[E](shrink) ++= it
 
 		override def empty[E :ClassTag] :MatrixBuffer[E] = new MatrixBuffer[E](shrink)
 
-		/** A new, empty buffer backed by an `Array[E]`. Same as `empty[E]`. */
-		def of[E :ClassTag] :MatrixBuffer[E] = new MatrixBuffer[E](shrink)
-
-		def ofCapacity[E :ClassTag](capacity :Int) :MatrixBuffer[E] = new MatrixBuffer[E](capacity, shrink)
+		override def ofCapacity[E :ClassTag](capacity :Int) :MatrixBuffer[E] = new MatrixBuffer[E](capacity, shrink)
 
 		override def newBuilder[E :ClassTag] :Builder[E, MatrixBuffer[E]] =
 			new MatrixBuffer[E](shrink) with Builder[E, MatrixBuffer[E]] {
@@ -2921,6 +2921,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 
 	/** A $Coll factory producing instances backed by `Array[AnyRef]`, similarly to `mutable.ArraySeq.untagged`. */
+	@SerialVersionUID(Ver)
 	object untagged extends BufferFactory[MatrixBuffer] {
 		override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 

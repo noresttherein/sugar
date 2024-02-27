@@ -207,6 +207,7 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 			Immutable(whole, start + from, until - from)
 	}
 
+	@SerialVersionUID(Ver)
 	private object Immutable extends SeqSliceFactory[IndexedSeq, IndexedSeqRange] {
 		val empty :IndexedSeqRange[Nothing] = SeqSlice(IndexedSeq.empty, 0, 0)
 
@@ -230,6 +231,8 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 		   with mutable.IndexedSeq[E] with MutIndexedSeqRange[E]
 	{
 		protected override def emptySlice :MutIndexedSeqRange[E] = new Mutable(underlying.empty, 0, 0)
+//		protected override def fullSlice  :MutIndexedSeqRange[E] =
+//			new Mutable(underlying.slice(offset, offset + length), 0, length)
 
 		override def update(idx :Int, elem :E) :Unit =
 			if (idx < 0 || idx >= length) outOfBounds_!(idx, this)
@@ -239,6 +242,7 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 			Mutable(whole.clone(), start + from, until - from)
 	}
 
+	@SerialVersionUID(Ver)
 	private object Mutable extends SeqSliceFactory[mutable.IndexedSeq, MutIndexedSeqRange] {
 		import mutable.IndexedSeq
 		override def make[E](seq :IndexedSeq[E], from :Int, until :Int) :MutIndexedSeqRange[E] = seq match {
