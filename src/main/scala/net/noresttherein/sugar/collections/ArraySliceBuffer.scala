@@ -44,9 +44,9 @@ import net.noresttherein.sugar.vars.Maybe.Yes
   * @author Marcin Mościcki
   */ //consider: using a ClassTag and creating specific and untagged factories like in MatrixBuffer
 @SerialVersionUID(Ver)
-final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
+final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E],
                                          private[this] var offset :Int, private[this] var len :Int)
-	extends AbstractBuffer[E] with IndexedBuffer[E] with ArraySliceOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
+	extends AbstractBuffer[E] with IndexedBuffer[E] with ArraySliceSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with mutable.IndexedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with collection.StrictOptimizedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with IterableFactoryDefaults[E, ArraySliceBuffer] with DefaultSerializable
@@ -58,7 +58,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 
 	private[this] var aliased :Boolean = false
 
-	private[sugar] override def unsafeArray :Array[_] = array.asAnyArray
+	protected override def array :Array[E] = contents.asInstanceOf[Array[E]]
 	private[sugar] override def startIndex :Int = offset
 	private[sugar] override def isMutable = true
 
@@ -70,31 +70,34 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	  */
 	def sizeHint(totalSize :Int) :Unit =
 		if (totalSize > len) {
-			if (totalSize < array.length) {
-				if (offset + totalSize <= array.length) {
-					array = RefArray.copyOfRange(array, offset, offset + len, totalSize)
+			if (totalSize < contents.length) {
+				if (offset + totalSize <= contents.length) {
+					contents = RefArray.copyOfRange(contents, offset, offset + len, totalSize)
 					offset = 0
 				} else {
-					val newOffset = array.length - totalSize
-					array = RefArray.copyOfRange(array, offset, offset + len, newOffset, totalSize)
+					val newOffset = contents.length - totalSize
+					contents = RefArray.copyOfRange(contents, offset, offset + len, newOffset, totalSize)
 				}
-			} else if (totalSize > array.length) {
-				array  = RefArray.copyOfRange(array, offset, offset + len, totalSize)
+			} else if (totalSize > contents.length) {
+				contents  = RefArray.copyOfRange(contents, offset, offset + len, totalSize)
 				offset = 0
 			}
 		}
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int = //override clash
-		ArrayLikeSpecOps.segmentLength(array.asInstanceOf[Array[E]], offset, len)(p, from)
+		ArrayLikeSpecOps.segmentLength(contents.asInstanceOf[Array[E]], offset, len)(p, from)
 
 	protected override def clippedSlice(from :Int, until :Int) :ArraySliceBuffer[E] = {
 		val length = until - from
-		val slice  = RefArray.copyOfRange(array, from, until, math.max(DefaultInitialSize, length))
+		val slice  = RefArray.copyOfRange(contents, from, until, math.max(DefaultInitialSize, length))
 		new ArraySliceBuffer(slice, 0, length)
 	}
 
+	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :ArraySliceBuffer[E] =
+		new ArraySliceBuffer[E](array.asInstanceOf[RefArray[E]], from, until - from)
+
 	@inline private def shouldShiftNotGrow(extra :Int) :Boolean = {
-		val length = array.length
+		val length = contents.length
 		len + extra <= (length >> 1) - (length >> 3) //if current + new data doesn't exceed 3/8 (a bit more than 1/3)
 	}
 
@@ -104,7 +107,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 		if (n >= MaxArraySize - len)
 			illegal_!()
 		val total = len + n
-		val res = math.max(math.min(array.length, MaxArraySize >> 1) << 1, math.max(total, DefaultInitialSize))
+		val res = math.max(math.min(contents.length, MaxArraySize >> 1) << 1, math.max(total, DefaultInitialSize))
 		if (res < total)
 			illegal_!()
 		res
@@ -114,43 +117,43 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 		if (i < 0 | i >= len)
 			outOfBounds_!(i, 0, len)
 		else
-			array(offset + i)
+			contents(offset + i)
 
 	override def update(idx :Int, elem :E) :Unit =
 		if (idx < 0 | idx >= len)
 			outOfBounds_!(idx, 0, len)
 		else {
 			if (aliased) {
-				array   = RefArray.copyOf(array)
+				contents   = RefArray.copyOf(contents)
 				aliased = false
 			}
-			array(offset + idx) = elem
+			contents(offset + idx) = elem
 		}
 
 	override def addOne(elem :E) :this.type = {
-		val oldArray = array
+		val oldArray = contents
 		var length = oldArray.length
 		if (aliased || offset + len == length) {
 			if (shouldShiftNotGrow(1)) {
 				val oldOffset = offset
 				if (aliased) {
 					length = math.max(length, DefaultInitialSize)
-					array = RefArray.ofDim[E](length)
+					contents = RefArray.ofDim[E](length)
 				}
 				if (offset + len + 1 >= length - len)
 					offset = (length - len - 1 >> 1) + 1
-				arraycopy(oldArray, oldOffset, array, offset, len)
+				arraycopy(oldArray, oldOffset, contents, offset, len)
 			} else if (offset == 0) {
 				length = math.max((len << 1) + offset, DefaultInitialSize)
-				array = RefArray.copyOf(array, length)
+				contents = RefArray.copyOf(contents, length)
 			} else {
 				length = math.max((len << 1) + offset, DefaultInitialSize)
-				array  = RefArray.ofDim[E](length)
-				arraycopy(oldArray, offset, array, offset, len)
+				contents  = RefArray.ofDim[E](length)
+				arraycopy(oldArray, offset, contents, offset, len)
 			}
 			aliased = false
 		}
-		array(offset + len) = elem
+		contents(offset + len) = elem
 		len += 1
 		this
 	}
@@ -162,29 +165,29 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 
 	override def prepend(elem :E) :this.type = {
 		if (offset == 0 | aliased) {
-			val oldArray = array
+			val oldArray = contents
 			var length   = oldArray.length
 			if (shouldShiftNotGrow(1)) {
 				val oldOffset = offset
 				if (aliased) {
 					length = math.max(length, DefaultInitialSize)
-					array  = RefArray.ofDim[E](length)
+					contents  = RefArray.ofDim[E](length)
 				}
 				if (len == 0)
 					offset = length
 				else if (offset <= len + 1)
 					offset = length - (length - len - 1 >> 1) - len + 1
-				arraycopy(oldArray, oldOffset, array, offset, len)
+				arraycopy(oldArray, oldOffset, contents, offset, len)
 			} else {
 				length = math.max(len + length + 1, DefaultInitialSize)
-				array  = RefArray.copyOfRange(oldArray, 0, len, len + 1, length)
+				contents  = RefArray.copyOfRange(oldArray, 0, len, len + 1, length)
 				offset = len + 1
 			}
 			aliased = false
 		}
 		offset -= 1
 		len    += 1
-		array(offset) = elem
+		contents(offset) = elem
 		this
 	}
 
@@ -195,7 +198,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 
 	override def insert(idx :Int, elem :E) :Unit = {
 		shiftAside(idx, 1)
-		array(offset + idx) = elem
+		contents(offset + idx) = elem
 	}
 
 
@@ -206,27 +209,27 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			case -1 =>
 				if (idx < 0 | idx > len)
 					outOfBounds_!(errorString(this) + ".insertAll(" + idx + ", _)")
-				var suffix       = array
+				var suffix       = contents
 				var suffixOffset = offset + idx
 				val suffixLength = len - idx
 				val newLength    = if (len < suffix.length) suffix.length else newSizeForExtra(1)
 				if (aliased || idx < (len >> 1) || newLength > suffix.length) {
 					//Keep the current array as the suffix, and create a new one for the prefix.
-					array = RefArray.copyOfRange(suffix, offset, offset + idx, offset, newLength)
+					contents = RefArray.copyOfRange(suffix, offset, offset + idx, offset, newLength)
 				} else {
 					//Copy the suffix aside, drop it, and append to this array.
 					suffixOffset = 0
-					suffix = array.slice(offset + idx, offset + len)
-					array  = RefArray.copyOfRange(array, offset, offset + idx, newLength)
+					suffix = contents.slice(offset + idx, offset + len)
+					contents  = RefArray.copyOfRange(contents, offset, offset + idx, newLength)
 					offset = 0
 				}
 				len = idx
 				elems.toBasicOps.foldLeft(this)((buff, elem) => buff += elem)
-				if (offset + len > array.length - suffixLength)
+				if (offset + len > contents.length - suffixLength)
 					shiftAside(len, suffixLength)
 				else
 					len += suffixLength
-				arraycopy(suffix, suffixOffset, array, offset + len - suffixLength, suffixLength)
+				arraycopy(suffix, suffixOffset, contents, offset + len - suffixLength, suffixLength)
 			case  0 =>
 				if (idx < 0 || idx > len)
 					outOfBounds_!(
@@ -234,7 +237,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 					)
 			case  n =>
 				shiftAside(idx, n)
-				val copied = elems.toBasicOps.copyToArray(array.asAnyArray, offset + idx)
+				val copied = elems.toBasicOps.copyToArray(contents.asAnyArray, offset + idx)
 				if (copied != n)
 					illegalCopiedCount(idx, n, copied)
 		}
@@ -251,54 +254,54 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			)
 		if (idx < 0 | idx > len)
 			outOfBounds()
-		val oldArray  = array
+		val oldArray  = contents
 		val length    = oldArray.length
 		val oldOffset = offset
 		val freeBackSpace = length - offset - len
 		if (length - len >= space) { //consider: a more aggressive growth
 			if (aliased) {
 				val newLength = math.max(length, DefaultInitialSize)
-				array = RefArray.ofDim[E](newLength)
+				contents = RefArray.ofDim[E](newLength)
 				offset = newLength - len - space >> 1
-				arraycopy(oldArray, oldOffset, array, offset, idx)
-				arraycopy(oldArray, oldOffset + idx, array, offset + idx + space, len - idx)
+				arraycopy(oldArray, oldOffset, contents, offset, idx)
+				arraycopy(oldArray, oldOffset + idx, contents, offset + idx + space, len - idx)
 			} else if (offset >= space && (idx < (len >> 1) || space > freeBackSpace)) {
 				//more space in the front than in the back
-				arraycopy(array, offset, array, offset - space, idx)
+				arraycopy(contents, offset, contents, offset - space, idx)
 				offset -= space
 			} else if (space <= freeBackSpace)
 				//more space in the back than in the front
-				arraycopy(array, offset + idx, array, offset + idx + space, len - idx)
+				arraycopy(contents, offset + idx, contents, offset + idx + space, len - idx)
 			else {
-				arraycopy(array, offset, array, 0, idx)
-				arraycopy(array, offset + idx, array, idx + space, len - idx)
+				arraycopy(contents, offset, contents, 0, idx)
+				arraycopy(contents, offset + idx, contents, idx + space, len - idx)
 				offset = 0
 			}
 		} else if (offset > 0 & freeBackSpace == 0) {          //preserve right alignment
 			val newLength = newSizeForExtra(space)
-			array  = RefArray.ofDim[E](newLength)
+			contents  = RefArray.ofDim[E](newLength)
 			offset = newLength - len - space
-			arraycopy(oldArray, oldOffset, array, offset, idx)
-			arraycopy(oldArray, oldOffset + idx, array, newLength - (len - idx), len - idx)
+			arraycopy(oldArray, oldOffset, contents, offset, idx)
+			arraycopy(oldArray, oldOffset + idx, contents, newLength - (len - idx), len - idx)
 		} else if (offset == 0) { //extracted to avoid div by zero and for the performance of copyOf
 			val newLength = newSizeForExtra(space)
-			array = RefArray.copyOfRange[E](array, 0, idx, newLength)
-			arraycopy(oldArray, oldOffset + idx, array, idx + space, len - idx)
+			contents = RefArray.copyOfRange[E](contents, 0, idx, newLength)
+			arraycopy(oldArray, oldOffset + idx, contents, idx + space, len - idx)
 		} else {
 			val newLength = newSizeForExtra(space)
 			val freeSpace = newLength - len - space
 			val newBackSpace = (freeSpace.toLong * freeBackSpace / (length - len)).toInt  //divide the space proportionally
 			offset = newLength - len - space - newBackSpace
-			array  = RefArray.ofDim[E](newLength)
-			arraycopy(oldArray, oldOffset, array, offset, idx)
-			arraycopy(oldArray, oldOffset + idx, array, offset + idx + space, len - idx)
+			contents  = RefArray.ofDim[E](newLength)
+			arraycopy(oldArray, oldOffset, contents, offset, idx)
+			arraycopy(oldArray, oldOffset + idx, contents, offset + idx + space, len - idx)
 		}
 		len    += space
 		aliased = false
 	}
 
 	override def remove(idx :Int) :E = {
-		val res = array(offset + idx) //even if out of range, the following remove will throw an IOOBE.
+		val res = contents(offset + idx) //even if out of range, the following remove will throw an IOOBE.
 		remove(idx, 1)
 		res
 	}
@@ -315,12 +318,12 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			if (idx < 0 || idx > len - count)
 				outOfBounds()
 			if (idx < len - end) {
-				arraycopy(array, offset, array, offset + count, idx)
-				array.clear(offset, offset + count)
+				arraycopy(contents, offset, contents, offset + count, idx)
+				contents.clear(offset, offset + count)
 				offset += count
 			} else {
-				arraycopy(array, offset + end, array, offset + idx, len - end)
-				array.clear(offset + len - count, offset + len)
+				arraycopy(contents, offset + end, contents, offset + idx, len - end)
+				contents.clear(offset + len - count, offset + len)
 			}
 			len -= count
 		}
@@ -355,7 +358,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 					remove(from0, replaced - n)
 				else
 					remove(from0 + n, replaced - n)
-				val copied = patch.toBasicOps.copyToArray(array.asAnyArray, offset + from0)
+				val copied = patch.toBasicOps.copyToArray(contents.asAnyArray, offset + from0)
 				if (copied != n)
 					illegalCopiedCount(from0, n, copied)
 				this
@@ -373,8 +376,8 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 
 	def clearAndShrink(size: Int = DefaultInitialSize): this.type = {
 		val size0 = math.max(size, 0)
-		if (size0 < array.length) {
-			array  = RefArray.ofDim(size0)
+		if (size0 < contents.length) {
+			contents  = RefArray.ofDim(size0)
 			offset = 0
 			len    = 0
 		} else
@@ -383,11 +386,11 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	}
 
 	override def iterator :Iterator[E] =
-		if (len == 0) Iterator.empty else ArrayIterator(array.castFrom[RefArray[E], Array[E]], offset, len)
+		if (len == 0) Iterator.empty else ArrayIterator(contents.castFrom[RefArray[E], Array[E]], offset, len)
 
 	override def reverseIterator :Iterator[E] =
 		if (len == 0) Iterator.empty
-		else ReverseArrayIterator.slice(array.castFrom[RefArray[E], Array[E]], offset, offset + len)
+		else ReverseArrayIterator.slice(contents.castFrom[RefArray[E], Array[E]], offset, offset + len)
 
 	/** Same as [[net.noresttherein.sugar.collections.ArraySliceBuffer.toIndexedSeq toIndexedSeq]]. */
 	override def toSeq        :Seq[E] = toIndexedSeq
@@ -402,27 +405,27 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 			IndexedSeq.empty
 		else if (canAlias) {
 			markAliased()
-			DefaultArraySeq.slice(array.unsafeIRefArray, offset, offset + len)
+			DefaultArraySeq.slice(contents.unsafeIRefArray, offset, offset + len)
 		} else
-			DefaultArraySeq.wrap(IRefArray.copyOfRange(array, offset, offset + len))
+			DefaultArraySeq.wrap(IRefArray.copyOfRange(contents, offset, offset + len))
 
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
 		case Yes(companion) => companion match {
 			case Seq | IndexedSeq | collection.Seq | collection.IndexedSeq => toIndexedSeq.castFrom[IndexedSeq[E], C1]
 			case ArrayLikeSlice | IArrayLikeSlice | IRefArraySlice if canAlias =>
 				markAliased()
-				IRefArraySlice.slice(array.unsafeIRefArray, offset, offset + len).castFrom[IRefArraySlice[E], C1]
-			case ArraySeq if offset == 0 && array != null && len == array.length =>
+				IRefArraySlice.slice(contents.unsafeIRefArray, offset, offset + len).castFrom[IRefArraySlice[E], C1]
+			case ArraySeq if offset == 0 && contents != null && len == contents.length =>
 				markAliased()
-				ArraySeq.unsafeWrapArray(array.asAnyArray).castFrom[ArraySeq[Any], C1]
+				ArraySeq.unsafeWrapArray(contents.asAnyArray).castFrom[ArraySeq[Any], C1]
 			case _ if canAlias && RelayArrayFactory.isDefined && RelayArrayFactory == companion =>
 				markAliased()
-				RelayArrayFactory.get.slice(array.unsafeIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]
+				RelayArrayFactory.get.slice(contents.unsafeIRefArray, offset, offset + len).castFrom[IndexedSeq[E], C1]
 			case _ => super.to(factory)
 		}
 		case _ => super.to(factory)
 	}
-	@inline private def canAlias :Boolean = len >= array.length * 100L / AcceptableFillFactor
+	@inline private def canAlias :Boolean = len >= contents.length * 100L / AcceptableFillFactor
 	@inline private def markAliased() :Unit = {
 		aliased = true
 		releaseFence()
@@ -433,7 +436,7 @@ final class ArraySliceBuffer[E] private (private[this] var array :RefArray[E],
 	protected override def className :String = "ArraySliceBuffer"
 
 	override def toString :String =
-		mkString("ArraySliceBuffer|" + offset + "-" + (offset + length) + "/" + array.length + "|(", ", ", ")")
+		mkString("ArraySliceBuffer|" + offset + "-" + (offset + length) + "/" + contents.length + "|(", ", ", ")")
 }
 
 

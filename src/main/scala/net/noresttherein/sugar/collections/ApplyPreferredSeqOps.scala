@@ -27,16 +27,46 @@ trait ApplyPreferredSeqOps[+E, +CC[_], +C <: collection.IndexedSeq[E]]
 //		else apply(len - 1)
 //	}
 
-	override def segmentLength(p :E => Boolean, from :Int) :Int = segmentLength(p, from, false)
+	//Caution: this has different semantics than SeqOps.startsWith - it always returns false for indices out of range.
+	override def startsWith[B >: E](that :IterableOnce[B], offset :Int) :Boolean =
+		offset >= 0 && offset <= length && {
+			val thatSize = that.knownSize
+			val thisSize = length
+			var i = offset
+			if (thatSize >= 0)
+				offset <= thisSize - thatSize && {
+					val end = offset + thatSize
+					val itr = that.iterator
+					while (i < end) {
+						if (itr.next() != apply(i))
+							return false
+						i += 1
+					}
+					true
+				}
+			else {
+				val itr = that.iterator
+				while (i < thisSize && itr.hasNext) {
+					if (itr.next() != apply(i))
+						return false
+					i += 1
+				}
+				true
+			}
+		}
+
+	override def segmentLength(p :E => Boolean, from :Int) :Int = segmentLength(p, math.max(0, from), false)
 	private def segmentLength(p :E => Boolean, from :Int, flipped :Boolean) :Int = {
-		var i = from; val len = length
+		val len = length
+		var i = from
 		while (i < len && p(apply(i)) != flipped)
 			i += 1
-		i
+		i - from
 	}
 	override def indexWhere(p :E => Boolean, from :Int) :Int = {
-		val len = segmentLength(p, from, true)
-		if (len == length) -1 else len
+		val from0 = math.max(from, 0)
+		val len = segmentLength(p, from0, true)
+		if (from0 >= length - len) -1 else from0 + len
 	}
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int = {
 		var i = math.min(length - 1, end)

@@ -112,10 +112,9 @@ private class AliasingArrayBuffer[E](capacity :Int)
 		} else
 			super.clearAndShrink(size)
 
-	override def addOne(elem :E) :AliasingArrayBuffer.this.type = {
-		if (aliased) {
+	override def addOne(elem :E) :this.type = {
+		if (aliased)
 			dealias(1)
-		}
 		super.addOne(elem)
 	}
 	override def addAll(elems :IterableOnce[E]) :this.type = {

@@ -26,7 +26,7 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 	property("mutations") = new BufferCommands[Int](Buff.from(_ :Seq[Int])).property()
 
 	property("toSeq") =
-		("update" |: forAll { buffer :Buff[Int] =>
+		("update corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			val expectBuffer =
@@ -41,7 +41,7 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expectBuffer =? buffer))
 		}) &&
-		("remove(Int)" |: forAll { buffer :Buff[Int] =>
+		("remove(Int) corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			val expectBuffer =
@@ -56,7 +56,7 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expectBuffer =? buffer))
 		}) &&
-		("remove(Int, Int)" |: forAll { buffer :Buff[Int] =>
+		("remove(Int, Int) corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			val expectBuffer =
@@ -73,21 +73,21 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expectBuffer =? buffer))
 		}) &&
-		("add" |: forAll { buffer :Buff[Int] =>
+		("add corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			buffer += 42
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expect :+ 42 =? buffer))
 		}) &&
-		("prepend" |: forAll { buffer :Buff[Int] =>
+		("prepend corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			42 +=: buffer
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (42 +: expect =? buffer))
 		}) &&
-		("insert" |: forAll { buffer :Buff[Int] =>
+		("insert corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			val expectBuffer =
@@ -101,21 +101,21 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expectBuffer =? buffer))
 		}) &&
-		("addAll" |: forAll { buffer :Buff[Int] =>
+		("addAll corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			buffer ++= coll
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expect :++ coll =? buffer))
 		}) &&
-		("prependAll" |: forAll { buffer :Buff[Int] =>
+		("prependAll corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			coll ++=: buffer
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (coll ++: expect =? buffer))
 		}) &&
-		("insertAll" |: forAll { buffer :Buff[Int] =>
+		("insertAll corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			val expectBuffer =
@@ -129,7 +129,7 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 			expect.mkString("Buffer(", ", ", ")") lbl_:
 				("unmodified" |: (expect =? seq)) && ("result" |: (expectBuffer =? buffer))
 		}) &&
-		("clear" |: forAll { buffer :Buff[Int] =>
+		("clear corrupted" |: forAll { buffer :Buff[Int] =>
 			val expect = buffer.iterator.toVector :collection.Seq[Int]
 			val seq    = buffer.toSeq
 			buffer.clear()
@@ -143,10 +143,14 @@ private trait AliasingBufferProps[B[X] <: Buffer[X]] extends Properties with Buf
 
 
 private object AliasingArrayBufferSpec
-	extends Properties("AliasingArrayBuffer") with AliasingBufferProps[AliasingArrayBuffer]
+	extends UntaggedSeqProps[AliasingArrayBuffer](AliasingArrayBuffer) with AliasingBufferProps[AliasingArrayBuffer]
 {
 	override val parameters = overrideParameters(Test.Parameters.default)
 	override val Buff = AliasingArrayBuffer
+
+	implicit override def intEvidence :Dummy[Int] = new Dummy
+	implicit override def buildableChecked[T :Dummy] :Buildable[T, AliasingArrayBufferSpec.Buff[T]] =
+		super.buildableChecked
 }
 
 

@@ -12,15 +12,15 @@ import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 
 
-object MatrixBufferSpec extends Properties("MatrixBuffer") with BufferProps[TestMatrixBuffer, Dummy]
-//	extends UntaggedSeqProps[MatrixBuffer]("MatrixBuffer", ShrinkingMatrixBuffer)
-//	   with BufferProps[MatrixBuffer, Dummy]
+object MatrixBufferSpec //extends Properties("MatrixBuffer") with BufferProps[TestMatrixBuffer, Dummy]
+	extends UntaggedSeqProps[TestMatrixBuffer]("MatrixBuffer", TestMatrixBuffer)
+	   with BufferProps[TestMatrixBuffer, Dummy]
 {
 	protected override def minSuccessfulTests :Int = 1000
 	override val parameters = overrideParameters(Test.Parameters.default)
 	val Buff = TestMatrixBuffer
 
-	implicit protected override def intEvidence :Dummy[Int] = IterableProps.dummy
+	implicit override def intEvidence :Dummy[Int] = IterableProps.dummy
 
 	implicit override def buildableChecked[T :Dummy] :Buildable[T, Buff[T]] = new Buildable[T, Buff[T]] {
 		override def builder :Builder[T, Buff[T]] = Buff.newBuilder[T]

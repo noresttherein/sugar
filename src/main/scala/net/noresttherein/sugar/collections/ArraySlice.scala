@@ -185,7 +185,8 @@ private[sugar] trait ArraySliceOps[+E, +CC[_], +C]
   * @see [[net.noresttherein.sugar.collections.ArrayLikeSliceFactoryDefaults]]
   */
 trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
-	extends Any with ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
+	extends Any with ArrayIterableOnce[E] with collection.IndexedSeqOps[E, CC, C]
+	   with ArraySliceOps[E, CC, C] with SugaredSeqOps[E, CC, C]
 { this :C =>
 	private[sugar] final override def unsafeArray :Array[_] = array
 	protected def array :Array[E @uncheckedVariance]

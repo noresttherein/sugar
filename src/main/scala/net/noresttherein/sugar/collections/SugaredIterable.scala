@@ -304,7 +304,7 @@ trait SeqSlicingOps[+E, +CC[_], +C] extends SugaredSlicingOps[E, CC, C] with Seq
 
 
 
-trait SugaredSeqOps[+E, +CC[_], +C] extends collection.SeqOps[E, CC, C] with SugaredIterableOps[E, CC, C] {
+trait SugaredSeqOps[+E, +CC[_], +C] extends Any with collection.SeqOps[E, CC, C] with SugaredIterableOps[E, CC, C] {
 	/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
 	  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
 	  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
@@ -353,4 +353,18 @@ trait SugaredSeqOps[+E, +CC[_], +C] extends collection.SeqOps[E, CC, C] with Sug
 	/** Equivalent to [[collection.SeqOps.patch patch]]`(index, first +: second +: elems, 0)`. */
 	def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 		insertedAll(index, Prepended2Seq(first, second, rest))
+
+	//todo: remove these once the bug is fixed in SeqOps
+	override def startsWith[U >: E](that: IterableOnce[U], offset: Int = 0): Boolean =
+		offset >= 0 && { val size = knownSize; size < 0 | offset <= size } && {
+			var i = iterator
+			(offset == 0 || { i = i drop offset - 1; val inRange = i.hasNext; i.next(); inRange }) && {
+				val j = that.iterator
+				while (j.hasNext && i.hasNext)
+					if (i.next() != j.next())
+						return false
+				!j.hasNext
+			}
+		}
+
 }

@@ -64,6 +64,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
 sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit override val iterableEvidence :ClassTag[E])
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with SugaredIterable[E] with SugaredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
+	   with ApplyPreferredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with collection.StrictOptimizedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with EvidenceIterableFactoryDefaults[E, MatrixBuffer, ClassTag]
 	   with DefaultSerializable
@@ -139,9 +140,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 	final override def knownSize :Int = dataSize
 	final override def length    :Int = dataSize
-
-	override def startsWith[B >: E](that :IterableOnce[B], offset :Int) :Boolean =
-		offset >= 0 && offset <= dataSize && super.startsWith(that, offset)
 
 	final override def head :E = //todo: remove when the method becomes overridden in IndexedSeq in a future Scala version.
 		if (dataSize == 0) noSuch_!(className + "().head")

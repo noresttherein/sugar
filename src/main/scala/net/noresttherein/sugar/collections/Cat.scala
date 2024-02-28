@@ -485,14 +485,6 @@ abstract class Cat[+E]
 		catSteppers(this, Stepper0(), Stepper0())
 	}
 
-	//todo: remove these once the bugs are fixed in SeqOps
-	override def startsWith[A >: E](that :IterableOnce[A], offset :Int) :Boolean =
-		offset >= 0 && offset <= length && super.startsWith(that, offset)
-
-	override def indexOfSlice[A >: E](that :collection.Seq[A], from :Int) :Int =
-		if (from > length) -1
-		else super.indexOfSlice(that, 0 max from)
-
 
 	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int = copyRangeToArray(xs, start, 0, len)
 
