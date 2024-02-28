@@ -1770,7 +1770,7 @@ private abstract class ArrayLikeIsSeqOps[E, A[X] <: ArrayLike[X]](array :Array[E
 
 
 
-object VectorArray {
+private object VectorArray {
 	def unapply[E](elems :IterableOnce[E]) :Maybe[Array[AnyRef]] = elems match {
 		case seq :Vector[E] =>
 			val array = CheatedAccess.array(seq)
@@ -1780,7 +1780,7 @@ object VectorArray {
 	}
 }
 
-object MatrixBufferArray {
+private object MatrixBufferArray {
 	def unapply[E](elems :IterableOnce[E]) :Maybe[Array[_]] = elems match {
 		case seq :MatrixBuffer[E @unchecked] if seq.dim == 1 =>
 			val array = seq.data1
