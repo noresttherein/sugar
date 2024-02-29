@@ -1,9 +1,3 @@
-
-
-
-
-
-
 package net.noresttherein.sugar.arrays
 
 import scala.collection.AbstractIterator
@@ -11,12 +5,6 @@ import scala.collection.AbstractIterator
 import net.noresttherein.sugar.collections.Mutator
 import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
-
-/**
-  * @author Marcin Mościcki
-  */
-
-
 
 
 

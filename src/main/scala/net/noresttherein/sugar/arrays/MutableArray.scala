@@ -19,10 +19,9 @@ import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
+import net.noresttherein.sugar.typist.Unknown
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
-import net.noresttherein.sugar.witness.Ignored
 
 
 

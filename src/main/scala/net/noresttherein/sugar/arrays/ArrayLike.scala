@@ -11,7 +11,7 @@ import scala.collection.Stepper.EfficientSplit
 import scala.collection.{ArrayOps, Factory, IndexedSeqView, IterableFactory, LazyZip2, SeqFactory, Stepper, StepperShape, immutable, mutable}
 import scala.collection.generic.IsSeq
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.{ArrayBuffer, Buffer, Builder}
+import scala.collection.mutable.{ArrayBuffer, Buffer}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}

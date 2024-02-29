@@ -2,19 +2,13 @@ package net.noresttherein.sugar.arrays
 
 import scala.annotation.nowarn
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{ClassTagIterableFactory, IterableFactory, mutable}
+import scala.collection.{IterableFactory, mutable}
 import scala.collection.immutable.IndexedSeqOps
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySliceOps, ArraySliceSeqOps, IArrayLikeSlice, SugaredIterableOps}
-import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.outOfBounds_!
-import net.noresttherein.sugar.reflect.ArrayClass
-
-//extension methods
-import extensions._
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySliceOps, IArrayLikeSlice}
 
 
 

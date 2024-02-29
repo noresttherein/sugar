@@ -8,11 +8,11 @@ import scala.collection.{ClassTagIterableFactory, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
+import net.noresttherein.sugar.{illegal_!, maxSize_!}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, BufferFullException, Builders, ViewBuffer}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.{illegal_!, maxSize_!}
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.Specialized.NotUnit
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
