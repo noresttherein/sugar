@@ -69,7 +69,7 @@ based on the stack trace of its cause, using the suffix since the most recent `r
 
 ### 4. sugar.arrays ###
 
-#### 4.1 ArrayLike ####
+#### 4.1. ArrayLike ####
 A supertype (well, several) of both scala `Array`s, as well as new types represented in runtime by arrays: 
   1. An `IArray[+A]` implementation for Scala 2, that is an `Array[A]` without any mutating operations
   1. `RefArray[A]` - underneath, a mutable `Array[AnyRef]`, guaranteed to store only values of type `A`
@@ -77,7 +77,7 @@ A supertype (well, several) of both scala `Array`s, as well as new types represe
   1. `ArrayLike[+A] >: Array[A] | IArray[A] | RefArray[A] | IRefArray[A]`,
      and a small hierarchy of types in between for added polymorphism. 
 
-#### 4.2 extensions ####
+#### 4.2. extensions ####
 
 Several extension methods for regular arrays:
   1. shifts, rotations, pairwise boolean logic
@@ -130,18 +130,18 @@ and others.
 ##### 5.1.6. Stepper and Iterator extensions
 Additional factory methods, in particular for specialized singleton implementations
 
-#### 5.2 Fingers
+#### 5.2. Ranking
+A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
+
+#### 5.3. Fingers
 A universal, immutable sequence backed by a 'true' finger tree, with all operations - including concatenation
 with another finger tree - taking `O(log n)` time, except for access near the ends (`O(1)`) and methods 
 requiring reading/updating every value in the sequence (`O(n)`, naturally).
 
-#### 5.3. Ranking
-A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
-
 #### 5.4. RelayArray
 An immutable version of a dope vector and a growing array buffer with `O(1)` *first* append/prepend.
 
-#### 5.5 Cuboid
+#### 5.5. Cuboid
 An immutable sequence backed by a mulidimensional array, with super fast random and sequential read, 
 amortised `O(1)` slicing and first append/prepend for growing, as well as worst case `O(sqrt n)` update 
 and concatenation with another `Cuboid`
@@ -151,7 +151,7 @@ A `Buffer` similar to `ArrayDeque`, but additionally switching to a two-dimensio
 size exceeds `Short.MaxValue` for better memory allocation characteristics - safe to use 
 regardless of the number of elements stored.
 
-#### 5.7 Special purpose Buffer implementations
+#### 5.7. Special purpose Buffer implementations
   1. `AliasingArrayBuffer` - an `ArrayBuffer` subclass with `O(1)` `toSeq`, returning an indexed sequence
      backed by its own underlying array, copying the contents only if/when the buffer is modified afterwards.
   1. `ArraySliceBuffer` - similar to the above, but symmetrical: has `O(1)` prepend, not only `append`.
@@ -162,27 +162,27 @@ regardless of the number of elements stored.
      which complement `AppendingBuffer` and `PrependingBuffer` in that they only allow edits of a specific
      fragment of data.
 
-#### 5.8. MultiSet
-A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
-with repetitions, and as a `Map[A, Int]`. Unlike `Dict` from `scala-collections`, multiples are stored
-as a single instance and occurrence count, rather than separate instances (where equality is only partial).
-
-#### 5.9 StringSet and StringMap
-Dedicated implementations for `Strings` using prefix trees, offering optimal performance, 
-and storing the elements in alphabetical order.
-
-#### 5.10. NatMap and MutNatMap
-Maps `K[X] -> V[X]`, where `X` may be different for every entry.
-
-#### 5.11. Car 
+#### 5.8. Cat 
 A `Seq` offering `O(1)` append and prepend for any other `Seq`, at a cost of slower iteration,
 designed for use as temporary buffers. Equivalent to `Chain` from `cats` library, but fully integrated
 within the scala collection library framework.
 
-#### 5.12. ChoppedString 
+#### 5.9. ChoppedString 
 A list-like collection of composed `String` concatenations
 for use as an alternative to `StringBuilder` (has `O(1)` append/prepend of any `String`, at the cost of `O(n)`
 random indexing). Includes also a `Substring` subclass, exposing a slice of a `String`, useful in itself.
+
+#### 5.10. StringSet and StringMap
+Dedicated implementations for `Strings` using prefix trees, offering optimal performance, 
+and storing the elements in alphabetical order.
+
+#### 5.11. NatMap and MutNatMap
+Maps `K[X] -> V[X]`, where `X` may be different for every entry.
+
+#### 5.12. MultiSet
+A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
+with repetitions, and as a `Map[A, Int]`. Unlike `Dict` from `scala-collections`, multiples are stored
+as a single instance and occurrence count, rather than separate instances (where equality is only partial).
 
 #### 5.13. Other collections of marginal use 
 Examples:
@@ -274,7 +274,7 @@ a value reader/writer handshake.
 Optimized `Option` alternative implementations: `@specialized`, as a value class,
 and a non boxing abstract type.
 
-#### 9.9 Box
+#### 9.9. Box
 A mutable `Option`.
 
 #### 9.10. Others
@@ -388,7 +388,7 @@ Also, tagging implicit values:
     
     
 
-### 14 casting ###
+### 14. casting ###
 Safer casting methods - less powerful, imposing constraints on the source and target type,
 including casting on type parameters for higher types. Examples:
 
@@ -397,34 +397,34 @@ including casting on type parameters for higher types. Examples:
 
 
     
-### 15 sugar.typist ###
+### 15. sugar.typist ###
 
-#### 15.2 UpperBound and LowerBound
+#### 15.2. UpperBound and LowerBound
 Implicit evidence for `LUB` and `GLB` of two types.
 
-#### 15.3 InferTypeParams
+#### 15.3. InferTypeParams
 A magic implicit guiding the type inferer to correctly apply type arguments to polymorphic (generic) methods.
 
 
 
 ### 16. sugar.reflect ###
 
-#### 16.1 PropertyPath
+#### 16.1. PropertyPath
 Reflecting (possibly composite) properties given as getter functions:
       
     assert(PropertyPath(_.weapon.damage.fireDamange).toString == "weapon.damage.fireDamage")
 
-#### 16.2 Specialized
+#### 16.2. Specialized
 A type class carrying information about `@specialized` types, allowing to call specialized code
 from non-specialized, and providing separate callbacks for different value types.
 Includes also `RuntimeType`: an umbrella type class covering `ClassTag`, `TypeTag` and `Specialized`.
 
-#### 16.3 reflect.extensions
+#### 16.3. reflect.extensions
 `Class` extension methods, in particular such as `isBoxOf`, or `<%<`, 
 dealing with the duality of boxed and unboxed primitive values, with a wider meaning than `isAssignableFrom`,
 but still guaranteeing type safety by the Scala runtime.
 
-#### 16.4 reflect.prettyprint
+#### 16.4. reflect.prettyprint
 Various ways for demangling and abbreviating class names for logging purposes, for example:
 
          object.getClass.name       //my.package.Singleton.Specialized_:[Int]
