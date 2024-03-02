@@ -8,7 +8,7 @@ import scala.annotation.{implicitNotFound, nowarn, tailrec}
 import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.{IsIterableOnce, IsSeq}
-import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps}
+import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps, SortedMap, SortedSet}
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, Growable, IndexedBuffer, ListBuffer, ReusableBuilder}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.reflect.{ClassTag, classTag}
@@ -23,7 +23,7 @@ import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
-import net.noresttherein.sugar.collections.extensions.{BufferExtension, BufferFactoryExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, SeqExtension, SeqFactoryExtension, SeqViewExtension, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetFactoryExtension, mutableIndexedSeqExtension}
+import net.noresttherein.sugar.collections.extensions.{BufferExtension, BufferFactoryExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, MapLazyMethods, SeqExtension, SeqFactoryExtension, SeqViewExtension, SetLazyMethods, SortedMapLazyMethods, SortedSetLazyMethods, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetExtension, immutableSetFactoryExtension, immutableSortedMapExtension, immutableSortedSetExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.funny.generic
@@ -38,7 +38,7 @@ import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.optional.extensions.OptionExtension
-import net.noresttherein.sugar.vars.{IntOpt, Maybe, Opt}
+import net.noresttherein.sugar.vars.{AbstractLazy, AbstractPure, IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
@@ -92,6 +92,20 @@ private[collections] sealed trait extensionsLowPriority extends Any {
 
 	@inline implicit final def BufferExtension[E](self :Buffer[E]) :BufferExtension[E, self.type] =
 		new BufferExtension[E, self.type](self)
+
+	@inline implicit final def immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]]
+	                                                (self :M[K, V]) :immutableMapExtension[K, V, M] =
+		new immutableMapExtension(self)
+
+	@inline implicit final def MapLazyMethods[K, V](self :Map[K, V]) :MapLazyMethods[K, V] =
+		new MapLazyMethods[K, V](() => self)
+
+	@inline implicit final def immutableSetExtension[E, CC[E] <: SetOps[E, CC, _], C <: SetOps[E, CC, C]]
+	                                                (self :SetOps[E, CC, C]) :immutableSetExtension[E, CC, C] =
+		new immutableSetExtension(self)
+
+	@inline implicit final def SetLazyMethods[E](self :Set[E]) :SetLazyMethods[E] = new SetLazyMethods[E](() => self)
+
 }
 
 
@@ -177,28 +191,29 @@ trait extensions extends Any with extensionsLowPriority with JteratorExtensions 
 	/** Extension methods for [[scala.collection.SeqView SeqView]]`[E]` returning another `SeqView[E]`. */
 	@inline implicit final def SeqViewExtension[E](self :SeqView[E]) :SeqViewExtension[E] = new SeqViewExtension(self)
 
-	/** Binary search methods for sorted arrays. */
-//	@inline implicit final def ArrayExtension[E](self :Array[E]) :ArrayExtension[E] =
-//		new ArrayExtension(self)
-//	implicit final def ArrayExtension[E] :ArrayExtensionConversion[E] =
-//		ArrayExtensionConversionPrototype.asInstanceOf[ArrayExtensionConversion[E]]
-
-//	@inline implicit final def StringExtension(self :String) :StringExtension = new StringExtension(self)
-
 	/** Extension methods for `String`. */ //See https://github.com/scala/bug/issues/12857 for the type parameter
 	implicit def StringExtension[X] :StringExtensionConversion = extensions.StringExtensionConversionPrototype
 
 	/** An [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.updatedIfAbsent updatedIfAbsent]]
 	  * method for any `Map`.
 	  */
-	@inline implicit final def immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]]
-	                                                (self :M[K, V]) :immutableMapExtension[K, V, M] =
-		new immutableMapExtension(self)
+	@inline implicit final def immutableSortedMapExtension[K, V](self :SortedMap[K, V])
+			:immutableSortedMapExtension[K, V] =
+		new immutableSortedMapExtension(self)
+
+	@inline implicit final def SortedMapLazyMethods[K, V](self :SortedMap[K, V]) :SortedMapLazyMethods[K, V] =
+		new SortedMapLazyMethods[K, V](() => self)
 
 	/** Adds a `++` method to any `Stepper` type. */
 	@inline implicit final def StepperExtension[E, S <: Stepper[_]](self :S)(implicit elemType :StepType[E, S])
 	       :StepperExtension[E, S] =
 		new StepperExtension[E, S](self)
+
+	@inline implicit final def immutableSortedSetExtension[E](self :SortedSet[E]) :immutableSortedSetExtension[E] =
+		new immutableSortedSetExtension(self)
+
+	@inline implicit final def SortedSetLazyMethods[E](self :SortedSet[E]) :SortedSetLazyMethods[E] =
+		new SortedSetLazyMethods(() => self)
 
 //	@inline implicit final def efficientSplitStepperExtension[S <: Stepper[_]](self :S with EfficientSplit) =
 //		new StepperExtension[S with EfficientSplit](self)
@@ -325,7 +340,7 @@ object extensions extends extensions {
 		  */
 		@nowarn("cat=deprecation")
 		def knownLazy :Boolean = self match {
-			case _ :Iterator[_] | _ :View[_] | _ :LazyList[_] | _ :Stream[_] => true
+			case _ :Iterator[_] | _ :View[_] | _ :LazyList[_] | _ :Stream[_] | _ :AbstractPure[_] => true
 			case _ => false
 		}
 
@@ -5046,10 +5061,45 @@ object extensions extends extensions {
 	}
 
 
+
+	class immutableSetExtension[E, CC[E] <: SetOps[E, CC, _], C <: SetOps[E, CC, C]] private[collections]
+	                           (private val self :SetOps[E, CC, C])
+		extends AnyVal
+	{
+		@inline def +~(elem: => E) :LazySet[E] = added(elem)
+
+		def added(elem: => E) :LazySet[E] = self match {
+			case lzy :LazySet[E] => lzy +~ elem
+			case set :Set[E]     => LazySet(set.incl(elem))
+			case _               => LazySet(self.toSet.incl(elem)) //this potentially may rebuilt the whole set.
+		}
+	}
+
+	class SetLazyMethods[E] private[collections] (private val self :() => Set[E]) extends AnyVal {
+		def delay :LazySet[E] = LazySet.factory.from(self)
+	}
+
+
+	class immutableSortedSetExtension[E] private[collections](private val self :SortedSet[E]) extends AnyVal {
+		@inline def +~(elem: => E) :LazySortedSet[E] = added(elem)
+
+		def added(elem: => E) :LazySortedSet[E] = self match {
+			case lzy :LazySortedSet[E] => lzy +~ elem
+			case _               => LazySortedSet(self.incl(elem)) //this potentially may rebuilt the whole set.
+		}
+	}
+
+	class SortedSetLazyMethods[E] private[collections] (private val self :() => SortedSet[E]) extends AnyVal {
+		def delay :LazySortedSet[E] = LazySortedSet.factory.from(self)
+	}
+
+
+
 	/** Adds an [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.updatedIfAbsent updatedIfAbsent]]
 	  *  extension method to [[scala.collection.immutable.Map immutable.Map]].
 	  */
-	class immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[extensions](private val self :M[K, V])
+	class immutableMapExtension[K, V, M[A, +B] <: MapOps[A, B, M, M[A, B]]] private[collections]
+	                           (private val self :M[K, V])
 		extends AnyVal
 	{
 		/** Equivalent to [[collection.MapOps.get get]], but returns a non-boxing `Opt`, rather than an `Option`.
@@ -5088,10 +5138,107 @@ object extensions extends extensions {
 		/** Same as [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.updatedIfAbsent updatedIfAbsent]]. */
 		@inline def ?=[U >: V](entry :(K, U)) :M[K, U] = updatedIfAbsent(entry._1, entry._2)
 
-		def map2[O](f :(K, V) => O) :Iterable[O] = self.keysIterator.map { key => f(key, self(key)) }.toSeq
+		def mapEntries[O](f :(K, V) => O) :Iterable[O] = self.keysIterator.map { key => f(key, self(key)) }.toSeq
 
-		def map2[O, K2, V2](f :(K, V) => O)(implicit pair :O => (K2, V2)) :Map[K2, V2] =
-			self.keysIterator.map { key => pair(f(key, self(key))) }.toMap
+		def mapEntries[O, K2, V2](f :(K, V) => O)(implicit pair :O => (K2, V2)) :M[K2, V2] =
+			self.mapFactory from self.keysIterator.map { key => pair(f(key, self(key))) }
+
+//		def mapEntries[O, K2, V2](f :(K, V) => O)(implicit pair :O => (K2, V2)) :M[K2, V2] =
+//			self.map(entry => f(entry._1, entry._2))
+
+		/** Adds a lazy entry to this map, evaluated when any entries are accessed.
+		  * If only the value should be lazily evaluated, use two argument
+		  * [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.added added]]. In case of the latter,
+		  * the entry (value) will be evaluated only when and if the value for this particular key is accessed;
+		  * accessing values for other keys does not trigger evaluation.
+		  * @note this `Map` expression is evaluated eagerly; if you wish for it to be also lazy, use extension method
+		  *       `this.`[[net.noresttherein.sugar.collections.extensions.MapLazyMethods.delay delay]]` +~ entry`.
+		  */
+		@inline def +~[V1 >: V](entry: => (K, V1)) :LazyMap[K, V1] = added(entry)
+
+		/** Adds a lazy entry to this map, evaluated when any entries are accessed.
+		  * If only the value should be lazily evaluated, use two argument
+		  * [[net.noresttherein.sugar.collections.extensions.immutableMapExtension.added added]]. In case of the latter,
+		  * the entry (value) will be evaluated only when and if the value for this particular key is accessed;
+		  * accessing values for other keys does not trigger evaluation.
+		  * @note this `Map` expression is evaluated eagerly; if you wish for it to be also lazy, use extension method
+		  *       `this.`[[net.noresttherein.sugar.collections.extensions.MapLazyMethods.delay delay]]` added entry`.
+		  */
+		def added[V1 >: V](entry: => (K, V1)) :LazyMap[K, V1] = self match { //consider: should self be also lazy?
+			case lzy :LazyMap[K, V] => lzy +~ entry
+			case map                => LazyMap.factory.from(() => map.toMap.updated(entry._1, entry._2))
+		}
+
+		/** Adds a lazy entry to this map, evaluated only when the entry for this key is requested,
+		  * either individually through `apply/get`, etc., or when iterating over the result. Accessing values
+		  * for other keys does not trigger its evaluation.
+		  * @note this `Map` expression is evaluated eagerly; if you wish for it to be also lazy, use extension method
+		  *       `this.`[[net.noresttherein.sugar.collections.extensions.MapLazyMethods.delay delay]]`.added(key, value)`.
+		  */
+		def added[V1 >: V](key: K, value: => V) :LazyMap[K, V1] = self match {
+			case lzy :LazyMap[K, V] => lzy.added(key, value)
+			case _                  => LazyMap(self.updated(key, value).toMap)
+		}
+	}
+
+	class MapLazyMethods[K, V] private[collections] (private val self: () => Map[K, V]) extends AnyVal {
+		/** Creates a lazy map proxy to this lazy expression, which will evaluate the latter only when
+		  * any entry of the returned `Map` is accessed.
+		  */
+		@inline def delay :LazyMap[K, V] = LazyMap.factory.from(self)
+//
+//		def added[V1 >: V](entry: => (K, V1)) :LazyMap[K, V1] =
+//			LazyMap.factory.from(() => self.updated(entry._1, entry._2))
+	}
+
+
+	class immutableSortedMapExtension[K, V] private[collections] (private val self :SortedMap[K, V]) extends AnyVal {
+
+		def mapEntries[O, K2, V2](f :(K, V) => O)(implicit pair :O => (K2, V2), ordering :Ordering[K2])
+		       :SortedMap[K2, V2] =
+			SortedMap.from(self.keysIterator.map { key => pair(f(key, self(key))) })
+
+		/** Adds a lazy entry to this map, evaluated when any entries are accessed.
+		  * If only the value should be lazily evaluated, use two argument
+		  * [[net.noresttherein.sugar.collections.extensions.immutableSortedMapExtension.added added]].
+		  * In case of the latter, the entry (value) will be evaluated only when and if the value
+		  * for this particular key is accessed; accessing values for other keys does not trigger evaluation.
+		  * @note this `SortedMap` expression is evaluated eagerly; if you wish for it to be also lazy,
+		  *       use extension method
+		  *       `this.`[[net.noresttherein.sugar.collections.extensions.SortedMapLazyMethods.delay delay]]` +~ entry`.
+		  */
+		@inline def +~[V1 >: V](entry: => (K, V1)) :LazySortedMap[K, V1] = added(entry)
+
+		/** Adds a lazy entry to this map, evaluated when any entries are accessed.
+		  * If only the value should be lazily evaluated, use two argument
+		  * [[net.noresttherein.sugar.collections.extensions.immutableSortedMapExtension.added added]].
+		  * In case of the latter, the entry (value) will be evaluated only when and if the value
+		  * for this particular key is accessed; accessing values for other keys does not trigger evaluation.
+		  * @note this `SortedMap` expression is evaluated eagerly; if you wish for it to be also lazy, use extension method
+		  *       `this.`[[net.noresttherein.sugar.collections.extensions.SortedMapLazyMethods.delay delay]]` added entry`.
+		  */
+		def added[V1 >: V](entry: => (K, V1)) :LazySortedMap[K, V1] = self match { //consider: should self be also lazy?
+			case lzy :LazySortedMap[K, V] => lzy +~ entry
+			case map                      => LazySortedMap(map.updated(entry._1, entry._2))
+		}
+
+		/** Adds a lazy entry to this map, evaluated only when the entry for this key is requested,
+		  * either individually through `apply/get`, etc., or when iterating over the result. Accessing values
+		  * for other keys does not trigger its evaluation.
+		  * @note this `SortedMap` expression is evaluated eagerly; if you wish for it to be also lazy, use extension method
+		  *       `this.`[[net.noresttherein.sugar.collections.extensions.SortedMapLazyMethods.delay delay]]`.added(key, value)`.
+		  */
+		def added[V1 >: V](key: K, value: => V) :LazySortedMap[K, V1] = self match {
+			case lzy :LazySortedMap[K, V] => lzy.added(key, value)
+			case _                        => LazySortedMap(self.updated(key, value))
+		}
+	}
+
+	class SortedMapLazyMethods[K, V] private[collections] (private val self: () => SortedMap[K, V]) extends AnyVal {
+		/** Creates a lazy map proxy to this lazy expression, which will evaluate the latter only when
+		  * any entry of the returned `SortedMap` is accessed.
+		  */
+		@inline def delay :LazySortedMap[K, V] = LazySortedMap.factory.from(self)
 	}
 
 

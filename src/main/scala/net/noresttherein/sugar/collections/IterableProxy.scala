@@ -12,7 +12,7 @@ trait IterableProxy[+E] extends Iterable[E] {
 
 	override def isEmpty   :Boolean = underlying.isEmpty
 	override def knownSize :Int = underlying.knownSize
-//	override def size :Int      = underlying.size
+//	override def size :Int      = underlying.size //as we mix in this trait to collections with a final implementation.
 
 	override def iterator :Iterator[E] = underlying.iterator
 

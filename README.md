@@ -176,15 +176,19 @@ random indexing). Includes also a `Substring` subclass, exposing a slice of a `S
 Dedicated implementations for `Strings` using prefix trees, offering optimal performance, 
 and storing the elements in alphabetical order.
 
-#### 5.11. NatMap and MutNatMap
+#### 5.11.  LazySet, LazySortedSet, LazyMap, LazySortedMap
+Proxy collections evaluating an expression returning the underlying collection on demand,
+providing methods for adding and removing elements in a lazy fashion.
+
+#### 5.12. NatMap and MutNatMap
 Maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
-#### 5.12. MultiSet
+#### 5.13. MultiSet
 A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
 with repetitions, and as a `Map[A, Int]`. Unlike `Dict` from `scala-collections`, multiples are stored
 as a single instance and occurrence count, rather than separate instances (where equality is only partial).
 
-#### 5.13. Other collections of marginal use 
+#### 5.14. Other collections of marginal use 
 Examples:
   1. `EqSet` and `EqMap`, forcing true referential equality over `equals`,
   1. `ConstSeq` - a fixed (or infinite) number of equal elements,

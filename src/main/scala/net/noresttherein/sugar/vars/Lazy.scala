@@ -373,3 +373,27 @@ private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) ext
 	private def writeReplace :AnyRef = Lazy.eager(get)
 }
 
+
+
+
+
+
+/** A full [[net.noresttherein.sugar.vars.Lazy Lazy]]-like lazy value implementation as a mix-in trait
+  * for application classes, in particular various lazy proxies. Differs from its base trait `AbstractPure`
+  * in that initialization is done under this object's monitor, guaranteeing the constructor will be invoked
+  * at most once. Does not implement any interface in order to not burden extending classes with unnecessary,
+  * and potentially conflicting, API.
+  * For this reason all methods are protected, with subclasses having full control over what API they want to expose.
+  *
+  * @note the order of inheritance here is the opposite of Pure and Lazy vars. This is because it is easier
+  *       to add synchronization than remove it, without public API for initialization.
+  */
+trait AbstractLazy[@specialized(SpecializedVars) +T] extends AbstractPure[T] {
+	protected override def definite :T = {
+		if (isDefinite)
+			indefinite
+		else synchronized {
+			super.definite
+		}
+	}
+}

@@ -17,6 +17,7 @@ import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtensio
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.slang.extensions.hashCodeMethods
+import net.noresttherein.sugar.vars.AbstractLazy
 
 
 
@@ -711,65 +712,65 @@ private object ConcatStepper {
 
 
 
-private class LazyStepper[@specialized(JavaIterator.Types) +A, +S <: Stepper[A]](init: => S) extends Stepper[A] {
-	private[this] var underlying :S = _
-	
-	@inline final def stepper :S = {
-		if (underlying == null)
-			underlying = init
-		underlying
-	}
-	final def isEvaluated :Boolean = underlying != null
-	override def estimateSize :Long = stepper.estimateSize
-	override def characteristics :Int = stepper.characteristics
-	override def spliterator[B >: A] :Spliterator[_] = stepper.spliterator
-	override def javaIterator[B >: A] :JavaIterator[_] = stepper.javaIterator
-	override def hasStep :Boolean = stepper.hasStep
-	override def nextStep() :A = stepper.nextStep()
+private class LazyStepper[@specialized(JavaIterator.Types) +A, +S <: Stepper[A]]
+                         (protected[this] override var initializer :() => S)
+	extends AbstractLazy[S] with Stepper[A]
+{
+	final def isEvaluated :Boolean = isDefinite
+	@inline final def stepper :S = definite
+	override def estimateSize :Long = definite.estimateSize
+	override def characteristics :Int = definite.characteristics
+	override def spliterator[B >: A] :Spliterator[_] = definite.spliterator //todo: lazy spliterator if unevaluated
+	override def javaIterator[B >: A] :JavaIterator[_] = definite.javaIterator
+	override def hasStep :Boolean = definite.hasStep
+	override def nextStep() :A = definite.nextStep()
 
-	override def trySplit() :Stepper[A] = stepper.trySplit()
+	override def trySplit() :Stepper[A] = definite.trySplit()
 
 	override def toString :String =
-		if (underlying == null) "LazyStepper@" + this.identityHashCode else underlying.toString
+		if (initializer == null) definite.toString else "LazyStepper@" + this.identityHashCode
 }
 
 
 private object LazyStepper {
 	def apply[A, S <: Stepper[_]](stepper: => S)(implicit elemType :StepType[A, S]) :S =
 		elemType.shape match {
-			case ReferenceShape => new LazyStepper[A, Stepper[A]](stepper.asInstanceOf[Stepper[A]]).castFrom[Stepper[A], S]
-			case IntShape       => new OfInt(stepper.asInstanceOf[IntStepper]).castFrom[IntStepper, S]
-			case LongShape      => new OfLong(stepper.asInstanceOf[LongStepper]).castFrom[LongStepper, S]
-			case DoubleShape    => new OfDouble(stepper.asInstanceOf[DoubleStepper]).castFrom[DoubleStepper, S]
-			case FloatShape     => new OfDouble(stepper.asInstanceOf[DoubleStepper]).castFrom[DoubleStepper, S]
-			case ByteShape | CharShape | ShortShape => new OfInt(stepper.asInstanceOf[IntStepper]).castFrom[IntStepper, S]
-			case _              => new LazyStepper[A, Stepper[A]](stepper.asInstanceOf[Stepper[A]]).castFrom[Stepper[A], S]
+			case ReferenceShape =>
+				new LazyStepper[A, Stepper[A]](() => stepper.asInstanceOf[Stepper[A]]).castFrom[Stepper[A], S]
+			case IntShape       => new OfInt(() => stepper.asInstanceOf[IntStepper]).castFrom[IntStepper, S]
+			case LongShape      => new OfLong(() => stepper.asInstanceOf[LongStepper]).castFrom[LongStepper, S]
+			case DoubleShape    => new OfDouble(() => stepper.asInstanceOf[DoubleStepper]).castFrom[DoubleStepper, S]
+			case FloatShape     => new OfDouble(() => stepper.asInstanceOf[DoubleStepper]).castFrom[DoubleStepper, S]
+			case ByteShape | CharShape | ShortShape =>
+				new OfInt(() => stepper.asInstanceOf[IntStepper]).castFrom[IntStepper, S]
+			case _              =>
+				new LazyStepper[A, Stepper[A]](() => stepper.asInstanceOf[Stepper[A]]).castFrom[Stepper[A], S]
 		}
 
-	def ofRef[A](stepper: => AnyStepper[A]) :AnyStepper[A] = new OfRef(stepper)
-	def ofInt(stepper: => IntStepper) :IntStepper = new OfInt(stepper)
-	def ofLong(stepper: => LongStepper) :LongStepper = new OfLong(stepper)
-	def ofDouble(stepper: => DoubleStepper) :DoubleStepper = new OfDouble(stepper)
+	def ofRef[A](stepper: => AnyStepper[A]) :AnyStepper[A] = new OfRef(() => stepper)
+	def ofInt(stepper: => IntStepper) :IntStepper = new OfInt(() => stepper)
+	def ofLong(stepper: => LongStepper) :LongStepper = new OfLong(() => stepper)
+	def ofDouble(stepper: => DoubleStepper) :DoubleStepper = new OfDouble(() => stepper)
 	
-	class OfRef[+A](init: => AnyStepper[A]) extends LazyStepper[A, AnyStepper[A]](init) with AnyStepper[A] {
-		override def spliterator[B >: A] = stepper.spliterator
-		override def javaIterator[B >: A] = stepper.javaIterator
-		override def trySplit() = stepper.trySplit()
+	class OfRef[+A](init: () => AnyStepper[A]) extends LazyStepper[A, AnyStepper[A]](init) with AnyStepper[A] {
+		override def spliterator[B >: A] = definite.spliterator
+		override def javaIterator[B >: A] = definite.javaIterator
+		override def trySplit() = definite.trySplit()
 	}
-	class OfInt(init: => IntStepper) extends LazyStepper[Int, IntStepper](init) with IntStepper {
-		override def spliterator[B >: Int] = stepper.spliterator
-		override def javaIterator[B >: Int] = stepper.javaIterator
-		override def trySplit() = stepper.trySplit()
+	class OfInt(init: () => IntStepper) extends LazyStepper[Int, IntStepper](init) with IntStepper {
+		override def spliterator[B >: Int] = definite.spliterator
+		override def javaIterator[B >: Int] = definite.javaIterator
+		override def trySplit() = definite.trySplit()
 	}
-	class OfLong(init: => LongStepper) extends LazyStepper[Long, LongStepper](init) with LongStepper {
-		override def spliterator[B >: Long] = stepper.spliterator
-		override def javaIterator[B >: Long] = stepper.javaIterator
-		override def trySplit() = stepper.trySplit()
+	class OfLong(init: () => LongStepper) extends LazyStepper[Long, LongStepper](init) with LongStepper {
+		override def spliterator[B >: Long] = definite.spliterator
+		override def javaIterator[B >: Long] = definite.javaIterator
+		override def trySplit() = definite.trySplit()
 	}
-	class OfDouble(init: => DoubleStepper) extends LazyStepper[Double, DoubleStepper](init) with DoubleStepper {
-		override def spliterator[B >: Double] = stepper.spliterator
-		override def javaIterator[B >: Double] = stepper.javaIterator
-		override def trySplit() = stepper.trySplit()
+	class OfDouble(init: () => DoubleStepper) extends LazyStepper[Double, DoubleStepper](init) with DoubleStepper {
+		override def spliterator[B >: Double] = definite.spliterator
+		override def javaIterator[B >: Double] = definite.javaIterator
+		override def trySplit() = definite.trySplit()
 	}
 }
 

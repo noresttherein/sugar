@@ -260,12 +260,13 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 /** A full [[net.noresttherein.sugar.vars.Pure Pure]]-like lazy value implementation as a mix-in trait
   * for application classes, in particular various lazy proxies. Does not implement any interface
   * in order to not burden extending classes with unnecessary, and potentially conflicting, API.
+  * For this reason all methods are protected, with subclasses having full control over what API they want to expose.
   */
 trait AbstractPure[@specialized(SpecializedVars) +T] {
 	protected[this] var initializer :() => T
 	@volatile private[this] var evaluated :T = _
 
-	@inline final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
+	@inline protected final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
 	/** Returns `Yes(value)` if the expression has already been evaluated, or `No` otherwise. */
 	protected def ? :Maybe[T] = //Not opt, because of risk of conflicts.
