@@ -881,20 +881,23 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	object Wrapped {
 		def apply[A](array :IArray[A]) :IndexedSeq[A] = Slice(array, 0, array.length)
 
-		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[IArray[E]] = {
-			val array = elems match {
-				case VectorArray(array) => Yes(array)
-				case slice :ArrayIterableOnce[_] if slice.isImmutable && slice.knownSize == slice.unsafeArray.length =>
-					Yes(slice.unsafeArray)
-				case seq :ArraySeq[_]   => Yes(seq.unsafeArray)
-				case _                  => No
-			}
-			val tag = classTag[E]
-			if (array.isDefined && (tag == ClassTag.Any || array.get.getClass.getComponentType <:< tag.runtimeClass))
-				array.castFrom[Maybe[Array[_]], Maybe[IArray[E]]]
-			else
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[IArray[E]] =
+			if (elems.knownSize < 0)
 				No
-		}
+			else {
+				val array = elems match {
+					case VectorArray(array) => Yes(array)
+					case slice :ArrayIterableOnce[_] if slice.isImmutable && slice.knownSize == slice.unsafeArray.length =>
+						Yes(slice.unsafeArray)
+					case seq :ArraySeq[_]   => Yes(seq.unsafeArray)
+					case _                  => No
+				}
+				val tag = classTag[E]
+				if (array.isDefined && (tag == ClassTag.Any || array.get.getClass.getComponentType <:< tag.runtimeClass))
+					array.castFrom[Maybe[Array[_]], Maybe[IArray[E]]]
+				else
+					No
+			}
 
 		/** Factory of views on slices of immutable arrays as indexed sequences,
 		  * and unwraps known immutable collections backed by array slices.
@@ -906,27 +909,30 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 
 			def apply[E](array :IArray[E], from :Int, until :Int) :IndexedSeq[E] = wrapper.slice(array, from, until)
 
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(IArray[E], Int, Int)] = {
-				val tag = classTag[E]
-				val expectedClass = tag.runtimeClass
-				elems match {
-					case VectorArray(array) if tag == ClassTag.Any =>
-						Yes((array.castFrom[Array[_], IArray[E]], 0, elems.knownSize))
-					case seq :ArraySeq[_]
-						if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
-					=>
-						Yes((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
+			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(IArray[E], Int, Int)] =
+				if (elems.knownSize < 0)
+					No
+				else {
+					val tag = classTag[E]
+					val expectedClass = tag.runtimeClass
+					elems match {
+						case VectorArray(array) if tag == ClassTag.Any =>
+							Yes((array.castFrom[Array[_], IArray[E]], 0, elems.knownSize))
+						case seq :ArraySeq[_]
+							if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
+						=>
+							Yes((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
 
-					case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
-						val array = slice.unsafeArray.castFrom[Array[_], IArray[E]]
-						if (tag == ClassTag.Any || array.getClass.getComponentType <:< expectedClass)
-							Yes((array, slice.startIndex, slice.startIndex + slice.knownSize))
-						else
+						case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
+							val array = slice.unsafeArray.castFrom[Array[_], IArray[E]]
+							if (tag == ClassTag.Any || array.getClass.getComponentType <:< expectedClass)
+								Yes((array, slice.startIndex, slice.startIndex + slice.knownSize))
+							else
+								No
+						case _ =>
 							No
-					case _ =>
-						No
+					}
 				}
-			}
 		}
 	}
 

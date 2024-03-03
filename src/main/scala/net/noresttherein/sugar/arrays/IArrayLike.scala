@@ -131,6 +131,7 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 			else IArray.Wrapped(array.asInstanceOf[IArray[E]])
 
 		def unapply[E](elems :IterableOnce[E]) :Maybe[IArrayLike[E]] = elems match {
+			case _ if elems.knownSize < 0    => No
 			case seq :ArraySeq[_]            =>
 				Yes(seq.unsafeArray.asInstanceOf[IArrayLike[E]])
 			case VectorArray(array)          => Yes(array.asInstanceOf[IArrayLike[E]])
@@ -156,9 +157,10 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 					IArray.Wrapped.Slice(array.asInstanceOf[IArray[E]], from, until)
 
 			def unapply[E](elems :IterableOnce[E]) :Maybe[(IArrayLike[E], Int, Int)] = elems match {
-				case seq :ArraySeq[_]   =>
+				case _ if elems.knownSize < 0 => No
+				case seq :ArraySeq[_]         =>
 					Yes((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
-				case VectorArray(array) => Yes(array.castFrom[Array[AnyRef], IArrayLike[E]], 0, array.length)
+				case VectorArray(array)       => Yes(array.castFrom[Array[AnyRef], IArrayLike[E]], 0, array.length)
 				case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
 					val array = slice.unsafeArray.castFrom[Array[_], IArrayLike[E]]
 					val start = slice.startIndex

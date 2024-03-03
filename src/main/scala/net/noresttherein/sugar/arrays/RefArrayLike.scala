@@ -41,24 +41,30 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 	object Wrapped {
 		def apply[A](array :RefArrayLike[A]) :collection.IndexedSeq[A] = ArrayLikeSlice.wrap(array)
 
-		def unapply[A](elems :IterableOnce[A]) :Maybe[RefArrayLike[A]] = {
-			val array = elems match {
-				case seq :ArraySeq[_]         => seq.unsafeArray
-				case seq :mutable.ArraySeq[_] => seq.array
-				case VectorArray(array)       => array
-				case seq :ArrayBuffer[_] if seq.length == CheatedAccess.array(seq).length =>
-					CheatedAccess.array(seq)
-				case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length =>
-					slice.unsafeArray
-				case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length =>
-					seq.data1
-				case _ => null
-			}
-			if (array != null && array.getClass == classOf[Array[AnyRef]])
-				Yes(array.castFrom[Array[_], IRefArray[A]])
-			else
+		def unapply[A](elems :IterableOnce[A]) :Maybe[RefArrayLike[A]] =
+			if (elems.knownSize < 0)
 				No
-		}
+			else {
+				val array = elems match {
+					case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length =>
+						slice.unsafeArray
+					case _ :collection.IndexedSeqOps[_, _, _] => elems match {
+						case seq :ArraySeq[_]         => seq.unsafeArray
+						case seq :mutable.ArraySeq[_] => seq.array
+						case VectorArray(array)       => array
+						case seq :ArrayBuffer[_] if seq.length == CheatedAccess.array(seq).length =>
+							CheatedAccess.array(seq)
+						case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length =>
+							seq.data1
+						case _ => null
+					}
+					case _ => null
+				}
+				if (array != null && array.getClass == classOf[Array[AnyRef]])
+					Yes(array.castFrom[Array[_], IRefArray[A]])
+				else
+					No
+			}
 
 		/** Wraps and unwraps both mutable and immutable scala collections backed by consecutive sections
 		  * of `Array[AnyRef]` arrays in a safe manner. $warning
@@ -69,31 +75,35 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 				ArrayLikeSlice.slice(array, from, until)
 
 			def unapply[A](elems :IterableOnce[A]) :Maybe[(RefArrayLike[A], Int, Int)] = elems match {
-				case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
-					Yes((seq.unsafeArray.castFrom[Array[_], RefArrayLike[A]], 0, seq.unsafeArray.length))
-
-				case seq :mutable.ArraySeq[_] if seq.array.getClass == classOf[Array[AnyRef]] =>
-					Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
-
-				case VectorArray(array)        =>
-					Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
-
 				case arr :ArrayIterableOnce[_] =>
 					val array = arr.unsafeArray.castFrom[Array[_], RefArrayLike[A]]
 					if (array.getClass == classOf[Array[AnyRef]])
 						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
 					else
 						No
-				case seq :MatrixBuffer[_] if seq.dim == 1 =>
-					val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
-					val start = seq.startIndex
-					val end   = start + seq.length
-					if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
-						Yes((array, start, end))
-					else
+
+				case _ :collection.IndexedSeqOps[_, _, _] => elems match {
+					case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
+						Yes((seq.unsafeArray.castFrom[Array[_], RefArrayLike[A]], 0, seq.unsafeArray.length))
+
+					case seq :mutable.ArraySeq[_] if seq.array.getClass == classOf[Array[AnyRef]] =>
+						Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
+
+					case VectorArray(array)        =>
+						Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
+
+					case seq :MatrixBuffer[_] if seq.dim == 1 =>
+						val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
+						val start = seq.startIndex
+						val end   = start + seq.length
+						if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
+							Yes((array, start, end))
+						else
+							No
+					case _ =>
 						No
-				case _ =>
-					No
+				}
+				case _ => No
 			}
 		}
 	}

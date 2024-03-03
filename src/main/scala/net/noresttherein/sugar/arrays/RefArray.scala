@@ -165,10 +165,10 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 
 		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[RefArray[E]] = {
 			val array = elems match {
+				case slice :ArrayIterableOnce[_] if slice.isMutable                 => slice.unsafeArray
 				case seq   :mutable.ArraySeq[_]                                     => seq.array
 				case seq   :ArrayBuffer[_]                                          => CheatedAccess.array(seq)
-				case slice :ArrayIterableOnce[_] if slice.isMutable                 => slice.unsafeArray
-				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 => seq.data1
+				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0  => seq.data1
 				case _                                                              => null
 			}
 			if (array != null && array.length == elems.length && array.getClass == classOf[Array[AnyRef]])
