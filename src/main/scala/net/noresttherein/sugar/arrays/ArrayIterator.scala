@@ -3,7 +3,7 @@ package net.noresttherein.sugar.arrays
 import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceWrapper, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayIterableOnceOps, ArrayLikeSliceWrapper, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
@@ -15,7 +15,7 @@ import net.noresttherein.sugar.slang.extensions.hashCodeMethods
 
 
 private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
-	extends ValIterator.Buffered[T] with IndexedIterator[T] with ArrayIterableOnce[T]
+	extends ValIterator.Buffered[T] with ArrayIterableOnceOps[T, Iterator, Iterator[T]] with IndexedIterator[T]
 {
 	private[sugar] final override def startIndex  :Int = index
 	protected final override def underlyingSize :Int = unsafeArray.length
@@ -48,22 +48,22 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 		index = first
 		res
 	}
-
-	final override def copyToArray[A >: T](xs :Array[A], start :Int, len :Int) :Int = {
-		val first    = index
-		val `last++` = limit
-		val xsLength = xs.length
-		if (len <= 0 | xsLength == 0 | start >= xsLength | first >= `last++`)
-			0
-		else if (start < 0)
-			outOfBounds_!(start.toString + " out of [0, " + xsLength + ")")
-		else {
-			val copied = math.min(len, math.min(`last++` - first, xsLength - start))
-			ArrayLike.copy(array, first, xs, start, copied)
-			index = first + copied
-			copied
-		}
-	}
+//
+//	final override def copyToArray[A >: T](xs :Array[A], start :Int, len :Int) :Int = {
+//		val first    = index
+//		val `last++` = limit
+//		val xsLength = xs.length
+//		if (len <= 0 | xsLength == 0 | start >= xsLength | first >= `last++`)
+//			0
+//		else if (start < 0)
+//			outOfBounds_!(start.toString + " out of [0, " + xsLength + ")")
+//		else {
+//			val copied = math.min(len, math.min(`last++` - first, xsLength - start))
+//			ArrayLike.copy(array, first, xs, start, copied)
+//			index = first + copied
+//			copied
+//		}
+//	}
 
 	override def toSeq :Seq[T] = toIndexedSeq
 	override def toIndexedSeq :IndexedSeq[T] =

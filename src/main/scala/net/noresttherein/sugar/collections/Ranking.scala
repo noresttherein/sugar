@@ -2488,7 +2488,7 @@ private final class SingletonRanking[+E](override val head :E)
 
 @SerialVersionUID(Ver) //todo: migrate to IRefArray.
 private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
-	extends AbstractRanking[E] with ArraySliceOps[E, Ranking, Ranking[E]]
+	extends AbstractRanking[E] with ArraySlicingOps[E, Ranking, Ranking[E]]
 {
 	def this(elements :RefArray[E]) = this(elements, elements.asAnyArray.map(hashCodeOf))
 

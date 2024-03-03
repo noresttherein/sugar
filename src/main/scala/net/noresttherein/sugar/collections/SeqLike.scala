@@ -1,17 +1,20 @@
 package net.noresttherein.sugar.collections
 
+import scala.annotation.nowarn
 import scala.collection.{AbstractIterator, IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, LazyZip2, SeqView, Stepper, StepperShape, View, mutable}
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
+import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{IndexedSeqOps, StringView, WrappedString}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayFactory, ArrayLike, ArrayLikeExtension, IArray, IArrayExtension, IArrayLike, IArrayLikeExtension, IRefArray, IRefArrayExtension, MutableArrayExtension, RefArray, RefArrayExtension, RefArrayLike, RefArrayLikeExtension}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayFactory, ArrayLike, ArrayLikeExtension, ArrayLikeIterator, ArrayLikeSpecOps, IArray, IArrayExtension, IArrayLike, IArrayLikeExtension, IRefArray, IRefArrayExtension, MutableArrayExtension, RefArray, RefArrayExtension, RefArrayLike, RefArrayLikeExtension, ReverseArrayLikeIterator}
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, JavaStringBuilderExtension}
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
-import net.noresttherein.sugar.funny
+import net.noresttherein.sugar.extensions.StepperCompanionExtension
+import net.noresttherein.sugar.{funny, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.typist.{<:?<, Unknown}
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
@@ -910,6 +913,99 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 		override def toIndexedSeq(elems :Ranking[E]) :IndexedSeq[E] = elems.toIndexedSeq
 		override def toSet[U >: E](elems :Ranking[E]) :Set[U] = elems.toSet
 	}
+
+
+	@nowarn("cat=unused")
+	private trait ForArrayIterableOnce[+E, +CC[_], C <: ArrayIterableOnce[E]]
+		extends IndexedSeqLike[E, CC, C]
+	{
+		override def knownSize(elems :C) :Int = elems.knownSize
+		override def size(elems :C) :Int = elems.knownSize
+		override def apply(elems :C)(i :Int) :E = {
+			if (i < 0 | i > elems.knownSize)
+				outOfBounds_!(i, elems)
+			elems.unsafeArray(elems.startIndex + i).asInstanceOf[E]
+		}
+		override def forall(elems :C)(p :E => Boolean) :Boolean = {
+			val len = elems.knownSize
+			ArrayLikeSpecOps.segmentLength(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, len)(p, 0) == len
+		}
+		override def exists(elems :C)(p :E => Boolean) :Boolean = {
+			val array = elems.unsafeArray.asInstanceOf[Array[E]]
+			ArrayLikeSpecOps.indexWhere(array, elems.startIndex, elems.knownSize)(p, 0) >= 0
+		}
+		override def count(elems :C)(p :E => Boolean) :Int =
+			ArrayLikeSpecOps.count(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)(p)
+
+		override def find(elems :C)(p :E => Boolean) :Option[E] =
+			ArrayLikeSpecOps.find(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)(p)
+
+		override def findLast(elems :C)(p :E => Boolean) :Option[E] =
+			ArrayLikeSpecOps.findLast(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)(p)
+
+		override def indexOf[A >: E](elems :C)(elem :A, from :Int) :Int = {
+			val array = elems.unsafeArray.asInstanceOf[Array[A]]
+			ArrayLikeSpecOps.indexOf(array, elems.startIndex, elems.knownSize)(elem, from)
+		}
+
+		override def lastIndexOf[A >: E](elems :C)(elem :A, end :Int) :Int = {
+			val array = elems.unsafeArray.asInstanceOf[Array[A]]
+			ArrayLikeSpecOps.lastIndexOf(array, elems.startIndex, elems.knownSize)(elem, end)
+		}
+
+		override def indexWhere(elems :C)(p :E => Boolean, from :Int) :Int = {
+			val array = elems.unsafeArray.asInstanceOf[Array[E]]
+			ArrayLikeSpecOps.indexWhere(array, elems.startIndex, elems.knownSize)(p, from)
+		}
+		override def lastIndexWhere(elems :C)(p :E => Boolean, end :Int) :Int = {
+			val array = elems.unsafeArray.asInstanceOf[Array[E]]
+			ArrayLikeSpecOps.lastIndexWhere(array, elems.startIndex, elems.knownSize)(p, end)
+		}
+
+		override def foldLeft[A](elems :C)(z :A)(op :(A, E) => A) :A =
+			ArrayLikeSpecOps.foldLeft(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)(z)(op)
+
+		override def foldRight[A](elems :C)(z :A)(op :(E, A) => A) :A =
+			ArrayLikeSpecOps.foldRight(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)(z)(op)
+
+		override def iterator(elems :C) :Iterator[E] =
+			ArrayLikeIterator(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)
+
+		override def reverseIterator(elems :C) :Iterator[E] = {
+			val array = elems.unsafeArray.asInstanceOf[Array[E]]
+			ReverseArrayLikeIterator.slice(array, elems.startIndex, elems.startIndex + elems.knownSize)
+		}
+		override def stepper[S <: Stepper[_]](elems :C)(implicit shape :StepperShape[E, S]) :S with EfficientSplit =
+			if (elems.knownSize == 0) Stepper.empty
+			else ArrayStepper(elems.unsafeArray.asInstanceOf[Array[E]], elems.startIndex, elems.knownSize)
+
+		override def copyToArray[A >: E](elems :C)(array :Array[A], start :Int, max :Int) :Int =
+			ArrayLike.permissiveCopy(elems.unsafeArray, elems.startIndex, array, start, max)
+
+		override def view(elems :C) :IndexedSeqView[E] =
+			elems.unsafeArray.asInstanceOf[Array[E]].view.slice(elems.startIndex, elems.startIndex + elems.knownSize)
+
+		override def toIndexedSeq(elems :C) :IndexedSeq[E] = {
+			val offset = elems.startIndex
+			val size   = elems.knownSize
+			if (elems.isImmutable)
+				IArraySlice.slice(elems.unsafeArray.asInstanceOf[IArray[E]], offset, offset + size)
+			else
+				IArraySlice.wrap(IArray.copyOfRange(elems.unsafeArray.asInstanceOf[IArray[E]], offset, offset + size))
+		}
+	}
+
+
+	//todo: IndexedSeqLike[E, ArrayIterableOnce]
+//	@SerialVersionUID(Ver)
+//	private final class ForArrayIterableOnceOps[E, CC[X] <: IterableOnce[X], C <: ArrayIterableOnceOps[E, CC, C]]
+//		extends IterableOnceLike.ForOps[E, CC, C] with ForArrayIterableOnce[E, CC, C]
+//	{
+//		override def toOps(elems :C) :collection.IndexedSeqOps[E, CC, C] = new StringAsSeq(elems)
+//
+//		private def readResolve :AnyRef = IndexedSeqLike.forArrayIterableOnce
+//		override def toString = "IndexedSeqLike.forArrayIterableOnce"
+//	}
 
 
 	@SerialVersionUID(Ver)

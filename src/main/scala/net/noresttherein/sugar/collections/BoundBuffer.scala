@@ -5,7 +5,7 @@ import java.lang.{Math => math}
 import scala.collection.{StrictOptimizedSeqOps, mutable}
 import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Buffer, IndexedBuffer}
 
-import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayIterator, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.collections.util.knownEmpty
 import net.noresttherein.sugar.exceptions.{MaxSizeReachedException, SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
@@ -272,17 +272,18 @@ private class BoundSeqBuffer[E](underlying :mutable.IndexedSeq[E], offset :Int, 
 
 @SerialVersionUID(Ver)
 private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, max :Int)
-	extends AbstractBoundBuffer[E](offset, len, max) with ArrayIterableOnce[E]
+	extends AbstractBoundBuffer[E](offset, len, max) with ArraySliceSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 { //todo: override methods to use elems.copyToArray
-	private[sugar] override def unsafeArray :Array[_] = underlying
+	protected override def array :Array[E] = underlying
 	private[sugar] override def startIndex :Int = super.startIndex
 	private[sugar] override def isMutable = true
 	protected override def get(absoluteIdx :Int) :E = underlying(absoluteIdx)
 	protected override def set(absoluteIdx :Int, elem :E) :Unit = underlying(absoluteIdx) = elem
-	protected override def errorString :String = util.errorString(underlying)
-	override def iterator :Iterator[E] = IndexedSeqIterator(underlying, super.startIndex, length)
-	override def reverseIterator :Iterator[E] =
-		ReverseIndexedSeqIterator(underlying, super.startIndex + length - 1, length)
+
+	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :IndexedBuffer[E] =
+		new ArraySliceBuffer(until - from) ++= new ArraySlice(underlying, offset + from, offset + until)
+
+	protected override def errorString :String = util.errorString(this)
 }
 
 

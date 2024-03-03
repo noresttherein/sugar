@@ -489,7 +489,7 @@ private object Iterators {
 
 
 	private sealed abstract class IteratorKnownSize[+E](private[this] var currentSize :Int)
-		extends AbstractIterator[E] with IteratorWithDrop[E]
+		extends AbstractIterator[E] with IteratorWithDrop[E] with HasFastSlice[E]
 	{
 		final override def knownSize = currentSize
 		protected final def knownSize_=(value :Int) :Unit = currentSize = value
@@ -569,7 +569,7 @@ private object Iterators {
 	}
 
 	private final class ConstInfinite[+E](override val head :E)
-		extends AbstractIterator[E] with  BufferedIterator[E] with IteratorWithDrop[E]
+		extends AbstractIterator[E] with  BufferedIterator[E] with IteratorWithDrop[E] with HasFastSlice[E]
 	{
 		override def hasFastDrop = true
 		override def hasNext :Boolean = true
@@ -626,10 +626,7 @@ private object Iterators {
 		extends IteratorWithDrop[Y]
 	{
 		protected def source :Iterator[X] = underlying
-		override def hasFastDrop = underlying match {
-			case sliceable :IteratorWithDrop[_] => sliceable.hasFastDrop
-			case _ => false
-		}
+		override def hasFastDrop = HasFastSlice(underlying)
 		override def knownSize :Int = underlying.knownSize
 		override def hasNext :Boolean = underlying.hasNext
 		override def take(n :Int) :Iterator[Y] = {
@@ -664,45 +661,45 @@ private object Iterators {
 	}
 
 
-	private class MapWith[X, A, +Y](private[this] var underlying :Iterator[X],
+	private class MapWith[X, A, +Y](private[this] var source :Iterator[X],
 	                                private[this] var acc :A, f :(X, A) => (Y, A))
 		extends AbstractIterator[Y]
 	{
-		override def knownSize :Int = underlying.knownSize
+		override def knownSize :Int = source.knownSize
 
-		override def hasNext :Boolean = underlying.hasNext
-		override def next() :Y = { val res = f(underlying.next(), acc); acc = res._2; res._1 }
+		override def hasNext :Boolean = source.hasNext
+		override def next() :Y = { val res = f(source.next(), acc); acc = res._2; res._1 }
 
-		override def toString :String = underlying.toString + ".mapWith(" + acc + ")"
+		override def toString :String = source.toString + ".mapWith(" + acc + ")"
 	}
 
-	private class ScanLeft[X, +Y](private[this] var underlying :Iterator[X], private[this] var acc :Y, f :(Y, X) => Y)
+	private class ScanLeft[X, +Y](private[this] var souce :Iterator[X], private[this] var acc :Y, f :(Y, X) => Y)
 		extends AbstractBufferedIterator[Y]
 	{
 		push(acc)
 		override def knownSize :Int = {
-			val size = underlying.knownSize
+			val size = souce.knownSize
 			if (size < 0) -1 else size + super.hasNext.toInt
 		}
-		override def hasNext :Boolean = super.hasNext || underlying.hasNext && {
-			acc = f(acc, underlying.next())
+		override def hasNext :Boolean = super.hasNext || souce.hasNext && {
+			acc = f(acc, souce.next())
 			push(acc)
 		}
-		override def toString :String = underlying.toString + ".scanLeft(->" + acc + ")"
+		override def toString :String = souce.toString + ".scanLeft(->" + acc + ")"
 	}
 
 
 	private trait IteratorWithIndex[X, +Y] extends IteratorWithDrop[Y] {
 		protected def iter :Iterator[X]
-		override def hasFastDrop = true
+		protected def index :Int
+		override def hasFastDrop = HasFastSlice(iter)
 		override def knownSize :Int = iter.knownSize
 
 		protected def move(n :Int, curr :Iterator[X]) :Unit
 
-
 		override def drop(n :Int) :Iterator[Y] = {
 			if (n > 0)
-				move(n, iter.drop(n))
+				move(math.min(Int.MaxValue - index, n), iter.drop(n))
 			this
 		}
 		override def take(n :Int) :Iterator[Y] =
@@ -714,21 +711,24 @@ private object Iterators {
 			}
 	}
 
-	private final class MapWithIndex[X, +Y](private[this] var underlying :Iterator[X], f :(X, Int) => Y)
+	private final class MapWithIndex[X, +Y](private[this] var source :Iterator[X], f :(X, Int) => Y)
 		extends AbstractIterator[Y] with IteratorWithIndex[X, Y]
 	{
 		private[this] var i :Int = -1
-		override def hasNext :Boolean = underlying.hasNext
-		override def next() :Y = { i += 1; f(underlying.next(), i) }
+		override def hasNext :Boolean = source.hasNext
+		override def next() :Y = { i += 1; f(source.next(), i) }
 
-		protected override def iter :Iterator[X] = underlying
-		protected override def move(n :Int, curr :Iterator[X]) :Unit = { i += n; underlying = curr }
-		override def toString :String = underlying.toString + ".mapWithIndex(@" + i + ")"
+		protected override def index = i
+		protected override def iter :Iterator[X] = source
+		protected override def move(n :Int, curr :Iterator[X]) :Unit = { i += n; source = curr }
+		override def toString :String = source.toString + ".mapWithIndex(@" + i + ")"
 	}
 
 	private final class CollectWithIndex[X, Y](private[this] var source: Iterator[X], f: PartialFunction[(X, Int), Y])
-		extends AbstractBufferedIterator[Y]
+		extends AbstractBufferedIterator[Y] with IteratorWithIndex[X, Y]
 	{
+		protected override def iter :Iterator[X] = source
+		protected override def index = i
 		private[this] val fallback = Iterators.fallback.asInstanceOf[((X, Int)) => Y]
 		private[this] var i = -1
 		override def hasNext :Boolean = super.hasNext || {
@@ -743,6 +743,8 @@ private object Iterators {
 			}
 			found
 		}
+		override def move(n :Int, curr :Iterator[X]) :Unit = { i += n; source = curr }
+
 		override def toString :String = source.toString + ".collectWithIndex@" + i + "(" + f + ")"
 	}
 	private val fallback :Any => Any = _ => fallback
@@ -821,33 +823,6 @@ private object Iterators {
 			case _                        => "Iterator()"
 		}
 	}
-//	final class FlatMapSome[X, S, +Y](source: Iterator[X], private[this] var state: S,
-//	                                  f: (S, X) => Option[(S, IterableOnce[Y])])
-//		extends AbstractFlatMap[Y]
-//	{
-//		private[this] var hd :Option[(S, IterableOnce[Y])] = _
-//
-//		override def hasNext :Boolean = {
-//			var nonEmpty = super.hasNext
-//			while (!nonEmpty && hd == null && source.hasNext) {
-//				hd = f(state, source.next())
-//				hd match {
-//					case Some((a, items)) =>
-//						state = a
-//						val size = items.knownSize
-//						hd = null
-//						nonEmpty = size != 0 && enqueue(items.iterator)
-//					case _ =>
-//				}
-//			}
-//			nonEmpty
-//		}
-//		override def toString :String = hd match {
-//			case null => source.toString + ".flatMapSome(" + state + ")"
-//			case Some((s, e)) => source.toString + ".flatMapSome(" + s + "->" + e + ")"
-//			case _ => "Iterator()"
-//		}
-//	}
 
 
 	private final class FilterWith[E, S](underlying :Iterator[E], private[this] var state :S,
@@ -874,14 +849,17 @@ private object Iterators {
 			}
 	}
 
-	private final class FilterWithIndex[E](underlying :Iterator[E], f :(E, Int) => Boolean, keep :Boolean = true)
-		extends AbstractBufferedIterator[E]
+	private final class FilterWithIndex[E](private[this] var source :Iterator[E],
+	                                       f :(E, Int) => Boolean, keep :Boolean = true)
+		extends AbstractBufferedIterator[E] with IteratorWithIndex[E, E]
 	{
 		private[this] var i = -1
+		protected override def index = i
+		protected override def iter = source
 
 		override def hasNext :Boolean = super.hasNext || {
-			while (underlying.hasNext) {
-				val peek = underlying.next()
+			while (source.hasNext) {
+				val peek = source.next()
 				i += 1
 				if (f(peek, i) == keep) {
 					return push(peek)
@@ -889,13 +867,15 @@ private object Iterators {
 			}
 			false
 		}
+		override def move(n :Int, curr :Iterator[E]) :Unit = { i += n; source = curr; }
+
 		override def toString :String =
 			if (super.hasNext)
-			//consider: a new toString implementation for everything; i does not reflect the actual index of this iterator.
+				//consider: a new toString implementation for everything; i does not reflect the actual index of this iterator.
 				"Iterator@" + (i + 1) + "(" + head + ",...)"
 			else {
 				val name = if (keep) ".filterWithIndex@" else ".filterNotWithIndex@"
-				underlying.toString + name + (i + 1)
+				source.toString + name + (i + 1)
 			}
 	}
 
@@ -912,6 +892,7 @@ private object Iterators {
 					i1.toString + " is of size " + size1 + ", while " + i2 + " is of size " + size2
 				)
 		}
+		override def hasFastDrop = HasFastSlice(i1) && HasFastSlice(i2)
 		override def knownSize :Int = {
 			//We must know both sizes to guarantee an exception will be thrown if they are unequal, because
 			// a common usage pattern is to iterate by counting elements until knownSize, rather than using hasNext.
@@ -952,6 +933,7 @@ private object Iterators {
 						size1 + ", " + size2 + ", " + size3 + "."
 				)
 		}
+		override def hasFastDrop = HasFastSlice(i1) && HasFastSlice(i2) && HasFastSlice(i3)
 		override def knownSize :Int = {
 			val size1 = i1.knownSize
 			val size2 = i2.knownSize
@@ -983,6 +965,8 @@ private object Iterators {
 	                                     private[this] var i3 :Iterator[C])
 		extends AbstractIterator[(A, B, C)] with IteratorWithDrop[(A, B, C)]
 	{
+		override def hasFastDrop = HasFastSlice(i1) && HasFastSlice(i2) && HasFastSlice(i3)
+
 		override def knownSize :Int = {
 			val size1 = i1.knownSize
 			val size2 = i2.knownSize
@@ -1016,6 +1000,8 @@ private object Iterators {
 		private[this] var i3 :Iterator[C], pad3 :C
 	)   extends AbstractIterator[(A, B, C)] with IteratorWithDrop[(A, B, C)]
 	{
+		override def hasFastDrop = HasFastSlice(i1) && HasFastSlice(i2) && HasFastSlice(i3)
+
 		override def knownSize :Int = {
 			val size1 = i1.knownSize
 			val size2 = i2.knownSize
@@ -1053,8 +1039,10 @@ private object Iterators {
 		extends AbstractIterator[(E, E)] with IteratorWithDrop[(E, E)]
 	{
 		private[this] var prev = underlying.next()
-		override def knownSize :Int = underlying.knownSize
-		override def hasNext   :Boolean = underlying.hasNext
+
+		override def hasFastDrop :Boolean = HasFastSlice(underlying)
+		override def knownSize   :Int = underlying.knownSize
+		override def hasNext     :Boolean = underlying.hasNext
 
 		override def next() :(E, E) = {
 			val e = underlying.next()
@@ -1095,16 +1083,21 @@ private object Iterators {
 	}
 
 	/** Combined implementation of `filter` and `filterNot`, keeping elements for which `test` equals `expect`. */
-	private final class Keep[+E](underlying :Iterator[E], test :Int => Boolean, expect :Boolean)
-		extends AbstractBufferedIterator[E]
+	private final class Keep[E](private[this] var underlying :Iterator[E], test :Int => Boolean, expect :Boolean)
+		extends AbstractBufferedIterator[E] with IteratorWithIndex[E, E]
 	{
 		private[this] var i = -1
+		protected override def index = i
+		protected override def iter = underlying
+
 		@tailrec private def advance() :Boolean =
 			underlying.hasNext && ({ i += 1; test(i) == expect } && push(underlying.next()) || {
 				underlying.next()
 				advance()
 			})
 		override def hasNext :Boolean = super.hasNext || advance()
+
+		override def move(n :Int, curr :Iterator[E]) :Unit = { i += n; underlying = curr }
 
 		override def toString :String = underlying.toString + ".keep(" + test + ")"
 	}
@@ -1118,6 +1111,7 @@ private object Iterators {
 		// Counting stops after passing index in order not to overflow.
 		private[this] var i = 0
 		def offset :Int = i
+		override def hasFastDrop = HasFastSlice(underlying)
 
 		override def knownSize :Int = {
 			val size = underlying.knownSize
@@ -1233,6 +1227,7 @@ private object Iterators {
 		extends AbstractBufferedIterator[E]
 	{
 		private[this] var i = 0
+		override def hasFastDrop = HasFastSlice(underlying)
 
 		override def knownSize :Int = {
 			val size = underlying.knownSize
@@ -1312,6 +1307,7 @@ private object Iterators {
 		extends AbstractIterator[E] with IteratorWithDrop[E]
 	{
 		private[this] var i = 0
+		override def hasFastDrop = HasFastSlice(underlying)
 		override def knownSize :Int = underlying.knownSize
 
 		override def hasNext :Boolean =
@@ -1398,6 +1394,7 @@ private object Iterators {
 			outOfBounds_!(toString)
 
 		private[this] var i = 0
+		override def hasFastDrop = HasFastSlice(underlying) && HasFastSlice(elems)
 
 		override def knownSize :Int = {
 			val size      = underlying.knownSize
@@ -1541,6 +1538,8 @@ private object Iterators {
 		if (index < 0)
 			elems = elems.drop(-index)
 
+		override def hasFastDrop = HasFastSlice(underlying) && HasFastSlice(elems)
+
 		override def knownSize = underlying.knownSize
 
 		override def hasNext :Boolean = underlying.hasNext
@@ -1618,6 +1617,7 @@ private object Iterators {
 		extends AbstractIterator[E] with IteratorWithDrop[E]
 	{
 		private[this] var i = 0
+		override def hasFastDrop = HasFastSlice(underlying)
 
 		override def knownSize :Int = {
 			val k = underlying.knownSize
@@ -1711,6 +1711,8 @@ private object Iterators {
 		extends AbstractIterator[E] with IteratorWithDrop[E]
 	{
 		private[this] var i = 0
+		override def hasFastDrop = HasFastSlice(underlying) && HasFastSlice(elems)
+
 		override def knownSize :Int = {
 			val remaining = underlying.knownSize
 			if (remaining >= 0 & remaining < index - i)
@@ -1978,17 +1980,22 @@ private object Iterators {
 		}
 	}
 
-	private class Slicer[+E](private[this] var underlying :Iterator[E])
+	private class Slicer[E](private[this] var underlying :Iterator[E])
 		extends AbstractIterator[E] with IteratorWithDrop[E]
 	{ outer =>
 		private[this] var i = 0
 		private def index :Int = i
+		override def hasFastDrop = HasFastSlice(underlying)
+
 		override def knownSize :Int = underlying.knownSize
 		override def hasNext :Boolean = underlying.hasNext
 		override def next() :E = { i += 1; underlying.next() }
 
 		override def drop(n :Int) :Iterator[E] = {
-			underlying = underlying.drop(n)
+			if (n > 0) {
+				underlying = underlying.drop(n)
+				i += math.min(Int.MaxValue - i, n)
+			}
 			this
 		}
 		override def take(n :Int) :Iterator[E] =
@@ -2017,6 +2024,7 @@ private object Iterators {
 		private class Take(private[this] var until :Int)
 			extends AbstractIterator[E] with IteratorWithDrop[E]
 		{
+			override def hasFastDrop = outer.hasFastDrop
 			override def knownSize = {
 				val remaining = until - index
 				val total = outer.knownSize
@@ -2173,9 +2181,11 @@ abstract class AbstractBufferedIterator[+Y]
 
 /** A proxy iterator maintaining a counter of returned (or skipped) elements. */
 class CountingIterator[+E](private[this] var underlying :Iterator[E], private[this] var counter :Int = 0)
-	extends Iterator[E]
+	extends IteratorWithDrop[E]
 {
 	def total :Int = counter
+	override def hasFastDrop :Boolean = HasFastSlice(underlying)
+
 	override def hasNext :Boolean = underlying.hasNext
 	override def next() :E = { val res = underlying.next(); counter += 1; res }
 

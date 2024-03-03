@@ -70,12 +70,12 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	   with DefaultSerializable
 {
 	/* The implementation relies heavily on binary arithmetics and properties of the power of two complement system
-	* of integer values. Because the lengths of all arrays are always powers of two, then length - 1 becomes a mask
-	* for all positive values lesser than length (that is, valid indices). Moreover, x & length - 1 is the same
-	* as x % length (but faster), and -x & length -1 is the complement of that remainder (so, if x is an array index,
-	* -x & length - 1 is the size of the suffix following x). Another property we take advantage of is
-	* that an Int can be treated as unsigned if one adds Int.MinValue to both sides before comparing.
-	*/
+	 * of integer values. Because lengths of all arrays are always powers of two, then length - 1 becomes a mask
+	 * for all positive values lesser than length (that is, valid indices). Moreover, x & length - 1 is the same
+	 * as x % length (but faster), and -x & length -1 is the complement of that remainder (so, if x is an array index,
+	 * -x & length - 1 is the size of the suffix following x). Another property we take advantage of is
+	 * that an Int can be treated as unsigned if one adds Int.MinValue to both sides before comparing.
+	 */
 	def this(initialCapacity :Int)(implicit elementType :ClassTag[E]) = this(initialCapacity, false)
 	def this(shrink :Boolean)(implicit elementType :ClassTag[E]) = this(0, shrink)
 	def this()(implicit elementType :ClassTag[E]) = this(0, false)
@@ -2652,8 +2652,6 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 	  */
 	@inline private def dim2(idx :Int) :Int = idx >>> Dim1Bits
 
-	//Todo: use of storageSize in elements, rather than 'outer array size' means we can't have 2^32-1 elements,
-	// just 2^31, because 2^32 == 0 (overflow).
 	//Doesn't make sense to have MinSize1 != newSize1 or MinSize2 != newSize2,
 	// because any removal just after allocation will result in reallocation to a smaller array.
 	private final val Dim1Bits = 15                      //The log2 of the maximum size of arrays of the first dimension.

@@ -16,6 +16,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
+//todo: extend IterableOnceOps[E, ValIterator, ValIterator[E]]
 /**
   * @author Marcin Mościcki
   */ //consider: specializing for Boolean

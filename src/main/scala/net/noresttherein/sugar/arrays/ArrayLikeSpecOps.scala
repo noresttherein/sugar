@@ -197,37 +197,49 @@ private[sugar] object ArrayLikeSpecOps {
 			case null              => null_!("null array")
 		}
 	}
-/*
-	def forall[E](array :Array[E], from :Int, until :Int, flipped :Boolean = false)(f :E => Boolean) :Boolean = {
-		val length = array.length
-		until <= from | until <= 0 || from >= length || {
-			def forall[@specialized(Everything) X](a :Array[X], f :X => Boolean) :Boolean = {
-				val until0 = math.min(until, length)
-				var i      = math.max(from, 0)
-				while (i < until0 && f(a(i)) != flipped)
-					i += 1
-				i == until0
+
+	@inline def find[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Option[E] = {
+		val i = indexWhere(array, offset, length)(p, 0)
+		if (i < 0) None else Some(array(offset + i))
+	}
+	@inline def findLast[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Option[E] = {
+		val i = lastIndexWhere(array, offset, length)(p, length)
+		if (i < 0) None else Some(array(offset + i))
+	}
+
+
+	@inline def forall[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Boolean =
+		segmentLength(array, offset, length)(p, 0) == length
+
+	@inline def exists[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Boolean =
+		indexWhere(array, offset, length)(p, 0) >= 0
+
+	def count[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Int = {
+		def countSpec[@specialized(Everything) X](arr :Array[X], p :X => Boolean) :Int = {
+			val end = offset + length
+			var res = 0
+			var i = offset
+			while (i < end) {
+				if (p(arr(i)))
+					res += 1
+				i += 1
 			}
-			(array :Array[_]) match {
-				case a :Array[AnyRef]   => forall(a, f.castParam1[AnyRef])
-				case a :Array[Int]      => forall(a, f.castParam1[Int])
-				case a :Array[Long]     => forall(a, f.castParam1[Long])
-				case a :Array[Double]   => forall(a, f.castParam1[Double])
-				case a :Array[Char]     => forall(a, f.castParam1[Char])
-				case a :Array[Byte]     => forall(a, f.castParam1[Byte])
-				case a :Array[Float]    => forall(a, f.castParam1[Float])
-				case a :Array[Short]    => forall(a, f.castParam1[Short])
-				case a :Array[Boolean]  => forall(a, f.castParam1[Boolean])
-				case null               => throw new NullPointerException()
-			}
+			res
+		}
+		array match {
+			case a :Array[AnyRef]  => countSpec(a, p.asInstanceOf[AnyRef => Boolean])
+			case a :Array[Int]     => countSpec(a, p.asInstanceOf[Int => Boolean])
+			case a :Array[Long]    => countSpec(a, p.asInstanceOf[Long => Boolean])
+			case a :Array[Double]  => countSpec(a, p.asInstanceOf[Double => Boolean])
+			case a :Array[Char]    => countSpec(a, p.asInstanceOf[Char => Boolean])
+			case a :Array[Byte]    => countSpec(a, p.asInstanceOf[Byte => Boolean])
+			case a :Array[Float]   => countSpec(a, p.asInstanceOf[Float => Boolean])
+			case a :Array[Short]   => countSpec(a, p.asInstanceOf[Short => Boolean])
+			case a :Array[Boolean] => countSpec(a, p.asInstanceOf[Boolean => Boolean])
+			case null              => null_!("null array")
 		}
 	}
-*/
-//
-//	def forall[E](array :Array[E], from :Int, until :Int)(f :E => Boolean) :Boolean =
-//		indexWhere(array, from, until)(f, 0) == -1
-//
-
+	
 	def updateAll[E](array :Array[E], from :Int, until :Int)(f :Int => E) :Int = {
 		val length = array.length
 		if (until > from & until > 0 & from < length) {

@@ -99,7 +99,7 @@ class LightStack[E] private[collections] (
 		/** The backing array. The first element is an `Int` specifying the stack size. */
 		private val stack :Array[Any]
 	) extends AnyVal with IterableOnce[E] with IterableOps[E, LightStack, LightStack[E]]
-	     with ArraySliceOps[E, LightStack, LightStack[E]] with Serializable
+	     with ArraySlicingOps[E, LightStack, LightStack[E]] with Serializable
 {
 	@inline override def knownSize :Int = stack(0).asInstanceOf[Int]
 	@inline override def size :Int = stack(0).asInstanceOf[Int]

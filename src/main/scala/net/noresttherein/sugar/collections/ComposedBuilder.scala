@@ -123,7 +123,7 @@ trait BuilderFromBooleans[To] extends Builder[Boolean, To] {
   * @note Designed for trusted code, it does not perform bounds check when accessing the array.
   */
 private class ArrayGrowable[E](private[this] var capacity :Int)
-	extends IterableOnce[E] with Growable[E] with ArrayIterableOnce[E]
+	extends ArrayIterableOnce[E] with Growable[E]
 {
 	def this() = this(-1)
 

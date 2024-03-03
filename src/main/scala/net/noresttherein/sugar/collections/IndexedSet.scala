@@ -347,7 +347,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 	@SerialVersionUID(Ver)
 	private class ArrayIndexedSet[E](elems :Array[E], start :Int, end :Int)(implicit override val ordering :Ordering[E])
-		extends AbstractIndexedSet[E](start, end) with ArraySliceOps[E, Set, IndexedSet[E]]
+		extends AbstractIndexedSet[E](start, end) with ArraySlicingOps[E, Set, IndexedSet[E]]
 	{
 		def this(elems :Array[E])(implicit ordering :Ordering[E]) = this(elems, 0, elems.length)
 

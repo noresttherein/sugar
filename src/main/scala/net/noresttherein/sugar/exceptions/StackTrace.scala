@@ -8,7 +8,7 @@ import scala.collection.immutable.{AbstractSeq, IndexedSeqOps}
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.arrays.IArray
-import net.noresttherein.sugar.collections.{ArraySliceOps, SpecificIterableFactoryDefaults, SugaredIterable}
+import net.noresttherein.sugar.collections.{ArraySlicingOps, SpecificIterableFactoryDefaults, SugaredIterable}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 
 
@@ -115,7 +115,7 @@ case object StackTrace extends SpecificIterableFactory[StackTraceElement, StackT
 
 @SerialVersionUID(Ver)
 private class ArrayStackTrace(array :Array[StackTraceElement], start :Int, override val length :Int)
-	extends StackTrace with ArraySliceOps[StackTraceElement, IndexedSeq, StackTrace]
+	extends StackTrace with ArraySlicingOps[StackTraceElement, IndexedSeq, StackTrace]
 {
 	def this(array :Array[StackTraceElement]) = this(array, 0, array.length)
 

@@ -8,14 +8,14 @@ import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySliceOps, IArrayLikeSlice}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlicingOps, IArrayLikeSlice}
 
 
 
 
 //todo: make these specialized, and create them only from methods whose signature will be unchanged in Scala 3
 private trait ArrayLikeAsSeqOps[E, +CC[_], +C] //why can't it extend ArraySliceOps
-	extends collection.IndexedSeqOps[E, CC, C] with ArraySliceOps[E, CC, C]
+	extends collection.IndexedSeqOps[E, CC, C] with ArraySlicingOps[E, CC, C]
 {
 	override def segmentLength(p :E => Boolean, from :Int) :Int = super.segmentLength(p, from)
 }
@@ -34,7 +34,7 @@ private trait ArrayLikeAsSeqOps[E, +CC[_], +C] //why can't it extend ArraySliceO
   *///consider: renaming all to <ArrayType>SeqOps or justt <ArrayType>Ops (a bit problematic for Array itself, though).
 @SerialVersionUID(Ver)
 private class ArrayLikeAsSeq[E](a :ArrayLike[E])
-	extends IterableOnce[E] with ArrayIterableOnce[E] with ArrayLikeAsSeqOps[E, ArrayLike, ArrayLike[E]]
+	extends ArrayIterableOnce[E] with ArrayLikeAsSeqOps[E, ArrayLike, ArrayLike[E]]
 	   with Serializable
 {
 	private[this] val arr :Array[E] = a.asInstanceOf[Array[E]]

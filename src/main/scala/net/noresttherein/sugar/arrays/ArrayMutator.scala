@@ -19,7 +19,7 @@ import net.noresttherein.sugar.reflect.Specialized.MultiValue
   */
 @SerialVersionUID(Ver)
 private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sugar]
-                                         (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
+                                        (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
 	extends AbstractIterator[T] with ArrayIteratorOps[T] with Mutator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)

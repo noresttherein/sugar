@@ -554,6 +554,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			def apply[E](array :ArrayLike[E], from :Int, until :Int) :collection.IndexedSeq[E] =
 				ArrayLikeSlice.slice[E](array.castFrom[ArrayLike[E], Array[E]], from, until)
 
+			//consider: returning ArrayLikeSlice instead of a tuple.
 			def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
 				case seq :ArrayIterableOnce[E] =>
 					Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
@@ -643,9 +644,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def apply(i :Int) :E = self(i).asInstanceOf[E]
 
 		@inline def count(p :E => Boolean) :Int = self.count(p.castFrom[E => Boolean, Unknown => Boolean])
-		@inline def exists(p :E => Boolean) :Boolean = indexWhere(p) >= 0
-		def forall(p :E => Boolean) :Boolean =
-			ArrayLikeSpecOps.segmentLength(self, 0, self.length, true)(p.castParam1[Unknown]) == -1
+		@inline def exists(p :E => Boolean) :Boolean = indexWhere(p, 0) >= 0
+		def forall(p :E => Boolean) :Boolean = ArrayLikeSpecOps.forall(self, 0, self.length)(p.castParam1[Unknown])
 
 		def find(p :E => Boolean) :Option[E] = {
 			val length = self.length
