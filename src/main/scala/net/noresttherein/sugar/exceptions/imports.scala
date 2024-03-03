@@ -495,7 +495,7 @@ trait imports {
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the collection which was accessed,
 	  * and is used to enhance the error message.
 	  */
-	final def outOfBounds_!(idx :Int, items :Iterable[_]) :Nothing =
+	final def outOfBounds_!(idx :Int, items :IterableOnce[_]) :Nothing =
 		throw SugaredIndexOutOfBoundsException(() => idx.toString + " out of bounds for " + errorString(items))
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the array for whch the index was out of bounds,
