@@ -39,8 +39,16 @@ import net.noresttherein.sugar.vars.Maybe.Yes
   *
   * Together, this makes it the most efficient way to create a sequence by prepending elements,
   * especially if the size is initially known.
+  *
+  * The maximum size of the buffer is restricted by the maximum permissible array size, which may differ
+  * between JVMs. For the purpose of better portability, this implementation restricts it artificially
+  * to $MaxSize. If appending elements would result in growing past that size, but there is required space
+  * at the front of the buffer, the contents are shifted down to accommodate the new elements. The same applies
+  * to prepending elements and space at the end of the buffer. If this still does not make enough room,
+  * an [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]] is thrown.
   * @define Coll `ArraySliceBuffer`
   * @define coll array buffer
+  * @define MaxSize `Int.MaxValue - 8`
   * @author Marcin Mościcki
   */ //consider: using a ClassTag and creating specific and untagged factories like in MatrixBuffer
 @SerialVersionUID(Ver)
@@ -148,7 +156,7 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 				contents = RefArray.copyOf(contents, length)
 			} else {
 				length = math.max((len << 1) + offset, DefaultInitialSize)
-				contents  = RefArray.ofDim[E](length)
+				contents = RefArray.ofDim[E](length)
 				arraycopy(oldArray, offset, contents, offset, len)
 			}
 			aliased = false

@@ -121,6 +121,9 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
   * but exposes API dedicated to concatenating `String`s and some other methods specific to `Char`,
   * as covariance of `Seq` forces boxing of elements. It differs from a [[scala.collection.StringView StringView]]
   * in that all mapping operations are strict.
+  *
+  * @note Lazy evaluation of `length` means that the maximum size limit of `Int.MaxValue` is not asserted explicitly.
+  *       Growing the sequence past that size will result in undefined behaviou.
   * @define Coll `ChoppedString`
   * @define coll chopped string
   */

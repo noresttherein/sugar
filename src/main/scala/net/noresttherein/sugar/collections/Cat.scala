@@ -36,6 +36,8 @@ import net.noresttherein.sugar.slang.{SerializationProxy, SingletonSerialization
   *
   * This class is essentially the same as `Chain` from `cats` library,
   * but implemented within the standard collection framework.
+  * @note Lazy evaluation of `length` means that the maximum sequence length of `Int.MaxValue` is not explicitly
+  *       enforced. Growing the collection past that size results in undefined behaviour.
   * @define Coll `Cat`
   * @define coll cat sequence
   * @author Marcin Mościcki marcin@moscicki.net

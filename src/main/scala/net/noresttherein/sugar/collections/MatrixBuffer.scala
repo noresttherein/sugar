@@ -35,16 +35,17 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
   * From this point on, unless the fill factor drops again enough to switch back to a single dimensional array,
   * growing the buffer happens through an allocation of an additional `Array[E]` of size $MaxSize1.
   *
+  * This arrangement makes reaching the theoretical size limit of $MaxSize more feasible.
+  * All methods adding elements to the buffer
+  * will throw a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]] if that would result
+  * in the size of the buffer overflowing `Int` type, even though the underlying structure would otherwise allow it.
+  *
   * Unlike `ArrayBuffer`, but similarly to [[scala.collection.mutable.ArraySeq mutable.ArraySeq]], this implementation
   * can store values in arrays of arbitrary type, based on [[scala.reflect.ClassTag ClassTag]]`[E]`.
   * However, companion object [[net.noresttherein.sugar.collections.MatrixBuffer$ MatrixBuffer]] creates, by default,
   * 'untagged' instances backed by an `Array[Any]`, boxing all elements. The associated
   * [[collection.ClassTagIterableFactory ClassTagIterableFactory]] for this class is instead
   * `MatrixBuffer.`[[net.noresttherein.sugar.collections.MatrixBuffer.specific specific]].
-  *
-  * All methods adding elements to the buffer
-  * will throw a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]] if the total number
-  * of elements would exceed `Int.MaxValue`.
   *
   * The goal of the implementation is to preserve all the advantages of an array buffer, all the while making
   * it safe to use even if the size may approach the maximum of `Int.MaxValue`.
@@ -58,6 +59,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
   * @define Coll     `MatrixBuffer`
   * @define coll     matrix buffer
   * @define MaxSize1 65536
+  * @define MaxSize  `Int.MaxValue`
   * @author Marcin Mościcki
   */ //consider: renaming to Array2Buffer; specializing
 @SerialVersionUID(Ver)

@@ -27,6 +27,11 @@ import net.noresttherein.sugar.illegal_!
   * (providing at least half of it is used, i.e. `this.array.length >= this.length * 2`).
   * This sets a 'read only' flag, and any subsequent buffer modifications will reallocate the array,
   * similarly to the strategy of [[scala.collection.mutable.ListBuffer ListBuffer]].
+  *
+  * The buffer capacity is limited by the maximum permissible array size. While this value may differ
+  * between JVM implementations, it is artificially restricted to $MaxSize for consistent behaviour.
+  * If adding elements would require growing past that size,
+  * a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]] is thrown.
   * @define Coll `AliasingArrayBuffer`
   * @define coll aliasing array buffer
   * @author Marcin Mościcki

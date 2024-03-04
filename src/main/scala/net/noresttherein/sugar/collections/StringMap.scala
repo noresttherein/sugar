@@ -15,7 +15,9 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
+import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.maxSize_!
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -47,7 +49,10 @@ trait SpecificSortedMapOps[K, +V, +C <: MapOps[K, V, Map, C]] extends MapOps[K, 
 /** A prefix tree mapping strings into values of `V`.
   * Entries are stored in the alphabetical order, as specified by default `Char` ordering.
   * It isn't a `SortedMap` because the latter's `+` and other operations are final
-  * and do not allow for returning a map with a fixed key type
+  * and do not allow for returning a map with a fixed key type.
+  *
+  * @note The map can store up to `Int.MaxValue` entries,
+  *       past which a [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]] is thrown.
   * @define Coll `StringMap`
   * @define coll string map
   */
@@ -65,6 +70,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	@inline private def wrap[V1 >: V](tree :PrefixTree[V1]) :StringMap[V1] =
 		if (tree eq root) this
 		else if (tree.size == 0) StringMap.empty
+		else if (tree.size < 0) maxSize_!(this, Int.MaxValue)
 		else new StringMap(tree)
 
 	override def head :(String, V) =
@@ -239,6 +245,8 @@ case object StringMap {
 
 
 /** A set of strings in the alphabetical order (derived from natural `Char` comparison).
+  * It allows storing of `Int.MaxValue` elements, past which
+  * a [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]] is thrown.
   * @define Coll `StringSet`
   * @define coll string set
   */
@@ -254,6 +262,7 @@ final class StringSet(root :PrefixTree[_])
 	@inline private def wrap(tree :PrefixTree[_]) :StringSet =
 		if (tree eq root) this
 		else if (tree.size == 0) StringSet.empty
+		else if (tree.size < 0) maxSize_!(this, Int.MaxValue)
 		else new StringSet(tree)
 
 	override def head :String =
@@ -364,9 +373,6 @@ private object PrefixTree {
 	@inline def apply[V](key :String, value :V) :PrefixTree[V] =
 		new PrefixTree(key.length, key, Yes(value), EmptyChildrenArray.castParam[PrefixTree[V]], 1, 1)
 
-//	@inline def apply[V](entry :(String, V)) :PrefixTree[V] =
-//		new PrefixTree(entry._1.length, entry._1, Yes(entry._2), EmptyChildrenArray.castParam[PrefixTree[V]], 1, 1)
-
 	@inline def apply[V](key :String, value :V, child :PrefixTree[V]) :PrefixTree[V] =
 		new PrefixTree(key.length, key, Yes(value), Array.one(child), child.size + 1, child.depth + 1)
 
@@ -376,8 +382,6 @@ private object PrefixTree {
 		val depth = math.max(left.depth, right.depth) + 1
 		new PrefixTree(offset, key, No, Array.two(left, right), left.size + right.size, depth)
 	}
-//	@inline def apply[V](offset :Int, key :String, left :PrefixTree[V], right :PrefixTree[V]) :PrefixTree[V] = {
-//	}
 
 	/** Joins to legal prefix trees into one tree.
 	  * Requires `first.firstKey.take(first.offset) < second.firstKey.take(second.offset)`.
@@ -421,7 +425,6 @@ private object PrefixTree {
 			cmp = Character.compare(c1, c2)
 			i += 1
 		}
-//		cmp
 		if (cmp == 0) 0
 		else if (cmp < 0) -i
 		else i
@@ -561,7 +564,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 				prefix += 1
 			if (length <= offset)
 				return Absent(prefix)
-			//below this point cmp >= 0 && offset < length
+			//Below this point cmp >= 0 && offset < length
 			cmpTo = offset
 			val children   = node.children
 			val childrenNo = children.length
@@ -616,7 +619,7 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 	def firstChild :PrefixTree[V] = if (children.length == 0) null else children(0)
 	def lastChild  :PrefixTree[V] = if (children.length == 0) null else children(children.length - 1)
 
-	//Drops also the key in this node, if present
+	//Drops also the key in this node, if present.
 	def dropFirstChild :PrefixTree[V] = {
 		val childrenNo = children.length
 		if (childrenNo <= 1)
@@ -676,8 +679,6 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 			new PrefixTree(offset, key, value, array, size + child.size - old.size)
 	}
 
-//	/** Updates/sets the value on this node. */
-//	def updated[V1 >: V](value :V1) :PrefixTree[V1] = updated(key, value)
 
 	/** Updates/sets the value on this node. The key must equal `this.firstKey.substring(0, this.offset)`. */
 	def updated[V1 >: V](key :String, value :V1) :PrefixTree[V1] =
@@ -1095,13 +1096,6 @@ private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
 		stack(0) = root
 		advance()
 	}
-//
-//	@inline private[this] def push(node :PrefixTree[V]) :Unit = {
-//		top += 1
-//		if (top == stack.length)
-//			stack = Array.copyOf(stack, stack.length << 1)
-//		stack(top) = node
-//	}
 
 	protected def value(leaf :PrefixTree[V]) :E
 
@@ -1147,8 +1141,6 @@ private abstract class AbstractPrefixTreeIterator[V, +E](root :PrefixTree[V])
 		}
 		res
 	}
-
-//	override def slice(from :Int, until :Int) :this.type = take(until).drop(from)
 
 	override def drop(n :Int) :this.type =
 		if (n <= 0 | top < 0)
