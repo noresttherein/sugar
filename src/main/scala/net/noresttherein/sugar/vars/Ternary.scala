@@ -9,7 +9,7 @@ import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, u
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.vars.Ternary.{Known, No, NoContent, WithFilter, Yes}
+import net.noresttherein.sugar.vars.Ternary.{Known, No, NoContent, Yes}
 import net.noresttherein.sugar.witness.Ignored
 
 
@@ -389,7 +389,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	/** Returns the result of applying the given function to the value of this `Ternary` if it is not empty,
 	  * or `this` if `this.isEmpty`. */
 	@inline def flatMap[O](f :Boolean => Opt[O]) :Opt[O] =
-		if (x == NoContent) Maybe.No else f(x == Yes)
+		if (x == NoContent) None else f(x == Yes)
 
 	/** Returns an empty `Ternary` if `this.contains(o)`, or `this` otherwise. */
 	@inline def removed(value :Boolean) :Ternary =
@@ -422,7 +422,8 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Equivalent to `this.`[[net.noresttherein.sugar.vars.Ternary.filter filter]]`(p)` - a variant for use
 	  * in for-comprehensions. */
-	@inline def withFilter(p :Boolean => Boolean) :WithFilter = new WithFilter(this, p)
+	@inline def withFilter(p :Boolean => Boolean) :Ternary =
+		if ((x == NoContent) || p(x == Yes)) this else new Ternary(NoContent)
 
 
 	/** Tests if this `Ternary` is not empty and its value is equal to the given argument. */
@@ -749,19 +750,6 @@ object Ternary {
 
 		/** Matches non-empty [[net.noresttherein.sugar.vars.Ternary Ternary]] instances. */
 		@inline def unapply(ternary :Ternary) :Ternary = ternary
-	}
-
-
-	/** The for-comprehension facade for `Ternary[A]`, which does not evaluate the filter predicate until
-	  * `map`, `flatMap` or `foreach` is called. */
-	final class WithFilter(self :Ternary, p :Boolean => Boolean) {
-		def map(f :Boolean => Boolean) :Ternary =
-			if (self.x == NoContent) self else new Ternary(if (f(self.x == Yes)) Yes else No)
-		def map[B](f: Boolean => B): Maybe[B] = self filter p map f
-		def flatMap(f: Boolean => Ternary): Ternary = self filter p flatMap f
-		def flatMap[B](f: Boolean => Opt[B]): Opt[B] = self filter p flatMap f
-		def foreach[U](f: Boolean => U): Unit = self filter p foreach f
-		def withFilter(q: Boolean => Boolean): WithFilter = new WithFilter(self, x => p(x) && q(x))
 	}
 
 

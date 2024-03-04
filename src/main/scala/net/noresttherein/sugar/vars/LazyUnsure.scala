@@ -102,12 +102,12 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 object LazyUnsure {
 	def apply[@specialized(SpecializedVars) T](init: => Opt[T]) :LazyUnsure[T] = new SyncUnsure(() => init)
 
-	def eager[@specialized(SpecializedVars) T](value :T) :LazyUnsure[T] = new EagerUnsure(Yes(value))
+	def eager[@specialized(SpecializedVars) T](value :T) :LazyUnsure[T] = new EagerUnsure(One(value))
 
 	def fromOpt[@specialized(SpecializedVars) T](value :Opt[T]) :LazyUnsure[T] =
 		if (value.isEmpty) Empty else new EagerUnsure(value)
 
-	val Empty :LazyUnsure[Nothing] = new EagerUnsure(No)
+	val Empty :LazyUnsure[Nothing] = new EagerUnsure(None)
 
 
 	@SerialVersionUID(Ver)
@@ -116,7 +116,7 @@ object LazyUnsure {
 		override def opt   = x
 		override def toOpt = x
 
-		override def map[O](f :T => O) = if (x.isDefined) new EagerUnsure(Yes(f(x.get))) else Empty
+		override def map[O](f :T => O) = if (x.isDefined) new EagerUnsure(One(f(x.get))) else Empty
 		override def flatMap[O](f :T => LazyUnsure[O]) =
 			if (x.isDefined) f(x.get) else Empty
 	}

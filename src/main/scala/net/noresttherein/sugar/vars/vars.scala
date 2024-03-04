@@ -10,6 +10,7 @@ import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
+import net.noresttherein.sugar.casting.castTypeParamMethods
 
 
 
@@ -34,7 +35,7 @@ import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
   * @define Blue [[net.noresttherein.sugar.vars.Pill.Blue$ Blue]]
   * @define Red  [[net.noresttherein.sugar.vars.Pill.Red$ Red]]
   */
-package object vars extends vars.Rank1OptImplicits {
+package object vars extends vars.varsTypeClasses {
 
 	private[vars] final val Ver = sugar.Ver
 
@@ -265,7 +266,6 @@ package object vars extends vars.Rank1OptImplicits {
 		/** Equivalent to `this.`[[net.noresttherein.sugar.vars.OptExtension.filter filter]]`(p)` -
 		  * a variant for use in for-comprehensions. Note that as this implementation is performance oriented,
 		  * it evaluates the predicate immediately, unlikely standard methods of [[scala.collection.Iterable Iterable]]. */
-//		@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](self, p)
 		@inline def withFilter(p :A => Boolean) :Opt[A] =
 			if ((self.asInstanceOf[AnyRef] eq None) || p(get)) self else None
 
@@ -988,9 +988,13 @@ package vars {
 
 	import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
 
-	private[sugar] sealed abstract class Rank1OptImplicits {
-		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe //consider: making these explicit
-		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
+	private[sugar] sealed abstract class varsTypeClasses {
+//		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe //consider: making these explicit
+//		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = Opt.yes_?(opt)
+		@inline final implicit def OptClassTag     :ClassTag[Opt[Nothing]] = ClassTag.AnyRef.castParam[Opt[Nothing]]
+		@inline final implicit def OutcomeClassTag :ClassTag[Outcome[Nothing]] = ClassTag.AnyRef.castParam[Outcome[Nothing]]
+		@inline final implicit def PillClassTag    :ClassTag[Pill[Nothing, Nothing]] =
+			ClassTag.AnyRef.castParam[Pill[Nothing, Nothing]]
 	}
 
 
@@ -999,9 +1003,9 @@ package vars {
 	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
 	  * @see [[scala.None]]
 	  *
-	  * @define Opt [[net.noresttherein.sugar.vars.Opt! Opt]]
-	  * @define One   [[net.noresttherein.sugar.vars.Opt.One$ One]]
-	  * @define None  [[scala.None None]]
+	  * @define Opt  [[net.noresttherein.sugar.vars.Opt! Opt]]
+	  * @define One  [[net.noresttherein.sugar.vars.Opt.One$ One]]
+	  * @define None [[scala.None None]]
 	  */
 	@SerialVersionUID(Ver)
 	object Opt { //Synonyms: Opt; Maybe/Yes/No; Hope/Lucky/NoLuck; Wish
@@ -1111,21 +1115,13 @@ package vars {
 			override def hashCode :Int = value.hashCode
 			override def toString :String = "One(" + value + ")"
 		}
-//
-//		/** The for-comprehension facade for `Opt[A]`, which does not evaluate the filter predicate until
-//		  * `map`, `flatMap` or `foreach` is called.
-//		  */
-//		final class WithFilter[+A](self :Opt[A], p :A => Boolean) {
-//			@inline def map[B](f: A => B): Opt[B] = self filter p map f
-//			@inline def flatMap[B](f: A => Opt[B]): Opt[B] = self filter p flatMap f
-//			@inline def foreach[U](f: A => U): Unit = self filter p foreach f
-//			@inline def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
-//		}
 
 
 
 		/** Optional implicit conversions to/from `Maybe`, `Option` and `Iterable`.
-		  * They involve boxing and are placed here for explicit importing.
+		  * They may result in boxing in some circumstance and are placed here for explicit importing.
+		  * Additionally, importing [[net.noresttherein.sugar.vars.Opt.conversions.anyOne anyOne]] enables
+		  * conversion lifting any value of type `T` to `Opt[T]`.
 		  */
 		@SerialVersionUID(Ver)
 		object conversions {
@@ -1169,6 +1165,7 @@ package vars {
 			}
 			@inline def NullableToOpt[A <: AnyRef](value :Nullable[A]) :Opt[A] = nonNull_?(value)
 
+			//consider: making it available by default.
 			/** Wraps any object in a [[net.noresttherein.sugar.vars.Opt Opt]] monad. */
 			@inline implicit def anyOne[A](any :A) :Opt[A] = One(any)
 		}
@@ -1335,7 +1332,7 @@ package vars {
 		  * importing from both objects all definitions will lead to implicit conversion ambiguity.
 		  */
 		@SerialVersionUID(Ver)
-		object implicits {
+		object conversions {
 			@inline implicit def PillFromEither[A, B](either :Either[A, B]) :Pill[A, B] = fromEither(either)
 			@inline implicit def PillToEither[A, B](pill :Pill[A, B]) :Either[A, B] = pill.toEither
 			@inline implicit def PillFromOutcome[A](outcome :Outcome[A]) :Pill[Throwable, A] = fromOutcome(outcome)
@@ -1378,7 +1375,7 @@ package vars {
 			}
 
 		/** Applies the given function to the second argument in a `try-catch` block, returning `Failed` in case
-		  * any exception is caught. Otherwise the result is returned as a `Done` instance as normal. */
+		  * any exception is caught. Otherwise the result is returned as a `Done` instance as normal. */ //While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
 		@inline def guard[A, B](f :A => B)(a :A) :Outcome[B] =
 			try Done(f(a)) catch {
 				case e :Exception => Failed(e)
@@ -1533,8 +1530,10 @@ package vars {
 		object conversions {
 			@inline implicit def OutcomeFromStringEither[O](either :Either[String, O]) :Outcome[O] =
 				fromStringEither(either)
+
 			@inline implicit def OutcomeFromThrowableEither[O](either :Either[Throwable, O]) :Outcome[O] =
 				fromEither(either)
+
 			implicit def OutcomeToStringEither[O](outcome :Outcome[O]) :Either[String, O] = (outcome :Any) match {
 				case fail :Throwable =>
 					val msg = fail.getMessage
@@ -1547,10 +1546,13 @@ package vars {
 
 			@inline implicit def OutcomeFromThrowablePill[O](pill :Pill[Throwable, O]) :Outcome[O] =
 				fromPill(pill)
+
 			@inline implicit def OutcomeFromStringPill[O](pill :Pill[String, O]) :Outcome[O] =
 				fromStringPill(pill)
+
 			@inline implicit def OutcomeToThrowablePill[O](outcome :Outcome[O]) :Pill[Throwable, O] =
 				Pill.fromOutcome(outcome)
+
 			implicit def OutcomeToStringPill[O](outcome :Outcome[O]) :Pill[String, O] = (outcome :Any) match {
 				case fail :Throwable =>
 					val msg = fail.getMessage
@@ -1558,6 +1560,8 @@ package vars {
 				case pass :Done[O @unchecked] => Blue(pass.value)
 				case _                        => Blue(outcome.asInstanceOf[O])
 			}
+
+			@inline implicit def everythingIsDone[T](value :T) :Outcome[T] = Done(value)
 		}
 	}
 

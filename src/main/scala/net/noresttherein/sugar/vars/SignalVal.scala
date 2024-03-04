@@ -61,7 +61,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 		if (isDefined)
 			illegalState_!(s"Cannot set SignalVal(${x.get}) to $newValue: already initialized.")
 		else {
-			x = Yes(newValue)
+			x = One(newValue)
 			notifyAll()
 		}
 	}

@@ -459,7 +459,7 @@ object Unsure {
 
 	/** Converts the given `Opt[T]` into a ''specialized'' `Unsure[T]` instance. */
 	def fromOpt[@specialized(SpecializedVars) T](value: Opt[T]): Unsure[T] =
-		if (value.isDefined) new Sure(value.get, cachedOpt = value.toOpt) else Missing
+		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
 
 	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]] in a manner consistent with the collections hierarchy. */

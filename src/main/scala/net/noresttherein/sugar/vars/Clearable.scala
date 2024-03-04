@@ -159,10 +159,10 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 @SerialVersionUID(Ver)
 object Clearable {
 	/** A non synchronized, non thread safe `Clearable` variable initialized with the given value. */
-	def apply[T](value :T) :Clearable[T] = new Plain[T](Yes(value))
+	def apply[T](value :T) :Clearable[T] = new Plain[T](One(value))
 
 	/** A `Clearable` variable initialized with the given value, synchronizing all access on its monitor. */
-	def sync[T](value :T) :Clearable[T] = new Synced(Yes(value))
+	def sync[T](value :T) :Clearable[T] = new Synced(One(value))
 
 	/** A `Clearable` instance backed by a `@volatile` variable. */
 	def volatile[T](value :T) :Clearable[T] = new Volatile(value)

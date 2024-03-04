@@ -105,8 +105,8 @@ class ExceptionFactory private (maybeName :Option[String]) extends Serializable 
 		  * optionally, cause.
 		  */
 		def unapply(e :Throwable) :Maybe[(String, Opt[Throwable])] = e match {
-			case base :Exception if base.factory == ExceptionFactory.this => One((base.msg, base.cause))
-			case _ => None
+			case base :Exception if base.factory == ExceptionFactory.this => Yes((base.msg, base.cause))
+			case _ => No
 		}
 	}
 

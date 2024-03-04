@@ -165,10 +165,10 @@ private class MappedVal[V, +O](source: Val[V], f: V => O) extends Ref[O] with Va
 			x = res
 			res
 		} else
-			No
+			None
 	}
-	override def toOpt    :Opt[O] = x orElse adaptOpt(source.toMaybe)
-	override def constOpt :Opt[O] = x orElse adaptOpt(source.maybeConst)
+	override def toOpt    :Opt[O] = x orElse adaptOpt(source.toOpt)
+	override def constOpt :Opt[O] = x orElse adaptOpt(source.constOpt)
 
 	private def adaptOpt(outer: Opt[V]) = {
 		val local = x

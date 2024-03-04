@@ -516,7 +516,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 			post <- Mold[Suf].guardMelt(suffix)
 		} yield
 			new DefaultRawWriter(
-				Yes(pre).filterNot(isEmpty), Yes(sep).filterNot(isEmpty), Yes(post).filterNot(isEmpty)
+				One(pre).filterNot(isEmpty), One(sep).filterNot(isEmpty), One(post).filterNot(isEmpty)
 			)
 		) match {
 			case Done(writer) => writer
@@ -567,12 +567,12 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	                                     postSeparator :Opt[Liquid], postfix :Opt[Liquid])
 		extends RawWriter with Serializable //because we have a Format.writer val
 	{
-		def this() = this(Done(emptyLiquid), No, No, No)
+		def this() = this(Done(emptyLiquid), None, None, None)
 
-		def this(prefix :Liquid) = this(Done(prefix), No, No, No)
+		def this(prefix :Liquid) = this(Done(prefix), None, None, None)
 
 		def this(prefix :Opt[Liquid], separator :Opt[Liquid], postfix :Opt[Liquid]) =
-			this(Done(prefix.orDefault(emptyLiquid)), No, separator, postfix)
+			this(Done(prefix.orDefault(emptyLiquid)), None, separator, postfix)
 
 		override def out :Outcome[Liquid] = postfix match {
 			case One(suffix) => prefix flatMap (guardConcat(_, suffix))
@@ -649,7 +649,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 	def newBuilder[Pre :Mold, Sep :Mold, Suf :Mold](prefix :Pre, separator :Sep, suffix :Suf) :RawBuilder = {
 		def prepare[X](model :X)(implicit mold :Mold[X]) = {
 			val melted = mold.melt(model)
-			if (isEmpty(melted)) No else Yes(melted)
+			if (isEmpty(melted)) None else One(melted)
 		}
 		val pre = prepare(prefix)
 		val sep = prepare(separator)
@@ -3342,7 +3342,7 @@ trait Format extends FormatLiquidMoldImplicit with Serializable {
 							val part = get(model)
 							val res = partMold.appendOpt(prefix, part)
 							if (p(part)) res
-							else No
+							else None
 						}
 						override def guardAppend(prefix :Liquid, model :M) = {
 							val part = get(model)

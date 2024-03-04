@@ -459,7 +459,7 @@ object VolatileBox {
 		override def opt :Opt[T] = {
 			val current = state
 			if (current == Empty)
-				No
+				None
 			else if (lockNonEmpty(current)) {
 				val res = One(x)
 				state = Full

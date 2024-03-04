@@ -7,7 +7,7 @@ import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.null_!
 import net.noresttherein.sugar.vars.Maybe.Yes
-import net.noresttherein.sugar.vars.Nullable.{FallbackToNull, NonNull, Null, WithFilter, unzip2Lack, unzip3Lack}
+import net.noresttherein.sugar.vars.Nullable.{FallbackToNull, NonNull, Null, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
@@ -41,9 +41,14 @@ import net.noresttherein.sugar.vars.Unsure.conversions.sureAny
   *
   * $optionalTypesInfo
   *
-  * This class is provided primarily for situations where a method accepting `Maybe` or `Opt` would clash
-  * with an overloaded method which the same erasure, due to usage of an abstract type as a parameter
-  * in the same position. In most other scenarios, use of `Maybe` or `Opt` is preferable.
+  * As `Nullable` is a value class, and its type parameters are reference types, `Nullable` cannot nest.
+  * The limited disambiguouity potential this affords, together with the fact that it will never result in boxing
+  * unless used in position of an abstract type, allows implicit conversion `T => Nullable[T]` to be enabled
+  * by default, which serves as another differentiator from `Maybe`.
+  *
+  * @note This class is provided primarily for situations where a method accepting `Maybe` or `Opt` would clash
+  *       with an overloaded method with the same erasure, due to usage of an abstract type as a parameter
+  *       in the same position. In most other scenarios, use of `Maybe` or `Opt` is preferable.
   * @see [[net.noresttherein.sugar.vars.Nullable.NonNull]]
   * @see [[net.noresttherein.sugar.vars.Nullable.Null]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
@@ -287,7 +292,8 @@ class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nul
 
 	/** Equivalent to `this.`[[net.noresttherein.sugar.vars.Nullable.filter filter]]`(p)` - a variant for use
 	  * in for-comprehensions. */
-	@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](this, p)
+	@inline def withFilter(p :A => Boolean) :Nullable[A] =
+		if ((ref eq null) || p(ref)) this else Null
 
 
 	/** Tests if this `Nullable` is not empty and its value is equal to the given argument. */
@@ -398,11 +404,6 @@ class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nul
 	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
 	  * This conversion does not require boxing. Same as [[net.noresttherein.sugar.vars.Nullable.toOpt toOpt]]. */
 	@inline override def constOpt :Opt[A] = if (ref eq null) None else One(ref)
-//
-//	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
-//	  * This conversion does not require boxing. */
-//	@inline override def ?? :Opt[A] =
-//		if (ref eq null) None else One(ref)
 
 
 	/** Converts this `Nullable` to `Either`, returning the content as `Left`, or the value of the given expression
@@ -570,20 +571,19 @@ object Nullable {
 	}
 
 
-	/** The for-comprehension facade for `Nullable[A]`, which does not evaluate the filter predicate until
-	  * `map`, `flatMap` or `foreach` is called. */
-	final class WithFilter[+T <: AnyRef](self :Nullable[T], p :T => Boolean) {
-		def map[O <: AnyRef](f: T => O): Nullable[O] = self filter p map f
-		def flatMap[O <: AnyRef](f: T => Nullable[O]): Nullable[O] = self filter p flatMap f
-		def foreach[U](f: T => U): Unit = self filter p foreach f
-		def withFilter(q: T => Boolean): WithFilter[T] = new WithFilter[T](self, x => p(x) && q(x))
-	}
-
-
+	/** Lifts any reference type to a `Nullable`. */
+	@inline implicit def AnyRefToNullable[T <: AnyRef](any :T) :Nullable[T] = new Nullable(any)
 
 	/** Implicit conversions between `Nullable` and `Option`.
 	  * Conversions between `Nullable` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
-	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
+	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]];
+	  * conversions to and from [[net.noresttherein.sugar.vars.Opt! Opt]]
+	  * and [[net.noresttherein.sugar.vars.Maybe Maybe]] are likewise located in `conversions` objects
+	  * within their companion objects.
+	  *
+	  * Additionally, [[net.noresttherein.sugar.vars.Nullable.conversions.AnyRefToNullable AnyRefToNullable]]
+	  * will lift any reference value to `Nullable` (empty if `null`, full otherwise).
+	  */
 	@SerialVersionUID(Ver)
 	object conversions {
 		@inline implicit def NullableToOption[T <: AnyRef](opt :Nullable[T]) :Option[T] = opt.option

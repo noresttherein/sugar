@@ -96,7 +96,7 @@ trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) wi
 	@inline final override def constOpt :Opt[T] = None
 
 	def map[@specialized(Fun1) O](f :T => O) :EvalOpt[O] = () => eval().map(f)
-	def flatMap[@specialized(SpecializedVars) O](f :T => EvalOpt[O]) :EvalOpt[O] = () => eval().flatMap(f(_).maybe)
+	def flatMap[@specialized(SpecializedVars) O](f :T => EvalOpt[O]) :EvalOpt[O] = () => eval().flatMap(f(_).opt)
 
 	override def mkString :String = mkString("EvalOpt")
 	override def toString :String = //should it evaluate and print it?
@@ -110,5 +110,5 @@ trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) wi
 object EvalOpt {
 	@inline def apply[@specialized(SpecializedVars) T](eval :EvalOpt[T]) :EvalOpt[T] = eval
 
-	def eval[@specialized(SpecializedVars) T](generator : => Maybe[T]) :EvalOpt[T] = () => generator
+	def eval[@specialized(SpecializedVars) T](generator : => Opt[T]) :EvalOpt[T] = () => generator
 }

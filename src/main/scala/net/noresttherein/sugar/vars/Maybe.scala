@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!, raise}
-import net.noresttherein.sugar.vars.Maybe.{No, NoContent, WithFilter, Yes, unzip2Lack, unzip3Lack}
+import net.noresttherein.sugar.vars.Maybe.{No, NoContent, Yes, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
@@ -306,7 +306,8 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 
 	/** Equivalent to `this.`[[net.noresttherein.sugar.vars.Maybe.filter filter]]`(p)` - a variant for use
 	  * in for-comprehensions. */
-	@inline def withFilter(p :A => Boolean) :WithFilter[A] = new WithFilter[A](this, p)
+	@inline def withFilter(p :A => Boolean) :Maybe[A] =
+		if ((ref eq NoContent) || p(ref.asInstanceOf[A])) this else new Maybe(NoContent)
 
 
 	/** Tests if this `Maybe` is not empty and its value is equal to the given argument. */
@@ -588,20 +589,12 @@ object Maybe {
 	}
 
 
-	/** The for-comprehension facade for `Maybe[A]`, which does not evaluate the filter predicate until
-	  * `map`, `flatMap` or `foreach` is called. */
-	final class WithFilter[+A](self :Maybe[A], p :A => Boolean) {
-		def map[B](f: A => B): Maybe[B] = self filter p map f
-		def flatMap[B](f: A => Maybe[B]): Maybe[B] = self filter p flatMap f
-		def foreach[U](f: A => U): Unit = self filter p foreach f
-		def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](self, x => p(x) && q(x))
-	}
-
-
 
 	/** Implicit conversions between `Maybe` and `Option`.
 	  * Conversions between `Maybe` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
-	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
+	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]],
+	  * conversions to and from [[net.noresttherein.sugar.vars.Opt! Opt]] are in that type's
+	  * companion object's [[net.noresttherein.sugar.vars.Opt.conversions conversions]] object. */
 	@SerialVersionUID(Ver)
 	object conversions {
 		@inline implicit def MaybeToOption[T](opt :Maybe[T]) :Option[T] = opt.option
@@ -613,8 +606,8 @@ object Maybe {
 		/** Implicitly lifts any value `T` to [[net.noresttherein.sugar.vars.Maybe Maybe]]`[T]`. */
 		@inline implicit def anyToYes[T](x :T) :Yes[T] = new Maybe(x.asInstanceOf[AnyRef]).asInstanceOf[Yes[T]]
 
-		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = opt.opt
-		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = Maybe.fromOpt(opt)
+//		@inline implicit def MaybeToOpt[T](opt :Maybe[T]) :Opt[T] = opt.opt
+//		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = Maybe.fromOpt(opt)
 
 		@inline implicit def MaybeToNullable[T <: AnyRef](opt :Maybe[T]) :Nullable[T] = Nullable.fromMaybe(opt)
 		@inline implicit def NullableToMaybe[T <: AnyRef](opt :Nullable[T]) :Maybe[T] = opt.toMaybe
