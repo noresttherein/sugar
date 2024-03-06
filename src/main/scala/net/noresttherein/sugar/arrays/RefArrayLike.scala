@@ -65,46 +65,46 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 				else
 					No
 			}
+	}
 
-		/** Wraps and unwraps both mutable and immutable scala collections backed by consecutive sections
-		  * of `Array[AnyRef]` arrays in a safe manner. $warning
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[A](array :RefArrayLike[A], from :Int, until :Int) :collection.IndexedSeq[A] =
-				ArrayLikeSlice.slice(array, from, until)
+	/** Wraps and unwraps both mutable and immutable scala collections backed by consecutive sections
+	  * of `Array[AnyRef]` arrays in a safe manner. $warning
+	  */
+	@SerialVersionUID(Ver)
+	object Slice {
+		def apply[A](array :RefArrayLike[A], from :Int, until :Int) :collection.IndexedSeq[A] =
+			ArrayLikeSlice.slice(array, from, until)
 
-			def unapply[A](elems :IterableOnce[A]) :Maybe[(RefArrayLike[A], Int, Int)] = elems match {
-				case arr :ArrayIterableOnce[_] =>
-					val array = arr.unsafeArray.castFrom[Array[_], RefArrayLike[A]]
-					if (array.getClass == classOf[Array[AnyRef]])
-						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
+		def unapply[A](elems :IterableOnce[A]) :Maybe[(RefArrayLike[A], Int, Int)] = elems match {
+			case arr :ArrayIterableOnce[_] =>
+				val array = arr.unsafeArray.castFrom[Array[_], RefArrayLike[A]]
+				if (array.getClass == classOf[Array[AnyRef]])
+					Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
+				else
+					No
+
+			case _ :collection.IndexedSeqOps[_, _, _] => elems match {
+				case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
+					Yes((seq.unsafeArray.castFrom[Array[_], RefArrayLike[A]], 0, seq.unsafeArray.length))
+
+				case seq :mutable.ArraySeq[_] if seq.array.getClass == classOf[Array[AnyRef]] =>
+					Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
+
+				case VectorArray(array)        =>
+					Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
+
+				case seq :MatrixBuffer[_] if seq.dim == 1 =>
+					val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
+					val start = seq.startIndex
+					val end   = start + seq.length
+					if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
+						Yes((array, start, end))
 					else
 						No
-
-				case _ :collection.IndexedSeqOps[_, _, _] => elems match {
-					case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
-						Yes((seq.unsafeArray.castFrom[Array[_], RefArrayLike[A]], 0, seq.unsafeArray.length))
-
-					case seq :mutable.ArraySeq[_] if seq.array.getClass == classOf[Array[AnyRef]] =>
-						Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
-
-					case VectorArray(array)        =>
-						Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
-
-					case seq :MatrixBuffer[_] if seq.dim == 1 =>
-						val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
-						val start = seq.startIndex
-						val end   = start + seq.length
-						if (array.getClass == classOf[Array[AnyRef]] && end <= array.asInstanceOf[Array[AnyRef]].length)
-							Yes((array, start, end))
-						else
-							No
-					case _ =>
-						No
-				}
-				case _ => No
+				case _ =>
+					No
 			}
+			case _ => No
 		}
 	}
 
@@ -669,42 +669,42 @@ private[sugar] case object ErasedArray extends RefArrayLikeFactory[Array] with I
 			}
 			case _ => No
 		}
+	}
 
-		@SerialVersionUID(Ver)
-		object Slice {
-			@inline def apply[A](array :Array[A], from :Int, until :Int) :collection.IndexedSeq[A] =
-				ArrayLikeSlice.slice(array, from, until)
+	@SerialVersionUID(Ver)
+	object Slice {
+		@inline def apply[A](array :Array[A], from :Int, until :Int) :collection.IndexedSeq[A] =
+			ArrayLikeSlice.slice(array, from, until)
 
-			@inline def unsafe[A](array :Array[A], from :Int, until :Int) :IndexedSeq[A] =
-				if (array.getClass == classOf[Array[Any]])
-					IRefArraySlice.slice(array.asInstanceOf[IRefArray[A]], from, until)
+		@inline def unsafe[A](array :Array[A], from :Int, until :Int) :IndexedSeq[A] =
+			if (array.getClass == classOf[Array[Any]])
+				IRefArraySlice.slice(array.asInstanceOf[IRefArray[A]], from, until)
+			else
+				IArraySlice.slice(array.asInstanceOf[IArray[A]], from, until)
+
+		def unapply[A](elems :IterableOnce[A]) :Maybe[(Array[_], Int, Int)] = elems match {
+			case seq :ArrayIterableOnce[_] =>
+				val size   = seq.knownSize
+				val offset = seq.startIndex
+				if (size >= 0)
+					Yes((seq.unsafeArray, offset, offset + size))
 				else
-					IArraySlice.slice(array.asInstanceOf[IArray[A]], from, until)
-
-			def unapply[A](elems :IterableOnce[A]) :Maybe[(Array[_], Int, Int)] = elems match {
-				case seq :ArrayIterableOnce[_] =>
-					val size   = seq.knownSize
-					val offset = seq.startIndex
-					if (size >= 0)
-						Yes((seq.unsafeArray, offset, offset + size))
-					else
-						No
-				case _ :collection.IndexedSeqOps[_, _, _] => elems match {
-					case seq :ArraySeq[_]         => Yes((seq.unsafeArray, 0, seq.unsafeArray.length))
-					case seq :Vector[_]           =>
-						val array = CheatedAccess.array(seq)
-						if (array.length == seq.length) Yes((array, 0, seq.length)) else No
-					case seq :mutable.ArraySeq[_] => Yes((seq.array, 0, seq.array.length))
-					case seq :ArrayBuffer[_]      => Yes((CheatedAccess.array(seq), 0, seq.length))
-					case seq :MatrixBuffer[_]
-						if seq.dim == 1 && seq.data1.getClass == classOf[Array[Any]] &&
-							seq.startIndex + seq.length <= seq.data1.length
-					=>
-						Yes((seq.data1, seq.startIndex, seq.startIndex + seq.length))
-					case _                        => No
-				}
-				case _ => No
+					No
+			case _ :collection.IndexedSeqOps[_, _, _] => elems match {
+				case seq :ArraySeq[_]         => Yes((seq.unsafeArray, 0, seq.unsafeArray.length))
+				case seq :Vector[_]           =>
+					val array = CheatedAccess.array(seq)
+					if (array.length == seq.length) Yes((array, 0, seq.length)) else No
+				case seq :mutable.ArraySeq[_] => Yes((seq.array, 0, seq.array.length))
+				case seq :ArrayBuffer[_]      => Yes((CheatedAccess.array(seq), 0, seq.length))
+				case seq :MatrixBuffer[_]
+					if seq.dim == 1 && seq.data1.getClass == classOf[Array[Any]] &&
+						seq.startIndex + seq.length <= seq.data1.length
+				=>
+					Yes((seq.data1, seq.startIndex, seq.startIndex + seq.length))
+				case _                        => No
 			}
+			case _ => No
 		}
 	}
 }

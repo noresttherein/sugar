@@ -542,7 +542,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		case chunks :ChoppedString => chunks
 		case it :Iterable[Char] if it.isEmpty => Empty
 		case it :WrappedString => Substring(it.unwrap)
-		case ArrayLike.Wrapped.Slice(arr :Array[Char], from, until) =>
+		case ArrayLike.Slice(arr :Array[Char], from, until) =>
 			var i = from
 			val res = new lang.StringBuilder(until - from)
 			while (i < until) {
@@ -736,7 +736,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 				this
 			case str :WrappedString => addAll(str.unwrap); this
 			case ErasedArray.Wrapped(a :Array[Char]) => addSlice(a, 0, a.length); this
-			case ErasedArray.Wrapped.Slice(a :Array[Char], from, until) => addSlice(a, from, until); this
+			case ErasedArray.Slice(a :Array[Char], from, until) => addSlice(a, from, until); this
 			case it :Iterable[Char] => addAll(it); this
 			case it                 => addAll(it.iterator); this //higher chance of JIT kicking in when extracted
 		}

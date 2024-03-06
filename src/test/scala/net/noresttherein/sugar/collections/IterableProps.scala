@@ -294,7 +294,9 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 	protected def forAllIndices[A](prop :(C[A], Int) => Prop)
 	                              (implicit ev :E[A], a :Arbitrary[A], s :Shrink[A], p :A => Pretty) :Prop =
 		forAll { (subject :C[A]) => s"Input: $subject :${subject.localClassName}" lbl_:
-			forAll { (index :Short) => prop(subject, index) } && prop(subject, Int.MinValue) && prop(subject, Int.MaxValue)
+			forAll { (index :Short) => prop(subject, index) } &&
+				("remove(Int.MinValue)" lbl_: prop(subject, Int.MinValue)) &&
+				("remove(Int.MaxValue)" lbl_: prop(subject, Int.MaxValue))
 		}
 
 	/** Applies `check` to arbitrary instances of the reference collection `S[A]`,

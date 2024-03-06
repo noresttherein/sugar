@@ -78,7 +78,7 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 		case _ => false
 	}
 	def canEqual(that :Any) :Boolean = that.isInstanceOf[ArrayIteratorOps[_]]
-	override def hashCode :Int = ArrayLike.Wrapped.Slice(array, index, limit).hashCode
+	override def hashCode :Int = ArrayLike.Slice(array, index, limit).hashCode
 }
 
 

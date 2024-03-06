@@ -235,33 +235,33 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 			else
 				No
 		}
+	}
 
-		/** Wraps and unwraps `IndexedSeq` instances and other immutable collections backed by consecutive sections
-		  * of `Array[AnyRef]` arrays in a safe manner. $warning
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			private[this] val wrapper :ArrayLikeSliceFactory[IRefArray, IndexedSeq] =
-				RelayArrayFactory getOrElse IRefArraySlice
+	/** Wraps and unwraps `IndexedSeq` instances and other immutable collections backed by consecutive sections
+	  * of `Array[AnyRef]` arrays in a safe manner. $warning
+	  */
+	@SerialVersionUID(Ver)
+	object Slice {
+		private[this] val wrapper :ArrayLikeSliceFactory[IRefArray, IndexedSeq] =
+			RelayArrayFactory getOrElse IRefArraySlice
 
-			def apply[A](array :IRefArray[A], from :Int, until :Int) :IndexedSeq[A] =
-				wrapper.slice(array, from, until)
+		def apply[A](array :IRefArray[A], from :Int, until :Int) :IndexedSeq[A] =
+			wrapper.slice(array, from, until)
 
-			def unapply[A](elems :IterableOnce[A]) :Maybe[(IRefArray[A], Int, Int)] = elems match {
-				case arr :ArrayIterableOnce[A] if arr.isImmutable =>
-					val array = arr.unsafeArray.castFrom[Array[_], IRefArray[A]]
-					if (array.getClass == classOf[Array[AnyRef]])
-						Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
-					else
-						No
-				case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
-					Yes((seq.unsafeArray.castFrom[Array[_], IRefArray[A]], 0, seq.unsafeArray.length))
-
-				case VectorArray(array) =>
-					Yes((array.castFrom[Array[_], IRefArray[A]], 0, array.length))
-				case _ =>
+		def unapply[A](elems :IterableOnce[A]) :Maybe[(IRefArray[A], Int, Int)] = elems match {
+			case arr :ArrayIterableOnce[A] if arr.isImmutable =>
+				val array = arr.unsafeArray.castFrom[Array[_], IRefArray[A]]
+				if (array.getClass == classOf[Array[AnyRef]])
+					Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
+				else
 					No
-			}
+			case seq :ArraySeq[_] if seq.unsafeArray.getClass == classOf[Array[AnyRef]] =>
+				Yes((seq.unsafeArray.castFrom[Array[_], IRefArray[A]], 0, seq.unsafeArray.length))
+
+			case VectorArray(array) =>
+				Yes((array.castFrom[Array[_], IRefArray[A]], 0, array.length))
+			case _ =>
+				No
 		}
 	}
 
@@ -349,7 +349,7 @@ case object IRefArray extends RefArrayLikeFactory[IRefArray] with IterableFactor
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.
 		  */
 		@inline def subseq(from :Int, until :Int) :IndexedSeq[E] =
-			Wrapped.Slice(expose(self), from, until)
+			Slice(expose(self), from, until)
 
 		@inline def toSeq        :Seq[E] = toIndexedSeq
 		@inline def toIndexedSeq :IndexedSeq[E] = Wrapped(expose(self))

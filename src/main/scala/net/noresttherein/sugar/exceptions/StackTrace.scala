@@ -101,7 +101,7 @@ case object StackTrace extends SpecificIterableFactory[StackTraceElement, StackT
 		case stack :StackTrace => stack
 		case empty :Iterable[_] if empty.isEmpty => this.empty
 		case empty :Iterator[_] if !empty.hasNext => this.empty
-		case IArray.Wrapped.Slice(array, from, until) =>
+		case IArray.Slice(array, from, until) =>
 			new ArrayStackTrace(array.asInstanceOf[Array[StackTraceElement]], from, until - from)
 		case _ => (newBuilder ++= it).result()
 	}

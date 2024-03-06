@@ -259,8 +259,8 @@ private[sugar] object IndexedIterable {
 					else
 						No
 				case _ if seq.length <= defaultApplyPreferredMaxLength => Yes(seq)
-				case ArrayLike.Wrapped.Slice(array, from, until) => Yes(ArrayLike.Wrapped.Slice(array, from, until))
-				case _ => No
+				case ArrayLike.Slice(array, from, until)               => Yes(ArrayLike.Slice(array, from, until))
+				case _                                                 => No
 			}
 			case seq :collection.SeqOps[A, generic.Any1, _] =>
 				if (seq.sizeIs <= applyAlwaysPreferredLength) Yes(seq) else No
@@ -271,8 +271,8 @@ private[sugar] object IndexedIterable {
 			case set     :IndexedSet[A] if set.size <= defaultApplyPreferredMaxLength =>
 				if (set.size <= defaultApplyPreferredMaxLength) Yes(set.toIndexedSeq) else No
 
-			case ArrayLike.Wrapped.Slice(array, from, until) =>
-				Yes(ArrayLike.Wrapped.Slice(array, from, until))
+			case ArrayLike.Slice(array, from, until) =>
+				Yes(ArrayLike.Slice(array, from, until))
 			case _ => No
 		}
 		@inline def apply(items :collection.SeqOps[_, generic.Any1, _]) :Boolean = applyPreferred(items)
@@ -327,17 +327,17 @@ private object HasFastSlice {
 		items match {
 			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize => Yes(coll)
 			case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
-				case view    :IndexedSeqView[A]                  => Yes(view)
-				case vec     :Vector[A]                          => Yes(vec)
-				case fingers :Fingers[A]                         => Yes(fingers)
-				case pass    :RelayArray[A]                      => Yes(pass.range)
-				case slice   :ArrayLikeSlice[A]                  => Yes(slice)
-				case seq     :collection.IndexedSeq[A]           => Yes(new SeqSlice(seq))
-				case items   :ArrayIterableOnce[A]               => Yes(ArrayLikeSlice.wrap(items))
-				case ArrayLike.Wrapped.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
+				case view    :IndexedSeqView[A]          => Yes(view)
+				case vec     :Vector[A]                  => Yes(vec)
+				case fingers :Fingers[A]                 => Yes(fingers)
+				case pass    :RelayArray[A]              => Yes(pass.range)
+				case slice   :ArrayLikeSlice[A]          => Yes(slice)
+				case seq     :collection.IndexedSeq[A]   => Yes(new SeqSlice(seq))
+				case items   :ArrayIterableOnce[A]       => Yes(ArrayLikeSlice.wrap(items))
+				case ArrayLike.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
 				//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
 //						case IndexedIterable(seq)            => Yes(seq)
-				case _                                           => No
+				case _                                   => No
 			}
 			case _ :SugaredIterable[_] => items match {
 				case set   :IndexedSet[A]        => Yes(set)
@@ -348,7 +348,7 @@ private object HasFastSlice {
 				case _                           => No
 			}
 			case items :ArrayIterableOnce[A] => Yes(ArrayLikeSlice.wrap(items))
-//			case ArrayLike.Wrapped.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
+//			case ArrayLike.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
 			case _                           => No
 		}
 
@@ -361,15 +361,15 @@ private object HasFastSlice {
 				case _ :IndexedSeqView[_] | _ :Vector[_] | _ :ArrayLikeSlice[_] | _ :Fingers[_] =>
 					Yes(seq.slice(from, until))
 				//There is no guarantee that a subclass won't reallocate on slice, like RelayArray can.
-//				case _ :ArraySliceSeqOps[A, _, _]    => Yes(seq.slice(from, until))
-				case array :RelayArray[A]            => Yes(array.range(from, until))
-				case ArrayLike.Wrapped.Slice(array, start, end) =>
+//				case _ :ArraySliceSeqOps[A, _, _]       => Yes(seq.slice(from, until))
+				case array :RelayArray[A]               => Yes(array.range(from, until))
+				case ArrayLike.Slice(array, start, end) =>
 					Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
-				case _     :Substring                => Yes(items)
-				case seq   :collection.IndexedSeq[A] => Yes(SeqSlice(seq, from, until))
-				case _                               => Yes(seq.view.slice(from, until))
+				case _     :Substring                   => Yes(items)
+				case seq   :collection.IndexedSeq[A]    => Yes(SeqSlice(seq, from, until))
+				case _                                  => Yes(seq.view.slice(from, until))
 			}
-			case ArrayLike.Wrapped.Slice(array, start, end) =>
+			case ArrayLike.Slice(array, start, end) =>
 				Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
 			case _ :SugaredIterableOps[_, _, _] => items match {
 				case set  :IndexedSet[A] => Yes(set.slice(from, until))

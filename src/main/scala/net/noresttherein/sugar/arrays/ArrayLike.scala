@@ -544,38 +544,37 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			}
 			case _ => No
 		}
-
-		/** A factory and pattern for non-immutable collections backed by array slices.
-		  * It recognizes both mutable and immutable collections, and the extracted/wrapped array is shared, not copied.
-          * Note that the actual component type of the array may be a subtype of the collection's element type.
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[E](array :ArrayLike[E], from :Int, until :Int) :collection.IndexedSeq[E] =
-				ArrayLikeSlice.slice[E](array.castFrom[ArrayLike[E], Array[E]], from, until)
-
-			//consider: returning ArrayLikeSlice instead of a tuple.
-			def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
-				case seq :ArrayIterableOnce[E] =>
-					Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
-				case _ :collection.IndexedSeq[_] => elems match {
-					case seq :ArraySeq[E]          =>
-						Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
-					case seq :mutable.ArraySeq[E]  =>
-						Yes((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
-					case seq :ArrayBuffer[_]       =>
-						Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
-					case VectorArray(array)        =>
-						Yes(array.asInstanceOf[RefArray[E]], 0, array.length)
-					case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex <= seq.data1.length - seq.length =>
-						Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
-					case _ => No
-				}
-				case _ => No
-			}
-		}
 	}
 
+	/** A factory and pattern for non-immutable collections backed by array slices.
+	  * It recognizes both mutable and immutable collections, and the extracted/wrapped array is shared, not copied.
+      * Note that the actual component type of the array may be a subtype of the collection's element type.
+	  */
+	@SerialVersionUID(Ver)
+	object Slice {
+		def apply[E](array :ArrayLike[E], from :Int, until :Int) :collection.IndexedSeq[E] =
+			ArrayLikeSlice.slice[E](array.castFrom[ArrayLike[E], Array[E]], from, until)
+
+		//consider: returning ArrayLikeSlice instead of a tuple.
+		def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
+			case seq :ArrayIterableOnce[E] =>
+				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
+			case _ :collection.IndexedSeq[_] => elems match {
+				case seq :ArraySeq[E]          =>
+					Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
+				case seq :mutable.ArraySeq[E]  =>
+					Yes((seq.array.castFrom[Array[_], ArrayLike[E]], 0, seq.array.length))
+				case seq :ArrayBuffer[_]       =>
+					Yes(CheatedAccess.array(seq).asInstanceOf[RefArray[E]], 0, seq.length)
+				case VectorArray(array)        =>
+					Yes(array.asInstanceOf[RefArray[E]], 0, array.length)
+				case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex <= seq.data1.length - seq.length =>
+					Yes(seq.data1, seq.startIndex, seq.startIndex + seq.knownSize)
+				case _ => No
+			}
+			case _ => No
+		}
+	}
 
 
 	//Consider: there is a small issue in that the factory extension method is in extensions,
@@ -1390,7 +1389,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.
 		  */
 		@inline def subseq(from :Int, until :Int) :collection.IndexedSeq[E] =
-			Wrapped.Slice(self, from, until).castParam[E]
+			Slice(self, from, until).castParam[E]
 
 		@inline def indices :Range = Range(0, self.length)
 

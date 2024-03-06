@@ -898,42 +898,42 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 				else
 					No
 			}
+	}
 
-		/** Factory of views on slices of immutable arrays as indexed sequences,
-		  * and unwraps known immutable collections backed by array slices.
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			private[this] val wrapper :ArrayLikeSliceWrapper[IArray, IndexedSeq] =
-				RelayArrayFactory getOrElse IArraySlice
+	/** Factory of views on slices of immutable arrays as indexed sequences,
+	  * and unwraps known immutable collections backed by array slices.
+	  */
+	@SerialVersionUID(Ver)
+	object Slice {
+		private[this] val wrapper :ArrayLikeSliceWrapper[IArray, IndexedSeq] =
+			RelayArrayFactory getOrElse IArraySlice
 
-			def apply[E](array :IArray[E], from :Int, until :Int) :IndexedSeq[E] = wrapper.slice(array, from, until)
+		def apply[E](array :IArray[E], from :Int, until :Int) :IndexedSeq[E] = wrapper.slice(array, from, until)
 
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(IArray[E], Int, Int)] =
-				if (elems.knownSize < 0)
-					No
-				else {
-					val tag = classTag[E]
-					val expectedClass = tag.runtimeClass
-					elems match {
-						case VectorArray(array) if tag == ClassTag.Any =>
-							Yes((array.castFrom[Array[_], IArray[E]], 0, elems.knownSize))
-						case seq :ArraySeq[_]
-							if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
-						=>
-							Yes((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(IArray[E], Int, Int)] =
+			if (elems.knownSize < 0)
+				No
+			else {
+				val tag = classTag[E]
+				val expectedClass = tag.runtimeClass
+				elems match {
+					case VectorArray(array) if tag == ClassTag.Any =>
+						Yes((array.castFrom[Array[_], IArray[E]], 0, elems.knownSize))
+					case seq :ArraySeq[_]
+						if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
+					=>
+						Yes((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
 
-						case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
-							val array = slice.unsafeArray.castFrom[Array[_], IArray[E]]
-							if (tag == ClassTag.Any || array.getClass.getComponentType <:< expectedClass)
-								Yes((array, slice.startIndex, slice.startIndex + slice.knownSize))
-							else
-								No
-						case _ =>
+					case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
+						val array = slice.unsafeArray.castFrom[Array[_], IArray[E]]
+						if (tag == ClassTag.Any || array.getClass.getComponentType <:< expectedClass)
+							Yes((array, slice.startIndex, slice.startIndex + slice.knownSize))
+						else
 							No
-					}
+					case _ =>
+						No
 				}
-		}
+			}
 	}
 
 
@@ -1354,7 +1354,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.
 		  */
 		@inline def subseq(from :Int, until :Int) :IndexedSeq[E] =
-			Wrapped.Slice(expose(self), from, until)
+			Slice(expose(self), from, until)
 
 		def toOps :IndexedSeqOps[E, IRefArray, IArray[E]] = new IArrayAsSeq[E](expose(self))
 

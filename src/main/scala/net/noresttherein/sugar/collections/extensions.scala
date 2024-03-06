@@ -391,7 +391,7 @@ object extensions extends extensions {
 //			case empty :Iterable[_] if empty.isEmpty => JavaIterator()
 			case _ :ArraySeq[E] | _ :mutable.ArraySeq[E] | _ :ArrayBuffer[E] =>
 				self.stepper(shape.stepperShape).javaIterator.asInstanceOf[I]
-			case ErasedArray.Wrapped.Slice(array, from, until) =>
+			case ErasedArray.Slice(array, from, until) =>
 				JavaIterator.slice(array.asInstanceOf[Array[E]], from, until)
 			case seq :collection.IndexedSeq[E]       => JavaIterator.over(seq)
 			case it :Iterator[_] if !it.hasNext      => JavaIterator()
@@ -430,7 +430,7 @@ object extensions extends extensions {
 					foldList(0, start, seq)
 				//consider: either removing special cases for array-backed collections, or specializing them,
 				// at least for AnyRef. A simple way would be to wrap the array in a RelayArray, and use its methods.
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						var i = 0; val end = until - from
 						var acc = start
@@ -557,7 +557,7 @@ object extensions extends extensions {
 					foldList(start, seq)
 				case _ if pred(start)      => ifFound(start)
 				case _ if knownEmpty(self) => ifNotFound(start)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :X = {
 						var acc = start; var i = from
 						while (i < until) {
@@ -688,7 +688,7 @@ object extensions extends extensions {
 			self match {
 				case _ if pred(start) => ifFound(start)
 				case _ if knownEmpty(self) => ifNotFound(start)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :X = {
 						var acc = start; var i = until
 						while (i > from) {
@@ -852,7 +852,7 @@ object extensions extends extensions {
 								ifFound(acc)
 						}
 					foldList(start, seq)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :X = {
 						var acc = start; var i = from
 						while (i < until) {
@@ -975,7 +975,7 @@ object extensions extends extensions {
 			self match {
 				case _ if !pred(start)     => ifNotFound(start)
 				case _ if knownEmpty(self) => ifFound(start)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :X = {
 						var acc = start; var i = until
 						while (i > from) {
@@ -1150,7 +1150,7 @@ object extensions extends extensions {
 							else foldList(next, list.tail)
 						}
 					foldList(start, seq)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						var last = start; var i = from
 						while (i < until) {
@@ -1214,7 +1214,7 @@ object extensions extends extensions {
 				return start
 			val fallback = new PartialFoldRightFunction[A, E]
 			self match {
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						var i = until; var last = start
 						while (i > from) {
@@ -1355,7 +1355,7 @@ object extensions extends extensions {
 						}
 						foldList(start, seq)
 				case _ if knownEmpty(self) => start
-				case ErasedArray.Wrapped.Slice(array, from :Int, until :Int) =>
+				case ErasedArray.Slice(array, from :Int, until :Int) =>
 					def foldArray(array :Array[E]) :A = {
 						var last = start; var i = from
 						while (i < until) {
@@ -1421,7 +1421,7 @@ object extensions extends extensions {
 			if (knownEmpty(self))
 				return start
 			self match {
-				case ErasedArray.Wrapped.Slice(array, from :Int, until :Int) =>
+				case ErasedArray.Slice(array, from :Int, until :Int) =>
 					def foldArray(array :Array[E]) :A = {
 						var last = start; var i = until
 						while (i > from) {
@@ -1484,7 +1484,7 @@ object extensions extends extensions {
 					if (seq.isEmpty) ifEmpty
 					else foldList(seq.head, seq.tail)
 				case _ if knownEmpty(self) => ifEmpty
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :X = {
 						var last :A = array(from)
 						var i = from + 1
@@ -1548,7 +1548,7 @@ object extensions extends extensions {
 			if (knownEmpty(self))
 				return ifEmpty
 			self match {
-				case ErasedArray.Wrapped.Slice(array, from :Int, until :Int) =>
+				case ErasedArray.Slice(array, from :Int, until :Int) =>
 					def reduceArray(array :Array[E]) :X = {
 						var i = until - 1
 						var last :A = array(i)
@@ -1641,7 +1641,7 @@ object extensions extends extensions {
 					if (seq.isEmpty)
 						unsupported_!("partialReduceLeft on an empty " + self.className)
 					reduceList(seq.head, seq.tail)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def reduceArray(array :Array[E]) :A = {
 						var i = from + 1; var last :A = array(from)
 						while (i < until) {
@@ -1695,7 +1695,7 @@ object extensions extends extensions {
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def partialReduceRight[A >: E](f :PartialFunction[(E, A), A]) :A =
 			self match {
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					val fallback = new PartialFoldRightFunction[A, E]
 					def reduceArray(array :Array[E]) :A = {
 						var i = until - 1; var last :A = array(i)
@@ -1784,7 +1784,7 @@ object extensions extends extensions {
 					if (seq.isEmpty)
 						unsupported_!("reduceLeftPrefix on an empty " + self.className)
 					reduceList(seq.head, seq.tail)
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						if (until <= from)
 							unsupported_!("reduceLeftPrefix on an empty " + self.className)
@@ -1840,7 +1840,7 @@ object extensions extends extensions {
 		@throws[UnsupportedOperationException]("if the collection is empty.")
 		def reduceRightSuffix[A >: E](f :(E, A) => Opt[A]) :A =
 			self match {
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					def foldArray(array :Array[E]) :A = {
 						var i = until - 1
 						var last :A = array(i)
@@ -1919,7 +1919,7 @@ object extensions extends extensions {
 							foreachInList(seq.tail, until - 1)
 						}
 					foreachInList(seq.drop(from), until)
-				case ErasedArray.Wrapped.Slice(array, offset, limit) =>
+				case ErasedArray.Slice(array, offset, limit) =>
 					def foreachInArray(array :Array[E]) :Unit = {
 						var i = offset + math.max(from, 0)
 						val end = offset + math.min(until, limit - offset)
@@ -1963,7 +1963,7 @@ object extensions extends extensions {
 				var seq = list
 				while (seq.nonEmpty && f(seq.head))
 					seq = seq.tail
-			case ErasedArray.Wrapped.Slice(arr, from, until) =>
+			case ErasedArray.Slice(arr, from, until) =>
 				val a = arr.asInstanceOf[Array[E]]
 				var i = from
 				while (i < until && f(a(i)))
@@ -2085,7 +2085,7 @@ object extensions extends extensions {
 						f(last, hd) && listForall(hd, rest.tail)
 					}
 				seq.isEmpty || listForall(seq.head, seq.tail)
-			case ErasedArray.Wrapped.Slice(array, from, until) =>
+			case ErasedArray.Slice(array, from, until) =>
 				@tailrec def arrayForall(a :Array[E], last :E, i :Int) :Boolean =
 					i == until || {
 						val hd = a(i)
@@ -2243,7 +2243,7 @@ object extensions extends extensions {
 				case ErasedArray.Wrapped(array :Array[A @unchecked]) =>
 					ArrayLikeExtension(array).cyclicCopyRangeToArray(xs, start, from, len)
 
-				case ErasedArray.Wrapped.Slice(array :Array[A @unchecked], lo, _) =>
+				case ErasedArray.Slice(array :Array[A @unchecked], lo, _) =>
 					ArrayLikeExtension(array).cyclicCopyRangeToArray(
 						xs, start, lo + start + from, math.min(len, size - start - from)
 					)
@@ -3719,7 +3719,7 @@ object extensions extends extensions {
 			self match {
 				case _ if length <= 1 =>
 					genericSelf
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				case ErasedArray.Slice(array, from, until) =>
 					val result = array.slice(from, until)
 					ArrayLikeSpecOps.shuffle(result, 0, until - from)(random.self)
 					self.iterableFactory from ArraySeq.unsafeWrapArray(result.castParam[E])
@@ -4617,7 +4617,7 @@ object extensions extends extensions {
 				if (thatSize < 0) -1
 				else if (thatSize == 0) 0
 				else (self match {
-					case ErasedArray.Wrapped.Slice(array, from, _) =>
+					case ErasedArray.Slice(array, from, _) =>
 						elems.toBasicOps.copyToArray(array.asInstanceOf[Array[Any]], from + index)
 					case _ => -1
 				})
@@ -4646,7 +4646,7 @@ object extensions extends extensions {
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
 			self match {
-				case ErasedArray.Wrapped.Slice(array, from, _) =>
+				case ErasedArray.Slice(array, from, _) =>
 					ArrayLike.copy(elems, 0, array, from + index, thatSize)
 				case _ =>
 					var i = 0
@@ -4705,8 +4705,8 @@ object extensions extends extensions {
 						i      += 1
 					}
 					math.max(0, i - math.max(index, 0))
-				//consider: is it even worthwile to have special cases for arrays if we don't have specialized code?
-				case ErasedArray.Wrapped.Slice(array, from, until) =>
+				//consider: is it even worthwhile to have special cases for arrays if we don't have specialized code?
+				case ErasedArray.Slice(array, from, until) =>
 					val thisOffset = if (index >= 0) index else 0
 					val thatOffset = if (index >= 0) from else math.min(Int.MinValue + index, from) - index
 					val count = math.max(length - thisOffset, until - thatOffset)
@@ -4748,7 +4748,7 @@ object extensions extends extensions {
 			val until0 = math.min(length, math.max(from0, until))
 			if (until0 - from0 > 1)
 				self match {
-					case ErasedArray.Wrapped.Slice(array, start, _) =>
+					case ErasedArray.Slice(array, start, _) =>
 						ArrayLikeSpecOps.shuffle(array, start + from0, start + until0)(random.self)
 					case _ =>
 						var i = length

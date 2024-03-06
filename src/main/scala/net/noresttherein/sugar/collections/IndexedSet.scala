@@ -139,7 +139,7 @@ trait IndexedSet[E]
 	protected override def fromSorted(elems :IterableOnce[E]) :IndexedSet[E] = elems match {
 		case ErasedArray.Wrapped(array) =>
 			new ArrayIndexedSet[E](array.asInstanceOf[Array[E]])(ordering)
-		case ErasedArray.Wrapped.Slice(array, from, until) =>
+		case ErasedArray.Slice(array, from, until) =>
 			new ArrayIndexedSet(array.asInstanceOf[Array[E]], from, until)(ordering)
 		case _ =>
 			new IndexedSeqSet[E](elems.toBasicOps.toIndexedSeq)(ordering)
@@ -383,7 +383,7 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 		override def iteratorFrom(start :E) :Iterator[E] = ArrayIterator.slice(elems, search(start), end)
 //		override def iterator :Iterator[E] = ArrayIterator(elems, start, end)
 
-		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
+		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
 
 		private def writeReplace :AnyRef =
 			new SerializationProxy[Array[E]](elems.slice(start, end - start), new ArrayIndexedSet(_))

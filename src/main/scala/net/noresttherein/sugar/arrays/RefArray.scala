@@ -176,34 +176,34 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 			else
 				No
 		}
+	}
 
-		/** Wraps and unwraps sections of a `RefArray` in mutable sequences. $warning */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[E](array :RefArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
-				RefArraySlice.slice(array, from, until)
+	/** Wraps and unwraps sections of a `RefArray` in mutable sequences. $warning */
+	@SerialVersionUID(Ver)
+	object Slice {
+		def apply[E](array :RefArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
+			RefArraySlice.slice(array, from, until)
 
-			def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(RefArray[E], Int, Int)] = {
-				val length = elems.length
-				var start  = 0
-				val array  = elems match {
-					case seq   :mutable.ArraySeq[_] => seq.array
-					case seq   :ArrayBuffer[_]      => CheatedAccess.array(seq)
-					case slice :ArrayIterableOnce[_] if slice.isMutable =>
-						start = slice.startIndex
-						slice.unsafeArray
-					case seq   :MatrixBuffer[_] if seq.dim == 1 =>
-						val a = seq.data1
-						start = seq.startIndex
-						if (start <= a.length - length) a else null
-					case _ =>
-						null
-				}
-				if (array != null && array.getClass == classOf[Array[AnyRef]])
-					Yes((array.castFrom[Array[_], RefArray[E]], start, start + length))
-				else
-					No
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(RefArray[E], Int, Int)] = {
+			val length = elems.length
+			var start  = 0
+			val array  = elems match {
+				case seq   :mutable.ArraySeq[_] => seq.array
+				case seq   :ArrayBuffer[_]      => CheatedAccess.array(seq)
+				case slice :ArrayIterableOnce[_] if slice.isMutable =>
+					start = slice.startIndex
+					slice.unsafeArray
+				case seq   :MatrixBuffer[_] if seq.dim == 1 =>
+					val a = seq.data1
+					start = seq.startIndex
+					if (start <= a.length - length) a else null
+				case _ =>
+					null
 			}
+			if (array != null && array.getClass == classOf[Array[AnyRef]])
+				Yes((array.castFrom[Array[_], RefArray[E]], start, start + length))
+			else
+				No
 		}
 	}
 
@@ -253,7 +253,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		  * views sharing the same underlying array.
 		  */
 		@inline def subseq(from :Int, until :Int) :mutable.IndexedSeq[E] =
-			Wrapped.Slice(self.asInstanceOf[RefArray[E]], from, until)
+			Slice(self.asInstanceOf[RefArray[E]], from, until)
 
 		@inline def toSeq        :Seq[E] = toIndexedSeq
 		@inline def toIndexedSeq :IndexedSeq[E] = IRefArray.Wrapped(self.toIRefArray.castParam[E])

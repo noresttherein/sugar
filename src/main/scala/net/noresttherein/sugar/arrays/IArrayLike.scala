@@ -106,7 +106,7 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 		source match {
 			case _ if source.knownSize == 0                  => IRefArray.empty
 			case Wrapped(array)                              => array
-			case ArrayLike.Wrapped.Slice(array, from, until) => array.slice(from, until)
+			case ArrayLike.Slice(array, from, until) => array.slice(from, until)
 			case items :Iterable[E]                          => items.toArray[Any].castParam[E]
 			case _                                           => source.iterator.toArray[Any].castParam[E]
 		}
@@ -142,36 +142,35 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 				else No
 			case _ => No
 		}
-
-		/** Wraps immutable arrays (including [[net.noresttherein.sugar.arrays.IRefArray IRefArray]])
-		  * in indexed sequences exposing a range of indices of said array,
-		  * and extracts arrays from any supported collection backed by an array (including 'erased' `Array[AnyRef]`),
-		  * together with the information about the index range which is a part in that collection.
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[E](array :IArrayLike[E], from :Int, until :Int) :IndexedSeq[E] =
-				if (array.getClass == classOf[Array[AnyRef]])
-					IRefArray.Wrapped.Slice(array.asInstanceOf[IRefArray[E]], from, until)
-				else
-					IArray.Wrapped.Slice(array.asInstanceOf[IArray[E]], from, until)
-
-			def unapply[E](elems :IterableOnce[E]) :Maybe[(IArrayLike[E], Int, Int)] = elems match {
-				case _ if elems.knownSize < 0 => No
-				case seq :ArraySeq[_]         =>
-					Yes((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
-				case VectorArray(array)       => Yes(array.castFrom[Array[AnyRef], IArrayLike[E]], 0, array.length)
-				case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
-					val array = slice.unsafeArray.castFrom[Array[_], IArrayLike[E]]
-					val start = slice.startIndex
-					Yes((array, start, start + slice.knownSize))
-				case _ =>
-					No
-
-			}
-		}
 	}
 
+	/** Wraps immutable arrays (including [[net.noresttherein.sugar.arrays.IRefArray IRefArray]])
+	  * in indexed sequences exposing a range of indices of said array,
+	  * and extracts arrays from any supported collection backed by an array (including 'erased' `Array[AnyRef]`),
+	  * together with the information about the index range which is a part in that collection.
+	  */
+	@SerialVersionUID(Ver)
+	object Slice {
+		def apply[E](array :IArrayLike[E], from :Int, until :Int) :IndexedSeq[E] =
+			if (array.getClass == classOf[Array[AnyRef]])
+				IRefArray.Slice(array.asInstanceOf[IRefArray[E]], from, until)
+			else
+				IArray.Slice(array.asInstanceOf[IArray[E]], from, until)
+
+		def unapply[E](elems :IterableOnce[E]) :Maybe[(IArrayLike[E], Int, Int)] = elems match {
+			case _ if elems.knownSize < 0 => No
+			case seq :ArraySeq[_]         =>
+				Yes((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
+			case VectorArray(array)       => Yes(array.castFrom[Array[AnyRef], IArrayLike[E]], 0, array.length)
+			case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
+				val array = slice.unsafeArray.castFrom[Array[_], IArrayLike[E]]
+				val start = slice.startIndex
+				Yes((array, start, start + slice.knownSize))
+			case _ =>
+				No
+
+		}
+	}
 
 
 	/** Extension methods for immutable [[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`[E]` subtypes:
@@ -206,7 +205,7 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 		/** A view on the index range `[from, until)` of this array as a sequence.
 		  * Slicing of the returned sequence will return similar views, sharing the same underlying array.
 		  */
-		@inline def subseq(from :Int, until :Int) :IndexedSeq[E] = Wrapped.Slice(exposed, from, until)
+		@inline def subseq(from :Int, until :Int) :IndexedSeq[E] = Slice(exposed, from, until)
 
 		@inline def toSeq :Seq[E] = IArrayLike.Wrapped(exposed)
 		@inline def toIndexedSeq :IndexedSeq[E] = IArrayLike.Wrapped(exposed)

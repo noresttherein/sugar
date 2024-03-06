@@ -91,7 +91,7 @@ import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMet
   *
   * Tip: unlike `ArraySeq`, `RelayArray` doesn't offer a method exposing the underlying array,
   * but it can still be extracted by matching it to
-  * [[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`.`[[net.noresttherein.sugar.arrays.IArrayLike.Wrapped Wrapped]]`.`[[net.noresttherein.sugar.arrays.IArrayLike.Wrapped.Slice Slice]].
+  * [[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`.``.`[[net.noresttherein.sugar.arrays.IArrayLike.Slice Slice]].
   * @define Coll    `RelayArray`
   * @define coll    relay array
   * @define MaxSize `Int.MaxValue - 8`
@@ -845,7 +845,7 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 			case it :Iterator[U] if !it.hasNext               => this
 			case _ if size > 0 && elementType == classOf[Any] => overwriteWith(classOf[Any])
 			case ar :RelayArray[U]                            => overwriteWith(ar.elementType)
-			case ArrayLike.Wrapped.Slice(array, _, _)         => overwriteWith(array.getClass.getComponentType)
+			case ArrayLike.Slice(array, _, _)                 => overwriteWith(array.getClass.getComponentType)
 			case _ =>
 				val it  = elems.iterator
 				if (!it.hasNext)
@@ -892,12 +892,12 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		}
 		elems match {
 			case _ if index >= length | size == 0 | size > 0 & size <= drop => this
-			case _  :View[U]                          => overwritten(index, elems.iterator)
-			case it :Iterable[U] if it.isEmpty        => this
-			case it :Iterator[U] if !it.hasNext       => this
-			case _ if elementType == classOf[Any]     => overwriteWith(classOf[Any])
-			case ar :RelayArray[U]                    => overwriteWith(ar.elementType)
-			case ArrayLike.Wrapped.Slice(array, _, _) => overwriteWith(array.getClass.getComponentType)
+			case _  :View[U]                      => overwritten(index, elems.iterator)
+			case it :Iterable[U] if it.isEmpty    => this
+			case it :Iterator[U] if !it.hasNext   => this
+			case _ if elementType == classOf[Any] => overwriteWith(classOf[Any])
+			case ar :RelayArray[U]                => overwriteWith(ar.elementType)
+			case ArrayLike.Slice(array, _, _)     => overwriteWith(array.getClass.getComponentType)
 			case _ =>
 				val it = elems.iterator.drop(drop)
 				if (!it.hasNext)
@@ -963,8 +963,8 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 		else if (elems.knownSize == 0)
 			this
 		else elems match {
-			case other :RelayArray[U]                        => insertAs(other.elementType, other.length)
-			case ArrayLike.Wrapped.Slice(array, from, until) => insertAs(array.getClass.getComponentType, until - from)
+			case other :RelayArray[U]                => insertAs(other.elementType, other.length)
+			case ArrayLike.Slice(array, from, until) => insertAs(array.getClass.getComponentType, until - from)
 			case _ =>
 				val res = RelayArray.newBuilder[U]
 				res.sizeHint(elems, length)
@@ -1511,9 +1511,9 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 		//todo: IArray extractor not requiring a ClassTag
 //		case IArray.Wrapped.Slice(array, from, until) =>
 //			make(array.castFrom[IArray[_], Array[E]], from, until - from)
-		case IArrayLike.Wrapped.Slice(array, from, until) =>
+		case IArrayLike.Slice(array, from, until) =>
 			new RelayArrayPlus[E](array.castFrom[IArrayLike[_], Array[E]], from, until - from)
-		case ErasedArray.Wrapped.Slice(array, from, until) =>
+		case ErasedArray.Slice(array, from, until) =>
 			make(array.slice(from, until).asInstanceOf[IArray[E]], 0, until - from)
 		case elems :Iterable[E] => elems.head.getClass match {
 			case Boxed(valueClass) =>
@@ -1784,9 +1784,7 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 		override def from[E :ClassTag](it :IterableOnce[E]) :RelayArray[E] = it match {
 			case relay :RelayArray[E] if relay.elementType == classTag[E].runtimeClass => relay
 			case empty if empty.knownSize == 0                                         => this.empty[E]
-			case IArray.Wrapped.Slice(array, from, until)
-				if array.getClass.getComponentType == classTag[E].runtimeClass
-			=>
+			case IArray.Slice(array, from, until) if array.getClass.getComponentType == classTag[E].runtimeClass =>
 				RelayArray.make(array, from, until, false)
 			case _ => wrap(IArray.from(it))
 		}
@@ -1827,8 +1825,8 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 	object untagged extends ArrayLikeSliceFactory[IRefArray, RelayArray] {
 		override def from[A](source :IterableOnce[A]) :RelayArray[A] = source match {
 			case relay :RelayArray[A] if relay.elementType == classOf[Any] => relay
-			case IRefArray.Wrapped.Slice(array, from, until) => make(array, from, until)
-			case _                                           => wrap(IRefArray.from(source))
+			case IRefArray.Slice(array, from, until)                       => make(array, from, until)
+			case _                                                         => wrap(IRefArray.from(source))
 		}
 		override def empty[A] :RelayArray[A] = Empty
 

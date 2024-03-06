@@ -16,7 +16,7 @@ private[sugar] object TypedArray extends ClassTagIterableFactory.Delegate[TypedA
 
 	@SerialVersionUID(Ver)
 	object Wrapped {
-		def apply[E](array :TypedArray[E]) :collection.IndexedSeq[E] = Sliced(array, 0, array.length)
+		def apply[E](array :TypedArray[E]) :collection.IndexedSeq[E] = Slice(array, 0, array.length)
 
 		def unapply[E](items :IterableOnce[E]) :Maybe[TypedArray[E]] = items match {
 			case _ :collection.IndexedSeqOps[_, _, _] => items match {
@@ -38,35 +38,35 @@ private[sugar] object TypedArray extends ClassTagIterableFactory.Delegate[TypedA
 			}
 			case _ => No
 		}
+	}
 
-		@SerialVersionUID(Ver)
-		object Sliced {
-			def apply[E](array :TypedArray[E], from :Int, until :Int) :collection.IndexedSeq[E] =
-				ArrayLikeSlice.slice(array, from, until)
-			
-			def unapply[E](items :IterableOnce[E]) :Maybe[(TypedArray[E], Int, Int)] = items match {
-				case _ :collection.IndexedSeqOps[_, _, _] => items match {
-					case seq :IArraySlice[E] =>
-						val offset = seq.startIndex
-						Yes((seq.unsafeArray.asInstanceOf[TypedArray[E]], offset, offset + seq.length))
-					case seq :ArraySlice[E] =>
-						val offset = seq.startIndex
-						Yes((seq.unsafeArray.asInstanceOf[TypedArray[E]], offset, offset + seq.length))
-					case seq :ArraySliceSeqOps[E @unchecked, collection.Seq @unchecked, collection.Seq[E] @unchecked]
-						if seq.elementType != classOf[Any]
-					=>
-						val offset = seq.startIndex
-						Yes((seq.unsafeArray.castFrom[Array[_], TypedArray[E]], offset, offset + seq.length))
-					case seq :MatrixBuffer[E]
-						if seq.dim == 1 && seq.data1.getClass != classOf[Array[Any]] &&
-							seq.startIndex + seq.length <= seq.data1.length && seq.startIndex == 0
-					=>
-						val offset = seq.startIndex
-						Yes((seq.data1, offset, offset + seq.length))
-					case _ => No
-				}
+	@SerialVersionUID(Ver)
+	object Slice {
+		def apply[E](array :TypedArray[E], from :Int, until :Int) :collection.IndexedSeq[E] =
+			ArrayLikeSlice.slice(array, from, until)
+
+		def unapply[E](items :IterableOnce[E]) :Maybe[(TypedArray[E], Int, Int)] = items match {
+			case _ :collection.IndexedSeqOps[_, _, _] => items match {
+				case seq :IArraySlice[E] =>
+					val offset = seq.startIndex
+					Yes((seq.unsafeArray.asInstanceOf[TypedArray[E]], offset, offset + seq.length))
+				case seq :ArraySlice[E] =>
+					val offset = seq.startIndex
+					Yes((seq.unsafeArray.asInstanceOf[TypedArray[E]], offset, offset + seq.length))
+				case seq :ArraySliceSeqOps[E @unchecked, collection.Seq @unchecked, collection.Seq[E] @unchecked]
+					if seq.elementType != classOf[Any]
+				=>
+					val offset = seq.startIndex
+					Yes((seq.unsafeArray.castFrom[Array[_], TypedArray[E]], offset, offset + seq.length))
+				case seq :MatrixBuffer[E]
+					if seq.dim == 1 && seq.data1.getClass != classOf[Array[Any]] &&
+						seq.startIndex + seq.length <= seq.data1.length && seq.startIndex == 0
+				=>
+					val offset = seq.startIndex
+					Yes((seq.data1, offset, offset + seq.length))
 				case _ => No
 			}
+			case _ => No
 		}
 	}
 }

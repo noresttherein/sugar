@@ -478,12 +478,12 @@ private[sugar] case object ArrayLikeSlice
 	}
 
 	override def from[E](it :IterableOnce[E]) :ArrayLikeSlice[E] = it match {
-		case view  :View[E] => from(view.iterator)
-		case empty :Iterable[E] if empty.isEmpty => this.empty
+		case view  :View[E]                       => from(view.iterator)
+		case empty :Iterable[E] if empty.isEmpty  => this.empty
 		case empty :Iterator[E] if !empty.hasNext => this.empty
-		case IArrayLike.Wrapped.Slice(array, from, until) => make(array, from, until)
-		case iter  :Iterable[E] => IRefArraySlice.wrap(iter.toIRefArray[E])
-		case _ => IRefArraySlice.wrap(it.iterator.toIRefArray)
+		case IArrayLike.Slice(array, from, until) => make(array, from, until)
+		case iter  :Iterable[E]                   => IRefArraySlice.wrap(iter.toIRefArray[E])
+		case _                                    => IRefArraySlice.wrap(it.iterator.toIRefArray)
 	}
 
 	protected override def make[E](array :ArrayLike[E], from :Int, until :Int) :ArrayLikeSlice[E] =
@@ -693,11 +693,11 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IArray, IArraySlice] {
 	override def from[E :ClassTag](it :IterableOnce[E]) :IArraySlice[E] = it match {
 		case view  :View[E] => from(view.iterator)
-		case empty :Iterable[E] if empty.isEmpty => this.empty
+		case empty :Iterable[E] if empty.isEmpty  => this.empty
 		case empty :Iterator[E] if !empty.hasNext => this.empty
-		case IArray.Wrapped.Slice(array, from, until) => make(array, from, until)
-		case iter  :Iterable[E] => wrap(iter.toArray[E].castFrom[Array[E], IArray[E]])
-		case _ => wrap(it.iterator.toArray[E].castFrom[Array[E], IArray[E]])
+		case IArray.Slice(array, from, until)     => make(array, from, until)
+		case iter  :Iterable[E]                   => wrap(iter.toArray[E].castFrom[Array[E], IArray[E]])
+		case _                                    => wrap(it.iterator.toArray[E].castFrom[Array[E], IArray[E]])
 	}
 
 	protected override def make[E](array :IArray[E], from :Int, until :Int) :IArraySlice[E] =
@@ -764,7 +764,7 @@ private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArr
 
 
 /** A view of a slice of an immutable array. This class - or rather, its factory object - is used
-  * by [[net.noresttherein.sugar.arrays.IRefArray.Wrapped.Slice IRefArray.Wrapped.Slice]] as a default wrapper.
+  * by [[net.noresttherein.sugar.arrays.IRefArray.Slice IRefArray.Wrapped.Slice]] as a default wrapper.
   * @define Coll `IRefArraySlice`
   * @define coll immutable reference array slice
   */
@@ -798,12 +798,12 @@ private[sugar] sealed class IRefArraySlice[+E] private
 @SerialVersionUID(Ver)
 private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefArray, IRefArraySlice] {
 	override def from[E](source :IterableOnce[E]) :IRefArraySlice[E] = source match {
-		case slice :IRefArraySlice[E]                    => slice
-		case view  :View[E]                              => from(view.iterator)
-		case empty :Iterable[E] if empty.isEmpty         => this.empty
-		case empty :Iterator[E] if !empty.hasNext        => this.empty
-		case IRefArray.Wrapped.Slice(array, from, until) => new IRefArraySlice(array, from, until)
-		case _ => wrap(source.toIRefArray)
+		case slice :IRefArraySlice[E]             => slice
+		case view  :View[E]                       => from(view.iterator)
+		case empty :Iterable[E] if empty.isEmpty  => this.empty
+		case empty :Iterator[E] if !empty.hasNext => this.empty
+		case IRefArray.Slice(array, from, until)  => new IRefArraySlice(array, from, until)
+		case _                                    => wrap(source.toIRefArray)
 	}
 
 	protected def make[E](array :IRefArray[E], from :Int, until :Int) :IRefArraySlice[E] =
