@@ -361,6 +361,11 @@ object extensions extends extensions {
 			case _ => false
 		}
 
+		/** True for collections known to be finite (i.e, iterating over which will end).
+		  * @return `true` ''iff'' `sel.knownSize >= 0` or this is a `List`.
+		  */
+		def knownFinite :Boolean = self.knownSize >= 0 || self.isInstanceOf[List[_]]
+
 		/** Returns `this` if this collection is an [[collection.Iterable Iterable]], or `this.iterator` otherwise. */
 		@inline def toIterableOnceOps :IterableOnceOps[E, IterableOnce, IterableOnce[E]] = self match {
 //			case view  :View[E]     => view.iterator
