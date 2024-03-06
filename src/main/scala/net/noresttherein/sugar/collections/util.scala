@@ -9,7 +9,7 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 
 import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.casting.castingMethods
-import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
+import net.noresttherein.sugar.collections.HasFastSlice.{hasFastDrop, preferDropOverIterator}
 import net.noresttherein.sugar.collections.IndexedIterable.applyPreferred
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
@@ -307,6 +307,8 @@ private[sugar] object IndexedIterable {
 
 
 
+private[sugar] trait HasFastSlice[+E] extends IterableOnce[E] with IterableOnceOps[E, IterableOnce, IterableOnce[E]]
+
 private object HasFastSlice {
 	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = apply(items)
 
@@ -316,8 +318,9 @@ private object HasFastSlice {
 			case _ :IndexedSeqView[_] | _ :Vector[_] | _ :RelayArrayRange[_] => true
 			case _ => false
 		}
-		case _ :Cat[_] | _ :IndexedSet[_] | _ :StringSet | _ :StringMap[_] => true
-		case _ => false
+		case  _ :HasFastSlice[_] | _ :IndexedIterator[_] | _ :IndexedReverseIterator[_] => true
+		case it :IteratorWithDrop[_]                                                    => it.hasFastDrop
+		case _                                                                          => false
 	}
 
 	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOps[A, IterableOnce, IterableOnce[A]]] =
@@ -382,14 +385,32 @@ private object HasFastSlice {
 //			case _ :HasFastSlice[_] | _ :IndexedIterator[_] =>
 			case _ => No
 		}
-	def slice[A](items :IterableOnce[A], from :Int, until :Int) :IterableOnceOps[A, IterableOnce, IterableOnce[A]] =
+
+	def slice[A](items :IterableOnce[A], from :Int, until :Int)
+			:IterableOnce[A] with IterableOnceOps[A, IterableOnce, IterableOnce[A]] =
 		items match {
 			case it :Iterable[A] => quickSlice(it, from, until) match {
 				case Yes(result) => result
 				case _           => items.iterator.slice(from, until)
 			}
-			case _ => items.iterator.slice(from, until)
+			case _ => slice(items.iterator, from, until)
 		}
+	private def slice[A](items :Iterator[A], from :Int, until :Int) :Iterator[A] = {
+		//Sadly, default Iterator.slice, drop, take don't check if the argument is negative.
+		val size = items.knownSize
+		if (until <= 0 | until <= from)
+			Iterator.empty
+		else if (size >= 0)
+			if (from <= 0 & until >= size) items.iterator
+			else if (from <= 0) items.iterator.take(until)
+			else if (until >= size) items.iterator.drop(from)
+			else items.iterator.slice(from, until)
+		else
+			if (from <= 0) items.iterator.take(until)
+			else items.iterator.slice(from, until)
+		items.iterator.slice(from, until)
+
+	}
 
 
 	/** Fast here means use `items.drop`, not `iterator.drop`.
@@ -426,18 +447,25 @@ private object Defaults {
 		self match {
 			case _ if index < 0 || thisSize >= 0 & index > thisSize - math.max(thatSize, 0) =>
 				outOfBounds()
-			case _ if self.knownLazy =>
+			case _ :View[_] =>
+				self.iterableFactory from Views.updatedAll(self.iterator, index, elems)
+			case _ if thatSize == 0 & thisSize >= 0 & index <= thisSize =>
+				//Default patch implementation doesn't check if the operation results in no changes.
+				self.iterableFactory from (self :collection.SeqOps[E, CC, C])
+			case _ if thisSize >= 0 & thatSize >= 0 =>
+				self.patch(index, elems, thatSize)
+			case _ if !self.knownStrict =>
 				self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
-			case _ if thatSize == 0 || elems.toBasicOps.isEmpty =>
+			case _ if elems.toBasicOps.isEmpty =>
 				//consider: traversing the whole list to compute its length only to throw an exception is wasteful
 				val length = self.length
 				if (index > length)
 					outOfBounds_!(index, length)
 				self.iterableFactory from (self :collection.SeqOps[E, CC, C])
-			case HasFastSlice(items) =>
-				updatedAll(items, index, elems, true, self.iterableFactory)
 			case seq :collection.LinearSeq[E] @unchecked =>
 				updatedAll(seq, index, elems, true, self.iterableFactory)
+			case HasFastSlice(items) =>
+				updatedAll(items, index, elems, true, self.iterableFactory)
 			case _ =>
 				self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
 		}
@@ -446,6 +474,7 @@ private object Defaults {
 	private def updatedAll[E, CC[_], C](seq :collection.LinearSeq[E], index :Int, elems :IterableOnce[E],
 	                                    validate :Boolean, factory :IterableFactory[CC]) :CC[E] =
 	{
+		//We hope for fast tail, that hd +: tail reuses tail, and that iterableFactory from seq eq seq.
 		val thisSize = seq.knownSize
 		val thatSize = elems.knownSize
 		var i = 0
@@ -523,49 +552,65 @@ private object Defaults {
 	private def updatedAll[E, CC[_], C](self :collection.IterableOps[E, IterableOnce, IterableOnce[E]], index :Int,
 	                                    elems :IterableOnce[E], validate :Boolean, factory :IterableFactory[CC]) :CC[E] =
 	{
+		def outOfBounds(elemsSize :Int) =
+			outOfBounds_!(
+				errorString(self) + ".updatedAll(" + index + ", " + util.className(elems) + "|" + elemsSize + "|)"
+			)
+		def assertExhausted(thisSize :Int, thatItr :Iterator[E]) :Unit =
+			if (validate && thatItr.hasNext)
+				outOfBounds_!(
+					errorString(self) + ".updatedAll(" + index + ", " + errorString(elems) +
+						" (size >= " + (thisSize - math.max(0, index)) + ")"
+				)
+
 		//If possible, try to add collections, rather than iterators, as there is a chance they'll reuse contents.
-		val thisSize = self.size
+		val thisSize = self.knownSize
 		val thatSize = elems.knownSize
 		val res = factory.newBuilder[E]
 		res sizeHint thisSize
 		res ++= self.take(index)
-		val toDrop =
-			if (thatSize >= 0) {
-				if (index < 0)
+		if (thisSize < 0) {
+			//Default Iterator.drop creates a proxy even if n <= 0, so lets check it ourselves to avoid it.
+			val thatItr = if (index < 0) elems.iterator else elems.iterator.drop(-index)
+			val thisItr = if (index < 0) self.iterator else self.iterator.drop(-index)
+			var i = math.max(0, index)
+			while (thisItr.hasNext && thatItr.hasNext) {
+				res += thatItr.next()
+				thisItr.next()
+				i += 1
+			}
+			assertExhausted(i, thatItr)
+			res ++= thisItr
+		} else if (thatSize < 0) {
+			var i       = math.max(index, 0)
+			val thatItr = elems.iterator.drop(-index)
+			while (i < thisSize && thatItr.hasNext) {
+				res += thatItr.next()
+				i += 1
+			}
+			assertExhausted(i, thatItr)
+			if (i < thisSize)
+				res ++= self.drop(i)
+		} else { //thisSize >= 0 && thatSize >= 0
+			if (index <= thisSize - thatSize)
+				if (index >= 0)
+					res ++= elems
+				else
 					if (preferDropOverIterator(elems))
 						res ++= elems.toIterableOnceOps.drop(-index)
 					else
 						res ++= elems.iterator.drop(-index)
-				thatSize
-			} else {
-				var i  = 0
-				val it = elems.iterator
-				while (it.hasNext) {
-					res += it.next()
-					i += 1
-				}
-				def outOfBounds() =
-					outOfBounds_!(
-						errorString(self) + ".updatedAll(" + index + ", " + elems.className + "|" + i + "|)"
-					)
-				if (validate)
-					if (thisSize >= 0) {
-						if (index > thisSize - i)
-							outOfBounds()
-					} else if (i <= Int.MaxValue - index + 1) {
-						if (self.drop(index - 1 + i).toBasicOps.nonEmpty)
-							outOfBounds()
-					} else
-						if (self.iterator.drop(index).drop(i - 1).nonEmpty)
-							outOfBounds()
-				i
+			else if (validate)
+				outOfBounds(thatSize)
+			else elems match {
+				case HasFastSlice(items) => res ++= items.slice(-index, thisSize)
+				case _ if index <= 0     => res ++= elems.iterator.take(thisSize)
+				case _                   => res ++= elems.iterator.slice(-index, thisSize)
 			}
-		if (index <= thisSize - toDrop)
-			res ++= self.drop(index + toDrop)
-		else
-			res ++= self.iterator.drop(index).drop(toDrop)
+			if (index < thisSize - thatSize)
+				res ++= self.drop(index + thatSize)
+		}
 		res.result()
-		//we hope for fast tail, that hd +: tail reuses tail, and that iterableFactory from seq eq seq
 	}
 
 
@@ -584,25 +629,25 @@ private object Defaults {
 		val thisSize = self.knownSize
 		self match {
 			case _ if thatSize == 0 || thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
-				|| thisSize >= 0 && thisSize >= index || index == Int.MinValue || index == Int.MaxValue
+				|| thisSize >= 0 && thisSize <= index || index == Int.MinValue || index == Int.MaxValue
 			=>
 				self.iterableFactory from self
 			case _ :View[_]          =>
 				self.iterableFactory from Views.overwritten(self, index, elems)
-			case _ if self.knownLazy =>
-				self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
-			case _ if thatSize >= 0 && thisSize >= 0 =>
+			case _ if thatSize >= 0 & thisSize >= 0 =>
 				val replaced =
-					if (index < 0) math.min(thatSize + index, thisSize)
+					if (index < 0) math.min(thatSize + index, thisSize) - index
 					else math.min(thatSize, thisSize - index)
-				val that = if (index < 0) elems.iterator.drop(-index) else elems
+				val that = HasFastSlice.slice(elems, -index, replaced)
 				self.patch(index, that, replaced)
+			case _ if !self.knownStrict =>
+				self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
 			case _ if elems.toBasicOps.isEmpty =>
 				self.iterableFactory from self
-			case HasFastSlice(items) =>
-				updatedAll(items, index, elems, true, self.iterableFactory)
 			case seq :collection.LinearSeq[E] @unchecked =>
-				updatedAll(seq, index, elems, true, self.iterableFactory)
+				updatedAll(seq, index, elems, false, self.iterableFactory)
+			case HasFastSlice(items) =>
+				updatedAll(items, index, elems, false, self.iterableFactory)
 			case _ =>
 				self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
 		}

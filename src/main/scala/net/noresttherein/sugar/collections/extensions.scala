@@ -3932,8 +3932,10 @@ object extensions extends extensions {
 //		def swapped(idx1 :Int, idx2 :Int) :C = ???
 //		def swapped(idx1 :Int, idx2 :Int, length :Int) :C = ???
 
-		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
-			updatedAll(index, Prepended2Seq(first, second, rest))
+		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.updatedAll(index, first, second, rest :_*)
+			case _  => updatedAll(index, Prepended2Seq(first, second, rest))
+		}
 
 		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
 			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.updatedAll(index, elems)
@@ -3941,8 +3943,10 @@ object extensions extends extensions {
 		}
 
 
-		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
-			overwritten(index, Prepended2Seq(first, second, rest))
+		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.overwritten(index, first, second, rest :_*)
+			case _ => overwritten(index, Prepended2Seq(first, second, rest))
+		}
 
 		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
 			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.overwritten(index, elems)
@@ -3959,8 +3963,10 @@ object extensions extends extensions {
 		}
 
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtension.insertedAll insertedAll]]`(first +: second +: rest)`. */
-		override def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
-			insertedAll(index, Prepended2Seq(first, second, rest))
+		override def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.insertedAll(index, first, second, rest :_*)
+			case _ => insertedAll(index, Prepended2Seq(first, second, rest))
+		}
 
 
 		/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */

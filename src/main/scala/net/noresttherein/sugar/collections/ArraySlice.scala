@@ -345,7 +345,7 @@ trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapp
 		else if (from >= length) make(array, length, length)
 		else if (from <= 0 & until >= length) make(array, 0, length)
 		else if (from <= 0) make(array, 0, until)
-		else if (until >= length) make(array, from, length - from)
+		else if (until >= length) make(array, from, length)
 		else if (until <= from) make(array, from, from)
 		else make(array, from, until)
 	}
