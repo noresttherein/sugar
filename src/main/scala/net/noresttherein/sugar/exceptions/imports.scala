@@ -498,11 +498,31 @@ trait imports {
 	final def outOfBounds_!(idx :Int, items :IterableOnce[_]) :Nothing =
 		throw SugaredIndexOutOfBoundsException(() => idx.toString + " out of bounds for " + errorString(items))
 
-	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the array for whch the index was out of bounds,
+	/** Throws an [[IndexOutOfBoundsException]].
+	  * @param idx    the index which was out of range.
+	  * @param items  The accessed collection, information about which is used to enhance the error message.
+	  * @param method The method being called, included in the error message.
+	  */
+	final def outOfBounds_!(idx :Int, items :IterableOnce[_], method :String) :Nothing =
+		throw SugaredIndexOutOfBoundsException(
+			() => idx.toString + " out of bounds for " + errorString(items) + "." + method
+		)
+
+	/** Throws an [[IndexOutOfBoundsException]]. The second argument is the collection which was accessed,
 	  * and is used to enhance the error message.
 	  */
 	final def outOfBounds_!(idx :Int, items :ArrayLike[_]) :Nothing =
-		throw SugaredIndexOutOfBoundsException(() => idx.toString + " out of bounds for " + errorString(items))
+		throw SugaredIndexOutOfBoundsException(() => idx.toString + " out of bounds for " + errorString(items) + ".")
+
+	/** Throws an [[IndexOutOfBoundsException]].
+	  * @param idx    the index which was out of range.
+	  * @param items  The accessed collection, information about which is used to enhance the error message.
+	  * @param method The method being called, included in the error message.
+	  */
+	final def outOfBounds_!(idx :Int, items :ArrayLike[_], method :String) :Nothing =
+		throw SugaredIndexOutOfBoundsException(
+			() => idx.toString + " out of bounds for " + errorString(items) + "." + method + "."
+		)
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int, cause :Throwable) :Nothing =
