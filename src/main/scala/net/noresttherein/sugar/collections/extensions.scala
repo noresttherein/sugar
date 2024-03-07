@@ -2974,7 +2974,7 @@ object extensions extends extensions {
 		  *         i += 1
 		  *     }
 		  * }}}
-		  */
+		  */ //or slicer, slicing, slasher?
 		def safe :Iterator[E] = Iterators.slicer(self)
 
 		/** An iterator maintaining a counter of elements advanced over, accessible through method
