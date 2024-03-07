@@ -219,6 +219,15 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	override def segmentLength(p :E => Boolean, from :Int) :Int =
 		ArrayLikeSpecOps.segmentLength(array, startIndex, length)(p, from)
 
+	override def find(p :E => Boolean) :Option[E] = indexWhere(p) match {
+		case -1 => None
+		case  i => Some(array(startIndex + i))
+	}
+	override def findLast(p :E => Boolean) :Option[E] = lastIndexWhere(p) match {
+		case -1 => None
+		case  i => Some(array(startIndex + i))
+	}
+
 	@unspecialized override def filterNot(p :E => Boolean) :C = filter(p, false)
 	@unspecialized override def filter(p :E => Boolean) :C = filter(p, true)
 	private def filter(p :E => Boolean, keep :Boolean) :C = {
@@ -435,6 +444,13 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 
 	protected def sliceFactory :ArrayLikeSliceWrapper[A, C]
 
+	//todo: move it to ArraySliceSeqOps by moving immutable.IndexedSeq till the end of the linearization order in extending classes.
+	override def toSeq :Seq[E] = toIndexedSeq
+	override def toIndexedSeq :IndexedSeq[E] =
+		if (knownSize == 0) IndexedSeq.empty
+		else if (isImmutable) IArrayLikeSlice.slice(array.asInstanceOf[IArrayLike[E]], startIndex, startIndex + size)
+		else IArrayLike.Wrapped(array.slice(startIndex, startIndex + size).asInstanceOf[IArrayLike[E]])
+
 	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :C[E @uncheckedVariance] =
 		sliceFactory.slice(array.asInstanceOf[A[E]], from, until - from)
 
@@ -456,10 +472,11 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
   * @define coll array slice
   */
 private[sugar] sealed trait ArrayLikeSlice[@specialized(ElemTypes) +E]
-	extends collection.IndexedSeq[E] with ArraySliceSeqOps[E, ArrayLikeSlice, ArrayLikeSlice[E]]
+	extends ArraySliceSeqOps[E, ArrayLikeSlice, ArrayLikeSlice[E]] with collection.IndexedSeq[E]
 	   with IterableFactoryDefaults[E, ArrayLikeSlice] with Serializable
 {
 	override def iterableFactory :SeqFactory[ArrayLikeSlice] = ArrayLikeSlice
+
 }
 
 
@@ -504,8 +521,8 @@ private[sugar] case object ArrayLikeSlice
 	private sealed class Impl[@specialized(ElemTypes) E] private[collections]
 	                         (final override val array :Array[E], final override val startIndex :Int,
 	                          final override val length :Int)
-		extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
-		   with ArrayLikeSlice[E] with ArrayLikeSliceFactoryDefaults[E, ArrayLike, ArrayLikeSlice]
+		extends collection.AbstractSeq[E] with ArrayLikeSlice[E]
+		   with ArrayLikeSliceFactoryDefaults[E, ArrayLike, ArrayLikeSlice]
 	{
 		protected override def sliceFactory = ArrayLikeSlice
 	}
@@ -519,8 +536,8 @@ private[sugar] case object ArrayLikeSlice
   * @define coll mutable array slice
   */ //required to resolve the cross inheritance problem between ArrayLikeSlice and mutable.IndexedSeq
 private[sugar] sealed trait MutableArraySlice[@specialized(ElemTypes) E]
-	extends mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, MutableArraySlice[E]]
-	   with ArrayLikeSlice[E] with ArraySliceSeqOps[E, MutableArraySlice, MutableArraySlice[E]]
+	extends ArrayLikeSlice[E] with ArraySliceSeqOps[E, MutableArraySlice, MutableArraySlice[E]]
+	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, MutableArraySlice[E]]
 	   with IterableFactoryDefaults[E, MutableArraySlice]
 {
 	private[sugar] override def isMutable = true
@@ -555,8 +572,8 @@ private[sugar] case object MutableArraySlice
   * @define coll immutable array slice
   */ //required to resolve the cross inheritance problem between ArrayLikeSlice and immutable.IndexedSeq
 private[sugar] sealed trait IArrayLikeSlice[@specialized(ElemTypes) +E]
-	extends IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArrayLikeSlice[E]]
-	   with ArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArrayLikeSlice[E]]
+	extends ArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArrayLikeSlice[E]]
+	   with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArrayLikeSlice[E]]
 	   with IterableFactoryDefaults[E, IArrayLikeSlice]
 {
 	private[sugar] override def isImmutable :Boolean = true
@@ -596,10 +613,9 @@ private[sugar] sealed class ArraySlice[@specialized(ElemTypes) E] private[collec
                                       (final override val array :Array[E], final override val startIndex :Int,
                                        final override val length :Int)
 	extends mutable.AbstractSeq[E]
-	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, ArraySlice[E]]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, MutableArraySlice, ArraySlice[E]]
-//	   with TypedArraySliceOps[E, MutableArraySlice, ArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, Array, ArraySlice]
+	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, MutableArraySlice, ArraySlice[E]]
 	   with EvidenceIterableFactoryOverrides[E, ArraySlice, ClassTag]
 {
 	override def update(idx :Int, elem :E) :Unit =
@@ -662,11 +678,12 @@ private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Arra
 @SerialVersionUID(Ver)
 sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
                         (underlying :IArray[E], final override val startIndex :Int, final override val length :Int)
-	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
-	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
-//	   with TypedArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
+	extends collection.AbstractSeq[E]
 	   with ArrayLikeSliceFactoryDefaults[E, IArray, IArraySlice]
+	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
+	   with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
+//	   with TypedArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.asInstanceOf[Array[E]]
 	releaseFence()
@@ -728,9 +745,9 @@ private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IAr
 private[sugar] sealed class RefArraySlice[E] private
                             (underlying :RefArray[E], final override val startIndex :Int, final override val length :Int)
 	extends mutable.AbstractSeq[E]
-	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, RefArraySlice, RefArraySlice[E]]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, RefArraySlice, RefArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, RefArray, RefArraySlice]
+	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, RefArraySlice, RefArraySlice[E]]
 	   with IterableFactoryDefaults[E, RefArraySlice]
 {
 	protected final override val array :Array[E] = underlying.castFrom[RefArray[E], Array[E]]
@@ -771,10 +788,11 @@ private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArr
 @SerialVersionUID(Ver)
 private[sugar] sealed class IRefArraySlice[+E] private
                             (underlying :IRefArray[E], final override val startIndex :Int, final override val length :Int)
-	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
-	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
-	   with IterableFactoryDefaults[E, IRefArraySlice]
+	extends collection.AbstractSeq[E]
 	   with ArrayLikeSliceFactoryDefaults[E, IRefArray, IRefArraySlice]
+	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
+	   with IndexedSeq[E] with IndexedSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
+	   with IterableFactoryDefaults[E, IRefArraySlice]
 {
 	protected final override val array :Array[E @uncheckedVariance] = underlying.castFrom[IRefArray[E], Array[E]]
 	releaseFence()
