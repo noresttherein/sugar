@@ -2779,10 +2779,10 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 	{
 		private[this] val mask = (data2.length << Dim1Bits) - 1
 		protected override def underlyingSize :Int = ??!
-		protected override def index :Int = idx
-		protected override def index_=(value :Int) :Unit = { remaining -= value - idx; idx = value & mask }
-		protected override def limit :Int = idx + remaining
-		protected override def limit_=(value :Int) :Unit = remaining = value - idx
+		protected override def index :Int = 0
+		protected override def index_=(value :Int) :Unit = { remaining -= value; idx = idx + value & mask }
+		protected override def limit :Int = remaining
+		protected override def limit_=(value :Int) :Unit = remaining = value
 
 		override def hasNext :Boolean = remaining > 0
 		override def head :E = data2(dim2(idx))(dim1(idx))
