@@ -262,7 +262,7 @@ private object Iterators {
 			extends AbstractBufferedIterator[E]
 		{
 			private[this] var lookahead :mutable.Queue[E] = _
-			private[this] var i = 0
+			private[this] var i = 0 //The current index in underlying, as long as Drop is unused
 
 			private[Iterators] def droppedSize :Int =
 				if (i >= idx | (lookahead ne null))
@@ -362,14 +362,13 @@ private object Iterators {
 			override def knownSize :Int =
 				if (underlying == null) taken.droppedSize else underlying.knownSize
 
-			override def hasNext :Boolean =
-				(underlying eq null) && {
-					val k = taken.droppedSize
-					k > 0 || k < 0 && {
-						ff()
-						underlying.hasNext
-					}
+			override def hasNext :Boolean = {
+				val k = taken.droppedSize
+				k > 0 || k < 0 && {
+					ff()
+					underlying.hasNext
 				}
+			}
 			override def next() :E = {
 				ff()
 				underlying.next()
@@ -452,6 +451,9 @@ private object Iterators {
 			if (size >= 0) (TemporaryBuffer.ofCapacity[E](size) ++= items).reverseIterator
 			else (TemporaryBuffer.of[E] ++= items).reverseIterator
 	}
+
+
+	val splitEmpty = (Iterator.empty, Iterator.empty)
 
 
 	private class ReverseSortedSetIterator[+E](set :collection.SortedSet[E])
@@ -2074,7 +2076,7 @@ private object Iterators {
 /** Overrides `slice` in terms of `drop` and `take`, starting with `drop`,
   * hoping the subclass has a better implementation.
   */
-private[collections] trait IteratorWithDrop[+E] extends Iterator[E] {
+private[sugar] trait IteratorWithDrop[+E] extends Iterator[E] {
 	def hasFastDrop  :Boolean = !hasNext
 	override def slice(from :Int, until :Int) :Iterator[E] =
 		if (until <= 0 | until <= from) Iterator.empty[E]
