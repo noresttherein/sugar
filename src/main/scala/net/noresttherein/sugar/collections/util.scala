@@ -323,7 +323,7 @@ private object HasFastSlice {
 		case _                                                                          => false
 	}
 
-	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOps[A, IterableOnce, IterableOnce[A]]] =
+	def unapply[A](items :IterableOnce[A]) :Maybe[IterableOps[A, Iterable, Iterable[A]]] =
 		items match {
 			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize => Yes(coll)
 			case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {

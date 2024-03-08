@@ -3467,17 +3467,17 @@ object extensions extends extensions {
 				util.fromSpecific(self)(View.fromIteratorProvider(() => result.reverseIterator))
 			}
 
-		@throws[IndexOutOfBoundsException]("if index < 0 or index >= size")
-		override def removed(index :Int) :C = //:CC[E] =
-			if (knownEmpty(self))
-				outOfBounds_!(index, 0)
-			else if (index < 0 || { val s = self.knownSize; s >= 0 & index >= s })
+		@throws[IndexOutOfBoundsException]("if index < 0 or index >= size") //Consider: renaming to takeOut or splice
+		override def removed(index :Int) :C =
+			if (index < 0 || { val s = self.knownSize; s >= 0 & index >= s })
 				outOfBounds_!(index, self.knownSize)
-			else if (self.knownLazy)
-				util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			else self match {
-				case sugared :SugaredIterable[E] =>
-					util.fromSpecific(self)(sugared.removed(index))
+				case sugared :SugaredIterable[E] => util.fromSpecific(self)(sugared.removed(index))
+				case _ :View[_]                  => util.fromSpecific(self)(Views.removed(self, index))
+				case HasFastSlice(items)         => //Even if concat is O(n), there is a chance of reusing contents.
+					util.fromSpecific(self)(items take index concat items.drop(index + 1))
+				case _ if !self.knownStrict      => util.fromSpecific(self)(Iterators.removed(self.iterator, index))
+				case _ if knownEmpty(self)       => outOfBounds_!(index, self)
 				case seq :LinearSeq[E] =>
 					//we hope that ++: reuses the right operand, and that iterableFactory.from returns the argument
 					@tailrec def drop(n :Int, seq :LinearSeq[E]) :LinearSeq[E] =
@@ -3497,19 +3497,12 @@ object extensions extends extensions {
 								outOfBounds_!(Int.MaxValue)
 							t.tail
 						}
-					if (tail.isEmpty)
-						util.fromSpecific(self)(seq.take(index))
-					else if (index == 0)
-						util.fromSpecific(self)(seq.tail)
-					else
-						util.fromSpecific(self)(self.iterator.take(index) ++: tail)
-				case _ :View[_] =>
-					util.fromSpecific(self)(Views.removed(self, index))
+					if (tail.isEmpty) self.take(index)
+					else if (index == 0) self.tail
+					else util.fromSpecific(self)(self.iterator.take(index) ++: tail)
 				case _ =>
 					util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			}
-
-		//todo: use util.specificBuilder
 		//todo: make the second parameter length instead, as it is inconsistent with buffer
 		override def removed(from :Int, until :Int) :C =// :CC[E] =
 			if (until <= 0 | until <= from || knownEmpty(self))
@@ -3524,13 +3517,17 @@ object extensions extends extensions {
 					self match {
 						case sugared :SugaredIterable[E] =>
 							util.fromSpecific(self)(sugared.removed(from, until))
-						case _ if self.knownLazy =>
-							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
+						case _ :View[_] =>
+							util.fromSpecific(self)(Views.removed(self, nonNegFrom, nonNegUntil))
+						case HasFastSlice(items)         => //Even if concat is O(n), there is a chance of reusing contents.
+							util.fromSpecific(self)(items take nonNegFrom concat items.drop(nonNegUntil))
 						case list :List[E] =>
 							@tailrec def reversePrefix(seq :List[E], len :Int, acc :List[E]) :List[E] =
 								if (len <= 0 || seq.isEmpty) acc
 								else reversePrefix(seq.tail, len - 1, seq.head::acc)
 							util.fromSpecific(self)(reversePrefix(list, from, Nil) reverse_::: list.drop(until))
+						case _ if !self.knownStrict =>
+							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 						case seq :LinearSeq[E] =>
 							val tail = seq.drop(until)
 							if (tail.isEmpty)
@@ -3540,8 +3537,6 @@ object extensions extends extensions {
 							else {
 								util.fromSpecific(self)(self.iterator.take(from) ++: tail)
 							}
-						case _ :View[_] =>
-							util.fromSpecific(self)(Views.removed(self, nonNegFrom, nonNegUntil))
 						case _ =>
 							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 					}
@@ -3588,9 +3583,9 @@ object extensions extends extensions {
 	  */
 	sealed trait SeqExtensionMethods[E, CC[_]] extends Any {
 		/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
-		  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
-		  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
-		  * which may make it slightly more efficient than `patch`.
+		  * It does ''not'' however use `size` method and may be implemented in a different manner, which may pre-reserve
+		  * memory for the returned sequence, if its implementation allows, and be slightly more efficient than `patch`.
+		  * The index must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown.
 		  */
 		/* Consider: should index be permissive in regard to the valid range? in updated it's not; in patch it is.
 		 * I don't like the semantics of patch: permissive indices should result in no effect for the indices
@@ -3773,14 +3768,8 @@ object extensions extends extensions {
 			else {
 				val shift = splitAt(length, n)
 				self match {
-					case _ if self.knownLazy =>
-						lazy val rotated = {
-							val buffer = TemporaryBuffer.from(self)
-                            buffer.rotateLeft(from, until)(shift)
-							buffer
-						}
-						self.iterableFactory from View.fromIteratorProvider(() => rotated.iterator)
-					case seq :Seq[E] if updatePreferred(seq, length) => //need to be a seq so that updated returns a Seq
+					//Needs to be a Seq so that updated returns a Seq.
+					case seq :Seq[E] if seq.knownStrict && updatePreferred(seq, length) =>
 						def rotateByUpdates(seq :Seq[E]) :CC[E] = {
 							val shiftRight = until0 - from0 - shift
 							val split = from0 + shift
@@ -3838,6 +3827,13 @@ object extensions extends extensions {
 						}
 						rotateDirectRead
 
+					case _ if !self.knownStrict => //knownStrict implied by preceding match patterns.
+						lazy val rotated = {
+							val buffer = TemporaryBuffer.from(self)
+                            buffer.rotateLeft(from, until)(shift)
+							buffer
+						}
+						self.iterableFactory from View.fromIteratorProvider(() => rotated.iterator)
 					case seq :collection.LinearSeq[E] =>
 						def rotateLinearSeq(seq :collection.LinearSeq[E]) :CC[E] = {
 							val prefix = TemporaryBuffer.ofCapacity[E](from)
