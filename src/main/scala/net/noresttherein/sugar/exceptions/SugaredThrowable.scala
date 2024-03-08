@@ -1,6 +1,8 @@
 package net.noresttherein.sugar.exceptions
 
 import java.io.{PrintStream, PrintWriter}
+import java.lang.Character.MAX_RADIX
+import java.util.UUID
 
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
@@ -10,9 +12,9 @@ import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.text.{EOL, StringWriter}
+import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.vars.{Maybe, Opt}
+import net.noresttherein.sugar.vars.Opt
 
 
 
@@ -35,10 +37,10 @@ import net.noresttherein.sugar.vars.{Maybe, Opt}
   *         This exception has a [[net.noresttherein.sugar.exceptions.LazyThrowableFactory factory]] object
   *         of the same name, which provides `apply` methods for all combinations of arguments
   *         `(message: => String, cause: Throwable)`.
-  */
+  */ //todo: generate a hash id of the exception.
 trait SugaredThrowable extends Throwable with Cloneable {
 
-	/** A reusable immutable sequence wrapping the throwable's stack trace */
+	/** A constant immutable sequence wrapping the throwable's stack trace */
 	lazy val stackTrace :StackTrace = getStackTrace match {
 		case null  => StackTrace.empty
 		case array => StackTrace(array)
@@ -51,8 +53,18 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	  */
 	val context :Seq[StackContext] = StackContext.get
 
+	/** A unique id of this `Throwable`, included in it's `toString` representation. Allows propagating
+	  * an error id to the user for future correlation with logged information.
+	  */
+	val id :UUID = UUID.randomUUID
+
+	/** A hash string representation of this throwable's [[net.noresttherein.sugar.exceptions.SugaredThrowable.id id]]. */
+	def idString :String =
+		java.lang.Long.toString(id.getMostSignificantBits, MAX_RADIX).toUpperCase +
+			java.lang.Long.toString(id.getLeastSignificantBits, MAX_RADIX).toUpperCase
+
 	/** Stack traces of this exception and all its causes, with the stack for each exception omitting the frames
-	  * already listed by previous (wrapping exception). If an exception doesn't have a stack trace,
+	  * already listed by previous (wrapping) exception. If an exception doesn't have a stack trace,
 	  * it is represented by an empty sequence. The first element is the stack trace of this very exception,
 	  * from the point of its creation to the initial execution. Each subsequent exception omits the longest
 	  * suffix (initial call sequence) common with the previous exception on the list
@@ -79,14 +91,6 @@ trait SugaredThrowable extends Throwable with Cloneable {
 
 	/** Standard [[Throwable.getCause getCause]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
 	def cause :Opt[Throwable] = Opt(getCause)
-
-//	/** Sets the [[SugaredThrowable.cause cause]] of this [[Throwable]] using
-//	  * [[Throwable.initCause initCause]] method. This method can be called at most once, and only
-//	  * if a `Throwable` cause was not given as a constructor parameter of this `Throwable`.
-//	  */
-//	def cause_=(cause :Throwable) :Unit = super.initCause(cause)
-//
-//	override def initCause(e :Throwable) :SugaredThrowable = { super.initCause(e); this }
 
 	/** Standard [[Throwable.getMessage getMessage]] wrapped in an [[net.noresttherein.sugar.vars.Opt Opt]]. */
 	def message :Opt[String] = Opt(getMessage)
@@ -228,7 +232,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	def printReverseStackTrace(s :PrintStream) :Unit = s.print(reverseStackTraceString)
 
 	override def toString :String = {
-		val s :String = className
+		val s :String = "#" + idString + "/" + className
 		val message :String = getLocalizedMessage
 		if (message != null) s + ": " + message else s
 	}
