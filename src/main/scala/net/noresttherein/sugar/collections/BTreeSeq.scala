@@ -243,7 +243,7 @@ sealed trait BTreeSeq[+E]
 				var nextRank                     = MaxChildren      //the number of children in the currently built Node
 				var leaves   :Array[BTreeSeq[U]] = null             //the children array for the next built Node
 				var prefixes :Array[Int]         = CompletePrefixes //the prefixes array for the next built Node
-				var index                        = until             //position in the input array
+				var index                        = until            //position in the input array
 				//The inner loop copies copies only Nodes, so we must stop earlier if we need to add incomplete leaves.
 				// We guarantee this way that we won't end up with less than Rank values after the last built Node.
 				val outerWhileStop = {

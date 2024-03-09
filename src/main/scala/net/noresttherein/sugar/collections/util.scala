@@ -207,6 +207,8 @@ private[sugar] object IndexedIterable {
 			case seq :collection.IndexedSeqOps[X, CC, CC[X]] @unchecked => seq match {
 				case _ :Vector[X] =>
 					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+				case _ :Fingers[X] =>
+					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
 				case _ if seq.length <= FastUpdateThreshold =>
 					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
 				case _ => No
@@ -315,7 +317,12 @@ private object HasFastSlice {
 	def apply[A](items :IterableOnce[A]) :Boolean = items match { //don't use unapply to avoid creating wrappers.
 		case _ if { val size = items.knownSize; size >= 0 & size <= fastSliceSize } => true
 		case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
-			case _ :IndexedSeqView[_] | _ :Vector[_] | _ :RelayArrayRange[_] => true
+			case _ :IndexedSeqView[_] | _ :Vector[_] => true
+			case _ :RelayArrayRange[_] | _ :Fingers[_] | _ :ArrayLikeSlice[_] | _ :SubstringOps[_] => true
+			case _ => false
+		}
+		case _ :SugaredIterable[_] => items match {
+			case _ :IndexedSet[_] | _ :StringSet | _ :StringMap[_] => true
 			case _ => false
 		}
 		case  _ :HasFastSlice[_] | _ :IndexedIterator[_] | _ :IndexedReverseIterator[_] => true
@@ -391,7 +398,7 @@ private object HasFastSlice {
 		items match {
 			case it :Iterable[A] => quickSlice(it, from, until) match {
 				case Yes(result) => result
-				case _           => items.iterator.slice(from, until)
+				case _           => slice(items.iterator, from, until)
 			}
 			case _ => slice(items.iterator, from, until)
 		}
@@ -664,7 +671,7 @@ private object Defaults {
 	def inserted[E, CC[_], C](self :collection.SeqOps[E, CC, C], index :Int, elem :E) :CC[E] = {
 		val size = self.knownSize
 		if (index < 0 | size >= 0 & index > size)
-			outOfBounds_!(self.className + "|" + size + "|.inserted(" + index + ", _)")
+			outOfBounds_!(errorString(self) + ".inserted(" + index + ", _)")
 		else if (index == 0)
 			self.prepended(elem)
 		else if (size >= 0 & index == size)

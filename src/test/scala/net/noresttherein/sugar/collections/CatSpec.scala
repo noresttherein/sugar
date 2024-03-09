@@ -9,7 +9,7 @@ import org.scalacheck.{Arbitrary, Gen}
 
 
 
-object CatSpec extends UntaggedSeqProps[Cat]("Cat", Cat) with SugaredSeqProps[Cat, Dummy] {
+object CatSpec extends UntaggedSeqProps[Cat](Cat) with SugaredSeqProps[Cat, Dummy] {
 	override def knowsSize = true
 
 	sealed abstract class Build[+E] {

@@ -194,14 +194,6 @@ private trait RelayArrayPrivates[@specialized(ElemTypes) +E] extends RelayArray[
 		if (Unboxed(elementType) isAssignableFrom Unboxed(tpe)) newArray(length).asInstanceOf[Array[U]]
 		else new Array[Any](length).asInstanceOf[Array[U]]
 
-	//todo: remove these once the bug is fixed in SeqOps
-	override def startsWith[B >: E](that :IterableOnce[B], offset :Int) :Boolean =
-		offset >= 0 && offset <= length && super.startsWith(that, offset)
-
-	override def indexOfSlice[B >: E](that :collection.Seq[B], from :Int) :Int =
-		if (from > length) -1
-		else super.indexOfSlice(that, math.max(0, from))
-
 	override def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
 		cyclicCopyRangeToArray(xs, start, 0, len)
 

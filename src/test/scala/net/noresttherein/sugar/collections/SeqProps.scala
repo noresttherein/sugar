@@ -20,6 +20,7 @@ import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, Pro
 
 
 trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collection.Seq, E] {
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	import scala.collection.Seq
 
 	protected implicit def anyEvidence :E[Any]
@@ -96,33 +97,28 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 	}
 	property("indexOfSlice") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
 		val indexed = expect.toVector //List.indexOfSlice is buggy in 2.13.10
-		all(
-			(for {
-				from <- expect.indices
-				until <- from to expect.length
-			} yield {
-				val slice = expect.slice(from, until)
-				val i = expect.indexOfSlice(slice)
-				((subject.indexOfSlice(slice) ?= i) :| slice.toString + "@" + i) &&
-					((subject.indexOfSlice(slice, from) ?= from) :| "[" + from + ", " + until + ")@" + from)
-			})
-		:_*) && forAll { (x :Seq[Int], i :Short) =>
-			subject.indexOfSlice(x, i & 0xffff) ?= indexed.indexOfSlice(x, i & 0xffff)
+		forAll(Gen.choose(0, expect.length), Gen.choose(0, expect.length)) { (i :Int, j :Int) =>
+			val from  = math.min(i, j)
+			val until = math.max(i, j)
+			val slice = indexed.slice(from, until)
+			val idx = indexed.indexOfSlice(slice)
+			((subject.indexOfSlice(slice) ?= idx) lbl s"$slice@$idx") &&
+				((subject.indexOfSlice(slice, from) ?= from) lbl s"[$from, $until)@$from")
+		} && forAll { (pattern :Seq[Int], i :Short) =>
+			subject.indexOfSlice(pattern, i & 0xfff) ?= indexed.indexOfSlice(pattern, i & 0xfff)
 		}
 	}
 	property("lastIndexOfSlice") = forAllChecked { (expect :Seq[Int], subject :C[Int]) =>
-			all(
-			(for {
-				from <- expect.indices
-				until <- from to expect.length
-			} yield {
-				val slice = expect.slice(from, until)
-				val i = expect.lastIndexOfSlice(slice)
-				((subject.lastIndexOfSlice(slice) ?= i) :| slice.toString + "@" + i) &&
-					((subject.lastIndexOfSlice(slice, from) ?= from) :| "[" + from + ", " + until + ")@" + from)
-			})
-		:_*) && forAll { (x :Seq[Int], i :Short) =>
-			subject.lastIndexOfSlice(x, i & 0xffff) ?= expect.lastIndexOfSlice(x, i & 0xffff)
+		val indexed = expect.toVector
+		forAll(Gen.choose(0, expect.length), Gen.choose(0, expect.length)) { (i :Int, j :Int) =>
+			val from  = math.min(i, j)
+			val until = math.max(i, j)
+			val slice = indexed.slice(from, until)
+			val idx   = indexed.lastIndexOfSlice(slice)
+			((subject.lastIndexOfSlice(slice) ?= idx) lbl s"$slice@$idx") &&
+				((subject.lastIndexOfSlice(slice, from) ?= from) lbl s"[$from, $until)@$from")
+		} && forAll { (pattern :Seq[Int], i :Short) =>
+			subject.lastIndexOfSlice(pattern, i & 0xfff) ?= indexed.lastIndexOfSlice(pattern, i & 0xfff)
 		}
 	}
 
@@ -229,7 +225,6 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 		case _                           => seq.mkString(seq.localClassName + "(", ", ", ")")
 	}
 
-	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	//todo: copy&paste to RankingSpec
 	protected override def orderedProps[T, F, M, FM](expect :Seq[T], result :Seq[T])
 	                                                (implicit tag :ClassTag[T], arbitrary :Arbitrary[T], ev :E[T],
@@ -303,6 +298,7 @@ trait SeqProps[C[T] <: collection.Seq[T], E[_]] extends OrderedProps[C, collecti
 abstract class UntaggedSeqProps[C[T] <: collection.Seq[T]](name :String, factory :IterableFactory[C])
 	extends IterableProps[C, collection.Seq](name)(factory, Vector) with SeqProps[C, Dummy]
 {
+	def this(factory :IterableFactory[C]) = this(factory.toString, factory)
 //	override val referenceFactory :IterableFactory[collection.Seq] = if (knowsSize) Vector else List
 	protected override implicit def anyEvidence :Dummy[Any] = new Dummy
 }

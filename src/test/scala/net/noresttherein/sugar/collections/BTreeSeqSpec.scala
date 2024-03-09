@@ -11,7 +11,7 @@ import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
 /**
   * @author Marcin Mościcki
   */
-object BTreeSeqSpec extends UntaggedSeqProps[BTreeSeq]("BTreeSeq", BTreeSeq) {
+object BTreeSeqSpec extends UntaggedSeqProps[BTreeSeq](BTreeSeq) {
 	//Set BTreeSeq.Rank to 4 or 8 for testing purposes to create deeper trees!
 
 	protected override def knowsSize = true

@@ -9,11 +9,11 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.reflect.ClassTag
 import scala.util.{Success, Try}
 
+import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop.{AnyOperators, all, forAll}
 import org.scalacheck.commands.Commands
 import org.scalacheck.util.{Buildable, ConsoleReporter, Pretty}
-
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map, filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value}
 import net.noresttherein.sugar.collections.extensions.FactoryExtension
@@ -31,6 +31,8 @@ import net.noresttherein.sugar.testing.scalacheck.typeClasses._
   * @tparam E type constructor for evidence needed to create an instance of `C[X]`.
   */
 abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](name :String) extends Properties(name) {
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
+
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(3, 140)).withMinSuccessfulTests(500).withMaxSize(64)
 
@@ -197,7 +199,6 @@ abstract class GenericIterableProps[C[T] <: S[T], S[T] <: Iterable[T], E[_]](nam
 			"splitAt"           lbl_: forAll { n :Int => }
 */		)
 
-	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	private def copyToArrayProp[T :Arbitrary :ClassTag](subject :C[T], ordered :Iterable[T]) :Prop =
 		forAll { (capacity :Short, start :Int, len :Int) =>
 			//Semantics of copyToArray in the standard implementation are inconsistent
@@ -683,6 +684,7 @@ abstract class ClassTagIterableProps[C[T] <: S[T], S[T] <: Iterable[T]]
   * @tparam E type constructor for evidence needed to create an instance of `C[X]`.
   */
 trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericIterableProps[C, S, E] {
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 
 	//todo: move this up to GenericIterableProps and remove this trait altogether, at least once all our tests work.
 	protected def orderedProps[T, F, M, FM](expect :S[T], result :S[T])
@@ -783,6 +785,7 @@ trait OrderedProps[C[T] <: S[T], S[T] <: Iterable[T], E[T]] extends GenericItera
 trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, S, S[X]], S[X] <: Iterable[X], E[_]]
 	extends GenericIterableProps[C, S, E]
 {
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	property("removed(Int)") = forAllIndices[Int] { (subject :C[Int], index :Int) =>
 		val vec = subject to Vector
 		if (index < 0 || index >= vec.length)
@@ -800,7 +803,6 @@ trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, S, S[X]], S[X
 		test(expect to S, result) lbl s"removed($from, $until)" lbl s"Input: $subject :${subject.localClassName}"
 	}
 
-	import net.noresttherein.sugar.testing.scalacheck.noShrinking
 	property("copyRangeToArray") = forAll { (s :C[Int]) => copyRangeToArrayProp(s, s to Vector) }
 
 
@@ -808,15 +810,15 @@ trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, S, S[X]], S[X
 		forAll { (capacity :Short, start :Int, from :Int, len :Int) =>
 			val cap       = capacity.toInt.abs
 			val from0     = math.max(0, from)
-			val specific1 = Array.fill(cap)(Arbitrary.arbitrary[T].sample.get)
+			val specific1 = Array.const(cap)(Arbitrary.arbitrary[T].sample.get)
 			val specific2 = specific1.clone
 			val generic1  = specific1.map[Any](_.toString)
 			val generic2  = generic1.clone()
 			//For some strange reason the check for zero array size is not made before checking for negative start.
 			if (start < 0 && from0 < subject.size && (len max 0 min subject.size - from0) > 0)
-				(s"copyRangeToArray(${specific1.mkString("Array[Int](", ",", ")")}, $start, $from, $len)" lbl_:
+				(s"copyRangeToArray(Array[Int]|${specific2.length}|, $start, $from, $len)" lbl_:
 					subject.copyRangeToArray(specific1, start, from, len).throws[IndexOutOfBoundsException]) &&
-					(s"copyRangeToArray(${generic1.mkString("Array[Any](", ",", ")")}, $start, $from, $len)" lbl_:
+					(s"copyRangeToArray(Array[Any]|${generic2.length}|, $start, $from, $len)" lbl_:
 						subject.copyRangeToArray(generic1, start, from, len).throws[IndexOutOfBoundsException])
 			else {
 				val copiedSpecific1 = ordered.drop(from).copyToArray(specific1, start, len)
@@ -826,10 +828,10 @@ trait SugaredIterableProps[C[X] <: S[X] with SugaredIterableOps[X, S, S[X]], S[X
 				all(
 					(copiedSpecific1 =? copiedSpecific2) && (
 						ArraySeq.unsafeWrapArray(specific1) =? ArraySeq.unsafeWrapArray(specific2)
-						) lbl s"copyRangeToArray(${specific2.mkString("Array[Int](", ", ", ")")}, $start, $from, $len)",
+						) lbl s"copyRangeToArray(Array[Int]|${specific2.length}|, $start, $from, $len)",
 					(copiedGeneric1 =? copiedGeneric2) && (
 						ArraySeq.unsafeWrapArray(specific1) =? ArraySeq.unsafeWrapArray(specific2)
-						) lbl s"copyRangeToArray(${specific2.mkString("Array[Any](", ", ", ")")}, $start, $from, $len)"
+						) lbl s"copyRangeToArray(Array[Any]|${generic2.length}|, $start, $from, $len)"
 				)
 			}
 		}

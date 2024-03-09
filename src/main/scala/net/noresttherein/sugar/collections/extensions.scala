@@ -3504,7 +3504,7 @@ object extensions extends extensions {
 					util.fromSpecific(self)(Iterators.removed(self.iterator, index))
 			}
 		//todo: make the second parameter length instead, as it is inconsistent with buffer
-		override def removed(from :Int, until :Int) :C =// :CC[E] =
+		override def removed(from :Int, until :Int) :C = //Consider: renaming to takeOut or moving to Seq
 			if (until <= 0 | until <= from || knownEmpty(self))
 				coll
 			else {
@@ -6083,19 +6083,23 @@ object extensions extends extensions {
 	{
 		@inline def single[E](elem :E) :C[E] = one(elem)
 
-		def one[E](elem :E) :C[E] =
-			if (self eq IndexedSeq) ConstIndexedSeq(elem, 1).castCons[C]
-			else if (self eq RelayArray) RelayArray.one(elem).castCons[C]
-			else if ((self eq Buffer) || (self eq mutable.Seq)) (Buffer.empty[E] += elem).castCons[C]
-			else if ((self eq ArrayBuffer) || (self eq IndexedBuffer) || (self eq mutable.IndexedSeq))
-				(new ArrayBuffer[E] += elem).castCons[C]
-			else if (self eq ListBuffer) (ListBuffer.empty[E] += elem).castFrom[ListBuffer[E], C[E]]
-			else self.empty[E] :+ elem
+		def one[E](elem :E) :C[E] = (self :IterableFactory[IterableOnce]) match {
+			case Seq                                              => (elem::Nil).castCons[C]
+			case IndexedSeq                                       => ConstIndexedSeq(elem, 1).castCons[C]
+			case RelayArray                                       => RelayArray.one(elem).castCons[C]
+			case Fingers                                          => Fingers.one(elem).castCons[C]
+			case b :BufferFactory[Buffer @unchecked]              => ((b :SeqFactory[Buffer]).empty[E] += elem).castCons[C]
+			case Buffer | mutable.Seq                             => (DefaultBuffer.empty[E] += elem).castCons[C]
+			case ArrayBuffer | IndexedBuffer | mutable.IndexedSeq => (new AliasingArrayBuffer[E] += elem).castCons[C]
+			case ListBuffer                                       => (ListBuffer.empty[E] += elem).castCons[C]
+			case _                                                => elem +: self.empty[E]
+		}
 
 		def two[E](first :E, second :E) :C[E] = (self :Any) match {
 			case Seq                  => Prepended2Seq(first, second, Nil).castCons[C]
 			case IndexedSeq           => Prepended2Seq(first, second, IndexedSeq.empty).castCons[C]
 			case RelayArray           => RelayArray.two(first, second).castCons[C]
+			case Fingers              => Fingers.two(first, second).castCons[C]
 			case Buffer | mutable.Seq => (Buffer.empty[E] += first += second).castCons[C]
 			case ListBuffer           => (new ListBuffer[E] += first += second).castCons[C]
 			case ArrayBuffer | mutable.IndexedSeq | IndexedBuffer =>

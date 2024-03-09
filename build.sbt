@@ -20,10 +20,13 @@ Test / sourceGenerators += Def.task {
 
 	//Create a copy of class MatrixBuffer which uses a much lower max length for a single dimension array
 	// in order to comfortably test all border cases on small data sets.
-	val input = (Compile / sourceDirectory).value / "scala" / TLD / domain / name.value / "collections" / "MatrixBuffer.scala"
-	val output = (Test / sourceManaged).value / TLD / domain / name.value / "collections" / "TestMatrixBuffer.scala"
+	val collectionsSourceDir = (Compile / sourceDirectory).value / "scala" / TLD / domain / name.value / "collections"
+	val collectionsTestManagedDir = (Test / sourceManaged).value / TLD / domain / name.value / "collections"
 
-	IO.reader(input) { reader =>
+	val MatrixBuffer     = collectionsSourceDir / "MatrixBuffer.scala"
+	val TestMatrixBuffer = collectionsTestManagedDir / "TestMatrixBuffer.scala"
+
+	IO.reader(MatrixBuffer) { reader =>
 		val lines = reader.lines.toList.asScala.map { line =>
 			line.replaceAllLiterally("MatrixBuffer", "TestMatrixBuffer")
 			    .replaceAll("final val Dim1Bits = \\d*", "final val Dim1Bits = 4")
@@ -36,7 +39,23 @@ Test / sourceGenerators += Def.task {
 		}
 		IO.writeLines(output, lines)
 	}
-	Seq(output)
+
+	//Create a copy of Fingers sequence using a much lower tree rank/order, so that relatively small sequences
+	// are represented by deep trees, in order to comfortably test the implementations for higher levels.
+	val Fingers     = collectionsSourceDir / "Fingers.scala"
+	val TestFingers = collectionsTestManagedDir / "TestFingers.scala"
+
+	IO.reader(Fingers) { reader =>
+		val lines = reader.lines.toList.asScala.map { line =>
+			line.replaceAllLiterally("Fingers", "TestFingers")
+			    .replaceAllLiterally("//assert", "assert")
+			    .replaceAll("//\\w*override def toString", "\toverride def toString")
+			    .replaceAll("final val Rank = \\d*", "final val Rank = 4")
+		}
+		IO.writeLines(TestFingers, lines)
+	}
+
+	Seq(TestFingers, TestCuboid, TestMatrixBuffer)
 }.taskValue
 
 
@@ -99,6 +118,3 @@ scalacOptions ++= Seq(
 	"-language:reflectiveCalls",
 	"-language:existentials"
 )
-
-
-
