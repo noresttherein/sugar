@@ -48,11 +48,11 @@ object Optionally extends OptionallyNoneImplicit {
 	  *     def method[X :TypeClass[CanSing]#Optionally](x :X) =
 	  *         Optionally[CanSing[X]].opt.foreach { _.sing("Drunken sailor") }
 	  * }}}
-	  */
+	  */ //todo: rename to something shorter.
 	type TypeClass[F[_]] = {
-		/** A type constructor for [[net.noresttherein.sugar.witness.Optionally Optionally]]`[F[T]]`,
-		  * where `F` is a type class/type constructor specified as the preceding argument to `TypeCass`.
-		  */
+//		/** A type constructor for [[net.noresttherein.sugar.witness.Optionally Optionally]]`[F[T]]`,
+//		  * where `F` is a type class/type constructor specified as the preceding argument to `TypeCass`.
+//		  */
 		type Optionally[X] = witness.Optionally[F[X]]
 	}
 

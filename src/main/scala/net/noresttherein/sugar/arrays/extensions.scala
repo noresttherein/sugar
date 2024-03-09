@@ -11,21 +11,15 @@ import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
-import net.noresttherein.sugar.arrays.ArrayLike.{ArrayLikeExtension, ArrayLikeToSeqConversion}
-import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
-import net.noresttherein.sugar.arrays.IArray.{BooleanIArrayExtension, ByteIArrayExtension, CharIArrayExtension, DoubleIArrayExtension, FloatIArrayExtension, IArrayExtension, IntIArrayExtension, LongIArrayExtension, RefIArrayExtension, ShortIArrayExtension}
-import net.noresttherein.sugar.arrays.IArrayLike.IArrayLikeExtension
-import net.noresttherein.sugar.arrays.IRefArray.IRefArrayExtension
-import net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension
-import net.noresttherein.sugar.arrays.RefArray.RefArrayExtension
-import net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension
+import net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeToSeqConversion
+import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayExtensionConversion, ArrayExtensionConversionPrototype, IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArraySlice, ArrayStepper}
+import net.noresttherein.sugar.collections.ArraySlice
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.illegal_!
 import net.noresttherein.sugar.numeric.BitLogic
 import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.classes
@@ -65,7 +59,7 @@ trait extensions extends IArrayExtensions with IRefArrayExtensions with RefArray
 
 
 
-/** Extension classes for working with [[net.noresttherein.sugar.array.ArrayLike ArrayLike]] subtypes
+/** Extension classes for working with [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]] subtypes
   * (including `Array`s). Implicit conversions granting these extension methods are available, as an exception,
   * from package object [[net.noresttherein.sugar.arrays arrays]].
   */
@@ -645,8 +639,6 @@ object extensions {
 						Array.copyOfRanges(self :ArrayLike[U], 0, index + 1, self, index, length)
 					else
 						Array.copyOfRanges(self :ArrayLike[U], 0, index, self, index - 1, length)
-	//				val res = Array.copyOfRange(self :ArrayLike[A], 0, index, length + 1)
-	//				ArrayLike.copy(self, index, res, index + 1, length - index)
 				res(index) = elem
 				res
 			}
@@ -684,7 +676,6 @@ object extensions {
 				result
 			} else {
 				val res = Array.newBuilder[U]
-	//				val res = ArrayAsSeq.ArrayBuilder.
 				res sizeHint self.length + 2
 				if (index == self.length)
 					res addAll self
@@ -1075,7 +1066,6 @@ object extensions {
 				override def newSpecificBuilder = ArrayFactory.newBuilderLike(this.coll)
 				override def fromSpecific(coll :IterableOnce[E]) =
 					ArrayFactory.from(coll)(ClassTag[E](this.coll.getClass.getComponentType))
-	//					Array.from(coll)(ClassTag[E](this.coll.getClass.getComponentType))
 			}
 		private def readResolve :AnyRef = Array.ArrayIsSeq
 	}
@@ -1523,12 +1513,6 @@ object extensions {
 		  */
 		final def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int, elementClass :Class[E]) :Array[E] =
-//			if (from1 < 0 | from2 < 0 || from1 > array1.length || from2 > array2.length)
-//				throw new ArrayIndexOutOfBoundsException(
-//					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
-//						s"${array2.localClassName}<${array2.length}>, $from2, $until2)."
-//				)
-//			else
 		{
 			val from1InRange  = math.min(math.max(from1, 0), array1.length)
 			val from2InRange  = math.min(math.max(from2, 0), array2.length)
@@ -1591,12 +1575,6 @@ object extensions {
 		final def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int, elementClass :Class[E], newLength :Int)
 				:Array[E] =
-//			if (from1 < 0 | from2 < 0 || from1 > array1.length || from2 > array2.length)
-//				throw new ArrayIndexOutOfBoundsException(
-//					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
-//						s"${array2.localClassName}<${array2.length}>, $from2, $until2)."
-//				)
-//			else
 		{
 			val from1InRange  = math.min(math.max(from1, 0), array1.length)
 			val from2InRange  = math.min(math.max(from2, 0), array2.length)
@@ -1777,14 +1755,6 @@ object extensions {
 		final def copyOfRanges[E](array1 :ArrayLike[E], from1 :Int, until1 :Int,
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int,
 		                          array3 :ArrayLike[E], from3 :Int, until3 :Int, elementClass :Class[E]) :Array[E] =
-//			if (from1 < 0 | from2 < 0 | from3 < 0 || from1 > array1.length || from2 > array2.length || from3 > array3
-//				.length)
-//				throw new ArrayIndexOutOfBoundsException(
-//					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
-//						s"${array2.localClassName}<${array2.length}>, $from2, $until2, " +
-//						s"${array3.localClassName}<${array3.length}>, $from3, $until3)."
-//				)
-//			else
 		{
 			val from1InRange  = math.min(math.max(from1, 0), array1.length)
 			val from2InRange  = math.min(math.max(from2, 0), array2.length)
@@ -1866,14 +1836,6 @@ object extensions {
 		                          array2 :ArrayLike[E], from2 :Int, until2 :Int,
 		                          array3 :ArrayLike[E], from3 :Int, until3 :Int,
 		                          elementClass :Class[E], newLength :Int) :Array[E] =
-//			if (from1 < 0 | from2 < 0 | from3 < 0 || from1 > array1.length || from2 > array2.length || from3 > array3
-//				.length)
-//				throw new ArrayIndexOutOfBoundsException(
-//					s"Array.copyOfRanges(${array1.localClassName}<${array1.length}>, $from1, $until1, " +
-//						s"${array2.localClassName}<${array2.length}>, $from2, $until2, " +
-//						s"${array3.localClassName}<${array3.length}>, $from3, $until3)."
-//				)
-//			else
 		{
 			val from1InRange  = math.min(math.max(from1, 0), array1.length)
 			val from2InRange  = math.min(math.max(from2, 0), array2.length)
@@ -1969,11 +1931,6 @@ object extensions {
 			} else
 				simpleCopy
 		}
-
-//		@inline private def fillIfUnit(array :ArrayLike[_]) :array.type = array match {
-//			case units :Array[Unit] => units.fill(()); array
-//			case _ => array
-//		}
 
 
 		/** Copies a maximum of `len` elements from one array to another, wrapping at array ends.
@@ -2112,197 +2069,6 @@ object extensions {
 				)
 			else
 				cyclicCopy(src, srcPos, dst, dstPos, len)
-/*
-
-	private def l2rCopy(src :Array[Unknown], srcPos :Int, dst :Array[Unknown], dstPos :Int, len :Int) :Unit = {
-		(src :Array[_], dst :Array[_]) match {
-			case (a1 :Array[AnyRef], a2 :Array[AnyRef]) =>
-				def copyRefs() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyRefs()
-			case (a1 :Array[Int], a2 :Array[Int]) =>
-				def copyInts() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyInts()
-			case (a1 :Array[Long], a2 :Array[Long]) =>
-				def copyLongs() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyLongs()
-			case (a1 :Array[Double], a2 :Array[Double]) =>
-				def copyDoubles() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyDoubles()
-			case (a1 :Array[Char], a2 :Array[Char]) =>
-				def copyChars() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyChars()
-			case (a1 :Array[Byte], a2 :Array[Byte]) =>
-				def copyBytes() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyBytes()
-			case (a1 :Array[Float], a2 :Array[Float]) =>
-				def copyFloats() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyFloats()
-			case (a1 :Array[Short], a2 :Array[Short]) =>
-				def copyShorts() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyShorts()
-			case (a1 :Array[Boolean], a2 :Array[Boolean]) =>
-				def copyBooleans() :Unit = {
-					var i = 0
-					while (i < len) {
-						a2(dstPos + i) = a1(srcPos + i)
-						i += 1
-					}
-				}
-				copyBooleans()
-			case _ =>
-				def copyUnknown() :Unit = {
-					var i = 0
-					while (i < len) {
-						dst(dstPos + i) = src(srcPos + i)
-						i += 1
-					}
-				}
-				copyUnknown()
-		}
-	}
-
-	private def r2lCopy(src :Array[Unknown], srcPos :Int, dst :Array[Unknown], dstPos :Int, len :Int) :Unit =
-		(src :Array[_], dst :Array[_]) match {
-			case (a1 :Array[AnyRef], a2 :Array[AnyRef]) =>
-				def copyRefs() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyRefs()
-			case (a1 :Array[Int], a2 :Array[Int]) =>
-				def copyInts() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyInts()
-			case (a1 :Array[Long], a2 :Array[Long]) =>
-				def copyLongs() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyLongs()
-			case (a1 :Array[Double], a2 :Array[Double]) =>
-				def copyDoubles() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyDoubles()
-			case (a1 :Array[Char], a2 :Array[Char]) =>
-				def copyChars() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyChars()
-			case (a1 :Array[Byte], a2 :Array[Byte]) =>
-				def copyBytes() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyBytes()
-			case (a1 :Array[Float], a2 :Array[Float]) =>
-				def copyFloats() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyFloats()
-			case (a1 :Array[Short], a2 :Array[Short]) =>
-				def copyShorts() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyShorts()
-			case (a1 :Array[Boolean], a2 :Array[Boolean]) =>
-				def copyBooleans() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						a2(dstPos + i) = a1(srcPos + i)
-					}
-				}
-				copyBooleans()
-			case _ =>
-				def copyUnknown() :Unit = {
-					var i = len
-					while (i > 0) {
-						i -= 1
-						dst(dstPos + i) = src(srcPos + i)
-					}
-				}
-				copyUnknown()
-		}
-*/
 
 		/** A single element `Array[E]`. */
 		final def one[E :ClassTag](elem :E) :Array[E] = {
@@ -2570,14 +2336,14 @@ object extensions {
 	}
 
 	sealed trait ArrayLikeExtensionConversion[Arr[X] <: ArrayLike[X], E]
-		extends (Arr[E] => ArrayLikeExtension[Arr, E])
+		extends (Arr[E] => ArrayLike.ArrayLikeExtension[Arr, E])
 	{
-		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :ArrayLikeExtension[Arr, E] =
-			new ArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
+		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :ArrayLike.ArrayLikeExtension[Arr, E] =
+			new ArrayLike.ArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
 	}
 	private val ArrayLikeExtensionConversionPrototype :ArrayLikeExtensionConversion[ArrayLike, Unknown] =
-		new PriorityConversion.Wrapped[ArrayLike[Unknown], ArrayLikeExtension[ArrayLike, Unknown]](
-			(arr :ArrayLike[Unknown]) => new ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+		new PriorityConversion.Wrapped[ArrayLike[Unknown], ArrayLike.ArrayLikeExtension[ArrayLike, Unknown]](
+			(arr :ArrayLike[Unknown]) => new ArrayLike.ArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
 		) with ArrayLikeExtensionConversion[ArrayLike, Unknown]
 
 
@@ -2619,14 +2385,14 @@ object extensions {
 	}
 
 	sealed trait IArrayLikeExtensionConversion[Arr[X] <: IArrayLike[X], E]
-		extends (Arr[E] => IArrayLikeExtension[Arr, E])
+		extends (Arr[E] => IArrayLike.IArrayLikeExtension[Arr, E])
 	{
-		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :IArrayLikeExtension[Arr, E] =
-			new IArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
+		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :IArrayLike.IArrayLikeExtension[Arr, E] =
+			new IArrayLike.IArrayLikeExtension(v1.asInstanceOf[Array[Unknown]])
 	}
 	private val IArrayLikeExtensionConversionPrototype :IArrayLikeExtensionConversion[IArrayLike, Any] =
-		new PriorityConversion.Wrapped[IArrayLike[Any], IArrayLikeExtension[IArrayLike, Any]](
-			(arr :IArrayLike[Any]) => new IArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
+		new PriorityConversion.Wrapped[IArrayLike[Any], IArrayLike.IArrayLikeExtension[IArrayLike, Any]](
+			(arr :IArrayLike[Any]) => new IArrayLike.IArrayLikeExtension(arr.asInstanceOf[Array[Unknown]])
 		) with IArrayLikeExtensionConversion[IArrayLike, Any]
 
 
@@ -2665,72 +2431,72 @@ object extensions {
 		implicit final def RefIArrayExtension[E <: AnyRef] :RefIArrayExtensionConversion[E] =
 			extensions.RefIArrayExtensionConversionPrototype.asInstanceOf[RefIArrayExtensionConversion[E]]
 
-		implicit object ByteIArrayExtension extends PriorityConversion.Wrapped[IArray[Byte], ByteIArrayExtension](
-			(arr :IArray[Byte]) => new ByteIArrayExtension(arr.asInstanceOf[Array[Byte]])
+		implicit object ByteIArrayExtension extends PriorityConversion.Wrapped[IArray[Byte], IArray.ByteIArrayExtension](
+			(arr :IArray[Byte]) => new IArray.ByteIArrayExtension(arr.asInstanceOf[Array[Byte]])
 		) {
-			@inline final def apply(v1 :IArray[Byte])(implicit __ :Ignored) :ByteIArrayExtension =
-				new ByteIArrayExtension(v1.asInstanceOf[Array[Byte]])
+			@inline final def apply(v1 :IArray[Byte])(implicit __ :Ignored) :IArray.ByteIArrayExtension =
+				new IArray.ByteIArrayExtension(v1.asInstanceOf[Array[Byte]])
 		}
-		implicit object ShortIArrayExtension extends PriorityConversion.Wrapped[IArray[Short], ShortIArrayExtension](
-			(arr :IArray[Short]) => new ShortIArrayExtension(arr.asInstanceOf[Array[Short]])
+		implicit object ShortIArrayExtension extends PriorityConversion.Wrapped[IArray[Short], IArray.ShortIArrayExtension](
+			(arr :IArray[Short]) => new IArray.ShortIArrayExtension(arr.asInstanceOf[Array[Short]])
 		) {
-			@inline final def apply(v1 :IArray[Short])(implicit __ :Ignored) :ShortIArrayExtension =
-				new ShortIArrayExtension(v1.asInstanceOf[Array[Short]])
+			@inline final def apply(v1 :IArray[Short])(implicit __ :Ignored) :IArray.ShortIArrayExtension =
+				new IArray.ShortIArrayExtension(v1.asInstanceOf[Array[Short]])
 		}
-		implicit object CharIArrayExtension extends PriorityConversion.Wrapped[IArray[Char], CharIArrayExtension](
-			(arr :IArray[Char]) => new CharIArrayExtension(arr.asInstanceOf[Array[Char]])
+		implicit object CharIArrayExtension extends PriorityConversion.Wrapped[IArray[Char], IArray.CharIArrayExtension](
+			(arr :IArray[Char]) => new IArray.CharIArrayExtension(arr.asInstanceOf[Array[Char]])
 		) {
-			@inline final def apply(v1 :IArray[Char])(implicit __ :Ignored) :CharIArrayExtension =
-				new CharIArrayExtension(v1.asInstanceOf[Array[Char]])
+			@inline final def apply(v1 :IArray[Char])(implicit __ :Ignored) :IArray.CharIArrayExtension =
+				new IArray.CharIArrayExtension(v1.asInstanceOf[Array[Char]])
 		}
-		implicit object IntIArrayExtension extends PriorityConversion.Wrapped[IArray[Int], IntIArrayExtension](
-			(arr :IArray[Int]) => new IntIArrayExtension(arr.asInstanceOf[Array[Int]])
+		implicit object IntIArrayExtension extends PriorityConversion.Wrapped[IArray[Int], IArray.IntIArrayExtension](
+			(arr :IArray[Int]) => new IArray.IntIArrayExtension(arr.asInstanceOf[Array[Int]])
 		) {
-			@inline final def apply(v1 :IArray[Int])(implicit __ :Ignored) :IntIArrayExtension =
-				new IntIArrayExtension(v1.asInstanceOf[Array[Int]])
+			@inline final def apply(v1 :IArray[Int])(implicit __ :Ignored) :IArray.IntIArrayExtension =
+				new IArray.IntIArrayExtension(v1.asInstanceOf[Array[Int]])
 		}
-		implicit object LongIArrayExtension extends PriorityConversion.Wrapped[IArray[Long], LongIArrayExtension](
-			(arr :IArray[Long]) => new LongIArrayExtension(arr.asInstanceOf[Array[Long]])
+		implicit object LongIArrayExtension extends PriorityConversion.Wrapped[IArray[Long], IArray.LongIArrayExtension](
+			(arr :IArray[Long]) => new IArray.LongIArrayExtension(arr.asInstanceOf[Array[Long]])
 		) {
-			@inline final def apply(v1 :IArray[Long])(implicit __ :Ignored) :LongIArrayExtension =
-				new LongIArrayExtension(v1.asInstanceOf[Array[Long]])
+			@inline final def apply(v1 :IArray[Long])(implicit __ :Ignored) :IArray.LongIArrayExtension =
+				new IArray.LongIArrayExtension(v1.asInstanceOf[Array[Long]])
 		}
-		implicit object FloatIArrayExtension extends PriorityConversion.Wrapped[IArray[Float], FloatIArrayExtension](
-			(arr :IArray[Float]) => new FloatIArrayExtension(arr.asInstanceOf[Array[Float]])
+		implicit object FloatIArrayExtension extends PriorityConversion.Wrapped[IArray[Float], IArray.FloatIArrayExtension](
+			(arr :IArray[Float]) => new IArray.FloatIArrayExtension(arr.asInstanceOf[Array[Float]])
 		) {
-			@inline final def apply(v1 :IArray[Float])(implicit __ :Ignored) :FloatIArrayExtension =
-				new FloatIArrayExtension(v1.asInstanceOf[Array[Float]])
+			@inline final def apply(v1 :IArray[Float])(implicit __ :Ignored) :IArray.FloatIArrayExtension =
+				new IArray.FloatIArrayExtension(v1.asInstanceOf[Array[Float]])
 		}
-		implicit object DoubleIArrayExtension extends PriorityConversion.Wrapped[IArray[Double], DoubleIArrayExtension](
-			(arr :IArray[Double]) => new DoubleIArrayExtension(arr.asInstanceOf[Array[Double]])
+		implicit object DoubleIArrayExtension extends PriorityConversion.Wrapped[IArray[Double], IArray.DoubleIArrayExtension](
+			(arr :IArray[Double]) => new IArray.DoubleIArrayExtension(arr.asInstanceOf[Array[Double]])
 		) {
-			@inline final def apply(v1 :IArray[Double])(implicit __ :Ignored) :DoubleIArrayExtension =
-				new DoubleIArrayExtension(v1.asInstanceOf[Array[Double]])
+			@inline final def apply(v1 :IArray[Double])(implicit __ :Ignored) :IArray.DoubleIArrayExtension =
+				new IArray.DoubleIArrayExtension(v1.asInstanceOf[Array[Double]])
 		}
-		implicit object BooleanIArrayExtension extends PriorityConversion.Wrapped[IArray[Boolean], BooleanIArrayExtension](
-			(arr :IArray[Boolean]) => new BooleanIArrayExtension(arr.asInstanceOf[Array[Boolean]])
+		implicit object BooleanIArrayExtension extends PriorityConversion.Wrapped[IArray[Boolean], IArray.BooleanIArrayExtension](
+			(arr :IArray[Boolean]) => new IArray.BooleanIArrayExtension(arr.asInstanceOf[Array[Boolean]])
 		) {
-			@inline final def apply(v1 :IArray[Boolean])(implicit __ :Ignored) :BooleanIArrayExtension =
-				new BooleanIArrayExtension(v1.asInstanceOf[Array[Boolean]])
+			@inline final def apply(v1 :IArray[Boolean])(implicit __ :Ignored) :IArray.BooleanIArrayExtension =
+				new IArray.BooleanIArrayExtension(v1.asInstanceOf[Array[Boolean]])
 		}
 	}
 
-	sealed trait IArrayExtensionConversion[E] extends (IArray[E] => IArrayExtension[E]) {
-		@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :IArrayExtension[E] =
-			new IArrayExtension(v1.asInstanceOf[Array[E]])
+	sealed trait IArrayExtensionConversion[E] extends (IArray[E] => IArray.IArrayExtension[E]) {
+		@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :IArray.IArrayExtension[E] =
+			new IArray.IArrayExtension(v1.asInstanceOf[Array[E]])
 	}
-	sealed trait RefIArrayExtensionConversion[E <: AnyRef] extends (IArray[E] => RefIArrayExtension[E]) {
-		@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :RefIArrayExtension[E] =
-			new RefIArrayExtension(v1.asInstanceOf[Array[E]])
+	sealed trait RefIArrayExtensionConversion[E <: AnyRef] extends (IArray[E] => IArray.RefIArrayExtension[E]) {
+		@inline final def apply(v1 :IArray[E])(implicit __ :Ignored) :IArray.RefIArrayExtension[E] =
+			new IArray.RefIArrayExtension(v1.asInstanceOf[Array[E]])
 	}
 	private val IArrayExtensionConversionPrototype :IArrayExtensionConversion[Unknown] =
-		new PriorityConversion.Wrapped[IArray[Unknown], IArrayExtension[Unknown]](
-			(arr :IArray[Unknown]) => new IArrayExtension(arr.asInstanceOf[Array[Unknown]])
+		new PriorityConversion.Wrapped[IArray[Unknown], IArray.IArrayExtension[Unknown]](
+			(arr :IArray[Unknown]) => new IArray.IArrayExtension(arr.asInstanceOf[Array[Unknown]])
 		) with IArrayExtensionConversion[Unknown]
 
 	private val RefIArrayExtensionConversionPrototype :RefIArrayExtensionConversion[AnyRef] =
-		new PriorityConversion.Wrapped[IArray[AnyRef], RefIArrayExtension[AnyRef]](
-			(arr :IArray[AnyRef]) => new RefIArrayExtension(arr.asInstanceOf[Array[AnyRef]])
+		new PriorityConversion.Wrapped[IArray[AnyRef], IArray.RefIArrayExtension[AnyRef]](
+			(arr :IArray[AnyRef]) => new IArray.RefIArrayExtension(arr.asInstanceOf[Array[AnyRef]])
 		) with RefIArrayExtensionConversion[AnyRef]
 
 
@@ -2757,13 +2523,13 @@ object extensions {
 			extensions.MutableArrayExtensionConversionPrototype.asInstanceOf[MutableArrayExtensionConversion[E]]
 	}
 
-	sealed trait MutableArrayExtensionConversion[E] extends (MutableArray[E] => MutableArrayExtension[E]) {
-		@inline final def apply(v1 :MutableArray[E])(implicit __ :Ignored) :MutableArrayExtension[E] =
-			new MutableArrayExtension(v1.asInstanceOf[Array[Unknown]])
+	sealed trait MutableArrayExtensionConversion[E] extends (MutableArray[E] => MutableArray.MutableArrayExtension[E]) {
+		@inline final def apply(v1 :MutableArray[E])(implicit __ :Ignored) :MutableArray.MutableArrayExtension[E] =
+			new MutableArray.MutableArrayExtension(v1.asInstanceOf[Array[Unknown]])
 	}
 	private val MutableArrayExtensionConversionPrototype :MutableArrayExtensionConversion[Unknown] =
-		new PriorityConversion.Wrapped[MutableArray[Unknown], MutableArrayExtension[Unknown]](
-			(arr :MutableArray[Unknown]) => new MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
+		new PriorityConversion.Wrapped[MutableArray[Unknown], MutableArray.MutableArrayExtension[Unknown]](
+			(arr :MutableArray[Unknown]) => new MutableArray.MutableArrayExtension(arr.asInstanceOf[Array[Unknown]])
 		) with MutableArrayExtensionConversion[Unknown]
 
 
@@ -2800,14 +2566,14 @@ object extensions {
 	}
 
 	sealed trait RefArrayLikeExtensionConversion[Arr[X] <: RefArrayLike[X], E]
-		extends (Arr[E] => RefArrayLikeExtension[Arr, E])
+		extends (Arr[E] => RefArrayLike.RefArrayLikeExtension[Arr, E])
 	{
-		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :RefArrayLikeExtension[Arr, E] =
-			new RefArrayLikeExtension(v1.asInstanceOf[Array[Any]])
+		@inline final def apply(v1 :Arr[E])(implicit __ :Ignored) :RefArrayLike.RefArrayLikeExtension[Arr, E] =
+			new RefArrayLike.RefArrayLikeExtension(v1.asInstanceOf[Array[Any]])
 	}
 	private val RefArrayLikeExtensionConversionPrototype :RefArrayLikeExtensionConversion[RefArrayLike, Unknown] =
-		new PriorityConversion.Wrapped[RefArrayLike[Unknown], RefArrayLikeExtension[RefArrayLike, Unknown]](
-			(arr :RefArrayLike[Unknown]) => new RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
+		new PriorityConversion.Wrapped[RefArrayLike[Unknown], RefArrayLike.RefArrayLikeExtension[RefArrayLike, Unknown]](
+			(arr :RefArrayLike[Unknown]) => new RefArrayLike.RefArrayLikeExtension(arr.asInstanceOf[Array[Any]])
 		) with RefArrayLikeExtensionConversion[RefArrayLike, Unknown]
 
 
@@ -2840,13 +2606,13 @@ object extensions {
 			extensions.RefArrayExtensionConversionPrototype.asInstanceOf[RefArrayExtensionConversion[E]]
 	}
 
-	sealed trait RefArrayExtensionConversion[E] extends (RefArray[E] => RefArrayExtension[E]) {
-		@inline final def apply(v1 :RefArray[E])(implicit __ :Ignored) :RefArrayExtension[E] =
-			new RefArrayExtension(v1.asInstanceOf[Array[Any]])
+	sealed trait RefArrayExtensionConversion[E] extends (RefArray[E] => RefArray.RefArrayExtension[E]) {
+		@inline final def apply(v1 :RefArray[E])(implicit __ :Ignored) :RefArray.RefArrayExtension[E] =
+			new RefArray.RefArrayExtension(v1.asInstanceOf[Array[Any]])
 	}
 	private val RefArrayExtensionConversionPrototype :RefArrayExtensionConversion[Unknown] =
-		new PriorityConversion.Wrapped[RefArray[Unknown], RefArrayExtension[Unknown]](
-			(arr :RefArray[Unknown]) => new RefArrayExtension(arr.asInstanceOf[Array[Any]])
+		new PriorityConversion.Wrapped[RefArray[Unknown], RefArray.RefArrayExtension[Unknown]](
+			(arr :RefArray[Unknown]) => new RefArray.RefArrayExtension(arr.asInstanceOf[Array[Any]])
 		) with RefArrayExtensionConversion[Unknown]
 
 
@@ -2881,13 +2647,13 @@ object extensions {
 			extensions.IRefArrayExtensionConversionPrototype.asInstanceOf[IRefArrayExtensionConversion[E]]
 	}
 
-	sealed trait IRefArrayExtensionConversion[E] extends (IRefArray[E] => IRefArrayExtension[E]) {
-		@inline final def apply(v1 :IRefArray[E])(implicit __ :Ignored) :IRefArrayExtension[E] =
-			new IRefArrayExtension(v1.asInstanceOf[Array[Any]])
+	sealed trait IRefArrayExtensionConversion[E] extends (IRefArray[E] => IRefArray.IRefArrayExtension[E]) {
+		@inline final def apply(v1 :IRefArray[E])(implicit __ :Ignored) :IRefArray.IRefArrayExtension[E] =
+			new IRefArray.IRefArrayExtension(v1.asInstanceOf[Array[Any]])
 	}
 	private val IRefArrayExtensionConversionPrototype :IRefArrayExtensionConversion[Unknown] =
-		new PriorityConversion.Wrapped[IRefArray[Unknown], IRefArrayExtension[Unknown]](
-			(arr :IRefArray[Unknown]) => new IRefArrayExtension(arr.asInstanceOf[Array[Any]])
+		new PriorityConversion.Wrapped[IRefArray[Unknown], IRefArray.IRefArrayExtension[Unknown]](
+			(arr :IRefArray[Unknown]) => new IRefArray.IRefArrayExtension(arr.asInstanceOf[Array[Any]])
 		) with IRefArrayExtensionConversion[Unknown]
 
 

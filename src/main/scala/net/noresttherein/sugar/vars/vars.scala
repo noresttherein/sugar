@@ -90,6 +90,7 @@ package object vars extends vars.varsTypeClasses {
 	/** The API of $Opt in the form of extension methods.
 	  * @define Ref `Opt`
 	  * @define coll potential value
+	  * @define Opt [[net.noresttherein.sugar.vars.Opt! Opt]]
 	  */
 	implicit class OptExtension[A](private val self :Opt[A]) extends AnyVal {
 
@@ -465,6 +466,7 @@ package object vars extends vars.varsTypeClasses {
 	/** Extension methods providing the interface of $Pill.
 	  * @tparam R the type carried by the 'red' case, corresponding to the `Left` side of an `Either`.
 	  * @tparam B the type carried by the 'blue' case, corresponding to the `Right` side of an `Either`.
+	  * @define Pill [[net.noresttherein.sugar.vars.Pill! Pill]]
 	  */
 	implicit class PillExtension[+R, +B](private val self :Pill[R, B]) extends AnyVal {
 		/** Checks if this $Pill is the $Blue (successful) case containing the result `B` of an operation. */
@@ -734,7 +736,9 @@ package object vars extends vars.varsTypeClasses {
 	// but `Done` and `Failed` are not good name matches for its subtypes.
 	type Outcome[+A] >: Failed //can be also named Fail
 
-	/** Extension methods providing the full interface of $Outcome. */
+	/** Extension methods providing the full interface of $Outcome.
+	  * @define Outcome [[net.noresttherein.sugar.vars.Outcome! Outcome]]
+	  */
 	implicit class OutcomeExtension[A](private val self :Outcome[A]) extends AnyVal {
 		/** Checks if this $Outcome is $Done (successful) result containing a value. */
 		@inline def isPassed :Boolean = !self.isInstanceOf[Throwable @unchecked]

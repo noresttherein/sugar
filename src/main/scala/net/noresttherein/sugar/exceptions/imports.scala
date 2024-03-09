@@ -121,8 +121,8 @@ trait imports {
 
 	/** A partial function attempting to create a `Throwable` of the same type as the argument,
 	  * with `msg` as its message and the argument `Throwable` as its cause.
-	  *   1. If the argument is a [[net.noresttherein.sugar.exceptions.SugaredThrowable SugaredThrowable]],
-	  *      it delegates to its [[net.noresttherein.sugar.exceptions.SugaredThrowable.addInfo addInfo]] method.
+	  *   1. If the argument is a [[net.noresttherein.sugar.exceptions.SugaredThrowable SugaredThrowable]], it delegates
+	  *      to its [[net.noresttherein.sugar.exceptions.SugaredThrowable.addInfo(msg:String)* addInfo]] method.
 	  *   1. Otherwise, if it is one of the standard, common Scala/Java exceptions, a new instance of its class
 	  *      is created explicitly.
 	  *   1. Otherwise, if exception suppression is not disabled,
@@ -321,10 +321,10 @@ trait imports {
 //		throw newThrowable[E](msg)
 
 
-	/** A 'WTF' method throwing an [[ImpossibleError ImpossibleError]].
+	/** A 'WTF' method throwing an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].
 	  * Intended for code which should, to the best of the programmer's - but not compiler's - knowledge, be unreachable.
 	  * Placed after infinite loops, as the body of methods which are never called (but, for example, remain
-	  * for binary compatibility), or methods of sealed classes which are overriden by subclasses and similar
+	  * for binary compatibility), or methods of sealed classes which are overridden by subclasses and similar
 	  * circumstances.
 	  */
 	def ??! :Nothing = throw ImpossibleError()
@@ -362,11 +362,11 @@ trait imports {
 	final def unsupported_!(cause :Throwable) :Nothing =
 		throw SugaredUnsupportedOperationException(cause)
 
-	/** Throws an [[UnsupportedOperationException]]`(s"$obj.$method")`. */
+	/** Throws an [[UnsupportedOperationException]]`(s"\$obj.\$method")`. */
 	final def unsupported_!(obj :String, method :String) :Nothing =
 		throw SugaredUnsupportedOperationException(obj + '.' + method)
 
-	/** Throws an [[UnsupportedOperationException]]`(s"${obj.className}.$method")`. */
+	/** Throws an [[UnsupportedOperationException]]`(s"\${obj.className}.\$method")`. */
 	final def unsupported_!(obj :Any, method :String) :Nothing =
 		throw SugaredUnsupportedOperationException(obj.className + '.' + method)
 
@@ -487,7 +487,8 @@ trait imports {
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is used to enhance the error message
 	  * and should provide information about the legal range.
-	  * @throws SugaredIndexOutOfBoundsException with message `"idx.toString + " out of bounds for " + source`.
+	  * @throws net.noresttherein.sugar.exceptions.SugaredIndexOutOfBoundsException
+	  *         with message `"idx.toString + " out of bounds for " + source`.
 	  */
 	final def outOfBounds_!(idx :Int, source :String) :Nothing =
 		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + source)

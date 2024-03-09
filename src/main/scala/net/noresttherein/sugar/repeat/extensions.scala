@@ -158,7 +158,7 @@ object extensions extends extensions {
 		  * @param start start value for the recursion.
 		  * @param f function to recursively apply to itself.
 		  * @return `start` if `this<=0` or `f(f(...f(start)))` (composed `this` number of times).
-		  * @usecase `(new StringBuilder /: n)(_ += ":)"`
+		  * @example `(new StringBuilder /: n)(_ += ":)"`
 		  */
 		@inline def /:[T](start :T)(f :T => T) :T = times(f)(start)
 	}

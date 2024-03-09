@@ -78,14 +78,14 @@ object Log {
 	  * All level arguments have default implicit values, which can be set globally by setting corresponding
 	  * system properties. It is, however, also easy to override any of them for any sub-file scope
 	  * by declaring implicit values of the appropriate type.
-	  * @usecase {{{
+	  * @example {{{
 	  *             implicit val logger = Logger(this)
 	  *             def quaffAle(ale :Tankard) :Boast = Log.surround("quaffAle", ale) { implicit method =>
 	  *                 intoxication = intoxication + ale.content.strength * ale.capacity max 100
 	  *                 Fine(s"I'm $intoxication% drunk!") //logs using "enter" as the method name
 	  *                 Boast.randomBoast(credulity = intoxication)
 	  *             }
-	  *          }}}
+	  * }}}
 	  * @param methodName  the name of the surrounded method `body`.
 	  * @param args        the arguments given to the calling method.
 	  * @param body        the body of the logging method.

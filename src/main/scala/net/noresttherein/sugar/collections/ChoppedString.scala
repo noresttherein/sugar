@@ -1064,8 +1064,8 @@ final class Substring private (protected override val whole :String,
 
 /** A factory of views on substrings of a `String`.
   * $factoryInfo
-  * $Coll `Substring`
-  * $coll substring
+  * @define Coll `Substring`
+  * @define coll substring
   */
 @SerialVersionUID(Ver)
 case object Substring extends SpecificIterableFactory[Char, Substring] {

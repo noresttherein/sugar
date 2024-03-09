@@ -103,7 +103,7 @@ private[format] sealed trait FormatLiquidMoldImplicit extends FormatRawMoldImpli
   *          val result = for { //result :Outcome[Dragon]
   *              reader <- XML.reader(xml)
   *              _      <- reader.expect("Dragon")(XML.open) //fails if the input doesn't start with "<Dragon>".
-  *              name   <- reader.property[String]("name")   //reads <name>$name</name>
+  *              name   <- reader.property[String]("name")   //reads <name>\$name</name>
   *              color  <- reader.property[String]("color")
   *              level  <- reader.property[Int]("level")
   *              _      <- reader.expect("Dragon")(XML.close)

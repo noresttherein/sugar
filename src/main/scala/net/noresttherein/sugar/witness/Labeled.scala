@@ -45,7 +45,7 @@ object Labeled {
 	  * only to separate the label type parameter. The second is the `apply[T]()` method of the returned object,
 	  * which resolves an implicit value of `T Labelled Label`. This separation is dictated by the fact that the type
 	  * parameter `T` can in most cases be inferred from either present implicit values or the expected type.
-	  * @usecase `val component :Component = Labelled.get[Label]()` will search for an implicit value of
+	  * @example `val component :Component = Labelled.get[Label]()` will search for an implicit value of
 	  *         `Component Labelled Label`.
 	  */
 	@inline def summon[Label] :ResolveImplicit[Label] = new ResolveImplicit[Label] {}

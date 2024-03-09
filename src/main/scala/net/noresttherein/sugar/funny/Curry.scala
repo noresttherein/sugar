@@ -147,10 +147,10 @@ object Curry {
 	  * @see [[net.noresttherein.sugar.funny.Curry.:==> :==>]]
 	  */
 	type :=>[A[+R], X] = {
-		/** Type constructor for curried functions accepting the arguments represented by this type `A :=> X`.
-		  * `F[Y]` is a function type `X0 => ... => Xn => X => Y`. It is used by all types here to represent
-		  * an argument list `X0, ..., Xn, X`.
-		  */
+//		/** Type constructor for curried functions accepting the arguments represented by this type `A :=> X`.
+//		  * `F[Y]` is a function type `X0 => ... => Xn => X => Y`. It is used by all types here to represent
+//		  * an argument list `X0, ..., Xn, X`.
+//		  */
 		type F[+Y] = A[X => Y]
 	}
 
@@ -160,9 +160,9 @@ object Curry {
 	  * @see [[net.noresttherein.sugar.funny.Curry.:=> :=>]]
 	  */
 	type :==>[A[+R], B[+R]] = {
-		/** Type constructor for curried functions accepting the arguments represented by `A` followed by the arguments
-		  * represented by `B`; `F[Y] =:= A[B[Y]] =:= A0 => ... => An => B0 => ... => Bn => Y`.
-		  */
+//		/** Type constructor for curried functions accepting the arguments represented by `A` followed by the arguments
+//		  * represented by `B`; `F[Y] =:= A[B[Y]] =:= A0 => ... => An => B0 => ... => Bn => Y`.
+//		  */
 		type F[+Y] = A[B[Y]]
 	}
 
@@ -174,10 +174,10 @@ object Curry {
 	  * @see [[net.noresttherein.sugar.funny.Curry.:=> :=>]]
 	  */
 	type =>:[X, A[+R]] = {
-		/** Type constructor for curried functions accepting the arguments represented by this type `X =>: A`.
-		  * `F[Y]` is a function type `X => X0 => ... => Xn => Y`. It is used by all types here to represent
-		  * an argument list `X, X0, ..., Xn`.
-		  */
+//		/** Type constructor for curried functions accepting the arguments represented by this type `X =>: A`.
+//		  * `F[Y]` is a function type `X => X0 => ... => Xn => Y`. It is used by all types here to represent
+//		  * an argument list `X, X0, ..., Xn`.
+//		  */
 		type F[+Y] = X => A[Y]
 	}
 
@@ -223,7 +223,7 @@ object Curry {
 
 	/** Operations on `n+1`-th argument `Y` of function `A[X => Y=>Z]`. */
 	@SerialVersionUID(Ver)
-	final class NextArg[A[+G], X, Y, Z](private[funny] val prev :Curry[A, X, Y=>Z]) extends Curry[(A :=> X)#F, Y, Z] {
+	final class NextArg[A[+G], X, Y, Z](private[funny] val prev :Curry[A, X, Y => Z]) extends Curry[(A :=> X)#F, Y, Z] {
 
 		override def from[W]: Curry[(W =>: (A :=> X)#F)#F, Y, Z] =
 			new NextArg[(W =>: A)#F, X, Y, Z](prev.from[W])

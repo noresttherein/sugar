@@ -480,7 +480,7 @@ object StringIterator {
 
 
 /** An iterator over an arbitrary section of a `String`, running in reverse
-  * similar to [[net.noresttherein.sugar.collections.ReverseArrayIterator ReverseArrayIterator]].
+  * similar to [[net.noresttherein.sugar.arrays.ReverseArrayIterator ReverseArrayIterator]].
   * Has O(1) `take`/`drop`/`slice` methods.
   */
 final class ReverseStringIterator private[collections]

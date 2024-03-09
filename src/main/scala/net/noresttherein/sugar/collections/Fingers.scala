@@ -4,7 +4,7 @@ import java.lang.{Math => math}
 import java.lang.System.arraycopy
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.{AbstractIterator, BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, View}
 import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
@@ -1623,7 +1623,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					suffixOffset - 1, suffixes, suffix, length - 1
 				)
 			else {
-				/** Rebalances the whole tree when removal of an element from either `this.prefix` or `this.prefixes`
+				 /* Rebalances the whole tree when removal of an element from either `this.prefix` or `this.prefixes`
 				  * caused a cascade of deletions within following prefix slices of higher level,
 				  * which could not have been contained by modifying `prefixes` alone.
 				  * It assumes that both `newPrefixes` and `newPrefix` are valid trees (for `prefixes` and `prefix`,
@@ -1686,7 +1686,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							Fingers2(newPrefix, newPrefixes(0), suffix, length - 1)
 					}
 				}
-				/** Recursively rebalances a working copy `res` of `this.prefixes` after removal.
+				 /* Recursively rebalances a working copy `res` of `this.prefixes` after removal.
 				  * Given `slice`, equal to `res(sliceIdx)`, it removes its first child, padding it, if necessary,
 				  * by either merging it completely with the following slice of the same level
 				  * (the first child of `res(index + 1)`), or prepending the first child of the latter to the former.
@@ -1825,7 +1825,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					suffixOffset, suffixes, Tree1(suffix.values.removed(index - (length - suffixRank))), length - 1
 				)
 			else {
-				/** Rebalances the whole tree when removal of an element from either `this.suffix` or `this.suffixes`
+				 /* Rebalances the whole tree when removal of an element from either `this.suffix` or `this.suffixes`
 				  * caused a cascade of deletions within earlier/of higher level suffix slices,
 				  * which could not have been contained by modifying `suffixes` alone.
 				  * It assumes that both `newSuffixes` and `newSuffix` are valid trees (for `suffixes` and `suffix`,
@@ -1888,7 +1888,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							Fingers2(prefix, newSuffixes(0), newSuffix, length - 1)
 					}
 				}
-				/** Recursively rebalances a working copy `res` of `this.suffixes` after removal.
+				 /* Recursively rebalances a working copy `res` of `this.suffixes` after removal.
 				  * Given `slice`, equal to `res(sliceIdx)`, it removes its last child, padding it, if necessary,
 				  * by either merging it completely with the preceding slice of the same level
 				  * (the last child of `res(index - 1)`), or prepending the last child of the latter to the former.

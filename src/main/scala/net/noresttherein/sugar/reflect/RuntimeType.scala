@@ -97,7 +97,7 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   * primitive or an erased and boxed value `Specialized[AnyRef]`, depending on whether the actual type was known
   * or erased in the context in which it was created. Consider:
   * {{{
-  *     def typeName[@specialized T](t :T) = s"$t is a ${RuntimeType[T].typeName}"
+  *     def typeName[@specialized T](t :T) = s"\$t is a \${RuntimeType[T].typeName}"
   *
   *     println(typeName(1)) // "1 is a int"
   *     println(typeName(true)) //"true is a boolean"
@@ -106,8 +106,8 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
   * or
   * {{{
   *     def intIsSpecial[@specialized(Int) T](t :T) =
-  *         if (RuntimeType[T] == RuntimeType.OfInt) s"hey, we got an int: ${RuntimeType[T].classTag}!"
-  *         else s"something else: ${RuntimeType[T].classTag} :("
+  *         if (RuntimeType[T] == RuntimeType.OfInt) s"hey, we got an int: \${RuntimeType[T].classTag}!"
+  *         else s"something else: \${RuntimeType[T].classTag} :("
   *
   *     def any[T](t :T) = intIsSpecial(t)
   *     println(intIsSpecial(1)) // "hey, we got an int: Int"

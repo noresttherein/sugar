@@ -2633,7 +2633,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 // and methods accepting it as an argument will clash with their generic bridges inherited from EvidenceIterableFactory.
 
 /** A factory creating $Coll instances which never shrink their underlying storage.
-  * @inheritdoc
   * @see [[net.noresttherein.sugar.collections.ShrinkingMatrixBuffer$ ShrinkingMatrixBuffer]]
   */
 @SerialVersionUID(Ver)

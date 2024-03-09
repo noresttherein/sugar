@@ -16,8 +16,8 @@ import net.noresttherein.sugar.vars.Opt.One
   *     } until (youAreMad())
   * }}}
   * The result of the whole expression is the value returned by the last invocation of the lazily evaluated expression
-  * between `repeat` and [[net.noresttherein.sugar.repeat.RepeatBlock.until until]]. You can also pass as the condition
-  * a function accepting as an argument the result of the preceding execution:
+  * between `repeat` and [[net.noresttherein.sugar.repeat.RepeatBlock.until(condition:=>Boolean)* until]].
+  * You can also pass as the condition a function accepting as an argument the result of the preceding execution:
   * {{{
   *     var genius = "bwa"
   *     val bwahaha = repeat {
@@ -25,8 +25,8 @@ import net.noresttherein.sugar.vars.Opt.One
   *     } until (_ == "bwahaha")
   * }}}
   *
-  * Importing [[net.noresttherein.sugar.repeat.repeatMethod repeatMethod]] extends values of any type with
-  * a similar [[net.noresttherein.sugar.repeat.repeatMethod.repeat repeat]] method, accepting as the body
+  * Importing [[net.noresttherein.sugar.repeat.extensions.repeatMethods repeatMethods]] extends values of any type with
+  * a similar [[net.noresttherein.sugar.repeat.extensions.repeatMethods.repeat repeat]] method, accepting as the body
   * of the loop a function applied first to `this`, and subsequently to the values returned by the previous applications:
   * {{{
   *     val kilo = 2 repeat (_ * 2) until (_ > 1000)
@@ -108,8 +108,8 @@ package object repeat {
 		@inline def apply[T](block: => T) :CountingBlock[T] = new CountingBlock(() => block)
 	}
 
-	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] methods
-	  * specifying the stop condition for its execution.
+	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until(condition:=>Boolean)* until]]
+	  * methods specifying the stop condition for its execution.
 	  */
 	class CountingBlock[T] private[repeat] (private val block :() => T) extends AnyVal {
 		/** Repeats `this` lazy expression until the lazy expression given as the argument evaluates to true
@@ -149,7 +149,8 @@ package object repeat {
 
 package repeat {
 
-	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] methods
+	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until(condition:=>Boolean)* until]]
+	  * [[net.noresttherein.sugar.repeat.RepeatBlock.until(condition:T=>Boolean)* methods]]
 	  * specifying the stop condition for its execution.
 	  */
 	class RepeatBlock[T] private[repeat] (private val block: () => T) extends AnyVal {
@@ -195,8 +196,8 @@ package repeat {
 		}
 	}
 
-	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until until]] methods
-	  * specifying the stop condition for its execution.
+	/** Extends the preceding block with [[net.noresttherein.sugar.repeat.RepeatBlock.until(condition:T=>Boolean)* until]]
+	  * methods specifying the stop condition for its execution.
 	  */
 	class RepeatFunction[T] private[repeat] (private[this] var arg :T, f: T => T) {
 		/** Executes `this` function for the result of the preceding loop until the predicate given as the argument
