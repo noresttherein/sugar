@@ -1,11 +1,17 @@
 package net.noresttherein.sugar.collections
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.IterableOps
+import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{ArrayBuffer, Builder, Growable, ImmutableBuilder, ReusableBuilder}
+import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayIterator, RefArray}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, RefArray}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableExtension
+import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.extensions.IterableOnceExtension
+import net.noresttherein.sugar.{illegalState_!, maxSize_!}
 
 
 
@@ -61,6 +67,8 @@ private class AdditiveBuilder[E, C[X] <: IterableOps[X, C, C[X]]](empty :C[E])
 }
 
 
+
+
 object Builders {
 	trait fromBytes[To] extends Builder[Byte, To] {
 		override def addOne(elem :Byte) :this.type
@@ -89,32 +97,74 @@ object Builders {
 }
 
 
-/*
-trait BuilderFromBytes[To] extends Builder[Byte, To] {
-	override def addOne(elem :Byte) :this.type
+
+/** A base class for builders of Array derived collections.
+  * It maintains a growing `Array[ArrayElem]`, which is passed to a new `result(array :Array[ArrayElem], size :Int)`
+  * when `result()` is called.
+  * @define Coll `To`
+  * @define coll collection
+  */
+private[sugar] abstract class ArrayBasedBuilder[ArrayElem :ClassTag, -Elem <: ArrayElem, +To]
+	extends ReusableBuilder[Elem, To]
+{
+	private[this] var array = ArrayFactory.empty[ArrayElem]
+	private[this] var size  = 0
+	override def knownSize = size
+
+	override def sizeHint(hint :Int) :Unit =
+		if (hint > array.length)
+			array = Array.copyOf(array, hint)
+
+	protected def ensure(extra :Int) :Unit =
+		if (extra > array.length - size) {
+			val newSize = math.max(initArraySize, math.max(size + extra, math.min(MaxArraySize >> 1, array.length) << 1))
+			if (extra < newSize - size)
+				maxSize_!(size, extra, MaxArraySize)
+			array = Array.copyOf(array, newSize)
+		}
+
+	override def addOne(elem :Elem) :this.type = {
+		if (size == array.length)
+			ensure(1)
+		array(size) = elem
+		size += 1
+		this
+	}
+	override def addAll(xs :IterableOnce[Elem]) :this.type = xs.knownSize match {
+		case  0 => this
+		case -1 => super.addAll(xs)
+		case  n =>
+			ensure(n)
+			val copied = xs.toBasicOps.copyToArray(array, size, n)
+			if (copied != n)
+				illegalState_!(
+					errorString(xs) + " copied " + copied + " elements to " + this + " instead of full " + n + "."
+				)
+			size += n
+			this
+	}
+	protected def initArraySize :Int = DefaultInitialSize
+
+	/** Create the $coll containing elements `[0..size)` of `array`.
+	  * The collection may use the array itself, sure that it won't be externally modified in the future.
+	  */
+	protected def result(array :Array[ArrayElem], size :Int) :To
+
+	override def result() :To = {
+		val res = result(array, size)
+		array = ArrayFactory.empty
+		size  = 0
+		res
+	}
+	override def clear() :Unit = {
+		array = ArrayFactory.empty
+		size  = 0
+	}
 }
-trait BuilderFromChars[To] extends Builder[Char, To] {
-	override def addOne(elem :Char) :this.type
-}
-trait BuilderFromShorts[To] extends Builder[Short, To] {
-	override def addOne(elem :Short) :this.type
-}
-trait BuilderFromInts[To] extends Builder[Int, To] {
-	override def addOne(elem :Int) :this.type
-}
-trait BuilderFromLongs[To] extends Builder[Long, To] {
-	override def addOne(elem :Long) :this.type
-}
-trait BuilderFromFloats[To] extends Builder[Float, To] {
-	override def addOne(elem :Float) :this.type
-}
-trait BuilderFromDoubles[To] extends Builder[Double, To] {
-	override def addOne(elem :Double) :this.type
-}
-trait BuilderFromBooleans[To] extends Builder[Boolean, To] {
-	override def addOne(elem :Boolean) :this.type
-}
-*/
+
+
+
+
 
 
 /** A simple `Array[Any]`-based stack implementation.
