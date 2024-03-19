@@ -1,18 +1,17 @@
 package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
-import java.lang.System.arraycopy
 import java.util.Arrays.copyOf
 
-import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{nowarn, tailrec}
-import scala.collection.generic.DefaultSerializable
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIndexedSeqView, AbstractIterable, AbstractSeq, AbstractSet, Factory, IndexedSeqView, IterableFactory, IterableFactoryDefaults, LinearSeq, StrictOptimizedIterableOps, View, immutable, mutable}
+import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, IndexedSeqDefaults, IndexedSeqOps, Set, StrictOptimizedSeqOps, StrictOptimizedSetOps}
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 import scala.util.Random
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayLike}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayLike, arraycopy}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
@@ -21,9 +20,8 @@ import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyH
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension, immutableMapExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, maxSize_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.maxSize_!
 import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}

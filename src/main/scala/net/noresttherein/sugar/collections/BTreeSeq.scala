@@ -1,7 +1,5 @@
 package net.noresttherein.sugar.collections
 
-import java.lang.System.arraycopy
-
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, mutable}
 import scala.collection.generic.DefaultSerializable
@@ -9,7 +7,7 @@ import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqDefaults, In
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayIterator, ErasedArray, IArray}
+import net.noresttherein.sugar.arrays.{ArrayIterator, ErasedArray, IArray, arraycopy}
 import net.noresttherein.sugar.collections.BTreeSeq.{CompletePrefixes, ConvertToBTreeOnConcatFactor, Empty, Leaf, MaxChildren, Node, Rank, SemiCompletePrefixes, grow, semiCompleteNode}
 import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.vars.Box

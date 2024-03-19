@@ -1,13 +1,12 @@
 package net.noresttherein.sugar.arrays
 
-import java.lang.System.arraycopy
 import java.lang.reflect.Array.newInstance
 import java.util.Arrays
 
 import scala.annotation.tailrec
+import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.IsSeq
-import scala.collection.{ArrayOps, Stepper, StepperShape, View, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 

@@ -1,7 +1,5 @@
 package net.noresttherein.sugar.collections
 
-import java.lang.System.arraycopy
-
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, Factory, SpecificIterableFactory, immutable}
@@ -10,14 +8,13 @@ import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, 
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.arrays.ArrayCompanionExtension
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, arraycopy}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
-import net.noresttherein.sugar.maxSize_!
+import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}

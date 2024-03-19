@@ -1,19 +1,18 @@
 package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
-import java.lang.System.arraycopy
 
 import scala.Int.{MaxValue, MinValue}
 import scala.annotation.tailrec
-import scala.collection.Stepper.EfficientSplit
 import scala.collection.{EvidenceIterableFactory, EvidenceIterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, mutable}
+import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.DefaultSerializable
-import scala.collection.mutable.{AbstractBuffer, Builder, IndexedBuffer}
+import scala.collection.mutable.{AbstractBuffer, Builder, GrowableBuilder, IndexedBuffer}
 import scala.reflect.ClassTag
 import scala.util.Sorting
 
 import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator, arraycopy}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
@@ -2887,7 +2886,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 	override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
-	override def newBuilder[E] :Builder[E, MatrixBuffer[E]] = untagged.newBuilder
+	override def newBuilder[E] :Builder[E, MatrixBuffer[E]] = new MatrixBuilder(new ErasedMatrixBuffer[E](shrink))
 
 	/** Creates a new buffer of the specified capacity, backed by an `Array[Any]`, boxing all elements. Same as `empty`.
 	  * If the capacity calls for a two dimensional buffer, not all individual data arrays will be actually allocated,
@@ -2908,10 +2907,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 		override def ofCapacity[E :ClassTag](capacity :Int) :MatrixBuffer[E] = new MatrixBuffer[E](capacity, shrink)
 
 		override def newBuilder[E :ClassTag] :Builder[E, MatrixBuffer[E]] =
-			new MatrixBuffer[E](shrink) with Builder[E, MatrixBuffer[E]] {
-				override def sizeHint(size :Int) :Unit = super[MatrixBuffer].sizeHint(size)
-				override def result() = this
-			}
+			new MatrixBuilder(new MatrixBuffer[E](shrink))
 
 		override def toString :String = MatrixBufferFactory.this.toString + ".specific"
 	}
@@ -2923,15 +2919,18 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 		override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
 		override def newBuilder[E] :Builder[E, MatrixBuffer[E]] =
-			new ErasedMatrixBuffer[E](shrink) with Builder[E, ErasedMatrixBuffer[E]] {
-				override def sizeHint(size :Int) :Unit = super[ErasedMatrixBuffer].sizeHint(size)
-				override def result() = this
-			}
+			new MatrixBuilder[E](new ErasedMatrixBuffer[E](shrink))
 
 		override def ofCapacity[E](capacity :Int) :MatrixBuffer[E] = new ErasedMatrixBuffer[E](capacity, shrink)
 
 		override def toString :String = MatrixBufferFactory.this.toString + ".untagged"
 	}
+}
+
+
+
+private class MatrixBuilder[E](empty :MatrixBuffer[E]) extends GrowableBuilder[E, MatrixBuffer[E]](empty) {
+	override def sizeHint(size :Int) :Unit = elems.sizeHint(size)
 }
 
 

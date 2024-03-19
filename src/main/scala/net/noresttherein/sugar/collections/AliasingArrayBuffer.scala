@@ -1,15 +1,13 @@
 package net.noresttherein.sugar.collections
 
-import java.lang.System.arraycopy
-
-import scala.collection.generic.DefaultSerializable
 import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, StrictOptimizedSeqOps, mutable}
+import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Builder, GrowableBuilder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{IArrayLike, IRefArray, RefArray}
+import net.noresttherein.sugar.arrays.{IArrayLike, IRefArray, RefArray, arraycopy}
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize

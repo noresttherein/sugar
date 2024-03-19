@@ -1,7 +1,6 @@
 package net.noresttherein.sugar.arrays
 
 
-import java.lang.System.arraycopy
 import java.util.Arrays
 import java.util.random.RandomGenerator
 

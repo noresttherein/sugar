@@ -1,13 +1,12 @@
 package net.noresttherein.sugar.arrays
 
-import java.lang.System.arraycopy
-
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
+import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
-import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
+
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension, SeqFactoryExtension, StringExtension, immutableIndexedSeqCompanionExtension}
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}

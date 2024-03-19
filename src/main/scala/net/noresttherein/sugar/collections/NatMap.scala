@@ -1,13 +1,12 @@
 package net.noresttherein.sugar.collections
 
-import java.lang.System.arraycopy
-
 import scala.annotation.nowarn
 import scala.collection.{AbstractIterable, AbstractSet, ArrayOps, Factory, StrictOptimizedIterableOps}
 import scala.collection.immutable.AbstractMap
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.util.hashing.MurmurHash3
 
+import net.noresttherein.sugar.arrays.arraycopy
 import net.noresttherein.sugar.collections.ComparableFactory
 import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException

@@ -2,7 +2,6 @@ package net.noresttherein.sugar.collections
 
 import java.util.{Arrays, PrimitiveIterator, Spliterator}
 import java.lang.{Math => math}
-import java.lang.System.arraycopy
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
 import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
@@ -16,8 +15,8 @@ import scala.runtime.BoxedUnit
 import scala.util.{Random, Sorting}
 
 import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator, arraycopy}
 import net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
@@ -4816,33 +4815,33 @@ object extensions extends extensions {
 		  */
 		def rotateLeft(from :Int, until :Int)(n :Int) :Unit = {
 			val fullLength = self.length
-			val from0 = math.max(from, 0)
+			val from0  = math.max(from, 0)
 			val until0 = math.min(until, fullLength)
 			val length = until0 - from0
 			if (until > 0 & until0 > from0) {
 				var pivot = n % length
 				if (pivot < 0)
 					pivot = length + pivot
-				pivot match { //try to use fast platform arraycopy if the shift is very short
+				pivot match { //try to shift if n is small
 					case 0 =>
 					case 1 =>
 						val saved = self(from0)
-						arraycopy(self, from0 + 1, self, from0, length - 1)
+						shiftLeft(1)
 						self(until0 - 1) = saved
 					case 2 =>
 						val saved0 = self(from0)
 						val saved1 = self(from0 + 1)
-						arraycopy(self, from0 + 2, self, from0, length - 2)
+						shiftLeft(2)
 						self(until0 - 1) = saved1
 						self(until0 - 2) = saved0
 					case _ if pivot == length - 1 =>
 						val saved = self(until0 - 1)
-						arraycopy(self, from0, self, from0 + 1, length - 1)
+						shiftRight(1)
 						self(from0) = saved
 					case _ if pivot == length - 2 =>
 						val saved1 = self(until0 - 1)
 						val saved0 = self(until0 - 2)
-						arraycopy(self, from0, self, from0 + 2, length - 2)
+						shiftRight(2)
 						self(from0) = saved0
 						self(from0 + 1) = saved1
 					case _ =>
@@ -4878,6 +4877,42 @@ object extensions extends extensions {
 					rotateLeft(from, until)(end - start - n)
 		}
 
+		@inline def shiftLeft(n :Int) :Unit = shiftLeft(0, self.length)(n)
+		@inline def shiftRight(n :Int) :Unit = shiftRight(0, self.length)(n)
+
+		def shiftLeft(from :Int, until :Int)(n :Int) :Unit =
+			if (n != 0) {
+				val length = self.length
+				var dstIdx = math.min(length, math.max(0, from))
+				val until0 = math.min(length, math.max(dstIdx, until))
+				if (n < 0)
+					shiftRight(from, until)(until0 - dstIdx + n)
+				else {
+					var srcIdx = dstIdx + n
+					while (srcIdx < until0) {
+						self(dstIdx) = self(srcIdx)
+						dstIdx += 1
+						srcIdx += 1
+					}
+				}
+			}
+
+		def shiftRight(from :Int, until :Int)(n :Int) :Unit =
+			if (n != 0) {
+				val length = self.length
+				val first  = math.min(length, math.max(0, from))
+				var dstIdx = math.min(length, math.max(first, until))
+				if (n < 0)
+					shiftLeft(from, until)(dstIdx - first + n)
+				else {
+					var srcIdx = dstIdx - n
+					while (srcIdx > first) {
+						srcIdx -= 1
+						dstIdx -= 1
+						self(dstIdx) = self(srcIdx)
+					}
+				}
+			}
 	}
 
 

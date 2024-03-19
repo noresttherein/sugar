@@ -1,8 +1,6 @@
 package net.noresttherein.sugar.arrays
 
 
-import java.lang.System.arraycopy
-
 import scala.Array.emptyObjectArray
 import scala.annotation.tailrec
 import scala.collection.{IterableFactory, View}
@@ -11,8 +9,8 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSliceFactory, IRefArraySlice}
+import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 

@@ -1,17 +1,15 @@
 package net.noresttherein.sugar.exceptions
 
-import java.io.{PrintWriter}
-import java.lang.System.arraycopy
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Buffer}
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.arrays.arraycopy
 import net.noresttherein.sugar.collections.MutableEqSet
 import net.noresttherein.sugar.exceptions.extensions.ThrowableExtension
-import net.noresttherein.sugar.text.{EOL, StringWriter}
+import net.noresttherein.sugar.text.EOL
 import net.noresttherein.sugar.vars.Opt
 
 

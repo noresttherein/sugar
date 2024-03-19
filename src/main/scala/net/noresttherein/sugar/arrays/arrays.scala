@@ -228,6 +228,11 @@ package object arrays extends extensions {
 
 
 
+	/** A forwarder to `java.lang.System.arraycopy` introduced to reduce source code level dependency on the method. */
+	@inline def arraycopy(src :ArrayLike[_], srcPos :Int, dst :ArrayLike[_], dstPos :Int, length :Int) :Unit =
+		java.lang.System.arraycopy(src, srcPos, dst, dstPos, length)
+
+
 	private[sugar] val ArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ArrayIterator] =
 		TypedArrayIterator.asInstanceOf[ArrayLikeIteratorFactory[ArrayLike, ArrayIterator]]
 

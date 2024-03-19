@@ -1,8 +1,7 @@
 package net.noresttherein.sugar.collections
 
-import java.lang.System.arraycopy
-import java.lang.constant.Constable
 import java.lang.{Math => math}
+import java.lang.constant.Constable
 import java.lang.invoke.MethodHandles
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -13,16 +12,15 @@ import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictO
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IArrayLike, IRefArray, TypedArray}
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IArrayLike, IRefArray, TypedArray, arraycopy}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.RelayArrayPlus.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.extensions.IntExtension
-import net.noresttherein.sugar.{illegalState_!, illegal_!, maxSize_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, maxSize_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed, classes}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 

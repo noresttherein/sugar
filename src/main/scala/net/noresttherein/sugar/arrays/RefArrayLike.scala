@@ -2,13 +2,11 @@ package net.noresttherein.sugar.arrays
 
 
 
-import java.lang.System.arraycopy
-
 import scala.Array.UnapplySeqWrapper
 import scala.annotation.tailrec
+import scala.collection.{ArrayOps, IterableFactory, Stepper, StepperShape, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.ArraySeq
-import scala.collection.{ArrayOps, IterableFactory, Stepper, StepperShape, View, mutable}
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 

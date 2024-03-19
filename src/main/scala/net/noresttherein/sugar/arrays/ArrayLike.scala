@@ -1,14 +1,13 @@
 package net.noresttherein.sugar.arrays
 
-import java.lang.System.arraycopy
 import java.lang.{Math => math}
 import java.util.Arrays
 
 import scala.Array.UnapplySeqWrapper
 import scala.annotation.nowarn
+import scala.collection.{ArrayOps, Factory, IndexedSeqView, IterableFactory, LazyZip2, SeqFactory, Stepper, StepperShape, immutable, mutable}
 import scala.collection.Searching.SearchResult
 import scala.collection.Stepper.EfficientSplit
-import scala.collection.{ArrayOps, Factory, IndexedSeqView, IterableFactory, LazyZip2, SeqFactory, Stepper, StepperShape, immutable, mutable}
 import scala.collection.generic.IsSeq
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer}

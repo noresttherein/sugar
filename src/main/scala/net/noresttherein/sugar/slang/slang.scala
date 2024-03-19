@@ -14,7 +14,7 @@ package slang {
 	  * instead of the proxy's creator, and a factory function `reconstruct` used upon deserialization,
 	  * to build an object of the creator's type.
 	  */
-	@SerialVersionUID(Ver)
+	@SerialVersionUID(Ver) //todo: move it to util or somewhere
 	class SerializationProxy[T <: Serializable](substitute: T, reconstruct: T => Any) extends Serializable {
 		private def readResolve :Any = reconstruct(substitute)
 		override def toString :String = substitute.toString

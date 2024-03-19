@@ -1,16 +1,13 @@
 package net.noresttherein.sugar.collections
 
-import java.lang.System.arraycopy
-
 import scala.annotation.tailrec
-import scala.collection.generic.DefaultSerializable
 import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqOps, mutable}
+import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{AbstractBuffer, IndexedBuffer}
+import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLikeSpecOps, IRefArray, RefArray, ReverseArrayIterator}
-import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLikeSpecOps, IRefArray, RefArray, ReverseArrayIterator, arraycopy}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ArraySliceBuffer.AcceptableFillFactor
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
@@ -18,6 +15,7 @@ import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
+import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 

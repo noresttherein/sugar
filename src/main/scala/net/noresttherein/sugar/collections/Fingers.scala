@@ -1,8 +1,6 @@
 package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
-import java.lang.System.arraycopy
-
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{AbstractIterator, BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, View}
@@ -10,15 +8,14 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
-import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray, IRefArray, IRefArrayIterator, RefArray, RefArrayLike}
+import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray, IRefArray, IRefArrayIterator, RefArray, RefArrayLike, arraycopy}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
+import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.exceptions.outOfBounds_!
 
 //implicits
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLikeExtension, MutableArrayExtension}
@@ -4805,24 +4802,24 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						if (suffixes(lvl) == null)
 							suffixes(lvl) = new Array[Any](Rank << 1)
 						if (rank + treeRank <= MaxChildren) {      //Copy the children of the tree to suffixes(lvl).
-							arraycopy(tree, 1, suffixes(lvl), 1 + rank, treeRank)
+							arraycopy(tree.asInstanceOf[Array[Any]], 1, suffixes(lvl), 1 + rank, treeRank)
 							ranks(lvl) = rank + treeRank
 						} else {
 							//Copy the children of tree to suffixes(lvl), cascading in the mean time.
-							arraycopy(tree, 1, suffixes(lvl), 1 + rank, MaxChildren - rank)
+							arraycopy(tree.asInstanceOf[Array[Any]], 1, suffixes(lvl), 1 + rank, MaxChildren - rank)
 							ranks(lvl) = MaxChildren               //For the purpose of cascadeSuffixes.
 							cascadeSuffixes(lvl + 1)
 							if (suffixes(lvl) == null)
 								suffixes(lvl) = new Array[Any](Rank << 1)
 							rank = rank + treeRank - MaxChildren
 							ranks(lvl) = rank
-							arraycopy(tree, 1 + treeRank - rank, suffixes(lvl), 1, rank)
+							arraycopy(tree.asInstanceOf[Array[Any]], 1 + treeRank - rank, suffixes(lvl), 1, rank)
 						}
 					} else { //level <= treeLevel - 2
 						ensureDepth(treeLevel - 1)
 						level = treeLevel - 1
 						suffixes(treeLevel - 2) = new Array[Any](Rank << 1)
-						arraycopy(tree, 1, suffixes(treeLevel - 2), 1, treeRank)
+						arraycopy(tree.asInstanceOf[Array[Any]], 1, suffixes(treeLevel - 2), 1, treeRank)
 						ranks(treeLevel - 2) = treeRank
 					}
 					size += elems.length
