@@ -1303,7 +1303,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 	/** `SeqFactory[IndexedSeq]` best supporting modifications.
 	  * When creating new rankings from scratch, `DefaultIndexedSeq` is used instead.
 	  */
-	final val IndexedSeqFactory = Vector
+	final val IndexedSeqFactory = Fingers
 	final val BulkUpdateFasterLog = 5
 
 	final val SmallRankingCap = 16
@@ -1416,14 +1416,14 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 		protected final def seqBuilder = {
 			if (large == null) {
 				index = Map.empty
-				large = DefaultIndexedSeq.newBuilder[T]
+				large = IndexedSeqFactory.newBuilder[T]
 			}
 			large
 		}
 		protected final def map = {
 			if (index == null) {
 				index = Map.empty
-				large = DefaultIndexedSeq.newBuilder
+				large = IndexedSeqFactory.newBuilder
 			}
 			index
 		}
@@ -1450,15 +1450,15 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 			}
 
 		override def sizeHint(size :Int) :Unit = //todo: support small.length < SmallRankingCap
-			if (size >= SmallRankingCap && smallSize >= 0)
+			if (size >= SmallRankingCap & smallSize >= 0)
 				switchToLarge(size)
 
 		protected final def switchToLarge(extraSpace :Int = 0) :Unit =
 			if (smallSize > 0) {
 				index = Map.empty
-				large = DefaultIndexedSeq.newBuilder[T]
+				large = IndexedSeqFactory.newBuilder[T]
 				if (extraSpace < 0)
-				large sizeHint math.min(extraSpace, Int.MaxValue - smallSize) + smallSize
+					large sizeHint math.min(extraSpace, Int.MaxValue - smallSize) + smallSize
 				var i = 0; val end = smallSize
 				while (i < end) {
 					val item = small(i)
@@ -1471,7 +1471,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 				val hint =
 					if (large == null) {
 						index = Map.empty
-						large = DefaultIndexedSeq.newBuilder
+						large = IndexedSeqFactory.newBuilder
 						extraSpace
 					} else {
 						val size = index.size
@@ -1532,10 +1532,11 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 				}
 				this
 			case ranking :IndexedRanking[T] =>
-				large = DefaultIndexedSeq.newBuilder
+				large = IndexedSeqFactory.newBuilder
 				large sizeHint ranking.size
 				large ++= ranking.toIndexedSeq
-				index = ranking.index.castFrom[Map[_ <: T, Int], Map[T, Int]]
+//				index = ranking.index.castFrom[Map[_ <: T, Int], Map[T, Int]]
+				index = HashMap.from(ranking.index)
 				smallSize = -1
 				this
 			case ranking :SingletonRanking[T] if smallSize == 0 =>
@@ -2056,7 +2057,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 //  * by ad-hoc implementations. This is even more useful because it leverages its access to protected `Ranking`
 //  * information, providing some optimizations which cannot be easily duplicated by external classes.
 //  */
-/** Base class for deault implementations of `Ranking` trait, that is implementing
+/** Base class for default implementations of `Ranking` trait, that is implementing
   * [[net.noresttherein.sugar.collections.RankingOps RankingOps]]`[E, Ranking, Ranking[E]]` (and not a subtype).
   */
 trait AbstractRanking[+E] extends AbstractIterable[E] with Ranking[E] {
@@ -3417,11 +3418,9 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 	override def toIndexedSeq :IndexedSeq[T] = items
 	override def toSeq :Seq[T] = items
 	override def toSet[U >: T] :Set[U] = HashMap.from(map).keySet.castParam[U]
-	//it could use a different name, as Seq.indices returns a Range
+
 	private[collections] def index :Map[_ <: T, Int] = map
 
-	override def copyToArray[A >: T](xs :Array[A], start :Int, len :Int) :Int =
-		items.copyToArray(xs, start, len)
 
 	override def copyRangeToArray[A >: T](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 		items.copyRangeToArray(xs, start, from, len)
