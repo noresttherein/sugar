@@ -5,19 +5,17 @@ import java.lang.{Math => math}
 import scala.annotation.{nowarn, tailrec}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.Stepper.EfficientSplit
-import scala.collection.generic.DefaultSerializationProxy
-import scala.collection.{BufferedIterator, SeqFactory, SeqView, Stepper, StepperShape, View, mutable}
-import scala.collection.immutable.{AbstractSeq, ArraySeq, StrictOptimizedSeqOps}
-import scala.collection.mutable.{ArrayBuffer, Buffer, Builder}
+import scala.collection.{BufferedIterator, SeqFactory, SeqView, Stepper, StepperShape, View}
+import scala.collection.immutable.{AbstractSeq, StrictOptimizedSeqOps}
+import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.arrays.IRefArray
-import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred}
 import net.noresttherein.sugar.collections.Cat.{Appended, CatIterator, Concat, EmptyCat, Prepended, Slice, Straight}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, StepperExtension}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
-import net.noresttherein.sugar.extensions.{BufferExtension, Function2Extension}
+import net.noresttherein.sugar.funny.extensions.Function2Extension
 import net.noresttherein.sugar.slang.{SerializationProxy, SingletonSerializationProxy}
 
 
