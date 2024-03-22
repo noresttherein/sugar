@@ -530,6 +530,13 @@ abstract class RefArrayLikeFactory[Arr[X] <: ArrayLike[X]] private[arrays] exten
 
 	final override def newBuilder[E] :Builder[E, Arr[E]] = Array.newBuilder(ClassTag.Any).castParam2[Arr[E]]
 
+	def newBuilder[E](size :Int) :Builder[E, Arr[E]] = {
+		val res = newBuilder[E]
+		res sizeHint size
+		res
+	}
+
+
 	/** Boxes the element if necessary, places it in a singleton `Array[AnyRef]`, and returns it as a $Coll`[E]`. */
 	final def one[E](elem :E) :Arr[E] = expose {
 		val a = new Array[Any](1)

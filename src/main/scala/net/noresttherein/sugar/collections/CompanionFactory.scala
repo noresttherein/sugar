@@ -3,12 +3,12 @@ package net.noresttherein.sugar.collections
 import java.lang.reflect.Field
 
 import scala.collection.immutable.{ArraySeq, SortedMap}
-import scala.collection.{BuildFrom, EvidenceIterableFactory, Factory, IterableFactory, MapFactory, SortedMapFactory}
+import scala.collection.{BuildFrom, EvidenceIterableFactory, Factory, IterableFactory, MapFactory, SortedMapFactory, SpecificIterableFactory}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.extensions.{OptionExtension, classNameMethods}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -104,6 +104,7 @@ private object CompanionFactory {
 	def sourceCollectionFactory[E, T](factory :Factory[E, T]) :Maybe[Any] =
 		factory match {
 			case comparable :ComparableFactory[_, _] => Yes(comparable.factory)
+			case _ :SpecificIterableFactory[_, _] => Yes(factory)
 			case _ => factory.getClass match {
 				case IterableFactoryClass =>
 					IterableFactoryField.map(_.get(factory))//.asInstanceOf[IterableFactory[Iterable]])
