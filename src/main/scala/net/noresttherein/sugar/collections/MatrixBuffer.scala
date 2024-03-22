@@ -21,6 +21,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{??!, illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
+import net.noresttherein.sugar.vars.Maybe.Yes
 
 
 
@@ -2880,7 +2881,6 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 {
 	override def from[E](it :IterableOnce[E]) :MatrixBuffer[E] = it match {
 		case buffer :MatrixBuffer[E @unchecked]  => new MatrixBuffer[E](shrink)(buffer.iterableEvidence) ++= it
-		case seq :mutable.ArraySeq[E @unchecked] => new MatrixBuffer[E](shrink)(seq.elemTag.castParam[E]) ++= it
 		case _ => new ErasedMatrixBuffer[E](true) ++= it
 	}
 
