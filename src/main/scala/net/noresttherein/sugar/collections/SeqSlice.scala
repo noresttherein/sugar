@@ -2,14 +2,15 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
-import scala.collection.{IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, mutable}
+import scala.collection.{IterableFactory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedIterableOps, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.DefaultSerializable
-import scala.collection.immutable.{IndexedSeqOps, SeqOps, StrictOptimizedSeqOps}
+import scala.collection.immutable.StrictOptimizedSeqOps
 
-import net.noresttherein.sugar.collections.extensions.IterableExtension
-import net.noresttherein.sugar.extensions.{IsIterableOnceExtension, castingMethods}
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.casting.castingMethods
+import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
+import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.funny.generic.Any1
 
 
 
@@ -95,16 +96,8 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 
 	protected override def className :String = "SeqSlice"
 
-//	protected override def newSpecificBuilder :Builder[E, CC[E]] =
-//		(underlying :collection.IndexedSeqOps[E, CC, CC[E]]).iterableFactory.newBuilder[E]
-//
-//	protected override def fromSpecific(coll :IterableOnce[E]) :CC[E] =
-//		(underlying :collection.IndexedSeqOps[E, CC, CC[E]]).iterableFactory.from(coll)
-
 	override def iterableFactory :SeqFactory[CC] =
 		(underlying :collection.IndexedSeqOps[E, CC, CC[E]]).iterableFactory.castFrom[IterableFactory[CC], SeqFactory[CC]]
-//	private def writeReplace =
-//		fromSpecific((underlying :collection.IndexedSeqOps[E, CC, CC[E]]).slice(offset, offset + length))
 }
 
 
@@ -123,22 +116,6 @@ private[collections] sealed abstract class SeqSliceFactory[C[A] <: collection.In
 		else if (until >= len) make(seq, from, len - from)
 		else make(seq, from, until - from)
 	}
-//
-//	override def from[A](source :IterableOnce[A]) :SeqSlice[A] = source match {
-//		case it :Iterable[_] if it.isEmpty => empty
-//		case it :SeqSlice[A] => it
-//		case it :collection.IndexedSeq[A] => make(it, 0)
-//		case it :Iterator[_] if it.isEmpty => empty
-//		case it => (newBuilder[A] ++= it).result()
-//	}
-//
-//	override def newBuilder[A] :Builder[A, C[A]] =
-//		DefaultIndexedSeq.newBuilder mapResult { seq => make(seq, 0, seq.length) }
-
-//	def empty[A] :C[A] = Empty.castParam[A]
-//	private[this] val Empty = make(IterableFactory.empty[Nothing], 0, 0)
-//
-//	protected def iterableFactory :IterableFactory[C]
 }
 
 
@@ -175,9 +152,12 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 	protected override def make[E](seq :collection.IndexedSeq[E], from :Int, until :Int) :GenIndexedSeqRange[E] =
 		seq match {
 			case empty   :IndexedSeq[E] if empty.length == 0 => Immutable.empty
-			case stable  :IndexedSeq[E]                      => apply(stable, from, until)
-			case mut :mutable.IndexedSeq[E]                  => apply(mut, from, until)
-			case _ => new SeqSlice(seq, from, until)
+			case stable  :IndexedSeq[E]                      => Immutable(stable, from, until)
+			case mut :mutable.IndexedSeq[E]                  => Mutable(mut, from, until)
+			case _ :StrictOptimizedIterableOps[_, Any1, _]   =>
+				new SeqSlice[E](seq, from, until)
+					with StrictOptimizedSeqRangeOps[E, collection.IndexedSeq, GenIndexedSeqRange[E]]
+			case _                                           => new SeqSlice(seq, from, until)
 		}
 
 	@inline def apply[E](seq :mutable.IndexedSeq[E], from :Int, until :Int) :MutIndexedSeqRange[E] =
@@ -188,7 +168,7 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 
 	val empty :GenIndexedSeqRange[Nothing] = Immutable.empty
 
-	private trait StrictOptimizedSeqRangeOps[E, +CC[X] <: collection.IndexedSeq[X], +C <: GenIndexedSeqRange[E] with CC[E]]
+	private trait StrictOptimizedSeqRangeOps[E, +CC[X] <: collection.IndexedSeq[X], +C <: CC[E]]
 		extends SlicingOps[E, C] with collection.StrictOptimizedSeqOps[E, CC, CC[E]]
 	{
 		override def span(p :E => Boolean) :(C, C) = super[SlicingOps].span(p)
@@ -231,8 +211,6 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 		   with mutable.IndexedSeq[E] with MutIndexedSeqRange[E]
 	{
 		protected override def emptySlice :MutIndexedSeqRange[E] = new Mutable(underlying.empty, 0, 0)
-//		protected override def fullSlice  :MutIndexedSeqRange[E] =
-//			new Mutable(underlying.slice(offset, offset + length), 0, length)
 
 		override def update(idx :Int, elem :E) :Unit =
 			if (idx < 0 || idx >= length) outOfBounds_!(idx, this)

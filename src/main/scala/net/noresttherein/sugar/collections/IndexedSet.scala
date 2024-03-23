@@ -14,11 +14,9 @@ import net.noresttherein.sugar.arrays.extensions.ArrayExtension
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable
 import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedSeqSet}
-import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, SeqExtension}
-import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension}
+import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.slang.SerializationProxy
-import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 
@@ -32,12 +30,12 @@ import net.noresttherein.sugar.vars.Maybe.Yes
   * is consistent with equals, that is `ordering.compare(a, b) == 0` ''iff'' `a == b`.
   * If both sets in an operation share the same `ordering`, then the lists are merged
   * and a new set is created from an already sorted and unique list with
-  * [[net.noresttherein.sugar.collections.ConsistentOptimizedSortedSetOps.fromSorted fromSorted]].
+  * [[net.noresttherein.sugar.collections.ConsistentOrderingSortedSetOps.fromSorted fromSorted]].
   * Note that default `equals` implementation on `SortedSet` already makes the assumption of consistent ordering
   * and implements a similar optimization for sorted set arguments.
   */
-trait ConsistentOptimizedSortedSetOps[E, +CC[X] <: SortedSet[X], +C <: SortedSetOps[E, CC, C]]
-	extends StrictOptimizedSortedSetOps[E, CC, C]
+trait ConsistentOrderingSortedSetOps[E, +CC[X] <: SortedSet[X], +C <: SortedSetOps[E, CC, C]]
+	extends SortedSetOps[E, CC, C]
 {
 	override def intersect(that :collection.Set[E]) :C = that match {
 		case _ if isEmpty || that.isEmpty => empty
@@ -127,11 +125,11 @@ trait ConsistentOptimizedSortedSetOps[E, +CC[X] <: SortedSet[X], +C <: SortedSet
   * @define Coll `IndexedSet`
   * @define coll indexed set
   */
-trait IndexedSet[E]
-	extends SortedSet[E] with SugaredIterable[E]
-	   with SugaredIterableOps[E, Set, Set[E]]
-	   with ConsistentOptimizedSortedSetOps[E, IndexedSet, IndexedSet[E]]
-	   with SortedSetFactoryDefaults[E, IndexedSet, Set] with Serializable
+sealed abstract class IndexedSet[E]
+	extends AbstractSet[E] with SortedSet[E] with StrictOptimizedSortedSetOps[E, IndexedSet, IndexedSet[E]]
+	   with SortedSetFactoryDefaults[E, IndexedSet, Set]
+	   with SugaredIterable[E] with SugaredIterableOps[E, Set, IndexedSet[E]]
+	   with ConsistentOrderingSortedSetOps[E, IndexedSet, IndexedSet[E]] with Serializable
 {
 	def key(index :Int) :E
 	override def toSeq :Seq[E] = toIndexedSeq

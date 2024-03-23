@@ -45,8 +45,8 @@ import net.noresttherein.sugar.collections.extensions._
   */
 sealed abstract class Fingers[+E]
 	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, Fingers, Fingers[E]]
-	   with SugaredIterable[E] with SugaredSeqOps[E, Fingers, Fingers[E]]
 	   with StrictOptimizedSeqOps[E, Fingers, Fingers[E]]
+	   with SugaredIterable[E] with SugaredSeqOps[E, Fingers, Fingers[E]]
 	   with IterableFactoryDefaults[E, Fingers] with DefaultSerializable
 {
 	override def iterableFactory :SeqFactory[Fingers] = Fingers
@@ -592,6 +592,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		extends AbstractFingers[E](_prefix, len)
 	{
 		releaseFence()
+		//Assertions uncommented in generate test sources phase.
 		//assert(prefix.length + infix.length == suffixOffset)
 		//assert(prefix.length + infix.length + suffix.length == length)
 		//assert(prefix.level == 1)
@@ -1409,7 +1410,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	}
 
 
-	/** A finger tree of length `N > 2` isomorphic with a B-Tree.
+	/** A finger tree of level `N > 2` isomorphic with a B-Tree of order `Rank`.
 	  * @param _prefix       A level 1 node of rank `Rank <= r <= MaxChildren`,
 	  *                      the leftmost node in the represented B-Tree, with the first elements of the sequence.
 	  * @param prefixes      A pseudo, non balanced node, containing `N-2` children, where `N`
@@ -1438,6 +1439,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	                                 suffixOffset :Int, suffixes :Tree[E], suffix :Tree[E], len :Int)
 		extends AbstractFingers[E](_prefix, len)
 	{
+		//Assertions uncommented in generate test sources phase.
 		//assert(prefix.length + prefixes.length == infixOffset)
 		//assert(prefix.length + prefixes.length + infix.length == suffixOffset)
 		//assert(prefix.length + prefixes.length + infix.length + suffixes.length + suffix.length == length)

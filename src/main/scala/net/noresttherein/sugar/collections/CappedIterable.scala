@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.generic.DefaultSerializable
-import scala.collection.{IterableFactory, IterableFactoryDefaults, IterableOps, SeqFactory, mutable}
+import scala.collection.{IterableFactory, IterableOps, SeqFactory, StrictOptimizedIterableOps, StrictOptimizedSeqFactory, StrictOptimizedSetOps, mutable}
 import scala.collection.mutable.{Builder, Growable, GrowableBuilder, Shrinkable}
 
 import net.noresttherein.sugar.arrays.{ArrayIterator, CyclicArrayIterator, MutableArrayExtension, arraycopy}
@@ -93,7 +93,8 @@ case object CappedSeq extends CappedSeqFactory.Delegate[CappedSeq](CappedArraySe
 
 trait CappedSeq[E]
 	extends mutable.Seq[E] with mutable.SeqOps[E, CappedSeq, CappedSeq[E]]
-	   with CappedIterable[E] with CappedIterableFactory.Defaults[E, CappedSeq]
+	   with CappedIterable[E] with SugaredSeqOps[E, CappedSeq, CappedSeq[E]]
+	   with CappedIterableFactory.Defaults[E, CappedSeq]
 {
 	override def subtractOne(elem :E) :this.type = indexOf(elem) match {
 		case -1 => this
@@ -148,7 +149,7 @@ case object CappedArraySeq extends CappedSeqFactory[CappedArraySeq] {
 
 	override def max(cap :Int) :SeqFactory[CappedArraySeq] = new CappedArraySeqFactory(cap)
 
-	private class CappedArraySeqFactory(max :Int) extends SeqFactory[CappedArraySeq] {
+	private class CappedArraySeqFactory(max :Int) extends StrictOptimizedSeqFactory[CappedArraySeq] {
 		override def from[A](source :IterableOnce[A]) :CappedArraySeq[A] = new CappedArraySeq[A](max) ++= source
 		override def empty[A] :CappedArraySeq[A] = new CappedArraySeq[A](max)
 		override def newBuilder[A] :Builder[A, CappedArraySeq[A]] = CappedArraySeq.newBuilder(max)

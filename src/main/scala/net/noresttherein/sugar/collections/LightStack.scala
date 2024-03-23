@@ -1,14 +1,14 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.nowarn
-import scala.collection.{IterableFactory, IterableOps}
+import scala.collection.{IterableFactory, IterableOps, StrictOptimizedIterableOps}
 import scala.collection.mutable.{ArrayBuffer, Builder}
 
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLike, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.LightStack.InitialSize
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
 
@@ -70,7 +70,7 @@ case object LightStack extends IterableFactory[LightStack] {
 
 
 /** $Coll is the lightest possible implementation of a growing buffer.
-  * It is a value class backed by an `Array[Any]` with very simple inlinable methods, and an empty stack
+  * It is a value class backed by an `Array[Any]` with very simple inalienable methods, and an empty stack
   * is just a syntactic wrapper over an empty prototype, so you can pass it around and not even allocate the array
   * until you actually need it. As a value class, it cannot have variable fields, and thus its growing mechanism makes
   * it a weird combination of mutable and immutable interface. A mutable `addOne`/`+=` method would be unable
@@ -83,10 +83,11 @@ case object LightStack extends IterableFactory[LightStack] {
   *
   * This class is designed as internal tool for classes, allowing them to implement their methods
   * with minimal overhead. It extends [[net.noresttherein.sugar.collections.ArrayIterableOnce ArrayIterableOnce]]
-  * (and, through it, [[scala.collection.IterableOnce IterableOnce]]) for added interoperability,
+  * (and, [[scala.collection.IterableOnce IterableOnce]]) for added interoperability,
   * but it is not meant to be exposed method or class scope in which it was created. For this reason,
   * ''no additional bounds checks are performed'' over those done by the virtual machine. As a result,
-  * operations can throw `NullPointerException`, or return `null` instances from `apply`.
+  * operations can throw `NullPointerException`, or return `null` instances from `apply`
+  * instead of throwing an `IndexOutOfBoundsException`.
   *
   * @note Due to the semantics of value class equality, two instances may compare unequal
   *       even if they contain the same elements.
@@ -98,7 +99,7 @@ case object LightStack extends IterableFactory[LightStack] {
 class LightStack[E] private[collections] (
 		/** The backing array. The first element is an `Int` specifying the stack size. */
 		private val stack :Array[Any]
-	) extends AnyVal with IterableOnce[E] with IterableOps[E, LightStack, LightStack[E]]
+	) extends AnyVal with IterableOnce[E] with StrictOptimizedIterableOps[E, LightStack, LightStack[E]]
 	     with ArraySlicingOps[E, LightStack, LightStack[E]] with Serializable
 {
 	@inline override def knownSize :Int = stack(0).asInstanceOf[Int]

@@ -1,13 +1,13 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
-import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqOps, mutable}
+import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, mutable}
 import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{AbstractBuffer, IndexedBuffer}
 import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayIterator, ArrayLikeSpecOps, IRefArray, RefArray, ReverseArrayIterator, arraycopy}
+import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLikeSpecOps, IRefArray, RefArray, ReverseArrayIterator, arraycopy}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ArraySliceBuffer.AcceptableFillFactor
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
@@ -453,7 +453,9 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
   * @define coll array buffer
   */
 @SerialVersionUID(Ver)
-case object ArraySliceBuffer extends BufferFactory[ArraySliceBuffer] {
+case object ArraySliceBuffer
+	extends BufferFactory[ArraySliceBuffer] with StrictOptimizedSeqFactory[ArraySliceBuffer]
+{
 	override def ofCapacity[E](capacity :Int) :ArraySliceBuffer[E] = new ArraySliceBuffer[E](capacity)
 
 	override def empty[E] :ArraySliceBuffer[E] = new ArraySliceBuffer[E]
