@@ -12,6 +12,7 @@ import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 
 
 
+//todo: StringMapSpec
 object StringSetSpec extends Properties("StringSet") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(200).withMaxSize(256)

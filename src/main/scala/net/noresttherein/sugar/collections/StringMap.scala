@@ -2,9 +2,9 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{AbstractIterator, Factory, SpecificIterableFactory, immutable}
-import scala.collection.generic.DefaultSerializable
-import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, SortedSetOps, StrictOptimizedMapOps, StrictOptimizedSortedSetOps}
+import scala.collection.{AbstractIterator, Factory, MapFactory, SpecificIterableFactory, immutable}
+import scala.collection.generic.{DefaultSerializable, DefaultSerializationProxy}
+import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SortedSet, StrictOptimizedMapOps, StrictOptimizedSortedSetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
@@ -13,7 +13,6 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ElementIndex.Absent
 import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compareRange}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
-import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.vars.Maybe
@@ -58,7 +57,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	extends AbstractMap[String, V] with StrictOptimizedMapOps[String, V, Map, StringMap[V]]
 	   with SugaredIterable[(String, V)] with SpecificSortedMapOps[String, V, StringMap[V]]
 	   with SugaredSlicingOps[(String, V), immutable.Iterable, StringMap[V]]
-	   with DefaultSerializable
+	   with Serializable
 {
 	override def size :Int = root.size
 	override def knownSize :Int = root.size
@@ -102,6 +101,8 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	}
 
 	override def removed(key :String) :StringMap[V] = wrap(root.remove(key))
+	override def removed(index :Int) :StringMap[V] = wrap(root.remove(index))
+	override def removed(from :Int, until :Int) :StringMap[V] = slice(0, from) ++ slice(until, root.size)
 
 	override def updated[V1 >: V](key :String, value :V1) :StringMap[V1] = wrap(root.inserted(key, value))
 
@@ -122,9 +123,14 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	override def +[V1 >: V](kv :(String, V1)) :StringMap[V1] = updated(kv._1, kv._2)
 	override def ++[V1 >: V](elems :IterableOnce[(String, V1)]) :StringMap[V1] = concat(elems)
 
-	override def concat[V1 >: V](elems :IterableOnce[(String, V1)]) :StringMap[V1] =
-		elems.toBasicOps.foldLeft(this :StringMap[V1])(_ + _)
-
+	override def concat[V1 >: V](elems :IterableOnce[(String, V1)]) :StringMap[V1] = elems match {
+		case other :StringMap[V1] =>
+			if (other.size < root.size) other.concat(this)
+			else if (root.isDeep) root.foldLeft(this)(_ + _)
+			else root.foldLeftEntries(other)(_.updated(_, _))
+		case _ =>
+			elems.toBasicOps.foldLeft(this :StringMap[V1])(_ + _)
+	}
 
 	override def foreach[U](f :((String, V)) => U) :Unit = root.foreach(f)
 	override def foreachEntry[U](f :(String, V) => U) :Unit = root.foreachEntry(f)
@@ -152,7 +158,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 		slice(lo, hi)
 	}
 
-	protected override def hasFastSlice = true
+//	protected override def hasFastSlice = true
 	protected override def clippedSlice(from :Int, until :Int) :StringMap[V] = new StringMap(root.slice(from, until))
 
 
@@ -188,12 +194,27 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	protected override def newSpecificBuilder :Builder[(String, V) @uncheckedVariance, StringMap[V]] =
 		StringMap.newBuilder
 
+	private def writeReplace :Any =
+		new DefaultSerializationProxy(StringMap.stringMapFactory[V], this)
 
-	protected override def className :String = "StringMap"
+	override def toString :String =
+		if (root.size == 0)
+			"StringMap()"
+		else
+			iterator.map(entry => "\"" + entry._1 + "\"->" + entry._2).mkString("StringMap(", ", ", ")")
+
+	protected[this] override def className :String = "StringMap"
 }
 
 
 
+
+private[collections] sealed trait ImplicitStringMapFactory
+
+private object ImplicitStringMapFactory {
+	@inline implicit def toFactory[V](stringMap :StringMap.type) :Factory[(String, V), StringMap[V]] =
+		StringMap.stringMapFactory
+}
 
 /**
   * $factoryInfo
@@ -201,7 +222,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
   * @define coll chopped string
   */
 @SerialVersionUID(Ver)
-case object StringMap {
+case object StringMap extends ImplicitStringMapFactory {
 	def apply[V](items :(String, V)*) :StringMap[V] = from(items)
 
 	def from[V](items :IterableOnce[(String, V)]) :StringMap[V] = items match {
@@ -220,6 +241,17 @@ case object StringMap {
 	private[this] val Empty = new StringMap(PrefixTree.Empty)
 
 	def newBuilder[V] :Builder[(String, V), StringMap[V]] = new StringMapBuilder[V]
+
+	implicit def stringMapFactory[V]: Factory[(String, V), StringMap[V]] =
+		reusableFactory.asInstanceOf[Factory[(String, V), StringMap[V]]]
+
+	private[this] val reusableFactory = new StringMapFactory
+
+	private class StringMapFactory[V] extends ComparableFactory[(String, V), StringMap[V]] with Serializable {
+		override def factory :Any = StringMap
+		override def fromSpecific(it :IterableOnce[(String, V)]) :StringMap[V] = StringMap.from(it)
+		override def newBuilder :Builder[(String, V), StringMap[V]] = StringMap.newBuilder
+	}
 
 	private class StringMapBuilder[V] extends ReusableBuilder[(String, V), StringMap[V]] {
 		private[this] var tree = PrefixTree.Empty :PrefixTree[V]
@@ -250,7 +282,7 @@ case object StringMap {
 final class StringSet(root :PrefixTree[_])
 	extends AbstractSet[String] with SortedSet[String] with StrictOptimizedSortedSetOps[String, SortedSet, StringSet]
 	   with SugaredIterable[String] with SugaredSlicingOps[String, Set, StringSet]
-	   with SpecificIterableFactoryDefaults[String, Set, StringSet] with DefaultSerializable
+	   with SpecificIterableFactoryDefaults[String, Set, StringSet] with Serializable
 {
 	override def ordering :Ordering[String] = Ordering.String
 	override def size :Int = root.size
@@ -276,9 +308,10 @@ final class StringSet(root :PrefixTree[_])
 	override def contains(elem :String) :Boolean = root.get(elem).isDefined
 
 	override def incl(elem :String) :StringSet = wrap(root.inserted(elem, elem))
-
 	override def excl(elem :String) :StringSet = wrap(root.remove(elem))
 
+	override def removed(index :Int) :StringSet = wrap(root.remove(index))
+	override def removed(from :Int, until :Int) :StringSet = slice(0, from) ++ slice(until, root.size)
 
 	override def iterator :Iterator[String] =
 		if (root.size == 0) Iterator.empty else new PrefixTreeKeyIterator(root)
@@ -309,10 +342,24 @@ final class StringSet(root :PrefixTree[_])
 		slice(lo, hi)
 	}
 
-	protected override def hasFastSlice = true
+//	protected override def hasFastSlice = true
 	protected override def clippedSlice(from :Int, until :Int) :StringSet = new StringSet(root.slice(from, until))
 
+	override def concat(elems :IterableOnce[String]) :StringSet = elems match {
+		case other :StringSet if other.size > root.size => foldLeft(other)(_ incl _)
+		case _                                          => elems.toBasicOps.foldLeft(this)(_ incl _)
+	}
+
 	override def specificFactory :SpecificIterableFactory[String, StringSet] = StringSet
+
+	private def writeReplace :Any =
+		new DefaultSerializationProxy(StringSet.specificIterableFactory, this)
+
+	override def toString :String =
+		if (size == 0)
+			"StringSet()"
+		else
+			new PrefixTreeKeyIterator(root).map("\"" + _ + "\"").mkString("StringSet(", ", ", ")")
 
 	protected[this] override def className = "StringSet"
 }
@@ -808,6 +855,8 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 		}
 	}
 
+	def remove(index :Int) :PrefixTree[V] = remove(at(index).firstKey)
+
 	def inserted[V1 >: V](key :String, value :V1) :PrefixTree[V1] = {
 		val length = key.length
 		//invariant: offset <= key.length and node.key.substring(0, offset) == key.substring(0, offset) and offset <= node.offset
@@ -1022,6 +1071,21 @@ private final class PrefixTree[+V](val offset :Int, val firstKey :String, val va
 			var i   = 0
 			while (i < end) {
 				acc = children(i).foldLeftKeys(acc)(f)
+				i  += 1
+			}
+			acc
+		}
+	def foldLeftEntries[A](z :A)(f :(A, String, V) => A) :A =
+		if (size == 0)
+			z
+		else if (isDeep)
+			new PrefixTreeEntryIterator(this).foldLeft(z)((acc, entry) => f(acc, entry._1, entry._2))
+		else {
+			var acc = if (value.nonEmpty) f(z, firstKey, value.get) else z
+			val end = children.length
+			var i   = 0
+			while (i < end) {
+				acc = children(i).foldLeftEntries(acc)(f)
 				i  += 1
 			}
 			acc
