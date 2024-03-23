@@ -15,10 +15,10 @@ import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
-import net.noresttherein.sugar.collections.Substring.SubstringSerializationProxy
 import net.noresttherein.sugar.collections.extensions.{StepperCompanionExtension, StepperExtension}
 import net.noresttherein.sugar.exceptions.{illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
+import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -619,7 +619,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		def prefixLength :Int
 		def prefix :Any
 		def suffix :Any
-		protected def writeReplace :AnyRef = Substring(this.toString)
+		protected def writeReplace :AnyRef = new SerializationProxy(toString, Substring.apply)
 	}
 
 	@SerialVersionUID(Ver)
@@ -1057,7 +1057,7 @@ final class Substring private (protected override val whole :String,
 	}
 
 	private def writeReplace :AnyRef =
-		new SubstringSerializationProxy(whole.substring(startIndex, startIndex + length))
+		new SerializationProxy(whole.substring(startIndex, startIndex + length), Substring.apply)
 }
 
 

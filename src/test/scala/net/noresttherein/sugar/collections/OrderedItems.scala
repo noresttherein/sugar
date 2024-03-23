@@ -1,6 +1,5 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable.{AbstractSeq, AbstractSet, ArraySeq, SeqOps}
 import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, SeqFactory, View}
 import scala.collection.mutable.Builder
@@ -17,7 +16,7 @@ import org.scalacheck.{Arbitrary, Gen, Shrink}
   * @author Marcin Mościcki
   */
 class OrderedItems[+E](override val toSeq :Seq[E])
-	extends AbstractIterable[E] with IterableFactoryDefaults[E, OrderedItems]
+	extends AbstractIterable[E] with IterableFactoryDefaults[E, OrderedItems] with Serializable
 {
 	override def knownSize :Int = toSeq.knownSize
 	override def iterator :Iterator[E] = toSeq.iterator

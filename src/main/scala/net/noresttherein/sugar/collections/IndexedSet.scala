@@ -383,17 +383,19 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
 
-		private def writeReplace :AnyRef =
-			new SerializationProxy[Array[E]](elems.slice(start, end - start), new ArrayIndexedSet(_))
-
+		private def writeReplace :Any = {
+			val ordering = this.ordering //Don't include ourselves in the closure for reconstruct lambda.
+			new SerializationProxy[Array[E]](
+				elems.slice(start, end - start), array => new ArrayIndexedSet(array)(ordering)
+			)
+		}
 	}
 
 
 	@SerialVersionUID(Ver)
 	private final class IndexedSeqSet[E](underlying :IndexedSeq[E], start :Int, end :Int)
 	                                    (implicit override val ordering :Ordering[E])
-		extends AbstractIndexedSet[E](start, end)
-		   with DefaultSerializable
+		extends AbstractIndexedSet[E](start, end) with DefaultSerializable
 	{
 		def this(underlying :IndexedSeq[E])(implicit ordering :Ordering[E]) = this(underlying, 0, underlying.length)
 

@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.collections
 
+import java.io.ObjectOutputStream
+
 import scala.collection.{AbstractIterator, IterableFactory, IterableFactoryDefaults, IterableOps, MapFactory, MapFactoryDefaults, SortedIterableFactory, SortedMapFactory, SortedMapFactoryDefaults, SortedSetFactoryDefaults, Stepper, StepperShape, immutable}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable.{AbstractMap, AbstractSet, MapOps, SetOps, SortedMap, SortedMapOps, SortedSet, SortedSetOps}
@@ -77,7 +79,7 @@ trait LazyIterableOps[+E, +CC[X] <: IterableOps[X, CC, _], +C <: IterableOps[E, 
 
 	def strict :C = definite
 
-	protected def writeReplace :Any = definite
+//	protected def writeReplace :Any = definite
 }
 
 
@@ -161,7 +163,7 @@ sealed trait LazySetOps[E, +C <: Set[E] with SetOps[E, Set, C], +LC <: Set[E] wi
 @SerialVersionUID(Ver)
 sealed abstract class LazySet[E] protected
 	extends AbstractSet[E] with LazyIterable[E] with LazySetOps[E, Set[E], LazySet[E]]
-	   with IterableFactoryDefaults[E, LazySet]
+	   with IterableFactoryDefaults[E, LazySet] with Serializable
 {
 	protected override def lazySpecific(items : => Set[E]) :LazySet[E] = LazySet.factory.from(() => items)
 	override def iterableFactory :IterableFactory[LazySet] = LazySet.factory
@@ -201,7 +203,7 @@ final class LazySortedSet[E] private (protected override var initializer: () => 
                                      (implicit override val ordering :Ordering[E])
 	extends LazySet[E] with SortedSet[E] with SortedSetOps[E, LazySortedSet, LazySortedSet[E]]
 	   with AbstractLazy[SortedSet[E]] with LazySetOps[E, SortedSet[E], LazySortedSet[E]]
-	   with SortedSetFactoryDefaults[E, LazySortedSet, LazySet]
+	   with SortedSetFactoryDefaults[E, LazySortedSet, LazySet] with Serializable
 {
 	protected override def lazySpecific(items : => SortedSet[E]) :LazySortedSet[E] =
 		new LazySortedSet(() => items)
@@ -213,6 +215,7 @@ final class LazySortedSet[E] private (protected override var initializer: () => 
 		new LazySortedSet(() => definite.rangeImpl(from, until))
 
 	override def sortedIterableFactory :SortedIterableFactory[LazySortedSet] = LazySortedSet.factory
+
 }
 
 @SerialVersionUID(Ver)
@@ -341,7 +344,8 @@ case object LazyMap {
 		override def toString = "LazyMap.factory"
 	}
 
-	private class Impl[K, V] (protected[this] override var initializer :() => Map[K, V]) extends LazyMap[K, V]
+	private class Impl[K, V] (protected[this] override var initializer :() => Map[K, V])
+		extends LazyMap[K, V] with Serializable
 }
 
 

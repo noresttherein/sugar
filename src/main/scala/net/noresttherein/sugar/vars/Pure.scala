@@ -1,5 +1,7 @@
 package net.noresttherein.sugar.vars
 
+import java.io.ObjectOutputStream
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
@@ -263,7 +265,7 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
   * For this reason all methods are protected, with subclasses having full control over what API they want to expose.
   */
 trait AbstractPure[@specialized(SpecializedVars) +T] {
-	protected[this] var initializer :() => T
+	@transient protected[this] var initializer :() => T
 	@volatile private[this] var evaluated :T = _
 
 	@inline protected final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
@@ -306,6 +308,11 @@ trait AbstractPure[@specialized(SpecializedVars) +T] {
 			initializer = null
 			res
 		}
+	}
+
+	private def writeObject(out :ObjectOutputStream) :Unit = {
+		definite
+		out.defaultWriteObject()
 	}
 }
 

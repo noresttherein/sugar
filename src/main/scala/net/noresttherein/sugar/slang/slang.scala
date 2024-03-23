@@ -15,9 +15,9 @@ package slang {
 	  * to build an object of the creator's type.
 	  */
 	@SerialVersionUID(Ver) //todo: move it to util or somewhere
-	class SerializationProxy[T <: Serializable](substitute: T, reconstruct: T => Any) extends Serializable {
+	final class SerializationProxy[T <: Serializable](substitute: T, reconstruct: T => Any) extends Serializable {
 		private def readResolve :Any = reconstruct(substitute)
-		override def toString :String = substitute.toString
+		override def toString   :String = substitute.toString
 	}
 
 	/** A serialization proxy, that is an object intended to be returned from a `Serializable` class's
@@ -40,7 +40,7 @@ package slang {
 	  * @param fetch a lazy expression returning an object which should be unique in the application.
 	  */
 	@SerialVersionUID(Ver)
-	class SingletonSerializationProxy(fetch: => Any) extends Serializable {
+	final class SingletonSerializationProxy(fetch: => Any) extends Serializable {
 		private def readResolve :Any = fetch
 		override def toString :String = fetch.toString
 	}

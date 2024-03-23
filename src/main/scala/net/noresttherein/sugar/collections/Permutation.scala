@@ -29,6 +29,7 @@ import net.noresttherein.sugar.funny.generic.Any1
   */
 class Permutation private (override val toIndexedSeq :IndexedSeq[Int])
 	extends AnyVal with IterableOnce[Int] with StrictOptimizedIterableOps[Int, IndexedSeq, IndexedSeq[Int]]
+	   with Serializable
 {
 	/** The index in the output sequence to which the `n`-th element of an input sequence is mapped. */
 	def apply(n :Int) :Int = toIndexedSeq(n)

@@ -38,7 +38,7 @@ trait MutNatMap[K[_], V[_]]
 	def mapValuesInPlace(f :Item =>: V) :this.type
 
 	protected override def fromSpecific(coll :IterableOnce[Assoc[K, V, _]]) :MutNatMap[K, V] = MutNatMap.from(coll)
-	protected override def newSpecificBuilder :Builder[Assoc[K, V, _], MutNatMap[K, V]] = MutNatMap.empty
+	protected override def newSpecificBuilder :Builder[Assoc[K, V, _], MutNatMap[K, V]] = MutNatMap.newBuilder
 	override def empty :MutNatMap[K, V] = MutNatMap.empty
 
 	protected[this] override def className :String = "MutNatMap"
@@ -59,6 +59,8 @@ object MutNatMap {
 
 	def freezable[K[_], V[_]] :FreezableMap[K, V] = new NaturalizedMap[K, V] with FreezableMap[K, V]
 
+	def newBuilder[K[_], V[_]] :Builder[(Assoc[K, V, _]), MutNatMap[K, V]] =
+		new NaturalizedMap[K, V]// with Builder[Assoc[K, V, _], MutNatMap[K, V]]
 
 
 	trait FreezableMap[K[_], V[_]] extends MutNatMap[K, V] {
@@ -79,11 +81,11 @@ object MutNatMap {
 		abstract override def addOne(elem :Assoc[K, V, _]) :this.type = {
 		    guard(); super.addOne(elem)
 		}
-		abstract override def put[X](key :K[X], value :V[X]) :Option[V[X]] = {
-			guard(); super.put(key, value)
-		}
 		override def clear() :Unit = {
 			guard(); clear()
+		}
+		abstract override def put[X](key :K[X], value :V[X]) :Option[V[X]] = {
+			guard(); super.put(key, value)
 		}
 		override def mapValuesInPlace(f :Item =>: V) :this.type = {
 			guard(); mapValuesInPlace(f)
@@ -95,6 +97,7 @@ object MutNatMap {
 	@SerialVersionUID(Ver)
 	private class NaturalizedMap[K[_], V[_]](entries :mutable.Map[K[_], V[_]])
 		extends MutNatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, MutNatMap[K, V]]
+		   with Serializable
 	{
 		def this() = this(mutable.Map.empty[K[_], V[_]])
 
@@ -137,9 +140,6 @@ object MutNatMap {
 		override def ++[U[T] >: V[T]](entries :IterableOnce[Assoc[K, U, _]]) :NatMap[K, U] =
 			NatMap.empty[K, U] ++ this ++ entries
 
-		override def put[X](key :K[X], value :V[X]) :Option[V[X]] =
-			entries.put(key, value).asInstanceOf[Option[V[X]]]
-
 		override def clear() :Unit = entries.clear()
 
 		override def result() :MutNatMap[K, V] = this
@@ -147,6 +147,9 @@ object MutNatMap {
 		override def addOne(elem :Assoc[K, V, _]) :this.type = {
 			entries.addOne (elem._1, elem._2); this
 		}
+
+		override def put[X](key :K[X], value :V[X]) :Option[V[X]] =
+			entries.put(key, value).asInstanceOf[Option[V[X]]]
 
 		override def mapValuesInPlace(f :Item =>: V) :this.type = {
 			entries.mapValuesInPlace {

@@ -31,7 +31,7 @@ object PrependedSeq {
 
 /** Currently used only as a `tail` for [[net.noresttherein.sugar.collections.Prepended2Seq Prepended2Seq]]. */
 private class PrependedSeq[+E](override val head :E, override val tail :Seq[E])
-	extends AbstractSeq[E]
+	extends AbstractSeq[E] with Serializable
 {
 	override def length :Int = tail.length + 1
 	override def knownSize :Int = {
@@ -95,7 +95,7 @@ object Prepended2Seq {
   * without worrying about the cost of concatenation.
   */
 private class Prepended2Seq[+E](override val head :E, second :E, rest :Seq[E])
-	extends AbstractSeq[E]
+	extends AbstractSeq[E] with Serializable
 {
 	override def length :Int = rest.length + 2
 	override def knownSize :Int = {

@@ -17,7 +17,7 @@ import net.noresttherein.sugar.outOfBounds_!
   * @define coll multi set
   */
 trait MultiSetOps[E, +Multi[A] <: MultiSetOps[A, Multi]]
-	extends SugaredIterableOps[E, Multi, Multi[E]] with IterableFactoryDefaults[E, Multi] with Serializable
+	extends SugaredIterableOps[E, Multi, Multi[E]]
 {
 	/** Number of unique elements in this $coll. */
 	def uniqueSize :Int = unique.size
@@ -406,7 +406,10 @@ trait MultiSetOps[E, +Multi[A] <: MultiSetOps[A, Multi]]
   * @see [[net.noresttherein.sugar.collections.MultiSetOps.counts]]
   * @author Marcin Mościcki
   */
-trait MultiSet[E] extends immutable.Iterable[E] with SugaredIterable[E] with MultiSetOps[E, MultiSet] {
+trait MultiSet[E]
+	extends immutable.Iterable[E] with SugaredIterable[E] with MultiSetOps[E, MultiSet]
+	   with IterableFactoryDefaults[E, MultiSet]
+{
 	override def iterableFactory :MultiSetFactory[MultiSet] = MultiSet
 
 	override def intersect(xs :(E, Int)) :MultiSet[E] =
@@ -557,7 +560,9 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 
 	@SerialVersionUID(Ver)
-	private class Empty[X] extends AbstractIterable[X] with MultiSet[X] with EmptyNonSeqOps[X, MultiSet, MultiSet[X]] {
+	private class Empty[X]
+		extends AbstractIterable[X] with MultiSet[X] with EmptyNonSeqOps[X, MultiSet, MultiSet[X]] with Serializable
+	{
 		override def totalSize = 0L
 		override def uniqueSize = 0
 		override def apply(x :X) = 0
@@ -584,15 +589,14 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 		override def intersect(that :collection.Set[X]) = this
 
 		override def toString = "MultiSet()"
-	}
-	private val Empty :Empty[Any] = new Empty[Any] {
 		private def readResolve :AnyRef = MultiSet.Empty
 	}
+	private val Empty :Empty[Any] = new Empty[Any]
 
 
 	@SerialVersionUID(Ver)
 	private class Singleton[X](override val head :X, override val knownSize :Int)
-		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]]
+		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]] with Serializable
 	{
 		assert(knownSize > 0)
 		override def totalSize = knownSize
@@ -636,7 +640,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 	}
 
 
-	//A set pretending to be a map with all values equal 1
+	//A set pretending to be a map with all counts equal to 1
 	@SerialVersionUID(Ver)
 	private class SetMap[X](underlying :Set[X]) extends AbstractMap[X, Int] with Serializable {
 		override def removed(key :X) :Map[X, Int] =
@@ -659,7 +663,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 	//hash set because we treat it as covariant
 	@SerialVersionUID(Ver)
 	private class Unique[X](override val unique :HashSet[X])
-		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]]
+		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]] with Serializable
 	{ self =>
 		override def knownSize  = unique.knownSize
 		override def totalSize  = unique.size
@@ -689,7 +693,9 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 
 	@SerialVersionUID(Ver)
-	private class MapAdapter[X](override val counts :Map[X, Int], initSize :Long = -1L) extends MultiSet[X] {
+	private class MapAdapter[X](override val counts :Map[X, Int], initSize :Long = -1L)
+		extends MultiSet[X] with Serializable
+	{
 		@volatile private[this] var _totalSize = initSize
 
 		override def knownSize :Int = if (_totalSize > Int.MaxValue) -1 else _totalSize.toInt

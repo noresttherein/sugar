@@ -139,6 +139,7 @@ object BoundBuffer {
 
 
 
+//Consider: what about making these Serializable?
 private abstract class AbstractBoundBuffer[E](private[this] var offset :Int,
                                               private[this] var len :Int, override val maxSize :Int)
 	extends AbstractBuffer[E] with IndexedBuffer[E] with BoundBuffer[E]
@@ -266,7 +267,6 @@ private class BoundSeqBuffer[E](underlying :mutable.IndexedSeq[E], offset :Int, 
 	protected override def errorString :String = util.errorString(underlying)
 	override def iterator :Iterator[E] = IndexedSeqIterator(underlying, startIndex, length)
 	override def reverseIterator :Iterator[E] = ReverseIndexedSeqIterator(underlying, startIndex + length - 1, length)
-
 }
 
 

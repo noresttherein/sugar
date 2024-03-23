@@ -32,7 +32,7 @@ import net.noresttherein.sugar.vars.Opt.One
 // much as we need casting on the key type anyway.
 //todo: rename to GenNatMap, and make an immutable NatMap.
 trait NatMap[K[X], +V[X]]
-	extends Iterable[NatMap.Assoc[K, V, _]] with (K =>: V) with Equals with Serializable
+	extends SugaredIterable[NatMap.Assoc[K, V, _]] with (K =>: V) with Equals
 { outer =>
 	def opt[X](key :K[X]) :Opt[V[X]]
 
@@ -191,6 +191,7 @@ object NatMap extends ImplicitNatMapFactory {
 		@inline def unapply[K[_], V[_], X](assoc :Assoc[K, V, X]) :Yes[(K[X], V[X])] = Yes((assoc._1, assoc._2))
 	}
 
+	//todo: consistent naming with generic function
 	implicit class ->:[K[_], X](private val key :K[X]) extends AnyVal {
 		@inline def ->:[V[_]](value :V[X]) :Assoc[K, V, X] = Assoc(key, value)
 	}
@@ -269,6 +270,7 @@ object NatMap extends ImplicitNatMapFactory {
 	def Lazy[K[_], V[_]](entries: => IterableOnce[Assoc[K, V, _]]) :NatMap[K, V] =
 		new LazyNatMap(() => NatMap(entries.iterator.toSeq :_*))
 
+	//todo: consistent delay/delayed everywhere
 	def delayed[K[_], V[_]](map: => NatMap[K, V]) :NatMap[K, V] = new LazyNatMap(() => map)
 
 
@@ -382,7 +384,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 	@SerialVersionUID(Ver)
 	private class EmptyMap[K[_], +V[_]](implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
-		extends BaseNatMap[K, V]
+		extends BaseNatMap[K, V] with Serializable
 	{
 		override def knownSize = 0
 		override def size = 0
@@ -427,7 +429,7 @@ object NatMap extends ImplicitNatMapFactory {
 	@SerialVersionUID(Ver)
 	private class Singleton[K[_], +V[_], T](override val _1 :K[T], override val _2 :V[T], override val keyHashCode :Int)
 	                                       (implicit override val defaults :WhenNoKey[K, V])
-		extends Assoc[K, V, T] with BaseNatMap[K, V]
+		extends Assoc[K, V, T] with BaseNatMap[K, V] with Serializable
 	{
 		def this(_1 :K[T], _2 :V[T])(implicit defaults :WhenNoKey[K, V] = throwANoSuchElementException[K]) =
 			this(_1, _2, _1.hashCode)
@@ -492,7 +494,7 @@ object NatMap extends ImplicitNatMapFactory {
 		}
 		override def hashCode = MurmurHash3.mapHash(Map(_1 -> _2))
 
-		override def toString = "(" + _1 + ", " + _2 + ")"
+		override def toString = "(" + _1 + "->" + _2 + ")"
 
 		private def writeReplace :AnyRef = new SerializedAssoc(_1, _2)
 	}
@@ -502,6 +504,7 @@ object NatMap extends ImplicitNatMapFactory {
 		extends Serializable
 	{
 		private def readResolve :AnyRef = new Singleton(key, value)
+		override def toString = "(" + key + "->" + value + ")"
 	}
 
 
@@ -514,7 +517,7 @@ object NatMap extends ImplicitNatMapFactory {
 	private class SmallNatMap[K[_], +V[_]]
 	                         (private[this] val entries :Array[Assoc[K, V, _]])
 	                         (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
-		extends BaseNatMap[K, V]
+		extends BaseNatMap[K, V] with Serializable
 	{
 		override def knownSize = entries.length
 
@@ -626,7 +629,7 @@ object NatMap extends ImplicitNatMapFactory {
 	private class NaturalizedMap[K[_], +V[_]]
 	                            (private val entries :Map[K[_], V[_]] = Map.empty[K[_], V[_]])
 	                            (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
-		extends NatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, NatMap[K, V]]
+		extends NatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, NatMap[K, V]] with Serializable
 	{
 		override def size :Int = entries.size
 		override def knownSize :Int = entries.knownSize

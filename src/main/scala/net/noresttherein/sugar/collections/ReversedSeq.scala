@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
+import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.StrictOptimizedSeqOps
 import scala.collection.mutable
 import scala.collection.mutable.IndexedBuffer
@@ -40,11 +41,12 @@ private object ReversedSeq {
 }
 
 
+//todo: rename it to GenReversedSeq and immutableReversedSeq to ReversedSeq
 /** A view of an `IndexedSeq` reversing the order of elements. */
 @SerialVersionUID(Ver) //consider: makng it a GenIndexedSeqRange[E]; problem: trustedSlice must return range
 private sealed class ReversedSeq[+E](underlying :collection.IndexedSeq[E])
 	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
-	   with SugaredSlicingOps[E, collection.IndexedSeq, collection.IndexedSeq[E]]
+	   with SugaredSlicingOps[E, collection.IndexedSeq, collection.IndexedSeq[E]] with DefaultSerializable
 {
 //	private[this] val len = underlying.length
 //	override def length :Int = len
