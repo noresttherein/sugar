@@ -371,13 +371,15 @@ private object HasFastSlice {
 //				case _ :ArraySliceSeqOps[A, _, _]       => Yes(seq.slice(from, until))
 				case array :RelayArray[A]               => Yes(array.range(from, until))
 				case ArrayLike.Slice(array, start, end) =>
-					Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
-				case _     :Substring                   => Yes(items)
+					if (from >= end - start) Yes(Nil)
+					else Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
+				case _     :Substring                   => Yes(items.slice(from, until))
 				case seq   :collection.IndexedSeq[A]    => Yes(SeqSlice(seq, from, until))
 				case _                                  => Yes(seq.view.slice(from, until))
 			}
 			case ArrayLike.Slice(array, start, end) =>
-				Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
+				if (from >= end - start) Yes(Nil)
+				else Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
 			case _ :SugaredIterableOps[_, _, _] => items match {
 				case set  :IndexedSet[A] => Yes(set.slice(from, until))
 				//Unsafe, no bound forcing Iterable, for example in ArrayAsSeq.
@@ -400,6 +402,9 @@ private object HasFastSlice {
 				case Yes(result) => result
 				case _           => slice(items.iterator, from, until)
 			}
+			case ArrayLikeSlice(array, start, end) =>
+				if (from >= end - start) Nil
+				else ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until)
 			case _ => slice(items.iterator, from, until)
 		}
 	private def slice[A](items :Iterator[A], from :Int, until :Int) :Iterator[A] = {

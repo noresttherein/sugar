@@ -30,12 +30,10 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   */
 @SerialVersionUID(Ver)
 object ArrayFactory extends ClassTagIterableFactory[Array] {
-//	@inline override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = Array.from(it)
 
 	override def from[E :ClassTag](it :IterableOnce[E]) :Array[E] = it match {
 		case elems :Iterable[E] if elems.knownSize == 0 => empty[E]
 		case iter  :Iterator[E] if !iter.hasNext        => empty[E]
-//		case elems :ArrayAsSeq[E] if elems.coll.getClass.getComponentType == classTag[E].runtimeClass => elems.coll
 		case elems :Iterable[E]                         => elems.toArray[E]
 		case _                                          => it.iterator.toArray[E]
 	}
@@ -61,7 +59,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 
 	private val emptyUnitArray = Array.emptyUnitArray
 
-	final val MaxSize = Int.MaxValue - 8 //According to java.util.ArrayDeque, and it should know
+	final val MaxSize = Int.MaxValue - 8 //According to java.util.ArrayDeque, and it should know.
 
 	@inline def emptyLike[A](template :Array[A]) :Array[A] = empty(template.getClass.getComponentType.castParam[A])
 
@@ -387,36 +385,37 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 			else
 				No
 		}
+	}
 
-		/** Factory of views on slices of arrays as indexed sequences, and unwraps known mutable collections
-		  * backed by array slices. Modification of the array will be visible in the wrapped/unwrapped collection,
-		  * and vice versa. The pattern will match only if the component type of the underling array equals
-		  * the runtime class of the collection's type parameter, as specified by a `ClassTag`.
-		  */
-		@SerialVersionUID(Ver)
-		object Slice {
-			def apply[E](array :Array[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
-				ViewBuffer.full(array, from, until)
+	/** Factory of views on slices of arrays as indexed sequences, and unwraps known mutable collections
+	  * backed by array slices. Modification of the array will be visible in the wrapped/unwrapped collection,
+	  * and vice versa. The pattern will match only if the component type of the underling array equals
+	  * the runtime class of the collection's type parameter, as specified by a `ClassTag`.
+	  */
+	@SerialVersionUID(Ver)
+	object Slice {
+		def apply[E](array :Array[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
+			ViewBuffer.full(array, from, until)
 
-			def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(Array[E], Int, Int)] = {
-				val tag = classTag[E]
-				val expectedClass = tag.runtimeClass
-				elems match {
-					case seq :mutable.ArraySeq[_] if expectedClass == seq.array.getClass.getComponentType =>
-						Yes((seq.array.castParam[E], 0, seq.array.length))
-					case seq :ArrayBuffer[_] if expectedClass == CheatedAccess.array(seq).getClass.getComponentType =>
-						Yes((CheatedAccess.array(seq).castParam[E], 0, seq.length))
-					case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isMutable =>
-						val array = slice.unsafeArray
-						if (expectedClass == array.getClass.getComponentType)
-							Yes((array.castParam[E], slice.startIndex, slice.startIndex + slice.knownSize))
-						else
-							No
-					case _ =>
+		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(Array[E], Int, Int)] = {
+			val tag = classTag[E]
+			val expectedClass = tag.runtimeClass
+			elems match {
+				case seq :mutable.ArraySeq[_] if expectedClass == seq.array.getClass.getComponentType =>
+					Yes((seq.array.castParam[E], 0, seq.array.length))
+				case seq :ArrayBuffer[_] if expectedClass == CheatedAccess.array(seq).getClass.getComponentType =>
+					Yes((CheatedAccess.array(seq).castParam[E], 0, seq.length))
+				case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isMutable =>
+					val array = slice.unsafeArray
+					if (expectedClass == array.getClass.getComponentType)
+						Yes((array.castParam[E], slice.startIndex, slice.startIndex + slice.knownSize))
+					else
 						No
-				}
+				case _ =>
+					No
 			}
 		}
 	}
 
+	override def toString = "Array"
 }

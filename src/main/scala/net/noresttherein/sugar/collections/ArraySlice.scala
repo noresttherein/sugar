@@ -452,7 +452,7 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 		else IArrayLike.Wrapped(array.slice(startIndex, startIndex + size).asInstanceOf[IArrayLike[E]])
 
 	protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :C[E @uncheckedVariance] =
-		sliceFactory.slice(array.asInstanceOf[A[E]], from, until - from)
+		sliceFactory.slice(array.asInstanceOf[A[E]], from, until)
 
 	protected[this] def writeReplace :AnyRef =
 		//todo: get rid of this cast by changing unsafeArray to ArrayLike, and then array to A[E]
@@ -505,16 +505,16 @@ private[sugar] case object ArrayLikeSlice
 
 	protected override def make[E](array :ArrayLike[E], from :Int, until :Int) :ArrayLikeSlice[E] =
 		(array match {
-			case arr :Array[AnyRef]  => new Impl(arr, from, until)
-			case arr :Array[Int]     => new Impl(arr, from, until)
-			case arr :Array[Long]    => new Impl(arr, from, until)
-			case arr :Array[Double]  => new Impl(arr, from, until)
-			case arr :Array[Byte]    => new Impl(arr, from, until)
-			case arr :Array[Char]    => new Impl(arr, from, until)
-			case arr :Array[Float]   => new Impl(arr, from, until)
-			case arr :Array[Short]   => new Impl(arr, from, until)
-			case arr :Array[Boolean] => new Impl(arr, from, until)
-			case arr :Array[Unit]    => new Impl(arr, from, until)
+			case arr :Array[AnyRef]  => new Impl(arr, from, until - from)
+			case arr :Array[Int]     => new Impl(arr, from, until - from)
+			case arr :Array[Long]    => new Impl(arr, from, until - from)
+			case arr :Array[Double]  => new Impl(arr, from, until - from)
+			case arr :Array[Byte]    => new Impl(arr, from, until - from)
+			case arr :Array[Char]    => new Impl(arr, from, until - from)
+			case arr :Array[Float]   => new Impl(arr, from, until - from)
+			case arr :Array[Short]   => new Impl(arr, from, until - from)
+			case arr :Array[Boolean] => new Impl(arr, from, until - from)
+			case arr :Array[Unit]    => new Impl(arr, from, until - from)
 		}).castParam[E]
 
 	@SerialVersionUID(Ver)
@@ -536,6 +536,14 @@ private[sugar] case object ArrayLikeSlice
 	}
 
 	object Convert {
+		def apply[E](items :IterableOnce[E], from :Int, until :Int) :Maybe[ArrayLikeSlice[E]] = items match {
+			case slice :ArrayLikeSlice[E]     => Yes(slice.slice(from, until))
+			case ArrayLike.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case  _                           => No
+		}
 		def unapply[E](items :IterableOnce[E]) :Maybe[ArrayLikeSlice[E]] = items match {
 			case slice :ArrayLikeSlice[E]            => Yes(slice)
 			case ArrayLike.Slice(array, from, until) => Yes(slice(array, from, until))
@@ -588,6 +596,32 @@ private[sugar] case object MutableArraySlice
 	}
 
 	object Convert {
+		def apply[E :ClassTag](items :IterableOnce[E], from :Int, until :Int) :Maybe[MutableArraySlice[E]] =
+			items match {
+				case MutableArray.Slice(array, i, j) =>
+					val from0  = math.min(math.max(from, 0), j - i)
+					val until0 = math.min(math.max(until, from), j - i)
+					Yes(slice(array, i + from0, i + until0))
+				case  _                              => No
+			}
+		def apply[E](items :mutable.Iterable[E], from :Int, until :Int) :Maybe[MutableArraySlice[E]] = items match {
+			case MutableArray.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case _                               => No
+		}
+		def apply[E](items :mutable.SeqOps[E, Any1, AnyRef], from :Int, until :Int) :Maybe[MutableArraySlice[E]] =
+			items match {
+				case MutableArray.Slice(array, i, j) =>
+					val from0  = math.min(math.max(from, 0), j - i)
+					val until0 = math.min(math.max(until, from), j - i)
+					Yes(slice(array, i + from0, i + until0))
+				case _                               => No
+			}
+		def apply[E](items :mutable.Seq[E], from :Int, until :Int) :Maybe[MutableArraySlice[E]] =
+			apply[E](items :mutable.Iterable[E], from, until)
+
 		def unapply[E :ClassTag](items :IterableOnce[E]) :Maybe[MutableArraySlice[E]] = items match {
 			case MutableArray.Slice(array, from, until) => Yes(slice(array, from, until))
 			case _                                      => No
@@ -653,6 +687,14 @@ private[sugar] case object IArrayLikeSlice
 	}
 
 	object Convert {
+		def apply[E](items :IterableOnce[E], from :Int, until :Int) :Maybe[IArrayLikeSlice[E]] = items match {
+			case slice :IArrayLikeSlice[E]     => Yes(slice.slice(from, until))
+			case IArrayLike.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case _                             => No
+		}
 		def unapply[E](items :IterableOnce[E]) :Maybe[IArrayLikeSlice[E]] = items match {
 			case slice :IArrayLikeSlice[E]            => Yes(slice)
 			case IArrayLike.Slice(array, from, until) => Yes(slice(array, from, until))
@@ -713,16 +755,16 @@ private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Arra
 
 	protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySlice[E] =
 		((array :Array[_]) match {
-			case arr :Array[AnyRef]  => new ArraySlice(arr, from, until)
-			case arr :Array[Int]     => new ArraySlice(arr, from, until)
-			case arr :Array[Long]    => new ArraySlice(arr, from, until)
-			case arr :Array[Double]  => new ArraySlice(arr, from, until)
-			case arr :Array[Byte]    => new ArraySlice(arr, from, until)
-			case arr :Array[Char]    => new ArraySlice(arr, from, until)
-			case arr :Array[Float]   => new ArraySlice(arr, from, until)
-			case arr :Array[Short]   => new ArraySlice(arr, from, until)
-			case arr :Array[Boolean] => new ArraySlice(arr, from, until)
-			case arr :Array[Unit]    => new ArraySlice(arr, from, until)
+			case arr :Array[AnyRef]  => new ArraySlice(arr, from, until - from)
+			case arr :Array[Int]     => new ArraySlice(arr, from, until - from)
+			case arr :Array[Long]    => new ArraySlice(arr, from, until - from)
+			case arr :Array[Double]  => new ArraySlice(arr, from, until - from)
+			case arr :Array[Byte]    => new ArraySlice(arr, from, until - from)
+			case arr :Array[Char]    => new ArraySlice(arr, from, until - from)
+			case arr :Array[Float]   => new ArraySlice(arr, from, until - from)
+			case arr :Array[Short]   => new ArraySlice(arr, from, until - from)
+			case arr :Array[Boolean] => new ArraySlice(arr, from, until - from)
+			case arr :Array[Unit]    => new ArraySlice(arr, from, until - from)
 		}).castParam[E]
 
 	override def isMutable = true
@@ -736,6 +778,14 @@ private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Arra
 	}
 
 	object Convert {
+		def apply[E :ClassTag](items :IterableOnce[E], from :Int, until :Int) :Maybe[ArraySlice[E]] = items match {
+			case ArrayFactory.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case _                                      => No
+		}
+
 		def unapply[E :ClassTag](items :IterableOnce[E]) :Maybe[ArraySlice[E]] = items match {
 			case ArrayFactory.Slice(array, from, until) => Yes(slice(array, from, until))
 			case _                                      => No
@@ -795,16 +845,16 @@ private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IAr
 
 	protected override def make[E](array :IArray[E], from :Int, until :Int) :IArraySlice[E] =
 		(array match {
-			case arr :Array[AnyRef]  => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Int]     => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Long]    => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Double]  => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Byte]    => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Char]    => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Float]   => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Short]   => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Boolean] => new IArraySlice(arr.castCons[IArray], from, until)
-			case arr :Array[Unit]    => new IArraySlice(arr.castCons[IArray], from, until)
+			case arr :Array[AnyRef]  => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Int]     => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Long]    => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Double]  => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Byte]    => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Char]    => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Float]   => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Short]   => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Boolean] => new IArraySlice(arr.castCons[IArray], from, until - from)
+			case arr :Array[Unit]    => new IArraySlice(arr.castCons[IArray], from, until - from)
 		}).castParam[E]
 
 	override def isImmutable = true
@@ -818,6 +868,14 @@ private[sugar] case object IArraySlice extends ClassTagArrayLikeSliceFactory[IAr
 	}
 
 	object Convert {
+		def apply[E :ClassTag](items :IterableOnce[E], from :Int, until :Int) :Maybe[IArraySlice[E]] = items match {
+			case IArray.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case _                                => No
+		}
+
 		def unapply[E :ClassTag](items :IterableOnce[E]) :Maybe[IArraySlice[E]] = items match {
 			case IArray.Slice(array, from, until) => Yes(slice(array, from, until))
 			case _                                => No
@@ -863,7 +921,7 @@ private[sugar] sealed class RefArraySlice[E] private
 @SerialVersionUID(Ver)
 private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArray, RefArraySlice] {
 	protected def make[E](array :RefArray[E], from :Int, until :Int) :RefArraySlice[E] =
-		new RefArraySlice(array, from, until)
+		new RefArraySlice(array, from, until - from)
 
 	override def isMutable = true
 
@@ -876,6 +934,26 @@ private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArr
 	}
 
 	object Convert {
+		def apply[E](items :mutable.Iterable[E], from :Int, until :Int) :Maybe[RefArraySlice[E]] = items match {
+			case slice :RefArraySlice[E]     => Yes(slice.slice(from, until))
+			case RefArray.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case _                           => No
+		}
+		def apply[E](items :mutable.SeqOps[E, Any1, AnyRef], from :Int, until :Int) :Maybe[RefArraySlice[E]] =
+			items match {
+				case slice :RefArraySlice[E]     => Yes(slice.slice(from, until))
+				case RefArray.Slice(array, i, j) =>
+					val from0  = math.min(math.max(from, 0), j - i)
+					val until0 = math.min(math.max(until, from), j - i)
+					Yes(slice(array, i + from0, i + until0))
+				case _                           => No
+			}
+		def apply[E](items :mutable.Seq[E], from :Int, until :Int) :Maybe[RefArraySlice[E]] =
+			apply(items :mutable.Iterable[E], from, until)
+
 		def unapply[E](items :mutable.Iterable[E]) :Maybe[RefArraySlice[E]] = items match {
 			case slice :RefArraySlice[E]            => Yes(slice)
 			case RefArray.Slice(array, from, until) => Yes(slice(array, from, until))
@@ -952,7 +1030,16 @@ private[sugar] case object IRefArraySlice extends RefArrayLikeSliceFactory[IRefA
 	}
 
 	object Convert {
+		def apply[E](items :IterableOnce[E], from :Int, until :Int) :Maybe[IRefArraySlice[E]] = items match {
+			case slice :IRefArraySlice[E]     => Yes(slice.slice(from, until))
+			case IRefArray.Slice(array, i, j) =>
+				val from0  = math.min(math.max(from, 0), j - i)
+				val until0 = math.min(math.max(until, from), j - i)
+				Yes(slice(array, i + from0, i + until0))
+			case _                            => No
+		}
 		def unapply[E](items :IterableOnce[E]) :Maybe[IRefArraySlice[E]] = items match {
+			case slice :IRefArraySlice[E]            => Yes(slice)
 			case IRefArray.Slice(array, from, until) => Yes(slice(array, from, until))
 			case _                                   => No
 		}

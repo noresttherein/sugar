@@ -163,7 +163,11 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		def apply[E](array :RefArray[E]) :mutable.IndexedSeq[E] =
 			mutable.ArraySeq.make(array.castFrom[RefArray[E], Array[E]])
 
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[RefArray[E]] = {
+		def unapply[E](elems :mutable.Seq[E])      :Maybe[RefArray[E]] = trustedUnapply(elems)
+		def unapply[E](elems :mutable.Iterable[E]) :Maybe[RefArray[E]] = trustedUnapply(elems)
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[RefArray[E]] = trustedUnapply(elems)
+
+		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[RefArray[E]] = {
 			val array = elems match {
 				case slice :ArrayIterableOnce[_] if slice.isMutable                 => slice.unsafeArray
 				case seq   :mutable.ArraySeq[_]                                     => seq.array
@@ -171,7 +175,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0  => seq.data1
 				case _                                                              => null
 			}
-			if (array != null && array.length == elems.length && array.getClass == classOf[Array[AnyRef]])
+			if (array != null && array.length == elems.knownSize && array.getClass == classOf[Array[AnyRef]])
 				Yes(array.castFrom[Array[_], RefArray[E]])
 			else
 				No
@@ -184,8 +188,13 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		def apply[E](array :RefArray[E], from :Int, until :Int) :mutable.IndexedSeq[E] =
 			RefArraySlice.slice(array, from, until)
 
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(RefArray[E], Int, Int)] = {
-			val length = elems.length
+		def unapply[E](elems :mutable.Seq[E])      :Maybe[(RefArray[E], Int, Int)] = trustedUnapply(elems)
+		def unapply[E](elems :mutable.Iterable[E]) :Maybe[(RefArray[E], Int, Int)] = trustedUnapply(elems)
+		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(RefArray[E], Int, Int)] =
+			trustedUnapply(elems)
+
+		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[(RefArray[E], Int, Int)] = {
+			val length = elems.knownSize
 			var start  = 0
 			val array  = elems match {
 				case seq   :mutable.ArraySeq[_] => seq.array
@@ -200,7 +209,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 				case _ =>
 					null
 			}
-			if (array != null && array.getClass == classOf[Array[AnyRef]])
+			if (array != null && length >= 0 && array.getClass == classOf[Array[AnyRef]])
 				Yes((array.castFrom[Array[_], RefArray[E]], start, start + length))
 			else
 				No
@@ -246,7 +255,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		  */
 		@inline def unsafeIRefArray :IRefArray[E] = { releaseFence(); self.asInstanceOf[IRefArray[E]] }
 
-		@inline def update(idx :Int, elem :E) :Unit = asAnyArray(idx) = elem
+		@inline def update(idx :Int, elem :E) :Unit = self(idx) = elem
 
 		/** A sequence view on the `[from, until)` index range of this array. Any modification to either this array
 		  * or the returned sequence will be visible in the other. Further slicing of the sequence also return
