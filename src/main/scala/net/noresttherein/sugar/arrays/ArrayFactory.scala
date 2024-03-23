@@ -242,8 +242,25 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 			else ArrayBuilder.make(ClassTag(elementType))
 		}.asInstanceOf[Builder[E, Array[E]]]
 
-	@inline def newBuilderLike[A](template :Array[A]) :Builder[A, Array[A]] =
-		newBuilder(template.getClass.getComponentType.castParam[A])
+	/** Builds an `Array` of the specified expected length. */
+	@inline def newBuilder[E :ClassTag](length :Int) :Builder[E, Array[E]] = {
+		val res = newBuilder[E]
+		res sizeHint length
+		res
+	}
+
+	/** Builds an `Array` of the specified elementType and expected length. */
+	@inline def newBuilder[E](elementType :Class[E], length :Int) :Builder[E, Array[E]] = {
+		val res = newBuilder(elementType)
+		res sizeHint length
+		res
+	}
+
+	@inline def newBuilderLike[E](template :Array[E]) :Builder[E, Array[E]] =
+		newBuilder(template.getClass.getComponentType.castParam[E])
+
+	@inline def newBuilderLike[E](template :Array[E], length :Int) :Builder[E, Array[E]] =
+		newBuilder(template.getClass.getComponentType.castParam[E], length)
 
 	private val InitialBuilderSize = 16
 
@@ -259,6 +276,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 
 		private[this] var buffer = init
 		private[this] var size :Int = if (buffer == null) 0 else buffer.length
+		override def knownSize :Int = size
 
 		private def maxArraySizeExceeded(extra :Int) =
 			if (size == MaxSize) maxSize_!("Maximum array size reached")

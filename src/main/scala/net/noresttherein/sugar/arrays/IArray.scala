@@ -652,6 +652,20 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 	def newBuilder[E](elementType :Class[E]) :Builder[E, IArray[E]] =
 		ArrayFactory.newBuilder(elementType).castParam2[IArray[E]]
 
+	/** Builds an `IArray` of the specified expected length. */
+	@inline def newBuilder[E :ClassTag](length :Int) :Builder[E, IArray[E]] = {
+		val res = newBuilder[E]
+		res sizeHint length
+		res
+	}
+
+	/** Builds an `IArray` of the specified elementType and expected length. */
+	@inline def newBuilder[E](elementType :Class[E], length :Int) :Builder[E, IArray[E]] = {
+		val res = newBuilder(elementType)
+		res sizeHint length
+		res
+	}
+
 
 	/** A single element `IArray[E]`. The array's component type will be the class of `elem`.
 	  * Note that the actual class of `elem` may be a subtype of `E` - the type as seen at point of ths call,
