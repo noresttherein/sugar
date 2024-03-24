@@ -10,6 +10,7 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.exceptions.reflect.{newRethrowable, newThrowable}
+import net.noresttherein.sugar.exceptions.utils.PackageName
 import net.noresttherein.sugar.reflect.prettyprint.classNameOf
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.text.EOL
@@ -232,7 +233,7 @@ trait SugaredThrowable extends Throwable with Cloneable {
 	def printReverseStackTrace(s :PrintStream) :Unit = s.print(reverseStackTraceString)
 
 	override def toString :String = {
-		val s :String = "#" + idString + "/" + className
+		val s :String = "#" + idString + " " + className
 		val message :String = getLocalizedMessage
 		if (message != null) s + ": " + message else s
 	}
@@ -288,6 +289,68 @@ trait LazyThrowable extends SugaredThrowable {
 trait LazyException extends SugaredException with LazyThrowable
 
 
+/** A `Throwable` which hides initial stack frames, if they originate from a specific package or class.
+  * Often an exception is thrown not in the place where the decision to do so was taken, but from within helper
+  * methods. Typically, the programmer is interested in seeing the former, rather than the latter.
+  * In some cases, in particular exceptions thrown using
+  * [[net.noresttherein.sugar.exceptions.EagerThrowableFactory EagerThrowableFactory]] or
+  * [[net.noresttherein.sugar.exceptions.LazyThrowableFactory LazyThrowableFactory]], the number of internal frames
+  * is large enough to hide the true origination point at first glance.
+  *
+  * This trait overrides [[net.noresttherein.sugar.exceptions.WithTrimmedStackTrace.stackTrace stackTrace]]
+  * [[net.noresttherein.sugar.exceptions.WithTrimmedStackTrace.getStackTrace getStackTrace]],
+  * and [[net.noresttherein.sugar.exceptions.WithTrimmedStackTrace.printStackTrace printStackTrace]],
+  * skipping all frames originating from classes whose fully qualified names start with
+  * [[net.noresttherein.sugar.exceptions.WithTrimmedStackTrace.skippedPackageName skippedPackageName]]
+  * (which equals `net.noresttherein.sugar.exceptions`, unless overridden), until the first frame
+  * from another package is found. Only initial frames are skipped: those which occur after any outside package
+  * are untouched.
+  */
+trait WithTrimmedStackTrace extends SugaredThrowable {
+	/** A fully qualified package name which will be omitted from the stack trace.
+	  * Note that this must be the binary name, not source code name.
+	  */
+	protected def skippedPackageName :String = PackageName
+
+	override lazy val stackTrace :StackTrace = {
+		val fullStackTrace = super.getStackTrace
+		if (fullStackTrace == null)
+			StackTrace.empty
+		else {
+			val drop = fullStackTrace.segmentLength(_.getClassName.startsWith(skippedPackageName))
+			StackTrace(fullStackTrace).drop(drop)
+		}
+	}
+
+	/** Drops initial entries coming from package `net.noresttherein.sugar.exceptions` from the full stack trace. */
+	override def getStackTrace :Array[StackTraceElement] = {
+		val fullStackTrace = super.getStackTrace
+		if (fullStackTrace == null)
+			return null
+		var i = 0; val length = fullStackTrace.length
+		val packageName = classOf[ImplException].getPackageName
+		while (i < length && fullStackTrace(i).getClassName.startsWith(packageName))
+			i += 1
+		if (i == 0) fullStackTrace else fullStackTrace.drop(i)
+	}
+
+	override def stackTraceString :String =  {
+		val res = new JStringBuilder
+		utils.printStackTrace(this, res.append(_).append(EOL), One(classOf[ImplException].getPackageName))
+		res.toString
+	}
+	override def reverseStackTraceString :String = {
+		val res = new JStringBuilder
+		utils.printReverseStackTrace(this, res.append(_).append(EOL), One(classOf[ImplException].getPackageName))
+		res.toString
+	}
+
+	override def printStackTrace(s :PrintStream) :Unit = s.print(stackTraceString)
+	override def printStackTrace(s :PrintWriter) :Unit = s.print(stackTraceString)
+
+}
+
+
 /** A `SugaredException` which uses the name of its superclass, rather than its own,
   * in its [[net.noresttherein.sugar.exceptions.ImplException.className className]] property.
   * This allows throwing, for example,
@@ -304,22 +367,10 @@ trait LazyException extends SugaredException with LazyThrowable
   *         when formatted with `toString` and `printStackTrace`. Catching it explicitly is discouraged:
   *         consider catching its superclass instead.
   */
-trait ImplException extends SugaredException {
+trait ImplException extends SugaredException with WithTrimmedStackTrace {
+	protected final override def skippedPackageName :String = PackageName
+
 	override def className :String = getClass.getSuperclass.name
-
-	override def stackTraceString :String =  {
-		val res = new JStringBuilder
-		utils.printStackTrace(this, res.append(_).append(EOL), One(classOf[ImplException].getPackageName))
-		res.toString
-	}
-	override def reverseStackTraceString :String = {
-		val res = new JStringBuilder
-		utils.printReverseStackTrace(this, res.append(_).append(EOL), One(classOf[ImplException].getPackageName))
-		res.toString
-	}
-
-	override def printStackTrace(s :PrintStream) :Unit = s.print(stackTraceString)
-	override def printStackTrace(s :PrintWriter) :Unit = s.print(stackTraceString)
 }
 
 

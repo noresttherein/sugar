@@ -153,7 +153,7 @@ private object utils {
 			printer("\t[CIRCULAR REFERENCE:" + e + "]")
 		} else {
 			dejaVu += e
-			// Compute number of frames in common between this and enclosing trace
+			// Compute the number of frames in common between this and enclosing trace
 			val trace = e.stackTrace
 			val sharedFrames = trace.sharedSuffixLength(enclosingTrace)
 			val stackSize    = trace.length - sharedFrames
@@ -248,4 +248,5 @@ private object utils {
 	private[this] final val EmptyStackTraceArray = new Array[StackTraceElement](0)
 //	private[this] final val EmptyStackTrace      = ArraySeq.unsafeWrapArray(EmptyStackTraceArray)
 
+	private[exceptions] final val PackageName :String = classOf[utils.type].getPackageName
 }

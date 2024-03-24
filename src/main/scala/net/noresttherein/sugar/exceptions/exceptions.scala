@@ -25,10 +25,10 @@ package exceptions {
 		@nowarn private def conjureThrowable :Nothing = ??!
 
 		private[exceptions] final val evalStackTraceElement =
-			new StackTraceElement(classOf[markerStackTraceElements].getName, "eval", "exceptions.scala", 12)
+			new StackTraceElement(classOf[markerStackTraceElements].getName, "eval", "exceptions.scala", 15)
 
 		private[exceptions] final val conjureThrowableStackTraceElement =
-			new StackTraceElement(classOf[markerStackTraceElements].getName, "conjureThrowable", "exceptions.scala", 22)
+			new StackTraceElement(classOf[markerStackTraceElements].getName, "conjureThrowable", "exceptions.scala", 25)
 
 //		private[exceptions] final val fillInStackTraceStackTraceElement =
 //			new StackTraceElement(classOf[Rethrowable].getName, "fillInStackTrace", "SugaredThrowable.scala", 326)

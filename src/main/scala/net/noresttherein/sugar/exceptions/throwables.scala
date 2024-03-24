@@ -37,7 +37,7 @@ class InternalException(message :String, lazyMessage :() => String, cause :Throw
   */
 @SerialVersionUID(Ver)
 class Oops(message :String, lazyMessage :() => String, cause :Throwable)
-	extends SugaredError(message, lazyMessage, cause)
+	extends SugaredError(message, lazyMessage, cause) with WithTrimmedStackTrace
 {
 	override def addInfo(msg :String) :SugaredThrowable = new Oops(msg, null, this)
 	override def addInfo(msg :() => String) :SugaredThrowable = new Oops(null, msg, this)
@@ -62,7 +62,7 @@ class Oops(message :String, lazyMessage :() => String, cause :Throwable)
   */
 @SerialVersionUID(Ver)
 class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwable)
-	extends SugaredError(message, lazyMessage, cause)
+	extends SugaredError(message, lazyMessage, cause) with WithTrimmedStackTrace
 {
 	override def addInfo(msg :String) :SugaredThrowable = new ImpossibleError(msg, null, this)
 	override def addInfo(msg :() => String) :SugaredThrowable = new ImpossibleError(null, msg, this)
@@ -76,7 +76,7 @@ class ImpossibleError(message :String, lazyMessage :() => String, cause :Throwab
   */ //consider: should we check the collection size for exceeding Int.MaxValue on every append?
 @SerialVersionUID(Ver)
 class MaxSizeReachedException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-	extends RuntimeException(message, cause) with LazyException //consider: extending SugaredIndexOutOfBoundsException
+	extends RuntimeException(message, cause) with LazyException with WithTrimmedStackTrace
 
 /** An [[IllegalArgumentException]] subclass thrown to indicate that while the method arguments are legal independently,
   * as a whole, they do not satisfy the required pre condition.
