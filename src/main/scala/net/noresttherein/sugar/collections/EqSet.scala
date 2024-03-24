@@ -1,15 +1,15 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.{IterableFactory, IterableFactoryDefaults, MapFactory, MapFactoryDefaults, StrictOptimizedIterableOps, immutable, mutable}
+import scala.collection.immutable.Map.{Map1, Map2, Map3, Map4}
+import scala.collection.immutable.Set.{Set1, Set2, Set3, Set4}
 import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet, MapOps, SetOps, StrictOptimizedMapOps, StrictOptimizedSetOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.extensions.{cast2TypeParamsMethods, castTypeParamMethods}
+import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods}
+import net.noresttherein.sugar.collections.extensions.BuilderExtension
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.vars.EqRef
-
-//implicits
-import net.noresttherein.sugar.extensions.BuilderExtension
 
 
 
@@ -37,6 +37,10 @@ sealed class EqSet[A] private (underlying :Set[EqRef[A]])
 			case other => new EqSet(other)
 		}
 
+	private def isCovariant :Boolean = underlying match {
+		case _ :HashSet[_] | _ :Set1[_] | _ :Set2[_] | _ :Set3[_] | _ :Set4[_] => true
+		case _ => false
+	}
 	override def iterableFactory :IterableFactory[EqSet] = EqSet
 	override def className = "EqSet"
 }
@@ -45,7 +49,7 @@ sealed class EqSet[A] private (underlying :Set[EqRef[A]])
 @SerialVersionUID(Ver)
 case object EqSet extends IterableFactory[EqSet] {
 	override def from[A](source :IterableOnce[A]) :EqSet[A] = source match {
-		case set :EqSet[A] => set
+		case set :EqSet[A] if set.isCovariant => set
 		case _ => (newBuilder[A] ++= source).result()
 	}
 
@@ -96,6 +100,11 @@ sealed class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 
 	final override def default(key :K) :V = underlying.default(EqRef(key))
 
+	private def isCovariant :Boolean = underlying match {
+		//Map.WithDefault is not covariant because it has a function K => V.
+		case _ :HashMap[_, _] | _ :Map1[_, _] | _ :Map2[_, _] | _ :Map3[_, _] | _ :Map4[_, _] => true
+		case _ => false
+	}
 	override def mapFactory :MapFactory[EqMap] = EqMap
 	override def className :String = "EqMap"
 }
@@ -104,12 +113,13 @@ sealed class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 @SerialVersionUID(Ver)
 case object EqMap extends MapFactory[EqMap] {
 	override def from[K, V](it :IterableOnce[(K, V)]) :EqMap[K, V] = it match {
-		case map :EqMap[K, V] => map //fixme: wrong type casting
+		case map :EqMap[K, V] if map.isCovariant => map
 		case other => (newBuilder ++= other).result()
 	}
 
 	override def empty[K, V] :EqMap[K, V] = Empty.castParams[K, V]
 
+	//consider: removing it and always using a HashMap, so we can safely reuse an instance in from
 	def wrap[K, V](map :Map[EqRef[K], V]) :EqMap[K, V] =
 		if (map.isInstanceOf[StrictOptimizedMapOps[K, V, Map, Map[K, V]] @unchecked])
 			new EqMap[K, V](map) with StrictOptimizedMapOps[K, V, EqMap, EqMap[K, V]]
