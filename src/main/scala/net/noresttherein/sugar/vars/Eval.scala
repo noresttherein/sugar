@@ -67,9 +67,10 @@ object Eval {
 
 
 
-/** A serializable `Function0[T]` adapted to `Ref` interface.
+/** A serializable `Function0[Opt[T]]` adapted to `Ref[T]` interface.
   * It is a ''single abstract method'' type,
-  * leaving only [[net.noresttherein.sugar.vars.Ref.opt opt]] to implement by subclasses.
+  * leaving only [[net.noresttherein.sugar.vars.EvalOpt.eval eval]] to implement by subclasses
+  * to return the value for [[net.noresttherein.sugar.vars.Ref.opt opt]].
   * @define Ref `EvalOpt`
   */
 trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) with Serializable {

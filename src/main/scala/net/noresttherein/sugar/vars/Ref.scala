@@ -159,7 +159,9 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	/** The $Ref currently holds a proper value: in single threaded context, or with proper synchronization,
 	  * [[net.noresttherein.sugar.vars.Ref.get get]] and [[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]],
 	  * [[net.noresttherein.sugar.vars.Ref.toOption toOption]], [[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
-	  * will return this value without blocking. Implies [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]].
+	  * will return this value without blocking.
+	  * Implies [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]] and
+	  * [[net.noresttherein.sugar.vars.Ref.nonEmpty nonEmpty]].
 	  * This value needs not be final - the above methods are allowed to return different values in the future.
 	  * An uninitialized [[net.noresttherein.sugar.vars.Lazy lazy]] val is ''defined'', but not ''definite'',
 	  * while a [[net.noresttherein.sugar.vars.Var variable]] is always ''definite''.
