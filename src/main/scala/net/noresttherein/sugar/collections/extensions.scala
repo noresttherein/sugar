@@ -4606,24 +4606,16 @@ object extensions extends extensions {
 		  * }}}
 		  * @return the number of updated elements.
 		  */
-		def updateAll(index :Int, elems :IterableOnce[E]) :Int = {
-			val thisSize = self.length
-			val thatSize = elems.knownSize
-			if (index < 0 | index > thisSize | thatSize >= 0 & index > thisSize - thatSize)
-				outOfBounds_!(
-					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
-				)
-			val res =
-				if (thatSize < 0) -1
-				else if (thatSize == 0) 0
-				else (self match {
-					case ErasedArray.Slice(array, from, _) =>
-						elems.toBasicOps.copyToArray(array.asInstanceOf[Array[Any]], from + index)
-					case _ => -1
-				})
-			if (res >= 0)
-				res
-			else
+		def updateAll(index :Int, elems :IterableOnce[E]) :Int = self match {
+			case sugared :MutSugaredSeqOps[E, Any1, AnyRef] =>
+				sugared.updateAll(index, elems)
+			case ErasedArray.Slice(array, from, _) if elems.knownSize >= 0 =>
+				if (index < 0 | index > self.length - elems.knownSize)
+					outOfBounds_!(
+						errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
+					)
+				elems.toBasicOps.copyToArray(array.asInstanceOf[Array[Any]], from + index)
+			case _ =>
 				elems.toBasicOps.foldLeft(index) { (i, elem) =>
 					self(i) = elem; i + 1
 				} - index
@@ -4685,59 +4677,62 @@ object extensions extends extensions {
 			}
 		}
 
-		def overwrite(index :Int, elems :IterableOnce[E]) :Int = {
-			val length    = self.length
-			val elemsSize = elems.knownSize
-			if (index >= length || elemsSize >= 0 && index <= -elemsSize)
-				0
-			else elems match {
-				case _ if index == Int.MinValue    => 0
-				case list :collection.LinearSeq[E] =>
-					var next = list
-					var i = index
-					if (index < 0) {
-						i = 0
-						next = list.drop(-index)
-					}
-					while (i < length && next.nonEmpty) {
-						self(i) = next.head
-						next    = next.tail
-						i      += 1
-					}
-					math.max(0, i - math.max(index, 0))
-				//consider: is it even worthwhile to have special cases for arrays if we don't have specialized code?
-				case ErasedArray.Slice(array, from, until) =>
-					val thisOffset = if (index >= 0) index else 0
-					val thatOffset = if (index >= 0) from else math.min(Int.MinValue + index, from) - index
-					val count = math.max(length - thisOffset, until - thatOffset)
-					var i = 0
-					array match {
-						case a :Array[AnyRef] =>
-							val seq = self.asInstanceOf[mutable.IndexedSeq[AnyRef]]
-							while (i < count) {
-								seq(thisOffset + i) = a(thatOffset + i)
-								i += 1
-							}
-						case a :Array[E @unchecked] =>
-							while (i < count) {
-								self(thisOffset + i) = a(thatOffset + i)
-								i += 1
-							}
-					}
-					count
-				case ApplyPreferred(seq) =>
-					val thisOffset = if (index >= 0) index else 0
-					val thatOffset = if (index >= 0) 0 else - index
-					val count = math.max(length - thisOffset, seq.length - thatOffset)
-					var i = 0
-					while (i < count) {
-						self(thisOffset + i) = seq(thatOffset + i)
-						i += 1
-					}
-					count
-				case HasFastSlice(items)           => overwrite(0, items.drop(-index))
-				case _                             => overwrite(0, elems.iterator.drop(-index))
-			}
+		def overwrite(index :Int, elems :IterableOnce[E]) :Int = self match {
+			case sugared :MutSugaredSeqOps[E, Any1, AnyRef] =>
+				sugared.overwrite(index, elems)
+			case _ => //todo: either delegate to updateAll, or rewrite in a similar fashion.
+				val length    = self.length
+				val elemsSize = elems.knownSize
+				if (index >= length || elemsSize >= 0 && index <= -elemsSize)
+					0
+				else elems match {
+					case _ if index == Int.MinValue    => 0
+					case list :collection.LinearSeq[E] =>
+						var next = list
+						var i = index
+						if (index < 0) {
+							i = 0
+							next = list.drop(-index)
+						}
+						while (i < length && next.nonEmpty) {
+							self(i) = next.head
+							next    = next.tail
+							i      += 1
+						}
+						math.max(0, i - math.max(index, 0))
+					//consider: is it even worthwhile to have special cases for arrays if we don't have specialized code?
+					case ErasedArray.Slice(array, from, until) =>
+						val thisOffset = if (index >= 0) index else 0
+						val thatOffset = if (index >= 0) from else math.min(Int.MinValue + index, from) - index
+						val count = math.max(length - thisOffset, until - thatOffset)
+						var i = 0
+						array match {
+							case a :Array[AnyRef] =>
+								val seq = self.asInstanceOf[mutable.IndexedSeq[AnyRef]]
+								while (i < count) {
+									seq(thisOffset + i) = a(thatOffset + i)
+									i += 1
+								}
+							case a :Array[E @unchecked] =>
+								while (i < count) {
+									self(thisOffset + i) = a(thatOffset + i)
+									i += 1
+								}
+						}
+						count
+					case ApplyPreferred(seq) =>
+						val thisOffset = if (index >= 0) index else 0
+						val thatOffset = if (index >= 0) 0 else - index
+						val count = math.max(length - thisOffset, seq.length - thatOffset)
+						var i = 0
+						while (i < count) {
+							self(thisOffset + i) = seq(thatOffset + i)
+							i += 1
+						}
+						count
+					case HasFastSlice(items)           => overwrite(0, items.drop(-index))
+					case _                             => overwrite(0, elems.iterator.drop(-index))
+				}
 		}
 
 		@inline def shuffle()(implicit random :Random) :Unit = shuffle(0, self.length)

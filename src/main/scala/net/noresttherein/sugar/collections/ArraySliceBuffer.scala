@@ -54,7 +54,8 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
                                          private[this] var offset :Int, private[this] var len :Int)
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with collection.StrictOptimizedSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
-	   with ArraySliceSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
+	   with SugaredIterable[E] with ArraySliceSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
+	   with MutSugaredSeqOps[E, ArraySliceBuffer, ArraySliceBuffer[E]]
 	   with IterableFactoryDefaults[E, ArraySliceBuffer] with DefaultSerializable
 {
 	def this(initialCapacity :Int) =
@@ -125,6 +126,7 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 		else
 			contents(offset + i)
 
+	//todo: updateAll
 	override def update(idx :Int, elem :E) :Unit =
 		if (idx < 0 | idx >= len)
 			outOfBounds_!(idx, 0, len)

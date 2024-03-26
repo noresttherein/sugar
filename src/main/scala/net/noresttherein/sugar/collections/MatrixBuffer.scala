@@ -65,9 +65,9 @@ import net.noresttherein.sugar.vars.Maybe.Yes
 @SerialVersionUID(Ver)
 sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit override val iterableEvidence :ClassTag[E])
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
-	   with SugaredIterable[E] with SugaredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
-	   with ApplyPreferredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with collection.StrictOptimizedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
+	   with SugaredIterable[E] with MutSugaredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
+	   with ApplyPreferredSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
 	   with EvidenceIterableFactoryDefaults[E, MatrixBuffer, ClassTag]
 	   with DefaultSerializable
 {
@@ -168,48 +168,40 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			data2(absoluteIdx >>> Dim1Bits)(absoluteIdx & Dim1Mask) = elem
 	}
 
-	/** Updates position `idx` to `first`, and the following positions to `second` and `rest`. */
-	@throws[IndexOutOfBoundsException]("if idx < 0 or idx >= this.length - 2 - rest.length")
-	def updateAll(idx :Int, first :E, second :E, rest :E*) :Unit = {
-		update(idx, first)
-		update(idx + 1, second)
-		updateAll(idx + 2, rest)
-	}
 
 	/** Updates positions `idx`, `idx + 1`, ..., `idx + elems.size - 1` to subsequent elements of `elems`. */
 	@throws[IndexOutOfBoundsException]("if idx < 0 or idx >= this.length - elems.size")
-	def updateAll(idx :Int, elems :IterableOnce[E]) :Unit =
+	override def updateAll(idx :Int, elems :IterableOnce[E]) :Int =
 		if (idx < 0 || idx > dataSize)
 			outOfBounds_!(idx)
 		else if (storageSize <= MaxSize1) {
-			val data1 = this.data1
-			val mask  = storageSize - 1
-			val size  = elems.knownSize
+			val data1  = this.data1
+			val size   = elems.knownSize
+			val mask   = storageSize - 1
+			val offset = dataOffset + idx & mask
 			if (size >= 0)
 				if (size > dataSize - idx)
 					outOfBounds_!(errorString(this) + ".updateAll(" + idx + ", " + errorString(elems) + ")")
 				else
-					elems match {
-						case items :Iterable[E] => items.cyclicCopyToArray(data1, dataOffset + idx & mask)
-						case _                  => elems.iterator.cyclicCopyToArray(data1, dataOffset + idx & mask)
-					}
+					elems.cyclicCopyToArray(data1, offset)
 			else
-				elems.toBasicOps.foldLeft(dataOffset + idx & mask) { (i, e) =>
+				elems.toBasicOps.foldLeft(offset) { (i, e) =>
 					data1(i) = e; i + 1 & mask
-				}
+				} - offset
 		} else {
-			val data2 = this.data2
-			val size  = elems.knownSize
-			val mask  = this.indexMask
+			val data2  = this.data2
+			val size   = elems.knownSize
+			val mask   = this.indexMask
+			val offset = dataOffset + idx & mask
 			if (size >= 0)
 				if (size > dataSize - idx)
 					outOfBounds_!(errorString(this) + ".updateAll(" + idx + ", " + errorString(elems) + ")")
 				else
-					write2(dataOffset + idx & mask, elems, size)
+					write2(offset, elems, size)
 			else
-				elems.toBasicOps.foldLeft(dataOffset + idx & mask) { (i, e) =>
+				elems.toBasicOps.foldLeft(offset) { (i, e) =>
 					data2(dim2(i))(dim1(i)) = e; i + 1 & mask
-				}
+				} - offset
 		}
 
 
@@ -756,6 +748,12 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		genericInsert(idx, if (this eq elems.asAnyRef) MatrixBuffer.from(elems) else elems)
 
 	def insertAll(idx :Int, elems :ArrayLike[E]) :Unit = genericInsert(idx, elems)
+
+	def insertAll(idx :Int, first :E, second :E, rest :E*) :Unit =
+		if (this eq rest)
+			genericInsert(idx, first +=: second +=: rest ++=: new MatrixBuffer[E](rest.length + 2, false))
+		else
+			genericInsert(idx, Prepended2Seq(first, second, rest))
 
 	/** Implementation of both `insert` and `insertAll`, working for any collection-like thing with a proper type class. */
 	private def genericInsert[Es](idx :Int, elems :Es)(implicit values :CollectionLike[E, Es]) :Unit =

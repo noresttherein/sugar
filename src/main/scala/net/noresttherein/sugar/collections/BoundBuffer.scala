@@ -308,8 +308,8 @@ private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, m
   * The first pair shifts the elements following the index right, just as in `ArrayBuffer`, while the latter two
   * always shift the preceding elements left. If there is no space left after/before the contents,
   * a `BufferFullException` is thrown.
-  */ //todo: MutSugaredSeqOps
-trait ViewBuffer[E] extends IndexedBuffer[E] with SugaredSeqOps[E, IndexedBuffer, IndexedBuffer[E]] {
+  */
+trait ViewBuffer[E] extends IndexedBuffer[E] with MutSugaredSeqOps[E, IndexedBuffer, IndexedBuffer[E]] {
 	/** The lower (inclusive) index bound in the underlying sequence for elements of this buffer. */
 	def floor :Int
 
