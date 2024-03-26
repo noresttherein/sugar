@@ -30,7 +30,6 @@ class OrderedItems[+E](override val toSeq :Seq[E])
 	override def className = "OrderedItems"
 }
 
-
 object OrderedItems extends IterableFactory[OrderedItems] {
 	override def from[A](source :IterableOnce[A]) :OrderedItems[A] = source match {
 		case col :OrderedItems[A] => col
@@ -72,7 +71,6 @@ class UnorderedItems[+E](override val toSeq :Seq[E])
 	override def className = "UnorderedItems"
 }
 
-
 object UnorderedItems extends IterableFactory[UnorderedItems] {
 	override def from[A](source :IterableOnce[A]) :UnorderedItems[A] = source match {
 		case unordered :UnorderedItems[A] => unordered
@@ -91,6 +89,47 @@ object UnorderedItems extends IterableFactory[UnorderedItems] {
 		implicitly[Shrink[Seq[Int]]].shrink(col.toSeq).map(_ to UnorderedItems)
 	}
 }
+
+
+
+
+class UniqueItems[+E] private (override val toSeq :Seq[E])
+	extends OrderedItems[E](toSeq) with IterableFactoryDefaults[E, UniqueItems]
+{
+	def this(items :IterableOnce[E]) = this(items.toBasicOps.toSeq.distinct)
+
+	override def iterableFactory :IterableFactory[UniqueItems] = UniqueItems
+
+	override def equals(that :Any) :Boolean = that match {
+		case self :AnyRef if self eq this => true
+		case other :UniqueItems[_]        => toSeq == other.toSeq
+		case _ => false
+	}
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[UniqueItems[_]]
+
+	override def className = "UniqueItems"
+}
+
+case object UniqueItems extends IterableFactory[UniqueItems] {
+	override def from[A](source :IterableOnce[A]) :UniqueItems[A] = source match {
+		case unique :UniqueItems[A] => unique
+		case _                      => new UniqueItems(source.toBasicOps.toSeq)
+	}
+
+	override def empty[A] :UniqueItems[A] = new UniqueItems(Nil)
+
+	override def newBuilder[A] :Builder[A, UniqueItems[A]] =
+		ArraySeq.untagged.newBuilder[A].mapResult(new UniqueItems(_))
+
+	implicit val uniqueItemsGenerator :Arbitrary[UniqueItems[Int]] =
+		Arbitrary(Arbitrary.arbitrary[Set[Int]].map(set => new UniqueItems(set.toSeq)))
+
+	implicit val uniqueItemsShrink :Shrink[UniqueItems[Int]] = Shrink { col :UniqueItems[Int] =>
+		implicitly[Shrink[Set[Int]]].shrink(col.toSet).map(set => new UniqueItems(set.toSeq))
+	}
+}
+
+
 
 
 /** A simplistic wrapper over `Seq` used to test how methods work for custom collections.
@@ -133,45 +172,6 @@ object AsIterableOnce extends IterableFactory[AsIterableOnce] {
 
 
 
-/** A `Seq` wrapper which overrides `toString` in order to print its length (in addition to contents). */
-class SizedSeq[+E](val underlying :Seq[E])
-	extends AbstractSeq[E] with SeqOps[E, SizedSeq, SizedSeq[E]] with IterableFactoryDefaults[E, SizedSeq]
-{
-	override def knownSize :Int = underlying.knownSize
-	override def apply(i :Int) :E = underlying(i)
-	override def length :Int = underlying.length
-	override def iterator :Iterator[E] = underlying.iterator
-
-	override def iterableFactory :SeqFactory[SizedSeq] = SizedSeq
-
-	protected override def className :String =
-		underlying.toString.replaceFirst("\\(", "|" + length + "|(")
-}
-
-object SizedSeq extends ProxyIterableFactory[SizedSeq, Seq](Vector) with SeqFactory[SizedSeq] {
-	protected override def map[X](impl :Seq[X]) :SizedSeq[X] = new SizedSeq[X](impl)
-
-	implicit def arbitrary[X :Arbitrary :ClassTag] :Arbitrary[SizedSeq[X]] = Arbitrary(
-		Gen.oneOf(
-		   Arbitrary.arbitrary[Vector[X]],
-		   Arbitrary.arbitrary[List[X]],
-		   Gen.buildableOf[ArraySeq[X], X](Arbitrary.arbitrary[X]),
-		).map(new SizedSeq(_))
-	)
-	implicit def shrink[X :Shrink] :Shrink[SizedSeq[X]] = Shrink { col :SizedSeq[X] =>
-		implicitly[Shrink[Seq[X]]].shrink(col.underlying).map(new SizedSeq(_))
-	}
-	implicit def buildable[X] :Buildable[X, SizedSeq[X]] = new Buildable[X, SizedSeq[X]] {
-		override def builder :Builder[X, SizedSeq[X]] = SizedSeq.newBuilder
-	}
-	private implicit def buildableArraySeq[X :Arbitrary :ClassTag] :Buildable[X, ArraySeq[X]] =
-		new Buildable[X, ArraySeq[X]] {
-			override def builder :Builder[X, ArraySeq[X]] = ArraySeq.newBuilder
-		}
-}
-
-
-
 class SeqSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends AbstractSet[E] {
 	private def this(unique :Seq[E]) = this(unique.toSet, unique)
 	def this(items :IterableOnce[E]) =
@@ -202,3 +202,5 @@ object StrictView extends IterableFactory[StrictView] {
 
 	override def newBuilder[A] :Builder[A, StrictView[A]] = Seq.newBuilder[A].mapResult(new StrictView(_))
 }
+
+

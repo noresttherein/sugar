@@ -3,26 +3,30 @@ package net.noresttherein.sugar.collections
 import java.lang.reflect.InvocationTargetException
 
 import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
-import scala.collection.immutable.{ArraySeq, IndexedSeqOps, LinearSeq, WrappedString}
-import scala.collection.{IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, View, mutable}
+import scala.collection.immutable.Set.{Set1, Set2, Set3, Set4}
+import scala.collection.immutable.{ArraySeq, HashSet, LinearSeq, SeqOps, WrappedString}
+import scala.collection.{IndexedSeqView, IterableFactory, IterableOnceOps, IterableOps, View, immutable, mutable}
 import scala.collection.mutable.{ArrayBuffer, Builder}
+import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.ArrayLike
+import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.HasFastSlice.{hasFastDrop, preferDropOverIterator}
 import net.noresttherein.sugar.collections.IndexedIterable.applyPreferred
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.exceptions.{??!, illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.funny.generic.Any1
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
 
-private[noresttherein] object util {
+private[sugar] object util {
 	//These two methods are problematic because, in theory, they can be overridden by a class to throw an exception
 	// and simply not used by an implementation.
 	def specificBuilder[E, CC[_], C](items :IterableOps[E, CC, C]) :Builder[E, C] =
@@ -43,6 +47,15 @@ private[noresttherein] object util {
 				throw e.getTargetException
 		}
 
+	def coll[E, CC[_], C](items :IterableOps[E, CC, C]) :C =
+		try {
+			collMethod.invoke(items).asInstanceOf[C]
+		} catch {
+			case e :InvocationTargetException =>
+				e.getTargetException.addSuppressed(e)
+				throw e.getTargetException
+		}
+
 	def className(items :IterableOnce[_]) :String = items match {
 		case _ :Iterable[_] =>
 			try classNameMethod.invoke(items).asInstanceOf[String] catch {
@@ -52,84 +65,179 @@ private[noresttherein] object util {
 	}
 
 
-	private[this] val newSpecificBuilderMethod = {
-		val m = classOf[IterableOps[Any, Iterable, Iterable[Any]]].getMethod("newSpecificBuilder")
-		m.setAccessible(true)
-		m
-	}
-	private[this] val fromSpecificMethod = {
-		val m = classOf[IterableOps[Any, Iterable, Iterable[Any]]].getMethod("fromSpecific", classOf[IterableOnce[_]])
-		m.setAccessible(true)
-		m
-	}
-	private[this] val classNameMethod = {
-		val m = classOf[Iterable[Any]].getMethod("className")
-		m.setAccessible(true)
-		m
-	}
+	private[this] val newSpecificBuilderMethod =
+		classOf[IterableOps[Any, Iterable, Iterable[Any]]].getMethod("newSpecificBuilder")
 
-	final def knownEmpty(items :IterableOnce[_]) :Boolean = {
+	private[this] val fromSpecificMethod =
+		classOf[IterableOps[Any, Iterable, Iterable[Any]]].getMethod("fromSpecific", classOf[IterableOnce[_]])
+
+	private[this] val collMethod = classOf[IterableOps[Any, Iterable, Iterable[Any]]].getMethod("coll")
+	private[this] val classNameMethod = classOf[Iterable[Any]].getMethod("className")
+
+	newSpecificBuilderMethod.setAccessible(true)
+	fromSpecificMethod.setAccessible(true)
+	collMethod.setAccessible(true)
+	classNameMethod.setAccessible(true)
+
+
+	def knownEmpty(items :IterableOnce[_]) :Boolean = {
 		val size = items.knownSize
-		size == 0 || size < 0 && (items match {
-			case _     :View[_]     => false //because elems.isEmpty delegates to .iterator.isEmpty
-			case _     :LazyList[_] => false
-			case items :Iterable[_] => items.isEmpty
-			case iter  :Iterator[_] => !iter.hasNext
-			case _                  => false //we don't know
+		size == 0 || size < 0 && items.knownStrict && (items match {
+			case ops :IterableOnceOps[_, Any1, _] => ops.isEmpty
+			case _                                => false
 		})
 	}
 
-	final def knownUnique(items :IterableOnce[_]) :Boolean =
-		items.isInstanceOf[collection.Set[_]] || items.isInstanceOf[Ranking[_]] || {
-			val size = items.knownSize
-			size <= 1 || (items match {
-				case _    :View[_]     => false
-				case iter :Iterable[_] => iter.isEmpty
-				case iter :Iterator[_] => !iter.hasNext
-				case _                 => false
-			})
-		}
+	def knownUnique(items :IterableOnce[_]) :Boolean =
+		items.isInstanceOf[collection.Set[_]] || items.isInstanceOf[Ranking[_]] || knownEmpty(items)
+
+//	def knownCovariant(items :IterableOnce[_]) :Boolean = items match {
+//		case _ if items.knownSize == 0 => true
+//		case _ :immutable.Iterable[_] => items match {
+//			case _ :Set[_] => items match {
+//				case _ :HashSet[_] | _ :Set1[_] | _ :Set2[_] | _ :Set3[_] | _ :Set4[_] | _ :SeqSet[_] => true
+////				case set :EqSet[_] => set.isCovariant
+//				case _ => false
+//			}
+//			case _ :SeqOps[_, Any1, _] => true
+//		}
+////		case _ :Iterator[_] => true
+//		case _ => false
+//	}
 
 
-	def prependReverse[A](initReversed :collection.LinearSeq[A], tail :collection.LinearSeq[A]) :collection.LinearSeq[A] = {
-		var init = initReversed
-		var res = tail
-		while (init.nonEmpty) {
-			res = init.head +: res
-			init = init.tail
-		}
-		res
+
+	def prependReverse[A](initReversed :collection.LinearSeq[A], tail :collection.LinearSeq[A]) :collection.LinearSeq[A] =
+		(initReversed, tail) match {
+			case (list1 :List[A], list2 :List[A]) => list1 reverse_::: list2
+			case _ =>
+				var init = initReversed
+				var res = tail
+				while (init.nonEmpty) {
+					res = init.head +: res
+					init = init.tail
+				}
+				res
 	}
 
 	def reverse[A](items :IterableOnce[A]) :IterableOnce[A] = items match {
-		case seq     :ReversedSeq[A]                              => seq.reverse
-//		case ranking :ReversedRanking[A]                          => ranking.reverse
+		case seq     :ReversedSeq[A]                               => seq.reverse
+//		case ranking :ReversedRanking[A]                           => ranking.reverse
 		case seq     :collection.IndexedSeqOps[A, generic.Any1, _] => if (seq.length <= 1) items else seq.reverseIterator
-		case items   :Iterable[A] if items.sizeIs <= 1            => items
-		case _                                                    => Iterators.reverse(items)
+		case items   :Iterable[A] if items.sizeIs <= 1             => items
+		case _                                                     => Iterators.reverse(items)
 	}
 
 	@inline def validateArraySize(length :Int) =
 		if (length < 0 | length > Constants.MaxArraySize)
 			illegal_!("Cannot allocate an array of size" + length + ".")
 
-	def elementsToCopy(xs :Array[_], start :Int, max :Int, length :Int) :Int =
-		if (max < 0 | length == 0 || start > xs.length)
+
+	@inline def nothingToCopy(coll :IterableOnce[_], from :Int, xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 ||
+			{ val length = xs.length; length == 0 | start >= length } ||
+			{ val size = coll.knownSize; size == 0 | size > 0 & from >= size }
+
+	@inline def nothingToCopy(size :Int, from :Int, xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 | size == 0 | from >= size || { val len = xs.length; len == 0 | start >= len }
+
+	@inline def nothingToCopy(coll :IterableOnce[_], xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 || { val length = xs.length; length == 0 | start >= length } || coll.knownSize == 0
+
+	@inline def nothingToCopy(size :Int, xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 | size == 0 || start >= len
+
+
+	def rangeCheck(coll :IterableOnce[_], from :Int, xs :Array[_], start :Int, len :Int) :Boolean =
+		//Can't simply delegate because from >= size may be true if size < 0
+//		rangeCheck(coll.knownSize, xs, start, from, len)
+		len <= 0 || {
+			val size = coll.knownSize
+			size == 0 | size > 0 & from >= size || {
+				val length = xs.length
+				start >= length || {
+					if (start < 0)
+						outOfBounds_!(
+							s"Negative starting write index for ${errorString(coll)}.copyRangeToArray(" +
+								s"${errorString(xs)}, $start, $from, $len)."
+						)
+					length == 0
+				}
+			}
+		}
+
+	def rangeCheck(size :Int, from :Int, xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 | size == 0 | from >= size || {
+			val length = xs.length
+			start >= length || {
+				if (start < 0)
+					outOfBounds_!(
+						s"Negative starting write index for copyRangeToArray(${errorString(xs)}, $start, $from, $len)" +
+						s" for a collection of size $size."
+					)
+				length == 0
+			}
+		}
+	@inline def rangeCheck(coll :IterableOnce[_], xs :Array[_], start :Int, len :Int) :Boolean =
+		rangeCheck(coll.knownSize, xs, start, len)
+
+	def rangeCheck(size :Int, xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 || size == 0 || {
+			val length = xs.length
+			start >= length || {
+				if (start < 0)
+					outOfBounds_!(
+						s"Negative starting write index for copyToArray(${errorString(xs)}, $start, $len)" +
+							s" for a collection of size $size."
+					)
+				length == 0
+			}
+		}
+
+
+	def elementsToCopy(coll :IterableOnce[_], from :Int, xs :Array[_], start :Int, max :Int) :Int = {
+		var size   = -1
+		if (max <= 0 | { size = coll.knownSize; size == 0 | size > 0 & from >= size })
 			0
 		else if (start < 0)
-			outOfBounds_!(s"|$length|.copyToArray(${errorString(xs)}, $start, $max)")
+			outOfBounds_!(
+				s"Negative starting index: ${errorString(coll)}.copyRangeToArray(${errorString(xs)}, $start, $from, $max)."
+			)
 		else
-			math.min(math.min(max, length), xs.length - start)
-
-	def elementsToCopy(xs :Array[_], start :Int, max :Int, from :Int, length :Int) :Int =
-		if (max < 0 | length == 0 | from >= length || start > xs.length)
+			math.min(math.min(max, size - math.max(0, from)), xs.length - start)
+	}
+	def elementsToCopy(size :Int, from :Int, xs :Array[_], start :Int, max :Int) :Int = {
+		val length = xs.length
+		//We could check for length == 0, but IterableOnceOps does not, and it's useful to have compatible semantics.
+		if (max <= 0 | size == 0 | from >= size | start >= length)
 			0
 		else if (start < 0)
-			outOfBounds_!(s"|$length|.copyToArray(${errorString(xs)}, $start, $max)")
+			outOfBounds_!(s"|$size|.copyToArray(${errorString(xs)}, $start, $max)")
 		else
-			math.min(math.min(max, length - math.max(0, from)), xs.length - start)
+			math.min(math.min(max, size - math.max(0, from)), length - start)
+	}
+	def elementsToCopy(coll :IterableOnce[_], xs :Array[_], start :Int, max :Int) :Int = {
+		val length = xs.length
+		var size   = -1
+		if (max <= 0 | { size = coll.knownSize; size == 0 })
+			0
+		else if (start < 0)
+			outOfBounds_!(s"Negative starting index: ${errorString(coll)}.copyToArray(${errorString(xs)}, $start, $max)")
+		else
+			math.min(math.min(max, size), length - start)
+	}
+	def elementsToCopy(size :Int, xs :Array[_], start :Int, max :Int) :Int = {
+		val length = xs.length
+		if (max <= 0 | size == 0 | start >= length)
+			0
+		else if (start < 0)
+			outOfBounds_!(s"|$size|.copyToArray(${errorString(xs)}, $start, $max)")
+		else
+			math.min(math.min(max, size), length - start)
+	}
 
-//	def sizeSuffix(knownSize :Int) :String = if (knownSize >= 0) "|" + knownSize + "|" else ""
+
+
 	def errorString(items :IterableOnce[_]) :String = {
 		val size = items.knownSize
 		if (size >= 0) className(items) + '|' + size + '|' else className(items)
@@ -247,7 +355,7 @@ private[sugar] object IndexedIterable {
 		def unapply[A](items :IterableOnce[A]) :Maybe[collection.SeqOps[A, generic.Any1, _]] = items match {
 			case items :ArrayIterableOnce[A] => items match {
 				case seq :ArraySliceSeqOps[A, generic.Any1, _] => Yes(seq)
-				case _                                         => Yes(ArrayLikeSlice.wrap(items))
+				case _                                         => Yes(ArrayLikeSlice.from(items))
 			}
 			case seq :collection.IndexedSeqOps[A, generic.Any1, _] => items match {
 				case seq :ArraySeq[A]         => Yes(seq)
@@ -311,7 +419,21 @@ private[sugar] object IndexedIterable {
 
 private[sugar] trait HasFastSlice[+E] extends IterableOnce[E] with IterableOnceOps[E, IterableOnce, IterableOnce[E]]
 
+//todo: rename to FastSlice
 private object HasFastSlice {
+	private[this] val IndexedSeqViewIterator        = new IndexedSeqView.Id(Vector.empty).iterator.getClass
+	private[this] val IndexedSeqViewReverseIterator = new IndexedSeqView.Id(Vector.empty).reverseIterator.getClass
+	private[this] val ArrayIterator                 = new Array[Any](0).iterator.getClass
+	private[this] val ArrayReverseIterator          = new Array[Any](0).reverseIterator.getClass
+	private[this] val VectorIterator                = Vector().iterator.getClass
+
+	private def isIndexedIterator(itr :Iterator[_]) = {
+		val cls = itr.getClass
+		cls <:< IndexedSeqViewIterator || cls <:< IndexedSeqViewReverseIterator ||
+			cls <:< ArrayIterator || cls <:< ArrayReverseIterator || cls <:< VectorIterator
+	}
+//	private[this] val VectorReverseIterator         = Vector().reverseIterator.getClass
+
 	def hasFastDrop[A](items :IterableOnce[A]) :Boolean = apply(items)
 
 	def apply[A](items :IterableOnce[A]) :Boolean = items match { //don't use unapply to avoid creating wrappers.
@@ -322,7 +444,7 @@ private object HasFastSlice {
 			case _ => false
 		}
 		case _ :SugaredIterable[_] => items match {
-			case _ :IndexedSet[_] | _ :StringSet | _ :StringMap[_] => true
+			case _ :IndexedSet[_] => true
 			case _ => false
 		}
 		case  _ :HasFastSlice[_] | _ :IndexedIterator[_] | _ :IndexedReverseIterator[_] => true
@@ -340,61 +462,80 @@ private object HasFastSlice {
 				case fingers :Fingers[A]                 => Yes(fingers)
 				case pass    :RelayArray[A]              => Yes(pass.range)
 				case slice   :ArrayLikeSlice[A]          => Yes(slice)
-				case seq     :collection.IndexedSeq[A]   => Yes(new SeqSlice(seq))
-				case items   :ArrayIterableOnce[A]       => Yes(ArrayLikeSlice.wrap(items))
-				case ArrayLike.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
+				case seq     :collection.IndexedSeq[A]   => Yes(SeqSlice(seq, 0, seq.length))
+				case items   :ArrayIterableOnce[A]       => Yes(ArrayLikeSlice.from(items))
 				//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
-//						case IndexedIterable(seq)            => Yes(seq)
-				case _                                   => No
+//						case IndexedIterable(seq)        => Yes(seq)
+				case _                                   => ArrayLikeSlice.Convert.unapply(items)
 			}
 			case _ :SugaredIterable[_] => items match {
 				case set   :IndexedSet[A]        => Yes(set)
 				case rank  :Ranking[A]           => unapply(rank.toIndexedSeq)
-				case set   :StringSet            => Yes(set.asInstanceOf[Iterable[A]])
-				case map   :StringMap[_]         => Yes(map.asInstanceOf[Iterable[A]])
-				case items :ArrayIterableOnce[A] => Yes(ArrayLikeSlice.wrap(items))
+//				case set   :StringSet            => Yes(set.asInstanceOf[Iterable[A]])
+//				case map   :StringMap[_]         => Yes(map.asInstanceOf[Iterable[A]])
+				case items :ArrayIterableOnce[A] => Yes(ArrayLikeSlice.from(items))
 				case _                           => No
 			}
-			case items :ArrayIterableOnce[A] => Yes(ArrayLikeSlice.wrap(items))
-//			case ArrayLike.Slice(array, from, until) => Yes(ArrayLikeSlice.slice(array, from, until))
-			case _                           => No
+			case _ => ArrayLikeSlice.Convert.unapply(items)
 		}
 
+
 	//todo: use it instead of pattern matching.
-	def quickSlice[A](items :Iterable[A], from :Int, until :Int) :Maybe[IterableOps[A, Iterable, Iterable[A]]] =
+	//todo: rename it to fastSlice
+	def quickSlice[A](items :IterableOnce[A], from :Int, until :Int) :Maybe[IterableOnce[A]] = items match {
+		case it :Iterable[A]                          => quickSlice(it, from, until)
+		case it :SugaredIterator[A] if it.hasFastDrop => Yes(it.strictSlice(from, until))
+		case it :Iterator[_] if isIndexedIterator(it) => Yes(slice(it, from, until))
+		case _ => ArrayLikeSlice.Convert(items, from, until) match {
+			case Yes(slice)                           => Yes(slice)
+			case _ if items.isInstanceOf[Iterator[_]] => No //Defence against infinite recursion below.
+			case _                                    => quickSlice(items.iterator, from, until)
+		}
+	}
+
+	def quickSlice[A](items :IterableOps[A, Iterable, Iterable[A]], from :Int, until :Int)
+			:Maybe[IterableOps[A, Iterable, Iterable[A]]] =
+	{
+		def sliceSlice(array :ArrayLike[A], start :Int, end :Int) =
+			if (from >= end - start)
+				Yes(Nil)
+			else {
+				val from0  = math.min(math.max(from, 0), end - start)
+				val until0 = math.min(math.max(until, 0), end -  start)
+				Yes(ArrayLikeSlice.slice(array, start + from0, start + until0))
+			}
+
 		items match {
-			case _ if items.knownSize == 0 => Yes(Nil)
-			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize => Yes(coll.slice(from, until))
+			case _ if until <= 0 | until <= from                                     => Yes(Nil)
+			case _ if { val s = items.knownSize; s == 0 | s >= 0 & from >= s }       => Yes(Nil)
+			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize                   => Yes(coll.slice(from, until))
 			case seq  :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
 				case _ :IndexedSeqView[_] | _ :Vector[_] | _ :ArrayLikeSlice[_] | _ :Fingers[_] =>
 					Yes(seq.slice(from, until))
 				//There is no guarantee that a subclass won't reallocate on slice, like RelayArray can.
 //				case _ :ArraySliceSeqOps[A, _, _]       => Yes(seq.slice(from, until))
 				case array :RelayArray[A]               => Yes(array.range(from, until))
-				case ArrayLike.Slice(array, start, end) =>
-					if (from >= end - start) Yes(Nil)
-					else Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
+				case ArrayLike.Slice(array, start, end) => sliceSlice(array, start, end)
 				case _     :Substring                   => Yes(items.slice(from, until))
 				case seq   :collection.IndexedSeq[A]    => Yes(SeqSlice(seq, from, until))
 				case _                                  => Yes(seq.view.slice(from, until))
 			}
-			case ArrayLike.Slice(array, start, end) =>
-				if (from >= end - start) Yes(Nil)
-				else Yes(ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until))
-			case _ :SugaredIterableOps[_, _, _] => items match {
+			case ArrayLike.Slice(array, start, end) => sliceSlice(array, start, end)
+			case _ :SugaredIterableOps[_, _, _]     => items match {
 				case set  :IndexedSet[A] => Yes(set.slice(from, until))
 				//Unsafe, no bound forcing Iterable, for example in ArrayAsSeq.
 				// We also don't know if it doesn't copy on slice (like a mutable collection must).
 	//			case arr  :ArraySliceOps[A, Iterable, Iterable[A]] => Yes(arr.slice(from, until))
 				case rank :Ranking[A]    => quickSlice(rank.toIndexedSeq, from, until)
-				case set  :StringSet     => Yes(set.slice(from, until).asInstanceOf[Iterable[A]])
-				case map  :StringMap[_]  => Yes(map.slice(from, until).asInstanceOf[Iterable[A]])
+//				case set  :StringSet     => Yes(set.slice(from, until).asInstanceOf[Iterable[A]])
+//				case map  :StringMap[_]  => Yes(map.slice(from, until).asInstanceOf[Iterable[A]])
 				case _                   => No
 			}
 			//Not Iterable.
 //			case _ :HasFastSlice[_] | _ :IndexedIterator[_] =>
 			case _ => No
 		}
+	}
 
 	def slice[A](items :IterableOnce[A], from :Int, until :Int)
 			:IterableOnce[A] with IterableOnceOps[A, IterableOnce, IterableOnce[A]] =
@@ -409,10 +550,7 @@ private object HasFastSlice {
 				case _ =>
 					slice(items.iterator, from, until)
 			}
-			case ArrayLikeSlice(array, start, end) =>
-				if (from >= end - start) Nil
-				else ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until)
-			case _ => slice(items.iterator, from, until)
+			case _ => ArrayLikeSlice.Convert(items, from, until) getOrElse slice(items.iterator, from, until)
 		}
 
 	def slice[A](itr :Iterator[A], from :Int, until :Int) :Iterator[A] = itr match {
@@ -478,7 +616,7 @@ private object Defaults {
 	 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
 	 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
 	 */
-	def updatedAll[E, CC[_], C](self :collection.SeqOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] = {
+	def updatedAll[E, CC[_], C](self :IterableOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] = {
 		def outOfBounds(msg :String = "") =
 			outOfBounds_!(
 				errorString(self) + ".updatedAll(" + index + ", " + errorString(elems) + ")" +
@@ -493,27 +631,28 @@ private object Defaults {
 				self.iterableFactory from Views.updatedAll(self.iterator, index, elems)
 			case _ if thatSize == 0 & thisSize >= 0 & index <= thisSize =>
 				//Default patch implementation doesn't check if the operation results in no changes.
-				self.iterableFactory from (self :collection.SeqOps[E, CC, C])
-			case _ if thisSize >= 0 & thatSize >= 0 =>
-				self.patch(index, elems, thatSize)
-			case _ if !self.knownStrict =>
+				self.iterableFactory from self
+			case seq :collection.SeqOps[E, CC, C] if thisSize >= 0 & thatSize >= 0 =>
+				seq.patch(index, elems, thatSize)
+			case _ if !self.knownStrict        =>
 				self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
 			case _ if elems.toBasicOps.isEmpty =>
-				//consider: traversing the whole list to compute its length only to throw an exception is wasteful
-				val length = self.length
-				if (index > length)
-					outOfBounds_!(index, length)
-				self.iterableFactory from (self :collection.SeqOps[E, CC, C])
-			case seq :collection.LinearSeq[E] @unchecked =>
+				//Traversing the whole list to compute its length only to throw an exception is wasteful.
+//				val length = self.length
+//				if (index > length)
+//					outOfBounds_!(index, length)
+				self.iterableFactory from self
+			//Not collection.LinearSeq because we want to reuse the tail.
+			case seq :LinearSeq[E] @unchecked  =>
 				updatedAll(seq, index, elems, true, self.iterableFactory)
-			case HasFastSlice(items) =>
+			case HasFastSlice(items)           =>
 				updatedAll(items, index, elems, true, self.iterableFactory)
-			case _ =>
+			case _                             =>
 				self.iterableFactory from Iterators.updatedAll(self.iterator, index, elems)
 		}
 	}
 
-	private def updatedAll[E, CC[_], C](seq :collection.LinearSeq[E], index :Int, elems :IterableOnce[E],
+	private def updatedAll[E, CC[_], C](seq :LinearSeq[E], index :Int, elems :IterableOnce[E],
 	                                    validate :Boolean, factory :IterableFactory[CC]) :CC[E] =
 	{
 		//We hope for fast tail, that hd +: tail reuses tail, and that iterableFactory from seq eq seq.
@@ -522,7 +661,7 @@ private object Defaults {
 		var i = 0
 		var initReversed :List[E] = Nil
 		var tail :collection.LinearSeq[E] = seq
-		while (i < index && tail.nonEmpty) {
+		while (i < index && tail.nonEmpty) {       //Move the seq prefix from before the patch aside, reversing it.
 			initReversed = tail.head::initReversed
 			tail = tail.tail
 			i += 1
@@ -539,12 +678,12 @@ private object Defaults {
 			elems match {
 				case list :collection.LinearSeq[E] =>
 					var patch = list
-					var i = 0
+					i = 0
 					while (i < -index) {
 						patch = patch.tail
 						i += 1
 					}
-					while (patch.nonEmpty && tail.nonEmpty) {
+					while (patch.nonEmpty && tail.nonEmpty) { //Reverse patch, prepending it to our reversed prefix.
 						initReversed = patch.head::initReversed
 						patch = patch.tail
 						tail = tail.tail
@@ -556,41 +695,49 @@ private object Defaults {
 								(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
 						)
 				case IndexedIterable(seq) => //matches only collections of known size
-					tail = tail.drop(thatSize - 1)
-					if (tail.isEmpty) {
-						if (validate)
-							outOfBounds_!(
-								seq.className + ".updatedAll(" + index + ", " + errorString(elems) + ": patch too large"
-							)
-					} else
+					val dstIdx = math.max(index, 0)
+					i = dstIdx
+					while (i < thatSize & tail.nonEmpty) { //Determine the length of the patch we should use.
+						i   += 1
 						tail = tail.tail
-					if (applyPreferred(seq)) {
-						var i = thatSize
-						while (i > 0) {
-							i -= 1
-							tail = seq(i) +: tail
+					}
+					if (validate && tail.isEmpty)
+						outOfBounds_!(
+							seq.className + ".updatedAll(" + index + ", " + errorString(elems) + ": patch too large"
+						)
+					if (!applyPreferred(seq)) {
+						var itr = seq.reverseIterator
+						if (hasFastDrop(itr)) {
+							itr = itr.drop(thatSize - i)
+							while (i > dstIdx) {
+								i   -= 1
+								tail = itr.next() +: tail
+							}
 						}
-					} else {
-						val i = seq.reverseIterator
-						while (i.hasNext)
-							tail = i.next() +: tail
+					}
+					//The loop will be entered only if we haven't already prepended patch in the preceding if block.
+					while (i > dstIdx) {
+						i -= 1
+						tail = seq(i) +: tail
 					}
 				case _ =>
-					val i = elems.iterator
-					while (i.hasNext && tail.nonEmpty) {
-						initReversed = i.next()::initReversed
+					val itr = HasFastSlice.drop(elems.iterator, math.max(0, -index))
+					while (itr.hasNext && tail.nonEmpty) {
+						initReversed = itr.next()::initReversed
 						tail = tail.tail
+						i += 1
 					}
-					if (validate && tail.isEmpty && i.hasNext)
+					if (validate && tail.isEmpty && itr.hasNext)
 						outOfBounds_!(
-							seq.className + ".updatedAll(" + index + ", " + elems.className + "|" +
-								(if (thatSize >= 0) thatSize else i.toString + "+") + "|): patch too large"
+							seq.className + "|" + i + "|.updatedAll(" + index + ", " + errorString(elems) +
+								"|): patch too large"
 						)
 			}
 			factory from util.prependReverse(initReversed, tail)
 		}
 	}
 
+	//Called when self has fast slicing
 	private def updatedAll[E, CC[_], C](self :collection.IterableOps[E, IterableOnce, IterableOnce[E]], index :Int,
 	                                    elems :IterableOnce[E], validate :Boolean, factory :IterableFactory[CC]) :CC[E] =
 	{
@@ -613,8 +760,8 @@ private object Defaults {
 		res ++= self.take(index)
 		if (thisSize < 0) {
 			//Default Iterator.drop creates a proxy even if n <= 0, so lets check it ourselves to avoid it.
-			val thatItr = if (index < 0) elems.iterator else elems.iterator.drop(-index)
-			val thisItr = if (index < 0) self.iterator else self.iterator.drop(-index)
+			val thatItr = HasFastSlice.drop(elems.iterator, -index)
+			val thisItr = HasFastSlice.drop(self.iterator, index)
 			var i = math.max(0, index)
 			while (thisItr.hasNext && thatItr.hasNext) {
 				res += thatItr.next()
@@ -625,7 +772,7 @@ private object Defaults {
 			res ++= thisItr
 		} else if (thatSize < 0) {
 			var i       = math.max(index, 0)
-			val thatItr = elems.iterator.drop(-index)
+			val thatItr = HasFastSlice.drop(elems.iterator, -index)
 			while (i < thisSize && thatItr.hasNext) {
 				res += thatItr.next()
 				i += 1
@@ -635,20 +782,11 @@ private object Defaults {
 				res ++= self.drop(i)
 		} else { //thisSize >= 0 && thatSize >= 0
 			if (index <= thisSize - thatSize)
-				if (index >= 0)
-					res ++= elems
-				else
-					if (preferDropOverIterator(elems))
-						res ++= elems.toIterableOnceOps.drop(-index)
-					else
-						res ++= elems.iterator.drop(-index)
+				res ++= HasFastSlice.drop(elems, -index) //Smart enough to do nothing if index >= 0
 			else if (validate)
 				outOfBounds(thatSize)
-			else elems match {
-				case HasFastSlice(items) => res ++= items.slice(-index, thisSize)
-				case _ if index <= 0     => res ++= elems.iterator.take(thisSize)
-				case _                   => res ++= elems.iterator.slice(-index, thisSize)
-			}
+			else
+				res ++= HasFastSlice.slice(elems, -index, thisSize - index)
 			if (index < thisSize - thatSize)
 				res ++= self.drop(index + thatSize)
 		}
@@ -666,22 +804,21 @@ private object Defaults {
 	 * out of range, not simply truncating them. We can't however just validate before calling patch if we don't
 	 * know the sizes, but we would like to use patch in case it has a more efficient implementation.
 	 */
-	def overwritten[E, CC[_], C](self :collection.SeqOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] = {
+	def overwritten[E, CC[_], C](self :IterableOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] = {
 		val thatSize = elems.knownSize
 		val thisSize = self.knownSize
 		self match {
-			case _ if thatSize == 0 || thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
+			case _ if thatSize == 0 | thisSize == 0 || index <= 0 && thatSize >= 0 && index + thatSize <= 0
 				|| thisSize >= 0 && thisSize <= index || index == Int.MinValue || index == Int.MaxValue
 			=>
 				self.iterableFactory from self
 			case _ :View[_]          =>
 				self.iterableFactory from Views.overwritten(self, index, elems)
-			case _ if thatSize >= 0 & thisSize >= 0 =>
-				val replaced =
-					if (index < 0) math.min(thatSize + index, thisSize) - index
-					else math.min(thatSize, thisSize - index)
-				val that = HasFastSlice.slice(elems, -index, replaced)
-				self.patch(index, that, replaced)
+			case seq :collection.SeqOps[E, CC, C] if thatSize >= 0 & thisSize >= 0 =>
+				val srcIdx   = math.max(0, -index)
+				val replaced = math.min(thisSize - math.max(0, index), thatSize - srcIdx)
+				val that = HasFastSlice.slice(elems, srcIdx, srcIdx + replaced)
+				seq.patch(index, that, replaced)
 			case _ if !self.knownStrict =>
 				self.iterableFactory from Iterators.overwritten(self.iterator, index, elems)
 			case _ if elems.toBasicOps.isEmpty =>
@@ -703,28 +840,26 @@ private object Defaults {
 	//Consider: use patch, in case it is overridden like in a Finger tree:
 	// negative indices are treated as zero, while indices greater than the length
 	// of this sequence result in appending the element to the end of the sequence.
-	def inserted[E, CC[_], C](self :collection.SeqOps[E, CC, C], index :Int, elem :E) :CC[E] = {
+	def inserted[E, CC[_], C](self :IterableOps[E, CC, C], index :Int, elem :E) :CC[E] = {
 		val size = self.knownSize
 		if (index < 0 | size >= 0 & index > size)
 			outOfBounds_!(errorString(self) + ".inserted(" + index + ", _)")
-		else if (index == 0)
-			self.prepended(elem)
-		else if (size >= 0 & index == size)
-			self.appended(elem)
-		else self match {
+		self match {
+			case seq :collection.SeqOps[E, CC, C] if index == 0                => seq.prepended(elem)
+			case seq :collection.SeqOps[E, CC, C] if size >= 0 & index == size => seq.appended(elem)
 			case _ :View[_] => self.iterableFactory from Views.inserted(self, index, elem)
 			case _ => self.iterableFactory from Iterators.inserted(self.iterator, index, elem)
 		}
 	}
 
 	/** Equivalent to [[collection.SeqOps.patch patch]]`(index, elems, 0)`. */
-	def insertedAll[E, CC[_], C](self :collection.SeqOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] =
+	def insertedAll[E, CC[_], C](self :IterableOps[E, CC, C], index :Int, elems :IterableOnce[E]) :CC[E] =
 		self match {
-			case _ if self.knownSize >= 0 =>
+			case seq :collection.SeqOps[E, CC, C] if self.knownSize >= 0 =>
 				val size = self.knownSize
 				if (index < 0 || index > size)
 					outOfBounds_!(errorString(self) + ".insertedAll(" + index + ", " + errorString(elems) + ")")
-				self.patch(index, elems, 0)
+				seq.patch(index, elems, 0)
 			case _ :View[_] => self.iterableFactory from Views.insertedAll(self, index, elems)
 			case _ => //Can't use patch because insertedAll validates the index.
 				self.iterableFactory from Iterators.insertedAll(self.iterator, index, elems)

@@ -5,9 +5,9 @@ import java.lang.{Math => math}
 import scala.annotation.{nowarn, tailrec}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.Stepper.EfficientSplit
-import scala.collection.{BufferedIterator, SeqFactory, SeqView, Stepper, StepperShape, View}
+import scala.collection.{BufferedIterator, SeqFactory, SeqView, Stepper, StepperShape, StrictOptimizedSeqFactory, View}
 import scala.collection.immutable.{AbstractSeq, StrictOptimizedSeqOps}
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.arrays.IRefArray
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred}
@@ -27,26 +27,33 @@ import net.noresttherein.sugar.slang.{SerializationProxy, SingletonSerialization
   * Each time an element or collection is prepended or appended, only a single object is created, combining
   * this sequence with the new elements. This makes it suited only as an intermediate buffer structure,
   * where collections are concatenated recursively, which would lead to O(n*n) time in standard implementations.
-  * After the contents are complete, it is advised to convert this sequence into some all purpose `Seq` implementation;
-  * this will also happen automatically when [[scala.collection.IterableOps.map mapping]] it. Note that `Cat` type
-  * is not 'sticky': operations other than appending/prepending and slicing return more conventional
-  * `Seq` implementations.
+  * After the contents are complete, it is advised to convert this sequence into some all purpose `Seq` implementation.
+  * Note that $Coll type is not 'sticky': operations other than appending/prepending/inserting, slicing and updating
+  * return more conventional `Seq` implementations.
   *
-  * This class is essentially the same as `Chain` from `cats` library,
+  * This class is conceptually equivalent to `Chain` from `cats` library,
   * but implemented within the standard collection framework.
   * @note Lazy evaluation of `length` means that the maximum sequence length of `Int.MaxValue` is not explicitly
   *       enforced. Growing the collection past that size results in undefined behaviour.
   * @define Coll `Cat`
   * @define coll cat sequence
   * @author Marcin Mościcki marcin@moscicki.net
-  */ //other names: Chain or ZigZag
+  */
 //Consider: unfortunately, we can't override :+,+:, :++, ++:, ++ and concat, as they are final in SeqOps.
 // What if we made this class private, and its companion object a SeqFactory[Seq]? This would allow us, for example,
 // to deserialize to another `Seq` type, without a Straight wrapper.
-abstract class Cat[+E]
-	extends AbstractSeq[E] with SugaredIterable[E] with SugaredSeqOps[E, Seq, Seq[E]]
-	   with StrictOptimizedSeqOps[E, Seq, Seq[E]] with SlicingOps[E, Cat[E]] with Serializable
+//Consider: should it be extending SeqOps[E, Seq, Cat[E]]? This forces returning Cat from filter at the very least.
+sealed abstract class Cat[+E]
+	extends AbstractSeq[E] with StrictOptimizedSeqOps[E, Seq, Seq[E]]
+	   with SugaredIterable[E] with SugaredSeqOps[E, Seq, Seq[E]] with SlicingOps[E, Cat[E]] with PatchingOps[E, Cat]
+	   with Serializable
+//	extends AbstractSeq[E] with StrictOptimizedSeqOps[E, Seq, Cat[E]]
+//	   with SugaredIterable[E] with SeqSlicingOps[E, Seq, Cat[E]] with PatchingOps[E, Cat]
+	   with Serializable
 {
+//	protected override def fromSpecific(coll :IterableOnce[E @uncheckedVariance]) :Cat[E] = Cat from coll
+//	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, Cat[E]] = Cat.newBuilder
+
 	private[this] var len = -1
 	override def knownSize :Int = {
 		var res = len
@@ -165,7 +172,7 @@ abstract class Cat[+E]
 					case _           => res = seq.foldLeft(acc)(op)
 				}
 				var next :Seq[E] = null
-				while (suffix.length > 0 && (suffix.pop() match {
+				while (suffix.length > 0 && ((suffix.pop() : @nowarn) match {
 					case cat :Appended[E] => res = op(res, cat.last); true
 					case cat :Concat[E]   => next = cat._2; false
 				})) ()
@@ -201,7 +208,7 @@ abstract class Cat[+E]
 					case _           => res = seq.foldRight(acc)(op)
 				}
 				var next :Seq[E] = null
-				while (prefix.length > 0 && (prefix.pop() match {
+				while (prefix.length > 0 && ((prefix.pop() : @nowarn) match {
 					case cat :Prepended[E] => res = op(cat.head, res); true
 					case cat :Concat[E]    => next = cat._1; false
 				})) ()
@@ -254,7 +261,7 @@ abstract class Cat[+E]
 		get(this, i)
 	}
 
-	override def updated[U >: E](index :Int, elem :U) :Cat[U] = //Cat.from(super.updated(index, elem))
+	override def updated[U >: E](index :Int, elem :U) :Cat[U] =
 		if (index < 0 || index >= length)
 			outOfBounds_!(index, length)
 		else
@@ -317,7 +324,7 @@ abstract class Cat[+E]
 	override def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :Cat[U] =
 		insertedAll(index, new Prepended(first, new Prepended(second, Cat.from(rest))))
 
-	//fixme: we can't override :++ and ++: :(
+	//We can't override :++ and ++: :(
 	override def appended[U >: E](elem :U) :Cat[U] = new Appended(this, elem)
 	override def prepended[U >: E](elem :U) :Cat[U] = new Prepended(elem, this)
 
@@ -582,7 +589,7 @@ abstract class Cat[+E]
   * @define coll cat
   */
 @SerialVersionUID(Ver)
-case object Cat extends SeqFactory[Cat] {
+case object Cat extends StrictOptimizedSeqFactory[Cat] {
 
 	override def from[A](source :IterableOnce[A]) :Cat[A] = source match {
 		case cat   :Cat[A]                              => cat
@@ -592,7 +599,7 @@ case object Cat extends SeqFactory[Cat] {
 	}
 	override def empty[A] :Cat[A] = Empty
 
-	override def newBuilder[A] :Builder[A, Cat[A]] = DefaultArraySeq.newBuilder[A] mapResult (new Straight(_))
+	override def newBuilder[A] :Builder[A, Cat[A]] = new CatBuilder
 
 	/** Similar to [[collection.IndexedSeqView IndexedSeqView]], but a `Cat`, meaning non-slicing operations
 	  * build strict, normal (non `Cat`) sequences, rather than another view. Unlike other cats,
@@ -738,6 +745,16 @@ case object Cat extends SeqFactory[Cat] {
 	}
 
 
+	private final class CatBuilder[A] extends ReusableBuilder[A, Cat[A]] {
+		private[this] var cat :Cat[A] = Empty
+		override def result() = { val res = cat; cat = Empty; res }
+		override def clear() :Unit = cat = Empty
+
+		override def addOne(elem :A) = { cat = cat.appended(elem); this }
+		override def addAll(xs :IterableOnce[A]) = { cat = cat.appendedAll(Seq from xs); this }
+	}
+
+
 	private final class CatIterator[+A](cat :Cat[A]) extends BufferedIterator[A] with IteratorWithDrop[A] {
 		private[this] var stack = LightStack.of[Cat[A]]
 		private[this] var hd :A = _
@@ -754,7 +771,7 @@ case object Cat extends SeqFactory[Cat] {
 				if (hasHead)
 					size += 1
 				var i = 0; val end = stack.length
-				while (i < end && (stack(i) match {
+				while (i < end && ((stack(i) : @nowarn) match {
 					case cat :HasTail[_]   => next = cat._2.knownSize; next >= 0
 					case _   :Appended[_]  => next = 1; true
 				})) {
@@ -769,7 +786,7 @@ case object Cat extends SeqFactory[Cat] {
 		override def hasNext = hasHead
 		override def next() :A = {
 			if (!hasHead)
-				noSuch_!("Cat.empty.iterator.head")
+				noSuch_!("Cat.empty.iterator.next")
 			val res = hd
 			advance()
 			res

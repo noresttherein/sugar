@@ -43,9 +43,13 @@ object extensions {
 	implicit class LazyExtension(self : => Any) {
 		def throws[E <: Throwable :ClassTag] :Prop = {
 			lazy val expr = self
+			lazy val format =
+				try expr.toString catch {
+					case e :Exception => "<toString threw " + e + ">"
+				}
 			val thrown = Prop.throws(classTag[E].runtimeClass.asInstanceOf[Class[E]])(expr)
 			if (thrown) Prop.passed
-			else Prop.falsified lbl "throws " + fullNameOf[E] lbl "returned: " + expr
+			else Prop.falsified lbl "throws " + fullNameOf[E] lbl "returned: " + format
 		}
 	}
 

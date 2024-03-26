@@ -1052,7 +1052,7 @@ object IndexedSeqLike extends Rank1IndexedSeqLike {
 			copyRangeToArray[A](elems)(array, start, 0, max)
 
 		def copyRangeToArray[A >: Char](elems :String)(xs :Array[A], start :Int, from :Int, len :Int) :Int = {
-			val copied = util.elementsToCopy(xs, start, len, from, elems.length)
+			val copied = util.elementsToCopy(elems.length, from, xs, start, len)
 			xs match {
 				case chars :Array[Char] =>
 					elems.getChars(start, start + copied, chars, start)

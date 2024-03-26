@@ -81,6 +81,7 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 				val length = seq.length
 				Gen.oneOf(
 					indexGen(length).flatMap(i => gen[X].map(x => Update(i, x))),
+//					indexGen(length).flatMap(i => gen[SizedSeq[X]].map(xs => UpdateAll(i, xs))),
 					indexGen(length).map(Remove.apply),
 					indexGen(length).flatMap(i => indexGen(length - i).map(count => RemoveAll(i, count))),
 					indexGen(length).flatMap(i => gen[X].map(x => Insert(i, x))),
@@ -171,8 +172,10 @@ trait BufferProps[C[X] <: Buffer[X], E[_]] extends Properties { //extends SeqPro
 			override def apply(sut :Sut) = sut(index) = value
 			override def apply(state :Seq[X]) = state.updated(index, value)
 		}
+		//Not a standard Buffer method.
 //		case class UpdateAll(index :Int, elems :Seq[X]) extends IndexedCommand(index) {
-//			override def apply(sut :Sut) = sut.updateAll
+//			override def apply(sut :Sut) = sut.updateAll(index, elems)
+//			override def apply(state :Seq[X]) = state.updatedAll(index, elems)
 //		}
 
 		def AddOne(elem :X) = mutate(s"AddOne($elem)")(_.addOne(elem), _.appended(elem))

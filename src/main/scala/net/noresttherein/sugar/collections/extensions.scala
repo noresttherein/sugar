@@ -1,37 +1,32 @@
 package net.noresttherein.sugar.collections
 
-import java.util.{Arrays, PrimitiveIterator, Spliterator}
+import java.util.Spliterator
 import java.lang.{Math => math}
 
 import scala.annotation.{implicitNotFound, nowarn, tailrec}
-import scala.collection.{AbstractIterator, AnyStepper, ArrayOps, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
+import scala.collection.{AnyStepper, BufferedIterator, ClassTagIterableFactory, DoubleStepper, EvidenceIterableFactory, Factory, IntStepper, IterableFactory, IterableOnce, IterableOnceOps, IterableOps, LongStepper, MapFactory, SeqFactory, SeqView, SortedMapFactory, Stepper, StepperShape, StrictOptimizedIterableOps, View, mutable}
 import scala.collection.Stepper.EfficientSplit
-import scala.collection.generic.{IsIterableOnce, IsSeq}
+import scala.collection.generic.IsIterableOnce
 import scala.collection.immutable.{ArraySeq, LinearSeq, MapOps, SetOps, SortedMap, SortedSet}
 import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, Growable, IndexedBuffer, ListBuffer, ReusableBuilder}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
-import scala.reflect.{ClassTag, classTag}
-import scala.runtime.BoxedUnit
-import scala.util.{Random, Sorting}
+import scala.reflect.ClassTag
+import scala.util.Random
 
-import net.noresttherein.sugar.JavaTypes.{JIterator, JStringBuilder}
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator, arraycopy}
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
+import net.noresttherein.sugar.arrays.{ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, ErasedArray, IArray, IRefArray, RefArray, ReverseArrayIterator}
 import net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.Constants.ReasonableArraySize
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present, indexOfErrorMessage, indexOfNotFound, indexOfSliceErrorMessage, indexOfSliceNotFound, indexWhereErrorMessage, indexWhereNotFound, lastIndexOfErrorMessage, lastIndexOfNotFound, lastIndexOfSliceErrorMessage, lastIndexOfSliceNotFound, lastIndexWhereErrorMessage, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
-import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, applyPreferred, updatePreferred}
+import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, updatePreferred}
 import net.noresttherein.sugar.collections.extensions.{BufferExtension, BufferFactoryExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, MapLazyMethods, SeqExtension, SeqFactoryExtension, SeqViewExtension, SetLazyMethods, SortedMapLazyMethods, SortedSetLazyMethods, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetExtension, immutableSetFactoryExtension, immutableSortedMapExtension, immutableSortedSetExtension, mutableIndexedSeqExtension}
-import net.noresttherein.sugar.collections.util.{errorString, knownEmpty}
+import net.noresttherein.sugar.collections.util.{errorString, knownEmpty, rangeCheck}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
 import net.noresttherein.sugar.funny.generic.Any1
-import net.noresttherein.sugar.numeric.BitLogic
-import net.noresttherein.sugar.reflect.ArrayClass
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
@@ -39,9 +34,10 @@ import net.noresttherein.sugar.typist.{PriorityConversion, Unknown}
 import net.noresttherein.sugar.optional.extensions.OptionExtension
 import net.noresttherein.sugar.vars.{AbstractLazy, AbstractPure, IntOpt, Maybe, Opt}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.Ignored
+
+
 
 
 /** Extension methods for [[net.noresttherein.sugar.collections.Jterator jterators]].
@@ -364,6 +360,14 @@ object extensions extends extensions {
 		  * @return `true` ''iff'' `sel.knownSize >= 0` or this is a `List`.
 		  */
 		def knownFinite :Boolean = self.knownSize >= 0 || self.isInstanceOf[List[_]]
+
+		/** Returns `this` is it is an `Iterable`, or a new `Iterable` containing the elements of `this` otherwise.
+		  * In the latter case, if `this` can not be traversed multiple times, the collection becomes exhausted.
+		  */
+		def asIterable :Iterable[E] = self match {
+			case items :Iterable[E] => items
+			case _                  => Iterable from self
+		}
 
 		/** Returns `this` if this collection is an [[collection.Iterable Iterable]], or `this.iterator` otherwise. */
 		@inline def toIterableOnceOps :IterableOnceOps[E, IterableOnce, IterableOnce[E]] = self match {
@@ -2216,17 +2220,22 @@ object extensions extends extensions {
 			self match {
 				case sugared :SugaredIterable[A] =>
 					sugared.copyRangeToArray(xs, start, from, len)
-				case _ if len <= 0 || start >= xs.length || { val size = self.knownSize; size >= 0 & from >= size } =>
+//				case _ if nothingToCopy(self, from, xs, start, len) =>
+//					0
+				case _ if rangeCheck(self, from, xs, start, len) => //Will throw IndexOutOfBounds if needed.
 					0
+				//Ideally, we'd delegate before range check so as to not perform it twice,
+				// but implementations in Scala standard library have inconsistent semantics.
 				case _ if from <= 0 =>
 					toBasicOps.copyToArray(xs, start, len)
-				case _ if start < 0 =>
-					outOfBounds_!(
-						errorString(self) + ".copyRangeToArray(" +
-							errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
-					)
-				case ErasedArray.Wrapped(array :Array[A @unchecked]) =>
-					ArrayLikeExtension(array).copyRangeToArray(xs, start, from, len)
+//				case _ if start < 0 =>
+//					outOfBounds_!(
+//						errorString(self) + ".copyRangeToArray(" +
+//							errorString(xs) + ", " + start + ", " + from + ", " + len + ")"
+//					)
+				case ErasedArray.Slice(array :Array[A @unchecked], offset, _) =>
+					//We assume knownSize >= 0 and thus from was checked to be < i - j
+					ArrayLikeExtension(array).copyRangeToArray(xs, start, from + offset, len)
 				case ApplyPreferred(seq) =>
 					val from0  = math.max(from, 0)
 					val copied = math.min(len, math.min(xs.length - start, seq.size - from0))
@@ -3030,18 +3039,19 @@ object extensions extends extensions {
 		  */
 		def appended[U >: E](elem :U) :Iterator[U] = Iterators.appended(self, elem)
 
-		/** Equivalent to `this ++ Iterator.single(first) ++ Iterator.single(second) ++ rest`.
-		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
-		  * making it a slightly more efficient alternative.
-		  */
-		def appended[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
-			if (knownEmpty(rest))
-				Iterators.concat(self, Iterator.two(first, second))
-			else
-				Iterators.concat(self, Iterators.concat(Iterator.two(first, second), rest.iterator))
+		//todo: think of a more efficient concatenation scheme.
+		//Should define a method of this name also in GrowingIterator to avoid calling this one.
+//		def !++=[U >: E](elems :IterableOnce[U]) :GrowingIterator[U]
+//
+//		/** Adds all elements of the argument collection to the end of this iterator.
+//		  * The original iterator must be discarded after this operation, as its state becomes undefined.
+//		  * If the argumnt is already precomputed, tiny collection, this is considerably more efficient
+//		  * than normal concatenation.
+//		  */
+//		def !++[U >: E](elems :IterableOnce[U]) :Iterator[U]
 
 		/** Equivalent to `this ++ elems`, but the argument is not lazy,
-		  * making the implementation slightly more efficient.
+		  * making the implementation slightly more efficient if the argument is already computed.
 		  */
 		@inline def :++[U >: E](elems :IterableOnce[U]) :Iterator[U] = appendedAll(elems)
 
@@ -3051,6 +3061,16 @@ object extensions extends extensions {
 		def appendedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
 			if (knownEmpty(elems)) self
 			else Iterators.concat(self, elems.iterator)
+
+		/** Equivalent to `this ++ Iterator.single(first) ++ Iterator.single(second) ++ rest`.
+		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
+		  * making it a slightly more efficient alternative.
+		  */
+		def appendedAll[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
+			if (knownEmpty(rest))
+				Iterators.concat(self, Iterator.two(first, second))
+			else
+				Iterators.concat(self, Iterators.concat(Iterator.two(first, second), rest.iterator))
 
 		/** An iterator which returns `elem` as its first element, followed by all elements of this iterator. */
 		@inline def +:[U >: E](elem :U) :Iterator[U] = prepended(elem)
@@ -3064,16 +3084,6 @@ object extensions extends extensions {
 		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
 		  * making it a slightly more efficient alternative.
 		  */
-		def prepended[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
-			if (knownEmpty(rest))
-				Iterators.concat(Iterator.two(first, second), self)
-			else
-				Iterators.concat(Iterators.concat(Iterator.two(first, second), rest.iterator), self)
-
-		/** Equivalent to `Iterator.single(first) ++ Iterator.single(second) ++ rest ++ this`.
-		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
-		  * making it a slightly more efficient alternative.
-		  */
 		@inline def ++:[U >: E](elems :IterableOnce[U]) :Iterator[U] = prependedAll(elems)
 
 		/** Equivalent to `elems.iterator ++ this`. Unlike the standard `Iterator.`[[collection.Iterator.concat concat]],
@@ -3082,6 +3092,16 @@ object extensions extends extensions {
 		def prependedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
 			if (knownEmpty(elems)) self
 			else Iterators.concat(elems.iterator, self)
+
+		/** Equivalent to `Iterator.single(first) ++ Iterator.single(second) ++ rest ++ this`.
+		  * Unlike the standard `Iterator.`[[collection.Iterator.concat concat]], the arguments are not lazy,
+		  * making it a slightly more efficient alternative.
+		  */
+		def prependedAll[U >: E](first :U, second :U, rest :U*) :Iterator[U] =
+			if (knownEmpty(rest))
+				Iterators.concat(Iterator.two(first, second), self)
+			else
+				Iterators.concat(Iterators.concat(Iterator.two(first, second), rest.iterator), self)
 
 		/** An iterator with safe slicing methods. Invoking `take`, `drop`, `slice` does not invalidate this validator;
 		  * instead, iterators returned by those methods share the same underlying state,
@@ -3106,7 +3126,7 @@ object extensions extends extensions {
 		  *         i += 1
 		  *     }
 		  * }}}
-		  */ //or slicer, slicing, slasher?
+		  */ //todo: rename to slicer or slicing
 		def safe :Iterator[E] = Iterators.slicer(self)
 
 		/** An iterator maintaining a counter of elements advanced over, accessible through method
@@ -3170,7 +3190,10 @@ object extensions extends extensions {
 	class IterableExtension[E, CC[X], C] private[collections] (private val self :IterableOps[E, CC, C])
 		extends AnyVal with IterableOnceOpsExtensionMethods[E, CC, C, IterableOnce]
 	{
-		@inline private def coll :C = self.drop(0)
+		def coll :C = self match {
+			case _ :Iterable[_] => self.asInstanceOf[C] //Iterable.coll is final and returns this.
+			case _              => util.coll(self)
+		}
 		//todo: lazyZipAll, lazyZipEven
 
 		@throws[NoSuchElementException]("if the collections are not of the same size")
@@ -3606,9 +3629,12 @@ object extensions extends extensions {
 			else self match {
 				case sugared :SugaredIterable[E] => util.fromSpecific(self)(sugared.removed(index))
 				case _ :View[_]                  => util.fromSpecific(self)(Views.removed(self, index))
-				case HasFastSlice(items)         => //Even if concat is O(n), there is a chance of reusing contents.
-					util.fromSpecific(self)(items take index concat items.drop(index + 1))
 				case _ if !self.knownStrict      => util.fromSpecific(self)(Iterators.removed(self.iterator, index))
+				case HasFastSlice(items)         => //Even if concat is O(n), there is a chance of reusing contents.
+					val size = self.size
+					if (index >= size)
+						outOfBounds_!(index, size)
+					util.fromSpecific(self)(items take index concat items.drop(index + 1))
 				case _ if knownEmpty(self)       => outOfBounds_!(index, self)
 				case seq :LinearSeq[E] =>
 					//we hope that ++: reuses the right operand, and that iterableFactory.from returns the argument
@@ -3651,6 +3677,8 @@ object extensions extends extensions {
 							util.fromSpecific(self)(sugared.removed(from, until))
 						case _ :View[_] =>
 							util.fromSpecific(self)(Views.removed(self, nonNegFrom, nonNegUntil))
+						case _ if !self.knownStrict =>
+							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 						case HasFastSlice(items)         => //Even if concat is O(n), there is a chance of reusing contents.
 							util.fromSpecific(self)(items take nonNegFrom concat items.drop(nonNegUntil))
 						case list :List[E] =>
@@ -3658,8 +3686,6 @@ object extensions extends extensions {
 								if (len <= 0 || seq.isEmpty) acc
 								else reversePrefix(seq.tail, len - 1, seq.head::acc)
 							util.fromSpecific(self)(reversePrefix(list, from, Nil) reverse_::: list.drop(until))
-						case _ if !self.knownStrict =>
-							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 						case seq :LinearSeq[E] =>
 							val tail = seq.drop(until)
 							if (tail.isEmpty)
@@ -4930,7 +4956,7 @@ object extensions extends extensions {
 		  */
 		def updateAll(index :Int, first :E, second :E, rest :E*) :Int = {
 			self(index) = first
-			self(index  + 1) = second
+			self(index + 1) = second
 			updateAll(index + 2, rest) + 2
 		}
 
@@ -6131,6 +6157,19 @@ object extensions extends extensions {
 	  *                    also as the termination condition, and ends the recursion once it returns `None`.
 	  */
 	class IterableFactoryExtension[C[_]] private[extensions] (private val companion :IterableFactory[C]) extends AnyVal {
+
+		//Not enough optimizations possible to implement here to be worth it.
+//		/** A collection consisting of first `length` elements of `source`.
+//		  * @return `from(source.iterator.take(length))`.
+//		  */
+//		def take[E](source :IterableOnce[E], length :Int) :C[E] =
+//			if (length <= 0)
+//				companion.empty
+//			else {
+//				val size = source.knownSize
+//				if (size >= 0 && size <= length) companion.from(source)
+//				else companion.from(source.iterator.take(length))
+//			}
 
 		/** A complement of `C.iterate` and `C.unfold` provided by collection companion objects, which creates
 		  * a collection `C` by recursively applying a partial function while defined to its own results and collecting

@@ -14,6 +14,8 @@ import org.scalacheck.util.{Buildable, ConsoleReporter}
 
 object MatrixBufferSpec //extends Properties("MatrixBuffer") with BufferProps[TestMatrixBuffer, Dummy]
 	extends UntaggedSeqProps[TestMatrixBuffer]("MatrixBuffer", TestMatrixBuffer)
+	   with SugaredIterableProps[TestMatrixBuffer, collection.Seq, Dummy]
+	   with PatchingProps[TestMatrixBuffer, collection.Seq, Dummy]
 	   with BufferProps[TestMatrixBuffer, Dummy]
 {
 	protected override def minSuccessfulTests :Int = 1000

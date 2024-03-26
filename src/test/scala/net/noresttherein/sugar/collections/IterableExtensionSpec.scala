@@ -12,6 +12,9 @@ import net.noresttherein.sugar.testing.scalacheck.extensions._
 
 
 
+//It would be great to extract tests of methods common with IteratorExtensionSpec,
+// but in that object we need ()=>Iterator[A] as an argument, rather than Iterable[A].
+// So it would have to be () => IterableOnceOps[A] probably.
 object IterableExtensionSpec extends Properties("IterableExtension") {
 
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =

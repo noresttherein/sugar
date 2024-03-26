@@ -17,7 +17,7 @@ import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsM
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex, MatrixBuffer}
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
-import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.collections.util.{elementsToCopy, errorString}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{IncompatibleArgumentTypesException, outOfBounds_!}
 import net.noresttherein.sugar.extensions.ClassExtension
@@ -294,30 +294,30 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  * statically guarantee success). It is also faster for copying between a value array and a reference array
 	  * in both directions (unless `Array.copy` is heavily inlined to the calling method by the hotspot compiler).
 	  */
-	@throws[IndexOutOfBoundsException]("if [srcPos, srcPos+length) is not a valid index range in src," +
-	                                   "or [dstPos, dstPos+length) is not a valid index range in dst.")
+	@throws[IndexOutOfBoundsException]("if [srcPos, srcPos + max) is not a valid index range in src," +
+	                                   "or [dstPos, dstPos + max) is not a valid index range in dst.")
 	@throws[ArrayStoreException]("if the dst array cannot store some element from the specified range of src," +
 	                             "even after auto boxing/auto unboxing.")
-	@inline def copy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Unit =
-		if (length > 0)
+	@inline def copy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Unit =
+		if (max > 0)
 			if (src.isInstanceOf[Array[AnyRef]])
 				if (dst.isInstanceOf[Array[AnyRef]])
-					arraycopy(src, srcPos, dst, dstPos, length)
+					arraycopy(src, srcPos, dst, dstPos, max)
 				else
 					ArrayLikeSpecOps.unboxingCopy(
-						src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length
+						src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, max
 					)
 			else
 				if (dst.isInstanceOf[Array[AnyRef]])
 					ArrayLikeSpecOps.boxingCopy(
-						src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length
+						src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, max
 					)
 				else if (src.getClass == dst.getClass)
-					arraycopy(src, srcPos, dst, dstPos, length)
+					arraycopy(src, srcPos, dst, dstPos, max)
 				else //This will fail, but I don't want to be the one to do it.
-					Array.copy(src, srcPos, dst, dstPos, length)
+					Array.copy(src, srcPos, dst, dstPos, max)
 
-	/** Copies a maximum of `length` elements from one array-like to another, wrapping at array ends.
+	/** Copies a maximum of `max` elements from one array-like to another, wrapping at array ends.
 	  * Reading starts with index `srcPos` in `src`, and writing starts with index `dstPos` in `dst`.
 	  * If an end of either array is reached, reading/writing resumes from the beginning of that array.
 	  * This method will never copy the same element twice, or overwrite previously written elements.
@@ -327,64 +327,53 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	                                   "or len > min(src.length, dst.length).")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 	                             "including boxing and unboxing.")
-	@inline def cyclicCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Unit =
-		Array.cyclicCopy(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length)
+	@inline def cyclicCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Unit =
+		Array.cyclicCopy(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, max)
 
-	/** Copies `min(length, src.length, dst.length - dstPos)` elements from one array to another, wrapping at the end
+	/** Copies `min(max, src.length, dst.length - dstPos)` elements from one array to another, wrapping at the end
 	  * of the source array. Reading starts with index `srcPos` in `src`,
 	  * and writing starts with index `dstPos` in `dst`. If the end of array `src` is reached before
 	  * reaching the end of `dst` or copying `len` elements, then copying of the remainder restarts with `src(0)`.
-	  * If the end of array `dst` reached before copying `length` elements, copying stops.
+	  * If the end of array `dst` reached before copying `max` elements, copying stops.
 	  */
 	@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length) range, " +
-	                                   "or dstPos is not in the [0, dst.Length - len) range, or len > src.length.")
+	                                   "or dstPos is not in the [0, dst.Length - max) range, or len > src.length.")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst, " +
 	                             "including after boxing and unboxing.")
-	@inline def cyclicCopyFrom(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Unit =
-		Array.cyclicCopyFrom(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length)
+	@inline def cyclicCopyFrom(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Unit =
+		Array.cyclicCopyFrom(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, max)
 
-	/** Copies `min(len, src.length - srcPos, dst.length)` elements from one array-like to another, wrapping at the end
+	/** Copies `min(max, src.length - srcPos, dst.length)` elements from one array-like to another, wrapping at the end
 	  * of the target array. Reading starts with index `srcPos` in `src`, and writing starts with index `dstPos`
 	  * in `dst`. If the end of array `dst` is reached before reaching the end of `src` or copying `len` elements,
 	  * then writing of the remainder restarts with `dst(0)`. If the end of array `src` is reached
-	  * before copying `length` elements, the copying stops.
+	  * before copying `max` elements, the copying stops.
 	  */
-	@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length - len) range, " +
+	@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length - max) range, " +
 	                                   "or dstPos is not in the [0, dst.length) range, or len > dst.length.")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst, " +
 	                             "including boxing and unboxing.")
-	@inline def cyclicCopyTo(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Unit =
-		Array.cyclicCopyTo(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, length)
+	@inline def cyclicCopyTo(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Unit =
+		Array.cyclicCopyTo(src.asInstanceOf[Array[_]], srcPos, dst.asInstanceOf[Array[_]], dstPos, max)
 
 	/** Brings all the benefits of [[net.noresttherein.sugar.arrays.ArrayLike.copy copy]], but clips the input indices
 	  * and maximum number of elements to arrays' sizes, providing semantics of
 	  * {{{
-	  *     src.drop(srcPos).copyToArray(dst, dstPos, length)
+	  *     src.drop(srcPos).copyToArray(dst, dstPos, max)
 	  * }}}
 	  * @return The number of copied elements.
 	  */
 	@throws[IndexOutOfBoundsException]("if dstPos is negative.")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 	                             "including boxing and unboxing.")
-	def permissiveCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
-		val srcLength = src.asInstanceOf[Array[_]].length
-		val dstLength = dst.asInstanceOf[Array[_]].length
-		//we could check heere if srcLength == 0 | dstLength == 0, but it would be inconsistent
-		// with the implementation in IterableOnceOps
-		if (srcPos >= srcLength | dstPos >= dstLength | length <= 0)
-			0
-		else if (dstPos < 0)
-			outOfBounds_!(dstPos, dstLength)
-		else {
-			val srcIdx = math.max(srcPos, 0)
-			val max = math.min(math.min(srcLength - srcIdx, dstLength - dstPos), length)
-			copy(src, srcIdx, dst, dstPos, max)
-			max
-		}
+	def permissiveCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Int = {
+		val copied = elementsToCopy(src.asInstanceOf[Array[_]].length, srcPos, dst.asInstanceOf[Array[_]], dstPos, max)
+		copy(src, math.max(srcPos, 0), dst, dstPos, copied)
+		copied
 	}
 
 	/** Invokes [[net.noresttherein.sugar.arrays.ArrayLike.cyclicCopy cyclicCopy]], but uses `srcPos` and `dstPos`
-	  * module `src.length` and `dst.length` (making all indices valid), and clips `length`
+	  * module `src.length` and `dst.length` (making all indices valid), and clips `max`
 	  * to the maximum number of elements to copy, based on arrays' lengths. In particular, providing a negative index
 	  * results in effectively counting from the end of the array. Offers semantics of
 	  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.cyclicCopyToArray cyclicCopyToArray]]
@@ -394,22 +383,22 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  */
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 	                             "including boxing and unboxing.")
-	def permissiveCyclicCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+	def permissiveCyclicCopy(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Int = {
 		val srcLength = src.asInstanceOf[Array[_]].length
 		val dstLength = dst.asInstanceOf[Array[_]].length
-		if (srcLength == 0 | dstLength == 0 | length <= 0)
+		if (srcLength == 0 | dstLength == 0 | max <= 0)
 			0
 		else {
 			val srcIdx = if (srcPos < 0) srcLength - srcPos % srcLength else srcPos % srcLength
 			val dstIdx = if (dstPos < 0) dstLength - dstPos % dstLength else dstPos % dstLength
-			val max = math.min(math.min(srcLength, dstLength), length)
-			cyclicCopy(src, srcIdx, dst, dstIdx, max)
-			max
+			val copied = math.min(math.min(srcLength, dstLength), max)
+			cyclicCopy(src, srcIdx, dst, dstIdx, copied)
+			copied
 		}
 	}
 
 	/** Invokes [[net.noresttherein.sugar.arrays.ArrayLike.cyclicCopyFrom cyclicCopyFrom]],
-	  * but treats `srcPos` as modulo `src.length`, copies nothing if `dstPos >= dst.length`, and clips `length`
+	  * but treats `srcPos` as modulo `src.length`, copies nothing if `dstPos >= dst.length`, and clips `max`
 	  * to the maximum number of elements to copy, based on arrays' lengths and `srcPos` and `dstPos`. Offers semantics
 	  * consistent with the standard `copyToArray` method.
 	  * @return The number of copied elements.
@@ -417,16 +406,16 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	@throws[IndexOutOfBoundsException]("if dstPos is negative.")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 	                             "including boxing and unboxing.")
-	def permissiveCyclicCopyFrom(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+	def permissiveCyclicCopyFrom(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Int = {
 		val srcLength = src.asInstanceOf[Array[_]].length
 		val dstLength = dst.asInstanceOf[Array[_]].length
-		if (srcLength == 0 | dstLength == 0 | dstPos >= dstLength | length <= 0)
+		if (srcLength == 0 | dstLength == 0 | dstPos >= dstLength | max <= 0)
 			0
 		else {
 			val srcIdx = if (srcPos < 0) srcLength - srcPos % srcLength else srcPos % srcLength
-			val max = math.min(math.min(srcLength, dstLength - dstPos), length)
-			cyclicCopy(src, srcIdx, dst, dstPos, max)
-			max
+			val copied = math.min(math.min(srcLength, dstLength - dstPos), max)
+			cyclicCopy(src, srcIdx, dst, dstPos, copied)
+			copied
 		}
 	}
 
@@ -439,16 +428,16 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	@throws[IndexOutOfBoundsException]("if srcPos is negative.")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 	                             "including boxing and unboxing.")
-	def permissiveCyclicCopyTo(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, length :Int) :Int = {
+	def permissiveCyclicCopyTo(src :ArrayLike[_], srcPos :Int, dst :MutableArray[_], dstPos :Int, max :Int) :Int = {
 		val srcLength = src.asInstanceOf[Array[_]].length
 		val dstLength = dst.asInstanceOf[Array[_]].length
-		if (srcLength == 0 | dstLength == 0 | dstPos >= dstLength | length <= 0)
+		if (srcLength == 0 | dstLength == 0 | dstPos >= dstLength | max <= 0)
 			0
 		else {
 			val dstIdx = if (dstPos < 0) dstLength - dstPos % dstLength else dstPos % srcLength
-			val max = math.min(math.min(srcLength - srcPos, dstLength), length)
-			cyclicCopy(src, srcPos, dst, dstIdx, max)
-			max
+			val copied = math.min(math.min(srcLength - srcPos, dstLength), max)
+			cyclicCopy(src, srcPos, dst, dstIdx, copied)
+			copied
 		}
 	}
 

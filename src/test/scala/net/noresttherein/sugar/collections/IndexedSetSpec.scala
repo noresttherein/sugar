@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import scala.Ordering.Implicits.sortedSetOrdering
-import scala.collection.immutable.SortedSet
+import scala.collection.immutable.{SetOps, SortedSet}
 import scala.collection.{Factory, View}
 import scala.reflect.ClassTag
 
@@ -12,8 +12,16 @@ import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExten
 
 
 
-trait SetProps[C[A] <: S[A], S[A] <: Set[A], E[_]] extends GenericIterableProps[C, S, E] {
+trait SetProps[C[A] <: SetOps[A, Set, C[A]], S[A] >: C[A] <: SetOps[A, Set,S[A]], E[_]]
+	extends SpecificIterableProps[C, S, E]
+{
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking
+
+	property("isInstanceOf[Set[_]]") =
+		((Set.empty[Int] to C).isInstanceOf[Set[_]] label "Set()") &&
+			((Set(1) to C).isInstanceOf[Set[_]] label "Set(1)") &&
+			((Set(2) to C).isInstanceOf[Set[_]] label "Set(2)") &&
+			(C[Int].fromSpecific(Set(1, 2, 3)).isInstanceOf[Set[_]] label "Set(1, 2, 3)")
 
 	property("contains") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
 		all(expect.toSeq.map { i => subject.contains(i) :| i.toString } :_*) &&
@@ -26,11 +34,11 @@ trait SetProps[C[A] <: S[A], S[A] <: Set[A], E[_]] extends GenericIterableProps[
 		forAll { xs :List[Int] =>
 			val superset = expect ++ xs
 			val same     = subject ++ xs
-			(subject subsetOf superset lbl "superset: " + superset.toString) &&
-				(subject subsetOf same lbl "superset: " + same.toString) &&
+			(subject subsetOf collection.Set.from(superset) lbl "superset: " + superset.toString) &&
+				(subject subsetOf collection.Set.from(same) lbl "superset: " + same.toString) &&
 				(!expect.isEmpty ==> {
 					val subset = expect - expect.head
-					!(subject subsetOf subset) lbl "subset: " + subset
+					!(subject subsetOf collection.Set.from(subset)) lbl "subset: " + subset
 				})
 		}
 	}
@@ -48,29 +56,29 @@ trait SetProps[C[A] <: S[A], S[A] <: Set[A], E[_]] extends GenericIterableProps[
 	}
 
 	property("incl") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
-		forAll { x :Int => test(expect + x to S, subject + x to C) }
+		forAll { x :Int => test(expect + x, subject + x) }
 	}
 	property("excl") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
-		forAll { x :Int => test(expect - x to S, subject - x to C) }
+		forAll { x :Int => test(expect - x, subject - x) }
 	}
 	property("union") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
-		forAll { xs :Set[Int] => test(expect | xs to S, subject | xs to C) } &&
-			forAll { xs :S[Int] => test(expect | xs to S, subject | xs.to(C) to C) }
+		forAll { xs :Set[Int] => test(expect | xs, subject | xs) } &&
+			forAll { xs :S[Int] => test(expect | xs.toSet, subject | xs.to(C).toSet) }
 	}
 	property("intersect") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
-		forAll { xs :Set[Int] => test(expect & xs to S, subject & xs to C) } &&
-			forAll { xs :S[Int] => test(expect & xs to S, subject & xs.to(C) to C) }
+		forAll { xs :Set[Int] => test(expect & xs, subject & xs) } &&
+			forAll { xs :S[Int] => test(expect & xs.toSet, subject & xs.to(C).toSet) }
 	}
 	property("diff") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
-		forAll { xs :Set[Int] => test(expect &~ xs to S, subject &~ xs to C) } &&
-			forAll { xs :S[Int] => test(expect &~ xs to C, subject &~ xs.to(C) to C) }
+		forAll { xs :Set[Int] => test(expect &~ xs, subject &~ xs) } &&
+			forAll { xs :S[Int] => test(expect &~ xs.toSet, subject &~ xs.to(C).toSet) }
 	}
 	property("removedAll") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
-		def forColl(xs :Iterable[Int]) = test(expect -- xs to S, subject -- xs to C)
+		def forColl(xs :Iterable[Int]) = test(expect -- xs, subject -- xs)
 		forAll { xs :List[Int] => forColl(xs) } &&
 			forAll { xs :Vector[Int] => forColl(xs) } &&
 			forAll { xs :Set[Int] => forColl(xs) } &&
-			forAll { xs :S[Int] => test(expect -- xs to S, subject -- xs.to(C) to C) } &&
+			forAll { xs :S[Int] => test(expect -- xs, subject -- xs.to(C)) } &&
 			forAll { xs :View[Int] => forColl(xs) }
 	}
 
@@ -81,14 +89,12 @@ trait SetProps[C[A] <: S[A], S[A] <: Set[A], E[_]] extends GenericIterableProps[
 
 
 object IndexedSetSpec
-	extends EvidenceIterableProps[IndexedSet, SortedSet, Ordering]("IndexedSet")(IndexedSet, SortedSet)
+	extends EvidenceIterableProps[IndexedSet, SortedSet, Ordering](IndexedSet, SortedSet)
 	   with SetProps[IndexedSet, SortedSet, Ordering]
-	   with OrderedProps[IndexedSet, SortedSet, Ordering]
+	   with SugaredIterableProps[IndexedSet, SortedSet, Ordering]
 {
-	//todo: SetProps
 	implicit override def pairEvidence[A :Ordering, B :Ordering] :Ordering[(A, B)] = Ordering.Tuple2
 
 	override def hasOrder = true
 	override def knowsSize = true
-
 }

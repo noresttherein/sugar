@@ -2,19 +2,16 @@ package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
 
-import scala.annotation.tailrec
-import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSet, SortedSet, SortedSetOps, StrictOptimizedSortedSetOps}
 import scala.collection.{Factory, SortedIterableFactory, SortedSetFactoryDefaults}
 import scala.collection.mutable.{ArrayBuffer, Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.arrays.{ArrayIterator, ArrayLike, ErasedArray, IRefArray}
-import net.noresttherein.sugar.arrays.extensions.ArrayExtension
+import net.noresttherein.sugar.arrays.{ArrayExtension, ArrayIterator, ArrayLike, ArrayLikeExtension, ErasedArray, IRefArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
-import net.noresttherein.sugar.collections.IndexedIterable
 import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedSeqSet}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension}
+import net.noresttherein.sugar.collections.util.elementsToCopy
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.Maybe.Yes
@@ -150,7 +147,7 @@ sealed abstract class IndexedSet[E]
 	}
 	private[collections] def applyPreferredMaxLength :Int = Int.MaxValue
 	override def sortedIterableFactory :SortedIterableFactory[IndexedSet] = IndexedSet
-	override def className = "IndexedSet"
+	protected[this] override def className = "IndexedSet"
 }
 
 
@@ -162,7 +159,7 @@ sealed abstract class IndexedSet[E]
   * @define coll indexed set
   */
 @SerialVersionUID(Ver)
-object IndexedSet extends SortedIterableFactory[IndexedSet] {
+case object IndexedSet extends SortedIterableFactory[IndexedSet] {
 	override def from[E :Ordering](it :IterableOnce[E]) :IndexedSet[E] = it match {
 		//we can't unfortunately return it if it is an IndexedSet, as it might use Ordering[_ <: E]
 		case set    :IndexedSet[E] if set.ordering == Ordering[E] => set
@@ -223,10 +220,9 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 
 	private abstract class AbstractIndexedSet[E](start :Int, end :Int)(implicit val ordering :Ordering[E])
-		extends AbstractSet[E] with IndexedSet[E] with SlicingOps[E, IndexedSet[E]]
+		extends IndexedSet[E] with SugaredSlicingOps[E, Set, IndexedSet[E]]
 	{
 		protected override def hasFastSlice = true
-		protected override def emptySlice :IndexedSet[E] = IndexedSet.empty
 		override def knownSize = end - start
 		protected def outerSize :Int
 		protected def at(index :Int) :E
@@ -330,15 +326,12 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 				}
 			}
 
-		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int =
-			if (len <= 0 | start > xs.length | this.start == end)
-				0
-			else {
-				//Underflows, but only if copying will throw an exception, so it doesn't matter
-				val copied = math.min(end - this.start, math.min(len, xs.length - math.max(start, 0)))
-				trustedCopyToArray(this.start, xs, start, copied)
-				copied
-			}
+		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
+			val copied = elementsToCopy(end - this.start, xs, start, len)
+			trustedCopyToArray(this.start, xs, start, copied)
+			copied
+		}
+
 		protected def trustedCopyToArray[U >: E](from :Int, xs :Array[U], start :Int, len :Int) :Unit
 	}
 
@@ -366,20 +359,10 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 		protected override def trustedCopyToArray[U >: E](from :Int, xs :Array[U], start :Int, len :Int) :Unit =
 			ArrayLike.copy(elems, from, xs, start, len)
 
-		//invariant: (array(from - 1) < x) && array(to) >= x
-		@tailrec final override def search(x :E, from :Int = start, to :Int = end) :Int =
-			if (to <= from)
-				from
-			else {
-				val middle = (from + to) >> 1
-				ordering.compare(x, elems(middle)) match {
-					case 1 => search(x, middle + 1, to)
-					case _ => search(x, from, middle)
-				}
-			}
+		final override def search(x :E, from :Int = start, to :Int = end) :Int =
+			elems.binarySearch(from, to)(x).index
 
 		override def iteratorFrom(start :E) :Iterator[E] = ArrayIterator.slice(elems, search(start), end)
-//		override def iterator :Iterator[E] = ArrayIterator(elems, start, end)
 
 		override def toIndexedSeq :IndexedSeq[E] = IRefArray.Slice(elems.asInstanceOf[IRefArray[E]], start, end)
 
@@ -417,11 +400,9 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 	}
 
 
+	//Cannot be EmptyIterableOps because we can't create an empty IndexedSet[X] for any X without Ordering.
 	@SerialVersionUID(Ver)
-	private class EmptyIndexedSet[E](implicit override val ordering :Ordering[E])
-		extends AbstractSet[E] with IndexedSet[E]
-		//cannot be EmptyIterableOps because we can't create an empty IndexedSet[X] for any X without Ordering
-	{
+	private class EmptyIndexedSet[E](implicit override val ordering :Ordering[E]) extends IndexedSet[E] {
 		override def key(index :Int) :E = outOfBounds_!(index, "IndexedSet()")
 		override def knownSize = 0
 		override def iterator :Iterator[E] = Iterator.empty
@@ -436,14 +417,11 @@ object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 	@SerialVersionUID(Ver)
 	private class SingletonIndexedSet[E](override val head :E)(implicit override val ordering :Ordering[E])
-		extends AbstractSet[E] with IndexedSet[E]
+		extends IndexedSet[E] with SingletonIterableOps[E, Set, IndexedSet[E]]
 	{
-		override def knownSize = 1
-		override def last = head
 		override def key(index :Int) :E =
 			if (index == 0) head else outOfBounds_!(index, this)
 
-		override def iterator :Iterator[E] = Iterator.single(head)
 		override def iteratorFrom(start :E) :Iterator[E] =
 			if (ordering.compare(start, head) <= 0) Iterator.single(head)
 			else Iterator.empty

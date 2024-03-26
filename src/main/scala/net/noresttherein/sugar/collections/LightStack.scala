@@ -18,7 +18,7 @@ import net.noresttherein.sugar.vars.Opt.One
 /** $factoryInfo
   * @define Coll `LightStack`
   * @define coll light stack
-  */
+  */ //todo: LightBitSet.
 @SerialVersionUID(Ver)
 case object LightStack extends IterableFactory[LightStack] {
 	final val InitialSize = ArrayBuffer.DefaultInitialSize

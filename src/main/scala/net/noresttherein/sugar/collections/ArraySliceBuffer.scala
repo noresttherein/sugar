@@ -438,7 +438,6 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 		aliased = true
 		releaseFence()
 	}
-//			IRefArraySlice.of(array.slice(offset, offset + len).asIRefArray)
 
 	override def iterableFactory :SeqFactory[ArraySliceBuffer] = ArraySliceBuffer
 	protected override def className :String = "ArraySliceBuffer"

@@ -213,7 +213,7 @@ package object collections extends JteratorExtensions {
 	  *      [[net.noresttherein.sugar.collections.AliasingArrayBuffer.toSeq toSeq]]
 	  * @see [[net.noresttherein.sugar.collections.ArraySliceBuffer$ ArrayBufferFactory]] - a special
 	  */
-	val DefaultBuffer :BufferFactory[Buffer] =
+	val DefaultBuffer :BufferFactory[Buffer] = //todo: make it an indexed buffer
 		bufferFactoryFromProperty(defaultBufferProperty) getOrElse MatrixBuffer.untagged
 
 	//todo: see if we can drop the IndexedBuffer bound and replace usages of TemporaryBuffer with DefaultBuffer

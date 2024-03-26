@@ -1,24 +1,41 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.IterableFactory
+import scala.collection.{IterableFactory, immutable}
+import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.collections.IterableProps.Dummy
 import org.scalacheck.Prop.forAll
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.{Arbitrary, Gen, Prop}
+
+import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
 
 
 
 
-object CatSpec extends UntaggedSeqProps[Cat](Cat) with SugaredSeqProps[Cat, Dummy] {
-	override def knowsSize = true
+//Todo: make it somehow PatchingProps. It's problematic, because GenericIterableProps is invariant,
+// and can't be made covariant even with cheating, because it has methods accepting and returning invariant classes,
+// such as ClassTag[Cat[Int]]. We'd need to make PatchingProps completely separate, but it depends on
+// test methods.
+object CatSpec extends UntaggedSeqProps[Seq](Cat)/* with PatchingProps[Cat, collection.Seq, Dummy]*/ {
+	override def knowsSize = false
+
+	//Cat.map and others return a generic Seq, so we don't want to test a List - just verify equality.
+	protected override def props[T, F, M, FM](expect :collection.Seq[T], result :Seq[T])
+	                                         (implicit arbitrary :Arbitrary[T], ev :E[T], tag :ClassTag[T],
+	                                                   filt :Filter[T], fldA :FoldSide[F, T], evf :E[F], fld :Fold[T],
+	                                                   mp :Map[T, M], evm :E[M],
+	                                                   fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
+		result match {
+			case cat :Cat[T] => super.props(expect, result to Cat)
+			case _           => Seq()
+		}
 
 	sealed abstract class Build[+E] {
 		def apply() :Cat[E]
 		def expect :Seq[E]
 	}
 	case object Empty extends Build[Nothing] {
-		override def apply() = Cat.empty
 		override def expect = Vector.empty
+		override def apply() = Cat.empty
 	}
 	case class Append[E](prefix :Build[E], suffix :E) extends Build[E] {
 		override def apply() = prefix() appended suffix
@@ -41,10 +58,10 @@ object CatSpec extends UntaggedSeqProps[Cat](Cat) with SugaredSeqProps[Cat, Dumm
 		class CatGen {
 			val zz :Gen[Build[E]] = Gen.frequency(
 				4 -> Gen.const(Empty),
-				2 -> Gen.lzy(for {prefix <- cat; suffix <- Arbitrary.arbitrary[E]} yield Append(prefix, suffix)),
-				2 -> Gen.lzy(for { prefix <- Arbitrary.arbitrary[E]; suffix <- cat} yield Prepend(prefix, suffix)),
-				1 -> Gen.lzy(for {prefix <- cat; suffix <- cat} yield AppendedAll(prefix, suffix)),
-				1 -> Gen.lzy(for {prefix <- cat; suffix <- cat} yield PrependedAll(prefix, suffix)),
+				2 -> Gen.lzy(for { prefix <- cat; suffix <- Arbitrary.arbitrary[E] } yield Append(prefix, suffix)),
+				2 -> Gen.lzy(for { prefix <- Arbitrary.arbitrary[E]; suffix <- cat } yield Prepend(prefix, suffix)),
+				1 -> Gen.lzy(for { prefix <- cat; suffix <- cat } yield AppendedAll(prefix, suffix)),
+				1 -> Gen.lzy(for { prefix <- cat; suffix <- cat } yield PrependedAll(prefix, suffix)),
 			)
 			def cat = zz
 		}

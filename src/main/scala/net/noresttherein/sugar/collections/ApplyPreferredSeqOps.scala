@@ -51,22 +51,26 @@ trait ApplyPreferredSeqOps[+E, +CC[_], +C <: collection.IndexedSeq[E]]
 						return false
 					i += 1
 				}
-				true
+				!itr.hasNext
 			}
 		}
 
-	override def segmentLength(p :E => Boolean, from :Int) :Int = segmentLength(p, math.max(0, from), false)
+	override def segmentLength(p :E => Boolean, from :Int) :Int =
+		//I would prefer segmentLength(-1, _ => true) to be 0, but in Vector and List it is length
+		segmentLength(p, math.max(0, from), false)
+
 	private def segmentLength(p :E => Boolean, from :Int, flipped :Boolean) :Int = {
+//		if (from < 0)
+//			return 0
 		val len = length
 		var i = from
 		while (i < len && p(apply(i)) != flipped)
 			i += 1
-		i - from
+		i - math.min(from, len)
 	}
 	override def indexWhere(p :E => Boolean, from :Int) :Int = {
 		val from0 = math.max(from, 0)
-		val len = segmentLength(p, from0, true)
-		if (from0 >= length - len) -1 else from0 + len
+		if (from0 >= length) - 1 else from0 + segmentLength(p, from0, true)
 	}
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int = {
 		var i = math.min(length - 1, end)

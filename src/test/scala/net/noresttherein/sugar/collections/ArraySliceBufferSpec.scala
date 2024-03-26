@@ -12,7 +12,10 @@ import org.scalacheck.{Properties, Test}
 
 
 private object ArraySliceBufferSpec
-	extends UntaggedSeqProps[ArraySliceBuffer](ArraySliceBuffer) with AliasingBufferProps[ArraySliceBuffer]
+	extends UntaggedSeqProps[ArraySliceBuffer](ArraySliceBuffer)
+	   with SugaredIterableProps[ArraySliceBuffer, collection.Seq, Dummy]
+	   with PatchingProps[ArraySliceBuffer, collection.Seq, Dummy]
+	   with AliasingBufferProps[ArraySliceBuffer]
 {
 	//The easiest way to test is to temporarily implement toString so that it shows offset..(offset+length)/array.length.
 	//Then simply create a buffer with the specified initial size, add offset+length elements, and drop offset elements.

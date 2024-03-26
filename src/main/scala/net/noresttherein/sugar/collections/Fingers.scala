@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{AbstractIterator, BufferedIterator, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, View}

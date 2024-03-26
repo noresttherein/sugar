@@ -12,6 +12,7 @@ import scala.reflect.{ClassTag, classTag}
 import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ArrayLike, ArrayLikeSpecOps, IArray, IArrayLike, IArrayLikeIterator, IRefArray, MutableArray, RefArray, RefArrayLike, ReverseArrayIterator}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
+import net.noresttherein.sugar.collections.util.elementsToCopy
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.funny.generic.Any1
@@ -82,7 +83,7 @@ private[sugar] trait ArrayIterableOnceOps[+E, +CC[_], +C]
 	override def exists(p :E => Boolean) :Boolean = ArrayLikeSpecOps.exists(array, startIndex, size)(p)
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-		ArrayLike.permissiveCopy(unsafeArray, startIndex, xs, start, len)
+		ArrayLike.permissiveCopy(unsafeArray, startIndex, xs, start, math.min(size, len))
 
 	//Can't override here: aside from the mutability risk, Seq.toSeq and IndexedSeq.toIndexedSeq are final.
 //	override def toSeq :Seq[E] = toIndexedSeq
@@ -133,21 +134,23 @@ private[sugar] trait ArraySlicingOps[+E, +CC[_], +C]
 	override def filter(p :E => Boolean) :C = fromSpecific(ArrayIterator(array, startIndex, size).filter(p))
 	override def filterNot(p :E => Boolean) :C = fromSpecific(ArrayIterator(array, startIndex, size).filterNot(p))
 
-	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
+	override def copyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int = {
 		//Implementation inconsistent with IterableOnceOps, but consistent with Vector (check from >= size)
-		copyRangeToArray(xs, start, 0, len)
+//		copyRangeToArray(xs, start, 0, len)
+		val copied = elementsToCopy(size, xs, start, len)
+		ArrayLike.copy(unsafeArray, startIndex, xs, start, copied)
+		copied
+	}
 
-	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 || start >= xs.length || { val s = size; s == 0 | from >= s })
+	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int = {
+		val copied = elementsToCopy(size, from, xs, start, len)
+		if (copied == 0) //avoid overflows
 			0
-		else if (start < 0)
-			outOfBounds_!(start, xs.length)
 		else {
-			val from0  = math.max(0, from)
-			val copied = math.min(len, math.min(xs.length - start, size - from0))
-			ArrayLike.copy(unsafeArray, startIndex + from0, xs, start, copied)
+			ArrayLike.copy(unsafeArray, startIndex + math.max(from, 0), xs, start, copied)
 			copied
 		}
+	}
 
 	override def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
 		cyclicCopyRangeToArray(xs, start, 0, len)
@@ -488,7 +491,7 @@ private[sugar] case object ArrayLikeSlice
 	extends SeqFactory.Delegate[ArrayLikeSlice](IRefArraySlice)
 	   with ArrayLikeSliceFactory[ArrayLike, ArrayLikeSlice]
 {
-	def wrap[E](items :ArrayIterableOnce[E]) :ArrayLikeSlice[E] = {
+	def from[E](items :ArrayIterableOnce[E]) :ArrayLikeSlice[E] = {
 		val array  = items.unsafeArray.asInstanceOf[Array[E]]
 		val offset = items.startIndex
 		make(array, offset, offset + items.knownSize)

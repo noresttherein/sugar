@@ -619,7 +619,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 		def prefixLength :Int
 		def prefix :Any
 		def suffix :Any
-		protected def writeReplace :AnyRef = new SerializationProxy(toString, Substring.apply)
+		protected def writeReplace :AnyRef = new SerializationProxy(this.toString, Substring.apply)
 	}
 
 	@SerialVersionUID(Ver)

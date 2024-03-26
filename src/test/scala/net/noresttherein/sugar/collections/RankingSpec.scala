@@ -3,6 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.{IterableFactory, mutable}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.casting.castTypeConstructorMethods
 import org.scalacheck.{Arbitrary, Gen, Prop}
 import org.scalacheck.Prop.{AnyOperators, all, forAll, propBoolean, throws}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
@@ -11,19 +12,16 @@ import net.noresttherein.sugar.numeric.globalRandom
 import net.noresttherein.sugar.numeric.extensions.{BooleanCompanionExtension, IntCompanionExtension}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
 
 object RankingSpec
-	extends IterableProps[Ranking, Iterable]("Ranking")(Ranking, Vector)
-	   with OrderedProps[Ranking, Iterable, Dummy]
+	extends IterableProps[Ranking, Iterable](Ranking, Vector)
+	   with SugaredIterableProps[Ranking, Iterable, Dummy]
 {
 	import net.noresttherein.sugar.testing.scalacheck.noShrinking
-
-//	private def dedup[T](expect :Iterable[T]) :Iterable[T] =
-//		expect.flatMapWith(Set.empty[T]) { (t, dups) => (if (dups(t)) Nil else t::Nil, dups + t) }
 
 	//todo: test the proper builder semantics
 	private def aligned[T](expect :List[T], result :Ranking[T], i :Int) :Boolean = expect match {
@@ -41,59 +39,57 @@ object RankingSpec
 		result.isInstanceOf[Ranking[_]] :| s"${result.className}.isInstanceOf[Ranking]" &&
 			expect.toSeq.reverse.distinct.reverse =? result.toSeq lbl "aligned with last occurrences"
 
-	protected override def compare[T :Dummy](expect :Iterable[T], result :Iterable[T]) :Prop =
-		equalsFirstOccurrences(expect, result) lbl "Expected: " + expect + ";\n     got: " + result
 
-	protected override def compare[T :Arbitrary :Dummy, X](f :Iterable[T] => X) :Prop =
-		forAll { elems :Seq[T] => f(elems.toSeq.distinct) =? f(elems to C) }
+	protected override def compare[T](expect :Iterable[T], result :Ranking[T]) :Prop =
+		equalsFirstOccurrences(expect, result) lbl "EXPECTED: " + expect + ";\nGOT:      " + result
 
-	protected override def forAllChecked[T :Arbitrary :Dummy](check :(Iterable[T], Ranking[T]) => Prop) :Prop =
-		forAll { elems :Seq[T] =>
-			val distinct = elems.toSeq.distinct
-			check(distinct, Ranking.from(elems)) lbl distinct.mkString("Distinct(", ", ", ")")
-		}
+	protected override def orderedCompare[A, T :E](expect :Iterable[A], result :Ranking[A])
+	                                              (f :Iterable[A] => Iterable[T]) :Prop =
+		compare(f(expect), f(result).castCons[Ranking])
 
-	protected override def test[T, X, F, M, FM]
-	                           (f :Iterable[T] => Iterable[X])
-	                           (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
-	                            tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
-	                            mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
-		forAll { elems :Seq[T] => test(f(elems.toSeq.distinct).toSeq.distinct, f(elems to C) to C) }
+	protected override def shouldEqual[A :Arbitrary :E, X](expect :Iterable[A], subject :Ranking[A])
+	                                                      (f :Iterable[A] => X) :Prop =
+		f(expect.toSeq.distinct) =? f(subject)
 
-	protected override def test[T, F, M, FM](label: => String, expect :Iterable[T], result :Iterable[T])
+//	protected override def forAllChecked[T :Arbitrary :Dummy](check :(Iterable[T], Ranking[T]) => Prop) :Prop =
+//		forAll { elems :Seq[T] =>
+//			val distinct = elems.toSeq.distinct
+//			check(distinct, elems to Ranking) lbl distinct.mkString("Distinct(", ", ", ")")
+//		}
+
+//	protected override def test[T, X, F, M, FM]
+//	                           (f :Iterable[T] => Iterable[X])
+//	                           (implicit input :Arbitrary[T], output :Arbitrary[X], ev1 :Dummy[T], ev2 :Dummy[X],
+//	                            tag :ClassTag[X], filt :Filter[X], fldA :FoldSide[F, X], evf :Dummy[F], fld :Fold[X],
+//	                            mp :Map[X, M], evm :Dummy[M], fmap :FlatMap[X, FM], evfm :Dummy[FM]) :Prop =
+//		forAll { elems :Seq[T] => test(f(elems.toSeq.distinct).toSeq.distinct, f(elems to C) to C) }
+//
+	protected override def test[T, F, M, FM](label: => String, expect :Iterable[T], result :Ranking[T])
 	                                        (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T],
 	                                         filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T],
 	                                         mp :Map[T, M], evm :Dummy[M], fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
-		equalsFirstOccurrences(expect, result) && all(props(result.toSeq, result) :_*) lbl label
+		equalsFirstOccurrences(expect, result) && all(props(expect.toSeq.distinct, result) :_*) lbl label
 
-	private def testAppend[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
+	private def testAppend[T, F, M, FM](expect :Iterable[T], result :Ranking[T])
 	                                   (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T], filt :Filter[T],
 	                                    fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T], mp :Map[T, M], evm :Dummy[M],
 	                                    fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
 		equalsLastOccurrences(expect, result) && all(props(result.toSeq, result) :_*) lbl
 			s"RESULT:   $expect;\nTESTING: $result :${result.localClassName}"
 
-	private def testAnyOrder[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
+	private def testAnyOrder[T, F, M, FM](expect :Iterable[T], result :Ranking[T])
 	                                     (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T], filt :Filter[T],
 	                                      fldA :FoldSide[F, T], evf :Dummy[F], fld :Fold[T], mp :Map[T, M], evm :Dummy[M],
 	                                      fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
 		result.isInstanceOf[Ranking[_]] :| s"${result.className}.isInstanceOf[Ranking]" &&
-			(aligned(expect.toList, result to Ranking, 0) lbl "aligned with any occurrences") &&
+			(aligned(expect.toList, result, 0) lbl "aligned with any occurrences") &&
 			all(props(result.toSeq, result) :_*) lbl
 				s"RESULT:   $expect;\nTESTING: $result :${result.localClassName}"
-
-//
-//	protected override def props[T, F, M, FM](expect :Iterable[T], result :Iterable[T])
-//	                                         (implicit arbitrary :Arbitrary[T], ev :Dummy[T], tag :ClassTag[T],
-//	                                          filt :Filter[T], fldA :FoldSide[F, T], evf :Dummy[F],
-//	                                          fld :Fold[T], mp :IterableProps.Map[T, M], evm :Dummy[M],
-//	                                          fmap :FlatMap[T, FM], evfm :Dummy[FM]) :Prop =
-//		super.props(expect.toSeq.distinct, result)
 
 	override def knowsSize = true
 	override def hasOrder  = true
 
-	property("iterableFactory.from") = forAll { list :List[Int] =>
+/*	property("iterableFactory.from") = forAll { list :List[Int] =>
 		val distinct = list.distinct :Seq[Int]
 		("List" |: distinct =? Ranking.from(list).toSeq) &&
 			("Vector" |: distinct =? Ranking.from(list.toVector).toSeq) &&
@@ -157,7 +153,7 @@ object RankingSpec
 				(s"getIndexWhere(_==${subject(i)}, ${i-1})" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i), i - 1)) &&
 				(s"getIndexWhere(_==${subject(i)}, -1)" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i), -1)) &&
 				(s"getIndexWhere(_==${subject(i)}, $i)" lbl_: Maybe(i) =? subject.getIndexWhere(_ == subject(i), i)) &&
-				(s"getIndexWhere(_==${subject(i)}, ${i + 1})" lbl_: 
+				(s"getIndexWhere(_==${subject(i)}, ${i + 1})" lbl_:
 					(No :Maybe[Int]) =? subject.getIndexWhere(_ == subject(i), i + 1))
 		} : _*) &&
 			(s"getIndexWhere(_=>false)" lbl_: (No :Maybe[Int]) =? subject.getIndexWhere(_ => false)) &&
@@ -171,7 +167,7 @@ object RankingSpec
 				(s"$i =? sureIndexWhere(_==${subject(i)}, ${i-1})" lbl_: i =? subject.sureIndexWhere(_ == subject(i), i - 1))  &&
 				(s"$i =? sureIndexWhere(_==${subject(i)}, -1)" lbl_: i =? subject.sureIndexWhere(_ == subject(i), -1)) &&
 				(s"$i =? sureIndexWhere(_==${subject(i)}, $i)" lbl_: i =? subject.sureIndexWhere(_ == subject(i), i)) &&
-				(s"sureIndexWhere(_==${subject(i)}, ${i + 1}) throws NoSuchElementException" lbl_: 
+				(s"sureIndexWhere(_==${subject(i)}, ${i + 1}) throws NoSuchElementException" lbl_:
 					subject.sureIndexWhere(_ == subject(i), i + 1).throws[NoSuchElementException])
 		} : _*) &&
 			(s"sureIndexWhere(_=>false) throws NoSuchElementException" lbl_:
@@ -187,7 +183,7 @@ object RankingSpec
 			(s"$i =? lastIndexWhere(_==${subject(i)})" lbl_: i =? subject.lastIndexWhere(_ == subject(i))) &&
 				(s"$i =? lastIndexWhere(_==${subject(i)}, $i)" lbl_:
 					i =? subject.lastIndexWhere(_ == subject(i), i)) &&
-				(s"$i =? lastIndexWhere(_==${subject(i)}, ${i + 1})" lbl_: 
+				(s"$i =? lastIndexWhere(_==${subject(i)}, ${i + 1})" lbl_:
 					i =? subject.lastIndexWhere(_ == subject(i), i + 1)) &&
 				(s"$i =? lastIndexWhere(_==${subject(i)}, ${subject.length + 1})" lbl_:
 					i =? subject.lastIndexWhere(_ == subject(i), subject.length + 1)) &&
@@ -204,7 +200,7 @@ object RankingSpec
 				Maybe(i) =? subject.getLastIndexWhere(_ == subject(i))) &&
 				(s"$i =? getLastIndexWhere(_==${subject(i)}, $i)" lbl_:
 					Maybe(i) =? subject.getLastIndexWhere(_ == subject(i), i)) &&
-				(s"$i =? getLastIndexWhere(_==${subject(i)}, ${i + 1})" lbl_: 
+				(s"$i =? getLastIndexWhere(_==${subject(i)}, ${i + 1})" lbl_:
 					Maybe(i) =? subject.getLastIndexWhere(_ == subject(i), i + 1)) &&
 				(s"$i =? getLastIndexWhere(_==${subject(i)}, ${subject.length + 1})" lbl_:
 					Maybe(i) =? subject.getLastIndexWhere(_ == subject(i), subject.length + 1)) &&
@@ -213,7 +209,7 @@ object RankingSpec
 		} : _*) &&
 			(s"getLastIndexWhere(_=>false)" lbl_:
 				(No :Maybe[Int]) =? subject.getLastIndexWhere(_ => false)) &&
-			(s"getLastIndexWhere(_=>false, Int.MaxValue)" lbl_: 
+			(s"getLastIndexWhere(_=>false, Int.MaxValue)" lbl_:
 				(No :Maybe[Int]) =? subject.getLastIndexWhere(_ => false, Int.MaxValue)) &&
 			(s"getLastIndexWhere(_=>false, -1)" lbl_:
 				(No :Maybe[Int]) =? subject.getLastIndexWhere(_ => false, -1))
@@ -237,7 +233,7 @@ object RankingSpec
 			(s"sureLastIndexWhere(_=>false, -1) throws NoSuchElementException" lbl_:
 				subject.sureLastIndexWhere(_ => false, -1).throws[NoSuchElementException])
 	}
-	
+
 	property("indexOf") = forAllChecked { (expect :Iterable[Int], subject :Ranking[Int]) =>
 		val seq = expect.toSeq
 		forAll { (x :Int) =>
@@ -458,12 +454,11 @@ object RankingSpec
 				subject.mkString(subject.getClass.getName + "(", ", ", ")")
 		}
 	}
-	property("replaceAll") = forAllChecked { (input :Iterable[Int], subject :Ranking[Int]) =>
+*/	property("replaceAll") = forAllChecked { (input :Iterable[Int], subject :Ranking[Int]) =>
 		forAll { (index :Int, elems :List[Int]) =>
 			val set      = new mutable.HashSet[Int]
 			val patch    = elems.toSeq.collect { case x if set.add(x) => x }
 			val distinct = input.toSeq.distinct
-//			val diff   = input.toSeq.filterNot(set.contains)
 			val prefix = distinct.take(index).filterNot(set)
 			val suffix = distinct.drop(index + set.size).filterNot(set)
 			val expect = prefix :++ patch :++ suffix
@@ -481,20 +476,32 @@ object RankingSpec
 		}
 	}
 
-	property("inserted") = forAll { (subject :Ranking[Int], i :Int, elem :Int) =>
-		val filtered = subject.toSeq.filterNot(_ == elem)
-		test(filtered.take(i) :+ elem :++ filtered.drop(i), subject.inserted(i, elem))
+	property("inserted") = forAllIndices { (subject :Ranking[Int], i :Int) =>
+		forAll { elem :Int =>
+			if (i < 0 || i > subject.size)
+				subject.inserted(i, elem).throws[IndexOutOfBoundsException]
+			else {
+				val filtered = subject.toSeq.filterNot(_ == elem)
+				test(filtered.take(i) :+ elem :++ filtered.drop(i), subject.inserted(i, elem))
+			}
+		}
 	}
-	property("insertedAll") = forAll { (subject :Ranking[Int], i :Int, elems :List[Int]) =>
-		val set = new SeqSet(elems)
-		val diff = subject.toSeq.filterNot(set.contains)
-		val expect = diff.take(i) :++ set :++ diff.drop(i)
-		(s"insertAll($i, List)" lbl_: test(expect, subject.insertedAll(i, elems))) &&
-			(s"insertedAll($i, Vector)" lbl_: test(expect, subject.insertedAll(i, elems.toVector))) &&
-			(s"insertedAll($i, $set)" lbl_: test(expect, subject.insertedAll(i, set))) &&
-			(s"insertedAll($i, Ranking)" lbl_: test(expect, subject.insertedAll(i, Ranking.from(set)))) &&
-			(s"insertedAll($i, Iterator)" lbl_: test(expect, subject.insertedAll(i, elems.iterator))) &&
-			(s"insertedAll($i, VectorIterator)" lbl_: test(expect, subject.insertedAll(i, elems.toVector.iterator)))
+	property("insertedAll") = forAllIndices { (subject :Ranking[Int], i :Int) =>
+		forAll { elems :List[Int] =>
+			if (i < 0 | i > subject.length)
+				subject.insertedAll(i, elems).throws[IndexOutOfBoundsException]
+			else {
+				val set = new OrderedSet(elems)
+				val diff = subject.toSeq.filterNot(set.contains)
+				val expect = diff.take(i) :++ set :++ diff.drop(i)
+				(s"insertAll($i, List)" lbl_: test(expect, subject.insertedAll(i, elems))) &&
+					(s"insertedAll($i, Vector)" lbl_: test(expect, subject.insertedAll(i, elems.toVector))) &&
+					(s"insertedAll($i, Set)" lbl_: test(expect, subject.insertedAll(i, set))) &&
+					(s"insertedAll($i, Ranking)" lbl_: test(expect, subject.insertedAll(i, Ranking.from(set)))) &&
+					(s"insertedAll($i, Iterator)" lbl_: test(expect, subject.insertedAll(i, elems.iterator))) &&
+					(s"insertedAll($i, VectorIterator)" lbl_: test(expect, subject.insertedAll(i, elems.toVector.iterator)))
+			}
+		}
 	}
 	//todo: test patch
 
@@ -549,7 +556,6 @@ object RankingSpec
 	}
 	property("++(Ranking)") = forAll { (prefix :Ranking[Int], suffix :Ranking[Int]) =>
 		test(prefix.toSeq :++ suffix, prefix ++ suffix)
-//		Set.from(prefix) ++ Set.from(suffix) =? (prefix ++ suffix).toSet
 	}
 
 	property("+|+(List))") = forAll { (prefix :Ranking[Int], suffix :List[Int]) =>

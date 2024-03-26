@@ -483,7 +483,7 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 
 
 	override def copyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
-		if (len <= 0 | from > 0 || {val l = xs.length; l == 0 || start >= l })
+		if (util.rangeCheck(1, from, xs, start, len))
 			0
 		else {
 			xs(start) = head; 1
@@ -515,8 +515,14 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 	override def iterator :Iterator[E] = Iterator.single(head)
 	override def toList :List[E] = head::Nil
 	override def toVector :Vector[E] = Vector.empty :+ head
-	override def toSet[A >: E] :Set[A] = Set.empty[A] + head
-	override def toMap[K, V](implicit ev :E <:< (K, V)) :Map[K, V] = Map.empty[K, V] + head
+	override def toSet[A >: E] :Set[A] = this match {
+		case set :Set[A @unchecked] => set
+		case _                      => Set.empty[A] + head
+	}
+	override def toMap[K, V](implicit ev :E <:< (K, V)) :Map[K, V] = this match {
+		case map :Map[K, V] @unchecked => map
+		case _                         => Map.empty[K, V] + head
+	}
 	override def toArray[A >: E :ClassTag] :Array[A] = Array.one[A](head)
 
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) = Stepper1(head)
