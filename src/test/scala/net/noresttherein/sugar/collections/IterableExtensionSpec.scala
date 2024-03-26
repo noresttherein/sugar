@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.immutable.{ArraySeq, StringOps}
 import scala.util.Random
 
-import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
+import org.scalacheck.{Arbitrary, Gen, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.{ConsoleReporter, Pretty}
 import net.noresttherein.sugar.extensions.{IterableExtension, providingMethods, satisfyingMethods}
@@ -20,11 +20,13 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 	private val Sum = 100
 
-	def iterableProperty(prop :Iterable[Int] => Prop) :Prop =
+	def iterableProperty(prop :Iterable[Int] => Prop) :Prop = {
+		implicit val ints :Arbitrary[Int] = Arbitrary(Gen.choose(-100, 100))
 		forAll { list :List[Int] => prop(list) :| "List" } &&
 			forAll { seq :IndexedSeq[Int] => prop(seq) :| "IndexedSeq" } &&
 			forAll { seq :RefArraySlice[Int] => prop(seq) :| "ArraySlice" } &&
 			forAll { col :OrderedItems[Int] => prop(col) :| "Iterable" }
+	}
 
 	private def lazyListProperty[X :Arbitrary, A](f :(LazyList[X], LazyList[X]) => (A, A)) :Prop = {
 		def x() = Arbitrary.arbitrary[X].sample.get
@@ -43,9 +45,10 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 		lazyListProperty[X, A]((a, b) => f(a, b, b))
 
 	def zipProperty[A](f :(Iterable[Int], Iterable[Int]) => (A, A)) :Prop =
-		forAll { (a :List[Int], b :List[Int]) => val (l, r) = f(a, b);  r =? l lbl "List" } &&
-			forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int]) => val (l, r) = f(a, b); r =? l lbl "IndexedSeq" } &&
-			forAll { (a :OrderedItems[Int], b :OrderedItems[Int]) => val (l, r) = f(a, b); r =? l lbl "Iterable" } &&
+		forAll { (a :List[Int], b :List[Int]) => val (l, r) = f(a, b);  r =? l label "List" } &&
+			forAll { (a :IndexedSeq[Int], b :IndexedSeq[Int]) => val (l, r) = f(a, b); r =? l label "IndexedSeq" } &&
+			forAll { (a :RefArraySlice[Int], b :RefArraySlice[Int]) => val (l, r) = f(a, b); r =? l label "ArraySlice" } &&
+			forAll { (a :OrderedItems[Int], b :OrderedItems[Int]) => val (l, r) = f(a, b); r =? l label "Iterable" } &&
 			lazyListProperty(f)
 
 	def zipEvenProperty[X, A](test :(Iterable[X], Iterable[X]) => A, expect :(Iterable[X], Iterable[X]) => A)
@@ -57,9 +60,10 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 				test(l, r) ?= expect(l, r)
 			else
 				test(l, r).toString.throws[NoSuchElementException] lbl expect(l, r).toString
-		forAll { (l :List[X], r :List[X]) => prop(l, r) lbl "List" } &&
-			forAll { (l :IndexedSeq[X], r :IndexedSeq[X]) => prop(l, r) lbl "IndexedSeq" } &&
-			forAll { (l :OrderedItems[X], r :OrderedItems[X]) => prop(l, r) lbl "Iterable" } &&
+		forAll { (l :List[X], r :List[X]) => prop(l, r) label "List" } &&
+			forAll { (l :IndexedSeq[X], r :IndexedSeq[X]) => prop(l, r) label "IndexedSeq" } &&
+			forAll { (l :OrderedItems[X], r :OrderedItems[X]) => prop(l, r) label "Iterable" } &&
+			forAll { (l :RefArraySlice[X], r :RefArraySlice[X]) => prop(l, r) label "ArraySlice" } &&
 			forAll { (l :LazyList[X], r :LazyList[X]) =>
 				val res = test(l, r)
 				(try res ?= expect(l, r) catch {
@@ -143,22 +147,27 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 
 
 
-	def mappingProperty[A](f :Iterable[Int] => (A, A)) :Prop =
-		forAll { list :List[Int] => val (l, r) = f(list); r =? l lbl "List" } &&
-			forAll { seq :IndexedSeq[Int] => val (l, r) = f(seq); r =? l lbl "IndexedSeq" } &&
-			forAll { col :OrderedItems[Int] => val (l, r) = f(col); r =? l lbl "Iterable" } &&
+	def mappingProperty[A](f :Iterable[Int] => (A, A)) :Prop = {
+		implicit val ints :Arbitrary[Int] = Arbitrary(Gen.choose(-100, 100))
+		forAll { list :List[Int] => val (l, r) = f(list); r =? l label "List" } &&
+			forAll { seq :IndexedSeq[Int] => val (l, r) = f(seq); r =? l label "IndexedSeq" } &&
+			forAll { col :OrderedItems[Int] => val (l, r) = f(col); r =? l label "Iterable" } &&
+			forAll { seq :RefArraySlice[Int] => val (l, r) = f(seq); r =? l label "ArraySlice" } &&
 			{
 				var i = 0
 				val list = { i += 1; i } #:: { i += 1; i } #:: { i += 1; i } #:: LazyList.empty
 				val (l, r) = f(list)
-				(i ?= 0) :| "LazyList(1, 2, 3) had " + i + " evaluated elements" && (r =? l lbl "LazyList")
+				(i ?= 0) :| "LazyList(1, 2, 3) had " + i + " evaluated elements" && (r =? l label "LazyList")
 			}
-//					forAll { col :LazyList[Int] => val (l, r) = f(col); r ?= l lbl "LazyList" }
+	}
+	//					forAll { col :LazyList[Int] => val (l, r) = f(col); r ?= l lbl "LazyList" }
 
-	def flatMappingProperty[A](f :Iterable[Iterable[Int]] => (A, A)) :Prop =
+	def flatMappingProperty[A](f :Iterable[Iterable[Int]] => (A, A)) :Prop = {
+		implicit val ints :Arbitrary[Int] = Arbitrary(Gen.choose(-100, 100))
 		forAll { list :List[List[Int]] => val (l, r) = f(list); r =? l lbl "List" } &&
 			forAll { seq :IndexedSeq[IndexedSeq[Int]] => val (l, r) = f(seq); r =? l lbl "IndexedSeq" } &&
 			forAll { col :OrderedItems[OrderedItems[Int]] => val (l, r) = f(col); r =? l lbl "Iterable" } &&
+			forAll { seq :RefArraySlice[RefArraySlice[Int]] => val (l, r) = f(seq); r =? l label "ArraySlice" } &&
 			forAll { items :List[Int] =>
 				var i = 0
 				val list = { i += 1; items } #:: { i += 1; items.map(_ + 1) } #:: { i += 1; items.map(_ - 1) } #::
@@ -169,6 +178,7 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 //				else i ?= 3
 //				) :| "LazyList had " + i + " evaluated elements" && (r =? l lbl "LazyList")
 			}
+	}
 
 	property("mapWith") = mappingProperty { list :Iterable[Int] =>
 		list.mapWith(0) { (e, sum) => (e + sum, e + sum) }.toSeq -> list.toSeq.scanLeft(0)(_ + _).tail
@@ -288,6 +298,39 @@ object IterableExtensionSpec extends Properties("IterableExtension") {
 			list.removed(from, until) -> (if (until <= 0 | until <= from) list else list.take(from) ++ list.drop(until))
 		}
 	}
+
+
+	property("takeUntil") = mappingProperty { items :Iterable[Int] =>
+		items.takeUntil(0)(_ >= Sum)(_ + _) -> {
+			var sum = 0
+			var end = false
+			items.takeWhile { x =>
+				sum += x
+				!end && (sum < Sum || { end = true; true })
+			}
+		}
+	}
+	property("dropUntil") = mappingProperty { items :Iterable[Int] =>
+		items.dropUntil(0)(_ >= Sum)(_ + _) -> {
+			var sum = 0
+			var end = false
+			items.dropWhile { x =>
+				sum += x
+				!end && (sum < Sum || { end = true; true })
+			}
+		}
+	}
+	property("takeWith") = mappingProperty { items :Iterable[Int] =>
+		items.takeWith(0)(_ <= Sum)(_ + _) -> {
+			var sum = 0; items.takeWhile { x => sum += x; sum <= Sum }
+		}
+	}
+	property("dropWith") = mappingProperty { items :Iterable[Int] =>
+		items.dropWith(0)(_ <= Sum)(_ + _) -> {
+			var sum = 0; items.dropWhile { x => sum += x; sum <= Sum }
+		}
+	}
+
 	//todo: test add
 
 	//todo: test copyRangeToArray, cyclicCopyRangeToArray

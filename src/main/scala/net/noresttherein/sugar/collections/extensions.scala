@@ -415,12 +415,14 @@ object extensions extends extensions {
 		/** Equivalent to standard `fold`, but the folding functions takes the number of already folded elements
 		  * (i.e., how many times the function has been called, or the position of the element in the collection's
 		  * iteration order).
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def foldWithIndex[A >: E](start :A)(op :(A, A, Int) => A) :A = foldLeftWithIndex(start)(op)
 
 		/** Equivalent to standard `foldLeft`, but the folding functions takes the number of already folded elements
 		  * (i.e., how many times the function has been called, or the position of the element in the collection's
 		  * iteration order).
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def foldLeftWithIndex[A](start :A)(op :(A, E, Int) => A) :A = {
 			if (knownEmpty(self))
@@ -483,6 +485,7 @@ object extensions extends extensions {
 		  * to `this.`[[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldWhile foldWhile]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`. It should be an attractor state of `op`: if `pred(a)`,
@@ -508,6 +511,7 @@ object extensions extends extensions {
 		  * to `this.`[[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldWhileOption foldWhileOption]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`. It should be an attractor state of `op`: if `pred(a)`,
@@ -537,6 +541,7 @@ object extensions extends extensions {
 		  * to `this.`[[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldWhileEither foldWhileEither]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`. It should be an attractor state of `op`: if `pred(a)`,
@@ -616,6 +621,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftWhile foldLeftWhile]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`.
@@ -640,6 +646,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftWhileOption foldLeftWhileOption]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`.
@@ -672,6 +679,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftWhileEither foldLeftWhileEither]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`.
@@ -754,6 +762,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldRightWhile foldRightWhile]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`.
@@ -778,6 +787,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldRightWhileOption foldRightWhileOption]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`.
@@ -809,6 +819,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldRightWhileEither foldRightWhileEither]]`(start)(!pred(_))(op)`,
 		  * as the latter will return the last element for which `pred` was not satisfied, while this method
 		  * applies `op` once more.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked first for `start`, and then for every result
 		  *              of function `op`.
@@ -912,6 +923,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftUntil foldLeftUntil]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
@@ -939,6 +951,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftUntilOption foldLeftUntilOption]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
@@ -964,6 +977,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldLeftUntilEither foldLeftUntilEither]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
@@ -1040,6 +1054,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldRightUntil foldRightUntil]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first value falsifying the predicate,
 		  * while this method returns the last value for which it is still true.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
@@ -1069,6 +1084,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldRightUntilOption foldRightUntilOption]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `scanLeft(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
@@ -1094,6 +1110,7 @@ object extensions extends extensions {
 		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceExtension.foldRightUntilEither foldRightUntilEither]]`(start)(!pred(_))(op)`,
 		  * as the latter returns the first element of `scanRight(start)(op)` falsifying the predicate,
 		  * while this method returns the last element for which it is still true.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial value, used as the result if the collection is empty.
 		  * @param pred  a stop condition for folding, checked for the folded value at the beginning of every iteration.
 		  * @param op    a folding function.
@@ -1112,6 +1129,7 @@ object extensions extends extensions {
 		  *     if (isEmpty || !op.isDefinedAt(start)) start
 		  *     else tail.partialFold(op(start, head))(op)
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start an accumulator given as the first argument to first invocation of `op`.
 		  * @param op a partial function combining two elements of the collection or folded value, working
 		  *           as the breaking condition when non-defined.
@@ -1132,6 +1150,7 @@ object extensions extends extensions {
 		  *     if (isEmpty || !op.isDefinedAt(start)) start
 		  *     else tail.partialFoldLeft(op(start, head))(op)
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start an accumulator given as the first argument to first invocation of `op`.
 		  * @param op a partial function combining the accumulator with the elements of the collection working
 		  *           as the breaking condition when non-defined.
@@ -1206,6 +1225,7 @@ object extensions extends extensions {
 		  *     if (isEmpty || !op.isDefinedAt(last)) start
 		  *     else init.partialFoldRight(op(last, start))(op)
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start an accumulator given as the first argument to first invocation of `op`.
 		  * @param op a partial function combining the accumulator with the elements of the collection working
 		  *           as the breaking condition when non-defined.
@@ -1267,6 +1287,7 @@ object extensions extends extensions {
 		  *     if (isEmpty) start
 		  *     else op(head, start).map(tail.foldSome(_)(op)) getOrElse start
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start initial accumulator value passed to the first call of `op` together with the first element
 		  *              of this collection.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
@@ -1284,6 +1305,7 @@ object extensions extends extensions {
 		  *     if (isEmpty) start
 		  *     else op(head, start).map(tail.foldLeftSome(_)(op)) getOrElse start
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start initial accumulator value passed to the first call of `op` together with the first element
 		  *              of this collection.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
@@ -1305,6 +1327,7 @@ object extensions extends extensions {
 		  *     if (isEmpty) start
 		  *     else op(last, start).map(tail.foldRightSome(_)(op)) getOrElse start
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start an accumulator given as the first argument to first invocation of `op`.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
 		  *           of this collection, yielding `None` to signal the termination of folding.
@@ -1321,6 +1344,7 @@ object extensions extends extensions {
 		  *     if (isEmpty) start
 		  *     else op(head, start).map(tail.foldPrefix(_)(op)) getOrElse start
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start initial accumulator value passed to the first call of `op` together with the first element
 		  *              of this collection.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
@@ -1332,12 +1356,13 @@ object extensions extends extensions {
 		/** Applies the given folding function to the elements of this collection and a folded value,
 		  * starting with `start`, for as long as it returns non empty results.
 		  * The method traverses this collection in the iteration order, maintaining the result of folding
-		  * its current prefix, and stops when the function is no longer applicable to the intermediate result,
+		  * its current prefix, and stops when the function is no longer applicable to the intermediate result.
 		  * It can be defined recursively as
 		  * {{{
 		  *     if (isEmpty) start
 		  *     else op(head, start).map(tail.foldLeftPrefix(_)(op)) getOrElse start
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start initial accumulator value passed to the first call of `op` together with the first element
 		  *              of this collection.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
@@ -1346,7 +1371,7 @@ object extensions extends extensions {
 		  * @return the result of the last execution of `op` which returned `One`,
 		  *         or `start` if either this collection is empty or `op(this.head, start) == None`.
 		  */
-		def foldLeftPrefix[A](start :A)(op :(A, E) => Opt[A]) :A =
+		def foldLeftPrefix[A](start :A)(op :(A, E) => Opt[A]) :A = //foldLeftWhile(One(start))(_.isDefined)((opt, e) => op(opt.get, e)).get
 			self match {
 				case seq :collection.LinearSeq[E] =>
 					@tailrec def foldList(last :A, list :collection.LinearSeq[E]) :A =
@@ -1414,6 +1439,7 @@ object extensions extends extensions {
 		  *     if (isEmpty) start
 		  *     else op(last, start).map(tail.foldRightSuffix(_)(op)) getOrElse start
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start an accumulator given as the first argument to first invocation of `op`.
 		  * @param op a function generating consecutive values of `A` from the previous value and subsequent element
 		  *           of this collection, yielding `None` to signal the termination of folding.
@@ -1422,6 +1448,7 @@ object extensions extends extensions {
 		  *         or `start` if either this collection is empty or `op(this.last, start) == None`.
 		  */
 		@tailrec final def foldRightSuffix[A](start :A)(op :(E, A) => Opt[A]) :A = {
+//			foldRightWhile(One(start))(_.isDefined)((opt, e) => op(opt.get, e)).get
 			if (knownEmpty(self))
 				return start
 			self match {
@@ -1532,6 +1559,7 @@ object extensions extends extensions {
 		  * The method returns the first value which satisfies the predicate, or the result of reducing
 		  * the whole collection, if it never becomes satisfied. If `pred(this.head)`, then it is returned,
 		  * without invoking the function.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def reduceLeftUntil[A >: E](pred :A => Boolean)(op :(A, E) => A) :A =
@@ -1541,6 +1569,7 @@ object extensions extends extensions {
 		  * The method returns in `Some` the first value which satisfies the predicate; if `pred(this.head)`,
 		  * then it is returned, without invoking the function. If the collection is empty,
 		  * or is completely reduced without ever satisfying the predicate, `None` is returned.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */ //consider: variant for Opt
 		def reduceLeftUntilOption[A >: E](pred :A => Boolean)(op :(A, E) => A) :Option[A] =
 			reduceLeftUntilAndReturn(pred)(op)(None, _ => None, Some.apply)
@@ -1606,6 +1635,7 @@ object extensions extends extensions {
 		  * The method returns the first value which satisfies the predicate, or the result of reducing
 		  * the whole collection, if it never becomes satisfied. If `pred(this.last)`, then it is returned,
 		  * without invoking the function.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def reduceRightUntil[A >: E](pred :A => Boolean)(op :(E, A) => A) :A =
@@ -1615,6 +1645,7 @@ object extensions extends extensions {
 		  * The method returns in `Some` the first value which satisfies the predicate; if `pred(this.last)`,
 		  * then it is returned, without invoking the function. If the whole collection is empty,
 		  * or is completely reduced without ever satisfying the predicate, `None` is returned.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */ //consider: variant for Opt
 		def reduceRightUntilOption[A >: E](pred :A => Boolean)(op :(E, A) => A) :Option[A] =
 			reduceRightUntilAndReturn(pred)(op)(None, _ => None, Some.apply)
@@ -1628,6 +1659,7 @@ object extensions extends extensions {
 		  * for as long as the partial function is applicable to the pair of the last value and the next item
 		  * in the collection. The method returns the first value `a` - either the first element of the collection,
 		  * or the last value returned by `f` - for which `!f.isDefinedAt(a, iter.next())`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def partialReduceLeft[A >: E](f :PartialFunction[(A, E), A]) :A = {
@@ -1695,6 +1727,7 @@ object extensions extends extensions {
 		  * for as long as the partial function is applicable to the pair of the last value and the next item
 		  * in the collection. The method returns the first value `a` - either the last element of the collection,
 		  * or the last value returned by `f` - for which `!f.isDefinedAt(reverseIter.next(), a)`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if this collection is empty.")
 		def partialReduceRight[A >: E](f :PartialFunction[(E, A), A]) :A =
@@ -1755,6 +1788,7 @@ object extensions extends extensions {
 		/** Reduces this collection with the given function, going from left to right, for as long as it returns `Some`.
 		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
 		  * by `f` in `Some` is returned.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if the collection is empty.")
 		def reduceLeftSome[A >: E](f :(A, E) => Option[A]) :A = reduceLeftPrefix[A](f(_, _).toOpt)
@@ -1762,6 +1796,7 @@ object extensions extends extensions {
 		/** Reduces this collection with the given function, going from right to left, for as long as it returns `Some`.
 		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
 		  * by `f` in `Some` is returned.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if the collection is empty.")
 		def reduceRightSome[A >: E](f :(E, A) => Option[A]) :A = reduceRightSuffix[A](f(_, _).toOpt)
@@ -1772,6 +1807,7 @@ object extensions extends extensions {
 		/** Reduces this collection with the given function, going from left to right, for as long as it returns `One`.
 		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
 		  * by `f` in `One` is returned.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if the collection is empty.")
 		def reduceLeftPrefix[A >: E](f :(A, E) => Opt[A]) :A =
@@ -1840,6 +1876,7 @@ object extensions extends extensions {
 		/** Reduces this collection with the given function, going from right to left, for as long as it returns `One`.
 		  * Once the function returns `None`, or the whole collection is reduced, the last value returned
 		  * by `f` in `One` is returned.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		@throws[UnsupportedOperationException]("if the collection is empty.")
 		def reduceRightSuffix[A >: E](f :(E, A) => Opt[A]) :A =
@@ -1902,6 +1939,7 @@ object extensions extends extensions {
 		/** Iterates over the collection, passing the index of the current element to the given function.
 		  * Note that in collections with an undefined order, this index applies only to this particular iteration,
 		  * rather than some absolute position.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def foreachWithIndex[U](f :(E, Int) => U) :Unit =
 			self.toBasicOps.foldLeft(0) { (i, e) => f(e, i); i + 1 }
@@ -1960,6 +1998,7 @@ object extensions extends extensions {
 		/** Applies the given function to the elements of this collection for as long as it returns `true`.
 		  * Equivalent to `dropWhile(f)`, except it is executes for side effects only, and avoids a potentially
 		  * expensive `drop`. Furthermore, it is always executed eagerly, even for lazy collections (including iterators).
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def foreachWhile(f :E => Boolean) :Unit = self match {
 			case _ if knownEmpty(self) =>
@@ -1990,11 +2029,13 @@ object extensions extends extensions {
 
 		/** Executes the given function for the first `n` elements of this collection.
 		  * Equivalent to `take(n).foreach(f)`, but doesn't create an intermediate collection.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def forPrefix[U](n :Int)(f :E => U) :Unit = foreachInRange(0, n)(f :E => U)
 
 		/** Executes the given function for the last `n` elements of this collection.
 		  * Equivalent to `takeRight(n).foreach(f)`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def forSuffix[U](n :Int)(f :E => U) :Unit =
 			if (n > 0) {
@@ -2016,6 +2057,7 @@ object extensions extends extensions {
 		  *     this.iterator.zipWithIndex.forall { case (e, i) => f(e, i) }
 		  * }}}
 		  * but doesn't create intermediate tuples.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def forallWithIndex(f :(E, Int) => Boolean) :Boolean =
 			foldLeftUntil(0)(_ < 0) { (i, e) => if (f(e, i)) i + 1 else -1 } >= 0
@@ -2025,6 +2067,7 @@ object extensions extends extensions {
 		  * {{{
 		  *     toLazyList.scanLeft(start -> true)(f(_._1, _)).takeWhile(_._2).last._2
 		  * }}}
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @param start the initial state for the folding function.
 		  * @param f     a function, applied to each element of the collection and the most recently computed state,
 		  *              and returning the new state value as in `foldLeft` paired with the predicate value
@@ -2050,6 +2093,7 @@ object extensions extends extensions {
 		  *     }._2
 		  * }}}
 		  * but does not traverse the whole collection if `result` becomes  `false`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def forallSome[A](start :A)(f :(E, A) => Option[A]) :Boolean = forallOne(start)(f(_, _).toOpt)
 
@@ -2067,6 +2111,7 @@ object extensions extends extensions {
 		  *     }._2
 		  * }}}
 		  * but does not traverse the whole collection if `result` becomes  `false`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  */
 		def forallOne[A](start :A)(f :(E, A) => Opt[A]) :Boolean =
 			knownEmpty(self) || {
@@ -2078,6 +2123,7 @@ object extensions extends extensions {
 			}
 
 		/** Verifies if a predicate holds for all consecutive pairs in this collection.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @return `iterator.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.zipTail zipTail]]`.forall { case (a, b) => f(a, b) }`.
 		  */
 		def forallConsecutive(f :(E, E) => Boolean) :Boolean = self match {
@@ -2119,12 +2165,13 @@ object extensions extends extensions {
 		}
 
 		/** Verifies if a predicate holds for all consecutive pairs in this collection.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @return `iterator.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.zipTail zipTail]]`.forall { case (a, b) => f(a, b) }`.
 		  */
 		def existsConsecutive(f :(E, E) => Boolean) :Boolean = !forallConsecutive(!f(_, _))
 
 
-			/** Equivalent to `this.zip(that).foreach { case (a, b) => f(a, b)` }, but does not build an intermediate
+		/** Equivalent to `this.zip(that).foreach { case (a, b) => f(a, b)` }, but does not build an intermediate
 		  * collection of tuples and accepts a two argument function rather than a function of tuple,
 		  * which makes it more convenient to use with the lambda placeholder syntax.
 		  */
@@ -2161,6 +2208,7 @@ object extensions extends extensions {
 		/** Equivalent to
 		  * [[collection.IterableOnceOps.drop drop]]`(from).`[[collection.IterableOnceOps.copyToArray copyToArray]]`(xs, start, len)`,
 		  * but avoids, if possible, potentially expensive `drop`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @return the number of elements copied.
 		  * @throws IndexOutOfBoundsException if `start` is less than zero.
 		  */ //todo: untested
@@ -2197,6 +2245,7 @@ object extensions extends extensions {
 		/** Equivalent to
 		  * [[collection.IterableOnceOps.drop drop]]`(from).`[[collection.IterableOnceOps.copyToArray copyToArray]]`(xs, 0, len)`,
 		  * but avoids, if possible, potentially expensive `drop`.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @return the number of elements copied.
 		  * @throws IndexOutOfBoundsException if `start` is less than zero.
 		  */ //todo: untested
@@ -2224,6 +2273,7 @@ object extensions extends extensions {
 		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
 		  * whichever is smaller. First element is written at index `start % xs.length`, and if the end of the $coll
 		  * is reached before any of the above happens, copying resumes from the beginning of the array.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @return the number of elements copied.
 		  * @throws IndexOutOfBoundsException if `start` is less than zero.
 		  */
@@ -2279,6 +2329,7 @@ object extensions extends extensions {
 		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
 		  * whichever is smaller. The first element is written at index `start % xs.length`, and if the end of the $coll
 		  * is reached before any of the above happens, copying resumes from the beginning of the array.
+		  * @note Iterators are left in an undefined state after this operation.
 		  * @return the number of elements copied.
 		  * @throws IndexOutOfBoundsException if `start` is less than zero or greater than `xs.length`.
 		  */
@@ -2530,6 +2581,7 @@ object extensions extends extensions {
 		  */
 		def filterWithIndex(pred :(E, Int) => Boolean) :C
 
+
 		/** Iterates over the $coll from left to right, splitting elements into those for which `pred`
 		  * returns `true` as the first pair element, and those for which it returns `false`,
 		  * all the while passing to it the latest right element as the second argument.
@@ -2580,6 +2632,54 @@ object extensions extends extensions {
 		// because we don't know the target size
 		def removed(from :Int, until :Int) :C
 
+		/** Iterates over this $coll, taking elements and invoking a folding operator for each subsequent element
+		  * and the previous accumulator state, for as long as the predicate is satisfied for the operator's result.
+		  * The difference from
+		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceOpsExtensionMethods.takeUntil takeUntil]]
+		  * is that the latter would take one element more, if invoked for the negation of `pred`.
+		  * @return `this.take(n)` for the maximal `n` such that `pred(a`,,n,,`)`,
+		  *         where `a`,,0,,` = z, a`,,n+1,,` = op(a`,,n,,`, x`,,n,,`)` and `this == x`,,0,,`, x`,,1,,`,...`.
+		  */
+		@throws[IllegalArgumentException]("if !pred(z)")
+		def takeWith[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C
+
+		/** Iterates over this $coll, invoking a folding operator for each subsequent element
+		  * and the previous accumulator state, and dropping the elements for as long as the predicate is satisfied.
+		  * The difference from
+		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceOpsExtensionMethods.dropUntil dropUntil]]
+		  * is that the latter would drop one element more for the negated predicate.
+		  * @return `this.drop(n)` for the maximal `n` such that `!pred(a`,,n,,`)`,
+		  *         where `a`,,0,,` = z, a`,,n+1,,` = op(a`,,n,,`, x`,,n,,`)` and `this == x`,,0,,`, x`,,1,,`,...`.
+		  */
+		@throws[IllegalArgumentException]("if !pred(z)")
+		def dropWith[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C
+
+		/** Folds this collection until the result satisfies a predicate, and returns the folded prefix
+		  * as a new $coll. The method recursively applies `op` to subsequent elements of `this`
+		  * and the result of previous invocation (starting with `op(z, this.head)`),
+		  * each time taking the next collection element, until the accumulator satisfies `pred`.
+		  * The last element of the returned $coll is the first `x`,,n,, for which `pred(op(acc, x`,,n,,`))`
+		  * became satisfied:
+		  *   1. If `pred(z)`, then an empty collection is returned immediately.
+		  *   1. Otherwise, the method returns the shortest prefix `x`,,0,,`, x`,,1,,`, ... x`,,n,, of this $coll
+		  *      such that `pred(op(a`,,n,,`, x`,,n,,`))`, where `a`,,0,,` = z, a`,,n+1,,` = op(a`,,n,,,` x`,,n,,`)`.
+		  *
+		  * The difference from
+		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceOpsExtensionMethods.takeWith takeWith]]
+		  * is that the latter would take one element less, if invoked for the negation of `pred`.
+		  */
+		def takeUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C
+
+		/** Drops the elements from the front of this $coll until the given predicate becomes satisfied.
+		  * The last dropped element is the first `x`,,n,, for which `pred(op(acc, x`,,n,,`))`.
+		  * The difference from
+		  * [[net.noresttherein.sugar.collections.extensions.IterableOnceOpsExtensionMethods.dropWith dropWith]]
+		  * is that the latter would drop one element less, if invoked for the negation of `pred`.
+		  * @return `this.drop(n)` for the minimal `n` such that `pred(a`,,n,,`)`,
+		  *         where `a`,,0,,` = z, a`,,n+1,,` = op(a`,,n,,`, x`,,n,,`)` and
+		  *         `this == x`,,0,,`, x`,,1,,`,...`.
+		  */
+		def dropUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C
 	}
 
 
@@ -2803,6 +2903,39 @@ object extensions extends extensions {
 				else
 					Iterators.removed(self, nonNegFrom, nonNegUntil)
 			}
+
+		override def takeUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :Iterator[E] =
+			Iterators.takeUntil(self, z, pred, op)
+
+		override def takeWith[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :Iterator[E] =
+			if (!pred(z))
+				illegal_!("Predicate not satisfied for the initial state: " + z + ".")
+			else
+				Iterators.takeWith(self, z, pred, op)
+
+		override def dropUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :Iterator[E] =
+			Iterators.dropUntil(self, z, pred, op)
+
+		override def dropWith[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :Iterator[E] =
+			if (!pred(z))
+				illegal_!("Predicate not satisfied for the initial state: " + z + ".")
+			else
+				Iterators.dropWith(self, z, pred, op)
+
+		/** Eagerly drops the first `n` elements of this iterator.
+		  * For some iterators in this collection, this will avoid creating a wrapper `Iterator`,
+		  * which may be more efficient, especially if other methods than `hasNext` and `next()` are used on the result.
+		  */
+		def strictDrop(n :Int) :Iterator[E] = HasFastSlice.drop(self, n)
+
+		/** Eagerly drops the first `from` elements of this iterator, and limits the number of the elements
+		  * the result will return to `until - from`.
+		  * For some iterators in this collection, this will avoid creating a wrapper `Iterator`,
+		  * which may be more efficient, especially if other methods than `hasNext` and `next()` are used on the result.
+		  * Unlike slice, it also handles all corner cases such as an empty or complete iterator,
+		  * which further increases the likelihood of eliminating the overhead.
+		  */
+		def strictSlice(from :Int, until :Int) :Iterator[E] = HasFastSlice.slice(self, from, until)
 
 		/** An iterator which substitutes `index`-th element in this iterator with `elem`.
 		  * If `index` is less than zero, or greater or equal to the number of iterated elements,
@@ -3540,6 +3673,210 @@ object extensions extends extensions {
 							util.fromSpecific(self)(Iterators.removed(self.iterator, nonNegFrom, nonNegUntil))
 					}
 			}
+
+
+		override def takeWith[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C =
+			if (!pred(z))
+				illegal_!("Predicate not satisfied for initial state " + z + ".")
+			else if (util.knownEmpty(self))
+				self.empty
+			else if (!self.knownStrict)
+				if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.takeWith(self, z, pred, op))
+				else                            util.fromSpecific(self)(Iterators.takeWith(self.iterator, z, pred, op))
+			else {
+				val res  = util.specificBuilder(self)
+				var next = self.head //util.knownEmpty checks ifEmpty if self.knownStrict
+				var acc  = z //op(z, next)
+				self match {
+					case seq :List[E] =>
+						var list :List[E] = seq
+						while ((list ne Nil) && {
+							next = list.head
+							acc = op(acc, next)
+							pred(acc)
+						}) {
+							res += next
+							list = list.tail
+						}
+					case ErasedArray.Slice(array :Array[E @unchecked], from, until) =>
+						var i = from
+						while (i < until && {
+							next = array(i)
+							acc = op(acc, next)
+							pred(acc)
+						}) {
+							res += next
+							i += 1
+						}
+					case ApplyPreferred(seq) =>
+						val end = seq.length
+						var i   = 0
+						while (i < end && {
+							next = seq(i)
+							acc  = op(acc, next)
+							pred(acc)
+						}) {
+							res += next
+							i += 1
+						}
+					case _ =>
+						val it = self.iterator
+						while (it.hasNext && {
+							next = it.next()
+							acc  = op(acc, next)
+							pred(acc)
+						})
+							res += next
+				}
+				res.result()
+			}
+
+		override def takeUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C =
+			if (self.knownSize == 0 || pred(z))
+				self.empty
+			else if (!self.knownStrict)
+				if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.takeUntil(self, z, pred, op))
+				else                            util.fromSpecific(self)(Iterators.takeUntil(self.iterator, z, pred, op))
+			else {
+				val res = util.specificBuilder(self)
+				var acc = z
+				self match {
+					case seq :List[E] =>
+						var list :List[E] = seq
+						while ((list ne Nil) && {
+							val next = list.head
+							res += next
+							acc  = op(acc, next)
+							list = list.tail
+							!pred(acc)
+						}) {}
+					case ErasedArray.Slice(array :Array[E @unchecked], from, until) =>
+						var i = from
+						while (i < until && {
+							val next = array(i)
+							res += next
+							acc  = op(acc, next)
+							i   += 1
+							!pred(acc)
+						}) {}
+					case ApplyPreferred(seq) =>
+						val end = seq.length
+						var i   = 0
+						while (i < end && {
+							val next = seq(i)
+							res += next
+							acc  = op(acc, next)
+							i   += 1
+							!pred(acc)
+						}) {}
+					case _ =>
+						val it = self.iterator
+						while (it.hasNext && {
+							val next = it.next()
+							res += next
+							acc  = op(acc, next)
+							!pred(acc)
+						}) {}
+				}
+				res.result()
+			}
+
+		override def dropWith[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C =
+			if (!pred(z))
+				illegal_!("Predicate not satisfied for the initial state: " + z + ".")
+			else if (util.knownEmpty(self))
+				coll
+			else if (!self.knownStrict)
+				if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.dropWith(self, z, pred, op))
+				else                            util.fromSpecific(self)(Iterators.dropWith(self.iterator, z, pred, op))
+			else {
+				var next = self.head //util.knownEmpty has checked isEmpty
+				var acc  = z
+				self match {
+					case seq :List[E] =>
+						var list :List[E] = seq
+						while ((list ne Nil) && {
+							next = list.head
+							acc = op(acc, next)
+							pred(acc)
+						})
+							list = list.tail
+						util.fromSpecific(self)(list)
+					case ErasedArray.Slice(array :Array[E @unchecked], from, until) =>
+						var i    = from
+						while (i < until && {
+							next = array(i)
+							acc  = op(acc, next)
+							pred(acc)
+						})
+							i += 1
+						if (i >= until) self.empty
+						else util.fromSpecific(self)(ArrayLike.Slice(array, i, until))
+					case ApplyPreferred(seq) if HasFastSlice(self) =>
+						val end = seq.length
+						var i   = 0
+						while (i < end && {
+							next = seq(i)
+							acc  = op(acc, next)
+							pred(acc)
+						})
+							i += 1
+						self.drop(i)
+					case _ =>
+						val it  = self.iterator
+						while (it.hasNext && {
+							next = it.next()
+							acc = op(acc, next)
+							pred(acc)
+						}) {}
+						util.fromSpecific(self)(it)
+				}
+			}
+		override def dropUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :C =
+			if (self.knownSize == 0 || pred(z))
+				coll
+			else if (!self.knownStrict)
+				if (self.isInstanceOf[View[_]]) util.fromSpecific(self)(Views.dropUntil(self, z, pred, op))
+				else                            util.fromSpecific(self)(Iterators.dropUntil(self.iterator, z, pred, op))
+			else self match {
+				case seq :collection.LinearSeq[E] =>
+					var list :collection.LinearSeq[E] = seq
+					var acc = z
+					while (list.nonEmpty && {
+						acc  = op(acc, list.head)
+						list = list.tail
+						!pred(acc)
+					}) {}
+					util.fromSpecific(self)(list)
+				case ErasedArray.Slice(array :Array[E @unchecked], from, until) =>
+					var acc = z
+					var i   = from
+					while (i < until && {
+						acc = op(acc, array(i))
+						i  += 1
+						!pred(acc)
+					}) {}
+					util.fromSpecific(self)(ArrayLike.Slice(array, i, until))
+				case ApplyPreferred(seq) if HasFastSlice(self) =>
+					val end = seq.length
+					var i   = 0
+					var acc = z
+					while (i < end && {
+						acc = op(acc, seq(i))
+						i  += 1
+						!pred(acc)
+					}) {}
+					self.drop(i)
+				case _ =>
+					val it  = self.iterator
+					var acc = z
+					while (it.hasNext && {
+						acc = op(acc, it.next())
+						!pred(acc)
+					}) {}
+					util.fromSpecific(self)(it)
+			}
+
 
 		/** Adds a single element to this collection. If this collection is of one of the standard types which
 		  * provide a method for adding individual elements (`Seq`, `Set`, etc.), then that method is invoked.
@@ -6233,6 +6570,9 @@ object extensions extends extensions {
 	  *                    of [[scala.collection.IterableOnceOps.fold fold]].
 	  */
 	sealed trait IteratorCompanionExtension extends Any {
+		/** An iterator adapter to a lazily evaluated iterator. */
+		final def delay[A](items: => Iterator[A]) :Iterator[A] = new LazyIterator[A](items)
+
 		/** An iterator consisting of a single element. In contrast to the standard `Iterator.single`,
 		  * its `knownSize` is always non negative.
 		  */

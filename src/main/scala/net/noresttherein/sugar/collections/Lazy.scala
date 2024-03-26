@@ -20,6 +20,10 @@ private final class LazyIterator[+T] private[collections] (lzy: => Iterator[T]) 
 	override def next() :T = evaluated.next()
 }
 
+object LazyIterator {
+	def apply[A](iterator: => Iterator[A]) :Iterator[A] = new LazyIterator(iterator)
+}
+
 
 
 trait LazyIterableOps[+E, +CC[X] <: IterableOps[X, CC, _], +C <: IterableOps[E, CC, C],

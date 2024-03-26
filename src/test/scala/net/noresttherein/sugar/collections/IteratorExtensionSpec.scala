@@ -433,6 +433,37 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 		}
 	}
 
+	property("takeUntil") = mappingProperty { items :(() => Iterator[Int]) =>
+		items().takeUntil(0)(_ >= Sum)(_ + _) -> {
+			var sum = 0
+			var end = false
+			items().takeWhile { x =>
+				sum += x
+				!end && (sum < Sum || { end = true; true })
+			}
+		}
+	}
+	property("dropUntil") = mappingProperty { items :(() => Iterator[Int]) =>
+		items().dropUntil(0)(_ >= Sum)(_ + _) -> {
+			var sum = 0
+			var end = false
+			items().dropWhile { x =>
+				sum += x
+				!end && (sum < Sum || { end = true; true })
+			}
+		}
+	}
+	property("takeWith") = mappingProperty { items :(() => Iterator[Int]) =>
+		items().takeWith(0)(_ <= Sum)(_ + _) -> {
+			var sum = 0; items().takeWhile { x => sum += x; sum <= Sum }
+		}
+	}
+	property("dropWith") = mappingProperty { items :(() => Iterator[Int]) =>
+		items().dropWith(0)(_ <= Sum)(_ + _) -> {
+			var sum = 0; items().dropWhile { x => sum += x; sum <= Sum }
+		}
+	}
+
 	property("updated") = forAll { (i :Int, value :Int) =>
 		def expect(iter :() => Iterator[Int]) :Iterator[Int] =
 			iter().take(i) ++ Iterator.single(value) ++ (if (i == Int.MaxValue) Iterator.empty else iter().drop(i + 1))

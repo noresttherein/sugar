@@ -326,7 +326,8 @@ private object HasFastSlice {
 			case _ => false
 		}
 		case  _ :HasFastSlice[_] | _ :IndexedIterator[_] | _ :IndexedReverseIterator[_] => true
-		case it :IteratorWithDrop[_]                                                    => it.hasFastDrop
+		case it :SugaredIterator[_]                                                     => it.hasFastDrop
+		case it :Iterator[_]                                                            => isIndexedIterator(it)
 		case _                                                                          => false
 	}
 
@@ -399,29 +400,58 @@ private object HasFastSlice {
 			:IterableOnce[A] with IterableOnceOps[A, IterableOnce, IterableOnce[A]] =
 		items match {
 			case it :Iterable[A] => quickSlice(it, from, until) match {
-				case Yes(result) => result
-				case _           => slice(items.iterator, from, until)
+				case Yes(result) =>
+					result
+				case _ if until >= { val s = items.knownSize; if (s == -1) Int.MaxValue else s }
+					&& preferDropOverIterator(items)
+				=>
+					it.drop(from)
+				case _ =>
+					slice(items.iterator, from, until)
 			}
 			case ArrayLikeSlice(array, start, end) =>
 				if (from >= end - start) Nil
 				else ArrayLikeSlice.slice(array, start + from, math.min(end - until, start) + until)
 			case _ => slice(items.iterator, from, until)
 		}
-	private def slice[A](items :Iterator[A], from :Int, until :Int) :Iterator[A] = {
-		//Sadly, default Iterator.slice, drop, take don't check if the argument is negative.
-		val size = items.knownSize
-		if (until <= 0 | until <= from)
-			Iterator.empty
-		else if (size >= 0)
-			if (from <= 0 & until >= size) items.iterator
-			else if (from <= 0) items.iterator.take(until)
-			else if (until >= size) items.iterator.drop(from)
-			else items.iterator.slice(from, until)
-		else
-			if (from <= 0) items.iterator.take(until)
-			else items.iterator.slice(from, until)
-		items.iterator.slice(from, until)
 
+	def slice[A](itr :Iterator[A], from :Int, until :Int) :Iterator[A] = itr match {
+		case sugared :SugaredIterator[A] =>
+			sugared.strictSlice(from, until)
+		case _ => //Sadly, default Iterator.slice, drop, take don't check if the argument is negative.
+			val size = itr.knownSize
+			if (until <= 0 | until <= from)
+				Iterator.empty
+			else if (size >= 0)
+				if (from >= size) Iterator.empty
+				else if (from <= 0 & until >= size) itr
+				else if (from <= 0) itr.take(until)
+				else if (until >= size) drop(itr, from)
+				else { val res = itr.slice(from, until); res.hasNext; res }
+			else
+				if (from <= 0) itr.take(until)
+				else { val res = itr.slice(from, until); res.hasNext; res }
+	}
+
+	def drop[A](items :IterableOnce[A], n :Int) :IterableOnce[A] with IterableOnceOps[A, IterableOnce, IterableOnce[A]] =
+		items match {
+			case it   :Iterable[A] if n <= 0 | items.knownSize == 0 => it
+			case list :collection.LinearSeq[A]                      => list.drop(n)
+			case _    :Iterable[A]                                  => slice(items, n, Int.MaxValue)
+			case _                                                  => drop(items.iterator, n)
+		}
+	def drop[A](itr :Iterator[A], n :Int) :Iterator[A] = itr match {
+		case sugared :SugaredIterator[A] =>
+			sugared.strictDrop(n)
+		//We default to potentially creating a lazy iterator wrapper, because we should not prevent
+		// the use of an optimized drop in some implementations. There doesn't seem to be a good solution to this.
+		case _ =>
+			val size = itr.knownSize
+			if (size >= 0 & n >= size)
+				Iterator.empty
+			else {
+				val res = itr.iterator.drop(n); res.hasNext; res
+			}
 	}
 
 

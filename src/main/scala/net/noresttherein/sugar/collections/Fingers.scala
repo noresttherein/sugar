@@ -11,6 +11,7 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray, IRefArray, IRefArrayIterator, RefArray, RefArrayLike, arraycopy}
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
+import net.noresttherein.sugar.collections.Iterators.StrictIterator
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
@@ -4287,7 +4288,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * to a `FingersBuilder`.
 		  */
 		abstract class FingersIterator[+E]
-			extends AbstractIterator[E] with BufferedIterator[E] with IteratorWithDrop[E] with HasFastSlice[E]
+			extends AbstractIterator[E] with BufferedIterator[E] with IteratorWithDrop[E] with StrictIterator[E]
 		{
 			override def hasFastDrop = true
 			def toTree :Tree[E]
