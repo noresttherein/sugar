@@ -110,6 +110,7 @@ object extensions {
 		  * {{{
 		  *     animal.ifInstanceOf[Cat](_.meow)
 		  * }}}
+		  * Implemented as an applicable object rather than a method so that the returned type can be inferred.
 		  * Note that, as with `isInstanceOf`, this method is implemented in terms of the runtime ''class'',
 		  * and the conformance of erased type parameters is not checked.
 		  * @return an instance of a SAM type accepting a function `[X] T=>X`, and returning an `Option[X]`.
@@ -152,6 +153,47 @@ object extensions {
 		  * @return `classTag[X].unapply(this)`
 		  */
 		@inline def asSubclassOpt[T <: X](implicit tag :ClassTag[T]) :Option[T] = tag.unapply(self)
+
+		/** Casts this object to its subtype shared with type `R`.
+		  * There is nothing special in the implementation of this method; it is intended to be used only
+		  * with structural types containing only member types.
+		  * This is useful in several type level techniques, for example:
+		  *   1. 'Labeling' an instance for injecting it as an implicit parameter, in presence of several values
+		  *      of the same type:
+		  *      {{{
+		  *         val adventurer = new Adventurer().refine[{ type name = "Varric" }]
+		  *         val varric = implicitly[Adventurer { type name = "Varric" }]
+		  *      }}}
+		  *    1. Marking an object as exhibiting a certain property, checked at runtime:
+		  *      {{{
+		  *          class Mage(maybeFamiliar :Option[Familiar]) {
+		  *             type hasFamiliar
+		  *             def familiar(implicit ev: this.type <:< (Mage { hasFamiliar = true }) :Familiar =
+		  *                 maybeFamiliar.get
+		  *             def withFamiliar :Option[Mage { hasFamiliar = true }] =
+		  *                 if (maybeFamiliar.isDefined) Some(this.refine[{ hasFamiliar = true }] else None
+		  *          }
+		  *      }}}
+		  *    1. Recursive implicit evidence with a single implementation, containing a composed member type:
+		  *      {{{
+		  *          class Lens[-T <: Tuple, Idx <: Int with Singleton](val idx :Idx) extends AnyVal {
+		  *             type E
+		  *             def get(tuple :T) :E = elem.productElement(idx).asInstanceOf[E]
+		  *          }
+		  *          implicit def first[H] :Lens[H*:Tuple, 0] { type E = H } =
+		  *             (new Lens[H*:Tuple, 0](0)).refine[{ type E = H }]
+		  *          implicit next[T <: Tuple, I <: Int with Singleton](implicit ev :Lens[T, I])
+		  *                 :Lens[Any*:T, succ[I] { type E = ev.E }] =
+		  *             (new Lens[Any*:T, succ[I]](ev.idx + 1)).refine[{ type E = ev.E }]
+		  *      }}}
+		  *
+		  * While often the same effect can be obtained by introducing a type parameter to the class,
+		  * it is often not desirable (for example, the number of type parameters would be impractical),
+		  * practical (for example, to use a member type as an 'Out' type in implicit evidence,
+		  * in order not to confuse the type inferer), or even possible (if the refined class is not owned
+		  * by the programmer, or the functionality depending on the refinement is completely orthogonal to it.
+		  */
+		@inline def refine[R] :X with R = self.asInstanceOf[X with R]
 	}
 
 
