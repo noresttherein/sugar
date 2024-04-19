@@ -176,7 +176,7 @@ object Decorable {
 	  * @param decorations a constructor function for [[net.noresttherein.sugar.util.Decorable.self self]]:
 	  *                    it accepts the bottom implementation (`this`) as an argument, and wraps it in a sequence
 	  *                    of zero or more decorators.
-	  * @see [[net.noresttherein.sugar.util.Decorable.BaseDecorable]]
+	  * @see [[net.noresttherein.sugar.util.Decorable.DecorableBase]]
 	  */
 	abstract class AbstractDecorable[Self <: Decorable[Self]](override val decorations :Self => Self)
 		extends Decorable[Self]
@@ -188,12 +188,12 @@ object Decorable {
 		  * (`this.decorators`), and creates a copy of this instance with that function as the `decorators` argument.
 		  * As this will create the bottom `Self`, not the external one which should be used, return the `self`
 		  * property of the former, which is the fully decorated instance.
-		  * @return [[net.noresttherein.sugar.util.Decorable.BaseDecorable.redecorate redecorate]]`(this.decorators andThen decorator)`.
+		  * @return [[net.noresttherein.sugar.util.Decorable.DecorableBase.redecorate redecorate]]`(this.decorators andThen decorator)`.
 		  */
 		override def decorate(decorator :Self => Self) :Self = redecorate(decorator andThen decorator)
 
 		/** A copy constructor of this class: creates a new instance of the same type, and with the same parameters
-		  * as this object, but with its [[net.noresttherein.sugar.util.Decorable.BaseDecorable.self self]] property
+		  * as this object, but with its [[net.noresttherein.sugar.util.Decorable.DecorableBase.self self]] property
 		  * containing the result of applying the `decorator` argument to the copy. The returned value
 		  * is `self`, rather than the copy, that is a reference to the outermost decorator.
 		  * @param decorator a constructor function for the new decorator stack built on top of the new $Self instance,
@@ -220,8 +220,8 @@ object Decorable {
 	  *                    it accepts the decorating function which is passed as the argument to this class' constructor
 	  *                    and creates a $Self instance. It is assumed that the class of the created object passes
 	  *                    the very same function as `constructor` argument to this class.
-	  */ //or should we rename it to DecorableBase?
-	abstract class BaseDecorable[Self <: Decorable[Self]]
+	  */
+	abstract class DecorableBase[Self <: Decorable[Self]]
 	                            (decorations :Self => Self, constructor :(Self => Self) => Self)
 		extends AbstractDecorable[Self](decorations)
 	{ this :Self =>
@@ -229,7 +229,7 @@ object Decorable {
 		  * but with [[net.noresttherein.sugar.util.Decorable.self self]] property equal to `decorator(twin)`.
 		  * This completely discards the current decorator stack.
 		  * @return `constructor(decorator).self`, where `constructor` is the argument of the primary constructor
-		  *         of [[net.noresttherein.sugar.util.Decorable.BaseDecorable BaseDecorable]].
+		  *         of [[net.noresttherein.sugar.util.Decorable.DecorableBase DecorableBase]].
 		  */
 		override def redecorate(decorator :Self => Self) :Self = constructor(decorator).self
 
@@ -313,7 +313,7 @@ object Decorable {
 	  * [[net.noresttherein.sugar.util.Decorable.Decorator.decorate decorate]] with the function passed
 	  * as the constructor argument, it also provides a skeleton implementation of equality based on class equality.
 	  */
-	abstract class BaseDecorator[Self <: Decorable[Self]]
+	abstract class DecoratorBase[Self <: Decorable[Self]]
 	                            (private[Decorable] override val `->constructor` :Self => Self)
 		extends Decorator[Self]
 	{ this :Self =>
@@ -322,7 +322,7 @@ object Decorable {
 
 		override def undecoratedEquals(that :Self) :Boolean = that match {
 			case _ if that eq this => true
-			case other :BaseDecorator[Self @unchecked] =>
+			case other :DecoratorBase[Self @unchecked] =>
 				undecoratedCanEqual(other.thisDecorable) && other.undecoratedCanEqual(this) &&
 					(decorated undecoratedEquals other.decorated)
 			case _ => false
@@ -350,10 +350,6 @@ object Decorable {
 	                                     (current :Self, next :Self => Self, following :Opt[DecorationsZipper[Self]])
 			:DecorationsZipper[Self] =
 		new DecorationsZipper(current, next, following)
-//		current match {
-//			case decorator :Decorator[Self @unchecked] => new DecorationsZipper(current, next, following)
-//			case bottom => new DecorationsZipperBottom(current, next, following)
-//		}
 
 
 	/** A zipper is an immutable object allowing traversal of a [[net.noresttherein.sugar.util.Decorable Decorable]]
