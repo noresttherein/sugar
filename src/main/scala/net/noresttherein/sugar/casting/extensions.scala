@@ -301,6 +301,10 @@ object extensions {
 
 	/** Extension down casting methods for the single type parameter of a higher type,
 	  * preserving the original type constructor.
+	  * @note not only these methods are preferable to more generic
+	  *       [[net.noresttherein.sugar.casting.extensions.castTypeParamMethods castTypeParamMethods]]
+	  *       due to lesser potential for misuse, but they also work for type constructors with upper type bounds,
+	  *       which the latter does not.
 	  */
 	class downcastTypeParamMethods[T[A <: X], X](private val self :T[X]) extends AnyVal {
 		/** Casts down the type parameter of this expression's type. */
@@ -346,6 +350,10 @@ object extensions {
 
 	/** Extension down casting methods for the type parameters of a higher type,
 	  * preserving the original, binary type constructor.
+	  * @note not only these methods are preferable to more generic
+	  *       [[net.noresttherein.sugar.casting.extensions.cast2TypeParamsMethods cast2TypeParamsMethods]]
+	  *       due to lesser potential for misuse, but they also work for type constructors with upper type bounds,
+	  *       which the latter does not.
 	  */
 	class downcast2TypeParamsMethods[T[_1 <: X, _2 <: Y], X, Y](private val self :T[X, Y]) extends AnyVal {
 		/** Casts down both type parameters of this expression's type. */
@@ -419,6 +427,10 @@ object extensions {
 
 	/** Extension casting methods for the type parameters of a higher type,
 	  * preserving the original, ternary type constructor.
+	  * @note not only these methods are preferable to more generic
+	  *       [[net.noresttherein.sugar.casting.extensions.cast3TypeParamsMethods cast3TypeParamsMethods]]
+	  *       due to lesser potential for misuse, but they also work for type constructors with upper type bounds,
+	  *       which the latter does not.
 	  */
 	class downcast3TypeParamsMethods[T[_1 <: X, _2 <: Y, _3 <: Z], X, Y, Z](private val self :T[X, Y, Z])
 		extends AnyVal
