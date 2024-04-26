@@ -7,6 +7,7 @@ import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.exceptions.SugaredArithmeticException
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -293,7 +294,7 @@ class SafeLong private[numeric] (override val toLong :Long)
 
 
 @SerialVersionUID(Ver)
-object SafeLong {
+object SafeLong extends CompanionObject[SafeLong] {
 	@inline def apply(value :Long) :SafeLong = new SafeLong(value)
 
 	@inline def apply(string :String, radix :Int = 10) :SafeLong =

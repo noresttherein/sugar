@@ -5,6 +5,7 @@ import java.{time => j}
 import scala.concurrent.{duration => s}
 
 import net.noresttherein.sugar.time.constants.{MaxNanoDuration, MicrosInMilli, MillisInDay, MillisInHour, MillisInMinute, MillisInSecond, NanosInHour, NanosInMilli, NanosInMinute, NanosInSecond}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -306,7 +307,7 @@ class Milliseconds(override val toMillis :Long) extends AnyVal with TimeSpan wit
 
 
 @SerialVersionUID(Ver)
-case object Milliseconds {
+case object Milliseconds extends CompanionObject[Milliseconds] {
 	@inline def apply(millis :Long) :Milliseconds = new Milliseconds(millis)
 
 	@inline def unapply(span :TimeInterval) :Maybe[Long] = span match {

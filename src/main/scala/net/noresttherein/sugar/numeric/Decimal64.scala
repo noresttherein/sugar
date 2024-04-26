@@ -13,6 +13,7 @@ import net.noresttherein.sugar.exceptions.{InternalException, SugaredArithmeticE
 import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.{Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.witness.Optionally
@@ -1374,7 +1375,7 @@ class Decimal64 private (private val bits :Long)
   * will be used, which rounds to the highest representable precision for the given significand.
   **/
 @SerialVersionUID(Ver)
-object Decimal64 {
+object Decimal64 extends CompanionObject[Decimal64] {
 
 	/** The maximal number such that all values of that many integral digits fit in the
 	  * `[`[[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]]`..`[[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]]`]`

@@ -9,6 +9,7 @@ import scala.math.ScalaNumericAnyConversions
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.extensions.IntExtension
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -222,7 +223,7 @@ class UShort private[numeric](override val toShort: Short)
 
 
 @SerialVersionUID(Ver)
-object UShort {
+object UShort extends CompanionObject[UShort] {
 	/** `2`^16^` - 1 == 65535` */
 	final val MaxValue = new UShort(-1)
 	/** Zero. */

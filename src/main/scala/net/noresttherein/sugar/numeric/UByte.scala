@@ -9,6 +9,7 @@ import scala.math.ScalaNumericAnyConversions
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.extensions.IntExtension
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -232,7 +233,7 @@ class UByte private[numeric](override val toByte: Byte)
 
 
 @SerialVersionUID(Ver)
-object UByte {
+object UByte extends CompanionObject[UByte] {
 	/** `2`^8^` - 1 == 255` */
 	final val MaxValue = new UByte(-1)
 	/** Zero. */

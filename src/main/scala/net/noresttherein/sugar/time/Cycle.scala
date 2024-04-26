@@ -6,6 +6,7 @@ import java.time.temporal.ChronoField._
 
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.time.Cycle.Phase
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -96,7 +97,7 @@ trait Cycle extends TimeProjector {
   * Serves also as a name space providing the values of all (or most) cycles occurring in the Gregorian calendar.
   */
 @SerialVersionUID(Ver)
-object Cycle {
+object Cycle extends CompanionObject[Cycle] {
 	//todo: should have specififed length, and have associated units. Should say if it's of constant length.
 	trait Phase extends Any with TimeProjection
 

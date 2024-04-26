@@ -68,9 +68,11 @@ package time {
 
 	import java.time.DateTimeException
 
+	import net.noresttherein.sugar.exceptions.ImplException
+
 	@SerialVersionUID(Ver)
 	private[time] class SugaredDateTimeException(message :String, protected override var lazyMsg :() => String, cause :Throwable)
-		extends DateTimeException(message, cause) with LazyException
+		extends DateTimeException(message, cause) with LazyException with ImplException
 
 	object constants {
 		@inline final val NanosInMicro    = 1000L

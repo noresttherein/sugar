@@ -7,6 +7,7 @@ import scala.concurrent.duration.Deadline
 
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -226,7 +227,7 @@ class UTCDateTime private[time] (val toJava :j.LocalDateTime) extends AnyVal wit
 
 
 @SerialVersionUID(Ver)
-case object UTCDateTime {
+case object UTCDateTime extends CompanionObject[UTCDateTime] {
 
 	def apply(time :j.LocalDateTime) :UTCDateTime = {
 		val chrono = time.getChronology

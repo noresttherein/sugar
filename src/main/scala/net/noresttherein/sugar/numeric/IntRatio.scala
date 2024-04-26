@@ -8,6 +8,7 @@ import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNu
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
 import net.noresttherein.sugar.numeric.IntRatio.{naturalGCD, newIntRatio}
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -187,7 +188,7 @@ final class IntRatio private(n :Int, d :Int) extends Number {
   * when given as the parameter to `IntRatio`'s methods.
   */
 @SerialVersionUID(Ver)
-object IntRatio {//extends IntRatioImplicits {
+object IntRatio extends CompanionObject[IntRatio] {
 
 	/** Number zero as a `IntRatio` value: `0/1`. */
 	final val Zero :IntRatio = new IntRatio(0, 1)

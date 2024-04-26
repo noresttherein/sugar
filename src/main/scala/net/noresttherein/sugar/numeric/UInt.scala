@@ -10,6 +10,7 @@ import scala.math.ScalaNumericAnyConversions
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.extensions.IntExtension
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -250,7 +251,7 @@ class UInt private[numeric] (override val toInt: Int)
 
 
 @SerialVersionUID(Ver)
-object UInt {
+object UInt extends CompanionObject[UInt] {
 	/** `2`^32^` - 1 == 4294967295` */
 	final val MaxValue = new UInt(0xffffffff)
 	/** Zero. */

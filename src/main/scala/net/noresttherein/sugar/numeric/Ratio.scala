@@ -8,6 +8,7 @@ import scala.annotation.tailrec
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -189,7 +190,7 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
   * Contains an implicit conversion promoting `Long`s to `Ratio`s when given as the parameter to `Ratio`'s methods.
   */
 @SerialVersionUID(Ver)
-object Ratio {
+object Ratio extends CompanionObject[Ratio] {
 
 	/** Number zero represented as a ratio of `0/1`. */
 	final val Zero :Ratio = new Ratio(0, 1)

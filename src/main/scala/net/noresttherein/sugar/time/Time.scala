@@ -4,6 +4,7 @@ import java.{time => j}
 import java.time.Clock
 
 import net.noresttherein.sugar.time.extensions._
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -76,7 +77,7 @@ class Time(val clock :Clock) extends AnyVal with Serializable {
 
 
 @SerialVersionUID(Ver)
-case object Time {
+case object Time extends CompanionObject[Time] {
 	final val UTC = new Time(Clock.systemUTC())
 	final val Local = new Time(Clock.systemDefaultZone())
 

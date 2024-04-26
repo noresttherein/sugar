@@ -8,6 +8,7 @@ import scala.concurrent.{duration => s}
 
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, illegal_!, unsupported_!}
 import net.noresttherein.sugar.time.constants.{IntNanosInSecond, NanosInSecond}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -107,7 +108,7 @@ sealed trait TimeExtent extends Any with Serializable {
 
 
 @SerialVersionUID(Ver)
-case object TimeExtent {
+case object TimeExtent extends CompanionObject[TimeExtent] {
 	final val Zero :TimeExtent = Immediate
 	final val Inf :TimeExtent = Eternity
 	final val MinusInf :TimeExtent = MinusEternity

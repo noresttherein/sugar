@@ -5,10 +5,11 @@ import java.time.temporal.{ChronoUnit, TemporalUnit}
 import java.time.temporal.ChronoUnit._
 import java.util.concurrent.{TimeUnit => JTimeUnit}
 
-import DateTimeUnit._
-import DateUnit._
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, unsupported_!}
+import net.noresttherein.sugar.time.DateTimeUnit.{SomeDays, SomeHours, SomeMicros, SomeMillis, SomeMinutes, SomeMonths, SomeNanos, SomeSeconds, SomeYears}
+import net.noresttherein.sugar.time.DateUnit.{OneCentury, OneDay, OneDecade, OneMillennium, OneMonth, OneWeek, OneYear}
 import net.noresttherein.sugar.time.constants.{NanosInMicro, NanosInMilli, SecondsInDay, SecondsInEra, SecondsInHour, SecondsInMinute, SecondsInMonth, SecondsInYear}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -106,7 +107,7 @@ sealed trait DateTimeUnit extends Any with Ordered[DateTimeUnit] with Serializab
 
 
 @SerialVersionUID(Ver)
-case object DateTimeUnit {
+case object DateTimeUnit extends CompanionObject[DateTimeUnit] {
 	@inline final val Nanos      = new TimeUnit(NANOS)
 	@inline final val Micros     = new TimeUnit(MICROS)
 	@inline final val Millis     = new TimeUnit(MILLIS)
@@ -214,7 +215,7 @@ class TimeUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 @SerialVersionUID(Ver)
-case object TimeUnit {
+case object TimeUnit extends CompanionObject[TimeUnit] {
 	@inline final val Nanos    = new TimeUnit(ChronoUnit.NANOS)
 	@inline final val Micros   = new TimeUnit(ChronoUnit.MICROS)
 	@inline final val Millis   = new TimeUnit(ChronoUnit.MILLIS)
@@ -238,11 +239,11 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 	@inline override def approx :Duration       = toJava.getDuration
 
 	def length :Period = (toJava: @unchecked) match {
-		case DAYS => OneDay
-		case WEEKS => OneWeek
-		case MONTHS => OneMonth
-		case YEARS => OneYear
-		case DECADES => OneDecade
+		case DAYS      => OneDay
+		case WEEKS     => OneWeek
+		case MONTHS    => OneMonth
+		case YEARS     => OneYear
+		case DECADES   => OneDecade
 		case CENTURIES => OneCentury
 		case MILLENNIA => OneMillennium
 	}
@@ -282,11 +283,11 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 	override def toString :String = (toJava: @unchecked) match {
-		case DAYS => "days"
-		case MONTHS => "months"
-		case YEARS => "years"
-		case WEEKS => "weeks"
-		case DECADES => "decades"
+		case DAYS      => "days"
+		case MONTHS    => "months"
+		case YEARS     => "years"
+		case WEEKS     => "weeks"
+		case DECADES   => "decades"
 		case CENTURIES => "centuries"
 		case MILLENNIA => "millennia"
 	}
@@ -296,7 +297,7 @@ class DateUnit private[time] (override val toJava :ChronoUnit) extends AnyVal wi
 
 
 @SerialVersionUID(Ver)
-case object DateUnit {
+case object DateUnit extends CompanionObject[DateUnit] {
 	@inline final val Days      = new DateUnit(ChronoUnit.DAYS)
 	@inline final val Weeks     = new DateUnit(ChronoUnit.WEEKS)
 	@inline final val Months    = new DateUnit(ChronoUnit.MONTHS)

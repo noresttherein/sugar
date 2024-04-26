@@ -10,6 +10,7 @@ import net.noresttherein.sugar.logging.Logger.NamingScheme.DemangledClassName
 import net.noresttherein.sugar.null_!
 import net.noresttherein.sugar.reflect.CallerFrame
 import net.noresttherein.sugar.reflect.prettyprint.{abbrevClassNameOf, classNameOf, demangledName, fullNameOf}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -119,7 +120,7 @@ class Logger(val toJava :JLogger) extends AnyVal with Serializable {
 
 
 @SerialVersionUID(Ver)
-object Logger {
+object Logger extends CompanionObject[Logger] {
 
 	/** Creates a proxy logger to a [[java.util.logging.Logger]] named after the class of the caller of this method. */
 	def apply() :Logger =
@@ -204,7 +205,7 @@ object Logger {
 
 
 	@SerialVersionUID(Ver)
-	object Level {
+	object Level extends CompanionObject[Level] {
 		final val All    :Level = JLevel.ALL
 		final val Severe :Level = JLevel.SEVERE
 		final val Warn   :Level = JLevel.WARNING

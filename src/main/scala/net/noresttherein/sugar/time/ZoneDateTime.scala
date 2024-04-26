@@ -5,6 +5,7 @@ import java.{time => j}
 import scala.concurrent.duration.Deadline
 
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -224,7 +225,7 @@ class ZoneDateTime private[time] (override val toJava :j.ZonedDateTime)
 
 
 @SerialVersionUID(Ver)
-case object ZoneDateTime {
+case object ZoneDateTime extends CompanionObject[ZoneDateTime] {
 	@inline def apply(time :j.ZonedDateTime) :ZoneDateTime = new ZoneDateTime(time)
 	@inline def apply(time :j.OffsetDateTime) :ZoneDateTime = new ZoneDateTime(time.toZonedDateTime)
 

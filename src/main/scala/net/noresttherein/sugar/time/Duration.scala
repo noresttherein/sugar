@@ -8,6 +8,7 @@ import scala.concurrent.{duration => s}
 import net.noresttherein.sugar.exceptions.SugaredArithmeticException
 import net.noresttherein.sugar.time.constants.{NanosInDay, NanosInHour, NanosInMicro, NanosInMilli, NanosInMinute, NanosInSecond}
 import net.noresttherein.sugar.time.dsl.LongTimeLapseMethods
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -258,7 +259,7 @@ class Duration private[time] (override val toJava: j.Duration) extends AnyVal wi
 
 
 @SerialVersionUID(Ver)
-case object Duration {
+case object Duration extends CompanionObject[Duration] {
 
 	@inline def apply(duration :j.Duration)         :Duration = new Duration(duration)
 	@inline def apply(length :Long, unit :TimeUnit) :Duration = j.Duration.of(length, unit.toJava)

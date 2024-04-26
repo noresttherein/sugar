@@ -8,6 +8,7 @@ import scala.annotation.tailrec
 import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.numeric.BigRatio.GCD
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -205,7 +206,7 @@ final class BigRatio private (n :BigInteger, d :BigInteger,
   * and `BigInteger`s to `BigRatio`s when given as the parameter to `BigRatio`'s methods.
   */
 @SerialVersionUID(Ver)
-object BigRatio {//extends BigRatioImplicits {
+object BigRatio extends CompanionObject[BigRatio] {//extends BigRatioImplicits {
 
 	/** Number zero as a `BigRatio` value: `0/1`. */
 	final val Zero :BigRatio = new BigRatio(0, 1)

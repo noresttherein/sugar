@@ -5,6 +5,7 @@ import java.{time => j}
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 import net.noresttherein.sugar.time.constants.{NanosInMilli, NanosInSecond}
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 /** A unique point in time specified with nanosecond precision, consisting of a 64-bit signed second part and a 32-bit
@@ -171,7 +172,7 @@ class Timestamp private[time] (override val toJava :j.Instant) extends AnyVal wi
 
 
 @SerialVersionUID(Ver)
-case object Timestamp {
+case object Timestamp extends CompanionObject[Timestamp] {
 
 	@inline def apply(time :j.Instant) :Timestamp = new Timestamp(time)
 

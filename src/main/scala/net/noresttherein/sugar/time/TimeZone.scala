@@ -3,6 +3,7 @@ package net.noresttherein.sugar.time
 import java.{time => j}
 
 import net.noresttherein.sugar.time.constants.IntSecondsInHalfDay
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -37,7 +38,7 @@ class TimeZone private[time] (val toJava :j.ZoneId) extends AnyVal with Serializ
 
 
 @SerialVersionUID(Ver)
-case object TimeZone {
+case object TimeZone extends CompanionObject[TimeZone] {
 	final val UTC :TimeZone = j.ZoneOffset.UTC
 
 	@inline def apply(zone :j.ZoneId) :TimeZone = new TimeZone(zone)

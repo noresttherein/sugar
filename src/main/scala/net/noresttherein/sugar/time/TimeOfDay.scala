@@ -1,10 +1,10 @@
 package net.noresttherein.sugar.time
 
 import java.{time => j}
-import java.time.temporal.ChronoField
 
 import net.noresttherein.sugar.time.constants.NanosInMilli
-import net.noresttherein.sugar.time.dsl.partialTimeDesignators.HourWithMinuteAndSecond
+
+
 
 
 /** 'Wall clock time' with nanosecond precision. Wraps a `java.time.LocalTime` instance.
@@ -105,8 +105,10 @@ case object TimeOfDay extends TimeProjector {
 
 
 /** Time of day with an offset from `UTC`, reflecting a unique instant. Wraps a `java.time.OffsetTime`. */
-@SerialVersionUID(Ver) //consider: should it be a TimeProjection?
-class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Ordered[OffsetTime] with Serializable {
+@SerialVersionUID(Ver)
+class OffsetTime private[time] (val toJava :j.OffsetTime)
+	extends AnyVal with TimeProjection with Ordered[OffsetTime]
+{
 	@inline def hour   :Int = toJava.getHour
 	@inline def minute :Int = toJava.getMinute
 	@inline def second :Int = toJava.getSecond
@@ -166,7 +168,9 @@ class OffsetTime private[time] (val toJava :j.OffsetTime) extends AnyVal with Or
 
 
 @SerialVersionUID(Ver)
-case object OffsetTime {
+case object OffsetTime extends TimeProjector {
+	override type Projection = OffsetTime
+
 	@inline def apply(time :j.OffsetTime) :OffsetTime = new OffsetTime(time)
 
 	@inline def apply(offset :TimeOffset, time :TimeOfDay) :OffsetTime =
@@ -176,7 +180,7 @@ case object OffsetTime {
 		new OffsetTime(j.OffsetTime.of(j.LocalTime.of(hour, minute, second, nano), offset.toJava))
 
 
-	@inline def current(implicit time :Time = Time.Local) :OffsetTime =
+	@inline override def current(implicit time :Time = Time.Local) :OffsetTime =
 		new OffsetTime(j.OffsetTime.now(time.clock))
 
 	@inline def at(offset :TimeOffset)(implicit time :Time = Time.Local) :OffsetTime =

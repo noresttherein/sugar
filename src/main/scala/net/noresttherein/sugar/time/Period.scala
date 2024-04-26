@@ -2,6 +2,7 @@ package net.noresttherein.sugar.time
 
 import java.{time => j}
 
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -95,7 +96,7 @@ class Period private[time] (val toJava :j.Period) extends AnyVal with DateSpan w
 
 
 @SerialVersionUID(Ver)
-case object Period {
+case object Period extends CompanionObject[Period] {
 	final val Zero = new Period(j.Period.ZERO)
 
 	@inline def apply(years :Int = 0, months :Int = 0, days :Int = 0) :Period =

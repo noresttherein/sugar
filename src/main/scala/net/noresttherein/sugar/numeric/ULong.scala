@@ -11,6 +11,7 @@ import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNu
 import net.noresttherein.sugar.illegal_!
 import net.noresttherein.sugar.numeric.ULong.{BigDecimalMaxLongTimes2, BigIntMaxLongTimes2, BigIntegerMaxLongTimes2, Decimal64MaxLongTimes2, DoubleMaxLongTimes2, FloatMaxLongTimes2, JavaBigDecimalMaxLongTimes2}
 import net.noresttherein.sugar.numeric.extensions.LongExtension
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -257,7 +258,7 @@ class ULong private[numeric] (override val toLong: Long)
 
 
 @SerialVersionUID(Ver)
-object ULong {
+object ULong extends CompanionObject[ULong] {
 	/** `2`^64^` - 1 == 18_446_744_073_709_551_615`. */
 	final val MaxValue = new ULong(0xffffffffffffffffL)
 	/** Zero. */

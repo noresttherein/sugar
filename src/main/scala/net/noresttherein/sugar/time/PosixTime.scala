@@ -5,6 +5,7 @@ import java.{time => j}
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 import net.noresttherein.sugar.time.constants.{MillisInSecond, NanosInMilli, NanosInSecond}
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -227,7 +228,7 @@ class PosixTime(override val epochMilli :Long) extends AnyVal with DefiniteTime 
 
 
 @SerialVersionUID(Ver)
-case object PosixTime {
+case object PosixTime extends CompanionObject[PosixTime] {
 	@inline def apply(epochMillis :Milliseconds) :PosixTime = new PosixTime(epochMillis.toMillis)
 
 

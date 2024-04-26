@@ -6,6 +6,7 @@ import java.time.temporal.Temporal
 import net.noresttherein.sugar.time.TimePoint.TimeLimes
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
+import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.unsupported_!
 
 
@@ -56,7 +57,7 @@ sealed trait TimePoint extends Any with Ordered[TimePoint] with Serializable {
 
 
 @SerialVersionUID(Ver)
-case object TimePoint {
+case object TimePoint extends CompanionObject[TimePoint] {
 
 	@inline def now(implicit time :Time = Time.Local) :TimePoint = Timestamp.now
 
@@ -179,7 +180,7 @@ trait DefiniteTime extends Any with TimePoint {
 
 
 @SerialVersionUID(Ver)
-case object DefiniteTime {
+case object DefiniteTime extends CompanionObject[DefiniteTime] {
 
 	@inline def apply(time :Time = Time.Local) :DefiniteTime = Timestamp.now
 
@@ -254,7 +255,7 @@ trait DateTimePoint extends Any with DefiniteTime {
 
 
 @SerialVersionUID(Ver)
-case object DateTimePoint {
+case object DateTimePoint extends CompanionObject[DateTimePoint] {
 	@inline implicit def DateTimePointToJavaOffsetDateTime(time :DateTimePoint) :j.OffsetDateTime =
 		time.toZoneDateTime.toJava.toOffsetDateTime
 
@@ -263,7 +264,6 @@ case object DateTimePoint {
 
 	@inline implicit def DateTimePointFromJavaOffsetDateTime(time :j.OffsetDateTime) :ZoneDateTime =
 		new ZoneDateTime(time.toZonedDateTime)
-
 }
 
 

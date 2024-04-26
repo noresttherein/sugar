@@ -8,6 +8,7 @@ import scala.collection.immutable.NumericRange
 import scala.util.matching.Regex
 
 import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.typist.CompanionObject
 
 
 
@@ -475,7 +476,7 @@ sealed abstract class RX extends Serializable {
 
 
 @SerialVersionUID(Ver)
-object RX {
+object RX extends CompanionObject[RX] {
 
 	/** Implicit conversion from an interpolated `String` (`StringContext`) providing factory methods for creating
 	  * `RX` instances. methods from this class can be used using the string interpolation syntax: `p"Digit"`.
