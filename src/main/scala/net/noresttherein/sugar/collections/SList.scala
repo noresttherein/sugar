@@ -213,8 +213,8 @@ case object SList extends StrictOptimizedSeqFactory[SList] {
 	override def newBuilder[E] :Builder[E, SList[E]] = new SListBuilder(0)
 	def newBuilder[E](sizeHint :Int) :Builder[E, SList[E]] = new SListBuilder(sizeHint)
 
-	private sealed class Link[+E](override val head :E, private[SList] var next :SList[E @uncheckedVariance],
-	                              private[SList] var len :Int)
+	private sealed class Link[+E](final override val head :E, private[SList] final var next :SList[E @uncheckedVariance],
+	                              private[SList] final var len :Int)
 		extends SList[E]
 	{
 		final override def length = len

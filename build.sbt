@@ -8,7 +8,7 @@ name := "sugar"
 
 version := "moonshine"
 
-scalaVersion := "2.13.12"
+scalaVersion := "2.13.13"
 
 
 Compile / fork := true

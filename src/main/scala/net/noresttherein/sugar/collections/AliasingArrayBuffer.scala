@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import scala.annotation.nowarn
 import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, StrictOptimizedSeqOps, mutable}
 import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.ArraySeq
@@ -73,7 +74,10 @@ private class AliasingArrayBuffer[E](capacity :Int)
 			aliased = false
 		}
 	}
-	final override def ensureAdditionalSize(n :Int) :Unit =
+	//This was private[mutable] in ArrayBuffer before 2.13.13, so we keep it as private in order
+	// to at least cause a compile error if someone uses this with 2.13.12.
+	@nowarn("cat=unused")
+	private def ensureAdditionalSize(n :Int) :Unit =
 		if (n > 0) {
 			val size = super.size
 			if (n < MaxArraySize - size) ensureSize(n + size)

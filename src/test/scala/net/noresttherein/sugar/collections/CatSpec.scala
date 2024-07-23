@@ -25,8 +25,8 @@ object CatSpec extends UntaggedSeqProps[Seq](Cat)/* with PatchingProps[Cat, coll
 	                                                   mp :Map[T, M], evm :E[M],
 	                                                   fmap :FlatMap[T, FM], evfm :E[FM]) :Seq[Prop] =
 		result match {
-			case cat :Cat[T] => super.props(expect, result to Cat)
-			case _           => Seq()
+			case _ :Cat[T] => super.props(expect, result to Cat)
+			case _         => Seq()
 		}
 
 	sealed abstract class Build[+E] {

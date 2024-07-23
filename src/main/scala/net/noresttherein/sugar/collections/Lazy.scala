@@ -297,7 +297,7 @@ trait LazyMapOps[K, +V, +LCC[k, v] <: LazyMap[k, v] with LazyMapOps[k, v, LCC, _
 	override def transform[W](f :(K, V) => W) :LCC[K, W] = lazyGenericMap(definite.transform(f))
 
 	override def keySet :LazySet[K] = LazySet.factory.from(() => definite.keySet)
-	override def keys   :LazyIterable[K] = LazyIterable.factory.from(() => definite.keys)
+//	override def keys   :LazyIterable[K] = LazyIterable.factory.from(() => definite.keys)
 	override def values :LazyIterable[V] = LazyIterable.factory.from(() => definite.values)
 
 //	@inline final def ||[V1 >: V](that: => IterableOnce[(K, V1)]) :CC[K, V] = addedAll(that)
