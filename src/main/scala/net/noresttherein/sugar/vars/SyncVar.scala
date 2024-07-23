@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.vars
 
 import scala.Specializable.Args
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, unused}
 
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
@@ -38,7 +38,7 @@ trait SyncVar[@specialized(SpecializedVars) T] extends AtomicOps.AtomicVar[T] wi
 	  * @param newValue a new value for this variable.
 	  * @return `true` if previous value equaled `expect` and the variable has been set to `newValue`.
 	  */
-	final override def testAndSet(expect :T, newValue :T) :Boolean = synchronized {
+	override def testAndSet(expect :T, newValue :T) :Boolean = synchronized {
 		(unsafe == expect) && { unsafe = newValue; true }
 	}
 
@@ -120,18 +120,35 @@ case object SyncVar extends AtomicOps[SyncVar] {
 	}
 
 	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T =
-		v.synchronized {
-			val res = v.value; v.value = newValue; res
-		}
+		v ?= newValue
+
 	protected override def testAndSet[@specialized(SpecializedVars) T]
 	                                 (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
-		v.synchronized {
-			v.value == expect && { v.value = newValue; true }
-		}
+		v.testAndSet(expect, newValue) //Overridden by SyncRef
+//		v.synchronized {
+//			v.value == expect && { v.value = newValue; true }
+//		}
 
 	protected override def weakTestAndSet[@specialized(SpecializedVars) T]
 	                                     (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
 		testAndSet(v, expect, newValue)
+
+	@unused
+	protected def testAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean = v.synchronized {
+		(v.value.asInstanceOf[AnyRef] eq expect.asInstanceOf[AnyRef]) && { v.value = newValue; true }
+	}
+
+	@unused
+	protected override def weakTestAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		testAndSetRef(v, expect, newValue)
+
+	protected override def genericTestAndSet[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		v.synchronized {
+			v.value == expect && { v.value = newValue; true }
+		}
+
+	protected override def genericWeakTestAndSet[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		genericWeakTestAndSet(v, expect, newValue)
 
 	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean)
 			:Boolean =
@@ -478,4 +495,39 @@ case object SyncVar extends AtomicOps[SyncVar] {
 		override var unsafe :T = _
 		override def mkString = mkString("SyncVar")
 	}
+}
+
+
+
+
+
+
+/** A `synchronized` variable using referential equality (`eq`) to compare new value with the old one.
+  * @see [[net.noresttherein.sugar.vars.SyncVar! SyncVar]]
+  * @define Ref `SyncRef`
+  * @define ref synchronized reference
+  */ //todo: this probably shouldn't be a SyncVar, as it inherits only implementation.
+@SerialVersionUID(Ver)
+final class SyncRef[T] private (private[vars] var unsafe :T) extends SyncVar[T] {
+
+	override def testAndSet(expect :T, newValue :T) :Boolean = synchronized {
+		(unsafe.asInstanceOf[AnyRef] eq expect.asInstanceOf[AnyRef]) && { unsafe = newValue; true }
+	}
+	private[vars] override def isSpecialized = false
+}
+
+
+/** An atomic variable updated under a spin lock which uses referential equality (`eq`)
+  * to compare new value with the old one.
+  * @see [[net.noresttherein.sugar.vars.SyncVar$ SyncVar]]
+  * @define Ref `SyncRef`
+  * @define ref synchronized reference
+  */
+@SerialVersionUID(Ver)
+case object SyncRef {
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
+	def apply[T](value :T) :SyncRef[T] = new SyncRef(value)
+
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
+	def apply[T](implicit default :DefaultValue[T]) :SyncRef[T] = new SyncRef(default.get)
 }

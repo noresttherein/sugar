@@ -4,9 +4,11 @@ import java.lang.invoke.{MethodHandles, VarHandle}
 
 import scala.Specializable.Args
 import scala.annotation.nowarn
+import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.extensions.ClassExtension
-import net.noresttherein.sugar.reflect.scalaFieldName
+import net.noresttherein.sugar.reflect.{classes, scalaFieldName}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.witness.DefaultValue
 
@@ -18,7 +20,6 @@ object AtomicOps {
 
 	/** Implementation trait for `InOut` implementations with atomic update operations.
 	  * Delegates these methods to its companion [[net.noresttherein.sugar.vars.AtomicOps! AtomicOps]] instance.
-	  * @note the backing field holding the value must be named `x`, as it is accessed through reflection.
 	  * @see [[net.noresttherein.sugar.vars.Atomic Atomic]]
 	  * @see [[net.noresttherein.sugar.vars.Volatile Volatile]]
 	  */ //this is an inner class so it can have access to protected methods in AtomicOps.
@@ -126,6 +127,8 @@ object AtomicOps {
 //		override def updateLeft[@specialized(Args) A](z :A)(f :(A, T) => T) :T = factory.updateLeftRef(this, z, f)
 //		override def updateRight[@specialized(Args) A](z :A)(f :(T, A) => T) :T = factory.updateRightRef(this, z, f)
 
+		override def testAndSet(expect :T, newValue :T) :Boolean = factory.testAndSetRef(this, expect, newValue)
+
 		override def update(f :T => T) :T = {
 			val companion = factory
 			var curr = value
@@ -212,103 +215,50 @@ object AtomicOps {
 
 
 
-/** The nitty-gritty of the implementations for various atomic variables.
+/** Static implementations of atomic operations on $Ref variables, typically extended by its companion object.
   * [[net.noresttherein.sugar.vars.AtomicOps.AtomicVar AtomicVar]] delegates to this class for lower level operations.
   * The manner of synchronization is not specified, but all compound
   * ([[net.noresttherein.sugar.vars.AtomicOps.getAndSet getAndSet]],
   * [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]], etc.) are guaranteed to be performed atomically.
   * @define Ref `V`
   * @define ref concurrent variable
-  */
+  */ //Sadly covariant because it is returned from AtomicVar and SignalVar extends SyncVar.
 abstract class AtomicOps[+V[T] <: InOut[T]] { //abstract class, not trait, because the JVM is more likely to inline
 	protected def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T
+
+	/** Atomically set the variable `v` to `newValue` if the current value `equals expect` (value equality).  */
 	protected def testAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean
+
 	protected def weakTestAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean
+
+	/** ''Test-and-set'' with referential equality semantics, that is comparing object pointers with `eq`. */
+	protected def testAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean
+
+	/** ''Test-and-set'' with referential equality (`eq`) semantics, which may randomly fail. */
+	protected def weakTestAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean
+
+	/** Implements ''test-and-set'' with value semantics on a variable with a reference field (typically, erased).
+	  * Delegated to by `testAndSet` when `v` is a `RefAtomicVar`.
+	  */
+	protected def genericTestAndSet[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		testAndSetRef(v, expect, newValue) || {
+			val x = v.value
+			x == expect && testAndSetRef(v, x, newValue)
+		}
+
+	/** Implements weak ''test-and-set'' with value semantics on a variable with a reference field (typically, erased).
+	  * Delegated to by `weakTestAndSet` when `v` is a `RefAtomicVar`.
+	  */
+	protected def genericWeakTestAndSet[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		weakTestAndSetRef(v, expect, newValue) || {
+			val x = v.value
+			x == expect && weakTestAndSetRef(v, x, newValue)
+		}
 
 	protected def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean) :Boolean
 
 	protected def repeatTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean,
 	                                   ifExpected :Boolean, ifNotExpected :Boolean) :Boolean
-///*
-//	protected def update[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], f :T => T) :T = {
-//		var curr = v.value
-//		var newValue = f(curr)
-//		while (!weakTestAndSet(v, curr, newValue)) {
-//			val x = v.value
-//			if (x != curr) {
-//				curr = x
-//				newValue = f(curr)
-//			}
-//		}
-//		newValue
-//	}
-//	protected def updateRef[T](v :AtomicOps.AtomicVar[T], f :T => T) :T = {
-//		var curr = v.value
-//		var newValue = f(curr)
-//		while (!weakTestAndSet(v, curr, newValue)) {
-//			val x = v.value
-//			if (x.asInstanceOf[AnyRef] ne curr.asInstanceOf[AnyRef]) {
-//				curr = x
-//				newValue = f(curr)
-//			}
-//		}
-//		newValue
-//	}
-//
-//	protected def updateLeft[@specialized(Args) A, @specialized(Args) T]
-//	                        (v :AtomicOps.AtomicVar[T], z :A, f :(A, T) => T) :T =
-//	{
-//		var curr = v.value
-//		var newValue = f(z, curr)
-//		while (!weakTestAndSet(v, curr, newValue)) {
-//			val x = v.value
-//			if (x != curr) {
-//				curr = x
-//				newValue = f(z, curr)
-//			}
-//		}
-//		newValue
-//	}
-//	protected def updateLeftRef[A, T](v :AtomicOps.AtomicVar[T], z :A, f :(A, T) => T) :T = {
-//		var curr = v.value
-//		var newValue = f(z, curr)
-//		while (!weakTestAndSet(v, curr, newValue)) {
-//			val x = v.value
-//			if (x.asInstanceOf[AnyRef] ne curr.asInstanceOf[AnyRef]) {
-//				curr = v
-//				newValue = f(z, curr)
-//			}
-//		}
-//		newValue
-//	}
-//
-//	protected def updateRight[@specialized(Args) A, @specialized(Args) T]
-//	                         (v :AtomicOps.AtomicVar[T], z :A, f :(T, A) => T) :T =
-//	{
-//		var curr = v.value
-//		var newValue = f(curr, z)
-//		while (!weakTestAndSet(v, curr, newValue)) {
-//			val x = v.value
-//			if (x != curr) {
-//				curr = x
-//				newValue = f(curr, z)
-//			}
-//		}
-//		newValue
-//	}
-//	protected def updateRightRef[A, T](v :AtomicOps.AtomicVar[T], z :A, f :(T, A) => T) :T = {
-//		var curr = v.value
-//		var newValue = f(curr, z)
-//		while (!weakTestAndSet(v, curr, newValue)) {
-//			val x = v.value
-//			if (x.asInstanceOf[AnyRef] ne curr.asInstanceOf[AnyRef]) {
-//				curr = x
-//				newValue = f(curr, z)
-//			}
-//		}
-//		newValue
-//	}
-//*/
 }
 
 
@@ -316,45 +266,60 @@ abstract class AtomicOps[+V[T] <: InOut[T]] { //abstract class, not trait, becau
 //todo: make the default companion use equality for ref types,
 // make a special Ref variant for current classes, which use referential equality instead (even for value types),
 // and this Frankenstein mix using 'Java' semantics.
+/**
+  * @note the backing field holding the value must be named `x`, as it is accessed through reflection.
+  */
 abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 
+	/** A plain factory method equivalent to `new V[T]`. This method relies only on automatic specialization,
+	  * and does not return manually specialized classes. For that, see [[AtomicCompanion.newSpecific newSpecific]].
+	  * This means that the returned variable may be illegal for `T=:=Boolean` or `T <:< AnyRef`.
+	  */
 	protected def newInstance[@specialized(SpecializedVars) T](init :T) : V[T]
 	protected def newRefInstance[T](init :T) :V[T]
 	protected def newBoolInstance(init :Boolean) :V[Boolean]
 
 	protected def newSpecific[@specialized(SpecializedVars) T](init :T) :V[T] = newInstance(init) match {
-		case any if any.getClass == CaseUnspec => newRefInstance(init)
+		case ref if ref.getClass == CaseRef    => ref //Essentially, new V[T](init) is a valid instance.
+		case any if any.getClass == CaseUnspec => newRefInstance(init) //Manually specialized instance for reference types.
 		case bool if bool.getClass == CaseBool => newBoolInstance(init.asInstanceOf[Boolean]).asInstanceOf[V[T]]
 		case res => res
 	}
 
 	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T =
 		(v.getClass match {
-			case CaseAny | CaseUnspec    => anyHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any])
+			case CaseRef | CaseUnspec    => refHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any])
 			case CaseInt                 => intHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Int])
 			case CaseLong                => longHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Long])
-			case CaseBool | CaseBoolSpec => boolHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Boolean])
 			case CaseDouble              => doubleHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Double])
+			case CaseBool | CaseBoolSpec => boolHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Boolean])
 			case CaseFloat               => floatHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Float])
 			case CaseByte                => byteHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Byte])
 			case CaseChar                => charHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Char])
 			case CaseShort               => shortHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Short])
-			case _                       => anyHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any]) //CaseUnspec
+			case _                       => refHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any]) //CaseUnspec
 		}).asInstanceOf[T]
+
+	protected final def getAndSetRef[T](v :AtomicOps.AtomicVar[T], newValue :T) :T =
+		refHandle.getAndSet(v :AnyRef, newValue.asInstanceOf[Any])
+//
+//	private def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], field :VarHandle, newValue :T) :T =
+//		field.getAndSet(v :AnyRef, newValue)
 
 	protected override def testAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T)
 			:Boolean =
 		v.getClass match {
-			case CaseAny | CaseUnspec    =>
-				anyHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
+			case CaseRef | CaseUnspec    =>
+				genericTestAndSet(v, expect, newValue)
+//				refHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
 			case CaseInt      =>
 				intHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Int], newValue.asInstanceOf[Int])
 			case CaseLong     =>
 				longHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Long], newValue.asInstanceOf[Long])
-			case CaseBool | CaseBoolSpec =>
-				boolHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Boolean], newValue.asInstanceOf[Boolean])
 			case CaseDouble   =>
 				doubleHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Double], newValue.asInstanceOf[Double])
+			case CaseBool | CaseBoolSpec =>
+				boolHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Boolean], newValue.asInstanceOf[Boolean])
 			case CaseFloat    =>
 				floatHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Float], newValue.asInstanceOf[Float])
 			case CaseByte     =>
@@ -364,14 +329,19 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 			case CaseShort    =>
 				shortHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Short], newValue.asInstanceOf[Short])
 			case _            =>
-				anyHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any]) //CaseUnspec
+				refHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any]) //CaseUnspec
 		}
+//
+//	protected def testAndSet[@specialized(SpecializedVars) T]
+//	                        (v :AtomicOps.AtomicVar[T], field :VarHandle, expect :T, newValue :T) :Boolean =
+//		field.compareAndSet(v :AnyRef, expect, newValue)
 
 	protected override def weakTestAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T)
 			:Boolean =
 		v.getClass match {
-			case CaseAny | CaseUnspec    =>
-				anyHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
+			case CaseRef | CaseUnspec    =>
+				genericWeakTestAndSet(v, expect, newValue)
+//				refHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
 			case CaseInt                 =>
 				intHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Int], newValue.asInstanceOf[Int])
 			case CaseLong                =>
@@ -389,8 +359,15 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 			case CaseShort               =>
 				shortHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Short], newValue.asInstanceOf[Short])
 			case _                       =>
-				anyHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any]) //CaseUnspec
+				genericWeakTestAndSet(v, expect, newValue)
+//				refHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any]) //CaseUnspec
 		}
+
+	protected override def testAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		refHandle.compareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
+
+	protected override def weakTestAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		refHandle.weakCompareAndSet(v :AnyRef, expect.asInstanceOf[Any], newValue.asInstanceOf[Any])
 
 	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean) :Boolean =
 		boolHandle(v).weakCompareAndSet(v, expect, newValue)
@@ -407,7 +384,7 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 
 	private def boolHandle(variable :InOut[Boolean]) :VarHandle = variable.getClass match {
 		case CaseBool | CaseBoolSpec => boolHandle
-		case _                       => anyHandle
+		case _                       => refHandle
 	}
 
 	private[this] val CaseByte     = newInstance(0.toByte).getClass
@@ -419,7 +396,7 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 	private[this] val CaseFloat    = newInstance(0.0f).getClass
 	private[this] val CaseBool     = newInstance(false).getClass
 	private[this] val CaseBoolSpec = newBoolInstance(false).getClass
-	private[this] val CaseAny      = newRefInstance(new AnyRef).getClass
+	private[this] val CaseRef      = newRefInstance(new AnyRef).getClass
 	private[this] val CaseUnspec   = newInstance(new AnyRef).getClass
 
 	private[this] val byteHandle   = newHandle(CaseByte, java.lang.Byte.TYPE)
@@ -430,7 +407,7 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 	private[this] val floatHandle  = newHandle(CaseFloat, java.lang.Float.TYPE)
 	private[this] val doubleHandle = newHandle(CaseDouble, java.lang.Double.TYPE)
 	private[this] val boolHandle   = newHandle(CaseBool, java.lang.Boolean.TYPE)
-	private[this] val anyHandle    = newHandle(newRefInstance(null).getClass, classOf[Any])
+	private[this] val refHandle    = newHandle(newRefInstance(null).getClass, classOf[Any])
 
 	private def newHandle[T](varType :Class[_], paramType :Class[_]) =
 		MethodHandles.lookup().findVarHandle(varType, scalaFieldName(varType, valueVariableName), paramType)
@@ -440,17 +417,71 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 
 
 
+abstract class AtomicRefCompanion[+V[X] <: AtomicOps.AtomicVar[X]] extends AtomicCompanion[V] {
+	protected override def newRefInstance[T](init :T) :V[T] = newInstance(init)
+	protected override def newBoolInstance(init :Boolean) :V[Boolean] = newInstance(init)
+	protected override def newSpecific[@specialized(SpecializedVars) T](init :T) :V[T] = newInstance(init)
 
+	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T =
+		getAndSetRef(v, newValue)
+
+	protected override def testAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T],
+	                                                                   expect :T, newValue :T) :Boolean =
+		testAndSetRef(v, expect, newValue)
+
+	protected override def weakTestAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T],
+	                                                                       expect :T, newValue :T) :Boolean =
+		weakTestAndSetRef(v, expect, newValue)
+
+	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean)
+			:Boolean =
+		??!
+
+	protected override def repeatTestAndSetBool(v :AtomicOps.AtomicVar[Boolean],
+	                                            expect :Boolean, ifExpected :Boolean, ifNotExpected :Boolean) :Boolean =
+		??!
+}
+
+
+
+/**
+  * @define ApplyDoc In a specialized context, the returned $Ref will be a `@specialized` class
+  *                  with a field of type `T`. When `T` is generic (not known at call site), the created variable
+  *                  will have an erased reference field. For implementations which use referential identity
+  *                  rather than value equality, the semantics of instances created by specialized
+  *                  and non specialized calls may differ.
+  */
 abstract class AtomicFactory[+V[X] <: AtomicOps.AtomicVar[X]] extends AtomicCompanion[V] {
-	/** Create a new $ref which can be shared by multiple threads. */
+
+	/** Create a new $ref of the specified initial value, which can be shared by multiple threads. $ApplyDoc
+	  */
 	def apply[@specialized(SpecializedVars) T](init :T) :V[T] = newSpecific(init)
 
-	/** Create a new $ref which can be shared by multiple threads. */
+	/** Create a new $ref which can be shared by multiple threads. The variable will be initialized
+	  * with the default value for type `T`, provided by its type class. $ApplyDoc
+	  */
 	def apply[@specialized(SpecializedVars) T](implicit default :DefaultValue[T]) :V[T] = apply(default.get)
 
+	/** Creates a properly `@specialized` $ref in a generic context based on implicit class information for `T`. */
+	def generic[T](init :T)(implicit tag :ClassTag[T]) :V[T] = {
+		val cls = tag.runtimeClass
+		if (cls.isPrimitive) (cls : @nowarn) match {
+			case classes.Int     => apply(init.asInstanceOf[Int]).asInstanceOf[V[T]]
+			case classes.Long    => apply(init.asInstanceOf[Long]).asInstanceOf[V[T]]
+			case classes.Double  => apply(init.asInstanceOf[Double]).asInstanceOf[V[T]]
+			case classes.Boolean => apply(init.asInstanceOf[Boolean]).asInstanceOf[V[T]]
+			case classes.Char    => apply(init.asInstanceOf[Char]).asInstanceOf[V[T]]
+			case classes.Byte    => apply(init.asInstanceOf[Byte]).asInstanceOf[V[T]]
+			case classes.Float   => apply(init.asInstanceOf[Float]).asInstanceOf[V[T]]
+			case classes.Short   => apply(init.asInstanceOf[Short]).asInstanceOf[V[T]]
+		} else
+			apply(init)
+	}
+
+
 	/** Creates a properly `@specialized` $ref in a generic context based on an implicit class information for `T`. */
-	def generic[T](init :T) :V[T] = (init : @nowarn) match {
-		case _ if !init.getClass.isBox => apply(init)
+	def generic[T](implicit default :DefaultValue[T]) :V[T] = (default.get : @nowarn) match {
+		case _ if !default.get.getClass.isBox => apply(default.get)
 		case v :Integer     => apply[Int](v).asInstanceOf[V[T]]
 		case v :Long        => apply[Long](v).asInstanceOf[V[T]]
 		case v :Double      => apply[Double](v).asInstanceOf[V[T]]
@@ -460,7 +491,4 @@ abstract class AtomicFactory[+V[X] <: AtomicOps.AtomicVar[X]] extends AtomicComp
 		case v :Byte        => apply[Byte](v).asInstanceOf[V[T]]
 		case v :Short       => apply[Short](v).asInstanceOf[V[T]]
 	}
-
-	/** Creates a properly `@specialized` $ref in a generic context based on an implicit class information for `T`. */
-	def generic[T](default :DefaultValue[T]) :V[T] = generic(default.get)
 }

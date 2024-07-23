@@ -53,9 +53,11 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 	private[this] val watchers             = new ConcurrentSkipListMap[Any, T => Unit].asScala
 	private[this] val synchronousWatchers  = new ConcurrentSkipListMap[Any, T => Unit].asScala
 
-	private def set(value :T) :Unit = x = value
+	//todo: verify that the field is not retained when passed as a constructor argument (scala bug)
+	// and move initialization to the constructor.
+	protected def set(value :T) :Unit = x = value
 
-	protected override def factory :Watched.type = Watched
+	protected override def factory :AtomicCompanion[Watched] = Watched
 
 	final override def value :T = x
 
@@ -79,7 +81,7 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 		trigger(newValue)
 	}
 
-	private def trigger(currentValue :T) :Unit = {
+	protected def trigger(currentValue :T) :Unit = {
 		var exception: Exception = null //the first exception caught in this method, following are added as suppressed
 		if (executor eq SerialExecutor) { //ignore the executor and manually inline the callbacks
 			def schedule(key :Any, callback: T => Unit): Unit =
@@ -229,7 +231,8 @@ sealed class Watched[@specialized(SpecializedVars) T] private[vars] (implicit ex
 
 
 /** A factory of boxed `@volatile` variables which evaluate passed callbacks every time a value is changed.
-  * @define variable watched variable
+  * @define Ref `Watched`
+  * @define ref watched variable
   */
 @SerialVersionUID(Ver)
 case object Watched extends AtomicCompanion[Watched] {
@@ -330,3 +333,79 @@ case object Watched extends AtomicCompanion[Watched] {
 	private class Bool(implicit executor :Executor = SerialExecutor) extends Watched[Boolean] with BoolAtomicVar
 
 }
+
+
+
+
+
+
+/** A [[net.noresttherein.sugar.vars.Volatile Volatile]]-like atomic variable using referential equality,
+  * which additionally executes callback actions each time its value is changed.
+  * It is similar in function to [[net.noresttherein.sugar.vars.Watched Watched]],
+  * but ''test-and-set'' operations promote the value to `AnyRef` and compare it with `eq`, rather than `equals`
+  * @define Ref `WatchedRef`
+  * @define ref watched reference
+  */
+@SerialVersionUID(Ver)
+final class WatchedRef[T] private(v :T)(implicit executor :Executor = SerialExecutor)
+	extends Watched[T] with AtomicOps.RefAtomicVar[T]
+{
+	set(v)
+	protected override def factory :WatchedRef.type = WatchedRef
+	private def fire(currentValue :T) :Unit = trigger(currentValue)
+
+	private[vars] override def isSpecialized = false
+
+	override def mkString :String = mkString("WatchedRef")
+	override def toString :String = "WatchedRef(" + value + ")@" + this.identityHashCodeString
+}
+
+
+
+
+/** A factory of boxed `@volatile` reference variables which evaluate passed callbacks every time a value is changed.
+  * @see [[net.noresttherein.sugar.vars.Watched$ Watched]]
+  * @define Ref `WatchedRef`
+  * @define ref watched reference
+  */
+@SerialVersionUID(Ver)
+case object WatchedRef extends AtomicRefCompanion[WatchedRef] {
+
+	/** Create a new $variable which can be shared and watched by multiple threads. The implicit
+	  * [[java.util.concurrent.Executor Executor]] will be used to execute the registered callbacks.
+	  * If no implicit value exists, [[net.noresttherein.sugar.vars.Watched.SerialExecutor SynchronousExecutor]]
+	  * will be used instead.
+	  */ //consider: T <: AnyRef
+	def apply[T](init :T)(implicit executor :Optionally[Executor]) :WatchedRef[T] = new WatchedRef[T](init)
+
+	/** Create a new $variable which can be shared and watched by multiple threads, initialized with the default
+	  * value for this type (zero, `false` or `null`). The implicit [[java.util.concurrent.Executor Executor]]
+	  * will be used to execute the registered callbacks. If no implicit value exists,
+	  * [[net.noresttherein.sugar.vars.Watched.SerialExecutor SerialExecutor]] will be used instead.
+	  */ //consider: T <: AnyRef
+	def apply[T](implicit default :DefaultValue[T], executor :Optionally[Executor]) :Watched[T] =
+		apply(default.get)(executor)
+
+
+
+	/** The simplest executor which executes the given [[Runnable]] immediately in the body of its `execute` method. */
+	val SerialExecutor :Executor = Watched.SerialExecutor
+
+	//these are only used to access classes of each specialized implementation, we care not about executors
+	protected override def newInstance[@specialized(SpecializedVars) T](init :T) :WatchedRef[T] =
+		new WatchedRef[T](init)
+
+	protected override def getAndSet[@specialized(SpecializedVars) T](v: AtomicOps.AtomicVar[T], newValue: T) :T = {
+		val res = getAndSetRef(v, newValue)
+		v.asInstanceOf[WatchedRef[T]].fire(newValue)
+		res
+	}
+	protected override def testAndSet[@specialized(SpecializedVars) T](v: AtomicOps.AtomicVar[T], expect: T, newValue: T)
+			:Boolean =
+		testAndSetRef(v, expect, newValue) && { v.asInstanceOf[WatchedRef[T]].fire(newValue); true }
+
+	protected override def weakTestAndSet[@specialized(SpecializedVars) T](v: AtomicOps.AtomicVar[T], expect: T, newValue: T)
+			:Boolean =
+		weakTestAndSetRef(v, expect, newValue) && { v.asInstanceOf[WatchedRef[T]].fire(newValue); true }
+}
+

@@ -53,11 +53,11 @@ import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
   * @author Marcin Mościcki marcin@moscicki.net
   */
 @SerialVersionUID(Ver)
-final class SpinVar[@specialized(SpecializedVars) T] private[vars]
+sealed class SpinVar[@specialized(SpecializedVars) T] private[vars]
 	extends AtomicOps.AtomicVar[T] with Mutable[T] with Serializable
 {
 	protected override def factory :AtomicOps[SpinVar] = SpinVar
-	
+
 	/** The underlying variable field. */
 	private[this] var x :T = _
 
@@ -121,6 +121,7 @@ final class SpinVar[@specialized(SpecializedVars) T] private[vars]
 	/** Atomically updates the value of this variable with the given function. This is equivalent to
 	  * `this := f(this); this.get` with the guarantee that no other thread will modify the value of this variable
 	  * between the individual operations.
+	  * @note function `f` is executed under a spin lock, so must be very brief.
 	  * @param f function to apply to the value of this variable.
 	  * @return result of applying `f` to the current value.
 	  */
@@ -207,25 +208,22 @@ case object SpinVar extends AtomicOps[SpinVar] {
 		SpinVar(default.get)	
 
 
-	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T = {
-		val spin = v.asInstanceOf[SpinVar[T]]
-		spin.locked {
-			val res = spin.unsafe; spin.unsafe = newValue; res
-		}
-	}
+	protected override def getAndSet[@specialized(SpecializedVars) T](v :AtomicOps.AtomicVar[T], newValue :T) :T =
+		v.asInstanceOf[SpinVar[T]] ?= newValue
 
 	protected override def testAndSet[@specialized(SpecializedVars) T]
 	                                 (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
-	{
-		val spin = v.asInstanceOf[SpinVar[T]]
-		spin.locked {
-			spin.unsafe == expect && { spin.unsafe = newValue; true }
-		}
-	}
+		v.asInstanceOf[SpinVar[T]].testAndSet(expect, newValue)
 
 	protected override def weakTestAndSet[@specialized(SpecializedVars) T]
 	                                     (v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
 		testAndSet(v, expect, newValue)
+//unused:
+	protected override def testAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		genericTestAndSet(v, expect, newValue)
+
+	protected override def weakTestAndSetRef[T](v :AtomicOps.AtomicVar[T], expect :T, newValue :T) :Boolean =
+		genericTestAndSet(v, expect, newValue)
 
 	protected override def weakTestAndSetBool(v :AtomicOps.AtomicVar[Boolean], expect :Boolean, newValue :Boolean)
 			:Boolean =
@@ -253,11 +251,11 @@ case object SpinVar extends AtomicOps[SpinVar] {
 	  */
 	implicit class SpinVarBooleanLogic(private val self :SpinVar[Boolean]) extends AnyVal {
 		/** Atomically assigns this variable its logical conjunction with the given argument: `this := this && other`. */
-		@inline def &&=(other: =>Boolean) :Unit =
+		@inline def &&=(other: => Boolean) :Unit =
 			try { self.lock(); self.unsafe = self.unsafe && other } finally self.unlock()
 
 		/** Atomically assigns this variable its logical disjunction with the given argument: `this := this || other`. */
-		@inline def ||=(other: =>Boolean) :Unit =
+		@inline def ||=(other: => Boolean) :Unit =
 			try { self.lock(); self.unsafe = self.unsafe || other } finally self.unlock()
 	}
 
@@ -307,4 +305,41 @@ case object SpinVar extends AtomicOps[SpinVar] {
 		classOf[SpinVar[Any]], "mutex", java.lang.Long.TYPE
 	)
 	private final val Unlocked = -1L
+}
+
+
+
+
+
+
+/** An atomic variable updated under a spin lock which uses referential equality (`eq`)
+  * to compare new value with the old one.
+  * @see [[net.noresttherein.sugar.vars.SpinVar! SpinVar]]
+  * @define Ref `SpinRef`
+  * @define ref spin reference
+  */  //todo: this probably shouldn't be a SpinVar, as it inherits only implementation.
+@SerialVersionUID(Ver)
+final class SpinRef[T] private (v :T) extends SpinVar[T] {
+	value = v
+
+	override def testAndSet(expect :T, newValue :T) :Boolean = locked {
+		(unsafe.asInstanceOf[AnyRef] eq expect.asInstanceOf[AnyRef]) && { unsafe = newValue; true }
+	}
+	private[vars] override def isSpecialized = false
+}
+
+
+/** An atomic variable updated under a spin lock which uses referential equality (`eq`)
+  * to compare new value with the old one.
+  * @see [[net.noresttherein.sugar.vars.SpinVar$ SpinVar]]
+  * @define Ref `SpinRef`
+  * @define ref spin reference
+  */
+@SerialVersionUID(Ver)
+case object SpinRef {
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
+	def apply[T](value :T) :SpinRef[T] = new SpinRef(value)
+
+	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
+	def apply[T](implicit default :DefaultValue[T]) :SpinRef[T] = new SpinRef(default.get)
 }
