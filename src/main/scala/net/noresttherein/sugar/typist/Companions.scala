@@ -36,7 +36,7 @@ object Companions {
 	implicit val BigInt     :Companions[scala.BigInt.type, BigInt]   = new Companions
 	implicit val bigDecimal :Companions[BigDecimal.type, BigDecimal] = new Companions
 
-	implicit def timeProjection[O <: TimeProjector { type Phase = T }, T]
+	implicit def timeProjection[O <: TimeProjector { type Projection = T }, T]
 	                           (implicit inferPhase :O <:< (TimeProjector { type Projection = T })) :Companions[O, T] =
 		instance.asInstanceOf[Companions[O, T]]
 
