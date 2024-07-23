@@ -32,7 +32,7 @@ sealed trait Transient[@specialized(SpecializedVars) +T] extends Pure[T] {
   * serialization and deserialization.
   */
 @SerialVersionUID(Ver)
-object Transient {
+case object Transient {
 	//todo: a macro accepting idempotent: => T
 
 	/** Creates a lazily initialized value which may set it to the value of the by-name argument multiple times:

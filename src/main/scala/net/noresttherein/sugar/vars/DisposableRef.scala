@@ -182,7 +182,7 @@ class WeakRef[+T] private (referent :T, queue :ReferenceQueue[T])
   * @define Ref `WeakRef`
   * @define ref weak reference
   */
-object WeakRef extends DisposableRefFactory[WeakRef] {
+case object WeakRef extends DisposableRefFactory[WeakRef] {
 	@inline override def apply[T](referent :T) :WeakRef[T] = new WeakRef(referent)
 	@inline override def apply[T](referent :T, queue :RefQueue[T]) :WeakRef[T] = new WeakRef[T](referent, queue.underlying)
 
@@ -216,7 +216,7 @@ class SoftRef[+T] private (referent :T, queue :ReferenceQueue[T])
   * @define Ref `SoftRef`
   * @define ref soft reference
   */
-object SoftRef extends DisposableRefFactory[SoftRef] {
+case object SoftRef extends DisposableRefFactory[SoftRef] {
 	@inline override def apply[T](referent :T) :SoftRef[T] = new SoftRef(referent)
 	@inline override def apply[T](referent :T, queue :RefQueue[T]) :SoftRef[T] = new SoftRef(referent, queue.underlying)
 
@@ -253,7 +253,7 @@ class PhantomRef[+T] private (referent :T, queue :ReferenceQueue[T])
   * @define Ref `PhantomRef`
   * @define ref phantom reference
   */
-object PhantomRef extends DisposableRefFactory[PhantomRef] {
+case object PhantomRef extends DisposableRefFactory[PhantomRef] {
 	@inline override def apply[T](referent :T) :PhantomRef[T] = new PhantomRef(referent)
 	@inline override def apply[T](referent :T, queue :RefQueue[T]) :PhantomRef[T] = new PhantomRef(referent, queue)
 }

@@ -30,7 +30,8 @@ sealed class ThreadLocal[T] protected (local :java.lang.ThreadLocal[T]) extends 
 
 
 /** A factory of `InOut[T]` variables backed by thread local storage. */
-object ThreadLocal {
+@SerialVersionUID(Ver)
+case object ThreadLocal {
 	def apply[T](init: => T) :ThreadLocal[T] = new ThreadLocal[T](() => init)
 
 	@inline def apply[T](implicit default :DefaultValue[T]) :ThreadLocal[T] = new ThreadLocal(default.toFunction0)

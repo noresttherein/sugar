@@ -42,7 +42,7 @@ import net.noresttherein.sugar.vars.Unsure.conversions.sureAny
   * $optionalTypesInfo
   *
   * As `Nullable` is a value class, and its type parameters are reference types, `Nullable` cannot nest.
-  * The limited disambiguouity potential this affords, together with the fact that it will never result in boxing
+  * The limited disambiguity potential this affords, together with the fact that it will never result in boxing
   * unless used in position of an abstract type, allows implicit conversion `T => Nullable[T]` to be enabled
   * by default, which serves as another differentiator from `Maybe`.
   *
@@ -469,7 +469,7 @@ class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nul
   * @see [[net.noresttherein.sugar.vars.Nullable.NonNull]]
   */
 @SerialVersionUID(Ver)
-object Nullable {
+case object Nullable {
 	/** Wraps the given object in a purely syntactic option-like object erased in the runtime. */
 	@inline final def apply[T <: AnyRef](value :T) :Nullable[T] = new Nullable(value)
 

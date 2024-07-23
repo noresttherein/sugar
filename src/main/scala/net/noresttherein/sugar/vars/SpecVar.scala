@@ -14,7 +14,7 @@ private trait SpecVar[@specialized(Int) X] {
 
 
 
-private object SpecVar {
+private case object SpecVar {
 	@inline def apply[X](implicit valueType :VarType[X]) :SpecVar[X] = valueType()
 
 	abstract class VarType[@specialized(Int) X] {

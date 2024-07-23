@@ -32,7 +32,7 @@ trait Pure[@specialized(SpecializedVars) +T] extends Lazy[T] {
 
 
 @SerialVersionUID(Ver)
-object Pure {
+case object Pure {
 
 	/** Creates a lazy value initialized - possibly multiple times - by an idempotent expression.
 	  * This class does not use a `synchronized` block, yielding a minor performance benefit
@@ -117,7 +117,7 @@ private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
 				res = init()
 				//res is a primitive wrapper (like Integer) whose field is final,
 				// so anyone reading evaluated is guaranteed to either see its previous value, or a valid box.
-				// Moreover, because intializer is assumed to be idempotent, i.e return equal instances,
+				// Moreover, because initializer is assumed to be idempotent, i.e return equal instances,
 				// the reader does not care if they see a previous (equal) box, or the current one.
 				evaluated = res
 				releaseFence() //Any thread observing initializer == null must see evaluated = res
@@ -315,4 +315,5 @@ trait AbstractPure[@specialized(SpecializedVars) +T] {
 		out.defaultWriteObject()
 	}
 }
+
 

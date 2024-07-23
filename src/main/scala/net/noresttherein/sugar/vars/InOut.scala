@@ -2,9 +2,15 @@ package net.noresttherein.sugar.vars
 
 import scala.Specializable.Args
 import scala.annotation.nowarn
+import scala.collection.mutable
 
-import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TestAndSet, TypeEquiv}
+import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.{noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TestAndSet}
 import net.noresttherein.sugar.vars.Maybe.Yes
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -170,74 +176,6 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 		val res = f(value, z); value = res; res
 	}
 
-//	def map[O](f :T => O) :Var[O]
-	/************************************** Boolean methods ***********************************************************/
-	//we could make these private in a separate InOutOps trait, and have a factory property like in AtomicOps.Var,
-	// So extension methods and what not would delegate to this.factory.<method>.
-	// We could not guarantee the type of this `InOut`, though.
-
-	private[vars] def bool_&=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = //ev(this).updateLeft(other)(_ & _)
-		if (!other) ev(this).value = false
-	private[vars] def bool_|=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = //ev(this).updateLeft(other)(_ | _)
-		if (other) ev(this).value = true
-	private[vars] def bool_&&=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
-		val self = ev(this)
-		//Race condition doesn't change the result, because it would set this to the same value as 'if'.
-		if (self.value && !other)
-			self.value = false
-	}
-	private[vars] def bool_||=(other: => Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = {
-		val self = ev(this)
-		if (!self.value && other)
-			self.value = true
-	}
-	private[vars] def bool_^=(other :Boolean)(implicit ev :T TypeEquiv Boolean) :Unit = ev(this).updateLeft(other)(_ ^ _)
-	private[vars] def bool_!=(implicit ev :T TypeEquiv Boolean) :Boolean = ev(this).update(!_)
-
-	/************************************** Int methods ***************************************************************/
-
-	private[vars] def int_+=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ + _)
-	private[vars] def int_*=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ * _)
-	private[vars] def int_/=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ / _)
-	private[vars] def int_%=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ % _)
-	private[vars] def int_-(implicit ev :T TypeEquiv Int) :Int = ev(this).update(-_)
-	private[vars] def int_~(implicit ev :T TypeEquiv Int) :Int = ev(this).update(~_)
-	private[vars] def int_|=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ | _)
-	private[vars] def int_&=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ & _)
-	private[vars] def int_^=(other :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(other)(_ ^ _)
-	private[vars] def int_>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >> _)
-	private[vars] def int_>>>=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ >>> _)
-	private[vars] def int_<<=(n :Int)(implicit ev :T TypeEquiv Int) :Int = ev(this).updateRight(n)(_ << _)
-
-	/************************************** Long methods **************************************************************/
-
-	private[vars] def long_+=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ + _)
-	private[vars] def long_*=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ * _)
-	private[vars] def long_/=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ / _)
-	private[vars] def long_%=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ % _)
-	private[vars] def long_-(implicit ev :T TypeEquiv Long) :Long = ev(this).update(-_)
-	private[vars] def long_~(implicit ev :T TypeEquiv Long) :Long = ev(this).update(~_)
-	private[vars] def long_|=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ | _)
-	private[vars] def long_&=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ & _)
-	private[vars] def long_^=(other :Long)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(other)(_ ^ _)
-	private[vars] def long_>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >> _)
-	private[vars] def long_>>>=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ >>> _)
-	private[vars] def long_<<=(n :Int)(implicit ev :T TypeEquiv Long) :Long = ev(this).updateRight(n)(_ << _)
-
-	/************************************** Float methods *************************************************************/
-	//fixme: Float, Byte, Short, Char, Boolean being not specialized defeat the purpose of these methods.
-	private[vars] def float_+=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ + _)
-	private[vars] def float_*=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ * _)
-	private[vars] def float_/=(other :Float)(implicit ev :T TypeEquiv Float) :Float = ev(this).updateRight(other)(_ / _)
-	private[vars] def float_-(implicit ev :T TypeEquiv Float) :Float = ev(this).update(-_)
-
-	/************************************** Double methods ************************************************************/
-
-	private[vars] def double_+=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ + _)
-	private[vars] def double_*=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ * _)
-	private[vars] def double_/=(other :Double)(implicit ev :T TypeEquiv Double) :Double = (ev(this) :\= other)(_ / _)
-	private[vars] def double_-(implicit ev :T TypeEquiv Double) :Double = ev(this).update(-_)
-
 	//todo: specialization
 	override def equals(that :Any) :Boolean = that match {
 		case self :AnyRef if this eq self => true
@@ -262,7 +200,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
   * @define ref variable
   */
 @SerialVersionUID(Ver)
-object InOut {
+case object InOut {
 	final val SpecializedVars = new Specializable.Group(Byte, Short, Char, Int, Long, Float, Double, Boolean)
 
 	/** Create a wrapper over a '''`var`''' of type `T` which can be passed as an in/out method parameter. */
@@ -370,14 +308,18 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def &=(other :Boolean) :Unit =  x.bool_&=(other)
+		@inline def &=(other :Boolean) :Unit =  x.updateRight(other)(_ & _)
 
 		/** Assigns this $ref its (lazy) logical conjunction with the given argument: `x := x && other`.
 		  * As the static type of this $ref is the generic `InOut[Boolean]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def &&=(other: =>Boolean) :Unit = x.bool_&&=(other)
+		@inline def &&=(other: =>Boolean) :Unit =
+			//Race condition doesn't change the result, because it would set this to the same value as 'if'.
+			if (x.value && !other)
+				x.value = false
+
 
 		/** Assigns this $ref its (eager) logical disjunction with the given argument: `x := x | other`.
 		  * It should be preferred to `||` whenever the argument is readily available (such as a `val` member), as
@@ -386,21 +328,24 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def |=(other :Boolean) :Unit = x.bool_|=(other)
+		@inline def |=(other :Boolean) :Unit = x.updateRight(other)(_ | _)
 
 		/** Assigns this $ref its (lazy) logical disjunction with the given argument: `x := x || other`.
 		  * As the static type of this $ref is the generic `InOut[Boolean]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def ||=(other: =>Boolean) :Unit = x.bool_||=(other)
+		@inline def ||=(other: =>Boolean) :Unit =
+			if (!x.value && other)
+				x.value = true
+
 
 		/** Performs on this $ref logical ''xor'' with the given argument: `x := x ^ other`.
 		  * As the static type of this $ref is the generic `InOut[Boolean]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def ^=(other :Boolean) :Unit = x.bool_^=(other)
+		@inline def ^=(other :Boolean) :Unit = x.updateRight(other)(_ ^ _)
 
 		/** Negates the value of this $ref: `x := !x`.
 		  * As the static type of this $ref is the generic `InOut[Boolean]`, this results in a polymorphic method
@@ -408,14 +353,14 @@ object InOut {
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  * @return the new (negated) value of this $ref
 		  */
-		@inline def neg() :Boolean = x.bool_!=
+		@inline def neg() :Boolean = x.update(!_)
 
 		/** Negates the value of this $ref: `x := !x`.
 		  * As the static type of this $ref is the generic `InOut[Boolean]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def flip() :Unit = x.bool_!=
+		@inline def flip() :Unit = x.update(!_)
 
 
 		/** Assigns `false` to this $ref and returns `true` ''iff'' it was `true` at the beginning of this call. */
@@ -441,49 +386,49 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def +=(n :Int) :Unit = x.int_+=(n)
+		@inline def +=(n :Int) :Unit = x.updateRight(n)(_ + _)
 
 		/** Decreases the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def -=(n :Int) :Unit = x.int_+=(-n)
+		@inline def -=(n :Int) :Unit = x.updateRight(n)(_ - _)
 
 		/** Multiplies the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def *=(n :Int) :Unit = x.int_*=(n)
+		@inline def *=(n :Int) :Unit = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def /=(n :Int) :Unit = x.int_/=(n)
+		@inline def /=(n :Int) :Unit = x.updateRight(n)(_ / _)
 
 		/** Assigns to this $ref the remainder of division by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def %=(n :Int) :Unit = x.int_%=(n)
+		@inline def %=(n :Int) :Unit = x.updateRight(n)(_ % _)
 
 		/** Increments this $ref by `1`, C-style.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@nowarn @inline def ++ :Unit = x.int_+=(1)
+		@nowarn @inline def ++ :Unit = x.update(_ + 1)
 
 		/** Decrements this $ref by `1`, C-style.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@nowarn @inline def -- :Unit = x.int_+=(-1)
+		@nowarn @inline def -- :Unit = x.update(_ - 1)
 
 
 		/** Increases the value of this $ref by the specified number, returning the updated value.
@@ -491,56 +436,56 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def inc(n :Int) :Int = x.int_+=(n)
+		@inline def inc(n :Int) :Int = x.updateRight(n)(_ + _)
 
 		/** Decreases the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def dec(n :Int) :Int = x.int_+=(-n)
+		@inline def dec(n :Int) :Int = x.updateRight(n)(_ - _)
 
 		/** Multiplies the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def mult(n :Int) :Int = x.int_*=(n)
+		@inline def mult(n :Int) :Int = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def div(n :Int) :Int = x.int_/=(n)
+		@inline def div(n :Int) :Int = x.updateRight(n)(_ / _)
 
 		/** Assigns to this $ref the reminder of division by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def rem(n :Int) :Int = x.int_%=(n)
+		@inline def rem(n :Int) :Int = x.updateRight(n)(_ % _)
 
 		/** Increments this $ref by `1`, C-style, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def inc() :Int = x.int_+=(1)
+		@inline def inc() :Int = x.update(_ + 1)
 
 		/** Decrements this $ref by `1`, C-style, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def dec() :Int = x.int_+=(-1)
+		@inline def dec() :Int = x.update(_ - 1)
 
 		/** Assigns this $ref its opposite value (`this := -this`), returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def neg() :Int = x.int_-
+		@inline def neg() :Int = x.update(-_)
 
 
 		/** Performs bitwise disjunction on this $ref with the given number.
@@ -548,21 +493,21 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def |=(n :Int) :Unit = x.int_|=(n)
+		@inline def |=(n :Int) :Unit = x.updateRight(n)(_ | _)
 
 		/** Performs bitwise conjunction on this $ref with the given number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def &=(n :Int) :Unit = x.int_&=(n)
+		@inline def &=(n :Int) :Unit = x.updateRight(n)(_ & _)
 
 		/** Performs bitwise exclusive disjunction on this $ref with the given number.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def ^=(n :Int) :Unit = x.int_^=(n)
+		@inline def ^=(n :Int) :Unit = x.updateRight(n)(_ ^ _)
 
 		/** Bit-shifts right the value of this $ref by the specified number of bits,
 		  * replacing shifted higher bits with the sign bit. As the static type of this $ref is the generic `InOut[Int]`,
@@ -570,7 +515,7 @@ object InOut {
 		  * possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def >>=(n :Int) :Unit = x.int_>>=(n)
+		@inline def >>=(n :Int) :Unit = x.updateRight(n)(_ >> _)
 
 		/** Bit-shifts right the value of this $ref by the specified number of bits,
 		  * replacing shifted higher bits with zeros. As the static type of this $ref is the generic `InOut[Int]`,
@@ -578,7 +523,7 @@ object InOut {
 		  * possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def >>>=(n :Int) :Unit = x.int_>>>=(n)
+		@inline def >>>=(n :Int) :Unit = x.updateRight(n)(_ >>> _)
 
 		/** Bit-shifts left the value of this $ref by the specified number of bits,
 		  * replacing shifted higher bits with zeros. As the static type of this $ref is the generic `InOut[Int]`,
@@ -586,14 +531,14 @@ object InOut {
 		  * possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def <<=(n :Int) :Unit = x.int_<<=(n)
+		@inline def <<=(n :Int) :Unit = x.updateRight(n)(_ << _)
 
 		/** Assigns this $ref its bitwise negation: `this := !this.value`.
 		  * As the static type of this $ref is the generic `InOut[Int]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def flip() :Unit = x := x.int_~
+		@inline def flip() :Unit = x := x.update(~_)
 	}
 
 
@@ -615,49 +560,49 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def +=(n :Long) :Unit = x.long_+=(n)
+		@inline def +=(n :Long) :Unit = x.updateRight(n)(_ + _)
 
 		/** Decreases the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def -=(n :Long) :Unit = x.long_+=(-n)
+		@inline def -=(n :Long) :Unit = x.updateRight(n)(_ - _)
 
 		/** Multiplies the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def *=(n :Long) :Unit = x.long_*=(n)
+		@inline def *=(n :Long) :Unit = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def /=(n :Long) :Unit = x.long_/=(n)
+		@inline def /=(n :Long) :Unit = x.updateRight(n)(_ / _)
 
 		/** Assigns to this $ref the remainder of division by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def %=(n :Long) :Unit = x.long_%=(n)
+		@inline def %=(n :Long) :Unit = x.updateRight(n)(_ % _)
 
 		/** Increments this $ref by `1`, C-style.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@nowarn @inline def ++ :Unit = x.long_+=(1)
+		@nowarn @inline def ++ :Unit = x.update(_ + 1L)
 
 		/** Decrements this $ref by `1`, C-style.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@nowarn @inline def -- :Unit = x.long_+=(-1)
+		@nowarn @inline def -- :Unit = x.update(_ - 1L)
 
 
 		/** Increases the value of this $ref by the specified number, returning the updated value.
@@ -665,56 +610,56 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def inc(n :Long) :Long = x.long_+=(n)
+		@inline def inc(n :Long) :Long = x.updateRight(n)(_ + _)
 
 		/** Decreases the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def dec(n :Long) :Long = x.long_+=(-n)
+		@inline def dec(n :Long) :Long = x.updateRight(n)(_ - _)
 
 		/** Multiplies the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def mult(n :Long) :Long = x.long_*=(n)
+		@inline def mult(n :Long) :Long = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def div(n :Long) :Long = x.long_/=(n)
+		@inline def div(n :Long) :Long = x.updateRight(n)(_ / _)
 
 		/** Assigns to this $ref the reminder of division by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def rem(n :Long) :Long = x.long_%=(n)
+		@inline def rem(n :Long) :Long = x.updateRight(n)(_ % _)
 
 		/** Increments this $ref by `1`, C-style, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def inc() :Long = x.long_+=(1)
+		@inline def inc() :Long = x.update(_ + 1L)
 
 		/** Decrements this $ref by `1`, C-style, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def dec() :Long = x.long_+=(-1)
+		@inline def dec() :Long = x.update(_ - 1L)
 
 		/** Assigns this $ref its opposite value (`this := -this`), returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def neg() :Long = x.long_-
+		@inline def neg() :Long = x.update(-_)
 
 
 		/** Performs bitwise disjunction on this $ref with the given number.
@@ -722,21 +667,21 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def |=(n :Long) :Unit = x.long_|=(n)
+		@inline def |=(n :Long) :Unit = x.updateRight(n)(_ | _)
 
 		/** Performs bitwise conjunction on this $ref with the given number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def &=(n :Long) :Unit = x.long_&=(n)
+		@inline def &=(n :Long) :Unit = x.updateRight(n)(_ & _)
 
 		/** Performs bitwise exclusive disjunction on this $ref with the given number.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def ^=(n :Long) :Unit = x.long_^=(n)
+		@inline def ^=(n :Long) :Unit = x.updateRight(n)(_ ^ _)
 
 		/** Bit-shifts right the value of this $ref by the specified number of bits,
 		  * replacing shifted higher bits with the sign bit. As the static type of this $ref is the generic `InOut[Long]`,
@@ -744,7 +689,7 @@ object InOut {
 		  * possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def >>=(n :Int) :Unit = x.long_>>=(n)
+		@inline def >>=(n :Int) :Unit = x.updateRight(n)(_ >> _)
 
 		/** Bit-shifts right the value of this $ref by the specified number of bits,
 		  * replacing shifted higher bits with zeros. As the static type of this $ref is the generic `InOut[Long]`,
@@ -752,7 +697,7 @@ object InOut {
 		  * possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def >>>=(n :Int) :Unit = x.long_>>>=(n)
+		@inline def >>>=(n :Int) :Unit = x.updateRight(n)(_ >>> _)
 
 		/** Bit-shifts left the value of this $ref by the specified number of bits,
 		  * replacing shifted higher bits with zeros. As the static type of this $ref is the generic `InOut[Long]`,
@@ -760,14 +705,14 @@ object InOut {
 		  * possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def <<=(n :Int) :Unit = x.long_<<=(n)
+		@inline def <<=(n :Int) :Unit = x.updateRight(n)(_ << _)
 
 		/** Assigns this $ref its bitwise negation: `this := !this.value`.
 		  * As the static type of this $ref is the generic `InOut[Long]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def flip() :Unit = x := x.long_~
+		@inline def flip() :Unit = x := x.update(~_)
 	}
 
 
@@ -786,28 +731,28 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def +=(n :Float) :Unit = x.float_+=(n)
+		@inline def +=(n :Float) :Unit = x.updateRight(n)(_ + _)
 
 		/** Decreases the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def -=(n :Float) :Unit = x.float_+=(-n)
+		@inline def -=(n :Float) :Unit = x.updateRight(n)(_ - _)
 
 		/** Multiplies the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def *=(n :Float) :Unit = x.float_*=(n)
+		@inline def *=(n :Float) :Unit = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def /=(n :Float) :Unit = x.float_/=(n)
+		@inline def /=(n :Float) :Unit = x.updateRight(n)(_ / _)
 
 
 		/** Increases the value of this $ref by the specified number, returning the updated value.
@@ -815,35 +760,35 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def inc(n :Float) :Float = x.float_+=(n)
+		@inline def inc(n :Float) :Float = x.update(_ + 1f)
 
 		/** Decreases the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def dec(n :Float) :Float = x.float_+=(-n)
+		@inline def dec(n :Float) :Float = x.update(_ - 1f)
 
 		/** Multiplies the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def mult(n :Float) :Float = x.float_*=(n)
+		@inline def mult(n :Float) :Float = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def div(n :Float) :Float = x.float_/=(n)
+		@inline def div(n :Float) :Float = x.updateRight(n)(_ / _)
 
 		/** Assigns this $ref its opposite value (`this := -this`), returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Float]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def neg() :Float = x.float_-
+		@inline def neg() :Float = x.update(-_)
 	}
 
 
@@ -862,28 +807,28 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def +=(n :Double) :Unit = x.double_+=(n)
+		@inline def +=(n :Double) :Unit = x.updateRight(n)(_ + _)
 
 		/** Decreases the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def -=(n :Double) :Unit = x.double_+=(-n)
+		@inline def -=(n :Double) :Unit = x.updateRight(n)(_ - _)
 
 		/** Multiplies the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def *=(n :Double) :Unit = x.double_*=(n)
+		@inline def *=(n :Double) :Unit = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def /=(n :Double) :Unit = x.double_/=(n)
+		@inline def /=(n :Double) :Unit = x.updateRight(n)(_ / _)
 
 
 		/** Increases the value of this $ref by the specified number, returning the updated value.
@@ -891,35 +836,35 @@ object InOut {
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def inc(n :Double) :Double = x.double_+=(n)
+		@inline def inc(n :Double) :Double = x.update(_ + 1.0)
 
 		/** Decreases the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def dec(n :Double) :Double = x.double_+=(-n)
+		@inline def dec(n :Double) :Double = x.update(_ - 1.0)
 
 		/** Multiplies the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def mult(n :Double) :Double = x.double_*=(n)
+		@inline def mult(n :Double) :Double = x.updateRight(n)(_ * _)
 
 		/** Divides the value of this $ref by the specified number, returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def div(n :Double) :Double = x.double_/=(n)
+		@inline def div(n :Double) :Double = x.updateRight(n)(_ / _)
 
 		/** Assigns this $ref its opposite value (`this := -this`), returning the updated value.
 		  * As the static type of this $ref is the generic `InOut[Double]`, this results in a polymorphic method
 		  * call to enforce any additional contract or functionality possibly provided by its actual dynamic type.
 		  * In particular, if the underlying variable is atomic or synchronized, this operation will be, too.
 		  */
-		@inline def neg() :Double = x.double_-
+		@inline def neg() :Double = x.update(-_)
 	}
 
 
@@ -955,4 +900,70 @@ object InOut {
 	private[vars] implicit val CharEq   :TypeIdent[Char]    = new TypeIdent[Char]
 	private[vars] val AnyRefEq          :TypeIdent[AnyRef]  = new TypeIdent[AnyRef]
 
+}
+
+
+
+
+
+
+abstract class AbstractInOut[E] extends InOut[E] {
+	override def isFinal = false
+	override def isFinalizable = false
+	override def isConst = false
+
+	override def isDefined :Boolean = isDefinite
+
+	override def value    :E = opt match {
+		case One(res) => res
+		case _        => noSuch_!(toString + ".value")
+	}
+	override def get      :E = value
+	override def const    :Nothing = noSuch_!(toString + ".const")
+	override def toOpt    :Opt[E] = opt
+	override def constOpt :Opt[E] = None
+
+	override def toString = opt match {
+		case One(value) => String.valueOf(value)
+		case _          => this.localClassName + "()"
+	}
+}
+
+
+
+
+@SerialVersionUID(Ver)
+private[sugar] class IndexedSeqLens[E](seq :mutable.IndexedSeqOps[E, Any1, _], idx :Int)
+	extends AbstractInOut[E] with Serializable
+{
+	if (idx < 0 | idx > seq.length)
+		outOfBounds_!("Index " + idx + " out of bounds for IndexedSeqLens(" + errorString(seq) + ")")
+
+	override def isDefinite = idx >= 0 & idx < seq.length
+	override def opt      :Opt[E] = if (idx >= 0 & idx < seq.length) One(seq(idx)) else None
+
+	override def value_=(newValue :E) :Unit = seq(idx) = newValue
+	override def value =
+		try seq(idx) catch {
+			case e :IndexOutOfBoundsException => //Possible in case of a buffer.
+				noSuch_!("Index " + idx + " out of bounds for IndexedSeqLens(" + errorString(seq) + ")", e)
+		}
+	override def toString :String =
+		if (idx >= 0 && idx < seq.length) String.valueOf(value)
+		else "IndexedSeqLens(invalid: " + errorString(seq) + "(" + idx + "))"
+}
+
+
+@SerialVersionUID(Ver)
+private[sugar] class ArrayLens[E](array :Array[E], idx :Int) extends AbstractInOut[E] with Serializable {
+	if (idx < 0 | idx > array.length)
+		outOfBounds_!("Index " + idx + " out of bounds for ArrayLens(" + errorString(array) + ")")
+
+	override def isDefinite = true
+	override def opt      :Opt[E] = One(array(idx))
+
+	override def value_=(newValue :E) :Unit = array(idx) = newValue
+	override def value = array(idx)
+
+	override def toString :String = String.valueOf(array(idx))
 }

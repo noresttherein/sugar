@@ -1,8 +1,6 @@
 package net.noresttherein.sugar.vars
 
-import scala.Specializable.Args
-
-import net.noresttherein.sugar.vars.AtomicOps.{BoolAtomicVar, RefAtomicVar}
+import net.noresttherein.sugar.vars.AtomicOps.BoolAtomicVar
 import net.noresttherein.sugar.vars.InOut.{InOutOrdering, SpecializedVars}
 import net.noresttherein.sugar.witness.DefaultValue
 

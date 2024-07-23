@@ -41,7 +41,7 @@ final class EqRef[+T] private (x :T) extends Ref[T] with FinalRef[T] with Serial
 
 /** A factory of light wrappers defining equality as referential equality (`eq`) of their underlying values. */
 @SerialVersionUID(Ver)
-object EqRef {
+case object EqRef {
 	/** Creates an immutable wrapper over `value` defining equality as `value eq _`. */
 	def apply[T](value :T) :EqRef[T] = new EqRef(value)
 

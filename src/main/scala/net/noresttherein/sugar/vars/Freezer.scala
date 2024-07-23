@@ -214,7 +214,7 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 /** Factory of boxed [[net.noresttherein.sugar.vars.Freezer Freezer]] variables.
   */
 @SerialVersionUID(Ver)
-object Freezer {
+case object Freezer {
 	/** Create a new finalizable variable which can be shared by multiple threads. */
 	def apply[@specialized(SpecializedVars) T](init :T) :Freezer[T] = {
 		val res = new Freezer[T]

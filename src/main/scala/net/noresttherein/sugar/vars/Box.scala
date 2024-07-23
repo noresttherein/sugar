@@ -336,7 +336,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
   * @see [[net.noresttherein.sugar.vars.Box!]]
   */
 @SerialVersionUID(Ver)
-object Box {
+case object Box {
 	/** Creates a new, empty box. The returned instance is not thread safe. */
 	def apply[@specialized(SpecializedVars) T] :Box[T] = new Plain
 
@@ -402,7 +402,7 @@ sealed trait VolatileBox[@specialized(SpecializedVars) T] extends Box[T]
 
 
 @SerialVersionUID(Ver)
-object VolatileBox {
+case object VolatileBox {
 	/** Creates a new, empty box. The instance is thread safe with the same memory access semantics
 	  * as a [[net.noresttherein.sugar.vars.Volatile Volatile]] variable. All operations are atomic.
 	  */

@@ -224,7 +224,7 @@ sealed class Channel[@specialized(SpecializedVars) T] private[vars] () extends I
 
 
 @SerialVersionUID(Ver)
-object Channel {
+case object Channel {
 	/** Creates a new synchronization channel for passing values of type `T` between threads. */
 	def apply[@specialized(SpecializedVars) T] :Channel[T] = new Channel[T]
 

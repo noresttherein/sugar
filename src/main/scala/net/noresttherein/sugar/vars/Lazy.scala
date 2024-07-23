@@ -144,7 +144,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 
 /** A factory of lazy values. */
 @SerialVersionUID(Ver)
-object Lazy {
+case object Lazy {
 
 	/** Creates a wrapper over a lazily initialized value roughly equivalent to a built in `lazy val`.
 	  * The differences are:

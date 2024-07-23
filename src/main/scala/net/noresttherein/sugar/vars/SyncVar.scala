@@ -4,7 +4,7 @@ import scala.Specializable.Args
 import scala.annotation.nowarn
 
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
-import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
 
 
@@ -148,30 +148,6 @@ case object SyncVar extends AtomicOps[SyncVar] {
 				ifNotExpected
 			}
 		}
-	protected override def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
-		val res = v.value + value; v.value = res; res
-	}
-	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
-		val res = v.value & value; v.value = res; res
-	}
-	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
-		val res = v.value | value; v.value = res; res
-	}
-	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Int], value :Int) :Int = v.synchronized {
-		val res = v.value ^ value; v.value = res; res
-	}
-	protected override def getAndAdd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
-		val res = v.value + value; v.value = res; res
-	}
-	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
-		val res = v.value & value; v.value = res; res
-	}
-	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
-		val res = v.value | value; v.value = res; res
-	}
-	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Long], value :Long) :Long = v.synchronized {
-		val res = v.value ^ value; v.value = res; res
-	}
 
 
 

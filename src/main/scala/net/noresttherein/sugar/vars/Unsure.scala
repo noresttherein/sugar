@@ -427,7 +427,8 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 /** A factory of `Option`-like values [[net.noresttherein.sugar.vars.Unsure Unsure]]`[T]`, providing additionally
   * implicit conversions to and from [[scala.Option]], [[net.noresttherein.sugar.vars.Maybe]] and [[Iterable]].
   */
-object Unsure {
+@SerialVersionUID(Ver)
+case object Unsure {
 
 	/** An `Unsure` factory which creates [[net.noresttherein.sugar.vars.Sure Sure]]`(value)`
 	  * if the argument is not null, and [[net.noresttherein.sugar.vars.Missing Missing]] if it is null.

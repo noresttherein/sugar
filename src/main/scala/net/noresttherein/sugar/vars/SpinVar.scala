@@ -6,7 +6,7 @@ import scala.Specializable.Args
 
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
 import net.noresttherein.sugar.concurrent.currentThreadId
-import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.SpinVar.{Unlocked, stateField}
 import net.noresttherein.sugar.witness.{DefaultValue, ReferentialOrdering}
 
@@ -149,7 +149,7 @@ final class SpinVar[@specialized(SpecializedVars) T] private[vars]
 			mutex = Unlocked
 
 
-	/** Applies given function to the value of this $ref, while holding the lock for this variable.
+	/** Applies the given function to the value of this $ref, while holding the lock for this variable.
 	  * This can be used to acquire monitors of several variables, recursively, or using ''for comprehension'' syntax:
 	  * {{{
 	  *     val var1 = SpinVar(1)
@@ -160,14 +160,14 @@ final class SpinVar[@specialized(SpecializedVars) T] private[vars]
 	def flatMap[O](f :T => O) :O =
 		try { lock(); f(x) } finally mutex = Unlocked
 
-	/** Applies given function to the value of this $ref, while holding the lock for this variable.
+	/** Applies the given function to the value of this $ref, while holding the lock for this variable.
 	  * This can be used to acquire monitors of several variables, recursively, or using ''for comprehension'' syn tax
 	  * @see [[net.noresttherein.sugar.vars.SpinVar.flatMap flatMap]]
 	  */
 	def map[O](f :T => O) :O =
 		try { lock(); f(x) } finally mutex = Unlocked
 
-	/** Applies given function to the value of this $ref, while holding the lock for this variable.
+	/** Applies the given function to the value of this $ref, while holding the lock for this variable.
 	  * This can be used to acquire monitors of several variables, recursively, or using ''for comprehension'' syntax:
 	  * {{{
 	  *     val var1 = SpinVar(1)
@@ -243,54 +243,6 @@ case object SpinVar extends AtomicOps[SpinVar] {
 				spin.unsafe = ifNotExpected
 				ifNotExpected
 			}
-		}
-	}
-	protected override def getAndAdd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
-		val spin = v.asInstanceOf[SpinVar[Int]]
-		spin.locked {
-			val res = spin.unsafe + value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
-		val spin = v.asInstanceOf[SpinVar[Int]]
-		spin.locked {
-			val res = spin.unsafe & value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
-		val spin = v.asInstanceOf[SpinVar[Int]]
-		spin.locked {
-			val res = spin.unsafe | value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Int], value :Int) :Int = {
-		val spin = v.asInstanceOf[SpinVar[Int]]
-		spin.locked {
-			val res = spin.unsafe ^ value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndAdd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
-		val spin = v.asInstanceOf[SpinVar[Long]]
-		spin.locked {
-			val res = spin.unsafe + value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndBitwiseAnd(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
-		val spin = v.asInstanceOf[SpinVar[Long]]
-		spin.locked {
-			val res = spin.unsafe & value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndBitwiseOr(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
-		val spin = v.asInstanceOf[SpinVar[Long]]
-		spin.locked {
-			val res = spin.unsafe | value; spin.unsafe = res; res
-		}
-	}
-	protected override def getAndBitwiseXor(v :AtomicOps.AtomicVar[Long], value :Long) :Long = {
-		val spin = v.asInstanceOf[SpinVar[Long]]
-		spin.locked {
-			val res = spin.unsafe ^ value; spin.unsafe = res; res
 		}
 	}
 

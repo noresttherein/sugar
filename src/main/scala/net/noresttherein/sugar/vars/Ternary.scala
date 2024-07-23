@@ -597,7 +597,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
   * @see [[net.noresttherein.sugar.vars.Ternary.Known$]]
   */
 @SerialVersionUID(Ver)
-object Ternary {
+case object Ternary {
 	private final val Yes       =  1
 	private final val No        =  0
 	private final val NoContent = -1

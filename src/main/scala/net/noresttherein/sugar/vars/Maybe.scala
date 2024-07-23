@@ -486,9 +486,9 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 /** Companion object providing factory methods and extractors working with [[net.noresttherein.sugar.vars.Maybe Maybe]]s.
   * @see [[net.noresttherein.sugar.vars.Maybe.No]]
   * @see [[net.noresttherein.sugar.vars.Maybe.Yes]]
-  */ //todo: rename Yes to Got and No to Lack; consider swapping the namee with Unsure.
+  */ //todo: rename Yes to Got and No to Lack; consider swapping the name with Unsure.
 @SerialVersionUID(Ver)
-object Maybe {
+case object Maybe {
 	/** Wraps the given object in a purely syntactic option-like object erased in the runtime. */
 	@inline final def apply[T](value :T) :Maybe[T] =
 		if (value == null) No else new Maybe(value.asInstanceOf[AnyRef])

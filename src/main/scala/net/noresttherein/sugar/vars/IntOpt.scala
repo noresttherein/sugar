@@ -481,7 +481,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
   * @see [[net.noresttherein.sugar.vars.IntOpt.AnInt$]]
   */
 @SerialVersionUID(Ver)
-object IntOpt {
+case object IntOpt {
 	private final val Content = 0xffffffffL
 	private final val NoContent = Long.MinValue
 

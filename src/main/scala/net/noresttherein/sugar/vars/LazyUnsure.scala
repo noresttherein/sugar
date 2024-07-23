@@ -99,7 +99,7 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 
 
 @SerialVersionUID(Ver)
-object LazyUnsure {
+case object LazyUnsure {
 	def apply[@specialized(SpecializedVars) T](init: => Opt[T]) :LazyUnsure[T] = new SyncUnsure(() => init)
 
 	def eager[@specialized(SpecializedVars) T](value :T) :LazyUnsure[T] = new EagerUnsure(One(value))

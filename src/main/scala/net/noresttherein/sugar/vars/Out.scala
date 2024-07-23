@@ -22,7 +22,6 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * @define ref value
   * @author Marcin Mościcki
   */
-@SerialVersionUID(Ver) //consider: does it make sense for it to be Serializable?
 sealed trait Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] with Serializable {
 	@inline final override def isEmpty       :Boolean = !isDefined
 	@inline final override def isFinalizable :Boolean = isDefined
@@ -56,7 +55,7 @@ sealed trait Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] w
   * at most once.
   */
 @SerialVersionUID(Ver)
-object Out {
+case object Out {
 	/** Create an uninitialized [[net.noresttherein.sugar.vars.InOut InOut]] which cannot be accessed before
 	  * its value is explicitly initialized, and which value can be set at most once.
 	  */
@@ -64,6 +63,7 @@ object Out {
 
 	implicit def outOrdering[T :Ordering] :Ordering[Out[T]] = Val.valOrdering
 
+	@SerialVersionUID(Ver)
 	private sealed class LocalOut[@specialized(SpecializedVars) T] private[vars] extends Out[T] {
 		private[this] var x :T = _
 		private[this] var isSet = false //set through InOut.isSetField VarHandle
@@ -140,7 +140,7 @@ sealed class VolatileOut[@specialized(SpecializedVars) T] private[vars] extends 
   * This [[net.noresttherein.sugar.vars.InOut InOut]] extension allows the value of the variable to be set at most once.
   */
 @SerialVersionUID(Ver)
-object VolatileOut {
+case object VolatileOut {
 	/** Create an uninitialized [[net.noresttherein.sugar.vars.InOut InOut]] which cannot be accessed before
 	  * its value is explicitly initialized, and which value can be set at most once.
 	  */

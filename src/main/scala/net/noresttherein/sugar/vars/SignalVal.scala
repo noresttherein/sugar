@@ -136,7 +136,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 
 
 @SerialVersionUID(Ver)
-object SignalVal {
+case object SignalVal {
 	/** Creates a new, uninitialized [[net.noresttherein.sugar.vars.SignalVal SignalVal]] instance. */
 	def apply[T] :SignalVal[T] = new SignalVal[T]
 
