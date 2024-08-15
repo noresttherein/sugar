@@ -5,12 +5,14 @@ import scala.util.{Failure, Success, Try}
 
 import net.noresttherein.sugar
 import net.noresttherein.sugar.collections.Ranking
+import net.noresttherein.sugar.casting.castTypeParamMethods
+import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
+import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
+import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
-import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
-import net.noresttherein.sugar.casting.castTypeParamMethods
 
 
 
@@ -981,6 +983,23 @@ package object vars extends vars.varsTypeClasses {
 			if (self.isInstanceOf[Throwable] | other.isInstanceOf[Throwable]) No
 			else Yes(self == other)
 	}
+
+
+
+	/** A value of type `X` passed either 'by value' (as a constant) or 'by name' (as a Scala expression evaluated
+	  * each time the value is needed). It is equivalent to `Either[X, () => X]`, but it does not box.
+	  * The factories for each of the cases are located in the companion object
+	  * [[net.noresttherein.sugar.vars.Term$ Term]]:
+	  *   - [[net.noresttherein.sugar.vars.Term.Expression Expression]] wraps a `() => X`
+	  *   - [[net.noresttherein.sugar.vars.Term.Value Value]] wraps an `X`.
+	  *
+	  * Both serve also as match patterns distinguishing the cases. The only circumstance in which an instance
+	  * of `Term[X]` requires runtime boxing is if `X <: Function0[_]` itself.
+	  *
+	  * This type is in particular useful in classes which implement lazy value semantics:
+	  * a `Term[X]` field can be set to an `Expression(init)`, and later replaced with a `Value(init())`.
+	  */
+	type Term[+X]
 }
 
 
@@ -989,8 +1008,6 @@ package object vars extends vars.varsTypeClasses {
 
 
 package vars {
-
-	import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
 
 	private[sugar] sealed abstract class varsTypeClasses {
 //		@inline implicit def OptToMaybe[T](opt :Opt[T]) :Maybe[T] = opt.toMaybe //consider: making these explicit
@@ -1567,6 +1584,48 @@ package vars {
 
 			@inline implicit def everythingIsDone[T](value :T) :Outcome[T] = Done(value)
 		}
+	}
+
+
+
+	/** Factories/match patterns for [[net.noresttherein.sugar.vars.Term! Term]]. */
+	@SerialVersionUID(Ver)
+	case object Term {
+		/** A [[net.noresttherein.sugar.vars.Term! Term]] represented by a (lazy) Scala expression.
+		  * Wraps and unwraps `() => X` to/from `Term[X]`.
+		  */
+		@SerialVersionUID(Ver)
+		case object Expression {
+			@inline def of[X](init: => X) :Term[X] = apply(() => init)
+
+			@inline def apply[X](init :() => X) :Term[X] = {
+				releaseFence()
+				init.asInstanceOf[Term[X]]
+			}
+			@inline def unapply[X](v :Term[X]) :Maybe[() => X] = v match {
+				case init :(() => X) @unchecked => acquireFence(); Yes(init)
+				case _                          => No
+			}
+		}
+
+		/** A [[net.noresttherein.sugar.vars.Term! Term]] represented by a constant value.
+		  * Wraps and unwraps `X` to/from `Term[X]`.
+		  */
+		@SerialVersionUID(Ver)
+		case object Value {
+			@inline def apply[X](value :X) :Term[X] = value match {
+				case _ :(() => Any) => releaseFence(); new Value(value).asInstanceOf[Term[X]]
+				case _              => releaseFence(); value.asInstanceOf[Term[X]]
+			}
+			@inline def unapply[X](v :Term[X]) :Maybe[X] = v match {
+				case _ :(() => Any)         => No
+				case v :Value[X @unchecked] => Yes(v.value)
+				case v :X @unchecked        => acquireFence(); Yes(v)
+			}
+		}
+
+		@SerialVersionUID(Ver)
+		private[sugar] case class Value[X](value :X)
 	}
 
 
