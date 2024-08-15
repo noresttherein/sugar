@@ -14,8 +14,8 @@ import net.noresttherein.sugar.extensions.classNameMethods
 
 
 
-/** An skeleton for extractor objects which can be used both in pattern matching and to directly attempt to narrow
-  * down or extract `Out` out of a `In` type value. It is a single abstract method type (''SAM'') and thus
+/** A skeleton for extractor objects which can be used both in pattern matching and to directly attempt to narrow
+  * down or extract `Out` out of an `In` type value. It is a single abstract method type (''SAM'') and thus
   * the compiler will convert a lambda function `In => Maybe[Out]` where the type `MatchPattern[In, Out]` is expected,
   * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
   * It is similar to [[PartialFunction]], but its `apply` method is equivalent to `unapply`,
@@ -161,7 +161,7 @@ object MatchPattern { //todo: a constructor macro adapting a partial function li
 
 
 
-/** An skeleton for matching pattern objects which can be also used directly to verify if the argument
+/** A skeleton for matching pattern objects which can be also used directly to verify if the argument
   * matches this pattern. It is a single abstract method type (''SAM'') and thus
   * the compiler will convert a lambda function `In => Boolean` where the type `BooleanMatchPattern[In]` is expected,
   * eliminating the overhead of wrapping a function while preserving the convenience of the shortened definition.
