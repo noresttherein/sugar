@@ -1,16 +1,11 @@
 package net.noresttherein.sugar.vars
 
-import java.io.ObjectOutputStream
-
-import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.vars.Ref.undefined
 
 
 
@@ -56,11 +51,9 @@ case object Pure {
 	  * rather a by-name parameter.
 	  */
 	def from[@specialized(SpecializedVars) T](initializer: () => T) :Pure[T] =
-		new PureVal[T] match {
-			case ref if ref.getClass == classOf[Val[Any]] => new PureRef(initializer)
-			case spec =>
-				spec.init(initializer)
-				spec
+		new PureVal[T](initializer) match {
+			case ref if ref.getClass == classOf[PureVal[Any]] => new PureRef(initializer)
+			case spec => spec
 		}
 
 	/** A wrapper over an already computed value adapting it to the `Pure` type. It is used
@@ -90,81 +83,47 @@ case object Pure {
 
 
 /** Nothing specialized in this implementation, it only guarantees that `T` is a primitive/immutable wrapper,
-  * which allows more lax synchronisation.
+  * which allows more lax synchronisation. We however rely on it being `@specialized` to recognize that we should
+  * use `PureRef` instead.
   */
 @SerialVersionUID(Ver)
-private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
-	private[this] var initializer : () => T = _
-	private[this] var evaluated :Any = undefined
+private class PureVal[@specialized(SpecializedVars) +T](private[this] var content :Any) extends Pure[T] {
 
-	def init(init :() => T @uncheckedVariance) :Unit = initializer = init
+	override def isDefinite :Boolean = !content.isInstanceOf[() => _]
 
-	override def isDefinite :Boolean = evaluated != undefined
-
-	@unspecialized override def value :T = {
-		val res = evaluated
-		if (res != undefined) res.asInstanceOf[T]
-		else noSuch_!("Uninitialized Pure")
+	@unspecialized override def value :T = content match {
+		case _ :(() => Any)    => noSuch_!("Uninitialized Pure")
+		case res :T @unchecked => res
 	}
-	@unspecialized override def get :T = {
-		var res = evaluated
-		if (res == undefined) {
-			val init = initializer
+	@unspecialized override def get :T = content match {
+		case init :(() => T) @unchecked =>
 			acquireFence()
-			if (init == null)
-				res = evaluated
-			else {
-				res = init()
-				//res is a primitive wrapper (like Integer) whose field is final,
-				// so anyone reading evaluated is guaranteed to either see its previous value, or a valid box.
-				// Moreover, because initializer is assumed to be idempotent, i.e return equal instances,
-				// the reader does not care if they see a previous (equal) box, or the current one.
-				evaluated = res
-				releaseFence() //Any thread observing initializer == null must see evaluated = res
-				initializer = null
-			}
-		}
-		res.asInstanceOf[T]
+			val res = init()
+			content = res
+			res
+		case res :T @unchecked => res
 	}
 
-	override def option :Option[T] = {
-		val res = evaluated
-		if (res == undefined) None else Some(res.asInstanceOf[T])
+	override def option :Option[T] = content match {
+		case _ :(() => Any)      => None
+		case res :T @unchecked => Some(res)
 	}
-	override def opt :Opt[T] = {
-		val res = evaluated
-		if (res == undefined) None else One(res.asInstanceOf[T])
+	override def opt :Opt[T] = content match {
+		case _ :(() => Any)      => None
+		case res :T @unchecked => One(res)
 	}
-	override def unsure :Unsure[T] = {
-		val res = evaluated
-		if (res == undefined) Missing else Sure(res.asInstanceOf[T])
+	override def unsure :Unsure[T] = content match {
+		case _ :(() => Any)      => Missing
+		case res :T @unchecked => Sure(res)
 	}
 
-	@unspecialized override def map[O](f :T => O) :Lazy[O] = {
-		val v = evaluated
-		if (v != undefined)
-			Pure.eager(f(v.asInstanceOf[T]))
-		else {
-			val init = initializer
-			acquireFence()
-			if (init == null)
-				Pure.eager(f(evaluated.asInstanceOf[T]))
-			else
-				new PureRef(() => f(apply()))
-		}
+	@unspecialized override def map[O](f :T => O) :Lazy[O] = content match {
+		case _ :(() => Any)    => new PureRef(() => f(apply()))
+		case v :T @unchecked => Pure.eager(f(v))
 	}
-	@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
-		val v = evaluated
-		if (v != undefined)
-			f(v.asInstanceOf[T])
-		else {
-			val init = initializer
-			acquireFence()
-			if (init == null)
-				f(evaluated.asInstanceOf[T])
-			else
-				new PureRef(f(apply()))
-		}
+	@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = content match {
+		case _ :(() => Any)    => new PureRef(f(apply()))
+		case v :T @unchecked => f(v)
 	}
 
 	override def isSpecialized = true
@@ -180,7 +139,7 @@ private class PureVal[@specialized(SpecializedVars) +T] extends Pure[T] {
   */
 @SerialVersionUID(Ver)
 private class PureRef[T](private[this] var initializer :() => T) extends Pure[T] {
-	@volatile private[this] var evaluated :T = _
+	private[this] var evaluated :T = _
 
 	override def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
 
@@ -254,66 +213,3 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 
 	private def writeReplace :AnyRef = Pure.eager(apply())
 }
-
-
-
-
-
-/** A full [[net.noresttherein.sugar.vars.Pure Pure]]-like lazy value implementation as a mix-in trait
-  * for application classes, in particular various lazy proxies. Does not implement any interface
-  * in order to not burden extending classes with unnecessary, and potentially conflicting, API.
-  * For this reason all methods are protected, with subclasses having full control over what API they want to expose.
-  */
-trait AbstractPure[@specialized(SpecializedVars) +T] {
-	@transient protected[this] var initializer :() => T
-	@volatile private[this] var evaluated :T = _
-
-	@inline protected final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
-
-	/** Returns `Yes(value)` if the expression has already been evaluated, or `No` otherwise. */
-	protected def ? :Maybe[T] = //Not opt, because of risk of conflicts.
-		if (initializer != null)
-			No
-		else {
-			acquireFence()
-			Yes(evaluated)
-		}
-	/** Returns `Sure(value)` if the expression has already been evaluated, or `Missing` otherwise. */
-	protected def unsure :Unsure[T] =
-		if (initializer != null)
-			Missing
-		else {
-			acquireFence()
-			Sure(evaluated)
-		}
-
-	/** Returns the value of this expression, or throws `NoSuchElementException`, if it has not yet been evaluated. */
-	protected def indefinite :T =
-		if (initializer == null) {
-			acquireFence()
-			evaluated
-		} else
-			noSuch_!("Uninitialized " + this)
-
-	/** Returns the value of this expression, evaluating it, if needed. */
-	protected def definite :T = {
-		val init = initializer
-		acquireFence()
-		if (init == null)
-			evaluated
-		else {
-			val res = init()
-			evaluated = res
-			releaseFence()
-			initializer = null
-			res
-		}
-	}
-
-	private def writeObject(out :ObjectOutputStream) :Unit = {
-		definite
-		out.defaultWriteObject()
-	}
-}
-
-

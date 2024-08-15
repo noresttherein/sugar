@@ -1,8 +1,11 @@
 package net.noresttherein.sugar.vars
 
+import java.io.ObjectOutputStream
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
 
+import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -378,17 +381,86 @@ private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) ext
 
 
 
-/** A full [[net.noresttherein.sugar.vars.Lazy Lazy]]-like lazy value implementation as a mix-in trait
-  * for application classes, in particular various lazy proxies. Differs from its base trait `AbstractPure`
-  * in that initialization is done under this object's monitor, guaranteeing the constructor will be invoked
-  * at most once. Does not implement any interface in order to not burden extending classes with unnecessary,
-  * and potentially conflicting, API.
+/** A mix-in trait for application classes with a full lazy field implementation, in particular for various lazy proxies.
+  * It closely resembles [[net.noresttherein.sugar.vars.Lazy Lazy]], but does not extend any trait
+  * or expose public methods, in order to not burden extending classes with unnecessary, potentially conflicting, API.
   * For this reason all methods are protected, with subclasses having full control over what API they want to expose.
+  * @see [[net.noresttherein.sugar.vars.AbstractLazy AbstractLazy]]
+  * @see [[net.noresttherein.sugar.vars.AbstractPure AbstractPure]]
+  */ //consider: dropping specialization.
+sealed trait LazyOps[@specialized(SpecializedVars) +T] {
+	/** The lazy expression providing the value for the lazy field. */
+	@transient protected[this] var initializer :() => T
+	private[this] var evaluated :T = _
+
+	/** True if the lazy field is initialized. */
+	@inline protected final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
+
+	/** Returns `Yes(value)` if the expression has already been evaluated, or `No` otherwise. */
+	protected def ? :Maybe[T] = //Not opt, because of risk of conflicts.
+		if (initializer != null)
+			No
+		else {
+			acquireFence()
+			Yes(evaluated)
+		}
+	/** Returns `Sure(value)` if the expression has already been evaluated, or `Missing` otherwise. */
+	protected def unsure :Unsure[T] =
+		if (initializer != null)
+			Missing
+		else {
+			acquireFence()
+			Sure(evaluated)
+		}
+
+	/** Returns the value of this expression, or throws `NoSuchElementException`, if it has not yet been evaluated. */
+	protected def indefinite :T =
+		if (initializer == null) {
+			acquireFence()
+			evaluated
+		} else
+			noSuch_!("Uninitialized " + this)
+
+	/** Returns the value of this expression, evaluating it, if needed. */
+	protected def definite :T = {
+		val init = initializer
+		acquireFence()
+		if (init == null)
+			evaluated
+		else {
+			val res = init()
+			evaluated = res
+			releaseFence()
+			initializer = null
+			res
+		}
+	}
+
+	protected def init(v :T @uncheckedVariance) :Unit = {
+		evaluated = v
+		initializer = null
+	}
+
+	private def writeObject(out :ObjectOutputStream) :Unit = {
+		definite
+		out.defaultWriteObject()
+	}
+}
+
+
+
+/** A trait with a lazy field, initialized under this object's monitor.
+  * It is very similar to simply declaring a `private lazy val` in a class, but it additionally provides protected API
+  * allowing to check initialization state. Extending classes must implement `protected[this] var initializer :() => T`.
+  * The initialized field value can be accessed using [[net.noresttherein.sugar.vars.LazyOps.definite definite]]
+  * property, and [[net.noresttherein.sugar.vars.LazyOps.isDefinite isDefinite]] returning `false` means the field
+  * is already initialized, and `definite` will simply return its value, without invoking `initializer`
+  * (which is set to `null` after initialization). The constructor is guaranteed to be invoked at most once.
   *
-  * @note the order of inheritance here is the opposite of Pure and Lazy vars. This is because it is easier
-  *       to add synchronization than remove it, without public API for initialization.
+  * This utility class is useful for implementing lazy proxies implementing interface `T`, whose methods should unwrap
+  * it to the underlying lazy property if it is already initialized.
   */
-trait AbstractLazy[@specialized(SpecializedVars) +T] extends AbstractPure[T] {
+trait AbstractLazy[@specialized(SpecializedVars) +T] extends LazyOps[T] {
 	protected override def definite :T = {
 		if (isDefinite)
 			indefinite
@@ -397,3 +469,13 @@ trait AbstractLazy[@specialized(SpecializedVars) +T] extends AbstractPure[T] {
 		}
 	}
 }
+
+
+
+/** A full [[net.noresttherein.sugar.vars.Pure Pure]]-like lazy value implementation as a mix-in trait
+  * for application classes, in particular various lazy proxies. Does not implement any interface
+  * in order to not burden extending classes with unnecessary, and potentially conflicting, API.
+  * For this reason all methods are protected, with subclasses having full control over what API they want to expose.
+  */
+trait AbstractPure[@specialized(SpecializedVars) +T] extends LazyOps[T]
+
