@@ -16,8 +16,6 @@ Compile / fork := true
 Compile / javaOptions ++= Seq("-Xmx4G")
 
 Test / sourceGenerators += Def.task {
-	import scala.jdk.CollectionConverters.asScalaBufferConverter
-
 	//Create a copy of class MatrixBuffer which uses a much lower max length for a single dimension array
 	// in order to comfortably test all border cases on small data sets.
 	val collectionsSourceDir = (Compile / sourceDirectory).value / "scala" / TLD / domain / name.value / "collections"
@@ -25,6 +23,16 @@ Test / sourceGenerators += Def.task {
 
 	val MatrixBuffer     = collectionsSourceDir / "MatrixBuffer.scala"
 	val TestMatrixBuffer = collectionsTestManagedDir / "TestMatrixBuffer.scala"
+	PatchFile(MatrixBuffer, TestMatrixBuffer).patchAll(
+		("MatrixBuffer", "TestMatrixBuffer"),
+		("final val Dim1Bits = \\d*", "final val Dim1Bits = 4"),
+		("final val Dim2Bits = \\d*", "final val Dim2Bits = 27"),
+		("final val MinSize1 = \\d*", "final val MinSize1 = 4"),
+		("final val NewSize1 = \\d*", "final val NewSize1 = 4"),
+		("final val MinSize2 = \\d*", "final val MinSize2 = 4"),
+		("final val NewSize2 = \\d*", "final val NewSize2 = 4"),
+		("//\\w*override def toString", "\toverride def toString")
+	)
 
 	IO.reader(MatrixBuffer) { reader =>
 		val lines = reader.lines.toList.asScala.map { line =>
@@ -44,16 +52,12 @@ Test / sourceGenerators += Def.task {
 	// are represented by deep trees, in order to comfortably test the implementations for higher levels.
 	val Fingers     = collectionsSourceDir / "Fingers.scala"
 	val TestFingers = collectionsTestManagedDir / "TestFingers.scala"
-
-	IO.reader(Fingers) { reader =>
-		val lines = reader.lines.toList.asScala.map { line =>
-			line.replaceAllLiterally("Fingers", "TestFingers")
-			    .replaceAllLiterally("//assert", "assert")
-			    .replaceAll("//\\w*override def toString", "\toverride def toString")
-			    .replaceAll("final val Rank = \\d*", "final val Rank = 4")
-		}
-		IO.writeLines(TestFingers, lines)
-	}
+	PatchFile(Fingers, TestFingers).patchAll(
+		("Fingers", "TestFingers"),
+		("//assert", "assert"),
+		("//\\w*override def toString", "\toverride def toString"),
+		("final val Rank = \\d*", "final val Rank = 4")
+	)
 
 	Seq(TestFingers, TestCuboid, TestMatrixBuffer)
 }.taskValue
