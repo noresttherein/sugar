@@ -11,11 +11,12 @@ import scala.collection.{Factory, IntStepper, SpecificIterableFactory, Stepper, 
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, SeqOps, StrictOptimizedSeqOps, WrappedString}
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 
-import net.noresttherein.sugar.JavaTypes.{JIntIterator, JStringBuilder}
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
-import net.noresttherein.sugar.collections.extensions.{StepperCompanionExtension, StepperExtension}
+import net.noresttherein.sugar.collections.extensions.{IteratorExtension, StepperCompanionExtension, StepperExtension}
+import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.slang.SerializationProxy
@@ -29,30 +30,33 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 /** A universal interface for concatenable `String`-like collections.
   * @see [[net.noresttherein.sugar.collections.StringLike]]
-  */
+  */ //We need Seq[Char] bound to resolve erasure conflicts
 trait StringLikeOps[+S <: Seq[Char]]
-	extends CharSequence with SeqOps[Char, Seq, S] with SeqSlicingOps[Char, Seq, S]
-	   with SpecificIterableFactoryDefaults[Char, Seq, S]
+	extends CharSequence with SeqOps[Char, Seq, S] with SugaredSeqOps[Char, Seq, S]//with SeqSlicingOps[Char, Seq, S]
 {
 	override def isEmpty   :Boolean = length == 0
 	override def knownSize :Int = length
 
 	def intIterator :JavaIntIterator = stepper.javaIterator
-//	override def javaIterator[I <: JIterator[_]](implicit shape :JavaIteratorShape[Char, I]) :I =
-//		intIterator.asInstanceOf[I]
 
 	override def charAt(index :Int) :Char = apply(index)
-	def updated(index :Int, elem :Char) :S
 
-	def map(f :Char => Char) :S = {
-		val res = newSpecificBuilder
-		res sizeHint length
-		(res /: this) { (b, char) => b += f(char) }.result()
-	}
-	def flatMap(f :Char => StringLike) :S = {
-		val res = newSpecificBuilder
-		(res /: this) { (b, char) => b ++= f(char) }.result()
-	}
+	def updated(index :Int, char :Char) :S
+	def updatedAll(index :Int, string :String) :S
+	def updatedAll(index :Int, chars :IterableOnce[Char]) :S
+	def updatedAll(index :Int, first :Char, second :Char, rest :Char*) :S =
+		updatedAll(index, Prepended2Seq(first, second, rest))
+
+	def overwritten(index :Int, string :String) :S
+	def overwritten(index :Int, chars :IterableOnce[Char]) :S
+	def overwritten(index :Int, first :Char, second :Char, rest :Char*) :S =
+		overwritten(index, Prepended2Seq(first, second, rest))
+
+	def inserted(index :Int, char :Char) :S
+	def insertedAll(index :Int, string :String) :S
+	def insertedAll(index :Int, chars :IterableOnce[Char]) :S
+	def insertedAll(index :Int, first :Char, second :Char, rest :Char*) :S =
+		insertedAll(index, Prepended2Seq(first, second, rest))
 
 	@inline final def +(char :Char) :S = appended(char)
 	@inline final def :+(char :Char) :S = appended(char)
@@ -67,6 +71,7 @@ trait StringLikeOps[+S <: Seq[Char]]
 	@inline final def ++:(string :String) :S = prependedAll(string)
 	def prependedAll(string :String) :S
 
+	//The only reason for this method is to append null as "null"; StringLike is a subtype of IterableOnce[Char].
 	@inline final def :++(string :StringLike) :S = appendedAll(string)
 	def appendedAll(string :StringLike) :S = appendedAll(if (string == null) "null" else string.toString)
 
@@ -84,23 +89,43 @@ trait StringLikeOps[+S <: Seq[Char]]
 	def concat(string :String) :StringLike
 	def concat(string :StringLike) :StringLike
 
+	def substring(start :Int, end :Int) :String = subSequence(start, end).toString
+	final def substring(start :Int) :String = substring(start, length)
+
+	def map(f :Char => Char) :S = {
+		val res = newSpecificBuilder
+		res sizeHint length
+		(res /: this) { (b, char) => b += f(char) }.result()
+	}
+	def flatMap(f :Char => StringLike) :S = {
+		val res = newSpecificBuilder
+		(res /: this) { (b, char) => b ++= f(char) }.result()
+	}
+
 	def toReader :Reader
+
+	override def toString :String = foldLeft(new JStringBuilder(length))(_ append _).toString
 }
 
 
 /** An interface for concatenable `String` like collections, used either as an intermediate buffer
   * when building a `String` or providing additional features over `String`. Note that it will not equal a `String`.
   */
-trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps[StringLike] with Serializable {
+trait StringLike
+	extends Seq[Char] with SugaredIterable[Char] with StringLikeOps[StringLike]
+	   with SpecificIterableFactoryDefaults[Char, Seq, StringLike] with Serializable
+{
 	override def subSequence(start :Int, end :Int) :CharSequence =
 		if (start < 0 | end < 0 | start > end | end > length)
 			outOfBounds_!("[" + start + ".." + end + ") out of " + length)
 		else
-			clippedSlice(start, end)
+			slice(start, end)
 
-	def substring(start :Int, end :Int) :String = subSequence(start, end).toString
-	final def substring(start :Int) :String = substring(start, length)
+	override def specificFactory :SpecificIterableFactory[Char, StringLike] = ChoppedString
 }
+
+
+
 
 
 
@@ -128,21 +153,160 @@ trait StringLike extends Seq[Char] with SugaredIterable[Char] with StringLikeOps
   * @define coll chopped string
   */
 sealed abstract class ChoppedString
-	extends AbstractSeq[Char] with StringLike with StringLikeOps[ChoppedString]
-	   with StrictOptimizedSeqOps[Char, Seq, ChoppedString]
+	extends AbstractSeq[Char] with StrictOptimizedSeqOps[Char, Seq, ChoppedString]
+	   with StringLike with StringLikeOps[ChoppedString] with SeqSlicingOps[Char, Seq, ChoppedString]
+	   with SpecificIterableFactoryDefaults[Char, Seq, ChoppedString]
 {
 //	protected def depth :Int //we can create an efficient stack-based iterator and foreach/map/flatMap
-//	override def empty :ChoppedString = ChoppedString.empty
-
 	override def specificFactory :SpecificIterableFactory[Char, ChoppedString] = ChoppedString
 
-//	override def +(string :StringLike) :ChoppedString = string match {
-//		case chunk :ChoppedString => this ++ chunk
-//		case _ if string.length == 0 => this
-//		case _ if length == 0 => specificFactory.fromSpecific(string)
-//		case _ => (newSpecificBuilder ++= this ++= string).result()
-//	}
-//
+	override def apply(i :Int) :Char = {
+		@tailrec def rec(chops :ChoppedString, idx :Int) :Char = chops match {
+			case concat    :ConcatChunks    =>
+				val prefixSize = concat.prefix.length
+				if (idx < prefixSize) rec(concat.prefix, idx)
+				else rec(concat.suffix, idx - prefixSize)
+			case appended  :AppendedString  =>
+				val prefix = appended.prefix
+				if (idx < prefix.length) rec(prefix, idx)
+				else appended.suffix.charAt(idx - prefix.length)
+			case prepended :PrependedString =>
+				val prefix = prepended.prefix
+				if (idx < prefix.length) prefix(idx)
+				else rec(prepended.suffix, idx - prefix.length)
+			case _ =>
+				chops(idx)
+		}
+		rec(this, i)
+	}
+
+	override def updated(index :Int, elem :Char) :ChoppedString =
+		if (index < 0 || index >= length)
+			outOfBounds_!(index, length)
+		else if (index == 0)
+			new PrependedString(elem.toString, drop(1))
+		else if (index == length - 1)
+			new AppendedString(dropRight(1), elem.toString)
+		else
+			new ConcatChunks(new AppendedString(take(index), elem.toString), drop(index + 1))
+
+	override def updatedAll(index :Int, string :String) :ChoppedString =
+		if (index < 0 | index > length - string.length)
+			outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", String|" + string.length + "|)")
+		else if (string.length == 0)
+			this
+		else
+			clippedSlice(0, index) appendedAll string appendedAll clippedSlice(index + string.length, length)
+
+	override def updatedAll(index :Int, chars :IterableOnce[Char]) :ChoppedString =
+		updatedAll(index, 0, '0', '0', chars)
+
+	override def updatedAll(index :Int, first :Char, second :Char, rest :Char*) :ChoppedString =
+		updatedAll(index, 2, first, second, rest)
+
+	private def updatedAll(index :Int, prefixSize :Int, first :Char, second :Char, rest :IterableOnce[Char]) = {
+		val length = this.length
+		val size   = rest.knownSize
+		if (index < 0 | index > length | size >= 0 & index > length - size - prefixSize)
+			outOfBounds_!(index)
+		val prefix =
+			if (prefixSize == 0) clippedSlice(0, index)
+			else clippedSlice(0, index) appended first appended second
+		if (size >= 0) {
+			val suffix = clippedSlice(index + size + prefixSize, length)
+			prefix appendedAll rest appendedAll suffix
+		} else {
+			val i = rest.iterator.safe
+			val infix = ChoppedString from i.take(length - index - prefixSize)
+			if (i.hasNext)
+				outOfBounds_!(
+					errorString(this) + ".updatedAll(" +
+						index + ", _, _, " + errorString(rest) + "|" + (length - index - prefixSize) + "+|)"
+				)
+			prefix appendedAll infix appendedAll clippedSlice(index + prefixSize + infix.length, length)
+		}
+	}
+
+	override def overwritten(index :Int, string :String) :ChoppedString = {
+		val thatLength = string.length
+		val length     = this.length
+		if (index >= length | index < -thatLength | thatLength == 0)
+			this
+		else {
+			val from   = -math.min(index, 0)
+			val until  = math.min(length - index, thatLength - from)
+			val suffix = clippedSlice(index + until, length)
+			clippedSlice(0, index) appendedAll Substring.slice(string, from, until) appendedAll suffix
+		}
+	}
+
+	override def overwritten(index :Int, chars :IterableOnce[Char]) :ChoppedString =
+		overwritten(index, 0, '0', '0', chars)
+
+	override def overwritten(index :Int, first :Char, second :Char, rest :Char*) :ChoppedString =
+		overwritten(index, 2, first, second, rest)
+
+	private def overwritten(index :Int, prefixSize :Int, first :Char, second :Char, rest :IterableOnce[Char]) = {
+		val length = this.length
+		val size   = rest.knownSize
+		val offset = index + prefixSize
+		if (index >= length | prefixSize + size == 0 | size > 0 & index <= Int.MinValue - prefixSize & offset <= -size)
+			this
+		else if (offset >= length) //Implies prefixSize > 0
+			if (index == length - 1)
+				clippedSlice(0, length - 1) appended first
+			else
+				clippedSlice(0, length - 2) appended first appended second
+		else {
+			val prefix =
+				if (prefixSize == 0) clippedSlice(0, index)
+				else if (index <= -2) Empty
+				else if (index == -1) Empty appended second
+				else clippedSlice(0, index) appended first appended second
+			if (size >= 0)
+				if (offset >= 0 & offset <= length - size)
+					prefix appendedAll rest appendedAll clippedSlice(offset + size, length)
+				else {
+					val from   = -math.min(offset, 0)
+					val until  = math.min(length - offset, size - from)
+					val suffix = clippedSlice(offset + until, length)
+					val infix  = HasFastSlice.slice(rest, from, until)
+					prefix appendedAll infix appendedAll suffix
+				}
+			else {
+				val infix = HasFastSlice.slice(rest.iterator, -math.min(offset, 0), length - offset)
+				val prefix1 = prefix appendedAll infix
+				prefix1 appendedAll clippedSlice(length - prefix1.length, length)
+			}
+		}
+	}
+
+	//todo: permissive indexing
+	override def inserted(index :Int, char :Char) :ChoppedString =
+		if (index < 0 | index > length)
+			outOfBounds_!(index, length)
+		else
+			clippedSlice(0, index) appended char appendedAll clippedSlice(index, length)
+
+	override def insertedAll(index :Int, string :String) :ChoppedString =
+		if (index < 0 | index > length)
+			outOfBounds_!(index, length)
+		else
+			clippedSlice(0, index) appendedAll string appendedAll clippedSlice(index, length)
+
+	override def insertedAll(index :Int, chars :IterableOnce[Char]) :ChoppedString =
+		if (index < 0 | index > length)
+			outOfBounds_!(index, length)
+		else
+			clippedSlice(0, index) appendedAll chars appendedAll clippedSlice(index, length)
+
+	override def insertedAll(index :Int, first :Char, second :Char, rest :Char*) :ChoppedString =
+		if (index < 0 | index > length)
+			outOfBounds_!(index, length)
+		else
+			clippedSlice(0, index) appended first appended second appendedAll rest appendedAll clippedSlice(index, length)
+
+
 	@inline final def ++(string :String) :ChoppedString = concat(string)
 	@inline final def ++(string :StringLike) :ChoppedString = concat(string)
 	override def concat(string :String) :ChoppedString = this appendedAll string
@@ -157,20 +321,13 @@ sealed abstract class ChoppedString
 		else new AppendedString(this, string)
 
 	override def appendedAll(string :StringLike) :ChoppedString = string match {
-//		case null                   => appendedAll("null")
+		case null                   => appendedAll("null")
 		case _ if length == 0       => ChoppedString.from(string)
 		case _ if string.isEmpty    => this
-//		case chopped :ChoppedString => appendedAll(chopped)
 		case chopped :ChoppedString => new ConcatChunks(this, chopped)
 		case _                      => appendedAll(string.toString)
 	}
 	override def appendedAll(other :IterableOnce[Char]) :ChoppedString = appendedAll(ChoppedString.from(other))
-//
-//	@inline final def :++(string :ChoppedString) :ChoppedString = appendedAll(string)
-//	def appendedAll(string :ChoppedString) :ChoppedString =
-//		if (string.isEmpty) this
-//		else if (isEmpty) string
-//		else new ConcatChunks(this, string)
 
 	override def prepended(char :Char) :ChoppedString = prependedAll(stringOf(char))
 
@@ -181,20 +338,28 @@ sealed abstract class ChoppedString
 		else new PrependedString(string, this)
 
 	override def prependedAll(string :StringLike) :ChoppedString = string match {
-//		case null                   => prependedAll("null")
+		case null                   => prependedAll("null")
 		case _ if length == 0       => ChoppedString.from(string)
 		case _ if string.isEmpty    => this
-//		case chopped :ChoppedString => prependedAll(chopped)
 		case chopped :ChoppedString => new ConcatChunks(chopped, this)
 		case _                      => prependedAll(string.toString)
 	}
 	override def prependedAll(other :IterableOnce[Char]) :ChoppedString = prependedAll(ChoppedString.from(other))
-//
-//	@inline final def ++:(string :ChoppedString) :ChoppedString = prependedAll(string)
-//	def prependedAll(string :ChoppedString) :ChoppedString =
-//		if (string.isEmpty) this
-//		else if (isEmpty) string
-//		else new ConcatChunks(string, this)
+
+	def patch(from :Int, other :IterableOnce[Char], replaced :Int) :ChoppedString =
+		if (from >= length) appendedAll(other)
+		else if (from <= 0) drop(replaced) prependedAll other
+		else if (replaced <= 0) take(from) appendedAll other appendedAll drop(from)
+		else if (replaced >= length - from) take(from) appendedAll other
+		else take(from) appendedAll other appendedAll drop(from + replaced)
+
+	def patch(from :Int, other :String, replaced :Int) :ChoppedString =
+		if (from >= length) appendedAll(other)
+		else if (from <= 0) drop(replaced) prependedAll other
+		else if (replaced <= 0) take(from) appendedAll other appendedAll drop(from)
+		else if (replaced >= length - from) take(from) appendedAll other
+		else take(from) appendedAll other appendedAll drop(from + replaced)
+
 
 	@inline final def *(n :Int) :ChoppedString = times(n)
 	def times(n :Int) :ChoppedString =
@@ -322,50 +487,6 @@ sealed abstract class ChoppedString
 		else segment(this, from, 0, null)
 	}
 
-	override def apply(i :Int) :Char = {
-		@tailrec def rec(chops :ChoppedString, idx :Int) :Char = chops match {
-			case concat    :ConcatChunks    =>
-				val prefixSize = concat.prefix.length
-				if (idx < prefixSize) rec(concat.prefix, idx)
-				else rec(concat.suffix, idx - prefixSize)
-			case appended  :AppendedString  =>
-				val prefix = appended.prefix
-				if (idx < prefix.length) rec(prefix, idx)
-				else appended.suffix.charAt(idx - prefix.length)
-			case prepended :PrependedString =>
-				val prefix = prepended.prefix
-				if (idx < prefix.length) prefix(idx)
-				else rec(prepended.suffix, idx - prefix.length)
-			case _ =>
-				chops(idx)
-		}
-		rec(this, i)
-	}
-
-	override def updated(index :Int, elem :Char) :ChoppedString =
-		if (index < 0 || index >= length)
-			outOfBounds_!(index.toString + " out of " + length)
-		else if (index == 0)
-			new PrependedString(elem.toString, drop(1))
-		else if (index == length - 1)
-			new AppendedString(dropRight(1), elem.toString)
-		else
-			new ConcatChunks(new AppendedString(take(index), elem.toString), drop(index + 1))
-
-	def patch(from :Int, other :IterableOnce[Char], replaced :Int) :ChoppedString =
-		if (from >= length) appendedAll(other)
-		else if (from <= 0) drop(replaced) prependedAll other
-		else if (replaced <= 0) take(from) appendedAll other appendedAll drop(from)
-		else if (replaced >= length - from) take(from) appendedAll other
-		else take(from) appendedAll other appendedAll drop(from + replaced)
-
-	def patch(from :Int, other :String, replaced :Int) :ChoppedString =
-		if (from >= length) appendedAll(other)
-		else if (from <= 0) drop(replaced) prependedAll other
-		else if (replaced <= 0) take(from) appendedAll other appendedAll drop(from)
-		else if (replaced >= length - from) take(from) appendedAll other
-		else take(from) appendedAll other appendedAll drop(from + replaced)
-
 
 	override def foreach[U](f :Char => U) :Unit = foldLeft(())((_, char) => f(char))
 
@@ -476,15 +597,6 @@ sealed abstract class ChoppedString
 			case _ =>
 				prefix :++ suffix
 		}
-//
-//	private def lengthOf(string :Any) :Int = string match {
-//		case string :ChoppedString => string.length
-//		case string :String        => string.length
-//		case _                     =>
-//			throw new AssertionError(
-//				"Neither a String nor a ChoppedString: " + string + ": " + string.className + "."
-//			)
-//	}
 
 	def isWhitespace :Boolean = {
 		val i = javaIterator
@@ -845,7 +957,7 @@ object ChoppedString extends SpecificIterableFactory[Char, ChoppedString] {
 
 private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 	extends IndexedSeq[Char] with IndexedSeqOps[Char, IndexedSeq, C]
-	   with SugaredSlicingOps[Char, IndexedSeq, C] with SpecificIterableFactoryDefaults[Char, IndexedSeq, C]
+	   with SeqSlicingOps[Char, IndexedSeq, C] with SpecificIterableFactoryDefaults[Char, IndexedSeq, C]
 { this :C =>
 	protected def whole :String
 	protected def startIndex :Int
@@ -998,7 +1110,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 @SerialVersionUID(1L)
 final class Substring private (protected override val whole :String,
                                protected override val startIndex :Int, override val length :Int)
-	extends ChoppedString with SubstringOps[Substring] with StrictOptimizedSeqOps[Char, IndexedSeq, Substring]
+	extends ChoppedString with StrictOptimizedSeqOps[Char, IndexedSeq, Substring] with SubstringOps[Substring]
 {
 	assert(startIndex >= 0 & startIndex <= whole.length,
 		"Offset out of bounds: \"" + whole + "\".substring(" + startIndex + "->" + length + ")."
@@ -1076,7 +1188,15 @@ case object Substring extends SpecificIterableFactory[Char, Substring] {
 		else if (offset <= 0) new Substring(string, 0, string.length)
 		else new Substring(string, offset, string.length - offset)
 
-	def apply(string :String, from :Int, until :Int) :Substring = {
+	def apply(string :String, offset :Int, length :Int) :Substring =
+		if (offset < 0 | length < 0 || offset > string.length - length)
+			outOfBounds_!("Substring(String|" + string.length + "|, " + offset + ", " + length + ")")
+		else if (length == 0)
+			empty
+		else
+			new Substring(string, offset, length)
+
+	def slice(string :String, from :Int, until :Int) :Substring = {
 		val len = string.length
 		if (from >= len || until <= 0) empty
 		else if (from <= 0 && until >= len) new Substring(string, 0, len)
@@ -1115,10 +1235,6 @@ case object Substring extends SpecificIterableFactory[Char, Substring] {
 
 	override val empty :Substring = new Substring("", 0, 0) //we could do read resolve to have a single instance
 
-	@SerialVersionUID(Ver)
-	private class SubstringSerializationProxy(string :String) extends Serializable {
-		private def readResolve :AnyRef = new Substring(string, 0, string.length)
-	}
 }
 
 
