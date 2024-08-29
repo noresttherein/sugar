@@ -88,8 +88,8 @@ import net.noresttherein.sugar.extensions.{ArrayCompanionExtension, classNameMet
   * Very short sequences have dedicated implementations, without a backing array.
   *
   * Tip: unlike `ArraySeq`, `RelayArray` doesn't offer a method exposing the underlying array,
-  * but it can still be extracted by matching it to
-  * [[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`.``.`[[net.noresttherein.sugar.arrays.IArrayLike.Slice Slice]].
+  * but it can still be extracted by matching it with
+  * [[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`.`[[net.noresttherein.sugar.arrays.IArrayLike.Slice Slice]].
   * @define Coll    `RelayArray`
   * @define coll    relay array
   * @define MaxSize `Int.MaxValue - 8`
@@ -119,7 +119,7 @@ sealed trait RelayArray[@specialized(ElemTypes) +E]
 	  * shrinking behaviour. The result may be a dedicated class if new size is very small.
 	  * @return [[net.noresttherein.sugar.collections.RelayArray.range(from:Int* window]]`(0, length)`.
 	  */ //consider: renaming to subseq or range
-	def temp :RelayArray[E] = range(0, length)
+	def range :RelayArray[E] = range(0, length)
 
 	/** A $Coll being a view on this instance. Equivalent to `slice`, but no new array is allocated
 	  * even if the view is a minor fragment of the underlying array (`(until - from)/length` is large).
@@ -1289,6 +1289,7 @@ private final class RelayArrayPlus[@specialized(ElemTypes) +E] private[collectio
 
 	override def length :Int = len
 
+	//todo: make it work in Java 8
 	private def ownerField = MethodHandles.lookup().findVarHandle(
 		classOf[RelayArrayPlus[Any]], "owns", classOf[Boolean]
 //		classOf[RelayArrayPlus[Any]].getName.replace('.', '$') + "$$owns", classOf[Boolean] //if the field were accessed from specialized subclasses
@@ -1358,7 +1359,7 @@ private final class RelayArrayRange[@specialized(ElemTypes) +E] private[collecti
 		else
 			arr(offset + i)
 
-	override def temp :RelayArray[E] = this
+	override def range :RelayArray[E] = this
 	override def downsize :RelayArray[E] = {
 		val copy = ArrayFactory.ofDim(elementType, len).asInstanceOf[Array[E]]
 		ArrayLike.copy(arr, offset, copy, 0, len)
