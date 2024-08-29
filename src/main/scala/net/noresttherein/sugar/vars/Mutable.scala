@@ -10,7 +10,8 @@ import net.noresttherein.sugar.witness.DefaultValue
 
 
 
-/** A marker interface of `InOut` variables which contain a value at all times.
+/** A marker interface of `InOut` variables which contain a value at all times,
+  * and may be potentially assigned to multiple times.
   * No method of this object, including those inherited and those defined only in subclasses,
   * will throw a [[NoSuchElementException]]. `Mutable` instances do not have
   * [[net.noresttherein.sugar.vars.Mutable.const const]] values,
@@ -19,7 +20,7 @@ import net.noresttherein.sugar.witness.DefaultValue
   * @define Ref `Mutable`
   * @define ref mutable value
   * @author Marcin Mościcki
-  */
+  */ //consider: renaming to DefinedVar or similar
 trait Mutable[@specialized(SpecializedVars) T] extends InOut[T] {
 	/** Returns `false`. */
 	override def isFinal        :Boolean = false
