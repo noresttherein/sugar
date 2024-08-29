@@ -197,7 +197,7 @@ package object reflect {
 	  * Checks if the class in which it was declared follows the naming pattern of `@specialized` name mangling,
 	  * and mangles the field accordingly.
 	  */
-	private[sugar] def scalaFieldName(declaringClass :Class[_], symbol :String) :String = {
+	private[sugar] def javaFieldName(declaringClass :Class[_], symbol :String) :String = {
 		val specSuffixStart = declaringClass.getName.indexOf("$m")
 		if (specSuffixStart < 0) symbol
 		else symbol + declaringClass.getName.substring(specSuffixStart)

@@ -8,7 +8,7 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.??!
 import net.noresttherein.sugar.extensions.ClassExtension
-import net.noresttherein.sugar.reflect.{classes, scalaFieldName}
+import net.noresttherein.sugar.reflect.{classes, javaFieldName}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.witness.DefaultValue
 
@@ -24,6 +24,7 @@ object AtomicOps {
 	  * @see [[net.noresttherein.sugar.vars.Volatile Volatile]]
 	  */ //this is an inner class so it can have access to protected methods in AtomicOps.
 	//todo: make testAndSet semantics use equals, not eq by default.
+	//consider: this implementation does not allow vars with bounds on value types.
 	trait AtomicVar[@specialized(SpecializedVars) T] extends InOut[T] { //or VarOps?
 		protected def factory :AtomicOps[AtomicVar]
 
@@ -47,7 +48,7 @@ object AtomicOps {
 		  * @param f function to apply to the value of this variable. Should have no side effects as it may be invoked
 		  *          several times.
 		  * @return the result of applying `f` to the current value.
-		  */
+		  */ //todo: extract these to AtomicOps so we don't pattern match getClass inside a loop.
 //		override def update(f :T => T) :T = factory.update(this, f)
 		override def update(f :T => T) :T = {
 			val companion = factory
@@ -266,7 +267,7 @@ abstract class AtomicOps[+V[T] <: InOut[T]] { //abstract class, not trait, becau
 //todo: make the default companion use equality for ref types,
 // make a special Ref variant for current classes, which use referential equality instead (even for value types),
 // and this Frankenstein mix using 'Java' semantics.
-/**
+/** Base class for the companion factory object of atomic variable implementation `V[X]`.
   * @note the backing field holding the value must be named `x`, as it is accessed through reflection.
   */
 abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
@@ -409,8 +410,9 @@ abstract class AtomicCompanion[+V[T] <: InOut[T]] extends AtomicOps[V] {
 	private[this] val boolHandle   = newHandle(CaseBool, java.lang.Boolean.TYPE)
 	private[this] val refHandle    = newHandle(newRefInstance(null).getClass, classOf[Any])
 
+	//todo: make it work on Java 8 using sun.misc.Unsafe
 	private def newHandle[T](varType :Class[_], paramType :Class[_]) =
-		MethodHandles.lookup().findVarHandle(varType, scalaFieldName(varType, valueVariableName), paramType)
+		MethodHandles.lookup().findVarHandle(varType, javaFieldName(varType, valueVariableName), paramType)
 
 	protected val valueVariableName = "x"
 }
