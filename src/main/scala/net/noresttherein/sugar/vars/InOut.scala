@@ -69,7 +69,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * @param expect   a value to compare with current value.
 	  * @param newValue a new value for this variable.
 	  * @return `true` if the previous value equaled `expect` and the variable has been set to `newValue`.
-	  */
+	  */ //consider: renaming to replace
 	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
 	def testAndSet(expect :T, newValue :T) :Boolean =
 		(value == expect) && { value = newValue; true }
@@ -80,9 +80,23 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * @return an intermediate object which will perform the comparison and assign the value given to its
 	  *         [[net.noresttherein.sugar.vars.InOut.TestAndSet.:=]] method.
 	  * @see [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet()]]
-	  */
+	  */ //consider: if we renamed testAndSet to update, we could use syntax var(expect) = newValue
 	@inline final def :?(expect :T) :TestAndSet[T] = new TestAndSet(this, expect)
 
+
+	/** An alias for [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]] which allows to use Scala's
+	  * syntax sugar for indexed update. The following code concurrenty increases `v :Var[Int]` by one:
+	  * {{{
+	  *     var oldValue = v.get
+	  *     while (!(v(oldValue) = oldValue + 1)))
+	  *         oldValue = v.get
+	  * }}}
+	  * @param expect   the expected current value.
+	  * @param newValue the value to set this $var to if its current value is `expect`.
+	  * @return `true` if the $var has been set to `newValue`.
+	  */
+	@throws[UnsupportedOperationException]("if the value of this Ref can be set only once.")
+	@inline final def update(expect :T, newValue :T) :Boolean = testAndSet(expect, newValue)
 
 	/** Updates the value of this variable with the given function. Default implementation is equivalent to
 	  * `val res = f(this.get); this.value = res; res` and has no benefit over direct application in client code.
