@@ -172,35 +172,48 @@ object AsIterableOnce extends IterableFactory[AsIterableOnce] {
 
 
 
-class SeqSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends AbstractSet[E] {
+class OrderedSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends AbstractSet[E] {
 	private def this(unique :Seq[E]) = this(unique.toSet, unique)
 	def this(items :IterableOnce[E]) =
-		this(items.iterator.zipWithIndex.toMap.toVector.sortBy(_._2).map(_._1))
+		this(items.iterator.zipWithIndex.toSeq.reverse.toMap.toVector.sortBy(_._2).map(_._1))
 
 	override def incl(elem :E) :Set[E] =
-		if (underlying(elem)) this else new SeqSet(underlying incl elem, toSeq :+ elem)
+		if (underlying(elem)) this else new OrderedSet(underlying incl elem, toSeq :+ elem)
 
 	override def excl(elem :E) :Set[E] =
-		if (underlying(elem)) new SeqSet(underlying.excl(elem), toSeq.filterNot(_ == elem)) else this
+		if (underlying(elem)) new OrderedSet(underlying.excl(elem), toSeq.filterNot(_ == elem)) else this
 
 	override def contains(elem :E) :Boolean = underlying.contains(elem)
 
 	override def iterator :Iterator[E] = toSeq.iterator
+
+	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = toSeq.copyToArray(xs, start, len)
 }
 
+object OrderedSet extends IterableFactory[OrderedSet] {
+	override def from[A](source :IterableOnce[A]) :OrderedSet[A] = source match {
+		case set :OrderedSet[A @unchecked] => set
+		case _ if source.knownSize == 0    => empty
+		case _                             => (newBuilder[A] ++= source).result()
+	}
 
+	override def empty[A] :OrderedSet[A] = new OrderedSet[A](Set.empty, IndexedSeq.empty)
 
-class StrictView[E](underlying :Seq[E]) extends View[E] {
-	override def iterator :Iterator[E] = underlying.iterator
-	override def toString = underlying.mkString("View(", ", ", ")")
-}
+	override def newBuilder[A] :Builder[A, OrderedSet[A]] = new Builder[A, OrderedSet[A]] {
+		val seq = IndexedSeq.newBuilder[A]
+		var set = Set.empty[A]
 
-object StrictView extends IterableFactory[StrictView] {
-	override def from[A](source :IterableOnce[A]) :StrictView[A] = new StrictView(source.toBasicOps.toSeq)
+		override def result() = new OrderedSet[A](set, seq.result())
+		override def clear() :Unit = { seq.clear(); set = Set.empty }
 
-	override def empty[A] :StrictView[A] = new StrictView(Nil)
-
-	override def newBuilder[A] :Builder[A, StrictView[A]] = Seq.newBuilder[A].mapResult(new StrictView(_))
+		override def addOne(elem :A) = {
+			if (!set.contains(elem)) {
+				set = set.incl(elem)
+				seq += elem
+			}
+			this
+		}
+	}
 }
 
 

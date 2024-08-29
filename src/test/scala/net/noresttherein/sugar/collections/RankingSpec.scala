@@ -93,7 +93,7 @@ object RankingSpec
 		val distinct = list.distinct :Seq[Int]
 		("List" |: distinct =? Ranking.from(list).toSeq) &&
 			("Vector" |: distinct =? Ranking.from(list.toVector).toSeq) &&
-			("Set" |: distinct =? Ranking.from(new SeqSet(distinct)).toSeq) &&
+			("Set" |: distinct =? Ranking.from(new OrderedSet(distinct)).toSeq) &&
 			("Iterator" |: distinct =? Ranking.from(list.iterator).toSeq) &&
 			("VectorIterator" |: distinct =? Ranking.from(list.toVector.iterator).toSeq)
 	}
@@ -101,7 +101,7 @@ object RankingSpec
 		val distinct = list.reverse.distinct.reverse :Seq[Int]
 		("List" |: distinct =? Ranking.lastOccurrences(list).toSeq) &&
 			("Vector" |: distinct =? Ranking.lastOccurrences(list.toVector).toSeq) &&
-			("Set" |: distinct =? Ranking.lastOccurrences(new SeqSet(distinct)).toSeq) &&
+			("Set" |: distinct =? Ranking.lastOccurrences(new OrderedSet(distinct)).toSeq) &&
 			("Iterator" |: distinct =? Ranking.lastOccurrences(list.iterator).toSeq) &&
 			("VectorIterator" |: distinct =? Ranking.lastOccurrences(list.toVector.iterator).toSeq)
 	}
@@ -437,7 +437,7 @@ object RankingSpec
 					test(expect, subject.updatedAll(index, elems))
 			(s"updatedAll($index, List)" lbl_: update(patch)) &&
 				(s"updatedAll($index, Vector)" lbl_: update(patch.toVector)) &&
-				(s"updatedAll($index, Set)" lbl_: update(new SeqSet(set.toSet, unique))) &&
+				(s"updatedAll($index, Set)" lbl_: update(new OrderedSet(set.toSet, unique))) &&
 				(s"updatedAll($index, Ranking)" lbl_: update(Ranking.from(unique))) &&
 				(s"updatedAll($index, Iterator)" lbl_: update(patch.iterator)) &&
 				(s"updatedAll($index, VectorIterator)" lbl_: update(patch.toVector.iterator))
@@ -469,7 +469,7 @@ object RankingSpec
 					test(expect, subject.replaceAll(index, elems))
 			(s"replaceAll($index, List)" lbl_: replace(elems)) &&
 				(s"replaceAll($index, Vector)" lbl_: replace(elems.toVector)) &&
-				(s"replaceAll($index, Set)" lbl_: replace(new SeqSet(set.toSet, patch))) &&
+				(s"replaceAll($index, Set)" lbl_: replace(new OrderedSet(set.toSet, patch))) &&
 				(s"replaceAll($index, Ranking)" lbl_: replace(Ranking.from(elems))) &&
 				(s"replaceAll($index, Iterator)" lbl_: replace(elems.iterator)) &&
 				(s"replaceAll($index, VectorIterator)" lbl_: replace(elems.toVector.iterator))
