@@ -17,7 +17,7 @@ import net.noresttherein.sugar.exceptions.{??!, noSuch_!, unsupported_!}
 
 /** An immutable linked list of precomputed length.
   * The single empty instance is [[net.noresttherein.sugar.collections.SNil SNil]], and can be used for pattern matching.
-  * Non empty lists may be deconstructed using the standard Scala `+:` object:
+  * Non-empty lists may be deconstructed using the standard Scala `+:` object:
   * {{{
   *     list match {
   *         case first +: second +: SNil =>
