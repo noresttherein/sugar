@@ -6,13 +6,13 @@ import scala.util.{Failure, Success, Try}
 import net.noresttherein.sugar
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
 import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
+import net.noresttherein.sugar.vars.Term.{Expression, Value}
 
 
 
@@ -999,7 +999,53 @@ package object vars extends vars.varsTypeClasses {
 	  * This type is in particular useful in classes which implement lazy value semantics:
 	  * a `Term[X]` field can be set to an `Expression(init)`, and later replaced with a `Value(init())`.
 	  */
-	type Term[+X]
+	type Term[+X] >: Term.Value[X] <: AnyRef
+
+	/** Extension methods for [[net.noresttherein.sugar.vars.Term! Term]] providing access to the value
+	  * and allowing to distinguish between the two cases.
+	  */
+	implicit class TermExtension[X](private val self :Term[X]) extends AnyVal {
+		/** Returns the value of this term, evaluating it
+		  * if it is an [[net.noresttherein.sugar.vars.Term.Expression Expression]]. */
+		def apply() :X = self match {
+			case init :(() => X @unchecked) => init()
+			case v    :Value[X] @unchecked  => v.value
+			case v    :X @unchecked         => v
+		}
+
+		/** Same as [[net.noresttherein.sugar.vars.TermExtension.isExpression isExpression]]. */
+		@inline def isByName :Boolean = self.isInstanceOf[() => Any]
+
+		/** True if this term is a by-name expression
+		  * created with [[net.noresttherein.sugar.vars.Term.Expression Expression]]
+		  * or [[net.noresttherein.sugar.vars.Term.ByName ByName]]. */
+		@inline def isExpression :Boolean = self.isInstanceOf[() => Any]
+
+		/** True if this term is a constant value created with [[net.noresttherein.sugar.vars.Term.Value Value]]. */
+		@inline def isValue :Boolean = !self.isInstanceOf[() => Any]
+
+		/** Same as [[net.noresttherein.sugar.vars.TermExtension.isValue isValue]]. */
+		@inline def isByValue :Boolean = !self.isInstanceOf[() => Any]
+
+		/** Returns the lazy expression of this instance in a [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]
+		  * if it is an [[net.noresttherein.sugar.vars.Term.Expression Expression]]. */
+		@inline def asExpression :Maybe[() => X] = Expression.unapply(self)
+
+		/** Returns the value of this instance in a [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]
+		  * if it is a constant [[net.noresttherein.sugar.vars.Term.Value Value]]. */
+		@inline def asValue      :Maybe[X] = Value.unapply(self)
+
+		def toEither :Either[() => X, X] = self match {
+			case init :(() => X @unchecked) => Left(init)
+			case v    :Value[X] @unchecked  => Right(v.value)
+			case v    :X @unchecked         => Right(v)
+		}
+		def toPill :Pill[() => X, X] = self match {
+			case init :(() => X @unchecked) => Red(init)
+			case v    :Value[X @unchecked]  => Blue(v.value)
+			case v    :X @unchecked         => Blue(v)
+		}
+	}
 }
 
 
@@ -1591,19 +1637,45 @@ package vars {
 	/** Factories/match patterns for [[net.noresttherein.sugar.vars.Term! Term]]. */
 	@SerialVersionUID(Ver)
 	case object Term {
+		/** A ''by-name'' expression. This is equivalent to [[net.noresttherein.sugar.vars.Term.Expression Expression]],
+		  * but accepts a lazy expression `=> X` rather than `() => X`, and similarly evaluates the expression
+		  * on extraction when used as a match pattern. */
+		@SerialVersionUID(Ver)
+		case object ByName {
+			/** A [[net.noresttherein.sugar.vars.Term! Term]] which will evaluate the argument expression
+			  * each time its value is requested. */
+			@inline def apply[X](init: => X) :Term[X] = Expression(() => init)
+
+			/** If `term` is an [[net.noresttherein.sugar.vars.Term.Expression Expression]], evaluate it
+			  * and return its value. Does not match [[net.noresttherein.sugar.vars.Term.Value Value]] cases. */
+			@inline def unapply[X](term :Term[X]) :Maybe[X] = term match {
+				case init :(() => X @unchecked) => Yes(init()) //acquireFence(); Yes(init())
+				case _                          => No
+			}
+		}
+
 		/** A [[net.noresttherein.sugar.vars.Term! Term]] represented by a (lazy) Scala expression.
 		  * Wraps and unwraps `() => X` to/from `Term[X]`.
 		  */
 		@SerialVersionUID(Ver)
 		case object Expression {
+			/** A [[net.noresttherein.sugar.vars.Term! Term]] which will evaluate the argument expression
+			  * each time its value is requested. */
 			@inline def of[X](init: => X) :Term[X] = apply(() => init)
 
+			/** A term which executes the argument `init()` each time its value is requested. */
 			@inline def apply[X](init :() => X) :Term[X] = {
-				releaseFence()
+//				releaseFence()
 				init.asInstanceOf[Term[X]]
 			}
+
+			/** An expression term always throwing a `NoSuchElementException`. */
+			val nothing :Term[Nothing] = Expression(() => noSuch_!)
+
+			/** Matches terms created by this object (and [[net.noresttherein.sugar.vars.Term.ByName ByName]]),
+			  * extracting the expression passed as the argument on its creation. */
 			@inline def unapply[X](v :Term[X]) :Maybe[() => X] = v match {
-				case init :(() => X) @unchecked => acquireFence(); Yes(init)
+				case init :(() => X) @unchecked => Yes(init) //acquireFence(); Yes(init)
 				case _                          => No
 			}
 		}
@@ -1613,19 +1685,29 @@ package vars {
 		  */
 		@SerialVersionUID(Ver)
 		case object Value {
+			/** A `Term` of a constant value. If `value :() => Any`, then the returned instance will be boxed. */
 			@inline def apply[X](value :X) :Term[X] = value match {
-				case _ :(() => Any) => releaseFence(); new Value(value).asInstanceOf[Term[X]]
-				case _              => releaseFence(); value.asInstanceOf[Term[X]]
+				case _ :(() => Any @unchecked) => /*releaseFence();*/ new Value(value).asInstanceOf[Term[X]]
+				case _                         => /*releaseFence();*/ value.asInstanceOf[Term[X]]
 			}
+			/** Matches terms created by this object, extracting their value. */
 			@inline def unapply[X](v :Term[X]) :Maybe[X] = v match {
 				case _ :(() => Any)         => No
 				case v :Value[X @unchecked] => Yes(v.value)
-				case v :X @unchecked        => acquireFence(); Yes(v)
+				case v :X @unchecked        => Yes(v) //acquireFence(); Yes(v)
 			}
 		}
 
 		@SerialVersionUID(Ver)
-		private[sugar] case class Value[X](value :X)
+		private[sugar] case class Value[+X](value :X)
+
+		/** Matches every term, extracting its value.
+		  * If the term is an [[net.noresttherein.sugar.vars.Term.Expression by-name]] expression, it is evaluated. */
+		def unapply[X](term :Term[X]) :Maybe[X] = term match {
+			case init :(() => X @unchecked) => Yes(init())
+			case v :Value[X @unchecked]     => Yes(v.value)
+			case v :X @unchecked            => Yes(v)
+		}
 	}
 
 

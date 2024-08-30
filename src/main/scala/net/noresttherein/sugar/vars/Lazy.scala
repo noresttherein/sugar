@@ -390,6 +390,7 @@ private[sugar] class SyncLazyRef[+T](private[this] var initializer :() => T) ext
   */ //consider: dropping specialization.
 sealed trait LazyOps[@specialized(SpecializedVars) +T] {
 	/** The lazy expression providing the value for the lazy field. */
+	//todo: migrate to using a single Term field
 	@transient protected[this] var initializer :() => T
 	private[this] var evaluated :T = _
 
