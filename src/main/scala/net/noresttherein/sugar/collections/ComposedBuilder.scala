@@ -1,17 +1,16 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.IterableOps
+import scala.collection.{IterableOps, View}
 import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{ArrayBuffer, Builder, Growable, ImmutableBuilder, ReusableBuilder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, RefArray}
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayIterator, ErasedArray, RefArray}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
-import net.noresttherein.sugar.collections.extensions.IterableExtension
+import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension}
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.{illegalState_!, maxSize_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, maxSize_!}
 
 
 
@@ -98,6 +97,7 @@ object Builders {
 
 
 
+
 /** A base class for builders of Array derived collections.
   * It maintains a growing `Array[ArrayElem]`, which is passed to a new `result(array :Array[ArrayElem], size :Int)`
   * when `result()` is called.
@@ -159,6 +159,45 @@ private[sugar] abstract class ArrayBasedBuilder[ArrayElem :ClassTag, -Elem <: Ar
 	override def clear() :Unit = {
 		array = ArrayFactory.empty
 		size  = 0
+	}
+}
+
+
+
+
+/** Base trait for general purpose builders overriding `addAll` with optimized implementations
+  * for the most common collection types.
+  */
+trait BaseGrowable[-E] extends Growable[E] {
+	override def addAll(elems :IterableOnce[E]) :this.type = elems match {
+		case empty :Iterable[_] if !empty.isInstanceOf[View[_]] && empty.isEmpty =>
+			this
+		case list :collection.LinearSeq[E] =>
+			var rest = list
+			while (rest.nonEmpty) {
+				addOne(rest.head)
+				rest = rest.tail
+			}
+			this
+		case ErasedArray.Slice(array :Array[E @unchecked], from, until) =>
+			var i = from
+			while (i < until) {
+				addOne(array(i))
+				i += 1
+			}
+			this
+		case ApplyPreferred(seq) =>
+			var i = seq.length
+			while (i > 0) {
+				i -= 1
+				addOne(seq(i))
+			}
+			this
+		case _ =>
+			val i = elems.iterator
+			while (i.hasNext)
+				addOne(i.next())
+			this
 	}
 }
 
