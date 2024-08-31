@@ -10,9 +10,9 @@ import net.noresttherein.sugar.vars.Ref.undefined
 
 
 /** The root type of a class hierarchy of various value wrappers such as
-  * [[net.noresttherein.sugar.vars.InOut variable references]], [[net.noresttherein.sugar.vars.Lazy lazy values]],
+  * [[net.noresttherein.sugar.vars.InOut variable references]], [[net.noresttherein.sugar.vars.Delayed lazy values]],
   * [[net.noresttherein.sugar.vars.Unsure various]] [[net.noresttherein.sugar.vars.Maybe optional]]
-  * [[net.noresttherein.sugar.vars.LazyUnsure value]] implementations
+  * [[net.noresttherein.sugar.vars.UnsureDelayed value]] implementations
   * and [[java.lang.ref.Reference]] [[net.noresttherein.sugar.vars.DisposableRef wrappers]] among others.
   *
   * A `Ref` can be mutable or immutable and possibly undefined, either permanently or temporarily.
@@ -33,7 +33,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   * This is reflected in multiple standard ways in which the value of a `Ref` can be queried:
   *   1. [[net.noresttherein.sugar.vars.Ref.value value]] reflects the current state and never blocks;
   *   1. [[net.noresttherein.sugar.vars.Ref.get get]] returns the value best representing the character
-  *      of the implementing class: for example, for [[net.noresttherein.sugar.vars.Lazy Lazy]],
+  *      of the implementing class: for example, for [[net.noresttherein.sugar.vars.Delayed Delayed]],
   *      it is the initialized value, while for [[net.noresttherein.sugar.vars.Mutable Mutable]] variables
   *      it is the current state, same as `value`.
   *      Equality and ordering between `Ref`s is defined in terms of these values.
@@ -83,7 +83,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
 trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
 	/** The $Ref will see no further changes, regardless if empty or not. This does not imply
-	  * that it was always immutable. [[net.noresttherein.sugar.vars.Lazy Lazy]] values and similar may return `false`
+	  * that it was always immutable. [[net.noresttherein.sugar.vars.Delayed Lazy]] values and similar may return `false`
 	  * if uninitialized. If this method returns `true`, then this instance is from this point on immutable.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
@@ -165,7 +165,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * Implies [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]] and
 	  * [[net.noresttherein.sugar.vars.Ref.nonEmpty nonEmpty]].
 	  * This value needs not be final - the above methods are allowed to return different values in the future.
-	  * An uninitialized [[net.noresttherein.sugar.vars.Lazy lazy]] val is ''defined'', but not ''definite'',
+	  * An uninitialized [[net.noresttherein.sugar.vars.Delayed lazy]] val is ''defined'', but not ''definite'',
 	  * while a [[net.noresttherein.sugar.vars.Var variable]] is always ''definite''.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isEmpty isEmpty]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
@@ -194,7 +194,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	/** The value of this $Ref, if available or can be computed. The exact semantics depend on the implementation:
 	  *   - for mutable [[net.noresttherein.sugar.vars.InOut variables]],
 	  *     it is the same as [[net.noresttherein.sugar.vars.Ref.value value]];
-	  *   - for [[net.noresttherein.sugar.vars.Lazy lazy]] values, it initializes this $Ref, if needed;
+	  *   - for [[net.noresttherein.sugar.vars.Delayed lazy]] values, it initializes this $Ref, if needed;
 	  *   - for other [[net.noresttherein.sugar.vars.Val val]]s, it is their final, constant value,
 	  *     if available at this point.
 	  *

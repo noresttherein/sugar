@@ -11,7 +11,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
 
 
 
-/** Similar to `Lazy.`[[net.noresttherein.sugar.vars.Lazy.idempotent idempotent]] lazy value, but on serialization,
+/** Similar to `Delayed.`[[net.noresttherein.sugar.vars.Delayed.idempotent idempotent]] lazy value, but on serialization,
   * instead of evaluating the value and freeing the initializer expression for garbage collection,
   * it does the opposite: the evaluated value is `@transient` and the initializer's reference is never cleared,
   * meaning it will be evaluated again on deserialization if the value is required. This is useful
@@ -92,7 +92,7 @@ case object Transient {
 			res.asInstanceOf[T]
 		}
 
-		@unspecialized override def map[O](f :T => O) :Lazy[O] = {
+		@unspecialized override def map[O](f :T => O) :Delayed[O] = {
 			val v = evaluated
 			if (v != undefined) {
 				val res = f(v.asInstanceOf[T])
@@ -101,7 +101,7 @@ case object Transient {
 				new PureRef(() => f(get))
 		}
 
-		@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+		@unspecialized override def flatMap[O](f :T => Delayed[O]) :Delayed[O] = {
 			val v = evaluated
 			if (v != undefined)
 				f(v.asInstanceOf[T])
@@ -150,7 +150,7 @@ case object Transient {
 			res.asInstanceOf[T]
 		}
 
-		override def map[O](f :T => O) :Lazy[O] = {
+		override def map[O](f :T => O) :Delayed[O] = {
 			val v = evaluated
 			if (v != undefined) {
 				val res = f(v.asInstanceOf[T])
@@ -159,7 +159,7 @@ case object Transient {
 				new PureRef(() => f(get))
 		}
 
-		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+		override def flatMap[O](f :T => Delayed[O]) :Delayed[O] = {
 			val v = evaluated
 			if (v != undefined)
 				f(v.asInstanceOf[T])

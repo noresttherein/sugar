@@ -12,7 +12,7 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   * [[net.noresttherein.sugar.vars.Ref.value value]] of a `Val` can be mutable,
   * but [[net.noresttherein.sugar.vars.Ref.get get]] will not change once set,
   * and all ''successful'' reads return the same value. The chief implementation class is
-  * [[net.noresttherein.sugar.vars.Lazy Lazy]], but the value can be also set explicitly at a later time as in
+  * [[net.noresttherein.sugar.vars.Delayed Delayed]], but the value can be also set explicitly at a later time as in
   * [[net.noresttherein.sugar.vars.Out Out]].
   *
   * One thing in common among all subclasses which differentiate them
@@ -78,7 +78,7 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] { //consider: toRef f
 	  * are undefined.
 	  */
 	def map[O](f :T => O) :Val[O] =
-		if (isConst) Lazy.eager(f(get))
+		if (isConst) Delayed.eager(f(get))
 		else new MappedVal(this, f)
 
 	/** Creates a new `Val` the value of which is derived from the value of this instance.
@@ -115,7 +115,7 @@ object Val {
 	  * but methods which work on lazy values can in some cases return such an instance if the argument
 	  * is already initialized.
 	  */
-	def apply[T](value :T) :Val[T] = Lazy.eager(value)
+	def apply[T](value :T) :Val[T] = Delayed.eager(value)
 
 	/** Matches any `Val` subclass, returning the wrapped value. */
 	def unapply[T](value :Val[T]) :Val[T] = value

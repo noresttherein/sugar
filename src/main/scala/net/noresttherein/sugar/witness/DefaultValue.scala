@@ -4,7 +4,7 @@ import java.util.function.Supplier
 
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.vars.{Const, Eval, Lazy, Maybe, Opt, Ref, SyncLazyRef}
+import net.noresttherein.sugar.vars.{Const, Eval, Delayed, Maybe, Opt, Ref, SyncDelayedRef}
 
 
 
@@ -62,7 +62,7 @@ object DefaultValue {
 
 
 	@SerialVersionUID(Ver)
-	private class ConstDefault[T](override val get :T) extends Const[T] with Lazy[T] with DefaultValue[T] {
+	private class ConstDefault[T](override val get :T) extends Const[T] with Delayed[T] with DefaultValue[T] {
 		override val supplier    :Supplier[_ <: T] = () => get
 		override val toFunction0 :() => T          = () => get
 
@@ -88,11 +88,11 @@ object DefaultValue {
 		override def toString :String = "DefaultValue(_)"
 	}
 	@SerialVersionUID(Ver)
-	private class LazyDefault[T](init :() => T) extends SyncLazyRef[T](init) with DefaultValue[T] {
+	private class LazyDefault[T](init :() => T) extends SyncDelayedRef[T](init) with DefaultValue[T] {
 		override val toFunction0 :() => T = () => get
 		override val supplier :Supplier[_ <: T] = () => get
 
-		override def map[O](f :T => O) :DefaultValue[O] with Lazy[O] = maybe match {
+		override def map[O](f :T => O) :DefaultValue[O] with Delayed[O] = maybe match {
 			case Yes(v) => new ConstDefault(f(v))
 			case _      => new LazyDefault(() => f(get))
 		}

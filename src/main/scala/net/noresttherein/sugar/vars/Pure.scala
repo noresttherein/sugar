@@ -19,7 +19,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * @define ref pure value
   * @author Marcin Mościcki
   */
-trait Pure[@specialized(SpecializedVars) +T] extends Lazy[T] {
+trait Pure[@specialized(SpecializedVars) +T] extends Delayed[T] {
 	//todo: pureMap, pureFlatMap
 	override def mkString :String = mkString("Pure")
 }
@@ -58,7 +58,7 @@ case object Pure {
 		}
 
 	/** A wrapper over an already computed value adapting it to the `Pure` type. It is used
-	  * by [[net.noresttherein.sugar.vars.Lazy.map map]] and [[net.noresttherein.sugar.vars.Lazy.flatMap flatMap]]
+	  * by [[net.noresttherein.sugar.vars.Delayed.map map]] and [[net.noresttherein.sugar.vars.Delayed.flatMap flatMap]]
 	  * methods and as a serialization substitute.
 	  */
 	def eager[@specialized(SpecializedVars) T](value :T) :Pure[T] = new Eager[T](value)
@@ -72,8 +72,8 @@ case object Pure {
 		override def value :T = x
 		override def get   :T = x
 
-		override def map[O](f :T => O) :Lazy[O] = new Eager[O](f(x))
-		override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = f(x)
+		override def map[O](f :T => O) :Delayed[O] = new Eager[O](f(x))
+		override def flatMap[O](f :T => Delayed[O]) :Delayed[O] = f(x)
 
 		override def isSpecialized :Boolean = false //getClass == classOf[Eager[_]]
 	}
@@ -118,11 +118,11 @@ private class PureVal[@specialized(SpecializedVars) +T](private[this] var conten
 		case res :T @unchecked => Sure(res)
 	}
 
-	@unspecialized override def map[O](f :T => O) :Lazy[O] = content match {
+	@unspecialized override def map[O](f :T => O) :Delayed[O] = content match {
 		case _ :(() => Any)    => new PureRef(() => f(apply()))
 		case v :T @unchecked => Pure.eager(f(v))
 	}
-	@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = content match {
+	@unspecialized override def flatMap[O](f :T => Delayed[O]) :Delayed[O] = content match {
 		case _ :(() => Any)    => new PureRef(f(apply()))
 		case v :T @unchecked => f(v)
 	}
@@ -187,7 +187,7 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 		}
 	}
 
-	override def map[O](f :T => O) :Lazy[O] = {
+	override def map[O](f :T => O) :Delayed[O] = {
 		val init = initializer
 		acquireFence()
 		if (init == null)
@@ -201,7 +201,7 @@ private class PureRef[T](private[this] var initializer :() => T) extends Pure[T]
 		}
 	}
 
-	override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+	override def flatMap[O](f :T => Delayed[O]) :Delayed[O] = {
 		val init = initializer
 		acquireFence()
 		if (init == null)

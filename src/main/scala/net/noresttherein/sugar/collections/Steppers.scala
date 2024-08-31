@@ -17,7 +17,7 @@ import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtensio
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.slang.extensions.hashCodeMethods
-import net.noresttherein.sugar.vars.AbstractLazy
+import net.noresttherein.sugar.vars.AbstractDelayed
 
 
 
@@ -714,7 +714,7 @@ private object ConcatStepper {
 
 private class LazyStepper[@specialized(JavaIterator.Types) +A, +S <: Stepper[A]]
                          (protected[this] override var initializer :() => S)
-	extends AbstractLazy[S] with Stepper[A]
+	extends AbstractDelayed[S] with Stepper[A]
 {
 	final def isEvaluated :Boolean = isDefinite
 	@inline final def stepper :S = definite

@@ -69,7 +69,7 @@ trait Clearable[+T] extends Ref[T] with AutoCloseable with Cleanable with Serial
 	@inline final override def isFinal :Boolean = maybe.isEmpty
 
 	/** Checks if this variable currently holds a value. Note that,
-	  * unlike with [[net.noresttherein.sugar.vars.Lazy Lazy]], this property is `true` when the object is created
+	  * unlike with [[net.noresttherein.sugar.vars.Delayed Delayed]], this property is `true` when the object is created
 	  * and, at some point, may become `false` and remains so for the remainder of this object's life.
 	  * It makes this method of very dubious utility, as any positive value can be outdated before even
 	  * it is returned to the caller. It can however still be used as a flag signaling that some other variable

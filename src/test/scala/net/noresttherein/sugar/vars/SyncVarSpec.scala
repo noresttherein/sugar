@@ -23,7 +23,7 @@ class SyncVarPropsGroup(override val varClassName :String = "SyncVar") extends B
 		property("&=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = SpinVar(x1); v &= x2; v.value ?= x1 & x2 }
 
 		property("&&=") = forAll { (x1 :Boolean, x2 :Boolean) =>
-			val v = SpinVar(x1);val arg = Lazy(x2)
+			val v = SpinVar(x1);val arg = Delayed(x2)
 			v &&= arg
 			(v.value ?= x1 && x2) :| "correctness" && (arg.isDefinite ?= x1) :| "laziness"
 		}
@@ -31,7 +31,7 @@ class SyncVarPropsGroup(override val varClassName :String = "SyncVar") extends B
 		property("|=") = forAll { (x1 :Boolean, x2 :Boolean) => val v = SpinVar(x1); v |= x2; v.value ?= x1 | x2 }
 
 		property("||=") = forAll { (x1 :Boolean, x2 :Boolean) =>
-			val v = SpinVar(x1);val arg = Lazy(x2)
+			val v = SpinVar(x1);val arg = Delayed(x2)
 			v ||= arg
 			(v.value ?= x1 || x2) :| "correctness" || (arg.isDefinite ?= x1) :| "laziness"
 		}

@@ -266,7 +266,7 @@ A thread safe variable which can be set - externally - only once.
 #### 9.5. Freezer
 A thread safe variable which can enter immutable state.
 
-#### 9.6. Lazy, Pure, and Transient
+#### 9.6. Lazy, Delayed, Pure, and Transient
 Various alternatives of `lazy val`, providing information about initialization state
 and alternative strategies for initialization for optimized contentious read.
 

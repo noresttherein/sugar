@@ -20,7 +20,7 @@ import net.noresttherein.sugar.vars.InOut.SpecializedVars
   *                 girlfriend.give(poem.get)
   *          }}}
   */
-trait LocalLazy[@specialized(SpecializedVars) T] extends Lazy[T] {
+trait LocalDelayed[@specialized(SpecializedVars) T] extends Delayed[T] {
 	private var x :T = _
 	private var evaluated = false
 	override def isDefinite :Boolean = evaluated
@@ -40,8 +40,8 @@ trait LocalLazy[@specialized(SpecializedVars) T] extends Lazy[T] {
 
 
 @SerialVersionUID(Ver)
-case object LocalLazy {
-	@inline def apply[T](v :LocalLazy[T]) :LocalLazy[T] = v
+case object LocalDelayed {
+	@inline def apply[T](v :LocalDelayed[T]) :LocalDelayed[T] = v
 
-	def delay[@specialized(SpecializedVars) T](value: => T) :LocalLazy[T] = () => value
+	def delay[@specialized(SpecializedVars) T](value: => T) :LocalDelayed[T] = () => value
 }

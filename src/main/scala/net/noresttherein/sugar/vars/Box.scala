@@ -105,7 +105,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * The semantics of `toUnsure` differ depending on the runtime class of `content`;
 	  * [[net.noresttherein.sugar.vars.Val Val]] subclasses will generally return
 	  * the [[net.noresttherein.sugar.vars.Val.const final]] value of the `Val`, if it is already computed,
-	  * with the exceptions of [[net.noresttherein.sugar.vars.Lazy Lazy]], which always return their value,
+	  * with the exceptions of [[net.noresttherein.sugar.vars.Delayed Delayed]], which always return their value,
 	  * initializing themselves if needed. Mutable [[net.noresttherein.sugar.vars.InOut InOut]] will, as a rule,
 	  * return the current value, if available.
 	  * Note that if `content` is not thread safe, the above calls can return corrupt, partially constructed objects.
@@ -146,7 +146,7 @@ sealed trait Box[@specialized(SpecializedVars) T] extends InOut[T] with Serializ
 	  * The semantics of `toUnsure` differ depending on the runtime class of `content`;
 	  * [[net.noresttherein.sugar.vars.Val Val]] subclasses will return
 	  * the [[net.noresttherein.sugar.vars.Val.const final]] value of the `Val`, if it is already computed,
-	  * with the exceptions of [[net.noresttherein.sugar.vars.Lazy Lazy]], which always return their value,
+	  * with the exceptions of [[net.noresttherein.sugar.vars.Delayed Delayed]], which always return their value,
 	  * initializing themselves if needed. Mutable [[net.noresttherein.sugar.vars.InOut InOut]] will, as a rule,
 	  * return the current value, if available.
 	  * Note that if `content` is not thread safe, the above calls can return corrupt, partially constructed objects.

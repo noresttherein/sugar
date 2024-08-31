@@ -20,7 +20,7 @@ import net.noresttherein.sugar.vars.Term.{Expression, Value}
 /** A home to a wide class hierarchy of value wrappers: [[net.noresttherein.sugar.vars.InOut in/out]]
   * method parameters, [[net.noresttherein.sugar.vars.Atomic atomic]]
   * and [[net.noresttherein.sugar.vars.ThreadLocal thread local]] variables,
-  * several [[net.noresttherein.sugar.vars.Lazy lazy]] `val` implementations,
+  * several [[net.noresttherein.sugar.vars.Delayed lazy]] `val` implementations,
   * [[net.noresttherein.sugar.vars.Maybe various]] `Option` [[net.noresttherein.sugar.vars.Unsure alternatives]],
   * [[net.noresttherein.sugar.vars.Channel synchronization]] tools
   * and [[net.noresttherein.sugar.vars.SignalVar conditional variables]],
