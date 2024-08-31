@@ -1,8 +1,7 @@
 package net.noresttherein.sugar.vars
 
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.exceptions.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
@@ -23,17 +22,17 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 	/** Returns `!`[[net.noresttherein.sugar.vars.LazyUnsure.isDefinite isDefinite]]. */
 	override def isEmpty :Boolean = !isDefinite //overridden for docs only
 
-	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite isDefinite]]. */
+	/** Returns [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]. */
 	final override def isFinalizable :Boolean = isDefinite
 
-	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite isDefinite]]. */
+	/** Returns [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]. */
 	@inline final override def isConst :Boolean = isDefinite
 
 	/** Checks if the lazy expression evaluates to a concrete value.
 	  * This will evaluate the expression, if it has not been evaluated previously!
-	  * @see [[net.noresttherein.sugar.vars.Val.isDefinite isDefinite]].
+	  * @see [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]].
 	  */
-	@inline override def isDefined :Boolean = isDefinite
+	@inline override def isDefined :Boolean = toMaybe.isDefined
 
 	/** Checks if the lazy expression was evaluated to a concrete value.
 	  * It will not attempt to evaluate the value itself, returning `false` instead. It will return `false`
@@ -49,7 +48,7 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 	  */
 	@inline final override def apply() :T = get
 
-	/** The value of this $Ref, if it has been already evaluated, and is non empty.
+	/** The value of this $Ref, if it has been already evaluated, and is non-empty.
 	  * Throws a [[NoSuchElementException]] otherwise.
 	  */
 	override def value :T = opt.get
@@ -64,15 +63,13 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 	  */
 	@inline final override def const :T = get
 
-	/** Returns [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
-	  * same as [[net.noresttherein.sugar.vars.Lazy.toMaybe toMaybe]].
-	  */
-	@inline final override def maybeConst :Maybe[T] = maybe
+	/** Evaluates the expression and returns the yielded value. */
+	@inline final override def maybeConst :Maybe[T] = toMaybe
 
 	/** Returns [[net.noresttherein.sugar.vars.Opt.One One]]`(`[[net.noresttherein.sugar.vars.Lazy.get get]]`)`,
 	  * same as [[net.noresttherein.sugar.vars.Lazy.toOpt toOpt]].
 	  */
-	@inline final override def constOpt :Opt[T] = opt
+	@inline final override def constOpt :Opt[T] = toOpt
 
 	/** Creates a new $Ref`[O]` instance with the same characteristics as this instance, evaluated
 	  * to the application of `f` to the value of this instance. If the value has already been evaluated,
@@ -84,11 +81,11 @@ trait LazyUnsure[@specialized(SpecializedVars) +T] extends Ref[T] {
 	  */
 	def map[O](f :T => O) :LazyUnsure[O]
 
-	/** Creates a new $Ref`[O]` initialized with the expression `f(this.value)).value`. If this instance is already
-	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise a new
+	/** Creates a new $Ref`[O]` initialized with the expression `f(this.value).value`. If this instance is already
+	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise, a new
 	  * $Ref`[O]` with the same synchronization characteristics as this instance will be created, with
-	  * `f(this.value)).value` as the initializing expression. If you wish for `f` to not be executed
-	  * before the method returns and the returned instance is accessed, use $Ref`(f(this.value).value))`.
+	  * `f(this.value).value` as the initializing expression. If you wish for `f` to not be executed
+	  * before the method returns and the returned instance is accessed, use $Ref`(f(this.value).value)`.
 	  */
 	def flatMap[O](f :T => LazyUnsure[O]) :LazyUnsure[O]
 
@@ -105,9 +102,9 @@ case object LazyUnsure {
 	def eager[@specialized(SpecializedVars) T](value :T) :LazyUnsure[T] = new EagerUnsure(One(value))
 
 	def fromOpt[@specialized(SpecializedVars) T](value :Opt[T]) :LazyUnsure[T] =
-		if (value.isEmpty) Empty else new EagerUnsure(value)
+		if (value.isEmpty) empty else new EagerUnsure(value)
 
-	val Empty :LazyUnsure[Nothing] = new EagerUnsure(None)
+	val empty :LazyUnsure[Nothing] = new EagerUnsure(None)
 
 
 	@SerialVersionUID(Ver)
@@ -116,9 +113,9 @@ case object LazyUnsure {
 		override def opt   = x
 		override def toOpt = x
 
-		override def map[O](f :T => O) = if (x.isDefined) new EagerUnsure(One(f(x.get))) else Empty
+		override def map[O](f :T => O) = if (x.isDefined) new EagerUnsure(One(f(x.get))) else empty
 		override def flatMap[O](f :T => LazyUnsure[O]) =
-			if (x.isDefined) f(x.get) else Empty
+			if (x.isDefined) f(x.get) else empty
 	}
 
 
@@ -169,14 +166,14 @@ case object LazyUnsure {
 			if (opt != undefined)
 				opt.asInstanceOf[Opt[T]] match {
 					case One(v) => f(v)
-					case _      => Empty
+					case _      => empty
 				}
 			else synchronized {
 				opt = evaluated
 				if (opt != undefined)
 					opt.asInstanceOf[Opt[T]] match {
 						case One(v) => f(v)
-						case _      => Empty
+						case _      => empty
 					}
 				else
 					new SyncUnsure(() => toOpt.flatMap(f(_).opt))

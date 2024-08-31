@@ -16,6 +16,11 @@ private trait SpecVar[@specialized(Int) X] {
 
 private case object SpecVar {
 	@inline def apply[X](implicit valueType :VarType[X]) :SpecVar[X] = valueType()
+	@inline def apply[X](value :X)(implicit valueType :VarType[X]) :SpecVar[X] = {
+		val res = valueType()
+		res.value = value
+		res
+	}
 
 	abstract class VarType[@specialized(Int) X] {
 		def apply() :SpecVar[X]

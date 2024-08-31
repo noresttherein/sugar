@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.vars
 
-import net.noresttherein.sugar.extensions.classNameMethods
-import net.noresttherein.sugar.unsupported_!
+import net.noresttherein.sugar.exceptions.unsupported_!
+import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.vars.Ref.undefined
@@ -17,13 +17,13 @@ import net.noresttherein.sugar.vars.Ref.undefined
   *
   * A `Ref` can be mutable or immutable and possibly undefined, either permanently or temporarily.
   * More specifically, a `Ref` can be:
-  *   1. [[net.noresttherein.sugar.vars.Ref.isEmpty empty]]/[[net.noresttherein.sugar.vars.nonEmpty non empty]] -
+  *   1. [[net.noresttherein.sugar.vars.Ref.isEmpty empty]]/[[net.noresttherein.sugar.vars.Ref.nonEmpty non empty]] -
   *      currently contain a [[net.noresttherein.sugar.vars.Ref.value value]], with no guarantee about its future state,
   *   1. [[net.noresttherein.sugar.vars.Ref.isDefined defined]] -
   *      having a stored value or capable of producing one on demand,
   *   1. [[net.noresttherein.sugar.vars.Ref.isFinal final]] -
   *      either defined or undefined, but immutable from this point forward,
-  *   1. [[net.noresttherein.sugar.vars.Ref.isConst constant]] - non empty and final,
+  *   1. [[net.noresttherein.sugar.vars.Ref.isConst constant]] - non-empty and final,
   *   1. [[net.noresttherein.sugar.vars.Ref.isFinalizable finalizable]] - 'eventually immutable', that is capable
   *      of becoming [[net.noresttherein.sugar.vars.Ref.isConst constant]].
   *
@@ -63,14 +63,14 @@ import net.noresttherein.sugar.vars.Ref.undefined
   *      as a return type of an `unapply` method (because it provides only extension methods, rather than class methods
   *      as `Maybe` does. This makes it best suited as very short living objects where `Opt` type
   *      is never upcasted or used as a type argument.
-  *   1. A relatively safer alternative `Maybe`, in that it can be used both in erased and non erased contexts,
-  *      and `Maybe[T]` will not match pattern `_ :T` (for a non abstract type `T`).
+  *   1. A relatively safer alternative `Maybe`, in that it can be used both in erased and non-erased contexts,
+  *      and `Maybe[T]` will not match pattern `_ :T` (for a non-abstract type `T`).
   *      It has fewer restrictions and then the former, and can be used as the return type of `unapply` methods.
   *      This however also makes it no better than `Option` as a function argument/return type
   *      or an element type of an array.
   *   1. A `@specialized` [[net.noresttherein.sugar.vars.Unsure Unsure]] is the most niche of the three,
   *      as it is never erased and always results in a creation of a new object. Unlike `Option` (and the other two
-  *      alternatives), it will not result in boxing of built in value types and opaque types mapped to value types.
+  *      alternatives), it will not result in boxing of built-in value types and opaque types mapped to value types.
   *      In these contexts it offers largely the same benefits as `Opt` and `Nullable`, because in all three cases
   *      a single boxing will need to happen. It has however an advantage over other two in that this benefit is 'free':
   *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
@@ -78,7 +78,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   *      rather than `Any`, which means it has a lesser potential for clashes between erased method signatures.
   *      Other than that, has the same characteristics as `Maybe`, but cannot be used for value types.
   *   1. A specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
-  *   1. A specialized [[net.noresttherein.sugar.vars.Ternary Ternary]], erased in the runtime to a `Int`.
+  *   1. A specialized [[net.noresttherein.sugar.vars.Ternary Ternary]], erased in the runtime to an `Int`.
   */
 trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
@@ -95,7 +95,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * will throw a [[NoSuchElementException]] and
 	  * [[net.noresttherein.sugar.vars.Ref.option option]]/[[net.noresttherein.sugar.vars.Ref.opt opt]]/[[net.noresttherein.sugar.vars.Ref.unsure unsure]]
 	  * will return `None`/[[net.noresttherein.sugar.vars.Maybe.No No]]/[[net.noresttherein.sugar.vars.Missing Missing]].
-	  * Note that in a multi-threaded context the result may be stale the moment the method returns.
+	  * Note that in a multithreaded context the result may be stale the moment the method returns.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @return [[net.noresttherein.sugar.vars.Ref.opt opt]]`.isEmpty` (or equivalent).
@@ -103,7 +103,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isEmpty :Boolean = maybe.isEmpty
 
 	/** The $Ref currently holds a [[net.noresttherein.sugar.vars.Ref.value value]].
-	  * Note that in a multi-threaded context the result may be incorrect the moment the method returns.
+	  * Note that in a multithreaded context the result may be incorrect the moment the method returns.
 	  * In absence of additional guarantees specified by the contract of a subclass,
 	  * prefer polling with [[net.noresttherein.sugar.vars.Ref.opt opt]].
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
@@ -127,14 +127,16 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	def isFinalizable: Boolean
 
 	/** The $Ref contains an initialized value which is guaranteed not to change. Once this method returns `true`,
-	  * it will remain `true` for the rest of this $Ref's lifetime, although in a multi-threaded context
+	  * it will remain `true` for the rest of this $Ref's lifetime, although in a multithreaded context
 	  * this is guaranteed only for thread safe implementations.
 	  * Implies `this.`[[net.noresttherein.sugar.vars.Ref.isDefined isDefined]],
 	  * [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]], [[net.noresttherein.sugar.vars.Ref.isFinal isFinal]],
 	  * and [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]].
 	  * A constant $Ref will never throw an exception from [[net.noresttherein.sugar.vars.Ref.value value]],
 	  * [[net.noresttherein.sugar.vars.Ref.get get]], [[net.noresttherein.sugar.vars.Ref.const const]],
-	  * and all these methods will return the same value. Similarly, all optional value methods will return the same value.
+	  * and all these methods will return the same value. Similarly, all optional value methods will return
+	  * the same value. This method refers only to the present and the future of the $ref:
+	  * it may have had a different value in the past.
 	  * @return [[net.noresttherein.sugar.vars.Ref.isFinal isFinal]]` && `[[net.noresttherein.sugar.vars.Ref.nonEmpty nonEmpty]].
 	  * @see [[net.noresttherein.sugar.vars.Ref.isDefined isDefined]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
@@ -144,15 +146,15 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
 	/** The $Ref contains a proper value or can compute one on demand. In a single threaded context,
 	  * or with proper synchronization, this implies that [[net.noresttherein.sugar.vars.Ref.get get]]
-	  * will return this value without throwing an exception, although
+	  * will return this value without throwing an exception, and
 	  * [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
-	  * may still return `None`/[[net.noresttherein.sugar.vars.Maybe.No No]]/[[net.noresttherein.sugar.vars.Missing Missing]]
-	  * to avoid blocking. This implies nothing about `this.`[[net.noresttherein.sugar.vars.Ref.value value]]:
+	  * are defined. This implies nothing about `this.`[[net.noresttherein.sugar.vars.Ref.value value]]:
 	  * it might return a different result or throw a [[NoSuchElementException]].
 	  * Depending on the implementation, this state can be temporary and/or the actual value returned by `get` may change.
 	  * @see [[net.noresttherein.sugar.vars.Ref.isConst isConst]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.isFinalizable isFinalizable]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
+	  * @see [[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]
 	  */ //consider: this is a bit misleading for some classes like Channel or Lazy
 	def isDefined :Boolean
 
@@ -185,7 +187,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * @see [[net.noresttherein.sugar.vars.Ref.maybe maybe]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.option option]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.NonEmpty.unapply NonEmpty.unapply]]
-	  */ //consider: renaming to current, and making get an alias for value
+	  */ //consider: renaming to current/curr, and making value an alias for get or vice versa.
 	@throws[NoSuchElementException]("if this instance doesn't contain an initialized value at the moment of this call.")
 	def value: T
 
@@ -210,7 +212,7 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  *      all subsequent calls to
 	  *      [[net.noresttherein.sugar.vars.Ref.toOption toOption]]/[[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]/[[net.noresttherein.sugar.vars.Ref.toUnsure toUnsure]]
 	  *      will return `Some(v)`/`Yes(v)`/`Sure(v)`.
-	  *   1. if a call to `this.`[[net.noresttherein.sugar.vars.const const]] succeeds and returns `v`,
+	  *   1. if a call to `this.`[[net.noresttherein.sugar.vars.Ref.const const]] succeeds and returns `v`,
 	  *      then all subsequent calls to `get` will also return `v`.
 	  *
 	  * The call can block if initialization is currently in progress. Whenever there is talk about a `Ref`'s value
@@ -233,11 +235,12 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  * All calls always have the same effect: either the same value is returned, or the same exception is thrown.
 	  * If this call succeeds and returns `v`, then
 	  * [[net.noresttherein.sugar.vars.Ref.constOption constOption]]/[[net.noresttherein.sugar.vars.Ref.constOpt constOpt]]/[[net.noresttherein.sugar.vars.Ref.unsureConst unsureConst]]/[[net.noresttherein.sugar.vars.Ref.maybeConst maybeConst]]
-	  * will always return `Some(v)`/`Yes(v)`/`Sure(v)` and vice versa.
+	  * will always return `Some(v)`/`One(v)`/`Sure(v)/Yes(v)` and vice versa.
 	  * @see [[net.noresttherein.sugar.vars.Ref.value value]]
 	  * @see [[net.noresttherein.sugar.vars.Ref.get get]]
 	  */
 	@throws[UnsupportedOperationException]("if this class does not impose any constraints on future mutability.")
+	@throws[NoSuchElementException]("if the class is finalizable, but its final value cannot be made available at the moment.")
 	def const :T
 
 	/** The value of this $Ref, if available or can be computed. The exact semantics depend on the actual implementation,
@@ -436,8 +439,6 @@ trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 	  */
 	def same(other :Ref[_]) :Boolean = toMaybe same other.toMaybe
 
-//	def sameOpt(other :Ref[_]) :Ref[Boolean] =
-
 	/** True if the content type is known to be a value type and the class is specialized for it.
 	  * Signifies that usage of [[net.noresttherein.sugar.vars.Unsure Unsure]] is preferable
 	  * over [[net.noresttherein.sugar.vars.Maybe Maybe]]. Should not be relied upon for anything critical
@@ -541,7 +542,7 @@ object Ref {
 	private[vars] abstract class RefNumeric[V[X] <: Ref[X], T](implicit content :Numeric[T])
 		extends RefOrdering[V, T] with Numeric[V[T]]
 	{
-		protected def value :Numeric[T] = content
+		protected def underlying :Numeric[T] = content
 
 		private[this] val + = content.plus _
 		private[this] val - = content.minus _
@@ -570,7 +571,7 @@ object Ref {
 	abstract class RefIntegral[V[X] <: Ref[X], T](implicit content :Integral[T])
 		extends RefNumeric[V, T] with Integral[V[T]]
 	{
-		protected override def value :Integral[T] = content
+		protected override def underlying :Integral[T] = content
 		private[this] val / = content.quot _
 		private[this] val % = content.rem _
 
@@ -581,7 +582,7 @@ object Ref {
 	abstract class RefFractional[V[X] <: Ref[X], T](implicit content :Fractional[T])
 		extends RefNumeric[V, T] with Fractional[V[T]]
 	{
-		protected override def value :Fractional[T] = content
+		protected override def underlying :Fractional[T] = content
 		private[this] val / = content.div _
 
 		override def div(x :V[T], y :V[T]) :V[T] = fmap(x, y)(/)
@@ -592,7 +593,7 @@ object Ref {
 	  * Subclasses are not required to contain a value, in which case they must remain empty
 	  * for the remainder of their lifetime.
 	  */
-	private[vars] trait FinalRef[+T] extends Ref[T] {
+	trait FinalRef[+T] extends Ref[T] {
 		@inline final override def isFinal       :Boolean = true
 		/** Same as [[net.noresttherein.sugar.vars.Ref.nonEmpty nonEmpty]]. */
 		@inline final override def isFinalizable :Boolean = !isEmpty

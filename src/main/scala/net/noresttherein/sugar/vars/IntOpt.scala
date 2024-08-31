@@ -104,16 +104,16 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
-		* @throws UnsupportedOperationException if this `IntOpt` is empty. */
+		* @throws NoSuchElementException if this `IntOpt` is empty. */
 	@inline override def const :Int =
-		if (x == NoContent) unsupported_!("NoInt.const")
+		if (x == NoContent) noSuch_!("NoInt.const")
 		else x.toInt
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
-		* @throws UnsupportedOperationException if this `IntOpt` is empty. */
+		* @throws NoSuchElementException if this `IntOpt` is empty. */
 	@inline override def apply() :Int =
-		if (x == NoContent) unsupported_!("NoInt.const")
+		if (x == NoContent) noSuch_!("NoInt.const")
 		else x.toInt
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -137,13 +137,6 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	  * @param or the value to return if this instance is empty. */
 	@inline def orDefault[O >: Int](or: O) :O =
 		if (x == NoContent) or else x.toInt
-
-//
-//	/** Gets the integer in the $Ref or throws the exception given as the argument.
-//	  * @see [[net.noresttherein.sugar.vars.IntOpt.orNoSuch orNoSuch]]
-//	  * @see [[net.noresttherein.sugar.vars.IntOpt.orIllegal orIllegal]] */
-//	@inline def orThrow(e : => Throwable) :Int =
-//		if (x == NoContent) throw e else x.toInt
 
 	/** Gets the element in the `IntOpt` or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
@@ -206,7 +199,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Similarly to [[net.noresttherein.sugar.vars.IntOpt.orElse orElse]], returns this `IntOpt` if it is not empty
 	  * and `or` otherwise. The difference is that the alternative value is not lazily computed and guarantees
-	  * no closure would be be created, at the cost of possibly discarding it without use.
+	  * no closure would be created, at the cost of possibly discarding it without use.
 	  * @param or the value to return if this instance is empty. */
 	@inline def ifEmpty(or: IntOpt) :IntOpt =
 		if (x == NoContent) or else this
@@ -244,7 +237,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	@inline def mapOrElse[O](f :Int => O, or: => O) :O =
 		if (x == NoContent) or else f(x.toInt)
 
-	/** Returns the result of applying `f` to the value of this `IntOpt` if it is non empty,
+	/** Returns the result of applying `f` to the value of this `IntOpt` if it is non-empty,
 	  * or the result of evaluating expression `ifEmpty` otherwise.
 	  *
 	  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
@@ -361,7 +354,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	@inline override def iterator :Iterator[Int] =
 		if (x == NoContent) Iterator.empty else Iterator.single(x.toInt)
 
-	/** Returns `Nil` if this `IntOpt` is empty or or `this.get::Nil` otherwise. */
+	/** Returns `Nil` if this `IntOpt` is empty or `this.get::Nil` otherwise. */
 	@inline def toList :List[Int] = if (x == NoContent) Nil else x.toInt :: Nil
 
 	/** Returns an empty list if this `IntOpt` is empty or a single element list with its value otherwise. */
@@ -412,11 +405,6 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 	  * Same as [[net.noresttherein.sugar.vars.IntOpt.toOpt toOpt]]. */
 	@inline override def constOpt :Opt[Int] =
 		if (x == NoContent) None else One(x.toInt)
-//
-//	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
-//	  * This conversion does not require boxing. */
-//	@inline override def ?? :Opt[A] =
-//		if (x == NoContent) None else One(x.asInstanceOf[A])
 
 
 	/** Converts this `IntOpt` to `Either`, returning the content as `Left`, or the value of the given expression
@@ -534,22 +522,21 @@ case object IntOpt {
 		new IntOpt(if (!cond) a & Content else NoContent)
 
 	/** Executes the given lazy expression in a `try-catch` block, returning `NoInt` in case
-	  * any exception is caught. Otherwise the value is returned as a `AnInt` instance as normal. */
+	  * any exception is caught. Otherwise, the value is returned as a `AnInt` instance as normal. */
 	@inline def guard(a : => Int) :IntOpt =
 		try { AnInt(a) } catch {
 			case _ :Exception => NoInt
 		}
 
 	/** Applies the given function to the second argument in a `try-catch` block, returning `NoInt` in case
-	  * any exception is caught. Otherwise the result is returned as a `AnInt` instance as normal. */
+	  * any exception is caught. Otherwise, the result is returned as a `AnInt` instance as normal. */
 	@inline def guard[A](f :A => Int)(a :A) :IntOpt =
 		try { AnInt(f(a)) } catch {
 			case _ :Exception => NoInt
 		}
 
 	/** Returns the first argument as `AnInt` if it satisfies the predicate `p`.
-	  * @return `AnInt(value).filter(p)`.
-	  */
+	  * @return `AnInt(value).filter(p)`. */
 	@inline def satisfying(value :Int)(p :Int => Boolean) :IntOpt =
 		new IntOpt(if (p(value)) value & Content else NoContent)
 
@@ -558,8 +545,7 @@ case object IntOpt {
 		new IntOpt(if (value >= 0) value & Content else NoContent)
 
 	/** Returns [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] - an empty `IntOpt`.
-	  * The difference from the former is the wider type of `IntOpt` itself, rather than `NoInt`.
-	  */
+	  * The difference from the former is the wider type of `IntOpt` itself, rather than `NoInt`. */
 	@inline final val empty :IntOpt = new IntOpt(NoContent)
 
 	/** A refinement of [[net.noresttherein.sugar.vars.IntOpt IntOpt]] marking it through a member flag type
@@ -581,7 +567,7 @@ case object IntOpt {
 	  * narrowed down to this type. */
 	type AnInt = IntOpt { type isEmpty = false }
 
-	/** Factory and a matching pattern for non empty values of [[net.noresttherein.sugar.vars.IntOpt IntOpt]]. */
+	/** Factory and a matching pattern for non-empty values of [[net.noresttherein.sugar.vars.IntOpt IntOpt]]. */
 	@SerialVersionUID(Ver)
 	object AnInt {
 		/** Creates a non-empty [[net.noresttherein.sugar.vars.IntOpt IntOpt]] wrapping the given value. */

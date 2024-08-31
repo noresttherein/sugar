@@ -5,7 +5,6 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
@@ -15,11 +14,11 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
 
 
 
-/** A `@specialized` (for all value types with the exception of `Unit`) version of [[scala.Option]]
+/** A `@specialized` (for all value types except `Unit`) version of [[scala.Option]]
   * conforming to [[net.noresttherein.sugar.vars.Val Val]] interface.
   * Like `Option`, it has two subclasses: [[net.noresttherein.sugar.vars.Sure Sure]]`[T]` (equivalent of `Some[T]`)
   * and [[net.noresttherein.sugar.vars.Missing Missing]] (equivalent of `None`).
-  * The difference from `Option` and its raison d'etre is that it does not involve boxing of built in (or opaque)
+  * The difference from `Option` and its raison d'être is that it does not involve boxing of built-in (or opaque)
   * value types, as long as the type parameter is statically known at creation and usage sites, or the calling code
   * is also specialized for the given value type. This can yield a noticeable performance benefit in scenarios
   * where instances are created and discarded rapidly, such as flat mapping and simple recursion.
@@ -72,7 +71,7 @@ import net.noresttherein.sugar.vars.Unsure.{WithFilter, collector, unzip2Fail, u
   * @define ref unsure value
   * @define coll unsure value
   * @author Marcin Mościcki
-  */
+  */ //Uncertain is a longer name, but Certain is a better name than Sure. Hmm.
 sealed trait Unsure[@specialized(SpecializedVars) +T]
 	extends Ref[T] with FinalRef[T] with IterableOnce[T] with Product with Serializable
 {
@@ -80,8 +79,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final override def isEmpty :Boolean = this eq Missing
 
 	/** Tests if this `Unsure` contains a value (is a [[net.noresttherein.sugar.vars.Sure Sure]]).
-	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]].
-	  */
+	  * Equivalent to [[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]. */
 	@inline final override def isDefined :Boolean = this ne Missing
 
 	@inline final override def knownSize :Int = if (this eq Missing) 0 else 1
@@ -97,8 +95,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Forces extraction of the value.
 	  * @return contained value, if this is a [[net.noresttherein.sugar.vars.Sure Sure]].
-	  * @throws NoSuchElementException if this `Unsure` is empty.
-	  */
+	  * @throws NoSuchElementException if this `Unsure` is empty. */
 	override def get :T
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -108,8 +105,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	/** Similarly to [[net.noresttherein.sugar.vars.Unsure.getOrElse getOrElse]], returns the value if non-empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
 	  * no closure will be created, at the cost of possibly discarding it without use.
-	  * @param or the value to return if this instance is empty.
-	  */
+	  * @param or the value to return if this instance is empty. */
 	@inline final def orDefault[O >: T](or: O) :O =
 		if (this eq Missing) or else get
 
@@ -123,8 +119,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
 	  *           argument, or a two-argument constructor accepting a `String` and a `Throwable`.
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orNoSuch orNoSuch]]
-	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]] */
 	@inline final def orThrow[E <: Throwable :ClassTag](msg: => String) :T =
 		if (this eq Missing) raise[E](msg) else get
 
@@ -135,32 +130,27 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	  *           a constructor accepting a single `String` argument,
 	  *           or a two-argument constructor accepting a `String` and a `Throwable`.
 	  * @see [[net.noresttherein.sugar.vars.Unsure.orNoSuch orNoSuch]]
-	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orIllegal orIllegal]] */
 	@inline final def orThrow[E <: Throwable :ClassTag] :T =
 		if (this eq Missing) raise[E] else get
 
 	/** Gets the value of this instance or throws a [[NoSuchElementException]].
-	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]] */
 	@inline final def orNoSuch(msg: => String) :T =
 		if (this eq Missing) noSuch_!(msg) else get
 
 	/** Gets the value of this instance or throws a [[NoSuchElementException]].
-	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]] */
 	@inline final def orNoSuch :T =
 		if (this eq Missing) noSuch_!("Missing") else get
 
 	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
-	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]] */
 	@inline final def orIllegal(msg: => String) :T =
 		if (this eq Missing) illegal_!(msg) else get
 
 	/** Gets the value of this instance or throws an [[IllegalArgumentException]].
-	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]]
-	  */
+	  * @see [[net.noresttherein.sugar.vars.Unsure.orThrow orThrow]] */
 	@inline final def orIllegal :T =
 		if (this eq Missing) illegal_!("Missing") else get
 
@@ -184,21 +174,18 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Unsure.orElse orElse]], returns this `Unsure` if it is not empty
 	  * and `alt` otherwise. The difference is that the alternative value is not lazily computed and guarantees
-	  * no closure would be be created, at the cost of possibly discarding it without use.
-	  * @param or the value to return if this instance is empty.
-	  */
+	  * no closure would be created, at the cost of possibly discarding it without use.
+	  * @param or the value to return if this instance is empty. */
 	@inline final def ifEmpty[O >: T](or: Unsure[O]) :Unsure[O] =
 		if (this eq Missing) or else this
 
 	/** Returns this `Unsure` if the condition is false and `Missing` if it is true. This is equivalent
-	  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
-	  */
+	  * to `this.filterNot(_ => condition)`, but avoids creating a function and arguably conveys the intent better. */
 	@inline final def orEmptyIf(condition :Boolean) :Unsure[T] =
 		if (condition) Missing else this
 
 	/** Returns this `Unsure` if the condition is true and `Missing` if it is false. This is equivalent
-	  * to `this.filter(_ => condition)`, but avoids creating a function and arguably conveys the intent better.
-	  */
+	  * to `this.filter(_ => condition)`, but avoids creating a function and arguably conveys the intent better. */
 	@inline final def orEmptyUnless(condition :Boolean) :Unsure[T] =
 		if (condition) this else Missing
 
@@ -206,32 +193,28 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** Returns `this` ''iff'' this value is [[net.noresttherein.sugar.vars.Missing Missing]],
 	  * or a [[net.noresttherein.sugar.vars.Sure Sure]] containing the result of applying
-	  * the given function to its value otherwise.
-	  */
+	  * the given function to its value otherwise. */
 	@inline final def map[O](p :T => O) :Unsure[O] =
 		if (this eq Missing) Missing else new Sure(p(get))
 
 
 	/** Applies the given function to the content of this `Unsure` and returns the result or the provided alternative
-	  * if this instance is empty. Equivalent to `this map f getOrElse or`, but in one step.
-	  */
+	  * if this instance is empty. Equivalent to `this map f getOrElse or`, but in one step. */
 	@inline final def mapOrElse[X](f :T => X, or: => X) :X =
 		if (this eq Missing) or else f(get)
 
-	/** Returns the result of applying `f` to the value of this `Unsure` if it is non empty,
+	/** Returns the result of applying `f` to the value of this `Unsure` if it is non-empty,
 	  * or the result of evaluating expression `ifEmpty` otherwise.
 	  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
 	  * one with another, but its name might be misleading. Consider using
 	  * [[net.noresttherein.sugar.vars.Unsure.mapOrElse mapOrElse]] instead.
-	  *  @param  ifEmpty the expression to evaluate if empty.
-	  *  @param  f       the function to apply if nonempty.
-	  */
+	  * @param  ifEmpty the expression to evaluate if empty.
+	  * @param  f       the function to apply if nonempty. */
 	@inline final def fold[B](ifEmpty: => B)(f: T => B): B =
 		if (this eq Missing) ifEmpty else f(get)
 
 	/** The same as [[net.noresttherein.sugar.vars.Unsure.map map]], but exception thrown by the function
-	  * are caught and [[net.noresttherein.sugar.vars.Missing Missing]] is returned instead.
-	  */
+	  * are caught and [[net.noresttherein.sugar.vars.Missing Missing]] is returned instead. */
 	@inline final def guardMap[B](f :T => B) :Unsure[B] =
 		if (this eq Missing)
 			Missing
@@ -269,20 +252,17 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	}
 
 	/** Returns a new `Unsure` containing this value if it is not empty and its value satisfies the given predicate,
-	  * or [[net.noresttherein.sugar.vars.Missing Missing]] otherwise.
-	  */
+	  * or [[net.noresttherein.sugar.vars.Missing Missing]] otherwise. */
 	@inline final def filter(p :T => Boolean) :Unsure[T] =
 		if ((this eq Missing) || p(get)) this else Missing
 
 	/** Returns a new `Unsure` containing this value if it is not empty and its value falsifies the given predicate,
-	  * or [[net.noresttherein.sugar.vars.Missing Missing]] otherwise.
-	  */
+	  * or [[net.noresttherein.sugar.vars.Missing Missing]] otherwise. */
 	@inline final def filterNot(p :T => Boolean) :Unsure[T] =
 		if ((this eq Missing) || !p(get)) this else Missing
 
 	/** Equivalent to `this.`[[net.noresttherein.sugar.vars.Unsure.filter filter]]`(p)` - a variant for use
-	  * in for-comprehensions.
-	  */
+	  * in for-comprehensions. */
 	@inline final def withFilter(p :T => Boolean) :WithFilter[T] = new WithFilter[T](this, p)
 
 
@@ -300,8 +280,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final def foreach[O](f :T => O) :Unit = if (this ne Missing) f(get)
 
 	/** Returns an empty `Unsure` if this `Unsure` is empty the partial function `f` is not defined for its value,
-	  * otherwise applies it and wraps the result it in a new `Unsure`.
-	  */
+	  * otherwise applies it and wraps the result it in a new `Unsure`. */
 	def collect[O](f :PartialFunction[T, O]) :Unsure[O] =
 		if (this eq Missing)
 			Missing
@@ -312,8 +291,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 
 	/** Returns an `Unsure` formed from the contents of `this` and `that` by combining the corresponding elements
-	  * in a pair. If either of the two options is empty, `Missing` is returned.
-	  */
+	  * in a pair. If either of the two options is empty, `Missing` is returned. */
 	@inline final def zip[O](that :Unsure[O]) :Unsure[(T, O)] =
 		if ((this eq Missing) | (that eq Missing)) Missing
 		else new Sure((get, that.get))
@@ -328,8 +306,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 		}
 
 	/** Converts an `Unsure` of a triple into three `Unsure`s, one containing the element from each position
-	  * of the triple.
-	  */
+	  * of the triple. */
 	final def unzip3[T1, T2, T3](implicit asTriple: T <:< (T1, T2, T3)): (Unsure[T1], Unsure[T2], Unsure[T3]) =
 		if (this eq Missing)
 			unzip3Fail
@@ -343,7 +320,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final override def iterator :Iterator[T] =
 		if (this eq Missing) Iterator.empty else Iterator.single(get)
 
-	/** Returns `Nil` if this `Unsure` is empty or or `this.get::Nil` otherwise. */
+	/** Returns `Nil` if this `Unsure` is empty or `this.get::Nil` otherwise. */
 	@inline final def toList :List[T] = if (this eq Missing) Nil else get::Nil
 
 	/** Returns an empty list if this `Unsure` is empty or a single element list with its value otherwise. */
@@ -353,40 +330,34 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 	@inline final def toIterable :Iterable[T] = if (this eq Missing) Iterable.empty else Iterable.single(get)
 
 	/** Conversion to standard Scala [[scala.Option]]. Same as [[net.noresttherein.sugar.vars.Unsure.toOption toOption]].
-	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise.
-	  */
+	  * @return `Some(this.get)` if `this.nonEmpty` or `None` otherwise. */
 	override def option :Option[T] = None //overridden by Sure
 
 	/** Converts this `Unsure` to a `Maybe`. Same as [[net.noresttherein.sugar.vars.Unsure.toMaybe toMaybe]].
 	  * @return [[net.noresttherein.sugar.vars.Maybe.Yes Yes]]`(this.`[[net.noresttherein.sugar.vars.Unsure.get get]]`)`
 	  *         if `this.`[[net.noresttherein.sugar.vars.Unsure.nonEmpty nonEmpty]]
-	  *         or [[net.noresttherein.sugar.vars.Maybe.No No]] otherwise.
-	  */
+	  *         or [[net.noresttherein.sugar.vars.Maybe.No No]] otherwise. */
 	override def opt :Opt[T] = None
 
 	final override def unsure :Unsure[T] = this
 
 	/** Converts this `Unsure` to an `Either`, returning the content as `Left`, or the value of the given expression
-	  * as `Right` if empty.
-	  */
+	  * as `Right` if empty. */
 	@inline final def toLeft[O](right: => O) :Either[T, O] =
 		if (this eq Missing) Right(right) else Left(get)
 
 	/** Converts this `Unsure` to an `Either`, returning the content as `Right`, or the value of the given expression
-	  * as `Left` if empty.
-	  */
+	  * as `Left` if empty. */
 	@inline final def toRight[O](left: => O) :Either[O, T] =
 		if (this eq Missing) Left(left) else Right(get)
 
-	/** Converts this `Unsure` to an `Pill`, returning the content as `Red`, or the value of the given expression
-	  * as `Blue` if empty.
-	  */
+	/** Converts this `Unsure` to a `Pill`, returning the content as `Red`, or the value of the given expression
+	  * as `Blue` if empty. */
 	@inline final def toRed[O](blue: => O) :Pill[T, O] =
 		if (this eq Missing) Blue(blue) else Red(get)
 
-	/** Converts this `Unsure` to an `Pill`, returning the content as `Blue`, or the value of the given expression
-	  * as `Red` if empty.
-	  */
+	/** Converts this `Unsure` to a `Pill`, returning the content as `Blue`, or the value of the given expression
+	  * as `Red` if empty. */
 	@inline final def toBlue[O](red: => O) :Pill[O, T] =
 		if (this eq Missing) Red(red) else Blue(get)
 
@@ -433,8 +404,7 @@ case object Unsure {
 	/** An `Unsure` factory which creates [[net.noresttherein.sugar.vars.Sure Sure]]`(value)`
 	  * if the argument is not null, and [[net.noresttherein.sugar.vars.Missing Missing]] if it is null.
 	  * @param value the value.
-	  * @return `if (value == null) Missing else Success(value)`.
-	  */
+	  * @return `if (value == null) Missing else Success(value)`. */
 	def apply[@specialized(SpecializedVars) T](value :T) :Unsure[T] =
 		if (value == null) Missing else new Sure(value)
 
@@ -463,40 +433,37 @@ case object Unsure {
 		if (value.isDefined) new Sure(value.get, cachedOpt = value) else Missing
 
 
-	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]] in a manner consistent with the collections hierarchy. */
+	/** Returns [[net.noresttherein.sugar.vars.Missing Missing]] in a manner consistent with the collections' hierarchy. */
 	def empty[T] : Unsure[T] = Missing
 
 	/** When a given condition is true, evaluates the `value` argument and returns
 	  * [[net.noresttherein.sugar.vars.Sure Sure]]`(value)`. When the condition is false, `value` is not evaluated
-	  * and [[net.noresttherein.sugar.vars.Missing Missing]] is returned.
-	  */
+	  * and [[net.noresttherein.sugar.vars.Missing Missing]] is returned. */
 	def when[@specialized(SpecializedVars) T](cond: Boolean)(value: => T): Unsure[T] =
 		if (cond) new Sure(value) else Missing
 
 	/** Unless a given condition is true, this will evaluate the `value` argument and
 	  * return [[net.noresttherein.sugar.vars.Sure Sure]]`(value)`. Otherwise, `value` is not evaluated
-	  * and [[net.noresttherein.sugar.vars.Missing Missing]] is returned.
-	  */
+	  * and [[net.noresttherein.sugar.vars.Missing Missing]] is returned. */
 	@inline def unless[@specialized(SpecializedVars) T](cond: Boolean)(a: => T): Unsure[T] =
 		when(!cond)(a)
 
 	/** Executes the given lazy expression in a `try-catch` block, returning `Missing` in case
-	  * any exception is caught. Otherwise the value is returned in an `Sure` instance as normal. */
+	  * any exception is caught. Otherwise, the value is returned in a `Sure` instance as normal. */
 	@inline def guard[A](a : => A) :Unsure[A] =
 		try { new Sure(a) } catch {
 			case _ :Exception => Missing
 		}
 
 	/** Applies the given function to the second argument in a `try-catch` block, returning `Missing` in case
-	  * any exception is caught. Otherwise the result is returned in an `Sure` instance as normal. */
+	  * any exception is caught. Otherwise, the result is returned in a `Sure` instance as normal. */
 	@inline def guard[A, B](f : A => B)(a :A) :Unsure[B] =
 		try { new Sure(f(a)) } catch {
 			case _ :Exception => Missing
 		}
 
 	/** Returns the first argument as `Sure` if it satisfies the predicate `p`.
-	  * @return `Sure(value).filter(p)`.
-	  */
+	  * @return `Sure(value).filter(p)`. */
 	@inline def satisfying[A](value :A)(p :A => Boolean) :Unsure[A] =
 		if (p(value)) Sure(value) else Missing
 
@@ -522,21 +489,18 @@ case object Unsure {
 
 		/** An implicit conversion from an `Unsure[A]` to an `Option[A]`.
 		  * The results are cached, so repeated conversions of the same instance do not result in boxing.
-		  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
-		  */
+		  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit. */
 		@inline implicit def UnsureToOption[T](value :Unsure[T]) :Option[T] = value.option
 
 		/** A nomen omen optional implicit conversion of an `Option[A]` to an `Unsure[A]`.
-		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
-		  */
+		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]] */
 		@inline implicit def OptionToUnsure[@specialized(SpecializedVars) A](opt :Option[A]) :Unsure[A] = some_?(opt)
 
 		/** Wraps any object in a [[net.noresttherein.sugar.vars.Sure Sure]] monad. */
 		@inline implicit def sureAny[@specialized(SpecializedVars) A](sure :A) :Sure[A] = Sure(sure)
 
 		/** A nomen omen optional implicit conversion of a `Maybe[A]` to a `Unsure[A]`.
-		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]]
-		  */
+		  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension.toUnsure OptionExtension.toUnsure]] */
 		@inline implicit def MaybeToUnsure[@specialized(SpecializedVars) A](opt :Maybe[A]) :Unsure[A] = yes_?(opt)
 
 		@inline implicit def UnsureToMaybe[A](opt :Unsure[A]) :Maybe[A] = opt.maybe
@@ -593,7 +557,7 @@ case object Unsure {
 
 
 /** An `Unsure[T]` carrying a value, a counterpart of Scala [[Some]].
-  * Unlike `Some`, it is specialized and does not involve boxing of built in value types used as contents.
+  * Unlike `Some`, it is specialized and does not involve boxing of built-in value types used as contents.
   * @tparam T the content type.
   */
 @SerialVersionUID(Ver) //todo: stop using default arguments, they involve additional method calls.

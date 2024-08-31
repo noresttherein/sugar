@@ -127,7 +127,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Forces extraction of the value.
 	  * @return contained value, if one exists.
-	  * @throws UnsupportedOperationException if this `Ternary` is empty. */
+	  * @throws NoSuchElementException if this `Ternary` is empty. */
 	@inline override def const :Boolean = x match {
 		case Yes => true
 		case No  => false
@@ -136,7 +136,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Forces extraction of the value.
 	  * @return contained value, if one exists.
-	  * @throws UnsupportedOperationException if this `Ternary` is empty. */
+	  * @throws NoSuchElementException if this `Ternary` is empty. */
 	@inline override def apply() :Boolean = x match {
 		case Yes => true
 		case No => false
@@ -171,13 +171,6 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	  * @param or the value to return if this instance is empty. */
 	@inline def orDefault[O >: Boolean](or: O) :O =
 		if (x == NoContent) or else x == Yes
-
-//
-//	/** Gets the `Boolean` in the $Ref or throws the exception given as the argument.
-//	  * @see [[net.noresttherein.sugar.vars.Ternary.orNoSuch orNoSuch]]
-//	  * @see [[net.noresttherein.sugar.vars.Ternary.orIllegal orIllegal]] */
-//	@inline def orThrow(e : => Throwable) :Boolean =
-//		if (x == NoContent) throw e else x == True
 
 	/** Gets the element in the `Ternary` or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
@@ -240,7 +233,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Ternary.orElse orElse]], returns this `Ternary` if it is not empty
 	  * and `or` otherwise. The difference is that the alternative value is not lazily computed and guarantees
-	  * no closure would be be created, at the cost of possibly discarding it without use.
+	  * no closure would be created, at the cost of possibly discarding it without use.
 	  * @param or the value to return if this instance is empty. */
 	@inline def ifEmpty(or: Ternary) :Ternary =
 		if (x == NoContent) or else this
@@ -308,7 +301,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline def &(other: Boolean) :Ternary =
 		new Ternary(if (x == NoContent || other) x else No)
 
-	/** A lazy, monadic composition with `other`, returning `this.get ^ other.get`, providing both values are non empty.
+	/** A lazy, monadic composition with `other`, returning `this.get ^ other.get`, providing both values are non-empty.
 	  * If this instance is `Unknown`, the argument is not evaluated. */
 	@inline def ^^(other: => Ternary) :Ternary =
 		if (x == NoContent)
@@ -318,7 +311,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 			new Ternary((x ^ y) & 1 | y >> 31)
 		}
 
-	/** A monadic composition with `other`, returning `this.get ^ other.get`, providing both values are non empty. */
+	/** A monadic composition with `other`, returning `this.get ^ other.get`, providing both values are non-empty. */
 	@inline def ^(other: Ternary) :Ternary =
 		new Ternary((x ^ other.x) & 1 | x >> 31 | other.x >> 31)
 
@@ -353,7 +346,7 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 	@inline def mapOrElse[O](f :Boolean => O, or: => O) :O =
 		if (x == NoContent) or else f(x == Yes)
 
-	/** Returns the result of applying `f` to the value of this `Ternary` if it is non empty,
+	/** Returns the result of applying `f` to the value of this `Ternary` if it is non-empty,
 	  * or the result of evaluating expression `ifEmpty` otherwise.
 	  *
 	  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
@@ -458,12 +451,12 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 			}
 
 
-	/** Returns an `Ternary` formed from the contents of `this` and `that` by combining the corresponding elements in a pair.
-	  * If either of the two Ternarys is empty, `Unknown` is returned. */
+	/** Returns a `Ternary` formed from the contents of `this` and `that` by combining the corresponding elements in a pair.
+	  * If either of the two Ternaries is empty, `Unknown` is returned. */
 	@inline def zip(that :Ternary) :Opt[(Boolean, Boolean)] = toOpt.zip(that.toOpt)
 
-	/** Returns an `Ternary` formed from the contents of `this` and `that` by combining the corresponding elements
-	  * in a pair. If either of the two Ternarys is empty, `Unknown` is returned. */
+	/** Returns a `Ternary` formed from the contents of `this` and `that` by combining the corresponding elements
+	  * in a pair. If either of the two Ternaries is empty, `Unknown` is returned. */
 	@inline def zip[O](that :Opt[O]) :Opt[(Boolean, O)] = toOpt.zip(that)
 
 

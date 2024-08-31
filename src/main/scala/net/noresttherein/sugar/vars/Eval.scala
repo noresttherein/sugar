@@ -74,11 +74,17 @@ case object Eval {
   * @define Ref `EvalOpt`
   */
 trait EvalOpt[@specialized(SpecializedVars) +T] extends Ref[T] with (() => T) with Serializable {
+	/** Returns `false`. */
 	override def isFinal       = false
+	/** Returns `false` due to possible unreproducibility of returned values. */
 	override def isEmpty       = false
+	/** Returns `false` due to possible unreproducibility of returned values. */
 	override def isConst       = false
+	/** Returns `false` due to possible unreproducibility of returned values. */
 	override def isDefined     = false
+	/** Returns `false` due to possible unreproducibility of returned values. */
 	override def isDefinite    = false
+	/** Returns `false` */
 	override def isFinalizable = false
 
 	override def value :T = maybe match {

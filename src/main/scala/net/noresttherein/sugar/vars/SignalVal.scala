@@ -4,7 +4,6 @@ import scala.Specializable.Args
 
 import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.time.{Eternity, Immediate, Milliseconds, TimeInterval}
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.SignalVal.Mapped
 
@@ -48,7 +47,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 
 	override def value :T = opt match {
 		case One(v) => v
-		case _      => noSuch_!(toString + ".value")
+		case _      => noSuch_!(undefinedString + ".value")
 	}
 	/** Sets the value of this `SignalVal` and notifies all threads waiting for it using one of
 	  * [[net.noresttherein.sugar.vars.SignalVal.await await]] methods. After the value is set,
@@ -66,7 +65,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 		}
 	}
 	override def get   :T = value
-	override def const :T = maybeConst.get
+	override def const :T = maybeConst.orNoSuch(s"Uninitialized SignalVal $undefinedString.")
 
 	override def opt      :Opt[T] = x
 	override def toOpt    :Opt[T] = opt
@@ -107,7 +106,7 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 
 	/** A new `SignalVal` with a value derived from this one.
 	  * If `this.`[[net.noresttherein.sugar.vars.SignalVal isDefined]], then the new instance is initialized
-	  * to `f(this.value)` before being returned. Otherwise all [[net.noresttherein.sugar.vars.SignalVal.await await]]
+	  * to `f(this.value)` before being returned. Otherwise, all [[net.noresttherein.sugar.vars.SignalVal.await await]]
 	  * methods of the result wait on this instance's monitor rather than the new `SignalVal`'s,
 	  * and all getters such as [[net.noresttherein.sugar.vars.SignalVal.value value]],
 	  * [[net.noresttherein.sugar.vars.SignalVal.get get]], [[net.noresttherein.sugar.vars.SignalVal.const const]]
@@ -128,8 +127,9 @@ sealed class SignalVal[T] private extends InOut[T] with Val[T] with Serializable
 
 	override def toString :String = x match {
 		case One(v) => String.valueOf(v)
-		case _ => "<undefined>@" + Integer.toHexString(System.identityHashCode(this))
+		case _      => undefinedString
 	}
+	private def undefinedString :String = "<undefined>@" + Integer.toHexString(System.identityHashCode(this))
 }
 
 

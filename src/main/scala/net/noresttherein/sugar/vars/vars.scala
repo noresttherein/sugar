@@ -7,7 +7,7 @@ import net.noresttherein.sugar
 import net.noresttherein.sugar.collections.Ranking
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.exceptions.{SugaredException, SugaredThrowable}
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Nullable.{NonNull, Null}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
@@ -43,12 +43,12 @@ package object vars extends vars.varsTypeClasses {
 
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.OptExtension OptExtension]].
-	  * an `Opt[A]` can be have three forms:
+	  * an `Opt[A]` can have three forms:
 	  *   1. $None, serving the same role as in `scala.Option`,
 	  *   1. $Done[A], erased to `A` (which may be a boxed version of a value type, both inbuilt or a value class);
 	  *   1. $Done[A], wrapped - used to differentiate `One(None)` from `None`.
 	  *
-	  * Outside of nesting `Opt` instances within each other (or `Option` within `Opt`),
+	  * Outside nesting `Opt` instances within each other (or `Option` within `Opt`),
 	  * no boxing takes place for reference types under any circumstances, in particular when creating
 	  * an `Array[Opt[A]]` or `Seq[Opt[A]]`, using it as an argument or return value of a function, or,
 	  * in general, substituting it for an abstract type (including type parameters). It is thus well suited
@@ -141,13 +141,6 @@ package object vars extends vars.varsTypeClasses {
 		@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
 			if (self.asInstanceOf[AnyRef] eq None) null.asInstanceOf[O] else get
 
-//
-//		/** Gets the element in the $Ref or throws the exception given as the argument.
-//		  * @see [[net.noresttherein.sugar.vars.OptExtension.orNoSuch orNoSuch]]
-//		  * @see [[net.noresttherein.sugar.vars.OptExtension.orIllegal orIllegal]] */
-//		@inline def orThrow(e : => Throwable) :A =
-//			if (self.asInstanceOf[AnyRef] eq None) throw e else get
-
 		/** Gets the element in this `Opt` or throws the exception given as the type parameter
 		  * with the given message.
 		  * @tparam E an exception class which must provide publicly available constructor accepting a single `String`
@@ -180,7 +173,7 @@ package object vars extends vars.varsTypeClasses {
 
 		/** Similarly to [[net.noresttherein.sugar.vars.OptExtension.orElse orElse]], returns this `Opt`
 		  *  if it is not empty and `or` otherwise. The difference is that the alternative value is not lazily computed
-		  *  and guarantees no closure would be be created, at the cost of possibly discarding it without use.
+		  *  and guarantees no closure would be created, at the cost of possibly discarding it without use.
 		  * @param or the value to return if this instance is empty. */
 		@inline def ifEmpty[O >: A](or: Opt[O]) :Opt[O] =
 			if (self.asInstanceOf[AnyRef] eq None) or else self
@@ -207,7 +200,7 @@ package object vars extends vars.varsTypeClasses {
 		@inline def mapOrElse[O](f :A => O, or: => O) :O =
 			if (self.asInstanceOf[AnyRef] eq None) or else f(get)
 
-		/** Returns the result of applying `f` to the value of this `Opt` if it is non empty,
+		/** Returns the result of applying `f` to the value of this `Opt` if it is non-empty,
 		  * or the result of evaluating expression `ifEmpty` otherwise.
 		  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
 		  * one with another, but its name might be misleading. Consider using
@@ -218,8 +211,7 @@ package object vars extends vars.varsTypeClasses {
 			if (self.asInstanceOf[AnyRef] eq None) ifEmpty else f(get)
 
 		/** The same as [[net.noresttherein.sugar.vars.OptExtension.map map]], but exceptions thrown
-		  * by the function are caught and $None is returned instead.
-		  */
+		  * by the function are caught and $None is returned instead. */
 		@inline def guardMap[O](f :A => O) :Opt[O] =
 			if (self.asInstanceOf[AnyRef] eq None)
 				None
@@ -297,7 +289,7 @@ package object vars extends vars.varsTypeClasses {
 
 
 		/** Returns an `Opt` formed from the contents of `this` and `that` by combining the corresponding elements
-		  *  in a pair. If either of the two options is empty, `None` is returned. */
+		  * in a pair. If either of the two options is empty, `None` is returned. */
 		@inline def zip[O](that :Opt[O]) :Opt[(A, O)] =
 			if ((self.asInstanceOf[AnyRef] eq None) | (that.asInstanceOf[AnyRef] eq None))
 				None
@@ -355,8 +347,7 @@ package object vars extends vars.varsTypeClasses {
 
 		/** Conversion to an `Unsure` carrying the same value as this instance, if any. Note that while the `Unsure` trait
 		  * is specialized for value types, this type is not, and the result will not be specialized. Neither will it
-		  * require boxing though, as any value type was promoted to a reference wrapper when creating this `Opt`.
-		  */
+		  * require boxing though, as any value type was promoted to a reference wrapper when creating this `Opt`. */
 		@inline def toUnsure :Unsure[A] =
 			if (self.asInstanceOf[AnyRef] eq None)
 				Missing
@@ -366,18 +357,15 @@ package object vars extends vars.varsTypeClasses {
 			}
 
 		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toOption toOption]]
-		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
-		  */
+		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability). */
 		@inline def constOption :Option[A] = if (self.asInstanceOf[AnyRef] eq None) None else Some(get)
 
 		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toMaybe toMaybe]]
-		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
-		  */
+		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability). */
 		@inline def constOpt :Maybe[A] = if (self.asInstanceOf[AnyRef] eq None) No else Yes(get)
 
 		/** Same as [[net.noresttherein.sugar.vars.OptExtension.toUnsure toUnsure]]
-		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability).
-		  */
+		  * (for [[net.noresttherein.sugar.vars.Ref Ref]] interoperability). */
 		@inline def unsureConst :Unsure[A] =
 			if (self.asInstanceOf[AnyRef] eq None)
 				Missing else {
@@ -407,7 +395,7 @@ package object vars extends vars.varsTypeClasses {
 			if (self.asInstanceOf[AnyRef] eq None) Red(red) else Blue(get)
 
 		/** Converts this `Opt` to $Outcome, returning the content as $Done,
-		  *  or the given `String` as $Failed error message if empty. */
+		  * or the given `String` as $Failed error message if empty. */
 		@inline def doneOr(err: => String) :Outcome[A] =
 			if (self.asInstanceOf[AnyRef] eq None) Failed(() => err) else Done(get)
 
@@ -462,8 +450,11 @@ package object vars extends vars.varsTypeClasses {
 	  * The interface of this type is provided as extension methods by
 	  * [[net.noresttherein.sugar.vars.PillExtension PillExtension]].
 	  * @see [[net.noresttherein.sugar.vars.Outcome Outcome]]
-	  */ //the fact that R stands both for Red and Right, but Red is used as Left is a bit confusing
-	type Pill[+Red, +Blue] >: Pill.Red[Red]
+	  */
+	//The fact that R stands both for Red and Right, but Red is used as Left is a bit confusing.
+	// However, the convention is for Either to be right-leaning, that is to carry the computation value in Right,
+	// and it would be even more confusing for Red to be a success, rather than a failure.
+	type Pill[+Red, +Blue] >: Pill.Red[Red] <: AnyRef
 
 	/** Extension methods providing the interface of $Pill.
 	  * @tparam R the type carried by the 'red' case, corresponding to the `Left` side of an `Either`.
@@ -598,8 +589,7 @@ package object vars extends vars.varsTypeClasses {
 			}
 		/** Flattens `Pill[Pill[O, B], B]]` to `Pill[O, B]`: returns the value of this $Pill if it is $Red,
 		  * or itself if it is $Blue. This is similar to [[net.noresttherein.sugar.vars.PillExtension.flatten flatten]],
-		  * but works on the `Red` (`Left`) side.
-		  */
+		  * but works on the `Red` (`Left`) side. */
 		@inline def joinRed[R1 >: R, B1 >: B, O](implicit redIsAlt :R1 <:< Pill[O, B1]) :Pill[O, B1] =
 			self match {
 				case red :Red[R @unchecked] => red.value
@@ -607,8 +597,7 @@ package object vars extends vars.varsTypeClasses {
 			}
 		/** Flattens `Pill[R, Pill[R, O]]` to `Pill[R, O]`: returns the value of this $Pill if it is $Red,
 		  * or itself if it is $Blue. This is equivalent to [[net.noresttherein.sugar.vars.PillExtension.flatten flatten]],
-		  * but allows to widen the type of the red pill.
-		  */
+		  * but allows to widen the type of the red pill. */
 		@inline def joinBlue[R1 >: R, B1 >: B, O](implicit blueIsAlt :B1 <:< Pill[R1, O]) :Pill[R1, O] =
 			self match {
 				case red :Red[R @unchecked] => red
@@ -647,8 +636,7 @@ package object vars extends vars.varsTypeClasses {
 				f(get)
 
 		/** Converts this value to a `Maybe` if it is $Blue, losing the information by replacing
-		  * $Red with [[net.noresttherein.sugar.vars.Maybe.No No]].
-		  */
+		  * $Red with [[net.noresttherein.sugar.vars.Maybe.No No]]. */
 		@inline def toMaybe :Maybe[B] = self match {
 			case _ :Red[_] => No
 			case _         => Yes(get)
@@ -660,22 +648,19 @@ package object vars extends vars.varsTypeClasses {
 			case _         => Some(get)
 		}
 		/** Converts this value to an `Opt` if it is $Blue, losing the information by replacing
-		  * $Red with [[scala.None None]].
-		  */
+		  * $Red with [[scala.None None]]. */
 		@inline def toOpt :Opt[B] = self match {
 			case _ :Red[_] => None
 			case _         => One(get)
 		}
 		/** Conversion to an `Unsure` carrying the value of this instance if it is $Blue.
 		  * Note that the result will not be `specialized` for value types, but neither will it require boxing,
-		  * as $Blue already contains boxed values.
-		  */
+		  * as $Blue already contains boxed values. */
 		@inline def toUnsure :Unsure[B] = self match {
 			case _ :Red[_] => Missing
 			case _         => Sure(get)
 		}
-		/** Conversion to [[scala.Either]], with $Red returned as [[scala.Right Right]] and $Blue as [[scala.Left Left]].
-		  */
+		/** Conversion to [[scala.Either]], with $Red returned as [[scala.Right Right]] and $Blue as [[scala.Left Left]]. */
 		@inline def toEither :Either[R, B] = self match {
 			case red :Red[R @unchecked] => Left(red.value)
 			case _                      => Right(get)
@@ -702,15 +687,13 @@ package object vars extends vars.varsTypeClasses {
 		}
 
 		/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]] if any of the operands are $Red,
-		  * and `this == other` otherwise.
-		  */
+		  * and `this == other` otherwise. */
 		@inline def blueEqualsOpt(other :Pill[_, _]) :Maybe[Boolean] =
 			if (self.isInstanceOf[Red[_]] | other.isInstanceOf[Red[_]]) No
 			else Yes(self == other)
 
 		/** Returns [[net.noresttherein.sugar.vars.Maybe.No No]] if any of the operands are $Blue,
-		  * and `this == other` otherwise.
-		  */
+		  * and `this == other` otherwise. */
 		@inline def redEqualsOpt(other :Pill[_, _]) :Maybe[Boolean] = (self, other) match {
 			case (a :Red[_], b :Red[_]) => Yes(a.value == b.value)
 			case _                      => No
@@ -839,7 +822,7 @@ package object vars extends vars.varsTypeClasses {
 
 		/** Similarly to [[net.noresttherein.sugar.vars.OutcomeExtension.orElse orElse]], returns this $Outcome
 		  * if it is $Done, or `alt` otherwise. The difference is that the alternative value is not lazily computed
-		  * and guarantees no closure would be be created, at the cost of possibly discarding it without use.
+		  * and guarantees no closure would be created, at the cost of possibly discarding it without use.
 		  * @param or the value to return if this instance is empty. */
 		@inline def ifFailed[O >: A](or :Outcome[O]) :Outcome[O] = self match {
 			case _ :Throwable => or
@@ -869,8 +852,7 @@ package object vars extends vars.varsTypeClasses {
 		}
 
 		/** The same as [[net.noresttherein.sugar.vars.OutcomeExtension.map map]], but exceptions thrown
-		  * by the function are caught and $Failed with the exception's error message is returned.
-		  */
+		  * by the function are caught and $Failed with the exception's error message is returned. */
 		@inline def guardMap[O](f :A => O) :Outcome[O] = self match {
 			case fail :Throwable =>
 				fail.asInstanceOf[Outcome[O]]
@@ -925,8 +907,7 @@ package object vars extends vars.varsTypeClasses {
 				f(get)
 
 		/** Converts this value to a `Maybe` if it is $Done, losing the information by replacing
-		  * $Failed with [[net.noresttherein.sugar.vars.Maybe.No No]].
-		  */
+		  * $Failed with [[net.noresttherein.sugar.vars.Maybe.No No]]. */
 		@inline def toMaybe :Maybe[A] = self match {
 			case _ :Throwable => No
 			case _            => Yes(get)
@@ -940,17 +921,15 @@ package object vars extends vars.varsTypeClasses {
 		}
 
 		/** Converts this value to an `Opt` if it is $Done, losing the information by replacing
-		  * $Failed with [[scala.None None]].
-		  */
+		  * $Failed with [[scala.None None]]. */
 		@inline def toOpt :Opt[A] = self match {
 			case _ :Throwable => None
 			case _            => One(get)
 		}
 
 		/** Conversion to an `Unsure` carrying the value of this instance if it is $Done.
-		  * Note that the result will not be `specialized` for value types, but neither will it require additional boxing,
-		  * as $Done already contains boxed values.
-		  */
+		  * Note that the result will not be `specialized` for value types, but neither will it require
+		  * additional boxing, as $Done already contains boxed values. */
 		@inline def toUnsure :Unsure[A] = self match {
 			case _ :Throwable => Missing
 			case _            => Sure(get)
@@ -998,6 +977,8 @@ package object vars extends vars.varsTypeClasses {
 	  *
 	  * This type is in particular useful in classes which implement lazy value semantics:
 	  * a `Term[X]` field can be set to an `Expression(init)`, and later replaced with a `Value(init())`.
+	  * @see [[net.noresttherein.sugar.vars.Term$]]
+	  * @see [[net.noresttherein.sugar.vars.TermExtension]]
 	  */
 	type Term[+X] >: Term.Value[X] <: AnyRef
 
@@ -1076,9 +1057,8 @@ package vars {
 	  */
 	@SerialVersionUID(Ver)
 	object Opt { //Synonyms: Opt; Maybe/Yes/No; Hope/Lucky/NoLuck; Wish
-		/** Creates an $Done instance wrapping the value unless it is null, in which case it returns $None.
-		  * This call will not box the value unless it is already an instance of `Opt`.
-		  */
+		/** Creates a $Done instance wrapping the value unless it is null, in which case it returns $None.
+		  * This call will not box the value unless it is already an instance of `Opt`. */
 		def apply[A](value :A) :Opt[A] = value match {
 			case null             => None
 			case None | _ :One[_] => new One(value).asInstanceOf[Opt[A]]
@@ -1121,40 +1101,37 @@ package vars {
 		/** Returns [[scala.None None]] - an empty `Opt`. */
 		@inline final def empty[T] :Opt[T] = None
 
-		/** When a given condition is true, evaluates the `a` argument and returns `One(a).`
-		  * When the condition is false, `a` is not evaluated and `None` is returned.
-		  */
+		/** When a given condition is true, evaluates `a` argument and returns `One(a).`
+		  * When the condition is false, `a` is not evaluated and `None` is returned. */
 		@inline def when[A](cond: Boolean)(a: => A): Opt[A] =
 			if (cond) One(a) else None
 
-		/** Unless a given condition is true, this will evaluate the `a` argument and return `One(a)`.
+		/** Unless a given condition is true, this will evaluate `a` argument and return `One(a)`.
 		  * Otherwise, `a` is not evaluated and `None` is returned. */
 		@inline def unless[A](cond: Boolean)(a: => A): Opt[A] =
 			if (!cond) One(a) else None
 
 		/** Executes the given lazy expression in a `try-catch` block, returning `None` in case
-		  * any exception is caught. Otherwise the value is returned in an `One` instance as normal. */
+		  * any exception is caught. Otherwise, the value is returned in an `One` instance as normal. */
 		@inline def guard[A](a: => A) :Opt[A] =
 			try One(a) catch {
 				case _ :Exception => None
 			}
 
 		/** Applies the given function to the second argument in a `try-catch` block, returning `None` in case
-		  * any exception is caught. Otherwise the value is returned in an `One` instance as normal. */
+		  * any exception is caught. Otherwise, the value is returned in an `One` instance as normal. */
 		@inline def guard[A, B](f: A => B)(a :A) :Opt[B] =
 			try One(f(a)) catch {
 				case _ :Exception => None
 			}
 
 		/** Returns the first argument in `One` if it satisfies the predicate `p`.
-		  * @return `One(value).filter(p)`.
-		  */
+		  * @return `One(value).filter(p)`. */
 		@inline def satisfying[A](value :A)(p :A => Boolean) :Opt[A] =
 			if (p(value)) One(value) else None
 
 		/** Extracts the value from the `Opt`, if available.
-		  * @return `One.unapply(value)`.
-		  */
+		  * @return `One.unapply(value)`. */
 		@inline final def unapply[A](value :Opt[A]) :Maybe[A] = One.unapply(value)
 
 		/** A factory of 'full' (`Some`) instances of `Opt`.  */
@@ -1200,23 +1177,20 @@ package vars {
 
 			/** An implicit conversion from an `Opt[A]` to an `Option[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
-			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
-			  */
+			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit. */
 			@inline implicit def OptToOption[T](opt :Opt[T]) :Option[T] = opt match {
 				case One(v) => Some(v)
 				case _      => None
 			}
 
 			/** A nomen omen optional implicit conversion of an `Option[A]` to an `Opt[A]`.
-			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]]
-			  */
+			  * @see [[net.noresttherein.sugar.optional.extensions.OptionExtension]] */
 			//consider: placing this also in vars.extensions (or vars.implicits/vars.imports)
 			@inline implicit def OptionToOpt[A](opt :Option[A]) :Opt[A] = some_?(opt)
 
 			/** An implicit conversion from an `Opt[A]` to a `Maybe[A]`.
 			  * The results are cached, so repeated conversions of the same instance do not result in boxing.
-			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit.
-			  */
+			  * Still, this conversion isn't placed in the implicit search scope for those preferring to be explicit. */
 			@inline implicit def OptToMaybe[T](value :Opt[T]) :Maybe[T] = value match {
 				case One(v) => Yes(v)
 				case _      => No
@@ -1238,7 +1212,7 @@ package vars {
 		}
 
 
-		/** Importing the contents of this object replace all usage of [[Option]]/[[Some]]/[[None]] in the scope with
+		/** Importing the contents of this object replaces all usage of [[Option]]/[[Some]]/[[None]] in the scope with
 		  * [[net.noresttherein.sugar.vars.Opt Opt]]/[[net.noresttherein.sugar.vars.Opt.One One]]/[[scala.None None]].
 		  * This object contains the requiring type aliases overriding the standard types as well as implicit conversions
 		  * which allow seamless interoperability with standard Scala APIs.
@@ -1247,7 +1221,8 @@ package vars {
 		  * it is useful for quickly checking during profiling what impact using `Option` vs `Opt` has.
 		  *
 		  * Other files which reference classes defined in the import's scope may also need to be modified in order
-		  * to comply with changed interfaces. */
+		  * to comply with changed interfaces.
+		  */
 		@SerialVersionUID(Ver)
 		object OptAsOption {
 			type Option[T] = Opt[T]
@@ -1285,6 +1260,7 @@ package vars {
 
 
 
+	//Do these four objects even serve any purpose?
 	/** Matching pattern extracting value from [[net.noresttherein.sugar.vars.Opt Opt]]
 	  * or any [[net.noresttherein.sugar.vars.Ref Ref]] value
 	  * (in particular option-like types like [[net.noresttherein.sugar.vars.Maybe Maybe]],
@@ -1294,10 +1270,8 @@ package vars {
 	  */
 	@SerialVersionUID(Ver)
 	object Defined {
-		@inline def apply[T](value :T) :Opt[T] = if (value == null) None else One(value)
-
-		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
 		@inline def unapply[T](ref :Opt[T]) :Maybe[T] = ref.toMaybe
+		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
 		@inline def unapply[T](ref :Option[T]) :Maybe[T] = Maybe.fromOption(ref)
 	}
 
@@ -1307,11 +1281,35 @@ package vars {
 	  */
 	@SerialVersionUID(Ver)
 	object Undefined {
-		@inline def apply() :Opt[Nothing] = None
-
-		@inline def unapply(ref :Ref[_]) :Boolean = !ref.isDefined
 		@inline def unapply(ref :Opt[_]) :Boolean = ref == None
+		@inline def unapply(ref :Ref[_]) :Boolean = !ref.isDefined
 		@inline def unapply(ref :Option[_]) :Boolean = ref == None
+	}
+
+	/** Matching pattern for [[net.noresttherein.sugar.vars.Ref Ref]] and [[net.noresttherein.sugar.vars.Opt Opt]]
+	  *  instances holding a [[net.noresttherein.sugar.vars.Ref.isDefinite definite]] value.
+	  */
+	@SerialVersionUID(Ver)
+	object Definite {
+		/** Returns `ref.`[[net.noresttherein.sugar.vars.OptExtension.toMaybe toMaybe]]. */
+		@inline def unapply[T](ref :Opt[T]) :Maybe[T] = ref.toMaybe
+		/** Returns `ref.`[[net.noresttherein.sugar.vars.Ref.toMaybe toMaybe]]. */
+		@inline def unapply[T](ref :Ref[T]) :Maybe[T] = ref.toMaybe
+		/** Returns the value if `ref` is a `Some`. */
+		@inline def unapply[T](ref :Option[T]) :Maybe[T] = Maybe.fromOption(ref)
+	}
+
+	/** A pattern matching [[net.noresttherein.sugar.vars.Ref Ref]] and [[net.noresttherein.sugar.vars.Opt Opt]]
+	  * instances without a [[net.noresttherein.sugar.vars.Ref.isDefinite definite]] value.
+	  */
+	@SerialVersionUID(Ver)
+	object Indefinite {
+		/** Returns `!ref.`[[net.noresttherein.sugar.vars.OptExtension.isDefinite isDefinite]]. */
+		@inline def unapply(ref :Opt[_]) :Boolean = ref eq None
+		/** Returns `!ref.`[[net.noresttherein.sugar.vars.Ref.isDefinite isDefinite]]. */
+		@inline def unapply(ref :Ref[_]) :Boolean = !ref.isDefinite
+		/** Returns true for `None`. */
+		@inline def unapply(ref :Option[_]) :Boolean = ref eq None
 	}
 
 
@@ -1339,7 +1337,6 @@ package vars {
 			case _    :Red[_] | _ :Blue[_] => new Blue(either).asInstanceOf[Pill[Throwable, O]]
 			case _                         => either.asInstanceOf[Pill[Throwable, O]] //erased Blue
 		}
-//		@inline implicit def pillFromOutcome[O](outcome :Outcome[O]) :Pill[Throwable, O] = fromOutcome(outcome)
 
 
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
@@ -1395,7 +1392,7 @@ package vars {
 		/** Extra implicit conversions to and from [[scala.Either Either]]
 		  * and [[net.noresttherein.sugar.vars.Outcome Outcome]], off by default.
 		  * Note: conversions to `Outcome` are also available under
-		  * [[net.noresttherein.sugar.vars.Outcome Outcome]]`.`[[net.noresttherein.sugar.vars.Outcome.implicits implicits]],
+		  * [[net.noresttherein.sugar.vars.Outcome Outcome]]`.`[[net.noresttherein.sugar.vars.Outcome.conversions conversions]],
 		  * importing from both objects all definitions will lead to implicit conversion ambiguity.
 		  */
 		@SerialVersionUID(Ver)
@@ -1424,7 +1421,7 @@ package vars {
 	object Outcome { //other names: Watchman; Custodian; Return; Result; Outcome; Attempt; Action/Act; Do; Compute; Upshot; Issue; Opt
 
 		/** Executes the given expression, and returns it in a $Done if it is not null, or $Failed otherwise.
-		  * All exceptions are caught and returned as as `Failed(e)`.
+		  * All exceptions are caught and returned as `Failed(e)`.
 		  */
 		@inline def apply[O](value : => O) :Outcome[O] =
 			try {
@@ -1435,14 +1432,15 @@ package vars {
 			}
 
 		/** Executes the given lazy expression in a `try-catch` block, returning `Failed` in case
-		  * any exception is caught. Otherwise the value is returned as a `Done` instance as normal. */
+		  * any exception is caught. Otherwise, the value is returned as a `Done` instance as normal. */
 		@inline def guard[A](a : => A) :Outcome[A] =
 			try Done(a) catch {
 				case e :Exception => Failed(e)
 			}
 
 		/** Applies the given function to the second argument in a `try-catch` block, returning `Failed` in case
-		  * any exception is caught. Otherwise the result is returned as a `Done` instance as normal. */ //While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
+		  * any exception is caught. Otherwise, the result is returned as a `Done` instance as normal. */
+		//While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
 		@inline def guard[A, B](f :A => B)(a :A) :Outcome[B] =
 			try Done(f(a)) catch {
 				case e :Exception => Failed(e)
@@ -1504,7 +1502,7 @@ package vars {
 		  */
 		@SerialVersionUID(Ver)
 		private[vars] class Done[+T](val value :T) extends Serializable {
-			//it might look like equals doesn't handle the equality between reified and erased Done,
+			//It might look like equals doesn't handle the equality between reified and erased Done,
 			//but we are always careful to create reified `Done` if and only if the wrapped value is Done or Failed,
 			//so it impossible for two values which nominally should be equal to not compare equal here.
 			override def equals(that :Any) :Boolean = that match {

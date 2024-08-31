@@ -4,9 +4,9 @@ import java.lang.invoke.MethodHandles
 
 import scala.Specializable.Args
 
-import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!}
 import net.noresttherein.sugar.vars.Freezer.stateField
-import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TypeEquiv}
+import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.witness.DefaultValue
 
@@ -30,9 +30,10 @@ import net.noresttherein.sugar.witness.DefaultValue
   * if the variable has been frozen (although `false` results may become outdated before being read by the caller)
   * and [[net.noresttherein.sugar.vars.Ref.option option]] and [[net.noresttherein.sugar.vars.Ref.opt opt]] have also
   * semantics of the immutable `Val`, returning `None`/`No` if the variable is not frozen.
+  * @see [[net.noresttherein.sugar.vars.Out Out]]
+  * @author Marcin Mościcki marcin@moscicki.net
   * @define Ref `Freezer`
   * @define ref freezer
-  * @author Marcin Mościcki marcin@moscicki.net
   */ //consider: making it a Ref, not a Val, so that equality compares current values
 @SerialVersionUID(Ver) //todo: SignalFrozen
 sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOut[T] with Val[T] with Serializable {
@@ -82,13 +83,13 @@ sealed class Freezer[@specialized(SpecializedVars) T] private[vars] extends InOu
 	  * @throws NoSuchElementException if this variable is not frozen.
 	  */
 	final override def get :T =
-		if (state == Immutable) x else illegal_!(toString + " is not frozen.")
+		if (state == Immutable) x else noSuch_!(toString + " is not frozen.")
 
 	/** The frozen value of this variable.
-	  * @throws IllegalStateException if this variable is not frozen.
+	  * @throws NoSuchElementException if this variable is not frozen.
 	  */
 	override def const :T =
-		if (state == Immutable) x else unsupported_!(toString + " is not frozen.")
+		if (state == Immutable) x else noSuch_!(toString + " is not frozen.")
 
 	/** Sets the final, [[net.noresttherein.sugar.vars.Freezer.const constant]] value of this `Val`.
 	  * Same as `this.`[[net.noresttherein.sugar.vars.Freezer.const_= const]]` = value`.

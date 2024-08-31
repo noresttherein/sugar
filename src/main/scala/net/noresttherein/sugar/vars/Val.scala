@@ -1,14 +1,13 @@
 package net.noresttherein.sugar.vars
 
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering, undefined}
+import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric, RefOrdering}
 
 
 
 
-/** A supertype of variables which can reach an immutable, final state and have well defined
+/** A supertype of variables which can reach an immutable, final state and have well-defined
   * [[net.noresttherein.sugar.vars.Ref.const constant]] values. The current
   * [[net.noresttherein.sugar.vars.Ref.value value]] of a `Val` can be mutable,
   * but [[net.noresttherein.sugar.vars.Ref.get get]] will not change once set,
@@ -18,7 +17,7 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   *
   * One thing in common among all subclasses which differentiate them
   * from the contract of [[net.noresttherein.sugar.vars.Ref Ref]] is that
-  * [[net.noresttherein.sugar.vars.Ref.get get]] (and [[net.noresttherein.sugar.vars.Val.apply apply]]`()`
+  * [[net.noresttherein.sugar.vars.Ref.const const]] (and [[net.noresttherein.sugar.vars.Val.apply apply]]`()`)
   * will always return a value, and always the same value for the same instance of `Val`.
   * How and when that value is computed is unspecified, and optional methods
   * [[net.noresttherein.sugar.vars.Ref.opt opt]]/[[net.noresttherein.sugar.vars.Ref.option option]]/[[net.noresttherein.sugar.vars.Ref.unsure unsure]]/[[net.noresttherein.sugar.vars.Ref.maybe maybe]]
@@ -28,7 +27,7 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
   * Equality and `hashCode` is universally defined as equality of `const` values, and thus may block.
   * If the constant value is unknown and cannot be computed at this point, a `Val` will equal no other instance
   * other than itself. Also, a `Val` can equal only other `Val`s, irrespective of their concrete implementation.
-  * This trait and all its subclasses is thread safe.
+  * This trait and all its subclasses are thread safe.
   *
   * @define Ref `Val`
   * @define ref value
@@ -38,7 +37,7 @@ trait Val[@specialized(SpecializedVars) +T] extends Ref[T] { //consider: toRef f
 	/** Returns [[net.noresttherein.sugar.vars.Val.isDefinite isDefinite]]. */
 	override def isFinal :Boolean = isDefinite //or nonEmpty,
 
-	/** The instance holds a, possibly temporary, [[net.noresttherein.sugar.vars.Val.value value]].
+	/** The instance holds a possibly temporary [[net.noresttherein.sugar.vars.Val.value value]].
 	  * Without information about the concrete class of this $Ref the method is of little use.
 	  * Use [[net.noresttherein.sugar.vars.Val.isDefined isDefined]] in order to verify if the actual
 	  * [[net.noresttherein.sugar.vars.Val.const constant]] value can be computed
@@ -122,7 +121,7 @@ object Val {
 	def unapply[T](value :Val[T]) :Val[T] = value
 
 	/** Matches any `Val` subclass, returning the wrapped value. */
-	def unapply[T](value :Ref[T]) :Maybe[T] = value.maybe //is opt thread safe in all implementations?
+	def unapply[T](value :Ref[T]) :Maybe[T] = value.maybe //Is opt thread safe in all implementations?
 
 
 	implicit def valOrdering[V[X] <: Val[X], T: Ordering] :Ordering[V[T]] = new RefOrdering[V, T]
@@ -183,9 +182,6 @@ private class MappedVal[V, +O](source: Val[V], f: V => O) extends Ref[O] with Va
 		}
 	}
 
-//	override def map[Y](f :O => Y) :Val[Y] = new MappedVal(source, this.f andThen f)
-//	override def flatMap[Y](f :O => Val[Y]) :Val[Y] = new FlatMappedVal(source, this.f andThen f)
-
 	override def mkString = mkString("Val")
 	override def toString :String = super[Ref].toString
 }
@@ -227,7 +223,7 @@ private class FlatMappedVal[V, +O](source: Val[V], f: V => Val[O]) extends Ref[O
 
 
 
-@SerialVersionUID(Ver)
+@SerialVersionUID(Ver) //todo: extend FinalRef. Currently it conflicts with Val.apply, both being final.
 private[sugar] trait Const[@specialized(SpecializedVars) +V] extends Val[V] {
 	override def value :V = get
 	override def const :V = get

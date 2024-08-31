@@ -2,9 +2,6 @@ package net.noresttherein.sugar.witness
 
 import java.util.function.Supplier
 
-import scala.reflect.ClassTag
-
-import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.{Const, Eval, Lazy, Maybe, Opt, Ref, SyncLazyRef}
@@ -22,7 +19,7 @@ import net.noresttherein.sugar.vars.{Const, Eval, Lazy, Maybe, Opt, Ref, SyncLaz
   */
 //This class is specialized, because Ref subclass factory methods accepting only it should be specialized.
 // It would be bad, because generic calls to get would box the value each time. However, the actual instances
-// are always created as non specialized, so they'll store the boxed value and unbox it on specialized calls.
+// are always created as non-specialized, so they'll store the boxed value and unbox it on specialized calls.
 @SerialVersionUID(Ver)
 sealed trait DefaultValue[@specialized +T] extends Ref[T] with Serializable {
 	def map[O](f :T => O) :DefaultValue[O]
@@ -77,8 +74,12 @@ object DefaultValue {
 	@SerialVersionUID(Ver)
 	private class EvalDefault[T](override val toFunction0 :() => T) extends Eval[T] with DefaultValue[T] {
 		override val supplier :Supplier[_ <: T] = () => toFunction0()
-		override def get = toFunction0()
-		override def apply() :T = toFunction0()
+		override def apply() :T = get
+		override def get =
+			try toFunction0() catch {
+				case e :Exception =>
+					throw new NoSuchElementException("Could not calculate the default: " + e.getMessage, e)
+			}
 
 		override def map[O](f :T => O) :DefaultValue[O] = new EvalDefault(() => f(toFunction0()))
 		override def flatMap[O](f :T => DefaultValue[O]) :DefaultValue[O] = new EvalDefault(() => f(toFunction0()).get)

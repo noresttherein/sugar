@@ -4,9 +4,8 @@ import java.lang.invoke.MethodHandles
 
 import scala.annotation.nowarn
 
-import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 import net.noresttherein.sugar.vars.Ref.undefined
 
@@ -31,7 +30,7 @@ sealed trait Out[@specialized(SpecializedVars) T] extends InOut[T] with Val[T] w
 	@inline final override def get :T = value
 
 	@inline final override def const :T =
-		if (isDefined) value else unsupported_!("Out.const")
+		if (isDefined) value else noSuch_!("Out.const")
 
 //	override def option      :Option[T] = if (isDefined) Some(value) else None
 	override def opt         :Opt[T] = if (isDefined) One(value) else None
@@ -84,7 +83,6 @@ case object Out {
 				isSet = true
 			}
 
-	//	override def option      :Option[T] = if (isSet) Some(x) else None
 		override def opt         :Opt[T] = if (isSet) One(x) else None
 		override def unsure      :Unsure[T] = if (isSet) Sure(x) else Missing
 

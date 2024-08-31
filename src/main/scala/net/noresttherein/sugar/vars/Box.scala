@@ -2,12 +2,11 @@ package net.noresttherein.sugar.vars
 
 import java.lang.invoke.MethodHandles
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.Specializable.Args
 
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
-import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
 
 
@@ -360,7 +359,6 @@ case object Box {
 	/** A non-synchronized `Box` implementation. */
 	@SerialVersionUID(Ver)
 	private class Plain[@specialized(SpecializedVars) T] extends Box[T] {
-		@nowarn private[this] var nullVal :T = _//the default value used to clear x so we don't keep a reference to the old value
 		private[this] var x :T = _
 		private[this] var full :Boolean = false
 
@@ -377,7 +375,11 @@ case object Box {
 		override def opt    :Opt[T] = if (full) One(x) else None
 		override def unsure :Unsure[T] = if (full) Sure(x) else Missing
 
-		override def clear() :Unit = { full = false; x = nullVal }
+		override def clear() :Unit = {
+			full = false
+			if (getClass == classOf[Plain[Any]])
+				x = null.asInstanceOf[T]
+		}
 
 		override def testAndSet(expect :T, newValue :T) :Boolean =
 			(full && x == expect) && { x = newValue; true }
@@ -393,7 +395,7 @@ case object Box {
 
 /** A thread safe implementation of [[net.noresttherein.sugar.vars.Box Box]], with `@volatile` memory access semantics
   * and atomic test-and-set operations like in [[net.noresttherein.sugar.vars.Volatile Volatile]]. All synchronisation
-  * is non-suspending (spin locks) and features a lower overhead than monitor synchronization, but is not optimized
+  * is non-suspending (spin locks) and features a lower overhead than monitor synchronisation, but is not optimized
   * for high-contention usage scenarios.
   * @define Ref `VolatileBox`
   */

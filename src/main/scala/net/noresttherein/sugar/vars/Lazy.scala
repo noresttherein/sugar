@@ -3,10 +3,9 @@ package net.noresttherein.sugar.vars
 import java.io.ObjectOutputStream
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.exceptions.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
@@ -17,8 +16,8 @@ import net.noresttherein.sugar.vars.Ref.{RefFractional, RefIntegral, RefNumeric,
 
 /** A monadic lazy value. While Scala `lazy val` is a better choice in general, and has a lesser memory footprint,
   * this class, and especially its subclasses, has some advantages over it:
-  *   1. They don't incur any synchronization penalty once the value is initialized for built in value types.
-  *   1. They allow to check its initialization state (which in turn allows for example to discard `Lazy` and use
+  *   1. They don't incur any synchronization penalty once the value is initialized for built-in value types.
+  *   1. They allow to check their initialization state (which in turn allows for example to discard `Lazy` and use
   *      the value directly, or choose a different method of initializing some other value).
   *   1. They provide monadic operations for constructing other `Lazy` instances.
   *   1. Can be stored in collections and passed as arguments without automatically including the whole outer object
@@ -125,11 +124,11 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 	override def map[O](f :T => O) :Lazy[O] =
 		new MappedVal[T, O](this, f) with Lazy[O]
 
-	/** Creates a new $Ref`[O]` initialized with the expression `f(this.value)).value`. If this instance is already
-	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise a new
+	/** Creates a new $Ref`[O]` initialized with the expression `f(this.value).value`. If this instance is already
+	  * evaluated, the function will be applied immediately and its result returned directly. Otherwise, a new
 	  * $Ref`[O]` with the same synchronization characteristics as this instance will be created, with
-	  * `f(this.value)).value` as the initializing expression. If you wish for `f` to not be executed
-	  * before the method returns and the returned instance is accessed, use $Ref`(f(this.value).value))`.
+	  * `f(this.value).value` as the initializing expression. If you wish for `f` to not be executed
+	  * before the method returns and the returned instance is accessed, use $Ref`(f(this.value).value)`.
 	  */
 	def flatMap[O](f :T => Lazy[O]) :Lazy[O] =
 		new FlatMappedVal[T, O](this, f) with Lazy[O]
@@ -149,7 +148,7 @@ trait Lazy[@specialized(SpecializedVars) +T] extends (() => T) with Val[T] with 
 @SerialVersionUID(Ver)
 case object Lazy {
 
-	/** Creates a wrapper over a lazily initialized value roughly equivalent to a built in `lazy val`.
+	/** Creates a wrapper over a lazily initialized value roughly equivalent to a built-in `lazy val`.
 	  * The differences are:
 	  *   - no synchronization penalty for value types, once the value has been initialized;
 	  *   - monadic [[net.noresttherein.sugar.vars.Lazy.map map]]
@@ -205,13 +204,12 @@ case object Lazy {
 	implicit def unboxLazy[T](l :Lazy[T]) :T = l.const
 
 	implicit def lazyOrdering[V[X] <: Lazy[X], T :Ordering] :Ordering[V[T]] = new RefOrdering[V, T]
-
 	implicit def lazyNumeric[T :Numeric]       :Numeric[Lazy[T]]    = new RefNumeric[Lazy, T] with LazyTypeClass[T]
 	implicit def lazyIntegral[T :Integral]     :Integral[Lazy[T]]   = new RefIntegral[Lazy, T] with LazyTypeClass[T]
 	implicit def lazyFractional[T :Fractional] :Fractional[Lazy[T]] = new RefFractional[Lazy, T] with LazyTypeClass[T]
 	
 	private trait LazyTypeClass[T] extends RefNumeric[Lazy, T] {
-		override def fromInt(x :Int) :Lazy[T] = Lazy(value.fromInt(x))
+		override def fromInt(x :Int) :Lazy[T] = Lazy(underlying.fromInt(x))
 		protected override def fmap(x :Lazy[T], y :Lazy[T])(op :(T, T) => T) :Lazy[T] =
 			for (xv <- x; yv <- y) yield op(xv, yv)
 
@@ -243,7 +241,7 @@ case object Lazy {
   * and its runtime reference wrapper is an immutable class.
   */
 @SerialVersionUID(Ver)
-private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T] {
+private class LazyVal[+T] extends Lazy[T] {
 	private[this] var initializer :() => T = _
 	private[this] var evaluated :Any = undefined
 
@@ -251,12 +249,12 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 
 	override def isDefinite :Boolean = evaluated != undefined
 
-	@unspecialized override def value :T = {
+	override def value :T = {
 		val res = evaluated
 		if (res != undefined) res.asInstanceOf[T]
 		else noSuch_!("Uninitialized Lazy")
 	}
-	@unspecialized override def get :T = {
+	override def get :T = {
 		var res = evaluated
 		if (res == undefined)
 			synchronized {
@@ -280,12 +278,12 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 		val res = evaluated
 		if (res == undefined) None else One(res.asInstanceOf[T])
 	}
-	@unspecialized override def unsure :Unsure[T] = {
+	override def unsure :Unsure[T] = {
 		val res = evaluated
 		if (res == undefined) Missing else Sure(res.asInstanceOf[T])
 	}
 
-	@unspecialized override def map[O](f :T => O) :Lazy[O] = {
+	override def map[O](f :T => O) :Lazy[O] = {
 		val v = evaluated
 		if (v != undefined)
 			Lazy.eager(f(v.asInstanceOf[T]))
@@ -298,7 +296,7 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 				new SyncLazyRef(() => f(get))
 		}
 	}
-	@unspecialized override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
+	override def flatMap[O](f :T => Lazy[O]) :Lazy[O] = {
 		val v = evaluated
 		if (v != undefined)
 			f(v.asInstanceOf[T])
@@ -310,8 +308,23 @@ private final class SyncLazyVal[@specialized(SpecializedVars) +T] extends Lazy[T
 				new SyncLazyRef(f(get))
 		}
 	}
+}
 
-	override def isSpecialized = true
+
+
+
+/** `Lazy` implementation equivalent in semantics to Scala's `lazy val`.
+  * The implementation is not really specialized to avoid boxing during generic access; boxing at initialization
+  * will be likely overshadowed by reads. The implementation assumes that `T` is a value type,
+  * and its runtime reference wrapper is an immutable class.
+  *///It's specialized because we use specialization to recognize that a type is a value type, and we don't need a SyncLazyRef
+@SerialVersionUID(Ver)
+private class SyncLazyVal[@specialized(SpecializedVars) +T] extends LazyVal[T] with Lazy[T] {
+//	override def value :T
+//	override def get :T
+	override def unsure :Unsure[T] = opt.toUnsure
+
+//	override def isSpecialized = true
 
 	private def writeReplace :AnyRef = Lazy.eager(get)
 }
@@ -395,7 +408,7 @@ sealed trait LazyOps[@specialized(SpecializedVars) +T] {
 	private[this] var evaluated :T = _
 
 	/** True if the lazy field is initialized. */
-	@inline protected final def isDefinite: Boolean = { val init = initializer; acquireFence(); init == null }
+	@inline protected final def isDefinite: Boolean = initializer == null
 
 	/** Returns `Yes(value)` if the expression has already been evaluated, or `No` otherwise. */
 	protected def ? :Maybe[T] = //Not opt, because of risk of conflicts.

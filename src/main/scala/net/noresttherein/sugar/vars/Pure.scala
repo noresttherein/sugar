@@ -3,7 +3,7 @@ package net.noresttherein.sugar.vars
 import scala.annotation.unspecialized
 
 import net.noresttherein.sugar.concurrent.Fences.{acquireFence, releaseFence}
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.exceptions.noSuch_!
 import net.noresttherein.sugar.vars.InOut.SpecializedVars
 import net.noresttherein.sugar.vars.Opt.One
 
@@ -20,6 +20,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * @author Marcin Mościcki
   */
 trait Pure[@specialized(SpecializedVars) +T] extends Lazy[T] {
+	//todo: pureMap, pureFlatMap
 	override def mkString :String = mkString("Pure")
 }
 
@@ -34,7 +35,7 @@ case object Pure {
 	  * while still remaining thread safe. It happens at the cost of possibly evaluating the initialization expression
 	  * more than once, and concurrent access of an uninitialized value may return results from different calls.
 	  * For this reason the initializer should be a relatively lightweight and '''idempotent''' function.
-	  * By ''idempotent'' we mean here that the values returned by repeated calls should be ''equal''
+	  * By ''idempotent'', we mean here that the values returned by repeated calls should be ''equal''
 	  * in terms of Scala `==`, that is, `equals` for reference types. The function does ''not'' need to
 	  * return the same object all the time, that is its returned values need not be ''referentially'' equal
 	  * (in terms of `eq`). This should be taken into account by client applications, which should not depend

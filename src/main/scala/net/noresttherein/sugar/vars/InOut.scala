@@ -5,9 +5,9 @@ import scala.annotation.nowarn
 import scala.collection.mutable
 
 import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.funny.generic.Any1
-import net.noresttherein.sugar.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TestAndSet}
 import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.vars.Opt.One
@@ -62,7 +62,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	def ?=(newValue :T) :T = { val res = value; value = newValue; res }
 
 	/** Assigns a new value to this variable providing the current value is equal to the expected value.
-	  * The default implementation does it the direct way without any guarantees about multi-threaded semantics.
+	  * The default implementation does it the direct way without any guarantees about multithreaded semantics.
 	  * This method is of real practical use only in concurrent `InOut` implementations such as
 	  * [[net.noresttherein.sugar.vars.SyncVar SyncVar]], [[net.noresttherein.sugar.vars.Atomic Atomic]]
 	  * and [[net.noresttherein.sugar.vars.Volatile Volatile]].
@@ -85,7 +85,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 
 
 	/** An alias for [[net.noresttherein.sugar.vars.InOut.testAndSet testAndSet]] which allows to use Scala's
-	  * syntax sugar for indexed update. The following code concurrenty increases `v :Var[Int]` by one:
+	  * syntax sugar for indexed update. The following code concurrently increases `v :Var[Int]` by one:
 	  * {{{
 	  *     var oldValue = v.get
 	  *     while (!(v(oldValue) = oldValue + 1)))
@@ -102,7 +102,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * `val res = f(this.get); this.value = res; res` and has no benefit over direct application in client code.
 	  * This method comes to use with concurrent `InOut` implementations such as
 	  * [[net.noresttherein.sugar.vars.SyncVar SyncVar]] and [[net.noresttherein.sugar.vars.Volatile Volatile]] -
-	  * the semantics of simple default [[net.noresttherein.sugar.vars.Var Var]] offers no guarantees in multi-threaded
+	  * the semantics of simple default [[net.noresttherein.sugar.vars.Var Var]] offers no guarantees in multithreaded
 	  * environments.
 	  * @param f a function to apply to the value of this variable. Should have no side effects as it may be invoked
 	  *          several times.
@@ -116,7 +116,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
 	  * new values in a way similar to an in place ''foldLeft'' operation on a singleton collection; the difference
 	  * from `foldLeft` is that the function's result is the type of this variable, rather than the argument.
-	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
+	  * Default implementation naively performs this directly without any guarantees about multithreaded semantics
 	  * and is equivalent to `val res = foldLeft(z, value); value = res; res`. Scala specific fold notation is
 	  * chosen here to remind through associativity that this variable becomes the second (right) parameter
 	  * of the folding function, with the argument on the left side of the operator being the first. This method comes
@@ -136,7 +136,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
 	  * new values in a way similar to an in place ''foldRight'' operation on a singleton collection; the difference
 	  * from `foldRight` is that the function's result is the type of this variable, rather than the argument.
-	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
+	  * Default implementation naively performs this directly without any guarantees about multithreaded semantics
 	  * and is equivalent to `val res = foldRight(value, z); value = res; res`. Scala specific fold notation is
 	  * chosen here to remind through associativity that this variable becomes the first (left) parameter of the folding
 	  * function, with the argument on the right side of the operator being the second. This method comes to use with
@@ -156,7 +156,7 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
 	  * new values in a way similar to an in place ''foldLeft'' operation on a singleton collection; the difference
 	  * from `foldLeft` is that the function's result is the type of this variable, rather than the argument.
-	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
+	  * Default implementation naively performs this directly without any guarantees about multithreaded semantics
 	  * and is equivalent to `val res = f(z, value); value = res; res`. This method comes
 	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SpinVar SyncVar]]
 	  * or [[net.noresttherein.sugar.vars.Volatile Volatile]].
@@ -175,13 +175,13 @@ trait InOut[@specialized(SpecializedVars) T] extends Ref[T] {
 	  * back to this variable before returning it. It uses this variable as an accumulator, updated iteratively with
 	  * new values in a way similar to an in place ''foldRight'' operation on a singleton collection; the difference
 	  * from `foldRight` is that the function's result is the type of this variable, rather than the argument.
-	  * Default implementation naively performs this directly without any guarantees about multi-threaded semantics
+	  * Default implementation naively performs this directly without any guarantees about multithreaded semantics
 	  * and is equivalent to `val res = f(value, z); value = res; res`. This method comes
 	  * to use with concurrent `InOut` implementations such as [[net.noresttherein.sugar.vars.SyncVar SyncVar]]
 	  * or [[net.noresttherein.sugar.vars.Volatile Volatile]].
 	  * @param z accumulator value to pass as the second argument to the `f` function, together with the current
 	  *          value of this variable.
-	  * @param f a function applied to the this variable and the argument, whose result should be set to this variable.
+	  * @param f a function applied to this variable and the argument, whose result should be set to this variable.
 	  * @return the result of applying `f` to this variable and the argument.
 	  */
 	@throws[NoSuchElementException]("if the Ref currently doesn't have a value.")
@@ -933,11 +933,11 @@ abstract class AbstractInOut[E] extends InOut[E] {
 		case _        => noSuch_!(toString + ".value")
 	}
 	override def get      :E = value
-	override def const    :Nothing = noSuch_!(toString + ".const")
+	override def const    :Nothing = unsupported_!(toString + ".const")
 	override def toOpt    :Opt[E] = opt
 	override def constOpt :Opt[E] = None
 
-	override def toString = opt match {
+	override def toString :String = opt match {
 		case One(value) => String.valueOf(value)
 		case _          => this.localClassName + "()"
 	}

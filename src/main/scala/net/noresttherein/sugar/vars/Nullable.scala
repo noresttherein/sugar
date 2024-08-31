@@ -4,14 +4,12 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
-import net.noresttherein.sugar.null_!
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!, raise}
 import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.vars.Nullable.{FallbackToNull, NonNull, Null, unzip2Lack, unzip3Lack}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
 import net.noresttherein.sugar.vars.Pill.{Blue, Red}
 import net.noresttherein.sugar.vars.Opt.One
-import net.noresttherein.sugar.vars.Unsure.conversions.sureAny
 
 
 
@@ -42,13 +40,14 @@ import net.noresttherein.sugar.vars.Unsure.conversions.sureAny
   * $optionalTypesInfo
   *
   * As `Nullable` is a value class, and its type parameters are reference types, `Nullable` cannot nest.
-  * The limited disambiguity potential this affords, together with the fact that it will never result in boxing
+  * The limited ambiguity potential this affords, together with the fact that it will never result in boxing
   * unless used in position of an abstract type, allows implicit conversion `T => Nullable[T]` to be enabled
   * by default, which serves as another differentiator from `Maybe`.
   *
-  * @note This class is provided primarily for situations where a method accepting `Maybe` or `Opt` would clash
-  *       with an overloaded method with the same erasure, due to usage of an abstract type as a parameter
-  *       in the same position. In most other scenarios, use of `Maybe` or `Opt` is preferable.
+  * @note This class is provided primarily for situations where a method accepting `Maybe` or `Opt`
+  *       - which erase to `Any` would clash with an overloaded method with the same erasure,
+  *       due to usage of an abstract type as a parameter in the same position. On the other hand,
+  *       `Nullable[String]` erases to `String`. In most other scenarios, use of `Maybe` or `Opt` is preferable.
   * @see [[net.noresttherein.sugar.vars.Nullable.NonNull]]
   * @see [[net.noresttherein.sugar.vars.Nullable.Null]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
@@ -106,15 +105,15 @@ class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nul
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
-		* @throws UnsupportedOperationException if this `Nullable` is empty. */
+		* @throws NoSuchElementException if this `Nullable` is empty. */
 	@inline override def const :A =
-		if (ref eq null) unsupported_!("Null.const") else ref
+		if (ref eq null) noSuch_!("Null.const") else ref
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
-		* @throws UnsupportedOperationException if this `Nullable` is empty. */
+		* @throws NoSuchElementException if this `Nullable` is empty. */
 	@inline override def apply() :A =
-		if (ref eq null) unsupported_!("Null.const") else ref
+		if (ref eq null) noSuch_!("Null.const") else ref
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
 	@inline def getOrElse[O >: A](or: => O) :O =
@@ -198,7 +197,7 @@ class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nul
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Nullable.orElse orElse]], returns this `Nullable` if it is not empty
 	  * and `or` otherwise. The difference is that the alternative value is not lazily computed and guarantees
-	  * no closure would be be created, at the cost of possibly discarding it without use.
+	  * no closure would be created, at the cost of possibly discarding it without use.
 	  * @param or the value to return if this instance is empty. */
 	@inline def ifEmpty[O >: A <: AnyRef](or: Nullable[O]) :Nullable[O] =
 		if (ref eq null) or else this
@@ -549,9 +548,9 @@ case object Nullable {
 	/** Returns [[net.noresttherein.sugar.vars.Nullable.Null Null]] - an empty `Nullable`. */
 	@inline final def empty[T <: AnyRef] :Nullable[T] = new Nullable(null.asInstanceOf[T])
 
-	/** A special, empty instance of [[net.noresttherein.sugar.vars.Nullable Nullable]] which conforms to any `Nullable[T]` type.
-	  * It is represented by wrapping a special, private singleton object and all `isEmpty` tests check for
-	  * referential equality of the wrapped value with this object.
+	/** A special, empty instance of [[net.noresttherein.sugar.vars.Nullable Nullable]] which conforms to any
+	  * `Nullable[T]` type. It is represented by wrapping a special, private singleton object and all `isEmpty` tests
+	  * check for referential equality of the wrapped value with this object.
 	  * @note This value is of a refined type `Nullable[Nothing] { type isEmpty = true }`. However, in many circumstances,
 	  *       it is preferable to have a basic `Nullable[T]` for some specific type `T`.
 	  *       In those cases you can use `Nullable.empty[T]`.
@@ -580,9 +579,6 @@ case object Nullable {
 	  * conversions to and from [[net.noresttherein.sugar.vars.Opt! Opt]]
 	  * and [[net.noresttherein.sugar.vars.Maybe Maybe]] are likewise located in `conversions` objects
 	  * within their companion objects.
-	  *
-	  * Additionally, [[net.noresttherein.sugar.vars.Nullable.conversions.AnyRefToNullable AnyRefToNullable]]
-	  * will lift any reference value to `Nullable` (empty if `null`, full otherwise).
 	  */
 	@SerialVersionUID(Ver)
 	object conversions {

@@ -23,7 +23,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * by a method accepting a `Maybe[O]`, where `O` is a type parameter, an abstract type, or a reference type
   * (this is a limitation of the current Scala compiler).
   *
-  * Note that, as this is a value class wrapping any type, boxing of built in value types to their reference wrappers
+  * Note that, as this is a value class wrapping any type, boxing of built-in value types to their reference wrappers
   * will still occur. In particular, nesting `Maybe`s within each other works exactly as with `Option`s
   * (that is, `No` is distinguishable from `Yes(No)`), but the inner `Maybe`s will always be reified
   * to instances of `Maybe` class, rather than erased to their contents.
@@ -40,7 +40,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * $optionalTypesInfo
   *
   * In most scenarios, use of `Opt` is preferable, however it cannot be used as a result of an `unapply` method,
-  * which makes this class non redundant.
+  * which makes this class non-redundant.
   * @see [[net.noresttherein.sugar.vars.Maybe.Yes]]
   * @see [[net.noresttherein.sugar.vars.Maybe.No]]
   * @see [[net.noresttherein.sugar.vars.Unsure]]
@@ -116,16 +116,16 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
-		* @throws UnsupportedOperationException if this `Maybe` is empty. */
+		* @throws NoSuchElementException if this `Maybe` is empty. */
 	@inline override def const :A =
-		if (ref eq NoContent) unsupported_!("No.const")
+		if (ref eq NoContent) noSuch_!("No.const")
 		else ref.asInstanceOf[A]
 
 	/** Forces extraction of the value.
 		* @return contained value, if one exists.
-		* @throws UnsupportedOperationException if this `Maybe` is empty. */
+		* @throws NoSuchElementException if this `Maybe` is empty. */
 	@inline override def apply() :A =
-		if (ref eq NoContent) unsupported_!("No.const")
+		if (ref eq NoContent) noSuch_!("No.const")
 		else ref.asInstanceOf[A]
 
 	/** Returns this value if it is not empty, or the lazily computed alternative passed as the argument otherwise. */
@@ -142,12 +142,6 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	/** Assuming that `A` is a nullable type, return `null` if this `Maybe` is empty, or the wrapped value otherwise. */
 	@inline def orNull[O >: A](implicit isNullable :Null <:< O) :O =
 		if (ref eq NoContent) null.asInstanceOf[O] else ref.asInstanceOf[O]
-//
-//	/** Gets the element in the `Maybe` or throws the exception given as the argument.
-//	  * @see [[net.noresttherein.sugar.vars.Maybe.orNoSuch orNoSuch]]
-//	  * @see [[net.noresttherein.sugar.vars.Maybe.orIllegal orIllegal]] */
-//	@inline def orThrow(e: => Throwable) :A =
-//		if (ref eq NoContent) throw e else ref.asInstanceOf[A]
 
 	/** Gets the element in the `Maybe` or throws the exception given as the type parameter with the given message.
 	  * Note that this method uses reflection to find and call the exception constructor and will not be as efficient
@@ -190,6 +184,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	@inline def orIllegal :A =
 		if (ref eq NoContent) illegal_! else ref.asInstanceOf[A]
 
+	//consider: renaming to assumed to match Predef.assume throwing AssertionError
 	/** Asserts that this instance is not empty and returns its contents, throwing an [[AssertionError]] otherwise. */
 	@inline def orError(msg: => String) :A = {
 		assert(ref ne NoContent, msg)
@@ -210,7 +205,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 
 	/** Similarly to [[net.noresttherein.sugar.vars.Maybe.orElse orElse]], returns this `Maybe` if it is not empty
 	  * and `or` otherwise. The difference is that the alternative value is not lazily computed and guarantees
-	  * no closure would be be created, at the cost of possibly discarding it without use.
+	  * no closure would be created, at the cost of possibly discarding it without use.
 	  * @param or the value to return if this instance is empty. */
 	@inline def ifEmpty[O >: A](or: Maybe[O]) :Maybe[O] =
 		if (ref eq NoContent) or else this
@@ -238,7 +233,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	@inline def mapOrElse[O](f :A => O, or: => O) :O =
 		if (ref eq NoContent) or else f(ref.asInstanceOf[A])
 
-	/** Returns the result of applying `f` to the value of this `Maybe` if it is non empty,
+	/** Returns the result of applying `f` to the value of this `Maybe` if it is non-empty,
 	  * or the result of evaluating expression `ifEmpty` otherwise.
 	  *
 	  * '''Note''': this method exists in order to fully duplicate the API of `Option` and allow easy replacing
@@ -419,11 +414,6 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	  * This conversion does not require boxing. Same as [[net.noresttherein.sugar.vars.Maybe.toOpt toOpt]]. */
 	@inline override def constOpt :Opt[A] =
 		if (ref eq NoContent) None else One(ref.asInstanceOf[A])
-//
-//	/** Conversion to a fully erased `Opt` carrying the same value as this instance, if any.
-//	  * This conversion does not require boxing. */
-//	@inline override def ?? :Opt[A] =
-//		if (ref eq NoContent) None else One(ref.asInstanceOf[A])
 
 
 	/** Converts this `Maybe` to `Either`, returning the content as `Left`, or the value of the given expression
