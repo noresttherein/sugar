@@ -25,11 +25,15 @@ import net.noresttherein.sugar.slang.{SerializationProxy, SingletonSerialization
   * `length` is also an O(1) operation.
   * It offers O(n) traversal, but subpar to standard `Seq` implementations and similarly subpar O(n) random access.
   * Each time an element or collection is prepended or appended, only a single object is created, combining
-  * this sequence with the new elements. This makes it suited only as an intermediate buffer structure,
+  * this sequence with the new elements. This makes it suitable only as an intermediate buffer structure,
   * where collections are concatenated recursively, which would lead to O(n*n) time in standard implementations.
-  * After the contents are complete, it is advised to convert this sequence into some all purpose `Seq` implementation.
+  * After the contents are complete, it is advised to convert this sequence into some all-purpose `Seq` implementation.
+  *
   * Note that $Coll type is not 'sticky': operations other than appending/prepending/inserting, slicing and updating
-  * return more conventional `Seq` implementations.
+  * return more conventional `Seq` implementations. This is because the `IterableFactory` for this sequence
+  * is `Seq` itself, rather than [[net.noresttherein.sugar.collections.Cat$ Cat]] companion object.
+  * This can be changed by defining `net.noresttherein.sugar.collections.CatSeqFactory` system property with the name
+  * of a `SeqFactory[Seq]` class/object (including `Cat` itself).
   *
   * This class is conceptually equivalent to `Chain` from `cats` library,
   * but implemented within the standard collection framework.
@@ -47,10 +51,8 @@ sealed abstract class Cat[+E]
 	extends AbstractSeq[E] with StrictOptimizedSeqOps[E, Seq, Seq[E]]
 	   with SugaredIterable[E] with SugaredSeqOps[E, Seq, Seq[E]] with SlicingOps[E, Cat[E]] with PatchingOps[E, Cat]
 	   with Serializable
-//	extends AbstractSeq[E] with StrictOptimizedSeqOps[E, Seq, Cat[E]]
-//	   with SugaredIterable[E] with SeqSlicingOps[E, Seq, Cat[E]] with PatchingOps[E, Cat]
-	   with Serializable
 {
+	override def iterableFactory :SeqFactory[Seq] = Cat.DefaultSeq
 //	protected override def fromSpecific(coll :IterableOnce[E @uncheckedVariance]) :Cat[E] = Cat from coll
 //	protected override def newSpecificBuilder :Builder[E @uncheckedVariance, Cat[E]] = Cat.newBuilder
 
@@ -615,8 +617,16 @@ case object Cat extends StrictOptimizedSeqFactory[Cat] {
 			new Slice(seq, from, math.min(until, seq.length) - from0)
 		}
 
+	/** Equivalent to `Cat.empty :+ first`, but shorter. */
 	def :+[E](first :E) :Cat[E] = new Appended(Empty, first)
+
+	/** Equivalent to `Cat.empty :++ init`, but shorter. */
 	def :++[E](init :IterableOnce[E]) :Cat[E] = from(init)
+
+
+	private[this] val DefaultSeqFactoryProperty = "net.noresttherein.sugar.collections.CatSeqFactory"
+	private val DefaultSeq =
+		IterableFactoryLoader.seqFactoryFromProperty[Seq](DefaultSeqFactoryProperty) getOrElse List
 
 
 	@SerialVersionUID(Ver)
@@ -879,7 +889,7 @@ case object Cat extends StrictOptimizedSeqFactory[Cat] {
 						rem -= 1
 					}
 					if (rem > 0) {
-						iter = Iterator.empty //To ensure that iter.knownSize == 0 and we enter the previous branch.
+						iter = Iterator.empty //To ensure that iter.knownSize == 0 so that we enter the previous branch.
 						drop(rem + 1)         //hasHead is true, so drop erroneously counts hd as the first element.
 					} else {
 						advance()

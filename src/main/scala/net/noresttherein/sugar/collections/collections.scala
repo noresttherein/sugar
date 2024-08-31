@@ -8,7 +8,8 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer, IndexedBuffer}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IArrayLike, IRefArray}
+import net.noresttherein.sugar.arrays.{IArray, IArrayLike}
+import net.noresttherein.sugar.collections.IterableFactoryLoader.{arrayWrapperFromProperty, bufferFactoryFromProperty, seqFactoryFromProperty}
 import net.noresttherein.sugar.exceptions.SugaredClassCastException
 import net.noresttherein.sugar.matching.MatchPattern
 import net.noresttherein.sugar.reflect.Specialized
@@ -31,6 +32,7 @@ import net.noresttherein.sugar.extensions._
 package object collections extends JteratorExtensions {
 	private[collections] final val Ver = 1L
 
+	/** The default element types for which `@specialized` collections are specialized. */
 	final val ElemTypes = Specialized.MultiValue
 
 	/** An empty `LazyList` for more convenient concatenation. */
@@ -65,7 +67,7 @@ package object collections extends JteratorExtensions {
 	  * with an API exposed as extension methods imported from
 	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.IntJteratorExtension IntJteratorExtension]].
 	  * It exists for uniformity with other ''jterators'', and to replace ''nextInt()'' with the standard `next()`,
-	  * which helps avoiding calling of a boxing method by accident.
+	  * which helps to avoid calling of a boxing method by accident.
 	  */
 	type IntJterator <: Jterator[Int]
 
@@ -73,7 +75,7 @@ package object collections extends JteratorExtensions {
 	  * with an API exposed as extension methods imported from
 	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.LongJteratorExtension LongJteratorExtension]].
 	  * It exists for uniformity with other ''jterators'', and to replace ''nextLong()'' with the standard `next()`,
-	  * which helps avoiding calling of a boxing method by accident.
+	  * which helps to avoid calling of a boxing method by accident.
 	  */
 	type LongJterator <: Jterator[Long]
 
@@ -81,7 +83,7 @@ package object collections extends JteratorExtensions {
 	  * with an API exposed as extension methods imported from
 	  * [[net.noresttherein.sugar.collections.extensions extensions]].[[net.noresttherein.sugar.collections.extensions.DoubleJteratorExtension DoubleJteratorExtension]].
 	  * It exists for uniformity with other ''jterators'', and to replace ''nextDouble()'' with the standard `next()`,
-	  * which helps avoiding calling of a boxing method by accident.
+	  * which helps to avoid calling of a boxing method by accident.
 	  */
 	type DoubleJterator <: Jterator[Double]
 
@@ -135,7 +137,7 @@ package object collections extends JteratorExtensions {
 
 
 	/** An optional system property with a name of an
-	  * [[scala.collection.immutable.SeqFactory SeqFactory]]`[`[[scala.collection.immutable.IndexedSeq IndexedSeq]]`]`
+	  * [[scala.collection.SeqFactory SeqFactory]]`[`[[scala.collection.immutable.IndexedSeq IndexedSeq]]`]`
 	  * class or object used by the library whenever an `IndexedSeq` should be returned.
 	  * @see [[net.noresttherein.sugar.collections.DefaultIndexedSeq DefaultIndexedSeq]]
 	  */
@@ -219,87 +221,6 @@ package object collections extends JteratorExtensions {
 	//todo: see if we can drop the IndexedBuffer bound and replace usages of TemporaryBuffer with DefaultBuffer
 	private[collections] val TemporaryBuffer :BufferFactory[IndexedBuffer] = MatrixBuffer.untagged
 
-
-	private def loadObject(className :String) :Any =
-		try {
-			val companionClass = Class.forName(className + '$')
-			val field          = companionClass.getField("MODULE$")
-			field.get(null)
-		} catch {
-			case cause :Exception => try {
-				val factoryClass = Class.forName(className)
-				factoryClass.getConstructor().newInstance()
-			} catch {
-				case e :Exception =>
-					throw e.addInfo(
-						className + " is neither a Scala object, nor does it have a default constructor"
-					).suppress(cause)
-			}
-		}
-
-	private def loadSeqFactory[CC[X] <: collection.Seq[X]]
-	                          (collectionClassName :String)(implicit tag :ClassTag[CC[Any]]) :SeqFactory[CC] =
-	{
-		val factory = loadObject(collectionClassName)
-		val f = try factory.asInstanceOf[SeqFactory[CC]] catch {
-			case e :ClassCastException =>
-				throw SugaredClassCastException(
-					collectionClassName + " object " + factory + " is not a SeqFactory: " + factory.className
-				).initCause(e)
-		}
-		val what = f.from(1::2::Nil)
-		if (!(tag.runtimeClass isAssignableFrom what.getClass))
-			illegalState_!(
-				collectionClassName + " is not a factory for " + tag.runtimeClass.name +
-					"; created a " + what.getClass.name + " instead."
-			)
-		f
-	}
-
-	private def seqFactoryFromProperty[CC[X] <: collection.Seq[X]]
-	                                  (property :String)(implicit tag :ClassTag[CC[Any]]) :Maybe[SeqFactory[CC]] =
-		Maybe(System.getProperty(property)).map { className =>
-			try loadSeqFactory[CC](className) catch {
-				case e :Exception =>
-					throw e.addInfo("Property " + property +
-						" does not denote a SeqFactory[" + tag.runtimeClass.localName + "]."
-					)
-			}
-		}
-
-	private def bufferFactoryFromProperty(property :String) :Maybe[BufferFactory[Buffer]] =
-		Maybe(System.getProperty(property)).map { className =>
-			try {
-				loadSeqFactory[Buffer](className) match {
-					case factory :BufferFactory[Buffer] => factory
-					case ArrayBuffer => ArrayBufferFactory
-					case factory => new BufferFactoryAdapter(factory)
-				}
-			} catch {
-				case e :Exception => throw e.addInfo("Property " + property + " does not specify a SeqFactory[Buffer].")
-			}
-		}
-
-	private def arrayWrapperFromProperty(property :String) :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =
-		Maybe(System.getProperty(property)) match {
-			case Yes("scala.collection.immutable.ArraySeq") =>
-				Yes(ArraySeqFactory.asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]])
-			case Yes(className) =>
-					try {
-						val factory   = loadObject(className).asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]]
-						if (!factory.isImmutable)
-							illegalState_!(
-								"Default ArrayLikeSliceFactory is not immutable: " + factory + ": " + className + "."
-							)
-						val testInput = IArray(1, 2, 3, 4)
-						val _         = factory.slice(testInput, 1, 3)
-						Yes(factory)
-					} catch {
-						case e :Exception =>
-							throw e.addInfo("Property " + property + " does not specify an ArrayLikeSliceFactory")
-					}
-			case _ => No
-		}
 }
 
 
@@ -321,5 +242,91 @@ package collections {
 			override def isMutable = true
 		}
 		@SerialVersionUID(0) case object Unspecified extends Mutability
+	}
+
+
+	private[sugar] object IterableFactoryLoader {
+
+		private def loadObject(className :String) :Any =
+			try {
+				val companionClass = Class.forName(className + '$')
+				val field          = companionClass.getField("MODULE$")
+				field.get(null)
+			} catch {
+				case cause :Exception => try {
+					val factoryClass = Class.forName(className)
+					factoryClass.getConstructor().newInstance()
+				} catch {
+					case e :Exception =>
+						throw e.addInfo(
+							className + " is neither a Scala object, nor does it have a default constructor"
+						).suppress(cause)
+				}
+			}
+
+		private def loadSeqFactory[CC[X] <: collection.Seq[X]]
+		                          (collectionClassName :String)(implicit tag :ClassTag[CC[Any]]) :SeqFactory[CC] =
+		{
+			val factory = loadObject(collectionClassName)
+			val f = try factory.asInstanceOf[SeqFactory[CC]] catch {
+				case e :ClassCastException =>
+					throw SugaredClassCastException(
+						collectionClassName + " object " + factory + " is not a SeqFactory: " + factory.className
+					).initCause(e)
+			}
+			val what = f.from(1::2::Nil)
+			if (!(tag.runtimeClass isAssignableFrom what.getClass))
+				illegalState_!(
+					collectionClassName + " is not a factory for " + tag.runtimeClass.name +
+						"; created a " + what.getClass.name + " instead."
+				)
+			f
+		}
+
+		def seqFactoryFromProperty[CC[X] <: collection.Seq[X]]
+		                          (property :String)(implicit tag :ClassTag[CC[Any]]) :Maybe[SeqFactory[CC]] =
+			Maybe(System.getProperty(property)).map { className =>
+				try loadSeqFactory[CC](className) catch {
+					case e :Exception =>
+						throw e.addInfo("Property " + property +
+							" does not denote a SeqFactory[" + tag.runtimeClass.localName + "]."
+						)
+				}
+			}
+
+		def bufferFactoryFromProperty(property :String) :Maybe[BufferFactory[Buffer]] =
+			Maybe(System.getProperty(property)).map { className =>
+				try {
+					loadSeqFactory[Buffer](className) match {
+						case factory :BufferFactory[Buffer] => factory
+						case ArrayBuffer => ArrayBufferFactory
+						case factory => new BufferFactoryAdapter(factory)
+					}
+				} catch {
+					case e :Exception =>
+						throw e.addInfo("Property " + property + " does not specify a SeqFactory[Buffer].")
+				}
+			}
+
+		def arrayWrapperFromProperty(property :String) :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =
+			Maybe(System.getProperty(property)) match {
+				case Yes("scala.collection.immutable.ArraySeq") =>
+					Yes(ArraySeqFactory.asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]])
+				case Yes(className) =>
+						try {
+							val factory = loadObject(className).asInstanceOf[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]]
+							if (!factory.isImmutable)
+								illegalState_!(
+									"Default ArrayLikeSliceFactory is not immutable: " + factory + ": " + className + "."
+								)
+							val testInput = IArray(1, 2, 3, 4)
+							val _         = factory.slice(testInput, 1, 3)
+							Yes(factory)
+						} catch {
+							case e :Exception =>
+								throw e.addInfo("Property " + property + " does not specify an ArrayLikeSliceFactory")
+						}
+				case _ => No
+			}
 	}
 }
