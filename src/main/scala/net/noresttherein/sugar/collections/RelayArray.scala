@@ -101,7 +101,7 @@ sealed trait RelayArray[@specialized(ElemTypes) +E]
 	extends IndexedSeq[E] with IndexedSeqOps[E, RelayArray, RelayArray[E]]
 	   with StrictOptimizedSeqOps[E, RelayArray, RelayArray[E]] with IterableFactoryDefaults[E, RelayArray]
 	   with SugaredIterable[E] with SugaredSeqOps[E, RelayArray, RelayArray[E]] with Serializable
-{
+{ //When we extend RelaySeq update HasFastPrepend
 	override def iterableFactory :SeqFactory[RelayArray] = RelayArray
 	protected override def className = "RelayArray"
 	def elementType :Class[_]

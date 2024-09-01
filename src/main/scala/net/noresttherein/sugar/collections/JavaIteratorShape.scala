@@ -209,7 +209,8 @@ final class JteratorShape[-E, I] private (val shape :Maybe[StepperShape.Shape]) 
 	def javaIteratorShape :JavaIteratorShapeWithStepper[E, JavaIterator, Stepper] = (
 		if (!shape.isDefined)
 			anyJavaIteratorShape
-		else (shape.get : @switch) match {
+//		else (shape.get : @switch) match {
+		else shape.get match {
 			case ReferenceShape => anyJavaIteratorShape
 			case IntShape       => intJavaIteratorShape
 			case LongShape      => longJavaIteratorShape

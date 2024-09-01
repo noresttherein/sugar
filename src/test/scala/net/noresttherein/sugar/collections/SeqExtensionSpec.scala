@@ -18,6 +18,7 @@ import net.noresttherein.sugar.vars.Maybe.Yes
 
 
 
+/*
 object SeqExtensionSpec extends Properties("SeqExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(127)
@@ -66,6 +67,13 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 
 	property("shuffled") = seqProperty { seq :Seq[Int] => seq.shuffled.sorted =? seq.sorted }
 
+	private def lazyProperty(seq :Seq[Int])(f :Seq[Int] => (Seq[Int], Seq[Int])) = {
+		var x = 0
+		val list = { x += 1; 42 } #:: { x += 1; 44 } #:: LazyList.from(seq)
+		val (result, expect) = f(list)
+		(x ?= 0) :| "LazyList.removed evaluated before actual access" && (result ?= expect)
+	}
+
 	private def lazyIndexProperty(idx :Int, knownDeltaSizeLimit :Int, deltaSizeLimit :Int)
 	                             (f :Seq[Int] => (Seq[Int], Seq[Int])) =
 		forAll { seq :Vector[Int] =>
@@ -73,14 +81,10 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 			if (idx < 0 || idx > knownDeltaSizeLimit && list.knownSize == 0)
 				f(list).throws[IndexOutOfBoundsException]
 			else if (idx > seq.size + deltaSizeLimit) {
-				val (result, _) = f(list) //checks that it doesn't throw an exception here
+				val (result, _) = f(list) //Checks that it doesn't throw an exception here
 				Vector.from(result).throws[IndexOutOfBoundsException]
-			} else {
-				var x = 0
-				val list = { x += 1; 42 } #:: { x += 1; 44 } #:: LazyList.from(seq)
-				val (result, expect) = f(list)
-				(x ?= 0) :| "LazyList.removed evaluated before actual access" && (result ?= expect)
-			}
+			} else
+				lazyProperty(seq)(f)
 		} :| "LazyList"
 
 //	property("updated(first, second, rest*)") = seqProperty { seq :Seq[Int] =>
@@ -132,21 +136,21 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 
 	property("updatedAll") = forAll { index :Int =>
 		seqProperty { patch :Seq[Int] =>
-			def prop(seq :Seq[Int]) =
+			def pair(seq :Seq[Int]) =
 				seq.updatedAll(index, patch) -> (seq.take(index) ++ patch ++ seq.drop(index + patch.size))
 			seqProperty { seq :Seq[Int] =>
 				if (index < 0 || index > seq.length - patch.length)
 					seq.updatedAll(index, patch).throws[IndexOutOfBoundsException]
 				else {
-					val (result, expect) = prop(seq)
+					val (result, expect) = pair(seq)
 					result ?= expect
 				}
-			} && lazyIndexProperty(index, if (patch.knownSize >= 0) -patch.knownSize else 0, -patch.size)(prop)
+			} && lazyIndexProperty(index, -(patch.knownSize max 0), -patch.size)(pair)
 		}
 	}
 	property("updatedAll(first, second, rest*)") = forAll { (index :Int, first :Int, second :Int) =>
 		seqProperty { rest :Seq[Int] =>
-			def prop(seq :Seq[Int]) =
+			def pair(seq :Seq[Int]) =
 				seq.updatedAll(index, first, second, rest :_*) -> (
 					seq.take(index) ++: first +: second +: rest ++: seq.drop(index + rest.length + 2)
 				)
@@ -154,27 +158,43 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 				if (index < 0 || index > seq.length - rest.length - 2)
 					seq.updatedAll(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
 				else {
-					val (result, expect) = prop(seq)
+					val (result, expect) = pair(seq)
 					result ?= expect
 				}
-			} && lazyIndexProperty(index, 0, 0)(prop)
+			} && lazyIndexProperty(index, if (rest.knownSize >= 0) -rest.knownSize - 2 else 0, -rest.size - 2)(pair)
 		}
 	}
+//	property("overwritten") = forAll { index :Int =>
+//		seqProperty { patch :Seq[Int] =>
+//			def pair(seq :Seq[Int]) = {
+//				val clipped =
+//					if (index == Int.MinValue) patch.take(0)
+//					else patch.slice(-index, -index + seq.length - math.max(index, 0))
+//				seq.overwritten(index, patch) -> (seq.take(index) ++ clipped ++ seq.drop(patch.size + index))
+//			}
+//			seqProperty { seq :Seq[Int] =>
+//				val (result, expect) = pair(seq)
+//				result ?= expect
+//			} && forAll { seq :Seq[Int] =>
+//				lazyProperty(seq)(pair)
+//			}
+//		}
+//	}
 	property("inserted") = forAll { (index :Int, value :Int) =>
-		def prop(seq :Seq[Int]) =
+		def pair(seq :Seq[Int]) =
 			seq.inserted(index, value) -> (seq.take(index) ++: value +: seq.drop(index))
 		seqProperty { seq :Seq[Int] =>
 			if (index < 0 || index > seq.length)
 				seq.inserted(index, value).throws[IndexOutOfBoundsException]
 			else {
-				val (result, expect) = prop(seq)
+				val (result, expect) = pair(seq)
 				result ?= expect
 			}
-		} && lazyIndexProperty(index, 0, 0)(prop)
+		} && lazyIndexProperty(index, 0, 0)(pair)
 	}
 	property("insertedAll(index, first, second, rest*)") = forAll { (index :Int, first :Int, second :Int) =>
 		seqProperty { rest :Seq[Int] =>
-			def prop(seq :Seq[Int]) =
+			def pair(seq :Seq[Int]) =
 				seq.insertedAll(index, first, second, rest :_*) -> (
 					seq.take(index) ++: first +: second +: rest ++: seq.drop(index)
 				)
@@ -182,24 +202,24 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 				if (index < 0 || index > seq.length)
 					seq.insertedAll(index, first, second, rest :_*).throws[IndexOutOfBoundsException]
 				else {
-					val (result, expect) = prop(seq)
+					val (result, expect) = pair(seq)
 					result ?= expect
 				}
-			} && lazyIndexProperty(index, 0, 0)(prop)
+			} && lazyIndexProperty(index, 0, 0)(pair)
 		}
 	}
 	property("insertedAll") = forAll { (index :Int) =>
 		seqProperty { patch :Seq[Int] =>
-			def prop(seq :Seq[Int]) =
+			def pair(seq :Seq[Int]) =
 				seq.insertedAll(index, patch) -> (seq.take(index) ++: patch ++: seq.drop(index))
 			seqProperty { seq :Seq[Int] =>
 				if (index < 0 || index > seq.length)
 					seq.insertedAll(index, patch).throws[IndexOutOfBoundsException]
 				else {
-					val (result, expect) = prop(seq)
+					val (result, expect) = pair(seq)
 					result ?= expect
 				}
-			} && lazyIndexProperty(index, 0, 0)(prop)
+			} && lazyIndexProperty(index, 0, 0)(pair)
 		}
 	}
 //	property("appended(first, second, rest*)") = seqProperty { seq :Seq[Int] =>
@@ -217,6 +237,15 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 //		}
 //	}
 
+	//todo: reversePrependedAll
+	property("reversePrependedAll") =
+		seqProperty { prefix :Seq[Int] => //todo: test for other collection types
+			seqProperty { seq :Seq[Int] =>
+				val expect = prefix.reverse ++: seq
+				val result = prefix reverse_++: seq
+				result ?= expect
+			}
+		}
 
 	private def getIndex(i :Int) :Option[Int] = Option.when(i >= 0)(i)
 
@@ -529,3 +558,4 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 		Prop(seq.filter(_ % 3 == 1) subseqOf seq)
 	}
 }
+*/

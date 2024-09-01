@@ -5,31 +5,27 @@ import java.util.Arrays.copyOf
 
 import scala.annotation.{nowarn, tailrec}
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.{AbstractIndexedSeqView, AbstractIterable, AbstractIterator, AbstractSeq, AbstractSet, BufferedIterator, Factory, IndexedSeqView, IterableFactory, IterableFactoryDefaults, IterableOnceOps, IterableOps, LinearSeq, SeqFactory, StrictOptimizedIterableOps, View, immutable, mutable}
+import scala.collection.{AbstractIndexedSeqView, AbstractIterable, AbstractSeq, AbstractSet, Factory, IndexedSeqView, IterableFactory, IterableFactoryDefaults, IterableOps, LinearSeq, SeqFactory, StrictOptimizedIterableOps, View, immutable, mutable}
 import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, IndexedSeqDefaults, IndexedSeqOps, Set, StrictOptimizedSeqOps, StrictOptimizedSetOps}
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 import scala.util.Random
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayIterator, RefArrayLike, ReverseRefArrayIterator, arraycopy}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayLike, arraycopy}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
-import net.noresttherein.sugar.collections.Constants.MaxArraySize
-import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastAppend, HasFastPrepend, HasFastUpdate}
-import net.noresttherein.sugar.collections.Iterators.StrictIterator
+import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView
 import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingAdapter, RankingBuilder, RankingSeqAdapter, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UniqueRankingBuilder, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, ofMaxSize, smallContains}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
-import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.collections.util.{HasFastAppend, HasFastPrepend, errorString}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
-import net.noresttherein.sugar.extensions.{BuilderExtension, IterableExtension}
+import net.noresttherein.sugar.extensions.IterableExtension
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.generic.Any1
-import net.noresttherein.sugar.{illegalState_!, noSuch_!}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
-import net.noresttherein.sugar.vars.Opt.One
 
 
 

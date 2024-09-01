@@ -394,6 +394,10 @@ trait PatchingOps[+E, +CC[_]] extends Any with IterableOps[E, Any1, Any] {
 trait SugaredSeqOps[+E, +CC[_], +C]
 	extends Any with collection.SeqOps[E, CC, C] with SugaredIterableOps[E, CC, C] with PatchingOps[E, CC]
 {
+	//todo: test these!
+	@inline final def reverse_++:[U >: E](elems :IterableOnce[U]) :CC[U] = reversePrependedAll(elems)
+	def reversePrependedAll[U >: E](elems :IterableOnce[U]) :CC[U] = Defaults.reversePrependedAll(this, elems)
+
 	override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.updatedAll(this, index, elems)
 
 	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =

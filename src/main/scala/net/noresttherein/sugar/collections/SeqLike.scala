@@ -25,7 +25,7 @@ import net.noresttherein.sugar.reflect.extensions.ClassExtension
 /**
   * @define Coll `Seq`
   * @define coll sequence
-  */ //consider: rplacing it with something like OrderedLike or PositionedLike or RankedLike
+  */ //consider: replacing it with something like OrderedLike or PositionedLike or RankedLike
 trait SeqLike[+E, +CC[_], C] extends IterableLike[E, CC, C] {
 
 	override def view(elems :C) :SeqView[E] = new SeqView.Id[E](toOps(elems))

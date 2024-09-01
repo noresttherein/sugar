@@ -184,12 +184,12 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 	{
 		protected override def emptySlice :IndexedSeqRange[E] = Immutable.empty
 		protected override def clippedSlice(from :Int, until :Int) :IndexedSeqRange[E] =
-			Immutable(whole, start + from, until - from)
+			new Immutable(whole, start + from, until - from)
 	}
 
 	@SerialVersionUID(Ver)
 	private object Immutable extends SeqSliceFactory[IndexedSeq, IndexedSeqRange] {
-		val empty :IndexedSeqRange[Nothing] = SeqSlice(IndexedSeq.empty, 0, 0)
+		val empty :IndexedSeqRange[Nothing] = new Immutable(IndexedSeq.empty, 0, 0)
 
 		override def make[E](seq :IndexedSeq[E], from :Int, until :Int) :IndexedSeqRange[E] = seq match {
 			case _ if until <= from                => empty
@@ -217,7 +217,7 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 			else whole
 
 		protected override def clippedSlice(from :Int, until :Int) :MutIndexedSeqRange[E] =
-			Mutable(whole.clone(), start + from, until - from)
+			new Mutable(whole.clone(), start + from, until - from)
 	}
 
 	@SerialVersionUID(Ver)

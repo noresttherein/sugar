@@ -26,7 +26,6 @@ import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, r
 import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
 import net.noresttherein.sugar.funny.generic.Any1
-import net.noresttherein.sugar.reflect.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
@@ -3016,6 +3015,12 @@ object extensions extends extensions {
 		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :Iterator[U] =
 			Iterators.insertedAll(self, index, elems)
 
+		override def reversePrependedAll[U >: E](elems :IterableOnce[U]) :Iterator[U] =
+			util.reverse(elems).iterator :++ self
+
+		@inline override def reverse_++:[U >: E](elems :IterableOnce[U]) :Iterator[U] = reversePrependedAll(elems)
+
+
 		/** An iterator which returns `elem` after all the elements of this iterator.
 		  * It is equivalent to `this ++ Iterator.single(elem)`, but more efficient due to the argument not being lazy.
 		  * @return `this.`[[net.noresttherein.sugar.collections.extensions.IteratorExtension.appended appended]]`(elem)`.
@@ -3997,6 +4002,12 @@ object extensions extends extensions {
 		/** Equivalent to [[net.noresttherein.sugar.collections.extensions.SeqExtensionMethods.insertedAll insertedAll]]`(first +: second +: rest)`. */
 		def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 			insertedAll(index, Prepended2Seq(first, second, rest))
+
+		/** Equivalent to `Seq.from(elems).reverse ++: this`. Can be implemented faster for some sequences, like lists. */
+		def reversePrependedAll[U >: E](elems :IterableOnce[U]) :CC[U]
+
+		/** Equivalent to `Seq.from(elems).reverse ++: this`. Can be implemented faster for some sequences, like lists. */
+		def reverse_++:[U >: E](elems :IterableOnce[U]) :CC[U] = reversePrependedAll(elems)
 	}
 
 
@@ -4296,8 +4307,12 @@ object extensions extends extensions {
 //		def swapped(idx1 :Int, idx2 :Int, length :Int) :C = ???
 
 		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] = self match {
-			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.updatedAll(index, first, second, rest :_*)
-			case _  => updatedAll(index, Prepended2Seq(first, second, rest))
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
+				seq.updatedAll(index, first, second, rest :_*)
+			//A check for lazy collections, as Prepended2Seq may lose information patch.sizeIs >= 2.
+//			case _ if index < 0 || { val s = self.knownSize; s >= 0 & s - 2 < index } =>
+//				outOfBounds_!(errorString(self) + ".updatedAll(" + index + ", _, _, " + errorString(rest) + ")")
+			case _                                       => updatedAll(index, Prepended2Seq(first, second, rest))
 		}
 
 		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
@@ -4354,6 +4369,13 @@ object extensions extends extensions {
 //				case _ if knownEmpty(rest) => self.prependedAll(RelayArray.two(first, second))
 //				case _ => self prependedAll (Iterator.double(first, second) ++: rest)
 //			}
+
+		override def reversePrependedAll[U >: E](elems :IterableOnce[U]) :CC[U] = self match {
+			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] => seq.reversePrependedAll(elems)
+			case _                                                  => Defaults.reversePrependedAll(self, elems)
+		}
+
+		@inline final override def reverse_++:[U >: E](elems :IterableOnce[U]) :CC[U] = reversePrependedAll(elems)
 
 		/** Finds the location of the given element in this sequence, returning its index as an `Option`.
 		  * @param x    the element, whose index is to be determined.
@@ -4805,6 +4827,11 @@ object extensions extends extensions {
 
 		override def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :SeqView[U] =
 			Views.insertedAll(self, index, Prepended2Seq(first, second, rest))
+
+		override def reversePrependedAll[U >: E](elems :IterableOnce[U]) :SeqView[U] =
+			Views.reversePrependedAll(self, elems)
+
+		@inline final override def reverse_++:[U >: E](elems :IterableOnce[U]) :SeqView[U] = reversePrependedAll(elems)
 	}
 
 
@@ -4908,6 +4935,10 @@ object extensions extends extensions {
 	  * @define coll indexed sequence
 	  */
 	class mutableIndexedSeqExtension[E] private[collections] (private val self :mutable.IndexedSeq[E]) extends AnyVal {
+		/** Returns a lens which may be used to get and set the value at the specified index in this sequence. */
+		@throws[IndexOutOfBoundsException]("if idx is not a legal index in this sequence.")
+		def lens(idx :Int) :InOut[E] = new IndexedSeqLens(self, idx)
+
 		/** Swaps (in place) elements at indices `i` and `j`. */
 		@inline def swap(i :Int, j :Int) :Unit = {
 			val boo = self(i)
@@ -5278,6 +5309,12 @@ object extensions extends extensions {
 	  * @define coll buffer
 	  */
 	class BufferExtension[E, This <: Buffer[E]] private[collections] (private val self :This) extends AnyVal {
+		/** Removes the last element from the buffer, returning the buffer. */
+		@inline def popLast() :This = { self.remove(self.length - 1); self }
+
+		/** Removes the first element from the buffer, returning the buffer. */
+		@inline def popHead() :This = { self.remove(0); self }
+
 		/** Removes the last element from the buffer, returning its value.
 		  * @return [[collection.mutable.Buffer.remove remove]]`(this.length - 1)`.
 		  */
@@ -5286,7 +5323,7 @@ object extensions extends extensions {
 		/** Removes the first element from the buffer, returning its value.
 		  * @return [[collection.mutable.Buffer.remove remove]]`(0)`.
 		  */
-		@inline def removeFirst() :E = self.remove(0)
+		@inline def removeHead() :E = self.remove(0)
 
 
 		/** Fills (in place) the whole buffer with the given value. */

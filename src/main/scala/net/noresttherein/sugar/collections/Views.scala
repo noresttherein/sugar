@@ -1,9 +1,9 @@
 package net.noresttherein.sugar.collections
 
 import scala.annotation.tailrec
-import scala.collection.{AbstractView, IterableOnceOps, SeqView, View}
+import scala.collection.{AbstractView, IterableOnceOps, IterableOps, SeqView, View}
 
-import net.noresttherein.sugar.extensions.{IterableOnceExtension, IteratorExtension}
+import net.noresttherein.sugar.extensions.IteratorExtension
 import net.noresttherein.sugar.funny.generic.Any1
 import net.noresttherein.sugar.outOfBounds_!
 import net.noresttherein.sugar.vars.Opt
@@ -335,6 +335,22 @@ private object Views {
 				case _ => insertedAll(self, index, LazyList from elems)
 			}
 			case _ => insertedAll(LazyList from self, index, elems)
+		}
+
+	@tailrec def reversePrependedAll[E](self :IterableOnce[E], elems :IterableOnce[E]) :InlineSeqView[E] =
+		self match {
+			case items :IterableOnceOps[_, Any1, _] if items.isTraversableAgain => elems match {
+				case items :collection.IndexedSeqOps[E, Any1, _] =>
+					() => items.reverseIterator :++ self.iterator
+				case items :Ranking[E] =>
+					() => items.reverseIterator :++ self.iterator
+				case items :IterableOps[E, Any1, _] if items.sizeIs <= 1 =>
+					() => items.iterator :++ self.iterator
+				case _ =>
+					lazy val buffer = TemporaryBuffer.of[E] ++= elems
+					() => buffer.reverseIterator :++ self.iterator
+			}
+			case _ => reversePrependedAll(LazyList from self, elems)
 		}
 
 	@tailrec def takeWith[A, E](self :IterableOnce[E], z :A, pred :A => Boolean, op :(A, E) => A) :InlineView[E] =

@@ -472,3 +472,6 @@ trait PatchingProps[C[T] <: PatchingOps[T, C], S[T] >: C[T] <: IterableOps[T, An
 	}
 
 }
+
+
+//todo: SugaredSeqProps for reverse_++:
