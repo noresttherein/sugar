@@ -1,14 +1,18 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.Factory
+import scala.collection.{Factory, IterableOps}
+
+import net.noresttherein.sugar.funny.generic.Any1
+
+
 
 
 /** A mixin trait for `Iterable` implementations backed by another `Iterable`, which contains all its elements.
   * Forwards all calls to traversing methods which return a single value rather than a collection, such as
   * `fold`, etc., to the underlying instance, in case it offers optimized implementations.
-  */
-trait IterableProxy[+E] extends Iterable[E] {
-	protected def underlying :Iterable[E]
+  */ //consider: renaming to IterableProxyOps
+trait IterableProxy[+E] extends IterableOps[E, Any1, Any] {
+	protected def underlying :IterableOps[E, Any1, _]
 
 	override def isEmpty   :Boolean = underlying.isEmpty
 	override def knownSize :Int = underlying.knownSize

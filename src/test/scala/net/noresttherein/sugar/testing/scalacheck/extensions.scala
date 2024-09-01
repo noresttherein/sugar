@@ -3,11 +3,12 @@ package net.noresttherein.sugar.testing.scalacheck
 import scala.reflect.{ClassTag, classTag}
 import scala.Console.err
 
-import net.noresttherein.sugar.collections.LazySet
 import net.noresttherein.sugar.extensions.immutableSetExtension
 import net.noresttherein.sugar.reflect.prettyprint.fullNameOf
 import org.scalacheck.{Gen, Prop}
 import org.scalacheck.util.Pretty
+
+
 
 
 object extensions {
@@ -16,7 +17,7 @@ object extensions {
 
 	implicit class PropExtension(private val self :Prop) extends AnyVal {
 		def lbl(l : => String) :Prop = self.map { res =>
-			res.copy(labels = res.labels +~ l)
+			res.copy(labels = immutableSetExtension(res.labels) +# l)
 		}
 		@inline def lbl_:(l: => String) :Prop = lbl(l)
 		@inline def :@(l: => String) :Prop = lbl(l)

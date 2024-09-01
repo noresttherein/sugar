@@ -475,7 +475,7 @@ sealed trait DelayedOps[@specialized(SpecializedVars) +T] {
   * This utility class is useful for implementing lazy proxies implementing interface `T`, whose methods should unwrap
   * it to the underlying lazy property if it is already initialized.
   */
-trait AbstractLazy[@specialized(SpecializedVars) +T] extends DelayedOps[T] {
+trait AbstractDelayed[@specialized(SpecializedVars) +T] extends DelayedOps[T] {
 	protected override def definite :T = {
 		if (isDefinite)
 			indefinite

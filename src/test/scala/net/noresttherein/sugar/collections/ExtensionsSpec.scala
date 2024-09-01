@@ -47,11 +47,11 @@ object ExtensionsSpec extends Properties("extensions") {
 			else
 				(map.updated(key, value) =? map.updatedIfAbsent(key, value)) :| "absent"
 		}
-		property("?=") = forAll { (map :Map[Int, String], key :Int, value :String) =>
+		property("+?") = forAll { (map :Map[Int, String], key :Int, value :String) =>
 			if (map.contains(key))
-				(map =? (map ?= ((key, value)))) :| "present"
+				(map =? (map +? ((key, value)))) :| "present"
 			else
-				(map.updated(key, value) =? (map ?= ((key, value)))) :| "absent"
+				(map.updated(key, value) =? (map +? ((key, value)))) :| "absent"
 		}
 	}
 
