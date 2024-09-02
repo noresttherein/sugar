@@ -2916,6 +2916,8 @@ object extensions extends extensions {
 					Iterators.removed(self, nonNegFrom, nonNegUntil)
 			}
 
+		def takeRight(n :Int) :Iterator[E] = Iterators.takeRight(self, n)
+
 		override def takeUntil[A](z :A)(pred :A => Boolean)(op :(A, E) => A) :Iterator[E] =
 			Iterators.takeUntil(self, z, pred, op)
 

@@ -237,6 +237,18 @@ private object Iterators {
 			else (TemporaryBuffer.of[E] ++= items).reverseIterator
 	}
 
+	def takeRight[E](self :Iterator[E], n :Int) :Iterator[E] =
+		if (n <= 0)
+			Iterator.empty
+		else {
+			val size = self.knownSize
+			if (size >= 0)
+				if (size <= n) self
+				else self.drop(size - n)
+			else
+				new TakeRight(self, n)
+		}
+
 	def takeUntil[A, E](self :Iterator[E], z :A, pred :A => Boolean, op :(A, E) => A) :Iterator[E] =
 		if (self.knownSize == 0) self
 		else if (pred(z)) Iterator.empty
@@ -1929,6 +1941,71 @@ private object Iterators {
 	}
 
 
+
+	private class TakeRight[+E](private[this] var underlying :Iterator[E], n :Int,
+	                            private[this] var queue :mutable.Queue[E] = null)
+		extends AbstractIterator[E] with IteratorWithDrop[E]
+	{
+		//Equals queue.size if queue != null, otherwise equals the number of elements in underlying, if known.
+		private[this] var count = underlying.knownSize
+
+		override def knownSize :Int = if (count >= 0) math.min(count, n) else -1
+
+		override def hasNext :Boolean = underlying.hasNext || queue != null && queue.nonEmpty
+
+		override def next() :E = {
+			if (count >= 0 & queue == null) {
+				underlying = underlying.drop(count - n)
+				count = math.min(n, count) - 1
+				underlying.next()
+			} else {
+				if (queue == null)
+					enqueue()
+				count -= 1
+				queue.dequeue()
+			}
+		}
+		private def enqueue() :Unit = {
+			queue = mutable.Queue.empty[E]
+			count = 0
+			while (count < n && underlying.hasNext) {
+				queue += underlying.next()
+				count  += 1
+			}
+			while (underlying.hasNext) {
+				queue.dequeue()
+				queue += underlying.next()
+			}
+		}
+		override def drop(n :Int) :Iterator[E] = {
+			if (n > 0) {
+				if (count >= 0 & queue == null) {
+					underlying = underlying.drop(count - this.n + n)
+					count = math.max(this.n - n, 0)
+				} else {
+					if (queue == null)
+						enqueue()
+					count = math.max(count - n, 0)
+					queue.dropInPlace(n)
+				}
+			}
+			this
+		}
+
+		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+			if (len < 0 || count == 0 || start >= xs.length)
+				0
+			else if (count > 0 & queue == null) {
+				underlying = underlying.drop(count - n)
+				underlying.copyToArray(xs, start, len)
+			} else {
+				if (queue == null)
+					enqueue()
+				queue.copyToArray(xs, start, len)
+			}
+
+		override def toString :String = underlying.toString + ".takeRight(" + n + ")"
+	}
 
 	private class TakeUntil[A, +E](private[this] var underlying :Iterator[E],
 	                               private[this] var acc :A, pred :A => Boolean, op :(A, E) => A)

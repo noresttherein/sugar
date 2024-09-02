@@ -11,9 +11,9 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, CappedArrayBuffer, IArraySlice, IRefArraySlice, MatrixBuffer}
 import net.noresttherein.sugar.vars.Maybe
-import net.noresttherein.sugar.vars.Maybe.{Yes, No}
+import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
@@ -696,18 +696,24 @@ private[sugar] case object ErasedArray extends RefArrayLikeFactory[Array] with I
 				else
 					No
 			case _ :collection.IndexedSeqOps[_, _, _] => elems match {
-				case seq :ArraySeq[_]         => Yes((seq.unsafeArray, 0, seq.unsafeArray.length))
-				case seq :Vector[_]           =>
+				case seq :ArraySeq[_]             => Yes((seq.unsafeArray, 0, seq.unsafeArray.length))
+				case seq :Vector[_]               =>
 					val array = CheatedAccess.array(seq)
-					if (array.length == seq.length) Yes((array, 0, seq.length)) else No
-				case seq :mutable.ArraySeq[_] => Yes((seq.array, 0, seq.array.length))
-				case seq :ArrayBuffer[_]      => Yes((CheatedAccess.array(seq), 0, seq.length))
+					if (array.length == seq.length) Yes((array, 0, seq.length))
+					else No
+				case seq :mutable.ArraySeq[_]     => Yes((seq.array, 0, seq.array.length))
+				case seq :ArrayBuffer[_]          => Yes((CheatedAccess.array(seq), 0, seq.length))
 				case seq :MatrixBuffer[_]
 					if seq.dim == 1 && seq.data1.getClass == classOf[Array[Any]] &&
 						seq.startIndex + seq.length <= seq.data1.length
 				=>
 					Yes((seq.data1, seq.startIndex, seq.startIndex + seq.length))
-				case _                        => No
+				case seq    :CappedArrayBuffer[_] =>
+					val a = seq.unsafeArray
+					val start = seq.startIndex
+					if (start <= a.length - seq.length) Yes((a, start, start + seq.length))
+					else No
+				case _                            => No
 			}
 			case _ => No
 		}

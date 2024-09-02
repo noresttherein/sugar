@@ -180,7 +180,10 @@ and storing the elements in alphabetical order.
 Proxy collections evaluating an expression returning the underlying collection on demand,
 providing methods for adding and removing elements in a lazy fashion.
 
-#### 5.12. NatMap and MutNatMap
+#### 5.12 CappedSeq, CappedSet
+Mutable LIFO buffers with an upper size bound implementing standard collection interfaces.
+
+#### 5.13. NatMap and MutNatMap
 Maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
 #### 5.14 SeqSet

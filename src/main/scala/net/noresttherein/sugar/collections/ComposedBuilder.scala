@@ -98,8 +98,8 @@ object Builders {
 
 
 
-/** A base class for builders of Array derived collections.
-  * It maintains a growing `Array[ArrayElem]`, which is passed to a new `result(array :Array[ArrayElem], size :Int)`
+/** A base class for builders of collections backed by arrays.
+  * It maintains a growing `Array[ArrayElem]`, which is passed to `result(array :Array[ArrayElem], size :Int)` method
   * when `result()` is called.
   * @define Coll `To`
   * @define coll collection

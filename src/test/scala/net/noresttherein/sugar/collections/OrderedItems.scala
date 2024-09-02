@@ -1,11 +1,11 @@
 package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.{AbstractSeq, AbstractSet, ArraySeq, SeqOps}
-import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, SeqFactory, View}
+import scala.collection.{AbstractIterable, IterableFactory, IterableFactoryDefaults, IterableOps, SeqFactory, View, mutable}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.extensions.IterableOnceExtension
+import net.noresttherein.sugar.extensions.{BufferExtension, IterableOnceExtension}
 import org.scalacheck.util.Buildable
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
@@ -56,7 +56,7 @@ object OrderedItems extends IterableFactory[OrderedItems] {
 class UnorderedItems[+E](override val toSeq :Seq[E])
 	extends OrderedItems[E](toSeq) with IterableFactoryDefaults[E, UnorderedItems]
 {
-	override def iterableFactory = UnorderedItems
+	override def iterableFactory :IterableFactory[UnorderedItems] = UnorderedItems
 
 	def counts[U >: E] :Map[U, Int] =
 		(Map.empty[U, Int].withDefaultValue(0) /: toSeq)((map, e) => map.updated(e, map(e) + 1))
@@ -67,7 +67,7 @@ class UnorderedItems[+E](override val toSeq :Seq[E])
 		case _ => false
 	}
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[UnorderedItems[_]]
-	override def hashCode = counts.hashCode
+	override def hashCode :Int = counts.hashCode
 	override def className = "UnorderedItems"
 }
 
@@ -147,7 +147,7 @@ class AsIterableOnce[+E](val toSeq :Seq[E]) extends IterableOnce[E] {
 	def canEqual(that :Any) :Boolean = that.isInstanceOf[OrderedItems[_]]
 
 	override def hashCode :Int = toSeq.hashCode
-	override def toString = toSeq.mkString("IterableOnce(", ", ", ")")
+	override def toString :String = toSeq.mkString("IterableOnce(", ", ", ")")
 }
 
 object AsIterableOnce extends IterableFactory[AsIterableOnce] {
@@ -190,6 +190,7 @@ class OrderedSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends Abst
 	override def iterator :Iterator[E] = toSeq.iterator
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = toSeq.copyToArray(xs, start, len)
+	override def className = "OrderedSet"
 }
 
 object OrderedSet extends IterableFactory[OrderedSet] {
@@ -219,3 +220,95 @@ object OrderedSet extends IterableFactory[OrderedSet] {
 }
 
 
+
+
+class BoundItems[+E](underlying :collection.Seq[E], max :Int)
+	extends Iterable[E] with IterableOps[E, BoundItems, BoundItems[E]]
+	   with IterableFactoryDefaults[E, BoundItems]
+{
+	override def iterator :Iterator[E] = underlying.iterator
+
+	override def iterableFactory :IterableFactory[BoundItems] = BoundItems.iterableFactory(max)
+}
+
+object BoundItems  {
+	def empty(max :Int) = new BoundItems(Nil, max)
+	def iterableFactory[E](max :Int) = new BoundItemsFactory(max)
+
+	class BoundItemsFactory(max :Int) extends IterableFactory[BoundItems] {
+		override def from[A](source :IterableOnce[A]) :BoundItems[A] =
+			new BoundItems(source.toIterableOnceOps.toList.takeRight(max), max)
+
+		override def empty[A] :BoundItems[A] = new BoundItems(Nil, max)
+
+		override def newBuilder[A] :Builder[A, BoundItems[A]] = new Builder[A, BoundItems[A]] {
+			private var queue = mutable.Queue.empty[A]
+			override def clear() :Unit = queue = null
+			override def result() = new BoundItems(queue, max)
+
+			override def addOne(elem :A) = {
+				if (queue.size >= max)
+					queue.popHead() += elem
+				else
+					queue += elem
+				this
+			}
+		}
+	}
+}
+
+
+
+
+class StrictView[E](underlying :Seq[E]) extends View[E] {
+	override def iterator :Iterator[E] = underlying.iterator
+	override def toString = underlying.mkString("View(", ", ", ")")
+}
+
+object StrictView extends IterableFactory[StrictView] {
+	override def from[A](source :IterableOnce[A]) :StrictView[A] = new StrictView(source.toBasicOps.toSeq)
+
+	override def empty[A] :StrictView[A] = new StrictView(Nil)
+
+	override def newBuilder[A] :Builder[A, StrictView[A]] = Seq.newBuilder[A].mapResult(new StrictView(_))
+}
+
+
+
+
+/** A `Seq` wrapper which overrides `toString` in order to print its length (in addition to contents). */
+class SizedSeq[+E](val underlying :Seq[E])
+	extends AbstractSeq[E] with SeqOps[E, SizedSeq, SizedSeq[E]] with IterableFactoryDefaults[E, SizedSeq]
+{
+	override def knownSize :Int = underlying.knownSize
+	override def apply(i :Int) :E = underlying(i)
+	override def length :Int = underlying.length
+	override def iterator :Iterator[E] = underlying.iterator
+
+	override def iterableFactory :SeqFactory[SizedSeq] = SizedSeq
+
+	protected override def className :String =
+		underlying.toString.replaceFirst("\\(", "|" + length + "|(")
+}
+
+object SizedSeq extends ProxyIterableFactory[SizedSeq, Seq](Vector) with SeqFactory[SizedSeq] {
+	protected override def map[X](impl :Seq[X]) :SizedSeq[X] = new SizedSeq[X](impl)
+
+	implicit def arbitrary[X :Arbitrary :ClassTag] :Arbitrary[SizedSeq[X]] = Arbitrary(
+		Gen.oneOf(
+		   Arbitrary.arbitrary[Vector[X]],
+		   Arbitrary.arbitrary[List[X]],
+		   Gen.buildableOf[ArraySeq[X], X](Arbitrary.arbitrary[X]),
+		).map(new SizedSeq(_))
+	)
+	implicit def shrink[X :Shrink] :Shrink[SizedSeq[X]] = Shrink { col :SizedSeq[X] =>
+		implicitly[Shrink[Seq[X]]].shrink(col.underlying).map(new SizedSeq(_))
+	}
+	implicit def buildable[X] :Buildable[X, SizedSeq[X]] = new Buildable[X, SizedSeq[X]] {
+		override def builder :Builder[X, SizedSeq[X]] = SizedSeq.newBuilder
+	}
+	private implicit def buildableArraySeq[X :Arbitrary :ClassTag] :Buildable[X, ArraySeq[X]] =
+		new Buildable[X, ArraySeq[X]] {
+			override def builder :Builder[X, ArraySeq[X]] = ArraySeq.newBuilder
+		}
+}

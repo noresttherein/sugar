@@ -19,12 +19,13 @@ import net.noresttherein.sugar.funny.generic
 
 /** A buffer with a specified maximum size. Its companion object allows creating instances backed
   * by a given `mutable.`[[scala.collection.mutable.IndexedSeq IndexedSeq]] or an `Array`,
-  * allowing to writing to them at specified positions using the `Buffer` interface.
+  * allowing to write to them at specified positions using the `Buffer` interface.
   * Other than its internals being shared and not growing, the buffer behaves like a regular `ArrayBuffer`.
   * The only difference is that elements in the underlying array or sequence are not set to `null`
   * when elements are removed from the buffer. All methods adding elements to the buffer may throw
   * a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]].
   * @see [[net.noresttherein.sugar.collections.ViewBuffer]]
+  * @see [[net.noresttherein.sugar.collections.CappedBuffer]]
   * @define Coll `BoundBuffer`
   * @define coll bound buffer
   */
@@ -294,7 +295,7 @@ private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, m
   * It is a view over a section of indices in the underlying collection, and cannot grow past the bounds
   * specified during its creation. The difference from [[net.noresttherein.sugar.collections.BoundBuffer BoundBuffer]]
   * is that prepending never shifts elements, only moves left the offset in the underlying array, where in the latter
-  * the elements are shifted right to make space, like in an [[scala.collection.ArrayBuffer ArrayBuffer]].
+  * the elements are shifted right to make space, like in an [[scala.collection.mutable.ArrayBuffer ArrayBuffer]].
   * If the [[net.noresttherein.sugar.collections.ViewBuffer.headIdx index of the first element]] equals
   * the [[net.noresttherein.sugar.collections.ViewBuffer.floor lower bound]], any attempt to prepend
   * will throw a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]], just like
