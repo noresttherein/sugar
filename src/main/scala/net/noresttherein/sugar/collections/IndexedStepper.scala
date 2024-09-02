@@ -25,7 +25,7 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
   * The stepper advances over a window on the collection; it is assumed to use random indexing
   * to return the elements, but they are never handled by this class itself.
   * @see [[net.noresttherein.sugar.collections.IndexedIterator]]
-  * @see [[net.noresttherein.sugar.collections.IndexedReverseStepper]]
+  * @see [[net.noresttherein.sugar.collections.ReverseIndexedStepper]]
   * @author Marcin Mościcki
   */
 private trait IndexedStepper[+A, B, +Self >: Null <: IndexedStepper[A, B, Self]]
@@ -108,11 +108,11 @@ private abstract class AbstractIndexedStepper[+A, B, +Self >: Null <: IndexedSte
   * Aside from [[scala.collection.Stepper Stepper]], the trait implements also
   * [[java.util.Spliterator Spliterator]] and Java [[java.util.Iterator Iterator]].
   * Concrete implementations are expected to implement also the specialized versions of the three interfaces.
-  * @see [[net.noresttherein.sugar.collections.IndexedReverseIterator]]
+  * @see [[net.noresttherein.sugar.collections.ReverseIndexedIterator]]
   * @see [[net.noresttherein.sugar.collections.IndexedStepper]]
   * @author Marcin Mościcki
   */
-private trait IndexedReverseStepper[+A, B, +Self >: Null <: IndexedReverseStepper[A, B, Self]]
+private trait ReverseIndexedStepper[+A, B, +Self >: Null <: ReverseIndexedStepper[A, B, Self]]
 	extends AllInOneStepper[A, B, Self] with EfficientSplit with Cloneable
 {
 	protected def underlyingSize :Int
@@ -156,9 +156,9 @@ private trait IndexedReverseStepper[+A, B, +Self >: Null <: IndexedReverseSteppe
 }
 
 
-private abstract class AbstractIndexedReverseStepper[+A, B, +Self >: Null <: IndexedReverseStepper[A, B, Self]]
+private abstract class AbstractReverseIndexedStepper[+A, B, +Self >: Null <: ReverseIndexedStepper[A, B, Self]]
 	                   (private[this] var last :Int, private[this] var `first++` :Int)
-	extends IndexedReverseStepper[A, B, Self]
+	extends ReverseIndexedStepper[A, B, Self]
 {
 	protected final override def index :Int = `first++`
 	protected final override def index_=(i :Int) :Unit = `first++` = i
@@ -594,7 +594,7 @@ object ArrayStepper {
   */
 private abstract class ReverseArrayStepper[+A, B, +Self >: Null <: ReverseArrayStepper[A, B, Self]]
 	                   (array :Array[_], private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIndexedReverseStepper[A, B, Self](last, `first++`)
+	extends AbstractReverseIndexedStepper[A, B, Self](last, `first++`)
 {
 	protected final override def underlyingSize :Int = array.length
 }

@@ -470,7 +470,7 @@ private object HasFastSlice {
 			case _ :IndexedSet[_] => true
 			case _ => false
 		}
-		case  _ :HasFastSlice[_] | _ :IndexedIterator[_] | _ :IndexedReverseIterator[_] => true
+		case  _ :HasFastSlice[_] | _ :IndexedIterator[_] | _ :ReverseIndexedIterator[_] => true
 		case it :SugaredIterator[_]                                                     => it.hasFastDrop
 		case it :Iterator[_]                                                            => isIndexedIterator(it)
 		case _                                                                          => false

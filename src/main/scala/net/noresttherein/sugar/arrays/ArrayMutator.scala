@@ -41,6 +41,12 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 		if (first < `last++`) array(first) = value
 		else illegalState_!("Empty mutator")
 
+	override def skip() :this.type = {
+		if (first >= `last++`)
+			unsupported_!("Index " + first + " exceeds the limit of " + `last++` + ".")
+		first += 1
+		this
+	}
 	override def next() :T = {
 		if (first >= `last++`)
 			noSuch_!("Index " + first + " exceeds the limit of " + `last++` + ".")

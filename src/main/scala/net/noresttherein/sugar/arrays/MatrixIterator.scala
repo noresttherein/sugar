@@ -5,8 +5,8 @@ import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.collections.{IndexedIterator, IndexedReverseIterator, IteratorWithDrop, ValIterator}
-import net.noresttherein.sugar.{??!, illegal_!, noSuch_!, null_!, outOfBounds_!}
+import net.noresttherein.sugar.collections.{IndexedIterator, ReverseIndexedIterator, IteratorWithDrop, ValIterator}
+import net.noresttherein.sugar.{??!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
 
 
@@ -222,7 +222,7 @@ private[sugar] case object MatrixIterator {
 
 
 
-/** An iterator going over a two dimensional array in reverse.
+/** An iterator going over a two-dimensional array in reverse.
   * Outer array may be of any size; all inner arrays must be of the same, non zero, size.
   * @param array    an array, whose indices `[from2, until2]` (upper index may be exclusive, if `until1 == 0`)
   *                 all contain arrays of the same length.
@@ -235,7 +235,7 @@ private[sugar] class ReverseMatrixIterator[@specialized(MultiValue) +E]
                                           (array :Array[Array[E]],
                                            private[this] var idx2 :Int, private[this] var idx1 :Int,
                                            protected[this] final var downTo2 :Int, protected[this] final var downTo1 :Int)
-	extends AbstractIterator[E] with ValIterator.Buffered[E] with IteratorWithDrop[E] with IndexedReverseIterator[E]
+	extends AbstractIterator[E] with ValIterator.Buffered[E] with IteratorWithDrop[E] with ReverseIndexedIterator[E]
 {
 	private[this] final val Dim1 = array(idx2).length
 	private[this] var curr = array(idx2)
@@ -376,7 +376,7 @@ private[sugar] case object ReverseMatrixIterator {
 
 
 
-/** An iterator over a two dimensional array, wrapping at array end if its offset plus size exceeds length of the former.
+/** An iterator over a two-dimensional array, wrapping at array end if its offset plus size exceeds length of the former.
   * Outer array may be of any size; all inner arrays must be of the same, non zero, size.
   * @param array  an array, whose indices `[from2, until2]` (upper index may be exclusive, if `until1 == 0`)
   *               all contain arrays of the same length.

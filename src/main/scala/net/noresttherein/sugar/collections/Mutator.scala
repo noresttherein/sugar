@@ -54,6 +54,12 @@ private sealed class IndexedSeqMutator[@specialized(Int, Long, Double, AnyRef) T
 		first += 1
 		res
 	}
+	override def skip() :this.type = {
+		if (first >= `last++`)
+			unsupported_!("Index " + index + " exceeds the upper bound of " + `last++` + ".")
+		first += 1
+		this
+	}
 
 
 	override def equals(that :Any) :Boolean = that match {

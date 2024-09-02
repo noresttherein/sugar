@@ -1,11 +1,9 @@
 package net.noresttherein.sugar.arrays
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.annotation.{tailrec, unspecialized}
 import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayIterableOnceOps, ArrayLikeSliceWrapper, IArrayLikeSlice, IndexedIterator, IndexedReverseIterator, IteratorWithDrop, ValIterator}
+import net.noresttherein.sugar.collections.{ArrayIterableOnceOps, ArrayLikeSliceWrapper, IArrayLikeSlice, IndexedIterator, ReverseIndexedIterator, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
@@ -346,7 +344,7 @@ object ReverseRefArrayLikeIterator extends ReverseRefArrayLikeIteratorFactory[Re
 @SerialVersionUID(Ver)
 private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                        (array :Array[T], private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[T] with IndexedReverseIterator[T] with Serializable
+	extends AbstractIterator[T] with ReverseIndexedIterator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 
@@ -646,7 +644,7 @@ object ReverseCyclicArrayLikeIterator extends ReverseCyclicArrayIteratorFactory[
 @SerialVersionUID(Ver)
 private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                        (array :Array[T], private[this] var idx :Int, private[this] var remaining :Int)
-	extends AbstractIterator[T] with IndexedReverseIterator[T] with Serializable
+	extends AbstractIterator[T] with ReverseIndexedIterator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 

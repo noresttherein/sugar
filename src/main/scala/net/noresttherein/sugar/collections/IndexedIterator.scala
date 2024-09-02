@@ -8,15 +8,29 @@ import scala.collection.{AbstractIterator, BufferedIterator}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.reflect.prettyprint.localClassNameOf
 
 
+
+
+@SerialVersionUID(Ver)
+private object IndexedIterator {
+	def fix[E](iterator :IndexedIterator[E]) :iterator.type = {
+		iterator.adjustRange()
+		iterator
+	}
+	def validated[E](iterator :IndexedIterator[E]) :iterator.type = {
+		iterator.validateRange()
+		iterator
+	}
+}
 
 
 /** Base trait for implementations of iterators over slices of some sequential collections.
   * The iterator advances over a window on the collection; it is assumed to use random indexing
   * to return the elements, but they are never handled by this class itself.
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
-  * @see [[net.noresttherein.sugar.collections.IndexedReverseIterator]]
+  * @see [[net.noresttherein.sugar.collections.ReverseIndexedIterator]]
   * @author Marcin Mościcki
   */ //consider: throwing exceptions with constant strings as messages for performance
 trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
@@ -66,6 +80,13 @@ trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 		index += 1
 		res
 	}
+	def skip() :this.type = {
+		val i = index
+		if (i >= limit)
+			unsupported_!("Index " + i + " exceeds the limit of " + limit + ".")
+		index = i + 1
+		this
+	}
 
 	override def take(n :Int) :Iterator[T] = {
 		if (n <= 0) limit = index
@@ -98,23 +119,51 @@ trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def clone :IndexedIterator[T] = super.clone.asInstanceOf[IndexedIterator[T]]
 
-	override def toString :String = clone.mkString("Iterator(", ",", ")")
+	protected def className :String = localClassNameOf(this)
+
+	override def toString :String = className + "|" + knownSize + "|(@" + index + "/" + underlyingSize + ")"
+//	override def toString :String = clone.mkString("Iterator(", ",", ")")
 }
 
 
+abstract class AbstractIndexedIterator[+T](private[this] var idx :Int, private[this] var end :Int)
+	extends AbstractIterator[T] with IndexedIterator[T]
+{
+	protected final override def index :Int = idx
+	protected final override def index_=(value :Int) :Unit = idx = value
+	protected final override def limit :Int = end
+	protected final override def limit_=(value :Int) :Unit = end = value
+
+	final override def hasNext :Boolean = idx < end
+
+	override def next() :T = {
+		val res = head
+		idx += 1
+		res
+	}
+	final override def skip() :this.type =
+		if (idx >= end)
+			unsupported_!(toString + ".skip()")
+		else {
+			idx += 1
+			this
+		}
+}
+
+
+
+
 @SerialVersionUID(Ver)
-private object IndexedIterator {
-	def fix[E](iterator :IndexedIterator[E]) :iterator.type = {
+private object ReverseIndexedIterator {
+	def fix[E](iterator :ReverseIndexedIterator[E]) :iterator.type = {
 		iterator.adjustRange()
 		iterator
 	}
-	def validated[E](iterator :IndexedIterator[E]) :iterator.type = {
+	def validated[E](iterator :ReverseIndexedIterator[E]) :iterator.type = {
 		iterator.validateRange()
 		iterator
 	}
 }
-
-
 
 
 /** Base trait for implementations of iterators traversing in the reverse order over slices
@@ -123,8 +172,8 @@ private object IndexedIterator {
   * Provides fast implementations for `size`, `take`, `drop` and some other methods.
   * @see [[net.noresttherein.sugar.collections.IndexedIterator]]
   * @author Marcin Mościcki
-  */
-trait IndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
+  */ //todo: rename to ReverseIndexedIterator (after finishing MatrixIterator and Mutator)
+trait ReverseIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 	protected def underlyingSize :Int
 	protected var index :Int
 	protected var limit :Int
@@ -172,6 +221,13 @@ trait IndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
 		hd
 	}
 
+	def skip() :this.type = {
+		val idx = index
+		if (idx <= limit)
+			unsupported_!(toString + ".skip()")
+		index = idx + 1
+		this
+	}
 	override def take(n :Int) :Iterator[T] = {
 		if (n <= 0) limit = index
 		else if (n < size) limit += size - n
@@ -200,22 +256,36 @@ trait IndexedReverseIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def reduceLeftOption[U >: T](op :(U, T) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
-	override def clone :IndexedReverseIterator[T] =
-		super.clone.asInstanceOf[IndexedReverseIterator[T]]
+	override def clone :ReverseIndexedIterator[T] =
+		super.clone.asInstanceOf[ReverseIndexedIterator[T]]
 
-	override def toString :String = clone.mkString("Iterator(", ",", ")")
+	protected def className :String = localClassNameOf(this)
+
+	override def toString :String = className + "|" + knownSize + "|(@" + index + "/" + underlyingSize + ")"
+//	override def toString :String = clone.mkString("Iterator(", ",", ")")
 }
 
 
-@SerialVersionUID(Ver)
-private object IndexedReverseIterator {
-	def fix[E](iterator :IndexedReverseIterator[E]) :iterator.type = {
-		iterator.adjustRange()
-		iterator
+abstract class AbstractReverseIndexedIterator[+T](private[this] var idx :Int, private[this] var end :Int)
+	extends AbstractIterator[T] with ReverseIndexedIterator[T]
+{
+	final override def index :Int = idx
+	final override def index_=(value :Int) :Unit = idx = value
+	final override def limit :Int = end
+	final override def limit_=(value :Int) :Unit = end = value
+
+	final override def hasNext :Boolean = idx > end
+
+	override def next() :T = {
+		val res = head
+		idx -= 1
+		res
 	}
-	def validated[E](iterator :IndexedReverseIterator[E]) :iterator.type = {
-		iterator.validateRange()
-		iterator
+	final override def skip() :this.type = {
+		if (idx <= end)
+			unsupported_!(toString + ".skip()")
+		idx -= 1
+		this
 	}
 }
 
@@ -325,7 +395,7 @@ private case object IndexedSeqIterator extends IndexedIteratorFactory[collection
 private sealed class ReverseIndexedSeqIterator[+T] private[collections]
 	                                          (seq :collection.IndexedSeqOps[T, generic.Any1, _],
 	                                           private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[T] with IndexedReverseIterator[T]
+	extends AbstractIterator[T] with ReverseIndexedIterator[T]
 {
 	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, 0, idx)
 	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
@@ -429,6 +499,8 @@ final class StringIterator private[collections]
 	}
 	override def hashCode :Int = new WrappedString(string).slice(first, `last++`).hashCode
 	override def clone = new StringIterator(string, first, `last++`)
+
+	override def toString :String = "StringIterator(\"" + string + "\"@" + index + ")"
 }
 
 
@@ -485,7 +557,7 @@ object StringIterator {
   */
 final class ReverseStringIterator private[collections]
 	        (string :String, private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[Char] with IndexedReverseIterator[Char]
+	extends AbstractIterator[Char] with ReverseIndexedIterator[Char]
 {
 	/* Requires 0 <= from <= until <= string.length and maintains invariant 0 <= stop <= index <= string.length.
 	 * The invariant can be broken only by advancing an empty iterator.
@@ -518,6 +590,8 @@ final class ReverseStringIterator private[collections]
 	}
 	override def hashCode :Int = ReversedSeq(new WrappedString(string).slice(last, `first++`)).hashCode
 	override def clone = new ReverseStringIterator(string, last, `first++`)
+
+	override def toString :String = "ReverseStringIterator(\"" + string + "\"@" + index + ")"
 }
 
 

@@ -2816,7 +2816,7 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 
 	private class ReverseDim2MatrixBufferIterator[+E](data2 :Array[Array[E]],
 	                                                  private[this] var idx :Int, private[this] var remaining :Int)
-		extends IndexedReverseIterator[E]
+		extends ReverseIndexedIterator[E]
 	{
 		private[this] val mask = (data2.length << Dim1Bits) - 1
 		protected override def underlyingSize :Int = ??!
