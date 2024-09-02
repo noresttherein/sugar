@@ -75,11 +75,13 @@ trait SetProps[C[A] <: SetOps[A, Set, C[A]], S[A] >: C[A] <: SetOps[A, Set,S[A]]
 	}
 	property("removedAll") = forAllChecked { (expect :S[Int], subject :C[Int]) =>
 		def forColl(xs :Iterable[Int]) = test(expect -- xs, subject -- xs)
-		forAll { xs :List[Int] => forColl(xs) } &&
+		forAllSubsets(expect) { subset => forColl(subset) } &&
+			forAll { xs :List[Int] => forColl(xs) } &&
 			forAll { xs :Vector[Int] => forColl(xs) } &&
 			forAll { xs :Set[Int] => forColl(xs) } &&
 			forAll { xs :S[Int] => test(expect -- xs, subject -- xs.to(C)) } &&
 			forAll { xs :View[Int] => forColl(xs) }
+
 	}
 
 	override def hasOrder = false

@@ -183,12 +183,15 @@ providing methods for adding and removing elements in a lazy fashion.
 #### 5.12. NatMap and MutNatMap
 Maps `K[X] -> V[X]`, where `X` may be different for every entry.
 
-#### 5.13. MultiSet
+#### 5.14 SeqSet
+An immutable `Set` preserving insertion order.
+
+#### 5.15. MultiSet
 A collection aliasing repeating elements, with API for treating both as a standard `Iterable`
 with repetitions, and as a `Map[A, Int]`. Unlike `Dict` from `scala-collections`, multiples are stored
 as a single instance and occurrence count, rather than separate instances (where equality is only partial).
 
-#### 5.14. Other collections of marginal use 
+#### 5.16. Other collections of marginal use 
 Examples:
   1. `EqSet` and `EqMap`, forcing true referential equality over `equals`,
   1. `ConstSeq` - a fixed (or infinite) number of equal elements,

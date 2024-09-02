@@ -163,6 +163,16 @@ trait GenericIterableProps[C[A] <: IterableOps[A, Any1, Any], S[A] >: C[A] @unch
 				("Int.MaxValue" lbl_: prop(subject, Int.MaxValue))
 		}
 
+	protected def forAllSubsets[A, I](col :I)(prop :I => Prop)
+	                                 (implicit isIterable :I <:< IterableOps[A, Any1, I],
+	                                  select :Arbitrary[Boolean], ev :E[A])
+			:Prop =
+	{
+		val subset = col.filter(_ => select.arbitrary.sample.get)
+		prop(subset) lbl "Subset: " + subset
+	}
+
+
 	/** Applies `check` to arbitrary instances of the reference collection `S[A]`,
 	  * as wel as instances of the tested collection produced by factory
 	  * [[net.noresttherein.sugar.collections.SpecificIterableProps.C C]] from said reference collections.
@@ -240,7 +250,7 @@ trait GenericIterableProps[C[A] <: IterableOps[A, Any1, Any], S[A] >: C[A] @unch
 			else orderedCompare(expect, elems)(f)
 	}
 
-	/** A property comparing `f(elems)` and `f(elems.toVector)`. */
+	/** A property comparing `f(expect)` and `f(result)`. */
 	protected def orderedShouldEqual[A, X](expect :Iterable[A], result :C[A])(f :Iterable[A] => X) :Prop =
 		f(expect) =? f(result.asIterable)
 
@@ -253,12 +263,12 @@ trait GenericIterableProps[C[A] <: IterableOps[A, Any1, Any], S[A] >: C[A] @unch
 	protected def orderedShouldEqual[A :Arbitrary :E, X](f :Iterable[A] => X) :Prop =
 		forAll { subject :C[A] => orderedShouldEqual[A, X](subject to Vector, subject)(f) }
 
-	/** Like [[net.noresttherein.sugar.collections.SpecificIterableProps.orderedShouldEqual orderedCompare]],
-	  * applies the function given as the argument to the `apply` method of the returned object to a non empty instance
+	/** Like [[net.noresttherein.sugar.collections.SpecificIterableProps.orderedShouldEqual orderedShouldEqual]],
+	  * applies the function given as the argument to the `apply` method of the returned object to a non-empty instance
 	  * of the tested collection type and a `Seq` obtained by converting the former, and tests the results
 	  * for equality. Additionally,
-	  * similarly to [[net.noresttherein.sugar.collections.SpecificIterableProps.nonEmptyShouldEqual compareNonEmpty]],
-	  * tests that the given function throws an exception of type `T` when executed on an empty instance.
+	  * similarly to [[net.noresttherein.sugar.collections.SpecificIterableProps.nonEmptyShouldEqual nonEmptyShouldEqual]],
+	  * it tests that the given function throws an exception of type `T` when executed for an empty instance.
 	  */
 	protected def nonEmptyOrderedShouldEqual[T <: Throwable] = new NonEmptyOrderedShouldEqual[T]
 
@@ -277,7 +287,7 @@ trait GenericIterableProps[C[A] <: IterableOps[A, Any1, Any], S[A] >: C[A] @unch
 	                                         fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
 		compare(expect, result) && all(props(expect, result) :_*) lbl label
 
-	/** Compares `expect` with `result` using [[net.noresttherein.sugar.collections.SpecificIterableProps.shouldEqual compare]],
+	/** Compares `expect` with `result` using [[net.noresttherein.sugar.collections.SpecificIterableProps.compare compare]],
 	  * and combines properties for testing most of their methods obtained from
 	  * `this.`[[net.noresttherein.sugar.collections.SpecificIterableProps.props props]] into a single property object.
 	  */
@@ -286,7 +296,7 @@ trait GenericIterableProps[C[A] <: IterableOps[A, Any1, Any], S[A] >: C[A] @unch
 	                                         fldA :FoldSide[F, A], evf :E[F], fld :Fold[A], mp :Map[A, M], evm :E[M],
 	                                         fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
 		test(
-			s"RESULT:  $expect (size=${expect.size});\nTESTING: $result :${result.localClassName} (size=${result.size})",
+			s"REFERENCE: $expect (size=${expect.size});\nTESTING:   $result :${result.localClassName} (size=${result.size})",
 			expect, result
 		)
 
@@ -309,7 +319,7 @@ trait GenericIterableProps[C[A] <: IterableOps[A, Any1, Any], S[A] >: C[A] @unch
 	  * It additionally checks that the function throws exception `T` for an empty `C[A]`.
 	  * @see [[net.noresttherein.sugar.collections.SpecificIterableProps.testSpecific]]
 	  */
-	protected def testSpecificNonEmpty[T <: Throwable] = new TestSpecificNonEmpty[T]
+	protected def testSpecificNonEmpty[T <: Throwable] :TestSpecificNonEmpty[T] = new TestSpecificNonEmpty[T]
 
 	protected class TestSpecificNonEmpty[T <: Throwable] {
 		def apply[A, F, M, FM](f :S[A] => S[A] @uncheckedVariance)
@@ -710,7 +720,7 @@ abstract class IterableProps[C[T] <: IterableOps[T, C, C[T]], S[T] >: C[T] <: It
 
 	/** The primary testing method for properties which return another collection (typically of the same type).
 	  * Applies function `f` to arbitrary instances of the reference collection type and an instance of the tested type
-	  * like [[net.noresttherein.sugar.collections.SpecificIterableProps.shouldEqual compare]], but, in addition
+	  * like [[net.noresttherein.sugar.collections.SpecificIterableProps.shouldEqual shouldEqual]], but, in addition
 	  * to comparing the results for equality, executes a full test suite for most standard methods for both results,
 	  * comparing their outcome with `compare`. This method immediately delegates to the lower-level two argument
 	  * `validate`, which in turn returns the property test obtained from method
@@ -776,10 +786,10 @@ abstract class IterableProps[C[T] <: IterableOps[T, C, C[T]], S[T] >: C[T] <: It
 		}
 
 	protected override def orderedTestSpecific[A, F, M, FM]
-	                                        (f :Iterable[A] => Iterable[A])
-	                                        (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A],
-	                                                  filt :Filter[A], fldA :FoldSide[F, A], evf :E[F], fld :Fold[A],
-	                                                  mp :Map[A, M], evm :E[M], fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
+	                                          (f :Iterable[A] => Iterable[A])
+	                                          (implicit arbitrary :Arbitrary[A], ev :E[A], tag :ClassTag[A],
+	                                                    filt :Filter[A], fldA :FoldSide[F, A], evf :E[F], fld :Fold[A],
+	                                                    mp :Map[A, M], evm :E[M], fmap :FlatMap[A, FM], evfm :E[FM]) :Prop =
 		orderedTest(f)
 
 	protected override def orderedTestSpecificNonEmpty[T <: Throwable] :OrderedTestSpecificNonEmpty[T] =
@@ -799,8 +809,8 @@ abstract class IterableProps[C[T] <: IterableOps[T, C, C[T]], S[T] >: C[T] <: It
 	protected implicit override def intCEvidence   :Dummy[C[Int]] = new Dummy
 	protected implicit override def pairEvidence[A :Dummy, B :Dummy] :Dummy[(A, B)] = new Dummy
 
-	protected override def S[T :Dummy] = referenceFactory
-	protected override def C[T :Dummy] = checkedFactory
+	protected override def S[T :Dummy] :Factory[T, S[T]] = referenceFactory
+	protected override def C[T :Dummy] :Factory[T, C[T]] = checkedFactory
 
 	protected def factoryProps :Properties = new IterableFactoryProps
 
@@ -949,7 +959,7 @@ trait SugaredIterableProps[C[X] <: SugaredIterableOps[X, IterableOnce, C[X]],
 	                                        result.removed(i).throws[IndexOutOfBoundsException]
                                         else {
 	                                        val removed = expect.take(i) ++ expect.drop(i + 1)
-	                                        compare(S[T] fromSpecific removed, result.removed(i))
+	                                        compare(S[T] fromSpecific removed, result.removed(i)) lbl "expect: " + removed
                                         }
 			                          },
 			"removed(Int, Int)" lbl_: forAll { (i :Int, j :Int) =>

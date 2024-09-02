@@ -1,7 +1,9 @@
 package net.noresttherein.sugar.testing
 
 import scala.annotation.nowarn
+import scala.collection.IterableOps
 
+import net.noresttherein.sugar.funny.generic.Any1
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalacheck.util.Buildable
 
@@ -32,4 +34,7 @@ package object scalacheck {
 	                                                   (implicit buildable :Buildable[T, C], gen :Arbitrary[T],
 	                                                    isIterable :C => Iterable[T]) :Gen[C] =
 		self()
+
+	def arbitrarySubset[C, T](coll :C)(implicit pick :Arbitrary[Boolean], isIterable :C => IterableOps[T, Any1, C]) :C =
+		coll.filter(_ => pick.arbitrary.sample.get)
 }

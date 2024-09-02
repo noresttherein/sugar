@@ -182,6 +182,7 @@ abstract class LazyLinearSeq[+E]
 	   with LazyIterableFactoryDefaults[E, LinearSeq, LazyLinearSeq]
 //	   with IterableFactoryDefaults[E, LazyLinearSeq]
 {
+	override def isEmpty :Boolean = definite.isEmpty //LinearSeq.isEmpty causes stack overflow with lengthCompare
 	override def length :Int = super[LinearSeq].length
 
 	override def prepended[U >: E](elem :U) :LazyLinearSeq[U] =
@@ -386,7 +387,6 @@ case object LazyLinearSeq extends DelayedFactory[LinearSeq, LazyLinearSeq] {
 	object Empty extends LazyLinearSeq[Nothing] {
 		protected[this] override var initializer :() => LinearSeq[Nothing] = () => Nil
 		definite //evaluate the value.
-
 		override def isEmpty :Boolean = true
 		override def toLazyList :LazyList[Nothing] = LazyList.empty
 		override def toString = "LazyLinearSeq()"

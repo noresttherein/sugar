@@ -172,11 +172,13 @@ object AsIterableOnce extends IterableFactory[AsIterableOnce] {
 
 
 
+/** A simplistic `Set` implementation preserving insertion order for iteration. */
 class OrderedSet[E](underlying :Set[E], override val toSeq :Seq[E]) extends AbstractSet[E] {
 	private def this(unique :Seq[E]) = this(unique.toSet, unique)
 	def this(items :IterableOnce[E]) =
 		this(items.iterator.zipWithIndex.toSeq.reverse.toMap.toVector.sortBy(_._2).map(_._1))
 
+	override def iterableFactory :IterableFactory[OrderedSet] = OrderedSet
 	override def incl(elem :E) :Set[E] =
 		if (underlying(elem)) this else new OrderedSet(underlying incl elem, toSeq :+ elem)
 
