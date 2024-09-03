@@ -78,7 +78,7 @@ trait extensions extends Any {
 	@inline implicit final def BigIntExtension(self :BigInt) :BigIntNumerator = new BigIntNumerator(self)
 
 	@inline implicit final def ComparableExtension[T <: Comparable[T]](self :T) :ComparableExtension[T] =
-		new  ComparableExtension(self)
+		new ComparableExtension(self)
 
 	@inline implicit final def hasComparatorExtension[T](self :T)
 	                                                    (implicit comparator :Comparator[T]) :hasComparatorExtension[T] =
@@ -86,6 +86,8 @@ trait extensions extends Any {
 
 	@inline implicit final def ComparatorHasAsScala[T](self :Comparator[T]) :ComparatorHasAsScala[T] =
 		new ComparatorHasAsScala(self)
+
+	//consider: atLeast/atMost methods for anything with an Ordering.
 }
 
 
@@ -114,11 +116,14 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class ByteExtension private[extensions] (private val self :Byte) extends AnyVal {
+		/** Returns `this max 0`. */
+		@inline def atLeast0 :Byte = math.max(self, 0).toByte
+
 		/** Returns `this max other`. */
-		@inline def atLeast(other :Byte) :Int = math.max(self, other)
+		@inline def atLeast(other :Byte) :Byte = math.max(self, other).toByte
 
 		/** Returns `this min other`. */
-		@inline def atMost(other :Byte) :Int = math.min(self, other)
+		@inline def atMost(other :Byte) :Byte = math.min(self, other).toByte
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -126,11 +131,14 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class ShortExtension private[extensions] (private val self :Short) extends AnyVal {
+		/** Returns `this max 0`. */
+		@inline def atLeast0 :Short = math.max(self, 0).toShort
+
 		/** Returns `this max other`. */
-		@inline def atLeast(other :Short) :Int = math.max(self, other)
+		@inline def atLeast(other :Short) :Short = math.max(self, other).toShort
 
 		/** Returns `this min other`. */
-		@inline def atMost(other :Short) :Int = math.min(self, other)
+		@inline def atMost(other :Short) :Short = math.min(self, other).toShort
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -139,10 +147,10 @@ object extensions extends extensions {
 	  */
 	class CharExtension private[extensions] (private val self :Char) extends AnyVal {
 		/** Returns `this max other`. */
-		@inline def atLeast(other :Char) :Int = math.max(self, other)
+		@inline def atLeast(other :Char) :Char = math.max(self, other).toChar
 
 		/** Returns `this min other`. */
-		@inline def atMost(other :Char) :Int = math.min(self, other)
+		@inline def atMost(other :Char) :Char = math.min(self, other).toChar
 
 		/** This byte as a natural number.
 		  * @throws ArithmeticException if this number is negative.
@@ -225,6 +233,9 @@ object extensions extends extensions {
 		  */
 		@inline def %/(denominator :Int) :Ratio = Ratio(self, denominator)
 
+		/** Returns `this max 0`. */
+		@inline def atLeast0 :Int = math.max(self, 0)
+
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Int) :Int = math.max(self, other)
 
@@ -281,7 +292,7 @@ object extensions extends extensions {
 			}
 		}
 
-		/** Number of one bits in the binary representation of this `Int`. */
+		/** Number of 'one' bits in the binary representation of this `Int`. */
 		@inline def bitCount :Int = jl.Integer.bitCount(self)
 
 		/** The number of consecutive zero bits in the highest positions of this `Int`. */
@@ -408,6 +419,9 @@ object extensions extends extensions {
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 		  */
 		@inline def %/(denominator :Int) :Ratio = Ratio(self, denominator)
+
+		/** Returns `this max 0`. */
+		@inline def atLeast0 :Long = math.max(self, 0)
 
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Long) :Long = math.max(self, other)
@@ -542,6 +556,9 @@ object extensions extends extensions {
 		/** Raises this `Float` to the given power. */
 		@inline def **(exp :Float) :Double = math.pow(self, exp)
 
+		/** Returns `this max 0.0f`. */
+		@inline def atLeast0 :Float = math.max(self, 0.0f)
+
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Float) :Float = math.max(self, other)
 
@@ -568,6 +585,9 @@ object extensions extends extensions {
 
 		/** Raises this `Double` to the given power. */
 		@inline def **(exp :Double) :Double = math.pow(self, exp)
+
+		/** Returns `this max 0.0`. */
+		@inline def atLeast0 :Double = math.max(self, 0.0)
 
 		/** Returns `this max other`. */
 		@inline def atLeast(other :Double) :Double = math.max(self, other)
