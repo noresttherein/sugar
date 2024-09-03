@@ -544,10 +544,16 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 		zipProperty { (first :() => Iterator[Int], second :() => Iterator[Int]) =>
 			f(first(), second()) -> (first() ++ second())
 		}
-	property(":++")          = concatProperty { (first, second) => first :++ second }
-	property("appendedAll")  = concatProperty { (first, second) => first appendedAll second }
+	property(":++")         = concatProperty { (first, second) => first :++ second }
+	property("appendedAll") = concatProperty { (first, second) => first appendedAll second }
+	property("appendedAll.appendedAll") = zip3Property { (first, second, third) =>
+		(first() :++ second() :++ third()) -> (first() ++ second() ++ third())
+	}
 	property("++:")          = concatProperty { (first, second) => first ++: second }
 	property("prependedAll") = concatProperty { (first, second) => second prependedAll first }
+	property("prependedAll.prependedAll") = zip3Property { (first, second, third) =>
+		(first() ++: second() ++: third()) -> (first() ++ second() ++ third())
+	}
 
 
 	//todo: multiarg prepended/appended tests

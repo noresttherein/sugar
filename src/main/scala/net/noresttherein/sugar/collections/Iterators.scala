@@ -1,21 +1,19 @@
 package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
-import java.util.ConcurrentModificationException
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, BufferedIterator, View, mutable}
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, MutableArrayExtension}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IRefArray, MutableArrayExtension}
 import net.noresttherein.sugar.casting.castingMethods
-import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorCompanionExtension, IteratorExtension}
+import net.noresttherein.sugar.collections.extensions.IteratorExtension
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
 
@@ -212,10 +210,12 @@ private object Iterators {
 		else if (!second.hasNext)
 			first
 		else first match {
-			case i :Concat[E] => i.append(second)
-			case _ => second match {
-				case i :Concat[E] => i.prepend(first)
-				case _            => new Concat(first, second)
+			case i :Concat[E ]      => i.append(second)
+			case i :IteratorPair[E] => i.append(second)
+			case _                  => second match {
+				case i :Concat[E]       => i.prepend(first)
+				case i :IteratorPair[E] => i.prepend(first)
+				case _                  => new IteratorPair(first, second)
 			}
 		}
 
@@ -1780,6 +1780,98 @@ private object Iterators {
 	}
 
 
+	private final class IteratorPair[+E](private[this] var current :Iterator[E], private[this] var nxt :Iterator[E])
+		extends AbstractSugaredIterator[E]
+	{
+		override def knownSize :Int = {
+			val s1 = current.knownSize
+			val s2 = nxt.knownSize
+			if (s1 < 0 | s2 < 0) -1 else s1 + s2
+		}
+		override def hasNext = current.hasNext || nxt.hasNext
+		override def next() :E = {
+			if (!current.hasNext) {
+				current = nxt
+				nxt = Iterator.empty
+			}
+			current.next()
+		}
+
+		override def take(n :Int) :Iterator[E] =
+			if (n <= 0)
+				Iterator.empty
+			else {
+				val first = current.knownSize
+				if (first <= 0)
+					super.take(n)
+				else if (first < 0) {
+					current = current.take(n)
+					this
+				} else {
+					nxt = nxt.take(n - first)
+					this
+				}
+		}
+		override def drop(n :Int) :Iterator[E] =
+			if (n <= 0)
+				this
+			else {
+				val first = current.knownSize
+				if (first < 0)
+					super.drop(n)
+				else if (first >= n) {
+					current = current.drop(n)
+					this
+				} else {
+					current = nxt.drop(n - first)
+					nxt = Iterator.empty
+					this
+				}
+			}
+
+		def append[U >: E](itr :Iterator[U]) :Iterator[U] =
+			if (itr.knownSize == 0)
+				this
+			else if (current.knownSize == 0)
+				if (nxt.knownSize == 0) itr else new IteratorPair(nxt, itr)
+			else if (nxt.knownSize == 0)
+				new IteratorPair(current, itr)
+			else
+				new Concat(current, nxt, itr)
+
+		def prepend[U >: E](itr :Iterator[U]) :Iterator[U] =
+			if (itr.knownSize == 0)
+				this
+			else if (current.knownSize == 0)
+				if (nxt.knownSize == 0) itr else new IteratorPair(itr, nxt)
+			else if (nxt.knownSize == 0)
+				new IteratorPair(itr, current)
+			else
+				new Concat(itr, current, nxt)
+
+		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+			if (len <= 0 || start >= xs.length)
+				0
+			else {
+				val copied = current.copyToArray(xs, start, len)
+				copied + nxt.copyToArray(xs, start + copied, len - copied)
+			}
+
+		override def toString :String = {
+			val s1 = current.knownSize
+			val s2 = current.knownSize
+			if (s1 == 0 && s2 == 0)
+				"Iterator()"
+			else if (s1 == 0)
+				nxt.toString
+			else if (s2 == 0)
+				current.toString
+			else
+				current.toString + ":++" + nxt.toString
+		}
+
+	}
+
 	//consider: integrating the idea behind RelayArray and including the array directly.
 	// We could also use LightStack for best performance, but the original iterators would need to throw an exception.
 	//We could avoid calling tail on iterators by having an index, but that would prevent past iterators
@@ -1791,6 +1883,13 @@ private object Iterators {
 	{
 //		def this(iterators :PassedArray[Iterator[E]]) = this(iterators.head, iterators.tail)
 		def this(first :Iterator[E], second :Iterator[E]) = this(RelayArray.two(first, second))
+		def this(first :Iterator[E], second :Iterator[E], third :Iterator[E]) = this({
+			val a = new Array[Any](3)
+			a(0) = first
+			a(1) = second
+			a(2) = third
+			RelayArray.wrap(a.asInstanceOf[IRefArray[Iterator[E]]])
+		})
 
 		private def list :IndexedSeq[Iterator[E]] = iterators
 		if (iterators.nonEmpty)

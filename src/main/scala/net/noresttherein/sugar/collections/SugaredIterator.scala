@@ -46,6 +46,9 @@ trait SugaredIterator[+E] extends Iterator[E] {
 	override def splitAt(n :Int) :(Iterator[E], Iterator[E]) = Iterators.splitAt(this, n)
 }
 
+abstract class AbstractSugaredIterator[+E] extends AbstractIterator[E] with SugaredIterator[E]
+
+
 
 /** Overrides `slice` in terms of `drop` and `take`, starting with `drop`,
   * hoping the subclass has a better implementation.
