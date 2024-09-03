@@ -14,7 +14,7 @@ import scala.collection.mutable.{ArrayBuffer, Buffer}
 import scala.reflect.{ClassTag, classTag}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, ElementIndex, MatrixBuffer}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, ArrayStepper, Biterator, ElementIndex, MatrixBuffer, ValIterator}
 import net.noresttherein.sugar.collections.ElementIndex.{indexOfNotFound, indexOfSliceNotFound, indexWhereNotFound, lastIndexOfNotFound, lastIndexOfSliceNotFound, lastIndexWhereNotFound}
 import net.noresttherein.sugar.collections.extensions.StepperCompanionExtension
 import net.noresttherein.sugar.collections.util.{elementsToCopy, errorString}
@@ -1748,7 +1748,7 @@ private abstract class ArrayLikeIsSeqOps[E, A[X] <: ArrayLike[X]](array :Array[E
 	override def apply(i :Int) = array(i)
 	@nowarn("cat=deprecation")
 	override def toIterable = ArrayLike.Wrapped(array)
-	override def iterator = ArrayIterator(array)
+	override def iterator :ValIterator[E] = ArrayIterator(array)
 	override def iterableFactory :SeqFactory[collection.IndexedSeq] = collection.IndexedSeq
 }
 

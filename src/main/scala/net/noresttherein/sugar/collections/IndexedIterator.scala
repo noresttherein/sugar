@@ -134,6 +134,7 @@ abstract class AbstractIndexedIterator[+T](private[this] var idx :Int, private[t
 	protected final override def limit :Int = end
 	protected final override def limit_=(value :Int) :Unit = end = value
 
+	final override def knownSize :Int = end - idx
 	final override def hasNext :Boolean = idx < end
 
 	override def next() :T = {
@@ -141,7 +142,7 @@ abstract class AbstractIndexedIterator[+T](private[this] var idx :Int, private[t
 		idx += 1
 		res
 	}
-	final override def skip() :this.type =
+	override def skip() :this.type =
 		if (idx >= end)
 			unsupported_!(toString + ".skip()")
 		else {
@@ -266,7 +267,7 @@ trait ReverseIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 }
 
 
-abstract class AbstractReverseIndexedIterator[+T](private[this] var idx :Int, private[this] var end :Int)
+abstract class AbstractReverseIndexedIterator[+T](private[this] var end :Int, private[this] var idx :Int)
 	extends AbstractIterator[T] with ReverseIndexedIterator[T]
 {
 	final override def index :Int = idx
@@ -274,6 +275,7 @@ abstract class AbstractReverseIndexedIterator[+T](private[this] var idx :Int, pr
 	final override def limit :Int = end
 	final override def limit_=(value :Int) :Unit = end = value
 
+	final override def knownSize :Int = idx - end
 	final override def hasNext :Boolean = idx > end
 
 	override def next() :T = {
@@ -281,7 +283,7 @@ abstract class AbstractReverseIndexedIterator[+T](private[this] var idx :Int, pr
 		idx -= 1
 		res
 	}
-	final override def skip() :this.type = {
+	override def skip() :this.type = {
 		if (idx <= end)
 			unsupported_!(toString + ".skip()")
 		idx -= 1
@@ -342,29 +344,15 @@ private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, 
   *                 the iterator should return.
   */
 private sealed class IndexedSeqIterator[+T] private[collections]
-	                                   (seq :collection.IndexedSeqOps[T, generic.Any1, _],
-	                                    private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIterator[T] with IndexedIterator[T]
+	                                   (seq :collection.IndexedSeqOps[T, generic.Any1, _], first :Int, `last++` :Int)
+	extends AbstractIndexedIterator[T](first, `last++`)
 {
 	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, idx, seq.length)
 	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length
-	protected final override def index :Int = first
-	protected final override def index_=(i :Int) :Unit = first = i
-	protected final override def limit :Int = `last++`
-	protected final override def limit_=(i :Int) :Unit = `last++` = i
-
-	final override def hasNext :Boolean = first < `last++`
-	override def head :T = seq(first)
-	override def next() :T = {
-		if (first >= `last++`)
-			noSuch_!("Index " + first + " exceeds the upper bound of " + `last++` + ".")
-		val res = seq(first)
-		first += 1
-		res
-	}
+	override def head :T = seq(index)
 
 	override def equals(that :Any) :Boolean = that match {
 		case self  :AnyRef if this eq self => true
@@ -394,27 +382,16 @@ private case object IndexedSeqIterator extends IndexedIteratorFactory[collection
   */ //consider: renaming to IndexedSeqReverseIterator
 private sealed class ReverseIndexedSeqIterator[+T] private[collections]
 	                                          (seq :collection.IndexedSeqOps[T, generic.Any1, _],
-	                                           private[this] var last :Int, private[this] var `first++` :Int)
-	extends AbstractIterator[T] with ReverseIndexedIterator[T]
+	                                           last :Int, `first++` :Int)
+	extends AbstractReverseIndexedIterator[T](last - 1, `first++` - 1) with ReverseIndexedIterator[T]
 {
 	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, 0, idx)
 	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length
-	protected final override def index :Int = `first++`
-	protected final override def index_=(i :Int) :Unit = `first++` = i
-	protected final override def limit :Int = last
-	protected final override def limit_=(i :Int) :Unit = last = i
 
-	final override def hasNext :Boolean = `first++` > last
-	override def head :T = seq(`first++` - 1)
-	override def next() :T = {
-		if (`first++` <= last)
-			noSuch_!("Index " + `first++` + " has reached the lower bound of " + last + ".")
-		`first++` -= 1
-		seq(`first++`)
-	}
+	override def head :T = seq(index)
 
 	override def equals(that :Any) :Boolean = that match {
 		case self  :AnyRef if this eq self => true
@@ -422,8 +399,8 @@ private sealed class ReverseIndexedSeqIterator[+T] private[collections]
 			(underlying.asAnyRef eq other.underlying.asAnyRef) && index == other.index && limit == other.limit
 		case _ => false
 	}
-	override def hashCode :Int = ReversedSeq(seq.toIndexedSeq.slice(last, `first++`)).hashCode
-	override def clone = new ReverseIndexedSeqIterator(seq, last, `first++`)
+	override def hashCode :Int = ReversedSeq(seq.toIndexedSeq.slice(limit + 1, index + 1)).hashCode
+	override def clone = new ReverseIndexedSeqIterator(seq, limit + 1, index + 1)
 }
 
 
@@ -433,7 +410,7 @@ private object ReverseIndexedSeqIterator {
 		new ReverseIndexedSeqIterator(seq, 0, seq.length)
 
 	/** An iterator returning elements `seq(first), seq(first - 1), ..., seq(first - length + 1)`.
-	  * If the iterator would need to access an element at index lesser than zero, the excess elements are ignored.
+	  * If the iterator needs to access an element at index lesser than zero, the excess elements are ignored.
 	  * Negative `length` is the same as zero.
 	  */
     @throws[IndexOutOfBoundsException]("if first is negative or greater or equal to the length of the sequence")

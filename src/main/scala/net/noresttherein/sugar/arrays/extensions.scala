@@ -1094,7 +1094,7 @@ object extensions {
 	  *      [[net.noresttherein.sugar.collections.extensions.IterableFactoryExtension IterableFactoryExtension]]
 	  *   1. some adapters of methods in [[java.util.Arrays]], and
 	  *   1. Many copying methods, in particular for copying ranges from several arrays into a new array.
-	  *      These generally try to look for 'low hanging fruits', perform optimizations for simple cases,
+	  *      These generally try to look for 'low-hanging fruits', perform optimizations for simple cases,
 	  *      as well as pick the likely most efficient method based on the array and range lengths.
 	  * @see [[net.noresttherein.sugar.arrays.ArrayFactory ArrayFactory]] - an `IterableFactory` for arrays,
 	  *      defining also simpler, lower level copying methods.

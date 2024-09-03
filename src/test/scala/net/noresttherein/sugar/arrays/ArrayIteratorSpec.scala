@@ -1,36 +1,37 @@
 package net.noresttherein.sugar.arrays
 
-import scala.collection.IndexedSeqView
 import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.ArraySeq.unsafeWrapArray
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 
-import org.scalacheck.Prop._
 import org.scalacheck.{Arbitrary, Prop, Shrink, Test}
+import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.extensions.{ClassExtension, classNameMethods}
+
+import net.noresttherein.sugar.collections.ValIterator
+import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
-import net.noresttherein.sugar.witness.{DefaultValue, NullValue}
 import net.noresttherein.sugar.testing.scalacheck.typeClasses.arbitraryAny
+import net.noresttherein.sugar.witness.NullValue
 
 
 
-object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
+
+object  ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(200)
 
 	private def seq[T](it :Iterator[T]) :Seq[T] = it.toList
 
+	//The public iterator type returned by ArrayIterator factory object.
+	type TestedIterator[+T] = ValIterator.Buffered[T]
+
 	property("ArrayIterator.apply") = forAll { (array :Array[Int], from :Int, length :Int) =>
-		if (from < 0 || from > array.length)
-			ArrayIterator(array, from, length).throws[IndexOutOfBoundsException]
-		else {
-			val iter = ArrayIterator(array, from, length)
-			val expect = array.iterator.drop(from).take(length)
-			iter sameElements expect lbl
-				"ArrayIterator(" + array.contentsString + ", " + from + ", " + length + ") ?= " +
-					ArrayIterator(array, from, length).mkString("Iterator(", ", ", ")")
-		}
+		val iter = ArrayIterator(array, from, length)
+		val expect = array.iterator.drop(from).take(length)
+		iter sameElements expect lbl
+			"ArrayIterator(" + array.contentsString + ", " + from + ", " + length + ") ?= " +
+				ArrayIterator(array, from, length).mkString("Iterator(", ", ", ")")
 	}
 
 	private abstract class ArrayIteratorProperty(name :String) extends ArrayProperty(name) {
@@ -41,19 +42,19 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 				apply(array, from0, until0, ArrayIterator.slice(array, from, until))
 			}
 
-		def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ArrayIterator[X]) :Prop
+		def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop
 	}
 
 	new ArrayIteratorProperty("knownSize") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ArrayIterator[X]) :Prop =
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop =
 			iterator.knownSize ?= (until - from)
 	}
 	new ArrayIteratorProperty("size") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ArrayIterator[X]) :Prop =
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop =
 			iterator.size ?= (until - from)
 	}
 	new ArrayIteratorProperty("head") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ArrayIterator[X]) :Prop =
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop =
 			if (until <= from)
 				iterator.head.throws[NoSuchElementException]
 			else if (until == from + 1)
@@ -64,7 +65,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 				} :| "iterator.next().head"
 	}
 	new ArrayIteratorProperty("next") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ArrayIterator[X]) :Prop = {
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop = {
 			val seq = Seq.fill(until - from)(iterator.next())
 			(seq ?= ArraySeq.unsafeWrapArray(array.slice(from, until))) && iterator.next().throws[NoSuchElementException]
 		}
@@ -129,6 +130,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 			}
 	}
 	new ArrayProperty("copyToArray") {
+		import net.noresttherein.sugar.testing.scalacheck.noShrinking
 		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (from :Int, until :Int) =>
 				val from0 = from max 0 min array.length
@@ -140,7 +142,13 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 					val start0     = start min bufferSize max 0
 					val shouldCopy = len min size min bufferSize - start0 max 0
 					val buffer     = target.clone()
-					(if (start < 0 && shouldCopy > 0)
+
+					//The logic of whether to throw an IOOB in Scala is messed up.
+					// In IterableOnceOps, it's start < 0 && size > 0 && start < start + math.min(len, bufferSize - start).
+					// Note we can't subtract start from both sides because of underflows.
+					// In ArrayOps, ArraySeq, Vector its len min srcLen min dstLen - start max 0
+					// (which excludes min dstLen and is susceptible to overflow).
+					(if (start < 0 && len > 0 && size > 0 && start < bufferSize)
 						iterator.copyToArray(buffer, start, len).throws[IndexOutOfBoundsException] &&
 							(ArraySeq.unsafeWrapArray(buffer) ?= ArraySeq.unsafeWrapArray(target))
 					else {
@@ -150,7 +158,7 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 							Console.err.println("Expected: " + ArraySeq.unsafeWrapArray(buffer.slice(start, start + shouldCopy)))
 							Console.err.println("Copied:   " + ArraySeq.unsafeWrapArray(array.slice(from0, from0 + copied)))
 						}
-						(copied ?= shouldCopy) &&
+						val prop = (copied ?= shouldCopy) &&
 							((unsafeWrapArray(array).slice(from0, from0 + copied) :Seq[Y]) =?
 								unsafeWrapArray(buffer).slice(start, start + copied) lbl "copied") &&
 							(unsafeWrapArray(target).slice(0, start) =?
@@ -158,7 +166,6 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 							(unsafeWrapArray(target).slice(end0, bufferSize) =?
 								unsafeWrapArray(buffer).slice(end0, bufferSize) lbl "unmodified suffix") lbl
 								s"$iterator.copyToArray(${target.contentsString}, $start, $len)"
-/*
 						prop.map { res =>
 							if (res.failure) {
 								Console.err.println(s"ArrayIterator.over(${array.contentsString}, $from, $until)")
@@ -169,7 +176,6 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 							}
 							res
 						}
-*/
 					}) lbl target.localClassName + "|" + target.length + "|"
 				}
 				property[X] && property[Any]
@@ -178,10 +184,11 @@ object ArrayIteratorSpec extends ArrayTestingUtils("ArrayIterator") {
 	new ArrayProperty("toIndexedSeq") {
 		override def apply[X :ClassTag :Ordering :NullValue :Arbitrary :Shrink :Prettify](array :Array[X]) :Prop =
 			forAll { (first :Int, length :Int) =>
+				val first0 = first max 0 min array.length
 				val expect = ArraySeq.unsafeWrapArray(array.drop(first).take(length))
-				("immutable" |: (IArrayLikeIterator(array.asInstanceOf[IArrayLike[X]], first, length).toIndexedSeq
+				("immutable" |: (IArrayLikeIterator(array.asInstanceOf[IArrayLike[X]], first0, length).toIndexedSeq
 					?= expect)) &&
-					("mutable" |: (ArrayIterator(array, first, length).toIndexedSeq ?= expect))
+					("mutable" |: (ArrayIterator(array, first0, length).toIndexedSeq ?= expect))
 			}
 	}
 }

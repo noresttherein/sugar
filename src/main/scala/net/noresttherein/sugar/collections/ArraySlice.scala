@@ -425,7 +425,7 @@ abstract class ClassTagArrayLikeSliceSeqFactory
   * of [[net.noresttherein.sugar.collections.ArrayLikeSliceWrapper ArrayLikeSliceWrapper]].
   * @tparam E The element type of this collection (may or may not be the component type of the underlying array).
   * @tparam A The kind of wrapped array/array-like type.
-  * @tparam C The kind of of this collection.
+  * @tparam C The kind of this collection.
   */
 private[sugar] trait ArrayLikeSliceFactoryDefaults
                      [@specialized(ElemTypes) +E, -A[x] <: ArrayLike[x], +C[x] <: collection.IndexedSeq[x]]
@@ -814,7 +814,7 @@ sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
 //	   with TypedArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
 {
-	protected final override val array :Array[E @uncheckedVariance] = underlying.asInstanceOf[Array[E]]
+	protected final override def array :Array[E @uncheckedVariance] = underlying.asInstanceOf[Array[E]]
 	releaseFence()
 	@unspecialized override def slice(from :Int, until :Int) :IArraySlice[E] =
 		super[ArraySliceSeqOps].slice(from, until)

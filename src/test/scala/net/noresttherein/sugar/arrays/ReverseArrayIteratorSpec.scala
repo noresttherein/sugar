@@ -1,14 +1,16 @@
 package net.noresttherein.sugar.arrays
 
 import scala.collection.immutable.ArraySeq
-import scala.math.Ordering
 import scala.reflect.ClassTag
 
-import org.scalacheck.Prop._
 import org.scalacheck.{Arbitrary, Prop, Shrink, Test}
+import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
-import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify, PropExtension}
-import net.noresttherein.sugar.witness.{DefaultValue, NullValue}
+
+import net.noresttherein.sugar.collections.ValIterator
+import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, Prettify}
+import net.noresttherein.sugar.witness.NullValue
+
 
 
 
@@ -17,17 +19,15 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(200)
 
+	//The public iterator type returned by ReverseArrayIterator factory object.
+	type TestedIterator[+A] = ValIterator.Buffered[A]
 
 	property("ReverseArrayIterator.apply") = forAll { (array :Array[Int], start :Int, length :Int) =>
-		if (start < 0 || start >= array.length)
-			ReverseArrayIterator(array, start, length).throws[IndexOutOfBoundsException]
-		else {
-			val iter = ReverseArrayIterator(array, start, length)
-			val expect = array.take(math.min(start, Int.MinValue - 1) + 1).reverseIterator.take(length)
-			iter sameElements expect lbl
-				"ReverseArrayIterator(" + array.contentsString + ", " + start + ", " + length + ") ==" +
-					ReverseArrayIterator(array, start, length).mkString("Iterator(", ", ", ")")
-		}
+		val iter = ReverseArrayIterator(array, start, length)
+		val expect = array.take(math.min(start, array.length - 1) + 1).reverseIterator.take(length)
+		iter sameElements expect lbl
+			"ReverseArrayIterator(" + array.contentsString + ", " + start + ", " + length + ") ==" +
+				ReverseArrayIterator(array, start, length).mkString("Iterator(", ", ", ")")
 	}
 
 	private abstract class ReverseArrayIteratorProperty(name :String) extends ArrayProperty(name) {
@@ -38,19 +38,19 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 				apply(array, from0, until0, ReverseArrayIterator.slice(array, from, until))
 			}
 
-		def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ReverseArrayIterator[X]) :Prop
+		def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop
 	}
 
 	new ReverseArrayIteratorProperty("knownSize") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ReverseArrayIterator[X]) :Prop =
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop =
 			iterator.knownSize ?= (until - from)
 	}
 	new ReverseArrayIteratorProperty("size") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ReverseArrayIterator[X]) :Prop =
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop =
 			iterator.size ?= (until - from)
 	}
 	new ReverseArrayIteratorProperty("head") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ReverseArrayIterator[X]) :Prop =
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop =
 			if (until <= from)
 				iterator.head.throws[NoSuchElementException]
 			else if (until == from + 1)
@@ -61,7 +61,7 @@ object ReverseArrayIteratorSpec extends ArrayTestingUtils("ReverseArrayIterator"
 				} :| "iterator.next().head"
 	}
 	new ReverseArrayIteratorProperty("next") {
-		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :ReverseArrayIterator[X]) :Prop = {
+		override def apply[X :ClassTag](array :Array[X], from :Int, until :Int, iterator :TestedIterator[X]) :Prop = {
 			val seq = Seq.fill(until - from)(iterator.next())
 			(seq ?= ArraySeq.unsafeWrapArray(array.slice(from, until)).reverse) &&
 				iterator.next().throws[NoSuchElementException]
