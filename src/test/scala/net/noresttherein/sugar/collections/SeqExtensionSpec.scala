@@ -1,24 +1,23 @@
 package net.noresttherein.sugar.collections
 
+import scala.collection.View
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
 import org.scalacheck.Prop._
-import org.scalacheck.util.{Buildable, ConsoleReporter, Pretty}
-import net.noresttherein.sugar.extensions.{IterableExtension, SeqExtension}
+import org.scalacheck.util.{ConsoleReporter, Pretty}
+
+import net.noresttherein.sugar.collections.extensions.{IterableExtension, SeqExtension}
 import net.noresttherein.sugar.numeric.globalRandom
-import net.noresttherein.sugar.testing.scalacheck.extensions.LazyExtension
+import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
 import net.noresttherein.sugar.typist.To
 import net.noresttherein.sugar.vars.IntOpt.AnInt
-import net.noresttherein.sugar.vars.{IntOpt, Maybe}
-import net.noresttherein.sugar.vars.Maybe.Yes
+import net.noresttherein.sugar.vars.IntOpt
 
 
 
 
-/*
 object SeqExtensionSpec extends Properties("SeqExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(127)
@@ -71,7 +70,7 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 		var x = 0
 		val list = { x += 1; 42 } #:: { x += 1; 44 } #:: LazyList.from(seq)
 		val (result, expect) = f(list)
-		(x ?= 0) :| "LazyList.removed evaluated before actual access" && (result ?= expect)
+		(x ?= 0) :| "LazyList evaluated before actual access" && (result ?= expect) lbl "Expect: " + list.to(ArraySeq)
 	}
 
 	private def lazyIndexProperty(idx :Int, knownDeltaSizeLimit :Int, deltaSizeLimit :Int)
@@ -161,25 +160,58 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 					val (result, expect) = pair(seq)
 					result ?= expect
 				}
-			} && lazyIndexProperty(index, if (rest.knownSize >= 0) -rest.knownSize - 2 else 0, -rest.size - 2)(pair)
+			} && lazyIndexProperty(index, if (rest.knownSize >= 0) -rest.knownSize - 2 else -2, -rest.size - 2)(pair)
 		}
 	}
-//	property("overwritten") = forAll { index :Int =>
-//		seqProperty { patch :Seq[Int] =>
-//			def pair(seq :Seq[Int]) = {
-//				val clipped =
-//					if (index == Int.MinValue) patch.take(0)
-//					else patch.slice(-index, -index + seq.length - math.max(index, 0))
-//				seq.overwritten(index, patch) -> (seq.take(index) ++ clipped ++ seq.drop(patch.size + index))
-//			}
-//			seqProperty { seq :Seq[Int] =>
-//				val (result, expect) = pair(seq)
-//				result ?= expect
-//			} && forAll { seq :Seq[Int] =>
-//				lazyProperty(seq)(pair)
-//			}
-//		}
-//	}
+	property("overwritten") = forAll { index :Int =>
+		seqProperty { patch :Seq[Int] =>
+			def pair(seq :Seq[Int]) = {
+				//A lot of acrobatics to avoid evaluating a LazyList
+				val idx = index.toLong
+				def clip(i :Long) :Int =
+					if (i < Int.MinValue) Int.MinValue
+					else if (i > Int.MaxValue) Int.MaxValue
+					else i.toInt
+				lazy val slice = patch.slice(clip(-idx), clip(math.max(-idx, 0) + seq.length - math.max(idx, 0)))
+				lazy val tail = seq.drop(slice.size + math.max(index, 0))
+				seq.overwritten(index, patch) -> (
+					seq.take(index) ++ View.fromIteratorProvider(() => slice.iterator ++ tail.iterator)
+				)
+			}
+			seqProperty { seq :Seq[Int] =>
+				val (result, expect) = pair(seq)
+				(result ?= expect) lbl "expect: " + expect.to(ArraySeq)
+			} && forAll { seq :Seq[Int] =>
+				lazyProperty(seq)(pair)
+			}
+		}
+	}
+	import net.noresttherein.sugar.testing.scalacheck.noShrinking
+	property("overwritten(first, second, rest*)") = forAll { (index :Int, first :Int, second :Int) =>
+		seqProperty { rest :Seq[Int] =>
+			def pair(seq :Seq[Int]) = {
+				val srcIndex =
+					if (index >= 0) 0
+					else if (index == Int.MinValue) Int.MaxValue
+					else -index
+				val dstIndex = math.max(index, 0)
+				lazy val patchSize = seq.length - dstIndex min 2 + rest.length - srcIndex max 0
+				lazy val patch = srcIndex match {
+					case 0 => first +: second +: rest take patchSize
+					case 1 => second +: rest take patchSize
+					case _ => rest.slice(srcIndex - 2, srcIndex - 2 + patchSize)
+				}
+				lazy val tail = patch ++: seq.drop(dstIndex + patchSize)
+				seq.overwritten(index, first, second, rest :_*) -> (
+					seq.take(dstIndex) ++ LazyList.from(View.fromIteratorProvider(() => tail.iterator))
+				)
+			}
+			seqProperty { seq :Seq[Int] =>
+				val (result, expect) = pair(seq)
+				(result ?= expect) lbl "expect: " + expect.to(ArraySeq)
+			}
+		}
+	}
 	property("inserted") = forAll { (index :Int, value :Int) =>
 		def pair(seq :Seq[Int]) =
 			seq.inserted(index, value) -> (seq.take(index) ++: value +: seq.drop(index))
@@ -558,4 +590,3 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 		Prop(seq.filter(_ % 3 == 1) subseqOf seq)
 	}
 }
-*/

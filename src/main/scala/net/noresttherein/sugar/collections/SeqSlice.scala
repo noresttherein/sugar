@@ -48,8 +48,8 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 	protected final def start :Int = offset
 
 	override def apply(i :Int) :E =
-		if (i >= length)
-			outOfBounds_!(i.toString + " out of " + length)
+		if (i < 0 | i >= length)
+			outOfBounds_!(i, length)
 		else
 			underlying(offset + i)
 
@@ -104,7 +104,7 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 
 
 private[collections] sealed abstract class SeqSliceFactory[C[A] <: collection.IndexedSeq[A], S[A] <: collection.Seq[A]] {
-	protected def make[E](seq :C[E], from :Int, until :Int) :S[E]
+	protected def make[E](seq :C[E], from :Int, length :Int) :S[E]
 
 	def apply[A](seq :C[A], from :Int, until :Int) :S[A] = {
 		val len = seq.length
@@ -149,15 +149,15 @@ private class SeqSlice[E](whole :collection.IndexedSeq[E], offset :Int, override
   */
 @SerialVersionUID(Ver)
 case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSeqRange] {
-	protected override def make[E](seq :collection.IndexedSeq[E], from :Int, until :Int) :GenIndexedSeqRange[E] =
+	protected override def make[E](seq :collection.IndexedSeq[E], from :Int, length :Int) :GenIndexedSeqRange[E] =
 		seq match {
 			case empty   :IndexedSeq[E] if empty.length == 0 => Immutable.empty
-			case stable  :IndexedSeq[E]                      => Immutable(stable, from, until)
-			case mut :mutable.IndexedSeq[E]                  => Mutable(mut, from, until)
+			case stable  :IndexedSeq[E]                      => Immutable(stable, from, from + length)
+			case mut :mutable.IndexedSeq[E]                  => Mutable(mut, from, from + length)
 			case _ :StrictOptimizedIterableOps[_, Any1, _]   =>
-				new SeqSlice[E](seq, from, until)
+				new SeqSlice[E](seq, from, length)
 					with StrictOptimizedSeqRangeOps[E, collection.IndexedSeq, GenIndexedSeqRange[E]]
-			case _                                           => new SeqSlice(seq, from, until)
+			case _                                           => new SeqSlice(seq, from, length)
 		}
 
 	@inline def apply[E](seq :mutable.IndexedSeq[E], from :Int, until :Int) :MutIndexedSeqRange[E] =
@@ -191,14 +191,14 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 	private object Immutable extends SeqSliceFactory[IndexedSeq, IndexedSeqRange] {
 		val empty :IndexedSeqRange[Nothing] = new Immutable(IndexedSeq.empty, 0, 0)
 
-		override def make[E](seq :IndexedSeq[E], from :Int, until :Int) :IndexedSeqRange[E] = seq match {
-			case _ if until <= from                => empty
+		override def make[E](seq :IndexedSeq[E], from :Int, length :Int) :IndexedSeqRange[E] = seq match {
+			case _ if length <= 0                  => empty
 			case _ :StrictOptimizedSeqOps[_, _, _] =>
-				new Immutable(seq, from, until)
+				new Immutable(seq, from, length)
 					with StrictOptimizedSeqOps[E, IndexedSeq, IndexedSeq[E]]
 					with StrictOptimizedSeqRangeOps[E, IndexedSeq, IndexedSeqRange[E]]
 			case _ =>
-				new Immutable(seq, from, until)
+				new Immutable(seq, from, length)
 		}
 		override def toString = "SeqSlice.Immutable"
 	}
@@ -223,13 +223,13 @@ case object SeqSlice extends SeqSliceFactory[collection.IndexedSeq, GenIndexedSe
 	@SerialVersionUID(Ver)
 	private object Mutable extends SeqSliceFactory[mutable.IndexedSeq, MutIndexedSeqRange] {
 		import mutable.IndexedSeq
-		override def make[E](seq :IndexedSeq[E], from :Int, until :Int) :MutIndexedSeqRange[E] = seq match {
+		override def make[E](seq :IndexedSeq[E], from :Int, length :Int) :MutIndexedSeqRange[E] = seq match {
 			case _ :collection.StrictOptimizedSeqOps[_, _, _] =>
-				new Mutable(seq, from, until)
+				new Mutable(seq, from, length)
 					with collection.StrictOptimizedSeqOps[E, IndexedSeq, IndexedSeq[E]]
 					with StrictOptimizedSeqRangeOps[E, IndexedSeq, MutIndexedSeqRange[E]]
 			case _ =>
-				new Mutable(seq, from, until)
+				new Mutable(seq, from, length)
 		}
 		override def toString = "SeqSlice.Mutable"
 	}

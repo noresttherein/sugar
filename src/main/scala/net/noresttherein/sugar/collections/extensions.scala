@@ -4316,9 +4316,10 @@ object extensions extends extensions {
 			case seq :SugaredSeqOps[E, CC @unchecked, C @unchecked] =>
 				seq.updatedAll(index, first, second, rest :_*)
 			//A check for lazy collections, as Prepended2Seq may lose information patch.sizeIs >= 2.
-//			case _ if index < 0 || { val s = self.knownSize; s >= 0 & s - 2 < index } =>
-//				outOfBounds_!(errorString(self) + ".updatedAll(" + index + ", _, _, " + errorString(rest) + ")")
-			case _                                       => updatedAll(index, Prepended2Seq(first, second, rest))
+			case _ if index < 0 || { val s = self.knownSize; s >= 0 & s - 2 < index } =>
+				outOfBounds_!(errorString(self) + ".updatedAll(" + index + ", _, _, " + errorString(rest) + ")")
+			case _ =>
+				updatedAll(index, Prepended2Seq(first, second, rest))
 		}
 
 		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = self match {
