@@ -13,13 +13,20 @@ import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.numeric.Decimal64.{BigDecimalConverter, JavaBigDecimalConverter}
 import net.noresttherein.sugar.numeric.extensions.{BooleanCompanionExtension, BooleanExtension, ByteCompanionExtension, ByteExtension, CharCompanionExtension, CharExtension, ComparableExtension, ComparatorHasAsScala, DoubleCompanionExtension, DoubleExtension, FloatCompanionExtension, FloatExtension, IntCompanionExtension, IntExtension, JBigDecimalIsFractional, LongCompanionExtension, LongExtension, ShortCompanionExtension, ShortExtension, hasComparatorExtension, hasOrderingExtension}
 import net.noresttherein.sugar.numeric.BigRatio.BigIntNumerator
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.{IntOpt, Maybe}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
 
-trait extensions extends Any {
+private[numeric] trait PromotedExtensions extends Any {
+	@inline implicit final def ByteAsIntExtension(self :Byte) :IntExtension = new IntExtension(self)
+	@inline implicit final def ShortAsIntExtension(self :Short) :IntExtension = new IntExtension(self)
+	@inline implicit final def CharAsIntExtension(self :Char) :IntExtension = new IntExtension(self)
+}
+
+
+trait extensions extends Any with PromotedExtensions {
 
 	@inline implicit final def BigDecimalConverter(self :BigDecimal) :BigDecimalConverter =
 		new BigDecimalConverter(self)
@@ -36,9 +43,7 @@ trait extensions extends Any {
 
 	@inline implicit final def BooleanExtension(self :Boolean) :BooleanExtension = new BooleanExtension(self)
 	@inline implicit final def ByteExtension(self :Byte) :ByteExtension = new ByteExtension(self)
-	@inline implicit final def ByteAsIntExtension(self :Byte) :IntExtension = new IntExtension(self)
 	@inline implicit final def ShortExtension(self :Short) :ShortExtension = new ShortExtension(self)
-	@inline implicit final def ShortAsIntExtension(self :Short) :IntExtension = new IntExtension(self)
 	@inline implicit final def CharExtension(self :Char) :CharExtension = new CharExtension(self)
 	@inline implicit final def IntExtension(self :Int) :IntExtension = new IntExtension(self)
 	@inline implicit final def LongExtension(self :Long) :LongExtension = new LongExtension(self)
@@ -248,6 +253,10 @@ object extensions extends extensions {
 		/** Returns this `Int`, or `0` if it does not satisfy the predicate. */
 		@inline def orZeroIf(condition :Int => Boolean) :Int = if (condition(self)) 0 else self
 
+		/** Returns this `Int` as an [[net.noresttherein.sugar.vars.IntOpt.AnInt]]
+		  * only ''iff'' it is greater or equal zero.
+		  */ //Consider: adding ULongOpt
+		@inline def nonNeg :IntOpt = IntOpt.nonNegative(self)
 
 		/** True if this `Int` has no divisors other than `1` and `2`. */
 		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
