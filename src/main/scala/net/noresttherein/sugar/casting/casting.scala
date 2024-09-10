@@ -4,5 +4,5 @@ import net.noresttherein.sugar
 
 
 package object casting extends extensions {
-	final val Ver = sugar.Ver
+	private[casting] final val Ver = sugar.Ver
 }
