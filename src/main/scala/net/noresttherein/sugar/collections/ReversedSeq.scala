@@ -7,7 +7,7 @@ import scala.collection.mutable
 import scala.collection.mutable.IndexedBuffer
 
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 
 
 

@@ -24,13 +24,13 @@ object SeqExtensionSpec extends Properties("SeqExtension") {
 
 	import net.noresttherein.sugar.testing.scalacheck.typeClasses._
 
-	def seqProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#F](prop :Seq[X] => Prop) :Prop =
+	def seqProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#Conversion](prop :Seq[X] => Prop) :Prop =
 		forAll { seq :List[X] => prop(seq) :| "List" } &&
 			forAll { seq :ArraySeq[X] => prop(seq) :| "ArraySeq" } &&
 			forAll { vec :Vector[X] => prop(vec) :| "Vector" } &&
 			forAll { slice :IRefArraySlice[X] => prop(slice) :| "ArraySlice" }
 
-	def lazyProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#F](prop :Seq[X] => Prop) :Prop =
+	def lazyProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#Conversion](prop :Seq[X] => Prop) :Prop =
 		seqProperty[X](prop) && {
 			def x() = Arbitrary.arbitrary[X].sample.get
 			var i    = 0

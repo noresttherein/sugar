@@ -7,7 +7,7 @@ import scala.collection.mutable
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.extensions.classNameMethods
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.InOut.{SpecializedVars, TestAndSet}
 import net.noresttherein.sugar.vars.Maybe.Yes
 import net.noresttherein.sugar.vars.Opt.One

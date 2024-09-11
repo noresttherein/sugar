@@ -6,10 +6,7 @@ import scala.collection.mutable.Buffer
 import net.noresttherein.sugar.collections.extensions.{IteratorExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.extensions.{StepperCompanionExtension, cast2TypeParamsMethods, castTypeParamMethods, classNameMethods}
-import net.noresttherein.sugar.funny
-import net.noresttherein.sugar.funny.generic
-
-
+import net.noresttherein.sugar.typist.kinds
 
 
 /** A type class for collection types, meant to abstract over collections not implementing any interface
@@ -77,7 +74,7 @@ trait CollectionLike[+X, -Xs] extends Serializable {
 	  * return themselves, others are recommended to return an `Iterator[X]` (rather than `Iterable[X]`),
 	  * unless a wrapper to `Iterable` overrides most methods of this interface without delegating to `iterator(elems)`.
 	  */
-	def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, generic.Any1, Any]
+	def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, kinds.Any1, Any]
 
 	/** Returns a [[scala.collection.Stepper]] for the elements of `elems`.
 	  *
@@ -247,7 +244,7 @@ object CollectionLike extends Rank1Values {
 	}
 
 	@inline implicit def fromIterableOnceLike[E, CC[_], C]
-	                                         (implicit like :IterableOnceLike[E, funny.generic.Any1, C]) :CollectionLike[E, C] =
+	                                         (implicit like :IterableOnceLike[E, kinds.Any1, C]) :CollectionLike[E, C] =
 		like
 
 }
@@ -340,7 +337,7 @@ private class CollectionLikeProxy[+X, -Xs](values :CollectionLike[X, Xs]) extend
 
 	override def iterator(xs :Xs) :Iterator[X] = values.iterator(xs)
 	override def toIterableOnce(elems :Xs) :IterableOnce[X] = values.toIterableOnce(elems)
-	override def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, generic.Any1, Any] = values.toIterableOnceOps(elems)
+	override def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, kinds.Any1, Any] = values.toIterableOnceOps(elems)
 	override def stepper[S <: Stepper[_]](elems :Xs)(implicit shape :StepperShape[X, S]) :S = values.stepper(elems)
 
 	override def foreach[U](xs :Xs)(f :X => U) :Unit = values.foreach(xs)(f)

@@ -3,7 +3,7 @@ package net.noresttherein.sugar.collections
 import scala.collection.{AbstractIterator, IterableOps}
 import scala.collection.immutable.SetOps
 
-import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.<:?<
 
 

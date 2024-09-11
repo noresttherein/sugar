@@ -1,8 +1,5 @@
 package net.noresttherein.sugar
 
-import scala.annotation.unspecialized
-
-import net.noresttherein.sugar.funny.fun.{ComposableFun, Identity}
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Maybe
 
@@ -23,8 +20,8 @@ package object typist {
 			Yes(block(implicitly[left.type =:= left.type].asInstanceOf[left.type =:= right.type]))
 		else No
 
-	/** Curried type constructor for the function type X => Y. Same as [[net.noresttherein.sugar.typist.To To]];
-	  * Accepts the desired return type as the type parameter and creates a type with a member type constructor `C`,
+	/** Curried type constructor for the function type X => Y.
+	  * Accepts the desired return type as the type parameter and creates a type with a member type constructor `F`/`__`,
 	  * accepting the desired argument type. Designed to be used as a type class
 	  * (otherwise known as context bounds of generic classes and methods):
 	  * {{{
@@ -32,30 +29,56 @@ package object typist {
 	  * }}}
 	  * The name was chosen to bring to mind the old conversion type bound `X <% Y`.
 	  */
-	type <%<[Y] = { type F[-X] = X => Y }
+	type <%<[Y] = {
+		type F[-X] = X => Y
+		type __[-X] = X => Y
+	}
 
-	/** Curried type constructor for the function type X => Y. Accepts the desired return type as the type parameter
-	  * and creates a type with a member type constructor `C` accepting the desired argument type. Designed to be used
-	  * as a type class (context bound of generic classes and methods):
+	/** Curried type constructor for the function type X => Y. Equivalent to [[net.noresttherein.sugar.typist.<%< <%<]];
+	  * accepts the desired return type as the type parameter and creates a type
+	  * with a member type constructor `Conversion` accepting the desired argument type.
+	  * Designed to be used as a type class (context bound of generic classes and methods):
 	  * {{{
-	  *     def add[T: To[Int]#F](x :T, y :T) :Int = x + y
+	  *     def add[T: To[Int]#Conversion](x :T, y :T) :Int = x + y
 	  * }}}
 	  */
 	type To[Y] = {
-		type F[-X] = X => Y
-		type From[-X] = X => Y
+		type Conversion[-X] = X => Y
 	}
 
 	/** Lifts `X <:< Y` to a type class (AKA context bound) of `X`.
 	  * @example {{{
+	  *     def append[T: <:<#[Int]#_](first :Int, second :T) :Seq[Int] = Seq(first, second)
+	  * }}}
+	  * @see [[net.noresttherein.sugar.typist.>:>#]]
+	  * @tparam Y a supertype of a type specified as type argument to member type `__[X]`.
+	  */
+	type <:<#[Y] = { type __[-X] = X <:< Y }
+
+	/** Lifts `X <:< Y` to a type class (AKA context bound) of `X`.
+	  * Same as [[net.noresttherein.sugar.typist.<:<# <:<#]]`[Y]#__`.
+	  * @example {{{
 	  *     def append[T: Supertype[Int]#Of](first :Int, second :T) :Seq[Int] = Seq(first, second)
 	  * }}}
-	  * @tparam Y a supertype of a type specified as type argument to member type `Of[X]`.
 	  * @see [[net.noresttherein.sugar.typist.Subtype Subtype]]
+	  * @tparam Y a supertype of a type specified as type argument to member type `Of[X]`.
 	  */
-	type Supertype[Y] = { type Of[-X] = X <:< Y }
+	type Supertype[Y] = {
+		type Of[-X] = X <:< Y
+		type __[-X] = X <:< Y
+	}
 
 	/** Lifts `X <:< Y` to a type class (AKA context bound) of `Y`.
+	  * @example {{{
+	  *     def convert[Y: >:>#[X]#__](value :X, buffer :Buffer[Y]) :buffer.type = buffer += value
+	  * }}}
+	  * @tparam X a subtype of a type specified as type argument to member type `Of[Y]`.
+	  * @see [[net.noresttherein.sugar.typist.<:<#]]
+	  */
+	type >:>#[X] = { type __[+Y] = X <:< Y }
+
+	/** Lifts `X <:< Y` to a type class (AKA context bound) of `Y`.
+	  * Same as [[net.noresttherein.sugar.typist.>:># >:>#]]`[X]#__`.
 	  * @example {{{
 	  *     def convert[Y: Subtype[X]#Of](value :X, buffer :Buffer[Y]) :buffer.type = buffer += value
 	  * }}}
@@ -66,7 +89,7 @@ package object typist {
 
 
 
-	/** A root of a phantom type hierarchy used to introduce subtyping relation to a single type `T`
+	/** A lower bound of a linear phantom type hierarchy used to introduce subtyping relation to a single type `T`
 	  * (typically an implicit witness) by an addition of an artificial type parameter `R` to the latter.
 	  * This can be particularly useful when there is a need to introduce precedence between otherwise identical
 	  * implicit values. For example, Let us define a generic, ''invariant'' evidence type class:
@@ -86,11 +109,18 @@ package object typist {
 	  *     implicit def evidenceB :Evidence[B, Rank1] = ??? //has precedence over evidenceA
 	  * }}}
 	  * Such declarations are also cleaner than splitting them between several base classes.
-	  * Finally note, that a covariant declaration `+R` means values
+	  * Note that, for `X < Y`, type `RankX >: RankY` rather than the other way round. This is to achieve the intuitive
+	  * behaviour of definitions of lower rank having a higher precedence for covariant type parameters,
+	  * as in the preceding example. Additionally, it is typically more convenient to start with the most
+	  * generic, widely applicable definition, and then provide successively more specific definitions of higher
+	  * precedence, than the opposite.
+	  *
+	  * Finally, note that a covariant declaration `+R` means values
 	  * of [[net.noresttherein.sugar.typist.Rank.Rank0 Rank0]] have ''lower'' precedence
 	  * than those of [[net.noresttherein.sugar.typist.Rank.Rank1 Rank1]], as it is typically more convenient
-	  * to start with the most generic case and then introduce more specific cases with a higher precedence by
-	  * increasing the rank, it is possible to invert this scheme by declaring the rank parameter as contravariant:
+	  * to start with the most generic case and then introduce more specific declarations of a higher precedence by
+	  * increasing the rank. It is, however, possible to invert this scheme by declaring the rank parameter
+	  * as contravariant:
 	  * {{{
 	  *     class Evidence[T, -R]
 	  *     implicit def evidenceA :Evidence[A, Rank1] = ???
@@ -105,35 +135,36 @@ package object typist {
 	  *     implicit def evidenceO :Evidence[O, -[Rank0]] //has lesser precedence than evidenceA
 	  * }}}
 	  *
-	  * In another use case, the same implicit value/conversion can be defined in several places
-	  * (a companion object to some related class, a `syntax` package containing all implicits in the library,
-	  * or a `imports` trait to be extended by application classes/package objects) - introducing
-	  * a `Rank` type parameter forces a precedence between these definitions if otherwise several candidates
-	  * are available (for example, by an explicit import from a specific location and an IDE-introduced wildcard import).
+	  * In another use case, it may be desirable to offer the same implicit values under different paths,
+	  * namely to allow wildcard imports to cover a wider or narrower list of definitions. For example,
+	  * any collection extension class defined in `sugar.collections.extensions` is also available
+	  * from `sugar.extensions`, to give the user a choice if they want to introduce all extensions
+	  * defined by this library, or only those pertaining to a certain domain. Adding a `Rank` type parameter
+	  * to an extension class and making sure that it differs depending on the scope it is imported from,
+	  * avoids creating a conflict even if the user imports it from several scopes. In particular,
+	  * IDEs tend to prefer wildcard imports over explicit importing of a large number of symbols,
+	  * which may cause such a conflict without a direct action by the programmer.
+	  * {{{
+	  *     package A {
+	  *         class Evidence[T, +R]
+	  *         trait imports[+R] {
+	  *             implicit def evidence[T] :Evidence[T, R] = ???
+	  *         }
+	  *     }
+	  *     package object A extends imports[Rank0]
+	  *     object all extends A.imports[Rank1] with B.imports[Rank1]
+	  *
+	  *     import A._
+	  *     import all._ //No conflict, all uses of symbol `evidence` are resolved to `all.evidence`.
+	  * }}}
 	  */
 	type Rank
 
-	/** An undefined type. It has a niche use case as an upper bound of abstract type declarations in extendable
-	  * interfaces.
-	  * {{{
-	  *     trait Interface {
-	  *         type Result <: ProtectedType
-	  *     }
-	  * }}}
-	  * In the above example, while applications can create instances of `Interface` overriding any methods,
-	  * they cannot define type `Result` to anything other than `Nothing` or `ProtectedType` and,
-	  * as a result, cannot create instances of `Result` directly. This allows the protected skeleton implementations
-	  * of methods in `Interface` to operate on `Result` and cast it to the actual protected type.
-	  * It is very similar to Scala opaque types, but offers no type safety, allowing to safely cast any unrelated
-	  * objects to `Result`.
-	  */
-	type ProtectedType
-
-	/** An abstract type, used primarily when there is a need to cast several higher types so they share a type parameter,
-	  * whose value is not actually known. Avoiding use of any concrete type is safe/future proof with regard
-	  * to compiler inlining. This is particularly useful when encountering issues with existential/wildcard types,
-	  * or to maintain a polymorphism of arrays, as casting an array to `Array[Any]`, or even `Array[E]`,
-	  * if the code becomes inlined and in the caller's context `E` is a value type.
+	/** An abstract hack type, used primarily when there is a need to cast several higher types
+	  * so they share a type parameter, whose value is not actually known. Avoiding use of any concrete type
+	  * is safe/future-proof with regard to compiler inlining. This is particularly useful when encountering issues
+	  * with existential/wildcard types, or to maintain a polymorphism of arrays, as casting an array to `Array[Any]`,
+	  * or even `Array[E]`, if the code becomes inlined and in the caller's context `E` is a value type.
 	  */
 	type Unknown
 
@@ -180,7 +211,7 @@ package typist {
 
 	import scala.reflect.ClassTag
 
-	import net.noresttherein.sugar.funny.generic
+	import net.noresttherein.sugar.typist.kinds
 	//consider: moving it to witness
 	/** A function class used for implicit conversions in order to force precedence of one definition over another,
 	  * despite having the same argument and return types.
@@ -193,7 +224,7 @@ package typist {
 	  * if the wrapped value erases to `java.lang.Object`, due to bridge method for `apply` clashing
 	  * with the overriding method. This can be avoided be extending
 	  * [[net.noresttherein.sugar.typist.PriorityConversion.Wrapped PriorityConversion.Wrapped]] and defining
-	  * a non overriding `apply` method with a dummy implicit parameter:
+	  * a non-overriding `apply` method with a dummy implicit parameter:
 	  * {{{
 	  *     class Extension[T](val self :T) extends AnyVal {
 	  *         //extension methods
@@ -214,10 +245,10 @@ package typist {
 		/** Forces a SAM type promotion of a function literal `X => Y` to a `SpecificConversion[X, Y]` and immediately
 		  * returns it.
 		  */
-		def apply[X, Y](conversion :PriorityConversion[X, Y]) :PriorityConversion[X, Y] = conversion
+		@inline def apply[X, Y](conversion :PriorityConversion[X, Y]) :PriorityConversion[X, Y] = conversion
 
 		/** Promotes a function to a `SpecificConversion[X, Y]`. */
-		def wrap[X, Y](f :X => Y) :PriorityConversion[X, Y] = f(_)
+		@inline def wrap[X, Y](f :X => Y) :PriorityConversion[X, Y] = f(_)
 
 		class Wrapped[-X, +Y](f :X => Y) extends PriorityConversion[X, Y] {
 			override def apply(v1 :X) :Y = f(v1)
@@ -233,7 +264,7 @@ package typist {
 
 	object <:?< {
 		implicit def summon[A[_]] :A =:?= A = instance.asInstanceOf[A =:?= A]
-		private[this] val instance = new Evidence[generic.Any1]
+		private[this] val instance = new Evidence[kinds.Any1]
 
 		private class Evidence[A[_]] extends =:?=[A, A] {
 			override def apply[X](value :A[X]) :A[X] = value

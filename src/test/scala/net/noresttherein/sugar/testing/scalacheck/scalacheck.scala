@@ -3,7 +3,7 @@ package net.noresttherein.sugar.testing
 import scala.annotation.nowarn
 import scala.collection.IterableOps
 
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalacheck.util.Buildable
 

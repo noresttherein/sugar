@@ -10,7 +10,7 @@ import org.scalacheck.Prop.{AnyOperators, all, forAll}
 import org.scalacheck.util.{Buildable, Pretty}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map}
 import net.noresttherein.sugar.collections.extensions.{FactoryExtension, IterableExtension, IterableOnceExtension}
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.numeric
 import net.noresttherein.sugar.numeric.extensions.IntCompanionExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods

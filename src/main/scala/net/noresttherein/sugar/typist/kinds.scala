@@ -1,10 +1,10 @@
-package net.noresttherein.sugar.funny
+package net.noresttherein.sugar.typist
 
 
 
 
 @SerialVersionUID(Ver)
-object generic {
+object kinds {
 //	type Subtype[U] = { type T[X <: U] = X }
 	type Any1[+_]        = scala.Any
 	type AnyRef1[+_]     = scala.AnyRef
@@ -12,9 +12,10 @@ object generic {
 	type AnyRef2[+_, +_] = scala.AnyRef
 	type Nothing1[-_]    = scala.Nothing
 	type Identity[+X]    = X
+	type Self[+X]        = X
 	type Fixed[Y]        = { type T[X] = Y }
 
-	type =>:[-X[A], +Y[A]] = GenericFun[X, Y]
+	type =>:[-X[A], +Y[A]] = GenericFun[X, Y] //right associative
 
 	trait GenericFun[-X[A], +Y[A]] extends Serializable { outer =>
 		def apply[T](x :X[T]) :Y[T]

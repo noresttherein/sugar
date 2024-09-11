@@ -21,9 +21,12 @@ trait CompanionObject[T]
   * from the Scala standard library, and for collection companions (derived from `IterableFactory[O]`)
   * @tparam O the singleton type of a companion object to type `T`.
   * @tparam T a type with a companion object.
-  */ //consider: numeric.Companion and an extension method to[X, C <: Singleton](companion :C)(implicit c :Companion[C, X]) :X
+  */
 class Companions[O, T]
 
+/* consider: numeric.Companion and an extension method
+ * to[X, C <: Specializable with Singleton](companion :C)(implicit c :Companion[C, X]) :X
+ */
 object Companions {
 	implicit val Long       :Companions[scala.Long.type, Long]       = new Companions
 	implicit val Int        :Companions[scala.Int.type, Int]         = new Companions

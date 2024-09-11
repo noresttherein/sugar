@@ -2,20 +2,18 @@ package net.noresttherein.sugar.reflect
 
 import java.util.Date
 
-import scala.reflect._
-import scala.reflect.runtime.universe.TypeTag
 import scala.runtime.BoxedUnit
 
-import net.noresttherein.sugar.funny.generic
 import org.scalacheck.{Prop, Properties}
 import org.scalacheck.Prop._
-import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
+
+import net.noresttherein.sugar.reflect.Specialize.Specifically
+import net.noresttherein.sugar.typist.kinds
 
 
 object SpecializeSpec extends Properties("Specialize") {
 
 	import RuntimeTypeSpec.{ClassComparator, RuntimeTypeProps, unitProp}
-
 
 	object Implicitly extends Specialize[Array] {
 		override def specialized[@specialized E: RuntimeType]: Array[E] = RuntimeType[E].newArray(1).asInstanceOf[Array[E]]
@@ -75,18 +73,18 @@ object SpecializeSpec extends Properties("Specialize") {
 
 
 
-	class RuntimeContext[@specialized T](val arg :T)(implicit val passedSpec :RuntimeType[T]) {
+	class RuntimeContext[@specialized T](val arg :T)(implicit val tpe :RuntimeType[T]) {
 		def mySpec = RuntimeType.specialized[T]
 
 		override def equals(other :Any) = other match {
-			case spec :RuntimeContext[_] => arg==spec.arg && passedSpec==spec.passedSpec && mySpec==spec.mySpec
+			case spec :RuntimeContext[_] => arg == spec.arg && tpe =:= spec.tpe && mySpec =:= spec.mySpec
 			case _ => false
 		}
 
-		override def toString = s"RuntimeContext[$mySpec]($arg)($passedSpec)"
+		override def toString = s"RuntimeContext[$mySpec]($arg)($tpe)"
 	}
 
-	object ParamCall extends Specialize.With[generic.Identity, RuntimeContext] {
+	object ParamCall extends Specialize.WithArg[kinds.Identity, RuntimeContext] {
 		override def specialized[@specialized E](param: E)(implicit spec :RuntimeType[E]): RuntimeContext[E] = new RuntimeContext(param)(spec)
 	}
 
@@ -103,7 +101,7 @@ object SpecializeSpec extends Properties("Specialize") {
 
 
 
-	object AnyType extends SpecializeIndividually[Array] {
+	object AnyType extends Specifically[Array] {
 		override def forByte: Array[Byte] = new Array[Byte](1)
 		override def forShort: Array[Short] = new Array[Short](1)
 		override def forChar: Array[Char] = new Array[Char](1)
@@ -114,20 +112,21 @@ object SpecializeSpec extends Properties("Specialize") {
 		override def forBoolean: Array[Boolean] = new Array[Boolean](1)
 		override def forUnit: Array[Unit] = new Array[Unit](1)
 		override def forNothing :Array[Nothing] = new Array[Nothing](1)
-		override def forRef[E: RuntimeType]: Array[E] = new Array[AnyRef](1).asInstanceOf[Array[E]]
+		override def forRef[E <: AnyRef: RuntimeType]: Array[E] = new Array[AnyRef](1).asInstanceOf[Array[E]]
+		override def forOthers[E :RuntimeType] :Array[E] = new Array[Any](1).asInstanceOf[Array[E]]
 	}
 	
-	property("SpecializeIndividually[Byte]()") = AnyType[Byte]().getClass.getComponentType is classOf[Byte]
-	property("SpecializeIndividually[Short]()") = AnyType[Short]().getClass.getComponentType is classOf[Short]
-	property("SpecializeIndividually[Int]()") = AnyType[Int]().getClass.getComponentType is classOf[Int]
-	property("SpecializeIndividually[Long]()") = AnyType[Long]().getClass.getComponentType is classOf[Long]
-	property("SpecializeIndividually[Float]()") = AnyType[Float]().getClass.getComponentType is classOf[Float]
-	property("SpecializeIndividually[Double]()") = AnyType[Double]().getClass.getComponentType is classOf[Double]
-	property("SpecializeIndividually[Char]()") = AnyType[Char]().getClass.getComponentType is classOf[Char]
-	property("SpecializeIndividually[Boolean]()") = AnyType[Boolean]().getClass.getComponentType is classOf[Boolean]
-	property("SpecializeIndividually[Unit]()") = AnyType[Unit]().getClass.getComponentType is classOf[BoxedUnit]
-	property("SpecializeIndividually[AnyRef]()") = AnyType[AnyRef]().getClass.getComponentType is classOf[AnyRef]
-	property("SpecializeIndividually[Any]()") = AnyType[Any]().getClass.getComponentType is classOf[AnyRef]
-	property("SpecializeIndividually[String]()") = AnyType[String]().getClass.getComponentType is classOf[AnyRef]
+	property("Specifically[Byte]()") = AnyType[Byte]().getClass.getComponentType is classOf[Byte]
+	property("Specifically[Short]()") = AnyType[Short]().getClass.getComponentType is classOf[Short]
+	property("Specifically[Int]()") = AnyType[Int]().getClass.getComponentType is classOf[Int]
+	property("Specifically[Long]()") = AnyType[Long]().getClass.getComponentType is classOf[Long]
+	property("Specifically[Float]()") = AnyType[Float]().getClass.getComponentType is classOf[Float]
+	property("Specifically[Double]()") = AnyType[Double]().getClass.getComponentType is classOf[Double]
+	property("Specifically[Char]()") = AnyType[Char]().getClass.getComponentType is classOf[Char]
+	property("Specifically[Boolean]()") = AnyType[Boolean]().getClass.getComponentType is classOf[Boolean]
+	property("Specifically[Unit]()") = AnyType[Unit]().getClass.getComponentType is classOf[BoxedUnit]
+	property("Specifically[AnyRef]()") = AnyType[AnyRef]().getClass.getComponentType is classOf[AnyRef]
+	property("Specifically[Any]()") = AnyType[Any]().getClass.getComponentType is classOf[AnyRef]
+	property("Specifically[String]()") = AnyType[String]().getClass.getComponentType is classOf[AnyRef]
 	
 }

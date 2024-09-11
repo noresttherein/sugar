@@ -565,8 +565,10 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	}
 
 
-	//Consider: there is a small issue in that the factory extension method is in extensions,
-	// so a clash between imports is possible.
+	//Consider: there is a small issue in that the factory extension method is in trait extensions,
+	// which can be a cause for confusion. However, the conversion itself can be imported from both
+	// sugar.arrays.extensions and sugar.extensions, so it's impossible to avoid the method
+	// being under a different path than the class.
 
 	/** Extension methods for all [[net.noresttherein.sugar.arrays.ArrayLike! ArrayLike]]`[E]` implementations.
 	  * Most of these can be found in [[scala.collection.IterableOnceOps IterableOnceOps]],

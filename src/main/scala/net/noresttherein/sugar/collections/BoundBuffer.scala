@@ -9,7 +9,7 @@ import net.noresttherein.sugar.arrays.{ArrayIterator, RefArray, ReverseArrayIter
 import net.noresttherein.sugar.collections.util.knownEmpty
 import net.noresttherein.sugar.exceptions.{MaxSizeReachedException, SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.typist.kinds
 
 
 
@@ -646,7 +646,7 @@ private object SeqViewBuffer extends SliceBufferFactory[mutable.IndexedSeq, SeqV
 	protected override def length[E](seq :mutable.IndexedSeq[E]) :Int = seq.length
 	protected override def over[E](seq :mutable.IndexedSeq[E], from :Int, until :Int, loBound :Int, hiBound :Int)
 			:SeqViewBuffer[E] =
-				if (seq.isInstanceOf[StrictOptimizedSeqOps[_, generic.Any1, _]])
+				if (seq.isInstanceOf[StrictOptimizedSeqOps[_, kinds.Any1, _]])
 			new SeqViewBuffer[E](seq, loBound, hiBound, from, until - from)
 				with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 		else
@@ -707,7 +707,7 @@ object AppendingBuffer {
 	}
 
 	def apply[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] =
-		if (buffer.isInstanceOf[StrictOptimizedSeqOps[_, generic.Any1, _]])
+		if (buffer.isInstanceOf[StrictOptimizedSeqOps[_, kinds.Any1, _]])
 			new AppendingIndexedBuffer[E](buffer, buffer.length)
 				with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 		else
@@ -838,7 +838,7 @@ object PrependingBuffer {
 	}
 
 	def apply[E](buffer :IndexedBuffer[E]) :IndexedBuffer[E] =
-		if (buffer.isInstanceOf[StrictOptimizedSeqOps[_, generic.Any1, _]])
+		if (buffer.isInstanceOf[StrictOptimizedSeqOps[_, kinds.Any1, _]])
 			new PrependingIndexedBuffer[E](buffer, buffer.length)
 				with StrictOptimizedSeqOps[E, IndexedBuffer, IndexedBuffer[E]]
 		else

@@ -2,14 +2,14 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
+import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
+import org.scalacheck.Prop._
+import org.scalacheck.util.{ConsoleReporter, Pretty}
 
 import net.noresttherein.sugar.collections.ElementIndex.{Absent, Present}
 import net.noresttherein.sugar.extensions.IndexedSeqExtension
 import net.noresttherein.sugar.testing.scalacheck.extensions.PropExtension
 import net.noresttherein.sugar.typist.To
-import org.scalacheck.{Arbitrary, Prop, Properties, Shrink, Test}
-import org.scalacheck.Prop._
-import org.scalacheck.util.{ConsoleReporter, Pretty}
 
 
 
@@ -20,7 +20,7 @@ object IndexedSeqExtensionSpec extends Properties("IndexedSeqExtension") {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(127)
 
-	def seqProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#F]
+	def seqProperty[X :ClassTag :Arbitrary :Shrink :To[Pretty]#Conversion]
 		           (prop :collection.IndexedSeq[X] => Prop) :Prop =
 		forAll { seq :ArraySeq[X] => prop(seq) :| "ArraySeq" } &&
 			forAll { vec :Vector[X] => prop(vec) :| "Vector" } &&

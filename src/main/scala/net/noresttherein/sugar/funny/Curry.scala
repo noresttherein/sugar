@@ -10,10 +10,11 @@ import scala.annotation.implicitNotFound
 
 
 
-/** Represents a type (and function) constructor of a partially applied, curried function `F` of the form
+/** Represents a type (and function) constructor of some partially applied, curried function `F` of the form
   * `X0 => ... => Xn => X => Y` for any natural `n`, where X is the type of the first argument after (partial) application.
   * Provides methods for manipulating functions `F` around this argument.
-  * @tparam Args[R] the result of mapping an intermediate result `(X => Y)` of function `F` to `R`; `F =:= Args[X => Y]`.
+  * @tparam Args[R] the result of mapping the term for the intermediate result `(X0 =>... => Xn)` in function `F` to `R`;
+  * `F =:= Args[X => Y]`.
   * @tparam X the type of the first argument after partial application.
   * @tparam Y result type of function F partially applied to all its arguments up to and including X.
   */
@@ -137,12 +138,12 @@ object Curry {
 	  */
 	type Ident[+R] = R
 
-	/** A wrapper for a type constructor `F`, representing a curried argument list `X0 => ... => Xn => X =>`, resulting
-	  * from appending a new argument `X` to the argument list `A` denoting `X0 => ... Xn =>` (for any natural `n`).
-	  * For example, if `A[Y] =:= (X0 => ... => Xn => Y)`, then `(A :=> X)#F[Y]` reads 'a function ''F'' accepting
-	  * arguments `A`, followed by the argument `X`, and returning `Y`.
+	/** A wrapper for a type constructor `F` for a curried function `[Y] X0 => ... => Xn => X => Y`,
+	  * where `A[+Y] =:= X0 => ... => Xn => Y`. It inserts a new argument of type `X` into the function type `A[Y]`
+	  * right after all arguments declared by `A`. `(A :=> X)#F` is read as 'a function `F` accepting arguments `A`,
+	  * followed by argument `X`, and returning `Y`'.
 	  * @tparam A a type constructor representing a curried argument list; `A[Y] =:= X0 => ... => Xn => Y`.
-	  * @tparam X a new argument type which should be accepted by the resulting type after all arguments of `A`.
+	  * @tparam X a new argument type which should be accepted by the constructed function after all arguments of `A`.
 	  * @see [[net.noresttherein.sugar.funny.Curry.=>: =>:]]
 	  * @see [[net.noresttherein.sugar.funny.Curry.:==> :==>]]
 	  */
@@ -154,7 +155,16 @@ object Curry {
 		type F[+Y] = A[X => Y]
 	}
 
-	/** A wrapper for a type constructor `F` representing concatenation of two curried argument lists.
+	/** A wrapper for a type constructor `F` for the composition of `A` with `B`,
+	  * representing concatenation of two curried argument lists. Let
+	  * {{{
+	  *     type A[Y] = A0 => ... => An => Y
+	  *     type B[Y] = B0 => ... => Bm => Y
+	  * }}}
+	  * In that case,
+	  * {{{
+	  *     (A :==> B)#F[Y] =:= A0 => ... => An => B0 => ... => Bm => Y
+	  * }}}
 	  * @tparam A a type constructor representing the first curried argument list; `A[Y] =:= A0 => ... => An => Y`.
 	  * @tparam B a type constructor representing the second curried argument list; `B[Y] =:= B0 => ... => Bn => Y`.
 	  * @see [[net.noresttherein.sugar.funny.Curry.:=> :=>]]
@@ -927,7 +937,7 @@ object Curry {
 	  */
 	@SerialVersionUID(Ver)
 	final class Curried[A[+R], X, Y](val unapplied :A[X => Y])(val curry :Curry[A, X, Y]) extends PartiallyApplied[X, Y] {
-		/**Full type of this function. */
+		/** The full type of this function. */
 		type F = A[X => Y]
 		/** Result type of partially applying `Fun` up to and including `X`. */
 		type Applied = Y

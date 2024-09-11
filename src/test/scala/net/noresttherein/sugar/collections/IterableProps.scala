@@ -18,7 +18,8 @@ import org.scalacheck.util.{Buildable, ConsoleReporter, Pretty}
 import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.IterableProps.{Dummy, Filter, FlatMap, Fold, FoldSide, Map, collect, filter, flatMap, fold, foldLeft, foldRight, foldZero, map, value}
 import net.noresttherein.sugar.collections.extensions.{FactoryExtension, IterableExtension, IterableOnceExtension}
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.extensions.ClassExtension
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.testing.scalacheck.buildable
 import net.noresttherein.sugar.testing.scalacheck.extensions.{BooleanAsPropExtension, LazyExtension, PropExtension}

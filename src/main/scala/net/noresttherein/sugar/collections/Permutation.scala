@@ -10,7 +10,7 @@ import scala.util.Random
 import net.noresttherein.sugar.arrays.{IArray, IRefArray}
 import net.noresttherein.sugar.collections.extensions.SeqExtension
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 
 
 

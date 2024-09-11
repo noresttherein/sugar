@@ -3,9 +3,9 @@ package net.noresttherein.sugar.collections
 import scala.annotation.tailrec
 import scala.collection.{AbstractView, IterableOnceOps, IterableOps, SeqView, View}
 
+import net.noresttherein.sugar.exceptions.outOfBounds_!
 import net.noresttherein.sugar.extensions.IteratorExtension
-import net.noresttherein.sugar.funny.generic.Any1
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.Opt
 
 

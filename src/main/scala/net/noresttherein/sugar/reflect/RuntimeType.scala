@@ -12,165 +12,129 @@ import net.noresttherein.sugar.extensions.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.noSuch_!
 import net.noresttherein.sugar.reflect.RuntimeType.{ExactRuntimeType, OfAnyRef, OfBoolean, OfByte, OfChar, OfDouble, OfFloat, OfInt, OfLong, OfShort, OfUnit}
 import net.noresttherein.sugar.reflect.Specialized.{Enforce, Fun1Arg, Fun1Vals, Primitives, SpecializedExact}
-import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
+import net.noresttherein.sugar.reflect.Specialize.Specifically
 
 
 
 
 
 
-/** Type class describing the representation of type `T` in compiled byte code as known at the point of its implicit
-  * summoning or inferred from an implicit `TypeTag` or `ClassTag`. It  is used in conjunction with generic classes and
-  * methods to reflect runtime information about their type parameters. Its primary function is providing the ability to
-  * distinguish between specialized synthetic versions of a generic class or method marked as `@specialized T`
-  * (with optional parameters to the annotation). Unlike `ClassTag`s and `TypeTag`s, an implicit value of this
-  * class is available even in contexts where `T` is abstract, representing the type after erasure and specialization.
+/** A type class describing the representation of type `T` at some code point in the compiled bytecode.
+  * An implicit instance is always available - constants for built-in value types (and some others),
+  * derived from an implicit `TypeTag`, `ClassTag` or being summoned from a `@specialized` class/method -
+  * in that order of precedence. It serves as an umbrella type combining information coming from the latter
+  * three sources and reflects the most specific information about a type that can be obtained
+  * at the point of summoning, ''but not necessarily the compiled type a variable of this type declared at that point''.
+  * The latter is, in general, impossible to define, as there is no means of differentiating between a `ClassTag`
+  * for a concrete (statically known) type, and an implicit argument inside a generic method.
+  *
+  * Instances can be also obtained explicitly from the companion object based either on a runtime
+  * class/`ClassTag`/`TypeTag`, or existing specialization context, or predefined values for all Scala value types
+  * as well as some special ones. The consequence is that [[net.noresttherein.sugar.reflect.RuntimeType.runType runType]]
+  * of any `RuntimeType[X]` can be any of a wide selection of different classes, without real guarantees about
+  * their relation to a `runType` of an instance summoned locally. In cases, where it is undesirable,
+  * a [[net.noresttherein.sugar.reflect.Specialized Specialized]]`[X]` subtype may be requested instead,
+  * whose `runType` can be only classes which are valid arguments to `@specialized` annotation.
+  *
+  * In general, a `RuntimeType[T]` may represent any type assignable from `T` ''by the runtime'': its supertype,
+  * or a type to which it is automatically boxed/unboxed by the Scala runtime. For example, `RuntimeType[Int]`
+  * may represent any possible runtime type of an expression evaluating to `scala.Int`: `int`, `java.lang.Integer`,
+  * (erased) `java.lang.Object`, or even `java.lang.Number`. Those instances are not equal, and while in many situations
+  * these cases could be handled by the same code, it is still possible to cause a `ClassCastException` -
+  * especially when working with arrays. Thus, in order to achieve correctness, programs must be mindful of the context,
+  * and combine this information with one coming from program invariants.
+  *
+  * This class cannot be used as an evidence of general type compatibility of type parameters of two instances,
+  * for the same reason that a pear is not an apple, despite both being fruits. The situation is however further
+  * complicated by the muddy relationship between static and dynamic types in Scala:
+  *   - loss of type parameter information through erasure,
+  *     as in the case of `classTag[List[Int]] == classTag[List[Long]]`;
+  *   - the duality of Scala's inbuilt 'AnyVal's, represented in runtime by both java primitives and their wrappers,
+  *     and thus two different `Class[_]` instances, which forces any API to either become a leaky abstraction,
+  *     reflecting that duality, 'lie', committing to potentially costly conversions, or risk casting errors -
+  *     especially when dealing with arrays;
+  *   - even worse, value classes may be represented both directly by the backing type,
+  *     and as a Java object of the class, but ''they are not automatically boxed/unboxed'',
+  *     leading to runtime exceptions;
+  *   - `RuntimeType[Unit]` can represent either `java.lang.Void.TYPE` when denoting a (`void`) return type -
+  *     a synthetic, ''primitive'' class with no values and an illegal argument for most operations,
+  *     `scala.runtime.BoxedUnit` - a normal class extending `java.lang.Object`, or even `java.lang.Object` itself;
+  *   - `RuntimeType[Nothing].runType` equals synthetic `classOf[Nothing$]`, but an instance of `Nothing$`
+  *     is not assignable to anything other than its class and `Object`;
+  *   - the same goes for `RuntimeType[Null]`, which can potentially represent `Null$`, and while `Null <: T` for any
+  *     `T <: AnyRef`, `Null$ <: T` only for `T =:= Null$` and `T =:= AnyRef`;
+  *   - the information about upper or lower bounds on type arguments is lost,
+  *     but may affect the actual byte code signature of the method;
+  *   - an implementation of a method declared in a more generic super type may have more specialized erasure
+  *     than the signature of the overridden method.
+  *
+  * This evidence is, however, useful when used in conjunction with generic classes and methods to reflect ''their''
+  * runtime information about their type parameters. Its primary function is to provide the ability to distinguish
+  * between specialized synthetic versions of a generic class or method marked as `@specialized T` (with optional
+  * parameters to the annotation). Unlike `ClassTag`s and `TypeTag`s, an implicit value of this class is available
+  * even in contexts where `T` is abstract, representing the type after erasure and specialization.
+  *
   * In particular, it makes it possible for a generic class/trait/method to discover if it was instantiated/called
-  * with one of the value types as the parameter and to which primitive java type it corresponds. In a generic, erased
-  * context, `implicitly[RuntimeType[T]]` will denote an erased (and possibly boxed) type represented in the byte code
-  * as `java.lang.Object` instances (and downcast at point of calling). If, on the other hand, `T` can be proven to be
-  * an inbuilt value type, the implicit value will be specific to that type. This permits to pick a specific
-  * implementation, optimized for the given value type, or to verify if two collections share the element type.
+  * with one of the built-in value types as the argument, and to which primitive Java type it corresponds.
+  * In a generic, erased context, `implicitly[RuntimeType[T]]` (or just `RuntimeType[T]`) denotes the representation
+  * of `T` as `java.lang.Object`, possibly after lifting from a Java primitive type, and downcast/unboxed
+  * at codepoints where more specific information about the type becomes available. If, on the other hand,
+  * `T` can be proven to be an inbuilt value type, the implicit value will always be a constant
+  * from the companion object specific to that type. This permits to pick a specific implementation of a generic
+  * trait/class, optimized for the given value type, or to verify if two collections share the element type.
+  *
   * The lack of reliance on class tags makes it additionally possible to integrate specialized collections
   * with the generic standard library which would be otherwise impossible due to established method signatures.
   * For example, `ValSet[Byte]()`, `ValSet[Int]()`, `ValSet[Double]()` may all yield different implementations,
-  * while retaining the flexibility and uniformity of the generic interface.
+  * while retaining the flexibility and uniformity of the generic interface of `IterableFactory`
+  * (without a `ClassTag` parameter).
   *
-  * While the focus is on value types and their use with erased and specialized collections, an instance can,
-  * potentially, represent any reference type, generalizing the concept to provide a uniform way for specifying the
-  * degree of available static information about a given type. In particular, in contexts where `T`
+  * While the focus is on value types and their use with erased and specialized generic classes, an instance can,
+  * as stated, denote an representation as any reference type, generalizing the concept to provide a uniform way
+  * for specifying the degree of available dynamic information about a given type. In particular, in contexts where `T`
   * is fully instantiated (i.e., the instance was for example obtained from `RuntimeType[String]`), its full
-  * class information is available to represent lack of any type abstraction. Other reasons are the need for subclasses
-  * of generic, specialized types, which are dedicated to a concrete reference type
-  * (as in `class StringSet extends ValSet[String]`), to be able to correctly inform about their actual type argument,
-  * and a way to manually request a specific array type via the same interface.
+  * class information is available to represent lack of any type abstraction. Other use cases include:
+  *   - a generic class being able to provide the the information known by the implementation of its type parameter
+  *     together with the ''degree'' of that information, regardless of whether its dynamic type
+  *     is truly generic and erased, specialized, or a subclass manually specialized for a specific type
+  *     (as in `class StringSet extends Set[String]`),
+  *   - a single, unspecialized factory method for an array or a specialized class, which will always create an instance
+  *     of the most specific type, regardless if called from specialized code, or just in presence
+  *     of an implicit `ClassTag`;
+  *   - an ability to call `@specialized` code from non-specialized one, limiting the number of actually `@specialized`
+  *     methods to those, where the information is truly important for efficiency - for example, where array elements
+  *     are actually accessed - for example, the majority of collection methods accepting a function `f :A => Boolean`
+  *     could be implemented in the generic form, extracting the application of `f` to a single specialized method,
+  *     considerably reducing the class size when compared to specializing them all,
+  *   - an ability to call ''manually specialized'' (unrelated) methods from generic ones
+  *     (see [[net.noresttherein.sugar.reflect.Specialize Specialize]]).
   *
-  * It thus serves as a common umbrella for information available via scala reflection, class tags,
-  * and local specialization. This makes it more powerful, for example allowing to call specialized code
-  * from non-specialized based on this ype class, which in turn can make generated specialized classes smaller
-  * by extracting the code actually referencing values of this type from methods which can be implemented
-  * without this information. For example, the majority of collection methods accepting a function working
-  * with their element type can be implemented in the generic form, deferring the application point to a single,
-  * reusable specialized method.
-  *
-  * In general, however, relying on this class for type safety is a very tricky ground, due to the muddy relationship
-  * between static and dynamic types of scala code:
-  *   - the duality of scala inbuilt 'AnyVal's, represented in runtime by both java primitives and their wrappers,
-  *     and thus two different `Class[_]` instances, which forces any API to either become a leaky abstraction,
-  *     reflecting that duality, 'lie', committing to potentially costly conversions, or risk casting errors -
-  *     especially when dealing with arrays.
-  *   - upper or lower bounds on type arguments which may affect the actual byte code signature of the method
-  *     are not available;
-  *   - implementations of methods declared in more generic super types, which may have a more specialized erasure
-  *     than the signature of the overridden method.
-  *   - information lost during erasure, which still may cause conflicts such as with arrays (or other specialized code)
-  *     with element type which is generic itself.
-  *
-  * While scala compiler and runtime make their best attempt to hide this from user code by auto-boxing and un-boxing,
-  * without being careful it is still possible to run into `ClassCastException`s, especially when working with arrays.
-  *
-  * More formally, an instance of [[net.noresttherein.sugar.reflect.RuntimeType RuntimeType]]`[T]` may represent
-  * any runtime type assignable from `T`, potentially using autoboxing. For example, `RuntimeType[Int]` may represent
-  * any possible runtime type of an expression evaluating to `scala.Int`: `int`, `java.lang.Integer`,
-  * or (erased) `java.lang.Object`. Instances representing each of these types are not considered equal,
-  * despite their corresponding types being almost functionally equivalent in the bytecode and `Int`
-  * lacking polymorphism. For primitives, this is largely transparent - the code operating on any of these
-  * will be generally interchangeable due to autoboxing. The situation is more complex for reference types,
-  * as the type hierarchy is unlimited and there is no auto-conversion involved (other than
-  * identity conversion / upcasting). This means there is no homomorphism between type `T` and `RuntimeType[T]`
-  * regarding equality: both different instances of `RuntimeType[T]` may be unequal, being incompatible, and equality
-  * between `RuntimeType[T]` and `RuntimeType[F]` confirms only that types `T` and `F` have identical representation
-  * in referenced contexts, but potentially little about their actual relationship - in particular,
-  * both specializations may refer to `AnyRef`.
-  *
-  * Instances of `RuntimeType[T]` can be obtained from the companion object based either on a runtime
-  * class/`ClassTag`/`TypeTag`, or existing specialization context. Implicit values are provided directly for all value
-  * types (and several other common types), or created based on any of the aforementioned sources implicitly available
-  * (in exactly that order). The consequence of that fact is that the default value will always reflect the most
-  * specific representation that can be determined and, in case of `AnyRef` subtypes, whenever actual information
-  * about the class is known (in particular always when `T` is statically known), it will be used rather than the erased
-  * `AnyRef`. It may not always be the desirable behaviour and, in cases where only root level specialization is of
-  * interest (that is, if the type in question is a jvm primitive or `java.lang.Object`),
-  * [[net.noresttherein.sugar.reflect.Specialized Specialized]] instance may be requested instead.
-  *
-  * Implicitly provided `Specialized[T]` for all built-in value types will either represent a corresponding java
-  * primitive or an erased and boxed value `Specialized[AnyRef]`, depending on whether the actual type was known
-  * or erased in the context in which it was created. Consider:
+  * The situation is considerably simpler for [[net.noresttherein.sugar.reflect.Specialized Specialized]] subclass,
+  * as it has only instances representing each Java primitive type and the erased context;
+  * the former gives full information by providing equal lower and upper bounds on the type parameter
+  * (if `spec :Specialized[T]`, and `spec.runType == classOf[Int]`, then `T =:= Int`),
+  * while the latter essentially tells essentially nothing, and all possible instances are declared as constants
+  * in its companion object. Still, the fact that the specialization context information for a type can be derived
+  * from different sources, means that it is very easy to obtain different instance depends on how it was obtained.
+  * Consider:
   * {{{
-  *     def typeName[@specialized T](t :T) = s"\$t is a \${RuntimeType[T].typeName}"
+  *     def ofClass[T :ClassTag] = RuntimeType[T] //Full runtime class information
+  *     def ofTypeClass[T :RuntimeType] = RuntimeType[T] //Whatever was passed implicitly
+  *     def ofSpec[@specialized T] = RuntimeType[T] //Retrieve an instance based on method specialization
   *
-  *     println(typeName(1)) // "1 is a int"
-  *     println(typeName(true)) //"true is a boolean"
-  *     println(typeName("hamster")) //"hamster is a java.lang.Object"
-  * }}}
-  * or
-  * {{{
-  *     def intIsSpecial[@specialized(Int) T](t :T) =
-  *         if (RuntimeType[T] == RuntimeType.OfInt) s"hey, we got an int: \${RuntimeType[T].classTag}!"
-  *         else s"something else: \${RuntimeType[T].classTag} :("
+  *     def erased[T] = (ofClass[T].classTag, ofTypeClass[T].classTag, ofSpec[T].classTag)
+  *     def spec[@specialized T] = (ofClass[T].classTag, ofTypeClass[T].classTag, ofSpec[T].classTag)
+  *     def typeClass[T :RuntimeType] = (ofClass[T].classTag, ofTypeClass[T].classTag, ofSpec[T].classTag)
+  *     def both[@specialized T :RuntimeType] = (ofClass[T].classTag, ofTypeClass[T].classTag, ofSpec[T].classTag)
   *
-  *     def any[T](t :T) = intIsSpecial(t)
-  *     println(intIsSpecial(1)) // "hey, we got an int: Int"
-  *     println(intIsSpecial(1.0))  //"something else: Object :("
-  *     println(any(1)) //"something else: Object :("
-  * }}}
-  * Note that in the last case we lost specialization information because erased method `any` called the generic
-  * version of `intIsSpecial`.
-  *
-  * A secondary use case is the ability to invoke a specialized variant of a method even from the context where
-  * actual type argument is erased in the byte code, by passing the type class along the call stack:
-  * {{{
-  *     def newArray[@specialized T] = RuntimeType[T].newArray(42).asInstanceOf[Array[T]]
-  *
-  *     object SpecArray extends Specialize[Array] {
-  *         def specialized[@specialized T :RuntimeType] = newArray[T]
-  *     }
-  *
-  *     //erased method without any specialization
-  *     def unspecialized[T :RuntimeType](t :T) = SpecArray[T]()
-  *
-  *     println(unspecialized(1).getClass.getSimpleName) //int[]
-  *     println(unspecialized(1.0).getClass.getSimpleName) //double[]
-  *     println(unspecialized("hello").getClass.getSimpleName) //Object[]
-  *     val strings = unspecialized("hello") //java.lang.ClassCastException: [Ljava.lang.Object; cannot be cast to [Ljava.lang.String;
-  * }}}
-  * Note that:
-  *   1. method `unspecialized` is simply erased, no specialized variants are generated by the scala compiler
-  *   2. method `newArray` doesn't require any implicit or explicit parameters, retrieving specialization information
-  *      by `RuntimeType.apply[T]`
-  *   3. `ClassCastException` is the consequence of erasure of the type parameter and cast in the `newArray` method
-  *      which performs a (purely syntactic in this case) cast down from an erased array to array
-  *      of the given type parameter.
-  *
-  * An implicit value `RuntimeType[T]` is always present for any concrete or abstract type `T`. If `T` is known to be
-  * one of the specializable scala types in the point of resolution, a constant singleton for that primitive is returned.
-  * If `T` is an abstract type or proper subclass of `AnyRef`, implicit resolution defaults to a lookup mechanism
-  * which attempts to recognize if it is requested from a context where `T` is a specialized type parameter. Therefore
-  * specialization context can be passed from method to method in two ways: either as a `RuntimeType` context bound
-  * (type class-like implicit parameter), or by preserving `@specialized` annotation on the type.
-  * As the implicit resolution algorithm searches local context before companion objects, any implicit parameter
-  * will override
-  * default implicit values declared in [[RuntimeType$]]. This can lead to situations, where the two values aren't equal,
-  * usually due to execution of non-specialized generic code on the call stack, while a `RuntimeType` instance is passed
-  * as an implicit parameter. Consider:
-  * {{{
-  *     def whoIs[T :RuntimeType] = RuntimeType[T] //retrieve an instance from the implicit parameter
-  *     def whoIs2[@specialized T] = RuntimeType[T] //retrieve an instance based on method specialization
-  *     def erase[T] = RuntimeType[T]
-  *
-  *     def erased[T] = whoIs[T] -> whoIs2[T]
-  *     def spec[@specialized T] = whoIs[T] -> whoIs2[T]
-  *     def typeClass[T :RuntimeType] = whoIs[T] -> whoIs2[T]
-  *     def both[@specialized T :RuntimeType] = whoIs[T] -> whoIs2[T]
-  *
-  *     println(erased[Int])           //"(Object, Object)"
-  *     println(spec[Int])             //"(int, int)"
-  *     println(typeClass[Int])        //"(int, Object)"
-  *     println(both[Int])             //"(int, int)"
-  *     println(both[Int](erase[Int])) //"(Object, int)"
+  *     println(erased[Int])             //"(Object, Object, Object)"
+  *     println(spec[Int])               //"(Object, Int, Int)"
+  *     println(typeClass[Int])          //"(Object, Int, Object)"
+  *     println(both[Int])               //"(Object, Int, Int)"
+  *     println(both[Int](ofClass[Int])) //"(Int, Int, Int)"
   * }}}
   *
-  * @tparam T any scala type, usually itself a type parameter of a generic method/class;
+  * @tparam T any Scala type, usually itself a type parameter of a generic method/class;
   *           this is not the final erased/unboxed type.
   * @see [[net.noresttherein.sugar.reflect.Specialize]] for calling specialized code from non-specialized context.
   * @see [[net.noresttherein.sugar.reflect.Specialized]]
@@ -182,17 +146,18 @@ import net.noresttherein.sugar.reflect.Specialize.SpecializeIndividually
 sealed trait RuntimeType[@specialized T] extends Serializable {
 
 	/** Type to which generic methods for `T` are specialized, i.e. representation of `T` inside a method `m[T]`,
-	  * after erasure and any specializations. It is the scala alias for either `java.lang.Object` or one of java primitive types.
+	  * after erasure and any specializations. It is always a type alias for either `java.lang.Object`
+	  * or one of Java primitive types.
 	  */
 	type GenericType >: RunType
 
 	/** Closest information about type `T` as represented in byte code. This is different from
 	  * [[net.noresttherein.sugar.reflect.RuntimeType.GenericType GenericType]]
-	  * in that it doesn't necessarily represent erasure, but can be in particular any reference type.
+	  * in that it doesn't necessarily represent erasure, but can be also any reference type.
 	  *
 	  * While in general values of `RunType` do not always conform to the type `T` denoted by this instance,
-	  * the semantics of java generics and scala specialization as well as their runtimes with regard to autoboxing
-	  * mean that the cast `(_ :RunType).asInstanceOf[T]` is safe as long as this instance was obtained in
+	  * the semantics of Java generics and Scala specialization as well as their runtimes with regard to autoboxing
+	  * mean that the cast `(_ :RunType).asInstanceOf[T]` is safe as long as this instance was statically obtained in
 	  * the context of casting. This is because either `RunType` and `T` are the same specialized value type and
 	  * the cast is removed at compilation, or `T` is erased.
 	  */
@@ -200,7 +165,7 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 
 	/** Type to which values of `T` are boxed whenever a reference type is expected. For primitive types it is declared
 	  * as their corresponding wrappers, for a reference type `T <: AnyRef` it is simply `T`. The tricky case are
-	  * custom value classes which are promoted to `AnyRef` without nominally extending it.
+	  * custom value classes which are promoted to `AnyRef` without nominally being its subtypes.
 	  */
 	type BoxType
 
@@ -279,7 +244,7 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	  * This is a variant of [[net.noresttherein.sugar.reflect.RuntimeType.emptyArray emptyArray]] casting the array
 	  * to `Array[T]`. This cast is safe if this instance was obtained in the context of the casting, as in that case
 	  * both `RunType` and `T` refer to the same type/class used to represent `T` in that context; this cast actually
-	  * compiles to no-op in this method. In fact, it will be will be still safe as long as this instance represents
+	  * compiles to no-op in this method. In fact, it will be still safe as long as this instance represents
 	  * a higher level of specialization than available in the context of the caller, meaning either the calling code
 	  * is not specialized for `T` at all, or `T` is a statically known super class of the type represented by this
 	  * type class.
@@ -331,12 +296,12 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	def runType :Class[RunType]
 
 	/** Class representing dynamic type for parameter `T` in a generic context after erasure and specialization.
-	  * Only possible values are synthetic java classes for java primitives
-	  * (i.e. `Integer.TYPE` and `Class[java.lang.Object]`.
+	  * The only possible values are synthetic Java classes for Java primitives
+	  * (i.e. `Integer.TYPE`) and `Class[java.lang.Object]`.
 	  */
 	def genericType :Class[GenericType]
 
-	/** For value types, the java class boxing this value. For reference types, equal to `runType`. */
+	/** For value types, the Java class boxing this value. For reference types, equal to `runType`. */
 	def boxType :Class[BoxType]
 
 
@@ -350,17 +315,17 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	def boxClassName :String = boxType.getName
 
 	/** Scala name of the runtime type of `T` as returned by the `ClassTag` corresponding to the `runType` class. */
-	def typeName :String = classTag.toString
+	def scalaName :String = classTag.toString
 
 	/** Scala name of the type specialized for `T`, as returned by the `ClassTag`
 	  * corresponding to the `genericType` class.
 	  */
-	def genericTypeName :String = erasedClassTag.toString
+	def genericScalaName :String = erasedClassTag.toString
 
 	/** Scala name of the runtime type of the reference type for `T`, as returned by the `ClassTag`
 	  * corresponding to the `boxType` class.
 	  */
-	def boxTypeName :String = boxClassTag.toString
+	def boxScalaName :String = boxClassTag.toString
 
 
 	/** `ClassTag` representing the type used in the bytecode to represent values of `T`
@@ -374,7 +339,7 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	def erasedClassTag :ClassTag[GenericType] = ClassTag(genericType)
 
 	/** `ClassTag` representing the type to which `T` is boxed wherever a reference type is required
-	  * (such as type parameters for generic, non specialized types).
+	  * (such as type parameters for generic, non-specialized types).
 	  */
 	def boxClassTag :ClassTag[BoxType] = ClassTag(boxType)
 
@@ -410,24 +375,46 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 		(this eq OfInt) || (this eq OfLong) || (this eq OfFloat) ||
 			(this eq OfDouble) || (this eq OfBoolean) || (this eq OfUnit)
 
+	//todo: analyze with a fresh mind if this is sound (overridden in Specialized).
+	def asSubtype[S <: T] :RuntimeType[S] = this.asInstanceOf[RuntimeType[S]]
 
 
-	protected[reflect] def call[R[_]](callback: Specialize[R])(implicit force :Enforce[T]) :R[T] =
+	protected[reflect] final def call[R[_]](callback: Specialize[R])(implicit force :Enforce[T]) :R[T] =
 		callback.specialized(this)
 
-	protected[reflect] final def call[P[_], R[_]](callback: Specialize.With[P, R])(param :P[T])
-	                                           (implicit force :Enforce[T]) :R[T] =
+	protected[reflect] def call[R[_]](callback :Specifically[R])(implicit force :Enforce[T]) :R[T]
+
+	protected[reflect] final def call[P[_], R[_]](callback: Specialize.WithArg[P, R])(param :P[T])
+	                                             (implicit force :Enforce[T]) :R[T] =
 		callback.specialized(param)(this)
 
+	protected[reflect] def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+	                                       (param :P[T])(implicit force :Enforce[T]) :R[T]
+
+	//A variant of the above @specialized for the type parameter.
+	protected[reflect] def call[R[_]](callback :Specifically.Lift[R])(param :T) :R[T] //=
+//		call(callback :Specifically.WithArg[Self, R])(param)
+
+	/** Invokes the proper variant of `@specialized` method `callback.specialized`,
+	  * even when called from non-specialized context. This works because this method is `@specialized`
+	  * for the argument type of this type class, ergo the erased variant of this method delegates
+	  * to the variant specific to `T`.
+	  */
 	protected[reflect] final def call[P1[_], P2[_], R[_]]
-	                               (callback :Specialize.With2[P1, P2, R])
-	                               (param1 :P1[T], param2 :P2[T])(implicit force :Enforce[T]) :R[T] =
+	                                 (callback :Specialize.With2Args[P1, P2, R])
+	                                 (param1 :P1[T], param2 :P2[T])(implicit force :Enforce[T]) :R[T] =
 		callback.specialized(param1, param2)(this)
 
-	protected[reflect] def call[R[X]](callback :SpecializeIndividually[R])(implicit force :Enforce[T]) :R[T]
+	protected[reflect] def call[P1[_], P2[_], R[_]]
+	                           (callback :Specifically.With2Args[P1, P2, R])
+	                           (param1 :P1[T], param2 :P2[T])(implicit force :Enforce[T]) :R[T]
+
+	protected[reflect] def call[R[_]](callback :Specifically.Lift2[R])(param1 :T, param2 :T) :R[T] //=
+//		call[Self, Self, R](callback :Specifically.With2Args[Self, Self, R])(param1, param2)
 
 
-	/** An identifier which is different for every specializable type and a (erased) reference type. */
+
+	/** An identifier which is different for every specializable type and the (erased) reference type. */
 	@unspecialized protected[reflect] def discriminator :Enforce[T]
 
 
@@ -441,65 +428,79 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 	  * This relation is strictly stronger than equality on `RuntimeType[_]`.
 	  * @see [[net.noresttherein.sugar.reflect.RuntimeType.equals]]
 	  */
-	@inline final def sameAs(other :RuntimeType[_]) :Boolean = runType.isPrimitive && runType == other.runType
+	@inline final def sameAs(other :RuntimeType[_]) :Boolean = runType == other.runType
 
-	/** Same as [[net.noresttherein.sugar.reflect.RuntimeType.sameAs]]. */
-	@inline final def =:=(other :RuntimeType[_]) :Boolean = runType.isPrimitive && runType == other.runType
-
-	/** Equates specialization of primitive types with their representations as auto boxed objects.
-	  * For reference type this corresponds simply to equality on `runType`.
-	  * @return `true` if `other` boxes to the same type this instance boxes to.
-	  */
-	def =%=(other :RuntimeType[_]) :Boolean = boxType eq other.boxType
-
-	/** True if all values represented as this runtime type can be safely assigned to a variable represented by `other`,
-	  * perhaps including boxing by scala run time. Note that it compares the compiled type representations at possibly
-	  * arbitrary points; in particular, if `other` represents `Any`/`AnyRef`/erasure, the relation will hold regardless
-	  * of this instance. It is useful with additional invariants. For example, `ArrayPlus[T]` can be potentially
-	  * backed by any array `Array[U] forSome { type U >: T }` ''as well as'' `Array[S] forSome { type S <: T }`:
-	  * the former due to full or partial erasure and the latter as the effect of its covariance. This relation can
-	  * answer the question if elements of another collection can be safely written to the array, while the element type
-	  * of the union of the collections is determined statically as their ''LUB'' type. If, in addition, the `<:<`
-	  * relation also holds, two backing arrays can be copied using `System.arraycopy`.
-	  * @return `other.boxType isAssignableFrom this.boxType`.
-	  * @see [[net.noresttherein.sugar.reflect.RuntimeType.<:<]] for additional information.
-	  */
-	def <%<(other :RuntimeType[_]) :Boolean = other.boxType.isAssignableFrom(boxType)
-
-	/** True if all values represented as this runtime type are directly assignable to variables defined by `other`.
-	  * This is weaker than the `<:<` relation on scala `Type` instances and in general says nothing about
-	  * subtype relation between the type parameters of compared instances. It occupies itself only with the runtime
-	  * class/type at a given point; not only any type parameters of type `T` itself are always erased, but `other`
-	  * can potentially represent complete type erasure to `java.lang.Object`. In fact, it is quite possible
-	  * that `(x :RuntimeType[X]) <:< (y :RuntimeType[Y])` and `Y <:< X` for different types `X` and `Y`:
-	  * it suffices that `Y` is stored as a strict super type of `X` (as in the case of complete type erasure)
-	  * and downcast by the ''VM'' when non-abstract reference to a collection element is encountered.
-	  * Therefore this check is a very poor substitute for type safety and is useful primarily in conjunction with
-	  * additional constraints: either static type bounds, compared types being inbuilt value types, class-specific
-	  * invariants.
-	  * @return `other.runType isAssignableFrom this.runType`.
-	  */
-	def <:<(other :RuntimeType[_]) :Boolean = other.runType.isAssignableFrom(runType)
-
-	/** Returns `other <%< this`. */
-	def >%>(other :RuntimeType[_]) :Boolean = other <%< this
-
-	/** Returns `other <:< this`. */
-	def >:>(other :RuntimeType[_]) :Boolean = other <:< this
-
-	/** Two instances are equal if and only if they represent the same runtime class/type at their respective origin.
-	  * This is a weaker relation than equality of corresponding type arguments T; for one, erasure abstracts over
-	  * type parameters. More importantly however, a `RuntimeType[T]` may represent any supertype of `T`,
-	  * in particular `Any` / `AnyRef`, which can possibly result in equating any two unrelated types. On the other
+	/** Defines classes of abstraction of types which, at code points associated with the compared instances,
+	  * are represented as the same Java type in byte code.
+	  * This is a weaker relation than equality of corresponding type arguments T. For one, erasure abstracts over
+	  * type parameters, so [[net.noresttherein.sugar.reflect.Specialized Specialized]]`[X] =:= Specialized[Y]`
+	  * for any `X, Y <: AnyRef`, even if types are unrelated. On the other hand, also
+	  * `Specialized[String] =:= RuntimeType.`[[net.noresttherein.sugar.reflect.RuntimeType.of of]]`[AnyRef]`,
+	  * despite the latter unequivocally representing `AnyRef` itself. In general, a `RuntimeType[T]` may represent
+	  * any supertype of `T`, in particular `Any` / `AnyRef`, which can possibly result in equating two unrelated types.
+	  * On the other
 	  * hand, representations of a value type and a reference type will never be equal, even if the latter is
 	  * the runtime box of the former. Likewise, custom value class and its backing value type will also compare as
 	  * different, even though scala/java runtime would afford cross-compatibility.
 	  * It is primarily useful in the context of specialization, as `runType` being a primitive token class guarantees
-	  * @return `this.runType == that.runType` if `that` is a `RuntimeType` and false otherwise.
+	  * @return `this.runType == that.runType`.
 	  * @see [[net.noresttherein.sugar.reflect.RuntimeType.sameAs]]
 	  */
+	@inline final def =:=(other :RuntimeType[_]) :Boolean = runType eq other.runType
+
+	/** True if all values represented as this runtime type are directly assignable to variables defined
+	  * as the runtime type `other`. This is weaker than the `<:<` relation on scala `Type` instances,
+	  * and in general says nothing about subtype relation between the type parameters of compared instances.
+	  * It occupies itself only with the runtime class/type at a given point; not only any type parameters
+	  * of type `T` itself are always erased, but `other` can potentially represent complete type erasure
+	  * to `java.lang.Object`. In fact, it is quite possible that `(x :RuntimeType[X]) <:< (y :RuntimeType[Y])`
+	  * and `Y <:< X` for different types `X` and `Y`: it suffices that `Y` is stored as a strict super type of `X`
+	  * (as in the case of complete type erasure) and downcast by the ''VM'' when non-abstract reference
+	  * to a collection element is encountered. Therefore, this check is a very poor substitute for type safety
+	  * and is useful primarily in conjunction with additional constraints: either static type bounds, compared types
+	  * being inbuilt value types, class-specific invariants.
+	  * @return `other.runType isAssignableFrom this.runType`.
+	  */
+	def <:<(other :RuntimeType[_]) :Boolean = other.runType.isAssignableFrom(runType)
+
+	/** Returns `other <:< this`. */
+	@inline final def >:>(other :RuntimeType[_]) :Boolean = other <:< this
+
+	/** Equates specialization of primitive types with their representations as auto boxed objects.
+	  * For reference type this corresponds simply to equality on
+	  * [[net.noresttherein.sugar.reflect.RuntimeType.runType runType]] and is always true .
+	  * if `this `[[net.noresttherein.sugar.reflect.RuntimeType.=:= =:=]]` other`.
+	  * @return `this.boxType == other.boxType`.
+	  */
+	def =%=(other :RuntimeType[_]) :Boolean = boxType eq other.boxType
+
+	/** True if all values represented as this runtime type can be safely assigned to a variable represented by `other`,
+	  * perhaps including boxing by scala run time, at the codepoint this instance is referring to.
+	  * Note that it compares the compiled type representations at possibly arbitrary points; in particular,
+	  * if `other` represents `Any`/`AnyRef`/erasure, the relation will hold regardless
+	  * of this instance. It is useful mainly with additional invariants. For example, `RelayArray[T]` can be potentially
+	  * backed by any array `Array[U] forSome { type U >: T }` ''as well as'' `Array[S] forSome { type S <: T }`:
+	  * the former due to full or partial erasure and the latter as the effect of its covariance. This relation can
+	  * answer the question if elements of another collection can be safely written to the array, while the element type
+	  * of the union of the collections is determined statically as their ''LUB'' type. If, in addition,
+	  * the [[net.noresttherein.sugar.reflect.RuntimeType.<:< <:<]] relation also holds,
+	  * two backing arrays can be copied using `System.arraycopy`.
+	  * @return `other.boxType isAssignableFrom this.boxType`.
+	  */
+	def <%<(other :RuntimeType[_]) :Boolean = other.boxType.isAssignableFrom(boxType)
+
+	/** Returns `other <%< this`. */
+	@inline final def >%>(other :RuntimeType[_]) :Boolean = other <%< this
+
+	/** Two instances are equal if and only if they denote the same bytecode representation of the same type.
+	  * In other words, for `a :RuntimeType[A], b :RuntimeType[B]`, `a == b` not only implies
+	  * `this `[[net.noresttherein.sugar.reflect.RuntimeType.=:= =:=]]` that` (variables of their respective types
+	  * declared at their respective code points have the same type in bytecode), but also that `typeOf[A] =:= typeOf[B]`.
+	  * This can happen only if both `A` and `B` are builtin value types, or `a` and `b` are the same object.
+	  * @return `(this eq that) || this.runType.isPrimitive && this.runType == that.runType`.
+	  */
 	final override def equals(that :Any) :Boolean = that match {
-		case r :RuntimeType[_] => r.runType eq runType
+		case r :RuntimeType[_] => (this eq r) || runType.isPrimitive && (r.runType eq runType)
 		case _ => false
 	}
 	final override def hashCode :Int = runType.hashCode
@@ -511,7 +512,7 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 
 
 @SerialVersionUID(Ver)
-object RuntimeType extends SecondaryRuntimeTypeImplicits {
+object RuntimeType extends Rank1RuntimeTypes {
 
 	/** Retrieves implicit information about runtime representation of type `T` at the point of calling.
 	  * This is just a shortcut for `implicitly[RuntimeType[T]]`. Note that there should always be an implicit value
@@ -817,8 +818,24 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		override val genericType = classOf[Any]
 		protected[reflect] override val discriminator = Enforce.forceSpecialization
 
-		protected[reflect] override def call[R[X]](callback :SpecializeIndividually[R])(implicit force :Enforce[Nothing]) =
+		protected[reflect] override def call[R[_]](callback :Specifically[R])(implicit force :Enforce[Nothing]) =
 			callback.forNothing
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Nothing])(implicit force :Enforce[Nothing]) =
+			callback.forNothing(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Nothing) :R[Nothing] =
+			callback.forNothing(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Nothing], param2 :P2[Nothing])
+		                                                        (implicit force :Enforce[Nothing]) :R[Nothing] =
+			callback.forNothing(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Nothing, param2 :Nothing) :R[Nothing] =
+			callback.forNothing(param1, param2)
 
 		private def readResolve :AnyRef = RuntimeType.OfNothing
 		override def toString = "[Nothing]"
@@ -881,8 +898,23 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 
 		protected[reflect] override def discriminator :Enforce[T] = ErasedKey.asInstanceOf[Enforce[T]]
 
-		protected[reflect] override def call[R[X]](callback: SpecializeIndividually[R])(implicit force: Enforce[T]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])(implicit force: Enforce[T]) :R[T] =
 			callback.forRef[T](this)
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[T])(implicit force :Enforce[T]) :R[T] =
+			callback.forRef[T](param)(this)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :T) :R[T] =
+			callback.forRef[T](param)(this)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[T], param2 :P2[T])
+		                                                        (implicit force :Enforce[T]) :R[T] =
+			callback.forRef[T](param1, param2)(this)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])(param1 :T, param2 :T) :R[T] =
+			callback.forRef[T](param1, param2)(this)
 	}
 
 
@@ -923,9 +955,24 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
 		override def emptyGenericArray :Array[Any] = ValueClass.EmptyAnyArray
 		override def emptyBoxArray     :Array[BoxType] = emptyArray
 
-		protected[reflect] override def call[R[X]](callback :SpecializeIndividually[R])
+		protected[reflect] override def call[R[_]](callback :Specifically[R])
 		                                           (implicit force :Enforce[T]) :R[T] =
-			callback.forRef(this)
+			callback.forOthers(this)
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[T])(implicit force :Enforce[T]) :R[T] =
+			callback.forOthers(param)(this)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :T) :R[T] =
+			callback.forOthers(param)(this)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[T], param2 :P2[T])
+		                                                        (implicit force :Enforce[T]) :R[T] =
+			callback.forOthers(param1, param2)(this)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])(param1 :T, param2 :T) :R[T] =
+			callback.forOthers[T](param1, param2)(this)
 
 		protected[reflect] override def discriminator :Enforce[T] = Enforce.forceSpecialization
 	}
@@ -1013,7 +1060,7 @@ object RuntimeType extends SecondaryRuntimeTypeImplicits {
   * As it will always yield a value, but possibly representing an erased one despite programmer's intentions, it's worse
   * than any sure source of type information, but still better than nothing.
   */
-protected[reflect] sealed abstract class FallbackRuntimeTypeImplicit {
+protected[reflect] sealed abstract class Rank2RuntimeTypes {
 	/** Runtime type resolution in the context of the caller.
 	  * Implemented by [[net.noresttherein.sugar.reflect.Specialized specialized]] in the subclass.
 	  * Returned instance reflects recognized runtime type of `T` in the reference point. If the call happens
@@ -1035,7 +1082,7 @@ protected[reflect] sealed abstract class FallbackRuntimeTypeImplicit {
 /** Implicit values for `RuntimeType` type class of secondary precedence, with lower reliability or efficiency
   * than dedicated values declared in [[net.noresttherein.sugar.reflect.RuntimeType$]].
   */
-protected[reflect] sealed abstract class SecondaryRuntimeTypeImplicits extends FallbackRuntimeTypeImplicit {
+protected[reflect] sealed abstract class Rank1RuntimeTypes extends Rank2RuntimeTypes {
 	/** Retrieve specialization information about type `T` from an implicitly available `TypeTag`.
 	  * Implemented in subclass by [[net.noresttherein.sugar.reflect.RuntimeType.ofType ofType]].
 	  */
@@ -1043,7 +1090,7 @@ protected[reflect] sealed abstract class SecondaryRuntimeTypeImplicits extends F
 
 	/** Retrieve specialization information for type `T` from an implicitly available `TypeTag`.
 	  * 'TypeTag's are more annoying than `ClassTag`s, hence the latter has precedence, but we'll make do
-	  * with what we have. Returned instance reflects best runtime type for type `T`, but not necessarily
+	  * with what we have. Returned instance reflects the best runtime type for type `T`, but not necessarily
 	  * the one applicable to current context. If type `T` is abstract and not specialized, but a `TypeTag[T]` instance
 	  * identifies it as a java primitive type, an instance for that primitive will be returned despite the fact
 	  * that all values of `E` in that context might be erased and boxed in runtime.
@@ -1131,21 +1178,72 @@ private object RuntimeTypes {
 
 
 /** Base trait describing context where type `T` is used as a generic type argument subject to possible erasure and
-  * specialization. There will be an implicit value of `Specialized[T]` for any type `T`, representing
-  * that upper bound, if no more specific type information is available. This in particular includes all built in
-  * value types which erase/specialize to themselves, but also for example an `Specialized[String]`
-  * denoting erased usage of `String`, while `String` is not a 'root type'.
+  * Scala 2 specialization. There is always an implicit value of `Specialized[T]` for any type `T`, representing
+  * that upper bound of `java.lang.Object` or a Java primitive type, even if `T` is abstract.
+  * When summoned from a method `@specialized` for the type (including methods of classes specialized for the type
+  * which satisfy the specialization conditions), the instance will always be the same constant declared
+  * in the companion object. However, exactly as with `RuntimeType`, an instance of `Specialized` can be also
+  * derived from an implicit `TypeTag` or `ClassTag` (in that order of preference), even in a non-specialized context.
+  * if no more specific type information is available. Unlike in the case of the supertype, though,
+  * [[net.noresttherein.sugar.reflect.RuntimeType.runType runType]] of an instance can only be one of the ten
+  * predefined constants in object [[net.noresttherein.sugar.reflect.Specialized$ Specialized]] which form the set
+  * of legal arguments to `@specialized` annotation: the nine Java primitive types (including `void`,
+  * one of the representations of Scala `Unit`), and an erased boxed value `Specialized[Any]/Specialized[AnyRef]`.
+  * Which of those ten instances is obtained when summoning depends on the type and amount of information about
+  * the type at the summoning point.
   *
-  * In other words, the runtime type and erased type are the same for all instances of `Specialized`.
-  * It thus allows to retain the same information about type `T` as scala `@specialized` annotation and can be used
-  * as a type class instead of specializing code which doesn't reference values of `T` directly but needs to call
-  * specialized code nevertheless (which is possible via [[net.noresttherein.sugar.reflect.Specialize Specialize]]).
+  * In other words, the runtime type and [[net.noresttherein.sugar.reflect.RuntimeType.GenericType generic]] type
+  * are the same for all instances of `Specialized`. It thus allows to retain the same information about type `T`
+  * as Scala's `@specialized` annotation, and the information can be passed as a type class instead of a stack
+  * of calls of specialized methods, with the full ability to call back the appropriate specific variant
+  * of a specialized method at any point (by using a [[net.noresttherein.sugar.reflect.Specialize Specialize]] callback
+  * or one of its parameterized versions). Consider:
+  * {{{
+  *     def typeName[@specialized T](t :T) = s"\$t is an \${RuntimeType[T].scalaName}"
   *
-  * There are only 10 distinct values of this class:
-  * one for every inbuilt value type, `Unit`, and one denoting erased usage of a reference type.
-  * They are defined as singleton objects in the companion object to this trait and can be used in
-  * exhaustive pattern matching.
-  */ //specialized to enforce specialization of the factory method
+  *     println(typeName(1)) // "1 is an Int"
+  *     println(typeName(true)) //"true is an Boolean"
+  *     println(typeName("hamster")) //"hamster is an Object"
+  * }}}
+  * but
+  * {{{
+  *     def intIsSpecial[@specialized(Int) T](t :T) =
+  *         if (RuntimeType[T] == RuntimeType.OfInt) s"hey, we got an Int: \${RuntimeType[T].classTag}!"
+  *         else s"something else: \${RuntimeType[T].classTag} :("
+  *
+  *     def any[T](t :T) = intIsSpecial(t)
+  *     println(intIsSpecial(1)) // "hey, we got an Int: Int"
+  *     println(intIsSpecial(1.0))  //"something else: Object :("
+  *     println(any(1)) //"something else: Object :("
+  * }}}
+  * Note that in the last case we lost specialization information because erased method `any` called the generic
+  * version of `intIsSpecial`.
+  *
+  * A secondary use case is the ability to invoke a specialized variant of a method even from the context where
+  * actual type argument is erased in the byte code, by passing the type class along the call stack:
+  * {{{
+  *     def newArray[@specialized T] = RuntimeType[T].newArray(42).asInstanceOf[Array[T]]
+  *
+  *     object SpecArray extends Specialize[Array] {
+  *         def specialized[@specialized T :RuntimeType] = newArray[T]
+  *     }
+  *
+  *     //erased method without any specialization
+  *     def unspecialized[T :RuntimeType](t :T) = SpecArray[T]()
+  *
+  *     println(unspecialized(1).getClass.getSimpleName) //int[]
+  *     println(unspecialized(1.0).getClass.getSimpleName) //double[]
+  *     println(unspecialized("hello").getClass.getSimpleName) //Object[]
+  *     val strings = unspecialized("hello") //java.lang.ClassCastException: [Ljava.lang.Object; cannot be cast to [Ljava.lang.String;
+  * }}}
+  * Note that:
+  *   1. method `unspecialized` is simply erased, no specialized variants are generated by the scala compiler
+  *   2. method `newArray` doesn't require any implicit or explicit parameters, retrieving specialization information
+  *      by `RuntimeType.apply[T]`
+  *   3. `ClassCastException` is the consequence of erasure of the type parameter and cast in the `newArray` method
+  *      which performs a (purely syntactic in this case) cast down from an erased array to array
+  *      of the given type parameter.
+  */ //Specialized to enforce specialization of the factory method.
 sealed trait Specialized[@specialized T] extends RuntimeType[T] {
 	override type GenericType = RunType
 
@@ -1154,6 +1252,8 @@ sealed trait Specialized[@specialized T] extends RuntimeType[T] {
 	override def erasedClassTag :ClassTag[GenericType] = classTag
 
 	override def isErased = false
+
+	override def asSubtype[S <: T] :Specialized[S] = this.asInstanceOf[Specialized[S]]
 
 	protected[reflect] override val discriminator :Enforce[T]
 
@@ -1186,7 +1286,7 @@ object Specialized extends SpecializedFromType {
 	  */
 	final val MultiValue :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, AnyRef)] = null
 
-	/** An argument for `@specialized` annotation specializing for all types which are not easily cached (or `Short`). */
+	/** An argument for `@specialized` annotation specializing for all value types which are not easily cached (or `Short`). */
 	final val NotCached :Specializable.Group[(Char, Int, Long, Float, Double)] = null
 
 	/** Most commonly used value types. */ //consider: adding Float
@@ -1203,14 +1303,14 @@ object Specialized extends SpecializedFromType {
 	  */
 	final val Fun0 = Primitives
 
-	/** Types `scala.Function1`s argument is specialized for. */
+	/** Types `scala.Function1`'s argument is specialized for. */
 	final val Fun1Arg :Specializable.Group[(Int, Long, Float, Double)] = null
 
-	/** Types `scala.Function1` result type is specialized for. */
+	/** Types `scala.Function1`'s result type is specialized for. */
 	final val Fun1 :Specializable.Group[(Int, Long, Float, Double, Boolean, Unit)] = Specializable.Return
 	//new Specializable.Group(Unit, Boolean, Int, Float, Long, Double)
 
-	/** Result types `scala.Function1` is specialized for with the exception of `Unit`. */
+	/** Result types `scala.Function1` is specialized for except `Unit`. */
 	final val Fun1Vals :Specializable.Group[(Int, Long, Float, Double, Boolean)] = null
 
 	/** Types `scala.Function2`s arguments are specialized for. */
@@ -1319,74 +1419,226 @@ object Specialized extends SpecializedFromType {
 	/** Specialization for `Byte`. */
 	@SerialVersionUID(Ver)
 	implicit object ForByte extends SpecializedPrimitive[Byte, j.Byte](new Enforce[Byte], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Byte]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Byte]) :R[Byte] =
 			callback.forByte
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])(param :P[Byte])
+		                                                (implicit force :Enforce[Byte]) :R[Byte] =
+			callback.forByte(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Byte) :R[Byte] =
+			callback.forByte(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Byte], param2 :P2[Byte])
+		                                                        (implicit force :Enforce[Byte]) :R[Byte] =
+			callback.forByte(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Byte, param2 :Byte) :R[Byte] =
+			callback.forByte(param1, param2)
 	}
+
 
 	/** Specialization for `Short`. */
 	@SerialVersionUID(Ver)
 	implicit object ForShort extends SpecializedPrimitive[Short, j.Short](new Enforce[Short], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Short]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Short]) :R[Short] =
 			callback.forShort
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Short])(implicit force :Enforce[Short]) :R[Short] =
+			callback.forShort(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Short) :R[Short] =
+			callback.forShort(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Short], param2 :P2[Short])
+		                                                        (implicit force :Enforce[Short]) :R[Short] =
+			callback.forShort(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Short, param2 :Short) :R[Short] =
+			callback.forShort(param1, param2)
 	}
+
 
 	/** Specialization for `Int`. */
 	@SerialVersionUID(Ver)
 	implicit object ForInt extends SpecializedPrimitive[Int, j.Integer](new Enforce[Int], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Int]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Int]) :R[Int] =
 			callback.forInt
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Int])(implicit force :Enforce[Int]) :R[Int] =
+			callback.forInt(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Int) :R[Int] =
+			callback.forInt(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Int], param2 :P2[Int])
+		                                                        (implicit force :Enforce[Int]) :R[Int] =
+			callback.forInt(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])(param1 :Int, param2 :Int) :R[Int] =
+			callback.forInt(param1, param2)
 	}
+
 
 	/** Specialization for `Long`. */
 	@SerialVersionUID(Ver)
 	implicit object ForLong extends SpecializedPrimitive[Long, j.Long](new Enforce[Long], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Long]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Long]) :R[Long] =
 			callback.forLong
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Long])(implicit force :Enforce[Long]) :R[Long] =
+			callback.forLong(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Long) :R[Long] =
+			callback.forLong(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Long], param2 :P2[Long])
+		                                                        (implicit force :Enforce[Long]) :R[Long] =
+			callback.forLong(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Long, param2 :Long) :R[Long] =
+			callback.forLong(param1, param2)
 	}
+
 
 	/** Specialization for `Char`. */
 	@SerialVersionUID(Ver)
 	implicit object ForChar extends SpecializedPrimitive[Char, j.Character](new Enforce[Char], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Char]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Char]) :R[Char] =
 			callback.forChar
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Char])(implicit force :Enforce[Char]) :R[Char] =
+			callback.forChar(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Char) :R[Char] =
+			callback.forChar(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Char], param2 :P2[Char])
+		                                                        (implicit force :Enforce[Char]) :R[Char] =
+			callback.forChar(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Char, param2 :Char) :R[Char] =
+			callback.forChar(param1, param2)
 	}
+
 
 	/** Specialization for `Float`. */
 	@SerialVersionUID(Ver)
 	implicit object ForFloat extends SpecializedPrimitive[Float, j.Float](new Enforce[Float], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Float]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Float]) :R[Float] =
 			callback.forFloat
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Float])(implicit force :Enforce[Float]) :R[Float] =
+			callback.forFloat(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Float) :R[Float] =
+			callback.forFloat(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Float], param2 :P2[Float])
+		                                                        (implicit force :Enforce[Float]) :R[Float] =
+			callback.forFloat(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Float, param2 :Float) :R[Float] =
+			callback.forFloat(param1, param2)
 	}
+
 
 	/** Specialization for `Double`. */
 	@SerialVersionUID(Ver)
 	implicit object ForDouble extends SpecializedPrimitive[Double, j.Double](new Enforce[Double], 0) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Double]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Double]) :R[Double] =
 			callback.forDouble
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Double])(implicit force :Enforce[Double]) :R[Double] =
+			callback.forDouble(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Double) :R[Double] =
+			callback.forDouble(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Double], param2 :P2[Double])
+		                                                        (implicit force :Enforce[Double]) :R[Double] =
+			callback.forDouble(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Double, param2 :Double) :R[Double] =
+			callback.forDouble(param1, param2)
 	}
+
 
 	/** Specialization for `Boolean`. */
 	@SerialVersionUID(Ver)
 	implicit object ForBoolean extends SpecializedPrimitive[Boolean, j.Boolean](new Enforce[Boolean], false) {
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Boolean]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Boolean]) :R[Boolean] =
 			callback.forBoolean
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])(param :P[Boolean])
+		                                                (implicit force :Enforce[Boolean]) :R[Boolean] =
+			callback.forBoolean(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Boolean) :R[Boolean] =
+			callback.forBoolean(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Boolean], param2 :P2[Boolean])
+		                                                        (implicit force :Enforce[Boolean]) :R[Boolean] =
+			callback.forBoolean(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Boolean, param2 :Boolean) :R[Boolean] =
+			callback.forBoolean(param1, param2)
 	}
+
 
 	/** Specialization for `Unit` as java `void`. */
 	@SerialVersionUID(Ver)
 	implicit object ForUnit extends SpecializedPrimitive[Unit, BoxedUnit](new Enforce[Unit], ()) { //todo - this is not really a primitive:
-		protected[reflect] override def call[R[_]](callback: SpecializeIndividually[R])
-		                                          (implicit force: Enforce[Unit]) =
+		protected[reflect] override def call[R[_]](callback: Specifically[R])
+		                                          (implicit force: Enforce[Unit]) :R[Unit] =
 			callback.forUnit
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Unit])(implicit force :Enforce[Unit]) :R[Unit] =
+			callback.forUnit(param)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Unit) :R[Unit] =
+			callback.forUnit(param)
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Unit], param2 :P2[Unit])
+		                                                        (implicit force :Enforce[Unit]) :R[Unit] =
+			callback.forUnit(param1, param2)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Unit, param2 :Unit) :R[Unit] =
+			callback.forUnit(param1, param2)
 	}
+
 
 	/** Represents the erased context, in which the nominal type is referenced as `AnyRef` (`java.lang.Object`)
 	  * in the byte code and cast down when leaving the generic context. It is used (after casting)
@@ -1412,9 +1664,24 @@ object Specialized extends SpecializedFromType {
 		override val emptyArray :Array[Any] = new Array[Any](0)
 		override val emptyBoxArray :Array[AnyRef] = new Array[AnyRef](0)
 
-		protected[reflect] override def call[R[X]](callback :SpecializeIndividually[R])
-		                                           (implicit force :Enforce[Any]) :R[Any] =
-			callback.forRef(this)
+		protected[reflect] override def call[R[_]](callback :Specifically[R])(implicit force :Enforce[Any]) :R[Any] =
+			callback.forOthers(this)
+
+		protected[reflect] override def call[P[_], R[_]](callback :Specifically.WithArg[P, R])
+		                                                (param :P[Any])(implicit force :Enforce[Any]) :R[Any] =
+			callback.forOthers(param)(this)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift[R])(param :Any) :R[Any] =
+			callback.forOthers(param)(this) //consider: delegating directly to generic instead
+
+		protected[reflect] override def call[P1[_], P2[_], R[_]](callback :Specifically.With2Args[P1, P2, R])
+		                                                        (param1 :P1[Any], param2 :P2[Any])
+		                                                        (implicit force :Enforce[Any]) :R[Any] =
+			callback.forOthers(param1, param2)(this)
+
+		protected[reflect] override def call[R[_]](callback :Specifically.Lift2[R])
+		                                          (param1 :Any, param2 :Any) :R[Any] =
+			callback.forOthers(param1, param2)(this)
 
 		protected[reflect] override val discriminator = new Enforce[Any]
 
@@ -1429,7 +1696,7 @@ object Specialized extends SpecializedFromType {
 
 	/** Introduced because of scalac bug which caused the class initializer to reassign final value
 	  * from the generic superclass.
-	  */
+	  */ //todo: verify if this is still relevant for contemporary compilers
 	private[Specialized] sealed abstract class PrimitiveBugWorkaround[T, B <: AnyRef]
 	                                                                 (implicit final override val classTag :ClassTag[T])
 		extends Specialized[T] with SpecializedExact[T]
@@ -1449,10 +1716,10 @@ object Specialized extends SpecializedFromType {
 	}
 
 	/** Base class for all instances representing a ''jvm'' primitive type, including `void`. */
-	sealed abstract class SpecializedPrimitive[@specialized T, B <: AnyRef]
-			(protected[reflect] override final val discriminator :Enforce[T], override final val default :T)
-			(implicit classTag :ClassTag[T])
-		extends PrimitiveBugWorkaround[T, B] with Specialized[T]
+	sealed abstract class SpecializedPrimitive[@specialized V, B <: AnyRef]
+	                      (protected[reflect] override final val discriminator :Enforce[V], override final val default :V)
+	                      (implicit classTag :ClassTag[V])
+		extends PrimitiveBugWorkaround[V, B] with Specialized[V]
 	{
 		override def toString :String = string
 		private[this] val string = super.toString
@@ -1464,7 +1731,7 @@ object Specialized extends SpecializedFromType {
 	/** A token generic class specialized on its type parameter used to enforce specialization of a method by adding
 	  * it as an implicit parameter. Implicit value is available for any type argument,
 	  * but ''is not specialized itself'', which makes it faster to obtain and easier to inline by the JVM
-	  * than a `RuntimeType`. It therefore carries no actual information about specialization and the latter class
+	  * than a `RuntimeType`. It therefore cannot provide any information about specialization and the latter class
 	  * (or [[net.noresttherein.sugar.reflect.Specialized Specialized]]) should be used for that purpose.
 	  *
 	  * This class defines equality in terms of its runtime class, with two instances being equal '''iff''' `getClass`

@@ -7,10 +7,8 @@ import scala.collection.{AbstractIterator, BufferedIterator}
 
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!, unsupported_!}
-import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.prettyprint.localClassNameOf
-
-
+import net.noresttherein.sugar.typist.kinds
 
 
 @SerialVersionUID(Ver)
@@ -296,7 +294,7 @@ abstract class AbstractReverseIndexedIterator[+T](private[this] var end :Int, pr
 
 
 
-private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, generic.Any1, _], I[X]] {
+private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, kinds.Any1, _], I[X]] {
 	protected def make[T](seq :S[T], from :Int, until :Int) :I[T]
 
 	def apply[T](seq :S[T]) :I[T] =
@@ -344,11 +342,11 @@ private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, 
   *                 the iterator should return.
   */
 private sealed class IndexedSeqIterator[+T] private[collections]
-	                                   (seq :collection.IndexedSeqOps[T, generic.Any1, _], first :Int, `last++` :Int)
+	                                   (seq :collection.IndexedSeqOps[T, kinds.Any1, _], first :Int, `last++` :Int)
 	extends AbstractIndexedIterator[T](first, `last++`)
 {
-	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, idx, seq.length)
-	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
+	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _], idx :Int) = this(seq, idx, seq.length)
+	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length
@@ -381,12 +379,12 @@ private case object IndexedSeqIterator extends IndexedIteratorFactory[collection
   *                  (the end index of the slice).
   */ //consider: renaming to IndexedSeqReverseIterator
 private sealed class ReverseIndexedSeqIterator[+T] private[collections]
-	                                          (seq :collection.IndexedSeqOps[T, generic.Any1, _],
+	                                          (seq :collection.IndexedSeqOps[T, kinds.Any1, _],
 	                                           last :Int, `first++` :Int)
 	extends AbstractReverseIndexedIterator[T](last - 1, `first++` - 1) with ReverseIndexedIterator[T]
 {
-	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _], idx :Int) = this(seq, 0, idx)
-	def this(seq :collection.IndexedSeqOps[T, generic.Any1, _]) = this(seq, 0, seq.length)
+	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _], idx :Int) = this(seq, 0, idx)
+	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
 	protected final override def underlyingSize :Int = seq.length

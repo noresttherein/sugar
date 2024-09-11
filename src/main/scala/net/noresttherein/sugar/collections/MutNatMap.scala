@@ -8,10 +8,10 @@ import scala.collection.mutable.Builder
 import net.noresttherein.sugar.collections.NatMap.Assoc
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{Throw, throwANoSuchElementException}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.extensions.OptionExtension
-import net.noresttherein.sugar.funny.generic.=>:
-import net.noresttherein.sugar.illegal_!
-import net.noresttherein.sugar.vars.{Maybe, Opt}
+import net.noresttherein.sugar.exceptions.illegal_!
+import net.noresttherein.sugar.typist.kinds.=>:
+import net.noresttherein.sugar.optional.extensions.OptionExtension
+import net.noresttherein.sugar.vars.Opt
 
 
 

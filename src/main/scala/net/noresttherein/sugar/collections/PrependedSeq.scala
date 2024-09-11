@@ -5,7 +5,7 @@ import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, LinearSeq, SeqOps
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.extensions.{IteratorCompanionExtension, IteratorExtension, SeqFactoryExtension}
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.outOfBounds_!
 
 

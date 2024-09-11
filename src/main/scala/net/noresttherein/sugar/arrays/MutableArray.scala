@@ -16,10 +16,9 @@ import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsM
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, Mutator, RefArraySlice}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.typist.Unknown
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.typist.{Unknown, kinds}
+import net.noresttherein.sugar.vars.{ArrayLens, InOut, Maybe}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
@@ -77,7 +76,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		def unapply[E](elems :mutable.Seq[E]) :Maybe[MutableArray[E]] = trustedUnapply(elems)
 		def unapply[E](elems :mutable.Iterable[E]) :Maybe[MutableArray[E]] = trustedUnapply(elems)
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[MutableArray[E]] = trustedUnapply(elems)
+		def unapply[E](elems :mutable.SeqOps[E, kinds.Any1, _]) :Maybe[MutableArray[E]] = trustedUnapply(elems)
 
 		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[MutableArray[E]] = {
 			val length = elems.knownSize
@@ -136,7 +135,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		def unapply[E](elems :mutable.Seq[E])      :Maybe[(MutableArray[E], Int, Int)] = trustedUnapply(elems)
 		def unapply[E](elems :mutable.Iterable[E]) :Maybe[(MutableArray[E], Int, Int)] = trustedUnapply(elems)
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(MutableArray[E], Int, Int)] =
+		def unapply[E](elems :mutable.SeqOps[E, kinds.Any1, _]) :Maybe[(MutableArray[E], Int, Int)] =
 			trustedUnapply(elems)
 
 		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[(MutableArray[E], Int, Int)] = {

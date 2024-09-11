@@ -22,8 +22,8 @@ import net.noresttherein.sugar.collections.util.{HasFastAppend, HasFastPrepend, 
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.IterableExtension
-import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -3367,7 +3367,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 
 	@tailrec override def appendedAll[U >: E](suffix :IterableOnce[U]) :Ranking[U] =
 		suffix match { //this covers in particular IndexedSeqView
-			case seq :collection.IndexedSeqOps[U, generic.Any1, _] => seq.length match {
+			case seq :collection.IndexedSeqOps[U, kinds.Any1, _] => seq.length match {
 				case 0 => this
 				case 1 => appended(seq.head)
 				case n => appendReversed(seq.reverseIterator, n)

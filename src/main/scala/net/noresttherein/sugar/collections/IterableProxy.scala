@@ -2,7 +2,7 @@ package net.noresttherein.sugar.collections
 
 import scala.collection.{Factory, IterableOps}
 
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 
 
 

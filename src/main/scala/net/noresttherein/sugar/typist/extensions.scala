@@ -1,9 +1,11 @@
 package net.noresttherein.sugar.typist
 
+import net.noresttherein.sugar.funny.Curry2
 import net.noresttherein.sugar.funny.fun.Identity
-import net.noresttherein.sugar.reflect.Specialized.{NotCached, Primitives, Vals}
+import net.noresttherein.sugar.reflect.CrossSpecialize.CrossSpecializeSome
+import net.noresttherein.sugar.reflect.{RuntimeType, Specialize}
+import net.noresttherein.sugar.reflect.Specialized.Vals
 import net.noresttherein.sugar.typist.extensions.{extensions_<:<, extensions_=:=}
-import net.noresttherein.sugar.witness.Ignored
 
 
 private[typist] sealed trait extensionsLowPriority extends Any {
@@ -28,21 +30,16 @@ trait extensions extends Any with extensionsLowPriority {
 /** Declarations of classes with extension methods for `<:<` and `=:=`
   * and the implicit conversions to these classes. They can also be imported together with all other
   * extension methods in this library from object `sugar.`[[net.noresttherein.sugar.extensions extensions]].
-  */ //Consider: if we moved this to witness, we could bring casting to top level.
+  */
 @SerialVersionUID(Ver)
 object extensions extends extensions {
+
 	@SerialVersionUID(Ver)
 	object spec_<:< {
-		implicit def identity[X] :X spec_=:= X = RefIsRef.asInstanceOf[X spec_=:= X]
-		private case object RefIsRef extends Identity[Unknown] with spec_=:=[Unknown, Unknown]
-		implicit case object ByteIsByte extends Identity[Byte] with spec_=:=[Byte, Byte]
-		implicit case object ShortIsShort extends Identity[Short] with spec_=:=[Short, Short]
-		implicit case object CharIsChar extends Identity[Char] with spec_=:=[Char, Char]
-		implicit case object IntIsInt extends Identity[Int] with spec_=:=[Int, Int]
-		implicit case object LongIsLong extends Identity[Long] with spec_=:=[Long, Long]
-		implicit case object FloatIsFloat extends Identity[Float] with spec_=:=[Float, Float]
-		implicit case object DoubleIsDouble extends Identity[Double] with spec_=:=[Double, Double]
-		implicit case object BooleanIsBoolean extends Identity[Boolean] with spec_=:=[Boolean, Boolean]
+		def apply[X, Y](implicit ev :X <:< Y, first :RuntimeType[X], second :RuntimeType[Y]) :X spec_<:< Y = ???
+//			unsafe_=:=[X, Y]()
+
+		implicit def identity[X :RuntimeType] :X spec_=:= X = ??? //unsafe_=:=()
 	}
 
 	/** A `@specialized` variant of standard `<:<`. Can be obtained through an extension method from any `<:<`. */
@@ -53,18 +50,81 @@ object extensions extends extensions {
 	}
 
 	/** A `@specialized` variant of standard `=:=`. Can be obtained through an extension method from any `=:=`. */
+	//Must be a trait as we have to mix it in last as spec_<:< declares a final override for apply.
 	@SerialVersionUID(Ver)
 	sealed trait spec_=:=[@specialized(Vals) X, @specialized(Vals) Y] extends spec_<:<[X, Y] {
 		final override def unspec :X =:= Y = <:<.refl.asInstanceOf[X =:= Y]
 		@inline final def flip :spec_=:=[Y, X] = this.asInstanceOf[spec_=:=[Y, X]]
 	}
 
+	@SerialVersionUID(Ver)
+	object spec_=:= {
+		def apply[X, Y](implicit ev :X =:= Y, first :RuntimeType[X], second :RuntimeType[Y]) :spec_=:=[X, Y] = ???
+//			unsafe_=:=()
+	}
+
+
+/*
+	private object unsafe_=:= extends CrossSpecializeSome[spec_=:=] {
+		type E[
+		private[this] val ByteIsByte       :spec_=:=[Byte, = new Evidence[Byte]
+		private[this] val ShortIsShort     = new Evidence[Short]
+		private[this] val CharIsChar       = new Evidence[Char]
+		private[this] val IntIsInt         = new Evidence[Int]
+		private[this] val LongIsLong       = new Evidence[Long]
+		private[this] val FloatIsFloat     = new Evidence[Float]
+		private[this] val DoubleIsDouble   = new Evidence[Double]
+		private[this] val BooleanIsBoolean = new Evidence[Boolean]
+		private[this] val RefIsRef         = new Evidence[AnyRef]
+
+		override val forByte    :First[Byte]    = new Curried(ByteIsByte)
+		override val forShort   :First[Short]   = new Curried(ShortIsShort)
+		override val forChar    :First[Char]    = new Curried(CharIsChar)
+		override val forInt     :First[Int]     = new Curried(IntIsInt)
+		override val forLong    :First[Long]    = new Curried(LongIsLong)
+		override val forFloat   :First[Float]   = new Curried(FloatIsFloat)
+		override val forDouble  :First[Double]  = new Curried(DoubleIsDouble)
+		override val forBoolean :First[Boolean] = new Curried(BooleanIsBoolean)
+		override val forUnit    :First[Unit]    = new Curried(RefIsRef.asInstanceOf[Unit spec_=:= Unit])
+		override val forNothing :First[Nothing] = new Curried[Nothing](RefIsRef.asInstanceOf[Nothing spec_=:= Nothing])
+
+		override def forOthers[T :RuntimeType] :First[T] = new Curried(RefIsRef.asInstanceOf[T spec_=:= T])
+
+		override def forAny2[X, Y](implicit x :RuntimeType[X], y :RuntimeType[Y]) :spec_=:=[X, Y] =
+			RefIsRef.asInstanceOf[spec_=:=[X, Y]]
+
+		private class Curried[X](equiv :spec_=:=[X, X])(implicit first :RuntimeType[X])
+			extends Specialize[Curry2[spec_=:=]#A1[X]#A2]
+		{
+			override def specialized[@specialized E](implicit second :RuntimeType[E]) :spec_=:=[X, E] =
+				(if (first != second) RefIsRef else equiv).asInstanceOf[spec_=:=[X, E]]
+		}
+
+		private class Evidence[@specialized T](implicit val tpe :RuntimeType[T])
+			extends Identity[T] with spec_=:=[T, T]
+		{
+			override val toString :String = {
+				val typeName = tpe.scalaName
+				"spec_=:=[" + typeName + ", " + typeName + "]"
+			}
+			override def equals(that :Any) :Boolean = that match {
+				case other :Evidence[_] => (this eq other) || tpe == other.tpe
+				case _                  => false
+			}
+		}
+	}
+*/
+
+
+
+
 
 	class extensions_<:<[A, B](private val ev :A <:< B) extends AnyVal {
 		/** A `@specialized` version of `A <:< B`.
 		  * It is an implicit value, hence importing it will automatically enable implicit conversion.
-		  */ //fixme: this makes no sense, as we'll never get a specialized instance.
-		@inline implicit def spec :A spec_<:< B = spec_<:<.identity.asInstanceOf[A spec_<:< B]
+		  */
+		@inline implicit def spec(implicit first :RuntimeType[A], second :RuntimeType[B]) :A spec_<:< B =
+			spec_<:<[A, B](ev, first, second)
 
 		/** Provides counterparts of lift/substitute methods of `A <:< B` working with functors
 		  * with an upper bound `U` on their argument(s).
@@ -106,10 +166,9 @@ object extensions extends extensions {
 	}
 
 	class extensions_=:=[A, B](private val ev :A =:= B) extends AnyVal {
-		/** A `@specialized` version of `A =:= B`.
-		  * It is an implicit value, hence importing it will automatically enable implicit conversion.
-		  */
-		@inline implicit def spec :A spec_=:= B = spec_<:<.identity.asInstanceOf[A spec_=:= B]
+		/** A `@specialized` version of `A =:= B`. */
+		@inline implicit def spec(implicit first :RuntimeType[A], second :RuntimeType[B]) :A spec_=:= B =
+			spec_=:=[A, B](ev, first, second)
 
 		/** Provides counterparts of lift/substitute methods of `A =:= B` working with functors
 		  * with an upper bound `U` on their argument(s).
@@ -161,7 +220,7 @@ object extensions extends extensions {
 	}
 
 	/** Overloads of standard methods of `A =:= B` working with covariant and contravariant functors with type bounds
-	  * placed on arguments `F[_ >: L <: B]` instead of freely applicable `F[_]`.
+	  * placed on arguments `F[_ >: L <: U]` instead of unbound `F[_]`.
 	  */
 	class bound_=:=[L <: U, A >: L <: U, B >: L <: U, U] private[typist] (private val ev :A =:= B) extends AnyVal {
 		/** Provides counterparts of lift/substitute methods of `A =:= B` working with functors

@@ -18,8 +18,8 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.ClassExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -330,8 +330,8 @@ private object Constants {
 
 private[sugar] object IndexedIterable {
 	//todo: return IndexedSeqLike instead
-	@inline def unapply[A](items :IterableOnce[A]) :Maybe[collection.IndexedSeqOps[A, generic.Any1, _]] = items match {
-		case seq     :collection.IndexedSeqOps[A, generic.Any1, _] => Yes(seq)
+	@inline def unapply[A](items :IterableOnce[A]) :Maybe[collection.IndexedSeqOps[A, kinds.Any1, _]] = items match {
+		case seq     :collection.IndexedSeqOps[A, kinds.Any1, _] => Yes(seq)
 		case ranking :Ranking[A]                                   => Yes(ranking.toIndexedSeq)
 		case set     :IndexedSet[A]                                => Yes(set.toIndexedSeq)
 		case slice   :ArrayIterableOnce[A] =>
@@ -375,12 +375,12 @@ private[sugar] object IndexedIterable {
 		HasFastUpdate(map) && { val size = map.size; (size >> 5) > 0 && count <= size / (size >> 5) }
 
 	object ApplyPreferred {
-		def unapply[A](items :IterableOnce[A]) :Maybe[collection.SeqOps[A, generic.Any1, _]] = items match {
+		def unapply[A](items :IterableOnce[A]) :Maybe[collection.SeqOps[A, kinds.Any1, _]] = items match {
 			case items :ArrayIterableOnce[A] => items match {
-				case seq :ArraySliceSeqOps[A, generic.Any1, _] => Yes(seq)
+				case seq :ArraySliceSeqOps[A, kinds.Any1, _] => Yes(seq)
 				case _                                         => Yes(ArrayLikeSlice.from(items))
 			}
-			case seq :collection.IndexedSeqOps[A, generic.Any1, _] => items match {
+			case seq :collection.IndexedSeqOps[A, kinds.Any1, _] => items match {
 				case seq :ArraySeq[A]         => Yes(seq)
 				case seq :mutable.ArraySeq[A] => Yes(seq)
 				case seq :ArrayBuffer[A]      => Yes(seq)
@@ -395,7 +395,7 @@ private[sugar] object IndexedIterable {
 				case ArrayLike.Slice(array, from, until)               => Yes(ArrayLike.Slice(array, from, until))
 				case _                                                 => No
 			}
-			case seq :collection.SeqOps[A, generic.Any1, _] =>
+			case seq :collection.SeqOps[A, kinds.Any1, _] =>
 				if (seq.sizeIs <= applyAlwaysPreferredLength) Yes(seq) else No
 
 			case ranking :Ranking[A] if ranking.applyPreferred =>
@@ -408,22 +408,22 @@ private[sugar] object IndexedIterable {
 				Yes(ArrayLike.Slice(array, from, until))
 			case _ => No
 		}
-		@inline def apply(items :collection.SeqOps[_, generic.Any1, _]) :Boolean = applyPreferred(items)
+		@inline def apply(items :collection.SeqOps[_, kinds.Any1, _]) :Boolean = applyPreferred(items)
 	}
 
-	def applyPreferred(seq :collection.SeqOps[_, generic.Any1, _]) :Boolean = seq match {
+	def applyPreferred(seq :collection.SeqOps[_, kinds.Any1, _]) :Boolean = seq match {
 		case _ :ArrayIterableOnce[_] | _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] => true
 		case seq :IndexedSeq[_] if applyPreferredMaxLengthProperty.isDefined =>
 			seq.length <= applyPreferredMaxLengthProperty.get.invoke(seq).asInstanceOf[Int]
 
-		case seq :collection.IndexedSeqOps[_, generic.Any1, _] => seq.length <= defaultApplyPreferredMaxLength
+		case seq :collection.IndexedSeqOps[_, kinds.Any1, _] => seq.length <= defaultApplyPreferredMaxLength
 		case _ => seq.sizeIs <= applyAlwaysPreferredLength
 	}
-	def applyPreferredMaxLength(seq :collection.SeqOps[_, generic.Any1, _]) :Int = seq match {
+	def applyPreferredMaxLength(seq :collection.SeqOps[_, kinds.Any1, _]) :Int = seq match {
 		case _ :ArraySeq[_] | _ :mutable.ArraySeq[_] | _ :ArrayBuffer[_] | _ :ArrayIterableOnce[_] => Int.MaxValue
 		case indexed :IndexedSeq[_] if applyPreferredMaxLengthProperty.isDefined =>
 			applyPreferredMaxLengthProperty.get.invoke(indexed).asInstanceOf[Int]
-		case _ :collection.IndexedSeqOps[_, generic.Any1, _] => defaultApplyPreferredMaxLength
+		case _ :collection.IndexedSeqOps[_, kinds.Any1, _] => defaultApplyPreferredMaxLength
 		case _ => applyAlwaysPreferredLength
 	}
 	private[this] final val applyAlwaysPreferredLength = 4

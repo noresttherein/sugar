@@ -470,20 +470,30 @@ package object vars extends vars.varsTypeClasses {
 		/** Swaps the meaning of $Red and $Blue: a `Red(r)` becomes `Blue(r)`, while `Blue(b)` becomes `Red(b)`. */
 		@inline def swap :Pill[B, R] = self match {
 			case red :Red[R @unchecked] => Blue(red.value)
-			case _                      => Red(get)
+			case _                      => Red(blue)
 		}
+
 		/** Forces extraction of the $Blue result.
 		  * @return contained value, if `this` is $Blue.
 		  * @throws NoSuchElementException if this $Pill is $Red. */
-		def get :B = (self :Any) match {
-			case red  :Red[_]             => noSuch_!(red.toString)
+		@inline def blue :B = self match {
+			case _    :Red[_]             => noSuch_!("Red.blue")
 			case blue :Blue[B @unchecked] => blue.value
-			case _                        => self.asInstanceOf[B]
+			case blue :B @unchecked       => blue
 		}
+
+		/** Forces extraction of the $Red result.
+		  * @return contained value, if `this` is $Red.
+		  * @throws NoSuchElementException if this $Pill is $Blue. */
+		@inline def red :R = self match {
+			case red :Red[R @unchecked] => red.value
+			case _                      => noSuch_!("Blue.red")
+		}
+
 		/** Returns the result if it is $Blue, or the lazily computed alternative passed as an argument otherwise. */
 		@inline def getOrElse[B1 >: B](or: => B1) :B1 = self match {
 			case _ :Red[_] => or
-			case _         => get
+			case _         => blue
 		}
 		/** Similarly to [[net.noresttherein.sugar.vars.PillExtension.getOrElse getOrElse]], returns the result
 		  * of this $Pill if it is $Blue, or `alt` if it is $Red. The difference is that the alternative value
@@ -492,13 +502,13 @@ package object vars extends vars.varsTypeClasses {
 		  * @param or the value to return if this instance is a failure. */
 		@inline def orDefault[B1 >: B](or :B1) :B1 = self match {
 			case _ :Red[_] => or
-			case _         => get
+			case _         => blue
 		}
 		/** Assuming that `A` is a nullable type, return `null` if this $Pill is $Red,
 		  * or a wrapped result of $Blue otherwise. */
 		@inline def orNull[B1 >: B](implicit isNullable :B1 <:< Null) :B1 = self match {
 			case _ :Red[_] => null.asInstanceOf[B1]
-			case _         => get
+			case _         => blue
 		}
 
 		/** Returns the result if it is $Blue, or throws an exception given as the type parameter with
@@ -517,27 +527,27 @@ package object vars extends vars.varsTypeClasses {
 		  * @see [[net.noresttherein.sugar.vars.PillExtension.orIllegal orIllegal]] */
 		@inline def orThrow[E <: Throwable :ClassTag] :B = self match {
 			case red :Red[_] => raise[E](red.value.toString)
-			case _           => get
+			case _           => blue
 		}
 		/** Gets the element in this $Pill if it is $Blue, or throws a [[NoSuchElementException]]
 		  * with [[net.noresttherein.sugar.vars.Pill.Red.value value]]`.toString` as the error message if $Red.
 		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orNoSuch :B = self match {
 			case red :Red[_] => noSuch_!(red.value.toString)
-			case _           => get
+			case _           => blue
 		}
 		/** Gets the element in this $Pill if it is $Blue, or throws an [[IllegalArgumentException]]
 		  * with [[net.noresttherein.sugar.vars.Pill.Red.value value]]`.toString` as the error message if $Red.
 		  * @see [[net.noresttherein.sugar.vars.PillExtension.orThrow orThrow]] */
 		@inline def orIllegal :B = self match {
 			case red :Red[_] => illegal_!(red.value.toString)
-			case _           => get
+			case _           => blue
 		}
 		/** Asserts that this instance is $Blue and returns its contents, throwing an [[AssertionError]]
 		  * with `this.toString` as the error message if $Red. */
 		@inline def orError :B = {
 			assert(!self.isInstanceOf[Red[_]], self.toString)
-			get
+			blue
 		}
 
 		/** Returns this $Pill if it is $Blue, or the lazily computed alternative otherwise. */
@@ -561,31 +571,31 @@ package object vars extends vars.varsTypeClasses {
 		  * or this instance ''iff'' it is $Red. */
 		@inline def map[O](f :B => O) :Pill[R, O] = self match {
 			case red :Red[R @unchecked] => red
-			case _                      => Blue(f(get))
+			case _                      => Blue(f(blue))
 		}
 		/** Applies the given function to the value of this $Pill if it is $Blue, or returns `alt`
 		  * if it is $Red. Equivalent to `this map f getOrElse alternative`, but in one step. */
 		@inline def mapOrElse[O](f :B => O, or: => O) :O = self match {
 			case _ :Red[_] => or
-			case _         => f(get)
+			case _         => f(blue)
 		}
 		/** Applies the first function argument to this `Pill`'s value if it is $Red,
 		  * or the second function if it is $Blue. */
 		@inline def fold[O](ifRed :R => O, ifBlue :B => O) :O = self match {
 			case red :Red[R @unchecked] => ifRed(red.value)
-			case _                      => ifBlue(get)
+			case _                      => ifBlue(blue)
 		}
 		/** Returns the result of applying the given function to the value of this $Pill if it is $Blue,
 		  * or `this` if it is $Red. */
 		@inline def flatMap[R1 >: R, O](f :B => Pill[R1, O]) :Pill[R1, O] = self match {
 			case red :Red[R @unchecked] => red
-			case _                      => f(get)
+			case _                      => f(blue)
 		}
 		/** Flattens `Pill[R, Pill[R, O]]` to a single `Pill[R, O]`. */
 		@inline def flatten[R1 >: R, O](implicit isAlt :B <:< Pill[R1, O]) :Pill[R1, O] =
 			self match {
 				case red :Red[R @unchecked] => red
-				case _                      => get
+				case _                      => blue
 			}
 		/** Flattens `Pill[Pill[O, B], B]]` to `Pill[O, B]`: returns the value of this $Pill if it is $Red,
 		  * or itself if it is $Blue. This is similar to [[net.noresttherein.sugar.vars.PillExtension.flatten flatten]],
@@ -601,7 +611,7 @@ package object vars extends vars.varsTypeClasses {
 		@inline def joinBlue[R1 >: R, B1 >: B, O](implicit blueIsAlt :B1 <:< Pill[R1, O]) :Pill[R1, O] =
 			self match {
 				case red :Red[R @unchecked] => red
-				case _                      => get
+				case _                      => blue
 			}
 		/** Same as [[net.noresttherein.sugar.vars.PillExtension.joinRed joinRed]]. Exists for compatibility with `Either`. */
 		@inline def joinLeft[R1 >: R, B1 >: B, O](implicit redIsAlt :R1 <:< Pill[O, B1]) :Pill[O, B1] = joinRed
@@ -610,70 +620,70 @@ package object vars extends vars.varsTypeClasses {
 
 		/** Returns `this` if $Blue and `p(get)` holds, or ${Red}(red) otherwise. */
 		def filterOrElse[R1 >: R](p: B => Boolean, red: => R1): Pill[R1, B] = self match {
-			case _ :Red[_]   => Red(red)
-			case _ if p(get) => self
-			case _           => Red(red)
+			case _ :Red[_]    => Red(red)
+			case _ if p(blue) => self
+			case _            => Red(red)
 		}
 
 		/** Tests if this $Pill is $Blue with a result equal to the given argument. */
 		@inline def contains[B1 >: B](o :B1): Boolean = o match {
 			case _ :Red[_] => false
-			case _         => get == o
+			case _         => blue == o
 		}
 		/** Tests if this $Pill is $Blue with a result satisfying the given predicate. */
 		@inline def exists(p :B => Boolean): Boolean = self match {
 			case _ :Red[_] => false
-			case _         => p(get)
+			case _         => p(blue)
 		}
 		/** Tests if this $Pill $Red or $Blue with a value not satisfying the given predicate. */
 		@inline def forall(p :B => Boolean): Boolean = self match {
 			case _ :Red[_] => true
-			case _         => p(get)
+			case _         => p(blue)
 		}
 		/** Executes the given block for this $Pill's value if it is $Blue. */
 		@inline def foreach[O](f :B => O) :Unit =
 			if (!self.isInstanceOf[Red[_]])
-				f(get)
+				f(blue)
 
 		/** Converts this value to a `Maybe` if it is $Blue, losing the information by replacing
 		  * $Red with [[net.noresttherein.sugar.vars.Maybe.No No]]. */
 		@inline def toMaybe :Maybe[B] = self match {
 			case _ :Red[_] => No
-			case _         => Yes(get)
+			case _         => Yes(blue)
 		}
 		/** Standard conversion to [[scala.Option]].
 		  * @return `Some(this.get)` if `this.isBlue` or `None` otherwise. */
 		@inline def toOption :Option[B] = self match {
 			case _ :Red[_] => None
-			case _         => Some(get)
+			case _         => Some(blue)
 		}
 		/** Converts this value to an `Opt` if it is $Blue, losing the information by replacing
 		  * $Red with [[scala.None None]]. */
 		@inline def toOpt :Opt[B] = self match {
 			case _ :Red[_] => None
-			case _         => One(get)
+			case _         => One(blue)
 		}
 		/** Conversion to an `Unsure` carrying the value of this instance if it is $Blue.
 		  * Note that the result will not be `specialized` for value types, but neither will it require boxing,
 		  * as $Blue already contains boxed values. */
 		@inline def toUnsure :Unsure[B] = self match {
 			case _ :Red[_] => Missing
-			case _         => Sure(get)
+			case _         => Sure(blue)
 		}
 		/** Conversion to [[scala.Either]], with $Red returned as [[scala.Right Right]] and $Blue as [[scala.Left Left]]. */
 		@inline def toEither :Either[R, B] = self match {
 			case red :Red[R @unchecked] => Left(red.value)
-			case _                      => Right(get)
+			case _                      => Right(blue)
 		}
 		/** Returns a [[Seq]] containing `this.get` (if $Blue), or an empty `Seq` otherwise. */
 		@inline def toSeq :Seq[B] = self match {
 			case _ :Red[_] => Nil
-			case _         => get::Nil
+			case _         => blue::Nil
 		}
 		/** Turns a $Red into a [[Failure]] and a $Blue into a [[Success]]. */
 		@inline def toTry(implicit ev :R <:< Throwable) :Try[B] = self match {
 			case red :Red[R @unchecked] => Failure(red.value)
-			case _                      => Success(get)
+			case _                      => Success(blue)
 		}
 
 		/** Returns `true` if both operands are $Blue and their values are equal. */
@@ -697,6 +707,16 @@ package object vars extends vars.varsTypeClasses {
 		@inline def redEqualsOpt(other :Pill[_, _]) :Maybe[Boolean] = (self, other) match {
 			case (a :Red[_], b :Red[_]) => Yes(a.value == b.value)
 			case _                      => No
+		}
+	}
+
+
+	implicit class PillLUBExtension[+T](private val self :Pill[T, T]) extends AnyVal {
+		/** The value of this $Pill, regardless if $Red or $Blue, as the least upper bound of the two types. */
+		def get :T = (self :Any) match {
+			case red  :Red[T @unchecked]  => red.value
+			case blue :Blue[T @unchecked] => blue.value
+			case _                        => self.asInstanceOf[T]
 		}
 	}
 

@@ -14,10 +14,9 @@ import net.noresttherein.sugar.casting.{castTypeConstructorMethods, castTypePara
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.elementsToCopy
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.funny.generic.Any1
-import net.noresttherein.sugar.noSuch_!
+import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.classes
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 

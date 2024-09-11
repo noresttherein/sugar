@@ -23,9 +23,9 @@ import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, upda
 import net.noresttherein.sugar.collections.extensions.{BufferExtension, BufferFactoryExtension, BuilderExtension, ClassTagIterableFactoryExtension, FactoryExtension, IndexedSeqExtension, IterableExtension, IterableFactoryExtension, IterableOnceExtension, IteratorCompanionExtension, IteratorExtension, JavaDoubleIteratorExtension, JavaIntIteratorExtension, JavaIteratorExtension, JavaLongIteratorExtension, JavaStringBuilderExtension, LinearSeqLazyMethods, MapLazyMethods, SeqExtension, SeqFactoryExtension, SeqViewExtension, SetLazyMethods, SeqLazyMethods, SortedMapLazyMethods, SortedSetLazyMethods, StepType, StepperCompanionExtension, StepperExtension, StepperShapeCompanionExtension, StringBuilderExtension, StringExtension, StringExtensionConversion, immutableIndexedSeqCompanionExtension, immutableMapCompanionExtension, immutableMapExtension, immutableSetExtension, immutableSetFactoryExtension, immutableSortedMapExtension, immutableSortedSetExtension, mutableIndexedSeqExtension}
 import net.noresttherein.sugar.collections.util.{errorString, knownEmpty, rangeCheck}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise, unsupported_!}
-import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.funny.extensions.PartialFunctionExtension
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.reflect.prettyprint.extensions.classNameMethods
 import net.noresttherein.sugar.repeat.extensions.timesMethods
 import net.noresttherein.sugar.text.EOL
@@ -387,7 +387,7 @@ object extensions extends extensions {
 		  * delegating to `iterator` in fewer cases, but the result's 'self' type is unknown,
 		  * meaning all methods which create collections may return arbitrary objects, not an `IterableOnce`.
 		  */
-		@inline def toBasicOps :IterableOnce[E] with IterableOnceOps[E, generic.Any1, _] = self match {
+		@inline def toBasicOps :IterableOnce[E] with IterableOnceOps[E, kinds.Any1, _] = self match {
 			case ops  :IterableOnceOps[E @unchecked, _, _] => ops
 			case _                                         => self.iterator
 		}
@@ -731,8 +731,8 @@ object extensions extends extensions {
 						ifNotFound(acc)
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :X = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :X = {
 						val it  = seq.reverseIterator
 						var acc = start
 						while (it.hasNext) {
@@ -1026,8 +1026,8 @@ object extensions extends extensions {
 						ifFound(acc)
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :X = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :X = {
 						var last = start
 						val it   = seq.reverseIterator
 						while (it.hasNext) {
@@ -1269,8 +1269,8 @@ object extensions extends extensions {
 						last
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :A = {
 						val it   = seq.reverseIterator
 						var last = start
 						while (it.hasNext) {
@@ -1483,8 +1483,8 @@ object extensions extends extensions {
 						last
 					}
 					foldIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :A = {
 						var last = start
 						val it   = seq.reverseIterator
 						while (it.hasNext) {
@@ -1617,8 +1617,8 @@ object extensions extends extensions {
 						if (pred(last)) ifFound(last) else ifNotFound(last)
 					}
 					reduceIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def reduceSeq(seq :collection.SeqOps[E, generic.Any1, _]) :X = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def reduceSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :X = {
 						if (seq.isEmpty)
 							return ifEmpty
 						val i       = seq.reverseIterator
@@ -1770,8 +1770,8 @@ object extensions extends extensions {
 					if (len == 0)
 						unsupported_!("partialReduceRight on an empty " + self.className)
 					reduceIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def reduceSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def reduceSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :A = {
 						val fallback = new PartialFoldRightFunction[A, E]
 						val i        = seq.reverseIterator
 						if (!i.hasNext)
@@ -1925,8 +1925,8 @@ object extensions extends extensions {
 						unsupported_!("reduceRightSuffix on an empty " + self.className)
 					else
 						foldIndexed
-				case seq :collection.SeqOps[E, generic.Any1, _] =>
-					def foldSeq(seq :collection.SeqOps[E, generic.Any1, _]) :A = {
+				case seq :collection.SeqOps[E, kinds.Any1, _] =>
+					def foldSeq(seq :collection.SeqOps[E, kinds.Any1, _]) :A = {
 						val it      = seq.reverseIterator
 						var last :A = it.next()
 						while (it.hasNext) {

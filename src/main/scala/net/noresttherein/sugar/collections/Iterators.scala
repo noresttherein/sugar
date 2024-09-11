@@ -13,7 +13,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
-import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
 
@@ -220,7 +220,7 @@ private object Iterators {
 		}
 
 	@tailrec def reverse[E](items :IterableOnce[E]) :Iterator[E] = items match {
-		case indexed :collection.IndexedSeqOps[E, generic.Any1, _] =>
+		case indexed :collection.IndexedSeqOps[E, kinds.Any1, _] =>
 			if (indexed.isEmpty) Iterator.empty[E] else indexed.reverseIterator
 		case ranking :Ranking[E]                        => ranking.reverseIterator
 		case view    :View[E]                           => reverse(view.iterator)

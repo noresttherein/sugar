@@ -8,7 +8,7 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.extensions.BuilderExtension
-import net.noresttherein.sugar.funny.generic
+import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.vars.EqRef
 
 
@@ -56,7 +56,7 @@ case object EqSet extends IterableFactory[EqSet] {
 	override def empty[A] :EqSet[A] = Empty.castParam[A]
 
 	def wrap[A](set :Set[EqRef[A]]) :EqSet[A] =
-		if (set.isInstanceOf[StrictOptimizedSetOps[_, generic.Any1, _]])
+		if (set.isInstanceOf[StrictOptimizedSetOps[_, kinds.Any1, _]])
 			new EqSet(set) with StrictOptimizedSetOps[A, EqSet, EqSet[A]]
 		else
 			new EqSet(set)

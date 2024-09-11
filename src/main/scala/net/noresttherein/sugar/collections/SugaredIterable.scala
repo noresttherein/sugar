@@ -8,8 +8,8 @@ import net.noresttherein.sugar.collections.extensions.IteratorExtension
 import net.noresttherein.sugar.collections.util.rangeCheck
 import net.noresttherein.sugar.exceptions.unsupported_!
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, SeqFactoryExtension}
-import net.noresttherein.sugar.funny.generic
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds
+import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 
@@ -220,7 +220,7 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
   * @tparam C The collection type returned from all slicing methods. Note that this can be a subtype of
   *           the last type parameter to `IterableOps` mixed in by implementation classes.
   */ //Most methods don't exist in IterableOnceOps, so we can't use it for iterators, too.
-trait SlicingOps[+E, +C] extends Any with IterableOps[E, generic.Any1, Any] {
+trait SlicingOps[+E, +C] extends Any with IterableOps[E, kinds.Any1, Any] {
 	protected def hasFastSlice :Boolean = false
 	protected override def coll :C
 

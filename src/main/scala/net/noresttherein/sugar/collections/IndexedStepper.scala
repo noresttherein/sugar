@@ -8,14 +8,12 @@ import scala.collection.{Stepper, StepperShape}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 
-import net.noresttherein.sugar.JavaTypes.{JDouble, JDoubleIterator, JInt, JIntIterator, JLong, JLongIterator, JStringBuilder}
+import net.noresttherein.sugar.JavaTypes.{JDouble, JInt, JLong, JStringBuilder}
 import net.noresttherein.sugar.arrays.{ArrayIterator, ReverseArrayIterator}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!}
 import net.noresttherein.sugar.extensions.castingMethods
-import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-
-
+import net.noresttherein.sugar.typist.kinds
 
 
 /** Base trait for implementations of steppers over slices of some sequential collections.
@@ -192,7 +190,7 @@ private abstract class AbstractReverseIndexedStepper[+A, B, +Self >: Null <: Rev
   * @author Marcin Mościcki
   */ //no reverse version currently
 private abstract class IndexedSeqStepper[+A, B, +Self >: Null <: IndexedSeqStepper[A, B, Self]]
-	                   (seq :collection.IndexedSeqOps[_, generic.Any1, _], first :Int, `last++` :Int)
+	                   (seq :collection.IndexedSeqOps[_, kinds.Any1, _], first :Int, `last++` :Int)
 	extends AbstractIndexedStepper[A, B, Self](first, `last++`)
 {
 	protected final override def underlyingSize :Int = seq.length
@@ -205,14 +203,14 @@ private abstract class IndexedSeqStepper[+A, B, +Self >: Null <: IndexedSeqStepp
 
 @SerialVersionUID(Ver)
 object IndexedSeqStepper {
-	private type Ops[A] = collection.IndexedSeqOps[A, generic.Any1, _]
+	private type Ops[A] = collection.IndexedSeqOps[A, kinds.Any1, _]
 
 	/** A [[scala.collection.Stepper Stepper]] iterating over the entirety of an indexed sequence.
 	  * The stepper will box the elements, but the result will be of the proper specialization for `A` -
 	  * one of `Any`, `Int`, `Long`, `Double`.
 	  * @param seq      the sequence with elements over which to iterate.
 	  */ //we could make it work for collection.IndexedSeq
-	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any1, _])
+	def apply[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, kinds.Any1, _])
 	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
 		slice(seq, 0, seq.length)
 
@@ -234,7 +232,7 @@ object IndexedSeqStepper {
 	  * @param from     the index of the first (and later current) element in the sequence (the one returned by `next()`).
 	  * @param until    the index immediately following the index of the last element in the slice.
 	  */
-	def slice[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, generic.Any1, _], from :Int, until :Int)
+	def slice[A, S <: Stepper[_]](seq :collection.IndexedSeqOps[A, kinds.Any1, _], from :Int, until :Int)
 	                             (implicit shape :StepperShape[A, S]) :S with EfficientSplit =
 		(shape.shape match {
 			case IntShape    => new IntIndexedSeqStepper(seq.castFrom[Ops[A], Ops[Int]], from, until)

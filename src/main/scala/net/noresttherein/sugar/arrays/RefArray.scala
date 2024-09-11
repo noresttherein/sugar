@@ -7,8 +7,8 @@ import scala.reflect.ClassTag
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, CappedArrayBuffer, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.funny.generic
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
+import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -165,7 +165,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 
 		def unapply[E](elems :mutable.Seq[E])      :Maybe[RefArray[E]] = trustedUnapply(elems)
 		def unapply[E](elems :mutable.Iterable[E]) :Maybe[RefArray[E]] = trustedUnapply(elems)
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[RefArray[E]] = trustedUnapply(elems)
+		def unapply[E](elems :mutable.SeqOps[E, kinds.Any1, _]) :Maybe[RefArray[E]] = trustedUnapply(elems)
 
 		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[RefArray[E]] = {
 			val array = elems match {
@@ -191,7 +191,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 
 		def unapply[E](elems :mutable.Seq[E])      :Maybe[(RefArray[E], Int, Int)] = trustedUnapply(elems)
 		def unapply[E](elems :mutable.Iterable[E]) :Maybe[(RefArray[E], Int, Int)] = trustedUnapply(elems)
-		def unapply[E](elems :mutable.SeqOps[E, generic.Any1, _]) :Maybe[(RefArray[E], Int, Int)] =
+		def unapply[E](elems :mutable.SeqOps[E, kinds.Any1, _]) :Maybe[(RefArray[E], Int, Int)] =
 			trustedUnapply(elems)
 
 		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[(RefArray[E], Int, Int)] = {

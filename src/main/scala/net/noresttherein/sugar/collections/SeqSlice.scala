@@ -10,7 +10,7 @@ import scala.collection.immutable.StrictOptimizedSeqOps
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.exceptions.outOfBounds_!
-import net.noresttherein.sugar.funny.generic.Any1
+import net.noresttherein.sugar.typist.kinds.Any1
 
 
 
