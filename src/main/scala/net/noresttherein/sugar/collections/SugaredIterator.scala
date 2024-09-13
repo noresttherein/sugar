@@ -13,6 +13,7 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
 
 trait SugaredIterator[+E] extends Iterator[E] {
 	def hasFastDrop :Boolean = knownSize == 0
+	//todo: rename to dropInPlace
 	def strictDrop(n :Int) :Iterator[E] = {
 		var left = n
 		while (left > 0 && hasNext) {

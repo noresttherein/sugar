@@ -168,6 +168,10 @@ private class RelayArray0
 	protected override def one[T](elem :T) :RelayArray[T] = RelayArray.one(elem)
 	override def elementType = classOf[AnyRef]
 	override def range(from :Int, until :Int) :this.type = this
+
+	override def sorted[U](implicit ord :Ordering[U]) :RelayArray[E] = this
+	override def sortWith(lt :(Nothing, Nothing) => Boolean) :RelayArray[Nothing] = this
+	override def sortBy[A](f :Nothing => A)(implicit ord :Ordering[B]) :RelayArray[Nothing] = this
 }
 
 
@@ -377,6 +381,10 @@ private class RelayArray1[@specialized(ElemTypes) +E] private[collections](overr
 				res.sizeHint(elems, 1)
 				(res += head ++= elems).result()
 		}
+
+	override def sorted[U >: E](implicit ord :Ordering[U]) :RelayArray[E] = this
+	override def sortWith(lt :(E, E) => Boolean) :RelayArray[E] = this
+	override def sortBy[A](f :E => A)(implicit ord :Ordering[A]) :RelayArray[E] = this
 
 	override def copyRangeToArray[U >: E](xs :Array[U], start :Int, from :Int, len :Int) :Int =
 		if (len <= 0 | from > 0 || xs.length <= start)
@@ -694,6 +702,15 @@ private final class RelayArray2[@specialized(ElemTypes) +E] private[collections]
 			prefix.copyToArray(copy, 0)
 			new RelayArrayPlus[E](copy, 0, newSize, true)
 		}
+
+	override def sorted[B >: E](implicit ord :Ordering[B]) :RelayArray[E] =
+		if (ord.compare(head, last) <= 0) this else seq2(last, head)
+
+	override def sortWith(lt :(E, E) => Boolean) :RelayArray[E] =
+		if (lt(last, head)) seq2(last, head) else this
+
+	override def sortBy[B](f :E => B)(implicit ord :Ordering[B]) :RelayArray[E] =
+		if (ordering.compare(f(head), f(last)) <= 0) this else seq(last, head)
 
 
 	override def copyRangeToArray[U >: E](xs :Array[U], start :Int, from :Int, len :Int) :Int =
@@ -1230,6 +1247,13 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 			newSpecific(copy.asInstanceOf[Array[E]], newOffset, newOffset + newSize, true)
 		else
 			new RelayArrayPlus(copy, newOffset, newSize, true)
+	}
+
+
+	override def sorted[U >: E](implicit ord :Ordering[U]) :RelayArray[E] = {
+		val arr = array.slice(startIndex, startIndex + length)
+		arr.sortInPlace[U]()
+		newSpecific(arr, 0, length, true)
 	}
 
 

@@ -345,7 +345,7 @@ case object CappedSeq extends CappedSeqFactory.Delegate[CappedIndexedSeq](Capped
   * @define coll capped immutable sequence
   * @define Unbound `immutable.Seq`
   * @define unbound immutable sequence
-  */
+  */ //Probably should implement SeqOps, but not Seq.
 trait CappedSeq[+E] //Should it even be a Seq? We could instead have a Seq adapter.
 	extends Seq[E] with SeqOps[E, CappedSeq, CappedSeq[E]]
 	   with CappedCollection[E] with CappedCollection.Defaults[E, CappedSeq]
@@ -514,7 +514,7 @@ final class CappedSeqSet[E] private (set :SeqSet[E], override val cap :Int)
   * @define Coll `CappedBuffer`
   * @define coll capped buffer
   */
-@SerialVersionUID(Ver) //consider: renaming to CappedSeq, as this is not a Buffer. Or LIFO/LIFOSeq.
+@SerialVersionUID(Ver) //consider: renaming to CappedSeq, as this is not a Buffer. Or LIFO/LIFOSeq/CappedLIFO, CappedQueue.
 case object CappedBuffer extends CappedSeqFactory.Delegate[CappedBuffer](CappedArrayBuffer)
 
 /** $Description
@@ -539,6 +539,10 @@ trait CappedBuffer[E] //consider: not extending SugaredSeqOps; arguably non muta
 		case -1 => this
 		case  i => remove(i); this
 	}
+
+//	override def subtractAll(xs :IterableOnce[E]) :this.type = {
+//
+//	}
 	@throws[IndexOutOfBoundsException]("if idx < 0 or idx >= size")
 	def remove(idx :Int) :E
 
