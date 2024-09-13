@@ -202,6 +202,19 @@ trait BaseGrowable[-E] extends Growable[E] {
 }
 
 
+/** A `Builder` trait overriding `addAll` in order to traverse the added collection in the optimal way
+  * to its type, and invoke `sizeHint` if the added collection's size is known.
+  */
+trait BaseBuilder[-E, +C] extends Builder[E, C] with BaseGrowable[E] {
+	override def addAll(elems :IterableOnce[E]) :this.type = {
+		val thisSize = knownSize
+		if (thisSize >= 0)
+			sizeHint(elems, thisSize)
+		super.addAll(elems)
+	}
+}
+
+
 
 
 
