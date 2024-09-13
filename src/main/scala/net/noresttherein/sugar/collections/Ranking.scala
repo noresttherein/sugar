@@ -1521,7 +1521,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 			//foldLeftUntil may, in general, leave the iterator in an undefined state,
 			// but the implementation does not recognize SlicingIterator, so it has no choice
 			// but to advance it as an iterator up until it is exhausted or the condition is satisfied.
-			val it = set.iterator.safe
+			val it = set.iterator.slicing
 			if (maxSize <= SmallRankingCap) {
 				val b     = RefArray.newBuilder[T](maxSize)
 				val array = it.foldLeftUntil(b)(_.knownSize == maxSize)(_ += _).result()

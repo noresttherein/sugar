@@ -3129,7 +3129,7 @@ object extensions extends extensions {
 		  * advancing another, and `drop.next()` returns `this.next()`, not `this.drop(n).next()`.
 		  * @example
 		  * {{{
-		  *     val iter   = source.iterator.safe
+		  *     val iter   = source.iterator.slicing
 		  *     val arrays = Array.ofDim[Int](n, m)
 		  *     var i = 0
 		  *     while (iter.hasNext && i < n) {
@@ -3137,8 +3137,8 @@ object extensions extends extensions {
 		  *         i += 1
 		  *     }
 		  * }}}
-		  */ //todo: rename to slicer or slicing
-		def safe :Iterator[E] = Iterators.slicer(self)
+		  */
+		def slicing :Iterator[E] = Iterators.slicer(self)
 
 		/** An iterator maintaining a counter of elements advanced over, accessible through method
 		  * [[net.noresttherein.sugar.collections.CountingIterator.total total]].
@@ -6181,6 +6181,7 @@ object extensions extends extensions {
 
 		/** A `Stepper` corresponding to this Java iterator type. */
 		def stepper[A](implicit shape :JavaIteratorShape[A, I]) :shape.Stepper = JavaIteratorStepper(self)
+		//todo: IterableOnceOps methods.
 	}
 
 	/** Extension methods for converting a [[java.util.PrimitiveIterator.OfInt PrimitiveIterator.OfInt]]

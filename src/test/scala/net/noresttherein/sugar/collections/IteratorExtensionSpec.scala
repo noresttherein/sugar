@@ -568,11 +568,11 @@ object IteratorExtensionSpec extends Properties("IteratorExtension") {
 	property("+:")        = concat1Property { (iter, elem) => (elem +: iter()) -> (Iterator.single(elem) ++ iter()) }
 	property("prepended") = concat1Property { (iter, elem) => (iter() prepended elem) -> (Iterator.single(elem) ++ iter()) }
 
-	property("safe") = iteratorProperty { (iter :() => Iterator[Int]) =>
+	property("slicing") = iteratorProperty { (iter :() => Iterator[Int]) =>
 		val dim    = 5
 		val elems  = iter().toVector :collection.Seq[Int]
 		val prefix = elems.take(dim * dim)
-		val safe   = iter().safe
+		val safe   = iter().slicing
 		val arrays = Array.ofDim[Int](dim, dim)
 		var copied = 0
 		var i = 0

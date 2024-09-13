@@ -216,7 +216,7 @@ sealed abstract class ChoppedString
 			val suffix = clippedSlice(index + size + prefixSize, length)
 			prefix appendedAll rest appendedAll suffix
 		} else {
-			val i = rest.iterator.safe
+			val i = rest.iterator.slicing
 			val infix = ChoppedString from i.take(length - index - prefixSize)
 			if (i.hasNext)
 				outOfBounds_!(

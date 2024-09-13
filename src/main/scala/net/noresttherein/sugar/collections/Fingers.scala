@@ -35,7 +35,7 @@ import net.noresttherein.sugar.collections.extensions._
   * The only operations which take `O(n)` time are those which potentially need to apply a function
   * to all elements of the sequence, such as `map` and `filter`, `find`, and conversions to other collections.
   *
-  * It is a typical, all purpose, 'jack of all trades': it does not have any serious weak points and is a good choice
+  * It is a typical, all-purpose, 'jack of all trades': it does not have any serious weak points and is a good choice
   * if the creator doesn't know how the sequence will be used. However, the cost of being the safe option
   * which will not increase the computational complexity of an algorithm, comes at the cost of not being the best
   * in the most common usages: random access to elements near the middle of the sequence, in particular update,
@@ -406,7 +406,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					else
 						overwritten(index, elems)
 				else {
-					val it = elems.iterator.safe
+					val it = elems.iterator.slicing
 					val res = prefix.overwritten(index, it)
 					if (it.hasNext)
 						outOfBounds_!(

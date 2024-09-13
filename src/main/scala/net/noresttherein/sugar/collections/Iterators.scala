@@ -307,7 +307,7 @@ private object Iterators {
 	  * exactly by the number of written elements, as returned by the method.
 	  * @example
 	  * {{{
-	  *     val iter   = source.iterator.safe
+	  *     val iter   = source.iterator.slicer
 	  *     val arrays = Array.ofDim[Int](n, m)
 	  *     var i = 0
 	  *     while (iter.hasNext && i < n) {
