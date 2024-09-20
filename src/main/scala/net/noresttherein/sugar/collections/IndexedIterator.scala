@@ -6,7 +6,8 @@ import scala.collection.immutable.WrappedString
 import scala.collection.{AbstractIterator, BufferedIterator}
 
 import net.noresttherein.sugar.casting.castingMethods
-import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.collections.util.elementsToCopy
+import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.reflect.prettyprint.localClassNameOf
 import net.noresttherein.sugar.typist.kinds
 
@@ -24,6 +25,7 @@ private object IndexedIterator {
 }
 
 
+//todo: make them operate on index, size basis, not index, limit.
 /** Base trait for implementations of iterators over slices of some sequential collections.
   * The iterator advances over a window on the collection; it is assumed to use random indexing
   * to return the elements, but they are never handled by this class itself.
@@ -71,18 +73,22 @@ trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def hasNext :Boolean = index < limit
 
+	/** Returns the element at `index` in the underlying collection. */
+	override def head :T
+
 	override def next() :T = {
-		if (index >= limit)
+		val idx = index
+		if (idx >= limit)
 			noSuch_!("Index " + index + " exceeds the limit of " + limit + ".")
 		val res = head
-		index += 1
+		index = idx + 1
 		res
 	}
 	def skip() :this.type = {
-		val i = index
-		if (i >= limit)
-			unsupported_!("Index " + i + " exceeds the limit of " + limit + ".")
-		index = i + 1
+		val idx = index
+		if (idx >= limit)
+			unsupported_!("Index " + idx + " exceeds the limit of " + limit + ".")
+		index = idx + 1
 		this
 	}
 
@@ -124,17 +130,32 @@ trait IndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 }
 
 
+/** Base class for forward iterators over structures with random indexing.
+  * Requires of he subclasses to only implement `head`. This class does not perform any validation of its arguments.
+  * Subclasses who wish to check the index range may do so by calling either
+  * [[net.noresttherein.sugar.collections.IndexedIterator.adjustRange adjustRange]] or
+  * [[net.noresttherein.sugar.collections.IndexedIterator.validateRange validateRange]], after implementing
+  * [[net.noresttherein.sugar.collections.IndexedIterator.underlyingSize underlyingSize]]
+  * (whose default implementation is a stub).
+  * @param idx the index of the first element of the iterator, exposed to subclasses by mutable property `index`.
+  * @param end the index immediately following the last element in the iterator.
+  */
 abstract class AbstractIndexedIterator[+T](private[this] var idx :Int, private[this] var end :Int)
 	extends AbstractIterator[T] with IndexedIterator[T]
 {
+	protected override def underlyingSize :Int = -1
 	protected final override def index :Int = idx
 	protected final override def index_=(value :Int) :Unit = idx = value
 	protected final override def limit :Int = end
 	protected final override def limit_=(value :Int) :Unit = end = value
 
+	/** Returns `limit - index`. */
 	final override def knownSize :Int = end - idx
+
+	/** Returns `index < limit`. */
 	final override def hasNext :Boolean = idx < end
 
+	/** Returns `head` and increases `index`. */
 	override def next() :T = {
 		val res = head
 		idx += 1
@@ -147,6 +168,103 @@ abstract class AbstractIndexedIterator[+T](private[this] var idx :Int, private[t
 			idx += 1
 			this
 		}
+}
+
+
+
+
+/** A special case of an `IndexedIterator` which wraps at the lo of the range: when `index` is increased
+  * to `rangeEnd` (which equals `rangeStart + underlyingSize`, it is set to `rangeStart` instead.
+  * For this reason, the iterator will stop ''only if'' `index == limit` (rather than `index >= limit`),
+  * and `size` is also counted assuming precise indexing. Subclasses ''must'' implement `rangeStart`
+  * to be the first index of the range (where iteration continues after wrapping) and `underlyingSize` in such a way,
+  * that `rangeStart + underlyingSize` is the index of the lo of the iterated range
+  * (where wrapping of `index` happens).
+  *
+  * The `validateRange` and `adjustRange` methods rely on `start` and `underlyingSize` to move `index` and `limit`
+  * to `start` plus their canonical positive remainder module `underlyingSize`. The implementation assumes that before
+  * any public methods are called, the indices have been initialized to point to valid positions.
+  *
+  * @note `index` if the implementation is in terms on an index and the number of remaining elements,
+  *       rather than two indices, `index` and `limit` must be overridden by a set of accessor methods,
+  *       such that updating them updates also the remaining number of elements.
+  *
+  */
+trait CyclicIndexedIterator[+T] extends IndexedIterator[T] {
+	/** The first index in the underlying range, to which wrapping happens.
+	  * @return defaults to zero.
+	  */
+	protected def rangeStart :Int = 0
+
+	/** The index after the last element in the underlying range, at which `index` is wrapped back to `rangeStart`.
+	  * @return `rangeStart + underlyingSize`.
+	  */
+	protected def rangeEnd :Int = rangeStart + underlyingSize
+
+	override def knownSize :Int = {
+		val res = limit - index
+		if (res >= 0)
+			res
+		else
+			underlyingSize + res
+	}
+	override def hasNext :Boolean = index != limit
+	override def next() :T = {
+		val idx = index
+		val end = limit
+		if (idx == end)
+			noSuch_!(toString + ".next()")
+		val res = head
+		index = if (idx == rangeEnd - 1) rangeStart else idx + 1
+		res
+	}
+
+	protected override def adjustRange() :Unit = {
+		val start = rangeStart
+		val end   = rangeEnd
+		val idx   = index
+		val until = limit
+		if (end < start | start < 0 | end - start != underlyingSize)
+			illegalState_!(
+				toString + " cannot iterate in range [" + start + ", " + end + ") of length " + underlyingSize + "."
+			)
+		if (idx > end)
+			index = if (start == end) start else start + (idx - start) % (end - start)
+		else if (idx < start)
+			index = if (start == end) start else end + (idx - start) % (end - start)
+		if (until > end)
+			limit = if (start == end) start else start + (until - start) % (end - start)
+		else if (idx < start)
+			limit = if (start == end) start else end + (until - start) % (end - start)
+	}
+
+	protected override def validateRange() :Unit = {
+		val start = rangeStart
+		val end   = rangeEnd
+		val size  = underlyingSize
+		val idx   = index
+		val until = limit
+		if (start < 0 | start > end | size != end - start)
+			illegalState_!(
+				toString + " cannot iterate in range [" + start + ", " + end + ") of length " + size + "."
+			)
+		if (idx < start | idx > end | idx == end & size > 0)
+			outOfBounds_!(toString + " start index " + idx + " out of range [" + start + ", " + end + ").")
+		if (until < start | until >= end | until == end & size > 0)
+			outOfBounds_!(toString + " lo index " + until + " out of range [" + start + ", " + end + ").")
+	}
+
+	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
+		val copied = elementsToCopy(underlyingSize, xs, start, len)
+		val suffix = rangeEnd - index
+		if (copied <= suffix)
+			super.copyToArray(xs, start, len)
+		else {
+			super.copyToArray(xs, start, suffix)
+			super.copyToArray(xs, start + suffix, copied - suffix)
+			copied
+		}
+	}
 }
 
 
@@ -212,6 +330,9 @@ trait ReverseIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 
 	override def hasNext :Boolean = index > limit
 
+	/** Returns the element at `index - 1` in the underlying collection. */
+	override def head :T
+
 	override def next() :T = {
 		if (index <= limit)
 			noSuch_!("Index " + index + " reached the lower bound of " + limit + ".")
@@ -224,7 +345,7 @@ trait ReverseIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 		val idx = index
 		if (idx <= limit)
 			unsupported_!(toString + ".skip()")
-		index = idx + 1
+		index = idx - 1
 		this
 	}
 	override def take(n :Int) :Iterator[T] = {
@@ -265,26 +386,43 @@ trait ReverseIndexedIterator[+T] extends BufferedIterator[T] with Cloneable {
 }
 
 
-abstract class AbstractReverseIndexedIterator[+T](private[this] var end :Int, private[this] var idx :Int)
+/** Base class for forward iterators over structures with random indexing.
+  * Requires of he subclasses to only implement `head`, which is the element immediately ''before''
+  * [[net.noresttherein.sugar.collections.ReverseIndexedIterator.index index]]. This class does not perform
+  * any validation of its arguments. Subclasses who wish to check the index range may do so by calling either
+  * [[net.noresttherein.sugar.collections.ReverseIndexedIterator.adjustRange adjustRange]] or
+  * [[net.noresttherein.sugar.collections.ReverseIndexedIterator.validateRange validateRange]], after implementing
+  * [[net.noresttherein.sugar.collections.ReverseIndexedIterator.underlyingSize underlyingSize]]
+  * (whose the default implementation is a stub).
+  * @param lo the (lower) index of the last element in the iterator, exposed to subclasses by mutable property `limit`.
+  * @param hi the (upper) index immediately after the first element of the iterator,
+  *           exposed to subclasses by mutable property `index`.
+  */
+abstract class AbstractReverseIndexedIterator[+T](private[this] var lo :Int, private[this] var hi :Int)
 	extends AbstractIterator[T] with ReverseIndexedIterator[T]
 {
-	final override def index :Int = idx
-	final override def index_=(value :Int) :Unit = idx = value
-	final override def limit :Int = end
-	final override def limit_=(value :Int) :Unit = end = value
+	protected override def underlyingSize :Int = -1
+	protected final override def index :Int = hi
+	protected final override def index_=(value :Int) :Unit = hi = value
+	protected final override def limit :Int = lo
+	protected final override def limit_=(value :Int) :Unit = lo = value
 
-	final override def knownSize :Int = idx - end
-	final override def hasNext :Boolean = idx > end
+	/** Returns `index - limit`. */
+	final override def knownSize :Int = hi - lo
 
+	/** True if `index > limit`. */
+	final override def hasNext :Boolean = hi > lo
+
+	/** Returns `head` and decreases `index`. */
 	override def next() :T = {
 		val res = head
-		idx -= 1
+		hi -= 1
 		res
 	}
 	override def skip() :this.type = {
-		if (idx <= end)
+		if (hi <= lo)
 			unsupported_!(toString + ".skip()")
-		idx -= 1
+		hi -= 1
 		this
 	}
 }
@@ -306,7 +444,7 @@ private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, 
 		else make(seq, first, seq.size)
 
 	/** Returns elements `seq(first), seq(first + 1), ..., seq(first + length - 1)` of the given sequence.
-	  * If reading would go past the end of the sequence, the excess index range is ignored. Negative `length`
+	  * If reading would go past the lo of the sequence, the excess index range is ignored. Negative `length`
 	  * is equivalent to zero.
 	  */
 	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the sequence.")
@@ -341,8 +479,8 @@ private abstract class IndexedIteratorFactory[S[X] <: collection.IterableOps[X, 
   * @param `last++` the index in the sequence delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
   */
-private sealed class IndexedSeqIterator[+T] private[collections]
-	                                   (seq :collection.IndexedSeqOps[T, kinds.Any1, _], first :Int, `last++` :Int)
+private final class IndexedSeqIterator[+T] private[collections]
+	                                  (seq :collection.IndexedSeqOps[T, kinds.Any1, _], first :Int, `last++` :Int)
 	extends AbstractIndexedIterator[T](first, `last++`)
 {
 	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _], idx :Int) = this(seq, idx, seq.length)
@@ -364,8 +502,11 @@ private sealed class IndexedSeqIterator[+T] private[collections]
 
 
 @SerialVersionUID(Ver)
-private case object IndexedSeqIterator extends IndexedIteratorFactory[collection.IndexedSeq, IndexedSeqIterator] {
-	protected override def make[T](seq :collection.IndexedSeq[T], from :Int, until :Int) :IndexedSeqIterator[T] =
+private case object IndexedSeqIterator
+	extends IndexedIteratorFactory[ ({ type S[+X] = collection.IndexedSeqOps[X, kinds.Any1, _] })#S, IndexedSeqIterator]
+{
+	protected override def make[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _], from :Int, until :Int)
+			:IndexedSeqIterator[T] =
 		new IndexedSeqIterator(seq, 0, seq.length)
 }
 
@@ -376,18 +517,17 @@ private case object IndexedSeqIterator extends IndexedIteratorFactory[collection
   * @param last      the index in the sequence `last <= first++` of the last element to return
   *                  (the first index of the slice).
   * @param `first++` the index in the sequence pointing directly after the first/next element to return
-  *                  (the end index of the slice).
-  */ //consider: renaming to IndexedSeqReverseIterator
-private sealed class ReverseIndexedSeqIterator[+T] private[collections]
-	                                          (seq :collection.IndexedSeqOps[T, kinds.Any1, _],
-	                                           last :Int, `first++` :Int)
+  *                  (the lo index of the slice).
+  */
+private final class ReverseIndexedSeqIterator[+T] private[collections]
+	                                         (seq :collection.IndexedSeqOps[T, kinds.Any1, _], last :Int, `first++` :Int)
 	extends AbstractReverseIndexedIterator[T](last - 1, `first++` - 1) with ReverseIndexedIterator[T]
 {
 	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _], idx :Int) = this(seq, 0, idx)
 	def this(seq :collection.IndexedSeqOps[T, kinds.Any1, _]) = this(seq, 0, seq.length)
 
 	private def underlying = seq
-	protected final override def underlyingSize :Int = seq.length
+	protected override def underlyingSize :Int = seq.length
 
 	override def head :T = seq(index)
 
@@ -404,7 +544,7 @@ private sealed class ReverseIndexedSeqIterator[+T] private[collections]
 
 @SerialVersionUID(Ver)
 private object ReverseIndexedSeqIterator {
-	def apply[T](seq :collection.IndexedSeq[T]) :ReverseIndexedSeqIterator[T] =
+	def apply[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _]) :ReverseIndexedSeqIterator[T] =
 		new ReverseIndexedSeqIterator(seq, 0, seq.length)
 
 	/** An iterator returning elements `seq(first), seq(first - 1), ..., seq(first - length + 1)`.
@@ -412,7 +552,9 @@ private object ReverseIndexedSeqIterator {
 	  * Negative `length` is the same as zero.
 	  */
     @throws[IndexOutOfBoundsException]("if first is negative or greater or equal to the length of the sequence")
-	def apply[T](seq :collection.IndexedSeq[T], first :Int, length :Int) :ReverseIndexedSeqIterator[T] = {
+	def apply[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _], first :Int, length :Int)
+            :ReverseIndexedSeqIterator[T] =
+    {
 		val len = seq.length
 		if (first < 0 | first >= len)
 			outOfBounds_!(first.toString + " is out of bounds [0, " + len + ")")
@@ -423,7 +565,9 @@ private object ReverseIndexedSeqIterator {
 	/** An iterator returning elements `seq(hi - 1), seq(hi - 2), ..., seq(lo)`.
 	  * If any of the indices in the `[lo, hi)` range is out of bounds for `seq`, it is ignored.
 	  */
-	def slice[T](seq :collection.IndexedSeq[T], lo :Int, hi :Int) :ReverseIndexedSeqIterator[T] = {
+	def slice[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _], lo :Int, hi :Int)
+			:ReverseIndexedSeqIterator[T] =
+	{
 		val len = seq.length
 		if (lo >= len) new ReverseIndexedSeqIterator(seq, len, len)
 		else if (hi <= 0) new ReverseIndexedSeqIterator(seq, 0, 0)
@@ -491,7 +635,7 @@ object StringIterator {
 	}
 
 	/** Returns characters `string(first), string(first + 1), ..., string(first + length - 1)` of the given string.
-	  * If reading would go past the end of `string`, the excess index range is ignored. Negative `length`
+	  * If reading would go past the lo of `string`, the excess index range is ignored. Negative `length`
 	  * is equivalent to zero.
 	  */
 	@throws[IndexOutOfBoundsException]("if offset is negative or greater than the length of the array.")
@@ -575,7 +719,7 @@ object ReverseStringIterator {
 	def apply(string :String) :ReverseStringIterator = new ReverseStringIterator(string, 0, string.length)
 
 	/** An iterator returning elements `seq(first), seq(first - 1), ..., seq(first - length + 1)`.
-	  * If the iterator would need to access an element at index lesser than zero, the excess elements are ignored.
+	  * If the iterator needs to access an element at index lesser than zero, the excess elements are ignored.
 	  * Negative `length` is the same as zero.
 	  */
 	@throws[IndexOutOfBoundsException]("if first is negative or greater or equal to the string's length")
