@@ -1,11 +1,11 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.{IterableOps, View}
+import scala.collection.{EvidenceIterableFactory, Factory, IterableFactory, IterableOps, MapFactory, SortedMapFactory, View}
 import scala.collection.mutable.ArrayBuffer.DefaultInitialSize
 import scala.collection.mutable.{ArrayBuffer, Builder, Growable, ImmutableBuilder, ReusableBuilder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayIterator, ErasedArray, RefArray}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayIterator, ErasedArray, RefArray}
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension}
@@ -52,6 +52,164 @@ private class ComposedReusableBuilder[-X, Y, C, +R]
 
 	override def mapInput[Arg](f :Arg => X) :Builder[Arg, R] =
 		new ComposedReusableBuilder(underlying, f andThen underlyingElement, mappedResult)
+}
+
+
+
+
+/** A factory of builders which accept the elements in reverse order to the one intended for the collection. */
+@SerialVersionUID(Ver)
+case object ReverseBuilder {
+
+	def apply[X, R](builder :Builder[X, R]) :Builder[X, R] = builder match {
+		case reuse :ReusableBuilder[X, R] => new ReusableReverseBuilder(reuse)
+		case _                            => new ReverseBuilder(builder)
+	}
+
+	def apply[X, R](builder :ReusableBuilder[X, R]) :ReusableBuilder[X, R] =
+		new ReusableReverseBuilder(builder)
+
+	def apply[X, R](factory :Factory[X, R]) :ReusableBuilder[X, R] = new ReverseFactoryBuilder(factory)
+
+	def apply[X, C[_]](factory :IterableFactory[C]) :ReusableBuilder[X, C[X]] =
+		new ReverseIterableFactoryBuilder(factory)
+
+	def apply[K, V, M[_, _]](factory :MapFactory[M]) :ReusableBuilder[(K, V), M[K, V]] =
+		new ReverseMapFactoryBuilder(factory)
+
+	def apply[X :E, C[_], E[_]](factory :EvidenceIterableFactory[C, E]) :ReusableBuilder[X, C[X]] =
+		new ReverseEvidenceFactoryBuilder(factory)
+
+	def apply[E :ClassTag](factory :Array.type) :ReusableBuilder[E, Array[E]] =
+		apply[E, Array, ClassTag](ArrayFactory)
+
+	//Doesn't make sense to have a SortedFactory/SortedMapFactory because their collections have an inherent order.
+//	def apply[K :Ordering, V, M[_, _]](factory :SortedMapFactory[M]) :ReusableBuilder[(K, V), M[K, V]] =
+//		new ReverseSortedMapFactoryBuilder(factory)
+
+	def of[E] :ReverseBuilderFactory[E] = new ReverseBuilderFactory[E] {}
+
+	trait ReverseBuilderFactory[X] extends Any {
+		@inline final def apply[C[_]](factory :IterableFactory[C]) :ReusableBuilder[X, C[X]] = ReverseBuilder(factory)
+		@inline final def apply[C[_], E[_]](factory :EvidenceIterableFactory[C, E])
+		                                   (implicit evidence :E[X]) :ReusableBuilder[X, C[X]] =
+			ReverseBuilder(factory)
+	}
+}
+
+
+private abstract class AbstractReverseBuilder[E, R] extends Builder[E, R] {
+	private[this] var buffer :Array[Any] = _
+	private[this] var offset = 0
+
+	override def knownSize :Int = if (buffer == null) 0 else buffer.length - offset
+
+	override def sizeHint(size :Int) :Unit =
+		if (size > 0 & (buffer == null || buffer.length < size)) {
+			if (buffer == null) {
+				buffer = new Array[Any](size)
+				offset = size
+			} else {
+				buffer = Array.copyOfRange(buffer, offset, buffer.length, size - (buffer.length - offset))
+				offset += size - buffer.length
+			}
+		}
+
+	override def clear() :Unit = {
+		buffer = null
+		offset = 0
+	}
+	def reversed :collection.Seq[E] =
+		if (buffer == null) Vector.empty
+		else ArraySlice.slice(buffer, offset, buffer.length).asInstanceOf[Seq[E]]
+
+	override def addOne(elem :E) :this.type = {
+		if (offset == 0) {
+			if (buffer == null) {
+				offset = ArrayBuffer.DefaultInitialSize
+				buffer = new Array[Any](offset)
+			} else if (buffer.length == MaxArraySize)
+				illegalState_!("Cannot add more than " + MaxArraySize + " elements to " + this + ".")
+			else {
+				val capacity = math.min(MaxArraySize >> 1, buffer.length) << 1
+				offset = capacity - buffer.length
+				buffer = Array.copyOfRange(buffer, 0, buffer.length, offset, capacity)
+			}
+		}
+		offset -= 1
+		buffer(offset) = elem
+		this
+	}
+
+}
+
+
+private class ReverseBuilder[E, R](builder :Builder[E, R]) extends AbstractReverseBuilder[E, R] {
+	override def result() :R = {
+		builder addAll reversed
+		val res = builder.result()
+		clear()
+		res
+	}
+	override def clear() :Unit = {
+		super.clear()
+		builder.clear()
+	}
+
+	override def toString :String = "ReverseBuilder|" + knownSize + "|(" + builder + ")"
+}
+
+
+private class ReusableReverseBuilder[E, R](builder :ReusableBuilder[E, R])
+	extends ReverseBuilder[E, R](builder) with ReusableBuilder[E, R]
+
+
+private class ReverseFactoryBuilder[E, R](factory :Factory[E, R])
+	extends AbstractReverseBuilder[E, R] with ReusableBuilder[E, R]
+{
+	override def result() :R = {
+		val res = factory.fromSpecific(reversed)
+		clear()
+		res
+	}
+	override def toString :String = "ReverseBuilder|" + knownSize + "|(" + factory + ')'
+}
+
+
+private class ReverseIterableFactoryBuilder[E, C[_]](factory: IterableFactory[C])
+	extends AbstractReverseBuilder[E, C[E]] with ReusableBuilder[E, C[E]]
+{
+	override def result() :C[E] = {
+		val res = factory.from(reversed)
+		clear()
+		res
+	}
+	override def toString :String = "ReverseBuilder|" + knownSize + "|(" + factory + ")"
+}
+
+
+private class ReverseMapFactoryBuilder[K, V, M[_, _]](factory :MapFactory[M])
+	extends AbstractReverseBuilder[(K, V), M[K, V]] with ReusableBuilder[(K, V), M[K, V]]
+{
+	override def result() :M[K, V] = {
+		val res = factory.from(reversed)
+		clear()
+		res
+	}
+	override def toString :String = "ReverseBuilder|" + knownSize + "|(" + factory + ")"
+}
+
+
+private class ReverseEvidenceFactoryBuilder[X, C[_], E[_]](factory :EvidenceIterableFactory[C, E])
+                                                          (implicit evidence :E[X])
+	extends AbstractReverseBuilder[X, C[X]] with ReusableBuilder[X, C[X]]
+{
+	override def result() :C[X] = {
+		val res = factory.from(reversed)
+		clear()
+		res
+	}
+	override def toString :String = "ReverseBuilder|" + knownSize + "|(" + factory + ")"
 }
 
 

@@ -5990,7 +5990,7 @@ object extensions extends extensions {
 		/** Similarly to [[scala.collection.mutable.Builder.mapResult mapResult]], this method creates
 		  * a new builder which maps all given elements of new type `A` to the element type
 		  * of this builder, before delegating to it. The built collection type is unchanged.
-		  */
+		  */ //Consider: renaming to compose.
 		def mapInput[A](f :A => E) :Builder[A, C] = self match {
 			case composed :ComposedBuilder[E, _, _, C] => composed.mapInput(f)
 			case reusable :ReusableBuilder[E, C]       => new ComposedReusableBuilder(reusable, f, identity[C])
@@ -6002,6 +6002,9 @@ object extensions extends extensions {
 
 		/** Same as `this.sizeHint(coll, delta); this`, for convenience. */
 		@inline def hinted(coll :IterableOnce[_], delta :Int = 0) :Builder[E, C] = { self.sizeHint(coll, delta); self }
+
+		/** A `Builder` which will pass any elements added to it in the reverse order when its `result()` is called. */
+		@inline def reverse :Builder[E, C] = ReverseBuilder(self)
 	}
 
 

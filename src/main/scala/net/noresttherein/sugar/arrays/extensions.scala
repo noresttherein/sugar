@@ -1300,6 +1300,7 @@ object extensions {
 					res.clear(offset + copied, newLength)
 					res
 				} else {
+					//todo: try to create the array in the same block as arraycopy, as JVM may avoid filling it with nulls/zeros.
 					val res = like(elems, newLength)
 					arraycopy(elems, from0, res, offset, copied)
 					res
