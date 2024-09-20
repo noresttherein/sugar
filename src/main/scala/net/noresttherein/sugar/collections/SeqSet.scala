@@ -82,7 +82,7 @@ case object SeqSet extends IterableFactory.Delegate[SeqSet](VectorSet) {
   * @define Coll `VectorSet`
   * @define coll vector set
   */
-final class VectorSet[E] private (items :Vector[Any], index :Map[E, Int])
+final class VectorSet[E] private (items :Vector[Any], index :HashMap[E, Int])
 	extends AbstractSet[E] with StrictOptimizedSetOps[E, VectorSet, VectorSet[E]]
 	  with SeqSet[E] with SeqSetOps[E, VectorSet, VectorSet[E]]
       with IterableFactoryDefaults[E, VectorSet] with DefaultSerializable
@@ -214,7 +214,7 @@ final class VectorSet[E] private (items :Vector[Any], index :Map[E, Int])
 case object VectorSet extends IterableFactory[VectorSet] {
 	override def from[A](source :IterableOnce[A]) :VectorSet[A] = {
 		def uniqueToIndex(unique :Iterable[A]) =
-			unique.foldLeft(Map.empty[A, Int]) { (map, elem) => map.updated(elem, map.size) }
+			unique.foldLeft(HashMap.empty[A, Int]) { (map, elem) => map.updated(elem, map.size) }
 		source match {
 			case set :VectorSet[A]          => set
 			case _ if source.knownSize == 0 => empty
