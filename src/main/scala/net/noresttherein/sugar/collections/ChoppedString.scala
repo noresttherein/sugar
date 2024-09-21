@@ -23,8 +23,6 @@ import net.noresttherein.sugar.slang.SerializationProxy
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
-//implicits
-
 
 
 
@@ -137,10 +135,9 @@ trait StringLike
   * (ignoring the underlying structure, i.e. what chunks it concatenates), in order to remain reflective.
   * It is used when larger strings are built recursively from many parts in a complex pattern, and when the efficiency
   * of writing is much more important than reading - ''chopped'' strings are not expected to be accessed often
-  * before their final conversion to a `String`. Note that most traversing methods are implemented recursively
-  * and may thus cause a [[StackOverflowError]] for very long strings; this class is intended for use cases such
-  * implementing `toString` methods. Despite the lack of fast random access, `length`/`size` are still `O(1)` operations
-  * as long as appended/prepended sequences' `length` is O(n), because their length is computed on concatenation.
+  * before their final conversion to a `String`. Despite the lack of fast random access, `length`/`size`
+  * are still `O(1)` operations as long as appended/prepended sequences' `length` is `O(n)`,
+  * because their length is computed on concatenation.
   *
   * This class is very similar to generic [[net.noresttherein.sugar.collections.Cat Cat]],
   * but exposes API dedicated to concatenating `String`s and some other methods specific to `Char`,
@@ -148,10 +145,10 @@ trait StringLike
   * in that all mapping operations are strict.
   *
   * @note Lazy evaluation of `length` means that the maximum size limit of `Int.MaxValue` is not asserted explicitly.
-  *       Growing the sequence past that size will result in undefined behaviou.
+  *       Growing the sequence past that size will result in undefined behaviour.
   * @define Coll `ChoppedString`
   * @define coll chopped string
-  */
+  */ //todo: LazyString
 sealed abstract class ChoppedString
 	extends AbstractSeq[Char] with StrictOptimizedSeqOps[Char, Seq, ChoppedString]
 	   with StringLike with StringLikeOps[ChoppedString] with SeqSlicingOps[Char, Seq, ChoppedString]
