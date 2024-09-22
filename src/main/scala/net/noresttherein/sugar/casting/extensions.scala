@@ -2,7 +2,7 @@ package net.noresttherein.sugar.casting
 
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeConstructor2Methods, castTypeConstructor3Methods, castTypeConstructorMethods, castTypeParamMethods, castingMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcastTypeParamMethods, inferredCastingMethods}
+import net.noresttherein.sugar.casting.extensions.{cast2TypeParamsMethods, cast3TypeParamsMethods, cast4TypeParamsMethods, castTypeConstructor2Methods, castTypeConstructor3Methods, castTypeConstructor4Methods, castTypeConstructorMethods, castTypeParamMethods, castingMethods, downcast2TypeParamsMethods, downcast3TypeParamsMethods, downcast4TypeParamsMethods, downcastTypeParamMethods, inferredCastingMethods}
 import net.noresttherein.sugar.extensions.ClassExtension
 
 
