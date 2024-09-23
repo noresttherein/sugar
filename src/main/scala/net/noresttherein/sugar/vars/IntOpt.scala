@@ -4,7 +4,7 @@ package net.noresttherein.sugar.vars
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.Ranking
-import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, unsupported_!, raise}
+import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, outOfBounds_!, raise}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, Content, NoContent, WithFilter}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Outcome.{Done, Failed}
@@ -250,13 +250,13 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** The same as [[net.noresttherein.sugar.vars.IntOpt.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] is returned instead. */
-	@inline def guardMap(f :Int => Int) :IntOpt =
+	def guardMap(f :Int => Int) :IntOpt =
 		if (x == NoContent) this
 		else new IntOpt(try f(x.toInt) & Content catch { case _ :Exception => NoContent })
 
 	/** The same as [[net.noresttherein.sugar.vars.IntOpt.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] is returned instead. */
-	@inline def guardMap[O](f :Int => O) :Maybe[O] =
+	def guardMap[O](f :Int => O) :Maybe[O] =
 		if (x == NoContent)
 			No
 		else try {
@@ -323,7 +323,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Returns an empty `IntOpt` if this `IntOpt` is empty or the partial function `f` is not defined for its value,
 	  * otherwise applies it and wraps the result it in a new `IntOpt`. */
-	@inline def collect(f :PartialFunction[Int, Int]) :IntOpt =
+	def collect(f :PartialFunction[Int, Int]) :IntOpt =
 		if (x == NoContent)
 			this
 		else
@@ -331,7 +331,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** Returns an empty `Maybe` if this `IntOpt` is empty or the partial function `f` is not defined for its value,
 	  * otherwise applies it and wraps the result it in a new `Maybe`. */
-	@inline def collect[O](f :PartialFunction[Int, O]) :Maybe[O] =
+	def collect[O](f :PartialFunction[Int, O]) :Maybe[O] =
 		if (x == NoContent)
 			No
 		else
@@ -439,17 +439,17 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 		if (x == NoContent) err.asInstanceOf[Outcome[Int]] else Done(get)
 
 	/** Formats this `IntOpt` like a collection: as `s"$prefix()"` or `s"$prefix($get)"`. */
-	@inline override def mkString(prefix :String) :String =
+	override def mkString(prefix :String) :String =
 		if (x == NoContent) prefix + "()" else prefix + "(" + x + ")"
 
 	/** Formats this `IntOpt` as `s"IntOpt($get)"` or `"IntOpt()"`. */
-	@inline override def mkString :String = if (x == NoContent) "IntOpt()" else "IntOpt(" + x + ")"
+	override def mkString :String = if (x == NoContent) "IntOpt()" else "IntOpt(" + x + ")"
 
-	@inline override def toString :String = if (x == NoContent) "NoInt" else "AnInt(" + x + ")"
+	override def toString :String = if (x == NoContent) "NoInt" else "AnInt(" + x + ")"
 
 	private[vars] override def isSpecialized = false
 
-	@inline override def canEqual(that :Any) :Boolean = that.isInstanceOf[IntOpt]
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[IntOpt]
 
 	/** Compares the contents for equality, with the result being false if any of the operands are empty. */
 	@inline def same(other :IntOpt) :Boolean = x != NoContent & other.x != NoContent && x == other.x
@@ -471,7 +471,7 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 @SerialVersionUID(Ver)
 case object IntOpt {
 	private final val Content = 0xffffffffL
-	private final val NoContent = Long.MinValue
+	private final val NoContent = Long.MinValue //Is it inlined despite being private?
 
 	/** Returns `AnInt` containing the argument.
 	  * This is the same as [[net.noresttherein.sugar.vars.IntOpt.AnInt.apply AnInt]]`(value)`,
