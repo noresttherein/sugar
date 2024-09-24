@@ -1,5 +1,6 @@
 package net.noresttherein.sugar
 
+import net.noresttherein.sugar.extensions.boxeqMethod
 import net.noresttherein.sugar.typist.Rank.Rank1
 
 
@@ -17,6 +18,13 @@ trait extensions
 	   with funny.extensions with io.extensions with matching.extensions with numeric.extensions
 	   with optional.extensions with reflect.extensions with repeat.extensions with slang.extensions
 	   with time.extensions[Rank1] with tuples.extensions with typist.extensions with witness.extensions
+{
+	/** Adds [[net.noresttherein.sugar.extensions.boxeqMethod.boxeq boxeq]] method which compares
+	  * any two values for equality using either `==` or `eq`, depending on whether they are value types
+	  * (or their box class instances) or other, 'normal' objects - instances of AnyRef or application value classes.
+	  */
+	@inline implicit final def boxeqMethod[X](self :X) :boxeqMethod[X] = new boxeqMethod(self)
+}
 
 
 
@@ -31,4 +39,20 @@ trait extensions
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-object extensions extends extensions
+object extensions extends extensions {
+	class boxeqMethod[X] private[extensions] (private val self :X) extends AnyVal {
+		/** Compares the two values for equality (`==`) if they are built in value types or their boxes,
+		  * or referential equality (`eq`) if they are true `AnyRef` types.
+		  * Note that custom value classes are still compared for referential equality of their object representations,
+		  * not the equality of the underlying field.
+		  */
+		def boxeq[Y](other :Y) :Boolean = self match {
+			case _ :Number => self match {
+				case _ :Int | _ :Long | _ :Short | _ :Byte | _ :Double | _ :Float => self == other
+				case _ => self.asInstanceOf[AnyRef] eq other.asInstanceOf[AnyRef]
+			}
+			case _ :Char | _ :Boolean => self == other
+			case _                    => self.asInstanceOf[AnyRef] eq other.asInstanceOf[AnyRef]
+		}
+	}
+}
