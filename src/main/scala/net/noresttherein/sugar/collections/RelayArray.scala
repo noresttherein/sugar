@@ -169,9 +169,9 @@ private class RelayArray0
 	override def elementType = classOf[AnyRef]
 	override def range(from :Int, until :Int) :this.type = this
 
-	override def sorted[U](implicit ord :Ordering[U]) :RelayArray[E] = this
+	override def sorted[U](implicit ord :Ordering[U]) :RelayArray[Nothing] = this
 	override def sortWith(lt :(Nothing, Nothing) => Boolean) :RelayArray[Nothing] = this
-	override def sortBy[A](f :Nothing => A)(implicit ord :Ordering[B]) :RelayArray[Nothing] = this
+	override def sortBy[A](f :Nothing => A)(implicit ord :Ordering[A]) :RelayArray[Nothing] = this
 }
 
 
@@ -710,7 +710,7 @@ private final class RelayArray2[@specialized(ElemTypes) +E] private[collections]
 		if (lt(last, head)) seq2(last, head) else this
 
 	override def sortBy[B](f :E => B)(implicit ord :Ordering[B]) :RelayArray[E] =
-		if (ordering.compare(f(head), f(last)) <= 0) this else seq(last, head)
+		if (ord.compare(f(head), f(last)) <= 0) this else seq2(last, head)
 
 
 	override def copyRangeToArray[U >: E](xs :Array[U], start :Int, from :Int, len :Int) :Int =

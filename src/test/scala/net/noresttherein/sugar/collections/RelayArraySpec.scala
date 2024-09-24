@@ -14,7 +14,7 @@ import org.scalacheck.Prop.{AnyOperators, all, forAll}
 
 
 object RelayArraySpec
-	extends UntaggedSeqProps[RelayArray]("RelayArray", RelayArray) with SugaredSeqProps[RelayArray, Dummy]
+	extends UntaggedSeqProps[RelayArray]("RelayArray", RelayArray) with SugaredIterableProps[RelayArray, collection.Seq, Dummy]
 {
 	//todo: tests of section, including appends
 	//todo: tests of various builders
