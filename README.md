@@ -446,13 +446,13 @@ Also, reflection-based utilities for implementing `toString` methods.
 
 
 
-#### 17. sugar.Sealing ###
+### 17. sugar.Sealing ###
 A pattern/utility class for expanding the function of `sealed` keyword to a package rather than a file,
 and simulating `sealed` for methods (limiting not only visibility, but also the possibility of overriding).
 
 
 
-#### 18. Boolean.toInt
+### 18. Boolean.toInt
 An extension method enlisting as a candidate for the single most useful line of code here.
 
 
