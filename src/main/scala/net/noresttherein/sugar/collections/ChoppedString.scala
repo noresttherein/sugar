@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collections
 
 import java.lang.{Math => math}
-import java.io.{IOException, Reader, StringReader}
+import java.io.{Reader, StringReader}
 import java.lang
 
 import scala.annotation.tailrec
@@ -379,7 +379,7 @@ sealed abstract class ChoppedString
 			outOfBounds_!("ChoppedString|" + length + "|.substring(" + start + ", " + end + ")")
 		else {
 			val res = new JStringBuilder(length)
-			@tailrec
+			@tailrec //todo: replace mutable.Queue with LightQueue
 			def slice(in :Any, from :Int, until :Int, suffix :mutable.Queue[Any], last :Any, lastUntil :Int) :Unit =
 				in match {
 					case chops  :ChoppedString if from <= 0 && until >= chops.length =>
@@ -421,7 +421,7 @@ sealed abstract class ChoppedString
 		)
 
 	protected override def clippedSlice(from :Int, until :Int) :ChoppedString = {
-		@tailrec def slice(in :Any, from :Int, until :Int,
+		@tailrec def slice(in :Any, from :Int, until :Int, //todo: replace mutable.Queue with LightQueue
 		                   prefix :ChoppedString, suffix :mutable.Queue[Any], last :Any, lastUntil :Int) :ChoppedString =
 			in match {
 				case chops  :ChoppedString if from <= 0 && until >= chops.length =>
@@ -460,6 +460,7 @@ sealed abstract class ChoppedString
 	}
 
 	override def segmentLength(p :Char => Boolean, from :Int) :Int = {
+		//todo: replace mutable.Queue with LightQueue
 		@tailrec def segment(in :Any, idx :Int, prefix :Int, suffix :mutable.Queue[Any]) :Int = in match {
 			case concat :Chops =>
 				val prefixSize = concat.prefixLength
@@ -488,6 +489,7 @@ sealed abstract class ChoppedString
 	override def foreach[U](f :Char => U) :Unit = foldLeft(())((_, char) => f(char))
 
 	override def foldLeft[A](z :A)(op :(A, Char) => A) :A = {
+		//todo: replace mutable.Queue with LightQueue
 		@tailrec def fold(acc :A, in :Any, suffix :mutable.Queue[Any]) :A = in match {
 			case concat    :ConcatChunks =>
 				val suffix0 = if (suffix == null) mutable.Queue.empty[Any] else suffix
@@ -513,6 +515,7 @@ sealed abstract class ChoppedString
 	}
 
 	override def foldRight[A](z :A)(op :(Char, A) => A) :A = {
+		//todo: replace mutable.Queue with LightQueue
 		@tailrec def fold(acc :A, in :Any, prefix :Buffer[Any]) :A = in match {
 			case concat    :ConcatChunks =>
 				val prefix0 = if (prefix == null) Buffer.empty[Any] else prefix
@@ -612,7 +615,31 @@ sealed abstract class ChoppedString
 
 	override def className :String = "ChoppedString"
 
+	/** Returns all concatenated strings/string fragments as a flat sequence by walking the concatenation tree. */
+	def chops :Seq[Substring] = {
+		@tailrec def flatten(s :ChoppedString, prefix :LightStack[Substring], suffix :LightStack[ChoppedString])
+				:LightStack[Substring] =
+			s match {
+				case append  :AppendedString                      =>
+					flatten(append.prefix, prefix, suffix push Substring(append.suffix))
+				case prepend :PrependedString                     =>
+					flatten(prepend.suffix, prefix push Substring(prepend.prefix), suffix)
+				case concat  :ConcatChunks                        =>
+					flatten(concat.prefix, prefix, suffix push concat.suffix)
+				case substring :Substring if substring.length > 0 =>
+					flatten(Empty, prefix push substring, suffix)
+				case _ if suffix.nonEmpty                         =>
+					flatten(suffix.pop(), prefix, suffix)
+				case _ =>
+					prefix
+			}
+		val prefix = LightStack.empty[Substring]
+		val suffix = LightStack.empty[ChoppedString]
+		val result = flatten(this, prefix, suffix)
+		DefaultArraySeq from result
+	}
 	//todo: test if it's faster to append a String char by char, or append a whole substring
+	//fixme: implementations are not tail recursive and thus may fail.
 	protected def appendTo(builder :JStringBuilder) :JStringBuilder
 	protected def appendTo(builder :JStringBuilder, from :Int, until :Int) :JStringBuilder
 
