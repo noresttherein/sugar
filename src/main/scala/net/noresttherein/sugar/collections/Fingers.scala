@@ -36,15 +36,15 @@ import net.noresttherein.sugar.collections.extensions._
   * to all elements of the sequence, such as `map` and `filter`, `find`, and conversions to other collections.
   *
   * It is a typical, all-purpose, 'jack of all trades': it does not have any serious weak points and is a good choice
-  * if the creator doesn't know how the sequence will be used. However, the cost of being the safe option
+  * if the creator doesn't know how the sequence will be used. However, the cost of being the safe option,
   * which will not increase the computational complexity of an algorithm, comes at the cost of not being the best
   * in the most common usages: random access to elements near the middle of the sequence, in particular update,
-  * is somewhat slower than in `Vector`, which makes the latter a better choice if the user is not interested
-  * in bulk operations.
+  * is somewhat slower than in `Vector`, which makes the latter a better choice if the sequence will be updated
+  * more often than concatenated.
   * @define Coll `Fingers`
   * @define coll finger tree
   * @author Marcin Mościcki
-  */
+  */ //consider: renaming to TreeSeq - the same number of letters and more informative to lay people.
 sealed abstract class Fingers[+E]
 	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, Fingers, Fingers[E]]
 	   with StrictOptimizedSeqOps[E, Fingers, Fingers[E]]
@@ -364,7 +364,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 
 
-	/** A finger tree of level 1 - a non empty flat list of up to `MaxChildren` elements. */
+	/** A finger tree of level 1 - a non-empty flat list of up to `MaxChildren` elements. */
 	private final class Fingers1[+E](tree :Tree[E], len :Int)
 		extends AbstractFingers[E](tree, len) with ArraySliceSeqOps[E, Fingers, Fingers[E]]
 	{
@@ -1412,16 +1412,20 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	}
 
 
-	/** A finger tree of level `N > 2` isomorphic with a B-Tree of order `Rank`.
+	/** A finger tree of level `N > 2` and order `Rank`. Isomorphic with a perfectly balanced tree with values
+	  * in leaves and all nodes having between `Rank` and `2*Rank - 1` children. It is formed by removing from the tree
+	  * the left-most, deepest node (the prefix of the sequence) and caching it directly in this class,
+	  * and then removing all nodes on the path to that node, and putting them together in a flat array
+	  * as a property of this class. The same is repeated symmetrically for the suffix.
 	  * @param _prefix       A level 1 node of rank `Rank <= r <= MaxChildren`,
-	  *                      the leftmost node in the represented B-Tree, with the first elements of the sequence.
+	  *                      the leftmost node in the isomorphic balanced tree, with the first elements of the sequence.
 	  * @param prefixes      A pseudo, non balanced node, containing `N-2` children, where `N`
 	  *                      is the level of the tree. It forms the 'leftmost path' from the root to node `prefix`.
-	  *                      The first child is of level 2, and each next its sibling is a node is of a level
+	  *                      The first child is of level 2, and its each subsequent sibling is a node is of a level
 	  *                      one higher than the previous one, ending with level `N-1`. All children have rank
 	  *                      `Rank - 1 <= r <= MaxChildren - 1`, but all grandchildren
 	  *                      and further descendants of this node are of rank `Rank <= r <= MaxChildren`.
-	  * @param infixOffset   `prefix.length + prefixes.foldLeft(0)(_ + _.length)`.
+	  * @param infixOffset   `prefixes.foldLeft(prefix.length)(_ + _.length)`.
 	  * @param infix         a node of level `N` - the level of the tree - containing `0 <= r <= MaxChildren - 2`
 	  *                      inner children of the root of the represented B-Tree.
 	  *                      All its descendants of level `N-1` and lower have rank `Rank <= r <= MaxChildren`.
@@ -1433,7 +1437,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	  *                      `Rank - 1 <= r <= MaxChildren - 1`, but all grandchildren
 	  *                      and further descendants of this node are of rank `Rank <= r <= MaxChildren`.
 	  * @param suffix        A level 1 node of rank `Rank <= r <= MaxChildren`,
-	  *                      the rightmost node in the represented B-Tree, with the last elements of the sequence.
+	  *                      the rightmost node in the isomorphic balanced tree, with the last elements of the sequence.
 	  * @param len           The total length of this sequence.
 	  */
 	@SerialVersionUID(Ver)
@@ -2559,7 +2563,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		@inline def Tree1[E](values :Children[E]) :Tree[E] = values.array.asInstanceOf[Tree[E]]
 
 		/** A node in a finger tree, consisting of a list of children, which are either values, or nodes of equal level.
-		  * Implementation largely follows B-Trees, in that a node may be split into two if it grows past the maximum
+		  * Implementation is similar to B-Trees, in that a node may be split into two if it grows past the maximum
 		  * number of children, and a node falling below the minimum number can be joined with another node
 		  * of a minimal rank. The difference from the most common B-Tree, however, is that values are only stored
 		  * in leaves, and inner nodes store only references to nodes of lower level (together with indexing information).
@@ -2568,8 +2572,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  *   - `FingersN.infix` has rank `0 <= rank <= 2*Rank - 3`.
 		  *   - Children and descendant nodes of the latter two (true inner nodes) have rank `Rank <= rank <= 2*Rank - 1`.
 		  *   - All extension methods, unless stated explicitly to the contrary,
-		  *     maintain rank between `Rank` and `MaxChildren`, with the exception of the root node, which may have
-		  *     as few as two children.
+		  *     maintain rank between `Rank` and `MaxChildren`, except the root node,
+		  *     which may have as few as two children.
 		  *
 		  * Additionally, `FingersN.prefixes` and `suffixes`, formally simply sequences of subtrees
 		  * consisting of nodes on paths to `prefix` (the leftmost leaf), and to `suffix` (the rightmost leaf),
@@ -2773,8 +2777,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			  * if either is available, and their rank is greater than `minSiblingRank`. Otherwise,
 			  * if either sibling exists (and has rank `minSiblingRank`), it will merge its children
 			  * with those of the sibling into the returned tree. If any of the preceding operations are performed,
-			  * the first element of the array will be non-null. Note that this means that `lengths` property
-			  * is ''not'' set for the returned tree, and must be done so by the caller.
+			  * the first element of the array will be set to the used sibling to mark the fact.
+			  * The caller should repeat the rank check in order to determine if the sibling should be removed
+			  * or replaced with its tail. Note that this means that `lengths` property is ''not'' set
+			  * for the returned tree, and must be done so by the caller.
 			  *
 			  * If no sibling is given, the method may reduce the rank of this node by one.
 			  */
@@ -3036,7 +3042,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 
 			/** Inserts `elems` tree of level `elemsLevel` to this tree of level `thisLevel` at `idx`,
-			  * minding not to temporarily modify either tree by putting it in `Siblings` in case it is shared
+			  * minding not to temporarily modify either tree, by putting it in `Siblings` in case it is shared
 			  * with an immutable instance. If `thisShared`, subtrees below this tree will be defensively copied
 			  * when returned as the second sibling in `Siblings`. The same applies for `elems` and `elemsShared`.
 			  *
@@ -3562,9 +3568,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  */
 		class SplitIndex(private val bits :Long) extends AnyVal {
 			/** Index of the child in which this index lies. */
-			@inline def child = (bits >> 32).toInt
+			@inline def child :Int = (bits >> 32).toInt
 			/** Index of the element within child `child`. */
-			@inline def relative = bits.toInt
+			@inline def relative :Int = bits.toInt
 
 			override def toString :String = child.toString + '/' + relative
 		}
@@ -3581,6 +3587,15 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * is necessary to access its methods.
 		  * @tparam T either the element type of the sequence, or `Tree[E]`, where `E` is the element type.
 		  */
+		/* There is ugly in this class, because methods which split the list return [U >: T] Siblings[U].
+		 * However, in case of Siblings, the type parameter is always the element type. We need these methods
+		 * to work both for children of a leaf (values), or children of the inner node (trees).
+		 * Unfortunately, this forces us to create Children[E] for this purpose, even when we know that
+		 * the actual elements in the array are trees, and thus `Children[Tree[E]]` would be more appropriate.
+		 * Furthermore, operations on Tree very often don't care if the children are Trees, or Es.
+		 * We could check before creating Children what type parameter is appropriate, but the implementation
+		 * doesn't care and would need to be generic. One solution would be to say that Tree[E] >: E.
+		 */
 		class Children[+T](val array :Array[Any]) extends AnyVal {
 			@inline def toIRefArray :IRefArray[T] = array.asInstanceOf[IRefArray[T]]
 			@inline def length = array.length - 1
@@ -3646,7 +3661,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 
 			/** Replaces the child at `index` with the trees/values in the argument,
-			  *  growing the collection by `elems.length - 1`.
+			  * growing the collection by `elems.length - 1`.
 			  */
 			def replacedAll[U >: T](index :Int, elems :Children[U]) :Siblings[U] = {
 				val elemsRank = elems.length
@@ -3813,7 +3828,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			@inline def prepended[U >: T](child :U) :Children[U] = inserted(0, child)
 			@inline def appended[U >: T](child :U) :Children[U] = inserted(array.length - 1, child)
 
-			/** Inserts the child into this children at index `idx`, updating the prefix length counts for non leaf nodes.
+			/** Inserts the child into these children at index `idx`, updating the prefix length counts for non leaf nodes.
 			  * If `this.length == MaxChildren`, the current last child is removed from the collection. */
 			def inserted[U >: T](idx :Int, child :U) :Children[U] = {
 				val len = math.min(array.length, MaxChildren)
@@ -4483,6 +4498,18 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 
 
+		/** A builder maintaining a perfectly balanced tree isomorphic with Fingers and suffix nodes of each level
+		  * for fast access. The tree is then converted to `Fingers` in `result()`. Because we are only appending
+		  * elements, we can keep and grow those unbalanced suffixes separately, and integrate them into the root
+		  * tree when their rank reaches `MaxChildren` or we need to merge with another balanced tree.
+		  * Implementation of a balanced tree provided by `Tree` is overall much simpler and efficient than
+		  * growing the tree organically with `appended` and `appendedAll`. Lack of immediate access to the suffix
+		  * of already created tree doesn't matter, because we don't need it other than adding already full nodes,
+		  * and possibly of level higher than one, because we keep unbalanced suffixes ourselves.
+		  * The fact that they are imbalanced also means there is a lot of less balancing involved,
+		  * as we do suffix balancing only when adding another `Fingers` and we need to 'flush' that data into the tree
+		  * in order to merge whole trees, or calling `result`, which happens once.
+		  */
 		class FingersBuilder[E] extends ReusableBuilder[E, Fingers[E]] {
 			/** The suffix of the built sequence: an array of length `1 + MaxChildren` containing `rank0` values,
 			  * starting at offset `1`. New elements added to the builder are appended to this array.
@@ -4496,8 +4523,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 			/** An array of length `level`, containing suffix trees of increasing level. The last element
 			  * (`suffixes(level - 1)`) is the current root of the built `Tree`.
-			  * If non null, elements `0..level` are all either `null` or arrays of length `1 + MaxChildren`,
-			  * with the `n`-th array containing containing `ranks(n)` children (arrays of level `n-1`),
+			  * If non-null, elements `0..level` are all either `null` or arrays of length `1 + MaxChildren`,
+			  * with the `n`-th array containing `ranks(n)` children (arrays of level `n-1`),
 			  * starting at offset `1`. An array may be `null` only if `ranks(lvl) == 0`.
 			  * All children and deeper descendants are always of rank `Rank <= r <= MaxChildren`.
 			  * When a new level `n-1` array is added, but the `n` level array is full, the `n`-level array
@@ -4922,11 +4949,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		/** The minimum number of values in a leaf, or children in an inner node. */
 		final val Rank = 16 //Our Tree works for values >= 4.
 
-		/** The maximum number of children (or values for leaf nodes) in leaves and inner nodes.
-		  * Equals. `MaxChildren - 2 == 2*Rank - 3`. */
+		/** The maximum number of children (or values for leaf nodes) in leaves and inner nodes; equals `2*Rank - 1`. */
 		final val MaxChildren  = (Rank << 1) - 1
 
-		/** The maximum number of children of an `infix` node in `Fingers2` and `FingersN`; equals `2*Rank - 1`. */
+		/** The maximum number of children of an `infix` node in `Fingers2` and `FingersN`;
+		  * equals `MaxChildren - 2 == 2*Rank - 3`. */
 		final val MaxInfixRank = MaxChildren - 2
 
 		/** The maximum number of children of for all children of `prefixes` and `suffixes` properties of `FingersN`.

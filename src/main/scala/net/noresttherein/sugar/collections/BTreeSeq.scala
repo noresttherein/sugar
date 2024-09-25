@@ -26,7 +26,9 @@ import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
   * @define Coll `BTreeSeq`
   * @define coll BTree sequence
   * @author Marcin Mościcki
-  */
+  */ //Not really a BTree even, values only in leaves.
+@deprecated("in favour of Fingers", "")
+@nowarn("cat=deprecation")
 sealed trait BTreeSeq[+E]
 	extends IndexedSeq[E] with IndexedSeqOps[E, BTreeSeq, BTreeSeq[E]] with IterableFactoryDefaults[E, BTreeSeq]
 	   with StrictOptimizedSeqOps[E, BTreeSeq, BTreeSeq[E]] with DefaultSerializable
@@ -53,9 +55,9 @@ sealed trait BTreeSeq[+E]
 	  */
 	def removed(index :Int) :BTreeSeq[E]
 
-	/** Adds a new value to this sequencee at the given position. All elements and indices `[index, length)`
+	/** Adds a new value to this sequence at the given position. All elements and indices `[index, length)`
 	  * are pushed back by one position; specifying `index = length` has the same effect as
-	  * [[net.noresttherein.sugar.collections.appended appended]].
+	  * [[net.noresttherein.sugar.collections.BTreeSeq.appended appended]].
 	  */
 	@throws[IndexOutOfBoundsException]("if index is lesser than 0 or greater than this.length.")
 	def inserted[U >: E](index :Int, elem :U) :BTreeSeq[U]
@@ -653,6 +655,7 @@ sealed trait BTreeSeq[+E]
 
 
 
+@nowarn("cat=deprecation")
 object BTreeSeq extends StrictOptimizedSeqFactory[BTreeSeq] {
 
 	override def from[E](source :IterableOnce[E]) :BTreeSeq[E] = Empty appendedAll source
