@@ -180,7 +180,8 @@ trait extensions extends Any with extensionsLowPriority with JteratorExtensions 
 	@inline implicit final def StringAsIndexedSeqExtension(self :String) :IndexedSeqExtension[Char, IndexedSeq, String] =
 		new IndexedSeqExtension(new StringAsSeq(self))
 
-	@inline implicit final def mutableIndexedSeqExtension[E](self :mutable.IndexedSeq[E]) :mutableIndexedSeqExtension[E] =
+	@inline implicit final def mutableIndexedSeqExtension[E](self :mutable.IndexedSeqOps[E, Any1, AnyRef])
+			:mutableIndexedSeqExtension[E] =
 		new mutableIndexedSeqExtension(self)
 
 	/** Extension methods for [[scala.collection.SeqView SeqView]]`[E]` returning another `SeqView[E]`. */
@@ -2705,7 +2706,62 @@ object extensions extends extensions {
 		extends AnyVal with IterableOnceOpsExtensionMethods[E, Iterator, Iterator[E], Iterator]
 		   with SeqExtensionMethods[E, Iterator]
 	{
+		/** Next element of the iterator, if it exists. Same as `nextOption()`, but returns a lighter `Opt`. */
 		@inline def nextOpt() :Opt[E] = if (self.hasNext) One(self.next()) else None
+
+		/** Exhausts the iterator and returns the last returned element. */
+		def last() :E = {
+			var last = self.next()
+			while (self.hasNext)
+				last = self.next()
+			last
+		}
+		/** Exhausts the iterator and, if it wasn't empty, returns the last returned element. */
+		@inline def lastOption() :Option[E] = if (self.hasNext) Some(last()) else None
+
+		/** Exhausts the iterator and, if it wasn't empty, returns the last returned element. */
+		@inline def lastOpt() :Opt[E] = if (self.hasNext) One(last()) else None
+
+		/** Calls `next()`, discarding the result, and returns self. */
+		@inline def skip() :Iterator[E] = { self.next(); self }
+
+		/** Eagerly drops first `n` elements from this iterator. This stands in contrast with the standard `drop`,
+		  * which creates by default a proxy iterator, which will only advance when one of its methods
+		  * is actually called.
+		  *   1. If this iterator is a [[net.noresttherein.sugar.collections.SugaredIterator SugaredIterator]],
+		  *      its [[net.noresttherein.sugar.collections.SugaredIterator.strictDrop strictDrop]] is called.
+		  *   1. If this iterator is an [[net.noresttherein.sugar.collections.IndexedIterator IndexedIterator]],
+		  *      [[net.noresttherein.sugar.collections.ReverseIndexedIterator ReverseIndexedIterator]],
+		  *      or one of the implementations returned by the indexed sequences from the Scala standard library,
+		  *      their `drop` method is called directly.
+		  *   1. Otherwise, the iterator is manually advances the required number of elements.
+		  *
+		  * This extension method always returns `this` iterator.
+		  * @param n the number of elements to drop.
+		  */
+		def dropInPlace(n :Int) :Iterator[E] = self match {
+			case _ if n <= 0                                          => self
+			case sugared :SugaredIterator[E]                          => sugared.strictDrop(n)
+			case _ :IndexedIterator[_] | _ :ReverseIndexedIterator[_] => self.drop(n)
+			case _ if HasFastSlice.isIndexedIterator(self)            => self.drop(n)
+				var rem = n
+				while (rem > 0 && self.hasNext) {
+					rem -= 1
+					self.next()
+				}
+				self
+		}
+		//Fixme: with this name, the method should be only available for BufferedIterator,
+		// but then the type check would have to be made by the client code.
+		def dropWhileInPlace(p :E => Boolean) :Iterator[E] = self match {
+//			case sug :SugaredIterator[E] => sug.dropWhileInPlace()
+			case buf :BufferedIterator[E] =>
+				while (buf.hasNext && p(buf.head))
+					buf.next()
+				self
+			case _ =>
+				self.dropWhile(p)
+		}
 
 		/** Equivalent to `this.takeWhile(p).size`. */
 		def prefixLength(p :E => Boolean) :Int = {
@@ -3154,12 +3210,14 @@ object extensions extends extensions {
 		  * whichever is smaller. If the end of the array is reached before any of the above happens,
 		  * copying resumes from the beginning of the array.
 		  */ //todo: integrate this method into IterableOnceExtension.cyclicCopyToArray
-		def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int = Int.MaxValue) :Int = {
+		@tailrec def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int = Int.MaxValue) :Int = {
 			val size = self.knownSize
 			val length = xs.length
 			val suffixSpace = length - start
 			if (size == 0 | len <= 0 | length == 0)
 				0
+			else if (suffixSpace < 0)
+				cyclicCopyToArray(xs, start % length, len)
 			else if (start < 0)
 				outOfBounds_!(start, xs.length)
 			else if (len <= suffixSpace | size >= 0 & size <= suffixSpace)
@@ -3927,23 +3985,24 @@ object extensions extends extensions {
 		  */
 		def add(elem :E) :CC[E] = self match {
 			case seq :collection.SeqOps[E, CC, CC[E]] @unchecked => seq.appended(elem)
-			case set :Set[E @unchecked] =>
-				try set.incl(elem).castFrom[Set[E], CC[E]] catch {
+			case set :SetOps[E, CC, _] @unchecked =>
+				try set.incl(elem).asInstanceOf[CC[E]] catch {
 					case _ :Exception => set concat Iterator.single(elem)
 				}
-			case rank :Ranking[E] => (rank + elem).castFrom[Ranking[E], CC[E]]
+			case rank :RankingOps[E, IterableOnce, IterableOnce[E]] @unchecked =>
+				(rank + elem).castFrom[IterableOnce[E], CC[E]]
 			case _ => self concat Iterator.single(elem)
 		}
 
 		/** The second element of this collection in its iteration order. */
 		@throws[NoSuchElementException]("if this.size < 2")
 		def second :E = self match {
-			case _ if self.sizeIs < 2                     => noSuch_!(errorString(self) + ".second")
-			case list  :collection.LinearSeq[E]           => list.tail.head
-			case seq   :collection.IndexedSeqOps[E, _, _] => seq(1)
-			case rank  :Ranking[E]                        => rank(1)
-			case items :Iterable[E] if items.sizeIs == 2  => items.last
-			case _                                        => self.iterator.drop(1).next()
+			case _ if self.sizeIs < 2                             => noSuch_!(errorString(self) + ".second")
+			case list  :collection.LinearSeq[E]                   => list.tail.head
+			case seq   :collection.IndexedSeqOps[E, _, _]         => seq(1)
+			case rank  :RankingOps[E, IterableOnce, _] @unchecked => rank(1)
+			case items :Iterable[E] if items.sizeIs == 2          => items.last
+			case _                                                => self.iterator.skip().next()
 		}
 	}
 
@@ -4388,7 +4447,7 @@ object extensions extends extensions {
 		  * @param x    the element, whose index is to be determined.
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  */
-		@inline def getIndexOf(x :E, from :Int = 0) :Option[Int] = self.indexOf(x, from) match {
+		@inline def findIndexOf(x :E, from :Int = 0) :Option[Int] = self.indexOf(x, from) match {
 			case -1 => None
 			case  n => Some(n)
 		}
@@ -4396,7 +4455,7 @@ object extensions extends extensions {
 		  * @param x   the element, whose index is to be determined.
 		  * @param end the upper, inclusive bound on the returned index.
 		  */
-		@inline def getLastIndexOf(x :E, end :Int = length - 1) :Option[Int] = self.lastIndexOf(x, end) match {
+		@inline def findLastIndexOf(x :E, end :Int = length - 1) :Option[Int] = self.lastIndexOf(x, end) match {
 			case -1 => None
 			case  n => Some(n)
 		}
@@ -4404,7 +4463,7 @@ object extensions extends extensions {
 		  * @param p    a function applied consecutively to all elements with indices greater or equal `from`.
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  */
-		@inline def getIndexWhere(p :E => Boolean, from :Int = 0) :Option[Int] = self.indexWhere(p, from) match {
+		@inline def findIndexWhere(p :E => Boolean, from :Int = 0) :Option[Int] = self.indexWhere(p, from) match {
 			case -1 => None
 			case  n => Some(n)
 		}
@@ -4413,7 +4472,7 @@ object extensions extends extensions {
 		  *            in a decreasing order.
 		  * @param end the upper, inclusive bound on the returned index; elements after this position will not be checked.
 		  */
-		@inline def getLastIndexWhere(p :E => Boolean, end :Int = length - 1) :Option[Int] =
+		@inline def findLastIndexWhere(p :E => Boolean, end :Int = length - 1) :Option[Int] =
 			self.lastIndexWhere(p, end) match {
 				case -1 => None
 				case  n => Some(n)
@@ -4423,7 +4482,7 @@ object extensions extends extensions {
 		  * @param x    the element, whose index is to be determined.
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  */
-		@inline def findIndexOf(x :E, from :Int = 0) :IntOpt = self.indexOf(x, from) match {
+		@inline def getIndexOf(x :E, from :Int = 0) :IntOpt = self.indexOf(x, from) match {
 			case -1 => NoInt
 			case  n => AnInt(n)
 		}
@@ -4431,7 +4490,7 @@ object extensions extends extensions {
 		  * @param x   the element, whose index is to be determined.
 		  * @param end the upper, inclusive bound on the returned index.
 		  */
-		@inline def findLastIndexOf(x :E, end :Int = length - 1) :IntOpt = self.lastIndexOf(x, end) match {
+		@inline def getLastIndexOf(x :E, end :Int = length - 1) :IntOpt = self.lastIndexOf(x, end) match {
 			case -1 => NoInt
 			case  n => AnInt(n)
 		}
@@ -4439,7 +4498,7 @@ object extensions extends extensions {
 		  * @param p    a function applied consecutively to all elements with indices greater or equal `from`.
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  */
-		@inline def findIndexWhere(p :E => Boolean, from :Int = 0) :IntOpt = self.indexWhere(p, from) match {
+		@inline def getIndexWhere(p :E => Boolean, from :Int = 0) :IntOpt = self.indexWhere(p, from) match {
 			case -1 => NoInt
 			case  n => AnInt(n)
 		}
@@ -4448,7 +4507,7 @@ object extensions extends extensions {
 		  *                in a decreasing order.
 		  * @param end the upper, inclusive bound on the returned index; elements after this position will not be checked.
 		  */
-		@inline def findLastIndexWhere(p :E => Boolean, end :Int = length - 1) :IntOpt =
+		@inline def getLastIndexWhere(p :E => Boolean, end :Int = length - 1) :IntOpt =
 			self.lastIndexWhere(p, end) match {
 				case -1 => NoInt
 				case  n => AnInt(n)
@@ -4941,7 +5000,11 @@ object extensions extends extensions {
 	/** Extension methods for `mutable.`[[collection.mutable.IndexedSeq IndexedSeq]].
 	  * @define coll indexed sequence
 	  */
-	class mutableIndexedSeqExtension[E] private[collections] (private val self :mutable.IndexedSeq[E]) extends AnyVal {
+	class mutableIndexedSeqExtension[E] private[collections] (private val self :mutable.IndexedSeqOps[E, Any1, AnyRef])
+		extends AnyVal
+	{
+//		def mutator :Mutator[E] = Mutator.from(self)
+
 		/** Returns a lens which may be used to get and set the value at the specified index in this sequence. */
 		@throws[IndexOutOfBoundsException]("if idx is not a legal index in this sequence.")
 		def lens(idx :Int) :InOut[E] = new IndexedSeqLens(self, idx)
@@ -5423,11 +5486,25 @@ object extensions extends extensions {
 		  * If `until <= from`, or `until <= 0`, or `from >= length` the call has no effect. Passing a negative `from`,
 		  * or `until > length` has the same effect as passing `0` and `length`, respectively.
 		  */
-		def reverseInPlace(from :Int, until :Int) :Unit =
-			if (until > 0 & from < until && from < self.length) {
-				val patch = ReversedSeq(self.view.slice(from, until) to ArraySeq.untagged)
-				self.patch(from, patch, patch.length)
-			}
+		def reverseInPlace(from :Int, until :Int) :Unit = {
+			val length = self.length
+			if (until > 0 & from < until && from < length)
+				self match {
+					case _ :IndexedBuffer[E] =>
+						var i = math.max(0, from)
+						var j = math.min(length, until) - 1
+						while (i < j) {
+							val boo = self(i)
+							self(i) = self(j)
+							self(j) = boo
+							i += 1
+							j += 1
+						}
+					case _ =>
+						val patch = ReversedSeq(TemporaryBuffer from self.view.slice(from, until))
+						self.patch(from, patch, patch.length)
+				}
+		}
 
 		/** Shifts in place all the elements in the buffer down by `n` positions, modulo the length of the buffer.
 		  * Element at position `n` is moved to index `0`, element at position `n + 1` to index `1`, etc.
@@ -5502,6 +5579,11 @@ object extensions extends extensions {
 			case builder :Builder[E, Any]    => builder sizeHint totalSize; self
 			case _                           => self
 		}
+		def trySizeHint(coll :IterableOnce[_], extra :Int) :This = {
+			val size = coll.knownSize
+			if (size >= 0) trySizeHint(size + extra)
+			else self
+		}
 	}
 
 
@@ -5563,7 +5645,7 @@ object extensions extends extensions {
 
 	//Does it make sense to have lazy extension methods for Set, rather than => Set,
 	// as we need to create () => Set anyway for a LazySet?
-	class immutableSetExtension[E, CC[E] <: SetOps[E, CC, _], C <: SetOps[E, CC, C]] private[collections]
+	class immutableSetExtension[E, CC[X] <: SetOps[X, CC, _], C <: SetOps[E, CC, C]] private[collections]
 	                           (private val self :SetOps[E, CC, C])
 		extends AnyVal
 	{
@@ -5872,6 +5954,13 @@ object extensions extends extensions {
 			if (self.length >= length) self
 			else ((new JStringBuilder(length) append self) /: (length - self.length))(_ append char).toString
 
+		//Not a good name, because there is no replaceFirst(Char, Char), but there is a replaceFirst(regex :String, String)
+//		/** Replaces the last occurrence of a character in a string. */
+//		def replaceLast(oldChar :Char, newChar :Char) :String = {
+//			val idx = self.lastIndexOf(oldChar)
+//			if (idx < 0) self else self.updated(idx, newChar)
+//		}
+
 		def segmentLength(p :Char => Boolean, from :Int = 0) :Int = {
 			val end   = self.length
 			val start = math.max(from, 0)
@@ -5879,6 +5968,35 @@ object extensions extends extensions {
 			while (i < end && p(self.charAt(i)))
 				i += 1
 			i - start
+		}
+		@inline def indexOf(char :Char) :Int = indexOf(char, 0)
+		def indexOf(char :Char, from :Int) :Int = {
+			val len = self.length
+			var i   = from
+			while (i < len && self.charAt(i) != char)
+				i += 1
+			if (i >= len) -1 else i
+		}
+		@inline def lastIndexOf(char :Char) :Int = lastIndexOf(char, Int.MaxValue)
+		def lastIndexOf(char :Char, end :Int) :Int = {
+			var i = math.min(self.length - 1, end)
+			while (i >= 0 & self.charAt(i) != char)
+				i -= 1
+			i
+		}
+		def findLast(char :Char => Boolean) :Option[Char] = self.lastIndexWhere(char) match {
+			case -1 => None
+			case  i => Some(self.charAt(i))
+		}
+		def collectFirst[O](pf :PartialFunction[Char, O]) :Option[O] = {
+			val len = self.length
+			var i   = 0
+			var res :Option[O] = None
+			while (i < len & (res eq None)) {
+				res = pf.applyAndThenOrElse[Option[O]](self.charAt(i), Some.apply _, _ => None)
+				i  += 1
+			}
+			res
 		}
 
 		def chopped :ChoppedString = ChoppedString(self)
@@ -5976,7 +6094,7 @@ object extensions extends extensions {
 		@inline def ++[E2, S2 >: S <: Stepper[_]](next: => S2)(implicit stepType :StepType[E2, S2]) :S2 =
 			concat(next)
 
-		@inline final def concat[E2, S2 >: S <: Stepper[_]](next :S2)(implicit stepType :StepType[E2, S2]) :S2 =
+		@inline final def concat[E2, S2 >: S <: Stepper[_]](next: => S2)(implicit stepType :StepType[E2, S2]) :S2 =
 			ConcatStepper(self, LazyStepper(next))(stepType)
 
 		@inline final def to[C](factory :Factory[E, C]) :C = self.iterator.castParam[E] to factory
@@ -6005,6 +6123,10 @@ object extensions extends extensions {
 
 		/** A `Builder` which will pass any elements added to it in the reverse order when its `result()` is called. */
 		@inline def reverse :Builder[E, C] = ReverseBuilder(self)
+
+		//This is wrong in that builder.knownSize may be different than builder.result().size
+//		/** A proxy builder counting added elements. The total size is exposed as `knownSize` */
+//		@inline def sized :Builder[E, C] = SizedBuilder(this)
 	}
 
 

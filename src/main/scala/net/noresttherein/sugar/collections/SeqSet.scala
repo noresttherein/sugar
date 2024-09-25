@@ -1,6 +1,5 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.tailrec
 import scala.collection.generic.DefaultSerializable
 import scala.collection.{AbstractIterator, IterableFactory, IterableFactoryDefaults, StrictOptimizedSetOps}
 import scala.collection.immutable.{AbstractSet, HashMap, SetOps}
@@ -20,10 +19,22 @@ trait SeqSetOps[E, +CC[_], +C <: SeqSetOps[E, CC, C]] extends SetOps[E, CC, C] w
 //
 //	override def contains(elem :E) :Boolean = indexOf(elem) >= 0
 
+	/** Adds the element to this set, moving it to the end of the iteration order if it already exists. */
 	@inline final def :+(elem :E) :C = appended(elem)
+
+	/** Adds the element to this set, moving it to the end of the iteration order if it already exists. */
 	def appended(elem :E) :C = excl(elem).incl(elem)
 
+	/** Adds all the elements to this set, moving them to the end of the iteration order if they already exist.
+	  * This is equivalent to appending elements one by one, that is, in case of duplicates in `elems`,
+	  * all but the last occurrence of any element are ignored.
+	  */
 	@inline final def :++(elems :IterableOnce[E]) :C = appendedAll(elems)
+
+	/** Adds all the elements to this set, moving them to the end of the iteration order if they already exist.
+	  * This is equivalent to appending elements one by one, that is, in case of duplicates in `elems`,
+	  * all but the last occurrence of any element are ignored.
+	  */
 	def appendedAll(elems :IterableOnce[E]) :C = elems.toBasicOps.foldLeft(coll)(_ :+ _)
 //	@inline final def +:(elem :E) :C = prepended(elem)
 //	def prepended(elem :E) :C

@@ -11,7 +11,7 @@ import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, CappedArrayBuffer, IArraySlice, IRefArraySlice, MatrixBuffer}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer, SpillArrayBuffer}
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -192,7 +192,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection. Equivalent to
-		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
+		  * [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension.patch patch]]`(index, elems, elems.size)`,
 		  * but more efficient due to a single array allocation.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
@@ -201,7 +201,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 
 		/** Updates consecutive elements of this array, starting with the specified index,
 		  * with elements from the collection. Equivalent to
-		  * [[net.noresttherein.sugar.arrays.IArray.IArrayExtension.patch patch]]`(index, elems, elems.size)`,
+		  * [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension.patch patch]]`(index, elems, elems.size)`,
 		  * but more efficient due to a single array allocation.
 		  */
 		@throws[IndexOutOfBoundsException]("if index < 0 or index + elems.length > this.length")
@@ -248,7 +248,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 
 		/** A copy of this array, with the element inserted at a given position in this array,
 		  * and all elements at positions equal or greater than `index` by one element further.
-		  * This is equivalent to [[net.noresttherein.sugar.arrays.ArrayLike.RefArrayLikeExtension.patch patch]]
+		  * This is equivalent to [[net.noresttherein.sugar.arrays.RefArrayLike.RefArrayLikeExtension.patch patch]]
 		  * with a singleton collection and `replaced` equal to zero, but the index
 		  * must be in the valid range for this array.
 		  * @return `take(index) :+ elem :++ drop(index)`, but in a more efficient manner.
@@ -356,18 +356,22 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 				self, 0, from, other, 0, other.length, self, until, self.length
 			)
 		}
+
+		def withFilter(p :E => Boolean) :WithFilter[E, Arr] = new WithFilter(p, self)
 	}
 
 
 
 	/** A lazy filtered array. No filtering is applied until one of `foreach`, `map` or `flatMap` is called.
 	  * Implementation adapted from [[collection.ArrayOps.WithFilter ArrayOps.WithFilter]] to return `Arr[T]`.
-	  */
-	class WithFilter[Arr[_], E] private[arrays] (p :E => Boolean, xs :Array[Any], factory :IterableFactory[Arr]) {
+	  */ //We could easily reuse ArrayLike.WithFilter, but this has faster apply access.
+	class WithFilter[E, Arr[X] <: RefArrayLike[X]] private[arrays] (p :E => Boolean, xs :Array[Any])
+		extends scala.collection.WithFilter[E, Arr]
+	{
 		/** Apply `f` to each element for its side effects.
 		  * Note: [U] parameter needed to help scalac's type inference.
 		  */
-		def foreach[U](f :E => U) :Unit = {
+		override def foreach[U](f :E => U) :Unit = {
 			val pred = p.asInstanceOf[Any => Boolean]
 			val fun  = f.asInstanceOf[Any => U]
 			val len = xs.array.length
@@ -385,17 +389,17 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * @return a new array resulting from applying the given function
 		  *         `f` to each element of this array and collecting the results.
 		  */
-		def map[A](f :E => A) :Arr[A] = {
+		override def map[A](f :E => A) :Arr[A] = {
 			val pred = p.asInstanceOf[Any => Boolean]
 			val fun  = f.asInstanceOf[Any => A]
-			val b = factory.newBuilder[A]
+			val b = IRefArray.newBuilder[A]
 			var i = 0
 			while (i < xs.length) {
 				val x = xs(i)
 				if (pred(x)) b += fun(x)
 				i = i + 1
 			}
-			b.result()
+			b.result().asInstanceOf[Arr[A]]
 		}
 
 		/** Builds a new array by applying a function to all elements of this array
@@ -406,25 +410,25 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		  * @return a new array resulting from applying the given collection-valued function
 		  *         `f` to each element of this array and concatenating the results.
 		  */
-		def flatMap[A](f :E => IterableOnce[A]) :Arr[A] = {
+		override def flatMap[A](f :E => IterableOnce[A]) :Arr[A] = {
 			val pred = p.asInstanceOf[Any => Boolean]
 			val fun  = f.asInstanceOf[Any => IterableOnce[A]]
-			val b = factory.newBuilder[A]
+			val b = IRefArray.newBuilder[A]
 			var i = 0
 			while (i < xs.length) {
 				val x = xs(i)
 				if (pred(x)) b ++= fun(xs(i))
 				i += 1
 			}
-			b.result()
+			b.result().asInstanceOf[Arr[A]]
 		}
 
 		def flatMap[As, A](f :E => As)(implicit asIterable :As => Iterable[A]) :Arr[A] =
 			flatMap(x => asIterable(f(x)))
 
 		/** Creates a new non-strict filter which combines this filter with the given predicate. */
-		def withFilter(q :E => Boolean) :WithFilter[Arr, E] =
-			new WithFilter[Arr, E](a => p(a) && q(a), xs, factory)
+		override def withFilter(q :E => Boolean) :WithFilter[E, Arr] =
+			new WithFilter[E, Arr](a => p(a) && q(a), xs)
 	}
 }
 
@@ -708,7 +712,7 @@ private[sugar] case object ErasedArray extends RefArrayLikeFactory[Array] with I
 						seq.startIndex + seq.length <= seq.data1.length
 				=>
 					Yes((seq.data1, seq.startIndex, seq.startIndex + seq.length))
-				case seq    :CappedArrayBuffer[_] =>
+				case seq    :SpillArrayBuffer[_] =>
 					val a = seq.unsafeArray
 					val start = seq.startIndex
 					if (start <= a.length - seq.length) Yes((a, start, start + seq.length))

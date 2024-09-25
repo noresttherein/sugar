@@ -5,27 +5,28 @@ import java.lang.{Math => math}
 import scala.collection.{StrictOptimizedSeqOps, mutable}
 import scala.collection.mutable.{AbstractBuffer, ArrayBuffer, Buffer, IndexedBuffer}
 
-import net.noresttherein.sugar.arrays.{ArrayIterator, RefArray, ReverseArrayIterator}
+import net.noresttherein.sugar.arrays.ReverseArrayIterator
 import net.noresttherein.sugar.collections.util.knownEmpty
-import net.noresttherein.sugar.exceptions.{MaxSizeReachedException, SugaredException, concurrent_!, illegal_!, outOfBounds_!, validate}
-import net.noresttherein.sugar.extensions.IterableOnceExtension
+import net.noresttherein.sugar.exceptions.{MaxSizeReachedException, concurrent_!, illegal_!, outOfBounds_!, validate}
+import net.noresttherein.sugar.extensions.{BufferExtension, IterableOnceExtension}
 import net.noresttherein.sugar.typist.kinds
 
 
 
 
-//todo: ReverseBuffer for IndexedSeq and another Buffer
+
 //todo: tests!
 
 /** A buffer with a specified maximum size. Its companion object allows creating instances backed
   * by a given `mutable.`[[scala.collection.mutable.IndexedSeq IndexedSeq]] or an `Array`,
   * allowing to write to them at specified positions using the `Buffer` interface.
+  * This is useful to overwrite existing data in an organic manner.
   * Other than its internals being shared and not growing, the buffer behaves like a regular `ArrayBuffer`.
   * The only difference is that elements in the underlying array or sequence are not set to `null`
   * when elements are removed from the buffer. All methods adding elements to the buffer may throw
   * a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]].
   * @see [[net.noresttherein.sugar.collections.ViewBuffer]]
-  * @see [[net.noresttherein.sugar.collections.CappedBuffer]]
+  * @see [[net.noresttherein.sugar.collections.SpillBuffer]]
   * @define Coll `BoundBuffer`
   * @define coll bound buffer
   */
@@ -296,8 +297,9 @@ private class BoundArrayBuffer[E](underlying :Array[E], offset :Int, len :Int, m
   * specified during its creation. The difference from [[net.noresttherein.sugar.collections.BoundBuffer BoundBuffer]]
   * is that prepending never shifts elements, only moves left the offset in the underlying array, where in the latter
   * the elements are shifted right to make space, like in an [[scala.collection.mutable.ArrayBuffer ArrayBuffer]].
-  * If the [[net.noresttherein.sugar.collections.ViewBuffer.headIdx index of the first element]] equals
-  * the [[net.noresttherein.sugar.collections.ViewBuffer.floor lower bound]], any attempt to prepend
+  * Other than that, they share their primary purpose of providing a mutable overwriting interface to a larger
+  * sequence/buffer. If the [[net.noresttherein.sugar.collections.ViewBuffer.headIdx index of the first element]]
+  * equals the [[net.noresttherein.sugar.collections.ViewBuffer.floor lower bound]], any attempt to prepend
   * will throw a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]], just like
   * an attempt to append when
   * [[net.noresttherein.sugar.collections.ViewBuffer.headIdx headIdx]]` + size == `[[net.noresttherein.sugar.collections.ViewBuffer.ceiling ceiling]].
@@ -693,8 +695,11 @@ private final class ArrayViewBuffer[E] private(underlying :Array[E], lo :Int, hi
 
 
 /** A factory of buffers appending values to another [[scala.collection.mutable.Buffer Buffer]].
-  * Created buffer is a view on a suffix of the argument buffer past its size in the moment the appending buffer was created,
-  * and do not allow the original to be modified before that index.
+  * Created buffer is a view on a suffix of the argument buffer past its size at the moment the appending buffer
+  * was created, and do not allow the original to be modified before that index.
+  * Note that inserting or removing elements from the inside of the original buffer will change the window of elements
+  * visible to the appending buffer: the first element of the buffer suffix is always the element at index equal
+  * to the size of the original buffer at the moment of creating the appending buffer.
   */
 @SerialVersionUID(Ver)
 object AppendingBuffer {
@@ -825,7 +830,10 @@ private class AppendingIndexedBuffer[E](underlying :IndexedBuffer[E], offset :In
 
 /** A factory of buffers prepending values to another [[scala.collection.mutable.Buffer Buffer]].
   * Created buffer is a view on a prefix of the argument buffer, and do not allow the original to be modified
-  * past the number of elements prepended to it through the decorator buffer.
+  * past the number of elements prepended to it through the decorator buffer. The implementation assumes
+  * no other code is independently modifying the buffer: all elements of the underlying buffer except the last `n`,
+  * where `n` was the size of the underlying buffer when the prefix buffer was created,
+  * are considered to be a part of the prefix buffer.
   */
 @SerialVersionUID(Ver)
 object PrependingBuffer {

@@ -5,7 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.{ArrayIterableOnce, CappedArrayBuffer, MatrixBuffer, RefArraySlice}
+import net.noresttherein.sugar.collections.{ArrayIterableOnce, SpillArrayBuffer, MatrixBuffer, RefArraySlice}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.kinds
@@ -173,7 +173,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 				case seq   :mutable.ArraySeq[_]                                     => seq.array
 				case seq   :ArrayBuffer[_]                                          => CheatedAccess.array(seq)
 				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0  => seq.data1
-				case seq   :CappedArrayBuffer[_] if seq.startIndex == 0             => seq.unsafeArray
+				case seq   :SpillArrayBuffer[_] if seq.startIndex == 0             => seq.unsafeArray
 				case _                                                              => null
 			}
 			if (array != null && array.length == elems.knownSize && array.getClass == classOf[Array[AnyRef]])
@@ -207,7 +207,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 					val a = seq.data1
 					start = seq.startIndex
 					if (start <= a.length - length) a else null
-				case seq    :CappedArrayBuffer[_] =>
+				case seq    :SpillArrayBuffer[_] =>
 					val a = seq.unsafeArray
 					start = seq.startIndex
 					if (start <= a.length - length) a else null

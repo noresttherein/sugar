@@ -335,7 +335,9 @@ trait MultiSetOps[E, +Multi[A] <: MultiSetOps[A, Multi]]
 		override def iterator :Iterator[(E, Int)] = uniqueIterator.map(x => (x, apply(x)))
 	}
 
-	/** Equivalent to [[scala.collection.Iterable.toSet toSet]], but may be faster. */
+	/** Equal to [[scala.collection.Iterable.toSet toSet]], but may be faster.
+	  * The returned `Set` may share contents with this `MultiSet`.
+	  */
 	def unique :Set[E] = new AbstractSet[E] {
 		override def incl(elem :E) :Set[E] =
 			if (MultiSetOps.this(elem) > 0) this else inc(elem, 1).unique
