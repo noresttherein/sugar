@@ -27,6 +27,15 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   * Because `classOf[Unit] == java.lang.Void.TYPE`, and a `void[]` does not exist, copying methods
   * consistently handle requests for `Unit` arrays by creating an `Array[BoxedUnit]` and initializing
   * it with the unit value - rather than `null` - as if it was a true primitive type.
+  * @define copyOfInfo An overloaded forwarder to `java.util.Arrays` which returns a cached value
+  *                    for an empty array, introduced to reduce the level of source dependency on Java API,
+  *                    without going through pattern matching in `scala.Array.copyOf`.
+  * @define copyOfNewLengthInfo An overloaded forwarder to `java.util.Arrays` which returns a cached value
+  *                             for an empty array, introduced to reduce the level of source dependency on Java API,
+  *                             without going through pattern matching in `scala.Array.copyOf`.
+  * @define copyOfRangeInfo An overloaded forwarder to `java.util.Arrays` which returns a cached value
+  *                         for an empty array, introduced to reduce the level of source dependency on Java API,
+  *                         without going through pattern matching in `scala.Array.copyOf`.*
   */
 @SerialVersionUID(Ver)
 object ArrayFactory extends ClassTagIterableFactory[Array] {
@@ -153,43 +162,152 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 		else Array.copyOf(array, length)
 	}
 
+	/** $copyOfInfo */
+	@inline def copyOf[E <: AnyRef](array :Array[E with AnyRef]) :Array[E] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf[E](array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Byte]) :Array[Byte] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Short]) :Array[Short] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Char]) :Array[Char] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Int]) :Array[Int] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Long]) :Array[Long] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Float]) :Array[Float] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Double]) :Array[Double] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+	/** $copyOfInfo */
+	@inline def copyOf(array :Array[Boolean]) :Array[Boolean] = {
+		val length = array.length
+		if (length == 0) array
+		else Arrays.copyOf(array, length)
+	}
+
+
 	@inline def copyOf[E](array :Array[E], newLength :Int) :Array[E] =
 		if (newLength == 0) empty(array.getClass.getComponentType.castParam[E])
 		else Array.copyOf(array, newLength)
 
-/*
-	def copyOf[E](array :Array[E], start :Int, newLength :Int) :Array[E] =
-		if (start == 0)
-			copyOf(array, newLength)
-		else if (start < 0)
-			throw new IndexOutOfBoundsException(
-				"ArrayAsSeq.copyOf(" + array.className + "<" + array.length + ">, " + start + ", " + newLength + ")"
-			)
-		else if (newLength == 0)
-			empty(array.getClass.getComponentType.castParam[E])
-		else {
-			val res = Array.of(array.getClass.getComponentType.castParam[E], newLength)
-			if (start < newLength)
-				ArrayLike.copy(array, 0, res, start, math.min(newLength - start, array.length))
-			res
-		}
+	def copyOf[E <: AnyRef](array :Array[E with AnyRef], newLength :Int) :Array[E] =
+		if (newLength == 0)
+			array.getClass.getComponentType match {
+				case classes.Any              => emptyObjectArray.asInstanceOf[Array[E]]
+				case cls :Class[E @unchecked] => empty(cls)
+			}
+		else Arrays.copyOf[E](array, newLength)
 
-	def copyOfRange[E](array :Array[E], from :Int, until :Int) :Array[E] =
-		if (until <= from)
-			empty(array.getClass.getComponentType.castParam[E])
-		else
-			(((array :Array[_]) : @unchecked) match {
-				case a :Array[AnyRef]  => Arrays.copyOfRange(a, from, until)
-				case a :Array[Int]     => Arrays.copyOfRange(a, from, until)
-				case a :Array[Long]    => Arrays.copyOfRange(a, from, until)
-				case a :Array[Double]  => Arrays.copyOfRange(a, from, until)
-				case a :Array[Byte]    => Arrays.copyOfRange(a, from, until)
-				case a :Array[Char]    => Arrays.copyOfRange(a, from, until)
-				case a :Array[Float]   => Arrays.copyOfRange(a, from, until)
-				case a :Array[Short]   => Arrays.copyOfRange(a, from, until)
-				case a :Array[Boolean] => Arrays.copyOfRange(a, from, until)
-			}).asInstanceOf[Array[E]]
-*/
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Byte], newLength :Int) :Array[Byte] =
+		if (newLength == 0) emptyByteArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Short], newLength :Int) :Array[Short] =
+		if (newLength == 0) emptyShortArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Char], newLength :Int) :Array[Char] =
+		if (newLength == 0) emptyCharArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Int], newLength :Int) :Array[Int] =
+		if (newLength == 0) emptyIntArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Long], newLength :Int) :Array[Long] =
+		if (newLength == 0) emptyLongArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Float], newLength :Int) :Array[Float] =
+		if (newLength == 0) emptyFloatArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Double], newLength :Int) :Array[Double] =
+		if (newLength == 0) emptyDoubleArray else Arrays.copyOf(array, newLength)
+
+	/** $copyOfNewLengthInfo */
+	@inline def copyOf(array :Array[Boolean], newLength :Int) :Array[Boolean] =
+		if (newLength == 0) emptyBooleanArray else Arrays.copyOf(array, newLength)
+
+
+	/** $copyOfRangeInfo */
+	def copyOfRange[E <: AnyRef](original :Array[E], from :Int, until :Int) :Array[E] =
+		Arrays.copyOfRange[E](original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Byte], from :Int, until :Int) :Array[Byte] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Short], from :Int, until :Int) :Array[Short] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Char], from :Int, until :Int) :Array[Char] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Int], from :Int, until :Int) :Array[Int] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Long], from :Int, until :Int) :Array[Long] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Float], from :Int, until :Int) :Array[Float] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Double], from :Int, until :Int) :Array[Double] =
+		Arrays.copyOfRange(original, from, until)
+
+	/** $copyOfRangeInfo */
+	def copyOfRange(original :Array[Boolean], from :Int, until :Int) :Array[Boolean] =
+		Arrays.copyOfRange(original, from, until)
+
+
 
 	def byteBuilder :Builders.fromBytes[Array[Byte]] =
 		new ArrayBuilder[Byte](classOf[Byte]) with Builders.fromBytes[Array[Byte]] 

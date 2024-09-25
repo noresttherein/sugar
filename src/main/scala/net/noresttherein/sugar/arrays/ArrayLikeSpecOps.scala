@@ -22,7 +22,7 @@ import net.noresttherein.sugar.outOfBounds_!
   */ //todo: KMP search
 private[sugar] object ArrayLikeSpecOps {
 	def foreach[E, U](array :Array[E], from :Int, until :Int)(f :E => U) :Unit = {
-		def foreach[@specialized(Everything) X](arr :Array[X])(f :X => U) :Unit = {
+		def specForeach[@specialized(Everything) X](arr :Array[X])(f :X => U) :Unit = {
 			val end = math.min(until, arr.length)
 			var i   = math.max(from, 0)
 			while (i < end) {
@@ -32,21 +32,21 @@ private[sugar] object ArrayLikeSpecOps {
 		}
 		val g = f.asInstanceOf[Any => U]
 		array match {
-			case a :Array[AnyRef]   => foreach(a)(g)
-			case a :Array[Int]      => foreach(a)(g)
-			case a :Array[Long]     => foreach(a)(g)
-			case a :Array[Double]   => foreach(a)(g)
-			case a :Array[Char]     => foreach(a)(g)
-			case a :Array[Byte]     => foreach(a)(g)
-			case a :Array[Float]    => foreach(a)(g)
-			case a :Array[Short]    => foreach(a)(g)
-			case a :Array[Boolean]  => foreach(a)(g)
+			case a :Array[AnyRef]   => specForeach(a)(g)
+			case a :Array[Int]      => specForeach(a)(g)
+			case a :Array[Long]     => specForeach(a)(g)
+			case a :Array[Double]   => specForeach(a)(g)
+			case a :Array[Char]     => specForeach(a)(g)
+			case a :Array[Byte]     => specForeach(a)(g)
+			case a :Array[Float]    => specForeach(a)(g)
+			case a :Array[Short]    => specForeach(a)(g)
+			case a :Array[Boolean]  => specForeach(a)(g)
 			case null               => null_!("null array")
 		}
 	}
 	
 	def indexOf[E](array :Array[_ <: E], offset :Int, length :Int)(elem :E, from :Int) :Int = {
-		def indexOf[@specialized(Everything) X](arr :Array[X], elem :Any, from :Int) :Int = {
+		def specIndexOf[@specialized(Everything) X](arr :Array[X], elem :Any, from :Int) :Int = {
 			val end = offset + length
 			var i = offset + math.max(from, 0)
 			if (array.getClass.getComponentType isAssignableFrom Unbox(elem.getClass)) {
@@ -61,21 +61,21 @@ private[sugar] object ArrayLikeSpecOps {
 		if (from >= length)
 			-1
 		else array match {
-			case a :Array[AnyRef]  => indexOf(a, elem, from)
-			case a :Array[Int]     => indexOf(a, elem, from)
-			case a :Array[Long]    => indexOf(a, elem, from)
-			case a :Array[Double]  => indexOf(a, elem, from)
-			case a :Array[Char]    => indexOf(a, elem, from)
-			case a :Array[Byte]    => indexOf(a, elem, from)
-			case a :Array[Float]   => indexOf(a, elem, from)
-			case a :Array[Short]   => indexOf(a, elem, from)
-			case a :Array[Boolean] => indexOf(a, elem, from)
+			case a :Array[AnyRef]  => specIndexOf(a, elem, from)
+			case a :Array[Int]     => specIndexOf(a, elem, from)
+			case a :Array[Long]    => specIndexOf(a, elem, from)
+			case a :Array[Double]  => specIndexOf(a, elem, from)
+			case a :Array[Char]    => specIndexOf(a, elem, from)
+			case a :Array[Byte]    => specIndexOf(a, elem, from)
+			case a :Array[Float]   => specIndexOf(a, elem, from)
+			case a :Array[Short]   => specIndexOf(a, elem, from)
+			case a :Array[Boolean] => specIndexOf(a, elem, from)
 			case null              => null_!("null array")
 		}
 	}
 
 	def lastIndexOf[E](array :Array[_ <: E], offset :Int, length :Int)(elem :E, end :Int) :Int = {
-		def lastIndexOf[@specialized(Everything) X](arr :Array[X], elem :Any, start :Int) :Int = {
+		def specLastIndexOf[@specialized(Everything) X](arr :Array[X], elem :Any, start :Int) :Int = {
 			var i = offset + start
 			if (array.getClass.getComponentType isAssignableFrom Unbox(elem.getClass)) {
 				val x = elem.asInstanceOf[X]
@@ -89,21 +89,21 @@ private[sugar] object ArrayLikeSpecOps {
 		if (end < 0)
 			-1
 		else array match {
-			case a :Array[AnyRef]  => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Int]     => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Long]    => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Double]  => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Char]    => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Byte]    => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Float]   => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Short]   => lastIndexOf(a, elem, math.min(end, length - 1))
-			case a :Array[Boolean] => lastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[AnyRef]  => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Int]     => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Long]    => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Double]  => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Char]    => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Byte]    => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Float]   => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Short]   => specLastIndexOf(a, elem, math.min(end, length - 1))
+			case a :Array[Boolean] => specLastIndexOf(a, elem, math.min(end, length - 1))
 			case null              => null_!("null array")
 		}
 	}
 
 	def lastIndexWhere[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean, end :Int) :Int = {
-		def lastIndexWhere[@specialized(Everything) X](arr :Array[X], p :X => Boolean, from :Int, until :Int) :Int = {
+		def specLastIndexWhere[@specialized(Everything) X](arr :Array[X], p :X => Boolean, from :Int, until :Int) :Int = {
 			var i = until
 			while (i >= from && !p(arr(i)))
 				i -= 1
@@ -113,15 +113,15 @@ private[sugar] object ArrayLikeSpecOps {
 		if (end < 0)
 			-1
 		else array match {
-			case a :Array[AnyRef]  => lastIndexWhere(a, p.asInstanceOf[AnyRef => Boolean], offset, start)
-			case a :Array[Int]     => lastIndexWhere(a, p.asInstanceOf[Int => Boolean], offset, start)
-			case a :Array[Long]    => lastIndexWhere(a, p.asInstanceOf[Long => Boolean], offset, start)
-			case a :Array[Double]  => lastIndexWhere(a, p.asInstanceOf[Double => Boolean], offset, start)
-			case a :Array[Char]    => lastIndexWhere(a, p.asInstanceOf[Char => Boolean], offset, start)
-			case a :Array[Byte]    => lastIndexWhere(a, p.asInstanceOf[Byte => Boolean], offset, start)
-			case a :Array[Float]   => lastIndexWhere(a, p.asInstanceOf[Float => Boolean], offset, start)
-			case a :Array[Short]   => lastIndexWhere(a, p.asInstanceOf[Short => Boolean], offset, start)
-			case a :Array[Boolean] => lastIndexWhere(a, p.asInstanceOf[Boolean => Boolean], offset, start)
+			case a :Array[AnyRef]  => specLastIndexWhere(a, p.asInstanceOf[AnyRef => Boolean], offset, start)
+			case a :Array[Int]     => specLastIndexWhere(a, p.asInstanceOf[Int => Boolean], offset, start)
+			case a :Array[Long]    => specLastIndexWhere(a, p.asInstanceOf[Long => Boolean], offset, start)
+			case a :Array[Double]  => specLastIndexWhere(a, p.asInstanceOf[Double => Boolean], offset, start)
+			case a :Array[Char]    => specLastIndexWhere(a, p.asInstanceOf[Char => Boolean], offset, start)
+			case a :Array[Byte]    => specLastIndexWhere(a, p.asInstanceOf[Byte => Boolean], offset, start)
+			case a :Array[Float]   => specLastIndexWhere(a, p.asInstanceOf[Float => Boolean], offset, start)
+			case a :Array[Short]   => specLastIndexWhere(a, p.asInstanceOf[Short => Boolean], offset, start)
+			case a :Array[Boolean] => specLastIndexWhere(a, p.asInstanceOf[Boolean => Boolean], offset, start)
 			case null              => null_!("null array")
 		}
 	}
@@ -175,7 +175,7 @@ private[sugar] object ArrayLikeSpecOps {
 			segmentLength(array, offset + math.max(from, 0), offset + length, false)(p)
 
 	def segmentLength[E](array :Array[E], from :Int, until :Int, flipped :Boolean)(p :E => Boolean) :Int = {
-		def segmentLen[@specialized(Everything) X](arr :Array[X], p :X => Boolean) :Int = {
+		def specSegmentLength[@specialized(Everything) X](arr :Array[X], p :X => Boolean) :Int = {
 			var i = from
 			while (i < until && p(arr(i)) != flipped)
 				i += 1
@@ -185,15 +185,15 @@ private[sugar] object ArrayLikeSpecOps {
 		if (from >= until | until < 0 || from >= length)
 			0
 		else array match {
-			case a :Array[AnyRef]  => segmentLen(a, p.asInstanceOf[AnyRef => Boolean])
-			case a :Array[Int]     => segmentLen(a, p.asInstanceOf[Int => Boolean])
-			case a :Array[Long]    => segmentLen(a, p.asInstanceOf[Long => Boolean])
-			case a :Array[Double]  => segmentLen(a, p.asInstanceOf[Double => Boolean])
-			case a :Array[Char]    => segmentLen(a, p.asInstanceOf[Char => Boolean])
-			case a :Array[Byte]    => segmentLen(a, p.asInstanceOf[Byte => Boolean])
-			case a :Array[Float]   => segmentLen(a, p.asInstanceOf[Float => Boolean])
-			case a :Array[Short]   => segmentLen(a, p.asInstanceOf[Short => Boolean])
-			case a :Array[Boolean] => segmentLen(a, p.asInstanceOf[Boolean => Boolean])
+			case a :Array[AnyRef]  => specSegmentLength(a, p.asInstanceOf[AnyRef => Boolean])
+			case a :Array[Int]     => specSegmentLength(a, p.asInstanceOf[Int => Boolean])
+			case a :Array[Long]    => specSegmentLength(a, p.asInstanceOf[Long => Boolean])
+			case a :Array[Double]  => specSegmentLength(a, p.asInstanceOf[Double => Boolean])
+			case a :Array[Char]    => specSegmentLength(a, p.asInstanceOf[Char => Boolean])
+			case a :Array[Byte]    => specSegmentLength(a, p.asInstanceOf[Byte => Boolean])
+			case a :Array[Float]   => specSegmentLength(a, p.asInstanceOf[Float => Boolean])
+			case a :Array[Short]   => specSegmentLength(a, p.asInstanceOf[Short => Boolean])
+			case a :Array[Boolean] => specSegmentLength(a, p.asInstanceOf[Boolean => Boolean])
 			case null              => null_!("null array")
 		}
 	}
@@ -206,6 +206,42 @@ private[sugar] object ArrayLikeSpecOps {
 		val i = lastIndexWhere(array, offset, length)(p, length)
 		if (i < 0) None else Some(array(offset + i))
 	}
+	
+	@inline def startsWith[E, U >: E](array1 :Array[E], offset1 :Int, length1 :Int, array2 :Array[U]) :Boolean =
+		startsWith(array1, offset1, length1, array2, 0, array2.length)
+
+	//This might be better implemented with java.util.Arrays.mismatch in case the latter is a hot spot intrinsic.
+	def startsWith[E, U >: E](array1 :Array[E], offset1 :Int, length1 :Int, 
+	                          array2 :Array[U], offset2 :Int, length2 :Int) :Boolean =
+		offset1 >= 0 & offset1 <= array1.length - length1 & offset2 >= 0 & offset2 <= array2.length - length2 &&
+			length1 - offset1 >= length2 - offset2 && (length2 == 0 || {
+				def slowStartsWith() = {
+					var i = 0
+					while (i < length2 && array1(offset1 + i) == array2(offset2 + i))
+						i += 1
+					i == length2
+				}
+				def specStartsWith[@specialized X](a1 :Array[X], a2 :Array[X]) = {
+					var i = 0
+					while (i < length2 && a1(offset1 + i) == a2(offset2 + i))
+						i += 1
+					i == length2
+				}
+				(array1 :Array[_], array2 :Array[_]) match {
+					case (a1 :Array[AnyRef], a2 :Array[AnyRef])   => specStartsWith(a1, a2)
+					case (_ :Array[AnyRef], _)                    => slowStartsWith()
+					case (_, _ :Array[AnyRef])                    => slowStartsWith()
+					case (a1 :Array[Int], a2 :Array[Int])         => specStartsWith(a1, a2)
+					case (a1 :Array[Long], a2 :Array[Long])       => specStartsWith(a1, a2)
+					case (a1 :Array[Double], a2 :Array[Double])   => specStartsWith(a1, a2)
+					case (a1 :Array[Char], a2 :Array[Char])       => specStartsWith(a1, a2)
+					case (a1 :Array[Byte], a2 :Array[Byte])       => specStartsWith(a1, a2)
+					case (a1 :Array[Float], a2 :Array[Float])     => specStartsWith(a1, a2)
+					case (a1 :Array[Short], a2 :Array[Short])     => specStartsWith(a1, a2)
+					case (a1 :Array[Boolean], a2 :Array[Boolean]) => specStartsWith(a1, a2)
+					case _                                        => slowStartsWith()
+				}
+			})
 
 
 	@inline def forall[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Boolean =
@@ -215,7 +251,7 @@ private[sugar] object ArrayLikeSpecOps {
 		indexWhere(array, offset, length)(p, 0) >= 0
 
 	def count[E](array :Array[E], offset :Int, length :Int)(p :E => Boolean) :Int = {
-		def countSpec[@specialized(Everything) X](arr :Array[X], p :X => Boolean) :Int = {
+		def specCount[@specialized(Everything) X](arr :Array[X], p :X => Boolean) :Int = {
 			val end = offset + length
 			var res = 0
 			var i = offset
@@ -227,15 +263,15 @@ private[sugar] object ArrayLikeSpecOps {
 			res
 		}
 		array match {
-			case a :Array[AnyRef]  => countSpec(a, p.asInstanceOf[AnyRef => Boolean])
-			case a :Array[Int]     => countSpec(a, p.asInstanceOf[Int => Boolean])
-			case a :Array[Long]    => countSpec(a, p.asInstanceOf[Long => Boolean])
-			case a :Array[Double]  => countSpec(a, p.asInstanceOf[Double => Boolean])
-			case a :Array[Char]    => countSpec(a, p.asInstanceOf[Char => Boolean])
-			case a :Array[Byte]    => countSpec(a, p.asInstanceOf[Byte => Boolean])
-			case a :Array[Float]   => countSpec(a, p.asInstanceOf[Float => Boolean])
-			case a :Array[Short]   => countSpec(a, p.asInstanceOf[Short => Boolean])
-			case a :Array[Boolean] => countSpec(a, p.asInstanceOf[Boolean => Boolean])
+			case a :Array[AnyRef]  => specCount(a, p.asInstanceOf[AnyRef => Boolean])
+			case a :Array[Int]     => specCount(a, p.asInstanceOf[Int => Boolean])
+			case a :Array[Long]    => specCount(a, p.asInstanceOf[Long => Boolean])
+			case a :Array[Double]  => specCount(a, p.asInstanceOf[Double => Boolean])
+			case a :Array[Char]    => specCount(a, p.asInstanceOf[Char => Boolean])
+			case a :Array[Byte]    => specCount(a, p.asInstanceOf[Byte => Boolean])
+			case a :Array[Float]   => specCount(a, p.asInstanceOf[Float => Boolean])
+			case a :Array[Short]   => specCount(a, p.asInstanceOf[Short => Boolean])
+			case a :Array[Boolean] => specCount(a, p.asInstanceOf[Boolean => Boolean])
 			case null              => null_!("null array")
 		}
 	}
@@ -245,7 +281,7 @@ private[sugar] object ArrayLikeSpecOps {
 		if (until > from & until > 0 & from < length) {
 			val from0 = math.max(from, 0)
 			val until0 = math.min(until, length)
-			def fill[@specialized(Everything) X](a :Array[X], f :Int => X) :Unit = {
+			def specUpdateAll[@specialized(Everything) X](a :Array[X], f :Int => X) :Unit = {
 				var i = from0
 				while (i < until0) {
 					a(i) = f(i)
@@ -253,15 +289,15 @@ private[sugar] object ArrayLikeSpecOps {
 				}
 			}
 			(array :Array[_]) match {
-				case a :Array[AnyRef]   => fill(a, f.castParam2[AnyRef])
-				case a :Array[Int]      => fill(a, f.castParam2[Int])
-				case a :Array[Long]     => fill(a, f.castParam2[Long])
-				case a :Array[Double]   => fill(a, f.castParam2[Double])
-				case a :Array[Char]     => fill(a, f.castParam2[Char])
-				case a :Array[Byte]     => fill(a, f.castParam2[Byte])
-				case a :Array[Float]    => fill(a, f.castParam2[Float])
-				case a :Array[Short]    => fill(a, f.castParam2[Short])
-				case a :Array[Boolean]  => fill(a, f.castParam2[Boolean])
+				case a :Array[AnyRef]   => specUpdateAll(a, f.castParam2[AnyRef])
+				case a :Array[Int]      => specUpdateAll(a, f.castParam2[Int])
+				case a :Array[Long]     => specUpdateAll(a, f.castParam2[Long])
+				case a :Array[Double]   => specUpdateAll(a, f.castParam2[Double])
+				case a :Array[Char]     => specUpdateAll(a, f.castParam2[Char])
+				case a :Array[Byte]     => specUpdateAll(a, f.castParam2[Byte])
+				case a :Array[Float]    => specUpdateAll(a, f.castParam2[Float])
+				case a :Array[Short]    => specUpdateAll(a, f.castParam2[Short])
+				case a :Array[Boolean]  => specUpdateAll(a, f.castParam2[Boolean])
 				case null               => null_!("null array")
 			}
 			until0 - from0
@@ -274,7 +310,7 @@ private[sugar] object ArrayLikeSpecOps {
 		if (until <= from)
 			z
 		else {
-			def foldl[@specialized(Specializable.Everything) X](arr :Array[X], op :(A, X) => A) :A = {
+			def specFoldLeft[@specialized(Specializable.Everything) X](arr :Array[X], op :(A, X) => A) :A = {
 				var i   = from
 				var res = z
 				while (i < until) {
@@ -284,15 +320,15 @@ private[sugar] object ArrayLikeSpecOps {
 				res
 			}
 			(array :Array[_]) match {
-				case a :Array[AnyRef]  => foldl(a, op.asInstanceOf[(A, AnyRef) => A])
-				case a :Array[Int]     => foldl(a, op.asInstanceOf[(A, Int) => A])
-				case a :Array[Long]    => foldl(a, op.asInstanceOf[(A, Long) => A])
-				case a :Array[Double]  => foldl(a, op.asInstanceOf[(A, Double) => A])
-				case a :Array[Byte]    => foldl(a, op.asInstanceOf[(A, Byte) => A])
-				case a :Array[Char]    => foldl(a, op.asInstanceOf[(A, Char) => A])
-				case a :Array[Float]   => foldl(a, op.asInstanceOf[(A, Float) => A])
-				case a :Array[Short]   => foldl(a, op.asInstanceOf[(A, Short) => A])
-				case a :Array[Boolean] => foldl(a, op.asInstanceOf[(A, Boolean) => A])
+				case a :Array[AnyRef]  => specFoldLeft(a, op.asInstanceOf[(A, AnyRef) => A])
+				case a :Array[Int]     => specFoldLeft(a, op.asInstanceOf[(A, Int) => A])
+				case a :Array[Long]    => specFoldLeft(a, op.asInstanceOf[(A, Long) => A])
+				case a :Array[Double]  => specFoldLeft(a, op.asInstanceOf[(A, Double) => A])
+				case a :Array[Byte]    => specFoldLeft(a, op.asInstanceOf[(A, Byte) => A])
+				case a :Array[Char]    => specFoldLeft(a, op.asInstanceOf[(A, Char) => A])
+				case a :Array[Float]   => specFoldLeft(a, op.asInstanceOf[(A, Float) => A])
+				case a :Array[Short]   => specFoldLeft(a, op.asInstanceOf[(A, Short) => A])
+				case a :Array[Boolean] => specFoldLeft(a, op.asInstanceOf[(A, Boolean) => A])
 				case null              => null_!("null array")
 			}
 	}
@@ -301,7 +337,7 @@ private[sugar] object ArrayLikeSpecOps {
 		if (until <= from)
 			z
 		else {
-			def foldr[@specialized(Specializable.Everything) X](arr :Array[X], op :(X, A) => A) :A = {
+			def specFoldRight[@specialized(Specializable.Everything) X](arr :Array[X], op :(X, A) => A) :A = {
 				var i   = until
 				var res = z
 				while (i > from) {
@@ -311,15 +347,15 @@ private[sugar] object ArrayLikeSpecOps {
 				res
 			}
 			(array :Array[_]) match {
-				case a :Array[AnyRef]  => foldr(a, op.asInstanceOf[(AnyRef, A) => A])
-				case a :Array[Int]     => foldr(a, op.asInstanceOf[(Int, A) => A])
-				case a :Array[Long]    => foldr(a, op.asInstanceOf[(Long, A) => A])
-				case a :Array[Double]  => foldr(a, op.asInstanceOf[(Double, A) => A])
-				case a :Array[Byte]    => foldr(a, op.asInstanceOf[(Byte, A) => A])
-				case a :Array[Char]    => foldr(a, op.asInstanceOf[(Char, A) => A])
-				case a :Array[Float]   => foldr(a, op.asInstanceOf[(Float, A) => A])
-				case a :Array[Short]   => foldr(a, op.asInstanceOf[(Short, A) => A])
-				case a :Array[Boolean] => foldr(a, op.asInstanceOf[(Boolean, A) => A])
+				case a :Array[AnyRef]  => specFoldRight(a, op.asInstanceOf[(AnyRef, A) => A])
+				case a :Array[Int]     => specFoldRight(a, op.asInstanceOf[(Int, A) => A])
+				case a :Array[Long]    => specFoldRight(a, op.asInstanceOf[(Long, A) => A])
+				case a :Array[Double]  => specFoldRight(a, op.asInstanceOf[(Double, A) => A])
+				case a :Array[Byte]    => specFoldRight(a, op.asInstanceOf[(Byte, A) => A])
+				case a :Array[Char]    => specFoldRight(a, op.asInstanceOf[(Char, A) => A])
+				case a :Array[Float]   => specFoldRight(a, op.asInstanceOf[(Float, A) => A])
+				case a :Array[Short]   => specFoldRight(a, op.asInstanceOf[(Short, A) => A])
+				case a :Array[Boolean] => specFoldRight(a, op.asInstanceOf[(Boolean, A) => A])
 				case null              => null_!("null array")
 			}
 	}
@@ -341,7 +377,7 @@ private[sugar] object ArrayLikeSpecOps {
 		val until0 = math.min(until, array.length)
 		val downto = from0 + 1
 
-		def swap[@specialized(Specializable.Everything) T](arr :Array[T]) :Unit = {
+		def specShuffle[@specialized(Specializable.Everything) T](arr :Array[T]) :Unit = {
 			var i = until0
 			while (i > downto) {
 				val j = random.nextInt(i)
@@ -353,15 +389,15 @@ private[sugar] object ArrayLikeSpecOps {
 		}
 		if (from0 < until0)
 			(array :Array[_]) match {
-				case a :Array[AnyRef]  => swap(a)
-				case a :Array[Int]     => swap(a)
-				case a :Array[Long]    => swap(a)
-				case a :Array[Double]  => swap(a)
-				case a :Array[Byte]    => swap(a)
-				case a :Array[Char]    => swap(a)
-				case a :Array[Float]   => swap(a)
-				case a :Array[Short]   => swap(a)
-				case a :Array[Boolean] => swap(a)
+				case a :Array[AnyRef]  => specShuffle(a)
+				case a :Array[Int]     => specShuffle(a)
+				case a :Array[Long]    => specShuffle(a)
+				case a :Array[Double]  => specShuffle(a)
+				case a :Array[Byte]    => specShuffle(a)
+				case a :Array[Char]    => specShuffle(a)
+				case a :Array[Float]   => specShuffle(a)
+				case a :Array[Short]   => specShuffle(a)
+				case a :Array[Boolean] => specShuffle(a)
 				case null              => null_!("null array")
 			}
 	}

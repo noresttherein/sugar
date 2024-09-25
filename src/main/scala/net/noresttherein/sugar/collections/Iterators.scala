@@ -22,6 +22,7 @@ import net.noresttherein.sugar.vars.Opt.One
 
 //todo: Views with the same functionality
 //todo: drop/take/copyToArray methods are untested!
+//todo: make copyToArray always advance the copied number of elements.
 /** Iterators implementing various extension methods from `extensions`. */
 private object Iterators {
 
@@ -31,7 +32,7 @@ private object Iterators {
 
 	def double[E](first :E, second :E) :Iterator[E] = new Double(first, second)
 
-	def const[E](value :E, length :Int) :Iterator[E] = new Const(length, value)
+	def const[E](value :E, length :Int) :Iterator[E] = new Const(math.max(0, length), value)
 
 	def const[E](value :E) :Iterator[E] = new ConstInfinite(value)
 

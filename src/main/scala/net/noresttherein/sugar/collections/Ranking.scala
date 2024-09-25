@@ -16,7 +16,7 @@ import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastUpdate}
 import net.noresttherein.sugar.collections.Ranking.RankingView
-import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingAdapter, RankingBuilder, RankingSeqAdapter, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UniqueRankingBuilder, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf, ofMaxSize, smallContains}
+import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyHashArray, IndexedSeqFactory, RankingAdapter, RankingBuilder, RankingSeqAdapter, RankingSetAdapter, ReverseBuilder, SmallRankingCap, UniqueRankingBuilder, UnorderedBuilder, deduplicateLarge, deduplicateSmall, hashCodeOf}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.{HasFastAppend, HasFastPrepend, errorString}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
@@ -24,7 +24,8 @@ import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.IterableExtension
 import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.kinds.Any1
-import net.noresttherein.sugar.vars.Maybe
+import net.noresttherein.sugar.vars.{IntOpt, Maybe}
+import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
@@ -63,6 +64,9 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   * @define Coll `Ranking`
   * @define coll ranking
   */
+//Todo: an implementation of Ranking with log(n) concatenation and moving of elements.
+// What we need is basically VectorSet/VectorMap, but additionally with a tree which tells us how many elements
+// where removed before any given index.
 //We rely on covariance to return coll as CC[U >: E], but it will prevent a mutable Ranking.
 // Perhaps though w can simply move non-immutable specific methods to GenRankingOps.
 trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
@@ -142,15 +146,25 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 			res
 		}
 	//todo: remove this method and make SeqExtension work for anything SeqLike type class
-	/** Finds an element of this $coll at or after index `from` which satisfies the predicate,
-	  * returning its index as an option. Unlike [[net.noresttherein.sugar.collections.RankingOps.getIndexOf getIndexOf]],
+	/** Finds an element of this $coll at or after index `from` which satisfies the predicate, returning its index
+	  * as an option. Unlike [[net.noresttherein.sugar.collections.RankingOps.findIndexOf findIndexOf]],
 	  * this method works in linear time.
 	  * @param p    a function applied consecutively to all elements with indices greater or equal `from`.
 	  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 	  */
-	def getIndexWhere(p :E => Boolean, from :Int = 0) :Maybe[Int] = indexWhere(p, from) match {
-		case -1 => No
-		case  n => Yes(n)
+	def findIndexWhere(p :E => Boolean, from :Int = 0) :Option[Int] = indexWhere(p, from) match {
+		case -1 => None
+		case  n => Some(n)
+	}
+	/** Finds an element of this $coll at or after index `from` which satisfies the predicate, returning its index
+	  * as an `IntOpt`. Unlike [[net.noresttherein.sugar.collections.RankingOps.getIndexOf getIndexOf]],
+	  * this method works in linear time.
+	  * @param p    a function applied consecutively to all elements with indices greater or equal `from`.
+	  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
+	  */
+	def getIndexWhere(p :E => Boolean, from :Int = 0) :IntOpt = indexWhere(p, from) match {
+		case -1 => NoInt
+		case  n => AnInt(n)
 	}
 
 	/** Finds an element of this $coll at or after index `from` which satisfies the predicate,
@@ -184,16 +198,29 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	}
 
 	/** Finds the last element at or before index `end` satisfying the predicate.
-	  * Unlike [[net.noresttherein.sugar.collections.RankingOps.getIndexOf getIndexOf]],
+	  * Unlike [[net.noresttherein.sugar.collections.RankingOps.findLastIndexOf findLastIndexOf]],
 	  * this method works in linear time.
 	  * @param p   a function applied consecutively to all elements with indices lesser or equal `end`.
 	  * @param end an inclusive upper bound for the element's index,
 	  * @return the maximum number `n <= end` such that `p(this(n))`,
-	  *         or `No` if no element in this $coll's index range `[0..end]` satisfies the predicate.
+	  *         or `None` if no element in this $coll's index range `[0..end]` satisfies the predicate.
 	  */
-	def getLastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Maybe[Int] = {
+	def findLastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :Option[Int] = {
 		val res = lastIndexWhere(p, end)
-		if (res == -1) No else Yes(res)
+		if (res == -1) None else Some(res)
+	}
+
+	/** Finds the last element at or before index `end` satisfying the predicate.
+	  * Unlike [[net.noresttherein.sugar.collections.RankingOps.getLastIndexOf getLastIndexOf]],
+	  * this method works in linear time.
+	  * @param p   a function applied consecutively to all elements with indices lesser or equal `end`.
+	  * @param end an inclusive upper bound for the element's index,
+	  * @return the maximum number `n <= end` such that `p(this(n))`,
+	  *         or `None` if no element in this $coll's index range `[0..end]` satisfies the predicate.
+	  */
+	def getLastIndexWhere(p :E => Boolean, end :Int = Int.MaxValue) :IntOpt = {
+		val res = lastIndexWhere(p, end)
+		if (res == -1) NoInt else AnInt(res)
 	}
 
 	/** Finds the last element at or before index `end` satisfying the predicate.
@@ -215,11 +242,19 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	def indexOf[U >: E](elem :U) :Int
 
 	/** Same as the standard [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]],
-	  * but returns [[net.noresttherein.sugar.vars.Maybe.No No]] instead of returning `-1` if no such element exists.
+	  * but returns `None` instead of returning `-1` if no such element exists.
 	  */
-	def getIndexOf[U >: E](elem :U) :Maybe[Int] = indexOf(elem) match {
-		case -1 => No
-		case n => Yes(n)
+	def findIndexOf[U >: E](elem :U) :Option[Int] = indexOf(elem) match {
+		case -1 => None
+		case  n => Some(n)
+	}
+
+	/** Same as the standard [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]],
+	  * but returns `NoInt` instead of returning `-1` if no such element exists.
+	  */
+	def getIndexOf[U >: E](elem :U) :IntOpt = indexOf(elem) match {
+		case -1 => NoInt
+		case  n => AnInt(n)
 	}
 
 	/** Same as the standard [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]],
@@ -230,7 +265,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  */
 	def sureIndexOf[U >: E](elem :U) :Int = indexOf(elem) match {
 		case -1 => throw new NoSuchElementException("No " + elem + " in " + this + ".")
-		case n => n
+		case  n => n
 	}
 
 	/** Finds first index after or at a start index where this $coll contains a given sequence as a slice.
@@ -252,17 +287,30 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 			    case _ => -1
 		    }
 
-	/** Finds the location of the given subsequence in this $coll, returning its index as a `Maybe`.
+	/** Finds the location of the given subsequence in this $coll, returning its index as an `Option`.
 	  * Thanks to the uniqueness of elements in a $coll and fast
-	  * [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]], this method runs in O(that.size).
+	  * [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]], this method runs in `O(that.size)`.
 	  * @param that a presumed consecutive subsequence of this sequence.
 	  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
-	  * @return `Maybe(this.indexOfSlice(that, from)).filter(_ >= 0)`.
-	  */ //todo: use Option, consistently with SeqExtension, but add also a variant for IntOpt.
-	def getIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Maybe[Int] =
+	  * @return `Option(this.indexOfSlice(that, from)).filter(_ >= 0)`.
+	  */
+	def findIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Option[Int] =
 		indexOfSlice(that, from) match {
-			case -1 => No
-			case  n => Yes(n)
+			case -1 => None
+			case  n => Some(n)
+		}
+
+	/** Finds the location of the given subsequence in this $coll, returning its index as an `IntOpt`.
+	  * Thanks to the uniqueness of elements in a $coll and fast
+	  * [[net.noresttherein.sugar.collections.RankingOps.indexOf indexOf]], this method runs in `O(that.size)`.
+	  * @param that a presumed consecutive subsequence of this sequence.
+	  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
+	  * @return `IntOpt(this.indexOfSlice(that, from)).filter(_ >= 0)`.
+	  */
+	def getIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :IntOpt =
+		indexOfSlice(that, from) match {
+			case -1 => NoInt
+			case  n => AnInt(n)
 		}
 
 	/** Finds the location of the given subsequence in this $coll, throwing a [[NoSuchElementException]]
@@ -292,7 +340,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	/** Checks if this $coll contains all the given elements, in an unspecified order. */
 	def containsAll[U >: E](elems :IterableOnce[U]) :Boolean = elems match {
 		case rank  :Ranking[U] if rank.size < size => false
-		case set   :collection.Set[_] if { val n = set.knownSize; n >= 0 && n < size } => false
+		case set   :collection.SetOps[_, Any1, _] if { val n = set.knownSize; n >= 0 && n < size } => false
 		case items :Iterable[U] => items.isEmpty || items.forall(contains)
 		case _ => elems.iterator.forall(contains)
 	}
@@ -1104,6 +1152,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  */
 	def reverseIterator :Iterator[E]
 
+	//todo: RankingView with RankingOps.
 	override def view :IndexedSeqView[E] =
 		if (isEmpty) EmptyIndexedSeqOps.view else new RankingView[E](this)
 
@@ -1278,7 +1327,7 @@ case object Ranking extends RankingFactory[Ranking] {
 		case items   :Iterable[T] if items.sizeIs <= 1 =>
 			Yes(if (items.isEmpty) Ranking.empty else new SingletonRanking[T](items.head))
 		case iter    :Iterator[_] if !iter.hasNext     => Yes(Ranking.empty[T])
-		case set     :collection.Set[_] =>
+		case set     :collection.SetOps[_, Any1, _] =>
 			if (set.size <= SmallRankingCap)
 				Yes(new SmallRanking(RefArray.from(elems)))
 			else
@@ -1481,7 +1530,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 					outOfBounds_!(errorString(items) + " has more than " + maxSize + " elements.")
 				new SingletonRanking(one.head)
 			case set :RankingSetAdapter[T] => ofMaxSize(set.toRanking, maxSize, errorOnMore)
-			case set :collection.Set[T] =>
+			case set :collection.SetOps[T, Any1, _] =>
 				ofMaxSize(set, maxSize, errorOnMore)
 			case seq :RankingSeqAdapter[T] => ofMaxSize(seq.toRanking, maxSize, errorOnMore)
 			case _ if !errorOnMore =>
@@ -1497,7 +1546,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 				res
 		}
 	}
-	private def ofMaxSize[T](set :collection.Set[T], maxSize :Int, errorOnMore :Boolean) = {
+	private def ofMaxSize[T](set :collection.SetOps[T, Any1, _], maxSize :Int, errorOnMore :Boolean) = {
 		val knownSize = set.knownSize
 		if (knownSize >= 0 & knownSize <= maxSize) {
 			if (knownSize <= SmallRankingCap)
@@ -2414,7 +2463,7 @@ trait StrictRanking[+E] extends StrictOptimizedIterableOps[E, Ranking, Ranking[E
 	@inline final override def size    :Int     = knownSize
 	@inline final override def isEmpty :Boolean = knownSize == 0
 
-	@tailrec
+	@tailrec //todo: use SetOps, so it works for CappedSet and SpillSet
 	private def updatedAllImpl[U >: E](index :Int, elems :IterableOnce[U],
 	                                   updatedOne :(StrictRanking[E], Int, U) => Ranking[U],
 	                                   updatedSet :(StrictRanking[E], Int, collection.Set[U]) => Ranking[U],
@@ -2455,7 +2504,7 @@ trait StrictRanking[+E] extends StrictOptimizedIterableOps[E, Ranking, Ranking[E
 	  * @param unique        the added collection, guaranteed to contain only unique elements.
 	  * @param ignoreSurplus if false, and `index + unique.size > this.size` an `IndexOutOfBoundsException` is thrown.
 	  * @param contains      used to check if an element is present in `unique`.
-	  */
+	  */ //todo: use LikeSet.
 	protected def updatedAll[U >: E, C <: Iterable[U]] //todo: flip it to errorOnSurplus
 	                        (index :Int, unique :C, ignoreSurplus :Boolean)(contains :(C, U) => Boolean) :Ranking[U] =
 	{   //todo: an alternative implementation which lazily evaluates unique.
@@ -2536,7 +2585,7 @@ trait StrictRanking[+E] extends StrictOptimizedIterableOps[E, Ranking, Ranking[E
 			_.replaceAll[U, Ranking[U]](_, _, false)((ranking :Ranking[U], elem :U) => ranking.contains(elem))
 		)
 
-	protected def replaceAll[U >: E, C <: Iterable[U]]
+	protected def replaceAll[U >: E, C <: Iterable[U]] //todo: use LikeSet
 	                        (index :Int, unique :C, ignoreSurplus :Boolean)(contains :(C, U) => Boolean) :Ranking[U] =
 	{
 		def ioob(prefix :Int) =
@@ -2647,7 +2696,7 @@ trait StrictRanking[+E] extends StrictOptimizedIterableOps[E, Ranking, Ranking[E
 				insertedAll[U, Ranking[U]](index, Ranking.from(elems), _.contains(_))
 		}
 	//The function argument doesn't require creating a closure, so we get polymorphism for free.
-	protected def insertedAll[U >: E, C <: Iterable[U]]
+	protected def insertedAll[U >: E, C <: Iterable[U]] //todo: use LikeSet
 	                         (index :Int, unique :C, contains: (C, U) => Boolean) :Ranking[U] =
 	{
 		val res = new UniqueRankingBuilder[U]

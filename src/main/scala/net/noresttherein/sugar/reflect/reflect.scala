@@ -97,6 +97,7 @@ package reflect {
 		val JDouble   :Class[JDouble]   = classOf[JDouble]
 		val JBoolean  :Class[JBoolean]  = classOf[JBoolean]
 		val AnyRef    :Class[AnyRef]    = classOf[AnyRef]
+		val Any       :Class[Any]       = classOf[Any]
 		val BoxedUnit :Class[BoxedUnit] = classOf[BoxedUnit]
 
 		val ByteArray    :Class[Array[Byte]]    = classOf[Array[Byte]]
@@ -108,6 +109,7 @@ package reflect {
 		val DoubleArray  :Class[Array[Double]]  = classOf[Array[Double]]
 		val BooleanArray :Class[Array[Boolean]] = classOf[Array[Boolean]]
 		val AnyRefArray  :Class[Array[AnyRef]]  = classOf[Array[AnyRef]]
+		val AnyArray     :Class[Array[Any]]     = classOf[Array[Any]]
 	}
 }
 

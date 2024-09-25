@@ -112,10 +112,10 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 
 	/** Copies the elements of this $coll to the given array, starting with the `from`-th element.
 	  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
-	  * whichever is smaller. The first element is written at index `start`, and if the end of the $coll is reached
-	  * before any of the above happens, copying resumes from the beginning of the array.
+	  * whichever is smaller. The first element is written at index `start % xs.length`, and if the end
+	  * of the $coll is reached before any of the above happens, copying resumes from the beginning of the array.
 	  * @return the number of elements copied.
-	  * @throws IndexOutOfBoundsException if `start` is less than zero or greater than `xs.length`.
+	  * @throws IndexOutOfBoundsException if `start` is less than zero.
 	  */ //todo: remove these two and make them only extension methods.
 	def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int = Int.MaxValue) :Int = {
 		val length = xs.length
@@ -131,8 +131,8 @@ trait SugaredIterableOps[+E, +CC[_], +C] extends Any with IterableOps[E, CC, C] 
 
 	/** Copies the elements of this $coll to the given array.
 	  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
-	  * whichever is smaller. The first element is written at index `start`, and if the end of the $coll is reached
-	  * before any of the above happens, copying resumes from the beginning of the array.
+	  * whichever is smaller. The first element is written at index `start % xs.length`, and if the end
+	  * of the $coll is reached before any of the above happens, copying resumes from the beginning of the array.
 	  * @return the number of elements copied.
 	  * @throws IndexOutOfBoundsException if `start` is less than zero or greater than `xs.length`.
 	  */
@@ -216,6 +216,8 @@ object OrderedIterable extends IterableFactory[OrderedIterable] {
 /** Implements all methods returning a slice of this collection by delegating them to a single
   * [[net.noresttherein.sugar.collections.SlicingOps.clippedSlice clippedSlice]] after validation.
   * Assumes fast `size` operation.
+  * @note the self type parameter `C` is used only as the return type from slicing methods:
+  *       this interface extends only the most generic `IterableOps[E, kinds.Any1, Any]`.
   * @tparam E The type of elements stored in this $collection.
   * @tparam C The collection type returned from all slicing methods. Note that this can be a subtype of
   *           the last type parameter to `IterableOps` mixed in by implementation classes.

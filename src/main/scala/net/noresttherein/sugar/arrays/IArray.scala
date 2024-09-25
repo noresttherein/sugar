@@ -882,6 +882,7 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 
 
 
+
 	/** Wraps and unwraps immutable `IndexedSeq` instances and other immutable collections backed by arrays
 	  * in a safe manner. Arrays are represented as [[net.noresttherein.sugar.arrays.IArray IArray]] instances
 	  * to prevent accidental modification and ensure that the user is aware that an array will be represented

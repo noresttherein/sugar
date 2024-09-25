@@ -538,6 +538,7 @@ object ArrayExtensionSpec extends ArrayTestingUtils("ArrayExtension") {
 			case (Some(a), Some(b)) => (a ^ b).toByte
 			case (Some(a), _)       => a
 			case (_, Some(b))       => b
+			case _                  => ??!
 		}) lbl a.map(_.toBinaryString).contentsString + " ^ " + b.map(_.toBinaryString).contentsString + " == " +
 			(a ^ b map (_.toBinaryString)).contentsString
 	}

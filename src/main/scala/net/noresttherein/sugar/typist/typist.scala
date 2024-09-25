@@ -1,5 +1,8 @@
 package net.noresttherein.sugar
 
+import scala.reflect.ClassTag
+
+import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.vars.Maybe.{Yes, No}
 import net.noresttherein.sugar.vars.Maybe
 
@@ -168,6 +171,7 @@ package object typist {
 	  */
 	type Unknown
 
+	implicit val UnknownAsAnyClassTag :ClassTag[Unknown] = ClassTag(classOf[Any])
 }
 
 
@@ -209,9 +213,6 @@ package typist {
 
 package typist {
 
-	import scala.reflect.ClassTag
-
-	import net.noresttherein.sugar.typist.kinds
 	//consider: moving it to witness
 	/** A function class used for implicit conversions in order to force precedence of one definition over another,
 	  * despite having the same argument and return types.
@@ -257,24 +258,20 @@ package typist {
 
 
 	/** A generic variant of `<:<`, projecting the relation from types to type constructors. */
-	//consider: a better name.
-	sealed abstract class <:?<[-A[_], +B[_]] extends Serializable {
+	sealed abstract class <::<[-A[_], +B[_]] extends Serializable {
 		def apply[X](value :A[X]) :B[X]
 	}
 
-	object <:?< {
-		implicit def summon[A[_]] :A =:?= A = instance.asInstanceOf[A =:?= A]
+	object <::< {
+		implicit def summon[A[_]] :A =::= A = instance.asInstanceOf[A =::= A]
 		private[this] val instance = new Evidence[kinds.Any1]
 
-		private class Evidence[A[_]] extends =:?=[A, A] {
+		private class Evidence[A[_]] extends =::=[A, A] {
 			override def apply[X](value :A[X]) :A[X] = value
 		}
 	}
 
 	/** A generic variant of `=:=`, projecting the relation from types to type constructors. */
-	sealed abstract class =:?=[A[_], B[_]] extends <:?<[A, B]
+	sealed abstract class =::=[A[_], B[_]] extends <::<[A, B]
 
-	object Unknown {
-		implicit val unknownAsAnyClassTag :ClassTag[Unknown] = ClassTag(classOf[Any])
-	}
 }

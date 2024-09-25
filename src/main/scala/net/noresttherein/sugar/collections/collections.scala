@@ -2,7 +2,7 @@ package net.noresttherein.sugar
 
 import java.util.PrimitiveIterator
 
-import scala.collection.{AnyStepper, DoubleStepper, IntStepper, LongStepper, SeqFactory, Stepper}
+import scala.collection.{AnyStepper, DoubleStepper, IntStepper, IterableOnceOps, LongStepper, SeqFactory, Stepper}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer, IndexedBuffer}
@@ -44,6 +44,8 @@ package object collections extends JteratorExtensions {
 	type JavaIntIterator    = PrimitiveIterator.OfInt
 	type JavaLongIterator   = PrimitiveIterator.OfLong
 	type JavaDoubleIterator = PrimitiveIterator.OfDouble
+
+	type IterableOnceWithOps[+E] = IterableOnce[E] with IterableOnceOps[E, IterableOnce, IterableOnce[E]]
 
 	/** An opaque wrapper over a Java iterator, possibly one of the [[java.util.PrimitiveIterator PrimitiveIterator]]
 	  * subclasses, exposing iterator-like API, returning elements of type `E`. Specialized subtypes are available

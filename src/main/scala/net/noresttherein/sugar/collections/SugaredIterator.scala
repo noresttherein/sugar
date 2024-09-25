@@ -13,7 +13,7 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
 
 trait SugaredIterator[+E] extends Iterator[E] {
 	def hasFastDrop :Boolean = knownSize == 0
-	//todo: rename to dropInPlace
+	//todo: rename to dropInPlace; return this.type
 	def strictDrop(n :Int) :Iterator[E] = {
 		var left = n
 		while (left > 0 && hasNext) {
@@ -22,6 +22,7 @@ trait SugaredIterator[+E] extends Iterator[E] {
 		}
 		this
 	}
+	//todo: dropWhileInPlace
 	def strictSlice(from :Int, until :Int) :Iterator[E] =
 		if ({ val size = knownSize; size >= 0 & until >= size })
 			strictDrop(from)
@@ -175,7 +176,7 @@ class CountingIterator[+E](private[this] var underlying :Iterator[E], private[th
 	override def hasNext :Boolean = underlying.hasNext
 	override def next() :E = { val res = underlying.next(); counter += 1; res }
 
-	override def strictDrop(n :Int) :CountingIterator[E] = {
+	override def strictDrop(n :Int) :this.type = {
 		if (n > 0) {
 			val size = underlying.knownSize
 			if (size >= 0) {
@@ -270,6 +271,14 @@ class CountingIterator[+E](private[this] var underlying :Iterator[E], private[th
 
 	override def toString :String = "CountingIterator(#" + counter + ": " + underlying + ")"
 }
+//
+//
+//
+//class CountingBufferedIterator[+E](underlying :BufferedIterator[E])
+//	extends CountingIterator[E](underlying, 0) with BufferedIterator[E]
+//{
+//	override def head :E = underlying.head
+//}
 
 
 

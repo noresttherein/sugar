@@ -4,12 +4,11 @@ import scala.annotation.nowarn
 import scala.collection.IterableFactory
 import scala.collection.immutable.{ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.Builder
-import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.arrays.ArrayLike.WithFilter
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.ArrayIterableOnce
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.extensions.IterableOnceExtension
 import net.noresttherein.sugar.typist.Unknown
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -198,6 +197,8 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 		extends AnyVal
 	{
 		@inline private def exposed :Arr[E] = self.asInstanceOf[Arr[E]]
+
+		def withFilter(p :E => Boolean) :WithFilter[E, IRefArray] = new WithFilter(p, self.asInstanceOf[ArrayLike[E]])
 
 		def iterator :Iterator[E] = IArrayLikeIterator(exposed)
 		def reverseIterator :Iterator[E] = ReverseIArrayLikeIterator(exposed)

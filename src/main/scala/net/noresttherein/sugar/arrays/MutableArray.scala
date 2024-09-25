@@ -12,6 +12,7 @@ import scala.collection.{IterableFactory, mutable}
 import scala.reflect.{ClassTag, classTag}
 import scala.util.{Random, Sorting}
 
+import net.noresttherein.sugar.arrays.ArrayLike.WithFilter
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArraySlice, IArrayLikeSlice, MatrixBuffer, MutableArraySlice, Mutator, RefArraySlice}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
@@ -601,6 +602,8 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 
 		def shuffle(from :Int, until :Int, random :RandomGenerator) :Unit =
 			ArrayLikeSpecOps.shuffle(self, from, until)(random)
+
+		def withFilter(p :E => Boolean) :WithFilter[E, RefArray] = new WithFilter(p, self.asInstanceOf[ArrayLike[E]])
 
 		def mutator :Mutator[E] = MutableArrayMutator(self.asInstanceOf[Array[E]])
 

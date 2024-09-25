@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.arrays
 
+import java.lang.{Math => math}
 import java.lang.reflect.Array.newInstance
 import java.util.Arrays
 
@@ -10,7 +11,7 @@ import scala.collection.generic.IsSeq
 import scala.reflect.{ClassTag, classTag}
 import scala.runtime.BoxedUnit
 
-import net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeToSeqConversion
+import net.noresttherein.sugar.arrays.ArrayLike.{ArrayLikeToSeqConversion, MaxArraySize}
 import net.noresttherein.sugar.arrays.ArrayOrdering.{ByteArrayOrdering, CharArrayOrdering, DoubleArrayIEEEOrdering, DoubleArrayTotalOrdering, FloatArrayIEEEOrdering, FloatArrayTotalOrdering, IntArrayOrdering, LongArrayOrdering, ShortArrayOrdering}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension, ArrayExtensionConversion, ArrayExtensionConversionPrototype, IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
@@ -1193,6 +1194,22 @@ object extensions {
 		}
 
 
+		/** Creates an array of the same element type, but double the size of the argument.
+		  * Contents of the argument are copied to the front of the new array. If doubling the size
+		  * would exceed the maximum array size, the latter is used instead.
+		  */
+		def double[A](array :Array[A]) :Array[A] =
+			(array match {
+				case a :Array[AnyRef]  => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Int]     => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Long]    => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Double]  => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Byte]    => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Char]    => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Short]   => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+				case a :Array[Boolean] => Arrays.copyOf(a, math.min(a.length, MaxArraySize >> 1) << 1)
+			}).asInstanceOf[Array[A]]
+
 		//fixme: copyOf methods will be invisible because of copyOf in Array
 		/** Clones the given array. */
 /*
@@ -1672,7 +1689,7 @@ object extensions {
 		  * @param until3 The index after the last copied element in `array1`.
 		  * @return An `Array[E]` of length `until1 - from1 + until2 - from2 + until3 - from3` (for `untilN >= fromN`),
 		  *         with the copied slices.
-		  */ //we could avoid class tag creation if we had a private mthod accepting a class
+		  */ //we could avoid class tag creation if we had a private method accepting a class
 		@inline final def copyOfRanges[E](array1 :Array[E], from1 :Int, until1 :Int,
 		                                  array2 :Array[E], from2 :Int, until2 :Int,
 		                                  array3 :Array[E], from3 :Int, until3 :Int) :Array[E] =

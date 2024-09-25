@@ -4,12 +4,12 @@ package net.noresttherein.sugar.arrays
 
 import scala.Array.UnapplySeqWrapper
 import scala.annotation.tailrec
-import scala.collection.{ArrayOps, IterableFactory, Stepper, StepperShape, View, mutable}
-import scala.collection.Stepper.EfficientSplit
+import scala.collection.{ArrayOps, IterableFactory, View, mutable}
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.arrays.ArrayLike.MaxArraySize
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, cast3TypeParamsMethods, castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.{ArrayIterableOnce, ArrayLikeSlice, IArraySlice, IRefArraySlice, MatrixBuffer, SpillArrayBuffer}
 import net.noresttherein.sugar.vars.Maybe
@@ -141,6 +141,8 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 		@inline def indexOf(elem :E, from :Int = 0) :Int = self.indexOf(elem, from)
 		@inline def lastIndexOf(elem :E, end :Int = Int.MaxValue) :Int = self.lastIndexOf(elem, end)
 		@inline def contains(elem :E) :Boolean = self.contains(elem)
+
+		@inline def double :Arr[E] = expose(ArrayFactory.copyOf(self, math.min(MaxArraySize >> 1, self.length) << 1))
 
 		@inline def scanLeft[A](z :A)(op :(A, E) => A) :Arr[A] =
 			exposeOther(self.scanLeft[Any](z)(op.castParams[Any, Any, Any]))

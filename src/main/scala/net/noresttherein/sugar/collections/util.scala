@@ -2,6 +2,7 @@ package net.noresttherein.sugar.collections
 
 import java.lang.reflect.InvocationTargetException
 
+import scala.annotation.tailrec
 import scala.collection.immutable.IndexedSeqDefaults.defaultApplyPreferredMaxLength
 import scala.collection.immutable.Set.{Set1, Set2, Set3, Set4}
 import scala.collection.immutable.{ArraySeq, HashSet, LinearSeq, SeqOps, WrappedString}
@@ -9,14 +10,14 @@ import scala.collection.{IndexedSeqView, IterableFactory, IterableOnceOps, Itera
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
+import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray, RefArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.HasFastSlice.{hasFastDrop, preferDropOverIterator}
 import net.noresttherein.sugar.collections.IndexedIterable.{HasFastUpdate, applyPreferred}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
-import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.collections.util.{HasFastReverse, errorString}
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
-import net.noresttherein.sugar.extensions.ClassExtension
+import net.noresttherein.sugar.extensions.{BufferFactoryExtension, ClassExtension, IteratorExtension}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.kinds.Any1
@@ -89,7 +90,7 @@ private[sugar] object util {
 	}
 
 	def knownUnique(items :IterableOnce[_]) :Boolean =
-		items.isInstanceOf[collection.Set[_]] || items.isInstanceOf[Ranking[_]] || knownEmpty(items)
+		items.isInstanceOf[collection.SetOps[_, Any1, _]] || items.isInstanceOf[Ranking[_]] || knownEmpty(items)
 
 //	def knownCovariant(items :IterableOnce[_]) :Boolean = items match {
 //		case _ if items.knownSize == 0 => true
@@ -116,12 +117,18 @@ private[sugar] object util {
 			case _ => false
 		}
 
-		//Unsound, the result is only good for items itself and not other CC[_] objects.
-		def unapply[CC[A]/* <: IterableOnce[A]*/, X](items :CC[X]) :Maybe[SeqLike[X, CC, CC[X]]] = items match {
+		//Fixme: works only for known, final/sealed collection classes, whose linearization we know,
+		// and we are sure that CC can't be some other type.
+		//What prevents us from introducing the bound of IterableOnce[A] is that Defaults.reversePrependedAll
+		// wants to pass CC[X] as the argument, which is unbound, because the method is delegated to
+		// by SeqExtension[X, CC, C], and we want to be able to use SeqExtension[X, RefArray, ArrayAsSeq[X]].
+		// The best solution is to stop using ArrayAsSeq as an adapter to enable IterableOnce extension methods
+		// for arrays, and migrate all the extensions to depend on these type classes instead.
+		def unapply[CC[A]/* <: IterableOnce[A]*/, X](items :CC[X]) :Maybe[LikeSeq[X, items.type, CC, CC[X]]] = items match {
 			case _ :LinearSeq[_] =>
-				Yes(SeqLike.generic[X, Seq].asInstanceOf[SeqLike[X, CC, CC[X]]])
+				Yes(LikeSeq.generic[X, Seq].asInstanceOf[LikeSeq[X, items.type, CC, CC[X]]])
 			case _ :Vector[_] | _ :Fingers[_] | _ :RelayArray[_] | _ :RelaySeq[_] =>
-				Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[SeqLike[X, CC, CC[X]]])
+				Yes(LikeIndexedSeq.generic[X, IndexedSeq].asInstanceOf[LikeSeq[X, items.type, CC, CC[X]]])
 			case _ =>
 				No
 		}
@@ -140,9 +147,14 @@ private[sugar] object util {
 				res
 	}
 
+	//todo: rename to FastReverse
 	object HasFastReverse {
-		def unapply[A](items :IterableOnce[A]) :Maybe[IterableOnce[A]] = items match {
-			case seq  :ReversedSeq[A]                                   => Yes(seq.reverse)
+		//todo: return IterableOnceLike instead
+		def unapply[A](items :IterableOnce[A]) :Maybe[IterableOnce[A]] = attemptReverse(items)
+
+		def attemptReverse[A](items :IterableOnce[A]) :Maybe[IterableOnce[A]] = items match {
+			case seq  :ReversedSeq[A]                                   => Yes(seq.reversed)
+			case seq  :ReversedBuffer[A]                                => Yes(seq.reversed)
 			case it   :Iterable[A] if it.sizeIs <= 1                    => Yes(items)
 			case seq  :collection.IndexedSeqOps[A, Any1, _]             => Yes(seq.reverseIterator)
 			case rank :Ranking[A]                                       => Yes(rank.reverseIterator)
@@ -154,11 +166,21 @@ private[sugar] object util {
 	}
 
 	def reverse[A](items :IterableOnce[A]) :IterableOnce[A] = items match {
-		case seq     :ReversedSeq[A]                       => seq.reverse
+		case seq     :ReversedSeq[A]                       => seq.reversed
 //		case ranking :ReversedRanking[A]                   => ranking.reverse
-		case seq     :collection.IndexedSeqOps[A, Any1, _] => if (seq.length <= 1) items else seq.reverseIterator
+		case seq     :collection.IndexedSeqOps[A, Any1, _] =>
+			if (seq.length <= 1) items else ReverseIndexedSeqIterator(seq) //seq.view.iterator doesn't implement knownSize
+		case rank    :RankingOps[A, IterableOnce, IterableOnce[A]] =>
+			if (rank.length <= 1) items else rank.reverseIterator
+		case view    :View[A]                              => reverse(view.iterator)
 		case items   :Iterable[A] if items.sizeIs <= 1     => items
-		case _                                             => Iterators.reverse(items)
+		case IndexedIterable(seq)                          => seq.reverseIterator
+//		case _                                             => Iterators.reverse(items)
+		case _ =>
+			val size = items.knownSize
+			val buffer = if (size >= 0) TemporaryBuffer.ofCapacity[A](size) else TemporaryBuffer.of[A]
+			items.toBasicOps.foldLeft(buffer)(_.prepend(_))
+			buffer
 	}
 
 
@@ -180,7 +202,10 @@ private[sugar] object util {
 		len <= 0 || { val length = xs.length; length == 0 | start >= length } || coll.knownSize == 0
 
 	@inline def nothingToCopy(size :Int, xs :Array[_], start :Int, len :Int) :Boolean =
-		len <= 0 | size == 0 || start >= len
+		len <= 0 | size == 0 || start >= xs.length
+
+	@inline def nothingToCopy(xs :Array[_], start :Int, len :Int) :Boolean =
+		len <= 0 || { val length = xs.length; length == 0 | start >= length }
 
 
 	def rangeCheck(coll :IterableOnce[_], from :Int, xs :Array[_], start :Int, len :Int) :Boolean =
@@ -278,6 +303,7 @@ private[sugar] object util {
 		if (size >= 0) className(items) + '|' + size + '|' else className(items)
 	}
 	def errorString(items :ArrayLike[_]) :String = items.className + '|' + items.asInstanceOf[Array[_]].length + '|'
+	def errorString(string :String) :String = "String|" + string.length + "|"
 
 	def multiDimErrorString(items :ArrayLike[_]) :String = {
 		def dimensionString(array :Array[_]) :String =
@@ -286,6 +312,8 @@ private[sugar] object util {
 			else if (array.length == 0)
 				"|0|"
 			else {
+				//Fixme: this works only for Array2 for some reason.
+				// Also, we probably don't want to iterate over the whole array here!
 				val len1 = array.length
 				val a2 = array.asInstanceOf[Array[Array[_]]]
 				val len2 = a2(0).length
@@ -332,8 +360,8 @@ private[sugar] object IndexedIterable {
 	//todo: return IndexedSeqLike instead
 	@inline def unapply[A](items :IterableOnce[A]) :Maybe[collection.IndexedSeqOps[A, kinds.Any1, _]] = items match {
 		case seq     :collection.IndexedSeqOps[A, kinds.Any1, _] => Yes(seq)
-		case ranking :Ranking[A]                                   => Yes(ranking.toIndexedSeq)
-		case set     :IndexedSet[A]                                => Yes(set.toIndexedSeq)
+		case ranking :Ranking[A]                                 => Yes(ranking.toIndexedSeq)
+		case set     :IndexedSet[A]                              => Yes(set.toIndexedSeq)
 		case slice   :ArrayIterableOnce[A] =>
 			val from  = slice.startIndex
 			val until = from + slice.knownSize
@@ -347,19 +375,19 @@ private[sugar] object IndexedIterable {
 
 		@inline def apply[K, V](map :Map[K, V]) :Boolean = true
 
-		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Maybe[SeqLike[X, CC, CC[X]]] = items match {
+		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Maybe[LikeSeq[X, items.type, CC, CC[X]]] = items match {
 			case seq :collection.IndexedSeqOps[X, CC, CC[X]] @unchecked => seq match {
 				case _ :Vector[X] | _ :Fingers[X] =>
-					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+					Yes(LikeIndexedSeq.generic[X, IndexedSeq].asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]])
 				case _ if seq.length <= FastUpdateThreshold =>
-					Yes(IndexedSeqLike.generic[X, IndexedSeq].asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+					Yes(LikeIndexedSeq.generic[X, IndexedSeq].asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]])
 				case _ => No
 			}
 			case seq :collection.Seq[X] if seq.sizeIs <= FastUpdateThreshold =>
-				Yes(SeqLike.generic[X, Seq].asInstanceOf[SeqLike[X, CC, CC[X]]])
+				Yes(LikeSeq.generic[X, Seq].asInstanceOf[LikeSeq[X, items.type, CC, CC[X]]])
 			case ranking :Ranking[X] =>
 				if (ranking.size <= FastUpdateThreshold || HasFastUpdate(ranking.toIndexedSeq))
-					Yes(IndexedSeqLike.forRanking.asInstanceOf[IndexedSeqLike[X, CC, CC[X]]])
+					Yes(LikeIndexedSeq.forRanking.asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]])
 				else
 					No
 			case _ => No
@@ -408,6 +436,7 @@ private[sugar] object IndexedIterable {
 				Yes(ArrayLike.Slice(array, from, until))
 			case _ => No
 		}
+
 		@inline def apply(items :collection.SeqOps[_, kinds.Any1, _]) :Boolean = applyPreferred(items)
 	}
 
@@ -449,9 +478,12 @@ private object HasFastSlice {
 	private[this] val ArrayIterator                 = new Array[Any](0).iterator.getClass
 	private[this] val ArrayReverseIterator          = new Array[Any](0).reverseIterator.getClass
 	private[this] val VectorIterator                = Vector().iterator.getClass
+	//ArrayBuffer uses a subclass of IndexedSeqViewIterator
+//	private[this] val ArrayBufferIterator           = ArrayBuffer.empty.iterator.getClass
+//	private[this] val ReverseArrayBufferIterator    = ArrayBuffer.empty.iterator.getClass
 
-	private def isIndexedIterator(itr :Iterator[_]) = {
-		val cls = itr.getClass
+	def isIndexedIterator(itr :Iterator[_]) = {
+		val cls = itr.getClass //Need a subclass test at the very least for the ArrayBuffer.iterator/reverseIterator.
 		cls <:< IndexedSeqViewIterator || cls <:< IndexedSeqViewReverseIterator ||
 			cls <:< ArrayIterator || cls <:< ArrayReverseIterator || cls <:< VectorIterator
 	}
@@ -508,6 +540,8 @@ private object HasFastSlice {
 	def quickSlice[A](items :IterableOnce[A], from :Int, until :Int) :Maybe[IterableOnce[A]] = items match {
 		case it :Iterable[A]                          => quickSlice(it, from, until)
 		case it :SugaredIterator[A] if it.hasFastDrop => Yes(it.strictSlice(from, until))
+		case it :IndexedIterator[A]                   => Yes(it.slice(from, until))
+		case it :ReverseIndexedIterator[A]            => Yes(it.slice(from, until))
 		case it :Iterator[_] if isIndexedIterator(it) => Yes(slice(it, from, until))
 		case _ => ArrayLikeSlice.Convert(items, from, until) match {
 			case Yes(slice)                           => Yes(slice)
@@ -623,4 +657,204 @@ private object HasFastSlice {
 		items.isInstanceOf[collection.LinearSeq[_]] || items.knownSize == 0
 
 	private[this] val fastSliceSize :Int = 4
+}
+
+
+
+
+/** Linear search implementation for arbitrary collections using `LikeSeq`/`LikeCollection` type classes.
+  * Intended as the implementation for `SeqOps.indexOfSlice` and `SeqOps.lastIndexOfSlice`.
+  * Performs basic checks for fast paths, and defaults to the Knuth-Morris-Pratt algorithm
+  */
+private[sugar] object KMP {
+
+	/** A table of length `that.length + 1`, such that `table(i)` is the length of the longest proper prefix
+	  * of `that` which is also a suffix of `that.take(i)`. An empty sequence does not have a proper prefix,
+	  * so the first element is always `-1`, and the only proper prefix of singleton sequence is an empty sequence,
+	  * so the second element is always `0`.
+	  */
+	private def kmpJumpTable[U, O](pattern :O)(implicit likeSeq :LikeSeq[U, O, Any1, _]) :Array[Int] =
+		if (!likeSeq.isApplyFast(pattern))
+			kmpJumpTable[Any, Array[Any]](likeSeq.toArray[Any](pattern))
+		else {
+			val len = likeSeq.size(pattern)
+			val res = new Array[Int](len + 1)
+			res(0) = -1
+			var prefixLen = 0
+			var i = 2
+			while (i < len) {
+				val curr = likeSeq(pattern, i)
+				while (prefixLen >= 0 && likeSeq(pattern, prefixLen) != curr)
+					prefixLen = res(prefixLen)
+				prefixLen += 1
+				res(i) = prefixLen
+				i += 1
+			}
+			res
+		}
+
+	private def kmp[X, T, O](text :T, pattern :O, from :Int)
+	               (implicit seq1 :LikeSeq[X, T, Any1, _], seq2 :LikeSeq[X, O, Any1, _]) :Int =
+	{
+		val jumpTable = kmpJumpTable[X, O](pattern)
+		val thisSize  = seq1.size(text)
+		val thatSize  = jumpTable.length - 1
+		var i1 = from
+		var i2 = 0
+		while (i1 < thisSize & i2 < thatSize) {
+			val next = seq1(text, i1)
+			while (i2 > 0 && next != seq2(pattern, i2))
+				i2 = jumpTable(i2)
+			i2 += 1
+			i1 += 1
+		}
+		if (i2 == thatSize) i1 - thatSize else -1
+	}
+
+	private def kmp[X, O](text :Iterator[X], pattern :O)(implicit seq :LikeSeq[X, O, Any1, _]) :Int = {
+		val jumpTable = kmpJumpTable[X, O](pattern)
+		val thatSize  = jumpTable.length - 1
+		var i1 = 0
+		var i2 = 0
+		while (i2 < thatSize && text.hasNext) {
+			val next = text.next()
+			while (i2 > 0 && next != seq(pattern, i2))
+				i2 = jumpTable(i2)
+			i2 += 1
+			i1 += 1
+		}
+		if (i2 == thatSize) i1 - thatSize else -1
+	}
+
+	@tailrec def indexOfSlice[X, T, O](text :T, pattern :O, from :Int = 0)
+	                                  (implicit coll1 :LikeCollection[X, T], coll2 :LikeCollection[X, O]) :Int =
+		coll2.specific(pattern) match {
+			case specific2 if from < 0 =>
+				indexOfSlice[X, T, pattern.type](text, pattern :pattern.type, 0)(coll1, specific2)
+
+			case seq2 :LikeSeq[X, pattern.type, Any1, _] if seq2.isApplyFast(pattern) =>
+				coll1.specific(text) match {
+					case seq1 :LikeSeq[X, text.type, Any1, _] if seq1.isApplyPreferred(text) =>
+						val len2 = seq2.size(pattern)
+						val len1 = seq1.size(text)
+						if (from > len1 - len2)
+							-1
+						else if (from == len1 - len2)
+							if (seq1.startsWith(text, from, pattern)) from else -1
+						else
+							kmp[X, text.type, pattern.type](text, pattern, from)(seq1, seq2)
+
+					case specific1 =>
+						val len2 = seq2.size(pattern)
+						val offset = math.max(0, from)
+						specific1.knownSize(text) match {
+							case -1 =>
+								val iter = specific1.iterator(text).dropInPlace(offset - 1)
+								if (iter.hasNext)
+									if (len2 == 0)
+										offset
+									else if (iter.skip().hasNext) {
+										val i = kmp[X, pattern.type](iter, pattern)(seq2)
+										if (i >= 0) offset + i else -1
+									} else
+										-1
+								else //text.length < offset
+									-1
+							case  n if n - offset == len2 =>
+								val iter1 = specific1.iterator(text).dropInPlace(offset)
+								if (offset == 0)
+									if (specific1.corresponds[X, pattern.type](text, pattern)(_ == _)(seq2)) 0
+									else -1
+								else {
+									val iter2 = seq2.iterator(pattern)
+									if (iter1 sameElements iter2) 0 else -1
+								}
+							case  n if n - offset < len2 =>
+								-1
+							case  _ => //We know that text.length - offset > len2, so we need KMP.
+								val iter = specific1.iterator(text).dropInPlace(offset)
+								if (iter.hasNext)
+									offset + kmp[X, pattern.type](iter, pattern)(seq2)
+								else if (len2 == 0)
+									offset
+								else
+									-1
+						}
+				}
+			case _ =>
+				indexOfSlice(text, coll2.toIRefArray(pattern))
+		}
+
+
+	def lastIndexOfSlice[X, T, O](text :T, pattern :O, end :Int = Int.MaxValue)
+	                             (implicit coll1 :LikeSeq[X, T, Any1, _], coll2 :LikeCollection[X, O]) :Int =
+		if (end < 0)
+			-1
+		else {
+			def fastPathCheck(len1 :Int, len2 :Int) :Int =
+				if (len1 == -1 | len2 == -1)
+					Int.MinValue
+				else {
+					if (len2 == 0)
+						math.min(len1, end)
+					else if (len1 < len2)
+						-1
+					else if (end == 0 | len1 == len2)
+						if (coll1.startsWith(text, 0, pattern)) end else -1
+					else
+						Int.MinValue
+				}
+			var size1 = coll1.knownSize(text)
+			var size2 = coll2.knownSize(pattern)
+			val index = fastPathCheck(size1, size2)
+			if (index != Int.MinValue)
+				return index
+			val reversedPattern = {
+				val b = ReverseBuilder.of[X](RefArray)
+				coll2.addTo(pattern, b)
+				b.result()
+			}
+			if (size2 < 0) {
+				size2 = reversedPattern.length
+				val index = fastPathCheck(size1, size2)
+				if (index != Int.MinValue)
+					return index
+			}
+			coll1 match {
+				case seq1 :LikeSeq[X, T, Any1, _] if seq1.isApplyFast(text) => //reverseIterator should be fast.
+					if (size1 == -1) //Shouldn't happen, but better safe than sorry.
+						size1 = coll1.size(text)
+					if (size1 - end < size2)
+						-1
+					else {
+						val iter = seq1.reverseIterator(text).dropInPlace(size1 - end - size2)
+						kmp(iter, reversedPattern) match {
+							case -1 => -1
+							case  i => size1 - i - size2
+						}
+					}
+				case _ => //Compute size1 and create the reverse iterator ourselves.
+					//Specifically MatrixBuffer as it allows huge collections and has a fast prepend.
+					val max = {
+						val until = end + math.min(Int.MaxValue - end, size2)
+						if (size1 >= 0) math.min(size1, until) else until
+					}
+					val reversedText = MatrixBuffer.ofCapacity[X](max)
+//					coll1.appendTo(text, ReversedBuffer(reversedText), max)
+					val itr = coll1.iterator(text) //or we could wrap reversedText in ReversedBuffer
+					var counter = 0
+					while (counter < max && itr.hasNext) {
+						counter += 1
+						itr.next() +=: reversedText
+					}
+					fastPathCheck(counter, size2) match {
+						case Int.MinValue =>
+							kmp(reversedText.iterator, reversedPattern) match {
+								case -1 => -1
+								case  i => counter - i - size2
+							}
+						case i => i
+					}
+			}
+		}
 }

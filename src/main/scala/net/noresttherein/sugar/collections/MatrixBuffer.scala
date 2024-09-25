@@ -21,7 +21,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{??!, illegal_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.extensions.ClassExtension
-import net.noresttherein.sugar.vars.Maybe.Yes
+import net.noresttherein.sugar.typist.kinds.Any1
 
 
 
@@ -333,7 +333,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	}
 
 	/** Generic implementation for `add` and `addAll` methods accepting anything with a proper type class. */
-	private def genericAdd[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :this.type = {
+	private def genericAdd[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type = {
 		val elemsSize = values.knownSize(elems)
 		if (elemsSize > 0)
 			addKnownSize(elems, elemsSize)
@@ -343,7 +343,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	}
 
 	/** Implementation of `addAll` covering the case when the number of elements in `elems` is known to be `elemsSize`. */
-	@tailrec private def addKnownSize[Es](elems :Es, elemsSize :Int)(implicit values :CollectionLike[E, Es]) :Unit = {
+	@tailrec private def addKnownSize[Es](elems :Es, elemsSize :Int)(implicit values :LikeCollection[E, Es]) :Unit = {
 		if (elemsSize > MaxValue - dataSize)
 			bufferFull(elemsSize)
 		if (storageSize == 0) {                       //dim == 0
@@ -409,7 +409,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	}
 
 	/** Fallback implementation for `addAll` for the case when the collection size is not known. */
-	private def addUnknownSize[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :Unit = {
+	private def addUnknownSize[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :Unit = {
 		val it = values.iterator(elems)
 		if (storageSize == 0) {
 			storageSize = NewSize1
@@ -545,7 +545,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation target for `prepend` family methods accepting any kind of collection-like thing
 	  * with a proper type class.
 	  */
-	private def genericPrepend[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :this.type = {
+	private def genericPrepend[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type = {
 		val size = values.knownSize(elems)
 		if (size > 0)
 			prependKnownSize(elems, size)
@@ -555,7 +555,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	}
 
 	/** Implementation of `prependAll` covering the case when the number of elements is known to be `elemsSize`. */
-	private def prependKnownSize[Es](elems :Es, elemsSize :Int)(implicit values :CollectionLike[E, Es]) :this.type = {
+	private def prependKnownSize[Es](elems :Es, elemsSize :Int)(implicit values :LikeCollection[E, Es]) :this.type = {
 		if (elemsSize > MaxValue - dataSize)
 			bufferFull(elemsSize)
 		if (dataSize == 0)                                       //dim == 0
@@ -599,7 +599,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	}
 
 	/** Implementation of `prependAll` covering the case when the number of prepended elements is not known beforehand. */
-	private def prependUnknownSize[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :this.type =
+	private def prependUnknownSize[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type =
 		if (dataSize == 0) {
 			addUnknownSize(elems)
 			this
@@ -611,7 +611,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation of `prependAll` covering the case when the number of prepended elements is not known beforehand
 	  * and the buffer has a single dimension.
 	  */
-	private def prependUnknownSize1[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :this.type = {
+	private def prependUnknownSize1[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type = {
 		//Try temporarily copying into our array anywhere to avoid extra allocation.
 		val data1   = this.data1
 		val mask    = storageSize - 1
@@ -675,7 +675,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation of `prependAll` covering the case when the number of prepended elements is not known beforehand
 	  * and the buffer has two dimensions.
 	  */
-	private def prependUnknownSize2[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :this.type = {
+	private def prependUnknownSize2[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type = {
 		val oldData     = data2
 		val oldCapacity = oldData.length
 		val oldMask     = oldCapacity - 1
@@ -756,7 +756,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			genericInsert(idx, Prepended2Seq(first, second, rest))
 
 	/** Implementation of both `insert` and `insertAll`, working for any collection-like thing with a proper type class. */
-	private def genericInsert[Es](idx :Int, elems :Es)(implicit values :CollectionLike[E, Es]) :Unit =
+	private def genericInsert[Es](idx :Int, elems :Es)(implicit values :LikeCollection[E, Es]) :Unit =
 		if (idx < 0 || idx > dataSize)
 			outOfBounds_!(idx, dataSize)
 		else if (idx == 0)
@@ -781,7 +781,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation of both `insert` and `insertAll` for a single dimensional buffer,
 	  * covering the case when the collection is known to have `elemsSize` elements.
 	  */
-	private def insertKnownSize1[Es](idx :Int, elems :Es, elemsSize :Int)(implicit values :CollectionLike[E, Es]) :Unit = {
+	private def insertKnownSize1[Es](idx :Int, elems :Es, elemsSize :Int)(implicit values :LikeCollection[E, Es]) :Unit = {
 		if (elemsSize >= MaxValue - dataSize)
 			bufferFull(elems)
 		if (elemsSize <= storageSize - dataSize) {
@@ -853,7 +853,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation of both `insert` and `insertAll` for a single dimensional buffer,
 	  * covering the case when the size of the collection is not known.
 	  */
-	private def insertUnknownSize1[Es](idx :Int, elems :Es)(implicit values :CollectionLike[E, Es]) :Unit = {
+	private def insertUnknownSize1[Es](idx :Int, elems :Es)(implicit values :LikeCollection[E, Es]) :Unit = {
 		val suffixSize = dataSize - idx
 		if (idx < suffixSize) {
 			val prefix =
@@ -901,7 +901,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation of both `insert` and `insertAll` for a two dimensional buffer,
 	  * covering the case when the collection is known to have `elemsSize` elements.
 	  */
-	private def insertKnownSize2[Es](idx :Int, elems :Es, elemsSize :Int)(implicit values :CollectionLike[E, Es]) :Unit = {
+	private def insertKnownSize2[Es](idx :Int, elems :Es, elemsSize :Int)(implicit values :LikeCollection[E, Es]) :Unit = {
 		if (elemsSize + MinValue > 0xffffffff)
 			bufferFull(elems)
 		if (idx <= (dataSize >> 1)) {
@@ -919,7 +919,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Implementation of both `insert` and `insertAll` for a two dimensional buffer,
 	  * covering the case when the collection's size is not known.
 	  */
-	private def insertUnknownSize2[Es](idx :Int, elems :Es)(implicit values :CollectionLike[E, Es]) :Unit =
+	private def insertUnknownSize2[Es](idx :Int, elems :Es)(implicit values :LikeCollection[E, Es]) :Unit =
 		if (!values.isEmpty(elems)) {
 			val length2     = data2.length
 			val indexMask   = (length2 << Dim1Bits) - 1
@@ -1207,7 +1207,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	  * not in the buffer). Writing happens module the total capacity of the buffer (wraps at the end).
 	  * Requires allocated space for the elements to exist.
 	  */
-	private def write2[Es](offset :Int, elems :Es, max :Int)(implicit values :CollectionLike[E, Es]) :Int = {
+	private def write2[Es](offset :Int, elems :Es, max :Int)(implicit values :LikeCollection[E, Es]) :Int = {
 		val offset1 = dim1(offset)
 		if (max <= MaxSize1 - offset1) {
 			val data2   = this.data2
@@ -2605,7 +2605,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		}
 
 
-	private def bufferFull[Es](elems :Es)(implicit values :CollectionLike[E, Es]) :Nothing =
+	private def bufferFull[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :Nothing =
 		throw new BufferFullException(
 			"Cannot add " + values.infoString(elems) + " to " + errorString(this) + ": maximum capacity exceeded."
 		)
@@ -2723,27 +2723,34 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 	}
 
 
-	/** A dummy `Values` type class whose iteration methods do nothing, and which does not copy anything to arrays,
-	  * but which still reports the correct collection size. Used to reserve space in the buffer by hijacking
-	  * `insert` method.
+	/** A dummy `LikeCollection` type class whose iteration methods do nothing, and which does not copy anything
+	  * to arrays, but which still reports the correct collection size. Used to reserve space in the buffer
+	  * by hijacking `insert` method.
 	  */
-	private class SpacerValues[+X, -Xs](implicit values :CollectionLike[X, Xs]) extends CollectionLikeProxy[X, Xs](values) {
+	private class SpacerValues[+X, -Xs](implicit values :LikeCollection[X, Xs])
+		extends LikeCollectionProxy[X, Xs](values)
+	{
 		override def iterator(xs :Xs) :Iterator[X] = Iterator.empty
 		override def toIterableOnce(elems :Xs) :IterableOnce[X] = Nil
 
-		override def foreach[U](xs :Xs)(f :X => U) :Unit = {}
 		override def foldLeft[A](xs :Xs)(zero :A)(op :(A, X) => A) :A = zero
 		override def reduceLeft[A >: X](xs :Xs)(op :(A, X) => A) :A = iterator(xs).reduceLeft(op)
 		override def reduceLeftOption[A >: X](xs :Xs)(op :(A, X) => A) :Option[A] = None
+		override def foreach[U](xs :Xs)(f :X => U) :Unit = {}
 
-		override def copyTo[A >: X](elems :Xs)(seq :mutable.Seq[A], index :Int) :Int =
-			copiedCount(elems, math.min(seq.length - index, math.max(values.size(elems), 0)))
+		override def copyTo[A >: X, C](elems :Xs, seq :C, index :Int)
+		                              (implicit likeSeq :LikeMutableIndexedSeq[A, C, Any1, _]) :Int =
+			copiedCount(elems, math.min(likeSeq.size(seq) - index, math.max(values.size(elems), 0)))
 
 		override def copyToArray[A >: X](xs :Xs)(array :Array[A], index :Int, max :Int) :Int =
 			copiedCount(xs, math.min(array.length - index, math.max(max, 0)))
 
 		override def cyclicCopyToArray[A >: X](xs :Xs)(array :Array[A], index :Int, max :Int) :Int =
 			copiedCount(xs, math.min(array.length, math.max(max, 0)))
+
+//		override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = math.min(size(elems), math.max(0, max))
+//		override def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int =
+//			math.max(0, math.min(size(elems), until) - math.max(0, from))
 
 		private def copiedCount(xs :Xs, max :Int) :Int = {
 			val size = values.knownSize(xs)
@@ -2759,14 +2766,18 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 				res
 			}
 		}
+		override def toArray[U >: X :ClassTag](elems :Xs) :Array[U] = ArrayFactory.empty[U]
+		override def toIArray[U >: X :ClassTag](elems :Xs) :IArray[U] = toArray[U](elems).asInstanceOf[IArray[U]]
+		override def toRefArray[U >: X](elems :Xs) :RefArray[U] = toArray[Any](elems).asInstanceOf[RefArray[U]]
+		override def toIRefArray[U >: X](elems :Xs) :IRefArray[U] = toArray[Any](elems).asInstanceOf[IRefArray[U]]
 
 		override def infoString(elems :Xs) :String = values.infoString(elems)
 	}
 
 
 	private object SpacerValues {
-		def iterableOnce[X] :CollectionLike[X, IterableOnce[X]] = iterableOncePrototype.castParams[X, IterableOnce[X]]
-		private[this] val iterableOncePrototype = new SpacerValues()(IterableOnceLike.forIterableOnce)
+		def iterableOnce[X] :LikeCollection[X, IterableOnce[X]] = iterableOncePrototype.castParams[X, IterableOnce[X]]
+		private[this] val iterableOncePrototype = new SpacerValues()(LikeIterableOnce.forIterableOnce)
 	}
 
 

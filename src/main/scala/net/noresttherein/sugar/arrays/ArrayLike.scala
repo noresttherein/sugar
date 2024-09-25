@@ -46,6 +46,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   */
 @SerialVersionUID(Ver)
 case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
+	final val MaxArraySize = Int.MaxValue - 8
 
 	/** Creates an exact copy of `original`. May return the same object if `original.length == 0`. */
 	@inline def copyOf[A[X] <: ArrayLike[X], E](original :A[E]) :A[E] = {
@@ -693,7 +694,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			case  n => Some(n)
 		}
 		/** Returns `Some(`[[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension.lastIndexOf lastIndexOf]]`(elem, end)).filter(_>=0)`. */
-		@inline def getLastIndexOf[U >: E](elem :U, end :Int = Int.MaxValue) :Option[Int] =
+		@inline def findLastIndexOf[U >: E](elem :U, end :Int = Int.MaxValue) :Option[Int] =
 			lastIndexOf(elem, end) match {
 				case -1 => None
 				case  n => Some(n)
@@ -710,7 +711,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  * or [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] if the element is not found in this array
 		  * at or before position `end`.
 		  */
-		@inline def findLastIndexOf[U >: E](elem :U, end :Int = Int.MaxValue) :IntOpt = lastIndexOf(elem, end) match {
+		@inline def getLastIndexOf[U >: E](elem :U, end :Int = Int.MaxValue) :IntOpt = lastIndexOf(elem, end) match {
 			case -1 => NoInt
 			case  n => AnInt(n)
 		}
@@ -731,49 +732,70 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def contains[U >: E](elem :U) :Boolean = indexOf(elem, 0) >= 0
 
 		//todo: document and test these
+		@inline private def startsWith[U >: E](thisStart :Int, that :ArrayLike[U], thatStart :Int, thatLength :Int) =
+			thisStart >= 0 & thisStart <= self.length - thatLength &&
+				mismatch(that, thisStart, thisStart + thatLength, thatStart, thatStart + thatLength) == -1
+
 		@inline def startsWith[U >: E](that :ArrayLike[U]) :Boolean = startsWith(that, 0)
-		def startsWith[U >: E](that :ArrayLike[U], from :Int) :Boolean = {
-			val thisLength = self.length
-			val thatLength = lengthOf(that)
-			val from0    = math.max(from, 0)
-			from0 <= thisLength - thatLength && mismatch(that, from0, from0 + thatLength, 0, thatLength) == -1
+		@inline def startsWith[U >: E](that :IterableOnce[U]) :Boolean = startsWith(that, 0)
+		def startsWith[U >: E](that :ArrayLike[U], from :Int) :Boolean = startsWith(from, that, 0, lengthOf(that))
+
+		def startsWith[U >: E](that :IterableOnce[U], from :Int) :Boolean = that match {
+			case items :ArrayIterableOnce[U] =>
+				val a = items.unsafeArray.asInstanceOf[ArrayLike[U]]
+				startsWith(from, a, items.startIndex, items.knownSize)
+			case _ if from < 0 || from > self.length => false
+			case ArrayLike.Slice(a, thatStart, thatEnd) =>
+				startsWith(from, a, thatStart, thatEnd - thatStart)
+			case _ =>
+				val thatSize = that.knownSize
+				if (thatSize >= 0)
+					from <= self.length - thatSize && (thatSize == 0 || {
+						val those = that.iterator
+						var i = 0
+						while (i < thatSize && self(from + i) == those.next())
+							i += 1
+						i == thatSize
+					})
+				else {
+					val those = that.iterator
+					val length = self.length
+					var i = from
+					var eq = true
+					while (i < length & eq && those.hasNext) {
+						eq = self(i) == those.next()
+						i += 1
+					}
+					eq && !those.hasNext
+				}
 		}
-		@inline def startsWith[U >: E](that :IterableOnce[U]) :Boolean =
-			mutable.ArraySeq.make(self).castParam[U].startsWith(that, 0)
 
-		@inline def startsWith[U >: E](that :IterableOnce[U], from :Int) :Boolean =
-			mutable.ArraySeq.make(self).castParam[U].startsWith(that, from)
+		@inline def endsWith[U >: E](that :ArrayLike[U]) :Boolean = startsWith(that, self.length - that.length)
+		@inline def endsWith[U >: E](that :Iterable[U]) :Boolean = startsWith(that, self.length - that.size)
 
-		def endsWith[U >: E](that :ArrayLike[U]) :Boolean = {
-			val thisLength = self.length
-			val thatLength = lengthOf(that)
-			thatLength >= thisLength && mismatch(that, thisLength - thatLength, thisLength, 0, thatLength) == -1
-		}
-		@inline def endsWith[U >: E](that :Iterable[U]) :Boolean =
-			mutable.ArraySeq.make(self).castParam[U].endsWith(that)
-
+		//todo: use our own type class based KMP and ArrayLikeSpecOps for arrays.
 		def indexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Int =
 			mutable.ArraySeq.make(self).castParam[E].indexOfSlice(that, from)
 
 		def lastIndexOfSlice[U >: E](that :collection.Seq[U], end :Int = Int.MaxValue) :Int =
 			mutable.ArraySeq.make(self).castParam[E].lastIndexOfSlice(that, end)
 
-		@inline def getIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Option[Int] =
+		@inline def findIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :Option[Int] =
 			indexOfSlice(that, from) match {
 				case -1 => None
 				case  n => Some(n)
 			}
-		@inline def getLastIndexOfSlice[U >: E](that :collection.Seq[U], end :Int = Int.MaxValue) :Option[Int] =
+		@inline def findLastIndexOfSlice[U >: E](that :collection.Seq[U], end :Int = Int.MaxValue) :Option[Int] =
 			lastIndexOfSlice(that, end) match {
 				case -1 => None
 				case  n => Some(n)
 			}
-		@inline def findIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :IntOpt =
+		@inline def getIndexOfSlice[U >: E](that :collection.Seq[U], from :Int = 0) :IntOpt =
 			indexOfSlice(that, from) match {
 				case -1 => NoInt
 				case  n => AnInt(n)
 			}
-		@inline def findLastIndexOfSlice[U >: E](that :collection.Seq[U], end :Int = Int.MaxValue) :IntOpt =
+		@inline def getLastIndexOfSlice[U >: E](that :collection.Seq[U], end :Int = Int.MaxValue) :IntOpt =
 			lastIndexOfSlice(that, end) match {
 				case -1 => NoInt
 				case n  => AnInt(n)
@@ -890,9 +912,23 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 			val from1  = math.max(0, math.min(thatFrom, thatLength))
 			val until0 = math.max(from0, math.min(thisUntil, thisLength))
 			val until1 = math.max(from1, math.min(thatUntil, thatLength))
+			def slowMismatch(a :Array[E], b :Array[U]) :Int = {
+				var i = from0; var j = from1
+				val end = from0 + math.min(until0 - from0, until1 - from1)
+				while (i < end && a(i) == b(j)) {
+					i += 1; j += 1
+				}
+				if (i < end) i - from0
+				else if (until0 - from0 == until1 - from1) -1
+				else end - from0
+			}
 			(self :Array[_], that :ArrayLike[_]) match {
 				case (a :Array[AnyRef], b :Array[AnyRef]) =>
 					Arrays.mismatch(a, from0, until0, b, from1, until1)
+				case (a :Array[AnyRef], b :Array[U @unchecked]) =>
+					slowMismatch(a.asInstanceOf[Array[E]], b)
+				case (a :Array[E @unchecked], b :Array[AnyRef]) =>
+					slowMismatch(a, b.asInstanceOf[Array[U]])
 				case (a :Array[Int], b :Array[Int]) =>
 					Arrays.mismatch(a, from0, until0, b, from1, until1)
 				case (a :Array[Long], b :Array[Long]) =>
@@ -910,14 +946,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 				case (a :Array[Boolean], b :Array[Boolean]) =>
 					Arrays.mismatch(a, from0, until0, b, from1, until1)
 				case (a :Array[E @unchecked], b :Array[U @unchecked]) =>
-					var i = from0; var j = from1
-					val end = from0 + math.min(until0 - from0, until1 - from1)
-					while (i < end && a(i) == b(j)) {
-						i += 1; j += 1
-					}
-					if (i < end) i - from0
-					else if (until0 - from0 == until1 - from1) -1
-					else end - from0
+					slowMismatch(a, b)
 			}
 		}
 
@@ -937,6 +966,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 				}
 				(self :Array[_], that) match {
 					case (a1 :Array[AnyRef],  a2 :Array[AnyRef])  => Arrays.equals(a1, a2)
+					case (_  :Array[AnyRef],   _)                 => slowEquals
+					case (_,                  _  :Array[AnyRef])  => slowEquals
 					case (a1 :Array[Int],     a2 :Array[Int])     => Arrays.equals(a1, a2)
 					case (a1 :Array[Long],    a2 :Array[Long])    => Arrays.equals(a1, a2)
 					case (a1 :Array[Double],  a2 :Array[Double])  => Arrays.equals(a1, a2)
@@ -989,7 +1020,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  *         the element is not in the sequence.
 		  */
 		@inline def search[U >: E :Ordering](elem :U) :SearchResult =
-			 ArraySeq.unsafeWrapArray(self).search(elem, 0, self.length)(implicitly[Ordering[U]].castParam[Any]) //boxes
+			binarySearch(elem).toSearchResult
 
 		/** Search the specified range of this array for a given element.
 		  * The array should be sorted with the same `Ordering` before calling; otherwise, the results are undefined.
@@ -1001,7 +1032,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		  *         the element is not in the sequence.
 		  */
 		@inline def search[U >: E :Ordering](elem :U, from :Int, until :Int) :SearchResult =
-			ArraySeq.unsafeWrapArray(self).search(elem, from, until)(implicitly[Ordering[U]].castParam[Any])
+			binarySearch(from, until)(elem).toSearchResult
 
 		/** Performs a binary search of element `x` in a section of this $coll, sorted according
 		  * to an implicit `Ordering[E]`. If the $coll is not sorted, or the `Ordering` is not consistent with `equals`,
@@ -1304,6 +1335,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		@inline def splitAt(n :Int) :(Arr[E], Arr[E]) = (slice(0, n), slice(n, Int.MaxValue))
 		@inline def span(p :E => Boolean) :(Arr[E], Arr[E]) = splitAt(segmentLength(p))
 
+		@inline def double :Arr[E] = expose(ArrayFactory.copyOf(self, math.min(MaxArraySize >> 1, self.length) << 1))
+
 		@inline def tail :Arr[E] = expose(new ArrayOps(self).tail)
 		@inline def init :Arr[E] = expose(new ArrayOps(self).init)
 
@@ -1524,6 +1557,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 				copied
 			}
 
+		def withFilter(p :E => Boolean) :WithFilter[E, RefArrayLike] = new WithFilter(p, self.asInstanceOf[ArrayLike[E]])
+
 		@inline def mkString :String = addString(new StringBuilder, "", "", "").result()
 		@inline def mkString(separator :String) :String = addString(new StringBuilder, "", separator, "").result()
 		@inline def mkString(prefix :String, separator :String, suffix :String) :String =
@@ -1537,6 +1572,71 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 		/** A `String` representation of this array in the format of Scala collections' `toString`. */
 		def contentsString :String = mkString(self.localClassName + "(", ", ", ")")
+	}
+
+
+
+	/** A lazy filtered array. No filtering is applied until one of `foreach`, `map` or `flatMap` is called.
+	  * Implementation adapted from [[collection.ArrayOps.WithFilter ArrayOps.WithFilter]] to return `Arr[T]`.
+	  */
+	class WithFilter[E, Arr[X] <: RefArrayLike[X]] private[arrays] (p :E => Boolean, xs :ArrayLike[E])
+		extends scala.collection.WithFilter[E, Arr]
+	{
+		/** Apply `f` to each element for its side effects.
+		  * Note: [U] parameter needed to help scalac's type inference.
+		  */
+		override def foreach[U](f :E => U) :Unit = {
+			val len = xs.length
+			var i = 0
+			while (i < len) {
+				val x = xs(i)
+				if (p(x)) f(x)
+				i += 1
+			}
+		}
+
+		/** Builds a new array by applying a function to all elements of this array.
+		  * @param f      the function to apply to each element.
+		  * @tparam A     the element type of the returned array.
+		  * @return a new array resulting from applying the given function
+		  *         `f` to each element of this array and collecting the results.
+		  */
+		override def map[A](f :E => A) :Arr[A] = {
+			val b = IRefArray.newBuilder[A]
+			var i = 0
+			while (i < xs.length) {
+				val x = xs(i)
+				if (p(x)) b += f(x)
+				i = i + 1
+			}
+			b.result().asInstanceOf[Arr[A]]
+		}
+
+		/** Builds a new array by applying a function to all elements of this array
+		  * and using the elements of the resulting collections.
+		  *
+		  * @param f      the function to apply to each element.
+		  * @tparam A     the element type of the returned array.
+		  * @return a new array resulting from applying the given collection-valued function
+		  *         `f` to each element of this array and concatenating the results.
+		  */
+		override def flatMap[A](f :E => IterableOnce[A]) :Arr[A] = {
+			val b = IRefArray.newBuilder[A]
+			var i = 0
+			while (i < xs.length) {
+				val x = xs(i)
+				if (p(x)) b ++= f(xs(i))
+				i += 1
+			}
+			b.result().asInstanceOf[Arr[A]]
+		}
+
+		def flatMap[As, A](f :E => As)(implicit asIterable :As => Iterable[A]) :Arr[A] =
+			flatMap(x => asIterable(f(x)))
+
+		/** Creates a new non-strict filter which combines this filter with the given predicate. */
+		override def withFilter(q :E => Boolean) :WithFilter[E, Arr] =
+			new WithFilter[E, Arr](a => p(a) && q(a), xs)
 	}
 
 

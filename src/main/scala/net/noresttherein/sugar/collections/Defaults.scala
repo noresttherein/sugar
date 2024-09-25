@@ -294,9 +294,10 @@ private object Defaults {
 				var res = self.iterableFactory from self //We assume it's a no-op if self is immutable.
 				res match {
 					case HasFastPrepend(ops) =>
+						val likeSeq = ops.asInstanceOf[LikeSeq[E, CC[E], CC, C]]
 						val itr = prefix.iterator
 						while (itr.hasNext)
-							res = ops.prepended(res)(itr.next())
+							res = likeSeq.prepended(res, itr.next())
 						res
 					case _ => reverseWithBuilder()
 				}

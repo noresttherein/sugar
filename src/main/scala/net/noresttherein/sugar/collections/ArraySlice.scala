@@ -23,8 +23,12 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
-/** A collection backed by an array slice. Extended by the 'proper' `RelayArray` and various `ArrayLike` adapters,
-  * but used instead of the latter in pattern matching to decouple code from the `RelayArray` type itself.
+/** A collection (or iterator) backed by an array slice. Extended by the 'proper' `RelayArray` and various `ArrayLike`
+  * adapters, but used instead of the latter in pattern matching to decouple code from the `RelayArray` type itself.
+  * Implementing classes ''must'' return their correct size from `knownSize`, and the collection is assumed
+  * to contain all the elements of `unsafeArray.slice(startIndex, startIndex + knownSize)` (and nothing more).
+  * It is used to expose the underlying array to various methods in the library, allowing faster (often specialized
+  * to element type) handling than through the collection class itself.
   */
 private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 	//todo: make it public and return ArrayLike[E]
@@ -36,6 +40,19 @@ private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
 }
 
 
+/** A mixin for [[net.noresttherein.sugar.collections.ArrayIterableOnce ArrayIterableOnce]] collections
+  * which implements those methods of `IterableOnceOps` which do not return a collection.
+  * All operations are internally specialized to the array element type of the underlying
+  * [[net.noresttherein.sugar.collections.ArrayIterableOnce.unsafeArray unsafeArray]], that is, while the trait
+  * and its methods are not specialized themselves, they match the array against all primitive types and reference
+  * type and handle each separately.
+  * @tparam E  The element type of the collection, which must be convertible by the runtime to the types
+  *            of all elements in `unsafeArray`.
+  * @tparam CC The type of the produced generic collections. Not used by this trait directly,
+  *            only passed as an argument to `IterableOnceOps`.
+  * @tparam C  The specific (for `E`) type of the produced collections. Not used by this trait directly,
+  *            only passed as an argument to `IterableOnceOps`.
+  */
 private[sugar] trait ArrayIterableOnceOps[+E, +CC[_], +C]
 	extends Any with ArrayIterableOnce[E] with IterableOnceOps[E, CC, C]
 {
@@ -1077,7 +1094,7 @@ final class ArraySerializationProxy[A[X] <: ArrayLike[X], +E](factory :ArrayLike
 
 /** An adapter of [[scala.collection.immutable.ArraySeq$ ArraySeq]] factory to
   * [[net.noresttherein.sugar.collections.ArrayLikeSliceFactory ArrayLikeSliceFactory]] interface,
-  * allowing to plug standard `ArraySeq` instead of classes from this package.
+  * allowing to plug in standard `ArraySeq` instead of classes from this package.
   * @define Coll `ArraySeq`
   * @define coll array sequence
   * @define Arr `Array`

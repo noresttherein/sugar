@@ -4704,7 +4704,7 @@ object extensions extends extensions {
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  * @return `Maybe(this.indexOfSlice(that, from)).filter(_ >= 0)`.
 		  */
-		@inline def getIndexOfSlice[B >: E](that :Seq[B], from :Int = 0) :Option[Int] =
+		@inline def findIndexOfSlice[B >: E](that :Seq[B], from :Int = 0) :Option[Int] =
 			self.indexOfSlice(that, from) match {
 				case -1 => None
 				case  n => Some(n)
@@ -4714,7 +4714,7 @@ object extensions extends extensions {
 		  * @param end  the upper, inclusive bound on the returned index.
 		  * @return `Maybe(this.lastIndexOfSlice(that, end)).filter(_ >= 0)`.
 		  */ //Note that Seq(1).lastIndexOf(Nil) == 1, so end must start with length, not length - 1
-		@inline def getLastIndexOfSlice[B >: E](that :Seq[B], end :Int = length) :Option[Int] =
+		@inline def findLastIndexOfSlice[B >: E](that :Seq[B], end :Int = length) :Option[Int] =
 			self.lastIndexOfSlice(that, end) match {
 				case -1 => None
 				case  n => Some(n)
@@ -4725,7 +4725,7 @@ object extensions extends extensions {
 		  * @param from the lowest index which will be checked; preceding sequence prefix is skipped entirely.
 		  * @return `IntOpt(this.indexOfSlice(that, from)).filter(_ >= 0)`.
 		  */
-		@inline def findIndexOfSlice[B >: E](that :Seq[B], from :Int = 0) :IntOpt =
+		@inline def getIndexOfSlice[B >: E](that :Seq[B], from :Int = 0) :IntOpt =
 			self.indexOfSlice(that, from) match {
 				case -1 => NoInt
 				case  n => AnInt(n)
@@ -4735,7 +4735,7 @@ object extensions extends extensions {
 		  * @param end  the upper, inclusive bound on the returned index.
 		  * @return `IntOpt(this.lastIndexOfSlice(that, end)).filter(_ >= 0)`.
 		  */ //Note that Seq(1).lastIndexOf(Nil) == 1, so end must start with length, not length - 1
-		@inline def findLastIndexOfSlice[B >: E](that :Seq[B], end :Int = length) :IntOpt =
+		@inline def getLastIndexOfSlice[B >: E](that :Seq[B], end :Int = length) :IntOpt =
 			self.lastIndexOfSlice(that, end) match {
 				case -1 => NoInt
 				case  n => AnInt(n)

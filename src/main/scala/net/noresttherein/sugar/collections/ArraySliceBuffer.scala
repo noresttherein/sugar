@@ -33,10 +33,10 @@ import net.noresttherein.sugar.vars.Maybe.Yes
   * similarly to [[scala.collection.mutable.ListBuffer ListBuffer]]: calling
   * [[net.noresttherein.sugar.collections.ArraySliceBuffer.toSeq toSeq]] or
   * [[net.noresttherein.sugar.collections.ArraySliceBuffer.toIndexedSeq toIndexedSeq]] will create a sequence backed
-  * but the very same array used by this buffer, providing the contents meet a required fill factor requirement.
+  * by the very same array used by this buffer, providing the contents meet a required fill factor requirement.
   *
-  * Together, this makes it the most efficient way to create a sequence by prepending elements,
-  * especially if the size is initially known.
+  * Together, this makes it the most efficient way to create a sequence by prepending elements
+  * if its size it unknown.
   *
   * The maximum size of the buffer is restricted by the maximum permissible array size, which may differ
   * between JVMs. For the purpose of better portability, this implementation restricts it artificially
