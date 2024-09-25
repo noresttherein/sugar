@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.collections
 
-import scala.collection.{ClassTagSeqFactory, SeqFactory}
-import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, GrowableBuilder}
+import scala.collection.{ClassTagSeqFactory, SeqFactory, mutable}
+import scala.collection.mutable.{ArrayBuffer, ArrayDeque, Buffer, Builder, GrowableBuilder}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.collections.extensions.BufferExtension
@@ -21,7 +21,7 @@ trait BufferFactory[+C[A] <: Buffer[A]] extends SeqFactory[C] {
 	/** A new $Coll, with space reserved for `capacity` elements. Works similarly to
 	  * [[collection.mutable.Builder Builder]]`.`[[collection.mutable.Builder.sizeHint sizeHint]].
 	  * Not all implementations support pre-reserving space.
-	  */
+	  */ //Can't be called of, because buffers have apply.
 	def ofCapacity[E](capacity :Int) :C[E]
 
 	override def from[E](source :IterableOnce[E]) :C[E] = empty[E] ++= source
@@ -33,7 +33,6 @@ trait BufferFactory[+C[A] <: Buffer[A]] extends SeqFactory[C] {
 /** An extension of `IterableFactory` with a method allowing to create buffer instances with pre-reserved space
   * for a requested number of elements.
   * @tparam C the buffer type constructor.
-  * @tparam Ev evidence type class required for the element type of created buffers.
   * @define Coll `Buffer`
   * @define coll buffer
   */
@@ -56,7 +55,19 @@ trait ClassTagBufferFactory[+C[A] <: Buffer[A]] extends ClassTagSeqFactory[C] {
 @SerialVersionUID(Ver)
 case object ArrayBufferFactory extends BufferFactory[ArrayBuffer] {
 	override def ofCapacity[E](capacity :Int) :ArrayBuffer[E] = new ArrayBuffer(capacity)
-	override def empty[A] :ArrayBuffer[A] = new ArrayBuffer
+	override def empty[E] :ArrayBuffer[E] = new ArrayBuffer
+}
+
+@SerialVersionUID(Ver)
+case object ArrayDequeFactory extends BufferFactory[ArrayDeque] {
+	override def ofCapacity[E](capacity :Int) :ArrayDeque[E] = new ArrayDeque(capacity)
+	override def empty[E] :ArrayDeque[E] = new ArrayDeque
+}
+
+@SerialVersionUID(Ver)
+case object MutableQueueFactory extends BufferFactory[mutable.Queue] {
+	override def ofCapacity[E](capacity :Int) :mutable.Queue[E] = new mutable.Queue(capacity)
+	override def empty[E] :mutable.Queue[E] = new mutable.Queue
 }
 
 @SerialVersionUID(Ver)

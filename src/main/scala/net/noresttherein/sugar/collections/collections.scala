@@ -28,7 +28,8 @@ import net.noresttherein.sugar.extensions._
   * @define defaultArraySeqProperty   `net.noresttherein.sugar.collections.ArraySeqFactory`
   * @define defaultIndexedSeqProperty `net.noresttherein.sugar.collections.IndexedSeqFactory`
   * @define defaultBufferProperty     `net.noresttherein.sugar.collections.BufferFactory`
-  */
+  * @define temporaryBufferProperty   `net.noresttherein.sugar.collections.IndexedBufferFactory`
+  */ //How about renaming it to foo.sweets.chocolates or foo.sweets.chocolatebox?
 package object collections extends JteratorExtensions {
 	private[collections] final val Ver = 1L
 
@@ -46,7 +47,7 @@ package object collections extends JteratorExtensions {
 
 	/** An opaque wrapper over a Java iterator, possibly one of the [[java.util.PrimitiveIterator PrimitiveIterator]]
 	  * subclasses, exposing iterator-like API, returning elements of type `E`. Specialized subtypes are available
-	  * for all built in value types, allowing iteration over them without boxing or explicit casting/convnersion.
+	  * for all built in value types, allowing iteration over them without boxing or explicit casting/conversion.
 	  * It follows, that the type of the elements of this jterator may differ from the element type of the underlying
 	  * [[net.noresttherein.sugar.collections.JavaIterator JavaIterator]]. The extension methods available through
 	  * `net.noresttherein.sugar.collections.extensions.`[[net.noresttherein.sugar.collections.extensions.JTeratorExtension JteratorExtension]]
@@ -141,24 +142,32 @@ package object collections extends JteratorExtensions {
 	  * class or object used by the library whenever an `IndexedSeq` should be returned.
 	  * @see [[net.noresttherein.sugar.collections.DefaultIndexedSeq DefaultIndexedSeq]]
 	  */
-	final val defaultIndexedSeqProperty = "net.noresttherein.sugar.collections.IndexedSeqFactory"
+	final val defaultIndexedSeqProperty    = "net.noresttherein.sugar.collections.IndexedSeqFactory"
 
 	/** An optional system property with a name of an
 	  * [[net.noresttherein.sugar.collections.ArrayLikeSliceFactory ArrayLikeSliceFactory]]`[`[[net.noresttherein.sugar.arrays.IArrayLike IArrayLike]]`, `[[scala.collection.immutable.IndexedSeq IndexedSeq]]`]`
 	  * class or object to wrap an array in a sequence, or for temporary indexed sequences used internally.
 	  * @see [[net.noresttherein.sugar.collections.DefaultArraySeq DefaultArraySeq]]
 	  */
-	final val defaultArraySeqProperty   = "net.noresttherein.sugar.collections.ArraySeqFactory"
+	final val defaultArraySeqProperty      = "net.noresttherein.sugar.collections.ArraySeqFactory"
 
-	/** An optional system property with a name o a class or object extending
+	/** An optional system property with a name of a class or object extending
 	  * [[net.noresttherein.sugar.collections.BufferFactory BufferFactory]]`[`[[scala.collection.mutable.Buffer Buffer]]`]`,
 	  * which is used whenever a method implementation needs to use a buffer. Alternatively, if the system property
 	  * specifies a [[scala.collection.SeqFactory SeqFactory]]`[Buffer]`, an adapter to `BufferFactory` will be created.
 	  * @see [[net.noresttherein.sugar.collections.DefaultBuffer DefaultBuffer]]
 	  */
-//	  * [[scala.collection.mutable.IndexedBuffer IndexedBuffer]]
-	final val defaultBufferProperty     = "net.noresttherein.sugar.collections.BufferFactory"
+	final val defaultBufferProperty        = "net.noresttherein.sugar.collections.BufferFactory"
 
+	/** An optional system property with a name of a class or object extending
+	  * [[net.noresttherein.sugar.collections.BufferFactory BufferFactory]]`[`[[scala.collection.mutable.IndexedBuffer IndexedBuffer]]`]`,
+	  * which is used whenever a method implementation needs to build a sequence with fast indexing
+	  * as a temporary structure. Alternatively, if the system property
+	  * specifies a [[scala.collection.SeqFactory SeqFactory]]`[IndexedBuffer]`,
+	  * an adapter to `BufferFactory` will be created.
+	  * @see [[net.noresttherein.sugar.collections.TemporaryBuffer DefaultIndexedBuffer]]
+	  */
+	final val temporaryBufferProperty = "net.noresttherein.sugar.collections.IndexedBufferFactory"
 
 	private final val RelayArrayClassName = "net.noresttherein.sugar.collections.RelayArray"
 
@@ -180,7 +189,7 @@ package object collections extends JteratorExtensions {
 	  * if standard implementation should be used for this purpose. In the latter case, creating a sequence based
 	  * on a [[net.noresttherein.sugar.collections.ArrayLikeSliceWrapper.slice slice]] of an array will create
 	  * a new array. The implementation must support arrays of arbitrary types, in particular both
-	  * [[net.noresttherein.sugar.arrays.IArray IArray]] of built in value types,
+	  * [[net.noresttherein.sugar.arrays.IArray IArray]] of built-in value types,
 	  * and [[net.noresttherein.sugar.arrays.IRefArray IRefArray]] (that is, `Array[AnyRef]`).
 	  * If the property is not set, defaults to [[net.noresttherein.sugar.collections.RelayArray RelayArray]].
 	  * @see [[net.noresttherein.sugar.collections.IArrayLikeSlice]]
@@ -204,22 +213,43 @@ package object collections extends JteratorExtensions {
 	private[collections] val TemporaryIndexedSeq :SeqFactory[IndexedSeq] =
 		RelayArrayFactory getOrElse ArraySeq.untagged
 
-	/** The default buffer implementation used by the library, mostly as a temporary fast-accessed copy of a collection
-	  * within extension methods. Can be defined by setting $defaultBufferProperty system property
-	  * to name of a class or object extending `BufferFactory[Buffer]`, or `SeqFactory[Buffer]`. If not set, defaults to
+
+	/** The default buffer implementation used by the library internally, when there is a need to build a temporary
+	  * sequence with fast traversal, random indexing and append is required (for example, to provide a reverse iterator).
+	  * Can be defined by setting $temporaryBufferProperty system property to the name of a class or object extending
+	  * `BufferFactory[IndexedBuffer]`, or `SeqFactory[IndexedBuffer]`. If not set, defaults to
 	  * [[net.noresttherein.sugar.collections.MatrixBuffer MatrixBuffer]]`.`[[net.noresttherein.sugar.collections.MatrixBuffer.untagged untagged]].
 	  * @see [[net.noresttherein.sugar.collections.ArrayBufferFactory ArrayBufferFactory]] - an implementation using
 	  *      standard [[scala.collection.mutable.ArrayBuffer ArrayBuffer]].
 	  * @see [[net.noresttherein.sugar.collections.AliasingArrayBuffer AliasingArrayBuffer]] -
 	  *      an `ArrayBuffer` variant which aliases (shares) its underlying array with sequences created with its
 	  *      [[net.noresttherein.sugar.collections.AliasingArrayBuffer.toSeq toSeq]]
-	  * @see [[net.noresttherein.sugar.collections.ArraySliceBuffer$ ArrayBufferFactory]] - a special
+	  * @see [[net.noresttherein.sugar.collections.ArraySliceBuffer$ ArraySliceBuffer]] -
+	  *      an implementation with fast prepend.
 	  */
-	val DefaultBuffer :BufferFactory[Buffer] = //todo: make it an indexed buffer
-		bufferFactoryFromProperty(defaultBufferProperty) getOrElse MatrixBuffer.untagged
+	private[collections] val TemporaryBuffer :BufferFactory[IndexedBuffer] = //MatrixBuffer.untagged
+		bufferFactoryFromProperty[IndexedBuffer](temporaryBufferProperty) getOrElse MatrixBuffer.untagged
 
-	//todo: see if we can drop the IndexedBuffer bound and replace usages of TemporaryBuffer with DefaultBuffer
-	private[collections] val TemporaryBuffer :BufferFactory[IndexedBuffer] = MatrixBuffer.untagged
+//	val DefaultIndexedBuffer :BufferFactory[IndexedBuffer] =
+//		bufferFactoryFromProperty[IndexedBuffer](defaultIndexedBufferProperty) getOrElse MatrixBuffer.untagged
+//
+	/** The default buffer implementation used by the library, especially when returning a buffer to the application
+	  * or its usage pattern is otherwise unpredictable. Can be defined by setting $defaultBufferProperty
+	  * to the name of a class or object extending `BufferFactory[Buffer]` or `SeqFactory[Buffer]`. If not set,
+	  * [[net.noresttherein.sugar.collections.MatrixBuffer MatrixBuffer]]`.`[[net.noresttherein.sugar.collections.MatrixBuffer.untagged untagged]]
+	  * is used.
+	  * @note For fully internal use, when there is just a need for creating an indexed sequence efficiently,
+	  *       use [[net.noresttherein.sugar.collections.TemporaryBuffer TemporaryBuffer]].
+	  * @see [[net.noresttherein.sugar.collections.ArrayBufferFactory ArrayBufferFactory]] - an implementation using
+	  *      standard [[scala.collection.mutable.ArrayBuffer ArrayBuffer]].
+	  * @see [[net.noresttherein.sugar.collections.AliasingArrayBuffer AliasingArrayBuffer]] -
+	  *      an `ArrayBuffer` variant which aliases (shares) its underlying array with sequences created with its
+	  *      [[net.noresttherein.sugar.collections.AliasingArrayBuffer.toSeq toSeq]]
+	  * @see [[net.noresttherein.sugar.collections.ArraySliceBuffer$ ArraySliceBuffer]] -
+	  *      an implementation with fast prepend.
+	  */
+	val DefaultBuffer :BufferFactory[Buffer] =
+		bufferFactoryFromProperty(defaultBufferProperty) getOrElse MatrixBuffer.untagged
 
 }
 
@@ -227,6 +257,10 @@ package object collections extends JteratorExtensions {
 
 
 package collections {
+
+	import scala.annotation.tailrec
+	import scala.collection.mutable
+	import scala.collection.mutable.ArrayDeque
 
 	sealed abstract class Mutability extends Serializable {
 		def isMutable   :Boolean = false
@@ -264,24 +298,31 @@ package collections {
 				}
 			}
 
+		@tailrec
 		private def loadSeqFactory[CC[X] <: collection.Seq[X]]
 		                          (collectionClassName :String)(implicit tag :ClassTag[CC[Any]]) :SeqFactory[CC] =
-		{
-			val factory = loadObject(collectionClassName)
-			val f = try factory.asInstanceOf[SeqFactory[CC]] catch {
-				case e :ClassCastException =>
-					throw SugaredClassCastException(
-						collectionClassName + " object " + factory + " is not a SeqFactory: " + factory.className
-					).initCause(e)
+			try {
+				val factory = loadObject(collectionClassName)
+				val f = try factory.asInstanceOf[SeqFactory[CC]] catch {
+					case e :ClassCastException =>
+						throw SugaredClassCastException(
+							collectionClassName + " object " + factory + " is not a SeqFactory: " + factory.className
+						).initCause(e)
+				}
+				val what = f.from(1::2::Nil)
+				if (!(tag.runtimeClass isAssignableFrom what.getClass))
+					illegalState_!(
+						collectionClassName + " is not a factory for " + tag.runtimeClass.name +
+							"; created a " + what.getClass.name + " instead."
+					)
+				f
+			} catch {
+				case e :ClassNotFoundException => //Check if some of the dots separate an inner class name, not a package.
+					val dotIdx = collectionClassName.lastIndexOf('.')
+					if (dotIdx < 0)
+						throw e
+					loadSeqFactory[CC](collectionClassName.updated(dotIdx, '$'))
 			}
-			val what = f.from(1::2::Nil)
-			if (!(tag.runtimeClass isAssignableFrom what.getClass))
-				illegalState_!(
-					collectionClassName + " is not a factory for " + tag.runtimeClass.name +
-						"; created a " + what.getClass.name + " instead."
-				)
-			f
-		}
 
 		def seqFactoryFromProperty[CC[X] <: collection.Seq[X]]
 		                          (property :String)(implicit tag :ClassTag[CC[Any]]) :Maybe[SeqFactory[CC]] =
@@ -294,17 +335,20 @@ package collections {
 				}
 			}
 
-		def bufferFactoryFromProperty(property :String) :Maybe[BufferFactory[Buffer]] =
+		def bufferFactoryFromProperty[CC[X] <: Buffer[X]]
+		                             (property :String)(implicit tag :ClassTag[CC[Any]]) :Maybe[BufferFactory[CC]] =
 			Maybe(System.getProperty(property)).map { className =>
 				try {
-					loadSeqFactory[Buffer](className) match {
-						case factory :BufferFactory[Buffer] => factory
-						case ArrayBuffer => ArrayBufferFactory
-						case factory => new BufferFactoryAdapter(factory)
+					loadSeqFactory[CC](className) match {
+						case factory :BufferFactory[CC] => factory
+						case ArrayBuffer   => ArrayBufferFactory.asInstanceOf[BufferFactory[CC]]
+						case ArrayDeque    => ArrayDequeFactory.asInstanceOf[BufferFactory[CC]]
+						case mutable.Queue => MutableQueueFactory.asInstanceOf[BufferFactory[CC]]
+						case factory       => new BufferFactoryAdapter[CC](factory)
 					}
 				} catch {
 					case e :Exception =>
-						throw e.addInfo("Property " + property + " does not specify a SeqFactory[Buffer].")
+						throw e.addInfo("Property " + property + " does not specify a SeqFactory[" + tag + "].")
 				}
 			}
 
@@ -320,7 +364,12 @@ package collections {
 									"Default ArrayLikeSliceFactory is not immutable: " + factory + ": " + className + "."
 								)
 							val testInput = IArray(1, 2, 3, 4)
-							val _         = factory.slice(testInput, 1, 3)
+							val slice     = factory.slice(testInput, 1, 3)
+							if (slice != ArraySeq(2, 3))
+								illegalState_!(
+									"Default ArrayLikeSliceFactory produced an invalid test slice of " + slice +
+									"instead of " + ArraySeq(2, 3) + "."
+								)
 							Yes(factory)
 						} catch {
 							case e :Exception =>
