@@ -485,7 +485,7 @@ private object HasFastSlice {
 				case fingers :Fingers[A]                 => Yes(fingers)
 				case pass    :RelayArray[A]              => Yes(pass.range)
 				case slice   :ArrayLikeSlice[A]          => Yes(slice)
-				case seq     :collection.IndexedSeq[A]   => Yes(SeqSlice(seq, 0, seq.length))
+				case seq     :collection.IndexedSeq[A]   => Yes(Subseq(seq, 0, seq.length))
 				case items   :ArrayIterableOnce[A]       => Yes(ArrayLikeSlice.from(items))
 				//todo: this requires Stepper and Iterator implementations to take IndexedSeqOps, not IndexedSeq.
 //						case IndexedIterable(seq)        => Yes(seq)
@@ -540,7 +540,7 @@ private object HasFastSlice {
 				case array :RelayArray[A]               => Yes(array.range(from, until))
 				case ArrayLike.Slice(array, start, end) => sliceSlice(array, start, end)
 				case _     :Substring                   => Yes(items.slice(from, until))
-				case seq   :collection.IndexedSeq[A]    => Yes(SeqSlice(seq, from, until))
+				case seq   :collection.IndexedSeq[A]    => Yes(Subseq(seq, from, until))
 				case _                                  => Yes(seq.view.slice(from, until))
 			}
 			case ArrayLike.Slice(array, start, end) => sliceSlice(array, start, end)

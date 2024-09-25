@@ -385,7 +385,7 @@ case object IndexedSet extends SortedIterableFactory[IndexedSet] {
 		protected override def outerSize :Int = underlying.length
 		protected override def at(index :Int) :E = underlying(index)
 
-		override def toIndexedSeq :IndexedSeq[E] = SeqSlice(underlying, start, end)
+		override def toIndexedSeq :IndexedSeq[E] = Subseq(underlying, start, end)
 
 		protected override def clippedSlice(from :Int, until :Int) :IndexedSet[E] =
 			new IndexedSeqSet(underlying, start + from, start + until)
