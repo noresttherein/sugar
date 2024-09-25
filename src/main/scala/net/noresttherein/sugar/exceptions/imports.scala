@@ -323,9 +323,9 @@ trait imports {
 
 	/** A 'WTF' method throwing an [[net.noresttherein.sugar.exceptions.ImpossibleError ImpossibleError]].
 	  * Intended for code which should, to the best of the programmer's - but not compiler's - knowledge, be unreachable.
-	  * Placed after infinite loops, as the body of methods which are never called (but, for example, remain
-	  * for binary compatibility), or methods of sealed classes which are overridden by subclasses and similar
-	  * circumstances.
+	  * Placed after infinite loops, a matching guard, as the body of methods which are never called
+	  * (but, for example, remain for binary compatibility), or methods of sealed classes which are overridden
+	  * by subclasses and similar circumstances.
 	  */
 	def ??! :Nothing = throw ImpossibleError()
 
