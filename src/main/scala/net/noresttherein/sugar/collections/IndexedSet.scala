@@ -13,8 +13,7 @@ import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedS
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.collections.util.elementsToCopy
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
-import net.noresttherein.sugar.slang.SerializationProxy
-import net.noresttherein.sugar.util.CachesHashCode
+import net.noresttherein.sugar.util.{CachesHashCode, SerializationProxy}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 

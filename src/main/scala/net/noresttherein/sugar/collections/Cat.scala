@@ -16,9 +16,7 @@ import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, St
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.funny.extensions.Function2Extension
-import net.noresttherein.sugar.slang.{SerializationProxy, SingletonSerializationProxy}
-
-
+import net.noresttherein.sugar.util.{SerializationProxy, SingletonSerializationProxy}
 
 
 /** A recursive list-like sequence to which elements can be both prepended and appended in O(1) time;

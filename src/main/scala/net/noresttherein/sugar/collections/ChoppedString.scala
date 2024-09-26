@@ -19,7 +19,7 @@ import net.noresttherein.sugar.collections.extensions.{IteratorExtension, Steppe
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
-import net.noresttherein.sugar.slang.SerializationProxy
+import net.noresttherein.sugar.util.SerializationProxy
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
