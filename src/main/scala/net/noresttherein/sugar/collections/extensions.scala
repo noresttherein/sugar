@@ -5993,7 +5993,7 @@ object extensions extends extensions {
 			var i   = 0
 			var res :Option[O] = None
 			while (i < len & (res eq None)) {
-				res = pf.applyAndThenOrElse[Option[O]](self.charAt(i), Some.apply _, _ => None)
+				res = pf.applyAndThenEither[Option[O]](self.charAt(i), Some.apply _, _ => None)
 				i  += 1
 			}
 			res
@@ -6525,9 +6525,9 @@ object extensions extends extensions {
 		@inline final def generate[E](start :E)(next :PartialFunction[E, E]) :C[E] =
 			companion match {
 				case Stream =>
-					(start#::(next.applyAndThenOrElse(start, Stream.generate(_)(next), _ => Stream.empty[E]))).castCons[C]
+					(start#::(next.applyAndThenEither(start, Stream.generate(_)(next), _ => Stream.empty[E]))).castCons[C]
 				case LazyList =>
-					(start#::(next.applyAndThenOrElse(start, LazyList.generate(_)(next), _ => LazyList.empty[E]))).castCons[C]
+					(start#::(next.applyAndThenEither(start, LazyList.generate(_)(next), _ => LazyList.empty[E]))).castCons[C]
 				case _ =>
 					companion from Iterator.generate(start)(next)
 			}
@@ -6687,9 +6687,9 @@ object extensions extends extensions {
 		@inline final def generate[E :ClassTag](start :E)(next :PartialFunction[E, E]) :C[E] =
 			companion match {
 				case Stream =>
-					(start#::(next.applyAndThenOrElse(start, Stream.generate(_)(next), _ => Stream.empty[E]))).castCons[C]
+					(start#::(next.applyAndThenEither(start, Stream.generate(_)(next), _ => Stream.empty[E]))).castCons[C]
 				case LazyList =>
-					(start#::(next.applyAndThenOrElse(start, LazyList.generate(_)(next), _ => LazyList.empty[E]))).castCons[C]
+					(start#::(next.applyAndThenEither(start, LazyList.generate(_)(next), _ => LazyList.empty[E]))).castCons[C]
 				case _ =>
 					companion from Iterator.generate(start)(next)
 			}
@@ -7003,7 +7003,7 @@ object extensions extends extensions {
 			new AbstractBufferedIterator[E] {
 				push(start)
 				override def hasNext = super.hasNext ||
-					f.applyAndThenOrElse(last, { x => push(x); true }, _ => false)
+					f.applyAndThenEither(last, { x => push(x); true }, _ => false)
 			}
 		}
 

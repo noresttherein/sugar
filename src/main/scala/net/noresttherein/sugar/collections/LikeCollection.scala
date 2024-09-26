@@ -1011,7 +1011,7 @@ private class ForStepper[@specialized(Int, Long, Double, AnyRef) X, Xs <: Steppe
 
 	override def collectFirst[A](elems :Xs)(pf :PartialFunction[X, A]) :Option[A] = {
 		while (elems.hasStep)
-			pf.applyAndThenOrElse(elems.nextStep(), Some.apply _, _ => None) match {
+			pf.applyAndThenEither(elems.nextStep(), Some.apply _, _ => None) match {
 				case some :Some[A] => return some
 				case _ =>
 			}
@@ -1172,7 +1172,7 @@ private class SingleValue[X] extends LikeCollection[X, X] {
 	override def reduceLeftOption[A >: X](xs :X)(op :(A, X) => A) :Option[A] = Some(xs)
 
 	override def collectFirst[A](elems :X)(pf :PartialFunction[X, A]) :Option[A] =
-		pf.applyAndThenOrElse(elems, Some.apply _, _ => None)
+		pf.applyAndThenEither(elems, Some.apply _, _ => None)
 
 	override def corresponds[A, O](elems :X, that :O)(p :(X, A) => Boolean)
 	                              (implicit likeCollection :LikeCollection[A, O]) :Boolean =

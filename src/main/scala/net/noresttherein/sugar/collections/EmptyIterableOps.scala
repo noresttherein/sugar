@@ -381,7 +381,7 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 	override def minByOption[A](f :E => A)(implicit cmp :Ordering[A]) :Option[E] = headOption
 
 	override def collectFirst[A](pf :PartialFunction[E, A]) :Option[A] =
-		pf.applyAndThenOrElse(head, Some(_), _ => None)
+		pf.applyAndThenEither(head, Some(_), _ => None)
 
 	override def foldLeft[A](z :A)(op :(A, E) => A) :A = op(z, head)
 	override def foldRight[A](z :A)(op :(E, A) => A) :A = op(head, z)
@@ -438,7 +438,7 @@ private[noresttherein] trait SingletonIterableOps[+E, +CC[_], +C] extends Sugare
 	override def tapEach[U](f :E => U) :C = { f(head); coll }
 
 	override def collect[A](pf :PartialFunction[E, A]) :CC[A] =
-		pf.applyAndThenOrElse(head, one(_), _ => iterableFactory.empty)
+		pf.applyAndThenEither(head, one(_), _ => iterableFactory.empty)
 
 	override def partitionMap[A1, A2](f :E => Either[A1, A2]) :(CC[A1], CC[A2]) = f(head) match {
 		case Left(a1) => (one(a1), iterableFactory.empty)

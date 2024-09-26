@@ -167,16 +167,34 @@ object extensions extends extensions {
 		}
 
 		/** Equivalent to `(this andThen f).applyOrElse(x, default)`, but without constructing an intermediate function. */
-		def applyAndThenOrElse[O](x :X, f :Y => O, default :X => O) :O = {
+		def applyAndThenEither[O](x :X, f :Y => O, default :X => O) :O = {
 			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
 			if (y.asAnyRef eq Fallback) default(x)
 			else f(y)
 		}
 
 		/** Equivalent to `(this andThen f).applyOrElse(x, default)`, but without constructing an intermediate function. */
-		def applyAndThenOrElse[O](x :X, f :PartialFunction[Y, O], default :X => O) :O = {
+		def applyAndThenEither[O](x :X, f :PartialFunction[Y, O], default :X => O) :O = {
 			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
 			if (y.asAnyRef eq Fallback) default(x)
+			else f(y)
+		}
+
+		/** Equivalent to `(this andThen f).applyOrElse(x, _ => default)`,
+		  * but without constructing an intermediate function.
+		  */
+		def applyAndThenOrElse[O](x :X, f :Y => O, default: => O) :O = {
+			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
+			if (y.asAnyRef eq Fallback) default
+			else f(y)
+		}
+
+		/** Equivalent to `(this andThen f).applyOrElse(x, _ => default)`,
+		  * but without constructing an intermediate function.
+		  */
+		def applyAndThenOrElse[O](x :X, f :PartialFunction[Y, O], default: => O) :O = {
+			val y = self.applyOrElse(x, Fallback.downcastParams[X, Y])
+			if (y.asAnyRef eq Fallback) default
 			else f(y)
 		}
 	}

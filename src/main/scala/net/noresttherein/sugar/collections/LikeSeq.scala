@@ -797,7 +797,7 @@ object LikeSeq extends Rank1LikeSeqs {
 			var res :Option[A] = None
 			while (i < length & (res eq None)) {
 				i += 1
-				res = pf.applyAndThenOrElse[Option[A]](apply(elems, i), Some.apply _, _ => None)
+				res = pf.applyAndThenEither[Option[A]](apply(elems, i), Some.apply _, _ => None)
 			}
 			res
 		}
@@ -2890,7 +2890,7 @@ private abstract class LikeSeqForArrayLike[X, Arr[x] <: ArrayLike[x]]
 			val res = IRefArray.newBuilder[A]
 			var i = 0
 			while (i < length) {
-				val opt = pf.applyAndThenOrElse[Opt[A]](elems(i), One.apply _, _ => None)
+				val opt = pf.applyAndThenEither[Opt[A]](elems(i), One.apply _, _ => None)
 				if (opt.isDefined)
 					res += opt.get
 				i += 1
