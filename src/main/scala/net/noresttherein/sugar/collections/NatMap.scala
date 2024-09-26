@@ -13,6 +13,7 @@ import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementE
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.typist.kinds.=>:
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.{AbstractPure, Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.Opt.One
@@ -517,7 +518,7 @@ object NatMap extends ImplicitNatMapFactory {
 	private class SmallNatMap[K[_], +V[_]]
 	                         (private[this] val entries :Array[Assoc[K, V, _]])
 	                         (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
-		extends BaseNatMap[K, V] with Serializable
+		extends BaseNatMap[K, V] with CachesHashCode with Serializable
 	{
 		override def knownSize = entries.length
 
@@ -629,7 +630,8 @@ object NatMap extends ImplicitNatMapFactory {
 	private class NaturalizedMap[K[_], +V[_]]
 	                            (private val entries :Map[K[_], V[_]] = Map.empty[K[_], V[_]])
 	                            (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
-		extends NatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, NatMap[K, V]] with Serializable
+		extends NatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, NatMap[K, V]]
+		   with CachesHashCode with Serializable
 	{
 		override def size :Int = entries.size
 		override def knownSize :Int = entries.knownSize

@@ -14,6 +14,7 @@ import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, It
 import net.noresttherein.sugar.collections.util.elementsToCopy
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.slang.SerializationProxy
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Maybe.Yes
 
 
@@ -220,7 +221,7 @@ case object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 
 	private abstract class AbstractIndexedSet[E](start :Int, end :Int)(implicit val ordering :Ordering[E])
-		extends IndexedSet[E] with SugaredSlicingOps[E, Set, IndexedSet[E]]
+		extends IndexedSet[E] with SugaredSlicingOps[E, Set, IndexedSet[E]] with CachesHashCode
 	{
 		protected override def hasFastSlice = true
 		override def knownSize = end - start
@@ -338,7 +339,7 @@ case object IndexedSet extends SortedIterableFactory[IndexedSet] {
 
 	@SerialVersionUID(Ver)
 	private class ArrayIndexedSet[E](elems :Array[E], start :Int, end :Int)(implicit override val ordering :Ordering[E])
-		extends AbstractIndexedSet[E](start, end) with ArraySlicingOps[E, Set, IndexedSet[E]]
+		extends AbstractIndexedSet[E](start, end) with ArraySlicingOps[E, Set, IndexedSet[E]] with Serializable
 	{
 		def this(elems :Array[E])(implicit ordering :Ordering[E]) = this(elems, 0, elems.length)
 

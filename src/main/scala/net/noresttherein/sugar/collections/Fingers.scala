@@ -16,6 +16,7 @@ import net.noresttherein.sugar.collections.Iterators.StrictIterator
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
 
@@ -114,7 +115,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	/** The base class for all actual implementations of `Fingers`. */
 	private abstract class AbstractFingers[+E](tree :Tree[E], final override val length :Int)
 		extends Fingers[E] with StrictOptimizedSeqOps[E, Fingers, Fingers[E]]
-		   with SeqSlicingOps[E, Fingers, Fingers[E]]
+		   with SeqSlicingOps[E, Fingers, Fingers[E]] with CachesHashCode
 	{
 		private[this] val _prefix = tree.asInstanceOf[Array[Any]]
 		@inline final def prefixValues :Children[E] = new Children(_prefix)

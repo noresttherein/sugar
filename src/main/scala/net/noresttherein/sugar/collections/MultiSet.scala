@@ -7,7 +7,8 @@ import scala.collection.immutable.{AbstractMap, AbstractSet, HashMap, HashSet, S
 import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.extensions.{ArrayExtension, IteratorCompanionExtension, MutableArrayExtension, PartialFunctionCompanionExtension, castTypeParamMethods, classNameMethods}
-import net.noresttherein.sugar.outOfBounds_!
+import net.noresttherein.sugar.exceptions.outOfBounds_!
+import net.noresttherein.sugar.util.CachesHashCode
 
 
 
@@ -644,7 +645,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 	//A set pretending to be a map with all counts equal to 1
 	@SerialVersionUID(Ver)
-	private class SetMap[X](underlying :Set[X]) extends AbstractMap[X, Int] with Serializable {
+	private class SetMap[X](underlying :Set[X]) extends AbstractMap[X, Int] with CachesHashCode with Serializable {
 		override def removed(key :X) :Map[X, Int] =
 			if (underlying.contains(key)) new SetMap(underlying - key) else this
 
@@ -665,7 +666,8 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 	//hash set because we treat it as covariant
 	@SerialVersionUID(Ver)
 	private class Unique[X](override val unique :HashSet[X])
-		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]] with Serializable
+		extends MultiSet[X] with StrictOptimizedIterableOps[X, MultiSet, MultiSet[X]]
+		   with CachesHashCode with Serializable
 	{ self =>
 		override def knownSize  = unique.knownSize
 		override def totalSize  = unique.size
@@ -696,7 +698,7 @@ case object MultiSet extends MultiSetFactory[MultiSet] {
 
 	@SerialVersionUID(Ver)
 	private class MapAdapter[X](override val counts :Map[X, Int], initSize :Long = -1L)
-		extends MultiSet[X] with Serializable
+		extends MultiSet[X] with CachesHashCode with Serializable
 	{
 		@volatile private[this] var _totalSize = initSize
 

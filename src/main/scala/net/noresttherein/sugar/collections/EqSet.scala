@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import scala.collection.generic.DefaultSerializable
 import scala.collection.{IterableFactory, IterableFactoryDefaults, MapFactory, MapFactoryDefaults, StrictOptimizedIterableOps, immutable, mutable}
 import scala.collection.immutable.Map.{Map1, Map2, Map3, Map4}
 import scala.collection.immutable.Set.{Set1, Set2, Set3, Set4}
@@ -9,6 +10,7 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods}
 import net.noresttherein.sugar.collections.extensions.BuilderExtension
 import net.noresttherein.sugar.typist.kinds
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.EqRef
 
 
@@ -21,7 +23,7 @@ import net.noresttherein.sugar.vars.EqRef
 @SerialVersionUID(Ver)
 sealed class EqSet[A] private (underlying :Set[EqRef[A]])
 	extends AbstractSet[A] with SetOps[A, EqSet, EqSet[A]] with IterableFactoryDefaults[A, EqSet]
-	   with Serializable
+	   with CachesHashCode with DefaultSerializable
 {
 	final override def contains(elem :A) :Boolean = underlying.contains(EqRef(elem))
 	final override def iterator :Iterator[A] = underlying.iterator.map(_.get)
@@ -76,7 +78,7 @@ case object EqSet extends IterableFactory[EqSet] {
 @SerialVersionUID(Ver)
 sealed class EqMap[K, +V] private (underlying :Map[EqRef[K], V])
 	extends AbstractMap[K, V] with MapOps[K, V, EqMap, EqMap[K, V]]
-	   with MapFactoryDefaults[K, V, EqMap, immutable.Iterable] with Serializable
+	   with MapFactoryDefaults[K, V, EqMap, immutable.Iterable] with CachesHashCode with DefaultSerializable
 {
 	final override def apply(key :K) :V = underlying(EqRef(key))
 	final override def get(key :K) :Option[V] = underlying.get(EqRef(key))

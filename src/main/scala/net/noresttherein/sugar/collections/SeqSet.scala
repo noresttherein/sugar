@@ -9,6 +9,7 @@ import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.VectorSet.{Gap, MinFillRatio, VectorSetIterator}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
+import net.noresttherein.sugar.util.CachesHashCode
 
 
 
@@ -96,7 +97,7 @@ case object SeqSet extends IterableFactory.Delegate[SeqSet](VectorSet) {
 final class VectorSet[E] private (items :Vector[Any], index :HashMap[E, Int])
 	extends AbstractSet[E] with StrictOptimizedSetOps[E, VectorSet, VectorSet[E]]
 	  with SeqSet[E] with SeqSetOps[E, VectorSet, VectorSet[E]]
-      with IterableFactoryDefaults[E, VectorSet] with DefaultSerializable
+      with IterableFactoryDefaults[E, VectorSet] with CachesHashCode with DefaultSerializable
 {
 	private def this(unique :Vector[E]) = this(unique, HashMap from unique.view.zipWithIndex)
 

@@ -24,6 +24,7 @@ import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.IterableExtension
 import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.kinds.Any1
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.{IntOpt, Maybe}
 import net.noresttherein.sugar.vars.IntOpt.{AnInt, NoInt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -3018,7 +3019,8 @@ private final class SingletonRanking[+E](override val head :E)
 
 @SerialVersionUID(Ver) //todo: migrate to IRefArray.
 private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
-	extends AbstractIterable[E] with StrictRanking[E] with ArraySlicingOps[E, Ranking, Ranking[E]] with Serializable
+	extends AbstractIterable[E] with StrictRanking[E] with ArraySlicingOps[E, Ranking, Ranking[E]]
+	   with CachesHashCode with Serializable
 {
 	def this(elements :RefArray[E]) = this(elements, elements.asAnyArray.map(hashCodeOf))
 
@@ -3676,7 +3678,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 @SerialVersionUID(Ver)
 private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 	extends AbstractIterable[T] with StrictOptimizedIterableOps[T, Ranking, Ranking[T]]
-	   with IterableProxy[T] with StrictRanking[T] with Serializable
+	   with IterableProxy[T] with StrictRanking[T] with CachesHashCode with DefaultSerializable
 {
 	def this(items :IndexedSeq[T]) =
 		this(items, items.iterator.zipWithIndex.toMap)
@@ -3967,10 +3969,6 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 		items.cyclicCopyRangeToArray(xs, start, from, len)
 
 	override def applyPreferred :Boolean = IndexedIterable.applyPreferred(items)
-	private[this] def writeReplace :AnyRef =
-		new ArraySerializationProxy(
-			RankingImpl, IRefArray.Wrapped.unapply(items).mapOrElse(_.asInstanceOf[RefArray[T]], items.toRefArray)
-		)
 }
 
 

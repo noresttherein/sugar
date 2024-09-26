@@ -21,7 +21,8 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, maxSize_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
-import net.noresttherein.sugar.reflect.{Boxed, PrimitiveClass, Unboxed, classes}
+import net.noresttherein.sugar.reflect.{Boxed, Unboxed, classes}
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 //implicits
@@ -176,7 +177,7 @@ private class RelayArray0
 
 
 
-private trait RelayArrayPrivates[@specialized(ElemTypes) +E] extends RelayArray[E] {
+private trait RelayArrayPrivates[@specialized(ElemTypes) +E] extends RelayArray[E] with CachesHashCode {
 	//extracted for specialization.
 	protected[this] def seq1(elem :E) = new RelayArray1[E](elem)
 	protected[this] def seq2(elem1 :E, elem2 :E) = new RelayArray2[E](elem1, elem2)

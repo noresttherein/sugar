@@ -17,6 +17,7 @@ import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.classes
 import net.noresttherein.sugar.typist.kinds.Any1
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -672,6 +673,7 @@ private[sugar] sealed trait IArrayLikeSlice[@specialized(ElemTypes) +E]
 	   with StrictOptimizedSeqOps[E, IArrayLikeSlice, IArrayLikeSlice[E]]
 	   with IterableFactoryDefaults[E, IArrayLikeSlice]
 	   with ArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArrayLikeSlice[E]]
+	   with CachesHashCode
 {
 	private[sugar] override def isImmutable :Boolean = true
 	override def iterableFactory :SeqFactory[IArrayLikeSlice] = IArrayLikeSlice

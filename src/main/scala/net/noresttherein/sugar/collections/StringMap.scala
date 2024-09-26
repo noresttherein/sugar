@@ -15,6 +15,7 @@ import net.noresttherein.sugar.collections.PrefixTree.{EmptyChildrenArray, compa
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.numeric.extensions.BooleanExtension
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -57,7 +58,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 	extends AbstractMap[String, V] with StrictOptimizedMapOps[String, V, Map, StringMap[V]]
 	   with SugaredIterable[(String, V)] with SpecificSortedMapOps[String, V, StringMap[V]]
 	   with SugaredSlicingOps[(String, V), immutable.Iterable, StringMap[V]]
-	   with Serializable
+	   with CachesHashCode with Serializable
 {
 	override def size :Int = root.size
 	override def knownSize :Int = root.size
@@ -282,7 +283,7 @@ case object StringMap extends ImplicitStringMapFactory {
 final class StringSet(root :PrefixTree[_])
 	extends AbstractSet[String] with SortedSet[String] with StrictOptimizedSortedSetOps[String, SortedSet, StringSet]
 	   with SugaredIterable[String] with SugaredSlicingOps[String, Set, StringSet]
-	   with SpecificIterableFactoryDefaults[String, Set, StringSet] with Serializable
+	   with SpecificIterableFactoryDefaults[String, Set, StringSet] with CachesHashCode with Serializable
 {
 	override def ordering :Ordering[String] = Ordering.String
 	override def size :Int = root.size

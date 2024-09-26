@@ -14,6 +14,7 @@ import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.typist.kinds.Any1
+import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -540,7 +541,7 @@ final class CappedVector[+E] private (protected override val underlying :Vector[
 	   with CappedIndexedSeq[E] with IndexedSeqOps[E, CappedVector, CappedVector[E]]
 	   with StrictOptimizedSeqOps[E, CappedVector, CappedVector[E]]
 	   with CappedSeq.DelegateOps[E, Vector, CappedVector]
-	   with DefaultSerializable
+	   with DefaultSerializable with CachesHashCode
 {
 	private def this(vector :Vector[E]) = this(vector, vector.length)
 
@@ -624,6 +625,7 @@ final class CappedSeqSet[E] private (set :VectorSet[E], override val cap :Int)
 	extends AbstractIterable[E] with CappedSet[E]
 	   with StrictOptimizedSetOps[E, CappedSeqSet, CappedSeqSet[E]]
 	   with CappedSet.Defaults[E, CappedSeqSet]
+	   with DefaultSerializable with CachesHashCode
 {
 	private def this(set :VectorSet[E]) = this(set, set.size)
 
