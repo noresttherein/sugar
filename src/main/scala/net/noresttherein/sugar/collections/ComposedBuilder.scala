@@ -345,10 +345,11 @@ trait BaseGrowable[-E] extends Growable[E] {
 			}
 			this
 		case ApplyPreferred(seq) =>
-			var i = seq.length
-			while (i > 0) {
-				i -= 1
+			val end = seq.length
+			var i = 0
+			while (i < end) {
 				addOne(seq(i))
+				i += 1
 			}
 			this
 		case _ =>

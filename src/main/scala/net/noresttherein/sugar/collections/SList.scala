@@ -7,10 +7,11 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.{AbstractSeq, LinearSeq, LinearSeqOps}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.collections.Iterators.IteratorTake
 import net.noresttherein.sugar.collections.SList.{Link, SListIterator}
+import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{??!, noSuch_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.extensions.{IterableOnceExtension, classNameMethods}
 
 
 
@@ -27,7 +28,7 @@ import net.noresttherein.sugar.exceptions.{??!, noSuch_!, unsupported_!}
   * to avoid traversing the whole list to set length for every element.
   * @define Coll `SList`
   * @define coll sized list
-  */
+  */ //consider: specializing
 @SerialVersionUID(Ver)
 sealed abstract class SList[+E]
 	extends AbstractSeq[E] with LinearSeq[E] with LinearSeqOps[E, SList, SList[E]]
@@ -37,96 +38,6 @@ sealed abstract class SList[+E]
 {
 	override def knownSize :Int = length
 	final override def isEmpty :Boolean = this eq SNil
-
-	override def prepended[U >: E](elem :U) :SList[U] = {
-		val res = new Link(elem, this, length + 1)
-		releaseFence()
-		res
-	}
-	override def prependedAll[U >: E](elems :IterableOnce[U]) :SList[U] = elems match {
-		case _ if elems.knownSize == 0 =>
-			this
-		case indexed :collection.IndexedSeq[U] =>
-			@tailrec def prependIndexed(idx :Int, res :SList[U], size :Int) :SList[U] =
-				if (idx >= 0)
-					prependIndexed(idx - 1, new Link(indexed(idx), res, size + 1), size + 1)
-				else {
-					releaseFence(); res
-				}
-			prependIndexed(indexed.length - 1, this, length)
-
-		case sized if sized.knownSize >= 0 => prependedAll(DefaultBuffer from sized)
-
-		case list :collection.LinearSeq[U] =>
-			@tailrec def prependReversed(reverse :collection.LinearSeq[U], res :SList[U], size :Int) :SList[U] =
-				if (reverse.isEmpty) {
-					releaseFence(); res
-				} else
-					prependReversed(reverse.tail, new Link(reverse.head, res, size + 1), size + 1)
-			prependReversed(list.reverse, this, length)
-		case _ =>
-			super.prependedAll(elems)
-	}
-
-	override def appended[U >: E](elem :U) :SList[U] = this ++: elem +: SNil
-	override def appendedAll[U >: E](elems :IterableOnce[U]) :SList[U] = elems match {
-		case _ if elems.knownSize == 0 => this
-		case other :SList[U]           => this ++: other
-		case _ if this eq SNil         => SList from elems
-		case _                         => super.appendedAll(elems)
-	}
-
-	final override def reverse :SList[E] = {
-		@tailrec def rec(list :SList[E], res :SList[E], size :Int) :SList[E] = list match {
-			case link :Link[E] => rec(link.tail, new Link(link.head, res, size + 1), size + 1)
-			case _             => releaseFence(); res
-		}
-		rec(this, SNil, 0)
-	}
-
-	final override def drop(n :Int) :SList[E] = {
-		@tailrec def drop(list :SList[E], left :Int) :SList[E] = list match {
-			case _ if left <= 0 => list
-			case link :Link[E]  => drop(link.tail, left - 1)
-			case _              => list
-		}
-		if (n >= length) SNil else drop(this, n)
-	}
-	final override def dropWhile(p :E => Boolean) :SList[E] = {
-		@tailrec def drop(list :SList[E]) :SList[E] = list match {
-			case link :Link[E] => if (p(link.head)) drop(link.tail) else list
-			case _             => list
-		}
-		drop(this)
-	}
-	final override def splitAt(n :Int) :(SList[E], SList[E]) =
-		if (n <= 0)
-			(SNil, this)
-		else if (n >= length)
-			(this, SNil)
-		else {
-			val b = SList.newBuilder[E](n)
-			@tailrec def split(list :SList[E], left :Int) :(SList[E], SList[E]) = list match {
-				case _ if left <= 0 => (b.result(), list)
-				case link :SList[E] => b += link.head; split(link.tail, left - 1)
-				case _              => ??!
-			}
-			split(this, n)
-		}
-	final override def span(p :E => Boolean) :(SList[E], SList[E]) = {
-		val prefix = SList.newBuilder[E]
-		@tailrec def split(suffix :SList[E]) :(SList[E], SList[E]) = suffix match {
-			case link :Link[E] =>
-				val next = link.head
-				if (p(next)) {
-					prefix += next
-					split(link.tail)
-				} else
-					(prefix.result(), suffix)
-			case _ => (this, SNil)
-		}
-		split(this)
-	}
 
 	final override def foreach[U](f :E => U) :Unit = {
 		@tailrec def loop(list :SList[E]) :Unit = list match {
@@ -187,6 +98,245 @@ sealed abstract class SList[+E]
 	final override def forall(p :E => Boolean) :Boolean = indexWhere(p, 0, true) == -1
 	final override def exists(p :E => Boolean) :Boolean = indexWhere(p, 0, false) != -1
 
+
+	final override def reverse :SList[E] = {
+		@tailrec def rec(list :SList[E], res :SList[E], size :Int) :SList[E] = list match {
+			case link :Link[E] => rec(link.tail, new Link(link.head, res, size + 1), size + 1)
+			case _             => releaseFence(); res
+		}
+		rec(this, SNil, 0)
+	}
+
+	final override def takeRight(n :Int) :SList[E] =
+		if (n <= 0) SNil else drop(length - n)
+
+	final override def drop(n :Int) :SList[E] = {
+		@tailrec def drop(list :SList[E], left :Int) :SList[E] = list match {
+			case _ if left <= 0 => list
+			case link :Link[E]  => drop(link.tail, left - 1)
+			case _              => list
+		}
+		if (n >= length) SNil else drop(this, n)
+	}
+	final override def dropWhile(p :E => Boolean) :SList[E] = {
+		@tailrec def drop(list :SList[E]) :SList[E] = list match {
+			case link :Link[E] => if (p(link.head)) drop(link.tail) else list
+			case _             => list
+		}
+		drop(this)
+	}
+	final override def splitAt(n :Int) :(SList[E], SList[E]) =
+		if (n <= 0)
+			(SNil, this)
+		else if (n >= length)
+			(this, SNil)
+		else {
+			val b = SList.newBuilder[E](n)
+			@tailrec def split(list :SList[E], left :Int) :(SList[E], SList[E]) = list match {
+				case _ if left <= 0 => (b.result(), list)
+				case link :SList[E] => b += link.head; split(link.tail, left - 1)
+				case _              => ??!
+			}
+			split(this, n)
+		}
+	final override def span(p :E => Boolean) :(SList[E], SList[E]) = {
+		val prefix = SList.newBuilder[E]
+		@tailrec def split(suffix :SList[E]) :(SList[E], SList[E]) = suffix match {
+			case link :Link[E] =>
+				val next = link.head
+				if (p(next)) {
+					prefix += next
+					split(link.tail)
+				} else
+					(prefix.result(), suffix)
+			case _ => (this, SNil)
+		}
+		split(this)
+	}
+
+	override def removed(from :Int, until :Int) :SList[E] =
+		if (until <= 0) this
+		else if (from <= 0) drop(until)
+		else patch(from, SNil, until - from)
+
+	override def removed(index :Int) :SList[E] =
+		if (index < 0 | index >= length)
+			outOfBounds_!(errorString(this) + ".removed(" + index + ")")
+		else patch(index, SNil, 1)
+
+	override def updated[B >: E](index :Int, elem :B) :SList[B] =
+		if (index < 0 | index >= length)
+			outOfBounds_!(index, this)
+		else if (index == 0)
+			elem +: tail
+		else
+			patch(index, ConstSeq(elem, 1), 1)
+
+	override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :SList[U] = {
+		val thatSize = elems.knownSize
+		if (index < 0 | index > length | thatSize >= 0 & index > length - thatSize)
+			outOfBounds_!(index, errorString(this) + ".updatedAll(" + index + ", " + errorString(elems) + ')')
+		else if (thatSize >= 0)
+			patch(index, elems, thatSize)
+		else if (index == length)
+			if (elems.toBasicOps.isEmpty) this
+			else outOfBounds_!(index, errorString(this) + ".updatedAll(" + index + ", " + elems.localClassName + "|0|)")
+		else {
+			val res = SList.newBuilder[U]
+			res sizeHint length
+			var tail = this
+			var i = 0
+			while (i < index) {
+				res += tail.head
+				tail = tail.tail
+				i += 1
+			}
+			val those = elems.iterator
+			while (i < length && those.hasNext) {
+				res += those.next()
+				tail = tail.tail
+				i   += 1
+			}
+			if (those.hasNext)
+				outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", " +
+					errorString(elems) + "(size >" + (length - index) + "))")
+			res ++= tail
+			res.result()
+		}
+	}
+
+	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :SList[U] = {
+		val thatSize = elems.knownSize
+		val thisSize = length
+		if (index >= thisSize | index == Int.MinValue | thatSize >= 0 & index < 0 & index + thatSize <= 0)
+			this
+		else if (index <= 0 & thatSize >= 0 & index + thatSize >= thisSize)
+			SList from HasFastSlice.slice(elems, -index, -index + thisSize)
+		else {
+			var idx  = index
+			var that = elems
+			if (index < 0) {
+				idx   = 0
+				that = HasFastSlice.drop(elems, -index)
+			} else if (thatSize >= 0 & index > thisSize - thatSize)
+				that = HasFastSlice.slice(elems, 0, thisSize - index)
+			if (idx == 0 & thatSize >= 0)
+				that ++: drop(thatSize + index)
+			else {
+				val res = SList.newBuilder[U]
+				res sizeHint thisSize
+				var i = 0
+				var list = this
+				while (i < index) {
+					res += list.head
+					list = list.tail
+					i   += 1
+				}
+				if (thatSize >= 0) {
+					res ++= that //We have already trimmed it as necessary
+				} else {
+					val it = that.iterator
+					while (i < thisSize && it.hasNext) {
+						res += it.next()
+						i   += 1
+					}
+				}
+				val written = res.knownSize
+				if (written < thisSize)
+					res ++= drop(written)
+				res.result()
+			}
+		}
+	}
+
+	override def inserted[U >: E](index :Int, elem :U) :SList[U] =
+		if (index < 0 | index > length)
+			outOfBounds_!(index, this, "inserted")
+		else if (index == 0)
+			elem +: this
+		else
+			patch(index, ConstSeq(elem, 1), 0)
+
+	override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :SList[U] =
+		if (index < 0 | index > length)
+			outOfBounds_!(index, this, "insertedAll")
+		else
+			patch(index, elems, 0)
+
+	override def prepended[U >: E](elem :U) :SList[U] = {
+		val res = new Link(elem, this, length + 1)
+		if (res.len < 0)
+			unsupported_!("Cannot prepend an element to a list of Int.MaxValue length.")
+		releaseFence()
+		res
+	}
+	override def prependedAll[U >: E](elems :IterableOnce[U]) :SList[U] = elems match {
+		case _ if elems.knownSize == 0 =>
+			this
+		case indexed :collection.IndexedSeq[U] =>
+			@tailrec def prependIndexed(idx :Int, res :SList[U], size :Int) :SList[U] =
+				if (idx >= 0)
+					prependIndexed(idx - 1, new Link(indexed(idx), res, size + 1), size + 1)
+				else {
+					releaseFence(); res
+				}
+			prependIndexed(indexed.length - 1, this, length)
+
+		case sized if sized.knownSize >= 0 => prependedAll(DefaultBuffer from sized)
+
+		case list :collection.LinearSeq[U] =>
+			@tailrec def prependReversed(reverse :collection.LinearSeq[U], res :SList[U], size :Int) :SList[U] =
+				if (reverse.isEmpty) {
+					releaseFence(); res
+				} else
+					prependReversed(reverse.tail, new Link(reverse.head, res, size + 1), size + 1)
+			prependReversed(list.reverse, this, length)
+		case _ =>
+			super.prependedAll(elems)
+	}
+
+	override def appended[U >: E](elem :U) :SList[U] = this ++: elem +: SNil
+	override def appendedAll[U >: E](elems :IterableOnce[U]) :SList[U] = elems match {
+		case _ if elems.knownSize == 0 => this
+		case other :SList[U]           => this ++: other
+		case _ if this eq SNil         => SList from elems
+		case _                         => super.appendedAll(elems)
+	}
+
+	override def patch[B >: E](from :Int, other :IterableOnce[B], replaced :Int) :SList[B] =
+		if (from >= length)
+			if (other.knownSize == 0) this
+			else (SList.newBuilder[B] ++= this ++= other).result()
+		else if (from <= 0)
+			if (replaced >= length) SList.from(other)
+			else other ++: drop(replaced)
+		else { //length > 0 here because 0 < from < length
+			val replaced0 = math.max(0, replaced)
+			val delta = length - math.min(replaced0, length - math.max(from, 0))
+			val res = SList.newBuilder[B]
+			res.sizeHint(other, delta)
+			var tail = this.asInstanceOf[Link[E]]
+			var i = 0
+			while (i < from) {
+				res addOne tail.head
+				tail = tail.next.asInstanceOf[Link[E]]
+				i += 1
+			}
+			res ++= other
+			if (from < length - replaced0) {
+				i = 0
+				while (i < replaced) {
+					tail = tail.next.asInstanceOf[Link[E]]
+					i += 1
+				}
+				res ++= tail
+			}
+			res.result()
+		}
+
+
+
+
 	override def iterator :Iterator[E] = if (this eq SNil) Iterator.empty else new SListIterator(this, length)
 
 	override def iterableFactory :SeqFactory[SList] = SList
@@ -224,23 +374,54 @@ case object SList extends StrictOptimizedSeqFactory[SList] {
 
 	/** By extending `Link` we serve as our own dummy pre-head. */
 	private final class SListBuilder[E](hint :Int)
-		extends Link[E](null.asInstanceOf[E], SNil, hint) with Builder[E, SList[E]]
+		extends Link[E](null.asInstanceOf[E], SNil, hint) with BaseBuilder[E, SList[E]]
 	{
-		private[this] var coccyx :Link[E] = this   //The last link of the built sequence.
+		private[this] var sharedSuffix :Link[E] = _ //A link in the built list such that sharedSuffix.next is immutable.
+		private[this] var coccyx :Link[E] = this    //The last link of the built sequence.
 		override def knownSize = len - coccyx.len
 
 		override def sizeHint(size :Int) :Unit =
 			//Appending an element to coccyx decreases coccyx.len, so after adding size elements,
 			//coccyx.len will equal 1, as it should for the last element.
-			if (size > 0 & (coccyx eq this))
+			if (size > len & (coccyx eq this))
 				len = size + 1
 
 		override def addOne(elem :E) = {
 			val next = new Link(elem, SNil, coccyx.len - 1)
+			if  (sharedSuffix ne null)
+				dealias()
 			coccyx.next = next
 			coccyx = next
 			this
 		}
+		@tailrec override def addAll(elems :IterableOnce[E]) :this.type = elems match {
+			case _ if elems.knownSize == 0 => this
+			case list :Link[E] if list.len == coccyx.len - 1 =>
+				if (sharedSuffix ne null)
+					dealias()
+				sharedSuffix = coccyx
+				coccyx.next = list
+				coccyx = list.takeRight(1).asInstanceOf[Link[E]]
+				this
+			case list :LinearSeq[E] if !list.isEmpty =>
+				addOne(list.head)
+				addAll(list.tail)
+			case _ =>
+				super.addAll(elems)
+		}
+		private def dealias() :Unit =
+			if (sharedSuffix ne null) {
+				var tail = sharedSuffix.next
+				sharedSuffix.next = SNil
+				coccyx = sharedSuffix
+				sharedSuffix = null
+				while (tail match {
+					case link :Link[E] =>
+						addOne(link.head); tail = link.next; true
+					case _ => false
+				}) {}
+			}
+
 		override def result() =
 			if (next eq SNil)
 				next
@@ -271,7 +452,7 @@ case object SList extends StrictOptimizedSeqFactory[SList] {
 	}
 
 	private class SListIterator[+E](private[this] var list :SList[E], countDown :Int)
-		extends IteratorTake[E](countDown) with BufferedIterator[E]
+		extends IteratorKnownSize[E](countDown) with BufferedIterator[E]
 	{
 		override def head = list.head
 		override def headOption = list.headOption
