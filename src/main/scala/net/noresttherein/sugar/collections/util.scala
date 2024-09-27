@@ -387,7 +387,10 @@ private[sugar] object IndexedIterable {
 				Yes(LikeSeq.generic[X, Seq].asInstanceOf[LikeSeq[X, items.type, CC, CC[X]]])
 			case ranking :Ranking[X] =>
 				if (ranking.size <= FastUpdateThreshold || HasFastUpdate(ranking.toIndexedSeq))
-					Yes(LikeIndexedSeq.forRanking.asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]])
+					Yes(
+						LikeIndexedSeq.likeRanking[X, Ranking[X], Ranking, Ranking[X]]
+						              .asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]]
+					)
 				else
 					No
 			case _ => No

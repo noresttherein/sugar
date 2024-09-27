@@ -2,14 +2,14 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{Factory, IterableOnceOps, Stepper, StepperShape}
-import scala.collection.mutable.{ArrayBuilder, Buffer}
+import scala.collection.mutable.{Builder, Buffer}
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IRefArray, RefArray}
+import net.noresttherein.sugar.arrays.ArrayLike
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.LikeCollection.LikeCollectionBasics
 import net.noresttherein.sugar.collections.LikeIterableOnce.FromIterableOnceOps
-import net.noresttherein.sugar.collections.LikeIterableOnceSummons.{GenericSummoner, SpecificSummoner, UntypedSummoner}
+import net.noresttherein.sugar.collections.LikeIterableOnceSummons.{GenericSummoner, SpecificSummoner}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{<::<, =::=, kinds}
@@ -975,6 +975,27 @@ object LikeIterableOnce extends Rank1LikeIterableOnces {
 	}
 
 
+	/** Root trait of a hierarchy of direct `LikeIterableOnce` implementations for strict collection types,
+	  * which builds the returned collection using a builder. It does not delegate
+	  * to [[net.noresttherein.sugar.collections.LikeIterableOnce.toIterableOnceOps toIterableOnceOps]] or
+	  * to [[net.noresttherein.sugar.collections.LikeIterableOnce.FromOps.toOps toOps]].
+	  */
+	trait LikeIterableOnceBuilder[X, -Xs, +CC[_], +C] extends LikeIterableOnce[X, Xs, CC, C] {
+		def specificBuilder(elems :Xs) :Builder[X, C]
+		def genericBuilder[A](elems :Xs) :Builder[A, CC[A]]
+	}
+
+	/** A mixin `LikeIterableOnceBuilder` implementing
+	  * [[net.noresttherein.sugar.collections.LikeIterableOnce.GenericLikeIterableOnceBuilder.specificBuilder specificBuilder]]
+	  * with [[net.noresttherein.sugar.collections.LikeIterableOnce.GenericLikeIterableOnceBuilder.genericBuilder genericBuilder]],
+	  * leaving only the latter to implement by subclasses in order to be able to implement all methods of
+	  * [[net.noresttherein.sugar.collections.LikeIterableOnce LikeIterableOnce]] which return another collection.
+	  */
+	trait GenericLikeIterableOnceBuilder[X, -Xs, +CC[_]] extends LikeIterableOnceBuilder[X, Xs, CC, CC[X]] {
+		override def specificBuilder(elems :Xs) :Builder[X, CC[X]] = genericBuilder(elems)
+	}
+
+
 	/** An implementation of [[net.noresttherein.sugar.collections.LikeIterableOnce LikeIterableOnce]] type class
 	  * for type `Xs` with elements of `X` implementing all the methods in terms of
 	  * [[net.noresttherein.sugar.collections.LikeIterableOnce.iterator iterator]] and
@@ -1140,7 +1161,7 @@ private trait LikeIterableOnceAdapter[+X, Xs, +CC[_], +C] extends IterableOnce[X
 */
 
 	override def copyToArray[A >: X](array :Array[A], start :Int, max :Int) :Int =
-		ops.copyToArray[A](elems)(array, start, max)
+		ops.copyToArray[A](elems, array, start, max)
 
 	override def iterator :Iterator[X] = ops.iterator(elems)
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[X, S]) :S = ops.stepper(elems)

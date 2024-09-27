@@ -2282,7 +2282,7 @@ private object Iterators {
 				} else {
 					//Can't delegate to underlying.copyToArray because it would make it potentially unusable,
 					// and thus also Drop.
-					while (i < limit) {
+					while (i < max) {
 						xs(offset) = underlying.next()
 						i      += 1
 						offset += 1

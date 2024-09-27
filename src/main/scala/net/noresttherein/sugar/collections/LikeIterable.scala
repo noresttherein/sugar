@@ -8,7 +8,7 @@ import scala.collection.mutable.{Buffer, Builder}
 
 import net.noresttherein.sugar.JavaTypes.JCollection
 import net.noresttherein.sugar.casting.cast3TypeParamsMethods
-import net.noresttherein.sugar.collections.LikeIterableOnce.{GenericLikeIterableOnce, LikeIterableOnceBasics, LikeIterableOnceFactory}
+import net.noresttherein.sugar.collections.LikeIterableOnce.{GenericLikeIterableOnce, GenericLikeIterableOnceBuilder, LikeIterableOnceBasics, LikeIterableOnceBuilder, LikeIterableOnceFactory}
 import net.noresttherein.sugar.exceptions.unsupported_!
 import net.noresttherein.sugar.extensions.{BufferExtension, IteratorExtension, boxeqMethod}
 import net.noresttherein.sugar.typist.kinds.Any1
@@ -646,6 +646,7 @@ object LikeIterable extends Rank1LikeIterable {
 	  */
 	trait FromIterableFactory[X, -Xs <: IterableOps[X, CC, C], +CC[_], +C]
 		extends LikeIterable[X, Xs, CC, C] with LikeIterableOnceFactory[X, Xs, CC, C]
+		   with LikeIterableOnceBuilder[X, Xs, CC, C]
 	{
 
 		override def copy(elems :Xs) :C = makeSpecific(elems)(elems)
@@ -656,8 +657,8 @@ object LikeIterable extends Rank1LikeIterable {
 		def iterableFactory(elems :Xs) :IterableFactory[CC] = elems.iterableFactory
 		override def makeGeneric[A](elems :Xs)(coll :IterableOnce[A]) :CC[A] = iterableFactory(elems) from coll
 		override def makeSpecific(elems :Xs)(coll :IterableOnce[X]) :C = util.fromSpecific(elems)(coll)
-		def genericBuilder[A](elems :Xs) :Builder[A, CC[A]] = iterableFactory(elems).newBuilder[A]
-		def specificBuilder(elems :Xs) :Builder[X, C] = util.specificBuilder(elems)
+		override def genericBuilder[A](elems :Xs) :Builder[A, CC[A]] = iterableFactory(elems).newBuilder[A]
+		override def specificBuilder(elems :Xs) :Builder[X, C] = util.specificBuilder(elems)
 	}
 
 	/** A type class for generic collection types, able to take any element type.
@@ -667,10 +668,8 @@ object LikeIterable extends Rank1LikeIterable {
 	  *       is preferred, if possible, because it does not rely on unsafe access through reflection.
 	  */
 	trait GenericLikeIterable[X, -Xs <: IterableOps[X, CC, CC[X]], +CC[_]]
-		extends FromIterableFactory[X, Xs, CC, CC[X]] with GenericLikeIterableOnce[X, Xs, CC]
-	{
-		override def specificBuilder(elems :Xs) :Builder[X, CC[X]] = genericBuilder(elems)
-	}
+		extends FromIterableFactory[X, Xs, CC, CC[X]]
+		   with GenericLikeIterableOnce[X, Xs, CC] with GenericLikeIterableOnceBuilder[X, Xs, CC]
 
 
 

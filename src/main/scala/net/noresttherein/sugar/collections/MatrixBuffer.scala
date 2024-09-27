@@ -336,8 +336,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	private def genericAdd[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type = {
 		val elemsSize = values.knownSize(elems)
 		if (elemsSize > 0)
+//			addKnownSize[elems.type](elems :elems.type, elemsSize)(values.specific(elems))
 			addKnownSize(elems, elemsSize)
 		else if (elemsSize < 0)
+//			addUnknownSize[elems.type](elems :elems.type)(values.specific(elems))
 			addUnknownSize(elems)
 		this
 	}
@@ -352,7 +354,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				while (capacity < elemsSize)
 					capacity <<= 1
 				data = new Array[E](capacity)
-				values.copyToArray(elems)(data1, 0, elemsSize)
+				values.copyToArray(elems, data1, 0, elemsSize)
 				storageSize = capacity
 				dataSize += elemsSize
 			} else {                                  //create a two dimensional array
@@ -372,9 +374,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			if (elemsSize <= storageSize - dataSize) {
 				val elemsOffset = dataEnd & storageSize - 1
 				if (elemsOffset + elemsSize <= storageSize)
-					values.copyToArray(elems)(data1, elemsOffset, elemsSize)
+					values.copyToArray(elems, data1, elemsOffset, elemsSize)
 				else
-					values.cyclicCopyToArray(elems)(data1, elemsOffset, elemsSize)
+					values.cyclicCopyToArray(elems, data1, elemsOffset, elemsSize)
 			} else if (elemsSize <= MaxSize1 - dataSize) { //increase the array size
 				var capacity = storageSize << 1
 				while (capacity < newSize)
@@ -382,9 +384,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				if (dataEnd <= storageSize) {         //data is not wrapped
 					data = Array.copyOf(data, capacity)
 					if (dataEnd + elemsSize <= capacity)
-						values.copyToArray(elems)(data1, dataEnd, elemsSize)
+						values.copyToArray(elems, data1, dataEnd, elemsSize)
 					else
-						values.cyclicCopyToArray(elems)(data1, dataEnd, elemsSize)
+						values.cyclicCopyToArray(elems, data1, dataEnd, elemsSize)
 				} else {
 					val a = Array.copyOfRanges(
 						data1, dataOffset, storageSize,
@@ -392,7 +394,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					)
 					data = a
 					dataOffset = 0
-					values.copyToArray(elems)(a, dataSize, elemsSize)
+					values.copyToArray(elems, a, dataSize, elemsSize)
 				}
 				storageSize = capacity
 			} else {                                  //must grow to the second dimension
@@ -548,8 +550,10 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	private def genericPrepend[Es](elems :Es)(implicit values :LikeCollection[E, Es]) :this.type = {
 		val size = values.knownSize(elems)
 		if (size > 0)
+//			prependKnownSize[elems.type](elems :elems.type, size)(values.specific(elems))
 			prependKnownSize(elems, size)
 		else if (size < 0)
+//			prependUnknownSize[elems.type](elems :elems.type)(values.specific(elems))
 			prependUnknownSize(elems)
 		this
 	}
@@ -564,7 +568,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			if (elemsSize <= storageSize - dataSize) {
 				dataOffset = dataOffset - elemsSize & storageSize - 1
 				dataSize  += elemsSize
-				values.cyclicCopyToArray(elems)(data1, dataOffset, elemsSize)
+				values.cyclicCopyToArray(elems, data1, dataOffset, elemsSize)
 			} else if (elemsSize <= MaxSize1 - dataSize) {       //increase the array size
 				val newSize  = dataSize + elemsSize
 				val dataEnd  = dataOffset + dataSize
@@ -582,7 +586,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					)
 					dataOffset = capacity - elemsSize
 				}
-				values.cyclicCopyToArray(elems)(data1, dataOffset, elemsSize)
+				values.cyclicCopyToArray(elems, data1, dataOffset, elemsSize)
 				storageSize = capacity
 				dataSize   += elemsSize
 			} else {                                          //must grow to the second dimension
@@ -766,15 +770,19 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		else if (storageSize <= MaxSize1) { //dim == 1; dim == 0 handled because idx == 0 == size
 			val knownSize = values.knownSize(elems)
 			if (knownSize > 0)
+//				insertKnownSize1[elems.type](idx, elems :elems.type, knownSize)(values.specific(elems))
 				insertKnownSize1(idx, elems, knownSize)
 			else if (knownSize < 0 && !values.isEmpty(elems))
+//				insertUnknownSize1[elems.type](idx, elems :elems.type)(values.specific(elems))
 				insertUnknownSize1(idx, elems)
 		} else {                            //dim == 2
 			val elemsSize = values.knownSize(elems)
 			if (elemsSize != 0)
 				if (elemsSize >= 0)
+//					insertKnownSize2[elems.type](idx, elems :elems.type, elemsSize)(values.specific(elems))
 					insertKnownSize2(idx, elems, elemsSize)
 				else if (!values.isEmpty(elems))
+//					insertUnknownSize2[elems.type](idx, elems :elems.type)(values.specific(elems))
 					insertUnknownSize2(idx, elems)
 		}
 
@@ -792,7 +800,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			} else
 				shiftRight1(dataOffset + idx & mask1, dataSize - idx, elemsSize)
 			val insertOffset = dataOffset + idx & mask1
-			values.cyclicCopyToArray(elems)(data1, insertOffset, elemsSize)
+			values.cyclicCopyToArray(elems, data1, insertOffset, elemsSize)
 			dataSize += elemsSize
 		} else if (elemsSize <= MaxSize1 - dataSize) {
 			val newSize = dataSize + elemsSize
@@ -812,7 +820,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				arraycopy(data, 0, newData, slice1Size, idx - slice1Size)
 				arraycopy(data, idx - slice1Size, newData, idx + elemsSize, dataSize - idx)
 			}
-			values.copyToArray(elems)(newData, idx, elemsSize)
+			values.copyToArray(elems, newData, idx, elemsSize)
 			data        = newData
 			dataOffset  = 0
 			storageSize = capacity
@@ -1212,7 +1220,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		if (max <= MaxSize1 - offset1) {
 			val data2   = this.data2
 			val offset2 = dim2(offset)
-			values.copyToArray(elems)(data2(offset2), offset1, max)
+			values.copyToArray(elems, data2(offset2), offset1, max)
 		} else {
 			write2(offset, values.iterator(elems), max)
 		}
@@ -2731,6 +2739,7 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 		extends LikeCollectionProxy[X, Xs](values)
 	{
 		override def iterator(xs :Xs) :Iterator[X] = Iterator.empty
+//		override def sliceIterator(xs :Xs, from :Int, until :Int) :Iterator[X] = Iterator.empty
 		override def toIterableOnce(elems :Xs) :IterableOnce[X] = Nil
 
 		override def foldLeft[A](xs :Xs)(zero :A)(op :(A, X) => A) :A = zero
@@ -2742,10 +2751,10 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 		                              (implicit likeSeq :LikeMutableIndexedSeq[A, C, Any1, _]) :Int =
 			copiedCount(elems, math.min(likeSeq.size(seq) - index, math.max(values.size(elems), 0)))
 
-		override def copyToArray[A >: X](xs :Xs)(array :Array[A], index :Int, max :Int) :Int =
+		override def copyToArray[A >: X](xs :Xs, array :Array[A], index :Int, max :Int) :Int =
 			copiedCount(xs, math.min(array.length - index, math.max(max, 0)))
 
-		override def cyclicCopyToArray[A >: X](xs :Xs)(array :Array[A], index :Int, max :Int) :Int =
+		override def cyclicCopyToArray[A >: X](xs :Xs, array :Array[A], index :Int, max :Int) :Int =
 			copiedCount(xs, math.min(array.length, math.max(max, 0)))
 
 //		override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = math.min(size(elems), math.max(0, max))
@@ -2823,11 +2832,12 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 				copied
 			}
 		}
+		override def toString = className + "|" + knownSize + "|(@" + index + ")"
 	}
 
 	private class ReverseDim2MatrixBufferIterator[+E](data2 :Array[Array[E]],
 	                                                  private[this] var idx :Int, private[this] var remaining :Int)
-		extends ReverseIndexedIterator[E]
+		extends AbstractIterator[E] with ReverseIndexedIterator[E] //todo: replace with ReverseCyclicMatrixIterator
 	{
 		private[this] val mask = (data2.length << Dim1Bits) - 1
 		protected override def underlyingSize :Int = ??!
@@ -2836,20 +2846,24 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 		protected override def limit :Int = idx - remaining
 		protected override def limit_=(value :Int) :Unit = remaining = idx - value
 
+		override def knownSize = remaining
 		override def hasNext :Boolean = remaining > 0
-		override def head :E = { val i = idx - 1 & mask; data2(dim2(i))(dim1(i)) }
+		override def head :E = data2(dim2(idx))(dim1(idx))
 		override def next() :E = {
 			if (remaining <= 0)
 				noSuch_!("Iterator.empty")
-			idx        = idx - 1 & mask
 			remaining -= 1
-			data2(dim2(idx))(dim1(idx))
+			val i = idx
+			idx   = idx - 1 & mask
+			data2(dim2(i))(dim1(i))
 		}
 		override def foldLeft[A](z :A)(op :(A, E) => A) :A = {
-			val res = MatrixBuffer.foldLeft2(data2, idx, remaining)(z)(op)
+			idx = idx - remaining
+			val res = MatrixBuffer.foldRight2(data2, idx + 1, remaining)(z)((e, a) => op(a, e))
 			remaining = 0
 			res
 		}
+		override def toString = className + "|" + knownSize + "|(@" + index + ")"
 	}
 }
 

@@ -16,8 +16,9 @@ import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.IndexedIterable.ApplyPreferred
 import net.noresttherein.sugar.collections.LikeIndexedSeq.LikeIndexedSeqBasics
 import net.noresttherein.sugar.collections.LikeIterable.LikeIterableBasics
+import net.noresttherein.sugar.collections.LikeIterableOnce.LikeIterableOnceBuilder
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, SeqExtension, StringExtension, mutableIndexedSeqExtension}
-import net.noresttherein.sugar.collections.util.elementsToCopy
+import net.noresttherein.sugar.collections.util.{elementsToCopy, errorString}
 import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.extensions.{IteratorCompanionExtension, IteratorExtension, PartialFunctionExtension, boxeqMethod}
 import net.noresttherein.sugar.typist.{<::<, Unknown, kinds}
@@ -393,6 +394,7 @@ trait LikeSeq[+X, -Xs, +CC[_], +C] extends LikeIterable[X, Xs, CC, C] {
 	@inline final def appendedAll[U >: X, O](elems :Xs, suffix :O)(implicit likeCollection :LikeCollection[U, O]) :CC[U] =
 		concat[U, O](elems, suffix)
 
+	//todo: inserted/insertedAll
 //	override def concat[U >: X, O](elems :Xs, suffix :O)(implicit likeCollection :LikeCollection[U, O]) :CC[U]
 
 	/** Produces a new $coll where a slice of elements in `elems` is replaced by another sequence.
@@ -469,6 +471,11 @@ private[collections] sealed abstract class Rank2LikeSeqs extends LikeIterableOnc
 					LikeIndexedSeq.forOps[Any, IndexedOps[Any], IndexedOps, IndexedOps[Any]]
 				        .specific(indexed).asInstanceOf[LikeSeq[Any, elems.type, Ops, Ops[Any]]
 				])
+			case list :collection.LinearSeq[Any] =>
+				Yes(
+					LikeSeq.likeLinearSeq[Any, collection.LinearSeq, collection.LinearSeq[Any]]
+					       .specific(list).asInstanceOf[LikeSeq[Any, elems.type, Ops, Ops[Any]]]
+				)
 			case _ => No
 		}
 		override def toString :String = "LikeSeq.forOps"
@@ -495,6 +502,20 @@ object LikeSeq extends Rank1LikeSeqs {
 			:LikeSeq[X, Xs, CC, C] =
 		like
 
+	implicit def likeLinearSeq[X, CC[A] <: collection.LinearSeq[A],
+	                           C <: collection.LinearSeq[X] with collection.LinearSeqOps[X, CC, C]]
+	                          (implicit specific :C <:< CC[X] with collection.LinearSeqOps[X, CC, C],
+	                                    generic :CC <::< collection.LinearSeq) :LikeSeq[X, C, CC, C] =
+		forLinearSeq.asInstanceOf[LikeSeq[X, C, CC, C]]
+
+	private[this] val forLinearSeq =
+		new LikeCollection.ForIterableOnce[Any, collection.LinearSeq[Any]]
+			with FromTail[Any, collection.LinearSeq, collection.LinearSeq[Any]]
+			with ForOps[Any, collection.LinearSeq, collection.LinearSeq[Any]]
+		{
+			private def readResolve :AnyRef = LikeSeq.likeLinearSeq[Any, collection.LinearSeq, collection.LinearSeq[Any]]
+			override def toString = "LikeSeq.forLinearSeq"
+		}
 
 	def adapt[X, Xs](elems :Xs)(implicit likeSeq :LikeSeq[X, Xs, Any1, Any]) :collection.Seq[X] =
 		new LikeCollectionAdapter[X, elems.type](elems)
@@ -1001,7 +1022,7 @@ object LikeSeq extends Rank1LikeSeqs {
 			Map from mapped.iterator.map { case (key, vals) => (key, vals.reduce(reduce)) }
 		}
 
-		override def appendTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit = {
+		override def appendTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit = {
 			val length = size(elems)
 			var i = 0
 			while (i < length) {
@@ -1009,7 +1030,7 @@ object LikeSeq extends Rank1LikeSeqs {
 				i += 1
 			}
 		}
-		override def prependTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit = {
+		override def prependTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit = {
 			var i = size(elems)
 			while (i > 0) {
 				i -= 1
@@ -1017,7 +1038,7 @@ object LikeSeq extends Rank1LikeSeqs {
 			}
 		}
 
-		override def copyTo[U >: X, O](elems :Xs)(seq :O, index :Int)
+		override def copyTo[U >: X, O](elems :Xs, seq :O, index :Int)
 		                              (implicit likeSeq :LikeMutableIndexedSeq[U, O, Any1, _]) :Int =
 		{
 			val thisSize = size(elems)
@@ -1039,7 +1060,7 @@ object LikeSeq extends Rank1LikeSeqs {
 			}
 		}
 
-		override def copyToArray[U >: X](elems :Xs)(array :Array[U], start :Int, max :Int) :Int = {
+		override def copyToArray[U >: X](elems :Xs, array :Array[U], start :Int, max :Int) :Int = {
 			val copied = elementsToCopy(size(elems), array, start, max)
 			var i = 0
 			while (i < copied) {
@@ -1048,7 +1069,7 @@ object LikeSeq extends Rank1LikeSeqs {
 			}
 			copied
 		}
-		override def cyclicCopyToArray[U >: X](elems :Xs)(array :Array[U], index :Int, max :Int) :Int =
+		override def cyclicCopyToArray[U >: X](elems :Xs, array :Array[U], index :Int, max :Int) :Int =
 			if (array.length == 0)
 				0
 			else {
@@ -1070,14 +1091,16 @@ object LikeSeq extends Rank1LikeSeqs {
 				copied
 			}
 
-		override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = {
-			val length = math.max(0, math.min(size(elems), max))
-			var i = 0
-			while (i < length) {
+		override def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int = {
+			val thisSize = size(elems)
+			val start = math.max(0, math.min(thisSize, from))
+			val end   = math.max(start, math.min(thisSize, until))
+			var i = start
+			while (i < end) {
 				builder += apply(elems, i)
 				i += 1
 			}
-			length
+			end - start
 		}
 
 
@@ -1094,7 +1117,180 @@ object LikeSeq extends Rank1LikeSeqs {
 
 		override def stepper[S <: Stepper[_]](elems :Xs)(implicit shape :StepperShape[X, S]) :S =
 			LikeSeqIndexedStepper(elems)(this, shape)
+	}
 
+
+
+	/** Implements some methods assuming `C` is a list/`LinearSeq` with fast `tail` operation, and without random
+	  * accessing.
+	  */ //todo: implement the majority of methods, and probably create LikeLinearSeq so we can have forOps
+	trait FromTail[X, +CC[_], C] extends LikeSeqBasics[X, C, CC, C] {
+		override def drop(elems :C, n :Int) :C = {
+			val thisSize = knownSize(elems)
+			var rem = n
+			var list = elems
+			if (thisSize >= 0)
+				if (n >= thisSize)
+					list = empty(elems)
+				else {
+					while (rem > 0) {
+						rem -= 1
+						list = tail(list)
+					}
+				}
+			else {
+				while (rem > 0 && !isEmpty(list)) {
+					rem -= 1
+					list = tail(list)
+				}
+			}
+			list
+		}
+
+		override def dropWhile(elems :C)(p :X => Boolean) :C = {
+			var list = elems
+			while (!isEmpty(list) && p(head(list)))
+				list = tail(list)
+			list
+		}
+/*
+		override def updatedAll[U >: X, O](elems :Xs, index :Int, patch :O)
+		                                  (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+		{
+			val thisSize = knownSize(elems)
+			val thatSize = likeCollection.knownSize(patch)
+			if (index < 0 | thisSize >= 0 & (index > thisSize | thatSize >= 0 & index > thisSize - thatSize))
+				outOfBounds_!(toString + ".updatedAll(" + infoString(elems) + ", " + index + "," +
+					likeCollection.infoString(patch)
+				)
+			if (index == 0)
+				if (thisSize >= 0 & thatSize >= 0 & thatSize == thisSize)
+					toGeneric[U](elems)(likeCollection.toIterableOnce(patch))
+				else {
+
+				}
+		}
+		override def overwritten[U >: X, O](elems :Xs, index :Int, patch :O)
+		                                   (implicit likeCollection :LikeCollection[U, O]) :CC[U] = ???
+*/
+
+		override def appendTo[U >: X](elems :C, buffer :Buffer[U]) :Unit = {
+			var list = elems
+			while (!isEmpty(list)) {
+				buffer addOne head(list)
+				list = tail(list)
+			}
+		}
+
+		override def copyTo[U >: X, O](elems :C, seq :O, index :Int)
+		                              (implicit likeSeq :LikeMutableIndexedSeq[U, O, Any1, _]) :Int =
+		{
+			val thatSize = likeSeq.size(seq)
+			val thisSize = knownSize(elems)
+			if (index >= thatSize)
+				0
+			else if (thisSize >= 0) {
+				val copied = math.min(thisSize, thatSize - math.max(0, index))
+				var i = 0
+				var list = elems
+				while (i < copied) {
+					likeSeq.update(seq, index + i, head(list))
+					list = tail(list)
+					i += 1
+				}
+				copied
+			} else {
+				val max = thatSize - math.max(0, index)
+				var i = 0
+				var list = elems
+				while (i < max && !isEmpty(list)) {
+					likeSeq.update(seq, index + i, head(list))
+					list = tail(list)
+					i += 1
+				}
+				i
+			}
+		}
+
+		override def addTo(elems :C, builder :Builder[X, Any], from :Int, until :Int) :Int = {
+			val size = knownSize(elems)
+			if (until <= 0 | until <= from | size >= 0 & from >= size)
+				0
+			else {
+				var list = drop(elems, from)
+				var i = from
+				if (size >= 0 & until <= size) {
+					while (i < until) {
+						builder addOne head(list)
+						list = tail(list)
+						i += 1
+					}
+				} else {
+					while (i < until && !isEmpty(list)) {
+						builder addOne head(list)
+						list = tail(list)
+						i += 1
+					}
+				}
+				i - math.max(0, from)
+			}
+		}
+
+		override def copyToArray[U >: X](elems :C, array :Array[U], start :Int, max :Int) :Int = {
+			val size = knownSize(elems)
+			if (max <= 0 || size == 0 || array.length == 0 || start >= array.length)
+				0
+			else if (start < 0)
+				outOfBounds_!(toString + ".copyToArray(" + infoString(elems) + ", " + errorString(array) +
+					", " + start + ", " + max +  ")"
+				)
+			else if (size > 0) {
+				val copied = elementsToCopy(size, array, start, max)
+				var i = 0
+				var list = elems
+				while (i < copied) {
+					array(start + i) = head(list)
+					list = tail(list)
+					i += 1
+				}
+				copied
+			} else {
+				var i = 0
+				val end = math.min(array.length - start, max)
+				var list = elems
+				while (i < end && !isEmpty(list)) {
+					array(start + i) = head(list)
+					list = tail(list)
+					i += 1
+				}
+				i
+			}
+		}
+
+		override def cyclicCopyToArray[U >: X](elems :C, array :Array[U], index :Int, max :Int) :Int =
+			if (max <= 0 || array.length == 0)
+				0
+			else {
+				val length = array.length
+				val start  = index % length
+				var list   = elems //drop(elems, from)
+				var until  = start + math.min(length - start, max)
+				var copied = 0
+				var i      = start
+				while (i < until && !isEmpty(list)) {
+					while (i < until && !isEmpty(list)) {
+						array(i) = head(list)
+						list = tail(list)
+						i += 1
+						copied += 1
+					}
+					if (copied < max) {
+						i = 0
+						until = math.min(start, max - copied)
+					}
+				}
+				copied
+			}
 	}
 
 
@@ -1701,10 +1897,6 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 		iRefArrayPrototype.asInstanceOf[LikeIndexedSeq[E, IRefArray[E], IRefArray, IRefArray[E]]]
 
 
-	implicit def forRanking[E] :LikeIndexedSeq[E, Ranking[E], Ranking, Ranking[E]] =
-		rankingPrototype.asInstanceOf[LikeIndexedSeq[E, Ranking[E], Ranking, Ranking[E]]]
-
-
 	@inline def forArray[E] :LikeIndexedSeq[E, Array[E], RefArray, Array[E]] = LikeMutableIndexedSeq.forArray
 	@inline def forRefArray[E] :LikeIndexedSeq[E, RefArray[E], RefArray, RefArray[E]] = LikeMutableIndexedSeq.forRefArray
 
@@ -1755,10 +1947,6 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 		override def toString = "LikeIndexedSeq.forIRefArray"
 		private def readResolve :AnyRef = LikeIndexedSeq.forIRefArray
 	}
-	private[this] val rankingPrototype = new ForRanking[Any] {
-		private def readResolve :AnyRef = LikeIndexedSeq.forRanking
-		override def toString = "LikeIndexedSeq.forRanking"
-	}
 
 
 	def adapt[X, Xs](elems :Xs)(implicit likeSeq :LikeIndexedSeq[X, Xs, Any1, Any]) :collection.IndexedSeq[X] =
@@ -1771,18 +1959,22 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 			override def iterator :Iterator[X] = ops.iterator(elems)
 		}
 
-
-	//fixme: this is obviously wrong, as something like SortedSet would have flatMap return a SortedSet
-//	def unapply[C[x] <: IterableOnce[x], A](items :C[A]) :Maybe[LikeIndexedSeq[A, C[A], C, C[A]]] = items match {
-//		case seq     :collection.IndexedSeqOps[A, kinds.Any1, _] => Yes(forOps)
-//		case ranking :Ranking[A]                                 => Yes(ranking.toIndexedSeq)
-//		case set     :IndexedSet[A]                              => Yes(set.toIndexedSeq)
-//		case slice   :ArrayIterableOnce[A] =>
-//			val from  = slice.startIndex
-//			val until = from + slice.knownSize
-//			Yes(ArraySlice.slice(slice.unsafeArray.castFrom[Array[_], Array[A]], from, until))
-//		case _ => No
-//	}
+	//todo:
+/*
+	def unapply[A](items :IterableOnce[A]) :Maybe[LikeIndexedSeq[A, items.type, Any1, _]] = items match {
+		case seq     :collection.IndexedSeqOps[A, kinds.Any1, _] =>
+			Yes(forOps[A, IndexedSeq, IndexedSeq, IndexedSeq[A]].asInstanceOf[LikeIndexedSeq[A, items.type, Any1, _]])
+		case ranking :Ranking[A]                                 =>
+			Yes(LikeRanking.forOps[A, Ranking[A], Ranking, Ranking[A]].asInstanceOf[LikeRanking[A, items.type, Any1, _]])
+		case set     :IndexedSet[A]                              =>
+			Yes(???)
+		case slice   :ArrayIterableOnce[A] =>
+			val from  = slice.startIndex
+			val until = from + slice.knownSize
+			Yes(???)
+		case _ => No
+	}
+*/
 
 	trait LikeIndexedSeqBasics[+X, -Xs, +CC[_], +C]
 		extends LikeSeq.OfKnownSize[X, Xs, CC, C] with LikeIndexedSeq[X, Xs, CC, C]
@@ -1841,6 +2033,132 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 //		override def view(elems :Xs) :IndexedSeqView[X] =
 //			new LikeSeqAdapterView[X, Xs](elems, this) with IndexedSeqView[X]
 	}
+
+
+	//todo: switch between iterator and apply depending on isApplyPreferred
+/*
+	trait LikeIndexedSeqBuilder[X, -Xs, +CC[_], +C]
+		extends LikeIndexedSeqBasics[X, Xs, CC, C] with LikeSeq.FromApply[X, Xs, CC, C]
+		   with LikeIterableOnceBuilder[X, Xs, CC, C]
+	{
+		override def reverse(elems :Xs) :C =
+			if (isEmpty(elems))
+				empty(elems)
+			else {
+				val res = specificBuilder(elems)
+				var i   = size(elems)
+				res sizeHint i
+				while (i > 0) {
+					i -= 1
+					res addOne apply(elems, i)
+				}
+				res.result()
+			}
+
+		override def sorted[U >: X](elems :Xs)(implicit ord :Ordering[U]) :C =
+			if (isEmpty(elems))
+				empty(elems)
+			else {
+				val array = toArray(elems)
+				array.sortInPlace[U]()
+				(specificBuilder(elems) ++= ArrayIterator(array)).result()
+			}
+
+		/*{
+			val length = size(elems)
+			if (index < 0 | index >= length)
+				outOfBounds_!(toString + ".updated(" + infoString(elems) + ", " + index + ", _)")
+			val res = genericBuilder[U](elems)
+			res sizeHint length
+			var i = 0
+			var until = index
+			while (i < until) {
+				while (i < index) {
+					res addOne apply(elems, i)
+					i += 1
+				}
+				if (i < length) {
+					res addOne elem
+					i = index + 1
+				}
+				until = length
+			}
+			res.result()
+		}
+*/
+		override def updated[U >: X](elems :Xs, index :Int, elem :U) :CC[U] = {
+			val length = size(elems)
+			if (index < 0 | index >= size)
+				outOfBounds_!(toString + ".updated(" + infoString(elems) + ", " + index + ", _)")
+			patch(elems, index, elem, 1, true)
+		}
+		override def prepended[U >: X](elems :Xs, elem :U) :CC[U] = patch(elems, 0, elem, 0, true)
+		override def appended[U >: X](elems :Xs, elem :U) :CC[U] = patch(elems, size(elems), elem, 0, true)
+//		override def inserted[U >: X](elems :Xs, index :Int, elem :U) :CC[U] = {
+//			val length = size(elems)
+//			if (index < 0 | index > size)
+//				outOfBounds_!(toString + ".updated(" + infoString(elems) + ", " + index + ", _)")
+//			patch(elems, index, elem, 0)
+//		}
+
+		override def updatedAll[U >: X, O](elems :Xs, index :Int, patch :O)
+		                                  (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+			this.patch(elems, index, patch, -1, true)
+
+		override def overwritten[U >: X, O](elems :Xs, index :Int, patch :O)
+		                                   (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+			this.patch(elems, index, patch, -1, false)
+
+		override def prependedAll[U >: X, O](elems :Xs, prefix :O)
+		                                    (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+			patch(elems, 0, prefix, 0, true)
+
+		override def concat[U >: X, O](elems :Xs, suffix :O)(implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+			patch(elems, size(elems), suffix, 0, true)
+
+//		override def insertedAll[U >: X, O](elems :Xs, index :Int, that :O)
+//		                                   (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+//		{
+//			val length = size(elems)
+//			if (index < 0 | index > size)
+//				outOfBounds_!(toString + ".updated(" + infoString(elems) + ", " + index + ", _)")
+//			patch(elems, index, that, 0)
+//		}
+
+		override def patch[U >: X, O](elems :Xs, from :Int, other :O, replaced :Int)
+		                             (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+			patch[U, O](elems, from, other, math.max(0, replaced), false)
+
+		private def patch[U >: X, O](elems :Xs, from :Int, other :O, replaced :Int, validateIndices :Boolean)
+		                            (implicit likeCollection :LikeCollection[U, O]) :CC[U] =
+		{
+			val thisSize = size(elems)
+			val thatSize = likeCollection.knownSize(other)
+			if (index <)
+		}
+
+
+		override def padTo[U >: X](elems :Xs, len :Int, elem :U) :CC[U] = {
+			val length = size(elems)
+			if (length >= len)
+				toGeneric(elems)
+			else {
+				val res = genericBuilder[U](elems)
+				res sizeHint len
+				var i = 0
+				while (i < length) {
+					res addOne apply(elems, i)
+					i += 1
+				}
+				while (i < len) {
+					res addOne elem
+					i += 1
+				}
+				res.result()
+			}
+		}
+	}
+*/
 
 
 
@@ -2260,7 +2578,7 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 		override def foldRight[A](elems :Xs)(z :A)(op :(X, A) => A) :A =
 			ArrayLikeSpecOps.foldRight(elems.unsafeArray.asInstanceOf[Array[X]], elems.startIndex, elems.knownSize)(z)(op)
 
-		override def copyToArray[U >: X](elems :Xs)(array :Array[U], start :Int, max :Int) :Int =
+		override def copyToArray[U >: X](elems :Xs, array :Array[U], start :Int, max :Int) :Int =
 			ArrayLike.permissiveCopy(elems.unsafeArray, elems.startIndex, array, start, max)
 
 //		override def iterator(elems :Xs) :Iterator[X] =
@@ -2326,102 +2644,6 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 //		private def readResolve :AnyRef = LikeIndexedSeq.forArrayIterableOnce
 //		override def toString = "LikeIndexedSeq.forArrayIterableOnce"
 //	}
-
-
-
-	@SerialVersionUID(Ver)
-	private class ForRanking[E] //todo: make it LikeRanking for RankingOps, extend LikeSet.
-		extends LikeIndexedSeqBasics[E, Ranking[E], Ranking, Ranking[E]]
-		   with LikeIterable.ForOps[E, Ranking, Ranking[E]]
-	{
-		override def apply(elems :Ranking[E], i :Int) :E = elems(i)
-
-		override def findLast(elems :Ranking[E])(p :E => Boolean) :Option[E] = elems.findLast(p)
-
-		override def segmentLength(elems :Ranking[E], from :Int)(p :E => Boolean) :Int = elems.segmentLength(p, from)
-
-		override def indexOf[U >: E](elems :Ranking[E], from :Int, elem :U) :Int = elems.indexOf(elem) match {
-			case n if n >= from => n
-			case _ => -1
-		}
-		override def indexWhere(elems :Ranking[E], from :Int)(p :E => Boolean) :Int = elems.indexWhere(p, from)
-		override def lastIndexOf[U >: E](elems :Ranking[E], end :Int, elem :U) :Int = elems.indexOf(elem) match {
-			case n if n <= end => n
-			case _ => -1
-		}
-		override def lastIndexWhere(elems :Ranking[E], end :Int)(p :E => Boolean) :Int = elems.lastIndexWhere(p, end)
-
-		override def indexOfSlice[U >: E](elems :Ranking[E], from :Int, that :collection.Seq[U]) =
-			elems.indexOfSlice(that, from)
-
-		override def lastIndexOfSlice[U >: E](elems :Ranking[E], end :Int, that :collection.Seq[U]) =
-			elems.indexOfSlice(that, end) match {
-				case n if n <= end => n
-				case _ => -1
-			}
-		override def indexOfSlice[U >: E, O](elems :Ranking[E], from :Int, that :O)
-		                                    (implicit likeSeq :LikeSeq[U, O, Any1, _]) :Int =
-			indexOfSlice(elems, from, likeSeq.toImpureSeq(that))
-
-		override def lastIndexOfSlice[U >: E, O](elems :Ranking[E], end :Int, that :O)
-		                                        (implicit likeSeq :LikeSeq[U, O, Any1, _]) :Int =
-			lastIndexOfSlice(elems, end, likeSeq.toImpureSeq(that))
-
-		override def endsWith[U >: E, O](elems :Ranking[E], that :O)
-		                                (implicit likeIterable :LikeIterable[U, O, Any1, _]) =
-			elems.endsWith(likeIterable.toIterable(that))
-
-		override def startsWith[U >: E, O](elems :Ranking[E], offset :Int, that :O)
-		                                  (implicit likeCollection :LikeCollection[U, O]) =
-			elems.startsWith(likeCollection.toIterableOnce(that), offset)
-
-		override def search[U >: E](elems :Ranking[E], elem :U, from :Int, to :Int)(implicit ord :Ordering[U]) =
-			elems.indexOf(elem) match {
-				case n if n >= from & n < to => Found(n)
-				case n if n >= 0 => InsertionPoint(n)
-				case _ => elems.toSeq.search(elem, from, to)
-			}
-
-
-		override def distinct(elems :Ranking[E]) :Ranking[E] = elems
-		override def distinctBy[A](elems :Ranking[E])(f :E => A) :Ranking[E]  = elems.distinctBy(f)
-		override def reverse(elems :Ranking[E]) :Ranking[E] = elems.reverse
-		override def sorted[U >: E](elems :Ranking[E])(implicit ord :Ordering[U]) :Ranking[E] = elems.sorted[U]
-
-		override def updated[U >: E](elems :Ranking[E], index :Int, elem :U) :Ranking[U] = elems.updated(index, elem)
-		override def prepended[U >: E](elems :Ranking[E], elem :U) :Ranking[U] = elems.prepended(elem)
-		override def appended[U >: E](elems :Ranking[E], elem :U) :Ranking[U] = elems.appended(elem)
-
-		override def updatedAll[U >: E, O](elems :Ranking[E], index :Int, patch :O)
-		                                  (implicit likeCollection :LikeCollection[U, O]) :Ranking[U] =
-			elems.updatedAll(index, likeCollection.toIterableOnce(patch))
-
-		override def overwritten[U >: E, O](elems :Ranking[E], index :Int, patch :O)
-		                                   (implicit likeCollection :LikeCollection[U, O]) :Ranking[U] =
-			elems.overwritten(index, likeCollection.toIterableOnce(patch))
-
-		override def prependedAll[U >: E, O](elems :Ranking[E], prefix :O)
-		                                    (implicit likeCollection :LikeCollection[U, O]) :Ranking[U] =
-			elems.prependedAll(likeCollection.toIterableOnce(prefix))
-
-//		override def concat[U >: E, O](elems :Ranking[E], suffix :O)
-//		                              (implicit likeCollection :LikeCollection[U, O]) :Ranking[U] =
-//			elems.concat(likeCollection.toIterableOnce(suffix))
-
-		override def patch[U >: E, O](elems :Ranking[E], from :Int, other :O, replaced :Int)
-		                             (implicit likeCollection :LikeCollection[U, O]) :Ranking[U] =
-			elems.patch(from, likeCollection.toIterableOnce(other), replaced)
-
-		override def padTo[U >: E](elems :Ranking[E], len :Int, elem :U) =
-			if (elems.length >= len || elems.contains(elem)) elems else elems :+ elem
-
-		override def reverseIterator(elems :Ranking[E]) = elems.reverseIterator
-
-		override def view(elems :Ranking[E]) :IndexedSeqView[E] = elems.view
-
-		override def toOps(elems :Ranking[E]) :IndexedSeqOps[E, Ranking, Ranking[E]] = new RankingAsSeq(elems)
-		override def toImpureSeq(elems :Ranking[E]) :collection.Seq[E] = elems.toSeq
-	}
 
 
 
@@ -2655,17 +2877,17 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 			new WrappedString(elems).withFilter(p)
 
 
-		override def insertInto[U >: Char](elems :String)(buffer :Buffer[U], index :Int) :Unit =
+		override def insertInto[U >: Char](elems :String, buffer :Buffer[U], index :Int) :Unit =
 			buffer.insertAll(index, elems)
 
-		override def patchOver[U >: Char](elems :String)(buffer :Buffer[U], index :Int, replaced :Int) :Unit =
+		override def patchOver[U >: Char](elems :String, buffer :Buffer[U], index :Int, replaced :Int) :Unit =
 			buffer.patchInPlace(index, elems, replaced)
 
 
-		override def copyToArray[U >: Char](elems :String)(array :Array[U], start :Int, max :Int) :Int =
-			copyRangeToArray[U](elems)(array, start, 0, max)
+		override def copyToArray[U >: Char](elems :String, array :Array[U], start :Int, max :Int) :Int =
+			copyRangeToArray[U](elems, array, start, 0, max)
 
-		def copyRangeToArray[U >: Char](elems :String)(xs :Array[U], start :Int, from :Int, len :Int) :Int = {
+		def copyRangeToArray[U >: Char](elems :String, xs :Array[U], start :Int, from :Int, len :Int) :Int = {
 			val copied = util.elementsToCopy(elems.length, from, xs, start, len)
 			xs match {
 				case chars :Array[Char] =>
@@ -2686,15 +2908,15 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 			copied
 		}
 
-		override def cyclicCopyToArray[U >: Char](elems :String)(array :Array[U], index :Int, max :Int) :Int =
+		override def cyclicCopyToArray[U >: Char](elems :String, array :Array[U], index :Int, max :Int) :Int =
 			if (max <= 0 || array.length == 0 || elems.length == 0)
 				0
 			else {
 				val dstLen = array.length
 				val start  = index % dstLen
-				val copied = copyRangeToArray[U](elems)(array, start, 0, max)
+				val copied = copyRangeToArray[U](elems, array, start, 0, max)
 				if (copied == dstLen - start)
-					copied + copyRangeToArray[U](elems)(array, 0, copied, max - copied)
+					copied + copyRangeToArray[U](elems, array, 0, copied, max - copied)
 				else
 					copied
 			}
@@ -3054,7 +3276,7 @@ private abstract class LikeSeqForArrayLike[X, Arr[x] <: ArrayLike[x]]
 				case  n if n > thisLength - index => oob()
 				case _ =>
 					val res = RefArray.from[U](elems)
-					likeCollection.copyToArray[Any](patch)(res.asAnyArray, index)
+					likeCollection.copyToArray[Any](patch, res.asAnyArray, index)
 					res
 			}
 		}
@@ -3067,7 +3289,7 @@ private abstract class LikeSeqForArrayLike[X, Arr[x] <: ArrayLike[x]]
 			overwritten[U, Iterator[U]](elems, 0, likeCollection.iterator(patch).dropInPlace(-index))
 		else {
 			val res = RefArray.from[U](elems)
-			likeCollection.copyToArray[Any](patch)(res.asAnyArray, index, Int.MaxValue)
+			likeCollection.copyToArray[Any](patch, res.asAnyArray, index, Int.MaxValue)
 			res
 		}
 
@@ -3098,7 +3320,7 @@ private abstract class LikeSeqForArrayLike[X, Arr[x] <: ArrayLike[x]]
 				case _ =>
 					val res = RefArray.ofDim[U](thisLength - replaced0 + thatLength)
 					ArrayLike.copy(elems, 0, res, 0, from0)
-					likeCollection.copyToArray[Any](other)(res.asAnyArray, from0, thatLength)
+					likeCollection.copyToArray[Any](other, res.asAnyArray, from0, thatLength)
 					ArrayLike.copy(elems, from0 + replaced0, res, from0 + thatLength, thisLength - from0 - replaced0)
 					res
 			}
@@ -3136,13 +3358,13 @@ private abstract class LikeSeqForArrayLike[X, Arr[x] <: ArrayLike[x]]
 	final override def groupBy[K](elems :Arr[X])(f: X => K) :Map[K, Arr[X]] = elems.groupBy(f)
 
 
-	final override def insertInto[U >: X](elems :Arr[X])(buffer :Buffer[U], index :Int) :Unit =
+	final override def insertInto[U >: X](elems :Arr[X], buffer :Buffer[U], index :Int) :Unit =
 		buffer.insertAll(index, toIterableOnce(elems))
 
-	final override def patchOver[U >: X](elems :Arr[X])(buffer :Buffer[U], index :Int, replaced :Int) :Unit =
+	final override def patchOver[U >: X](elems :Arr[X], buffer :Buffer[U], index :Int, replaced :Int) :Unit =
 		buffer.patchInPlace(index, toIterableOnce(elems), replaced)
 
-	final override def copyToArray[A >: X](elems :Arr[X])(array :Array[A], start :Int, max :Int) :Int =
+	final override def copyToArray[A >: X](elems :Arr[X], array :Array[A], start :Int, max :Int) :Int =
 		elems.copyToArray(array, start, max)
 
 	final override def withFilter(elems :Arr[X])(p :X => Boolean) :WithFilter[X, ArrayLike] = elems.withFilter(p)
@@ -3302,7 +3524,7 @@ object LikeMutableIndexedSeq extends Rank1LikeMutableIndexedSeqs {
 						toString + ".updateAll(" + infoString(self) + ", " + index + ", " +
 							likeCollection.infoString(elems) + ")"
 					)
-					case  _ => likeCollection.copyToArray(elems)(self.asInstanceOf[Array[X]], index, Int.MaxValue)
+					case  _ => likeCollection.copyToArray(elems, self.asInstanceOf[Array[X]], index, Int.MaxValue)
 				}
 			}
 		override def overwrite[O](self :Arr[X], index :Int, elems :O)

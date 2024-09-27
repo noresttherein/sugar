@@ -216,41 +216,41 @@ trait LikeCollection[+X, -Xs] extends Serializable {
 
 
 	/** Appends all values in `elems` to `seq`, preserving the sequence kind. */
-	def appendedTo[U >: X, C, CC[_]](elems :Xs)(seq :C)(implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
+	def appendedTo[U >: X, C, CC[_]](elems :Xs, seq :C)(implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
 
 	/** Prepends all values in `elems` to `seq`, preserving the sequence kind. */
-	def prependedTo[U >: X, C, CC[_]](elems :Xs)(seq :C)(implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
+	def prependedTo[U >: X, C, CC[_]](elems :Xs, seq :C)(implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
 
 	/** Copies all values from `elems` to the specified sequence, starting with index `index`. */
 	@throws[IndexOutOfBoundsException]("if index < 0, or index > seq.length - elems.size.")
-	def copiedTo[U >: X, C, CC[_]](elems :Xs)(seq :C, index :Int)(implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
+	def copiedTo[U >: X, C, CC[_]](elems :Xs, seq :C, index :Int)(implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
 
 	/** Replaces `replaced` elements starting at `index` in the specified sequence with `elems`.
 	  * This method behaves like [[scala.collection.SeqOps.patch SeqOps.patch]].
 	  */
-	def patchedOver[U >: X, C, CC[_]](elems :Xs)(seq :C, index :Int, replaced :Int)
+	def patchedOver[U >: X, C, CC[_]](elems :Xs, seq :C, index :Int, replaced :Int)
 	                                 (implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U]
 
 	/** Appends all values in `elems` to the given buffer. */ //todo: methods with max as an argument
-	def appendTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit
+	def appendTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit
 
 	/** Prepends all values in `elems` to the given buffer. */
-	def prependTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit
+	def prependTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit
 
 	/** Inserts all values in `elems` to the given buffer at the specified position.
 	  * All elements in `[index, buffer.length)` are pushed back by `elems.size` positions.
 	  */
-	def insertInto[U >: X](elems :Xs)(buffer :Buffer[U], index :Int) :Unit
+	def insertInto[U >: X](elems :Xs, buffer :Buffer[U], index :Int) :Unit
 
 	/** Analogue of `Buffer.`[[scala.collection.mutable.Buffer.patchInPlace patchInPlace]]. */
-	def patchOver[U >: X](elems :Xs)(buffer :Buffer[U], index :Int, replaced :Int) :Unit
+	def patchOver[U >: X](elems :Xs, buffer :Buffer[U], index :Int, replaced :Int) :Unit
 
 	/** Copy values from `elems` to the given mutable sequence, starting at position `index`.
 	  * Copying stops when either `elems` runs out of values, or the end of the sequence is reached,
 	  * whichever happens sooner. The contract is the same
 	  * as for `IterableOnceOps.`[[scala.collection.IterableOnceOps.copyToArray copyToArray]].
 	  */ //todo: decide the order of delegation with MutableIndexedSeqLike.updatedAll
-	def copyTo[U >: X, C](elems :Xs)(seq :C, index :Int) //todo: add a max parameter
+	def copyTo[U >: X, C](elems :Xs, seq :C, index :Int) //todo: add from and max parameters
 	                     (implicit likeSeq :LikeMutableIndexedSeq[U, C, kinds.Any1, _]) :Int
 
 //	def copyRangeToArray[A >: X](array :Array[A], start :Int, from :Int, until :Int, len :Int, xs :Xs) :Int
@@ -267,25 +267,37 @@ trait LikeCollection[+X, -Xs] extends Serializable {
 	  *
 	  * @note Reuse: $consumesIterator
 	  */
-	def copyToArray[U >: X](elems :Xs)(array :Array[U], start :Int = 0, max :Int = Int.MaxValue) :Int
+	def copyToArray[U >: X](elems :Xs, array :Array[U], start :Int = 0, max :Int = Int.MaxValue) :Int
 
 	/** Copies at most `max` values from `elems` to the specified array, starting at position `index`.
 	  * If the end of the array is reached before copying `max` values (or exhausting `elems`),
 	  * copying resumes from the beginning of the array. If `max > array.length`, at most `array.length` values
 	  * will be copied (this method will not overwrite data that it itself has copied).
-	  */
-	def cyclicCopyToArray[U >: X](elems :Xs)(array :Array[U], index :Int, max :Int) :Int
+	  */ //todo: cyclicCopyRangeToArray
+	def cyclicCopyToArray[U >: X](elems :Xs, array :Array[U], index :Int, max :Int) :Int
 
 	/** Adds all elements to the builder, returning the number of elements added (collection size). */
-	def addTo(elems :Xs, builder :Builder[X, Any]) :Int = addTo(elems, builder, Int.MaxValue) //not robust for a Stepper
+	final def addTo(elems :Xs, builder :Builder[X, Any]) :Int = addTo(elems, builder, 0, Int.MaxValue) //not robust for a Stepper
 
 	/** Adds at most `max` first elements to the builder, returning the number of elements added. */
-	def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int //consider: not returning the size
+	final def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = addTo(elems, builder, 0, max)
+
+	/** Adds a slice of this collection to the builder, and returns the number of actually added elements.
+	  * Equivalent to `builder ++= elems.size(from, until)`, but the elements are accessed in a way best suited
+	  * for the type of the collection, without copying to an intermediate collection.
+	  */
+	def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int
 
 	/** A single use iterator over the elements of `elems`.
 	  * @param elems a $coll of this type class.
 	  */
 	def iterator(elems :Xs) :Iterator[X]
+
+	/** Equivalent to [[net.noresttherein.sugar.collections.LikeCollection.iterator iterator]]`.slice(from, until)`,
+	  * but does not have to be lazy and in some cases the returned iterator may implement more specific methods,
+	  * like `copyToArray`.
+	  */
+	def sliceIterator(elems :Xs, from :Int, until :Int) :Iterator[X] = iterator(elems).slice(from, until)
 
 	/** Returns a [[scala.collection.Stepper]] for the elements of `elems`.
 	  *
@@ -322,11 +334,11 @@ trait LikeCollection[+X, -Xs] extends Serializable {
 		case  0 => ArrayFactory.empty[U]
 		case -1 =>
 			val buffer = ArrayBuffer.empty[U]
-			appendTo[U](elems)(buffer)
+			appendTo[U](elems, buffer)
 			buffer.toArray[U]
 		case  n =>
 			val res = new Array[U](n)
-			copyToArray[U](elems)(res, 0, Int.MaxValue)
+			copyToArray[U](elems, res, 0, Int.MaxValue)
 			res
 	}
 	def toIArray[U >: X :ClassTag](elems :Xs) :IArray[U] = toArray[U](elems).castFrom[Array[U], IArray[U]]
@@ -531,76 +543,81 @@ object LikeCollection extends Rank1LikeCollections {
 			case _         => super.foreach(elems)(f)
 		}
 
-		abstract override def appendedTo[U >: X, C, CC[_]](elems :Xs)(seq :C)
+		abstract override def appendedTo[U >: X, C, CC[_]](elems :Xs, seq :C)
 		                                                  (implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U] =
 			moreSpecific(elems) match {
-				case Yes(like) => like.appendedTo[U, C, CC](elems)(seq)
-				case _         => super.appendedTo[U, C, CC](elems)(seq)
+				case Yes(like) => like.appendedTo[U, C, CC](elems, seq)
+				case _         => super.appendedTo[U, C, CC](elems, seq)
 			}
-		abstract override def prependedTo[U >: X, C, CC[_]](elems :Xs)(seq :C)
+		abstract override def prependedTo[U >: X, C, CC[_]](elems :Xs, seq :C)
 		                                                   (implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U] =
 			moreSpecific(elems) match {
-				case Yes(like) => like.prependedTo[U, C, CC](elems)(seq)
-				case _         => super.prependedTo[U, C, CC](elems)(seq)
+				case Yes(like) => like.prependedTo[U, C, CC](elems, seq)
+				case _         => super.prependedTo[U, C, CC](elems, seq)
 			}
-		abstract override def copiedTo[U >: X, C, CC[_]](elems :Xs)(seq :C, index :Int)
+		abstract override def copiedTo[U >: X, C, CC[_]](elems :Xs, seq :C, index :Int)
 		                                                (implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U] =
 			moreSpecific(elems) match {
-				case Yes(like) => like.copiedTo[U, C, CC](elems)(seq, index)
-				case _         => super.copiedTo[U, C, CC](elems)(seq, index)
+				case Yes(like) => like.copiedTo[U, C, CC](elems, seq, index)
+				case _         => super.copiedTo[U, C, CC](elems, seq, index)
 			}
-		abstract override def patchedOver[U >: X, C, CC[_]](elems :Xs)(seq :C, index :Int, replaced :Int)
+		abstract override def patchedOver[U >: X, C, CC[_]](elems :Xs, seq :C, index :Int, replaced :Int)
 		                                                   (implicit likeSeq :LikeSeq[U, C, CC, _]) :CC[U] =
 			moreSpecific(elems) match {
-				case Yes(like) => like.patchedOver[U, C, CC](elems)(seq, index, replaced)
-				case _         => super.patchedOver[U, C, CC](elems)(seq, index, replaced)
+				case Yes(like) => like.patchedOver[U, C, CC](elems, seq, index, replaced)
+				case _         => super.patchedOver[U, C, CC](elems, seq, index, replaced)
 			}
 
-		abstract override def appendTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit = moreSpecific(elems) match {
-			case Yes(like) => like.appendTo[U](elems)(buffer)
-			case _         => super.appendTo[U](elems)(buffer)
+		abstract override def appendTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit = moreSpecific(elems) match {
+			case Yes(like) => like.appendTo[U](elems, buffer)
+			case _         => super.appendTo[U](elems, buffer)
 		}
-		abstract override def prependTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit = moreSpecific(elems) match {
-			case Yes(like) => like.prependTo[U](elems)(buffer)
-			case _         => super.prependTo[U](elems)(buffer)
+		abstract override def prependTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit = moreSpecific(elems) match {
+			case Yes(like) => like.prependTo[U](elems, buffer)
+			case _         => super.prependTo[U](elems, buffer)
 		}
-		abstract override def insertInto[U >: X](elems :Xs)(buffer :Buffer[U], index :Int) :Unit =
+		abstract override def insertInto[U >: X](elems :Xs, buffer :Buffer[U], index :Int) :Unit =
 			moreSpecific(elems) match {
-				case Yes(like) => like.insertInto[U](elems)(buffer, index)
-				case _         => super.insertInto[U](elems)(buffer, index)
+				case Yes(like) => like.insertInto[U](elems, buffer, index)
+				case _         => super.insertInto[U](elems, buffer, index)
 			}
-		abstract override def patchOver[U >: X](elems :Xs)(buffer :Buffer[U], index :Int, replaced :Int) :Unit =
+		abstract override def patchOver[U >: X](elems :Xs, buffer :Buffer[U], index :Int, replaced :Int) :Unit =
 			moreSpecific(elems) match {
-				case Yes(like) => like.patchOver[U](elems)(buffer, index, replaced)
-				case _         => super.patchOver[U](elems)(buffer, index, replaced)
+				case Yes(like) => like.patchOver[U](elems, buffer, index, replaced)
+				case _         => super.patchOver[U](elems, buffer, index, replaced)
 			}
-		abstract override def copyTo[U >: X, C](elems :Xs)(seq :C, index :Int)
+		abstract override def copyTo[U >: X, C](elems :Xs, seq :C, index :Int)
 		                                       (implicit likeSeq :LikeMutableIndexedSeq[U, C, Any1, _]) :Int =
 			moreSpecific(elems) match {
-				case Yes(like) => like.copyTo[U, C](elems)(seq, index)
-				case _         => super.copyTo[U, C](elems)(seq, index)
+				case Yes(like) => like.copyTo[U, C](elems, seq, index)
+				case _         => super.copyTo[U, C](elems, seq, index)
 			}
 
-		abstract override def copyToArray[U >: X](elems :Xs)(array :Array[U], start :Int, max :Int) :Int =
+		abstract override def copyToArray[U >: X](elems :Xs, array :Array[U], start :Int, max :Int) :Int =
 			moreSpecific(elems) match {
-				case Yes(like) => like.copyToArray[U](elems)(array, start, max)
-				case _         => super.copyToArray[U](elems)(array, start, max)
+				case Yes(like) => like.copyToArray[U](elems, array, start, max)
+				case _         => super.copyToArray[U](elems, array, start, max)
 			}
-		abstract override def cyclicCopyToArray[U >: X](elems :Xs)(array :Array[U], index :Int, max :Int) :Int =
+		abstract override def cyclicCopyToArray[U >: X](elems :Xs, array :Array[U], index :Int, max :Int) :Int =
 			moreSpecific(elems) match {
-				case Yes(like) => like.cyclicCopyToArray[U](elems)(array, index, max)
-				case _         => super.cyclicCopyToArray[U](elems)(array, index, max)
+				case Yes(like) => like.cyclicCopyToArray[U](elems, array, index, max)
+				case _         => super.cyclicCopyToArray[U](elems, array, index, max)
 			}
-		abstract override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int =
+		abstract override def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int =
 			moreSpecific(elems) match {
-				case Yes(like) => like.addTo(elems, builder, max)
-				case _         => super.addTo(elems, builder, max)
+				case Yes(like) => like.addTo(elems, builder, from, until)
+				case _         => super.addTo(elems, builder, from, until)
 			}
-		abstract override def addTo(elems :Xs, builder :Builder[X, Any]) :Int =
-			moreSpecific(elems) match {
-				case Yes(like) => like.addTo(elems, builder)
-				case _         => super.addTo(elems, builder)
-			}
+//		abstract override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int =
+//			moreSpecific(elems) match {
+//				case Yes(like) => like.addTo(elems, builder, max)
+//				case _         => super.addTo(elems, builder, max)
+//			}
+//		abstract override def addTo(elems :Xs, builder :Builder[X, Any]) :Int =
+//			moreSpecific(elems) match {
+//				case Yes(like) => like.addTo(elems, builder)
+//				case _         => super.addTo(elems, builder)
+//			}
 
 //		abstract override def toIterableOnce(elems :Xs) :IterableOnce[X] = moreSpecific(elems) match {
 //			case Yes(like) => like.toIterableOnce(elems)
@@ -646,24 +663,24 @@ object LikeCollection extends Rank1LikeCollections {
 		override def foreach[U](elems :Xs)(f :X => U) :Unit = foldLeft[Unit](elems)(()) { (unit, elem) => f(elem) }
 
 
-		override def appendedTo[U >: X, S, SC[_]](elems :Xs)(seq :S)(implicit likeSeq :LikeSeq[U, S, SC, _]) :SC[U] =
+		override def appendedTo[U >: X, S, SC[_]](elems :Xs, seq :S)(implicit likeSeq :LikeSeq[U, S, SC, _]) :SC[U] =
 			likeSeq.appendedAll(seq, elems)(this)
 
-		override def prependedTo[U >: X, S, SC[_]](elems :Xs)(seq :S)(implicit likeSeq :LikeSeq[U, S, SC, _]) :SC[U] =
+		override def prependedTo[U >: X, S, SC[_]](elems :Xs, seq :S)(implicit likeSeq :LikeSeq[U, S, SC, _]) :SC[U] =
 			likeSeq.prependedAll(seq, elems)(this)
 
-		override def copiedTo[U >: X, S, SC[_]](elems :Xs)(seq :S, index :Int)
+		override def copiedTo[U >: X, S, SC[_]](elems :Xs, seq :S, index :Int)
 		                                       (implicit likeSeq :LikeSeq[U, S, SC, _]) :SC[U] =
 			likeSeq.updatedAll(seq, index, elems)(this)
 
-		override def patchedOver[U >: X, S, SC[_]](elems :Xs)(seq :S, index :Int, replaced :Int)
+		override def patchedOver[U >: X, S, SC[_]](elems :Xs, seq :S, index :Int, replaced :Int)
 		                                          (implicit likeSeq :LikeSeq[U, S, SC, _]) :SC[U] =
 			likeSeq.patch(seq, index, elems, replaced)(this)
 
-		override def appendTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit = insertInto[U](elems)(buffer, buffer.length)
-		override def prependTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit = insertInto[U](elems)(buffer, 0)
+		override def appendTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit = insertInto[U](elems, buffer, buffer.length)
+		override def prependTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit = insertInto[U](elems, buffer, 0)
 
-		override def copyTo[U >: X, O](elems :Xs)(seq :O, index :Int)
+		override def copyTo[U >: X, O](elems :Xs, seq :O, index :Int)
 		                              (implicit likeSeq :LikeMutableIndexedSeq[U, O, Any1, _]) :Int =
 			if (knownSize(elems) == 0)
 				0
@@ -679,11 +696,11 @@ object LikeCollection extends Rank1LikeCollections {
 			case  0 => ArrayFactory.empty[U]
 			case -1 =>
 				val buffer = ArrayBuffer.empty[U]
-				appendTo[U](elems)(buffer)
+				appendTo[U](elems, buffer)
 				buffer.toArray[U]
 			case  n =>
 				val res = new Array[U](n)
-				copyToArray[U](elems)(res, 0, Int.MaxValue)
+				copyToArray[U](elems, res, 0, Int.MaxValue)
 				res
 		}
 		override def toIArray[U >: X :ClassTag](elems :Xs) :IArray[U] = toArray[U](elems).castFrom[Array[U], IArray[U]]
@@ -749,36 +766,52 @@ object LikeCollection extends Rank1LikeCollections {
 			if (knownSize(elems) != 0)
 				delegateOps(elems).foreach(f)
 
-		override def insertInto[U >: X](elems :Xs)(buffer :Buffer[U], index :Int) :Unit =
+		override def insertInto[U >: X](elems :Xs, buffer :Buffer[U], index :Int) :Unit =
 			if (knownSize(elems) != 0)
 				buffer.insertAll(index, toIterableOnce(elems))
 
-		override def patchOver[U >: X](elems :Xs)(buffer :Buffer[U], index :Int, replaced :Int) :Unit =
+		override def patchOver[U >: X](elems :Xs, buffer :Buffer[U], index :Int, replaced :Int) :Unit =
 			if (knownSize(elems) != 0)
 				buffer.patchInPlace(index, toIterableOnce(elems), replaced)
 
-		override def copyToArray[U >: X](elems :Xs)(array :Array[U], start :Int, max :Int) :Int =
+		override def copyToArray[U >: X](elems :Xs, array :Array[U], start :Int, max :Int) :Int =
 			if (max <= 0 || start >= array.length || knownSize(elems) == 0) 0
 			else delegateOps(elems).copyToArray(array, start, max)
 
-		override def cyclicCopyToArray[U >: X](elems :Xs)(array :Array[U], index :Int, max :Int) :Int =
+		//todo: implement this in subclasses
+		override def cyclicCopyToArray[U >: X](elems :Xs, array :Array[U], index :Int, max :Int) :Int =
 			if (max <= 0 || array.length == 0 || knownSize(elems) == 0) 0
 			else toIterableOnce(elems).cyclicCopyToArray(array, index, max)
 
-		override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = {
-			val size = knownSize(elems)
-			if (size >= 0) {
-				if (size <= max)
-					builder ++= toIterableOnce(elems)
-				else
-					builder ++= iterator(elems).take(max)
-				math.min(size, math.max(0, max))
-			} else {
-				val it = iterator(elems).take(max).counting
-				builder ++= it
-				it.total
+		override def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int =
+			if (until <= 0 | until <= from)
+				0
+			else {
+				val size = knownSize(elems)
+				if (size >= 0) {
+					if (from >= size)
+						0
+					else {
+						val from0 = math.max(0, from)
+						if (until >= size)
+							builder addAll iterator(elems).dropInPlace(from0)
+						else if (from0 == 0)
+							builder addAll iterator(elems).take(until)
+						else
+							builder addAll iterator(elems).dropInPlace(from0).take(until - from0)
+						math.min(size, until) - from0
+					}
+				} else {
+					val it = iterator(elems).dropInPlace(from)
+					if (!it.hasNext)
+						0
+					else {
+						val counter = it.take(until - math.max(0, from)).counting
+						builder addAll counter
+						counter.total
+					}
+				}
 			}
-		}
 
 
 		override def toIterableOnceOps(elems :Xs) :IterableOnceOps[X, Any1, Any] = toIterableOnce(elems).toBasicOps
@@ -1036,66 +1069,66 @@ private class ForStepper[@specialized(Int, Long, Double, AnyRef) X, Xs <: Steppe
 			f(elems.nextStep())
 
 
-	override def appendedTo[A >: X, C, CC[_]](elems :Xs)(seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
+	override def appendedTo[A >: X, C, CC[_]](elems :Xs, seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		if (!elems.hasStep)
 			likeSeq.toGeneric(seq)
 		else
 			likeSeq.appendedAll(seq, elems)(this)
 
-	override def prependedTo[A >: X, C, CC[_]](elems :Xs)(seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
+	override def prependedTo[A >: X, C, CC[_]](elems :Xs, seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		if (!elems.hasStep)
 			likeSeq.toGeneric(seq)
 		else
 			likeSeq.prependedAll(seq, elems)(this)
 
-	override def copiedTo[A >: X, C, CC[_]](elems :Xs)(seq :C, index :Int)
+	override def copiedTo[A >: X, C, CC[_]](elems :Xs, seq :C, index :Int)
 	                                       (implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		if (!elems.hasStep)
 			likeSeq.toGeneric(seq)
 		else
 			likeSeq.updatedAll(seq, index, elems)(this)
 
-	override def patchedOver[A >: X, C, CC[_]](elems :Xs)(seq :C, index :Int, replaced :Int)
+	override def patchedOver[A >: X, C, CC[_]](elems :Xs, seq :C, index :Int, replaced :Int)
 	                                          (implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		if (!elems.hasStep)
 			likeSeq.toGeneric(seq)
 		else
 			likeSeq.patch(seq, index, elems, replaced)(this)
 
-	override def appendTo[U >: X](elems :Xs)(buffer :Buffer[U]) :Unit =
+	override def appendTo[U >: X](elems :Xs, buffer :Buffer[U]) :Unit =
 		while (elems.hasStep)
 			buffer += elems.nextStep()
 
-	override def insertInto[A >: X](elems :Xs)(buffer :Buffer[A], index :Int) :Unit =
+	override def insertInto[A >: X](elems :Xs, buffer :Buffer[A], index :Int) :Unit =
 		if (elems.hasStep)
 			buffer.insertAll(index, iterator(elems))
 
-	override def patchOver[A >: X](elems :Xs)(buffer :Buffer[A], index :Int, replaced :Int) :Unit =
+	override def patchOver[A >: X](elems :Xs, buffer :Buffer[A], index :Int, replaced :Int) :Unit =
 		if (!elems.hasStep)
 			buffer.remove(index, replaced)
 		else
 			buffer.patchInPlace(index, iterator(elems), replaced)
 
-	override def copyTo[A >: X, C](elems :Xs)(seq :C, index :Int)
+	override def copyTo[A >: X, C](elems :Xs, seq :C, index :Int)
 	                              (implicit likeSeq :LikeMutableIndexedSeq[A, C, kinds.Any1, _]) :Int =
 		if (!elems.hasStep) 0
 		else likeSeq.updateAll(seq, index, elems)(this)
 
-	override def copyToArray[A >: X](elems :Xs)(array :Array[A], start :Int, max :Int) :Int =
+	override def copyToArray[A >: X](elems :Xs, array :Array[A], start :Int, max :Int) :Int =
 		(elems, array :Array[_]) match {
 			case _ if max <= 0 || start >= array.length || !elems.hasStep =>
 				0
 			case (_ :IntStepper, a :Array[Int]) if this ne LikeCollection.forIntStepper =>
-				specificCopyToArray(elems)(a.asInstanceOf[Array[X]], start, max)
+				specificCopyToArray(elems, a.asInstanceOf[Array[X]], start, max)
 //				LikeCollection.forIntStepper.copyToArray(s)(a, start, max)
 			case (_ :LongStepper, a :Array[Long]) if this ne LikeCollection.forLongStepper =>
-				specificCopyToArray(elems)(a.asInstanceOf[Array[X]], start, max)
+				specificCopyToArray(elems, a.asInstanceOf[Array[X]], start, max)
 //				LikeCollection.forLongStepper.copyToArray(s)(a, start, max)
 			case (_ :DoubleStepper, a :Array[Double]) if this ne LikeCollection.forDoubleStepper =>
-				specificCopyToArray(elems)(a.asInstanceOf[Array[X]], start, max)
+				specificCopyToArray(elems, a.asInstanceOf[Array[X]], start, max)
 //				LikeCollection.forDoubleStepper.copyToArray(s)(a, start, max)
 			case (_ :AnyStepper[AnyRef @unchecked], a :Array[AnyRef]) =>
-				specificCopyToArray(elems)(a.asInstanceOf[Array[X]], start, max)
+				specificCopyToArray(elems, a.asInstanceOf[Array[X]], start, max)
 			case _ =>
 				val end = start + math.min(max, array.length - math.max(start, 0))
 				var i   = start
@@ -1105,7 +1138,7 @@ private class ForStepper[@specialized(Int, Long, Double, AnyRef) X, Xs <: Steppe
 				}
 				i - start
 	}
-	private def specificCopyToArray(elems :Xs)(array :Array[X @uncheckedVariance], start :Int, max :Int) :Int = {
+	private def specificCopyToArray(elems :Xs, array :Array[X @uncheckedVariance], start :Int, max :Int) :Int = {
 		val end = start + math.min(max, array.length - math.max(start, 0))
 		var i   = start
 		while (i < end && elems.hasStep) {
@@ -1115,25 +1148,29 @@ private class ForStepper[@specialized(Int, Long, Double, AnyRef) X, Xs <: Steppe
 		i - start
 	}
 
-	override def cyclicCopyToArray[A >: X](elems :Xs)(array :Array[A], index :Int, max :Int) = {
+	override def cyclicCopyToArray[A >: X](elems :Xs, array :Array[A], index :Int, max :Int) = {
 		val length = array.length
 		if (max <= 0 | length == 0)
 			0
 		else {
 			val start = index % length
 			val count = math.min(max, length)
-			val copied = copyToArray[A](elems)(array, start, count)
-			copied + copyToArray[A](elems)(array, 0, count - copied)
+			val copied = copyToArray[A](elems, array, start, count)
+			copied + copyToArray[A](elems, array, 0, count - copied)
 		}
 	}
 
-	override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = {
+	override def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int = {
 		var count = 0
-		while (count < max && elems.hasStep) {
+		while (count < from && elems.hasStep) {
+			count += 1
+			elems.nextStep()
+		}
+		while (count < until && elems.hasStep) {
 			count += 1
 			builder += elems.nextStep()
 		}
-		count
+		count - math.max(from, 0)
 	}
 
 	override def toIterableOnce(elems :Xs) :IterableOnce[X] = iterator(elems)
@@ -1186,25 +1223,25 @@ private class SingleValue[X] extends LikeCollection[X, X] {
 
 	override def foreach[U](xs :X)(f :X => U) :Unit = f(xs)
 
-	override def appendedTo[A >: X, C, CC[_]](elems :X)(seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
+	override def appendedTo[A >: X, C, CC[_]](elems :X, seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		likeSeq.appended(seq, elems)
 
-	override def prependedTo[A >: X, C, CC[_]](elems :X)(seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
+	override def prependedTo[A >: X, C, CC[_]](elems :X, seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		likeSeq.prepended(seq, elems)
 
-	override def copiedTo[A >: X, C, CC[_]](elems :X)(seq :C, index :Int)
+	override def copiedTo[A >: X, C, CC[_]](elems :X, seq :C, index :Int)
 	                                       (implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
 		likeSeq.updated(seq, index, elems)
 
-	override def patchedOver[A >: X, C, CC[_]](elems :X)(seq :C, index :Int, replaced :Int)
+	override def patchedOver[A >: X, C, CC[_]](elems :X, seq :C, index :Int, replaced :Int)
 	                                          (implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
-		if (replaced == 1) copiedTo[A, C, CC](elems)(seq, index)
+		if (replaced == 1) copiedTo[A, C, CC](elems, seq, index)
 		else likeSeq.patch(seq, index, elems, replaced)(this)
 
-	override def appendTo[A >: X](elems :X)(buffer :Buffer[A]) :Unit = buffer += elems
-	override def prependTo[A >: X](elems :X)(buffer :Buffer[A]) :Unit = elems +=: buffer
-	override def insertInto[A >: X](elems :X)(buffer :Buffer[A], index :Int) :Unit = buffer.insert(index, elems)
-	override def patchOver[A >: X](elems :X)(buffer :Buffer[A], index :Int, replaced :Int) :Unit =
+	override def appendTo[A >: X](elems :X, buffer :Buffer[A]) :Unit = buffer += elems
+	override def prependTo[A >: X](elems :X, buffer :Buffer[A]) :Unit = elems +=: buffer
+	override def insertInto[A >: X](elems :X, buffer :Buffer[A], index :Int) :Unit = buffer.insert(index, elems)
+	override def patchOver[A >: X](elems :X, buffer :Buffer[A], index :Int, replaced :Int) :Unit =
 		if (replaced <= 0)
 			buffer.insert(index, elems)
 		else if (replaced == 1)
@@ -1222,14 +1259,14 @@ private class SingleValue[X] extends LikeCollection[X, X] {
 			}
 		}
 
-	override def copyTo[A >: X, C](elems :X)(seq :C, index :Int)
+	override def copyTo[A >: X, C](elems :X, seq :C, index :Int)
 	                              (implicit likeSeq :LikeMutableIndexedSeq[A, C, kinds.Any1, _]) :Int =
 		if (likeSeq.size(seq) > index) {
 			likeSeq.updated(seq, index, elems); 1
 		} else
 			0
 
-	override def copyToArray[A >: X](xs :X)(array :Array[A], index :Int, max :Int) :Int =
+	override def copyToArray[A >: X](xs :X, array :Array[A], index :Int, max :Int) :Int =
 		if (max <= 0 || index >= array.length)
 			0
 		else if (index < 0)
@@ -1239,12 +1276,12 @@ private class SingleValue[X] extends LikeCollection[X, X] {
 			1
 		}
 
-	override def cyclicCopyToArray[A >: X](xs :X)(array :Array[A], index :Int, max :Int) :Int =
-		if (index == array.length) copyToArray[A](xs)(array, 0, max)
-		else copyToArray[A](xs)(array, index, max)
+	override def cyclicCopyToArray[A >: X](xs :X, array :Array[A], index :Int, max :Int) :Int =
+		if (index == array.length) copyToArray[A](xs, array, 0, max)
+		else copyToArray[A](xs, array, index, max)
 
-	override def addTo(elems :X, builder :Builder[X, Any], max :Int) :Int =
-		if (max <= 0)
+	override def addTo(elems :X, builder :Builder[X, Any], from :Int, until :Int) :Int =
+		if (from >= 1 | until <= 0)
 			0
 		else {
 			builder += elems; 1
@@ -1297,40 +1334,41 @@ private class LikeCollectionProxy[+X, -Xs](values :LikeCollection[X, Xs]) extend
 	override def foreach[U](xs :Xs)(f :X => U) :Unit = values.foreach(xs)(f)
 
 
-	override def appendedTo[A >: X, C, CC[_]](elems :Xs)(seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
-		values.appendedTo[A, C, CC](elems)(seq)
+	override def appendedTo[A >: X, C, CC[_]](elems :Xs, seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
+		values.appendedTo[A, C, CC](elems, seq)
 
-	override def prependedTo[A >: X, C, CC[_]](elems :Xs)(seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
-		values.prependedTo[A, C, CC](elems)(seq)
+	override def prependedTo[A >: X, C, CC[_]](elems :Xs, seq :C)(implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
+		values.prependedTo[A, C, CC](elems, seq)
 
-	override def copiedTo[A >: X, C, CC[_]](elems :Xs)(seq :C, index :Int)
+	override def copiedTo[A >: X, C, CC[_]](elems :Xs, seq :C, index :Int)
 	                                       (implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
-		values.copiedTo[A, C, CC](elems)(seq, index)
+		values.copiedTo[A, C, CC](elems, seq, index)
 
-	override def patchedOver[A >: X, C, CC[_]](elems :Xs)(seq :C, index :Int, replaced :Int)
+	override def patchedOver[A >: X, C, CC[_]](elems :Xs, seq :C, index :Int, replaced :Int)
 	                                          (implicit likeSeq :LikeSeq[A, C, CC, _]) :CC[A] =
-		values.patchedOver[A, C, CC](elems)(seq, index, replaced)
+		values.patchedOver[A, C, CC](elems, seq, index, replaced)
 
-	override def appendTo[A >: X](elems :Xs)(buffer :Buffer[A]) :Unit = values.appendTo[A](elems)(buffer)
-	override def prependTo[A >: X](elems :Xs)(buffer :Buffer[A]) :Unit = values.prependTo[A](elems)(buffer)
-	override def insertInto[A >: X](elems :Xs)(buffer :Buffer[A], index :Int) :Unit =
-		values.insertInto[A](elems)(buffer, index)
+	override def appendTo[A >: X](elems :Xs, buffer :Buffer[A]) :Unit = values.appendTo[A](elems, buffer)
+	override def prependTo[A >: X](elems :Xs, buffer :Buffer[A]) :Unit = values.prependTo[A](elems, buffer)
+	override def insertInto[A >: X](elems :Xs, buffer :Buffer[A], index :Int) :Unit =
+		values.insertInto[A](elems, buffer, index)
 
-	override def patchOver[A >: X](elems :Xs)(buffer :Buffer[A], index :Int, replaced :Int) :Unit =
-		values.patchOver[A](elems)(buffer, index, replaced)
+	 override def patchOver[A >: X](elems :Xs, buffer :Buffer[A], index :Int, replaced :Int) :Unit =
+		values.patchOver[A](elems, buffer, index, replaced)
 
-	override def copyTo[A >: X, C](elems :Xs)(seq :C, index :Int)
+	override def copyTo[A >: X, C](elems :Xs, seq :C, index :Int)
 	                              (implicit likeSeq :LikeMutableIndexedSeq[A, C, kinds.Any1, _]) :Int =
-		values.copyTo[A, C](elems)(seq, index)
+		values.copyTo[A, C](elems, seq, index)
 
-	override def copyToArray[A >: X](xs :Xs)(array :Array[A], index :Int, max :Int) :Int =
-		values.copyToArray[A](xs)(array, index, max)
+	override def copyToArray[A >: X](xs :Xs, array :Array[A], index :Int, max :Int) :Int =
+		values.copyToArray[A](xs, array, index, max)
 
-	override def cyclicCopyToArray[A >: X](xs :Xs)(array :Array[A], index :Int, max :Int) :Int =
-		values.cyclicCopyToArray[A](xs)(array, index, max)
+	override def cyclicCopyToArray[A >: X](xs :Xs, array :Array[A], index :Int, max :Int) :Int =
+		values.cyclicCopyToArray[A](xs, array, index, max)
 
 //	override def addTo(elems :Xs, builder :Builder[X, Any]) :Int = values.addTo(elems, builder)
-	override def addTo(elems :Xs, builder :Builder[X, Any], max :Int) :Int = values.addTo(elems, builder, max)
+	override def addTo(elems :Xs, builder :Builder[X, Any], from :Int, until :Int) :Int =
+		values.addTo(elems, builder, from, until)
 
 	override def iterator(xs :Xs) :Iterator[X] = values.iterator(xs)
 	override def stepper[S <: Stepper[_]](elems :Xs)(implicit shape :StepperShape[X, S]) :S = values.stepper(elems)

@@ -35,7 +35,7 @@ trait LikeRanking[X, -Xs, +CC[_], +C] extends LikeIndexedSeq[X, Xs, CC, C] with 
 
 
 private[collections] sealed abstract class Rank1LikeRankings extends LikeIterableOnceSummons[LikeRanking] {
-	implicit final def forOps[X, Xs, CC[+A] <: IterableOnce[A], C <: CC[X]]
+	implicit final def forOps[X, Xs <: C, CC[+A] <: IterableOnce[A], C <: CC[X]]
 	                         (implicit arg :Xs <:< C, specific :C <:< CC[X] with RankingOps[X, CC, C],
 	                                   generic :CC <::< Iterable) :LikeRanking[X, Xs, CC, C] =
 		prototype.asInstanceOf[LikeRanking[X, Xs, CC, C]]

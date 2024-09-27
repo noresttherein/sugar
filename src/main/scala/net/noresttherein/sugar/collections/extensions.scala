@@ -2298,7 +2298,7 @@ object extensions extends extensions {
 			self match {
 				case sugared :SugaredIterable[A] =>
 					sugared.cyclicCopyRangeToArray(xs, start, from, len)
-				case _ if len <= 0 | size >= 0 & from >= size =>
+				case _ if len <= 0 | size == 0 | size >= 0 & from >= size =>
 					0
 				case _ if start < 0 =>
 					outOfBounds_!(
@@ -2331,8 +2331,26 @@ object extensions extends extensions {
 						end = math.min(start0, from0 + copied - i)
 					}
 					copied
+				case list :LinearSeq[A] =>
+					var elems  = list.drop(from)
+					var until  = start0 + math.min(suffixSpace, len)
+					var copied = 0
+					var i = start0
+					while (i < until && !elems.isEmpty) {
+						while (i < until && !elems.isEmpty) {
+							xs(i) = elems.head
+							elems = elems.tail
+							i += 1
+							copied += 1
+						}
+						if (copied < len) {
+							i = 0
+							until = math.min(start0, len - copied)
+						}
+					}
+					copied
 				case it :Iterable[A] if preferDropOverIterator(self) && len <= suffixSpace =>
-					it.drop(from).copyToArray(xs, start, len)
+					it.drop(from).cyclicCopyRangeToArray(xs, start, 0, len)
 				case _ =>
 					self.iterator.drop(from).cyclicCopyToArray(xs, start, len)
 			}
@@ -6127,6 +6145,61 @@ object extensions extends extensions {
 		//This is wrong in that builder.knownSize may be different than builder.result().size
 //		/** A proxy builder counting added elements. The total size is exposed as `knownSize` */
 //		@inline def sized :Builder[E, C] = SizedBuilder(this)
+
+		@inline def addSome[O](elems :O, max :Int)(implicit collection :LikeCollection[E, O]) :Builder[E, C] = {
+			collection.specific(elems).addTo(elems, self, max)
+			self
+		}
+
+		@inline def addSlice[O](elems :O, from :Int, until :Int)
+		                       (implicit collection :LikeCollection[E, O]) :Builder[E, C] =
+		{
+			collection.specific(elems).addTo(elems, self, from, until)
+			self
+		}
+		
+/*
+		def addSlice(elems :IterableOnce[E], from :Int, until :Int) :Builder[E, C] =
+			self addAll HasFastSlice.slice(elems, from, until)
+		
+		def addSome(elems :IterableOnce[E], max :Int) :Builder[E, C] = {
+			val elemsSize = elems.knownSize
+			elems match {
+				case _ if elemsSize == 0 => 
+				case _ if elemsSize <= max => self addAll elems
+				case list :collection.LinearSeq[E] =>
+					var rem  = max
+					var tail = list
+					while (rem > 0 && tail.nonEmpty) {
+						self += tail.head
+						tail  = tail.tail
+						rem  -= 1
+					}
+				case ErasedArray.Slice(array :Array[E @unchecked], from, until) =>
+					var i   = from
+					val end = from + math.min(max, until - from)
+					while (i < from) {
+						self addOne array(i)
+						i += 1
+					}
+				case ApplyPreferred(seq) =>
+					val end = math.min(seq.length, max)
+					var i   = 0
+					while (i < end) {
+						self addOne seq(i)
+						i += 1
+					}
+				case _ =>
+					val it  = elems.iterator
+					var rem = max
+					while (rem > 0 && it.hasNext) {
+						self addOne it.next()
+						rem -= 1
+					}
+			}
+			self
+		}
+*/
 	}
 
 
