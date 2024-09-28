@@ -597,7 +597,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  * @see [[net.noresttherein.sugar.collections.RankingOps.inserted inserted]]
 	  */
 	@throws[IndexOutOfBoundsException]("if index < 0 || index >= size")
-	def updated[U >: E](index :Int, elem :U) :CC[U] = indexOf(elem) match {
+	override def updated[U >: E](index :Int, elem :U) :CC[U] = indexOf(elem) match {
 		case old if old == index =>
 			iterableFactory.from(this)
 		case _ if index < 0 | index >= size =>
@@ -768,7 +768,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  * @param elem  the added element.
 	  * @return a $Coll equal to `(this - elem).take(index) :+ elem :++ (this - elem).drop(index)`.
 	  */
-	def inserted[U >: E](index :Int, elem :U) :CC[U] =
+	override def inserted[U >: E](index :Int, elem :U) :CC[U] =
 		if (index <= 0)
 			prepended(elem)
 		else
@@ -800,7 +800,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  * @param elems the added elements.
 	  * @return a $Coll equal to `(this -- elems).take(index) ++ elems ++ (this -- elems).drop(index)`.
 	  */
-	def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
+	override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U]
 
 	/** Same as `this.toSeq.patch(index, other, replaced) to $Coll` */
 	def patch[U >: E](index :Int, other :IterableOnce[U], replaced :Int) :CC[U] =
@@ -850,7 +850,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  * @see [[net.noresttherein.sugar.collections.Ranking.:+ :+]]
 	  */
 	@inline final def +:[U >: E](elem :U) :CC[U] = this prepended elem
-	def prepended[U >: E](elem :U) :CC[U] =
+	override def prepended[U >: E](elem :U) :CC[U] =
 		if (isEmpty)
 			iterableFactory.firstOccurrences(Seq.one(elem))
 		else if (head == elem)
@@ -871,7 +871,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  * @see [[net.noresttherein.sugar.collections.Ranking.+: +:]]
 	  */
 	@inline final def :+[U >: E](elem :U) :CC[U] = this appended elem
-	def appended[U >: E](elem :U) :CC[U] =
+	override def appended[U >: E](elem :U) :CC[U] =
 		if (isEmpty)
 			iterableFactory.firstOccurrences(Seq.one(elem))
 		else indexOf(elem) match {
@@ -935,7 +935,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  * then the latter.
 	  */
 	@inline final def :++[U >: E](suffix :IterableOnce[U]) :CC[U] = this appendedAll suffix
-	def appendedAll[U >: E](suffix :IterableOnce[U]) :CC[U] =
+	override def appendedAll[U >: E](suffix :IterableOnce[U]) :CC[U] =
 		if (suffix.knownSize == 0) coll
 		else if (isEmpty) iterableFactory.lastOccurrences(suffix)
 		else (iterableFactory.appendingBuilder[U] ++= this ++= suffix).result()
@@ -951,7 +951,7 @@ trait RankingOps[+E, +CC[+X] <: IterableOnce[X], +C <: CC[E]]
 	  */
 	@nowarn("cat=deprecation")
 	@inline final override def ++:[U >: E](prefix :IterableOnce[U]) :CC[U] = this prependedAll prefix
-	def prependedAll[U >: E](prefix :IterableOnce[U]) :CC[U] =
+	override def prependedAll[U >: E](prefix :IterableOnce[U]) :CC[U] =
 		if (prefix.knownSize == 0) coll
 		else if (isEmpty) iterableFactory.firstOccurrences(prefix)
 		else (iterableFactory.earlyBirdBuilder[U] ++= prefix ++= this).result()

@@ -781,6 +781,7 @@ case object SpillIndexedBuffer extends CappedIterableFactory.Delegate[SpillIndex
   */
 trait SpillIndexedBuffer[E]
 	extends SpillBuffer[E] with mutable.IndexedSeqOps[E, SpillIndexedBuffer, SpillIndexedBuffer[E]]
+	   with SugaredSeqOps[E, SpillIndexedBuffer, SpillIndexedBuffer[E]]
 	   with SpillGrowable.Defaults[E, SpillIndexedBuffer]
 {
 	override def knownSize :Int = length
@@ -830,6 +831,7 @@ final class SpillArrayBuffer[E] private(buffer :Array[Any], private[this] var st
 	extends mutable.AbstractIterable[E]
 	   with SpillIndexedBuffer[E] with mutable.IndexedSeqOps[E, SpillArrayBuffer, SpillArrayBuffer[E]]
 	   with collection.StrictOptimizedSeqOps[E, SpillArrayBuffer, SpillArrayBuffer[E]]
+	   with SugaredSeqOps[E, SpillArrayBuffer, SpillArrayBuffer[E]]
 	   with SpillGrowable.Defaults[E, SpillArrayBuffer]
 	   with DefaultSerializable
 {

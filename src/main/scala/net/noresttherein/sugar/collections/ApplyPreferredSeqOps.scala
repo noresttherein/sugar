@@ -57,20 +57,20 @@ trait ApplyPreferredSeqOps[+E, +CC[_], +C <: collection.IndexedSeq[E]]
 
 	override def segmentLength(p :E => Boolean, from :Int) :Int =
 		//I would prefer segmentLength(-1, _ => true) to be 0, but in Vector and List it is length
-		segmentLength(p, math.max(0, from), false)
+		segmentLength(p, math.max(0, from), true)
 
-	private def segmentLength(p :E => Boolean, from :Int, flipped :Boolean) :Int = {
-//		if (from < 0)
-//			return 0
+	private def segmentLength(p :E => Boolean, from :Int, truth :Boolean) :Int = {
 		val len = length
 		var i = from
-		while (i < len && p(apply(i)) != flipped)
+		while (i < len && p(apply(i)) == truth)
 			i += 1
-		i - math.min(from, len)
+		i - from
 	}
 	override def indexWhere(p :E => Boolean, from :Int) :Int = {
+		val length = this.length
 		val from0 = math.max(from, 0)
-		if (from0 >= length) - 1 else from0 + segmentLength(p, from0, true)
+		val res = from0 + segmentLength(p, from0, false)
+		if (res >= length) -1 else res
 	}
 	override def lastIndexWhere(p :E => Boolean, end :Int) :Int = {
 		var i = math.min(length - 1, end)

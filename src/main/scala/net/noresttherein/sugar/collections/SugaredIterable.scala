@@ -1,5 +1,6 @@
 package net.noresttherein.sugar.collections
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable.SeqOps
 import scala.collection.{IterableOps, SpecificIterableFactory, mutable}
 import scala.collection.mutable.Builder
@@ -303,6 +304,8 @@ trait SeqSlicingOps[+E, +CC[_], +C]
   *            to return a more specific, or more generic collections from these methods.
   */ //Extracted from SugaredSeqOps primarily to allow collections such as Cat to extend SeqOps[E, Seq, Cat[E]].
 trait PatchingOps[+E, +CC[_]] extends Any with IterableOps[E, Any1, Any] {
+	def updated[U >: E](index :Int, elem :U) :CC[U] = updatedAll(index, ConstSeq(elem, 1))
+
 	/** For indices in range, functionally equivalent to [[collection.SeqOps.patch patch]]`(index, elems, elems.size)`.
 	  * It does ''not'' however use `size` method and may be implemented in a different manner, and the index
 	  * must be in `0..this.length - elems.length` range, or an [[IndexOutOfBoundsException]] is thrown,
@@ -385,7 +388,56 @@ trait PatchingOps[+E, +CC[_]] extends Any with IterableOps[E, Any1, Any] {
 	def insertedAll[U >: E](index :Int, first :U, second :U, rest :U*) :CC[U] =
 		insertedAll(index, Prepended2Seq(first, second, rest))
 
+	def appended[U >: E](elem :U) :CC[U]
+	def appendedAll[U >: E](elems :IterableOnce[U]) :CC[U]
+
+	def prepended[U >: E](elem :U) :CC[U]
+	def prependedAll[U >: E](elems :IterableOnce[U]) :CC[U]
+
 }
+
+
+/** Implements all concatenation and update/patching methods in terms of a single generalized
+  * [[net.noresttherein.sugar.collections.SeqPatchingOps.patch patch]] method.
+  */
+trait SeqPatchingOps[+E, +CC[_]]
+	extends PatchingOps[E, CC] with SugaredSeqOps[E, CC, CC[E @uncheckedVariance]]
+{
+	override def take(n :Int) :CC[E @uncheckedVariance] = patch(n, List.empty[E], Int.MaxValue, false)
+	override def drop(n :Int) :CC[E @uncheckedVariance] = patch(0, List.empty[E], n, false)
+
+	override def updated[U >: E](index :Int, elem :U) :CC[U] = patch(index, elem, 1, true)
+
+	override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =
+		patch(index, elems, -1, true)
+
+	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =
+		if (index == Int.MinValue) patch(0, List.empty[U], 0, false)
+		else if (index < 0) patch(0, HasFastSlice.drop(elems, -index), -1, false)
+		else patch(index, elems, -1, false)
+
+	override def inserted[U >: E](index :Int, elem :U) :CC[U] = patch(index, elem, 0, true)
+	override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = patch(index, elems, 0, true)
+
+	override def appended[U >: E](elem :U) :CC[U] = patch(size, elem, 0, false)
+	override def appendedAll[U >: E](elems :IterableOnce[U]) :CC[U] = patch(size, elems, 0, false)
+
+	override def prepended[U >: E](elem :U) :CC[U] = patch(0, elem, 0, false)
+	override def prependedAll[U >: E](elems :IterableOnce[U]) :CC[U] = patch(0, elems, 0, false)
+
+	/** Generic method for combining elements from this $coll and any collection-like object containing
+	  * elements of a compatible type. Works the same way as `SeqOps.patch` with few differences:
+	  *   1. if `replaced` is less than zero, it means to replace one element of this collection
+	  *      for every element of the patch;
+	  *   1. `validateIndices` flag tells the method if `[from..other.size)` must be valid index range
+	  *      in this collection.
+	  */
+	protected def patch[U >: E, O](from :Int, other :O, replaced :Int, validateIndices :Boolean)
+	                              (implicit likeCollection :LikeCollection[U, O]) :CC[U]
+
+}
+
+
 
 
 /** Extra methods for sequences. They allow updating whole segments of the sequence
@@ -400,6 +452,13 @@ trait SugaredSeqOps[+E, +CC[_], +C]
 	@inline final def reverse_++:[U >: E](elems :IterableOnce[U]) :CC[U] = reversePrependedAll(elems)
 	def reversePrependedAll[U >: E](elems :IterableOnce[U]) :CC[U] = Defaults.reversePrependedAll(this, elems)
 
+	override def appended[U >: E](elem :U) :CC[U] = super.appended(elem)
+	override def prepended[U >: E](elem :U) :CC[U] = super.prepended(elem)
+
+	override def appendedAll[U >: E](suffix :IterableOnce[U]) :CC[U] = super.appendedAll(suffix)
+	override def prependedAll[U >: E](prefix :IterableOnce[U]) :CC[U] = super.prependedAll(prefix)
+
+	override def updated[U >: E](index :Int, elem :U) :CC[U] = updatedAll(index, ConstSeq(elem, 1))
 	override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] = Defaults.updatedAll(this, index, elems)
 
 	override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :CC[U] =

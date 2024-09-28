@@ -825,9 +825,9 @@ private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Arra
 sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
                         (underlying :IArray[E], final override val startIndex :Int, final override val length :Int)
 	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
+	   with StrictOptimizedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, IArray, IArraySlice] //Must be mixed in before immutable.IndexedSeq
 	   with IndexedSeq[E] with IndexedSeqOps[E, IArrayLikeSlice, IArraySlice[E]] //toIndexedSeq is final
-	   with StrictOptimizedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with EvidenceIterableFactoryOverrides[E, IArraySlice, ClassTag]
 //	   with TypedArraySliceOps[E, IArrayLikeSlice, IArraySlice[E]]
@@ -916,6 +916,7 @@ private[sugar] sealed class RefArraySlice[E] private
                             (underlying :RefArray[E], final override val startIndex :Int, final override val length :Int)
 	extends mutable.AbstractSeq[E]
 	   with mutable.IndexedSeq[E] with mutable.IndexedSeqOps[E, RefArraySlice, RefArraySlice[E]]
+//	   with collection.StrictOptimizedSeqOps[E, RefArraySlice, RefArraySlice[E]]
 	   with IterableFactoryDefaults[E, RefArraySlice]
 	   with MutableArraySlice[E] with ArraySliceSeqOps[E, RefArraySlice, RefArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, RefArray, RefArraySlice]
@@ -1001,9 +1002,9 @@ private[sugar] case object RefArraySlice extends RefArrayLikeSliceFactory[RefArr
 private[sugar] sealed class IRefArraySlice[+E] private
                             (underlying :IRefArray[E], final override val startIndex :Int, final override val length :Int)
 	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
+	   with StrictOptimizedSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, IRefArray, IRefArraySlice]            //Implements toIndexedSeq
 	   with IndexedSeq[E] with IndexedSeqOps[E, IRefArraySlice, IRefArraySlice[E]] //toIndexedSeq is final here
-	   with StrictOptimizedSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
 	   with IArrayLikeSlice[E] with ArraySliceSeqOps[E, IRefArraySlice, IRefArraySlice[E]]
 	   with IterableFactoryDefaults[E, IRefArraySlice]
 {
