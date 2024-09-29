@@ -339,6 +339,7 @@ private object Iterators {
 
 
 
+	//Maybe FastDropIterator?
 	private[sugar] trait StrictIterator[+E] extends IteratorWithDrop[E] {
 		override def hasFastDrop = true
 		override def strictDrop(n :Int) :Iterator[E] = this.drop(n)
@@ -365,6 +366,8 @@ private object Iterators {
 			}
 	}
 	//Consider: it is inconsistent that IteratorWithDrop is in collections, and this one is an inner class.
+	/** Implements `slice` based on an assumption that `take` is either faster or returns a more specific
+	  * iterator, and thus is called before `drop`. */
 	private[sugar] trait IteratorWithTake[+E] extends SugaredIterator[E] {
 		override def strictDrop(n :Int) :Iterator[E] = drop(n, true)
 		override def drop(n :Int) :Iterator[E] = drop(n, false)
@@ -391,40 +394,18 @@ private object Iterators {
 		protected def drop(n :Int, strict :Boolean) :Iterator[E]
 	}
 
-	private[sugar] abstract class IteratorKnownSize[+E](private[this] var currentSize :Int)
-		extends AbstractIterator[E] with HasFastSlice[E]
-	{
-		final override def knownSize = currentSize
-		protected final def knownSize_=(value :Int) :Unit = currentSize = value
-		protected final def knownSize_--() :Unit = currentSize -= 1
-		override def hasNext = currentSize > 0
-	}
+	/** Base class for iterators with a built-in limiter on the number of returned elements.
+	  * Subclasses must locate their position and elements based on other means than `knownSize`.
+	  * The initial argument must be not greater than the number of actually available elements.
+	  * Implements fast `take` by reducing `knownSize`.
+	  */
 	private[sugar] abstract class IteratorTake[+E](size :Int)
 		extends IteratorKnownSize[E](size) with IteratorWithTake[E]
 	{
-		override def take(n :Int) :Iterator[E] =
-			if (n <= 0) {
-				knownSize = 0; this
-			} else if (knownSize >= n) {
-				knownSize = n; this
-			} else if (knownSize >= 0)
-				this
-			else
-				super.take(n)
-	}
-	private[sugar] sealed abstract class IteratorDrop[+E](size :Int)
-		extends IteratorKnownSize[E](size) with StrictIterator[E]
-	{
-//		override def hasFastDrop = true
-		override def drop(n :Int) :Iterator[E] = {
-			if (n > 0)
-				knownSize = math.max(0, knownSize - n)
-			this
-		}
 	}
 
 
-	private final class Single[+E](hd :E) extends IteratorTake[E](1) with StrictIterator[E] {
+	private final class Single[+E](hd :E) extends IteratorKnownSize[E](1) with StrictIterator[E] {
 //		override def hasFastDrop = true
 		override def next() :E =
 			if (hasNext) hd else noSuch_!("Iterator.empty")
@@ -441,22 +422,26 @@ private object Iterators {
 		override def toString :String = if (hasNext) "Iterator(" + hd + ")" else "Iterator()"
 	}
 
-	private final class Double[+E](first :E, second :E) extends IteratorDrop[E](2) {
-		override def next() :E = knownSize match {
-			case 2 => knownSize = 1; first
-			case 1 => knownSize = 0; second
+	private final class Double[+E](first :E, second :E)
+		extends AbstractSugaredIterator[E] with StrictIterator[E]
+	{
+		private[this] var rem = 2
+		override def knownSize = rem
+		override def hasNext = rem > 0
+		override def next() :E = rem match {
+			case 2 => rem = 1; first
+			case 1 => rem = 0; second
 			case _ => noSuch_!("Iterator.empty")
 		}
 		override def take(n :Int) :Iterator[E] =
 			if (n <= 0)
 				Iterator.empty
 			else {
-				val size = knownSize
-				if (n >= size) this
+				if (n >= rem) this
 				else Iterator.single(first)
 			}
 		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
-			val size = knownSize
+			val size = rem
 			val copied = util.elementsToCopy(size, xs, start, len)
 			if (copied > 0)
 				if (copied == 2) {
@@ -466,7 +451,7 @@ private object Iterators {
 					xs(start) = first
 				else
 					xs(start) = second
-			knownSize -= copied
+			rem -= copied
 			copied
 		}
 		override def toString :String = knownSize match {
@@ -499,7 +484,7 @@ private object Iterators {
 	}
 
 	private final class Const[+E](initSize :Int, override val head :E)
-		extends IteratorTake[E](initSize) with BufferedIterator[E] with StrictIterator[E]
+		extends IteratorKnownSize[E](initSize) with BufferedIterator[E] with StrictIterator[E]
 	{
 		override def next() :E = {
 			val size = knownSize
@@ -2009,7 +1994,7 @@ private object Iterators {
 	}
 
 	private class ReverseSortedSetIterator[+E](set :collection.SortedSet[E])
-		extends IteratorTake[E](set.size)
+		extends IteratorKnownSize[E](set.size)
 	{
 		private[this] var last :Option[E] = set.lastOption
 		override def next() :E = {
@@ -2025,7 +2010,7 @@ private object Iterators {
 	}
 
 	private class ReverseSortedMapIterator[K, V](map :collection.SortedMap[K, V])
-		extends IteratorTake[(K, V)](map.size)
+		extends IteratorKnownSize[(K, V)](map.size)
 	{
 		private[this] var last :Option[(K, V)] = map.lastOption
 		override def next() :(K, V) = {

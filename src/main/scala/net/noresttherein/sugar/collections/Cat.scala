@@ -521,7 +521,6 @@ sealed abstract class Cat[+E]
 							copy(cat.init, drop, offset, max, suffix)
 						else
 							copy(cat.init, drop, offset, max, suffix.push(cat))
-//							xs(offset + len) = appended.last
 					case cat :Prepended[E] =>
 						val copied =
 						if (drop > 0 | max <= 0)
@@ -702,7 +701,7 @@ case object Cat extends StrictOptimizedSeqFactory[Cat] {
 			}
 		override def reversed = elems.view.slice(offset, offset + length).reverse
 		override def iterator = new IndexedSeqIterator(elems, offset, offset + length)
-		override def reverseIterator :Iterator[A] = new ReverseIndexedSeqIterator(elems, offset, offset + length)
+		override def reverseIterator :Iterator[A] = new ReverseIndexedSeqIterator(elems, offset - 1, offset + length - 1)
 		override def stepper[S <: Stepper[_]](implicit shape :StepperShape[A, S]) :S =
 			IndexedSeqStepper.slice(elems, offset, offset + length)
 

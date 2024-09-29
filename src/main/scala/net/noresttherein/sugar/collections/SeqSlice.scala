@@ -242,7 +242,7 @@ private abstract class GenericSeqSlice[E, +CC[A] <: collection.IndexedSeq[A] wit
 	override def segmentLength(p :E => Boolean, from :Int) :Int = super[IndexedSeq].segmentLength(p, from)
 
 	override def iterator :Iterator[E] = new IndexedSeqIterator(underlying, offset, offset + length)
-	override def reverseIterator :Iterator[E] = new ReverseIndexedSeqIterator(underlying, offset, offset + length)
+	override def reverseIterator :Iterator[E] = new ReverseIndexedSeqIterator(underlying, offset - 1, offset + length - 1)
 	override def stepper[S <: Stepper[_]](implicit shape :StepperShape[E, S]) :S with EfficientSplit =
 		IndexedSeqStepper.slice(underlying, offset, offset + length)
 

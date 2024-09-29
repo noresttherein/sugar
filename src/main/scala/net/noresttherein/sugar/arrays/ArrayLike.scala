@@ -323,8 +323,8 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 	  * If an end of either array is reached, reading/writing resumes from the beginning of that array.
 	  * This method will never copy the same element twice, or overwrite previously written elements.
 	  */
-	@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length) range, " +
-	                                   "or dstPos is not in the [0, dst.length) range, " +
+	@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length] range, " +
+	                                   "or dstPos is not in the [0, dst.length] range, " +
 	                                   "or len > min(src.length, dst.length).")
 	@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 	                             "including boxing and unboxing.")
@@ -389,7 +389,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		val dstLength = dst.asInstanceOf[Array[_]].length
 		if (srcLength == 0 | dstLength == 0 | max <= 0)
 			0
-		else {
+		else { //Remember that negative multiple of srcLength will result in srcIdx == srcLength! It's ok in this case, though.
 			val srcIdx = if (srcPos < 0) srcLength - srcPos % srcLength else srcPos % srcLength
 			val dstIdx = if (dstPos < 0) dstLength - dstPos % dstLength else dstPos % dstLength
 			val copied = math.min(math.min(srcLength, dstLength), max)

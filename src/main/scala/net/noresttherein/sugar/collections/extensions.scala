@@ -2740,8 +2740,11 @@ object extensions extends extensions {
 		/** Exhausts the iterator and, if it wasn't empty, returns the last returned element. */
 		@inline def lastOpt() :Opt[E] = if (self.hasNext) One(last()) else None
 
-		/** Calls `next()`, discarding the result, and returns self. */
-		@inline def skip() :Iterator[E] = { self.next(); self }
+		/** Calls `next()`, discarding the result, and returns `this`. */
+		@inline def skip() :Iterator[E] = self match {
+			case sugared :SugaredIterator[E] => sugared.skip()
+			case _                           => self.next(); self
+		}
 
 		/** Eagerly drops first `n` elements from this iterator. This stands in contrast with the standard `drop`,
 		  * which creates by default a proxy iterator, which will only advance when one of its methods
@@ -2760,7 +2763,7 @@ object extensions extends extensions {
 		def dropInPlace(n :Int) :Iterator[E] = self match {
 			case _ if n <= 0                                          => self
 			case sugared :SugaredIterator[E]                          => sugared.strictDrop(n)
-			case _ :IndexedIterator[_] | _ :ReverseIndexedIterator[_] => self.drop(n)
+//			case _ :IndexedIterator[_] | _ :ReverseIndexedIterator[_] => self.drop(n)
 			case _ if HasFastSlice.isIndexedIterator(self)            => self.drop(n)
 				var rem = n
 				while (rem > 0 && self.hasNext) {
@@ -7038,6 +7041,18 @@ object extensions extends extensions {
 
 		/** Same as `Iterator.`[[scala.collection.Iterator.continually continually]](value), but returns a constant value. */
 		final def infinite[A](value :A) :Iterator[A] = Iterators.const(value)
+
+		/** Returns elements extracted from the index range `[from, until)` of `input` using the given function
+		  * as an iterator.
+		  */
+		final def extract[S, E](input :S, from :Int, until :Int)(f :(S, Int) => E) :Iterator[E] =
+			IndexedIterator.slice(input, from, until)(f)
+
+		/** Returns elements extracted from the index range `[0, length)` of `input` using the given function
+		  * as an iterator.
+		  */
+		final def extract[S, E](input :S, length :Int)(f :(S, Int) => E) :Iterator[E] =
+			IndexedIterator.slice(input, 0, length)(f)
 
 		/** An iterator over the entirety of the specified array.
 		  * $customArrayIteratorInfo

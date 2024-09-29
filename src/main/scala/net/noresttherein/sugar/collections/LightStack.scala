@@ -329,7 +329,7 @@ class LightStack[E] private[collections] (
 		new ArrayIterator(stack, 1, 1 + size, false).asInstanceOf[Iterator[E]]
 
 	@inline def reverseIterator   :Iterator[E] =
-		new ReverseArrayIterator(stack, 1, 1 + size).asInstanceOf[Iterator[E]]
+		new ReverseArrayIterator(stack, 0, size).asInstanceOf[Iterator[E]]
 
 	def toIRefArray :IRefArray[E] =
 		IRefArray.copyOfRange(stack.asInstanceOf[ArrayLike[E]], 1, stack(0).asInstanceOf[Int])
@@ -551,7 +551,7 @@ class LightQueue[E] private[collections] (
 	override def iterator :Iterator[E] = {
 		val length = queue(0).asInstanceOf[Int]
 		val offset = queue(1).asInstanceOf[Int]
-		new AbstractCyclicIterator[E](offset, length, queue.length - 2) {
+		new AbstractCyclicIterator[E](offset, length, queue.length) {
 			override def head = queue(index).asInstanceOf[E]
 			override def rangeStart = 2
 		}
@@ -561,9 +561,8 @@ class LightQueue[E] private[collections] (
 		val offset = queue(1).asInstanceOf[Int]
 		val length = queue(0).asInstanceOf[Int]
 		val limit  = queue.length - 2
-		new AbstractReverseCyclicIterator[E](2 + (offset + length - 2) % limit, length, limit) {
+		new AbstractReverseCyclicIterator[E](2 + (offset + length - 2) % limit, length, 2, limit + 2) {
 			override def head = queue(index).asInstanceOf[E]
-			override def rangeStart = 2
 		}
 	}
 

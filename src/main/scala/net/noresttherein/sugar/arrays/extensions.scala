@@ -132,7 +132,7 @@ object extensions {
 		  * individual elements. If type `E` has a constant bit size as all inbuilt numeric types),
 		  * and `bits` is its multiple, then this shifts last `this.length - bits / bitSize[E]` whole elements
 		  * by `bits / bitSize[E]` positions left, as by
-		  * `this `[[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftedRight shiftedRight]]`(bits / bitSize[E])`.
+		  * `this `[[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension.shiftedRight shiftedRight]]`(bits / bitSize[E])`.
 		  * Otherwise, again for a type of a fixed bit size, the values in the result equal:
 		  * {{{
 		  *     result(i) = logic.or(
@@ -152,7 +152,7 @@ object extensions {
 		  * individual elements. If type `E` has a constant bit size (as all inbuilt numeric types),
 		  * and `bits` is its multiple, then this shifts first `this.length - bits / bitLength[E]` elements right
 		  * by `bits / bitSize[E]`, as per
-		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftedRight shiftedRight]]`(bits / bitSize[E])`.
+		  * [[net.noresttherein.sugar.arrays.ArrayLike.ArrayLikeExtension.shiftedRight shiftedRight]]`(bits / bitSize[E])`.
 		  * Otherwise, again for a type of a fixed bit size, the values in the result equal:
 		  * {{{
 		  *     result(i) == logic.or(
@@ -195,7 +195,7 @@ object extensions {
 		/** Shifts left (in place) this array by the specified number of ''bits'', in terms of `BinaryLogic[E]` type class.
 		  * This may involve both shifting the whole elements within in the array and shifting individual values.
 		  * If the binary size of the element type is constant, then shifting by a multiple of it is equivalent to
-		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftLeft shiftLeft]]`(bits / bitSize[E])`.
+		  * [[net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension.shiftLeft shiftLeft]]`(bits / bitSize[E])`.
 		  * Otherwise, assuming the element size equals `bitSize[E]`, `this <<= n` will set element at position `i` to
 		  * {{{
 		  *     this(i + bits / bitSize[E]) << bits % bitSize[E] | this(i + n / bitSize[E] + 1) >>> bitSize[E] - n % bitSize[E]
@@ -207,7 +207,7 @@ object extensions {
 		/** Shifts right (in place) this array by the specified number of ''bits'', in terms of `BinaryLogic[E]` type class.
 		  * This may involve both shifting the whole elements within in the array and shifting individual values.
 		  * If the binary size of the element type is constant, then shifting by a multiple of it is equivalent to
-		  * [[net.noresttherein.sugar.collections.extensions.ArrayExtension.shiftRight shiftRight]]`(bits / bitSize[E])`.
+		  * [[net.noresttherein.sugar.arrays.MutableArray.MutableArrayExtension.shiftRight shiftRight]]`(bits / bitSize[E])`.
 		  * Otherwise, assuming the element size equals `bitSize[E]`, `this >>>= n` will set element at position `i` to
 		  * {{{
 		  *     this(i - bits / bitSize[E] - 1) << bits % bitSize[E] | this(i - n / bitSize[E]) >>> bitSize[E] - n % bitSize[E]
@@ -1048,6 +1048,7 @@ object extensions {
 		  */
 		def subseq(from :Int, until :Int) :mutable.IndexedSeq[E] = ArraySlice.slice(self, from, until)
 
+		@inline def copy :Array[E] = Array.copyOf(self, self.length)
 //		/************ methods copied from ArrayOps only because we shadowed conversion to ArrqyOps ********************/
 //
 //		@inline def slice(from :Int, until :Int) :Array[E] = new ArrayOps(self).slice(from, until)
@@ -1954,9 +1955,9 @@ object extensions {
 		  * Reading starts with index `srcPos` in `src`, and writing starts with index `dstPos` in `dst`.
 		  * If an end of either array is reached, reading/writing resumes from the beginning of that array.
 		  * This method will never copy the same element twice, or overwrite previously written elements.
-		  */
-		@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length) range, " +
-		                                   "or dstPos is not in the [0, dst.length) range, " +
+		  */ //todo: make this permissive with regard to len argument
+		@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length] range, " +
+		                                   "or dstPos is not in the [0, dst.length] range, " +
 		                                   "or len > min(src.length, dst.length).")
 		@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 		                             "including boxing and unboxing.")
@@ -1976,7 +1977,7 @@ object extensions {
 					var idx1    = srcPos
 					var idx2    = dstPos
 					while (count > 0) {
-						if (idx1 >= idx2) {
+						if (length1 - idx1 <= length2 - idx2) {
 							val suffix = math.min(length1 - idx1, count)
 							Array.copy(src, idx1, dst, idx2, suffix)
 							idx1   = 0
@@ -2054,9 +2055,9 @@ object extensions {
 		  * and writing starts with index `dstPos` in `dst`. If the end of array `src` is reached before
 		  * reaching the end of `dst` or copying `len` elements, then copying of the remainder restarts with `src(0)`.
 	      * If the end of array `dst` reached before copying `length` elements, copying stops.
-		  */
-		@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length) range, " +
-		                                   "or dstPos is not in the [0, dst.Length - len) range, or len > src.length.")
+		  */ //todo: make this permissive with regard to len argument
+		@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length] range, " +
+		                                   "or dstPos is not in the [0, dst.Length - len] range, or len > src.length.")
 		@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 		                             "including boxing and unboxing.")
 		final def cyclicCopyFrom(src :Array[_], srcPos :Int, dst :Array[_], dstPos :Int, len :Int) :Unit =
@@ -2073,9 +2074,9 @@ object extensions {
 		  * in `dst`. If the end of array `dst` is reached before reaching the end of `src` or copying `len` elements,
 		  * then writing of the remainder restarts with `dst(0)`. If the end of array `src` is reached
 		  * before copying `length` elements, the copying stops.
-		  */
-		@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length - len) range, " +
-		                                   "or dstPos is not in the [0, dst.length) range, or len > dst.length.")
+		  */ //todo: make this permissive with regard to len argument
+		@throws[IndexOutOfBoundsException]("if srcPos is not in the [0, src.length - len] range, " +
+		                                   "or dstPos is not in the [0, dst.length] range, or len > dst.length.")
 		@throws[ArrayStoreException]("if any of elements copied from src cannot be stored in dst," +
 		                             "including boxing and unboxing.")
 		final def cyclicCopyTo(src :Array[_], srcPos :Int, dst :Array[_], dstPos :Int, len :Int) :Unit =

@@ -16,8 +16,8 @@ import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.ChoppedString.{AppendedString, ChoppedStringReader, Chops, ConcatChunks, Empty, PrependedString, stringOf}
 import net.noresttherein.sugar.collections.extensions.{IteratorExtension, StepperCompanionExtension, StepperExtension}
-import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.exceptions.{illegal_!, io_!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.collections.util.{elementsToCopy, errorString}
+import net.noresttherein.sugar.exceptions.{??!, illegal_!, io_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.util.SerializationProxy
 import net.noresttherein.sugar.vars.Maybe
@@ -1026,7 +1026,7 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 	}
 	override def reverseIterator :ReverseStringIterator = {
 		val start = startIndex
-		new ReverseStringIterator(whole, start, start + length)
+		new ReverseStringIterator(whole, start - 1, start + length - 1)
 	}
 	override def intIterator :JavaIntIterator = {
 		val start = startIndex
@@ -1091,6 +1091,24 @@ private[collections] trait SubstringOps[C <: StringLike with IndexedSeq[Char]]
 				i += 1
 			i - start
 		}
+	}
+
+	override def copyToArray[U >: Char](xs :Array[U], start :Int, len :Int) :Int = {
+		val copied = elementsToCopy(length, xs, start, len)
+		xs match {
+			case chars :Array[Char] =>
+				whole.getChars(startIndex, startIndex + copied, chars, copied)
+			case refs  :Array[Any]  =>
+				val offset = startIndex
+				val str = whole
+				var i = 0
+				while (i < copied) {
+					refs(start + i) = str.charAt(offset + i)
+					i += 1
+				}
+			case _ => ??!
+		}
+		copied
 	}
 
 	override def toReader :Reader =

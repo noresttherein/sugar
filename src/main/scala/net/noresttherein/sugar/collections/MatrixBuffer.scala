@@ -4,7 +4,7 @@ import java.lang.{Math => math}
 
 import scala.Int.{MaxValue, MinValue}
 import scala.annotation.tailrec
-import scala.collection.{EvidenceIterableFactory, EvidenceIterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, mutable}
+import scala.collection.{AbstractIterator, EvidenceIterableFactory, EvidenceIterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.DefaultSerializable
 import scala.collection.mutable.{AbstractBuffer, Builder, GrowableBuilder, IndexedBuffer}
@@ -2557,9 +2557,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		if (dataSize == 0)
 			Iterator.empty
 		else if (storageSize <= MaxSize1)
-			new ReverseCyclicArrayIterator(data1, dataOffset + dataSize & data.length - 1, dataSize)
+			new ReverseCyclicArrayIterator(data1, dataOffset + dataSize - 1 & data.length - 1, dataSize)
 		else
-			new ReverseDim2MatrixBufferIterator(data2, dataOffset + dataSize & indexMask, dataSize)
+			new ReverseDim2MatrixBufferIterator(data2, dataOffset + dataSize - 1 & indexMask, dataSize)
 
 	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
 		copyRangeToArray(xs, start, 0, len)

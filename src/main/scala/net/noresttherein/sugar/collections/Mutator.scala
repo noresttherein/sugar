@@ -75,7 +75,8 @@ private sealed class IndexedSeqMutator[@specialized(Int, Long, Double, AnyRef) T
 
 @SerialVersionUID(Ver)
 private object IndexedSeqMutator extends IndexedIteratorFactory[mutable.IndexedSeq, IndexedSeqMutator] {
-	protected override def make[T](seq :mutable.IndexedSeq[T], from :Int, until :Int) :IndexedSeqMutator[T] =
-		new IndexedSeqMutator(seq, from, until)
+	protected override def lengthOf[T](source :mutable.IndexedSeq[T]) :Int = source.length
+	protected override def make[T](source :mutable.IndexedSeq[T], from :Int, until :Int) :IndexedSeqMutator[T] =
+		new IndexedSeqMutator(source, from, until)
 }
 

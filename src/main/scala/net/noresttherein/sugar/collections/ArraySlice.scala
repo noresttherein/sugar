@@ -337,6 +337,8 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
   * @define Arr `ArrayLike`
   * @define arr array-like
   */
+//Implementations of this trait are loaded dynamically by name, so the upper bound of ArrayLike is important
+// as a modicum of type safety, although, ideally, we'd use IArrayLike specifically for that.
 trait ArrayLikeWrapper[-A[E] <: ArrayLike[E], +C[_]] extends Serializable {
 	/** Wraps the given $Arr in a $Coll. The collection will share the contents with the array,
 	  * and thus any modifications to either will be visible in the other.
@@ -360,15 +362,20 @@ trait ArrayLikeSeqFactory[-A[E] <: ArrayLike[E], +C[E] <: collection.SeqOps[E, c
 	extends StrictOptimizedSeqFactory[C] with ArrayLikeWrapper[A, C]
 
 
+trait SliceFactory[-A[_], +C[_]] extends Serializable {
+	def slice[E](source :A[E], from :Int, until :Int) :C[E]
+}
+
+
 /** A factory of $Coll, exposing slices of arrays of $Arr kind. */
-trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapper[A, C] {
+trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends ArrayLikeWrapper[A, C] with SliceFactory[A, C] {
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
 	/** Wraps the given $arr in a $coll, exposing only elements `array(from), ..., array(until - 1)`. The $coll
 	  * will share the contents with the array, and thus any modifications to either will be visible in the other.
 	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
 	  */ //consider: renaming to range
-	def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
+	override def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
 		val length = array.length
 		if (until <= 0) make(array, 0, 0)
 		else if (from >= length) make(array, length, length)
@@ -464,7 +471,7 @@ private[sugar] trait ArrayLikeSliceFactoryDefaults
 
 	protected def sliceFactory :ArrayLikeSliceWrapper[A, C]
 
-	//todo: move these to ArraySliceSeqOps and sandwitch between collection.IndexedSeq and immutable.IndexedSeq
+	//todo: move these to ArraySliceSeqOps and sandwich between collection.IndexedSeq and immutable.IndexedSeq
 	override def toSeq :Seq[E] = toIndexedSeq
 	override def toIndexedSeq :IndexedSeq[E] =
 		if (knownSize == 0) IndexedSeq.empty
@@ -1104,12 +1111,14 @@ final class ArraySerializationProxy[A[X] <: ArrayLike[X], +E](factory :ArrayLike
   * @define arr array
   */
 @SerialVersionUID(Ver)
-private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceSeqFactory[Array, ArraySeq] {
+private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceSeqFactory[IArrayLike, ArraySeq] {
 	override def from[E :ClassTag](it :IterableOnce[E]) :ArraySeq[E] = ArraySeq.from(it)
 
-	protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
-		if (from == 0 && until == array.length) ArraySeq.unsafeWrapArray(array)
-		else ArraySeq.unsafeWrapArray(array.slice(from, until))
+	protected override def make[E](array :IArrayLike[E], from :Int, until :Int) :ArraySeq[E] =
+		if (from == 0 && until == array.length)
+			ArraySeq.unsafeWrapArray(array.asInstanceOf[Array[E]])
+		else
+			ArraySeq.unsafeWrapArray(array.asInstanceOf[Array[E]].slice(from, until))
 
 	override def empty[E :ClassTag] :ArraySeq[E] = (classTag[E].runtimeClass match {
 		case ref if !ref.isPrimitive => refSeq
@@ -1143,10 +1152,9 @@ private[sugar] object ArraySeqFactory extends ClassTagArrayLikeSliceSeqFactory[A
 	  * @define Arr `Array`
 	  * @define arr array
 	  */
-	object untagged extends SeqFactory.Delegate(ArraySeq.untagged) with ArrayLikeSliceFactory[Array, ArraySeq] {
-		protected override def make[E](array :Array[E], from :Int, until :Int) :ArraySeq[E] =
-			if (from == 0 && until == array.length) ArraySeq.unsafeWrapArray(array)
-			else ArraySeq.unsafeWrapArray(array.slice(from, until))
+	object untagged extends SeqFactory.Delegate(ArraySeq.untagged) with ArrayLikeSliceFactory[IArrayLike, ArraySeq] {
+		protected override def make[E](array :IArrayLike[E], from :Int, until :Int) :ArraySeq[E] =
+			ArraySeqFactory.make(array, from, until)
 
 		override def isImmutable :Boolean = true
 		override def toString = "ArraySeq.untagged"

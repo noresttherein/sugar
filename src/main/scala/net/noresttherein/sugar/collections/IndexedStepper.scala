@@ -154,6 +154,7 @@ private trait ReverseIndexedStepper[+A, B, +Self >: Null <: ReverseIndexedSteppe
 }
 
 
+//todo: make first point at the actual first element, not behind it - like ReverseIndexedIterator
 private abstract class AbstractReverseIndexedStepper[+A, B, +Self >: Null <: ReverseIndexedStepper[A, B, Self]]
 	                   (private[this] var last :Int, private[this] var `first++` :Int)
 	extends ReverseIndexedStepper[A, B, Self]
@@ -691,7 +692,7 @@ object ReverseArrayStepper {
 		extends ReverseArrayStepper[A, B, S](array, from, until)
 	{
 		override def nextStep() :A = array(nextIdx()).asInstanceOf[A]
-		override def iterator :Iterator[A] = new ReverseArrayIterator(array, limit, index).asInstanceOf[Iterator[A]]
+		override def iterator :Iterator[A] = new ReverseArrayIterator(array, limit - 1, index - 1).asInstanceOf[Iterator[A]]
 	}
 
 	/** An [[scala.collection.AnyStepper AnyStepper]] iterating over a slice of an `Array[A]`. */
@@ -699,7 +700,7 @@ object ReverseArrayStepper {
 		extends ReverseArrayStepper[A, A, ReverseAnyArrayStepper[A]](array, from, until) with AllInOneAnyStepper[A]
 	{
 		override def nextStep() :A = array(nextIdx())
-		override def iterator :Iterator[A] = new ReverseArrayIterator(array, limit, index)
+		override def iterator :Iterator[A] = new ReverseArrayIterator(array, limit - 1, index - 1)
 	}
 
 	private class ReverseAnyRefArrayStepper[A <: AnyRef](array :Array[AnyRef], from :Int, until :Int)

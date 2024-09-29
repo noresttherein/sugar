@@ -12,8 +12,10 @@ import net.noresttherein.sugar.reflect.extensions.classNameMethods
 
 
 trait SugaredIterator[+E] extends Iterator[E] {
+	def skip() :this.type = { next(); this }
+
 	def hasFastDrop :Boolean = knownSize == 0
-	//todo: rename to dropInPlace; return this.type
+
 	def strictDrop(n :Int) :Iterator[E] = {
 		var left = n
 		while (left > 0 && hasNext) {
@@ -158,6 +160,30 @@ abstract class AbstractBufferedIterator[+Y]
 
 	override def toString :String =
 		this.localClassName + "(" + (if (knownNonEmpty) head.toString + ",...)" else "<not computed>)")
+}
+
+
+
+
+/** Base `Iterator` class maintaining a (non-negative) `knownSize` for the implementations.
+  * Defines `hasNext` as `knownSize` greater than zero.
+  */
+private[sugar] abstract class IteratorKnownSize[+E](private[this] var currentSize :Int)
+	extends AbstractSugaredIterator[E] with HasFastSlice[E]
+{
+	final override def knownSize = currentSize
+	protected final def knownSize_=(value :Int) :Unit = currentSize = value
+	protected final def knownSize_--() :Unit = currentSize -= 1
+	override def hasNext = currentSize > 0
+	override def take(n :Int) :Iterator[E] =
+		if (n <= 0) {
+			currentSize = 0; this
+		} else if (currentSize >= n) {
+			currentSize = n; this
+		} else if (currentSize >= 0)
+			this
+		else
+			super.take(n)
 }
 
 
