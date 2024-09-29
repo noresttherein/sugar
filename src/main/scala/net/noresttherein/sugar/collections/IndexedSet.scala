@@ -12,7 +12,7 @@ import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFact
 import net.noresttherein.sugar.collections.IndexedSet.{ArrayIndexedSet, IndexedSeqSet}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension}
 import net.noresttherein.sugar.collections.util.elementsToCopy
-import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.util.{CachesHashCode, SerializationProxy}
 import net.noresttherein.sugar.vars.Maybe.Yes
 
@@ -264,6 +264,8 @@ case object IndexedSet extends SortedIterableFactory[IndexedSet] {
 				clippedSlice(0, end - start + 1)
 			else if (i == start && start > 0 && at(start - 1) == elem)
 				clippedSlice(-1, end - start)
+			else if (size == Int.MaxValue)
+				maxSize_!(Int.MaxValue)
 			else {
 				val array = ErasedArray.ofDim[E](end - start + 1)
 				trustedCopyToArray(start, array, 0, i - start)

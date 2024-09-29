@@ -16,7 +16,7 @@ import net.noresttherein.sugar.collections.HasFastSlice.{hasFastDrop, preferDrop
 import net.noresttherein.sugar.collections.IndexedIterable.{HasFastUpdate, applyPreferred}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.collections.util.{HasFastReverse, errorString}
-import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, maxSize_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.{BufferFactoryExtension, ClassExtension, IteratorExtension}
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.kinds
@@ -187,7 +187,7 @@ private[sugar] object util {
 
 	@inline def validateArraySize(length :Int) :Unit =
 		if (length < 0 | length > Constants.MaxArraySize)
-			illegal_!("Cannot allocate an array of size" + length + ".")
+			maxSize_!("Cannot allocate an array of size" + length + ".")
 
 
 	@inline def nothingToCopy(coll :IterableOnce[_], from :Int, xs :Array[_], start :Int, len :Int) :Boolean =

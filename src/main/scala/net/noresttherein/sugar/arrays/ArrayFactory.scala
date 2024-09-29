@@ -431,7 +431,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 				buffer = Array.of(elemType, InitialBuilderSize)
 			else if (size == buffer.length) {
 				if (size == MaxSize)
-					throw new BufferFullException("Maximum array size reached.")
+					throw MaxSizeReachedException("Maximum array size reached.")
 				buffer = Array.copyOf(buffer, math.min(MaxSize >> 1, buffer.length) << 1)
 			}
 			buffer(size) = elem

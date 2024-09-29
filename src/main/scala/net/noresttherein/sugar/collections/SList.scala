@@ -10,7 +10,7 @@ import scala.collection.mutable.Builder
 import net.noresttherein.sugar.collections.SList.{Link, SListIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{??!, noSuch_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{??!, maxSize_!, noSuch_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.extensions.{IterableOnceExtension, classNameMethods}
 
 
@@ -264,6 +264,9 @@ sealed abstract class SList[+E]
 			patch(index, elems, 0)
 
 	override def prepended[U >: E](elem :U) :SList[U] = {
+		//We can't check it in the Link constructor because Links with negative length may be created by the builder.
+		if (length == Int.MaxValue)
+			maxSize_!(Int.MaxValue)
 		val res = new Link(elem, this, length + 1)
 		if (res.len < 0)
 			unsupported_!("Cannot prepend an element to a list of Int.MaxValue length.")
@@ -274,6 +277,8 @@ sealed abstract class SList[+E]
 		case _ if elems.knownSize == 0 =>
 			this
 		case indexed :collection.IndexedSeq[U] =>
+			if (length > Int.MaxValue - indexed.length)
+				maxSize_!(length, indexed.length, Int.MaxValue)
 			@tailrec def prependIndexed(idx :Int, res :SList[U], size :Int) :SList[U] =
 				if (idx >= 0)
 					prependIndexed(idx - 1, new Link(indexed(idx), res, size + 1), size + 1)
@@ -286,7 +291,9 @@ sealed abstract class SList[+E]
 
 		case list :collection.LinearSeq[U] =>
 			@tailrec def prependReversed(reverse :collection.LinearSeq[U], res :SList[U], size :Int) :SList[U] =
-				if (reverse.isEmpty) {
+				if (size == Int.MaxValue)
+					maxSize_!(length, list.size, Int.MaxValue)
+				else if (reverse.isEmpty) {
 					releaseFence(); res
 				} else
 					prependReversed(reverse.tail, new Link(reverse.head, res, size + 1), size + 1)
@@ -390,6 +397,8 @@ case object SList extends StrictOptimizedSeqFactory[SList] {
 			val next = new Link(elem, SNil, coccyx.len - 1)
 			if  (sharedSuffix ne null)
 				dealias()
+			if (len - coccyx.len == Int.MaxValue)
+				maxSize_!(Int.MaxValue)
 			coccyx.next = next
 			coccyx = next
 			this

@@ -6,7 +6,7 @@ import scala.collection.{StrictOptimizedIterableOps, mutable}
 import scala.collection.mutable.Builder
 
 import net.noresttherein.sugar.collections.NatMap.Assoc
-import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{Throw, throwANoSuchElementException}
+import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{Throw, throwNoSuchElementException}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.illegal_!
 import net.noresttherein.sugar.typist.kinds.=>:
@@ -158,7 +158,7 @@ object MutNatMap {
 			this
 		}
 
-		implicit override def defaults :NatMap.WhenNoKey[K, Throw] = throwANoSuchElementException
+		implicit override def defaults :NatMap.WhenNoKey[K, Throw] = throwNoSuchElementException
 	}
 
 }

@@ -446,7 +446,7 @@ trait imports {
 
 
 	/** Throws an [[IllegalStateException]]. */
-	final def illegalState_! :Nothing = throw SugaredIllegalStateException()
+	final def illegalState_! :Nothing = throw SugaredIllegalStateException("Illegal state")
 
 	/** Throws an [[IllegalStateException]]. */
 	final def illegalState_!(msg :String, cause :Throwable = null) :Nothing =
@@ -599,6 +599,59 @@ trait imports {
 	  * This method is useful for reducing calling methods bytecode size.
 	  */
 	final def concurrent_!(msg :String) :Nothing = throw SugaredConcurrentModificationException(msg)
+
+
+	/** Throws an [[ArithmeticException]] with a message about an overflow. */
+	final def overflow_! :Nothing = throw SugaredArithmeticException("Arithmetic overflow.")
+
+	/** Throws an [[ArithmeticException]] with a message about an overflow combined with the given explanation. */
+	final def overflow_!(msg :String) :Nothing = throw SugaredArithmeticException("Arithmetic overflow: " + msg + ".")
+
+	/** Throws an [[ArithmeticException]] with a message about `a `''operation''` b` causing an arithmetic overflow. */
+	final def overflow_!(a :Int, operation :String, b :Int) :Nothing =
+		throw SugaredArithmeticException("Arithmetic overflow: " + a + " " + operation + " " + b + ".")
+
+	/** Throws an [[ArithmeticException]] with a message about `a `''operation''` b` causing an arithmetic overflow. */
+	final def overflow_!(a :Long, operation :String, b :Long) :Nothing =
+		throw SugaredArithmeticException("Arithmetic overflow: " + a + " " + operation + " " + b + ".")
+
+
+	/** Throws an [[ArithmeticException]] with a message about an underflow. */
+	final def underflow_! :Nothing = throw SugaredArithmeticException("Arithmetic underflow.")
+
+	/** Throws an [[ArithmeticException]] with a message about an underflow combined with the given explanation. */
+	final def underflow_!(msg :String) :Nothing = throw SugaredArithmeticException("Arithmetic underflow: " + msg + ".")
+
+	/** Throws an [[ArithmeticException]] with a message about `a `''operation''` b` causing an arithmetic underflow. */
+	final def underflow_!(a :Int, operation :String, b :Int) :Nothing =
+		throw SugaredArithmeticException("Arithmetic underflow: " + a + " " + operation + " " + b + ".")
+
+	/** Throws an [[ArithmeticException]] with a message about `a `''operation''` b` causing an arithmetic underflow. */
+	final def underflow_!(a :Long, operation :String, b :Long) :Nothing =
+		throw SugaredArithmeticException("Arithmetic underflow: " + a + " " + operation + " " + b + ".")
+
+
+	/** Throws an [[ArithmeticException]] with a message about a division by zero. */
+	final def divByZero_! :Nothing = throw SugaredArithmeticException("Division by zero.")
+
+	/** Throws an [[ArithmeticException]] with a message about a division by zero combined with the given explanation. */
+	final def divByZero_!(msg :String) :Nothing = throw SugaredArithmeticException("Division by zero: " + msg + ".")
+
+	/** Throws an [[ArithmeticException]] with a message about a division of `dividend` by zero. */
+	final def divByZero_!(dividend :Int) :Nothing =
+		throw SugaredArithmeticException("Division by zero: " + dividend + " / 0.")
+
+	/** Throws an [[ArithmeticException]] with a message about a division of `dividend` by zero. */
+	final def divByZero_!(dividend :Long) :Nothing =
+		throw SugaredArithmeticException("Division by zero: " + dividend + " / 0.")
+
+	/** Throws an [[ArithmeticException]] with a message about a division of `dividend` by zero. */
+	final def divByZero_!(dividend :Float) :Nothing =
+		throw SugaredArithmeticException("Division by zero: " + dividend + " / 0.")
+
+	/** Throws an [[ArithmeticException]] with a message about a division of `dividend` by zero. */
+	final def divByZero_!(dividend :Double) :Nothing =
+		throw SugaredArithmeticException("Division by zero: " + dividend + " / 0.")
 
 
 	private def errorString(items :IterableOnce[_]) :String = {

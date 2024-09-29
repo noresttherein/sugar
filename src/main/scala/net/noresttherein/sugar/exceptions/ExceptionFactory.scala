@@ -279,7 +279,7 @@ trait EagerThrowableFactory[E <: Throwable] extends Serializable {
 
 	def apply(message :String, cause :Throwable) :E
 	def apply(message :String) :E = apply(message, null :Throwable)
-	def apply(cause :Throwable) :E = apply(cause.getMessage, cause)
+	def apply(cause :Throwable) :E = apply(Opt(cause.getMessage).orDefault(defaultMessage), cause)
 	def apply() :E = apply(defaultMessage, null :Throwable)
 
 	/** Message argument used by factory methods which do not accept a `message` argument. */
@@ -393,7 +393,7 @@ object ThrowableFactory extends Serializable {
 	  *                         1. writableStackTrace
 	  *
 	  *                       Note that the interpretation of these arguments, in particular how to treat the case where
-	  *                       both ''message'' and ''lazy message'' arguments are non null lies squarely on the side
+	  *                       both ''message'' and ''lazy message'' arguments are non-null lies squarely on the side
 	  *                       of the function, and the returned object will simply pass on arguments
 	  *                       given to its factory methods in the same order to the constructor.
 	  */
@@ -432,7 +432,7 @@ object ThrowableFactory extends Serializable {
 	  *                         1. cause
 	  *
 	  *                       Note that the interpretation of these arguments, in particular how to treat the case where
-	  *                       both ''message'' and ''lazy message'' arguments are non null lies squarely on the side
+	  *                       both ''message'' and ''lazy message'' arguments are non-null lies squarely on the side
 	  *                       of the function, and the returned object will simply pass on arguments
 	  *                       given to its factory methods in the same order to the constructor.
 	  */
@@ -451,7 +451,7 @@ object ThrowableFactory extends Serializable {
 	  *                      1. cause
 	  *
 	  *                    Note that the interpretation of these arguments, in particular how to treat the case where
-	  *                    both ''message'' and ''lazy message'' arguments are non null lies squarely on the side
+	  *                    both ''message'' and ''lazy message'' arguments are non-null lies squarely on the side
 	  *                    of the function, and the returned object will simply pass on arguments
 	  *                    given to its factory methods in the same order to the constructor.
 	  */
@@ -507,7 +507,6 @@ object ThrowableFactory extends Serializable {
 		}
 
 	/** Creates a factory using the given function as the exception constructor.
-	  * @param message     An optional message used for the default constructor (when no message is provided).
 	  * @param constructor A constructor function for thrown exception, accepting `(message :String, cause :Throwable)`.
 	  */
 	def apply[E <: Throwable](constructor :(String, Throwable) => E) :EagerThrowableFactory[E] =

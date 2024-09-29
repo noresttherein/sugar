@@ -61,50 +61,55 @@ package object exceptions extends exceptions.imports with exceptions.markerStack
 	type LazyDetailedExceptionFactory     = LazyDetailedThrowableFactory[Exception]
 	type FlexibleDetailedExceptionFactory = FlexibleDetailedThrowableFactory[Exception]
 
-	val Oops            :FlexibleThrowableFactory[Oops]            = ThrowableFactory("Oops", new Oops(_, _, _))
-	val ImpossibleError :FlexibleThrowableFactory[ImpossibleError] = ThrowableFactory(new ImpossibleError(_, _, _))
+	//todo: factories for other exception, together with methods in imports.
+	val Oops :FlexibleThrowableFactory[Oops] = ThrowableFactory("Oops", new Oops(_, _, _))
+
+	val ImpossibleError :FlexibleThrowableFactory[ImpossibleError] =
+		ThrowableFactory("This location should have been impossible to reach.", new ImpossibleError(_, _, _))
 
 	val MaxSizeReachedException :FlexibleExceptionFactory = //Consider: making it a lazy factory
 		ThrowableFactory("Size limit exceeded", new MaxSizeReachedException(_, _, _))
 
-	val IncompatibleArgumentsException :LazyExceptionFactory =
-		ThrowableFactory(new IncompatibleArgumentsException(null, _, _))
+	val IncompatibleArgumentsException :LazyExceptionFactory = ThrowableFactory(
+		"Arguments do not satisfy method constraints.", new IncompatibleArgumentsException(null, _, _)
+	)
 
-	val IncompatibleArgumentTypesException :LazyExceptionFactory =
-		ThrowableFactory(new IncompatibleArgumentTypesException(null, _, _))
+	val IncompatibleArgumentTypesException :LazyExceptionFactory = ThrowableFactory(
+		"Argument types do not satisfy method constraints.", new IncompatibleArgumentTypesException(null, _, _)
+	)
 
 	val SugaredArithmeticException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredArithmeticException(_, _, _))
 
 	val SugaredClassCastException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredClassCastException(_, _, _))
+		ThrowableFactory("Unexpected class.", new SugaredClassCastException(_, _, _))
 
 	val SugaredConcurrentModificationException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredConcurrentModificationException(_, _, _))
+		ThrowableFactory("Concurrent modification.", new SugaredConcurrentModificationException(_, _, _))
 
 	val SugaredIllegalArgumentException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredIllegalArgumentException(_, _, _))
+		ThrowableFactory("Illegal argument.", new SugaredIllegalArgumentException(_, _, _))
 
 	val SugaredIllegalStateException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredIllegalStateException(_, _, _))
 
 	val SugaredIndexOutOfBoundsException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredIndexOutOfBoundsException(_, _, _))
+		ThrowableFactory("Index out of bounds.", new SugaredIndexOutOfBoundsException(_, _, _))
 
 	val SugaredIOException :FlexibleExceptionFactory =
 		ThrowableFactory(new SugaredIOException(_, _, _))
 
 	val SugaredNoSuchElementException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredNoSuchElementException(_, _, _))
+		ThrowableFactory("No such element.", new SugaredNoSuchElementException(_, _, _))
 
 	val SugaredNullPointerException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredNullPointerException(_, _, _))
+		ThrowableFactory("null", new SugaredNullPointerException(_, _, _))
 
 	val SugaredNumberFormatException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredNumberFormatException(_, _, _))
+		ThrowableFactory("Invalid format.", new SugaredNumberFormatException(_, _, _))
 
 	val SugaredUnsupportedOperationException :FlexibleExceptionFactory =
-		ThrowableFactory(new SugaredUnsupportedOperationException(_, _, _))
+		ThrowableFactory("Unsupported operation.", new SugaredUnsupportedOperationException(_, _, _))
 
 }
 

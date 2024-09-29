@@ -8,7 +8,7 @@ import scala.collection.mutable.Builder
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.VectorSet.{Gap, MinFillRatio, VectorSetIterator}
 import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
-import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.util.CachesHashCode
 
 
@@ -103,14 +103,18 @@ final class VectorSet[E] private (items :Vector[Any], index :HashMap[E, Int])
 
 	def this() = this(Vector.empty, HashMap.empty)
 
+	if (index.size < 0)
+		maxSize_!("Size exceeded Int.MaxValue: " + (index.size & 0xffffffffL))
+
 	override def knownSize :Int = index.knownSize
 	override def size :Int = index.size
 
 	override def contains(elem :E) :Boolean = index.contains(elem)
 
 	override def incl(elem :E) :VectorSet[E] = index.getOrElse(elem, -1) match {
-		case -1 => new VectorSet(items :+ elem, index.updated(elem, items.length))
-		case  _ => this
+		case -1 if index.size == Int.MaxValue => maxSize_!(Int.MaxValue)
+		case -1                               => new VectorSet(items :+ elem, index.updated(elem, items.length))
+		case  _                               => this
 	}
 
 	override def excl(elem :E) :VectorSet[E] = index.getOrElse(elem, -1) match {
@@ -278,6 +282,8 @@ case object VectorSet extends IterableFactory[VectorSet] {
 
 		override def addOne(elem :T) = {
 			if (!map.contains(elem)) {
+				if (map.size == Int.MaxValue)
+					maxSize_!(Int.MaxValue)
 				map = map.updated(elem, len)
 				seq += elem
 				len += 1
@@ -300,6 +306,8 @@ case object VectorSet extends IterableFactory[VectorSet] {
 		override def result() = new VectorSet(seq.result(), map)
 
 		override def addOne(elem :T) = map.getOrElse(elem, -1) match {
+			case -1 if map.size == Int.MaxValue =>
+				maxSize_!(Int.MaxValue)
 			case -1 =>
 				map   = map.updated(elem, len)
 				seq  += elem

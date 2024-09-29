@@ -1934,7 +1934,7 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 				elems = newArray(initSize)
 			else if (size == elems.length) {
 				if (size == Int.MaxValue)
-					ensure(1) //throw a BufferFullException
+					ensure(1) //throw a MaxSizeReachedException
 				elems = Array.copyOf(elems, math.min(MaxArraySize >> 1, size) << 1)
 			}
 			elems(size) = elem

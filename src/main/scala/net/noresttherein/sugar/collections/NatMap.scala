@@ -9,7 +9,7 @@ import scala.util.hashing.MurmurHash3
 import net.noresttherein.sugar.arrays.arraycopy
 import net.noresttherein.sugar.collections.ComparableFactory
 import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
-import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwANoSuchElementException
+import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwNoSuchElementException
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.OptionExtension
 import net.noresttherein.sugar.typist.kinds.=>:
@@ -165,7 +165,7 @@ object ImplicitNatMapFactory {
 	  * its use as an argument to `to` method of any collection.
 	  */
 	implicit def toNatMapFactory[K[_], V[_]](companion :NatMap.type)
-	                                        (implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	                                        (implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
 			:Factory[Assoc[K, V, _], NatMap[K, V]] =
 		companion.factory
 }
@@ -206,18 +206,18 @@ object NatMap extends ImplicitNatMapFactory {
 
 
 	def apply[K[_], V[_]](entries :Assoc[K, V, _]*)
-	                     (implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K]) :NatMap[K, V] =
+	                     (implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K]) :NatMap[K, V] =
 		from(entries)
 
 	def from[K[_], V[_]](entries :IterableOnce[Assoc[K, V, _]])
-	                    (implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K]) :NatMap[K, V] =
+	                    (implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K]) :NatMap[K, V] =
 		withDefault(entries)(default)
 
 	def single[K[_], V[_], X](key :K[X], value :V[X])
-	                         (implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K]) :NatMap[K, V] =
+	                         (implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K]) :NatMap[K, V] =
 		withDefault(key, value)(default)
 
-	def empty[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K]) :NatMap[K, V] =
+	def empty[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K]) :NatMap[K, V] =
 		withDefault(default)
 
 
@@ -246,7 +246,7 @@ object NatMap extends ImplicitNatMapFactory {
 		new Singleton(key, value, key.hashCode)(default)
 
 	def withDefault[K[_], V[_]](default :WhenNoKey[K, V]) :NatMap[K, V] =
-		if (default == throwANoSuchElementException[K])
+		if (default == throwNoSuchElementException[K])
 			instance.asInstanceOf[NatMap[K, V]]
 		else
 			new EmptyMap[K, V]()(default)
@@ -255,11 +255,11 @@ object NatMap extends ImplicitNatMapFactory {
 	private[this] final val instance = new EmptyMap[Seq, Seq]
 
 
-	def newBuilder[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	def newBuilder[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
 			:Builder[Assoc[K, V, _], NatMap[K, V]] =
 		new NatMapBuilder
 
-	def factory[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	def factory[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
 			:Factory[Assoc[K, V, _], NatMap[K, V]] =
 		new ComparableFactory[Assoc[K, V, _], NatMap[K, V]] {
 			override def factory = NatMap
@@ -279,7 +279,7 @@ object NatMap extends ImplicitNatMapFactory {
 	/** An implicit opportunistic type class used by some `NatMap` implementations to handle the situation
 	  * of a missing key. This allows 'plugging in' behaviour of throwing a desired, more informational exception,
 	  * without a need of guarding every map access against thrown default `NoSuchElementException` exceptions.
-	  * This class has no implicit values in the implicit scope and they must be imported explicitly,
+	  * This class has no implicit values in the implicit scope, and they must be imported explicitly,
 	  * but client code typically makes providing it optional.
 	  * See the companion object for common predefined implementations.
 	  */ //todo: replace with an opaque type of a generic function
@@ -304,7 +304,7 @@ object NatMap extends ImplicitNatMapFactory {
 
 		type Throw[X] = Nothing
 
-		def throwANoSuchElementException[K[_]] :WhenNoKey[K, Throw] =
+		def throwNoSuchElementException[K[_]] :WhenNoKey[K, Throw] =
 			noSuch.asInstanceOf[WhenNoKey[K, Throw]]
 
 		@SerialVersionUID(Ver)
@@ -377,14 +377,14 @@ object NatMap extends ImplicitNatMapFactory {
 
 		protected def default[X](key :K[X]) :V[X] = defaults(key)
 
-		implicit override def defaults :WhenNoKey[K, V] = throwANoSuchElementException
+		implicit override def defaults :WhenNoKey[K, V] = throwNoSuchElementException
 	}
 
 
 
 
 	@SerialVersionUID(Ver)
-	private class EmptyMap[K[_], +V[_]](implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	private class EmptyMap[K[_], +V[_]](implicit override val defaults :WhenNoKey[K, V] = throwNoSuchElementException[K])
 		extends BaseNatMap[K, V] with Serializable
 	{
 		override def knownSize = 0
@@ -432,7 +432,7 @@ object NatMap extends ImplicitNatMapFactory {
 	                                       (implicit override val defaults :WhenNoKey[K, V])
 		extends Assoc[K, V, T] with BaseNatMap[K, V] with Serializable
 	{
-		def this(_1 :K[T], _2 :V[T])(implicit defaults :WhenNoKey[K, V] = throwANoSuchElementException[K]) =
+		def this(_1 :K[T], _2 :V[T])(implicit defaults :WhenNoKey[K, V] = throwNoSuchElementException[K]) =
 			this(_1, _2, _1.hashCode)
 
 		override def head :Assoc[K, V, T] = this
@@ -517,7 +517,7 @@ object NatMap extends ImplicitNatMapFactory {
 	@SerialVersionUID(Ver)
 	private class SmallNatMap[K[_], +V[_]]
 	                         (private[this] val entries :Array[Assoc[K, V, _]])
-	                         (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	                         (implicit override val defaults :WhenNoKey[K, V] = throwNoSuchElementException[K])
 		extends BaseNatMap[K, V] with CachesHashCode with Serializable
 	{
 		override def knownSize = entries.length
@@ -629,7 +629,7 @@ object NatMap extends ImplicitNatMapFactory {
 	@SerialVersionUID(Ver)
 	private class NaturalizedMap[K[_], +V[_]]
 	                            (private val entries :Map[K[_], V[_]] = Map.empty[K[_], V[_]])
-	                            (implicit override val defaults :WhenNoKey[K, V] = throwANoSuchElementException[K])
+	                            (implicit override val defaults :WhenNoKey[K, V] = throwNoSuchElementException[K])
 		extends NatMap[K, V] with StrictOptimizedIterableOps[Assoc[K, V, _], Iterable, NatMap[K, V]]
 		   with CachesHashCode with Serializable
 	{
@@ -761,7 +761,7 @@ object NatMap extends ImplicitNatMapFactory {
 	  * but if the number of elements exceeds `SmallNatMapCap`, switches to building a regular `Map[K[_], V[_]]`
 	  * for wrapping in a `NaturalizedMap`.
 	  */
-	private class NatMapBuilder[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwANoSuchElementException)
+	private class NatMapBuilder[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwNoSuchElementException)
 		extends ReusableBuilder[Assoc[K, V, _], NatMap[K, V]]
 	{
 		private[this] var small :Array[Assoc[K, V, _]] = _ //new Array[Assoc[K, V, _]](SmallNatMapCap)

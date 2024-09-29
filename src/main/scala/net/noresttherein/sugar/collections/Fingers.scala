@@ -15,7 +15,7 @@ import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.Iterators.StrictIterator
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
@@ -252,9 +252,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		}
 
 		def insertedAll[U >: E](index :Int, elems :AbstractFingers[U]) :Fingers[U] = elems match {
-			case other :Fingers1[U]         => insertedAll(index, other.prefixValues)
-			case _ if elems.length <= level => insertedDefault(index, elems)
-			case _ if length <= elems.level =>
+			case _ if elems.length > Int.MaxValue - length => maxSize_!(length, elems.length, Int.MaxValue)
+			case other :Fingers1[U]                        => insertedAll(index, other.prefixValues)
+			case _ if elems.length <= level                => insertedDefault(index, elems)
+			case _ if length <= elems.level                =>
 				val res = new FingersBuilder[U]
 				var i = 0
 				while (i < index) {
@@ -2161,7 +2162,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		override def prepended[U >: E](elem :U) :Fingers[U] = insertedIntoPrefix(0, elem)
 
 		override def inserted[U >: E](index :Int, elem :U) :Fingers[U] =
-			if (index < infixOffset)
+			if (length == Int.MaxValue)
+				maxSize_!(length)
+			else if (index < infixOffset)
 				insertedIntoPrefix(index, elem)
 			else if (index >= suffixOffset)
 				insertedIntoSuffix(index, elem)
@@ -2228,7 +2231,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 
 		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] =
-			if (index < infixOffset)
+			if (length > Int.MaxValue - elems.length)
+				maxSize_!(length, elems.length, Int.MaxValue)
+			else if (index < infixOffset)
 				insertedAllIntoPrefix(index, elems)
 			else if (index >= suffixOffset)
 				insertedAllIntoSuffix(index, elems)
@@ -4770,6 +4775,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 
 			override def addOne(elem :E) :this.type = {
+				if (size == Int.MaxValue)
+					maxSize_!(size)
 				if (rank0 == MaxChildren) {
 					if (lvl0 != null)
 						cascadeSuffixes(0)
@@ -4800,7 +4807,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			@inline final def ++=(elems :Tree[E]) :this.type = addAll(elems)
 
 			def addAll(elems :Tree[E]) :this.type =
-				if (elems.isLeaf)
+				if (size > Int.MaxValue - elems.length)
+					maxSize_!(size, elems.length, Int.MaxValue)
+				else if (elems.isLeaf)
 					if (elems.rank == 0) this
 					else addAll(elems.asInstanceOf[Array[Any]], 1, elems.rank)
 				else {
@@ -4864,6 +4873,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					rank0 = 0
 				}
 				val max = math.min(len, math.max(0, array.length - offset))
+				if (size > Int.MaxValue - max)
+					maxSize_!(size, max, Int.MaxValue)
 				val lvl0Padding = math.min(MaxChildren - rank0, max)
 				ArrayLike.copy(array, offset, lvl0, 1 + rank0, lvl0Padding)
 				rank0 += lvl0Padding

@@ -20,7 +20,7 @@ import net.noresttherein.sugar.collections.RankingImpl.{AppendingBuilder, DummyH
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, IteratorExtension, SeqExtension, SeqFactoryExtension}
 import net.noresttherein.sugar.collections.util.{HasFastAppend, HasFastPrepend, errorString}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{illegal_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{illegal_!, maxSize_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.IterableExtension
 import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.kinds.Any1
@@ -2274,25 +2274,24 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 
 		override def addAll(xs :IterableOnce[T]) :this.type = {
 			val xsSize = xs.knownSize
-			if (xsSize == 0)
-				this
-			else if (xsSize < 0)
-				super.addAll(xs)
-			else if (large != null)
-				large ++= xs
-			else if (smallSize + xsSize <= SmallRankingCap) {
-				if (smallSize + xsSize > smallCap) {
-					small =
-						if (small == null) RefArray.ofDim(SmallRankingCap)
-						else RefArray.copyOf(small, SmallRankingCap)
-					smallCap = SmallRankingCap
+			if (xsSize != 0)
+				if (xsSize < 0)
+					super.addAll(xs)
+				else if (large != null)
+					large ++= xs
+				else if (smallSize + xsSize <= SmallRankingCap) {
+					if (smallSize + xsSize > smallCap) {
+						small =
+							if (small == null) RefArray.ofDim(SmallRankingCap)
+							else RefArray.copyOf(small, SmallRankingCap)
+						smallCap = SmallRankingCap
+					}
+					xs.toBasicOps.copyToArray(small.asAnyArray, smallSize, xsSize)
+					smallSize += xsSize
+				} else {
+					switchToLarge()
+					large ++= xs
 				}
-				xs.toBasicOps.copyToArray(small.asAnyArray, smallSize, xsSize)
-				smallSize += xsSize
-			} else {
-				switchToLarge()
-				large ++= xs
-			}
 			this
 		}
 	}
@@ -2372,8 +2371,11 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 		}
 		override def addOne(elem :T) =
 			if (smallSize < 0) {
-				if (set.add(elem))
+				if (set.add(elem)) {
+					if (large.length == Int.MaxValue)
+						maxSize_!(Int.MaxValue)
 					large += elem
+				}
 				this
 			} else if (small == null)
 				addFirst(elem)
@@ -3477,7 +3479,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			new SmallRanking(resItems, resHashes)
 		} else {
 			//The way copyKept is implemented, it will overwrite keep with hashes of those kept.
-			// We take advantage here that both hashes and keep are Array[Int] and use keep as a throw away sink.
+			// We take advantage here that both hashes and keep are Array[Int] and use keep as a throw-away sink.
 			copyKept(keep, resItems, DummyHashArray, 0, kept)
 			arraycopy(suffix.array, 0, resItems, kept, suffixSize)
 			new IndexedRanking(IRefArray.Wrapped(resItems.unsafeIRefArray))
@@ -3599,7 +3601,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 		case large if large > hashes.length  =>
 			appendedAll[U, collection.Set[U]](suffix, suffix, _.contains(_))
 		case _ => //we must use suffix.iterator.filterNot, not suffix.filterNot, because the latter may change the order
-			new IndexedRanking(toIndexedSeq :++ suffix.iterator.filterNot(contains))
+			val items = toIndexedSeq :++ suffix.iterator.filterNot(contains)
+			new IndexedRanking(items)
 	}
 
 	override def reverseIterator = toIndexedSeq.reverseIterator
@@ -3684,6 +3687,8 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 		this(items, items.iterator.zipWithIndex.toMap)
 
 	assert(items.length == map.size, "index " + map + " inconsistent with elements " + items)
+	if (items.length < 0)
+		maxSize_!("Size exceeds Int.MaxValue: " + (items.length & 0xffffffffL))
 
 	protected override def underlying :IndexedSeq[T] = items
 	@inline private def sliceable :IndexedSeq[T] = if (HasFastSlice(items)) items else IndexedSeqFactory.from(items)
@@ -3819,6 +3824,8 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 	override def inserted[U >: T](index :Int, elem :U) :Ranking[U] =
 		if (index < 0 || index > items.length)
 			outOfBounds_!(index, items.length)
+		else if (items.length == Int.MaxValue)
+			maxSize_!(Int.MaxValue)
 		else if (index <= 0)
 			prepended(elem)
 		else
@@ -3838,11 +3845,15 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 	override def added[U >: T](elem :U) :Ranking[U] =
 		if (contains(elem))
 			this
+		else if (items.length == Int.MaxValue)
+			maxSize_!(Int.MaxValue)
 		else
 			new IndexedRanking(appendable :+ elem, HashMap.from[U, Int](map).updated(elem, size))
 
 	override def appended[U >: T](elem :U) :Ranking[U] = indexOf(elem) match {
 		case -1 =>
+			if (items.length == Int.MaxValue)
+				maxSize_!(Int.MaxValue)
 			new IndexedRanking(appendable :+ elem, HashMap.from[U, Int](map).updated(elem, size))
 		case n =>
 			rotatedLeft(n, items.length)(1)
@@ -3850,6 +3861,8 @@ private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 
 	override def prepended[U >: T](elem :U) :Ranking[U] = indexOf(elem) match {
 		case -1 =>
+			if (items.length == Int.MaxValue)
+				maxSize_!(Int.MaxValue)
 			new IndexedRanking(elem +: prependable)
 		case 0  =>
 			this

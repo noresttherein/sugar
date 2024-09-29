@@ -9,7 +9,7 @@ import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.LightStack.InitialSize
 import net.noresttherein.sugar.collections.util.{elementsToCopy, errorString}
 import net.noresttherein.sugar.extensions.IterableOnceExtension
-import net.noresttherein.sugar.exceptions.{noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{MaxSizeReachedException, maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.vars.Opt
 import net.noresttherein.sugar.vars.Opt.One
 
@@ -79,7 +79,7 @@ case object LightStack extends IterableFactory[LightStack] {
   * until you actually need it. As a value class, it cannot have variable fields, and thus its growing mechanism makes
   * it a weird combination of mutable and immutable interface.
   *   1. Methods named after those in `Growable`: `addOne`, `addAll`, `+=`, `++=`, do not reallocate the array
-  *      and throw a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]]
+  *      and throw a [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]]
   *      if their maximum capacity is reached.
   *   1. Traditional stack methods - `push`, `pushAll` will reallocate the array as needed,
   *      returning a new stack instance. If the user wants to use the growing capacity of the stack,
@@ -235,26 +235,26 @@ class LightStack[E] private[collections] (
 	}
 
 	/** Adds a single element to the end (top) of the stack. */
-	@throws[BufferFullException]("if the underlying array is full.")
+	@throws[MaxSizeReachedException]("if the underlying array is full.")
 	@inline def +=(elem :E) :this.type = addOne(elem)
 
 	/** Adds a single element to the end (top) of the stack. */
-	@throws[BufferFullException]("if the underlying array is full.")
+	@throws[MaxSizeReachedException]("if the underlying array is full.")
 	def addOne(elem :E) :this.type = {
 		val size = stack(0).asInstanceOf[Int]
 		if (size == stack.length - 1)
-			throw new BufferFullException("LightStack|" + size + "|")
+			maxSize_!("LightStack|" + size + "|")
 		stack(0) = size + 1
 		stack(size + 1) = elem
 		this
 	}
 
 	/** Adds multiple elements to the end (top) of the stack. */
-	@throws[BufferFullException]("if the underlying array becomes full.")
+	@throws[MaxSizeReachedException]("if the underlying array becomes full.")
 	@inline def ++=(elems :IterableOnce[E]) :this.type = addAll(elems)
 
 	/** Adds multiple elements to the end (top) of the stack. */
-	@throws[BufferFullException]("if the underlying array becomes full.")
+	@throws[MaxSizeReachedException]("if the underlying array becomes full.")
 	def addAll(elems :IterableOnce[E]) :this.type = elems.knownSize match {
 		case  0 => this
 		case -1 =>
@@ -263,7 +263,7 @@ class LightStack[E] private[collections] (
 			val cap  = stack.length - 1
 			while (it.hasNext) {
 				if (size == cap)
-					throw new BufferFullException("LightStack|" + size + "|")
+					maxSize_!("LightStack|" + size + "|")
 				size += 1
 				stack(size) = it.next()
 			}
@@ -275,21 +275,21 @@ class LightStack[E] private[collections] (
 			stack(0) = length + n
 			this
 		case  _ =>
-			throw new BufferFullException("LightStack|" + length + "|.addAll(" + errorString(elems) +")")
+			maxSize_!("LightStack|" + length + "|.addAll(" + errorString(elems) +")")
 	}
 
 	/** Adds multiple elements to the end (top) of the stack. */
-	@throws[BufferFullException]("if the underlying array becomes full.")
+	@throws[MaxSizeReachedException]("if the underlying array becomes full.")
 	@inline def ++=(elems :LightStack[E]) :this.type = addAll(elems)
 
 	/** Adds multiple elements to the end (top) of the stack. */
-	@throws[BufferFullException]("if the underlying array becomes full.")
+	@throws[MaxSizeReachedException]("if the underlying array becomes full.")
 	def addAll(elems :LightStack[E]) :this.type = {
 		val thisSize = stack(0).asInstanceOf[Int]
 		val thatSize = elems.stack(0).asInstanceOf[Int]
 		val capacity = stack.length - 1
 		if (capacity < thisSize + thatSize)
-			throw new BufferFullException("LightStack|" + thisSize + "|.addAll(" + errorString(elems) +")")
+			maxSize_!("LightStack|" + thisSize + "|.addAll(" + errorString(elems) +")")
 		arraycopy(elems.stack, 1, stack, 1 + thisSize, thatSize)
 		stack(0) = thisSize + thatSize
 		this
@@ -420,8 +420,8 @@ case object LightQueue extends IterableFactory[LightQueue] {
   * ''must'' discard the instance on which they were called and use the returned queue from that point onward.
   *
   * A set of traditional `Buffer`/`Growable` methods is also provided, which always return this instance and
-  * throw a [[net.noresttherein.sugar.collections.BufferFullException BufferFullException]] if the array becomes full
-  * instead. The queue is never shrunk as a result of popping the first element, but it can be requested
+  * throw a [[net.noresttherein.sugar.exceptions.MaxSizeReachedException MaxSizeReachedException]] if the array
+  * becomes full instead. The queue is never shrunk as a result of popping the first element, but it can be requested
   * by the call to `shrink`.
   *
   * This class is designed as internal tool for classes, allowing them to implement their methods
@@ -512,12 +512,39 @@ class LightQueue[E] private[collections] (
 				a
 			}
 		val index = if (offset < limit - length) offset + length else 2 + offset + length - limit
-		queue(index) = elem
-		res(1) = length + 1
+		res(index) = elem
+		res(0) = length + 1
 		new LightQueue(res)
 	}
 	//todo: def pushAll(elems :IterableOnce[E]) :LightQueue[E] = ???
 	//todo: def pushAll(elems :LightQueue[E]) :LightQueue[E] = ???
+
+	def pushFront(elem :E) :LightQueue[E] = {
+		val length = queue(0).asInstanceOf[Int]
+		val offset = queue(1).asInstanceOf[Int]
+		var limit  = queue.length
+		val res =
+			if (length < limit - 2)
+				queue
+			else {
+				val a = new Array[Any](limit << 1) //todo: check for MaxArraySize
+				if (offset <= limit - length)
+					arraycopy(queue, offset, a, 3, length)
+				else {
+					arraycopy(queue, offset, a, 3, limit - offset)
+					arraycopy(queue, 2, a, 3 + limit - offset, offset + length - limit)
+					a(0) = length
+					a(1) = 2
+				}
+				limit <<= 1
+				a
+			}
+		val index = if (offset > 2) offset - 1 else limit - 1
+		res(index) = elem
+		res(0) = length + 2
+		res(1) = index
+		new LightQueue(res)
+	}
 
 	@inline def +=(elem :E) :this.type = addOne(elem)
 
@@ -526,12 +553,26 @@ class LightQueue[E] private[collections] (
 		val offset = queue(1).asInstanceOf[Int]
 		val limit  = queue.length
 		if (length == limit - 2)
-			throw new BufferFullException("LightQueue|" + length + "|.addOne")
+			maxSize_!("LightQueue|" + length + "|.addOne")
 		if (offset < limit - length)
 			queue(offset + length) = elem
 		else
 			queue(2 + offset + length - limit) = elem
 		queue(0) = length + 1
+		this
+	}
+
+	@inline def +=:(elem :E) :this.type = prependOne(elem)
+
+	def prependOne(elem :E) :this.type = {
+		val length = queue(0).asInstanceOf[Int]
+		var offset = queue(1).asInstanceOf[Int]
+		val limit  = queue.length
+		if (length == limit - 2)
+			maxSize_!("LightQueue|" + length + "|.prependOne")
+		offset = if (offset > 2) offset - 1 else limit - 1
+		queue(0) = length + 1
+		queue(1) = offset
 		this
 	}
 

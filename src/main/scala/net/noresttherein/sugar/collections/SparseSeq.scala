@@ -8,7 +8,7 @@ import scala.collection.mutable.{Builder, ReusableBuilder}
 
 import net.noresttherein.sugar.collections.SparseSeq.Missing
 import net.noresttherein.sugar.collections.extensions.{BuilderExtension, IterableOnceExtension, IteratorExtension}
-import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, outOfBounds_!}
+import net.noresttherein.sugar.exceptions.{maxSize_!, noSuch_!, outOfBounds_!}
 import net.noresttherein.sugar.witness.DefaultValue
 
 
@@ -78,7 +78,7 @@ final class SparseSeq[+E] private (private val offset :Int, private val map :Sor
 		if (index < 0 | index > length)
 			outOfBounds_!(index, this, "inserted")
 		else if (length == Int.MaxValue)
-			illegalState_!("Cannot insert another element: the maximum sequence size of Int.MaxValue reached.")
+			maxSize_!("Cannot insert another element: the maximum sequence size of Int.MaxValue reached.")
 		else if (index == 0)
 			prepended(elem)
 		else if (index == length)
@@ -98,7 +98,7 @@ final class SparseSeq[+E] private (private val offset :Int, private val map :Sor
 	  */
 	@throws[IndexOutOfBoundsException]("if i is negative or equals Int.MaxValue.")
 	def set[U >: E](i :Int, elem :U) :SparseSeq[U] =
-		if (i < 0 | i == Int.MaxValue)
+		if (i < 0 | i == Int.MaxValue) //This will throw IOOBE instead of MaxSizeReachedException but it's just as well.
 			outOfBounds_!(i, this)
 		else if (i >= length)
 			if (i < Int.MaxValue - offset)
@@ -126,7 +126,7 @@ final class SparseSeq[+E] private (private val offset :Int, private val map :Sor
 
 	override def prepended[U >: E](elem :U) :SparseSeq[U] =
 		if (length == Int.MaxValue)
-			illegalState_!("Cannot prepend another element: maximum length reached.")
+			maxSize_!("Cannot prepend another element: maximum length reached.")
 		else if (offset == Int.MinValue) {
 			val newOffset  = (0xffffffff - length >>> 1) + Int.MinValue //unsigned arithmetic
 			val shiftedMap = shiftTo(newOffset)
@@ -143,6 +143,8 @@ final class SparseSeq[+E] private (private val offset :Int, private val map :Sor
 			val newMap = suffix.foldLeftWithIndex(map :IndexMap[U]) {
 				(map, elem, i) => map.updated(offset + length + i, elem)
 			}
+			if (length - map.size > Int.MaxValue - newMap.size)
+				maxSize_!(length, newMap.size - map.size, Int.MaxValue)
 			new SparseSeq(offset, newMap, length + newMap.size - map.size, default)
 	}
 	override def prependedAll[U >: E](prefix :IterableOnce[U]) :SparseSeq[U] = {
@@ -153,6 +155,8 @@ final class SparseSeq[+E] private (private val offset :Int, private val map :Sor
 			case that :SparseSeq[U] if default == that.default =>
 				SparseSeq.concat(that, this)
 			case _ if thatSize > 0 =>
+				if (thatSize > Int.MaxValue - length)
+					maxSize_!(length, thatSize, Int.MaxValue)
 				val newOffset = offset - thatSize
 				val newMap = prefix.toBasicOps.foldLeftWithIndex(map :IndexMap[U]) {
 					(map, elem, i) => map.updated(newOffset + i, elem)
@@ -306,7 +310,7 @@ case object SparseSeq extends EvidenceIterableFactory[SparseSeq, DefaultValue] {
 			if (elem != default)
 				map = map.updated(offset + size, elem)
 			if (offset + size == Int.MaxValue)
-				illegalState_!("Maximum size reached: " + size + " elements added to builder at offset " + offset + ".")
+				maxSize_!("Maximum size reached: " + size + " elements added to builder at offset " + offset + ".")
 			size += 1
 			this
 		}
@@ -314,7 +318,7 @@ case object SparseSeq extends EvidenceIterableFactory[SparseSeq, DefaultValue] {
 			case _ if elems.knownSize == 0 => this
 			case seq :SparseSeq[E] if default == seq.default =>
 				if (seq.size > Int.MaxValue - math.max(offset, 0) - size)
-					illegalState_!(
+					maxSize_!(
 						"Cannot add " + seq.size + " elements to a builder of size " + size + " at offset " + offset + "."
 					)
 				val shift = offset + size - seq.offset
@@ -335,7 +339,7 @@ case object SparseSeq extends EvidenceIterableFactory[SparseSeq, DefaultValue] {
 		val offset1 = seq1.offset
 		val offset2 = seq2.offset
 		if (size2 > Int.MaxValue - size1)
-			illegalState_!(
+			maxSize_!(
 				"Cannot add " + size1 + " elements to a sequence of length " + size2 + ": exceeded maximum size."
 			)
 		else if (seq1.map.size >= seq2.map.size && size2 <= Int.MaxValue - offset1 - size1) {

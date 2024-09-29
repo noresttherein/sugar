@@ -79,7 +79,7 @@ class MaxSizeReachedException(message :String, protected override var lazyMsg :(
 	extends RuntimeException(message, cause) with LazyException with WithTrimmedStackTrace
 
 /** An [[IllegalArgumentException]] subclass thrown to indicate that while the method arguments are legal independently,
-  * as a whole, they do not satisfy the required pre condition.
+  * as a whole, they do not satisfy the required pre-condition.
   */
 @SerialVersionUID(Ver)
 class IncompatibleArgumentsException(msg :String, lazyMsg :() => String, cause :Throwable)
