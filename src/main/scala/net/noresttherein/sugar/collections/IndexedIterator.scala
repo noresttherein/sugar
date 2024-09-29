@@ -96,8 +96,13 @@ trait IndexedIterator[+E] extends BufferedIterator[E] with SugaredIterator[E] wi
 
 	/** Moves the index forward by one. Overriding the method in a subclass eliminates the need to retrieve index value
 	  * before updating it.
+	  * @return the value of `index` from before the method was called.
 	  */
-	protected def index_++() :Unit = index += 1
+	protected def advance() :Int = {
+		val idx = index
+		index = idx + 1
+		idx
+	}
 
 	/** An optional convenience method for implementors which clips the current `index` and `limit` to
 	  * `[rangeStart, rangeEnd]` range.
@@ -152,14 +157,13 @@ trait IndexedIterator[+E] extends BufferedIterator[E] with SugaredIterator[E] wi
 
 	override def next() :E = {
 		val res = head //head validates the index for us.
-		index_++()
+		advance()
 		res
 	}
 	override def skip() :this.type = {
-		val idx = index
-		if (idx == limit)
-			unsupported_!(toString + ": index " + idx + " equals the limit marking iteration end.")
-		index = idx + 1
+		if (!hasNext)
+			unsupported_!(toString + ": index " + index + " equals the limit marking iteration end.")
+		advance()
 		this
 	}
 
@@ -181,17 +185,6 @@ trait IndexedIterator[+E] extends BufferedIterator[E] with SugaredIterator[E] wi
 
 	override def slice(from :Int, until :Int) :Iterator[E] = take(until).drop(from)
 
-//	override def foldLeft[B](z :B)(op :(B, T) => B) :B = {
-//		val end = limit
-//		var acc = z
-//		var i   = index
-//		while (i < end) {
-//			acc   = op(acc, head)
-//			i    += 1
-//			index = i
-//		}
-//		acc
-//	}
 	override def reduceLeft[U >: E](op :(U, E) => U) :U =
 		if (hasNext) foldLeft[U](next())(op)
 		else unsupported_!("Iterator().reduceLeft")
@@ -207,7 +200,7 @@ trait IndexedIterator[+E] extends BufferedIterator[E] with SugaredIterator[E] wi
 			if (underlyingSize < 0) ""
 			else if (rangeStart == 0) "/" + underlyingSize
 			else "/[" + rangeStart + ", " + rangeEnd + "]"
-		className + "|" + knownSize + "|(@" + index + range + ")"
+		className + "|" + knownSize + "|@" + index + range
 	}
 }
 
@@ -230,7 +223,7 @@ abstract class AbstractIndexedIterator[+E](private[this] var idx :Int, private[t
 	protected final override def index_=(value :Int) :Unit = idx = value
 	protected final override def limit :Int = end
 	protected final override def limit_=(value :Int) :Unit = end = value
-	protected final override def index_++() :Unit = idx += 1
+	protected final override def advance() :Int = { val i = idx; idx = i + 1; i }
 
 	/** Returns `limit - index`. */
 	final override def knownSize :Int = end - idx
@@ -257,38 +250,14 @@ trait CountdownIterator[+E] extends IndexedIterator[E] {
 	protected final override def limit :Int = index + remaining
 	protected final override def limit_=(value :Int) :Unit = remaining = value - index
 	protected def remaining_--() :Unit = remaining -= 1
-	protected override def index_++() :Unit = {
+	protected override def advance() :Int = {
+		val idx = index
+		index   = idx
 		remaining -= 1
-		index += 1
+		idx
 	}
 	final override def knownSize :Int = remaining
 	override def hasNext :Boolean = remaining > 0
-
-	override def skip() :this.type = {
-		val rem = remaining
-		if (rem <= 0)
-			noSuch_!(toString + ".skip()")
-		index_++()
-		this
-	}
-
-	override def take(n :Int) :Iterator[E] = {
-		if (n <= 0)
-			remaining = 0
-		else if (n < remaining)
-			remaining = n
-		this
-	}
-	override def drop(n :Int) :Iterator[E] = {
-		if (n > 0) {
-			val rem = remaining
-			val dropped = math.min(rem, n)
-			index += dropped
-			remaining = rem - dropped
-		}
-		this
-	}
-
 
 	protected override def adjustRange() :Unit = {
 		val min   = rangeStart
@@ -328,6 +297,31 @@ trait CountdownIterator[+E] extends IndexedIterator[E] {
 		if (remaining < 0 | remaining > max - idx)
 			outOfBounds_!(toString + " iterator size " + size + " out of range [0, " + span + "].")
 	}
+
+	override def skip() :this.type = {
+		val rem = remaining
+		if (rem <= 0)
+			noSuch_!(toString + ".skip()")
+		advance()
+		this
+	}
+
+	override def take(n :Int) :Iterator[E] = {
+		if (n <= 0)
+			remaining = 0
+		else if (n < remaining)
+			remaining = n
+		this
+	}
+	override def drop(n :Int) :Iterator[E] = {
+		if (n > 0) {
+			val rem = remaining
+			val dropped = math.min(rem, n)
+			index += dropped
+			remaining = rem - dropped
+		}
+		this
+	}
 }
 
 
@@ -352,7 +346,12 @@ abstract class AbstractCountdownIterator[+E](private[this] var idx :Int, private
 //	protected override def underlyingSize :Int = -1
 	protected final override def index :Int = idx
 	protected final override def index_=(value :Int) :Unit = idx = value
-	protected final override def index_++() :Unit = { idx += 1; countdown -= 1 }
+	protected final override def advance() :Int = {
+		val i = idx
+		idx = i + 1
+		countdown -= 1
+		i
+	}
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
 	protected final override def remaining_--() :Unit = countdown -= 1
@@ -409,12 +408,13 @@ abstract class AbstractCyclicIterator[+E](private[this] var idx :Int, private[th
 				idx = lowerBound + (((value & 0xffffffffL) - lowerBound) % range).toInt
 		}
 	}
-	protected final override def index_++() :Unit = {
-		val i = idx + 1
-		idx = i
-		if (i == upperBound)
+	protected final override def advance() :Int = {
+		val i = idx
+		idx = i + 1
+		if (i == upperBound - 1)
 			idx = rangeStart
 		countdown -= 1
+		i
 	}
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
@@ -428,6 +428,7 @@ abstract class AbstractCyclicIterator[+E](private[this] var idx :Int, private[th
 		idx = i
 		if (i == upperBound)
 			idx = rangeStart
+		countdown -= 1
 		res
 	}
 }
@@ -477,45 +478,32 @@ private object ReverseIndexedIterator {
   *       to it, as long as `index - limit` is non-negative.
   * @see [[net.noresttherein.sugar.collections.IndexedIterator]]
   */
-trait ReverseIndexedIterator[+E]
-	extends BufferedIterator[E] with SugaredIterator[E] with HasFastSlice[E] with Cloneable
-{
-	/** An optional lowest valid index in the underlying structure. Defaults to zero. */
-	protected def rangeStart :Int = 0
-
-	/** An optional upper (exclusive) upper limit on valid indexes in the underlying structure.
-	  * Defaults to `rangeStart + underlyingSize`.
-	  */
-	protected def rangeEnd :Int = rangeStart + underlyingSize
-
-	/** An optional size of the underlying structure, used by `validateRange()` and `adjustRange()` methods,
-	  * as well as some implementations.
-	  */
-	protected def underlyingSize :Int
-
-	/** The index pointing at the next (`head`) element in the underlying structure. */
-	protected var index :Int
-
+trait ReverseIndexedIterator[+E] extends IndexedIterator[E] {
 	/** An index lesser or equal `index` which defines the stop of iteration. It points immediately ''before''
 	  * the last element returned by the iterator. The size of the iterator is defined as `index - limit` and `hasNext`
 	  * condition as `index == limit`. In the latter case, only equality between the indices ends the iteration.
 	  */
-	protected var limit :Int
+	protected override var limit :Int
 
 	/** Decreases the value of the `index` property. Overriding this method in a concrete subclass will let
 	  * methods of this trait avoid reading its value from a getter before the update.
+	  * @return the value of `index` from before the method was called.
 	  */
-	protected def index_--() :Unit = index -= 1
-
-	protected def indexInRange :Int = {
-		val start = rangeStart
-		start + (index - start) % underlyingSize
+	protected override def advance() :Int = {
+		val idx = index
+		index = idx - 1
+		idx
 	}
+//
+//	protected override def indexInRange :Int = {
+//		val start = rangeStart
+//		start + (index - start) % underlyingSize
+//	}
 
 	/** An optional convenience method for implementors which clips the current `index` and `limit` to
 	  * `[rangeStart - 1, rangeEnd - 1]` range.
 	  */
-	protected def adjustRange() :Unit = {
+	protected override def adjustRange() :Unit = {
 		val min   = rangeStart - 1
 		val max   = rangeEnd - 1
 		val end   = limit
@@ -536,7 +524,7 @@ trait ReverseIndexedIterator[+E]
 	/** An optional convenience method for implementors which throws an [[IndexOutOfBoundsException]]
 	  * if  `index` or `limit` are out of `[rangeStart - 1, rangeEnd - 1]` range.
 	  */
-	protected def validateRange() :Unit = {
+	protected override def validateRange() :Unit = {
 		val min   = rangeStart - 1
 		val max   = rangeEnd - 1
 		val curr  = index
@@ -548,30 +536,7 @@ trait ReverseIndexedIterator[+E]
 	}
 
 	override def knownSize :Int = index - limit
-	final override def size :Int = knownSize
 
-	override def hasNext :Boolean = index != limit
-
-	/** Returns the element at `index` in the underlying collection. Must implement the mandatory check
-	  * if the element exists - the implementation of `next` assumes it has already been made,
-	  * in order to avoid doing it twice. Failure to do so will lead to an illegal state of the iterator
-	  * and undefined behaviour.
-	  */
-	override def head :E
-
-	override def next() :E = {
-		val hd = head //head validates for us
-		index_--()
-		hd
-	}
-
-	override def skip() :this.type = {
-		val idx = index
-		if (idx == limit)
-			unsupported_!(toString + ".skip()")
-		index = idx - 1
-		this
-	}
 	override def take(n :Int) :Iterator[E] = {
 		if (n <= 0) limit = index
 		else if (n < knownSize) limit += knownSize - n
@@ -582,35 +547,9 @@ trait ReverseIndexedIterator[+E]
 		else if (n > 0) index -= n
 		this
 	}
-	override def strictDrop(n :Int) :Iterator[E] = drop(n)
-
-	override def hasFastDrop :Boolean = true
-
-	override def splitAt(n :Int) :(Iterator[E], Iterator[E]) = (clone.take(n), drop(n))
-
-	override def slice(from :Int, until :Int) :Iterator[E] = {
-		if (until < 0)
-			limit = index
-		else if (until <= knownSize)
-			limit = index - until
-		if (from > knownSize)
-			index = limit
-		else if (from > 0)
-			index -= from
-		this
-	}
-	override def reduceLeft[U >: E](op :(U, E) => U) :U =
-		if (!hasNext) unsupported_!("Iterator().reduceLeft")
-		else foldLeft[U](next())(op)
-
-	override def reduceLeftOption[U >: E](op :(U, E) => U) :Option[U] = if (hasNext) Some(reduceLeft(op)) else None
 
 	override def clone :ReverseIndexedIterator[E] =
 		super.clone.asInstanceOf[ReverseIndexedIterator[E]]
-
-	protected def className :String = localClassNameOf(this)
-
-	override def toString :String = className + "|" + knownSize + "|(@" + index + "/" + underlyingSize + ")"
 }
 
 
@@ -632,7 +571,7 @@ abstract class AbstractReverseIndexedIterator[+E](private[this] var end :Int, pr
 	protected override def underlyingSize :Int = -1
 	protected final override def index :Int = first
 	protected final override def index_=(value :Int) :Unit = first = value
-	protected final override def index_--() :Unit = first -= 1
+	protected final override def advance() :Int = { val idx = first; first = idx - 1; idx }
 	protected final override def limit :Int = end
 	protected final override def limit_=(value :Int) :Unit = end = value
 
@@ -661,8 +600,8 @@ abstract class AbstractReverseIndexedIterator[+E](private[this] var end :Int, pr
 
 /** A `ReverseIndexedIterator` which, instead of keeping a lower index bound, defines the iteration end by maintaining
   * the number of [[net.noresttherein.sugar.collections.CountdownIterator.remaining remaining]] elements.
-  */
-trait ReverseCountdownIterator[+T] extends ReverseIndexedIterator[T] {
+  */ //consider: extending CountdownIterator. Some methods there would have to no longer be final, though.
+trait ReverseCountdownIterator[+E] extends ReverseIndexedIterator[E] {
 	protected var remaining :Int
 	/** Decreases the value of the `remaining` property. Overriding this method in a concrete subclass will let
 	  * methods of this trait avoid reading its value from a getter before the update.
@@ -670,20 +609,18 @@ trait ReverseCountdownIterator[+T] extends ReverseIndexedIterator[T] {
 	protected def remaining_--() :Unit = remaining -= 1
 
 	/** Decreases ''both'' `index` and `remaining` properties by one. */
-	protected override def index_--() :Unit = { remaining -= 1; index -=1 }
+	protected override def advance() :Int = {
+		val idx = index
+		index = idx - 1
+		remaining -= 1
+		idx
+	}
 	protected final override def limit :Int = index - remaining
 	protected final override def limit_=(value :Int) :Unit = remaining = index - value
 
 	final override def knownSize :Int = remaining
 
 	override def hasNext :Boolean = remaining > 0
-	override def skip() :this.type = {
-		val rem = remaining
-		if (rem <= 0)
-			noSuch_!(toString + ".next()")
-		index_--()
-		this
-	}
 
 	protected override def adjustRange() :Unit = {
 		val start = rangeStart
@@ -720,17 +657,29 @@ trait ReverseCountdownIterator[+T] extends ReverseIndexedIterator[T] {
 			outOfBounds_!(toString + " lo index " + until + " out of range [" + start + ", " + end + ").")
 	}
 
-//	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
-//		val copied = elementsToCopy(underlyingSize, xs, start, len)
-//		val suffix = rangeEnd - index
-//		if (copied <= suffix)
-//			super.copyToArray(xs, start, len)
-//		else {
-//			super.copyToArray(xs, start, suffix)
-//			super.copyToArray(xs, start + suffix, copied - suffix)
-//			copied
-//		}
-//	}
+	override def skip() :this.type = {
+		val rem = remaining
+		if (rem <= 0)
+			noSuch_!(toString + ".next()")
+		advance()
+		this
+	}
+	override def take(n :Int) :Iterator[E] = {
+		if (n <= 0)
+			remaining = 0
+		else if (n < remaining)
+			remaining = n
+		this
+	}
+	override def drop(n :Int) :Iterator[E] = {
+		if (n > 0) {
+			val rem = remaining
+			val dropped = math.min(rem, n)
+			index -= dropped
+			remaining = rem - dropped
+		}
+		this
+	}
 }
 
 
@@ -755,7 +704,12 @@ abstract class AbstractReverseCountdownIterator[+E](private[this] var idx :Int, 
 //	protected override def underlyingSize :Int = -1
 	protected final override def index :Int = idx
 	protected final override def index_=(value :Int) :Unit = idx = value
-	protected final override def index_--() :Unit = { countdown -= 1; idx -= 1 }
+	protected final override def advance() :Int = {
+		val i = idx
+		idx = i - 1
+		countdown -= 1
+		i
+	}
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
 	protected final override def remaining_--() :Unit = countdown -= 1
@@ -795,7 +749,7 @@ abstract class AbstractReverseCountdownIterator[+E](private[this] var idx :Int, 
   *                   [[net.noresttherein.sugar.collections.IndexedIterator.rangeEnd rangeEnd]] property
   *                   (and [[net.noresttherein.sugar.collections.IndexedIterator.underlyingSize underlyingSize]],
   *                   unless the subclass overrides `rangeStart`). Must be greater than zero.
-  */ //The problem with this class is that it doesn't allow to iterate over the whole range.
+  */
 abstract class AbstractReverseCyclicIterator[+E](private[this] var idx :Int, private[this] var countdown :Int,
                                                  lowerBound :Int, upperBound :Int)
 	extends AbstractSugaredIterator[E] with ReverseCountdownIterator[E]
@@ -814,18 +768,19 @@ abstract class AbstractReverseCyclicIterator[+E](private[this] var idx :Int, pri
 				idx = lowerBound + (upperBound + value - lowerBound) % range
 		}
 	}
-	protected final override def index_--() :Unit = {
+	protected final override def advance() :Int = {
 		val i = idx
 		idx = i - 1
 		if (i == lowerBound)
 			idx = upperBound - 1
 		countdown -= 1
+		i
 	}
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
 	protected final override def remaining_--() :Unit = countdown -= 1
 	final override def hasNext :Boolean = countdown > 0
-	final override def next() :E = {
+	override def next() :E = {
 		val res = head
 		val i = idx
 		idx = i - 1
@@ -850,7 +805,7 @@ abstract class AbstractReverseCyclicIterator[+E](private[this] var idx :Int, pri
   * @define factoryInfo A factory creating ${coll}s iterating over ${input}s.
   *                     The ${coll}s rely on the random indexing of the underlying ${input}s.
   */
-abstract class IndexedIteratorFactory[-S[_], +I[_]] extends SliceFactory[S, I] {
+trait IndexedIteratorFactory[-S[_], +I[_]] extends SliceFactory[S, I] {
 	/** Length of the argument $input used to determine the upper index bound. */
 	protected def lengthOf[T](source :S[T]) :Int
 
@@ -906,7 +861,7 @@ abstract class IndexedIteratorFactory[-S[_], +I[_]] extends SliceFactory[S, I] {
   * @tparam I The type of iterators produced by this factory.
   * @define Coll `CountdownIterator`
   */
-abstract class CountdownIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFactory[S, I] {
+trait CountdownIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFactory[S, I] {
 	protected override def make[T](source :S[T], first :Int, size :Int) :I[T]
 
 	override def from[T](source :S[T], first :Int) :I[T] = {
@@ -941,7 +896,7 @@ abstract class CountdownIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFac
   * @tparam I The type of iterators produced by this factory.
   * @define coll cyclic iterator
   */
-abstract class CyclicIteratorFactory[-S[_], +I[_]] extends CountdownIteratorFactory[S, I] {
+trait CyclicIteratorFactory[-S[_], +I[_]] extends CountdownIteratorFactory[S, I] {
 	/** A $coll returning all the elements of `source` in ascending index order,
 	  * starting with index `first % source.length`. The index is increased modulo the length of the $input,
 	  * wrapping back to the beginning when its end is reached.
@@ -985,10 +940,10 @@ abstract class CyclicIteratorFactory[-S[_], +I[_]] extends CountdownIteratorFact
 		else {
 			val from0  = if (from < 0) (len + from % len) % len else from % len
 			val until0 = if (until < 0) (len + until % len) % len else until % len
-			val size =
-				if (from0 < until0) until0 - from0
-				else if (until0 > from0) len + until0 - from0
-				else if (from0 == until0) 0
+			val size   =
+				if (until0 > from0) until0 - from0
+				else if (from0 > until0) len + until0 - from0
+				else if (from == until) 0
 				else len
 			make(source, from0, size)
 		}
@@ -1002,7 +957,7 @@ abstract class CyclicIteratorFactory[-S[_], +I[_]] extends CountdownIteratorFact
   * @define Coll `ReverseIndexedIterator`
   * @define coll reverse iterator
   */
-abstract class ReverseIndexedIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFactory[S, I] {
+trait ReverseIndexedIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFactory[S, I] {
 	override def apply[T](source :S[T]) :I[T] = make(source, 0, lengthOf(source))
 
 	/** A $coll returning elements `source(first), source(first - 1), ..., source(0)`.
@@ -1028,12 +983,12 @@ abstract class ReverseIndexedIteratorFactory[-S[_], +I[_]] extends IndexedIterat
 		make(source, downTo + 1, from + 1)
 	}
 
-	/** A $coll returning elements `source(hi - 1), source(hi - 2), ..., source(lo)`.
-	  * If any of the indices in the `[lo, hi)` range is out of bounds for `source`, it is ignored.
+	/** A $coll returning elements `source(until - 1), source(until - 2), ..., source(from)`.
+	  * If any of the indices in the `[from, until)` range is out of bounds for `source`, it is ignored.
 	  * Note that the first index argument is the last element of the iterator, and the actual first element
 	  * of the iterator resides at an index preceding the second argument.
-	  */
-	override def slice[T](source :S[T], lo :Int, hi :Int) :I[T] = super.slice(source, lo, hi)
+	  */ //override for docs.
+	override def slice[T](source :S[T], from :Int, until :Int) :I[T]
 }
 
 
@@ -1045,7 +1000,7 @@ abstract class ReverseIndexedIteratorFactory[-S[_], +I[_]] extends IndexedIterat
   * @tparam I    The type of iterators produced by this factory.
   * @define Coll `ReverseCountdownIterator`
   */
-abstract class ReverseCountdownIteratorFactory[-S[_], +I[_]] extends ReverseIndexedIteratorFactory[S, I] {
+trait ReverseCountdownIteratorFactory[-S[_], +I[_]] extends ReverseIndexedIteratorFactory[S, I] {
 	protected override def make[T](source :S[T], first :Int, size :Int) :I[T]
 
 	override def apply[T](source :S[T]) :I[T] = {
@@ -1076,20 +1031,20 @@ abstract class ReverseCountdownIteratorFactory[-S[_], +I[_]] extends ReverseInde
 		make(source, downTo + 1, from + 1)
 	}
 
-	/** A $coll returning elements `source(hi - 1), source(hi - 2), ..., source(lo)`.
-	  * If any of the indices in the `[lo, hi)` range is out of bounds for `source`, it is ignored.
+	/** A $coll returning elements `source(until - 1), source(until - 2), ..., source(from)`.
+	  * If any of the indices in the `[from, until)` range is out of bounds for `source`, it is ignored.
 	  * Note that the first index argument is the last element of the iterator, and the actual first element
 	  * of the iterator resides at an index preceding the second argument.
 	  */
-	override def slice[T](source :S[T], lo :Int, hi :Int) :I[T] = {
+	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
 		val len = lengthOf(source)
-		if (lo >= len) make(source, len, 0)
-		else if (hi <= 0) make(source, -1, 0)
-		else if (lo <= 0 & hi >= len) make(source, len - 1, len)
-		else if (lo <= 0) make(source, hi - 1, hi)
-		else if (hi >= len) make(source, len - 1, len)
-		else if (hi <= lo) make(source, lo, 0)
-		else make(source, hi - 1, hi)
+		if (from >= len) make(source, len, 0)
+		else if (until <= 0) make(source, -1, 0)
+		else if (from <= 0 & until >= len) make(source, len - 1, len)
+		else if (from <= 0) make(source, until - 1, until)
+		else if (until >= len) make(source, len - 1, len)
+		else if (until <= from) make(source, from, 0)
+		else make(source, until - 1, until)
 	}
 }
 
@@ -1099,12 +1054,12 @@ abstract class ReverseCountdownIteratorFactory[-S[_], +I[_]] extends ReverseInde
   * @tparam I    The type of iterators produced by this factory.
   * @define coll reverse cyclic iterator
   */
-abstract class ReverseCyclicIteratorFactory[-S[_], +I[_]] extends ReverseCountdownIteratorFactory[S, I] {
+trait ReverseCyclicIteratorFactory[-S[_], +I[_]] extends ReverseCountdownIteratorFactory[S, I] {
 	override def from[T](source :S[T], first :Int) :I[T] = {
 		val len = lengthOf(source)
-		if (len == 0)          make(source, -1, 0)
+		if (len == 0)          make(source, 0, 0)
 		else if (first >= len) make(source, first % len, len)
-		else if (first < 0)    make(source, len + first % len, len)
+		else if (first < 0)    make(source, (len + first % len) % len, len)
 		else                   make(source, first, len)
 	}
 
@@ -1116,15 +1071,12 @@ abstract class ReverseCyclicIteratorFactory[-S[_], +I[_]] extends ReverseCountdo
 	  */
 	override def apply[T](source :S[T], first :Int, length :Int) :I[T] = {
 		val len = lengthOf(source)
-		if (len == 0)
-			make(source, 0, 0)
-		else {
-			val from =
-				if (first > len) first % len
-				else if (first < 0) len + first % len
-				else first
-			make(source, from, math.min(len, math.max(length, 0)))
-		}
+		val from =
+			if (len <= 1) 0
+			else if (first >= len) first % len
+			else if (first < 0) (len + first % len) % len
+			else first
+		make(source, from, math.min(len, math.max(length, 0)))
 	}
 
 	//An alternative approach would take size = until - from and let returning some elements more than once.
@@ -1135,17 +1087,17 @@ abstract class ReverseCyclicIteratorFactory[-S[_], +I[_]] extends ReverseCountdo
 	  * If `from % len == until % len`, then the iterator will return all elements in the array, unless `from == until`,
 	  * in which case it will be empty.
 	  */
-	override def slice[T](source :S[T], lo :Int, hi :Int) :I[T] = {
+	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
 		val len = lengthOf(source)
 		if (len == 0) //avoid division by zero!
 			make(source, 0, 0)
 		else {
-			val start = if (hi > 0) (hi - 1) % len else len + (hi - 1) % len
-			val end   = if (lo > 0) (lo - 1) % len else len + (lo - 1) % len
+			val start = if (until > 0) (until - 1) % len else (len + until % len - 1) % len
+			val end   = if (from > 0) (from - 1) % len else (len + from % len - 1) % len
 			val size  =
 				if  (start > end) start - end
 				else if (start < end) len + start - end
-				else if (lo == hi) 0
+				else if (from == until) 0
 				else len
 			make(source, start, size)
 		}
@@ -1246,42 +1198,6 @@ private case object ReverseIndexedSeqIterator
 	protected override def make[T](source :collection.IndexedSeqOps[T, Any1, Any], from :Int, until :Int) :Iterator[T] =
 		new ReverseIndexedSeqIterator(source, from - 1, until - 1)
 }
-
-/*
-private object ReverseIndexedSeqIterator {
-	def apply[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _]) :ReverseIndexedSeqIterator[T] =
-		new ReverseIndexedSeqIterator(seq, -1, seq.length - 1)
-
-	/** An iterator returning elements `seq(first), seq(first - 1), ..., seq(first - length + 1)`.
-	  * If the iterator needs to access an element at index lesser than zero, the excess elements are ignored.
-	  * Negative `length` is the same as zero.
-	  */
-	def apply[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _], first :Int, length :Int)
-            :ReverseIndexedSeqIterator[T] =
-    {
-		val len    = seq.length
-	    val from   = math.max(-1, math.min(len - 1, first))
-		val downTo = from - math.min(from + 1, math.max(length, 0))
-		new ReverseIndexedSeqIterator(seq, downTo, from)
-	}
-
-	/** An iterator returning elements `seq(hi - 1), seq(hi - 2), ..., seq(lo)`.
-	  * If any of the indices in the `[lo, hi)` range is out of bounds for `seq`, it is ignored.
-	  */
-	def slice[T](seq :collection.IndexedSeqOps[T, kinds.Any1, _], lo :Int, hi :Int)
-			:ReverseIndexedSeqIterator[T] =
-	{
-		val len = seq.length
-		if (lo >= len)                 new ReverseIndexedSeqIterator(seq, len - 1, len - 1)
-		else if (hi <= 0)              new ReverseIndexedSeqIterator(seq, -1, -1)
-		else if (lo <= 0 && hi >= len) new ReverseIndexedSeqIterator(seq, -1, len - 1)
-		else if (lo <= 0)              new ReverseIndexedSeqIterator(seq, -1, hi -1)
-		else if (hi >= len)            new ReverseIndexedSeqIterator(seq, lo - 1, len - 1)
-		else if (hi <= lo)             new ReverseIndexedSeqIterator(seq, lo - 1, lo - 1)
-		else                           new ReverseIndexedSeqIterator(seq, lo - 1, hi - 1)
-	}
-}
-*/
 
 
 

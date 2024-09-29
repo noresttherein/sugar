@@ -2,9 +2,11 @@ package net.noresttherein.sugar.arrays
 
 import scala.collection.AbstractIterator
 
-import net.noresttherein.sugar.collections.Mutator
+import net.noresttherein.sugar.collections.Mutability.Mutable
+import net.noresttherein.sugar.collections.{ArrayLikeSliceWrapper, IndexedIteratorFactory, Mutator, ValIterator, ValMutator}
 import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
+import net.noresttherein.sugar.vars.{ArrayLens, InOut}
 
 
 
@@ -20,7 +22,7 @@ import net.noresttherein.sugar.reflect.Specialized.MultiValue
 @SerialVersionUID(Ver)
 private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sugar]
                                         (array :Array[T], private[this] var first :Int, private[this] var `last++` :Int)
-	extends AbstractIterator[T] with ArrayIteratorOps[T] with Mutator[T] with Serializable
+	extends AbstractIterator[T] with ArrayIteratorOps[T] with ValMutator[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 
@@ -30,6 +32,7 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 	final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
 
+	override def lens :InOut[T] = new ArrayLens(array, first)
 //	def reverse :ReverseArrayIterator[T] = new ReverseArrayIterator[T](array, first, `last++`)
 
 	final override def hasNext :Boolean = first < `last++`
@@ -54,7 +57,7 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 		first += 1
 		res
 	}
-	override def remove() :Unit = unsupported_!("Cannot remove an element from an array")
+	override def remove() :this.type = unsupported_!("Cannot remove an element from an array")
 
 	override def clone = new ArrayMutator(array, first, `last++`)
 }
@@ -62,7 +65,11 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 
 
 @SerialVersionUID(Ver)
-case object ArrayMutator extends ArrayLikeIteratorFactory[Array, ArrayMutator] {
+object ArrayMutator extends IndexedIteratorFactory[Array, ArrayMutator] with ArrayLikeSliceWrapper[Array, ArrayMutator] {
+	protected final override def lengthOf[E](array :Array[E]) :Int = array.length
+	//	private[this] val empty = make(Array.emptyObjectArray.asInstanceOf[A[Nothing]])
+	@inline final override def wrap[E](array :Array[E]) :ArrayMutator[E] = apply(array)
+
 	protected override def make[E](array :Array[E], from :Int, until :Int) :ArrayMutator[E] =
 		((array :ArrayLike[_]) match {
 			case a :Array[AnyRef]    => new ArrayMutator(a, from, until)

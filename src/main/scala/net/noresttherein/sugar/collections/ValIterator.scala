@@ -31,9 +31,8 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] { outer =>
 
 	override def foldLeft[@specialized(Fun2Arg) B](z :B)(op :(B, E) => B) :B = {
 		var res = z
-		while (hasNext) {
+		while (hasNext)
 			res = op(res, next())
-		}
 		res
 	}
 

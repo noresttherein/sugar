@@ -1864,6 +1864,7 @@ private object Iterators {
 	// to be garbage collected. However, any 'parent' Concats use the same iterators,
 	// so we could replace individual iterators with Iterator.empty.
 	// Alternatively, we could simply warn that the original iterator's state becomes undefined when
+	//todo: use LightQueue and return the same instance from append/prepend; update the docs to reflect it.
 	private final class Concat[+E](private[this] var iterators :IndexedSeq[Iterator[E]])
 		extends AbstractFlatMap[E] with SingleDrop[E]
 	{

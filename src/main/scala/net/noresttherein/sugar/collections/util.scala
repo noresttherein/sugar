@@ -544,7 +544,7 @@ private object HasFastSlice {
 		case it :Iterable[A]                          => quickSlice(it, from, until)
 		case it :SugaredIterator[A] if it.hasFastDrop => Yes(it.strictSlice(from, until))
 		case it :IndexedIterator[A]                   => Yes(it.slice(from, until))
-		case it :ReverseIndexedIterator[A]            => Yes(it.slice(from, until))
+//		case it :ReverseIndexedIterator[A]            => Yes(it.slice(from, until))
 		case it :Iterator[_] if isIndexedIterator(it) => Yes(slice(it, from, until))
 		case _ => ArrayLikeSlice.Convert(items, from, until) match {
 			case Yes(slice)                           => Yes(slice)

@@ -34,8 +34,7 @@ trait CyclicIndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]] extends Inde
 		(if (len - rem >= size) suffix else suffix ++ iterator(source).take(size - (len - rem))).toSeq
 	}
 
-	protected override def expectFrom[X](source :S[X], first :Int) :Seq[X] =
-		slice(source, 0, math.min(Int.MaxValue - 1, first) + 1).reverseIterator.toSeq
+	protected override def expectFrom[X](source :S[X], first :Int) :Seq[X] = expectApply(source, first, Int.MaxValue)
 }
 
 

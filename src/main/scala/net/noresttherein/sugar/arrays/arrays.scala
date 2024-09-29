@@ -5,7 +5,8 @@ import scala.annotation.unchecked.uncheckedVariance
 
 import net.noresttherein.sugar.arrays.ReverseCyclicMatrixIterator
 import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
-import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, ValIterator}
+import net.noresttherein.sugar.collections.Mutability.{Immutable, Mutable, Unspecified}
+import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, IndexedIteratorFactory, Mutability, ValIterator}
 import net.noresttherein.sugar.vars.Maybe
 
 
@@ -241,96 +242,124 @@ package object arrays extends extensions {
 	// So, it boils down mainly to the dilemma if we should have @specialized classes in public API.
 	// Currently I have chosen ValIterator.Buffered, because we already had tests for head in ArrayIteratorSpec.
 	/** A factory of iterators advancing over array slices. */
-	private[sugar] val ArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ValIterator.Buffered] =
-		ArrayLikeIteratorFactory
+	private[sugar] val ArrayLikeIterator :IndexedIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new ArrayIteratorFactory[ArrayLike]("ArrayLikeIterator", Unspecified, ArrayLikeIterator)
 
-	private[sugar] val IArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ValIterator.Buffered] =
-		IArrayIteratorFactory
+	private[sugar] val IArrayLikeIterator :IndexedIteratorFactory[IArrayLike, ValIterator.Buffered] =
+		new ArrayIteratorFactory[IArrayLike]("IArrayLikeIterator", Immutable, IArrayLikeIterator)
 
-	private[sugar] val ArrayIterator :TypedArrayIteratorFactory[Array, ValIterator.Buffered] = ArrayIteratorFactory
-	private[sugar] val IArrayIterator :TypedArrayIteratorFactory[IArray, ValIterator.Buffered] = IArrayIteratorFactory
+	private[sugar] val ArrayIterator :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new ArrayIteratorFactory[Array]("ArrayIterator", Mutable, ArrayIterator)
 
-	private[sugar] val RefArrayLikeIterator :ArrayLikeIteratorFactory[RefArray, ValIterator.Buffered] =
-		RefArrayLikeIteratorFactory
+	private[sugar] val GenericArrayIterator :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new GenericArrayIteratorFactory[Array]("GenericArrayIterator", Mutable, GenericArrayIterator)
 
-	private[sugar] val RefArrayIterator :ArrayLikeIteratorFactory[RefArray, ValIterator.Buffered] =
-		RefArrayLikeIteratorFactory
+	private[sugar] val IArrayIterator :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new ArrayIteratorFactory[IArray]("IArrayIterator", Immutable, IArrayIterator)
 
-	private[sugar] val IRefArrayIterator :ArrayLikeIteratorFactory[IRefArray, ValIterator.Buffered] = IRefArrayIteratorFactory
+	private[sugar] val GenericIArrayIterator :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new GenericArrayIteratorFactory[IArray]("GenericIArrayIteratorFactory", Immutable, GenericIArrayIterator)
 
+	private[sugar] val RefArrayLikeIterator :IndexedIteratorFactory[RefArrayLike, ValIterator.Buffered] =
+		new RefArrayLikeIteratorFactory[RefArrayLike]("RefArrayLikeIterator", Unspecified, RefArrayLikeIterator)
 
+	private[sugar] val RefArrayIterator :IndexedIteratorFactory[RefArray, ValIterator.Buffered] =
+		new RefArrayLikeIteratorFactory[RefArray]("RefArrayIterator", Mutable, RefArrayIterator)
 
-	private[sugar] val ReverseArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ValIterator.Buffered] =
-		ReverseArrayIteratorFactory
-
-	private[sugar] val ReverseIArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ValIterator.Buffered] =
-		ReverseArrayIteratorFactory
-
-	private[sugar] val ReverseArrayIterator  :TypedArrayIteratorFactory[Array, ValIterator.Buffered] =
-		ReverseArrayIteratorFactory
-
-	private[sugar] val ReverseIArrayIterator :TypedArrayIteratorFactory[IArray, ValIterator.Buffered] =
-		ReverseArrayIteratorFactory
-
-	private[sugar] val ReverseRefArrayLikeIterator :ArrayLikeIteratorFactory[RefArrayLike, ValIterator.Buffered] =
-		ReverseRefArrayLikeIteratorFactory
-
-	private[sugar] val ReverseRefArrayIterator :ArrayLikeIteratorFactory[RefArray, ValIterator.Buffered] =
-		ReverseRefArrayLikeIteratorFactory
-
-	private[sugar] val ReverseIRefArrayIterator :ArrayLikeIteratorFactory[IRefArray, ValIterator.Buffered] =
-		ReverseRefArrayLikeIteratorFactory
+	private[sugar] val IRefArrayIterator :IndexedIteratorFactory[IRefArray, ValIterator.Buffered] =
+		new RefArrayLikeIteratorFactory[IRefArray]("IRefArrayIterator", Immutable, IRefArrayIterator)
 
 
 
-	private[sugar] val CyclicArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ValIterator.Buffered] =
-		CyclicArrayIteratorFactory
+	private[sugar] val ReverseArrayLikeIterator :IndexedIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new ReverseArrayIteratorFactory[ArrayLike]("ReverseArrayLikeIterator", Unspecified, ReverseArrayLikeIterator)
 
-	private[sugar] val CyclicIArrayLikeIterator :ArrayLikeIteratorFactory[IArrayLike, ValIterator.Buffered] =
-		CyclicArrayIteratorFactory
+	private[sugar] val ReverseIArrayLikeIterator :IndexedIteratorFactory[IArrayLike, ValIterator.Buffered] =
+		new ReverseArrayIteratorFactory[IArrayLike]("ReverseArrayLikeIterator", Immutable, ReverseIArrayLikeIterator)
 
-	private[sugar] val CyclicArrayIterator  :TypedArrayIteratorFactory[Array, ValIterator.Buffered] =
-		CyclicArrayIteratorFactory
+	private[sugar] val ReverseArrayIterator  :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new ReverseArrayIteratorFactory[Array]("ReverseArrayIterator", Mutable, ReverseArrayIterator)
 
-	private[sugar] val CyclicIArrayIterator :TypedArrayIteratorFactory[IArray, ValIterator.Buffered] =
-		CyclicArrayIteratorFactory
+	private[sugar] val ReverseGenericArrayIterator  :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new ReverseGenericArrayLikeIteratorFactory[Array]("ReverseGenericArrayIterator", Mutable, ReverseGenericArrayIterator)
 
-	private[sugar] val CyclicRefArrayLikeIterator :ArrayLikeIteratorFactory[RefArrayLike, ValIterator.Buffered] =
-		CyclicArrayLikeIterator
+	private[sugar] val ReverseIArrayIterator :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new ReverseArrayIteratorFactory[IArray]("ReverseIArrayIterator", Immutable, ReverseIArrayIterator)
 
-	private[sugar] val CyclicRefArrayIterator :ArrayLikeIteratorFactory[RefArray, ValIterator.Buffered] =
-		CyclicRefArrayLikeIterator
+	private[sugar] val ReverseGenericIArrayIterator  :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new ReverseGenericArrayLikeIteratorFactory[IArray]("ReverseGenericArrayIterator", Immutable, ReverseGenericIArrayIterator)
 
-	private[sugar] val CyclicIRefArrayIterator :ArrayLikeIteratorFactory[IRefArray, ValIterator.Buffered] =
-		CyclicIArrayLikeIterator
+	private[sugar] val ReverseRefArrayLikeIterator :IndexedIteratorFactory[RefArrayLike, ValIterator.Buffered] =
+		new ReverseRefArrayLikeIteratorFactory[RefArrayLike]("ReverseRefArrayLikeIterator", Unspecified, ReverseCyclicRefArrayLikeIterator)
 
+	private[sugar] val ReverseRefArrayIterator :IndexedIteratorFactory[RefArray, ValIterator.Buffered] =
+		new ReverseRefArrayLikeIteratorFactory[RefArray]("ReverseRefArrayIterator", Mutable, ReverseRefArrayIterator)
 
-
-	private[sugar] val ReverseCyclicArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ValIterator.Buffered] =
-		ReverseCyclicArrayIteratorFactory
-
-	private[sugar] val ReverseCyclicIArrayLikeIterator :ArrayLikeIteratorFactory[ArrayLike, ValIterator.Buffered] =
-		ReverseCyclicArrayIteratorFactory
-
-	private[sugar] val ReverseCyclicArrayIterator  :TypedArrayIteratorFactory[Array, ValIterator.Buffered] =
-		ReverseCyclicArrayIteratorFactory
-
-	private[sugar] val ReverseCyclicIArrayIterator :TypedArrayIteratorFactory[IArray, ValIterator.Buffered] =
-		ReverseCyclicArrayIteratorFactory
-
-	private[sugar] val ReverseCyclicRefArrayLikeIterator :ArrayLikeIteratorFactory[RefArrayLike, ValIterator.Buffered] =
-		ReverseCyclicArrayLikeIterator
-
-	private[sugar] val ReverseCyclicRefArrayIterator :ArrayLikeIteratorFactory[RefArray, ValIterator.Buffered] =
-		ReverseCyclicArrayLikeIterator
-
-	private[sugar] val ReverseCyclicIRefArrayIterator :ArrayLikeIteratorFactory[IRefArray, ValIterator.Buffered] =
-		ReverseCyclicIArrayLikeIterator
+	private[sugar] val ReverseIRefArrayIterator :IndexedIteratorFactory[IRefArray, ValIterator.Buffered] =
+		new ReverseRefArrayLikeIteratorFactory[IRefArray]("ReverseIRefArrayIterator", Immutable, ReverseIRefArrayIterator)
 
 
 
-	private[sugar] val MutableArrayMutator :ArrayLikeIteratorFactory[MutableArray, ArrayMutator] =
-		ArrayMutator.asInstanceOf[ArrayLikeIteratorFactory[MutableArray, ArrayMutator]]
+	private[sugar] val CyclicArrayLikeIterator :IndexedIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new CyclicArrayIteratorFactory[ArrayLike]("CyclicArrayLikeIterator", Unspecified, CyclicArrayLikeIterator)
+
+	private[sugar] val CyclicIArrayLikeIterator :IndexedIteratorFactory[IArrayLike, ValIterator.Buffered] =
+		new CyclicArrayIteratorFactory[IArrayLike]("CyclicIArrayLikeIterator", Immutable, CyclicIArrayLikeIterator)
+
+	private[sugar] val CyclicArrayIterator  :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new CyclicArrayIteratorFactory[Array]("CyclicArrayIterator", Mutable, CyclicArrayIterator)
+
+	private[sugar] val CyclicGenericArrayIterator :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new CyclicGenericArrayIteratorFactory[Array]("CyclicGenericArrayIterator", Mutable, CyclicGenericArrayIterator)
+
+	private[sugar] val CyclicIArrayIterator :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new CyclicArrayIteratorFactory[IArray]("CyclicIArrayIterator", Immutable, CyclicIArrayIterator)
+
+	private[sugar] val CyclicGenericIArrayIterator :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new CyclicGenericArrayIteratorFactory[IArray]("CyclicGenericIArrayIterator", Immutable, CyclicGenericIArrayIterator)
+
+	private[sugar] val CyclicRefArrayLikeIterator :IndexedIteratorFactory[RefArrayLike, ValIterator.Buffered] =
+		new CyclicRefArrayLikeIteratorFactory[RefArrayLike]("CyclicRefArrayLikeIterator", Unspecified, CyclicRefArrayLikeIterator)
+
+	private[sugar] val CyclicRefArrayIterator :IndexedIteratorFactory[RefArray, ValIterator.Buffered] =
+		new CyclicRefArrayLikeIteratorFactory[RefArray]("CyclicRefArrayIterator", Mutable, CyclicRefArrayIterator)
+
+	private[sugar] val CyclicIRefArrayIterator :IndexedIteratorFactory[IRefArray, ValIterator.Buffered] =
+		new CyclicRefArrayLikeIteratorFactory[IRefArray]("CyclicIRefArrayIterator", Mutable, CyclicIRefArrayIterator)
+
+
+
+	private[sugar] val ReverseCyclicArrayLikeIterator :IndexedIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new ReverseCyclicArrayIteratorFactory[ArrayLike]("ReverseCyclicArrayLikeIterator", Unspecified, ReverseCyclicArrayLikeIterator)
+
+	private[sugar] val ReverseCyclicIArrayLikeIterator :IndexedIteratorFactory[IArrayLike, ValIterator.Buffered] =
+		new ReverseCyclicArrayIteratorFactory[IArrayLike]("ReverseCyclicIArrayLikeIterator", Immutable, ReverseCyclicIArrayLikeIterator)
+
+	private[sugar] val ReverseCyclicArrayIterator  :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new ReverseCyclicArrayIteratorFactory[Array]("ReverseCyclicArrayIterator", Mutable, ReverseCyclicArrayIterator)
+
+	private[sugar] val ReverseCyclicGenericArrayIterator  :IndexedIteratorFactory[Array, ValIterator.Buffered] =
+		new ReverseCyclicGenericArrayIteratorFactory[Array]("ReverseCyclicGenericArrayIterator", Mutable, ReverseCyclicGenericArrayIterator)
+
+	private[sugar] val ReverseCyclicIArrayIterator  :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new ReverseCyclicArrayIteratorFactory[IArray]("ReverseCyclicIArrayIterator", Immutable, ReverseCyclicIArrayIterator)
+
+	private[sugar] val ReverseCyclicGenericIArrayIterator  :IndexedIteratorFactory[IArray, ValIterator.Buffered] =
+		new ReverseCyclicGenericArrayIteratorFactory[IArray]("ReverseCyclicGenericIArrayIterator", Mutable, ReverseCyclicGenericIArrayIterator)
+
+	private[sugar] val ReverseCyclicRefArrayLikeIterator :IndexedIteratorFactory[RefArrayLike, ValIterator.Buffered] =
+		new ReverseCyclicRefArrayLikeIteratorFactory[RefArrayLike]("ReverseCyclicRefArrayLikeIterator", Unspecified, ReverseCyclicRefArrayLikeIterator)
+
+	private[sugar] val ReverseCyclicRefArrayIterator :IndexedIteratorFactory[RefArray, ValIterator.Buffered] =
+		new ReverseCyclicRefArrayLikeIteratorFactory[RefArray]("ReverseCyclicRefArrayIterator", Mutable, ReverseCyclicRefArrayIterator)
+
+	private[sugar] val ReverseCyclicIRefArrayIterator :IndexedIteratorFactory[IRefArray, ValIterator.Buffered] =
+		new ReverseCyclicRefArrayLikeIteratorFactory[IRefArray]("ReverseCyclicIRefArrayIterator", Immutable, ReverseCyclicIRefArrayIterator)
+
+
+
+	private[sugar] val MutableArrayMutator :IndexedIteratorFactory[MutableArray, ArrayMutator] =
+		ArrayMutator.asInstanceOf[IndexedIteratorFactory[MutableArray, ArrayMutator]]
 
 
 
