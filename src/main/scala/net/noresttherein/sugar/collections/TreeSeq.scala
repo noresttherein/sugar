@@ -30,7 +30,7 @@ import net.noresttherein.sugar.collections.extensions._
 
 /** An indexed sequence backed by a finger tree. It is similar to [[collection.immutable.Vector Vector]],
   * but offers additional methods for inserting and removing elements from the interior of the sequence.
-  * Unlike in vector, patching and concatenation with another `Fingers` take `O(log n)` time.
+  * Unlike in vector, patching and concatenation with another $Coll take `O(log n)` time.
   * All other operations have the same complexity as in vector - that is, `O(1)` for access and modification
   * close to either end of the sequence, `O(log n)` for accessing elements in the middle, and `O(log n)` for slicing.
   * The only operations which take `O(n)` time are those which potentially need to apply a function
@@ -42,19 +42,19 @@ import net.noresttherein.sugar.collections.extensions._
   * in the most common usages: random access to elements near the middle of the sequence, in particular update,
   * is somewhat slower than in `Vector`, which makes the latter a better choice if the sequence will be updated
   * more often than concatenated.
-  * @define Coll `Fingers`
+  * @define Coll `TreeSeq`
   * @define coll finger tree
   * @author Marcin Mościcki
-  */ //consider: renaming to TreeSeq - the same number of letters and more informative to lay people.
-sealed abstract class Fingers[+E]
-	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, Fingers, Fingers[E]]
-	   with StrictOptimizedSeqOps[E, Fingers, Fingers[E]]
-	   with SugaredIterable[E] with SugaredSeqOps[E, Fingers, Fingers[E]]
-	   with IterableFactoryDefaults[E, Fingers] with DefaultSerializable
+  */
+sealed abstract class TreeSeq[+E]
+	extends AbstractSeq[E] with IndexedSeq[E] with IndexedSeqOps[E, TreeSeq, TreeSeq[E]]
+	   with StrictOptimizedSeqOps[E, TreeSeq, TreeSeq[E]]
+	   with SugaredIterable[E] with SugaredSeqOps[E, TreeSeq, TreeSeq[E]]
+	   with IterableFactoryDefaults[E, TreeSeq] with DefaultSerializable
 {
-	override def iterableFactory :SeqFactory[Fingers] = Fingers
+	override def iterableFactory :SeqFactory[TreeSeq] = TreeSeq
 
-	protected override def className :String = "Fingers"
+	protected override def className :String = "TreeSeq"
 }
 
 
@@ -63,59 +63,59 @@ sealed abstract class Fingers[+E]
   * @define coll finger tree
   */
 @SerialVersionUID(Ver)
-case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
+case object TreeSeq extends StrictOptimizedSeqFactory[TreeSeq] {
 	import internal._
 	import Children._
 
-	override def from[A](source :IterableOnce[A]) :Fingers[A] = source match {
-		case fingers :Fingers[A]           => fingers
-		case empty if empty.knownSize == 0 => Fingers0
+	override def from[A](source :IterableOnce[A]) :TreeSeq[A] = source match {
+		case fingers :TreeSeq[A]           => fingers
+		case empty if empty.knownSize == 0 => TreeSeq0
 		case _ if source.knownSize > 0 && source.knownSize <= MaxChildren =>
 			val rank = source.knownSize
 			val values = new Array[Any](rank + 1)
 			source.toBasicOps.copyToArray(values, 1, Int.MaxValue)
-			new Fingers1(values.asInstanceOf[Tree[A]], rank)
+			new TreeSeq1(values.asInstanceOf[Tree[A]], rank)
 		case _ =>
 			val res = newBuilder[A]
 			res.sizeHint(source, 0)
 			(res ++= source).result()
 	}
 
-	override def empty[A] :Fingers[A] = Fingers0
+	override def empty[A] :TreeSeq[A] = TreeSeq0
 
 	/** A singleton sequence. */
-	def one[A](elem :A) :Fingers[A] = {
+	def one[A](elem :A) :TreeSeq[A] = {
 		val a = new Array[Any](2)
 		a(1) = elem
-		new Fingers1(a.asInstanceOf[Tree[A]], 1)
+		new TreeSeq1(a.asInstanceOf[Tree[A]], 1)
 	}
 
 	/** A sequence of two elements. */
-	def two[A](first :A, second :A) :Fingers[A] = {
+	def two[A](first :A, second :A) :TreeSeq[A] = {
 		val a = new Array[Any](3)
 		a(1) = first
 		a(2) = second
-		new Fingers1(a.asInstanceOf[Tree[A]], 1)
+		new TreeSeq1(a.asInstanceOf[Tree[A]], 1)
 	}
 
 	/** Creates a singleton sequence, providing a convenient way to start appending further elements. */
-	@inline def :+[A](elem :A) :Fingers[A] = one(elem)
+	@inline def :+[A](elem :A) :TreeSeq[A] = one(elem)
 
-	/** Equivalent to [[net.noresttherein.sugar.collections.Fingers.from from]], but has the binding priority
+	/** Equivalent to [[net.noresttherein.sugar.collections.TreeSeq.from from]], but has the binding priority
 	  * of standard append method, which makes it more convenient when creating a $coll by concatenating multiple
 	  * collections.
 	  */
-	@inline def :++[A](elems :IterableOnce[A]) :Fingers[A] = from(elems)
+	@inline def :++[A](elems :IterableOnce[A]) :TreeSeq[A] = from(elems)
 
 
-	override def newBuilder[A] :Builder[A, Fingers[A]] = new FingersBuilder
+	override def newBuilder[A] :Builder[A, TreeSeq[A]] = new TreeSeqBuilder
 
 
 
-	/** The base class for all actual implementations of `Fingers`. */
-	private abstract class AbstractFingers[+E](tree :Tree[E], final override val length :Int)
-		extends Fingers[E] with StrictOptimizedSeqOps[E, Fingers, Fingers[E]]
-		   with SeqSlicingOps[E, Fingers, Fingers[E]] with CachesHashCode
+	/** The base class for all actual implementations of `TreeSeq`. */
+	private abstract class AbstractTreeSeq[+E](tree :Tree[E], final override val length :Int)
+		extends TreeSeq[E] with StrictOptimizedSeqOps[E, TreeSeq, TreeSeq[E]]
+		   with SeqSlicingOps[E, TreeSeq, TreeSeq[E]] with CachesHashCode
 	{
 		private[this] val _prefix = tree.asInstanceOf[Array[Any]]
 		@inline final def prefixValues :Children[E] = new Children(_prefix)
@@ -123,7 +123,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		def level :Int
 		override def applyPreferredMaxLength = Rank << 2
 
-		//The only implementation of Fingers.apply, so that the JVM can inline it.
+		//The only implementation of TreeSeq.apply, so that the JVM can inline it.
 		final override def apply(i :Int) :E =
 			if (i < 0)
 				outOfBounds_!(i, this)
@@ -146,7 +146,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 		protected def indexWhere(p :E => Boolean, from :Int, satisfies :Boolean) :Int
 
-		override def patch[U >: E](from :Int, other :IterableOnce[U], replaced :Int) :Fingers[U] =
+		override def patch[U >: E](from :Int, other :IterableOnce[U], replaced :Int) :TreeSeq[U] =
 			if (replaced <= 0 | from >= length)
 				insertedAll(math.max(0, math.min(from, length)), other)
 			else if (from <= 0)
@@ -154,23 +154,23 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			else if (replaced >= length - from)
 				take(from).appendedAll(other)
 			else {
-				//todo: Check if it's faster to add tree slices or Fingers slices. Note that there will always be
-				// a 'short' and a 'long' slice, so it's not simply 'short slice - slice Fingers, long slice - slice Tree).
+				//todo: Check if it's faster to add tree slices or TreeSeq slices. Note that there will always be
+				// a 'short' and a 'long' slice, so it's not simply 'short slice - slice TreeSeq, long slice - slice Tree).
 				// Note that adding to a builder a Tree greater than the builder itself works essentially as prepend
 				// to the added tree.
 				val size = other.knownSize
 				if (size == replaced)
 					updatedAll(from, other)
-				else if (other.isInstanceOf[Fingers[_]])
+				else if (other.isInstanceOf[TreeSeq[_]])
 					take(from).appendedAll(other).appendedAll(drop(from + replaced))
 				else {
-					val res = new FingersBuilder[U]
+					val res = new TreeSeqBuilder[U]
 					res.sizeHint(other, length - replaced)
 					(res ++= slice(0, from) ++= other ++= slice(from + replaced, length)).result()
 				}
 			}
 
-		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :Fingers[U] = {
+		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :TreeSeq[U] = {
 			def outOfBounds() =
 				outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", " + errorString(elems) + ")")
 			val size = elems.knownSize
@@ -179,15 +179,15 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			if (size == 0)
 				this
 			else if (size >= 0 & size <= level)
-				elems.foldLeftWithIndex(this :Fingers[U])((res, elem, i) => res.updated(index + i, elem))
+				elems.foldLeftWithIndex(this :TreeSeq[U])((res, elem, i) => res.updated(index + i, elem))
 			else elems match {
-				case other :Fingers1[U] =>
+				case other :TreeSeq1[U] =>
 					overwritten(index, other.prefixValues.array, 1, other.length + 1).castParam[U]
 				case ErasedArray.Slice(array :Array[U @unchecked], from, until) => //Covers Fingers1
 					overwritten(index, array, from, until)
 				case _ if size >= 0 & size <= level =>
-					elems.foldLeftWithIndex(this :Fingers[U])((res, elem, i) => res.updated(index + i, elem))
-				case other :AbstractFingers[U] =>
+					elems.foldLeftWithIndex(this :TreeSeq[U])((res, elem, i) => res.updated(index + i, elem))
+				case other :AbstractTreeSeq[U] =>
 					val thisTree = toTree
 					val thatTree = other.toTree
 					val prefix = thisTree.slice(0, index)
@@ -207,12 +207,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :Fingers[U] = {
+		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :TreeSeq[U] = {
 			val size = elems.knownSize
 			if (index >= length | size == 0 | size >= 0 & index + size <= 0)
 				this
 			else elems match {
-				case other :Fingers1[U] =>
+				case other :TreeSeq1[U] =>
 					overwritten(index, other.prefixValues.array, 1, other.length + 1).castParam[U]
 				case ErasedArray.Slice(array :Array[U @unchecked], from, until) =>
 					overwritten(index, array, from, until)
@@ -226,7 +226,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				case _ if size >= 0 & size <= length - index =>
 					updatedAll(index, elems)
 				case _ =>
-					val res = new FingersBuilder[U]
+					val res = new TreeSeqBuilder[U]
 					res.sizeHint(length)
 					res ++= slice(0, index)
 					//We take a slice out of the iterator in vain hope that the builder will use Array.copy.
@@ -237,26 +237,26 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					res.result()
 			}
 		}
-		protected def overwritten[U >: E](index :Int, elems :Array[U], from :Int, until :Int) :Fingers[U] =
+		protected def overwritten[U >: E](index :Int, elems :Array[U], from :Int, until :Int) :TreeSeq[U] =
 			toTree.overwritten(math.max(0, index), elems, from + math.max(-index, 0), until).toSeq
 
-		override def appended[U >: E](elem :U) :Fingers[U] = inserted(length, elem)
-		override def prepended[U >: E](elem :U) :Fingers[U] = inserted(0, elem)
+		override def appended[U >: E](elem :U) :TreeSeq[U] = inserted(length, elem)
+		override def prepended[U >: E](elem :U) :TreeSeq[U] = inserted(0, elem)
 
-		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :Fingers[U] = elems match {
+		override def insertedAll[U >: E](index :Int, elems :IterableOnce[U]) :TreeSeq[U] = elems match {
 			case _ if index < 0 | index > length => outOfBounds_!(index, this)
 			case empty if empty.knownSize == 0   => this
 			case view  :View[U]                  => insertedAll(index, view.iterator)
-			case other :AbstractFingers[U]       => insertedAll(index, other)
+			case other :AbstractTreeSeq[U]       => insertedAll(index, other)
 			case _                               => insertedDefault(index, elems)
 		}
 
-		def insertedAll[U >: E](index :Int, elems :AbstractFingers[U]) :Fingers[U] = elems match {
+		def insertedAll[U >: E](index :Int, elems :AbstractTreeSeq[U]) :TreeSeq[U] = elems match {
 			case _ if elems.length > Int.MaxValue - length => maxSize_!(length, elems.length, Int.MaxValue)
-			case other :Fingers1[U]                        => insertedAll(index, other.prefixValues)
+			case other :TreeSeq1[U]                        => insertedAll(index, other.prefixValues)
 			case _ if elems.length <= level                => insertedDefault(index, elems)
 			case _ if length <= elems.level                =>
-				val res = new FingersBuilder[U]
+				val res = new TreeSeqBuilder[U]
 				var i = 0
 				while (i < index) {
 					res += apply(i)
@@ -271,14 +271,14 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			case _ =>
 				toTree.insertedAll(index, elems.toTree).toSeq
 		}
-		def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U]
+		def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U]
 
-		def insertedDefault[U >: E](index :Int, elems :IterableOnce[U]) :Fingers[U] = {
+		def insertedDefault[U >: E](index :Int, elems :IterableOnce[U]) :TreeSeq[U] = {
 			val otherSize = elems.knownSize
 			if (otherSize >= 0 && otherSize <= level)
-				elems.foldLeftWithIndex(this :Fingers[U])((res, elem, i) => res.inserted(index + i, elem))
+				elems.foldLeftWithIndex(this :TreeSeq[U])((res, elem, i) => res.inserted(index + i, elem))
 			else {
-				val res = new FingersBuilder[U]
+				val res = new TreeSeqBuilder[U]
 				res.sizeHint(elems, length)
 				val tree = toTree
 				res ++= tree.slice(0, index) ++= elems ++= tree.slice(index, length)
@@ -286,14 +286,14 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		override def appendedAll[U >: E](elems :IterableOnce[U]) :Fingers[U] = insertedAll(length, elems)
-		override def prependedAll[U >: E](elems :IterableOnce[U]) :Fingers[U] = insertedAll(0, elems)
+		override def appendedAll[U >: E](elems :IterableOnce[U]) :TreeSeq[U] = insertedAll(length, elems)
+		override def prependedAll[U >: E](elems :IterableOnce[U]) :TreeSeq[U] = insertedAll(0, elems)
 
-		override def removed(from :Int, until :Int) :Fingers[E] =
+		override def removed(from :Int, until :Int) :TreeSeq[E] =
 			if (until <= 0 | until <= from | from >= length)
 				this
 			else if (from <= 0 & until >= length)
-				Fingers0
+				TreeSeq0
 			else if (from <= 0)
 				drop(until)
 			else if (until >= length)
@@ -301,7 +301,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			else {
 				var rem = math.min(until, length) - from
 				if (rem <= level) {
-					var res :Fingers[E] = this
+					var res :TreeSeq[E] = this
 					while (rem > 0) {
 						res  = res.removed(from)
 						rem -= 1
@@ -333,32 +333,32 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 
 	/** An empty finger tree. */
-	private object Fingers0 extends AbstractFingers[Nothing](emptyLeaf, 0) {
+	private object TreeSeq0 extends AbstractTreeSeq[Nothing](emptyLeaf, 0) {
 		override def level = 0
 
 		protected override def indexWhere(p :Nothing => Boolean, from :Int, satisfies :Boolean) :Int = -1
 
-		override def updated[U](i :Int, elem :U) = outOfBounds_!(i.toString + " out of bounds for Fingers.empty")
+		override def updated[U](i :Int, elem :U) = outOfBounds_!(i.toString + " out of bounds for TreeSeq.empty")
 
-		override def removed(from :Int, until :Int) :Fingers[Nothing] = this
-		override def removed(index :Int) :Fingers[Nothing] =
+		override def removed(from :Int, until :Int) :TreeSeq[Nothing] = this
+		override def removed(index :Int) :TreeSeq[Nothing] =
 			outOfBounds_!(index.toString + " out of 0")
 
-		override def insertedAll[U >: Nothing](index :Int, elems :IterableOnce[U]) :Fingers[U] =
-			if (index != 0) outOfBounds_!(index, "Fingers.empty.insert")
+		override def insertedAll[U >: Nothing](index :Int, elems :IterableOnce[U]) :TreeSeq[U] =
+			if (index != 0) outOfBounds_!(index, "TreeSeq.empty.insert")
 			else from(elems)
 
-		override def insertedAll[U >: Nothing](index :Int, elems :Children[U]) :AbstractFingers[U] =
-			new Fingers1(Tree1(elems), elems.length)
+		override def insertedAll[U >: Nothing](index :Int, elems :Children[U]) :AbstractTreeSeq[U] =
+			new TreeSeq1(Tree1(elems), elems.length)
 
-		override def inserted[U >: Nothing](index :Int, elem :U) :Fingers[U] =
+		override def inserted[U >: Nothing](index :Int, elem :U) :TreeSeq[U] =
 			if (index != 0) outOfBounds_!(index.toString + " out of 0")
 			else one(elem)
 
-		protected override def clippedSlice(from :Int, until :Int) :Fingers[Nothing] = this
+		protected override def clippedSlice(from :Int, until :Int) :TreeSeq[Nothing] = this
 
 		override def iterator = Iterator.empty
-		override def reverse :Fingers[Nothing] = this
+		override def reverse :TreeSeq[Nothing] = this
 		override def toTree :Tree[Nothing] = emptyLeaf
 
 		override def clippedCopyToArray[A >: Nothing](xs :Array[A], start :Int, from :Int, len :Int) :Int = 0
@@ -367,8 +367,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 
 	/** A finger tree of level 1 - a non-empty flat list of up to `MaxChildren` elements. */
-	private final class Fingers1[+E](tree :Tree[E], len :Int)
-		extends AbstractFingers[E](tree, len) with ArraySliceSeqOps[E, Fingers, Fingers[E]]
+	private final class TreeSeq1[+E](tree :Tree[E], len :Int)
+		extends AbstractTreeSeq[E](tree, len) with ArraySliceSeqOps[E, TreeSeq, TreeSeq[E]]
 	{
 		releaseFence()
 		@inline override def array :Array[E @uncheckedVariance] = prefixValues.array.asInstanceOf[Array[E]]
@@ -387,15 +387,15 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 		override def foreach[U](f :E => U) :Unit =  new TreeExtension[E](prefixValues.array).foreach(f)
 
-		override def map[O](f :E => O) :Fingers[O] = new Fingers1(prefix.map(f), length)
+		override def map[O](f :E => O) :TreeSeq[O] = new TreeSeq1(prefix.map(f), length)
 
-		override def updated[U >: E](index :Int, elem :U) :Fingers1[U] =
+		override def updated[U >: E](index :Int, elem :U) :TreeSeq1[U] =
 			if (index < 0 || index >= length)
 				outOfBounds_!(index, errorString(this) + ".updated")
 			else
-				new Fingers1(prefixValues.updated(index, elem).array.asInstanceOf[Tree[U]], length)
+				new TreeSeq1(prefixValues.updated(index, elem).array.asInstanceOf[Tree[U]], length)
 
-		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :Fingers1[U] =
+		override def updatedAll[U >: E](index :Int, elems :IterableOnce[U]) :TreeSeq1[U] =
 			if (index < 0 || index > length)
 				outOfBounds_!(index, errorString(this) + ".updatedAll")
 			else if (elems.knownSize == 0)
@@ -415,10 +415,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							errorString(this) + ".updatedAll(" + index + ", " +
 								errorString(elems) + "): size > " + (length - index)
 						)
-					new Fingers1(res, length)
+					new TreeSeq1(res, length)
 				}
 			}
-		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :Fingers1[U] =
+		override def updatedAll[U >: E](index :Int, first :U, second :U, rest :U*) :TreeSeq1[U] =
 			if (index < 0 || index > length - 2)
 				outOfBounds_!(errorString(this) + ".updatedAll(" + index + ", _, _, " + errorString(rest) + ")")
 			else {
@@ -429,7 +429,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				res
 			}
 
-		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :Fingers1[U] = {
+		override def overwritten[U >: E](index :Int, elems :IterableOnce[U]) :TreeSeq1[U] = {
 			val size = elems.knownSize
 			if (index >= length || index == Int.MinValue || size == 0 || size >= 0 && index <= -size)
 				this
@@ -441,11 +441,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val drop   = math.max(0, -index)
 					val res = Array.copyOf(prefixValues.array, length + 1)
 					elems.copyRangeToArray(res, offset + 1, drop, Int.MaxValue)
-					new Fingers1(res.asInstanceOf[Tree[U]], length)
+					new TreeSeq1(res.asInstanceOf[Tree[U]], length)
 			}
 		}
 
-		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :Fingers[U] = {
+		override def overwritten[U >: E](index :Int, first :U, second :U, rest :U*) :TreeSeq[U] = {
 			val size = rest.knownSize
 			if (index >= length || size >= 0 && index <= -size - 2)
 				this
@@ -477,20 +477,20 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		}
 
 
-		override def inserted[U >: E](index :Int, elem :U) :Fingers[U] = {
+		override def inserted[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val newLength = this.length + 1
 			if (index < 0 | index > newLength)
 				outOfBounds_!(index.toString + " out of " + newLength)
 			if (newLength <= MaxChildren) //Copy the array with the new element included.
-				new Fingers1(prefixValues.inserted(index, elem).array.asInstanceOf[Tree[U]], newLength)
-			else {                       //Split the array into a prefix and suffix and grow to a Fingers2.
+				new TreeSeq1(prefixValues.inserted(index, elem).array.asInstanceOf[Tree[U]], newLength)
+			else {                       //Split the array into a prefix and suffix and grow to a TreeSeq2.
 				val siblings = prefixValues.insertAndSplit(index, elem, Rank)
-				Fingers2(siblings.first, siblings.second, newLength)
+				TreeSeq2(siblings.first, siblings.second, newLength)
 			}
 		}
 
-		override def insertedAll[U >: E](index :Int, elems :AbstractFingers[U]) :Fingers[U] = elems match {
-			case _ :Fingers1[U] =>
+		override def insertedAll[U >: E](index :Int, elems :AbstractTreeSeq[U]) :TreeSeq[U] = elems match {
+			case _ :TreeSeq1[U] =>
 				insertedAll(index, elems.prefixValues)
 			case _ => index match {
 				case 0           => elems.insertedAll(elems.length, prefixValues)
@@ -506,7 +506,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] = {
+		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U] = {
 			val elemsLength = elems.length
 			val totalLength = length + elemsLength
 			val values = prefixValues
@@ -514,54 +514,54 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				val res = Children.copyOfRanges(
 					values, 0, index, elems, 0, elemsLength, values, index, length
 				)
-				new Fingers1(Tree1(res), totalLength)
+				new TreeSeq1(Tree1(res), totalLength)
 			} else
 				if (index == length & length >= Rank & elemsLength >= Rank)
-					new Fingers2(prefix, emptyInfix, length, Tree1(elems), totalLength)
+					new TreeSeq2(prefix, emptyInfix, length, Tree1(elems), totalLength)
 				else if (index == 0 & length >= Rank & elemsLength >= Rank)
-					new Fingers2(Tree1(elems), emptyInfix, elemsLength, prefix, totalLength)
+					new TreeSeq2(Tree1(elems), emptyInfix, elemsLength, prefix, totalLength)
 				else {
 					val siblings = prefixValues.insertAllAndSplit(index, elems, totalLength >> 1)
-					new Fingers2(siblings.first, emptyInfix, totalLength >> 1, siblings.second, totalLength)
+					new TreeSeq2(siblings.first, emptyInfix, totalLength >> 1, siblings.second, totalLength)
 				}
 		}
 
-		override def appended[U >: E](elem :U) :Fingers[U]  = inserted(length, elem)
-		override def prepended[U >: E](elem :U) :Fingers[U] = inserted(0, elem)
+		override def appended[U >: E](elem :U) :TreeSeq[U]  = inserted(length, elem)
+		override def prepended[U >: E](elem :U) :TreeSeq[U] = inserted(0, elem)
 
-		override def removed(index :Int) :Fingers[E] =
+		override def removed(index :Int) :TreeSeq[E] =
 			if (index < 0 | index >= length)
 				outOfBounds_!(index, this, "removed")
 			else if (length == 1)
-				Fingers0
+				TreeSeq0
 			else
-				new Fingers1(prefixValues.array.removed(index + 1).asInstanceOf[Tree[E]], length - 1)
+				new TreeSeq1(prefixValues.array.removed(index + 1).asInstanceOf[Tree[E]], length - 1)
 
-		override def removed(from :Int, until :Int) :Fingers[E] =
+		override def removed(from :Int, until :Int) :TreeSeq[E] =
 			if (until <= 0 | until <= from | from >= length)
 				this
 			else if (from <= 0 & until >= length)
-				Fingers0
+				TreeSeq0
 			else if (from <= 0)
 				clippedSlice(until, length)
 			else if (until >= length)
 				clippedSlice(0, from)
 			else {
 				val newArray= prefixValues.array.removed(from + 1, until + 1).asInstanceOf[Tree[E]]
-				new Fingers1(newArray, length - (until - from))
+				new TreeSeq1(newArray, length - (until - from))
 			}
 
-		override def reverse :Fingers[E] = {
+		override def reverse :TreeSeq[E] = {
 			val res = prefixValues.array.clone()
 			res.reverseInPlace(1, length + 1)
-			new Fingers1(res.asInstanceOf[Tree[E]], length)
+			new TreeSeq1(res.asInstanceOf[Tree[E]], length)
 		}
 
-		protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :Fingers[E] =
+		protected[this] override def newSpecific(array :Array[E], from :Int, until :Int) :TreeSeq[E] =
 			if (from == 1 & until == array.length)
-				new Fingers1(array.asInstanceOf[Tree[E]], until - from)
+				new TreeSeq1(array.asInstanceOf[Tree[E]], until - from)
 			else
-				new Fingers1(Tree1(Children(array.asInstanceOf[RefArray[E]], from, until - from)), until - from)
+				new TreeSeq1(Tree1(Children(array.asInstanceOf[RefArray[E]], from, until - from)), until - from)
 
 		override def clippedCopyToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 			prefix.copyToArray(xs, start, from, len)
@@ -570,19 +570,19 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 
 
-	private def Fingers2[E](prefix :Tree[E], infix :Tree[E], suffix :Tree[E]) :Fingers2[E] = {
+	private def TreeSeq2[E](prefix :Tree[E], infix :Tree[E], suffix :Tree[E]) :TreeSeq2[E] = {
 		val array   = infix.asInstanceOf[Array[Any]]
 		val beforeSuffix = prefix.rank + (
 			if (array.length == 1) 0 else array(0).asInstanceOf[Array[Int]](array.length - 2)
 		)
-		new Fingers2(prefix, infix, beforeSuffix, suffix, beforeSuffix + suffix.rank)
+		new TreeSeq2(prefix, infix, beforeSuffix, suffix, beforeSuffix + suffix.rank)
 	}
 
-	@inline private def Fingers2[E](prefix :Tree[E], suffix :Tree[E], length :Int) :Fingers2[E] =
-		new Fingers2(prefix, emptyInfix, prefix.rank, suffix, length)
+	@inline private def TreeSeq2[E](prefix :Tree[E], suffix :Tree[E], length :Int) :TreeSeq2[E] =
+		new TreeSeq2(prefix, emptyInfix, prefix.rank, suffix, length)
 
-	@inline private def Fingers2[E](prefix :Tree[E],  infix :Tree[E], suffix :Tree[E], length :Int) :Fingers2[E] =
-		new Fingers2(prefix, infix, prefix.rank + infix.length, suffix, length)
+	@inline private def TreeSeq2[E](prefix :Tree[E],  infix :Tree[E], suffix :Tree[E], length :Int) :TreeSeq2[E] =
+		new TreeSeq2(prefix, infix, prefix.rank + infix.length, suffix, length)
 
 	/** A finger tree of level 2.
 	  * @param _prefix      a node of level 1, containing as its children the first `Rank <= n <= MaxChildren`
@@ -592,8 +592,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	  * @param suffix       a node of level 1, containing as its children the last `Rank <= n <= MaxChildren`
 	  *                     elements in the sequence.
 	  */
-	private final class Fingers2[+E](_prefix :Tree[E], infix :Tree[E], suffixOffset :Int, suffix :Tree[E], len :Int)
-		extends AbstractFingers[E](_prefix, len)
+	private final class TreeSeq2[+E](_prefix :Tree[E], infix :Tree[E], suffixOffset :Int, suffix :Tree[E], len :Int)
+		extends AbstractTreeSeq[E](_prefix, len)
 	{
 		releaseFence()
 		//Assertions uncommented in generate test sources phase.
@@ -666,29 +666,29 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			suffix.foreach(f)
 		}
 
-		override def map[O](f :E => O) :Fingers[O] =
-			new Fingers2(prefix.map(f), infix.map(f), suffixOffset, suffix.map(f), length)
+		override def map[O](f :E => O) :TreeSeq[O] =
+			new TreeSeq2(prefix.map(f), infix.map(f), suffixOffset, suffix.map(f), length)
 
-		override def updated[U >: E](index :Int, elem :U) :Fingers[U] = {
+		override def updated[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val prefixLen = prefix.rank
 			if (index < 0) //index == -1 is silently accepted by both Children and TreeExtension.
 				outOfBounds_!(index, errorString(this) + ".updated")
 			if (index < prefixLen)
-				new Fingers2(prefix.updated(index, elem), infix, suffixOffset, suffix, length)
+				new TreeSeq2(prefix.updated(index, elem), infix, suffixOffset, suffix, length)
 			else if (index >= suffixOffset)
-				new Fingers2(prefix, infix, suffixOffset, suffix.updated(index - suffixOffset, elem), length)
+				new TreeSeq2(prefix, infix, suffixOffset, suffix.updated(index - suffixOffset, elem), length)
 			else
-				new Fingers2(prefix, infix.updated(index - prefixLen, elem), suffixOffset, suffix, length)
+				new TreeSeq2(prefix, infix.updated(index - prefixLen, elem), suffixOffset, suffix, length)
 		}
 
-		override def removed(index :Int) :Fingers[E] = {
+		override def removed(index :Int) :TreeSeq[E] = {
 			if (index < 0 | index >= length)
 				outOfBounds_!(index, this, "removed")
 			val prefixLen = prefix.rank
 			val infixRank = infix.rank
 			if (index < prefixLen) {             //The removed element lies in the prefix.
 				if (prefixLen > Rank)            //The easy case: simply remove the element from prefix.
-					new Fingers2(
+					new TreeSeq2(
 						Tree1(prefixValues.removed(index)), infix, suffixOffset - 1, suffix, length - 1
 					)
 				else if (infixRank > 0) {
@@ -697,50 +697,50 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						val newSibling = Tree1(sibling.tail)
 						val newInfix   = Tree(infix.children.updated(0, newSibling))
 						val newPrefix  = prefixValues.removeAndAppend(index, sibling(0))
-						new Fingers2(Tree1(newPrefix), newInfix, suffixOffset - 1, suffix, length - 1)
+						new TreeSeq2(Tree1(newPrefix), newInfix, suffixOffset - 1, suffix, length - 1)
 					} else {                     //Carry over all elements of the first infix child to prefix.
 						val newPrefix = prefixValues.removeAndAppendAll(index, sibling)
 						val newInfix  = Tree(infix.children.tail)
-						new Fingers2(Tree1(newPrefix), newInfix, suffixOffset - 1, suffix, length - 1)
+						new TreeSeq2(Tree1(newPrefix), newInfix, suffixOffset - 1, suffix, length - 1)
 					}
 				} else if (suffix.rank > Rank) { //infix.rank == 0 -> carry over the first element from suffix.
 					val newPrefix = prefixValues.removeAndAppend(index, suffix.values(0))
 					val newSuffix = Tree1(suffix.values.tail)
-					new Fingers2(Tree1(newPrefix), infix, suffixOffset, newSuffix, length - 1)
+					new TreeSeq2(Tree1(newPrefix), infix, suffixOffset, newSuffix, length - 1)
 				} else {                         //suffix.rank == Rank -> reduce the level by merging prefix and suffix.
 					val removed = Children.copyOfRanges(
 						prefixValues, 0, index, prefixValues, index + 1, Rank, suffix.values, 0, Rank
 					)
-					new Fingers1(Tree1(removed), MaxChildren)
+					new TreeSeq1(Tree1(removed), MaxChildren)
 				}
 			} else if (index >= suffixOffset) {  //The removed element lies in the suffix.
 				val indexInSuffix = index - suffixOffset
 				if (suffix.rank > Rank) {        //The simplest case - simply remove an element from the suffix array.
 					val newSuffix = Tree1(suffix.values.removed(indexInSuffix))
-					new Fingers2(prefix, infix, suffixOffset, newSuffix, length - 1)
+					new TreeSeq2(prefix, infix, suffixOffset, newSuffix, length - 1)
 				} else if (infix.rank > 0) {
 					val sibling = infix.child(infixRank - 1).values
 					if (sibling.length > Rank) { //Remove the element from suffix, carry over the last element of infix.
 						val newSibling = Tree1(sibling.init)
 						val newInfix   = Tree(infix.children.updated(infixRank - 1, newSibling))
 						val newSuffix  = suffix.values.removeAndPrepend(indexInSuffix, sibling.last)
-						new Fingers2(prefix, newInfix, suffixOffset - 1, Tree1(newSuffix), length - 1)
+						new TreeSeq2(prefix, newInfix, suffixOffset - 1, Tree1(newSuffix), length - 1)
 					} else {                     //Remove the element from suffix, merge it with the last infix slice.
 						val newSuffix = suffix.values.removeAndPrependAll(indexInSuffix, sibling)
 						val newInfix  = Tree(infix.children.init)
-						new Fingers2(prefix, newInfix, suffixOffset - Rank, Tree1(newSuffix), length - 1)
+						new TreeSeq2(prefix, newInfix, suffixOffset - Rank, Tree1(newSuffix), length - 1)
 					}
 				} else if (prefixLen > Rank) {   //Remove the element from suffix, carry over the last prefix element.
 					val newPrefix = Tree1(prefixValues.init)
 					val newSuffix = suffix.values.removeAndPrepend(indexInSuffix, prefixValues.last)
-					new Fingers2(newPrefix, infix, suffixOffset - 1, Tree1(newSuffix), length - 1)
+					new TreeSeq2(newPrefix, infix, suffixOffset - 1, Tree1(newSuffix), length - 1)
 				} else {                         //Remove the element from suffix, merge with prefix, reducing the level.
 					val removed = Children.copyOfRanges(
 						prefixValues, 0, Rank,
 						suffix.values, 0, indexInSuffix,
 						suffix.values, indexInSuffix + 1, Rank
 					)
-					new Fingers1(Tree1(removed), MaxChildren)
+					new TreeSeq1(Tree1(removed), MaxChildren)
 				}
 			} else {                             //The removed element lies somewhere in infix.
 				val finger   = infix.splitIndex(index - prefixLen)
@@ -750,21 +750,21 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				if (slice.length > Rank) {
 					//Easy - remove the element from the slice and update infix with the shorter array.
 					val newInfix = Tree(infix.children.updated(childIdx, Tree1(slice.removed(relative))))
-					new Fingers2(prefix, newInfix, suffixOffset - 1, suffix, length - 1)
+					new TreeSeq2(prefix, newInfix, suffixOffset - 1, suffix, length - 1)
 				} else if (infixRank == 0) {     //slice.length == Rank
 					if (prefixLen > Rank) {      //Remove the element from the slice, carry over the last prefix element.
 						val newSlice = slice.removeAndPrepend(relative, prefix(prefix.length - 1))
 						val newInfix = Tree(infix.children.updated(childIdx, Tree1(newSlice)))
-						new Fingers2(Tree1(prefixValues.init), newInfix, suffixOffset - 1, suffix, length - 1)
+						new TreeSeq2(Tree1(prefixValues.init), newInfix, suffixOffset - 1, suffix, length - 1)
 					} else if (suffix.length > Rank) { //Remove the element, carry over the first element from suffix.
 						val newSlice = slice.removeAndAppend(relative, suffix.values(0))
 						val newInfix = Tree(infix.children.updated(childIdx, Tree1(newSlice)))
-						new Fingers2(prefix, newInfix, suffixOffset - 1, Tree1(suffix.values.tail), length - 1)
+						new TreeSeq2(prefix, newInfix, suffixOffset - 1, Tree1(suffix.values.tail), length - 1)
 					} else { //Remove the element and append the slice to prefix, clearing infix completely.
 						val newPrefix = Children.copyOfRanges(
 							prefixValues, 0, Rank, slice, 0, relative, slice, relative + 1, slice.length
 						)
-						new Fingers2(Tree1(newPrefix), emptyInfix, suffixOffset - 1, suffix, length - 1)
+						new TreeSeq2(Tree1(newPrefix), emptyInfix, suffixOffset - 1, suffix, length - 1)
 					}
 				} else if (childIdx == 0) {      //slice.length == Rank
 					if (infixRank == 1) {
@@ -772,12 +772,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							val newSlice = slice.removeAndAppend(relative, suffix(0))
 							val newInfix = Tree(Children(Tree1(newSlice)))
 							val newSuffix = Tree1(suffix.values.tail)
-							new Fingers2(prefix, newInfix, suffixOffset, newSuffix, length - 1)
+							new TreeSeq2(prefix, newInfix, suffixOffset, newSuffix, length - 1)
 						} else if (prefixValues.length > Rank) {
 							val newPrefix = Tree1(prefixValues.init)
 							val newSlice  = slice.removeAndPrepend(relative, prefixValues(prefixValues.length - 1))
 							val newInfix  = Tree(Children(Tree1(newSlice)))
-							new Fingers2(newPrefix, newInfix, suffixOffset - 1, suffix, length - 1)
+							new TreeSeq2(newPrefix, newInfix, suffixOffset - 1, suffix, length - 1)
 						} else {
 							val newPrefix = Children.copyOfRanges(
 								prefixValues, 0, prefixValues.length, slice, 0, relative
@@ -785,7 +785,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							val newSuffix = Children.copyOfRanges(
 								slice, relative + 1, slice.length, suffix.values, 0, suffix.rank
 							)
-							Fingers2(Tree1(newPrefix), emptyInfix, Tree1(newSuffix), length - 1)
+							TreeSeq2(Tree1(newPrefix), emptyInfix, Tree1(newSuffix), length - 1)
 						}
 					} else {
 						val sibling = infix.child(1).values
@@ -793,11 +793,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							//Remove the element, carry over the first element of the next slice.
 							val newSlice = slice.removeAndAppend(relative, sibling(0))
 							val newInfix = Tree(infix.children.replaced(0, Tree1(newSlice), Tree1(sibling.tail)))
-							new Fingers2(prefix, newInfix, suffixOffset - 1, suffix, length - 1)
+							new TreeSeq2(prefix, newInfix, suffixOffset - 1, suffix, length - 1)
 						} else {                 //Remove the element, merge with the next slice.
 							val newSlice = slice.removeAndAppendAll(relative, sibling)
 							val newInfix = infix.children.sliceAndUpdate(1, infixRank, 0, Tree1(newSlice))
-							new Fingers2(prefix, Tree(newInfix), suffixOffset - 1, suffix, length - 1)
+							new TreeSeq2(prefix, Tree(newInfix), suffixOffset - 1, suffix, length - 1)
 						}
 					}
 				} else {                         //slice.length == Rank && idx > 0
@@ -808,21 +808,21 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						val newSlice   = slice.removeAndPrepend(relative, sibling(siblingLen - 1))
 						val newSibling = sibling.slice(0, siblingLen - 1)
 						val newInfix   = Tree(infix.children.replaced(childIdx - 1, Tree1(newSibling), Tree1(newSlice)))
-						new Fingers2(prefix, newInfix, suffixOffset - 1, suffix, length - 1)
+						new TreeSeq2(prefix, newInfix, suffixOffset - 1, suffix, length - 1)
 					} else {                     //Remove the element, merge slice with the preceding slice.
 						val newSlice = slice.removeAndPrependAll(relative, sibling)
 						val newInfix = infix.children.removeAndUpdate(childIdx - 1, childIdx - 1, Tree1(newSlice))
-						new Fingers2(prefix, Tree(newInfix), suffixOffset -  1, suffix, length - 1)
+						new TreeSeq2(prefix, Tree(newInfix), suffixOffset -  1, suffix, length - 1)
 					}
 				}
 			}
 		}
 
 
-		override def appended[U >: E](elem :U) :Fingers[U] = insertIntoSuffix(length, elem)
-		override def prepended[U >: E](elem :U) :Fingers[U] = insertIntoPrefix(0, elem)
+		override def appended[U >: E](elem :U) :TreeSeq[U] = insertIntoSuffix(length, elem)
+		override def prepended[U >: E](elem :U) :TreeSeq[U] = insertIntoPrefix(0, elem)
 
-		override def inserted[U >: E](index :Int, elem :U) :Fingers[U] =
+		override def inserted[U >: E](index :Int, elem :U) :TreeSeq[U] =
 			if (index < prefix.rank)
 				insertIntoPrefix(index, elem)
 			else if (index >= suffixOffset)
@@ -830,10 +830,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			else
 				insertIntoInfix(index, elem)
 
-		private def insertIntoPrefix[U >: E](index :Int, elem :U) :Fingers[U] =
+		private def insertIntoPrefix[U >: E](index :Int, elem :U) :TreeSeq[U] =
 			if (prefix.rank < MaxChildren) {                //There is room in prefix, perform the simplest insertion.
 				val newPrefix = Tree1(prefixValues.inserted(index, elem))
-				new Fingers2(newPrefix, infix, suffixOffset + 1, suffix, length + 1)
+				new TreeSeq2(newPrefix, infix, suffixOffset + 1, suffix, length + 1)
 			} else {                                        //prefix.length == MaxChildren
 				val infixRank   = infix.rank
 				val sibling     = if (infixRank == 0) suffix.values else infix.child(0).values
@@ -842,10 +842,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					if (index == MaxChildren) {             //Insert the element as the first child of sibling instead.
 						val newSibling = Tree1(sibling.inserted(0, elem))
 						if (infixRank == 0)
-							new Fingers2(prefix, emptyInfix, suffixOffset + 1, newSibling, length + 1)
+							new TreeSeq2(prefix, emptyInfix, suffixOffset + 1, newSibling, length + 1)
 						else {
 							val newInfix = Tree(infix.children.updated(0, newSibling))
-							new Fingers2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
+							new TreeSeq2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
 						}
 					} else {                                //Carry over the last elements of prefix to sibling.
 						//Reduce the size of prefix as much as possible to make future inserts into prefix simpler.
@@ -853,35 +853,35 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						val newSibling = Tree1(sibling.insertedSlice(0, prefixValues, carryFrom, MaxChildren))
 						val newPrefix  = Tree1(prefixValues.sliceAndInsert(0, carryFrom, index, elem))
 						if (infixRank == 0)
-							new Fingers2(newPrefix, emptyInfix, carryFrom + 1, newSibling, length + 1)
+							new TreeSeq2(newPrefix, emptyInfix, carryFrom + 1, newSibling, length + 1)
 						else {
 							val newInfix = Tree(infix.children.updated(0, newSibling))
-							new Fingers2(newPrefix, newInfix, suffixOffset + 1, suffix, length + 1)
+							new TreeSeq2(newPrefix, newInfix, suffixOffset + 1, suffix, length + 1)
 						}
 					}
 				} else {                                    //Split prefix, moving the second half to infix.
 					val siblings = prefixValues.insertAndSplit(index, elem, Rank)
 					if (infixRank == 0)                     //suffix.rank == MaxChildren
-						new Fingers2(siblings.first, Tree(Children(siblings.second)), suffixOffset + 1, suffix, length + 1)
+						new TreeSeq2(siblings.first, Tree(Children(siblings.second)), suffixOffset + 1, suffix, length + 1)
 					else if (infixRank < MaxChildren - 2) { //Move the second half of prefix as the first child in infix.
 						val newPrefix = siblings.first
 						val newInfix  = Tree(infix.children.prepended(siblings.second))
-						new Fingers2(newPrefix, newInfix, suffixOffset + 1, suffix, length + 1)
+						new TreeSeq2(newPrefix, newInfix, suffixOffset + 1, suffix, length + 1)
 					} else {                                //Split infix and grow the tree.
 						val newPrefix  = siblings.first
 						val postPrefix = Tree(infix.children.sliceAndInsert(0, Rank - 2, 0, siblings.second))
 						val preSuffix  = Tree(infix.children.slice(Rank -2, MaxChildren - 2))
-						Fingers3(newPrefix, postPrefix, preSuffix, suffix, length + 1)
+						TreeSeq3(newPrefix, postPrefix, preSuffix, suffix, length + 1)
 					}
 				}
 			}
 
-		private def insertIntoSuffix[U >: E](index :Int, elem :U) :Fingers[U] = {
+		private def insertIntoSuffix[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val indexInSuffix = index - suffixOffset
 			val suffixRank    = suffix.rank
 			if (suffixRank < MaxChildren) {      //There is room left in suffix, expand the array and return.
 				val newSuffix = Tree1(suffix.values.inserted(indexInSuffix, elem))
-				new Fingers2(prefix, infix, suffixOffset, newSuffix, length + 1)
+				new TreeSeq2(prefix, infix, suffixOffset, newSuffix, length + 1)
 			} else {
 				val infixRank   = infix.rank
 				val sibling     = if (infixRank == 0) prefixValues else infix.child(infixRank - 1).values
@@ -890,10 +890,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					if (indexInSuffix == 0) {
 						val newSibling = Tree1(sibling.inserted(siblingRank, elem))
 						if (infixRank == 0)
-							new Fingers2(newSibling, emptyInfix, suffixOffset + 1, suffix, length + 1)
+							new TreeSeq2(newSibling, emptyInfix, suffixOffset + 1, suffix, length + 1)
 						else {
 							val newInfix = Tree(infix.children.updated(infixRank - 1, newSibling))
-							new Fingers2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
+							new TreeSeq2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
 						}
 					} else {
 						val carriedOver = math.min(indexInSuffix, MaxChildren - siblingRank)
@@ -904,32 +904,32 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							suffix.values.sliceAndInsert(carriedOver, MaxChildren, indexInSuffix - carriedOver, elem)
 						)
 						if (infixRank == 0)
-							new Fingers2(newSibling, emptyInfix, suffixOffset + carriedOver, newSuffix, length + 1)
+							new TreeSeq2(newSibling, emptyInfix, suffixOffset + carriedOver, newSuffix, length + 1)
 						else {
 							val newInfix = Tree(infix.children.updated(infixRank - 1, newSibling))
-							new Fingers2(prefix, newInfix, suffixOffset + carriedOver, newSuffix, length + 1)
+							new TreeSeq2(prefix, newInfix, suffixOffset + carriedOver, newSuffix, length + 1)
 						}
 					}
 				} else {                         //Insert into the suffix and split it.
 					val siblings = suffix.values.insertAndSplit(indexInSuffix, elem, Rank)
 					if (infixRank == 0) {
 						val newInfix = Tree(Children(siblings.first))
-						new Fingers2(prefix, newInfix, suffixOffset + Rank, siblings.second, length + 1)
+						new TreeSeq2(prefix, newInfix, suffixOffset + Rank, siblings.second, length + 1)
 					} else if (infixRank < MaxChildren - 2) {
 						val newInfix = Tree(infix.children.appended(siblings.first))
-						new Fingers2(prefix, newInfix, suffixOffset + Rank, siblings.second, length + 1)
+						new TreeSeq2(prefix, newInfix, suffixOffset + Rank, siblings.second, length + 1)
 					} else {
 						val postPrefix = infix.children.slice(0, Rank - 1)
 						val preSuffix  = infix.children.sliceAndInsert(
 							Rank - 1, MaxChildren - 2, Rank - 2, siblings.first
 						)
-						Fingers3(prefix, Tree(postPrefix), Tree(preSuffix), siblings.second, length + 1)
+						TreeSeq3(prefix, Tree(postPrefix), Tree(preSuffix), siblings.second, length + 1)
 					}
 				}
 			}
 		}
 
-		private def insertIntoInfix[U >: E](index :Int, elem :U) :Fingers[U] = {
+		private def insertIntoInfix[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val finger      = infix.splitIndex(index - prefix.rank)
 			val sliceIdx    = finger.child
 			val idxInSlice  = finger.relative
@@ -937,10 +937,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			if (targetSlice.length < MaxChildren) { //We have room in the appropriate slice, so just insert into it.
 				val newSlice = targetSlice.inserted(idxInSlice, elem)
 				val newInfix = Tree(infix.children.updated(sliceIdx, Tree1(newSlice)))
-				new Fingers2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
+				new TreeSeq2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
 			} else if (infix.rank == 1) {           //targetSlice.length == MaxChildren: split targetSlice to make room.
 				val newInfix = targetSlice.insertAndSplit(idxInSlice, elem, Rank).toTree
-				new Fingers2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
+				new TreeSeq2(prefix, newInfix, suffixOffset + 1, suffix, length + 1)
 			} else {                                //Try to move a child to sibling under suffix.
 				var sibling = new Children[U](null)
 				val shiftToLeftSibling =
@@ -953,24 +953,24 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val newSlice   = targetSlice.sliceAndInsert(1, MaxChildren, idxInSlice - 1, elem)
 					val newSibling = sibling.inserted(sibling.length, targetSlice(0))
 					val newInfix   = infix.children.updated(sliceIdx - 1, Tree1(newSibling), Tree1(newSlice))
-					new Fingers2(prefix, Tree(newInfix), suffixOffset + 1, suffix, length + 1)
+					new TreeSeq2(prefix, Tree(newInfix), suffixOffset + 1, suffix, length + 1)
 				} else if ({ sibling = infix.child(sliceIdx + 1).values; sibling.length < MaxChildren }) {
 					val newSibling = sibling.inserted(0, targetSlice(MaxChildren - 1))
 					val newSlice   = targetSlice.sliceAndInsert(0, MaxChildren - 1, idxInSlice, elem)
 					val newInfix   = infix.children.updated(sliceIdx, Tree1(newSlice), Tree1(newSibling))
-					new Fingers2(prefix, Tree(newInfix), suffixOffset + 1, suffix, length + 1)
+					new TreeSeq2(prefix, Tree(newInfix), suffixOffset + 1, suffix, length + 1)
 				} else {                            //Split targetSlice into two parts.
 					val siblings = targetSlice.insertAndSplit(idxInSlice, elem, Rank)
 					val newInfix = infix.replace(sliceIdx, siblings, Rank - 1, MaxChildren - 2)
 					if (newInfix.size == 1)
-						new Fingers2(prefix, newInfix.first, suffixOffset + 1, suffix, length + 1)
+						new TreeSeq2(prefix, newInfix.first, suffixOffset + 1, suffix, length + 1)
 					else
-						Fingers3(prefix, newInfix.first, newInfix.second, suffix, length + 1)
+						TreeSeq3(prefix, newInfix.first, newInfix.second, suffix, length + 1)
 				}
 			}
 		}
 
-		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] = {
+		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U] = {
 			val prefixLen   = prefix.rank
 			val elemsLength = elems.length
 			val newLength   = length + elemsLength
@@ -980,7 +980,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val newPrefix = Children.copyOfRanges(
 						prefixValues, 0, index, elems, 0, elemsLength, prefixValues, index, prefixLen
 					)
-					new Fingers2(Tree1(newPrefix), infix, suffixOffset + elemsLength, suffix, newLength)
+					new TreeSeq2(Tree1(newPrefix), infix, suffixOffset + elemsLength, suffix, newLength)
 				} else { //Need to create a new successor node to prefix under infix.
 					//The trick here is to calculate the lengths of the new prefix and its sibling
 					// so they fall in the required range, and then determine where to split.
@@ -1004,7 +1004,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						elems, 0, elemsLength,
 						suffix.values, indexInSuffix, suffixLen
 					)
-					new Fingers2(prefix, infix, suffixOffset, Tree1(newSuffix), length + elemsLength)
+					new TreeSeq2(prefix, infix, suffixOffset, Tree1(newSuffix), length + elemsLength)
 				} else { //Need to combine the values of elems and suffix into two legal nodes.
 					val newSuffixLen  = math.min(MaxChildren, math.max(Rank, combinedLength - MaxChildren))
 					val newSiblingLen = combinedLength - newSuffixLen
@@ -1028,7 +1028,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						slice, 0, idxInSlice, elems, 0, elemsLength, slice, idxInSlice, slice.length
 					)
 					val newInfix = Tree(infix.children.updated(sliceIdx, Tree1(newSlice)))
-					new Fingers2(prefix, newInfix, suffixOffset + elemsLength, suffix, newLength)
+					new TreeSeq2(prefix, newInfix, suffixOffset + elemsLength, suffix, newLength)
 				} else {                             //Insert into an infix child, and split it into two trees.
 					val newSliceLength = math.min(MaxChildren, math.max(Rank, combinedLength - MaxChildren))
 					val siblings       =
@@ -1043,31 +1043,31 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					infix.rank match {
 						case MaxInfixRank =>         //Grow to level 3 in order to incorporate the new successor node.
 							val newInfix = infix.replace(sliceIdx, newSlice, successor, Rank - 1, MaxInfixRank)
-							Fingers3(prefix, newInfix.first, newInfix.second, suffix, newLength)
+							TreeSeq3(prefix, newInfix.first, newInfix.second, suffix, newLength)
 						case _ =>                    //Just insert the new postPrefix as the first child of infix.
 							val newInfix = Tree(infix.children.replaced(sliceIdx, newSlice, successor))
-							new Fingers2(prefix, newInfix, suffixOffset + elemsLength, suffix, newLength)
+							new TreeSeq2(prefix, newInfix, suffixOffset + elemsLength, suffix, newLength)
 					}
 				}
 			}
 		}
 
 		private def swapPrefix[U >: E](newPrefix :Tree[U], successor :Tree[U], lengthDelta :Int)
-				:AbstractFingers[U] =
+				:AbstractTreeSeq[U] =
 			infix.rank match {
 				case MaxInfixRank => //Grow to level 3 in order to incorporate the new postPrefix node.
 					val postPrefix = Tree(infix.children.sliceAndInsert(0, Rank - 2, 0, successor))
 					val preSuffix  = Tree(infix.children.slice(Rank - 2, MaxChildren - 2))
-					Fingers3(newPrefix, postPrefix, preSuffix, suffix, length + lengthDelta)
+					TreeSeq3(newPrefix, postPrefix, preSuffix, suffix, length + lengthDelta)
 				case 0 =>            //Create a singleton infix node.
 					val newInfix = Tree(Children(successor))
-					new Fingers2(newPrefix, newInfix, suffixOffset + lengthDelta, suffix, length + lengthDelta)
+					new TreeSeq2(newPrefix, newInfix, suffixOffset + lengthDelta, suffix, length + lengthDelta)
 				case _ =>            //Just insert the new postPrefix as the first child of infix.
 					val newInfix = Tree(infix.children.inserted(0, successor))
-					new Fingers2(newPrefix, newInfix, suffixOffset + lengthDelta, suffix, length + lengthDelta)
+					new TreeSeq2(newPrefix, newInfix, suffixOffset + lengthDelta, suffix, length + lengthDelta)
 			}
 		private def swapSuffix[U >: E](predecessor :Tree[U], newSuffix :Tree[U], lengthDelta :Int)
-				:AbstractFingers[U] =
+				:AbstractTreeSeq[U] =
 		{
 			val newLength = length + lengthDelta
 			infix.rank match {
@@ -1076,58 +1076,58 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val preSuffix  = infix.children.sliceAndInsert(
 						Rank - 1, MaxChildren - 2, Rank - 2, predecessor
 					)
-					Fingers3(prefix, Tree(postPrefix), Tree(preSuffix), newSuffix, newLength)
+					TreeSeq3(prefix, Tree(postPrefix), Tree(preSuffix), newSuffix, newLength)
 				case 0 =>            //Create a singleton infix node with newSibling.
 					val newInfix = Tree(Children(predecessor))
-					new Fingers2(prefix, newInfix, newLength - newSuffix.length, newSuffix, newLength)
+					new TreeSeq2(prefix, newInfix, newLength - newSuffix.length, newSuffix, newLength)
 				case rank =>         //Simply append newSibling to children of infix.
 					val newInfix = Tree(infix.children.inserted(rank, predecessor))
-					new Fingers2(prefix, newInfix, newLength - newSuffix.length, newSuffix, newLength)
+					new TreeSeq2(prefix, newInfix, newLength - newSuffix.length, newSuffix, newLength)
 			}
 		}
 
-		protected override def clippedSlice(from :Int, until :Int) :Fingers[E] = {
+		protected override def clippedSlice(from :Int, until :Int) :TreeSeq[E] = {
 			//todo: divide it into submethods, once we have a good idea of what is reusable.
 			val sliceSize  = until - from
 			val prefixRank = prefix.rank
 			if (until <= prefixRank)                                 //Slice entirely within prefix.
-				new Fingers1(Tree1(prefixValues.slice(from, until)), sliceSize)
+				new TreeSeq1(Tree1(prefixValues.slice(from, until)), sliceSize)
 			else if (from >= suffixOffset) {                         //Slice entirely within suffix.
-				new Fingers1(Tree1(suffix.values.slice(from - suffixOffset, until - suffixOffset)), sliceSize)
+				new TreeSeq1(Tree1(suffix.values.slice(from - suffixOffset, until - suffixOffset)), sliceSize)
 			} else if (from >= prefixRank & until <= suffixOffset) { //Slice entirely within infix.
 				val node = infix.slice(from - prefixRank, until - prefixRank)
 				val rank = node.rank
 				if (node.isLeaf)
-					new Fingers1(node, sliceSize)
+					new TreeSeq1(node, sliceSize)
 				else if (rank == 1) //Possible if from == prefixRank & until == suffixOffset & infix.rank == 1.
-					new Fingers1(node.child(0), sliceSize)
+					new TreeSeq1(node.child(0), sliceSize)
 				else { //rank >= 2
 					val prefix = node.child(0)
 					val suffix = node.child(rank - 1)
 					val infix  = Tree(node.children.slice(1, rank - 1))
-					Fingers2(prefix, infix, suffix, sliceSize)
+					TreeSeq2(prefix, infix, suffix, sliceSize)
 				}
 			} else { //The slice covers parts of at least two out of prefix, infix, and suffix.
 				val prefixSliceSize = prefixRank - from
 				val suffixSliceSize = until - suffixOffset
 				if (prefixRank == suffixOffset) {         //Empty infix.
 					//We know !(from >= suffixOffset) & !(until <= prefixRank), so from < prefixRank & until > prefixRank
-					if (sliceSize <= MaxChildren) {       //Combine the prefix and suffix slices in Fingers1.
+					if (sliceSize <= MaxChildren) {       //Combine the prefix and suffix slices in TreeSeq1.
 						val concatenated = Children.copyOfRanges(
 							prefixValues, from, prefixRank, suffix.values, 0, suffixSliceSize
 						)
-						new Fingers1(Tree1(concatenated), sliceSize)
+						new TreeSeq1(Tree1(concatenated), sliceSize)
 					} else if (prefixSliceSize >= Rank & suffixSliceSize >= Rank) {
 						val newPrefix = prefix.slice(from, prefixRank)
 						val newSuffix = suffix.slice(0, suffixSliceSize)
-						new Fingers2(newPrefix, emptyInfix, prefixSliceSize, newSuffix, sliceSize)
+						new TreeSeq2(newPrefix, emptyInfix, prefixSliceSize, newSuffix, sliceSize)
 					} else if (prefixSliceSize < Rank) {  //Append initial values of the first suffix child to prefix.
 						val newPrefixSize = sliceSize >> 1
 						val newPrefix = Children.copyOfRanges(
 							prefixValues, from, prefixRank, suffix.values, 0, newPrefixSize - prefixSliceSize
 						)
 						val newSuffix = suffix.slice(newPrefixSize - prefixSliceSize, until - suffixOffset)
-						new Fingers2(Tree1(newPrefix), emptyInfix, newPrefixSize, newSuffix, sliceSize)
+						new TreeSeq2(Tree1(newPrefix), emptyInfix, newPrefixSize, newSuffix, sliceSize)
 					} else {                              //Prepend last values of prefix to the first suffix child.
 						val newSuffixSize = sliceSize >> 1
 						val newPrefixEnd  = prefixRank - (newSuffixSize - suffixSliceSize)
@@ -1136,9 +1136,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							prefixValues, newPrefixEnd, prefixRank,
 							suffix.values, 0, until - suffixOffset
 						)
-						new Fingers2(Tree1(newPrefix), emptyInfix, newPrefixEnd - from, Tree1(newSuffix), sliceSize)
+						new TreeSeq2(Tree1(newPrefix), emptyInfix, newPrefixEnd - from, Tree1(newSuffix), sliceSize)
 					}
-				} else if (sliceSize <= MaxChildren) {    //Reduce the slice to Fingers1
+				} else if (sliceSize <= MaxChildren) {    //Reduce the slice to TreeSeq1
 					val values =
 						if (prefixSliceSize > 0 & suffixSliceSize > 0) {
 							Children.copyOfRanges(        //infix.rank == 1, empty infix covered previously.
@@ -1179,7 +1179,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								)
 							}
 						}
-					new Fingers1(Tree1(values), sliceSize)
+					new TreeSeq1(Tree1(values), sliceSize)
 				} else { //infix.rank > 0
 					val infixRank  = infix.rank
 					val fromIndex  = if (from < prefixRank) SplitIndex(-1, from) else infix.splitIndex(from - prefixRank)
@@ -1195,7 +1195,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 						val newPrefix = fromChild.drop(fromIndex.relative)
 						val newInfix  = infix.children.slice(fromIndex.child + 1, untilIndex.child)
 						val newSuffix = untilChild.take(untilLen)
-						Fingers2(Tree1(newPrefix), Tree(newInfix), Tree1(newSuffix), sliceSize)
+						TreeSeq2(Tree1(newPrefix), Tree(newInfix), Tree1(newSuffix), sliceSize)
 					} else if (fromIndex.child + 1 == untilIndex.child) {//Only two leaves involved.
 						if (fromLen >= Rank) {                           //Move some values from the prefix to the suffix.
 							val newPrefix = fromChild.slice(fromIndex.relative, fromIndex.relative + (sliceSize >> 1))
@@ -1203,7 +1203,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								fromChild, fromIndex.relative + (sliceSize >> 1), fromRank,
 								untilChild, 0, untilLen
 							)
-							new Fingers2(Tree1(newPrefix), emptyInfix, sliceSize >> 1, Tree1(newSuffix), sliceSize)
+							new TreeSeq2(Tree1(newPrefix), emptyInfix, sliceSize >> 1, Tree1(newSuffix), sliceSize)
 						} else { //untilLen >= Rank because fromLen < Rank and sliceSize > MaxChildren.
 							val offset    = (sliceSize >> 1) - fromLen
 							val newPrefix = Children.copyOfRanges(
@@ -1211,7 +1211,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								untilChild, 0, offset
 							)
 							val newSuffix = untilChild.slice(offset, untilLen)
-							new Fingers2(Tree1(newPrefix), emptyInfix, sliceSize >> 1, Tree1(newSuffix), sliceSize)
+							new TreeSeq2(Tree1(newPrefix), emptyInfix, sliceSize >> 1, Tree1(newSuffix), sliceSize)
 						}
 					} else if (fromIndex.child + 2 == untilIndex.child && sliceSize <= (MaxChildren << 1)) {
 						//A single child between the first and last slice, and we can rearrange the three leaves into two.
@@ -1226,7 +1226,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								middleChild, (sliceSize >> 1) - fromLen, middleLen,
 								untilChild, 0, untilLen
 							)
-							new Fingers2(Tree1(newPrefix), emptyInfix, sliceSize >> 1, Tree1(newSuffix), sliceSize)
+							new TreeSeq2(Tree1(newPrefix), emptyInfix, sliceSize >> 1, Tree1(newSuffix), sliceSize)
 						} else if (fromLen < Rank) {            //Implies untilLen >= Rank.
 							val newSuffix = untilChild.take(untilLen)
 							val suffixOffset = fromLen + middleLen
@@ -1235,14 +1235,14 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 									fromChild, fromIndex.relative, fromRank,
 									middleChild, 0, middleLen
 								)
-								new Fingers2(Tree1(newPrefix), emptyInfix, suffixOffset, Tree1(newSuffix), sliceSize)
+								new TreeSeq2(Tree1(newPrefix), emptyInfix, suffixOffset, Tree1(newSuffix), sliceSize)
 							} else {
 								val newPrefix = Children.copyOfRanges(
 									fromChild, fromIndex.relative, fromRank,
 									middleChild, 0, Rank - fromLen
 								)
 								val newInfix  = Children(Tree1(middleChild.drop(Rank - fromLen)))
-								new Fingers2(Tree1(newPrefix), Tree(newInfix), suffixOffset, Tree1(newSuffix), sliceSize)
+								new TreeSeq2(Tree1(newPrefix), Tree(newInfix), suffixOffset, Tree1(newSuffix), sliceSize)
 							}
 						} else { //untilLen < Rank, because case fromLen >= Rank & untilLen >= Rank is already covered.
 							val newPrefix = fromChild.drop(fromIndex.relative)
@@ -1251,7 +1251,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 									middleChild, 0, middleLen,
 									untilChild, 0, untilLen
 								)
-								new Fingers2(Tree1(newPrefix), emptyInfix, fromLen, Tree1(newSuffix), sliceSize)
+								new TreeSeq2(Tree1(newPrefix), emptyInfix, fromLen, Tree1(newSuffix), sliceSize)
 							} else {
 								val infixEnd  = middleLen - (Rank - untilLen)
 								val newSuffix = Children.copyOfRanges(
@@ -1259,7 +1259,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 									untilChild, 0, untilLen
 								)
 								val newInfix = Children(Tree1(middleChild.take(infixEnd)))
-								new Fingers2(
+								new TreeSeq2(
 									Tree1(newPrefix), Tree(newInfix), fromLen + infixEnd, Tree1(newSuffix), sliceSize
 								)
 							}
@@ -1331,7 +1331,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								updateLengths(new Children(array))
 								array.asInstanceOf[Tree[E]]
 							}
-						Fingers2(Tree1(newPrefix), newInfix, Tree1(newSuffix))
+						TreeSeq2(Tree1(newPrefix), newInfix, Tree1(newSuffix))
 					}
 				}
 			}
@@ -1360,16 +1360,16 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	  * @param fourth a level 1 node with the last `Rank..MaxChildren` values of the tree.
 	  */
 	@inline
-	private def Fingers3[E](first :Tree[E], second :Tree[E], third :Tree[E], fourth :Tree[E], length :Int) :FingersN[E] = {
+	private def TreeSeq3[E](first :Tree[E], second :Tree[E], third :Tree[E], fourth :Tree[E], length :Int) :TreeSeqN[E] = {
 		val prefixLen = first.rank + second.length
-		val res = new FingersN(
+		val res = new TreeSeqN(
 			first, Tree(Children(second)), prefixLen, emptyInfix, prefixLen, Tree(Children(third)), fourth, length
 		)
 		res
 	}
 
 	/** A finger tree of level 3 or greater.
-	  * It is homomorphic with a perfectly balanced [[net.noresttherein.sugar.collections.Fingers.internal.Tree! Tree]]
+	  * It is homomorphic with a perfectly balanced [[net.noresttherein.sugar.collections.TreeSeq.internal.Tree! Tree]]
 	  * of level `N` (of normal rank and depth constraints), where the first and last leaf
 	  * (`this.prefix` and `this.suffix`), as well as all nodes on paths to both (`this.prefixes` and `this.suffixes`)
 	  * are removed from the tree, leaving `infix` with two fewer children.
@@ -1394,22 +1394,22 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	  * @param suffix   A level 1 node of rank `Rank <= r <= MaxChildren`,
 	  *                 the rightmost leaf in the represented tree, with the last elements of the sequence.
 	  */
-	@inline private def FingersN[E](prefix :Tree[E], prefixes :Tree[E], infix :Tree[E],
-	                                suffixes :Tree[E], suffix :Tree[E]) :FingersN[E] =
+	@inline private def TreeSeqN[E](prefix :Tree[E], prefixes :Tree[E], infix :Tree[E],
+	                                suffixes :Tree[E], suffix :Tree[E]) :TreeSeqN[E] =
 	{
 		val prefixLen = prefix.rank + prefixes.length
 		val infixLen  = prefixLen + infix.length
-		val res = new FingersN(
+		val res = new TreeSeqN(
 			prefix, prefixes, prefixLen, infix, infixLen, suffixes, suffix, infixLen + suffixes.length + suffix.length
 		)
 		res
 	}
-	@inline private def FingersN[E](prefix :Tree[E], prefixes :Tree[E], infix :Tree[E],
-	                            suffixes :Tree[E], suffix :Tree[E], length :Int) :FingersN[E] =
+	@inline private def TreeSeqN[E](prefix :Tree[E], prefixes :Tree[E], infix :Tree[E],
+	                                suffixes :Tree[E], suffix :Tree[E], length :Int) :TreeSeqN[E] =
 	{
 		val prefixLen = prefix.rank + prefixes.length
 		val infixLen  = prefixLen + infix.length
-		val res = new FingersN(prefix, prefixes, prefixLen, infix, infixLen, suffixes, suffix, length)
+		val res = new TreeSeqN(prefix, prefixes, prefixLen, infix, infixLen, suffixes, suffix, length)
 		res
 	}
 
@@ -1443,9 +1443,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 	  * @param len           The total length of this sequence.
 	  */
 	@SerialVersionUID(Ver)
-	private final class FingersN[+E](_prefix :Tree[E], prefixes :Tree[E], infixOffset :Int, infix :Tree[E],
+	private final class TreeSeqN[+E](_prefix :Tree[E], prefixes :Tree[E], infixOffset :Int, infix :Tree[E],
 	                                 suffixOffset :Int, suffixes :Tree[E], suffix :Tree[E], len :Int)
-		extends AbstractFingers[E](_prefix, len)
+		extends AbstractTreeSeq[E](_prefix, len)
 	{
 		//Assertions uncommented in generate test sources phase.
 		//assert(prefix.length + prefixes.length == infixOffset)
@@ -1575,44 +1575,44 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			suffix.foreach(f)
 		}
 
-		override def map[O](f :E => O) :Fingers[O] =
-			new FingersN(
+		override def map[O](f :E => O) :TreeSeq[O] =
+			new TreeSeqN(
 				prefix.map(f), prefixes.map(f), infixOffset, infix.map(f),
 				suffixOffset, suffixes.map(f), suffix.map(f), length
 			)
 
-		override def updated[U >: E](i :Int, elem :U) :Fingers[U] =
+		override def updated[U >: E](i :Int, elem :U) :TreeSeq[U] =
 			if (i < 0 | i > length)
 				outOfBounds_!(i, errorString(this) + ".updated")
 			else if (i < infixOffset)
 				if (i < prefix.length)
-					new FingersN(
+					new TreeSeqN(
 						prefix.updated(i, elem), prefixes, infixOffset, infix,
 						suffixOffset, suffixes, suffix, length
 					)
 				else
-					new FingersN(
+					new TreeSeqN(
 						prefix, prefixes.updated(i - prefix.length, elem), infixOffset, infix,
 						suffixOffset, suffixes, suffix, length
 					)
 			else if (i >= suffixOffset)
 				if (length - i <= suffix.length)
-					new FingersN(
+					new TreeSeqN(
 						prefix, prefixes, infixOffset, infix,
 						suffixOffset, suffixes, suffix.updated(suffix.length - (length - i), elem), length
 					)
 				else
-					new FingersN(
+					new TreeSeqN(
 						prefix, prefixes, infixOffset, infix,
 						suffixOffset, suffixes.updated(i - suffixOffset, elem), suffix, length
 					)
 			else
-				new FingersN(
+				new TreeSeqN(
 					prefix, prefixes, infixOffset, infix.updated(i - infixOffset, elem),
 					suffixOffset, suffixes, suffix, length
 				)
 
-		override def removed(index :Int) :Fingers[E] =
+		override def removed(index :Int) :TreeSeq[E] =
 			if (index < 0 || index >= length)
 				outOfBounds_!(errorString(this) + ".removed(" + index + ")")
 			else if (index < infixOffset)
@@ -1622,10 +1622,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			else  //totalPrefixLength <= index < lengthAfterInfix
 				removedFromInfix(index)
 
-		private def removedFromPrefix(index :Int) :Fingers[E] = {
+		private def removedFromPrefix(index :Int) :TreeSeq[E] = {
 			val prefixRank = prefix.rank
 			if (index < prefixRank & prefixRank > Rank)
-				new FingersN(
+				new TreeSeqN(
 					Tree1(prefix.values.removed(index)), prefixes, infixOffset - 1, infix,
 					suffixOffset - 1, suffixes, suffix, length - 1
 				)
@@ -1672,25 +1672,25 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								Tree(infix.children.updated(0, newSibling))
 							} else                      //Top prefix slice merged with the first son of infix.
 								Tree(infix.children.slice(1, infixRank))
-						FingersN(newPrefix, Tree(newPrefixes), newInfix, suffixes, suffix, length - 1)
+						TreeSeqN(newPrefix, Tree(newPrefixes), newInfix, suffixes, suffix, length - 1)
 					} else {                            //The first slice of suffixes was used in rebalancing.
 						val prefixesRank = newPrefixes.length
 						if (succRank > Rank - 1) {      //Top prefix slice stole the first child from the top suffix slice.
 							if (newPrefixes.array(0) == null)
 								updateLengths(newPrefixes)
 							val newSuffixes = Tree(suffixes.children.updated(0, Tree(successor.slice(1, succRank))))
-							FingersN(newPrefix, Tree(newPrefixes), emptyInfix, newSuffixes, suffix, length - 1)
+							TreeSeqN(newPrefix, Tree(newPrefixes), emptyInfix, newSuffixes, suffix, length - 1)
 						} else if (prefixesRank > 1) {  //Top prefix slice merged with top suffix, becomes the new infix.
 							newPrefixes.array(0) = null //May be set to newPrefix and throw an exception when sliced.
 							val reducedPrefixes = newPrefixes.slice(0, prefixesRank - 1)
 							val reducedSuffixes = suffixes.children.slice(1, prefixesRank)
 							updateLengths(reducedPrefixes)
-							FingersN(
+							TreeSeqN(
 								newPrefix, Tree(reducedPrefixes), newPrefixes(prefixesRank - 1),
 								Tree(reducedSuffixes), suffix, length - 1
 							)
 						} else //Top suffix slice merged with top prefix, becomes the infix of a tree of a reduced level.
-							Fingers2(newPrefix, newPrefixes(0), suffix, length - 1)
+							TreeSeq2(newPrefix, newPrefixes(0), suffix, length - 1)
 					}
 				}
 				 /* Recursively rebalances a working copy `res` of `this.prefixes` after removal.
@@ -1710,14 +1710,14 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				  * @return A properly rebalanced tree.
 				  */
 				@tailrec
-				def rebalancePrefixes(sliceIdx :Int, slice :Children[Tree[E]], res :Children[Tree[E]]) :Fingers[E] = {
+				def rebalancePrefixes(sliceIdx :Int, slice :Children[Tree[E]], res :Children[Tree[E]]) :TreeSeq[E] = {
 					val rank  = slice.length
 					val level = res.length
 					if (rank > Rank - 1) {                //The first child of slice can be safely removed.
 						res(sliceIdx) = Tree(slice.slice(1, rank))
 						val newPrefix = res(-1)
 						updateLengths(res)
-						new FingersN(
+						new TreeSeqN(
 							newPrefix, Tree(res), infixOffset - 1, infix, suffixOffset - 1, suffixes, suffix, length - 1
 						)
 					} else if (sliceIdx < level - 1) {    //Use the first child of the following slice to rebalance slice.
@@ -1732,7 +1732,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							res(sliceIdx)     = Tree(newSlice)
 							res(sliceIdx + 1) = Tree(newParent)
 							updateLengths(res)
-							new FingersN(
+							new TreeSeqN(
 								newPrefix, Tree(res), infixOffset - 1, infix,
 								suffixOffset - 1, suffixes, suffix, length - 1
 							)
@@ -1793,7 +1793,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				if (balanced) {                            //There was no need to use successor's children to rebalance.
 					if (childIdx >= 0)                     //Compute new lengths for prefixes after removal.
 						updateLengths(newPrefixes)
-					new FingersN(
+					new TreeSeqN(
 						newPrefix, Tree(newPrefixes), infixOffset - 1, infix,
 						suffixOffset - 1, suffixes, suffix, length - 1
 					)
@@ -1809,7 +1809,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							val newSibling = Tree(succ.slice(1, succRank))
 							newPrefixes(childIdx + 1) = Tree(parent.updated(0, newSibling))
 							updateLengths(newPrefixes)
-							new FingersN(
+							new TreeSeqN(
 								newPrefix, Tree(newPrefixes), infixOffset - 1, infix,
 								suffixOffset - 1, suffixes, suffix, length - 1
 							)
@@ -1824,10 +1824,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		}
 
 
-		private def removedFromSuffix(index :Int) :Fingers[E] = {
+		private def removedFromSuffix(index :Int) :TreeSeq[E] = {
 			val suffixRank = suffix.rank
 			if (index >= length - suffixRank & suffixRank > Rank)
-				new FingersN(
+				new TreeSeqN(
 					prefix, prefixes, infixOffset, infix,
 					suffixOffset, suffixes, Tree1(suffix.values.removed(index - (length - suffixRank))), length - 1
 				)
@@ -1860,7 +1860,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				  *         (result of merging `this.prefixes.child(prefixes.rank - 1)` with `this.suffixes.child(0)`
 				  *         and removing the last child of the latter) is used as the infix of the new tree.
 				  */
-				def rebalanceRoot(prev :Children[Tree[E]], newSuffixes :Children[Tree[E]], newSuffix :Tree[E]) :Fingers[E] = {
+				def rebalanceRoot(prev :Children[Tree[E]], newSuffixes :Children[Tree[E]], newSuffix :Tree[E]) :TreeSeq[E] = {
 					val infixRank = infix.rank
 					val prevRank  = prev.length
 					if (infixRank > 0) {                //The updated child is the top (first) suffixes slice.
@@ -1872,7 +1872,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 								Tree(infix.children.updated(infixRank - 1, newSibling))
 							} else                      //Top suffix slice merged with the last son of infix.
 								Tree(infix.children.slice(0, infixRank - 1))
-						FingersN(prefix, prefixes, newInfix, Tree(newSuffixes), newSuffix, length - 1)
+						TreeSeqN(prefix, prefixes, newInfix, Tree(newSuffixes), newSuffix, length - 1)
 					} else {                            //The last slice of prefixes was used in rebalancing.
 						val suffixesRank = newSuffixes.length
 						if (prevRank > Rank - 1) {      //Top suffix slice stole the last child from the top prefix slice.
@@ -1881,18 +1881,18 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							val newPrefixes = Tree(
 								prefixes.children.updated(suffixesRank - 1, Tree(prev.slice(0, prevRank - 1)))
 							)
-							FingersN(prefix, newPrefixes, emptyInfix, Tree(newSuffixes), newSuffix, length - 1)
+							TreeSeqN(prefix, newPrefixes, emptyInfix, Tree(newSuffixes), newSuffix, length - 1)
 						} else if (suffixesRank > 1) {  //Top suffix slice merged with top prefix, becomes the new infix.
 							newSuffixes.array(0) = null //May be set to newSuffix and throw an exception when sliced.
 							val reducedPrefixes = prefixes.children.slice(0, suffixesRank - 1)
 							val reducedSuffixes = newSuffixes.slice(1, suffixesRank)
 							updateLengths(reducedSuffixes)
-							FingersN(
+							TreeSeqN(
 								prefix, Tree(reducedPrefixes), newSuffixes(0),
 								Tree(reducedSuffixes), newSuffix, length - 1
 							)
 						} else //Top suffix slice merged with top prefix, becomes the infix of a tree of a reduced level.
-							Fingers2(prefix, newSuffixes(0), newSuffix, length - 1)
+							TreeSeq2(prefix, newSuffixes(0), newSuffix, length - 1)
 					}
 				}
 				 /* Recursively rebalances a working copy `res` of `this.suffixes` after removal.
@@ -1911,13 +1911,13 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				  * @return A properly rebalanced tree.
 				  */
 				@tailrec
-				def rebalanceSuffixes(sliceIdx :Int, slice :Children[Tree[E]], res :Children[Tree[E]]) :Fingers[E] = {
+				def rebalanceSuffixes(sliceIdx :Int, slice :Children[Tree[E]], res :Children[Tree[E]]) :TreeSeq[E] = {
 					val rank = slice.length
 					if (rank > Rank - 1) {                //The last child of slice can be safely removed.
 						res(sliceIdx) = Tree(slice.slice(0, rank - 1))
 						val newSuffix = res(-1)
 						updateLengths(res)
-						new FingersN(
+						new TreeSeqN(
 							prefix, prefixes, infixOffset, infix, suffixOffset, Tree(res), newSuffix, length - 1
 						)
 					} else if (sliceIdx > 0) {            //Use the last child of the preceding slice to rebalance slice.
@@ -1933,7 +1933,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							res(sliceIdx)     = Tree(newSlice)
 							res(sliceIdx - 1) = Tree(newParent)
 							updateLengths(res)
-							new FingersN(
+							new TreeSeqN(
 								prefix, prefixes, infixOffset, infix, suffixOffset, Tree(res), newSuffix, length - 1
 							)
 						} else {                          //Merge slice with lastChild and continue the recursion.
@@ -1994,7 +1994,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				if (balanced) {                              //There was no need to use predecessor's children.
 					if (childIdx < suffixesRank)
 						updateLengths(newSuffixes)
-					new FingersN(
+					new TreeSeqN(
 						prefix, prefixes, infixOffset, infix,
 						suffixOffset, Tree(newSuffixes), newSuffix, length - 1
 					)
@@ -2010,7 +2010,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							val newSibling = Tree(prev.slice(0, prevRank - 1))
 							newSuffixes(childIdx - 1) = Tree(parent.updated(parent.length - 1, newSibling))
 							updateLengths(newSuffixes)
-							new FingersN(
+							new TreeSeqN(
 								prefix, prefixes, infixOffset, infix,
 								suffixOffset, Tree(newSuffixes), newSuffix, length - 1
 							)
@@ -2024,7 +2024,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		private def removedFromInfix(index :Int) :Fingers[E] =
+		private def removedFromInfix(index :Int) :TreeSeq[E] =
 			infix.rank match { //infix.rank > 0 because infixOffset <= index < suffixOffset.
 				case 1 =>
 					//If the infix has only a single child, rebalancing after removal
@@ -2033,7 +2033,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val tree = infix.child(0) //A Tree sibling of the highest prefix and suffix fingers.
 					if (tree.rank > Rank) {   //The rank of the node can be reduced, no need for outside rebalancing.
 						val newInfix = Tree(infix.children.updated(0, tree.removed(indexInInfix)))
-						new FingersN(
+						new TreeSeqN(
 							prefix, prefixes, infixOffset, newInfix,
 							suffixOffset - 1, suffixes, suffix, length - 1
 						)
@@ -2049,13 +2049,13 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							updateLengths(newTree.children)
 							val newInfix = Tree(infix.children.updated(0, newTree))
 							if (balanced)    //There was no need to involve the suffixes child.
-								new FingersN(
+								new TreeSeqN(
 									prefix, prefixes, infixOffset, newInfix,
 									suffixOffset - 1, suffixes, suffix, length - 1
 								)
 							else {           //Rebalancing has used topSuffix.
 								val newSuffixes = Tree(suffixes.children.updated(0, Tree(topSuffix.children.tail)))
-								FingersN(prefix, prefixes, newInfix, newSuffixes, suffix, length - 1)
+								TreeSeqN(prefix, prefixes, newInfix, newSuffixes, suffix, length - 1)
 							}
 						} else if (topPrefix.rank > Rank - 1) {
 							//Allow moving of the last child of the last prefixes child to the relevant infix child,
@@ -2065,12 +2065,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 							updateLengths(newTree.children)
 							val newInfix = Tree(infix.children.updated(0, newTree))
 							if (balanced)
-								FingersN(prefix, prefixes, newInfix, suffixes, suffix, length - 1)
+								TreeSeqN(prefix, prefixes, newInfix, suffixes, suffix, length - 1)
 							else {
 								val newPrefixes = Tree(
 									prefixes.children.updated(topPrefixIdx, Tree(topPrefix.children.init))
 								)
-								FingersN(prefix, newPrefixes, newInfix, suffixes, suffix, length - 1)
+								TreeSeqN(prefix, newPrefixes, newInfix, suffixes, suffix, length - 1)
 							}
 						} else { //tree.rank == Rank && topPrefix.rank == Rank - 1 && topSuffix.rank == Rank - 1
 							//Decide rebalancing on the level of infix grandchildren.
@@ -2091,7 +2091,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 									updateLengths(newSubtree.children)
 								val newTree  = Tree(tree.children.updated(subtreeIdx, newSubtree))
 								val newInfix = Tree(infix.children.updated(0, newTree))
-								new FingersN(
+								new TreeSeqN(
 									prefix, prefixes, infixOffset, newInfix,
 									suffixOffset - 1, suffixes, suffix, length - 1
 								)
@@ -2110,7 +2110,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 											tree.children.updated(siblingIdx, Tree(sibling.children.init), newSubtree)
 									)
 									val newInfix = Tree(Children(newTree))
-									new FingersN(
+									new TreeSeqN(
 										prefix, prefixes, infixOffset, newInfix,
 										suffixOffset - 1, suffixes, suffix, length - 1
 									)
@@ -2145,23 +2145,23 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 									}
 									val newPrefixes = Tree(prefixes.children.updated(topPrefixIdx, Tree(newTopPrefix)))
 									val newSuffixes = Tree(suffixes.children.updated(0, Tree(newTopSuffix)))
-									FingersN(prefix, newPrefixes, emptyInfix, newSuffixes, suffix, length - 1)
+									TreeSeqN(prefix, newPrefixes, emptyInfix, newSuffixes, suffix, length - 1)
 								}
 							}
 						}
 					}
 				case _ => //infix.rank greater than zero.
 					val newInfix = infix.removed(index - infixOffset)
-					new FingersN(
+					new TreeSeqN(
 						prefix, prefixes, infixOffset, newInfix,
 						suffixOffset - 1, suffixes, suffix, length - 1
 					)
 			}
 
-		override def appended[U >: E](elem :U) :Fingers[U] = insertedIntoSuffix(length, elem)
-		override def prepended[U >: E](elem :U) :Fingers[U] = insertedIntoPrefix(0, elem)
+		override def appended[U >: E](elem :U) :TreeSeq[U] = insertedIntoSuffix(length, elem)
+		override def prepended[U >: E](elem :U) :TreeSeq[U] = insertedIntoPrefix(0, elem)
 
-		override def inserted[U >: E](index :Int, elem :U) :Fingers[U] =
+		override def inserted[U >: E](index :Int, elem :U) :TreeSeq[U] =
 			if (length == Int.MaxValue)
 				maxSize_!(length)
 			else if (index < infixOffset)
@@ -2173,11 +2173,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 
 		//If we had a type class U=>Children[U].insert, BTree[U]=>Children[U].insertedAll, we could roll this and
 		// insertedAllIntoPrefix into one method. Not sure if it would reduce the amount of code, though.
-		private def insertedIntoPrefix[U >: E](index :Int, elem :U) :Fingers[U] = {
+		private def insertedIntoPrefix[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val prefixRank = prefix.rank
 			if (index < prefixRank & prefixRank < MaxChildren) {
 				val newPrefix = Tree1(prefixValues.inserted(index, elem))
-				new FingersN(
+				new TreeSeqN(
 					newPrefix, prefixes, infixOffset + 1, infix,
 					suffixOffset + 1, suffixes, suffix, length + 1
 				)
@@ -2195,11 +2195,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		private def insertedIntoSuffix[U >: E](index :Int, elem :U) :Fingers[U] = {
+		private def insertedIntoSuffix[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val suffixRank = suffix.rank
 			if (index >= length - suffixRank & suffixRank < MaxChildren) {
 				val newSuffix = Tree1(suffix.values.inserted(index - (length - suffixRank), elem))
-				new FingersN(
+				new TreeSeqN(
 					prefix, prefixes, infixOffset, infix,
 					suffixOffset, suffixes, newSuffix, length + 1
 				)
@@ -2218,19 +2218,19 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		private def insertedIntoInfix[U >: E](index :Int, elem :U) :Fingers[U] = {
+		private def insertedIntoInfix[U >: E](index :Int, elem :U) :TreeSeq[U] = {
 			val siblings = infix.inserted(index - infixOffset, elem, Rank - 1, MaxChildren - 2)
 			if (siblings.size == 1)
-				new FingersN(prefix, prefixes, infixOffset, siblings.first, suffixOffset + 1, suffixes, suffix, length + 1)
+				new TreeSeqN(prefix, prefixes, infixOffset, siblings.first, suffixOffset + 1, suffixes, suffix, length + 1)
 			else {
 				val newPrefixes = Tree(prefixes.children.appended(siblings.first))
 				val newSuffixes = Tree(suffixes.children.prepended(siblings.second))
-				FingersN(prefix, newPrefixes, emptyInfix, newSuffixes, suffix, length + 1)
+				TreeSeqN(prefix, newPrefixes, emptyInfix, newSuffixes, suffix, length + 1)
 			}
 		}
 
 
-		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] =
+		override def insertedAll[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U] =
 			if (length > Int.MaxValue - elems.length)
 				maxSize_!(length, elems.length, Int.MaxValue)
 			else if (index < infixOffset)
@@ -2240,12 +2240,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			else
 				insertedAllIntoInfix(index, elems)
 
-		private def insertedAllIntoPrefix[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] = {
+		private def insertedAllIntoPrefix[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U] = {
 			val prefixRank = prefix.rank
 			val elemsSize  = elems.length
 			if (index < prefixRank & prefixRank + elemsSize <= MaxChildren) {
 				val newPrefix = Tree1(prefixValues.insertedAll(index, elems))
-				new FingersN(
+				new TreeSeqN(
 					newPrefix, prefixes, infixOffset + elemsSize, infix,
 					suffixOffset + elemsSize, suffixes, suffix, length + elemsSize
 				)
@@ -2263,12 +2263,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		private def insertedAllIntoSuffix[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] = {
+		private def insertedAllIntoSuffix[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U] = {
 			val suffixRank = suffix.rank
 			val elemsSize  = elems.length
 			if (index >= length - suffixRank & suffixRank + elemsSize <= MaxChildren) {
 				val newSuffix = Tree1(suffix.values.insertedAll(index - length + suffixRank, elems))
-				new FingersN(
+				new TreeSeqN(
 					prefix, prefixes, infixOffset, infix,
 					suffixOffset, suffixes, newSuffix, length + elemsSize
 				)
@@ -2287,18 +2287,18 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		private def insertedAllIntoInfix[U >: E](index :Int, elems :Children[U]) :AbstractFingers[U] = {
+		private def insertedAllIntoInfix[U >: E](index :Int, elems :Children[U]) :AbstractTreeSeq[U] = {
 			val extra = elems.length
 			val siblings = infix.insertedAll(index, elems, Rank - 1, MaxChildren - 2)
 			if (siblings.size == 1)
-				new FingersN(
+				new TreeSeqN(
 					prefix, prefixes, infixOffset, siblings.first,
 					suffixOffset + extra, suffixes, suffix, length + extra
 				)
 			else { //newInfix.rank == 2, because its level grew.
 				val newPrefixes = Tree(prefixes.children.appended(siblings.first))
 				val newSuffixes = Tree(suffixes.children.prepended(siblings.second))
-				FingersN(prefix, newPrefixes, emptyInfix, newSuffixes, suffix, length + extra)
+				TreeSeqN(prefix, newPrefixes, emptyInfix, newSuffixes, suffix, length + extra)
 			}
 		}
 
@@ -2310,7 +2310,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * @param delta       the total number of inserted elements.
 		  */
 		private def rebalancePrefixes[U >: E](child :Int, split :Siblings[U], newPrefixes :Children[Tree[U]], delta :Int)
-		       :AbstractFingers[U] =
+		       :AbstractTreeSeq[U] =
 		{
 			val prefixesRank = newPrefixes.length
 			newPrefixes(child) = split.first
@@ -2320,7 +2320,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					child < prefixesRank - 1 && prependedToPrefixSlice(split.second, child + 1, newPrefixes)
 			if (rebalanced) {                //Balancing limited to prefixes.
 				updateLengths(newPrefixes)
-				new FingersN(
+				new TreeSeqN(
 					newPrefix, Tree(newPrefixes), infixOffset + delta, infix,
 					suffixOffset + delta, suffixes, suffix, length + delta
 				)
@@ -2334,11 +2334,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val extendedSuffixes = Tree(suffixes.children.inserted(0, nextSuffix))
 					val extendedPrefixes = Tree(newPrefixes.inserted(prefixesRank, nextPrefix))
 					updateLengths(extendedPrefixes.children)
-					FingersN(newPrefix, extendedPrefixes, emptyInfix, extendedSuffixes, suffix, length + delta)
+					TreeSeqN(newPrefix, extendedPrefixes, emptyInfix, extendedSuffixes, suffix, length + delta)
 				} else {
 					val newInfix = Tree(infix.children.inserted(0, surplus))
 					updateLengths(newPrefixes)
-					FingersN(newPrefix, Tree(newPrefixes), newInfix, suffixes, suffix, length + delta)
+					TreeSeqN(newPrefix, Tree(newPrefixes), newInfix, suffixes, suffix, length + delta)
 				}
 			}
 		}
@@ -2381,7 +2381,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * @param delta       the total number of inserted elements.
 		  */
 		private def rebalanceSuffixes[U >: E](child :Int, split :Siblings[U], newSuffixes :Children[Tree[U]], delta :Int)
-				:AbstractFingers[U] =
+				:AbstractTreeSeq[U] =
 		{
 			val splitSize = split.size
 			val first     = split.first
@@ -2391,7 +2391,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			val rebalanced = splitSize == 1 || child > 0 && appendedToSuffixSlice(first, child - 1, newSuffixes)
 			if (rebalanced) {                                      //Balancing limited to suffixes.
 				updateLengths(newSuffixes)
-				new FingersN(
+				new TreeSeqN(
 					prefix, prefixes, infixOffset, infix,
 					suffixOffset, Tree(newSuffixes), newSuffix, length + delta
 				)
@@ -2407,13 +2407,13 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val extendedPrefixes = prefixes.children.appended(topPrefix)
 					val extendedSuffixes = newSuffixes.prepended(topSuffix)
 					updateLengths(extendedSuffixes)
-					FingersN(
+					TreeSeqN(
 						prefix, Tree(extendedPrefixes), emptyInfix, Tree(extendedSuffixes), newSuffix, length + delta
 					)
 				} else {
 					val newInfix = Tree(infix.children.appended(surplus))
 					updateLengths(newSuffixes)
-					FingersN(prefix, prefixes, newInfix, Tree(newSuffixes), newSuffix, length + delta)
+					TreeSeqN(prefix, prefixes, newInfix, Tree(newSuffixes), newSuffix, length + delta)
 				}
 			}
 		}
@@ -2448,7 +2448,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			}
 		}
 
-		protected override def clippedSlice(from :Int, until :Int) :Fingers[E] = {
+		protected override def clippedSlice(from :Int, until :Int) :TreeSeq[E] = {
 			//Consider: if a mutable implementation with a builder wouldn't be faster.
 			val prefixRank = prefix.rank
 			val suffixRank = suffix.rank
@@ -2573,15 +2573,17 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * number of children, and a node falling below the minimum number can be joined with another node
 		  * of a minimal rank. The difference from the most common B-Tree, however, is that values are only stored
 		  * in leaves, and inner nodes store only references to nodes of lower level (together with indexing information).
-		  *   - A node within `prefix` and `suffix` parts of any `Fingers` has rank `Rank <= rank <= MaxChildren == 2*Rank - 1`.
-		  *   - A node contained directly by `FingersN.prefixes` and `FingersN.suffixes` has rank `Rank-1 <= rank <= 2*Rank - 2`.
-		  *   - `FingersN.infix` has rank `0 <= rank <= 2*Rank - 3`.
+		  *   - A node within `prefix` and `suffix` parts of any `TreeSeq`
+		  *     has rank `Rank <= rank <= MaxChildren == 2*Rank - 1`.
+		  *   - A node contained directly by `TreeSeqN.prefixes` and `TreeSeqN.suffixes`
+		  *     has rank `Rank-1 <= rank <= 2*Rank - 2`.
+		  *   - `TreeSeqN.infix` has rank `0 <= rank <= 2*Rank - 3`.
 		  *   - Children and descendant nodes of the latter two (true inner nodes) have rank `Rank <= rank <= 2*Rank - 1`.
 		  *   - All extension methods, unless stated explicitly to the contrary,
 		  *     maintain rank between `Rank` and `MaxChildren`, except the root node,
 		  *     which may have as few as two children.
 		  *
-		  * Additionally, `FingersN.prefixes` and `suffixes`, formally simply sequences of subtrees
+		  * Additionally, `TreeSeqN.prefixes` and `suffixes`, formally simply sequences of subtrees
 		  * consisting of nodes on paths to `prefix` (the leftmost leaf), and to `suffix` (the rightmost leaf),
 		  * are also stored as `Tree` instances to leverage existing implementation, despite having each child
 		  * of a different level.
@@ -2597,7 +2599,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * This hack allows us to circumvent a need for creating an extra object containing the children list
 		  * and running prefix lengths necessary for efficient random access, reducing the number of dereferenced
 		  * objects when searching the tree, and the number of objects which must be created during mutations.
-		  * @see [[net.noresttherein.sugar.collections.Fingers.internal.TreeExtension TreeExtension]] -
+		  * @see [[net.noresttherein.sugar.collections.TreeSeq.internal.TreeExtension TreeExtension]] -
 		  *      extension methods of this type.
 		  */
 		type Tree[+E]// >: E @uncheckedVariance
@@ -2615,8 +2617,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			new TreeExtension(node.asInstanceOf[Array[Any]])
 
 		/** Extension methods constituting the interface
-		  * of [[net.noresttherein.sugar.collections.Fingers.internal.Tree Tree]].
-		  * This API, unlike [[net.noresttherein.sugar.collections.Fingers.internal.Children Children]],
+		  * of [[net.noresttherein.sugar.collections.TreeSeq.internal.Tree Tree]].
+		  * This API, unlike [[net.noresttherein.sugar.collections.TreeSeq.internal.Children Children]],
 		  * treats the tree as a sequence of values it contains, with the indices, unless specified differently,
 		  * referring to individual elements, rather than children of this tree node.
 		  */
@@ -3467,16 +3469,16 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					acc
 				}
 
-			def toSeq :Fingers[E] = level match {
-				case 0   => Fingers0
+			def toSeq :TreeSeq[E] = level match {
+				case 0   => TreeSeq0
 				case 1   =>
-					if (array.length == 1) Fingers0
-					else new Fingers1(array.asInstanceOf[Tree[E]], array.length - 1)
+					if (array.length == 1) TreeSeq0
+					else new TreeSeq1(array.asInstanceOf[Tree[E]], array.length - 1)
 				case 2   =>
 					val rank = array.length - 1
 					val children = new Children[Tree[E]](array)
 					val infix = if (rank == 2) emptyTree else Tree(children.slice(1, rank - 1))
-					Fingers2(children(0), infix, children(rank - 1))
+					TreeSeq2(children(0), infix, children(rank - 1))
 				case 3 =>
 					val children   = new Children[Tree[E]](array)
 					val fullPrefix = children(0)
@@ -3487,7 +3489,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val suffixes   = Tree(Children(Tree(fullSuffix.children.slice(0, suffixRank - 1))))
 					val suffix     = fullSuffix.child(suffixRank - 1)
 					val infix      = Tree(children.slice(1, array.length - 2))
-					FingersN(prefix, prefixes, infix, suffixes, suffix, length)
+					TreeSeqN(prefix, prefixes, infix, suffixes, suffix, length)
 				case lvl =>
 					@tailrec def collectPrefixes(prefix :Children[Tree[E]], lvl :Int, res :Children[Tree[E]]) :Tree[E] = {
 						res(lvl - 1) = Tree(prefix.drop(1))
@@ -3514,7 +3516,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 					val prefix   = collectPrefixes(children(0).children, lvl - 2, prefixes)
 					val suffix   = collectSuffixes(children(array.length - 2).children, lvl - 2, suffixes)
 					val infix    = children.slice(1, array.length - 2)
-					FingersN(prefix, Tree(prefixes), Tree(infix), Tree(suffixes), suffix)
+					TreeSeqN(prefix, Tree(prefixes), Tree(infix), Tree(suffixes), suffix)
 			}
 
 
@@ -4306,10 +4308,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		}
 
 
-		/** A shared interface for iterators over `Fingers2` and `FingersN` which allows to add them efficiently
-		  * to a `FingersBuilder`.
+		/** A shared interface for iterators over `TreeSeq2` and `TreeSeqN` which allows to add them efficiently
+		  * to a `TreeSeqBuilder`.
 		  */
-		abstract class FingersIterator[+E]
+		abstract class TreeSeqIterator[+E]
 			extends AbstractIterator[E] with BufferedIterator[E] with IteratorWithDrop[E] with StrictIterator[E]
 		{
 			override def hasFastDrop = true
@@ -4317,9 +4319,9 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		}
 
 		/** An iterator over a finger tree of level 2, caching the current slice (leaf).
-		  * @see [[net.noresttherein.sugar.collections.Fingers.Fingers2]]
+		  * @see [[net.noresttherein.sugar.collections.TreeSeq.TreeSeq2]]
 		  */
-		class Iterator2[+E](coll :Fingers2[E]) extends FingersIterator[E] {
+		class Iterator2[+E](coll :TreeSeq2[E]) extends TreeSeqIterator[E] {
 			private[this] var from  = 0
 			private[this] var until = coll.length
 			private[this] var leaf  = coll.firstLeaf.array
@@ -4328,12 +4330,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			override def knownSize :Int = until - from
 			override def hasNext :Boolean = from < until
 			override def head :E =
-				if (until <= from) noSuch_!("Fingers.empty.iterator.head")
+				if (until <= from) noSuch_!("TreeSeq.empty.iterator.head")
 				else leaf(idx).asInstanceOf[E]
 
 			override def next() :E = {
 				if (until <= from)
-					noSuch_!("Fingers.empty.iterator.next")
+					noSuch_!("TreeSeq.empty.iterator.next")
 				val res = leaf(idx).asInstanceOf[E]
 				from += 1
 				idx  += 1
@@ -4386,13 +4388,13 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
 				coll.copyRangeToArray(xs, start, from, math.min(len, until - from))
 
-			override def toString :String = "Fingers.iterator@" + from + "|" + (until - from) + "|"
+			override def toString :String = "TreeSeq.iterator@" + from + "|" + (until - from) + "|"
 		}
 
-		/** An iterator over `FingersN`. It caches the current level 1 node (array with values),
+		/** An iterator over `TreeSeqN`. It caches the current level 1 node (array with values),
 		  * and uses binary search in the tree to find the next one.
 		  */
-		class IteratorN[+E](coll :FingersN[E]) extends FingersIterator[E] {
+		class IteratorN[+E](coll :TreeSeqN[E]) extends TreeSeqIterator[E] {
 			private[this] var from    = 0               //The index of the next element in the whole tree.
 			private[this] var until   = coll.length     //The index after the last element of the iterator.
 			private[this] var subtree = coll.firstLeaf  //The subtree of a finger subtree (prefix, prefixes, infix, suffixes, suffix)
@@ -4404,12 +4406,12 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			override def knownSize :Int = until - from
 			override def hasNext :Boolean = from < until
 			override def head :E =
-				if (until <= from) noSuch_!("Fingers.empty.iterator.head")
+				if (until <= from) noSuch_!("TreeSeq.empty.iterator.head")
 				else leaf(idx).asInstanceOf[E]
 
 			override def next() :E = {
 				if (until <= from)
-					noSuch_!("Fingers.empty.iterator")
+					noSuch_!("TreeSeq.empty.iterator")
 				val res = leaf(idx).asInstanceOf[E]
 				idx  += 1
 				from += 1
@@ -4499,13 +4501,13 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 			override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
 				coll.copyRangeToArray(xs, start, from, math.min(len, until - from))
 
-			override def toString :String = "Fingers.iterator@" + from + "|" + (until - from) + "|"
+			override def toString :String = "TreeSeq.iterator@" + from + "|" + (until - from) + "|"
 		}
 
 
 
-		/** A builder maintaining a perfectly balanced tree isomorphic with Fingers and suffix nodes of each level
-		  * for fast access. The tree is then converted to `Fingers` in `result()`. Because we are only appending
+		/** A builder maintaining a perfectly balanced tree isomorphic with `TreeSeq` and suffix nodes of each level
+		  * for fast access. The tree is then converted to `TreeSeq` in `result()`. Because we are only appending
 		  * elements, we can keep and grow those unbalanced suffixes separately, and integrate them into the root
 		  * tree when their rank reaches `MaxChildren` or we need to merge with another balanced tree.
 		  * Implementation of a balanced tree provided by `Tree` is overall much simpler and efficient than
@@ -4513,10 +4515,10 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		  * of already created tree doesn't matter, because we don't need it other than adding already full nodes,
 		  * and possibly of level higher than one, because we keep unbalanced suffixes ourselves.
 		  * The fact that they are imbalanced also means there is a lot of less balancing involved,
-		  * as we do suffix balancing only when adding another `Fingers` and we need to 'flush' that data into the tree
+		  * as we do suffix balancing only when adding another `TreeSeq` and we need to 'flush' that data into the tree
 		  * in order to merge whole trees, or calling `result`, which happens once.
 		  */
-		class FingersBuilder[E] extends ReusableBuilder[E, Fingers[E]] {
+		class TreeSeqBuilder[E] extends ReusableBuilder[E, TreeSeq[E]] {
 			/** The suffix of the built sequence: an array of length `1 + MaxChildren` containing `rank0` values,
 			  * starting at offset `1`. New elements added to the builder are appended to this array.
 			  * If the array is already full, it is added as a child of `suffixes(0)` (creating `suffixes`,
@@ -4573,7 +4575,7 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				level    = 0
 				size     = 0
 			}
-			override def result() :Fingers[E] = {
+			override def result() :TreeSeq[E] = {
 				val seq = toTree(level).toSeq
 				clear()
 				seq
@@ -4796,8 +4798,8 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 				case view   :View[E]                           => addAll(view.iterator)
 				case empty  :Iterable[E] if empty.isEmpty      => this
 				case empty  :Iterator[E] if !empty.hasNext     => this
-				case other  :AbstractFingers[E]                => addAll(other.toTree)
-				case itr    :FingersIterator[E]                => addAll(itr.toTree)
+				case other  :AbstractTreeSeq[E]                => addAll(other.toTree)
+				case itr    :TreeSeqIterator[E]                => addAll(itr.toTree)
 				case ErasedArray.Slice(array, from, until)     => addAll(array, from, until - from)
 				case single :Iterable[E] if single.sizeIs == 1 => addOne(single.head)
 				case _ =>
@@ -4964,11 +4966,11 @@ case object Fingers extends StrictOptimizedSeqFactory[Fingers] {
 		/** The maximum number of children (or values for leaf nodes) in leaves and inner nodes; equals `2*Rank - 1`. */
 		final val MaxChildren  = (Rank << 1) - 1
 
-		/** The maximum number of children of an `infix` node in `Fingers2` and `FingersN`;
+		/** The maximum number of children of an `infix` node in `TreeSeq2` and `TreeSeqN`;
 		  * equals `MaxChildren - 2 == 2*Rank - 3`. */
 		final val MaxInfixRank = MaxChildren - 2
 
-		/** The maximum number of children of for all children of `prefixes` and `suffixes` properties of `FingersN`.
+		/** The maximum number of children of for all children of `prefixes` and `suffixes` properties of `TreeSeqN`.
 		  * Equals `MaxChildren - 1 == 2*Rank - 2`. */
 		final val MaxOuterRank = MaxChildren - 1
 	}

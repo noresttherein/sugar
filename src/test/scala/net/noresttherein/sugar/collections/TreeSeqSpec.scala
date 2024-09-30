@@ -7,10 +7,10 @@ import org.scalacheck.util.ConsoleReporter
 
 
 
-object FingersSpec
-	extends UntaggedSeqProps[TestFingers]("Fingers", TestFingers)
-	   with SugaredIterableProps[TestFingers, collection.Seq, Dummy]
-	   with PatchingProps[TestFingers, collection.Seq, Dummy]
+object TreeSeqSpec
+	extends UntaggedSeqProps[TestTreeSeq]("TreeSeq", TestTreeSeq)
+	   with SugaredIterableProps[TestTreeSeq, collection.Seq, Dummy]
+	   with PatchingProps[TestTreeSeq, collection.Seq, Dummy]
 {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 //		super.overrideParameters(p).withMaxSize(500)

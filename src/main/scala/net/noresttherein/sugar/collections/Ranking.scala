@@ -1606,7 +1606,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 	  *
 	  * '''Important:''' the builder's `knownSize` method must return its correct size.
 	  */
-	final val IndexedSeqFactory :SeqFactory[IndexedSeq] = Fingers
+	final val IndexedSeqFactory :SeqFactory[IndexedSeq] = TreeSeq
 
 	/** The maximum size for `SmallRanking` implementation. */
 	final val SmallRankingCap = 16
@@ -2216,7 +2216,7 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 		private[this] var smallCap = if (small eq null) 0 else small.length
 		private[this] var large :Builder[T, IndexedSeq[T]] = _
 		override def knownSize :Int = if (large != null) large.knownSize else smallSize
-		//todo: build a RelayArray instead of Vector/Fingers
+		//todo: build a RelayArray instead of Vector/TreeSeq
 
 		override def sizeHint(hint :Int) :Unit =
 			if (hint > 0 & smallSize == 0)
@@ -3677,7 +3677,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
   * to this instance, the sequence is converted to something with better update and concat characteristics,
   * like a `Vector`. The map is upcast to a more general element (key) type, so it is defensively converted
   * to a hash map in these scenarios.
-  */ //todo: don't convert blindly to IndexedSeqFactory, but explicitly allow Vector and Fingers.
+  */ //todo: don't convert blindly to IndexedSeqFactory, but explicitly allow Vector and TreeSeq.
 @SerialVersionUID(Ver)
 private class IndexedRanking[+T](items :IndexedSeq[T], map :Map[T, Int])
 	extends AbstractIterable[T] with StrictOptimizedIterableOps[T, Ranking, Ranking[T]]

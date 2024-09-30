@@ -133,7 +133,7 @@ Additional factory methods, in particular for specialized singleton implementati
 #### 5.2. Ranking
 A collection of unique elements in a particular order - a `Set` and a `Seq` in one.
 
-#### 5.3. Fingers
+#### 5.3. TreeSeq
 A universal, immutable sequence backed by a 'true' finger tree, with all operations - including concatenation
 with another finger tree - taking `O(log n)` time, except for access near the ends (`O(1)`) and methods 
 requiring reading/updating every value in the sequence (`O(n)`, naturally).

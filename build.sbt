@@ -48,18 +48,18 @@ Test / sourceGenerators += Def.task {
 		IO.writeLines(output, lines)
 	}
 
-	//Create a copy of Fingers sequence using a much lower tree rank/order, so that relatively small sequences
+	//Create a copy of TreeSeq sequence using a much lower tree rank/order, so that relatively small sequences
 	// are represented by deep trees, in order to comfortably test the implementations for higher levels.
-	val Fingers     = collectionsSourceDir / "Fingers.scala"
-	val TestFingers = collectionsTestManagedDir / "TestFingers.scala"
-	PatchFile(Fingers, TestFingers).patchAll(
-		("Fingers", "TestFingers"),
+	val TreeSeq     = collectionsSourceDir / "TreeSeq.scala"
+	val TestTreeSeq = collectionsTestManagedDir / "TestTreeSeq.scala"
+	PatchFile(TreeSeq, TestTreeSeq).patchAll(
+		("TreeSeq", "TestTreeSeq"),
 		("//assert", "assert"),
 		("//\\w*override def toString", "\toverride def toString"),
 		("final val Rank = \\d*", "final val Rank = 4")
 	)
 
-	Seq(TestFingers, TestCuboid, TestMatrixBuffer)
+	Seq(TestTreeSeq, TestMatrixBuffer)
 }.taskValue
 
 

@@ -27,7 +27,7 @@ import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
   * @define coll BTree sequence
   * @author Marcin Mościcki
   */ //Not really a BTree even, values only in leaves.
-@deprecated("in favour of Fingers", "")
+@deprecated("in favour of TreeSeq", "")
 @nowarn("cat=deprecation")
 sealed trait BTreeSeq[+E]
 	extends IndexedSeq[E] with IndexedSeqOps[E, BTreeSeq, BTreeSeq[E]] with IterableFactoryDefaults[E, BTreeSeq]

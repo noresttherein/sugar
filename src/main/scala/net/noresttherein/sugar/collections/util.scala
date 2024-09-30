@@ -113,7 +113,7 @@ private[sugar] object util {
 	object HasFastPrepend {
 		def apply[X](seq :Seq[X]) :Boolean = seq match {
 			//Technically, LinearSeq does not promise fast prepend.
-			case _ :LinearSeq[_] | _ :Vector[_] | _ :Fingers[_] | _ :RelayArray[_] | _ :RelaySeq[_] => true
+			case _ :LinearSeq[_] | _ :Vector[_] | _ :TreeSeq[_] | _ :RelayArray[_] => true
 			case _ => false
 		}
 
@@ -127,7 +127,7 @@ private[sugar] object util {
 		def unapply[CC[A]/* <: IterableOnce[A]*/, X](items :CC[X]) :Maybe[LikeSeq[X, items.type, CC, CC[X]]] = items match {
 			case _ :LinearSeq[_] =>
 				Yes(LikeSeq.generic[X, Seq].asInstanceOf[LikeSeq[X, items.type, CC, CC[X]]])
-			case _ :Vector[_] | _ :Fingers[_] | _ :RelayArray[_] | _ :RelaySeq[_] =>
+			case _ :Vector[_] | _ :TreeSeq[_] | _ :RelayArray[_] =>
 				Yes(LikeIndexedSeq.generic[X, IndexedSeq].asInstanceOf[LikeSeq[X, items.type, CC, CC[X]]])
 			case _ =>
 				No
@@ -377,7 +377,7 @@ private[sugar] object IndexedIterable {
 
 		def unapply[CC[A] <: IterableOnce[A], X](items :CC[X]) :Maybe[LikeSeq[X, items.type, CC, CC[X]]] = items match {
 			case seq :collection.IndexedSeqOps[X, CC, CC[X]] @unchecked => seq match {
-				case _ :Vector[X] | _ :Fingers[X] =>
+				case _ :Vector[X] | _ :TreeSeq[X] =>
 					Yes(LikeIndexedSeq.generic[X, IndexedSeq].asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]])
 				case _ if seq.length <= FastUpdateThreshold =>
 					Yes(LikeIndexedSeq.generic[X, IndexedSeq].asInstanceOf[LikeIndexedSeq[X, items.type, CC, CC[X]]])
@@ -498,7 +498,7 @@ private object HasFastSlice {
 		case _ if { val size = items.knownSize; size >= 0 & size <= fastSliceSize } => true
 		case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
 			case _ :IndexedSeqView[_] | _ :Vector[_] => true
-			case _ :RelayArrayRange[_] | _ :Fingers[_] | _ :ArrayLikeSlice[_] | _ :SubstringOps[_] => true
+			case _ :RelayArrayRange[_] | _ :TreeSeq[_] | _ :ArrayLikeSlice[_] | _ :SubstringOps[_] => true
 			case _ => false
 		}
 		case _ :SugaredIterable[_] => items match {
@@ -517,7 +517,7 @@ private object HasFastSlice {
 			case _ :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
 				case view    :IndexedSeqView[A]          => Yes(view)
 				case vec     :Vector[A]                  => Yes(vec)
-				case fingers :Fingers[A]                 => Yes(fingers)
+				case fingers :TreeSeq[A]                 => Yes(fingers)
 				case pass    :RelayArray[A]              => Yes(pass.range)
 				case slice   :ArrayLikeSlice[A]          => Yes(slice)
 				case seq     :collection.IndexedSeq[A]   => Yes(Subseq(seq, 0, seq.length))
@@ -570,7 +570,7 @@ private object HasFastSlice {
 			case _ if { val s = items.knownSize; s == 0 | s >= 0 & from >= s }       => Yes(Nil)
 			case coll :Iterable[A] if coll.sizeIs <= fastSliceSize                   => Yes(coll.slice(from, until))
 			case seq  :collection.IndexedSeqOps[A, Iterable, Iterable[A]] @unchecked => items match {
-				case _ :IndexedSeqView[_] | _ :Vector[_] | _ :ArrayLikeSlice[_] | _ :Fingers[_] =>
+				case _ :IndexedSeqView[_] | _ :Vector[_] | _ :ArrayLikeSlice[_] | _ :TreeSeq[_] =>
 					Yes(seq.slice(from, until))
 				//There is no guarantee that a subclass won't reallocate on slice, like RelayArray can.
 //				case _ :ArraySliceSeqOps[A, _, _]       => Yes(seq.slice(from, until))

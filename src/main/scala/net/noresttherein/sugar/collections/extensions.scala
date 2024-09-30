@@ -6906,7 +6906,7 @@ object extensions extends extensions {
 			case Seq                                              => (elem::Nil).castCons[C]
 			case IndexedSeq                                       => ConstIndexedSeq(elem, 1).castCons[C]
 			case RelayArray                                       => RelayArray.one(elem).castCons[C]
-			case Fingers                                          => Fingers.one(elem).castCons[C]
+			case TreeSeq                                          => TreeSeq.one(elem).castCons[C]
 			case b :BufferFactory[Buffer @unchecked]              => ((b :SeqFactory[Buffer]).empty[E] += elem).castCons[C]
 			case Buffer | mutable.Seq                             => (DefaultBuffer.empty[E] += elem).castCons[C]
 			case ArrayBuffer | IndexedBuffer | mutable.IndexedSeq => (new AliasingArrayBuffer[E] += elem).castCons[C]
@@ -6918,7 +6918,7 @@ object extensions extends extensions {
 			case Seq                  => Prepended2Seq(first, second, Nil).castCons[C]
 			case IndexedSeq           => Prepended2Seq(first, second, IndexedSeq.empty).castCons[C]
 			case RelayArray           => RelayArray.two(first, second).castCons[C]
-			case Fingers              => Fingers.two(first, second).castCons[C]
+			case TreeSeq              => TreeSeq.two(first, second).castCons[C]
 			case Buffer | mutable.Seq => (Buffer.empty[E] += first += second).castCons[C]
 			case ListBuffer           => (new ListBuffer[E] += first += second).castCons[C]
 			case ArrayBuffer | mutable.IndexedSeq | IndexedBuffer =>
