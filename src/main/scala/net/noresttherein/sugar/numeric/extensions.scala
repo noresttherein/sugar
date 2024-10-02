@@ -132,7 +132,7 @@ object extensions extends extensions {
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
-	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they have a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class ShortExtension private[extensions] (private val self :Short) extends AnyVal {
@@ -147,7 +147,7 @@ object extensions extends extensions {
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
-	  * Standard `max n` and `min n` can be confusing, as in everyday language they has a meaning of
+	  * Standard `max n` and `min n` can be confusing, as in everyday language they have a meaning of
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class CharExtension private[extensions] (private val self :Char) extends AnyVal {
@@ -237,6 +237,9 @@ object extensions extends extensions {
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 		  */
 		@inline def %/(denominator :Int) :Ratio = Ratio(self, denominator)
+
+		/** A non-negative remainder of division of `this` by `divisor`. */
+		@inline def %+(divisor :Int) :Int = (((divisor.toLong << 31) + self) % divisor).toInt
 
 		/** Returns `this max 0`. */
 		@inline def atLeast0 :Int = math.max(self, 0)
@@ -332,7 +335,7 @@ object extensions extends extensions {
 		@throws[ArithmeticException]("if this Int is negative")
 		@inline def toUIntExact :UInt = UInt.from(self)
 
-		/** Reinterprets this `Int`'s binary format as an unsigned 32 bit integer.
+		/** Reinterprets this `Int`'s binary format as an unsigned 32-bit integer.
 		  * Negative values will be converted to values greater than `Int.MaxValue`.
 		  */
 		@inline def toUInt :UInt = new UInt(self)
@@ -341,7 +344,7 @@ object extensions extends extensions {
 		@throws[ArithmeticException]("if this Int is negative")
 		@inline def toULongExact :ULong = ULong.from(self)
 
-		/** Converts  this `Int` to a 64 bit unsigned integer.
+		/** Converts  this `Int` to a 64-bit unsigned integer.
 		  * Negative values will result in underflowing to values greater than `Int.MaxValue`.
 		  */
 		@inline def toULong :ULong = new ULong(self & 0xffffffffL)
@@ -428,6 +431,12 @@ object extensions extends extensions {
 		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 		  */
 		@inline def %/(denominator :Int) :Ratio = Ratio(self, denominator)
+
+		/** A non-negative remainder of division of `this` by `divisor`. */
+		@inline def %+(divisor :Long) :Long =
+			if (self > divisor) self % divisor
+			else if (self < 0) (divisor + self % divisor) % divisor
+			else self
 
 		/** Returns `this max 0`. */
 		@inline def atLeast0 :Long = math.max(self, 0)
