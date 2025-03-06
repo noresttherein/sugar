@@ -1,5 +1,7 @@
 package net.noresttherein.sugar
 
+import scala.annotation.nowarn
+
 import net.noresttherein.sugar.extensions.boxeqMethod
 import net.noresttherein.sugar.typist.Rank.Rank1
 
@@ -41,14 +43,20 @@ trait extensions
 @SerialVersionUID(Ver)
 object extensions extends extensions {
 	class boxeqMethod[X] private[extensions] (private val self :X) extends AnyVal {
-		/** Compares the two values for equality (`==`) if they are built in value types or their boxes,
+		/** Compares the two values for equality if they are built in value types or their boxes,
 		  * or referential equality (`eq`) if they are true `AnyRef` types.
+		  * The former comparison is made using `equals`, not `==`, so
+		  * {{{ !(1.asInstanceOf[AnyRef] boxeq 1L.asInstanceOf[AnyRef]), }}} but
+		  * {{{ 1 == 1L }}}
+		  * If either of the values is `null`, both must be `null`.
+		  *
 		  * Note that custom value classes are still compared for referential equality of their object representations,
 		  * not the equality of the underlying field.
 		  */
 		def boxeq[Y](other :Y) :Boolean = self match {
+			case null => other == null
 			case _ :Number => self match {
-				case _ :Int | _ :Long | _ :Short | _ :Byte | _ :Double | _ :Float => self == other
+				case _ :Int | _ :Long | _ :Short | _ :Byte | _ :Double | _ :Float => self equals other : @nowarn
 				case _ => self.asInstanceOf[AnyRef] eq other.asInstanceOf[AnyRef]
 			}
 			case _ :Char | _ :Boolean => self == other
