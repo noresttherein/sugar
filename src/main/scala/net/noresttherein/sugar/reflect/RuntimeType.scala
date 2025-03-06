@@ -375,7 +375,6 @@ sealed trait RuntimeType[@specialized T] extends Serializable {
 		(this eq OfInt) || (this eq OfLong) || (this eq OfFloat) ||
 			(this eq OfDouble) || (this eq OfBoolean) || (this eq OfUnit)
 
-	//todo: analyze with a fresh mind if this is sound (overridden in Specialized).
 	def asSubtype[S <: T] :RuntimeType[S] = this.asInstanceOf[RuntimeType[S]]
 
 
@@ -1272,7 +1271,7 @@ object Specialized extends SpecializedFromType {
 	  */
 	final val All :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean, Unit, AnyRef)] = null
 
-	/** All possible types with the exception of `Unit` */
+	/** All possible types except for `Unit` */
 	final val NotUnit :Specializable.Group[(Byte, Short, Int, Long, Char, Float, Double, Boolean, AnyRef)] = null
 
 	/** An argument for `scala.specialized` annotation specializing for all java primitives, including `Unit/void`. */
@@ -1651,11 +1650,11 @@ object Specialized extends SpecializedFromType {
 		override type RunType = Any
 		override type BoxType = AnyRef
 
-		override val runType = classOf[Any]
-		override val boxType = classOf[AnyRef]
+		override val runType :Class[RunType] = classOf[Any]
+		override val boxType :Class[AnyRef]  = classOf[AnyRef]
 
-		override val classTag = ClassTag[Any](runType)
-		override val boxClassTag = ClassTag[AnyRef](boxType)
+		override val classTag    :ClassTag[Any]    = ClassTag[Any](runType)
+		override val boxClassTag :ClassTag[AnyRef] = ClassTag[AnyRef](boxType)
 
 		override def isErased = true
 
