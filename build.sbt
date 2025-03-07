@@ -8,12 +8,12 @@ name := "sugar"
 
 version := "moonshine"
 
-scalaVersion := "2.13.14"
+scalaVersion := "2.13.16"
 
 
 Compile / fork := true
 
-Compile / javaOptions ++= Seq("-Xmx8G")
+Compile / javaOptions ++= Seq("-Xmx12G")
 
 Test / sourceGenerators += Def.task {
 	//Create a copy of class MatrixBuffer which uses a much lower max length for a single dimension array
@@ -80,12 +80,12 @@ libraryDependencies ++= Seq( //todo: make shapeless optional
 	"org.scala-lang" % "scala-compiler" % scalaVersion.value,
 	"org.scala-lang" % "scala-library" % scalaVersion.value,
 	"org.scala-lang" % "scala-reflect" % scalaVersion.value,
-	"com.chuusai" %% "shapeless" % "2.3.10",
-	"net.bytebuddy" % "byte-buddy" % "1.14.2",
+	"com.chuusai" %% "shapeless" % "2.3.13",
+	"net.bytebuddy" % "byte-buddy" % "1.17.2",
 
 	"junit" % "junit" % "4.13.2" % "test",
-	"org.scalatest" %% "scalatest" % "3.2.15" % Test,
-	"org.scalacheck" %% "scalacheck" % "1.17.0" % Test,
+	"org.scalatest" %% "scalatest" % "3.2.19" % Test,
+	"org.scalacheck" %% "scalacheck" % "1.18.1" % Test,
 //	"org.openjdk.jmh" % "jmh-core" % "1.36" % Test,
 //	"org.openjdk.jmh" % "jmh-generator-annprocess" % "1.36" % Test,
 )
@@ -110,7 +110,7 @@ scalacOptions ++= Seq(
 	"-Xlog-reflective-calls",
 	"-Xlint:delayedinit-select,implicit-not-found,option-implicit,poly-implicit-overload,nullary-unit",
 //	"-W",
-	"-Wconf:cat=deprecation&msg=foldLeft:silent,cat=deprecation&msg=foldRight:silent,cat=deprecation:w,cat=feature:w",
+	"-Wconf:cat=deprecation:w,cat=deprecation&msg=foldLeft:silent,cat=deprecation&msg=foldRight:silent,cat=feature:w",
 	"-Wunused:patvars,privates,locals",
 	"-feature",
 	"-language:implicitConversions",
