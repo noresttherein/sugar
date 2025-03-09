@@ -15,6 +15,7 @@ import net.noresttherein.sugar.extensions.{ArrayAsIterableOnceExtension, Iterabl
 /** Type aliases for ubiquitous Java types which have Scala counterparts sharing their name. */
 @SerialVersionUID(Ver)
 object JavaTypes { //todo: 'companion' objects with delegates to Java static methods.
+	//consider: moving them to numeric and collections
 	type JArray            = java.lang.reflect.Array
 
 	type JVoid             = java.lang.Void

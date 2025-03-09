@@ -1,14 +1,16 @@
 package net.noresttherein.sugar.numeric
 
+import java.{lang=>jl}
+import java.lang.Long.{divideUnsigned, remainderUnsigned, toUnsignedString}
 import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
-import java.{lang => jl}
 
 import scala.Int.MinValue
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
-import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
-import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException, illegal_!}
+import net.noresttherein.sugar.extensions.LongExtension
+import net.noresttherein.sugar.numeric
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
@@ -17,7 +19,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
-/** An unsigned 32 bit integer backed by an `Int` value. All comparisons are done as if unsigned, and `toString`
+/** An unsigned 32-bit integer backed by an `Int` value. All comparisons are done as if unsigned, and `toString`
   * and other formatting methods treat the underlying `Int` as unsigned.
   * This type doesn't check for overflows and underflows, meaning `UInt(1) - UInt(2)` will return `UInt.MaxValue`.
   *
@@ -31,7 +33,8 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   */
 @SerialVersionUID(Ver)
 class UInt private[numeric] (override val toInt: Int)
-	extends AnyVal with Ordered[UInt] with ScalaNumericAnyConversions with Serializable
+	//We are not Ordered, because comparisons with UInt are handled by converting both to Long
+	extends AnyVal with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
 	@inline override def isValidByte : Boolean = (toInt & 0x7f) == toInt
@@ -75,11 +78,12 @@ class UInt private[numeric] (override val toInt: Int)
 	@inline def toRatio    : Ratio     = Ratio(toInt & 0xffffffffL)
 
 	@inline override def toString   : String = String.valueOf(toInt & 0xffffffffL)
-	@inline def toString(radix: Int): String = jl.Integer.toUnsignedString(toInt, radix)
-	@inline def toBinaryString      : String = jl.Integer.toBinaryString(toInt)
-	@inline def toOctalString       : String = jl.Integer.toOctalString(toInt)
-	@inline def toHexString         : String = jl.Integer.toHexString(toInt)
+	@inline def toString(radix: Int): String = toUnsignedString(radix)
+	@inline def toBinaryString      : String = toInt.toBinaryString
+	@inline def toOctalString       : String = toInt.toOctalString
+	@inline def toHexString         : String = toInt.toHexString
 
+	//Needed because otherwise the default + extension method take precedence over our extensions.
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
 	@inline def +(x: String): String = toInt.toString + x
 
@@ -87,58 +91,40 @@ class UInt private[numeric] (override val toInt: Int)
 	@inline def >>>(x: Int): UInt = new UInt(toInt >>> x)
 	@inline def >>(x: Int) : UInt = new UInt(toInt >> x)
 
-	//Consider: the problem with all these comparisons is that they exclude UInt, which is handled by methods
-	// inherited from Ordered. This works, because the erased signature is >(x :Object).
-	// Unfortunately, it also means that it boxes both operands.
-	// We may migrate to extension methods, but they won't work for == and !=.
-	@inline def ==(x: Byte)  : Boolean = toInt >= 0 & toInt == x
-	@inline def ==(x: Short) : Boolean = toInt >= 0 & toInt == x
-	@inline def ==(x: Char)  : Boolean = toInt == x
+	//These comparisons exclude UInt, which is instead handled by promoting UInt to Long.
+	//Sadly, we can't declare these as extension methods.
 	@inline def ==(x: Int)   : Boolean = toInt >= 0 & toInt == x
 	@inline def ==(x: Long)  : Boolean = (toInt & 0xffffffffL) == x
 	@inline def ==(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat == x
 	@inline def ==(x: Double): Boolean = (toInt & 0xffffffffL).toDouble == x
-	@inline def !=(x: Byte)  : Boolean = toInt < 0 | toInt != x
-	@inline def !=(x: Short) : Boolean = toInt < 0 | toInt != x
-	@inline def !=(x: Char)  : Boolean = toInt < 0 | toInt != x
 	@inline def !=(x: Int)   : Boolean = toInt != x
 	@inline def !=(x: Long)  : Boolean = (toInt & 0xffffffffL) != x
 	@inline def !=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat != x
 	@inline def !=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble != x
 
-	@inline def < (x: Byte)  : Boolean = x > 0 & toInt > 0 & toInt < x
-	@inline def < (x: Short) : Boolean = x > 0 & toInt > 0 & toInt < x
-	@inline def < (x: Char)  : Boolean = x > 0 & toInt > 0 & toInt < x
 	@inline def < (x: Int)   : Boolean = x > 0 & toInt > 0 & toInt < x
 	@inline def < (x: Long)  : Boolean = (toInt & 0xffffffffL) < x
 	@inline def < (x: Float) : Boolean = (toInt & 0xffffffffL).toFloat < x
 	@inline def < (x: Double): Boolean = (toInt & 0xffffffffL).toDouble < x
-	@inline def <=(x: Byte)  : Boolean = x >= 0 & toInt >= 0 & toInt <= x
-	@inline def <=(x: Short) : Boolean = x >= 0 & toInt >= 0 & toInt <= x
-	@inline def <=(x: Char)  : Boolean = toInt >= 0 & toInt <= x
 	@inline def <=(x: Int)   : Boolean = x >= 0 & toInt >= 0 & toInt <= x
 	@inline def <=(x: Long)  : Boolean = (toInt & 0xffffffffL) <= x
 	@inline def <=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat <= x
 	@inline def <=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble <= x
-	@inline def > (x: Byte)  : Boolean = x < 0 | toInt < 0 | toInt > x
-	@inline def > (x: Short) : Boolean = x < 0 | toInt < 0 | toInt > x
-	@inline def > (x: Char)  : Boolean = toInt < 0 | toInt > x
 	@inline def > (x: Int)   : Boolean = x < 0 | toInt < 0 | toInt > x
 	@inline def > (x: Long)  : Boolean = (toInt & 0xffffffffL) > x
 	@inline def > (x: Float) : Boolean = (toInt & 0xffffffffL).toFloat > x
 	@inline def > (x: Double): Boolean = (toInt & 0xffffffffL).toDouble > x
-	@inline def >=(x: Byte)  : Boolean = x < 0 | toInt < 0 | toInt >= x
-	@inline def >=(x: Short) : Boolean = x < 0 | toInt < 0 | toInt >= x
-	@inline def >=(x: Char)  : Boolean = toInt < 0 | toInt >= x
 	@inline def >=(x: Int)   : Boolean = x < 0 | toInt < 0 | toInt >= x
 	@inline def >=(x: Long)  : Boolean = (toInt & 0xffffffffL) >= x
 	@inline def >=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat >= x
 	@inline def >=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble >= x
 
-	@inline def compare(other: UInt): Int = jl.Integer.compare(toInt + MinValue, other.toInt + MinValue)
+	@inline def compare(other: UInt) :Int = numeric.compare((toInt & 0xffffffffL) + Long.MinValue, other + Long.MinValue)
+	@inline def compare(other: Long): Int = numeric.compare(toLong + Long.MinValue, other)
+//	@inline def compare(other: ULong): Int = compare(toLong + Long.MinValue, other.toLong + Long.MinValue)
 
-	@inline def min(other: UInt): UInt = new UInt(jl.Math.min(toInt + MinValue, other.toInt + MinValue) - MinValue)
-	@inline def max(other: UInt): UInt = new UInt(jl.Math.max(toInt + MinValue, other.toInt + MinValue) - MinValue)
+	@inline def min(other: UInt): UInt = new UInt(numeric.min(toInt + MinValue, other.toInt + MinValue) - MinValue)
+	@inline def max(other: UInt): UInt = new UInt(numeric.max(toInt + MinValue, other.toInt + MinValue) - MinValue)
 
 	/** Returns `this max other`. */
 	@inline def atLeast(other :UInt) :UInt = if (toInt + MinValue >= other.toInt + MinValue) this else other
@@ -153,17 +139,17 @@ class UInt private[numeric] (override val toInt: Int)
 	@inline def orZeroIf(condition :UInt => Boolean) :UInt = if (condition(this)) new UInt(0) else this
 
 	/** True if this `UInt` is a power of `2`. */
-	@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(toInt) == 1
+	@inline def isPowerOf2 :Boolean = (toInt & 0xffffffffL).bitCount == 1
 
 	/** The greatest power of 2 lesser or equal to `this`, or zero if this `Int` equals zero. */
-	@inline def powerOf2Floor :UInt = new UInt(jl.Integer.highestOneBit(toInt))
+	@inline def powerOf2Floor :UInt = new UInt(toInt.highestOneBit)
 
 	/** The least power of 2 greater or equal to `this`, or zero if this `Int` equals zero. */
 	@inline def powerOf2Ceil :UInt = {
 		val lowerPow2 = jl.Integer.highestOneBit(toInt)
 		val pow2Mask  = toInt - 1 & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
 		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
-		val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
+		val ifEqPow2  = ~pow2Mask & lowerPow2                     //if (self == lowerPow2) lowerPow2 else 0
 		new UInt(ifGtPow2 | ifEqPow2)
 	}
 
@@ -172,8 +158,8 @@ class UInt private[numeric] (override val toInt: Int)
 		val lowerPow2 = jl.Integer.highestOneBit(toInt)
 		val pow2Mask  = toInt - 1 & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
 		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
-		val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
-		val ifZero    = (-(toInt & -toInt) >> 31) & 1             //if (self == 0) 1 else 0
+		val ifEqPow2  = ~pow2Mask & lowerPow2                     //if (self == lowerPow2) lowerPow2 else 0
+		val ifZero    = (-lowerPow2 >>> 31) ^ 1                  //if (self == 0) 1 else 0
 		new UInt(ifGtPow2 | ifEqPow2 | ifZero)
 	}
 
@@ -183,48 +169,6 @@ class UInt private[numeric] (override val toInt: Int)
 	@inline def &(x: Long) : Long  = toInt & 0xffffffffL & x
 	@inline def ^(x: Int)  : UInt  = new UInt(toInt ^ x)
 	@inline def ^(x: Long) : Long  = toInt & 0xffffffffL ^ x
-
-	@inline def +(x: Char)  : UInt   = new UInt(toInt + x)
-	@inline def +(x: Long)  : Long   = (toInt & 0xffffffffL) + x
-	@inline def +(x: Float) : Float  = (toInt & 0xffffffffL) + x
-	@inline def +(x: Double): Double = (toInt & 0xffffffffL) + x
-	@inline def +(x: UInt)  : UInt   = new UInt(toInt + x.toInt)
-	@inline def -(x: Char)  : UInt   = new UInt(toInt - x) //consider: making all subtractions return a signed integer
-	@inline def -(x: Long)  : Long   = (toInt & 0xffffffffL) - x
-	@inline def -(x: Float) : Float  = (toInt & 0xffffffffL) - x
-	@inline def -(x: Double): Double = (toInt & 0xffffffffL) - x
-	@inline def -(x: UInt)  : UInt   = new UInt(toInt - x.toInt)
-
-	@inline def *(x: Char)  : UInt   = new UInt(toInt * x)
-	@inline def *(x: Long)  : Long   = (toInt & 0xffffffffL) * x
-	@inline def *(x: Float) : Float  = (toInt & 0xffffffffL) * x
-	@inline def *(x: Double): Double = (toInt & 0xffffffffL) * x
-	@inline def *(x: UInt)  : UInt   = new UInt(toInt * x.toInt)
-	@inline def /(x: Char)  : UInt   = new UInt(((toInt & 0xffffffffL) / x).toInt)
-	@inline def /(x: Long)  : Long   = (toInt & 0xffffffffL) / x
-	@inline def /(x: Float) : Float  = (toInt & 0xffffffffL) / x
-	@inline def /(x: Double): Double = (toInt & 0xffffffffL) / x
-	@inline def /(x: UInt)  : UInt   = new UInt(((toInt & 0xffffffffL) / (x.toInt & 0xffffffffL)).toInt)
-	@inline def %(x: Char)  : UInt   = new UInt(((toInt & 0xffffffffL) % x).toInt)
-	@inline def %(x: Long)  : Long   = (toInt & 0xffffffffL) % x
-	@inline def %(x: Float) : Float  = (toInt & 0xffffffffL) % x
-	@inline def %(x: Double): Double = (toInt & 0xffffffffL) % x
-	@inline def %(x: UInt)  : UInt   = new UInt(((toInt & 0xffffffffL) % (x.toInt & 0xffffffffL)).toInt)
-	@inline def **(n: Int)  : UInt   = new UInt(toInt.pow(n))
-
-	/** Divides this `UInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator: UInt): Ratio = Ratio(toInt & 0xffffffffL, denominator.toInt & 0xffffffffL)
-
-	/** Divides this `UInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator: Long): Ratio = Ratio(toInt & 0xffffffffL, denominator)
 
 	type ResultWithoutStep = NumericRange[UInt]
 	@inline def to(end: UInt): NumericRange.Inclusive[UInt] =
@@ -250,8 +194,13 @@ class UInt private[numeric] (override val toInt: Int)
 
 
 
+private[numeric] sealed trait UIntRank1 {
+	@inline implicit final def UIntToLong(number :UInt) :Long = number.toInt & 0xffffffffL
+}
+
+
 @SerialVersionUID(Ver)
-object UInt extends CompanionObject[UInt] {
+object UInt extends CompanionObject[UInt] with UIntRank1 {
 	/** `2`^32^` - 1 == 4294967295` */
 	final val MaxValue = new UInt(0xffffffff)
 	/** Zero. */
@@ -272,7 +221,7 @@ object UInt extends CompanionObject[UInt] {
 
 	@throws[NumberFormatException]("if the string does not contain a parseable integer, or it is negative.")
 	def decode(string: String): UInt = {
-		val long = jl.Long.decode(string)
+		val long = decode(string)
 		if (long < 0L | long > 0xffffffffL)
 			throwNumberFormatException(string)
 		new UInt(long.toInt)
@@ -293,9 +242,115 @@ object UInt extends CompanionObject[UInt] {
 	private def throwNumberFormatException(value: String): Nothing =
 		throw SugaredNumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
+	@inline implicit def UByteToUInt(number :UByte) :UInt = new UInt(number.toByte & 0xff)
+	@inline implicit def UShortToUInt(number :UShort) :UInt = new UInt(number.toShort & 0xffff)
 
 	//todo: in Scala3 create conversions from non negative Int literals
-//	@inline implicit def UIntToULong(number :UInt) :ULong = new ULong(number.asInt)
+	@inline implicit def UIntSignedOps(self: UInt): UIntSignedOps = new UIntSignedOps(self.toInt)
+	@inline implicit def UIntUnsignedOps(self: UInt): UIntUnsignedOps = new UIntUnsignedOps(self.toInt)
+
+	class UIntUnsignedOps private[UInt](private val toInt: Int) extends AnyVal {
+		@inline def +(x :UByte):  UInt = new UInt(toInt + (x.toByte & 0xff))
+		@inline def +(x :UShort): UInt = new UInt(toInt + (x.toShort & 0xffff))
+		@inline def +(x :UInt):   UInt = new UInt(toInt + x.toInt)
+		@inline def +(x :ULong):  ULong = new ULong((toInt & 0xffffffffL) + x.toLong)
+		@inline def -(x: UByte):  UInt = new UInt(toInt - (x.toByte & 0xff))
+		@inline def -(x: UShort): UInt = new UInt(toInt - (x.toShort & 0xffff))
+		@inline def -(x: UInt):   UInt = new UInt(toInt - x.toInt)
+		@inline def -(x: ULong):  ULong = new ULong((toInt & 0xffffffffL) - x.toLong)
+		@inline def *(x: UByte):  UInt = new UInt(toInt * (x.toByte & 0xff))
+		@inline def *(x: UShort): UInt = new UInt(toInt * (x.toShort & 0xffff))
+		@inline def *(x: UInt):   UInt = new UInt(toInt * x.toInt)
+		@inline def *(x: ULong):  ULong = new ULong((toInt & 0xffffffffL) * x.toLong)
+		@inline def /(x: UByte):  UInt = new UInt(((toInt & 0xffffffffL) / x.toByte & 0xffL).toInt)
+		@inline def /(x: UShort): UInt = new UInt(((toInt & 0xffffffffL) / (x.toShort & 0xffffL)).toInt)
+		@inline def /(x: UInt):   UInt = new UInt(((toInt & 0xffffffffL) / (x.toInt & 0xffffffffL)).toInt)
+		@inline def /(x: ULong):  ULong = new ULong(divideUnsigned((toInt & 0xffffffffL), x.toLong))
+		@inline def %(x: UByte):  UInt = new UInt(((toInt & 0xffffffffL) % (x.toByte & 0xffL)).toInt)
+		@inline def %(x: UShort): UInt = new UInt(((toInt & 0xffffffffL) % (x.toShort & 0xffffL)).toInt)
+		@inline def %(x: UInt):   UInt = new UInt(((toInt & 0xffffffffL) % (x.toInt & 0xffffffffL)).toInt)
+		@inline def %(x: ULong):  ULong = new ULong(remainderUnsigned(toInt & 0xffffffffL, x.toLong))
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :UByte): (UInt, UInt) = {
+			val d = x.toByte & 0xffL
+			val q = (toInt & 0xffffffffL) / d
+			val r = (toInt & 0xffffffffL) - q * d
+			(new UInt(q.toInt), new UInt(r.toInt))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :UShort): (UInt, UInt) = {
+			val d = x.toShort & 0xffffL
+			val q = (toInt & 0xffffffffL) / d
+			val r = (toInt & 0xffffffffL) - q * d
+			(new UInt(q.toInt), new UInt(r.toInt))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :UInt): (UInt, UInt) = {
+			val q = (toInt & 0xffffffffL) / (x.toInt & 0xffffffffL)
+			val r = (toInt & 0xffffffffL) - q * (x.toInt & 0xffffffffL)
+			(new UInt(q.toInt), new UInt(r.toInt))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :ULong): (ULong, ULong) = {
+			val q = divideUnsigned(toInt & 0xffffffffL, x.toLong)
+			val r = (toInt & 0xffffffffL) - q * x.toLong
+			(new ULong(q), new ULong(r))
+		}
+
+		@inline def **(n: UByte): UInt = new UInt(toInt.pow(n.toByte & 0xff))
+		@inline def **(n: UShort): UInt = new UInt(toInt.pow(n.toShort & 0xffff))
+		@inline def **(n: UInt): UInt = new UInt(toInt.pow(n.toInt))
+	}
+
+	class UIntSignedOps private[UInt] (private val toInt: Int) extends AnyVal {
+		@inline def +(x: Int)   : Int    = toInt + x
+		@inline def +(x: Long)  : Long   = (toInt & 0xffffffffL) + x
+		@inline def +(x: Float) : Float  = (toInt & 0xffffffffL) + x
+		@inline def +(x: Double): Double = (toInt & 0xffffffffL) + x
+		@inline def -(x: Int)   : Int    = toInt - x
+		@inline def -(x: Long)  : Long   = (toInt & 0xffffffffL) - x
+		@inline def -(x: Float) : Float  = (toInt & 0xffffffffL) - x
+		@inline def -(x: Double): Double = (toInt & 0xffffffffL) - x
+
+		@inline def *(x: Long)  : Long   = (toInt & 0xffffffffL) * x
+		@inline def *(x: Float) : Float  = (toInt & 0xffffffffL) * x
+		@inline def *(x: Double): Double = (toInt & 0xffffffffL) * x
+		@inline def /(x: Long)  : Long   = (toInt & 0xffffffffL) / x
+		@inline def /(x: Float) : Float  = (toInt & 0xffffffffL) / x
+		@inline def /(x: Double): Double = (toInt & 0xffffffffL) / x
+		@inline def %(x: Long)  : Long   = (toInt & 0xffffffffL) % x
+		@inline def %(x: Float) : Float  = (toInt & 0xffffffffL) % x
+		@inline def %(x: Double): Double = (toInt & 0xffffffffL) % x
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :Int) :(Long, Long) = {
+			val q = (toInt & 0xffffffffL) / x
+			val r = (toInt & 0xffffffffL) - q * x
+			(q, r)
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :Long) :(Long, Long) = {
+			val q = (toInt & 0xffffffffL) / x
+			val r = (toInt & 0xffffffffL) - q * x
+			(q.toInt, r.toInt)
+		}
+		@inline def **(n: Byte) : UInt   = new UInt(toInt.pow(n))
+		@inline def **(n: Short): UInt   = new UInt(toInt.pow(n))
+		@inline def **(n: Int)  : UInt   = new UInt(toInt.pow(n))
+
+		/** Divides this `UInt` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+		  * number representing the result.
+		  * @param denominator the denominator of the created rational (before reduction)
+		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+		  */
+		@inline def %/(denominator: Long): Ratio = Ratio(toInt & 0xffffffffL, denominator)
+	}
+
 
 	@SerialVersionUID(Ver)
 	object conversions {
@@ -306,6 +361,8 @@ object UInt extends CompanionObject[UInt] {
 	}
 
 	sealed abstract class UIntIsNumeric extends Numeric[UInt] {
+		import UInt.UIntUnsignedOps
+
 		override def plus(x: UInt, y: UInt): UInt = x + y
 		override def minus(x: UInt, y: UInt): UInt = x - y
 		override def times(x: UInt, y: UInt): UInt = x * y
@@ -321,13 +378,19 @@ object UInt extends CompanionObject[UInt] {
 		override def compare(x: UInt, y: UInt): Int =
 			jl.Integer.compare(x.toInt + Int.MinValue, y.toInt + Int.MinValue)
 	}
+
 	@SerialVersionUID(Ver)
 	implicit object UIntIsIntegral extends UIntIsNumeric with Integral[UInt] {
+		import UInt.UIntUnsignedOps
+
 		override def quot(x: UInt, y: UInt): UInt = x / y
 		override def rem(x: UInt, y: UInt): UInt = x % y
 	}
+
 	@SerialVersionUID(Ver)
 	object UIntAsIfFractional extends UIntIsNumeric with Fractional[UInt] {
+		import UInt.UIntUnsignedOps
+
 		override def div(x: UInt, y: UInt): UInt = x / y
 	}
 }

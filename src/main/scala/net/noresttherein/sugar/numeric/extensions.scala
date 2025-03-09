@@ -129,6 +129,34 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Byte) :Byte = math.min(self, other).toByte
+
+		/** Forces conversion of this `Byte` to an unsigned value. Will underflow for negative values. */
+		@inline def toUByte :UByte = new UByte(self)
+
+		/** Converts this `Byte` to an unsigned value. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toUByteExact :UByte = UByte.from(self)
+
+		/** Forces conversion of this `Byte` to an unsigned 16-bit number. Will underflow for negative values. */
+		@inline def toUShort :UShort = new UShort(self)
+
+		/** Converts this `Byte` to an unsigned 16-bit number. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toUShortExact :UShort = UShort.from(self)
+
+		/** Forces conversion of this `Byte` to an unsigned 32-bit number. Will underflow for negative values. */
+		@inline def toUInt :UInt = new UInt(self & 0xffff)
+
+		/** Converts this `Byte` to an unsigned 32-bit number. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toUIntExact :UInt = UInt.from(self)
+
+		/** Forces conversion of this `Byte` to an unsigned 64-bit number. Will underflow for negative values. */
+		@inline def toULong :ULong = new ULong(self & 0xffffL)
+
+		/** Converts this `Byte` to an unsigned 64-bit number. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toULongExact :ULong = ULong.from(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -144,6 +172,27 @@ object extensions extends extensions {
 
 		/** Returns `this min other`. */
 		@inline def atMost(other :Short) :Short = math.min(self, other).toShort
+
+		/** Forces conversion of this `Short` to an unsigned value. Will underflow for negative values. */
+		@inline def toUShort :UShort = new UShort(self)
+
+		/** Converts this `Short` to an unsigned value. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toUShortExact :UShort = UShort.from(self)
+		
+		/** Forces conversion of this `Short` to an unsigned 32-bit number. Will underflow for negative values. */
+		@inline def toUInt :UInt = new UInt(self & 0xffff)
+
+		/** Converts this `Short` to an unsigned 32-bit number. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toUIntExact :UInt = UInt.from(self)
+		
+		/** Forces conversion of this `Short` to an unsigned 64-bit number. Will underflow for negative values. */
+		@inline def toULong :ULong = new ULong(self & 0xffffL)
+
+		/** Converts this `Short` to an unsigned 64-bit number. */
+		@throws[ArithmeticException]("if this is less than zero.")
+		@inline def toULongExact :ULong = ULong.from(self)
 	}
 
 	/** Exposes methods `max` as `atLeast` and `min` as `atMost`.
@@ -261,15 +310,24 @@ object extensions extends extensions {
 		  */ //Consider: adding ULongOpt
 		@inline def nonNeg :IntOpt = IntOpt.nonNegative(self)
 
-		/** True if this `Int` has no divisors other than `1` and `2`. */
-		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(self) == 1
+		/** True if this `Int` is non-zero and has no divisors other than `1` and `2`. */
+		@inline def isPowerOf2 :Boolean = jl.Integer.bitCount(math.abs(self)) == 1
 
-		/** The largest in absolute value power of 2 lesser or equal to this `Int`.
-		  *   - if `this > 0`, then the result will be an `Int` greater or equal to `this`;
-		  *   - if `this < 0`, then the result will be an `Int` lesser or equal to `this`;
+		/** The largest in absolute value power of 2 not farther from zero than this `Int`.
+		  *   - if `this > 0`, then the result will be an `Int` lesser or equal to `this`;
+		  *   - if `this < 0`, then the result will be an `Int` greater or equal to `this`;
 		  *   - if `this == 0`, then the result, as an exception, will equal zero.
 		  */
 		@inline def lastPowerOf2 :Int = jl.Integer.highestOneBit(math.abs(self)) * (self >> 31 & -self >> 31)
+
+		/** The largest power of two lesser or equal to this `Int`. The returned value
+		  * is always not greater than `this`: if `this` is negative, a negative of the power of 2 following
+		  * the absolute value of the former is returned.
+		  * @note returns `-1` for zero.
+		  */
+		@inline def powerOf2Floor :Int =
+			if (self > 0) jl.Integer.highestOneBit(self)
+			else Int.MinValue >> (~self).leadingZeros - 1
 
 		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Int`.
 		  *   - if `this > 0`, then the result will be greater or equal to `this`;
@@ -280,10 +338,10 @@ object extensions extends extensions {
 		@inline def nextPowerOf2 :Int = {
 			val abs       = math.abs(self)
 			val lowerPow2 = jl.Integer.highestOneBit(abs)             //Greatest power of 2 lesser or equal to self.abs.
-			val pow2Mask  = abs - 1 & lowerPow2                       //if (self > lowerPow2) lowerPow2 else 0
-			val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
-			val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
-			val ifZero    = (-(self & -self) >> 31) & 1               //if (self == 0) 1 else 0
+			val pow2Mask  = abs - 1 & lowerPow2                       //if (abs > lowerPow2) lowerPow2 else 0
+			val ifGtPow2  = pow2Mask << 1                             //if (abs > lowerPow2) lowerPow2 else 0
+			val ifEqPow2  = ~pow2Mask & lowerPow2                     //if (abs == lowerPow2) lowerPow2 else 0
+			val ifZero    = (-lowerPow2 >>> 31) ^ 1                   //if (abs == 0) 1 else 0
 			val signum    = self >> 31 & -self >> 31
 			(ifGtPow2 | ifEqPow2 | ifZero) * signum
 		}
@@ -454,30 +512,38 @@ object extensions extends extensions {
 		@inline def orZeroIf(condition :Long => Boolean) :Long = if (condition(self)) 0 else self
 
 
-		/** True if this `Long` has no divisors other than `1` and `2`. */
-		@inline def isPowerOf2 :Boolean = jl.Long.bitCount(self) == 1
+		/** True if this `Long` is non-zero has no divisors other than `1` and `2`. */
+		@inline def isPowerOf2 :Boolean =jl.Long.bitCount(self.abs) == 1
 
-		/** The largest in absolute value power of 2 lesser or equal to this `Long`.
-		  *   - if `this > 0`, then the result will be an `Long` greater or equal to `this`;
-		  *   - if `this < 0`, then the result will be an `Long` lesser or equal to `this`;
+		/** The largest in absolute value power of 2 not farther from zero than this `Long`.
+		  *   - if `this > 0`, then the result will be a `Long` greater or equal to `this`;
+		  *   - if `this < 0`, then the result will be a `Long` lesser or equal to `this`;
 		  *   - if `this == 0`, then the result, as an exception, will equal zero.
 		  */
 		@inline def lastPowerOf2 :Long = jl.Long.highestOneBit(math.abs(self)) * (self >> 63 & -self >> 63)
 
-		@inline def powerOf2Floor :Long = jl.Long.highestOneBit(self)
-		/** The smallest in absolute value power of 2 greater or equal than the absolute value of this `Long`.
+		/** The largest power of two lesser or equal to this `Long`. The returned value
+		  * is always not greater than `this`: if `this` is negative, a negative of the power of 2 following
+		  * the absolute value of the former is returned.
+		  * @note returns `-1` for zero.
+		  */
+		@inline def powerOf2Floor :Long =
+			if (self > 0) jl.Long.highestOneBit(self)
+			else Long.MinValue >> (~self).leadingZeros - 1
+
+		/** The power of 2 of smallest absolute value greater or equal than the absolute value of this `Long`.
 		  *   - if `this > 0`, then the result will be greater or equal to `this`;
 		  *   - if `this < 0`, then the result will be lesser or equal `this`;
 		  *   - if `this == 0`, then one is returned.
 		  * @note the method does not check for arithmetic overflow.
 		  */
-		@inline def nextPowerOf2 :Long = {
+		def nextPowerOf2 :Long = {
 			val abs       = math.abs(self)
 			val lowerPow2 = jl.Long.highestOneBit(abs)                //Greatest power of 2 lesser or equal to self.abs.
-			val pow2Mask  = abs - 1L & lowerPow2                      //if (self > lowerPow2) lowerPow2 else 0
-			val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2*2 else 0
-			val ifEqPow2  = (pow2Mask ^ lowerPow2) & lowerPow2        //if (self == lowerPow2) lowerPow2 else 0
-			val ifZero    = (-(self & -self) >> 63) & 1L              //if (self == 0) 1 else 0
+			val pow2Mask  = abs - 1L & lowerPow2                      //if (abs > lowerPow2) lowerPow2 else 0
+			val ifGtPow2  = pow2Mask << 1                             //if (abs > lowerPow2) lowerPow2*2 else 0
+			val ifEqPow2  = ~pow2Mask & lowerPow2                     //if (abs == lowerPow2) lowerPow2 else 0
+			val ifZero    = (-lowerPow2 >>> 63) ^ 1L                  //if (self == 0) 1 else 0
 			val signum    = self >> 63 & -self >> 63
 			(ifGtPow2 | ifEqPow2 | ifZero) * signum
 		}
@@ -499,13 +565,13 @@ object extensions extends extensions {
 		}
 
 		/** Number of one bits in the binary representation of this `Long`. */
-		@inline def bitCount :Long = jl.Long.bitCount(self)
+		@inline def bitCount :Int = jl.Long.bitCount(self)
 
 		/** The number of consecutive zero bits in the highest positions of this `Long`. */
-		@inline def leadingZeros :Long = jl.Long.numberOfLeadingZeros(self)
+		@inline def leadingZeros :Int = jl.Long.numberOfLeadingZeros(self)
 
 		/** The number of consecutive zero bits in the lowest positions of this `Long`. */
-		@inline def trailingZeros :Long = jl.Long.numberOfTrailingZeros(self)
+		@inline def trailingZeros :Int = jl.Long.numberOfTrailingZeros(self)
 
 		/** The highest one bit (with zero being the least significant bit). */
 		@inline def highestOneBit :Long = jl.Long.highestOneBit(self)

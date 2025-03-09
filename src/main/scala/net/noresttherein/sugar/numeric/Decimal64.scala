@@ -10,9 +10,11 @@ import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
 import net.noresttherein.sugar.exceptions.{InternalException, SugaredArithmeticException, SugaredNumberFormatException, illegal_!, io_!, oops}
-import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBounds, LongPowersOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxFractionalDigitsInPlainString, MaxLeadingZerosInString, MaxLongPowerOf10, MaxLongPrecision, MaxLongValue, MaxPrecision, MaxUnscaled, MaxWholeDigitsInPlainString, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowersOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
+import net.noresttherein.sugar.extensions.LongExtension
+import net.noresttherein.sugar.numeric
+import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBound, LongPowerOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxLongPowerOf10, MaxLongValue, MaxPrecision, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowerOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
 import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
-import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, ExtendedHalfEven, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
+import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
 import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.{Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -130,7 +132,7 @@ class Decimal64 private (private val bits :Long)
 		else scale match {
 			case Decimal64.MinScale => unscaled match {
 				case m if (m & 1L) != 0L || m % 10L != 0L => m
-				case m => m / LongPowersOf10(Decimal64.trailingZeros(m / 10L) + 1)
+				case m => m / LongPowerOf10(Decimal64.trailingZeros(m / 10L) + 1)
 			}
 			case _ => unscaled
 		}
@@ -263,7 +265,7 @@ class Decimal64 private (private val bits :Long)
 	  **/
 	def denominator :Decimal64 =
 		if ((bits & ScaleSign) != 0L) One
-		else PowersOf10(-(bits & ScaleMask).toInt)
+		else PowerOf10(-(bits & ScaleMask).toInt)
 
 	/** Calculates `1 / this` to the precision defined by an implicit [[java.math.MathContext MathContext]]
 	  * (defaults to [[net.noresttherein.sugar.numeric.Decimal64.Round.Extended Extended]], which is the maximum
@@ -295,7 +297,7 @@ class Decimal64 private (private val bits :Long)
 	def whole :Decimal64 = scale match {
 		case n if n <= 0 => this            //no fractional digits
 		case n if n >= MaxPrecision => Zero //fractional point further to the left than there can be digits in unscaled
-		case n => Decimal64(unscaled / LongPowersOf10(n)) //note that the quotient may now have trailing zeros
+		case n => Decimal64(unscaled / LongPowerOf10(n)) //note that the quotient may now have trailing zeros
 	}
 
 	/** The highest integral (whole) number not greater than this value, as a `Decimal64`. */
@@ -369,7 +371,7 @@ class Decimal64 private (private val bits :Long)
 			if (s - precision >= fractional)
 				Zero
 			else  //fractional < scale < precision + fractional
-				Decimal64.divideToMaxPrecision(m, LongPowersOf10(s - fractional), -fractional, rounding)
+				Decimal64.divideToMaxPrecision(m, LongPowerOf10(s - fractional), -fractional, rounding)
 		}
 	}
 
@@ -477,7 +479,7 @@ class Decimal64 private (private val bits :Long)
 						case n if n > Precision => throw PrecisionExceededException
 						case n =>
 							val delta = MaxPrecision - n
-							val roundingPower = LongPowersOf10(delta)
+							val roundingPower = LongPowerOf10(delta)
 							val exponent = delta - that.scale
 							Decimal64.divideAndScale(-MinUnscaled, roundingPower, exponent, mode.getRoundingMode)
 					}
@@ -523,7 +525,7 @@ class Decimal64 private (private val bits :Long)
 			else
 				Decimal64(sign * m1, -e, mode)
 		} else {
-			val Powers = LongPowersOf10                     //normalize m1 and m2 so that m1, m2 > 0 && m1, m2 % 10 != 0
+			val Powers = LongPowerOf10                     //normalize m1 and m2 so that m1, m2 > 0 && m1, m2 % 10 != 0
 			if (e1 == MaxExponent & (m1 & 1L) == 0L) {      //fast checks to see if there is a chance of trailing zeros
 				val zeros = Decimal64.trailingZeros(m1)
 				m1 /= Powers(zeros)
@@ -695,7 +697,7 @@ class Decimal64 private (private val bits :Long)
 			//1 / aEX = (1 / a)E-X
 			//observation: format(m / m2) == format(m quot m2) + '.'  + format(m % m2 / m2)
 			//idea: iteratively repeat the above transformation for the remainder until we have MaxPrecision digits
-			val Powers = LongPowersOf10
+			val Powers = LongPowerOf10
 			val m1 = unscaled
 			val m2 = that.unscaled
 			val e = that.scale - scale              //exponent of the result
@@ -748,7 +750,7 @@ class Decimal64 private (private val bits :Long)
 						//the number of digits is correct except if precision == ExtendedPrecision when it might be +1
 						result = Decimal64(res, inflation - exponent, rounding, resultPrecision)
 
-					} else if (inflation <= LongPrecision && -m1minus <= LongPowerBounds(inflation)) {
+					} else if (inflation <= LongPrecision && -m1minus <= LongPowerBound(inflation)) {
 						val res = divideLong(m1 * Powers(inflation), divisor, rounding)
 						result = Decimal64(res, inflation - exponent, rounding, resultPrecision)
 
@@ -778,7 +780,7 @@ class Decimal64 private (private val bits :Long)
 				var exponent = e
 				while (result.bits == -sign) {
 					//we don't include the case deflation == 0, but it's covered by the following one
-					if (deflation <= LongPrecision && -m2minus <= LongPowerBounds(deflation)) {
+					if (deflation <= LongPrecision && -m2minus <= LongPowerBound(deflation)) {
 						val res = divideLong(dividend, m2 * Powers(deflation), rounding)
 						result = Decimal64(res, -deflation - exponent, rounding, resultPrecision)
 
@@ -936,7 +938,9 @@ class Decimal64 private (private val bits :Long)
 		new NumericRange.Inclusive(this, end, step)(Decimal64AsIfIntegral(mode getOrElse Extended))
 
 
-//	@inline def ==(that: Long) :Boolean = (this compare that) == 0
+//	@inline def ==(that :Int)  :Boolean = (this compare that) == 0
+//	@inline def ==(that :Long) :Boolean = (this compare that) == 0
+//	@inline def ==(that :Decimal64) :Boolean = (this compare that) == 0
 
 	@inline def max(that :Decimal64) :Decimal64 = if (this >= that) this else that
 	@inline def min(that :Decimal64) :Decimal64 = if (this <= that) this else that
@@ -1073,16 +1077,16 @@ class Decimal64 private (private val bits :Long)
 
 
 	override def isValidInt :Boolean =
-		scale <= 0 && this >= Decimal64.MinInt && this <= Decimal64.MaxInt
+		scale <= 0 && this >= Decimal64.MinIntValue && this <= Decimal64.MaxIntValue
 
 	def isValidLong :Boolean =
 		scale <= 0 && this >= MinLongValue && this >= MaxLongValue
 
 	def isValidUInt :Boolean =
-		(bits & Long.MinValue) == 0L && scale <= 0 && this <= Decimal64.MaxUInt
+		(bits & Long.MinValue) == 0L && scale <= 0 && this <= Decimal64.MaxUIntValue
 
 	def isValidULong :Boolean =
-		(bits & Long.MinValue) == 0L && scale <= 0 && this <= Decimal64.MaxULong
+		(bits & Long.MinValue) == 0L && scale <= 0 && this <= Decimal64.MaxULongValue
 
 	@inline override def toChar   :Char   = intValue.toChar
 	@inline override def toByte   :Byte   = intValue.toByte
@@ -1113,7 +1117,7 @@ class Decimal64 private (private val bits :Long)
 				new JavaBigDecimal(BigInteger.valueOf(m), scale, math)
 			else {
 				val log = Decimal64.trailingZeros(m)
-				new JavaBigDecimal(BigInteger.valueOf(m / LongPowersOf10(log)), scale - log, math)
+				new JavaBigDecimal(BigInteger.valueOf(m / LongPowerOf10(log)), scale - log, math)
 			}
 		}
 
@@ -1179,11 +1183,11 @@ class Decimal64 private (private val bits :Long)
 			case 0 => significand
 			case n if n > 0 => unscaledDigits match {
 				case digits if digits - n <= 0 => 0L
-				case digits => unscaled / LongPowersOf10(digits - n) //digits <= MaxPrecision -> digits - n <= MaxPrecision
+				case digits => unscaled / LongPowerOf10(digits - n) //digits <= MaxPrecision -> digits - n <= MaxPrecision
 			}
 			case n if n < -64 => 0L
 			case n if -n <= LongPrecision =>
-				unscaled * LongPowersOf10(-n) //overflows, but exactly the way we want
+				unscaled * LongPowerOf10(-n) //overflows, but exactly the way we want
 			//let m = a * 2^n; let M = Long.MaxValue; let P = 5^63 mod M
 			//m*10^e mod M = a * 5^e * 2^(n + e) mod M = (a mod M) * (2^(n + e) mod M) * (5^e mod M)
 			// = (a mod M) * 2^((n + e) mod 63) * 5^(e mod 63) * P*(e quot 63)
@@ -1235,7 +1239,7 @@ class Decimal64 private (private val bits :Long)
 	  * (except for a single zero if this number is zero).
 	  **/
 	def toPlainString :String =
-		if (scale == 0) java.lang.Long.toString(unscaled)
+		if (scale == 0) unscaled.toString
 		else decimalString(0).toString
 
 	private def decimalString(minScale :Int) :java.lang.StringBuilder = {
@@ -1303,7 +1307,7 @@ class Decimal64 private (private val bits :Long)
 			var m = unscaled
 			var e = -scale
 			val zeros = trailingZeros(m)
-			m /= LongPowersOf10(zeros)
+			m /= LongPowerOf10(zeros)
 			e += zeros
 			val s = String.valueOf(m)
 			val signChar = ((m & Long.MinValue) >>> 63).toInt
@@ -1455,29 +1459,37 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	/** Maximum possible number of digits a `Long` value can have (`19`). */
 	private final val MaxLongPrecision = 19
 
-	/** The exponent of the maximum Decimal64 representable exactly as a `Long`. */
-	private final val MaxLongValueLog = 3L
+	/** The negation of the exponent of the maximum Decimal64 representable exactly as a `Long`. */
+	private final val MaxLongValueScale = -3L
 	/** `10`^`MaxLongValueLog`^. */
-	private final val MaxLongValueRounding = 1000L
+	private final val MaxLongValuePower = 1000L
+
+	private final val MaxLongSignificand  = Long.MaxValue / MaxLongValuePower
+	private final val MinLongSignificand  = Long.MinValue / MaxLongValuePower
+	private final val MaxULongSignificand = 0x4000000000000000L / (MaxLongValuePower * 5)
+	private final val MaxLong             = MaxLongSignificand * MaxLongValuePower
+	private final val MinLong             = MinLongSignificand * MaxLongValuePower
+	private final val MaxULong            = MaxULongSignificand * MaxLongValuePower * 10
 
 	/** The largest `Decimal64` which can be represented exactly as a `Long`. All instances
 	  * [[net.noresttherein.sugar.numeric.Decimal64.MinLongValue MinLongValue]]` <= decimal <= MaxLongValue`
-	  * are valid `Long` values. There are, however, smaller `Long` values which cannot be represented as a `Decimal64`;
-	  * [[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]] is the largest `Long` such that
-	  * all lesser values (greater or equal to [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]])
+	  * are valid `Long` values. There are, however, smaller positive `Long` values which cannot be represented
+	  * as a `Decimal64`; [[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]] is the largest `Long`
+	  * such that all lesser values (greater or equal to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]])
 	  * are representable exactly as `Long` values.
 	  **/
-	final val MaxLongValue = new Decimal64(Long.MaxValue / MaxLongValueRounding << ScaleBits | -MaxLongValueLog & ScaleMask)
+	final val MaxLongValue = new Decimal64(MaxLongSignificand << ScaleBits | MaxLongValueScale & ScaleMask)
 
 	/** The smallest (negative) `Decimal64` which can be represented exactly as a `Long`. All instances
 	  * `MinLongValue <= decimal <= `[[net.noresttherein.sugar.numeric.Decimal64.MaxLongValue MaxLongValue]]
-	  * are valid `Long` values. There are, however, larger `Long` values which cannot be represented as a `Decimal64`;
-	  * [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]] is the smallest `Long` such that
-	  * all greater values (lesser or equal to [[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]])
+	  * are valid `Long` values. There are, however, larger negative `Long` values which cannot be represented
+	  * as a `Decimal64`; [[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]] is the smallest `Long`
+	  * such that all greater values (lesser or equal to
+	  * [[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]])
 	  * are representable exactly as `Long` values.
 	  **/
-	final val MinLongValue = new Decimal64(Long.MinValue / MaxLongValueRounding << ScaleBits | -MaxLongValueLog & ScaleMask)
-
+	final val MinLongValue = new Decimal64(MinLongSignificand << ScaleBits | MaxLongValueScale & ScaleMask)
 
 	/** [[java.math.MathContext MathContext]] constants with various rounding modes and precision of 16 or maximum digits.
 	  * Three distinct sets are defined:
@@ -1657,7 +1669,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 						if (significand >= MinUnscaled & significand <= MaxUnscaled)
 							MaxPrecision
 						else Precision
-					else if (Math.abs(significand) <= UnscaledPowerBounds(MaxPrecision - precision))
+					else if (Math.abs(significand) <= UnscaledPowerBound(MaxPrecision - precision))
 						MaxPrecision
 					else
 						Precision
@@ -1667,7 +1679,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 				if (p > MaxPrecision) {
 					val zeros = trailingZeros(significand)
 					p -= zeros
-					val value = significand / LongPowersOf10(zeros)
+					val value = significand / LongPowerOf10(zeros)
 					if (p <= MaxPrecision)
 						whenInRange(value, p)
 					else if (rounding == UNNECESSARY)
@@ -1675,7 +1687,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 							"Rounding of " + significand + " is necessary for a precision of " + MaxPrecision + "."
 						)
 					else try {
-						val rounded = divideLong(value, LongPowersOf10(p - MaxPrecision), rounding)
+						val rounded = divideLong(value, LongPowerOf10(p - MaxPrecision), rounding)
 						if (MinUnscaled <= rounded & rounded <= MaxUnscaled)
 							MaxPrecision
 						else
@@ -1765,26 +1777,26 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	private final val ExactDoublePowersOf10 = 23
 
 	/** Maximum absolute values which, multiplied by `10^i`, fit in a `Long`. */
-	private final val LongPowerBounds = Array.iterate(Long.MaxValue, LongPrecision + 1)(_ / 10L)
+	private final val LongPowerBound = Array.iterate(Long.MaxValue, MaxLongPrecision)(_ / 10L)
 	/** Maximum absolute values which, multiplied by `10^i`, fit in a the unscaled range of `Decimal64`
 	  * `[`[[net.noresttherein.sugar.numeric.Decimal64.MinUnscaled MinUnscaled]]`, `[[net.noresttherein.sugar.numeric.Decimal64.MaxUnscaled MaxUnscaled]]`]`. */
-	private final val UnscaledPowerBounds = Array.iterate(MaxUnscaled, MaxPrecision)(_ / 10L)
-	/** `LongPowersOf10(i) == 10^i`. */
-	private final val LongPowersOf10 = Array.iterate(1L, MaxLongPrecision)(_ * 10L)
+	private final val UnscaledPowerBound = Array.iterate(MaxUnscaled, MaxPrecision)(_ / 10L)
+	/** `LongPowerOf10(i) == 10^i`. */
+	private final val LongPowerOf10 = Array.iterate(1L, MaxLongPrecision)(_ * 10L)
 	/** `10^i` for `i== 0..MaxExponent` as `BigInteger`. */
-	private final val BigIntegerPowersOf10 = Array.iterate(BigInteger.ONE, MaxExponent + 1)(_ multiply BigInteger.TEN)
+	private final val BigIntegerPowerOf10 = Array.iterate(BigInteger.ONE, MaxExponent + 1)(_ multiply BigInteger.TEN)
 //	/** `PowersOf10Halves(i) == 5*10^i`. */
-//	private final val LongPowersOf10Halves = LongPowersOf10.map(_ * 5L)
-	/** `PowersOf10(i) == Decimal64(1, -i)`. */
-	private final val PowersOf10 = Array.iterate(One, MaxScale)(_ * 10)
+//	private final val LongPowersOf10Halves = LongPowerOf10.map(_ * 5L)
+	/** `PowerOf10(i) == Decimal64(1, -i)`. */
+	private final val PowerOf10 = Array.iterate(One, MaxScale)(_ * 10)
 	/** The maximum power of 10 (value, not exponent) which fits in a `Long`: `10^18`. */
 	private final val MaxLongPowerOf10     = 1000000000000000000L
 	/** The maximum power of 10 (value, not exponent) lesser than `MaxUnscaled`, i.e. `10^16`. */
 	private final val MaxUnscaledPowerOf10 = 10000000000000000L
-	private final val MaxInt   = new Decimal64(((1L << 31) - 1L) << ScaleBits)
-	private final val MinInt   = new Decimal64(0xffffffff80000000L << ScaleBits)
-	private final val MaxUInt  = new Decimal64(0xffffffffL << ScaleBits)
-	private final val MaxULong = new Decimal64((Long.MaxValue / 10L << 1) / 100L << ScaleBits | MaxLongValueLog & ScaleMask)
+	private final val MaxIntValue    = new Decimal64(((1L << 31) - 1L) << ScaleBits)
+	private final val MinIntValue    = new Decimal64(0xffffffff80000000L << ScaleBits)
+	private final val MaxUIntValue   = new Decimal64(0xffffffffL << ScaleBits)
+	private final val MaxULongValue  = new Decimal64(MaxULongSignificand << ScaleBits | (MaxLongValueScale - 1 & ScaleMask))
 	private final val BigMaxUnscaled = BigInteger.valueOf(MaxUnscaled)
 	private final val BigMinUnscaled = BigInteger.valueOf(MinUnscaled)
 	private final val BigMaxLong     = BigInteger.valueOf(Long.MaxValue)
@@ -2458,7 +2470,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 				s"Cannot round $rounding ${significand}e${-scale} to a negative precision: $precision."
 			)
 		else {
-			val Powers = LongPowersOf10
+			val Powers = LongPowerOf10
 			val zeros = trailingZeros(significand)
 			val normalized = significand / Powers(zeros)
 			val normalizedScale = scale - zeros
@@ -2558,20 +2570,20 @@ object Decimal64 extends CompanionObject[Decimal64] {
 			var trim = precision - (if (toPrecision == ExtendedPrecision) MaxPrecision else toPrecision)
 			if (trim > MaxExponent)
 				throw ScaleOutOfRangeException
-			val divisor = BigIntegerPowersOf10(trim)
+			val divisor = BigIntegerPowerOf10(trim)
 			val qr      = int.divideAndRemainder(divisor)
 			val quot    = qr(0).longValueExact
 			val rem     = qr(1)
 			val rounded =
 				if (toPrecision != ExtendedPrecision)
 					if (trim < MaxLongPrecision)
-						roundDivision(quot, LongPowersOf10(trim), rem.longValueExact, mode.getRoundingMode)
+						roundDivision(quot, LongPowerOf10(trim), rem.longValueExact, mode.getRoundingMode)
 					else
 						roundDivision(quot, divisor, rem, mode.getRoundingMode)
 				else if (MinUnscaled <= quot & quot <= MaxUnscaled) {
 					val significand =
 						if (trim < MaxLongPrecision)
-							roundDivision(quot, LongPowersOf10(trim), rem.longValueExact, mode.getRoundingMode)
+							roundDivision(quot, LongPowerOf10(trim), rem.longValueExact, mode.getRoundingMode)
 						else
 							roundDivision(quot, divisor, rem, mode.getRoundingMode)
 					if (MinUnscaled <= significand & significand <= MaxUnscaled)
@@ -2680,32 +2692,48 @@ object Decimal64 extends CompanionObject[Decimal64] {
 
 
 
-	implicit def intToDecimal64(int :Int) :Decimal64 = Decimal64(int)
-	implicit def shortToDecimal64(short :Short) :Decimal64 = Decimal64(short)
-	implicit def byteToDecimal64(byte :Byte) :Decimal64 = Decimal64(byte)
+	@inline implicit def intToDecimal64(int :Int) :Decimal64 = Decimal64(int)
+	@inline implicit def shortToDecimal64(short :Short) :Decimal64 = Decimal64(short)
+	@inline implicit def byteToDecimal64(byte :Byte) :Decimal64 = Decimal64(byte)
+
+	@inline implicit def uintToDecimal64(uint :UInt) :Decimal64 = Decimal64(uint.toLong)
+	@inline implicit def ushortToDecimal64(ushort :UShort) :Decimal64 = Decimal64(ushort.toLong)
+	@inline implicit def ubyteToDecimal64(ubyte :UByte) :Decimal64 = Decimal64(ubyte.toLong)
 
 	//extracted because of conflicts after erasure
-	@inline implicit def comparingDecimal64ToLong(decimal :Decimal64) :ComparingDecimal64ToLong =
-		new ComparingDecimal64ToLong(decimal.bits)
+	@inline implicit def comparingDecimal64(decimal :Decimal64) :ComparingDecimal64 =
+		new ComparingDecimal64(decimal.bits)
+
+	@inline implicit def comparingDecimal64ToVal(decimal :Decimal64) :ComparingDecimal64ToVal =
+		new ComparingDecimal64ToVal(decimal.bits)
+
+	@inline implicit def comparingDecimal64ToUnsigned(decimal :Decimal64) :ComparingDecimal64ToUnsigned =
+		new ComparingDecimal64ToUnsigned(decimal.bits)
 
 	@inline implicit def comparingLongToDecimal64(long :Long) :ComparingLongToDecimal64 =
 		new ComparingLongToDecimal64(long)
 
-	@inline implicit def comparingDecimal64(decimal :Decimal64) :ComparingDecimal64 =
-		new ComparingDecimal64(decimal.bits)
+	@inline implicit def comparingIntToDecimal64(int :Int) :ComparingLongToDecimal64 =
+		new ComparingLongToDecimal64(int)
+
+	@inline implicit def comparingULongToDecimal64(ulong :ULong) :ComparingULongToDecimal64 =
+		new ComparingULongToDecimal64(ulong.toLong)
+
+	@inline implicit def comparingUIntToDecimal64(uint :UInt) :ComparingULongToDecimal64 =
+		new ComparingULongToDecimal64(uint.toInt & 0xffffffffL)
 
 
-	class ComparingDecimal64(private val bits: Long) extends AnyVal {
+	class ComparingDecimal64 private[Decimal64] (private val bits: Long) extends AnyVal {
 		def compare(that :Decimal64) :Int =
-			if (bits == 0L) -java.lang.Long.signum(that.bits)
-			else if (that.bits == 0L) java.lang.Long.signum(bits)
-			else if ((bits >= 0) != (that.bits >= 0)) java.lang.Long.signum(bits)
+			if (bits == 0L) -signum(that.bits)
+			else if (that.bits == 0L) signum(bits)
+			else if ((bits >= 0) != (that.bits >= 0)) signum(bits)
 			else {
 				val self = new Decimal64(bits)
 				val m1 = self.unscaled; val e1 = -self.scale
 				val m2 = that.unscaled; val e2 = -that.scale
-				val sign = java.lang.Long.signum(bits)
-				if (e1 == e2) java.lang.Long.compare(m1, m2) //covers this == 0 && that == 0
+				val sign = signum(bits)
+				if (e1 == e2) numeric.compare(m1, m2) //covers this == 0 && that == 0
 				else if (e1 - e2 >= MaxPrecision) sign
 				else if (e2 - e1 >= MaxPrecision) -sign
 				else {
@@ -2713,8 +2741,8 @@ object Decimal64 extends CompanionObject[Decimal64] {
 					if (e1 + p1 > e2 + p2) sign
 					else if (e1 + p1 < e2 + p2) -sign
 					//doesn't overflow because the result will have the same precision as m2 and Long.MaxValue > 10 * MaxUnscaled
-					else if (e1 > e2) java.lang.Long.compare(m1 * LongPowersOf10(e1 - e2), m2)
-					else java.lang.Long.compare(m1, m2 * LongPowersOf10(e2 - e1))
+					else if (e1 > e2) numeric.compare(m1 * LongPowerOf10(e1 - e2), m2)
+					else numeric.compare(m1, m2 * LongPowerOf10(e2 - e1))
 				}
 			}
 		@inline def < (that: Decimal64) :Boolean = (this compare that) <  0
@@ -2723,38 +2751,119 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		@inline def >=(that: Decimal64) :Boolean = (this compare that) >= 0
 	}
 
-	class ComparingDecimal64ToLong(private val bits :Long) extends AnyVal {
+	class ComparingDecimal64ToVal private[Decimal64] (private val bits :Long) extends AnyVal {
 		def compare(that :Long) :Int = {
 			val self = new Decimal64(bits)
-			val sign = self.signum; val thatSign = java.lang.Long.signum(that)
+			val sign = self.signum; val thatSign = signum(that)
 			if (sign != thatSign)
-				java.lang.Integer.compare(sign, thatSign)
+				numeric.compare(sign, thatSign)
 			else if (sign == 0)
 				0
-			else if (self.isFraction)  //a cheaply computed case
-				if (sign > 0)
-					if (self.longValue >= that) 1 else -1
-				else
-					if (self.longValue <= that) -1 else 1
-			else
-				if (self < MinLongValue) -1
-				else if (MaxLongValue < self) 1
-				else java.lang.Long.compare(self.longValue, that)
+			else self.scale match {
+				case 0 =>
+					numeric.compare(self.unscaled, that)
+				case scale if scale <= 0 =>         //self is whole
+					if (scale <= -MaxLongPrecision) //self.abs > Long.MaxValue
+						sign
+					else {
+						val pow = LongPowerOf10(-scale)
+						val quot = that / pow
+						if (that == quot * pow)
+							numeric.compare(self.unscaled, quot) * sign
+						else if (sign > 0)
+							if (self.unscaled <= quot) -1 else 1
+						else
+							if (self.unscaled >= quot) 1 else -1
+					}
+				case scale =>                       //self is a fraction
+					if (scale >= MaxLongPrecision)  //self.abs < 1
+						-sign
+					else if (sign > 0)
+						if (self.unscaled / LongPowerOf10(scale) >= that) 1 else -1
+					else
+						if (self.unscaled / LongPowerOf10(scale) <= that) -1 else 1
+			}
 		}
-		@inline def < (that: Long) :Boolean = (new Decimal64(bits) compare that) <  0
-		@inline def > (that: Long) :Boolean = (new Decimal64(bits) compare that) >  0
-		@inline def <=(that: Long) :Boolean = (new Decimal64(bits) compare that) <= 0
-		@inline def >=(that: Long) :Boolean = (new Decimal64(bits) compare that) >= 0
+		@inline def compare(that :Int) :Int = compare(that.toLong)
+//		@inline def compare(that :Short) :Int = new ComparingDecimal64(bits) compare Decimal64(that)
+//		@inline def compare(that :Byte) :Int = new ComparingDecimal64(bits) compare Decimal64(that)
+
+		@inline def < (that: Long) :Boolean = compare(that) <  0
+		@inline def > (that: Long) :Boolean = compare(that) >  0
+		@inline def <=(that: Long) :Boolean = compare(that) <= 0
+		@inline def >=(that: Long) :Boolean = compare(that) >= 0
+
+		//Contains overrides for Int as they are faster and there are two implicit conversions: to Long and Decimal64.
+		@inline def < (that: Int) :Boolean = compare(that.toLong) <  0
+		@inline def > (that: Int) :Boolean = compare(that.toLong) >  0
+		@inline def <=(that: Int) :Boolean = compare(that.toLong) <= 0
+		@inline def >=(that: Int) :Boolean = compare(that.toLong) >= 0
 //		@inline def ==(that: Long) :Boolean = (new Decimal64(bits) compare that) == 0
 	}
 
-	class ComparingLongToDecimal64(private val self :Long) extends AnyVal {
+	class ComparingDecimal64ToUnsigned private[Decimal64] (private val bits: Long) extends AnyVal {
+		def compare(that :ULong) :Int = {
+			val self = new Decimal64(bits)
+			val sign = self.signum
+			if (sign < 0)
+				-1
+			else if (sign == 0)
+				if (that.toLong == 0L) 0 else -1
+			else if (that.toLong == 0L)
+				1
+			else self.scale match {
+				case 0 =>
+					-that.compare(self.unscaled)
+				case scale if scale <= 0 =>         //self is whole
+					if (scale < -MaxLongPrecision) //self.abs > ULong.MaxValue
+						1
+					else {
+						val pow = new ULong(LongPowerOf10(scale))
+						val quot = that / pow
+						if (that == quot * pow)
+							-quot.compare(self.unscaled)
+						else if (quot < self.unscaled)
+							1
+						else
+							-1
+					}
+				case scale =>                       //self is a fraction
+					if (scale >= MaxLongPrecision)  //self.abs < 1
+						-1
+					else if (self.unscaled / LongPowerOf10(scale) + Long.MinValue >= that.toLong + Long.MinValue)
+						1
+					else
+						-1
+			}
+		}
+		@inline def compare(that :UInt) :Int = new ComparingDecimal64ToVal(bits) compare that.toLong
+
+		@inline def < (that :ULong) :Boolean = compare(that) <  0
+		@inline def > (that :ULong) :Boolean = compare(that) >  0
+		@inline def <=(that :ULong) :Boolean = compare(that) <= 0
+		@inline def >=(that :ULong) :Boolean = compare(that) >= 0
+
+		@inline def < (that :UInt) :Boolean = (new ComparingDecimal64ToVal(bits) compare that.toLong) <  0
+		@inline def > (that :UInt) :Boolean = (new ComparingDecimal64ToVal(bits) compare that.toLong) >  0
+		@inline def <=(that :UInt) :Boolean = (new ComparingDecimal64ToVal(bits) compare that.toLong) <= 0
+		@inline def >=(that :UInt) :Boolean = (new ComparingDecimal64ToVal(bits) compare that.toLong) >= 0
+	}
+
+	class ComparingLongToDecimal64 private[Decimal64] (private val self :Long) extends AnyVal {
 		@inline def compare(that :Decimal64) :Int = -(that compare self)
-		@inline def <=(that :Decimal64) :Boolean = that >= self
-		@inline def < (that :Decimal64) :Boolean = that > self
-		@inline def >=(that :Decimal64) :Boolean = that <= self
-		@inline def > (that :Decimal64) :Boolean = that < self
+		@inline def <=(that :Decimal64) :Boolean = (that compare self) >= 0
+		@inline def < (that :Decimal64) :Boolean = (that compare self) >  0
+		@inline def >=(that :Decimal64) :Boolean = (that compare self) <= 0
+		@inline def > (that :Decimal64) :Boolean = (that compare self) >  0
 		@inline def ==(that :Decimal64) :Boolean = (that compare self) == 0
+	}
+
+	class ComparingULongToDecimal64 private[Decimal64] (private val self :Long) extends AnyVal {
+		@inline def compare(that :Decimal64) :Int = -(that compare new ULong(self))
+		@inline def <=(that :Decimal64) :Boolean = (that compare new ULong(self)) >= 0
+		@inline def < (that :Decimal64) :Boolean = (that compare new ULong(self)) >  0
+		@inline def >=(that :Decimal64) :Boolean = (that compare new ULong(self)) <= 0
+		@inline def > (that :Decimal64) :Boolean = (that compare new ULong(self)) <  0
 	}
 
 	sealed abstract class Decimal64IsNumeric(implicit mode :MathContext = Extended) extends Numeric[Decimal64] {
@@ -2912,7 +3021,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	private def normalize(significand :Long, scale :Int) :Decimal64 = {
 		val zeros = trailingZeros(significand)
 		val newScale = scale - zeros
-		val normalized = significand / LongPowersOf10(zeros)
+		val normalized = significand / LongPowerOf10(zeros)
 		validate(normalized, newScale)
 	}
 	/** Creates a `Decimal64` equal to `significand * 10^-scale`, where `scale < MinScale`.
@@ -2925,7 +3034,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 			throw ScaleOutOfRangeException
 		if (log < 0)
 			make(significand, scale)
-		val factor = LongPowersOf10(log)
+		val factor = LongPowerOf10(log)
 		if (significand > MaxUnscaled / factor | significand < MinUnscaled / factor)
 			throw SignificandOutOfRangeException
 		make(significand * factor, MinScale)
@@ -2985,9 +3094,9 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		else if (significand < 10L) // must screen for 0, might as well 10
 			1
 		else {
-			val log   = ((64 - java.lang.Long.numberOfLeadingZeros(significand) + 1) * 1233) >>> 12
+			val log   = ((64 - significand.leadingZeros + 1) * 1233) >>> 12
 			// if r >= length, must have max possible digits for long// if r >= length, must have max possible digits for long
-			if (log >= MaxLongPrecision || significand < LongPowersOf10(log)) log
+			if (log >= MaxLongPrecision || significand < LongPowerOf10(log)) log
 			else log + 1
 		}
 
@@ -3002,7 +3111,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		case  0 => 1
 		case _ =>
 		val log = (((significand.bitLength.toLong + 1) * 646456993) >>> 31).toInt
-		val pow10 = if (log <= MaxExponent) BigIntegerPowersOf10(log) else BigInteger.TEN.pow(log)
+		val pow10 = if (log <= MaxExponent) BigIntegerPowerOf10(log) else BigInteger.TEN.pow(log)
 		if (significand.compareTo(pow10) < 0) log
 		else log + 1
 	}
@@ -3012,7 +3121,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		val shift = LongPrecision - precision(significand)
 		if (shift < 0) 0
 		else {
-			val scaled = significand * LongPowersOf10(shift)
+			val scaled = significand * LongPowerOf10(shift)
 			if (scaled <= Long.MaxValue / 10L) shift + 1
 			else shift
 		}
@@ -3027,7 +3136,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		else {
 			var lo = 0
 			var hi = LongPrecision
-			val powers = LongPowersOf10
+			val powers = LongPowerOf10
 			while (lo < hi) { //bin search for the highest power of 10 which is a divisor of m
 				val a = (hi + lo + 1) / 2
 				if (significand % powers(a) == 0L) lo = a
@@ -3100,7 +3209,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		if (rem == 0L & weightOnEven == 0L)
 			quot
 		else {
-			val sign = java.lang.Long.signum(quot)
+			val sign = signum(quot)
 			val adjust = rounding match {
 				case DOWN        => 0
 				case UP          => sign
@@ -3156,7 +3265,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 		if (weightOnEven == 0L && rem.signum == 0)
 			quot
 		else {
-			val sign = java.lang.Long.signum(quot)
+			val sign = signum(quot)
 			val adjust = rounding match {
 				case DOWN        => 0
 				case UP          => sign
@@ -3239,7 +3348,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	  */
 	private def roundDoubleLong(hi :Long, lo :Long, scale :Int, rounding :RoundingMode, precision :Int) :Decimal64 = {
 		val exponent = -scale
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		val hiPrecision :Int =
 			if (hi == Long.MinValue) MaxLongPrecision
 			else Decimal64.precision(Math.abs(hi))
@@ -3422,7 +3531,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	{
 		//Note (0): let q = x quot y; r = x rem y; then x/y = (q + r/y)
 		//Note (1): the digits of q and r/y do not overlap
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		val sign = if ((dividend > 0) == (divisor > 0)) 1L else -1L //because dividend != 0 && divisor != 0
 		var shift = LongPrecision - this.precision(Math.abs(dividend))
 		val scaled = dividend * Powers(shift)             //pad dividend with zeros so that the quotient has more digits
@@ -3546,7 +3655,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	private def sum(xSignificand :Long, xExponent :Int, ySignificand :Long, yExponent :Int,
 	                rounding :RoundingMode, precision :Int) :Decimal64 =
 	{
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		//try to bring the exponents as close to each other as possible by scaling the significands
 		var m1 = xSignificand; var m2 = ySignificand
 		var e1 = xExponent; var e2 = yExponent
@@ -3614,7 +3723,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	private def sum(xSignificand :Long, ySignificand :Long, exponent :Int, rounding :RoundingMode, precision :Int)
 			:Decimal64 =
 	{
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		val total = xSignificand + ySignificand
 		if (((xSignificand ^ total) & (ySignificand ^ total)) >= 0L) //no overflow, according to java.lang.Math.addExact
 			Decimal64(total, -exponent, rounding, precision)
@@ -3676,7 +3785,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	private def sum128(xSignificand :Long, xExponent :Int, ySignificand :Long, yExponent :Int,
 	                   rounding :RoundingMode, precision :Int) :Decimal64 =
 	{
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		val exponentDiff = xExponent - yExponent
 		val multiplier = Powers(exponentDiff)
 		val divisor = Powers(LongPrecision - exponentDiff)
@@ -3711,7 +3820,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	                                   ySignificand :Long, yExponent :Int, yPrecision :Int,
 	                                   rounding :RoundingMode, precision :Int) :Decimal64 =
 	{
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		//number of zero digits between the two significands when scaled
 		val gap = xExponent - (yPrecision + yExponent)
 		//precision of xSignificand with all trailing zeros preceding y
@@ -3822,7 +3931,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	                                        ySignificand :Long, yExponent :Int, yPrecision :Int,
 	                                        rounding :RoundingMode, precision :Int) :Decimal64 =
 	{
-		val Powers = LongPowersOf10
+		val Powers = LongPowerOf10
 		//exchange 1 * 10^xExponent for U(9 * 10^i | i = yExponent + yPrecision + 1..xExponent-1) + 10^(yExponent + yPrecision)
 		val x = xSignificand - 1
 		val xDecreasedPrecision =

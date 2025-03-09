@@ -1,13 +1,13 @@
 package net.noresttherein.sugar.numeric
 
-import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 import java.{lang => jl}
+import java.lang.Long.{divideUnsigned, remainderUnsigned}
+import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
-import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
-import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException, illegal_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
@@ -16,7 +16,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
-/** An unsigned 16 bit integer backed by an `Short` value. All comparisons are done as if unsigned, and `toString`
+/** An unsigned 16-bit integer backed by an `Short` value. All comparisons are done as if unsigned, and `toString`
   * and other formatting methods treat the underlying `Short` as unsigned.
   * However, this type doesn't check for overflows and underflows, meaning `UShort(1) - UShort(2)`
   * will return `UShort.MaxValue`.
@@ -24,7 +24,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   */
 @SerialVersionUID(Ver)
 class UShort private[numeric](override val toShort: Short)
-	extends AnyVal with Ordered[UShort] with ScalaNumericAnyConversions with Serializable
+	extends AnyVal with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
 	@inline override def isValidByte : Boolean = (toShort & 0x7f) == toShort
@@ -74,55 +74,40 @@ class UShort private[numeric](override val toShort: Short)
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
 	@inline def +(x: String): String = toShort.toString + x
 
-	//Consider: the problem with all these comparisons is that they exclude UShort, which is handled by methods
-	// inherited from Ordered. This works, because the erased signature is >(x :Object).
-	// Unfortunately, it also means that it boxes both operands.
-	// We may migrate to extension methods, but they won't work for == and !=.
-	@inline def ==(x: Byte)  : Boolean = (toShort & 0xffff) == x
-	@inline def ==(x: Short) : Boolean = (toShort & 0xffff) == x
-	@inline def ==(x: Char)  : Boolean = toShort == x
+	@inline def ==(x: UShort): Boolean = toShort == x.toShort
 	@inline def ==(x: Int)   : Boolean = (toShort & 0xffff) == x
 	@inline def ==(x: Long)  : Boolean = (toShort & 0xffffL) == x
 	@inline def ==(x: Float) : Boolean = (toShort & 0xffffL).toFloat == x
 	@inline def ==(x: Double): Boolean = (toShort & 0xffffL).toDouble == x
-	@inline def !=(x: Byte)  : Boolean = (toShort & 0xffff) != x
-	@inline def !=(x: Short) : Boolean = (toShort & 0xffff) != x
-	@inline def !=(x: Char)  : Boolean = (toShort & 0xffff) != x
+	@inline def !=(x: UShort): Boolean = toShort != x.toShort
 	@inline def !=(x: Int)   : Boolean = (toShort & 0xffff) != x
 	@inline def !=(x: Long)  : Boolean = (toShort & 0xffffL) != x
 	@inline def !=(x: Float) : Boolean = (toShort & 0xffffL).toFloat != x
 	@inline def !=(x: Double): Boolean = (toShort & 0xffffL).toDouble != x
 
-	@inline def < (x: Byte)  : Boolean = (toShort & 0xffff) < x
-	@inline def < (x: Short) : Boolean = (toShort & 0xffff) < x
-	@inline def < (x: Char)  : Boolean = (toShort & 0xffff) < x
+	@inline def < (x: UShort): Boolean = (toShort & 0xffff) < (x.toShort & 0xffff)
 	@inline def < (x: Int)   : Boolean = (toShort & 0xffff) < x
 	@inline def < (x: Long)  : Boolean = (toShort & 0xffffL) < x
 	@inline def < (x: Float) : Boolean = (toShort & 0xffffL).toFloat < x
 	@inline def < (x: Double): Boolean = (toShort & 0xffffL).toDouble < x
-	@inline def <=(x: Byte)  : Boolean = (toShort & 0xffff) <= x
-	@inline def <=(x: Short) : Boolean = (toShort & 0xffff) <= x
-	@inline def <=(x: Char)  : Boolean = (toShort & 0xffff) <= x
+	@inline def <=(x: UShort): Boolean = (toShort & 0xffff) <= (x.toShort & 0xffff)
 	@inline def <=(x: Int)   : Boolean = (toShort & 0xffff) <= x
 	@inline def <=(x: Long)  : Boolean = (toShort & 0xffffL) <= x
 	@inline def <=(x: Float) : Boolean = (toShort & 0xffffL).toFloat <= x
 	@inline def <=(x: Double): Boolean = (toShort & 0xffffL).toDouble <= x
-	@inline def > (x: Byte)  : Boolean = (toShort & 0xffff) > x
-	@inline def > (x: Short) : Boolean = (toShort & 0xffff) > x
-	@inline def > (x: Char)  : Boolean = (toShort & 0xffff) > x
+	@inline def > (x: UShort): Boolean = (toShort & 0xffff) > (x.toShort & 0xffff)
 	@inline def > (x: Int)   : Boolean = (toShort & 0xffff) > x
 	@inline def > (x: Long)  : Boolean = (toShort & 0xffffL) > x
 	@inline def > (x: Float) : Boolean = (toShort & 0xffffL).toFloat > x
 	@inline def > (x: Double): Boolean = (toShort & 0xffffL).toDouble > x
-	@inline def >=(x: Byte)  : Boolean = (toShort & 0xffff) >= x
-	@inline def >=(x: Short) : Boolean = (toShort & 0xffff) >= x
-	@inline def >=(x: Char)  : Boolean = (toShort & 0xffff) >= x
+	@inline def >=(x: UShort): Boolean = (toShort & 0xffff) >= (x.toShort & 0xffff)
 	@inline def >=(x: Int)   : Boolean = (toShort & 0xffff) >= x
 	@inline def >=(x: Long)  : Boolean = (toShort & 0xffffL) >= x
 	@inline def >=(x: Float) : Boolean = (toShort & 0xffffL).toFloat >= x
 	@inline def >=(x: Double): Boolean = (toShort & 0xffffL).toDouble >= x
 
 	@inline def compare(other: UShort): Int = jl.Integer.compare(toShort & 0xffff, other.toShort & 0xffff)
+	@inline def compare(other: Int): Int = jl.Integer.compare(toShort & 0xffff, other)
 
 	@inline def min(other: UShort): UShort = new UShort(jl.Math.min(toShort & 0xffff, other.toShort & 0xffff).toShort)
 	@inline def max(other: UShort): UShort = new UShort(jl.Math.max(toShort & 0xffff, other.toShort & 0xffff).toShort)
@@ -139,61 +124,6 @@ class UShort private[numeric](override val toShort: Short)
 	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
 	@inline def orZeroIf(condition :UShort => Boolean) :UShort = if (condition(this)) new UShort(0) else this
 
-	@inline def +(x: Char)  : UShort = new UShort(((toShort & 0xffff) + x).toShort)
-	@inline def +(x: Int)   : Int    = (toShort & 0xffff) + x
-	@inline def +(x: Long)  : Long   = (toShort & 0xffffL) + x
-	@inline def +(x: Float) : Float  = (toShort & 0xffffL) + x
-	@inline def +(x: Double): Double = (toShort & 0xffffL) + x
-	@inline def +(x: UShort): UShort = new UShort(((toShort & 0xffff) + (x.toShort & 0xffff)).toShort)
-//	@inline def +(x: UInt)  : UInt   = new UInt((toShort & 0xffff) + x.toInt)
-	@inline def -(x: Char)  : UShort = new UShort(((toShort & 0xffff) - x).toShort)
-	@inline def -(x: Int)   : Int    = (toShort & 0xffff) - x
-	@inline def -(x: Long)  : Long   = (toShort & 0xffffL) - x
-	@inline def -(x: Float) : Float  = (toShort & 0xffffL) - x
-	@inline def -(x: Double): Double = (toShort & 0xffffL) - x
-	@inline def -(x: UShort): UShort = new UShort((toShort - x.toShort).toShort)
-
-	@inline def *(x: Char)  : UShort = new UShort(((toShort & 0xffff) * x).toShort)
-	@inline def *(x: Int)   : Int    = (toShort & 0xffff) * x
-	@inline def *(x: Long)  : Long   = (toShort & 0xffffL) * x
-	@inline def *(x: Float) : Float  = (toShort & 0xffffL) * x
-	@inline def *(x: Double): Double = (toShort & 0xffffL) * x
-	@inline def *(x: UShort): UShort = new UShort((toShort * x.toShort).toShort)
-	@inline def /(x: Char)  : UShort = new UShort(((toShort & 0xffff) / x).toShort)
-	@inline def /(x: Int)   : Int    = (toShort & 0xffff) / x
-	@inline def /(x: Long)  : Long   = (toShort & 0xffffL) / x
-	@inline def /(x: Float) : Float  = (toShort & 0xffffL) / x
-	@inline def /(x: Double): Double = (toShort & 0xffffL) / x
-	@inline def /(x: UShort): UShort = new UShort(((toShort & 0xffff) / (toShort & 0xffff)).toShort)
-	@inline def %(x: Char)  : UShort = new UShort(((toShort & 0xffff) % x).toShort)
-	@inline def %(x: Int)   : Int    = (toShort & 0xffff) % x
-	@inline def %(x: Long)  : Long   = (toShort & 0xffffL) % x
-	@inline def %(x: Float) : Float  = (toShort & 0xffffL) % x
-	@inline def %(x: Double): Double = (toShort & 0xffffL) % x
-	@inline def %(x: UShort): UShort = new UShort(((toShort & 0xffff) % (toShort & 0xffff)).toShort)
-	@inline def **(n: Int)  : UInt   = new UInt((toShort & 0xffff).pow(n))
-
-	/** Divides this `UShort` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :UShort) :Ratio = Ratio(toShort & 0xffffL, denominator.toShort & 0xffffL)
-
-	/** Divides this `UShort` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :Int) :Ratio = Ratio(toShort & 0xffffL, denominator)
-
-	/** Divides this `UShort` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :Long) :Ratio = Ratio(toShort & 0xffffL, denominator)
-
 	type ResultWithoutStep = NumericRange[UShort]
 	@inline def to(end: UShort): NumericRange.Inclusive[UShort] =
 		NumericRange.inclusive(this, end, new UShort(1))(UShort.UShortIsIntegral)
@@ -209,7 +139,7 @@ class UShort private[numeric](override val toShort: Short)
 
 
 //	private def underflow(method :String) :Nothing =
-//		throw SugaredArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
+//		throw SugaredArithmeticException("Ops underflow: " + this + "." + method + ".")
 
 	private def outOfRange(typeName :String) :Nothing =
 		throw SugaredArithmeticException("Value " + this + " is out of " + typeName + " range.")
@@ -222,8 +152,16 @@ class UShort private[numeric](override val toShort: Short)
 
 
 
+private[numeric] sealed trait UShortRank2 {
+	@inline implicit def UShortToLong(number: UShort) : Long = number.toShort & 0xffffL
+}
+private[numeric] sealed trait UShortRank1 extends UShortRank2 {
+	@inline implicit final def UShortToInt(number: UShort)  : Int = number.toShort & 0xffff
+}
+
+
 @SerialVersionUID(Ver)
-object UShort extends CompanionObject[UShort] {
+object UShort extends CompanionObject[UShort] with UShortRank1 {
 	/** `2`^16^` - 1 == 65535` */
 	final val MaxValue = new UShort(-1)
 	/** Zero. */
@@ -243,12 +181,12 @@ object UShort extends CompanionObject[UShort] {
 
 	@throws[ArithmeticException]("If value is negative or greater than 2^16-1.")
 	@inline def from(value: Int): UShort =
-		if (value < 0 | value > 0xffff) throwArithmeticException(value)
+		if (value < 0 | value > 0xffff) throwOpsException(value)
 		else new UShort(value.toShort)
 
 	@throws[NumberFormatException]("if the string does not contain a parseable UShort.")
 	def decode(string: String): UShort = {
-		val long = jl.Long.decode(string)
+		val long = decode(string)
 		if (long < 0L | long > 0xffffL)
 			throwNumberFormatException(string)
 		new UShort(long.toShort)
@@ -260,7 +198,7 @@ object UShort extends CompanionObject[UShort] {
 			case _ => No
 		}
 
-	private def throwArithmeticException(value: Int): Nothing =
+	private def throwOpsException(value: Int): Nothing =
 		throw SugaredArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwIllegalArgumentException(value: Int): Nothing =
@@ -271,11 +209,106 @@ object UShort extends CompanionObject[UShort] {
 
 
 	//todo: in Scala3 create conversions from non negative Int literals
-	@inline implicit def UShortToInt(number: UShort)  : Int = number.toShort & 0xffff
-	@inline implicit def UShortToUInt(number: UShort) : UInt = new UInt(number.toShort & 0xffff)
-	@inline implicit def UShortToLong(number: UShort) : Long = number.toShort & 0xffffL
-	@inline implicit def UShortToULong(number: UShort): ULong = new ULong(number.toShort & 0xffffL)
+	@inline implicit def UByteToUShort(number :UByte) :UShort = new UShort((number.toByte & 0xff).toShort)
 
+	@inline implicit def UShortUnsignedOps(self: UShort): UShortUnsignedOps = new UShortUnsignedOps(self.toShort)
+	@inline implicit def UShortSignedOps(self: UShort): UShortSignedOps = new UShortSignedOps(self.toShort)
+
+	class UShortUnsignedOps private[UShort](private val toShort: Int) extends AnyVal {
+		@inline def +(x :UByte):   UShort = new UShort((toShort + (x.toByte & 0xff)).toShort)
+		@inline def +(x :UShort):  UShort = new UShort((toShort + x.toShort).toShort)
+		@inline def +(x :UInt):    UInt = new UInt((toShort & 0xffff) + x.toInt)
+		@inline def +(x :ULong):   ULong = new ULong((toShort & 0xffffL) + x.toLong)
+		@inline def -(x: UByte):   UShort = new UShort((toShort - (x.toByte & 0xff)).toShort)
+		@inline def -(x: UShort):  UShort = new UShort((toShort - x.toShort).toShort)
+		@inline def -(x: UInt):    UInt = new UInt((toShort & 0xffff) - x.toInt)
+		@inline def -(x: ULong):   ULong = new ULong((toShort & 0xffffL) - x.toLong)
+		@inline def *(x: UByte):   UShort = new UShort((toShort * (x.toByte & 0xff)).toShort)
+		@inline def *(x: UShort):  UShort = new UShort((toShort * x.toShort).toShort)
+		@inline def *(x: UInt):    UInt = new UInt((toShort & 0xffff) * x.toInt)
+		@inline def *(x: ULong):   ULong = new ULong((toShort & 0xffffL) * x.toLong)
+		@inline def /(x: UByte):   UShort = new UShort(((toShort & 0xffff) / (x.toByte & 0xff)).toShort)
+		@inline def /(x: UShort):  UShort = new UShort(((toShort & 0xffff) / (x.toShort & 0xffff)).toShort)
+		//consider: returning UShort from the division
+		@inline def /(x: UInt):    UInt = new UInt(((toShort & 0xffffL) / (x.toInt & 0xffffffffL)).toInt)
+		@inline def /(x: ULong):   ULong = new ULong(divideUnsigned(toShort & 0xffffL, x.toLong))
+		@inline def %(x: UByte):   UShort = new UShort(((toShort & 0xffff) % (x.toByte & 0xff)).toShort)
+		@inline def %(x: UShort):  UShort = new UShort(((toShort & 0xffff) % (x.toShort & 0xffff)).toShort)
+		@inline def %(x: UInt):    UInt = new UInt(((toShort & 0xffffL) % (x.toInt & 0xffffffffL)).toInt)
+		@inline def %(x: ULong):   ULong = new ULong(remainderUnsigned(toShort & 0xffffL, x.toLong))
+		@inline def **(n: UByte):  UInt = new UInt((toShort & 0xffff).pow(n.toByte & 0xff))
+		@inline def **(n: UShort): UInt = new UInt((toShort & 0xffff).pow(n.toShort & 0xffff))
+		@inline def **(n: UInt):   UInt = new UInt((toShort & 0xffff).pow(n.toInt))
+
+		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
+		@inline def /%(x :UByte): (UShort, UShort) = {
+			val q = (toShort & 0xffff) / (x.toByte & 0xff)
+			val r = (toShort & 0xffff) - q * (x.toByte & 0xff)
+			(new UShort(q.toShort), new UShort(r.toShort))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
+		@inline def /%(x :UShort): (UShort, UShort) = {
+			val q = (toShort & 0xffff) / (x.toShort & 0xffff)
+			val r = (toShort & 0xffff) - q * (x.toShort & 0xffff)
+			(new UShort(q.toShort), new UShort(r.toShort))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
+		@inline def /%(x :UInt): (UInt, UInt) = {
+			val q = (toShort & 0xffffL) / (x.toInt & 0xffffffffL)
+			val r = (toShort & 0xffffL) - q * (x.toInt & 0xffffffffL)
+			(new UInt(q.toInt), new UInt(r.toInt))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
+		@inline def /%(x :ULong): (ULong, ULong) = {
+			val q = divideUnsigned((toShort & 0xffffL), x.toLong)
+			val r = (toShort & 0xffffL) - q * x.toLong
+			(new ULong(q), new ULong(r))
+		}
+	}
+
+	class UShortSignedOps private[UShort] (private val toShort: Int) extends AnyVal {
+		@inline def +(x: Float) : Float  = (toShort & 0xffffL) + x
+		@inline def +(x: Double): Double = (toShort & 0xffffL) + x
+		@inline def -(x: Float) : Float  = (toShort & 0xffffL) - x
+		@inline def -(x: Double): Double = (toShort & 0xffffL) - x
+
+		@inline def *(x: Float) : Float  = (toShort & 0xffffL) * x
+		@inline def *(x: Double): Double = (toShort & 0xffffL) * x
+		@inline def /(x: Float) : Float  = (toShort & 0xffffL) / x
+		@inline def /(x: Double): Double = (toShort & 0xffffL) / x
+		@inline def %(x: Float) : Float  = (toShort & 0xffffL) % x
+		@inline def %(x: Double): Double = (toShort & 0xffffL) % x
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :Int): (Int, Int) = {
+			val q = (toShort & 0xffff) / x
+			val r = (toShort & 0xffff) - q * x
+			(q, r)
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :Long): (Long, Long) = {
+			val q = (toShort & 0xffffL) / x
+			val r = (toShort & 0xffffL) - q * x
+			(q, r)
+		}
+
+		@inline def **(n: Byte) : UInt   = new UInt((toShort & 0xffff).pow(n))
+		@inline def **(n: Short): UInt   = new UInt((toShort & 0xffff).pow(n))
+		@inline def **(n: Int)  : UInt   = new UInt((toShort & 0xffff).pow(n))
+
+		/** Divides this `UShort` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+		  * number representing the result.
+		  * @param denominator the denominator of the created rational (before reduction)
+		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+		  */
+		@inline def %/(denominator: Long): Ratio = Ratio(toShort & 0xffffffffL, denominator)
+	}
+
+	
 	@SerialVersionUID(Ver)
 	object conversions {
 		@inline implicit def UShortToShort(number: UShort): Short = number.toShort
@@ -285,6 +318,8 @@ object UShort extends CompanionObject[UShort] {
 	}
 
 	sealed abstract class UShortIsNumeric extends Numeric[UShort] {
+		import UShort.UShortUnsignedOps
+
 		override def plus(x: UShort, y: UShort): UShort = x + y
 		override def minus(x: UShort, y: UShort): UShort = x - y
 		override def times(x: UShort, y: UShort): UShort = x * y
@@ -300,13 +335,19 @@ object UShort extends CompanionObject[UShort] {
 		override def compare(x: UShort, y: UShort): Int =
 			jl.Integer.compare(x.toShort & 0xffff, y.toShort & 0xffff)
 	}
+
 	@SerialVersionUID(Ver)
 	implicit object UShortIsIntegral extends UShortIsNumeric with Integral[UShort] {
+		import UShort.UShortUnsignedOps
+
 		override def quot(x: UShort, y: UShort): UShort = x / y
 		override def rem(x: UShort, y: UShort): UShort = x % y
 	}
+
 	@SerialVersionUID(Ver)
 	object UShortAsIfFractional extends UShortIsNumeric with Fractional[UShort] {
+		import UShort.UShortUnsignedOps
+
 		override def div(x: UShort, y: UShort): UShort = x / y
 	}
 }

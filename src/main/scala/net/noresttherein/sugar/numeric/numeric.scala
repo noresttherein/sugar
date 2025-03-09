@@ -7,27 +7,38 @@ import scala.util.Random
 
 
 
-package object numeric {
+package object numeric { //todo: copy static methods of java.lang.Integer and the rest.
 	private[numeric] final val Ver = 1L
 
-	@inline def max(a :Int, b :Int) :Int = math.max(a, b)
-	@inline def max(a :Long, b :Long) :Long = math.max(a, b)
+	@inline def signum(x :Byte)    :Int = java.lang.Integer.signum(x)
+	@inline def signum(x :Short)   :Int = java.lang.Integer.signum(x)
+	@inline def signum(x :Long)    :Int = java.lang.Long.signum(x)
+
+	@inline def compare(x :Byte, y :Byte)     :Int = java.lang.Byte.compare(x, y)
+	@inline def compare(x :Short, y :Short)   :Int = java.lang.Short.compare(x, y)
+	@inline def compare(x :Int, y :Int)       :Int = java.lang.Integer.compare(x, y)
+	@inline def compare(x :Long, y :Long)     :Int = java.lang.Long.compare(x, y)
+	@inline def compare(x :Float, y :Float)   :Int = java.lang.Float.compare(x, y)
+	@inline def compare(x :Double, y :Double) :Int = java.lang.Double.compare(x, y)
+	
+	@inline def max(a :Byte, b :Byte)     :Byte = math.max(a, b).toByte
+	@inline def max(a :Short, b :Short)   :Short = math.max(a, b).toShort
+	@inline def max(a :Int, b :Int)       :Int = math.max(a, b)
+	@inline def max(a :Long, b :Long)     :Long = math.max(a, b)
+	@inline def max(a :Float, b :Float)   :Float = math.max(a, b)
 	@inline def max(a :Double, b :Double) :Double = math.max(a, b)
-	@inline def max(a :Float, b :Float) :Float = math.max(a, b)
-	@inline def max(a :Short, b :Short) :Short = math.max(a, b).toShort
-	@inline def max(a :Byte, b :Byte) :Byte = math.max(a, b).toByte
 	@inline def max[T](a :T, b :T)(implicit ordering :Ordering[T]) :T = ordering.max(a, b)
 
 	@inline def max[T](first :T, second :T, rest :T*)(implicit ordering :Ordering[T]) :T =
 		if (rest.isEmpty) ordering.max(first, second)
 		else ordering.max(first, ordering.max(second, rest.max)) 
 
+	@inline def min(a :Byte, b :Byte) :Byte = math.min(a, b).toByte
+	@inline def min(a :Short, b :Short) :Short = math.min(a, b).toShort
 	@inline def min(a :Int, b :Int) :Int = math.min(a, b)
 	@inline def min(a :Long, b :Long) :Long = math.min(a, b)
-	@inline def min(a :Double, b :Double) :Double = math.min(a, b)
 	@inline def min(a :Float, b :Float) :Float = math.min(a, b)
-	@inline def min(a :Short, b :Short) :Short = math.min(a, b).toShort
-	@inline def min(a :Byte, b :Byte) :Byte = math.min(a, b).toByte
+	@inline def min(a :Double, b :Double) :Double = math.min(a, b)
 	@inline def min[T](a :T, b :T)(implicit ordering :Ordering[T]) :T = ordering.min(a, b)
 
 	@inline def min[T](first :T, second :T, rest :T*)(implicit ordering :Ordering[T]) :T =

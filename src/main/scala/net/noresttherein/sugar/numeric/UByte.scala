@@ -1,13 +1,13 @@
 package net.noresttherein.sugar.numeric
 
-import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 import java.{lang => jl}
+import java.lang.Long.{divideUnsigned, remainderUnsigned}
+import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 
 import scala.collection.immutable.NumericRange
 import scala.math.ScalaNumericAnyConversions
 
-import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
-import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException, illegal_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.Maybe
@@ -16,7 +16,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
-/** An unsigned 16 bit integer backed by an `Short` value. All comparisons are done as if unsigned, and `toString`
+/** An unsigned 16-bit integer backed by an `Short` value. All comparisons are done as if unsigned, and `toString`
   * and other formatting methods treat the underlying `Short` as unsigned.
   * However, this type doesn't check for overflows and underflows, meaning `UByte(1) - UByte(2)`
   * will return `UByte.MaxValue`.
@@ -24,7 +24,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   */
 @SerialVersionUID(Ver)
 class UByte private[numeric](override val toByte: Byte)
-	extends AnyVal with Ordered[UByte] with ScalaNumericAnyConversions with Serializable
+	extends AnyVal with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
 	@inline override def isValidByte : Boolean = (toByte & 0x7f) == toByte
@@ -72,49 +72,33 @@ class UByte private[numeric](override val toByte: Byte)
 	@deprecated("Adding a number and a String is deprecated. Use the string interpolation `s\"$num$str\"`", "Scala 2.13.0")
 	@inline def +(x: String): String = toByte.toString + x
 
-	//Consider: the problem with all these comparisons is that they exclude UByte, which is handled by methods
-	// inherited from Ordered. This works, because the erased signature is >(x :Object).
-	// Unfortunately, it also means that it boxes both operands.
-	// We may migrate to extension methods, but they won't work for == and !=.
-	@inline def ==(x: Byte)  : Boolean = (toByte & 0xff) == x
-	@inline def ==(x: Short) : Boolean = (toByte & 0xff) == x
-	@inline def ==(x: Char)  : Boolean = (toByte & 0xff) == x
+	@inline def ==(x: UByte) : Boolean = toByte == x.toByte
 	@inline def ==(x: Int)   : Boolean = (toByte & 0xff) == x
 	@inline def ==(x: Long)  : Boolean = (toByte & 0xffL) == x
 	@inline def ==(x: Float) : Boolean = (toByte & 0xffL).toFloat == x
 	@inline def ==(x: Double): Boolean = (toByte & 0xffL).toDouble == x
-	@inline def !=(x: Byte)  : Boolean = (toByte & 0xff) != x
-	@inline def !=(x: Short) : Boolean = (toByte & 0xff) != x
-	@inline def !=(x: Char)  : Boolean = (toByte & 0xff) != x
+	@inline def !=(x: UByte) : Boolean = toByte != x.toByte
 	@inline def !=(x: Int)   : Boolean = (toByte & 0xff) != x
 	@inline def !=(x: Long)  : Boolean = (toByte & 0xffL) != x
 	@inline def !=(x: Float) : Boolean = (toByte & 0xffL).toFloat != x
 	@inline def !=(x: Double): Boolean = (toByte & 0xffL).toDouble != x
 
-	@inline def < (x: Byte)  : Boolean = (toByte & 0xff) < x
-	@inline def < (x: Short) : Boolean = (toByte & 0xff) < x
-	@inline def < (x: Char)  : Boolean = (toByte & 0xff) < x
+	@inline def < (x: UByte) : Boolean = (toByte & 0xff) < (x.toByte & 0xff)
 	@inline def < (x: Int)   : Boolean = (toByte & 0xff) < x
 	@inline def < (x: Long)  : Boolean = (toByte & 0xffL) < x
 	@inline def < (x: Float) : Boolean = (toByte & 0xffL).toFloat < x
 	@inline def < (x: Double): Boolean = (toByte & 0xffL).toDouble < x
-	@inline def <=(x: Byte)  : Boolean = (toByte & 0xff) <= x
-	@inline def <=(x: Short) : Boolean = (toByte & 0xff) <= x
-	@inline def <=(x: Char)  : Boolean = (toByte & 0xff) <= x
+	@inline def <=(x: UByte) : Boolean = (toByte & 0xff) <= (x.toByte & 0xff)
 	@inline def <=(x: Int)   : Boolean = (toByte & 0xff) <= x
 	@inline def <=(x: Long)  : Boolean = (toByte & 0xffL) <= x
 	@inline def <=(x: Float) : Boolean = (toByte & 0xffL).toFloat <= x
 	@inline def <=(x: Double): Boolean = (toByte & 0xffL).toDouble <= x
-	@inline def > (x: Byte)  : Boolean = (toByte & 0xff) > x
-	@inline def > (x: Short) : Boolean = (toByte & 0xff) > x
-	@inline def > (x: Char)  : Boolean = (toByte & 0xff) > x
+	@inline def > (x: UByte) : Boolean = (toByte & 0xff) > (x.toByte & 0xff)
 	@inline def > (x: Int)   : Boolean = (toByte & 0xff) > x
 	@inline def > (x: Long)  : Boolean = (toByte & 0xffL) > x
 	@inline def > (x: Float) : Boolean = (toByte & 0xffL).toFloat > x
 	@inline def > (x: Double): Boolean = (toByte & 0xffL).toDouble > x
-	@inline def >=(x: Byte)  : Boolean = (toByte & 0xff) >= x
-	@inline def >=(x: Short) : Boolean = (toByte & 0xff) >= x
-	@inline def >=(x: Char)  : Boolean = (toByte & 0xff) >= x
+	@inline def >=(x: UByte) : Boolean = (toByte & 0xff) >= (x.toByte & 0xff)
 	@inline def >=(x: Int)   : Boolean = (toByte & 0xff) >= x
 	@inline def >=(x: Long)  : Boolean = (toByte & 0xffL) >= x
 	@inline def >=(x: Float) : Boolean = (toByte & 0xffL).toFloat >= x
@@ -137,73 +121,6 @@ class UByte private[numeric](override val toByte: Byte)
 	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
 	@inline def orZeroIf(condition :UByte => Boolean) :UByte = if (condition(this)) new UByte(0) else this
 
-//	@inline def +(x: Char)  : UByte = new UByte(((toByte & 0xff) + x).toByte)
-	@inline def +(x: Short) : Short  = ((toByte & 0xff) + x).toShort
-	@inline def +(x: Int)   : Int    = (toByte & 0xff) + x
-	@inline def +(x: Long)  : Long   = (toByte & 0xffL) + x
-	@inline def +(x: Float) : Float  = (toByte & 0xffL) + x
-	@inline def +(x: Double): Double = (toByte & 0xffL) + x
-	@inline def +(x: UByte) : UByte  = new UByte(((toByte & 0xff) + (x.toByte & 0xff)).toByte)
-//	@inline def +(x: UInt)  : UInt   = new UInt((toByte & 0xff) + x.toInt)
-//	@inline def -(x: Char)  : UByte = new UByte(((toByte & 0xff) - x).toByte)
-	@inline def -(x: Short) : Short  = ((toByte & 0xff) - x).toShort
-	@inline def -(x: Int)   : Int    = (toByte & 0xff) - x
-	@inline def -(x: Long)  : Long   = (toByte & 0xffL) - x
-	@inline def -(x: Float) : Float  = (toByte & 0xffL) - x
-	@inline def -(x: Double): Double = (toByte & 0xffL) - x
-	@inline def -(x: UByte): UByte   = new UByte((toByte - x.toByte).toByte)
-
-//	@inline def *(x: Char)  : UByte = new UByte(((toByte & 0xff) * x).toByte)
-	@inline def *(x: Short) : Short  = ((toByte & 0xff) * x).toShort
-	@inline def *(x: Int)   : Int    = (toByte & 0xff) * x
-	@inline def *(x: Long)  : Long   = (toByte & 0xffL) * x
-	@inline def *(x: Float) : Float  = (toByte & 0xffL) * x
-	@inline def *(x: Double): Double = (toByte & 0xffL) * x
-	@inline def *(x: UByte) : UByte  = new UByte((toByte * x.toByte).toByte)
-//	@inline def /(x: Char)  : UByte  = new UByte(((toByte & 0xff) / x).toByte)
-	@inline def /(x: Short) : Short  = ((toByte & 0xff) / x).toShort
-	@inline def /(x: Int)   : Int    = (toByte & 0xff) / x
-	@inline def /(x: Long)  : Long   = (toByte & 0xffL) / x
-	@inline def /(x: Float) : Float  = (toByte & 0xffL) / x
-	@inline def /(x: Double): Double = (toByte & 0xffL) / x
-	@inline def /(x: UByte) : UByte  = new UByte(((toByte & 0xff) / (toByte & 0xff)).toByte)
-//	@inline def %(x: Char)  : UByte = new UByte(((toByte & 0xff) % x).toByte)
-	@inline def %(x: Short) : Short  = ((toByte & 0xff) % x).toShort
-	@inline def %(x: Int)   : Int    = (toByte & 0xff) % x
-	@inline def %(x: Long)  : Long   = (toByte & 0xffL) % x
-	@inline def %(x: Float) : Float  = (toByte & 0xffL) % x
-	@inline def %(x: Double): Double = (toByte & 0xffL) % x
-	@inline def %(x: UByte) : UByte  = new UByte(((toByte & 0xff) % (toByte & 0xff)).toByte)
-	@inline def **(n: Int)  : UInt   = new UInt((toByte & 0xff).pow(n))
-
-	/** Divides this `UByte` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :UByte) :Ratio = Ratio(toByte & 0xffL, denominator.toByte & 0xffL)
-
-	/** Divides this `UByte` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :UShort) :Ratio = Ratio(toByte & 0xffL, denominator.toShort & 0xffffL)
-
-	/** Divides this `UByte` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :Int) :Ratio = Ratio(toByte & 0xffL, denominator)
-
-	/** Divides this `UByte` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
-	  * number representing the result.
-	  * @param denominator the denominator of the created rational (before reduction)
-	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
-	  */
-	@inline def %/(denominator :Long) :Ratio = Ratio(toByte & 0xffL, denominator)
-
 	type ResultWithoutStep = NumericRange[UByte]
 	@inline def to(end: UByte): NumericRange.Inclusive[UByte] =
 		NumericRange.inclusive(this, end, new UByte(1))(UByte.UByteIsIntegral)
@@ -219,7 +136,7 @@ class UByte private[numeric](override val toByte: Byte)
 
 
 //	private def underflow(method :String) :Nothing =
-//		throw SugaredArithmeticException("Arithmetic underflow: " + this + "." + method + ".")
+//		throw SugaredArithmeticException("Ops underflow: " + this + "." + method + ".")
 
 	private def outOfRange(typeName :String) :Nothing =
 		throw SugaredArithmeticException("Value " + this + " is out of " + typeName + " range.")
@@ -232,8 +149,19 @@ class UByte private[numeric](override val toByte: Byte)
 
 
 
+private[numeric] sealed trait UByteRank3 {
+	@inline implicit def UByteToLong(number: UByte)  : Long   = number.toByte & 0xffL
+}
+private[numeric] sealed trait UByteRank2 extends UByteRank3 {
+	@inline implicit def UByteToInt(number: UByte)   : Int    = number.toByte & 0xff
+}
+private[numeric] sealed trait UByteRank1 extends UByteRank2 {
+	@inline implicit def UByteToShort(number: UByte) : Short  = (number.toByte & 0xff).toShort
+}
+
+
 @SerialVersionUID(Ver)
-object UByte extends CompanionObject[UByte] {
+case object UByte extends CompanionObject[UByte] with UByteRank1 {
 	/** `2`^8^` - 1 == 255` */
 	final val MaxValue = new UByte(-1)
 	/** Zero. */
@@ -253,12 +181,12 @@ object UByte extends CompanionObject[UByte] {
 
 	@throws[ArithmeticException]("If value is negative or greater than 2^16-1.")
 	@inline def from(value: Int): UByte =
-		if (value < 0 | value > 0xff) throwArithmeticException(value)
+		if (value < 0 | value > 0xff) throwOpsException(value)
 		else new UByte(value.toByte)
 
 	@throws[NumberFormatException]("if the string does not contain a parsable UByte.")
 	def decode(string: String): UByte = {
-		val long = jl.Long.decode(string)
+		val long = decode(string)
 		if (long < 0L | long > 0xffL)
 			throwNumberFormatException(string)
 		new UByte(long.toByte)
@@ -270,7 +198,7 @@ object UByte extends CompanionObject[UByte] {
 			case _ => No
 		}
 
-	private def throwArithmeticException(value: Int): Nothing =
+	private def throwOpsException(value: Int): Nothing =
 		throw SugaredArithmeticException("Value out of [0.." + MaxValue + "] range: " + value)
 
 	private def throwIllegalArgumentException(value: Int): Nothing =
@@ -281,13 +209,109 @@ object UByte extends CompanionObject[UByte] {
 
 
 	//todo: in Scala3 create conversions from non negative Int literals
-	@inline implicit def UByteToShort(number: UByte) : Short  = (number.toByte & 0xff).toShort
-	@inline implicit def UByteToUShort(number: UByte): UShort = new UShort((number.toByte & 0xff).toShort)
-	@inline implicit def UByteToInt(number: UByte)   : Int    = number.toByte & 0xff
-	@inline implicit def UByteToUInt(number: UByte)  : UInt   = new UInt(number.toByte & 0xff)
-	@inline implicit def UByteToLong(number: UByte)  : Long   = number.toByte & 0xffL
-	@inline implicit def UByteToULong(number: UByte) : ULong  = new ULong(number.toByte & 0xffL)
+//	@inline implicit def UByteToUShort(number: UByte): UShort = new UShort((number.toByte & 0xff).toShort)
+//	@inline implicit def UByteToUInt(number: UByte)  : UInt   = new UInt(number.toByte & 0xff)
+//	@inline implicit def UByteToULong(number: UByte) : ULong  = new ULong(number.toByte & 0xffL)
 
+	@inline implicit def UByteUnsignedOps(self: UByte): UByteUnsignedOps = new UByteUnsignedOps(self.toShort)
+	@inline implicit def UByteSignedOps(self: UByte): UByteSignedOps = new UByteSignedOps(self.toShort)
+
+	class UByteUnsignedOps private[UByte](private val toByte: Int) extends AnyVal {
+		//do we need & 0xxff here?
+		@inline def +(x :UByte):   UByte = new UByte(((toByte & 0xff) + (x.toByte & 0xff)).toByte)
+		@inline def +(x :UShort):  UShort = new UShort(((toByte & 0xff) + (x.toShort & 0xffff)).toShort)
+		@inline def +(x :UInt):    UInt = new UInt((toByte & 0xff) + x.toInt)
+		@inline def +(x :ULong):   ULong = new ULong((toByte & 0xffL) + x.toLong)
+		@inline def -(x: UByte):   UByte = new UByte(((toByte & 0xff) - (x.toByte & 0xff)).toByte)
+		@inline def -(x: UShort):  UShort = new UShort(((toByte & 0xff) + (x.toShort & 0xffff)).toShort)
+		@inline def -(x: UInt):    UInt = new UInt((toByte & 0xff) + x.toInt)
+		@inline def -(x: ULong):   ULong = new ULong((toByte & 0xffL) + x.toLong)
+		@inline def *(x: UByte):   UByte = new UByte(((toByte & 0xff) * (x.toByte & 0xff)).toByte)
+		@inline def *(x: UShort):  UShort = new UShort(((toByte & 0xff) * (x.toShort & 0xffff)).toShort)
+		@inline def *(x: UInt):    UInt = new UInt((toByte & 0xff) * x.toInt)
+		@inline def *(x: ULong):   ULong = new ULong((toByte & 0xffL) * x.toLong)
+		//consider: returning UByte from the divisions
+		@inline def /(x: UByte):   UByte = new UByte(((toByte & 0xff) / (x.toByte & 0xff)).toByte)
+		@inline def /(x: UShort):  UShort = new UShort(((toByte & 0xff) / (x.toShort & 0xffff)).toShort)
+		@inline def /(x: UInt):    UInt = new UInt(((toByte & 0xffL) / (x.toInt & 0xffffffffL)).toInt)
+		@inline def /(x: ULong):   ULong = new ULong(divideUnsigned(toByte & 0xffL, x.toLong))
+		@inline def %(x: UByte):   UByte = new UByte(((toByte & 0xff) % (x.toByte & 0xff)).toByte)
+		@inline def %(x: UShort):  UShort = new UShort(((toByte & 0xff) % (x.toShort & 0xffff)).toShort)
+		@inline def %(x: UInt):    UInt = new UInt(((toByte & 0xffL) % (x.toInt & 0xffffffffL)).toInt)
+		@inline def %(x: ULong):   ULong = new ULong(remainderUnsigned(toByte & 0xffL, x.toLong))
+		@inline def **(n: UByte):  UInt = new UInt((toByte & 0xff).pow(n.toByte & 0xff))
+		@inline def **(n: UShort): UInt = new UInt((toByte & 0xff).pow(n.toShort & 0xffff))
+		@inline def **(n: UInt):   UInt = new UInt((toByte & 0xff).pow(n.toInt))
+
+		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
+		@inline def /%(x :UByte): (UByte, UByte) = {
+			val q = (toByte & 0xff) / (x.toByte & 0xff)
+			val r = (toByte & 0xff) - q * (x.toByte & 0xff)
+			(new UByte(q.toByte), new UByte(r.toByte))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
+		@inline def /%(x :UShort): (UShort, UShort) = {
+			val q = (toByte & 0xff) / (x.toShort & 0xffff)
+			val r = (toByte & 0xff) - q * (x.toShort & 0xffff)
+			(new UShort(q.toShort), new UShort(r.toShort))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
+		@inline def /%(x :UInt): (UInt, UInt) = {
+			val q = (toByte & 0xffL) / (x.toInt & 0xffffffffL)
+			val r = (toByte & 0xffL) - q * (x.toInt & 0xffffffffL)
+			(new UInt(q.toInt), new UInt(r.toInt))
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
+		@inline def /%(x :ULong): (ULong, ULong) = {
+			val q = divideUnsigned((toByte & 0xffL), x.toLong)
+			val r = (toByte & 0xffL) - q * x.toLong
+			(new ULong(q), new ULong(r))
+		}
+	}
+
+	class UByteSignedOps private[UByte] (private val toByte: Int) extends AnyVal {
+		@inline def +(x: Float) : Float  = (toByte & 0xffL) + x
+		@inline def +(x: Double): Double = (toByte & 0xffL) + x
+		@inline def -(x: Float) : Float  = (toByte & 0xffL) - x
+		@inline def -(x: Double): Double = (toByte & 0xffL) - x
+
+		@inline def *(x: Float) : Float  = (toByte & 0xffL) * x
+		@inline def *(x: Double): Double = (toByte & 0xffL) * x
+		@inline def /(x: Float) : Float  = (toByte & 0xffL) / x
+		@inline def /(x: Double): Double = (toByte & 0xffL) / x
+		@inline def %(x: Float) : Float  = (toByte & 0xffL) % x
+		@inline def %(x: Double): Double = (toByte & 0xffL) % x
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :Int): (Int, Int) = {
+			val q = (toByte & 0xff) / x
+			val r = (toByte & 0xff) - q * x
+			(q, r)
+		}
+
+		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
+		@inline def /%(x :Long): (Long, Long) = {
+			val q = (toByte & 0xffL) / x
+			val r = (toByte & 0xffL) - q * x
+			(q, r)
+		}
+
+		@inline def **(n: Byte) : UInt   = new UInt((toByte & 0xff).pow(n))
+		@inline def **(n: Short): UInt   = new UInt((toByte & 0xff).pow(n))
+		@inline def **(n: Int)  : UInt   = new UInt((toByte & 0xff).pow(n))
+
+		/** Divides this `UByte` by the argument, creating a [[net.noresttherein.sugar.numeric.Ratio Ratio]]
+		  * number representing the result.
+		  * @param denominator the denominator of the created rational (before reduction)
+		  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
+		  */
+		@inline def %/(denominator: Long): Ratio = Ratio((toByte & 0xffL), denominator)
+	}
+
+	
 	@SerialVersionUID(Ver)
 	object conversions {
 		@inline implicit def UByteToByte(number: UByte): Byte  = number.toByte
@@ -297,6 +321,8 @@ object UByte extends CompanionObject[UByte] {
 	}
 
 	sealed abstract class UByteIsNumeric extends Numeric[UByte] {
+		import UByte.UByteUnsignedOps
+
 		override def plus(x: UByte, y: UByte): UByte = x + y
 		override def minus(x: UByte, y: UByte): UByte = x - y
 		override def times(x: UByte, y: UByte): UByte = x * y
@@ -312,13 +338,19 @@ object UByte extends CompanionObject[UByte] {
 		override def compare(x: UByte, y: UByte): Int =
 			jl.Integer.compare(x.toByte & 0xff, y.toByte & 0xff)
 	}
+
 	@SerialVersionUID(Ver)
 	implicit object UByteIsIntegral extends UByteIsNumeric with Integral[UByte] {
+		import UByte.UByteUnsignedOps
+
 		override def quot(x: UByte, y: UByte): UByte = x / y
 		override def rem(x: UByte, y: UByte): UByte = x % y
 	}
+
 	@SerialVersionUID(Ver)
 	object UByteAsIfFractional extends UByteIsNumeric with Fractional[UByte] {
+		import UByte.UByteUnsignedOps
+
 		override def div(x: UByte, y: UByte): UByte = x / y
 	}
 }
