@@ -4312,9 +4312,17 @@ case object TreeSeq extends StrictOptimizedSeqFactory[TreeSeq] {
 		  * to a `TreeSeqBuilder`.
 		  */
 		abstract class TreeSeqIterator[+E]
-			extends AbstractIterator[E] with BufferedIterator[E] with IteratorWithDrop[E] with StrictIterator[E]
+			extends AbstractIterator[E] with BufferedIterator[E] with IteratorWithDrop[E]
 		{
 			override def hasFastDrop = true
+			override def strictDrop(n :Int) :Iterator[E] = drop(n)
+
+			override def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
+				val copied = copyToArray(xs, start, len)
+				strictDrop(copied)
+				copied
+			}
+
 			def toTree :Tree[E]
 		}
 

@@ -420,8 +420,8 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		while (it.hasNext) {
 			if (storageSize <= MaxSize1) {
 				val mask = storageSize - 1
-				dataSize += it.copyToArray(data1, dataOffset + dataSize)
-				dataSize += it.copyToArray(data1, dataOffset + dataSize & mask, storageSize - dataSize)
+				dataSize += it.safeCopyToArray(data1, dataOffset + dataSize)
+				dataSize += it.safeCopyToArray(data1, dataOffset + dataSize & mask, storageSize - dataSize)
 				if (it.hasNext) {
 					if (storageSize < MaxSize1)
 						grow1(storageSize)
@@ -437,7 +437,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				val max   =
 					if (idx == dim2(dataOffset) && start < dataOffset) dataOffset - start
 					else MaxSize1 - start
-				dataSize += it.copyToArray(data2(idx), start, max)
+				dataSize += it.safeCopyToArray(data2(idx), start, max)
 			}
 		}
 	}
@@ -1242,7 +1242,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		elems match {
 			case ai :IndexedIterator[E] =>
 				while (copied < max && ai.hasNext) {
-					copied += ai.copyToArray(data2(idx2), idx1, max - copied)
+					copied += ai.safeCopyToArray(data2(idx2), idx1, max - copied)
 					idx1 = 0
 					idx2 = idx2 + 1 & mask2
 				}

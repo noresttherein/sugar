@@ -343,6 +343,7 @@ private object Iterators {
 	private[sugar] trait StrictIterator[+E] extends IteratorWithDrop[E] {
 		override def hasFastDrop = true
 		override def strictDrop(n :Int) :Iterator[E] = this.drop(n)
+		override def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = copyToArray(xs, start, len)
 	}
 	private[sugar] trait SlowDropIterator[+E] extends SugaredIterator[E] {
 		override def hasFastDrop = false
@@ -414,7 +415,7 @@ private object Iterators {
 			if (n > 0) super.take(0) else this
 
 		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
-		val copied = util.elementsToCopy(knownSize, xs, start, len)
+			val copied = util.elementsToCopy(knownSize, xs, start, len)
 			if (copied > 0)
 				xs(start) = hd
 			copied
@@ -473,13 +474,14 @@ private object Iterators {
 			if (n <= 0) (Iterator.empty, this)
 			else (new Const(n, head), this)
 
-		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int =
 			if (len <= 0 || start >= xs.length) {
 				val copied = math.min(len, xs.length - start)
 				xs.fill(start, start + copied)(head)
 				copied
 			} else
 				0
+
 		override def toString :String = "Iterator.infinite(" + head + "*)"
 	}
 
@@ -501,7 +503,7 @@ private object Iterators {
 			else if (n >= knownSize) (this, Iterator.empty)
 			else (new Const(n, head), drop(n))
 
-		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
+		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
 			val copied = util.elementsToCopy(knownSize, xs, start, len)
 			xs.fill(start, start + copied)(head)
 			copied
@@ -1118,6 +1120,7 @@ private object Iterators {
 					}
 				}
 			}
+		//todo: safeCopyToArray
 		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 
 		override def toString :String =
@@ -1198,6 +1201,7 @@ private object Iterators {
 					copiedBefore + underlying.copyToArray(xs, start + copiedBefore, max - copiedBefore)
 				}
 			}
+		//todo: safeCopyToArray
 
 		override def toString :String =
 			if (super.hasNext)
@@ -1514,6 +1518,7 @@ private object Iterators {
 				i += copied
 				copied + copyToArray(xs, start + copied, max - copied)
 			}
+		//todo: safeCopyToArray
 		override def toString :String = underlying.toString + ".overwritten(@" + (index - i) + "=" + elems + ")"
 	}
 
@@ -1608,6 +1613,7 @@ private object Iterators {
 					copiedBefore + 1 + after.copyToArray(xs, start + copiedBefore + 1, max - copiedBefore - 1)
 				}
 			}
+		//todo: safeCopyToArray
 		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 		override def toString :String = underlying.toString + "@" + i + ".inserted(" + index + ", " + elem + ")"
 	}
@@ -1755,6 +1761,7 @@ private object Iterators {
 					}
 				}
 			}
+		//todo: safeCopyToArray
 
 		private def ioob() = outOfBounds_!(toString + ": " + index + " out of " + i)
 
@@ -1841,6 +1848,14 @@ private object Iterators {
 			else {
 				val copied = current.copyToArray(xs, start, len)
 				copied + nxt.copyToArray(xs, start + copied, len - copied)
+			}
+
+		override def safeCopyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+			if (len <= 0 || start >= xs.length)
+				0
+			else {
+				val copied = current.safeCopyToArray(xs, start, len)
+				copied + nxt.safeCopyToArray(xs, start + copied, len - copied)
 			}
 
 		override def toString :String = {
@@ -1981,13 +1996,24 @@ private object Iterators {
 					this
 				}
 			}
-		override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
+		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
 			val max = math.min(len, xs.length - start)
 			var copied = 0
 			val iterCount = iterators.length
 			var i = 0
 			while (copied < max & i < iterCount) {
 				copied += iterators(i).copyToArray(xs, start + copied, max - copied)
+				i += 1
+			}
+			copied
+		}
+		override def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
+			val max = math.min(len, xs.length - start)
+			var copied = 0
+			val iterCount = iterators.length
+			var i = 0
+			while (copied < max & i < iterCount) {
+				copied += iterators(i).safeCopyToArray(xs, start + copied, max - copied)
 				i += 1
 			}
 			copied
@@ -2371,6 +2397,18 @@ private object Iterators {
 			else {
 				ff()
 				underlying.copyToArray(xs, start, len)
+			}
+
+		override def safeCopyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+			if (len <= 0 || start >= xs.length || taken.droppedSize == 0)
+				0
+			else if (start < 0)
+				outOfBounds_!(
+					toString + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
+				)
+			else {
+				ff()
+				underlying.safeCopyToArray(xs, start, len)
 			}
 		@inline private def ff() :Unit =
 			if (underlying eq null)

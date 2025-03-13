@@ -188,10 +188,9 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 //		first += 1
 //		res
 //	}
-	override def clone = new ArrayIterator(array, first, `last++`, isImmutable)
 
-	override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
-		val copied = super.copyToArray(xs, start, len) //Delegate to ArrayIterableOnce.
+	override def safeCopyToArray[U >: T](xs :Array[U], start :Int, len :Int) :Int = {
+		val copied = copyToArray(xs, start, len) //Delegate to ArrayIterableOnce.
 		index += copied
 		copied
 	}
@@ -341,14 +340,10 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] pr
 		}
 	}
 
-	override def equals(that :Any) :Boolean = that match {
-		case self  :AnyRef if this eq self => true
-		case other :ReverseArrayIterator[_] =>
-			(array eq other.unsafeArray) && index == other.index && limit == other.limit
-		case _ => false
-	}
-	override def hashCode :Int = (array.identityHashCode * 31 + index.hashCode) * 31 + limit.hashCode
+	override def safeCopyToArray[U >: T](xs :Array[U], start :Int, len :Int) :Int =
+		copyToArray(xs, start, len)
 
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[ReverseArrayIterator[_]]
 	override def clone = new ReverseArrayIterator(array, end, first)
 
 	override def toString :String = "reverseIterator|" + knownSize + "|(" + errorString(array) + ")@" + index
@@ -472,13 +467,9 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(MultiValue) +T] pri
 		}
 	}
 
-	override def equals(that :Any) :Boolean = that match {
-		case self  :AnyRef if this eq self => true
-		case other :CyclicArrayIterator[_] =>
-			(array eq other.unsafeArray) && index == other.index && limit == other.limit
-		case _ => false
-	}
-	override def hashCode :Int = (System.identityHashCode(array) * 31 + index) * 31 + remaining
+	override def safeCopyToArray[U >: T](xs :Array[U], start :Int, len :Int) :Int = copyToArray(xs, start, len)
+
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[CyclicArrayIterator[_]]
 	override def clone = new CyclicArrayIterator(array, index, remaining)
 }
 
@@ -631,30 +622,10 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) 
 			copied
 		}
 	}
-	private def specCopyToArray(xs :Array[T @uncheckedVariance], from :Int, until :Int) :Unit = {
-		var i   = from
-		var j   = index
-		var end = math.max(-1, j - (until - from))
-		while (i < until) {
-			while (j > end) {
-				xs(i) = array(j)
-				i += 1
-				j -= 1
-			}
-			if (i < until) {
-				j   = array.length - 1
-				end = array.length - 1 - (until - i)
-			}
-		}
-		index = j
-	}
 
-	override def equals(that :Any) :Boolean = that match {
-		case self  :AnyRef if this eq self => true
-		case other :ReverseCyclicArrayIterator[_] =>
-			(array eq other.unsafeArray) && index == other.index && limit == other.limit
-		case _ => false
-	}
-	override def hashCode :Int = (System.identityHashCode(array) * 31 + index) * 31 + remaining
+	override def safeCopyToArray[U >: T](xs :Array[U], start :Int, len :Int) :Int =
+		copyToArray(xs, start, len)
+
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[ReverseCyclicArrayIterator[_]]
 	override def clone = new ReverseCyclicArrayIterator(array, index, remaining)
 }

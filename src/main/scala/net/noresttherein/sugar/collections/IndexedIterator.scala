@@ -193,6 +193,8 @@ trait IndexedIterator[+E] extends BufferedIterator[E] with SugaredIterator[E] wi
 
 	override def clone :IndexedIterator[E] = super.clone.asInstanceOf[IndexedIterator[E]]
 
+	//consider: safeCopyToArray = copyToArray
+
 	protected def className :String = localClassNameOf(this)
 
 	override def toString :String = {

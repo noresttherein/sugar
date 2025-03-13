@@ -449,7 +449,14 @@ private[sugar] class CyclicMatrixIterator[@specialized(MultiValue) +E]
 			max
 		}
 
-	override def toString :String = errorString(array) + ".iterator|" + remaining + "|@(" + idx2 + ", " + idx1 + ")"
+	@unspecialized override def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int =
+		copyToArray(xs, start, len)
+
+	override def clone :CyclicMatrixIterator[E] = new CyclicMatrixIterator(array, idx2, idx1, countdown)
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[CyclicMatrixIterator[_]]
+	override def toString :String =
+		array.className + "|" + array.length + "*" + Dim1 +
+			"|.cyclicIterator@(" + idx2 + ","+ idx1 +")|" + countdown + "|"
 }
 
 
@@ -490,9 +497,8 @@ private[sugar] object CyclicMatrixIterator {
 			apply(array, from2, from - from2 * array(from2).length, size)
 		}
 
-	@inline def apply[E](array :Array[Array[E]], from :Int, size :Int) :CyclicMatrixIterator[E] =
-		if (array.length == 0) Empty
-		else apply(array(0).length, array, from, size)
+	override def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int =
+		copyToArray(xs, start, len)
 
 	private[this] val Empty = new CyclicMatrixIterator(new Array[Array[Nothing]](0), 0, 0, 0)
 }

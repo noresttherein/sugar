@@ -48,6 +48,12 @@ trait SugaredIterator[+E] extends Iterator[E] {
 		else super.slice(from, until)
 
 	override def splitAt(n :Int) :(Iterator[E], Iterator[E]) = Iterators.splitAt(this, n)
+
+	@inline final def safeCopyToArray[U >: E](xs :Array[U]) :Int = safeCopyToArray(xs, 0, Int.MaxValue)
+	@inline final def safeCopyToArray[U >: E](xs :Array[U], start :Int) :Int = safeCopyToArray(xs, start, Int.MaxValue)
+	def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = super.copyToArray(xs, start, len)
+
+	override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = super.copyToArray(xs, start, len)
 }
 
 abstract class AbstractSugaredIterator[+E] extends AbstractIterator[E] with SugaredIterator[E]
@@ -248,6 +254,9 @@ class CountingIterator[+E](private[this] var underlying :Iterator[E], private[th
 					override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
 						drop(); super.copyToArray(xs, start, len)
 					}
+					override def safeCopyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
+						drop(); super.safeCopyToArray(xs, start, len)
+					}
 					override def toString = { drop(); super.toString }
 				}
 		}
@@ -289,8 +298,13 @@ class CountingIterator[+E](private[this] var underlying :Iterator[E], private[th
 			}
 		}
 
-	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
+	override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
 		val copied = underlying.copyToArray(xs, start, len)
+		counter += copied
+		copied
+	}
+	override def safeCopyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int = {
+		val copied = underlying.safeCopyToArray(xs, start, len)
 		counter += copied
 		copied
 	}

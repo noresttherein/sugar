@@ -2755,7 +2755,7 @@ object extensions extends extensions {
 		  *      [[net.noresttherein.sugar.collections.ReverseIndexedIterator ReverseIndexedIterator]],
 		  *      or one of the implementations returned by the indexed sequences from the Scala standard library,
 		  *      their `drop` method is called directly.
-		  *   1. Otherwise, the iterator is manually advances the required number of elements.
+		  *   1. Otherwise, the iterator is manually advanced the required number of elements.
 		  *
 		  * This extension method always returns `this` iterator.
 		  * @param n the number of elements to drop.
@@ -3225,6 +3225,43 @@ object extensions extends extensions {
 //		/** Same as [[collection.Iterator.copyToArray copyToArray]], but accepts a boxing array. */
 //		@inline def copyToRefArray[A >: E](xs :RefArray[A], start :Int = 0, len :Int = Int.MaxValue) :Int =
 //			self.copyToArray(xs.asInstanceOf[Array[Any]], start, len)
+
+		/** Same as `Iterator.copyToArray(xs, start)`, but safe from arithmetic overflow
+		  * and leaves the iterator in a well defined state. Once the method returns, the iterator has advanced
+		  * by `min(size, xs.length)` elements.
+		  * Copying happens individually by element, as in the default implementation, unless the iterator class
+		  * is recognized as leaving the iterator in the expected state.
+		  */
+		@inline def safeCopyToArray[A >: E](xs :Array[A]) :Int = safeCopyToArray(xs, 0, Int.MaxValue)
+
+		/** Same as `Iterator.copyToArray(xs, start)`, but safe from arithmetic overflow
+		  * and leaves the iterator in a well defined state. Once the method returns, the iterator has advanced
+		  * by `min(size, xs.length - min(max(start, 0), xs.length))` elements.
+		  * Copying happens individually by element, as in the default implementation, unless the iterator class
+		  * is recognized as leaving the iterator in the expected state.
+		  */
+		@inline def safeCopyToArray[A >: E](xs :Array[A], start :Int) :Int = safeCopyToArray(xs, start, Int.MaxValue)
+
+		/** Same as `Iterator.copyToArray(xs, start, len)`, but safe from arithmetic overflow
+		  * and leaves the iterator in a well defined state. Once the method returns, the iterator has advanced
+		  * by `min(size, len, xs.length - min(max(start, 0), xs.length))` elements.
+		  * Copying happens individually by element, as in the default implementation, unless the iterator class
+		  * is recognized as leaving the iterator in the expected state.
+		  */
+		def safeCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int = self match {
+			case sugared :SugaredIterator[E] =>
+				sugared.safeCopyToArray(xs, start, len)
+			case _ =>
+				//todo: review that all SugaredIterator.copyToArray methods leave the iterator in the correct state
+				// and delegate the call, or create a white list of supporting classes.
+				val end = start + math.min(math.max(0, xs.length - math.max(0, start)), len)
+				var i = start
+				while (i < end && self.hasNext) {
+					xs(i) = self.next()
+					i += 1
+				}
+				i - start
+		}
 
 		/** Copies the elements of this iterator to the given array, starting at position `start`.
 		  * Copying ends when the iterator has no additional elements, or `len` or `xs.length` elements are copied,
