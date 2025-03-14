@@ -367,7 +367,7 @@ trait LikeIterable[+X, -Xs, +CC[_], +C] extends LikeIterableOnce[X, Xs, CC, C] {
 
 
 /** @define TypeClass `LikeIterable` */
-private[collections] sealed abstract class Rank1LikeIterable extends LikeIterableOnceSummons[LikeIterable] {
+private[collections] sealed abstract class Rank1LikeIterables extends LikeIterableOnceSummons[LikeIterable] {
 	//Parameter Xs is needed so that the definition is not 'more specific' than likeSeq/likeSet
 	implicit final def forOps[X, Xs, CC[_], C]
 	                         (implicit arg :Xs <:< C, specific :C <:< CC[X] with IterableOps[X, CC, C],
@@ -390,7 +390,7 @@ private[collections] sealed abstract class Rank1LikeIterable extends LikeIterabl
 
 
 @SerialVersionUID(Ver)
-object LikeIterable extends Rank1LikeIterable {
+object LikeIterable extends Rank1LikeIterables {
 
 	@inline implicit def likeSeq[X, Xs, CC[_], C](implicit like :LikeSeq[X, Xs, CC, C]) :LikeIterable[X, Xs, CC, C] =
 		like

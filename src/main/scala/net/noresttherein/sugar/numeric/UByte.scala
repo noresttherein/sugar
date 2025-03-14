@@ -149,19 +149,19 @@ class UByte private[numeric](override val toByte: Byte)
 
 
 
-private[numeric] sealed trait UByteRank3 {
+private[numeric] sealed trait Rank3UBytes {
 	@inline implicit def UByteToLong(number: UByte)  : Long   = number.toByte & 0xffL
 }
-private[numeric] sealed trait UByteRank2 extends UByteRank3 {
+private[numeric] sealed trait Rank2UBytes extends Rank3UBytes {
 	@inline implicit def UByteToInt(number: UByte)   : Int    = number.toByte & 0xff
 }
-private[numeric] sealed trait UByteRank1 extends UByteRank2 {
+private[numeric] sealed trait Rank1UBytes extends Rank2UBytes {
 	@inline implicit def UByteToShort(number: UByte) : Short  = (number.toByte & 0xff).toShort
 }
 
 
 @SerialVersionUID(Ver)
-case object UByte extends CompanionObject[UByte] with UByteRank1 {
+case object UByte extends CompanionObject[UByte] with Rank1UBytes {
 	/** `2`^8^` - 1 == 255` */
 	final val MaxValue = new UByte(-1)
 	/** Zero. */

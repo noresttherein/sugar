@@ -194,13 +194,13 @@ class UInt private[numeric] (override val toInt: Int)
 
 
 
-private[numeric] sealed trait UIntRank1 {
+private[numeric] sealed trait Rank1UInts {
 	@inline implicit final def UIntToLong(number :UInt) :Long = number.toInt & 0xffffffffL
 }
 
 
 @SerialVersionUID(Ver)
-object UInt extends CompanionObject[UInt] with UIntRank1 {
+object UInt extends CompanionObject[UInt] with Rank1UInts {
 	/** `2`^32^` - 1 == 4294967295` */
 	final val MaxValue = new UInt(0xffffffff)
 	/** Zero. */

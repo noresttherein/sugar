@@ -21,21 +21,21 @@ final class UpperBound[X, Y, U] private[typist] (val _1 :X <:< U, val _2 :Y <:< 
 
 
 
-private[typist] sealed abstract class ProperUpperBoundImplicits private[typist] {
+private[typist] sealed abstract class Rank2UpperBounds private[typist] {
 	@inline implicit final def properUpperBound[X<:U, Y<:U, U] :UpperBound[X, Y, U] =
 		instance.asInstanceOf[UpperBound[X, Y, U]]
 
 	protected[typist] final val instance = new UpperBound[Any, Any, Any](implicitly[Any <:< Any], implicitly[Any <:< Any])
 }
 
-private[typist] sealed abstract class SelfUpperBoundImplicits private[typist] extends ProperUpperBoundImplicits {
+private[typist] sealed abstract class Rank1UpperBounds private[typist] extends Rank2UpperBounds {
 	@inline implicit final def leftUpperBound[X, Y <: X] :UpperBound[X, Y, X] = instance.asInstanceOf[UpperBound[X, Y, X]]
 	@inline implicit final def rightUpperBound[X <: Y, Y] :UpperBound[X, Y, Y] = instance.asInstanceOf[UpperBound[X, Y, Y]]
 }
 
 
 @SerialVersionUID(Ver)
-object UpperBound extends SelfUpperBoundImplicits {
+object UpperBound extends Rank1UpperBounds {
 	/** Calculates explicitly the least upper bound of its type parameters via its `apply()` method. */
 	final class Binder[X, Y] private[UpperBound] {
 		@inline def apply[U]()(implicit u :UpperBound[X, Y, U]) :UpperBound[X, Y, U] = u

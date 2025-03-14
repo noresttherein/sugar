@@ -157,7 +157,7 @@ trait NatMap[K[X], +V[X]]
 
 /** Brings into the implicit scope a conversion from the [[net.noresttherein.sugar.collections.NatMap$ NatMap]]
   * object to [[scala.collection.Factory Factory]]`[`[[net.noresttherein.sugar.collections.NatMap.Assoc Assoc]]`[K[?], V[?], ?], `[[net.noresttherein.sugar.collections.NatMap NatMap]]`[K, V]]`.
-  */
+  */ //todo: replace with an implicit conversion in collections package object
 private[collections] sealed abstract class ImplicitNatMapFactory
 
 object ImplicitNatMapFactory {

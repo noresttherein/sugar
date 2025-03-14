@@ -60,7 +60,7 @@ object Labeled {
 		/** Attach the `Label` type parameter specified previously to the given value, creating an instance
 		  * of `T Labelled Label` wrapping the argument.
 		  */
-		@inline def apply[T](value :T) :T Labeled Label = new Labeled(value)
+		@inline final def apply[T](value :T) :T Labeled Label = new Labeled(value)
 	}
 
 
@@ -69,7 +69,7 @@ object Labeled {
 		/** Resolve the implicit value for `T Labelled Label`. As the type parameter `T` is separated from the
 		  * label type, it can be inferred based on the expected type or present `Labelled` implicits.
 		  */
-		@inline def apply[T]()(implicit value :T Labeled Label) :T = value.get
+		@inline final def apply[T]()(implicit value :T Labeled Label) :T = value.get
 	}
 
 }

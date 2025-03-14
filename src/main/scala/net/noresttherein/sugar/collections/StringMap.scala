@@ -210,6 +210,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 
 
 
+//todo: replace with an implicit conversion in collections package object
 private[collections] sealed trait ImplicitStringMapFactory
 
 private object ImplicitStringMapFactory {

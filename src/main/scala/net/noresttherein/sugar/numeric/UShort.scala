@@ -152,16 +152,16 @@ class UShort private[numeric](override val toShort: Short)
 
 
 
-private[numeric] sealed trait UShortRank2 {
+private[numeric] sealed trait Rank2UShorts {
 	@inline implicit def UShortToLong(number: UShort) : Long = number.toShort & 0xffffL
 }
-private[numeric] sealed trait UShortRank1 extends UShortRank2 {
+private[numeric] sealed trait Rank1UShorts extends Rank2UShorts {
 	@inline implicit final def UShortToInt(number: UShort)  : Int = number.toShort & 0xffff
 }
 
 
 @SerialVersionUID(Ver)
-object UShort extends CompanionObject[UShort] with UShortRank1 {
+object UShort extends CompanionObject[UShort] with Rank1UShorts {
 	/** `2`^16^` - 1 == 65535` */
 	final val MaxValue = new UShort(-1)
 	/** Zero. */

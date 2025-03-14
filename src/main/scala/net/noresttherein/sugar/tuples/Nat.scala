@@ -32,7 +32,7 @@ sealed abstract class Nat protected (final val number :Int) {
 
 /** Low priority implicit [[net.noresttherein.sugar.tuples.Nat Nat]] values for every natural number
   * by recursively applying it to itself. */
-sealed abstract class NatImplicitInduction {
+private[tuples] sealed abstract class Rank1Nats {
 	/** Given an implicit encoding of the natural number `n` provide implicit value representing `n+1`. */
 	implicit def ++[N <: Nat](implicit n :N) : ++[N] = new ++(n)
 }
@@ -40,7 +40,7 @@ sealed abstract class NatImplicitInduction {
 
 
 /** Implicit values and type aliases for encoding of the first 23 natural numbers as types. */
-object Nat extends NatImplicitInduction {
+object Nat extends Rank1Nats {
 
 	implicit def NatToInt(n :Nat) :Int = n.toInt
 

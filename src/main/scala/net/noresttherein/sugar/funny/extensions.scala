@@ -213,7 +213,7 @@ object extensions extends extensions {
 
 	/** Extension factory method `applyOrElse` for `PartialFunction` object. */
 	sealed trait PartialFunctionCompanionExtension extends Any {
-		@inline def identity[X] :PartialFunction[X, X] = Identity.downcastParam[X]
+		@inline final def identity[X] :PartialFunction[X, X] = Identity.downcastParam[X]
 
 		/** Forces a function literal of type `(In, In => Out) => Out` to become an instance
 		  * of [[PartialFunction]] using it as its `applyOrElse` method, to which other methods
@@ -248,7 +248,7 @@ object extensions extends extensions {
 		  * @param f    a function extracting `Out` values from `In` arguments.
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def from[@specialized(Arg) In, Out]
+		final def from[@specialized(Arg) In, Out]
 		        (name :String)(f :In => Opt[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, name)
 
@@ -259,7 +259,7 @@ object extensions extends extensions {
 		  * @param f    a function extracting `Out` values from `In` arguments.
 		  * @return a partial function extractor wrapping the given function `f`.
 		  */
-		def from[@specialized(Arg) In, Out](f :In => Opt[Out]) :PartialFunction[In, Out] =
+		final def from[@specialized(Arg) In, Out](f :In => Opt[Out]) :PartialFunction[In, Out] =
 			new OptFunction(f, "<unlifted function>")
 	}
 
