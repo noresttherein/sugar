@@ -13,9 +13,13 @@ import net.noresttherein.sugar.vars.Opt.One
 
 
 /** An, erased in runtime, option-like monadic wrapper of arbitrary values, which may not be wrapping any legal value.
-  * It behaves exactly like `scala.Option[T]`, but does not require boxing and thus yields performance benefits in tight
-  * recursion/loops. As a value class, it has no distinct subclasses for empty and non-empty instances, which results
-  * in certain differences from `Option`. Aside from the obvious lack of creation of an additional object,
+  * A `Maybe[T]` can be either the [[net.noresttherein.sugar.vars.Maybe.No Maybe.No]] value,
+  * or the `Yes` case. The latter is not a separate type, but can be distinguished
+  * by pattern matching against [[net.noresttherein.sugar.vars.Maybe Maybe.Yes]] extractor pattern (or methods like
+  * [[net.noresttherein.sugar.vars.Maybe.isDefined isDefined]], [[net.noresttherein.sugar.vars.Maybe.isEmpty isEmpty]],
+  * etc.). It behaves exactly like `scala.Option[T]`, but does not require boxing and thus yields performance benefits
+  * in tight recursion/loops. As a value class, it has no distinct subclasses for empty and non-empty instances,
+  * which results in certain differences from `Option`. Aside from the obvious lack of creation of an additional object,
   * all methods, being very short, are declared as `@inline`, yielding additional benefits. However, a disadvantage
   * of being erased in runtime is that a method accepting a `Maybe[T]` will clash with an overloaded method
   * accepting `Any` (including any erased, generic type parameter `T`).
@@ -25,8 +29,8 @@ import net.noresttherein.sugar.vars.Opt.One
   *
   * Note that, as this is a value class wrapping any type, boxing of built-in value types to their reference wrappers
   * will still occur. In particular, nesting `Maybe`s within each other works exactly as with `Option`s
-  * (that is, `No` is distinguishable from `Yes(No)`), but the inner `Maybe`s will always be reified
-  * to instances of `Maybe` class, rather than erased to their contents.
+  * (that is, `No` is distinguishable from `Yes(No)` and `Yes(x)` from `Yes(Yes(x))`, but the inner `Maybe`s
+  * will always be reified to instances of `Maybe` class, rather than erased to their contents.
   *
   * Using a `Maybe` via a super trait, such as [[net.noresttherein.sugar.vars.Ref Ref]]
   * or [[scala.collection.IterableOnce IterableOnce]], or passing it as a type parameter (in particular, using
@@ -37,7 +41,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * [[net.noresttherein.sugar.vars.Maybe.Yes Yes]] matching pattern, which should by be translated by the compiler
   * to non-boxing byte code.
   *
-  * $optionalTypesInfo
+  * @note $optionalTypesInfo
   *
   * In most scenarios, use of `Opt` is preferable, however it cannot be used as a result of an `unapply` method,
   * which makes this class non-redundant.

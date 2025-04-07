@@ -37,12 +37,12 @@ import net.noresttherein.sugar.vars.Opt.One
   * [[net.noresttherein.sugar.vars.Nullable.NonNull NonNull]] matching pattern, which should by be translated
   * by the compiler to non-boxing byte code.
   *
-  * $optionalTypesInfo
-  *
   * As `Nullable` is a value class, and its type parameters are reference types, `Nullable` cannot nest.
   * The limited ambiguity potential this affords, together with the fact that it will never result in boxing
   * unless used in position of an abstract type, allows implicit conversion `T => Nullable[T]` to be enabled
   * by default, which serves as another differentiator from `Maybe`.
+  *
+  * @note $optionalTypesInfo
   *
   * @note This class is provided primarily for situations where a method accepting `Maybe` or `Opt`
   *       - which erase to `Any` would clash with an overloaded method with the same erasure,

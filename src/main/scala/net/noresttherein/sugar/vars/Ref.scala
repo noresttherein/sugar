@@ -54,7 +54,7 @@ import net.noresttherein.sugar.vars.Ref.undefined
   *      (aliased as [[net.noresttherein.sugar.vars.?? ??]]`[A]`), which takes the concept of this class
   *      one step further, erasing the type information in all contexts: any reference to `Opt[T]` will
   *      translate to `AnyRef` in the byte code, regardless if `T` is abstract or not. It has an advantage over `Maybe`
-  *      primarily in that returning it from a function or a accepting it as a type parameter does not require
+  *      primarily in that returning it from a function or accepting it as a type parameter does not require
   *      the creation of a `Maybe` instance through reference reification. As a bonus, it doesn't cause
   *      'auto generated bridge method conflicts with the method itself' compile error when overriding
   *      a method taking a parameter `T` with a `Maybe[S]` (by passing `Maybe[S] as T` to the super class).
@@ -76,9 +76,11 @@ import net.noresttherein.sugar.vars.Ref.undefined
   *      it will cause no erasure related issues (less than even `Option` itself due to specialization).
   *   1. [[net.noresttherein.sugar.vars.Nullable Nullable]] is also a value class, like `Maybe`, but erased to `T`,
   *      rather than `Any`, which means it has a lesser potential for clashes between erased method signatures.
-  *      Other than that, has the same characteristics as `Maybe`, but cannot be used for value types.
-  *   1. A specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
-  *   1. A specialized [[net.noresttherein.sugar.vars.Ternary Ternary]], erased in the runtime to an `Int`.
+  *      It represents the 'empty' case simply as `null`. Other than that, it has the same characteristics as `Maybe`,
+  *      but cannot be used for value types (or abstract types which can be a value type).
+  *   1. A manually specialized [[net.noresttherein.sugar.vars.IntOpt IntOpt]], erased in the runtime to a `Long`.
+  *   1. A specialized for ternary logic [[net.noresttherein.sugar.vars.Ternary Ternary]],
+  *      erased in the runtime to an `Int`.
   */
 trait Ref[@specialized(SpecializedVars) +T] extends Any with Equals {
 
