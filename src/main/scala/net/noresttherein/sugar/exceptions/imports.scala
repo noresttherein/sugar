@@ -95,7 +95,7 @@ trait imports {
 	  *   1. Finally, if the previous point fails with an exception,
 	  *      a [[net.noresttherein.sugar.exceptions.RethrowContext RethrownContext]] with the error message
 	  *      is added as a suppressed exception.
-	  */
+	  */ //consider: swapping the order of argument lists
 	final def rethrow[T](action: => T)(errorMessage: => String) :T =
 		try { eval(action) } catch pushErrorMessage(errorMessage).andThen(throw _)
 
@@ -130,6 +130,7 @@ trait imports {
 	  *      of suppressed exception and the original cause is returned
 	  *   1. Otherwise, reflection is used to find a `(String, Throwable)` or a `(String)` constructor in the
 	  *      class of the throwable argument, which is invoked through reflection.
+	  *
 	  * For other arguments the result is undefined.
 	  */
 	def pushErrorMessage(msg: => String) :PartialFunction[Throwable, Throwable] = {
@@ -256,7 +257,7 @@ trait imports {
 	  * as in the case of the default (zero argument) `Throwable` constructor.
 	  *
 	  * This method relies on reflection, and performs repeated searches through the constructor list.
-	  * With the exception of a couple cached, most often used exception classes, it is significantly slower
+	  * Except for a couple cached, most often used exception classes, it is significantly slower
 	  * than throwing an exception explicitly, and should not be used in performance critical code.
 	  * It is however more succinct and generic, which may make it useful in domain specific languages.
 	  */ //todo: add macro versions
@@ -276,7 +277,7 @@ trait imports {
 	  *   - `(String, () => String, Throwable, Boolean, Boolean)`,
 	  *
 	  * This method relies on reflection, and performs repeated searches through the constructor list.
-	  * With the exception of a couple cached, most often used exception classes, it is significantly slower
+	  * Except for a couple cached, most often used exception classes, it is significantly slower
 	  * than throwing an exception explicitly, and should not be used in performance critical code.
 	  * It is however more succinct and generic, which may make it useful in domain specific languages.
 	  */
@@ -294,7 +295,7 @@ trait imports {
 	  *   - `(String, () => String, Throwable, Boolean, Boolean)`,
 	  *
 	  * This method relies on reflection, and performs repeated searches through the constructor list.
-	  * With the exception of a couple cached, most often used exception classes, it is significantly slower
+	  * Except for a couple cached, most often used exception classes, it is significantly slower
 	  * than throwing an exception explicitly, and should not be used in performance critical code.
 	  * It is however more succinct and generic, which may make it useful in domain specific languages.
 	  */
@@ -415,13 +416,14 @@ trait imports {
 	final def illegal_!(cause :Throwable) :Nothing =
 		throw SugaredIllegalArgumentException(cause)
 
-	/** Throws an [[IllegalArgumentException]].
-	  * @param method the name of the method to which an illegal argument was passed.
-	  * @param param  the name of the formal parameter for which an illegal value was passed.
-	  * @param arg    the illegal argument value.
-	  */
-	final def illegal_!(method :String, param :String, arg :Any) :Nothing =
-		throw SugaredIllegalArgumentException("Illegal " + param + " argument for " + method + ": " + arg + ".")
+	//possible overloading conflict with illegal_!(param :String, arg :Any, reason :String)
+//	/** Throws an [[IllegalArgumentException]].
+//	  * @param method the name of the method to which an illegal argument was passed.
+//	  * @param param  the name of the formal parameter for which an illegal value was passed.
+//	  * @param arg    the illegal argument value.
+//	  */
+//	final def illegal_!(method :String, param :String, arg :Any) :Nothing =
+//		throw SugaredIllegalArgumentException("Illegal " + param + " argument for " + method + ": " + arg + ".")
 
 	/** Throws an [[IllegalArgumentException]].
 	  * @param method the name of the method to which an illegal argument was passed.
