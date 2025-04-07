@@ -131,14 +131,14 @@ trait IndexedIterator[+E] extends BufferedIterator[E] with SugaredIterator[E] wi
 	  * if  `index` or `limit` are out of `[0, underlyingSize]` range.
 	  */
 	protected def validateRange() :Unit = {
-		val min   = rangeStart + Int.MinValue
-		val max   = rangeEnd + Int.MinValue
-		val curr  = index + Int.MinValue
-		val end   = limit + Int.MinValue
+		val min   = rangeStart & 0xffffffffL
+		val max   = rangeEnd & 0xffffffffL
+		val curr  = index & 0xffffffffL
+		val end   = limit & 0xffffffffL
 		if (end > max | end < min) //Compare unsigned.
-			outOfBounds_!(limit, rangeStart, rangeEnd)
+			outOfBounds_!(end, min, max - 1)
 		if (curr > max | curr < min)
-			outOfBounds_!(index, rangeStart, rangeEnd)
+			outOfBounds_!(curr, min, max - 1)
 		if (end < curr)
 			outOfBounds_!("End index " + end + " lower than start index " + curr + ".")
 	}

@@ -122,14 +122,14 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 
 	override def apply(i :Int) :E =
 		if (i < 0 | i >= len)
-			outOfBounds_!(i, 0, len)
+			outOfBounds_!(i, len)
 		else
 			contents(offset + i)
 
 	//todo: updateAll
 	override def update(idx :Int, elem :E) :Unit =
 		if (idx < 0 | idx >= len)
-			outOfBounds_!(idx, 0, len)
+			outOfBounds_!(idx, len)
 		else {
 			if (aliased) {
 				contents   = RefArray.copyOf(contents)

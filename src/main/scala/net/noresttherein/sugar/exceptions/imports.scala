@@ -477,13 +477,25 @@ trait imports {
 	final def outOfBounds_!(idx :Int) :Nothing =
 		throw SugaredIndexOutOfBoundsException(idx.toString)
 
-	/** Throws an [[IndexOutOfBoundsException]]. */
+	/** Throws an [[IndexOutOfBoundsException]] informing that `idx` is out of `[0, size)` range. */
 	final def outOfBounds_!(idx :Int, size :Int) :Nothing =
 		throw SugaredIndexOutOfBoundsException(idx.toString + " out of " + size)
 
-	/** Throws an [[IndexOutOfBoundsException]]. */
+	/** Throws an [[IndexOutOfBoundsException]] informing that `idx` is out of `[min, max]` (inclusive) range. */
 	final def outOfBounds_!(idx :Int, min :Int, max :Int) :Nothing =
-		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + ")")
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + "]")
+
+	/** Throws an [[IndexOutOfBoundsException]] informing that value `idx` of variable/property `name`
+	  *  is out of `[0, size)` range.
+	  */
+	final def outOfBounds_!(name :String, idx :Int, size :Int) :Nothing =
+		throw SugaredIndexOutOfBoundsException(name + " out of [0, " + size + ") range: " + idx)
+
+	/** Throws an [[IndexOutOfBoundsException]] informing that value `idx` of variable/property `name`
+	  *  is out of `[min, max]` (inclusive) range.
+	  */
+	final def outOfBounds_!(name :String, idx :Int, min :Int, max :Int) :Nothing =
+		throw SugaredIndexOutOfBoundsException(name + " out of [" + min + ", " + max + "] range: " + idx)
 
 	/** Throws an [[IndexOutOfBoundsException]]. The second argument is used to enhance the error message
 	  * and should provide information about the legal range.
@@ -503,7 +515,7 @@ trait imports {
 	  * @param idx    the index which was out of range.
 	  * @param items  The accessed collection, information about which is used to enhance the error message.
 	  * @param method The method being called, included in the error message.
-	  */
+	  */ //consider: making it private[sugar]
 	final def outOfBounds_!(idx :Int, items :IterableOnce[_], method :String) :Nothing =
 		throw SugaredIndexOutOfBoundsException(
 			() => idx.toString + " out of bounds for " + errorString(items) + "." + method
@@ -527,6 +539,42 @@ trait imports {
 
 	/** Throws an [[IndexOutOfBoundsException]]. */
 	final def outOfBounds_!(idx :Int, cause :Throwable) :Nothing =
+		throw SugaredIndexOutOfBoundsException(idx.toString, cause)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(idx :Long) :Nothing =
+		throw SugaredIndexOutOfBoundsException(idx.toString)
+
+	/** Throws an [[IndexOutOfBoundsException]] informing that `idx` is out of `[0, size)` range. */
+	final def outOfBounds_!(idx :Long, size :Long) :Nothing =
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of " + size)
+
+	/** Throws an [[IndexOutOfBoundsException]] informing that `idx` is out of `[min, max]` (inclusive) range. */
+	final def outOfBounds_!(idx :Long, min :Long, max :Long) :Nothing =
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds [" + min + ", " + max + "]")
+
+	/** Throws an [[IndexOutOfBoundsException]] informing that value `idx` of variable/property `name`
+	  *  is out of `[0, size)` range.
+	  */
+	final def outOfBounds_!(name :String, idx :Long, size :Long) :Nothing =
+		throw SugaredIndexOutOfBoundsException(name + " out of [0, " + size + ") range: " + idx)
+
+	/** Throws an [[IndexOutOfBoundsException]] informing that value `idx` of variable/property `name`
+	  *  is out of `[min, max]` (inclusive) range.
+	  */
+	final def outOfBounds_!(name :String, idx :Long, min :Long, max :Long) :Nothing =
+		throw SugaredIndexOutOfBoundsException(name + " out of [" + min + ", " + max + "] range: " + idx)
+
+	/** Throws an [[IndexOutOfBoundsException]]. The second argument is used to enhance the error message
+	  * and should provide information about the legal range.
+	  * @throws net.noresttherein.sugar.exceptions.SugaredIndexOutOfBoundsException
+	  *         with message `"idx.toString + " out of bounds for " + source`.
+	  */
+	final def outOfBounds_!(idx :Long, source :String) :Nothing =
+		throw SugaredIndexOutOfBoundsException(idx.toString + " out of bounds for " + source)
+
+	/** Throws an [[IndexOutOfBoundsException]]. */
+	final def outOfBounds_!(idx :Long, cause :Throwable) :Nothing =
 		throw SugaredIndexOutOfBoundsException(idx.toString, cause)
 
 

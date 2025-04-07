@@ -411,6 +411,9 @@ object extensions extends extensions {
 		@throws[ArithmeticException]("if this Int is negative")
 		@inline def unsigned :UInt = UInt.from(self)
 
+		/** Treats this `Int` as an unsigned value and converts it to `Long`. */
+		@inline def unsignedToLong :Long = self & 0xffffffffL
+
 		/** Converts this `Int` into an overflow checking `SafeInt`. */
 		@inline def safe :SafeLong = new SafeInt(self)
 
