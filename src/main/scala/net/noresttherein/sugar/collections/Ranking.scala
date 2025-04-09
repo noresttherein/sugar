@@ -11,7 +11,7 @@ import scala.collection.immutable.{ArraySeq, HashMap, HashSet, IndexedSeq, Index
 import scala.collection.mutable.{Buffer, Builder, ReusableBuilder}
 import scala.util.Random
 
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, IArray, IRefArray, RefArray, RefArrayLike, arraycopy}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, IArray, IRefArray, RefArray, RefArrayLike, arraycopy}
 import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.IndexedIterable.{ApplyPreferred, HasFastUpdate}
@@ -3027,7 +3027,7 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 	def this(elements :RefArray[E]) = this(elements, elements.asAnyArray.map(hashCodeOf))
 
 	releaseFence()
-	private[sugar] override def unsafeArray :Array[_] = elements.asAnyArray
+	private[sugar] override def unsafeArray :ArrayLike[E] = elements
 	private[sugar] override def startIndex  :Int = 0
 	private[sugar] def array :RefArray[E @uncheckedVariance] = elements
 	private[sugar] def hashCodes :Array[Int] = hashes

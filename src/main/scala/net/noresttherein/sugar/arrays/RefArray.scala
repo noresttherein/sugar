@@ -179,7 +179,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		def unapply[E](elems :mutable.SeqOps[E, kinds.Any1, _]) :Maybe[RefArray[E]] = trustedUnapply(elems)
 
 		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[RefArray[E]] = {
-			val array = elems match {
+			val array :ArrayLike[_] = elems match {
 				case slice :ArrayIterableOnce[_] if slice.isMutable                 => slice.unsafeArray
 				case seq   :mutable.ArraySeq[_]                                     => seq.array
 				case seq   :ArrayBuffer[_]                                          => CheatedAccess.array(seq)
@@ -188,7 +188,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 				case _                                                              => null
 			}
 			if (array != null && array.length == elems.knownSize && array.getClass == classOf[Array[AnyRef]])
-				Yes(array.castFrom[Array[_], RefArray[E]])
+				Yes(array.castFrom[ArrayLike[_], RefArray[E]])
 			else
 				No
 		}
@@ -224,9 +224,9 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 					if (start <= a.length - length) a else null
 				case _ =>
 					null
-			}
+			}) :ArrayLike[_]
 			if (array != null && length >= 0 && array.getClass == classOf[Array[AnyRef]])
-				Yes((array.castFrom[Array[_], RefArray[E]], start, start + length))
+				Yes((array.castFrom[ArrayLike[_], RefArray[E]], start, start + length))
 			else
 				No
 		}

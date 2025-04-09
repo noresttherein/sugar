@@ -535,7 +535,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 		def unapply[E](elems :IterableOnce[E]) :Maybe[ArrayLike[E]] = elems match {
 			case seq :ArrayIterableOnce[E] if seq.knownSize == seq.unsafeArray.length =>
-				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
+				Yes(seq.unsafeArray)
 			case seq :collection.IndexedSeq[_] => elems match {
 				case seq :mutable.ArraySeq[E]   => Yes(seq.array.castFrom[Array[_], ArrayLike[E]])
 				case seq :ArraySeq[E]           => Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]])
@@ -561,7 +561,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 		//consider: returning ArrayLikeSlice instead of a tuple.
 		def unapply[E](elems :IterableOnce[E]) :Maybe[(ArrayLike[E], Int, Int)] = elems match {
 			case seq :ArrayIterableOnce[E] =>
-				Yes(seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], seq.startIndex, seq.startIndex + seq.knownSize)
+				Yes(seq.unsafeArray, seq.startIndex, seq.startIndex + seq.knownSize)
 			case _ :collection.IndexedSeq[_] => elems match {
 				case seq :ArraySeq[E]          =>
 					Yes((seq.unsafeArray.castFrom[Array[_], ArrayLike[E]], 0, seq.unsafeArray.length))
@@ -1870,7 +1870,7 @@ private abstract class ArrayLikeIsSeqOps[E, A[X] <: ArrayLike[X]](array :Array[E
 	   with collection.IndexedSeqOps[E, collection.Seq, A[E]]
 	   with ArrayIterableOnce[E] with Serializable
 {
-	private[sugar] override def unsafeArray :Array[_] = array
+	private[sugar] override def unsafeArray :Array[E] = array
 	private[sugar] override def startIndex :Int = 0
 	override def coll = array.asInstanceOf[A[E]]
 	override def length = array.length
@@ -1887,10 +1887,10 @@ private abstract class ArrayLikeIsSeqOps[E, A[X] <: ArrayLike[X]](array :Array[E
 
 
 private object VectorArray {
-	@inline def unapply[E](elems :IterableOnce[E]) :Maybe[Array[AnyRef]] = elems match {
+	@inline def unapply[E](elems :IterableOnce[E]) :Maybe[IRefArray[E]] = elems match {
 		case seq :Vector[E] =>
 			val array = CheatedAccess.array(seq)
-			if (seq.length == array.length) Yes(array) else No
+			if (seq.length == array.length) Yes(array.asInstanceOf[IRefArray[E]]) else No
 		case _ => No
 	}
 }

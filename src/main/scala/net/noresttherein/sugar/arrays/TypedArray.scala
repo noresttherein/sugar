@@ -27,7 +27,7 @@ private[sugar] object TypedArray extends ClassTagIterableFactory.Delegate[TypedA
 				case seq :ArraySlicingOps[E @unchecked, collection.Seq @unchecked, collection.Seq[E] @unchecked]
 					if seq.elementType != classOf[Any] && seq.size == seq.unsafeArray.length
 				=>
-					Yes(seq.unsafeArray.castFrom[Array[_], TypedArray[E]])
+					Yes(seq.unsafeArray.castFrom[ArrayLike[E], TypedArray[E]])
 				case seq :MatrixBuffer[E]
 					if seq.dim == 1 && seq.data1.getClass != classOf[Array[Any]] &&
 						seq.length == seq.data1.length && seq.startIndex == 0 &&
@@ -57,7 +57,7 @@ private[sugar] object TypedArray extends ClassTagIterableFactory.Delegate[TypedA
 					if seq.elementType != classOf[Any]
 				=>
 					val offset = seq.startIndex
-					Yes((seq.unsafeArray.castFrom[Array[_], TypedArray[E]], offset, offset + seq.length))
+					Yes((seq.unsafeArray.castFrom[ArrayLike[E], TypedArray[E]], offset, offset + seq.length))
 				case seq :MatrixBuffer[E]
 					if seq.dim == 1 && seq.data1.getClass != classOf[Array[Any]] &&
 						seq.startIndex + seq.length <= seq.data1.length && seq.startIndex == 0

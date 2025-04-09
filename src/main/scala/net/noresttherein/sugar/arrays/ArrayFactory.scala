@@ -526,7 +526,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 				case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isMutable =>
 					val array = slice.unsafeArray
 					if (expectedClass == array.getClass.getComponentType)
-						Yes((array.castParam[E], slice.startIndex, slice.startIndex + slice.knownSize))
+						Yes((array.asInstanceOf[Array[E]], slice.startIndex, slice.startIndex + slice.knownSize))
 					else
 						No
 				case _ =>

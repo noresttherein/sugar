@@ -900,16 +900,16 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 			if (elems.knownSize < 0)
 				No
 			else {
-				val array = elems match {
+				val array :Maybe[ArrayLike[E]] = elems match {
 					case VectorArray(array) => Yes(array)
-					case slice :ArrayIterableOnce[_] if slice.isImmutable && slice.knownSize == slice.unsafeArray.length =>
+					case slice :ArrayIterableOnce[E] if slice.isImmutable && slice.knownSize == slice.unsafeArray.length =>
 						Yes(slice.unsafeArray)
-					case seq :ArraySeq[_]   => Yes(seq.unsafeArray)
-					case _                  => No
+					case seq :ArraySeq[_] => Yes(seq.unsafeArray.asInstanceOf[ArrayLike[E]])
+					case _                => No
 				}
 				val tag = classTag[E]
 				if (array.isDefined && (tag == ClassTag.Any || array.get.getClass.getComponentType <:< tag.runtimeClass))
-					array.castFrom[Maybe[Array[_]], Maybe[IArray[E]]]
+					array.castFrom[Maybe[ArrayLike[E]], Maybe[IArray[E]]]
 				else
 					No
 			}
@@ -933,14 +933,14 @@ case object IArray extends ClassTagIterableFactory[IArray] {
 				val expectedClass = tag.runtimeClass
 				elems match {
 					case VectorArray(array) if tag == ClassTag.Any =>
-						Yes((array.castFrom[Array[_], IArray[E]], 0, elems.knownSize))
+						Yes((array.castFrom[IRefArray[E], IArray[E]], 0, elems.knownSize))
 					case seq :ArraySeq[_]
 						if tag == ClassTag.Any || seq.unsafeArray.getClass.getComponentType <:< expectedClass
 					=>
 						Yes((seq.unsafeArray.castFrom[Array[_], IArray[E]], 0, seq.unsafeArray.length))
 
 					case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
-						val array = slice.unsafeArray.castFrom[Array[_], IArray[E]]
+						val array = slice.unsafeArray.castFrom[ArrayLike[E], IArray[E]]
 						if (tag == ClassTag.Any || array.getClass.getComponentType <:< expectedClass)
 							Yes((array, slice.startIndex, slice.startIndex + slice.knownSize))
 						else

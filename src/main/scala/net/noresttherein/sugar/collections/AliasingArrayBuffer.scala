@@ -45,7 +45,7 @@ private class AliasingArrayBuffer[E](capacity :Int)
 
 	private[this] var aliased = false
 
-	private[sugar] override def unsafeArray :Array[_] = array
+	private[sugar] override def unsafeArray :RefArray[E] = array.asInstanceOf[RefArray[E]]
 	private[sugar] override def startIndex  :Int = 0
 	private[sugar] override def isMutable = true
 

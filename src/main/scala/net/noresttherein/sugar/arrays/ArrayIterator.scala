@@ -160,7 +160,7 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 {
 	def this(array :Array[T]) = this(array, 0, array.length, false)
 
-	private[sugar] final override def unsafeArray :Array[_] = array
+	private[sugar] final override def unsafeArray :ArrayLike[T] = array
 //	final override def index :Int = first
 //	protected final override def index_=(i :Int) :Unit = first = i
 //	final override def limit :Int = `last++`

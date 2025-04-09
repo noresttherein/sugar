@@ -32,8 +32,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
   * to element type) handling than through the collection class itself.
   */
 private[sugar] trait ArrayIterableOnce[+E] extends Any with IterableOnce[E] {
-	//todo: make it public and return ArrayLike[E]
-	private[sugar] def unsafeArray :Array[_]
+	private[sugar] def unsafeArray :ArrayLike[E]
 	private[sugar] def startIndex :Int
 	private[sugar] def isImmutable :Boolean = false //mutability.isImmutable
 	private[sugar] def isMutable :Boolean = false //mutability.isMutable
@@ -198,7 +197,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	extends Any with collection.IndexedSeqOps[E, CC, C] with collection.StrictOptimizedSeqOps[E, CC, C]
 	   with ArraySlicingOps[E, CC, C] with SugaredSeqOps[E, CC, C]
 { this :C =>
-	private[sugar] final override def unsafeArray :Array[_] = array
+	private[sugar] final override def unsafeArray :ArrayLike[E] = array
 	protected def array :Array[E @uncheckedVariance]
 
 	override def reverseIterator :Iterator[E] = {

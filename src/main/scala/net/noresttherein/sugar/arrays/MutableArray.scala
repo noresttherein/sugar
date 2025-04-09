@@ -64,10 +64,10 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 			MutableArraySlice.wrap(array)
 
 		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[MutableArray[E]] = elems match {
-			case slice :ArrayIterableOnce[_]
+			case slice :ArrayIterableOnce[E]
 				if slice.isMutable && slice.startIndex == 0 && slice.knownSize == slice.unsafeArray.length &&
 					classTag[E].runtimeClass <:< slice.unsafeArray.getClass.getComponentType =>
-				Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
+				Yes(slice.unsafeArray.castFrom[ArrayLike[E], MutableArray[E]])
 			case _ :mutable.IndexedSeqOps[_, _, _] => elems match {
 				case seq   :mutable.ArraySeq[_] if classTag[E].runtimeClass <:< seq.array.getClass.getComponentType =>
 					Yes(seq.array.castFrom[Array[_], MutableArray[E]])
@@ -94,8 +94,8 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 					Yes(seq.array.castFrom[Array[_], MutableArray[E]])
 				case seq   :ArrayBuffer[_] if CheatedAccess.array(seq).length == length =>
 					Yes(CheatedAccess.array(seq).castFrom[Array[_], RefArray[E]])
-				case slice :ArrayIterableOnce[_] if slice.isMutable && slice.unsafeArray.length == length =>
-					Yes(slice.unsafeArray.castFrom[Array[_], MutableArray[E]])
+				case slice :ArrayIterableOnce[E] if slice.isMutable && slice.unsafeArray.length == length =>
+					Yes(slice.unsafeArray.castFrom[ArrayLike[E], MutableArray[E]])
 				case seq   :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.data1.length == length =>
 					Yes(seq.data1.castFrom[Array[_], MutableArray[E]])
 				case _ =>
@@ -119,7 +119,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		def unapply[E :ClassTag](elems :IterableOnce[E]) :Maybe[(MutableArray[E], Int, Int)] = elems match {
 			case _ if elems.knownSize < 0 => No
 			case slice :ArrayIterableOnce[E] if slice.isMutable =>
-				val array = slice.unsafeArray.castFrom[Array[_], Array[E]]
+				val array = slice.unsafeArray.castFrom[ArrayLike[E], Array[E]]
 				val start = slice.startIndex
 				if (classTag[E].runtimeClass <:< array.getClass.getComponentType)
 					Yes((array, start, start + slice.knownSize))
@@ -158,7 +158,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 					Yes(CheatedAccess.array(seq).castFrom[Array[AnyRef], RefArray[E]], 0, length)
 				case seq :ArrayIterableOnce[E] if seq.isMutable =>
 					val start = seq.startIndex
-					Yes(seq.unsafeArray.castFrom[Array[_], MutableArray[E]], start, start + length)
+					Yes(seq.unsafeArray.castFrom[ArrayLike[E], MutableArray[E]], start, start + length)
 				case seq :MatrixBuffer[E] if seq.dim == 1 && seq.startIndex + length <= seq.data1.length =>
 					Yes((seq.data1, seq.startIndex, seq.startIndex + length))
 				case _ =>

@@ -62,7 +62,7 @@ case object LightStack extends IterableFactory[LightStack] {
 			addOne(0.asInstanceOf[A])
 
 			override def result() :LightStack[A] = {
-				val array = unsafeArray
+				val array = unsafeArray.asAnyArray
 				array(0) = knownSize
 				clear()
 				new LightStack(array)
@@ -115,7 +115,7 @@ class LightStack[E] private[collections] (
 	@inline def cap :Int = stack.length - 1
 
 	private[sugar] override def startIndex = 1
-	private[sugar] override def unsafeArray :Array[Any] = stack
+	private[sugar] override def unsafeArray :RefArray[E] = stack.asInstanceOf[RefArray[E]]
 
 	@inline override def isEmpty :Boolean = stack(0).asInstanceOf[Int] == 0
 
@@ -390,7 +390,7 @@ case object LightQueue extends IterableFactory[LightQueue] {
 			addOne(2.asInstanceOf[A])
 
 			override def result() :LightQueue[A] = {
-				val array = unsafeArray
+				val array = unsafeArray.asAnyArray
 				array(0) = knownSize
 				clear()
 				new LightQueue(array)
