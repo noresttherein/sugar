@@ -763,13 +763,20 @@ object extensions {
 
 
 	/** Casting methods whose target type may be inferred from the expected type. */
-	class inferredCastingMethods[T](private val self :T) extends AnyVal {
-		/** Equivalent to `this.asIndexedOf[X]`, but the type may be inferred. Use with caution! */
-		@inline def inferredCast[X] :X = self.asInstanceOf[X]
+	class inferredCastingMethods[X](private val self :X) extends AnyVal {
+
+		/** Exactly equivalent to `asInstanceOf[T]`, but designed for usage where the return type (and the type argument)
+		  * are inferred. This casting method is dangerous, but still quite useful when the name of the target type
+		  * is large. Use with caution!
+		  * @example {{{
+		  *              def asT(x :X) :T = x.asExpectedType
+		  * }}}
+		  */
+		@inline def asExpectedType[T] :T = self.asInstanceOf[T]
 
 		/** Equivalent to `this.asIndexedOf[X]`, but can be used only to cast to a subtype of this type,
 		  * and the type may be inferred. Use with caution!
 		  */
-		@inline def inferredDowncast[X <: T] :X = self.asInstanceOf[X]
+		@inline def asExpectedSubtype[T <: X] :T = self.asInstanceOf[T]
 	}
 }
