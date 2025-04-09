@@ -2909,10 +2909,10 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 	override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
-	override def newBuilder[E] :Builder[E, MatrixBuffer[E]] = new MatrixBuilder(new ErasedMatrixBuffer[E](shrink))
+	override def newBuilder[E] :Builder[E, MatrixBuffer[E]] = new MatrixBufferBuilder(new ErasedMatrixBuffer[E](shrink))
 
 	/** Creates a new buffer of the specified capacity, backed by an `Array[Any]`, boxing all elements. Same as `empty`.
-	  * If the capacity calls for a two dimensional buffer, not all individual data arrays will be actually allocated,
+	  * If the capacity calls for a two-dimensional buffer, not all individual data arrays will be actually allocated,
 	  * but the outer `Array[Array[E]]` will be of a sufficient size to not require reallocation as elements are added.
 	  */
 	override def ofCapacity[E](capacity :Int) :MatrixBuffer[E] = new ErasedMatrixBuffer(capacity, shrink)
@@ -2930,7 +2930,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 		override def ofCapacity[E :ClassTag](capacity :Int) :MatrixBuffer[E] = new MatrixBuffer[E](capacity, shrink)
 
 		override def newBuilder[E :ClassTag] :Builder[E, MatrixBuffer[E]] =
-			new MatrixBuilder(new MatrixBuffer[E](shrink))
+			new MatrixBufferBuilder(new MatrixBuffer[E](shrink))
 
 		override def toString :String = MatrixBufferFactory.this.toString + ".specific"
 	}
@@ -2942,7 +2942,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 		override def empty[E] :MatrixBuffer[E] = new ErasedMatrixBuffer[E](shrink)
 
 		override def newBuilder[E] :Builder[E, MatrixBuffer[E]] =
-			new MatrixBuilder[E](new ErasedMatrixBuffer[E](shrink))
+			new MatrixBufferBuilder[E](new ErasedMatrixBuffer[E](shrink))
 
 		override def ofCapacity[E](capacity :Int) :MatrixBuffer[E] = new ErasedMatrixBuffer[E](capacity, shrink)
 
@@ -2952,7 +2952,7 @@ sealed class MatrixBufferFactory protected (shrink :Boolean)
 
 
 
-private class MatrixBuilder[E](empty :MatrixBuffer[E]) extends GrowableBuilder[E, MatrixBuffer[E]](empty) {
+private class MatrixBufferBuilder[E](empty :MatrixBuffer[E]) extends GrowableBuilder[E, MatrixBuffer[E]](empty) {
 	override def sizeHint(size :Int) :Unit = elems.sizeHint(size)
 }
 
