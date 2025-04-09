@@ -4,7 +4,6 @@ import scala.annotation.nowarn
 import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, StrictOptimizedSeqFactory, StrictOptimizedSeqOps, mutable}
 import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Builder, GrowableBuilder}
 import scala.reflect.ClassTag
 

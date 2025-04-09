@@ -1951,6 +1951,17 @@ object extensions {
 		}
 
 
+		/** A simple forwarder to [[System.arraycopy]] which restricts array arguments to the same array type.
+		  * Reduces source dependency on Java APIs and increases type safety. Slightly faster for tiny arrays than
+		  * [[Array.copy]] and [[net.noresttherein.sugar.arrays.ArrayLike.copy ArrayLike.copy]] because it doesn't
+		  * attempt interoperability between value and reference arrays.
+		  */
+		@throws[IndexOutOfBoundsException]("if either srcPos or dstPos is negative, " +
+		                                   "or srcPos+len is greater than src.length, " +
+		                                   "or dstPos + len is greater than dst.length.")
+		@inline final def safeCopy[E](src :Array[E], srcPos :Int, dst :Array[E], dstPos :Int, len :Int) :Unit =
+			System.arraycopy(src, srcPos, dst, dstPos, len)
+
 		/** Copies a maximum of `len` elements from one array to another, wrapping at array ends.
 		  * Reading starts with index `srcPos` in `src`, and writing starts with index `dstPos` in `dst`.
 		  * If an end of either array is reached, reading/writing resumes from the beginning of that array.
@@ -1994,7 +2005,7 @@ object extensions {
 				}
 		}
 
-		private def cyclicShift(array :Array[_], srcPos :Int, dstPos :Int, len :Int) :Unit = {
+		private def cyclicShift[E](array :Array[E], srcPos :Int, dstPos :Int, len :Int) :Unit = {
 			val length = array.length
 			if (srcPos >= dstPos) {
 				val srcOverflow = srcPos + len - length

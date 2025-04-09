@@ -38,6 +38,14 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 		new UnapplySeqWrapper(array.asSubtype[Array[E]])
 
 
+//	@throws[IndexOutOfBoundsException]("if [srcPos, srcPos + max) is not a valid index range in src," +
+//	                                   "or [dstPos, dstPos + max) is not a valid index range in dst.")
+//	@throws[ArrayStoreException]("if the dst array cannot store some element from the specified range of src," +
+//	                             "even after auto boxing/auto unboxing.")
+//	@inline def copy[A](src :ArrayLike[A], srcPos :Int, dst :MutableArray[A], dstPos :Int, len :Int) :Unit =
+//		ArrayLike.copy(src, srcPos, dst, dstPos, len)
+
+
 	/** Wraps and unwraps arrays in mutable indexed sequences.
 	  * $warning
 	  * @define warning Extraction relies on a `ClassTag` for the unwrapped
@@ -317,7 +325,7 @@ case object MutableArray extends IterableFactory.Delegate[MutableArray](RefArray
 				throw new ArrayIndexOutOfBoundsException(
 					errorString(self) + ".updateAll(" + index + ", " + errorString(elems) + ")"
 				)
-			ArrayLike.copy(elems, 0, self, index, thatSize)
+			ArrayLike.copy(elems, 0, self.asInstanceOf[Array[E]], index, thatSize)
 			thatSize
 		}
 

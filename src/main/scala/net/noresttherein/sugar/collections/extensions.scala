@@ -5161,7 +5161,7 @@ object extensions extends extensions {
 				)
 			self match {
 				case ErasedArray.Slice(array, from, _) =>
-					ArrayLike.copy(elems, 0, array, from + index, thatSize)
+					ArrayLike.copy(elems, 0, array.asInstanceOf[Array[E]], from + index, thatSize)
 				case _ =>
 					var i = 0
 					while (i < thatSize) {

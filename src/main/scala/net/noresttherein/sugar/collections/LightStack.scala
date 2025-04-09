@@ -310,7 +310,7 @@ class LightStack[E] private[collections] (
 			outOfBounds_!(start, size)
 		else {
 			val copied = math.min(math.min(xs.length - start, len), size)
-			ArrayLike.copy(stack, 1, xs, start, copied)
+			ArrayLike.copy(stack.asInstanceOf[RefArray[U]], 1, xs, start, copied)
 			copied
 		}
 	}

@@ -508,7 +508,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			val newSize = dataSize + length
 			if (length <= storageSize - dataSize) {
 				val newOffset = dataOffset - length & storageSize - 1
-				ArrayLike.cyclicCopyTo(elems, idx, data, newOffset, length)
+				ArrayLike.cyclicCopyTo(elems, idx, data1, newOffset, length)
 				dataOffset = newOffset
 				dataSize  += length
 			} else if (length <= MaxSize1 - dataSize) {          //increase the array size
@@ -519,7 +519,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				if (dataEnd <= storageSize) {                 //data is not wrapped
 					data = Array.copyOf(data, capacity)
 					dataOffset = dataOffset - length & capacity - 1
-					ArrayLike.cyclicCopyTo(elems, idx, data, dataOffset, length)
+					ArrayLike.cyclicCopyTo(elems, idx, data1, dataOffset, length)
 				} else {
 					data = Array.copyOfRanges(
 						elems, idx, length,
@@ -1861,7 +1861,8 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 						if (dataOffset2 + length2 == dataEnd2)
 							clearIfRef(math.max(0, clearOffset - MaxSize1), dataEnd1)
 					case Slice2Size =>
-						data             = data2(dataOffset2 + 1 & mask2)
+						val data         = data2(dataOffset2 + 1 & mask2)
+						this.data        = data
 						dataOffset       = MaxSize1 - Slice1Size
 						val slice4Offset = Slice2Size + Slice3Size
 						ArrayLike.copy(data2(dataEnd2 - 1 & mask2), suffixOffset1, data, Slice2Size, Slice3Size)
@@ -1870,21 +1871,23 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 						val clearOffset = Slice2Size + suffixSize
 						clearIfRef(clearOffset, math.min(dataOffset, dataSize - Slice1Size) - clearOffset)
 					case Slice3Size =>
-						data             = data2(dataEnd2 - 1 & mask2)
+						val data         = data2(dataEnd2 - 1 & mask2)
 						val slice2Offset = dim1(suffixOffset1 - Slice2Size)
 						val slice1Offset = dim1(slice2Offset - Slice1Size)
 						val slice4Offset = dim1(suffixOffset1 + Slice3Size)
 						Array.cyclicCopyTo(data2(dataOffset2 + 1 & mask2), 0, data, slice2Offset, Slice2Size)
 						Array.cyclicCopyTo(data2(dataOffset2), dataOffset1, data, slice1Offset, Slice1Size)
 						Array.cyclicCopyTo(data2(dataEnd2 & mask2), dataEnd1 - Slice4Size, data, slice4Offset, Slice4Size)
-						dataOffset      = slice1Offset
+						dataOffset       = slice1Offset
+						this.data        = data
 						val clearOffset = math.max(Slice4Size, slice1Offset - count)
 						clearIfRef(clearOffset, slice1Offset - clearOffset)
 					case _          =>
-						data             = data2(dataEnd2 & mask2)
+						val data         = data2(dataEnd2 & mask2)
 						val slice4Offset = dim1(dataEnd1 - Slice4Size)
 						val slice3Offset = dim1(slice4Offset - Slice3Size)
 						val slice2Offset = dim1(slice3Offset - Slice2Size)
+						this.data        = data
 						dataOffset       = dim1(slice2Offset - Slice1Size)
 						Array.cyclicCopyTo(data2(dataOffset2 + 1 & mask2), 0, data, slice2Offset, Slice2Size)
 						Array.cyclicCopyTo(data2(dataOffset2), dataOffset1, data, dataOffset, Slice1Size)
@@ -2561,9 +2564,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		else
 			new ReverseDim2MatrixBufferIterator(data2, dataOffset + dataSize - 1 & indexMask, dataSize)
 
-	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-		copyRangeToArray(xs, start, 0, len)
-
 	override def copyRangeToArray[B >: E](xs :Array[B], start :Int, from :Int, len :Int) :Int =
 		if (len <= 0 || dataSize == 0 || from >= dataSize || start >= xs.length)
 			0
@@ -2572,7 +2572,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		else if (storageSize <= MaxSize1) {
 			val from0  = math.max(from, 0)
 			val copied = math.min(len, math.min(xs.length - start, dataSize - from0))
-			ArrayLike.cyclicCopyFrom(data, dataOffset + from0 & storageSize - 1, xs, start, copied)
+			ArrayLike.cyclicCopyFrom(data1, dataOffset + from0 & storageSize - 1, xs, start, copied)
 			copied
 		} else {
 			val from0  = math.max(from, 0)
@@ -2583,9 +2583,6 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			copied
 		}
 
-	override def cyclicCopyToArray[A >: E](xs :Array[A], start :Int, len :Int) :Int =
-		cyclicCopyRangeToArray(xs, start, 0, len)
-
 	override def cyclicCopyRangeToArray[A >: E](xs :Array[A], start :Int, from :Int, len :Int) :Int =
 		if (len <= 0 || dataSize == 0 || from >= dataSize || xs.length == 0)
 			0
@@ -2594,7 +2591,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		else if (storageSize <= MaxSize1) {
 			val max    = xs.length
 			val copied = math.min(len, math.min(max, dataSize - math.max(from, 0)))
-			ArrayLike.cyclicCopy(data, dataOffset + from & storageSize - 1, xs, start % max, copied)
+			ArrayLike.cyclicCopy(data1, dataOffset + from & storageSize - 1, xs, start % max, copied)
 			copied
 		} else {
 			val from0   = math.max(from, 0)

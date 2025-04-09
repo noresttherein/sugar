@@ -146,6 +146,17 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		)(ClassTag.Any)
 	)
 
+	/** A simple forwarder to [[System.arraycopy]] which restricts array arguments to the same array type.
+	  * Reduces source dependency on Java APIs and increases type safety. Slightly faster for tiny arrays than
+	  * [[Array.copy]] and [[net.noresttherein.sugar.arrays.ArrayLike.copy ArrayLike.copy]] because it doesn't
+	  * attempt interoperability between value and reference arrays.
+	  */
+	@throws[IndexOutOfBoundsException]("if either srcPos or dstPos is negative, " +
+	                                   "or srcPos+len is greater than src.length, " +
+	                                   "or dstPos + len is greater than dst.length.")
+	@inline def copy[A](src :RefArrayLike[A], srcPos :Int, dst :RefArray[A], dstPos :Int, len :Int) :Unit =
+		System.arraycopy(src, srcPos, dst, dstPos, len)
+
 
 	/** Wraps reference arrays in indexed sequences and unwraps all known mutable collections
 	  * backed by arrays of `Array[AnyRef]` type in a safe manner. $warning

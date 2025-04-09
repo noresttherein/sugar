@@ -1836,8 +1836,8 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 					small  = RefArray.copyOf(ranking.array, SmallRankingCap)
 					hashes = copyOf(ranking.hashCodes, SmallRankingCap)
 				} else {
-					arraycopy(ranking.array, 0, small, 0, smallSize)
-					arraycopy(ranking.hashCodes, 0, hashes, 0, smallSize)
+					RefArray.copy(ranking.array, 0, small, 0, smallSize)
+					Array.safeCopy(ranking.hashCodes, 0, hashes, 0, smallSize)
 				}
 				this
 			case ranking :IndexedRanking[T] =>
@@ -1908,8 +1908,8 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 					small  = RefArray.copyOfRange(xs.array, from, xs.size, SmallRankingCap)
 					hashes = Array.copyOfRange(xs.hashCodes, from, xs.size, SmallRankingCap)
 				} else {
-					arraycopy(xs.array, from, small, 0, smallSize)
-					arraycopy(xs.hashCodes, from, hashes, 0, smallSize)
+					RefArray.copy(xs.array, from, small, 0, smallSize)
+					Array.safeCopy(xs.hashCodes, from, hashes, 0, smallSize)
 				}
 				i = xsSize
 			} else if (smallSize > 0) {
@@ -2055,8 +2055,8 @@ private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
 						i += 1
 					}
 					(xsSize <= SmallRankingCap - newSize) && { //current elements and xs together fit in a SmallRanking
-						arraycopy(ranking.array, 0, small, newSize, xsSize)
-						arraycopy(ranking.hashCodes, 0, hashes, newSize, xsSize)
+						RefArray.copy(ranking.array, 0, small, newSize, xsSize)
+						Array.safeCopy(ranking.hashCodes, 0, hashes, newSize, xsSize)
 						size = newSize + xsSize
 						true
 					}
@@ -3137,10 +3137,10 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 		else {
 			val newElems  = RefArray.copyOf(elements)
 			val newHashes = copyOf(hashes, hashes.length)
-			arraycopy(elements, idx1, newElems, idx2, length)
-			arraycopy(hashes, idx1, newHashes, idx2, length)
-			arraycopy(elements, idx2, newElems, idx1, length)
-			arraycopy(hashes, idx2, newHashes, idx1, length)
+			RefArray.copy(elements, idx1, newElems, idx2, length)
+			Array.safeCopy(hashes, idx1, newHashes, idx2, length)
+			RefArray.copy(elements, idx2, newElems, idx1, length)
+			Array.safeCopy(hashes, idx2, newHashes, idx1, length)
 			new SmallRanking(newElems, newHashes)
 		}
 	}
@@ -3150,10 +3150,10 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 		val split     = from + n
 		val newElems  = RefArray.copyOf(elements, size)
 		val newHashes = copyOf(hashes, size)
-		arraycopy(elements, from, newElems, until - n, n)
-		arraycopy(hashes, from, newHashes, until - n, n)
-		arraycopy(elements, split, newElems, from, until - split)
-		arraycopy(hashes, split, newHashes, from, until - split)
+		RefArray.copy(elements, from, newElems, until - n, n)
+		Array.safeCopy(hashes, from, newHashes, until - n, n)
+		RefArray.copy(elements, split, newElems, from, until - split)
+		Array.safeCopy(hashes, split, newHashes, from, until - split)
 		new SmallRanking(newElems, newHashes)
 	}
 
@@ -3179,8 +3179,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			case old =>
 				val newHashes = copyOf(hashes, length - 1)
 				val newElems  = RefArray.copyOf[U](elements, length - 1)
-				arraycopy(hashes, old + 1, newHashes, old, length - old - 1)
-				arraycopy(elements, old + 1, newElems, old, length - old - 1)
+				Array.safeCopy(hashes, old + 1, newHashes, old, length - old - 1)
+				RefArray.copy(elements, old + 1, newElems, old, length - old - 1)
 				val i = if (old > index) index else index - 1
 				newHashes(i) = hash
 				newElems(i)  = elem
@@ -3199,8 +3199,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 				val index0 = math.max(0, math.min(size, index))
 				val newHashes = copyOf(hashes, size + 1)
 				val newElems  = RefArray.copyOf[U](elements, size + 1)
-				arraycopy(elements, index0, newElems, index + 1, size - index0)
-				arraycopy(hashes, index0, newHashes, index + 1, size - index0)
+				RefArray.copy(elements, index0, newElems, index + 1, size - index0)
+				Array.safeCopy(hashes, index0, newHashes, index + 1, size - index0)
 				newHashes(index0) = hash
 				newElems(index0)  = elem
 				new SmallRanking(newElems, newHashes)
@@ -3282,8 +3282,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 					else {
 						val newElems  = RefArray.copyOf(elements, diff)
 						val newHashes = copyOf(hashes, diff)
-						arraycopy(elements, until0, newElems, from0, length - until0)
-						arraycopy(hashes, until0, newHashes, from0, length - until0)
+						RefArray.copy(elements, until0, newElems, from0, length - until0)
+						Array.safeCopy(hashes, until0, newHashes, from0, length - until0)
 						new SmallRanking(newElems, newHashes)
 					}
 			}
@@ -3316,8 +3316,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 				val size = hashes.length
 				val res  = RefArray.copyOf[U](elements, size)
 				val hs   = copyOf(hashes, size)
-				arraycopy(elements, 0, res, 1, n)
-				arraycopy(hashes, 0, hs, 1, n)
+				RefArray.copy(elements, 0, res, 1, n)
+				Array.safeCopy(hashes, 0, hs, 1, n)
 				res(0) = elem
 				hs(0)  = hash
 				new SmallRanking(res, hs)
@@ -3333,8 +3333,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 			val hs  = new Array[Int](length + 1)
 			res(0)  = elem
 			hs(0)   = hash
-			arraycopy(elements, 0, res, 1, length)
-			arraycopy(hashes, 0, hs, 1, length)
+			RefArray.copy(elements, 0, res, 1, length)
+			Array.safeCopy(hashes, 0, hs, 1, length)
 			new SmallRanking(res, hs)
 		}
 
@@ -3349,8 +3349,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 				val last = hashes.length - 1
 				val res  = RefArray.copyOf[U](elements, size)
 				val hs   = copyOf(hashes, size)
-				arraycopy(elements, n + 1, res, n, last - n)
-				arraycopy(hashes, n + 1, hs, n, last - n)
+				RefArray.copy(elements, n + 1, res, n, last - n)
+				Array.safeCopy(hashes, n + 1, hs, n, last - n)
 				res(last) = elem
 				hs(last)  = hash
 				new SmallRanking(res, hs)
@@ -3405,8 +3405,8 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 				val newHashes = new Array[Int](prefixSize + suffixLength)
 				prefix.toBasicOps.copyToArray(newArray.asAnyArray, 0, prefixSize)
 				computeHashes(newArray, newHashes, 0, prefixSize)
-				arraycopy(suffix.array, 0, newArray, prefixSize, suffixLength)
-				arraycopy(suffix.hashCodes, 0, newHashes, prefixSize, suffixLength)
+				RefArray.copy(suffix.array, 0, newArray, prefixSize, suffixLength)
+				Array.safeCopy(suffix.hashCodes, 0, newHashes, prefixSize, suffixLength)
 				new SmallRanking(newArray, newHashes)
 			case single :SingletonRanking[U] if prefixSize >= 0 && prefixSize < SmallRankingCap =>
 				val newArray  = RefArray.ofDim[U](prefixSize + 1)
@@ -3474,14 +3474,14 @@ private final class SmallRanking[+E](elements :RefArray[E], hashes :Array[Int])
 		if (kept + suffixSize <= SmallRankingCap) {
 			val resHashes = new Array[Int](kept + suffixSize)
 			copyKept(keep, resItems, resHashes, 0, kept)
-			arraycopy(suffix.array, 0, resItems, kept, suffixSize)
-			arraycopy(suffix.hashCodes, 0, resHashes, kept, suffixSize)
+			RefArray.copy(suffix.array, 0, resItems, kept, suffixSize)
+			Array.safeCopy(suffix.hashCodes, 0, resHashes, kept, suffixSize)
 			new SmallRanking(resItems, resHashes)
 		} else {
 			//The way copyKept is implemented, it will overwrite keep with hashes of those kept.
 			// We take advantage here that both hashes and keep are Array[Int] and use keep as a throw-away sink.
 			copyKept(keep, resItems, DummyHashArray, 0, kept)
-			arraycopy(suffix.array, 0, resItems, kept, suffixSize)
+			RefArray.copy(suffix.array, 0, resItems, kept, suffixSize)
 			new IndexedRanking(IRefArray.Wrapped(resItems.unsafeIRefArray))
 		}
 	}

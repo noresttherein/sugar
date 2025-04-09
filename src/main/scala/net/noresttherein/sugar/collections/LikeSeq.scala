@@ -2579,7 +2579,7 @@ object LikeIndexedSeq extends Rank1LikeIndexedSeqs {
 			ArrayLikeSpecOps.foldRight(elems.unsafeArray.asInstanceOf[Array[X]], elems.startIndex, elems.knownSize)(z)(op)
 
 		override def copyToArray[U >: X](elems :Xs, array :Array[U], start :Int, max :Int) :Int =
-			ArrayLike.permissiveCopy(elems.unsafeArray, elems.startIndex, array, start, max)
+			ArrayLike.permissiveCopy(elems.unsafeArray.asInstanceOf[ArrayLike[X]], elems.startIndex, array, start, max)
 
 //		override def iterator(elems :Xs) :Iterator[X] =
 //			ArrayLikeIterator(elems.unsafeArray.asInstanceOf[Array[X]], elems.startIndex, elems.knownSize)

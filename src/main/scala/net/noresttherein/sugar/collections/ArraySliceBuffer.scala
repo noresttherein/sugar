@@ -150,14 +150,14 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 				}
 				if (offset + len + 1 >= length - len)
 					offset = (length - len - 1 >> 1) + 1
-				arraycopy(oldArray, oldOffset, contents, offset, len)
+				RefArray.copy(oldArray, oldOffset, contents, offset, len)
 			} else if (offset == 0) {
 				length = math.max((len << 1) + offset, DefaultInitialSize)
 				contents = RefArray.copyOf(contents, length)
 			} else {
 				length = math.max((len << 1) + offset, DefaultInitialSize)
 				contents = RefArray.ofDim[E](length)
-				arraycopy(oldArray, offset, contents, offset, len)
+				RefArray.copy(oldArray, offset, contents, offset, len)
 			}
 			aliased = false
 		}
@@ -185,7 +185,7 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 					offset = length
 				else if (offset <= len + 1)
 					offset = length - (length - len - 1 >> 1) - len + 1
-				arraycopy(oldArray, oldOffset, contents, offset, len)
+				RefArray.copy(oldArray, oldOffset, contents, offset, len)
 			} else {
 				length = math.max(len + length + 1, DefaultInitialSize)
 				contents  = RefArray.copyOfRange(oldArray, 0, len, len + 1, length)
@@ -237,7 +237,7 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 					shiftAside(len, suffixLength)
 				else
 					len += suffixLength
-				arraycopy(suffix, suffixOffset, contents, offset + len - suffixLength, suffixLength)
+				RefArray.copy(suffix, suffixOffset, contents, offset + len - suffixLength, suffixLength)
 			case  0 =>
 				if (idx < 0 || idx > len)
 					outOfBounds_!(
@@ -271,38 +271,38 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 				val newLength = math.max(length, DefaultInitialSize)
 				contents = RefArray.ofDim[E](newLength)
 				offset = newLength - len - space >> 1
-				arraycopy(oldArray, oldOffset, contents, offset, idx)
-				arraycopy(oldArray, oldOffset + idx, contents, offset + idx + space, len - idx)
+				RefArray.copy(oldArray, oldOffset, contents, offset, idx)
+				RefArray.copy(oldArray, oldOffset + idx, contents, offset + idx + space, len - idx)
 			} else if (offset >= space && (idx < (len >> 1) || space > freeBackSpace)) {
 				//more space in the front than in the back
-				arraycopy(contents, offset, contents, offset - space, idx)
+				RefArray.copy(contents, offset, contents, offset - space, idx)
 				offset -= space
 			} else if (space <= freeBackSpace)
 				//more space in the back than in the front
-				arraycopy(contents, offset + idx, contents, offset + idx + space, len - idx)
+				RefArray.copy(contents, offset + idx, contents, offset + idx + space, len - idx)
 			else {
-				arraycopy(contents, offset, contents, 0, idx)
-				arraycopy(contents, offset + idx, contents, idx + space, len - idx)
+				RefArray.copy(contents, offset, contents, 0, idx)
+				RefArray.copy(contents, offset + idx, contents, idx + space, len - idx)
 				offset = 0
 			}
 		} else if (offset > 0 & freeBackSpace == 0) {          //preserve right alignment
 			val newLength = newSizeForExtra(space)
 			contents  = RefArray.ofDim[E](newLength)
 			offset = newLength - len - space
-			arraycopy(oldArray, oldOffset, contents, offset, idx)
-			arraycopy(oldArray, oldOffset + idx, contents, newLength - (len - idx), len - idx)
+			RefArray.copy(oldArray, oldOffset, contents, offset, idx)
+			RefArray.copy(oldArray, oldOffset + idx, contents, newLength - (len - idx), len - idx)
 		} else if (offset == 0) { //extracted to avoid div by zero and for the performance of copyOf
 			val newLength = newSizeForExtra(space)
 			contents = RefArray.copyOfRange[E](contents, 0, idx, newLength)
-			arraycopy(oldArray, oldOffset + idx, contents, idx + space, len - idx)
+			RefArray.copy(oldArray, oldOffset + idx, contents, idx + space, len - idx)
 		} else {
 			val newLength = newSizeForExtra(space)
 			val freeSpace = newLength - len - space
 			val newBackSpace = (freeSpace.toLong * freeBackSpace / (length - len)).toInt  //divide the space proportionally
 			offset = newLength - len - space - newBackSpace
 			contents  = RefArray.ofDim[E](newLength)
-			arraycopy(oldArray, oldOffset, contents, offset, idx)
-			arraycopy(oldArray, oldOffset + idx, contents, offset + idx + space, len - idx)
+			RefArray.copy(oldArray, oldOffset, contents, offset, idx)
+			RefArray.copy(oldArray, oldOffset + idx, contents, offset + idx + space, len - idx)
 		}
 		len    += space
 		aliased = false
@@ -326,11 +326,11 @@ final class ArraySliceBuffer[E] private (private[this] var contents :RefArray[E]
 			if (idx < 0 || idx > len - count)
 				outOfBounds()
 			if (idx < len - end) {
-				arraycopy(contents, offset, contents, offset + count, idx)
+				RefArray.copy(contents, offset, contents, offset + count, idx)
 				contents.clear(offset, offset + count)
 				offset += count
 			} else {
-				arraycopy(contents, offset + end, contents, offset + idx, len - end)
+				RefArray.copy(contents, offset + end, contents, offset + idx, len - end)
 				contents.clear(offset + len - count, offset + len)
 			}
 			len -= count

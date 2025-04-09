@@ -126,7 +126,7 @@ object ArrayFactory extends ClassTagIterableFactory[Array] {
 		else {
 			val oldLength = array.asInstanceOf[Array[_]].length
 			val res = java.lang.reflect.Array.newInstance(newElementClass, newLength).asInstanceOf[Array[E]]
-			ArrayLike.copy(array, 0, res, 0, math.min(oldLength, newLength))
+			ArrayLike.copy(array.asInstanceOf[Array[E]], 0, res, 0, math.min(oldLength, newLength))
 			res
 		}
 

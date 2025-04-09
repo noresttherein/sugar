@@ -402,6 +402,142 @@ private[sugar] object ArrayLikeSpecOps {
 			}
 	}
 
+	def reverse[E](array :Array[E], from :Int, until :Int) :Unit = {
+		def specReverse[@specialized(Specializable.Everything) T](arr :Array[T]) :Unit = {
+			var i = math.max(from, 0)
+			var j = math.min(until, array.length)
+			while (i < j) {
+				j -= 1
+				val boo = array(i)
+				array(i)    = array(j)
+				array(j)    = boo
+				i += 1
+			}
+		}
+		(array :Array[_]) match {
+			case a :Array[AnyRef]  => specReverse(a)
+			case a :Array[Int]     => specReverse(a)
+			case a :Array[Long]    => specReverse(a)
+			case a :Array[Double]  => specReverse(a)
+			case a :Array[Byte]    => specReverse(a)
+			case a :Array[Char]    => specReverse(a)
+			case a :Array[Float]   => specReverse(a)
+			case a :Array[Short]   => specReverse(a)
+			case a :Array[Boolean] => specReverse(a)
+			case null              => null_!("null array")
+		}
+	}
+
+
+	@tailrec def reverseCopy[A, B](src :Array[A], srcPos :Int, dst :Array[B], dstPos :Int, len :Int) :Unit = {
+		def specReverse[@specialized E](src :Array[E], dst :Array[E]) :Unit = {
+			val end = srcPos + len
+			var i = srcPos
+			var j = dstPos + len
+			while (i < end) {
+				j -= 1
+				dst(j) = src(i)
+				i += 1
+			}
+		}
+		def reverseUnbox[@specialized E](src :Array[Any], dst :Array[E]) :Unit = {
+			val end = srcPos + len
+			var i = srcPos
+			var j = dstPos + len
+			while (i < end) {
+				j -= 1
+				dst(j) = src(i).asInstanceOf[E]
+				i += 1
+			}
+		}
+		def reverseBox[@specialized E](src :Array[E], dst :Array[Any]) :Unit = {
+			val end = srcPos + len
+			var i = srcPos
+			var j = dstPos + len
+			while (i < end) {
+				j -= 1
+				dst(j) = src(i)
+				i += 1
+			}
+		}
+		validateCopyIndices(src, srcPos, dst, dstPos, len)
+		(src, dst) match {
+			case _ if (src eq dst) & srcPos == dstPos     => reverse(src, srcPos, srcPos + len)
+			case _ if (src eq dst) & (srcPos < dstPos & dstPos < srcPos + len) | (dstPos < srcPos & srcPos < dstPos + len) =>
+				val aside = src.slice(srcPos, srcPos + len)
+				reverseCopy(aside, 0, dst, dstPos, len)
+			case (a1 :Array[Any], a2 :Array[Any])         => specReverse(a1, a2)
+			case (a1 :Array[Any], _)                      => reverseUnbox(a1, dst)
+			case (_, a2 :Array[Any])                      => reverseBox(src, a2)
+			case (a1 :Array[Int], a2 :Array[Int])         => specReverse(a1, a2)
+			case (a1 :Array[Long], a2 :Array[Long])       => specReverse(a1, a2)
+			case (a1 :Array[Double], a2 :Array[Double])   => specReverse(a1, a2)
+			case (a1 :Array[Byte], a2 :Array[Byte])       => specReverse(a1, a2)
+			case (a1 :Array[Char], a2 :Array[Char])       => specReverse(a1, a2)
+			case (a1 :Array[Float], a2 :Array[Float])     => specReverse(a1, a2)
+			case (a1 :Array[Short], a2 :Array[Short])     => specReverse(a1, a2)
+			case (a1 :Array[Boolean], a2 :Array[Boolean]) => specReverse(a1, a2)
+			case _                                        => specReverse(src, dst.asInstanceOf[Array[A]])
+		}
+	}
+
+	def boxingCopy[V, B](unboxedSrc :Array[V], srcIdx :Int, boxedDst :Array[B], dstIdx :Int, length :Int) :Unit = {
+		if (length > 0) {
+			validateCopyIndices(unboxedSrc, srcIdx, boxedDst, dstIdx, length)
+			val dst = boxedDst.asInstanceOf[Array[Any]]
+			def box[@specialized X](src :Array[X]) :Unit = {
+				var i = 0
+				while (i < length) {
+					dst(dstIdx + i) = src(srcIdx + i)
+					i += 1
+				}
+			}
+			(unboxedSrc :ArrayLike[Any] @unchecked) match {
+				case a :Array[AnyRef]  => box(a)
+				case a :Array[Int]     => box(a)
+				case a :Array[Long]    => box(a)
+				case a :Array[Double]  => box(a)
+				case a :Array[Char]    => box(a)
+				case a :Array[Byte]    => box(a)
+				case a :Array[Float]   => box(a)
+				case a :Array[Boolean] => box(a)
+				case a :Array[Short]   => box(a)
+			}
+		}
+	}
+
+	def unboxingCopy[B, V](boxedSrc :Array[B], srcIdx :Int, unboxedDst :Array[V], dstIdx :Int, length :Int) :Unit =
+		if (length > 0) {
+			validateCopyIndices(boxedSrc, srcIdx, unboxedDst, dstIdx, length)
+			val src = boxedSrc.asInstanceOf[Array[Any]]
+			def unbox[@specialized X](dst :Array[X]) :Unit = {
+				var i = 0
+				while (i < length) {
+					dst(dstIdx + i) = src(srcIdx + i).asInstanceOf[X]
+					i += 1
+				}
+			}
+			(unboxedDst :ArrayLike[Any] @unchecked) match {
+				case a :Array[AnyRef]  => unbox(a)
+				case a :Array[Int]     => unbox(a)
+				case a :Array[Long]    => unbox(a)
+				case a :Array[Double]  => unbox(a)
+				case a :Array[Char]    => unbox(a)
+				case a :Array[Byte]    => unbox(a)
+				case a :Array[Float]   => unbox(a)
+				case a :Array[Boolean] => unbox(a)
+				case a :Array[Short]   => unbox(a)
+			}
+		}
+
+	@inline def validateCopyIndices(src :Array[_], srcStart :Int, dst :Array[_], dstStart :Int, length :Int) :Unit =
+		if (srcStart < 0 | dstStart < 0 | srcStart > src.length - length | dstStart > dst.length - length)
+			outOfBounds_!(
+				"ArrayLike.copy(" + errorString(src) + ", " + srcStart + ", " +
+					errorString(dst) + ", " + dstStart + ", " + length + ")"
+			)
+
+
 	def addString[E](array :Array[E], b :JStringBuilder, start :String, sep :String, end :String) :Unit = {
 		def specAddString[@specialized(Specializable.Everything) A](a :Array[A]) :Unit = {
 			if (start.length != 0)
@@ -432,63 +568,6 @@ private[sugar] object ArrayLikeSpecOps {
 			case null              => null_!("null array")
 		}
 	}
-
-
-	def boxingCopy[V, B](unboxedSrc :Array[V], srcIdx :Int, boxedDst :Array[B], dstIdx :Int, length :Int) :Unit = {
-		if (length > 0) {
-			validateCopyIndices(unboxedSrc, srcIdx, boxedDst, dstIdx, length)
-			val dst = boxedDst.asInstanceOf[Array[Any]]
-			def cpy[@specialized X](src :Array[X]) :Unit = {
-				var i = 0
-				while (i < length) {
-					dst(dstIdx + i) = src(srcIdx + i)
-					i += 1
-				}
-			}
-			(unboxedSrc :ArrayLike[Any] @unchecked) match {
-				case a :Array[AnyRef]  => cpy(a)
-				case a :Array[Int]     => cpy(a)
-				case a :Array[Long]    => cpy(a)
-				case a :Array[Double]  => cpy(a)
-				case a :Array[Char]    => cpy(a)
-				case a :Array[Byte]    => cpy(a)
-				case a :Array[Float]   => cpy(a)
-				case a :Array[Boolean] => cpy(a)
-				case a :Array[Short]   => cpy(a)
-			}
-		}
-	}
-
-	def unboxingCopy[B, V](boxedSrc :Array[B], srcIdx :Int, unboxedDst :Array[V], dstIdx :Int, length :Int) :Unit =
-		if (length > 0) {
-			validateCopyIndices(boxedSrc, srcIdx, unboxedDst, dstIdx, length)
-			val src = boxedSrc.asInstanceOf[Array[Any]]
-			def cpy[@specialized X](dst :Array[X]) :Unit = {
-				var i = 0
-				while (i < length) {
-					dst(dstIdx + i) = src(srcIdx + i).asInstanceOf[X]
-					i += 1
-				}
-			}
-			(unboxedDst :ArrayLike[Any] @unchecked) match {
-				case a :Array[AnyRef]  => cpy(a)
-				case a :Array[Int]     => cpy(a)
-				case a :Array[Long]    => cpy(a)
-				case a :Array[Double]  => cpy(a)
-				case a :Array[Char]    => cpy(a)
-				case a :Array[Byte]    => cpy(a)
-				case a :Array[Float]   => cpy(a)
-				case a :Array[Boolean] => cpy(a)
-				case a :Array[Short]   => cpy(a)
-			}
-		}
-
-	@inline def validateCopyIndices(src :Array[_], srcStart :Int, dst :Array[_], dstStart :Int, length :Int) :Unit =
-		if (srcStart < 0 | dstStart < 0 | srcStart > src.length - length | dstStart > dst.length - length)
-			outOfBounds_!(
-				"ArrayLike.copy(" + errorString(src) + ", " + srcStart + ", " +
-					errorString(dst) + ", " + dstStart + ", " + length + ")"
-			)
 
 	/** Maps all classes representable in `JVM` to their boxed representations. */
 	private[this] val Unbox = Map[Class[_], Class[_]](
