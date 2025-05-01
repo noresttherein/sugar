@@ -30,7 +30,7 @@ package reflect {
 	@SerialVersionUID(Ver)
 	object Unboxed {
 		/** If the argument is a box class for a Java primitive type, return the appropriate primitive type.
-		  * Otherwise return the argument itself.
+		  * Otherwise, return the argument itself.
 		  */
 		def apply(clss :Class[_]) :Class[_] = Unwrapped.getOrElse(clss, clss)
 

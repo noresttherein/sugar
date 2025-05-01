@@ -292,19 +292,33 @@ package object prettyprint {
 	  *
 	  * $fullClassNameDocs
 	  */
-	@inline def classNameOf(obj :Any) :String = fullNameOf(obj.getClass)
+	@inline def classNameOf(obj :Any) :String = demangledNameOf(obj.getClass)
 
 	/** An approximation of the full, qualified and demangled name of the given class, as it would appear in code.
+	  * Same as [[net.noresttherein.sugar.reflect.prettyprint.demangledNameOf demangledNameOf]].
 	  *
 	  * $fullClassNameDocs
 	  */
-	@inline def fullNameOf[T :ClassTag] :String = fullNameOf(classTag[T].runtimeClass)
+	@inline def fullNameOf[T :ClassTag] :String = demangledNameOf(classTag[T].runtimeClass)
 
 	/** An approximation of the full, qualified and demangled name of the given class, as it would appear in code.
+	  * Same as [[net.noresttherein.sugar.reflect.prettyprint.demangledNameOf demangledNameOf]].
 	  *
 	  * $fullClassNameDocs
 	  */
 	def fullNameOf(clazz :Class[_]) :String = demangledName(clazz.getName)
+
+	/** An approximation of the full, qualified and demangled name of the given class, as it would appear in code.
+	  *
+	  * $fullClassNameDocs
+	  */
+	@inline def demangledNameOf[T :ClassTag] :String = demangledNameOf(classTag[T].runtimeClass)
+
+	/** An approximation of the full, qualified and demangled name of the given class, as it would appear in code.
+	  *
+	  * $fullClassNameDocs
+	  */
+	def demangledNameOf(clazz :Class[_]) :String = demangledName(clazz.getName)
 
 	/** An approximation of the full, qualified and demangled name of the given class, as it would appear in code.
 	  *
@@ -323,9 +337,9 @@ package object prettyprint {
 			else {
 				val local = className.lastIndexOf('.') + 1
 				val end   = typeNameEnd(className, offset)
-				var i     = 0
+				var i     = offset
 				while (i < local) {
-					buffer append className.charAt(i);
+					buffer append className.charAt(i)
 					i += 1
 				}
 				demangleClassName(className, local, end, buffer)

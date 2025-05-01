@@ -10,6 +10,7 @@ import scala.collection.{IndexedSeqView, IterableFactory, IterableOnceOps, Itera
 import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.arrays.{ArrayLike, ErasedArray, RefArray}
 import net.noresttherein.sugar.casting.castingMethods
 import net.noresttherein.sugar.collections.HasFastSlice.{hasFastDrop, preferDropOverIterator}
@@ -302,31 +303,44 @@ private[sugar] object util {
 		val size = items.knownSize
 		if (size >= 0) className(items) + '|' + size + '|' else className(items)
 	}
-	def errorString(items :ArrayLike[_]) :String = items.className + '|' + items.asInstanceOf[Array[_]].length + '|'
-	def errorString(string :String) :String = "String|" + string.length + "|"
+	def errorString(items :ArrayLike[_]) :String =
+		if (items == null)
+			"null"
+		else
+			items.className + '|' + items.asInstanceOf[Array[_]].length + '|'
 
-	def multiDimErrorString(items :ArrayLike[_]) :String = {
-		def dimensionString(array :Array[_]) :String =
-			if (!array.getClass.getComponentType.isArray)
-				"|" + array.length + '|'
-			else if (array.length == 0)
-				"|0|"
-			else {
-				//Fixme: this works only for Array2 for some reason.
-				// Also, we probably don't want to iterate over the whole array here!
-				val len1 = array.length
-				val a2 = array.asInstanceOf[Array[Array[_]]]
-				val len2 = a2(0).length
-				var i   = 1
-				while (i < len1 && a2(i).length == len2)
-					i += 1
-				if (i == len1)
-					"|" + len1 + "*" + len2 + "|"
+	def errorString(string :String) :String =
+		if (string == null) "null"
+		else "String|" + string.length + "|"
+
+	def multiDimErrorString(items :ArrayLike[_]) :String =
+		if (items == null)
+			"null"
+		else {
+			@tailrec def appendDimensions(dims :JStringBuilder, array :Array[_], componentType :Class[_]) :String =
+				if (!componentType.isArray) {
+					val name = componentType.demangledName
+					val dim = if (array == null) "_" else array.length.toString
+					name + '[' + dims + '*' + dim + ']'
+				} else if (array == null)
+					appendDimensions(dims.append("*_"), null, componentType.getComponentType)
+				else if (array.length == 0)
+					appendDimensions(dims.append("*0"), null, componentType.getComponentType)
 				else
-					a2.iterator.map(dimensionString).mkString("|" + len1, "", "|")
-			}
-		items.className + dimensionString(items.asInstanceOf[Array[_]])
-	}
+					appendDimensions(
+						dims.append('*').append(array.length),
+						array(0).asInstanceOf[Array[_]],
+						componentType.getComponentType
+					)
+			val componentType = items.getClass.getComponentType
+			val ccType = componentType.getComponentType
+			if (ccType == null)
+				componentType.name + '[' + items.length + ']'
+			else if (items.length == 0)
+				appendDimensions(new JStringBuilder("0"), null, ccType)
+			else
+				appendDimensions(new JStringBuilder(items.length.toString), items(0).asInstanceOf[Array[_]], ccType)
+		}
 
 
 }
