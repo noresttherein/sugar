@@ -116,13 +116,6 @@ class ULong private[numeric] (override val toLong: Long)
 	@inline def >>(x: Int) : ULong = new ULong(toLong >> x)
 
 
-	//Consider: the problem with all these comparisons is that they exclude ULong, which is handled by methods
-	// inherited from Ordered. This works, because the erased signature is >(x :Object).
-	// Unfortunately, it also means that it boxes both operands.
-	// We may migrate to extension methods, but they won't work for == and !=.
-	@inline def ==(x: Byte)  : Boolean = x >= 0 & toLong == x
-	@inline def ==(x: Short) : Boolean = x >= 0 & toLong == x
-	@inline def ==(x: Char)  : Boolean = toLong == x
 	@inline def ==(x: Int)   : Boolean = x >= 0 & toLong == x
 	@inline def ==(x: Long)(implicit __ :Ignored) : Boolean = x >= 0 & toLong == x
 	@inline def ==(x: Float) : Boolean = toFloat == x
