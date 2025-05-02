@@ -944,6 +944,13 @@ class Decimal64 private (private val bits :Long)
 
 	@inline def max(that :Decimal64) :Decimal64 = if (this >= that) this else that
 	@inline def min(that :Decimal64) :Decimal64 = if (this <= that) this else that
+	@inline def atLeast(that :Decimal64) :Decimal64 = if (this >= that) this else that
+	@inline def atMost(that :Decimal64) :Decimal64 = if (this <= that) this else that
+
+	def clipTo(max :Decimal64) :Decimal64 =
+		if ((bits >> ScaleBits) <= 0) Zero
+		else if (this <= max) this
+		else max
 
 
 	/** True if this `Decimal64` converts to a `Float` equal to its decimal representation,

@@ -43,13 +43,21 @@ package object numeric { //todo: copy static methods of java.lang.Integer and th
 
 	@inline def min[T](first :T, second :T, rest :T*)(implicit ordering :Ordering[T]) :T =
 		if (rest.isEmpty) ordering.min(first, second)
-		else ordering.min(first, ordering.min(second, rest.min)) 
-		
+		else ordering.min(first, ordering.min(second, rest.min))
+
+	@inline def clip(x :Byte, max :Byte) :Byte = math.max(0, math.min(max, x)).toByte
+	@inline def clip(x :Short, max :Short) :Short = math.max(0, math.min(max, x)).toShort
+	@inline def clip(x :Int, max :Int) :Int = math.max(0, math.min(max, x))
+	@inline def clip(x :Long, max :Long) :Long = math.max(0L, math.min(max, x))
+	@inline def clip(x :Float, max :Float) :Float = math.max(0.0f, math.min(max, x))
+	@inline def clip(x :Double, max :Double) :Double = math.max(0.0, math.min(max, x))
 	
 	implicit val globalRandom      :Random = new Random(new java.util.Random())
 
 	implicit val threadLocalRandom :Random = new Random(
 		new java.util.Random() {
+			//Delegate dynamically everything to ThreadLocalRandom.current,
+			// don't just pass current because that already is the specific thread-local object.
 			import ThreadLocalRandom.current
 			override def isDeprecated = current.isDeprecated
 //			override def setSeed(seed :Long) = current.setSeed(seed)

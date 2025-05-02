@@ -121,15 +121,20 @@ object extensions extends extensions {
 	  * "not more than n" and "at least n", which is the opposite of what those functions do.
 	  */
 	class ByteExtension private[extensions] (private val self :Byte) extends AnyVal {
-		/** Returns `this max 0`. */
+		/** Returns `this max 0`. More intuitive for some people. */
 		@inline def atLeast0 :Byte = math.max(self, 0).toByte
 
-		/** Returns `this max other`. */
-		@inline def atLeast(other :Byte) :Byte = math.max(self, other).toByte
+		/** Returns `this max min`. More intuitive for some people. */
+		@inline def atLeast(min :Byte) :Byte = math.max(self, min).toByte
 
-		/** Returns `this min other`. */
-		@inline def atMost(other :Byte) :Byte = math.min(self, other).toByte
+		/** Returns `this min max`. More intuitive for some people. */
+		@inline def atMost(max :Byte) :Byte = math.min(self, max).toByte
 
+		/** Clips the value to range `[0..max]`.
+		  * @return `this max 0 min max`. \
+		  */
+		@inline def clipTo(max :Byte) :Byte = math.max(0, math.min(self, max)).toByte
+		
 		/** Forces conversion of this `Byte` to an unsigned value. Will underflow for negative values. */
 		@inline def toUByte :UByte = new UByte(self)
 
@@ -167,11 +172,16 @@ object extensions extends extensions {
 		/** Returns `this max 0`. */
 		@inline def atLeast0 :Short = math.max(self, 0).toShort
 
-		/** Returns `this max other`. */
-		@inline def atLeast(other :Short) :Short = math.max(self, other).toShort
+		/** Returns `this max min`. More intuitive for some people. */
+		@inline def atLeast(min :Short) :Short = math.max(self, min).toShort
 
-		/** Returns `this min other`. */
-		@inline def atMost(other :Short) :Short = math.min(self, other).toShort
+		/** Returns `this min max`. More intuitive for some people. */
+		@inline def atMost(max :Short) :Short = math.min(self, max).toShort
+		
+		/** Clips the value to range `[0..max]`.
+		  * @return `this max 0 min max` 
+		  */
+		@inline def clipTo(max :Short) :Short = math.max(0, math.min(self, max)).toShort
 
 		/** Forces conversion of this `Short` to an unsigned value. Will underflow for negative values. */
 		@inline def toUShort :UShort = new UShort(self)
@@ -293,11 +303,16 @@ object extensions extends extensions {
 		/** Returns `this max 0`. */
 		@inline def atLeast0 :Int = math.max(self, 0)
 
-		/** Returns `this max other`. */
-		@inline def atLeast(other :Int) :Int = math.max(self, other)
+		/** Returns `this max min`. More intuitive for some people. */
+		@inline def atLeast(min :Int) :Int = math.max(self, min)
 
-		/** Returns `this min other`. */
-		@inline def atMost(other :Int) :Int = math.min(self, other)
+		/** Returns `this min max`. More intuitive for some people. */
+		@inline def atMost(max :Int) :Int = math.min(self, max)
+
+		/** Clips the value to range `[0..max]`.
+		  * @return `this max 0 min max`
+		  */
+		@inline def clipTo(max :Int) :Int = math.max(0, math.min(self, max))
 
 		/** Returns this `Int`, or `0` if the condition is false. */
 		@inline def orZeroIf(condition :Boolean) :Int = if (condition) 0 else self
@@ -502,11 +517,16 @@ object extensions extends extensions {
 		/** Returns `this max 0`. */
 		@inline def atLeast0 :Long = math.max(self, 0)
 
-		/** Returns `this max other`. */
-		@inline def atLeast(other :Long) :Long = math.max(self, other)
+		/** Returns `this max min`. More intuitive for some people. */
+		@inline def atLeast(min :Long) :Long = math.max(self, min)
 
-		/** Returns `this min other`. */
-		@inline def atMost(other :Long) :Long = math.min(self, other)
+		/** Returns `this min max`. More intuitive for some people. */
+		@inline def atMost(max :Long) :Long = math.min(self, max)
+
+		/** Clips the value to range `[0..max]`.
+		  * @return `this max 0 min max`
+		  */
+		@inline def clipTo(max :Long) :Long = math.max(0L, math.min(self, max))
 
 		/** Returns this `Long`, or `0` if the condition is false. */
 		@inline def orZeroIf(condition :Boolean) :Long = if (condition) 0 else self
@@ -646,11 +666,16 @@ object extensions extends extensions {
 		/** Returns `this max 0.0f`. */
 		@inline def atLeast0 :Float = math.max(self, 0.0f)
 
-		/** Returns `this max other`. */
-		@inline def atLeast(other :Float) :Float = math.max(self, other)
+		/** Returns `this max min`. More intuitive for some people. */
+		@inline def atLeast(min :Float) :Float = math.max(self, min)
 
-		/** Returns `this min other`. */
-		@inline def atMost(other :Float) :Float = math.min(self, other)
+		/** Returns `this min max`. More intuitive for some people. */
+		@inline def atMost(max :Float) :Float = math.min(self, max)
+
+		/** Clips the value to range `[0..max]`.
+		  * @return `this max 0 min max`
+		  */
+		@inline def clipTo(max :Float) :Float = math.max(0.0f, math.min(self, max))
 
 		/** Converts this `Float` to a decimal number, rounding if necessary. */
 		@inline def toDecimal64 :Decimal64 = Decimal64.round(self)
@@ -676,11 +701,16 @@ object extensions extends extensions {
 		/** Returns `this max 0.0`. */
 		@inline def atLeast0 :Double = math.max(self, 0.0)
 
-		/** Returns `this max other`. */
-		@inline def atLeast(other :Double) :Double = math.max(self, other)
+		/** Returns `this max min`. More intuitive for some people. */
+		@inline def atLeast(min :Double) :Double = math.max(self, min)
 
-		/** Returns `this min other`. */
-		@inline def atMost(other :Double) :Double = math.min(self, other)
+		/** Returns `this min max`. More intuitive for some people. */
+		@inline def atMost(max :Double) :Double = math.min(self, max)
+
+		/** Clips the value to range `[0..max]`.
+		  * @return `this max 0 min max`
+		  */
+		@inline def clipTo(max :Double) :Double = math.max(0.0, math.min(self, max))
 
 		/** Converts this `Double` to a decimal number, rounding if necessary. */
 		@inline def toDecimal64 :Decimal64 = Decimal64.round(self)
