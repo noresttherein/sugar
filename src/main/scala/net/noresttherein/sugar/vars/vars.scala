@@ -1794,15 +1794,36 @@ package vars {
 
 
 
+	/** An immutable pair of `Int` values stored as a `Long` value,
+	  * getting rid of the boxing required to create an `(Int, Int)` tuple.
+	  * Implicit conversions to and from `(Int, Int)` can be found in
+	  * [[net.noresttherein.sugar.vars.IntPair.conversions IntPair.conversions]].
+	  * Said object defines also an [[net.noresttherein.sugar.vars.IntPair.conversions.Int_x extension]] method
+	  * [[net.noresttherein.sugar.vars.IntPair.conversions.Int_x.x x]] for `Int` values which creates
+	  * an `IntPair` in an infix expression: `1 x 2`.
+	  */
 	@SerialVersionUID(Ver)
-	class IntPair private (private val bits :Long) extends AnyVal with Serializable {
-		def _1 :Int = (bits >> 32).toInt
-		def _2 :Int = bits.toInt
+	class IntPair private (private val bits :Long) extends AnyVal with Product2[Int, Int] with Serializable {
+		override def _1 :Int = (bits >> 32).toInt
+		override def _2 :Int = bits.toInt
+
 		def toTuple :(Int, Int) = (_1, _2)
+
+		override def canEqual(that :Any) :Boolean = that.isInstanceOf[IntPair]
+		override def toString :String = "(" + _1 + "," + _2 + ")"
 	}
 
 	object IntPair {
 		def apply(first :Int, second :Int) :IntPair = new IntPair(first.toLong << 32 | second & 0xffffffffL)
 		def unapply(pair :IntPair) :Opt[(Int, Int)] = One(pair.toTuple)
+
+		object conversions {
+			implicit class Int_x(private val self :Int) extends AnyVal {
+				@inline def x(other :Int) :IntPair = IntPair(self, other)
+			}
+
+			@inline implicit def IntPairToIntTuple(pair :IntPair) :(Int, Int) = (pair._1, pair._2)
+			@inline implicit def IntTupleToIntPair(pair :(Int, Int)) :IntPair = IntPair(pair._1, pair._2)
+		}
 	}
 }
