@@ -42,6 +42,17 @@ import net.noresttherein.sugar.vars.Opt.One
   * unless used in position of an abstract type, allows implicit conversion `T => Nullable[T]` to be enabled
   * by default, which serves as another differentiator from `Maybe`.
   *
+  * @note There is a type alias for this class: [[net.noresttherein.sugar.vars.??# ??]]
+  *        and an eponymous factory method.
+  *
+  * @note In situations where `Nullable` were to be created only to be immediately mapped/flat mapped,
+  *       you may consider using [[net.noresttherein.sugar.vars.extensions.ifNullMethods.? ?]] extension method
+  *       {{{
+  *         import net.noresttherein.sugar.vars.extensions.ifNullMethods
+  *         fileName.?(new File(_))
+  *       }}}
+  *       This may be useful for interoperability with APIs which frequently treat `null` as a valid argument.
+  *
   * @note $optionalTypesInfo
   *
   * @note This class is provided primarily for situations where a method accepting `Maybe` or `Opt`
@@ -56,7 +67,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * @define coll optional value
   */
 @SerialVersionUID(Ver)
-class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nullable] to allow inlining of its construction
+class Nullable[+A <: AnyRef] private[vars](private val ref :A) //private[Nullable] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
 {
 	@inline override def isFinal = true

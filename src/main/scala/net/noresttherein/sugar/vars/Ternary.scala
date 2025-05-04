@@ -568,6 +568,13 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 		case _   => "unknown"
 	}
 
+	/** Formats this `Ternary` as `Y/N/?`, depending on its value. */
+	@inline def toChar :Char = x match {
+		case No  => 'N'
+		case Yes => 'Y'
+		case _   => '?'
+	}
+
 	private[vars] override def isSpecialized = false
 
 	@inline override def canEqual(that :Any) :Boolean = that.isInstanceOf[Ternary]
@@ -759,6 +766,9 @@ case object Ternary {
 
 		/** Matches non-empty [[net.noresttherein.sugar.vars.Ternary Ternary]] instances. */
 		@inline def unapply(ternary :Ternary) :Ternary = ternary
+
+		final val True  :Known = new Ternary(Yes).asInstanceOf[Known]
+		final val False :Known = new Ternary(No).asInstanceOf[Known]
 	}
 
 

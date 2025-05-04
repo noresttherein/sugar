@@ -41,6 +41,18 @@ package object vars extends vars.varsTypeClasses {
 
 	private[vars] final val Ver = sugar.Ver
 
+	/** An alias for [[net.noresttherein.sugar.vars.Nullable]]`[A]`, a fully erased variant of [[scala.Option]]
+	  * for values which may be `null`.
+	  * @see [[net.noresttherein.sugar.vars.Maybe]]
+	  * @see [[net.noresttherein.sugar.vars.Unsure]]
+	  * @see [[net.noresttherein.sugar.vars.Nullable]]
+	  * @see [[net.noresttherein.sugar.vars.IntOpt]]
+	  * @see [[net.noresttherein.sugar.vars.Ternary]]
+	  */
+	type ??[+A <: AnyRef] = Nullable[A]
+
+	@inline def ??[A <: AnyRef](obj :A) :Nullable[A] = new Nullable(obj)
+
 	/** An erased variant of [[scala.Option]], with API defined by extension methods
 	  * in [[net.noresttherein.sugar.vars.OptExtension OptExtension]].
 	  * an `Opt[A]` can have three forms:
@@ -75,19 +87,6 @@ package object vars extends vars.varsTypeClasses {
 	  */
 	//other names: Hope/Lucky/NoLuck(Vain); Perhaps; Wish/Granted/Denied; Optional/Defined/Undefined; Space/Filled/Blank
 	type Opt[+A] >: None.type <: AnyRef
-
-	/** An alias for $Opt`[A]`, a fully erased variant of [[scala.Option]] with an API defined
-	  * by [[net.noresttherein.sugar.vars.OptExtension OptExtension]] as extension methods.
-	  * @see [[net.noresttherein.sugar.vars.Opt.One]]
-	  * @see [[scala.None]]
-	  * @see [[net.noresttherein.sugar.vars.Maybe]]
-	  * @see [[net.noresttherein.sugar.vars.Unsure]]
-	  * @see [[net.noresttherein.sugar.vars.Nullable]]
-	  * @see [[net.noresttherein.sugar.vars.IntOpt]]
-	  * @see [[net.noresttherein.sugar.vars.Ternary]]
-	  */
-	type ??[+A] = Opt[A]
-
 
 	/** The API of $Opt in the form of extension methods.
 	  * @define Ref `Opt`

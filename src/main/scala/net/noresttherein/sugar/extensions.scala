@@ -19,7 +19,8 @@ trait extensions
 	extends arrays.extensions with casting.extensions with collections.extensions with exceptions.extensions
 	   with funny.extensions with io.extensions with matching.extensions with numeric.extensions
 	   with optional.extensions with reflect.extensions with repeat.extensions with slang.extensions
-	   with time.extensions[Rank1] with tuples.extensions with typist.extensions with witness.extensions
+	   with time.extensions[Rank1] with tuples.extensions with typist.extensions with vars.extensions
+	   with witness.extensions
 {
 	/** Adds [[net.noresttherein.sugar.extensions.boxeqMethod.boxeq boxeq]] method which compares
 	  * any two values for equality using either `==` or `eq`, depending on whether they are value types

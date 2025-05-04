@@ -52,7 +52,7 @@ import net.noresttherein.sugar.vars.Opt.One
   * @define Ref `Maybe`
   * @define ref optional value
   * @define coll optional value
-  */ //consider: renaming to Hope/Catch/Unsure or Yes/No to Got/Lack
+  */ //consider: renaming to Hope/Catch/Unsure and/or Yes/No to Got/Lack
 @SerialVersionUID(Ver)
 class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allow inlining of its construction
 	extends AnyVal with Ref[A] with IterableOnce[A] with Product with Equals with Serializable
