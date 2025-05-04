@@ -160,9 +160,9 @@ case object IArrayLike extends IterableFactory[IArrayLike] {
 			case _ if elems.knownSize < 0 => No
 			case seq :ArraySeq[_]         =>
 				Yes((seq.unsafeArray.castFrom[Array[_], IArrayLike[E]], 0, seq.unsafeArray.length))
-			case VectorArray(array)       => Yes(array.castFrom[Array[AnyRef], IArrayLike[E]], 0, array.length)
+			case VectorArray(array)       => Yes(array, 0, array.length)
 			case slice :ArrayIterableOnce[E] if elems.knownSize >= 0 && slice.isImmutable =>
-				val array = slice.unsafeArray.castFrom[Array[_], IArrayLike[E]]
+				val array = slice.unsafeArray.castFrom[ArrayLike[E], IArrayLike[E]]
 				val start = slice.startIndex
 				Yes((array, start, start + slice.knownSize))
 			case _ =>

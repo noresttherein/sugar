@@ -208,7 +208,7 @@ case object RefArray extends RefArrayLikeFactory[RefArray] {
 		private def trustedUnapply[E](elems :IterableOnce[E]) :Maybe[(RefArray[E], Int, Int)] = {
 			val length = elems.knownSize
 			var start  = 0
-			val array  = elems match {
+			val array  = (elems match {
 				case seq   :mutable.ArraySeq[_] => seq.array
 				case seq   :ArrayBuffer[_]      => CheatedAccess.array(seq)
 				case slice :ArrayIterableOnce[_] if slice.isMutable =>

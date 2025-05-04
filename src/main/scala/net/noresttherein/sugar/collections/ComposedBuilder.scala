@@ -395,7 +395,7 @@ private class ArrayGrowable[E](private[this] var capacity :Int)
 
 	final override def knownSize :Int = len
 
-	override def unsafeArray :Array[Any] = stack
+	override def unsafeArray :RefArray[E] = stack.asInstanceOf[RefArray[E]]
 	override def startIndex = 0
 
 

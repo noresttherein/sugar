@@ -348,7 +348,7 @@ case object IndexedSet extends SortedIterableFactory[IndexedSet] {
 			"ArrayIndexedSet([" + elems.length + "], " + start + ", " + end + ")"
 		)
 
-		private[sugar] override def unsafeArray :Array[_] = elems
+		private[sugar] override def unsafeArray :Array[E] = elems
 		private[sugar] override def startIndex  :Int = start
 		private[sugar] override def isImmutable :Boolean = true
 

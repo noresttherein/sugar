@@ -43,7 +43,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 			if (elems.knownSize < 0)
 				No
 			else {
-				val array = elems match {
+				val array :ArrayLike[_] = elems match {
 					case slice :ArrayIterableOnce[_] if slice.knownSize == slice.unsafeArray.length =>
 						slice.unsafeArray
 					case _ :collection.IndexedSeqOps[_, _, _] => elems match {
@@ -51,7 +51,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 						case seq :mutable.ArraySeq[_] => seq.array
 						case VectorArray(array)       => array
 						case seq :ArrayBuffer[_] if seq.length == CheatedAccess.array(seq).length =>
-							CheatedAccess.array(seq)
+							CheatedAccess.array(seq) :ArrayLike[_]
 						case seq :MatrixBuffer[_] if seq.dim == 1 && seq.startIndex == 0 && seq.length == seq.data1.length =>
 							seq.data1
 						case _ => null
@@ -59,7 +59,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 					case _ => null
 				}
 				if (array != null && array.getClass == classOf[Array[AnyRef]])
-					Yes(array.castFrom[Array[_], IRefArray[A]])
+					Yes(array.castFrom[ArrayLike[_], IRefArray[A]])
 				else
 					No
 			}
@@ -75,7 +75,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 
 		def unapply[A](elems :IterableOnce[A]) :Maybe[(RefArrayLike[A], Int, Int)] = elems match {
 			case arr :ArrayIterableOnce[_] =>
-				val array = arr.unsafeArray.castFrom[Array[_], RefArrayLike[A]]
+				val array = arr.unsafeArray.castFrom[ArrayLike[_], RefArrayLike[A]]
 				if (array.getClass == classOf[Array[AnyRef]])
 					Yes((array, arr.startIndex, arr.startIndex + arr.knownSize))
 				else
@@ -89,7 +89,7 @@ object RefArrayLike extends IterableFactory.Delegate[RefArrayLike](RefArray) {
 					Yes((seq.array.castFrom[Array[_], RefArrayLike[A]], 0, seq.length))
 
 				case VectorArray(array)        =>
-					Yes((array.castFrom[Array[AnyRef], RefArrayLike[A]], 0, elems.knownSize))
+					Yes((array, 0, elems.knownSize))
 
 				case seq :MatrixBuffer[_] if seq.dim == 1 =>
 					val array = seq.data1.castFrom[Array[_], RefArrayLike[A]]
@@ -666,7 +666,8 @@ private[sugar] case object ErasedArray extends RefArrayLikeFactory[Array] with I
 			ArraySeq.unsafeWrapArray(array)
 
 		def unapply[A](elems :IterableOnce[A]) :Maybe[Array[_]] = elems match {
-			case seq :ArrayIterableOnce[_] if seq.knownSize == seq.unsafeArray.length => Yes(seq.unsafeArray)
+			case seq :ArrayIterableOnce[_] if seq.knownSize == seq.unsafeArray.length =>
+				Yes(seq.unsafeArray.asInstanceOf[Array[_]])
 			case _ :collection.IndexedSeq[_] => elems match {
 				case seq :ArraySeq[_]         => Yes(seq.unsafeArray)
 				case seq :mutable.ArraySeq[_] => Yes(seq.array)
@@ -698,7 +699,7 @@ private[sugar] case object ErasedArray extends RefArrayLikeFactory[Array] with I
 				val size   = seq.knownSize
 				val offset = seq.startIndex
 				if (size >= 0)
-					Yes((seq.unsafeArray, offset, offset + size))
+					Yes((seq.unsafeArray.asInstanceOf[Array[_]], offset, offset + size))
 				else
 					No
 			case _ :collection.IndexedSeqOps[_, _, _] => elems match {

@@ -379,7 +379,7 @@ private[sugar] object IndexedIterable {
 		case slice   :ArrayIterableOnce[A] =>
 			val from  = slice.startIndex
 			val until = from + slice.knownSize
-			Yes(ArraySlice.slice(slice.unsafeArray.castFrom[Array[_], Array[A]], from, until))
+			Yes(ArrayLikeSlice.slice(slice.unsafeArray, from, until))
 		case _ => No
 	}
 

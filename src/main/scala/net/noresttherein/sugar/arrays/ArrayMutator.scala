@@ -26,7 +26,7 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 
-	private[sugar] final override def unsafeArray :Array[_] = array
+	private[sugar] final override def unsafeArray :Array[T] = array
 	final override def index :Int = first
 	protected final override def index_=(i :Int) :Unit = first = i
 	final override def limit :Int = `last++`

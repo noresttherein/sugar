@@ -6,20 +6,20 @@ import java.lang.invoke.MethodHandles
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.unspecialized
-import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedSeqFactory, View, mutable}
+import scala.collection.{Factory, IterableFactoryDefaults, SeqFactory, Stepper, StepperShape, View, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import scala.reflect.{ClassTag, classTag}
 
-import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IArrayLike, IRefArray, TypedArray, arraycopy}
+import net.noresttherein.sugar.arrays.{ArrayFactory, ArrayLike, ErasedArray, IArray, IArrayLike, IRefArray}
 import net.noresttherein.sugar.collections.CompanionFactory.sourceCollectionFactory
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
 import net.noresttherein.sugar.collections.HasFastSlice.preferDropOverIterator
 import net.noresttherein.sugar.collections.RelayArrayPlus.{AcceptableBuilderFillRatio, InitSize, OwnerField, SliceReallocationFactor, superElementType}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
-import net.noresttherein.sugar.exceptions.{illegalState_!, illegal_!, maxSize_!, outOfBounds_!, unsupported_!}
+import net.noresttherein.sugar.exceptions.{illegalState_!, maxSize_!, outOfBounds_!, unsupported_!}
 import net.noresttherein.sugar.numeric.extensions.IntExtension
 import net.noresttherein.sugar.reflect.{Boxed, Unboxed, classes}
 import net.noresttherein.sugar.util.CachesHashCode
@@ -173,6 +173,7 @@ private class RelayArray0
 	override def sorted[U](implicit ord :Ordering[U]) :RelayArray[Nothing] = this
 	override def sortWith(lt :(Nothing, Nothing) => Boolean) :RelayArray[Nothing] = this
 	override def sortBy[A](f :Nothing => A)(implicit ord :Ordering[A]) :RelayArray[Nothing] = this
+	override val hashCode :Int = Nil.hashCode
 }
 
 
@@ -1261,11 +1262,11 @@ private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
 	override def to[C1](factory :Factory[E, C1]) :C1 = sourceCollectionFactory(factory) match {
 		case Yes(RelayArray | Seq | IndexedSeq | collection.Seq | collection.IndexedSeq) => this.asInstanceOf[C1]
 		case Yes(ArraySeq) if length == unsafeArray.length                               =>
-			ArraySeq.unsafeWrapArray(unsafeArray).castFrom[ArraySeq[Any], C1]
+			ArraySeq.unsafeWrapArray(unsafeArray.asInstanceOf[Array[_]]).castFrom[ArraySeq[Any], C1]
 		case Yes(IRefArraySlice) if elementType == classOf[Any] =>
-			IRefArraySlice.wrap(unsafeArray.castFrom[Array[_], IRefArray[E]]).castFrom[IRefArraySlice[E], C1]
+			IRefArraySlice.wrap(unsafeArray.castFrom[ArrayLike[_], IRefArray[E]]).castFrom[IRefArraySlice[E], C1]
 		case Yes(IArrayLikeSlice | IArraySlice | ArrayLikeSlice) if elementType.isPrimitive =>
-			IArraySlice.wrap(unsafeArray.castFrom[Array[_], IArray[E]]).castFrom[IArraySlice[E], C1]
+			IArraySlice.wrap(unsafeArray.castFrom[ArrayLike[_], IArray[E]]).castFrom[IArraySlice[E], C1]
 		case _ => super.to(factory)
 	}
 
@@ -1528,7 +1529,8 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 //		case IArray.Wrapped.Slice(array, from, until) =>
 //			make(array.castFrom[IArray[_], Array[E]], from, until - from)
 		case IArrayLike.Slice(array, from, until) =>
-			new RelayArrayPlus[E](array.castFrom[IArrayLike[_], Array[E]], from, until - from)
+			make(array, from, until - from)
+//			new RelayArrayPlus[E](array.castFrom[IArrayLike[_], Array[E]], from, until - from)
 		case ErasedArray.Slice(array, from, until) =>
 			make(array.slice(from, until).asInstanceOf[IArray[E]], 0, until - from)
 		case elems :Iterable[E] => elems.head.getClass match {
