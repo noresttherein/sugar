@@ -359,13 +359,13 @@ class Ternary private[Ternary](private val x :Int) //private[Ternary] to allow i
 
 	/** The same as [[net.noresttherein.sugar.vars.Ternary.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]] is returned instead. */
-	@inline def guardMap(f :Boolean => Boolean) :Ternary =
+	@inline def tryMap(f :Boolean => Boolean) :Ternary =
 		if (x == NoContent) this
 		else new Ternary(try if (f(x == Yes)) Yes else No catch { case _ :Exception => NoContent })
 
 	/** The same as [[net.noresttherein.sugar.vars.Ternary.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Ternary.Unknown Unknown]] is returned instead. */
-	@inline def guardMap[O](f :Boolean => O) :Opt[O] = //consider: returning Outcome instead.
+	@inline def tryMap[O](f :Boolean => O) :Opt[O] = //consider: returning Outcome instead.
 		if (x == NoContent)
 			None
 		else try {
@@ -692,6 +692,22 @@ case object Ternary {
 	@inline def guard[A](f :A => Boolean)(a :A) :Ternary =
 		try { Known(f(a)) } catch {
 			case _ :Exception => Unknown
+		}
+
+	/** Executes the given lazy expression in a `try-catch` block, returning the result as `Ternary`.
+	  * This is the same as `guard(a)`, except any `Throwable` is caught, not just `Exception`s
+	  * @return `Known(a)`, or `Unknown` if the evaluation of `a` ends abnormally. */
+	@inline def guardAll[A](a : => Boolean) :Ternary =
+		try Known(a) catch {
+			case _ :Throwable => Unknown
+		}
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning the result as `Ternary`.
+	  * This is the same as `guard(f)(a)`, except any `Throwable` is caught, not just `Exception`s
+	  * @return `Known(f(a))`, or `Unknown` if the evaluation of `f(a)` ends abnormally.  */
+	@inline def guardAll[A, B](f : A => Boolean)(a :A) :Ternary =
+		try Known(f(a)) catch {
+			case _ :Throwable => Unknown
 		}
 
 	/** Returns the first argument as `Known` if it satisfies the predicate `p`.

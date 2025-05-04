@@ -212,7 +212,7 @@ package object vars extends vars.varsTypeClasses {
 
 		/** The same as [[net.noresttherein.sugar.vars.OptExtension.map map]], but exceptions thrown
 		  * by the function are caught and $None is returned instead. */
-		@inline def guardMap[O](f :A => O) :Opt[O] =
+		@inline def tryMap[O](f :A => O) :Opt[O] =
 			if (self.asInstanceOf[AnyRef] eq None)
 				None
 			else
@@ -725,8 +725,8 @@ package object vars extends vars.varsTypeClasses {
 	/** A variant of a non boxing `Either`, with instances of two categories: $Done`[A]` containing a value of `A`,
 	  * and $Failed with an exception, or an error message. In order to avoid the creation of `Right` (successful)
 	  * instance each time in a monadic composition of chained operations on an `Either`, a `Done` is encoded
-	  * as its erased (and boxed) contents, i.e. the value itself. A `Failed` is encoded as an instance of `Throwable`:
-	  * this allows both to pass arbitrary `Throwable` as errors without additional boxing,
+	  * as its erased (and boxed) contents, i.e. the value itself. The `Failed` case is encoded as an instance
+	  * of `Throwable`: this allows both to pass arbitrary `Throwable` as errors without additional boxing,
 	  * as well as wrap a lazily evaluated `String` in a special `Failed` instance.
 	  * This solution brings three limitations:
 	  *   1. Nesting `Outcome` within another `Outcome` must resort to boxing in order to differentiate between
@@ -737,9 +737,7 @@ package object vars extends vars.varsTypeClasses {
 	  *      object $Done. [[net.noresttherein.sugar.vars.OutcomeExtension Extension]] methods are provided,
 	  *      mirroring the relevant part of functionality of `Either` and `Option`.
 	  */
-	//consider: Renaming to Opt. The advantage lies in that methods could be named yieldXxx (and in a shorter name),
-	// but `Done` and `Failed` are not good name matches for its subtypes.
-	type Outcome[+A] >: Failed //can be also named Fail
+	type Outcome[+A] >: Throwable
 
 	/** Extension methods providing the full interface of $Outcome.
 	  * @define Outcome [[net.noresttherein.sugar.vars.Outcome! Outcome]]
@@ -873,12 +871,12 @@ package object vars extends vars.varsTypeClasses {
 
 		/** The same as [[net.noresttherein.sugar.vars.OutcomeExtension.map map]], but exceptions thrown
 		  * by the function are caught and $Failed with the exception's error message is returned. */
-		@inline def guardMap[O](f :A => O) :Outcome[O] = self match {
+		@inline def tryMap[O](f :A => O) :Outcome[O] = self match {
 			case fail :Throwable =>
 				fail.asInstanceOf[Outcome[O]]
 			case _ =>
 				try Done(f(get)) catch {
-					case e :Exception => Failed(e)
+					case e :Exception => e
 				}
 		}
 
@@ -1145,6 +1143,22 @@ package vars {
 				case _ :Exception => None
 			}
 
+		/** Executes the given lazy expression in a `try-catch` block, returning the result as an `Opt`.
+		  * This is the same as `guard(a)`, except any `Throwable` is caught, not just `Exception`s.
+		  * @return `One(a)` or `None` if the evaluation of `a` ends abnormally.  */
+		@inline def guardAll[A](a: => A) :Opt[A] =
+			try One(a) catch {
+				case _ :Throwable => None
+			}
+
+		/** Applies the given function to the second argument in a `try-catch` block, returning the result as an `Opt`.
+		  * This is the same as `guard(f(a))`, except any `Throwable` is caught, not just `Exception`s.
+		  * @return `One(f(a))` or `None` if the evaluation of `f(a)` ends abnormally. */
+		@inline def guardAll[A, B](f: A => B)(a :A) :Opt[B] =
+			try One(f(a)) catch {
+				case _ :Throwable => None
+			}
+
 		/** Returns the first argument in `One` if it satisfies the predicate `p`.
 		  * @return `One(value).filter(p)`. */
 		@inline def satisfying[A](value :A)(p :A => Boolean) :Opt[A] =
@@ -1358,6 +1372,39 @@ package vars {
 			case _                         => either.asInstanceOf[Pill[Throwable, O]] //erased Blue
 		}
 
+		/** Executes the given lazy expression in a `try-catch` block, returning `Red` in case
+		  * any exception is caught. Otherwise, the value is returned as a `Blue` instance as normal. */
+		@inline def guard[A](a : => A) :Pill[Exception, A] =
+			try Blue(a) catch {
+				case e :Exception => Red(e)
+			}
+
+		/** Applies the given function to the second argument in a `try-catch` block, returning `Red` in case
+		  * any exception is caught. Otherwise, the result is returned as a `Blue` instance as normal. */
+		//While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
+		@inline def guard[A, B](f :A => B)(a :A) :Pill[Exception, B] =
+			try Blue(f(a)) catch {
+				case e :Exception => Red(e)
+			}
+
+		/** Executes the given lazy expression in a `try-catch` block. This is the same as `guard(a)`,
+		  * but will catch any `Throwable`, not just `Exception`s.
+		  * @return `Blue(a)` or `Red(e)`, where `e` is a `Throwable` thrown when evaluating `a`. */
+		@inline def guardAll[A](a : => A) :Pill[Throwable, A] =
+			try Blue(a) catch {
+				case e :Throwable => Red(e)
+			}
+
+		/** Applies the given function to the second argument in a `try-catch` block,
+		  * returning the result as a `Pill`. This is the same as `guard(f)(a)`,
+		  * but will catch any `Throwable`, not just `Exception`s.
+		  * @return `Blue(f(a))` or `Red(e)`, where `e` is a `Throwable` thrown when evaluating `f(a)`. */
+		//While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
+		@inline def guardAll[A, B](f :A => B)(a :A) :Pill[Throwable, B] =
+			try Blue(f(a)) catch {
+				case e :Exception => Red(e)
+			}
+
 
 		/** A factory and matching pattern for [[net.noresttherein.sugar.vars.Pill! Pill]] instances
 		  * representing a successful result of a computation.
@@ -1455,7 +1502,7 @@ package vars {
 		  * any exception is caught. Otherwise, the value is returned as a `Done` instance as normal. */
 		@inline def guard[A](a : => A) :Outcome[A] =
 			try Done(a) catch {
-				case e :Exception => Failed(e)
+				case e :Exception => e
 			}
 
 		/** Applies the given function to the second argument in a `try-catch` block, returning `Failed` in case
@@ -1463,7 +1510,25 @@ package vars {
 		//While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
 		@inline def guard[A, B](f :A => B)(a :A) :Outcome[B] =
 			try Done(f(a)) catch {
-				case e :Exception => Failed(e)
+				case e :Exception => e
+			}
+
+		/** Executes the given lazy expression in a `try-catch` block. This is the same as `guard(a)`,
+		  * but will catch any `Throwable`, not just `Exception`s.
+		  * @return `Done(a)` or the `Throwable` thrown when evaluating `a`. */
+		@inline def guardAll[A](a : => A) :Outcome[A] =
+			try Done(a) catch {
+				case e :Throwable => e
+			}
+
+		/** Applies the given function to the second argument in a `try-catch` block,
+		  * returning the result as an `Outcome`. This is the same as `guard(f)(a)`,
+		  * but will catch any `Throwable`, not just `Exception`s.
+		  * @return `Done(f(a))` or the `Throwable` thrown when evaluating `f(a)`. */
+		//While swapped parameter order would make more sense, it would clash with the (a: => A) overload.
+		@inline def guardAll[A, B](f :A => B)(a :A) :Outcome[B] =
+			try Done(f(a)) catch {
+				case e :Exception => e
 			}
 
 		/** Converts `Left` to $Failed and `Right` to $Done. */
@@ -1555,7 +1620,7 @@ package vars {
 			@inline def apply(error :Failed) :Outcome[Nothing] = error
 
 			/** A `Failed` wrapping the given exception and sharing its error message. */
-			@inline def apply(e :Throwable) :Outcome[Nothing] = e.asInstanceOf[Outcome[Nothing]]
+			@inline def apply(e :Throwable) :Outcome[Nothing] = e
 
 
 			/** Extracts the message from the argument `Outcome` if it is `Failed`.

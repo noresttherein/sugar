@@ -251,7 +251,7 @@ class Maybe[+A] private[Maybe](private val ref :AnyRef) //private[Maybe] to allo
 	//consider: returning Outcome instead (here and in other Option-like types)
 	/** The same as [[net.noresttherein.sugar.vars.Maybe.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Maybe.No No]] is returned instead. */
-	@inline def guardMap[O](f :A => O) :Maybe[O] =
+	@inline def tryMap[O](f :A => O) :Maybe[O] =
 		if (ref eq NoContent)
 			new Maybe(NoContent)
 		else try {
@@ -542,6 +542,22 @@ case object Maybe {
 		try Yes(f(a)) catch {
 			case _ :Exception => No
 		}
+
+	/** Executes the given lazy expression in a `try-catch` block, returning `Yes` if the computation is completed.
+	  * This is the same as `guard(a)`, except any `Throwable` is caught, not just `Exception`s.
+	  * @return `Yes(a)`, or `No` if evaluation of `a` throws a `Throwable`. */
+    @inline def guardAll[T](a: => T) :Maybe[T] =
+	    try Yes(a) catch {
+		    case _ :Throwable => No
+	    }
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning `Yes` if the computation
+	  *  is completed. This is the same as `guard(f)(a)`, except any `Throwable` is caught, not just `Exception`s.
+	  * @return `Yes(f(a))`, or `No` if evaluation of `f(a)` throws a `Throwable`. */
+    @inline def guardAll[A, B](f :A => B)(a: A) :Maybe[B] =
+	    try Yes(f(a)) catch {
+		    case _ :Throwable => No
+	    }
 
 	/** Returns the first argument as `Yes` if it satisfies the predicate `p`.
 	  * @return `Yes(value).filter(p)`. */

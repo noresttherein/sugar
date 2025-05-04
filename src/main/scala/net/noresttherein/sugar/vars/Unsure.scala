@@ -215,7 +215,7 @@ sealed trait Unsure[@specialized(SpecializedVars) +T]
 
 	/** The same as [[net.noresttherein.sugar.vars.Unsure.map map]], but exception thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Missing Missing]] is returned instead. */
-	@inline final def guardMap[B](f :T => B) :Unsure[B] =
+	@inline final def tryMap[B](f :T => B) :Unsure[B] =
 		if (this eq Missing)
 			Missing
 		else try {
@@ -451,15 +451,31 @@ case object Unsure {
 	/** Executes the given lazy expression in a `try-catch` block, returning `Missing` in case
 	  * any exception is caught. Otherwise, the value is returned in a `Sure` instance as normal. */
 	@inline def guard[A](a : => A) :Unsure[A] =
-		try { new Sure(a) } catch {
+		try new Sure(a) catch {
 			case _ :Exception => Missing
 		}
 
 	/** Applies the given function to the second argument in a `try-catch` block, returning `Missing` in case
 	  * any exception is caught. Otherwise, the result is returned in a `Sure` instance as normal. */
 	@inline def guard[A, B](f : A => B)(a :A) :Unsure[B] =
-		try { new Sure(f(a)) } catch {
+		try new Sure(f(a)) catch {
 			case _ :Exception => Missing
+		}
+
+	/** Executes the given lazy expression in a `try-catch` block, returning the result as `Unsure`.
+	  * This is the same as `guard(a)`, except any `Throwable` is caught, not just `Exception`s
+	  * @return `Sure(a)`, or `Missing` if the evaluation of `a` ends abnormally. */
+	@inline def guardAll[A](a : => A) :Unsure[A] =
+		try new Sure(a) catch {
+			case _ :Throwable => Missing
+		}
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning the result as `Unsure`.
+	  * This is the same as `guard(f)(a)`, except any `Throwable` is caught, not just `Exception`s
+	  * @return `Sure(f(a))`, or `Missing` if the evaluation of `f(a)` ends abnormally.  */
+	@inline def guardAll[A, B](f : A => B)(a :A) :Unsure[B] =
+		try new Sure(f(a)) catch {
+			case _ :Throwable => Missing
 		}
 
 	/** Returns the first argument as `Sure` if it satisfies the predicate `p`.

@@ -250,13 +250,13 @@ class IntOpt private[IntOpt](private val x :Long) //private[IntOpt] to allow inl
 
 	/** The same as [[net.noresttherein.sugar.vars.IntOpt.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] is returned instead. */
-	def guardMap(f :Int => Int) :IntOpt =
+	def tryMap(f :Int => Int) :IntOpt =
 		if (x == NoContent) this
 		else new IntOpt(try f(x.toInt) & Content catch { case _ :Exception => NoContent })
 
 	/** The same as [[net.noresttherein.sugar.vars.IntOpt.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.IntOpt.NoInt NoInt]] is returned instead. */
-	def guardMap[O](f :Int => O) :Maybe[O] =
+	def tryMap[O](f :Int => O) :Maybe[O] =
 		if (x == NoContent)
 			No
 		else try {
@@ -524,15 +524,31 @@ case object IntOpt {
 	/** Executes the given lazy expression in a `try-catch` block, returning `NoInt` in case
 	  * any exception is caught. Otherwise, the value is returned as a `AnInt` instance as normal. */
 	@inline def guard(a : => Int) :IntOpt =
-		try { AnInt(a) } catch {
+		try AnInt(a) catch {
 			case _ :Exception => NoInt
 		}
 
 	/** Applies the given function to the second argument in a `try-catch` block, returning `NoInt` in case
 	  * any exception is caught. Otherwise, the result is returned as a `AnInt` instance as normal. */
 	@inline def guard[A](f :A => Int)(a :A) :IntOpt =
-		try { AnInt(f(a)) } catch {
+		try AnInt(f(a)) catch {
 			case _ :Exception => NoInt
+		}
+
+	/** Executes the given lazy expression in a `try-catch` block, returning the result as an `IntOpt`.
+	  * This is the same as `guard(a)`, except any `Throwable` is caught, not just `Exception`s.
+	  * @return `AnInt(a)`, or `NoInt` if evaluating `a` ends abnormally. */
+	@inline def guardAll(a : => Int) :IntOpt =
+		try AnInt(a) catch {
+			case _ :Throwable => NoInt
+		}
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning the result as an `IntOpt`.
+	  * This is the same as `guard(f)(a)`, except any `Throwable` is caught, not just `Exception`s.
+	  * @return `AnInt(f(a))`, or `NoInt` if evaluating `f(a)` ends abnormally. */
+	@inline def guardAll[A](f :A => Int)(a :A) :IntOpt =
+		try AnInt(f(a)) catch {
+			case _ :Throwable => NoInt
 		}
 
 	/** Returns the first argument as `AnInt` if it satisfies the predicate `p`.

@@ -238,7 +238,7 @@ class Nullable[+A <: AnyRef] private[Nullable](private val ref :A) //private[Nul
 	//consider: returning Outcome instead (here and in other Option-like types)
 	/** The same as [[net.noresttherein.sugar.vars.Nullable.map map]], but exceptions thrown by the function
 	  * are caught and [[net.noresttherein.sugar.vars.Nullable.Null Null]] is returned instead. */
-	@inline def guardMap[O <: AnyRef](f :A => O) :Nullable[O] =
+	@inline def tryMap[O <: AnyRef](f :A => O) :Nullable[O] =
 		if (ref eq null)
 			Null
 		else try {
@@ -537,6 +537,22 @@ case object Nullable {
 	@inline def guard[A, B <: AnyRef](f :A => B)(a :A) :Nullable[B] =
 		try new Nullable(f(a)) catch {
 			case _ :Exception => Null
+		}
+
+	/** Executes the given lazy expression in a `try-catch` block, returning the result as `Nullable`.
+	  * This is the same as `guard(a)`, except any `Throwable` is caught, not just `Exception`s.
+	  * @return `Nullable(a)` or `Null` if the evaluation of `a` ends abnormally. */
+	@inline def guardAll[T <: AnyRef](a : => T) :Nullable[T] =
+		try new Nullable(a) catch {
+			case _ :Throwable => Null
+		}
+
+	/** Applies the given function to the second argument in a `try-catch` block, returning the result as `Nullable`.
+	  * This is the same as `guard(f)(a)`, except any `Throwable` is caught, not just `Exception`s.
+	  * @return `Nullable(f(a))` or `Null` if the evaluation of `f(a)` ends abnormally. */
+	@inline def guardAll[A, B <: AnyRef](f :A => B)(a :A) :Nullable[B] =
+		try new Nullable(f(a)) catch {
+			case _ :Throwable => Null
 		}
 
 	/** Returns the first argument as `NonNull` if it satisfies the predicate `p`.
