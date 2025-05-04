@@ -594,7 +594,7 @@ case object IntOpt {
 	  * Conversions between `IntOpt` and [[net.noresttherein.sugar.vars.Unsure Unsure]] are located
 	  * in `Unsure.`[[net.noresttherein.sugar.vars.Unsure.conversions conversions]]. */
 	@SerialVersionUID(Ver)
-	object implicits {
+	object conversions {
 		@inline implicit def IntOptToOption(opt :IntOpt) :Option[Int] = opt.option
 		@inline implicit def IntOptToIterable(opt :IntOpt) :Iterable[Int] = opt.toIterable
 

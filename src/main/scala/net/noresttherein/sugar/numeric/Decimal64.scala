@@ -13,7 +13,7 @@ import net.noresttherein.sugar.exceptions.{InternalException, SugaredArithmeticE
 import net.noresttherein.sugar.extensions.LongExtension
 import net.noresttherein.sugar.numeric
 import net.noresttherein.sugar.numeric.Decimal64.{Decimal64AsIfIntegral, DoublePowersOf10, ExactDoublePowersOf10, ExactFloatPowersOf10, ExtendedPrecision, FloatPowersOf10, LongPowerBound, LongPowerOf10, LongPrecision, MaxDigitsInPlainString, MaxDigitsInWholeString, MaxExponent, MaxLongPowerOf10, MaxLongValue, MaxPrecision, MinLongValue, MinScale, MinUnscaled, MinusOne, NegativeExponentFormat, One, PositiveExponentFormat, PowerOf10, Precision, PrecisionExceededException, Round, ScaleBits, ScaleMask, ScaleSign, SignificandBits, SignificandMask, Zero, divideByDigits, divideLong, throwArithmeticException, trailingZeros}
-import net.noresttherein.sugar.numeric.Decimal64.implicits.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
+import net.noresttherein.sugar.numeric.Decimal64.extensions.{IntScientificDecimal64Notation, LongScientificDecimal64Notation}
 import net.noresttherein.sugar.numeric.Decimal64.Round.{Extended, ExtendedExact, isNearestNeighbour, to16digits, to17digits, toMaxDigits}
 import net.noresttherein.sugar.typist.CompanionObject
 import net.noresttherein.sugar.vars.{Maybe, Opt}
@@ -2921,12 +2921,12 @@ object Decimal64 extends CompanionObject[Decimal64] {
 
 
 
-	/** Extension method for `Int` and `Long` */
-	trait implicits {
-		implicit def scientificDecimalNotation(significand :Int) :IntScientificDecimal64Notation =
+	/** Extension methods for `Int` and `Long` */
+	trait extensions extends Any {
+		@inline final implicit def scientificDecimalNotation(significand :Int) :IntScientificDecimal64Notation =
 			new IntScientificDecimal64Notation(significand)
 
-		implicit def scientificDecimalNotation(significand :Long) :LongScientificDecimal64Notation =
+		@inline final implicit def scientificDecimalNotation(significand :Long) :LongScientificDecimal64Notation =
 			new LongScientificDecimal64Notation(significand)
 	}
 
@@ -2934,7 +2934,7 @@ object Decimal64 extends CompanionObject[Decimal64] {
 	  * `significand e exponent`.
 	  **/
 	@SerialVersionUID(Ver)
-	object implicits extends implicits {
+	object extensions extends extensions {
 		class IntScientificDecimal64Notation(private val mantissa :Int) extends AnyVal {
 			def e(exponent :Int) :Decimal64 = Decimal64(mantissa, -exponent)
 		}

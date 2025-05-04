@@ -330,7 +330,8 @@ case object Year extends TimeProjector {
 	@inline implicit def YearFromJavaYear(year :j.Year) :Year = new Year(year.getValue)
 	@inline implicit def YearToJavaYear(year :Year)     :Year = year.toJava
 
-	object implicits {
+	@SerialVersionUID(Ver)
+	object conversions {
 		@inline implicit def IntToYear(year :Int) :Year = new Year(year)
 	}
 }

@@ -8,7 +8,7 @@ import net.noresttherein.sugar.typist.CompanionObject
 
 
 
-/** The main class of the package, abstracting over the general concept of a time line and wrapping a [[java.time.Clock]].
+/** The main class of the package, abstracting over the general concept of a timeline and wrapping a [[java.time.Clock]].
   * Serves as a factory for [[net.noresttherein.sugar.time.TimePoint time points]] describing the 'current' moment
   * or moments after/before a certain [[net.noresttherein.sugar.time.TimeExtent time extent]].
   * Most factory methods of classes (and objects) in this package which refer to the current moment or local
@@ -16,7 +16,7 @@ import net.noresttherein.sugar.typist.CompanionObject
   * `Time.`[[net.noresttherein.sugar.time.Time.Local Local]] in case no implicit is available.
   * This allows easy abstraction over the time zone and testing by providing your own implicit instance.
   * Alternatively, importing
-  * `Time.`[[net.noresttherein.sugar.time.Time.implicits implicits]]`.`[[net.noresttherein.sugar.time.Time.implicits.ImplicitUTCTime ImplicitUTCTime]]
+  * `Time.`[[net.noresttherein.sugar.time.Time.defaults defaults]]`.`[[net.noresttherein.sugar.time.Time.defaults.UTCTime UTCTime]]
   * will set the time to current `UTC` time.
   * @author Marcin Mościcki
   */
@@ -93,10 +93,10 @@ case object Time extends CompanionObject[Time] {
 	@inline implicit def TimeFromJavaClock(clock :Clock) :Time = new Time(clock)
 	@inline implicit def TimeToJavaClock(time :Time) :Clock = time.clock
 
-
-	object implicits {
-		final implicit val ImplicitUTCTime   :Time = new Time(Clock.systemUTC)
-		final implicit val ImplicitLocalTime :Time = new Time(Clock.systemDefaultZone)
+	@SerialVersionUID(Ver)
+	object defaults {
+		final implicit val UTCTime   :Time = new Time(Clock.systemUTC)
+		final implicit val LocalTime :Time = new Time(Clock.systemDefaultZone)
 	}
 }
 

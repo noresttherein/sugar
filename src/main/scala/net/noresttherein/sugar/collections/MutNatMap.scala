@@ -2,10 +2,10 @@ package net.noresttherein.sugar.collections
 
 
 
-import scala.collection.{StrictOptimizedIterableOps, mutable}
+import scala.collection.{Factory, StrictOptimizedIterableOps, mutable}
 import scala.collection.mutable.Builder
 
-import net.noresttherein.sugar.collections.NatMap.Assoc
+import net.noresttherein.sugar.collections.NatMap.{Assoc, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.{Throw, throwNoSuchElementException}
 import net.noresttherein.sugar.concurrent.Fences.releaseFence
 import net.noresttherein.sugar.exceptions.illegal_!
@@ -48,7 +48,7 @@ trait MutNatMap[K[_], V[_]]
 
 
 @SerialVersionUID(Ver)
-object MutNatMap {
+case object MutNatMap {
 
 	def from[K[_], V[_]](entries :IterableOnce[Assoc[K, V, _]]) :MutNatMap[K, V] =
 		new NaturalizedMap[K, V] ++= entries
@@ -61,6 +61,15 @@ object MutNatMap {
 
 	def newBuilder[K[_], V[_]] :Builder[(Assoc[K, V, _]), MutNatMap[K, V]] =
 		new NaturalizedMap[K, V]// with Builder[Assoc[K, V, _], MutNatMap[K, V]]
+
+	//todo: use WhenNoKey
+	def factory[K[_], V[_]]//(implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
+			:Factory[Assoc[K, V, _], MutNatMap[K, V]] =
+		new ComparableFactory[Assoc[K, V, _], MutNatMap[K, V]] {
+			override def factory = MutNatMap
+			override def fromSpecific(it :IterableOnce[Assoc[K, V, _]]) = MutNatMap.from(it)
+			override def newBuilder = MutNatMap.newBuilder
+		}
 
 
 	trait FreezableMap[K[_], V[_]] extends MutNatMap[K, V] {

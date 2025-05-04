@@ -242,7 +242,7 @@ case object InOut {
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs or cause conflicts. */
 	@SerialVersionUID(Ver)
-	object implicits {
+	object extensions {
 //		/** Implicitly creates a `InOut` instance with a given value. This implicit is optional as the main use of `InOut[T]`
 //		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `InOut[T]`
 //		  * makes no sense and would likely be an error.

@@ -75,14 +75,16 @@ object Var {
 
 	/** Extra implicits which might be helpful but can also lead to tricky bugs. */
 	@SerialVersionUID(Ver)
-	object implicits {
+	object conversions {
 		/** Implicitly creates a `Var` with a given value. This implicit is optional as the main use of `Var[T]`
 		  * is to be used as in/out method parameters. In that scenario, using a value identifier instead of a `Var[T]`
 		  * makes no sense and would likely be an error.
 		  */
 		@inline implicit def boxVar[@specialized(SpecializedVars) T](value :T) :Var[T] = Var(value)
+	}
 
-
+	@SerialVersionUID(Ver)
+	object extensions {
 		/** Implicit extension of values of any type allowing chained assignments to compatible variables in the form of
 		  * `x1 =: x2 =: x3 =: newValue` or `(x1, x2, x3) =: newValue`. This conversion needs to be manually imported
 		  * as the wide scope of accepted input values can easily lead to conflicts with different libraries.

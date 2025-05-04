@@ -36,7 +36,7 @@ private[format] sealed trait FormatLayoutMolds { this :Format =>
   * `Mold[Raw]`, `Mold[Liquid]` and any other concrete type that a `Format` may define itself.
   * `Mold[Raw]` is less desirable than `Mold[Liquid]` because it involves conversions to `Liquid`.
   */
-private[format] sealed trait FormatRawMoldImplicit extends FormatLayoutMolds { this :Format =>
+private[format] sealed trait FormatRawMold extends FormatLayoutMolds { this :Format =>
 	/** A `Mold` embedding directly given `Raw` values in the formatted result.
 	  * When parsing, all of the input is automatically consumed, regardless of its contents.
 	  */
@@ -48,7 +48,7 @@ private[format] sealed trait FormatRawMoldImplicit extends FormatLayoutMolds { t
   * extracted to have a lower priority then `Mold[String]` and any other molds declared by `Format` subclasses
   * which may be the same type as `Liquid` in some implementations.
   */
-private[format] sealed trait FormatLiquidMoldImplicit extends FormatRawMoldImplicit { this :Format =>
+private[format] sealed trait FormatLiquidMold extends FormatRawMold { this :Format =>
 	/** A `Mold` embedding directly given `Liquid` values in the formatted result.
 	  * When parsing, all of the input is automatically consumed, regardless of its contents.
 	  */
@@ -186,7 +186,7 @@ private[format] sealed trait FormatLiquidMoldImplicit extends FormatRawMoldImpli
   *
   * @author Marcin Mościcki
   */
-trait Format extends FormatLiquidMoldImplicit with Serializable {
+trait Format extends FormatLiquidMold with Serializable {
 	/** The type to which Scala objects are formatted. This is usually the exact form and type in which they are stored
 	  * or sent/received.
 	  * @see [[net.noresttherein.sugar.format.Format.Liquid]]

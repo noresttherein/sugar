@@ -368,8 +368,8 @@ object VarSpec extends Properties("vars.Var") {
 	(new VarPropsGroup).includeIn(this)
 	(new ErasedVarPropsGroup).includeIn(this)
 
-	property("implicits.InOutMultiAssignment") = forAll { x :String =>
-		import Var.implicits.VarMultiAssignment
+	property("extensions.InOutMultiAssignment") = forAll { x :String =>
+		import Var.extensions.VarMultiAssignment
 		val v1 = Var("a"); val v2 = Var("b"); val v3 = Var("d")
 		v1 =: v2 =: v3 =: x
 		(v1.value ?= x) && (v2.value ?= x) && (v3.value ?= x)

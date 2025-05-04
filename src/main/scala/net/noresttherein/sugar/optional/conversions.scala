@@ -4,6 +4,6 @@ package net.noresttherein.sugar.optional
 
 
 @SerialVersionUID(Ver)
-object implicits {
+object conversions {
 	@inline implicit def anythingToSome[X](x :X) :Some[X] = Some(x)
 }

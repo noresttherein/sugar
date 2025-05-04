@@ -231,7 +231,7 @@ object Logger extends CompanionObject[Logger] {
 	/** A SAM type producing the name of the logger, given its owning object.
 	  * Several strategies are defined in the companion object
 	  * [[net.noresttherein.sugar.logging.Logger.NamingScheme$ NamingScheme]], and implicit values
-	  * can also be imported from `NamingScheme.`[[net.noresttherein.sugar.logging.Logger.NamingScheme.implicits implicits]].
+	  * can also be imported from `NamingScheme.`[[net.noresttherein.sugar.logging.Logger.NamingScheme.defaults defaults]].
 	  * Used in conjunction with [[net.noresttherein.sugar.logging.Logger$ Logger]]'s `apply` method.
 	  * @see [[net.noresttherein.sugar.reflect.prettyprint]]
 	  */
@@ -241,11 +241,21 @@ object Logger extends CompanionObject[Logger] {
 
 	@SerialVersionUID(Ver)
 	object NamingScheme {
-		final val ClassName          :NamingScheme = _.getClass.getName
-		final val DemangledClassName :NamingScheme = classNameOf
-		final val AbbrevClassName    :NamingScheme = abbrevClassNameOf
+		@SerialVersionUID(Ver)
+		case object ClassName extends NamingScheme {
+			override def apply(owner :Any) :String = owner.getClass.getName
+		}
+		@SerialVersionUID(Ver)
+		case object DemangledClassName extends NamingScheme {
+			override def apply(owner :Any) :String = classNameOf(owner)
+		}
+		@SerialVersionUID(Ver)
+		case object AbbrevClassName extends NamingScheme {
+			override def apply(owner :Any) :String = abbrevClassNameOf(owner)
+		}
 
-		object implicits {
+		@SerialVersionUID(Ver)
+		object defaults {
 			implicit final val AfterOwnerClassName          :NamingScheme = ClassName
 			implicit final val AfterOwnerClassDemangledName :NamingScheme = DemangledClassName
 			implicit final val AfterOwnerClassAbbrevName    :NamingScheme = AbbrevClassName

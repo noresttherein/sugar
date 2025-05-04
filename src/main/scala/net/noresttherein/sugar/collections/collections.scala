@@ -2,7 +2,7 @@ package net.noresttherein.sugar
 
 import java.util.PrimitiveIterator
 
-import scala.collection.{AnyStepper, DoubleStepper, IntStepper, IterableOnceOps, LongStepper, SeqFactory, Stepper}
+import scala.collection.{AnyStepper, DoubleStepper, Factory, IntStepper, IterableOnceOps, LongStepper, SeqFactory, Stepper}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuffer, Buffer, IndexedBuffer}
@@ -10,6 +10,8 @@ import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.{IArray, IArrayLike}
 import net.noresttherein.sugar.collections.IterableFactoryLoader.{arrayWrapperFromProperty, bufferFactoryFromProperty, seqFactoryFromProperty}
+import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwNoSuchElementException
+import net.noresttherein.sugar.collections.NatMap.{Assoc, WhenNoKey}
 import net.noresttherein.sugar.exceptions.SugaredClassCastException
 import net.noresttherein.sugar.matching.MatchPattern
 import net.noresttherein.sugar.reflect.Specialized
@@ -137,6 +139,29 @@ package object collections extends JteratorExtensions {
 	/** A matching pattern extracting the size of any collection for which `knownSize >= 0`. */
 	val KnownSize :MatchPattern[IterableOnce[_], Int] =
 		MatchPattern { elems :IterableOnce[_] => Maybe.satisfying(elems.knownSize)(_ >= 0) }
+
+
+	/** Converts `StringMap` companion object to a standard `Factory` from the scala collection framework, allowing
+	  * its use as an argument for `to` method of any collection.
+	  */
+	@inline implicit def StringMapFactory[V](stringMap :StringMap.type) :Factory[(String, V), StringMap[V]] =
+		StringMap.stringMapFactory
+
+	/** Converts `NatMap` companion object to a standard `Factory` from the scala collection framework, allowing
+	  * its use as an argument for `to` method of any collection.
+	  */
+	@inline implicit def NatMapFactory[K[_], V[_]](companion :NatMap.type)
+	                                              (implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
+			:Factory[Assoc[K, V, _], NatMap[K, V]] =
+		companion.factory
+
+	/** Converts `MutNatMap` companion object to a standard `Factory` from the scala collection framework, allowing
+	  * its use as an argument for `to` method of any collection.
+	  */
+	@inline implicit def MutNatMapFactory[K[_], V[_]](companion :MutNatMap.type)
+			:Factory[Assoc[K, V, _], MutNatMap[K, V]] =
+		companion.factory
+
 
 
 	/** An optional system property with a name of an

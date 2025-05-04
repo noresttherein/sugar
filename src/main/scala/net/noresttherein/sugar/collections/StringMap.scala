@@ -1,6 +1,6 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{AbstractIterator, Factory, MapFactory, SpecificIterableFactory, immutable}
 import scala.collection.generic.{DefaultSerializable, DefaultSerializationProxy}
@@ -121,6 +121,7 @@ final class StringMap[+V] private (root :PrefixTree[V])
 			}
 		}
 
+	@nowarn("cat=deprecation")
 	override def +[V1 >: V](kv :(String, V1)) :StringMap[V1] = updated(kv._1, kv._2)
 	override def ++[V1 >: V](elems :IterableOnce[(String, V1)]) :StringMap[V1] = concat(elems)
 
@@ -210,21 +211,13 @@ final class StringMap[+V] private (root :PrefixTree[V])
 
 
 
-//todo: replace with an implicit conversion in collections package object
-private[collections] sealed trait ImplicitStringMapFactory
-
-private object ImplicitStringMapFactory {
-	@inline implicit def toFactory[V](stringMap :StringMap.type) :Factory[(String, V), StringMap[V]] =
-		StringMap.stringMapFactory
-}
-
 /**
   * $factoryInfo
   * @define Coll `ChoppedString`
   * @define coll chopped string
   */
 @SerialVersionUID(Ver)
-case object StringMap extends ImplicitStringMapFactory {
+case object StringMap {
 	def apply[V](items :(String, V)*) :StringMap[V] = from(items)
 
 	def from[V](items :IterableOnce[(String, V)]) :StringMap[V] = items match {

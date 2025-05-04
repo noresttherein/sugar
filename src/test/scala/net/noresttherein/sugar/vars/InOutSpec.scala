@@ -590,7 +590,7 @@ object InOutSpec extends Properties("vars.InOut") {
 
 
 	property("implicits.InOutMultiAssignment") = forAll { x :String =>
-		import InOut.implicits.InOutMultiAssignment
+		import InOut.extensions.InOutMultiAssignment
 		val v1 = InOut("a"); val v2 = InOut("b"); val v3 = InOut("d")
 		v1 =: v2 =: v3 =: x
 		(v1.value ?= x) && (v2.value ?= x) && (v3.value ?= x)

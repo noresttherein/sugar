@@ -12,7 +12,7 @@ import net.noresttherein.sugar.collections.NatMap.{Assoc, BaseNatMap, WhenNoKey}
 import net.noresttherein.sugar.collections.NatMap.WhenNoKey.throwNoSuchElementException
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.OptionExtension
-import net.noresttherein.sugar.typist.kinds.=>:
+import net.noresttherein.sugar.typist.kinds.{=>:, Any1}
 import net.noresttherein.sugar.util.CachesHashCode
 import net.noresttherein.sugar.vars.{AbstractPure, Maybe, Opt}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -155,26 +155,9 @@ trait NatMap[K[X], +V[X]]
 
 
 
-/** Brings into the implicit scope a conversion from the [[net.noresttherein.sugar.collections.NatMap$ NatMap]]
-  * object to [[scala.collection.Factory Factory]]`[`[[net.noresttherein.sugar.collections.NatMap.Assoc Assoc]]`[K[?], V[?], ?], `[[net.noresttherein.sugar.collections.NatMap NatMap]]`[K, V]]`.
-  */ //todo: replace with an implicit conversion in collections package object
-private[collections] sealed abstract class ImplicitNatMapFactory
-
-object ImplicitNatMapFactory {
-	/** Converts `NatMap` companion object to a standard `Factory` from the scala collection framework, allowing
-	  * its use as an argument to `to` method of any collection.
-	  */
-	implicit def toNatMapFactory[K[_], V[_]](companion :NatMap.type)
-	                                        (implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
-			:Factory[Assoc[K, V, _], NatMap[K, V]] =
-		companion.factory
-}
-
-
-
 /** A factory of maps where key and values are both types parameterized with the same type. */
 @SerialVersionUID(Ver)
-object NatMap extends ImplicitNatMapFactory {
+case object NatMap {
 
 	/** A single entry of a [[net.noresttherein.sugar.collections.NatMap NatMap]],
 	  * associating a value of `V[X]` with a key of `K[X]`.
@@ -261,11 +244,27 @@ object NatMap extends ImplicitNatMapFactory {
 
 	def factory[K[_], V[_]](implicit default :WhenNoKey[K, V] = throwNoSuchElementException[K])
 			:Factory[Assoc[K, V, _], NatMap[K, V]] =
-		new ComparableFactory[Assoc[K, V, _], NatMap[K, V]] {
-			override def factory = NatMap
-			override def fromSpecific(it :IterableOnce[Assoc[K, V, _]]) = NatMap.from(it)
-			override def newBuilder = NatMap.newBuilder
+		if (default eq throwNoSuchElementException)
+			defaultFactory.asInstanceOf[Factory[Assoc[K, V, _], NatMap[K, V]]]
+		else
+			new NatMapFactory[K, V]
+
+	private[this] val defaultFactory = new NatMapFactory[Any1, Any1]()(throwNoSuchElementException)
+
+	private class NatMapFactory[K[_], V[_]](implicit val default :WhenNoKey[K, V])
+		extends ComparableFactory[Assoc[K, V, _], NatMap[K, V]]
+	{
+		override def factory = NatMap
+		override def fromSpecific(it :IterableOnce[Assoc[K, V, _]]) = NatMap.from(it)
+		override def newBuilder = NatMap.newBuilder
+		override def equals(that :Any) :Boolean = that match {
+			case other :NatMapFactory[_, _] => (this eq other) || default == other.default
+			case _ => false
 		}
+		override def canEqual(that :Any) = that.isInstanceOf[NatMapFactory[Any1, Any1] @unchecked]
+		override def hashCode = default.hashCode
+		override def toString = "NatMap." + default
+	}
 
 
 	def Lazy[K[_], V[_]](entries: => IterableOnce[Assoc[K, V, _]]) :NatMap[K, V] =

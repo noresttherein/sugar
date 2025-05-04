@@ -352,7 +352,8 @@ case object Month extends Cycle {
 	@inline implicit def MonthFromJavaMonth(month :j.Month) :Month = new Month(month)
 	@inline implicit def MonthToJavaMonth(month :Month) :j.Month = j.Month.of(month.no)
 
-	object implicits {
+	@SerialVersionUID(Ver)
+	object conversions {
 		@inline implicit def MonthToInt(month :Month) :Int = month.no
 		@inline implicit def IntToMonth(month :Int) :Month = Month(month)
 	}
@@ -436,7 +437,8 @@ case object Day extends Cycle {
 	@inline implicit def DayFromJavaDayOfWeek(day :j.DayOfWeek) :Day = new Day(day.getValue)
 	@inline implicit def DayToJavaDayOfWeek(day :j.DayOfWeek) :j.DayOfWeek = day.toJava
 
-	object implicits {
+	@SerialVersionUID(Ver)
+	object conversions {
 		@inline implicit def DayOfWeekToInt(day :Day) :Int = day.no
 		@inline implicit def IntToDayOfWeek(day :Int) :Day = Day(day)
 	}
